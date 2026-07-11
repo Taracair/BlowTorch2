@@ -144,9 +144,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		
 		try {
 			if(currentPlugin.equals(MAIN_SETTINGS)) {
-				service.deleteTrigger(d.getName());
+				service.deleteTimer(d.getName());
 			} else {
-				service.deletePluginTrigger(currentPlugin, d.getName());
+				service.deletePluginTimer(currentPlugin, d.getName());
 			}
 		} catch (RemoteException e) {
 			

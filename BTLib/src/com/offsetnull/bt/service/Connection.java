@@ -2529,6 +2529,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (p != null) {
 			p.getSettings().getTimers().remove(name);
 			p.getSettings().setDirty(true);
+			persistTimerSettings();
 		}
 	}
 
@@ -2538,7 +2539,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The timer associated with <b>name</b>.
 	 */
 	public final TimerData getTimer(final String name) {
-		return mSettings.getSettings().getTimers().get(name);
+		TimerData timer = mSettings.getSettings().getTimers().get(name);
+		return (timer == null) ? null : timer.copy();
 	}
 
 	/** Removes a timer from the main settings plugin.
@@ -2548,6 +2550,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public final void deleteTimer(final String name) {
 		mSettings.getSettings().getTimers().remove(name);
 		mSettings.getSettings().setDirty(true);
+		persistTimerSettings();
 	}
 
 	/** Gets a timer from the target plugin.
@@ -2559,7 +2562,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public final TimerData getPluginTimer(final String plugin, final String name) {
 		Plugin p = mPluginMap.get(plugin);
 		if (p != null) {
-			return p.getSettings().getTimers().get(name);
+			TimerData timer = p.getSettings().getTimers().get(name);
+			return (timer == null) ? null : timer.copy();
 		} else {
 			return null;
 		}
@@ -2576,6 +2580,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			newtimer.setRemainingTime(newtimer.getSeconds());
 			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 			p.getSettings().setDirty(true);
+			persistTimerSettings();
 		}
 	}
 
@@ -2592,6 +2597,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			p.getSettings().getTimers().remove(old.getName());
 			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 			p.getSettings().setDirty(true);
+			persistTimerSettings();
 		}
 		
 	}
@@ -2605,6 +2611,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSettings.getSettings().getTimers().remove(old.getName());
 		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 		mSettings.getSettings().setDirty(true);
+		persistTimerSettings();
 	}
 
 	/** Gets the timer map for the main settings plugin.
@@ -2613,7 +2620,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final HashMap<String, TimerData> getTimers() {
 		mSettings.updateTimerProgress();
-		return mSettings.getSettings().getTimers();
+		HashMap<String, TimerData> timers = mSettings.getSettings().getTimers();
+		HashMap<String, TimerData> copy = new HashMap<String, TimerData>(timers.size());
+		for (java.util.Map.Entry<String, TimerData> entry : timers.entrySet()) {
+			copy.put(entry.getKey(), entry.getValue().copy());
+		}
+		return copy;
 	}
 
 	/** Gets the timer map for a target plugin.
@@ -2625,7 +2637,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		Plugin p = mPluginMap.get(plugin);
 		if (p != null) {
 			p.updateTimerProgress();
-			return p.getSettings().getTimers();
+			HashMap<String, TimerData> timers = p.getSettings().getTimers();
+			HashMap<String, TimerData> copy = new HashMap<String, TimerData>(timers.size());
+			for (java.util.Map.Entry<String, TimerData> entry : timers.entrySet()) {
+				copy.put(entry.getKey(), entry.getValue().copy());
+			}
+			return copy;
 		} else {
 			return null;
 		}
@@ -2639,6 +2656,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		newtimer.setRemainingTime(newtimer.getSeconds());
 		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 		mSettings.getSettings().setDirty(true);
+		persistTimerSettings();
 	}
 
 	/** Helper method to see if the window is currently being shown.
@@ -3277,12 +3295,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** The main starting point for the save settings routine. This is called for a few different locations. */
 	public final void saveMainSettings() {
+		if (mSettings == null) {
+			return;
+		}
 		Pattern invalidchars = Pattern.compile("\\W");
 		Matcher replacebadchars = invalidchars.matcher(this.mDisplay);
 		String prefsname = replacebadchars.replaceAll("");
 		prefsname = prefsname.replaceAll("/", "");
 		String rootPath = prefsname + ".xml";
 		exportSettings(new File(mService.getApplicationContext().getFilesDir(), rootPath).getAbsolutePath());
+	}
+
+	/** Persists timer edits immediately so they survive session close and reconnect. */
+	private void persistTimerSettings() {
+		saveMainSettings();
 	}
 	
 	/** Export settings routine. Called from either the main settings save routine or the export settings dialog.
