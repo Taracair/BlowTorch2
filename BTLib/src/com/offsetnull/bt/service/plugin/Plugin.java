@@ -59,6 +59,7 @@ import com.offsetnull.bt.service.Connection;
 import com.offsetnull.bt.service.ConnectionPluginCallback;
 import com.offsetnull.bt.service.SettingsChangedListener;
 import com.offsetnull.bt.service.StellarService;
+import com.offsetnull.bt.service.LuaLibraryHelper;
 import com.offsetnull.bt.service.WindowToken;
 import com.offsetnull.bt.service.plugin.function.NoteFunction;
 import com.offsetnull.bt.service.plugin.function.PluginFunction;
@@ -215,7 +216,7 @@ public class Plugin implements SettingsChangedListener {
 			L.pushString(packagePath);
 			L.setField(-2, "path");
 			
-			L.pushString(mDataDir + "/lib/lib?.so");
+			L.pushString(LuaLibraryHelper.buildCPath(mContext, mDataDir));
 			L.setField(-2, "cpath");
 			L.pop(1);
 			

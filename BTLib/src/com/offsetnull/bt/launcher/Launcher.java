@@ -85,6 +85,7 @@ import com.offsetnull.bt.service.IConnectionBinder;
 import com.offsetnull.bt.service.IConnectionBinderCallback;
 import com.offsetnull.bt.service.ILauncherCallback;
 import com.offsetnull.bt.service.StellarService;
+import com.offsetnull.bt.window.MainWindow;
 import com.offsetnull.bt.settings.ConfigurationLoader;
 import com.offsetnull.bt.ui.SDCardUtils;
 
@@ -1304,6 +1305,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		String windowAction = ConfigurationLoader.getConfigurationValue("windowAction",this);
 		the_intent = new Intent(windowAction);
+		the_intent.setClass(this, MainWindow.class);
     	the_intent.putExtra("DISPLAY",launch.getDisplayName());
     	the_intent.putExtra("HOST", launch.getHostName());
     	the_intent.putExtra("PORT", launch.getPortString());

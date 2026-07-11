@@ -16,6 +16,7 @@ import org.xmlpull.v1.XmlSerializer;
 import com.offsetnull.bt.alias.AliasData;
 import com.offsetnull.bt.alias.AliasParser;
 import com.offsetnull.bt.script.ScriptData;
+import com.offsetnull.bt.service.LuaLibraryHelper;
 import com.offsetnull.bt.service.Connection;
 import com.offsetnull.bt.service.ConnectionPluginCallback;
 import com.offsetnull.bt.service.WindowToken;
@@ -164,7 +165,7 @@ public class PluginParser extends BasePluginParser {
 						pL.setField(-2, "path");
 						//L.pop(1);
 						
-						pL.pushString(dataDir + "/lib/lib?.so");
+						pL.pushString(LuaLibraryHelper.buildCPath(mContext, dataDir));
 						pL.setField(-2, "cpath");
 						pL.pop(1);
 						
