@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="launcher_btn_new">New</string>
+    <string name="launcher_btn_help">Help</string>
+    <string name="launcher_btn_donate">Donate</string>
     <string name="hello">Hello World, BaardTERMLauncher!</string>
     <string name="app_name">BaardTERM</string>
     <string name="thewelcometext">Welcome to BaardTERM version AWESOME!111!one!!!@1NOWWITHLINEBREAKSOMGWTFBBQOHANDYOUMADEITTAKEFOURTYPERCENTLESSBATTERY?!?!?!!??!!?OMGWTFBBQXIXORRRSSS!OMGDANISSOCOOL</string>
