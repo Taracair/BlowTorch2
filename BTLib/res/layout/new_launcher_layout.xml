@@ -67,19 +67,22 @@
 				android:background = "#AAAAAAAA">
 				<Button
 					android:id = "@+id/new_connection"
+					style="@style/LauncherActionButton"
 					android:layout_height = "wrap_content"
 					android:layout_width = "100dip"
-					android:text = "[NEW]"/>
+					android:text = "@string/launcher_btn_new"/>
 				<Button
 					android:id = "@+id/help_button"
+					style="@style/LauncherActionButton"
 					android:layout_height = "wrap_content"
 					android:layout_width = "100dip"
-					android:text = "[HELP]"/>
+					android:text = "@string/launcher_btn_help"/>
 				<Button
 					android:id = "@+id/donate_button"
+					style="@style/LauncherActionButton"
 					android:layout_height = "wrap_content"
 					android:layout_width = "100dip"
-					android:text = "[DONATE]"/>
+					android:text = "@string/launcher_btn_donate"/>
 			</TableRow>
 			
 		</TableLayout>

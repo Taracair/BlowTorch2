@@ -18,6 +18,16 @@
     <item name="android:typeface">sans</item>
 </style>
 
+<style name="LauncherActionButton" parent="@style/Widget.AppCompat.Button">
+	<item name="android:textColor">#FF222222</item>
+	<item name="android:textSize">14sp</item>
+	<item name="android:textStyle">bold</item>
+	<item name="android:backgroundTint">#FFE8E8E8</item>
+	<item name="android:minHeight">48dip</item>
+	<item name="android:paddingLeft">6dip</item>
+	<item name="android:paddingRight">6dip</item>
+</style>
+
 <style name="BinButtonStyle" parent="@android:style/Widget.Button">
 	<item name="android:textSize">13dip</item>
 	<item name="android:textColor">#FFAAAAAA</item>

@@ -34,6 +34,7 @@ import android.app.ProgressDialog;
 import android.app.ActivityManager.RunningServiceInfo;
 import android.app.AlertDialog.Builder;
 import android.content.ComponentName;
+import android.content.res.ColorStateList;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -521,12 +522,15 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		//getConnectionsFromDisk();
 		
 		Button newbutton = (Button)findViewById(R.id.new_connection);
+		styleLauncherActionButton(newbutton);
 		newbutton.setOnClickListener(new newClickedListener());
 		
 		Button helpbutton = (Button)findViewById(R.id.help_button);
+		styleLauncherActionButton(helpbutton);
 		helpbutton.setOnClickListener(new helpClickedListener());
 		
 		Button donatebutton = (Button)findViewById(R.id.donate_button);
+		styleLauncherActionButton(donatebutton);
 		donatebutton.setOnClickListener(new helpClickedListener());
 
 		Log.e("LAUNCHER","STARTING SREVICE");
@@ -544,7 +548,17 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	{
 		ClassLoader myClassLoader = Launcher.class.getClassLoader();
 		Thread.currentThread().setContextClassLoader(myClassLoader);
-	}  
+	}
+
+	private void styleLauncherActionButton(Button button) {
+		if (button == null) {
+			return;
+		}
+		button.setAllCaps(false);
+		button.setTextColor(0xFF222222);
+		button.setBackgroundTintList(ColorStateList.valueOf(0xFFE8E8E8));
+	}
+  
 	
 	public static boolean isOutDated(Context c) {
 		
