@@ -305,9 +305,17 @@ static int mar_encode_table(lua_State *L, mar_Buffer *buf, size_t *idx)
 #define mar_incr_ptr(l) \
     if (((*p)-buf)+(l) > len) luaL_error(L, "bad code"); (*p) += (l);
 
+static void mar_read_value(lua_State *L, const char *buf, size_t len, const char **p, void *out, size_t size)
+{
+    if (((*p) - buf) + size > len) {
+        luaL_error(L, "bad code");
+    }
+    memcpy(out, *p, size);
+    *p += size;
+}
+
 #define mar_next_len(l,T) \
-    if (((*p)-buf)+sizeof(T) > len) luaL_error(L, "bad code"); \
-    l = *(T*)*p; (*p) += sizeof(T);
+    do { T _mar_tmp; mar_read_value(L, buf, len, p, &_mar_tmp, sizeof(T)); l = _mar_tmp; } while (0)
 
 static void mar_decode_value
     (lua_State *L, const char *buf, size_t len, const char **p, size_t *idx)
@@ -322,17 +330,8 @@ static void mar_decode_value
         mar_incr_ptr(MAR_CHR);
         break;
     case LUA_TNUMBER:
-#ifdef __ARM_V7__
-	//instead of casting the unaligned memory section,
-	//read out the value directly using memcpy
-	memcpy(&aligned_number,*p,sizeof(lua_Number));
-	lua_pushnumber(L,aligned_number);
-#else
-	//original code
-	lua_pushnumber(L,*(lua_Number*)*p);
-#endif
-        //lua_pushnumber(L, *(lua_Number*)*p);
-        mar_incr_ptr(MAR_I64);
+        mar_read_value(L, buf, len, p, &aligned_number, sizeof(lua_Number));
+        lua_pushnumber(L, aligned_number);
         break;
     case LUA_TSTRING:
         mar_next_len(l, uint32_t);
