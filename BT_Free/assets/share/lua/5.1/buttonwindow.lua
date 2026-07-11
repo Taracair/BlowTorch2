@@ -448,15 +448,22 @@ local function getSwipeCommand(data, direction)
 	return nil
 end
 
-local function dispatchButtonCommand(cmd)
+local function hasButtonSwitch(data)
+	return data ~= nil and data.switchTo ~= nil and data.switchTo ~= ""
+end
+
+local function dispatchButtonAction(cmd)
 	if buttonsCleared then
 		revertButtons()
 		return true
 	end
 	mainwindow:jumpToStart()
-	if touchedbutton.data.switchTo ~= nil and touchedbutton.data.switchTo ~= "" then
+	if hasButtonSwitch(touchedbutton.data) then
 		PluginXCallS("loadButtonSet", touchedbutton.data.switchTo)
 		return true
+	end
+	if not hasButtonCommand(cmd) then
+		return false
 	end
 	performHapticPress()
 	SendToServer(cmd)
@@ -479,7 +486,7 @@ function doShortHold()
 		shortHoldFired = true
 		fingerdown = false
 		selectedtouchstart = false
-		dispatchButtonCommand(touchedbutton.data.holdCommand)
+		dispatchButtonAction(touchedbutton.data.holdCommand)
 		resetTouchedButtonVisual()
 	end
 end
@@ -597,18 +604,14 @@ function normalTouch.onTouch(v,e)
 			if swipeDir ~= nil then
 				local swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir)
 				if hasButtonCommand(swipeCmd) then
-					sent = dispatchButtonCommand(swipeCmd)
+					sent = dispatchButtonAction(swipeCmd)
 				end
 			end
 			if not sent then
 				if(r:contains(x,y)) then
-					if hasButtonCommand(touchedbutton.data.command) then
-						sent = dispatchButtonCommand(touchedbutton.data.command)
-					end
+					sent = dispatchButtonAction(touchedbutton.data.command)
 				else
-					if hasButtonCommand(touchedbutton.data.flipCommand) then
-						sent = dispatchButtonCommand(touchedbutton.data.flipCommand)
-					end
+					sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 				end
 			end
 			resetTouchedButtonVisual()
