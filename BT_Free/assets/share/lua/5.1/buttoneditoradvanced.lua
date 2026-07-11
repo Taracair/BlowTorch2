@@ -61,6 +61,41 @@ local selectedColorField --intermeidate variable to store which color field is c
 --ui callback listeners
 local colorPickerDoneListener
 local swatchClickListener
+local swatchLongClickListener
+local defaultColors = {}
+
+local function applyDefaultColor(field)
+  local color = defaultColors[field]
+  if color == nil then
+    return
+  end
+  if field == "flip" then
+    flipColorPicker:setBackgroundColor(color)
+    flipColorPicker:invalidate()
+    flipColor = color
+  elseif field == "normal" then
+    normalColorPicker:setBackgroundColor(color)
+    normalColorPicker:invalidate()
+    normalColor = color
+  elseif field == "pressed" then
+    pressedColorPicker:setBackgroundColor(color)
+    pressedColorPicker:invalidate()
+    pressedColor = color
+  elseif field == "label" then
+    normalLabelColorPicker:setBackgroundColor(color)
+    normalLabelColorPicker:invalidate()
+    normalLabelColor = color
+  elseif field == "flipLabel" then
+    flipLabelColorPicker:setBackgroundColor(color)
+    flipLabelColorPicker:invalidate()
+    flipLabelColor = color
+  end
+end
+
+local function bindColorSwatch(view)
+  view:setOnClickListener(swatchClickListener)
+  view:setOnLongClickListener(swatchLongClickListener)
+end
 
 --funtions to hide/show the appropriate rows, defined later, leave global
 showSetEditorControls = nil
@@ -87,6 +122,11 @@ end
 function makeUI(editorValues,numediting)
   
   local fnew = luajava.new
+  defaultColors.normal = editorValues.defaultPrimaryColor or Color:argb(0x88,0x00,0x00,0xFF)
+  defaultColors.pressed = editorValues.defaultSelectedColor or Color:argb(0x88,0x00,0xFF,0x00)
+  defaultColors.flip = editorValues.defaultFlipColor or Color:argb(0x88,0xFF,0x00,0x00)
+  defaultColors.label = editorValues.defaultLabelColor or Color:argb(0xAA,0xAA,0xAA,0xAA)
+  defaultColors.flipLabel = editorValues.defaultFlipLabelColor or Color:argb(0x88,0x00,0x00,0xFF)
   --local context = view:getContext()
   local LabelWidth = nil -- margin size for different screen layouts
   if(advancedPageScroller == nil) then
@@ -210,7 +250,7 @@ function makeUI(editorValues,numediting)
     colortopLabelParams:setMargins(0,10,0,10)
     colortopLabel:setLayoutParams(colortopLabelParams)
     colortopLabel:setTextSize(textSize)
-    colortopLabel:setText("COLORS")
+    colortopLabel:setText("COLORS (hold swatch = default)")
     colortopLabel:setGravity(GRAVITY_CENTER)
     colortopLabel:setTextColor(Color:argb(255,0x33,0x33,0x33))
     colortopLabel:setBackgroundColor(bgGrey)
@@ -240,7 +280,7 @@ function makeUI(editorValues,numediting)
     normalColor = editorValues.primaryColor
     normalColorPicker:setBackgroundColor(normalColor)
     normalColorPicker:setTag("normal")
-    normalColorPicker:setOnClickListener(swatchClickListener)
+    bindColorSwatch(normalColorPicker)
     --Note("addiing normal color")
     colorHolderA:addView(normalColorPicker)
   else 
@@ -260,7 +300,7 @@ function makeUI(editorValues,numediting)
     pressedColorPicker = fnew(View,context)
     pressedColorPicker:setLayoutParams(touchparams)
     pressedColorPicker:setTag("pressed")
-    pressedColorPicker:setOnClickListener(swatchClickListener)
+    bindColorSwatch(pressedColorPicker)
     --thePressedColor = Color:argb(255,120,250,250)
     pressedColor = editorValues.selectedColor
     pressedColorPicker:setBackgroundColor(pressedColor)
@@ -283,7 +323,7 @@ function makeUI(editorValues,numediting)
     flipColorPicker = fnew(View,context)
     flipColorPicker:setLayoutParams(touchparams)
     flipColorPicker:setTag("flip")
-    flipColorPicker:setOnClickListener(swatchClickListener)
+    bindColorSwatch(flipColorPicker)
     flipColor = editorValues.flipColor
     --Note("addiing flip color")
     flipColorPicker:setBackgroundColor(flipColor)
@@ -346,7 +386,7 @@ function makeUI(editorValues,numediting)
     normalLabelColor = editorValues.labelColor
     normalLabelColorPicker:setBackgroundColor(normalLabelColor)
     normalLabelColorPicker:setTag("label")
-    normalLabelColorPicker:setOnClickListener(swatchClickListener)
+    bindColorSwatch(normalLabelColorPicker)
     colorHolderD:addView(normalLabelColorPicker)
     colorRowTwo:addView(colorHolderD)
   else
@@ -365,7 +405,7 @@ function makeUI(editorValues,numediting)
     flipLabelColorPicker = fnew(View,context)
     flipLabelColorPicker:setLayoutParams(touchparams)
     flipLabelColorPicker:setTag("flipLabel")
-    flipLabelColorPicker:setOnClickListener(swatchClickListener)
+    bindColorSwatch(flipLabelColorPicker)
     --theFlipLabelColor = Color:argb(255,120,250,250)
     flipLabelColor = editorValues.flipLabelColor
     flipLabelColorPicker:setBackgroundColor(flipLabelColor)
@@ -694,6 +734,13 @@ swatchClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     end
     colorpickerdialog = luajava.newInstance("com.offsetnull.bt.button.ColorPickerDialog",context,colorPickerDoneListener,color)
     colorpickerdialog:show()
+  end
+})
+
+swatchLongClickListener = luajava.createProxy("android.view.View$OnLongClickListener",{
+  onLongClick = function(v)
+    applyDefaultColor(v:getTag())
+    return true
   end
 })
 
