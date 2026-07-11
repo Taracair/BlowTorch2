@@ -102,6 +102,15 @@ function showEditorDialog(editorValues,numediting)
 	host:setId(3)
 	host:setLayoutParams(hostparams)
 	
+	local function addHelpText(parent, text)
+		local help = luajava.new(TextView, context)
+		help:setTextSize(textSizeSmall)
+		help:setText(text)
+		local pad = math.floor(8 * density)
+		help:setPadding(pad, pad, pad, pad)
+		help:setLayoutParams(fillparams)
+		parent:addView(help)
+	end
 	
 	
 	--make the done and cancel buttons.
@@ -253,6 +262,8 @@ function showEditorDialog(editorValues,numediting)
 	flipPage:setId(22)
 	flipPage:setOrientation(LinearLayout.VERTICAL)
 	
+	addHelpText(flipPage, "Flip: drag outside the button in any direction, then release. Works even if you leave through a corner or the side.")
+	
 	local flipLabelRow = luajava.new(LinearLayout,context)
 	flipLabelRow:setLayoutParams(fillparams)
 	
@@ -335,6 +346,8 @@ function showEditorDialog(editorValues,numediting)
 	gesturesPage:setLayoutParams(fillparams)
 	gesturesPage:setId(33)
 	gesturesPage:setOrientation(LinearLayout.VERTICAL)
+	
+	addHelpText(gesturesPage, "Gestures override Flip when set. Swipe up/down/left/right needs a short drag (~24dp). Hold fires at ~0.45s without moving. Long press (1s) still opens the button editor.")
 	
 	local function addGestureRow(parent, labelText, initialValue)
 		local row = luajava.new(LinearLayout,context)
