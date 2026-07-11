@@ -43,6 +43,7 @@ import android.util.Xml;
 
 import com.offsetnull.bt.alias.AliasData;
 import com.offsetnull.bt.alias.AliasParser;
+import com.offsetnull.bt.alias.AnchoredAliasCaptures;
 import com.offsetnull.bt.responder.IteratorModifiedException;
 import com.offsetnull.bt.responder.TriggerResponder;
 import com.offsetnull.bt.responder.TriggerResponder.FIRE_WHEN;
@@ -2625,29 +2626,16 @@ WindowXCallS(GetPluginID().."_chat_window",42)
 					replaced.append(finalString);
 					
 				} else if(startAnchor && endAnchor) {
-					//ok, we have to run the matcher and generate the capture group
+					String matched = alias_replacer.group(index);
+					HashMap<String,String> anchorCaptures = AnchoredAliasCaptures.fromMatch(replace_with.getPre(), matched);
 
-					
-					Pattern aliasHarvest = Pattern.compile(replace_with.getPre());
-					Matcher aliasHarvestMatcher = aliasHarvest.matcher("");
-					captureMap.clear();
-					int tmp = 0;
-					for(int i=index;i<=(aliasHarvestMatcher.groupCount()+index);i++) {
-						String match = alias_replacer.group(i);
-						captureMap.put(Integer.toString(tmp), match);
-						tmp++;
-					}
-					
 					ToastResponder t = new ToastResponder();
-					String finalString = t.translate(replace_with.getPost(), captureMap);
-					
+					String finalString = t.translate(replace_with.getPost(), anchorCaptures);
+
 					if(finalString.startsWith(scriptBlock)) {
-						//if it didn't compile then we send as normal, if it did it gets eaten, but in this case eaten means "return the same caller string
-						//so that the visual string sent back to the
 						this.runLuaString(finalString.substring(scriptBlock.length(),finalString.length()));
 					} else {
-						//alias_replacer.appendReplacement(replaced, new String(input));
-						alias_replacer.appendReplacement(replaced, replace_with.getPost());
+						alias_replacer.appendReplacement(replaced, Matcher.quoteReplacement(finalString));
 					}
 					doTail = false;
 					
@@ -2703,6 +2691,14 @@ WindowXCallS(GetPluginID().."_chat_window",42)
 							} 
 							eatTail = true;
 							alias_recursive.appendReplacement(buffertemp, r.translate(replace_with.getPost(),map) + sepchar +rest);
+							reprocess = false;
+						} else if(replace_with.getPre().startsWith("^") && replace_with.getPre().endsWith("$")) {
+							String matched = alias_recursive.group(idx);
+							HashMap<String,String> anchorCaptures = AnchoredAliasCaptures.fromMatch(replace_with.getPre(), matched);
+							ToastResponder r = new ToastResponder();
+							String finalString = r.translate(replace_with.getPost(), anchorCaptures);
+							eatTail = true;
+							alias_recursive.appendReplacement(buffertemp, Matcher.quoteReplacement(finalString));
 							reprocess = false;
 						} else {
 							alias_recursive.appendReplacement(buffertemp, replace_with.getPost());
