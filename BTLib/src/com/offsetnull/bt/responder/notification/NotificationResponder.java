@@ -19,7 +19,7 @@ import android.net.Uri;
 import android.os.Handler;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v4.app.NotificationCompat;
+import androidx.core.app.NotificationCompat;
 
 import com.offsetnull.bt.responder.TriggerResponder;
 import com.offsetnull.bt.settings.ConfigurationLoader;

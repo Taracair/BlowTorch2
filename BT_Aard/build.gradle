@@ -1,60 +1,55 @@
-apply plugin: 'com.android.application'
+plugins {
+    id 'com.android.application'
+}
 
 android {
-	compileSdkVersion 27
-	buildToolsVersion '27.0.3'
-	signingConfigs {
-   		release {
-        		storeFile file("./key/signiture_cert")
-        		storePassword System.getenv("BT_AARD_PASS")
-        		keyAlias "keysigner"
-        		keyPassword System.getenv("BT_AARD_PASS")
-    		}
-	}
+    namespace 'com.happygoatstudios.aardwolf'
+    compileSdk 34
 
-	defaultConfig {
-		minSdkVersion 14
-		targetSdkVersion 27
-		versionCode 223
-		versionName "2.1"
-	}
+    defaultConfig {
+        applicationId "com.happygoatstudios.aardwolf"
+        minSdk 24
+        targetSdk 34
+        versionCode 250
+        versionName "2.1"
+    }
 
-	buildTypes {
-		release {
-			minifyEnabled true
-			proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-			signingConfig signingConfigs.release
-		}	
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
 
-		debug {
-            		debuggable true
-        	}
-	}
+    buildFeatures {
+        buildConfig true
+    }
 
-	sourceSets {
-		main {
-			manifest.srcFile 'AndroidManifest.xml'
-			java.srcDirs = ['src']
-			resources.srcDirs = ['src']
-			aidl.srcDirs = ['src']
-			res.srcDirs = ['res']
-			assets.srcDirs = ['assets']
-		}
-	}
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
 
+        debug {
+            debuggable true
+        }
+    }
 
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            aidl.srcDirs = ['src']
+            res.srcDirs = ['res']
+            assets.srcDirs = ['assets']
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
 }
 
-	task copyButtonEx(type: Copy) {
-    		from("../../btscripts/button_ex/src/") {
-        		exclude "**/*.xml"
-        		exclude "**/*.cfg"
-        		exclude "**/config.lua"
-    		}	
-    		into "./assets/share/lua/5.1/"
-	}
 dependencies {
-	copyButtonEx
-	compile project(":BTLib")
+    implementation project(':BTLib')
+    implementation 'androidx.appcompat:appcompat:1.6.1'
 }
-

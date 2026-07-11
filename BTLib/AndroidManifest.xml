@@ -1,24 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-      package="com.offsetnull.bt"
-      android:versionCode="11"
-      android:versionName="1.0.7">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:label="BlowTorch" android:theme="@android:style/Theme.NoTitleBar">
         <!-- android:windowSoftInputMode="adjustResize" -->
         <activity android:name="com.happygoatstudios.bt.window.MainWindow"
         		  android:windowSoftInputMode="adjustPan|stateHidden"
         		  android:label="BlowTorch"
-        		 
-        		  
 				  android:configChanges="orientation|keyboard|keyboardHidden|screenLayout|screenSize"
-        		  android:launchMode = "singleTask">
+        		  android:launchMode="singleTask"
+        		  android:exported="false">
         		  <intent-filter>
         		  	<action android:name="com.happygoatstudios.bt.window.MainWindow"/>
         		  	<category android:name="android.intent.category.DEFAULT"/>
         		  </intent-filter>
         </activity>
         <service android:name="com.offsetnull.bt.service.StellarService"
-        		 android:process=":remote">
+        		 android:process=":remote"
+        		 android:exported="false"
+        		 android:foregroundServiceType="specialUse">
         		 <intent-filter>
         		 	<action android:name="com.happygoatstudios.bt.service.IStellarService"/>
         		 </intent-filter>
@@ -26,11 +24,13 @@
         		  
 
     </application>
-    <uses-sdk android:minSdkVersion="14" />
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
 </manifest> 
