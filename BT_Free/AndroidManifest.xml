@@ -7,7 +7,7 @@
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
-    <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="BlowTorch 2 Test" android:allowBackup="true" android:process="com.ressurection.blowtorch2.test" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar">
+    <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="BlowTorch 2 Test" android:allowBackup="true" android:process="com.resurrection.blowtorch2.test" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar">
     	<meta-data android:value="89" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
     	<activity android:name="com.offsetnull.btfree.FreeLauncher"
     	          android:label="BlowTorch 2 Test"
