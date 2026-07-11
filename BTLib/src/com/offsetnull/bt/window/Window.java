@@ -17,6 +17,7 @@ import org.keplerproject.luajava.LuaState;
 import org.keplerproject.luajava.LuaStateFactory;
 
 import com.offsetnull.bt.service.IWindowCallback;
+import com.offsetnull.bt.service.LuaLibraryHelper;
 import com.offsetnull.bt.service.plugin.settings.BaseOption;
 import com.offsetnull.bt.service.plugin.settings.BooleanOption;
 import com.offsetnull.bt.service.plugin.settings.ColorOption;
@@ -2165,7 +2166,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mL.pushString(packagePath);
 			mL.setField(-2, "path");
 			
-			mL.pushString(mDataDir + "/lib/lib?.so");
+			mL.pushString(LuaLibraryHelper.buildCPath(getContext(), mDataDir));
 			mL.setField(-2, "cpath");
 			mL.pop(1);
 			

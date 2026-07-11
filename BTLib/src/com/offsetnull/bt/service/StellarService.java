@@ -161,6 +161,13 @@ public class StellarService extends Service {
 			e.printStackTrace();
 		}
 		int packagever = meta.getInt("BLOWTORCH_LUA_LIBS_VERSION");
+		try {
+			LuaLibraryHelper.ensureNativeLibsInDataDir(this);
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (NameNotFoundException e) {
+			e.printStackTrace();
+		}
 		if (packagever != libsver) {
 			//copy new libs.
 			try {
@@ -337,7 +344,7 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("PORT", Integer.toString(port));
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 	
-		PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+		PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, activityPendingIntentFlags());
 		
 		//note.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
 
@@ -476,7 +483,7 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("PORT", Integer.toString(port));
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		int id = getNotificationId();
-		PendingIntent contentIntent = PendingIntent.getActivity(this, id, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+		PendingIntent contentIntent = PendingIntent.getActivity(this, id, notificationIntent, activityPendingIntentFlags());
 		//note.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
 
 		NotificationCompat.Builder builder = new NotificationCompat.Builder(context);
@@ -559,7 +566,7 @@ public class StellarService extends Service {
 		
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 	
-		PendingIntent contentIntent = PendingIntent.getActivity(this, notificationID, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+		PendingIntent contentIntent = PendingIntent.getActivity(this, notificationID, notificationIntent, activityPendingIntentFlags());
 
 		String channelId = null;
 		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -1621,6 +1628,7 @@ public class StellarService extends Service {
 			e.printStackTrace();
 		}
 		
+		if (files != null) {
 		for (String filename : files) {
 			//Log.e("asset name:","name:"+filename);
 			InputStream in = assetManager.open("lib/lua/5.1/" + filename);
@@ -1633,6 +1641,7 @@ public class StellarService extends Service {
 			out.flush();
 			out.close();
 			out = null;
+		}
 		}
 		
 		files = assetManager.list("share/lua/5.1");
@@ -1803,5 +1812,12 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	private static int activityPendingIntentFlags() {
+		int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+			flags |= PendingIntent.FLAG_IMMUTABLE;
+		}
+		return flags;
+	}
 
 }
