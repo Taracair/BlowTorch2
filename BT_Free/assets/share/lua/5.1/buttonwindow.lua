@@ -1421,6 +1421,16 @@ WRAP_CONTENT = LinearLayoutParams.WRAP_CONTENT
     This is called from the buttoneditor module to process the new button data
     Leave this global
 ]]
+local function resolveButtonColor(chosen, defaultColor)
+	if chosen == nil then
+		return nil
+	end
+	if tonumber(chosen) == tonumber(defaultColor) then
+		return nil
+	end
+	return chosen
+end
+
 function buttonEditorDone(data)
 	--apply the settings out.
 	
@@ -1438,11 +1448,11 @@ function buttonEditorDone(data)
 		tmp.data.width = data.width
 		tmp.data.labelSize = data.labelSize
 		
-		tmp.data.primaryColor = data.normalColor
-		tmp.data.flipColor = data.flipColor
-		tmp.data.selectedColor = data.pressedColor
-		tmp.data.labelColor = data.normalLabelColor
-		tmp.data.flipLabelColor = data.flipLabelColor
+		tmp.data.primaryColor = resolveButtonColor(data.normalColor, defaults.primaryColor)
+		tmp.data.flipColor = resolveButtonColor(data.flipColor, defaults.flipColor)
+		tmp.data.selectedColor = resolveButtonColor(data.pressedColor, defaults.selectedColor)
+		tmp.data.labelColor = resolveButtonColor(data.normalLabelColor, defaults.labelColor)
+		tmp.data.flipLabelColor = resolveButtonColor(data.flipLabelColor, defaults.flipLabelColor)
 		
 		tmp.data.command = data.cmd
 		tmp.data.label = data.label
@@ -1486,23 +1496,23 @@ function buttonEditorDone(data)
 				end
 				
 				if(data.normalColor ~= editorValues.primaryColor) then
-					b.data.primaryColor = data.normalColor
+					b.data.primaryColor = resolveButtonColor(data.normalColor, defaults.primaryColor)
 				end
 				
 				if(data.pressedColor ~= editorValues.selectedColor) then
-					b.data.selectedColor = data.pressedColor
+					b.data.selectedColor = resolveButtonColor(data.pressedColor, defaults.selectedColor)
 				end
 				
 				if(data.flipColor ~= editorValues.flipColor) then
-					b.data.flipColor = data.flipColor
+					b.data.flipColor = resolveButtonColor(data.flipColor, defaults.flipColor)
 				end
 				
 				if(data.normalLabelColor ~= editorValues.labelColor) then
-					b.data.labelColor = data.normalLabelColor
+					b.data.labelColor = resolveButtonColor(data.normalLabelColor, defaults.labelColor)
 				end
 				
 				if(data.flipLabelColor ~= editorValues.flipLabelColor) then
-					b.data.flipLabelColor = data.flipLabelColor
+					b.data.flipLabelColor = resolveButtonColor(data.flipLabelColor, defaults.flipLabelColor)
 				end
 				
 				b:updateRect(statusoffset)
@@ -1639,6 +1649,11 @@ function showEditorDialog()
 		end
 	end
 	
+	editorValues.defaultPrimaryColor = defaults.primaryColor
+	editorValues.defaultSelectedColor = defaults.selectedColor
+	editorValues.defaultFlipColor = defaults.flipColor
+	editorValues.defaultLabelColor = defaults.labelColor
+	editorValues.defaultFlipLabelColor = defaults.flipLabelColor
 	
  local buttonEditor = require("buttoneditor")
  buttonEditor.init(mContext)
@@ -1742,7 +1757,7 @@ function setEditorDoneListener.onClick(v)
 		end
 		
 		if rawget(b.data,"labelColor") == defaults.labelColor then
-			rawset(b.data,"primaryColor",nil)
+			rawset(b.data,"labelColor",nil)
 		end
 		
 		if rawget(b.data,"flipLabelColor") == defaults.flipLabelColor then
