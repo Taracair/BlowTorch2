@@ -172,9 +172,6 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 	
 	@Override
 	public void onHelp() {
-		Intent web_help = new Intent(Intent.ACTION_VIEW,Uri.parse("http://bt.happygoatstudios.com/?view=timers"));
-		this.getContext().startActivity(web_help);
-		//Log.e("Error","Help pressed.");
 	}
 	
 	@Override

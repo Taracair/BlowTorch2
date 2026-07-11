@@ -58,17 +58,6 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 	@Override
 	public void onCreate(Bundle b) {
 		super.onCreate(b);
-		this.mOptionsButton.setOnClickListener(new HelpClickedListener());
-		this.promoteHelp();
-	}
-	private class HelpClickedListener implements View.OnClickListener {
-
-		@Override
-		public void onClick(View v) {
-			Intent web_help = new Intent(Intent.ACTION_VIEW,Uri.parse("http://bt.happygoatstudios.com/?view=special#run"));
-			BetterPluginSelectionDialog.this.getContext().startActivity(web_help);
-		}
-		
 	}
 	
 	@Override

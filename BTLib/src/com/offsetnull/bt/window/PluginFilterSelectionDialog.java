@@ -36,17 +36,11 @@ public class PluginFilterSelectionDialog extends BaseSelectionDialog implements 
 		
 		this.clearOptionItems();
 		
-		this.addOptionItem("Help", true);
-		//this.addOptionItem("Enable All", true);
-		
 		this.addPluginFilterOptions();
 	}
 
 	protected void addPluginFilterOptions() {
 		if(pluginList.length < 1) { 
-			//we only have 1 plugin (the standard one), so don't make anything.
-			//but promote the help.
-			this.promoteHelp();
 			return; 
 		}
 		this.addOptionDivider("Filter by plugin",false);
@@ -62,23 +56,13 @@ public class PluginFilterSelectionDialog extends BaseSelectionDialog implements 
 		// TODO Auto-generated method stub
 		switch(row) {
 		case 0:
-			//Toast t = Toast.makeText(this.getContext(), "Help not implemented.", Toast.LENGTH_LONG);
-			//t.show();
-			onHelp();
-			break;
-		//case 1:
-		//	onEnableAll();
-		//	Toast h = Toast.makeText(this.getContext(), "Enable all toggle not implemented.", Toast.LENGTH_LONG);
-		//	h.show();
-		//	break;
-		case 1:
 			//divier
 			break;
-		case 2:
+		case 1:
 			currentPlugin = MAIN_SETTINGS;
 			break;
 		default:
-			currentPlugin = pluginList[row-3];
+			currentPlugin = pluginList[row-2];
 			break;
 		}
 	}

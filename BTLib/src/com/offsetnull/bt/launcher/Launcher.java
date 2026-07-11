@@ -490,7 +490,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		
 		if(isoutdated) {
-			dowhatsnew = true;
 			launcher_settings.setCurrentVersion(versionString);
 			saveXML();
 			//Log.e("LAUNCHER","DOING OUTATED, WAS " + launcher_settings.getCurrentVersion() + " NOW " + versionString);
@@ -511,7 +510,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			}
 			
 			if(testVersion != readver) {
-				dowhatsnew = true;
 				SharedPreferences.Editor edit = this.getSharedPreferences("TEST_VERSION_DOWHATSNEW", Context.MODE_PRIVATE).edit();
 				edit.putInt("TEST_VERSION", testVersion);
 				edit.commit();
@@ -528,10 +526,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		Button helpbutton = (Button)findViewById(R.id.help_button);
 		styleLauncherActionButton(helpbutton);
 		helpbutton.setOnClickListener(new helpClickedListener());
-		
-		Button donatebutton = (Button)findViewById(R.id.donate_button);
-		styleLauncherActionButton(donatebutton);
-		donatebutton.setOnClickListener(new helpClickedListener());
 
 		Log.e("LAUNCHER","STARTING SREVICE");
 		String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
@@ -577,23 +571,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		//	Toast msg = Toast.makeText(this, "No connections specified, select NEW to create.", Toast.LENGTH_LONG);
 		//	msg.show();
 		//}
-		if(ConfigurationLoader.isTestMode(this)) {
-			if(!checkedUpdate) {
-				checkedUpdate = true;
-				BackgroundCheckUpdateThread t = new BackgroundCheckUpdateThread(updateHandler);
-				t.start();
-			}
-		}
-		
-		if(dowhatsnew) {
-			dowhatsnew = false;
-			try {
-				DoWhatsNew();
-			} catch (NameNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
 		if(!serviceBound) {
 			String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 			bindService(new Intent(action,null,this, StellarService.class),connectionChecker,Context.BIND_AUTO_CREATE);
@@ -640,8 +617,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	private class helpClickedListener implements View.OnClickListener {
 
 		public void onClick(View v) {
-			Intent web_help = new Intent(Intent.ACTION_VIEW,Uri.parse("http://bt.happygoatstudios.com/"));
-			startActivity(web_help);
+			new com.offsetnull.bt.window.AboutDialog(Launcher.this).show();
 		}
 		
 	}
@@ -1520,7 +1496,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	
 	public boolean onCreateOptionsMenu(Menu menu) {
 		
-		menu.add(0,99,0,"What's New");
 		menu.add(0,100,0,"Import List");
 		menu.add(0,105,0,"Export List");
 		if(ConfigurationLoader.isTestMode(this)) menu.add(0,106,0,"User Name");
@@ -1566,15 +1541,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch(item.getItemId()) {
-		case 99:
-			//dowhatsnew
-			try {
-				DoWhatsNew();
-			} catch (NameNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			break;
 		case 100:
 			//start import
 			//DoImportMenu();
