@@ -24,6 +24,7 @@ local require = _G["require"]
 local View = _G["View"]
 local Note = _G["Note"]
 local pairs = _G["pairs"]
+local math = _G["math"]
 local buttonEditorDone = _G["buttonEditorDone"]
 module(...)
 
