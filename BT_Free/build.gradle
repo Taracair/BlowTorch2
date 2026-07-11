@@ -7,7 +7,7 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId "com.happygoatstudios.bt2.test"
+        applicationId "com.ressurection.blowtorch2.test"
         minSdk 28
         targetSdk 36
         versionCode 224
