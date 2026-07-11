@@ -18,12 +18,13 @@ import android.os.Parcelable;
 import com.offsetnull.bt.responder.TriggerResponder;
 import com.offsetnull.bt.service.Colorizer;
 import com.offsetnull.bt.service.Connection;
-import com.offsetnull.bt.service.StellarService;
 import com.offsetnull.bt.timer.TimerData;
 import com.offsetnull.bt.trigger.TriggerData;
 import com.offsetnull.bt.window.TextTree;
 
 public class AckResponder extends TriggerResponder implements Parcelable {
+
+	public static final String LUA_SCRIPT_PREFIX = "/";
 
 	private String ackWith;
 	
@@ -68,40 +69,41 @@ public class AckResponder extends TriggerResponder implements Parcelable {
 			if(this.getFireType() == FIRE_WHEN.WINDOW_OPEN || this.getFireType() == FIRE_WHEN.WINDOW_NEVER) return false;
 		}
 		
-		Message msg = null;
 		//Log.e("ACKRESPONDER","RESPONDING WITH: " + this.getAckWith());
 		String xformed = AckResponder.this.translate(this.getAckWith(), captureMap);
-		//msg = dispatcher.obtainMessage(StellarService.MESSAGE_SENDDATA,(this.getAckWith() + crlf).getBytes("ISO-8859-1"));
-		//TODO: make ack responder actually ack
 
-			
+		if (shouldSendAckAsLua(xformed)) {
+			String luaBody = xformed.trim().substring(LUA_SCRIPT_PREFIX.length());
 
-		L.getGlobal("debug");
-		L.getField(-1, "traceback");
-		L.remove(-2);
-		
-		int ret = L.LloadString(xformed);
-		if(ret != 0) {
-			msg = dispatcher.obtainMessage(Connection.MESSAGE_SENDDATA_STRING,(xformed + crlf));
-			dispatcher.sendMessage(msg);
-			L.pop(2);
-		} else {
-			//successful compilation
-			ret = L.pcall(0, 1, -2);
-			if(ret != 0) {
-				String str = null;
-				if(source instanceof TimerData) {
-					str = "Error in timer("+((TimerData)source).getName()+"): " + L.getLuaObject(-1).getString();
-				} else if(source instanceof TriggerData) {
-					str = "Error in trigger("+((TriggerData)source).getName()+"): " + L.getLuaObject(-1).getString();
+			L.getGlobal("debug");
+			L.getField(-1, "traceback");
+			L.remove(-2);
+
+			int ret = L.LloadString(luaBody);
+			if (ret != 0) {
+				Message msg = dispatcher.obtainMessage(Connection.MESSAGE_SENDDATA_STRING, (xformed + crlf));
+				dispatcher.sendMessage(msg);
+				L.pop(2);
+			} else {
+				ret = L.pcall(0, 1, -2);
+				if (ret != 0) {
+					String str = null;
+					if (source instanceof TimerData) {
+						str = "Error in timer(" + ((TimerData) source).getName() + "): " + L.getLuaObject(-1).getString();
+					} else if (source instanceof TriggerData) {
+						str = "Error in trigger(" + ((TriggerData) source).getName() + "): " + L.getLuaObject(-1).getString();
+					}
+
+					dispatcher.sendMessage(dispatcher.obtainMessage(Connection.MESSAGE_PLUGINLUAERROR, "\n" + Colorizer.getRedColor() + str + Colorizer.getWhiteColor() + "\n"));
+					L.pop(1);
 				}
-				
-				dispatcher.sendMessage(dispatcher.obtainMessage(Connection.MESSAGE_PLUGINLUAERROR,"\n" + Colorizer.getRedColor() + str + Colorizer.getWhiteColor() + "\n"));
 				L.pop(1);
 			}
-			L.pop(1);
+		} else if (xformed != null && !xformed.isEmpty()) {
+			Message msg = dispatcher.obtainMessage(Connection.MESSAGE_SENDDATA_STRING, (xformed + crlf));
+			dispatcher.sendMessage(msg);
 		}
-		
+
 		return false;
 	}
 	
@@ -160,6 +162,14 @@ public class AckResponder extends TriggerResponder implements Parcelable {
 
 	public String getAckWith() {
 		return ackWith;
+	}
+
+	public static boolean shouldSendAckAsLua(String xformed) {
+		if (xformed == null) {
+			return false;
+		}
+		String trimmed = xformed.trim();
+		return trimmed.startsWith(LUA_SCRIPT_PREFIX) && trimmed.length() > LUA_SCRIPT_PREFIX.length();
 	}
 
 	@Override
