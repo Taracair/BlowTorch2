@@ -48,14 +48,13 @@ public class AboutDialog extends Dialog {
 		});
 		}
 		
-		int btid = this.getContext().getResources().getIdentifier("blowtorch_button", "id", this.getContext().getPackageName()); 
-		this.findViewById(btid).setOnClickListener(new View.OnClickListener() {
-			
-			public void onClick(View v) {
-				Intent web_help = new Intent(Intent.ACTION_VIEW,Uri.parse("http://bt.happygoatstudios.com/"));
-				AboutDialog.this.getContext().startActivity(web_help);
+		int btid = this.getContext().getResources().getIdentifier("blowtorch_button", "id", this.getContext().getPackageName());
+		if (btid != 0) {
+			View websiteButton = this.findViewById(btid);
+			if (websiteButton != null) {
+				websiteButton.setVisibility(View.GONE);
 			}
-		});
+		}
 		
 		//setup links
 	}

@@ -42,7 +42,7 @@ xPos="130" yPos="183" label="CLEAR" moveMethod="0" command=".clearbuttons" />
   <timers />
   <plugins>
   	 <!-- <link file="plugin.xml"/> -->
-  	 <plugin author="Daniel Block" name="button_window" id="10">
+  	 <plugin name="button_window" id="10">
   	 	<windows>
   	 		<window name="button_window" id="10203" script="buttonwindow">
   	 			<layoutGroup target="normal">
