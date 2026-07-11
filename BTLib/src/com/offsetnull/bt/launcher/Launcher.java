@@ -53,8 +53,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.RemoteException;
-import android.support.v4.app.ActivityCompat;
-import android.support.v7.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.appcompat.app.AppCompatActivity;
 import android.text.SpannableString;
 import android.text.format.Time;
 import android.text.method.LinkMovementMethod;
@@ -74,9 +74,9 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.support.v4.content.ContextCompat;
+import androidx.core.content.ContextCompat;
 //import android.support.v4.app.ActivityCompat;
-import android.support.design.widget.Snackbar;
+import com.google.android.material.snackbar.Snackbar;
 
 
 
@@ -225,7 +225,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		};
 		
 		setContentView(R.layout.new_launcher_layout);
-		android.support.v7.widget.Toolbar myToolbar = (android.support.v7.widget.Toolbar) findViewById(R.id.my_toolbar);
+		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		//myToolbar.set
 		setSupportActionBar(myToolbar);
 		int testversion = 0;
@@ -504,7 +504,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 		Log.e("LAUNCHER","STARTING SREVICE");
 		String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
-		startService(new Intent(action,null,this, StellarService.class));
+		androidx.core.content.ContextCompat.startForegroundService(this, new Intent(action,null,this, StellarService.class));
 		buildList();
 		if(!serviceBound) {
 			//String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
@@ -1022,7 +1022,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		ActivityManager activityManager = (ActivityManager)Launcher.this.getSystemService(Context.ACTIVITY_SERVICE);
     	List<RunningServiceInfo> services = activityManager.getRunningServices(Integer.MAX_VALUE);
     	boolean found = false;
-    	String serviceName = "com.offsetnull.bt" + ConfigurationLoader.getConfigurationValue("serviceProcessName",this);
+    	String serviceName = getApplicationContext().getPackageName() + ConfigurationLoader.getConfigurationValue("serviceProcessName",this);
     	
     	for(RunningServiceInfo service : services) {
     		//Log.e("LAUNCHER","FOUND:" + service.service.getClassName());
@@ -1122,7 +1122,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						}});
 
 			//View snackbarView = bar.getView();
-			//TextView textView = (TextView) snackbarView.findViewById(android.support.design.R.id.snackbar_text);
+			//TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
 			//textView.setMaxLines(5);  // show multiple line
 			bar.show();
 			} catch(Exception e) {
@@ -1207,7 +1207,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						}});
 
 			View snackbarView = bar.getView();
-			TextView textView = (TextView) snackbarView.findViewById(android.support.design.R.id.snackbar_text);
+			TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
 			textView.setMaxLines(3);  // show multiple line
 			bar.show();
 		} catch (IOException e) {
@@ -2023,7 +2023,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					}});
 
 		View snackbarView = bar.getView();
-		TextView textView = (TextView) snackbarView.findViewById(android.support.design.R.id.snackbar_text);
+		TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
 		textView.setMaxLines(5);  // show multiple line
 		bar.show();
 	}
@@ -2039,7 +2039,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					}});
 
 		View snackbarView = bar.getView();
-		TextView textView = (TextView) snackbarView.findViewById(android.support.design.R.id.snackbar_text);
+		TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
 		textView.setMaxLines(5);  // show multiple line
 		bar.show();
 	}

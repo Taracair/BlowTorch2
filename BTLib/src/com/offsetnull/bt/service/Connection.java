@@ -88,7 +88,7 @@ import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.SystemClock;
 
-import android.support.v4.content.ContextCompat;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
 import android.util.SparseArray;
 //import android.util.Log;
@@ -2528,6 +2528,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		Plugin p = mPluginMap.get(plugin);
 		if (p != null) {
 			p.getSettings().getTimers().remove(name);
+			p.getSettings().setDirty(true);
 		}
 	}
 
@@ -2546,6 +2547,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void deleteTimer(final String name) {
 		mSettings.getSettings().getTimers().remove(name);
+		mSettings.getSettings().setDirty(true);
 	}
 
 	/** Gets a timer from the target plugin.
@@ -2572,7 +2574,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		Plugin p = mPluginMap.get(plugin);
 		if (p != null) {
 			newtimer.setRemainingTime(newtimer.getSeconds());
-			p.getSettings().getTimers().put(newtimer.getName(), newtimer);
+			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 			p.getSettings().setDirty(true);
 		}
 	}
@@ -2587,8 +2589,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		final TimerData newtimer) {
 		Plugin p = mPluginMap.get(plugin);
 		if (p != null) {
-			p.getSettings().getTimers().remove(old.getName());				
-			p.getSettings().getTimers().put(newtimer.getName(), newtimer);
+			p.getSettings().getTimers().remove(old.getName());
+			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 			p.getSettings().setDirty(true);
 		}
 		
@@ -2601,7 +2603,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void updateTimer(final TimerData old, final TimerData newtimer) {
 		mSettings.getSettings().getTimers().remove(old.getName());
-		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer);
+		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
+		mSettings.getSettings().setDirty(true);
 	}
 
 	/** Gets the timer map for the main settings plugin.
@@ -2634,7 +2637,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void addTimer(final TimerData newtimer) {
 		newtimer.setRemainingTime(newtimer.getSeconds());
-		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer);
+		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 		mSettings.getSettings().setDirty(true);
 	}
 
@@ -3280,7 +3283,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		prefsname = prefsname.replaceAll("/", "");
 		String rootPath = prefsname + ".xml";
 		
-		//rootPath is the v1 settings file name.
 		String internal = mService.getApplicationContext().getApplicationInfo().dataDir + "/files/";
 		String oldpath = internal + rootPath;
 		exportSettings(oldpath);
@@ -3327,16 +3329,26 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		//try to output the file.
 		boolean passed = true;
 		File file = new File(filename);
-		//File cachedir = this.getContext().getCacheDir();
 		FileOutputStream fos = null;
 		File tmpfile = null;
+		String filesDir = mService.getApplicationContext().getFilesDir().getAbsolutePath();
+		boolean internalSettingsFile = filename.startsWith(filesDir + File.separator);
 		try {
-		tmpfile = File.createTempFile("settings", "xml",cachedir);
-		
-		fos = new FileOutputStream(tmpfile);
 		String foo = ConnectionSetttingsParser.outputXML(mSettings, mPlugins);
-		fos.write(foo.getBytes());
-		fos.close();
+		byte[] xmlBytes = foo.getBytes("UTF-8");
+		if (internalSettingsFile) {
+			String internalName = filename.substring(filesDir.length() + 1);
+			fos = mService.getApplicationContext().openFileOutput(internalName, Context.MODE_PRIVATE);
+			fos.write(xmlBytes);
+			fos.close();
+			fos = null;
+		} else {
+			tmpfile = File.createTempFile("settings", "xml", cachedir);
+			fos = new FileOutputStream(tmpfile);
+			fos.write(xmlBytes);
+			fos.close();
+			fos = null;
+		}
 		} catch (Exception e) {
 			//dispatch error.
 			//do not copy files
@@ -3348,7 +3360,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			passed = false;
 		} finally {
-			if(passed) {
+			if(passed && !internalSettingsFile) {
 				try {
 					fos.close();
 				} catch (IOException e) {
@@ -3357,12 +3369,31 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				//need to make sure the directory is created.
 				File makeme = new File(btdir);
 				makeme.mkdirs();
-				//copy the file over to the real path.
+				file.getParentFile().mkdirs();
 				boolean success = tmpfile.renameTo(file);
 				if(success) {
 					Log.e("BT","file shadow copy success");
 				} else {
-					Log.e("BT","file shadow copy failed");
+					Log.e("BT","renameTo failed, falling back to stream copy");
+					FileInputStream copyIn = null;
+					FileOutputStream copyOut = null;
+					try {
+						copyIn = new FileInputStream(tmpfile);
+						copyOut = new FileOutputStream(file);
+						byte[] buf = new byte[4096];
+						int len;
+						while ((len = copyIn.read(buf)) > 0) {
+							copyOut.write(buf, 0, len);
+						}
+						copyOut.flush();
+						Log.e("BT","stream copy success");
+					} catch (IOException copyEx) {
+						Log.e("BT","stream copy failed: " + copyEx.getMessage());
+					} finally {
+						if (copyIn != null) try { copyIn.close(); } catch (IOException ignored) {}
+						if (copyOut != null) try { copyOut.close(); } catch (IOException ignored) {}
+					}
+					tmpfile.delete();
 				}
 			} else {
 				if(fos != null) {
@@ -3451,14 +3482,32 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					}
 					
 					if(passed) {
-						//try and copy the file over.
 						long start = System.currentTimeMillis();
 						boolean success = tmppluginfile.renameTo(extfile);
 						int duraction = (int)(System.currentTimeMillis() - start);
 						if(success) {
 							Log.e("BT","Plugin shadow copy success, took " + duraction);
 						} else {
-							Log.e("BT","Plugin shadow copy failure, took " + duraction);
+							Log.e("BT","Plugin renameTo failed, falling back to stream copy");
+							FileInputStream pCopyIn = null;
+							FileOutputStream pCopyOut = null;
+							try {
+								pCopyIn = new FileInputStream(tmppluginfile);
+								pCopyOut = new FileOutputStream(extfile);
+								byte[] buf = new byte[4096];
+								int len;
+								while ((len = pCopyIn.read(buf)) > 0) {
+									pCopyOut.write(buf, 0, len);
+								}
+								pCopyOut.flush();
+								Log.e("BT","Plugin stream copy success");
+							} catch (IOException copyEx) {
+								Log.e("BT","Plugin stream copy failed: " + copyEx.getMessage());
+							} finally {
+								if (pCopyIn != null) try { pCopyIn.close(); } catch (IOException ignored) {}
+								if (pCopyOut != null) try { pCopyOut.close(); } catch (IOException ignored) {}
+							}
+							tmppluginfile.delete();
 						}
 					}
 				}

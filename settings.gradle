@@ -1,3 +1,20 @@
-include 'BTLib'
-include 'BT_Free'
-include 'BT_Aard'
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "BlowTorch"
+include ':BTLib'
+include ':BT_Free'
+// include ':BT_Aard'  // wyłączone - skupiamy się na BT_Free

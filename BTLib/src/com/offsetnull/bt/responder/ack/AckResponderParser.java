@@ -19,7 +19,7 @@ import android.sax.StartElementListener;
 public final class AckResponderParser {
 	public static void registerListeners(Element root,Object obj,TimerData current_timer,TriggerData current_trigger) {
 		Element ack = root.getChild(BasePluginParser.TAG_ACKRESPONDER);
-		ack.setStartElementListener(new AckElementListener(new TriggerData(),current_trigger,current_timer));
+		ack.setStartElementListener(new AckElementListener(obj,current_trigger,current_timer));
 	}
 	
 	public static void saveResponderToXML(XmlSerializer out,AckResponder r) throws IllegalArgumentException, IllegalStateException, IOException {

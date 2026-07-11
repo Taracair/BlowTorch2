@@ -46,7 +46,7 @@ import com.offsetnull.bt.service.plugin.settings.SettingsGroup;
 import com.offsetnull.bt.settings.ConfigurationLoader;
 import com.offsetnull.bt.alias.AliasData;
 
-import android.support.v4.app.NotificationCompat;
+import androidx.core.app.NotificationCompat;
 
 import dalvik.system.PathClassLoader;
 
@@ -127,8 +127,17 @@ public class StellarService extends Service {
 		if (intent == null) {
 			return Service.START_STICKY_COMPATIBILITY;
 		}
+		if (!mHasForegroundNotification) {
+			String channelId = createNotificationChannel();
+			Notification placeholder = new androidx.core.app.NotificationCompat.Builder(this, channelId)
+				.setContentTitle("BlowTorch 2")
+				.setContentText("Starting...")
+				.setSmallIcon(android.R.drawable.ic_dialog_info)
+				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+				.build();
+			startForeground(1, placeholder);
+		}
 		if (ConfigurationLoader.isTestMode(this.getApplicationContext())) {
-			//Thread.setDefaultUncaughtExceptionHandler(new com.happygoatstudios.bt.crashreport.CrashReporter(this.getApplicationContext()));
 			Log.e("BLOWTORCH", "SHOULD SET THE UNCAUGHT EXCEPTION HANDLER HERE.");
 		}
 		return Service.START_STICKY_COMPATIBILITY;
@@ -766,7 +775,12 @@ public class StellarService extends Service {
 		@Override
 		public void saveSettings() throws RemoteException {
 			Connection c = mConnections.get(mConnectionClutch);
-			if (c == null) { return; }
+			if (c == null && mConnections.size() == 1) {
+				c = mConnections.values().iterator().next();
+			}
+			if (c == null) {
+				return;
+			}
 			c.saveMainSettings();
 		}
 
@@ -948,7 +962,7 @@ public class StellarService extends Service {
 
 		@Override
 		public void removeTimer(final TimerData deltimer) throws RemoteException {
-			//TODO: THIS IS BLANK, CAN WE REMOVE TIMERS?!
+			mConnections.get(mConnectionClutch).deleteTimer(deltimer.getName());
 		}
 
 		@Override

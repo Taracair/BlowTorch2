@@ -766,7 +766,7 @@ public class TimerSelectionDialog extends Dialog {
 				} else {
 					service.deletePluginTimer(currentPlugin,entries.get(lastSelectedIndex).name);
 				}
-				
+				service.saveSettings();
 			} catch (RemoteException e) {
 				throw new RuntimeException(e);
 			}

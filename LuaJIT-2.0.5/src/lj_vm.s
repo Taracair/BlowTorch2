@@ -1,2566 +1,2583 @@
-	.file "buildvm_x86.dasc"
+	.file "buildvm_arm.dasc"
 	.text
 	.p2align 4
 
 	.globl lj_vm_asm_begin
 	.hidden lj_vm_asm_begin
-	.type lj_vm_asm_begin, @object
+	.type lj_vm_asm_begin, %object
 	.size lj_vm_asm_begin, 0
 lj_vm_asm_begin:
 .Lbegin:
+.fnstart
+.save {r4, r5, r6, r7, r8, r9, r10, r11, lr}
+.pad #28
 
 	.globl lj_BC_ISLT
 	.hidden lj_BC_ISLT
-	.type lj_BC_ISLT, @function
-	.size lj_BC_ISLT, 65
+	.type lj_BC_ISLT, %function
+	.size lj_BC_ISLT, 140
 lj_BC_ISLT:
-	.byte 131,124,202,4,242,15,131,240,27,0,0,131,124,194,4,242
-	.byte 15,131,229,27,0,0,242,15,16,4,194,131,198,4,102,15
-	.byte 46,4,202,118,11,15,183,70,254,141,180,134,0,0,254,255
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d9
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x1a000009
+	.long 0xe373000e,0x1a000010,0xe1500002,0xb24c6b80
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xed1a0b00,0x8a000952
+	.long 0xe373000e,0xed1b1b00,0x3a000007,0x8a00094e
+	.long 0xee022a10,0xeeb81bc2,0xea000003,0xed1b1b00
+	.long 0x8a000949,0xee020a10,0xeeb80bc2,0xeeb40b41
+	.long 0xeef1fa10,0x324c6b80,0xeaffffe8
 
 	.globl lj_BC_ISGE
 	.hidden lj_BC_ISGE
-	.type lj_BC_ISGE, @function
-	.size lj_BC_ISGE, 65
+	.type lj_BC_ISGE, %function
+	.size lj_BC_ISGE, 140
 lj_BC_ISGE:
-	.byte 131,124,202,4,242,15,131,175,27,0,0,131,124,194,4,242
-	.byte 15,131,164,27,0,0,242,15,16,4,194,131,198,4,102,15
-	.byte 46,4,202,119,11,15,183,70,254,141,180,134,0,0,254,255
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d9
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x1a000009
+	.long 0xe373000e,0x1a000010,0xe1500002,0xa24c6b80
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xed1a0b00,0x8a00092f
+	.long 0xe373000e,0xed1b1b00,0x3a000007,0x8a00092b
+	.long 0xee022a10,0xeeb81bc2,0xea000003,0xed1b1b00
+	.long 0x8a000926,0xee020a10,0xeeb80bc2,0xeeb40b41
+	.long 0xeef1fa10,0x224c6b80,0xeaffffe8
 
 	.globl lj_BC_ISLE
 	.hidden lj_BC_ISLE
-	.type lj_BC_ISLE, @function
-	.size lj_BC_ISLE, 65
+	.type lj_BC_ISLE, %function
+	.size lj_BC_ISLE, 140
 lj_BC_ISLE:
-	.byte 131,124,202,4,242,15,131,110,27,0,0,131,124,194,4,242
-	.byte 15,131,99,27,0,0,242,15,16,4,194,131,198,4,102,15
-	.byte 46,4,202,114,11,15,183,70,254,141,180,134,0,0,254,255
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d9
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x1a000009
+	.long 0xe373000e,0x1a000010,0xe1500002,0xd24c6b80
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xed1a0b00,0x8a00090c
+	.long 0xe373000e,0xed1b1b00,0x3a000007,0x8a000908
+	.long 0xee022a10,0xeeb81bc2,0xea000003,0xed1b1b00
+	.long 0x8a000903,0xee020a10,0xeeb80bc2,0xeeb40b41
+	.long 0xeef1fa10,0x924c6b80,0xeaffffe8
 
 	.globl lj_BC_ISGT
 	.hidden lj_BC_ISGT
-	.type lj_BC_ISGT, @function
-	.size lj_BC_ISGT, 65
+	.type lj_BC_ISGT, %function
+	.size lj_BC_ISGT, 140
 lj_BC_ISGT:
-	.byte 131,124,202,4,242,15,131,45,27,0,0,131,124,194,4,242
-	.byte 15,131,34,27,0,0,242,15,16,4,194,131,198,4,102,15
-	.byte 46,4,202,115,11,15,183,70,254,141,180,134,0,0,254,255
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d9
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x1a000009
+	.long 0xe373000e,0x1a000010,0xe1500002,0xc24c6b80
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xed1a0b00,0x8a0008e9
+	.long 0xe373000e,0xed1b1b00,0x3a000007,0x8a0008e5
+	.long 0xee022a10,0xeeb81bc2,0xea000003,0xed1b1b00
+	.long 0x8a0008e0,0xee020a10,0xeeb80bc2,0xeeb40b41
+	.long 0xeef1fa10,0x824c6b80,0xeaffffe8
 
 	.globl lj_BC_ISEQV
 	.hidden lj_BC_ISEQV
-	.type lj_BC_ISEQV, @function
-	.size lj_BC_ISEQV, 127
+	.type lj_BC_ISEQV, %function
+	.size lj_BC_ISEQV, 144
 lj_BC_ISEQV:
-	.byte 139,108,194,4,131,198,4,131,253,242,115,49,131,124,202,4
-	.byte 242,115,42,242,15,16,4,202,102,15,46,4,194,122,13,117
-	.byte 11,15,183,70,254,141,180,134,0,0,254,255,139,6,15,182
-	.byte 204,15,182,232,131,198,4,193,232,16,255,36,171,131,253,245
-	.byte 15,132,60,27,0,0,131,124,202,4,245,15,132,49,27,0
-	.byte 0,57,108,202,4,117,213,131,253,253,115,197,139,12,202,139
-	.byte 4,194,57,193,116,187,131,253,244,119,193,139,105,16,133,237
-	.byte 116,186,246,69,6,16,117,180,49,237,233,223,26,0,0
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d9
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x9373000e
+	.long 0x9a000069,0xe371000b,0x1373000b,0x0a0008f4
+	.long 0xe1510003,0x1a000004,0xe3710003,0x2a000001
+	.long 0xe1500002,0x1a000006,0xe24c6b80,0xe5d6c000
+	.long 0xe496e004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xe371000c,0x8afffff7,0xe590a010
+	.long 0xe35a0000,0x0afffff4,0xe5daa006,0xe3a03000
+	.long 0xe1a01000,0xe31a0010,0x0a0008d7,0xeaffffee
 
 	.globl lj_BC_ISNEV
 	.hidden lj_BC_ISNEV
-	.type lj_BC_ISNEV, @function
-	.size lj_BC_ISNEV, 130
+	.type lj_BC_ISNEV, %function
+	.size lj_BC_ISNEV, 140
 lj_BC_ISNEV:
-	.byte 139,108,194,4,131,198,4,131,253,242,115,49,131,124,202,4
-	.byte 242,115,42,242,15,16,4,202,102,15,46,4,194,122,2,116
-	.byte 11,15,183,70,254,141,180,134,0,0,254,255,139,6,15,182
-	.byte 204,15,182,232,131,198,4,193,232,16,255,36,171,131,253,245
-	.byte 15,132,189,26,0,0,131,124,202,4,245,15,132,178,26,0
-	.byte 0,57,108,202,4,117,202,131,253,253,115,208,139,12,202,139
-	.byte 4,194,57,193,116,198,131,253,244,119,182,139,105,16,133,237
-	.byte 116,175,246,69,6,16,117,169,189,1,0,0,0,233,93,26
-	.byte 0,0
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d9
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x9373000e
+	.long 0x9a000068,0xe371000b,0x1373000b,0x0a0008d0
+	.long 0xe1510003,0x1a00000d,0xe3710003,0x2a00000c
+	.long 0xe1500002,0x0a00000a,0xe371000c,0x8a000007
+	.long 0xe590a010,0xe35a0000,0x0a000004,0xe5daa006
+	.long 0xe3a03001,0xe1a01000,0xe31a0010,0x0a0008ba
+	.long 0xe24c6b80,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_ISEQS
 	.hidden lj_BC_ISEQS
-	.type lj_BC_ISEQS, @function
-	.size lj_BC_ISEQS, 60
+	.type lj_BC_ISEQS, %function
+	.size lj_BC_ISEQS, 76
 lj_BC_ISEQS:
-	.byte 247,208,139,108,202,4,131,198,4,131,253,251,117,36,139,12
-	.byte 202,59,12,135,117,11,15,183,70,254,141,180,134,0,0,254
-	.byte 255,139,6,15,182,204,15,182,232,131,198,4,193,232,16,255
-	.byte 36,171,131,253,245,117,234,233,69,26,0,0
+	.long 0xe1e0b00b,0xe18900da,0xe1d6c0b2,0xe795210b
+	.long 0xe2866004,0xe086c10c,0xe3710005,0x1a000007
+	.long 0xe1500002,0x024c6b80,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe371000b,0x1afffff7,0xea0008a6
 
 	.globl lj_BC_ISNES
 	.hidden lj_BC_ISNES
-	.type lj_BC_ISNES, @function
-	.size lj_BC_ISNES, 60
+	.type lj_BC_ISNES, %function
+	.size lj_BC_ISNES, 76
 lj_BC_ISNES:
-	.byte 247,208,139,108,202,4,131,198,4,131,253,251,117,36,139,12
-	.byte 202,59,12,135,116,11,15,183,70,254,141,180,134,0,0,254
-	.byte 255,139,6,15,182,204,15,182,232,131,198,4,193,232,16,255
-	.byte 36,171,131,253,245,117,223,233,9,26,0,0
+	.long 0xe1e0b00b,0xe18900da,0xe1d6c0b2,0xe795210b
+	.long 0xe2866004,0xe086c10c,0xe3710005,0x1a000007
+	.long 0xe1500002,0x124c6b80,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe371000b,0x1afffff6,0xea000893
 
 	.globl lj_BC_ISEQN
 	.hidden lj_BC_ISEQN
-	.type lj_BC_ISEQN, @function
-	.size lj_BC_ISEQN, 64
+	.type lj_BC_ISEQN, %function
+	.size lj_BC_ISEQN, 140
 lj_BC_ISEQN:
-	.byte 139,108,202,4,131,198,4,131,253,242,115,42,242,15,16,4
-	.byte 199,102,15,46,4,202,122,13,117,11,15,183,70,254,141,180
-	.byte 134,0,0,254,255,139,6,15,182,204,15,182,232,131,198,4
-	.byte 193,232,16,255,36,171,131,253,245,117,234,233,201,25,0,0
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d5
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x1a000009
+	.long 0xe373000e,0x1a00000e,0xe1500002,0x024c6b80
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0x8a00000c,0xe373000e
+	.long 0xee022a10,0xed1a0b00,0x3d1b1b00,0x2eb81bc2
+	.long 0xea000002,0xee020a10,0xed1b1b00,0xeeb80bc2
+	.long 0xeeb40b41,0xeef1fa10,0x024c6b80,0xeaffffeb
+	.long 0xe371000b,0x1affffe9,0xea000870
 
 	.globl lj_BC_ISNEN
 	.hidden lj_BC_ISNEN
-	.type lj_BC_ISNEN, @function
-	.size lj_BC_ISNEN, 64
+	.type lj_BC_ISNEN, %function
+	.size lj_BC_ISNEN, 140
 lj_BC_ISNEN:
-	.byte 139,108,202,4,131,198,4,131,253,242,115,42,242,15,16,4
-	.byte 199,102,15,46,4,202,122,2,116,11,15,183,70,254,141,180
-	.byte 134,0,0,254,255,139,6,15,182,204,15,182,232,131,198,4
-	.byte 193,232,16,255,36,171,131,253,245,117,223,233,137,25,0,0
+	.long 0xe1a0b18b,0xe1aa00d9,0xe1d6c0b2,0xe1ab20d5
+	.long 0xe2866004,0xe086c10c,0xe371000e,0x1a000009
+	.long 0xe373000e,0x1a00000e,0xe1500002,0x124c6b80
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0x8a00000c,0xe373000e
+	.long 0xee022a10,0xed1a0b00,0x3d1b1b00,0x2eb81bc2
+	.long 0xea000002,0xee020a10,0xed1b1b00,0xeeb80bc2
+	.long 0xeeb40b41,0xeef1fa10,0x124c6b80,0xeaffffeb
+	.long 0xe371000b,0x1affffe8,0xea00084d
 
 	.globl lj_BC_ISEQP
 	.hidden lj_BC_ISEQP
-	.type lj_BC_ISEQP, @function
-	.size lj_BC_ISEQP, 51
+	.type lj_BC_ISEQP, %function
+	.size lj_BC_ISEQP, 60
 lj_BC_ISEQP:
-	.byte 247,208,139,108,202,4,131,198,4,57,197,117,28,15,183,70
-	.byte 254,141,180,134,0,0,254,255,139,6,15,182,204,15,182,232
-	.byte 131,198,4,193,232,16,255,36,171,131,253,245,117,234,233,86
-	.byte 25,0,0
+	.long 0xe18900da,0xe1d6c0b2,0xe2866004,0xe1e0b00b
+	.long 0xe086c10c,0xe371000b,0x0a000846,0xe151000b
+	.long 0x024c6b80,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_ISNEP
 	.hidden lj_BC_ISNEP
-	.type lj_BC_ISNEP, @function
-	.size lj_BC_ISNEP, 50
+	.type lj_BC_ISNEP, %function
+	.size lj_BC_ISNEP, 60
 lj_BC_ISNEP:
-	.byte 247,208,139,108,202,4,131,198,4,57,197,116,20,131,253,245
-	.byte 15,132,64,25,0,0,15,183,70,254,141,180,134,0,0,254
-	.byte 255,139,6,15,182,204,15,182,232,131,198,4,193,232,16,255
-	.byte 36,171
+	.long 0xe18900da,0xe1d6c0b2,0xe2866004,0xe1e0b00b
+	.long 0xe086c10c,0xe371000b,0x0a000837,0xe151000b
+	.long 0x124c6b80,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_ISTC
 	.hidden lj_BC_ISTC
-	.type lj_BC_ISTC, @function
-	.size lj_BC_ISTC, 50
+	.type lj_BC_ISTC, %function
+	.size lj_BC_ISTC, 56
 lj_BC_ISTC:
-	.byte 139,108,194,4,131,198,4,131,253,254,115,21,137,108,202,4
-	.byte 139,44,194,137,44,202,15,183,70,254,141,180,134,0,0,254
-	.byte 255,139,6,15,182,204,15,182,232,131,198,4,193,232,16,255
-	.byte 36,171
+	.long 0xe089b18b,0xe1d6c0b2,0xe1cb00d0,0xe2866004
+	.long 0xe086c10c,0xe3710003,0x924c6b80,0x918900fa
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_ISFC
 	.hidden lj_BC_ISFC
-	.type lj_BC_ISFC, @function
-	.size lj_BC_ISFC, 50
+	.type lj_BC_ISFC, %function
+	.size lj_BC_ISFC, 56
 lj_BC_ISFC:
-	.byte 139,108,194,4,131,198,4,131,253,254,114,21,137,108,202,4
-	.byte 139,44,194,137,44,202,15,183,70,254,141,180,134,0,0,254
-	.byte 255,139,6,15,182,204,15,182,232,131,198,4,193,232,16,255
-	.byte 36,171
+	.long 0xe089b18b,0xe1d6c0b2,0xe1cb00d0,0xe2866004
+	.long 0xe086c10c,0xe3710003,0x824c6b80,0x818900fa
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_IST
 	.hidden lj_BC_IST
-	.type lj_BC_IST, @function
-	.size lj_BC_IST, 40
+	.type lj_BC_IST, %function
+	.size lj_BC_IST, 52
 lj_BC_IST:
-	.byte 139,108,194,4,131,198,4,131,253,254,115,11,15,183,70,254
-	.byte 141,180,134,0,0,254,255,139,6,15,182,204,15,182,232,131
-	.byte 198,4,193,232,16,255,36,171
+	.long 0xe089b18b,0xe1d6c0b2,0xe1cb00d0,0xe2866004
+	.long 0xe086c10c,0xe3710003,0x924c6b80,0xe5d6c000
+	.long 0xe496e004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_ISF
 	.hidden lj_BC_ISF
-	.type lj_BC_ISF, @function
-	.size lj_BC_ISF, 40
+	.type lj_BC_ISF, %function
+	.size lj_BC_ISF, 52
 lj_BC_ISF:
-	.byte 139,108,194,4,131,198,4,131,253,254,114,11,15,183,70,254
-	.byte 141,180,134,0,0,254,255,139,6,15,182,204,15,182,232,131
-	.byte 198,4,193,232,16,255,36,171
+	.long 0xe089b18b,0xe1d6c0b2,0xe1cb00d0,0xe2866004
+	.long 0xe086c10c,0xe3710003,0x824c6b80,0xe5d6c000
+	.long 0xe496e004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_MOV
 	.hidden lj_BC_MOV
-	.type lj_BC_MOV, @function
-	.size lj_BC_MOV, 31
+	.type lj_BC_MOV, %function
+	.size lj_BC_MOV, 36
 lj_BC_MOV:
-	.byte 139,108,194,4,139,4,194,137,108,202,4,137,4,202,139,6
-	.byte 15,182,204,15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe1a0b18b,0xe5d6c000,0xe18900db,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_NOT
 	.hidden lj_BC_NOT
-	.type lj_BC_NOT, @function
-	.size lj_BC_NOT, 31
+	.type lj_BC_NOT, %function
+	.size lj_BC_NOT, 52
 lj_BC_NOT:
-	.byte 49,237,131,124,194,4,254,131,213,253,137,108,202,4,139,6
-	.byte 15,182,204,15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe089b18b,0xe5d6c000,0xe59b0004,0xe089a00a
+	.long 0xe496e004,0xe3700003,0x93e01001,0x83e01002
+	.long 0xe58a1004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_UNM
 	.hidden lj_BC_UNM
-	.type lj_BC_UNM, @function
-	.size lj_BC_UNM, 55
+	.type lj_BC_UNM, %function
+	.size lj_BC_UNM, 68
 lj_BC_UNM:
-	.byte 131,124,194,4,242,15,131,79,24,0,0,242,15,16,4,194
-	.byte 184,0,0,0,128,102,15,110,200,102,15,112,201,81,15,87
-	.byte 193,242,15,17,4,202,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171
+	.long 0xe1a0b18b,0xe18900db,0xe5d6c000,0xe496e004
+	.long 0xe371000e,0x8a0007ee,0x12211480,0x1a000001
+	.long 0x02700000,0x61cf01d0,0xe18900fa,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0x00000000
+	.long 0x41e00000
 
 	.globl lj_BC_LEN
 	.hidden lj_BC_LEN
-	.type lj_BC_LEN, @function
-	.size lj_BC_LEN, 73
+	.type lj_BC_LEN, %function
+	.size lj_BC_LEN, 68
 lj_BC_LEN:
-	.byte 131,124,194,4,251,117,33,139,4,194,15,87,192,242,15,42
-	.byte 64,12,242,15,17,4,202,139,6,15,182,204,15,182,232,131
-	.byte 198,4,193,232,16,255,36,171,131,124,194,4,244,15,133,70
-	.byte 24,0,0,139,12,194,137,213,232
-	.long lj_tab_len-.-4
-	.byte 242,15,42,192,137,234,15,182,78,253,235,201
+	.long 0xe1a0b18b,0xe18900db,0xe3710005,0x1a000008
+	.long 0xe590000c,0xe3e0100d,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xe371000c,0x1a0007ec
+	bl lj_tab_len
+	.long 0xeafffff3
 
 	.globl lj_BC_ADDVN
 	.hidden lj_BC_ADDVN
-	.type lj_BC_ADDVN, @function
-	.size lj_BC_ADDVN, 49
+	.type lj_BC_ADDVN, %function
+	.size lj_BC_ADDVN, 120
 lj_BC_ADDVN:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,187,23,0
-	.byte 0,242,15,16,4,234,242,15,88,4,199,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d5
+	.long 0xe371000e,0x0373000e,0x1a000008,0xe0900002
+	.long 0x6a0007bf,0xe5d6c000,0xe496e004,0xe18900fa
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xed1c6b00,0xed1b7b00,0xe371000e,0x3373000e
+	.long 0x2a0007b3,0xee366b07,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a6b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_SUBVN
 	.hidden lj_BC_SUBVN
-	.type lj_BC_SUBVN, @function
-	.size lj_BC_SUBVN, 49
+	.type lj_BC_SUBVN, %function
+	.size lj_BC_SUBVN, 120
 lj_BC_SUBVN:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,138,23,0
-	.byte 0,242,15,16,4,234,242,15,92,4,199,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d5
+	.long 0xe371000e,0x0373000e,0x1a000008,0xe0500002
+	.long 0x6a0007a1,0xe5d6c000,0xe496e004,0xe18900fa
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xed1c6b00,0xed1b7b00,0xe371000e,0x3373000e
+	.long 0x2a000795,0xee366b47,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a6b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_MULVN
 	.hidden lj_BC_MULVN
-	.type lj_BC_MULVN, @function
-	.size lj_BC_MULVN, 49
+	.type lj_BC_MULVN, %function
+	.size lj_BC_MULVN, 124
 lj_BC_MULVN:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,89,23,0
-	.byte 0,242,15,16,4,234,242,15,89,4,199,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d5
+	.long 0xe371000e,0x0373000e,0x1a000009,0xe0cb0092
+	.long 0xe15b0fc0,0x1a000782,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xed1c6b00,0xed1b7b00,0xe371000e
+	.long 0x3373000e,0x2a000776,0xee266b07,0xe5d6c000
+	.long 0xe089a00a,0xe496e004,0xed0a6b00,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_DIVVN
 	.hidden lj_BC_DIVVN
-	.type lj_BC_DIVVN, @function
-	.size lj_BC_DIVVN, 49
+	.type lj_BC_DIVVN, %function
+	.size lj_BC_DIVVN, 72
 lj_BC_DIVVN:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,40,23,0
-	.byte 0,242,15,16,4,234,242,15,94,4,199,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d5
+	.long 0xed1c0b00,0xed1b1b00,0xe371000e,0x3373000e
+	.long 0x2a000764,0xee800b01,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a0b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_MODVN
 	.hidden lj_BC_MODVN
-	.type lj_BC_MODVN, @function
-	.size lj_BC_MODVN, 54
+	.type lj_BC_MODVN, %function
+	.size lj_BC_MODVN, 128
 lj_BC_MODVN:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,247,22,0
-	.byte 0,242,15,16,4,234,242,15,16,12,199,232,230,44,0,0
-	.byte 242,15,17,4,202,139,6,15,182,204,15,182,232,131,198,4
-	.byte 193,232,16,255,36,171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d5
+	.long 0xe371000e,0x0373000e,0x1a00000a,0xe1b01002
+	.long 0x0a000752,0xeb000ce1,0xe3e0100d,0xe5d6c000
+	.long 0xe496e004,0xe18900fa,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xed1c6b00,0xed1b7b00
+	.long 0xe371000e,0x3373000e,0x2a000744,0xeb000cca
+	.long 0xe5d6c000,0xe089a00a,0xe496e004,0xed0a6b00
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_ADDNV
 	.hidden lj_BC_ADDNV
-	.type lj_BC_ADDNV, @function
-	.size lj_BC_ADDNV, 49
+	.type lj_BC_ADDNV, %function
+	.size lj_BC_ADDNV, 120
 lj_BC_ADDNV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,198,22,0
-	.byte 0,242,15,16,4,199,242,15,88,4,234,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac20d9,0xe1ab00d5
+	.long 0xe373000e,0x0371000e,0x1a000008,0xe0900002
+	.long 0x6a000737,0xe5d6c000,0xe496e004,0xe18900fa
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xed1c7b00,0xed1b6b00,0xe373000e,0x3371000e
+	.long 0x2a00072b,0xee366b07,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a6b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_SUBNV
 	.hidden lj_BC_SUBNV
-	.type lj_BC_SUBNV, @function
-	.size lj_BC_SUBNV, 49
+	.type lj_BC_SUBNV, %function
+	.size lj_BC_SUBNV, 120
 lj_BC_SUBNV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,149,22,0
-	.byte 0,242,15,16,4,199,242,15,92,4,234,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac20d9,0xe1ab00d5
+	.long 0xe373000e,0x0371000e,0x1a000008,0xe0500002
+	.long 0x6a000719,0xe5d6c000,0xe496e004,0xe18900fa
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xed1c7b00,0xed1b6b00,0xe373000e,0x3371000e
+	.long 0x2a00070d,0xee366b47,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a6b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_MULNV
 	.hidden lj_BC_MULNV
-	.type lj_BC_MULNV, @function
-	.size lj_BC_MULNV, 49
+	.type lj_BC_MULNV, %function
+	.size lj_BC_MULNV, 124
 lj_BC_MULNV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,100,22,0
-	.byte 0,242,15,16,4,199,242,15,89,4,234,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac20d9,0xe1ab00d5
+	.long 0xe373000e,0x0371000e,0x1a000009,0xe0cb0092
+	.long 0xe15b0fc0,0x1a0006fa,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xed1c7b00,0xed1b6b00,0xe373000e
+	.long 0x3371000e,0x2a0006ee,0xee266b07,0xe5d6c000
+	.long 0xe089a00a,0xe496e004,0xed0a6b00,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_DIVNV
 	.hidden lj_BC_DIVNV
-	.type lj_BC_DIVNV, @function
-	.size lj_BC_DIVNV, 49
+	.type lj_BC_DIVNV, %function
+	.size lj_BC_DIVNV, 72
 lj_BC_DIVNV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,51,22,0
-	.byte 0,242,15,16,4,199,242,15,94,4,234,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac20d9,0xe1ab00d5
+	.long 0xed1c1b00,0xed1b0b00,0xe373000e,0x3371000e
+	.long 0x2a0006dc,0xee800b01,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a0b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_MODNV
 	.hidden lj_BC_MODNV
-	.type lj_BC_MODNV, @function
-	.size lj_BC_MODNV, 32
+	.type lj_BC_MODNV, %function
+	.size lj_BC_MODNV, 128
 lj_BC_MODNV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,2,22,0
-	.byte 0,242,15,16,4,199,242,15,16,12,234,233,1,255,255,255
+	.long 0xe004caae,0xe004b6ae,0xe1ac20d9,0xe1ab00d5
+	.long 0xe373000e,0x0371000e,0x1a00000a,0xe1b01002
+	.long 0x0a0006ca,0xeb000c54,0xe3e0100d,0xe5d6c000
+	.long 0xe496e004,0xe18900fa,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xed1c7b00,0xed1b6b00
+	.long 0xe373000e,0x3371000e,0x2a0006bc,0xeb000c3d
+	.long 0xe5d6c000,0xe089a00a,0xe496e004,0xed0a6b00
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_ADDVV
 	.hidden lj_BC_ADDVV
-	.type lj_BC_ADDVV, @function
-	.size lj_BC_ADDVV, 60
+	.type lj_BC_ADDVV, %function
+	.size lj_BC_ADDVV, 120
 lj_BC_ADDVV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,242,21,0
-	.byte 0,131,124,194,4,242,15,131,231,21,0,0,242,15,16,4
-	.byte 234,242,15,88,4,194,242,15,17,4,202,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d9
+	.long 0xe371000e,0x0373000e,0x1a000008,0xe0900002
+	.long 0x6a0006b4,0xe5d6c000,0xe496e004,0xe18900fa
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xed1c6b00,0xed1b7b00,0xe371000e,0x3373000e
+	.long 0x2a0006a8,0xee366b07,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a6b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_SUBVV
 	.hidden lj_BC_SUBVV
-	.type lj_BC_SUBVV, @function
-	.size lj_BC_SUBVV, 60
+	.type lj_BC_SUBVV, %function
+	.size lj_BC_SUBVV, 120
 lj_BC_SUBVV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,182,21,0
-	.byte 0,131,124,194,4,242,15,131,171,21,0,0,242,15,16,4
-	.byte 234,242,15,92,4,194,242,15,17,4,202,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d9
+	.long 0xe371000e,0x0373000e,0x1a000008,0xe0500002
+	.long 0x6a000696,0xe5d6c000,0xe496e004,0xe18900fa
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xed1c6b00,0xed1b7b00,0xe371000e,0x3373000e
+	.long 0x2a00068a,0xee366b47,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a6b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_MULVV
 	.hidden lj_BC_MULVV
-	.type lj_BC_MULVV, @function
-	.size lj_BC_MULVV, 60
+	.type lj_BC_MULVV, %function
+	.size lj_BC_MULVV, 124
 lj_BC_MULVV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,122,21,0
-	.byte 0,131,124,194,4,242,15,131,111,21,0,0,242,15,16,4
-	.byte 234,242,15,89,4,194,242,15,17,4,202,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d9
+	.long 0xe371000e,0x0373000e,0x1a000009,0xe0cb0092
+	.long 0xe15b0fc0,0x1a000677,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xed1c6b00,0xed1b7b00,0xe371000e
+	.long 0x3373000e,0x2a00066b,0xee266b07,0xe5d6c000
+	.long 0xe089a00a,0xe496e004,0xed0a6b00,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_DIVVV
 	.hidden lj_BC_DIVVV
-	.type lj_BC_DIVVV, @function
-	.size lj_BC_DIVVV, 60
+	.type lj_BC_DIVVV, %function
+	.size lj_BC_DIVVV, 72
 lj_BC_DIVVV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,62,21,0
-	.byte 0,131,124,194,4,242,15,131,51,21,0,0,242,15,16,4
-	.byte 234,242,15,94,4,194,242,15,17,4,202,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d9
+	.long 0xed1c0b00,0xed1b1b00,0xe371000e,0x3373000e
+	.long 0x2a000659,0xee800b01,0xe5d6c000,0xe089a00a
+	.long 0xe496e004,0xed0a0b00,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_MODVV
 	.hidden lj_BC_MODVV
-	.type lj_BC_MODVV, @function
-	.size lj_BC_MODVV, 43
+	.type lj_BC_MODVV, %function
+	.size lj_BC_MODVV, 128
 lj_BC_MODVV:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,2,21,0
-	.byte 0,131,124,194,4,242,15,131,247,20,0,0,242,15,16,4
-	.byte 234,242,15,16,12,194,233,230,253,255,255
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d9
+	.long 0xe371000e,0x0373000e,0x1a00000a,0xe1b01002
+	.long 0x0a000647,0xeb000bc7,0xe3e0100d,0xe5d6c000
+	.long 0xe496e004,0xe18900fa,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xed1c6b00,0xed1b7b00
+	.long 0xe371000e,0x3373000e,0x2a000639,0xeb000bb0
+	.long 0xe5d6c000,0xe089a00a,0xe496e004,0xed0a6b00
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_POW
 	.hidden lj_BC_POW
-	.type lj_BC_POW, @function
-	.size lj_BC_POW, 65
+	.type lj_BC_POW, %function
+	.size lj_BC_POW, 60
 lj_BC_POW:
-	.byte 15,182,236,15,182,192,131,124,234,4,242,15,131,215,20,0
-	.byte 0,131,124,194,4,242,15,131,204,20,0,0,242,15,16,4
-	.byte 234,242,15,16,12,194,232,85,43,0,0,242,15,17,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe004caae,0xe004b6ae,0xe1ac00d9,0xe1ab20d9
+	.long 0xe371000e,0x3373000e,0x2a000629
+	bl pow
+	.long 0xe5d6c000,0xe496e004,0xe18900fa,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_CAT
 	.hidden lj_BC_CAT
-	.type lj_BC_CAT, @function
-	.size lj_BC_CAT, 88
+	.type lj_BC_CAT, %function
+	.size lj_BC_CAT, 80
 lj_BC_CAT:
-	.byte 15,182,236,15,182,192,141,12,194,41,232,137,76,36,4,137
-	.byte 68,36,8,139,108,36,48,137,44,36,137,85,16,137,116,36
-	.byte 24,232
-	.long lj_meta_cat-.-4
-	.byte 139,85,16,133,192,15,133,177,20,0,0,15,182,110,255,15
-	.byte 182,78,253,139,68,234,4,139,44,234,137,68,202,4,137,44
-	.byte 202,139,6,15,182,204,15,182,232,131,198,4,193,232,16,255
-	.byte 36,171
+	.long 0xe004baae,0xe004c6ae,0xe04c200b,0xe5889010
+	.long 0xe089100c,0xe1a00008,0xe58d6008,0xe1a021a2
+	bl lj_meta_cat
+	.long 0xe5989010,0xe3500000,0x1a000622,0xe18920db
+	.long 0xe5d6c000,0xe496e004,0xe18920fa,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_KSTR
 	.hidden lj_BC_KSTR
-	.type lj_BC_KSTR, @function
-	.size lj_BC_KSTR, 33
+	.type lj_BC_KSTR, %function
+	.size lj_BC_KSTR, 40
 lj_BC_KSTR:
-	.byte 247,208,139,4,135,199,68,202,4,251,255,255,255,137,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe1e0b00b,0xe5d6c000,0xe795010b,0xe3e01004
+	.long 0xe496e004,0xe18900fa,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_KCDATA
 	.hidden lj_BC_KCDATA
-	.type lj_BC_KCDATA, @function
-	.size lj_BC_KCDATA, 33
+	.type lj_BC_KCDATA, %function
+	.size lj_BC_KCDATA, 40
 lj_BC_KCDATA:
-	.byte 247,208,139,4,135,199,68,202,4,245,255,255,255,137,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe1e0b00b,0xe5d6c000,0xe795010b,0xe3e0100a
+	.long 0xe496e004,0xe18900fa,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_KSHORT
 	.hidden lj_BC_KSHORT
-	.type lj_BC_KSHORT, @function
-	.size lj_BC_KSHORT, 29
+	.type lj_BC_KSHORT, %function
+	.size lj_BC_KSHORT, 36
 lj_BC_KSHORT:
-	.byte 15,191,192,242,15,42,192,242,15,17,4,202,139,6,15,182
-	.byte 204,15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe1a0084e,0xe3e0100d,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_KNUM
 	.hidden lj_BC_KNUM
-	.type lj_BC_KNUM, @function
-	.size lj_BC_KNUM, 27
+	.type lj_BC_KNUM, %function
+	.size lj_BC_KNUM, 36
 lj_BC_KNUM:
-	.byte 242,15,16,4,199,242,15,17,4,202,139,6,15,182,204,15
-	.byte 182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe1a0b18b,0xe5d6c000,0xe18500db,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_KPRI
 	.hidden lj_BC_KPRI
-	.type lj_BC_KPRI, @function
-	.size lj_BC_KPRI, 23
+	.type lj_BC_KPRI, %function
+	.size lj_BC_KPRI, 36
 lj_BC_KPRI:
-	.byte 247,208,137,68,202,4,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171
+	.long 0xe089a00a,0xe1e0b00b,0xe5d6c000,0xe496e004
+	.long 0xe58ab004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_KNIL
 	.hidden lj_BC_KNIL
-	.type lj_BC_KNIL, @function
-	.size lj_BC_KNIL, 42
+	.type lj_BC_KNIL, %function
+	.size lj_BC_KNIL, 60
 lj_BC_KNIL:
-	.byte 141,76,202,12,141,68,194,4,189,255,255,255,255,137,105,248
-	.byte 137,41,131,193,8,57,193,118,247,139,6,15,182,204,15,182
-	.byte 232,131,198,4,193,232,16,255,36,171
+	.long 0xe089a00a,0xe089b18b,0xe3e00000,0xe58a0004
+	.long 0xe28aa008,0xe58a0004,0xe15a000b,0xe28aa008
+	.long 0xbafffffb,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_UGET
 	.hidden lj_BC_UGET
-	.type lj_BC_UGET, @function
-	.size lj_BC_UGET, 40
+	.type lj_BC_UGET, %function
+	.size lj_BC_UGET, 52
 lj_BC_UGET:
-	.byte 139,106,248,139,108,133,20,139,109,16,139,69,4,139,109,0
-	.byte 137,68,202,4,137,44,202,139,6,15,182,204,15,182,232,131
-	.byte 198,4,193,232,16,255,36,171
+	.long 0xe5191008,0xe1a0b10b,0xe28bb014,0xe791100b
+	.long 0xe5911010,0xe1c120d0,0xe5d6c000,0xe496e004
+	.long 0xe18920fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_USETV
 	.hidden lj_BC_USETV
-	.type lj_BC_USETV, @function
-	.size lj_BC_USETV, 83
+	.type lj_BC_USETV, %function
+	.size lj_BC_USETV, 108
 lj_BC_USETV:
-	.byte 139,106,248,139,108,141,20,128,125,6,0,139,109,16,139,12
-	.byte 194,139,68,194,4,137,77,0,137,69,4,116,6,246,69,252
-	.byte 4,117,17,139,6,15,182,204,15,182,232,131,198,4,193,232
-	.byte 16,255,36,171,131,232,252,131,248,246,118,231,246,65,4,3
-	.byte 116,225,135,213,141,139,240,244,255,255,232
-	.long lj_gc_barrieruv-.-4
-	.byte 137,234,235,208
+	.long 0xe5191008,0xe1a0a0aa,0xe28aa014,0xe1a0b18b
+	.long 0xe791100a,0xe18920db,0xe5d1c004,0xe5d1b006
+	.long 0xe5911010,0xe31c0004,0xe283c004,0x135b0000
+	.long 0xe1c120f0,0x1a000005,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe37c000a,0x85d2b004,0x9afffff6,0xe2470eb1
+	.long 0xe31b0003
+	blne lj_gc_barrieruv
+	.long 0xeafffff2
 
 	.globl lj_BC_USETS
 	.hidden lj_BC_USETS
-	.type lj_BC_USETS, @function
-	.size lj_BC_USETS, 78
+	.type lj_BC_USETS, %function
+	.size lj_BC_USETS, 100
 lj_BC_USETS:
-	.byte 247,208,139,106,248,139,108,141,20,139,12,135,139,69,16,137
-	.byte 8,199,64,4,251,255,255,255,246,69,4,4,117,17,139,6
-	.byte 15,182,204,15,182,232,131,198,4,193,232,16,255,36,171,246
-	.byte 65,4,3,116,233,128,125,6,0,116,227,137,213,137,194,141
-	.byte 139,240,244,255,255,232
-	.long lj_gc_barrieruv-.-4
-	.byte 137,234,235,208
+	.long 0xe5191008,0xe1a0a0aa,0xe28aa014,0xe1e0b00b
+	.long 0xe791100a,0xe795210b,0xe5d1c004,0xe5d1b006
+	.long 0xe5911010,0xe3e03004,0xe31c0004,0xe5d2c004
+	.long 0xe1c120f0,0x1a000005,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe31c0003,0x135b0000,0xe2470eb1
+	blne lj_gc_barrieruv
+	.long 0xeafffff4
 
 	.globl lj_BC_USETN
 	.hidden lj_BC_USETN
-	.type lj_BC_USETN, @function
-	.size lj_BC_USETN, 36
+	.type lj_BC_USETN, %function
+	.size lj_BC_USETN, 56
 lj_BC_USETN:
-	.byte 139,106,248,242,15,16,4,199,139,108,141,20,139,77,16,242
-	.byte 15,17,1,139,6,15,182,204,15,182,232,131,198,4,193,232
-	.byte 16,255,36,171
+	.long 0xe5191008,0xe1a0a0aa,0xe28aa014,0xe1a0b18b
+	.long 0xe791100a,0xe18520db,0xe5911010,0xe5d6c000
+	.long 0xe496e004,0xe1c120f0,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_USETP
 	.hidden lj_BC_USETP
-	.type lj_BC_USETP, @function
-	.size lj_BC_USETP, 32
+	.type lj_BC_USETP, %function
+	.size lj_BC_USETP, 52
 lj_BC_USETP:
-	.byte 247,208,139,106,248,139,108,141,20,139,77,16,137,65,4,139
-	.byte 6,15,182,204,15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe5191008,0xe1a0a0aa,0xe28aa014,0xe791100a
+	.long 0xe1e0b00b,0xe5911010,0xe5d6c000,0xe496e004
+	.long 0xe581b004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_UCLO
 	.hidden lj_BC_UCLO
-	.type lj_BC_UCLO, @function
-	.size lj_BC_UCLO, 50
+	.type lj_BC_UCLO, %function
+	.size lj_BC_UCLO, 64
 lj_BC_UCLO:
-	.byte 141,180,134,0,0,254,255,139,108,36,48,131,125,32,0,116
-	.byte 16,137,85,16,141,20,202,137,233,232
-	.long lj_func_closeuv-.-4
-	.byte 139,85,16,139,6,15,182,204,15,182,232,131,198,4,193,232
-	.byte 16,255,36,171
+	.long 0xe5982020,0xe086b10b,0xe5889010,0xe3520000
+	.long 0xe24b6b80,0x0a000003,0xe1a00008,0xe089100a
+	bl lj_func_closeuv
+	.long 0xe5989010,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_FNEW
 	.hidden lj_BC_FNEW
-	.type lj_BC_FNEW, @function
-	.size lj_BC_FNEW, 70
+	.type lj_BC_FNEW, %function
+	.size lj_BC_FNEW, 64
 lj_BC_FNEW:
-	.byte 247,208,139,74,248,139,4,135,139,108,36,48,137,76,36,8
-	.byte 137,68,36,4,137,44,36,137,85,16,137,116,36,24,232
-	.long lj_func_newL_gc-.-4
-	.byte 139,85,16,15,182,78,253,137,4,202,199,68,202,4,247,255
-	.byte 255,255,139,6,15,182,204,15,182,232,131,198,4,193,232,16
-	.byte 255,36,171
+	.long 0xe1e0b00b,0xe5889010,0xe795110b,0xe58d6008
+	.long 0xe5192008,0xe1a00008
+	bl lj_func_newL_gc
+	.long 0xe5989010,0xe3e01008,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_TNEW
 	.hidden lj_BC_TNEW
-	.type lj_BC_TNEW, @function
-	.size lj_BC_TNEW, 113
+	.type lj_BC_TNEW, %function
+	.size lj_BC_TNEW, 104
 lj_BC_TNEW:
-	.byte 139,108,36,48,137,85,16,139,139,4,245,255,255,59,139,8
-	.byte 245,255,255,137,116,36,24,115,75,137,193,37,255,7,0,0
-	.byte 193,233,11,137,76,36,8,61,255,7,0,0,116,47,137,44
-	.byte 36,137,68,36,4,232
-	.long lj_tab_new-.-4
-	.byte 139,85,16,15,182,78,253,137,4,202,199,68,202,4,244,255
-	.byte 255,255,139,6,15,182,204,15,182,232,131,198,4,193,232,16
-	.byte 255,36,171,184,1,8,0,0,235,202,137,233,232
-	.long lj_gc_step_fixtop-.-4
-	.byte 15,183,70,254,235,168
+	.long 0xe5172afc,0xe5173af8,0xe5889010,0xe58d6008
+	.long 0xe1520003,0xe1a00008,0x2a00000f,0xe1a01a8b
+	.long 0xe1a025ab,0xe1a0bac1,0xe1a01aa1,0xe37b0001
+	.long 0x02811002
+	bl lj_tab_new
+	.long 0xe5989010,0xe3e0100b,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
+	bl lj_gc_step_fixtop
+	.long 0xe1a00008,0xeaffffec
 
 	.globl lj_BC_TDUP
 	.hidden lj_BC_TDUP
-	.type lj_BC_TDUP, @function
-	.size lj_BC_TDUP, 87
+	.type lj_BC_TDUP, %function
+	.size lj_BC_TDUP, 88
 lj_BC_TDUP:
-	.byte 247,208,139,108,36,48,139,139,4,245,255,255,137,116,36,24
-	.byte 59,139,8,245,255,255,137,85,16,115,45,139,20,135,137,233
-	.byte 232
-	.long lj_tab_dup-.-4
-	.byte 139,85,16,15,182,78,253,137,4,202,199,68,202,4,244,255
-	.byte 255,255,139,6,15,182,204,15,182,232,131,198,4,193,232,16
-	.byte 255,36,171,137,233,232
-	.long lj_gc_step_fixtop-.-4
-	.byte 15,183,70,254,247,208,235,196
+	.long 0xe1e0b00b,0xe5172afc,0xe5173af8,0xe5889010
+	.long 0xe58d6008,0xe1520003,0xe1a00008,0x2a00000a
+	.long 0xe795110b
+	bl lj_tab_dup
+	.long 0xe5989010,0xe3e0100b,0xe5d6c000,0xe496e004
+	.long 0xe18900fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
+	bl lj_gc_step_fixtop
+	.long 0xe1a00008,0xeafffff1
 
 	.globl lj_BC_GGET
 	.hidden lj_BC_GGET
-	.type lj_BC_GGET, @function
-	.size lj_BC_GGET, 16
+	.type lj_BC_GGET, %function
+	.size lj_BC_GGET, 20
 lj_BC_GGET:
-	.byte 247,208,139,106,248,139,109,8,139,4,135,233,190,0,0,0
+	.long 0xe5191008,0xe1e0b00b,0xe5910008,0xe795b10b
+	.long 0xea00002e
 
 	.globl lj_BC_GSET
 	.hidden lj_BC_GSET
-	.type lj_BC_GSET, @function
-	.size lj_BC_GSET, 16
+	.type lj_BC_GSET, %function
+	.size lj_BC_GSET, 20
 lj_BC_GSET:
-	.byte 247,208,139,106,248,139,109,8,139,4,135,233,63,2,0,0
+	.long 0xe5191008,0xe1e0b00b,0xe5910008,0xe795b10b
+	.long 0xea00009b
 
 	.globl lj_BC_TGETV
 	.hidden lj_BC_TGETV
-	.type lj_BC_TGETV, @function
-	.size lj_BC_TGETV, 149
+	.type lj_BC_TGETV, %function
+	.size lj_BC_TGETV, 140
 lj_BC_TGETV:
-	.byte 15,182,236,15,182,192,131,124,234,4,244,15,133,60,15,0
-	.byte 0,139,44,234,131,124,194,4,242,115,106,242,15,16,4,194
-	.byte 242,15,45,192,242,15,42,200,102,15,46,193,15,133,27,15
-	.byte 0,0,59,69,24,15,131,18,15,0,0,193,224,3,3,69
-	.byte 8,131,120,4,255,116,29,139,40,139,64,4,137,44,202,137
-	.byte 68,202,4,139,6,15,182,204,15,182,232,131,198,4,193,232
-	.byte 16,255,36,171,131,125,16,0,116,17,139,77,16,246,65,6
-	.byte 1,15,132,214,14,0,0,15,182,78,253,199,68,202,4,255
-	.byte 255,255,255,235,206,131,124,194,4,251,15,133,189,14,0,0
-	.byte 139,4,194,235,25
+	.long 0xe004caae,0xe004b6ae,0xe18900dc,0xe18920db
+	.long 0xe371000c,0x1a000496,0xe373000e,0x05903008
+	.long 0x05901018,0x1a000014,0xe0833182,0xe1520001
+	.long 0x31c320d0,0x2a00048e,0xe5d6c000,0xe3730001
+	.long 0x0a000005,0xe496e004,0xe18920fa,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0xe5901010
+	.long 0xe3510000,0x0afffff6,0xe5d11006,0xe3110001
+	.long 0x1afffff3,0xe004caae,0xea00047d,0xe3730005
+	.long 0x01a0b002,0x0a000007,0xea000479
 
 	.globl lj_BC_TGETS
 	.hidden lj_BC_TGETS
-	.type lj_BC_TGETS, @function
-	.size lj_BC_TGETS, 126
+	.type lj_BC_TGETS, %function
+	.size lj_BC_TGETS, 160
 lj_BC_TGETS:
-	.byte 15,182,236,15,182,192,247,208,139,4,135,131,124,234,4,244
-	.byte 15,133,101,14,0,0,139,44,234,139,77,28,35,72,8,107
-	.byte 201,24,3,77,20,131,121,12,251,117,58,57,65,8,117,53
-	.byte 131,121,4,255,116,54,15,182,70,253,139,41,139,73,4,137
-	.byte 44,194,137,76,194,4,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171,15,182,70,253,199,68,194,4,255
-	.byte 255,255,255,235,225,139,73,16,133,201,117,185,139,77,16,133
-	.byte 201,116,228,246,65,6,1,117,222,233,253,13,0,0
+	.long 0xe004caae,0xe20bb0ff,0xe18900dc,0xe1e0b00b
+	.long 0xe795b10b,0xe371000c,0x1a000460,0xe590201c
+	.long 0xe59b3008,0xe590e014,0xe1a0c000,0xe0022003
+	.long 0xe0822082,0xe08ee182,0xe1ce00d8,0xe1ce20d0
+	.long 0xe59ee010,0xe3710005,0x0150000b,0x1a000008
+	.long 0xe3730001,0x0a000008,0xe5d6c000,0xe496e004
+	.long 0xe18920fa,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xe35e0000,0x1affffee,0xe59c0010
+	.long 0xe3a02000,0xe3e03000,0xe3500000,0x0afffff1
+	.long 0xe5d01006,0xe3110001,0x1affffee,0xea000441
 
 	.globl lj_BC_TGETB
 	.hidden lj_BC_TGETB
-	.type lj_BC_TGETB, @function
-	.size lj_BC_TGETB, 103
+	.type lj_BC_TGETB, %function
+	.size lj_BC_TGETB, 108
 lj_BC_TGETB:
-	.byte 15,182,236,15,182,192,131,124,234,4,244,15,133,21,14,0
-	.byte 0,139,44,234,59,69,24,15,131,9,14,0,0,193,224,3
-	.byte 3,69,8,131,120,4,255,116,29,139,40,139,64,4,137,44
-	.byte 202,137,68,202,4,139,6,15,182,204,15,182,232,131,198,4
-	.byte 193,232,16,255,36,171,131,125,16,0,116,17,139,77,16,246
-	.byte 65,6,1,15,132,205,13,0,0,15,182,78,253,199,68,202
-	.byte 4,255,255,255,255,235,206
+	.long 0xe004caae,0xe20bb0ff,0xe18900dc,0xe371000c
+	.long 0x1a000445,0xe5902018,0xe5903008,0xe1a0118b
+	.long 0xe15b0002,0x318320d1,0x2a00043f,0xe5d6c000
+	.long 0xe3730001,0x0a000005,0xe496e004,0xe18920fa
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe5901010,0xe3510000,0x0afffff6,0xe5d11006
+	.long 0xe3110001,0x1afffff3,0xea00042f
 
 	.globl lj_BC_TSETV
 	.hidden lj_BC_TSETV
-	.type lj_BC_TSETV, @function
-	.size lj_BC_TSETV, 172
+	.type lj_BC_TSETV, %function
+	.size lj_BC_TSETV, 188
 lj_BC_TSETV:
-	.byte 15,182,236,15,182,192,131,124,234,4,244,15,133,104,14,0
-	.byte 0,139,44,234,131,124,194,4,242,115,104,242,15,16,4,194
-	.byte 242,15,45,192,242,15,42,200,102,15,46,193,15,133,71,14
-	.byte 0,0,59,69,24,15,131,62,14,0,0,193,224,3,3,69
-	.byte 8,131,120,4,255,116,35,246,69,4,4,117,70,139,108,202
-	.byte 4,139,12,202,137,104,4,137,8,139,6,15,182,204,15,182
-	.byte 232,131,198,4,193,232,16,255,36,171,131,125,16,0,116,215
-	.byte 139,77,16,246,65,6,2,15,132,252,13,0,0,15,182,78
-	.byte 253,235,196,131,124,194,4,251,15,133,235,13,0,0,139,4
-	.byte 194,235,50,128,101,4,251,139,139,32,245,255,255,137,171,32
-	.byte 245,255,255,137,77,12,15,182,78,253,235,161
+	.long 0xe004caae,0xe004b6ae,0xe18900dc,0xe18920db
+	.long 0xe371000c,0x1a000459,0xe373000e,0x05901008
+	.long 0x05903018,0x1a000020,0xe0811182,0xe1520003
+	.long 0x3591e004,0x2a000451,0xe5d6c000,0xe37e0001
+	.long 0xe5d0e004,0xe18920da,0x0a000007,0xe31e0004
+	.long 0xe1c120f0,0x1a00000e,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0xe590a010
+	.long 0xe35a0000,0x0afffff4,0xe5daa006,0xe31a0002
+	.long 0x1afffff1,0xe516e004,0xe004caae,0xe004a2ae
+	.long 0xea00043a,0xe5172ae0,0xe3cee004,0xe5070ae0
+	.long 0xe5c0e004,0xe580200c,0xeaffffea,0xe3730005
+	.long 0x01a0b002,0x0a000007,0xea000430
 
 	.globl lj_BC_TSETS
 	.hidden lj_BC_TSETS
-	.type lj_BC_TSETS, @function
-	.size lj_BC_TSETS, 239
+	.type lj_BC_TSETS, %function
+	.size lj_BC_TSETS, 276
 lj_BC_TSETS:
-	.byte 15,182,236,15,182,192,247,208,139,4,135,131,124,234,4,244
-	.byte 15,133,122,13,0,0,139,44,234,139,77,28,35,72,8,107
-	.byte 201,24,198,69,6,0,3,77,20,131,121,12,251,117,83,57
-	.byte 65,8,117,78,131,121,4,255,116,43,246,69,4,4,15,133
-	.byte 147,0,0,0,15,182,70,253,139,108,194,4,139,4,194,137
-	.byte 105,4,137,1,139,6,15,182,204,15,182,232,131,198,4,193
-	.byte 232,16,255,36,171,131,125,16,0,116,207,137,76,36,16,139
-	.byte 77,16,246,65,6,2,15,132,20,13,0,0,139,76,36,16
-	.byte 235,184,139,73,16,133,201,117,160,139,77,16,133,201,116,10
-	.byte 246,65,6,2,15,132,246,12,0,0,137,68,36,16,199,68
-	.byte 36,20,251,255,255,255,137,108,36,12,141,68,36,16,137,108
-	.byte 36,4,139,108,36,48,137,68,36,8,137,44,36,137,85,16
-	.byte 137,116,36,24,232
-	.long lj_tab_newkey-.-4
-	.byte 139,85,16,139,108,36,12,137,193,233,99,255,255,255,128,101
-	.byte 4,251,139,131,32,245,255,255,137,171,32,245,255,255,137,69
-	.byte 12,233,85,255,255,255
+	.long 0xe004caae,0xe20bb0ff,0xe18900dc,0xe1e0b00b
+	.long 0xe795b10b,0xe371000c,0x1a000417,0xe590201c
+	.long 0xe59b3008,0xe590e014,0xe1a0c000,0xe0022003
+	.long 0xe0822082,0xe3a03000,0xe08ee182,0xe5cc3006
+	.long 0xe1ce00d8,0xe59e3004,0xe59e2010,0xe3710005
+	.long 0x0150000b,0x1a000013,0xe5dc1004,0xe3730001
+	.long 0xe18920da,0x0a000008,0xe3110004,0xe1ce20f0
+	.long 0x1a000021,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0xe59c0010
+	.long 0xe3500000,0x0afffff3,0xe5d00006,0xe3100002
+	.long 0x1afffff0,0xea0003f6,0xe1b0e002,0x1affffe3
+	.long 0xe59c0010,0xe1a0200d,0xe58d6008,0xe3500000
+	.long 0xe5889010,0x15d01006,0xe1a00008,0x0a000001
+	.long 0xe3110002,0x0a0003ea,0xe3e03004,0xe58db000
+	.long 0xe1a0100c,0xe58d3004
+	bl lj_tab_newkey
+	.long 0xe5989010,0xe18920da,0xe1c020f0,0xeaffffdd
+	.long 0xe5172ae0,0xe3c11004,0xe507cae0,0xe5cc1004
+	.long 0xe58c200c,0xeaffffd7
 
 	.globl lj_BC_TSETB
 	.hidden lj_BC_TSETB
-	.type lj_BC_TSETB, @function
-	.size lj_BC_TSETB, 126
+	.type lj_BC_TSETB, %function
+	.size lj_BC_TSETB, 156
 lj_BC_TSETB:
-	.byte 15,182,236,15,182,192,131,124,234,4,244,15,133,185,12,0
-	.byte 0,139,44,234,59,69,24,15,131,173,12,0,0,193,224,3
-	.byte 3,69,8,131,120,4,255,116,35,246,69,4,4,117,54,139
-	.byte 108,202,4,139,12,202,137,104,4,137,8,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171,131,125,16,0
-	.byte 116,215,139,77,16,246,65,6,2,15,132,107,12,0,0,15
-	.byte 182,78,253,235,196,128,101,4,251,139,139,32,245,255,255,137
-	.byte 171,32,245,255,255,137,77,12,15,182,78,253,235,177
+	.long 0xe004caae,0xe20bb0ff,0xe18900dc,0xe371000c
+	.long 0x1a0003df,0xe5902018,0xe590c008,0xe1a0118b
+	.long 0xe15b0002,0x31a120dc,0x2a0003d9,0xe5d6c000
+	.long 0xe3730001,0xe5d0e004,0xe18920da,0x0a000007
+	.long 0xe31e0004,0xe1c120f0,0x1a00000d,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe590a010,0xe35a0000,0x0afffff4,0xe5daa006
+	.long 0xe31a0002,0x1afffff1,0xe516e004,0xe004a2ae
+	.long 0xea0003c3,0xe5172ae0,0xe3cee004,0xe5070ae0
+	.long 0xe5c0e004,0xe580200c,0xeaffffeb
 
 	.globl lj_BC_TSETM
 	.hidden lj_BC_TSETM
-	.type lj_BC_TSETM, @function
-	.size lj_BC_TSETM, 142
+	.type lj_BC_TSETM, %function
+	.size lj_BC_TSETM, 148
 lj_BC_TSETM:
-	.byte 137,124,36,16,139,60,199,141,12,202,139,105,248,246,69,4
-	.byte 4,117,102,139,68,36,20,131,232,1,116,36,1,248,59,69
-	.byte 24,119,50,41,248,193,231,3,3,125,8,139,41,137,47,139
-	.byte 105,4,131,193,8,137,111,4,131,199,8,131,232,1,117,235
-	.byte 139,124,36,16,139,6,15,182,204,15,182,232,131,198,4,193
-	.byte 232,16,255,36,171,137,108,36,4,139,108,36,48,137,85,16
-	.byte 137,68,36,8,137,44,36,137,116,36,24,232
-	.long lj_tab_reasize-.-4
-	.byte 139,85,16,15,182,78,253,235,142,128,101,4,251,139,131,32
-	.byte 245,255,255,137,171,32,245,255,255,137,69,12,235,133
+	.long 0xe089a00a,0xe59dc004,0xe51a1008,0xe795018b
+	.long 0xe25cc008,0xe5913018,0x0a00000c,0xe08021ac
+	.long 0xe1520003,0xe5913008,0xe08ac00c,0x8a00000d
+	.long 0xe083e180,0xe5d10004,0xe0ca20d8,0xe0ce20f8
+	.long 0xe15a000c,0x3afffffb,0xe3100004,0x1a00000a
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xe5889010,0xe1a00008
+	.long 0xe58d6008
+	bl lj_tab_reasize
+	.long 0xeaffffe1,0xe5172ae0,0xe3c00004,0xe5071ae0
+	.long 0xe5c10004,0xe581200c,0xeaffffee
 
 	.globl lj_BC_CALLM
 	.hidden lj_BC_CALLM
-	.type lj_BC_CALLM, @function
-	.size lj_BC_CALLM, 45
+	.type lj_BC_CALLM, %function
+	.size lj_BC_CALLM, 16
 lj_BC_CALLM:
-	.byte 15,182,192,3,68,36,20,131,124,202,4,247,139,44,202,15
-	.byte 133,90,13,0,0,141,84,202,8,137,114,252,139,117,16,139
-	.byte 14,15,182,233,15,182,205,131,198,4,255,36,171
+	.long 0xe59d0004,0xe004b6ae,0xe08bb000,0xea000000
 
 	.globl lj_BC_CALL
 	.hidden lj_BC_CALL
-	.type lj_BC_CALL, @function
-	.size lj_BC_CALL, 41
+	.type lj_BC_CALL, %function
+	.size lj_BC_CALL, 60
 lj_BC_CALL:
-	.byte 15,182,192,131,124,202,4,247,139,44,202,15,133,49,13,0
-	.byte 0,141,84,202,8,137,114,252,139,117,16,139,14,15,182,233
-	.byte 15,182,205,131,198,4,255,36,171
+	.long 0xe004b6ae,0xe1a0c009,0xe1a920da,0xe24bb008
+	.long 0xe2899008,0xe3730009,0x1a000401,0xe5096004
+	.long 0xe5926010,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe08aa009,0xe12fff1c
 
 	.globl lj_BC_CALLMT
 	.hidden lj_BC_CALLMT
-	.type lj_BC_CALLMT, @function
-	.size lj_BC_CALLMT, 4
+	.type lj_BC_CALLMT, %function
+	.size lj_BC_CALLMT, 12
 lj_BC_CALLMT:
-	.byte 3,68,36,20
+	.long 0xe59d0004,0xe080b18b,0xea000000
 
 	.globl lj_BC_CALLT
 	.hidden lj_BC_CALLT
-	.type lj_BC_CALLT, @function
-	.size lj_BC_CALLT, 144
+	.type lj_BC_CALLT, %function
+	.size lj_BC_CALLT, 180
 lj_BC_CALLT:
-	.byte 141,76,202,8,137,215,139,105,248,131,121,252,247,15,133,6
-	.byte 13,0,0,139,114,252,247,198,3,0,0,0,117,89,137,106
-	.byte 248,137,68,36,20,131,232,1,116,24,139,41,137,47,139,105
-	.byte 4,131,193,8,137,111,4,131,199,8,131,232,1,117,235,139
-	.byte 106,248,139,68,36,20,128,125,6,1,119,17,139,117,16,139
-	.byte 14,15,182,233,15,182,205,131,198,4,255,36,171,247,198,3
-	.byte 0,0,0,117,231,15,182,78,253,247,209,139,124,202,248,139
-	.byte 127,16,139,127,208,235,213,131,238,3,247,198,7,0,0,0
-	.byte 117,9,41,242,137,215,139,114,252,235,147,131,198,3,235,142
+	.long 0xe1a0b18b,0xe1aa20d9,0xe24bb008,0xe28aa008
+	.long 0xe3730009,0x1a000400,0xe5196004,0xe3a0c000
+	.long 0xe5d23006,0xe3160003,0x1a000018,0xe5092008
+	.long 0xe35b0000,0x0a000005,0xe18a00dc,0xe28ce008
+	.long 0xe15e000b,0xe18900fc,0xe1a0c00e,0x1afffff9
+	.long 0xe3530001,0x8a000006,0xe5926010,0xe5d6c000
+	.long 0xe496e004,0xe797c10c,0xe004a2ae,0xe08aa009
+	.long 0xe12fff1c,0xe516e004,0xe004a2ae,0xe049000a
+	.long 0xe5100010,0xe5900010,0xe5105030,0xeafffff1
+	.long 0xe2266003,0xe3160007,0x13a03000,0x1affffe2
+	.long 0xe0499006,0xe5196004,0xe3160003,0x13a03000
+	.long 0xeaffffdd
 
 	.globl lj_BC_ITERC
 	.hidden lj_BC_ITERC
-	.type lj_BC_ITERC, @function
-	.size lj_BC_ITERC, 75
+	.type lj_BC_ITERC, %function
+	.size lj_BC_ITERC, 80
 lj_BC_ITERC:
-	.byte 141,76,202,8,139,105,232,139,65,236,137,41,137,65,4,139
-	.byte 105,240,139,65,244,137,105,8,137,65,12,139,105,224,139,65
-	.byte 228,137,105,248,137,65,252,131,248,247,184,3,0,0,0,15
-	.byte 133,84,12,0,0,137,202,137,114,252,139,117,16,139,14,15
-	.byte 182,233,15,182,205,131,198,4,255,36,171
+	.long 0xe089a00a,0xe1a0c009,0xe14a21d0,0xe14a00d8
+	.long 0xe28a9008,0xe1ca20f8,0xe1ca01f0,0xe14a21d8
+	.long 0xe3a0b010,0xe1ca20f0,0xe3730009,0x1a0003bd
+	.long 0xe5096004,0xe5926010,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe08aa009,0xe12fff1c
 
 	.globl lj_BC_ITERN
 	.hidden lj_BC_ITERN
-	.type lj_BC_ITERN, @function
-	.size lj_BC_ITERN, 168
+	.type lj_BC_ITERN, %function
+	.size lj_BC_ITERN, 184
 lj_BC_ITERN:
-	.byte 137,124,36,16,137,92,36,20,139,108,202,240,139,68,202,248
-	.byte 139,93,24,131,198,4,139,125,8,57,216,115,79,131,124,199
-	.byte 4,255,116,67,242,15,42,192,139,108,199,4,137,108,202,12
-	.byte 139,44,199,137,108,202,8,131,192,1,242,15,17,4,202,137
-	.byte 68,202,248,15,183,70,254,141,180,134,0,0,254,255,139,92
-	.byte 36,20,139,124,36,16,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171,131,192,1,235,173,41,216,59,69
-	.byte 28,119,219,107,248,24,3,125,20,131,127,4,255,116,36,141
-	.byte 92,24,1,139,111,8,139,71,12,137,44,202,137,68,202,4
-	.byte 139,47,139,71,4,137,108,202,8,137,68,202,12,137,92,202
-	.byte 248,235,160,131,192,1,235,198
+	.long 0xe089a00a,0xe51ac010,0xe51a0008,0xe59ce018
+	.long 0xe59c1008,0xe2866004,0xe050b00e,0xe0812180
+	.long 0x2a000011,0xe1c220d0,0xe3730001,0x02800001
+	.long 0x0afffff8,0xe156b0b2,0xe3e0100d,0xe1ca20f8
+	.long 0xe086b10b,0xe280c001,0xe1ca00f0,0xe24b6b80
+	.long 0xe50ac008,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0xe59c301c
+	.long 0xe59cc014,0xe08b008b,0xe15b0003,0xe08c2180
+	.long 0x8afffff3,0xe1c200d0,0xe3710001,0xe28bb001
+	.long 0x0afffff7,0xe156c0b2,0xe08bb00e,0xe1c220d8
+	.long 0xe50ab008,0xe1ca00f8,0xe086b10c,0xe24b6b80
+	.long 0xe1ca20f0,0xeaffffe6
 
 	.globl lj_BC_VARG
 	.hidden lj_BC_VARG
-	.type lj_BC_VARG, @function
-	.size lj_BC_VARG, 188
+	.type lj_BC_VARG, %function
+	.size lj_BC_VARG, 208
 lj_BC_VARG:
-	.byte 15,182,236,15,182,192,137,124,36,16,141,124,194,11,141,12
-	.byte 202,43,122,252,133,237,116,68,141,108,233,248,57,215,115,25
-	.byte 139,71,248,137,1,139,71,252,131,199,8,137,65,4,131,193
-	.byte 8,57,233,115,18,57,215,114,231,199,65,4,255,255,255,255
-	.byte 131,193,8,57,233,114,242,139,124,36,16,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171,199,68,36,20
-	.byte 1,0,0,0,137,208,41,248,118,221,137,197,193,237,3,131
-	.byte 197,1,137,108,36,20,139,108,36,48,1,200,59,69,24,119
-	.byte 23,139,71,248,137,1,139,71,252,131,199,8,137,65,4,131
-	.byte 193,8,57,215,114,235,235,175,137,85,16,137,77,20,137,116
-	.byte 36,24,41,215,139,84,36,20,131,234,1,137,233,232
-	.long lj_state_growstack-.-4
-	.byte 139,85,16,139,77,20,1,215,235,197
+	.long 0xe004caae,0xe004b6ae,0xe5190004,0xe089b00b
+	.long 0xe089a00a,0xe28bb003,0xe08a300c,0xe2492008
+	.long 0xe04bb000,0xe35c0000,0xe042000b,0x0a00000c
+	.long 0xe2433010,0xe15b0002,0x30cb00d8,0x23e01000
+	.long 0xe15a0003,0xe0ca00f8,0x3afffff9,0xe5d6c000
+	.long 0xe496e004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xe5983018,0xe3500000,0xd3a0c008
+	.long 0xc280c008,0xe08a1000,0xe58dc004,0xdafffff2
+	.long 0xe1510003,0x8a000004,0xe0cb00d8,0xe0ca00f8
+	.long 0xe15b0002,0x3afffffb,0xeaffffeb,0xe1a011a0
+	.long 0xe588a014,0xe1a00008,0xe5889010,0xe04bb009
+	.long 0xe58d6008,0xe04aa009
+	bl lj_state_growstack
+	.long 0xe5989010,0xe089a00a,0xe089b00b,0xe2492008
+	.long 0xeaffffed
 
 	.globl lj_BC_ISNEXT
 	.hidden lj_BC_ISNEXT
-	.type lj_BC_ISNEXT, @function
-	.size lj_BC_ISNEXT, 87
+	.type lj_BC_ISNEXT, %function
+	.size lj_BC_ISNEXT, 112
 lj_BC_ISNEXT:
-	.byte 131,124,202,236,247,117,64,139,108,202,232,131,124,202,244,244
-	.byte 117,53,131,124,202,252,255,117,46,128,125,6,4,117,40,141
-	.byte 180,134,0,0,254,255,199,68,202,248,0,0,0,0,199,68
-	.byte 202,252,255,127,254,255,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171,198,70,252,84,141,180,134,0,0
-	.byte 254,255,198,6,65,235,223
+	.long 0xe089a00a,0xe086b10b,0xe14a01d8,0xe51a200c
+	.long 0xe51a3004,0xe3710009,0x05d00006,0x0372000c
+	.long 0x03730001,0x03500004,0x024b6b80,0x1a000008
+	.long 0xe5d6c000,0xe496e004,0xe3a00000,0xe3e01b60
+	.long 0xe14a00f8,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xe3a00054,0xe3a0c041,0xe5460004
+	.long 0xe24b6b80,0xe5c6c000,0xe496e004,0xeafffff4
 
 	.globl lj_BC_RETM
 	.hidden lj_BC_RETM
-	.type lj_BC_RETM, @function
-	.size lj_BC_RETM, 4
+	.type lj_BC_RETM, %function
+	.size lj_BC_RETM, 20
 lj_BC_RETM:
-	.byte 3,68,36,20
+	.long 0xe59d0004,0xe5196004,0xe089a00a,0xe080b18b
+	.long 0xea000002
 
 	.globl lj_BC_RET
 	.hidden lj_BC_RET
-	.type lj_BC_RET, @function
-	.size lj_BC_RET, 129
+	.type lj_BC_RET, %function
+	.size lj_BC_RET, 168
 lj_BC_RET:
-	.byte 193,225,3,139,114,252,137,68,36,20,247,198,3,0,0,0
-	.byte 117,90,137,215,131,232,1,116,21,139,44,15,137,111,248,139
-	.byte 108,15,4,137,111,252,131,199,8,131,232,1,117,235,139,68
-	.byte 36,20,15,182,110,255,57,197,119,35,15,182,78,253,247,209
-	.byte 141,20,202,139,122,248,139,127,16,139,127,208,139,6,15,182
-	.byte 204,15,182,232,131,198,4,193,232,16,255,36,171,199,71,252
-	.byte 255,255,255,255,131,199,8,131,192,1,235,202,141,110,253,247
-	.byte 197,7,0,0,0,15,133,168,4,0,0,41,234,1,233,235
-	.byte 130
+	.long 0xe5196004,0xe1a0b18b,0xe089a00a,0xe58db004
+	.long 0xe2160003,0xe2261003,0x1a00001d,0xe516e004
+	.long 0xe25b3008,0xe2492008,0x0a000004,0xe0ca00d8
+	.long 0xe2899008,0xe2533008,0xe14901f0,0x1afffffa
+	.long 0xe004a2ae,0xe042300a,0xe004caae,0xe5130008
+	.long 0xe15c000b,0x8a000008,0xe1a09003,0xe5901010
+	.long 0xe5d6c000,0xe496e004,0xe5115030,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0xe3e01000
+	.long 0xe2899008,0xe28bb008,0xe509100c,0xeaffffef
+	.long 0xe089a00a,0xe3110007,0x1a000188,0xe0499001
+	.long 0xe5196004,0xeaffffd9
 
 	.globl lj_BC_RET0
 	.hidden lj_BC_RET0
-	.type lj_BC_RET0, @function
-	.size lj_BC_RET0, 87
+	.type lj_BC_RET0, %function
+	.size lj_BC_RET0, 108
 lj_BC_RET0:
-	.byte 139,114,252,137,68,36,20,247,198,3,0,0,0,117,53,56
-	.byte 70,255,119,35,15,182,78,253,247,209,141,20,202,139,122,248
-	.byte 139,127,16,139,127,208,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171,199,68,194,244,255,255,255,255,131
-	.byte 192,1,235,203,141,110,253,247,197,7,0,0,0,15,133,79
-	.byte 4,0,0,41,234,235,169
+	.long 0xe5196004,0xe1a0b18b,0xe58db004,0xe2160003
+	.long 0xe2261003,0x0516e004,0x1afffff2,0xe2493008
+	.long 0xe004a2ae,0xe043900a,0xe004caae,0xe5190008
+	.long 0xe15c000b,0x8a000007,0xe5901010,0xe5d6c000
+	.long 0xe496e004,0xe5115030,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xe2431004,0xe3e02000
+	.long 0xe781200b,0xe28bb008,0xeafffff0
 
 	.globl lj_BC_RET1
 	.hidden lj_BC_RET1
-	.type lj_BC_RET1, @function
-	.size lj_BC_RET1, 105
+	.type lj_BC_RET1, %function
+	.size lj_BC_RET1, 116
 lj_BC_RET1:
-	.byte 193,225,3,139,114,252,137,68,36,20,247,198,3,0,0,0
-	.byte 117,66,139,108,10,4,137,106,252,139,44,10,137,106,248,56
-	.byte 70,255,119,35,15,182,78,253,247,209,141,20,202,139,122,248
-	.byte 139,127,16,139,127,208,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171,199,68,194,244,255,255,255,255,131
-	.byte 192,1,235,203,141,110,253,247,197,7,0,0,0,15,133,232
-	.byte 3,0,0,41,234,1,233,235,154
+	.long 0xe5196004,0xe1a0b18b,0xe58db004,0xe2160003
+	.long 0xe2261003,0x0516e004,0x1affffd7,0xe18900da
+	.long 0xe2493008,0xe004a2ae,0xe1c300f0,0xe043900a
+	.long 0xe004caae,0xe5190008,0xe15c000b,0x8a000007
+	.long 0xe5901010,0xe5d6c000,0xe496e004,0xe5115030
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe2431004,0xe3e02000,0xe781200b,0xe28bb008
+	.long 0xeafffff0
 
 	.globl lj_BC_FORI
 	.hidden lj_BC_FORI
-	.type lj_BC_FORI, @function
-	.size lj_BC_FORI, 87
+	.type lj_BC_FORI, %function
+	.size lj_BC_FORI, 148
 lj_BC_FORI:
-	.byte 141,12,202,131,121,4,242,15,131,137,9,0,0,131,121,12
-	.byte 242,15,131,127,9,0,0,139,105,20,131,253,242,15,131,115
-	.byte 9,0,0,242,15,16,1,242,15,16,73,8,124,35,102,15
-	.byte 46,200,242,15,17,65,24,115,7,141,180,134,0,0,254,255
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171,102,15,46,193,235,219
+	.long 0xe1aa00d9,0xe086b10b,0xe1ca20d8,0xe371000e
+	.long 0xe59ac014,0x1a000010,0xe373000e,0xe59a3010
+	.long 0x037c000e,0x1a0002e0,0xe3530000,0xba000008
+	.long 0xe1500002,0xc24b6b80,0xe5d6c000,0xe496e004
+	.long 0xe1ca01f8,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c,0xe1520000,0xeafffff5,0x3373000e
+	.long 0x337c000e,0x2a0002d0,0xed1a0b00,0xed9a1b02
+	.long 0xe35c0000,0xed8a0b06,0xaeb40b41,0xbeb41b40
+	.long 0xeef1fa10,0x824b6b80,0xe5d6c000,0xe496e004
+	.long 0xeaffffeb
 
 	.globl lj_BC_JFORI
 	.hidden lj_BC_JFORI
-	.type lj_BC_JFORI, @function
-	.size lj_BC_JFORI, 95
+	.type lj_BC_JFORI, %function
+	.size lj_BC_JFORI, 164
 lj_BC_JFORI:
-	.byte 141,12,202,131,121,4,242,15,131,50,9,0,0,131,121,12
-	.byte 242,15,131,40,9,0,0,139,105,20,131,253,242,15,131,28
-	.byte 9,0,0,242,15,16,1,242,15,16,73,8,124,43,102,15
-	.byte 46,200,242,15,17,65,24,141,180,134,0,0,254,255,15,183
-	.byte 70,254,15,131,57,1,0,0,139,6,15,182,204,15,182,232
-	.byte 131,198,4,193,232,16,255,36,171,102,15,46,193,235,211
+	.long 0xe1aa00d9,0xe086b10b,0xe1ca20d8,0xe371000e
+	.long 0xe59ac014,0x1a000012,0xe373000e,0xe59a3010
+	.long 0x037c000e,0x1a0002bb,0xe3530000,0xba00000a
+	.long 0xe1500002,0xe24b6b80,0xd156b0b2,0xe5d6c000
+	.long 0xe496e004,0xe1ca01f8,0xda00008c,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0xe1520000
+	.long 0xeafffff3,0x3373000e,0x337c000e,0x2a0002a9
+	.long 0xed1a0b00,0xed9a1b02,0xe35c0000,0xed8a0b06
+	.long 0xaeb40b41,0xbeb41b40,0xeef1fa10,0xe24b6b80
+	.long 0x9156b0b2,0x9a000079,0xe5d6c000,0xe496e004
+	.long 0xeaffffe9
 
 	.globl lj_BC_FORL
 	.hidden lj_BC_FORL
-	.type lj_BC_FORL, @function
-	.size lj_BC_FORL, 19
+	.type lj_BC_FORL, %function
+	.size lj_BC_FORL, 28
 lj_BC_FORL:
-	.byte 137,245,209,237,131,229,126,102,131,108,43,128,2,15,130,136
-	.byte 27,0,0
+	.long 0xe1a000a6,0xe200007e,0xe2400080,0xe19710b0
+	.long 0xe2511002,0xe18710b0,0x3a000731
 
 	.globl lj_BC_IFORL
 	.hidden lj_BC_IFORL
-	.type lj_BC_IFORL, @function
-	.size lj_BC_IFORL, 69
+	.type lj_BC_IFORL, %function
+	.size lj_BC_IFORL, 144
 lj_BC_IFORL:
-	.byte 141,12,202,139,105,20,242,15,16,1,242,15,16,73,8,242
-	.byte 15,88,65,16,242,15,17,1,133,237,120,35,102,15,46,200
-	.byte 242,15,17,65,24,114,7,141,180,134,0,0,254,255,139,6
-	.byte 15,182,204,15,182,232,131,198,4,193,232,16,255,36,171,102
-	.byte 15,46,193,235,219
+	.long 0xe1aa00d9,0xe086b10b,0xe1ca21d0,0xe371000e
+	.long 0x1a000010,0xe0900002,0xe59a3008,0x6286bb80
+	.long 0xe3520000,0xba000009,0xe1500003,0xd24b6b80
+	.long 0xe1ca00f0,0xe5d6c000,0xe496e004,0xe1ca01f8
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe1530000,0xeafffff4,0xed1a0b00,0xed9a2b04
+	.long 0xed9a1b02,0xe3530000,0xee300b02,0xaeb40b41
+	.long 0xbeb41b40,0xeef1fa10,0xed0a0b00,0xed8a0b06
+	.long 0x924b6b80,0xe5d6c000,0xe496e004,0xeaffffeb
 
 	.globl lj_BC_JFORL
 	.hidden lj_BC_JFORL
-	.type lj_BC_JFORL, @function
-	.size lj_BC_JFORL, 66
+	.type lj_BC_JFORL, %function
+	.size lj_BC_JFORL, 140
 lj_BC_JFORL:
-	.byte 141,12,202,139,105,20,242,15,16,1,242,15,16,73,8,242
-	.byte 15,88,65,16,242,15,17,1,133,237,120,32,102,15,46,200
-	.byte 242,15,17,65,24,15,131,159,0,0,0,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171,102,15,46,193
-	.byte 235,222
+	.long 0xe1aa00d9,0xe1ca21d0,0xe371000e,0x1a000010
+	.long 0xe0900002,0xe59a3008,0x6a000003,0xe3520000
+	.long 0xba000009,0xe1500003,0xe1ca00f0,0xe5d6c000
+	.long 0xe496e004,0xe1ca01f8,0xda00003c,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c,0xe1530000
+	.long 0xeafffff4,0xed1a0b00,0xed9a2b04,0xed9a1b02
+	.long 0xe3530000,0xee300b02,0xaeb40b41,0xbeb41b40
+	.long 0xeef1fa10,0xed0a0b00,0xed8a0b06,0x9a00002b
+	.long 0xe5d6c000,0xe496e004,0xeaffffeb
 
 	.globl lj_BC_ITERL
 	.hidden lj_BC_ITERL
-	.type lj_BC_ITERL, @function
-	.size lj_BC_ITERL, 19
+	.type lj_BC_ITERL, %function
+	.size lj_BC_ITERL, 28
 lj_BC_ITERL:
-	.byte 137,245,209,237,131,229,126,102,131,108,43,128,2,15,130,238
-	.byte 26,0,0
+	.long 0xe1a000a6,0xe200007e,0xe2400080,0xe19710b0
+	.long 0xe2511002,0xe18710b0,0x3a0006e3
 
 	.globl lj_BC_IITERL
 	.hidden lj_BC_IITERL
-	.type lj_BC_IITERL, @function
-	.size lj_BC_IITERL, 43
+	.type lj_BC_IITERL, %function
+	.size lj_BC_IITERL, 44
 lj_BC_IITERL:
-	.byte 141,12,202,139,105,4,131,253,255,116,15,141,180,134,0,0
-	.byte 254,255,139,1,137,105,252,137,65,248,139,6,15,182,204,15
-	.byte 182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe1aa00d9,0xe086b10b,0xe3710001,0x124b6b80
+	.long 0x114a00f8,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_JITERL
 	.hidden lj_BC_JITERL
-	.type lj_BC_JITERL, @function
-	.size lj_BC_JITERL, 38
+	.type lj_BC_JITERL, %function
+	.size lj_BC_JITERL, 40
 lj_BC_JITERL:
-	.byte 141,12,202,139,105,4,131,253,255,116,10,137,105,252,139,41
-	.byte 137,105,248,235,53,139,6,15,182,204,15,182,232,131,198,4
-	.byte 193,232,16,255,36,171
+	.long 0xe1aa00d9,0xe3710001,0x114a00f8,0x1a000012
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_LOOP
 	.hidden lj_BC_LOOP
-	.type lj_BC_LOOP, @function
-	.size lj_BC_LOOP, 19
+	.type lj_BC_LOOP, %function
+	.size lj_BC_LOOP, 28
 lj_BC_LOOP:
-	.byte 137,245,209,237,131,229,126,102,131,108,43,128,2,15,130,138
-	.byte 26,0,0
+	.long 0xe1a000a6,0xe200007e,0xe2400080,0xe19710b0
+	.long 0xe2511002,0xe18710b0,0x3a0006c7
 
 	.globl lj_BC_ILOOP
 	.hidden lj_BC_ILOOP
-	.type lj_BC_ILOOP, @function
-	.size lj_BC_ILOOP, 17
+	.type lj_BC_ILOOP, %function
+	.size lj_BC_ILOOP, 24
 lj_BC_ILOOP:
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_JLOOP
 	.hidden lj_BC_JLOOP
-	.type lj_BC_JLOOP, @function
-	.size lj_BC_JLOOP, 30
+	.type lj_BC_JLOOP, %function
+	.size lj_BC_JLOOP, 32
 lj_BC_JLOOP:
-	.byte 139,139,112,247,255,255,139,4,129,139,64,52,139,108,36,48
-	.byte 137,147,204,245,255,255,137,171,200,245,255,255,255,224
+	.long 0xe5170890,0xe3a01000,0xe790b10b,0xe5071a44
+	.long 0xe59ba034,0xe5079a34,0xe5078a38,0xe12fff1a
 
 	.globl lj_BC_JMP
 	.hidden lj_BC_JMP
-	.type lj_BC_JMP, @function
-	.size lj_BC_JMP, 24
+	.type lj_BC_JMP, %function
+	.size lj_BC_JMP, 32
 lj_BC_JMP:
-	.byte 141,180,134,0,0,254,255,139,6,15,182,204,15,182,232,131
-	.byte 198,4,193,232,16,255,36,171
+	.long 0xe086b10b,0xe24b6b80,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_BC_FUNCF
 	.hidden lj_BC_FUNCF
-	.type lj_BC_FUNCF, @function
-	.size lj_BC_FUNCF, 19
+	.type lj_BC_FUNCF, %function
+	.size lj_BC_FUNCF, 28
 lj_BC_FUNCF:
-	.byte 137,245,209,237,131,229,126,102,131,108,43,128,1,15,130,102
-	.byte 26,0,0
+	.long 0xe1a000a6,0xe200007e,0xe2400080,0xe19710b0
+	.long 0xe2511001,0xe18710b0,0x3a0006b8
 
 	.globl lj_BC_IFUNCF
 	.hidden lj_BC_IFUNCF
-	.type lj_BC_IFUNCF, @function
-	.size lj_BC_IFUNCF, 61
+	.type lj_BC_IFUNCF, %function
+	.size lj_BC_IFUNCF, 68
 lj_BC_IFUNCF:
-	.byte 139,126,204,139,108,36,48,141,12,202,59,77,24,15,135,163
-	.byte 2,0,0,15,182,78,194,57,200,118,17,139,6,15,182,204
-	.byte 15,182,232,131,198,4,193,232,16,255,36,171,199,68,194,252
-	.byte 255,255,255,255,131,192,1,57,200,118,241,235,222
+	.long 0xe5980018,0xe556103e,0xe5165034,0xe15a0000
+	.long 0x8a0000b2,0xe5d6c000,0xe496e004,0xe15b0181
+	.long 0xe3e03000,0x3a000003,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xe18920fb,0xe28bb008
+	.long 0xeafffff5
 
 	.globl lj_BC_JFUNCF
 	.hidden lj_BC_JFUNCF
-	.type lj_BC_JFUNCF, @function
-	.size lj_BC_JFUNCF, 53
+	.type lj_BC_JFUNCF, %function
+	.size lj_BC_JFUNCF, 52
 lj_BC_JFUNCF:
-	.byte 139,126,204,139,108,36,48,141,12,202,59,77,24,15,135,102
-	.byte 2,0,0,15,182,78,194,57,200,118,9,15,183,70,254,233
-	.byte 86,255,255,255,199,68,194,252,255,255,255,255,131,192,1,57
-	.byte 200,118,241,235,230
+	.long 0xe5980018,0xe556103e,0xe5165034,0xe15a0000
+	.long 0x8a0000a1,0xe15b0181,0xe3e03000,0x3a000001
+	.long 0xe1a0b82e,0xeaffffcd,0xe18920fb,0xe28bb008
+	.long 0xeafffff7
 
 	.globl lj_BC_FUNCV
 	.hidden lj_BC_FUNCV
-	.type lj_BC_FUNCV, @function
+	.type lj_BC_FUNCV, %function
 	.size lj_BC_FUNCV, 0
 lj_BC_FUNCV:
 
 	.globl lj_BC_IFUNCV
 	.hidden lj_BC_IFUNCV
-	.type lj_BC_IFUNCV, @function
-	.size lj_BC_IFUNCV, 117
+	.type lj_BC_IFUNCV, %function
+	.size lj_BC_IFUNCV, 116
 lj_BC_IFUNCV:
-	.byte 141,44,197,3,0,0,0,141,4,194,139,122,248,137,104,252
-	.byte 137,120,248,139,108,36,48,141,12,200,59,77,24,15,135,28
-	.byte 2,0,0,137,209,137,194,15,182,110,194,133,237,116,33,131
-	.byte 193,8,57,209,115,46,139,121,248,137,56,139,121,252,137,120
-	.byte 4,131,192,8,199,65,252,255,255,255,255,131,237,1,117,223
-	.byte 139,126,204,139,6,15,182,204,15,182,232,131,198,4,193,232
-	.byte 16,255,36,171,199,64,4,255,255,255,255,131,192,8,131,237
-	.byte 1,117,241,235,219
+	.long 0xe5980018,0xe089300b,0xe08aa00b,0xe5832000
+	.long 0xe28b100b,0xe5165034,0xe15a0000,0xe5831004
+	.long 0x2a000090,0xe556c03e,0xe1a0a009,0xe1a0b003
+	.long 0xe35c0000,0xe2839008,0x0a000007,0xe3e02000
+	.long 0xe15a000b,0x30ca00d8,0x21a01002,0x350a2004
+	.long 0xe25cc001,0xe1e300f8,0x1afffff8,0xe5d6c000
+	.long 0xe496e004,0xe797c10c,0xe004a2ae,0xe1a0b82e
+	.long 0xe12fff1c
 
 	.globl lj_BC_JFUNCV
 	.hidden lj_BC_JFUNCV
-	.type lj_BC_JFUNCV, @function
-	.size lj_BC_JFUNCV, 1
+	.type lj_BC_JFUNCV, %function
+	.size lj_BC_JFUNCV, 4
 lj_BC_JFUNCV:
-	.byte 204
+	.long 0xe7f001f0
 
 	.globl lj_BC_FUNCC
 	.hidden lj_BC_FUNCC
-	.type lj_BC_FUNCC, @function
-	.size lj_BC_FUNCC, 76
+	.type lj_BC_FUNCC, %function
+	.size lj_BC_FUNCC, 80
 lj_BC_FUNCC:
-	.byte 139,106,248,139,125,20,139,108,36,48,141,68,194,248,137,85
-	.byte 16,141,136,160,0,0,0,59,77,24,137,69,20,137,44,36
-	.byte 15,135,156,1,0,0,199,131,188,245,255,255,254,255,255,255
-	.byte 255,215,199,131,188,245,255,255,255,255,255,255,139,85,16,141
-	.byte 12,194,247,217,3,77,20,139,114,252,235,116
+	.long 0xe5923014,0xe08a100b,0xe5980018,0xe089b00b
+	.long 0xe5889010,0xe1510000,0xe588b014,0xe3e02001
+	.long 0xe1a00008,0x8a00006f,0xe5072a44,0xe12fff33
+	.long 0xe5989010,0xe3e02000,0xe5981014,0xe1a0b180
+	.long 0xe5072a44,0xe5196004,0xe041a00b,0xea00001b
 
 	.globl lj_BC_FUNCCW
 	.hidden lj_BC_FUNCCW
-	.type lj_BC_FUNCCW, @function
+	.type lj_BC_FUNCCW, %function
 	.size lj_BC_FUNCCW, 84
 lj_BC_FUNCCW:
-	.byte 139,106,248,139,125,20,139,108,36,48,141,68,194,248,137,85
-	.byte 16,141,136,160,0,0,0,59,77,24,137,69,20,137,124,36
-	.byte 4,137,44,36,15,135,76,1,0,0,199,131,188,245,255,255
-	.byte 254,255,255,255,255,147,180,245,255,255,199,131,188,245,255,255
-	.byte 255,255,255,255,139,85,16,141,12,194,247,217,3,77,20,139
-	.byte 114,252,235,32
+	.long 0xe5173a4c,0xe08a100b,0xe5980018,0xe089b00b
+	.long 0xe5889010,0xe1510000,0xe588b014,0xe5921014
+	.long 0xe3e02001,0xe1a00008,0x8a00005a,0xe5072a44
+	.long 0xe12fff33,0xe5989010,0xe3e02000,0xe5981014
+	.long 0xe1a0b180,0xe5072a44,0xe5196004,0xe041a00b
+	.long 0xea000006
 
 	.globl lj_vm_returnp
 	.hidden lj_vm_returnp
-	.type lj_vm_returnp, @function
-	.size lj_vm_returnp, 32
+	.type lj_vm_returnp, %function
+	.size lj_vm_returnp, 28
 lj_vm_returnp:
-	.byte 247,198,4,0,0,0,15,132,154,2,0,0,131,230,248,41
-	.byte 242,141,76,49,248,139,114,252,199,68,10,4,253,255,255,255
+	.long 0xe3160004,0x0a0000c7,0xe51c6004,0xe3e01002
+	.long 0xe1a0900c,0xe50a1004,0xe24aa008
 
 	.globl lj_vm_returnc
 	.hidden lj_vm_returnc
-	.type lj_vm_returnc, @function
-	.size lj_vm_returnc, 25
+	.type lj_vm_returnc, %function
+	.size lj_vm_returnc, 24
 lj_vm_returnc:
-	.byte 131,192,1,15,132,166,0,0,0,137,68,36,20,247,198,3
-	.byte 0,0,0,15,132,239,250,255,255
+	.long 0xe29bb008,0xe3a00001,0x0a000031,0xe58db004
+	.long 0xe2160003,0x0afffe56
 
 	.globl lj_vm_return
 	.hidden lj_vm_return
-	.type lj_vm_return, @function
-	.size lj_vm_return, 79
+	.type lj_vm_return, %function
+	.size lj_vm_return, 76
 lj_vm_return:
-	.byte 131,246,1,247,198,3,0,0,0,117,188,199,131,188,245,255
-	.byte 255,254,255,255,255,131,230,248,41,214,247,222,131,232,1,116
-	.byte 21,139,44,10,137,106,248,139,108,10,4,137,106,252,131,194
-	.byte 8,131,232,1,117,235,139,108,36,48,137,117,16,139,68,36
-	.byte 20,139,76,36,56,57,193,117,23,131,234,8,137,85,20
+	.long 0xe3c6c007,0xe3500001,0xe049c00c,0x1affffee
+	.long 0xe588c010,0xe59d5014,0xe3e03001,0xe2499008
+	.long 0xe25b2008,0xe1a05185,0xe5073a44,0x0a000003
+	.long 0xe2522008,0xe0ca00d8,0xe0c900f8,0x1afffffb
+	.long 0xe155000b,0x1a000007,0xe5889014
 
 	.globl lj_vm_leave_cp
 	.hidden lj_vm_leave_cp
-	.type lj_vm_leave_cp, @function
-	.size lj_vm_leave_cp, 9
+	.type lj_vm_leave_cp, %function
+	.size lj_vm_leave_cp, 12
 lj_vm_leave_cp:
-	.byte 139,76,36,52,137,77,40,49,192
+	.long 0xe59db010,0xe3a00000,0xe588b028
 
 	.globl lj_vm_leave_unw
 	.hidden lj_vm_leave_unw
-	.type lj_vm_leave_unw, @function
-	.size lj_vm_leave_unw, 62
+	.type lj_vm_leave_unw, %function
+	.size lj_vm_leave_unw, 92
 lj_vm_leave_unw:
-	.byte 131,196,28,91,94,95,93,195,114,20,59,85,24,119,26,199
-	.byte 66,252,255,255,255,255,131,194,8,131,192,1,235,207,133,201
-	.byte 116,207,41,193,141,20,202,235,200,137,85,20,137,68,36,20
-	.byte 137,202,137,233,232
-	.long lj_state_growstack-.-4
-	.byte 139,85,20,235,167
-
-	.globl lj_vm_unwind_yield
-	.hidden lj_vm_unwind_yield
-	.type lj_vm_unwind_yield, @function
-	.size lj_vm_unwind_yield, 4
-lj_vm_unwind_yield:
-	.byte 176,1,235,4
+	.long 0xe59d401c,0xe28dd020,0xecbd8b10,0xe8bd8fe0
+	.long 0xba000007,0xe5982018,0xe3e01000,0xe1590002
+	.long 0x2a000007,0xe5891004,0xe28bb008,0xe2899008
+	.long 0xeaffffec,0xe04b0005,0xe3550000,0x10499000
+	.long 0xeaffffea,0xe5889014,0xe1a011a5,0xe1a00008
+	bl lj_state_growstack
+	.long 0xe5989014,0xeaffffe2
 
 	.globl lj_vm_unwind_c
 	.hidden lj_vm_unwind_c
-	.type lj_vm_unwind_c, @function
-	.size lj_vm_unwind_c, 4
+	.type lj_vm_unwind_c, %function
+	.size lj_vm_unwind_c, 8
 lj_vm_unwind_c:
-	.byte 137,208,137,204
+	.long 0xe1a0d000,0xe1a00001
 
 	.globl lj_vm_unwind_c_eh
 	.hidden lj_vm_unwind_c_eh
-	.type lj_vm_unwind_c_eh, @function
-	.size lj_vm_unwind_c_eh, 19
+	.type lj_vm_unwind_c_eh, %function
+	.size lj_vm_unwind_c_eh, 20
 lj_vm_unwind_c_eh:
-	.byte 139,108,36,48,139,109,8,199,133,204,0,0,0,254,255,255
-	.byte 255,235,167
-
-	.globl lj_vm_unwind_rethrow
-	.hidden lj_vm_unwind_rethrow
-	.type lj_vm_unwind_rethrow, @function
-	.size lj_vm_unwind_rethrow, 0
-lj_vm_unwind_rethrow:
+	.long 0xe59d800c,0xe3e03001,0xe5982008,0xe58230cc
+	.long 0xeaffffe1
 
 	.globl lj_vm_unwind_ff
 	.hidden lj_vm_unwind_ff
-	.type lj_vm_unwind_ff, @function
-	.size lj_vm_unwind_ff, 5
+	.type lj_vm_unwind_ff, %function
+	.size lj_vm_unwind_ff, 8
 lj_vm_unwind_ff:
-	.byte 131,225,252,137,204
+	.long 0xe3c00003,0xe1a0d000
 
 	.globl lj_vm_unwind_ff_eh
 	.hidden lj_vm_unwind_ff_eh
-	.type lj_vm_unwind_ff_eh, @function
-	.size lj_vm_unwind_ff_eh, 51
+	.type lj_vm_unwind_ff_eh, %function
+	.size lj_vm_unwind_ff_eh, 56
 lj_vm_unwind_ff_eh:
-	.byte 139,108,36,48,185,248,255,255,255,184,2,0,0,0,139,85
-	.byte 16,139,93,8,129,195,16,11,0,0,139,114,252,199,66,252
-	.byte 254,255,255,255,199,131,188,245,255,255,255,255,255,255,233,254
-	.byte 254,255,255
+	.long 0xe59d800c,0xe3a040ff,0xe3a0b010,0xe1a04184
+	.long 0xe5989010,0xe5987008,0xe3e00001,0xe249a008
+	.long 0xe5196004,0xe2877eb1,0xe3e01000,0xe5090004
+	.long 0xe5071a44,0xeaffffb5
 
 	.globl lj_vm_growstack_c
 	.hidden lj_vm_growstack_c
-	.type lj_vm_growstack_c, @function
-	.size lj_vm_growstack_c, 7
+	.type lj_vm_growstack_c, %function
+	.size lj_vm_growstack_c, 8
 lj_vm_growstack_c:
-	.byte 186,20,0,0,0,235,28
+	.long 0xe3a01014,0xea000006
 
-	.globl lj_vm_growstack_v
-	.hidden lj_vm_growstack_v
-	.type lj_vm_growstack_v, @function
-	.size lj_vm_growstack_v, 5
-lj_vm_growstack_v:
-	.byte 131,232,8,235,4
-
-	.globl lj_vm_growstack_f
-	.hidden lj_vm_growstack_f
-	.type lj_vm_growstack_f, @function
-	.size lj_vm_growstack_f, 64
-lj_vm_growstack_f:
-	.byte 141,68,194,248,15,182,78,195,131,198,4,137,85,16,137,69
-	.byte 20,137,116,36,24,137,202,137,233,232
-	.long lj_state_growstack-.-4
-	.byte 139,85,16,139,69,20,139,106,248,41,208,193,232,3,131,192
-	.byte 1,139,117,16,139,14,15,182,233,15,182,205,131,198,4,255
-	.byte 36,171
+	.globl lj_vm_growstack_l
+	.hidden lj_vm_growstack_l
+	.type lj_vm_growstack_l, %function
+	.size lj_vm_growstack_l, 80
+lj_vm_growstack_l:
+	.long 0xe089b00b,0xe04aa009,0xe1a00008,0xe5889010
+	.long 0xe2866004,0xe588b014,0xe1a011aa,0xe58d6008
+	bl lj_state_growstack
+	.long 0xe5989010,0xe598b014,0xe5192008,0xe04bb009
+	.long 0xe5926010,0xe5d6c000,0xe496e004,0xe797c10c
+	.long 0xe004a2ae,0xe08aa009,0xe12fff1c
 
 	.globl lj_vm_resume
 	.hidden lj_vm_resume
-	.type lj_vm_resume, @function
-	.size lj_vm_resume, 104
+	.type lj_vm_resume, %function
+	.size lj_vm_resume, 136
 lj_vm_resume:
-	.byte 85,87,86,83,131,236,28,139,108,36,48,139,76,36,52,190
-	.byte 5,0,0,0,49,192,141,124,36,1,139,93,8,129,195,16
-	.byte 11,0,0,137,125,40,137,68,36,24,137,68,36,52,56,69
-	.byte 7,116,110,199,131,188,245,255,255,255,255,255,255,136,69,7
-	.byte 139,85,16,139,69,20,41,200,193,232,3,131,192,1,41,209
-	.byte 139,114,252,137,68,36,20,247,198,3,0,0,0,15,132,87
-	.byte 249,255,255,233,99,254,255,255
+	.long 0xe92d4fe0,0xed2d8b10,0xe24dd020,0xe58d401c
+	.long 0xe1a08000,0xe5907008,0xe1a09001,0xe2877eb1
+	.long 0xe58d800c,0xe3a06005,0xe58d2014,0xe28d1001
+	.long 0xe5d80007,0xe58d2018,0xe5881028,0xe58d2010
+	.long 0xe3500000,0xe58d8008,0x0a000024,0xe1a0a009
+	.long 0xe5989010,0xe5980014,0xe3a040ff,0xe5c82007
+	.long 0xe040b009,0xe5196004,0xe1a04184,0xe3e01000
+	.long 0xe28bb008,0xe2160003,0xe5071a44,0xe58db004
+	.long 0x0afffddb,0xeaffff83
 
 	.globl lj_vm_pcall
 	.hidden lj_vm_pcall
-	.type lj_vm_pcall, @function
-	.size lj_vm_pcall, 14
+	.type lj_vm_pcall, %function
+	.size lj_vm_pcall, 28
 lj_vm_pcall:
-	.byte 85,87,86,83,131,236,28,190,5,0,0,0,235,12
+	.long 0xe92d4fe0,0xed2d8b10,0xe24dd020,0xe58d401c
+	.long 0xe3a06005,0xe58d3018,0xea000004
 
 	.globl lj_vm_call
 	.hidden lj_vm_call
-	.type lj_vm_call, @function
-	.size lj_vm_call, 71
+	.type lj_vm_call, %function
+	.size lj_vm_call, 96
 lj_vm_call:
-	.byte 85,87,86,83,131,236,28,190,1,0,0,0,139,108,36,48
-	.byte 139,76,36,52,139,125,40,137,124,36,52,137,108,36,24,137
-	.byte 101,40,139,93,8,129,195,16,11,0,0,199,131,188,245,255
-	.byte 255,255,255,255,255,139,85,16,1,206,41,214,139,69,20,41
-	.byte 200,193,232,3,131,192,1
+	.long 0xe92d4fe0,0xed2d8b10,0xe24dd020,0xe58d401c
+	.long 0xe3a06001,0xe590b028,0xe58d2014,0xe1a08000
+	.long 0xe58d000c,0xe1a09001,0xe588d028,0xe5987008
+	.long 0xe58d0008,0xe58db010,0xe2877eb1,0xe598c010
+	.long 0xe5980014,0xe3a040ff,0xe0866009,0xe1a04184
+	.long 0xe046600c,0xe3e01000,0xe040b009,0xe5071a44
 
 	.globl lj_vm_call_dispatch
 	.hidden lj_vm_call_dispatch
-	.type lj_vm_call_dispatch, @function
-	.size lj_vm_call_dispatch, 13
+	.type lj_vm_call_dispatch, %function
+	.size lj_vm_call_dispatch, 12
 lj_vm_call_dispatch:
-	.byte 139,105,248,131,121,252,247,15,133,93,3,0,0
+	.long 0xe14920d8,0xe3730009,0x1a0000e4
 
 	.globl lj_vm_call_dispatch_f
 	.hidden lj_vm_call_dispatch_f
-	.type lj_vm_call_dispatch_f, @function
-	.size lj_vm_call_dispatch_f, 22
+	.type lj_vm_call_dispatch_f, %function
+	.size lj_vm_call_dispatch_f, 32
 lj_vm_call_dispatch_f:
-	.byte 137,202,137,114,252,139,117,16,139,14,15,182,233,15,182,205
-	.byte 131,198,4,255,36,171
+	.long 0xe5096004,0xe5926010,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe08aa009,0xe12fff1c
 
 	.globl lj_vm_cpcall
 	.hidden lj_vm_cpcall
-	.type lj_vm_cpcall, @function
-	.size lj_vm_cpcall, 88
+	.type lj_vm_cpcall, %function
+	.size lj_vm_cpcall, 92
 lj_vm_cpcall:
-	.byte 85,87,86,83,131,236,28,139,108,36,48,139,68,36,56,139
-	.byte 76,36,52,139,84,36,60,137,108,36,24,139,125,28,43,125
-	.byte 20,199,68,36,60,0,0,0,0,137,124,36,56,137,68,36
-	.byte 8,137,76,36,4,137,44,36,139,125,40,137,124,36,52,137
-	.byte 101,40,255,210,133,192,15,132,238,253,255,255,137,193,190,5
-	.byte 0,0,0,233,96,255,255,255
+	.long 0xe92d4fe0,0xed2d8b10,0xe24dd020,0xe58d401c
+	.long 0xe1a08000,0xe590a01c,0xe58d000c,0xe598c014
+	.long 0xe58d0008,0xe598b028,0xe04aa00c,0xe588d028
+	.long 0xe3a0c000,0xe58da014,0xe58dc018,0xe58db010
+	.long 0xe12fff33,0xe5987008,0xe1b09000,0xe3a06005
+	.long 0xe2877eb1,0x1affffd5,0xeaffff55
 
 	.globl lj_cont_dispatch
 	.hidden lj_cont_dispatch
-	.type lj_cont_dispatch, @function
-	.size lj_cont_dispatch, 60
+	.type lj_cont_dispatch, %function
+	.size lj_cont_dispatch, 68
 lj_cont_dispatch:
-	.byte 1,209,131,230,248,137,213,41,242,199,68,193,252,255,255,255
-	.byte 255,137,200,139,117,244,139,77,240,131,249,1,118,11,139,122
-	.byte 248,139,127,16,139,127,208,255,225,15,132,28,28,0,0,41
-	.byte 213,193,237,3,141,69,255,233,232,20,0,0
+	.long 0xe51c2008,0xe5190010,0xe1a03009,0xe1a0900c
+	.long 0xe3500001,0xe513600c,0xe5922010,0xe3e0e000
+	.long 0xe08a100b,0xe501e004,0x9a000001,0xe5125030
+	.long 0xe12fff10,0x0a000696,0xe2433010,0xe043b009
+	.long 0xea000528
 
 	.globl lj_cont_cat
 	.hidden lj_cont_cat
-	.type lj_cont_cat, @function
-	.size lj_cont_cat, 47
+	.type lj_cont_cat, %function
+	.size lj_cont_cat, 52
 lj_cont_cat:
-	.byte 15,182,78,255,131,237,16,141,12,202,41,233,15,132,138,0
-	.byte 0,0,247,217,193,233,3,137,76,36,8,139,72,4,139,0
-	.byte 137,77,4,137,69,0,137,108,36,4,233,131,237,255,255
+	.long 0xe516e004,0xe2431010,0xe1ca20d0,0xe5889010
+	.long 0xe004baae,0xe004a2ae,0xe089000b,0xe0510000
+	.long 0x11c120f0,0x11a02000,0x1afffa73,0xe18920fa
+	.long 0xea000060
+
+	.globl lj_vmeta_tgets1
+	.hidden lj_vmeta_tgets1
+	.type lj_vmeta_tgets1, %function
+	.size lj_vmeta_tgets1, 8
+lj_vmeta_tgets1:
+	.long 0xe089100c,0xea000003
 
 	.globl lj_vmeta_tgets
 	.hidden lj_vmeta_tgets
-	.type lj_vmeta_tgets, @function
-	.size lj_vmeta_tgets, 41
+	.type lj_vmeta_tgets, %function
+	.size lj_vmeta_tgets, 36
 lj_vmeta_tgets:
-	.byte 137,68,36,16,199,68,36,20,251,255,255,255,141,68,36,16
-	.byte 128,126,252,52,117,46,141,139,128,245,255,255,137,41,199,65
-	.byte 4,244,255,255,255,137,205,235,34
+	.long 0xe2471d2a,0xe3e0300b,0xe581c000,0xe5813004
+	.long 0xe3e03004,0xe58db000,0xe58d3004,0xe1a0200d
+	.long 0xea000008
 
 	.globl lj_vmeta_tgetb
 	.hidden lj_vmeta_tgetb
-	.type lj_vmeta_tgetb, @function
-	.size lj_vmeta_tgetb, 20
+	.type lj_vmeta_tgetb, %function
+	.size lj_vmeta_tgetb, 28
 lj_vmeta_tgetb:
-	.byte 15,182,70,254,242,15,42,192,242,15,17,68,36,16,141,68
-	.byte 36,16,235,7
+	.long 0xe004caae,0xe58db000,0xe3e0300d,0xe089100c
+	.long 0xe58d3004,0xe1a0200d,0xea000001
 
 	.globl lj_vmeta_tgetv
 	.hidden lj_vmeta_tgetv
-	.type lj_vmeta_tgetv, @function
-	.size lj_vmeta_tgetv, 48
+	.type lj_vmeta_tgetv, %function
+	.size lj_vmeta_tgetv, 92
 lj_vmeta_tgetv:
-	.byte 15,182,70,254,141,4,194,15,182,110,255,141,44,234,137,108
-	.byte 36,4,139,108,36,48,137,68,36,8,137,44,36,137,85,16
-	.byte 137,116,36,24,232
-	.long lj_meta_tget-.-4
-	.byte 139,85,16,133,192,116,33
+	.long 0xe089100c,0xe089200b,0xe5889010,0xe1a00008
+	.long 0xe58d6008
+	bl lj_meta_tget
+	.long 0xe3500000,0x0a000007,0xe1c020d0,0xe5d6c000
+	.long 0xe496e004,0xe18920fa,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xe2690002,0xe5989014
+	.long 0xe3a0b010,0xe509600c,0xe0806009,0xe5192008
+	.long 0xeaffff99
 
-	.globl lj_cont_ra
-	.hidden lj_cont_ra
-	.type lj_cont_ra, @function
-	.size lj_cont_ra, 57
-lj_cont_ra:
-	.byte 15,182,78,253,139,104,4,139,0,137,108,202,4,137,4,202
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171,139,77,20,137,113,244,141,113,2,41,214,139,105,248,184
-	.byte 3,0,0,0,233,129,254,255,255
+	.globl lj_vmeta_tsets1
+	.hidden lj_vmeta_tsets1
+	.type lj_vmeta_tsets1, %function
+	.size lj_vmeta_tsets1, 8
+lj_vmeta_tsets1:
+	.long 0xe089100c,0xea000003
 
 	.globl lj_vmeta_tsets
 	.hidden lj_vmeta_tsets
-	.type lj_vmeta_tsets, @function
-	.size lj_vmeta_tsets, 41
+	.type lj_vmeta_tsets, %function
+	.size lj_vmeta_tsets, 36
 lj_vmeta_tsets:
-	.byte 137,68,36,16,199,68,36,20,251,255,255,255,141,68,36,16
-	.byte 128,126,252,53,117,46,141,139,128,245,255,255,137,41,199,65
-	.byte 4,244,255,255,255,137,205,235,34
+	.long 0xe2471d2a,0xe3e0300b,0xe581c000,0xe5813004
+	.long 0xe3e03004,0xe58db000,0xe58d3004,0xe1a0200d
+	.long 0xea000008
 
 	.globl lj_vmeta_tsetb
 	.hidden lj_vmeta_tsetb
-	.type lj_vmeta_tsetb, @function
-	.size lj_vmeta_tsetb, 20
+	.type lj_vmeta_tsetb, %function
+	.size lj_vmeta_tsetb, 28
 lj_vmeta_tsetb:
-	.byte 15,182,70,254,242,15,42,192,242,15,17,68,36,16,141,68
-	.byte 36,16,235,7
+	.long 0xe004caae,0xe58db000,0xe3e0300d,0xe089100c
+	.long 0xe58d3004,0xe1a0200d,0xea000001
 
 	.globl lj_vmeta_tsetv
 	.hidden lj_vmeta_tsetv
-	.type lj_vmeta_tsetv, @function
-	.size lj_vmeta_tsetv, 64
+	.type lj_vmeta_tsetv, %function
+	.size lj_vmeta_tsetv, 96
 lj_vmeta_tsetv:
-	.byte 15,182,70,254,141,4,194,15,182,110,255,141,44,234,137,108
-	.byte 36,4,139,108,36,48,137,68,36,8,137,44,36,137,85,16
-	.byte 137,116,36,24,232
-	.long lj_meta_tset-.-4
-	.byte 139,85,16,133,192,116,33,15,182,78,253,139,108,202,4,139
-	.byte 12,202,137,104,4,137,8
-
-	.globl lj_cont_nop
-	.hidden lj_cont_nop
-	.type lj_cont_nop, @function
-	.size lj_cont_nop, 58
-lj_cont_nop:
-	.byte 139,6,15,182,204,15,182,232,131,198,4,193,232,16,255,36
-	.byte 171,139,77,20,137,113,244,15,182,70,253,139,108,194,4,139
-	.byte 4,194,137,105,20,137,65,16,141,113,2,41,214,139,105,248
-	.byte 184,4,0,0,0,233,202,253,255,255
+	.long 0xe089100c,0xe089200b,0xe5889010,0xe1a00008
+	.long 0xe58d6008
+	bl lj_meta_tset
+	.long 0xe3500000,0xe18920da,0x0a000006,0xe5d6c000
+	.long 0xe1c020f0,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c,0xe2690002,0xe5989014
+	.long 0xe3a0b018,0xe1c921f0,0xe509600c,0xe0806009
+	.long 0xe5192008,0xeaffff6f
 
 	.globl lj_vmeta_comp
 	.hidden lj_vmeta_comp
-	.type lj_vmeta_comp, @function
-	.size lj_vmeta_comp, 86
+	.type lj_vmeta_comp, %function
+	.size lj_vmeta_comp, 56
 lj_vmeta_comp:
-	.byte 15,182,110,252,141,4,194,141,12,202,137,108,36,12,139,108
-	.byte 36,48,137,68,36,8,137,76,36,4,137,44,36,137,85,16
-	.byte 137,116,36,24,232
-	.long lj_meta_comp-.-4
-	.byte 139,85,16,131,248,1,15,135,192,0,0,0,141,118,4,114
-	.byte 11,15,183,70,254,141,180,134,0,0,254,255,139,6,15,182
-	.byte 204,15,182,232,131,198,4,193,232,16,255,36,171
+	.long 0xe1a00008,0xe2466004,0xe1a0100a,0xe5889010
+	.long 0xe1a0200b,0xe58d6008,0xe20e30ff
+	bl lj_meta_comp
+	.long 0xe3500001,0x8a00003e,0xe1d6c0b2,0xe2866004
+	.long 0xe086c10c,0x224c6b80
+
+	.globl lj_cont_nop
+	.hidden lj_cont_nop
+	.type lj_cont_nop, %function
+	.size lj_cont_nop, 24
+lj_cont_nop:
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe1a0b82e,0xe12fff1c
+
+	.globl lj_cont_ra
+	.hidden lj_cont_ra
+	.type lj_cont_ra, %function
+	.size lj_cont_ra, 20
+lj_cont_ra:
+	.long 0xe516e004,0xe1ca00d0,0xe00422ae,0xe18900f2
+	.long 0xeafffff4
 
 	.globl lj_cont_condt
 	.hidden lj_cont_condt
-	.type lj_cont_condt, @function
-	.size lj_cont_condt, 11
+	.type lj_cont_condt, %function
+	.size lj_cont_condt, 16
 lj_cont_condt:
-	.byte 131,198,4,131,120,4,254,114,219,235,228
+	.long 0xe59a1004,0xe3e00002,0xe1500001,0xeaffffec
 
 	.globl lj_cont_condf
 	.hidden lj_cont_condf
-	.type lj_cont_condf, @function
-	.size lj_cont_condf, 6
+	.type lj_cont_condf, %function
+	.size lj_cont_condf, 12
 lj_cont_condf:
-	.byte 131,120,4,254,235,206
+	.long 0xe59a1004,0xe3710002,0xeaffffe9
 
 	.globl lj_vmeta_equal
 	.hidden lj_vmeta_equal
-	.type lj_vmeta_equal, @function
-	.size lj_vmeta_equal, 36
+	.type lj_vmeta_equal, %function
+	.size lj_vmeta_equal, 24
 lj_vmeta_equal:
-	.byte 131,238,4,137,108,36,12,139,108,36,48,137,68,36,8,137
-	.byte 76,36,4,137,44,36,137,85,16,137,116,36,24,232
-	.long lj_meta_equal-.-4
-	.byte 235,158
+	.long 0xe2466004,0xe5889010,0xe1a00008,0xe58d6008
+	bl lj_meta_equal
+	.long 0xeaffffe1
 
 	.globl lj_vmeta_equal_cd
 	.hidden lj_vmeta_equal_cd
-	.type lj_vmeta_equal_cd, @function
-	.size lj_vmeta_equal_cd, 26
+	.type lj_vmeta_equal_cd, %function
+	.size lj_vmeta_equal_cd, 28
 lj_vmeta_equal_cd:
-	.byte 131,238,4,139,108,36,48,137,85,16,137,233,139,86,252,137
-	.byte 116,36,24,232
-	.long lj_meta_equal_cd-.-4
-	.byte 235,132
-
-	.globl lj_vmeta_arith_vno
-	.hidden lj_vmeta_arith_vno
-	.type lj_vmeta_arith_vno, @function
-	.size lj_vmeta_arith_vno, 0
-lj_vmeta_arith_vno:
+	.long 0xe2466004,0xe5889010,0xe1a00008,0xe1a0100e
+	.long 0xe58d6008
+	bl lj_meta_equal_cd
+	.long 0xeaffffda
 
 	.globl lj_vmeta_arith_vn
 	.hidden lj_vmeta_arith_vn
-	.type lj_vmeta_arith_vn, @function
-	.size lj_vmeta_arith_vn, 5
+	.type lj_vmeta_arith_vn, %function
+	.size lj_vmeta_arith_vn, 20
 lj_vmeta_arith_vn:
-	.byte 141,4,199,235,19
-
-	.globl lj_vmeta_arith_nvo
-	.hidden lj_vmeta_arith_nvo
-	.type lj_vmeta_arith_nvo, @function
-	.size lj_vmeta_arith_nvo, 0
-lj_vmeta_arith_nvo:
+	.long 0xe004caae,0xe004b6ae,0xe089200c,0xe085300b
+	.long 0xea00000d
 
 	.globl lj_vmeta_arith_nv
 	.hidden lj_vmeta_arith_nv
-	.type lj_vmeta_arith_nv, @function
-	.size lj_vmeta_arith_nv, 9
+	.type lj_vmeta_arith_nv, %function
+	.size lj_vmeta_arith_nv, 20
 lj_vmeta_arith_nv:
-	.byte 141,4,199,141,44,234,149,235,13
+	.long 0xe004caae,0xe004b6ae,0xe089300c,0xe085200b
+	.long 0xea000008
 
 	.globl lj_vmeta_unm
 	.hidden lj_vmeta_unm
-	.type lj_vmeta_unm, @function
-	.size lj_vmeta_unm, 7
+	.type lj_vmeta_unm, %function
+	.size lj_vmeta_unm, 20
 lj_vmeta_unm:
-	.byte 141,4,194,137,197,235,6
-
-	.globl lj_vmeta_arith_vvo
-	.hidden lj_vmeta_arith_vvo
-	.type lj_vmeta_arith_vvo, @function
-	.size lj_vmeta_arith_vvo, 0
-lj_vmeta_arith_vvo:
+	.long 0xe516e008,0xe2466004,0xe089200b,0xe089300b
+	.long 0xea000003
 
 	.globl lj_vmeta_arith_vv
 	.hidden lj_vmeta_arith_vv
-	.type lj_vmeta_arith_vv, @function
-	.size lj_vmeta_arith_vv, 59
+	.type lj_vmeta_arith_vv, %function
+	.size lj_vmeta_arith_vv, 52
 lj_vmeta_arith_vv:
-	.byte 141,4,194,141,44,234,141,12,202,137,108,36,8,139,108,36
-	.byte 48,137,68,36,12,15,182,70,252,137,76,36,4,137,68,36
-	.byte 16,137,44,36,137,85,16,137,116,36,24,232
-	.long lj_meta_arith-.-4
-	.byte 139,85,16,133,192,15,132,209,254,255,255
+	.long 0xe004caae,0xe004b6ae,0xe089200c,0xe089300b
+	.long 0xe20ec0ff,0xe089100a,0xe5889010,0xe1a00008
+	.long 0xe58d6008,0xe58dc000
+	bl lj_meta_arith
+	.long 0xe3500000,0x0affffc4
 
 	.globl lj_vmeta_binop
 	.hidden lj_vmeta_binop
-	.type lj_vmeta_binop, @function
-	.size lj_vmeta_binop, 20
+	.type lj_vmeta_binop, %function
+	.size lj_vmeta_binop, 24
 lj_vmeta_binop:
-	.byte 137,193,41,208,137,113,244,141,112,2,184,3,0,0,0,233
-	.byte 180,252,255,255
+	.long 0xe0401009,0xe500600c,0xe2816002,0xe1a09000
+	.long 0xe3a0b010,0xeaffff1d
 
 	.globl lj_vmeta_len
 	.hidden lj_vmeta_len
-	.type lj_vmeta_len, @function
-	.size lj_vmeta_len, 26
+	.type lj_vmeta_len, %function
+	.size lj_vmeta_len, 24
 lj_vmeta_len:
-	.byte 139,108,36,48,137,85,16,141,20,194,137,233,137,116,36,24
-	.byte 232
-	.long lj_meta_len-.-4
-	.byte 139,85,16,235,210
-
-	.globl lj_vmeta_call_ra
-	.hidden lj_vmeta_call_ra
-	.type lj_vmeta_call_ra, @function
-	.size lj_vmeta_call_ra, 4
-lj_vmeta_call_ra:
-	.byte 141,76,202,8
+	.long 0xe089100b,0xe5889010,0xe1a00008,0xe58d6008
+	bl lj_meta_len
+	.long 0xeafffff3
 
 	.globl lj_vmeta_call
 	.hidden lj_vmeta_call
-	.type lj_vmeta_call, @function
-	.size lj_vmeta_call, 88
+	.type lj_vmeta_call, %function
+	.size lj_vmeta_call, 64
 lj_vmeta_call:
-	.byte 137,76,36,20,137,68,36,16,131,233,8,141,4,193,139,108
-	.byte 36,48,137,76,36,4,137,68,36,8,137,44,36,137,85,16
-	.byte 137,116,36,24,232
-	.long lj_meta_call-.-4
-	.byte 139,85,16,139,76,36,20,139,68,36,16,139,105,248,131,192
-	.byte 1,57,215,15,132,184,242,255,255,137,202,137,114,252,139,117
-	.byte 16,139,14,15,182,233,15,182,205,131,198,4,255,36,171
+	.long 0xe1a00008,0xe588c010,0xe2491008,0xe58d6008
+	.long 0xe089200b
+	bl lj_meta_call
+	.long 0xe5192008,0xe28bb008,0xe5096004,0xe5926010
+	.long 0xe5d6c000,0xe496e004,0xe797c10c,0xe004a2ae
+	.long 0xe08aa009,0xe12fff1c
+
+	.globl lj_vmeta_callt
+	.hidden lj_vmeta_callt
+	.type lj_vmeta_callt, %function
+	.size lj_vmeta_callt, 40
+lj_vmeta_callt:
+	.long 0xe1a00008,0xe5889010,0xe24a1008,0xe58d6008
+	.long 0xe08a200b
+	bl lj_meta_call
+	.long 0xe51a2008,0xe5196004,0xe28bb008,0xeafffbf5
 
 	.globl lj_vmeta_for
 	.hidden lj_vmeta_for
-	.type lj_vmeta_for, @function
-	.size lj_vmeta_for, 42
+	.type lj_vmeta_for, %function
+	.size lj_vmeta_for, 48
 lj_vmeta_for:
-	.byte 139,108,36,48,137,85,16,137,202,137,233,137,116,36,24,232
-	.long lj_meta_for-.-4
-	.byte 139,85,16,139,70,252,15,182,204,15,182,232,193,232,16,255
-	.byte 164,171,108,2,0,0
+	.long 0xe1a00008,0xe5889010,0xe1a0100a,0xe58d6008
+	bl lj_meta_for
+	.long 0xe556c004,0xe516e004,0xe35c004a,0xe004a2ae
+	.long 0xe1a0b82e,0x0afffd2e,0xeafffd08
 
 	.globl lj_ff_assert
 	.hidden lj_ff_assert
-	.type lj_ff_assert, @function
-	.size lj_ff_assert, 71
+	.type lj_ff_assert, %function
+	.size lj_ff_assert, 64
 lj_ff_assert:
-	.byte 131,248,2,15,130,83,17,0,0,139,106,4,131,253,254,15
-	.byte 131,71,17,0,0,139,114,252,137,68,36,20,137,106,252,139
-	.byte 42,137,106,248,131,232,2,116,21,137,209,131,193,8,139,105
-	.byte 4,137,105,252,139,41,137,105,248,131,232,1,117,237,139,68
-	.byte 36,20,233,84,6,0,0
+	.long 0xe1c900d0,0xe35b0008,0x3a00042d,0xe3710003
+	.long 0x8a00042b,0xe5196004,0xe14900f8,0xe1a0c009
+	.long 0xe25ba008,0xe28bb008,0x0a0001cb,0xe1cc00d8
+	.long 0xe25aa008,0xe0cc00f8,0x1afffffb,0xea0001c6
 
 	.globl lj_ff_type
 	.hidden lj_ff_type
-	.type lj_ff_type, @function
-	.size lj_ff_type, 49
+	.type lj_ff_type, %function
+	.size lj_ff_type, 36
 lj_ff_type:
-	.byte 131,248,2,15,130,12,17,0,0,139,106,4,184,13,0,0
-	.byte 0,247,213,57,232,15,71,197,139,106,248,139,68,197,24,139
-	.byte 114,252,199,66,252,251,255,255,255,137,66,248,233,26,6,0
-	.byte 0
+	.long 0xe5991004,0xe35b0008,0x3a00041d,0xe371000e
+	.long 0x33e0100d,0xe2613002,0xe1a03183,0xe18200d3
+	.long 0xea0001ba
 
 	.globl lj_ff_getmetatable
 	.hidden lj_ff_getmetatable
-	.type lj_ff_getmetatable, @function
-	.size lj_ff_getmetatable, 142
+	.type lj_ff_getmetatable, %function
+	.size lj_ff_getmetatable, 148
 lj_ff_getmetatable:
-	.byte 131,248,2,15,130,219,16,0,0,139,106,4,139,114,252,131
-	.byte 253,244,117,96,139,42,139,109,16,133,237,199,66,252,255,255
-	.byte 255,255,15,132,242,5,0,0,139,131,24,246,255,255,199,66
-	.byte 252,244,255,255,255,137,106,248,139,77,28,35,72,8,107,201
-	.byte 24,3,77,20,131,121,12,251,117,5,57,65,8,116,12,139
-	.byte 73,16,133,201,117,238,233,191,5,0,0,139,105,4,131,253
-	.byte 255,15,132,179,5,0,0,139,1,137,106,252,137,66,248,233
-	.byte 166,5,0,0,131,253,243,116,155,131,253,242,119,5,189,242
-	.byte 255,255,255,247,213,139,172,171,44,246,255,255,235,139
+	.long 0xe1c900d0,0xe35b0008,0x3a000414,0xe371000c
+	.long 0x1371000d,0x1a000018,0xe590c010,0xe3e01000
+	.long 0xe517b9e8,0xe35c0000,0x0a0001af,0xe59c201c
+	.long 0xe59b3008,0xe59ce014,0xe0022003,0xe0822082
+	.long 0xe08ee182,0xe1ce20d8,0xe1ce00d0,0xe59ee010
+	.long 0xe3730005,0x0152000b,0x0a000004,0xe35e0000
+	.long 0x1afffff7,0xe1a0000c,0xe3e0100b,0xea00019e
+	.long 0xe3710001,0x1a00019c,0xeafffff9,0xe371000e
+	.long 0x21e01001,0x33a0100d,0xe0873101,0xe513c9d4
+	.long 0xeaffffe1
 
 	.globl lj_ff_setmetatable
 	.hidden lj_ff_setmetatable
-	.type lj_ff_setmetatable, @function
-	.size lj_ff_setmetatable, 90
+	.type lj_ff_setmetatable, %function
+	.size lj_ff_setmetatable, 76
 lj_ff_setmetatable:
-	.byte 131,248,3,15,130,77,16,0,0,131,122,4,244,15,133,67
-	.byte 16,0,0,139,42,131,125,16,0,15,133,55,16,0,0,131
-	.byte 122,12,244,15,133,45,16,0,0,139,66,8,137,69,16,139
-	.byte 114,252,199,66,252,244,255,255,255,137,106,248,246,69,4,4
-	.byte 116,19,128,101,4,251,139,131,32,245,255,255,137,171,32,245
-	.byte 255,255,137,69,12,233,50,5,0,0
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x3a0003ee
+	.long 0xe371000c,0x0590c010,0x0373000c,0x05d03004
+	.long 0x035c0000,0x1a0003e8,0xe3130004,0xe5802010
+	.long 0x0a000188,0xe5172ae0,0xe3c33004,0xe5070ae0
+	.long 0xe5c03004,0xe580200c,0xea000182
 
 	.globl lj_ff_rawget
 	.hidden lj_ff_rawget
-	.type lj_ff_rawget, @function
-	.size lj_ff_rawget, 67
+	.type lj_ff_rawget, %function
+	.size lj_ff_rawget, 44
 lj_ff_rawget:
-	.byte 131,248,3,15,130,243,15,0,0,131,122,4,244,15,133,233
-	.byte 15,0,0,139,2,139,108,36,48,137,68,36,4,137,44,36
-	.byte 137,213,131,194,8,137,84,36,8,232
-	.long lj_tab_get-.-4
-	.byte 137,234,139,40,139,64,4,139,114,252,137,106,248,137,66,252
-	.byte 233,239,4,0,0
+	.long 0xe1c920d0,0xe35b0010,0x3a0003dc,0xe1a01002
+	.long 0xe373000c,0x1a0003d9,0xe1a00008,0xe2892008
+	bl lj_tab_get
+	.long 0xe1c000d0,0xea000177
 
 	.globl lj_ff_tonumber
 	.hidden lj_ff_tonumber
-	.type lj_ff_tonumber, @function
-	.size lj_ff_tonumber, 28
+	.type lj_ff_tonumber, %function
+	.size lj_ff_tonumber, 24
 lj_ff_tonumber:
-	.byte 131,248,2,15,133,176,15,0,0,131,122,4,242,15,131,166
-	.byte 15,0,0,242,15,16,2,233,203,4,0,0
+	.long 0xe1c900d0,0xe35b0008,0x1a0003d1,0xe371000e
+	.long 0x9a000172,0xea0003ce
 
 	.globl lj_ff_tostring
 	.hidden lj_ff_tostring
-	.type lj_ff_tostring, @function
-	.size lj_ff_tostring, 100
+	.type lj_ff_tostring, %function
+	.size lj_ff_tostring, 84
 lj_ff_tostring:
-	.byte 131,248,2,15,130,148,15,0,0,139,114,252,131,122,4,251
-	.byte 117,17,139,2,199,66,252,251,255,255,255,137,66,248,233,176
-	.byte 4,0,0,131,122,4,242,15,135,112,15,0,0,131,187,96
-	.byte 246,255,255,0,15,133,99,15,0,0,139,171,4,245,255,255
-	.byte 59,171,8,245,255,255,114,5,232,222,15,0,0,139,108,36
-	.byte 48,137,85,16,137,116,36,24,137,233,232
-	.long lj_str_fromnum-.-4
-	.byte 139,85,16,235,176
+	.long 0xe1c900d0,0xe35b0008,0x3a0003cb,0xe3710005
+	.long 0x0a00016c,0xe51739a0,0xe5889010,0xe371000e
+	.long 0x93530000,0xe58d6008,0x8a0003c3,0xe5170afc
+	.long 0xe5171af8,0xe1500001,0xab0003e8,0xe1a00008
+	.long 0xe1a01009
+	bl lj_str_fromnumber
+	.long 0xe5989010,0xe3e01004,0xea00015c
 
 	.globl lj_ff_next
 	.hidden lj_ff_next
-	.type lj_ff_next, @function
-	.size lj_ff_next, 89
+	.type lj_ff_next, %function
+	.size lj_ff_next, 96
 lj_ff_next:
-	.byte 131,248,2,15,130,48,15,0,0,116,88,131,122,4,244,15
-	.byte 133,36,15,0,0,139,108,36,48,137,85,16,137,85,20,139
-	.byte 114,252,139,2,137,68,36,4,137,44,36,131,194,8,137,84
-	.byte 36,8,137,116,36,24,232
-	.long lj_tab_next-.-4
-	.byte 139,85,16,133,192,116,42,139,106,8,139,66,12,137,106,248
-	.byte 137,66,252,139,106,16,139,66,20,137,42,137,66,4
-
-	.globl lj_fff_res2
-	.hidden lj_fff_res2
-	.type lj_fff_res2, @function
-	.size lj_fff_res2, 31
-lj_fff_res2:
-	.byte 184,3,0,0,0,233,17,4,0,0,199,66,12,255,255,255
-	.byte 255,235,159,199,66,252,255,255,255,255,233,247,3,0,0
+	.long 0xe1c900d0,0xe35b0008,0x3a0003b6,0xe3e03000
+	.long 0xe371000c,0x1a0003b3,0xe18920fb,0xe5196004
+	.long 0xe1a01000,0xe5889010,0xe1a00008,0xe5889014
+	.long 0xe2892008,0xe58d6008
+	bl lj_tab_next
+	.long 0xe3500000,0x03e01000,0x0a00014a,0xe1c900d8
+	.long 0xe1c921d0,0xe3a0b018,0xe14900f8,0xe1c920f0
+	.long 0xea000147
 
 	.globl lj_ff_pairs
 	.hidden lj_ff_pairs
-	.type lj_ff_pairs, @function
-	.size lj_ff_pairs, 57
+	.type lj_ff_pairs, %function
+	.size lj_ff_pairs, 48
 lj_ff_pairs:
-	.byte 131,248,2,15,130,184,14,0,0,139,42,131,122,4,244,15
-	.byte 133,172,14,0,0,139,106,248,139,69,24,139,114,252,199,66
-	.byte 252,247,255,255,255,137,66,248,199,66,12,255,255,255,255,184
-	.byte 4,0,0,0,233,195,3,0,0
+	.long 0xe1c900d0,0xe35b0008,0x3a00039e,0xe371000c
+	.long 0x1a00039c,0xe1c221d8,0xe5196004,0xe3e01000
+	.long 0xe3a0b020,0xe14920f8,0xe589100c,0xea00013b
 
 	.globl lj_ff_ipairs_aux
 	.hidden lj_ff_ipairs_aux
-	.type lj_ff_ipairs_aux, @function
-	.size lj_ff_ipairs_aux, 121
+	.type lj_ff_ipairs_aux, %function
+	.size lj_ff_ipairs_aux, 120
 lj_ff_ipairs_aux:
-	.byte 131,248,3,15,130,127,14,0,0,131,122,4,244,15,133,117
-	.byte 14,0,0,131,122,12,242,15,131,107,14,0,0,139,114,252
-	.byte 242,15,16,66,8,189,0,0,240,63,102,15,110,205,102,15
-	.byte 112,201,81,242,15,88,193,242,15,45,192,242,15,17,66,248
-	.byte 139,42,59,69,24,115,27,193,224,3,3,69,8,131,120,4
-	.byte 255,116,38,139,40,139,64,4,137,42,137,66,4,233,70,255
-	.byte 255,255,131,125,28,0,116,17,137,233,137,213,137,194,232
-	.long lj_tab_getinth-.-4
-	.byte 137,234,133,192,117,212
-
-	.globl lj_fff_res0
-	.hidden lj_fff_res0
-	.type lj_fff_res0, @function
-	.size lj_fff_res0, 10
-lj_fff_res0:
-	.byte 184,1,0,0,0,233,64,3,0,0
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x3a000391
+	.long 0xe371000c,0x0373000e,0x1a00038e,0xe590c018
+	.long 0xe590b008,0xe2822001,0xe5196004,0xe152000c
+	.long 0xe08bb182,0xe14920f8,0x31cb00d0,0xe3a0b008
+	.long 0x2a000003,0xe3710001,0x13a0b018,0x11c900f0
+	.long 0xea000126,0xe590c01c,0xe1a01002,0xe35c0000
+	.long 0x0a000122
+	bl lj_tab_getinth
+	.long 0xe3500000,0x0a00011f,0xe1c000d0,0xeafffff2
 
 	.globl lj_ff_ipairs
 	.hidden lj_ff_ipairs
-	.type lj_ff_ipairs, @function
-	.size lj_ff_ipairs, 58
+	.type lj_ff_ipairs, %function
+	.size lj_ff_ipairs, 52
 lj_ff_ipairs:
-	.byte 131,248,2,15,130,252,13,0,0,139,42,131,122,4,244,15
-	.byte 133,240,13,0,0,139,106,248,139,69,24,139,114,252,199,66
-	.byte 252,247,255,255,255,137,66,248,15,87,192,242,15,17,66,8
-	.byte 184,4,0,0,0,233,6,3,0,0
+	.long 0xe1c900d0,0xe35b0008,0x3a000374,0xe371000c
+	.long 0x1a000372,0xe1c221d8,0xe5196004,0xe3a00000
+	.long 0xe3e0100d,0xe3a0b020,0xe14920f8,0xe1c900f8
+	.long 0xea000110
 
 	.globl lj_ff_pcall
 	.hidden lj_ff_pcall
-	.type lj_ff_pcall, @function
+	.type lj_ff_pcall, %function
 	.size lj_ff_pcall, 40
 lj_ff_pcall:
-	.byte 131,248,2,15,130,194,13,0,0,141,74,8,131,232,1,190
-	.byte 14,0,0,0,15,182,171,113,245,255,255,193,237,4,131,229
-	.byte 1,1,238,233,91,248,255,255
+	.long 0xe557aa8f,0xe35b0008,0x3a000367,0xe31a0010
+	.long 0xe1a0c009,0xe2899008,0x03a0600e,0x13a0600f
+	.long 0xe24bb008,0xeafffe21
 
 	.globl lj_ff_xpcall
 	.hidden lj_ff_xpcall
-	.type lj_ff_xpcall, @function
-	.size lj_ff_xpcall, 55
+	.type lj_ff_xpcall, %function
+	.size lj_ff_xpcall, 64
 lj_ff_xpcall:
-	.byte 131,248,3,15,130,154,13,0,0,131,122,12,247,15,133,144
-	.byte 13,0,0,139,106,4,137,106,12,199,66,4,247,255,255,255
-	.byte 139,42,139,114,8,137,106,8,137,50,141,74,16,131,232,2
-	.byte 190,22,0,0,0,235,181
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x3a00035c
+	.long 0xe557aa8f,0xe3730009,0x1a000359,0xe1a0c009
+	.long 0xe1c900f8,0xe1c920f0,0xe31a0010,0xe2899010
+	.long 0x03a06016,0x13a06017,0xe24bb010,0xeafffe11
 
 	.globl lj_ff_coroutine_resume
 	.hidden lj_ff_coroutine_resume
-	.type lj_ff_coroutine_resume, @function
-	.size lj_ff_coroutine_resume, 316
+	.type lj_ff_coroutine_resume, %function
+	.size lj_ff_coroutine_resume, 304
 lj_ff_coroutine_resume:
-	.byte 131,248,2,15,130,99,13,0,0,139,42,139,114,252,137,116
-	.byte 36,24,137,44,36,131,122,4,249,15,133,77,13,0,0,131
-	.byte 125,40,0,15,133,67,13,0,0,128,125,7,1,15,135,57
-	.byte 13,0,0,139,77,20,116,9,59,77,16,15,132,43,13,0
-	.byte 0,141,116,193,240,59,117,24,15,135,30,13,0,0,137,117
-	.byte 20,139,108,36,48,137,85,16,131,194,8,137,85,20,141,108
-	.byte 194,232,41,245,57,206,116,20,139,68,46,4,137,70,252,139
-	.byte 4,46,137,70,248,131,238,8,57,206,117,236,137,76,36,4
-	.byte 49,201,137,76,36,12,137,76,36,8,232,216,246,255,255,199
-	.byte 131,188,245,255,255,255,255,255,255,139,108,36,48,139,52,36
-	.byte 139,85,16,131,248,1,119,89,139,78,16,139,126,20,137,78
-	.byte 20,137,254,41,206,116,34,141,4,50,193,238,3,59,69,24
-	.byte 119,96,137,213,41,205,139,1,137,4,41,139,65,4,137,68
-	.byte 41,4,131,193,8,57,249,117,237,141,70,2,199,66,252,253
-	.byte 255,255,255,139,116,36,24,137,68,36,20,185,248,255,255,255
-	.byte 247,198,3,0,0,0,15,132,37,240,255,255,233,49,245,255
-	.byte 255,199,66,252,254,255,255,255,139,78,20,131,233,8,137,78
-	.byte 20,139,1,137,2,139,65,4,137,66,4,184,3,0,0,0
-	.byte 235,193,139,12,36,137,121,20,137,242,137,233,232
-	.long lj_state_growstack-.-4
-	.byte 139,52,36,139,85,16,233,108,255,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a00034d,0xe3710007
+	.long 0x1a00034b,0xe5196004,0xe5889010,0xe5901014
+	.long 0xe5d0a007,0xe590c010,0xe081200b,0xe081300a
+	.long 0xe58d6008,0xe153000c,0x0a000341,0xe5903018
+	.long 0xe590c028,0xe35a0001,0x91520003,0x935c0000
+	.long 0x8a00033b,0xe2422008,0xe2899008,0xe24bb008
+	.long 0xe5802014,0xe5889014,0xe18920dc,0xe15c000b
+	.long 0x118120fc,0xe28cc008,0x1afffffa,0xe3a02000
+	.long 0xe1a0a000,0xe3a03000,0xebfffdad,0xe59a2010
+	.long 0xe3e01000,0xe59a3014,0xe5071a44,0xe3500001
+	.long 0xe5989010,0x8a000016,0xe053b002,0xe5980018
+	.long 0xe089100b,0x0a000009,0xe1510000,0xe3a0c000
+	.long 0x8a000015,0xe24b3008,0xe58a2014,0xe18200dc
+	.long 0xe15c0003,0xe18900fc,0xe28cc008,0x1afffffa
+	.long 0xe3e02002,0xe28bb010,0xe5092004,0xe249a008
+	.long 0xe2160003,0xe58d6008,0xe58db004,0x0afffb8d
+	.long 0xeafffd35,0xe16300d8,0xe3e02001,0xe3a0b018
+	.long 0xe58a3014,0xe1c900f0,0xeafffff2,0xe1a00008
+	.long 0xe1a011ab
+	bl lj_state_growstack
+	.long 0xe3a00000,0xeaffffd6
 
 	.globl lj_ff_coroutine_wrap_aux
 	.hidden lj_ff_coroutine_wrap_aux
-	.type lj_ff_coroutine_wrap_aux, @function
-	.size lj_ff_coroutine_wrap_aux, 261
+	.type lj_ff_coroutine_wrap_aux, %function
+	.size lj_ff_coroutine_wrap_aux, 256
 lj_ff_coroutine_wrap_aux:
-	.byte 139,106,248,139,109,24,139,114,252,137,116,36,24,137,44,36
-	.byte 131,125,40,0,15,133,22,12,0,0,128,125,7,1,15,135
-	.byte 12,12,0,0,139,77,20,116,9,59,77,16,15,132,254,11
-	.byte 0,0,141,116,193,248,59,117,24,15,135,241,11,0,0,137
-	.byte 117,20,139,108,36,48,137,85,16,137,85,20,141,108,194,240
-	.byte 41,245,57,206,116,20,139,68,46,4,137,70,252,139,4,46
-	.byte 137,70,248,131,238,8,57,206,117,236,137,76,36,4,49,201
-	.byte 137,76,36,12,137,76,36,8,232,174,245,255,255,199,131,188
-	.byte 245,255,255,255,255,255,255,139,108,36,48,139,52,36,139,85
-	.byte 16,131,248,1,119,79,139,78,16,139,126,20,137,78,20,137
-	.byte 254,41,206,116,34,141,4,50,193,238,3,59,69,24,119,62
-	.byte 137,213,41,205,139,1,137,4,41,139,65,4,137,68,41,4
-	.byte 131,193,8,57,249,117,237,141,70,1,139,116,36,24,137,68
-	.byte 36,20,49,201,247,198,3,0,0,0,15,132,5,239,255,255
-	.byte 233,17,244,255,255,137,242,137,233,232
-	.long lj_ffh_coroutine_wrap_err-.-4
-	.byte 139,12,36,137,121,20,137,242,137,233,232
-	.long lj_state_growstack-.-4
-	.byte 139,52,36,139,85,16,235,145
+	.long 0xe5920018,0xe5196004,0xe5889010,0xe5901014
+	.long 0xe5d0a007,0xe590c010,0xe081200b,0xe081300a
+	.long 0xe58d6008,0xe153000c,0x0a0002f9,0xe5903018
+	.long 0xe590c028,0xe35a0001,0x91520003,0x935c0000
+	.long 0x8a0002f3,0xe5802014,0xe5889014,0xe18920dc
+	.long 0xe15c000b,0x118120fc,0xe28cc008,0x1afffffa
+	.long 0xe3a02000,0xe1a0a000,0xe3a03000,0xebfffd68
+	.long 0xe59a2010,0xe3e01000,0xe59a3014,0xe5071a44
+	.long 0xe3500001,0xe5989010,0x8a000014,0xe053b002
+	.long 0xe5980018,0xe089100b,0x0a000009,0xe1510000
+	.long 0xe3a0c000,0x8a000010,0xe24b3008,0xe58a2014
+	.long 0xe18200dc,0xe15c0003,0xe18900fc,0xe28cc008
+	.long 0x1afffffa,0xe1a0a009,0xe28bb008,0xe2160003
+	.long 0xe58d6008,0xe58db004,0x0afffb4a,0xeafffcf2
+	.long 0xe1a00008,0xe1a0100a
+	bl lj_ffh_coroutine_wrap_err
+	.long 0xe1a00008,0xe1a011ab
+	bl lj_state_growstack
+	.long 0xe3a00000,0xeaffffdb
 
 	.globl lj_ff_coroutine_yield
 	.hidden lj_ff_coroutine_yield
-	.type lj_ff_coroutine_yield, @function
-	.size lj_ff_coroutine_yield, 42
+	.type lj_ff_coroutine_yield, %function
+	.size lj_ff_coroutine_yield, 44
 lj_ff_coroutine_yield:
-	.byte 139,108,36,48,247,69,40,1,0,0,0,15,132,26,11,0
-	.byte 0,137,85,16,141,68,194,248,137,69,20,49,192,137,69,40
-	.byte 176,1,136,69,7,233,31,244,255,255
-
-	.globl lj_fff_resi
-	.hidden lj_fff_resi
-	.type lj_fff_resi, @function
-	.size lj_fff_resi, 0
-lj_fff_resi:
-
-	.globl lj_fff_resn
-	.hidden lj_fff_resn
-	.type lj_fff_resn, @function
-	.size lj_fff_resn, 8
-lj_fff_resn:
-	.byte 139,114,252,221,90,248,235,47
-
-	.globl lj_ff_math_abs
-	.hidden lj_ff_math_abs
-	.type lj_ff_math_abs, @function
-	.size lj_ff_math_abs, 39
-lj_ff_math_abs:
-	.byte 131,248,2,15,130,240,10,0,0,131,122,4,242,15,131,230
-	.byte 10,0,0,242,15,16,2,102,15,239,201,102,15,118,201,102
-	.byte 15,115,209,1,15,84,193
-
-	.globl lj_fff_resxmm0
-	.hidden lj_fff_resxmm0
-	.type lj_fff_resxmm0, @function
-	.size lj_fff_resxmm0, 8
-lj_fff_resxmm0:
-	.byte 139,114,252,242,15,17,66,248
-
-	.globl lj_fff_res1
-	.hidden lj_fff_res1
-	.type lj_fff_res1, @function
-	.size lj_fff_res1, 5
-lj_fff_res1:
-	.byte 184,2,0,0,0
-
-	.globl lj_fff_res
-	.hidden lj_fff_res
-	.type lj_fff_res, @function
-	.size lj_fff_res, 4
-lj_fff_res:
-	.byte 137,68,36,20
-
-	.globl lj_fff_res_
-	.hidden lj_fff_res_
-	.type lj_fff_res_, @function
-	.size lj_fff_res_, 62
-lj_fff_res_:
-	.byte 247,198,3,0,0,0,117,44,56,70,255,119,26,15,182,78
-	.byte 253,247,209,141,20,202,139,6,15,182,204,15,182,232,131,198
-	.byte 4,193,232,16,255,36,171,199,68,194,244,255,255,255,255,131
-	.byte 192,1,235,212,185,248,255,255,255,233,73,243,255,255
+	.long 0xe5980028,0xe089100b,0xe5889010,0xe3100001
+	.long 0xe5881014,0xe3a00001,0xe3a02000,0x0a0002bc
+	.long 0xe5882028,0xe5c80007,0xeafffcf5
 
 	.globl lj_ff_math_floor
 	.hidden lj_ff_math_floor
-	.type lj_ff_math_floor, @function
-	.size lj_ff_math_floor, 21
+	.type lj_ff_math_floor, %function
+	.size lj_ff_math_floor, 160
 lj_ff_math_floor:
-	.byte 131,122,4,242,15,131,121,10,0,0,242,15,16,2,232,6
-	.byte 13,0,0,235,156
+	.long 0xe1c900d0,0xe35b0008,0x3a0002b6,0xe371000e
+	.long 0x0a000057,0x8a0002b3,0xe1a02081,0xe292c980
+	.long 0x5a00000f,0xe3e03ff8,0xe053cacc,0xe1a03581
+	.long 0xe1a02580,0xe3833480,0xe26ce020,0xe1833aa0
+	.long 0x9a00000e,0xe1822e13,0xe1a00c33,0xe1120fc1
+	.long 0x12800001,0xe3510000,0xb2600000,0xe3e0100d
+	.long 0xea000043,0x2a000042,0xe1822000,0xe1120fc1
+	.long 0x03a00000,0x13e00000,0xe3e0100d,0xea00003c
+	.long 0x03530480,0x03520000,0x1a000002,0xe3510000
+	.long 0x43a00480,0x4afffff0,0xeb00034d,0xea000034
 
 	.globl lj_ff_math_ceil
 	.hidden lj_ff_math_ceil
-	.type lj_ff_math_ceil, @function
-	.size lj_ff_math_ceil, 21
+	.type lj_ff_math_ceil, %function
+	.size lj_ff_math_ceil, 172
 lj_ff_math_ceil:
-	.byte 131,122,4,242,15,131,100,10,0,0,242,15,16,2,232,72
-	.byte 13,0,0,235,135
+	.long 0xe1c900d0,0xe35b0008,0x3a00028e,0xe371000e
+	.long 0x0a00002f,0x8a00028b,0xe1a02081,0xe292c980
+	.long 0x5a000011,0xe3e03ff8,0xe053cacc,0xe1a03581
+	.long 0xe1a02580,0xe3833480,0xe26ce020,0xe1833aa0
+	.long 0x9a000010,0xe1822e13,0xe1a00c33,0xe1d22fc1
+	.long 0x12900001,0x61cf04d8,0x6a00001d,0xe3510000
+	.long 0xb2600000,0xe3e0100d,0xea000019,0x2a000018
+	.long 0xe1822000,0xe1d22fc1,0x03a00000,0x13a00001
+	.long 0xe3e0100d,0xea000012,0x03530480,0x1a000002
+	.long 0xe3510000,0x43a00480,0x4afffff1,0xeb000344
+	.long 0xea00000b,0x00000000,0x41e00000
+
+	.globl lj_ff_math_abs
+	.hidden lj_ff_math_abs
+	.type lj_ff_math_abs, %function
+	.size lj_ff_math_abs, 40
+lj_ff_math_abs:
+	.long 0xe1c900d0,0xe35b0008,0x3a000263,0xe371000e
+	.long 0x8a000261,0x13c11480,0x1a000002,0xe3500000
+	.long 0xb2700000,0x614f03d4
+
+	.globl lj_fff_restv
+	.hidden lj_fff_restv
+	.type lj_fff_restv, %function
+	.size lj_fff_restv, 8
+lj_fff_restv:
+	.long 0xe5196004,0xe14900f8
+
+	.globl lj_fff_res1
+	.hidden lj_fff_res1
+	.type lj_fff_res1, %function
+	.size lj_fff_res1, 4
+lj_fff_res1:
+	.long 0xe3a0b010
+
+	.globl lj_fff_res
+	.hidden lj_fff_res
+	.type lj_fff_res, %function
+	.size lj_fff_res, 84
+lj_fff_res:
+	.long 0xe2160003,0x0516e004,0xe58db004,0xe249a008
+	.long 0x1afffc7a,0xe004caae,0xe15c000b,0x8a000007
+	.long 0xe00402ae,0xe5d6c000,0xe496e004,0xe04a9000
+	.long 0xe797c10c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
+	.long 0xe08a100b,0xe3e00000,0xe28bb008,0xe5010004
+	.long 0xeafffff0
 
 	.globl lj_ff_math_sqrt
 	.hidden lj_ff_math_sqrt
-	.type lj_ff_math_sqrt, @function
+	.type lj_ff_math_sqrt, %function
 	.size lj_ff_math_sqrt, 28
 lj_ff_math_sqrt:
-	.byte 131,248,2,15,130,80,10,0,0,131,122,4,242,15,131,70
-	.byte 10,0,0,242,15,81,2,233,107,255,255,255
+	.long 0xe5991004,0xe35b0008,0xed190b00,0x3a000240
+	.long 0xe371000e,0x2a00023e,0xeeb10bc0
+
+	.globl lj_fff_resd
+	.hidden lj_fff_resd
+	.type lj_fff_resd, %function
+	.size lj_fff_resd, 12
+lj_fff_resd:
+	.long 0xe5196004,0xed090b02,0xeaffffdf
 
 	.globl lj_ff_math_log
 	.hidden lj_ff_math_log
-	.type lj_ff_math_log, @function
-	.size lj_ff_math_log, 30
+	.type lj_ff_math_log, %function
+	.size lj_ff_math_log, 28
 lj_ff_math_log:
-	.byte 131,248,2,15,133,52,10,0,0,131,122,4,242,15,131,42
-	.byte 10,0,0,217,237,221,2,217,241,233,30,255,255,255
+	.long 0xe1c900d0,0xe35b0008,0x1a000237,0xe371000e
+	.long 0x2a000235
+	bl log
+	.long 0xeaffffd6
 
 	.globl lj_ff_math_log10
 	.hidden lj_ff_math_log10
-	.type lj_ff_math_log10, @function
-	.size lj_ff_math_log10, 30
+	.type lj_ff_math_log10, %function
+	.size lj_ff_math_log10, 28
 lj_ff_math_log10:
-	.byte 131,248,2,15,130,22,10,0,0,131,122,4,242,15,131,12
-	.byte 10,0,0,217,236,221,2,217,241,233,0,255,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a000230,0xe371000e
+	.long 0x2a00022e
+	bl log10
+	.long 0xeaffffcf
 
 	.globl lj_ff_math_exp
 	.hidden lj_ff_math_exp
-	.type lj_ff_math_exp, @function
-	.size lj_ff_math_exp, 31
+	.type lj_ff_math_exp, %function
+	.size lj_ff_math_exp, 28
 lj_ff_math_exp:
-	.byte 131,248,2,15,130,248,9,0,0,131,122,4,242,15,131,238
-	.byte 9,0,0,221,2,232,0,14,0,0,233,225,254,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a000229,0xe371000e
+	.long 0x2a000227
+	bl exp
+	.long 0xeaffffc8
 
 	.globl lj_ff_math_sin
 	.hidden lj_ff_math_sin
-	.type lj_ff_math_sin, @function
+	.type lj_ff_math_sin, %function
 	.size lj_ff_math_sin, 28
 lj_ff_math_sin:
-	.byte 131,248,2,15,130,217,9,0,0,131,122,4,242,15,131,207
-	.byte 9,0,0,221,2,217,254,233,197,254,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a000222,0xe371000e
+	.long 0x2a000220
+	bl sin
+	.long 0xeaffffc1
 
 	.globl lj_ff_math_cos
 	.hidden lj_ff_math_cos
-	.type lj_ff_math_cos, @function
+	.type lj_ff_math_cos, %function
 	.size lj_ff_math_cos, 28
 lj_ff_math_cos:
-	.byte 131,248,2,15,130,189,9,0,0,131,122,4,242,15,131,179
-	.byte 9,0,0,221,2,217,255,233,169,254,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a00021b,0xe371000e
+	.long 0x2a000219
+	bl cos
+	.long 0xeaffffba
 
 	.globl lj_ff_math_tan
 	.hidden lj_ff_math_tan
-	.type lj_ff_math_tan, @function
-	.size lj_ff_math_tan, 30
+	.type lj_ff_math_tan, %function
+	.size lj_ff_math_tan, 28
 lj_ff_math_tan:
-	.byte 131,248,2,15,130,161,9,0,0,131,122,4,242,15,131,151
-	.byte 9,0,0,221,2,217,242,221,216,233,139,254,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a000214,0xe371000e
+	.long 0x2a000212
+	bl tan
+	.long 0xeaffffb3
 
 	.globl lj_ff_math_asin
 	.hidden lj_ff_math_asin
-	.type lj_ff_math_asin, @function
-	.size lj_ff_math_asin, 38
+	.type lj_ff_math_asin, %function
+	.size lj_ff_math_asin, 28
 lj_ff_math_asin:
-	.byte 131,248,2,15,130,131,9,0,0,131,122,4,242,15,131,121
-	.byte 9,0,0,221,2,217,192,216,200,217,232,222,225,217,250,217
-	.byte 243,233,101,254,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a00020d,0xe371000e
+	.long 0x2a00020b
+	bl asin
+	.long 0xeaffffac
 
 	.globl lj_ff_math_acos
 	.hidden lj_ff_math_acos
-	.type lj_ff_math_acos, @function
-	.size lj_ff_math_acos, 40
+	.type lj_ff_math_acos, %function
+	.size lj_ff_math_acos, 28
 lj_ff_math_acos:
-	.byte 131,248,2,15,130,93,9,0,0,131,122,4,242,15,131,83
-	.byte 9,0,0,221,2,217,192,216,200,217,232,222,225,217,250,217
-	.byte 201,217,243,233,61,254,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a000206,0xe371000e
+	.long 0x2a000204
+	bl acos
+	.long 0xeaffffa5
 
 	.globl lj_ff_math_atan
 	.hidden lj_ff_math_atan
-	.type lj_ff_math_atan, @function
-	.size lj_ff_math_atan, 30
+	.type lj_ff_math_atan, %function
+	.size lj_ff_math_atan, 28
 lj_ff_math_atan:
-	.byte 131,248,2,15,130,53,9,0,0,131,122,4,242,15,131,43
-	.byte 9,0,0,221,2,217,232,217,243,233,31,254,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a0001ff,0xe371000e
+	.long 0x2a0001fd
+	bl atan
+	.long 0xeaffff9e
 
 	.globl lj_ff_math_sinh
 	.hidden lj_ff_math_sinh
-	.type lj_ff_math_sinh, @function
-	.size lj_ff_math_sinh, 42
+	.type lj_ff_math_sinh, %function
+	.size lj_ff_math_sinh, 28
 lj_ff_math_sinh:
-	.byte 131,248,2,15,130,23,9,0,0,131,122,4,242,15,131,13
-	.byte 9,0,0,242,15,16,2,242,15,17,4,36,137,213,232
-	.long lj_vm_sinh-.-4
-	.byte 137,234,233,245,253,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a0001f8,0xe371000e
+	.long 0x2a0001f6
+	bl sinh
+	.long 0xeaffff97
 
 	.globl lj_ff_math_cosh
 	.hidden lj_ff_math_cosh
-	.type lj_ff_math_cosh, @function
-	.size lj_ff_math_cosh, 42
+	.type lj_ff_math_cosh, %function
+	.size lj_ff_math_cosh, 28
 lj_ff_math_cosh:
-	.byte 131,248,2,15,130,237,8,0,0,131,122,4,242,15,131,227
-	.byte 8,0,0,242,15,16,2,242,15,17,4,36,137,213,232
-	.long lj_vm_cosh-.-4
-	.byte 137,234,233,203,253,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a0001f1,0xe371000e
+	.long 0x2a0001ef
+	bl cosh
+	.long 0xeaffff90
 
 	.globl lj_ff_math_tanh
 	.hidden lj_ff_math_tanh
-	.type lj_ff_math_tanh, @function
-	.size lj_ff_math_tanh, 42
+	.type lj_ff_math_tanh, %function
+	.size lj_ff_math_tanh, 28
 lj_ff_math_tanh:
-	.byte 131,248,2,15,130,195,8,0,0,131,122,4,242,15,131,185
-	.byte 8,0,0,242,15,16,2,242,15,17,4,36,137,213,232
-	.long lj_vm_tanh-.-4
-	.byte 137,234,233,161,253,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a0001ea,0xe371000e
+	.long 0x2a0001e8
+	bl tanh
+	.long 0xeaffff89
+
+	.globl lj_ff_math_pow
+	.hidden lj_ff_math_pow
+	.type lj_ff_math_pow, %function
+	.size lj_ff_math_pow, 36
+lj_ff_math_pow:
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x3a0001e2
+	.long 0xe371000e,0x3373000e,0x2a0001df
+	bl pow
+	.long 0xeaffff80
+
+	.globl lj_ff_math_atan2
+	.hidden lj_ff_math_atan2
+	.type lj_ff_math_atan2, %function
+	.size lj_ff_math_atan2, 36
+lj_ff_math_atan2:
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x3a0001d9
+	.long 0xe371000e,0x3373000e,0x2a0001d6
+	bl atan2
+	.long 0xeaffff77
+
+	.globl lj_ff_math_fmod
+	.hidden lj_ff_math_fmod
+	.type lj_ff_math_fmod, %function
+	.size lj_ff_math_fmod, 36
+lj_ff_math_fmod:
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x3a0001d0
+	.long 0xe371000e,0x3373000e,0x2a0001cd
+	bl fmod
+	.long 0xeaffff6e
 
 	.globl lj_ff_math_deg
 	.hidden lj_ff_math_deg
-	.type lj_ff_math_deg, @function
+	.type lj_ff_math_deg, %function
 	.size lj_ff_math_deg, 0
 lj_ff_math_deg:
 
 	.globl lj_ff_math_rad
 	.hidden lj_ff_math_rad
-	.type lj_ff_math_rad, @function
+	.type lj_ff_math_rad, %function
 	.size lj_ff_math_rad, 36
 lj_ff_math_rad:
-	.byte 131,248,2,15,130,153,8,0,0,131,122,4,242,15,131,143
-	.byte 8,0,0,242,15,16,2,139,106,248,242,15,89,69,24,233
-	.byte 172,253,255,255
-
-	.globl lj_ff_math_atan2
-	.hidden lj_ff_math_atan2
-	.type lj_ff_math_atan2, @function
-	.size lj_ff_math_atan2, 41
-lj_ff_math_atan2:
-	.byte 131,248,3,15,130,117,8,0,0,131,122,4,242,15,131,107
-	.byte 8,0,0,131,122,12,242,15,131,97,8,0,0,221,2,221
-	.byte 66,8,217,243,233,84,253,255,255
+	.long 0xe5991004,0xe35b0008,0xed190b00,0x3a0001c7
+	.long 0xe371000e,0x2a0001c5,0xed921b06,0xee200b01
+	.long 0xeaffff84
 
 	.globl lj_ff_math_ldexp
 	.hidden lj_ff_math_ldexp
-	.type lj_ff_math_ldexp, @function
-	.size lj_ff_math_ldexp, 43
+	.type lj_ff_math_ldexp, %function
+	.size lj_ff_math_ldexp, 40
 lj_ff_math_ldexp:
-	.byte 131,248,3,15,130,76,8,0,0,131,122,4,242,15,131,66
-	.byte 8,0,0,131,122,12,242,15,131,56,8,0,0,221,66,8
-	.byte 221,2,217,253,221,217,233,41,253,255,255
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x3a0001be
+	.long 0xe371000e,0x2a0001bc,0xe373000e,0x1a0001ba
+	bl ldexp
+	.long 0xeaffff5b
 
 	.globl lj_ff_math_frexp
 	.hidden lj_ff_math_frexp
-	.type lj_ff_math_frexp, @function
-	.size lj_ff_math_frexp, 144
+	.type lj_ff_math_frexp, %function
+	.size lj_ff_math_frexp, 56
 lj_ff_math_frexp:
-	.byte 131,248,2,15,130,33,8,0,0,139,106,4,131,253,242,15
-	.byte 131,21,8,0,0,139,114,252,139,2,137,106,252,137,66,248
-	.byte 209,229,129,253,0,0,224,255,115,58,9,232,116,54,184,254
-	.byte 3,0,0,129,253,0,0,32,0,114,46,193,237,21,41,197
-	.byte 242,15,42,197,139,106,252,129,229,255,255,15,128,129,205,0
-	.byte 0,224,63,137,106,252,242,15,17,2,184,3,0,0,0,233
-	.byte 1,253,255,255,15,87,192,235,237,242,15,16,2,189,0,0
-	.byte 80,67,102,15,110,205,102,15,112,201,81,242,15,89,193,242
-	.byte 15,17,66,248,139,106,252,184,52,4,0,0,209,229,235,171
+	.long 0xe1c900d0,0xe35b0008,0x3a0001b5,0xe371000e
+	.long 0x2a0001b3,0xe1a0200d
+	bl frexp
+	.long 0xe59d2000,0xe3e0300d,0xe5196004,0xe14900f8
+	.long 0xe3a0b018,0xe1c920f0,0xeaffff50
 
 	.globl lj_ff_math_modf
 	.hidden lj_ff_math_modf
-	.type lj_ff_math_modf, @function
-	.size lj_ff_math_modf, 96
+	.type lj_ff_math_modf, %function
+	.size lj_ff_math_modf, 44
 lj_ff_math_modf:
-	.byte 131,248,2,15,130,145,7,0,0,131,122,4,242,15,131,135
-	.byte 7,0,0,242,15,16,2,139,106,4,139,114,252,209,229,129
-	.byte 253,0,0,224,255,116,52,15,40,224,232,175,10,0,0,242
-	.byte 15,92,224,242,15,17,66,248,242,15,17,34,139,66,252,139
-	.byte 106,4,49,232,120,10,184,3,0,0,0,233,133,252,255,255
-	.byte 129,245,0,0,0,128,137,106,4,235,235,15,87,228,235,211
-
-	.globl lj_ff_math_fmod
-	.hidden lj_ff_math_fmod
-	.type lj_ff_math_fmod, @function
-	.size lj_ff_math_fmod, 51
-lj_ff_math_fmod:
-	.byte 131,248,3,15,130,49,7,0,0,131,122,4,242,15,131,39
-	.byte 7,0,0,131,122,12,242,15,131,29,7,0,0,221,66,8
-	.byte 221,2,217,248,223,224,102,37,0,4,117,246,221,217,233,6
-	.byte 252,255,255
-
-	.globl lj_ff_math_pow
-	.hidden lj_ff_math_pow
-	.type lj_ff_math_pow, @function
-	.size lj_ff_math_pow, 48
-lj_ff_math_pow:
-	.byte 131,248,3,15,130,254,6,0,0,131,122,4,242,15,131,244
-	.byte 6,0,0,131,122,12,242,15,131,234,6,0,0,242,15,16
-	.byte 2,242,15,16,74,8,232,41,11,0,0,233,5,252,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a0001a7,0xe371000e
+	.long 0x2a0001a5,0xe2492008,0xe5196004
+	bl modf
+	.long 0xe3a0b018,0xe1c900f0,0xeaffff45
 
 	.globl lj_ff_math_min
 	.hidden lj_ff_math_min
-	.type lj_ff_math_min, @function
-	.size lj_ff_math_min, 53
+	.type lj_ff_math_min, %function
+	.size lj_ff_math_min, 152
 lj_ff_math_min:
-	.byte 185,2,0,0,0,131,122,4,242,15,131,200,6,0,0,242
-	.byte 15,16,2,57,193,15,131,234,251,255,255,131,124,202,252,242
-	.byte 15,131,177,6,0,0,242,15,16,76,202,248,242,15,93,193
-	.byte 131,193,1,235,222
+	.long 0xe1c900d0,0xe35b0008,0x3a00019c,0xe089c00b
+	.long 0xe371000e,0xe289a008,0x1a00000d,0xe1ca20d0
+	.long 0xe15a000c,0x2affff38,0xe373000e,0x1a000003
+	.long 0xe1500002,0xe28aa008,0xc1a00002,0xeafffff6
+	.long 0xee020a10,0x8a00018d,0xed1a1b00,0xeeb80bc2
+	.long 0xea000007,0xed190b00,0x8a000188,0xe1ca20d0
+	.long 0xed1a1b00,0xe15a000c,0x2affff46,0xe373000e
+	.long 0x2a000004,0xeeb40b41,0xeef1fa10,0xe28aa008
+	.long 0x8eb00b41,0xeafffff4,0xee022a10,0x8a00017b
+	.long 0xeeb81bc2,0xeafffff6
 
 	.globl lj_ff_math_max
 	.hidden lj_ff_math_max
-	.type lj_ff_math_max, @function
-	.size lj_ff_math_max, 53
+	.type lj_ff_math_max, %function
+	.size lj_ff_math_max, 152
 lj_ff_math_max:
-	.byte 185,2,0,0,0,131,122,4,242,15,131,147,6,0,0,242
-	.byte 15,16,2,57,193,15,131,181,251,255,255,131,124,202,252,242
-	.byte 15,131,124,6,0,0,242,15,16,76,202,248,242,15,95,193
-	.byte 131,193,1,235,222
+	.long 0xe1c900d0,0xe35b0008,0x3a000176,0xe089c00b
+	.long 0xe371000e,0xe289a008,0x1a00000d,0xe1ca20d0
+	.long 0xe15a000c,0x2affff12,0xe373000e,0x1a000003
+	.long 0xe1500002,0xe28aa008,0xb1a00002,0xeafffff6
+	.long 0xee020a10,0x8a000167,0xed1a1b00,0xeeb80bc2
+	.long 0xea000007,0xed190b00,0x8a000162,0xe1ca20d0
+	.long 0xed1a1b00,0xe15a000c,0x2affff20,0xe373000e
+	.long 0x2a000004,0xeeb40b41,0xeef1fa10,0xe28aa008
+	.long 0x3eb00b41,0xeafffff4,0xee022a10,0x8a000155
+	.long 0xeeb81bc2,0xeafffff6
 
 	.globl lj_ff_string_len
 	.hidden lj_ff_string_len
-	.type lj_ff_string_len, @function
-	.size lj_ff_string_len, 31
+	.type lj_ff_string_len, %function
+	.size lj_ff_string_len, 32
 lj_ff_string_len:
-	.byte 131,248,2,15,130,100,6,0,0,131,122,4,251,15,133,90
-	.byte 6,0,0,139,42,242,15,42,69,12,233,124,251,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a000150,0xe3710005
+	.long 0x1a00014e,0xe590000c,0xe3e0100d,0xeafffeee
 
 	.globl lj_ff_string_byte
 	.hidden lj_ff_string_byte
-	.type lj_ff_string_byte, @function
-	.size lj_ff_string_byte, 47
+	.type lj_ff_string_byte, %function
+	.size lj_ff_string_byte, 52
 lj_ff_string_byte:
-	.byte 131,248,2,15,133,69,6,0,0,131,122,4,251,15,133,59
-	.byte 6,0,0,139,42,139,114,252,131,125,12,1,15,130,29,248
-	.byte 255,255,15,182,109,16,242,15,42,197,233,77,251,255,255
+	.long 0xe1c900d0,0xe5196004,0xe35b0008,0x03710005
+	.long 0x1a000146,0xe590200c,0xe5d00010,0xe3e0100d
+	.long 0xe3520000,0x03a0b008,0x13a0b010,0xe14900f8
+	.long 0xeafffee4
 
 	.globl lj_ff_string_char
 	.hidden lj_ff_string_char
-	.type lj_ff_string_char, @function
-	.size lj_ff_string_char, 70
+	.type lj_ff_string_char, %function
+	.size lj_ff_string_char, 52
 lj_ff_string_char:
-	.byte 139,171,4,245,255,255,59,171,8,245,255,255,114,5,232,154
-	.byte 6,0,0,131,248,2,15,133,3,6,0,0,131,122,4,242
-	.byte 15,131,249,5,0,0,242,15,44,42,129,253,255,0,0,0
-	.byte 15,135,233,5,0,0,137,108,36,20,199,68,36,8,1,0
-	.byte 0,0,141,68,36,20
+	.long 0xe5170afc,0xe5171af8,0xe1500001,0xab000163
+	.long 0xe1c900d0,0xe5196004,0xe35b0008,0x0371000e
+	.long 0x03d030ff,0xe3a02001,0x1a000133,0xe58d0000
+	.long 0xe1a0100d
 
 	.globl lj_fff_newstr
 	.hidden lj_fff_newstr
-	.type lj_fff_newstr, @function
-	.size lj_fff_newstr, 44
+	.type lj_fff_newstr, %function
+	.size lj_fff_newstr, 28
 lj_fff_newstr:
-	.byte 139,108,36,48,137,85,16,137,68,36,4,137,44,36,137,116
-	.byte 36,24,232
-	.long lj_str_new-.-4
-	.byte 139,85,16,139,114,252,199,66,252,251,255,255,255,137,66,248
-	.byte 233,227,250,255,255
+	.long 0xe5889010,0xe1a00008,0xe58d6008
+	bl lj_str_new
+	.long 0xe5989010,0xe3e01004,0xeafffecd
 
 	.globl lj_ff_string_sub
 	.hidden lj_ff_string_sub
-	.type lj_ff_string_sub, @function
-	.size lj_ff_string_sub, 157
+	.type lj_ff_string_sub, %function
+	.size lj_ff_string_sub, 132
 lj_ff_string_sub:
-	.byte 139,171,4,245,255,255,59,171,8,245,255,255,114,5,232,40
-	.byte 6,0,0,199,68,36,20,255,255,255,255,131,248,3,15,130
-	.byte 137,5,0,0,118,19,131,122,20,242,15,131,125,5,0,0
-	.byte 242,15,44,106,16,137,108,36,20,131,122,4,251,15,133,106
-	.byte 5,0,0,131,122,12,242,15,131,96,5,0,0,139,42,137
-	.byte 108,36,12,139,109,12,242,15,44,74,8,139,68,36,20,57
-	.byte 197,114,30,133,201,126,38,139,108,36,12,41,200,124,46,141
-	.byte 108,13,15,131,192,1,137,68,36,8,137,232,233,83,255,255
-	.byte 255,124,6,141,68,40,1,235,218,137,232,235,214,116,7,1
-	.byte 233,131,193,1,127,209,185,1,0,0,0,235,202
+	.long 0xe5170afc,0xe5171af8,0xe1500001,0xab00014f
+	.long 0xe1c900d0,0xe1c921d0,0xe35b0010,0xe3e0c000
+	.long 0x0a000003,0x3a000120,0xe373000e,0xe1a0c002
+	.long 0x1a00011d,0xe1c920d8,0xe3710005,0x0590100c
+	.long 0x0373000e,0x1a000118,0xe2813001,0xe3520000
+	.long 0xb0822003,0xe3520001,0xb3a02001,0xe35c0000
+	.long 0xb08cc003,0xe1cccfcc,0xe15c0001,0xe280000f
+	.long 0xc1a0c001,0xe0801002,0xe05c2002,0xe2822001
+	.long 0xaaffffd7
 
 	.globl lj_fff_emptystr
 	.hidden lj_fff_emptystr
-	.type lj_fff_emptystr, @function
-	.size lj_fff_emptystr, 4
+	.type lj_fff_emptystr, %function
+	.size lj_fff_emptystr, 12
 lj_fff_emptystr:
-	.byte 49,192,235,213
+	.long 0xe2470eaa,0xe3e01004,0xeafffea9
 
 	.globl lj_ff_string_rep
 	.hidden lj_ff_string_rep
-	.type lj_ff_string_rep, @function
-	.size lj_ff_string_rep, 119
+	.type lj_ff_string_rep, %function
+	.size lj_ff_string_rep, 104
 lj_ff_string_rep:
-	.byte 139,171,4,245,255,255,59,171,8,245,255,255,114,5,232,135
-	.byte 5,0,0,131,248,3,15,133,240,4,0,0,131,122,4,251
-	.byte 15,133,230,4,0,0,131,122,12,242,139,42,15,131,218,4
-	.byte 0,0,242,15,44,66,8,133,192,126,193,131,125,12,1,114
-	.byte 187,15,133,185,4,0,0,57,131,68,245,255,255,15,130,173
-	.byte 4,0,0,15,182,77,16,139,171,60,245,255,255,137,68,36
-	.byte 8,136,77,0,131,197,1,131,232,1,117,245,139,131,60,245
-	.byte 255,255,233,188,254,255,255
+	.long 0xe5170afc,0xe5171af8,0xe1500001,0xab00012b
+	.long 0xe1c900d0,0xe1c920d8,0xe35b0010,0x1a0000fe
+	.long 0xe3710005,0x0373000e,0x1a0000fb,0xe2523001
+	.long 0xe590100c,0xbaffffee,0xe3510001,0x3affffec
+	.long 0x1a0000f5,0xe517cabc,0xe5171ac4,0xe5900010
+	.long 0xe15c0002,0x3a0000f0,0xe7c10003,0xe2533001
+	.long 0xaafffffc,0xeaffffba
 
 	.globl lj_ff_string_reverse
 	.hidden lj_ff_string_reverse
-	.type lj_ff_string_reverse, @function
-	.size lj_ff_string_reverse, 106
+	.type lj_ff_string_reverse, %function
+	.size lj_ff_string_reverse, 84
 lj_ff_string_reverse:
-	.byte 131,248,2,15,130,140,4,0,0,139,171,4,245,255,255,59
-	.byte 171,8,245,255,255,114,5,232,7,5,0,0,131,122,4,251
-	.byte 15,133,111,4,0,0,139,42,139,69,12,133,192,15,132,82
-	.byte 255,255,255,57,131,68,245,255,255,15,130,81,4,0,0,131
-	.byte 197,16,137,116,36,20,137,68,36,8,139,179,60,245,255,255
-	.byte 15,182,77,0,131,197,1,131,232,1,136,12,6,117,241,137
-	.byte 240,139,116,36,20,233,82,254,255,255
+	.long 0xe5170afc,0xe5171af8,0xe1500001,0xab000111
+	.long 0xe1c900d0,0xe35b0008,0x3a0000e5,0xe3710005
+	.long 0x1a0000e3,0xe590200c,0xe517cabc,0xe5171ac4
+	.long 0xe1a03002,0xe2800010,0xe15c0002,0x3a0000dc
+	.long 0xe4d0c001,0xe2533001,0xbaffffa7,0xe7c1c003
+	.long 0xeafffffa
 
 	.globl lj_ff_string_lower
 	.hidden lj_ff_string_lower
-	.type lj_ff_string_lower, @function
-	.size lj_ff_string_lower, 111
+	.type lj_ff_string_lower, %function
+	.size lj_ff_string_lower, 100
 lj_ff_string_lower:
-	.byte 131,248,2,15,130,34,4,0,0,139,171,4,245,255,255,59
-	.byte 171,8,245,255,255,114,5,232,157,4,0,0,131,122,4,251
-	.byte 15,133,5,4,0,0,139,42,139,69,12,57,131,68,245,255
-	.byte 255,15,130,239,3,0,0,131,197,16,137,116,36,20,137,68
-	.byte 36,8,139,179,60,245,255,255,235,21,15,182,76,5,0,131
-	.byte 249,65,114,8,131,249,90,119,3,131,241,32,136,12,6,131
-	.byte 232,1,121,230,137,240,139,116,36,20,233,227,253,255,255
+	.long 0xe5170afc,0xe5171af8,0xe1500001,0xab0000fc
+	.long 0xe1c900d0,0xe35b0008,0x3a0000d0,0xe3710005
+	.long 0x1a0000ce,0xe590200c,0xe517cabc,0xe5171ac4
+	.long 0xe3a03000,0xe2800010,0xe15c0002,0x3a0000c7
+	.long 0xe7d0c003,0xe1530002,0x2affff92,0xe24cb041
+	.long 0xe35b001a,0x322cc020,0xe7c1c003,0xe2833001
+	.long 0xeafffff6
 
 	.globl lj_ff_string_upper
 	.hidden lj_ff_string_upper
-	.type lj_ff_string_upper, @function
-	.size lj_ff_string_upper, 111
+	.type lj_ff_string_upper, %function
+	.size lj_ff_string_upper, 100
 lj_ff_string_upper:
-	.byte 131,248,2,15,130,179,3,0,0,139,171,4,245,255,255,59
-	.byte 171,8,245,255,255,114,5,232,46,4,0,0,131,122,4,251
-	.byte 15,133,150,3,0,0,139,42,139,69,12,57,131,68,245,255
-	.byte 255,15,130,128,3,0,0,131,197,16,137,116,36,20,137,68
-	.byte 36,8,139,179,60,245,255,255,235,21,15,182,76,5,0,131
-	.byte 249,97,114,8,131,249,122,119,3,131,241,32,136,12,6,131
-	.byte 232,1,121,230,137,240,139,116,36,20,233,116,253,255,255
+	.long 0xe5170afc,0xe5171af8,0xe1500001,0xab0000e3
+	.long 0xe1c900d0,0xe35b0008,0x3a0000b7,0xe3710005
+	.long 0x1a0000b5,0xe590200c,0xe517cabc,0xe5171ac4
+	.long 0xe3a03000,0xe2800010,0xe15c0002,0x3a0000ae
+	.long 0xe7d0c003,0xe1530002,0x2affff79,0xe24cb061
+	.long 0xe35b001a,0x322cc020,0xe7c1c003,0xe2833001
+	.long 0xeafffff6
 
 	.globl lj_ff_table_getn
 	.hidden lj_ff_table_getn
-	.type lj_ff_table_getn, @function
-	.size lj_ff_table_getn, 39
+	.type lj_ff_table_getn, %function
+	.size lj_ff_table_getn, 32
 lj_ff_table_getn:
-	.byte 131,248,2,15,130,68,3,0,0,131,122,4,244,15,133,58
-	.byte 3,0,0,137,213,139,10,232
-	.long lj_tab_len-.-4
-	.byte 137,234,242,15,42,192,233,84,248,255,255
+	.long 0xe1c900d0,0xe35b0008,0x3a0000a2,0xe371000c
+	.long 0x1a0000a0
+	bl lj_tab_len
+	.long 0xe3e0100d,0xeafffe40
+
+	.globl lj_vm_tobit_fb
+	.hidden lj_vm_tobit_fb
+	.type lj_vm_tobit_fb, %function
+	.size lj_vm_tobit_fb, 4
+lj_vm_tobit_fb:
+	.long 0x8a00009c
+
+	.globl lj_vm_tobit
+	.hidden lj_vm_tobit
+	.type lj_vm_tobit, %function
+	.size lj_vm_tobit, 88
+lj_vm_tobit:
+	.long 0xe1a0c081,0xe29cc980,0x53a00000,0x512fff1e
+	.long 0xe3e03ff8,0xe053cacc,0x4a000006,0xe1a03581
+	.long 0xe3833480,0xe1833aa0,0xe3510000,0xe1a00c33
+	.long 0xb2600000,0xe12fff1e,0xe28cc015,0xe1a03c30
+	.long 0xe26cc014,0xe1a00601,0xe3510000,0xe1830c10
+	.long 0xb2600000,0xe12fff1e
 
 	.globl lj_ff_bit_tobit
 	.hidden lj_ff_bit_tobit
-	.type lj_ff_bit_tobit, @function
-	.size lj_ff_bit_tobit, 50
+	.type lj_ff_bit_tobit, %function
+	.size lj_ff_bit_tobit, 28
 lj_ff_bit_tobit:
-	.byte 131,248,2,15,130,29,3,0,0,131,122,4,242,15,131,19
-	.byte 3,0,0,242,15,16,2,189,0,0,56,67,102,15,110,205
-	.byte 102,15,112,201,81,242,15,88,193,102,15,126,197,233,110,1
-	.byte 0,0
+	.long 0xe1c900d0,0xe35b0008,0x3a000083,0xe371000e
+	.long 0x1bffffe3,0xe3e0100d,0xeafffe22
 
 	.globl lj_ff_bit_band
 	.hidden lj_ff_bit_band
-	.type lj_ff_bit_band, @function
-	.size lj_ff_bit_band, 90
+	.type lj_ff_bit_band, %function
+	.size lj_ff_bit_band, 60
 lj_ff_bit_band:
-	.byte 131,248,2,15,130,235,2,0,0,189,0,0,56,67,102,15
-	.byte 110,205,102,15,112,201,81,131,122,4,242,15,131,211,2,0
-	.byte 0,242,15,16,2,242,15,88,193,102,15,126,197,137,68,36
-	.byte 20,141,68,194,240,57,208,15,134,49,1,0,0,131,120,4
-	.byte 242,15,131,48,1,0,0,242,15,16,0,242,15,88,193,102
-	.byte 15,126,193,33,205,131,232,8,235,219
+	.long 0xe1c900d0,0xe35b0008,0x3a00007c,0xe371000e
+	.long 0x1bffffdc,0xe1a02000,0xe3a0a008,0xe18900da
+	.long 0xe15a000b,0xe28aa008,0xaa000021,0xe371000e
+	.long 0x1bffffd4,0xe0022000,0xeafffff7
 
 	.globl lj_ff_bit_bor
 	.hidden lj_ff_bit_bor
-	.type lj_ff_bit_bor, @function
-	.size lj_ff_bit_bor, 90
+	.type lj_ff_bit_bor, %function
+	.size lj_ff_bit_bor, 60
 lj_ff_bit_bor:
-	.byte 131,248,2,15,130,145,2,0,0,189,0,0,56,67,102,15
-	.byte 110,205,102,15,112,201,81,131,122,4,242,15,131,121,2,0
-	.byte 0,242,15,16,2,242,15,88,193,102,15,126,197,137,68,36
-	.byte 20,141,68,194,240,57,208,15,134,215,0,0,0,131,120,4
-	.byte 242,15,131,214,0,0,0,242,15,16,0,242,15,88,193,102
-	.byte 15,126,193,9,205,131,232,8,235,219
+	.long 0xe1c900d0,0xe35b0008,0x3a00006d,0xe371000e
+	.long 0x1bffffcd,0xe1a02000,0xe3a0a008,0xe18900da
+	.long 0xe15a000b,0xe28aa008,0xaa000012,0xe371000e
+	.long 0x1bffffc5,0xe1822000,0xeafffff7
 
 	.globl lj_ff_bit_bxor
 	.hidden lj_ff_bit_bxor
-	.type lj_ff_bit_bxor, @function
-	.size lj_ff_bit_bxor, 90
+	.type lj_ff_bit_bxor, %function
+	.size lj_ff_bit_bxor, 76
 lj_ff_bit_bxor:
-	.byte 131,248,2,15,130,55,2,0,0,189,0,0,56,67,102,15
-	.byte 110,205,102,15,112,201,81,131,122,4,242,15,131,31,2,0
-	.byte 0,242,15,16,2,242,15,88,193,102,15,126,197,137,68,36
-	.byte 20,141,68,194,240,57,208,15,134,125,0,0,0,131,120,4
-	.byte 242,15,131,124,0,0,0,242,15,16,0,242,15,88,193,102
-	.byte 15,126,193,49,205,131,232,8,235,219
+	.long 0xe1c900d0,0xe35b0008,0x3a00005e,0xe371000e
+	.long 0x1bffffbe,0xe1a02000,0xe3a0a008,0xe18900da
+	.long 0xe15a000b,0xe28aa008,0xaa000003,0xe371000e
+	.long 0x1bffffb6,0xe0222000,0xeafffff7,0xe3e0300d
+	.long 0xe5196004,0xe14920f8,0xeafffdf3
 
 	.globl lj_ff_bit_bswap
 	.hidden lj_ff_bit_bswap
-	.type lj_ff_bit_bswap, @function
-	.size lj_ff_bit_bswap, 49
+	.type lj_ff_bit_bswap, %function
+	.size lj_ff_bit_bswap, 44
 lj_ff_bit_bswap:
-	.byte 131,248,2,15,130,221,1,0,0,131,122,4,242,15,131,211
-	.byte 1,0,0,242,15,16,2,189,0,0,56,67,102,15,110,205
-	.byte 102,15,112,201,81,242,15,88,193,102,15,126,197,15,205,235
-	.byte 47
+	.long 0xe1c900d0,0xe35b0008,0x3a00004b,0xe371000e
+	.long 0x1bffffab,0xe0202860,0xe3c228ff,0xe1a00460
+	.long 0xe3e0100d,0xe0200422,0xeafffde6
 
 	.globl lj_ff_bit_bnot
 	.hidden lj_ff_bit_bnot
-	.type lj_ff_bit_bnot, @function
-	.size lj_ff_bit_bnot, 47
+	.type lj_ff_bit_bnot, %function
+	.size lj_ff_bit_bnot, 32
 lj_ff_bit_bnot:
-	.byte 131,248,2,15,130,172,1,0,0,131,122,4,242,15,131,162
-	.byte 1,0,0,242,15,16,2,189,0,0,56,67,102,15,110,205
-	.byte 102,15,112,201,81,242,15,88,193,102,15,126,197,247,213
-
-	.globl lj_fff_resbit
-	.hidden lj_fff_resbit
-	.type lj_fff_resbit, @function
-	.size lj_fff_resbit, 9
-lj_fff_resbit:
-	.byte 242,15,42,197,233,171,246,255,255
-
-	.globl lj_fff_fallback_bit_op
-	.hidden lj_fff_fallback_bit_op
-	.type lj_fff_fallback_bit_op, @function
-	.size lj_fff_fallback_bit_op, 9
-lj_fff_fallback_bit_op:
-	.byte 139,68,36,20,233,116,1,0,0
+	.long 0xe1c900d0,0xe35b0008,0x3a000040,0xe371000e
+	.long 0x1bffffa0,0xe1e00000,0xe3e0100d,0xeafffdde
 
 	.globl lj_ff_bit_lshift
 	.hidden lj_ff_bit_lshift
-	.type lj_ff_bit_lshift, @function
-	.size lj_ff_bit_lshift, 72
+	.type lj_ff_bit_lshift, %function
+	.size lj_ff_bit_lshift, 48
 lj_ff_bit_lshift:
-	.byte 131,248,3,15,130,107,1,0,0,131,122,4,242,15,131,97
-	.byte 1,0,0,131,122,12,242,15,131,87,1,0,0,242,15,16
-	.byte 2,242,15,16,74,8,189,0,0,56,67,102,15,110,213,102
-	.byte 15,112,210,81,242,15,88,194,242,15,88,202,102,15,126,197
-	.byte 102,15,126,201,211,229,235,166
+	.long 0xe1c900d8,0xe35b0010,0x3a000038,0xe371000e
+	.long 0x1bffff98,0xe200a01f,0xe1c900d0,0xe371000e
+	.long 0x1bffff94,0xe1a00a10,0xe3e0100d,0xeafffdd2
 
 	.globl lj_ff_bit_rshift
 	.hidden lj_ff_bit_rshift
-	.type lj_ff_bit_rshift, @function
-	.size lj_ff_bit_rshift, 75
+	.type lj_ff_bit_rshift, %function
+	.size lj_ff_bit_rshift, 48
 lj_ff_bit_rshift:
-	.byte 131,248,3,15,130,35,1,0,0,131,122,4,242,15,131,25
-	.byte 1,0,0,131,122,12,242,15,131,15,1,0,0,242,15,16
-	.byte 2,242,15,16,74,8,189,0,0,56,67,102,15,110,213,102
-	.byte 15,112,210,81,242,15,88,194,242,15,88,202,102,15,126,197
-	.byte 102,15,126,201,211,237,233,91,255,255,255
+	.long 0xe1c900d8,0xe35b0010,0x3a00002c,0xe371000e
+	.long 0x1bffff8c,0xe200a01f,0xe1c900d0,0xe371000e
+	.long 0x1bffff88,0xe1a00a30,0xe3e0100d,0xeafffdc6
 
 	.globl lj_ff_bit_arshift
 	.hidden lj_ff_bit_arshift
-	.type lj_ff_bit_arshift, @function
-	.size lj_ff_bit_arshift, 75
+	.type lj_ff_bit_arshift, %function
+	.size lj_ff_bit_arshift, 48
 lj_ff_bit_arshift:
-	.byte 131,248,3,15,130,216,0,0,0,131,122,4,242,15,131,206
-	.byte 0,0,0,131,122,12,242,15,131,196,0,0,0,242,15,16
-	.byte 2,242,15,16,74,8,189,0,0,56,67,102,15,110,213,102
-	.byte 15,112,210,81,242,15,88,194,242,15,88,202,102,15,126,197
-	.byte 102,15,126,201,211,253,233,16,255,255,255
+	.long 0xe1c900d8,0xe35b0010,0x3a000020,0xe371000e
+	.long 0x1bffff80,0xe200a01f,0xe1c900d0,0xe371000e
+	.long 0x1bffff7c,0xe1a00a50,0xe3e0100d,0xeafffdba
 
 	.globl lj_ff_bit_rol
 	.hidden lj_ff_bit_rol
-	.type lj_ff_bit_rol, @function
-	.size lj_ff_bit_rol, 75
+	.type lj_ff_bit_rol, %function
+	.size lj_ff_bit_rol, 48
 lj_ff_bit_rol:
-	.byte 131,248,3,15,130,141,0,0,0,131,122,4,242,15,131,131
-	.byte 0,0,0,131,122,12,242,15,131,121,0,0,0,242,15,16
-	.byte 2,242,15,16,74,8,189,0,0,56,67,102,15,110,213,102
-	.byte 15,112,210,81,242,15,88,194,242,15,88,202,102,15,126,197
-	.byte 102,15,126,201,211,197,233,197,254,255,255
+	.long 0xe1c900d8,0xe35b0010,0x3a000014,0xe371000e
+	.long 0x1bffff74,0xe260a000,0xe1c900d0,0xe371000e
+	.long 0x1bffff70,0xe1a00a70,0xe3e0100d,0xeafffdae
 
 	.globl lj_ff_bit_ror
 	.hidden lj_ff_bit_ror
-	.type lj_ff_bit_ror, @function
-	.size lj_ff_bit_ror, 63
+	.type lj_ff_bit_ror, %function
+	.size lj_ff_bit_ror, 48
 lj_ff_bit_ror:
-	.byte 131,248,3,114,70,131,122,4,242,115,64,131,122,12,242,115
-	.byte 58,242,15,16,2,242,15,16,74,8,189,0,0,56,67,102
-	.byte 15,110,213,102,15,112,210,81,242,15,88,194,242,15,88,202
-	.byte 102,15,126,197,102,15,126,201,211,205,233,134,254,255,255
-
-	.globl lj_fff_fallback_2
-	.hidden lj_fff_fallback_2
-	.type lj_fff_fallback_2, @function
-	.size lj_fff_fallback_2, 7
-lj_fff_fallback_2:
-	.byte 184,3,0,0,0,235,5
-
-	.globl lj_fff_fallback_1
-	.hidden lj_fff_fallback_1
-	.type lj_fff_fallback_1, @function
-	.size lj_fff_fallback_1, 5
-lj_fff_fallback_1:
-	.byte 184,2,0,0,0
+	.long 0xe1c900d8,0xe35b0010,0x3a000008,0xe371000e
+	.long 0x1bffff68,0xe200a01f,0xe1c900d0,0xe371000e
+	.long 0x1bffff64,0xe1a00a70,0xe3e0100d,0xeafffda2
 
 	.globl lj_fff_fallback
 	.hidden lj_fff_fallback
-	.type lj_fff_fallback, @function
-	.size lj_fff_fallback, 87
+	.type lj_fff_fallback, %function
+	.size lj_fff_fallback, 116
 lj_fff_fallback:
-	.byte 139,108,36,48,139,114,252,137,116,36,24,137,85,16,141,68
-	.byte 194,248,141,136,160,0,0,0,137,69,20,139,66,248,59,77
-	.byte 24,119,88,137,44,36,255,80,20,139,85,16,133,192,15,143
-	.byte 7,245,255,255,139,77,20,41,209,193,233,3,133,192,141,65
-	.byte 1,139,106,248,117,17,139,117,16,139,14,15,182,233,15,182
-	.byte 205,131,198,4,255,36,171
+	.long 0xe5192008,0xe5981018,0xe089000b,0xe5196004
+	.long 0xe5880014,0xe5922014,0xe5889010,0xe28000a0
+	.long 0xe58d6008,0xe1500001,0xe1a00008,0x8a000017
+	.long 0xe12fff32,0xe5989010,0xe3500000,0xe1a0b180
+	.long 0xe249a008,0xcafffd93,0xe5980014,0xe5192008
+	.long 0xe040b009,0x1a000006,0xe5926010,0xe5d6c000
+	.long 0xe496e004,0xe797c10c,0xe004a2ae,0xe08aa009
+	.long 0xe12fff1c
 
 	.globl lj_vm_call_tail
 	.hidden lj_vm_call_tail
-	.type lj_vm_call_tail, @function
-	.size lj_vm_call_tail, 55
+	.type lj_vm_call_tail, %function
+	.size lj_vm_call_tail, 48
 lj_vm_call_tail:
-	.byte 137,209,247,198,3,0,0,0,117,14,15,182,110,253,247,213
-	.byte 141,20,234,233,73,234,255,255,137,245,131,229,248,41,234,233
-	.byte 61,234,255,255,186,20,0,0,0,137,233,232
-	.long lj_state_growstack-.-4
-	.byte 139,85,16,49,192,235,166
+	.long 0xe2160003,0xe3c61007,0x0516e004,0x000412ae
+	.long 0x02811008,0xe049c001,0xeafffa9c,0xe3a01014
+	bl lj_state_growstack
+	.long 0xe5989010,0xe1500000,0xeaffffe8
 
 	.globl lj_fff_gcstep
 	.hidden lj_fff_gcstep
-	.type lj_fff_gcstep, @function
-	.size lj_fff_gcstep, 50
+	.type lj_fff_gcstep, %function
+	.size lj_fff_gcstep, 44
 lj_fff_gcstep:
-	.byte 93,137,108,36,16,139,108,36,48,137,116,36,24,137,85,16
-	.byte 141,68,194,248,137,233,137,69,20,232
-	.long lj_gc_step-.-4
-	.byte 139,85,16,139,69,20,41,208,193,232,3,131,192,1,139,108
-	.byte 36,16,85,195
+	.long 0xe1a0a00e,0xe5889010,0xe089100b,0xe58d6008
+	.long 0xe5881014,0xe1a00008
+	bl lj_gc_step
+	.long 0xe5989010,0xe1a0e00a,0xe5192008,0xe12fff1e
 
 	.globl lj_vm_record
 	.hidden lj_vm_record
-	.type lj_vm_record, @function
-	.size lj_vm_record, 27
+	.type lj_vm_record, %function
+	.size lj_vm_record, 40
 lj_vm_record:
-	.byte 15,182,131,113,245,255,255,168,32,117,79,168,16,117,52,168
-	.byte 12,116,48,255,139,168,245,255,255,235,40
+	.long 0xe5570a8f,0xe3100020,0x1a000009,0xe5171a58
+	.long 0xe3100010,0x1a000014,0xe2411001,0xe310000c
+	.long 0x15071a58,0xea000010
 
 	.globl lj_vm_rethook
 	.hidden lj_vm_rethook
-	.type lj_vm_rethook, @function
-	.size lj_vm_rethook, 13
+	.type lj_vm_rethook, %function
+	.size lj_vm_rethook, 24
 lj_vm_rethook:
-	.byte 15,182,131,113,245,255,255,168,16,117,52,235,27
+	.long 0xe5570a8f,0xe3100010,0x0a00000d,0xe20ec0ff
+	.long 0xe087c10c,0xe59cf26c
 
 	.globl lj_vm_inshook
 	.hidden lj_vm_inshook
-	.type lj_vm_inshook, @function
-	.size lj_vm_inshook, 65
+	.type lj_vm_inshook, %function
+	.size lj_vm_inshook, 92
 lj_vm_inshook:
-	.byte 15,182,131,113,245,255,255,168,16,117,39,168,12,116,35,255
-	.byte 139,168,245,255,255,116,4,168,4,116,23,139,108,36,48,137
-	.byte 85,16,137,242,137,233,232
-	.long lj_dispatch_ins-.-4
-	.byte 139,85,16,15,182,78,253,15,182,110,252,15,183,70,254,255
-	.byte 164,171,108,2,0,0
+	.long 0xe5570a8f,0xe5171a58,0xe3100010,0x1afffff8
+	.long 0xe310000c,0x0afffff6,0xe2511001,0xe5071a58
+	.long 0x0a000001,0xe3100004,0x0afffff1,0xe1a00008
+	.long 0xe5889010,0xe1a01006
+	bl lj_dispatch_ins
+	.long 0xe5989010,0xe556c004,0xe516e004,0xe087c10c
+	.long 0xe59cc26c,0xe004a2ae,0xe1a0b82e,0xe12fff1c
 
 	.globl lj_cont_hook
 	.hidden lj_cont_hook
-	.type lj_cont_hook, @function
-	.size lj_cont_hook, 12
+	.type lj_cont_hook, %function
+	.size lj_cont_hook, 16
 lj_cont_hook:
-	.byte 131,198,4,139,77,232,137,76,36,20,235,225
+	.long 0xe5130018,0xe2866004,0xe58d0004,0xeafffff4
 
 	.globl lj_vm_hotloop
 	.hidden lj_vm_hotloop
-	.type lj_vm_hotloop, @function
+	.type lj_vm_hotloop, %function
 	.size lj_vm_hotloop, 48
 lj_vm_hotloop:
-	.byte 139,106,248,139,109,16,15,182,69,199,141,4,194,139,108,36
-	.byte 48,137,85,16,137,69,20,137,242,141,139,112,246,255,255,137
-	.byte 171,188,246,255,255,137,116,36,24,232
-	.long lj_trace_hot-.-4
-	.byte 235,174
+	.long 0xe5192008,0xe2470e99,0xe58d6008,0xe5922010
+	.long 0xe1a01006,0xe5078944,0xe5522039,0xe5889010
+	.long 0xe0892182,0xe5882014
+	bl lj_trace_hot
+	.long 0xeaffffe7
 
 	.globl lj_vm_callhook
 	.hidden lj_vm_callhook
-	.type lj_vm_callhook, @function
-	.size lj_vm_callhook, 6
+	.type lj_vm_callhook, %function
+	.size lj_vm_callhook, 8
 lj_vm_callhook:
-	.byte 137,116,36,24,235,7
+	.long 0xe1a01006,0xea000000
 
 	.globl lj_vm_hotcall
 	.hidden lj_vm_hotcall
-	.type lj_vm_hotcall, @function
-	.size lj_vm_hotcall, 65
+	.type lj_vm_hotcall, %function
+	.size lj_vm_hotcall, 68
 lj_vm_hotcall:
-	.byte 137,116,36,24,131,206,1,141,68,194,248,139,108,36,48,137
-	.byte 85,16,137,69,20,137,242,137,233,232
-	.long lj_dispatch_call-.-4
-	.byte 199,68,36,24,0,0,0,0,131,230,254,139,85,16,137,193
-	.byte 139,69,20,41,208,137,205,15,182,78,253,193,232,3,131,192
-	.byte 1,255,229
+	.long 0xe3861001,0xe089300b,0xe58d6008,0xe1a00008
+	.long 0xe5889010,0xe04aa009,0xe5883014
+	bl lj_dispatch_call
+	.long 0xe5989010,0xe5983014,0xe3a01000,0xe089a00a
+	.long 0xe043b009,0xe58d1008,0xe5192008,0xe516e004
+	.long 0xe12fff10
 
 	.globl lj_vm_exit_handler
 	.hidden lj_vm_exit_handler
-	.type lj_vm_exit_handler, @function
-	.size lj_vm_exit_handler, 160
+	.type lj_vm_exit_handler, %function
+	.size lj_vm_exit_handler, 136
 lj_vm_exit_handler:
-	.byte 85,141,108,36,12,85,83,82,81,80,15,182,69,252,138,101
-	.byte 248,137,125,252,137,117,248,139,93,0,139,139,188,245,255,255
-	.byte 199,131,188,245,255,255,252,255,255,255,137,131,80,255,255,255
-	.byte 137,139,76,255,255,255,131,236,80,242,15,17,125,216,242,15
-	.byte 17,117,208,242,15,17,109,200,242,15,17,101,192,242,15,17
-	.byte 93,184,242,15,17,85,176,242,15,17,77,168,242,15,17,69
-	.byte 160,139,171,200,245,255,255,139,147,204,245,255,255,137,171,188
-	.byte 246,255,255,199,131,200,245,255,255,0,0,0,0,137,85,16
-	.byte 141,84,36,16,141,139,112,246,255,255,232
-	.long lj_trace_exit-.-4
-	.byte 139,77,40,131,225,252,137,204,137,105,48,139,85,16,139,113
-	.byte 24
+	.long 0xe24dd00c,0xe92d1fff,0xe59d0040,0xe59e7000
+	.long 0xe28d2040,0xe3e03003,0xe58d2034,0xe5073a44
+	.long 0xe5301004,0xe58d0038,0xe58d003c,0xed2d0b20
+	.long 0xe1a01401,0xe0800341,0xe59e1004,0xe040000e
+	.long 0xe5178a38,0xe0810120,0xe5179a34,0xe50700b0
+	.long 0xe3a03000,0xe5078944,0xe5889010,0xe5073a38
+	.long 0xe2470e99,0xe1a0100d
+	bl lj_trace_exit
+	.long 0xe5981028,0xe5989010,0xe3c11003,0xe1a0d001
+	.long 0xe59d6008,0xe58d800c,0xea000000
 
 	.globl lj_vm_exit_interp
 	.hidden lj_vm_exit_interp
-	.type lj_vm_exit_interp, @function
-	.size lj_vm_exit_interp, 74
+	.type lj_vm_exit_interp, %function
+	.size lj_vm_exit_interp, 108
 lj_vm_exit_interp:
-	.byte 133,192,120,59,137,68,36,20,139,122,248,139,127,16,139,127
-	.byte 208,199,131,200,245,255,255,0,0,0,0,199,131,188,245,255
-	.byte 255,255,255,255,255,139,6,15,182,204,15,182,232,131,198,4
-	.byte 193,232,16,131,253,85,114,4,139,68,36,20,255,36,171,247
-	.byte 216,137,233,137,194,232
-	.long lj_err_throw-.-4
+	.long 0xe59d800c,0xe3500000,0xba000013,0xe1a0b180
+	.long 0xe5191008,0xe58db004,0xe3a02000,0xe5911010
+	.long 0xe5072a38,0xe3e03000,0xe5115030,0xe5d6c000
+	.long 0xe3a040ff,0xe496e004,0xe1a04184,0xe5073a44
+	.long 0xe35c0055,0xe797c10c,0xe004a2ae,0x31a0b82e
+	.long 0x224bb008,0x208aa009,0xe12fff1c,0xe2601000
+	.long 0xe1a00008
+	bl lj_err_throw
+	.long 0x3ff00000
+
+	.globl lj_vm_floor_sf
+	.hidden lj_vm_floor_sf
+	.type lj_vm_floor_sf, %function
+	.size lj_vm_floor_sf, 0
+lj_vm_floor_sf:
 
 	.globl lj_vm_floor
 	.hidden lj_vm_floor
-	.type lj_vm_floor, @function
-	.size lj_vm_floor, 0
+	.type lj_vm_floor, %function
+	.size lj_vm_floor, 128
 lj_vm_floor:
+	.long 0xe1a02081,0xe292c980,0x5a000014,0xe3e03ff3
+	.long 0xe053cacc,0x312fff1e,0xe3e03001,0xe1c02c13
+	.long 0xe0000c13,0xe25cc020,0x51c13c13,0x51822003
+	.long 0x53e03001,0x50011c13,0xe1120fc1,0x012fff1e
+	.long 0xe3e03001,0xe35c0000,0x51a02c13,0x43e02000
+	.long 0xe28cc020,0xe0500c13,0xe0c11002,0xe12fff1e
+	.long 0x212fff1e,0xe1822000,0xe1120fc1,0xe3a00000
+	.long 0xe2011480,0x151f3080,0x11811003,0xe12fff1e
 
-	.globl lj_vm_floor_sse
-	.hidden lj_vm_floor_sse
-	.type lj_vm_floor_sse, @function
-	.size lj_vm_floor_sse, 87
-lj_vm_floor_sse:
-	.byte 102,15,239,210,102,15,118,210,102,15,115,210,1,184,0,0
-	.byte 48,67,102,15,110,216,102,15,112,219,81,15,40,200,102,15
-	.byte 84,202,102,15,46,217,118,46,102,15,85,208,242,15,88,203
-	.byte 242,15,92,203,102,15,86,202,184,0,0,240,63,102,15,110
-	.byte 208,102,15,112,210,81,242,15,194,193,1,102,15,84,194,242
-	.byte 15,92,200,15,40,193,195
+	.globl lj_vm_ceil_sf
+	.hidden lj_vm_ceil_sf
+	.type lj_vm_ceil_sf, %function
+	.size lj_vm_ceil_sf, 0
+lj_vm_ceil_sf:
 
 	.globl lj_vm_ceil
 	.hidden lj_vm_ceil
-	.type lj_vm_ceil, @function
-	.size lj_vm_ceil, 0
+	.type lj_vm_ceil, %function
+	.size lj_vm_ceil, 128
 lj_vm_ceil:
-
-	.globl lj_vm_ceil_sse
-	.hidden lj_vm_ceil_sse
-	.type lj_vm_ceil_sse, @function
-	.size lj_vm_ceil_sse, 87
-lj_vm_ceil_sse:
-	.byte 102,15,239,210,102,15,118,210,102,15,115,210,1,184,0,0
-	.byte 48,67,102,15,110,216,102,15,112,219,81,15,40,200,102,15
-	.byte 84,202,102,15,46,217,118,46,102,15,85,208,242,15,88,203
-	.byte 242,15,92,203,102,15,86,202,184,0,0,240,191,102,15,110
-	.byte 208,102,15,112,210,81,242,15,194,193,6,102,15,84,194,242
-	.byte 15,92,200,15,40,193,195
+	.long 0xe1a02081,0xe292c980,0x5a000014,0xe3e03ff3
+	.long 0xe053cacc,0x312fff1e,0xe3e03001,0xe1c02c13
+	.long 0xe0000c13,0xe25cc020,0x51c13c13,0x51822003
+	.long 0x53e03001,0x50011c13,0xe1d22fc1,0x012fff1e
+	.long 0xe3e03001,0xe35c0000,0x51a02c13,0x43e02000
+	.long 0xe28cc020,0xe0500c13,0xe0c11002,0xe12fff1e
+	.long 0x212fff1e,0xe1822000,0xe1d22fc1,0xe3a00000
+	.long 0xe2011480,0x151f3100,0x11811003,0xe12fff1e
 
 	.globl lj_vm_trunc
 	.hidden lj_vm_trunc
-	.type lj_vm_trunc, @function
+	.type lj_vm_trunc, %function
 	.size lj_vm_trunc, 0
 lj_vm_trunc:
 
-	.globl lj_vm_trunc_sse
-	.hidden lj_vm_trunc_sse
-	.type lj_vm_trunc_sse, @function
-	.size lj_vm_trunc_sse, 90
-lj_vm_trunc_sse:
-	.byte 102,15,239,210,102,15,118,210,102,15,115,210,1,184,0,0
-	.byte 48,67,102,15,110,216,102,15,112,219,81,15,40,200,102,15
-	.byte 84,202,102,15,46,217,118,49,102,15,85,208,15,40,193,242
-	.byte 15,88,203,242,15,92,203,184,0,0,240,63,102,15,110,216
-	.byte 102,15,112,219,81,242,15,194,193,1,102,15,84,195,242,15
-	.byte 92,200,102,15,86,202,15,40,193,195
+	.globl lj_vm_trunc_sf
+	.hidden lj_vm_trunc_sf
+	.type lj_vm_trunc_sf, %function
+	.size lj_vm_trunc_sf, 52
+lj_vm_trunc_sf:
+	.long 0xe1a02081,0xe292c980,0x52011480,0x53a00000
+	.long 0x512fff1e,0xe3e03ff3,0xe053cacc,0x312fff1e
+	.long 0xe3e03001,0xe0000c13,0xe25cc020,0x50011c13
+	.long 0xe12fff1e
 
 	.globl lj_vm_mod
 	.hidden lj_vm_mod
-	.type lj_vm_mod, @function
-	.size lj_vm_mod, 114
+	.type lj_vm_mod, %function
+	.size lj_vm_mod, 36
 lj_vm_mod:
-	.byte 15,40,232,242,15,94,193,102,15,239,210,102,15,118,210,102
-	.byte 15,115,210,1,184,0,0,48,67,102,15,110,216,102,15,112
-	.byte 219,81,15,40,224,102,15,84,226,102,15,46,220,118,55,102
-	.byte 15,85,208,242,15,88,227,242,15,92,227,102,15,86,226,184
-	.byte 0,0,240,63,102,15,110,208,102,15,112,210,81,242,15,194
-	.byte 196,1,102,15,84,194,242,15,92,224,15,40,197,242,15,89
-	.byte 204,242,15,92,193,195,242,15,89,200,15,40,197,242,15,92
-	.byte 193,195
+	.long 0xee860b07,0xe1a0b00e,0xec510b10,0xebffffae
+	.long 0xec410b10,0xee200b07,0xe1a0e00b,0xee366b40
+	.long 0xe12fff1e
 
-	.globl lj_vm_log2
-	.hidden lj_vm_log2
-	.type lj_vm_log2, @function
-	.size lj_vm_log2, 9
-lj_vm_log2:
-	.byte 217,232,221,68,36,4,217,241,195
-
-	.globl lj_vm_exp_x87
-	.hidden lj_vm_exp_x87
-	.type lj_vm_exp_x87, @function
-	.size lj_vm_exp_x87, 4
-lj_vm_exp_x87:
-	.byte 217,234,222,201
-
-	.globl lj_vm_exp2_x87
-	.hidden lj_vm_exp2_x87
-	.type lj_vm_exp2_x87, @function
-	.size lj_vm_exp2_x87, 24
-lj_vm_exp2_x87:
-	.byte 217,84,36,4,129,124,36,4,0,0,128,127,116,28,129,124
-	.byte 36,4,0,0,128,255,116,19
-
-	.globl lj_vm_exp2raw
-	.hidden lj_vm_exp2raw
-	.type lj_vm_exp2raw, @function
-	.size lj_vm_exp2raw, 24
-lj_vm_exp2raw:
-	.byte 217,192,217,252,220,233,217,201,217,240,217,232,222,193,217,253
-	.byte 221,217,195,221,216,217,238,195
-
-	.globl lj_vm_pow
-	.hidden lj_vm_pow
-	.type lj_vm_pow, @function
-	.size lj_vm_pow, 0
-lj_vm_pow:
-
-	.globl lj_vm_pow_sse
-	.hidden lj_vm_pow_sse
-	.type lj_vm_pow_sse, @function
-	.size lj_vm_pow_sse, 24
-lj_vm_pow_sse:
-	.byte 242,15,45,193,242,15,42,208,102,15,46,202,15,133,102,0
-	.byte 0,0,15,138,197,0,0,0
-
-	.globl lj_vm_powi_sse
-	.hidden lj_vm_powi_sse
-	.type lj_vm_powi_sse, @function
-	.size lj_vm_powi_sse, 313
-lj_vm_powi_sse:
-	.byte 131,248,1,126,43,169,1,0,0,0,117,8,242,15,89,192
-	.byte 209,232,235,241,209,232,116,23,15,40,200,242,15,89,192,209
-	.byte 232,116,8,115,246,242,15,89,200,235,240,242,15,89,193,195
-	.byte 116,253,114,29,247,216,232,202,255,255,255,184,0,0,240,63
-	.byte 102,15,110,200,102,15,112,201,81,242,15,94,200,15,40,193
-	.byte 195,184,0,0,240,63,102,15,110,192,102,15,112,192,81,195
-	.byte 242,15,17,76,36,12,242,15,17,68,36,4,131,124,36,12
-	.byte 0,117,13,139,68,36,16,209,224,61,0,0,224,255,116,93
-	.byte 131,124,36,4,0,117,23,139,68,36,8,209,224,15,132,142
-	.byte 0,0,0,61,0,0,224,255,15,132,143,0,0,0,221,68
-	.byte 36,12,221,68,36,4,217,241,217,192,217,252,220,233,217,201
-	.byte 217,240,217,232,222,193,217,253,221,217,221,92,36,4,242,15
-	.byte 16,68,36,4,195,184,0,0,240,63,102,15,110,208,102,15
-	.byte 112,210,81,102,15,46,194,116,3,15,40,193,195,102,15,239
-	.byte 210,102,15,118,210,102,15,115,210,1,102,15,84,194,184,0
-	.byte 0,240,63,102,15,110,208,102,15,112,210,81,102,15,46,194
-	.byte 116,218,102,15,80,193,15,87,192,136,196,15,146,208,48,224
-	.byte 117,202,184,0,0,240,127,102,15,110,192,102,15,112,192,81
-	.byte 195,102,15,80,193,133,192,117,233,15,87,192,195,102,15,80
-	.byte 193,133,192,116,221,15,87,192,195
-
-	.globl lj_vm_foldfpm
-	.hidden lj_vm_foldfpm
-	.type lj_vm_foldfpm, @function
-	.size lj_vm_foldfpm, 133
-lj_vm_foldfpm:
-	.byte 139,68,36,12,242,15,16,68,36,4,131,248,1,116,9,119
-	.byte 14,232,226,252,255,255,235,25,232,50,253,255,255,235,18,131
-	.byte 248,3,116,9,119,22,232,123,253,255,255,235,4,242,15,81
-	.byte 192,242,15,17,68,36,4,221,68,36,4,195,221,68,36,4
-	.byte 131,248,5,15,130,50,254,255,255,15,132,48,254,255,255,131
-	.byte 248,7,116,9,119,14,217,237,217,201,217,241,195,217,232,217
-	.byte 201,217,241,195,131,248,9,116,9,119,10,217,236,217,201,217
-	.byte 241,195,217,254,195,131,248,11,116,5,119,8,217,255,195,217
-	.byte 242,221,216,195,204
-
-	.globl lj_vm_foldarith
-	.hidden lj_vm_foldarith
-	.type lj_vm_foldarith, @function
-	.size lj_vm_foldarith, 181
-lj_vm_foldarith:
-	.byte 139,68,36,20,242,15,16,68,36,4,242,15,16,76,36,12
-	.byte 131,248,1,116,17,119,21,242,15,88,193,242,15,17,68,36
-	.byte 4,221,68,36,4,195,242,15,92,193,235,239,131,248,3,116
-	.byte 8,119,12,242,15,89,193,235,226,242,15,94,193,235,220,131
-	.byte 248,5,116,9,119,16,232,48,253,255,255,235,206,90,232,215
-	.byte 253,255,255,82,235,197,131,248,7,116,21,119,37,184,0,0
-	.byte 0,128,102,15,110,200,102,15,112,201,81,15,87,193,235,171
-	.byte 102,15,239,201,102,15,118,201,102,15,115,209,1,15,84,193
-	.byte 235,153,131,248,9,119,20,221,68,36,4,221,68,36,12,116
-	.byte 3,217,243,195,217,201,217,253,221,217,195,131,248,11,116,11
-	.byte 119,18,242,15,93,193,233,112,255,255,255,242,15,95,193,233
-	.byte 103,255,255,255,204
-
-	.globl lj_vm_cpuid
-	.hidden lj_vm_cpuid
-	.type lj_vm_cpuid, @function
-	.size lj_vm_cpuid, 46
-lj_vm_cpuid:
-	.byte 156,90,137,209,129,242,0,0,32,0,82,157,156,90,49,192
-	.byte 57,209,116,25,139,68,36,4,87,83,15,162,139,124,36,16
-	.byte 137,7,137,95,4,137,79,8,137,87,12,91,95,195
-
-	.globl lj_assert_bad_for_arg_type
-	.hidden lj_assert_bad_for_arg_type
-	.type lj_assert_bad_for_arg_type, @function
-	.size lj_assert_bad_for_arg_type, 1
-lj_assert_bad_for_arg_type:
-	.byte 204
+	.globl lj_vm_modi
+	.hidden lj_vm_modi
+	.type lj_vm_modi, %function
+	.size lj_vm_modi, 348
+lj_vm_modi:
+	.long 0xe210c480,0x42600000,0xe02cc0c1,0xe3510000
+	.long 0x42611000,0xe2513001,0x11500001,0x03a00000
+	.long 0x81110003,0x00000003,0x9a000045,0xe16f2f10
+	.long 0xe16f3f11,0xe0433002,0xe273201f,0x108ff182
+	.long 0xe1a00000,0xe1500f81,0x20400f81,0xe1500f01
+	.long 0x20400f01,0xe1500e81,0x20400e81,0xe1500e01
+	.long 0x20400e01,0xe1500d81,0x20400d81,0xe1500d01
+	.long 0x20400d01,0xe1500c81,0x20400c81,0xe1500c01
+	.long 0x20400c01,0xe1500b81,0x20400b81,0xe1500b01
+	.long 0x20400b01,0xe1500a81,0x20400a81,0xe1500a01
+	.long 0x20400a01,0xe1500981,0x20400981,0xe1500901
+	.long 0x20400901,0xe1500881,0x20400881,0xe1500801
+	.long 0x20400801,0xe1500781,0x20400781,0xe1500701
+	.long 0x20400701,0xe1500681,0x20400681,0xe1500601
+	.long 0x20400601,0xe1500581,0x20400581,0xe1500501
+	.long 0x20400501,0xe1500481,0x20400481,0xe1500401
+	.long 0x20400401,0xe1500381,0x20400381,0xe1500301
+	.long 0x20400301,0xe1500281,0x20400281,0xe1500201
+	.long 0x20400201,0xe1500181,0x20400181,0xe1500101
+	.long 0x20400101,0xe1500081,0x20400081,0xe1500001
+	.long 0x20400001,0xe3500000,0x135c0000,0x40400001
+	.long 0xe030108c,0x42600000,0xe12fff1e
 
 	.globl lj_vm_ffi_callback
 	.hidden lj_vm_ffi_callback
-	.type lj_vm_ffi_callback, @function
-	.size lj_vm_ffi_callback, 119
+	.type lj_vm_ffi_callback, %function
+	.size lj_vm_ffi_callback, 128
 lj_vm_ffi_callback:
-	.byte 131,236,16,87,86,83,131,236,28,141,157,16,11,0,0,139
-	.byte 181,224,0,0,0,15,183,192,137,134,148,0,0,0,141,68
-	.byte 36,64,137,78,96,137,86,100,137,134,128,0,0,0,139,76
-	.byte 36,60,139,84,36,56,137,76,36,44,137,84,36,40,137,226
-	.byte 137,116,36,24,137,241,232
-	.long lj_ccallback_enter-.-4
-	.byte 199,131,188,245,255,255,255,255,255,255,139,80,16,139,64,20
-	.byte 41,208,139,106,248,193,232,3,131,192,1,139,117,16,139,14
-	.byte 15,182,233,15,182,205,131,198,4,255,36,171
+	.long 0xe59c60e0,0xe28c7eb1,0xe58d401c,0xe28d4060
+	.long 0xed248b10,0xe1c626f8,0xe1c606f0,0xe59d3000
+	.long 0xe28d2080,0xe1a00006,0xe1a031a3,0xe5862080
+	.long 0xe1a0100d,0xe5863094,0xe58d6008
+	bl lj_ccallback_enter
+	.long 0xe5909010,0xe3e01000,0xe590b014,0xe3a040ff
+	.long 0xe5192008,0xe1a08000,0xe04bb009,0xe1a04184
+	.long 0xe5071a44,0xe5926010,0xe5d6c000,0xe496e004
+	.long 0xe797c10c,0xe004a2ae,0xe08aa009,0xe12fff1c
 
 	.globl lj_cont_ffi_callback
 	.hidden lj_cont_ffi_callback
-	.type lj_cont_ffi_callback, @function
-	.size lj_cont_ffi_callback, 81
+	.type lj_cont_ffi_callback, %function
+	.size lj_cont_ffi_callback, 36
 lj_cont_ffi_callback:
-	.byte 139,76,36,48,139,179,208,245,255,255,137,78,12,137,81,16
-	.byte 137,105,20,137,241,137,194,232
-	.long lj_ccallback_leave-.-4
-	.byte 139,108,36,48,139,70,96,139,86,100,131,126,104,1,114,10
-	.byte 116,5,221,70,32,235,3,217,70,32,139,77,20,15,183,73
-	.byte 6,137,76,36,48,131,196,28,91,94,95,93,89,3,36,36
-	.byte 131,196,16,81,195
+	.long 0xe5176a30,0xe5889010,0xe5883014,0xe586800c
+	.long 0xe1a00006,0xe1a0100a
+	bl lj_ccallback_leave
+	.long 0xe1c606d0,0xeafff8aa
+.globl lj_err_unwind_arm
+.personality lj_err_unwind_arm
+.fnend
+.fnstart
+.save {r4, r5, r11, lr}
+.setfp r11, sp
 
 	.globl lj_vm_ffi_call
 	.hidden lj_vm_ffi_call
-	.type lj_vm_ffi_call, @function
-	.size lj_vm_ffi_call, 65
+	.type lj_vm_ffi_call, %function
+	.size lj_vm_ffi_call, 80
 lj_vm_ffi_call:
-	.byte 85,137,229,83,137,203,43,99,4,15,182,75,8,131,233,1
-	.byte 120,12,139,68,139,40,137,4,140,131,233,1,121,244,139,75
-	.byte 32,139,83,36,255,19,137,67,32,137,83,36,128,123,10,1
-	.byte 114,10,116,5,221,91,16,235,3,217,91,16,139,93,252,201
-	.byte 195
+	.long 0xe92d4830,0xe1a04000,0xe5900004,0xe5d41008
+	.long 0xe2842020,0xe1a0b00d,0xe04dd000,0xe2511001
+	.long 0xe594c000,0x4a000003,0xe7923101,0xe78d3101
+	.long 0xe2511001,0x5afffffb,0xe1c401d0,0xe1c421d8
+	.long 0xe12fff3c,0xe1a0d00b,0xe1c401f0,0xe8bd8830
+.fnend
 
-	.section .note.GNU-stack,"",@progbits
+	.section .note.GNU-stack,"",%progbits
 	.ident "DynASM 1.3.0"
 
-	.section .debug_frame,"",@progbits
+	.section .debug_frame,"",%progbits
 .Lframe0:
 	.long .LECIE0-.LSCIE0
 .LSCIE0:
@@ -2569,13 +2586,11 @@ lj_vm_ffi_call:
 	.string ""
 	.uleb128 0x1
 	.sleb128 -4
-	.byte 0x8
+	.byte 0xe
 	.byte 0xc
-	.uleb128 0x4
-	.uleb128 4
-	.byte 0x80+0x8
-	.uleb128 0x1
-	.align 4
+	.uleb128 0xd
+	.uleb128 0
+	.align 2
 .LECIE0:
 
 .LSFDE0:
@@ -2583,18 +2598,44 @@ lj_vm_ffi_call:
 .LASFDE0:
 	.long .Lframe0
 	.long .Lbegin
-	.long 14031
+	.long 16016
 	.byte 0xe
-	.uleb128 48
-	.byte 0x85
-	.uleb128 0x2
-	.byte 0x87
-	.uleb128 0x3
-	.byte 0x86
-	.uleb128 0x4
-	.byte 0x83
-	.uleb128 0x5
-	.align 4
+	.uleb128 128
+	.byte 0x8e
+	.uleb128 1
+	.byte 139
+	.uleb128 2
+	.byte 138
+	.uleb128 3
+	.byte 137
+	.uleb128 4
+	.byte 136
+	.uleb128 5
+	.byte 135
+	.uleb128 6
+	.byte 134
+	.uleb128 7
+	.byte 133
+	.uleb128 8
+	.byte 5
+	.uleb128 94, 10
+	.byte 5
+	.uleb128 92, 12
+	.byte 5
+	.uleb128 90, 14
+	.byte 5
+	.uleb128 88, 16
+	.byte 5
+	.uleb128 86, 18
+	.byte 5
+	.uleb128 84, 20
+	.byte 5
+	.uleb128 82, 22
+	.byte 5
+	.uleb128 80, 24
+	.byte 0x84
+	.uleb128 25
+	.align 2
 .LEFDE0:
 
 .LSFDE1:
@@ -2602,94 +2643,19 @@ lj_vm_ffi_call:
 .LASFDE1:
 	.long .Lframe0
 	.long lj_vm_ffi_call
-	.long 65
+	.long 80
 	.byte 0xe
-	.uleb128 8
-	.byte 0x85
-	.uleb128 0x2
-	.byte 0xd
-	.uleb128 0x5
-	.byte 0x83
-	.uleb128 0x3
-	.align 4
-.LEFDE1:
-
-	.section .eh_frame,"a",@progbits
-.Lframe1:
-	.long .LECIE1-.LSCIE1
-.LSCIE1:
-	.long 0
-	.byte 0x1
-	.string "zPR"
-	.uleb128 0x1
-	.sleb128 -4
-	.byte 0x8
-	.uleb128 6
-	.byte 0x1b
-	.long lj_err_unwind_dwarf-.
-	.byte 0x1b
-	.byte 0xc
-	.uleb128 0x4
-	.uleb128 4
-	.byte 0x80+0x8
-	.uleb128 0x1
-	.align 4
-.LECIE1:
-
-.LSFDE2:
-	.long .LEFDE2-.LASFDE2
-.LASFDE2:
-	.long .LASFDE2-.Lframe1
-	.long .Lbegin-.
-	.long 14031
-	.uleb128 0
-	.byte 0xe
-	.uleb128 48
-	.byte 0x85
-	.uleb128 0x2
-	.byte 0x87
-	.uleb128 0x3
-	.byte 0x86
-	.uleb128 0x4
-	.byte 0x83
-	.uleb128 0x5
-	.align 4
-.LEFDE2:
-
-.Lframe2:
-	.long .LECIE2-.LSCIE2
-.LSCIE2:
-	.long 0
-	.byte 0x1
-	.string "zR"
-	.uleb128 0x1
-	.sleb128 -4
-	.byte 0x8
+	.uleb128 16
+	.byte 0x8e
 	.uleb128 1
-	.byte 0x1b
-	.byte 0xc
-	.uleb128 0x4
-	.uleb128 4
-	.byte 0x80+0x8
-	.uleb128 0x1
-	.align 4
-.LECIE2:
-
-.LSFDE3:
-	.long .LEFDE3-.LASFDE3
-.LASFDE3:
-	.long .LASFDE3-.Lframe2
-	.long lj_vm_ffi_call-.
-	.long 65
-	.uleb128 0
-	.byte 0xe
-	.uleb128 8
+	.byte 0x8b
+	.uleb128 2
 	.byte 0x85
-	.uleb128 0x2
+	.uleb128 3
+	.byte 0x84
+	.uleb128 4
 	.byte 0xd
-	.uleb128 0x5
-	.byte 0x83
-	.uleb128 0x3
-	.align 4
-.LEFDE3:
+	.uleb128 0xb
+	.align 2
+.LEFDE1:
 

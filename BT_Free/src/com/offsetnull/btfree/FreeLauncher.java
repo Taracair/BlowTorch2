@@ -14,7 +14,7 @@ public class FreeLauncher extends Activity {
         setContentView(R.layout.new_launcher_layout);
         
         Intent launch = new Intent(this,com.offsetnull.bt.launcher.Launcher.class);
-        launch.putExtra("LAUNCH_MODE","com.happygoatstudios.bt");
+        launch.putExtra("LAUNCH_MODE","com.happygoatstudios.bt2");
         this.startActivity(launch);
         
         this.finish();

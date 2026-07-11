@@ -162,6 +162,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 					} else {
 						service.updatePluginTimer(plugin, orig_timer, the_timer);
 					}
+					service.saveSettings();
 				} catch (RemoteException e) {
 					e.printStackTrace();
 				}
@@ -178,7 +179,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 					} else {
 						service.addPluginTimer(plugin,the_timer);
 					}
-					
+					service.saveSettings();
 				} catch (RemoteException e) {
 					e.printStackTrace();
 				}

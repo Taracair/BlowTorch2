@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	xmlns:tools="http://schemas.android.com/tools"
-      package="com.happygoatstudios.aardwolf"
-      android:versionName="2.1.0" android:versionCode="250"
-      android:sharedUserId="com.blowtorchaard.user">
+	xmlns:tools="http://schemas.android.com/tools">
+
       
       
-    <application tools:replace="android:theme,android:label" android:icon="@drawable/aard_icon" android:label="Aardwolf RPG" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar"> >
+    <application tools:replace="android:theme,android:label" android:icon="@drawable/aard_icon" android:label="Aardwolf RPG" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar">
         <meta-data android:value="83" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
         <activity android:name="com.happygoatstudios.aardwolf.AardLauncher"
-                  android:label="Aardwolf RPG">
+                  android:label="Aardwolf RPG"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -17,7 +16,7 @@
         </activity>
         <activity android:name="com.offsetnull.bt.launcher.Launcher"
                   android:label="Aardwolf RPG"
-                  >
+                  android:exported="false">
         </activity>
         <!-- android:windowSoftInputMode="adjustResize" -->
         <activity android:name="com.offsetnull.bt.window.MainWindow"
@@ -25,7 +24,8 @@
 			  tools:replace="android:label"
 			  android:windowSoftInputMode="adjustPan|stateHidden"
                           android:configChanges="orientation|keyboard|keyboardHidden|screenLayout|screenSize"
-                           android:launchMode="singleTask">
+                           android:launchMode="singleTask"
+                           android:exported="false">
         		  <intent-filter>
         		  	
        		  	<action android:name="com.offsetnull.bt.window.MainWindow.AARDWOLF_CLIENT"/>
@@ -33,8 +33,8 @@
         		  </intent-filter>
         </activity>
 
-        <service tools:replace="process" android:name="com.offsetnull.bt.service.StellarService"
-        		 android:process=":stellar_aardwolf" exported="false">
+        <service tools:replace="android:process" android:name="com.offsetnull.bt.service.StellarService"
+        		 android:process=":stellar_aardwolf" android:exported="false">
         		 <intent-filter>
         		 	
         		 	<action android:name="com.happygoatstudios.bt.service.IStellarService.AARDWOLF_CLIENT"/>
@@ -43,7 +43,6 @@
         		  
 
     </application>
-    <uses-sdk android:minSdkVersion="7" android:targetSdkVersion="21"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.INTERNET"/>
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

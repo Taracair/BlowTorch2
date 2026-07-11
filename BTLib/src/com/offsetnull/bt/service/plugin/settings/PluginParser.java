@@ -240,10 +240,8 @@ public class PluginParser extends BasePluginParser {
 		AliasParser.registerListeners(plugin, newItemHandler, current_alias);
 		
 		//Element trigger = triggers.getChild(BasePluginParser.TAG_TRIGGER);
-		TriggerParser.registerListeners(triggers, newItemHandler, new TriggerData(),current_trigger,current_timer);
-		
-		//Element timer = timers.getChild(BasePluginParser.TAG_TIMER);
-		TimerParser.registerListeners(timers, newItemHandler, new TimerData(), current_trigger, current_timer);
+		TriggerParser.registerListeners(triggers, newItemHandler, current_trigger, current_timer);
+		TimerParser.registerListeners(timers, newItemHandler, current_trigger, current_timer);
 		
 		WindowTokenParser.registerListeners(window, current_window, newItemHandler);
 		
