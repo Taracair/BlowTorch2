@@ -49,6 +49,11 @@ local clickLabelEdit --click state label editor
 local clickCmdEdit --click state command editor
 local flipLabelEdit --flip state label editor
 local flipCmdEdit --flip state command editor
+local holdCmdEdit
+local swipeUpCmdEdit
+local swipeDownCmdEdit
+local swipeLeftCmdEdit
+local swipeRightCmdEdit
 
 --the rest are harvested from the advanced page editor
 local advancedEditor -- the shared advanced page editor loaded from module
@@ -130,7 +135,7 @@ function showEditorDialog(editorValues,numediting)
 	local widget = luajava.new(TabWidget,context)
 	widget:setId(android_R_id.tabs)
 	widget:setLayoutParams(contentparams)
-	widget:setWeightSum(3)
+	widget:setWeightSum(4)
 	
 	local content = luajava.new(FrameLayout,context)
 	content:setId(android_R_id.tabcontent)
@@ -313,6 +318,61 @@ function showEditorDialog(editorValues,numediting)
 	tab2:setIndicator(label2)
 	tab2:setContent(2)
 	
+	local tabGestures = host:newTabSpec("tab_gestures_btn_tab")
+	local labelGestures = luajava.new(TextView,context)
+	labelGestures:setLayoutParams(fillparams)
+	labelGestures:setText("Gestures")
+	labelGestures:setTextSize(textSizeBig)
+	labelGestures:setBackgroundResource(R_drawable.tab_background)
+	labelGestures:setGravity(GRAVITY_CENTER)
+	labelGestures:setMinHeight(tabMinHeight)
+	
+	local gesturesPageScroller = luajava.new(ScrollView,context)
+	gesturesPageScroller:setLayoutParams(fillparams)
+	gesturesPageScroller:setId(3)
+	
+	local gesturesPage = luajava.new(LinearLayout,context)
+	gesturesPage:setLayoutParams(fillparams)
+	gesturesPage:setId(33)
+	gesturesPage:setOrientation(LinearLayout.VERTICAL)
+	
+	local function addGestureRow(parent, labelText, initialValue)
+		local row = luajava.new(LinearLayout,context)
+		row:setLayoutParams(fillparams)
+		local label = luajava.new(TextView,context)
+		label:setTextSize(textSize)
+		label:setText(labelText)
+		label:setGravity(Gravity.RIGHT)
+		local labelParams = luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT)
+		label:setLayoutParams(labelParams)
+		local edit = luajava.new(EditText,context)
+		edit:setTextSize(textSize)
+		edit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
+		edit:setHorizontallyScrolling(false)
+		edit:setMaxLines(4)
+		edit:setLayoutParams(clickLabelEditParams)
+		if(numediting > 1) then
+			edit:setEnabled(false)
+		elseif(initialValue ~= nil) then
+			edit:setText(initialValue)
+		end
+		row:addView(label)
+		row:addView(edit)
+		parent:addView(row)
+		return edit
+	end
+	
+	holdCmdEdit = addGestureRow(gesturesPage, "Hold:", editorValues.holdCommand)
+	swipeUpCmdEdit = addGestureRow(gesturesPage, "Swipe Up:", editorValues.swipeUpCommand)
+	swipeDownCmdEdit = addGestureRow(gesturesPage, "Swipe Down:", editorValues.swipeDownCommand)
+	swipeLeftCmdEdit = addGestureRow(gesturesPage, "Swipe Left:", editorValues.swipeLeftCommand)
+	swipeRightCmdEdit = addGestureRow(gesturesPage, "Swipe Right:", editorValues.swipeRightCommand)
+	
+	gesturesPageScroller:addView(gesturesPage)
+	content:addView(gesturesPageScroller)
+	tabGestures:setIndicator(labelGestures)
+	tabGestures:setContent(3)
+	
 	local tab3 = host:newTabSpec("tab_three_btn_tab")
 	local label3 = luajava.new(TextView,context)
 	label3:setLayoutParams(fillparams)
@@ -369,15 +429,16 @@ function showEditorDialog(editorValues,numediting)
 	
 	content:addView(scrollerpage)
 	tab3:setIndicator(label3)
-	tab3:setContent(3)
+	tab3:setContent(4)
 	
 	host:addTab(tab1)
 	host:addTab(tab2)
+	host:addTab(tabGestures)
 	host:addTab(tab3)
 	
 	
 	if(numediting > 1) then
-		host:setCurrentTab(2)
+		host:setCurrentTab(3)
 	else
 		host:setCurrentTab(0)
 	end
@@ -418,6 +479,11 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     d.flipLabel = flipLabelEdit:getText():toString()
     --fliplabel = fliplabeltmp:toString()
     d.flipCmd = flipCmdEdit:getText():toString()
+    d.holdCommand = holdCmdEdit:getText():toString()
+    d.swipeUpCommand = swipeUpCmdEdit:getText():toString()
+    d.swipeDownCommand = swipeDownCmdEdit:getText():toString()
+    d.swipeLeftCommand = swipeLeftCmdEdit:getText():toString()
+    d.swipeRightCommand = swipeRightCmdEdit:getText():toString()
     --flipcmd = flipcmdtmp:toString()
     
     local tmp = advancedEditor.getEditorValues()

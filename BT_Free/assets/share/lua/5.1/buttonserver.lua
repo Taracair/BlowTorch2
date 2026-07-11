@@ -225,6 +225,11 @@ function button.start(a)
 	tmp.labelSize = a:getValue("","labelSize") or 23
 	tmp.command = a:getValue("","command") or ""
 	tmp.flipCommand = a:getValue("","flipCommand") or ""
+	tmp.holdCommand = a:getValue("","holdCommand") or ""
+	tmp.swipeUpCommand = a:getValue("","swipeUpCommand") or ""
+	tmp.swipeDownCommand = a:getValue("","swipeDownCommand") or ""
+	tmp.swipeLeftCommand = a:getValue("","swipeLeftCommand") or ""
+	tmp.swipeRightCommand = a:getValue("","swipeRightCommand") or ""
 	tmp.name = a:getValue("","name")
 	tmp.height = a:getValue("","height")
 	tmp.width = a:getValue("","width")
