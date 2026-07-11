@@ -123,6 +123,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	Handler actionHandler;
 	
 	LauncherSettings launcher_settings;
+
+	/** When false, saveXML() is a no-op so a failed load cannot wipe the on-disk list. */
+	private boolean launcherSaveEnabled = false;
 	
 	//IConnectionBinder service;
 	
@@ -186,6 +189,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					try {
 						LauncherSAXParser parser = new LauncherSAXParser((String)msg.obj,Launcher.this);
 						launcher_settings = parser.load();
+						if (launcher_settings == null) {
+							Toast.makeText(Launcher.this, "Import failed: invalid launcher list XML.", Toast.LENGTH_LONG).show();
+							return;
+						}
+						launcherSaveEnabled = true;
 					} catch (RuntimeException e) {
 						AlertDialog.Builder error = new AlertDialog.Builder(Launcher.this);
 						error.setTitle("Error loading XML");
@@ -366,12 +374,29 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			fos.close();
 			LauncherSAXParser parser = new LauncherSAXParser("blowtorch_launcher_list.xml",this);
 			launcher_settings = parser.load();
-			if(launcher_settings == null) {
-				launcher_settings = new LauncherSettings();
-				String[] files = this.fileList();
-				for(String file : files) {
-					Log.e("BLOWTORCH","Internal settings: " + file);
+			if (launcher_settings == null) {
+				LauncherSettings recovered = tryRecoverLauncherList();
+				if (recovered != null) {
+					launcher_settings = recovered;
+					launcherSaveEnabled = true;
+					Toast.makeText(this, "Server list recovered from SD card backup.", Toast.LENGTH_LONG).show();
+				} else {
+					launcher_settings = new LauncherSettings();
+					getConnectionsFromDisk();
+					for (int i = 0; i < apdapter.getCount(); i++) {
+						MudConnection tmp = apdapter.getItem(i);
+						launcher_settings.getList().put(tmp.getDisplayName(), tmp.copy());
+					}
+					if (!launcher_settings.getList().isEmpty()) {
+						launcherSaveEnabled = true;
+					} else {
+						Toast.makeText(this,
+								"Could not load server list. Your saved list was not overwritten — use menu Import List to restore from /BlowTorch/launcher/.",
+								Toast.LENGTH_LONG).show();
+					}
 				}
+			} else {
+				launcherSaveEnabled = true;
 			}
 			//buildList();
 			//Log.e("LAUNCHER","LOADING XML LAUNCHER");
@@ -406,6 +431,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			//Log.e("LAUNCHER","LOADING OLD SETTINGS AND MARKING VERSION: " + versionString);
 			launcher_settings.setCurrentVersion("1.0.4");
 			
+			launcherSaveEnabled = true;
 			saveXML();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -867,6 +893,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		t.set(System.currentTimeMillis());
 		newData.setLastPlayed(t.format2445());
 		launcher_settings.getList().put(newData.getDisplayName(), newData);
+		launcherSaveEnabled = true;
 		buildList();
 		saveXML();
 	}
@@ -889,6 +916,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     public void modify(MudConnection old, MudConnection newData) {
     	launcher_settings.getList().remove(old.getDisplayName());
     	launcher_settings.getList().put(newData.getDisplayName(), newData);
+    	launcherSaveEnabled = true;
     	buildList();
     	saveXML();
     }
@@ -1378,8 +1406,66 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		//this.bindService(service, conn, flags)
 	}
 	
-	private void saveXML() {
+	private LauncherSettings tryRecoverLauncherList() {
+		String sdRoot = SDCardUtils.getSDCardRoot(this, true);
+		File storageRoot = Environment.getExternalStorageDirectory();
+		File[] candidates = new File[] {
+				new File(storageRoot, sdRoot + "/recovered/blowtorch_launcher_list.xml"),
+				new File(storageRoot, sdRoot + "/launcher/blowtorch_launcher_list.xml"),
+		};
+		for (File candidate : candidates) {
+			if (!candidate.exists()) {
+				continue;
+			}
+			LauncherSAXParser parser = new LauncherSAXParser(candidate.getAbsolutePath(), this);
+			LauncherSettings settings = parser.load();
+			if (settings != null && !settings.getList().isEmpty()) {
+				return settings;
+			}
+		}
+		File launcherDir = new File(storageRoot, sdRoot + "/launcher/");
+		if (launcherDir.isDirectory()) {
+			File[] files = launcherDir.listFiles(xml_only);
+			if (files != null) {
+				for (File xml : files) {
+					LauncherSAXParser parser = new LauncherSAXParser(xml.getAbsolutePath(), this);
+					LauncherSettings settings = parser.load();
+					if (settings != null && !settings.getList().isEmpty()) {
+						return settings;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	private void backupLauncherListFile() {
+		File current = new File(getFilesDir(), "blowtorch_launcher_list.xml");
+		if (!current.exists()) {
+			return;
+		}
+		File backup = new File(getFilesDir(), "blowtorch_launcher_list.xml.bak");
 		try {
+			InputStream in = new FileInputStream(current);
+			OutputStream out = new FileOutputStream(backup);
+			byte[] buffer = new byte[1024];
+			int read;
+			while ((read = in.read(buffer)) != -1) {
+				out.write(buffer, 0, read);
+			}
+			in.close();
+			out.close();
+		} catch (IOException e) {
+			Log.e("BLOWTORCH", "Failed to back up launcher list", e);
+		}
+	}
+
+	private void saveXML() {
+		if (!launcherSaveEnabled) {
+			return;
+		}
+		try {
+			backupLauncherListFile();
 			FileOutputStream fos = this.openFileOutput("blowtorch_launcher_list.xml",Context.MODE_PRIVATE);
 			fos.write(LauncherSettings.writeXml(launcher_settings).getBytes("UTF-8"));
 			fos.close();

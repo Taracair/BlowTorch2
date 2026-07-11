@@ -408,6 +408,82 @@ end
 
 managerTouch_cb = luajava.createProxy("android.view.View$OnTouchListener",managerTouch)
 
+HOLD_CALLBACK_ID = 101
+EDITOR_CALLBACK_ID = 100
+HOLD_DELAY_MS = 450
+SWIPE_THRESHOLD_DP = 24
+HOLD_CANCEL_MOVE_DP = 10
+shortHoldFired = false
+
+local function hasButtonCommand(cmd)
+	return cmd ~= nil and cmd ~= ""
+end
+
+function classifySwipe(dx, dy, threshold)
+	if math.abs(dx) < threshold and math.abs(dy) < threshold then
+		return nil
+	end
+	if math.abs(dx) >= math.abs(dy) then
+		if dx > 0 then
+			return "right"
+		end
+		return "left"
+	end
+	if dy > 0 then
+		return "down"
+	end
+	return "up"
+end
+
+local function getSwipeCommand(data, direction)
+	if direction == "up" then
+		return data.swipeUpCommand
+	elseif direction == "down" then
+		return data.swipeDownCommand
+	elseif direction == "left" then
+		return data.swipeLeftCommand
+	elseif direction == "right" then
+		return data.swipeRightCommand
+	end
+	return nil
+end
+
+local function dispatchButtonCommand(cmd)
+	if buttonsCleared then
+		revertButtons()
+		return true
+	end
+	mainwindow:jumpToStart()
+	if touchedbutton.data.switchTo ~= nil and touchedbutton.data.switchTo ~= "" then
+		PluginXCallS("loadButtonSet", touchedbutton.data.switchTo)
+		return true
+	end
+	performHapticPress()
+	SendToServer(cmd)
+	return true
+end
+
+local function resetTouchedButtonVisual()
+	normalTouchState = 0
+	touchedbutton.selected = false
+	touchedbutton:draw(normalTouchState, buttonCanvas)
+	view:invalidate()
+end
+
+function doShortHold()
+	if suppress_editor or not fingerdown or shortHoldFired then
+		return
+	end
+	if touchedbutton ~= nil and hasButtonCommand(touchedbutton.data.holdCommand) then
+		CancelCallback(EDITOR_CALLBACK_ID)
+		shortHoldFired = true
+		fingerdown = false
+		selectedtouchstart = false
+		dispatchButtonCommand(touchedbutton.data.holdCommand)
+		resetTouchedButtonVisual()
+	end
+end
+
 normalTouch = {}
 normalTouchState = 0
 function normalTouch.onTouch(v,e)
@@ -418,11 +494,13 @@ function normalTouch.onTouch(v,e)
 	local action = e:getAction()
 	if(action == ACTION_DOWN) then
 		prevevent = 0
+		shortHoldFired = false
 		ret,b,index = buttonTouched(x,y)
 		if(ret) then
 			if options.auto_launch == "true" then
-				ScheduleCallback(100,"doEdit",1000)
+				ScheduleCallback(EDITOR_CALLBACK_ID,"doEdit",1000)
 			end
+			ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
 			fingerdown = true
 			--touchedbutton.selected = false
 			touchStartX = x
@@ -468,20 +546,24 @@ function normalTouch.onTouch(v,e)
 		end
 	
 		if(fingerdown) then
+			local dx = x - touchStartX
+			local dy = y - touchStartY
+			local moveDist = math.sqrt(dx * dx + dy * dy)
+			if moveDist > (HOLD_CANCEL_MOVE_DP * density) then
+				CancelCallback(HOLD_CALLBACK_ID)
+			end
 			local r = touchedbutton.rect
 			if(r:contains(x,y)) then
 				if(normalTouchState ~= 1) then
 					normalTouchState = 1
-					--clearButton(b)
-					b:draw(normalTouchState,buttonCanvas)
+					touchedbutton:draw(normalTouchState,buttonCanvas)
 					view:invalidate()
 				end
 			else
-				CancelCallback(100)
+				CancelCallback(EDITOR_CALLBACK_ID)
 				if(normalTouchState ~= 2) then
 					normalTouchState = 2
-					--clearButton(b)
-					b:draw(normalTouchState,buttonCanvas)
+					touchedbutton:draw(normalTouchState,buttonCanvas)
 					performHapticFlip()
 					view:invalidate()
 				end
@@ -497,41 +579,39 @@ function normalTouch.onTouch(v,e)
 		end
 	elseif(action == ACTION_UP) then
 		if(fingerdown) then
-			CancelCallback(100)
+			CancelCallback(EDITOR_CALLBACK_ID)
+			CancelCallback(HOLD_CALLBACK_ID)
 			fingerdown = false
 			selectedtouchstart = false
-			touchedbutton.selected = false
-			local r = touchedbutton.rect
-			if(r:contains(x,y)) then
-				--process primary touch
-				if(buttonsCleared) then
-					revertButtons()
-					return true
-				end
-				mainwindow:jumpToStart()
-				if(touchedbutton.data.switchTo ~= nil and touchedbutton.data.switchTo ~= "") then
-					PluginXCallS("loadButtonSet",touchedbutton.data.switchTo)
-					
-					return true
-				end
-				performHapticPress()
-				SendToServer(touchedbutton.data.command)
-				--debugPrint("primary touch")
-			else
-				--process secondary touch
-				if(touchedbutton.data.switchTo ~= nil and touchedbutton.data.switchTo ~= "") then
-					PluginXCallS("loadButtonSet",touchedbutton.data.switchTo)
-					
-					return true
-				end
-				--debugPrint("secondary touch")
-				mainwindow:jumpToStart()
-				SendToServer(touchedbutton.data.flipCommand)
+			if shortHoldFired then
+				shortHoldFired = false
+				resetTouchedButtonVisual()
+				return true
 			end
-			normalTouchState = 0
-			--clearButton(touchedbutton)
-			touchedbutton:draw(normalTouchState,buttonCanvas)
-			view:invalidate()
+			local r = touchedbutton.rect
+			local dx = x - touchStartX
+			local dy = y - touchStartY
+			local swipeThreshold = SWIPE_THRESHOLD_DP * density
+			local swipeDir = classifySwipe(dx, dy, swipeThreshold)
+			local sent = false
+			if swipeDir ~= nil then
+				local swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir)
+				if hasButtonCommand(swipeCmd) then
+					sent = dispatchButtonCommand(swipeCmd)
+				end
+			end
+			if not sent then
+				if(r:contains(x,y)) then
+					if hasButtonCommand(touchedbutton.data.command) then
+						sent = dispatchButtonCommand(touchedbutton.data.command)
+					end
+				else
+					if hasButtonCommand(touchedbutton.data.flipCommand) then
+						sent = dispatchButtonCommand(touchedbutton.data.flipCommand)
+					end
+				end
+			end
+			resetTouchedButtonVisual()
 			return true
 		else
 			--debugPrint("button not touched, returning false")
@@ -1365,6 +1445,11 @@ function buttonEditorDone(data)
 		tmp.data.label = data.label
 		tmp.data.flipLabel = data.flipLabel
 		tmp.data.flipCommand = data.flipCmd
+		tmp.data.holdCommand = data.holdCommand or ""
+		tmp.data.swipeUpCommand = data.swipeUpCommand or ""
+		tmp.data.swipeDownCommand = data.swipeDownCommand or ""
+		tmp.data.swipeLeftCommand = data.swipeLeftCommand or ""
+		tmp.data.swipeRightCommand = data.swipeRightCommand or ""
 		
 		tmp.data.name = data.name
 		tmp.data.switchTo = data.target
@@ -1470,6 +1555,11 @@ function showEditorDialog()
 		editorValues.command = button.data.command
 		editorValues.flipLabel = button.data.flipLabel
 		editorValues.flipCommand = button.data.flipCommand
+		editorValues.holdCommand = button.data.holdCommand or ""
+		editorValues.swipeUpCommand = button.data.swipeUpCommand or ""
+		editorValues.swipeDownCommand = button.data.swipeDownCommand or ""
+		editorValues.swipeLeftCommand = button.data.swipeLeftCommand or ""
+		editorValues.swipeRightCommand = button.data.swipeRightCommand or ""
 		editorValues.name = button.data.name
 		--editorValues.name = "OMGANYTHING"
 		if(not editorValues.name) then editorValues.name = "" end
