@@ -2301,17 +2301,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if(isBound) {
 			
 			try {
-				//Log.e("WINDOW","Attempting to unregister the callback due to unbinding");
-				service.unregisterCallback(the_callback);
+				if(service != null) {
+					service.saveSettings();
+					service.unregisterCallback(the_callback);
+				}
 			} catch (RemoteException e) {
 				//e.printStackTrace();
 			}
 			
 			unbindService(mConnection);
-			//Log.e("WINDOW","Unbound connection at cleanExit");
 			isBound = false;
 		}
-		//saveSettings();
 	}
 	
 	public void onSaveInstanceState(Bundle data) {

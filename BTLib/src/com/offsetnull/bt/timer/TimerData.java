@@ -6,7 +6,11 @@ import java.util.List;
 
 import com.offsetnull.bt.responder.TriggerResponder;
 import com.offsetnull.bt.responder.ack.AckResponder;
+import com.offsetnull.bt.responder.color.ColorAction;
+import com.offsetnull.bt.responder.gag.GagAction;
 import com.offsetnull.bt.responder.notification.NotificationResponder;
+import com.offsetnull.bt.responder.replace.ReplaceResponder;
+import com.offsetnull.bt.responder.script.ScriptResponder;
 import com.offsetnull.bt.responder.toast.ToastResponder;
 
 import android.os.Parcel;
@@ -117,26 +121,37 @@ public class TimerData implements Parcelable {
 		//Log.e("PARCLE","IN: #responders=" + numresponders);
 		
 		for(int i = 0;i<numresponders;i++) {
-			//Log.e("PARCLE","IN: ATTEMPTING TO LOAD RESPONDER");
 			int type = in.readInt();
-			//Log.e("PARCLE","IN: FOUND RESPONDER TYPE " + type);
 			switch(type) {
 			case TriggerResponder.RESPONDER_TYPE_NOTIFICATION:
-				
-				
-				NotificationResponder resp = in.readParcelable(com.offsetnull.bt.responder.notification.NotificationResponder.class.getClassLoader());
-				
+				NotificationResponder resp = in.readParcelable(NotificationResponder.class.getClassLoader());
 				responders.add(resp);
 				break;
 			case TriggerResponder.RESPONDER_TYPE_TOAST:
-				ToastResponder toasty = in.readParcelable(com.offsetnull.bt.responder.toast.ToastResponder.class.getClassLoader());
-
+				ToastResponder toasty = in.readParcelable(ToastResponder.class.getClassLoader());
 				responders.add(toasty);
 				break;
 			case TriggerResponder.RESPONDER_TYPE_ACK:
-				AckResponder ack = in.readParcelable(com.offsetnull.bt.responder.ack.AckResponder.class.getClassLoader());
-
+				AckResponder ack = in.readParcelable(AckResponder.class.getClassLoader());
 				responders.add(ack);
+				break;
+			case TriggerResponder.RESPONDER_TYPE_SCRIPT:
+				ScriptResponder scr = in.readParcelable(ScriptResponder.class.getClassLoader());
+				responders.add(scr);
+				break;
+			case TriggerResponder.RESPONDER_TYPE_GAG:
+				GagAction gag = in.readParcelable(GagAction.class.getClassLoader());
+				responders.add(gag);
+				break;
+			case TriggerResponder.RESPONDER_TYPE_REPLACE:
+				ReplaceResponder rep = in.readParcelable(ReplaceResponder.class.getClassLoader());
+				responders.add(rep);
+				break;
+			case TriggerResponder.RESPONDER_TYPE_COLOR:
+				ColorAction color = in.readParcelable(ColorAction.class.getClassLoader());
+				responders.add(color);
+				break;
+			default:
 				break;
 			}
 		}
