@@ -3282,10 +3282,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		String prefsname = replacebadchars.replaceAll("");
 		prefsname = prefsname.replaceAll("/", "");
 		String rootPath = prefsname + ".xml";
-		
-		String internal = mService.getApplicationContext().getApplicationInfo().dataDir + "/files/";
-		String oldpath = internal + rootPath;
-		exportSettings(oldpath);
+		exportSettings(new File(mService.getApplicationContext().getFilesDir(), rootPath).getAbsolutePath());
 	}
 	
 	/** Export settings routine. Called from either the main settings save routine or the export settings dialog.
@@ -3331,14 +3328,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		File file = new File(filename);
 		FileOutputStream fos = null;
 		File tmpfile = null;
-		String filesDir = mService.getApplicationContext().getFilesDir().getAbsolutePath();
-		boolean internalSettingsFile = filename.startsWith(filesDir + File.separator);
+		String filesDirPath = mService.getApplicationContext().getFilesDir().getAbsolutePath();
+		boolean internalSettingsFile = false;
+		String internalFileName = null;
+		try {
+			File filesDir = mService.getApplicationContext().getFilesDir().getCanonicalFile();
+			File target = new File(filename).getCanonicalFile();
+			if (filesDir.equals(target.getParentFile())) {
+				internalSettingsFile = true;
+				internalFileName = target.getName();
+			}
+		} catch (IOException e) {
+			if (filename.startsWith(filesDirPath + File.separator)) {
+				internalSettingsFile = true;
+				internalFileName = filename.substring(filesDirPath.length() + 1);
+			}
+		}
 		try {
 		String foo = ConnectionSetttingsParser.outputXML(mSettings, mPlugins);
 		byte[] xmlBytes = foo.getBytes("UTF-8");
 		if (internalSettingsFile) {
-			String internalName = filename.substring(filesDir.length() + 1);
-			fos = mService.getApplicationContext().openFileOutput(internalName, Context.MODE_PRIVATE);
+			fos = mService.getApplicationContext().openFileOutput(internalFileName, Context.MODE_PRIVATE);
 			fos.write(xmlBytes);
 			fos.close();
 			fos = null;
@@ -3918,9 +3928,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		String prefsname = replacebadchars.replaceAll("");
 		prefsname = prefsname.replaceAll("/", "");
 		String rootPath = prefsname + ".xml";
-		String internal = mService.getApplicationContext().getApplicationInfo().dataDir + "/files/";
-		File oldp = new File(internal + rootPath);
-		if (!oldp.exists()) {
+		File settingsFile = new File(mService.getApplicationContext().getFilesDir(), rootPath);
+		if (!settingsFile.exists()) {
 			importSettings(null, false, true);
 		} else {
 			importSettings(rootPath, false, true);

@@ -44,8 +44,7 @@ public class ToastElementListener implements StartElementListener {
 
 		if (selector instanceof TriggerData) {
 			current_trigger.getResponders().add(r.copy());
-		}
-		if (selector instanceof TimerData) {
+		} else if (selector instanceof TimerData) {
 			current_timer.getResponders().add(r.copy());
 		}
 	}

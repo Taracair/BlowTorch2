@@ -722,7 +722,7 @@ public class PluginParser extends BasePluginParser {
 		}
 
 		public void addTimer(String key, TimerData t) {
-			PluginParser.this.tmp.getTimers().put(key, t);
+			PluginParser.this.tmp.getTimers().put(key, t.copy());
 		}
 
 		public void addScript(String name, String body, boolean execute) {
