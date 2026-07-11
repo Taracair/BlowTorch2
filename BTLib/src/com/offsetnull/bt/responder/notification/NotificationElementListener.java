@@ -91,9 +91,7 @@ public class NotificationElementListener implements StartElementListener {
 		
 		if(selector instanceof TriggerData) {
 			current_trigger.getResponders().add(r);
-		}
-		
-		if(selector instanceof TimerData) {
+		} else if(selector instanceof TimerData) {
 			current_timer.getResponders().add(r);
 		}
 	}
