@@ -863,10 +863,29 @@ paint = luajava.new(PaintClass)
 paint:setAntiAlias(true)
 bounds = nil
 
+statusoffset = 0
+statusHidden = false
+
+function refreshStatusOffset(relayoutButtons)
+	local hiddenNow = IsStatusBarHidden()
+	if hiddenNow then
+		statusoffset = tonumber(GetStatusBarHeight()) or 0
+	else
+		statusoffset = 0
+	end
+	if relayoutButtons ~= false then
+		for i = 1, #buttons do
+			buttons[i]:updateRect(statusoffset)
+		end
+	end
+	statusHidden = hiddenNow
+end
+
 
 function OnCreate()
 	--Note("in oncreate, loading "..#buttons.." buttons.")	
 	debugString("Button window in View.onCreate()")
+	refreshStatusOffset(true)
 	for i,b in ipairs(buttons) do
 		updateRect(b)
 	end
@@ -876,8 +895,17 @@ function OnCreate()
 	--addOptionCallback("buttonOptions","Lua Button Options",nil)
 	AddOptionCallback("buttonList","Button Sets",nil)
 	view:bringToFront()
+	ScheduleCallback(9901, "delayedStatusRefresh", 300)
 	
 	--PluginXCallS("checkImport","blank")
+end
+
+function delayedStatusRefresh()
+	refreshStatusOffset(true)
+	if draw and buttonCanvas ~= nil and view:getWidth() > 0 and view:getHeight() > 0 then
+		drawButtons()
+	end
+	view:invalidate()
 end
 
 
@@ -1329,8 +1357,10 @@ dpaint:setStrokeWidth(2)
 --Style = luajava.bindClass("android.graphics.Paint$Style")
 function drawButtons()
 	local canvas = buttonCanvas
+	if canvas == nil then return end
 	height = view:getHeight()
 	width = view:getWidth()
+	if width <= 0 or height <= 0 then return end
 
 	--canvas:clearCanvas()
 	canvas:drawRect(0,0,width,height,cpaint)
@@ -1521,40 +1551,15 @@ buttonLayer = nil
 buttonCanvas = nil
 draw = false
 
-statusHidden = IsStatusBarHidden()
-if(statusHidden) then
-	statusoffset = GetStatusBarHeight()
-end
 Integer = luajava.bindClass("java.lang.Integer")
 function OnSizeChanged(w,h,oldw,oldh)
 	debugString("Button Window starting View.OnSizeChanged()")
-	if(w == 0 and h == 0) then
+	if w <= 0 or h <= 0 then
 		draw = false
 		return
 	end
-	
-	hiddenNow = IsStatusBarHidden()
-	if(statusHidden and not hiddenNow) then
-		statusoffset = 0
-	end
-	
-	if(not statusHidden and hiddenNow) then 
-		statusoffset = GetStatusBarHeight()
-	end
-	--Note("status offset is: "..statusoffset)
-	
-	
-	if(statusHidden ~= statusNow) then
-		for i=1,#buttons do
-			local b = buttons[i]
-			b:updateRect(statusoffset)
-		end
-	
-	end
-	
-	statusHidden = hiddenNow
-	
-	--Note("status offset is: "..statusoffset)
+
+	refreshStatusOffset(true)
 	local ccl = luajava.bindClass("android.graphics.Color")
 	local colord = ccl:argb(0x88,0x00,0x00,0xFF)
 	
@@ -1579,7 +1584,12 @@ function OnSizeChanged(w,h,oldw,oldh)
 	end
 	
 	collectgarbage("collect")
-	
+
+	if view:getWidth() <= 0 or view:getHeight() <= 0 then
+		draw = false
+		return
+	end
+
 	buttonLayer = Bitmap:createBitmap(view:getWidth(),view:getHeight(),BitmapConfig.ARGB_8888)
 	buttonCanvas = luajava.newInstance("android.graphics.Canvas",buttonLayer)
 	
