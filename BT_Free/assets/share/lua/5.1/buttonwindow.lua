@@ -412,10 +412,13 @@ managerTouch_cb = luajava.createProxy("android.view.View$OnTouchListener",manage
 
 HOLD_CALLBACK_ID = 101
 EDITOR_CALLBACK_ID = 100
+ACCORDION_HOLD_CALLBACK_ID = 102
 HOLD_DELAY_MS = 450
 SWIPE_THRESHOLD_DP = 24
 HOLD_CANCEL_MOVE_DP = 10
 shortHoldFired = false
+accordionHoldFired = false
+accordionWasExpandedAtDown = false
 
 local function hasButtonCommand(cmd)
 	return cmd ~= nil and cmd ~= ""
@@ -461,6 +464,33 @@ local function hasAccordionConfig(data)
 	return data.accordionChildren ~= nil and #data.accordionChildren > 0
 end
 
+local function getAccordionTrigger(data)
+	local trigger = data.accordionTrigger
+	if trigger == nil or trigger == "" then
+		return "tap"
+	end
+	return trigger
+end
+
+local function getAccordionHoldMs(data)
+	local ms = tonumber(data.accordionHoldMs)
+	if ms == nil or ms < 100 then
+		return HOLD_DELAY_MS
+	end
+	if ms > 3000 then
+		return 3000
+	end
+	return math.floor(ms)
+end
+
+local function toggleAccordion(button)
+	if button.expanded then
+		collapseAccordion(button)
+	else
+		expandAccordion(button)
+	end
+end
+
 local function dispatchButtonAction(cmd)
 	if buttonsCleared then
 		revertButtons()
@@ -474,7 +504,6 @@ local function dispatchButtonAction(cmd)
 	if not hasButtonCommand(cmd) then
 		return false
 	end
-	performHapticPress()
 	SendToServer(cmd)
 	return true
 end
@@ -493,13 +522,24 @@ function doShortHold()
 		return
 	end
 	if touchedbutton ~= nil and hasButtonCommand(touchedbutton.data.holdCommand) then
-		CancelCallback(EDITOR_CALLBACK_ID)
 		shortHoldFired = true
-		fingerdown = false
-		selectedtouchstart = false
 		dispatchButtonAction(touchedbutton.data.holdCommand)
-		resetTouchedButtonVisual()
 	end
+end
+
+function doAccordionHold()
+	if suppress_editor or not fingerdown or accordionHoldFired then
+		return
+	end
+	if touchedbutton == nil or touchedbutton.isAccordionChild then
+		return
+	end
+	if not hasAccordionConfig(touchedbutton.data) or getAccordionTrigger(touchedbutton.data) ~= "hold" then
+		return
+	end
+	accordionHoldFired = true
+	performHapticPress()
+	toggleAccordion(touchedbutton)
 end
 
 normalTouch = {}
@@ -513,13 +553,31 @@ function normalTouch.onTouch(v,e)
 	if(action == ACTION_DOWN) then
 		prevevent = 0
 		shortHoldFired = false
+		accordionWasExpandedAtDown = false
+		accordionHoldFired = false
 		ret,b,index = buttonTouched(x,y)
 		if(ret) then
+			local needsFullRedraw = false
+			if hasAccordionConfig(b.data) and not b.isAccordionChild then
+				accordionWasExpandedAtDown = b.expanded
+				if getAccordionTrigger(b.data) == "tap" and not b.expanded then
+					expandAccordion(b, true)
+					needsFullRedraw = true
+				end
+			end
 			if not b.isAccordionChild then
 				if options.auto_launch == "true" then
 					ScheduleCallback(EDITOR_CALLBACK_ID,"doEdit",1000)
 				end
-				ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
+				local skipHoldForTapExpand = hasAccordionConfig(b.data)
+					and getAccordionTrigger(b.data) == "tap"
+					and not accordionWasExpandedAtDown
+				if not skipHoldForTapExpand and hasButtonCommand(b.data.holdCommand) then
+					ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
+				end
+				if hasAccordionConfig(b.data) and getAccordionTrigger(b.data) == "hold" then
+					ScheduleCallback(ACCORDION_HOLD_CALLBACK_ID,"doAccordionHold", getAccordionHoldMs(b.data))
+				end
 			end
 			fingerdown = true
 			touchStartX = x
@@ -528,11 +586,12 @@ function normalTouch.onTouch(v,e)
 			b.selected = true
 			touchedindex = index
 			normalTouchState = 1
-			if b.isAccordionChild or b.expanded then
+			if needsFullRedraw or b.isAccordionChild or b.expanded then
 				drawButtons()
 			else
 				b:draw(normalTouchState,buttonCanvas)
 			end
+			performHapticPress()
 			selectedtouchstart = true
 			view:invalidate()
 			return true
@@ -572,6 +631,7 @@ function normalTouch.onTouch(v,e)
 			local moveDist = math.sqrt(dx * dx + dy * dy)
 			if moveDist > (HOLD_CANCEL_MOVE_DP * density) then
 				CancelCallback(HOLD_CALLBACK_ID)
+				CancelCallback(ACCORDION_HOLD_CALLBACK_ID)
 			end
 			local r = touchedbutton.rect
 			if(r:contains(x,y)) then
@@ -602,8 +662,14 @@ function normalTouch.onTouch(v,e)
 		if(fingerdown) then
 			CancelCallback(EDITOR_CALLBACK_ID)
 			CancelCallback(HOLD_CALLBACK_ID)
+			CancelCallback(ACCORDION_HOLD_CALLBACK_ID)
 			fingerdown = false
 			selectedtouchstart = false
+			if accordionHoldFired then
+				accordionHoldFired = false
+				resetTouchedButtonVisual()
+				return true
+			end
 			if shortHoldFired then
 				shortHoldFired = false
 				resetTouchedButtonVisual()
@@ -616,9 +682,16 @@ function normalTouch.onTouch(v,e)
 			local swipeDir = classifySwipe(dx, dy, swipeThreshold)
 			local sent = false
 			if swipeDir ~= nil then
-				local swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir)
-				if hasButtonCommand(swipeCmd) then
-					sent = dispatchButtonAction(swipeCmd)
+				if hasAccordionConfig(touchedbutton.data)
+					and getAccordionTrigger(touchedbutton.data) == "swipe"
+					and swipeDir == touchedbutton.data.accordionDirection then
+					toggleAccordion(touchedbutton)
+					sent = true
+				else
+					local swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir)
+					if hasButtonCommand(swipeCmd) then
+						sent = dispatchButtonAction(swipeCmd)
+					end
 				end
 			end
 			if not sent then
@@ -631,12 +704,10 @@ function normalTouch.onTouch(v,e)
 					collapseAccordion(touchedbutton)
 					sent = true
 				elseif hasAccordionConfig(touchedbutton.data) and r:contains(x,y) and swipeDir == nil then
-					if touchedbutton.expanded then
+					if getAccordionTrigger(touchedbutton.data) == "tap" and accordionWasExpandedAtDown then
 						collapseAccordion(touchedbutton)
-					else
-						expandAccordion(touchedbutton)
 					end
-					sent = true
+					sent = getAccordionTrigger(touchedbutton.data) == "tap"
 				elseif(r:contains(x,y)) then
 					sent = dispatchButtonAction(touchedbutton.data.command)
 				else
@@ -957,7 +1028,7 @@ function buttonOptions()
   editorValues.gridOpacity = manageropacity
   editorValues.gridIntersectionTest = intersectMode
   editorValues.gridSnap = gridsnap
-  
+  editorValues.showGestureHints = options.show_gesture_hints ~= "false" and options.show_gesture_hints ~= false
 
   local editorOptionsDialog = require("editoroptionsdialog")
   editorOptionsDialog.init(mContext)
@@ -1057,6 +1128,9 @@ function buttonOptions()
   editorOptionsDialog.setGridSnapTestCallback(function(v)
     intersectMode = v
   end)
+  editorOptionsDialog.setShowGestureHintsCallback(function(v)
+    PluginXCallS("OnOptionChanged", "show_gesture_hints", v and "true" or "false")
+  end)
   
   editorOptionsDialog.showDialog(editorValues)
   return
@@ -1094,53 +1168,90 @@ dpaint:setStyle(Style.STROKE)
 
 MAX_ACCORDION_CHILDREN = 5
 
+local function accordionStackVertical(dir, layout)
+	if layout == "vertical" then
+		return true
+	end
+	if layout == "horizontal" then
+		return false
+	end
+	return dir ~= "right" and dir ~= "left"
+end
+
 local function accordionChildCoords(parent, index, childW, childH)
 	local dir = parent.data.accordionDirection
-	local gap = 4
+	local layout = parent.data.accordionChildLayout or "along"
+	local gap = 3 * density
 	local px = parent.data.x
 	local py = parent.data.y
-	local parentHalfW = (parent.data.width / 2)
-	local parentHalfH = (parent.data.height / 2)
-	local childHalfW = childW / 2
-	local childHalfH = childH / 2
-	local offset = (index - 1) * (childH + gap)
-	if dir == "right" or dir == "left" then
-		offset = (index - 1) * (childW + gap)
+	local parentHalfW = (parent.data.width / 2) * density
+	local parentHalfH = (parent.data.height / 2) * density
+	local childHalfW = (childW / 2) * density
+	local childHalfH = (childH / 2) * density
+	local childStepV = childH * density + gap
+	local childStepH = childW * density + gap
+	local stackV = accordionStackVertical(dir, layout)
+	local count = math.min(#parent.data.accordionChildren, MAX_ACCORDION_CHILDREN)
+	local alongStep = stackV and childStepV or childStepH
+	local alongOffset = (index - 1) * alongStep
+	local crossOffset = 0
+	if not stackV and (dir == "down" or dir == "up") then
+		crossOffset = (index - 1) * childStepH - (count - 1) * childStepH * 0.5
+	elseif stackV and (dir == "left" or dir == "right") then
+		crossOffset = (index - 1) * childStepV - (count - 1) * childStepV * 0.5
 	end
 	if dir == "down" then
-		return px, py + parentHalfH + childHalfH + gap + offset
+		if stackV then
+			return px, py + parentHalfH + gap + childHalfH + alongOffset
+		end
+		return px + crossOffset, py + parentHalfH + gap + childHalfH
 	elseif dir == "up" then
-		return px, py - parentHalfH - childHalfH - gap - offset
+		if stackV then
+			return px, py - parentHalfH - gap - childHalfH - alongOffset
+		end
+		return px + crossOffset, py - parentHalfH - gap - childHalfH
 	elseif dir == "right" then
-		return px + parentHalfW + childHalfW + gap + offset, py
+		if stackV then
+			return px + parentHalfW + gap + childHalfW, py + crossOffset
+		end
+		return px + parentHalfW + gap + childHalfW + alongOffset, py
 	elseif dir == "left" then
-		return px - parentHalfW - childHalfW - gap - offset, py
+		if stackV then
+			return px - parentHalfW - gap - childHalfW, py + crossOffset
+		end
+		return px - parentHalfW - gap - childHalfW - alongOffset, py
 	end
 	return px, py
 end
 
-function collapseAccordion(parent)
+function collapseAccordion(parent, skipRedraw)
 	if parent == nil then
 		return
 	end
 	parent.expanded = false
 	parent.accordionOverlay = nil
-	drawButtons()
-	view:invalidate()
+	if not skipRedraw then
+		drawButtons()
+		view:invalidate()
+	end
 end
 
-function collapseAllAccordions()
+function collapseAllAccordions(skipRedraw)
 	for i = 1, #buttons do
 		if buttons[i].expanded then
-			collapseAccordion(buttons[i])
+			collapseAccordion(buttons[i], true)
 		end
+	end
+	if not skipRedraw then
+		drawButtons()
+		view:invalidate()
 	end
 end
 
 function buildAccordionOverlay(parent)
 	local overlay = {}
-	local childW = math.floor(parent.data.width * 0.8)
-	local childH = math.floor(parent.data.height * 0.8)
+	local childW = parent.data.width
+	local childH = parent.data.height
 	local count = math.min(#parent.data.accordionChildren, MAX_ACCORDION_CHILDREN)
 	for i = 1, count do
 		local child = parent.data.accordionChildren[i]
@@ -1155,7 +1266,7 @@ function buildAccordionOverlay(parent)
 			primaryColor = parent.data.primaryColor,
 			selectedColor = parent.data.selectedColor,
 			labelColor = parent.data.labelColor,
-			labelSize = math.max(10, math.floor(parent.data.labelSize * 0.85))
+			labelSize = parent.data.labelSize
 		}
 		local btn = BUTTON:new(childData, density)
 		btn.isAccordionChild = true
@@ -1165,12 +1276,14 @@ function buildAccordionOverlay(parent)
 	return overlay
 end
 
-function expandAccordion(parent)
-	collapseAllAccordions()
+function expandAccordion(parent, skipRedraw)
+	collapseAllAccordions(true)
 	parent.expanded = true
 	parent.accordionOverlay = buildAccordionOverlay(parent)
-	drawButtons()
-	view:invalidate()
+	if not skipRedraw then
+		drawButtons()
+		view:invalidate()
+	end
 end
 
 function isAccordionCloseHit(parent, x, y)
@@ -1179,9 +1292,9 @@ function isAccordionCloseHit(parent, x, y)
 	end
 	local rect = parent.rect
 	local closeSize = 14 * density
-	local left = rect.right - closeSize
+	local left = rect.left
 	local top = rect.top
-	return x >= left and x <= rect.right and y >= top and y <= top + closeSize
+	return x >= left and x <= left + closeSize and y >= top and y <= top + closeSize
 end
 
 dpaint:setPathEffect(dash)
@@ -1607,6 +1720,9 @@ function buttonEditorDone(data)
 		
 		tmp.data.accordionDirection = data.accordionDirection or ""
 		tmp.data.accordionChildren = data.accordionChildren or {}
+		tmp.data.accordionTrigger = data.accordionTrigger or "tap"
+		tmp.data.accordionHoldMs = tonumber(data.accordionHoldMs) or 450
+		tmp.data.accordionChildLayout = data.accordionChildLayout or "along"
 		if data.accordionAutoClose == nil then
 			tmp.data.accordionAutoClose = true
 		else
@@ -1724,6 +1840,9 @@ function showEditorDialog()
 		editorValues.swipeRightCommand = button.data.swipeRightCommand or ""
 		editorValues.accordionDirection = button.data.accordionDirection or ""
 		editorValues.accordionChildren = button.data.accordionChildren or {}
+		editorValues.accordionTrigger = button.data.accordionTrigger or "tap"
+		editorValues.accordionHoldMs = button.data.accordionHoldMs or 450
+		editorValues.accordionChildLayout = button.data.accordionChildLayout or "along"
 		editorValues.accordionAutoClose = button.data.accordionAutoClose
 		if editorValues.accordionAutoClose == nil then
 			editorValues.accordionAutoClose = true
@@ -1809,6 +1928,7 @@ function showEditorDialog()
 	editorValues.defaultFlipColor = defaults.flipColor
 	editorValues.defaultLabelColor = defaults.labelColor
 	editorValues.defaultFlipLabelColor = defaults.flipLabelColor
+	editorValues.showGestureHints = buttonShowHints ~= false
 	
  local buttonEditor = require("buttoneditor")
  buttonEditor.init(mContext)
@@ -1981,6 +2101,7 @@ function loadOptions(data)
 	--Note("incoming options wad:"..data)
 	options = loadstring(data)()
 	buttonRoundness = tonumber(options.roundness) * density
+	buttonShowHints = options.show_gesture_hints ~= "false" and options.show_gesture_hints ~= false
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()
