@@ -261,21 +261,29 @@ function BUTTON:drawGestureIndicators(canvas, paint)
 	local w = rectRight(rect) - rectLeft(rect)
 	local h = rectBottom(rect) - rectTop(rect)
 	if hasGestureCommand(self.data, "swipeUpCommand") then
-		drawDirectionArrow(canvas, paint, rectLeft(rect) + w * 0.72, rectTop(rect) + inset, "up", arrow, color)
+		paint:setColor(color)
+		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
+		canvas:drawText("U", rectLeft(rect) + w * 0.72, rectTop(rect) + inset + arrow * 0.35, paint)
 	end
 	if hasGestureCommand(self.data, "swipeDownCommand") then
-		drawDirectionArrow(canvas, paint, rectLeft(rect) + w * 0.72, rectBottom(rect) - inset, "down", arrow, color)
+		paint:setColor(color)
+		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
+		canvas:drawText("D", rectLeft(rect) + w * 0.72, rectBottom(rect) - inset + arrow * 0.15, paint)
 	end
 	if hasGestureCommand(self.data, "swipeLeftCommand") then
-		drawDirectionArrow(canvas, paint, rectLeft(rect) + inset, rectTop(rect) + h * 0.72, "left", arrow, color)
+		paint:setColor(color)
+		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
+		canvas:drawText("L", rectLeft(rect) + inset, rectTop(rect) + h * 0.72 + arrow * 0.35, paint)
 	end
 	if hasGestureCommand(self.data, "swipeRightCommand") then
-		drawDirectionArrow(canvas, paint, rectRight(rect) - inset, rectTop(rect) + h * 0.72, "right", arrow, color)
+		paint:setColor(color)
+		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
+		canvas:drawText("R", rectRight(rect) - inset - arrow * 0.6, rectTop(rect) + h * 0.72 + arrow * 0.35, paint)
 	end
 	if hasGestureCommand(self.data, "holdCommand") then
 		paint:setColor(Color:argb(170, 0xFF, 0xFF, 0x66))
-		paint:setTextSize(math.max(8 * self.density, arrow * 1.4))
-		canvas:drawText("H", rectRight(rect) - 10 * self.density, rectBottom(rect) - 4 * self.density, paint)
+		paint:setTextSize(math.max(7 * self.density, arrow * 1.2))
+		canvas:drawText("Hold", rectRight(rect) - 16 * self.density, rectBottom(rect) - 4 * self.density, paint)
 	end
 end
 
