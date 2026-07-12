@@ -25,7 +25,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.text.SimpleDateFormat;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import android.annotation.TargetApi;
@@ -93,6 +95,7 @@ import com.offsetnull.bt.service.ILauncherCallback;
 import com.offsetnull.bt.service.StellarService;
 import com.offsetnull.bt.window.MainWindow;
 import com.offsetnull.bt.settings.ConfigurationLoader;
+import com.offsetnull.bt.util.BlowTorchLogger;
 import com.offsetnull.bt.ui.SDCardUtils;
 
 
@@ -150,6 +153,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
+		BlowTorchLogger.ensureLogFile(this);
 		fixClassLoaderIssue();
 		//Log.e("LAUNCHER","Launched from package: " + this.getPackageName());
 		//determine launch mode
@@ -1202,27 +1206,136 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		try {
 			SimpleDateFormat stampFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US);
-			File backupDir = new File(new File(Environment.getExternalStorageDirectory(), "BlowTorch2/backups"),
-					stampFormat.format(new Date()));
-			backupDir.mkdirs();
-			File filesDir = getFilesDir();
-			String[] names = filesDir.list();
-			int copied = 0;
-			if (names != null) {
-				for (String name : names) {
-					if (!name.endsWith(".xml")) {
-						continue;
-					}
-					copySettingsFile(new File(filesDir, name), new File(backupDir, name));
-					copied++;
-				}
-			}
+			String stamp = stampFormat.format(new Date());
+			File backupRoot = new File(Environment.getExternalStorageDirectory(), "BlowTorch2/backups");
+			backupRoot.mkdirs();
+			File zipFile = new File(backupRoot, stamp + ".zip");
+			int copied = zipSettingsDirectory(getFilesDir(), zipFile);
 			Toast.makeText(this,
-					"Backed up " + copied + " file(s) to:\n" + backupDir.getAbsolutePath(),
+					"Backed up " + copied + " file(s) to:\n" + zipFile.getAbsolutePath(),
 					Toast.LENGTH_LONG).show();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+	}
+	
+	private int zipSettingsDirectory(File sourceDir, File zipFile) throws IOException {
+		int copied = 0;
+		ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile));
+		String[] names = sourceDir.list();
+		if (names != null) {
+			byte[] buffer = new byte[4096];
+			for (String name : names) {
+				if (!name.endsWith(".xml")) {
+					continue;
+				}
+				File file = new File(sourceDir, name);
+				ZipEntry entry = new ZipEntry(name);
+				zos.putNextEntry(entry);
+				FileInputStream in = new FileInputStream(file);
+				int len;
+				while ((len = in.read(buffer)) > 0) {
+					zos.write(buffer, 0, len);
+				}
+				in.close();
+				zos.closeEntry();
+				copied++;
+			}
+		}
+		zos.close();
+		return copied;
+	}
+	
+	private void AskRestoreBackup() {
+		File backupRoot = new File(Environment.getExternalStorageDirectory(), "BlowTorch2/backups");
+		if (!backupRoot.exists()) {
+			Toast.makeText(this, "No backups found in BlowTorch2/backups", Toast.LENGTH_LONG).show();
+			return;
+		}
+		File[] entries = backupRoot.listFiles();
+		if (entries == null || entries.length == 0) {
+			Toast.makeText(this, "No backups found in BlowTorch2/backups", Toast.LENGTH_LONG).show();
+			return;
+		}
+		java.util.Arrays.sort(entries, new Comparator<File>() {
+			public int compare(File a, File b) {
+				return b.getName().compareTo(a.getName());
+			}
+		});
+		final ArrayList<File> choices = new ArrayList<File>();
+		final ArrayList<String> labels = new ArrayList<String>();
+		for (File entry : entries) {
+			if (entry.isDirectory() || entry.getName().endsWith(".zip")) {
+				choices.add(entry);
+				labels.add(entry.getName());
+			}
+		}
+		if (choices.isEmpty()) {
+			Toast.makeText(this, "No backups found in BlowTorch2/backups", Toast.LENGTH_LONG).show();
+			return;
+		}
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setTitle("Restore Backup");
+		builder.setItems(labels.toArray(new String[labels.size()]), new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				try {
+					int restored = restoreBackup(choices.get(which));
+					Toast.makeText(Launcher.this,
+							"Restored " + restored + " file(s). Restart BlowTorch to reload settings.",
+							Toast.LENGTH_LONG).show();
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		});
+		builder.show();
+	}
+	
+	private int restoreBackup(File backup) throws IOException {
+		if (backup.isDirectory()) {
+			return restoreDirectoryBackup(backup);
+		}
+		return restoreZipBackup(backup);
+	}
+	
+	private int restoreDirectoryBackup(File backupDir) throws IOException {
+		int restored = 0;
+		String[] names = backupDir.list();
+		if (names == null) {
+			return 0;
+		}
+		for (String name : names) {
+			if (!name.endsWith(".xml")) {
+				continue;
+			}
+			copySettingsFile(new File(backupDir, name), new File(getFilesDir(), name));
+			restored++;
+		}
+		return restored;
+	}
+	
+	private int restoreZipBackup(File zipFile) throws IOException {
+		int restored = 0;
+		ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));
+		ZipEntry entry;
+		byte[] buffer = new byte[4096];
+		while ((entry = zis.getNextEntry()) != null) {
+			if (entry.isDirectory() || !entry.getName().endsWith(".xml")) {
+				zis.closeEntry();
+				continue;
+			}
+			File out = new File(getFilesDir(), new File(entry.getName()).getName());
+			FileOutputStream fos = new FileOutputStream(out);
+			int len;
+			while ((len = zis.read(buffer)) > 0) {
+				fos.write(buffer, 0, len);
+			}
+			fos.close();
+			zis.closeEntry();
+			restored++;
+		}
+		zis.close();
+		return restored;
 	}
 	
 	private void DoRecovery(String targetPackage,boolean external) throws NameNotFoundException {
@@ -1574,6 +1687,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		menu.add(0,100,0,"Import List");
 		menu.add(0,105,0,"Export List");
 		menu.add(0,110,0,"Backup Settings");
+		menu.add(0,111,0,"Restore Backup");
 		if(ConfigurationLoader.isTestMode(this)) menu.add(0,106,0,"User Name");
 		menu.add(0,107,0,"Recover Settings");
 		menu.add(0, 108, 0,"SDCard Permissions");
@@ -1636,6 +1750,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		case 110:
 			if (SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT)) {
 				DoBackupAllSettings();
+			}
+			break;
+		case 111:
+			if (SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT)) {
+				AskRestoreBackup();
 			}
 			break;
 		case 106:
