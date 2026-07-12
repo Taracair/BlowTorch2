@@ -25,6 +25,10 @@ local View = _G["View"]
 local Note = _G["Note"]
 local pairs = _G["pairs"]
 local math = _G["math"]
+local tonumber = _G["tonumber"]
+local tostring = _G["tostring"]
+local table = _G["table"]
+local PluginXCallS = _G["PluginXCallS"]
 local buttonEditorDone = _G["buttonEditorDone"]
 module(...)
 
@@ -56,6 +60,9 @@ local swipeDownCmdEdit
 local swipeLeftCmdEdit
 local swipeRightCmdEdit
 local accordionDirSpinner
+local accordionLayoutSpinner
+local accordionTriggerSpinner
+local accordionHoldMsEdit
 local accordionAutoCloseCheck
 local accordionChildLabelEdits = {}
 local accordionChildCmdEdits = {}
@@ -352,7 +359,24 @@ function showEditorDialog(editorValues,numediting)
 	gesturesPage:setId(33)
 	gesturesPage:setOrientation(LinearLayout.VERTICAL)
 	
-	addHelpText(gesturesPage, "Gestures override Flip when set. Swipe up/down/left/right needs a short drag (~24dp). Hold fires at ~0.45s without moving. Long press (1s) still opens the button editor.")
+	local Spinner = luajava.bindClass("android.widget.Spinner")
+	local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
+	local CheckBox = luajava.bindClass("android.widget.CheckBox")
+	local AndroidR_layout = luajava.bindClass("android.R$layout")
+
+	local showHintsCb = luajava.new(CheckBox,context)
+	showHintsCb:setText("Show swipe arrows, H, S and badges on buttons")
+	local hintsOn = editorValues.showGestureHints
+	if hintsOn == nil then hintsOn = true end
+	showHintsCb:setChecked(hintsOn)
+	showHintsCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
+		onCheckedChanged = function(v, isChecked)
+			PluginXCallS("OnOptionChanged", "show_gesture_hints", isChecked and "true" or "false")
+		end
+	}))
+	gesturesPage:addView(showHintsCb)
+	
+	addHelpText(gesturesPage, "Gestures override Flip when set. Swipe needs ~24dp drag. Hold command fires at ~0.45s. Long press (1s) opens editor even with Hold set. Accordion badges: T/H/S = tap/hold/swipe open.")
 	
 	local function addGestureRow(parent, labelText, initialValue)
 		local row = luajava.new(LinearLayout,context)
@@ -386,13 +410,8 @@ function showEditorDialog(editorValues,numediting)
 	swipeLeftCmdEdit = addGestureRow(gesturesPage, "Swipe Left:", editorValues.swipeLeftCommand)
 	swipeRightCmdEdit = addGestureRow(gesturesPage, "Swipe Right:", editorValues.swipeRightCommand)
 	
-	local Spinner = luajava.bindClass("android.widget.Spinner")
-	local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
-	local CheckBox = luajava.bindClass("android.widget.CheckBox")
-	local AndroidR_layout = luajava.bindClass("android.R$layout")
-	
 	addHelpText(gesturesPage, "--- Sub-button menu (accordion) ---")
-	addHelpText(gesturesPage, "Tap the button to expand up to 5 sub-buttons. Auto-close hides them after use; otherwise tap the red x.")
+	addHelpText(gesturesPage, "Up to 5 sub-buttons expand from the parent. Set direction, how to open, and sub-button labels/commands below.")
 	
 	local dirRow = luajava.new(LinearLayout,context)
 	dirRow:setLayoutParams(fillparams)
@@ -422,6 +441,81 @@ function showEditorDialog(editorValues,numediting)
 	dirRow:addView(dirLabel)
 	dirRow:addView(accordionDirSpinner)
 	gesturesPage:addView(dirRow)
+
+	local layoutRow = luajava.new(LinearLayout,context)
+	layoutRow:setLayoutParams(fillparams)
+	local layoutLabel = luajava.new(TextView,context)
+	layoutLabel:setText("Sub-btn layout:")
+	layoutLabel:setGravity(Gravity.RIGHT)
+	layoutLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
+	accordionLayoutSpinner = luajava.new(Spinner,context)
+	accordionLayoutSpinner:setLayoutParams(clickLabelEditParams)
+	local layoutAdapter = luajava.new(ArrayAdapter,context,AndroidR_layout.simple_spinner_item)
+	layoutAdapter:add("Auto (follow expand)")
+	layoutAdapter:add("Vertical (column)")
+	layoutAdapter:add("Horizontal (row)")
+	layoutAdapter:setDropDownViewResource(AndroidR_layout.simple_spinner_dropdown_item)
+	accordionLayoutSpinner:setAdapter(layoutAdapter)
+	local currentLayout = editorValues.accordionChildLayout or "along"
+	if currentLayout == "vertical" then accordionLayoutSpinner:setSelection(1)
+	elseif currentLayout == "horizontal" then accordionLayoutSpinner:setSelection(2)
+	else accordionLayoutSpinner:setSelection(0) end
+	if(numediting > 1) then
+		accordionLayoutSpinner:setEnabled(false)
+	end
+	layoutRow:addView(layoutLabel)
+	layoutRow:addView(accordionLayoutSpinner)
+	gesturesPage:addView(layoutRow)
+	
+	local triggerRow = luajava.new(LinearLayout,context)
+	triggerRow:setLayoutParams(fillparams)
+	local triggerLabel = luajava.new(TextView,context)
+	triggerLabel:setText("Open with:")
+	triggerLabel:setGravity(Gravity.RIGHT)
+	triggerLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
+	accordionTriggerSpinner = luajava.new(Spinner,context)
+	accordionTriggerSpinner:setLayoutParams(clickLabelEditParams)
+	local triggerAdapter = luajava.new(ArrayAdapter,context,AndroidR_layout.simple_spinner_item)
+	triggerAdapter:add("Tap (press)")
+	triggerAdapter:add("Hold")
+	triggerAdapter:add("Swipe (expand dir)")
+	triggerAdapter:setDropDownViewResource(AndroidR_layout.simple_spinner_dropdown_item)
+	accordionTriggerSpinner:setAdapter(triggerAdapter)
+	local currentTrigger = editorValues.accordionTrigger or "tap"
+	if currentTrigger == "hold" then accordionTriggerSpinner:setSelection(1)
+	elseif currentTrigger == "swipe" then accordionTriggerSpinner:setSelection(2)
+	else accordionTriggerSpinner:setSelection(0) end
+	if(numediting > 1) then
+		accordionTriggerSpinner:setEnabled(false)
+	end
+	triggerRow:addView(triggerLabel)
+	triggerRow:addView(accordionTriggerSpinner)
+	gesturesPage:addView(triggerRow)
+	
+	addHelpText(gesturesPage, "Tap = open on press, close on second press. Hold = open after hold delay (ms). Swipe = drag in expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right.")
+	
+	local holdMsRow = luajava.new(LinearLayout,context)
+	holdMsRow:setLayoutParams(fillparams)
+	local holdMsLabel = luajava.new(TextView,context)
+	holdMsLabel:setText("Hold ms:")
+	holdMsLabel:setGravity(Gravity.RIGHT)
+	holdMsLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
+	accordionHoldMsEdit = luajava.new(EditText,context)
+	local InputType = luajava.bindClass("android.text.InputType")
+	accordionHoldMsEdit:setInputType(InputType.TYPE_CLASS_NUMBER)
+	accordionHoldMsEdit:setLayoutParams(clickLabelEditParams)
+	local holdMs = editorValues.accordionHoldMs
+	if holdMs == nil or holdMs == "MULTI" then
+		accordionHoldMsEdit:setText("450")
+	else
+		accordionHoldMsEdit:setText(tostring(math.floor(holdMs)))
+	end
+	if(numediting > 1) then
+		accordionHoldMsEdit:setEnabled(false)
+	end
+	holdMsRow:addView(holdMsLabel)
+	holdMsRow:addView(accordionHoldMsEdit)
+	gesturesPage:addView(holdMsRow)
 	
 	accordionAutoCloseCheck = luajava.new(CheckBox,context)
 	accordionAutoCloseCheck:setText("Auto-close sub-buttons after tap")
@@ -603,6 +697,15 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       local dirIndex = tonumber(accordionDirSpinner:getSelectedItemPosition()) or 0
       local dirMap = {"", "down", "up", "right", "left"}
       d.accordionDirection = dirMap[dirIndex + 1] or ""
+      if accordionLayoutSpinner ~= nil then
+        local layoutIndex = tonumber(accordionLayoutSpinner:getSelectedItemPosition()) or 0
+        local layoutMap = {"along", "vertical", "horizontal"}
+        d.accordionChildLayout = layoutMap[layoutIndex + 1] or "along"
+      end
+      local triggerIndex = tonumber(accordionTriggerSpinner:getSelectedItemPosition()) or 0
+      local triggerMap = {"tap", "hold", "swipe"}
+      d.accordionTrigger = triggerMap[triggerIndex + 1] or "tap"
+      d.accordionHoldMs = tonumber(accordionHoldMsEdit:getText():toString()) or 450
       d.accordionAutoClose = accordionAutoCloseCheck:isChecked()
       d.accordionChildren = {}
       for i = 1, 5 do

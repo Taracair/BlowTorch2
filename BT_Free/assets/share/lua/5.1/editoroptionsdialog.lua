@@ -44,6 +44,7 @@ local setGridYSpacing
 local setGridOpacity
 local setGridSnapTest
 local setAdvancedProperties
+local setShowGestureHints
 local editorDone
 setEditorDoneCallback = function(c) editorDone = c end
 
@@ -54,6 +55,7 @@ setGridYSpacingCallback = function(c) setGridYSpacing = c end
 setGridOpacityCallback = function(c) setGridOpacity = c end
 setGridSnapTestCallback = function(c) setGridSnapTest = c end
 setAdvancedPropertiesCallback = function(c) setAdvancedProperties = c end
+setShowGestureHintsCallback = function(c) setShowGestureHints = c end
 --end callback handling variables
 
 --local vairables to keep track of widget values
@@ -62,6 +64,7 @@ local gridX
 local gridY
 local gridOpacity
 local gridIntersectionTest
+local showGestureHints
 local setEditorValues
 local editorValues
 
@@ -71,6 +74,7 @@ local gridXSeekBarChangeListener
 local gridYSeekBarChangeListener
 local gridOpacitySeekBarChangeListener
 local gridIntersectionTestRadioChangedListener
+local showGestureHintsCheckChangeListener
 local doneListener
 local setDefaultsEditorListener
 
@@ -91,6 +95,7 @@ function showDialog(initialValues)
   gridOpacity = initialValues.gridOpacity
   gridIntersectionTest = initialValues.gridIntersectionTest
   gridSnap = initialValues.gridSnap
+  showGestureHints = initialValues.showGestureHints ~= false
   
   editorValues = initialValues
 
@@ -205,6 +210,15 @@ function showDialog(initialValues)
   subrow:addView(cb)
   subrow:addView(setSettingsButton)
   ll:addView(subrow)
+
+  local hintsCb = luajava.newInstance("android.widget.CheckBox",context)
+  hintsCb:setChecked(showGestureHints)
+  hintsCb:setText("Show swipe arrows, H, S and badges on buttons")
+  hintsCb:setTextSize(textSizeSmall)
+  hintsCb:setOnCheckedChangeListener(showGestureHintsCheckChangeListener)
+  hintsCb:setLayoutParams(fillparams)
+  ll:addView(hintsCb)
+
   ll:addView(xSeekBarLabel)
   ll:addView(xSeekBar)
   ll:addView(ySeekBarLabel)
@@ -252,6 +266,15 @@ gridSnapCheckChangeListener = luajava.createProxy("android.widget.CompoundButton
     gridSnap = isChecked
     if(setGridSnap ~= nil) then
       setGridSnap(isChecked)
+    end
+  end
+})
+
+showGestureHintsCheckChangeListener = luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
+  onCheckedChanged = function(v,isChecked)
+    showGestureHints = isChecked
+    if(setShowGestureHints ~= nil) then
+      setShowGestureHints(isChecked)
     end
   end
 })
