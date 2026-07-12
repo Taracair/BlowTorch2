@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Inject ForgeMap plugin and MAP button into BlowTorch profile XML files."""
-import sys
+"""Inject ForgeMap plugin and MAP button into BlowTorch **test** profile XML only."""
 from pathlib import Path
 
 FORGEMAP_PLUGIN = """
@@ -54,7 +53,7 @@ MAP_BUTTON = (
 )
 
 
-def patch(path: Path) -> None:
+def patch_test_profile(path: Path) -> None:
 	text = path.read_text(encoding="utf-8")
 	changed = False
 	if 'name="forgemap"' not in text:
@@ -78,12 +77,7 @@ def patch(path: Path) -> None:
 
 def main() -> None:
 	root = Path(__file__).resolve().parents[1]
-	targets = [root / "samples" / "samsaramoo.xml", root / "samples" / "test.xml"]
-	for t in targets:
-		if not t.exists():
-			print(f"Skip missing {t}")
-			continue
-		patch(t)
+	patch_test_profile(root / "samples" / "test.xml")
 
 
 if __name__ == "__main__":
