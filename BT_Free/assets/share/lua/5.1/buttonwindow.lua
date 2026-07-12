@@ -542,15 +542,35 @@ function doAccordionHold()
 	toggleAccordion(touchedbutton)
 end
 
+multiTouchCancelled = false
+
+local function cancelActiveTouchGesture()
+	CancelCallback(EDITOR_CALLBACK_ID)
+	CancelCallback(HOLD_CALLBACK_ID)
+	CancelCallback(ACCORDION_HOLD_CALLBACK_ID)
+	if fingerdown then
+		resetTouchedButtonVisual()
+		fingerdown = false
+		selectedtouchstart = false
+	end
+end
+
 normalTouch = {}
 normalTouchState = 0
 function normalTouch.onTouch(v,e)
 	local retvalue = false
 	local x = e:getX()
 	local y = e:getY()
-	--debugPrint("normal touch, start")
-	local action = e:getAction()
-	if(action == ACTION_DOWN) then
+	local masked = e:getActionMasked()
+	if masked == ACTION_POINTER_DOWN then
+		if fingerdown then
+			multiTouchCancelled = true
+			cancelActiveTouchGesture()
+			return true
+		end
+	end
+	if masked == ACTION_DOWN then
+		multiTouchCancelled = false
 		prevevent = 0
 		shortHoldFired = false
 		accordionWasExpandedAtDown = false
@@ -600,7 +620,7 @@ function normalTouch.onTouch(v,e)
 			--debugPrint("action down, returning false")
 			return false
 		end			
-	elseif(action == ACTION_MOVE) then
+	elseif(masked == ACTION_MOVE) then
 		--debugPrint("move1")
 		
 		if(fingerdown == false) then
@@ -658,7 +678,13 @@ function normalTouch.onTouch(v,e)
 			--debugPrint("reached end of normal touch handler, returning false")
 			return false
 		end
-	elseif(action == ACTION_UP) then
+	elseif(masked == ACTION_UP or masked == ACTION_POINTER_UP) then
+		if multiTouchCancelled then
+			if e:getPointerCount() <= 1 then
+				multiTouchCancelled = false
+			end
+			return true
+		end
 		if(fingerdown) then
 			CancelCallback(EDITOR_CALLBACK_ID)
 			CancelCallback(HOLD_CALLBACK_ID)
@@ -1371,6 +1397,8 @@ MotionEvent = luajava.bindClass("android.view.MotionEvent")
 ACTION_MOVE = MotionEvent.ACTION_MOVE
 ACTION_DOWN = MotionEvent.ACTION_DOWN
 ACTION_UP = MotionEvent.ACTION_UP
+ACTION_POINTER_DOWN = MotionEvent.ACTION_POINTER_DOWN
+ACTION_POINTER_UP = MotionEvent.ACTION_POINTER_UP
 prevevent = 0;
 
 dragmoving = false

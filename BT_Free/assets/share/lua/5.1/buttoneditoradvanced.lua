@@ -104,7 +104,7 @@ function makeUI(editorValues,numediting)
   local LabelWidth = nil -- margin size for different screen layouts
   if(ui.advancedPageScroller == nil) then
     ui.advancedPageScroller = fnew(ScrollView,context)
-    ui.advancedPageScroller:setId(4)
+    ui.advancedPageScroller:setId(5)
   end
   
   if(ui.advancedPage == nil) then
