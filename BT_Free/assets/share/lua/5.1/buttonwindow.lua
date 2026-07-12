@@ -472,8 +472,10 @@ end
 
 local function resetTouchedButtonVisual()
 	normalTouchState = 0
-	touchedbutton.selected = false
-	touchedbutton:draw(normalTouchState, buttonCanvas)
+	if touchedbutton ~= nil then
+		touchedbutton.selected = false
+	end
+	drawButtons()
 	view:invalidate()
 end
 
@@ -504,21 +506,24 @@ function normalTouch.onTouch(v,e)
 		shortHoldFired = false
 		ret,b,index = buttonTouched(x,y)
 		if(ret) then
-			if options.auto_launch == "true" then
-				ScheduleCallback(EDITOR_CALLBACK_ID,"doEdit",1000)
+			if not b.isAccordionChild then
+				if options.auto_launch == "true" then
+					ScheduleCallback(EDITOR_CALLBACK_ID,"doEdit",1000)
+				end
+				ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
 			end
-			ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
 			fingerdown = true
-			--touchedbutton.selected = false
 			touchStartX = x
 			touchStartY = y
 			touchedbutton = b
 			b.selected = true
 			touchedindex = index
-			--clearButton(b)
 			normalTouchState = 1
-			--clearButton(b)
-			b:draw(normalTouchState,buttonCanvas)
+			if b.isAccordionChild or b.expanded then
+				drawButtons()
+			else
+				b:draw(normalTouchState,buttonCanvas)
+			end
 			selectedtouchstart = true
 			view:invalidate()
 			return true
@@ -608,7 +613,22 @@ function normalTouch.onTouch(v,e)
 				end
 			end
 			if not sent then
-				if(r:contains(x,y)) then
+				if touchedbutton.isAccordionChild and touchedbutton.accordionParent ~= nil then
+					sent = dispatchButtonAction(touchedbutton.data.command)
+					if touchedbutton.accordionParent.data.accordionAutoClose ~= false then
+						collapseAccordion(touchedbutton.accordionParent)
+					end
+				elseif isAccordionCloseHit(touchedbutton, x, y) then
+					collapseAccordion(touchedbutton)
+					sent = true
+				elseif hasAccordionConfig(touchedbutton.data) and r:contains(x,y) and swipeDir == nil then
+					if touchedbutton.expanded then
+						collapseAccordion(touchedbutton)
+					else
+						expandAccordion(touchedbutton)
+					end
+					sent = true
+				elseif(r:contains(x,y)) then
 					sent = dispatchButtonAction(touchedbutton.data.command)
 				else
 					sent = dispatchButtonAction(touchedbutton.data.flipCommand)
@@ -1063,6 +1083,105 @@ dash = luajava.newInstance("android.graphics.DashPathEffect",farray,Float:floatV
 Style = luajava.bindClass("android.graphics.Paint$Style")
 dpaint:setStyle(Style.STROKE)
 
+local function hasAccordionConfig(data)
+	if data == nil or data.accordionDirection == nil or data.accordionDirection == "" then
+		return false
+	end
+	return data.accordionChildren ~= nil and #data.accordionChildren > 0
+end
+
+MAX_ACCORDION_CHILDREN = 5
+
+local function accordionChildCoords(parent, index, childW, childH)
+	local dir = parent.data.accordionDirection
+	local gap = 4
+	local px = parent.data.x
+	local py = parent.data.y
+	local parentHalfW = (parent.data.width / 2)
+	local parentHalfH = (parent.data.height / 2)
+	local childHalfW = childW / 2
+	local childHalfH = childH / 2
+	local offset = (index - 1) * (childH + gap)
+	if dir == "right" or dir == "left" then
+		offset = (index - 1) * (childW + gap)
+	end
+	if dir == "down" then
+		return px, py + parentHalfH + childHalfH + gap + offset
+	elseif dir == "up" then
+		return px, py - parentHalfH - childHalfH - gap - offset
+	elseif dir == "right" then
+		return px + parentHalfW + childHalfW + gap + offset, py
+	elseif dir == "left" then
+		return px - parentHalfW - childHalfW - gap - offset, py
+	end
+	return px, py
+end
+
+function collapseAccordion(parent)
+	if parent == nil then
+		return
+	end
+	parent.expanded = false
+	parent.accordionOverlay = nil
+	drawButtons()
+	view:invalidate()
+end
+
+function collapseAllAccordions()
+	for i = 1, #buttons do
+		if buttons[i].expanded then
+			collapseAccordion(buttons[i])
+		end
+	end
+end
+
+function buildAccordionOverlay(parent)
+	local overlay = {}
+	local childW = math.floor(parent.data.width * 0.8)
+	local childH = math.floor(parent.data.height * 0.8)
+	local count = math.min(#parent.data.accordionChildren, MAX_ACCORDION_CHILDREN)
+	for i = 1, count do
+		local child = parent.data.accordionChildren[i]
+		local cx, cy = accordionChildCoords(parent, i, childW, childH)
+		local childData = {
+			x = cx,
+			y = cy,
+			width = childW,
+			height = childH,
+			label = child.label or ("+" .. i),
+			command = child.command or "",
+			primaryColor = parent.data.primaryColor,
+			selectedColor = parent.data.selectedColor,
+			labelColor = parent.data.labelColor,
+			labelSize = math.max(10, math.floor(parent.data.labelSize * 0.85))
+		}
+		local btn = BUTTON:new(childData, density)
+		btn.isAccordionChild = true
+		btn.accordionParent = parent
+		table.insert(overlay, btn)
+	end
+	return overlay
+end
+
+function expandAccordion(parent)
+	collapseAllAccordions()
+	parent.expanded = true
+	parent.accordionOverlay = buildAccordionOverlay(parent)
+	drawButtons()
+	view:invalidate()
+end
+
+function isAccordionCloseHit(parent, x, y)
+	if parent == nil or not parent.expanded or parent.data.accordionAutoClose ~= false then
+		return false
+	end
+	local rect = parent.rect
+	local closeSize = 14 * density
+	local left = rect:right() - closeSize
+	local top = rect:top()
+	return x >= left and x <= rect:right() and y >= top and y <= top + closeSize
+end
+
 dpaint:setPathEffect(dash)
 dpaint:setStrokeWidth(2)
 
@@ -1087,6 +1206,12 @@ function drawButtons()
 			b:draw(1,canvas)
 		else
 			b:draw(0,canvas)
+		end
+		if b.expanded and b.accordionOverlay ~= nil then
+			for j = 1, #b.accordionOverlay do
+				local child = b.accordionOverlay[j]
+				child:draw(0, canvas)
+			end
 		end
 		--counter = counter + 1
 	end
@@ -1215,6 +1340,20 @@ function addButton(pX,pY)
 end
 
 function buttonTouched(x,y)
+	for i=1,#buttons do
+		local b = buttons[i]
+		if b.expanded and b.accordionOverlay ~= nil then
+			for j = #b.accordionOverlay, 1, -1 do
+				local child = b.accordionOverlay[j]
+				if child.rect:contains(x, y) then
+					return true, child, i
+				end
+			end
+			if isAccordionCloseHit(b, x, y) then
+				return true, b, i
+			end
+		end
+	end
 	for i=1,#buttons do
 	--for i,b in pairs(buttons) do
 		local b = buttons[i]
@@ -1464,6 +1603,14 @@ function buttonEditorDone(data)
 		tmp.data.swipeLeftCommand = data.swipeLeftCommand or ""
 		tmp.data.swipeRightCommand = data.swipeRightCommand or ""
 		
+		tmp.data.accordionDirection = data.accordionDirection or ""
+		tmp.data.accordionChildren = data.accordionChildren or {}
+		if data.accordionAutoClose == nil then
+			tmp.data.accordionAutoClose = true
+		else
+			tmp.data.accordionAutoClose = data.accordionAutoClose
+		end
+		
 		tmp.data.name = data.name
 		tmp.data.switchTo = data.target
 		
@@ -1573,6 +1720,12 @@ function showEditorDialog()
 		editorValues.swipeDownCommand = button.data.swipeDownCommand or ""
 		editorValues.swipeLeftCommand = button.data.swipeLeftCommand or ""
 		editorValues.swipeRightCommand = button.data.swipeRightCommand or ""
+		editorValues.accordionDirection = button.data.accordionDirection or ""
+		editorValues.accordionChildren = button.data.accordionChildren or {}
+		editorValues.accordionAutoClose = button.data.accordionAutoClose
+		if editorValues.accordionAutoClose == nil then
+			editorValues.accordionAutoClose = true
+		end
 		editorValues.name = button.data.name
 		--editorValues.name = "OMGANYTHING"
 		if(not editorValues.name) then editorValues.name = "" end

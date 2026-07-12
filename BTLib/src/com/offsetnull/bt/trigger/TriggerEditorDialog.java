@@ -17,6 +17,8 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.text.util.Linkify;
 //import android.util.Log;
 import android.view.Gravity;
@@ -185,6 +187,37 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 		literal.setOnCheckedChangeListener(new LiteralCheckChangedListener());
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
+		setupTriggerPreview(title, pattern, literal);
+	}
+	
+	private void setupTriggerPreview(final EditText title, final EditText pattern, final CheckBox literal) {
+		final TextView preview = (TextView) findViewById(R.id.trigger_match_preview);
+		if (preview == null) {
+			return;
+		}
+		pattern.setTypeface(Typeface.MONOSPACE);
+		TextWatcher watcher = new TextWatcher() {
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+				updateTriggerPreview(title, pattern, literal, preview);
+			}
+			public void afterTextChanged(Editable s) {}
+		};
+		pattern.addTextChangedListener(watcher);
+		title.addTextChangedListener(watcher);
+		updateTriggerPreview(title, pattern, literal, preview);
+	}
+	
+	private void updateTriggerPreview(EditText title, EditText pattern, CheckBox literal, TextView preview) {
+		String patternText = pattern.getText().toString();
+		if (patternText.trim().length() == 0) {
+			preview.setText("Enter a pattern to preview what the trigger watches for.");
+			return;
+		}
+		String name = title.getText().toString().trim();
+		String mode = literal.isChecked() ? "literal text" : "regular expression";
+		String header = name.length() > 0 ? ("Trigger «" + name + "» watches server output for:\n") : "Watches server output for:\n";
+		preview.setText(header + "«" + patternText + "»\n(mode: " + mode + ")");
 	}
 	
 	
@@ -610,6 +643,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	private class LiteralCheckChangedListener implements CompoundButton.OnCheckedChangeListener {
 
 		public void onCheckedChanged(CompoundButton arg0, boolean arg1) {
+			TextView preview = (TextView) TriggerEditorDialog.this.findViewById(R.id.trigger_match_preview);
+			if (preview != null) {
+				EditText title = (EditText) TriggerEditorDialog.this.findViewById(R.id.trigger_editor_name);
+				EditText pattern = (EditText) TriggerEditorDialog.this.findViewById(R.id.trigger_editor_pattern);
+				updateTriggerPreview(title, pattern, (CheckBox) arg0, preview);
+			}
 			if(arg1) {
 				the_trigger.setInterpretAsRegex(false); //NO NOT INTERPRET AS REGEX
 			} else {

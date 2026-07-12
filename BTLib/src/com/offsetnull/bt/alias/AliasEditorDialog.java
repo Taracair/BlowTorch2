@@ -15,12 +15,16 @@ import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.graphics.Typeface;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnFocusChangeListener;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
@@ -112,7 +116,65 @@ public class AliasEditorDialog extends Dialog {
 		
 		}
 		initMatches();
+		setupAliasPreview();
 		//load in the array adapter to hook up the list view
+	}
+	
+	private void setupAliasPreview() {
+		final EditText pre = (EditText) findViewById(R.id.new_alias_pre);
+		final EditText post = (EditText) findViewById(R.id.new_alias_post);
+		final CheckBox carrot = (CheckBox) findViewById(R.id.carrot);
+		final CheckBox dollar = (CheckBox) findViewById(R.id.dollar);
+		final TextView preview = (TextView) findViewById(R.id.alias_send_preview);
+		if (pre == null || post == null || preview == null) {
+			return;
+		}
+		pre.setTypeface(Typeface.MONOSPACE);
+		post.setTypeface(Typeface.MONOSPACE);
+		TextWatcher watcher = new TextWatcher() {
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+				updateAliasPreview(pre, post, carrot, dollar, preview);
+			}
+			public void afterTextChanged(Editable s) {}
+		};
+		pre.addTextChangedListener(watcher);
+		post.addTextChangedListener(watcher);
+		CompoundButton.OnCheckedChangeListener checkListener = new CompoundButton.OnCheckedChangeListener() {
+			public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+				updateAliasPreview(pre, post, carrot, dollar, preview);
+			}
+		};
+		if (carrot != null) {
+			carrot.setOnCheckedChangeListener(checkListener);
+		}
+		if (dollar != null) {
+			dollar.setOnCheckedChangeListener(checkListener);
+		}
+		updateAliasPreview(pre, post, carrot, dollar, preview);
+	}
+	
+	private void updateAliasPreview(EditText pre, EditText post, CheckBox carrot, CheckBox dollar, TextView preview) {
+		String preText = pre.getText().toString().trim();
+		String postText = post.getText().toString();
+		if (preText.length() == 0) {
+			preview.setText("Type a pattern to preview what is sent to the server.");
+			return;
+		}
+		String example = preText;
+		if (postText.length() == 0) {
+			preview.setText("Example input «" + example + "» → (nothing sent yet)");
+			return;
+		}
+		String anchorNote = "";
+		if (carrot != null && carrot.isChecked()) {
+			anchorNote = anchorNote + "^";
+		}
+		if (dollar != null && dollar.isChecked()) {
+			anchorNote = anchorNote + "$";
+		}
+		preview.setText("When you type «" + example + "» → sends to server:\n«" + postText + "»" +
+				(anchorNote.length() > 0 ? "\n(anchors: " + anchorNote + ")" : ""));
 	}
 	
 	private String mPre;
