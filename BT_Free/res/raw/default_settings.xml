@@ -54,6 +54,7 @@ xPos="130" yPos="183" label="CLEAR" moveMethod="0" command=".clearbuttons" />
   	 	<options title="Button" summary="Haptic feedback, roundess and other button options.">
   	 		<boolean title="Automatically launch editor" key="auto_launch" summary="Automatically launch the editor on the long press action.">true</boolean>
   	 		<boolean title="Automatically create buttons" key="auto_create" summary="Will add new buttons to emty regions that are long pressed.">true</boolean>
+  	 		<boolean title="Show gesture hints" key="show_gesture_hints" summary="Draw swipe arrows, hold (H), and accordion chevrons on buttons.">true</boolean>
   	 		<integer title="Button roundness" key="roundess" summary="Radius of button corners.">6</integer>
   	 		<list title="Haptic feedback on editor launch." key="haptic_edit" summary="Perform haptic feedback when the editor is opened.">
   	 			<value>0</value>

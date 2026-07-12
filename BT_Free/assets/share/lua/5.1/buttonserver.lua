@@ -548,6 +548,13 @@ function setHapticFeedbackFlipped(value)
 	end
 end
 
+function setShowGestureHints(value)
+	options.show_gesture_hints = value
+	if(UserPresent()) then
+		loadOptions()
+	end
+end
+
 
 Integer = luajava.newInstance("java.lang.Integer",0)
 IntegerClass = Integer:getClass()
@@ -622,6 +629,7 @@ optionsTable.haptic_flip = setHapticFeedbackFlipped
 optionsTable.roundess = setRoundness
 optionsTable.auto_launch = setAutoLaunch
 optionsTable.auto_create = setAutoCreate
+optionsTable.show_gesture_hints = setShowGestureHints
 
 options = {}
 options.haptic_edit = 0
@@ -630,6 +638,7 @@ options.haptic_flip = 0
 options.roundness = 6
 options.auto_launch = true
 options.auto_create = true
+options.show_gesture_hints = true
 
 function setDebug(off)
 	if(not off) then
