@@ -1899,11 +1899,23 @@ function emptyButtons()
 end
 
 function revertButtons()
+	if(not buttonsCleared) then
+		return
+	end
 	buttonsCleared = false
 	buttons = revertset
 	drawButtons()
 	suppress_editor = false
 	view:invalidate()
+end
+
+function restoreButtons()
+	if(buttonsCleared) then
+		revertButtons()
+	else
+		drawButtons()
+		view:invalidate()
+	end
 end
 
 rootHolder = view:getParent()

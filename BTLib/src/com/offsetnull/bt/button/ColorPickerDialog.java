@@ -357,8 +357,8 @@ public class ColorPickerDialog extends Dialog {
         SeekBar sb = new SeekBar(getContext());
         sb.setMax(255);
         sb.setProgress(alphapart);
+        sb.setId(0x03);
        
-        
         sb.setOnSeekBarChangeListener(view);
         
         sb.setLayoutParams(barparams);
@@ -369,7 +369,7 @@ public class ColorPickerDialog extends Dialog {
         LinearLayout presets = new LinearLayout(getContext());
         presets.setOrientation(LinearLayout.HORIZONTAL);
         RelativeLayout.LayoutParams presetParams = new RelativeLayout.LayoutParams((int) (166.66*scale), LayoutParams.WRAP_CONTENT);
-        presetParams.addRule(RelativeLayout.BELOW, 0x02);
+        presetParams.addRule(RelativeLayout.BELOW, 0x03);
         presetParams.topMargin = (int) (5 * this.getContext().getResources().getDisplayMetrics().density);
         presets.setLayoutParams(presetParams);
         presets.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -377,13 +377,15 @@ public class ColorPickerDialog extends Dialog {
         int swatchSize = (int) (28 * scale);
         LinearLayout.LayoutParams swatchParams = new LinearLayout.LayoutParams(swatchSize, swatchSize);
         swatchParams.setMargins((int)(4*scale), 0, (int)(4*scale), 0);
+        final SeekBar alphaBar = sb;
         for (final int presetColor : presetColors) {
             View presetSwatch = new View(getContext());
             presetSwatch.setLayoutParams(swatchParams);
             presetSwatch.setBackgroundColor(presetColor);
             presetSwatch.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
-                    l.colorChanged(presetColor);
+                    int alpha = alphaBar.getProgress() << 24;
+                    l.colorChanged(alpha | (presetColor & 0x00FFFFFF));
                 }
             });
             presets.addView(presetSwatch);
