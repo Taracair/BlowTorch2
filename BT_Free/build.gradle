@@ -50,7 +50,7 @@ android {
             manifest.srcFile 'AndroidManifest.xml'
             java.srcDirs = ['src']
             aidl.srcDirs = ['src']
-            res.srcDirs = ['res']
+            res.srcDirs = ['res', 'build/generated/default-settings-res']
             assets.srcDirs = ['assets']
         }
     }
@@ -65,6 +65,27 @@ android {
         }
     }
 }
+
+def isTestApplication = android.defaultConfig.applicationId.endsWith('.test')
+
+tasks.register('selectDefaultSettings') {
+    def outDir = layout.buildDirectory.dir('generated/default-settings-res/raw')
+    outputs.dir(outDir)
+    doLast {
+        def destDir = outDir.get().asFile
+        destDir.mkdirs()
+        def srcName = isTestApplication ? 'default_settings_test.xml' : 'default_settings_main.xml'
+        def src = file("res/raw/${srcName}")
+        if (!src.exists()) {
+            throw new GradleException("Missing ${src}")
+        }
+        def dest = new File(destDir, 'default_settings.xml')
+        dest.text = src.text
+        logger.lifecycle("ForgeMap defaults: ${isTestApplication ? 'TEST (with forgemap)' : 'MAIN (no forgemap)'}")
+    }
+}
+
+tasks.named('preBuild').configure { dependsOn 'selectDefaultSettings' }
 
 dependencies {
     implementation project(':BTLib')

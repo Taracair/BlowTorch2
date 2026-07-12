@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
-	<string name="testMode">false</string>
+	<string name="testMode">true</string>
 	<string name="windowAction">com.offsetnull.bt.window.MainWindow.NORMAL_MODE</string>
 	<string name="notificationIcon">blowtorch_notification2</string>
 	<string name="serviceProcessName">:stellar</string>
