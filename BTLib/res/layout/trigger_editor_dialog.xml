@@ -63,8 +63,24 @@
   					android:hint=""
   					android:layout_marginRight="10dip"
   					android:width="200dip"
-  					android:singleLine="true"
-  					android:inputType="text"/>
+  					android:fontFamily="monospace"
+  					android:inputType="textMultiLine"
+  					android:minLines="2"
+  					android:maxLines="8"
+  					android:scrollHorizontally="false"/>
+  			</TableRow>
+  			<TableRow>
+  				<TextView
+  					android:text="Preview:"
+  					android:paddingLeft="10dip"/>
+  				<TextView
+  					android:id="@+id/trigger_match_preview"
+  					android:layout_marginRight="10dip"
+  					android:width="200dip"
+  					android:textColor="#FF224422"
+  					android:textSize="12sp"
+  					android:fontFamily="monospace"
+  					android:text="Enter a pattern to preview what the trigger watches for."/>
   			</TableRow>
   		</TableLayout>
   		<!-- <TableLayout android:layout_width="390dip" android:layout_height="wrap_content" android:stretchColumns="*"> -->

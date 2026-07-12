@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -12,6 +13,8 @@ import android.content.DialogInterface;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
@@ -24,6 +27,7 @@ import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -247,6 +251,27 @@ public class BaseSelectionDialog extends Dialog {
 		
 		
 		mList.setEmptyView(findViewById(R.id.empty));
+		
+		EditText searchField = (EditText) findViewById(R.id.search_field);
+		searchField.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+			}
+			
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+			}
+			
+			@Override
+			public void afterTextChanged(Editable s) {
+				mSearchQuery = s.toString();
+				applySearchFilter();
+				removeToolbar();
+				if (mAdapter != null) {
+					mAdapter.notifyDataSetChanged();
+				}
+			}
+		});
 		
 		buildRawList();
 		
@@ -477,6 +502,8 @@ public class BaseSelectionDialog extends Dialog {
 	}
 	
 	protected ArrayList<ItemEntry> mListItems = new ArrayList<ItemEntry>();
+	protected ArrayList<ItemEntry> mAllListItems = new ArrayList<ItemEntry>();
+	private String mSearchQuery = "";
 	
 	public void addListItem(String name,String extra,int mini_icon,boolean enabled) {
 		ItemEntry newEntry = new ItemEntry();
@@ -484,13 +511,42 @@ public class BaseSelectionDialog extends Dialog {
 		newEntry.extra = extra;
 		newEntry.enabled = enabled;
 		newEntry.mini_icon = mini_icon;
-		//newEntry.mini_icon_on = icon_on; 
-		//newEntry.mini_icon_off = icon_off;
-		mListItems.add(newEntry);
+		newEntry.key = name;
+		mAllListItems.add(newEntry);
 	}
 	
 	public void clearListItems() {
+		this.mAllListItems.clear();
 		this.mListItems.clear();
+	}
+	
+	protected String getItemKey(int row) {
+		if (mAdapter == null || row < 0 || row >= mAdapter.getCount()) {
+			return null;
+		}
+		ItemEntry entry = mAdapter.getItem(row);
+		return entry != null ? entry.key : null;
+	}
+	
+	private void applySearchFilter() {
+		mListItems.clear();
+		String query = mSearchQuery.trim().toLowerCase(Locale.getDefault());
+		if (query.length() == 0) {
+			mListItems.addAll(mAllListItems);
+		} else {
+			for (ItemEntry entry : mAllListItems) {
+				if (matchesSearch(entry, query)) {
+					mListItems.add(entry);
+				}
+			}
+		}
+	}
+	
+	private boolean matchesSearch(ItemEntry entry, String query) {
+		if (entry.title != null && entry.title.toLowerCase(Locale.getDefault()).contains(query)) {
+			return true;
+		}
+		return entry.extra != null && entry.extra.toLowerCase(Locale.getDefault()).contains(query);
 	}
 	
 	public void clearOptionItems() {
@@ -506,6 +562,7 @@ public class BaseSelectionDialog extends Dialog {
 	}
 	
 	public void invalidateList() {
+		applySearchFilter();
 		if(mAdapter == null) return;
 		removeToolbar();
 		this.mAdapter.notifyDataSetChanged();
@@ -513,6 +570,7 @@ public class BaseSelectionDialog extends Dialog {
 	}
 	//@SuppressWarnings("unchecked")
 	private void buildRawList() {
+		applySearchFilter();
 		if(mAdapter == null) {
 			mAdapter = new ItemAdapter(BaseSelectionDialog.this.getContext(), R.layout.editor_selection_list_row, mListItems);
 			mList.setAdapter(mAdapter);
@@ -598,6 +656,7 @@ public class BaseSelectionDialog extends Dialog {
 	public class ItemEntry {
 		public String title;
 		public String extra;
+		public String key;
 		public boolean selected;
 		public boolean enabled;
 		public int mini_icon;
