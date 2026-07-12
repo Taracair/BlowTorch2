@@ -216,6 +216,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_EXPORTSETTINGS = 906;
 	public static final int MESSAGE_CLOSEOPTIONSDIALOG = 907;
 	public static final int MESSAGE_SHOWREGEXWARNING = 908;
+	protected static final int MESSAGE_INPUT_SELECT_ALL = 909;
+	protected static final int MESSAGE_INPUT_COPY = 910;
+	protected static final int MESSAGE_INPUT_PASTE = 911;
+	protected static final int MESSAGE_INPUT_CURSOR_START = 912;
+	protected static final int MESSAGE_INPUT_CURSOR_END = 913;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -1089,6 +1094,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							e.printStackTrace();
 						}
 					}
+					break;
+				case MESSAGE_INPUT_SELECT_ALL:
+					inputSelectAll();
+					break;
+				case MESSAGE_INPUT_COPY:
+					inputCopy();
+					break;
+				case MESSAGE_INPUT_PASTE:
+					inputPaste();
+					break;
+				case MESSAGE_INPUT_CURSOR_START:
+					inputCursorToStart();
+					break;
+				case MESSAGE_INPUT_CURSOR_END:
+					inputCursorToEnd();
 					break;
 				default:
 					break;
@@ -2096,6 +2116,31 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		windowCall("button_window", "clearButtons", "");
 	}
 	
+	private void inputSelectAll() {
+		mInputBox.requestFocus();
+		mInputBox.selectAll();
+	}
+	
+	private void inputCursorToStart() {
+		mInputBox.requestFocus();
+		mInputBox.setSelection(0);
+	}
+	
+	private void inputCursorToEnd() {
+		mInputBox.requestFocus();
+		mInputBox.setSelection(mInputBox.getText().length());
+	}
+	
+	private void inputCopy() {
+		mInputBox.requestFocus();
+		mInputBox.onTextContextMenuItem(android.R.id.copy);
+	}
+	
+	private void inputPaste() {
+		mInputBox.requestFocus();
+		mInputBox.onTextContextMenuItem(android.R.id.paste);
+	}
+	
 	private void requestNotificationPermissionIfNeeded() {
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
 			return;
@@ -2937,6 +2982,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			int p = (popup) ? 1 : 0;
 			int a = (add) ? 1 : 0;
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_KEYBOARD,p,a,txt));
+		}
+		
+		public void inputBarSelectAll() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_INPUT_SELECT_ALL);
+		}
+		
+		public void inputBarCopy() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_INPUT_COPY);
+		}
+		
+		public void inputBarPaste() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_INPUT_PASTE);
+		}
+		
+		public void inputBarCursorToStart() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_INPUT_CURSOR_START);
+		}
+		
+		public void inputBarCursorToEnd() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_INPUT_CURSOR_END);
 		}
 
 		public void doDisconnectNotice(String display) throws RemoteException {
