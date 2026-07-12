@@ -33,6 +33,7 @@ import org.xml.sax.SAXException;
 import org.xmlpull.v1.XmlSerializer;
 
 import com.offsetnull.bt.util.BlowTorchLogger;
+import com.offsetnull.bt.responder.IteratorModifiedException;
 import com.offsetnull.bt.responder.TriggerResponder;
 import com.offsetnull.bt.responder.gag.GagAction;
 import com.offsetnull.bt.responder.script.ScriptResponder;
