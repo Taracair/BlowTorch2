@@ -2089,7 +2089,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	};
 	
 	private void restoreButtonsOnResume() {
-		windowCall("button_window", "revertButtons", "");
+		windowCall("button_window", "restoreButtons", "");
+	}
+	
+	private void clearButtonsOnPause() {
+		windowCall("button_window", "clearButtons", "");
 	}
 	
 	private void requestNotificationPermissionIfNeeded() {
@@ -2099,6 +2103,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
 			return;
 		}
+		SharedPreferences prefs = getSharedPreferences("BLOWTORCH_UI", Context.MODE_PRIVATE);
+		if (prefs.getBoolean("NOTIFICATION_PERMISSION_REQUESTED", false)) {
+			return;
+		}
+		prefs.edit().putBoolean("NOTIFICATION_PERMISSION_REQUESTED", true).apply();
 		requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, RP_NOTIFICATIONS);
 	}
 	
@@ -2460,6 +2469,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//Log.e("WINDOW","onDestroy()");
 		//windowShowing = false;
 		if(service == null) { super.onPause(); return; };
+		clearButtonsOnPause();
 		try {
 			service.windowShowing(false);
 		} catch (RemoteException e) {
@@ -3516,6 +3526,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			case RP_IMPORT:
 				//doImportDialog(external);
 				showImportMessage(external);
+				break;
+			case RP_NOTIFICATIONS:
 				break;
 			default:
 				break;

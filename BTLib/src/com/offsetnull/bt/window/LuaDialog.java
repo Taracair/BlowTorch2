@@ -11,10 +11,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.util.Log;
 import android.widget.RelativeLayout.LayoutParams;
 
 public class LuaDialog extends Dialog {
 
+	private static final String TAG = "LuaDialog";
 	private View mView = null;
 	private Context mContext = null;
 	private boolean mTitle;
@@ -57,7 +59,7 @@ public class LuaDialog extends Dialog {
 		try {
 			super.show();
 		} catch (WindowManager.BadTokenException e) {
-			// Activity token is stale after backgrounding; caller should refresh context.
+			Log.w(TAG, "Unable to show dialog; activity token is stale", e);
 		}
 	}
 	
