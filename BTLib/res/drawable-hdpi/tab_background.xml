@@ -6,7 +6,7 @@
     <!-- Non focused states -->
     <item
         android:state_selected="true"
-        android:drawable="@drawable/stupid_white"/>
+        android:drawable="@drawable/tab_selected"/>
     <item
         android:drawable="@drawable/stupid_grey"/>
 </selector>
