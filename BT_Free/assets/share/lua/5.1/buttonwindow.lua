@@ -1808,6 +1808,9 @@ function showEditorDialog()
 	editorValues.defaultLabelColor = defaults.labelColor
 	editorValues.defaultFlipLabelColor = defaults.flipLabelColor
 	
+ package.loaded["buttoneditor"] = nil
+ package.loaded["buttoneditoradvanced"] = nil
+ package.loaded["button"] = nil
  local buttonEditor = require("buttoneditor")
  buttonEditor.init(mContext)
  --Note("showing button editor "..numediting)

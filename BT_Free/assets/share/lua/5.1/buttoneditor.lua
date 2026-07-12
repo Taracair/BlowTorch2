@@ -386,31 +386,13 @@ function showEditorDialog(editorValues,numediting)
 	swipeLeftCmdEdit = addGestureRow(gesturesPage, "Swipe Left:", editorValues.swipeLeftCommand)
 	swipeRightCmdEdit = addGestureRow(gesturesPage, "Swipe Right:", editorValues.swipeRightCommand)
 	
-	gesturesPageScroller:addView(gesturesPage)
-	content:addView(gesturesPageScroller)
-	tabGestures:setIndicator(labelGestures)
-	tabGestures:setContent(3)
-	
 	local Spinner = luajava.bindClass("android.widget.Spinner")
 	local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
 	local CheckBox = luajava.bindClass("android.widget.CheckBox")
+	local AndroidR_layout = luajava.bindClass("android.R$layout")
 	
-	local tabAccordion = host:newTabSpec("tab_accordion_btn_tab")
-	local labelAccordion = luajava.new(TextView,context)
-	labelAccordion:setLayoutParams(fillparams)
-	labelAccordion:setText("Accordion")
-	labelAccordion:setTextSize(textSizeBig)
-	labelAccordion:setBackgroundResource(R_drawable.tab_background)
-	labelAccordion:setGravity(GRAVITY_CENTER)
-	labelAccordion:setMinHeight(tabMinHeight)
-	
-	local accordionPageScroller = luajava.new(ScrollView,context)
-	accordionPageScroller:setLayoutParams(fillparams)
-	local accordionPage = luajava.new(LinearLayout,context)
-	accordionPage:setOrientation(LinearLayout.VERTICAL)
-	accordionPage:setLayoutParams(fillparams)
-	
-	addHelpText(accordionPage, "Tap a button with sub-buttons to expand a small menu (up/down/left/right). Max 5 children, 1 level deep. Auto-close hides children after tap; otherwise use the red x.")
+	addHelpText(gesturesPage, "--- Sub-button menu (accordion) ---")
+	addHelpText(gesturesPage, "Tap the button to expand up to 5 sub-buttons. Auto-close hides them after use; otherwise tap the red x.")
 	
 	local dirRow = luajava.new(LinearLayout,context)
 	dirRow:setLayoutParams(fillparams)
@@ -420,14 +402,13 @@ function showEditorDialog(editorValues,numediting)
 	dirLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
 	accordionDirSpinner = luajava.new(Spinner,context)
 	accordionDirSpinner:setLayoutParams(clickLabelEditParams)
-	local R_layout = luajava.bindClass("android.R$layout")
-	local dirAdapter = luajava.new(ArrayAdapter,context,R_layout.simple_spinner_item)
+	local dirAdapter = luajava.new(ArrayAdapter,context,AndroidR_layout.simple_spinner_item)
 	dirAdapter:add("None")
 	dirAdapter:add("Down")
 	dirAdapter:add("Up")
 	dirAdapter:add("Right")
 	dirAdapter:add("Left")
-	dirAdapter:setDropDownViewResource(R_layout.simple_spinner_dropdown_item)
+	dirAdapter:setDropDownViewResource(AndroidR_layout.simple_spinner_dropdown_item)
 	accordionDirSpinner:setAdapter(dirAdapter)
 	local currentDir = editorValues.accordionDirection or ""
 	if currentDir == "down" then accordionDirSpinner:setSelection(1)
@@ -435,18 +416,24 @@ function showEditorDialog(editorValues,numediting)
 	elseif currentDir == "right" then accordionDirSpinner:setSelection(3)
 	elseif currentDir == "left" then accordionDirSpinner:setSelection(4)
 	else accordionDirSpinner:setSelection(0) end
+	if(numediting > 1) then
+		accordionDirSpinner:setEnabled(false)
+	end
 	dirRow:addView(dirLabel)
 	dirRow:addView(accordionDirSpinner)
-	accordionPage:addView(dirRow)
+	gesturesPage:addView(dirRow)
 	
 	accordionAutoCloseCheck = luajava.new(CheckBox,context)
-	accordionAutoCloseCheck:setText("Auto-close after child tap")
+	accordionAutoCloseCheck:setText("Auto-close sub-buttons after tap")
 	if editorValues.accordionAutoClose == false then
 		accordionAutoCloseCheck:setChecked(false)
 	else
 		accordionAutoCloseCheck:setChecked(true)
 	end
-	accordionPage:addView(accordionAutoCloseCheck)
+	if(numediting > 1) then
+		accordionAutoCloseCheck:setEnabled(false)
+	end
+	gesturesPage:addView(accordionAutoCloseCheck)
 	
 	accordionChildLabelEdits = {}
 	accordionChildCmdEdits = {}
@@ -456,19 +443,22 @@ function showEditorDialog(editorValues,numediting)
 		local childLabelRow = luajava.new(LinearLayout,context)
 		childLabelRow:setLayoutParams(fillparams)
 		local childTitle = luajava.new(TextView,context)
-		childTitle:setText("Child "..i.." label:")
+		childTitle:setText("Sub "..i.." label:")
 		childTitle:setGravity(Gravity.RIGHT)
 		childTitle:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
 		local labelEdit = luajava.new(EditText,context)
 		labelEdit:setText(child.label or "")
 		labelEdit:setLayoutParams(clickLabelEditParams)
+		if(numediting > 1) then
+			labelEdit:setEnabled(false)
+		end
 		childLabelRow:addView(childTitle)
 		childLabelRow:addView(labelEdit)
-		accordionPage:addView(childLabelRow)
+		gesturesPage:addView(childLabelRow)
 		local childCmdRow = luajava.new(LinearLayout,context)
 		childCmdRow:setLayoutParams(fillparams)
 		local cmdTitle = luajava.new(TextView,context)
-		cmdTitle:setText("Child "..i.." cmd:")
+		cmdTitle:setText("Sub "..i.." cmd:")
 		cmdTitle:setGravity(Gravity.RIGHT)
 		cmdTitle:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
 		local cmdEdit = luajava.new(EditText,context)
@@ -476,17 +466,20 @@ function showEditorDialog(editorValues,numediting)
 		cmdEdit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
 		cmdEdit:setMaxLines(3)
 		cmdEdit:setLayoutParams(clickLabelEditParams)
+		if(numediting > 1) then
+			cmdEdit:setEnabled(false)
+		end
 		childCmdRow:addView(cmdTitle)
 		childCmdRow:addView(cmdEdit)
-		accordionPage:addView(childCmdRow)
+		gesturesPage:addView(childCmdRow)
 		accordionChildLabelEdits[i] = labelEdit
 		accordionChildCmdEdits[i] = cmdEdit
 	end
 	
-	accordionPageScroller:addView(accordionPage)
-	content:addView(accordionPageScroller)
-	tabAccordion:setIndicator(labelAccordion)
-	tabAccordion:setContent(4)
+	gesturesPageScroller:addView(gesturesPage)
+	content:addView(gesturesPageScroller)
+	tabGestures:setIndicator(labelGestures)
+	tabGestures:setContent(3)
 	
 	local tab3 = host:newTabSpec("tab_three_btn_tab")
 	local label3 = luajava.new(TextView,context)
@@ -544,12 +537,11 @@ function showEditorDialog(editorValues,numediting)
 	
 	content:addView(scrollerpage)
 	tab3:setIndicator(label3)
-	tab3:setContent(5)
+	tab3:setContent(4)
 	
 	host:addTab(tab1)
 	host:addTab(tab2)
 	host:addTab(tabGestures)
-	host:addTab(tabAccordion)
 	host:addTab(tab3)
 	
 	
