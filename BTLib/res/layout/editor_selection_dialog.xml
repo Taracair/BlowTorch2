@@ -28,6 +28,24 @@
 		android:textSize="15dip"
 		android:textStyle="bold"
 		android:gravity="center"/>
+
+	<EditText
+		android:id="@+id/search_field"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_below="@id/titlebar"
+		android:hint="Search name or pattern"
+		android:inputType="text"
+		android:maxLines="1"
+		android:imeOptions="actionSearch"
+		android:textColor="#FF000000"
+		android:textColorHint="#FF666666"
+		android:background="#FFCCCCCC"
+		android:paddingLeft="8dip"
+		android:paddingRight="8dip"
+		android:paddingTop="4dip"
+		android:paddingBottom="4dip"
+		android:textSize="14dip"/>
 		
 	<!-- <ListView 
 		android:id="@+id/theoptionlist"
@@ -60,7 +78,7 @@
 	    android:layout_width="wrap_content"
 	    android:layout_height="fill_parent"
 	    android:layout_above="@id/add"
-	    android:layout_below="@id/titlebar"
+	    android:layout_below="@id/search_field"
 	    android:layout_margin="0dip"
 	    android:padding="0dip" >
 

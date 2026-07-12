@@ -37,7 +37,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 
 	@Override
 	public void onButtonPressed(View v, int row, int index) {
-		TriggerData d = dataMap.get(sortedKeys[row]);
+		TriggerData d = dataMap.get(getItemKey(row));
 		Log.e("Trigger","trigger item selected for modification: "+d.getName());
 
 		TriggerEditorDialog editor = new TriggerEditorDialog(BetterTriggerSelectionDialog.this.getContext(),d,service,triggerEditorDoneHandler,currentPlugin,mShowWarning);
@@ -46,7 +46,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 
 	@Override
 	public void onButtonStateChanged(ImageButton v, int row, int index, boolean statea) {
-		TriggerData d = dataMap.get(sortedKeys[row]);
+		TriggerData d = dataMap.get(getItemKey(row));
 		boolean state = !d.isEnabled();
 		d.setEnabled(state);
 		try {
@@ -70,7 +70,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 
 	@Override
 	public void onItemDeleted(int row) {
-		TriggerData d = dataMap.get(sortedKeys[row]);
+		TriggerData d = dataMap.get(getItemKey(row));
 		
 		try {
 			if(currentPlugin.equals(MAIN_SETTINGS)) {
@@ -162,7 +162,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 		//this will be called before the toolbar is shown, it will give the implementer the option to set up on/off lock/unlock etc.
 		ImageButton b = (ImageButton)toolbar.getChildAt(1);
 		toolbar.getChildAt(1);
-		TriggerData data = dataMap.get(sortedKeys[row]);
+		TriggerData data = dataMap.get(getItemKey(row));
 		if(data.isEnabled()) {
 			b.setImageResource(R.drawable.toolbar_toggleon_button);
 		} else {

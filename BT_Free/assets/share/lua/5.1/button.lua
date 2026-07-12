@@ -29,6 +29,9 @@ BUTTONSET_DATA = {
 						swipeRightCommand = "",
 						name = "",
 						switchTo = "",
+						accordionDirection = "",
+						accordionChildren = {},
+						accordionAutoClose = true,
 						gridXwidth = 50,
 						gridYwidth = 50			
 			  		}
@@ -75,6 +78,11 @@ function BUTTON:new(data,density)
 	o.inset = luajava.newInstance("android.graphics.RectF")
 	o.data = BUTTON_DATA:new(data)
 	o.selected = false
+	o.expanded = false
+	o.isAccordionChild = false
+	o.isAccordionClose = false
+	o.accordionParent = nil
+	o.accordionOverlay = nil
 	setmetatable(o,self)
 	self.__index = self
 	o.density = density
@@ -92,6 +100,106 @@ function BUTTON:updateRect(statusoffset)
 
 	tmp:set(left,top,right,bottom)
 	self.inset:set(left+1.0,top+1.0,right-1.0,bottom-1.0)
+end
+
+local function hasGestureCommand(data, field)
+	return data ~= nil and data[field] ~= nil and data[field] ~= ""
+end
+
+local function hasAccordionConfig(data)
+	if data == nil or data.accordionDirection == nil or data.accordionDirection == "" then
+		return false
+	end
+	return data.accordionChildren ~= nil and #data.accordionChildren > 0
+end
+
+PaintStyle = luajava.bindClass("android.graphics.Paint$Style")
+
+local function drawDirectionArrow(canvas, paint, cx, cy, direction, size, color)
+	local previousStyle = paint:getStyle()
+	paint:setColor(color)
+	paint:setStyle(PaintStyle.FILL)
+	local path = luajava.newInstance("android.graphics.Path")
+	local half = size * 0.5
+	if direction == "up" then
+		path:moveTo(cx, cy - half)
+		path:lineTo(cx - half, cy + half * 0.6)
+		path:lineTo(cx + half, cy + half * 0.6)
+	elseif direction == "down" then
+		path:moveTo(cx, cy + half)
+		path:lineTo(cx - half, cy - half * 0.6)
+		path:lineTo(cx + half, cy - half * 0.6)
+	elseif direction == "left" then
+		path:moveTo(cx - half, cy)
+		path:lineTo(cx + half * 0.6, cy - half)
+		path:lineTo(cx + half * 0.6, cy + half)
+	elseif direction == "right" then
+		path:moveTo(cx + half, cy)
+		path:lineTo(cx - half * 0.6, cy - half)
+		path:lineTo(cx - half * 0.6, cy + half)
+	end
+	path:close()
+	canvas:drawPath(path, paint)
+	paint:setStyle(previousStyle)
+end
+
+local function drawAccordionChevron(canvas, paint, rect, direction, expanded, density)
+	local inset = 6 * density
+	local cx = rect:left() + inset
+	local cy = rect:top() + inset
+	local size = 8 * density
+	local color = Color:argb(220, 0x66, 0xDD, 0xFF)
+	if expanded then
+		color = Color:argb(220, 0xFF, 0xAA, 0x44)
+	end
+	if direction == "down" or direction == "up" then
+		cx = (rect:left() + rect:right()) * 0.5
+		if direction == "down" then
+			cy = rect:bottom() - inset
+		else
+			cy = rect:top() + inset
+		end
+	elseif direction == "left" or direction == "right" then
+		cy = (rect:top() + rect:bottom()) * 0.5
+		if direction == "right" then
+			cx = rect:right() - inset
+		else
+			cx = rect:left() + inset
+		end
+	end
+	local drawDir = direction
+	if expanded then
+		if direction == "down" then drawDir = "up"
+		elseif direction == "up" then drawDir = "down"
+		elseif direction == "left" then drawDir = "right"
+		elseif direction == "right" then drawDir = "left"
+		end
+	end
+	drawDirectionArrow(canvas, paint, cx, cy, drawDir, size, color)
+end
+
+function BUTTON:drawGestureIndicators(canvas, paint)
+	local rect = self.rect
+	local edge = 7 * self.density
+	local arrow = 5 * self.density
+	local color = Color:argb(170, 0xFF, 0xFF, 0xFF)
+	if hasGestureCommand(self.data, "swipeUpCommand") then
+		drawDirectionArrow(canvas, paint, (rect:left() + rect:right()) * 0.5, rect:top() + edge, "up", arrow, color)
+	end
+	if hasGestureCommand(self.data, "swipeDownCommand") then
+		drawDirectionArrow(canvas, paint, (rect:left() + rect:right()) * 0.5, rect:bottom() - edge, "down", arrow, color)
+	end
+	if hasGestureCommand(self.data, "swipeLeftCommand") then
+		drawDirectionArrow(canvas, paint, rect:left() + edge, (rect:top() + rect:bottom()) * 0.5, "left", arrow, color)
+	end
+	if hasGestureCommand(self.data, "swipeRightCommand") then
+		drawDirectionArrow(canvas, paint, rect:right() - edge, (rect:top() + rect:bottom()) * 0.5, "right", arrow, color)
+	end
+	if hasGestureCommand(self.data, "holdCommand") then
+		paint:setColor(Color:argb(180, 0xFF, 0xFF, 0x66))
+		paint:setTextSize(9 * self.density)
+		canvas:drawText("H", rect:right() - 11 * self.density, rect:top() + 11 * self.density, paint)
+	end
 end
 
 function BUTTON:draw(state,canvas)
@@ -139,6 +247,17 @@ function BUTTON:draw(state,canvas)
 	local tY = self.data.y + (p:getTextSize()/2) + statusoffset
 	p:setTypeface(DEFAULT_BOLD_TYPEFACE)
 	canvas:drawText(label,tX,tY,p)
+	if not self.isAccordionChild then
+		self:drawGestureIndicators(canvas, p)
+		if hasAccordionConfig(self.data) then
+			drawAccordionChevron(canvas, p, rect, self.data.accordionDirection, self.expanded, self.density)
+		end
+		if self.expanded and self.data.accordionAutoClose == false then
+			p:setColor(Color:argb(220, 0xFF, 0x66, 0x66))
+			p:setTextSize(10 * self.density)
+			canvas:drawText("x", rect:right() - 10 * self.density, rect:top() + 12 * self.density, p)
+		end
+	end
 end
 
 PorterDuffMode = luajava.bindClass("android.graphics.PorterDuff$Mode")
