@@ -9,7 +9,7 @@
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="BlowTorch 2 Test" android:allowBackup="true" android:process="com.resurrection.blowtorch2.test" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled">
-    	<meta-data android:value="124" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
+    	<meta-data android:value="126" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
     	<activity android:name="com.offsetnull.btfree.FreeLauncher"
     	          android:label="BlowTorch 2 Test"
     	          android:exported="true">

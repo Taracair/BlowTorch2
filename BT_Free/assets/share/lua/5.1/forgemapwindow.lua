@@ -2,6 +2,7 @@ local props = require("forgemapconfig")
 local config = require("forgemap.config")
 local store = require("forgemap.store")
 local renderer = require("forgemap.renderer")
+local compass = require("forgemap.compass")
 
 local pluginName = props.plugin
 
@@ -23,6 +24,7 @@ local paint = luajava.new(PaintClass)
 paint:setAntiAlias(true)
 
 local currentView = nil
+local compassLayout = nil
 local mapMode = "minimap"
 local visible = true
 local longPressAt = 0
@@ -36,15 +38,19 @@ local longPressMs = 450
 
 local function dirFromCell(cell)
 	if cell == nil then return nil end
-	if cell.dy < 0 then return "n"
-	elseif cell.dy > 0 then return "s"
-	elseif cell.dx > 0 then return "e"
-	elseif cell.dx < 0 then return "w" end
+	if cell.dy < 0 and cell.dx < 0 then return "nw"
+	elseif cell.dy < 0 and cell.dx == 0 then return "n"
+	elseif cell.dy < 0 and cell.dx > 0 then return "ne"
+	elseif cell.dy > 0 and cell.dx < 0 then return "sw"
+	elseif cell.dy > 0 and cell.dx == 0 then return "s"
+	elseif cell.dy > 0 and cell.dx > 0 then return "se"
+	elseif cell.dx < 0 then return "w"
+	elseif cell.dx > 0 then return "e" end
 	return nil
 end
 
 local function isAdjacent(cell)
-	return cell ~= nil and math.abs(cell.dx) + math.abs(cell.dy) == 1
+	return cell ~= nil and math.max(math.abs(cell.dx), math.abs(cell.dy)) == 1
 end
 
 local function raiseMap()
@@ -60,12 +66,15 @@ local function refreshView()
 	if view == nil then return end
 	local w, h = view:getWidth(), view:getHeight()
 	if w <= 0 or h <= 0 then return end
+	local headerPx = math.floor(config.HEADER_DP * density)
+	compassLayout = compass.computeLayout(w, h, headerPx, density)
 	local ui = store.getUi()
 	currentView = renderer.computeView(store.getState(), {
 		tileSizeDp = (ui.tileSizeDp or config.TILE_SIZE_DP) * zoomScale,
 		maxGrid = mapMode == "full" and 11 or config.MINIMAP_TILES,
 		density = density,
 		viewWidth = w,
+		mapWidth = compassLayout.mapWidth,
 		viewHeight = h,
 		headerDp = config.HEADER_DP,
 		panDx = panDx,
@@ -318,6 +327,107 @@ local function drawHeaderButtons(canvas, w, headerPx)
 	canvas:drawText("X", closeX + btnW * 0.32, headerPx - 4 * density, paint)
 end
 
+local function showGoEditor(slot, goKey)
+	local cur = store.getCurrentTile()
+	local curId = store.getState().currentTileId
+	if curId == nil then
+		toast("Place @ first")
+		return
+	end
+	local existing
+	if goKey ~= nil then
+		existing = store.getGoByKey(cur, goKey)
+	else
+		existing = store.getGoSlot(cur, slot)
+	end
+	local ctx = GetActivity()
+	local builder = luajava.newInstance("android.app.AlertDialog$Builder", ctx)
+	builder:setTitle(goKey and ("Go: " .. string.upper(goKey)) or ("Custom go #" .. slot))
+	local layout = luajava.new(LinearLayout, ctx)
+	layout:setOrientation(LinearLayout.VERTICAL)
+	layout:setPadding(24, 16, 24, 8)
+	local labelEdit = luajava.new(EditText, ctx)
+	labelEdit:setHint("Label (enter, door…)")
+	labelEdit:setText(existing and existing.label or "")
+	layout:addView(labelEdit)
+	local cmdEdit = luajava.new(EditText, ctx)
+	cmdEdit:setHint("MUD command")
+	cmdEdit:setText(existing and existing.cmd or "")
+	layout:addView(cmdEdit)
+	builder:setView(layout)
+	builder:setPositiveButton("Save", luajava.createProxy("android.content.DialogInterface$OnClickListener", {
+		onClick = function()
+			local label = labelEdit:getText():toString()
+			local cmd = cmdEdit:getText():toString()
+			if goKey ~= nil then
+				PluginXCallS("onMapSetGoKey", curId .. "\31" .. goKey .. "\31" .. label .. "\31" .. cmd)
+			else
+				PluginXCallS("onMapSetGo", curId .. "\31" .. slot .. "\31" .. label .. "\31" .. cmd)
+			end
+			toast("Go saved")
+		end
+	}))
+	builder:setNeutralButton("Run", luajava.createProxy("android.content.DialogInterface$OnClickListener", {
+		onClick = function()
+			local cmd = cmdEdit:getText():toString()
+			if cmd ~= "" then SendToServer(cmd) end
+		end
+	}))
+	builder:setNegativeButton("Cancel", nil)
+	builder:create():show()
+end
+
+local function handleCompassButton(btn, longPress)
+	if btn == nil then return end
+	if btn.kind == "center" then
+		if store.getCurrentTile() == nil then
+			PluginXCallS("onMapManualHere", "Start")
+			toast("Start placed")
+		else
+			PluginXCallS("onMapSelectTile", store.getState().currentTileId)
+		end
+		return
+	end
+	if btn.kind == "map" or btn.kind == "vertical" then
+		if longPress then
+			if btn.explore ~= nil then
+				showGoEditor(nil, btn.explore)
+			end
+			return
+		end
+		if btn.explore ~= nil then
+			PluginXCallS("onMapExploreDir", btn.explore)
+			toast("Mapped " .. string.upper(btn.label))
+		end
+		return
+	end
+	if btn.kind == "gokey" then
+		if longPress then
+			showGoEditor(nil, btn.goKey)
+			return
+		end
+		local g = store.getGoByKey(store.getCurrentTile(), btn.goKey)
+		if g ~= nil and g.cmd ~= nil and g.cmd ~= "" then
+			PluginXCallS("onMapRunGoKey", btn.goKey)
+		else
+			showGoEditor(nil, btn.goKey)
+		end
+		return
+	end
+	if btn.kind == "go" then
+		if longPress then
+			showGoEditor(btn.slot, nil)
+			return
+		end
+		local g = store.getGoSlot(store.getCurrentTile(), btn.slot)
+		if g ~= nil and g.cmd ~= nil and g.cmd ~= "" then
+			PluginXCallS("onMapRunGo", tostring(btn.slot))
+		else
+			showGoEditor(btn.slot, nil)
+		end
+	end
+end
+
 local touchHandler = {}
 function touchHandler.onTouch(v, e)
 	local action = e:getAction()
@@ -353,6 +463,14 @@ function touchHandler.onTouch(v, e)
 			panDx = panDx - math.floor((x - touchStartX) / tilePx + 0.5)
 			panDy = panDy - math.floor((y - touchStartY) / tilePx + 0.5)
 			redraw()
+			return true
+		end
+		local cbtn = compass.hitTest(compassLayout, x, y)
+		if cbtn ~= nil then
+			handleCompassButton(cbtn, elapsed >= longPressMs)
+			return true
+		end
+		if compassLayout ~= nil and x >= compassLayout.dockLeft then
 			return true
 		end
 		local cell = renderer.hitTest(currentView, x, y)
@@ -439,12 +557,15 @@ function OnDraw(canvas)
 	local cur = store.getCurrentTile()
 	local label = "Manual map"
 	if cur == nil then
-		label = label .. " — tap + to start, N/S/E/W to grow"
+		label = label .. " — tap +/@, compass to grow"
 	else
 		label = label .. " — " .. (cur.name or "?")
 	end
 	canvas:drawText(label, 8 * density + headerBtnWidth() + 8 * density, 12 * density, paint)
 	drawHeaderButtons(canvas, w, headerPx)
+	if compassLayout ~= nil then
+		compass.draw(canvas, paint, compassLayout, cur)
+	end
 end
 
 function OnDestroy()
