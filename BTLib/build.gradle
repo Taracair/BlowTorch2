@@ -28,7 +28,7 @@ android {
         main {
             manifest.srcFile 'AndroidManifest.xml'
             java.srcDirs = ['src']
-            java.exclude('**/androidTest/**')
+            java.exclude('**/androidTest/**', '**/test/**')
             aidl.srcDirs = ['src']
             res.srcDirs = ['res']
             assets.srcDirs = ['assets']
@@ -36,6 +36,9 @@ android {
         }
         androidTest {
             java.srcDirs = ['src/androidTest/java']
+        }
+        test {
+            java.srcDirs = ['src/test/java']
         }
     }
 
@@ -51,4 +54,5 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test:runner:1.5.2'
     androidTestImplementation 'androidx.test:core:1.5.0'
+    testImplementation 'junit:junit:4.13.2'
 }

@@ -33,8 +33,8 @@
       <button xPos="24" yPos="130" label="D" command="down" flipCommand="open d" moveMethod="2" labelSize="24" />
       <button xPos="130" yPos="130" label="LOOK" command="look" moveMethod="2" />
       <button xPos="130" yPos="24" label="SCORE" command="score" moveMethod="2" />
-      <button
-xPos="130" yPos="183" label="CLEAR" moveMethod="0" command=".clearbuttons" />
+      <button x="130" y="183" label="CLEAR" moveMethod="0" command=".clearbuttons" />
+      <button x="77" y="183" label="MAP" moveMethod="0" command=".map" primaryColor="-2013265920" labelColor="-1" />
     </buttonset>
     <selectedset>default</selectedset>
   </buttonsets>
@@ -97,22 +97,52 @@ xPos="130" yPos="183" label="CLEAR" moveMethod="0" command=".clearbuttons" />
      			<button x="130" y="130" label="LOOK" command="look" />
      			<button x="130" y="24" label="SCORE" command="score" />
      			<button x="130" y="183" label="CLEAR" command=".clearbuttons" />
+     			<button x="77" y="183" label="MAP" command=".map" />
     		</buttonset>
 			<selected>default</selected>
   		</buttonsets>
 	</plugin>
-	<!-- <plugin name="dbtest" id="10" author="Daniel Block">
+	<plugin name="forgemap" id="11">
+		<windows>
+			<window name="forgemap_window" id="10204" script="forgemapwindow">
+				<layoutGroup target="normal">
+					<layout orientation="landscape" width="fill_parent" height="148" above="40"/>
+					<layout orientation="portrait" width="fill_parent" height="148" above="40"/>
+				</layoutGroup>
+			</window>
+		</windows>
+		<options title="ForgeMap" summary="Exploration map with tile notes, quick actions, and pathfinding.">
+			<boolean title="Auto-open map panel" key="auto_open_map" summary="Show map strip when connecting.">true</boolean>
+			<integer title="Tile size (dp)" key="tile_size_dp" summary="Base tile size on screen.">44</integer>
+			<boolean title="Show tile labels" key="show_labels" summary="Draw room names on tiles in full map mode.">true</boolean>
+		</options>
 		<triggers>
-			<trigger title="room_mapper" pattern="%room.info" interpretLiteral="false" fireOnce="false" enabled="true" sequence="1">
+			<trigger title="forgemap_gmcp_room" pattern="%room.info" interpretLiteral="false" enabled="true" sequence="1">
 				<script function="got_gmcp_room" fireWhen="always"/>
 			</trigger>
-			<trigger title="area_mapper" pattern="%room.area" interpretLiteral="false" fireOnce="false" enabled="true" sequence="1">
+			<trigger title="forgemap_gmcp_area" pattern="%room.area" interpretLiteral="false" enabled="true" sequence="1">
 				<script function="update_gmcp_area" fireWhen="always"/>
 			</trigger>
+			<trigger title="forgemap_room_title" pattern="^=+\s*(.+?)\s*=+$" interpretLiteral="false" enabled="true" sequence="50">
+				<script function="forgemap_room_title" fireWhen="always"/>
+			</trigger>
+			<trigger title="forgemap_enter" pattern="^[Yy]ou (?:are in|enter|arrive (?:at|in)|walk into|step into) (.+?)[\.!]?$" interpretLiteral="false" enabled="true" sequence="50">
+				<script function="forgemap_enter_room" fireWhen="always"/>
+			</trigger>
+			<trigger title="forgemap_exits" pattern="^[Ee]xits?:?\s+(.+)$" interpretLiteral="false" enabled="true" sequence="51">
+				<script function="forgemap_room_exits" fireWhen="always"/>
+			</trigger>
 		</triggers>
-		<script name="bootstrap">
-		dofile(GetExternalStorageDirectory()..""/BlowTorch/simpledb.lua")
-		</script>
-	</plugin> -->
+		<aliases>
+			<alias pre="^n$" post=".fmwalk n" enabled="true" />
+			<alias pre="^s$" post=".fmwalk s" enabled="true" />
+			<alias pre="^e$" post=".fmwalk e" enabled="true" />
+			<alias pre="^w$" post=".fmwalk w" enabled="true" />
+			<alias pre="^u$" post=".fmwalk u" enabled="true" />
+			<alias pre="^d$" post=".fmwalk d" enabled="true" />
+		</aliases>
+		<script name="bootstrap" execute="true"><![CDATA[require("forgemapserver")]]></script>
+		<script name="forgemapwindow"><![CDATA[require("forgemapwindow")]]></script>
+	</plugin>
   </plugins>
 </blowtorch>
