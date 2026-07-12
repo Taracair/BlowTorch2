@@ -1553,6 +1553,10 @@ draw = false
 
 Integer = luajava.bindClass("java.lang.Integer")
 function OnSizeChanged(w,h,oldw,oldh)
+	w = tonumber(w) or 0
+	h = tonumber(h) or 0
+	oldw = tonumber(oldw) or 0
+	oldh = tonumber(oldh) or 0
 	debugString("Button Window starting View.OnSizeChanged()")
 	if w <= 0 or h <= 0 then
 		draw = false

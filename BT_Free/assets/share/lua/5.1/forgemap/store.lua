@@ -60,6 +60,10 @@ function M.getCurrentTile()
 	return state.tiles[state.currentTileId]
 end
 
+function M.getCurrentTileId()
+	return state.currentTileId
+end
+
 function M.setCurrentTile(id)
 	state.currentTileId = id
 end
@@ -185,6 +189,43 @@ function M.setQuick(id, slot, label, cmd)
 	if t == nil then return end
 	t.quick = t.quick or {}
 	t.quick[slot] = { label = label or "", cmd = cmd or "" }
+end
+
+function M.getGoSlot(tile, slot)
+	if tile == nil or slot == nil then return nil end
+	if tile.go ~= nil and tile.go[slot] ~= nil then
+		return tile.go[slot]
+	end
+	local ui = M.getUi()
+	if ui.defaultGo ~= nil and ui.defaultGo[slot] ~= nil then
+		return ui.defaultGo[slot]
+	end
+	return config.DEFAULT_GO_SLOTS[slot]
+end
+
+function M.getGoByKey(tile, key)
+	if tile ~= nil and tile.goKeys ~= nil and tile.goKeys[key] ~= nil then
+		return tile.goKeys[key]
+	end
+	local ui = M.getUi()
+	if ui.defaultGoKeys ~= nil and ui.defaultGoKeys[key] ~= nil then
+		return ui.defaultGoKeys[key]
+	end
+	return config.DEFAULT_GO_KEYS[key]
+end
+
+function M.setGoSlot(id, slot, label, cmd)
+	local t = state.tiles[id]
+	if t == nil then return end
+	t.go = t.go or {}
+	t.go[slot] = { label = label or "", cmd = cmd or "" }
+end
+
+function M.setGoKey(id, key, label, cmd)
+	local t = state.tiles[id]
+	if t == nil then return end
+	t.goKeys = t.goKeys or {}
+	t.goKeys[key] = { label = label or key, cmd = cmd or key }
 end
 
 function M.exportData()
