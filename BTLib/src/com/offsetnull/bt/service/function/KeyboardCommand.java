@@ -36,6 +36,11 @@ public class KeyboardCommand extends SpecialCommand {
 		//.kb flush message - send the keyboard.
 		//.kb close - closes the keyboard
 		//.kb clear - clears any text in the keyboard
+		//.kb selectall - selects all text in the input bar
+		//.kb copy - copies selection or all text
+		//.kb paste - pastes from clipboard
+		//.kb cursorstart - moves cursor to start
+		//.kb cursorend - moves cursor to end
 		//.kb - print the kb help message.
 		boolean failed = false;
 		if(o==null) {
@@ -49,7 +54,7 @@ public class KeyboardCommand extends SpecialCommand {
 		if(failed) {
 			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",".kb options message\n" +
 					"Options are as follows:\n" +
-					"add,popup,flush,close,clear\n"+
+					"add,popup,flush,close,clear,selectall,copy,paste,cursorstart,cursorend\n"+
 					"add and popup are optional flags that will append text or popup the window when supplied.\n" +
 					"flush sends the current text in the input window to the server.\n" +
 					"close will close the keyboard if it is open.\n"+
@@ -62,7 +67,7 @@ public class KeyboardCommand extends SpecialCommand {
 			return null;
 		}
 		
-		Pattern p = Pattern.compile("^\\s*(add|popup|flush|close|clear){0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$");
+		Pattern p = Pattern.compile("^\\s*(add|popup|flush|close|clear|selectall|copy|paste|cursorstart|cursorend){0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$");
 		Matcher m = p.matcher((String)o);
 		String operation1 = "";
 		String operation2 = "";
@@ -110,6 +115,26 @@ public class KeyboardCommand extends SpecialCommand {
 			}
 			if(operation1.equalsIgnoreCase("close")) {
 				doclose = true;
+			}
+			if(operation1.equalsIgnoreCase("selectall")) {
+				c.getService().doInputBarSelectAll();
+				return null;
+			}
+			if(operation1.equalsIgnoreCase("copy")) {
+				c.getService().doInputBarCopy();
+				return null;
+			}
+			if(operation1.equalsIgnoreCase("paste")) {
+				c.getService().doInputBarPaste();
+				return null;
+			}
+			if(operation1.equalsIgnoreCase("cursorstart")) {
+				c.getService().doInputBarCursorToStart();
+				return null;
+			}
+			if(operation1.equalsIgnoreCase("cursorend")) {
+				c.getService().doInputBarCursorToEnd();
+				return null;
 			}
 		}
 		

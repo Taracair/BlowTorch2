@@ -21,6 +21,11 @@ interface IConnectionBinderCallback {
 	void doVisualBell();
 	void setScreenMode(boolean fullscreen);
 	void showKeyBoard(String txt,boolean popup,boolean add,boolean flush,boolean clear,boolean close);
+	void inputBarSelectAll();
+	void inputBarCopy();
+	void inputBarPaste();
+	void inputBarCursorToStart();
+	void inputBarCursorToEnd();
 	void doDisconnectNotice(String display);
 	void doLineBreak(int i);
 	void reloadButtons(String setName);
