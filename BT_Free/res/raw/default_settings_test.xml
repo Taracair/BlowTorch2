@@ -46,8 +46,8 @@
   	 	<windows>
   	 		<window name="button_window" id="10203" script="buttonwindow">
   	 			<layoutGroup target="normal">
-  	 				<layout orientation="landscape" height="fill_parent" width="fill_parent" above="40"/>
-  	 				<layout orientation="portrait" height="fill_parent" width="fill_parent" above="40"/>
+  	 				<layout orientation="landscape" height="fill_parent" width="fill_parent" above="10204"/>
+  	 				<layout orientation="portrait" height="fill_parent" width="fill_parent" above="10204"/>
   	 			</layoutGroup>
   	 		</window>
   	 	</windows>
@@ -104,43 +104,21 @@
 	</plugin>
 	<plugin name="forgemap" id="11">
 		<windows>
-			<window name="forgemap_window" id="10204" script="forgemapwindow">
+			<window name="forgemap_window" id="10204" script="forgemapwindow" bufferText="false">
 				<layoutGroup target="normal">
 					<layout orientation="landscape" width="fill_parent" height="148" above="40"/>
 					<layout orientation="portrait" width="fill_parent" height="148" above="40"/>
 				</layoutGroup>
 			</window>
 		</windows>
-		<options title="ForgeMap" summary="Exploration map with tile notes, quick actions, and pathfinding.">
+		<options title="ForgeMap" summary="Manual exploration map — tap adjacent ? tiles to build the map room by room.">
 			<boolean title="Auto-open map panel" key="auto_open_map" summary="Show map strip when connecting.">true</boolean>
-			<integer title="Tile size (dp)" key="tile_size_dp" summary="Base tile size on screen.">44</integer>
-			<boolean title="Show tile labels" key="show_labels" summary="Draw room names on tiles in full map mode.">true</boolean>
+			<integer title="Tile size (dp)" key="tile_size_dp" summary="Base tile size on screen.">36</integer>
+			<boolean title="Show tile labels" key="show_labels" summary="Draw room names on explored tiles.">true</boolean>
+			<string title="Room title regex (future)" key="room_title_regex" summary="Planned: regex to capture room title from MUD text into the current tile.">^(.+)$</string>
 		</options>
-		<triggers>
-			<trigger title="forgemap_gmcp_room" pattern="%room.info" interpretLiteral="false" enabled="true" sequence="1">
-				<script function="got_gmcp_room" fireWhen="always"/>
-			</trigger>
-			<trigger title="forgemap_gmcp_area" pattern="%room.area" interpretLiteral="false" enabled="true" sequence="1">
-				<script function="update_gmcp_area" fireWhen="always"/>
-			</trigger>
-			<trigger title="forgemap_room_title" pattern="^=+\s*(.+?)\s*=+$" interpretLiteral="false" enabled="true" sequence="50">
-				<script function="forgemap_room_title" fireWhen="always"/>
-			</trigger>
-			<trigger title="forgemap_enter" pattern="^[Yy]ou (?:are in|enter|arrive (?:at|in)|walk into|step into) (.+?)[\.!]?$" interpretLiteral="false" enabled="true" sequence="50">
-				<script function="forgemap_enter_room" fireWhen="always"/>
-			</trigger>
-			<trigger title="forgemap_exits" pattern="^[Ee]xits?:?\s+(.+)$" interpretLiteral="false" enabled="true" sequence="51">
-				<script function="forgemap_room_exits" fireWhen="always"/>
-			</trigger>
-		</triggers>
-		<aliases>
-			<alias pre="^n$" post=".fmwalk n" enabled="true" />
-			<alias pre="^s$" post=".fmwalk s" enabled="true" />
-			<alias pre="^e$" post=".fmwalk e" enabled="true" />
-			<alias pre="^w$" post=".fmwalk w" enabled="true" />
-			<alias pre="^u$" post=".fmwalk u" enabled="true" />
-			<alias pre="^d$" post=".fmwalk d" enabled="true" />
-		</aliases>
+		<triggers/>
+		<aliases/>
 		<script name="bootstrap" execute="true"><![CDATA[require("forgemapserver")]]></script>
 		<script name="forgemapwindow"><![CDATA[require("forgemapwindow")]]></script>
 	</plugin>
