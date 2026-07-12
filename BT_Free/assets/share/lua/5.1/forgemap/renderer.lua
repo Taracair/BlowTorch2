@@ -21,9 +21,10 @@ function M.computeView(state, opts)
 	local density = opts.density or 1
 	local preferredPx = math.floor((opts.tileSizeDp or ui.tileSizeDp or config.TILE_SIZE_DP) * density)
 	local viewW = opts.viewWidth or 0
+	local mapW = opts.mapWidth or viewW
 	local viewH = opts.viewHeight or 0
 	local headerPx = math.floor((opts.headerDp or config.HEADER_DP) * density)
-	local usableW = math.max(1, viewW)
+	local usableW = math.max(1, mapW)
 	local usableH = math.max(1, viewH - headerPx)
 
 	local maxGrid = opts.maxGrid or config.MINIMAP_TILES
@@ -74,6 +75,7 @@ function M.computeView(state, opts)
 		tilePx = tilePx,
 		radius = radius,
 		headerPx = headerPx,
+		mapWidth = mapW,
 	}
 end
 
@@ -83,11 +85,13 @@ function M.drawMap(canvas, paint, view, mode)
 	local tilePx = view.tilePx
 	local w = canvas:getWidth()
 	local h = canvas:getHeight()
+	local mapClipW = view.mapWidth or w
 	M.setColor(paint, 255, 10, 10, 16)
-	canvas:drawRect(0, 0, w, h, paint)
+	canvas:drawRect(0, 0, mapClipW, h, paint)
 
 	local headerPx = view.headerPx or 0
-	local ox = w / 2 - tilePx / 2
+	local mapClipW = view.mapWidth or w
+	local ox = mapClipW / 2 - tilePx / 2
 	local oy = headerPx + (h - headerPx) / 2 - tilePx / 2
 	local pad = math.max(2, math.floor(tilePx * 0.08))
 
@@ -97,7 +101,7 @@ function M.drawMap(canvas, paint, view, mode)
 		local explored = cell.tile ~= nil and cell.tile.explored
 		local isCurrent = cell.id ~= nil and cell.id == view.currentId
 		local isCenter = cell.dx == 0 and cell.dy == 0
-		local isAdjacent = math.abs(cell.dx) + math.abs(cell.dy) == 1
+		local isAdjacent = math.max(math.abs(cell.dx), math.abs(cell.dy)) == 1
 		if explored then
 			if isCurrent then
 				M.setColor(paint, 255, 255, 140, 20)
@@ -160,15 +164,20 @@ function M.drawMap(canvas, paint, view, mode)
 			if isCenter and view.currentId == nil then
 				hint = "+"
 			elseif isAdjacent then
-				if cell.dy < 0 then hint = "N"
-				elseif cell.dy > 0 then hint = "S"
+				if cell.dy < 0 and cell.dx < 0 then hint = "NW"
+				elseif cell.dy < 0 and cell.dx == 0 then hint = "N"
+				elseif cell.dy < 0 and cell.dx > 0 then hint = "NE"
+				elseif cell.dy > 0 and cell.dx < 0 then hint = "SW"
+				elseif cell.dy > 0 and cell.dx == 0 then hint = "S"
+				elseif cell.dy > 0 and cell.dx > 0 then hint = "SE"
+				elseif cell.dx < 0 then hint = "W"
 				elseif cell.dx > 0 then hint = "E"
-				elseif cell.dx < 0 then hint = "W" end
+				end
 			end
 			M.setColor(paint, 255, 255, 255, 255)
-			paint:setTextSize(math.max(9, tilePx * 0.36))
+			paint:setTextSize(math.max(8, tilePx * 0.28))
 			if hint ~= nil then
-				canvas:drawText(hint, left + tilePx * 0.34, top + tilePx * 0.64, paint)
+				canvas:drawText(hint, left + tilePx * 0.18, top + tilePx * 0.62, paint)
 			elseif not isCenter then
 				M.setColor(paint, 255, 70, 85, 100)
 				paint:setTextSize(math.max(7, tilePx * 0.2))
@@ -197,12 +206,15 @@ function M.hitTest(view, x, y)
 	local tilePx = view.tilePx
 	if tilePx == nil or tilePx <= 0 then return nil end
 	local headerPx = view.headerPx or 0
-	local ox = w / 2 - tilePx / 2
+	local mapClipW = view.mapWidth or w
+	local ox = mapClipW / 2 - tilePx / 2
 	local oy = headerPx + (h - headerPx) / 2 - tilePx / 2
 	for _, cell in ipairs(view.cells) do
 		local left = ox + cell.dx * tilePx
 		local top = oy + cell.dy * tilePx
-		if x >= left and x < left + tilePx and y >= top and y < top + tilePx then
+		if left + tilePx < 0 or left > mapClipW then
+			-- skip cells outside map panel
+		elseif x >= left and x < left + tilePx and y >= top and y < top + tilePx then
 			return cell
 		end
 	end

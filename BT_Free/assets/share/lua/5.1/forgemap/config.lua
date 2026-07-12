@@ -4,10 +4,12 @@ M.AUTO_TRACK = false
 M.TILE_SIZE_DP = 36
 M.MINIMAP_TILES = 5
 M.MIN_TILE_DP = 18
-M.STRIP_HEIGHT_DP = 148
+M.STRIP_HEIGHT_DP = 210
 M.HEADER_DP = 28
 M.HEADER_BTN_DP = 28
 M.MAX_QUICK = 4
+M.MAX_GO_SLOTS = 4
+M.MAP_PANEL_RATIO = 0.58
 M.PENDING_MOVE_MS = 4000
 
 M.DIR_DELTA = {
@@ -24,7 +26,7 @@ M.DEFAULT_UI = {
 	showGrid = false,
 	fogAlpha = 180,
 	currentGlow = true,
-	minimapHeightDp = 148,
+	minimapHeightDp = 210,
 	fullscreenOnOpen = false,
 	accentColor = 0xFF55AAFF,
 	exploredColor = 0xFF3D6A8C,
@@ -39,6 +41,18 @@ M.DEFAULT_UI = {
 		waypoint = 0xFFFFCC44,
 		safe = 0xFF4488CC,
 	},
+}
+
+M.DEFAULT_GO_SLOTS = {
+	{ label = "ent", cmd = "enter" },
+	{ label = "door", cmd = "open door" },
+	{ label = "look", cmd = "look" },
+	{ label = "", cmd = "" },
+}
+
+M.DEFAULT_GO_KEYS = {
+	in = { label = "in", cmd = "in" },
+	out = { label = "out", cmd = "out" },
 }
 
 M.HEADER_BUTTONS = {
