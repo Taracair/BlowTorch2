@@ -106,8 +106,8 @@
 		<windows>
 			<window name="forgemap_window" id="10204" script="forgemapwindow" bufferText="false">
 				<layoutGroup target="normal">
-					<layout orientation="landscape" width="fill_parent" height="148" above="40"/>
-					<layout orientation="portrait" width="fill_parent" height="148" above="40"/>
+					<layout orientation="landscape" width="fill_parent" height="210" above="40"/>
+					<layout orientation="portrait" width="fill_parent" height="210" above="40"/>
 				</layoutGroup>
 			</window>
 		</windows>

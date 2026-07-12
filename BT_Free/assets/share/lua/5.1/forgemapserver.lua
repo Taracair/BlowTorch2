@@ -49,7 +49,7 @@ end
 
 function fmgoCommand(arg)
 	local targetId = trim(arg or "")
-	local fromId = store.getCurrentTile()
+	local fromId = store.getCurrentTileId()
 	if fromId == nil or targetId == "" then return nil end
 	local path = pathfind.findPath(fromId, targetId)
 	if path == nil then
@@ -64,21 +64,16 @@ function fmgoCommand(arg)
 end
 
 function fmnoteCommand(arg)
-	local curId = store.getCurrentTile()
-	if curId == nil then return nil end
-	local t = store.getTile(curId)
-	if t ~= nil then
-		t.note = arg or ""
-		SaveSettings()
-		pushState()
-	end
+	local t = store.getCurrentTile()
+	if t == nil then return nil end
+	t.note = arg or ""
+	SaveSettings()
+	pushState()
 	return nil
 end
 
 function fmflagCommand(arg)
-	local curId = store.getCurrentTile()
-	if curId == nil then return nil end
-	local t = store.getTile(curId)
+	local t = store.getCurrentTile()
 	if t == nil then return nil end
 	t.flags = t.flags or {}
 	local flag = trim(arg or "")
@@ -121,8 +116,7 @@ end
 
 function forgemap_room_exits(name, line, matches)
 	if not autoTrackEnabled() then return end
-	local curId = store.getCurrentTile()
-	local cur = curId and store.getTile(curId) or nil
+	local cur = store.getCurrentTile()
 	if cur ~= nil and line ~= nil then
 		local exits = require("forgemap.resolver").parseExitsLine(line)
 		for k, v in pairs(exits) do cur.exits[k] = v end
@@ -141,7 +135,7 @@ end
 
 function onMapWalkTo(tileId)
 	if tileId == nil or tileId == "" then return end
-	local fromId = store.getCurrentTile()
+	local fromId = store.getCurrentTileId()
 	local path = pathfind.findPath(fromId, tileId)
 	if path == nil then
 		Note("ForgeMap: path blocked")
@@ -202,7 +196,7 @@ function onMapRunQuick(data)
 		id = string.sub(data, 1, sep - 1)
 		slot = tonumber(string.sub(data, sep + 1))
 	else
-		id = store.getCurrentTile()
+		id = store.getCurrentTileId()
 		slot = tonumber(data)
 	end
 	if id == nil or slot == nil then return end
@@ -230,7 +224,7 @@ end
 
 function onMapApplyButtonSet(tileId)
 	local id = tileId
-	if id == nil or id == "" then id = store.getCurrentTile() end
+	if id == nil or id == "" then id = store.getCurrentTileId() end
 	local t = store.getTile(id)
 	if t == nil or t.buttonSet == nil or t.buttonSet == "" then return end
 	if CallPlugin("button_window", "loadButtonSet", t.buttonSet) then
@@ -256,13 +250,12 @@ end
 function onMapExploreDir(dir)
 	dir = string.lower(trim(dir or ""))
 	if dir == "" then return end
-	local curId = store.getCurrentTile()
+	local curId = store.getCurrentTileId()
 	if curId == nil then
 		onMapManualHere("Start")
-		curId = store.getCurrentTile()
+		curId = store.getCurrentTileId()
 	end
-	if curId == nil then return end
-	local cur = store.getTile(curId)
+	local cur = store.getCurrentTile()
 	if cur == nil then return end
 	local linked = cur.links and cur.links[dir] and cur.links[dir].to
 	if linked ~= nil then
@@ -275,7 +268,56 @@ function onMapExploreDir(dir)
 		store.markExplored(toId)
 		toTile.explored = true
 		store.setCurrentTile(toId)
+		if toTile.quick == nil or next(toTile.quick) == nil then
+			store.setQuick(toId, 1, "MAP", ".map")
+		end
 	end
+	SaveSettings()
+	pushState()
+end
+
+function onMapRunGo(slot)
+	slot = tonumber(slot or "")
+	if slot == nil then return end
+	local tile = store.getCurrentTile()
+	if tile == nil then return end
+	local g = store.getGoSlot(tile, slot)
+	if g ~= nil and g.cmd ~= nil and g.cmd ~= "" then
+		SendToServer(g.cmd)
+	end
+end
+
+function onMapRunGoKey(key)
+	key = trim(key or "")
+	if key == "" then return end
+	local tile = store.getCurrentTile()
+	if tile == nil then return end
+	local g = store.getGoByKey(tile, key)
+	if g ~= nil and g.cmd ~= nil and g.cmd ~= "" then
+		SendToServer(g.cmd)
+	end
+end
+
+function onMapSetGo(data)
+	if data == nil then return end
+	local parts = {}
+	for p in string.gmatch(data, "[^\31]+") do
+		table.insert(parts, p)
+	end
+	if #parts < 4 then return end
+	store.setGoSlot(parts[1], tonumber(parts[2]), parts[3], parts[4])
+	SaveSettings()
+	pushState()
+end
+
+function onMapSetGoKey(data)
+	if data == nil then return end
+	local parts = {}
+	for p in string.gmatch(data, "[^\31]+") do
+		table.insert(parts, p)
+	end
+	if #parts < 4 then return end
+	store.setGoKey(parts[1], parts[2], parts[3], parts[4])
 	SaveSettings()
 	pushState()
 end

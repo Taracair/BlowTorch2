@@ -46,7 +46,7 @@ local function applyObservation(obs, source)
 		tileId = resolver.bestMatch(store, obs, 55)
 	end
 
-	local prevId = store.getCurrentTile()
+	local prevId = store.getCurrentTileId()
 	local prev = prevId and store.getTile(prevId) or nil
 	local dir = M.consumePendingDirection()
 
@@ -122,9 +122,9 @@ function M.manualPlace(name)
 end
 
 function M.linkDirection(dir, cmd)
-	local curId = store.getCurrentTile()
-	if curId == nil then return false end
-	local cur = store.getTile(curId)
+	local cur = store.getCurrentTile()
+	if cur == nil then return false end
+	local curId = store.getCurrentTileId()
 	local x, y, z = store.neighborCoord(cur.x, cur.y, cur.z or 0, dir)
 	local toId, toTile, _ = store.getOrCreateAt(cur.area, x, y, z, "?")
 	store.linkTiles(curId, dir, toId, cmd or dir)
