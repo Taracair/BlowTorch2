@@ -161,6 +161,63 @@ function onMapSetNote(data)
 	end
 end
 
+function onMapSetQuick(data)
+	if data == nil then return end
+	local parts = {}
+	for p in string.gmatch(data, "[^\31]+") do
+		table.insert(parts, p)
+	end
+	if #parts < 4 then return end
+	store.setQuick(parts[1], tonumber(parts[2]), parts[3], parts[4])
+	SaveSettings()
+	pushState()
+end
+
+function onMapRunQuick(data)
+	if data == nil then return end
+	local sep = string.find(data, "\31")
+	local id, slot
+	if sep then
+		id = string.sub(data, 1, sep - 1)
+		slot = tonumber(string.sub(data, sep + 1))
+	else
+		id = store.getCurrentTile()
+		slot = tonumber(data)
+	end
+	if id == nil or slot == nil then return end
+	local t = store.getTile(id)
+	if t == nil or t.quick == nil then return end
+	local q = t.quick[slot]
+	if q ~= nil and q.cmd ~= nil and q.cmd ~= "" then
+		SendToServer(q.cmd)
+	end
+end
+
+function onMapSetButtonSet(data)
+	if data == nil then return end
+	local sep = string.find(data, "\31")
+	if sep == nil then return end
+	local id = string.sub(data, 1, sep - 1)
+	local setName = string.sub(data, sep + 1)
+	local t = store.getTile(id)
+	if t ~= nil then
+		t.buttonSet = setName ~= "" and setName or nil
+		SaveSettings()
+		pushState()
+	end
+end
+
+function onMapApplyButtonSet(tileId)
+	local id = tileId
+	if id == nil or id == "" then id = store.getCurrentTile() end
+	local t = store.getTile(id)
+	if t == nil or t.buttonSet == nil or t.buttonSet == "" then return end
+	if CallPlugin("button_window", "loadButtonSet", t.buttonSet) then
+		return
+	end
+	SendToServer(".loadset " .. t.buttonSet)
+end
+
 function onMapManualHere(name)
 	tracker.manualPlace(name)
 	SaveSettings()

@@ -87,6 +87,7 @@ function M.createTile(opts)
 		color = opts.color or config.DEFAULT_UI.exploredColor,
 		flags = opts.flags or {},
 		quick = opts.quick or {},
+		buttonSet = opts.buttonSet,
 		fingerprint = opts.fingerprint,
 		source = opts.source or "manual",
 		vnum = opts.vnum,
