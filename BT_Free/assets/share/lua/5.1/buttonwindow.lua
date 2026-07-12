@@ -454,6 +454,13 @@ local function hasButtonSwitch(data)
 	return data ~= nil and data.switchTo ~= nil and data.switchTo ~= ""
 end
 
+local function hasAccordionConfig(data)
+	if data == nil or data.accordionDirection == nil or data.accordionDirection == "" then
+		return false
+	end
+	return data.accordionChildren ~= nil and #data.accordionChildren > 0
+end
+
 local function dispatchButtonAction(cmd)
 	if buttonsCleared then
 		revertButtons()
@@ -1084,13 +1091,6 @@ dash = luajava.newInstance("android.graphics.DashPathEffect",farray,Float:floatV
 
 Style = luajava.bindClass("android.graphics.Paint$Style")
 dpaint:setStyle(Style.STROKE)
-
-local function hasAccordionConfig(data)
-	if data == nil or data.accordionDirection == nil or data.accordionDirection == "" then
-		return false
-	end
-	return data.accordionChildren ~= nil and #data.accordionChildren > 0
-end
 
 MAX_ACCORDION_CHILDREN = 5
 
@@ -1810,9 +1810,6 @@ function showEditorDialog()
 	editorValues.defaultLabelColor = defaults.labelColor
 	editorValues.defaultFlipLabelColor = defaults.flipLabelColor
 	
- package.loaded["buttoneditor"] = nil
- package.loaded["buttoneditoradvanced"] = nil
- package.loaded["button"] = nil
  local buttonEditor = require("buttoneditor")
  buttonEditor.init(mContext)
  --Note("showing button editor "..numediting)
