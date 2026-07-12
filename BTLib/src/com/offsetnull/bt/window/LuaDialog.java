@@ -1,9 +1,11 @@
 package com.offsetnull.bt.window;
 
 import com.offsetnull.bt.R;
+import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,6 +36,29 @@ public class LuaDialog extends Dialog {
 		
 		
 		//this.setCont
+	}
+
+	private boolean canShow() {
+		if (!(mContext instanceof Activity)) {
+			return true;
+		}
+		Activity activity = (Activity) mContext;
+		if (activity.isFinishing()) {
+			return false;
+		}
+		return Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1 || !activity.isDestroyed();
+	}
+	
+	@Override
+	public void show() {
+		if (!canShow()) {
+			return;
+		}
+		try {
+			super.show();
+		} catch (WindowManager.BadTokenException e) {
+			// Activity token is stale after backgrounding; caller should refresh context.
+		}
 	}
 	
 	@Override

@@ -129,13 +129,19 @@ public class StellarService extends Service {
 		}
 		if (!mHasForegroundNotification) {
 			String channelId = createNotificationChannel();
+			int resId = this.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", this.getApplicationContext()), "drawable", this.getPackageName());
+			if (resId == 0) {
+				resId = android.R.drawable.stat_notify_chat;
+			}
 			Notification placeholder = new androidx.core.app.NotificationCompat.Builder(this, channelId)
-				.setContentTitle("BlowTorch 2")
+				.setContentTitle(ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this))
 				.setContentText("Starting...")
-				.setSmallIcon(android.R.drawable.ic_dialog_info)
+				.setSmallIcon(resId)
+				.setOngoing(true)
 				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
 				.build();
 			startForeground(1, placeholder);
+			mHasForegroundNotification = true;
 		}
 		if (ConfigurationLoader.isTestMode(this.getApplicationContext())) {
 			Log.e("BLOWTORCH", "SHOULD SET THE UNCAUGHT EXCEPTION HANDLER HERE.");
@@ -521,6 +527,9 @@ public class StellarService extends Service {
 	public final void showConnectionNotification(final String display, final String host, final int port) {
 		if (mConnectionNotificationMap.containsKey(display)) { return; }
 		int resId = this.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", this.getApplicationContext()), "drawable", this.getPackageName());
+		if (resId == 0) {
+			resId = android.R.drawable.stat_notify_chat;
+		}
 		
 		//Notification note = new Notification(resId, "BlowTorch Connected", System.currentTimeMillis());
 		Context context = getApplicationContext();
@@ -606,7 +615,7 @@ public class StellarService extends Service {
 	public final String createNotificationChannel() {
 		String channelId = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel",this) + "_service";
 		String channelName = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel",this);
-		NotificationChannel c = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_DEFAULT);
+		NotificationChannel c = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW);
 		c.setShowBadge(false);
 		c.setSound(null,null);
 		NotificationManager notificationManager = (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
