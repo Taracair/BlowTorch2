@@ -37,6 +37,7 @@ import android.os.RemoteException;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.util.Log;
+import com.offsetnull.bt.util.BlowTorchLogger;
 import com.offsetnull.bt.service.plugin.Plugin;
 import com.offsetnull.bt.speedwalk.DirectionData;
 import com.offsetnull.bt.timer.TimerData;
@@ -153,6 +154,7 @@ public class StellarService extends Service {
 	/** The implementation of the onCreate() Service method. */
 	public final void onCreate() {
 		
+		BlowTorchLogger.ensureLogFile(this.getApplicationContext());
 		mConnections = new HashMap<String, Connection>();
 		
 		mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -1536,6 +1538,56 @@ public class StellarService extends Service {
 				throw new RuntimeException(e);
 			}
 			//notify listeners that data can be read
+		}
+		mCallbacks.finishBroadcast();
+	}
+	
+	public final void doInputBarSelectAll() {
+		broadcastInputBarAction(1);
+	}
+	
+	public final void doInputBarCopy() {
+		broadcastInputBarAction(2);
+	}
+	
+	public final void doInputBarPaste() {
+		broadcastInputBarAction(3);
+	}
+	
+	public final void doInputBarCursorToStart() {
+		broadcastInputBarAction(4);
+	}
+	
+	public final void doInputBarCursorToEnd() {
+		broadcastInputBarAction(5);
+	}
+	
+	private void broadcastInputBarAction(final int action) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				switch (action) {
+				case 1:
+					mCallbacks.getBroadcastItem(i).inputBarSelectAll();
+					break;
+				case 2:
+					mCallbacks.getBroadcastItem(i).inputBarCopy();
+					break;
+				case 3:
+					mCallbacks.getBroadcastItem(i).inputBarPaste();
+					break;
+				case 4:
+					mCallbacks.getBroadcastItem(i).inputBarCursorToStart();
+					break;
+				case 5:
+					mCallbacks.getBroadcastItem(i).inputBarCursorToEnd();
+					break;
+				default:
+					break;
+				}
+			} catch (RemoteException e) {
+				throw new RuntimeException(e);
+			}
 		}
 		mCallbacks.finishBroadcast();
 	}

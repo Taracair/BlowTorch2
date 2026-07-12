@@ -2,6 +2,7 @@ package com.offsetnull.bt.window;
 
 import com.offsetnull.bt.R;
 import com.offsetnull.bt.settings.ConfigurationLoader;
+import com.offsetnull.bt.util.BlowTorchLogger;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -11,6 +12,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 public class AboutDialog extends Dialog {
@@ -56,7 +60,35 @@ public class AboutDialog extends Dialog {
 			}
 		}
 		
-		//setup links
+		appendLogPath();
+	}
+	
+	private void appendLogPath() {
+		ScrollView scroll = findScrollView((ViewGroup) getWindow().getDecorView());
+		if (scroll == null || scroll.getChildCount() == 0 || !(scroll.getChildAt(0) instanceof LinearLayout)) {
+			return;
+		}
+		TextView logInfo = new TextView(getContext());
+		logInfo.setText("Error log:\n" + BlowTorchLogger.getLogFile(getContext()).getAbsolutePath());
+		logInfo.setTextSize(12f);
+		logInfo.setPadding(20, 16, 20, 8);
+		((LinearLayout) scroll.getChildAt(0)).addView(logInfo);
+	}
+	
+	private ScrollView findScrollView(ViewGroup parent) {
+		for (int i = 0; i < parent.getChildCount(); i++) {
+			View child = parent.getChildAt(i);
+			if (child instanceof ScrollView) {
+				return (ScrollView) child;
+			}
+			if (child instanceof ViewGroup) {
+				ScrollView found = findScrollView((ViewGroup) child);
+				if (found != null) {
+					return found;
+				}
+			}
+		}
+		return null;
 	}
 
 }
