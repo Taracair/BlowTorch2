@@ -79,6 +79,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 //import android.support.v4.app.ActivityCompat;
 import com.google.android.material.snackbar.Snackbar;
 
@@ -239,8 +241,20 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		setContentView(R.layout.new_launcher_layout);
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
-		//myToolbar.set
 		setSupportActionBar(myToolbar);
+		final View tableContainer = findViewById(R.id.table_container);
+		ViewCompat.setOnApplyWindowInsetsListener(myToolbar, (view, windowInsets) -> {
+			int topInset = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+			view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), view.getPaddingBottom());
+			return windowInsets;
+		});
+		if (tableContainer != null) {
+			ViewCompat.setOnApplyWindowInsetsListener(tableContainer, (view, windowInsets) -> {
+				int bottomInset = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+				view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), bottomInset);
+				return windowInsets;
+			});
+		}
 		int testversion = 0;
 		//if(mode == LAUNCH_MODE.TEST) {
 		if(ConfigurationLoader.isTestMode(this)) {
@@ -560,8 +574,16 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			return;
 		}
 		button.setAllCaps(false);
-		button.setTextColor(0xFF222222);
-		button.setBackgroundTintList(ColorStateList.valueOf(0xFFE8E8E8));
+		button.setTextColor(0xFFFFFFFF);
+		button.setBackgroundResource(R.drawable.launcher_action_button_bg);
+		button.setBackgroundTintList(null);
+	}
+	
+	@Override
+	protected void onResume() {
+		super.onResume();
+		styleLauncherActionButton((Button) findViewById(R.id.new_connection));
+		styleLauncherActionButton((Button) findViewById(R.id.help_button));
 	}
   
 	
