@@ -886,8 +886,8 @@ function showButtonList(data)
 	--end
 	if(buttonSetListDialog == nil) then
 		buttonSetListDialog = require("buttonlist")
-		buttonSetListDialog.init(mContext)
 	end
+	buttonSetListDialog.init(mContext)
 	--Note("Showing new list\n")
 	--buttonSetListDialog.init()
 	buttonSetListDialog.showList(setdata,lastLoadedSet)

@@ -174,7 +174,10 @@ end
 
 function showList(unsortedList,lastLoadedSet)
 	
-	--if(adapter ~= nil) then    Note("\nadapter is not nil"); end
+	if(dialog ~= nil) then
+		pcall(function() dialog:dismiss() end)
+		dialog = nil
+	end
 	
 	selectedSet = lastLoadedSet
 	

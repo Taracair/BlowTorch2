@@ -9,6 +9,7 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -364,6 +365,30 @@ public class ColorPickerDialog extends Dialog {
         
         
         relay.addView(sb);
+        
+        LinearLayout presets = new LinearLayout(getContext());
+        presets.setOrientation(LinearLayout.HORIZONTAL);
+        RelativeLayout.LayoutParams presetParams = new RelativeLayout.LayoutParams((int) (166.66*scale), LayoutParams.WRAP_CONTENT);
+        presetParams.addRule(RelativeLayout.BELOW, 0x02);
+        presetParams.topMargin = (int) (5 * this.getContext().getResources().getDisplayMetrics().density);
+        presets.setLayoutParams(presetParams);
+        presets.setGravity(Gravity.CENTER_HORIZONTAL);
+        int[] presetColors = new int[] {0xFF888888, 0xFFAAAAAA, 0xFFCCCCCC, 0xFFFFFFFF, 0xFF000000};
+        int swatchSize = (int) (28 * scale);
+        LinearLayout.LayoutParams swatchParams = new LinearLayout.LayoutParams(swatchSize, swatchSize);
+        swatchParams.setMargins((int)(4*scale), 0, (int)(4*scale), 0);
+        for (final int presetColor : presetColors) {
+            View presetSwatch = new View(getContext());
+            presetSwatch.setLayoutParams(swatchParams);
+            presetSwatch.setBackgroundColor(presetColor);
+            presetSwatch.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    l.colorChanged(presetColor);
+                }
+            });
+            presets.addView(presetSwatch);
+        }
+        relay.addView(presets);
         
         relay.forceLayout();
         relay.invalidate();

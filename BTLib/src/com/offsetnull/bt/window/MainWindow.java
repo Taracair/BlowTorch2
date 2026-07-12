@@ -40,6 +40,7 @@ import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
+import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
@@ -126,7 +127,10 @@ import com.offsetnull.bt.trigger.TriggerSelectionDialog;
 import com.offsetnull.bt.ui.SDCardUtils;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.view.MenuItemCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 public class MainWindow extends AppCompatActivity implements MainWindowCallback,ActivityCompat.OnRequestPermissionsResultCallback {
 	
@@ -136,6 +140,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int RP_INFO = 5000;
 	private static final int RP_EXPORT = 5001;
 	private static final int RP_IMPORT = 5002;
+	private static final int RP_NOTIFICATIONS = 5003;
 	
 	//public static final String PREFS_NAME = "CONDIALOG_SETTINGS";
 	//public String PREFS_NAME;
@@ -372,6 +377,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		setSupportActionBar(myToolbar);
+		ViewCompat.setOnApplyWindowInsetsListener(myToolbar, (view, windowInsets) -> {
+			int topInset = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+			view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), view.getPaddingBottom());
+			return windowInsets;
+		});
+
+		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+			@Override
+			public void handleOnBackPressed() {
+				MainWindow.this.showBackgroundExitDialog();
+			}
+		});
 
 		history = new CommandKeeper(10);
 
@@ -1060,6 +1077,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//screen2.jumpToZero();
 					
 					
+					break;
+				case MESSAGE_CLEARALLBUTTONS:
+					MainWindow.this.windowCall("button_window", "clearButtons", "");
+					break;
+				case MESSAGE_CHANGEBUTTONSET:
+					if (msg.obj != null && service != null) {
+						try {
+							service.pluginXcallS("button_window", "loadButtonSet", (String) msg.obj);
+						} catch (RemoteException e) {
+							e.printStackTrace();
+						}
+					}
 					break;
 				default:
 					break;
@@ -2059,9 +2088,25 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	};
 	
+	private void restoreButtonsOnResume() {
+		windowCall("button_window", "revertButtons", "");
+	}
+	
+	private void requestNotificationPermissionIfNeeded() {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+			return;
+		}
+		if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+			return;
+		}
+		requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, RP_NOTIFICATIONS);
+	}
+	
 	public void onBackPressed() {
-		//Log.e("WINDOW","BACK PRESSED TRAPPED");
-		
+		showBackgroundExitDialog();
+	}
+	
+	public void showBackgroundExitDialog() {
 		if(menuStack.size() > 0) {
 			MenuStackItem tmp = menuStack.peek();
 			RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
@@ -2458,6 +2503,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			try {
 				if(service != null) {
 					service.windowShowing(true);
+					restoreButtonsOnResume();
 				}
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
@@ -2499,8 +2545,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//screen2.resumeDrawing();
 		//screen2.doDelayedDraw(0);
 		isResumed = true;
-		super.onResume();
-		//Log.e("window","end onResume");
+		requestNotificationPermissionIfNeeded();
 	}
 	
 	public void onDestroy(Bundle saveInstance) {

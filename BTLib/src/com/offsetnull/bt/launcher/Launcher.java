@@ -442,11 +442,19 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		//check version code.
 		PackageManager m = this.getPackageManager();
 		String versionString = null;
+		String versionPackage = launcher_source;
+		if (versionPackage == null || versionPackage.length() == 0) {
+			versionPackage = getPackageName();
+		}
 		try {
-			versionString = m.getPackageInfo(launcher_source, PackageManager.GET_CONFIGURATIONS).versionName;
+			versionString = m.getPackageInfo(versionPackage, PackageManager.GET_CONFIGURATIONS).versionName;
 		} catch (NameNotFoundException e) {
-			//can't execute on our package aye?
-			throw new RuntimeException(e);
+			try {
+				versionPackage = getPackageName();
+				versionString = m.getPackageInfo(versionPackage, PackageManager.GET_CONFIGURATIONS).versionName;
+			} catch (NameNotFoundException e2) {
+				throw new RuntimeException(e2);
+			}
 		}
 		
 		int now_major = 1;
