@@ -191,3 +191,5 @@ function serialize (x)
       return "return " .. toplevel
    end
 end
+
+return serialize

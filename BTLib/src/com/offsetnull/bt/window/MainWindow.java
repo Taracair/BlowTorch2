@@ -75,6 +75,7 @@ import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
+import android.util.TypedValue;
 import android.view.ViewGroup;
 import android.view.Window;
 
@@ -384,6 +385,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		setSupportActionBar(myToolbar);
 		ViewCompat.setOnApplyWindowInsetsListener(myToolbar, (view, windowInsets) -> {
 			int topInset = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+			TypedValue actionBarSize = new TypedValue();
+			if (getTheme().resolveAttribute(android.R.attr.actionBarSize, actionBarSize, true)) {
+				int barHeight = TypedValue.complexToDimensionPixelSize(
+						actionBarSize.data, getResources().getDisplayMetrics());
+				ViewGroup.LayoutParams lp = view.getLayoutParams();
+				lp.height = barHeight + topInset;
+				view.setLayoutParams(lp);
+				titleBarHeight = barHeight + topInset;
+				statusBarHeight = topInset;
+				SharedPreferences.Editor insetEditor = getSharedPreferences("STATUS_BAR_HEIGHT", 0).edit();
+				insetEditor.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
+				insetEditor.putInt("STATUS_BAR_HEIGHT", topInset);
+				insetEditor.apply();
+				windowCall("button_window", "delayedStatusRefresh", "");
+			}
 			view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), view.getPaddingBottom());
 			return windowInsets;
 		});
@@ -3289,6 +3305,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			RelativeLayout.LayoutParams params = (android.widget.RelativeLayout.LayoutParams) w.getLayout(screenSize, landscape);
 			if(params == null) {
 				params = (android.widget.RelativeLayout.LayoutParams) w.getLayout(screenSize, !landscape);
+			}
+			if (params != null) {
+				params.addRule(RelativeLayout.BELOW, R.id.my_toolbar);
 			}
 
 			tmp.setLayoutParams(params);

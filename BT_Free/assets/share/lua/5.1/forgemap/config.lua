@@ -1,7 +1,12 @@
 local M = {}
 
-M.TILE_SIZE_DP = 44
-M.MINIMAP_TILES = 7
+M.AUTO_TRACK = false
+M.TILE_SIZE_DP = 36
+M.MINIMAP_TILES = 5
+M.MIN_TILE_DP = 18
+M.STRIP_HEIGHT_DP = 148
+M.HEADER_DP = 28
+M.HEADER_BTN_DP = 28
 M.MAX_QUICK = 4
 M.PENDING_MOVE_MS = 4000
 
@@ -16,15 +21,17 @@ M.DIR_DELTA = {
 M.DEFAULT_UI = {
 	tileSizeDp = 44,
 	showLabels = true,
-	showGrid = true,
+	showGrid = false,
 	fogAlpha = 180,
 	currentGlow = true,
 	minimapHeightDp = 148,
 	fullscreenOnOpen = false,
-	accentColor = 0xFF2B6CB0,
-	exploredColor = 0xFF3D5A73,
-	currentColor = 0xFFFFAA33,
-	fogColor = 0xFF1A1A22,
+	accentColor = 0xFF55AAFF,
+	exploredColor = 0xFF3D6A8C,
+	currentColor = 0xFFFF9900,
+	fogColor = 0xFF0E0E14,
+	unmappedColor = 0xFF1A2230,
+	adjacentBorderColor = 0xFF66BBFF,
 	flagColors = {
 		shop = 0xFF44AA66,
 		danger = 0xFFCC3333,
@@ -32,6 +39,11 @@ M.DEFAULT_UI = {
 		waypoint = 0xFFFFCC44,
 		safe = 0xFF4488CC,
 	},
+}
+
+M.HEADER_BUTTONS = {
+	{ id = "close", label = "X", action = "close" },
+	{ id = "here", label = "+", action = "here" },
 }
 
 M.FLAG_ICONS = {
