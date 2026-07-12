@@ -67,6 +67,7 @@ import android.text.format.Time;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
 import android.util.Log;
+import android.util.TypedValue;
 import android.util.TimeFormatException;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -112,6 +113,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 	protected static final int MESSAGE_WHATSNEW = 1;
 	protected static final int MESSAGE_IMPORT = 2;
+	private static final int REQUEST_PICK_SETTINGS_ZIP = 2001;
 	protected static final int MESSAGE_EXPORT = 3;
 
 	protected static final int MESSAGE_USERNAME = 4;
@@ -250,7 +252,15 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		final View tableContainer = findViewById(R.id.table_container);
 		ViewCompat.setOnApplyWindowInsetsListener(myToolbar, (view, windowInsets) -> {
 			int topInset = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-			view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), view.getPaddingBottom());
+			TypedValue actionBarSize = new TypedValue();
+			if (getTheme().resolveAttribute(android.R.attr.actionBarSize, actionBarSize, true)) {
+				int barHeight = TypedValue.complexToDimensionPixelSize(
+						actionBarSize.data, getResources().getDisplayMetrics());
+				ViewGroup.LayoutParams lp = view.getLayoutParams();
+				lp.height = barHeight + topInset;
+				view.setLayoutParams(lp);
+			}
+			view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), 0);
 			return windowInsets;
 		});
 		if (tableContainer != null) {
@@ -1207,6 +1217,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			backupRoot.mkdirs();
 			File zipFile = new File(backupRoot, stamp + ".zip");
 			int copied = zipSettingsDirectory(getFilesDir(), zipFile);
+			try {
+				mirrorBackupToDocuments(zipFile);
+			} catch (IOException mirrorError) {
+				Log.w("BlowTorch", "Optional Documents mirror failed: " + mirrorError.getMessage());
+			}
 			Toast.makeText(this,
 					"Backed up " + copied + " file(s) to:\n" + zipFile.getAbsolutePath(),
 					Toast.LENGTH_LONG).show();
@@ -1242,49 +1257,165 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		return copied;
 	}
 	
-	private void AskRestoreBackup() {
-		File backupRoot = new File(Environment.getExternalStorageDirectory(), "BlowTorch2/backups");
-		if (!backupRoot.exists()) {
-			Toast.makeText(this, "No backups found in BlowTorch2/backups", Toast.LENGTH_LONG).show();
+	private void mirrorBackupToDocuments(File zipFile) throws IOException {
+		File docsRoot = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2/backups");
+		if (!docsRoot.mkdirs() && !docsRoot.exists()) {
 			return;
 		}
-		File[] entries = backupRoot.listFiles();
-		if (entries == null || entries.length == 0) {
-			Toast.makeText(this, "No backups found in BlowTorch2/backups", Toast.LENGTH_LONG).show();
-			return;
+		copySettingsFile(zipFile, new File(docsRoot, zipFile.getName()));
+	}
+
+	private static class SettingsImportCandidate {
+		final File file;
+		final String label;
+
+		SettingsImportCandidate(File file, String label) {
+			this.file = file;
+			this.label = label;
 		}
-		java.util.Arrays.sort(entries, new Comparator<File>() {
-			public int compare(File a, File b) {
-				return b.getName().compareTo(a.getName());
+	}
+
+	private void collectSettingsImportCandidates(ArrayList<File> choices, ArrayList<String> labels) {
+		File sd = Environment.getExternalStorageDirectory();
+		File[] scanRoots = new File[] {
+				new File(sd, "BlowTorch2/backups"),
+				new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2/backups"),
+				new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2"),
+				Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+		};
+		java.util.HashSet<String> seen = new java.util.HashSet<String>();
+		ArrayList<SettingsImportCandidate> candidates = new ArrayList<SettingsImportCandidate>();
+		for (File root : scanRoots) {
+			if (root == null || !root.exists()) {
+				continue;
+			}
+			boolean allowFolders = root.getAbsolutePath().contains("BlowTorch2");
+			File[] entries = root.listFiles();
+			if (entries == null) {
+				continue;
+			}
+			for (File entry : entries) {
+				if (entry.isDirectory()) {
+					if (!allowFolders || entry.getName().endsWith(".zip")) {
+						continue;
+					}
+					String[] inner = entry.list();
+					if (inner != null && inner.length > 0) {
+						boolean hasXml = false;
+						for (String name : inner) {
+							if (name.endsWith(".xml")) {
+								hasXml = true;
+								break;
+							}
+						}
+						if (hasXml) {
+							String key = entry.getAbsolutePath();
+							if (seen.add(key)) {
+								candidates.add(new SettingsImportCandidate(entry,
+										"[folder] " + root.getName() + "/" + entry.getName()));
+							}
+						}
+					}
+					continue;
+				}
+				if (!entry.getName().endsWith(".zip")) {
+					continue;
+				}
+				String key = entry.getAbsolutePath();
+				if (seen.add(key)) {
+					candidates.add(new SettingsImportCandidate(entry, root.getName() + "/" + entry.getName()));
+				}
+			}
+		}
+		java.util.Collections.sort(candidates, new Comparator<SettingsImportCandidate>() {
+			public int compare(SettingsImportCandidate a, SettingsImportCandidate b) {
+				return Long.signum(b.file.lastModified() - a.file.lastModified());
 			}
 		});
+		for (SettingsImportCandidate candidate : candidates) {
+			choices.add(candidate.file);
+			labels.add(candidate.label);
+		}
+	}
+
+	private void AskImportSettings() {
 		final ArrayList<File> choices = new ArrayList<File>();
 		final ArrayList<String> labels = new ArrayList<String>();
-		for (File entry : entries) {
-			if (entry.isDirectory() || entry.getName().endsWith(".zip")) {
-				choices.add(entry);
-				labels.add(entry.getName());
-			}
-		}
-		if (choices.isEmpty()) {
-			Toast.makeText(this, "No backups found in BlowTorch2/backups", Toast.LENGTH_LONG).show();
+		collectSettingsImportCandidates(choices, labels);
+		labels.add("Browse for .zip file…");
+		choices.add(null);
+		if (labels.size() == 1) {
+			pickSettingsZipFile();
 			return;
 		}
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setTitle("Restore Backup");
+		builder.setTitle("Import Settings");
 		builder.setItems(labels.toArray(new String[labels.size()]), new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
+				File selected = choices.get(which);
+				if (selected == null) {
+					pickSettingsZipFile();
+					return;
+				}
 				try {
-					int restored = restoreBackup(choices.get(which));
+					int restored = restoreBackup(selected);
 					Toast.makeText(Launcher.this,
-							"Restored " + restored + " file(s). Restart BlowTorch to reload settings.",
+							"Imported " + restored + " file(s). Restart BlowTorch to reload settings.",
 							Toast.LENGTH_LONG).show();
 				} catch (IOException e) {
-					throw new RuntimeException(e);
+					Toast.makeText(Launcher.this, "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
 				}
 			}
 		});
 		builder.show();
+	}
+
+	private void pickSettingsZipFile() {
+		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+		intent.addCategory(Intent.CATEGORY_OPENABLE);
+		intent.setType("*/*");
+		intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+				"application/zip",
+				"application/x-zip-compressed",
+				"application/octet-stream"
+		});
+		startActivityForResult(intent, REQUEST_PICK_SETTINGS_ZIP);
+	}
+
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == REQUEST_PICK_SETTINGS_ZIP && resultCode == Activity.RESULT_OK && data != null) {
+			Uri uri = data.getData();
+			if (uri == null) {
+				return;
+			}
+			try {
+				int restored = restoreBackupFromUri(uri);
+				Toast.makeText(this,
+						"Imported " + restored + " file(s). Restart BlowTorch to reload settings.",
+						Toast.LENGTH_LONG).show();
+			} catch (IOException e) {
+				Toast.makeText(this, "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+			}
+		}
+	}
+
+	private int restoreBackupFromUri(Uri uri) throws IOException {
+		InputStream in = getContentResolver().openInputStream(uri);
+		if (in == null) {
+			throw new IOException("Could not open selected file");
+		}
+		File tempZip = new File(getCacheDir(), "import_settings.zip");
+		OutputStream out = new FileOutputStream(tempZip);
+		byte[] buffer = new byte[4096];
+		int len;
+		while ((len = in.read(buffer)) > 0) {
+			out.write(buffer, 0, len);
+		}
+		in.close();
+		out.close();
+		return restoreZipBackup(tempZip);
 	}
 	
 	private int restoreBackup(File backup) throws IOException {
@@ -1683,7 +1814,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		menu.add(0,100,0,"Import List");
 		menu.add(0,105,0,"Export List");
 		menu.add(0,110,0,"Backup Settings");
-		menu.add(0,111,0,"Restore Backup");
+		menu.add(0,111,0,"Import Settings");
 		if(ConfigurationLoader.isTestMode(this)) menu.add(0,106,0,"User Name");
 		menu.add(0,107,0,"Recover Settings");
 		menu.add(0, 108, 0,"SDCard Permissions");
@@ -1750,7 +1881,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			break;
 		case 111:
 			if (SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT)) {
-				AskRestoreBackup();
+				AskImportSettings();
 			}
 			break;
 		case 106:

@@ -43,7 +43,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void onButtonPressed(View v, int row, int index) {
-		TimerData d = dataMap.get(sortedKeys[row]);
+		TimerData d = dataMap.get(getItemKey(row));
 		
 		String action = "";
 		int icon = 0;
@@ -115,7 +115,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void onButtonStateChanged(ImageButton v, int row, int index, boolean statea) {
-		TimerData d = dataMap.get(sortedKeys[row]);
+		TimerData d = dataMap.get(getItemKey(row));
 		//boolean state = !d.isEnabled();
 		//d.setEnabled(state);
 		//try {
@@ -140,7 +140,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void onItemDeleted(int row) {
-		TimerData d = dataMap.get(sortedKeys[row]);
+		TimerData d = dataMap.get(getItemKey(row));
 		
 		try {
 			if(currentPlugin.equals(MAIN_SETTINGS)) {
@@ -239,7 +239,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		//this will be called before the toolbar is shown, it will give the implementer the option to set up on/off lock/unlock etc.
 		ImageButton b = (ImageButton)toolbar.getChildAt(1);
 		toolbar.getChildAt(1);
-		TimerData data = dataMap.get(sortedKeys[row]);
+		TimerData data = dataMap.get(getItemKey(row));
 		/*if(data.isEnabled()) {
 			b.setImageResource(R.drawable.toolbar_toggleon_button);
 		} else {
