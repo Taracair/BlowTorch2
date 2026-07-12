@@ -1177,9 +1177,9 @@ function isAccordionCloseHit(parent, x, y)
 	end
 	local rect = parent.rect
 	local closeSize = 14 * density
-	local left = rect:right() - closeSize
-	local top = rect:top()
-	return x >= left and x <= rect:right() and y >= top and y <= top + closeSize
+	local left = rect:getRight() - closeSize
+	local top = rect:getTop()
+	return x >= left and x <= rect:getRight() and y >= top and y <= top + closeSize
 end
 
 dpaint:setPathEffect(dash)

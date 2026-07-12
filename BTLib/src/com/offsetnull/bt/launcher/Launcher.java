@@ -69,6 +69,7 @@ import android.text.util.Linkify;
 import android.util.Log;
 import android.util.TypedValue;
 import android.util.TimeFormatException;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -266,7 +267,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (tableContainer != null) {
 			ViewCompat.setOnApplyWindowInsetsListener(tableContainer, (view, windowInsets) -> {
 				int bottomInset = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-				view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), bottomInset);
+				ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
+				if (lp != null) {
+					lp.bottomMargin = bottomInset;
+					view.setLayoutParams(lp);
+				}
 				return windowInsets;
 			});
 		}
@@ -590,6 +595,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		button.setAllCaps(false);
 		button.setTextColor(0xFFFFFFFF);
+		button.setGravity(Gravity.CENTER);
 		button.setBackgroundResource(R.drawable.launcher_action_button_bg);
 		button.setBackgroundTintList(null);
 	}

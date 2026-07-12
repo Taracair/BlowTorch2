@@ -22,8 +22,12 @@
 	<item name="android:textColor">#FFFFFFFF</item>
 	<item name="android:textSize">14sp</item>
 	<item name="android:textStyle">bold</item>
+	<item name="android:gravity">center</item>
 	<item name="android:background">@drawable/launcher_action_button_bg</item>
+	<item name="backgroundTint">@null</item>
 	<item name="android:minHeight">48dip</item>
+	<item name="android:paddingTop">10dip</item>
+	<item name="android:paddingBottom">10dip</item>
 	<item name="android:paddingLeft">8dip</item>
 	<item name="android:paddingRight">8dip</item>
 	<item name="android:stateListAnimator">@null</item>
