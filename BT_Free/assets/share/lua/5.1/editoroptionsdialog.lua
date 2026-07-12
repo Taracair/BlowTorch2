@@ -213,7 +213,7 @@ function showDialog(initialValues)
 
   local hintsCb = luajava.newInstance("android.widget.CheckBox",context)
   hintsCb:setChecked(showGestureHints)
-  hintsCb:setText("Show swipe arrows, H, S and badges on buttons")
+  hintsCb:setText("Show U/D/L/R, Hold and accordion badges on buttons")
   hintsCb:setTextSize(textSizeSmall)
   hintsCb:setOnCheckedChangeListener(showGestureHintsCheckChangeListener)
   hintsCb:setLayoutParams(fillparams)
