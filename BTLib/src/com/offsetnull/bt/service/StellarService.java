@@ -141,6 +141,7 @@ public class StellarService extends Service {
 				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
 				.build();
 			startForeground(1, placeholder);
+			mForegroundNotificationId = 1;
 			mHasForegroundNotification = true;
 		}
 		if (ConfigurationLoader.isTestMode(this.getApplicationContext())) {
@@ -599,7 +600,9 @@ public class StellarService extends Service {
 			this.startForeground(mForegroundNotificationId, note);
 			mHasForegroundNotification = true;
 		} else {
-			//int notificationId = notificationID;
+			if (mForegroundNotificationId > 0) {
+				this.startForeground(mForegroundNotificationId, note);
+			}
 			mNotificationManager.notify(notificationID, note);
 		}
 		
