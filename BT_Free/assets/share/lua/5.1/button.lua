@@ -145,26 +145,26 @@ end
 
 local function drawAccordionChevron(canvas, paint, rect, direction, expanded, density)
 	local inset = 6 * density
-	local cx = rect:left() + inset
-	local cy = rect:top() + inset
+	local cx = rect:getLeft() + inset
+	local cy = rect:getTop() + inset
 	local size = 8 * density
 	local color = Color:argb(220, 0x66, 0xDD, 0xFF)
 	if expanded then
 		color = Color:argb(220, 0xFF, 0xAA, 0x44)
 	end
 	if direction == "down" or direction == "up" then
-		cx = (rect:left() + rect:right()) * 0.5
+		cx = (rect:getLeft() + rect:getRight()) * 0.5
 		if direction == "down" then
-			cy = rect:bottom() - inset
+			cy = rect:getBottom() - inset
 		else
-			cy = rect:top() + inset
+			cy = rect:getTop() + inset
 		end
 	elseif direction == "left" or direction == "right" then
-		cy = (rect:top() + rect:bottom()) * 0.5
+		cy = (rect:getTop() + rect:getBottom()) * 0.5
 		if direction == "right" then
-			cx = rect:right() - inset
+			cx = rect:getRight() - inset
 		else
-			cx = rect:left() + inset
+			cx = rect:getLeft() + inset
 		end
 	end
 	local drawDir = direction
@@ -184,21 +184,21 @@ function BUTTON:drawGestureIndicators(canvas, paint)
 	local arrow = 5 * self.density
 	local color = Color:argb(170, 0xFF, 0xFF, 0xFF)
 	if hasGestureCommand(self.data, "swipeUpCommand") then
-		drawDirectionArrow(canvas, paint, (rect:left() + rect:right()) * 0.5, rect:top() + edge, "up", arrow, color)
+		drawDirectionArrow(canvas, paint, (rect:getLeft() + rect:getRight()) * 0.5, rect:getTop() + edge, "up", arrow, color)
 	end
 	if hasGestureCommand(self.data, "swipeDownCommand") then
-		drawDirectionArrow(canvas, paint, (rect:left() + rect:right()) * 0.5, rect:bottom() - edge, "down", arrow, color)
+		drawDirectionArrow(canvas, paint, (rect:getLeft() + rect:getRight()) * 0.5, rect:getBottom() - edge, "down", arrow, color)
 	end
 	if hasGestureCommand(self.data, "swipeLeftCommand") then
-		drawDirectionArrow(canvas, paint, rect:left() + edge, (rect:top() + rect:bottom()) * 0.5, "left", arrow, color)
+		drawDirectionArrow(canvas, paint, rect:getLeft() + edge, (rect:getTop() + rect:getBottom()) * 0.5, "left", arrow, color)
 	end
 	if hasGestureCommand(self.data, "swipeRightCommand") then
-		drawDirectionArrow(canvas, paint, rect:right() - edge, (rect:top() + rect:bottom()) * 0.5, "right", arrow, color)
+		drawDirectionArrow(canvas, paint, rect:getRight() - edge, (rect:getTop() + rect:getBottom()) * 0.5, "right", arrow, color)
 	end
 	if hasGestureCommand(self.data, "holdCommand") then
 		paint:setColor(Color:argb(180, 0xFF, 0xFF, 0x66))
 		paint:setTextSize(9 * self.density)
-		canvas:drawText("H", rect:right() - 11 * self.density, rect:top() + 11 * self.density, paint)
+		canvas:drawText("H", rect:getRight() - 11 * self.density, rect:getTop() + 11 * self.density, paint)
 	end
 end
 
@@ -255,7 +255,7 @@ function BUTTON:draw(state,canvas)
 		if self.expanded and self.data.accordionAutoClose == false then
 			p:setColor(Color:argb(220, 0xFF, 0x66, 0x66))
 			p:setTextSize(10 * self.density)
-			canvas:drawText("x", rect:right() - 10 * self.density, rect:top() + 12 * self.density, p)
+			canvas:drawText("x", rect:getRight() - 10 * self.density, rect:getTop() + 12 * self.density, p)
 		end
 	end
 end
