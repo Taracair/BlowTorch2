@@ -85,6 +85,20 @@ function M.drawMap(canvas, paint, view, mode)
 					fi = fi + 1
 				end
 			end
+			if cell.tile.quick ~= nil then
+				local qi = 0
+				for slot, q in pairs(cell.tile.quick) do
+					if q ~= nil and q.cmd ~= nil and q.cmd ~= "" then
+						paint:setColor(0xFFAAFFAA)
+						paint:setTextSize(math.max(7, tilePx * 0.22))
+						local lbl = q.label
+						if lbl == nil or lbl == "" then lbl = tostring(slot) end
+						if #lbl > 2 then lbl = string.sub(lbl, 1, 2) end
+						canvas:drawText(lbl, left + pad + qi * (tilePx * 0.28), top + tilePx - pad - 2, paint)
+						qi = qi + 1
+					end
+				end
+			end
 		else
 			paint:setColor((ui.fogColor or 0xFF1A1A22) + 0x55000000)
 			canvas:drawRoundRect(left + pad, top + pad, left + tilePx - pad, top + tilePx - pad, pad, pad, paint)
