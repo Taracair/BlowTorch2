@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.text.SimpleDateFormat;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -582,13 +583,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		button.setBackgroundResource(R.drawable.launcher_action_button_bg);
 		button.setBackgroundTintList(null);
 	}
-	
-	@Override
-	protected void onResume() {
-		super.onResume();
-		styleLauncherActionButton((Button) findViewById(R.id.new_connection));
-		styleLauncherActionButton((Button) findViewById(R.id.help_button));
-	}
   
 	
 	public static boolean isOutDated(Context c) {
@@ -618,6 +612,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	@Override
 	public void onResume() {
 		super.onResume();
+		styleLauncherActionButton((Button) findViewById(R.id.new_connection));
+		styleLauncherActionButton((Button) findViewById(R.id.help_button));
 		if(!serviceBound) {
 			String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 			bindService(new Intent(action,null,this, StellarService.class),connectionChecker,Context.BIND_AUTO_CREATE);
