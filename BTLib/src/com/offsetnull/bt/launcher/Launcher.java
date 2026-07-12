@@ -21,8 +21,11 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import android.annotation.TargetApi;
@@ -1157,6 +1160,48 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			}
 	}
 	
+	private void copySettingsFile(File source, File dest) throws IOException {
+		InputStream in = new FileInputStream(source);
+		OutputStream out = new FileOutputStream(dest);
+		byte[] buf = new byte[1024];
+		int len;
+		while ((len = in.read(buf)) > 0) {
+			out.write(buf, 0, len);
+		}
+		in.close();
+		out.close();
+	}
+	
+	private void DoBackupAllSettings() {
+		String state = Environment.getExternalStorageState();
+		if (!Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
+			Toast.makeText(this, "SD card unavailable. Cannot create backup.", Toast.LENGTH_LONG).show();
+			return;
+		}
+		try {
+			SimpleDateFormat stampFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US);
+			File backupDir = new File(new File(Environment.getExternalStorageDirectory(), "BlowTorch2/backups"),
+					stampFormat.format(new Date()));
+			backupDir.mkdirs();
+			File filesDir = getFilesDir();
+			String[] names = filesDir.list();
+			int copied = 0;
+			if (names != null) {
+				for (String name : names) {
+					if (!name.endsWith(".xml")) {
+						continue;
+					}
+					copySettingsFile(new File(filesDir, name), new File(backupDir, name));
+					copied++;
+				}
+			}
+			Toast.makeText(this,
+					"Backed up " + copied + " file(s) to:\n" + backupDir.getAbsolutePath(),
+					Toast.LENGTH_LONG).show();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
 	
 	private void DoRecovery(String targetPackage,boolean external) throws NameNotFoundException {
 
@@ -1506,6 +1551,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		menu.add(0,100,0,"Import List");
 		menu.add(0,105,0,"Export List");
+		menu.add(0,110,0,"Backup Settings");
 		if(ConfigurationLoader.isTestMode(this)) menu.add(0,106,0,"User Name");
 		menu.add(0,107,0,"Recover Settings");
 		menu.add(0, 108, 0,"SDCard Permissions");
@@ -1564,6 +1610,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				AskExportFileName(true);
 			}//false is handled by the activity interface implementation
 
+			break;
+		case 110:
+			if (SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT)) {
+				DoBackupAllSettings();
+			}
 			break;
 		case 106:
 
