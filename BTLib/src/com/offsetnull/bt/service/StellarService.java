@@ -1711,16 +1711,7 @@ public class StellarService extends Service {
 		files = assetManager.list("share/lua/5.1");
 		for (String filename : files) {
 			if (!filename.equals("res")) {
-				InputStream in = assetManager.open("share/lua/5.1/" + filename);
-				File tmp = new File(luashare, filename);
-				if (!tmp.exists()) { tmp.createNewFile(); }
-				OutputStream out = new FileOutputStream(tmp);
-				copyfile(in, out);
-				in.close();
-				in = null;
-				out.flush();
-				out.close();
-				out = null;
+				copyAssetPath(assetManager, "share/lua/5.1/" + filename, new File(luashare, filename));
 			}
 		}
 		
@@ -1768,6 +1759,31 @@ public class StellarService extends Service {
 		}
 	}
 	
+	/** Copy a single asset file or recursively copy an asset directory tree. */
+	private void copyAssetPath(final AssetManager assetManager, final String assetPath, final File dest)
+			throws IOException {
+		String[] children = assetManager.list(assetPath);
+		if (children == null || children.length == 0) {
+			File parent = dest.getParentFile();
+			if (parent != null && !parent.exists()) {
+				parent.mkdirs();
+			}
+			InputStream in = assetManager.open(assetPath);
+			OutputStream out = new FileOutputStream(dest);
+			copyfile(in, out);
+			in.close();
+			out.flush();
+			out.close();
+			return;
+		}
+		if (!dest.exists()) {
+			dest.mkdirs();
+		}
+		for (String child : children) {
+			copyAssetPath(assetManager, assetPath + "/" + child, new File(dest, child));
+		}
+	}
+
 	/** Recursive folder deletion routine. Thanks android API for not having one.
 	 * 
 	 * @param file The path to recursively delete.

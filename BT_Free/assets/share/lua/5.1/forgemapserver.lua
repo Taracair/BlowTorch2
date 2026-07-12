@@ -1,25 +1,41 @@
-local serialize = require("serialize")
+require("serialize")
 local props = require("forgemapconfig")
+local config = require("forgemap.config")
 local store = require("forgemap.store")
 local tracker = require("forgemap.tracker")
 local pathfind = require("forgemap.pathfind")
 
 local windowName = props.name
 
+local function autoTrackEnabled()
+	return config.AUTO_TRACK == true
+end
+
 local function pushState()
 	WindowXCallS(windowName, "onMapState", serialize(store.exportData()))
 end
 
+function syncMapToWindow()
+	pushState()
+end
+
 function OnBackgroundStartup()
 	RegisterSpecialCommand("map", "toggleMapWindow")
+	RegisterSpecialCommand("fmhere", "fmhereCommand")
 	RegisterSpecialCommand("fmwalk", "fmwalkCommand")
 	RegisterSpecialCommand("fmgo", "fmgoCommand")
 	RegisterSpecialCommand("fmnote", "fmnoteCommand")
 	RegisterSpecialCommand("fmflag", "fmflagCommand")
+	syncMapToWindow()
 end
 
 function toggleMapWindow(arg)
 	WindowXCallS(windowName, "toggleVisible", arg or "")
+	return nil
+end
+
+function fmhereCommand(arg)
+	onMapManualHere(arg ~= "" and arg or "Here")
 	return nil
 end
 
@@ -79,6 +95,7 @@ function trim(s)
 end
 
 function got_gmcp_room(room)
+	if not autoTrackEnabled() then return end
 	if room == nil then return end
 	tracker.onGmcpRoom(room)
 	SaveSettings()
@@ -86,6 +103,7 @@ function got_gmcp_room(room)
 end
 
 function update_gmcp_area(area)
+	if not autoTrackEnabled() then return end
 	if area == nil then return end
 	local name = area.name or area.zone or area
 	if name ~= nil then store.ensureArea(tostring(name)) end
@@ -94,6 +112,7 @@ function update_gmcp_area(area)
 end
 
 function forgemap_room_title(name, line, matches)
+	if not autoTrackEnabled() then return end
 	local title = matches and matches[1] or name
 	tracker.onTextRoom(title, nil, store.getState().currentArea, nil)
 	SaveSettings()
@@ -101,6 +120,7 @@ function forgemap_room_title(name, line, matches)
 end
 
 function forgemap_room_exits(name, line, matches)
+	if not autoTrackEnabled() then return end
 	local curId = store.getCurrentTile()
 	local cur = curId and store.getTile(curId) or nil
 	if cur ~= nil and line ~= nil then
@@ -112,6 +132,7 @@ function forgemap_room_exits(name, line, matches)
 end
 
 function forgemap_enter_room(name, line, matches)
+	if not autoTrackEnabled() then return end
 	local title = matches and matches[1] or line
 	tracker.onTextRoom(title, nil, store.getState().currentArea, nil)
 	SaveSettings()
@@ -224,6 +245,41 @@ function onMapManualHere(name)
 	pushState()
 end
 
+function onMapSelectTile(tileId)
+	if tileId == nil or tileId == "" then return end
+	store.setCurrentTile(tileId)
+	store.markExplored(tileId)
+	SaveSettings()
+	pushState()
+end
+
+function onMapExploreDir(dir)
+	dir = string.lower(trim(dir or ""))
+	if dir == "" then return end
+	local curId = store.getCurrentTile()
+	if curId == nil then
+		onMapManualHere("Start")
+		curId = store.getCurrentTile()
+	end
+	if curId == nil then return end
+	local cur = store.getTile(curId)
+	if cur == nil then return end
+	local linked = cur.links and cur.links[dir] and cur.links[dir].to
+	if linked ~= nil then
+		store.setCurrentTile(linked)
+		store.markExplored(linked)
+	else
+		local x, y, z = store.neighborCoord(cur.x, cur.y, cur.z or 0, dir)
+		local toId, toTile, _ = store.getOrCreateAt(cur.area, x, y, z, dir:upper())
+		store.linkTiles(curId, dir, toId, dir)
+		store.markExplored(toId)
+		toTile.explored = true
+		store.setCurrentTile(toId)
+	end
+	SaveSettings()
+	pushState()
+end
+
 function onMapSetUi(data)
 	if data == nil or data == "" then return end
 	local fn = loadstring(data)
@@ -245,6 +301,7 @@ function OnPrepareXML(root)
 			if fn == nil then return end
 			local ok, payload = pcall(fn)
 			if ok and payload ~= nil then store.importData(payload) end
+			pushState()
 		end
 	})
 	node:setTextElementListener(listener)
