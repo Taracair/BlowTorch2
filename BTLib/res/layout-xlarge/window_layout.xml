@@ -39,7 +39,7 @@
             <ImageButton
                 android:id="@+id/foldout"
                 android:layout_width="80dip"
-                android:layout_height="60dip"
+                android:layout_height="40dip"
                 android:background="@color/game_input_bg"
                 android:src="@drawable/sliderwidgetout"
                 android:text="|DOWN|"
@@ -60,7 +60,7 @@
                 android:isScrollContainer="false"
                 android:keepScreenOn="true"
                 android:maxLines="8"
-                android:minHeight="60dip"
+                android:minHeight="40dip"
                 android:nextFocusDown="@id/textinput"
                 android:nextFocusLeft="@id/textinput"
                 android:nextFocusRight="@id/textinput"
