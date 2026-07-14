@@ -2503,13 +2503,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			intent.putExtra("HOST",mine.getExtras().getString("HOST"));
 			intent.putExtra("PORT",mine.getExtras().getString("PORT"));
 			androidx.core.content.ContextCompat.startForegroundService(this, intent);
-			//start the service
-			/*if(mode == LAUNCH_MODE.FREE) {
-				this.startService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_NORMAL"));
-			} else if(mode == LAUNCH_MODE.TEST) {
-				this.startService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_TEST"));
-			}*/
-			//servicestarted = true;
 		}
 		//Log.e("window","ending onStart");
 		
@@ -3438,6 +3431,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int LEGACY_INPUT_BAR_ID = 10;
 	private static final int LEGACY_DIVIDER_ID = 40;
 	private static final int LEGACY_TEXT_INPUT_ID = 30;
+	private static final float OVERFLOW_LIFT_DIP = 10f;
 
 	private void assignLegacyChromeIds() {
 		View divider = findViewById(R.id.divider);
@@ -3532,7 +3526,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			inputbar.post(new Runnable() {
 				@Override
 				public void run() {
-					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal + marginFinal;
+					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal + marginFinal
+							+ (int) (OVERFLOW_LIFT_DIP * density);
 					android.widget.FrameLayout.LayoutParams overflowLp =
 							new android.widget.FrameLayout.LayoutParams(size, size);
 					overflowLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
