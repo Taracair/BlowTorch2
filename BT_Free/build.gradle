@@ -7,11 +7,31 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId "com.resurrection.blowtorch2.test"
         minSdk 28
         targetSdk 36
         versionCode 224
-        versionName "2.1-test"
+    }
+
+    flavorDimensions += "edition"
+    productFlavors {
+        btTest {
+            dimension "edition"
+            applicationId "com.resurrection.blowtorch2.test"
+            versionName "2.1-test"
+            manifestPlaceholders = [
+                    appLabel: "BlowTorch 2 Test",
+                    appProcess: "com.resurrection.blowtorch2.test",
+            ]
+        }
+        production {
+            dimension "edition"
+            applicationId "com.resurrection.blowtorch2"
+            versionName "2.1"
+            manifestPlaceholders = [
+                    appLabel: "BlowTorch 2",
+                    appProcess: "com.resurrection.blowtorch2",
+            ]
+        }
     }
 
     compileOptions {
@@ -50,9 +70,11 @@ android {
             manifest.srcFile 'AndroidManifest.xml'
             java.srcDirs = ['src']
             aidl.srcDirs = ['src']
-            res.srcDirs = ['res', 'build/generated/default-settings-res']
+            res.srcDirs = ['res']
             assets.srcDirs = ['assets']
         }
+        btTest.res.srcDirs += 'build/generated/default-settings-test/res'
+        production.res.srcDirs += 'build/generated/default-settings-production/res'
     }
 
     lint {
@@ -66,26 +88,21 @@ android {
     }
 }
 
-def isTestApplication = android.defaultConfig.applicationId.endsWith('.test')
-
-tasks.register('selectDefaultSettings') {
-    def outDir = layout.buildDirectory.dir('generated/default-settings-res/raw')
-    outputs.dir(outDir)
-    doLast {
-        def destDir = outDir.get().asFile
-        destDir.mkdirs()
-        def srcName = isTestApplication ? 'default_settings_test.xml' : 'default_settings_main.xml'
-        def src = file("res/raw/${srcName}")
-        if (!src.exists()) {
-            throw new GradleException("Missing ${src}")
-        }
-        def dest = new File(destDir, 'default_settings.xml')
-        dest.text = src.text
-        logger.lifecycle("ForgeMap defaults: ${isTestApplication ? 'TEST (with forgemap)' : 'MAIN (no forgemap)'}")
-    }
+tasks.register('copyDefaultSettingsTest', Copy) {
+    from 'res/raw/default_settings_test.xml'
+    into layout.buildDirectory.dir('generated/default-settings-test/res/raw')
+    rename { 'default_settings.xml' }
 }
 
-tasks.named('preBuild').configure { dependsOn 'selectDefaultSettings' }
+tasks.register('copyDefaultSettingsProduction', Copy) {
+    from 'res/raw/default_settings_main.xml'
+    into layout.buildDirectory.dir('generated/default-settings-production/res/raw')
+    rename { 'default_settings.xml' }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn 'copyDefaultSettingsTest', 'copyDefaultSettingsProduction'
+}
 
 dependencies {
     implementation project(':BTLib')

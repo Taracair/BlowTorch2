@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
+<root>
+  <launcher version="1.0.4">
+    <item name="samsaramoo" host="moo.samsara-moo.com" port="7999" lastPlayed="never" />
+    <item name="test" host="moo.samsara-moo.com" port="7999" lastPlayed="never" />
+  </launcher>
+</root>
