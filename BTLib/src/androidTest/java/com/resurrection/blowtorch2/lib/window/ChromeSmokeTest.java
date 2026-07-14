@@ -4,8 +4,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 
 import androidx.appcompat.view.ContextThemeWrapper;
@@ -21,19 +23,23 @@ import org.junit.runner.RunWith;
 public class ChromeSmokeTest {
 
 	@Test
-	public void overflowMenuIsAnchoredAboveInputBar() {
+	public void overflowMenuLivesInBottomChromeOverlay() {
 		Context context = new ContextThemeWrapper(
 				ApplicationProvider.getApplicationContext(),
 				androidx.appcompat.R.style.Theme_AppCompat);
 		View root = LayoutInflater.from(context).inflate(R.layout.window_layout, null, false);
+		View overlay = root.findViewById(R.id.gameplay_chrome_overlay);
 		View overflow = root.findViewById(R.id.overflow_menu);
 		View inputbar = root.findViewById(R.id.inputbar);
+		assertNotNull(overlay);
 		assertNotNull(overflow);
 		assertNotNull(inputbar);
-		RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) overflow.getLayoutParams();
-		assertTrue(params.getRule(RelativeLayout.ABOVE) == inputbar.getId());
-		int endRule = params.getRule(RelativeLayout.ALIGN_PARENT_END);
-		int rightRule = params.getRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-		assertTrue(endRule == RelativeLayout.TRUE || rightRule == RelativeLayout.TRUE);
+		assertTrue(overflow.getParent() == overlay);
+		FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) overflow.getLayoutParams();
+		int gravity = params.gravity;
+		assertTrue((gravity & Gravity.BOTTOM) != 0);
+		assertTrue((gravity & Gravity.END) != 0 || (gravity & Gravity.RIGHT) != 0);
+		RelativeLayout.LayoutParams inputLp = (RelativeLayout.LayoutParams) inputbar.getLayoutParams();
+		assertTrue(inputLp.getRule(RelativeLayout.ALIGN_PARENT_BOTTOM) == RelativeLayout.TRUE);
 	}
 }
