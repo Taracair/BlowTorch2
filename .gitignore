@@ -129,3 +129,11 @@ gradle-app.setting
 *.DS_Store
 BTLib/key/bt_privatekey.keystore
 BT_Aard/key/signiture_cert
+
+# Local MUD profiles — never commit (device-specific settings)
+samples/*.xml
+samples/**/*.xml
+!samples/README.md
+BTLib/jni/**/*.mk~
+BTLib/jni/**/*~
+BTLib/jni/Android.mk.old
