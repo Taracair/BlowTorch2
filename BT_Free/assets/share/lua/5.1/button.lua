@@ -1,5 +1,5 @@
 
-Color = luajava.bindClass("com.offsetnull.bt.ui.ColorCompat")
+Color = luajava.bindClass("com.resurrection.blowtorch2.lib.ui.ColorCompat")
 Path = luajava.bindClass("android.graphics.Path")
 PathDirection = luajava.bindClass("android.graphics.Path$Direction")
 statusoffset = 0

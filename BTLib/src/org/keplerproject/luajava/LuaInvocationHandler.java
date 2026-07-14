@@ -29,7 +29,7 @@ import java.io.StringWriter;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 
-import com.offsetnull.bt.service.Colorizer;
+import com.resurrection.blowtorch2.lib.service.Colorizer;
 
 import android.net.Proxy;
 import android.util.Log;

@@ -2,23 +2,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:label="BlowTorch" android:theme="@android:style/Theme.NoTitleBar">
         <!-- android:windowSoftInputMode="adjustResize" -->
-        <activity android:name="com.happygoatstudios.bt.window.MainWindow"
+        <activity android:name="com.resurrection.blowtorch2.lib.window.MainWindow"
         		  android:windowSoftInputMode="adjustPan|stateHidden"
         		  android:label="BlowTorch"
 				  android:configChanges="orientation|keyboard|keyboardHidden|screenLayout|screenSize"
         		  android:launchMode="singleTask"
         		  android:exported="false">
         		  <intent-filter>
-        		  	<action android:name="com.happygoatstudios.bt.window.MainWindow"/>
+        		  	<action android:name="com.resurrection.blowtorch2.lib.window.MainWindow"/>
         		  	<category android:name="android.intent.category.DEFAULT"/>
         		  </intent-filter>
         </activity>
-        <service android:name="com.offsetnull.bt.service.StellarService"
+        <service android:name="com.resurrection.blowtorch2.lib.service.StellarService"
         		 android:process=":remote"
         		 android:exported="false"
         		 android:foregroundServiceType="specialUse">
         		 <intent-filter>
-        		 	<action android:name="com.happygoatstudios.bt.service.IStellarService"/>
+        		 	<action android:name="com.resurrection.blowtorch2.lib.service.IStellarService"/>
         		 </intent-filter>
         </service>
         		  

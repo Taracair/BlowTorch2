@@ -20,7 +20,7 @@
        	android:layout_alignParentBottom="true"
     	
     	android:id="@+id/ctrl_target" /> -->
-	<com.offsetnull.bt.window.NoTouchActionBar
+	<com.resurrection.blowtorch2.lib.window.NoTouchActionBar
 		android:id="@+id/my_toolbar"
 		style="@style/BlowTorch.Game.Toolbar"
 		android:layout_width="match_parent"
@@ -73,7 +73,7 @@
     	android:textColor="@color/game_input_text"
     	android:text="|DOWN|"/>
     
-    <com.offsetnull.bt.window.BetterEditText
+    <com.resurrection.blowtorch2.lib.window.BetterEditText
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
     android:minHeight = "40dip"
@@ -128,7 +128,7 @@
     android:layout_above="@id/textinput" 
     /> -->
 
-     <!-- <com.happygoatstudios.bt.legacy.FixedViewFlipper 
+     <!-- <com.resurrection.blowtorch2.lib.legacy.FixedViewFlipper 
     	android:id="@+id/flippdipper"
     	android:layout_height="fill_parent"
     	android:layout_width="fill_parent"
@@ -169,7 +169,7 @@
     			android:typeface="monospace"/> -->
     		
     	<!-- </ScrollView> -->	
-	 <!-- </com.happygoatstudios.bt.legacy.FixedViewFlipper> -->
+	 <!-- </com.resurrection.blowtorch2.lib.legacy.FixedViewFlipper> -->
 	
 
 </RelativeLayout>

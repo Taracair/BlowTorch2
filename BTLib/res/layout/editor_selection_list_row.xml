@@ -60,7 +60,7 @@
   		android:lines="1"
   		android:id="@+id/infoExtended"/>
   	 
-  	 <com.offsetnull.bt.window.AnimatedRelativeLayout
+  	 <com.resurrection.blowtorch2.lib.window.AnimatedRelativeLayout
   	     android:id="@+id/toolbarholder"
   	     android:layout_width="wrap_content"
   	     android:layout_height="fill_parent"

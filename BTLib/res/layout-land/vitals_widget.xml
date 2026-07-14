@@ -7,15 +7,15 @@
 		android:orientation="vertical"
 		android:layout_alignParentBottom="true"
 		android:id="@+id/bars">
-		<com.happygoatstudios.bt.window.Bar
+		<com.resurrection.blowtorch2.lib.window.Bar
 			android:layout_width="100dip"
 			android:layout_height="6dip"
 			android:id="@+id/health"/>
-		<com.happygoatstudios.bt.window.Bar
+		<com.resurrection.blowtorch2.lib.window.Bar
 			android:layout_width="100dip"
 			android:layout_height="6dip"
 			android:id="@+id/mana"/>
-		<com.happygoatstudios.bt.window.Bar
+		<com.resurrection.blowtorch2.lib.window.Bar
 			android:layout_width="100dip"
 			android:layout_height="6dip"
 			android:id="@+id/enemy"/>

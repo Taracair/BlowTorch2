@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <lint>
     <issue id="NewApi">
-        <ignore path="src/com/offsetnull/bt/service/Connection.java" />
+        <ignore path="src/com/resurrection/blowtorch2/lib/service/Connection.java" />
     </issue>
 </lint>
