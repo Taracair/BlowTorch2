@@ -73,4 +73,10 @@
 		<item name="colorPrimaryDark">@android:color/transparent</item>
 	</style>
 
+	<!-- Wspólny styl dialogów gry: ciemne tło crawler, nieprzezroczyste. -->
+	<style name="BlowTorch.Dialog" parent="@style/Theme.AppCompat.Dialog">
+		<item name="android:windowBackground">@drawable/dialog_window_crawler1</item>
+		<item name="android:windowIsFloating">true</item>
+	</style>
+
 </resources>
