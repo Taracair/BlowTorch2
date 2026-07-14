@@ -704,7 +704,7 @@ swatchClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     elseif(selectedColorField == "flipLabel") then
       color = ui.flipLabelColor
     end
-    colorpickerdialog = luajava.newInstance("com.offsetnull.bt.button.ColorPickerDialog",context,colorPickerDoneListener,color)
+    colorpickerdialog = luajava.newInstance("com.resurrection.blowtorch2.lib.button.ColorPickerDialog",context,colorPickerDoneListener,color)
     colorpickerdialog:show()
   end
 })
@@ -716,7 +716,7 @@ swatchLongClickListener = luajava.createProxy("android.view.View$OnLongClickList
   end
 })
 
-colorPickerDoneListener = luajava.createProxy("com.offsetnull.bt.button.ColorPickerDialog$OnColorChangedListener",{
+colorPickerDoneListener = luajava.createProxy("com.resurrection.blowtorch2.lib.button.ColorPickerDialog$OnColorChangedListener",{
   colorChanged = function(color)
     if(selectedColorField == "flip") then
       ui.flipColorPicker:setBackgroundColor(color)

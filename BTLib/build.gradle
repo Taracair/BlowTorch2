@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.offsetnull.bt'
+    namespace 'com.resurrection.blowtorch2.lib'
     compileSdk 36
 
     defaultConfig {

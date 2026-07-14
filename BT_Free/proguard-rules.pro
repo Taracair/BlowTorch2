@@ -6,6 +6,6 @@
 	*;
 }
 
--keep class com.offsetnull.bt.** {
+-keep class com.resurrection.blowtorch2.lib.** {
 	*;
 }
