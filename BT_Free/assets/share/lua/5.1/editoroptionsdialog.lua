@@ -46,7 +46,9 @@ local setGridSnapTest
 local setAdvancedProperties
 local setShowGestureHints
 local editorDone
+local editorCancel
 setEditorDoneCallback = function(c) editorDone = c end
+setEditorCancelCallback = function(c) editorCancel = c end
 
 --setter methods for the above callbacks
 setGridSnapCallback = function(c) setGridSnap = c end
@@ -76,6 +78,7 @@ local gridOpacitySeekBarChangeListener
 local gridIntersectionTestRadioChangedListener
 local showGestureHintsCheckChangeListener
 local doneListener
+local cancelListener
 local setDefaultsEditorListener
 
 --ui widgets
@@ -230,12 +233,18 @@ function showDialog(initialValues)
   
   local boptHolder = luajava.new(LinearLayout,context)
   boptHolder:setLayoutParams(fillparams)
+  boptHolder:setOrientation(0)
   boptHolder:setGravity(Gravity.CENTER)
   local boptDoneButton = luajava.newInstance("android.widget.Button",context)
   boptDoneButton:setText("Done")
   boptDoneButton:setLayoutParams(wrapparamsNoWeight)
   boptDoneButton:setOnClickListener(doneListener)
+  local boptCancelButton = luajava.newInstance("android.widget.Button",context)
+  boptCancelButton:setText("Cancel")
+  boptCancelButton:setLayoutParams(wrapparamsNoWeight)
+  boptCancelButton:setOnClickListener(cancelListener)
   boptHolder:addView(boptDoneButton)
+  boptHolder:addView(boptCancelButton)
   
   ll:addView(boptHolder)
   
@@ -331,6 +340,15 @@ doneListener = luajava.createProxy("android.view.View$OnClickListener",{
       editorDone(editorValues)
     end
   
+    dialog:dismiss()
+  end
+})
+
+cancelListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if(editorCancel ~= nil) then
+      editorCancel()
+    end
     dialog:dismiss()
   end
 })

@@ -31,6 +31,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.Animation.AnimationListener;
 import android.view.animation.TranslateAnimation;
@@ -68,10 +69,25 @@ public class OptionsDialog extends Dialog {
 	Stack<SettingsGroup> backStack = new Stack<SettingsGroup>();
 	
 	public OptionsDialog(Context context,IConnectionBinder service,String plugin) {
-		super(context, R.style.BlowTorch_Dialog);
+		super(context, R.style.BlowTorch_Dialog_SlideFromRight);
 		this.selectedPlugin = plugin;
 		this.service = service;
 		//this.mFragementManager = fragmentManager;
+	}
+
+	@Override
+	public void show() {
+		super.show();
+		Window window = getWindow();
+		if (window == null) {
+			return;
+		}
+		int screenWidth = getContext().getResources().getDisplayMetrics().widthPixels;
+		WindowManager.LayoutParams params = window.getAttributes();
+		params.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+		params.width = Math.min(screenWidth, (int) (screenWidth * 0.88f));
+		params.height = WindowManager.LayoutParams.MATCH_PARENT;
+		window.setAttributes(params);
 	}
 
 	public void onCreate(Bundle b) {
@@ -912,8 +928,8 @@ public class OptionsDialog extends Dialog {
 			//int amount = 600;
 			//TranslateAnimation outAnim = new TranslateAnimation(0,-amount,0,0);
 			//TranslateAnimation inAnim = new TranslateAnimation(amount,0,0,0);
-			TranslateAnimation outAnim = new TranslateAnimation(Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
-			TranslateAnimation inAnim  = new TranslateAnimation(Animation.RELATIVE_TO_SELF,-1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
+			TranslateAnimation outAnim = new TranslateAnimation(Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,-1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
+			TranslateAnimation inAnim  = new TranslateAnimation(Animation.RELATIVE_TO_SELF,1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
 			
 			outAnim.setAnimationListener(new AnimationListener() {
 
