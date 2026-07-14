@@ -4,9 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 import android.content.Context;
 
@@ -17,13 +15,6 @@ import android.content.Context;
 public final class ProfileDiscovery {
 
 	private static final String LAUNCHER_LIST = "blowtorch_launcher_list.xml";
-
-	private static final Map<String, String[]> KNOWN_PROFILES = new HashMap<String, String[]>();
-
-	static {
-		KNOWN_PROFILES.put("samsaramoo", new String[] { "moo.samsara-moo.com", "7999" });
-		KNOWN_PROFILES.put("test", new String[] { "moo.samsara-moo.com", "7999" });
-	}
 
 	private ProfileDiscovery() {
 	}
@@ -51,14 +42,8 @@ public final class ProfileDiscovery {
 			}
 			MudConnection connection = new MudConnection();
 			connection.setDisplayName(displayName);
-			String[] known = KNOWN_PROFILES.get(displayName.toLowerCase(Locale.US));
-			if (known != null) {
-				connection.setHostName(known[0]);
-				connection.setPortString(known[1]);
-			} else {
-				connection.setHostName("host not set");
-				connection.setPortString("4000");
-			}
+			connection.setHostName("host not set");
+			connection.setPortString("4000");
 			settings.getList().put(displayName, connection);
 			added++;
 		}
