@@ -133,6 +133,7 @@ import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.graphics.Insets;
+import androidx.appcompat.widget.PopupMenu;
 import androidx.core.view.MenuItemCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -407,7 +408,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			overflowMenu.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					MainWindow.this.openOptionsMenu();
+					MainWindow.this.showGameplayOptionsMenu(v);
 				}
 			});
 		}
@@ -1761,6 +1762,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if(optdialog != null) {
 			optdialog.dismiss();
 		}
+	}
+
+	private void showGameplayOptionsMenu(final View anchor) {
+		PopupMenu popup = new PopupMenu(this, anchor, android.view.Gravity.END);
+		Menu menu = popup.getMenu();
+		onCreateOptionsMenu(menu);
+		popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+			@Override
+			public boolean onMenuItemClick(MenuItem item) {
+				return MainWindow.this.onOptionsItemSelected(item);
+			}
+		});
+		popup.show();
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -3573,8 +3587,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				overflowMenu.setVisibility(View.VISIBLE);
 				ViewGroup.LayoutParams olp = overflowMenu.getLayoutParams();
 				if (olp instanceof ViewGroup.MarginLayoutParams) {
-					((ViewGroup.MarginLayoutParams) olp).topMargin = statusBarHeight;
-					overflowMenu.setLayoutParams(olp);
+					ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) olp;
+					mlp.topMargin = 0;
+					overflowMenu.setLayoutParams(mlp);
 				}
 				overflowMenu.bringToFront();
 			}

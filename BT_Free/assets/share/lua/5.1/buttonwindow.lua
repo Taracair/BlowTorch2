@@ -75,6 +75,7 @@ function loadButtons(args)
 	for i=1,#set do
 		buttons[i] = BUTTON:new(set[i],density)
 	end
+	clampAllButtons()
 	drawButtons()
 	view:invalidate()
 	
@@ -251,6 +252,7 @@ function exitMoveMode()
 			local r = b.rect
 			b.data.x = b.data.x + dx
 			b.data.y = b.data.y + dy
+			b.data.x, b.data.y = clampLogicalPosition(b.data.x, b.data.y, b)
 			b.selected = false
 			updateSelected(b,false)
 			b:updateRect(statusoffset)
@@ -865,6 +867,38 @@ bounds = nil
 
 statusoffset = 0
 statusHidden = false
+editorToolbarHeight = 48
+
+function clampLogicalPosition(x, y, b)
+	local w = view:getWidth()
+	local h = view:getHeight()
+	if w <= 0 or h <= 0 then
+		return x, y
+	end
+	local halfW = (b.data.width / 2) * b.density
+	local halfH = (b.data.height / 2) * b.density
+	local minX = halfW
+	local maxX = w - halfW
+	local minY = halfH
+	local maxY = h - statusoffset - halfH
+	if minY > maxY then
+		minY = halfH
+		maxY = h - halfH
+	end
+	if x < minX then x = minX end
+	if x > maxX then x = maxX end
+	if y < minY then y = minY end
+	if y > maxY then y = maxY end
+	return x, y
+end
+
+function clampAllButtons()
+	for i = 1, #buttons do
+		local b = buttons[i]
+		b.data.x, b.data.y = clampLogicalPosition(b.data.x, b.data.y, b)
+		b:updateRect(statusoffset)
+	end
+end
 
 function refreshStatusOffset(relayoutButtons)
 	local hiddenNow = IsStatusBarHidden()
@@ -872,6 +906,9 @@ function refreshStatusOffset(relayoutButtons)
 	statusoffset = tonumber(GetStatusBarHeight()) or 0
 	if hiddenNow and statusoffset <= 0 then
 		statusoffset = tonumber(GetActionBarHeight()) or 0
+	end
+	if manage then
+		statusoffset = statusoffset + math.floor(editorToolbarHeight * density)
 	end
 	if relayoutButtons ~= false then
 		for i = 1, #buttons do
@@ -919,6 +956,8 @@ cpaint:setXfermode(xferModeClear)
 
 drawManagerLayer = true
 function enterManagerMode()
+	manage = true
+	refreshStatusOffset(true)
 	gridXwidth = defaults.gridXwidth*density
 	gridYwidth = defaults.gridYwidth*density
 	if(drawManagerLayer) then
@@ -935,7 +974,6 @@ function enterManagerMode()
 	--touchedbutton = nil
 		--paint:setShadowLayer(1,0,0,Color.WHITE)
 	view:setOnTouchListener(managerTouch_cb)
-	manage = true
 	drawButtons()
 	view:invalidate()
 end
@@ -948,6 +986,7 @@ function exitManagerMode()
 	end
 	view:setOnTouchListener(normalTouch_cb)
 	manage = false
+	refreshStatusOffset(true)
 	
 	local parent = view:getParent()
 	parent:removeView(backWidget)
@@ -993,18 +1032,19 @@ function drawManagerGrid()
 		local width = view:getWidth()
 		local height = view:getHeight()
 		--Note("starting draw")
-		c:drawRect(0,0,width,height,cpaint)
+		c:drawRect(0,statusoffset,width,height,cpaint)
 		--Note("canvas is not null")
 		c:drawARGB(manageropacity,0x0A,0x0A,0x0A)
 		--draw dashed lines.
 		local times = width / gridXwidth
 		for x=1,times do
-			c:drawLine( gridXwidth*x,0,gridXwidth*x,height,dpaint)
+			c:drawLine( gridXwidth*x,statusoffset,gridXwidth*x,height,dpaint)
 		end
 		
-		times = height / gridYwidth
+		times = (height - statusoffset) / gridYwidth
 		for y=1,times do
-			c:drawLine(0,gridYwidth*y,width,gridYwidth*y,dpaint)
+			local gy = statusoffset + gridYwidth*y
+			c:drawLine(0,gy,width,gy,dpaint)
 		end
 
 end
@@ -1083,6 +1123,15 @@ function buttonOptions()
   editorValues.gridIntersectionTest = intersectMode
   editorValues.gridSnap = gridsnap
   editorValues.showGestureHints = options.show_gesture_hints ~= "false" and options.show_gesture_hints ~= false
+
+  local editorSnapshot = {
+    gridsnap = gridsnap,
+    gridXwidth = gridXwidth,
+    gridYwidth = gridYwidth,
+    manageropacity = manageropacity,
+    intersectMode = intersectMode,
+    showGestureHints = editorValues.showGestureHints
+  }
 
   local editorOptionsDialog = require("editoroptionsdialog")
   editorOptionsDialog.init(mContext)
@@ -1184,6 +1233,17 @@ function buttonOptions()
   end)
   editorOptionsDialog.setShowGestureHintsCallback(function(v)
     PluginXCallS("OnOptionChanged", "show_gesture_hints", v and "true" or "false")
+  end)
+  editorOptionsDialog.setEditorCancelCallback(function()
+    gridsnap = editorSnapshot.gridsnap
+    gridXwidth = editorSnapshot.gridXwidth
+    gridYwidth = editorSnapshot.gridYwidth
+    manageropacity = editorSnapshot.manageropacity
+    intersectMode = editorSnapshot.intersectMode
+    dpaint:setAlpha(manageropacity)
+    drawManagerGrid()
+    drawButtons()
+    view:invalidate()
   end)
   
   editorOptionsDialog.showDialog(editorValues)
@@ -1497,6 +1557,9 @@ counter = 0
 
 function addButton(pX,pY) 
 	local newb = BUTTON:new({x=pX,y=pY,label=""},density)
+	pX, pY = clampLogicalPosition(pX, pY, newb)
+	newb.data.x = pX
+	newb.data.y = pY
 	--newb.x = x
 	--newb.y = y
 	--next two lines seem to be messing with the defaults.
@@ -1607,6 +1670,7 @@ function OnSizeChanged(w,h,oldw,oldh)
 	revertButtonData.y = h - revertButtonData.height*2
 	revertButton:updateRect(statusoffset)
 	
+	clampAllButtons()
 	drawButtons()
 	draw = true
 	
@@ -2258,8 +2322,9 @@ function PopulateMenu(menu)
 			cancel:setOnMenuItemClickListener(buttonsetCancelClicked_cb)
 			foo = function(item) item:setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS) end
 			pcall(foo,done)
-			pcall(foo,settings)
 			pcall(foo,cancel)
+			local settingsIfRoom = function(item) item:setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM) end
+			pcall(settingsIfRoom,settings)
 			return
 		end
 		

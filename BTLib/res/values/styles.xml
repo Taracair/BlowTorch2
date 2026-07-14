@@ -79,4 +79,14 @@
 		<item name="android:windowIsFloating">true</item>
 	</style>
 
+	<style name="BlowTorch.Dialog.SlideFromRight" parent="@style/BlowTorch.Dialog">
+		<item name="android:windowIsFloating">false</item>
+		<item name="android:windowAnimationStyle">@style/BlowTorch.Dialog.SlideFromRight.Animation</item>
+	</style>
+
+	<style name="BlowTorch.Dialog.SlideFromRight.Animation">
+		<item name="android:windowEnterAnimation">@anim/slide_left_in</item>
+		<item name="android:windowExitAnimation">@anim/slide_right_out</item>
+	</style>
+
 </resources>
