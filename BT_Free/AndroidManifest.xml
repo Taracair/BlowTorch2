@@ -3,15 +3,19 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <uses-permission android:name="android.permission.INTERNET"/>
-	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.INTERNET"/>
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="BlowTorch 2 Test" android:allowBackup="true" android:process="com.resurrection.blowtorch2.test" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled">
-    	<meta-data android:value="126" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="true" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled">
+    	<meta-data android:value="129" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
     	<activity android:name="com.offsetnull.btfree.FreeLauncher"
-    	          android:label="BlowTorch 2 Test"
+    	          android:label="${appLabel}"
     	          android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,6 +28,7 @@
         </activity>
         <!-- android:windowSoftInputMode="adjustResize" -->
         <activity android:name="com.offsetnull.bt.window.MainWindow"
+        		  android:theme="@style/BlowTorch.GameWindow"
         		  android:windowSoftInputMode="adjustPan|stateHidden"
         		  android:label="BlowTorch"
 				  android:configChanges="orientation|keyboard|keyboardHidden|screenLayout|screenSize"
@@ -37,7 +42,8 @@
         </activity>
         
         <service tools:replace="android:process" android:name="com.offsetnull.bt.service.StellarService"
-        		 android:process=":stellar" android:exported="false">
+        		 android:process=":stellar" android:exported="false"
+        		 android:foregroundServiceType="specialUse">
         		 <intent-filter>
         		 	
         		 	<action android:name="com.offsetnull.bt.service.IStellarService.MODE_NORMAL"/>

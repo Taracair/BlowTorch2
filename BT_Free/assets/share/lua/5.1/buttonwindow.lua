@@ -868,10 +868,10 @@ statusHidden = false
 
 function refreshStatusOffset(relayoutButtons)
 	local hiddenNow = IsStatusBarHidden()
-	if hiddenNow then
-		statusoffset = tonumber(GetStatusBarHeight()) or 0
-	else
-		statusoffset = 0
+	-- Edge-to-edge: keep tap targets below status icons unless fullscreen hides the bar.
+	statusoffset = tonumber(GetStatusBarHeight()) or 0
+	if hiddenNow and statusoffset <= 0 then
+		statusoffset = tonumber(GetActionBarHeight()) or 0
 	end
 	if relayoutButtons ~= false then
 		for i = 1, #buttons do

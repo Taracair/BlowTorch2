@@ -3,15 +3,11 @@ package com.offsetnull.bt.ui;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import com.google.android.material.snackbar.Snackbar;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import android.os.Build;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import android.view.View;
 
-
-import com.offsetnull.bt.R;
-import com.offsetnull.bt.launcher.Launcher;
 import com.offsetnull.bt.settings.ConfigurationLoader;
 
 public class SDCardUtils {
@@ -27,51 +23,52 @@ public class SDCardUtils {
         }
     }
 
-    public static boolean hasPermissions(final AppCompatActivity activity, View root, final int code) {
-        if (ContextCompat.checkSelfPermission(activity,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-
-            // Permission is not granted
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(activity,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-
-
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-                Snackbar.make(root, R.string.sdcardpermissions,
-                        Snackbar.LENGTH_INDEFINITE)
-                        .setAction(android.R.string.ok, new View.OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                ActivityCompat.requestPermissions(activity,
-                                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                                        code);
-                            }
-                        })
-                        .show();
-
-
-            } else {
-
-                // No explanation needed; request the permission
-                ActivityCompat.requestPermissions(activity,
-                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                        code);
-
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
-            }
-            return false;
-        } else {
-            // Permission has already been granted
-            return true;
+    public static String[] getStoragePermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return new String[] { Manifest.permission.READ_EXTERNAL_STORAGE };
         }
-
-
+        return new String[] {
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+        };
     }
 
+    public static boolean hasStoragePermissions(AppCompatActivity activity) {
+        return PermissionHelper.allGranted(activity, getStoragePermissions());
+    }
+
+    /**
+     * Requests notification and storage permissions once at launcher startup.
+     */
+    public static void requestStartupPermissions(final AppCompatActivity activity, View root, final int code) {
+        java.util.ArrayList<String> needed = new java.util.ArrayList<String>();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            for (String permission : PermissionHelper.getNotificationPermissions()) {
+                if (ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED) {
+                    needed.add(permission);
+                }
+            }
+        }
+        for (String permission : getStoragePermissions()) {
+            if (ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED) {
+                needed.add(permission);
+            }
+        }
+        if (needed.isEmpty()) {
+            return;
+        }
+        int featureRes = PermissionHelper.featureMessageForRequestCode(code);
+        PermissionHelper.ensurePermissions(activity, root, code,
+                needed.toArray(new String[needed.size()]), featureRes, null);
+    }
+
+    public static boolean hasPermissions(final AppCompatActivity activity, View root, final int code) {
+        return hasPermissions(activity, root, code, null);
+    }
+
+    public static boolean hasPermissions(final AppCompatActivity activity, View root, final int code,
+            final Runnable onGranted) {
+        int featureRes = PermissionHelper.featureMessageForRequestCode(code);
+        return PermissionHelper.ensurePermissions(activity, root, code, getStoragePermissions(), featureRes, onGranted);
+    }
 }

@@ -43,7 +43,9 @@ import android.content.pm.ApplicationInfo;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
@@ -126,12 +128,16 @@ import com.offsetnull.bt.timer.TimerSelectionDialog;
 import com.offsetnull.bt.trigger.BetterTriggerSelectionDialog;
 import com.offsetnull.bt.trigger.TriggerSelectionDialog;
 import com.offsetnull.bt.ui.SDCardUtils;
+import com.offsetnull.bt.ui.PermissionHelper;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.graphics.Insets;
 import androidx.core.view.MenuItemCompat;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 public class MainWindow extends AppCompatActivity implements MainWindowCallback,ActivityCompat.OnRequestPermissionsResultCallback {
 	
@@ -380,29 +386,46 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		statusBarHeight = sprefs.getInt("STATUS_BAR_HEIGHT", (int)(25 * this.getResources().getDisplayMetrics().density));
 		titleBarHeight = sprefs.getInt("TITLE_BAR_HEIGHT", 0);
 		setContentView(R.layout.window_layout);
+		getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
+		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+			getWindow().setStatusBarColor(Color.TRANSPARENT);
+			getWindow().setNavigationBarColor(Color.BLACK);
+		}
+		androidx.core.view.WindowInsetsControllerCompat insetsController =
+				WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+		if (insetsController != null) {
+			insetsController.setAppearanceLightStatusBars(false);
+		}
 
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		setSupportActionBar(myToolbar);
-		ViewCompat.setOnApplyWindowInsetsListener(myToolbar, (view, windowInsets) -> {
-			int topInset = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-			TypedValue actionBarSize = new TypedValue();
-			if (getTheme().resolveAttribute(android.R.attr.actionBarSize, actionBarSize, true)) {
-				int barHeight = TypedValue.complexToDimensionPixelSize(
-						actionBarSize.data, getResources().getDisplayMetrics());
-				ViewGroup.LayoutParams lp = view.getLayoutParams();
-				lp.height = barHeight + topInset;
-				view.setLayoutParams(lp);
-				titleBarHeight = barHeight + topInset;
-				statusBarHeight = topInset;
-				SharedPreferences.Editor insetEditor = getSharedPreferences("STATUS_BAR_HEIGHT", 0).edit();
-				insetEditor.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
-				insetEditor.putInt("STATUS_BAR_HEIGHT", topInset);
-				insetEditor.apply();
-				windowCall("button_window", "delayedStatusRefresh", "");
-			}
-			view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), view.getPaddingBottom());
-			return windowInsets;
+		configureGameplayToolbar(myToolbar);
+
+		final View overflowMenu = findViewById(R.id.overflow_menu);
+		if (overflowMenu != null) {
+			overflowMenu.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					MainWindow.this.openOptionsMenu();
+				}
+			});
+		}
+
+		final View chromeRoot = findViewById(R.id.window_container);
+		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) -> {
+			Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+			view.setPadding(0, 0, 0, bars.bottom);
+			statusBarHeight = bars.top;
+			titleBarHeight = bars.top;
+			SharedPreferences.Editor insetEditor = getSharedPreferences("STATUS_BAR_HEIGHT", 0).edit();
+			insetEditor.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
+			insetEditor.putInt("STATUS_BAR_HEIGHT", bars.top);
+			insetEditor.apply();
+			refreshGameChrome();
+			return WindowInsetsCompat.CONSUMED;
 		});
+		updateMenuChrome();
 
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
 			@Override
@@ -837,9 +860,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					
 					if(needschange) {
-						
-						//screen2.doDelayedDraw(100);
-						
+						refreshGameChrome();
+						final View chromeRootRefresh = findViewById(R.id.window_container);
+						if (chromeRootRefresh != null) {
+							ViewCompat.requestApplyInsets(chromeRootRefresh);
+						}
 					}
 					
 					//try {
@@ -1392,7 +1417,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mRootView = (RelativeLayout)this.findViewById(R.id.window_container);
 
 
-		this.getSupportActionBar().setBackgroundDrawable(new ColorDrawable(0x00FFFFFF));
+		this.getSupportActionBar().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+		configureGameplayToolbar((androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar));
 
 		this.getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_HOME);
 		this.getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_TITLE);
@@ -1527,6 +1553,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//if(supportsActionBar()) {
 			this.invalidateOptionsMenu();
 		//}
+		updateMenuChrome();
 	}
 
 	Stack<MenuStackItem> menuStack = new Stack<MenuStackItem>();
@@ -1536,6 +1563,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//if(supportsActionBar()) {
 			this.invalidateOptionsMenu();
 		//}
+		updateMenuChrome();
 	}
 	
 	private class MenuStackItem {
@@ -1746,24 +1774,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		switch(item.getItemId()) {
 			case 1500:
-				if(SDCardUtils.hasPermissions(this,findViewById(R.id.window_container),RP_INFO)) {
-					showPermissionsMessage(true);
-				}
+				SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_INFO, new Runnable() {
+					@Override
+					public void run() {
+						showPermissionsMessage(SDCardUtils.hasStoragePermissions(MainWindow.this));
+					}
+				});
 				break;
 		case 1200:
 			//reset
 			doResetDialog();
 			break;
 		case 1300:
-			if(SDCardUtils.hasPermissions(this,findViewById(R.id.window_container),RP_EXPORT)) {
-				doExportDialog();
-			}
-			//export
+			SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_EXPORT, new Runnable() {
+				@Override
+				public void run() {
+					doExportDialog();
+				}
+			});
 			break;
 		case 1400:
-			if(SDCardUtils.hasPermissions(this,findViewById(R.id.window_container),RP_IMPORT)) {
-				doImportDialog(true);
-			}
+			SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_IMPORT, new Runnable() {
+				@Override
+				public void run() {
+					doImportDialog(SDCardUtils.hasStoragePermissions(MainWindow.this));
+				}
+			});
 			break;
 		case 600:
 			BetterPluginSelectionDialog pd = new BetterPluginSelectionDialog(this,service);
@@ -2161,15 +2197,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
 			return;
 		}
-		if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-			return;
-		}
-		SharedPreferences prefs = getSharedPreferences("BLOWTORCH_UI", Context.MODE_PRIVATE);
-		if (prefs.getBoolean("NOTIFICATION_PERMISSION_REQUESTED", false)) {
-			return;
-		}
-		prefs.edit().putBoolean("NOTIFICATION_PERMISSION_REQUESTED", true).apply();
-		requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, RP_NOTIFICATIONS);
+		View root = findViewById(R.id.window_container);
+		PermissionHelper.ensurePermissions(this, root, RP_NOTIFICATIONS,
+				PermissionHelper.getNotificationPermissions(),
+				R.string.permission_feature_notifications, null);
 	}
 	
 	public void onBackPressed() {
@@ -2230,6 +2261,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if(newconfig.keyboardHidden == Configuration.KEYBOARDHIDDEN_YES) {
 			if(keyboardShowing == true) {
 				keyboardShowing = false;
+				refreshGameChrome();
 				return;
 			}
 		}
@@ -2237,6 +2269,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if(newconfig.keyboardHidden == Configuration.KEYBOARDHIDDEN_NO) {
 			if(keyboardShowing == false) {
 				keyboardShowing = true;
+				refreshGameChrome();
 				return;
 			}
 		}
@@ -2279,7 +2312,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			break;
 		}
 		
-		
+		refreshGameChrome();
 		
 	}
 	
@@ -2686,6 +2719,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 			MainWindow.this.findViewById(R.id.window_container).requestLayout();
 			isFullScreen = fullscreen;
+			refreshGameChrome();
+			final View chromeRootRefresh = findViewById(R.id.window_container);
+			if (chromeRootRefresh != null) {
+				ViewCompat.requestApplyInsets(chromeRootRefresh);
+			}
 			//BetterEditText input_box = (BetterEditText)findViewById(R.id.textinput);
 			mInputBox.setBackSpaceBugFix(true);
 			
@@ -3273,9 +3311,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			this.invalidateOptionsMenu();
 		//}
 
-		//bring the toolbar to the front
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
-		myToolbar.bringToFront();
+		if (myToolbar != null) {
+			configureGameplayToolbar(myToolbar);
+		}
+		updateMenuChrome();
 		//Debug.stopMethodTracing();
 	}
 	
@@ -3307,7 +3347,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				params = (android.widget.RelativeLayout.LayoutParams) w.getLayout(screenSize, !landscape);
 			}
 			if (params != null) {
-				params.addRule(RelativeLayout.BELOW, R.id.my_toolbar);
+				params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 			}
 
 			tmp.setLayoutParams(params);
@@ -3469,6 +3509,119 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public double getTitleBarHeight() {
 		return titleBarHeight;
 	}
+
+	private int getActionBarHeightPx() {
+		TypedValue tv = new TypedValue();
+		if (getTheme().resolveAttribute(androidx.appcompat.R.attr.actionBarSize, tv, true)) {
+			return TypedValue.complexToDimensionPixelSize(tv.data, getResources().getDisplayMetrics());
+		}
+		return (int) (48 * getResources().getDisplayMetrics().density);
+	}
+
+	/**
+	 * Jedno źródło prawdy dla chrome gry: odśwież pozycje menu oraz przelicz
+	 * offsety w oknach Lua (przyciski i ForgeMap).
+	 */
+	private void refreshGameChrome() {
+		updateMenuChrome();
+		windowCall("button_window", "delayedStatusRefresh", "");
+		windowCall("forgemap_window", "refreshChromeInsets", "");
+	}
+
+	/**
+	 * During button-layout editing, Done/Cancel/Settings live on the action bar.
+	 * Keep the toolbar hidden during normal play (edge-to-edge); show it only while
+	 * a plugin menu stack is active.
+	 */
+	private void updateMenuChrome() {
+		final androidx.appcompat.widget.Toolbar toolbar =
+				(androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
+		final View overflowMenu = findViewById(R.id.overflow_menu);
+		if (toolbar == null) {
+			return;
+		}
+		final boolean showEditorChrome = menuStack.size() > 0;
+		ViewGroup.LayoutParams lp = toolbar.getLayoutParams();
+		if (showEditorChrome) {
+			if (lp != null) {
+				lp.height = getActionBarHeightPx();
+				if (lp instanceof ViewGroup.MarginLayoutParams) {
+					((ViewGroup.MarginLayoutParams) lp).topMargin = statusBarHeight;
+				}
+				toolbar.setLayoutParams(lp);
+			}
+			toolbar.setVisibility(View.VISIBLE);
+			if (overflowMenu != null) {
+				overflowMenu.setVisibility(View.GONE);
+			}
+			toolbar.post(new Runnable() {
+				@Override
+				public void run() {
+					toolbar.bringToFront();
+				}
+			});
+		} else {
+			if (lp != null) {
+				lp.height = 0;
+				if (lp instanceof ViewGroup.MarginLayoutParams) {
+					((ViewGroup.MarginLayoutParams) lp).topMargin = 0;
+				}
+				toolbar.setLayoutParams(lp);
+			}
+			toolbar.setVisibility(View.GONE);
+			if (overflowMenu != null) {
+				overflowMenu.setVisibility(View.VISIBLE);
+				ViewGroup.LayoutParams olp = overflowMenu.getLayoutParams();
+				if (olp instanceof ViewGroup.MarginLayoutParams) {
+					((ViewGroup.MarginLayoutParams) olp).topMargin = statusBarHeight;
+					overflowMenu.setLayoutParams(olp);
+				}
+				overflowMenu.bringToFront();
+			}
+		}
+	}
+
+	private void configureGameplayToolbar(androidx.appcompat.widget.Toolbar toolbar) {
+		if (toolbar == null) {
+			return;
+		}
+		ColorDrawable transparent = new ColorDrawable(Color.TRANSPARENT);
+		toolbar.setBackground(transparent);
+		toolbar.setBackgroundDrawable(transparent);
+		toolbar.setElevation(0f);
+		toolbar.setClickable(false);
+		toolbar.setFocusable(false);
+		toolbar.setContentInsetsAbsolute(0, 0);
+		toolbar.setContentInsetsRelative(0, 0);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+			toolbar.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
+			toolbar.setStateListAnimator(null);
+		}
+		if (getSupportActionBar() != null) {
+			getSupportActionBar().setBackgroundDrawable(transparent);
+			getSupportActionBar().setElevation(0f);
+		}
+		if (toolbar.getParent() instanceof View) {
+			View parent = (View) toolbar.getParent();
+			parent.setBackgroundColor(Color.TRANSPARENT);
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+				parent.setElevation(0f);
+			}
+		}
+		View decor = getWindow().getDecorView();
+		if (decor != null) {
+			decor.setBackgroundColor(Color.TRANSPARENT);
+		}
+		toolbar.post(new Runnable() {
+			@Override
+			public void run() {
+				toolbar.setBackground(transparent);
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+					toolbar.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
+				}
+			}
+		});
+	}
 	
 	@Override
 	public void onNewIntent(Intent i) {
@@ -3595,23 +3748,41 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	@Override
 	public void onRequestPermissionsResult(int requestCode, String[] permissions,
 										   int[] grantResults) {
-		boolean external = false;
-		if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-			external = true;
-		}
+		final View root = findViewById(R.id.window_container);
+		final boolean external = SDCardUtils.hasStoragePermissions(this);
+		final int featureRes = PermissionHelper.featureMessageForRequestCode(requestCode);
 
 		switch(requestCode) {
 			case RP_INFO:
-				showPermissionsMessage(external);
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_INFO, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						showPermissionsMessage(external);
+					}
+				}, null);
 				break;
 			case RP_EXPORT:
-				doExportDialog();
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_EXPORT, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						doExportDialog();
+					}
+				}, null);
 				break;
 			case RP_IMPORT:
-				//doImportDialog(external);
-				showImportMessage(external);
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_IMPORT, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						doImportDialog(external);
+					}
+				}, null);
 				break;
 			case RP_NOTIFICATIONS:
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_NOTIFICATIONS, permissions,
+						grantResults, featureRes, null, null);
 				break;
 			default:
 				break;
