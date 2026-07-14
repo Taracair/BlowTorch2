@@ -89,4 +89,9 @@
 		<item name="android:windowExitAnimation">@anim/slide_right_out</item>
 	</style>
 
+	<style name="BlowTorch.Game.PopupMenu" parent="@style/ThemeOverlay.AppCompat.Dark">
+		<item name="android:popupBackground">@drawable/dialog_window_crawler1</item>
+		<item name="android:textColorPrimary">@android:color/white</item>
+	</style>
+
 </resources>
