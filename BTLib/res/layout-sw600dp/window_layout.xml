@@ -7,19 +7,6 @@
     android:layout_height="fill_parent"
     android:background="@android:color/transparent">
     
- <!--  <RelativeLayout
-	android:layout_height="wrap_content"
-	android:minHeight="40dip"
-	android:layout_width="fill_parent"
-	android:id="@+id/input_bar"
-	android:layout_alignParentBottom="true"
-	android:layout_alignParentLeft="true">-->
-    <!-- <LinearLayout
-    	android:layout_height="40dip"
-    	android:layout_width="wrap_content"
-       	android:layout_alignParentBottom="true"
-    	
-    	android:id="@+id/ctrl_target" /> -->
 	<com.resurrection.blowtorch2.lib.window.NoTouchActionBar
 		android:id="@+id/my_toolbar"
 		style="@style/BlowTorch.Game.Toolbar"
@@ -109,70 +96,6 @@
         android:layout_above="@id/inputbar"
         android:id="@+id/divider"
         android:background="@color/game_divider"/>
-<!-- </RelativeLayout>  -->
-	<!--  android:lineSpacingExtra = "-2sp" -->
-    
-    <!-- <View 
-    android:layout_width = "fill_parent" 
-    android:layout_height = "3px"
-    android:id = "@+id/filler"
-    android:background = "#FF9999FF"
-    android:drawableTop = "#FF9999FF" 
-    android:layout_above="@id/textinput" 
-    /> -->
-    
-    <!-- <View 
-    android:layout_width = "fill_parent" 
-    android:layout_height = "3px"
-    android:id = "@+id/filler2"
-    android:background = "#FFFF0000"
-    android:drawableTop = "#00FF0000" 
-    android:layout_above="@id/textinput" 
-    /> -->
-
-     <!-- <com.resurrection.blowtorch2.lib.legacy.FixedViewFlipper 
-    	android:id="@+id/flippdipper"
-    	android:layout_height="fill_parent"
-    	android:layout_width="fill_parent"
-    	android:layout_above="@id/filler"> -->
-    	
-    	
- <!--   <ScrollView 
-    		android:id="@+id/secscroller"
-    		android:layout_height="fill_parent"
-   	 		android:layout_width="fill_parent"> -->
-    			<!-- <TextView  
-    				android:layout_width="fill_parent" 
-   					android:layout_height="fill_parent" 
-    				android:text="@string/hello2"
-   					android:textSize="12sp"
-    				android:typeface="monospace"
-    				android:id="@+id/tv2" /> -->
-    				<!-- <RelativeLayout 
-    					android:id="@+id/slickholder"
-    					android:layout_width="fill_parent"
-    					android:layout_height="fill_parent"
-    					android:layout_alignParentTop="true"
-    					android:layout_alignParentLeft="true"
-    					android:layout_alignParentRight="true"
-    					android:layout_above="@id/textinput"
-    					>
-    				</RelativeLayout> -->
-    					
-    <!--	</ScrollView> -->
-    	<!-- <ScrollView
-    	    android:id="@+id/thrirdscroller"
-    		android:layout_height="fill_parent"
-   	 		android:layout_width="fill_parent"> -->
-    		<!--  <WebView
-    			android:id="@+id/webview"
-    			android:layout_height="fill_parent"
-    			android:layout_width="fill_parent"
-    			android:typeface="monospace"/> -->
-    		
-    	<!-- </ScrollView> -->	
-	 <!-- </com.resurrection.blowtorch2.lib.legacy.FixedViewFlipper> -->
-	
 
 </RelativeLayout>
 

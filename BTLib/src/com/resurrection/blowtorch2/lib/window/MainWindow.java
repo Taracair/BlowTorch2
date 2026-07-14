@@ -34,6 +34,7 @@ import android.app.AlertDialog.Builder;
 import android.app.Fragment;
 import android.content.ComponentName;
 import android.content.Context;
+import android.view.ContextThemeWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -426,6 +427,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			refreshGameChrome();
 			return WindowInsetsCompat.CONSUMED;
 		});
+		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		updateMenuChrome();
 
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -1351,19 +1353,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//}
 		
 		if(!isServiceRunning()) {
-			//start the service
-			//if("com.resurrection.blowtorch2.lib.MainWindow.NORMAL_MODE".equals(this.getIntent().getAction())) {
-			//	mode = LAUNCH_MODE.FREE;
-			//} else if("com.resurrection.blowtorch2.lib.MainWindow.NORMAL_MODE".equals(this.getIntent().getAction())) {
-			//	mode = LAUNCH_MODE.TEST;
-			//}
-			
-			/*if(mode == LAUNCH_MODE.FREE) {
-				this.startService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_NORMAL"));
-			} else if(mode == LAUNCH_MODE.TEST) {
-				this.startService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_TEST"));
-			}*/
-			
 			String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
 			Intent startAction = new Intent(this,StellarService.class);
 			startAction.setPackage(this.getPackageName());
@@ -1376,9 +1365,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			startAction.putExtra("HOST", mine.getExtras().getString("HOST","aardmud.org"));
 			
 			androidx.core.content.ContextCompat.startForegroundService(this, startAction);
-			
-			//this.startService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName()));
-			//servicestarted = true;
 		}
 		
 		//register screenlock thingie.
@@ -1765,7 +1751,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void showGameplayOptionsMenu(final View anchor) {
-		PopupMenu popup = new PopupMenu(this, anchor, android.view.Gravity.END);
+		Context themed = new ContextThemeWrapper(this, R.style.BlowTorch_Game_PopupMenu);
+		PopupMenu popup = new PopupMenu(themed, anchor, android.view.Gravity.END);
 		Menu menu = popup.getMenu();
 		onCreateOptionsMenu(menu);
 		popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
@@ -2447,13 +2434,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		
 
-		//String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
-		//this.stopService(new Intent(serviceBindAction));
-		/*if(mode == LAUNCH_MODE.FREE) {
-			this.stopService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_NORMAL"));
-		} else if(mode == LAUNCH_MODE.TEST) {
-			this.stopService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_TEST"));
-		}*/
 		
 	}
 	
@@ -2595,18 +2575,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//windowShowing = true;
 		
 		if(!isBound) {
-			/*if("com.resurrection.blowtorch2.lib.window.MainWindow.NORMAL_MODE".equals(this.getIntent().getAction())) {
-				mode = LAUNCH_MODE.FREE;
-			} else if("com.resurrection.blowtorch2.lib.window.MainWindow.TEST_MODE".equals(this.getIntent().getAction())) {
-				mode = LAUNCH_MODE.TEST;
-			}
-			if(mode == LAUNCH_MODE.FREE) {
-				//this.startService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_NORMAL"));
-				bindService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName()+".MODE_NORMAL"), mConnection, 0);
-			} else if(mode == LAUNCH_MODE.TEST) {
-				//this.startService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName() + ".MODE_TEST"));
-				this.bindService(new Intent(com.resurrection.blowtorch2.lib.service.IStellarService.class.getName()+".MODE_TEST"), mConnection, 0);
-			}*/
 			SharedPreferences.Editor edit = MainWindow.this.getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE).edit();
 			edit.putString("CONNECT_TO", MainWindow.this.getIntent().getStringExtra("DISPLAY"));
 			edit.commit();
@@ -3329,6 +3297,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (myToolbar != null) {
 			configureGameplayToolbar(myToolbar);
 		}
+		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		updateMenuChrome();
 		//Debug.stopMethodTracing();
 	}
@@ -3459,18 +3428,56 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				rl.removeViewAt(rl.getChildCount()-2);
 			}
 		}*/
-		View inputbar = rl.findViewById(10);
-		View divider = rl.findViewById(40);
-		rl.removeAllViews();
-		RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.WRAP_CONTENT);
-		p.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-		inputbar.setLayoutParams(p);
-		RelativeLayout.LayoutParams pl = new RelativeLayout.LayoutParams(LayoutParams.FILL_PARENT,(int) (3*this.getResources().getDisplayMetrics().density));
-		pl.addRule(RelativeLayout.ABOVE,10);
-		//p.addRule(RelativeLayout.BELOW,6666);
-		divider.setLayoutParams(pl);
-		rl.addView(inputbar);
-		rl.addView(divider);
+		layoutGameplayChrome(rl);
+	}
+	
+	private void layoutGameplayChrome(RelativeLayout rl) {
+		if (rl == null) {
+			return;
+		}
+		final View inputbar = rl.findViewById(R.id.inputbar);
+		final View divider = rl.findViewById(R.id.divider);
+		final View toolbar = rl.findViewById(R.id.my_toolbar);
+		final View overflowMenu = rl.findViewById(R.id.overflow_menu);
+		if (inputbar == null || divider == null) {
+			return;
+		}
+		final float density = getResources().getDisplayMetrics().density;
+		final int margin = (int) (4 * density);
+		final int dividerHeight = (int) (3 * density);
+
+		RelativeLayout.LayoutParams inputLp = new RelativeLayout.LayoutParams(
+				LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+		inputLp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+		inputbar.setLayoutParams(inputLp);
+
+		RelativeLayout.LayoutParams dividerLp = new RelativeLayout.LayoutParams(
+				LayoutParams.MATCH_PARENT, dividerHeight);
+		dividerLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
+		divider.setLayoutParams(dividerLp);
+
+		if (toolbar != null) {
+			RelativeLayout.LayoutParams toolbarLp = new RelativeLayout.LayoutParams(
+					LayoutParams.MATCH_PARENT, 0);
+			toolbarLp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			toolbar.setLayoutParams(toolbarLp);
+		}
+
+		if (overflowMenu != null) {
+			int size = (int) (48 * density);
+			RelativeLayout.LayoutParams overflowLp = new RelativeLayout.LayoutParams(size, size);
+			overflowLp.addRule(RelativeLayout.ALIGN_PARENT_END);
+			overflowLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
+			overflowLp.setMargins(0, 0, margin, margin);
+			overflowMenu.setLayoutParams(overflowLp);
+			overflowMenu.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					MainWindow.this.showGameplayOptionsMenu(v);
+				}
+			});
+			overflowMenu.bringToFront();
+		}
 	}
 	
 	public void callWindowScript(String window, String callback) {
