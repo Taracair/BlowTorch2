@@ -333,10 +333,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			//register callback
 			try {
-				String display = MainWindow.this.getIntent().getStringExtra("DISPLAY");
-				String host = MainWindow.this.getIntent().getStringExtra("HOST");
-				int port = Integer.parseInt(MainWindow.this.getIntent().getStringExtra("PORT"));
-				service.registerCallback(the_callback,host,port,display);
+				String display = MainWindow.this.getConnectionDisplay();
+				String host = MainWindow.this.getConnectionHost();
+				int port = MainWindow.this.getConnectionPort();
+				service.registerCallback(the_callback, host, port, display);
 				
 			} catch (RemoteException e) {
 				//do nothing here, as there isn't much we can do
@@ -1344,13 +1344,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
 			Intent startAction = new Intent(this,StellarService.class);
 			startAction.setPackage(this.getPackageName());
-			//startAction.putExtra(name, value)
-			//Bundle b = startAction.getExtras();
 			Intent mine = getIntent();
 
-			startAction.putExtra("DISPLAY", mine.getExtras().getString("DISPLAY","Aardwolf RPG"));
-			startAction.putExtra("PORT", mine.getExtras().getString("PORT","7777"));
-			startAction.putExtra("HOST", mine.getExtras().getString("HOST","aardmud.org"));
+			startAction.putExtra("DISPLAY", getConnectionDisplay());
+			startAction.putExtra("PORT", Integer.toString(getConnectionPort()));
+			startAction.putExtra("HOST", getConnectionHost());
 			
 			androidx.core.content.ContextCompat.startForegroundService(this, startAction);
 		}
@@ -2498,10 +2496,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if(!isServiceRunning()) {
 			String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
 			Intent intent = new Intent(this, StellarService.class);
-			Intent mine = this.getIntent();
-			intent.putExtra("DISPLAY",mine.getExtras().getString("DISPLAY"));
-			intent.putExtra("HOST",mine.getExtras().getString("HOST"));
-			intent.putExtra("PORT",mine.getExtras().getString("PORT"));
+			intent.setPackage(this.getPackageName());
+			intent.putExtra("DISPLAY", getConnectionDisplay());
+			intent.putExtra("HOST", getConnectionHost());
+			intent.putExtra("PORT", Integer.toString(getConnectionPort()));
 			androidx.core.content.ContextCompat.startForegroundService(this, intent);
 		}
 		//Log.e("window","ending onStart");
@@ -2572,9 +2570,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//windowShowing = true;
 		
 		if(!isBound) {
-			SharedPreferences.Editor edit = MainWindow.this.getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE).edit();
-			edit.putString("CONNECT_TO", MainWindow.this.getIntent().getStringExtra("DISPLAY"));
-			edit.commit();
+			saveConnectionExtras(getIntent());
 			String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
 			this.bindService(new Intent(serviceBindAction,null,this,StellarService.class),mConnection, 0);
 			
@@ -2593,11 +2589,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				e1.printStackTrace();
 			}
 			Intent i = this.getIntent();
-			//Log.e("LOG","RESUMING WINDOW WITH INTENT: display="+i.getStringExtra("DISPLAY")+" host="+i.getStringExtra("HOST")+" port="+i.getStringExtra("PORT"));
-			String display = i.getStringExtra("DISPLAY");
+			String display = getConnectionDisplay();
 			
 			try {
-				if(service != null) {
+				if(service != null && display != null) {
 				if(!service.getConnectedTo().equals(display)) {
 					Log.e("LOG","ATTEMPTING TO SWITCH TO: " + display);
 					//this.cleanupWindows();
@@ -3101,24 +3096,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		public int getPort() throws RemoteException {
-			Intent i= MainWindow.this.getIntent();
-			
-			return (new Integer(i.getStringExtra("HOST")).intValue());
+			return MainWindow.this.getConnectionPort();
 		}
 
 		public String getHost() throws RemoteException {
-			// TODO Auto-generated method stub
-			Intent i= MainWindow.this.getIntent();
-			
-			return i.getStringExtra("HOST");
-			
+			return MainWindow.this.getConnectionHost();
 		}
 
 		public String getDisplay() throws RemoteException {
-			// TODO Auto-generated method stub
-			Intent i= MainWindow.this.getIntent();
-			
-			return i.getStringExtra("DISPLAY");
+			return MainWindow.this.getConnectionDisplay();
 		}
 
 		public void switchTo(String connection) throws RemoteException {
@@ -3433,6 +3419,80 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int LEGACY_TEXT_INPUT_ID = 30;
 	private static final float OVERFLOW_LIFT_DIP = 10f;
 
+	private void saveConnectionExtras(Intent intent) {
+		if (intent == null) {
+			return;
+		}
+		SharedPreferences.Editor edit = getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE).edit();
+		String display = intent.getStringExtra("DISPLAY");
+		String host = intent.getStringExtra("HOST");
+		String port = intent.getStringExtra("PORT");
+		if (display != null) {
+			edit.putString("CONNECT_TO", display);
+		}
+		if (host != null) {
+			edit.putString("CONNECT_HOST", host);
+		}
+		if (port != null) {
+			edit.putString("CONNECT_PORT", port);
+		}
+		edit.apply();
+	}
+
+	private String getConnectionDisplay() {
+		Intent intent = getIntent();
+		if (intent != null) {
+			String display = intent.getStringExtra("DISPLAY");
+			if (display != null && !display.isEmpty()) {
+				return display;
+			}
+		}
+		SharedPreferences prefs = getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE);
+		String saved = prefs.getString("CONNECT_TO", null);
+		if (saved != null && !saved.isEmpty()) {
+			return saved;
+		}
+		return "Aardwolf RPG";
+	}
+
+	private String getConnectionHost() {
+		Intent intent = getIntent();
+		if (intent != null) {
+			String host = intent.getStringExtra("HOST");
+			if (host != null && !host.isEmpty()) {
+				return host;
+			}
+		}
+		SharedPreferences prefs = getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE);
+		String saved = prefs.getString("CONNECT_HOST", null);
+		if (saved != null && !saved.isEmpty()) {
+			return saved;
+		}
+		return "aardmud.org";
+	}
+
+	private int getConnectionPort() {
+		Intent intent = getIntent();
+		if (intent != null) {
+			String port = intent.getStringExtra("PORT");
+			if (port != null && !port.isEmpty()) {
+				try {
+					return Integer.parseInt(port);
+				} catch (NumberFormatException ignored) {
+				}
+			}
+		}
+		SharedPreferences prefs = getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE);
+		String saved = prefs.getString("CONNECT_PORT", null);
+		if (saved != null && !saved.isEmpty()) {
+			try {
+				return Integer.parseInt(saved);
+			} catch (NumberFormatException ignored) {
+			}
+		}
+		return 7777;
+	}
+
 	private void assignLegacyChromeIds() {
 		View divider = findViewById(R.id.divider);
 		RelativeLayout.LayoutParams dividerparams =
@@ -3724,6 +3784,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		Log.e("new intent","new intent : " + i.getStringExtra("DISPLAY"));
 		
 		this.setIntent(i);
+		saveConnectionExtras(i);
 		/*try {
 			service.windowShowing(true);
 		} catch (RemoteException e1) {
