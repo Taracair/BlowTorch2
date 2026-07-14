@@ -247,7 +247,7 @@ function showDialog(initialValues)
   --set up the show editor settings button.
   --Note("builder alert creation")
   --builder = luajava.newInstance("android.app.AlertDialog$Builder",context)
-  dialog = luajava.newInstance("com.offsetnull.bt.window.LuaDialog",context,scroller,false,nil)
+  dialog = luajava.newInstance("com.resurrection.blowtorch2.lib.window.LuaDialog",context,scroller,false,nil)
   dialog:show()
   --local hiddenview = luajava.new(TextView,view:getContext())
   --hiddenview:setVisibility(View.GONE)

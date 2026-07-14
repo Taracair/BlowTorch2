@@ -34,7 +34,7 @@
 					android:id="@+id/cancel"/>
 			</LinearLayout>
 		</ScrollView>
-		<com.happygoatstudios.bt.window.TouchCatcher
+		<com.resurrection.blowtorch2.lib.window.TouchCatcher
 			android:layout_height="fill_parent"
 			android:layout_width="fill_parent"
 			android:layout_alignParentTop="true"
