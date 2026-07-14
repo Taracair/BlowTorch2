@@ -73,7 +73,7 @@ public class BaseSelectionDialog extends Dialog {
 	private CharSequence mNewTitle = "New";
 	
 	public BaseSelectionDialog(Context context) {
-		super(context,android.R.style.Theme_Light);
+		super(context, R.style.BlowTorch_Dialog);
 		// TODO Auto-generated constructor stub
 		mContext = context;
 		mToolbarButtons = new ArrayList<UtilityButton>();

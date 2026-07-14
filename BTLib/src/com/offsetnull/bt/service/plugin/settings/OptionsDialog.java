@@ -68,7 +68,7 @@ public class OptionsDialog extends Dialog {
 	Stack<SettingsGroup> backStack = new Stack<SettingsGroup>();
 	
 	public OptionsDialog(Context context,IConnectionBinder service,String plugin) {
-		super(context);
+		super(context, R.style.BlowTorch_Dialog);
 		this.selectedPlugin = plugin;
 		this.service = service;
 		//this.mFragementManager = fragmentManager;
@@ -109,7 +109,6 @@ public class OptionsDialog extends Dialog {
 		donebutton.setVisibility(View.GONE);*/
 		
 		this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
-		this.getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 		
 		backListener = new BackPressedListener();
 		

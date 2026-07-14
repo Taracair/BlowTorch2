@@ -256,7 +256,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		ViewCompat.setOnApplyWindowInsetsListener(myToolbar, (view, windowInsets) -> {
 			int topInset = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
 			TypedValue actionBarSize = new TypedValue();
-			if (getTheme().resolveAttribute(android.R.attr.actionBarSize, actionBarSize, true)) {
+			if (getTheme().resolveAttribute(androidx.appcompat.R.attr.actionBarSize, actionBarSize, true)) {
 				int barHeight = TypedValue.complexToDimensionPixelSize(
 						actionBarSize.data, getResources().getDisplayMetrics());
 				ViewGroup.LayoutParams lp = view.getLayoutParams();
