@@ -537,6 +537,12 @@ public class StellarService extends Service {
 		if (display != null) {
 			notificationIntent.putExtra("DISPLAY", display);
 		}
+		Connection active = mConnections.get(display);
+		if (active != null) {
+			notificationIntent.putExtra("HOST", active.getHost());
+			notificationIntent.putExtra("PORT", Integer.toString(active.getPort()));
+		}
+		notificationIntent.setPackage(getPackageName());
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		PendingIntent contentIntent = PendingIntent.getActivity(
 				this, FOREGROUND_NOTIFICATION_ID, notificationIntent, activityPendingIntentFlags());
