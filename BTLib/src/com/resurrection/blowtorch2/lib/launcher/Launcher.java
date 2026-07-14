@@ -581,9 +581,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		styleLauncherActionButton(helpbutton);
 		helpbutton.setOnClickListener(new helpClickedListener());
 
-		Log.e("LAUNCHER","STARTING SREVICE");
+		Log.e("LAUNCHER","BINDING SERVICE (FGS starts on MUD connect via MainWindow)");
 		String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
-		androidx.core.content.ContextCompat.startForegroundService(this, new Intent(action,null,this, StellarService.class));
+		// Do not start foreground service from launcher alone — avoids idle "waiting" notification.
 		View permissionRoot = findViewById(R.id.launcher_window_content);
 		if (permissionRoot == null) {
 			permissionRoot = tableContainer;
