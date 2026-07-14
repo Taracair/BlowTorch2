@@ -247,6 +247,29 @@ function onMapSelectTile(tileId)
 	pushState()
 end
 
+function onMapWalkDir(dir)
+	dir = string.lower(trim(dir or ""))
+	if dir == "" then return end
+	local curId = store.getCurrentTileId()
+	local cur = store.getCurrentTile()
+	if cur == nil then
+		Note("ForgeMap: place @ first")
+		return
+	end
+	local link = cur.links and cur.links[dir]
+	if link == nil or link.to == nil then
+		Note("ForgeMap: no " .. dir .. " exit — switch to MAP to add")
+		return
+	end
+	local cmd = link.cmd or dir
+	SendToServer(cmd)
+	tracker.notePendingDirection(dir)
+	store.setCurrentTile(link.to)
+	store.markExplored(link.to)
+	SaveSettings()
+	pushState()
+end
+
 function onMapExploreDir(dir)
 	dir = string.lower(trim(dir or ""))
 	if dir == "" then return end

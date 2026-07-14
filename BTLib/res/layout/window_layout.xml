@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/window_container"
     android:layout_width="fill_parent"
-    android:layout_height="fill_parent">
+    android:layout_height="fill_parent"
+    android:background="@android:color/transparent">
     
     
     <LinearLayout
@@ -18,11 +19,11 @@
     	android:id="@+id/foldout"
     	android:layout_width="40dip"
     	android:layout_height="20dip"
-    	android:background="#0A0A0A"
+    	android:background="@color/game_input_bg"
     	android:src="@drawable/sliderwidgetout"
     	android:textSize="16sp"
     	android:typeface="monospace"
-    	android:textColor="#9999FF"
+    	android:textColor="@color/game_input_text"
     	android:text="|DOWN|"/>
     
     <com.offsetnull.bt.window.BetterEditText
@@ -31,8 +32,8 @@
     android:minHeight = "20dip"
     android:textSize="16sp"
     android:typeface="monospace"
-    android:textColor="#9999FF"
-    android:textColorHighlight="#555555"
+    android:textColor="@color/game_input_text"
+    android:textColorHighlight="@color/game_input_highlight"
     android:background="@drawable/input_bar_bg"
     android:candidatesTextStyleSpans=""
     android:editable="true"
@@ -57,17 +58,35 @@
         android:layout_width="fill_parent"
         android:layout_above="@id/inputbar"
         android:id="@+id/divider"
-        android:background="#FF444488"/>
+        android:background="@color/game_divider"/>
 
     <com.offsetnull.bt.window.NoTouchActionBar
         android:id="@+id/my_toolbar"
+        style="@style/BlowTorch.Game.Toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:elevation="4dp"
-        android:theme="@style/ThemeOverlay.AppCompat.ActionBar"
-        android:layout_alignParentTop = "true"
-        app:popupTheme="@style/ThemeOverlay.AppCompat.Light"/>
+        android:layout_height="0dp"
+        android:layout_alignParentTop="true"
+        android:visibility="gone"
+        android:clickable="false"
+        android:focusable="false"
+        app:backgroundTint="@null"
+        app:contentInsetStart="0dp"
+        app:contentInsetLeft="0dp"
+        app:contentInsetEnd="0dp"
+        app:contentInsetRight="0dp"
+        app:popupTheme="@style/ThemeOverlay.AppCompat.Dark"/>
+
+    <ImageButton
+        android:id="@+id/overflow_menu"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/app_name"
+        android:padding="8dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_menu_options" />
 <!-- 
 <RelativeLayout
 	android:layout_height="20dip"

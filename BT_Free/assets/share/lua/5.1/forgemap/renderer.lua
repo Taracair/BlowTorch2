@@ -23,7 +23,7 @@ function M.computeView(state, opts)
 	local viewW = opts.viewWidth or 0
 	local mapW = opts.mapWidth or viewW
 	local viewH = opts.viewHeight or 0
-	local headerPx = math.floor((opts.headerDp or config.HEADER_DP) * density)
+	local headerPx = math.floor((opts.headerDp or config.HEADER_DP) * density) + (opts.headerExtraPx or 0)
 	local usableW = math.max(1, mapW)
 	local usableH = math.max(1, viewH - headerPx)
 

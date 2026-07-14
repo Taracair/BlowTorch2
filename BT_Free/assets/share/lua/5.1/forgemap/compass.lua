@@ -22,29 +22,34 @@ M.VERT_DIRS = {
 	{ id = "d",   label = "D",   explore = "d" },
 }
 
+local function hasExit(tile, dir)
+	return tile ~= nil and tile.links ~= nil and tile.links[dir] ~= nil and tile.links[dir].to ~= nil
+end
+
 function M.computeLayout(viewW, viewH, headerPx, density)
 	density = density or 1
 	headerPx = headerPx or math.floor(config.HEADER_DP * density)
 	local bodyTop = headerPx
 	local bodyH = math.max(1, viewH - headerPx)
-	local dockW = math.floor(math.min(viewW * 0.42, 168 * density))
-	dockW = math.max(math.floor(118 * density), dockW)
+	local ratio = config.COMPASS_DOCK_RATIO or 0.34
+	local dockMax = math.floor((config.COMPASS_DOCK_MAX_DP or 128) * density)
+	local dockMin = math.floor((config.COMPASS_DOCK_MIN_DP or 96) * density)
+	local dockW = math.floor(math.min(viewW * ratio, dockMax))
+	dockW = math.max(dockMin, dockW)
 	local mapW = math.max(1, viewW - dockW)
-	local pad = math.max(2, math.floor(3 * density))
+	local pad = math.max(1, math.floor(2 * density))
 	local dockLeft = mapW
 	local innerW = dockW - pad * 2
 	local innerH = bodyH - pad * 2
-	local gridH = math.floor(innerH * 0.58)
-	local vertH = math.floor(innerH * 0.18)
+	local gridH = math.floor(innerH * 0.50)
+	local vertH = math.floor(innerH * 0.15)
 	local goH = innerH - gridH - vertH - pad
-	if goH < math.floor(22 * density) then
-		goH = math.floor(22 * density)
-		gridH = innerH - goH - vertH - pad * 2
-	end
+	goH = math.max(math.floor(18 * density), math.min(goH, math.floor(24 * density)))
 	local cols, rows = 3, 3
 	local cellW = math.floor(innerW / cols)
 	local cellH = math.floor(gridH / rows)
-	local cellPx = math.max(math.floor(18 * density), math.min(cellW, cellH) - pad)
+	local minCell = math.floor((config.COMPASS_CELL_MIN_DP or 14) * density)
+	local cellPx = math.max(minCell, math.min(cellW, cellH) - pad - 1)
 	local gridOx = dockLeft + pad + math.floor((innerW - cellPx * cols) / 2)
 	local gridOy = bodyTop + pad + math.floor((gridH - cellPx * rows) / 2)
 	local vertOy = bodyTop + pad + gridH + math.floor(pad / 2)
@@ -114,12 +119,13 @@ function M.getGoLabel(tile, slot)
 	if lbl == nil or lbl == "" then
 		lbl = g.cmd or "+"
 	end
-	if #lbl > 5 then lbl = string.sub(lbl, 1, 5) end
+	if #lbl > 4 then lbl = string.sub(lbl, 1, 4) end
 	return lbl
 end
 
-function M.draw(canvas, paint, layout, tile)
+function M.draw(canvas, paint, layout, tile, mode)
 	if canvas == nil or layout == nil then return end
+	mode = mode or "walk"
 	local dockLeft = layout.dockLeft
 	local w = dockLeft + layout.dockWidth
 	renderer.setColor(paint, 255, 8, 10, 14)
@@ -140,23 +146,32 @@ function M.draw(canvas, paint, layout, tile)
 		if btn.kind == "center" then
 			renderer.setColor(paint, 255, 255, 140, 20)
 		elseif btn.kind == "map" or btn.kind == "vertical" then
-			renderer.setColor(paint, 255, 32, 48, 68)
+			if mode == "walk" and btn.explore ~= nil then
+				if hasExit(tile, btn.explore) then
+					renderer.setColor(paint, 255, 36, 88, 52)
+				else
+					renderer.setColor(paint, 255, 28, 34, 42)
+				end
+			else
+				renderer.setColor(paint, 255, 32, 48, 68)
+			end
 		elseif btn.kind == "go" or btn.kind == "gokey" then
 			renderer.setColor(paint, 255, 42, 58, 42)
 		end
-		canvas:drawRoundRect(btn.left + 1, btn.top + 1, btn.right - 1, btn.bottom - 1, 5, 5, paint)
+		canvas:drawRoundRect(btn.left + 1, btn.top + 1, btn.right - 1, btn.bottom - 1, 4, 4, paint)
 		renderer.setColor(paint, 255, 80, 180, 255)
 		local Style = renderer.setPaintStyle(paint)
 		paint:setStyle(Style.STROKE)
-		paint:setStrokeWidth(2)
-		canvas:drawRoundRect(btn.left + 2, btn.top + 2, btn.right - 2, btn.bottom - 2, 5, 5, paint)
+		paint:setStrokeWidth(1.5)
+		canvas:drawRoundRect(btn.left + 1.5, btn.top + 1.5, btn.right - 1.5, btn.bottom - 1.5, 4, 4, paint)
 		paint:setStyle(Style.FILL)
 		renderer.setColor(paint, 255, 230, 240, 255)
-		local size = math.max(8, math.min(11, (btn.bottom - btn.top) * 0.38))
+		local bh = btn.bottom - btn.top
+		local size = math.max(7, math.min(10, bh * 0.42))
 		paint:setTextSize(size)
 		local tw = paint:measureText(label)
 		local tx = btn.left + (btn.right - btn.left - tw) / 2
-		local ty = btn.top + (btn.bottom - btn.top) * 0.68
+		local ty = btn.top + bh * 0.68
 		canvas:drawText(label, tx, ty, paint)
 	end
 end

@@ -9,8 +9,30 @@
     <string name="hello2">This is the debug screen. However this text will dissapear when data arrives from the server.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n</string>
     <string name="whatisnew">--- New Features:\n*SD Card Permissions are now asked for.\n*Support fixes for newer android versions.\n*Fixed crash when touching the top of the window.</string><string name="whatisnew_test">---- TEST VERSION 7 ----\n*Many bug fixes. Stay tuned for the switch over to the play store beta system.</string>
     <string name="sdcardpermissions">To access files that will not be not be removed when this app is uninstalled, grant permission to access external storage.</string>
+    <string name="startup_permissions_rationale">BlowTorch needs storage access to import and export profiles from /BlowTorch/ on your device. Network access (INTERNET) is granted at install time.</string>
+    <string name="startup_permissions_result">Storage: %1$s. Internet access is enabled at install; restrict it in system app settings if needed.</string>
+    <string name="profiles_discovered">Found %1$d profile(s) in app storage and added to the list.</string>
+    <string name="permission_required_title">Permission required</string>
+    <string name="permission_open_settings">App settings</string>
+    <string name="permission_try_again">Try again</string>
+    <string name="permission_feature_connect">connecting to a MUD</string>
+    <string name="permission_feature_import">importing settings</string>
+    <string name="permission_feature_export">exporting settings</string>
+    <string name="permission_feature_salvage">recovering settings from storage</string>
+    <string name="permission_feature_notifications">background connection notifications</string>
+    <string name="permission_feature_startup">importing and exporting profiles</string>
+    <string name="permission_feature_storage">using files on device storage</string>
+    <string name="permission_feature_storage_info">viewing storage permission status</string>
+    <string name="permission_rationale_template">BlowTorch needs permission for %1$s.</string>
+    <string name="permission_denied_retry_template">Permission denied for %1$s. Tap Try again or open App settings.</string>
+    <string name="permission_blocked_template">%1$s needs permissions you denied. Open App settings to allow storage, notifications, or network access.</string>
     <string name="sd_perm_granted">SDCard public access granted, external writes will happen to\nSDCard%1$s</string>
     <string name="sd_perm_denies">SDCard public access denied, external writes will happen to\nSDCard%1$s\nThe folder will be removed when this app is uninstalled.</string>
     <string name="launcher_import_granted">Attempting to load files from:\nSDCard%1$s</string>
     <string name="launcher_import_denied">Attempting to load files from:\nSDCard%1$s\nThis folder will be removed when the application is uninstalled.</string>
+    <string name="notification_status_starting">Uruchamianie…</string>
+    <string name="notification_status_idle">Oczekiwanie na połączenie</string>
+    <string name="notification_status_connecting">Łączenie z %1$s:%2$d…</string>
+    <string name="notification_status_connected">Połączono · %1$s:%2$d</string>
+    <string name="notification_status_disconnected">Rozłączono · dotknij, aby połączyć ponownie</string>
 </resources>

@@ -26,7 +26,8 @@ fi
 echo "Using NDK: $NDK"
 
 NDKAPI=24
-LUAJIT="LuaJIT-2.0.5"
+LUAJIT_205="LuaJIT-2.0.5"
+LUAJIT_21="LuaJIT-2.1"
 
 # Detect host platform
 case "$(uname -s)" in
@@ -42,13 +43,24 @@ if [ ! -d "$TOOLCHAIN" ]; then
     exit 1
 fi
 
+if [ ! -d "$LUAJIT_21" ]; then
+    echo "Cloning LuaJIT 2.1 (required for arm64-v8a)..."
+    git clone --depth 1 --branch v2.1 https://github.com/LuaJIT/LuaJIT.git "$LUAJIT_21"
+fi
+
 echo "**********************************************"
 echo "********* Cleaning prior builds. *************"
 echo "**********************************************"
 
-cd "$LUAJIT"
+cd "$LUAJIT_205"
 make clean || true
 cd ..
+
+if [ -d "$LUAJIT_21" ]; then
+    cd "$LUAJIT_21"
+    make clean || true
+    cd ..
+fi
 
 cd BTLib
 "$NDK/ndk-build" clean || true
@@ -66,41 +78,54 @@ echo "**********************************************"
 echo "*************  STARTING BUILD ****************"
 echo "**********************************************"
 
-cd "$LUAJIT"
+build_luajit() {
+    local LUADIR="$1"
+    local ABI="$2"
+    local HOST_CC="$3"
+    local TARGET_TRIPLE="$4"
+    local TARGET_FLAGS="$5"
 
-# armeabi-v7a (32-bit ARM)
+    echo ""
+    echo "====== Building LuaJIT (${LUADIR}) for ${ABI} ======"
+    cd "$LUADIR"
+    make clean
+    make \
+        HOST_CC="$HOST_CC" \
+        CROSS="$TOOLCHAIN/bin/llvm-" \
+        STATIC_CC="$TOOLCHAIN/bin/${TARGET_TRIPLE}${NDKAPI}-clang" \
+        DYNAMIC_CC="$TOOLCHAIN/bin/${TARGET_TRIPLE}${NDKAPI}-clang -fPIC" \
+        TARGET_LD="$TOOLCHAIN/bin/${TARGET_TRIPLE}${NDKAPI}-clang" \
+        TARGET_AR="$TOOLCHAIN/bin/llvm-ar rcus" \
+        TARGET_STRIP="$TOOLCHAIN/bin/llvm-strip" \
+        TARGET_SYS=Linux \
+        TARGET_FLAGS="$TARGET_FLAGS"
+    cp src/libluajit.a "../BTLib/jni/luajava/libluajit-${ABI}.a"
+    cd ..
+}
+
+SYSROOT_FLAGS="--sysroot $TOOLCHAIN/sysroot -D__ANDROID_API__=${NDKAPI}"
+
+# LuaJIT 2.0.5: stable 32-bit ARM build used historically by BlowTorch.
+build_luajit "LuaJIT-2.0.5" armeabi-v7a "gcc -m32" "armv7a-linux-androideabi" \
+    "$SYSROOT_FLAGS -march=armv7-a -mfloat-abi=softfp"
+
+# LuaJIT 2.1: required for arm64-v8a (not supported in 2.0.5).
+build_luajit "LuaJIT-2.1" arm64-v8a "gcc" "aarch64-linux-android" \
+    "$SYSROOT_FLAGS -DLUAJIT_ENABLE_GC64=1"
+
 echo ""
-echo "====== Building LuaJIT for armeabi-v7a ======"
-make clean
-make \
-    HOST_CC="gcc -m32" \
-    CROSS="$TOOLCHAIN/bin/llvm-" \
-    STATIC_CC="$TOOLCHAIN/bin/armv7a-linux-androideabi${NDKAPI}-clang" \
-    DYNAMIC_CC="$TOOLCHAIN/bin/armv7a-linux-androideabi${NDKAPI}-clang" \
-    TARGET_LD="$TOOLCHAIN/bin/armv7a-linux-androideabi${NDKAPI}-clang" \
-    TARGET_AR="$TOOLCHAIN/bin/llvm-ar rcus" \
-    TARGET_STRIP="$TOOLCHAIN/bin/llvm-strip" \
-    TARGET_SYS=Linux \
-    TARGET_FLAGS="--sysroot $TOOLCHAIN/sysroot -march=armv7-a -mfloat-abi=softfp"
-
-cp src/libluajit.a src/libluajit-armeabi-v7a.a
-
-echo ""
-echo "Copying LuaJIT output to BTLib/jni/luajava/"
-cp src/libluajit-armeabi-v7a.a ../BTLib/jni/luajava/
-
-echo "Copying LuaJIT headers to BTLib/jni/luajava/"
-cp src/lauxlib.h ../BTLib/jni/luajava/
-cp src/lua.h ../BTLib/jni/luajava/
-cp src/luaconf.h ../BTLib/jni/luajava/
-cp src/luajit.h ../BTLib/jni/luajava/
-cp src/lualib.h ../BTLib/jni/luajava/
+echo "Copying LuaJIT headers to BTLib/jni/luajava/ (from 2.0.5 for luajava compat)"
+cp LuaJIT-2.0.5/src/lauxlib.h BTLib/jni/luajava/
+cp LuaJIT-2.0.5/src/lua.h BTLib/jni/luajava/
+cp LuaJIT-2.0.5/src/luaconf.h BTLib/jni/luajava/
+cp LuaJIT-2.0.5/src/luajit.h BTLib/jni/luajava/
+cp LuaJIT-2.0.5/src/lualib.h BTLib/jni/luajava/
 
 echo "************************************************"
 echo "********** STARTING ANDROID NDK BUILD **********"
 echo "************************************************"
 
-cd ../BTLib
+cd BTLib
 "$NDK/ndk-build" NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./jni/Android.mk NDK_APPLICATION_MK=./jni/Application.mk
 
 echo ""
@@ -109,4 +134,5 @@ echo "********** BUILD COMPLETE ********************"
 echo "**********************************************"
 echo ""
 echo "Native libraries built in BTLib/libs/"
-ls -la libs/armeabi-v7a/ 2>/dev/null || echo "(no output yet)"
+ls -la libs/armeabi-v7a/ 2>/dev/null || echo "(no armeabi-v7a output)"
+ls -la libs/arm64-v8a/ 2>/dev/null || echo "(no arm64-v8a output)"

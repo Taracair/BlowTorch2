@@ -26,6 +26,7 @@ paint:setAntiAlias(true)
 local currentView = nil
 local compassLayout = nil
 local mapMode = "minimap"
+local compassMode = "walk"
 local visible = true
 local longPressAt = 0
 local touchStartX, touchStartY = 0, 0
@@ -35,6 +36,15 @@ local panDx, panDy = 0, 0
 local zoomScale = 1.0
 local stripHeightPx = math.floor(config.STRIP_HEIGHT_DP * density)
 local longPressMs = 450
+local chromeTopPx = 0
+
+local function updateChromeInsets()
+	chromeTopPx = tonumber(GetStatusBarHeight()) or 0
+end
+
+local function headerHeightPx()
+	return math.floor(config.HEADER_DP * density) + chromeTopPx
+end
 
 local function dirFromCell(cell)
 	if cell == nil then return nil end
@@ -66,7 +76,8 @@ local function refreshView()
 	if view == nil then return end
 	local w, h = view:getWidth(), view:getHeight()
 	if w <= 0 or h <= 0 then return end
-	local headerPx = math.floor(config.HEADER_DP * density)
+	updateChromeInsets()
+	local headerPx = headerHeightPx()
 	compassLayout = compass.computeLayout(w, h, headerPx, density)
 	local ui = store.getUi()
 	currentView = renderer.computeView(store.getState(), {
@@ -77,6 +88,7 @@ local function refreshView()
 		mapWidth = compassLayout.mapWidth,
 		viewHeight = h,
 		headerDp = config.HEADER_DP,
+		headerExtraPx = chromeTopPx,
 		panDx = panDx,
 		panDy = panDy,
 	})
@@ -278,7 +290,7 @@ local function headerBtnWidth()
 end
 
 local function hitHeaderButton(x, y, w)
-	local headerPx = math.floor(config.HEADER_DP * density)
+	local headerPx = headerHeightPx()
 	if y > headerPx then return nil end
 	local btnW = headerBtnWidth()
 	local pad = 4 * density
@@ -291,7 +303,7 @@ local function hitHeaderButton(x, y, w)
 	end
 	local closeX = w - btnW - pad
 	if x >= closeX and x < closeX + btnW then
-		return config.HEADER_BUTTONS[1]
+		return { id = "close", label = "X", action = "close" }
 	end
 	return nil
 end
@@ -302,29 +314,65 @@ local function runHeaderAction(action)
 	elseif action == "here" then
 		PluginXCallS("onMapManualHere", "?")
 		toast("Marked here")
+	elseif action == "mode_walk" then
+		compassMode = "walk"
+		redraw()
+		toast("GO — walk known exits")
+	elseif action == "mode_map" then
+		compassMode = "map"
+		redraw()
+		toast("MAP — draw new rooms")
 	end
+end
+
+local function runCompassDir(dir, label)
+	if dir == nil or dir == "" then return end
+	if compassMode == "walk" then
+		PluginXCallS("onMapWalkDir", dir)
+		toast("Go " .. string.upper(label or dir))
+	else
+		PluginXCallS("onMapExploreDir", dir)
+		toast("Map " .. string.upper(label or dir))
+	end
+end
+
+local function headerBtnColors(action)
+	if action == "mode_walk" then
+		if compassMode == "walk" then return 36, 110, 62 else return 40, 50, 70 end
+	elseif action == "mode_map" then
+		if compassMode == "map" then return 50, 80, 130 else return 40, 50, 70 end
+	end
+	return 40, 50, 70
 end
 
 local function drawHeaderButtons(canvas, w, headerPx)
 	local btnW = headerBtnWidth()
 	local pad = 4 * density
+	local top = chromeTopPx + 2
+	local bottom = headerPx - 2
+	local textY = headerPx - 4 * density
 	local xpos = pad
-	renderer.setColor(paint, 255, 40, 50, 70)
 	for _, btn in ipairs(config.HEADER_BUTTONS) do
-		if btn.action ~= "close" then
-			canvas:drawRoundRect(xpos, 2, xpos + btnW, headerPx - 2, 4, 4, paint)
-			renderer.setColor(paint, 255, 220, 230, 255)
-			paint:setTextSize(11 * density)
-			canvas:drawText(btn.label, xpos + btnW * 0.28, headerPx - 4 * density, paint)
-			xpos = xpos + btnW + pad
+		local r, g, b = headerBtnColors(btn.action)
+		renderer.setColor(paint, 255, r, g, b)
+		local bw = btnW
+		if btn.action == "mode_walk" or btn.action == "mode_map" then
+			bw = math.floor(btnW * 1.15)
 		end
+		canvas:drawRoundRect(xpos, top, xpos + bw, bottom, 4, 4, paint)
+		renderer.setColor(paint, 255, 220, 230, 255)
+		paint:setTextSize(10 * density)
+		local tx = xpos + bw * 0.18
+		if btn.label == "+" then tx = xpos + bw * 0.28 end
+		canvas:drawText(btn.label, tx, textY, paint)
+		xpos = xpos + bw + pad
 	end
 	local closeX = w - btnW - pad
 	renderer.setColor(paint, 255, 90, 30, 30)
-	canvas:drawRoundRect(closeX, 2, closeX + btnW, headerPx - 2, 4, 4, paint)
+	canvas:drawRoundRect(closeX, top, closeX + btnW, bottom, 4, 4, paint)
 	renderer.setColor(paint, 255, 255, 220, 220)
 	paint:setTextSize(11 * density)
-	canvas:drawText("X", closeX + btnW * 0.32, headerPx - 4 * density, paint)
+	canvas:drawText("X", closeX + btnW * 0.32, textY, paint)
 end
 
 local function showGoEditor(slot, goKey)
@@ -396,8 +444,7 @@ local function handleCompassButton(btn, longPress)
 			return
 		end
 		if btn.explore ~= nil then
-			PluginXCallS("onMapExploreDir", btn.explore)
-			toast("Mapped " .. string.upper(btn.label))
+			runCompassDir(btn.explore, btn.label)
 		end
 		return
 	end
@@ -432,7 +479,7 @@ local touchHandler = {}
 function touchHandler.onTouch(v, e)
 	local action = e:getAction()
 	local x, y = e:getX(), e:getY()
-	local headerPx = math.floor(config.HEADER_DP * density)
+	local headerPx = headerHeightPx()
 	if action == MotionEvent.ACTION_DOWN then
 		touchStartX, touchStartY = x, y
 		touchStartTime = e:getEventTime()
@@ -487,17 +534,25 @@ function touchHandler.onTouch(v, e)
 		if isAdjacent(cell) then
 			local dir = dirFromCell(cell)
 			if dir ~= nil then
-				PluginXCallS("onMapExploreDir", dir)
-				toast("Mapped " .. string.upper(dir))
+				runCompassDir(dir, dir)
 				return true
 			end
 		end
 		if cell.fog then
-			toast("Tap N/S/E/W beside @ to add a room")
+			if compassMode == "map" then
+				toast("Tap direction to add a room")
+			else
+				toast("No room there — switch to MAP")
+			end
 			return true
 		end
 		if cell.id ~= nil and cell.id ~= store.getState().currentTileId then
-			PluginXCallS( "onMapSelectTile", cell.id)
+			if compassMode == "walk" and cell.tile ~= nil and cell.tile.explored then
+				PluginXCallS("onMapWalkTo", cell.id)
+				toast("Walking…")
+			else
+				PluginXCallS("onMapSelectTile", cell.id)
+			end
 			return true
 		end
 		if cell.id == store.getState().currentTileId then
@@ -518,10 +573,16 @@ function OnCreate()
 	visible = not (autoOpen == "false" or autoOpen == "0")
 	applyWindowLayout()
 	PluginXCallS("syncMapToWindow", "")
+	updateChromeInsets()
 	if visible then
 		allocBitmap()
 	end
 	ScheduleCallback(11802, "raiseMapWindow", 300)
+end
+
+function refreshChromeInsets()
+	updateChromeInsets()
+	redraw()
 end
 
 function raiseMapWindow()
@@ -531,6 +592,7 @@ end
 
 function OnSizeChanged(w, h, oldw, oldh)
 	stripHeightPx = math.floor(config.STRIP_HEIGHT_DP * density)
+	updateChromeInsets()
 	if visible then
 		applyWindowLayout()
 		allocBitmap()
@@ -549,22 +611,28 @@ function OnDraw(canvas)
 	if currentView ~= nil then
 		renderer.drawMap(canvas, paint, currentView, mapMode)
 	end
-	local headerPx = math.floor(config.HEADER_DP * density)
+	updateChromeInsets()
+	local headerPx = headerHeightPx()
 	renderer.setColor(paint, 255, 0, 0, 0)
-	canvas:drawRect(0, 0, w, headerPx, paint)
+	canvas:drawRect(0, chromeTopPx, w, headerPx, paint)
 	renderer.setColor(paint, 255, 220, 230, 255)
 	paint:setTextSize(10 * density)
 	local cur = store.getCurrentTile()
 	local label = "Manual map"
+	if compassMode == "walk" then
+		label = label .. " [GO]"
+	else
+		label = label .. " [MAP]"
+	end
 	if cur == nil then
-		label = label .. " — tap +/@, compass to grow"
+		label = label .. " — + to start"
 	else
 		label = label .. " — " .. (cur.name or "?")
 	end
-	canvas:drawText(label, 8 * density + headerBtnWidth() + 8 * density, 12 * density, paint)
+	canvas:drawText(label, 8 * density + headerBtnWidth() * 3.2 + 8 * density, chromeTopPx + 12 * density, paint)
 	drawHeaderButtons(canvas, w, headerPx)
 	if compassLayout ~= nil then
-		compass.draw(canvas, paint, compassLayout, cur)
+		compass.draw(canvas, paint, compassLayout, cur, compassMode)
 	end
 end
 
