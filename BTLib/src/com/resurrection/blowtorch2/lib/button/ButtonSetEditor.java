@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
-import com.resurrection.blowtorch2.lib.button.ButtonEditorDialog.COLOR_FIELDS;
+import com.resurrection.blowtorch2.lib.button.ColorFields;
 import com.resurrection.blowtorch2.lib.settings.ColorSetSettings;
 import com.resurrection.blowtorch2.lib.validator.Validator;
 
@@ -227,7 +227,7 @@ public class ButtonSetEditor extends Dialog implements ColorPickerDialog.OnColor
 	}
 
 	public void colorChanged(int color) {
-		COLOR_FIELDS which = COLOR_FIELDS.COLOR_MAIN;
+		ColorFields which = ColorFields.COLOR_MAIN;
 		switch(which) {
 		case COLOR_MAIN:
 			newsettings.setPrimaryColor(color);

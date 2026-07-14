@@ -557,17 +557,8 @@ public class ButtonEditorDialog extends Dialog implements ColorPickerDialog.OnCo
 		
 	}
 	
-	public enum COLOR_FIELDS {
-		COLOR_MAIN,
-		COLOR_SELECTED,
-		COLOR_FLIPPED,
-		COLOR_LABEL,
-		COLOR_FLIPLABEL
-	}
-
-	
 	public void colorChanged(int color) {
-		COLOR_FIELDS which = COLOR_FIELDS.COLOR_MAIN;
+		ColorFields which = ColorFields.COLOR_MAIN;
 		switch(which) {
 		case COLOR_MAIN:
 			the_button.getData().setPrimaryColor(color);

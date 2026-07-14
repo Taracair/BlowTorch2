@@ -13,7 +13,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
-import com.resurrection.blowtorch2.lib.button.ButtonEditorDialog.COLOR_FIELDS;
+import com.resurrection.blowtorch2.lib.button.ColorFields;
 
 public class ColorSwatchPreference extends Preference implements ColorPickerDialog.OnColorChangedListener {
 
