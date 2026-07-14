@@ -11,7 +11,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.resurrection.blowtorch2.lib.R;
-import com.resurrection.blowtorch2.lib.button.ButtonEditorDialog.COLOR_FIELDS;
 import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 
@@ -82,6 +81,7 @@ public class OptionsDialog extends Dialog {
 		if (window == null) {
 			return;
 		}
+		window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 		int screenWidth = getContext().getResources().getDisplayMetrics().widthPixels;
 		WindowManager.LayoutParams params = window.getAttributes();
 		params.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
