@@ -388,6 +388,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		statusBarHeight = sprefs.getInt("STATUS_BAR_HEIGHT", (int)(25 * this.getResources().getDisplayMetrics().density));
 		titleBarHeight = sprefs.getInt("TITLE_BAR_HEIGHT", 0);
 		setContentView(R.layout.window_layout);
+		assignLegacyChromeIds();
 		getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -488,23 +489,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
         //mana.setValue(90);
         //health.setValue(10);
 		
-		View divider = findViewById(R.id.divider);
-		RelativeLayout.LayoutParams dividerparams = (android.widget.RelativeLayout.LayoutParams) divider.getLayoutParams();
-		dividerparams.addRule(RelativeLayout.ABOVE,10);
-		divider.setId(40);
-		
-        View v = findViewById(R.id.textinput);
-        //v.setTag("inputbar");
-        //EditText input_box = (EditText)v;
-        mInputBox = (BetterEditText) v;
-        mInputBox.setId(30);
-        
-        View inputBar = findViewById(R.id.inputbar);
-    	mOriginalInputBarLayoutParams = new RelativeLayout.LayoutParams(inputBar.getLayoutParams());
-    	mOriginalDividerLayoutParams =  new RelativeLayout.LayoutParams(divider.getLayoutParams());;
-        inputBar.setBackgroundColor(0xFF0A0A0A);
-        inputBar.setId(10);
-       // mInputBox.setSelectAllOnFocus(true);
         mInputBox.setFocusable(true);
         //mInputBox.setOnFocusChangeListener(new View.OnFocusChangeListener() {
 			
@@ -3431,12 +3415,68 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		layoutGameplayChrome(rl);
 	}
 	
+	private static final int LEGACY_INPUT_BAR_ID = 10;
+	private static final int LEGACY_DIVIDER_ID = 40;
+	private static final int LEGACY_TEXT_INPUT_ID = 30;
+
+	private void assignLegacyChromeIds() {
+		View divider = findViewById(R.id.divider);
+		RelativeLayout.LayoutParams dividerparams =
+				(RelativeLayout.LayoutParams) divider.getLayoutParams();
+		dividerparams.addRule(RelativeLayout.ABOVE, LEGACY_INPUT_BAR_ID);
+		divider.setId(LEGACY_DIVIDER_ID);
+
+		View v = findViewById(R.id.textinput);
+		mInputBox = (BetterEditText) v;
+		mInputBox.setId(LEGACY_TEXT_INPUT_ID);
+
+		View inputBar = findViewById(R.id.inputbar);
+		mOriginalInputBarLayoutParams = new RelativeLayout.LayoutParams(inputBar.getLayoutParams());
+		mOriginalDividerLayoutParams = new RelativeLayout.LayoutParams(divider.getLayoutParams());
+		inputBar.setBackgroundColor(0xFF0A0A0A);
+		inputBar.setId(LEGACY_INPUT_BAR_ID);
+	}
+
+	private View findGameplayInputBar(RelativeLayout rl) {
+		View inputbar = rl.findViewById(LEGACY_INPUT_BAR_ID);
+		if (inputbar == null) {
+			inputbar = rl.findViewById(R.id.inputbar);
+		}
+		return inputbar;
+	}
+
+	private View findGameplayDivider(RelativeLayout rl) {
+		View divider = rl.findViewById(LEGACY_DIVIDER_ID);
+		if (divider == null) {
+			divider = rl.findViewById(R.id.divider);
+		}
+		return divider;
+	}
+
+	private void bringGameplayChromeToFront(RelativeLayout rl) {
+		if (rl == null) {
+			return;
+		}
+		View inputbar = findGameplayInputBar(rl);
+		View divider = findGameplayDivider(rl);
+		View overflowMenu = rl.findViewById(R.id.overflow_menu);
+		if (inputbar != null) {
+			inputbar.bringToFront();
+		}
+		if (divider != null) {
+			divider.bringToFront();
+		}
+		if (overflowMenu != null) {
+			overflowMenu.bringToFront();
+		}
+	}
+
 	private void layoutGameplayChrome(RelativeLayout rl) {
 		if (rl == null) {
 			return;
 		}
-		final View inputbar = rl.findViewById(R.id.inputbar);
-		final View divider = rl.findViewById(R.id.divider);
+		final View inputbar = findGameplayInputBar(rl);
+		final View divider = findGameplayDivider(rl);
 		final View toolbar = rl.findViewById(R.id.my_toolbar);
 		final View overflowMenu = rl.findViewById(R.id.overflow_menu);
 		if (inputbar == null || divider == null) {
@@ -3476,8 +3516,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					MainWindow.this.showGameplayOptionsMenu(v);
 				}
 			});
-			overflowMenu.bringToFront();
 		}
+		bringGameplayChromeToFront(rl);
 	}
 	
 	public void callWindowScript(String window, String callback) {
@@ -3544,6 +3584,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * offsety w oknach Lua (przyciski i ForgeMap).
 	 */
 	private void refreshGameChrome() {
+		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		updateMenuChrome();
 		windowCall("button_window", "delayedStatusRefresh", "");
 		windowCall("forgemap_window", "refreshChromeInsets", "");
@@ -3575,6 +3616,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (overflowMenu != null) {
 				overflowMenu.setVisibility(View.GONE);
 			}
+			if (getSupportActionBar() != null) {
+				getSupportActionBar().show();
+			}
 			toolbar.post(new Runnable() {
 				@Override
 				public void run() {
@@ -3590,6 +3634,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				toolbar.setLayoutParams(lp);
 			}
 			toolbar.setVisibility(View.GONE);
+			if (getSupportActionBar() != null) {
+				getSupportActionBar().hide();
+			}
 			if (overflowMenu != null) {
 				overflowMenu.setVisibility(View.VISIBLE);
 				ViewGroup.LayoutParams olp = overflowMenu.getLayoutParams();
@@ -3598,8 +3645,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					mlp.topMargin = 0;
 					overflowMenu.setLayoutParams(mlp);
 				}
-				overflowMenu.bringToFront();
 			}
+			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+			bringGameplayChromeToFront(rl);
 		}
 	}
 
