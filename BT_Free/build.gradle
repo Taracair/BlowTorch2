@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.happygoatstudios.bt'
+    namespace 'com.resurrection.blowtorch2'
     compileSdk 36
 
     defaultConfig {

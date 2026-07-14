@@ -661,7 +661,7 @@ function showEditorDialog(editorValues,numediting)
 		--Note("already constructed editor"..dialogView:toString())
 	--end
 	
-	editorDialog = luajava.newInstance("com.offsetnull.bt.window.LuaDialog",context,top,false,nil)
+	editorDialog = luajava.newInstance("com.resurrection.blowtorch2.lib.window.LuaDialog",context,top,false,nil)
 	editorDialog:show()
 	context = nil
 end

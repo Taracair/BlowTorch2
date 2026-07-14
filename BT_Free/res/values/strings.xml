@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
-	<string name="windowAction">com.offsetnull.bt.window.MainWindow.NORMAL_MODE</string>
+	<string name="windowAction">com.resurrection.blowtorch2.lib.window.MainWindow.NORMAL_MODE</string>
 	<string name="notificationIcon">blowtorch_notification2</string>
 	<string name="serviceProcessName">:stellar</string>
-	<string name="serviceBindAction">com.offsetnull.bt.service.IStellarService.MODE_NORMAL</string>
+	<string name="serviceBindAction">com.resurrection.blowtorch2.lib.service.IStellarService.MODE_NORMAL</string>
 	<string name="ongoingNotificationLabel">BlowTorch</string>
 	<string name="exportDirectory">BlowTorch</string>
 	<string name="terminalTypeString">BlowTorch</string>

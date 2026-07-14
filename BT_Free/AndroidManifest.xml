@@ -14,7 +14,7 @@
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="true" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled">
     	<meta-data android:value="129" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
-    	<activity android:name="com.offsetnull.btfree.FreeLauncher"
+    	<activity android:name="com.resurrection.blowtorch2.FreeLauncher"
     	          android:label="${appLabel}"
     	          android:exported="true">
             <intent-filter>
@@ -22,12 +22,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="com.offsetnull.bt.launcher.Launcher"
+        <activity android:name="com.resurrection.blowtorch2.lib.launcher.Launcher"
                   android:label="BlowTorch"
                   android:exported="false">
         </activity>
         <!-- android:windowSoftInputMode="adjustResize" -->
-        <activity android:name="com.offsetnull.bt.window.MainWindow"
+        <activity android:name="com.resurrection.blowtorch2.lib.window.MainWindow"
         		  android:theme="@style/BlowTorch.GameWindow"
         		  android:windowSoftInputMode="adjustPan|stateHidden"
         		  android:label="BlowTorch"
@@ -35,17 +35,22 @@
         		  android:launchMode = "singleTask"
         		  android:exported="false">
         		  <intent-filter>
-        		  	
+        		  	<action android:name="com.resurrection.blowtorch2.lib.window.MainWindow.NORMAL_MODE"/>
+        		  	<category android:name="android.intent.category.DEFAULT"/>
+        		  </intent-filter>
+        		  <intent-filter>
         		  	<action android:name="com.offsetnull.bt.window.MainWindow.NORMAL_MODE"/>
         		  	<category android:name="android.intent.category.DEFAULT"/>
         		  </intent-filter>
         </activity>
         
-        <service tools:replace="android:process" android:name="com.offsetnull.bt.service.StellarService"
+        <service tools:replace="android:process" android:name="com.resurrection.blowtorch2.lib.service.StellarService"
         		 android:process=":stellar" android:exported="false"
         		 android:foregroundServiceType="specialUse">
         		 <intent-filter>
-        		 	
+        		 	<action android:name="com.resurrection.blowtorch2.lib.service.IStellarService.MODE_NORMAL"/>
+        		 </intent-filter>
+        		 <intent-filter>
         		 	<action android:name="com.offsetnull.bt.service.IStellarService.MODE_NORMAL"/>
         		 </intent-filter>
         </service>
