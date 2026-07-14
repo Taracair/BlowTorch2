@@ -27,7 +27,7 @@ local currentView = nil
 local compassLayout = nil
 local mapMode = "minimap"
 local compassMode = "walk"
-local visible = true
+local visible = false
 local longPressAt = 0
 local touchStartX, touchStartY = 0, 0
 local touchStartTime = 0
@@ -565,19 +565,19 @@ function touchHandler.onTouch(v, e)
 end
 
 function OnCreate()
-	raiseMap()
 	view:setOnTouchListener(luajava.createProxy("android.view.View$OnTouchListener", touchHandler))
 	AddOptionCallback("toggleForgeMap", "ForgeMap", nil)
 	stripHeightPx = math.floor(config.STRIP_HEIGHT_DP * density)
 	local autoOpen = GetOptionValue("auto_open_map")
 	visible = not (autoOpen == "false" or autoOpen == "0")
 	applyWindowLayout()
-	PluginXCallS("syncMapToWindow", "")
-	updateChromeInsets()
 	if visible then
+		raiseMap()
+		PluginXCallS("syncMapToWindow", "")
+		updateChromeInsets()
 		allocBitmap()
+		ScheduleCallback(11802, "raiseMapWindow", 300)
 	end
-	ScheduleCallback(11802, "raiseMapWindow", 300)
 end
 
 function refreshChromeInsets()

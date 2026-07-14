@@ -46,8 +46,8 @@
   	 	<windows>
   	 		<window name="button_window" id="10203" script="buttonwindow">
   	 			<layoutGroup target="normal">
-  	 				<layout orientation="landscape" height="fill_parent" width="fill_parent" above="10204"/>
-  	 				<layout orientation="portrait" height="fill_parent" width="fill_parent" above="10204"/>
+  	 				<layout orientation="landscape" height="fill_parent" width="fill_parent" above="40"/>
+  	 				<layout orientation="portrait" height="fill_parent" width="fill_parent" above="40"/>
   	 			</layoutGroup>
   	 		</window>
   	 	</windows>
@@ -112,7 +112,7 @@
 			</window>
 		</windows>
 		<options title="ForgeMap" summary="Manual exploration map — tap adjacent ? tiles to build the map room by room.">
-			<boolean title="Auto-open map panel" key="auto_open_map" summary="Show map strip when connecting.">true</boolean>
+			<boolean title="Auto-open map panel" key="auto_open_map" summary="Show map strip when connecting.">false</boolean>
 			<integer title="Tile size (dp)" key="tile_size_dp" summary="Base tile size on screen.">36</integer>
 			<boolean title="Show tile labels" key="show_labels" summary="Draw room names on explored tiles.">true</boolean>
 			<string title="Room title regex (future)" key="room_title_regex" summary="Planned: regex to capture room title from MUD text into the current tile.">^(.+)$</string>
