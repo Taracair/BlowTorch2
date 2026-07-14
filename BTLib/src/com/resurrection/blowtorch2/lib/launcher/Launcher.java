@@ -2131,54 +2131,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				//updateDialog.setProgress(0);
 				updateDialog.show();
 				
-				
-				
-//				synchronized(this) {
-//				try {
-//					
-//					this.wait(50);
-//				} catch (InterruptedException e) {
-//					// TODO Auto-generated catch block
-//					e.printStackTrace();
-//				}
-//				}
-				/*URL updateSize;
-				try {
-					updateSize = new URL("http://bt.happygoatstudios.com/test/size");
-				} catch (MalformedURLException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					return;
-				}
-				BufferedReader in;
-				try {
-					in = new BufferedReader(new InputStreamReader(updateSize.openStream()));
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					return;
-				}
-				String tmp = "";
-				StringBuffer buf = new StringBuffer();
-				try {
-					while((tmp = in.readLine())!=null) {
-						buf.append(tmp);
-					}
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-					return;
-				}
-				Integer size = Integer.parseInt(buf.toString());
-				Log.e("BlowTorch","Update size is: " + size + " bytes.");*/
-				
-				
-				
-				
-				//update = new UpdateThread(this);
-				//update.run();
-				
-				
 				break;
 			case MESSAGE_CANCELDOWNLOAD:
 				update.doCancel();
