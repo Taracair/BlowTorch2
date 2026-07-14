@@ -49,4 +49,28 @@
 
 	</style>
 
+	<!-- MainWindow: draw game edge-to-edge; status bar is transparent over content. -->
+	<style name="BlowTorch.GameWindow" parent="@style/Theme.AppCompat.NoActionBar">
+		<item name="android:windowBackground">@android:color/transparent</item>
+		<item name="android:colorBackground">@android:color/transparent</item>
+		<item name="android:statusBarColor">@android:color/transparent</item>
+		<item name="android:navigationBarColor">@android:color/black</item>
+		<item name="android:windowContentOverlay">@null</item>
+		<item name="colorPrimary">@android:color/transparent</item>
+		<item name="colorPrimaryDark">@android:color/transparent</item>
+		<item name="android:windowDrawsSystemBarBackgrounds">true</item>
+		<item name="android:windowIsTranslucent">false</item>
+	</style>
+
+	<!-- In-game toolbar: must not pull gray colorPrimary from ActionBar overlays. -->
+	<style name="BlowTorch.Game.Toolbar" parent="@style/Widget.AppCompat.Toolbar">
+		<item name="android:background">@android:color/transparent</item>
+		<item name="background">@android:color/transparent</item>
+		<item name="backgroundTint">@null</item>
+		<item name="android:elevation">0dp</item>
+		<item name="elevation">0dp</item>
+		<item name="colorPrimary">@android:color/transparent</item>
+		<item name="colorPrimaryDark">@android:color/transparent</item>
+	</style>
+
 </resources>

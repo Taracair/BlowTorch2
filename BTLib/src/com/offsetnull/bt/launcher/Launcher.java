@@ -100,6 +100,7 @@ import com.offsetnull.bt.window.MainWindow;
 import com.offsetnull.bt.settings.ConfigurationLoader;
 import com.offsetnull.bt.util.BlowTorchLogger;
 import com.offsetnull.bt.ui.SDCardUtils;
+import com.offsetnull.bt.ui.PermissionHelper;
 
 
 import dalvik.system.PathClassLoader;
@@ -125,6 +126,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int RP_SALVAGE = 101;
 	protected static final int RP_EXPORT = 102;
 	protected static final int RP_IMPORT = 103;
+	protected static final int RP_STARTUP = 104;
 	
 	private IConnectionBinder service = null;
 	
@@ -474,6 +476,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+
+		int discovered = ProfileDiscovery.mergeDiscoveredProfiles(this, launcher_settings);
+		if (discovered > 0) {
+			launcherSaveEnabled = true;
+			saveXML();
+			Toast.makeText(this, getString(R.string.profiles_discovered, discovered), Toast.LENGTH_LONG).show();
+		}
 		
 		//by here we should have a completly populated list and settings
 		//check version code.
@@ -575,6 +584,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		Log.e("LAUNCHER","STARTING SREVICE");
 		String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 		androidx.core.content.ContextCompat.startForegroundService(this, new Intent(action,null,this, StellarService.class));
+		View permissionRoot = findViewById(R.id.launcher_window_content);
+		if (permissionRoot == null) {
+			permissionRoot = tableContainer;
+		}
+		SDCardUtils.requestStartupPermissions(this, permissionRoot, RP_STARTUP);
 		buildList();
 		if(!serviceBound) {
 			//String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
@@ -772,7 +786,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     			//service is not running, reset the values in the shared prefs that the window uses to keep track of weather or not to finish init routines.
     			//kill all whitespace in the display name.
 	    		launch = muc.copy();
-	    		DoNewStartup();
+	    		PermissionHelper.ensureInternetForFeature(Launcher.this,
+	    				R.string.permission_feature_connect, new Runnable() {
+	    			@Override
+	    			public void run() {
+	    				DoNewStartup();
+	    			}
+	    		});
 	    	/*} else {
 	    		//service exists, we should figure out the name of what it is playing.
 	    		//Log.e("LAUNCHER","SERVICE IS RUNNING");
@@ -1865,30 +1885,36 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch(item.getItemId()) {
 		case 100:
-			//start import
-			//DoImportMenu();
-			if(SDCardUtils.hasPermissions(this,findViewById(R.id.launcher_window_content), RP_IMPORT)) {
-				//DoImportMenu();
-				showImportMessage(true);
-			}
+			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT, new Runnable() {
+				@Override
+				public void run() {
+					showImportMessage(SDCardUtils.hasStoragePermissions(Launcher.this));
+				}
+			});
 			break;
 		case 105:
-			//start export
-			if(SDCardUtils.hasPermissions(this,findViewById(R.id.launcher_window_content), RP_EXPORT)) {
-				//actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_DORECOVERY, this.getPackageName()));
-				AskExportFileName(true);
-			}//false is handled by the activity interface implementation
-
+			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT, new Runnable() {
+				@Override
+				public void run() {
+					AskExportFileName(SDCardUtils.hasStoragePermissions(Launcher.this));
+				}
+			});
 			break;
 		case 110:
-			if (SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT)) {
-				DoBackupAllSettings();
-			}
+			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT, new Runnable() {
+				@Override
+				public void run() {
+					DoBackupAllSettings();
+				}
+			});
 			break;
 		case 111:
-			if (SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT)) {
-				AskImportSettings();
-			}
+			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT, new Runnable() {
+				@Override
+				public void run() {
+					AskImportSettings();
+				}
+			});
 			break;
 		case 106:
 
@@ -1929,14 +1955,17 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			
 			AlertDialog dialog = builder.create();
 			dialog.show();*/
-			if(SDCardUtils.hasPermissions(this,findViewById(R.id.launcher_window_content), RP_SALVAGE)) {
-				//actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_DORECOVERY, this.getPackageName()));
-				try {
-					DoRecovery(this.getPackageName(), true);
-				} catch(Exception e) {
-					throw new RuntimeException(e) ;
+			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_SALVAGE, new Runnable() {
+				@Override
+				public void run() {
+					try {
+						DoRecovery(Launcher.this.getPackageName(),
+								SDCardUtils.hasStoragePermissions(Launcher.this));
+					} catch (Exception e) {
+						throw new RuntimeException(e);
+					}
 				}
-			}//false is handled by the activity interface implementation
+			});
 			
 			break;
 		case 108:
@@ -2445,30 +2474,73 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		bar.show();
 	}
 
+	private void showStartupPermissionsResult() {
+		String storageState = SDCardUtils.hasStoragePermissions(this) ? "granted" : "denied";
+		Toast.makeText(this, getString(R.string.startup_permissions_result, storageState), Toast.LENGTH_LONG).show();
+	}
+
 	@Override
 	public void onRequestPermissionsResult(int requestCode, String[] permissions,
 										   int[] grantResults) {
-		boolean external = false;
-		if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-			external = true;
-		}
+		final View root = findViewById(R.id.launcher_window_content);
+		final boolean external = SDCardUtils.hasStoragePermissions(this);
+		final int featureRes = PermissionHelper.featureMessageForRequestCode(requestCode);
 
 		switch(requestCode) {
+			case RP_STARTUP:
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_STARTUP, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						showStartupPermissionsResult();
+					}
+				}, new Runnable() {
+					@Override
+					public void run() {
+						showStartupPermissionsResult();
+					}
+				});
+				break;
 			case RP_INFO:
-				showPermissionsMessage(external);
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_INFO, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						showPermissionsMessage(external);
+					}
+				}, null);
 				break;
 			case RP_SALVAGE:
-				try {
-					DoRecovery(this.getPackageName(), external);
-				} catch(Exception e) {
-					throw new RuntimeException(e) ;
-				}
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_SALVAGE, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						try {
+							DoRecovery(Launcher.this.getPackageName(), external);
+						} catch (Exception e) {
+							throw new RuntimeException(e);
+						}
+					}
+				}, null);
 				break;
 			case RP_EXPORT:
-					AskExportFileName(external);
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_EXPORT, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						AskExportFileName(external);
+					}
+				}, null);
 				break;
 			case RP_IMPORT:
-					showImportMessage(external);
+				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_IMPORT, permissions,
+						grantResults, featureRes, new Runnable() {
+					@Override
+					public void run() {
+						showImportMessage(external);
+					}
+				}, null);
+				break;
 			default:
 				break;
 		}

@@ -37,6 +37,7 @@ import android.os.RemoteException;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.util.Log;
+import com.offsetnull.bt.R;
 import com.offsetnull.bt.util.BlowTorchLogger;
 import com.offsetnull.bt.service.plugin.Plugin;
 import com.offsetnull.bt.speedwalk.DirectionData;
@@ -71,6 +72,8 @@ public class StellarService extends Service {
 	private static final int SHORT_DURATION = 300;
 	/** The starting value for the notification id counter. */
 	private static final int NOTIFICATION_START_VALUE = 100;
+	/** Jedyne ID powiadomienia foreground (ongoing). */
+	public static final int FOREGROUND_NOTIFICATION_ID = 1;
 	/** File copy buffer size. */
 	private static final int FILE_COPY_BUFFER_SIZE = 1024;
 	/** The tracker variable for monotonically increasing notification ids. */
@@ -136,13 +139,13 @@ public class StellarService extends Service {
 			}
 			Notification placeholder = new androidx.core.app.NotificationCompat.Builder(this, channelId)
 				.setContentTitle(ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this))
-				.setContentText("Starting...")
+				.setContentText(getString(R.string.notification_status_starting))
 				.setSmallIcon(resId)
 				.setOngoing(true)
 				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
 				.build();
-			startForeground(1, placeholder);
-			mForegroundNotificationId = 1;
+			startForeground(FOREGROUND_NOTIFICATION_ID, placeholder);
+			mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
 			mHasForegroundNotification = true;
 		}
 		if (ConfigurationLoader.isTestMode(this.getApplicationContext())) {
@@ -207,8 +210,16 @@ public class StellarService extends Service {
 				reloadWindows();
 				break;
 			case MESSAGE_STARTUP:
-				if (mConnections.get(mConnectionClutch).getPump() == null) {
-					mConnections.get(mConnectionClutch).getHandler().sendEmptyMessage(Connection.MESSAGE_STARTUP);
+				Connection active = mConnections.get(mConnectionClutch);
+				if (active != null) {
+					if (active.getPump() == null) {
+						active.getHandler().sendEmptyMessage(Connection.MESSAGE_STARTUP);
+					} else {
+						updateForegroundNotification(
+								active.getDisplay(),
+								getString(R.string.notification_status_connected,
+										active.getHost(), active.getPort()));
+					}
 				}
 				break;
 			case MESSAGE_NEWCONENCTION:
@@ -518,17 +529,67 @@ public class StellarService extends Service {
 		mLauncherCallbacks.finishBroadcast();
 	}
 	
-	/** Method called when a connection has connected successfully.
-	 * 
-	 * This method coordinates with the multi-connection system to ensure that at least one notification is used for the startForeground(...) method.
-	 * 
-	 * @param display The display name of the connection.
-	 * @param host The host name of the connection.
-	 * @param port The port number of the connection.
+	/**
+	 * Buduje i wyświetla/odświeża jedno powiadomienie foreground dla aktywnego połączenia.
 	 */
+	public final void updateForegroundNotification(final String display, final CharSequence statusText) {
+		int resId = this.getResources().getIdentifier(
+				ConfigurationLoader.getConfigurationValue("notificationIcon", this.getApplicationContext()),
+				"drawable", this.getPackageName());
+		if (resId == 0) {
+			resId = android.R.drawable.stat_notify_chat;
+		}
+		String channelId = createNotificationChannel();
+
+		Intent notificationIntent = new Intent(
+				ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext()));
+		String apkName = null;
+		try {
+			apkName = this.getPackageManager().getApplicationInfo(this.getPackageName(), 0).sourceDir;
+		} catch (NameNotFoundException e1) {
+			e1.printStackTrace();
+		}
+		Class<?> w = null;
+		PathClassLoader cl = new dalvik.system.PathClassLoader(apkName, ClassLoader.getSystemClassLoader());
+		try {
+			w = Class.forName("com.offsetnull.bt.window.MainWindow", false, cl);
+		} catch (ClassNotFoundException e1) {
+			e1.printStackTrace();
+		}
+		try {
+			notificationIntent.setClass(
+					this.createPackageContext(this.getPackageName(), Context.CONTEXT_INCLUDE_CODE), w);
+		} catch (NameNotFoundException e) {
+			e.printStackTrace();
+		}
+		if (display != null) {
+			notificationIntent.putExtra("DISPLAY", display);
+		}
+		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		PendingIntent contentIntent = PendingIntent.getActivity(
+				this, FOREGROUND_NOTIFICATION_ID, notificationIntent, activityPendingIntentFlags());
+
+		CharSequence brand = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this);
+		CharSequence title = (display != null && !display.isEmpty()) ? display : brand;
+
+		Notification note = new androidx.core.app.NotificationCompat.Builder(this, channelId)
+				.setContentTitle(title)
+				.setContentText(statusText)
+				.setSmallIcon(resId)
+				.setOngoing(true)
+				.setOnlyAlertOnce(true)
+				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+				.setContentIntent(contentIntent)
+				.build();
+
+		startForeground(FOREGROUND_NOTIFICATION_ID, note);
+		mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
+		mHasForegroundNotification = true;
+	}
+
 	@SuppressWarnings("deprecation")
+	/** Method called when a connection has connected successfully. */
 	public final void showConnectionNotification(final String display, final String host, final int port) {
-		if (mConnectionNotificationMap.containsKey(display)) { return; }
 		int resId = this.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", this.getApplicationContext()), "drawable", this.getPackageName());
 		if (resId == 0) {
 			resId = android.R.drawable.stat_notify_chat;
@@ -610,6 +671,11 @@ public class StellarService extends Service {
 		
 		mConnectionNotificationIdMap.put(display, notificationID);
 		mConnectionNotificationMap.put(display, note);
+
+		if (display != null && display.equals(mConnectionClutch)) {
+			updateForegroundNotification(display,
+					getString(R.string.notification_status_connected, host, port));
+		}
 	}
 
 	/** Create notification channel. This is require for startForeground starting on Android O

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <color name="game_input_text">#9999FF</color>
+    <color name="game_input_bg">#0A0A0A</color>
+    <color name="game_divider">#FF444488</color>
+    <color name="game_input_highlight">#555555</color>
+</resources>

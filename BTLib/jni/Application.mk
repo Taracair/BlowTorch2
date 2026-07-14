@@ -1,4 +1,4 @@
-APP_ABI := armeabi-v7a
+APP_ABI := armeabi-v7a arm64-v8a
 APP_OPTIM := release
 APP_CFLAGS := -O3
 APP_MODULES := lua lsqlite3 sqlite3 bit marshal luabins

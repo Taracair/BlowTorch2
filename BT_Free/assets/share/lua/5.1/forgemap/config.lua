@@ -6,9 +6,13 @@ M.MINIMAP_TILES = 5
 M.MIN_TILE_DP = 18
 M.STRIP_HEIGHT_DP = 210
 M.HEADER_DP = 28
-M.HEADER_BTN_DP = 28
+M.HEADER_BTN_DP = 24
 M.MAX_QUICK = 4
 M.MAX_GO_SLOTS = 4
+M.COMPASS_DOCK_MAX_DP = 128
+M.COMPASS_DOCK_MIN_DP = 96
+M.COMPASS_DOCK_RATIO = 0.34
+M.COMPASS_CELL_MIN_DP = 14
 M.MAP_PANEL_RATIO = 0.58
 M.PENDING_MOVE_MS = 4000
 
@@ -51,13 +55,14 @@ M.DEFAULT_GO_SLOTS = {
 }
 
 M.DEFAULT_GO_KEYS = {
-	in = { label = "in", cmd = "in" },
+	["in"] = { label = "in", cmd = "in" },
 	out = { label = "out", cmd = "out" },
 }
 
 M.HEADER_BUTTONS = {
-	{ id = "close", label = "X", action = "close" },
 	{ id = "here", label = "+", action = "here" },
+	{ id = "walk", label = "GO", action = "mode_walk" },
+	{ id = "map", label = "MAP", action = "mode_map" },
 }
 
 M.FLAG_ICONS = {

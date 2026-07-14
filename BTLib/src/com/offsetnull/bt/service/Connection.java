@@ -1668,6 +1668,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private void doStartup() {
 	
 		killNetThreads(true);
+
+		mService.updateForegroundNotification(mDisplay,
+				mService.getString(com.offsetnull.bt.R.string.notification_status_connecting, mHost, mPort));
 		
 		mPump = new DataPumper(mHost, mPort, mHandler);
 		
