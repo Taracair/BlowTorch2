@@ -151,8 +151,6 @@ end
 function setAutoOpen(v)
 	if v == false or v == "false" or v == "0" then
 		toggleVisible("close")
-	else
-		toggleVisible("open")
 	end
 end
 
@@ -568,16 +566,8 @@ function OnCreate()
 	view:setOnTouchListener(luajava.createProxy("android.view.View$OnTouchListener", touchHandler))
 	AddOptionCallback("toggleForgeMap", "ForgeMap", nil)
 	stripHeightPx = math.floor(config.STRIP_HEIGHT_DP * density)
-	local autoOpen = GetOptionValue("auto_open_map")
-	visible = not (autoOpen == "false" or autoOpen == "0")
+	visible = false
 	applyWindowLayout()
-	if visible then
-		raiseMap()
-		PluginXCallS("syncMapToWindow", "")
-		updateChromeInsets()
-		allocBitmap()
-		ScheduleCallback(11802, "raiseMapWindow", 300)
-	end
 end
 
 function refreshChromeInsets()

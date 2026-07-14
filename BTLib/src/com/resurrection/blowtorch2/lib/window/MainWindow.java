@@ -389,6 +389,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		titleBarHeight = sprefs.getInt("TITLE_BAR_HEIGHT", 0);
 		setContentView(R.layout.window_layout);
 		assignLegacyChromeIds();
+		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
 		getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -403,6 +404,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		setSupportActionBar(myToolbar);
+		if (getSupportActionBar() != null) {
+			getSupportActionBar().hide();
+		}
 		configureGameplayToolbar(myToolbar);
 
 		final View overflowMenu = findViewById(R.id.overflow_menu);
@@ -1718,11 +1722,27 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 1400,1400,"Import Settings");
 		menu.add(0, 1500,1500,"SDCard Permissions");
 		//menu.add(0, 1600,1600,"App Settings");
-		
-		
+
+		if (menuStack.size() == 0) {
+			suppressActionBarMenuIcons(menu);
+		}
 		
 		return true;
 		
+	}
+
+	private void suppressActionBarMenuIcons(Menu menu) {
+		for (int i = 0; i < menu.size(); i++) {
+			menu.getItem(i).setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
+		}
+	}
+
+	@Override
+	public boolean onMenuOpened(int featureId, Menu menu) {
+		if (menuStack.size() == 0) {
+			return false;
+		}
+		return super.onMenuOpened(featureId, menu);
 	}
 	
 	//RotatableDialog d = null;
@@ -3459,15 +3479,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		View inputbar = findGameplayInputBar(rl);
 		View divider = findGameplayDivider(rl);
-		View overflowMenu = rl.findViewById(R.id.overflow_menu);
 		if (inputbar != null) {
 			inputbar.bringToFront();
 		}
 		if (divider != null) {
 			divider.bringToFront();
 		}
-		if (overflowMenu != null) {
-			overflowMenu.bringToFront();
+		View overlay = findViewById(R.id.gameplay_chrome_overlay);
+		if (overlay != null) {
+			overlay.bringToFront();
 		}
 	}
 
@@ -3478,7 +3498,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		final View inputbar = findGameplayInputBar(rl);
 		final View divider = findGameplayDivider(rl);
 		final View toolbar = rl.findViewById(R.id.my_toolbar);
-		final View overflowMenu = rl.findViewById(R.id.overflow_menu);
+		final View overflowMenu = findViewById(R.id.overflow_menu);
 		if (inputbar == null || divider == null) {
 			return;
 		}
@@ -3504,12 +3524,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		if (overflowMenu != null) {
-			int size = (int) (48 * density);
-			RelativeLayout.LayoutParams overflowLp = new RelativeLayout.LayoutParams(size, size);
-			overflowLp.addRule(RelativeLayout.ALIGN_PARENT_END);
-			overflowLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
-			overflowLp.setMargins(0, 0, margin, margin);
-			overflowMenu.setLayoutParams(overflowLp);
+			final int size = (int) (48 * density);
+			final View overlay = findViewById(R.id.gameplay_chrome_overlay);
+			final View inputbarFinal = inputbar;
+			final int dividerHeightFinal = dividerHeight;
+			final int marginFinal = margin;
+			inputbar.post(new Runnable() {
+				@Override
+				public void run() {
+					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal + marginFinal;
+					android.widget.FrameLayout.LayoutParams overflowLp =
+							new android.widget.FrameLayout.LayoutParams(size, size);
+					overflowLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+					overflowLp.setMargins(0, 0, marginFinal, bottomInset);
+					overflowMenu.setLayoutParams(overflowLp);
+				}
+			});
 			overflowMenu.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
