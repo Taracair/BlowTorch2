@@ -165,35 +165,7 @@ public class StellarService extends Service {
 		
 		SharedPreferences prefs = this.getSharedPreferences("SERVICE_INFO", 0);
 		
-		int libsver = prefs.getInt("CURRENT_LUA_LIBS_VERSION", 0);
-		Bundle meta = null;
-		try {
-			meta = this.getPackageManager().getApplicationInfo(this.getPackageName(), PackageManager.GET_META_DATA).metaData;
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		int packagever = meta.getInt("BLOWTORCH_LUA_LIBS_VERSION");
-		try {
-			LuaLibraryHelper.ensureNativeLibsInDataDir(this);
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		if (packagever != libsver) {
-			//copy new libs.
-			try {
-				updateLibs();
-				//updatelibsver needs to be incremented and saved back into the shared preferences
-				SharedPreferences.Editor editor  = prefs.edit();
-				editor.putInt("CURRENT_LUA_LIBS_VERSION", packagever);
-				editor.commit();
-			} catch (NameNotFoundException e) {
-				e.printStackTrace(); 
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
+		LuaLibraryHelper.ensureCurrentVersion(this);
 		mHandler = new Handler(new ServiceHandler());
 
 	}
