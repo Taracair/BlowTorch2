@@ -40,14 +40,14 @@
 			android:defaultValue="highlight_color_bland_only"
 			android:dependency="HYPERLINK_ENABLED"
 			/>
-		<com.happygoatstudios.bt.settings.ColorSwatchPreference
+		<com.offsetnull.bt.settings.ColorSwatchPreference
 			android:key="HYPERLINK_COLOR"
 			android:title="Hyperlink Color"
 			android:widgetLayout="@layout/colorswatch_widget"
 			android:summary="Highlight color that is applied to hyperlinks"
 			android:dependency="HYPERLINK_ENABLED"/>
 		</PreferenceScreen>
-		<com.happygoatstudios.bt.settings.TriStatePreference
+		<com.offsetnull.bt.settings.TriStatePreference
 			android:key="ORIENTATION"
 			android:defaultValue="0"
 			android:title="Orientation"
@@ -59,7 +59,7 @@
 			android:summary="Broken text will be wrapped at the nearest whitespace."
 			android:defaultValue="true"/>
 		
-		<com.happygoatstudios.bt.settings.CheckedEditPreference
+		<com.offsetnull.bt.settings.CheckedEditPreference
 			android:key="BREAK_AMOUNT"
 			android:defaultValue="0"
 			android:title="Break Limit"
@@ -247,7 +247,7 @@
 		</PreferenceScreen>
 	</PreferenceCategory>
 	<PreferenceCategory android:title="Import/Export Settings">
-		<com.happygoatstudios.bt.settings.HyperDialogPreference
+		<com.offsetnull.bt.settings.HyperDialogPreference
 			android:key="RESET_DEFAULTS"
 			android:title="Reset Settings to Defaults"
 			android:summary="Somethin strange. In your neighborhood."
