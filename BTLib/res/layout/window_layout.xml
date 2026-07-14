@@ -18,7 +18,7 @@
     <ImageButton
     	android:id="@+id/foldout"
     	android:layout_width="40dip"
-    	android:layout_height="20dip"
+    	android:layout_height="30dip"
     	android:background="@color/game_input_bg"
     	android:src="@drawable/sliderwidgetout"
     	android:textSize="16sp"
@@ -29,7 +29,7 @@
     <com.resurrection.blowtorch2.lib.window.BetterEditText
     android:layout_width="fill_parent"
     android:layout_height="wrap_content"
-    android:minHeight = "20dip"
+    android:minHeight = "30dip"
     android:textSize="16sp"
     android:typeface="monospace"
     android:textColor="@color/game_input_text"
