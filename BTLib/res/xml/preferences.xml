@@ -101,12 +101,17 @@
 		<EditTextPreference
 			android:key="MAX_LINES"
 			android:title="Text Buffer Size"
-			android:defaultValue="300"
-			android:summary="The number of lines kept by the window for scrollback."
+			android:defaultValue="2000"
+			android:summary="Lines kept for on-screen scrollback (100–8000). Use session log for longer history."
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
 			android:gravity = "right"
 			android:inputType="number"/>
+		<CheckBoxPreference
+			android:key="SESSION_LOG"
+			android:title="Log Session to File?"
+			android:summary="Append incoming text to a .txt file under app files/session_logs/."
+			android:defaultValue="false"/>
 		
 		
 		<ListPreference
