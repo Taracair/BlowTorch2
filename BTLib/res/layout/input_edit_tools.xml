@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Expandable input edit strip: select/cut/copy/paste + cursor navigation. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/input_edit_tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:visibility="gone"
+    android:background="#FF1A1A1A">
+
+    <HorizontalScrollView
+        android:id="@+id/input_edit_strip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:fillViewport="false">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingLeft="4dip"
+            android:paddingRight="4dip"
+            android:paddingTop="4dip"
+            android:paddingBottom="4dip">
+
+            <Button
+                android:id="@+id/input_btn_select"
+                style="@style/InputEditToolButton"
+                android:text="Sel" />
+            <Button
+                android:id="@+id/input_btn_cut"
+                style="@style/InputEditToolButton"
+                android:text="Cut" />
+            <Button
+                android:id="@+id/input_btn_copy"
+                style="@style/InputEditToolButton"
+                android:text="Copy" />
+            <Button
+                android:id="@+id/input_btn_paste"
+                style="@style/InputEditToolButton"
+                android:text="Paste" />
+            <Button
+                android:id="@+id/input_btn_home"
+                style="@style/InputEditToolButton"
+                android:text="|&lt;" />
+            <Button
+                android:id="@+id/input_btn_left"
+                style="@style/InputEditToolButton"
+                android:text="&lt;" />
+            <Button
+                android:id="@+id/input_btn_right"
+                style="@style/InputEditToolButton"
+                android:text="&gt;" />
+            <Button
+                android:id="@+id/input_btn_end"
+                style="@style/InputEditToolButton"
+                android:text="&gt;|" />
+        </LinearLayout>
+    </HorizontalScrollView>
+</LinearLayout>

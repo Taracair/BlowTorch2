@@ -3528,15 +3528,41 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		setupInputEditStrip();
 	}
 
+	private static final String PREFS_INPUT_EDIT = "INPUT_EDIT_STRIP";
+	private static final String KEY_EDIT_EXPANDED = "expanded";
+
 	private void setupInputEditStrip() {
+		final View tools = findViewById(R.id.input_edit_tools);
+		final Button toggle = (Button) findViewById(R.id.input_edit_toggle);
 		View select = findViewById(R.id.input_btn_select);
+		View cut = findViewById(R.id.input_btn_cut);
 		View copy = findViewById(R.id.input_btn_copy);
 		View paste = findViewById(R.id.input_btn_paste);
 		View home = findViewById(R.id.input_btn_home);
+		View left = findViewById(R.id.input_btn_left);
+		View right = findViewById(R.id.input_btn_right);
 		View end = findViewById(R.id.input_btn_end);
-		if (select == null || mInputBox == null) {
+		if (mInputBox == null || tools == null || toggle == null || select == null) {
 			return;
 		}
+
+		boolean expanded = getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
+				.getBoolean(KEY_EDIT_EXPANDED, false);
+		applyInputEditExpanded(tools, toggle, expanded);
+
+		toggle.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				boolean nowExpanded = tools.getVisibility() != View.VISIBLE;
+				applyInputEditExpanded(tools, toggle, nowExpanded);
+				getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
+						.edit()
+						.putBoolean(KEY_EDIT_EXPANDED, nowExpanded)
+						.apply();
+				refreshGameChrome();
+			}
+		});
+
 		select.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -3544,14 +3570,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				mInputBox.selectAll();
 			}
 		});
+		cut.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+				int start = Math.max(0, mInputBox.getSelectionStart());
+				int endSel = Math.max(start, mInputBox.getSelectionEnd());
+				CharSequence selected;
+				if (endSel > start) {
+					selected = mInputBox.getText().subSequence(start, endSel);
+					mInputBox.getText().delete(start, endSel);
+				} else {
+					selected = mInputBox.getText();
+					mInputBox.setText("");
+				}
+				cm.setPrimaryClip(android.content.ClipData.newPlainText("input", selected));
+				Toast.makeText(MainWindow.this, "Cut", Toast.LENGTH_SHORT).show();
+			}
+		});
 		copy.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-				CharSequence selected = mInputBox.getText().subSequence(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd());
-				if (selected.length() == 0) {
-					selected = mInputBox.getText();
-				}
+				int start = Math.max(0, mInputBox.getSelectionStart());
+				int endSel = Math.max(start, mInputBox.getSelectionEnd());
+				CharSequence selected = endSel > start
+						? mInputBox.getText().subSequence(start, endSel)
+						: mInputBox.getText();
 				cm.setPrimaryClip(android.content.ClipData.newPlainText("input", selected));
 				Toast.makeText(MainWindow.this, "Copied", Toast.LENGTH_SHORT).show();
 			}
@@ -3576,15 +3621,39 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		home.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
+				mInputBox.requestFocus();
 				mInputBox.setSelection(0);
+			}
+		});
+		left.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				mInputBox.requestFocus();
+				int pos = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()) - 1);
+				mInputBox.setSelection(pos);
+			}
+		});
+		right.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				mInputBox.requestFocus();
+				int len = mInputBox.getText().length();
+				int pos = Math.min(len, Math.max(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()) + 1);
+				mInputBox.setSelection(pos);
 			}
 		});
 		end.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
+				mInputBox.requestFocus();
 				mInputBox.setSelection(mInputBox.getText().length());
 			}
 		});
+	}
+
+	private void applyInputEditExpanded(View tools, Button toggle, boolean expanded) {
+		tools.setVisibility(expanded ? View.VISIBLE : View.GONE);
+		toggle.setText(expanded ? "Hide" : "Edit");
 	}
 
 	private void showScrollbackSearchDialog() {
