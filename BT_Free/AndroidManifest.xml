@@ -26,10 +26,9 @@
                   android:label="BlowTorch"
                   android:exported="false">
         </activity>
-        <!-- android:windowSoftInputMode="adjustResize" -->
         <activity android:name="com.resurrection.blowtorch2.lib.window.MainWindow"
         		  android:theme="@style/BlowTorch.GameWindow"
-        		  android:windowSoftInputMode="adjustPan|stateHidden"
+        		  android:windowSoftInputMode="adjustResize|stateHidden"
         		  android:label="BlowTorch"
 				  android:configChanges="orientation|keyboard|keyboardHidden|screenLayout|screenSize"
         		  android:launchMode = "singleTask"

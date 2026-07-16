@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scrollback_search_bar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:visibility="gone"
+    android:background="#F0121212"
+    android:paddingLeft="6dip"
+    android:paddingRight="6dip"
+    android:paddingTop="6dip"
+    android:paddingBottom="6dip"
+    android:elevation="6dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <EditText
+            android:id="@+id/scrollback_search_query"
+            android:layout_width="0dip"
+            android:layout_height="40dip"
+            android:layout_weight="1"
+            android:background="#FF2A2A2A"
+            android:textColor="#FFFFFFFF"
+            android:textColorHint="#FF888888"
+            android:hint="Search scrollback…"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:singleLine="true"
+            android:paddingLeft="10dip"
+            android:paddingRight="10dip"
+            android:textSize="14sp"
+            android:typeface="monospace" />
+
+        <CheckBox
+            android:id="@+id/scrollback_search_case"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="4dip"
+            android:text="Aa"
+            android:textColor="#FFDDDDDD"
+            android:textSize="12sp"
+            android:buttonTint="#FFAAAAAA" />
+
+        <Button
+            android:id="@+id/scrollback_search_find"
+            style="@style/InputEditToolButton"
+            android:layout_marginLeft="2dip"
+            android:text="Find" />
+
+        <Button
+            android:id="@+id/scrollback_search_close"
+            style="@style/InputEditToolButton"
+            android:text="✕" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingTop="4dip">
+
+        <Button
+            android:id="@+id/scrollback_search_prev"
+            style="@style/InputEditToolButton"
+            android:minWidth="72dip"
+            android:text="◀ Prev" />
+
+        <TextView
+            android:id="@+id/scrollback_search_count"
+            android:layout_width="0dip"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="0 / 0"
+            android:textColor="#FFEEEEEE"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/scrollback_search_next"
+            style="@style/InputEditToolButton"
+            android:minWidth="72dip"
+            android:text="Next ▶" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/scrollback_search_preview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="4dip"
+        android:paddingBottom="2dip"
+        android:textColor="#FFB8E0B8"
+        android:textSize="12sp"
+        android:typeface="monospace"
+        android:maxLines="3"
+        android:ellipsize="end"
+        android:text="Enter a phrase and tap Find. Use Next/Prev to jump between matches in the game window." />
+</LinearLayout>
