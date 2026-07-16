@@ -43,25 +43,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-            <ImageButton
-                android:id="@+id/foldout"
-                android:layout_width="80dip"
-                android:layout_height="40dip"
-                android:background="@color/game_input_bg"
-                android:src="@drawable/sliderwidgetout"
-                android:text="|DOWN|"
-                android:textColor="@color/game_input_text"
-                android:textSize="16sp"
-                android:typeface="monospace" />
+                android:gravity="center_vertical"
+                android:paddingLeft="4dip"
+                android:paddingRight="2dip"
+                android:paddingTop="2dip"
+                android:paddingBottom="2dip">
 
             <com.resurrection.blowtorch2.lib.window.BetterEditText
                 android:id="@+id/textinput"
                 android:layout_width="0dip"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginLeft="3sp"
                 android:background="@drawable/input_bar_bg"
                 android:candidatesTextStyleSpans=""
                 android:editable="true"
@@ -100,6 +92,12 @@
             android:layout_height="3dip"
             android:layout_above="@id/inputbar"
             android:background="@color/game_divider" />
+
+            <include
+                layout="@layout/scrollback_search_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_above="@id/divider" />
 
     </RelativeLayout>
 

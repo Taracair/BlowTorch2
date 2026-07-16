@@ -1708,18 +1708,25 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	/**
-	 * Find {@code query} in scrollback (case-insensitive). Returns broken-line offsets from bottom
+	 * Find {@code query} in scrollback. Returns broken-line offsets from bottom
 	 * for each match (newest first), capped at {@code maxResults}.
 	 */
 	public java.util.ArrayList<Integer> findInScrollback(String query, int maxResults) {
+		return findInScrollback(query, maxResults, false);
+	}
+
+	public java.util.ArrayList<Integer> findInScrollback(String query, int maxResults, boolean caseSensitive) {
 		java.util.ArrayList<Integer> hits = new java.util.ArrayList<Integer>();
 		if (query == null || query.trim().isEmpty() || mBuffer == null) {
 			return hits;
 		}
-		String needle = query.toLowerCase(java.util.Locale.getDefault());
+		String needle = caseSensitive ? query : query.toLowerCase(java.util.Locale.getDefault());
 		int brokenFromBottom = 0;
 		for (TextTree.Line line : mBuffer.getLines()) {
-			String plain = TextTree.deColorLine(line).toString().toLowerCase(java.util.Locale.getDefault());
+			String plain = TextTree.deColorLine(line).toString();
+			if (!caseSensitive) {
+				plain = plain.toLowerCase(java.util.Locale.getDefault());
+			}
 			int breaks = 1 + line.breaks;
 			if (plain.contains(needle)) {
 				hits.add(brokenFromBottom);

@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:label="BlowTorch" android:theme="@android:style/Theme.NoTitleBar">
-        <!-- android:windowSoftInputMode="adjustResize" -->
         <activity android:name="com.resurrection.blowtorch2.lib.window.MainWindow"
-        		  android:windowSoftInputMode="adjustPan|stateHidden"
+        		  android:windowSoftInputMode="adjustResize|stateHidden"
         		  android:label="BlowTorch"
 				  android:configChanges="orientation|keyboard|keyboardHidden|screenLayout|screenSize"
         		  android:launchMode="singleTask"

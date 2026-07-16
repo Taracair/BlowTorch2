@@ -95,6 +95,7 @@ import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -230,10 +231,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_PASTE = 911;
 	protected static final int MESSAGE_INPUT_CURSOR_START = 912;
 	protected static final int MESSAGE_INPUT_CURSOR_END = 913;
+	protected static final int MESSAGE_SCROLLBACK_SEARCH = 914;
+	protected static final int MESSAGE_SCROLLBACK_SEARCH_NAV = 915;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
 	private BetterEditText mInputBox = null;
+
+	private View mScrollbackSearchBar = null;
+	private EditText mScrollbackSearchQuery = null;
+	private CheckBox mScrollbackSearchCase = null;
+	private TextView mScrollbackSearchCount = null;
+	private TextView mScrollbackSearchPreview = null;
+	private final java.util.ArrayList<Integer> mScrollbackSearchHits = new java.util.ArrayList<Integer>();
+	private int mScrollbackSearchIndex = -1;
+	private static final int SCROLLBACK_SEARCH_MAX = 500;
 	
 	private boolean autoLaunch = true;
 	private String overrideHF = "auto";
@@ -423,7 +435,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		final View chromeRoot = findViewById(R.id.window_container);
 		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) -> {
 			Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-			view.setPadding(0, 0, 0, bars.bottom);
+			Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+			// Keep the Edit/Hide row fully above the soft keyboard (not just the nav bar).
+			view.setPadding(0, 0, 0, Math.max(bars.bottom, ime.bottom));
 			statusBarHeight = bars.top;
 			titleBarHeight = bars.top;
 			SharedPreferences.Editor insetEditor = getSharedPreferences("STATUS_BAR_HEIGHT", 0).edit();
@@ -431,7 +445,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			insetEditor.putInt("STATUS_BAR_HEIGHT", bars.top);
 			insetEditor.apply();
 			refreshGameChrome();
-			return WindowInsetsCompat.CONSUMED;
+			return windowInsets;
 		});
 		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		updateMenuChrome();
@@ -1143,6 +1157,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_INPUT_CURSOR_END:
 					inputCursorToEnd();
 					break;
+				case MESSAGE_SCROLLBACK_SEARCH:
+					openScrollbackSearchBar(msg.obj == null ? "" : msg.obj.toString());
+					break;
+				case MESSAGE_SCROLLBACK_SEARCH_NAV:
+					scrollbackSearchNav(msg.arg1);
+					break;
 				default:
 					break;
 				}
@@ -1155,153 +1175,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//BetterEditText bet = (BetterEditText)input_box;
 		//bet.setListener(mInputBarAnimationListener);
 		
-		test_button = (ImageButton)findViewById(R.id.foldout);
-				
-		test_button.setOnClickListener(new View.OnClickListener() {
-			
-			public void onClick(View v) {
-				//change my layout parameters and add a new button.
-				//RelativeLayout rl = (RelativeLayout)findViewById(R.id.input_bar);
-				//LinearLayout l = (LinearLayout)findViewById(R.id.ctrl_target);
-				//if(l == null) {
-				///	return;
-				//}
-				
-				if(mFoldoutBar == null) {
-					LayoutInflater lf = LayoutInflater.from(MainWindow.this);
-					mFoldoutBar = (LinearLayout)lf.inflate(R.layout.input_controls, null);
-					
-				
-					
-					ImageButton dc = (ImageButton)mFoldoutBar.findViewById(R.id.down_btn_c);
-					ImageButton uc = (ImageButton)mFoldoutBar.findViewById(R.id.up_btn_c);
-					ImageButton ec = (ImageButton)mFoldoutBar.findViewById(R.id.enter_btn_c);
-					
-					//target.removeView(dc);
-					//target.removeView(uc);
-					//target.removeView(ec);
-					
-					//target.removeAllViews();
-					
-					//downButton = dc;
-					//upButton = uc;
-					//enterButton = ec;
-					
-					uc.setOnClickListener(new View.OnClickListener() {
-						
-						public void onClick(View arg0) {
-							//EditText input_box = (EditText)findViewById(R.id.textinput);
-							String cmd = history.getNext();
-							//try {
-								if(isKeepLast) {
-									if(historyWidgetKept) {
-										String tmp = history.getNext();
-										mInputBox.setText(tmp);
-										mInputBox.setSelection(tmp.length());
-										historyWidgetKept = false;
-									} else {
-										mInputBox.setText(cmd);
-										mInputBox.setSelection(cmd.length());
-									}
-								} else {
-									mInputBox.setText(cmd);
-									mInputBox.setSelection(cmd.length());
-								}
-							//} catch (RemoteException e) {
-							//	throw new RuntimeException(e);
-							//}
-						}
-					});
-					
-					
-					dc.setOnClickListener(new View.OnClickListener() {
-						
-						public void onClick(View arg0) {
-							//EditText input_box = (EditText)findViewById(R.id.textinput);
-							String cmd = history.getPrev();
-							mInputBox.setText(cmd);
-						}
-					});
-					
-					ec.setOnClickListener(new View.OnClickListener() {
-	
-						public void onClick(View arg0) {
-							myhandler.sendEmptyMessage(MainWindow.MESSAGE_PROCESSINPUTWINDOW);
-							//screen2.jumpToZero();
-						}
-						
-					});
-					
-					//RelativeLayout rl = (RelativeLayout) MainWindow.this.findViewById(R.id.window_container);
-					//rl.addView(enterButton);
-					//rl.addView(upButton);
-					//rl.addView(downButton);
-				}
-				//pre multi screen support animation value 178px
-				int foldoutbuttonwidth = 0;
-				ImageButton dc = (ImageButton)mFoldoutBar.findViewById(R.id.down_btn_c);
-				
-				foldoutbuttonwidth = dc.getDrawable().getIntrinsicWidth();
-				//foldoutbuttonwidth = (int) (40*MainWindow.this.getResources().getDisplayMetrics().density);
-				
-				float amount = foldoutbuttonwidth*3;
-
-				if(input_controls_expanded) {
-					//TranslateAnimation outanim = new TranslateAnimation(0,-1*amount,0,0);
-					//outanim.setDuration(320);
-					//TranslateAnimation outanimB = new TranslateAnimation(0,-1*amount,0,0);
-					//outanim.setDuration(320);
-					//TranslateAnimation outanimC = new TranslateAnimation(0,-1*amount,0,0);
-					//outanim.setDuration(320);
-					
-					//TranslateAnimation nullanim = new TranslateAnimation(0,0,0,0);
-					//nullanim.setDuration(320);
-					Animation a = new TranslateAnimation(0,-1*amount,0,0);
-
-					a.setDuration(320);
-
-					AnimationSet set = new AnimationSet(true);
-					set.addAnimation(a);
-
-					LayoutAnimationController lac = new LayoutAnimationController(set,0.0f);
-					
-					LinearLayout inputbar = (LinearLayout) MainWindow.this.findViewById(10);
-					inputbar.setLayoutAnimation(lac);
-					
-					
-					//inputbar.addView(mFoldoutBar, 0);
-					//input_controls_expanded = true;
-					
-					input_controls_expanded = false;
-					//inputbar.removeView(mFoldoutBar);
-					//lac.start();
-					inputbar.startLayoutAnimation();
-					//((LinearLayout)mFoldoutBar.getParent()).removeView(mFoldoutBar);
-					mInputBox.setListener(mInputBarAnimationListener);
-					//((View)mFoldoutBar.getParent()).startAnimation(outanim);
-					//mInputBox.startAnimation(nullanim);
-
-				} else {
-					Animation a = new TranslateAnimation(-1*amount,0,0,0);
-
-					a.setDuration(320);
-
-					AnimationSet set = new AnimationSet(true);
-					set.addAnimation(a);
-
-					LayoutAnimationController lac = new LayoutAnimationController(set,0.0f);
-					
-					LinearLayout inputbar = (LinearLayout) MainWindow.this.findViewById(10);
-					inputbar.setLayoutAnimation(lac);
-					
-					
-					inputbar.addView(mFoldoutBar, 0);
-					input_controls_expanded = true;
-					
-				}
-
-			}
-		});
+		// Legacy blue >>>> foldout (history up/down/enter) removed; Edit strip replaces it.
+		test_button = null;
+		input_controls_expanded = false;
+		mFoldoutBar = null;
 		
 		//screen2.setDispatcher(myhandler);
 		//screen2.setButtonHandler(myhandler);
@@ -1371,23 +1248,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		
 		
-		mInputBarAnimationListener = new BetterEditText.AnimationEndListener() {
-			
-			public void onAnimationEnd() {
-				//input_bar.
-				
-				if(input_controls_expanded) {
-
-				} else {
-					//Log.e("Ou","IN THE CUSTOM ANIMATION LISTENER CONTROLLRE");
-					LinearLayout p = (LinearLayout) mInputBox.getParent();
-					p.removeViewAt(0);
-				}
-				//
-			}
-		};
-		
-		mInputBox.setListener(mInputBarAnimationListener);
+		mInputBarAnimationListener = null;
+		mInputBox.setListener(null);
 		mRootView = (RelativeLayout)this.findViewById(R.id.window_container);
 
 
@@ -1826,7 +1688,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			abtdialog.show();
 			break;
 		case 1050: // Search scrollback
-			showScrollbackSearchDialog();
+			openScrollbackSearchBar("");
 			break;
 		case 500: //speedwalk config
 			BetterSpeedWalkConfigurationDialog swDialog = new BetterSpeedWalkConfigurationDialog(this,service);
@@ -3048,6 +2910,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendEmptyMessage(MESSAGE_INPUT_CURSOR_END);
 		}
 
+		public void openScrollbackSearch(String query) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SCROLLBACK_SEARCH, query));
+		}
+
+		public void scrollbackSearchNav(int nav) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SCROLLBACK_SEARCH_NAV, nav, 0));
+		}
+
 		public void doDisconnectNotice(String display) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_DODISCONNECT, display));
 			
@@ -3526,6 +3396,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		inputBar.setBackgroundColor(0xFF0A0A0A);
 		inputBar.setId(LEGACY_INPUT_BAR_ID);
 		setupInputEditStrip();
+		setupScrollbackSearchBar();
 	}
 
 	private static final String PREFS_INPUT_EDIT = "INPUT_EDIT_STRIP";
@@ -3656,67 +3527,232 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		toggle.setText(expanded ? "Hide" : "Edit");
 	}
 
-	private void showScrollbackSearchDialog() {
-		final EditText input = new EditText(this);
-		input.setHint("Search in scrollback");
-		input.setSingleLine(true);
-		new AlertDialog.Builder(this)
-				.setTitle("Search scrollback")
-				.setView(input)
-				.setPositiveButton("Find", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						runScrollbackSearch(input.getText().toString());
-					}
-				})
-				.setNegativeButton("Cancel", null)
-				.show();
-	}
-
-	private void runScrollbackSearch(String query) {
-		if (query == null || query.trim().isEmpty()) {
+	private void setupScrollbackSearchBar() {
+		mScrollbackSearchBar = findViewById(R.id.scrollback_search_bar);
+		mScrollbackSearchQuery = (EditText) findViewById(R.id.scrollback_search_query);
+		mScrollbackSearchCase = (CheckBox) findViewById(R.id.scrollback_search_case);
+		mScrollbackSearchCount = (TextView) findViewById(R.id.scrollback_search_count);
+		mScrollbackSearchPreview = (TextView) findViewById(R.id.scrollback_search_preview);
+		if (mScrollbackSearchBar == null || mScrollbackSearchQuery == null) {
 			return;
 		}
+
+		View findBtn = findViewById(R.id.scrollback_search_find);
+		View closeBtn = findViewById(R.id.scrollback_search_close);
+		View prevBtn = findViewById(R.id.scrollback_search_prev);
+		View nextBtn = findViewById(R.id.scrollback_search_next);
+
+		View.OnClickListener findListener = new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				runScrollbackSearchFromBar(true);
+			}
+		};
+		if (findBtn != null) {
+			findBtn.setOnClickListener(findListener);
+		}
+		mScrollbackSearchQuery.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+			@Override
+			public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+				if (actionId == EditorInfo.IME_ACTION_SEARCH
+						|| (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+								&& event.getAction() == KeyEvent.ACTION_DOWN)) {
+					runScrollbackSearchFromBar(true);
+					return true;
+				}
+				return false;
+			}
+		});
+		if (closeBtn != null) {
+			closeBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					closeScrollbackSearchBar();
+				}
+			});
+		}
+		if (prevBtn != null) {
+			prevBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					scrollbackSearchNav(-1);
+				}
+			});
+		}
+		if (nextBtn != null) {
+			nextBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					scrollbackSearchNav(1);
+				}
+			});
+		}
+		if (mScrollbackSearchCase != null) {
+			mScrollbackSearchCase.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (mScrollbackSearchQuery != null
+							&& mScrollbackSearchQuery.getText().toString().trim().length() > 0) {
+						runScrollbackSearchFromBar(true);
+					}
+				}
+			});
+		}
+		updateScrollbackSearchUi();
+	}
+
+	private void openScrollbackSearchBar(String query) {
+		if (mScrollbackSearchBar == null) {
+			setupScrollbackSearchBar();
+		}
+		if (mScrollbackSearchBar == null) {
+			return;
+		}
+		mScrollbackSearchBar.setVisibility(View.VISIBLE);
+		bringGameplayChromeToFront((RelativeLayout) findViewById(R.id.window_container));
+		String q = query == null ? "" : query;
+		if (mScrollbackSearchQuery != null) {
+			if (q.length() > 0) {
+				mScrollbackSearchQuery.setText(q);
+				mScrollbackSearchQuery.setSelection(q.length());
+			}
+			mScrollbackSearchQuery.requestFocus();
+		}
+		if (q.trim().length() > 0) {
+			runScrollbackSearchFromBar(true);
+		} else {
+			updateScrollbackSearchUi();
+			InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+			if (imm != null && mScrollbackSearchQuery != null) {
+				imm.showSoftInput(mScrollbackSearchQuery, InputMethodManager.SHOW_IMPLICIT);
+			}
+		}
+		refreshGameChrome();
+	}
+
+	private void closeScrollbackSearchBar() {
+		mScrollbackSearchHits.clear();
+		mScrollbackSearchIndex = -1;
+		if (mScrollbackSearchBar != null) {
+			mScrollbackSearchBar.setVisibility(View.GONE);
+		}
+		if (mScrollbackSearchQuery != null) {
+			InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+			if (imm != null) {
+				imm.hideSoftInputFromWindow(mScrollbackSearchQuery.getWindowToken(), 0);
+			}
+		}
+		updateScrollbackSearchUi();
+		refreshGameChrome();
+	}
+
+	/** nav: -1 previous (newer), 1 next (older), 0 close */
+	private void scrollbackSearchNav(int nav) {
+		if (nav == 0) {
+			closeScrollbackSearchBar();
+			return;
+		}
+		if (mScrollbackSearchBar == null || mScrollbackSearchBar.getVisibility() != View.VISIBLE) {
+			openScrollbackSearchBar("");
+			return;
+		}
+		if (mScrollbackSearchHits.isEmpty()) {
+			runScrollbackSearchFromBar(true);
+			return;
+		}
+		if (nav > 0) {
+			mScrollbackSearchIndex = (mScrollbackSearchIndex + 1) % mScrollbackSearchHits.size();
+		} else {
+			mScrollbackSearchIndex = (mScrollbackSearchIndex - 1 + mScrollbackSearchHits.size())
+					% mScrollbackSearchHits.size();
+		}
+		jumpToScrollbackSearchHit();
+	}
+
+	private void runScrollbackSearchFromBar(boolean jumpToFirst) {
+		if (mScrollbackSearchQuery == null) {
+			return;
+		}
+		String query = mScrollbackSearchQuery.getText().toString();
+		if (query.trim().isEmpty()) {
+			mScrollbackSearchHits.clear();
+			mScrollbackSearchIndex = -1;
+			updateScrollbackSearchUi();
+			if (mScrollbackSearchPreview != null) {
+				mScrollbackSearchPreview.setText("Enter a phrase and tap Find.");
+			}
+			return;
+		}
+		com.resurrection.blowtorch2.lib.window.Window target = findScrollbackSearchWindow();
+		if (target == null) {
+			Toast.makeText(this, "No game window to search.", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		boolean caseSensitive = mScrollbackSearchCase != null && mScrollbackSearchCase.isChecked();
+		mScrollbackSearchHits.clear();
+		mScrollbackSearchHits.addAll(target.findInScrollback(query.trim(), SCROLLBACK_SEARCH_MAX, caseSensitive));
+		if (mScrollbackSearchHits.isEmpty()) {
+			mScrollbackSearchIndex = -1;
+			updateScrollbackSearchUi();
+			if (mScrollbackSearchPreview != null) {
+				mScrollbackSearchPreview.setText("No matches in scrollback.");
+			}
+			return;
+		}
+		if (jumpToFirst || mScrollbackSearchIndex < 0
+				|| mScrollbackSearchIndex >= mScrollbackSearchHits.size()) {
+			mScrollbackSearchIndex = 0;
+		}
+		jumpToScrollbackSearchHit();
+	}
+
+	private void jumpToScrollbackSearchHit() {
+		com.resurrection.blowtorch2.lib.window.Window target = findScrollbackSearchWindow();
+		if (target == null || mScrollbackSearchIndex < 0
+				|| mScrollbackSearchIndex >= mScrollbackSearchHits.size()) {
+			updateScrollbackSearchUi();
+			return;
+		}
+		int broken = mScrollbackSearchHits.get(mScrollbackSearchIndex);
+		target.scrollToBrokenLineFromBottom(broken);
+		String preview = target.getScrollbackLinePreview(broken);
+		if (mScrollbackSearchPreview != null) {
+			mScrollbackSearchPreview.setText(preview.length() == 0 ? "(empty line)" : preview);
+		}
+		updateScrollbackSearchUi();
+	}
+
+	private void updateScrollbackSearchUi() {
+		if (mScrollbackSearchCount != null) {
+			if (mScrollbackSearchHits.isEmpty()) {
+				mScrollbackSearchCount.setText("0 / 0");
+			} else {
+				mScrollbackSearchCount.setText((mScrollbackSearchIndex + 1) + " / "
+						+ mScrollbackSearchHits.size()
+						+ (mScrollbackSearchHits.size() >= SCROLLBACK_SEARCH_MAX ? "+" : ""));
+			}
+		}
+	}
+
+	private com.resurrection.blowtorch2.lib.window.Window findScrollbackSearchWindow() {
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
-		com.resurrection.blowtorch2.lib.window.Window win = null;
-		if (rl != null) {
-			win = (com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
-			if (win == null && mWindows != null) {
-				for (WindowToken w : mWindows) {
-					View v = rl.findViewWithTag(w.getName());
-					if (v instanceof com.resurrection.blowtorch2.lib.window.Window) {
-						win = (com.resurrection.blowtorch2.lib.window.Window) v;
-						if ("mainDisplay".equals(w.getName())) {
-							break;
-						}
+		if (rl == null) {
+			return null;
+		}
+		com.resurrection.blowtorch2.lib.window.Window win =
+				(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
+		if (win == null && mWindows != null) {
+			for (WindowToken w : mWindows) {
+				View v = rl.findViewWithTag(w.getName());
+				if (v instanceof com.resurrection.blowtorch2.lib.window.Window) {
+					win = (com.resurrection.blowtorch2.lib.window.Window) v;
+					if ("mainDisplay".equals(w.getName())) {
+						break;
 					}
 				}
 			}
 		}
-		if (win == null) {
-			Toast.makeText(this, "No game window to search.", Toast.LENGTH_SHORT).show();
-			return;
-		}
-		final com.resurrection.blowtorch2.lib.window.Window target = win;
-		final java.util.ArrayList<Integer> hits = target.findInScrollback(query.trim(), 40);
-		if (hits.isEmpty()) {
-			Toast.makeText(this, "No matches in scrollback (try enabling session log for longer history).", Toast.LENGTH_LONG).show();
-			return;
-		}
-		final String[] labels = new String[hits.size()];
-		for (int i = 0; i < hits.size(); i++) {
-			labels[i] = target.getScrollbackLinePreview(hits.get(i));
-		}
-		new AlertDialog.Builder(this)
-				.setTitle(hits.size() + " match(es)")
-				.setItems(labels, new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						target.scrollToBrokenLineFromBottom(hits.get(which));
-					}
-				})
-				.setNegativeButton("Close", null)
-				.show();
+		return win;
 	}
 
 	private View findGameplayInputBar(RelativeLayout rl) {
@@ -3741,11 +3777,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		View inputbar = findGameplayInputBar(rl);
 		View divider = findGameplayDivider(rl);
+		View searchBar = rl.findViewById(R.id.scrollback_search_bar);
+		if (searchBar == null) {
+			searchBar = mScrollbackSearchBar;
+		}
 		if (inputbar != null) {
 			inputbar.bringToFront();
 		}
 		if (divider != null) {
 			divider.bringToFront();
+		}
+		if (searchBar != null) {
+			searchBar.bringToFront();
 		}
 		View overlay = findViewById(R.id.gameplay_chrome_overlay);
 		if (overlay != null) {
@@ -3759,6 +3802,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		final View inputbar = findGameplayInputBar(rl);
 		final View divider = findGameplayDivider(rl);
+		final View searchBar = rl.findViewById(R.id.scrollback_search_bar);
 		final View toolbar = rl.findViewById(R.id.my_toolbar);
 		final View overflowMenu = findViewById(R.id.overflow_menu);
 		if (inputbar == null || divider == null) {
@@ -3778,6 +3822,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		dividerLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
 		divider.setLayoutParams(dividerLp);
 
+		if (searchBar != null) {
+			RelativeLayout.LayoutParams searchLp = new RelativeLayout.LayoutParams(
+					LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+			searchLp.addRule(RelativeLayout.ABOVE, divider.getId());
+			searchBar.setLayoutParams(searchLp);
+		}
+
 		if (toolbar != null) {
 			RelativeLayout.LayoutParams toolbarLp = new RelativeLayout.LayoutParams(
 					LayoutParams.MATCH_PARENT, 0);
@@ -3787,15 +3838,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		if (overflowMenu != null) {
 			final int size = (int) (48 * density);
-			final View overlay = findViewById(R.id.gameplay_chrome_overlay);
 			final View inputbarFinal = inputbar;
+			final View searchBarFinal = searchBar;
 			final int dividerHeightFinal = dividerHeight;
 			final int marginFinal = margin;
 			inputbar.post(new Runnable() {
 				@Override
 				public void run() {
-					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal + marginFinal
-							+ (int) (OVERFLOW_LIFT_DIP * density);
+					int searchH = 0;
+					if (searchBarFinal != null && searchBarFinal.getVisibility() == View.VISIBLE) {
+						searchH = searchBarFinal.getHeight();
+					}
+					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal + searchH
+							+ marginFinal + (int) (OVERFLOW_LIFT_DIP * density);
 					android.widget.FrameLayout.LayoutParams overflowLp =
 							new android.widget.FrameLayout.LayoutParams(size, size);
 					overflowLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
