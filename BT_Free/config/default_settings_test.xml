@@ -106,12 +106,12 @@
 		<windows>
 			<window name="forgemap_window" id="10204" script="forgemapwindow" bufferText="false">
 				<layoutGroup target="normal">
-					<layout orientation="landscape" width="fill_parent" height="210" above="40"/>
-					<layout orientation="portrait" width="fill_parent" height="210" above="40"/>
+					<layout orientation="landscape" width="fill_parent" height="220" above="40"/>
+					<layout orientation="portrait" width="fill_parent" height="220" above="40"/>
 				</layoutGroup>
 			</window>
 		</windows>
-		<options title="ForgeMap" summary="Manual exploration map — tap adjacent ? tiles to build the map room by room.">
+		<options title="ForgeMap" summary="Walk with the compass to build the map as you play. Tap explored rooms to pathfind.">
 			<boolean title="Auto-open map panel" key="auto_open_map" summary="Show map strip when connecting.">false</boolean>
 			<integer title="Tile size (dp)" key="tile_size_dp" summary="Base tile size on screen.">36</integer>
 			<boolean title="Show tile labels" key="show_labels" summary="Draw room names on explored tiles.">true</boolean>

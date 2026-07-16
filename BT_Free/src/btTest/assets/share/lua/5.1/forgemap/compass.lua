@@ -146,14 +146,11 @@ function M.draw(canvas, paint, layout, tile, mode)
 		if btn.kind == "center" then
 			renderer.setColor(paint, 255, 255, 140, 20)
 		elseif btn.kind == "map" or btn.kind == "vertical" then
-			if mode == "walk" and btn.explore ~= nil then
-				if hasExit(tile, btn.explore) then
-					renderer.setColor(paint, 255, 36, 88, 52)
-				else
-					renderer.setColor(paint, 255, 28, 34, 42)
-				end
+			-- Known link = green; unmapped = cyan hint (walk+draw).
+			if btn.explore ~= nil and hasExit(tile, btn.explore) then
+				renderer.setColor(paint, 255, 36, 88, 52)
 			else
-				renderer.setColor(paint, 255, 32, 48, 68)
+				renderer.setColor(paint, 255, 28, 48, 72)
 			end
 		elseif btn.kind == "go" or btn.kind == "gokey" then
 			renderer.setColor(paint, 255, 42, 58, 42)
