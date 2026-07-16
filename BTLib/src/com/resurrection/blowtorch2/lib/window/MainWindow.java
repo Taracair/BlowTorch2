@@ -389,6 +389,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		titleBarHeight = sprefs.getInt("TITLE_BAR_HEIGHT", 0);
 		setContentView(R.layout.window_layout);
 		assignLegacyChromeIds();
+		saveConnectionExtras(getIntent());
 		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
 		getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
@@ -730,9 +731,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					
 					//MainWindow.this.bin
 					String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", MainWindow.this);
-					SharedPreferences.Editor edit = MainWindow.this.getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE).edit();
-					edit.putString("CONNECT_TO", MainWindow.this.getIntent().getStringExtra("DISPLAY"));
-					edit.commit();
+					MainWindow.this.saveConnectionExtras(MainWindow.this.getIntent());
 					MainWindow.this.bindService(new Intent(serviceBindAction, null, MainWindow.this.getApplicationContext(), StellarService.class),mConnection, 0);
 					//MainWindow.this.bindService(n, conn, flags)
 					
@@ -1390,11 +1389,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mRootView = (RelativeLayout)this.findViewById(R.id.window_container);
 
 
-		this.getSupportActionBar().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+		if (getSupportActionBar() != null) {
+			getSupportActionBar().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+			getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_HOME);
+			getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_TITLE);
+		}
 		configureGameplayToolbar((androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar));
-
-		this.getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_HOME);
-		this.getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_TITLE);
 
 
 
@@ -3672,7 +3672,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		updateMenuChrome();
 		windowCall("button_window", "delayedStatusRefresh", "");
-		windowCall("forgemap_window", "refreshChromeInsets", "");
+		if (ConfigurationLoader.isTestMode(this)) {
+			windowCall("forgemap_window", "refreshChromeInsets", "");
+		}
 	}
 
 	/**
