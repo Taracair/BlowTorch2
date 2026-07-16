@@ -23,6 +23,7 @@ import com.resurrection.blowtorch2.lib.service.WindowToken;
 import com.resurrection.blowtorch2.lib.service.WindowTokenParser;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginSettings.PLUGIN_LOCATION;
+import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.timer.TimerParser;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
@@ -110,6 +111,24 @@ public class PluginParser extends BasePluginParser {
 		//data.
 		//upon encountering.
 		//ok, so here is now where bootstrapping happens.
+
+		// ForgeMap Lua ships only in btTest — never bootstrap it in production.
+		Context skipCtx = mContext != null ? mContext : (parent != null ? parent.getContext() : null);
+		if (skipCtx != null && !ConfigurationLoader.isTestMode(skipCtx)) {
+			java.util.Iterator<Plugin> skipMap = plugins.iterator();
+			while (skipMap.hasNext()) {
+				Plugin candidate = skipMap.next();
+				if (candidate != null && candidate.getName() != null
+						&& candidate.getName().equalsIgnoreCase("forgemap")) {
+					Log.i("BlowTorch", "Skipping forgemap plugin (not available in this build).");
+					try {
+						candidate.shutdown();
+					} catch (Exception ignored) {
+					}
+					skipMap.remove();
+				}
+			}
+		}
 		
 		boolean hasXML = false;
 		for(Plugin p : plugins) {

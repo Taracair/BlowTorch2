@@ -39,7 +39,9 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		}
 		
 		mListItems.clear();
-		//plist.key
+		if (plist == null) {
+			plist = new HashMap<String, String>();
+		}
 		List<String> sortedSet = new ArrayList<String>(plist.keySet());
 		Collections.sort(sortedSet,String.CASE_INSENSITIVE_ORDER);
 		for(String key : sortedSet) {
@@ -89,18 +91,22 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 
 	@Override
 	public void onNewPressed(View v) {
-		String extDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-		
-		String plugpath = extDir + "/BlowTorch/plugins";
-		
-		File plugfile = new File(plugpath);
-		
-		if(!plugfile.exists()) {
-			plugfile.mkdir();
+		try {
+			String extDir = Environment.getExternalStorageDirectory().getAbsolutePath();
+			File plugfile = new File(extDir + "/BlowTorch/plugins");
+			if (!plugfile.exists()) {
+				plugfile.mkdirs();
+			}
+			PluginSelectorDialog loader = new PluginSelectorDialog(v.getContext(), service, this);
+			loader.show();
+		} catch (Exception e) {
+			Log.e("BlowTorch", "Failed to open plugin loader", e);
+			new AlertDialog.Builder(v.getContext())
+					.setTitle("Plugins")
+					.setMessage("Could not open the plugin folder.\n\n" + e.getMessage())
+					.setPositiveButton("OK", null)
+					.show();
 		}
-		
-		PluginSelectorDialog loader = new PluginSelectorDialog(v.getContext(),service,this);
-		loader.show();
 	}
 
 	@Override
