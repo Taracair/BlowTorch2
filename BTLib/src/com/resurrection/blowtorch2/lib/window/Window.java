@@ -504,7 +504,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mPrefFont = loadFontFromName((String) fontpath.getValue());
 		p.setTypeface(mPrefFont);
 		
-		mBuffer.setMaxLines((Integer) buffersize.getValue());
+		int bufferLines = (Integer) buffersize.getValue();
+		// Legacy default was 300; raise once so existing profiles get usable scrollback.
+		if (bufferLines <= 300) {
+			bufferLines = WindowToken.DEFAULT_BUFFER_SIZE;
+			buffersize.setValue(bufferLines);
+		}
+		mBuffer.setMaxLines(bufferLines);
+		mHoldBuffer.setMaxLines(bufferLines);
 		
 		mPrefLineExtra = (Integer) lineextra.getValue();
 		mPrefFontSize = (Integer) fontsize.getValue();
@@ -1682,6 +1689,63 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mBuffer.prune();
 		drawingIterator = null;
 		this.invalidate();
+	}
+
+	/** Scroll so that {@code brokenLinesFromBottom} broken lines sit above the live edge. */
+	public void scrollToBrokenLineFromBottom(int brokenLinesFromBottom) {
+		synchronized (mToken) {
+			if (brokenLinesFromBottom < 0) {
+				brokenLinesFromBottom = 0;
+			}
+			int maxScrollLines = Math.max(0, mBuffer.getBrokenLineCount() - mCalculatedLinesInWindow);
+			if (brokenLinesFromBottom > maxScrollLines) {
+				brokenLinesFromBottom = maxScrollLines;
+			}
+			mScrollback = SCROLL_MIN + (brokenLinesFromBottom * (double) mPrefLineSize);
+			mFlingVelocity = 0;
+		}
+		invalidate();
+	}
+
+	/**
+	 * Find {@code query} in scrollback (case-insensitive). Returns broken-line offsets from bottom
+	 * for each match (newest first), capped at {@code maxResults}.
+	 */
+	public java.util.ArrayList<Integer> findInScrollback(String query, int maxResults) {
+		java.util.ArrayList<Integer> hits = new java.util.ArrayList<Integer>();
+		if (query == null || query.trim().isEmpty() || mBuffer == null) {
+			return hits;
+		}
+		String needle = query.toLowerCase(java.util.Locale.getDefault());
+		int brokenFromBottom = 0;
+		for (TextTree.Line line : mBuffer.getLines()) {
+			String plain = TextTree.deColorLine(line).toString().toLowerCase(java.util.Locale.getDefault());
+			int breaks = 1 + line.breaks;
+			if (plain.contains(needle)) {
+				hits.add(brokenFromBottom);
+				if (hits.size() >= maxResults) {
+					break;
+				}
+			}
+			brokenFromBottom += breaks;
+		}
+		return hits;
+	}
+
+	public String getScrollbackLinePreview(int brokenLinesFromBottom) {
+		int walked = 0;
+		for (TextTree.Line line : mBuffer.getLines()) {
+			int breaks = 1 + line.breaks;
+			if (walked + breaks > brokenLinesFromBottom) {
+				String plain = TextTree.deColorLine(line).toString();
+				if (plain.length() > 120) {
+					return plain.substring(0, 117) + "…";
+				}
+				return plain;
+			}
+			walked += breaks;
+		}
+		return "";
 	}
 
 	/** If the window has been scrolled back, this function will return it to home. */
