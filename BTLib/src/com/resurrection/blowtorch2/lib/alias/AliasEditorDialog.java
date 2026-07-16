@@ -158,12 +158,12 @@ public class AliasEditorDialog extends Dialog {
 		String preText = pre.getText().toString().trim();
 		String postText = post.getText().toString();
 		if (preText.length() == 0) {
-			preview.setText("Type a pattern to preview what is sent to the server.");
+			preview.setText("Sends: (type a pattern to preview)");
 			return;
 		}
 		String example = preText;
 		if (postText.length() == 0) {
-			preview.setText("Example input «" + example + "» → (nothing sent yet)");
+			preview.setText("Sends: (nothing yet)\nFor input like «" + example + "»");
 			return;
 		}
 		String anchorNote = "";
@@ -173,7 +173,7 @@ public class AliasEditorDialog extends Dialog {
 		if (dollar != null && dollar.isChecked()) {
 			anchorNote = anchorNote + "$";
 		}
-		preview.setText("When you type «" + example + "» → sends to server:\n«" + postText + "»" +
+		preview.setText("Sends: «" + postText + "»\nWhen you type «" + example + "»" +
 				(anchorNote.length() > 0 ? "\n(anchors: " + anchorNote + ")" : ""));
 	}
 	
