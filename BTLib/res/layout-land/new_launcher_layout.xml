@@ -55,23 +55,32 @@
 			<TableRow
 				android:id="@+id/test_update"
 				android:visibility="gone"
-				android:layout_span="3">
-				<TextView android:id="@+id/update_label" android:text="Test Version 1"  android:textSize="18dip" android:textColor = "#AA222222" android:textStyle="bold"/>
-				<Button android:text="Update!" android:id="@+id/update_button" android:visibility="gone"/>
-				
+				android:gravity="center">
+				<TextView
+					android:id="@+id/update_label"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:layout_span="2"
+					android:gravity="center"
+					android:paddingTop="4dip"
+					android:paddingBottom="4dip"
+					android:text="Test"
+					android:textSize="14sp"
+					android:textColor="#AA222222"
+					android:textStyle="bold"/>
 			</TableRow>
 			<TableRow
 				android:layout_height = "wrap_content"
 				android:layout_width = "wrap_content"
 				android:gravity = "center"
 				android:background = "#AAAAAAAA">
-				<Button
+				<androidx.appcompat.widget.AppCompatButton
 					android:id = "@+id/new_connection"
 					style="@style/LauncherActionButton"
 					android:layout_height = "wrap_content"
 					android:layout_width = "100dip"
 					android:text = "@string/launcher_btn_new"/>
-				<Button
+				<androidx.appcompat.widget.AppCompatButton
 					android:id = "@+id/help_button"
 					style="@style/LauncherActionButton"
 					android:layout_height = "wrap_content"

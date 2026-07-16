@@ -18,19 +18,26 @@
     <item name="android:typeface">sans</item>
 </style>
 
-<style name="LauncherActionButton" parent="@style/Widget.AppCompat.Button">
+<style name="LauncherActionButton" parent="@style/Widget.AppCompat.Button.Borderless">
 	<item name="android:textColor">#FFFFFFFF</item>
 	<item name="android:textSize">14sp</item>
 	<item name="android:textStyle">bold</item>
 	<item name="android:gravity">center</item>
 	<item name="android:background">@drawable/launcher_action_button_bg</item>
 	<item name="backgroundTint">@null</item>
+	<item name="android:backgroundTint">@null</item>
+	<item name="android:insetTop">0dp</item>
+	<item name="android:insetBottom">0dp</item>
+	<item name="android:insetLeft">0dp</item>
+	<item name="android:insetRight">0dp</item>
 	<item name="android:minHeight">48dip</item>
+	<item name="android:minWidth">0dip</item>
 	<item name="android:paddingTop">10dip</item>
 	<item name="android:paddingBottom">10dip</item>
 	<item name="android:paddingLeft">8dip</item>
 	<item name="android:paddingRight">8dip</item>
 	<item name="android:stateListAnimator">@null</item>
+	<item name="android:elevation">0dp</item>
 </style>
 
 <style name="BinButtonStyle" parent="@android:style/Widget.Button">
