@@ -42,8 +42,7 @@ end
 function fmwalkCommand(arg)
 	local dir = string.lower(trim(arg or ""))
 	if dir == "" then return nil end
-	tracker.notePendingDirection(dir)
-	SendToServer(dir)
+	onMapMoveDir(dir)
 	return nil
 end
 
@@ -136,13 +135,19 @@ end
 function onMapWalkTo(tileId)
 	if tileId == nil or tileId == "" then return end
 	local fromId = store.getCurrentTileId()
-	local path = pathfind.findPath(fromId, tileId)
-	if path == nil then
-		Note("ForgeMap: path blocked")
+	if fromId == nil then
+		Note("ForgeMap: place start (+) first")
 		return
 	end
+	local path = pathfind.findPath(fromId, tileId)
+	if path == nil then
+		Note("ForgeMap: no path")
+		return
+	end
+	local steps = #path
 	local sw = pathfind.pathToSpeedwalk(path)
 	if sw ~= nil and sw ~= "" then
+		Note("ForgeMap: walking " .. steps .. " step(s) — " .. sw)
 		SendToServer(".run " .. sw)
 	end
 end
@@ -247,30 +252,9 @@ function onMapSelectTile(tileId)
 	pushState()
 end
 
-function onMapWalkDir(dir)
-	dir = string.lower(trim(dir or ""))
-	if dir == "" then return end
-	local curId = store.getCurrentTileId()
-	local cur = store.getCurrentTile()
-	if cur == nil then
-		Note("ForgeMap: place @ first")
-		return
-	end
-	local link = cur.links and cur.links[dir]
-	if link == nil or link.to == nil then
-		Note("ForgeMap: no " .. dir .. " exit — switch to MAP to add")
-		return
-	end
-	local cmd = link.cmd or dir
-	SendToServer(cmd)
-	tracker.notePendingDirection(dir)
-	store.setCurrentTile(link.to)
-	store.markExplored(link.to)
-	SaveSettings()
-	pushState()
-end
-
-function onMapExploreDir(dir)
+--- Walk the MUD and draw the map in one gesture.
+--- Known link → send + move @. Unknown → create/link, send, move @.
+function onMapMoveDir(dir)
 	dir = string.lower(trim(dir or ""))
 	if dir == "" then return end
 	local curId = store.getCurrentTileId()
@@ -280,23 +264,40 @@ function onMapExploreDir(dir)
 	end
 	local cur = store.getCurrentTile()
 	if cur == nil then return end
-	local linked = cur.links and cur.links[dir] and cur.links[dir].to
-	if linked ~= nil then
-		store.setCurrentTile(linked)
-		store.markExplored(linked)
-	else
-		local x, y, z = store.neighborCoord(cur.x, cur.y, cur.z or 0, dir)
-		local toId, toTile, _ = store.getOrCreateAt(cur.area, x, y, z, dir:upper())
-		store.linkTiles(curId, dir, toId, dir)
-		store.markExplored(toId)
-		toTile.explored = true
-		store.setCurrentTile(toId)
-		if toTile.quick == nil or next(toTile.quick) == nil then
-			store.setQuick(toId, 1, "MAP", ".map")
-		end
+
+	local link = cur.links and cur.links[dir]
+	if link ~= nil and link.to ~= nil then
+		local cmd = link.cmd or dir
+		SendToServer(cmd)
+		tracker.notePendingDirection(dir)
+		store.setCurrentTile(link.to)
+		store.markExplored(link.to)
+		SaveSettings()
+		pushState()
+		return
 	end
+
+	local x, y, z = store.neighborCoord(cur.x, cur.y, cur.z or 0, dir)
+	local toId, toTile = store.getOrCreateAt(cur.area, x, y, z, dir:upper())
+	store.linkTiles(curId, dir, toId, dir)
+	store.markExplored(toId)
+	if toTile ~= nil then
+		toTile.explored = true
+	end
+	SendToServer(dir)
+	tracker.notePendingDirection(dir)
+	store.setCurrentTile(toId)
 	SaveSettings()
 	pushState()
+end
+
+-- Back-compat aliases for older window scripts / callbacks
+function onMapWalkDir(dir)
+	onMapMoveDir(dir)
+end
+
+function onMapExploreDir(dir)
+	onMapMoveDir(dir)
 end
 
 function onMapRunGo(slot)
@@ -305,6 +306,7 @@ function onMapRunGo(slot)
 	local tile = store.getCurrentTile()
 	if tile == nil then return end
 	local g = store.getGoSlot(tile, slot)
+	-- Only fire explicit tile-saved commands (not empty defaults).
 	if g ~= nil and g.cmd ~= nil and g.cmd ~= "" then
 		SendToServer(g.cmd)
 	end

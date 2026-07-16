@@ -120,6 +120,11 @@ function M.drawMap(canvas, paint, view, mode)
 					canvas:drawText(label, left + pad, top + tilePx - pad, paint)
 				end
 			end
+			if cell.tile.note ~= nil and cell.tile.note ~= "" then
+				M.setColor(paint, 255, 255, 200, 80)
+				local badge = math.max(4, math.floor(tilePx * 0.16))
+				canvas:drawCircle(left + tilePx - pad - badge, top + pad + badge, badge * 0.55, paint)
+			end
 			if cell.tile.flags ~= nil then
 				local fi = 0
 				for _, flag in pairs(cell.tile.flags) do
