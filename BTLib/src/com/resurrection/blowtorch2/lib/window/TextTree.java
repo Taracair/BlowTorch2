@@ -36,7 +36,8 @@ public class TextTree {
 	
 	private static LinkedList<Integer> bleedColor = new LinkedList<Integer>();
 	
-	private int MAX_LINES = 300;
+	private int MAX_LINES = 2000;
+	private static final int ABSOLUTE_MAX_LINES = 8000;
 	
 	private String encoding = "ISO-8859-1";
 	
@@ -1354,7 +1355,30 @@ public class TextTree {
 	}
 
 	public void setMaxLines(int maxLines) {
+		if (maxLines < 100) {
+			maxLines = 100;
+		}
+		if (maxLines > ABSOLUTE_MAX_LINES) {
+			maxLines = ABSOLUTE_MAX_LINES;
+		}
 		MAX_LINES = maxLines;
+		prune();
+	}
+
+	public int getMaxLines() {
+		return MAX_LINES;
+	}
+
+	/** Plain-text dump of scrollback (newest last), for search/export. */
+	public String dumpPlainText() {
+		StringBuilder out = new StringBuilder();
+		// mLines is newest-first in this tree; reverse for chronological dump.
+		java.util.ListIterator<Line> it = mLines.listIterator(mLines.size());
+		while (it.hasPrevious()) {
+			out.append(deColorLine(it.previous()));
+			out.append('\n');
+		}
+		return out.toString();
 	}
 
 	public void setLineBreakAt(Integer i) {

@@ -36,7 +36,8 @@ public class WindowToken implements Parcelable {
 	/** Default line spacing extra size. */
 	public static final int DEFAULT_LINE_EXTRA = 3;
 	/** Default buffer size. */
-	public static final int DEFAULT_BUFFER_SIZE = 300;
+	/** Default scrollback lines. Higher = more history in RAM; session .txt log covers longer runs. */
+	public static final int DEFAULT_BUFFER_SIZE = 2000;
 	/** Default font path. */
 	public static final String DEFAULT_FONT_PATH = "monospace";
 	/** Required field for the parcelable interface. */
@@ -318,7 +319,7 @@ public class WindowToken implements Parcelable {
 		
 		IntegerOption bufferSize = new IntegerOption();
 		bufferSize.setTitle("Text Buffer Size");
-		bufferSize.setDescription("The number of lines kept by the window for scrollback.");
+		bufferSize.setDescription("Lines kept for on-screen scrollback (100–8000). Prefer session log for longer history.");
 		bufferSize.setKey("buffer_size");
 		bufferSize.setValue(DEFAULT_BUFFER_SIZE);
 		window.addOption(bufferSize);
