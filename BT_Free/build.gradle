@@ -89,13 +89,13 @@ android {
 }
 
 tasks.register('copyDefaultSettingsTest', Copy) {
-    from 'res/raw/default_settings_test.xml'
+    from 'config/default_settings_test.xml'
     into layout.buildDirectory.dir('generated/default-settings-test/res/raw')
     rename { 'default_settings.xml' }
 }
 
 tasks.register('copyDefaultSettingsProduction', Copy) {
-    from 'res/raw/default_settings_main.xml'
+    from 'config/default_settings_main.xml'
     into layout.buildDirectory.dir('generated/default-settings-production/res/raw')
     rename { 'default_settings.xml' }
 }
