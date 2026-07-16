@@ -33,6 +33,7 @@ import org.xml.sax.SAXException;
 import org.xmlpull.v1.XmlSerializer;
 
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.SessionLogger;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
@@ -763,10 +764,26 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @param message The message to show.
 	 */
+	private boolean isSessionLogEnabled() {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("session_log");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt).getValue();
+				return val instanceof Boolean && (Boolean) val;
+			}
+		} catch (Exception ignored) {
+		}
+		return SessionLogger.isEnabled(mService.getApplicationContext());
+	}
+
 	protected final void dispatchLuaError(final String message) {
 		BlowTorchLogger.logError(mService.getApplicationContext(), mDisplay, message);
+		String human = BlowTorchLogger.humanizeError(message);
 		try {
-			dispatchNoProcess(message.getBytes(mSettings.getEncoding()));
+			String red = Colorizer.getRedColor();
+			String white = Colorizer.getWhiteColor();
+			String shown = red + human + white + "\n";
+			dispatchNoProcess(shown.getBytes(mSettings.getEncoding()));
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		}
@@ -1416,6 +1433,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		//strip the color out.
 		COLOR_MATCHER.reset(new String(raw, mSettings.getEncoding()));
 		String stripped = COLOR_MATCHER.replaceAll("");
+		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
 		
 		if (triggersDirty) {
 			buildTriggerSystem();
@@ -1680,6 +1698,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mPump.start();
 		loadGMCPTriggers();
 		mIsConnected = true;
+		SessionLogger.setEnabled(mService.getApplicationContext(), isSessionLogEnabled());
+		if (SessionLogger.isEnabled(mService.getApplicationContext())) {
+			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
+			SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "connected");
+		}
 		
 		mService.showConnectionNotification(mDisplay, mHost, mPort);
 	}

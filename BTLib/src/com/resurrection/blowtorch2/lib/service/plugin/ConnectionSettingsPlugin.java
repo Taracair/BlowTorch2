@@ -103,6 +103,20 @@ public class ConnectionSettingsPlugin extends Plugin {
 		compatilibility_mode.setKey("compatibility_mode");
 		compatilibility_mode.setValue(false);
 		input.addOption(compatilibility_mode);
+
+		IntegerOption input_history = new IntegerOption();
+		input_history.setTitle("Input History Size");
+		input_history.setDescription("How many previous commands to keep (per profile, 10–100).");
+		input_history.setKey("input_history_size");
+		input_history.setValue(75);
+		input.addOption(input_history);
+
+		BooleanOption session_log = new BooleanOption();
+		session_log.setTitle("Log Session to File?");
+		session_log.setDescription("Append incoming text to a .txt file (incremental). Useful with a smaller on-screen buffer.");
+		session_log.setKey("session_log");
+		session_log.setValue(false);
+		input.addOption(session_log);
 		
 		sg.addOption(input);
 
