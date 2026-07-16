@@ -443,7 +443,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		});
 
-		history = new CommandKeeper(10);
+		history = new CommandKeeper(75);
+		history.load(this, getConnectionDisplay());
 
 
 
@@ -951,7 +952,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_XMLERROR:
 					//got an xml error, need to display it.
-					String xmlerror = (String)msg.obj;
+					String xmlerror = com.resurrection.blowtorch2.lib.util.BlowTorchLogger.humanizeError((String)msg.obj);
 					AlertDialog.Builder builder = new AlertDialog.Builder(MainWindow.this);
 					builder.setPositiveButton("Acknowledge.", new DialogInterface.OnClickListener() {
 						
@@ -960,8 +961,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 					});
 					
-					builder.setMessage("XML Error: " + xmlerror + "\nSettings have not been loaded.");
-					builder.setTitle("Problem with XML File.");
+					builder.setMessage(xmlerror + "\n\nSettings have not been loaded.");
+					builder.setTitle("Problem with settings file");
 					
 					
 					//tvtmp.setText("TESTING");
@@ -975,7 +976,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					
 					break;
 				case MESSAGE_SAVEERROR:
-					String saveerror = (String)msg.obj;
+					String saveerror = com.resurrection.blowtorch2.lib.util.BlowTorchLogger.humanizeError((String)msg.obj);
 					AlertDialog.Builder sbuilder = new AlertDialog.Builder(MainWindow.this);
 					sbuilder.setPositiveButton("Dismiss", new DialogInterface.OnClickListener() {
 						
@@ -984,7 +985,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 					});
 					
-					sbuilder.setMessage(saveerror + "\nSettings have not been saved.");
+					sbuilder.setMessage(saveerror + "\n\nSettings have not been saved.");
 					sbuilder.setTitle("Error Saving Settings");
 					
 					
@@ -998,7 +999,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					stvtmp.setTypeface(Typeface.MONOSPACE);
 					break;
 				case MESSAGE_PLUGINSAVEERROR:
-					String pserror = (String)msg.obj;
+					String pserror = com.resurrection.blowtorch2.lib.util.BlowTorchLogger.humanizeError((String)msg.obj);
 					
 					AlertDialog.Builder psbuilder = new AlertDialog.Builder(MainWindow.this);
 					psbuilder.setPositiveButton("Dismiss", new DialogInterface.OnClickListener() {
@@ -1008,7 +1009,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 					});
 					
-					psbuilder.setMessage(pserror + "\nPlugin has not been saved.");
+					psbuilder.setMessage(pserror + "\n\nPlugin has not been saved.");
 					psbuilder.setTitle("Error Saving Plugin");
 					
 					
@@ -1032,6 +1033,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					
 					String pdata = mInputBox.getText().toString();
 					history.addCommand(pdata);
+					history.save(MainWindow.this, getConnectionDisplay());
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
 					String crlf = cr.toString() + lf.toString();
@@ -1714,6 +1716,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 800, 800, "Disconnect");
 		menu.add(0, 900, 900, "Quit");
 		menu.add(0, 1000, 1000, "Help/About");
+		menu.add(0, 1050, 1050, "Search scrollback");
 		menu.add(0, 1100,1100,"Reload Settings");
 		menu.add(0, 1200,1200,"Reset Settings");
 		menu.add(0, 1300,1300,"Export Settings");
@@ -1821,6 +1824,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 1000: //Help/About
 			AboutDialog abtdialog = new AboutDialog(this);
 			abtdialog.show();
+			break;
+		case 1050: // Search scrollback
+			showScrollbackSearchDialog();
 			break;
 		case 500: //speedwalk config
 			BetterSpeedWalkConfigurationDialog swDialog = new BetterSpeedWalkConfigurationDialog(this,service);
@@ -2740,6 +2746,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			
 			isKeepLast = (Boolean)((BaseOption)group.findOptionByKey("keep_last")).getValue();
+
+			BaseOption histOpt = (BaseOption) group.findOptionByKey("input_history_size");
+			if (histOpt != null && histOpt.getValue() instanceof Integer) {
+				history.setMax((Integer) histOpt.getValue());
+			}
+			BaseOption sessionLogOpt = (BaseOption) group.findOptionByKey("session_log");
+			if (sessionLogOpt != null && sessionLogOpt.getValue() instanceof Boolean) {
+				com.resurrection.blowtorch2.lib.util.SessionLogger.setEnabled(
+						MainWindow.this, (Boolean) sessionLogOpt.getValue());
+			}
 			
 			//orientation = (Integer)((BaseOption)group.findOptionByKey("orientation")).getValue();
 			
@@ -3509,6 +3525,129 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mOriginalDividerLayoutParams = new RelativeLayout.LayoutParams(divider.getLayoutParams());
 		inputBar.setBackgroundColor(0xFF0A0A0A);
 		inputBar.setId(LEGACY_INPUT_BAR_ID);
+		setupInputEditStrip();
+	}
+
+	private void setupInputEditStrip() {
+		View select = findViewById(R.id.input_btn_select);
+		View copy = findViewById(R.id.input_btn_copy);
+		View paste = findViewById(R.id.input_btn_paste);
+		View home = findViewById(R.id.input_btn_home);
+		View end = findViewById(R.id.input_btn_end);
+		if (select == null || mInputBox == null) {
+			return;
+		}
+		select.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				mInputBox.requestFocus();
+				mInputBox.selectAll();
+			}
+		});
+		copy.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+				CharSequence selected = mInputBox.getText().subSequence(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd());
+				if (selected.length() == 0) {
+					selected = mInputBox.getText();
+				}
+				cm.setPrimaryClip(android.content.ClipData.newPlainText("input", selected));
+				Toast.makeText(MainWindow.this, "Copied", Toast.LENGTH_SHORT).show();
+			}
+		});
+		paste.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+				if (cm == null || !cm.hasPrimaryClip()) {
+					return;
+				}
+				android.content.ClipData clip = cm.getPrimaryClip();
+				if (clip == null || clip.getItemCount() == 0) {
+					return;
+				}
+				CharSequence text = clip.getItemAt(0).coerceToText(MainWindow.this);
+				int start = Math.max(0, mInputBox.getSelectionStart());
+				int endSel = Math.max(start, mInputBox.getSelectionEnd());
+				mInputBox.getText().replace(start, endSel, text);
+			}
+		});
+		home.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				mInputBox.setSelection(0);
+			}
+		});
+		end.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				mInputBox.setSelection(mInputBox.getText().length());
+			}
+		});
+	}
+
+	private void showScrollbackSearchDialog() {
+		final EditText input = new EditText(this);
+		input.setHint("Search in scrollback");
+		input.setSingleLine(true);
+		new AlertDialog.Builder(this)
+				.setTitle("Search scrollback")
+				.setView(input)
+				.setPositiveButton("Find", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						runScrollbackSearch(input.getText().toString());
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void runScrollbackSearch(String query) {
+		if (query == null || query.trim().isEmpty()) {
+			return;
+		}
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		com.resurrection.blowtorch2.lib.window.Window win = null;
+		if (rl != null) {
+			win = (com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
+			if (win == null && mWindows != null) {
+				for (WindowToken w : mWindows) {
+					View v = rl.findViewWithTag(w.getName());
+					if (v instanceof com.resurrection.blowtorch2.lib.window.Window) {
+						win = (com.resurrection.blowtorch2.lib.window.Window) v;
+						if ("mainDisplay".equals(w.getName())) {
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (win == null) {
+			Toast.makeText(this, "No game window to search.", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		final com.resurrection.blowtorch2.lib.window.Window target = win;
+		final java.util.ArrayList<Integer> hits = target.findInScrollback(query.trim(), 40);
+		if (hits.isEmpty()) {
+			Toast.makeText(this, "No matches in scrollback (try enabling session log for longer history).", Toast.LENGTH_LONG).show();
+			return;
+		}
+		final String[] labels = new String[hits.size()];
+		for (int i = 0; i < hits.size(); i++) {
+			labels[i] = target.getScrollbackLinePreview(hits.get(i));
+		}
+		new AlertDialog.Builder(this)
+				.setTitle(hits.size() + " match(es)")
+				.setItems(labels, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						target.scrollToBrokenLineFromBottom(hits.get(which));
+					}
+				})
+				.setNegativeButton("Close", null)
+				.show();
 	}
 
 	private View findGameplayInputBar(RelativeLayout rl) {
