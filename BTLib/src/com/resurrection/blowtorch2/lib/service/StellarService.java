@@ -1624,6 +1624,31 @@ public class StellarService extends Service {
 	public final void doInputBarCursorToEnd() {
 		broadcastInputBarAction(5);
 	}
+
+	public final void doScrollbackSearch(final String query) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).openScrollbackSearch(query == null ? "" : query);
+			} catch (RemoteException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/** nav: -1 previous, 1 next, 0 close */
+	public final void doScrollbackSearchNav(final int nav) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).scrollbackSearchNav(nav);
+			} catch (RemoteException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
 	
 	private void broadcastInputBarAction(final int action) {
 		final int n = mCallbacks.beginBroadcast();

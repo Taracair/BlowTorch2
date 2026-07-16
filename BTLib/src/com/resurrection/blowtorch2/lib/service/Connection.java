@@ -47,6 +47,7 @@ import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
+import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
 import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
@@ -477,6 +478,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
 		SwitchWindowCommand swdcmd = new SwitchWindowCommand();
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
+		SearchCommand searchcmd = new SearchCommand();
+		mSpecialCommands.put(searchcmd.commandName, searchcmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;
@@ -2006,6 +2009,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final Data processCommand(final String cmd) {
 		Data data = new Data();
+		// Button-friendly form: /search 'phrase' (same as .search)
+		String slashSearch = cmd == null ? "" : cmd.trim();
+		if (slashSearch.regionMatches(true, 0, "/search", 0, 7)
+				&& (slashSearch.length() == 7 || Character.isWhitespace(slashSearch.charAt(7)))) {
+			String arg = SearchCommand.argumentFromSlashCommand(slashSearch);
+			mSpecialCommands.get("search").execute(arg, this);
+			return null;
+		}
 		if (cmd.equals(".." + "\n") || cmd.equals("..")) {
 			synchronized (mSettings) {
 				String outputmsg = "\n" + Colorizer.getRedColor() + "Dot command processing ";

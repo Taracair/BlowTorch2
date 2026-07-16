@@ -26,6 +26,10 @@ interface IConnectionBinderCallback {
 	void inputBarPaste();
 	void inputBarCursorToStart();
 	void inputBarCursorToEnd();
+	/** Open in-game scrollback search; empty query opens the bar for typing. */
+	void openScrollbackSearch(String query);
+	/** nav: -1 prev, 1 next, 0 close */
+	void scrollbackSearchNav(int nav);
 	void doDisconnectNotice(String display);
 	void doLineBreak(int i);
 	void reloadButtons(String setName);
