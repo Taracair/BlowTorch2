@@ -17,7 +17,33 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_alignParentBottom="true"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:background="@color/game_input_bg">
+
+            <HorizontalScrollView
+                android:id="@+id/input_edit_strip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:fillViewport="true">
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingLeft="2dip"
+                    android:paddingRight="2dip">
+                    <Button android:id="@+id/input_btn_select" android:layout_width="wrap_content" android:layout_height="28dip" android:minWidth="0dip" android:paddingLeft="8dip" android:paddingRight="8dip" android:text="Sel" android:textSize="11sp" android:textAllCaps="false" />
+                    <Button android:id="@+id/input_btn_copy" android:layout_width="wrap_content" android:layout_height="28dip" android:minWidth="0dip" android:paddingLeft="8dip" android:paddingRight="8dip" android:text="Copy" android:textSize="11sp" android:textAllCaps="false" />
+                    <Button android:id="@+id/input_btn_paste" android:layout_width="wrap_content" android:layout_height="28dip" android:minWidth="0dip" android:paddingLeft="8dip" android:paddingRight="8dip" android:text="Paste" android:textSize="11sp" android:textAllCaps="false" />
+                    <Button android:id="@+id/input_btn_home" android:layout_width="wrap_content" android:layout_height="28dip" android:minWidth="0dip" android:paddingLeft="8dip" android:paddingRight="8dip" android:text="|&lt;" android:textSize="11sp" android:textAllCaps="false" />
+                    <Button android:id="@+id/input_btn_end" android:layout_width="wrap_content" android:layout_height="28dip" android:minWidth="0dip" android:paddingLeft="8dip" android:paddingRight="8dip" android:text="&gt;|" android:textSize="11sp" android:textAllCaps="false" />
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
             <ImageButton
                 android:id="@+id/foldout"
@@ -52,6 +78,7 @@
                 android:textColorHighlight="@color/game_input_highlight"
                 android:textSize="16sp"
                 android:typeface="monospace" />
+            </LinearLayout>
 
         </LinearLayout>
 

@@ -2,6 +2,9 @@ package com.resurrection.blowtorch2.lib.window;
 
 import java.util.LinkedList;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+
 public class CommandKeeper {
 	int max;
 	LinkedList<String> commands;
@@ -18,17 +21,25 @@ public class CommandKeeper {
 	STATE direction = STATE.NONE;
 	
 	public CommandKeeper(int maxCommands) {
-		max = maxCommands;
+		max = Math.max(10, Math.min(100, maxCommands));
 		commands = new LinkedList<String>();
+	}
+
+	public void setMax(int maxCommands) {
+		max = Math.max(10, Math.min(100, maxCommands));
+		while (commands.size() > max) {
+			commands.removeLast();
+		}
+	}
+
+	public int getMax() {
+		return max;
 	}
 	
 	public void addCommand(String cmd) {
 		
 		if(commands.size() > 0) {
 			String test = commands.getFirst();
-			/*if(test == cmd) {
-				return;
-			}*/
 			if(test.equals(cmd)) {
 				selected = 0;
 				direction = STATE.NONE;
@@ -40,10 +51,9 @@ public class CommandKeeper {
 			return;
 		}
 		
-		if(commands.size() > max) {
+		while (commands.size() >= max) {
 			commands.removeLast();
 		}
-		
 
 		
 		commands.addFirst(cmd);
@@ -126,6 +136,44 @@ public class CommandKeeper {
 		
 
 	}
-	
+
+	public void save(Context context, String profile) {
+		if (context == null || profile == null) {
+			return;
+		}
+		SharedPreferences.Editor edit = context.getSharedPreferences(prefsName(profile), Context.MODE_PRIVATE).edit();
+		edit.clear();
+		edit.putInt("count", commands.size());
+		edit.putInt("max", max);
+		int i = 0;
+		for (String cmd : commands) {
+			edit.putString("c" + i, cmd);
+			i++;
+		}
+		edit.apply();
+	}
+
+	public void load(Context context, String profile) {
+		if (context == null || profile == null) {
+			return;
+		}
+		SharedPreferences prefs = context.getSharedPreferences(prefsName(profile), Context.MODE_PRIVATE);
+		int count = prefs.getInt("count", 0);
+		int storedMax = prefs.getInt("max", max);
+		setMax(storedMax);
+		commands.clear();
+		for (int i = 0; i < count && i < max; i++) {
+			String cmd = prefs.getString("c" + i, null);
+			if (cmd != null && cmd.length() > 0) {
+				commands.addLast(cmd);
+			}
+		}
+		selected = 0;
+		direction = STATE.NONE;
+	}
+
+	private static String prefsName(String profile) {
+		return "INPUT_HISTORY_" + profile.replaceAll("[^A-Za-z0-9._-]+", "_");
+	}
 	
 }
