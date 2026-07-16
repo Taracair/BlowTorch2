@@ -4,16 +4,16 @@ M.AUTO_TRACK = false
 M.TILE_SIZE_DP = 36
 M.MINIMAP_TILES = 5
 M.MIN_TILE_DP = 18
-M.STRIP_HEIGHT_DP = 210
-M.HEADER_DP = 28
-M.HEADER_BTN_DP = 24
+M.STRIP_HEIGHT_DP = 220
+M.HEADER_DP = 30
+M.HEADER_BTN_DP = 26
 M.MAX_QUICK = 4
 M.MAX_GO_SLOTS = 4
-M.COMPASS_DOCK_MAX_DP = 128
-M.COMPASS_DOCK_MIN_DP = 96
-M.COMPASS_DOCK_RATIO = 0.34
+M.COMPASS_DOCK_MAX_DP = 118
+M.COMPASS_DOCK_MIN_DP = 90
+M.COMPASS_DOCK_RATIO = 0.28
 M.COMPASS_CELL_MIN_DP = 14
-M.MAP_PANEL_RATIO = 0.58
+M.MAP_PANEL_RATIO = 0.62
 M.PENDING_MOVE_MS = 4000
 
 M.DIR_DELTA = {
@@ -30,7 +30,7 @@ M.DEFAULT_UI = {
 	showGrid = false,
 	fogAlpha = 180,
 	currentGlow = true,
-	minimapHeightDp = 210,
+	minimapHeightDp = 220,
 	fullscreenOnOpen = false,
 	accentColor = 0xFF55AAFF,
 	exploredColor = 0xFF3D6A8C,
@@ -47,22 +47,23 @@ M.DEFAULT_UI = {
 	},
 }
 
+-- Empty by default — never fire surprise MUD commands on first tap.
 M.DEFAULT_GO_SLOTS = {
-	{ label = "ent", cmd = "enter" },
-	{ label = "door", cmd = "open door" },
-	{ label = "look", cmd = "look" },
+	{ label = "", cmd = "" },
+	{ label = "", cmd = "" },
+	{ label = "", cmd = "" },
 	{ label = "", cmd = "" },
 }
 
 M.DEFAULT_GO_KEYS = {
-	["in"] = { label = "in", cmd = "in" },
-	out = { label = "out", cmd = "out" },
+	["in"] = { label = "in", cmd = "" },
+	out = { label = "out", cmd = "" },
 }
 
+-- Compact header: place / note / (close drawn separately)
 M.HEADER_BUTTONS = {
 	{ id = "here", label = "+", action = "here" },
-	{ id = "walk", label = "GO", action = "mode_walk" },
-	{ id = "map", label = "MAP", action = "mode_map" },
+	{ id = "note", label = "N", action = "note" },
 }
 
 M.FLAG_ICONS = {
