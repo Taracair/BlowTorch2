@@ -491,6 +491,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		SDCardUtils.requestStartupPermissions(this, permissionRoot, RP_STARTUP);
 		buildList();
+		maybeBackupBeforeUpdate();
 		if(!serviceBound) {
 			//String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 			bindService(new Intent(action,null,this, StellarService.class),connectionChecker,Context.BIND_AUTO_CREATE);
@@ -1181,11 +1182,43 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			} catch (IOException mirrorError) {
 				Log.w("BlowTorch", "Optional Documents mirror failed: " + mirrorError.getMessage());
 			}
-			Toast.makeText(this,
-					"Backed up " + copied + " file(s) to:\n" + zipFile.getAbsolutePath(),
-					Toast.LENGTH_LONG).show();
+			AlertDialog.Builder done = new AlertDialog.Builder(this);
+			done.setTitle("Backup ready");
+			done.setMessage("Saved " + copied + " settings file(s).\n\n"
+					+ zipFile.getAbsolutePath()
+					+ "\n\nAfter reinstall: Launcher menu → Import Settings → pick this zip. Usually under 1 minute.");
+			done.setPositiveButton("OK", null);
+			done.show();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
+		}
+	}
+
+	/** Optional safety copy when the installed versionName changes (skip first install). */
+	private void maybeBackupBeforeUpdate() {
+		SharedPreferences prefs = getSharedPreferences("BT_UPDATE_BACKUP", Context.MODE_PRIVATE);
+		String last = prefs.getString("last_version", "");
+		String current = "";
+		try {
+			current = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+		} catch (NameNotFoundException e) {
+			return;
+		}
+		if (current == null) {
+			return;
+		}
+		if (last.length() == 0) {
+			prefs.edit().putString("last_version", current).apply();
+			return;
+		}
+		if (current.equals(last)) {
+			return;
+		}
+		try {
+			DoBackupAllSettings();
+			prefs.edit().putString("last_version", current).apply();
+		} catch (Exception e) {
+			Log.w("BlowTorch", "Pre-update backup skipped: " + e.getMessage());
 		}
 	}
 	
