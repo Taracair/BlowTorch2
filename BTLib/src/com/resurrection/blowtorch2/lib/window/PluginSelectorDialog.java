@@ -86,27 +86,32 @@ public class PluginSelectorDialog extends Dialog {
 		//list = (ListView) content.findViewById(R.id.list);
 		TextView title = (TextView) content.findViewById(R.id.title);
 		
-		//build list
-		
-		title.setText("/mnt/sdcard/BlowTorch/plugins");
-		
-		//ViewFlipper flipper = (ViewFlipper) root.findViewById(R.id.flipper);
-		//flipper.addView(content);
-		
-		
-		
-		//adapter = new PluginSearchAdapter(this.getContext(),0,new File[] { });
-		//list.setAdapter(adapter);
-		//adapter.notifyDataSetInvalidated();
-		
 		this.setContentView(root);
-		
 
-		
-		//launch the real list building.
-		String extDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-		
-		addPage(extDir + "/BlowTorch/plugins");
+		// Prefer classic /BlowTorch/plugins; fall back to app external files if unreadable.
+		String plugRoot = resolvePluginsRoot();
+		title.setText(plugRoot);
+		addPage(plugRoot);
+	}
+
+	private String resolvePluginsRoot() {
+		String classic = Environment.getExternalStorageDirectory().getAbsolutePath() + "/BlowTorch/plugins";
+		File classicDir = new File(classic);
+		if (!classicDir.exists()) {
+			classicDir.mkdirs();
+		}
+		if (classicDir.isDirectory() && classicDir.canRead()) {
+			return classicDir.getAbsolutePath();
+		}
+		File appDir = this.getContext().getExternalFilesDir(null);
+		if (appDir != null) {
+			File fallback = new File(appDir, "plugins");
+			fallback.mkdirs();
+			return fallback.getAbsolutePath();
+		}
+		File internal = new File(this.getContext().getFilesDir(), "plugins");
+		internal.mkdirs();
+		return internal.getAbsolutePath();
 	}
 	
 	private void addPage(String path) {
@@ -248,30 +253,21 @@ public class PluginSelectorDialog extends Dialog {
 	}
 	
 	private PluginSearchAdapter buildList(String path) {
-		//View v = 
-		//HashMap<String,PluginDescription[]> infoCache = new HashMap<String,PluginDescription[]>();
-		//infoCacheStack.push(infoCache);
-		
 		File file = new File(path);
-		
+		if (!file.exists()) {
+			file.mkdirs();
+		}
 		File[] files = file.listFiles(new PluginFileFilter());
-		
+		if (files == null) {
+			files = new File[0];
+		}
 		Arrays.sort(files, new Comparator<File>() {
-
 			@Override
 			public int compare(File a, File b) {
 				return a.compareTo(b);
-				//return 0;
 			}
-			
 		});
-		
-		PluginSearchAdapter adapter = new PluginSearchAdapter(this.getContext(),0,files);
-		
-		return adapter;
-		//list.setAdapter(adapter);
-		//adapter.notifyDataSetInvalidated();
-		
+		return new PluginSearchAdapter(this.getContext(), 0, files);
 	}
 	
 	@Override
