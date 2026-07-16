@@ -23,6 +23,7 @@ import androidx.core.app.NotificationCompat;
 
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
+import com.resurrection.blowtorch2.lib.util.NotificationChannels;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 
 import dalvik.system.PathClassLoader;
@@ -179,6 +180,10 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		return title;
 	}
 
+	private static final long THROTTLE_MS = 4000L;
+	private static String sLastThrottleKey = "";
+	private static long sLastThrottleAt = 0L;
+
 	long[] very_short = {0,200,50,200};
 	long[] normal_short = {0,500,100,300};
 	long[] normal_long = {0,1000,500,1000};
@@ -214,11 +219,23 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		
 		String xformedtitle = this.translate(title, captureMap);
 		String xformedmessage = this.translate(message, captureMap);
+
+		// Anti-spam: skip identical title+message within a short window when not spawning new ids.
+		String throttleKey = xformedtitle + "\n" + xformedmessage;
+		long now = System.currentTimeMillis();
+		if (!this.isSpawnNewNotification()
+				&& throttleKey.equals(sLastThrottleKey)
+				&& (now - sLastThrottleAt) < THROTTLE_MS) {
+			return false;
+		}
+		sLastThrottleKey = throttleKey;
+		sLastThrottleAt = now;
 		
 		int resId = c.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", c), "drawable", c.getPackageName());
 		
 
 		NotificationManager NM = (NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+		NotificationChannels.ensureChannels(c);
 		//Notification note = new Notification(resId,xformedtitle,System.currentTimeMillis());
 		//Intent notificationIntent  = new Intent(c,com.resurrection.blowtorch2.lib.window.MainWindow.class);
 		Intent notificationIntent = null;
@@ -293,7 +310,7 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		PendingIntent contentIntent = PendingIntent.getActivity(c, myTriggerId, notificationIntent, piFlags);
 		
 		//note.setLatestEventInfo(c, title, message, contentIntent);
-		NotificationCompat.Builder builder = new NotificationCompat.Builder(c);
+		NotificationCompat.Builder builder = new NotificationCompat.Builder(c, NotificationChannels.alertChannelId(c));
 		builder.setContentIntent(contentIntent)
 				.setContentTitle(xformedtitle)
 				.setContentText(xformedmessage);

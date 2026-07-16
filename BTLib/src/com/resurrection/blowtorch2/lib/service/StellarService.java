@@ -452,11 +452,7 @@ public class StellarService extends Service {
 		Context context = getApplicationContext();
 		CharSequence contentTitle = brandName + " Disconnected";
 		//CharSequence contentText = "Hello World!";
-		CharSequence contentText = null;
-		String message = "Click to reconnect: " + host + ":" + port;
-		if (message != null && !message.equals("")) {
-			contentText = message;
-		}
+		CharSequence contentText = "Tap to reconnect " + host + ":" + port;
 		Intent notificationIntent = null;
 		String windowAction = ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext());
 		notificationIntent = new Intent(windowAction);
@@ -489,13 +485,16 @@ public class StellarService extends Service {
 		PendingIntent contentIntent = PendingIntent.getActivity(this, id, notificationIntent, activityPendingIntentFlags());
 		//note.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
 
-		NotificationCompat.Builder builder = new NotificationCompat.Builder(context);
+		String alertChannel = createAlertNotificationChannel();
+		NotificationCompat.Builder builder = new NotificationCompat.Builder(context, alertChannel);
 		Notification note = builder.setContentIntent(contentIntent)
 							.setContentTitle(contentTitle)
 							.setContentText(contentText)
 							.setSmallIcon(resId)
 							.setAutoCancel(true)
-							.setOnlyAlertOnce(true).build();
+							.setOnlyAlertOnce(true)
+							.setPriority(NotificationCompat.PRIORITY_DEFAULT)
+							.build();
 		//note.icon = resId;
 		//note.flags = note.flags | Notification.FLAG_AUTO_CANCEL | Notification.FLAG_ONLY_ALERT_ONCE;
 		mNotificationManager.notify(id, note);
@@ -677,14 +676,14 @@ public class StellarService extends Service {
 	 */
 	@TargetApi(26)
 	public final String createNotificationChannel() {
-		String channelId = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel",this) + "_service";
-		String channelName = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel",this);
-		NotificationChannel c = new NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_LOW);
-		c.setShowBadge(false);
-		c.setSound(null,null);
-		NotificationManager notificationManager = (NotificationManager) this.getSystemService(Context.NOTIFICATION_SERVICE);
-		notificationManager.createNotificationChannel(c);
-		return channelId;
+		com.resurrection.blowtorch2.lib.util.NotificationChannels.ensureChannels(this);
+		return com.resurrection.blowtorch2.lib.util.NotificationChannels.sessionChannelId(this);
+	}
+
+	@TargetApi(26)
+	public final String createAlertNotificationChannel() {
+		com.resurrection.blowtorch2.lib.util.NotificationChannels.ensureChannels(this);
+		return com.resurrection.blowtorch2.lib.util.NotificationChannels.alertChannelId(this);
 	}
 
 	/** Called by a connection when disconnected to remove the associated notification.
