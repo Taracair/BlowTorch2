@@ -1285,7 +1285,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (mAutoReconnectAttempt < mAutoReconnectLimit) {
 				mAutoReconnectAttempt++;
 				String message = "\n" + Colorizer.getRedColor() + "Network connection disconnected.\n"
-								 + "Attmempting reconnect in 3 seconds. " + (mAutoReconnectLimit - mAutoReconnectAttempt) + " tries remaining." + Colorizer.getWhiteColor() + "\n";
+								 + "Attempting reconnect in 3 seconds. " + (mAutoReconnectLimit - mAutoReconnectAttempt) + " tries remaining." + Colorizer.getWhiteColor() + "\n";
 				mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
 				mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, THREE_THOUSAND_MILLIS);
 				return;
@@ -1642,7 +1642,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (mAutoReconnectAttempt < mAutoReconnectLimit) {
 				mAutoReconnectAttempt++;
 				killNetThreads(true);
-				String message = "\n" + Colorizer.getRedColor() + "Network Error: " + str + "\n" + "Attmempting reconnect in 20 seconds. " + (mAutoReconnectLimit - mAutoReconnectAttempt) 
+				String message = "\n" + Colorizer.getRedColor() + "Network Error: " + str + "\n" + "Attempting reconnect in 20 seconds. " + (mAutoReconnectLimit - mAutoReconnectAttempt) 
 						+ " tries remaining." + Colorizer.getWhiteColor() + "\n";
 				mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
 				mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, TWENTY_THOUSAND_MILLIS);
