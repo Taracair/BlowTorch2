@@ -12,6 +12,10 @@ android {
         versionCode 219
         versionName "2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Fat APK for phones/tablets: 32-bit + 64-bit ARM (covers virtually all devices).
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a'
+        }
     }
 
     compileOptions {
