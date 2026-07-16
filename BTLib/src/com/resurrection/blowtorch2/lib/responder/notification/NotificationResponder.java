@@ -283,9 +283,14 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		notificationIntent.putExtra("DISPLAY", displayname);
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
+		notificationIntent.setPackage(c.getPackageName());
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-		
-		PendingIntent contentIntent = PendingIntent.getActivity(c, myTriggerId, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+		int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
+		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+			piFlags |= PendingIntent.FLAG_IMMUTABLE;
+		}
+		PendingIntent contentIntent = PendingIntent.getActivity(c, myTriggerId, notificationIntent, piFlags);
 		
 		//note.setLatestEventInfo(c, title, message, contentIntent);
 		NotificationCompat.Builder builder = new NotificationCompat.Builder(c);

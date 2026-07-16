@@ -156,22 +156,30 @@ public final class LuaLibraryHelper {
 		copyResDensity(assetManager, "share/lua/5.1/res/ldpi", luaresldpi);
 	}
 
+	private static final Object LUA_SYNC_LOCK = new Object();
+
 	public static void ensureCurrentVersion(Context context) {
-		SharedPreferences prefs = context.getSharedPreferences("SERVICE_INFO", 0);
-		int libsver = prefs.getInt("CURRENT_LUA_LIBS_VERSION", 0);
-		try {
-			ApplicationInfo ai = context.getApplicationContext().getPackageManager()
-					.getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA);
-			int packagever = ai.metaData.getInt("BLOWTORCH_LUA_LIBS_VERSION");
-			if (packagever != libsver) {
+		synchronized (LUA_SYNC_LOCK) {
+			SharedPreferences prefs = context.getSharedPreferences("SERVICE_INFO", 0);
+			int libsver = prefs.getInt("CURRENT_LUA_LIBS_VERSION", 0);
+			try {
+				ApplicationInfo ai = context.getApplicationContext().getPackageManager()
+						.getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA);
+				if (ai.metaData == null) {
+					return;
+				}
+				int packagever = ai.metaData.getInt("BLOWTORCH_LUA_LIBS_VERSION", 0);
+				if (packagever == 0 || packagever == libsver) {
+					return;
+				}
 				ensureNativeLibsInDataDir(context);
 				syncLuaLibsFromAssets(context);
-				prefs.edit().putInt("CURRENT_LUA_LIBS_VERSION", packagever).apply();
+				prefs.edit().putInt("CURRENT_LUA_LIBS_VERSION", packagever).commit();
+			} catch (PackageManager.NameNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
-		} catch (PackageManager.NameNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
 	}
 

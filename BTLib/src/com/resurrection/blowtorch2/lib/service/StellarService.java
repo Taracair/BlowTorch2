@@ -128,9 +128,8 @@ public class StellarService extends Service {
 	 *  @see Android Documentation for Service.onStartCommand()
 	 */
 	public final int onStartCommand(final Intent intent, final int flags, final int startId) {
-		if (intent == null) {
-			return Service.START_STICKY_COMPATIBILITY;
-		}
+		// Always promote to FGS when started via startForegroundService, including
+		// null-intent system restarts and after a previous stopForeground().
 		if (!mHasForegroundNotification) {
 			String channelId = createNotificationChannel();
 			int resId = this.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", this.getApplicationContext()), "drawable", this.getPackageName());
@@ -147,6 +146,9 @@ public class StellarService extends Service {
 			startForeground(FOREGROUND_NOTIFICATION_ID, placeholder);
 			mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
 			mHasForegroundNotification = true;
+		}
+		if (intent == null) {
+			return Service.START_STICKY_COMPATIBILITY;
 		}
 		if (ConfigurationLoader.isTestMode(this.getApplicationContext())) {
 			Log.e("BLOWTORCH", "SHOULD SET THE UNCAUGHT EXCEPTION HANDLER HERE.");
@@ -328,9 +330,18 @@ public class StellarService extends Service {
 		Context context = getApplicationContext();
 		CharSequence contentTitle = display + " - Alert!";
 		CharSequence contentText = "The server is notifying you with the bell character, 0x07.";
-		Intent notificationIntent = null;
-		String windowAction = ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext());
-		notificationIntent = new Intent(windowAction);
+		Intent notificationIntent = new Intent(
+				ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext()));
+		try {
+			String apkName = this.getPackageManager().getApplicationInfo(this.getPackageName(), 0).sourceDir;
+			Class<?> w = Class.forName("com.resurrection.blowtorch2.lib.window.MainWindow", false,
+					new dalvik.system.PathClassLoader(apkName, ClassLoader.getSystemClassLoader()));
+			notificationIntent.setClass(
+					this.createPackageContext(this.getPackageName(), Context.CONTEXT_INCLUDE_CODE), w);
+		} catch (Exception e) {
+			e.printStackTrace();
+			notificationIntent.setPackage(getPackageName());
+		}
 		notificationIntent.putExtra("DISPLAY", display);
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
@@ -537,8 +548,12 @@ public class StellarService extends Service {
 		if (display != null) {
 			notificationIntent.putExtra("DISPLAY", display);
 		}
-		Connection active = mConnections.get(display);
+		Connection active = (display != null) ? mConnections.get(display) : null;
+		if (active == null && mConnectionClutch != null && !mConnectionClutch.isEmpty()) {
+			active = mConnections.get(mConnectionClutch);
+		}
 		if (active != null) {
+			notificationIntent.putExtra("DISPLAY", active.getDisplay());
 			notificationIntent.putExtra("HOST", active.getHost());
 			notificationIntent.putExtra("PORT", Integer.toString(active.getPort()));
 		}
@@ -686,10 +701,12 @@ public class StellarService extends Service {
 			mNotificationManager.cancel(id);
 		} else {
 			this.stopForeground(true);
+			mHasForegroundNotification = false;
 			
 			//get the first connection and make it the new foreground notification
 			if (mConnectionNotificationMap.size() == 0) { 
 				mConnectionClutch = ""; 
+				mForegroundNotificationId = -1;
 				return;
 			}
 			String[] tmp = new String[mConnectionNotificationMap.size()];
@@ -701,6 +718,7 @@ public class StellarService extends Service {
 			mForegroundNotificationId = tmpID;
 			mNotificationManager.cancel(tmpID);
 			this.startForeground(tmpID, tmpNote);
+			mHasForegroundNotification = true;
 		}
 		
 	}
@@ -714,6 +732,8 @@ public class StellarService extends Service {
 		}
 		
 		this.stopForeground(true);
+		mHasForegroundNotification = false;
+		mForegroundNotificationId = -1;
 		this.stopSelf();
 	}
 	
