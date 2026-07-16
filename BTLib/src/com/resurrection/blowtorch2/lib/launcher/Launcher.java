@@ -268,128 +268,26 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			return windowInsets;
 		});
 		if (tableContainer != null) {
+			// Use padding (not margin): margin + alignParentBottom + AppCompat Button insets
+			// was clipping/pushing New/Help labels off the visible button face after resume.
 			ViewCompat.setOnApplyWindowInsetsListener(tableContainer, (view, windowInsets) -> {
 				int bottomInset = windowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-				ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
-				if (lp != null) {
-					lp.bottomMargin = bottomInset;
-					view.setLayoutParams(lp);
-				}
+				view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), bottomInset);
 				return windowInsets;
 			});
 		}
-		int testversion = 0;
-		//if(mode == LAUNCH_MODE.TEST) {
 		if(ConfigurationLoader.isTestMode(this)) {
 			findViewById(R.id.test_update).setVisibility(View.VISIBLE);
+			TextView versionLabel = (TextView) findViewById(R.id.update_label);
+			String versionName = "test";
 			try {
-				//this.getPackageManager().getPackageInfo(launcher_source, PackageManager.GET_META_DATA).;
-				ApplicationInfo testLauncher = this.getPackageManager().getApplicationInfo(launcher_source, PackageManager.GET_META_DATA);
-				if(testLauncher != null) {
-					if(testLauncher.metaData != null) {
-						testversion = testLauncher.metaData.getInt("BLOWTORCH_TEST_VERSION");
-					} else {
-						//Log.e("BlowTorch","metaData is null");
-						return;
-					}
-				
-				} else {
-					//Log.e("BlowTorch","ApplicationInfo is null");
-					return;
-				}
-				//int testversion = this.getPackageManager().getApplicationInfo(launcher_source, PackageManager.GET_META_DATA).metaData.getInt("TEST_VERSION");
-				((TextView)findViewById(R.id.update_label)).setText("Test Version " + testversion);
-				
-				boolean needsupdate = true;
-				
-				
-				
-				if(needsupdate) {
-					//check if file exists.
-					findViewById(R.id.update_button).setVisibility(View.VISIBLE);
-					findViewById(R.id.update_button).setOnClickListener(new View.OnClickListener() {
-						
-						public void onClick(View v) {
-							update = new UpdateThread(updateHandler);
-							update.start();
-							//
-//							updateDialog = ProgressDialog.show(Launcher.this, "", "Checking update status",true,true,new DialogInterface.OnCancelListener() {
-//								
-//								//@Override
-//								public void onCancel(DialogInterface dialog) {
-//									return;
-//								}
-//							});
-//							URL url2 = null;
-//							try {
-//								url2 = new URL("http://bt.happygoatstudios.com/test/version");
-//							} catch (MalformedURLException e1) {
-//								// TODO Auto-generated catch block
-//								e1.printStackTrace();
-//							}
-//							try {
-//								BufferedReader in = new BufferedReader(new InputStreamReader(url2.openStream()));
-//								StringBuffer buf = new StringBuffer();
-//								String tmp;
-//								while((tmp = in.readLine()) != null) {
-//									buf.append(tmp);
-//								}
-//								try {
-//									Integer newVersion = Integer.parseInt(buf.toString());
-//									//Log.e("BlowTorch","Web update version: " + newVersion);
-//									ApplicationInfo testLauncher = Launcher.this.getPackageManager().getApplicationInfo(launcher_source, PackageManager.GET_META_DATA);
-//									int testversionName = testLauncher.metaData.getInt("BLOWTORCH_TEST_VERSION");
-//									int testversion = newVersion;
-//									PackageManager pm = Launcher.this.getPackageManager();
-//									testversion = pm.getPackageInfo(testLauncher.packageName, PackageManager.GET_CONFIGURATIONS).versionCode;
-//									if(newVersion > testversion) {
-//										//needsupdate = true;
-//									} else {
-//										Toast t = Toast.makeText(Launcher.this, "BlowTorch Test Version "+testversionName+" is up to date.", Toast.LENGTH_SHORT);
-//										t.show();
-//										updateDialog.dismiss();
-//										updateDialog = null;
-//										return;
-//									}
-//								} catch(NumberFormatException e) {
-//								} catch (NameNotFoundException e) {
-//									e.printStackTrace();
-//								}
-//								
-//							} catch (IOException e) {
-//								e.printStackTrace();
-//							}
-//							updateDialog.dismiss();
-//							updateDialog = null;
-//							
-//							String state = Environment.getExternalStorageState();
-//							if(!state.equals(Environment.MEDIA_MOUNTED)) {
-//								//no sd card
-//							} else {
-//								
-//								updateDialog = ProgressDialog.show(Launcher.this, "", "Downloading update.",true,true,new DialogInterface.OnCancelListener() {
-//									
-//									public void onCancel(DialogInterface dialog) {
-//										
-//									}
-//								});
-//								updateHandler.sendEmptyMessageDelayed(MESSAGE_STARTDOWNLOAD,1000);
-//								
-//							}
-						}
-					});
-					
-					
-					
-				}
-				
+				versionName = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
 			} catch (NameNotFoundException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
-			} //catch (MalformedURLException e) {
-				// TODO Auto-generated catch block
-				//e.printStackTrace();
-			//}
+			}
+			if (versionLabel != null) {
+				versionLabel.setText("Test " + versionName);
+			}
 		}
 		
 		
@@ -558,9 +456,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			int readver = this.getSharedPreferences("TEST_VERSION_DOWHATSNEW", Context.MODE_PRIVATE).getInt("TEST_VERSION", 0);
 			int testVersion = 0;
 			try {
-				testVersion = this.getPackageManager().getApplicationInfo(launcher_source, PackageManager.GET_META_DATA).metaData.getInt("BLOWTORCH_TEST_VERSION");
+				ApplicationInfo info = getPackageManager().getApplicationInfo(launcher_source, PackageManager.GET_META_DATA);
+				if (info != null && info.metaData != null) {
+					testVersion = info.metaData.getInt("BLOWTORCH_TEST_VERSION");
+				}
 			} catch (NameNotFoundException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
@@ -608,11 +508,43 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (button == null) {
 			return;
 		}
+		button.setEnabled(true);
+		button.setClickable(true);
 		button.setAllCaps(false);
-		button.setTextColor(0xFFFFFFFF);
+		button.setAlpha(1f);
+		ColorStateList whiteText = ColorStateList.valueOf(0xFFFFFFFF);
+		button.setTextColor(whiteText);
 		button.setGravity(Gravity.CENTER);
+		button.setPadding(
+				dpToPx(8),
+				dpToPx(10),
+				dpToPx(8),
+				dpToPx(10));
+		button.setMinHeight(dpToPx(48));
+		button.setMinimumHeight(dpToPx(48));
 		button.setBackgroundResource(R.drawable.launcher_action_button_bg);
 		button.setBackgroundTintList(null);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+			button.setBackgroundTintMode(null);
+			button.setStateListAnimator(null);
+			button.setElevation(0f);
+		}
+		button.setIncludeFontPadding(false);
+		button.invalidate();
+	}
+
+	private int dpToPx(int dp) {
+		return Math.round(TypedValue.applyDimension(
+				TypedValue.COMPLEX_UNIT_DIP, dp, getResources().getDisplayMetrics()));
+	}
+
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		if (hasFocus) {
+			styleLauncherActionButton((Button) findViewById(R.id.new_connection));
+			styleLauncherActionButton((Button) findViewById(R.id.help_button));
+		}
 	}
   
 	
@@ -1592,10 +1524,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		
-		//if(mode == LAUNCH_MODE.TEST) {
 		if(ConfigurationLoader.isTestMode(this)) {
-			int testVersion = this.getPackageManager().getApplicationInfo(launcher_source, PackageManager.GET_META_DATA).metaData.getInt("BLOWTORCH_TEST_VERSION");
-			builder.setTitle("Version " + versionString + "t"+testVersion+" details!");
+			builder.setTitle("Version " + versionString + " details!");
 			
 			final SpannableString s = new SpannableString(Launcher.this.getResources().getString(R.string.whatisnew_test));
 		    Linkify.addLinks(s, Linkify.ALL);
@@ -2040,162 +1970,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		
 		
-	}
-	
-	private final int MESSAGE_STARTUPDATE = 10098;
-	private final int MESSAGE_STARTDOWNLOAD = 10099;
-	private final int MESSAGE_CANCELDOWNLOAD = 10100;
-	private final int MESSAGE_FINISHUPDATE = 10101;
-	private final int MESSAGE_DOWNLOADEDBYTES = 10102;
-	private final int MESSAGE_UPTODATE = 10103;
-	private final int MESSAGE_NOSDCARD = 10104;
-	private final int MESSAGE_BYTESINCOMING = 10105;
-	private final int MESSAGE_NEEDSUPDATE = 10106;
-	ProgressDialog updateDialog = null;
-	UpdateThread update = null;
-	Handler updateHandler = new Handler() {
-		public void handleMessage(Message msg) {
-			switch(msg.what) {
-			case MESSAGE_NEEDSUPDATE:
-				AlertDialog.Builder builder = new AlertDialog.Builder(Launcher.this);
-				builder.setTitle("Update Available");
-				builder.setMessage("An update is available for this package, would you like to update now?");
-				builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-					
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						UpdateThread t = new UpdateThread(updateHandler);
-						t.start();
-						dialog.dismiss();
-					}
-				});
-				builder.setNegativeButton("No",new DialogInterface.OnClickListener() {
-
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						dialog.dismiss();
-					}
-					
-				});
-				AlertDialog d = builder.create();
-				d.show();
-				break;
-			case MESSAGE_BYTESINCOMING:
-				updateDialog.setMessage("Downloading "+(Integer)msg.obj+"bytes.");
-				updateDialog.setMax((Integer)msg.obj);
-				break;
-			case MESSAGE_DOWNLOADEDBYTES:
-				updateDialog.incrementProgressBy(msg.arg1);
-				break;
-			case MESSAGE_STARTUPDATE:
-				updateDialog = ProgressDialog.show(Launcher.this,"","Checking update status.",true,true,new DialogInterface.OnCancelListener() {
-					
-					@Override
-					public void onCancel(DialogInterface dialog) {
-						return;
-					}
-				});
-				break;
-			case MESSAGE_NOSDCARD:
-				Toast nodsd = Toast.makeText(Launcher.this, "External storage is unavailable to write to, cannot download update.", Toast.LENGTH_SHORT);
-				nodsd.show();
-				break;
-			case MESSAGE_UPTODATE:
-				//Integer newVersion = Integer.parseInt(buf.toString());
-				//Log.e("BlowTorch","Web update version: " + newVersion);
-				updateDialog.dismiss();
-				
-				ApplicationInfo testLauncher = null;
-				try {
-					testLauncher = Launcher.this.getPackageManager().getApplicationInfo(launcher_source, PackageManager.GET_META_DATA);
-				} catch (NameNotFoundException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-				int testversionName = testLauncher.metaData.getInt("BLOWTORCH_TEST_VERSION");
-				
-				Toast t = Toast.makeText(Launcher.this, "BlowTorch Test Version "+testversionName+" is up to date.", Toast.LENGTH_SHORT);
-				t.show();
-				break;
-			case MESSAGE_STARTDOWNLOAD:
-				
-				updateDialog.dismiss();
-				updateDialog = null;
-				
-				updateDialog = new ProgressDialog(Launcher.this);
-				updateDialog.setCancelable(true);
-				updateDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-				updateDialog.setMessage("Starting download.");
-				updateDialog.setCancelMessage(this.obtainMessage(MESSAGE_CANCELDOWNLOAD));
-				//updateDialog.setMax(size);
-				//updateDialog.setProgress(0);
-				updateDialog.show();
-				
-				break;
-			case MESSAGE_CANCELDOWNLOAD:
-				update.doCancel();
-				if(updateDialog != null) {
-					updateDialog.dismiss();
-				}
-				updateDialog = null;
-				String delyou = Environment.getExternalStorageDirectory().getAbsolutePath() + "/BlowTorch/launcher/TestPackage.apk";
-				//proceed with download.
-				File delme = new File(delyou);
-				if(delme.exists()) delme.delete();
-				break;
-			case MESSAGE_FINISHUPDATE:
-				updateDialog.dismiss();
-				updateDialog = null;
-				update = null;
-				String updatepath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/BlowTorch/launcher/TestPackage.apk";
-				File file = new File(updatepath);
-				if(!file.exists()) {
-					//Log.e("BlowTorch","Test application update does not exist.");
-					return; //file doesn't exist
-				}
-				
-				Intent i = new Intent();
-				i.setAction(Intent.ACTION_VIEW);
-				Uri data = Uri.parse("file://" + updatepath);
-				i.setDataAndType(data, "application/vnd.android.package-archive");
-				startActivity(i);
-				Launcher.this.finish();
-				break;
-			}
-		}
-	};
-
-	private class UpdateThread extends Thread {
-		
-		private boolean cancelled = false;
-		private Handler reportTo = null;
-		
-		public UpdateThread(Handler useMe) {
-			reportTo = useMe;
-		}
-		
-		public void doCancel() {
-			cancelled = true;
-		}
-		
-		public void run() {
-			// Legacy happygoatstudios.com update channel removed; use GitHub releases instead.
-			reportTo.sendEmptyMessage(MESSAGE_STARTUPDATE);
-			reportTo.sendEmptyMessage(MESSAGE_UPTODATE);
-		}
-	}
-	
-	public class BackgroundCheckUpdateThread extends Thread {
-		
-		Handler reportTo = null;
-		public BackgroundCheckUpdateThread(Handler h) {
-			reportTo = h;
-		}
-		
-		public void run() {
-			// Legacy happygoatstudios.com update check removed; use GitHub releases instead.
-			return;
-		}
 	}
 	
 	ILauncherCallback the_callback = new ILauncherCallback.Stub() {
