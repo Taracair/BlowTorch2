@@ -4096,25 +4096,48 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Lay out Send relative to Edit/Hide: normally beside Edit; when wrap is off
-	 * and the input is tall, stack Send under Edit/Hide.
+	 * Lay out Edit/Send: side-by-side on a single line; when the input grows to
+	 * more than one line, stack Edit above Send at the bottom-right (near the thumb).
 	 */
 	private void refreshInputActionLayout() {
 		if (!(mInputActionButtons instanceof LinearLayout) || mInputSendButton == null) {
 			return;
 		}
 		LinearLayout actions = (LinearLayout) mInputActionButtons;
-		boolean stackUnder = !mGrowInputBar && isInputBarTall();
-		int wanted = stackUnder ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
+		boolean stack = isInputMultiline();
+		int wanted = stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
+		boolean changed = false;
 		if (actions.getOrientation() != wanted) {
 			actions.setOrientation(wanted);
+			changed = true;
+		}
+		actions.setGravity(android.view.Gravity.BOTTOM | android.view.Gravity.END);
+		View editToggle = findViewById(R.id.input_edit_toggle);
+		if (editToggle != null && editToggle.getLayoutParams() instanceof LinearLayout.LayoutParams) {
+			LinearLayout.LayoutParams elp = (LinearLayout.LayoutParams) editToggle.getLayoutParams();
+			float density = getResources().getDisplayMetrics().density;
+			int gap = (int) (2 * density + 0.5f);
+			int wantRight = stack ? 0 : gap;
+			int wantBottom = stack ? gap : 0;
+			if (elp.rightMargin != wantRight || elp.bottomMargin != wantBottom) {
+				elp.setMargins(0, 0, wantRight, wantBottom);
+				editToggle.setLayoutParams(elp);
+				changed = true;
+			}
+		}
+		if (changed) {
 			actions.requestLayout();
 		}
 	}
 
-	private boolean isInputBarTall() {
+	/** True when the input field shows more than one visual line (or is taller than one line). */
+	private boolean isInputMultiline() {
 		if (mInputBox == null) {
 			return false;
+		}
+		int lines = mInputBox.getLineCount();
+		if (lines > 1) {
+			return true;
 		}
 		int h = mInputBox.getHeight();
 		if (h <= 0) {
@@ -4123,6 +4146,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		float density = getResources().getDisplayMetrics().density;
 		int singleLineApprox = (int) (36 * density + 0.5f);
 		return h > singleLineApprox;
+	}
+
+	private boolean isInputBarTall() {
+		return isInputMultiline();
 	}
 
 	private void applyInputEditExpanded(View tools, Button toggle, boolean expanded) {
