@@ -3898,6 +3898,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void setupInputEditStrip() {
 		final View tools = findViewById(R.id.input_edit_tools);
+		stretchEditToolButtons(tools);
 		final Button toggle = (Button) findViewById(R.id.input_edit_toggle);
 		mInputActionButtons = (ViewGroup) findViewById(R.id.input_action_buttons);
 		mInputSendButton = (Button) findViewById(R.id.input_send);
@@ -4095,6 +4096,35 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private void applyInputEditExpanded(View tools, Button toggle, boolean expanded) {
 		tools.setVisibility(expanded ? View.VISIBLE : View.GONE);
 		toggle.setText(expanded ? "Hide" : "Edit");
+	}
+
+	/** Force equal weights so the Edit strip spans the full input bar width. */
+	private void stretchEditToolButtons(View tools) {
+		if (!(tools instanceof LinearLayout)) {
+			return;
+		}
+		LinearLayout strip = (LinearLayout) tools;
+		strip.setWeightSum(0f); // compute from children
+		float sum = 0f;
+		for (int i = 0; i < strip.getChildCount(); i++) {
+			View child = strip.getChildAt(i);
+			if (!(child instanceof Button)) {
+				continue;
+			}
+			LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) child.getLayoutParams();
+			if (lp == null) {
+				lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+			} else {
+				lp.width = 0;
+				lp.weight = 1f;
+			}
+			child.setLayoutParams(lp);
+			sum += 1f;
+		}
+		if (sum > 0f) {
+			strip.setWeightSum(sum);
+		}
+		strip.requestLayout();
 	}
 
 	private void setupScrollbackSearchBar() {
