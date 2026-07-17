@@ -979,22 +979,25 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		File root = SDCardUtils.resolveDefaultSettingsDirectory(
 				this, external, null);
 		File launcherDir = new File(root, "launcher");
-		if (!launcherDir.exists()) {
-			//noinspection ResultOfMethodCallIgnored
-			launcherDir.mkdirs();
+		if (SDCardUtils.ensureWritableDirectory(launcherDir)) {
+			return launcherDir;
 		}
-		return launcherDir;
+		// Shared /BlowTorch is often unwritable on scoped storage — use app external files.
+		File fallback = new File(SDCardUtils.resolveAppExternalDir(this), "launcher");
+		SDCardUtils.ensureWritableDirectory(fallback);
+		return fallback;
 	}
 
 	private File resolveBackupDirectory(boolean external) {
 		File root = SDCardUtils.resolveDefaultSettingsDirectory(
 				this, external, null);
 		File backupDir = new File(root, "backups");
-		if (!backupDir.exists()) {
-			//noinspection ResultOfMethodCallIgnored
-			backupDir.mkdirs();
+		if (SDCardUtils.ensureWritableDirectory(backupDir)) {
+			return backupDir;
 		}
-		return backupDir;
+		File fallback = new File(SDCardUtils.resolveAppExternalDir(this), "backups");
+		SDCardUtils.ensureWritableDirectory(fallback);
+		return fallback;
 	}
 
 	private void DoImportMenu(boolean external) {
@@ -1131,12 +1134,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			}
 
 			File launcherdir = resolveLauncherListDirectory(external);
-			File file = new File(launcherdir, updatedname);
-			File parent = file.getParentFile();
-			if (parent != null && !parent.exists()) {
-				//noinspection ResultOfMethodCallIgnored
-				parent.mkdirs();
+			if (!SDCardUtils.ensureWritableDirectory(launcherdir)) {
+				throw new IOException("Cannot create writable folder:\n" + launcherdir.getAbsolutePath());
 			}
+			File file = new File(launcherdir, updatedname);
 
 			FileWriter writer = new FileWriter(file);
 			BufferedWriter tmp = new BufferedWriter(writer);
@@ -1234,9 +1235,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				zipFile = new File(backupRoot, stamp + ".zip");
 			}
 			File parent = zipFile.getParentFile();
-			if (parent != null && !parent.exists()) {
-				//noinspection ResultOfMethodCallIgnored
-				parent.mkdirs();
+			if (!SDCardUtils.ensureWritableDirectory(parent)) {
+				throw new IOException("Cannot create writable backup folder:\n"
+						+ (parent != null ? parent.getAbsolutePath() : "(null)"));
 			}
 			int copied = zipSettingsDirectory(getFilesDir(), zipFile);
 			try {

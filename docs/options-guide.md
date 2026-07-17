@@ -38,8 +38,9 @@ Dot helpers: `.gmcp` (see Help / user-manual).
 
 - **Options → Miscellaneous → Manage Storage Access** requests/refreshes storage permission and shows the effective BlowTorch storage root.
 - The old overflow item **SDCard Permissions** was removed in favor of this setting.
-- **Default Settings Directory** (Miscellaneous): preferred folder for session **Import/Export Settings**. Blank = shared-storage BlowTorch export folder when storage permission is granted, otherwise the app external-files directory.
+- **Default Settings Directory** (Miscellaneous): preferred folder for session **Import/Export Settings**. Blank = shared-storage BlowTorch export folder when that path is actually writable; otherwise the app external-files directory (scoped storage usually cannot create `/storage/emulated/0/BlowTorch` without all-files access).
 - Session overflow **Export Settings** / **Import Settings**: SAF pickers plus “default directory” actions; no longer crash on empty names or missing cache/external dirs.
+- Launcher **Export Server List** / **Backup All Settings** use the same writable-root rule (`…/launcher/`, `…/backups/` under that root), with SAF **Choose location…** as an alternative.
 
 ## Launcher (server list)
 
