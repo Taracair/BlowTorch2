@@ -235,6 +235,10 @@ public class StellarService extends Service {
 	 * @param c The connection that disconnected.
 	 */
 	public final void doDisconnect(final Connection c) {
+		// Reflect real state on the ongoing notification before any shutdown/dialog path.
+		updateForegroundNotification(c.getDisplay(),
+				getString(R.string.notification_status_disconnected, c.getHost()));
+
 		//attempt to display the disconnection dialog.
 		if (c.getDisplay().equals(mConnectionClutch)) {
 		
@@ -448,11 +452,9 @@ public class StellarService extends Service {
 		
 		CharSequence brandName = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this.getApplicationContext());
 		//Notification note = new Notification(resId, brandName + " Disconnected", System.currentTimeMillis());
-		//String defaultmsg = "Click to reconnect: "+ host +":"+ port;
 		Context context = getApplicationContext();
 		CharSequence contentTitle = brandName + " Disconnected";
-		//CharSequence contentText = "Hello World!";
-		CharSequence contentText = "Tap to reconnect " + host + ":" + port;
+		CharSequence contentText = getString(R.string.notification_status_disconnected, host);
 		Intent notificationIntent = null;
 		String windowAction = ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext());
 		notificationIntent = new Intent(windowAction);
@@ -695,31 +697,42 @@ public class StellarService extends Service {
 		int id = mConnectionNotificationIdMap.get(display);
 		mConnectionNotificationIdMap.remove(display);
 		mConnectionNotificationMap.remove(display);
-		if (id != mForegroundNotificationId) {
-			//just kill off the notification
+		// updateForegroundNotification always posts FOREGROUND_NOTIFICATION_ID; the
+		// per-connection map id may differ, so treat either as the live FGS entry.
+		boolean wasForeground = (id == mForegroundNotificationId)
+				|| (mForegroundNotificationId == FOREGROUND_NOTIFICATION_ID
+						&& display != null && display.equals(mConnectionClutch));
+		if (!wasForeground) {
 			mNotificationManager.cancel(id);
+			return;
+		}
+		if (id != FOREGROUND_NOTIFICATION_ID) {
+			mNotificationManager.cancel(id);
+		}
+		this.stopForeground(true);
+		mHasForegroundNotification = false;
+
+		//get the first connection and make it the new foreground notification
+		if (mConnectionNotificationMap.size() == 0) {
+			mConnectionClutch = "";
+			mForegroundNotificationId = -1;
+			return;
+		}
+		String[] tmp = new String[mConnectionNotificationMap.size()];
+		tmp = mConnectionNotificationMap.keySet().toArray(tmp);
+		mConnectionClutch = tmp[0];
+		Connection next = mConnections.get(tmp[0]);
+		if (next != null) {
+			updateForegroundNotification(next.getDisplay(),
+					getString(R.string.notification_status_connected, next.getHost(), next.getPort()));
 		} else {
-			this.stopForeground(true);
-			mHasForegroundNotification = false;
-			
-			//get the first connection and make it the new foreground notification
-			if (mConnectionNotificationMap.size() == 0) { 
-				mConnectionClutch = ""; 
-				mForegroundNotificationId = -1;
-				return;
-			}
-			String[] tmp = new String[mConnectionNotificationMap.size()];
-			tmp = mConnectionNotificationMap.keySet().toArray(tmp);
 			int tmpID = mConnectionNotificationIdMap.get(tmp[0]);
-			mConnectionClutch = tmp[0];
 			Notification tmpNote = mConnectionNotificationMap.get(tmp[0]);
-			//mNotificationManager.cancel(mForegroundNotificationId);
 			mForegroundNotificationId = tmpID;
 			mNotificationManager.cancel(tmpID);
 			this.startForeground(tmpID, tmpNote);
 			mHasForegroundNotification = true;
 		}
-		
 	}
 	
 	/** The generic top level shutdown routine. Attempts to gracefully shut down all active connections. */

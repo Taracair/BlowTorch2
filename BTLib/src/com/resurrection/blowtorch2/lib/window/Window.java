@@ -132,9 +132,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Active scrollback-search highlight (line reference + query). */
 	private TextTree.Line mSearchHighlightLine = null;
 	private String mSearchHighlightQuery = null;
-	private boolean mSearchHighlightCase = false;
-	private final Paint mSearchHighlightPaint = new Paint();
+	/** Character offsets of matches within the highlighted line's plain text. */
+	private final java.util.ArrayList<Integer> mSearchMatchStarts = new java.util.ArrayList<Integer>();
+	private int mSearchMatchLen = 0;
 	private final Paint mSearchMatchPaint = new Paint();
+	private final Paint mSearchMatchTextPaint = new Paint();
 	private boolean mTapDismissKeyboard = true;
 	/** The buffer object that this window uses to store and draw ansi text. */
 	private TextTree mBuffer = null;
@@ -400,10 +402,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		mTextSelectionIndicatorCirclePaint.setPathEffect(dpe);
 		mTextSelectionIndicatorCirclePaint.setAntiAlias(true);
-		mSearchHighlightPaint.setStyle(Paint.Style.FILL);
-		mSearchHighlightPaint.setColor(0x55FFAA00);
+		// Modest yellow fill; matched glyphs redrawn in black for contrast on dark mud text.
 		mSearchMatchPaint.setStyle(Paint.Style.FILL);
-		mSearchMatchPaint.setColor(0xAAFFEE00);
+		mSearchMatchPaint.setColor(0xCCF6E27A);
+		mSearchMatchTextPaint.setStyle(Paint.Style.FILL);
+		mSearchMatchTextPaint.setColor(0xFF000000);
+		mSearchMatchTextPaint.setAntiAlias(true);
 		this.mSettings = settings;
 		this.mSettings.setListener(this);
 		mBuffer = new TextTree();
@@ -1147,6 +1151,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
+				int searchPlainPos = 0;
 				
 				
 				if (mCenterJustify) {
@@ -1251,28 +1256,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + p.measureText(text.getString()), y + (4 * mDensity), b);
 						}
 
-						if (l == mSearchHighlightLine && mSearchHighlightQuery != null
-								&& mSearchHighlightQuery.length() > 0) {
-							c.drawRect(0, y - p.getTextSize() + (1 * mDensity), mWidth,
-									y + (4 * mDensity), mSearchHighlightPaint);
+						if (l == mSearchHighlightLine && mSearchMatchLen > 0
+								&& !mSearchMatchStarts.isEmpty()) {
 							String unitStr = text.getString();
 							if (unitStr != null && unitStr.length() > 0) {
-								String hay = mSearchHighlightCase ? unitStr
-										: unitStr.toLowerCase(java.util.Locale.getDefault());
-								String needle = mSearchHighlightCase ? mSearchHighlightQuery
-										: mSearchHighlightQuery.toLowerCase(java.util.Locale.getDefault());
-								int from = 0;
-								while (from < hay.length()) {
-									int at = hay.indexOf(needle, from);
-									if (at < 0) {
-										break;
+								int unitLen = unitStr.length();
+								int unitPlainStart = searchPlainPos;
+								for (int mi = 0; mi < mSearchMatchStarts.size(); mi++) {
+									int matchStart = mSearchMatchStarts.get(mi).intValue();
+									int matchEnd = matchStart + mSearchMatchLen;
+									int overlapStart = Math.max(matchStart, unitPlainStart);
+									int overlapEnd = Math.min(matchEnd, unitPlainStart + unitLen);
+									if (overlapStart >= overlapEnd) {
+										continue;
 									}
-									float left = x + (at > 0 ? p.measureText(unitStr.substring(0, at)) : 0);
+									int localStart = overlapStart - unitPlainStart;
+									int localEnd = overlapEnd - unitPlainStart;
+									float left = x + (localStart > 0
+											? p.measureText(unitStr.substring(0, localStart)) : 0);
 									float right = left + p.measureText(
-											unitStr.substring(at, at + needle.length()));
+											unitStr.substring(localStart, localEnd));
 									c.drawRect(left, y - p.getTextSize() + (1 * mDensity), right,
 											y + (4 * mDensity), mSearchMatchPaint);
-									from = at + Math.max(1, needle.length());
 								}
 							}
 						}
@@ -1377,7 +1382,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								
 							}
 							c.drawText(text.getString(), x, y, linkColor);
+							if (l == mSearchHighlightLine) {
+								drawSearchMatchText(c, text.getString(), x, y, searchPlainPos);
+							}
 							x += p.measureText(text.getString());
+							searchPlainPos += text.getString() != null ? text.getString().length() : 0;
 							
 						} else {
 							
@@ -1397,7 +1406,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 							workingcol += text.bytecount;
 							c.drawText(text.getString(), x, y, p);
+							if (l == mSearchHighlightLine) {
+								drawSearchMatchText(c, text.getString(), x, y, searchPlainPos);
+							}
 							x += p.measureText(text.getString());
+							searchPlainPos += text.getString() != null ? text.getString().length() : 0;
 						}
 						
 						break;
@@ -1757,8 +1770,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	public void setSearchHighlight(String query, int brokenFromBottom, boolean caseSensitive) {
 		mSearchHighlightQuery = query;
-		mSearchHighlightCase = caseSensitive;
 		mSearchHighlightLine = null;
+		mSearchMatchStarts.clear();
+		mSearchMatchLen = 0;
 		if (query != null && query.length() > 0 && mBuffer != null) {
 			int walked = 0;
 			for (TextTree.Line line : mBuffer.getLines()) {
@@ -1769,6 +1783,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				walked += breaks;
 			}
+			if (mSearchHighlightLine != null) {
+				String plain = TextTree.deColorLine(mSearchHighlightLine).toString();
+				String hay = caseSensitive ? plain
+						: plain.toLowerCase(java.util.Locale.getDefault());
+				String needle = caseSensitive ? query
+						: query.toLowerCase(java.util.Locale.getDefault());
+				mSearchMatchLen = needle.length();
+				int from = 0;
+				while (from < hay.length() && mSearchMatchLen > 0) {
+					int at = hay.indexOf(needle, from);
+					if (at < 0) {
+						break;
+					}
+					mSearchMatchStarts.add(Integer.valueOf(at));
+					from = at + Math.max(1, mSearchMatchLen);
+				}
+			}
 		}
 		invalidate();
 	}
@@ -1776,12 +1807,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	public void clearSearchHighlight() {
 		mSearchHighlightLine = null;
 		mSearchHighlightQuery = null;
+		mSearchMatchStarts.clear();
+		mSearchMatchLen = 0;
 		invalidate();
 	}
 
 	/**
 	 * Find {@code query} in scrollback. Returns broken-line offsets from bottom
-	 * for each match (newest first), capped at {@code maxResults}.
+	 * for each match (newest first), capped at {@code maxResults}. Offset points
+	 * at the wrapped visual row that contains the first occurrence on that line.
 	 */
 	public java.util.ArrayList<Integer> findInScrollback(String query, int maxResults) {
 		return findInScrollback(query, maxResults, false);
@@ -1796,12 +1830,30 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int brokenFromBottom = 0;
 		for (TextTree.Line line : mBuffer.getLines()) {
 			String plain = TextTree.deColorLine(line).toString();
-			if (!caseSensitive) {
-				plain = plain.toLowerCase(java.util.Locale.getDefault());
-			}
+			String hay = caseSensitive ? plain
+					: plain.toLowerCase(java.util.Locale.getDefault());
+			int matchAt = hay.indexOf(needle);
 			int breaks = 1 + line.breaks;
-			if (plain.contains(needle)) {
-				hits.add(brokenFromBottom);
+			if (matchAt >= 0) {
+				int breaksBefore = 0;
+				int chars = 0;
+				for (TextTree.Unit u : line.getData()) {
+					if (u instanceof TextTree.Break) {
+						if (chars <= matchAt) {
+							breaksBefore++;
+						}
+					} else if (u instanceof TextTree.Text) {
+						String s = ((TextTree.Text) u).getString();
+						if (s != null) {
+							chars += s.length();
+						}
+					}
+				}
+				int rowFromBottom = line.breaks - breaksBefore;
+				if (rowFromBottom < 0) {
+					rowFromBottom = 0;
+				}
+				hits.add(Integer.valueOf(brokenFromBottom + rowFromBottom));
 				if (hits.size() >= maxResults) {
 					break;
 				}
@@ -1811,12 +1863,55 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return hits;
 	}
 
+	/** Redraw matched glyphs in black over the yellow highlight fill. */
+	private void drawSearchMatchText(Canvas c, String unitStr, float x, float y, int unitPlainStart) {
+		if (mSearchMatchLen <= 0 || mSearchMatchStarts.isEmpty()
+				|| unitStr == null || unitStr.length() == 0) {
+			return;
+		}
+		int unitLen = unitStr.length();
+		mSearchMatchTextPaint.setTextSize(p.getTextSize());
+		mSearchMatchTextPaint.setTypeface(p.getTypeface());
+		for (int mi = 0; mi < mSearchMatchStarts.size(); mi++) {
+			int matchStart = mSearchMatchStarts.get(mi).intValue();
+			int matchEnd = matchStart + mSearchMatchLen;
+			int overlapStart = Math.max(matchStart, unitPlainStart);
+			int overlapEnd = Math.min(matchEnd, unitPlainStart + unitLen);
+			if (overlapStart >= overlapEnd) {
+				continue;
+			}
+			int localStart = overlapStart - unitPlainStart;
+			int localEnd = overlapEnd - unitPlainStart;
+			float left = x + (localStart > 0
+					? p.measureText(unitStr.substring(0, localStart)) : 0);
+			c.drawText(unitStr.substring(localStart, localEnd), left, y, mSearchMatchTextPaint);
+		}
+	}
+
 	public String getScrollbackLinePreview(int brokenLinesFromBottom) {
+		return getScrollbackLinePreview(brokenLinesFromBottom, null, false);
+	}
+
+	/** Preview of the line at {@code brokenLinesFromBottom}, centered on {@code query} when found. */
+	public String getScrollbackLinePreview(int brokenLinesFromBottom, String query, boolean caseSensitive) {
 		int walked = 0;
 		for (TextTree.Line line : mBuffer.getLines()) {
 			int breaks = 1 + line.breaks;
 			if (walked + breaks > brokenLinesFromBottom) {
 				String plain = TextTree.deColorLine(line).toString();
+				if (query != null && query.length() > 0 && plain.length() > 0) {
+					String hay = caseSensitive ? plain
+							: plain.toLowerCase(java.util.Locale.getDefault());
+					String needle = caseSensitive ? query
+							: query.toLowerCase(java.util.Locale.getDefault());
+					int at = hay.indexOf(needle);
+					if (at >= 0) {
+						int start = Math.max(0, at - 24);
+						int end = Math.min(plain.length(), at + query.length() + 24);
+						return (start > 0 ? "…" : "") + plain.substring(start, end)
+								+ (end < plain.length() ? "…" : "");
+					}
+				}
 				if (plain.length() > 120) {
 					return plain.substring(0, 117) + "…";
 				}
