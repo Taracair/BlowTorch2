@@ -62,6 +62,14 @@
 	<item name="android:elevation">0dp</item>
 </style>
 
+<style name="InputEditToolButton.Compact" parent="InputEditToolButton">
+	<item name="android:minWidth">34dip</item>
+	<item name="android:paddingLeft">5dip</item>
+	<item name="android:paddingRight">5dip</item>
+	<item name="android:layout_marginRight">1dip</item>
+	<item name="android:textSize">12sp</item>
+</style>
+
 <style name="BinButtonStyle" parent="@android:style/Widget.Button">
 	<item name="android:textSize">13dip</item>
 	<item name="android:textColor">#FFAAAAAA</item>
