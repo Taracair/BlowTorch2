@@ -12,6 +12,7 @@ import android.os.Handler;
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.ConnectionPluginCallback;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.CallbackOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.EncodingOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
@@ -110,13 +111,6 @@ public class ConnectionSettingsPlugin extends Plugin {
 		input_history.setKey("input_history_size");
 		input_history.setValue(75);
 		input.addOption(input_history);
-
-		BooleanOption session_log = new BooleanOption();
-		session_log.setTitle("Log Session to File?");
-		session_log.setDescription("Append incoming text to a .txt file (incremental). Useful with a smaller on-screen buffer.");
-		session_log.setKey("session_log");
-		session_log.setValue(false);
-		input.addOption(session_log);
 		
 		sg.addOption(input);
 
@@ -125,6 +119,20 @@ public class ConnectionSettingsPlugin extends Plugin {
 		SettingsGroup servOptions = new SettingsGroup();
 		servOptions.setTitle("Service");
 		servOptions.setDescription("Options for the background service and data processing.");
+		
+		BooleanOption session_log = new BooleanOption();
+		session_log.setTitle("Log Session to File?");
+		session_log.setDescription("Append incoming game text to a .txt file (incremental). Useful with a smaller on-screen buffer.");
+		session_log.setKey("session_log");
+		session_log.setValue(false);
+		servOptions.addOption(session_log);
+
+		StringOption session_log_directory = new StringOption();
+		session_log_directory.setTitle("Session Log Directory");
+		session_log_directory.setDescription("Folder for incremental game logs. Leave blank to use the app private session_logs folder. Absolute path recommended (e.g. /storage/emulated/0/BlowTorch/logs).");
+		session_log_directory.setKey("session_log_directory");
+		session_log_directory.setValue("");
+		servOptions.addOption(session_log_directory);
 		
 		BooleanOption local_echo = new BooleanOption();
 		local_echo.setTitle("Local Echo?");
@@ -221,6 +229,26 @@ public class ConnectionSettingsPlugin extends Plugin {
 		servOptions.addOption(gmcpOptions);
 		
 		sg.addOption(servOptions);
+
+		SettingsGroup miscOptions = new SettingsGroup();
+		miscOptions.setTitle("Miscellaneous");
+		miscOptions.setDescription("Storage paths, permissions, and other app-wide helpers.");
+
+		StringOption default_settings_directory = new StringOption();
+		default_settings_directory.setTitle("Default Settings Directory");
+		default_settings_directory.setDescription("Default folder for Import/Export Settings (session). Leave blank to use the app BlowTorch export folder on shared storage when permitted, otherwise app external files.");
+		default_settings_directory.setKey("default_settings_directory");
+		default_settings_directory.setValue("");
+		miscOptions.addOption(default_settings_directory);
+
+		CallbackOption request_storage = new CallbackOption();
+		request_storage.setTitle("Manage Storage Access");
+		request_storage.setDescription("Request or refresh storage permission used for import/export and custom log folders. Shows the effective BlowTorch storage root.");
+		request_storage.setKey("request_storage_access");
+		request_storage.setValue("request_storage_access");
+		miscOptions.addOption(request_storage);
+
+		sg.addOption(miscOptions);
 		
 		SettingsGroup bellOptions = new SettingsGroup();
 		bellOptions.setTitle("Bell");

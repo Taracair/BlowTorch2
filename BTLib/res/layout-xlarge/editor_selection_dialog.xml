@@ -6,24 +6,22 @@
 	android:layout_width="280dip"
 	android:layout_height="400dip">
 	
-	<Button 
+	<Button
 		android:id="@+id/optionsbutton"
-		android:layout_width="60dip"
-		android:layout_height="60dip"
-		android:layout_alignParentTop="true" 
-		android:layout_alignParentRight="true"
-		android:background="@drawable/optionsbutton_selector"
-		android:text="="
-		android:textSize="26dip"
-	/>
-	
+		android:layout_width="0dip"
+		android:layout_height="0dip"
+		android:visibility="gone" />
+	<ListView
+		android:id="@+id/optionslist"
+		android:layout_width="0dip"
+		android:layout_height="0dip"
+		android:visibility="gone" />
+
 	<TextView
 		android:id="@+id/titlebar"
 		android:layout_width="fill_parent"
-		android:layout_height="wrap_content"
+		android:layout_height="60dip"
 		android:layout_alignParentTop="true"
-		android:layout_alignBottom="@id/optionsbutton"
-		android:layout_toLeftOf="@id/optionsbutton"
 		android:text="SELECT TRIGGER"
 		android:textColor="#FF333333"
 		android:background="#FF999999"
@@ -31,16 +29,6 @@
 		android:textStyle="bold"
 		android:gravity="center"/>
 		
-	<!-- <ListView 
-		android:id="@+id/theoptionlist"
-		android:layout_width="200dip"
-		android:layout_height="wrap_content"
-		android:minHeight="60dip"
-		android:maxHeight="300dip"
-		android:layout_below="@id/optionsbutton"
-		android:layout_alignParentRight="true"
-	/> -->
-	
 	<Button
 		android:id="@+id/add"
 		android:layout_alignParentBottom="true"
@@ -82,17 +70,4 @@
 			android:textSize="18dip"
 			android:gravity="center"/>
 	</FrameLayout>
-	
-	<ListView
-	    android:id="@+id/optionslist"
-	    android:layout_width="fill_parent"
-	    android:layout_height="wrap_content"
-	    android:layout_below="@id/optionsbutton"
-	 	android:layout_marginRight="20dip"
-	 	android:layout_marginLeft="20dip"
-	 	android:divider="@drawable/optionslist_separator"
-	 	android:dividerHeight="3dip"
-	 	android:background="@drawable/optionslist_border"
-	    android:listSelector="@drawable/timer_list_item_selector"
-	    android:drawSelectorOnTop="true"/>
 </RelativeLayout>

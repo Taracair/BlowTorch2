@@ -17,7 +17,7 @@
             style="@style/BlowTorch.Game.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_alignParentTop="true"
+            android:layout_above="@id/divider"
             android:clickable="false"
             android:focusable="false"
             android:title=""
@@ -64,7 +64,7 @@
                 android:isScrollContainer="false"
                 android:keepScreenOn="true"
                 android:maxLines="8"
-                android:minHeight="40dip"
+                android:minHeight="32dip"
                 android:nextFocusDown="@id/textinput"
                 android:nextFocusLeft="@id/textinput"
                 android:nextFocusRight="@id/textinput"
@@ -78,7 +78,8 @@
                 android:id="@+id/input_edit_toggle"
                 style="@style/InputEditToolButton"
                 android:layout_width="wrap_content"
-                android:layout_height="40dip"
+                android:layout_height="32dip"
+                android:minHeight="32dip"
                 android:minWidth="56dip"
                 android:layout_marginLeft="4dip"
                 android:layout_marginRight="4dip"
@@ -104,16 +105,7 @@
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <ImageButton
-            android:id="@+id/overflow_menu"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_gravity="bottom|end"
-            android:background="@android:color/transparent"
-            android:contentDescription="@string/app_name"
-            android:padding="8dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_menu_options" />
+        <include layout="@layout/gameplay_fab_strip" />
 
     </FrameLayout>
 
