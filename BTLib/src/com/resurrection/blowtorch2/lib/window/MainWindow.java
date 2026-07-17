@@ -3807,26 +3807,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return divider;
 	}
 
-	/** Translate input/search chrome above the IME; leave game button canvas unmoved. */
+	/** Translate input chrome (includes search bar) above the IME; leave game buttons unmoved. */
 	private void applyImeChromeLift(RelativeLayout rl, int liftPx) {
 		if (rl == null) {
 			return;
 		}
 		View inputbar = findGameplayInputBar(rl);
 		View divider = findGameplayDivider(rl);
-		View searchBar = rl.findViewById(R.id.scrollback_search_bar);
-		if (searchBar == null) {
-			searchBar = mScrollbackSearchBar;
-		}
 		float ty = -liftPx;
 		if (inputbar != null) {
 			inputbar.setTranslationY(ty);
 		}
 		if (divider != null) {
 			divider.setTranslationY(ty);
-		}
-		if (searchBar != null) {
-			searchBar.setTranslationY(ty);
 		}
 	}
 
@@ -3836,18 +3829,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		View inputbar = findGameplayInputBar(rl);
 		View divider = findGameplayDivider(rl);
-		View searchBar = rl.findViewById(R.id.scrollback_search_bar);
-		if (searchBar == null) {
-			searchBar = mScrollbackSearchBar;
-		}
 		if (inputbar != null) {
 			inputbar.bringToFront();
 		}
 		if (divider != null) {
 			divider.bringToFront();
-		}
-		if (searchBar != null) {
-			searchBar.bringToFront();
 		}
 		View overlay = findViewById(R.id.gameplay_chrome_overlay);
 		if (overlay != null) {
@@ -3861,7 +3847,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		final View inputbar = findGameplayInputBar(rl);
 		final View divider = findGameplayDivider(rl);
-		final View searchBar = rl.findViewById(R.id.scrollback_search_bar);
 		final View toolbar = rl.findViewById(R.id.my_toolbar);
 		final View overflowMenu = findViewById(R.id.overflow_menu);
 		if (inputbar == null || divider == null) {
@@ -3881,13 +3866,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		dividerLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
 		divider.setLayoutParams(dividerLp);
 
-		if (searchBar != null) {
-			RelativeLayout.LayoutParams searchLp = new RelativeLayout.LayoutParams(
-					LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-			searchLp.addRule(RelativeLayout.ABOVE, divider.getId());
-			searchBar.setLayoutParams(searchLp);
-		}
-
 		if (toolbar != null) {
 			RelativeLayout.LayoutParams toolbarLp = new RelativeLayout.LayoutParams(
 					LayoutParams.MATCH_PARENT, 0);
@@ -3898,17 +3876,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (overflowMenu != null) {
 			final int size = (int) (48 * density);
 			final View inputbarFinal = inputbar;
-			final View searchBarFinal = searchBar;
 			final int dividerHeightFinal = dividerHeight;
 			final int marginFinal = margin;
 			inputbar.post(new Runnable() {
 				@Override
 				public void run() {
-					int searchH = 0;
-					if (searchBarFinal != null && searchBarFinal.getVisibility() == View.VISIBLE) {
-						searchH = searchBarFinal.getHeight();
-					}
-					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal + searchH
+					// Search bar lives inside inputbar, so its height is already included.
+					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal
 							+ marginFinal + (int) (OVERFLOW_LIFT_DIP * density);
 					android.widget.FrameLayout.LayoutParams overflowLp =
 							new android.widget.FrameLayout.LayoutParams(size, size);
