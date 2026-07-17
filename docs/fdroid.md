@@ -42,6 +42,7 @@ Package id for the store: **`com.resurrection.blowtorch2`** (flavor `production`
 
 - **License:** MIT (original Offset Null + this fork).
 - **No proprietary deps** in the production Gradle graph.
+- **Permissions / privacy / All files access:** see **[`FDROID_README.md`](FDROID_README.md)** — please read that before flagging storage permissions. Summary: All files access is optional UX for a shared `/BlowTorch/` tree; the client can play without it.
 - **scandelete** removes `BTLib/key` (local debug keystore used only for developer installs) and optional unused `LuaJIT-2.1` tree.
 - **Mapper (ForgeMap)** is work in progress and excluded from the production APK; do not enable `btTest` in the recipe.
 - Fastlane text is read from the tagged commit under `fastlane/metadata/android/`.
