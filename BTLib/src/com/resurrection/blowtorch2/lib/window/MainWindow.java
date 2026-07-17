@@ -3793,8 +3793,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int LEGACY_DIVIDER_ID = 40;
 	private static final int LEGACY_TEXT_INPUT_ID = 30;
 	private static final float OVERFLOW_LIFT_PHONE_DIP = 14f;
-	/** Extra clearance above Edit/Send on tablets (taller input chrome). */
-	private static final float OVERFLOW_LIFT_TABLET_DIP = 40f;
+	/** Clearance above the divider so ⋮ never sits on Edit/Send (tablet input is taller). */
+	private static final float OVERFLOW_LIFT_TABLET_DIP = 56f;
 	private View.OnLayoutChangeListener mInputBarChromeLayoutListener = null;
 
 	private void saveConnectionExtras(Intent intent) {
@@ -4519,6 +4519,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		int bottomInset = inputH + dividerHeight + margin + (int) (liftDip * density + 0.5f);
+		// Prefer divider geometry when available — avoids sitting on Edit/Send when
+		// inputbar height was measured too small or layout was mid-pass.
+		View overlay = fabStrip.getParent() instanceof View ? (View) fabStrip.getParent() : null;
+		if (overlay != null && divider != null && divider.getHeight() > 0) {
+			int[] divLoc = new int[2];
+			int[] ovLoc = new int[2];
+			divider.getLocationInWindow(divLoc);
+			overlay.getLocationInWindow(ovLoc);
+			int overlayBottom = ovLoc[1] + overlay.getHeight();
+			int dividerTop = divLoc[1];
+			int fromDivider = overlayBottom - dividerTop
+					+ margin + (int) (liftDip * density + 0.5f);
+			if (fromDivider > bottomInset) {
+				bottomInset = fromDivider;
+			}
+		}
 		android.widget.FrameLayout.LayoutParams stripLp =
 				new android.widget.FrameLayout.LayoutParams(
 						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
