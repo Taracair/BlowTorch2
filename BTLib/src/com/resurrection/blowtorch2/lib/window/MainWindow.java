@@ -349,7 +349,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
 				service.registerCallback(the_callback, host, port, display);
-				
+				// Notification / reopen while session still tracked but socket dead.
+				if (!service.isConnected() && service.isConnectedTo(display)) {
+					service.reconnect(display);
+				}
 			} catch (RemoteException e) {
 				//do nothing here, as there isn't much we can do
 			}
@@ -3756,25 +3759,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		boolean caseSensitive = mScrollbackSearchCase != null && mScrollbackSearchCase.isChecked();
 		target.scrollToBrokenLineFromBottom(broken);
 		target.setSearchHighlight(query, broken, caseSensitive);
-		String preview = target.getScrollbackLinePreview(broken);
+		String preview = target.getScrollbackLinePreview(broken, query, caseSensitive);
 		if (mScrollbackSearchPreview != null) {
 			if (preview.length() == 0) {
 				mScrollbackSearchPreview.setText("(empty line)");
-			} else if (query.length() > 0) {
-				String hay = caseSensitive ? preview : preview.toLowerCase(java.util.Locale.getDefault());
-				String needle = caseSensitive ? query : query.toLowerCase(java.util.Locale.getDefault());
-				int at = hay.indexOf(needle);
-				if (at >= 0) {
-					int start = Math.max(0, at - 24);
-					int end = Math.min(preview.length(), at + query.length() + 24);
-					String snippet = (start > 0 ? "…" : "") + preview.substring(start, end)
-							+ (end < preview.length() ? "…" : "");
-					mScrollbackSearchPreview.setText("▶ " + snippet);
-				} else {
-					mScrollbackSearchPreview.setText("▶ " + preview);
-				}
 			} else {
-				mScrollbackSearchPreview.setText(preview);
+				mScrollbackSearchPreview.setText("▶ " + preview);
 			}
 		}
 		updateScrollbackSearchUi();
@@ -4135,29 +4125,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		this.setIntent(i);
 		saveConnectionExtras(i);
-		/*try {
-			service.windowShowing(true);
-		} catch (RemoteException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		//Intent i = this.getIntent();
-		//Log.e("LOG","RESUMING WINDOW WITH INTENT: display="+i.getStringExtra("DISPLAY")+" host="+i.getStringExtra("HOST")+" port="+i.getStringExtra("PORT"));
-		String display = i.getStringExtra("DISPLAY");
-		
 		try {
-			if(!service.getConnectedTo().equals(display)) {
-				//Log.e("LOG","ATTEMPTING TO SWITCH TO: " + display);
-				service.switchTo(display);
+			String display = i.getStringExtra("DISPLAY");
+			if (service != null && display != null) {
+				if (!service.getConnectedTo().equals(display)) {
+					service.switchTo(display);
+				}
+				// Notification tap while disconnected: reconnect the still-tracked session.
+				if (!service.isConnected() && service.isConnectedTo(display)) {
+					service.reconnect(display);
+				}
 			}
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}*/
-		
-		
-		//try {
-			//loadSettings();
+		}
 	}
 
 	public String getPathForPlugin(String mOwner) {
