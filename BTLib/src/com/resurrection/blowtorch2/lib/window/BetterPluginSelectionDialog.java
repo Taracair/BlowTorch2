@@ -8,8 +8,6 @@ import java.util.List;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
@@ -29,16 +27,24 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		super(context, service);
 		
 		this.setToolbarListener(this);
-		//on creation, get the list of stuff and prepare the dialog.
+		populateFromService();
+		
+		this.setNewButtonLabel("Load");
+		
+		this.setTitle("PLUGINS");
+	}
+
+	/** Rebuild the visible list from {@link IConnectionBinder#getPluginList()} without dismissing. */
+	private void populateFromService() {
 		HashMap<String,String> plist = null;
 		try {
 			plist = (HashMap<String,String>)service.getPluginList();
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
-		mListItems.clear();
+		items.clear();
+		this.clearListItems();
 		if (plist == null) {
 			plist = new HashMap<String, String>();
 		}
@@ -46,20 +52,42 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		Collections.sort(sortedSet,String.CASE_INSENSITIVE_ORDER);
 		for(String key : sortedSet) {
 			String info = plist.get(key);
+			String title = displayTitleForPluginKey(key, info);
 			items.add(key);
-			this.addListItem(key, info, 0, true);
+			this.addListItem(key, title, info, 0, true);
 		}
-		
-		this.setNewButtonLabel("Load");
-		
-		this.setTitle("PLUGINS");
-		
-		
+		this.invalidateList();
+	}
+
+	/**
+	 * Failed/orphan links are keyed by relative path; show a short name with the path in extras.
+	 * Loaded plugins keep their real plugin name as both key and title.
+	 */
+	private static String displayTitleForPluginKey(String key, String info) {
+		if (info != null && info.startsWith("MISSING")) {
+			String name = key;
+			int slash = name.lastIndexOf('/');
+			if (slash >= 0 && slash + 1 < name.length()) {
+				name = name.substring(slash + 1);
+			}
+			if (name.toLowerCase().endsWith(".xml")) {
+				name = name.substring(0, name.length() - 4);
+			}
+			return name;
+		}
+		return key;
 	}
 	
 	@Override
 	public void onCreate(Bundle b) {
 		super.onCreate(b);
+		setRefreshButtonVisible(true);
+		setRefreshButtonListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				populateFromService();
+			}
+		});
 	}
 	
 	@Override
@@ -78,13 +106,19 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 
 	@Override
 	public void onItemDeleted(int row) {
-		String plugin = items.remove(row);
+		String plugin = mLastDeletedKey;
+		if (plugin == null) {
+			if (row < 0 || row >= items.size()) {
+				return;
+			}
+			plugin = items.get(row);
+		}
+		items.remove(plugin);
+		mLastDeletedKey = null;
 		
 		try {
 			service.deletePlugin(plugin);
-			//service.saveSettings();
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
