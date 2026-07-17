@@ -29,13 +29,16 @@ public class ChromeSmokeTest {
 				androidx.appcompat.R.style.Theme_AppCompat);
 		View root = LayoutInflater.from(context).inflate(R.layout.window_layout, null, false);
 		View overlay = root.findViewById(R.id.gameplay_chrome_overlay);
+		View fabStrip = root.findViewById(R.id.gameplay_fab_strip);
 		View overflow = root.findViewById(R.id.overflow_menu);
 		View inputbar = root.findViewById(R.id.inputbar);
 		assertNotNull(overlay);
+		assertNotNull(fabStrip);
 		assertNotNull(overflow);
 		assertNotNull(inputbar);
-		assertTrue(overflow.getParent() == overlay);
-		FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) overflow.getLayoutParams();
+		assertTrue(fabStrip.getParent() == overlay);
+		assertTrue(overflow.getParent() == fabStrip);
+		FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) fabStrip.getLayoutParams();
 		int gravity = params.gravity;
 		assertTrue((gravity & Gravity.BOTTOM) != 0);
 		assertTrue((gravity & Gravity.END) != 0 || (gravity & Gravity.RIGHT) != 0);
