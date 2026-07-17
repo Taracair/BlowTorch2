@@ -71,8 +71,14 @@ end
 
 modifyClickListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v)
-    modifyButtonSetCallback(sortedList[lastSelectedIndex+1])
-    
+    if lastSelectedIndex == nil or lastSelectedIndex < 0 then
+      return
+    end
+    local item = sortedList[lastSelectedIndex+1]
+    if item == nil then
+      return
+    end
+    modifyButtonSetCallback(item)
     dialog:dismiss()
   end
 })
@@ -101,7 +107,7 @@ adapter = luajava.createProxy("android.widget.ListAdapter",{
 		
 		if(holder:getChildCount() > 0) then
 			holder:removeAllViews()
-			lastSelectedIndex = -1
+			-- Do not reset lastSelectedIndex here; recycling would clear a valid selection.
 		end
 		
 		item = sortedList[tonumber(pos)+1]
@@ -220,6 +226,17 @@ function showList(unsortedList,lastLoadedSet)
 	
 	local donebutton = layout:findViewById(R_id.done)
 	donebutton:setOnClickListener(doneListener)
+
+	-- Button Sets has no plugin filter; hide the unused "=" control.
+	local optionsbutton = layout:findViewById(R_id.optionsbutton)
+	if optionsbutton ~= nil then
+		optionsbutton:setVisibility(View.GONE)
+	end
+	local searchField = layout:findViewById(R_id.search_field)
+	if searchField ~= nil then
+		searchField:setVisibility(View.GONE)
+	end
+
 	dialog = luajava.newInstance("com.resurrection.blowtorch2.lib.window.LuaDialog",context,layout,false,nil)
 
 	--end
@@ -391,8 +408,11 @@ itemClicked = luajava.createProxy("android.widget.AdapterView$OnItemClickListene
 		params:addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
 		params:addRule(RelativeLayout.ALIGN_PARENT_TOP)
 		local y = position - list:getFirstVisiblePosition()
-		--Note("\ny pos="..y)
-		local v_top = (list:getChildAt(y)):getTop()
+		local row = list:getChildAt(y)
+		if row == nil then
+			return
+		end
+		local v_top = row:getTop()
 		local f_top = frame:getTop()
 		
 		params:setMargins(0,v_top + f_top,0,0)
@@ -400,7 +420,9 @@ itemClicked = luajava.createProxy("android.widget.AdapterView$OnItemClickListene
 		target:addView(toolbar)
 		toolbar:startAnimation(animateIn)
 		local child = toolbar:getChildAt(1)
-		child:requestFocus()
+		if child ~= nil then
+			child:requestFocus()
+		end
 	end,
 	onNothingSelected = function(arg0) end --don't care
 })

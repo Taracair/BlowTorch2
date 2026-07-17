@@ -23,14 +23,15 @@ public class PluginFilterSelectionDialog extends BaseSelectionDialog implements 
 		setOptionItemClickListener(this);
 		try {
 			List<String> rawList = this.getPluginList();
-			if(rawList == null) return;
-			pluginList = new String[rawList.size()];
-			pluginList = rawList.toArray(pluginList);
-			java.util.Arrays.sort(pluginList);
-			//java.util.Arrays.sort(plugins);
-			
+			if(rawList == null) {
+				pluginList = new String[0];
+			} else {
+				pluginList = new String[rawList.size()];
+				pluginList = rawList.toArray(pluginList);
+				java.util.Arrays.sort(pluginList);
+			}
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
+			pluginList = new String[0];
 			e.printStackTrace();
 		}
 		
@@ -40,13 +41,12 @@ public class PluginFilterSelectionDialog extends BaseSelectionDialog implements 
 	}
 
 	protected void addPluginFilterOptions() {
-		if(pluginList.length < 1) { 
-			return; 
+		if (pluginList == null) {
+			pluginList = new String[0];
 		}
 		this.addOptionDivider("Filter by plugin",false);
 		this.addOptionItem("Main", false);
 		for(int i=0;i<pluginList.length;i++) {
-		
 			this.addOptionItem(pluginList[i],false);
 		}
 	}
