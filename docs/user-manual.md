@@ -80,6 +80,7 @@ Enable under **Options → Service → GMCP Options** (`Use GMCP?`, Supports Str
                         (app files/logs/blowtorch2.log; also session log if enabled.
                         `.gmcp sniff on` prints the absolute path. View via
                         Overflow → Crash report → Show log.)
+.gmcp sniff tail [N]  — print last N GMCP lines from that log in-game (0–100, default 40)
 .gmcp version         — client hello / syntax notes
 .gmcp supports […]   — show or set supports modules
 .gmcp dump [path]     — dump cached GMCP table

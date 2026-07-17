@@ -3020,46 +3020,49 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean fullscreenEditor = false;
 	private boolean useSuggestions = false;
 	public void setupEditor(boolean useExtractUI,boolean useSuggestions) {
-		if (mGrowInputBar) {
-			mInputBox.setHorizontallyScrolling(false);
+		this.fullscreenEditor = useExtractUI;
+		this.useSuggestions = useSuggestions;
+
+		if (useExtractUI) {
+			int current = mInputBox.getImeOptions();
+			int wanted = current & (0xFFFFFFFF ^ EditorInfo.IME_FLAG_NO_EXTRACT_UI);
+			wanted = wanted | EditorInfo.IME_ACTION_SEND;
+			mInputBox.setImeOptions(wanted);
+			mInputBox.setUseFullScreen(true);
+		} else {
+			int current = mInputBox.getImeOptions();
+			int wanted = current | EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_ACTION_SEND;
+			mInputBox.setImeOptions(wanted);
+			mInputBox.setUseFullScreen(false);
+		}
+		// setInputType must include MULTI_LINE when growing — otherwise Android forces single-line.
+		applyGrowInputBar(mGrowInputBar);
+	}
+
+	/** Apply Options → Input → Grow Input Bar? / {@code .wrap} to the input field. */
+	private void applyGrowInputBar(boolean grow) {
+		mGrowInputBar = grow;
+		if (mInputBox == null) {
+			return;
+		}
+		int type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE;
+		if (!useSuggestions) {
+			type |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+		}
+		if (grow) {
+			type |= InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+			mInputBox.setInputType(type);
 			mInputBox.setSingleLine(false);
 			mInputBox.setMaxLines(INPUT_GROW_MAX_LINES);
+			mInputBox.setHorizontallyScrolling(false);
 		} else {
+			mInputBox.setInputType(type);
 			mInputBox.setMaxLines(1);
 			mInputBox.setSingleLine(true);
 			mInputBox.setHorizontallyScrolling(true);
 		}
-	
-		if(useExtractUI) {
-			
-			
-			int current = mInputBox.getImeOptions();
-			int wanted = current & (0xFFFFFFFF^EditorInfo.IME_FLAG_NO_EXTRACT_UI);
-			wanted = wanted | EditorInfo.IME_ACTION_SEND;
-			
-			//Log.e("WINDOW","ATTEMPTING TO SET FULL SCREEN IME| WAS: "+ Integer.toHexString(current) +" WANT: " + Integer.toHexString(wanted));
-			mInputBox.setImeOptions(wanted);
-			mInputBox.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE);
-			//BetterEditText better = (BetterEditText)input_box;
-			mInputBox.setUseFullScreen(true);
-			//mInputBox.setBackSpaceBugFix(backSpaceBugFix)
-		} else {
-			int current = mInputBox.getImeOptions();
-			int wanted = current | EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_ACTION_SEND;
-			//Log.e("WINDOW","ATTEMPTING TO SET NO EXTRACT IME| WAS: "+ Integer.toHexString(current) +" WANT: " + Integer.toHexString(wanted));
-			mInputBox.setImeOptions(wanted);
-			if(useSuggestions) {
-				mInputBox.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE);
-			} else {
-				mInputBox.setInputType(InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS|InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE);
-				//mInputBox.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE);
-					
-			}
-			//BetterEditText better = (BetterEditText)input_box;
-			mInputBox.setUseFullScreen(false);
-			//Log.e("WINDOW","SETTINGS NOW "+Integer.toHexString(input_box.getImeOptions()));
-		}
 		scheduleInputActionLayoutRefresh();
+		refreshGameChrome();
 	}
 	
 	private Typeface loadFontFromName(String name) {
@@ -3960,25 +3963,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return h > singleLineApprox;
 	}
 
-	/** Apply Options → Input → Grow Input Bar? / {@code .wrap} to the input field. */
-	private void applyGrowInputBar(boolean grow) {
-		mGrowInputBar = grow;
-		if (mInputBox == null) {
-			return;
-		}
-		if (grow) {
-			mInputBox.setSingleLine(false);
-			mInputBox.setMaxLines(INPUT_GROW_MAX_LINES);
-			mInputBox.setHorizontallyScrolling(false);
-		} else {
-			mInputBox.setMaxLines(1);
-			mInputBox.setSingleLine(true);
-			mInputBox.setHorizontallyScrolling(true);
-		}
-		scheduleInputActionLayoutRefresh();
-		refreshGameChrome();
-	}
-
 	private void applyInputEditExpanded(View tools, Button toggle, boolean expanded) {
 		tools.setVisibility(expanded ? View.VISIBLE : View.GONE);
 		toggle.setText(expanded ? "Hide" : "Edit");
@@ -4634,20 +4618,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void showPermissionsMessage(boolean granted) {
 		String dir = SDCardUtils.getSDCardRoot(this,granted);
-
-		String message = (granted == true) ? String.format(getString(R.string.sd_perm_granted),dir) : String.format(getString(R.string.sd_perm_denies),dir);
-		Snackbar bar = Snackbar.make(mRootView, message,
-				Snackbar.LENGTH_INDEFINITE)
-				.setAction(android.R.string.ok,new View.OnClickListener() {
-					@Override
-					public void onClick(View view) {
-
-					}});
-
-		View snackbarView = bar.getView();
-		TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
-		textView.setMaxLines(5);  // show multiple line
-		bar.show();
+		String message = (granted == true)
+				? String.format(getString(R.string.sd_perm_granted), dir)
+				: String.format(getString(R.string.sd_perm_denies), dir);
+		// Toast stays above Options/dialogs; Snackbar on mRootView sits under the Options panel.
+		Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 	}
 
 	private void showImportMessage(final boolean external) {
