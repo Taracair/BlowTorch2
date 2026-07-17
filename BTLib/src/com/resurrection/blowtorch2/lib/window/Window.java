@@ -198,6 +198,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mXterm256BGStart = false;
 	/** Utility variable that is used by the ANSI drawing routine to properly handle xterm 256 colors. */
 	private boolean mXterm256Color = false;
+	/** True while the current foreground register holds an xterm-256 palette index. */
+	private boolean mXterm256FG = false;
+	/** True while the current background register holds an xterm-256 palette index. */
+	private boolean mXterm256BG = false;
 	/** The handler message queue for this window. */
 	private Handler mHandler = null;
 	/** The handler message queue for the main window that holds this window. */
@@ -1112,11 +1116,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								bleeding = true;
 							}
 						}
-						if (mXterm256FGStart) {
-							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, mXterm256Color));
+						if (mXterm256FG) {
+							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, true));
 						} else {
 							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, false));
-							
 						}
 						
 						b.setColor(0xFF000000);//no not bleed background colors
@@ -1426,23 +1429,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37,false));
 							b.setColor(0xFF000000 | Colorizer.getColorValue(0, 40,false));
 						} else {
-							if (mXterm256FGStart) {
-								if (mSelectedColor == 33) {
-									mSelectedColor = 33;
-								}
-								p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, mXterm256Color));
-							} else {
-								if (!mXterm256BGStart) {
-									p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, false));
-								}
-							}
-							
-							if (mXterm256BGStart) {
-								b.setColor(0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground,mXterm256Color));
-							} else {
-								b.setColor(0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground,false));
-								
-							}
+							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, mXterm256FG));
+							b.setColor(0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground, mXterm256BG));
 						}
 						if (mColorDebugMode == 1 || mColorDebugMode == 2) {
 							String str = "";
@@ -2101,14 +2089,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if(mXterm256Color) {
 			if(mXterm256FGStart) {
 				mSelectedColor = i;
-				//xterm256FGStart = false;
-				//xterm256Color = false;
-			}
-			
-			if(mXterm256BGStart) {
+				mXterm256FGStart = false;
+				mXterm256Color = false;
+				mXterm256FG = true;
+			} else if(mXterm256BGStart) {
 				mSelectedBackground = i;
-				//xterm256BGStart = false;
-				//xterm256Color = false;
+				mXterm256BGStart = false;
+				mXterm256Color = false;
+				mXterm256BG = true;
 			}
 			
 			return null;
@@ -2121,6 +2109,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
+			mXterm256FG = false;
 			//opts.setColor(0xFF000000 | Colorizer.getColorValue(selectedBright, selectedColor));
 			//notFound = false;
 			break;
@@ -2130,6 +2119,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
+			mXterm256BG = false;
 			//bg_opts.setColor(0xFF000000 | Colorizer.getColorValue(selectedBackgroundBright, selectedBackgroundColor));
 			break;
 		case ZERO_CODE:
@@ -2140,12 +2130,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
+			mXterm256FG = false;
+			mXterm256BG = false;
 			break;
 		case BRIGHT_CODE:
 			mSelectedBright = 1;
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
+			break;
+		case DEFAULT_FOREGROUND:
+			mSelectedColor = 37;
+			mXterm256FGStart = false;
+			mXterm256BGStart = false;
+			mXterm256Color = false;
+			mXterm256FG = false;
+			break;
+		case DEFAULT_BACKGROUND:
+			mSelectedBackground = 40;
+			mXterm256FGStart = false;
+			mXterm256BGStart = false;
+			mXterm256Color = false;
+			mXterm256BG = false;
 			break;
 		case XTERM_256_FG_START:
 			mXterm256FGStart = true;
