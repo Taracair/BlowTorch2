@@ -776,9 +776,14 @@ public class OptionsDialog extends Dialog {
 							browse.setOnClickListener(new View.OnClickListener() {
 								@Override
 								public void onClick(View view) {
-									Context ctx = OptionsDialog.this.getContext();
-									if (ctx instanceof MainWindow) {
-										((MainWindow) ctx).pickDirectoryForOption();
+									MainWindow mw = findMainWindowHost();
+									if (mw != null) {
+										mw.pickDirectoryForOption();
+									} else {
+										android.widget.Toast.makeText(
+												OptionsDialog.this.getContext(),
+												"Folder picker unavailable (no host activity).",
+												android.widget.Toast.LENGTH_LONG).show();
 									}
 								}
 							});

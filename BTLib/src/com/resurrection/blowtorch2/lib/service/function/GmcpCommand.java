@@ -98,13 +98,35 @@ public class GmcpCommand extends SpecialCommand {
 		if (rest.length() == 0) {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "GMCP sniff/log is " + (current ? "on" : "off") + ".\n"
-					+ "Usage: .gmcp sniff on | .gmcp sniff off\n"
+					+ "Usage: .gmcp sniff on | off | tail [0-100]\n"
 					+ sniffLogLocations(c));
 			return null;
 		}
-		Boolean desired = parseOnOff(rest.split("\\s+")[0]);
+		String[] toks = rest.split("\\s+");
+		String first = toks[0].toLowerCase(Locale.US);
+		if (first.equals("tail")) {
+			int lines = 40;
+			if (toks.length > 1) {
+				try {
+					lines = Integer.parseInt(toks[1]);
+				} catch (NumberFormatException e) {
+					c.sendDataToWindow(getErrorMessage("GMCP sniff tail",
+							".gmcp sniff tail [0-100]"));
+					return null;
+				}
+			}
+			if (lines < 0) {
+				lines = 0;
+			}
+			if (lines > 100) {
+				lines = 100;
+			}
+			return doSniffTail(c, lines);
+		}
+		Boolean desired = parseOnOff(first);
 		if (desired == null) {
-			c.sendDataToWindow(getErrorMessage("GMCP sniff", ".gmcp sniff on | off"));
+			c.sendDataToWindow(getErrorMessage("GMCP sniff",
+					".gmcp sniff on | off | tail [0-100]"));
 			return null;
 		}
 		c.updateBooleanSetting(OPT_LOG, desired.booleanValue());
@@ -115,6 +137,66 @@ public class GmcpCommand extends SpecialCommand {
 			msg.append(sniffLogLocations(c));
 		}
 		c.sendDataToWindow(msg.toString());
+		return null;
+	}
+
+	private Object doSniffTail(Connection c, int lines) {
+		java.io.File logFile = BlowTorchLogger.getLogFile(c.getContext());
+		StringBuilder out = new StringBuilder();
+		out.append("\n").append(Colorizer.getWhiteColor());
+		out.append("GMCP sniff tail (").append(lines).append(" lines)");
+		if (logFile != null) {
+			out.append(" from ").append(logFile.getAbsolutePath());
+		}
+		out.append(":\n");
+		if (lines == 0) {
+			out.append("(0 lines requested)\n");
+			c.sendDataToWindow(out.toString());
+			return null;
+		}
+		if (logFile == null || !logFile.isFile()) {
+			out.append(Colorizer.getRedColor()).append("(log file missing)\n");
+			c.sendDataToWindow(out.toString());
+			return null;
+		}
+		java.util.ArrayList<String> gmcpLines = new java.util.ArrayList<String>();
+		java.io.BufferedReader reader = null;
+		try {
+			reader = new java.io.BufferedReader(new java.io.InputStreamReader(
+					new java.io.FileInputStream(logFile), "UTF-8"));
+			String line;
+			while ((line = reader.readLine()) != null) {
+				String lower = line.toLowerCase(Locale.US);
+				if (lower.contains("gmcp") || lower.contains("[gmcp]")) {
+					gmcpLines.add(line);
+					if (gmcpLines.size() > 500) {
+						gmcpLines.remove(0);
+					}
+				}
+			}
+		} catch (Exception e) {
+			out.append(Colorizer.getRedColor()).append("Read failed: ")
+					.append(e.getMessage()).append("\n");
+			c.sendDataToWindow(out.toString());
+			return null;
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (Exception ignored) {
+				}
+			}
+		}
+		if (gmcpLines.isEmpty()) {
+			out.append("(no GMCP lines in log yet — enable sniff, use GMCP, play until packets arrive)\n");
+			c.sendDataToWindow(out.toString());
+			return null;
+		}
+		int start = Math.max(0, gmcpLines.size() - lines);
+		for (int i = start; i < gmcpLines.size(); i++) {
+			out.append(gmcpLines.get(i)).append("\n");
+		}
+		c.sendDataToWindow(out.toString());
 		return null;
 	}
 
@@ -285,6 +367,7 @@ public class GmcpCommand extends SpecialCommand {
 				+ "  .gmcp                 — this help\n"
 				+ "  .gmcp status          — current flags\n"
 				+ "  .gmcp sniff [on|off]  — log handshake/packets to app error log\n"
+				+ "  .gmcp sniff tail [N]  — show last N GMCP log lines in-game (0–100, default 40)\n"
 				+ "  .gmcp version         — client hello / syntax notes\n"
 				+ "  .gmcp supports […]    — show or set supports modules\n"
 				+ "  .gmcp dump [path]     — dump cached GMCP table\n"

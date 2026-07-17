@@ -2884,6 +2884,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void updateBooleanSetting(final String key, final boolean value) {
 		mSettings.updateBooleanSetting(key, value);
+		// SettingsGroup only notifies Lua OnOptionChanged; also run Connection KEYS handlers
+		// (keep_last, grow_input_bar, log_gmcp, …) so the UI/service actually apply the change.
+		updateSetting(key, Boolean.toString(value));
 	}
 	
 	/** Updates a boolean setting in the target plugin.
