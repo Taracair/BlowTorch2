@@ -10,17 +10,25 @@ BT_Pro/bin
 BT_Free/gen
 BT_Free/bin
 BTLIB/libs
+BTLib/libs
 BTLib/build
 BT_Free/build
 BT_Aard/build
 build/
 *.o
 *.a
+*.so
 buildvm
 minilua
 local.properties
 .idea
 .gradle
+LuaJIT-2.1/
+# Keep sources; ignore NDK/LuaJIT build leftovers under LuaJIT-2.0.5
+LuaJIT-2.0.5/src/libluajit.so
+LuaJIT-2.0.5/src/luajit
+LuaJIT-2.0.5/src/host/buildvm
+LuaJIT-2.0.5/src/host/minilua
 
 ### Android ###
 # Built application files

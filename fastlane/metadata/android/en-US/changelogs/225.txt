@@ -1,0 +1,3 @@
+First public BlowTorch 2 release candidate for F-Droid.
+
+Modern Android builds (SDK 36), scoped-storage import/export and zip backups, clearer Options (session log, battery helper, GMCP), growable input bar, notification sound picks, plugin refresh, Help and crash/log report, launcher connection duration. Mapper (ForgeMap) still in progress — test flavor only, not in this package.

@@ -52,13 +52,20 @@ android {
         }
     }
 
+    // Release is unsigned by default (F-Droid / CI sign their own builds).
+    // Local installable release: BT_LOCAL_SIGN=1 or -PbtLocalSign=true
+    def useLocalReleaseSign =
+            (System.getenv('BT_LOCAL_SIGN') == '1') || project.hasProperty('btLocalSign')
+
     buildFeatures {
         buildConfig true
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.localDebug
+            if (useLocalReleaseSign) {
+                signingConfig signingConfigs.localDebug
+            }
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
