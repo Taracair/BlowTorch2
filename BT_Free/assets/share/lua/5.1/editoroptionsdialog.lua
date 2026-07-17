@@ -243,8 +243,8 @@ function showDialog(initialValues)
   boptCancelButton:setText("Cancel")
   boptCancelButton:setLayoutParams(wrapparamsNoWeight)
   boptCancelButton:setOnClickListener(cancelListener)
-  boptHolder:addView(boptDoneButton)
   boptHolder:addView(boptCancelButton)
+  boptHolder:addView(boptDoneButton)
   
   ll:addView(boptHolder)
   
