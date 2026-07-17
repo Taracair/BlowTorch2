@@ -999,6 +999,10 @@ cpaint = luajava.new(PaintClass)
 cpaint:setARGB(0x00,0x00,0x00,0x00)
 cpaint:setXfermode(xferModeClear)
 
+-- Opaque black wash while editing buttons so game text does not show through.
+managerBgPaint = luajava.new(PaintClass)
+managerBgPaint:setARGB(0xFF,0x00,0x00,0x00)
+
 drawManagerLayer = true
 function enterManagerMode()
 	manage = true
@@ -1077,8 +1081,8 @@ function drawManagerGrid()
 		local c = managerCanvas
 		local width = view:getWidth()
 		local height = view:getHeight()
-		-- Clear fully; keep the game screen visible behind the grid (no opaque wash).
-		c:drawRect(0,0,width,height,cpaint)
+		-- Opaque black so game text does not show through while editing.
+		c:drawRect(0,0,width,height,managerBgPaint)
 		--draw dashed lines.
 		local times = width / gridXwidth
 		for x=1,times do
