@@ -29,7 +29,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="top"
+                android:gravity="bottom"
                 android:paddingLeft="4dip"
                 android:paddingRight="2dip"
                 android:paddingTop="0dip"
@@ -65,7 +65,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="top|end"
+                android:gravity="bottom|end"
                 android:layout_marginLeft="4dip"
                 android:layout_marginRight="2dip">
 
