@@ -73,7 +73,7 @@ public class BaseSelectionDialog extends Dialog {
 	private CharSequence mNewTitle = "New";
 	
 	public BaseSelectionDialog(Context context) {
-		super(context, R.style.BlowTorch_Dialog);
+		super(context, R.style.BlowTorch_Dialog_FullScreen);
 		// TODO Auto-generated constructor stub
 		mContext = context;
 		mToolbarButtons = new ArrayList<UtilityButton>();
@@ -158,7 +158,27 @@ public class BaseSelectionDialog extends Dialog {
 		}
 		this.setCanceledOnTouchOutside(false);
 		setContentView(R.layout.editor_selection_dialog);
-		this.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+		Window window = this.getWindow();
+		if (window != null) {
+			window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+			WindowManager.LayoutParams attrs = window.getAttributes();
+			attrs.width = WindowManager.LayoutParams.MATCH_PARENT;
+			attrs.height = WindowManager.LayoutParams.MATCH_PARENT;
+			attrs.gravity = Gravity.FILL;
+			window.setAttributes(attrs);
+		}
+
+		final View root = findViewById(R.id.root);
+		if (root != null) {
+			androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+				androidx.core.graphics.Insets sys =
+						insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+				view.setPadding(view.getPaddingLeft(), sys.top,
+						view.getPaddingRight(), sys.bottom);
+				return insets;
+			});
+			androidx.core.view.ViewCompat.requestApplyInsets(root);
+		}
 		
 		TextView tst = (TextView) this.findViewById(R.id.titlebar);
 		tst.setText(mTitle);
@@ -253,25 +273,31 @@ public class BaseSelectionDialog extends Dialog {
 		mList.setEmptyView(findViewById(R.id.empty));
 		
 		EditText searchField = (EditText) findViewById(R.id.search_field);
-		searchField.addTextChangedListener(new TextWatcher() {
-			@Override
-			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+		if (searchField != null) {
+			if (!mSearchVisible) {
+				searchField.setVisibility(View.GONE);
+			} else {
+				searchField.addTextChangedListener(new TextWatcher() {
+					@Override
+					public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+					}
+
+					@Override
+					public void onTextChanged(CharSequence s, int start, int before, int count) {
+					}
+
+					@Override
+					public void afterTextChanged(Editable s) {
+						mSearchQuery = s.toString();
+						applySearchFilter();
+						removeToolbar();
+						if (mAdapter != null) {
+							mAdapter.notifyDataSetChanged();
+						}
+					}
+				});
 			}
-			
-			@Override
-			public void onTextChanged(CharSequence s, int start, int before, int count) {
-			}
-			
-			@Override
-			public void afterTextChanged(Editable s) {
-				mSearchQuery = s.toString();
-				applySearchFilter();
-				removeToolbar();
-				if (mAdapter != null) {
-					mAdapter.notifyDataSetChanged();
-				}
-			}
-		});
+		}
 		
 		buildRawList();
 		
@@ -412,6 +438,16 @@ public class BaseSelectionDialog extends Dialog {
 	protected ArrayList<ItemEntry> mListItems = new ArrayList<ItemEntry>();
 	protected ArrayList<ItemEntry> mAllListItems = new ArrayList<ItemEntry>();
 	private String mSearchQuery = "";
+	private boolean mSearchVisible = true;
+
+	/** Hide the search row (e.g. Speedwalk directions has nothing useful to filter). */
+	public void setSearchVisible(boolean visible) {
+		mSearchVisible = visible;
+		EditText searchField = (EditText) findViewById(R.id.search_field);
+		if (searchField != null) {
+			searchField.setVisibility(visible ? View.VISIBLE : View.GONE);
+		}
+	}
 	
 	public void addListItem(String name,String extra,int mini_icon,boolean enabled) {
 		ItemEntry newEntry = new ItemEntry();

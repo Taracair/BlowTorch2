@@ -7,12 +7,16 @@ import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.util.Log;
-import android.widget.RelativeLayout.LayoutParams;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 public class LuaDialog extends Dialog {
 
@@ -28,16 +32,11 @@ public class LuaDialog extends Dialog {
 	}
 	
 	public LuaDialog(Context context,View v,boolean title,Drawable border) {
-		super(context,android.R.style.Theme_Black);
+		super(context, R.style.BlowTorch_Dialog_FullScreen);
 		mContext = context;
 		mView = v;
 		mTitle = title;
 		mBorder = border;
-		
-		
-		
-		
-		//this.setCont
 	}
 
 	private boolean canShow() {
@@ -67,50 +66,46 @@ public class LuaDialog extends Dialog {
 	public void onCreate(Bundle savedInstanceState) {
 		if(!mTitle) {
 			this.requestWindowFeature(Window.FEATURE_NO_TITLE);
-			//this.getWindow().setFla
 		}
-		//this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
 		if(mBorder != null) {
 			this.getWindow().setBackgroundDrawable(mBorder);
 		} else {
-			this.getWindow().setBackgroundDrawableResource(com.resurrection.blowtorch2.lib.R.drawable.dialog_window_crawler1);
+			this.getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 		}
-		
-		//Window w = this.getWindow();
-		
-		//WindowManager.LayoutParams wparams = w.getAttributes();
-		//params
-		//wparams.height = WindowManager.LayoutParams.WRAP_CONTENT;
-		//wparams.width = WindowManager.LayoutParams.WRAP_CONTENT;
-		
-		
-		//w.setAttributes(wparams);
-		//mView = v;	
-		
-		//ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT);
-		//mView.setLayoutParams(params);
-		//mView.setScrollContainer(false);
 		
 		MainWindow w = (MainWindow)mContext;
 		if(w.isStatusBarHidden()) {
 			this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		}
 		
-		// Selection-style content (aliases/triggers/timers/button sets) should use full width.
-		this.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
-		//this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
-		if(mView.getLayoutParams() != null) {
-			//LayoutParams tmp = (LayoutParams) mView.getLayoutParams();
-			//ViewGroup.LayoutParams p = new ViewGroup.LayoutParams(tmp.width, tmp.height);
-			//this.setContentView(mView,mView.getLayoutParams());
-			
-			this.setContentView(mView,mView.getLayoutParams());
-		} else {
-			this.setContentView(mView);
+		Window window = this.getWindow();
+		if (window != null) {
+			window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+			WindowManager.LayoutParams attrs = window.getAttributes();
+			attrs.width = WindowManager.LayoutParams.MATCH_PARENT;
+			attrs.height = WindowManager.LayoutParams.MATCH_PARENT;
+			attrs.gravity = Gravity.FILL;
+			window.setAttributes(attrs);
 		}
+
+		// Force full-bleed content even when inflate kept tablet fixed sizes.
+		ViewGroup.LayoutParams contentLp = mView.getLayoutParams();
+		if (contentLp == null) {
+			contentLp = new ViewGroup.LayoutParams(
+					ViewGroup.LayoutParams.MATCH_PARENT,
+					ViewGroup.LayoutParams.MATCH_PARENT);
+		} else {
+			contentLp.width = ViewGroup.LayoutParams.MATCH_PARENT;
+			contentLp.height = ViewGroup.LayoutParams.MATCH_PARENT;
+		}
+		this.setContentView(mView, contentLp);
+
+		ViewCompat.setOnApplyWindowInsetsListener(mView, (view, insets) -> {
+			Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+			view.setPadding(view.getPaddingLeft(), sys.top,
+					view.getPaddingRight(), sys.bottom);
+			return insets;
+		});
+		ViewCompat.requestApplyInsets(mView);
 	}
-	
-	
-	
-	
 }

@@ -3,8 +3,8 @@
 <RelativeLayout
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	android:id="@+id/root"
-	android:layout_width="280dip"
-	android:layout_height="400dip">
+	android:layout_width="match_parent"
+	android:layout_height="match_parent">
 	
 	<Button
 		android:id="@+id/optionsbutton"
@@ -20,7 +20,7 @@
 	<TextView
 		android:id="@+id/titlebar"
 		android:layout_width="fill_parent"
-		android:layout_height="60dip"
+		android:layout_height="48dip"
 		android:layout_alignParentTop="true"
 		android:text="SELECT TRIGGER"
 		android:textColor="#FF333333"
@@ -28,38 +28,60 @@
 		android:textSize="15dip"
 		android:textStyle="bold"
 		android:gravity="center"/>
-		
-	<Button
-		android:id="@+id/add"
-		android:layout_alignParentBottom="true"
-		android:layout_alignParentLeft="true"
+
+	<EditText
+		android:id="@+id/search_field"
+		android:layout_width="fill_parent"
 		android:layout_height="wrap_content"
-		android:layout_width="146dip"
-		android:text="New"/>
+		android:minHeight="44dip"
+		android:layout_below="@id/titlebar"
+		android:hint="Search name or pattern"
+		android:inputType="text"
+		android:maxLines="1"
+		android:imeOptions="actionSearch"
+		android:textColor="#FF000000"
+		android:textColorHint="#FF666666"
+		android:background="#FFCCCCCC"
+		android:paddingLeft="10dip"
+		android:paddingRight="10dip"
+		android:paddingTop="10dip"
+		android:paddingBottom="10dip"
+		android:textSize="16dip"/>
 		
 	<Button
 		android:id="@+id/done"
 		android:layout_alignParentBottom="true"
 		android:layout_alignParentRight="true"
 		android:layout_height="wrap_content"
-		android:layout_width="133dip"
+		android:minHeight="48dip"
+		android:layout_width="120dip"
 		android:text="Done"/>
+
+	<Button
+		android:id="@+id/add"
+		android:layout_alignParentBottom="true"
+		android:layout_alignParentLeft="true"
+		android:layout_toLeftOf="@id/done"
+		android:layout_height="wrap_content"
+		android:minHeight="48dip"
+		android:layout_width="match_parent"
+		android:text="New"/>
 		
 	<FrameLayout
 		android:id="@+id/frame"
-		android:layout_width = "fill_parent"
+		android:layout_width="match_parent"
 		android:layout_height="fill_parent"
 		android:layout_margin="0dip"
 		android:padding="0dip"
 		android:layout_above="@id/add"
-		android:layout_below="@id/titlebar">
+		android:layout_below="@id/search_field">
 		<ListView
 			android:id="@+id/list"
 			android:layout_height="fill_parent"
-			android:layout_width="280dip"/>
+			android:layout_width="match_parent"/>
 		<TextView
 			android:id="@+id/empty"
-			android:layout_width="fill_parent"
+			android:layout_width="match_parent"
 			android:layout_height="fill_parent"
 			android:text="No items to display."
 			android:textColor="#FFFFFFFF"
