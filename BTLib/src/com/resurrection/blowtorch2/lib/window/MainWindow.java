@@ -3792,9 +3792,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int LEGACY_INPUT_BAR_ID = 10;
 	private static final int LEGACY_DIVIDER_ID = 40;
 	private static final int LEGACY_TEXT_INPUT_ID = 30;
-	private static final float OVERFLOW_LIFT_PHONE_DIP = 14f;
-	/** Clearance above the divider so ⋮ never sits on Edit/Send (tablet input is taller). */
-	private static final float OVERFLOW_LIFT_TABLET_DIP = 56f;
+	private static final float OVERFLOW_LIFT_PHONE_DIP = 6f;
+	/** Gap between ⋮ and divider on tablets. */
+	private static final float OVERFLOW_LIFT_TABLET_DIP = 12f;
 	private View.OnLayoutChangeListener mInputBarChromeLayoutListener = null;
 
 	private void saveConnectionExtras(Intent intent) {
@@ -4465,33 +4465,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		if (fabStrip != null) {
-			final View inputbarFinal = inputbar;
-			final View dividerFinal = divider;
-			final int dividerHeightFinal = dividerHeight;
-			final int marginFinal = margin;
 			final float liftDip = getResources().getConfiguration().smallestScreenWidthDp >= 600
 					? OVERFLOW_LIFT_TABLET_DIP
 					: OVERFLOW_LIFT_PHONE_DIP;
-			Runnable placeFab = new Runnable() {
-				@Override
-				public void run() {
-					placeGameplayFabStrip(fabStrip, inputbarFinal, dividerFinal,
-							dividerHeightFinal, marginFinal, liftDip);
-				}
-			};
-			inputbar.removeCallbacks(placeFab);
-			inputbar.post(placeFab);
+			placeGameplayFabStrip(fabStrip, divider, margin, liftDip);
 			if (mInputBarChromeLayoutListener == null) {
 				mInputBarChromeLayoutListener = new View.OnLayoutChangeListener() {
 					@Override
 					public void onLayoutChange(View v, int left, int top, int right, int bottom,
 							int oldLeft, int oldTop, int oldRight, int oldBottom) {
-						int oldH = oldBottom - oldTop;
-						int newH = bottom - top;
-						if (oldH != newH) {
-							placeGameplayFabStrip(fabStrip, inputbarFinal, dividerFinal,
-									dividerHeightFinal, marginFinal, liftDip);
-						}
+						placeGameplayFabStrip(fabStrip, divider, margin, liftDip);
 					}
 				};
 			}
@@ -4502,45 +4485,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		bringGameplayChromeToFront(rl);
 	}
 
-	private void placeGameplayFabStrip(View fabStrip, View inputbar, View divider,
-			int dividerHeight, int margin, float liftDip) {
-		if (fabStrip == null || inputbar == null) {
+	/** Anchor ⋮ above the divider (never over Edit/Send). */
+	private void placeGameplayFabStrip(View fabStrip, View divider, int margin, float liftDip) {
+		if (fabStrip == null || divider == null) {
+			return;
+		}
+		if (!(fabStrip.getParent() instanceof RelativeLayout)) {
 			return;
 		}
 		float density = getResources().getDisplayMetrics().density;
-		int inputH = Math.max(inputbar.getHeight(), inputbar.getMeasuredHeight());
-		if (inputH <= 0) {
-			inputbar.post(new Runnable() {
-				@Override
-				public void run() {
-					placeGameplayFabStrip(fabStrip, inputbar, divider, dividerHeight, margin, liftDip);
-				}
-			});
-			return;
-		}
-		int bottomInset = inputH + dividerHeight + margin + (int) (liftDip * density + 0.5f);
-		// Prefer divider geometry when available — avoids sitting on Edit/Send when
-		// inputbar height was measured too small or layout was mid-pass.
-		View overlay = fabStrip.getParent() instanceof View ? (View) fabStrip.getParent() : null;
-		if (overlay != null && divider != null && divider.getHeight() > 0) {
-			int[] divLoc = new int[2];
-			int[] ovLoc = new int[2];
-			divider.getLocationInWindow(divLoc);
-			overlay.getLocationInWindow(ovLoc);
-			int overlayBottom = ovLoc[1] + overlay.getHeight();
-			int dividerTop = divLoc[1];
-			int fromDivider = overlayBottom - dividerTop
-					+ margin + (int) (liftDip * density + 0.5f);
-			if (fromDivider > bottomInset) {
-				bottomInset = fromDivider;
-			}
-		}
-		android.widget.FrameLayout.LayoutParams stripLp =
-				new android.widget.FrameLayout.LayoutParams(
-						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
-		stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-		stripLp.setMargins(0, 0, margin, bottomInset);
+		int bottomGap = margin + (int) (liftDip * density + 0.5f);
+		RelativeLayout.LayoutParams stripLp = new RelativeLayout.LayoutParams(
+				LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
+		stripLp.addRule(RelativeLayout.ABOVE, divider.getId());
+		stripLp.addRule(RelativeLayout.ALIGN_PARENT_END);
+		stripLp.setMargins(0, 0, margin, bottomGap);
 		fabStrip.setLayoutParams(stripLp);
+		fabStrip.bringToFront();
 	}
 
 	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
