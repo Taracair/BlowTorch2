@@ -291,6 +291,13 @@ public class WindowToken implements Parcelable {
 		wordWrap.setKey("word_wrap");
 		wordWrap.setValue(true);
 		window.addOption(wordWrap);
+
+		BooleanOption tapDismiss = new BooleanOption();
+		tapDismiss.setTitle("Tap window hides keyboard?");
+		tapDismiss.setDescription("A loose tap on the game text (not a button) dismisses the soft keyboard.");
+		tapDismiss.setKey("tap_dismiss_keyboard");
+		tapDismiss.setValue(true);
+		window.addOption(tapDismiss);
 		
 		ListOption colorOption = new ListOption();
 		colorOption.setTitle("ANSI Color");
@@ -330,7 +337,7 @@ public class WindowToken implements Parcelable {
 		fontPath.setKey("font_path");
 		fontPath.setValue("monospace");
 		fontPath.addItem("monospace");
-		fontPath.addItem("sans serrif");
+		fontPath.addItem("sans serif");
 		fontPath.addItem("default");
 		fontPath.addPath("/system/fonts/");
 		fontPath.addPath("BlowTorch/");

@@ -636,7 +636,9 @@ options.haptic_edit = 0
 options.haptic_press = 0
 options.haptic_flip = 0
 options.roundness = 6
-options.auto_launch = true
+-- Default off: edge-back gestures were accidentally entering button edit mode.
+-- Use long-press on the wrench/overflow icon instead.
+options.auto_launch = false
 options.auto_create = true
 options.show_gesture_hints = true
 

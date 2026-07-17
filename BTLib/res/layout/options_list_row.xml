@@ -38,7 +38,7 @@
     </LinearLayout>
 
     <RelativeLayout
-        android:layout_width="wrap_content"
+        android:layout_width="0dip"
         android:layout_height="wrap_content"
         android:layout_marginRight="6dip"
         android:layout_marginTop="6dip"
@@ -46,11 +46,11 @@
         android:layout_weight="1">
 
         <TextView android:id="@id/infoTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:singleLine="true"
             android:textAppearance="?android:attr/textAppearanceMedium"
-            android:ellipsize="marquee"
+            android:ellipsize="end"
             android:fadingEdge="horizontal" />
             
         <TextView android:id="@+id/infoExtended"
@@ -68,7 +68,8 @@
     <LinearLayout android:id="@+id/widget_frame"
         android:layout_width="wrap_content"
         android:layout_height="fill_parent"
-        android:minWidth="60dip"
+        android:minWidth="48dip"
+        android:maxWidth="120dip"
         android:gravity="center"
         android:orientation="vertical" />
 

@@ -96,7 +96,8 @@ public class LuaDialog extends Dialog {
 			this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		}
 		
-		this.getWindow().setLayout(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT);
+		// Selection-style content (aliases/triggers/timers/button sets) should use full width.
+		this.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
 		//this.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
 		if(mView.getLayoutParams() != null) {
 			//LayoutParams tmp = (LayoutParams) mView.getLayoutParams();

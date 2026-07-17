@@ -312,6 +312,20 @@ public class OptionsDialog extends Dialog {
 				break;
 			case FILE:
 				v.setTag(o);
+				FileOption fileOption = (FileOption) o;
+				TextView fileIndicator = new TextView(OptionsDialog.this.getContext());
+				fileIndicator.setTextSize(14);
+				fileIndicator.setTextColor(0xFFAAAAAA);
+				fileIndicator.setMaxLines(1);
+				fileIndicator.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+				String fileVal = fileOption.getValue() == null ? "" : fileOption.getValue().toString();
+				int slash = fileVal.lastIndexOf('/');
+				fileIndicator.setText(slash >= 0 ? fileVal.substring(slash + 1) : fileVal);
+				LinearLayout.LayoutParams fparam = new LinearLayout.LayoutParams(
+						LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+				fparam.gravity = Gravity.CENTER;
+				fileIndicator.setLayoutParams(fparam);
+				widget.addView(fileIndicator);
 				v.setOnClickListener(new FileOptionClickedListener());
 				break;
 			case STRING:
@@ -385,9 +399,12 @@ public class OptionsDialog extends Dialog {
 				if(path.startsWith("/")) {
 					//use it directly
 					File file = new File(path);
-					for(File found : file.listFiles(filter)) {
-						foundFilePaths.add(found.getPath());
-						foundFileNames.add(found.getName());
+					File[] listed = file.isDirectory() ? file.listFiles(filter) : null;
+					if (listed != null) {
+						for(File found : listed) {
+							foundFilePaths.add(found.getPath());
+							foundFileNames.add(found.getName());
+						}
 					}
 				} else {
 					//get it from sdcard.
@@ -395,9 +412,12 @@ public class OptionsDialog extends Dialog {
 					if(Environment.MEDIA_MOUNTED.equals(sdstate) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate)) {
 						File tmp = Environment.getExternalStorageDirectory();
 						File file = new File(tmp,"/"+path);
-						for(File found : file.listFiles(filter)) {
-							foundFilePaths.add(found.getPath());
-							foundFileNames.add(found.getPath());
+						File[] listed = file.isDirectory() ? file.listFiles(filter) : null;
+						if (listed != null) {
+							for(File found : listed) {
+								foundFilePaths.add(found.getPath());
+								foundFileNames.add(found.getPath());
+							}
 						}
 					}
 				}
@@ -442,6 +462,10 @@ public class OptionsDialog extends Dialog {
 		public void onClick(DialogInterface dialog, int which) {
 			String path = paths.get(which);
 			option.setValue(path);
+			// Nested groups (e.g. Window → Font) live on mCurrent; update that group so listeners fire.
+			if (mCurrent != null && mCurrent.findOptionByKey(option.getKey()) != null) {
+				mCurrent.updateString(option.getKey(), path);
+			}
 			if(selectedPlugin.equals("main")) {
 				try {
 					service.updateStringSetting(option.getKey(), path);
@@ -457,6 +481,7 @@ public class OptionsDialog extends Dialog {
 					e.printStackTrace();
 				}
 			}
+			dialog.dismiss();
 		}
 		
 	}
