@@ -1631,6 +1631,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		float workingHeight = mHeight;
 		float workingWidth = mWidth;
+		final float density = this.getResources().getDisplayMetrics().density;
 		
 		Float windowPercent = workingHeight / (mBuffer.getBrokenLineCount()*mPrefLineSize);
 		if (windowPercent > 1) {
@@ -1651,7 +1652,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int alphaValue = Math.max(0, Math.min(255, (int) ((255 - 70) * posPercent + 70)));
 			int finalColor = android.graphics.Color.argb(alphaValue, redValue, 100, blueValue);
 			mScrollerPaint.setColor(finalColor);
-			float density = this.getResources().getDisplayMetrics().density;
 			scrollerRect.set((int) workingWidth - (int) (2 * density), (int) (scrollerPos - scrollerSize / 2), (int) workingWidth, (int) (scrollerPos + scrollerSize / 2));
 
 			c.drawRect(scrollerRect, mScrollerPaint);
