@@ -10,6 +10,8 @@ import com.resurrection.blowtorch2.lib.service.Processor;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
+import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 /**
  * GMCP helper command. Servers differ; this is a pragmatic sniff / version /
@@ -81,6 +83,7 @@ public class GmcpCommand extends SpecialCommand {
 		sb.append("Supports string: ").append(supports).append("\n");
 		sb.append("Negotiated processor: ").append(p != null ? "yes" : "no (not connected)").append("\n");
 		sb.append("Enable under Options → Service → GMCP Options.\n");
+		sb.append(sniffLogLocations(c));
 		c.sendDataToWindow(sb.toString());
 		return null;
 	}
@@ -96,8 +99,7 @@ public class GmcpCommand extends SpecialCommand {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "GMCP sniff/log is " + (current ? "on" : "off") + ".\n"
 					+ "Usage: .gmcp sniff on | .gmcp sniff off\n"
-					+ "When on, handshake and packets are written to the app error log"
-					+ " (and session log if enabled).\n");
+					+ sniffLogLocations(c));
 			return null;
 		}
 		Boolean desired = parseOnOff(rest.split("\\s+")[0]);
@@ -106,9 +108,40 @@ public class GmcpCommand extends SpecialCommand {
 			return null;
 		}
 		c.updateBooleanSetting(OPT_LOG, desired.booleanValue());
-		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
-				+ "GMCP sniff/log " + (desired.booleanValue() ? "on" : "off") + ".\n");
+		StringBuilder msg = new StringBuilder();
+		msg.append("\n").append(Colorizer.getWhiteColor())
+				.append("GMCP sniff/log ").append(desired.booleanValue() ? "on" : "off").append(".\n");
+		if (desired.booleanValue()) {
+			msg.append(sniffLogLocations(c));
+		}
+		c.sendDataToWindow(msg.toString());
 		return null;
+	}
+
+	/** Where sniff lines land (always error log; session log when enabled). */
+	private static String sniffLogLocations(Connection c) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Writes to app error log");
+		if (c != null && c.getContext() != null) {
+			BlowTorchLogger.ensureLogFile(c.getContext());
+			sb.append(":\n  ").append(BlowTorchLogger.getLogFile(c.getContext()).getAbsolutePath());
+		} else {
+			sb.append(" (files/logs/blowtorch2.log)");
+		}
+		sb.append("\n");
+		sb.append("Also appended to the session log when Options → Service → Log Session to File? is on");
+		if (c != null && c.getContext() != null && SessionLogger.isEnabled(c.getContext())) {
+			java.io.File current = SessionLogger.getCurrentLogFile();
+			if (current != null) {
+				sb.append(":\n  ").append(current.getAbsolutePath());
+			} else {
+				sb.append(":\n  ").append(SessionLogger.getLogDirectory(c.getContext()).getAbsolutePath());
+			}
+		} else {
+			sb.append(" (currently off).");
+		}
+		sb.append("\nView via Overflow → Crash report → Show log.\n");
+		return sb.toString();
 	}
 
 	private Object doVersion(Connection c) {
@@ -251,7 +284,7 @@ public class GmcpCommand extends SpecialCommand {
 		return "Usage:\n"
 				+ "  .gmcp                 — this help\n"
 				+ "  .gmcp status          — current flags\n"
-				+ "  .gmcp sniff [on|off]  — log handshake/packets to file\n"
+				+ "  .gmcp sniff [on|off]  — log handshake/packets to app error log\n"
 				+ "  .gmcp version         — client hello / syntax notes\n"
 				+ "  .gmcp supports […]    — show or set supports modules\n"
 				+ "  .gmcp dump [path]     — dump cached GMCP table\n"

@@ -86,6 +86,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.text.TextUtils;
 import android.os.Build;
 import android.os.Bundle;
@@ -97,6 +98,7 @@ import android.os.RemoteException;
 import android.os.SystemClock;
 
 import androidx.core.content.ContextCompat;
+import androidx.documentfile.provider.DocumentFile;
 import android.util.Log;
 import android.util.SparseArray;
 //import android.util.Log;
@@ -3040,6 +3042,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case keep_last:
 				this.doSetKeepLast((Boolean) o.getValue());
 				break;
+			case grow_input_bar:
+				this.doSetGrowInputBar((Boolean) o.getValue());
+				break;
 			case compatibility_mode:
 				mService.doExecuteCompatibilityMode((Boolean) o.getValue());
 				break;
@@ -3241,6 +3246,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private void doSetKeepLast(final Boolean value) {
 		mService.dispatchKeepLast(value);
 	}
+
+	/** Implementation of the grow input bar settings handler.
+	 *
+	 * @param value True to grow with multiline text, false for single line.
+	 */
+	private void doSetGrowInputBar(final Boolean value) {
+		mService.dispatchGrowInputBar(value);
+	}
 	
 	/** Impelemntation of the show regex warning handler.
 	 * 
@@ -3312,7 +3325,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Make editor use suggestions. */
 		use_suggestions,
 		/** Keep last entered. */
-		keep_last, 
+		keep_last,
+		/** Grow input bar with multiline text. */
+		grow_input_bar,
 		/** Input compatibility mode. */
 		compatibility_mode,
 		/** Local echo. */
@@ -3469,6 +3484,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			domessage = true;
 			String customDir = readDefaultSettingsDirectoryOption();
+			if (SDCardUtils.isContentUri(customDir)
+					&& SDCardUtils.mapTreeUriToFile(Uri.parse(customDir)) == null) {
+				mXMLExtensionMatcher.reset(filename);
+				if (!mXMLExtensionMatcher.matches()) {
+					filename = filename + ".xml";
+					addextra = true;
+				}
+				exportSettingsToTreeUri(appCtx, Uri.parse(customDir), filename, domessage, addextra);
+				return;
+			}
 			File destDir = SDCardUtils.resolveDefaultSettingsDirectory(appCtx, external, customDir);
 			if (!destDir.exists()) {
 				//noinspection ResultOfMethodCallIgnored
@@ -3690,6 +3715,61 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				message = message + "\n.xml extension added.";
 			}
 			mService.dispatchToast(message, true);
+		}
+	}
+
+	/** Write settings XML into a SAF document tree when the default directory is a content:// URI. */
+	private void exportSettingsToTreeUri(Context appCtx, Uri treeUri, String displayName,
+			boolean domessage, boolean addextra) {
+		DocumentFile tree = DocumentFile.fromTreeUri(appCtx, treeUri);
+		if (tree == null || !tree.canWrite()) {
+			mService.dispatchToast("Export failed: cannot write to selected folder.", true);
+			return;
+		}
+		String name = displayName;
+		int slash = name.lastIndexOf('/');
+		if (slash >= 0) {
+			name = name.substring(slash + 1);
+		}
+		DocumentFile existing = tree.findFile(name);
+		if (existing != null) {
+			existing.delete();
+		}
+		DocumentFile outFile = tree.createFile("application/xml", name);
+		if (outFile == null) {
+			mService.dispatchToast("Export failed: could not create file in selected folder.", true);
+			return;
+		}
+		OutputStream out = null;
+		try {
+			String foo = ConnectionSetttingsParser.outputXML(mSettings, mPlugins);
+			out = appCtx.getContentResolver().openOutputStream(outFile.getUri());
+			if (out == null) {
+				mService.dispatchToast("Export failed: could not open output stream.", true);
+				return;
+			}
+			out.write(foo.getBytes("UTF-8"));
+			out.flush();
+			if (domessage) {
+				String message = "Settings Exported to " + name;
+				if (addextra) {
+					message = message + "\n.xml extension added.";
+				}
+				mService.dispatchToast(message, true);
+			}
+		} catch (Exception e) {
+			try {
+				mService.dispatchSaveError(e.getLocalizedMessage());
+			} catch (RemoteException e1) {
+				e1.printStackTrace();
+			}
+		} finally {
+			if (out != null) {
+				try {
+					out.close();
+				} catch (IOException ignored) {
+				}
+			}
 		}
 	}
 	

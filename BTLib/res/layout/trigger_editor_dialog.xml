@@ -28,17 +28,17 @@
   	android:orientation="horizontal"
   	android:gravity="center">
 	  <Button
-	  	android:layout_width="0dip"
-	  	android:layout_height="wrap_content"
-	  	android:layout_weight="1"
-	  	android:text="Done"
-	  	android:id="@+id/trigger_editor_done_button"/>
-	  <Button
 	    android:layout_width="0dip"
 	  	android:layout_height="wrap_content"
 	  	android:layout_weight="1"
 	  	android:id="@+id/new_trigger_cancel"
 	  	android:text="Cancel" />
+	  <Button
+	  	android:layout_width="0dip"
+	  	android:layout_height="wrap_content"
+	  	android:layout_weight="1"
+	  	android:text="Done"
+	  	android:id="@+id/trigger_editor_done_button"/>
   </LinearLayout>
   
   <ScrollView

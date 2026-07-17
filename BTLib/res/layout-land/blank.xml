@@ -24,14 +24,14 @@
 					android:layout_width="wrap_content"
 					android:layout_height="20dip"
 					style="@style/BinButtonStyle"
-					android:text="Done"
-					android:id="@+id/done"/>
+					android:text="Cancel"
+					android:id="@+id/cancel"/>
 				<Button
 					android:layout_width="wrap_content"
 					android:layout_height="20dip"
 					style="@style/BinButtonStyle"
-					android:text="Cancel"
-					android:id="@+id/cancel"/>
+					android:text="Done"
+					android:id="@+id/done"/>
 			</LinearLayout>
 		</ScrollView>
 		<com.resurrection.blowtorch2.lib.window.TouchCatcher

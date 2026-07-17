@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.util;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -11,7 +12,12 @@ import java.util.regex.Pattern;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.text.TextUtils;
+
+import androidx.documentfile.provider.DocumentFile;
+
+import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 
 /**
  * Incremental plain-text session log (append-only). Keeps RAM scrollback bounded
@@ -27,6 +33,7 @@ public final class SessionLogger {
 	private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*[A-Za-z]");
 
 	private static File currentFile;
+	private static Uri currentDocUri;
 	private static String currentProfile;
 	private static boolean enabledCached = false;
 	private static String customDirCached = "";
@@ -46,8 +53,7 @@ public final class SessionLogger {
 		enabledCached = enabled;
 		prefsLoaded = true;
 		if (!enabled) {
-			currentFile = null;
-			currentProfile = null;
+			clearCurrent();
 		}
 	}
 
@@ -63,8 +69,7 @@ public final class SessionLogger {
 		customDirCached = normalized;
 		prefsLoaded = true;
 		// Force reopen on next append so path changes take effect.
-		currentFile = null;
-		currentProfile = null;
+		clearCurrent();
 	}
 
 	public static synchronized boolean isEnabled(Context context) {
@@ -79,9 +84,39 @@ public final class SessionLogger {
 		return currentFile;
 	}
 
+	/** Display path for UI: filesystem path, SAF document URI, or directory label. */
+	public static synchronized String getLogLocationLabel(Context context) {
+		if (currentDocUri != null) {
+			return currentDocUri.toString();
+		}
+		if (currentFile != null) {
+			return currentFile.getAbsolutePath();
+		}
+		ensurePrefs(context);
+		if (SDCardUtils.isContentUri(customDirCached)) {
+			return customDirCached;
+		}
+		File dir = getLogDirectory(context);
+		return dir != null ? dir.getAbsolutePath() : "";
+	}
+
 	public static synchronized File getLogDirectory(Context context) {
 		ensurePrefs(context);
 		if (!TextUtils.isEmpty(customDirCached)) {
+			if (SDCardUtils.isContentUri(customDirCached)) {
+				File mapped = SDCardUtils.mapTreeUriToFile(Uri.parse(customDirCached));
+				if (mapped != null) {
+					if (!mapped.exists()) {
+						//noinspection ResultOfMethodCallIgnored
+						mapped.mkdirs();
+					}
+					if (mapped.isDirectory()) {
+						return mapped;
+					}
+				}
+				// Unmapped content tree — no File; callers should use getLogLocationLabel.
+				return null;
+			}
 			File custom = new File(customDirCached);
 			if (!custom.exists()) {
 				custom.mkdirs();
@@ -102,11 +137,37 @@ public final class SessionLogger {
 			return;
 		}
 		String safe = sanitizeProfile(profile);
-		File dir = getLogDirectory(context);
 		String stamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(new Date());
+		String header = "=== BlowTorch session log: " + profile + " @ " + stamp + " ===\n";
+		ensurePrefs(context);
+
+		if (SDCardUtils.isContentUri(customDirCached)
+				&& SDCardUtils.mapTreeUriToFile(Uri.parse(customDirCached)) == null) {
+			DocumentFile tree = DocumentFile.fromTreeUri(context, Uri.parse(customDirCached));
+			if (tree != null && tree.canWrite()) {
+				DocumentFile file = tree.createFile("text/plain", safe + "_" + stamp + ".txt");
+				if (file != null) {
+					currentDocUri = file.getUri();
+					currentFile = null;
+					currentProfile = safe;
+					appendRawUri(context, currentDocUri, header);
+					return;
+				}
+			}
+			// Fall back to private folder if SAF tree is unusable.
+		}
+
+		File dir = getLogDirectory(context);
+		if (dir == null) {
+			dir = new File(context.getFilesDir(), LOG_DIR);
+			if (!dir.exists()) {
+				dir.mkdirs();
+			}
+		}
 		currentFile = new File(dir, safe + "_" + stamp + ".txt");
+		currentDocUri = null;
 		currentProfile = safe;
-		appendRaw(currentFile, "=== BlowTorch session log: " + profile + " @ " + stamp + " ===\n");
+		appendRaw(currentFile, header);
 	}
 
 	public static synchronized void appendIncoming(Context context, String profile, String text) {
@@ -114,15 +175,15 @@ public final class SessionLogger {
 			return;
 		}
 		ensureOpen(context, profile);
-		if (currentFile == null) {
+		if (currentFile == null && currentDocUri == null) {
 			return;
 		}
-		if (currentFile.length() > MAX_BYTES) {
+		if (currentLength() > MAX_BYTES) {
 			rotate(context, profile);
 		}
 		String plain = ANSI.matcher(text).replaceAll("");
 		plain = plain.replace('\r', '\n');
-		appendRaw(currentFile, plain);
+		appendCurrent(context, plain);
 	}
 
 	public static synchronized void appendMarker(Context context, String profile, String marker) {
@@ -130,11 +191,32 @@ public final class SessionLogger {
 			return;
 		}
 		ensureOpen(context, profile);
-		if (currentFile == null) {
+		if (currentFile == null && currentDocUri == null) {
 			return;
 		}
 		String stamp = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
-		appendRaw(currentFile, "\n--- " + stamp + " " + marker + " ---\n");
+		appendCurrent(context, "\n--- " + stamp + " " + marker + " ---\n");
+	}
+
+	private static void clearCurrent() {
+		currentFile = null;
+		currentDocUri = null;
+		currentProfile = null;
+	}
+
+	private static long currentLength() {
+		if (currentFile != null) {
+			return currentFile.length();
+		}
+		return 0L;
+	}
+
+	private static void appendCurrent(Context context, String text) {
+		if (currentDocUri != null) {
+			appendRawUri(context, currentDocUri, text);
+		} else if (currentFile != null) {
+			appendRaw(currentFile, text);
+		}
 	}
 
 	private static void ensurePrefs(Context context) {
@@ -152,13 +234,15 @@ public final class SessionLogger {
 
 	private static void ensureOpen(Context context, String profile) {
 		String safe = sanitizeProfile(profile);
-		if (currentFile == null || currentProfile == null || !currentProfile.equals(safe)) {
+		if ((currentFile == null && currentDocUri == null)
+				|| currentProfile == null
+				|| !currentProfile.equals(safe)) {
 			startSession(context, profile);
 		}
 	}
 
 	private static void rotate(Context context, String profile) {
-		appendRaw(currentFile, "\n=== log rotated (size limit) ===\n");
+		appendCurrent(context, "\n=== log rotated (size limit) ===\n");
 		startSession(context, profile);
 	}
 
@@ -166,6 +250,26 @@ public final class SessionLogger {
 		FileOutputStream out = null;
 		try {
 			out = new FileOutputStream(file, true);
+			out.write(text.getBytes(StandardCharsets.UTF_8));
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (out != null) {
+				try {
+					out.close();
+				} catch (IOException ignored) {
+				}
+			}
+		}
+	}
+
+	private static void appendRawUri(Context context, Uri uri, String text) {
+		OutputStream out = null;
+		try {
+			out = context.getContentResolver().openOutputStream(uri, "wa");
+			if (out == null) {
+				return;
+			}
 			out.write(text.getBytes(StandardCharsets.UTF_8));
 		} catch (IOException e) {
 			e.printStackTrace();

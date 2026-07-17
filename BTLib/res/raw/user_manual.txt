@@ -41,7 +41,7 @@ Built-in commands
 .wrap [on|off]
   Controls whether the input bar grows with multiline text (default on).
   With no argument, prints current state and usage.
-  Also: Options → Window → Grow Input Bar? (not Word Wrap?).
+  Also: Options → Input → Grow Input Bar? (not Word Wrap?).
 
 .gmcp …
   GMCP helpers. GMCP is an optional out-of-band telnet channel (option 201)
@@ -50,7 +50,9 @@ Built-in commands
   Subcommands:
     .gmcp                 help
     .gmcp status          current flags
-    .gmcp sniff [on|off]  log handshake/packets to the app error log
+    .gmcp sniff [on|off]  log handshake/packets to app error log
+                          (files/logs/blowtorch2.log; also session log if on.
+                          prints absolute path when enabled; Crash report → Show log)
     .gmcp version         client hello / syntax notes
     .gmcp supports […]   show or set supports modules
     .gmcp dump [path]     dump cached GMCP table

@@ -73,7 +73,7 @@ public class NewConnectionDialog extends Dialog {
 			addAccount.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					promptAddExtraAccount();
+					promptEditExtraAccount(-1);
 				}
 			});
 		}
@@ -96,7 +96,7 @@ public class NewConnectionDialog extends Dialog {
 				}
 			}
 		}
-		refreshExtraAccountsSummary();
+		refreshExtraAccountsList();
 	}
 
 	private void setPrimaryAccountFields(ServerAccount account) {
@@ -137,21 +137,110 @@ public class NewConnectionDialog extends Dialog {
 		target.setAccounts(accounts);
 	}
 
-	private void refreshExtraAccountsSummary() {
-		TextView summary = (TextView) findViewById(R.id.extra_accounts_summary);
-		if (summary == null) {
+	private void refreshExtraAccountsList() {
+		LinearLayout list = (LinearLayout) findViewById(R.id.extra_accounts_list);
+		if (list == null) {
 			return;
 		}
+		list.removeAllViews();
 		if (mExtraAccounts.isEmpty()) {
-			summary.setText("");
-			summary.setVisibility(View.GONE);
-		} else {
-			summary.setVisibility(View.VISIBLE);
-			summary.setText(getContext().getString(R.string.launcher_extra_accounts_summary, mExtraAccounts.size()));
+			list.setVisibility(View.GONE);
+			return;
+		}
+		list.setVisibility(View.VISIBLE);
+		Context ctx = getContext();
+		float density = ctx.getResources().getDisplayMetrics().density;
+		int pad = (int) (8 * density);
+
+		TextView hint = new TextView(ctx);
+		hint.setText(R.string.launcher_extra_accounts_hint);
+		hint.setTextSize(12f);
+		hint.setTextColor(0xFF444444);
+		hint.setPadding(0, 0, 0, pad / 2);
+		list.addView(hint);
+
+		for (int i = 0; i < mExtraAccounts.size(); i++) {
+			final int index = i;
+			ServerAccount account = mExtraAccounts.get(i);
+			LinearLayout row = new LinearLayout(ctx);
+			row.setOrientation(LinearLayout.HORIZONTAL);
+			row.setPadding(pad, pad / 2, pad, pad / 2);
+			row.setBackgroundColor(0x22FFFFFF);
+
+			TextView preview = new TextView(ctx);
+			preview.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+			preview.setTextSize(13f);
+			preview.setTextColor(0xFF222222);
+			preview.setText(formatExtraAccountPreview(account));
+			row.addView(preview);
+
+			Button delete = new Button(ctx);
+			delete.setText("Delete");
+			delete.setTextSize(12f);
+			delete.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (index >= 0 && index < mExtraAccounts.size()) {
+						mExtraAccounts.remove(index);
+						refreshExtraAccountsList();
+					}
+				}
+			});
+			row.addView(delete);
+
+			row.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					promptEditExtraAccount(index);
+				}
+			});
+			preview.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					promptEditExtraAccount(index);
+				}
+			});
+
+			list.addView(row);
+			View spacer = new View(ctx);
+			spacer.setLayoutParams(new LinearLayout.LayoutParams(
+					LinearLayout.LayoutParams.MATCH_PARENT, (int) (4 * density)));
+			list.addView(spacer);
 		}
 	}
 
-	private void promptAddExtraAccount() {
+	private String formatExtraAccountPreview(ServerAccount account) {
+		String label = account.getLabel();
+		if (label.length() == 0) {
+			label = "(no label)";
+		}
+		String login = account.getLogin();
+		if (login.length() == 0) {
+			login = "—";
+		}
+		String mail = account.getMail();
+		if (mail.length() == 0) {
+			mail = "—";
+		}
+		String pass = account.getPassword();
+		String masked = pass.length() == 0 ? "—" : maskPassword(pass);
+		return getContext().getString(R.string.launcher_extra_account_row, label, login, mail, masked);
+	}
+
+	private static String maskPassword(String password) {
+		int n = Math.min(password.length(), 8);
+		StringBuilder sb = new StringBuilder(n);
+		for (int i = 0; i < n; i++) {
+			sb.append('•');
+		}
+		if (password.length() > 8) {
+			sb.append('…');
+		}
+		return sb.toString();
+	}
+
+	/** @param editIndex index in {@link #mExtraAccounts}, or -1 to add a new slot */
+	private void promptEditExtraAccount(final int editIndex) {
 		Context ctx = getContext();
 		LinearLayout layout = new LinearLayout(ctx);
 		layout.setOrientation(LinearLayout.VERTICAL);
@@ -180,11 +269,20 @@ public class NewConnectionDialog extends Dialog {
 		mail.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
 		layout.addView(mail);
 
+		final boolean editing = editIndex >= 0 && editIndex < mExtraAccounts.size();
+		if (editing) {
+			ServerAccount existing = mExtraAccounts.get(editIndex);
+			label.setText(existing.getLabel());
+			login.setText(existing.getLogin());
+			password.setText(existing.getPassword());
+			mail.setText(existing.getMail());
+		}
+
 		AlertDialog.Builder builder = new AlertDialog.Builder(ctx);
-		builder.setTitle("Extra account slot");
+		builder.setTitle(editing ? "Edit account slot" : "Extra account slot");
 		builder.setMessage(R.string.launcher_account_plaintext_warn);
 		builder.setView(layout);
-		builder.setPositiveButton("Add", new DialogInterface.OnClickListener() {
+		builder.setPositiveButton(editing ? "Save" : "Add", new DialogInterface.OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
 				ServerAccount account = new ServerAccount();
@@ -192,9 +290,16 @@ public class NewConnectionDialog extends Dialog {
 				account.setLogin(login.getText() != null ? login.getText().toString().trim() : "");
 				account.setPassword(password.getText() != null ? password.getText().toString() : "");
 				account.setMail(mail.getText() != null ? mail.getText().toString().trim() : "");
-				if (!account.isEmpty()) {
+				if (editing) {
+					if (account.isEmpty()) {
+						mExtraAccounts.remove(editIndex);
+					} else {
+						mExtraAccounts.set(editIndex, account);
+					}
+					refreshExtraAccountsList();
+				} else if (!account.isEmpty()) {
 					mExtraAccounts.add(account);
-					refreshExtraAccountsSummary();
+					refreshExtraAccountsList();
 				}
 			}
 		});

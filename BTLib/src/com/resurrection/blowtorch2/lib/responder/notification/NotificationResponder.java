@@ -235,6 +235,11 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 
 		NotificationManager NM = (NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
 		NotificationChannels.ensureChannels(c);
+		Uri customSound = null;
+		if (useDefaultSound && soundPath != null && !soundPath.equals("")) {
+			customSound = com.resurrection.blowtorch2.lib.util.NotificationSounds.resolveUri(c, soundPath);
+		}
+		String channelId = NotificationChannels.ensureAlertChannel(c, customSound);
 		//Notification note = new Notification(resId,xformedtitle,System.currentTimeMillis());
 		//Intent notificationIntent  = new Intent(c,com.resurrection.blowtorch2.lib.window.MainWindow.class);
 		Intent notificationIntent = null;
@@ -309,19 +314,18 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		PendingIntent contentIntent = PendingIntent.getActivity(c, myTriggerId, notificationIntent, piFlags);
 		
 		//note.setLatestEventInfo(c, title, message, contentIntent);
-		NotificationCompat.Builder builder = new NotificationCompat.Builder(c, NotificationChannels.alertChannelId(c));
+		NotificationCompat.Builder builder = new NotificationCompat.Builder(c, channelId);
 		builder.setContentIntent(contentIntent)
 				.setContentTitle(xformedtitle)
 				.setContentText(xformedmessage);
 		//note.setLatestEventInfo(c, xformedtitle, xformedmessage, contentIntent);
 		
 		int defaults = 0;
-		Uri customSound = null;
 		if (useDefaultSound && (soundPath == null || soundPath.equals(""))) {
 			defaults |= Notification.DEFAULT_SOUND;
 		} else if (useDefaultSound) {
-			customSound = com.resurrection.blowtorch2.lib.util.NotificationSounds.resolveUri(c, soundPath);
 			if (customSound != null) {
+				// Pre-O: Builder sound is honored. O+: sound comes from the dedicated channel.
 				builder.setSound(customSound);
 			} else {
 				defaults |= Notification.DEFAULT_SOUND;

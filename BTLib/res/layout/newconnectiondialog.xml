@@ -193,14 +193,14 @@
   			android:text="Add another account slot"/>
   	</TableRow>
   	<TableRow>
-  		<TextView
-  			android:id="@+id/extra_accounts_summary"
+  		<LinearLayout
+  			android:id="@+id/extra_accounts_list"
   			android:layout_width="match_parent"
   			android:layout_height="wrap_content"
   			android:layout_span="2"
-  			android:textSize="12sp"
-  			android:textColor="#FF444444"
-  			android:paddingBottom="4dip"/>
+  			android:orientation="vertical"
+  			android:paddingBottom="4dip"
+  			android:visibility="gone"/>
   	</TableRow>
   </TableLayout>
 
@@ -213,17 +213,17 @@
    	android:paddingLeft="8dip"
    	android:paddingRight="8dip">
 	   <Button
-	   	android:id="@+id/acceptbutton"
-	   	android:layout_width="0dip"
-	   	android:layout_weight="1"
-	   	android:layout_height="wrap_content"
-	   	android:text="Accept!"/>
-	   <Button
 	    android:id="@+id/cancelbutton"
 	   	android:layout_width="0dip"
 	   	android:layout_weight="1"
 	   	android:layout_height="wrap_content"
 	   	android:text="Cancel"/>
+	   <Button
+	   	android:id="@+id/acceptbutton"
+	   	android:layout_width="0dip"
+	   	android:layout_weight="1"
+	   	android:layout_height="wrap_content"
+	   	android:text="Accept!"/>
    </LinearLayout>
 
 </RelativeLayout>
