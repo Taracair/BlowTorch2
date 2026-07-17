@@ -56,6 +56,8 @@ public class BaseSelectionDialog extends Dialog {
 	protected Button mOptionsButton;
 	
 	private int mLastSelectedIndex = -1;
+	/** Key of the row most recently confirmed for deletion (set before adapter remove). */
+	protected String mLastDeletedKey = null;
 	private int mTargetIndex;
 	private RelativeLayout targetHolder;
 	private int toolbarLength = 0;
@@ -426,6 +428,32 @@ public class BaseSelectionDialog extends Dialog {
 	public void setNewButtonLabel(String str) {
 		mNewTitle = str;
 	}
+
+	/** Show or hide the optional Refresh control (used by Plugins). */
+	public void setRefreshButtonVisible(boolean visible) {
+		Button refresh = (Button) findViewById(R.id.refresh);
+		if (refresh != null) {
+			refresh.setVisibility(visible ? View.VISIBLE : View.GONE);
+		}
+	}
+
+	/** Wire a click handler for the optional Refresh control. */
+	public void setRefreshButtonListener(View.OnClickListener listener) {
+		Button refresh = (Button) findViewById(R.id.refresh);
+		if (refresh != null) {
+			refresh.setOnClickListener(listener);
+		}
+	}
+
+	public void addListItem(String key, String title, String extra, int mini_icon, boolean enabled) {
+		ItemEntry newEntry = new ItemEntry();
+		newEntry.title = title;
+		newEntry.extra = extra;
+		newEntry.enabled = enabled;
+		newEntry.mini_icon = mini_icon;
+		newEntry.key = key;
+		mAllListItems.add(newEntry);
+	}
 	
 	@Override
 	public void setTitle(CharSequence title) {
@@ -450,13 +478,7 @@ public class BaseSelectionDialog extends Dialog {
 	}
 	
 	public void addListItem(String name,String extra,int mini_icon,boolean enabled) {
-		ItemEntry newEntry = new ItemEntry();
-		newEntry.title = name;
-		newEntry.extra = extra;
-		newEntry.enabled = enabled;
-		newEntry.mini_icon = mini_icon;
-		newEntry.key = name;
-		mAllListItems.add(newEntry);
+		addListItem(name, name, extra, mini_icon, enabled);
 	}
 	
 	public void clearListItems() {
@@ -981,7 +1003,17 @@ public ToolBarButtonKeyListener theButtonKeyListener = new ToolBarButtonKeyListe
 			//mList.setOnFocusChangeListener(null);
 			//mList.setFocusable(false);
 			
-			mAdapter.remove(mAdapter.getItem(mLastSelectedIndex));
+			ItemEntry deleted = mAdapter.getItem(mLastSelectedIndex);
+			mLastDeletedKey = deleted != null ? deleted.key : null;
+			if (deleted != null) {
+				mAdapter.remove(deleted);
+				for (int i = mAllListItems.size() - 1; i >= 0; i--) {
+					ItemEntry entry = mAllListItems.get(i);
+					if (entry != null && mLastDeletedKey != null && mLastDeletedKey.equals(entry.key)) {
+						mAllListItems.remove(i);
+					}
+				}
+			}
 			mAdapter.notifyDataSetInvalidated();
 			if(mToolbarListener != null) {
 				mToolbarListener.onItemDeleted(mLastSelectedIndex);
