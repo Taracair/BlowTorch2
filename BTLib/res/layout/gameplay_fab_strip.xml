@@ -3,7 +3,6 @@
     android:id="@+id/gameplay_fab_strip"
     android:layout_width="wrap_content"
     android:layout_height="48dp"
-    android:layout_gravity="bottom|end"
     android:background="@android:color/transparent"
     android:clipChildren="false"
     android:clipToPadding="false"
