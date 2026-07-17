@@ -2368,22 +2368,11 @@ editmenu = nil
 topMenuItem = nil
 function PopulateMenu(menu)
 	--debugPrint("in options menu populate")
-	
+
+		-- During button edit, Settings / Done / Cancel live on the FAB strip next to ⋮.
+		-- Do not re-add them here: the overflow ListPopupWindow routes clicks through
+		-- onOptionsItemSelected and never fires Lua OnMenuItemClickListener.
 		if(showeditormenu) then
-			local settings = menu:add("Editor Options")
-			settings:setIcon(resLoader(respath,"settings.png"))
-			settings:setOnMenuItemClickListener(buttonsetSettingsClicked_cb)
-			local done = menu:add("Done")
-			done:setIcon(resLoader(respath,"done.png"))
-			done:setOnMenuItemClickListener(buttonsetMenuDoneClicked_cb)
-			local cancel = menu:add("Cancel")
-			cancel:setIcon(resLoader(respath,"cancel.png"))
-			cancel:setOnMenuItemClickListener(buttonsetCancelClicked_cb)
-			foo = function(item) item:setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS) end
-			pcall(foo,done)
-			pcall(foo,cancel)
-			local settingsIfRoom = function(item) item:setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM) end
-			pcall(settingsIfRoom,settings)
 			return
 		end
 		
