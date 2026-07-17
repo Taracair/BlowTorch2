@@ -1,9 +1,13 @@
 package com.resurrection.blowtorch2.lib.ui;
 
+import java.io.File;
+
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Environment;
+import android.text.TextUtils;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import android.view.View;
@@ -13,14 +17,69 @@ import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 public class SDCardUtils {
 
     public static String getSDCardRoot(AppCompatActivity a, boolean external) {
-        try {
-            String exportDir = ConfigurationLoader.getConfigurationValue("exportDirectory",a);
-            Context c = a.createPackageContext(a.getPackageName(), Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
-            String dir = (external == true) ? "/" + exportDir : c.getExternalFilesDir(null).getAbsolutePath();
-            return dir;
-        } catch(PackageManager.NameNotFoundException e) {
-            throw new RuntimeException(e);
+        String exportDir = ConfigurationLoader.getConfigurationValue("exportDirectory", a);
+        if (external) {
+            return "/" + exportDir;
         }
+        return resolveAppExternalDir(a).getAbsolutePath();
+    }
+
+    /**
+     * App-specific external files dir, falling back to internal files when
+     * {@link Context#getExternalFilesDir(String)} returns null (common on modern Android).
+     */
+    public static File resolveAppExternalDir(Context context) {
+        File ext = context.getExternalFilesDir(null);
+        if (ext != null) {
+            return ext;
+        }
+        return context.getFilesDir();
+    }
+
+    /**
+     * Prefer external cache; fall back to internal cache when external is unavailable.
+     */
+    public static File resolveCacheDir(Context context) {
+        File ext = context.getExternalCacheDir();
+        if (ext != null) {
+            return ext;
+        }
+        File internal = context.getCacheDir();
+        if (internal != null) {
+            return internal;
+        }
+        return context.getFilesDir();
+    }
+
+    /**
+     * Session Import/Export default directory:
+     * <ol>
+     *   <li>Options → Miscellaneous → {@code default_settings_directory} when set</li>
+     *   <li>else shared storage {@code /&lt;exportDirectory&gt;/} (e.g. /BlowTorch) when permitted</li>
+     *   <li>else app external files (with internal files fallback)</li>
+     * </ol>
+     */
+    public static File resolveDefaultSettingsDirectory(Context context, boolean hasSharedStorage,
+            String customPath) {
+        if (!TextUtils.isEmpty(customPath)) {
+            File custom = new File(customPath.trim());
+            if (!custom.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                custom.mkdirs();
+            }
+            return custom;
+        }
+        String exportDir = ConfigurationLoader.getConfigurationValue("exportDirectory", context);
+        if (hasSharedStorage) {
+            File root = Environment.getExternalStorageDirectory();
+            File dir = new File(root, exportDir);
+            if (!dir.exists()) {
+                //noinspection ResultOfMethodCallIgnored
+                dir.mkdirs();
+            }
+            return dir;
+        }
+        return resolveAppExternalDir(context);
     }
 
     public static String[] getStoragePermissions() {

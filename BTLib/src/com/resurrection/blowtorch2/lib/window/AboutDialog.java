@@ -2,15 +2,11 @@ package com.resurrection.blowtorch2.lib.window;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
-import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
-import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
@@ -22,7 +18,19 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+/**
+ * About / donate dialog (launcher + session overflow).
+ * Crash log actions live in {@link CrashReportDialog}.
+ */
 public class AboutDialog extends Dialog {
+
+	private static final String DONATE_LEGAL_NOTE_PL =
+			"Uwaga (PL): Przyjmowanie darowizn na prywatną aplikację może oznaczać "
+					+ "(a) nieformalne upominki (niskie kwoty, znajomi — zwykle OK, ale nie model biznesowy), "
+					+ "(b) działalność (JDG/spółka) z fakturami i VAT po przekroczeniu progów, "
+					+ "(c) platformy (Ko-fi, PayPal.Me itd.) — podatek nadal zależy od kwalifikacji przychodu. "
+					+ "Platformy crowdfundingowe nie znoszą obowiązków PIT/CIT przy regularnej działalności. "
+					+ "Przed publicznym donate: skonsultuj z księgowym. Na razie: Donate (coming soon).";
 
 	public AboutDialog(Context context) {
 		super(context);
@@ -63,100 +71,44 @@ public class AboutDialog extends Dialog {
 			}
 		}
 		
-		appendLogActions();
+		appendDonateSection();
 	}
-	
-	private void appendLogActions() {
+
+	private void appendDonateSection() {
 		ScrollView scroll = findScrollView((ViewGroup) getWindow().getDecorView());
 		if (scroll == null || scroll.getChildCount() == 0 || !(scroll.getChildAt(0) instanceof LinearLayout)) {
 			return;
 		}
 		LinearLayout root = (LinearLayout) scroll.getChildAt(0);
+		float density = getContext().getResources().getDisplayMetrics().density;
+		int pad = (int) (16 * density);
 
-		TextView logInfo = new TextView(getContext());
-		logInfo.setText("Error log:\n" + BlowTorchLogger.getLogFile(getContext()).getAbsolutePath());
-		logInfo.setTextSize(12f);
-		logInfo.setPadding(20, 16, 20, 8);
-		root.addView(logInfo);
+		TextView section = new TextView(getContext());
+		section.setText("Donate");
+		section.setTextSize(16f);
+		section.setPadding(pad, pad, pad, (int) (4 * density));
+		root.addView(section);
 
-		LinearLayout buttons = new LinearLayout(getContext());
-		buttons.setOrientation(LinearLayout.HORIZONTAL);
-		buttons.setPadding(16, 4, 16, 16);
-
-		Button show = new Button(getContext());
-		show.setText("Show log");
-		show.setOnClickListener(new View.OnClickListener() {
+		Button donate = new Button(getContext());
+		donate.setText("Donate (coming soon)");
+		donate.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				showLogViewer();
+				Toast.makeText(getContext(),
+						"Donate link not configured yet.", Toast.LENGTH_SHORT).show();
 			}
 		});
+		LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		btnLp.setMargins(pad / 2, 0, pad / 2, (int) (8 * density));
+		root.addView(donate, btnLp);
 
-		Button share = new Button(getContext());
-		share.setText("Share log");
-		share.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				shareLog();
-			}
-		});
-
-		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-		lp.setMargins(4, 0, 4, 0);
-		buttons.addView(show, lp);
-		buttons.addView(share, lp);
-		root.addView(buttons);
-
-		if (SessionLogger.isEnabled(getContext())) {
-			TextView sessionInfo = new TextView(getContext());
-			java.io.File current = SessionLogger.getCurrentLogFile();
-			String path = current != null ? current.getAbsolutePath()
-					: SessionLogger.getLogDirectory(getContext()).getAbsolutePath();
-			sessionInfo.setText("Session log (txt):\n" + path);
-			sessionInfo.setTextSize(12f);
-			sessionInfo.setPadding(20, 0, 20, 12);
-			root.addView(sessionInfo);
-		}
-	}
-
-	private void showLogViewer() {
-		String body = BlowTorchLogger.readLogTail(getContext(), 48 * 1024);
-		TextView tv = new TextView(getContext());
-		tv.setTypeface(Typeface.MONOSPACE);
-		tv.setTextSize(11f);
-		tv.setText(body);
-		tv.setTextIsSelectable(true);
-		tv.setPadding(24, 16, 24, 16);
-		ScrollView scroller = new ScrollView(getContext());
-		scroller.addView(tv);
-		new AlertDialog.Builder(getContext())
-				.setTitle("Error log")
-				.setView(scroller)
-				.setPositiveButton("Close", null)
-				.setNeutralButton("Share", new android.content.DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(android.content.DialogInterface dialog, int which) {
-						shareLog();
-					}
-				})
-				.show();
-	}
-
-	private void shareLog() {
-		String body = BlowTorchLogger.readEntireLog(getContext());
-		if (body == null || body.length() == 0) {
-			Toast.makeText(getContext(), "Log is empty.", Toast.LENGTH_SHORT).show();
-			return;
-		}
-		Intent send = new Intent(Intent.ACTION_SEND);
-		send.setType("text/plain");
-		send.putExtra(Intent.EXTRA_SUBJECT, "BlowTorch error log");
-		send.putExtra(Intent.EXTRA_TEXT, body);
-		try {
-			getContext().startActivity(Intent.createChooser(send, "Share log"));
-		} catch (Exception e) {
-			Toast.makeText(getContext(), "No app available to share the log.", Toast.LENGTH_SHORT).show();
-		}
+		TextView legal = new TextView(getContext());
+		legal.setText(DONATE_LEGAL_NOTE_PL);
+		legal.setTextSize(11f);
+		legal.setPadding(pad, 0, pad, pad);
+		root.addView(legal);
 	}
 	
 	private ScrollView findScrollView(ViewGroup parent) {
