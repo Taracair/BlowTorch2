@@ -1855,7 +1855,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (ConfigurationLoader.isTestMode(this)) {
 			menu.add(0, MENU_USER_NAME, 0, "User Name");
 		}
-		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, "SDCard Permissions");
+		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, "Ask for storage permissions");
 		menu.add(0, MENU_APP_SETTINGS, 0, "App Settings");
 		menu.add(0, MENU_ABOUT, 0, R.string.launcher_menu_about);
 
