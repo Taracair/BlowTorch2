@@ -3954,8 +3954,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			});
 		}
 
-		// Stable Edit-above-Send column (XML). Do not flip orientation on every
-		// keystroke — that raced with measure and made the buttons vanish.
+		if (mInputBox != null) {
+			// Debounced: react to height changes and text (soft-wrap line count).
+			mInputBox.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+				@Override
+				public void onLayoutChange(View v, int left, int top, int right, int bottom,
+						int oldLeft, int oldTop, int oldRight, int oldBottom) {
+					if ((bottom - top) != (oldBottom - oldTop)) {
+						scheduleInputActionLayoutRefresh();
+					}
+				}
+			});
+			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
+				private int mLastLines = -1;
+				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+				@Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+				@Override
+				public void afterTextChanged(android.text.Editable s) {
+					int lines = mInputBox.getLineCount();
+					if (lines != mLastLines) {
+						mLastLines = lines;
+						scheduleInputActionLayoutRefresh();
+					}
+				}
+			});
+		}
+
 		ensureInputActionColumn();
 
 		if (mInputBox == null || tools == null || toggle == null || select == null) {
@@ -4072,11 +4096,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Keep Edit above Send in a fixed vertical column, bottom-aligned next to the
-	 * input field. Avoids runtime orientation/height flips that made buttons vanish.
+	 * Single-line: Edit | Send side-by-side.
+	 * Multi-line: Edit above Send at bottom-right; EditText fills the row height
+	 * so the tall empty strip beside the buttons remains tappable for typing.
 	 */
 	private void ensureInputActionColumn() {
-		if (!(mInputActionButtons instanceof LinearLayout) || mInputSendButton == null) {
+		if (!(mInputActionButtons instanceof LinearLayout) || mInputSendButton == null || mInputBox == null) {
 			return;
 		}
 		LinearLayout actions = (LinearLayout) mInputActionButtons;
@@ -4085,24 +4110,68 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 
-		if (actions.getOrientation() != LinearLayout.VERTICAL) {
-			actions.setOrientation(LinearLayout.VERTICAL);
+		boolean stack = isInputMultiline();
+		int wantedOri = stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
+		float density = getResources().getDisplayMetrics().density;
+		int gap = Math.max(1, (int) (2 * density + 0.5f));
+
+		boolean changed = false;
+		if (actions.getOrientation() != wantedOri) {
+			actions.setOrientation(wantedOri);
+			changed = true;
 		}
-		actions.setGravity(android.view.Gravity.BOTTOM | android.view.Gravity.END);
-		edit.setVisibility(View.VISIBLE);
-		mInputSendButton.setVisibility(View.VISIBLE);
+		actions.setGravity(stack
+				? (android.view.Gravity.BOTTOM | android.view.Gravity.END)
+				: (android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.END));
 
 		ViewGroup.LayoutParams rawAlp = actions.getLayoutParams();
 		if (rawAlp instanceof LinearLayout.LayoutParams) {
 			LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) rawAlp;
-			boolean need = alp.width != LinearLayout.LayoutParams.WRAP_CONTENT
+			if (alp.width != LinearLayout.LayoutParams.WRAP_CONTENT
 					|| alp.height != LinearLayout.LayoutParams.WRAP_CONTENT
-					|| alp.gravity != android.view.Gravity.BOTTOM;
-			if (need) {
+					|| alp.gravity != android.view.Gravity.BOTTOM) {
 				alp.width = LinearLayout.LayoutParams.WRAP_CONTENT;
 				alp.height = LinearLayout.LayoutParams.WRAP_CONTENT;
 				alp.gravity = android.view.Gravity.BOTTOM;
 				actions.setLayoutParams(alp);
+				changed = true;
+			}
+		}
+
+		LinearLayout.LayoutParams editLp = (edit.getLayoutParams() instanceof LinearLayout.LayoutParams)
+				? (LinearLayout.LayoutParams) edit.getLayoutParams()
+				: new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+						LinearLayout.LayoutParams.WRAP_CONTENT);
+		LinearLayout.LayoutParams sendLp = (mInputSendButton.getLayoutParams() instanceof LinearLayout.LayoutParams)
+				? (LinearLayout.LayoutParams) mInputSendButton.getLayoutParams()
+				: new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+						LinearLayout.LayoutParams.WRAP_CONTENT);
+		editLp.width = LinearLayout.LayoutParams.WRAP_CONTENT;
+		sendLp.width = LinearLayout.LayoutParams.WRAP_CONTENT;
+		editLp.weight = 0f;
+		sendLp.weight = 0f;
+		if (stack) {
+			editLp.setMargins(0, 0, 0, gap);
+			sendLp.setMargins(0, 0, 0, 0);
+		} else {
+			editLp.setMargins(0, 0, gap, 0);
+			sendLp.setMargins(0, 0, 0, 0);
+		}
+		edit.setLayoutParams(editLp);
+		mInputSendButton.setLayoutParams(sendLp);
+		edit.setVisibility(View.VISIBLE);
+		mInputSendButton.setVisibility(View.VISIBLE);
+
+		// Fill the row when stacked so taps above the caret still focus the field.
+		ViewGroup.LayoutParams etLp = mInputBox.getLayoutParams();
+		if (etLp instanceof LinearLayout.LayoutParams) {
+			LinearLayout.LayoutParams elp = (LinearLayout.LayoutParams) etLp;
+			int wantH = stack ? LinearLayout.LayoutParams.MATCH_PARENT : LinearLayout.LayoutParams.WRAP_CONTENT;
+			if (elp.height != wantH) {
+				elp.height = wantH;
+				elp.gravity = android.view.Gravity.BOTTOM;
+				mInputBox.setLayoutParams(elp);
+				changed = true;
 			}
 		}
 
@@ -4110,6 +4179,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (parent instanceof LinearLayout) {
 			((LinearLayout) parent).setGravity(android.view.Gravity.BOTTOM);
 		}
+
+		if (changed) {
+			actions.requestLayout();
+		}
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		bringGameplayChromeToFront(rl);
 	}
 
 	private void refreshInputActionLayout() {
@@ -4120,12 +4195,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return false;
 		}
-		if (mInputBox.getLineCount() > 1) {
-			return true;
+		// Prefer line count — height alone is noisy during IME / font metrics.
+		try {
+			if (mInputBox.getLineCount() > 1) {
+				return true;
+			}
+		} catch (Exception ignored) {
 		}
-		int h = Math.max(mInputBox.getHeight(), mInputBox.getMeasuredHeight());
-		float density = getResources().getDisplayMetrics().density;
-		return h > (int) (36 * density + 0.5f);
+		CharSequence text = mInputBox.getText();
+		if (text != null) {
+			for (int i = 0; i < text.length(); i++) {
+				if (text.charAt(i) == '\n') {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private boolean isInputBarTall() {
