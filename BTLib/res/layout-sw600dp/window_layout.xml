@@ -17,7 +17,7 @@
             style="@style/BlowTorch.Game.Toolbar"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_above="@id/divider"
+            android:layout_above="@id/inputbar"
             android:clickable="false"
             android:focusable="false"
             android:title=""
@@ -36,6 +36,12 @@
             android:layout_alignParentBottom="true"
             android:orientation="vertical"
             android:background="@color/game_input_bg">
+
+            <View
+                android:id="@+id/divider"
+                android:layout_width="match_parent"
+                android:layout_height="3dip"
+                android:background="@color/game_divider" />
 
             <include layout="@layout/scrollback_search_bar" />
 
@@ -107,13 +113,6 @@
             </LinearLayout>
 
         </LinearLayout>
-
-        <View
-            android:id="@+id/divider"
-            android:layout_width="match_parent"
-            android:layout_height="3dip"
-            android:layout_above="@id/inputbar"
-            android:background="@color/game_divider" />
 
     </RelativeLayout>
 

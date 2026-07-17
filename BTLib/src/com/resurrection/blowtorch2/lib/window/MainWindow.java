@@ -84,6 +84,7 @@ import android.view.Surface;
 import android.view.View;
 import android.util.TypedValue;
 import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.Window;
 
 import android.view.WindowManager;
@@ -465,6 +466,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
 			@Override
 			public void handleOnBackPressed() {
+				// Edge-back may leave Lua buttons visually pressed without ACTION_UP.
+				MainWindow.this.windowCall("button_window", "cancelTouchGesture", "");
 				MainWindow.this.showBackgroundExitDialog();
 			}
 		});
@@ -2381,7 +2384,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	private void clearButtonsOnPause() {
+		windowCall("button_window", "cancelTouchGesture", "");
 		windowCall("button_window", "clearButtons", "");
+	}
+
+	@Override
+	public boolean dispatchTouchEvent(MotionEvent ev) {
+		boolean handled = super.dispatchTouchEvent(ev);
+		// System edge-back often delivers CANCEL after a button already drew pressed.
+		if (ev != null && ev.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+			windowCall("button_window", "cancelTouchGesture", "");
+		}
+		return handled;
 	}
 	
 	private void inputSelectAll() {
@@ -3689,6 +3703,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			if (params != null) {
 				params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+				anchorWindowAboveInputChrome(params, w.getName());
 			}
 
 			tmp.setLayoutParams(params);
@@ -3792,9 +3807,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int LEGACY_INPUT_BAR_ID = 10;
 	private static final int LEGACY_DIVIDER_ID = 40;
 	private static final int LEGACY_TEXT_INPUT_ID = 30;
+	/** Extra gap above the input chrome so ⋮ clears Edit/Send. */
 	private static final float OVERFLOW_LIFT_PHONE_DIP = 6f;
-	/** Gap between ⋮ and divider on tablets. */
-	private static final float OVERFLOW_LIFT_TABLET_DIP = 12f;
+	private static final float OVERFLOW_LIFT_TABLET_DIP = 10f;
 	private View.OnLayoutChangeListener mInputBarChromeLayoutListener = null;
 
 	private void saveConnectionExtras(Intent intent) {
@@ -3873,10 +3888,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void assignLegacyChromeIds() {
 		View divider = findViewById(R.id.divider);
-		RelativeLayout.LayoutParams dividerparams =
-				(RelativeLayout.LayoutParams) divider.getLayoutParams();
-		dividerparams.addRule(RelativeLayout.ABOVE, LEGACY_INPUT_BAR_ID);
-		divider.setId(LEGACY_DIVIDER_ID);
+		if (divider != null) {
+			// Divider is usually the top edge inside inputbar; only remap RelativeLayout siblings.
+			if (divider.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
+				RelativeLayout.LayoutParams dividerparams =
+						(RelativeLayout.LayoutParams) divider.getLayoutParams();
+				dividerparams.addRule(RelativeLayout.ABOVE, LEGACY_INPUT_BAR_ID);
+				mOriginalDividerLayoutParams = new RelativeLayout.LayoutParams(dividerparams);
+			}
+			divider.setId(LEGACY_DIVIDER_ID);
+		}
 
 		View v = findViewById(R.id.textinput);
 		mInputBox = (BetterEditText) v;
@@ -3884,19 +3905,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		View inputBar = findViewById(R.id.inputbar);
 		mOriginalInputBarLayoutParams = new RelativeLayout.LayoutParams(inputBar.getLayoutParams());
-		mOriginalDividerLayoutParams = new RelativeLayout.LayoutParams(divider.getLayoutParams());
 		inputBar.setBackgroundColor(0xFF0A0A0A);
 		inputBar.setId(LEGACY_INPUT_BAR_ID);
-
-		// Divider id changed — refresh ⋮ rule so it stays above the divider, not over Send.
-		View fabStrip = findViewById(R.id.gameplay_fab_strip);
-		if (fabStrip != null && fabStrip.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
-			RelativeLayout.LayoutParams fabLp =
-					(RelativeLayout.LayoutParams) fabStrip.getLayoutParams();
-			fabLp.addRule(RelativeLayout.ABOVE, LEGACY_DIVIDER_ID);
-			fabLp.addRule(RelativeLayout.ALIGN_PARENT_END);
-			fabStrip.setLayoutParams(fabLp);
-		}
 
 		setupInputEditStrip();
 		setupScrollbackSearchBar();
@@ -4425,17 +4435,61 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	/**
+	 * Profiles still say {@code above="40"} (legacy divider). The divider now lives
+	 * inside the input bar, so RelativeLayout ignores that rule and text windows
+	 * draw under the chrome. Remap to the input bar id (10) for non-overlay windows.
+	 */
+	private void anchorWindowAboveInputChrome(RelativeLayout.LayoutParams params,
+			String windowName) {
+		if (params == null) {
+			return;
+		}
+		// button_window stays full-bleed so Lua button coordinates stay stable.
+		if ("button_window".equals(windowName)) {
+			return;
+		}
+		int above = params.getRule(RelativeLayout.ABOVE);
+		if (above == LEGACY_DIVIDER_ID || above == R.id.divider) {
+			params.addRule(RelativeLayout.ABOVE, LEGACY_INPUT_BAR_ID);
+		}
+	}
+
+	/** Re-apply chrome anchors when input bar height changes (grow / search / Edit). */
+	private void rematerializeGameWindowChromeAnchors(RelativeLayout rl) {
+		if (rl == null) {
+			return;
+		}
+		boolean changed = false;
+		for (int i = 0; i < rl.getChildCount(); i++) {
+			View child = rl.getChildAt(i);
+			if (!(child instanceof com.resurrection.blowtorch2.lib.window.Window)) {
+				continue;
+			}
+			ViewGroup.LayoutParams glp = child.getLayoutParams();
+			if (!(glp instanceof RelativeLayout.LayoutParams)) {
+				continue;
+			}
+			RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
+			int before = lp.getRule(RelativeLayout.ABOVE);
+			anchorWindowAboveInputChrome(lp, String.valueOf(child.getTag()));
+			if (lp.getRule(RelativeLayout.ABOVE) != before) {
+				child.setLayoutParams(lp);
+				changed = true;
+			}
+		}
+		if (changed) {
+			rl.requestLayout();
+		}
+	}
+
 	private void bringGameplayChromeToFront(RelativeLayout rl) {
 		if (rl == null) {
 			return;
 		}
 		View inputbar = findGameplayInputBar(rl);
-		View divider = findGameplayDivider(rl);
 		if (inputbar != null) {
 			inputbar.bringToFront();
-		}
-		if (divider != null) {
-			divider.bringToFront();
 		}
 		View overlay = findViewById(R.id.gameplay_chrome_overlay);
 		if (overlay != null) {
@@ -4451,7 +4505,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		final View divider = findGameplayDivider(rl);
 		final View toolbar = rl.findViewById(R.id.my_toolbar);
 		final View fabStrip = findViewById(R.id.gameplay_fab_strip);
-		if (inputbar == null || divider == null) {
+		if (inputbar == null) {
 			return;
 		}
 		final float density = getResources().getDisplayMetrics().density;
@@ -4463,29 +4517,46 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		inputLp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
 		inputbar.setLayoutParams(inputLp);
 
-		RelativeLayout.LayoutParams dividerLp = new RelativeLayout.LayoutParams(
-				LayoutParams.MATCH_PARENT, dividerHeight);
-		dividerLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
-		divider.setLayoutParams(dividerLp);
+		// Legacy layouts kept divider as a RelativeLayout sibling above the input bar.
+		if (divider != null && divider.getParent() == rl
+				&& divider.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
+			RelativeLayout.LayoutParams dividerLp = new RelativeLayout.LayoutParams(
+					LayoutParams.MATCH_PARENT, dividerHeight);
+			dividerLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
+			divider.setLayoutParams(dividerLp);
+		}
 
 		if (toolbar != null) {
 			RelativeLayout.LayoutParams toolbarLp = new RelativeLayout.LayoutParams(
 					LayoutParams.MATCH_PARENT, 0);
-			toolbarLp.addRule(RelativeLayout.ABOVE, divider.getId());
+			toolbarLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
 			toolbar.setLayoutParams(toolbarLp);
 		}
 
 		if (fabStrip != null) {
+			final View inputbarFinal = inputbar;
+			final int marginFinal = margin;
 			final float liftDip = getResources().getConfiguration().smallestScreenWidthDp >= 600
 					? OVERFLOW_LIFT_TABLET_DIP
 					: OVERFLOW_LIFT_PHONE_DIP;
-			placeGameplayFabStrip(fabStrip, divider, margin, liftDip);
+			Runnable placeFab = new Runnable() {
+				@Override
+				public void run() {
+					placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
+				}
+			};
+			inputbar.removeCallbacks(placeFab);
+			inputbar.post(placeFab);
 			if (mInputBarChromeLayoutListener == null) {
 				mInputBarChromeLayoutListener = new View.OnLayoutChangeListener() {
 					@Override
 					public void onLayoutChange(View v, int left, int top, int right, int bottom,
 							int oldLeft, int oldTop, int oldRight, int oldBottom) {
-						placeGameplayFabStrip(fabStrip, divider, margin, liftDip);
+						int oldH = oldBottom - oldTop;
+						int newH = bottom - top;
+						if (oldH != newH) {
+							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
+						}
 					}
 				};
 			}
@@ -4493,27 +4564,51 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			inputbar.addOnLayoutChangeListener(mInputBarChromeLayoutListener);
 		}
 		bindGameplayFabControls();
+		rematerializeGameWindowChromeAnchors(rl);
 		bringGameplayChromeToFront(rl);
 	}
 
-	/** Anchor ⋮ above the divider (never over Edit/Send). */
-	private void placeGameplayFabStrip(View fabStrip, View divider, int margin, float liftDip) {
-		if (fabStrip == null || divider == null) {
+	/** Anchor ⋮ above the input chrome (never over Edit/Send). */
+	private void placeGameplayFabStrip(View fabStrip, View inputbar, int margin, float liftDip) {
+		if (fabStrip == null || inputbar == null) {
 			return;
 		}
-		if (!(fabStrip.getParent() instanceof RelativeLayout)) {
+		ViewParent parent = fabStrip.getParent();
+		if (!(parent instanceof View)) {
 			return;
 		}
+		View overlay = (View) parent;
 		float density = getResources().getDisplayMetrics().density;
-		int bottomGap = margin + (int) (liftDip * density + 0.5f);
-		RelativeLayout.LayoutParams stripLp = new RelativeLayout.LayoutParams(
-				LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
-		// Use current divider id (may be LEGACY_DIVIDER_ID after assignLegacyChromeIds).
-		stripLp.addRule(RelativeLayout.ABOVE, divider.getId());
-		stripLp.addRule(RelativeLayout.ALIGN_PARENT_END);
-		stripLp.setMargins(0, 0, margin, bottomGap);
+		int inputH = Math.max(inputbar.getHeight(), inputbar.getMeasuredHeight());
+		int parentH = Math.max(overlay.getHeight(), overlay.getMeasuredHeight());
+		if (inputH <= 0 || parentH <= 0) {
+			inputbar.post(new Runnable() {
+				@Override
+				public void run() {
+					placeGameplayFabStrip(fabStrip, inputbar, margin, liftDip);
+				}
+			});
+			return;
+		}
+		// Prefer geometry from window locations so taller tablet Edit/Send rows clear correctly.
+		int[] inputLoc = new int[2];
+		int[] overlayLoc = new int[2];
+		inputbar.getLocationInWindow(inputLoc);
+		overlay.getLocationInWindow(overlayLoc);
+		int inputTopInOverlay = inputLoc[1] - overlayLoc[1];
+		int bottomInset;
+		if (inputTopInOverlay > 0 && inputTopInOverlay < parentH) {
+			bottomInset = parentH - inputTopInOverlay + margin
+					+ (int) (liftDip * density + 0.5f);
+		} else {
+			bottomInset = inputH + margin + (int) (liftDip * density + 0.5f);
+		}
+		android.widget.FrameLayout.LayoutParams stripLp =
+				new android.widget.FrameLayout.LayoutParams(
+						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
+		stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+		stripLp.setMargins(0, 0, margin, bottomInset);
 		fabStrip.setLayoutParams(stripLp);
-		fabStrip.bringToFront();
 	}
 
 	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
