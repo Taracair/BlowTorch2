@@ -725,95 +725,49 @@ public class StellarService extends Service {
 	@SuppressWarnings("deprecation")
 	/** Method called when a connection has connected successfully. */
 	public final void showConnectionNotification(final String display, final String host, final int port) {
-		int resId = this.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", this.getApplicationContext()), "drawable", this.getPackageName());
-		if (resId == 0) {
-			resId = android.R.drawable.stat_notify_chat;
-		}
-		
-		//Notification note = new Notification(resId, "BlowTorch Connected", System.currentTimeMillis());
-		Context context = getApplicationContext();
-		
-		CharSequence contentTitle = ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this.getApplicationContext());
-		CharSequence contentText = "Connected: (" + host + ":" + port + ")";
-		
-		Intent notificationIntent = null;
-		String windowAction = ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext());
-		notificationIntent = new Intent(windowAction);
-		
-		String apkName = null;
-		try {
-			apkName = this.getPackageManager().getApplicationInfo(this.getPackageName(), 0).sourceDir;
-		} catch (NameNotFoundException e1) {
-			e1.printStackTrace();
-		}
-		Class<?> w = null;
-		PathClassLoader cl = new dalvik.system.PathClassLoader(apkName, ClassLoader.getSystemClassLoader());
-		try {
-			w = Class.forName("com.resurrection.blowtorch2.lib.window.MainWindow", false, cl);
-		} catch (ClassNotFoundException e1) {
-			e1.printStackTrace();
-		}
-	
-		try {
-			notificationIntent.setClass(this.createPackageContext(this.getPackageName(), Context.CONTEXT_INCLUDE_CODE), w);
-		} catch (NameNotFoundException e) {
-			e.printStackTrace();
-		}
-		
-		notificationIntent.putExtra("DISPLAY", display);
-		notificationIntent.putExtra("HOST", host);
-		notificationIntent.putExtra("PORT", Integer.toString(port));
-		//}
-		int notificationID = -1;
-		if (mConnectionNotificationIdMap.containsKey(display)) {
-			notificationID = mConnectionNotificationIdMap.get(display);
-		} else {
-			notificationID = getNotificationId();
-		}
-		
-		
-		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-	
-		PendingIntent contentIntent = PendingIntent.getActivity(this, notificationID, notificationIntent, activityPendingIntentFlags());
-
-		String channelId = null;
-		if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-			channelId = createNotificationChannel();
-		}
-		//note.setLatestEventInfo(context, contentTitle, contentText, contentIntent);
-		NotificationCompat.Builder builder = new NotificationCompat.Builder(context,channelId);
-		Notification note = builder.setContentIntent(contentIntent)
-				.setContentTitle(contentTitle)
-				.setSmallIcon(resId)
-				.setContentText(contentText)
-				.setOngoing(true).setChannelId(channelId).build();
-
-
-		//note.icon = resId;
-		//note.flags = Notification.FLAG_ONGOING_EVENT;
-		
-		
-		if (!mHasForegroundNotification) {
-			mForegroundNotificationId = notificationID;
-			this.startForeground(mForegroundNotificationId, note);
-			mHasForegroundNotification = true;
-		} else {
-			if (mForegroundNotificationId > 0) {
-				this.startForeground(mForegroundNotificationId, note);
+		// One ongoing FGS notification only (FOREGROUND_NOTIFICATION_ID). Older code also
+		// called notify() with a unique id, which left a second "Connected" entry and made
+		// Android auto-group them as two connection notifications.
+		cancelStaleConnectionNotifications();
+		if (display != null) {
+			Integer previousId = mConnectionNotificationIdMap.get(display);
+			if (previousId != null && previousId.intValue() != FOREGROUND_NOTIFICATION_ID) {
+				mNotificationManager.cancel(previousId.intValue());
 			}
-			mNotificationManager.notify(notificationID, note);
+			mConnectionNotificationIdMap.put(display, FOREGROUND_NOTIFICATION_ID);
 		}
-		
-		mConnectionNotificationIdMap.put(display, notificationID);
-		mConnectionNotificationMap.put(display, note);
 
-		if (display != null && display.equals(mConnectionClutch)) {
-			Connection c = mConnections.get(display);
-			if (c != null) {
-				updateForegroundNotification(display, buildConnectedStatus(c));
-			} else {
-				updateForegroundNotification(display,
-						getString(R.string.notification_status_connected, host, port));
+		Connection c = (display != null) ? mConnections.get(display) : null;
+		CharSequence status;
+		if (c != null) {
+			status = buildConnectedStatus(c);
+		} else {
+			status = getString(R.string.notification_status_connected, host, port);
+		}
+		updateForegroundNotification(display, status);
+		if (display != null) {
+			// Bookkeeping only — body always rebuilt by updateForegroundNotification.
+			mConnectionNotificationMap.put(display, null);
+		}
+	}
+
+	/** Drop leftover non-FGS connection notifies so only the single ongoing entry remains. */
+	private void cancelStaleConnectionNotifications() {
+		if (mNotificationManager == null) {
+			return;
+		}
+		for (Map.Entry<String, Integer> entry : new HashMap<String, Integer>(mConnectionNotificationIdMap).entrySet()) {
+			Integer id = entry.getValue();
+			if (id != null && id.intValue() != FOREGROUND_NOTIFICATION_ID) {
+				mNotificationManager.cancel(id.intValue());
+				mConnectionNotificationIdMap.put(entry.getKey(), FOREGROUND_NOTIFICATION_ID);
+			}
+		}
+		// Older builds posted getNotificationId() (100+) beside FGS id 1 — clear those leftovers.
+		int max = Math.max(notificationCount, NOTIFICATION_START_VALUE) + 5;
+		for (int id = NOTIFICATION_START_VALUE + 1; id <= max; id++) {
+			if (id != FOREGROUND_NOTIFICATION_ID) {
+				mNotificationManager.cancel(id);
 			}
 		}
 	}
@@ -843,9 +797,9 @@ public class StellarService extends Service {
 		int id = mConnectionNotificationIdMap.get(display);
 		mConnectionNotificationIdMap.remove(display);
 		mConnectionNotificationMap.remove(display);
-		// updateForegroundNotification always posts FOREGROUND_NOTIFICATION_ID; the
-		// per-connection map id may differ, so treat either as the live FGS entry.
+		// Single FGS notification (id 1); also cancel any legacy per-connection id.
 		boolean wasForeground = (id == mForegroundNotificationId)
+				|| (id == FOREGROUND_NOTIFICATION_ID)
 				|| (mForegroundNotificationId == FOREGROUND_NOTIFICATION_ID
 						&& display != null && display.equals(mConnectionClutch));
 		if (!wasForeground) {
@@ -869,14 +823,12 @@ public class StellarService extends Service {
 		mConnectionClutch = tmp[0];
 		Connection next = mConnections.get(tmp[0]);
 		if (next != null) {
+			mConnectionNotificationIdMap.put(tmp[0], FOREGROUND_NOTIFICATION_ID);
 			updateForegroundNotification(next.getDisplay(), buildConnectedStatus(next));
 		} else {
-			int tmpID = mConnectionNotificationIdMap.get(tmp[0]);
-			Notification tmpNote = mConnectionNotificationMap.get(tmp[0]);
-			mForegroundNotificationId = tmpID;
-			mNotificationManager.cancel(tmpID);
-			this.startForeground(tmpID, tmpNote);
-			mHasForegroundNotification = true;
+			mConnectionNotificationIdMap.put(tmp[0], FOREGROUND_NOTIFICATION_ID);
+			updateForegroundNotification(tmp[0],
+					getString(R.string.notification_status_connected, "?", 0));
 		}
 	}
 	
