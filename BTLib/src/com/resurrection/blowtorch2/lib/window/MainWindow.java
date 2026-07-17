@@ -138,6 +138,7 @@ import com.resurrection.blowtorch2.lib.trigger.TriggerSelectionDialog;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 
+import androidx.documentfile.provider.DocumentFile;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.graphics.Insets;
@@ -159,6 +160,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int RP_NOTIFICATIONS = 5003;
 	private static final int REQUEST_IMPORT_SETTINGS_XML = 2101;
 	private static final int REQUEST_EXPORT_SETTINGS_XML = 2102;
+	private static final int REQUEST_PICK_DIRECTORY = 2103;
 	
 	//public static final String PREFS_NAME = "CONDIALOG_SETTINGS";
 	//public String PREFS_NAME;
@@ -1910,6 +1912,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				this, external, getConfiguredDefaultSettingsDirectory());
 	}
 
+	/** Opens the system folder picker for Options directory StringOptions. */
+	public void pickDirectoryForOption() {
+		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+		intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+				| Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+				| Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+				| Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+		try {
+			startActivityForResult(intent, REQUEST_PICK_DIRECTORY);
+		} catch (Exception e) {
+			Toast.makeText(this, "Folder picker unavailable: " + e.getMessage(),
+					Toast.LENGTH_LONG).show();
+		}
+	}
+
 	private void doImportDialog(boolean external) {
 		final boolean hasExternal = external;
 		AlertDialog.Builder b = new AlertDialog.Builder(this);
@@ -1950,6 +1967,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void showDefaultDirectoryImportList(boolean external) {
+		String custom = getConfiguredDefaultSettingsDirectory();
+		if (SDCardUtils.isContentUri(custom)
+				&& SDCardUtils.mapTreeUriToFile(Uri.parse(custom)) == null) {
+			showSafTreeImportList(Uri.parse(custom));
+			return;
+		}
+
 		File btermdir = resolveSessionSettingsDirectory(external);
 		if (!btermdir.exists()) {
 			//noinspection ResultOfMethodCallIgnored
@@ -2005,6 +2029,63 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		b.show();
 	}
 
+	private void showSafTreeImportList(Uri treeUri) {
+		DocumentFile tree = DocumentFile.fromTreeUri(this, treeUri);
+		if (tree == null || !tree.isDirectory()) {
+			Toast.makeText(this, "Cannot open selected settings folder.", Toast.LENGTH_LONG).show();
+			return;
+		}
+		HashMap<String, String> xmlfiles = new HashMap<String, String>();
+		DocumentFile[] children = tree.listFiles();
+		if (children != null) {
+			for (DocumentFile child : children) {
+				if (child == null || !child.isFile()) {
+					continue;
+				}
+				String name = child.getName();
+				if (name == null) {
+					continue;
+				}
+				xmlimatcher.reset(name);
+				if (xmlimatcher.matches()) {
+					xmlfiles.put(name, child.getUri().toString());
+				}
+			}
+		}
+		if (xmlfiles.isEmpty()) {
+			Toast.makeText(this,
+					"No .xml settings in selected folder.",
+					Toast.LENGTH_LONG).show();
+			return;
+		}
+		Set<String> xmlkeys = xmlfiles.keySet();
+		List<String> sortedxmlkeys = new ArrayList<String>(xmlkeys);
+		Collections.sort(sortedxmlkeys, String.CASE_INSENSITIVE_ORDER);
+		final String[] xmlentries = new String[sortedxmlkeys.size()];
+		final String[] xmlUris = new String[sortedxmlkeys.size()];
+		int i = 0;
+		for (String file : sortedxmlkeys) {
+			xmlentries[i] = file;
+			xmlUris[i] = xmlfiles.get(file);
+			i++;
+		}
+		AlertDialog.Builder b = new AlertDialog.Builder(this);
+		b.setTitle("Import from default directory");
+		b.setItems(xmlentries, new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				importSettingsFromUri(Uri.parse(xmlUris[which]));
+			}
+		});
+		b.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+			}
+		});
+		b.show();
+	}
+
 	private class ImportDialogListener implements DialogInterface.OnClickListener {
 		String[] items = null;
 
@@ -2026,7 +2107,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void doExportDialog() {
 		final boolean external = SDCardUtils.hasStoragePermissions(this);
-		final File dir = resolveSessionSettingsDirectory(external);
+		final String custom = getConfiguredDefaultSettingsDirectory();
+		final String dirLabel;
+		if (SDCardUtils.isContentUri(custom)
+				&& SDCardUtils.mapTreeUriToFile(Uri.parse(custom)) == null) {
+			dirLabel = custom;
+		} else {
+			dirLabel = resolveSessionSettingsDirectory(external).getAbsolutePath();
+		}
 
 		AlertDialog.Builder b = new AlertDialog.Builder(this);
 		b.setTitle("Export Settings");
@@ -2037,7 +2125,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		layout.setPadding(pad, pad / 2, pad, pad / 2);
 
 		TextView hint = new TextView(this);
-		hint.setText("Default directory:\n" + dir.getAbsolutePath());
+		hint.setText("Default directory:\n" + dirLabel);
 		layout.addView(hint);
 
 		filenameExport = new EditText(this);
@@ -2539,6 +2627,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (requestCode == com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.REQUEST_PICK_SOUND) {
 			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
 				com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.onSoundPicked(data.getData());
+			}
+			return;
+		}
+		if (requestCode == REQUEST_PICK_DIRECTORY && resultCode == RESULT_OK && data != null) {
+			Uri uri = data.getData();
+			if (uri != null) {
+				String stored = SDCardUtils.persistDirectorySelection(this, uri, data.getFlags());
+				if (optdialog != null) {
+					optdialog.applyPickedDirectory(stored);
+				}
+				Toast.makeText(this, "Folder selected.", Toast.LENGTH_SHORT).show();
 			}
 			return;
 		}
@@ -3262,6 +3361,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		@Override
+		public void setGrowInputBar(boolean grow) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_GROW_INPUT_BAR, grow ? 1 : 0, 0));
+		}
+
+		@Override
 		public void setOrientation(int orientation) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SETORIENTATION,orientation,0));
 		}
@@ -3856,7 +3960,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return h > singleLineApprox;
 	}
 
-	/** Apply Options → Window → Grow Input Bar? / {@code .wrap} to the input field. */
+	/** Apply Options → Input → Grow Input Bar? / {@code .wrap} to the input field. */
 	private void applyGrowInputBar(boolean grow) {
 		mGrowInputBar = grow;
 		if (mInputBox == null) {

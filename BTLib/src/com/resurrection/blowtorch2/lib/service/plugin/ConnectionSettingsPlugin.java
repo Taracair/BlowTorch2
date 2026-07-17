@@ -97,6 +97,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		keep_last.setKey("keep_last");
 		keep_last.setValue(false);
 		input.addOption(keep_last);
+
+		BooleanOption grow_input_bar = new BooleanOption();
+		grow_input_bar.setTitle("Grow Input Bar?");
+		grow_input_bar.setDescription("When on, the input bar grows with multiline text. When off, input stays a single non-growing line. Toggle with .wrap on/off.");
+		grow_input_bar.setKey("grow_input_bar");
+		grow_input_bar.setValue(true);
+		input.addOption(grow_input_bar);
 		
 		BooleanOption compatilibility_mode = new BooleanOption();
 		compatilibility_mode.setTitle("Enable Compatibility Mode?");
@@ -129,7 +136,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		StringOption session_log_directory = new StringOption();
 		session_log_directory.setTitle("Session Log Directory");
-		session_log_directory.setDescription("Folder for incremental game logs. Leave blank to use the app private session_logs folder. Absolute path recommended (e.g. /storage/emulated/0/BlowTorch/logs).");
+		session_log_directory.setDescription("Folder for incremental game logs. Leave blank to use the app private session_logs folder. Use Browse… to pick a folder (SAF), or enter an absolute path.");
 		session_log_directory.setKey("session_log_directory");
 		session_log_directory.setValue("");
 		servOptions.addOption(session_log_directory);
@@ -228,7 +235,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption log_gmcp = new BooleanOption();
 		log_gmcp.setTitle("Log GMCP?");
-		log_gmcp.setDescription("Write GMCP handshake and packets to the app error log (and session log if enabled). Also: .gmcp sniff on");
+		log_gmcp.setDescription("Write GMCP handshake and packets to the app error log (files/logs/blowtorch2.log; also session log if enabled). Also: .gmcp sniff on");
 		log_gmcp.setKey("log_gmcp");
 		log_gmcp.setValue(false);
 		gmcpOptions.addOption(log_gmcp);
@@ -250,7 +257,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		StringOption default_settings_directory = new StringOption();
 		default_settings_directory.setTitle("Default Settings Directory");
-		default_settings_directory.setDescription("Default folder for Import/Export Settings (session). Leave blank to use the app BlowTorch export folder on shared storage when permitted, otherwise app external files.");
+		default_settings_directory.setDescription("Default folder for Import/Export Settings (session). Leave blank to use the app BlowTorch export folder on shared storage when permitted, otherwise app external files. Use Browse… to pick a folder (SAF), or enter an absolute path.");
 		default_settings_directory.setKey("default_settings_directory");
 		default_settings_directory.setValue("");
 		miscOptions.addOption(default_settings_directory);

@@ -29,7 +29,7 @@ public class WrapCommand extends SpecialCommand {
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 					+ "Input bar growth (.wrap) is currently " + state + ".\n"
 					+ "Usage: .wrap on | .wrap off\n"
-					+ "Also: Options → Window → Grow Input Bar?\n");
+					+ "Also: Options → Input → Grow Input Bar?\n");
 			return null;
 		}
 
@@ -39,7 +39,7 @@ public class WrapCommand extends SpecialCommand {
 			c.sendDataToWindow(getErrorMessage("Wrap command usage:",
 					".wrap on | .wrap off\n"
 							+ "Controls whether the input bar grows with multiline text.\n"
-							+ "Also available under Options → Window → Grow Input Bar?"));
+							+ "Also available under Options → Input → Grow Input Bar?"));
 			return null;
 		}
 
