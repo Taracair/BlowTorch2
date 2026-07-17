@@ -80,9 +80,11 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.text.TextUtils;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -116,6 +118,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MESSAGE_WHATSNEW = 1;
 	protected static final int MESSAGE_IMPORT = 2;
 	private static final int REQUEST_PICK_SETTINGS_ZIP = 2001;
+	private static final int REQUEST_PICK_SERVER_LIST_XML = 2002;
+	private static final int REQUEST_CREATE_SERVER_LIST_XML = 2003;
+	private static final int REQUEST_CREATE_SETTINGS_ZIP = 2004;
 	protected static final int MESSAGE_EXPORT = 3;
 
 	protected static final int MESSAGE_USERNAME = 4;
@@ -127,6 +132,15 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int RP_EXPORT = 102;
 	protected static final int RP_IMPORT = 103;
 	protected static final int RP_STARTUP = 104;
+	protected static final int MENU_IMPORT_SERVER_LIST = 100;
+	protected static final int MENU_EXPORT_SERVER_LIST = 105;
+	protected static final int MENU_USER_NAME = 106;
+	protected static final int MENU_COPY_SETTINGS_TO_STORAGE = 107;
+	protected static final int MENU_SDCARD_PERMISSIONS = 108;
+	protected static final int MENU_APP_SETTINGS = 109;
+	protected static final int MENU_BACKUP_ALL_SETTINGS = 110;
+	protected static final int MENU_RESTORE_SETTINGS_BACKUP = 111;
+	protected static final int MENU_ABOUT = 112;
 	
 	private IConnectionBinder service = null;
 	
@@ -277,7 +291,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			});
 		}
 		if(ConfigurationLoader.isTestMode(this)) {
-			findViewById(R.id.test_update).setVisibility(View.VISIBLE);
+			View testUpdate = findViewById(R.id.test_update);
+			if (testUpdate != null) {
+				testUpdate.setVisibility(View.VISIBLE);
+			}
 			TextView versionLabel = (TextView) findViewById(R.id.update_label);
 			String versionName = "test";
 			try {
@@ -287,6 +304,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			}
 			if (versionLabel != null) {
 				versionLabel.setText("Test " + versionName);
+				versionLabel.setVisibility(View.VISIBLE);
 			}
 		}
 		
@@ -330,7 +348,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						launcherSaveEnabled = true;
 					} else {
 						Toast.makeText(this,
-								"Could not load server list. Your saved list was not overwritten — use menu Import List to restore from /BlowTorch/launcher/.",
+								"Could not load server list. Your saved list was not overwritten — use ⋮ → Import Server List to restore.",
 								Toast.LENGTH_LONG).show();
 					}
 				}
@@ -477,10 +495,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		Button newbutton = (Button)findViewById(R.id.new_connection);
 		styleLauncherActionButton(newbutton);
 		newbutton.setOnClickListener(new newClickedListener());
-		
-		Button helpbutton = (Button)findViewById(R.id.help_button);
-		styleLauncherActionButton(helpbutton);
-		helpbutton.setOnClickListener(new helpClickedListener());
 
 		Log.e("LAUNCHER","BINDING SERVICE (FGS starts on MUD connect via MainWindow)");
 		String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
@@ -544,7 +558,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		super.onWindowFocusChanged(hasFocus);
 		if (hasFocus) {
 			styleLauncherActionButton((Button) findViewById(R.id.new_connection));
-			styleLauncherActionButton((Button) findViewById(R.id.help_button));
 		}
 	}
   
@@ -577,7 +590,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	public void onResume() {
 		super.onResume();
 		styleLauncherActionButton((Button) findViewById(R.id.new_connection));
-		styleLauncherActionButton((Button) findViewById(R.id.help_button));
 		if(!serviceBound) {
 			String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 			bindService(new Intent(action,null,this, StellarService.class),connectionChecker,Context.BIND_AUTO_CREATE);
@@ -614,9 +626,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	private class helpClickedListener implements View.OnClickListener {
 
 		public void onClick(View v) {
-			new com.resurrection.blowtorch2.lib.window.AboutDialog(Launcher.this).show();
+			showAboutDialog();
 		}
 		
+	}
+
+	private void showAboutDialog() {
+		new com.resurrection.blowtorch2.lib.window.AboutDialog(Launcher.this).show();
 	}
 	
 	private class newClickedListener implements View.OnClickListener {
@@ -959,71 +975,98 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 	}
 	
+	private File resolveLauncherListDirectory(boolean external) {
+		File root = SDCardUtils.resolveDefaultSettingsDirectory(
+				this, external, null);
+		File launcherDir = new File(root, "launcher");
+		if (!launcherDir.exists()) {
+			//noinspection ResultOfMethodCallIgnored
+			launcherDir.mkdirs();
+		}
+		return launcherDir;
+	}
+
+	private File resolveBackupDirectory(boolean external) {
+		File root = SDCardUtils.resolveDefaultSettingsDirectory(
+				this, external, null);
+		File backupDir = new File(root, "backups");
+		if (!backupDir.exists()) {
+			//noinspection ResultOfMethodCallIgnored
+			backupDir.mkdirs();
+		}
+		return backupDir;
+	}
+
 	private void DoImportMenu(boolean external) {
-		
-		File tmp = Environment.getExternalStorageDirectory();
-		String dir = SDCardUtils.getSDCardRoot(this, external);
-		File btermdir = null;
-		if(external) {
-			btermdir = new File(tmp, dir + "/launcher/");
-		} else {
-			btermdir = new File(dir + "/launcher/");
-		}
-		
-		String sdstate = Environment.getExternalStorageState();
-		HashMap<String,String> xmlfiles = new HashMap<String,String>();
-		if(Environment.MEDIA_MOUNTED.equals(sdstate) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate)) {
-			btermdir.mkdirs();
-
-			String[] list = btermdir.list(xml_only);
-			if(list == null || list.length == 0) {
-				Toast t = Toast.makeText(this, "No XML files in /BlowTorch/launcher/", Toast.LENGTH_LONG);
-				t.show();
-				return;
-			}
-
-			for(File xml : btermdir.listFiles(xml_only)) {
-				xmlfiles.put(xml.getName(), xml.getPath());
-			}
-			
-			final String[] entries = new String[xmlfiles.keySet().size()];
-			String[] names = new String[xmlfiles.keySet().size()];
-			
-			if(xmlfiles.size() == 0) {
-				Toast t = Toast.makeText(this, "No XML files in /BlowTorch/launcher/", Toast.LENGTH_LONG);
-				t.show();
-				return;
-			}
-			
-			int i=0;
-			for(String name : xmlfiles.keySet()) {
-				names[i] = name;
-				entries[i] = xmlfiles.get(name);
-				i++;
-			}
-			
-			
-			AlertDialog.Builder builder = new AlertDialog.Builder(this);
-			builder.setTitle("Select List");
-			builder.setSingleChoiceItems(names, -1,new DialogInterface.OnClickListener() {
-				
-				public void onClick(DialogInterface dialog, int which) {
-					actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_IMPORT, entries[which]));
-					dialog.dismiss();
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setTitle(R.string.launcher_menu_import_server_list);
+		builder.setItems(new CharSequence[] {
+				"Pick file…",
+				"Import from default directory"
+		}, new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				if (which == 0) {
+					pickServerListXmlFile();
+				} else {
+					showDefaultDirectoryServerListImport(external);
 				}
-			});
-			
-			//builder.setI
-			
-			AlertDialog dialog = builder.create();
-			dialog.show();
-			
-		} else {
-			Toast t = Toast.makeText(this, "SD card not available.", Toast.LENGTH_LONG);
-			t.show();
+			}
+		});
+		builder.setNegativeButton("Cancel", null);
+		builder.show();
+	}
+
+	private void pickServerListXmlFile() {
+		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+		intent.addCategory(Intent.CATEGORY_OPENABLE);
+		intent.setType("*/*");
+		intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+				"text/xml",
+				"application/xml",
+				"application/octet-stream"
+		});
+		startActivityForResult(intent, REQUEST_PICK_SERVER_LIST_XML);
+	}
+
+	private void showDefaultDirectoryServerListImport(boolean external) {
+		File btermdir = resolveLauncherListDirectory(external);
+		HashMap<String,String> xmlfiles = new HashMap<String,String>();
+		File[] listed = btermdir.listFiles(xml_only);
+		if (listed != null) {
+			for (File xml : listed) {
+				if (xml != null && xml.isFile()) {
+					xmlfiles.put(xml.getName(), xml.getPath());
+				}
+			}
 		}
-		
-		
+
+		if (xmlfiles.isEmpty()) {
+			Toast.makeText(this,
+					"No server-list .xml files in:\n" + btermdir.getAbsolutePath(),
+					Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		final String[] names = new String[xmlfiles.size()];
+		final String[] entries = new String[xmlfiles.size()];
+		int i = 0;
+		for (String name : xmlfiles.keySet()) {
+			names[i] = name;
+			entries[i] = xmlfiles.get(name);
+			i++;
+		}
+
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setTitle("Select server list");
+		builder.setItems(names, new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int which) {
+				actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_IMPORT, entries[which]));
+				dialog.dismiss();
+			}
+		});
+		builder.setNegativeButton("Cancel", null);
+		builder.show();
 	}
 	
 	FilenameFilter xml_only = new FilenameFilter() {
@@ -1069,87 +1112,64 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 	
 	private void DoExport(String filename, boolean external) {
-
-		String dir = null;
+		String message;
 		try {
-			Context c = this.createPackageContext(this.getPackageName(), Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
-			dir = (external == true) ? "/BlowTorch" : c.getExternalFilesDir(null).getAbsolutePath();
-		} catch(NameNotFoundException e) {
-			throw new RuntimeException(e);
+			if (filename == null) {
+				filename = "";
+			}
+			filename = filename.trim();
+			if (filename.length() == 0) {
+				Toast.makeText(this, "Enter a file name first.", Toast.LENGTH_SHORT).show();
+				return;
+			}
+
+			String updatedname = filename;
+			Pattern xmlend = Pattern.compile("^.+\\.[Xx][Mm][Ll]$");
+			Matcher xmlmatch = xmlend.matcher(updatedname);
+			if (!xmlmatch.matches()) {
+				updatedname = filename + ".xml";
+			}
+
+			File launcherdir = resolveLauncherListDirectory(external);
+			File file = new File(launcherdir, updatedname);
+			File parent = file.getParentFile();
+			if (parent != null && !parent.exists()) {
+				//noinspection ResultOfMethodCallIgnored
+				parent.mkdirs();
+			}
+
+			FileWriter writer = new FileWriter(file);
+			BufferedWriter tmp = new BufferedWriter(writer);
+			tmp.write(LauncherSettings.writeXml(launcher_settings));
+			tmp.close();
+
+			message = "Saved server list:\n" + file.getPath();
+			if (!external) {
+				message += "\n(App storage — removed if the app is uninstalled.)";
+			}
+		} catch (Exception e) {
+			Log.e("LAUNCHER", "Export server list failed", e);
+			Toast.makeText(this, "Export failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+			return;
 		}
-		//String dir = "/BlowTorch";
-		String launcher = "/launcher";
-		String path = dir + launcher + filename;
-		
-		try {
-			//tmp = BaardTERMService.this.openFileOutput(path, Context.MODE_WORLD_READABLE|Context.MODE_WORLD_WRITEABLE);
-			//BaardTERMService.this.openF
-			String message = null;
-			File root = Environment.getExternalStorageDirectory();
-			String state = Environment.getExternalStorageState();
-			if(Environment.MEDIA_MOUNTED.equals(state) && !Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-				boolean added = false;
-				String updated = path;
-				Pattern xmlend = Pattern.compile("^.+\\.[Xx][Mm][Ll]$");
-				Matcher xmlmatch = xmlend.matcher(updated);
-				String updatedname = filename;
-				if(!xmlmatch.matches()) {
-					//added = true;
-					//updated = path + ".xml";
-					updatedname = filename + ".xml";
-				}
-				
-				File blowtorchdir = null;
-				if(external == true) {
-					blowtorchdir =  new File(root, dir);
-				} else {
-					blowtorchdir = new File(dir);
-				}
-				blowtorchdir.mkdirs();
-				
-				
-				File launcherdir = new File(blowtorchdir,launcher);
-				launcherdir.mkdirs();
-				
-				File file = new File(launcherdir,updatedname);
-				
-				file.createNewFile();
-				
-				FileWriter writer = new FileWriter(file);
-				BufferedWriter tmp = new BufferedWriter(writer);
-				tmp.write(LauncherSettings.writeXml(launcher_settings));
-				tmp.close();
-				
-				message = "Saved: " + file.getPath();
-				if(external == false) {
-					message += "This file will be removed when the application is uninstalled.";
-				}
-				
-				//Toast msg = Toast.makeText(this,message,Toast.LENGTH_LONG);
-				//Toast msg = Toast.makeText(StellarService.this.getApplicationContext(), message, Toast.LENGTH_SHORT);
-				//msg.show();
-			} else {
-				//Log.e("SERVICE","COULD NOT WRITE SETTINGS FILE!");
-				//Toast msg = Toast.makeText(StellarService.this.getApplicationContext(), "SD Card not available. File not written.", Toast.LENGTH_SHORT);
-				//msg.show();
-				message = "SD Card not available. File not written.";
-				//msg.show();
-			}
-			Snackbar bar = Snackbar.make(findViewById(R.id.launcher_window_content), message,
-					Snackbar.LENGTH_INDEFINITE)
-					.setAction(android.R.string.ok,new View.OnClickListener() {
-						@Override
-						public void onClick(View view) {
 
-						}});
-
-			//View snackbarView = bar.getView();
-			//TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
-			//textView.setMaxLines(5);  // show multiple line
-			bar.show();
-			} catch(Exception e) {
-				throw new RuntimeException(e);
-			}
+		View root = findViewById(R.id.launcher_window_content);
+		if (root == null) {
+			Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+			return;
+		}
+		Snackbar bar = Snackbar.make(root, message, Snackbar.LENGTH_INDEFINITE)
+				.setAction(android.R.string.ok, new View.OnClickListener() {
+					@Override
+					public void onClick(View view) {
+					}
+				});
+		View snackbarView = bar.getView();
+		TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
+		if (textView != null) {
+			textView.setMaxLines(6);
+		}
+		bar.show();
 	}
 	
 	private void copySettingsFile(File source, File dest) throws IOException {
@@ -1165,17 +1185,59 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 	
 	private void DoBackupAllSettings() {
-		String state = Environment.getExternalStorageState();
-		if (!Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-			Toast.makeText(this, "SD card unavailable. Cannot create backup.", Toast.LENGTH_LONG).show();
-			return;
-		}
+		AskBackupAllSettings();
+	}
+
+	private void AskBackupAllSettings() {
+		final boolean external = SDCardUtils.hasStoragePermissions(this);
+		final File dir = resolveBackupDirectory(external);
+
+		AlertDialog.Builder b = new AlertDialog.Builder(this);
+		b.setTitle(R.string.launcher_menu_backup_all_settings);
+
+		LinearLayout layout = new LinearLayout(this);
+		layout.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (16 * getResources().getDisplayMetrics().density);
+		layout.setPadding(pad, pad / 2, pad, pad / 2);
+
+		TextView hint = new TextView(this);
+		hint.setText("Creates a zip of all session .xml settings in private storage.\n\nDefault directory:\n"
+				+ dir.getAbsolutePath());
+		layout.addView(hint);
+		b.setView(layout);
+
+		b.setPositiveButton("Backup to default directory", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				writeSettingsBackupZip(null);
+			}
+		});
+		b.setNeutralButton("Choose location…", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				SimpleDateFormat stampFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US);
+				pickSettingsZipCreateLocation(stampFormat.format(new Date()) + ".zip");
+			}
+		});
+		b.setNegativeButton("Cancel", null);
+		b.show();
+	}
+
+	private void writeSettingsBackupZip(File preferredZip) {
 		try {
 			SimpleDateFormat stampFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US);
 			String stamp = stampFormat.format(new Date());
-			File backupRoot = new File(Environment.getExternalStorageDirectory(), "BlowTorch2/backups");
-			backupRoot.mkdirs();
-			File zipFile = new File(backupRoot, stamp + ".zip");
+			File zipFile = preferredZip;
+			if (zipFile == null) {
+				boolean external = SDCardUtils.hasStoragePermissions(this);
+				File backupRoot = resolveBackupDirectory(external);
+				zipFile = new File(backupRoot, stamp + ".zip");
+			}
+			File parent = zipFile.getParentFile();
+			if (parent != null && !parent.exists()) {
+				//noinspection ResultOfMethodCallIgnored
+				parent.mkdirs();
+			}
 			int copied = zipSettingsDirectory(getFilesDir(), zipFile);
 			try {
 				mirrorBackupToDocuments(zipFile);
@@ -1186,12 +1248,21 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			done.setTitle("Backup ready");
 			done.setMessage("Saved " + copied + " settings file(s).\n\n"
 					+ zipFile.getAbsolutePath()
-					+ "\n\nAfter reinstall: Launcher menu → Import Settings → pick this zip. Usually under 1 minute.");
+					+ "\n\nAfter reinstall: Launcher ⋮ → Restore Settings Backup → pick this zip.");
 			done.setPositiveButton("OK", null);
 			done.show();
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			Log.e("LAUNCHER", "Backup failed", e);
+			Toast.makeText(this, "Backup failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
 		}
+	}
+
+	private void pickSettingsZipCreateLocation(String suggestedName) {
+		Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+		intent.addCategory(Intent.CATEGORY_OPENABLE);
+		intent.setType("application/zip");
+		intent.putExtra(Intent.EXTRA_TITLE, suggestedName);
+		startActivityForResult(intent, REQUEST_CREATE_SETTINGS_ZIP);
 	}
 
 	/** Optional safety copy when the installed versionName changes (skip first install). */
@@ -1215,7 +1286,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			return;
 		}
 		try {
-			DoBackupAllSettings();
+			writeSettingsBackupZip(null);
 			prefs.edit().putString("last_version", current).apply();
 		} catch (Exception e) {
 			Log.w("BlowTorch", "Pre-update backup skipped: " + e.getMessage());
@@ -1224,28 +1295,40 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	
 	private int zipSettingsDirectory(File sourceDir, File zipFile) throws IOException {
 		int copied = 0;
-		ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile));
-		String[] names = sourceDir.list();
-		if (names != null) {
-			byte[] buffer = new byte[4096];
-			for (String name : names) {
-				if (!name.endsWith(".xml")) {
-					continue;
-				}
-				File file = new File(sourceDir, name);
-				ZipEntry entry = new ZipEntry(name);
-				zos.putNextEntry(entry);
-				FileInputStream in = new FileInputStream(file);
-				int len;
-				while ((len = in.read(buffer)) > 0) {
-					zos.write(buffer, 0, len);
-				}
-				in.close();
-				zos.closeEntry();
-				copied++;
-			}
+		if (sourceDir == null || !sourceDir.isDirectory()) {
+			throw new IOException("Settings directory unavailable");
 		}
-		zos.close();
+		ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile));
+		try {
+			String[] names = sourceDir.list();
+			if (names != null) {
+				byte[] buffer = new byte[4096];
+				for (String name : names) {
+					if (name == null || !name.endsWith(".xml")) {
+						continue;
+					}
+					File file = new File(sourceDir, name);
+					if (!file.isFile()) {
+						continue;
+					}
+					ZipEntry entry = new ZipEntry(name);
+					zos.putNextEntry(entry);
+					FileInputStream in = new FileInputStream(file);
+					try {
+						int len;
+						while ((len = in.read(buffer)) > 0) {
+							zos.write(buffer, 0, len);
+						}
+					} finally {
+						in.close();
+					}
+					zos.closeEntry();
+					copied++;
+				}
+			}
+		} finally {
+			zos.close();
+		}
 		return copied;
 	}
 	
@@ -1268,9 +1351,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 
 	private void collectSettingsImportCandidates(ArrayList<File> choices, ArrayList<String> labels) {
+		boolean external = SDCardUtils.hasStoragePermissions(this);
+		File defaultBackup = resolveBackupDirectory(external);
 		File sd = Environment.getExternalStorageDirectory();
 		File[] scanRoots = new File[] {
+				defaultBackup,
 				new File(sd, "BlowTorch2/backups"),
+				new File(sd, "BlowTorch/backups"),
 				new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2/backups"),
 				new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2"),
 				Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -1341,7 +1428,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			return;
 		}
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setTitle("Import Settings");
+		builder.setTitle(R.string.launcher_menu_restore_settings_backup);
 		builder.setItems(labels.toArray(new String[labels.size()]), new DialogInterface.OnClickListener() {
 			public void onClick(DialogInterface dialog, int which) {
 				File selected = choices.get(which);
@@ -1352,13 +1439,14 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				try {
 					int restored = restoreBackup(selected);
 					Toast.makeText(Launcher.this,
-							"Imported " + restored + " file(s). Restart BlowTorch to reload settings.",
+							"Restored " + restored + " file(s). Restart BlowTorch to reload settings.",
 							Toast.LENGTH_LONG).show();
 				} catch (IOException e) {
-					Toast.makeText(Launcher.this, "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+					Toast.makeText(Launcher.this, "Restore failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
 				}
 			}
 		});
+		builder.setNegativeButton("Cancel", null);
 		builder.show();
 	}
 
@@ -1377,20 +1465,72 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-		if (requestCode == REQUEST_PICK_SETTINGS_ZIP && resultCode == Activity.RESULT_OK && data != null) {
-			Uri uri = data.getData();
-			if (uri == null) {
-				return;
-			}
-			try {
+		if (resultCode != Activity.RESULT_OK || data == null) {
+			return;
+		}
+		Uri uri = data.getData();
+		if (uri == null) {
+			return;
+		}
+		try {
+			if (requestCode == REQUEST_PICK_SETTINGS_ZIP) {
 				int restored = restoreBackupFromUri(uri);
 				Toast.makeText(this,
-						"Imported " + restored + " file(s). Restart BlowTorch to reload settings.",
+						"Restored " + restored + " file(s). Restart BlowTorch to reload settings.",
 						Toast.LENGTH_LONG).show();
-			} catch (IOException e) {
-				Toast.makeText(this, "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+			} else if (requestCode == REQUEST_PICK_SERVER_LIST_XML) {
+				importServerListFromUri(uri);
+			} else if (requestCode == REQUEST_CREATE_SERVER_LIST_XML) {
+				exportServerListToUri(uri);
+			} else if (requestCode == REQUEST_CREATE_SETTINGS_ZIP) {
+				File tempZip = new File(SDCardUtils.resolveCacheDir(this), "export_settings_backup.zip");
+				int copied = zipSettingsDirectory(getFilesDir(), tempZip);
+				OutputStream out = getContentResolver().openOutputStream(uri);
+				if (out == null) {
+					Toast.makeText(this, "Could not write selected location.", Toast.LENGTH_LONG).show();
+					return;
+				}
+				InputStream in = new FileInputStream(tempZip);
+				byte[] buffer = new byte[4096];
+				int len;
+				while ((len = in.read(buffer)) > 0) {
+					out.write(buffer, 0, len);
+				}
+				in.close();
+				out.close();
+				Toast.makeText(this, "Backup saved (" + copied + " file(s)).", Toast.LENGTH_LONG).show();
 			}
+		} catch (IOException e) {
+			Toast.makeText(this, "Operation failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
 		}
+	}
+
+	private void importServerListFromUri(Uri uri) throws IOException {
+		InputStream in = getContentResolver().openInputStream(uri);
+		if (in == null) {
+			throw new IOException("Could not open selected file");
+		}
+		File temp = new File(SDCardUtils.resolveCacheDir(this), "import_server_list.xml");
+		OutputStream out = new FileOutputStream(temp);
+		byte[] buffer = new byte[4096];
+		int len;
+		while ((len = in.read(buffer)) > 0) {
+			out.write(buffer, 0, len);
+		}
+		in.close();
+		out.close();
+		actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_IMPORT, temp.getAbsolutePath()));
+	}
+
+	private void exportServerListToUri(Uri uri) throws IOException {
+		OutputStream out = getContentResolver().openOutputStream(uri);
+		if (out == null) {
+			throw new IOException("Could not write selected location");
+		}
+		byte[] data = LauncherSettings.writeXml(launcher_settings).getBytes("UTF-8");
+		out.write(data);
+		out.close();
+		Toast.makeText(this, "Server list exported.", Toast.LENGTH_LONG).show();
 	}
 
 	private int restoreBackupFromUri(Uri uri) throws IOException {
@@ -1398,7 +1538,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (in == null) {
 			throw new IOException("Could not open selected file");
 		}
-		File tempZip = new File(getCacheDir(), "import_settings.zip");
+		File tempZip = new File(SDCardUtils.resolveCacheDir(this), "import_settings.zip");
 		OutputStream out = new FileOutputStream(tempZip);
 		byte[] buffer = new byte[4096];
 		int len;
@@ -1458,88 +1598,64 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 	
 	private void DoRecovery(String targetPackage,boolean external) throws NameNotFoundException {
-
-
-		
 		Context c = this.createPackageContext(targetPackage, Context.CONTEXT_INCLUDE_CODE|Context.CONTEXT_IGNORE_SECURITY);
-		String dir = (external == true) ? "/BlowTorch" : c.getExternalFilesDir(null).getAbsolutePath();
-		String backupDir = "/recovered/";
+		File destRoot = SDCardUtils.resolveDefaultSettingsDirectory(this, external, null);
+		File backupdir = new File(destRoot, "recovered");
+		if (!backupdir.exists()) {
+			//noinspection ResultOfMethodCallIgnored
+			backupdir.mkdirs();
+		}
 
 		String targetInstallation = c.getApplicationInfo().dataDir + "/files";
-		String message = null;
+		String message;
 		try {
-			File root = Environment.getExternalStorageDirectory();
-			String state = Environment.getExternalStorageState();
-			if(Environment.MEDIA_MOUNTED.equals(state) && !Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-				//make sure destination directory exists
-				File btdir = null;
-				if(external) {
-					btdir = new File(root,dir);
-				} else {
-					btdir = new File(dir,"/");
-				}
-				btdir.mkdir();
-				
-				File backupdir = new File(btdir,backupDir);
-				backupdir.mkdir();
-				
-				//get all the files in the target directory.
-				File harvestDir = new File(targetInstallation);
-				
-				/*InputStream inp = c.openFileInput("blowtorch_launcher_list.xml");
-				byte[] buff = new byte[1024];
-				int len2 = 0;
-				while((len2 = inp.read(buff)) > 0) {
-					Log.e("FOO",new String(buff));
-				}*/
-				//iterate through copying to backup directory.
-				String[] names = harvestDir.list();
-				for(String name : names) {
-					
-					File oldFile = new File(harvestDir,name);
-					File newFile = new File(backupdir,name);
-					
-					InputStream in = new FileInputStream(oldFile);
-					OutputStream out = new FileOutputStream(newFile);
-					//OutputStream out = new 
-					byte[] buf = new byte[1024];
-					int len;
-					while((len = in.read(buf)) > 0) {
-						out.write(buf,0,len);
-					}
-					
-					in.close();
-					out.close();
-					
-				}
-
-				message =  "Settings copied to: " + backupdir.getAbsolutePath() + "/";
-				if(external == false) {
-					message += "\nThis folder will be removed when the application is uninstalled.";
-				}
-				//Toast t = Toast.makeText(this, "Settings copied to: " + backupdir.getAbsolutePath() + "/", Toast.LENGTH_LONG);
-				//t.show();
-			} else {
-				message = "SD Card Unavailabe. Cannot recover settings.";
-				//Toast t = Toast.makeText(this, "SD Card Unavailabe. Cannot recover settings.", Toast.LENGTH_LONG);
-				//t.show();
+			File harvestDir = new File(targetInstallation);
+			String[] names = harvestDir.list();
+			if (names == null || names.length == 0) {
+				Toast.makeText(this, "No private settings files found to copy.", Toast.LENGTH_LONG).show();
+				return;
 			}
-			Snackbar bar = Snackbar.make(findViewById(R.id.launcher_window_content), message,
-					Snackbar.LENGTH_INDEFINITE)
-					.setAction(android.R.string.ok,new View.OnClickListener() {
-						@Override
-						public void onClick(View view) {
+			int copied = 0;
+			for (String name : names) {
+				if (name == null) {
+					continue;
+				}
+				File oldFile = new File(harvestDir, name);
+				if (!oldFile.isFile()) {
+					continue;
+				}
+				File newFile = new File(backupdir, name);
+				copySettingsFile(oldFile, newFile);
+				copied++;
+			}
 
-						}});
-
-			View snackbarView = bar.getView();
-			TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
-			textView.setMaxLines(3);  // show multiple line
-			bar.show();
+			message = "Copied " + copied + " file(s) to:\n" + backupdir.getAbsolutePath();
+			if (!external) {
+				message += "\n(App storage — removed if the app is uninstalled.)";
+			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			Log.e("LAUNCHER", "Copy settings to storage failed", e);
+			Toast.makeText(this, "Copy failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+			return;
 		}
-		
+
+		View root = findViewById(R.id.launcher_window_content);
+		if (root == null) {
+			Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+			return;
+		}
+		Snackbar bar = Snackbar.make(root, message, Snackbar.LENGTH_INDEFINITE)
+				.setAction(android.R.string.ok, new View.OnClickListener() {
+					@Override
+					public void onClick(View view) {
+					}
+				});
+		View snackbarView = bar.getView();
+		TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
+		if (textView != null) {
+			textView.setMaxLines(5);
+		}
+		bar.show();
 	}
 	
 	private void DoWhatsNew() throws NameNotFoundException { 
@@ -1800,63 +1916,109 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 	
 	public boolean onCreateOptionsMenu(Menu menu) {
-		
-		menu.add(0,100,0,"Import List");
-		menu.add(0,105,0,"Export List");
-		menu.add(0,110,0,"Backup Settings");
-		menu.add(0,111,0,"Import Settings");
-		if(ConfigurationLoader.isTestMode(this)) menu.add(0,106,0,"User Name");
-		menu.add(0,107,0,"Recover Settings");
-		menu.add(0, 108, 0,"SDCard Permissions");
-		menu.add(0, 109, 0,"App Settings");
-		
+
+		menu.add(0, MENU_IMPORT_SERVER_LIST, 0, R.string.launcher_menu_import_server_list);
+		menu.add(0, MENU_EXPORT_SERVER_LIST, 0, R.string.launcher_menu_export_server_list);
+		menu.add(0, MENU_BACKUP_ALL_SETTINGS, 0, R.string.launcher_menu_backup_all_settings);
+		menu.add(0, MENU_RESTORE_SETTINGS_BACKUP, 0, R.string.launcher_menu_restore_settings_backup);
+		if (ConfigurationLoader.isTestMode(this)) {
+			menu.add(0, MENU_USER_NAME, 0, "User Name");
+		}
+		menu.add(0, MENU_COPY_SETTINGS_TO_STORAGE, 0, R.string.launcher_menu_copy_settings_to_storage);
+		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, "SDCard Permissions");
+		menu.add(0, MENU_APP_SETTINGS, 0, "App Settings");
+		menu.add(0, MENU_ABOUT, 0, R.string.launcher_menu_about);
+
 		return true;
-		
+
 	}
 
 	private void AskExportFileName(final boolean external) {
+		final File dir = resolveLauncherListDirectory(external);
 
-		LayoutInflater factory = LayoutInflater.from(this);
-		View textEntryView = factory.inflate(R.layout.dialog_text_entry, null);
-		entry = (EditText) textEntryView.findViewById(R.id.launcher_export);
+		AlertDialog.Builder b = new AlertDialog.Builder(this);
+		b.setTitle(R.string.launcher_menu_export_server_list);
 
-		AlertDialog exporter = new AlertDialog.Builder(this)
-				.setIcon(android.R.drawable.ic_dialog_info)
-				.setTitle("Export List")
-				.setView(textEntryView)
-				.setPositiveButton("Done", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int whichButton) {
-						//boolean state = SDCardUtils.hasPermissions(Launcher.this,findViewById(R.id.launcher_window_content), RP_INFO);
-						//if(external == true) {
-							DoExport(entry.getText().toString(),external);
-						//}
+		LinearLayout layout = new LinearLayout(this);
+		layout.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (16 * getResources().getDisplayMetrics().density);
+		layout.setPadding(pad, pad / 2, pad, pad / 2);
+
+		TextView hint = new TextView(this);
+		hint.setText("Default directory:\n" + dir.getAbsolutePath());
+		layout.addView(hint);
+
+		entry = new EditText(this);
+		entry.setHint("Enter file name");
+		entry.setSingleLine(true);
+		layout.addView(entry);
+		b.setView(layout);
+
+		b.setPositiveButton("Export to default directory", null);
+		b.setNeutralButton("Choose location…", null);
+		b.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+			public void onClick(DialogInterface dialog, int whichButton) {
+				dialog.dismiss();
+			}
+		});
+
+		final AlertDialog exporter = b.create();
+		exporter.setOnShowListener(new DialogInterface.OnShowListener() {
+			@Override
+			public void onShow(DialogInterface dialog) {
+				exporter.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						String name = entry.getText() != null ? entry.getText().toString().trim() : "";
+						if (TextUtils.isEmpty(name)) {
+							Toast.makeText(Launcher.this, "Enter a file name first.", Toast.LENGTH_SHORT).show();
+							return;
+						}
+						DoExport(name, external);
+						exporter.dismiss();
 					}
-				})
-
-				.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-					public void onClick(DialogInterface dialog, int whichButton) {
-
-						dialog.dismiss();
+				});
+				exporter.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						String name = entry.getText() != null ? entry.getText().toString().trim() : "";
+						if (TextUtils.isEmpty(name)) {
+							name = "blowtorch_launcher_list.xml";
+						}
+						xmlimatcher.reset(name);
+						if (!xmlimatcher.matches()) {
+							name = name + ".xml";
+						}
+						pickExportServerListFile(name);
+						exporter.dismiss();
 					}
-				})
-				.create();
-
+				});
+			}
+		});
 		exporter.show();
 	}
-	
+
+	private void pickExportServerListFile(String suggestedName) {
+		Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+		intent.addCategory(Intent.CATEGORY_OPENABLE);
+		intent.setType("application/xml");
+		intent.putExtra(Intent.EXTRA_TITLE, suggestedName);
+		startActivityForResult(intent, REQUEST_CREATE_SERVER_LIST_XML);
+	}
+
 	private EditText entry = null;
-	
+
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch(item.getItemId()) {
-		case 100:
+		case MENU_IMPORT_SERVER_LIST:
 			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT, new Runnable() {
 				@Override
 				public void run() {
-					showImportMessage(SDCardUtils.hasStoragePermissions(Launcher.this));
+					DoImportMenu(SDCardUtils.hasStoragePermissions(Launcher.this));
 				}
 			});
 			break;
-		case 105:
+		case MENU_EXPORT_SERVER_LIST:
 			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT, new Runnable() {
 				@Override
 				public void run() {
@@ -1864,15 +2026,15 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				}
 			});
 			break;
-		case 110:
+		case MENU_BACKUP_ALL_SETTINGS:
 			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_EXPORT, new Runnable() {
 				@Override
 				public void run() {
-					DoBackupAllSettings();
+					AskBackupAllSettings();
 				}
 			});
 			break;
-		case 111:
+		case MENU_RESTORE_SETTINGS_BACKUP:
 			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT, new Runnable() {
 				@Override
 				public void run() {
@@ -1880,45 +2042,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				}
 			});
 			break;
-		case 106:
+		case MENU_USER_NAME:
 
 			break;
-		case 107:
-			//data recovery.
-			//figure out if the release package is installed.
-			/*boolean retailInstalled = false;
-			try {
-				Context c = this.createPackageContext("com.resurrection.blowtorch2.lib", Context.CONTEXT_IGNORE_SECURITY|Context.CONTEXT_INCLUDE_CODE);
-				retailInstalled = true;
-			} catch (NameNotFoundException e) {
-				retailInstalled = false;
-			}
-			
-			final String[] names;
-			final String[] values;
-			if(retailInstalled) {
-				names = new String[] {"BlowTorch (Release)", "BlowTorch (Test)" };
-				values = new String[] {"com.resurrection.blowtorch2.lib","com.resurrection.blowtorch2.libtest"};
-			} else {
-				names = new String[] {"BlowTorch (Test)" };
-				values = new String[] {"com.resurrection.blowtorch2.libtest"};
-			}
-			
-			AlertDialog.Builder builder = new AlertDialog.Builder(this);
-			builder.setSingleChoiceItems(names, 0, new DialogInterface.OnClickListener() {
-				
-				
-				public void onClick(DialogInterface dialog, int which) {
-					
-					//switch(which) {
-						actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_DORECOVERY,values[which]));
-					//}
-					dialog.dismiss();
-				}
-			});
-			
-			AlertDialog dialog = builder.create();
-			dialog.show();*/
+		case MENU_COPY_SETTINGS_TO_STORAGE:
 			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_SALVAGE, new Runnable() {
 				@Override
 				public void run() {
@@ -1926,33 +2053,32 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						DoRecovery(Launcher.this.getPackageName(),
 								SDCardUtils.hasStoragePermissions(Launcher.this));
 					} catch (Exception e) {
-						throw new RuntimeException(e);
+						Toast.makeText(Launcher.this, "Copy failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
 					}
 				}
 			});
-			
+
 			break;
-		case 108:
-			// Here, thisActivity is the current activity
+		case MENU_SDCARD_PERMISSIONS:
 			boolean state = SDCardUtils.hasPermissions(this,findViewById(R.id.launcher_window_content), RP_INFO);
-			String message = "SDCard permissions are granted. If this is incorrect, click this message to manage settings.";
-
-
 			if(state == true) {
 				showPermissionsMessage(true);
-			} // false is handled by the request permissions dialog (i think).
+			}
 			break;
-		case 109:
+		case MENU_APP_SETTINGS:
 			Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
 			intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 			intent.setData(Uri.parse("package:" + Launcher.this.getPackageName()));
 			Launcher.this.startActivity(intent);
 			break;
+		case MENU_ABOUT:
+			showAboutDialog();
+			break;
 
 		default:
 			break;
 		}
-		
+
 		return true;
 	}
 	
@@ -1985,13 +2111,30 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					title.setText(" " + m.getDisplayName());
 				}
 				if(host != null) {
-					host.setText("\t"  + m.getHostName() + ":" + m.getPortString());
+					String hostLine = "\t"  + m.getHostName() + ":" + m.getPortString();
+					if (service != null) {
+						try {
+							String dur = service.getConnectionDurationText(m.getDisplayName());
+							if (dur != null && dur.length() > 0) {
+								if (m.isConnected()) {
+									hostLine = hostLine + "  ·  "
+											+ getString(R.string.launcher_connected_duration, dur);
+								} else {
+									hostLine = hostLine + "  ·  "
+											+ getString(R.string.launcher_last_duration, dur);
+								}
+							}
+						} catch (RemoteException e) {
+							e.printStackTrace();
+						}
+					}
+					host.setText(hostLine);
 				}
 				
 				if(m.isConnected()) {
-					title.setTextColor(0xFF00FF00);
+					title.setTextColor(0xFF66FF66);
 				} else {
-					title.setTextColor(0xAA222222);
+					title.setTextColor(0xEEF5F5F5);
 				}
 				//if(port != null) {
 				//	port.setText(" Port: " + m.getPortString());
@@ -2100,7 +2243,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						try {
 							DoRecovery(Launcher.this.getPackageName(), external);
 						} catch (Exception e) {
-							throw new RuntimeException(e);
+							Toast.makeText(Launcher.this, "Copy failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
 						}
 					}
 				}, null);
@@ -2119,7 +2262,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 						grantResults, featureRes, new Runnable() {
 					@Override
 					public void run() {
-						showImportMessage(external);
+						DoImportMenu(external);
 					}
 				}, null);
 				break;
