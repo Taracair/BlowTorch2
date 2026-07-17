@@ -1,0 +1,47 @@
+Categories:
+  - Games
+  - Internet
+
+License: MIT
+
+AuthorName: Taracair
+AuthorEmail: ''
+WebSite: https://github.com/Taracair/BlowTorch2
+SourceCode: https://github.com/Taracair/BlowTorch2
+IssueTracker: https://github.com/Taracair/BlowTorch2/issues
+Changelog: https://github.com/Taracair/BlowTorch2/releases
+
+AutoName: BlowTorch 2
+
+RepoType: git
+Repo: https://github.com/Taracair/BlowTorch2.git
+
+Builds:
+  - versionName: '2.1.1'
+    versionCode: 225
+    commit: REPLACE_WITH_RELEASE_TAG_OR_COMMIT
+    subdir: BT_Free
+    sudo:
+      - apt-get update || apt-get update
+      - apt-get install -y openjdk-17-jdk-headless gcc make
+      - update-alternatives --auto java || true
+    gradle:
+      - production
+    ndk: r26b
+    prebuild: sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ && cd .. && ./build_ndk_libraries.sh
+    scandelete:
+      - BTLib/key
+      - LuaJIT-2.1
+
+MaintainerNotes: |
+  Native libs are produced by ./build_ndk_libraries.sh into BTLib/libs/ (not
+  committed). Release signing is left unset unless BT_LOCAL_SIGN=1; F-Droid
+  signs the APK. Package id is com.resurrection.blowtorch2 (production flavor).
+  ForgeMap / mapper ships only in btTest and must stay out of this recipe.
+
+ArchivePolicy: 2 versions
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: '2.1.1'
+CurrentVersionCode: 225
