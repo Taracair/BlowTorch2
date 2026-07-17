@@ -110,22 +110,12 @@ Enable under **Options → Service → GMCP Options**. Helpers:
 | `.loadset <name>` | Load named button set |
 | `.clearbuttons` | Clear via button window |
 
-### `forgemap` (test / optional)
-
-| Command | Description |
-|---------|-------------|
-| `.map` | Toggle map window |
-| `.fmhere [label]` | Mark current position (default `"Here"`) |
-| `.fmwalk <dir>` | Record a manual move |
-| `.fmgo <tileId>` | Pathfind and `.run` toward tile |
-| `.fmnote <text>` | Set note on current tile |
-| `.fmflag <flag>` | Set flag on current tile |
-
 ## Session overflow menu
 
-1. **Crash report** — Show log / Share log  
-2. **About/donate**  
-3. **Help** — This manual  
+1. **Edit buttons** — enter button layout edit mode  
+2. **Crash report** — Show log / Share log  
+3. **About/donate**  
+4. **Help** — This manual  
 
 Connection duration appears on the ongoing notification and launcher row.
 

@@ -25,7 +25,7 @@ Package id (F-Droid / production): `com.resurrection.blowtorch2`
 - Does **not** read your photos, contacts, SMS, or call log.
 - Does **not** browse your whole disk for fun — file access is for **your** BlowTorch folders and files you explicitly import/export.
 
-Optional **account notes** on a launcher entry (login/password/mail) are stored **only on the device**, in the launcher list XML, in **plaintext**. They are reminders for you, not auto-login to a third party. Prefer not filling them if that worries you; encrypted backups are planned but not shipped yet.
+Optional **account notes** on a launcher entry (login/password/mail) are stored **only on the device**, in the launcher list XML, in **plaintext**. They are reminders for you, not auto-login to a third party. Prefer not filling them if that worries you.
 
 ---
 
@@ -126,7 +126,7 @@ Today, All files access is the straightforward way to keep a stable absolute pat
 
 - Recipe draft: [`../metadata/com.resurrection.blowtorch2.yml`](../metadata/com.resurrection.blowtorch2.yml)  
 - Fastlane store text: [`../fastlane/metadata/android/en-US/`](../fastlane/metadata/android/en-US/)  
-- Production flavor only (`gradle: [production]`); do **not** ship `btTest` / ForgeMap from this recipe.  
+- Production flavor only (`gradle: [production]`); do **not** ship `btTest` from this recipe.  
 - `MANAGE_EXTERNAL_STORAGE` is declared; please treat it as **optional UX for shared `/BlowTorch/`**, not as a requirement to run the client.  
 - No proprietary libraries in the production dependency graph.  
 
