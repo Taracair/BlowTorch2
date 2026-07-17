@@ -1,0 +1,1 @@
+Fix overflow menu height after keyboard dismiss. Edit strip gains ←↑↓→ pad; .kb adds sel/cut/start/end/stepf/stepb/stepu/stepd. README documents all dot commands plus button swipe and accordion.

@@ -244,6 +244,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_SCROLLBACK_SEARCH = 914;
 	protected static final int MESSAGE_SCROLLBACK_SEARCH_NAV = 915;
 	public static final int MESSAGE_GROW_INPUT_BAR = 916;
+	protected static final int MESSAGE_INPUT_CUT = 917;
+	protected static final int MESSAGE_INPUT_CURSOR_STEP = 918;
+	protected static final int MESSAGE_INPUT_CURSOR_VERTICAL = 919;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -1169,6 +1172,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_INPUT_CURSOR_END:
 					inputCursorToEnd();
 					break;
+				case MESSAGE_INPUT_CUT:
+					inputCut();
+					break;
+				case MESSAGE_INPUT_CURSOR_STEP:
+					inputCursorStep(msg.arg1);
+					break;
+				case MESSAGE_INPUT_CURSOR_VERTICAL:
+					inputCursorVertical(msg.arg1);
+					break;
 				case MESSAGE_SCROLLBACK_SEARCH:
 					openScrollbackSearchBar(msg.obj == null ? "" : msg.obj.toString());
 					break;
@@ -1633,6 +1645,40 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void showGameplayOptionsMenu(final View anchor) {
+		// IME lift translates the FAB strip; ListPopupWindow used that mid-screen Y
+		// as stretch height even after the keyboard was gone. Collapse IME + lift first.
+		hideSoftInputForMenu();
+		View windowContainer = findViewById(R.id.window_container);
+		if (windowContainer instanceof RelativeLayout) {
+			applyImeChromeLift((RelativeLayout) windowContainer, 0);
+		}
+		if (anchor != null) {
+			anchor.post(new Runnable() {
+				@Override
+				public void run() {
+					showGameplayOptionsMenuNow(anchor);
+				}
+			});
+		} else {
+			showGameplayOptionsMenuNow(null);
+		}
+	}
+
+	private void hideSoftInputForMenu() {
+		View focus = getCurrentFocus();
+		if (focus == null) {
+			focus = findViewById(R.id.textinput);
+		}
+		if (focus != null) {
+			android.view.inputmethod.InputMethodManager imm =
+					(android.view.inputmethod.InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+			if (imm != null) {
+				imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
+			}
+		}
+	}
+
+	private void showGameplayOptionsMenuNow(final View anchor) {
 		Context themed = new ContextThemeWrapper(this, R.style.BlowTorch_Game_PopupMenu);
 		final androidx.appcompat.view.menu.MenuBuilder menu =
 				new androidx.appcompat.view.menu.MenuBuilder(themed);
@@ -1654,7 +1700,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		final float density = getResources().getDisplayMetrics().density;
 		final androidx.appcompat.widget.ListPopupWindow popup =
 				new androidx.appcompat.widget.ListPopupWindow(themed);
-		popup.setAnchorView(anchor);
+		View safeAnchor = anchor != null ? anchor : findViewById(R.id.overflow_menu);
+		if (safeAnchor == null) {
+			return;
+		}
+		popup.setAnchorView(safeAnchor);
 		popup.setModal(true);
 		popup.setAdapter(new ArrayAdapter<CharSequence>(
 				themed, android.R.layout.simple_list_item_1, titles));
@@ -1664,9 +1714,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				themed, R.drawable.dialog_window_crawler1));
 
 		int[] loc = new int[2];
-		anchor.getLocationInWindow(loc);
+		safeAnchor.getLocationInWindow(loc);
+		// Ignore residual translation on the FAB strip if any.
+		View fabStrip = findViewById(R.id.gameplay_fab_strip);
+		if (fabStrip != null) {
+			loc[1] -= (int) fabStrip.getTranslationY();
+		}
 		int margin = (int) (4 * density);
 		int height = Math.max(loc[1] - margin, (int) (160 * density));
+		int screenH = getResources().getDisplayMetrics().heightPixels;
+		height = Math.min(height, (int) (screenH * 0.85f));
 		popup.setHeight(height);
 		popup.setVerticalOffset(-height);
 		popup.setOverlapAnchor(true);
@@ -2328,28 +2385,99 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	private void inputSelectAll() {
+		if (mInputBox == null) {
+			return;
+		}
 		mInputBox.requestFocus();
 		mInputBox.selectAll();
 	}
 	
 	private void inputCursorToStart() {
+		if (mInputBox == null) {
+			return;
+		}
 		mInputBox.requestFocus();
 		mInputBox.setSelection(0);
 	}
 	
 	private void inputCursorToEnd() {
+		if (mInputBox == null) {
+			return;
+		}
 		mInputBox.requestFocus();
 		mInputBox.setSelection(mInputBox.getText().length());
 	}
 	
 	private void inputCopy() {
+		if (mInputBox == null) {
+			return;
+		}
 		mInputBox.requestFocus();
 		mInputBox.onTextContextMenuItem(android.R.id.copy);
 	}
 	
 	private void inputPaste() {
+		if (mInputBox == null) {
+			return;
+		}
 		mInputBox.requestFocus();
 		mInputBox.onTextContextMenuItem(android.R.id.paste);
+	}
+
+	private void inputCut() {
+		if (mInputBox == null) {
+			return;
+		}
+		mInputBox.requestFocus();
+		android.content.ClipboardManager cm =
+				(android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+		int start = Math.max(0, mInputBox.getSelectionStart());
+		int endSel = Math.max(start, mInputBox.getSelectionEnd());
+		CharSequence selected;
+		if (endSel > start) {
+			selected = mInputBox.getText().subSequence(start, endSel);
+			mInputBox.getText().delete(start, endSel);
+		} else {
+			selected = mInputBox.getText();
+			mInputBox.setText("");
+		}
+		if (cm != null) {
+			cm.setPrimaryClip(android.content.ClipData.newPlainText("input", selected));
+		}
+	}
+
+	private void inputCursorStep(int delta) {
+		if (mInputBox == null || delta == 0) {
+			return;
+		}
+		mInputBox.requestFocus();
+		int len = mInputBox.getText().length();
+		int start = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()));
+		int end = Math.max(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd());
+		int pos = delta < 0 ? start : end;
+		pos = Math.max(0, Math.min(len, pos + delta));
+		mInputBox.setSelection(pos);
+	}
+
+	private void inputCursorVertical(int lineDelta) {
+		if (mInputBox == null || lineDelta == 0) {
+			return;
+		}
+		mInputBox.requestFocus();
+		android.text.Layout layout = mInputBox.getLayout();
+		if (layout == null) {
+			inputCursorStep(lineDelta);
+			return;
+		}
+		int pos = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()));
+		int line = layout.getLineForOffset(pos);
+		int newLine = Math.max(0, Math.min(layout.getLineCount() - 1, line + lineDelta));
+		if (newLine == line) {
+			return;
+		}
+		float horiz = layout.getPrimaryHorizontal(pos);
+		int newPos = layout.getOffsetForHorizontal(newLine, horiz);
+		mInputBox.setSelection(Math.max(0, Math.min(mInputBox.getText().length(), newPos)));
 	}
 	
 	private void requestNotificationPermissionIfNeeded() {
@@ -3245,6 +3373,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		public void inputBarPaste() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_INPUT_PASTE);
 		}
+
+		public void inputBarCut() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_INPUT_CUT);
+		}
 		
 		public void inputBarCursorToStart() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_INPUT_CURSOR_START);
@@ -3252,6 +3384,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		public void inputBarCursorToEnd() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_INPUT_CURSOR_END);
+		}
+
+		public void inputBarCursorStep(int delta) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_CURSOR_STEP, delta, 0));
+		}
+
+		public void inputBarCursorVertical(int delta) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_CURSOR_VERTICAL, delta, 0));
 		}
 
 		public void openScrollbackSearch(String query) throws RemoteException {
@@ -3769,6 +3909,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		View left = findViewById(R.id.input_btn_left);
 		View right = findViewById(R.id.input_btn_right);
 		View end = findViewById(R.id.input_btn_end);
+		View up = findViewById(R.id.input_btn_up);
+		View down = findViewById(R.id.input_btn_down);
 
 		if (mInputSendButton != null) {
 			mInputSendButton.setOnClickListener(new View.OnClickListener() {
@@ -3839,18 +3981,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		cut.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-				int start = Math.max(0, mInputBox.getSelectionStart());
-				int endSel = Math.max(start, mInputBox.getSelectionEnd());
-				CharSequence selected;
-				if (endSel > start) {
-					selected = mInputBox.getText().subSequence(start, endSel);
-					mInputBox.getText().delete(start, endSel);
-				} else {
-					selected = mInputBox.getText();
-					mInputBox.setText("");
-				}
-				cm.setPrimaryClip(android.content.ClipData.newPlainText("input", selected));
+				inputCut();
 				Toast.makeText(MainWindow.this, "Cut", Toast.LENGTH_SHORT).show();
 			}
 		});
@@ -3870,49 +4001,47 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		paste.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-				if (cm == null || !cm.hasPrimaryClip()) {
-					return;
-				}
-				android.content.ClipData clip = cm.getPrimaryClip();
-				if (clip == null || clip.getItemCount() == 0) {
-					return;
-				}
-				CharSequence text = clip.getItemAt(0).coerceToText(MainWindow.this);
-				int start = Math.max(0, mInputBox.getSelectionStart());
-				int endSel = Math.max(start, mInputBox.getSelectionEnd());
-				mInputBox.getText().replace(start, endSel, text);
+				inputPaste();
 			}
 		});
 		home.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				mInputBox.requestFocus();
-				mInputBox.setSelection(0);
+				inputCursorToStart();
 			}
 		});
 		left.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				mInputBox.requestFocus();
-				int pos = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()) - 1);
-				mInputBox.setSelection(pos);
+				inputCursorStep(-1);
 			}
 		});
 		right.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				mInputBox.requestFocus();
-				int len = mInputBox.getText().length();
-				int pos = Math.min(len, Math.max(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()) + 1);
-				mInputBox.setSelection(pos);
+				inputCursorStep(1);
 			}
 		});
+		if (up != null) {
+			up.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					inputCursorVertical(-1);
+				}
+			});
+		}
+		if (down != null) {
+			down.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					inputCursorVertical(1);
+				}
+			});
+		}
 		end.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				mInputBox.requestFocus();
-				mInputBox.setSelection(mInputBox.getText().length());
+				inputCursorToEnd();
 			}
 		});
 		refreshInputActionLayout();

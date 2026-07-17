@@ -28,7 +28,7 @@ Registrations live in `Connection` (built-ins) and Lua
 | `.togglefullscreen` | Toggle fullscreen preference |
 | `.wrap [on\|off]` | Input bar growth (default on); also Options → Input → Grow Input Bar? |
 | `.gmcp …` | GMCP helpers (status / sniff / version / supports / dump / send); see below |
-| `.keyboard` / `.kb` | Input-bar control (`add`, `popup`, `flush`, `close`, `clear`, `selectall`, `copy`, `paste`, `cursorstart`, `cursorend`); no args prints help |
+| `.keyboard` / `.kb` | Input-bar control — see `.kb` section below |
 | `.disconnect` | Local “Disconnected.” notice (use overflow **Disconnect** for a real disconnect) |
 | `.reconnect` | Local “Reconnecting . . .” notice (use overflow **Reconnect** to reconnect) |
 | `.run <directions>` | Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands |
@@ -56,39 +56,48 @@ Direction letters (editable in Speedwalk Directions): `n e s w u d`,
 `h`=nw, `j`=ne, `k`=sw, `l`=se. Prefix with a count. Examples:
 `.run 3desw2n`, `.run 3ds,open door,3w`.
 
-### `.keyboard` / `.kb` examples
+### `.keyboard` / `.kb`
 
-- `.kb popup reply` — set text and show IME  
-- `.kb add foo` — append without popup  
-- `.kb flush` — send current input  
-- `.kb clear` / `.kb close`
+| Token | Action |
+|-------|--------|
+| *(no args)* | Print help |
+| `add` / `popup` + text | Set or append input; `popup` also shows the IME |
+| `flush` | Send current input |
+| `close` / `clear` | Hide IME / clear text |
+| `sel` / `selectall` | Select all |
+| `cut` / `copy` / `paste` | Clipboard |
+| `start` / `cursorstart` | Caret to start |
+| `end` / `cursorend` | Caret to end |
+| `stepf` / `stepr` | Caret one character right |
+| `stepb` / `stepl` | Caret one character left |
+| `stepu` / `stepd` | Caret one line up / down |
+
+Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
+
+**Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide** so the screen stays clear).
+
+## On-screen buttons: swipe + accordion
+
+The default `button_window` plugin supports more than tap:
+
+- **Swipe up / down / left / right** — each direction can run a different command (edit button → Swipe). Overrides classic Flip. Drag roughly a finger-width off the tile.
+- **Hold** — optional command after press-and-hold.
+- **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Ideal for packing macros into one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hint arrows.
 
 ## GMCP (short)
 
-GMCP (Generic Mud Communication Protocol) is an optional out-of-band telnet
-channel (option **201**) that carries structured updates (vitals, room info,
-etc.) separately from normal game text. Servers differ in which modules they
-offer.
-
-Enable under **Options → Service → GMCP Options** (`Use GMCP?`, Supports String,
-`Log GMCP?`). Helpers:
+Enable under **Options → Service → GMCP Options**. Helpers:
 
 ```
 .gmcp                 — help
 .gmcp status          — flags
-.gmcp sniff [on|off]  — log handshake/packets to the app error log
-                        (app files/logs/blowtorch2.log; also session log if enabled.
-                        `.gmcp sniff on` prints the absolute path. View via
-                        Overflow → Crash report → Show log.)
-.gmcp sniff tail [N]  — print last N GMCP lines from that log in-game (0–100, default 40)
+.gmcp sniff [on|off]  — log handshake/packets
+.gmcp sniff tail [N]  — last N GMCP lines in-game (0–100, default 40)
 .gmcp version         — client hello / syntax notes
 .gmcp supports […]   — show or set supports modules
 .gmcp dump [path]     — dump cached GMCP table
 .gmcp send <payload>  — queue a GMCP packet
 ```
-
-Lua: `Send_GMCP_Packet("module {…}")`. Triggers can watch modules with a
-pattern starting with `%` (default GMCP trigger character).
 
 ## Plugin commands (when loaded)
 
@@ -112,22 +121,13 @@ pattern starting with `%` (default GMCP trigger character).
 
 ## Session overflow menu
 
-Order at the bottom of the expandable menu:
+1. **Crash report** — Show log / Share log  
+2. **About/donate**  
+3. **Help** — This manual  
 
-1. **Crash report** — Show log / Share log (app error log under BlowTorchLogger)  
-2. **About/donate** — Version, description, donate placeholder  
-3. **Help** — This manual (nearly full-screen)
-
-Connection duration appears on the ongoing connection notification and on the
-launcher row (current uptime while connected, last duration after disconnect).
-Background keepalive uses Wi‑Fi lock + CPU wake lock; **Options → Service →
-Battery optimization…** (or a one-shot prompt when connected) can exempt the
-app from battery optimization so Android is less likely to kill the session.
-
-Trigger/timer **Notification** responders support bundled sounds (soft/mid/loud)
-plus picking an audio file from storage.
+Connection duration appears on the ongoing notification and launcher row.
 
 ## Related docs
 
-- `docs/options-guide.md` — Options groups (Service session log, GMCP, Miscellaneous storage, …)  
-- `docs/smoke-test-feedback.md` — tracker (including batch 10: duration / GMCP / keepalive / sounds)
+- [`options-guide.md`](options-guide.md) — Options / storage layout  
+- [`FDROID_README.md`](FDROID_README.md) — permissions for F-Droid  

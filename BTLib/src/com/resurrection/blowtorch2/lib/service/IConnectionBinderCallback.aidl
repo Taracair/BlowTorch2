@@ -24,8 +24,13 @@ interface IConnectionBinderCallback {
 	void inputBarSelectAll();
 	void inputBarCopy();
 	void inputBarPaste();
+	void inputBarCut();
 	void inputBarCursorToStart();
 	void inputBarCursorToEnd();
+	/** Move caret by one character: negative = back, positive = forward. */
+	void inputBarCursorStep(int delta);
+	/** Move caret by line: negative = up, positive = down. */
+	void inputBarCursorVertical(int delta);
 	/** Open in-game scrollback search; empty query opens the bar for typing. */
 	void openScrollbackSearch(String query);
 	/** nav: -1 prev, 1 next, 0 close */

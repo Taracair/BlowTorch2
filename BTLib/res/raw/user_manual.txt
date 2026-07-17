@@ -63,12 +63,22 @@ Built-in commands
 
 .keyboard …   (alias: .kb)
   Manipulate the input bar. With no arguments, prints usage help.
-  Options (first token): add, popup, flush, close, clear, selectall, copy,
-  paste, cursorstart, cursorend. add/popup may be combined with text.
+  Text: add, popup, flush, close, clear
+  Edit: sel | selectall, cut, copy, paste
+  Cursor: start | cursorstart, end | cursorend,
+          stepf | stepr (right one char), stepb | stepl (left),
+          stepu (up one line), stepd (down one line)
+  Also: Edit button opens Sel/Cut/Copy/Paste and a ← ↑ ↓ → pad.
   Examples:
     .kb popup reply
     .kb add foo
     .kb flush
+    .kb sel
+    .kb cut
+    .kb start
+    .kb end
+    .kb stepf
+    .kb stepb
     .kb clear
     .kb close
 
@@ -109,6 +119,23 @@ Built-in commands
 .search close | hide | clear
   Opens or drives scrollback search. Empty argument opens the search UI.
   Buttons may also use: /search 'phrase'
+
+On-screen buttons (button_window)
+---------------------------------
+Tap runs the primary command. Extra gestures (edit a button → Swipe / Accordion):
+
+  Swipe up / down / left / right
+    Each direction can run a different command (overrides classic Flip).
+    Drag ~finger-width off the button to fire that direction.
+
+  Hold
+    Optional hold-command after a short press-and-hold.
+
+  Accordion
+    Up to 5 child buttons expand from a parent (direction + tap/hold/swipe
+    trigger). Great for packing many macros into one tile. Badges in the
+    editor: T = tap, H = hold, S = swipe. Options can show gesture hint
+    arrows on-screen.
 
 Plugin commands (when loaded)
 -----------------------------
