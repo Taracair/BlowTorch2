@@ -1800,6 +1800,18 @@ public class StellarService extends Service {
 		broadcastInputBarAction(5);
 	}
 
+	public final void doInputBarCut() {
+		broadcastInputBarAction(6);
+	}
+
+	public final void doInputBarCursorStep(final int delta) {
+		broadcastInputBarActionWithArg(7, delta);
+	}
+
+	public final void doInputBarCursorVertical(final int delta) {
+		broadcastInputBarActionWithArg(8, delta);
+	}
+
 	public final void doScrollbackSearch(final String query) {
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
@@ -1826,6 +1838,10 @@ public class StellarService extends Service {
 	}
 	
 	private void broadcastInputBarAction(final int action) {
+		broadcastInputBarActionWithArg(action, 0);
+	}
+
+	private void broadcastInputBarActionWithArg(final int action, final int arg) {
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
@@ -1844,6 +1860,15 @@ public class StellarService extends Service {
 					break;
 				case 5:
 					mCallbacks.getBroadcastItem(i).inputBarCursorToEnd();
+					break;
+				case 6:
+					mCallbacks.getBroadcastItem(i).inputBarCut();
+					break;
+				case 7:
+					mCallbacks.getBroadcastItem(i).inputBarCursorStep(arg);
+					break;
+				case 8:
+					mCallbacks.getBroadcastItem(i).inputBarCursorVertical(arg);
 					break;
 				default:
 					break;
