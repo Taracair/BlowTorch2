@@ -41,6 +41,7 @@ public class BetterSpeedWalkConfigurationDialog extends StandardSelectionDialog 
 		this.addToolbarDeleteButton(R.drawable.toolbar_delete_button,1);
 		
 		this.setTitle("DIRECTIONS");
+		this.setSearchVisible(false);
 	}
 	
 	private void buildList() {

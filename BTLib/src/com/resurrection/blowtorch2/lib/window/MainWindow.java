@@ -428,9 +428,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) -> {
 			Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
 			Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-			// Keep game buttons fixed: only nav-bar padding on the root.
+			// Nav-bar padding only — do not pad for IME (that resizes Lua button_window and
+			// causes incorrect button reflow). Lift content with translation instead.
 			view.setPadding(0, 0, 0, bars.bottom);
-			// Lift input chrome above the IME without shifting Lua buttons.
 			int lift = Math.max(0, ime.bottom - bars.bottom);
 			applyImeChromeLift((RelativeLayout) view, lift);
 			statusBarHeight = bars.top;
@@ -1614,13 +1614,54 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void showGameplayOptionsMenu(final View anchor) {
 		Context themed = new ContextThemeWrapper(this, R.style.BlowTorch_Game_PopupMenu);
-		PopupMenu popup = new PopupMenu(themed, anchor, android.view.Gravity.END);
-		Menu menu = popup.getMenu();
+		final androidx.appcompat.view.menu.MenuBuilder menu =
+				new androidx.appcompat.view.menu.MenuBuilder(themed);
 		onCreateOptionsMenu(menu);
-		popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+
+		final ArrayList<MenuItem> visibleItems = new ArrayList<MenuItem>();
+		for (int i = 0; i < menu.size(); i++) {
+			MenuItem item = menu.getItem(i);
+			if (item.isVisible()) {
+				visibleItems.add(item);
+			}
+		}
+
+		CharSequence[] titles = new CharSequence[visibleItems.size()];
+		for (int i = 0; i < visibleItems.size(); i++) {
+			titles[i] = visibleItems.get(i).getTitle();
+		}
+
+		final float density = getResources().getDisplayMetrics().density;
+		final androidx.appcompat.widget.ListPopupWindow popup =
+				new androidx.appcompat.widget.ListPopupWindow(themed);
+		popup.setAnchorView(anchor);
+		popup.setModal(true);
+		popup.setAdapter(new ArrayAdapter<CharSequence>(
+				themed, android.R.layout.simple_list_item_1, titles));
+		popup.setPromptPosition(androidx.appcompat.widget.ListPopupWindow.POSITION_PROMPT_ABOVE);
+		popup.setDropDownGravity(Gravity.END);
+		popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
+				themed, R.drawable.dialog_window_crawler1));
+
+		int[] loc = new int[2];
+		anchor.getLocationInWindow(loc);
+		int margin = (int) (4 * density);
+		int height = Math.max(loc[1] - margin, (int) (160 * density));
+		popup.setHeight(height);
+		popup.setVerticalOffset(-height);
+		popup.setOverlapAnchor(true);
+		popup.setContentWidth(Math.min(
+				getResources().getDisplayMetrics().widthPixels,
+				(int) (280 * density)));
+
+		popup.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
 			@Override
-			public boolean onMenuItemClick(MenuItem item) {
-				return MainWindow.this.onOptionsItemSelected(item);
+			public void onItemClick(android.widget.AdapterView<?> parent, View view,
+					int position, long id) {
+				popup.dismiss();
+				if (position >= 0 && position < visibleItems.size()) {
+					MainWindow.this.onOptionsItemSelected(visibleItems.get(position));
+				}
 			}
 		});
 		popup.show();
@@ -3788,19 +3829,31 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return divider;
 	}
 
-	/** Translate input chrome (includes search bar) above the IME; leave game buttons unmoved. */
+	/**
+	 * Translate gameplay content above the IME while keeping adjustNothing / no IME padding.
+	 * Lifts input chrome and game text windows so output stays readable. Leaves
+	 * {@code button_window} untranslated so Lua button coordinates do not jump from a
+	 * layout resize (buttons under the IME stay covered until the keyboard closes).
+	 */
 	private void applyImeChromeLift(RelativeLayout rl, int liftPx) {
 		if (rl == null) {
 			return;
 		}
-		View inputbar = findGameplayInputBar(rl);
-		View divider = findGameplayDivider(rl);
 		float ty = -liftPx;
-		if (inputbar != null) {
-			inputbar.setTranslationY(ty);
+		for (int i = 0; i < rl.getChildCount(); i++) {
+			View child = rl.getChildAt(i);
+			if (child instanceof com.resurrection.blowtorch2.lib.window.Window
+					&& "button_window".equals(String.valueOf(child.getTag()))) {
+				// Keep Lua buttons fixed; prioritize text readability over button usability under IME.
+				child.setTranslationY(0f);
+				continue;
+			}
+			child.setTranslationY(ty);
 		}
-		if (divider != null) {
-			divider.setTranslationY(ty);
+		// FAB strip lives in a sibling overlay FrameLayout, not under window_container.
+		View fabStrip = findViewById(R.id.gameplay_fab_strip);
+		if (fabStrip != null) {
+			fabStrip.setTranslationY(ty);
 		}
 	}
 
@@ -3890,7 +3943,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			overflowMenu.setOnLongClickListener(new View.OnLongClickListener() {
 				@Override
 				public boolean onLongClick(View v) {
-					// Only the wrench enters button edit mode.
+					// Long-press overflow enters button edit mode.
 					windowCall("button_window", "doEdit", "");
 					return true;
 				}
@@ -3999,8 +4052,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/**
 	 * Button-layout editing uses overlay icons (settings/done/cancel) to the left
-	 * of the wrench. The ActionBar toolbar stays hidden so chrome never jumps to
-	 * the top of the screen.
+	 * of the overflow control. The ActionBar toolbar stays hidden so chrome never
+	 * jumps to the top of the screen.
 	 */
 	private void updateMenuChrome() {
 		final androidx.appcompat.widget.Toolbar toolbar =
