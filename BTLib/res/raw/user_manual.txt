@@ -1,0 +1,112 @@
+BlowTorch User Manual
+=====================
+
+Dot commands
+------------
+Lines that start with a single "." are handled by BlowTorch when "process period"
+is enabled (default). Type ".." alone to toggle that processing on or off.
+Prefix a server command with ".." to send a leading "." to the game without
+running a client command (e.g. "..look" sends ".look").
+
+Aliases that share a name with a command win when you type ".name newtext"
+(that updates the alias). Plugins may register additional commands via
+RegisterSpecialCommand; those appear only while the plugin is loaded.
+
+Built-in commands
+-----------------
+
+.colordebug <0|1|2|3>
+  Color debug mode for ANSI diagnostics.
+  0 = normal colors
+  1 = color on, show codes
+  2 = color off, show codes
+  3 = color off, hide codes
+
+.closewindow
+  Requests a dirty exit of the game window (closes the session UI without a
+  clean disconnect sequence).
+
+.timer <action> <name> [silent]
+  Control a named timer. Actions: play, pause, reset, stop, info.
+  Optional third token (any non-empty value) suppresses toast feedback
+  (except info). Example: .timer play mytimer
+  Example silent: .timer play mytimer silent
+
+.dobell
+  Triggers the configured bell reaction (same path as a received BEL).
+
+.togglefullscreen
+  Toggles the fullscreen preference.
+
+.keyboard …   (alias: .kb)
+  Manipulate the input bar. With no arguments, prints usage help.
+  Options (first token): add, popup, flush, close, clear, selectall, copy,
+  paste, cursorstart, cursorend. add/popup may be combined with text.
+  Examples:
+    .kb popup reply
+    .kb add foo
+    .kb flush
+    .kb clear
+    .kb close
+
+.disconnect
+  Shows a local "Disconnected." notice in the game window.
+  Prefer the overflow menu Disconnect for a real disconnect, or use
+  Reconnect/Disconnect there as needed.
+
+.reconnect
+  Shows a local "Reconnecting . . ." notice in the game window.
+  Prefer the overflow menu Reconnect to reconnect the session.
+
+.run <directions>
+  Speedwalk. Direction letters map through Speedwalk Directions settings.
+  Defaults: n e s w u d, h=nw, j=ne, k=sw, l=se. Prefix letters with a count.
+  Insert free-text commands between commas.
+  Examples:
+    .run 3desw2n
+    .run 3ds,open door,3w
+  With no argument, prints usage and the default mapping.
+
+.loadset <setname>
+  Built-in stub; when the button_window plugin is loaded it registers this
+  command and loads the named button set.
+
+.clearbuttons
+  Built-in clears all on-screen buttons. When button_window is loaded it
+  re-registers this command and clears via the button window.
+
+.switch <connection>
+  Switch the foreground UI to another open connection by display name.
+
+.search <phrase>
+.search 'phrase with spaces'
+.search "phrase"
+.search next | n
+.search prev | previous | p
+.search close | hide | clear
+  Opens or drives scrollback search. Empty argument opens the search UI.
+  Buttons may also use: /search 'phrase'
+
+Plugin commands (when loaded)
+-----------------------------
+
+button_window (default Free build):
+  .loadset <name>       Load button set
+  .clearbuttons         Clear buttons via button window
+
+forgemap (test / optional plugin):
+  .map                  Toggle map window
+  .fmhere [label]       Mark current position (default label "Here")
+  .fmwalk <dir>         Record a manual move in direction dir
+  .fmgo <tileId>        Pathfind and .run toward tileId
+  .fmnote <text>        Set note on current tile
+  .fmflag <flag>        Set a flag on current tile
+
+Menus (session overflow)
+------------------------
+Crash report — Show log / Share log (app error log)
+About/donate — Version, description, donate placeholder
+Help — This manual
+
+See also: docs/options-guide.md for Options groups (Service session log,
+Miscellaneous storage, etc.).

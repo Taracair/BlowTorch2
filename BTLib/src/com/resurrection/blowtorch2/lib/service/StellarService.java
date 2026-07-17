@@ -1206,6 +1206,18 @@ public class StellarService extends Service {
 				info += p.getStorageType();
 				list.put(p.getName(), info);
 			}
+
+			// Surface dangling settings links (e.g. missing alarm plugin) so they can be deleted.
+			HashMap<String, String> failed = c.getFailedLinks();
+			if (failed != null) {
+				for (Map.Entry<String, String> entry : failed.entrySet()) {
+					String link = entry.getKey();
+					if (list.containsKey(link)) {
+						continue;
+					}
+					list.put(link, "MISSING: " + entry.getValue());
+				}
+			}
 			
 			return list;
 		}

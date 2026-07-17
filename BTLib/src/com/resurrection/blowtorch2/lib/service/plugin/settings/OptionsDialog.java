@@ -155,9 +155,13 @@ public class OptionsDialog extends Dialog {
 		try {
 			HashMap<String,String> map = (HashMap<String, String>) service.getPluginList();
 			for(String plugin : map.keySet()) {
+				String info = map.get(plugin);
+				if (info != null && info.startsWith("MISSING")) {
+					continue;
+				}
 				int pos = mCurrent.getOptions().size();
 				SettingsGroup settings = service.getPluginSettings(plugin);
-				if(settings.getOptions().size() > 0) {
+				if(settings != null && settings.getOptions().size() > 0) {
 					pluginSettingsMap.put(pos, plugin);
 					mCurrent.addOption(settings);
 				}

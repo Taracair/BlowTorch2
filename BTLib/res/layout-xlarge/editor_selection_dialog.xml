@@ -58,10 +58,20 @@
 		android:text="Done"/>
 
 	<Button
+		android:id="@+id/refresh"
+		android:layout_alignParentBottom="true"
+		android:layout_toLeftOf="@id/done"
+		android:layout_height="wrap_content"
+		android:minHeight="48dip"
+		android:layout_width="120dip"
+		android:visibility="gone"
+		android:text="Refresh"/>
+
+	<Button
 		android:id="@+id/add"
 		android:layout_alignParentBottom="true"
 		android:layout_alignParentLeft="true"
-		android:layout_toLeftOf="@id/done"
+		android:layout_toLeftOf="@id/refresh"
 		android:layout_height="wrap_content"
 		android:minHeight="48dip"
 		android:layout_width="match_parent"

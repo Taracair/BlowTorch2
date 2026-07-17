@@ -32,6 +32,7 @@ import org.keplerproject.luajava.LuaState;
 import org.xml.sax.SAXException;
 import org.xmlpull.v1.XmlSerializer;
 
+import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
@@ -82,6 +83,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.text.TextUtils;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -375,6 +377,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Mapping of link paths to plugin names. */
 	private HashMap<String, ArrayList<String>> mLinkMap = new HashMap<String, ArrayList<String>>();
+
+	/**
+	 * Links referenced in settings that failed to load (missing file, parse error, empty).
+	 * Key is the relative link path stored in settings; value is a short failure reason.
+	 */
+	private HashMap<String, String> mFailedLinks = new HashMap<String, String>();
 	
 	/** Mapping of plugin names to plugin objects. */
 	private HashMap<String, Plugin> mPluginMap = new HashMap<String, Plugin>(0);
@@ -967,6 +975,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		
 		mPluginMap.clear();
 		mLinkMap.clear();
+		mFailedLinks.clear();
 		
 		mPlugins.addAll(tmpPlugs);
 		
@@ -1004,12 +1013,23 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
 			for (String link : mSettings.getLinks()) {
 				buffer.addString(Colorizer.getWhiteColor() + "Loading plugin file: " + link);
-				String filename = Environment.getExternalStorageDirectory() + "/BlowTorch/" + link;
+				File pluginFile = resolveExternalPluginFile(link);
+				String filename = pluginFile.getAbsolutePath();
 				ArrayList<Plugin> tmplist = new ArrayList<Plugin>();
 				PluginParser parse = new PluginParser(filename, link, mService.getApplicationContext(), tmplist, mHandler, this);
 				
 				try {
+					if (!pluginFile.exists()) {
+						throw new FileNotFoundException(filename);
+					}
 					ArrayList<Plugin> group = parse.load();
+					if (group == null || group.isEmpty()) {
+						String reason = "no plugins in file";
+						mFailedLinks.put(link, reason);
+						buffer.addString(Colorizer.getRedColor() + " " + reason + "."
+								+ Colorizer.getWhiteColor() + "\n");
+						continue;
+					}
 					for (Plugin p : group) {
 						mPluginMap.put(p.getName(), p);
 						if (mLinkMap.get(link) == null) {
@@ -1036,13 +1056,25 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					
 					buffer.addString(Colorizer.getWhiteColor() + ", success." + Colorizer.getWhiteColor() + "\n");
 				} catch (FileNotFoundException e) {
+					mFailedLinks.put(link, "file not found");
 					buffer.addString(Colorizer.getRedColor() + " file not found." + Colorizer.getWhiteColor() + "\n");
 					e.printStackTrace();
 				} catch (IOException e) {
+					mFailedLinks.put(link, "read error");
+					buffer.addString(Colorizer.getRedColor() + " read error." + Colorizer.getWhiteColor() + "\n");
 					e.printStackTrace();
 				} catch (SAXException e) {
-					buffer.addString(Colorizer.getRedColor() + " XML Parse error.\n" + e.getLocalizedMessage() + Colorizer.getWhiteColor() + "\n");
+					String detail = e.getLocalizedMessage();
+					if (detail == null || detail.length() == 0) {
+						detail = "XML parse error";
+					}
+					mFailedLinks.put(link, detail);
+					buffer.addString(Colorizer.getRedColor() + " XML Parse error.\n" + detail + Colorizer.getWhiteColor() + "\n");
 				}
+			}
+		} else {
+			for (String link : mSettings.getLinks()) {
+				mFailedLinks.put(link, "storage not mounted");
 			}
 		}
 	
@@ -3366,39 +3398,36 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Export settings routine. Called from either the main settings save routine or the export settings dialog.
 	 * 
-	 * @param path File name to save to. Must be absolute from the OS root directory.
+	 * @param path Absolute filesystem path, or a bare file name (resolved under the default settings directory).
 	 */
 	public final void exportSettings(final String path) {
 		boolean domessage = false;
 		boolean addextra = false;
-		String filename = path;
-		int state = ContextCompat.checkSelfPermission(mService.getApplicationContext(),Manifest.permission.WRITE_EXTERNAL_STORAGE);
-		boolean external = (state == PackageManager.PERMISSION_GRANTED) ? true : false;
-		File cachedir = this.getContext().getCacheDir();
-		String btdir = "/BlowTorch";
+		String filename = path == null ? "" : path.trim();
+		Context appCtx = mService.getApplicationContext();
+		int state = ContextCompat.checkSelfPermission(appCtx, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+		boolean external = (state == PackageManager.PERMISSION_GRANTED);
+		File cachedir = SDCardUtils.resolveCacheDir(appCtx);
+		String btdir = SDCardUtils.resolveAppExternalDir(appCtx).getAbsolutePath();
+
 		if (!filename.startsWith("/")) {
-			//mod
-			domessage = true;
-			File ext = Environment.getExternalStorageDirectory();
-			String dir = ConfigurationLoader.getConfigurationValue("exportDirectory", mService.getApplicationContext());
-			if(external) {
-				btdir = ext.getAbsolutePath() + "/" + dir + "/";
-				filename = ext.getAbsolutePath() + "/" + dir + "/" + filename;
-			} else {
-				btdir = mService.getApplicationContext().getExternalFilesDir(null).getAbsolutePath();
-				filename = mService.getApplicationContext().getExternalFilesDir(null).getAbsolutePath() + "/" + filename;
+			if (TextUtils.isEmpty(filename)) {
+				mService.dispatchToast("Export failed: enter a file name.", true);
+				return;
 			}
+			domessage = true;
+			String customDir = readDefaultSettingsDirectoryOption();
+			File destDir = SDCardUtils.resolveDefaultSettingsDirectory(appCtx, external, customDir);
+			if (!destDir.exists()) {
+				//noinspection ResultOfMethodCallIgnored
+				destDir.mkdirs();
+			}
+			btdir = destDir.getAbsolutePath();
+			filename = new File(destDir, filename).getAbsolutePath();
 			mXMLExtensionMatcher.reset(filename);
 			if (!mXMLExtensionMatcher.matches()) {
 				filename = filename + ".xml";
 				addextra = true;
-			}
-			
-			if(Build.VERSION.SDK_INT > Build.VERSION_CODES.ECLAIR_MR1) {
-				cachedir = this.getContext().getExternalCacheDir();
-			} else {
-				String packagename = this.getContext().getPackageName();
-				cachedir = new File(Environment.getExternalStorageDirectory(),"/Android/data/"+packagename+"/cache/");
 			}
 		}
 		
@@ -3407,11 +3436,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		File file = new File(filename);
 		FileOutputStream fos = null;
 		File tmpfile = null;
-		String filesDirPath = mService.getApplicationContext().getFilesDir().getAbsolutePath();
+		String filesDirPath = appCtx.getFilesDir().getAbsolutePath();
 		boolean internalSettingsFile = false;
 		String internalFileName = null;
 		try {
-			File filesDir = mService.getApplicationContext().getFilesDir().getCanonicalFile();
+			File filesDir = appCtx.getFilesDir().getCanonicalFile();
 			File target = new File(filename).getCanonicalFile();
 			if (filesDir.equals(target.getParentFile())) {
 				internalSettingsFile = true;
@@ -3424,43 +3453,49 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		try {
-		String foo = ConnectionSetttingsParser.outputXML(mSettings, mPlugins);
-		byte[] xmlBytes = foo.getBytes("UTF-8");
-		if (internalSettingsFile) {
-			fos = mService.getApplicationContext().openFileOutput(internalFileName, Context.MODE_PRIVATE);
-			fos.write(xmlBytes);
-			fos.close();
-			fos = null;
-		} else {
-			tmpfile = File.createTempFile("settings", "xml", cachedir);
-			fos = new FileOutputStream(tmpfile);
-			fos.write(xmlBytes);
-			fos.close();
-			fos = null;
-		}
+			String foo = ConnectionSetttingsParser.outputXML(mSettings, mPlugins);
+			byte[] xmlBytes = foo.getBytes("UTF-8");
+			if (internalSettingsFile) {
+				fos = appCtx.openFileOutput(internalFileName, Context.MODE_PRIVATE);
+				fos.write(xmlBytes);
+				fos.close();
+				fos = null;
+			} else {
+				if (cachedir != null && !cachedir.exists()) {
+					//noinspection ResultOfMethodCallIgnored
+					cachedir.mkdirs();
+				}
+				tmpfile = File.createTempFile("settings", "xml", cachedir);
+				fos = new FileOutputStream(tmpfile);
+				fos.write(xmlBytes);
+				fos.close();
+				fos = null;
+			}
 		} catch (Exception e) {
-			//dispatch error.
-			//do not copy files
 			try {
 				mService.dispatchSaveError(e.getLocalizedMessage());
 			} catch (RemoteException e1) {
-				// TODO Auto-generated catch block
 				e1.printStackTrace();
 			}
 			passed = false;
 		} finally {
-			if(passed && !internalSettingsFile) {
+			if (fos != null) {
 				try {
 					fos.close();
 				} catch (IOException e) {
-					//we are in real trouble here.
+					// ignore
 				}
-				//need to make sure the directory is created.
+				fos = null;
+			}
+			if (passed && !internalSettingsFile && tmpfile != null) {
 				File makeme = new File(btdir);
 				makeme.mkdirs();
-				file.getParentFile().mkdirs();
+				File parent = file.getParentFile();
+				if (parent != null) {
+					parent.mkdirs();
+				}
 				boolean success = tmpfile.renameTo(file);
-				if(success) {
+				if (success) {
 					Log.e("BT","file shadow copy success");
 				} else {
 					Log.e("BT","renameTo failed, falling back to stream copy");
@@ -3478,19 +3513,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						Log.e("BT","stream copy success");
 					} catch (IOException copyEx) {
 						Log.e("BT","stream copy failed: " + copyEx.getMessage());
+						passed = false;
+						try {
+							mService.dispatchSaveError(copyEx.getLocalizedMessage());
+						} catch (RemoteException e1) {
+							e1.printStackTrace();
+						}
 					} finally {
 						if (copyIn != null) try { copyIn.close(); } catch (IOException ignored) {}
 						if (copyOut != null) try { copyOut.close(); } catch (IOException ignored) {}
 					}
 					tmpfile.delete();
-				}
-			} else {
-				if(fos != null) {
-					try {
-						fos.close();
-					} catch (IOException e) {
-						//real trouble.
-					}
 				}
 			}
 		}
@@ -3515,13 +3548,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				File extfile = null;
 				FileOutputStream extfilestream = null;
 				passed = true;
-				File extcachedir = null;
-				if(Build.VERSION.SDK_INT > Build.VERSION_CODES.ECLAIR_MR1) {
-					extcachedir = this.getContext().getExternalCacheDir();
-				} else {
-					String packagename = this.getContext().getPackageName();
-					extcachedir = new File(Environment.getExternalStorageDirectory(),"/Android/data/"+packagename+"/cache/");
-				}
+				File extcachedir = SDCardUtils.resolveCacheDir(mService.getApplicationContext());
 				//File cachedir = this.getContext().getCacheDir();
 				//FileOutputStream fos = null;
 				File tmppluginfile = null;
@@ -3654,7 +3681,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					File f = new File(mService.getApplicationContext().getFilesDir(),path);
 					String file = f.getName();
 					//File p = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/BlowTorch/recovered/");
-					File p = new File(mService.getExternalFilesDir(null),"/recovered/");
+					File p = new File(SDCardUtils.resolveAppExternalDir(mService), "recovered");
 					if(!p.exists()) {
 						p.mkdirs();
 					}
@@ -4196,15 +4223,23 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Work horse routine for removing a plugin. 
 	 * 
-	 * @param plugin The name of the plugin to remove.
+	 * @param plugin The name of the plugin to remove, or a relative link path for a failed/orphan link.
 	 */
 	private void doDeletePlugin(final String plugin) {
 		Plugin p = mPluginMap.remove(plugin);
+
+		// Orphan / failed link: settings still reference the file but nothing loaded into mPluginMap.
+		if (p == null) {
+			if (removeLinkReference(plugin)) {
+				saveMainSettings();
+			}
+			return;
+		}
 		
 		String remove = null;
 		if (p.getStorageType().equals("EXTERNAL")) {
 			for (String path : mSettings.getLinks()) {
-				if (p.getFullPath().contains(path)) {
+				if (p.getFullPath() != null && p.getFullPath().contains(path)) {
 					remove = path;
 				}
 			}
@@ -4212,11 +4247,71 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (remove != null) { 
 			mSettings.getLinks().remove(remove);
 			mLinkMap.remove(remove);
+			mFailedLinks.remove(remove);
 		}
 		
 		mPlugins.remove(p);
 		saveMainSettings();
 		reloadSettings();
+	}
+
+	/** Remove a settings link by exact path or by matching a loaded-plugin name / basename. */
+	private boolean removeLinkReference(final String key) {
+		if (key == null) {
+			return false;
+		}
+		if (mSettings.getLinks().remove(key)) {
+			mLinkMap.remove(key);
+			mFailedLinks.remove(key);
+			return true;
+		}
+		// Match failed-link display keys and short names against relative paths.
+		String remove = null;
+		for (String path : mSettings.getLinks()) {
+			if (path.equals(key) || path.endsWith("/" + key) || path.endsWith("/" + key + ".xml")) {
+				remove = path;
+				break;
+			}
+			String base = path;
+			int slash = base.lastIndexOf('/');
+			if (slash >= 0) {
+				base = base.substring(slash + 1);
+			}
+			if (base.equalsIgnoreCase(key) || base.equalsIgnoreCase(key + ".xml")) {
+				remove = path;
+				break;
+			}
+		}
+		if (remove != null) {
+			mSettings.getLinks().remove(remove);
+			mLinkMap.remove(remove);
+			mFailedLinks.remove(remove);
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Resolve an external plugin link against classic /BlowTorch and app external-files roots.
+	 * Prefer an existing file when multiple candidates exist.
+	 */
+	private File resolveExternalPluginFile(final String link) {
+		File classic = new File(Environment.getExternalStorageDirectory(), "BlowTorch/" + link);
+		if (classic.exists()) {
+			return classic;
+		}
+		File appRoot = mService.getApplicationContext().getExternalFilesDir(null);
+		if (appRoot != null) {
+			File appFile = new File(appRoot, link);
+			if (appFile.exists()) {
+				return appFile;
+			}
+			File appBlowTorch = new File(appRoot, "BlowTorch/" + link);
+			if (appBlowTorch.exists()) {
+				return appBlowTorch;
+			}
+		}
+		return classic;
 	}
 	
 	/** Entry poit routine for removing a plugin.
@@ -4280,6 +4375,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public final boolean isLinkLoaded(final String link) {
 		String foo = Environment.getExternalStorageDirectory() + "/BlowTorch/";
 		String bar = link.replace(foo, "");
+		File appDir = mService.getApplicationContext().getExternalFilesDir(null);
+		if (appDir != null) {
+			String appRoot = appDir.getAbsolutePath();
+			if (!appRoot.endsWith("/")) {
+				appRoot = appRoot + "/";
+			}
+			if (bar.startsWith(appRoot)) {
+				bar = bar.substring(appRoot.length());
+			}
+			String appBt = appRoot + "BlowTorch/";
+			if (bar.startsWith(appBt)) {
+				bar = bar.substring(appBt.length());
+			}
+		}
 		
 		boolean ret = mLinkMap.containsKey(bar);
 		return ret;
@@ -4556,6 +4665,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public final ArrayList<Plugin> getPlugins() {
 		return mPlugins;
 	}
+
+	/**
+	 * Links that remain in settings but failed to load into {@link #mPlugins}.
+	 * Key is the relative link path; value is a short failure reason.
+	 */
+	public final HashMap<String, String> getFailedLinks() {
+		return mFailedLinks;
+	}
 	
 	/** Getter for mPump.
 	 * 
@@ -4603,6 +4720,24 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final StellarService getService() {
 		return mService;
+	}
+
+
+	private String readDefaultSettingsDirectoryOption() {
+		try {
+			if (mSettings == null) {
+				return "";
+			}
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("default_settings_directory");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption) opt).getValue();
+				if (val instanceof String) {
+					return ((String) val).trim();
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return "";
 	}
 
 	public String getPluginOptionValue(String plugin, String key) {

@@ -523,14 +523,15 @@ public class PluginSelectorDialog extends Dialog {
 		@Override
 		public void onClick(View v) {
 			try {
-				//get the substring path.
-				String extDir = Environment.getExternalStorageDirectory().getAbsolutePath() + "/BlowTorch/";
-				
-				String subpath = path.substring(extDir.length(), path.length());
-				
+				String subpath = toBlowTorchRelativePath(path);
+				if (subpath == null) {
+					Toast.makeText(PluginSelectorDialog.this.getContext(),
+							"Plugin must be under BlowTorch storage to install.",
+							Toast.LENGTH_LONG).show();
+					return;
+				}
 				service.addLink(subpath);
 			} catch (RemoteException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			
@@ -538,6 +539,39 @@ public class PluginSelectorDialog extends Dialog {
 			dismissTimer.sendEmptyMessageDelayed(100, 1500);
 		}
 		
+	}
+
+	/**
+	 * Convert an absolute plugin path to the relative form stored in settings links
+	 * ({@code plugins/...}), accepting classic /BlowTorch or app external-files roots.
+	 */
+	private String toBlowTorchRelativePath(String absolutePath) {
+		if (absolutePath == null) {
+			return null;
+		}
+		String classic = Environment.getExternalStorageDirectory().getAbsolutePath() + "/BlowTorch/";
+		if (absolutePath.startsWith(classic)) {
+			return absolutePath.substring(classic.length());
+		}
+		File appDir = getContext().getExternalFilesDir(null);
+		if (appDir != null) {
+			String appRoot = appDir.getAbsolutePath();
+			if (!appRoot.endsWith("/")) {
+				appRoot = appRoot + "/";
+			}
+			if (absolutePath.startsWith(appRoot)) {
+				String rel = absolutePath.substring(appRoot.length());
+				if (rel.startsWith("BlowTorch/")) {
+					rel = rel.substring("BlowTorch/".length());
+				}
+				return rel;
+			}
+		}
+		// Already relative?
+		if (!absolutePath.startsWith("/") && absolutePath.contains("plugins/")) {
+			return absolutePath;
+		}
+		return null;
 	}
 	
 	private Handler dismissTimer = new Handler() {
