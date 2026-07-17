@@ -53,6 +53,7 @@ Built-in commands
     .gmcp sniff [on|off]  log handshake/packets to app error log
                           (files/logs/blowtorch2.log; also session log if on.
                           prints absolute path when enabled; Crash report → Show log)
+    .gmcp sniff tail [N]  show last N GMCP lines from that log in-game (0-100, default 40)
     .gmcp version         client hello / syntax notes
     .gmcp supports […]   show or set supports modules
     .gmcp dump [path]     dump cached GMCP table

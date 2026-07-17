@@ -155,7 +155,7 @@ public class NewConnectionDialog extends Dialog {
 		TextView hint = new TextView(ctx);
 		hint.setText(R.string.launcher_extra_accounts_hint);
 		hint.setTextSize(12f);
-		hint.setTextColor(0xFF444444);
+		hint.setTextColor(0xFFB0B0B0);
 		hint.setPadding(0, 0, 0, pad / 2);
 		list.addView(hint);
 
@@ -163,16 +163,41 @@ public class NewConnectionDialog extends Dialog {
 			final int index = i;
 			ServerAccount account = mExtraAccounts.get(i);
 			LinearLayout row = new LinearLayout(ctx);
-			row.setOrientation(LinearLayout.HORIZONTAL);
-			row.setPadding(pad, pad / 2, pad, pad / 2);
-			row.setBackgroundColor(0x22FFFFFF);
+			row.setOrientation(LinearLayout.VERTICAL);
+			row.setPadding(pad, pad, pad, pad);
+			row.setBackgroundColor(0x33FFFFFF);
+
+			TextView title = new TextView(ctx);
+			title.setTextSize(14f);
+			title.setTextColor(0xFFFFFFFF);
+			String label = account.getLabel();
+			if (label == null || label.length() == 0) {
+				label = "(no label)";
+			}
+			title.setText("Slot " + (index + 1) + ": " + label);
+			row.addView(title);
 
 			TextView preview = new TextView(ctx);
-			preview.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-			preview.setTextSize(13f);
-			preview.setTextColor(0xFF222222);
+			preview.setTextSize(12f);
+			preview.setTextColor(0xFFE0E0E0);
+			preview.setPadding(0, pad / 4, 0, 0);
 			preview.setText(formatExtraAccountPreview(account));
 			row.addView(preview);
+
+			LinearLayout actions = new LinearLayout(ctx);
+			actions.setOrientation(LinearLayout.HORIZONTAL);
+			actions.setPadding(0, pad / 2, 0, 0);
+
+			Button edit = new Button(ctx);
+			edit.setText("Edit");
+			edit.setTextSize(12f);
+			edit.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					promptEditExtraAccount(index);
+				}
+			});
+			actions.addView(edit);
 
 			Button delete = new Button(ctx);
 			delete.setText("Delete");
@@ -186,15 +211,10 @@ public class NewConnectionDialog extends Dialog {
 					}
 				}
 			});
-			row.addView(delete);
+			actions.addView(delete);
+			row.addView(actions);
 
 			row.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					promptEditExtraAccount(index);
-				}
-			});
-			preview.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
 					promptEditExtraAccount(index);
@@ -210,21 +230,17 @@ public class NewConnectionDialog extends Dialog {
 	}
 
 	private String formatExtraAccountPreview(ServerAccount account) {
-		String label = account.getLabel();
-		if (label.length() == 0) {
-			label = "(no label)";
-		}
 		String login = account.getLogin();
-		if (login.length() == 0) {
+		if (login == null || login.length() == 0) {
 			login = "—";
 		}
 		String mail = account.getMail();
-		if (mail.length() == 0) {
+		if (mail == null || mail.length() == 0) {
 			mail = "—";
 		}
 		String pass = account.getPassword();
-		String masked = pass.length() == 0 ? "—" : maskPassword(pass);
-		return getContext().getString(R.string.launcher_extra_account_row, label, login, mail, masked);
+		String masked = (pass == null || pass.length() == 0) ? "—" : maskPassword(pass);
+		return "login " + login + " · mail " + mail + " · pass " + masked;
 	}
 
 	private static String maskPassword(String password) {

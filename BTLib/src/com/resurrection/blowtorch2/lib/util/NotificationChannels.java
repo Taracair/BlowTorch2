@@ -8,7 +8,6 @@ import android.annotation.TargetApi;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
-import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
 
@@ -87,35 +86,56 @@ public final class NotificationChannels {
 	}
 
 	/**
-	 * Ensure the default alert channel (and session channel) exist, and when
-	 * {@code soundUri} is non-null also ensure a dedicated channel that plays
-	 * that URI. Returns the channel id the notification should use.
+	 * Silent alert channel for custom sounds played via {@link NotificationSounds#play}.
+	 * Channel sound on O+ is often replaced by the system default for non-file URIs.
 	 */
 	@TargetApi(26)
-	public static String ensureAlertChannel(Context context, Uri soundUri) {
+	public static String ensureSilentCustomAlertChannel(Context context) {
 		ensureChannels(context);
-		if (soundUri == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
 			return alertChannelId(context);
 		}
 		NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
 		if (nm == null) {
 			return alertChannelId(context);
 		}
-		String id = customAlertChannelId(context, soundUri);
-		if (nm.getNotificationChannel(id) == null) {
+		String id = alertChannelId(context) + "_custom_silent";
+		NotificationChannel existing = nm.getNotificationChannel(id);
+		if (existing == null) {
 			String brand = baseLabel(context);
 			NotificationChannel custom = new NotificationChannel(
 					id,
 					brand + " — custom alert",
 					NotificationManager.IMPORTANCE_DEFAULT);
 			custom.setShowBadge(true);
-			AudioAttributes attrs = new AudioAttributes.Builder()
-					.setUsage(AudioAttributes.USAGE_NOTIFICATION)
-					.setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-					.build();
-			custom.setSound(soundUri, attrs);
+			custom.setSound(null, null);
+			nm.createNotificationChannel(custom);
+		} else if (existing.getSound() != null) {
+			// Force silent if an older build created this channel with a sound.
+			nm.deleteNotificationChannel(id);
+			String brand = baseLabel(context);
+			NotificationChannel custom = new NotificationChannel(
+					id,
+					brand + " — custom alert",
+					NotificationManager.IMPORTANCE_DEFAULT);
+			custom.setShowBadge(true);
+			custom.setSound(null, null);
 			nm.createNotificationChannel(custom);
 		}
 		return id;
+	}
+
+	/**
+	 * Ensure the default alert channel (and session channel) exist, and when
+	 * {@code soundUri} is non-null return the silent custom channel (caller must
+	 * play the sound). Returns the channel id the notification should use.
+	 */
+	@TargetApi(26)
+	public static String ensureAlertChannel(Context context, Uri soundUri) {
+		ensureChannels(context);
+		if (soundUri != null) {
+			return ensureSilentCustomAlertChannel(context);
+		}
+		return alertChannelId(context);
 	}
 }

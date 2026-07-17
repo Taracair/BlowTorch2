@@ -67,8 +67,11 @@ public final class NotificationSounds {
 		if (key != null) {
 			for (SoundPreset p : BUNDLED) {
 				if (p.key.equals(key)) {
-					return Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE
-							+ "://" + context.getPackageName() + "/" + p.rawResId);
+					return new Uri.Builder()
+							.scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+							.authority(context.getPackageName())
+							.appendPath(String.valueOf(p.rawResId))
+							.build();
 				}
 			}
 			return null;
@@ -78,6 +81,52 @@ public final class NotificationSounds {
 			return Uri.parse(soundPath);
 		}
 		return Uri.parse("file://" + soundPath);
+	}
+
+	/**
+	 * Play a notification sound immediately. Used because Android O+ channel sounds
+	 * are unreliable for custom/bundled URIs (OEM often substitutes the system sound).
+	 */
+	public static void play(Context context, Uri uri) {
+		if (context == null || uri == null) {
+			return;
+		}
+		try {
+			android.media.Ringtone ringtone = android.media.RingtoneManager.getRingtone(
+					context.getApplicationContext(), uri);
+			if (ringtone != null) {
+				if (android.os.Build.VERSION.SDK_INT >= 28) {
+					ringtone.setLooping(false);
+				}
+				ringtone.play();
+				return;
+			}
+		} catch (Exception ignored) {
+		}
+		android.media.MediaPlayer player = null;
+		try {
+			player = new android.media.MediaPlayer();
+			player.setDataSource(context, uri);
+			player.setAudioStreamType(android.media.AudioManager.STREAM_NOTIFICATION);
+			player.setOnCompletionListener(new android.media.MediaPlayer.OnCompletionListener() {
+				@Override
+				public void onCompletion(android.media.MediaPlayer mp) {
+					try {
+						mp.release();
+					} catch (Exception ignored) {
+					}
+				}
+			});
+			player.prepare();
+			player.start();
+		} catch (Exception e) {
+			if (player != null) {
+				try {
+					player.release();
+				} catch (Exception ignored) {
+				}
+			}
+		}
 	}
 
 	public static final class SoundPreset {
