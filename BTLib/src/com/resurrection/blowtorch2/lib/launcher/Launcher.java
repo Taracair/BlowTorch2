@@ -969,28 +969,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 	
 	private File resolveLauncherListDirectory(boolean external) {
-		File root = SDCardUtils.resolveDefaultSettingsDirectory(
-				this, external, null);
-		File launcherDir = new File(root, "launcher");
-		if (SDCardUtils.ensureWritableDirectory(launcherDir)) {
-			return launcherDir;
-		}
-		// Shared /BlowTorch is often unwritable on scoped storage — use app external files.
-		File fallback = new File(SDCardUtils.resolveAppExternalDir(this), "launcher");
-		SDCardUtils.ensureWritableDirectory(fallback);
-		return fallback;
+		return SDCardUtils.resolveBlowTorchSubdir(this, SDCardUtils.SUBDIR_LAUNCHER);
 	}
 
 	private File resolveBackupDirectory(boolean external) {
-		File root = SDCardUtils.resolveDefaultSettingsDirectory(
-				this, external, null);
-		File backupDir = new File(root, "backups");
-		if (SDCardUtils.ensureWritableDirectory(backupDir)) {
-			return backupDir;
-		}
-		File fallback = new File(SDCardUtils.resolveAppExternalDir(this), "backups");
-		SDCardUtils.ensureWritableDirectory(fallback);
-		return fallback;
+		return SDCardUtils.resolveBlowTorchSubdir(this, SDCardUtils.SUBDIR_BACKUPS);
 	}
 
 	private void DoImportMenu(boolean external) {
@@ -2102,7 +2085,17 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 
 	private void showPermissionsMessage(boolean granted) {
-		int message = (granted == true) ? R.string.sd_perm_granted : R.string.sd_perm_denies;
+		File rootDir = SDCardUtils.resolveBlowTorchRoot(this);
+		String dir = rootDir.getAbsolutePath();
+		String message = granted
+				? String.format(getString(R.string.sd_perm_granted), dir)
+				: String.format(getString(R.string.sd_perm_denies), dir);
+		if (SDCardUtils.needsAllFilesAccessPrompt()) {
+			message = "Grant All files access for /BlowTorch/ (settings, backups, logs). Opening system settings…";
+			SDCardUtils.openAllFilesAccessSettings(this);
+		} else if (granted) {
+			SDCardUtils.resolveBlowTorchRoot(this);
+		}
 		Snackbar bar = Snackbar.make(findViewById(R.id.launcher_window_content), message,
 				Snackbar.LENGTH_INDEFINITE)
 				.setAction(android.R.string.ok,new View.OnClickListener() {

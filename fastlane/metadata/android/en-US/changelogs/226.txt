@@ -1,0 +1,1 @@
+Default shared storage is /BlowTorch/ with settings, backups, launcher, session_logs, and logs. Session logging writes .txt under session_logs (requires All files access via Manage Storage Access). Options for session log and default dirs now persist in settings XML.

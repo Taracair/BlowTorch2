@@ -4604,6 +4604,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** Options → Miscellaneous → Manage Storage Access. */
 	public void requestStorageAccessFromOptions() {
+		if (SDCardUtils.needsAllFilesAccessPrompt()) {
+			SDCardUtils.openAllFilesAccessSettings(this);
+			Toast.makeText(this,
+					"Grant \"All files access\" for BlowTorch, then tap Manage Storage Access again to create /BlowTorch/.",
+					Toast.LENGTH_LONG).show();
+			return;
+		}
 		View root = findViewById(R.id.window_container);
 		if (root == null) {
 			root = mRootView;
@@ -4617,11 +4624,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void showPermissionsMessage(boolean granted) {
-		String dir = SDCardUtils.getSDCardRoot(this,granted);
-		String message = (granted == true)
-				? String.format(getString(R.string.sd_perm_granted), dir)
-				: String.format(getString(R.string.sd_perm_denies), dir);
-		// Toast stays above Options/dialogs; Snackbar on mRootView sits under the Options panel.
+		File rootDir = SDCardUtils.resolveBlowTorchRoot(this);
+		boolean shared = SDCardUtils.isUsingSharedBlowTorchRoot(this);
+		String message;
+		if (granted && shared) {
+			message = "Storage ready:\n" + rootDir.getAbsolutePath()
+					+ "\n(settings, backups, launcher, session_logs, logs)";
+		} else if (granted) {
+			message = "All-files not granted — using app folder:\n" + rootDir.getAbsolutePath()
+					+ "\nTap Manage Storage Access and allow All files access for /BlowTorch/.";
+		} else {
+			message = String.format(getString(R.string.sd_perm_denies), rootDir.getAbsolutePath());
+		}
 		Toast.makeText(this, message, Toast.LENGTH_LONG).show();
 	}
 

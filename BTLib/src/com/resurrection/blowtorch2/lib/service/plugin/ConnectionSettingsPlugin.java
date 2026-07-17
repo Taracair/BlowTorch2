@@ -129,14 +129,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption session_log = new BooleanOption();
 		session_log.setTitle("Log Session to File?");
-		session_log.setDescription("Append incoming game text to a .txt file (incremental). Useful with a smaller on-screen buffer.");
+		session_log.setDescription("Append incoming game text to a .txt under /BlowTorch/session_logs/ (or a custom folder). Requires All files access — use Manage Storage Access once.");
 		session_log.setKey("session_log");
 		session_log.setValue(false);
 		servOptions.addOption(session_log);
 
 		StringOption session_log_directory = new StringOption();
 		session_log_directory.setTitle("Session Log Directory");
-		session_log_directory.setDescription("Folder for incremental game logs. Leave blank to use the app private session_logs folder. Use Browse… to pick a folder (SAF), or enter an absolute path.");
+		session_log_directory.setDescription("Leave blank for /BlowTorch/session_logs/. Browse… for SAF, or enter an absolute path.");
 		session_log_directory.setKey("session_log_directory");
 		session_log_directory.setValue("");
 		servOptions.addOption(session_log_directory);
@@ -257,14 +257,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		StringOption default_settings_directory = new StringOption();
 		default_settings_directory.setTitle("Default Settings Directory");
-		default_settings_directory.setDescription("Default folder for Import/Export Settings (session). Leave blank to use the app BlowTorch export folder on shared storage when permitted, otherwise app external files. Use Browse… to pick a folder (SAF), or enter an absolute path.");
+		default_settings_directory.setDescription("Default folder for Import/Export Settings. Leave blank for /BlowTorch/settings/. Browse… for SAF, or enter an absolute path.");
 		default_settings_directory.setKey("default_settings_directory");
 		default_settings_directory.setValue("");
 		miscOptions.addOption(default_settings_directory);
 
 		CallbackOption request_storage = new CallbackOption();
 		request_storage.setTitle("Manage Storage Access");
-		request_storage.setDescription("Request or refresh storage permission used for import/export and custom log folders. Shows the effective BlowTorch storage root.");
+		request_storage.setDescription("Grant All files access so BlowTorch can use /BlowTorch/ (settings, backups, launcher, session_logs, logs) outside Android/data. Shows the effective root path.");
 		request_storage.setKey("request_storage_access");
 		request_storage.setValue("request_storage_access");
 		miscOptions.addOption(request_storage);
