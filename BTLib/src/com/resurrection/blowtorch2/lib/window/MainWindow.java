@@ -3954,36 +3954,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			});
 		}
 
-		if (mInputBox != null) {
-			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
-				@Override
-				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-				}
-
-				@Override
-				public void onTextChanged(CharSequence s, int start, int before, int count) {
-				}
-
-				@Override
-				public void afterTextChanged(android.text.Editable s) {
-					scheduleInputActionLayoutRefresh();
-				}
-			});
-			mInputBox.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
-				@Override
-				public void onLayoutChange(View v, int left, int top, int right, int bottom,
-						int oldLeft, int oldTop, int oldRight, int oldBottom) {
-					int oldH = oldBottom - oldTop;
-					int newH = bottom - top;
-					if (oldH != newH) {
-						refreshInputActionLayout();
-					}
-				}
-			});
-		}
+		// Stable Edit-above-Send column (XML). Do not flip orientation on every
+		// keystroke — that raced with measure and made the buttons vanish.
+		ensureInputActionColumn();
 
 		if (mInputBox == null || tools == null || toggle == null || select == null) {
-			refreshInputActionLayout();
+			ensureInputActionColumn();
 			return;
 		}
 
@@ -4083,7 +4059,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private final Runnable mRefreshInputActionLayoutRunnable = new Runnable() {
 		@Override
 		public void run() {
-			refreshInputActionLayout();
+			ensureInputActionColumn();
 		}
 	};
 
@@ -4096,56 +4072,61 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Lay out Edit/Send: side-by-side on a single line; when the input grows to
-	 * more than one line, stack Edit above Send at the bottom-right (near the thumb).
+	 * Keep Edit above Send in a fixed vertical column, bottom-aligned next to the
+	 * input field. Avoids runtime orientation/height flips that made buttons vanish.
 	 */
-	private void refreshInputActionLayout() {
+	private void ensureInputActionColumn() {
 		if (!(mInputActionButtons instanceof LinearLayout) || mInputSendButton == null) {
 			return;
 		}
 		LinearLayout actions = (LinearLayout) mInputActionButtons;
-		boolean stack = isInputMultiline();
-		int wanted = stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
-		boolean changed = false;
-		if (actions.getOrientation() != wanted) {
-			actions.setOrientation(wanted);
-			changed = true;
+		Button edit = (Button) findViewById(R.id.input_edit_toggle);
+		if (edit == null) {
+			return;
+		}
+
+		if (actions.getOrientation() != LinearLayout.VERTICAL) {
+			actions.setOrientation(LinearLayout.VERTICAL);
 		}
 		actions.setGravity(android.view.Gravity.BOTTOM | android.view.Gravity.END);
-		View editToggle = findViewById(R.id.input_edit_toggle);
-		if (editToggle != null && editToggle.getLayoutParams() instanceof LinearLayout.LayoutParams) {
-			LinearLayout.LayoutParams elp = (LinearLayout.LayoutParams) editToggle.getLayoutParams();
-			float density = getResources().getDisplayMetrics().density;
-			int gap = (int) (2 * density + 0.5f);
-			int wantRight = stack ? 0 : gap;
-			int wantBottom = stack ? gap : 0;
-			if (elp.rightMargin != wantRight || elp.bottomMargin != wantBottom) {
-				elp.setMargins(0, 0, wantRight, wantBottom);
-				editToggle.setLayoutParams(elp);
-				changed = true;
+		edit.setVisibility(View.VISIBLE);
+		mInputSendButton.setVisibility(View.VISIBLE);
+
+		ViewGroup.LayoutParams rawAlp = actions.getLayoutParams();
+		if (rawAlp instanceof LinearLayout.LayoutParams) {
+			LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) rawAlp;
+			boolean need = alp.width != LinearLayout.LayoutParams.WRAP_CONTENT
+					|| alp.height != LinearLayout.LayoutParams.WRAP_CONTENT
+					|| alp.gravity != android.view.Gravity.BOTTOM;
+			if (need) {
+				alp.width = LinearLayout.LayoutParams.WRAP_CONTENT;
+				alp.height = LinearLayout.LayoutParams.WRAP_CONTENT;
+				alp.gravity = android.view.Gravity.BOTTOM;
+				actions.setLayoutParams(alp);
 			}
 		}
-		if (changed) {
-			actions.requestLayout();
+
+		ViewParent parent = actions.getParent();
+		if (parent instanceof LinearLayout) {
+			((LinearLayout) parent).setGravity(android.view.Gravity.BOTTOM);
 		}
 	}
 
-	/** True when the input field shows more than one visual line (or is taller than one line). */
+	/** @deprecated kept for callers; always uses the stable vertical column. */
+	private void refreshInputActionLayout() {
+		ensureInputActionColumn();
+	}
+
 	private boolean isInputMultiline() {
 		if (mInputBox == null) {
 			return false;
 		}
-		int lines = mInputBox.getLineCount();
-		if (lines > 1) {
+		if (mInputBox.getLineCount() > 1) {
 			return true;
 		}
-		int h = mInputBox.getHeight();
-		if (h <= 0) {
-			h = mInputBox.getMeasuredHeight();
-		}
+		int h = Math.max(mInputBox.getHeight(), mInputBox.getMeasuredHeight());
 		float density = getResources().getDisplayMetrics().density;
-		int singleLineApprox = (int) (36 * density + 0.5f);
-		return h > singleLineApprox;
+		return h > (int) (36 * density + 0.5f);
 	}
 
 	private boolean isInputBarTall() {
