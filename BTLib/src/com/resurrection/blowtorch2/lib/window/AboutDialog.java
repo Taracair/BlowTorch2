@@ -24,14 +24,6 @@ import android.widget.Toast;
  */
 public class AboutDialog extends Dialog {
 
-	private static final String DONATE_LEGAL_NOTE_PL =
-			"Uwaga (PL): Przyjmowanie darowizn na prywatną aplikację może oznaczać "
-					+ "(a) nieformalne upominki (niskie kwoty, znajomi — zwykle OK, ale nie model biznesowy), "
-					+ "(b) działalność (JDG/spółka) z fakturami i VAT po przekroczeniu progów, "
-					+ "(c) platformy (Ko-fi, PayPal.Me itd.) — podatek nadal zależy od kwalifikacji przychodu. "
-					+ "Platformy crowdfundingowe nie znoszą obowiązków PIT/CIT przy regularnej działalności. "
-					+ "Przed publicznym donate: skonsultuj z księgowym. Na razie: Donate (coming soon).";
-
 	public AboutDialog(Context context) {
 		super(context);
 	}
@@ -101,14 +93,8 @@ public class AboutDialog extends Dialog {
 		LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
 				LinearLayout.LayoutParams.MATCH_PARENT,
 				LinearLayout.LayoutParams.WRAP_CONTENT);
-		btnLp.setMargins(pad / 2, 0, pad / 2, (int) (8 * density));
+		btnLp.setMargins(pad / 2, 0, pad / 2, pad);
 		root.addView(donate, btnLp);
-
-		TextView legal = new TextView(getContext());
-		legal.setText(DONATE_LEGAL_NOTE_PL);
-		legal.setTextSize(11f);
-		legal.setPadding(pad, 0, pad, pad);
-		root.addView(legal);
 	}
 	
 	private ScrollView findScrollView(ViewGroup parent) {

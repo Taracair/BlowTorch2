@@ -61,8 +61,6 @@ public class WindowToken implements Parcelable {
 		hyperlink_color,
 		/** Word wrapping on or off. */
 		word_wrap,
-		/** Grow the input bar with multiline text. */
-		grow_input_bar,
 		/** Color mode (see color debug option). */
 		color_option,
 		/** Font size option. */
@@ -293,13 +291,6 @@ public class WindowToken implements Parcelable {
 		wordWrap.setKey("word_wrap");
 		wordWrap.setValue(true);
 		window.addOption(wordWrap);
-
-		BooleanOption growInputBar = new BooleanOption();
-		growInputBar.setTitle("Grow Input Bar?");
-		growInputBar.setDescription("When on, the input bar grows with multiline text. When off, input stays a single non-growing line. Toggle with .wrap on/off.");
-		growInputBar.setKey("grow_input_bar");
-		growInputBar.setValue(true);
-		window.addOption(growInputBar);
 
 		BooleanOption tapDismiss = new BooleanOption();
 		tapDismiss.setTitle("Tap window hides keyboard?");

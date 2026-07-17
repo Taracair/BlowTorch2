@@ -56,9 +56,7 @@ public class CrashReportDialog extends Dialog {
 		root.addView(logInfo);
 
 		if (SessionLogger.isEnabled(getContext())) {
-			java.io.File current = SessionLogger.getCurrentLogFile();
-			String path = current != null ? current.getAbsolutePath()
-					: SessionLogger.getLogDirectory(getContext()).getAbsolutePath();
+			String path = SessionLogger.getLogLocationLabel(getContext());
 			TextView sessionInfo = new TextView(getContext());
 			sessionInfo.setText("Session log (txt):\n" + path);
 			sessionInfo.setTextSize(12f);

@@ -26,7 +26,7 @@ Registrations live in `Connection` (built-ins) and Lua
 | `.timer <action> <name> [silent]` | Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`) |
 | `.dobell` | Fire configured bell reaction |
 | `.togglefullscreen` | Toggle fullscreen preference |
-| `.wrap [on\|off]` | Input bar growth (default on); also Options → Window → Grow Input Bar? |
+| `.wrap [on\|off]` | Input bar growth (default on); also Options → Input → Grow Input Bar? |
 | `.gmcp …` | GMCP helpers (status / sniff / version / supports / dump / send); see below |
 | `.keyboard` / `.kb` | Input-bar control (`add`, `popup`, `flush`, `close`, `clear`, `selectall`, `copy`, `paste`, `cursorstart`, `cursorend`); no args prints help |
 | `.disconnect` | Local “Disconnected.” notice (use overflow **Disconnect** for a real disconnect) |
@@ -77,6 +77,9 @@ Enable under **Options → Service → GMCP Options** (`Use GMCP?`, Supports Str
 .gmcp                 — help
 .gmcp status          — flags
 .gmcp sniff [on|off]  — log handshake/packets to the app error log
+                        (app files/logs/blowtorch2.log; also session log if enabled.
+                        `.gmcp sniff on` prints the absolute path. View via
+                        Overflow → Crash report → Show log.)
 .gmcp version         — client hello / syntax notes
 .gmcp supports […]   — show or set supports modules
 .gmcp dump [path]     — dump cached GMCP table
@@ -111,7 +114,7 @@ pattern starting with `%` (default GMCP trigger character).
 Order at the bottom of the expandable menu:
 
 1. **Crash report** — Show log / Share log (app error log under BlowTorchLogger)  
-2. **About/donate** — Version, description, donate placeholder + short PL legal note  
+2. **About/donate** — Version, description, donate placeholder  
 3. **Help** — This manual (nearly full-screen)
 
 Connection duration appears on the ongoing connection notification and on the

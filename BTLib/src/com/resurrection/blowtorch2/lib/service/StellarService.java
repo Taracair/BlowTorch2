@@ -1897,6 +1897,19 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 		
 	}
+
+	/** Updates the foreground window input bar multiline growth setting. */
+	public final void dispatchGrowInputBar(final Boolean value) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).setGrowInputBar((boolean) value);
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
 	
 	/** Implementation of the working method that sets the foreground window trigger editor regex warning message state.
 	 * 

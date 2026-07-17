@@ -50,6 +50,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		fullscreen_editor,
 		use_suggestions,
 		keep_last,
+		grow_input_bar,
 		compatibility_mode,
 		local_echo,
 		process_system_commands,
@@ -416,6 +417,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case keep_last:
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case grow_input_bar:
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;
