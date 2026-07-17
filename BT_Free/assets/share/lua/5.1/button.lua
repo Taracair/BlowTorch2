@@ -332,7 +332,17 @@ function BUTTON:draw(state,canvas)
 	local tY = self.data.y + (p:getTextSize()/2) + statusoffset
 	p:setTypeface(DEFAULT_BOLD_TYPEFACE)
 	canvas:drawText(label,tX,tY,p)
-	local showHints = buttonShowHints == nil or buttonShowHints == true
+	-- nil defaults to on; only explicit false/"false"/0 hides U/D/L/R, Hold, accordion badges.
+	local showHints = true
+	if buttonShowHints == false or buttonShowHints == "false"
+			or buttonShowHints == 0 or buttonShowHints == "0" then
+		showHints = false
+	elseif buttonShowHints ~= nil
+			and buttonShowHints ~= true
+			and buttonShowHints ~= "true"
+			and buttonShowHints ~= "1" then
+		showHints = false
+	end
 	if showHints and not self.isAccordionChild then
 		self:drawGestureIndicators(canvas, p)
 		if hasAccordionConfig(self.data) then
