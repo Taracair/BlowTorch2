@@ -50,10 +50,11 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 |-----------|----------------|
 | **Import Server List** | Load launcher connections XML (SAF **Pick file…** or default `…/launcher/`) |
 | **Export Server List** | Save launcher connections XML (default dir or SAF **Choose location…**) |
-| **Backup All Settings** | Zip all private session `*.xml` settings (default `…/backups/` or SAF) |
+| **Backup All Settings** | Zip all private session `*.xml` settings (default `…/backups/` or SAF **Choose location…** — preferred way to keep a portable copy) |
 | **Restore Settings Backup** | Restore that zip (or a scanned backup folder) into private files — restart after |
-| **Copy Settings to Storage** | Copy private settings files to `…/recovered/` (salvage/debug; not the same as restore) |
 | **About** | About / donate dialog |
+
+Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recovered/`). On scoped storage that usually stayed inside app files; use **Backup All Settings** instead.
 
 **Account notes** on New/Edit connection: optional login/password/mail slots per server. Informational only (not auto-login). Stored in the launcher list XML on device — **plaintext**; see warning in the dialog and `docs/backup-encryption-plan.md`.
 
