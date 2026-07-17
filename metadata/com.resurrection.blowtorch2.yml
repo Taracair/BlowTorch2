@@ -38,7 +38,6 @@ MaintainerNotes: |
   Native libs are produced by ./build_ndk_libraries.sh into BTLib/libs/ (not
   committed). Release signing is left unset unless BT_LOCAL_SIGN=1; F-Droid
   signs the APK. Package id is com.resurrection.blowtorch2 (production flavor).
-  ForgeMap / mapper ships only in btTest and must stay out of this recipe.
   Uses MANAGE_EXTERNAL_STORAGE so default user files can live under /BlowTorch/
   (settings, backups, launcher, session_logs, logs) outside Android/data.
   This is optional for playing; see docs/FDROID_README.md for the full

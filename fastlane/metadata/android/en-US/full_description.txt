@@ -9,7 +9,7 @@ What you get beyond a simple “keep it compiling” port:
 • Import/export and zip backup/restore (shared /BlowTorch/ folder or system file pickers)
 • Session log to file, GMCP helpers (including in-game sniff tail), connection duration on notifications
 • Growable input bar (.wrap), plugin refresh, in-app Help and crash/log report
-• Mapper (ForgeMap) is in active development and ships only in the optional test build for now — not in this F-Droid package yet
+• Four-way swipe / hold / accordion buttons; Edit buttons from the overflow menu
 
 Privacy in short: no ads, no analytics, no BlowTorch cloud account. The app connects only to MUD hosts you configure. “All files access” is optional — only so settings/backups/logs can live in a normal /BlowTorch/ folder you can see in a file manager; you can refuse it and still play (files stay in app storage or you pick folders with the system picker). Full permission explanation: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
 

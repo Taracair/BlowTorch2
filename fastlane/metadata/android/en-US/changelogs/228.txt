@@ -6,4 +6,4 @@ BlowTorch 2 v2.1.4 — revival vs classic BlowTorch
 • Buttons: four-way swipe, hold, accordion, gesture hints; Edit buttons in ⋮ (+ long-press)
 • Session logs, uptime notification, battery helper, reliable alert sounds
 • .kb, .search, .gmcp helpers; Help + user manual
-• F-Droid-oriented packaging; ForgeMap still test-only
+• F-Droid-oriented packaging
