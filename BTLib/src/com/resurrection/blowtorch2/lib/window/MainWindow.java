@@ -422,23 +422,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		configureGameplayToolbar(myToolbar);
 
-		final View overflowMenu = findViewById(R.id.overflow_menu);
-		if (overflowMenu != null) {
-			overflowMenu.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					MainWindow.this.showGameplayOptionsMenu(v);
-				}
-			});
-			overflowMenu.setOnLongClickListener(new View.OnLongClickListener() {
-				@Override
-				public boolean onLongClick(View v) {
-					// Long-press wrench enters button edit mode (safer than holding a game button).
-					windowCall("button_window", "doEdit", "");
-					return true;
-				}
-			});
-		}
+		bindGameplayFabControls();
 
 		final View chromeRoot = findViewById(R.id.window_container);
 		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) -> {
@@ -1594,7 +1578,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 1200,1200,"Reset Settings");
 		menu.add(0, 1300,1300,"Export Settings");
 		menu.add(0, 1400,1400,"Import Settings");
-		menu.add(0, 1500,1500,"SDCard Permissions");
+		// Storage access lives under Options → Miscellaneous.
 		//menu.add(0, 1600,1600,"App Settings");
 
 		if (menuStack.size() == 0) {
@@ -1652,14 +1636,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 //		}
 		
 		switch(item.getItemId()) {
-			case 1500:
-				SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_INFO, new Runnable() {
-					@Override
-					public void run() {
-						showPermissionsMessage(SDCardUtils.hasStoragePermissions(MainWindow.this));
-					}
-				});
-				break;
 		case 1200:
 			//reset
 			doResetDialog();
@@ -2628,6 +2604,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (sessionLogOpt != null && sessionLogOpt.getValue() instanceof Boolean) {
 				com.resurrection.blowtorch2.lib.util.SessionLogger.setEnabled(
 						MainWindow.this, (Boolean) sessionLogOpt.getValue());
+			}
+			BaseOption sessionLogDirOpt = (BaseOption) group.findOptionByKey("session_log_directory");
+			if (sessionLogDirOpt != null && sessionLogDirOpt.getValue() instanceof String) {
+				com.resurrection.blowtorch2.lib.util.SessionLogger.setCustomDirectory(
+						MainWindow.this, (String) sessionLogDirOpt.getValue());
 			}
 			
 			//orientation = (Integer)((BaseOption)group.findOptionByKey("orientation")).getValue();
@@ -3848,7 +3829,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		final View inputbar = findGameplayInputBar(rl);
 		final View divider = findGameplayDivider(rl);
 		final View toolbar = rl.findViewById(R.id.my_toolbar);
-		final View overflowMenu = findViewById(R.id.overflow_menu);
+		final View fabStrip = findViewById(R.id.gameplay_fab_strip);
 		if (inputbar == null || divider == null) {
 			return;
 		}
@@ -3869,12 +3850,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (toolbar != null) {
 			RelativeLayout.LayoutParams toolbarLp = new RelativeLayout.LayoutParams(
 					LayoutParams.MATCH_PARENT, 0);
-			toolbarLp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			toolbarLp.addRule(RelativeLayout.ABOVE, divider.getId());
 			toolbar.setLayoutParams(toolbarLp);
 		}
 
-		if (overflowMenu != null) {
-			final int size = (int) (48 * density);
+		if (fabStrip != null) {
 			final View inputbarFinal = inputbar;
 			final int dividerHeightFinal = dividerHeight;
 			final int marginFinal = margin;
@@ -3884,13 +3864,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					// Search bar lives inside inputbar, so its height is already included.
 					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal
 							+ marginFinal + (int) (OVERFLOW_LIFT_DIP * density);
-					android.widget.FrameLayout.LayoutParams overflowLp =
-							new android.widget.FrameLayout.LayoutParams(size, size);
-					overflowLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-					overflowLp.setMargins(0, 0, marginFinal, bottomInset);
-					overflowMenu.setLayoutParams(overflowLp);
+					android.widget.FrameLayout.LayoutParams stripLp =
+							new android.widget.FrameLayout.LayoutParams(
+									LayoutParams.WRAP_CONTENT, (int) (48 * density));
+					stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+					stripLp.setMargins(0, 0, marginFinal, bottomInset);
+					fabStrip.setLayoutParams(stripLp);
 				}
 			});
+		}
+		bindGameplayFabControls();
+		bringGameplayChromeToFront(rl);
+	}
+
+	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
+	private void bindGameplayFabControls() {
+		final View overflowMenu = findViewById(R.id.overflow_menu);
+		if (overflowMenu != null) {
 			overflowMenu.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
@@ -3900,12 +3890,39 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			overflowMenu.setOnLongClickListener(new View.OnLongClickListener() {
 				@Override
 				public boolean onLongClick(View v) {
+					// Only the wrench enters button edit mode.
 					windowCall("button_window", "doEdit", "");
 					return true;
 				}
 			});
 		}
-		bringGameplayChromeToFront(rl);
+		View settings = findViewById(R.id.editor_settings);
+		if (settings != null) {
+			settings.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					windowCall("button_window", "editorMenuSettings", "");
+				}
+			});
+		}
+		View done = findViewById(R.id.editor_done);
+		if (done != null) {
+			done.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					windowCall("button_window", "editorMenuDone", "");
+				}
+			});
+		}
+		View cancel = findViewById(R.id.editor_cancel);
+		if (cancel != null) {
+			cancel.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					windowCall("button_window", "editorMenuCancel", "");
+				}
+			});
+		}
 	}
 	
 	public void callWindowScript(String window, String callback) {
@@ -3981,41 +3998,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * During button-layout editing, Done/Cancel/Settings live on the action bar.
-	 * Keep the toolbar hidden during normal play (edge-to-edge); show it only while
-	 * a plugin menu stack is active.
+	 * Button-layout editing uses overlay icons (settings/done/cancel) to the left
+	 * of the wrench. The ActionBar toolbar stays hidden so chrome never jumps to
+	 * the top of the screen.
 	 */
 	private void updateMenuChrome() {
 		final androidx.appcompat.widget.Toolbar toolbar =
 				(androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		final View overflowMenu = findViewById(R.id.overflow_menu);
-		if (toolbar == null) {
-			return;
-		}
+		final View editorActions = findViewById(R.id.editor_actions);
 		final boolean showEditorChrome = menuStack.size() > 0;
-		ViewGroup.LayoutParams lp = toolbar.getLayoutParams();
-		if (showEditorChrome) {
-			if (lp != null) {
-				lp.height = getActionBarHeightPx();
-				if (lp instanceof ViewGroup.MarginLayoutParams) {
-					((ViewGroup.MarginLayoutParams) lp).topMargin = statusBarHeight;
-				}
-				toolbar.setLayoutParams(lp);
-			}
-			toolbar.setVisibility(View.VISIBLE);
-			if (overflowMenu != null) {
-				overflowMenu.setVisibility(View.GONE);
-			}
-			if (getSupportActionBar() != null) {
-				getSupportActionBar().show();
-			}
-			toolbar.post(new Runnable() {
-				@Override
-				public void run() {
-					toolbar.bringToFront();
-				}
-			});
-		} else {
+
+		if (toolbar != null) {
+			ViewGroup.LayoutParams lp = toolbar.getLayoutParams();
 			if (lp != null) {
 				lp.height = 0;
 				if (lp instanceof ViewGroup.MarginLayoutParams) {
@@ -4024,21 +4019,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				toolbar.setLayoutParams(lp);
 			}
 			toolbar.setVisibility(View.GONE);
-			if (getSupportActionBar() != null) {
-				getSupportActionBar().hide();
-			}
-			if (overflowMenu != null) {
-				overflowMenu.setVisibility(View.VISIBLE);
-				ViewGroup.LayoutParams olp = overflowMenu.getLayoutParams();
-				if (olp instanceof ViewGroup.MarginLayoutParams) {
-					ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) olp;
-					mlp.topMargin = 0;
-					overflowMenu.setLayoutParams(mlp);
-				}
-			}
-			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
-			bringGameplayChromeToFront(rl);
 		}
+		if (getSupportActionBar() != null) {
+			getSupportActionBar().hide();
+		}
+		if (overflowMenu != null) {
+			overflowMenu.setVisibility(View.VISIBLE);
+		}
+		if (editorActions != null) {
+			editorActions.setVisibility(showEditorChrome ? View.VISIBLE : View.GONE);
+		}
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		bringGameplayChromeToFront(rl);
 	}
 
 	private void configureGameplayToolbar(androidx.appcompat.widget.Toolbar toolbar) {
@@ -4169,6 +4161,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public String getPluginOption(String plugin, String value) throws RemoteException {
 		String ret = service.getPluginOption(plugin,value);
 		return ret;
+	}
+
+	/** Options → Miscellaneous → Manage Storage Access. */
+	public void requestStorageAccessFromOptions() {
+		View root = findViewById(R.id.window_container);
+		if (root == null) {
+			root = mRootView;
+		}
+		SDCardUtils.hasPermissions(this, root, RP_INFO, new Runnable() {
+			@Override
+			public void run() {
+				showPermissionsMessage(SDCardUtils.hasStoragePermissions(MainWindow.this));
+			}
+		});
 	}
 
 	private void showPermissionsMessage(boolean granted) {

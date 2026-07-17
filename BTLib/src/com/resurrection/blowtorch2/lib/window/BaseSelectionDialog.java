@@ -332,116 +332,24 @@ public class BaseSelectionDialog extends Dialog {
 		
 		mOptionAdapter = new OptionListAdapter(this.getContext(),0,optionItems);
 		
+		// Removed confusing "=" plugin-filter button; stubs stay for R.id / legacy code.
 		mOptionsList =(ListView) this.findViewById(R.id.optionslist);
-		
-		mOptionsList.setAdapter(mOptionAdapter);
-		
-		mOptionsList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-
-			public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
-					long arg3) {
-					/*if(pos == 0 || pos == 1) {
-						return;
-					}
-					
-					String plugin = plugins[pos];
-					
-					if(plugin.equals("Help")) {
-						
-					} else if(plugin.equals("Disable All")) {
-						
-					} else if(plugin.equals("Main")) {
-						//currentPlugin = "main";
-						BaseSelectionDialog.this.buildList();
-						mOptionsButton.performClick();
-						return;
-					} else {
-						//currentPlugin = plugin;
-						
-						BaseSelectionDialog.this.buildList();
-						
-						mOptionsButton.performClick();
-					}*/
-					if(mOptionItemClickListener != null) {
-						mOptionItemClickListener.onOptionItemClicked(pos);
-					}					
-			}
-		});
-		
-		mOptionsList.setVerticalFadingEdgeEnabled(false);
-		
-		mOptionsList.setVisibility(View.INVISIBLE);
-		
-		//mOptionsList.setDividerHeight(0);
-		//mOptionsList.setDivider(null);
-		//RelativeLayout root = (RelativeLayout) this.findViewById(R.id.root);
-		//root.addView(mOptionsList);
-		
 		mOptionsButton = (Button)this.findViewById(R.id.optionsbutton);
-		
-		mOptionsButton.setOnClickListener(new View.OnClickListener() {
-			
-			public void onClick(View v) {
-				// TODO Auto-generated method stub
-				if(mPromoteHelp) {
-					//launch the help menu and return.
-					if(mOptionItemClickListener != null) {
-						//actually, click help.
-						mOptionItemClickListener.onOptionItemClicked(0);
-					}	
-					return;
-				}
-				
-				if(mOptionsListToggle) {
-					mOptionsListToggle = false;
-					Animation outAnimation = new TranslateAnimation(0,0,0,-mOptionsList.getHeight());
-					outAnimation.setDuration(300);
-					outAnimation.setAnimationListener(new AnimationListener() {
-
-						public void onAnimationEnd(Animation animation) {
-							mOptionsList.setVisibility(View.INVISIBLE);
-						}
-
-						public void onAnimationRepeat(Animation animation) {
-							// TODO Auto-generated method stub
-							
-						}
-
-						public void onAnimationStart(Animation animation) {
-							// TODO Auto-generated method stub
-							
-						}
-						
-					});
-					mOptionsList.startAnimation(outAnimation);
-					
-				} else {
-					mOptionsListToggle = true;
-					mOptionsList.setVisibility(View.VISIBLE);
-					mOptionsList.bringToFront();
-					TextView tst = (TextView) BaseSelectionDialog.this.findViewById(R.id.titlebar);
-					tst.bringToFront();
-					mOptionsButton.bringToFront();
-					mOptionsList.invalidate();
-					Animation inAnimation = new TranslateAnimation(0,0,-mOptionsList.getHeight(),0);
-					inAnimation.setDuration(300);
-					mOptionsList.startAnimation(inAnimation);
-				}
-			}
-		});
-		
-		if(mPromoteHelp) {
-			mOptionsButton.setText("?");
+		if (mOptionsButton != null) {
+			mOptionsButton.setVisibility(View.GONE);
 		}
-		//mOptionsButton.invalidate();
-		//optionsButton.setOnClickListener()
+		if (mOptionsList != null) {
+			mOptionsList.setVisibility(View.GONE);
+		}
 		
 		mTitlebar = (TextView) this.findViewById(R.id.titlebar);
 		
-		ViewParent parent = mTitlebar.getParent();
-		
-		parent.bringChildToFront(mTitlebar);
-		parent.bringChildToFront(mOptionsButton);
+		if (mTitlebar != null) {
+			ViewParent parent = mTitlebar.getParent();
+			if (parent != null) {
+				parent.bringChildToFront(mTitlebar);
+			}
+		}
 		
 		makeToolbar();
 		
@@ -1131,7 +1039,8 @@ public ToolBarButtonKeyListener theButtonKeyListener = new ToolBarButtonKeyListe
 	private boolean mPromoteHelp = false;
 	
 	public void hideOptionsMenu() {
-		if(mOptionsList.getVisibility() == View.VISIBLE) {
+		if(mOptionsList != null && mOptionsButton != null
+				&& mOptionsList.getVisibility() == View.VISIBLE) {
 			mOptionsButton.performClick();
 		}
 	}

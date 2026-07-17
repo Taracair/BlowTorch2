@@ -42,11 +42,11 @@
 
 <style name="InputEditToolButton" parent="@style/Widget.AppCompat.Button.Borderless">
 	<item name="android:layout_width">wrap_content</item>
-	<item name="android:layout_height">40dip</item>
+	<item name="android:layout_height">28dip</item>
 	<item name="android:minWidth">44dip</item>
-	<item name="android:minHeight">40dip</item>
-	<item name="android:paddingLeft">12dip</item>
-	<item name="android:paddingRight">12dip</item>
+	<item name="android:minHeight">28dip</item>
+	<item name="android:paddingLeft">10dip</item>
+	<item name="android:paddingRight">10dip</item>
 	<item name="android:layout_marginRight">3dip</item>
 	<item name="android:textSize">13sp</item>
 	<item name="android:textAllCaps">false</item>
