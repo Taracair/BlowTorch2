@@ -190,7 +190,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_DODISCONNECT = 879;
 	public static final int MESSAGE_SENDBUTTONDATA = 880;
 	private static final int MESSAGE_LINEBREAK = 881;
-	private static final int MESSAGE_HIDEKEYBOARD =882;
+	public static final int MESSAGE_HIDEKEYBOARD =882;
 	protected static final int MESSAGE_CLEARINPUTWINDOW = 883;
 	//protected static final int MESSAGE_BUTTONRELOAD = 882;
 	protected static final int MESSAGE_CLOSEINPUTWINDOW = 884;
@@ -430,14 +430,25 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					MainWindow.this.showGameplayOptionsMenu(v);
 				}
 			});
+			overflowMenu.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					// Long-press wrench enters button edit mode (safer than holding a game button).
+					windowCall("button_window", "doEdit", "");
+					return true;
+				}
+			});
 		}
 
 		final View chromeRoot = findViewById(R.id.window_container);
 		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) -> {
 			Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
 			Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-			// Keep the Edit/Hide row fully above the soft keyboard (not just the nav bar).
-			view.setPadding(0, 0, 0, Math.max(bars.bottom, ime.bottom));
+			// Keep game buttons fixed: only nav-bar padding on the root.
+			view.setPadding(0, 0, 0, bars.bottom);
+			// Lift input chrome above the IME without shifting Lua buttons.
+			int lift = Math.max(0, ime.bottom - bars.bottom);
+			applyImeChromeLift((RelativeLayout) view, lift);
 			statusBarHeight = bars.top;
 			titleBarHeight = bars.top;
 			SharedPreferences.Editor insetEditor = getSharedPreferences("STATUS_BAR_HEIGHT", 0).edit();
@@ -3633,6 +3644,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private void closeScrollbackSearchBar() {
 		mScrollbackSearchHits.clear();
 		mScrollbackSearchIndex = -1;
+		com.resurrection.blowtorch2.lib.window.Window target = findScrollbackSearchWindow();
+		if (target != null) {
+			target.clearSearchHighlight();
+		}
 		if (mScrollbackSearchBar != null) {
 			mScrollbackSearchBar.setVisibility(View.GONE);
 		}
@@ -3714,10 +3729,31 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		int broken = mScrollbackSearchHits.get(mScrollbackSearchIndex);
+		String query = mScrollbackSearchQuery != null
+				? mScrollbackSearchQuery.getText().toString().trim() : "";
+		boolean caseSensitive = mScrollbackSearchCase != null && mScrollbackSearchCase.isChecked();
 		target.scrollToBrokenLineFromBottom(broken);
+		target.setSearchHighlight(query, broken, caseSensitive);
 		String preview = target.getScrollbackLinePreview(broken);
 		if (mScrollbackSearchPreview != null) {
-			mScrollbackSearchPreview.setText(preview.length() == 0 ? "(empty line)" : preview);
+			if (preview.length() == 0) {
+				mScrollbackSearchPreview.setText("(empty line)");
+			} else if (query.length() > 0) {
+				String hay = caseSensitive ? preview : preview.toLowerCase(java.util.Locale.getDefault());
+				String needle = caseSensitive ? query : query.toLowerCase(java.util.Locale.getDefault());
+				int at = hay.indexOf(needle);
+				if (at >= 0) {
+					int start = Math.max(0, at - 24);
+					int end = Math.min(preview.length(), at + query.length() + 24);
+					String snippet = (start > 0 ? "…" : "") + preview.substring(start, end)
+							+ (end < preview.length() ? "…" : "");
+					mScrollbackSearchPreview.setText("▶ " + snippet);
+				} else {
+					mScrollbackSearchPreview.setText("▶ " + preview);
+				}
+			} else {
+				mScrollbackSearchPreview.setText(preview);
+			}
 		}
 		updateScrollbackSearchUi();
 	}
@@ -3769,6 +3805,29 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			divider = rl.findViewById(R.id.divider);
 		}
 		return divider;
+	}
+
+	/** Translate input/search chrome above the IME; leave game button canvas unmoved. */
+	private void applyImeChromeLift(RelativeLayout rl, int liftPx) {
+		if (rl == null) {
+			return;
+		}
+		View inputbar = findGameplayInputBar(rl);
+		View divider = findGameplayDivider(rl);
+		View searchBar = rl.findViewById(R.id.scrollback_search_bar);
+		if (searchBar == null) {
+			searchBar = mScrollbackSearchBar;
+		}
+		float ty = -liftPx;
+		if (inputbar != null) {
+			inputbar.setTranslationY(ty);
+		}
+		if (divider != null) {
+			divider.setTranslationY(ty);
+		}
+		if (searchBar != null) {
+			searchBar.setTranslationY(ty);
+		}
 	}
 
 	private void bringGameplayChromeToFront(RelativeLayout rl) {
@@ -3862,6 +3921,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override
 				public void onClick(View v) {
 					MainWindow.this.showGameplayOptionsMenu(v);
+				}
+			});
+			overflowMenu.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					windowCall("button_window", "doEdit", "");
+					return true;
 				}
 			});
 		}

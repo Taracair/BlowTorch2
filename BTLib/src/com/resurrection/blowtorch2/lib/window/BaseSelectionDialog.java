@@ -158,7 +158,7 @@ public class BaseSelectionDialog extends Dialog {
 		}
 		this.setCanceledOnTouchOutside(false);
 		setContentView(R.layout.editor_selection_dialog);
-		this.getWindow().setLayout(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.MATCH_PARENT);
+		this.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
 		
 		TextView tst = (TextView) this.findViewById(R.id.titlebar);
 		tst.setText(mTitle);
