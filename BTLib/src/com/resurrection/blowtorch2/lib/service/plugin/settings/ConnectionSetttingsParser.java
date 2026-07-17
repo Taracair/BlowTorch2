@@ -63,7 +63,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		debug_telnet,
 		bell_vibrate,
 		bell_notification,
-		bell_display, use_gmcp, gmcp_supports, log_gmcp, show_regex_warning
+		bell_display, use_gmcp, gmcp_supports, log_gmcp, show_regex_warning,
+		session_log, session_log_directory, default_settings_directory
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -477,6 +478,21 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case log_gmcp:
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case session_log:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case session_log_directory:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals("")) {
+							dooutput = true;
+						}
+						break;
+					case default_settings_directory:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals("")) {
 							dooutput = true;
 						}
 						break;
