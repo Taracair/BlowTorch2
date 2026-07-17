@@ -588,9 +588,7 @@ function normalTouch.onTouch(v,e)
 				end
 			end
 			if not b.isAccordionChild then
-				if options.auto_launch == "true" then
-					ScheduleCallback(EDITOR_CALLBACK_ID,"doEdit",1000)
-				end
+				-- Editor is opened only via long-press on the wrench icon.
 				local skipHoldForTapExpand = hasAccordionConfig(b.data)
 					and getAccordionTrigger(b.data) == "tap"
 					and not accordionWasExpandedAtDown
@@ -756,15 +754,26 @@ normalTouch_cb = luajava.createProxy("android.view.View$OnTouchListener",normalT
 view:setOnTouchListener(normalTouch_cb)
 
 function doEdit()
-	--this is launched from the long press
-	--Note("EDITING")
-	if(suppress_editor) then return end
-	
-	manage = true
+	-- Entered only from long-press on the wrench / overflow icon.
+	if suppress_editor or manage then
+		return
+	end
 	performHapticEdit()
 	enterManagerMode()
 	showeditormenu = true
 	PushMenuStack("onEditorBackPressed")
+end
+
+function editorMenuDone()
+	return buttonsetMenuDoneClicked.onMenuItemClick(nil)
+end
+
+function editorMenuCancel()
+	return buttonsetCancelClicked.onMenuItemClick(nil)
+end
+
+function editorMenuSettings()
+	return buttonsetSettingsClicked.onMenuItemClick(nil)
 end
 --this window is a full screen window, so we don't really need to concern ourselves with bounds and the such, but we do need to create a button class.
 RectFClass = luajava.bindClass("android.graphics.RectF")
@@ -867,7 +876,6 @@ bounds = nil
 
 statusoffset = 0
 statusHidden = false
-editorToolbarHeight = 48
 
 function clampLogicalPosition(x, y, b)
 	local w = view:getWidth()
@@ -903,12 +911,10 @@ end
 function refreshStatusOffset(relayoutButtons)
 	local hiddenNow = IsStatusBarHidden()
 	-- Edge-to-edge: keep tap targets below status icons unless fullscreen hides the bar.
+	-- Editor chrome sits above the input divider and must not shift button layout.
 	statusoffset = tonumber(GetStatusBarHeight()) or 0
 	if hiddenNow and statusoffset <= 0 then
 		statusoffset = tonumber(GetActionBarHeight()) or 0
-	end
-	if manage then
-		statusoffset = statusoffset + math.floor(editorToolbarHeight * density)
 	end
 	if relayoutButtons ~= false then
 		for i = 1, #buttons do
@@ -1012,6 +1018,7 @@ function exitManagerModeNoSave()
 	end
 	view:setOnTouchListener(normalTouch_cb)
 	manage = false
+	refreshStatusOffset(true)
 	
 	local parent = view:getParent()
 	parent:removeView(backWidget)
@@ -1031,10 +1038,8 @@ function drawManagerGrid()
 		local c = managerCanvas
 		local width = view:getWidth()
 		local height = view:getHeight()
-		--Note("starting draw")
-		c:drawRect(0,statusoffset,width,height,cpaint)
-		--Note("canvas is not null")
-		c:drawARGB(manageropacity,0x0A,0x0A,0x0A)
+		-- Clear fully; keep the game screen visible behind the grid (no opaque wash).
+		c:drawRect(0,0,width,height,cpaint)
 		--draw dashed lines.
 		local times = width / gridXwidth
 		for x=1,times do

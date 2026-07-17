@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/gameplay_fab_strip"
+    android:layout_width="wrap_content"
+    android:layout_height="48dp"
+    android:layout_gravity="bottom|end"
+    android:background="@android:color/transparent"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <LinearLayout
+        android:id="@+id/editor_actions"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/editor_settings"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Editor settings"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_editor_settings" />
+
+        <ImageButton
+            android:id="@+id/editor_done"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Save button layout"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_editor_done" />
+
+        <ImageButton
+            android:id="@+id/editor_cancel"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Cancel button layout"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_editor_cancel" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/overflow_menu"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/app_name"
+        android:padding="8dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_menu_options" />
+
+</LinearLayout>

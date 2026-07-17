@@ -506,8 +506,8 @@ function loadOptions()
 end
 
 function setAutoLaunch(value)
-	
-	options.auto_launch = value
+	-- Ignored: only the wrench long-press opens the button editor.
+	options.auto_launch = false
 	if(UserPresent()) then
 		loadOptions()
 	end
@@ -627,6 +627,7 @@ optionsTable.haptic_edit = setHapticFeedbackEditor
 optionsTable.haptic_press = setHapticFeedbackPressed
 optionsTable.haptic_flip = setHapticFeedbackFlipped
 optionsTable.roundess = setRoundness
+-- auto_launch kept for settings XML compat; long-press on buttons never opens editor.
 optionsTable.auto_launch = setAutoLaunch
 optionsTable.auto_create = setAutoCreate
 optionsTable.show_gesture_hints = setShowGestureHints

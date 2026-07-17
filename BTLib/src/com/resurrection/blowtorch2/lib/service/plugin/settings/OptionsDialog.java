@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
+import com.resurrection.blowtorch2.lib.window.MainWindow;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -351,6 +352,12 @@ public class OptionsDialog extends Dialog {
 		@Override
 		public void onClick(View v) {
 			CallbackOption option = (CallbackOption)v.getTag();
+			String key = option.getKey();
+			if ("request_storage_access".equals(key)
+					&& OptionsDialog.this.getContext() instanceof MainWindow) {
+				((MainWindow) OptionsDialog.this.getContext()).requestStorageAccessFromOptions();
+				return;
+			}
 			try {
 				service.callPluginFunction(selectedPlugin, (String)option.getValue());
 			} catch (RemoteException e) {
