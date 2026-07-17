@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.text.TextUtils;
 
 /**
  * Incremental plain-text session log (append-only). Keeps RAM scrollback bounded
@@ -20,6 +21,7 @@ public final class SessionLogger {
 
 	private static final String PREFS = "SESSION_LOG_PREFS";
 	private static final String KEY_ENABLED = "enabled";
+	private static final String KEY_CUSTOM_DIR = "custom_dir";
 	private static final String LOG_DIR = "session_logs";
 	private static final long MAX_BYTES = 8 * 1024 * 1024;
 	private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*[A-Za-z]");
@@ -27,6 +29,7 @@ public final class SessionLogger {
 	private static File currentFile;
 	private static String currentProfile;
 	private static boolean enabledCached = false;
+	private static String customDirCached = "";
 	private static boolean prefsLoaded = false;
 
 	private SessionLogger() {
@@ -48,15 +51,27 @@ public final class SessionLogger {
 		}
 	}
 
+	public static synchronized void setCustomDirectory(Context context, String path) {
+		if (context == null) {
+			return;
+		}
+		String normalized = path == null ? "" : path.trim();
+		context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+				.edit()
+				.putString(KEY_CUSTOM_DIR, normalized)
+				.apply();
+		customDirCached = normalized;
+		prefsLoaded = true;
+		// Force reopen on next append so path changes take effect.
+		currentFile = null;
+		currentProfile = null;
+	}
+
 	public static synchronized boolean isEnabled(Context context) {
 		if (context == null) {
 			return false;
 		}
-		if (!prefsLoaded) {
-			enabledCached = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-					.getBoolean(KEY_ENABLED, false);
-			prefsLoaded = true;
-		}
+		ensurePrefs(context);
 		return enabledCached;
 	}
 
@@ -65,6 +80,16 @@ public final class SessionLogger {
 	}
 
 	public static synchronized File getLogDirectory(Context context) {
+		ensurePrefs(context);
+		if (!TextUtils.isEmpty(customDirCached)) {
+			File custom = new File(customDirCached);
+			if (!custom.exists()) {
+				custom.mkdirs();
+			}
+			if (custom.isDirectory()) {
+				return custom;
+			}
+		}
 		File dir = new File(context.getFilesDir(), LOG_DIR);
 		if (!dir.exists()) {
 			dir.mkdirs();
@@ -110,6 +135,19 @@ public final class SessionLogger {
 		}
 		String stamp = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
 		appendRaw(currentFile, "\n--- " + stamp + " " + marker + " ---\n");
+	}
+
+	private static void ensurePrefs(Context context) {
+		if (prefsLoaded || context == null) {
+			return;
+		}
+		SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+		enabledCached = prefs.getBoolean(KEY_ENABLED, false);
+		customDirCached = prefs.getString(KEY_CUSTOM_DIR, "");
+		if (customDirCached == null) {
+			customDirCached = "";
+		}
+		prefsLoaded = true;
 	}
 
 	private static void ensureOpen(Context context, String profile) {

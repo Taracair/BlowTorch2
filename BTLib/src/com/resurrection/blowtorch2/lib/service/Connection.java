@@ -779,6 +779,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return SessionLogger.isEnabled(mService.getApplicationContext());
 	}
 
+	private void applySessionLogDirectory() {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("session_log_directory");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption) opt).getValue();
+				if (val instanceof String) {
+					SessionLogger.setCustomDirectory(mService.getApplicationContext(), (String) val);
+				}
+			}
+		} catch (Exception ignored) {
+		}
+	}
+
 	protected final void dispatchLuaError(final String message) {
 		BlowTorchLogger.logError(mService.getApplicationContext(), mDisplay, message);
 		String human = BlowTorchLogger.humanizeError(message);
@@ -1702,6 +1715,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		loadGMCPTriggers();
 		mIsConnected = true;
 		SessionLogger.setEnabled(mService.getApplicationContext(), isSessionLogEnabled());
+		applySessionLogDirectory();
 		if (SessionLogger.isEnabled(mService.getApplicationContext())) {
 			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
 			SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "connected");
