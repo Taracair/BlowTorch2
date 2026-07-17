@@ -49,6 +49,7 @@ interface IConnectionBinderCallback {
 	void markWindowsDirty();
 	void markSettingsDirty();
 	void setKeepLast(boolean keep);
+	void setGrowInputBar(boolean grow);
 	void setOrientation(int orientation);
 	void setKeepScreenOn(boolean value);
 	void setUseFullscreenEditor(boolean value);

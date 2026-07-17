@@ -15,11 +15,13 @@ import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.AlertDialog.Builder;
 import android.app.FragmentManager;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.database.DataSetObserver;
 import android.os.Bundle;
@@ -67,12 +69,50 @@ public class OptionsDialog extends Dialog {
 	boolean toggle = true;
 	
 	Stack<SettingsGroup> backStack = new Stack<SettingsGroup>();
+
+	/** Keys for StringOption values that represent directories (SAF Browse…). */
+	private static boolean isDirectoryOptionKey(String key) {
+		return "default_settings_directory".equals(key)
+				|| "session_log_directory".equals(key);
+	}
+
+	private EditText activeDirectoryEditText;
+	private StringOption activeDirectoryOption;
 	
 	public OptionsDialog(Context context,IConnectionBinder service,String plugin) {
 		super(context, R.style.BlowTorch_Dialog_SlideFromRight);
 		this.selectedPlugin = plugin;
 		this.service = service;
 		//this.mFragementManager = fragmentManager;
+	}
+
+	/** Apply a path/URI from MainWindow's SAF folder picker into the open string editor. */
+	public void applyPickedDirectory(String path) {
+		if (path == null) {
+			return;
+		}
+		if (activeDirectoryEditText != null) {
+			activeDirectoryEditText.setText(path);
+		}
+		if (activeDirectoryOption != null) {
+			persistStringOption(activeDirectoryOption, path);
+		}
+	}
+
+	private void persistStringOption(StringOption option, String text) {
+		try {
+			option.setValue(text);
+			if (selectedPlugin.equals("main")) {
+				service.updateStringSetting(option.getKey(), text);
+			} else {
+				service.updatePluginStringSetting(selectedPlugin, option.getKey(), text);
+			}
+			if (mCurrent != null && mCurrent.findOptionByKey(option.getKey()) != null) {
+				mCurrent.updateString(option.getKey(), text);
+			}
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -351,21 +391,60 @@ public class OptionsDialog extends Dialog {
 		
 	}
 	
+	/** Unwrap Dialog / ContextThemeWrapper to find MainWindow or Activity. */
+	private MainWindow findMainWindowHost() {
+		Context ctx = getContext();
+		while (ctx instanceof ContextWrapper) {
+			if (ctx instanceof MainWindow) {
+				return (MainWindow) ctx;
+			}
+			ctx = ((ContextWrapper) ctx).getBaseContext();
+		}
+		Activity owner = getOwnerActivity();
+		if (owner instanceof MainWindow) {
+			return (MainWindow) owner;
+		}
+		return null;
+	}
+
+	private Activity findHostActivity() {
+		MainWindow mw = findMainWindowHost();
+		if (mw != null) {
+			return mw;
+		}
+		Activity owner = getOwnerActivity();
+		if (owner != null) {
+			return owner;
+		}
+		Context ctx = getContext();
+		while (ctx instanceof ContextWrapper) {
+			if (ctx instanceof Activity) {
+				return (Activity) ctx;
+			}
+			ctx = ((ContextWrapper) ctx).getBaseContext();
+		}
+		return null;
+	}
+
 	private class CallbackOptionClickedListener implements View.OnClickListener {
 
 		@Override
 		public void onClick(View v) {
 			CallbackOption option = (CallbackOption)v.getTag();
 			String key = option.getKey();
-			if ("request_storage_access".equals(key)
-					&& OptionsDialog.this.getContext() instanceof MainWindow) {
-				((MainWindow) OptionsDialog.this.getContext()).requestStorageAccessFromOptions();
+			// Built-in Options actions — never route through Lua callPluginFunction.
+			if ("request_storage_access".equals(key)) {
+				MainWindow mw = findMainWindowHost();
+				if (mw != null) {
+					mw.requestStorageAccessFromOptions();
+				}
 				return;
 			}
-			if ("battery_optimization".equals(key)
-					&& OptionsDialog.this.getContext() instanceof android.app.Activity) {
-				com.resurrection.blowtorch2.lib.util.BatteryOptimizationHelper.promptNow(
-						(android.app.Activity) OptionsDialog.this.getContext());
+			if ("battery_optimization".equals(key)) {
+				Activity activity = findHostActivity();
+				if (activity != null) {
+					com.resurrection.blowtorch2.lib.util.BatteryOptimizationHelper.promptNow(activity);
+				}
 				return;
 			}
 			try {
@@ -647,40 +726,66 @@ public class OptionsDialog extends Dialog {
 	
 	private class StringOptionClickedListener implements View.OnClickListener {
 
-		//private TextView widget;
-		
 		public StringOptionClickedListener() {
-			//this.widget = widget;
 		}
 		
 		@Override
 		public void onClick(View v) {
-			StringOption o = (StringOption) v.getTag();
+			final StringOption o = (StringOption) v.getTag();
+			final boolean directoryOption = isDirectoryOptionKey(o.getKey());
 			
 			AlertDialog.Builder builder = new AlertDialog.Builder(OptionsDialog.this.getContext());
 			
 			builder.setTitle(o.getTitle());
-			EditText input = new EditText(OptionsDialog.this.getContext());
+			final EditText input = new EditText(OptionsDialog.this.getContext());
 			LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.FILL_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT);
 			input.setLayoutParams(params);
-			input.setTextSize(26);
-			input.setText(((String)o.getValue()));
+			input.setTextSize(directoryOption ? 16 : 26);
+			Object cur = o.getValue();
+			input.setText(cur == null ? "" : cur.toString());
 			input.setInputType(InputType.TYPE_CLASS_TEXT);
 			input.setGravity(Gravity.LEFT);
+			if (directoryOption) {
+				input.setHint("Absolute path or content:// URI");
+			}
 			builder.setView(input);
-			
-			//builder.setView(input);
 			
 			builder.setPositiveButton("Done", new StringOptionFinishedListener(o,input));
 			builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				
 				@Override
 				public void onClick(DialogInterface dialog, int which) {
+					activeDirectoryEditText = null;
+					activeDirectoryOption = null;
 					dialog.dismiss();
 				}
 			});
+			if (directoryOption) {
+				builder.setNeutralButton("Browse…", null);
+			}
 			
-			AlertDialog dialog = builder.create();
+			final AlertDialog dialog = builder.create();
+			if (directoryOption) {
+				dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+					@Override
+					public void onShow(DialogInterface d) {
+						activeDirectoryEditText = input;
+						activeDirectoryOption = o;
+						Button browse = dialog.getButton(AlertDialog.BUTTON_NEUTRAL);
+						if (browse != null) {
+							browse.setOnClickListener(new View.OnClickListener() {
+								@Override
+								public void onClick(View view) {
+									Context ctx = OptionsDialog.this.getContext();
+									if (ctx instanceof MainWindow) {
+										((MainWindow) ctx).pickDirectoryForOption();
+									}
+								}
+							});
+						}
+					}
+				});
+			}
 			dialog.show();
 			
 		}
@@ -691,38 +796,19 @@ public class OptionsDialog extends Dialog {
 
 		private StringOption option;
 		EditText input;
-		//TextView widget;
 		
 		
 		public StringOptionFinishedListener(StringOption option,EditText input) {
 			this.option = option;
 			this.input = input;
-			//this.widget = widget;
 		}
 		
 		@Override
 		public void onClick(DialogInterface dialog, int which) {
-			
-			
 			String text = input.getText().toString();
-			
-			try{
-				//Integer number = Integer.parseInt(text);
-				
-				option.setValue(text);
-				//widget.setText(text);
-				if(selectedPlugin.equals("main")) {
-					service.updateStringSetting(option.getKey(), text);
-				} else {
-					service.updatePluginStringSetting(selectedPlugin,option.getKey(), text);
-				}
-			
-			
-			} catch (RemoteException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
+			persistStringOption(option, text);
+			activeDirectoryEditText = null;
+			activeDirectoryOption = null;
 			dialog.dismiss();
 		}
 		

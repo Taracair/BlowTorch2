@@ -4,9 +4,12 @@ import java.io.File;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.provider.DocumentsContract;
 import android.text.TextUtils;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -58,6 +61,9 @@ public class SDCardUtils {
      *   <li>else shared storage {@code /&lt;exportDirectory&gt;/} (e.g. /BlowTorch) when permitted</li>
      *   <li>else app external files (with internal files fallback)</li>
      * </ol>
+     * When {@code customPath} is a {@code content://} tree URI that cannot be mapped to a
+     * filesystem path, falls through to the shared/app defaults. Callers that need the SAF
+     * tree should use {@link #isContentUri(String)} and DocumentFile themselves.
      */
     /**
      * True when {@code dir} exists (or was created) and is writable.
@@ -75,14 +81,86 @@ public class SDCardUtils {
         return dir.isDirectory() && dir.canWrite();
     }
 
+    public static boolean isContentUri(String path) {
+        return path != null && path.trim().startsWith("content:");
+    }
+
+    /**
+     * Map a SAF tree URI to a {@link File} when it points at primary external storage.
+     * Returns null for secondary volumes / providers that are not File-accessible.
+     */
+    public static File mapTreeUriToFile(Uri treeUri) {
+        if (treeUri == null) {
+            return null;
+        }
+        String docId;
+        try {
+            docId = DocumentsContract.getTreeDocumentId(treeUri);
+        } catch (Exception e) {
+            return null;
+        }
+        if (TextUtils.isEmpty(docId)) {
+            return null;
+        }
+        String[] split = docId.split(":", 2);
+        if (split.length == 0 || !"primary".equalsIgnoreCase(split[0])) {
+            return null;
+        }
+        File root = Environment.getExternalStorageDirectory();
+        if (root == null) {
+            return null;
+        }
+        if (split.length < 2 || TextUtils.isEmpty(split[1])) {
+            return root;
+        }
+        return new File(root, split[1]);
+    }
+
+    /**
+     * Take persistable URI permission and return a path the rest of the app can store:
+     * a filesystem absolute path when the tree maps to primary storage, otherwise the
+     * {@code content://} tree URI string.
+     */
+    public static String persistDirectorySelection(Context context, Uri treeUri, int takeFlags) {
+        if (context == null || treeUri == null) {
+            return "";
+        }
+        int flags = takeFlags & (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        if (flags == 0) {
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+        }
+        try {
+            context.getContentResolver().takePersistableUriPermission(treeUri, flags);
+        } catch (SecurityException e) {
+            // Some providers do not support persistable grants; still store the URI.
+            e.printStackTrace();
+        }
+        File mapped = mapTreeUriToFile(treeUri);
+        if (mapped != null) {
+            ensureWritableDirectory(mapped);
+            return mapped.getAbsolutePath();
+        }
+        return treeUri.toString();
+    }
+
     public static File resolveDefaultSettingsDirectory(Context context, boolean hasSharedStorage,
             String customPath) {
         if (!TextUtils.isEmpty(customPath)) {
-            File custom = new File(customPath.trim());
-            if (ensureWritableDirectory(custom)) {
-                return custom;
+            String trimmed = customPath.trim();
+            if (isContentUri(trimmed)) {
+                File mapped = mapTreeUriToFile(Uri.parse(trimmed));
+                if (mapped != null && ensureWritableDirectory(mapped)) {
+                    return mapped;
+                }
+                // Unmapped content tree — fall through for File-based callers.
+            } else {
+                File custom = new File(trimmed);
+                if (ensureWritableDirectory(custom)) {
+                    return custom;
+                }
+                // Fall through if the custom path cannot be created/written.
             }
-            // Fall through if the custom path cannot be created/written.
         }
         String exportDir = ConfigurationLoader.getConfigurationValue("exportDirectory", context);
         if (hasSharedStorage) {

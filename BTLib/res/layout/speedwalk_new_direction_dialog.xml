@@ -25,20 +25,20 @@
   	android:text="Cancel"
   	android:id="@+id/new_sw_cancel_button"
   	android:layout_alignParentBottom="true"
-  	android:layout_alignParentRight="true"/>
+  	android:layout_alignParentLeft="true"/>
   <Button
   	android:layout_width="fill_parent"
   	android:layout_height="wrap_content"
   	android:text="Add Direction"
   	android:id="@+id/new_sw_done_button"
   	android:layout_alignParentBottom="true"
-  	android:layout_toLeftOf="@+id/new_sw_cancel_button"
-  	android:layout_alignParentLeft="true"/>
+  	android:layout_toRightOf="@+id/new_sw_cancel_button"
+  	android:layout_alignParentRight="true"/>
   	
   <RelativeLayout
   	android:layout_width="200dip"
   	android:layout_height="wrap_content"
-  	android:layout_above="@id/new_sw_done_button"
+  	android:layout_above="@id/new_sw_cancel_button"
   	android:layout_below="@id/titlebar"
   	android:layout_marginLeft="5dip"
   	android:layout_marginRight="5dip">

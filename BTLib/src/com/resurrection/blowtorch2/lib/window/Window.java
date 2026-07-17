@@ -3452,14 +3452,6 @@ end
 			case tap_dismiss_keyboard:
 				mTapDismissKeyboard = (Boolean) o.getValue();
 				break;
-			case grow_input_bar:
-				if (mMainWindowHandler != null) {
-					Message growMsg = mMainWindowHandler.obtainMessage(
-							MainWindow.MESSAGE_GROW_INPUT_BAR);
-					growMsg.arg1 = ((Boolean) o.getValue()) ? 1 : 0;
-					mMainWindowHandler.sendMessage(growMsg);
-				}
-				break;
 				
 			}
 		} catch(IllegalArgumentException e) {
@@ -3499,8 +3491,7 @@ end
 		line_extra,
 		buffer_size,
 		font_path,
-		tap_dismiss_keyboard,
-		grow_input_bar
+		tap_dismiss_keyboard
 	}
 	
 
