@@ -5,7 +5,7 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | *(root)* | Encoding, orientation, keep screen on, fullscreen |
-| **Window** | Font, buffer, word wrap, etc. (window token settings) |
+| **Window** | Font, buffer, word wrap, **Grow Input Bar?** (`.wrap`), etc. (window token settings) |
 | **Input** | Input box / editor behavior (history size, keep last, …) |
 | **Service** | Background service & **game output** logging (`Log Session to File?`, `Session Log Directory`) |
 | **GMCP Options** | nested under Service |
@@ -29,3 +29,9 @@ In-game **Options** dialog groups (Program Settings):
 
 Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 `BTLib/res/raw/user_manual.txt` and `Connection` / plugin `RegisterSpecialCommand`).
+
+## Input bar growth
+
+- **Options → Window → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
+- Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
+- **Send** sits to the right of **Edit/Hide**; when grow is off and the input is tall, Send stacks under Edit/Hide.
