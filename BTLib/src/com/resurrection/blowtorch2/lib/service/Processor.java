@@ -12,6 +12,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
+import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -35,6 +37,10 @@ public class Processor {
 	private Context mContext = null;
 	/** Weather or not to display telnet debugging messages. */
 	private boolean mDebugTelnet = false;
+	/** When true, GMCP handshake/packets are written to BlowTorchLogger (+ session log if on). */
+	private boolean mLogGMCP = false;
+	/** Optional profile label for session-log GMCP lines. */
+	private String mLogProfile = "session";
 	/** Holdover sequence buffer. Used when a telnet negotation spans a transmission boundary. */
 	private byte[] mHoldover = null;
 	/** GMCP Data holder object. */
@@ -77,6 +83,32 @@ public class Processor {
 	 */
 	public final void setDebugTelnet(final boolean debugTelnet) {
 		mDebugTelnet = debugTelnet;
+	}
+
+	public final void setLogGMCP(final boolean logGMCP) {
+		mLogGMCP = logGMCP;
+	}
+
+	public final boolean isLogGMCP() {
+		return mLogGMCP;
+	}
+
+	public final void setLogProfile(final String profile) {
+		mLogProfile = (profile == null || profile.length() == 0) ? "session" : profile;
+	}
+
+	private void logGmcp(final String direction, final String payload) {
+		if (!mLogGMCP && !mDebugTelnet) {
+			return;
+		}
+		String line = direction + " " + (payload == null ? "" : payload);
+		Log.i("GMCP", line);
+		if (mContext != null) {
+			BlowTorchLogger.logError(mContext, "GMCP", line);
+			if (mLogGMCP && SessionLogger.isEnabled(mContext)) {
+				SessionLogger.appendMarker(mContext, mLogProfile, "GMCP " + line);
+			}
+		}
 	}
 	
 	/** The main processing routine.
@@ -264,6 +296,7 @@ public class Processor {
 		mReportTo.sendMessage(sb);
 		
 		if (action == TC.WILL && option == TC.GMCP) {
+			logGmcp("NEG", "IAC WILL GMCP → " + (mUseGMCP ? "DO + hello/supports" : "DONT (use_gmcp off)"));
 			//so we are responding accordingly, but we want to "initialize" the gmcp
 			if (mUseGMCP) {
 				initGMCP();
@@ -301,17 +334,28 @@ public class Processor {
 			wrap.position(SKIP_BYTES);
 			wrap.get(foo, 0, negotiation.length - PAYLOAD_BYTES);
 			try {
-				String whole = new String(foo, "UTF-8");
-				int split = whole.indexOf(" ");
-				String module = whole.substring(0, split);
-				String data = whole.substring(split + 1, whole.length());
-				try {
-					JSONObject jo = new JSONObject(data);
-					mGMCP.absorb(module, jo);
-				} catch (JSONException e) {
-					Log.e("GMCP", "GMCP PARSING FOR: " + data);
-					Log.e("GMCP", "REASON: " + e.getMessage());
-					e.printStackTrace();
+				String whole = new String(foo, "UTF-8").trim();
+				logGmcp("IN", whole);
+				int split = whole.indexOf(' ');
+				String module;
+				String data;
+				if (split < 0) {
+					module = whole;
+					data = null;
+				} else {
+					module = whole.substring(0, split);
+					data = whole.substring(split + 1).trim();
+				}
+				if (data != null && data.length() > 0) {
+					try {
+						JSONObject jo = new JSONObject(data);
+						mGMCP.absorb(module, jo);
+					} catch (JSONException e) {
+						Log.e("GMCP", "GMCP PARSING FOR: " + data);
+						Log.e("GMCP", "REASON: " + e.getMessage());
+						logGmcp("ERR", "parse failed for " + module + ": " + e.getMessage());
+						e.printStackTrace();
+					}
 				}
 				
 				//TODO: THIS IS WHERE THE ACTUAL WORK IS DONE TO SEND MUD DATA.
@@ -425,6 +469,8 @@ public class Processor {
 		try {
 			byte[] hellob = getGMCPResponse(mGMCPHello);
 			byte[] supportb = getGMCPResponse(mGMCPSupports);
+			logGmcp("OUT", mGMCPHello);
+			logGmcp("OUT", mGMCPSupports);
 			
 			String hello = Colorizer.getTeloptStartColor() + "OUT:[" + TC.decodeSUB(hellob) + "]" + Colorizer.getResetColor() + "\n";
 			String supports = Colorizer.getTeloptStartColor() + "OUT:[" + TC.decodeSUB(supportb) + "]" + Colorizer.getResetColor() + "\n";

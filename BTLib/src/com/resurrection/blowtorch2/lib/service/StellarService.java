@@ -32,6 +32,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.PowerManager;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.Bundle;
@@ -39,6 +40,7 @@ import android.os.Vibrator;
 import android.util.Log;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
@@ -70,6 +72,9 @@ public class StellarService extends Service {
 	protected static final int MESSAGE_STOPANR = 4;
 	/** Duration of a short interval of time. */
 	private static final int SHORT_DURATION = 300;
+	/** How often to refresh connection-duration on the foreground notification. */
+	private static final int DURATION_REFRESH_MS = 30000;
+	private static final int MESSAGE_REFRESH_DURATION = 100;
 	/** The starting value for the notification id counter. */
 	private static final int NOTIFICATION_START_VALUE = 100;
 	/** Jedyne ID powiadomienia foreground (ongoing). */
@@ -84,8 +89,12 @@ public class StellarService extends Service {
 	private Handler mHandler = null;
 	/** The WifiLock object. */
 	private WifiManager.WifiLock mWifiLock = null;
+	/** Keeps CPU available for socket keepalive while connected. */
+	private PowerManager.WakeLock mCpuWakeLock = null;
 	/** The WifiManager object. */
 	private WifiManager mWifiManager = null;
+	/** Last completed connection durations by display name. */
+	private final HashMap<String, Long> mLastDurationMs = new HashMap<String, Long>();
 	/** Tracker for if there is a notification in use that is used by the startForeground(...) method.
 	 * @see Service.startForeground(...)
 	 */
@@ -191,10 +200,12 @@ public class StellarService extends Service {
 					} else {
 						updateForegroundNotification(
 								active.getDisplay(),
-								getString(R.string.notification_status_connected,
-										active.getHost(), active.getPort()));
+								buildConnectedStatus(active));
 					}
 				}
+				break;
+			case MESSAGE_REFRESH_DURATION:
+				refreshConnectedNotificationDuration();
 				break;
 			case MESSAGE_NEWCONENCTION:
 				Bundle b = msg.getData();
@@ -235,9 +246,18 @@ public class StellarService extends Service {
 	 * @param c The connection that disconnected.
 	 */
 	public final void doDisconnect(final Connection c) {
+		String lasted = "";
+		long ms = c.getLastDurationMs();
+		if (ms <= 0L && c.getConnectedAtElapsed() > 0L) {
+			ms = android.os.SystemClock.elapsedRealtime() - c.getConnectedAtElapsed();
+		}
+		if (ms > 0L) {
+			mLastDurationMs.put(c.getDisplay(), ms);
+			lasted = " · " + getString(R.string.notification_status_lasted, ConnectionDuration.formatElapsed(ms));
+		}
 		// Reflect real state on the ongoing notification before any shutdown/dialog path.
 		updateForegroundNotification(c.getDisplay(),
-				getString(R.string.notification_status_disconnected, c.getHost()));
+				getString(R.string.notification_status_disconnected, c.getHost()) + lasted);
 
 		//attempt to display the disconnection dialog.
 		if (c.getDisplay().equals(mConnectionClutch)) {
@@ -310,6 +330,131 @@ public class StellarService extends Service {
 				held = mWifiLock.isHeld();
 			}
 		}
+		ensureCpuWakeLock();
+	}
+
+	private void ensureCpuWakeLock() {
+		if (mCpuWakeLock != null && mCpuWakeLock.isHeld()) {
+			return;
+		}
+		PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+		if (pm == null) {
+			return;
+		}
+		mCpuWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "BlowTorch:ConnectionKeepalive");
+		mCpuWakeLock.setReferenceCounted(false);
+		mCpuWakeLock.acquire();
+	}
+
+	private void releaseCpuWakeLock() {
+		if (mCpuWakeLock != null && mCpuWakeLock.isHeld()) {
+			mCpuWakeLock.release();
+		}
+		mCpuWakeLock = null;
+	}
+	
+	/** Disables the wifi keep alive. */
+	public final void disableWifiKeepAlive() {
+		//if we have a wifi lock, release it
+		if (mWifiLock != null) {
+			mWifiLock.release();
+			mWifiLock = null;
+		}
+		if (mConnections == null || mConnections.isEmpty()) {
+			releaseCpuWakeLock();
+		}
+	}
+
+	public final void noteConnectionStarted(final String display) {
+		ensureCpuWakeLock();
+		scheduleDurationRefresh();
+		notifyLauncherDurationChanged();
+	}
+
+	public final void noteConnectionEnded(final String display, final long durationMs) {
+		if (display != null && durationMs > 0L) {
+			mLastDurationMs.put(display, durationMs);
+		}
+		if (mConnections == null || mConnections.isEmpty()
+				|| (mConnections.size() == 1 && mConnections.containsKey(display))) {
+			// may still be present until remove; refresh scheduler stops when none connected
+		}
+		scheduleDurationRefresh();
+		notifyLauncherDurationChanged();
+	}
+
+	private void scheduleDurationRefresh() {
+		if (mHandler == null) {
+			return;
+		}
+		mHandler.removeMessages(MESSAGE_REFRESH_DURATION);
+		boolean anyConnected = false;
+		if (mConnections != null) {
+			for (Connection c : mConnections.values()) {
+				if (c != null && c.isConnected()) {
+					anyConnected = true;
+					break;
+				}
+			}
+		}
+		if (anyConnected) {
+			mHandler.sendEmptyMessageDelayed(MESSAGE_REFRESH_DURATION, DURATION_REFRESH_MS);
+		} else {
+			releaseCpuWakeLock();
+		}
+	}
+
+	private void refreshConnectedNotificationDuration() {
+		Connection active = null;
+		if (mConnectionClutch != null && mConnections != null) {
+			active = mConnections.get(mConnectionClutch);
+		}
+		if (active != null && active.isConnected()) {
+			updateForegroundNotification(active.getDisplay(), buildConnectedStatus(active));
+		}
+		scheduleDurationRefresh();
+		notifyLauncherDurationChanged();
+	}
+
+	private String buildConnectedStatus(final Connection c) {
+		String base = getString(R.string.notification_status_connected, c.getHost(), c.getPort());
+		String dur = c.getDurationLabel();
+		if (dur == null || dur.length() == 0) {
+			return base;
+		}
+		return getString(R.string.notification_status_connected_duration, c.getHost(), c.getPort(), dur);
+	}
+
+	public final String getConnectionDurationText(final String display) {
+		if (display == null) {
+			return "";
+		}
+		Connection c = mConnections != null ? mConnections.get(display) : null;
+		if (c != null && c.isConnected()) {
+			String label = c.getDurationLabel();
+			return label == null ? "" : label;
+		}
+		Long last = mLastDurationMs.get(display);
+		if (last != null && last.longValue() > 0L) {
+			return ConnectionDuration.formatElapsed(last.longValue());
+		}
+		if (c != null) {
+			String label = c.getDurationLabel();
+			return label == null ? "" : label;
+		}
+		return "";
+	}
+
+	private void notifyLauncherDurationChanged() {
+		int n = mLauncherCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mLauncherCallbacks.getBroadcastItem(i).connectionDisconnected();
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
+		}
+		mLauncherCallbacks.finishBroadcast();
 	}
 	
 	/** The implementation of the bell vibrator. Connections will call this. */
@@ -381,15 +526,6 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 	
-	/** Disables the wifi keep alive. */
-	public final void disableWifiKeepAlive() {
-		//if we have a wifi lock, release it
-		if (mWifiLock != null) {
-			mWifiLock.release();
-			mWifiLock = null;
-		}
-	}
-	
 	/** Utility method for dispatching a toast message to be displayed by the foreground window. 
 	 * 
 	 * @param message The message to show.
@@ -454,7 +590,12 @@ public class StellarService extends Service {
 		//Notification note = new Notification(resId, brandName + " Disconnected", System.currentTimeMillis());
 		Context context = getApplicationContext();
 		CharSequence contentTitle = brandName + " Disconnected";
-		CharSequence contentText = getString(R.string.notification_status_disconnected, host);
+		String lasted = "";
+		Long ms = mLastDurationMs.get(display);
+		if (ms != null && ms.longValue() > 0L) {
+			lasted = " · " + getString(R.string.notification_status_lasted, ConnectionDuration.formatElapsed(ms.longValue()));
+		}
+		CharSequence contentText = getString(R.string.notification_status_disconnected, host) + lasted;
 		Intent notificationIntent = null;
 		String windowAction = ConfigurationLoader.getConfigurationValue("windowAction", this.getApplicationContext());
 		notificationIntent = new Intent(windowAction);
@@ -667,8 +808,13 @@ public class StellarService extends Service {
 		mConnectionNotificationMap.put(display, note);
 
 		if (display != null && display.equals(mConnectionClutch)) {
-			updateForegroundNotification(display,
-					getString(R.string.notification_status_connected, host, port));
+			Connection c = mConnections.get(display);
+			if (c != null) {
+				updateForegroundNotification(display, buildConnectedStatus(c));
+			} else {
+				updateForegroundNotification(display,
+						getString(R.string.notification_status_connected, host, port));
+			}
 		}
 	}
 
@@ -723,8 +869,7 @@ public class StellarService extends Service {
 		mConnectionClutch = tmp[0];
 		Connection next = mConnections.get(tmp[0]);
 		if (next != null) {
-			updateForegroundNotification(next.getDisplay(),
-					getString(R.string.notification_status_connected, next.getHost(), next.getPort()));
+			updateForegroundNotification(next.getDisplay(), buildConnectedStatus(next));
 		} else {
 			int tmpID = mConnectionNotificationIdMap.get(tmp[0]);
 			Notification tmpNote = mConnectionNotificationMap.get(tmp[0]);
@@ -1086,6 +1231,11 @@ public class StellarService extends Service {
 		@Override
 		public boolean isFullScreen() throws RemoteException {
 			return mConnections.get(mConnectionClutch).isFullScren();
+		}
+
+		@Override
+		public String getConnectionDurationText(final String display) throws RemoteException {
+			return StellarService.this.getConnectionDurationText(display);
 		}
 		
 		@Override
