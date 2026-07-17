@@ -30,16 +30,6 @@
             android:src="@drawable/ic_editor_settings" />
 
         <ImageButton
-            android:id="@+id/editor_done"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:background="@android:color/transparent"
-            android:contentDescription="Save button layout"
-            android:padding="8dp"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_editor_done" />
-
-        <ImageButton
             android:id="@+id/editor_cancel"
             android:layout_width="48dp"
             android:layout_height="48dp"
@@ -48,6 +38,16 @@
             android:padding="8dp"
             android:scaleType="centerInside"
             android:src="@drawable/ic_editor_cancel" />
+
+        <ImageButton
+            android:id="@+id/editor_done"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Save button layout"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_editor_done" />
     </LinearLayout>
 
     <ImageButton

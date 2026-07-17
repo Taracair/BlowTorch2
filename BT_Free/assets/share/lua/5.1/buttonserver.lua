@@ -549,10 +549,11 @@ function setHapticFeedbackFlipped(value)
 end
 
 function setShowGestureHints(value)
-	options.show_gesture_hints = value
-	if(UserPresent()) then
-		loadOptions()
-	end
+	-- PluginXCallS passes a single string; also accept boolean from OnOptionChanged paths.
+	local on = (value == true or value == "true" or value == "1")
+	options.show_gesture_hints = on and "true" or "false"
+	-- Always push to the window so badge/arrow drawing updates immediately.
+	loadOptions()
 end
 
 
