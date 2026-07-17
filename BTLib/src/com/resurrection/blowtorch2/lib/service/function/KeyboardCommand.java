@@ -4,16 +4,12 @@ import java.io.UnsupportedEncodingException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import android.os.RemoteException;
-
 import com.resurrection.blowtorch2.lib.service.Connection;
 
 public class KeyboardCommand extends SpecialCommand {
 	String encoding;
 	public KeyboardCommand() {
 		this.commandName = "keyboard";
-		//alternate short form, kb.
-		//this.encoding = encoding;
 		this.encoding = "ISO-8859-1";
 	}
 	
@@ -22,63 +18,44 @@ public class KeyboardCommand extends SpecialCommand {
 	}
 	
 	public Object execute(Object o,Connection c) {
-		
-		//DO ALIAS/VARIABLE TRANSFORMATIONS!!!
-		//ACTUALLY, I THINK THE TRANSFORM STEP
-		//IS DONE BEFORE SPECIAL COMMAND PARSING.
-		
-		//command format.
-		//.kb message - set keyboard text.
-		//.kb add message - append message to current keyboard.
-		//.kb popup message - set keyboard text and popup.
-		//.kb add popop message - append message and popup.
-		//.kb popup add message - same as prev, but with syntax swapped.
-		//.kb flush message - send the keyboard.
-		//.kb close - closes the keyboard
-		//.kb clear - clears any text in the keyboard
-		//.kb selectall - selects all text in the input bar
-		//.kb copy - copies selection or all text
-		//.kb paste - pastes from clipboard
-		//.kb cursorstart - moves cursor to start
-		//.kb cursorend - moves cursor to end
-		//.kb - print the kb help message.
 		boolean failed = false;
 		if(o==null) {
-			//fail, print kb
 			failed = true;
 		} else if(((String)o).equals("")) {
-			//fail, print kb.
 			failed = true;
 		}
 		
 		if(failed) {
-			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",".kb options message\n" +
-					"Options are as follows:\n" +
-					"add,popup,flush,close,clear,selectall,copy,paste,cursorstart,cursorend\n"+
-					"add and popup are optional flags that will append text or popup the window when supplied.\n" +
-					"flush sends the current text in the input window to the server.\n" +
-					"close will close the keyboard if it is open.\n"+
-					"clear will erase any text that is currently in the input window.\n" +
-					"Example:\n" +
-					"\".kb popup reply \" will put \"reply \" into the input bar and pop up the keyboard.\n" +
-					"\".kb add foo\" will append foo to the current text in the input box and not pop up the keyboard.\n" +
-					"\".kb flush\" will transmit the text currently in the box.\n" +
-					"The cursor is always moved to the end of the new text."));
+			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",".kb options [message]\n" +
+					"Text ops: add, popup, flush, close, clear\n" +
+					"Edit ops: sel | selectall, cut, copy, paste\n" +
+					"Cursor: start | cursorstart, end | cursorend,\n" +
+					"        stepf | stepr (right), stepb | stepl (left),\n" +
+					"        stepu (up), stepd (down)\n" +
+					"Examples:\n" +
+					"  .kb popup reply   — set text and show IME\n" +
+					"  .kb add foo       — append without popup\n" +
+					"  .kb flush         — send current input\n" +
+					"  .kb sel / .kb cut — select all / cut\n" +
+					"  .kb start / .kb end — caret to start / end\n" +
+					"  .kb stepf / .kb stepb — caret ±1 character\n"));
 			return null;
 		}
-		
-		Pattern p = Pattern.compile("^\\s*(add|popup|flush|close|clear|selectall|copy|paste|cursorstart|cursorend){0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$");
+
+		Pattern p = Pattern.compile(
+				"^\\s*(add|popup|flush|close|clear|selectall|sel|copy|cut|paste|"
+				+ "cursorstart|start|cursorend|end|"
+				+ "stepf|stepr|stepb|stepl|stepu|stepd)"
+				+ "{0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$",
+				Pattern.CASE_INSENSITIVE);
 		Matcher m = p.matcher((String)o);
 		String operation1 = "";
 		String operation2 = "";
 		String text = "";
 		if(m.matches()) {
-			//match
 			operation1 = m.group(1);
 			operation2 = m.group(2);
 			text = m.group(3);
-		} else {
-			//shouldn't ever not match.
 		}
 		boolean doadd = false;
 		boolean dopopup = false;
@@ -106,34 +83,42 @@ public class KeyboardCommand extends SpecialCommand {
 		}
 		
 		if(operation1 != null && !operation1.equals("")) {
-			
-			if(operation1.equalsIgnoreCase("flush")) {
+			String op = operation1.toLowerCase();
+			if(op.equals("flush")) {
 				doflush = true;
-			}
-			if(operation1.equalsIgnoreCase("clear")) {
+			} else if(op.equals("clear")) {
 				doclear = true;
-			}
-			if(operation1.equalsIgnoreCase("close")) {
+			} else if(op.equals("close")) {
 				doclose = true;
-			}
-			if(operation1.equalsIgnoreCase("selectall")) {
+			} else if(op.equals("selectall") || op.equals("sel")) {
 				c.getService().doInputBarSelectAll();
 				return null;
-			}
-			if(operation1.equalsIgnoreCase("copy")) {
+			} else if(op.equals("copy")) {
 				c.getService().doInputBarCopy();
 				return null;
-			}
-			if(operation1.equalsIgnoreCase("paste")) {
+			} else if(op.equals("cut")) {
+				c.getService().doInputBarCut();
+				return null;
+			} else if(op.equals("paste")) {
 				c.getService().doInputBarPaste();
 				return null;
-			}
-			if(operation1.equalsIgnoreCase("cursorstart")) {
+			} else if(op.equals("cursorstart") || op.equals("start")) {
 				c.getService().doInputBarCursorToStart();
 				return null;
-			}
-			if(operation1.equalsIgnoreCase("cursorend")) {
+			} else if(op.equals("cursorend") || op.equals("end")) {
 				c.getService().doInputBarCursorToEnd();
+				return null;
+			} else if(op.equals("stepf") || op.equals("stepr")) {
+				c.getService().doInputBarCursorStep(1);
+				return null;
+			} else if(op.equals("stepb") || op.equals("stepl")) {
+				c.getService().doInputBarCursorStep(-1);
+				return null;
+			} else if(op.equals("stepu")) {
+				c.getService().doInputBarCursorVertical(-1);
+				return null;
+			} else if(op.equals("stepd")) {
+				c.getService().doInputBarCursorVertical(1);
 				return null;
 			}
 		}
@@ -142,12 +127,10 @@ public class KeyboardCommand extends SpecialCommand {
 		try {
 			text = new String(c.doKeyboardAliasReplace(text.getBytes(encoding),foo),encoding);
 		} catch (UnsupportedEncodingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
 		c.getService().doShowKeyboard(text,dopopup,doadd,doflush,doclear,doclose);
-//		return null;
 		return null;
 	}
 }
