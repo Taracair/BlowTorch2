@@ -49,8 +49,9 @@
 
             <com.resurrection.blowtorch2.lib.window.BetterEditText
                 android:id="@+id/textinput"
-                android:layout_width="fill_parent"
+                android:layout_width="0dip"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:layout_marginLeft="3sp"
                 android:background="@drawable/input_bar_bg"
                 android:candidatesTextStyleSpans=""
@@ -69,6 +70,18 @@
                 android:textColorHighlight="@color/game_input_highlight"
                 android:textSize="16sp"
                 android:typeface="monospace" />
+
+            <Button
+                android:id="@+id/input_send"
+                style="@style/InputEditToolButton"
+                android:layout_width="wrap_content"
+                android:layout_height="28dip"
+                android:minHeight="28dip"
+                android:minWidth="48dip"
+                android:layout_marginLeft="4dip"
+                android:layout_marginRight="2dip"
+                android:text="Send"
+                android:contentDescription="Send input" />
 
         </LinearLayout>
 
