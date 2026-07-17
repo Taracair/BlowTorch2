@@ -19,7 +19,7 @@ Repo: https://github.com/Taracair/BlowTorch2.git
 Builds:
   - versionName: '2.1.2'
     versionCode: 226
-    commit: v2.1.2
+    commit: REPLACE_WITH_RELEASE_TAG_OR_COMMIT
     subdir: BT_Free
     sudo:
       - apt-get update || apt-get update
@@ -39,8 +39,10 @@ MaintainerNotes: |
   committed). Release signing is left unset unless BT_LOCAL_SIGN=1; F-Droid
   signs the APK. Package id is com.resurrection.blowtorch2 (production flavor).
   ForgeMap / mapper ships only in btTest and must stay out of this recipe.
-  Uses MANAGE_EXTERNAL_STORAGE so default user files live under /BlowTorch/
+  Uses MANAGE_EXTERNAL_STORAGE so default user files can live under /BlowTorch/
   (settings, backups, launcher, session_logs, logs) outside Android/data.
+  This is optional for playing; see docs/FDROID_README.md for the full
+  permission justification aimed at reviewers and users.
 
 ArchivePolicy: 2 versions
 AutoUpdateMode: Version
