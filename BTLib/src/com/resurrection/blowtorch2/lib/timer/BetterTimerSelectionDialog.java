@@ -236,15 +236,17 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void willShowToolbar(LinearLayout toolbar, int row) {
-		//this will be called before the toolbar is shown, it will give the implementer the option to set up on/off lock/unlock etc.
-		ImageButton b = (ImageButton)toolbar.getChildAt(1);
-		toolbar.getChildAt(1);
 		TimerData data = dataMap.get(getItemKey(row));
-		/*if(data.isEnabled()) {
-			b.setImageResource(R.drawable.toolbar_toggleon_button);
+		if (data == null || toolbar.getChildCount() == 0) {
+			return;
+		}
+		// Timers: play/pause, stop, modify, delete — sync play/pause icon.
+		ImageButton play = (ImageButton) toolbar.getChildAt(0);
+		if (data.isPlaying()) {
+			play.setImageResource(R.drawable.toolbar_pause_button);
 		} else {
-			b.setImageResource(R.drawable.toolbar_toggleoff_button);
-		}*/
+			play.setImageResource(R.drawable.toolbar_play_button);
+		}
 	}
 	
 	@Override

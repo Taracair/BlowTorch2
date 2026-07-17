@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.validator.Validator;
+import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 
 import android.app.Dialog;
 import android.content.Context;
@@ -40,7 +41,7 @@ public class AliasEditorDialog extends Dialog {
 	private boolean mEnabled = true;
 	
 	public AliasEditorDialog(Context context,AliasEditorDialogDoneListener useme,IConnectionBinder pService,List<String> invalid_names,String currentPlugin) {
-		super(context);
+		super(context, EditorDialogChrome.dialogTheme());
 		reportto = useme;
 		service = pService;
 		cant_name = invalid_names;
@@ -117,6 +118,7 @@ public class AliasEditorDialog extends Dialog {
 		}
 		initMatches();
 		setupAliasPreview();
+		EditorDialogChrome.applyNearlyFullScreen(this);
 		//load in the array adapter to hook up the list view
 	}
 	
@@ -432,7 +434,7 @@ public class AliasEditorDialog extends Dialog {
 	boolean isEditor = false;
 	String currentPlugin = null;
 	public AliasEditorDialog(Context context,AliasEditorDialogDoneListener useme,String pre,String post,int position,AliasData old_alias,IConnectionBinder pService,List<String> invalid_names,String currentPlugin) {
-		super(context);
+		super(context, EditorDialogChrome.dialogTheme());
 		isEditor=true;
 		reportto = useme;
 		original_alias = old_alias;
