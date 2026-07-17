@@ -2536,6 +2536,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.REQUEST_PICK_SOUND) {
+			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+				com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.onSoundPicked(data.getData());
+			}
+			return;
+		}
 		if (requestCode == REQUEST_IMPORT_SETTINGS_XML && resultCode == RESULT_OK && data != null) {
 			Uri uri = data.getData();
 			if (uri != null) {
@@ -2705,6 +2711,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//screen2.doDelayedDraw(0);
 		isResumed = true;
 		requestNotificationPermissionIfNeeded();
+		try {
+			if (service != null && service.isConnected()) {
+				com.resurrection.blowtorch2.lib.util.BatteryOptimizationHelper.maybePrompt(MainWindow.this);
+			}
+		} catch (RemoteException ignored) {
+		}
 	}
 	
 	public void onDestroy(Bundle saveInstance) {

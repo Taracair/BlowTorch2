@@ -214,17 +214,31 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption use_gmcp = new BooleanOption();
 		use_gmcp.setTitle("Use GMCP?");
-		use_gmcp.setDescription("Enable or disable GMCP.");
+		use_gmcp.setDescription("Enable or disable GMCP (out-of-band telnet channel for structured game data).");
 		use_gmcp.setKey("use_gmcp");
 		use_gmcp.setValue(false);
 		gmcpOptions.addOption(use_gmcp);
 	
 		StringOption gmcp_supports = new StringOption();
 		gmcp_supports.setTitle("Supports String");
-		gmcp_supports.setDescription("Enables specified modules on initial negotiation.");
+		gmcp_supports.setDescription("Modules enabled on initial negotiation, e.g. \"char 1\", \"room 1\". Servers differ.");
 		gmcp_supports.setKey("gmcp_supports");
 		gmcp_supports.setValue("\"char 1\"");
 		gmcpOptions.addOption(gmcp_supports);
+
+		BooleanOption log_gmcp = new BooleanOption();
+		log_gmcp.setTitle("Log GMCP?");
+		log_gmcp.setDescription("Write GMCP handshake and packets to the app error log (and session log if enabled). Also: .gmcp sniff on");
+		log_gmcp.setKey("log_gmcp");
+		log_gmcp.setValue(false);
+		gmcpOptions.addOption(log_gmcp);
+
+		CallbackOption battery_opt = new CallbackOption();
+		battery_opt.setTitle("Battery optimization…");
+		battery_opt.setDescription("Ask Android not to kill BlowTorch in the background (helps keep connections alive).");
+		battery_opt.setKey("battery_optimization");
+		battery_opt.setValue("battery_optimization");
+		servOptions.addOption(battery_opt);
 		
 		servOptions.addOption(gmcpOptions);
 		

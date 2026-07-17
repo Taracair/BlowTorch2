@@ -1,6 +1,5 @@
 package com.resurrection.blowtorch2.lib.responder.notification;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.ListIterator;
@@ -317,11 +316,16 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		//note.setLatestEventInfo(c, xformedtitle, xformedmessage, contentIntent);
 		
 		int defaults = 0;
-		if(useDefaultSound && soundPath.equals("")) {
+		Uri customSound = null;
+		if (useDefaultSound && (soundPath == null || soundPath.equals(""))) {
 			defaults |= Notification.DEFAULT_SOUND;
-		} else if(useDefaultSound) {
-			//note.sound = Uri.fromFile(new File(soundPath));
-			builder.setSound(Uri.fromFile(new File(soundPath)));
+		} else if (useDefaultSound) {
+			customSound = com.resurrection.blowtorch2.lib.util.NotificationSounds.resolveUri(c, soundPath);
+			if (customSound != null) {
+				builder.setSound(customSound);
+			} else {
+				defaults |= Notification.DEFAULT_SOUND;
+			}
 		}
 		
 		if(useDefaultVibrate && vibrateLength == 0) {
