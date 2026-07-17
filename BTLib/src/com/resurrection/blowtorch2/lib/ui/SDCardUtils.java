@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.ui;
 import java.io.File;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -10,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.DocumentsContract;
+import android.provider.Settings;
 import android.text.TextUtils;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -17,14 +19,79 @@ import android.view.View;
 
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 
+/**
+ * Shared storage under {@code /BlowTorch/} (outside {@code Android/data}) with
+ * fixed subfolders for settings, backups, launcher lists, session logs, and app logs.
+ * On Android 11+ this requires {@link Settings#ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION}.
+ */
 public class SDCardUtils {
 
-    public static String getSDCardRoot(AppCompatActivity a, boolean external) {
-        String exportDir = ConfigurationLoader.getConfigurationValue("exportDirectory", a);
-        if (external) {
-            return "/" + exportDir;
+    public static final String SUBDIR_SETTINGS = "settings";
+    public static final String SUBDIR_BACKUPS = "backups";
+    public static final String SUBDIR_LAUNCHER = "launcher";
+    public static final String SUBDIR_SESSION_LOGS = "session_logs";
+    public static final String SUBDIR_LOGS = "logs";
+
+    public static String getExportDirectoryName(Context context) {
+        String name = ConfigurationLoader.getConfigurationValue("exportDirectory", context);
+        if (TextUtils.isEmpty(name)) {
+            return "BlowTorch";
         }
-        return resolveAppExternalDir(a).getAbsolutePath();
+        return name;
+    }
+
+    /**
+     * Preferred shared root: {@code /storage/emulated/0/BlowTorch} (or configured name).
+     * Does not create the directory.
+     */
+    public static File getPreferredBlowTorchRoot(Context context) {
+        File storage = Environment.getExternalStorageDirectory();
+        if (storage == null) {
+            return null;
+        }
+        return new File(storage, getExportDirectoryName(context));
+    }
+
+    /** True when the app may create/write arbitrary folders on shared storage. */
+    public static boolean hasAllFilesAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        // Pre-R: WRITE_EXTERNAL_STORAGE is enough when granted.
+        return true;
+    }
+
+    public static boolean needsAllFilesAccessPrompt() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager();
+    }
+
+    /**
+     * Opens the system screen to grant all-files access (Android 11+).
+     * @return true if an intent was started
+     */
+    public static boolean openAllFilesAccessSettings(Activity activity) {
+        if (activity == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return false;
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+            intent.setData(Uri.parse("package:" + activity.getPackageName()));
+            activity.startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                activity.startActivity(intent);
+                return true;
+            } catch (Exception e2) {
+                e2.printStackTrace();
+                return false;
+            }
+        }
+    }
+
+    public static String getSDCardRoot(AppCompatActivity a, boolean external) {
+        return resolveBlowTorchRoot(a).getAbsolutePath();
     }
 
     /**
@@ -55,20 +122,9 @@ public class SDCardUtils {
     }
 
     /**
-     * Session Import/Export default directory:
-     * <ol>
-     *   <li>Options → Miscellaneous → {@code default_settings_directory} when set</li>
-     *   <li>else shared storage {@code /&lt;exportDirectory&gt;/} (e.g. /BlowTorch) when permitted</li>
-     *   <li>else app external files (with internal files fallback)</li>
-     * </ol>
-     * When {@code customPath} is a {@code content://} tree URI that cannot be mapped to a
-     * filesystem path, falls through to the shared/app defaults. Callers that need the SAF
-     * tree should use {@link #isContentUri(String)} and DocumentFile themselves.
-     */
-    /**
      * True when {@code dir} exists (or was created) and is writable.
-     * On modern Android, READ/WRITE_EXTERNAL_STORAGE does <em>not</em> allow creating
-     * {@code /storage/emulated/0/BlowTorch} without all-files access — mkdirs fails silently.
+     * On modern Android without all-files access, creating
+     * {@code /storage/emulated/0/BlowTorch} fails — mkdirs returns false.
      */
     public static boolean ensureWritableDirectory(File dir) {
         if (dir == null) {
@@ -133,7 +189,6 @@ public class SDCardUtils {
         try {
             context.getContentResolver().takePersistableUriPermission(treeUri, flags);
         } catch (SecurityException e) {
-            // Some providers do not support persistable grants; still store the URI.
             e.printStackTrace();
         }
         File mapped = mapTreeUriToFile(treeUri);
@@ -144,6 +199,58 @@ public class SDCardUtils {
         return treeUri.toString();
     }
 
+    /**
+     * Default shared root for all BlowTorch files.
+     * Prefers {@code /BlowTorch} when writable (all-files / legacy write); otherwise
+     * {@code &lt;app external&gt;/BlowTorch} so layout stays consistent even without grant.
+     */
+    public static File resolveBlowTorchRoot(Context context) {
+        File preferred = getPreferredBlowTorchRoot(context);
+        if (preferred != null && ensureWritableDirectory(preferred)) {
+            ensureStandardSubdirectories(preferred);
+            return preferred;
+        }
+        File fallback = new File(resolveAppExternalDir(context), getExportDirectoryName(context));
+        ensureWritableDirectory(fallback);
+        ensureStandardSubdirectories(fallback);
+        return fallback;
+    }
+
+    /** Create the standard subfolders under a BlowTorch root. */
+    public static void ensureStandardSubdirectories(File root) {
+        if (root == null) {
+            return;
+        }
+        ensureWritableDirectory(new File(root, SUBDIR_SETTINGS));
+        ensureWritableDirectory(new File(root, SUBDIR_BACKUPS));
+        ensureWritableDirectory(new File(root, SUBDIR_LAUNCHER));
+        ensureWritableDirectory(new File(root, SUBDIR_SESSION_LOGS));
+        ensureWritableDirectory(new File(root, SUBDIR_LOGS));
+    }
+
+    public static File resolveBlowTorchSubdir(Context context, String subdir) {
+        File dir = new File(resolveBlowTorchRoot(context), subdir);
+        ensureWritableDirectory(dir);
+        return dir;
+    }
+
+    /**
+     * Whether shared {@code /BlowTorch} (outside Android/data) is actually usable.
+     */
+    public static boolean isUsingSharedBlowTorchRoot(Context context) {
+        File preferred = getPreferredBlowTorchRoot(context);
+        File actual = resolveBlowTorchRoot(context);
+        return preferred != null && actual != null
+                && preferred.getAbsolutePath().equals(actual.getAbsolutePath());
+    }
+
+    /**
+     * Session Import/Export default directory:
+     * <ol>
+     *   <li>Options → Miscellaneous → {@code default_settings_directory} when set</li>
+     *   <li>else {@code /BlowTorch/settings} (or app-external BlowTorch/settings fallback)</li>
+     * </ol>
+     */
     public static File resolveDefaultSettingsDirectory(Context context, boolean hasSharedStorage,
             String customPath) {
         if (!TextUtils.isEmpty(customPath)) {
@@ -153,26 +260,15 @@ public class SDCardUtils {
                 if (mapped != null && ensureWritableDirectory(mapped)) {
                     return mapped;
                 }
-                // Unmapped content tree — fall through for File-based callers.
             } else {
                 File custom = new File(trimmed);
                 if (ensureWritableDirectory(custom)) {
                     return custom;
                 }
-                // Fall through if the custom path cannot be created/written.
             }
         }
-        String exportDir = ConfigurationLoader.getConfigurationValue("exportDirectory", context);
-        if (hasSharedStorage) {
-            File root = Environment.getExternalStorageDirectory();
-            if (root != null) {
-                File dir = new File(root, exportDir);
-                if (ensureWritableDirectory(dir)) {
-                    return dir;
-                }
-            }
-        }
-        return resolveAppExternalDir(context);
+        // hasSharedStorage is retained for callers; resolution always tries shared root first.
+        return resolveBlowTorchSubdir(context, SUBDIR_SETTINGS);
     }
 
     public static String[] getStoragePermissions() {
@@ -186,7 +282,13 @@ public class SDCardUtils {
     }
 
     public static boolean hasStoragePermissions(AppCompatActivity activity) {
-        return PermissionHelper.allGranted(activity, getStoragePermissions());
+        if (needsAllFilesAccessPrompt()) {
+            return false;
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return PermissionHelper.allGranted(activity, getStoragePermissions());
+        }
+        return hasAllFilesAccess();
     }
 
     /**
@@ -207,11 +309,21 @@ public class SDCardUtils {
             }
         }
         if (needed.isEmpty()) {
+            if (hasAllFilesAccess()) {
+                resolveBlowTorchRoot(activity);
+            }
             return;
         }
         int featureRes = PermissionHelper.featureMessageForRequestCode(code);
         PermissionHelper.ensurePermissions(activity, root, code,
-                needed.toArray(new String[needed.size()]), featureRes, null);
+                needed.toArray(new String[needed.size()]), featureRes, new Runnable() {
+                    @Override
+                    public void run() {
+                        if (hasAllFilesAccess()) {
+                            resolveBlowTorchRoot(activity);
+                        }
+                    }
+                });
     }
 
     public static boolean hasPermissions(final AppCompatActivity activity, View root, final int code) {
@@ -220,7 +332,20 @@ public class SDCardUtils {
 
     public static boolean hasPermissions(final AppCompatActivity activity, View root, final int code,
             final Runnable onGranted) {
+        if (needsAllFilesAccessPrompt()) {
+            openAllFilesAccessSettings(activity);
+            return false;
+        }
         int featureRes = PermissionHelper.featureMessageForRequestCode(code);
-        return PermissionHelper.ensurePermissions(activity, root, code, getStoragePermissions(), featureRes, onGranted);
+        return PermissionHelper.ensurePermissions(activity, root, code, getStoragePermissions(), featureRes,
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        resolveBlowTorchRoot(activity);
+                        if (onGranted != null) {
+                            onGranted.run();
+                        }
+                    }
+                });
     }
 }
