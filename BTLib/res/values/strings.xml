@@ -8,7 +8,6 @@
     <string name="launcher_menu_export_server_list">Export Server List</string>
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
-    <string name="launcher_menu_copy_settings_to_storage">Copy Settings to Storage</string>
     <string name="launcher_account_plaintext_warn">Informational only — not used for auto-login. Stored on this device in the launcher list (plaintext). Do not store secrets you cannot afford to lose.</string>
     <string name="launcher_extra_accounts_summary">Extra account slots: %1$d (saved with this server)</string>
     <string name="hello">Hello World, BaardTERMLauncher!</string>
@@ -26,7 +25,6 @@
     <string name="permission_feature_connect">connecting to a MUD</string>
     <string name="permission_feature_import">importing settings</string>
     <string name="permission_feature_export">exporting settings</string>
-    <string name="permission_feature_salvage">recovering settings from storage</string>
     <string name="permission_feature_notifications">background connection notifications</string>
     <string name="permission_feature_startup">importing and exporting profiles</string>
     <string name="permission_feature_storage">using files on device storage</string>

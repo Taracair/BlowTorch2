@@ -221,7 +221,7 @@ public final class PermissionHelper {
             case 100:
                 return R.string.permission_feature_storage_info;
             case 101:
-                return R.string.permission_feature_salvage;
+                return R.string.permission_feature_export;
             case 102:
                 return R.string.permission_feature_export;
             case 103:
