@@ -83,7 +83,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
-- **Send** sits to the right of **Edit/Hide** on a single line; when the input grows past one line, **Edit** stacks above **Send** at the bottom-right (near the thumb).
+- **Edit** stacks above **Send** at the bottom-right of the input row (near the thumb as the bar grows upward).
 
 ## Notification responders
 
