@@ -122,9 +122,9 @@ Built-in commands
 
 On-screen buttons (button_window)
 ---------------------------------
-Edit button layout: long-press the ⋮ (three dots) next to Edit/Send. In edit
-mode, Cancel is on the left and Done on the right of the ⋮ strip; the gear opens
-set options (grid, gesture-hint badges, defaults).
+Edit button layout: open ⋮ → **Edit buttons**, or long-press the ⋮ next to
+Edit/Send. In edit mode, Cancel is on the left and Done on the right of the ⋮
+strip; the gear opens set options (grid, gesture-hint badges, defaults).
 
 Tap runs the primary command. Extra gestures (edit a button → Swipe / Accordion):
 
