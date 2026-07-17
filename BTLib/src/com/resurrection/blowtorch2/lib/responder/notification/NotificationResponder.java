@@ -323,13 +323,13 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		int defaults = 0;
 		if (useDefaultSound && (soundPath == null || soundPath.equals(""))) {
 			defaults |= Notification.DEFAULT_SOUND;
+		} else if (useDefaultSound && customSound != null) {
+			// Do not set DEFAULT_SOUND — that forces the system channel tone.
+			// Play custom sound ourselves; channel is silent for custom alerts.
+			builder.setSound(null);
+			com.resurrection.blowtorch2.lib.util.NotificationSounds.play(c, customSound);
 		} else if (useDefaultSound) {
-			if (customSound != null) {
-				// Pre-O: Builder sound is honored. O+: sound comes from the dedicated channel.
-				builder.setSound(customSound);
-			} else {
-				defaults |= Notification.DEFAULT_SOUND;
-			}
+			defaults |= Notification.DEFAULT_SOUND;
 		}
 		
 		if(useDefaultVibrate && vibrateLength == 0) {
