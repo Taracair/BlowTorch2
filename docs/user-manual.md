@@ -78,11 +78,13 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 
 ## On-screen buttons: swipe + accordion
 
+**Edit layout:** long-press the **⋮** (three dots) next to Edit/Send. Cancel is on the left, Done on the right; the gear opens set options.
+
 The default `button_window` plugin supports more than tap:
 
 - **Swipe up / down / left / right** — each direction can run a different command (edit button → Swipe). Overrides classic Flip. Drag roughly a finger-width off the tile.
 - **Hold** — optional command after press-and-hold.
-- **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Ideal for packing macros into one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hint arrows.
+- **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Ideal for packing macros into one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hint arrows (uncheck to hide U/D/L/R and Hold markers).
 
 ## GMCP (short)
 

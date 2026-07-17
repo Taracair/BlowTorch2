@@ -369,7 +369,15 @@ function showEditorDialog(editorValues,numediting)
 	showHintsCb:setChecked(hintsOn)
 	showHintsCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
 		onCheckedChanged = function(v, isChecked)
-			PluginXCallS("OnOptionChanged", "show_gesture_hints", isChecked and "true" or "false")
+			-- PluginXCallS only accepts one data arg; update window draw state immediately.
+			buttonShowHints = isChecked and true or false
+			if drawButtons ~= nil then
+				drawButtons()
+			end
+			if view ~= nil then
+				view:invalidate()
+			end
+			PluginXCallS("setShowGestureHints", isChecked and "true" or "false")
 		end
 	}))
 	swipePage:addView(showHintsCb)
