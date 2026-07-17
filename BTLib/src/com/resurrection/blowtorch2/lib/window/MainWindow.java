@@ -1599,6 +1599,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//menu.add(0,102,0,"Button Sets").setIcon(R.drawable.ic_menu_button_sets).setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
 
 		//SubMenu sm = menu.addSubMenu(0, 900, 0, "More");
+		menu.add(0, 450, 450, "Edit buttons");
 		menu.add(0, 500, 500 ,"Speedwalk Directions");
 		menu.add(0, 600, 600, "Plugins");
 		menu.add(0, 700, 700, "Reconnect");
@@ -1802,6 +1803,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			break;
 		case 1050: // Search scrollback
 			openScrollbackSearchBar("");
+			break;
+		case 450: // Edit buttons (same as long-press ⋮)
+			windowCall("button_window", "doEdit", "");
 			break;
 		case 500: //speedwalk config
 			BetterSpeedWalkConfigurationDialog swDialog = new BetterSpeedWalkConfigurationDialog(this,service);
