@@ -59,25 +59,40 @@ public class SDCardUtils {
      *   <li>else app external files (with internal files fallback)</li>
      * </ol>
      */
+    /**
+     * True when {@code dir} exists (or was created) and is writable.
+     * On modern Android, READ/WRITE_EXTERNAL_STORAGE does <em>not</em> allow creating
+     * {@code /storage/emulated/0/BlowTorch} without all-files access — mkdirs fails silently.
+     */
+    public static boolean ensureWritableDirectory(File dir) {
+        if (dir == null) {
+            return false;
+        }
+        if (!dir.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+        }
+        return dir.isDirectory() && dir.canWrite();
+    }
+
     public static File resolveDefaultSettingsDirectory(Context context, boolean hasSharedStorage,
             String customPath) {
         if (!TextUtils.isEmpty(customPath)) {
             File custom = new File(customPath.trim());
-            if (!custom.exists()) {
-                //noinspection ResultOfMethodCallIgnored
-                custom.mkdirs();
+            if (ensureWritableDirectory(custom)) {
+                return custom;
             }
-            return custom;
+            // Fall through if the custom path cannot be created/written.
         }
         String exportDir = ConfigurationLoader.getConfigurationValue("exportDirectory", context);
         if (hasSharedStorage) {
             File root = Environment.getExternalStorageDirectory();
-            File dir = new File(root, exportDir);
-            if (!dir.exists()) {
-                //noinspection ResultOfMethodCallIgnored
-                dir.mkdirs();
+            if (root != null) {
+                File dir = new File(root, exportDir);
+                if (ensureWritableDirectory(dir)) {
+                    return dir;
+                }
             }
-            return dir;
         }
         return resolveAppExternalDir(context);
     }
