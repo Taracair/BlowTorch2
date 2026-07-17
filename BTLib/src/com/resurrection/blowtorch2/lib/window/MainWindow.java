@@ -3927,6 +3927,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mGrowInputBar = true;
 	private ViewGroup mInputActionButtons = null;
 	private Button mInputSendButton = null;
+	/** True while Edit/Send are stacked vertically. */
+	private boolean mActionsStacked = false;
+	/** Fixed action-column width (side-by-side size) so stacking never changes EditText wrap. */
+	private int mActionColumnFixedWidthPx = 0;
 
 	private void setupInputEditStrip() {
 		final View tools = findViewById(R.id.input_edit_tools);
@@ -3955,23 +3959,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		if (mInputBox != null) {
-			// Debounced: react to height changes and text (soft-wrap line count).
-			mInputBox.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
-				@Override
-				public void onLayoutChange(View v, int left, int top, int right, int bottom,
-						int oldLeft, int oldTop, int oldRight, int oldBottom) {
-					if ((bottom - top) != (oldBottom - oldTop)) {
-						scheduleInputActionLayoutRefresh();
-					}
-				}
-			});
+			// Only watch line-count changes. Do not react to height — our own
+			// stack toggle used to change height and re-enter a layout loop.
 			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
 				private int mLastLines = -1;
 				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 				@Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
 				@Override
 				public void afterTextChanged(android.text.Editable s) {
-					int lines = mInputBox.getLineCount();
+					int lines = Math.max(1, mInputBox.getLineCount());
 					if (lines != mLastLines) {
 						mLastLines = lines;
 						scheduleInputActionLayoutRefresh();
