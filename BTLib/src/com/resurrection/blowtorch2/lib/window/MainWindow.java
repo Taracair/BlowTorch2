@@ -3792,7 +3792,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int LEGACY_INPUT_BAR_ID = 10;
 	private static final int LEGACY_DIVIDER_ID = 40;
 	private static final int LEGACY_TEXT_INPUT_ID = 30;
-	private static final float OVERFLOW_LIFT_DIP = 10f;
+	private static final float OVERFLOW_LIFT_PHONE_DIP = 14f;
+	/** Extra clearance above Edit/Send on tablets (taller input chrome). */
+	private static final float OVERFLOW_LIFT_TABLET_DIP = 40f;
+	private View.OnLayoutChangeListener mInputBarChromeLayoutListener = null;
 
 	private void saveConnectionExtras(Intent intent) {
 		if (intent == null) {
@@ -4463,25 +4466,65 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		if (fabStrip != null) {
 			final View inputbarFinal = inputbar;
+			final View dividerFinal = divider;
 			final int dividerHeightFinal = dividerHeight;
 			final int marginFinal = margin;
-			inputbar.post(new Runnable() {
+			final float liftDip = getResources().getConfiguration().smallestScreenWidthDp >= 600
+					? OVERFLOW_LIFT_TABLET_DIP
+					: OVERFLOW_LIFT_PHONE_DIP;
+			Runnable placeFab = new Runnable() {
 				@Override
 				public void run() {
-					// Search bar lives inside inputbar, so its height is already included.
-					int bottomInset = inputbarFinal.getHeight() + dividerHeightFinal
-							+ marginFinal + (int) (OVERFLOW_LIFT_DIP * density);
-					android.widget.FrameLayout.LayoutParams stripLp =
-							new android.widget.FrameLayout.LayoutParams(
-									LayoutParams.WRAP_CONTENT, (int) (48 * density));
-					stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-					stripLp.setMargins(0, 0, marginFinal, bottomInset);
-					fabStrip.setLayoutParams(stripLp);
+					placeGameplayFabStrip(fabStrip, inputbarFinal, dividerFinal,
+							dividerHeightFinal, marginFinal, liftDip);
 				}
-			});
+			};
+			inputbar.removeCallbacks(placeFab);
+			inputbar.post(placeFab);
+			if (mInputBarChromeLayoutListener == null) {
+				mInputBarChromeLayoutListener = new View.OnLayoutChangeListener() {
+					@Override
+					public void onLayoutChange(View v, int left, int top, int right, int bottom,
+							int oldLeft, int oldTop, int oldRight, int oldBottom) {
+						int oldH = oldBottom - oldTop;
+						int newH = bottom - top;
+						if (oldH != newH) {
+							placeGameplayFabStrip(fabStrip, inputbarFinal, dividerFinal,
+									dividerHeightFinal, marginFinal, liftDip);
+						}
+					}
+				};
+			}
+			inputbar.removeOnLayoutChangeListener(mInputBarChromeLayoutListener);
+			inputbar.addOnLayoutChangeListener(mInputBarChromeLayoutListener);
 		}
 		bindGameplayFabControls();
 		bringGameplayChromeToFront(rl);
+	}
+
+	private void placeGameplayFabStrip(View fabStrip, View inputbar, View divider,
+			int dividerHeight, int margin, float liftDip) {
+		if (fabStrip == null || inputbar == null) {
+			return;
+		}
+		float density = getResources().getDisplayMetrics().density;
+		int inputH = Math.max(inputbar.getHeight(), inputbar.getMeasuredHeight());
+		if (inputH <= 0) {
+			inputbar.post(new Runnable() {
+				@Override
+				public void run() {
+					placeGameplayFabStrip(fabStrip, inputbar, divider, dividerHeight, margin, liftDip);
+				}
+			});
+			return;
+		}
+		int bottomInset = inputH + dividerHeight + margin + (int) (liftDip * density + 0.5f);
+		android.widget.FrameLayout.LayoutParams stripLp =
+				new android.widget.FrameLayout.LayoutParams(
+						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
+		stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+		stripLp.setMargins(0, 0, margin, bottomInset);
+		fabStrip.setLayoutParams(stripLp);
 	}
 
 	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
