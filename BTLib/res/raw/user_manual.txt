@@ -122,6 +122,10 @@ Built-in commands
 
 On-screen buttons (button_window)
 ---------------------------------
+Edit button layout: long-press the ⋮ (three dots) next to Edit/Send. In edit
+mode, Cancel is on the left and Done on the right of the ⋮ strip; the gear opens
+set options (grid, gesture-hint badges, defaults).
+
 Tap runs the primary command. Extra gestures (edit a button → Swipe / Accordion):
 
   Swipe up / down / left / right
@@ -135,7 +139,7 @@ Tap runs the primary command. Extra gestures (edit a button → Swipe / Accordio
     Up to 5 child buttons expand from a parent (direction + tap/hold/swipe
     trigger). Great for packing many macros into one tile. Badges in the
     editor: T = tap, H = hold, S = swipe. Options can show gesture hint
-    arrows on-screen.
+    arrows on-screen (uncheck to hide U/D/L/R and Hold markers).
 
 Plugin commands (when loaded)
 -----------------------------

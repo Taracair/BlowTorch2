@@ -1166,7 +1166,10 @@ function buttonOptions()
   editorValues.gridOpacity = manageropacity
   editorValues.gridIntersectionTest = intersectMode
   editorValues.gridSnap = gridsnap
-  editorValues.showGestureHints = options.show_gesture_hints ~= "false" and options.show_gesture_hints ~= false
+  editorValues.showGestureHints = options.show_gesture_hints == true
+    or options.show_gesture_hints == "true"
+    or options.show_gesture_hints == "1"
+    or options.show_gesture_hints == nil
 
   local editorSnapshot = {
     gridsnap = gridsnap,
@@ -1276,7 +1279,11 @@ function buttonOptions()
     intersectMode = v
   end)
   editorOptionsDialog.setShowGestureHintsCallback(function(v)
-    PluginXCallS("OnOptionChanged", "show_gesture_hints", v and "true" or "false")
+    -- PluginXCallS(fn, data) only carries one data string — call the setter directly.
+    PluginXCallS("setShowGestureHints", v and "true" or "false")
+    buttonShowHints = v and true or false
+    drawButtons()
+    view:invalidate()
   end)
   editorOptionsDialog.setEditorCancelCallback(function()
     gridsnap = editorSnapshot.gridsnap
@@ -2079,7 +2086,8 @@ function showEditorDialog()
 	editorValues.defaultFlipColor = defaults.flipColor
 	editorValues.defaultLabelColor = defaults.labelColor
 	editorValues.defaultFlipLabelColor = defaults.flipLabelColor
-	editorValues.showGestureHints = buttonShowHints ~= false
+	editorValues.showGestureHints = buttonShowHints ~= false and buttonShowHints ~= "false"
+		and buttonShowHints ~= 0 and buttonShowHints ~= "0"
 	
  local buttonEditor = require("buttoneditor")
  buttonEditor.init(mContext)
@@ -2252,7 +2260,9 @@ function loadOptions(data)
 	--Note("incoming options wad:"..data)
 	options = loadstring(data)()
 	buttonRoundness = tonumber(options.roundness) * density
-	buttonShowHints = options.show_gesture_hints ~= "false" and options.show_gesture_hints ~= false
+	buttonShowHints = options.show_gesture_hints == true
+		or options.show_gesture_hints == "true"
+		or options.show_gesture_hints == "1"
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()
