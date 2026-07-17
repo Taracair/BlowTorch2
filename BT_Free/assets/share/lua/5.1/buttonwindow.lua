@@ -181,6 +181,10 @@ function moveTouch.onTouch(v,e)
 
 	if(e:getAction() == MotionEvent.ACTION_CANCEL) then
 		touchMoving = false
+		-- Global export (local cancelActiveTouchGesture is not in scope here).
+		if cancelTouchGesture ~= nil then
+			cancelTouchGesture()
+		end
 		return true
 	end
 	
@@ -417,7 +421,13 @@ function managerTouch.onTouch(v,e)
 		dragmoving = false
 		fingerdown = false
 		selectedtouchstart = false
+		if touchedbutton ~= nil then
+			touchedbutton.selected = false
+		end
 		touchedbutton = {}
+		if cancelTouchGesture ~= nil then
+			cancelTouchGesture()
+		end
 		view:invalidate()
 		return true
 	end
@@ -562,17 +572,22 @@ end
 multiTouchCancelled = false
 
 local function cancelActiveTouchGesture()
-	-- Abort paths (ACTION_CANCEL, multi-touch): clear pressed/highlight without click.
+	-- Abort paths (ACTION_CANCEL, multi-touch, system back): clear pressed/highlight without click.
 	CancelCallback(EDITOR_CALLBACK_ID)
 	CancelCallback(HOLD_CALLBACK_ID)
 	CancelCallback(ACCORDION_HOLD_CALLBACK_ID)
 	shortHoldFired = false
 	accordionHoldFired = false
-	if fingerdown then
-		resetTouchedButtonVisual()
-		fingerdown = false
-		selectedtouchstart = false
-	end
+	-- Always clear visuals — fingerdown may already be false when the system steals the gesture.
+	resetTouchedButtonVisual()
+	fingerdown = false
+	selectedtouchstart = false
+	multiTouchCancelled = false
+end
+
+-- Exported for MainWindow (edge-back / onPause) via windowCall.
+function cancelTouchGesture()
+	cancelActiveTouchGesture()
 end
 
 normalTouch = {}
