@@ -125,17 +125,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 	protected static final int MESSAGE_USERNAME = 4;
 
-	protected static final int MESSAGE_DORECOVERY = 5;
-
 	protected static final int RP_INFO = 100;
-	protected static final int RP_SALVAGE = 101;
 	protected static final int RP_EXPORT = 102;
 	protected static final int RP_IMPORT = 103;
 	protected static final int RP_STARTUP = 104;
 	protected static final int MENU_IMPORT_SERVER_LIST = 100;
 	protected static final int MENU_EXPORT_SERVER_LIST = 105;
 	protected static final int MENU_USER_NAME = 106;
-	protected static final int MENU_COPY_SETTINGS_TO_STORAGE = 107;
 	protected static final int MENU_SDCARD_PERMISSIONS = 108;
 	protected static final int MENU_APP_SETTINGS = 109;
 	protected static final int MENU_BACKUP_ALL_SETTINGS = 110;
@@ -253,9 +249,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					saveXML();
 					break;
 				case MESSAGE_EXPORT:
-
-					break;
-				case MESSAGE_DORECOVERY:
 
 					break;
 				default:
@@ -1598,67 +1591,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		return restored;
 	}
 	
-	private void DoRecovery(String targetPackage,boolean external) throws NameNotFoundException {
-		Context c = this.createPackageContext(targetPackage, Context.CONTEXT_INCLUDE_CODE|Context.CONTEXT_IGNORE_SECURITY);
-		File destRoot = SDCardUtils.resolveDefaultSettingsDirectory(this, external, null);
-		File backupdir = new File(destRoot, "recovered");
-		if (!backupdir.exists()) {
-			//noinspection ResultOfMethodCallIgnored
-			backupdir.mkdirs();
-		}
-
-		String targetInstallation = c.getApplicationInfo().dataDir + "/files";
-		String message;
-		try {
-			File harvestDir = new File(targetInstallation);
-			String[] names = harvestDir.list();
-			if (names == null || names.length == 0) {
-				Toast.makeText(this, "No private settings files found to copy.", Toast.LENGTH_LONG).show();
-				return;
-			}
-			int copied = 0;
-			for (String name : names) {
-				if (name == null) {
-					continue;
-				}
-				File oldFile = new File(harvestDir, name);
-				if (!oldFile.isFile()) {
-					continue;
-				}
-				File newFile = new File(backupdir, name);
-				copySettingsFile(oldFile, newFile);
-				copied++;
-			}
-
-			message = "Copied " + copied + " file(s) to:\n" + backupdir.getAbsolutePath();
-			if (!external) {
-				message += "\n(App storage — removed if the app is uninstalled.)";
-			}
-		} catch (IOException e) {
-			Log.e("LAUNCHER", "Copy settings to storage failed", e);
-			Toast.makeText(this, "Copy failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-			return;
-		}
-
-		View root = findViewById(R.id.launcher_window_content);
-		if (root == null) {
-			Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-			return;
-		}
-		Snackbar bar = Snackbar.make(root, message, Snackbar.LENGTH_INDEFINITE)
-				.setAction(android.R.string.ok, new View.OnClickListener() {
-					@Override
-					public void onClick(View view) {
-					}
-				});
-		View snackbarView = bar.getView();
-		TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
-		if (textView != null) {
-			textView.setMaxLines(5);
-		}
-		bar.show();
-	}
-	
 	private void DoWhatsNew() throws NameNotFoundException { 
 		
 		//get the version information.
@@ -1925,7 +1857,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (ConfigurationLoader.isTestMode(this)) {
 			menu.add(0, MENU_USER_NAME, 0, "User Name");
 		}
-		menu.add(0, MENU_COPY_SETTINGS_TO_STORAGE, 0, R.string.launcher_menu_copy_settings_to_storage);
 		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, "SDCard Permissions");
 		menu.add(0, MENU_APP_SETTINGS, 0, "App Settings");
 		menu.add(0, MENU_ABOUT, 0, R.string.launcher_menu_about);
@@ -2044,20 +1975,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			});
 			break;
 		case MENU_USER_NAME:
-
-			break;
-		case MENU_COPY_SETTINGS_TO_STORAGE:
-			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_SALVAGE, new Runnable() {
-				@Override
-				public void run() {
-					try {
-						DoRecovery(Launcher.this.getPackageName(),
-								SDCardUtils.hasStoragePermissions(Launcher.this));
-					} catch (Exception e) {
-						Toast.makeText(Launcher.this, "Copy failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-					}
-				}
-			});
 
 			break;
 		case MENU_SDCARD_PERMISSIONS:
@@ -2233,19 +2150,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					@Override
 					public void run() {
 						showPermissionsMessage(external);
-					}
-				}, null);
-				break;
-			case RP_SALVAGE:
-				PermissionHelper.handlePermissionResult(this, root, requestCode, RP_SALVAGE, permissions,
-						grantResults, featureRes, new Runnable() {
-					@Override
-					public void run() {
-						try {
-							DoRecovery(Launcher.this.getPackageName(), external);
-						} catch (Exception e) {
-							Toast.makeText(Launcher.this, "Copy failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-						}
 					}
 				}, null);
 				break;
