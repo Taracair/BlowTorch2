@@ -1,79 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Single compact, scrollable row — no empty second line. -->
-<HorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Full-width Edit strip: equal-weight buttons, no leftover gap. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/input_edit_tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
     android:visibility="gone"
-    android:scrollbars="none"
-    android:fadeScrollbars="true"
-    android:fillViewport="false"
+    android:paddingLeft="2dip"
+    android:paddingRight="2dip"
+    android:paddingTop="2dip"
+    android:paddingBottom="2dip"
     android:background="#FF1A1A1A">
 
-    <LinearLayout
-        android:id="@+id/input_edit_strip"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingLeft="2dip"
-        android:paddingRight="2dip"
-        android:paddingTop="2dip"
-        android:paddingBottom="2dip">
+    <Button
+        android:id="@+id/input_btn_select"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="Sel" />
+    <Button
+        android:id="@+id/input_btn_cut"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="Cut" />
+    <Button
+        android:id="@+id/input_btn_copy"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="Copy" />
+    <Button
+        android:id="@+id/input_btn_paste"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="Paste" />
 
-        <Button
-            android:id="@+id/input_btn_select"
-            style="@style/InputEditToolButton.Compact"
-            android:text="Sel" />
-        <Button
-            android:id="@+id/input_btn_cut"
-            style="@style/InputEditToolButton.Compact"
-            android:text="Cut" />
-        <Button
-            android:id="@+id/input_btn_copy"
-            style="@style/InputEditToolButton.Compact"
-            android:text="Copy" />
-        <Button
-            android:id="@+id/input_btn_paste"
-            style="@style/InputEditToolButton.Compact"
-            android:text="Paste" />
+    <View
+        android:layout_width="1dip"
+        android:layout_height="18dip"
+        android:layout_marginLeft="1dip"
+        android:layout_marginRight="1dip"
+        android:background="#44FFFFFF" />
 
-        <View
-            android:layout_width="1dip"
-            android:layout_height="18dip"
-            android:layout_marginLeft="2dip"
-            android:layout_marginRight="2dip"
-            android:background="#44FFFFFF" />
-
-        <Button
-            android:id="@+id/input_btn_home"
-            style="@style/InputEditToolButton.Compact"
-            android:text="|&lt;"
-            android:contentDescription="Cursor start" />
-        <Button
-            android:id="@+id/input_btn_left"
-            style="@style/InputEditToolButton.Compact"
-            android:text="←"
-            android:contentDescription="Cursor left" />
-        <Button
-            android:id="@+id/input_btn_up"
-            style="@style/InputEditToolButton.Compact"
-            android:text="↑"
-            android:contentDescription="Cursor up" />
-        <Button
-            android:id="@+id/input_btn_down"
-            style="@style/InputEditToolButton.Compact"
-            android:text="↓"
-            android:contentDescription="Cursor down" />
-        <Button
-            android:id="@+id/input_btn_right"
-            style="@style/InputEditToolButton.Compact"
-            android:text="→"
-            android:contentDescription="Cursor right" />
-        <Button
-            android:id="@+id/input_btn_end"
-            style="@style/InputEditToolButton.Compact"
-            android:text="&gt;|"
-            android:contentDescription="Cursor end" />
-    </LinearLayout>
-</HorizontalScrollView>
+    <Button
+        android:id="@+id/input_btn_home"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="|&lt;"
+        android:contentDescription="Cursor start" />
+    <Button
+        android:id="@+id/input_btn_left"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="←"
+        android:contentDescription="Cursor left" />
+    <Button
+        android:id="@+id/input_btn_up"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="↑"
+        android:contentDescription="Cursor up" />
+    <Button
+        android:id="@+id/input_btn_down"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="↓"
+        android:contentDescription="Cursor down" />
+    <Button
+        android:id="@+id/input_btn_right"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="→"
+        android:contentDescription="Cursor right" />
+    <Button
+        android:id="@+id/input_btn_end"
+        style="@style/InputEditToolButton.Compact"
+        android:layout_width="0dip"
+        android:layout_weight="1"
+        android:text="&gt;|"
+        android:contentDescription="Cursor end" />
+</LinearLayout>
