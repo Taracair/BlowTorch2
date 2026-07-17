@@ -148,18 +148,11 @@ button_window (default Free build):
   .loadset <name>       Load button set
   .clearbuttons         Clear buttons via button window
 
-forgemap (test / optional plugin):
-  .map                  Toggle map window
-  .fmhere [label]       Mark current position (default label "Here")
-  .fmwalk <dir>         Record a manual move in direction dir
-  .fmgo <tileId>        Pathfind and .run toward tileId
-  .fmnote <text>        Set note on current tile
-  .fmflag <flag>        Set a flag on current tile
-
 Menus (session overflow)
 ------------------------
+Edit buttons — Enter on-screen button layout edit mode
 Crash report — Show log / Share log (app error log)
-About/donate — Version, description, donate placeholder
+About/donate — Version and description
 Help — This manual
 
 Connection duration appears on the ongoing connection notification and on the
