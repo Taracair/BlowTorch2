@@ -1,5 +1,6 @@
 package com.resurrection.blowtorch2.lib.settings;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -148,6 +149,11 @@ public class BaseParser {
 	public static final String ATTR_HOST = "host";
 	public static final String ATTR_PORT = "port";
 	public static final String ATTR_DATEPLAYED = "lastPlayed";
+	public static final String TAG_ACCOUNT = "account";
+	public static final String ATTR_ACCOUNT_LABEL = "label";
+	public static final String ATTR_ACCOUNT_LOGIN = "login";
+	public static final String ATTR_ACCOUNT_PASSWORD = "password";
+	public static final String ATTR_ACCOUNT_MAIL = "mail";
 	
 	//these tags are for the configurable "run" command.
 	public static final String TAG_DIRECTIONS = "directions";
@@ -168,24 +174,26 @@ public class BaseParser {
 	
 	
 	protected InputStream getInputStream() throws FileNotFoundException {
-		
-			FileInputStream input = null;
-			
+
 			if(path == null) {
 				return mContext.getResources().openRawResource(mContext.getResources().getIdentifier("default_settings", "raw", mContext.getPackageName()));
 			}
-			
-			if(path.contains(Environment.getExternalStorageDirectory().getPath())) {
+
+			File asFile = new File(path);
+			if (asFile.isAbsolute()) {
+				return new FileInputStream(asFile);
+			}
+
+			String externalRoot = Environment.getExternalStorageDirectory().getPath();
+			if(path.contains(externalRoot)) {
 				String state = Environment.getExternalStorageState();
 				if(Environment.MEDIA_MOUNTED.equals(state) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(state)) {
-					input = new FileInputStream(path);
+					return new FileInputStream(path);
 				}
-			} else {
-				input = mContext.openFileInput(path);
+				throw new FileNotFoundException("External storage unavailable for: " + path);
 			}
-			
-			return input;
-		
+			return mContext.openFileInput(path);
+
 	}
 
 }
