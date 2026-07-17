@@ -101,6 +101,17 @@
             android:layout_above="@id/inputbar"
             android:background="@color/game_divider" />
 
+        <!-- ⋮ sits above the divider so it never covers Edit/Send. -->
+        <include
+            android:id="@+id/gameplay_fab_strip"
+            layout="@layout/gameplay_fab_strip"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_above="@id/divider"
+            android:layout_alignParentEnd="true"
+            android:layout_marginEnd="4dp"
+            android:layout_marginBottom="6dp" />
+
         <com.resurrection.blowtorch2.lib.window.NoTouchActionBar
             android:id="@+id/my_toolbar"
             style="@style/BlowTorch.Game.Toolbar"
@@ -124,10 +135,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipChildren="false"
-        android:clipToPadding="false">
-
-        <include layout="@layout/gameplay_fab_strip" />
-
-    </FrameLayout>
+        android:clipToPadding="false" />
 
 </FrameLayout>
