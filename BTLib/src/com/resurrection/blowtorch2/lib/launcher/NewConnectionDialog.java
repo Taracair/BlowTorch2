@@ -1,13 +1,18 @@
 package com.resurrection.blowtorch2.lib.launcher;
 
-import android.app.Dialog;
+import java.util.ArrayList;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.validator.Validator;
@@ -16,72 +21,195 @@ import com.resurrection.blowtorch2.lib.validator.Validator;
 public class NewConnectionDialog extends Dialog {
 
 	ReadyListener reportto = null;
-	
+
 	String m_display;
 	String m_host;
 	int m_port;
-	
+
 	MudConnection m_prev;
-	
+
 	boolean isEditor = false;
-	
+
+	/** Extra account slots beyond the primary fields (index 0). */
+	private final ArrayList<ServerAccount> mExtraAccounts = new ArrayList<ServerAccount>();
+
 	public NewConnectionDialog(Context context,ReadyListener useme) {
 		super(context);
-		
+
 		reportto = useme;
 		isEditor = false;
 	}
-	
+
 	public NewConnectionDialog(Context context,ReadyListener useme,MudConnection old) {
 		super(context);
-		
+
 		reportto = useme;
 		m_display = old.getDisplayName();
 		m_host = old.getHostName();
 		m_port = Integer.parseInt(old.getPortString());
-		
-		
-		
+
 		isEditor = true;
 		m_prev = old;
 	}
-	
+
 	@Override
 	public void onCreate(Bundle settings) {
-		
+
 		this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
 		this.getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 		super.onCreate(settings);
-		
+
 		setContentView(R.layout.newconnectiondialog);
-		
+
 		this.setTitle("Connection Properties:");
-		
+
 		Button ok = (Button)findViewById(R.id.acceptbutton);
 		Button cancel = (Button)findViewById(R.id.cancelbutton);
-		
+		Button addAccount = (Button)findViewById(R.id.add_account_button);
+
 		ok.setOnClickListener(new OKListener());
 		cancel.setOnClickListener(new CANCELListener());
-		
+		if (addAccount != null) {
+			addAccount.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					promptAddExtraAccount();
+				}
+			});
+		}
+
 		if(isEditor) {
 			EditText disp_input = (EditText)findViewById(R.id.dispinput);
 			EditText host_input = (EditText)findViewById(R.id.hostinput);
 			EditText port_input = (EditText)findViewById(R.id.portinput);
-			
+
 			disp_input.setText(m_display);
 			host_input.setText(m_host);
 			port_input.setText(Integer.toString(m_port));
+
+			ArrayList<ServerAccount> existing = m_prev.getAccounts();
+			if (existing != null && !existing.isEmpty()) {
+				ServerAccount primary = existing.get(0);
+				setPrimaryAccountFields(primary);
+				for (int i = 1; i < existing.size(); i++) {
+					mExtraAccounts.add(existing.get(i).copy());
+				}
+			}
+		}
+		refreshExtraAccountsSummary();
+	}
+
+	private void setPrimaryAccountFields(ServerAccount account) {
+		EditText label = (EditText) findViewById(R.id.accountlabel_input);
+		EditText login = (EditText) findViewById(R.id.logininput);
+		EditText password = (EditText) findViewById(R.id.passwordinput);
+		EditText mail = (EditText) findViewById(R.id.mailinput);
+		if (label != null) label.setText(account.getLabel());
+		if (login != null) login.setText(account.getLogin());
+		if (password != null) password.setText(account.getPassword());
+		if (mail != null) mail.setText(account.getMail());
+	}
+
+	private ServerAccount readPrimaryAccountFields() {
+		ServerAccount account = new ServerAccount();
+		EditText label = (EditText) findViewById(R.id.accountlabel_input);
+		EditText login = (EditText) findViewById(R.id.logininput);
+		EditText password = (EditText) findViewById(R.id.passwordinput);
+		EditText mail = (EditText) findViewById(R.id.mailinput);
+		if (label != null && label.getText() != null) account.setLabel(label.getText().toString().trim());
+		if (login != null && login.getText() != null) account.setLogin(login.getText().toString().trim());
+		if (password != null && password.getText() != null) account.setPassword(password.getText().toString());
+		if (mail != null && mail.getText() != null) account.setMail(mail.getText().toString().trim());
+		return account;
+	}
+
+	private void applyAccounts(MudConnection target) {
+		ArrayList<ServerAccount> accounts = new ArrayList<ServerAccount>();
+		ServerAccount primary = readPrimaryAccountFields();
+		if (!primary.isEmpty()) {
+			accounts.add(primary);
+		}
+		for (ServerAccount extra : mExtraAccounts) {
+			if (extra != null && !extra.isEmpty()) {
+				accounts.add(extra.copy());
+			}
+		}
+		target.setAccounts(accounts);
+	}
+
+	private void refreshExtraAccountsSummary() {
+		TextView summary = (TextView) findViewById(R.id.extra_accounts_summary);
+		if (summary == null) {
+			return;
+		}
+		if (mExtraAccounts.isEmpty()) {
+			summary.setText("");
+			summary.setVisibility(View.GONE);
+		} else {
+			summary.setVisibility(View.VISIBLE);
+			summary.setText(getContext().getString(R.string.launcher_extra_accounts_summary, mExtraAccounts.size()));
 		}
 	}
-	
+
+	private void promptAddExtraAccount() {
+		Context ctx = getContext();
+		LinearLayout layout = new LinearLayout(ctx);
+		layout.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (12 * ctx.getResources().getDisplayMetrics().density);
+		layout.setPadding(pad, pad / 2, pad, pad / 2);
+
+		final EditText label = new EditText(ctx);
+		label.setHint("Label (optional)");
+		label.setSingleLine(true);
+		layout.addView(label);
+
+		final EditText login = new EditText(ctx);
+		login.setHint("Login");
+		login.setSingleLine(true);
+		layout.addView(login);
+
+		final EditText password = new EditText(ctx);
+		password.setHint("Password");
+		password.setSingleLine(true);
+		password.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+		layout.addView(password);
+
+		final EditText mail = new EditText(ctx);
+		mail.setHint("Mail");
+		mail.setSingleLine(true);
+		mail.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+		layout.addView(mail);
+
+		AlertDialog.Builder builder = new AlertDialog.Builder(ctx);
+		builder.setTitle("Extra account slot");
+		builder.setMessage(R.string.launcher_account_plaintext_warn);
+		builder.setView(layout);
+		builder.setPositiveButton("Add", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				ServerAccount account = new ServerAccount();
+				account.setLabel(label.getText() != null ? label.getText().toString().trim() : "");
+				account.setLogin(login.getText() != null ? login.getText().toString().trim() : "");
+				account.setPassword(password.getText() != null ? password.getText().toString() : "");
+				account.setMail(mail.getText() != null ? mail.getText().toString().trim() : "");
+				if (!account.isEmpty()) {
+					mExtraAccounts.add(account);
+					refreshExtraAccountsSummary();
+				}
+			}
+		});
+		builder.setNegativeButton("Cancel", null);
+		builder.show();
+	}
+
 	private class OKListener implements View.OnClickListener {
 		public void onClick(View v) {
-			
+
 			EditText disp = (EditText)findViewById(R.id.dispinput);
 			EditText host = (EditText)findViewById(R.id.hostinput);
 			EditText port = (EditText)findViewById(R.id.portinput);
-			
-			
+
+
 			Validator checker = new Validator();
 			checker.add(disp, Validator.VALIDATE_NOT_BLANK, "Display Name");
 			checker.add(host, Validator.VALIDATE_NOT_BLANK, "Host name");
@@ -89,34 +217,35 @@ public class NewConnectionDialog extends Dialog {
 			checker.add(port, Validator.VALIDATE_NOT_BLANK, "Port number");
 			checker.add(port, Validator.VALIDATE_NUMBER, "Port number");
 			checker.add(port, Validator.VALIDATE_PORT_NUMBER, "Port number");
-			
+
 			String result = checker.validate();
 			if(result != null) {
 				checker.showMessage(NewConnectionDialog.this.getContext(), result);
-				
+
 				return;
 			}
-			//String dispstr = disp.getText().toStri;
-			
+
 			if(isEditor) {
 				MudConnection m = m_prev.copy();
 				m.setDisplayName(disp.getText().toString());
 				m.setHostName(host.getText().toString());
 				m.setPortString(port.getText().toString());
-				
+				applyAccounts(m);
+
 				reportto.modify(m_prev,m);
 			} else {
 				MudConnection m = new MudConnection();
 				m.setDisplayName(disp.getText().toString());
 				m.setHostName(host.getText().toString());
 				m.setPortString(port.getText().toString());
+				applyAccounts(m);
 				reportto.ready(m);
 			}
-			
+
 			NewConnectionDialog.this.dismiss();
 		}
 	}
-	
+
 	private class CANCELListener implements View.OnClickListener {
 		public void onClick(View v) {
 			NewConnectionDialog.this.dismiss();
