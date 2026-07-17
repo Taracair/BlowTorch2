@@ -1,0 +1,16 @@
+BlowTorch 2 is an independent continuation of the classic BlowTorch MUD client for Android.
+
+Connect to text-based games (MUDs/MUXs/MOOs), keep custom button panels on screen, and automate play with triggers, aliases, timers, speedwalks, and Lua plugins. ANSI colors, GMCP, and background connections are supported.
+
+This fork focuses on modern Android: current SDK/NDK builds, scoped-storage-friendly import/export and backups, clearer Options, session logging, battery-optimization helpers, multi-line input growth, notification sounds, and day-to-day crash/permission fixes.
+
+What you get beyond a simple “keep it compiling” port:
+• Separate production package so test builds can sit beside a stable install
+• SAF-based import/export of settings and server lists, plus zip backup/restore
+• Session log to file, GMCP helpers (including in-game sniff tail), connection duration on notifications
+• Growable input bar (.wrap), plugin refresh, in-app Help and crash/log report
+• Mapper (ForgeMap) is in active development and ships only in the optional test build for now — not in this F-Droid package yet
+
+BlowTorch was originally created by Daniel Block / Offset Null Entertainment (MIT). This project is a respectful revival, not an official sequel. Back up your settings before upgrading.
+
+Source, issues, and build notes: https://github.com/Taracair/BlowTorch2
