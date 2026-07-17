@@ -13,10 +13,10 @@ import java.util.Locale;
 import android.content.Context;
 
 import com.resurrection.blowtorch2.lib.service.Colorizer;
+import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 
 public final class BlowTorchLogger {
 
-	private static final String LOG_DIR = "logs";
 	private static final String LOG_FILE = "blowtorch2.log";
 	private static final String LOG_BACKUP = "blowtorch2.log.bak";
 	private static final long MAX_BYTES = 2 * 1024 * 1024;
@@ -24,16 +24,16 @@ public final class BlowTorchLogger {
 	private BlowTorchLogger() {
 	}
 
+	public static File getLogDirectory(Context context) {
+		return SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_LOGS);
+	}
+
 	public static File getLogFile(Context context) {
-		File dir = new File(context.getFilesDir(), LOG_DIR);
-		return new File(dir, LOG_FILE);
+		return new File(getLogDirectory(context), LOG_FILE);
 	}
 
 	public static void ensureLogFile(Context context) {
-		File dir = new File(context.getFilesDir(), LOG_DIR);
-		if (!dir.exists()) {
-			dir.mkdirs();
-		}
+		File dir = getLogDirectory(context);
 		File logFile = new File(dir, LOG_FILE);
 		if (!logFile.exists()) {
 			try {

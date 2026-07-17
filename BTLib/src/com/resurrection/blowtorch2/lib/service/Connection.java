@@ -3096,6 +3096,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case log_gmcp:
 				this.doSetLogGMCP((Boolean) o.getValue());
 				break;
+			case session_log:
+				doSetSessionLog((Boolean) o.getValue());
+				break;
+			case session_log_directory:
+				doSetSessionLogDirectory((String) o.getValue());
+				break;
+			case default_settings_directory:
+				// Path is read when importing/exporting; nothing live to apply.
+				break;
 			default:
 				break;
 			}
@@ -3103,7 +3112,24 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			e.printStackTrace();
 		}
 	}
-	
+
+	private void doSetSessionLog(final boolean enabled) {
+		SessionLogger.setEnabled(mService.getApplicationContext(), enabled);
+		if (enabled) {
+			applySessionLogDirectory();
+			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
+			SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "logging enabled");
+		}
+	}
+
+	private void doSetSessionLogDirectory(final String path) {
+		SessionLogger.setCustomDirectory(mService.getApplicationContext(),
+				path != null ? path : "");
+		if (SessionLogger.isEnabled(mService.getApplicationContext())) {
+			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
+		}
+	}
+
 	/** Implementation of the gmcp supports string setting handler.
 	 * 
 	 * @param value New value for setting.
@@ -3362,7 +3388,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Log GMCP packets to file. */
 		log_gmcp, 
 		/** Show Regex Warning. */
-		show_regex_warning
+		show_regex_warning,
+		/** Append game output to session .txt log. */
+		session_log,
+		/** Custom session log directory (blank = /BlowTorch/session_logs). */
+		session_log_directory,
+		/** Default import/export settings directory. */
+		default_settings_directory
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
@@ -3475,10 +3507,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		boolean addextra = false;
 		String filename = path == null ? "" : path.trim();
 		Context appCtx = mService.getApplicationContext();
-		int state = ContextCompat.checkSelfPermission(appCtx, Manifest.permission.WRITE_EXTERNAL_STORAGE);
-		boolean external = (state == PackageManager.PERMISSION_GRANTED);
+		boolean external = SDCardUtils.hasAllFilesAccess()
+				|| ContextCompat.checkSelfPermission(appCtx, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+				== PackageManager.PERMISSION_GRANTED;
 		File cachedir = SDCardUtils.resolveCacheDir(appCtx);
-		String btdir = SDCardUtils.resolveAppExternalDir(appCtx).getAbsolutePath();
+		String btdir = SDCardUtils.resolveBlowTorchSubdir(appCtx, SDCardUtils.SUBDIR_SETTINGS).getAbsolutePath();
 
 		if (!filename.startsWith("/")) {
 			if (TextUtils.isEmpty(filename)) {

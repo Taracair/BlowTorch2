@@ -14,21 +14,22 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.text.TextUtils;
+import android.util.Log;
 
 import androidx.documentfile.provider.DocumentFile;
 
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 
 /**
- * Incremental plain-text session log (append-only). Keeps RAM scrollback bounded
- * while still letting players keep a longer history on disk.
+ * Incremental plain-text session log (append-only). Default directory is
+ * {@code /BlowTorch/session_logs/} (see {@link SDCardUtils}).
  */
 public final class SessionLogger {
 
+	private static final String TAG = "SessionLogger";
 	private static final String PREFS = "SESSION_LOG_PREFS";
 	private static final String KEY_ENABLED = "enabled";
 	private static final String KEY_CUSTOM_DIR = "custom_dir";
-	private static final String LOG_DIR = "session_logs";
 	private static final long MAX_BYTES = 8 * 1024 * 1024;
 	private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*[A-Za-z]");
 
@@ -68,7 +69,6 @@ public final class SessionLogger {
 				.apply();
 		customDirCached = normalized;
 		prefsLoaded = true;
-		// Force reopen on next append so path changes take effect.
 		clearCurrent();
 	}
 
@@ -105,31 +105,20 @@ public final class SessionLogger {
 		if (!TextUtils.isEmpty(customDirCached)) {
 			if (SDCardUtils.isContentUri(customDirCached)) {
 				File mapped = SDCardUtils.mapTreeUriToFile(Uri.parse(customDirCached));
-				if (mapped != null) {
-					if (!mapped.exists()) {
-						//noinspection ResultOfMethodCallIgnored
-						mapped.mkdirs();
-					}
-					if (mapped.isDirectory()) {
-						return mapped;
-					}
+				if (mapped != null && SDCardUtils.ensureWritableDirectory(mapped)) {
+					return mapped;
 				}
-				// Unmapped content tree — no File; callers should use getLogLocationLabel.
 				return null;
 			}
 			File custom = new File(customDirCached);
-			if (!custom.exists()) {
-				custom.mkdirs();
-			}
-			if (custom.isDirectory()) {
+			if (SDCardUtils.ensureWritableDirectory(custom)) {
 				return custom;
 			}
+			BlowTorchLogger.logError(context, TAG,
+					"Cannot write session log directory: " + custom.getAbsolutePath());
+			return null;
 		}
-		File dir = new File(context.getFilesDir(), LOG_DIR);
-		if (!dir.exists()) {
-			dir.mkdirs();
-		}
-		return dir;
+		return SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_SESSION_LOGS);
 	}
 
 	public static synchronized void startSession(Context context, String profile) {
@@ -140,6 +129,7 @@ public final class SessionLogger {
 		String stamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(new Date());
 		String header = "=== BlowTorch session log: " + profile + " @ " + stamp + " ===\n";
 		ensurePrefs(context);
+		clearCurrent();
 
 		if (SDCardUtils.isContentUri(customDirCached)
 				&& SDCardUtils.mapTreeUriToFile(Uri.parse(customDirCached)) == null) {
@@ -148,26 +138,40 @@ public final class SessionLogger {
 				DocumentFile file = tree.createFile("text/plain", safe + "_" + stamp + ".txt");
 				if (file != null) {
 					currentDocUri = file.getUri();
-					currentFile = null;
 					currentProfile = safe;
-					appendRawUri(context, currentDocUri, header);
+					if (!appendRawUri(context, currentDocUri, header)) {
+						BlowTorchLogger.logError(context, TAG,
+								"Failed to write session log via SAF: " + currentDocUri);
+						clearCurrent();
+					}
 					return;
 				}
 			}
-			// Fall back to private folder if SAF tree is unusable.
+			BlowTorchLogger.logError(context, TAG,
+					"SAF session log tree unusable; falling back to /BlowTorch/session_logs");
 		}
 
 		File dir = getLogDirectory(context);
-		if (dir == null) {
-			dir = new File(context.getFilesDir(), LOG_DIR);
-			if (!dir.exists()) {
-				dir.mkdirs();
-			}
+		if (dir == null || !SDCardUtils.ensureWritableDirectory(dir)) {
+			dir = SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_SESSION_LOGS);
 		}
-		currentFile = new File(dir, safe + "_" + stamp + ".txt");
-		currentDocUri = null;
+		if (!SDCardUtils.ensureWritableDirectory(dir)) {
+			BlowTorchLogger.logError(context, TAG,
+					"Cannot create session log directory: "
+							+ (dir != null ? dir.getAbsolutePath() : "(null)")
+							+ " — grant All files access (Options → Manage Storage Access)");
+			return;
+		}
+		File target = new File(dir, safe + "_" + stamp + ".txt");
+		currentFile = target;
 		currentProfile = safe;
-		appendRaw(currentFile, header);
+		if (!appendRaw(context, currentFile, header)) {
+			BlowTorchLogger.logError(context, TAG,
+					"Failed to create session log file: " + target.getAbsolutePath());
+			clearCurrent();
+		} else {
+			Log.i(TAG, "Session log started: " + target.getAbsolutePath());
+		}
 	}
 
 	public static synchronized void appendIncoming(Context context, String profile, String text) {
@@ -213,9 +217,13 @@ public final class SessionLogger {
 
 	private static void appendCurrent(Context context, String text) {
 		if (currentDocUri != null) {
-			appendRawUri(context, currentDocUri, text);
+			if (!appendRawUri(context, currentDocUri, text)) {
+				clearCurrent();
+			}
 		} else if (currentFile != null) {
-			appendRaw(currentFile, text);
+			if (!appendRaw(context, currentFile, text)) {
+				clearCurrent();
+			}
 		}
 	}
 
@@ -246,13 +254,21 @@ public final class SessionLogger {
 		startSession(context, profile);
 	}
 
-	private static void appendRaw(File file, String text) {
+	private static boolean appendRaw(Context context, File file, String text) {
 		FileOutputStream out = null;
 		try {
+			File parent = file.getParentFile();
+			if (parent != null && !SDCardUtils.ensureWritableDirectory(parent)) {
+				Log.e(TAG, "Parent not writable: " + parent.getAbsolutePath());
+				return false;
+			}
 			out = new FileOutputStream(file, true);
 			out.write(text.getBytes(StandardCharsets.UTF_8));
+			out.flush();
+			return true;
 		} catch (IOException e) {
-			e.printStackTrace();
+			Log.e(TAG, "Write failed: " + file.getAbsolutePath(), e);
+			return false;
 		} finally {
 			if (out != null) {
 				try {
@@ -263,16 +279,19 @@ public final class SessionLogger {
 		}
 	}
 
-	private static void appendRawUri(Context context, Uri uri, String text) {
+	private static boolean appendRawUri(Context context, Uri uri, String text) {
 		OutputStream out = null;
 		try {
 			out = context.getContentResolver().openOutputStream(uri, "wa");
 			if (out == null) {
-				return;
+				return false;
 			}
 			out.write(text.getBytes(StandardCharsets.UTF_8));
+			out.flush();
+			return true;
 		} catch (IOException e) {
-			e.printStackTrace();
+			Log.e(TAG, "SAF write failed: " + uri, e);
+			return false;
 		} finally {
 			if (out != null) {
 				try {

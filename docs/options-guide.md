@@ -12,21 +12,36 @@ In-game **Options** dialog groups (Program Settings):
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
 
+## Shared storage layout (`/BlowTorch/`)
+
+Default for import/export, backups, launcher lists, session logs, and app/GMCP logs is **outside** `Android/data`:
+
+```text
+/storage/emulated/0/BlowTorch/
+  settings/       # session Import/Export Settings (default)
+  backups/        # launcher Backup All Settings
+  launcher/       # server list export/import
+  session_logs/   # incremental game .txt logs
+  logs/           # blowtorch2.log (errors + GMCP when Log GMCP? is on)
+```
+
+On Android 11+ this needs **All files access** once: **Options → Miscellaneous → Manage Storage Access** (opens the system permission screen). Without it the app falls back to `Android/data/…/files/BlowTorch/` with the same subfolders.
+
 ## GMCP
 
 GMCP is an optional structured out-of-band channel (telnet option 201). Enable
 **Use GMCP?** and set **Supports String** for modules your MUD expects (servers
 differ; common starters: `"char 1"`, `"room 1"`). **Log GMCP?** writes handshake
-and packets to the app error log at `files/logs/blowtorch2.log` (and to the
-session log when that is enabled). `.gmcp sniff on` prints the absolute path
-in-game; Overflow → Crash report → Show log to view. Dot helpers: `.gmcp`
-(see Help / user-manual).
+and packets to `/BlowTorch/logs/blowtorch2.log` (and to the session log when that
+is enabled). `.gmcp sniff on` prints the absolute path in-game; Overflow → Crash
+report → Show log to view. Dot helpers: `.gmcp` (see Help / user-manual).
 
 ## Session log
 
 - Enable: **Options → Service → Log Session to File?**
-- Custom folder: **Options → Service → Session Log Directory** (blank = app private `files/session_logs/`). Use **Browse…** to pick via the system folder picker (SAF).
-- Logs incremental plain text of **incoming game output** (ANSI stripped), not keyboard input.
+- Blank directory = `/BlowTorch/session_logs/`. Use **Browse…** for SAF or an absolute path.
+- Incremental plain text of **incoming game output** (ANSI stripped), not keyboard input.
+- Files are named `{profile}_{yyyy-MM-dd_HH-mm-ss}.txt`.
 
 ## Background connection / battery
 
@@ -38,11 +53,10 @@ in-game; Overflow → Crash report → Show log to view. Dot helpers: `.gmcp`
 
 ## Storage
 
-- **Options → Miscellaneous → Manage Storage Access** requests/refreshes storage permission and shows the effective BlowTorch storage root.
-- The old overflow item **SDCard Permissions** was removed in favor of this setting.
-- **Default Settings Directory** (Miscellaneous): preferred folder for session **Import/Export Settings**. Use **Browse…** for SAF folder pick (stores filesystem path when primary storage can be mapped, otherwise a `content://` tree URI). Blank = shared-storage BlowTorch export folder when that path is actually writable; otherwise the app external-files directory (scoped storage usually cannot create `/storage/emulated/0/BlowTorch` without all-files access).
-- Session overflow **Export Settings** / **Import Settings**: SAF pickers plus “default directory” actions; no longer crash on empty names or missing cache/external dirs.
-- Launcher **Export Server List** / **Backup All Settings** use the same writable-root rule (`…/launcher/`, `…/backups/` under that root), with SAF **Choose location…** as an alternative.
+- **Manage Storage Access** grants All files access and creates the `/BlowTorch/` tree.
+- **Default Settings Directory** (Miscellaneous): blank = `/BlowTorch/settings/`.
+- Session overflow **Export Settings** / **Import Settings**: SAF pickers plus default-directory actions.
+- Launcher **Export Server List** / **Backup All Settings** use `/BlowTorch/launcher/` and `/BlowTorch/backups/`, with SAF **Choose location…** as an alternative.
 
 ## Launcher (server list)
 
@@ -56,7 +70,7 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 | **Restore Settings Backup** | Restore that zip (or a scanned backup folder) into private files — restart after |
 | **About** | About / donate dialog |
 
-Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recovered/`). On scoped storage that usually stayed inside app files; use **Backup All Settings** instead.
+Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recovered/`). Use **Backup All Settings** instead.
 
 **Account notes** on New/Edit connection: optional login/password/mail slots per server. Informational only (not auto-login). Stored in the launcher list XML on device — **plaintext**; see warning in the dialog and `docs/backup-encryption-plan.md`.
 
