@@ -20,6 +20,9 @@
             android:orientation="vertical"
             android:background="@color/game_input_bg">
 
+            <!-- Inside inputbar so windows laid out above the divider clear the search UI. -->
+            <include layout="@layout/scrollback_search_bar" />
+
             <include layout="@layout/input_edit_tools" />
 
             <LinearLayout
@@ -75,12 +78,6 @@
             android:layout_height="3dip"
             android:layout_above="@id/inputbar"
             android:background="@color/game_divider" />
-
-        <include
-            layout="@layout/scrollback_search_bar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_above="@id/divider" />
 
         <com.resurrection.blowtorch2.lib.window.NoTouchActionBar
             android:id="@+id/my_toolbar"
