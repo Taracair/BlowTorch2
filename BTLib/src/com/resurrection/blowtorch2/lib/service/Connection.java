@@ -54,6 +54,7 @@ import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
+import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
@@ -472,6 +473,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpeedwalkCommand = new SpeedwalkCommand(null, new Data());
 		LoadButtonsCommand lbcmd = new LoadButtonsCommand();
 		ClearButtonCommand cbcmd = new ClearButtonCommand();
+		WrapCommand wrapcmd = new WrapCommand();
 		mSpecialCommands.put(colordebug.commandName, colordebug);
 		mSpecialCommands.put(dirtyexit.commandName, dirtyexit);
 		mSpecialCommands.put(timercmd.commandName, timercmd);
@@ -484,6 +486,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(mSpeedwalkCommand.commandName, mSpeedwalkCommand);
 		mSpecialCommands.put(lbcmd.commandName, lbcmd);
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
+		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		SwitchWindowCommand swdcmd = new SwitchWindowCommand();
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
 		SearchCommand searchcmd = new SearchCommand();

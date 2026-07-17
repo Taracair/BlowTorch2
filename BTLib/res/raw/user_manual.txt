@@ -38,6 +38,11 @@ Built-in commands
 .togglefullscreen
   Toggles the fullscreen preference.
 
+.wrap [on|off]
+  Controls whether the input bar grows with multiline text (default on).
+  With no argument, prints current state and usage.
+  Also: Options → Window → Grow Input Bar? (not Word Wrap?).
+
 .keyboard …   (alias: .kb)
   Manipulate the input bar. With no arguments, prints usage help.
   Options (first token): add, popup, flush, close, clear, selectall, copy,
