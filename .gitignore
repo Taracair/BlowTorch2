@@ -30,6 +30,9 @@ LuaJIT-2.0.5/src/luajit
 LuaJIT-2.0.5/src/host/buildvm
 LuaJIT-2.0.5/src/host/minilua
 
+# Personal F-Droid apply / ops notes (not for the public repo)
+docs/FDROID_APPLY.md
+
 ### Android ###
 # Built application files
 *.apk
