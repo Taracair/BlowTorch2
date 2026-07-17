@@ -362,6 +362,12 @@ public class OptionsDialog extends Dialog {
 				((MainWindow) OptionsDialog.this.getContext()).requestStorageAccessFromOptions();
 				return;
 			}
+			if ("battery_optimization".equals(key)
+					&& OptionsDialog.this.getContext() instanceof android.app.Activity) {
+				com.resurrection.blowtorch2.lib.util.BatteryOptimizationHelper.promptNow(
+						(android.app.Activity) OptionsDialog.this.getContext());
+				return;
+			}
 			try {
 				service.callPluginFunction(selectedPlugin, (String)option.getValue());
 			} catch (RemoteException e) {

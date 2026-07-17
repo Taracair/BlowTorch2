@@ -34,6 +34,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
@@ -47,10 +48,11 @@ import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
 import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
+import com.resurrection.blowtorch2.lib.service.function.GmcpCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
-import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
 import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
+import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
@@ -429,6 +431,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** A simple holder for if we are connected or not. */
 	private boolean mIsConnected = false;
+	/** elapsedRealtime when the current (or last finished) connection became up. */
+	private long mConnectedAtElapsed = 0L;
+	/** Duration of the most recently completed connection attempt, ms. */
+	private long mLastDurationMs = 0L;
 	
 	/** The main settings wad/plugin. */
 	private ConnectionSettingsPlugin mSettings = null;
@@ -491,6 +497,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
 		SearchCommand searchcmd = new SearchCommand();
 		mSpecialCommands.put(searchcmd.commandName, searchcmd);
+		GmcpCommand gmcpcmd = new GmcpCommand();
+		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;
@@ -713,6 +721,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				byte[] fubtmp = new byte[size];
 				fub.rewind();
 				fub.get(fubtmp);
+				if (mProcessor != null && msg.obj instanceof String
+						&& (mProcessor.isLogGMCP() || mProcessor.isDebugTelnet())) {
+					BlowTorchLogger.logError(mService.getApplicationContext(), "GMCP", "OUT " + msg.obj);
+				}
 				if (mPump != null && mPump.isConnected()) {
 					mPump.sendData(fubtmp);
 				} else {
@@ -1343,7 +1355,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		
-		
+		markConnectionEnded();
 		mService.doDisconnect(this);
 	}
 	
@@ -1356,6 +1368,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mPump == null) {
 			return;
 		}
+		markConnectionEnded();
 		if (mPump != null) {
 			if (mPump.getHandler() != null) {
 				mPump.closeSocket();
@@ -1749,14 +1762,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mPump.start();
 		loadGMCPTriggers();
 		mIsConnected = true;
+		mConnectedAtElapsed = SystemClock.elapsedRealtime();
 		SessionLogger.setEnabled(mService.getApplicationContext(), isSessionLogEnabled());
 		applySessionLogDirectory();
 		if (SessionLogger.isEnabled(mService.getApplicationContext())) {
 			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
 			SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "connected");
 		}
+		if (mProcessor != null) {
+			mProcessor.setLogProfile(mDisplay);
+			applyGmcpLogSetting();
+		}
 		
 		mService.showConnectionNotification(mDisplay, mHost, mPort);
+		mService.noteConnectionStarted(mDisplay);
 	}
 	
 	/** The gmcp trigger loading routine. This is pretty self explanatory, but it seeks out
@@ -3066,6 +3085,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case gmcp_supports:
 				this.doSetGMCPSupports((String) o.getValue());
 				break;
+			case log_gmcp:
+				this.doSetLogGMCP((Boolean) o.getValue());
+				break;
 			default:
 				break;
 			}
@@ -3079,7 +3101,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param value New value for setting.
 	 */
 	private void doSetGMCPSupports(final String value) {
-		mProcessor.setGMCPSupports(value);
+		if (mProcessor != null) {
+			mProcessor.setGMCPSupports(value);
+		}
 	}
 
 	/** Implementation of the use gmcp settings handler.
@@ -3087,7 +3111,30 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param value New value for setting.
 	 */
 	private void doSetUseGMCP(final Boolean value) {
-		mProcessor.setUseGMCP(value);
+		if (mProcessor != null) {
+			mProcessor.setUseGMCP(value);
+		}
+	}
+
+	private void doSetLogGMCP(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setLogGMCP(value != null && value.booleanValue());
+		}
+	}
+
+	private void applyGmcpLogSetting() {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("log_gmcp");
+			boolean on = false;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+			if (mProcessor != null) {
+				mProcessor.setLogGMCP(on);
+			}
+		} catch (Exception ignored) {
+		}
 	}
 
 	/** Implementation of the auto reconnect attempt limit settings handler.
@@ -3293,7 +3340,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Use GMCP. */
 		use_gmcp, 
 		/** GMCP Supports string. */
-		gmcp_supports, 
+		gmcp_supports,
+		/** Log GMCP packets to file. */
+		log_gmcp, 
 		/** Show Regex Warning. */
 		show_regex_warning
 	}
@@ -4715,6 +4764,39 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final boolean isConnected() {
 		return mIsConnected;
+	}
+
+	/** Marks the end of the current connection interval and records duration. */
+	public final void markConnectionEnded() {
+		if (mConnectedAtElapsed > 0L && mIsConnected) {
+			mLastDurationMs = SystemClock.elapsedRealtime() - mConnectedAtElapsed;
+			mService.noteConnectionEnded(mDisplay, mLastDurationMs);
+		}
+		mIsConnected = false;
+	}
+
+	public final long getConnectedAtElapsed() {
+		return mConnectedAtElapsed;
+	}
+
+	public final long getLastDurationMs() {
+		return mLastDurationMs;
+	}
+
+	/** Current uptime if connected, else last completed duration (may be 0). */
+	public final long getDisplayDurationMs() {
+		if (mIsConnected && mConnectedAtElapsed > 0L) {
+			return SystemClock.elapsedRealtime() - mConnectedAtElapsed;
+		}
+		return mLastDurationMs;
+	}
+
+	public final String getDurationLabel() {
+		long ms = getDisplayDurationMs();
+		if (ms <= 0L && !mIsConnected) {
+			return "";
+		}
+		return ConnectionDuration.formatElapsed(ms);
 	}
 	
 	/** Getter for mService. This is really ugly and should be fixed immediatly.

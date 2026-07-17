@@ -97,6 +97,7 @@ interface IConnectionBinder {
 	boolean isFullScreen();
 	
 	void setTriggerEnabled(boolean enabled,String key);
+	String getConnectionDurationText(String display);
 	void setPluginTriggerEnabled(String selectedPlugin,boolean enabled,String key);
 	void setButtonSetLocked(boolean locked,String key);
 	boolean isButtonSetLocked(String key);
