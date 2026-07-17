@@ -129,6 +129,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Bitmap mTextSelectionSwapBitmap = null;
 	/** Rectangle that represents the hot-zone (clickable region) for the home button. */
 	private Rect mHomeWidgetRect = new Rect();
+	/** Active scrollback-search highlight (line reference + query). */
+	private TextTree.Line mSearchHighlightLine = null;
+	private String mSearchHighlightQuery = null;
+	private boolean mSearchHighlightCase = false;
+	private final Paint mSearchHighlightPaint = new Paint();
+	private final Paint mSearchMatchPaint = new Paint();
+	private boolean mTapDismissKeyboard = true;
 	/** The buffer object that this window uses to store and draw ansi text. */
 	private TextTree mBuffer = null;
 	/** The buffer that is used to buffer text when BufferText() is set. */
@@ -393,6 +400,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		mTextSelectionIndicatorCirclePaint.setPathEffect(dpe);
 		mTextSelectionIndicatorCirclePaint.setAntiAlias(true);
+		mSearchHighlightPaint.setStyle(Paint.Style.FILL);
+		mSearchHighlightPaint.setColor(0x55FFAA00);
+		mSearchMatchPaint.setStyle(Paint.Style.FILL);
+		mSearchMatchPaint.setColor(0xAAFFEE00);
 		this.mSettings = settings;
 		this.mSettings.setListener(this);
 		mBuffer = new TextTree();
@@ -498,6 +509,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		BooleanOption wordwrap = (BooleanOption) settings.findOptionByKey("word_wrap");
 		BooleanOption hlenabled = (BooleanOption) settings.findOptionByKey("hyperlinks_enabled");
+		BooleanOption tapDismiss = (BooleanOption) settings.findOptionByKey("tap_dismiss_keyboard");
+		if (tapDismiss != null) {
+			mTapDismissKeyboard = (Boolean) tapDismiss.getValue();
+		}
 		
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
 		
@@ -809,6 +824,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						homeWidgetFingerDown = false;
 						this.invalidate();
 					}
+				} else if (mTapDismissKeyboard && mStartY != null && start_x != null
+						&& Math.abs(t.getY(index) - mStartY) < mPrefLineSize * 1.2f
+						&& Math.abs(t.getX(index) - start_x) < mOneCharWidth * 3f) {
+					// Loose tap on the game window (not a button): dismiss soft keyboard.
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_HIDEKEYBOARD);
 				}
 		        
 			}
@@ -1230,6 +1250,32 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						if (useBackground) {
 							c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + p.measureText(text.getString()), y + (4 * mDensity), b);
 						}
+
+						if (l == mSearchHighlightLine && mSearchHighlightQuery != null
+								&& mSearchHighlightQuery.length() > 0) {
+							c.drawRect(0, y - p.getTextSize() + (1 * mDensity), mWidth,
+									y + (4 * mDensity), mSearchHighlightPaint);
+							String unitStr = text.getString();
+							if (unitStr != null && unitStr.length() > 0) {
+								String hay = mSearchHighlightCase ? unitStr
+										: unitStr.toLowerCase(java.util.Locale.getDefault());
+								String needle = mSearchHighlightCase ? mSearchHighlightQuery
+										: mSearchHighlightQuery.toLowerCase(java.util.Locale.getDefault());
+								int from = 0;
+								while (from < hay.length()) {
+									int at = hay.indexOf(needle, from);
+									if (at < 0) {
+										break;
+									}
+									float left = x + (at > 0 ? p.measureText(unitStr.substring(0, at)) : 0);
+									float right = left + p.measureText(
+											unitStr.substring(at, at + needle.length()));
+									c.drawRect(left, y - p.getTextSize() + (1 * mDensity), right,
+											y + (4 * mDensity), mSearchMatchPaint);
+									from = at + Math.max(1, needle.length());
+								}
+							}
+						}
 						
 						if (text.isLink() || doingLink) {
 							if (u instanceof TextTree.WhiteSpace) {
@@ -1555,7 +1601,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return; //no scroller to show.
 		}
 		
-		if (mScrollback > SCROLL_MIN + 3 * mDensity && mBuffer.getBrokenLineCount() > mCalculatedLinesInWindow) {
+		if (mHomeWidgetDrawable != null
+				&& mScrollback > SCROLL_MIN + 3 * mDensity
+				&& mBuffer.getBrokenLineCount() > mCalculatedLinesInWindow) {
 			homeWidgetShowing = true;
 			c.drawBitmap(mHomeWidgetDrawable, mHomeWidgetRect.left, mHomeWidgetRect.top, null);
 		} else {
@@ -1704,6 +1752,30 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mScrollback = SCROLL_MIN + (brokenLinesFromBottom * (double) mPrefLineSize);
 			mFlingVelocity = 0;
 		}
+		invalidate();
+	}
+
+	public void setSearchHighlight(String query, int brokenFromBottom, boolean caseSensitive) {
+		mSearchHighlightQuery = query;
+		mSearchHighlightCase = caseSensitive;
+		mSearchHighlightLine = null;
+		if (query != null && query.length() > 0 && mBuffer != null) {
+			int walked = 0;
+			for (TextTree.Line line : mBuffer.getLines()) {
+				int breaks = 1 + line.breaks;
+				if (walked + breaks > brokenFromBottom) {
+					mSearchHighlightLine = line;
+					break;
+				}
+				walked += breaks;
+			}
+		}
+		invalidate();
+	}
+
+	public void clearSearchHighlight() {
+		mSearchHighlightLine = null;
+		mSearchHighlightQuery = null;
 		invalidate();
 	}
 
@@ -3226,6 +3298,9 @@ end
 	public void updateSetting(String key, String value) {
 		//convert to enum value, then switch, handle accordingly.
 		BaseOption o = (BaseOption) mSettings.findOptionByKey(key);
+		if (o == null) {
+			return;
+		}
 		o.setValue(value);
 		try {
 			KEYS tmp = KEYS.valueOf(key);
@@ -3279,9 +3354,14 @@ end
 				p.setTypeface(mPrefFont);
 				this.invalidate();
 				break;
+			case tap_dismiss_keyboard:
+				mTapDismissKeyboard = (Boolean) o.getValue();
+				break;
 				
 			}
 		} catch(IllegalArgumentException e) {
+		} catch (NullPointerException e) {
+			// Missing option object — ignore rather than crash the options UI.
 		}
 	}
 	
@@ -3315,37 +3395,37 @@ end
 		font_size,
 		line_extra,
 		buffer_size,
-		font_path
+		font_path,
+		tap_dismiss_keyboard
 	}
 	
 
 	private Typeface loadFontFromName(String name) {
 		Typeface font = Typeface.MONOSPACE;
-		//Log.e("WINDOW","FONT SELECTION IS:" + tmpname);
-		if(name.contains("/")) {
-			//string is a path
-			if(name.contains(Environment.getExternalStorageDirectory().getPath())) {
-				
-				String sdstate = Environment.getExternalStorageState();
-				if(Environment.MEDIA_MOUNTED.equals(sdstate) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate)) {
-					font = Typeface.createFromFile(name);
+		if (name == null || name.length() == 0) {
+			return font;
+		}
+		try {
+			if(name.contains("/")) {
+				if(name.contains(Environment.getExternalStorageDirectory().getPath())) {
+					String sdstate = Environment.getExternalStorageState();
+					if(Environment.MEDIA_MOUNTED.equals(sdstate) || Environment.MEDIA_MOUNTED_READ_ONLY.equals(sdstate)) {
+						font = Typeface.createFromFile(name);
+					}
 				} else {
-					font = Typeface.MONOSPACE;
+					font = Typeface.createFromFile(name);
 				}
-				
 			} else {
-				//path is a system path
-				font = Typeface.createFromFile(name);
+				if(name.equals("monospace")) {
+					font = Typeface.MONOSPACE;
+				} else if(name.equals("sans serif") || name.equals("sans serrif")) {
+					font = Typeface.SANS_SERIF;
+				} else if (name.equals("default")) {
+					font = Typeface.DEFAULT;
+				}
 			}
-			
-		} else {
-			if(name.equals("monospace")) {
-				font = Typeface.MONOSPACE;
-			} else if(name.equals("sans serif")) {
-				font = Typeface.SANS_SERIF;
-			} else if (name.equals("default")) {
-				font = Typeface.DEFAULT;
-			}
+		} catch (RuntimeException e) {
+			font = Typeface.MONOSPACE;
 		}
 		return font;
 	}
@@ -3999,7 +4079,16 @@ end
 		//}
 
 		
-		mHomeWidgetRect.set(mWidth-mHomeWidgetDrawable.getWidth(),mHeight-mHomeWidgetDrawable.getHeight(),mWidth,mHeight);
+		if (mHomeWidgetDrawable != null) {
+			// Keep clear of the overflow/wrench FAB in the bottom-right corner.
+			int clear = (int) (56 * mDensity);
+			int hw = mHomeWidgetDrawable.getWidth();
+			int hh = mHomeWidgetDrawable.getHeight();
+			mHomeWidgetRect.set(mWidth - hw - (int) (4 * mDensity),
+					mHeight - hh - clear,
+					mWidth - (int) (4 * mDensity),
+					mHeight - clear);
+		}
 		
 		Float foo = new Float(0);
 		//foo.
