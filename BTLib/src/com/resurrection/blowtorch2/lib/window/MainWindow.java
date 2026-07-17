@@ -4112,7 +4112,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
-	/** @deprecated kept for callers; always uses the stable vertical column. */
 	private void refreshInputActionLayout() {
 		ensureInputActionColumn();
 	}
