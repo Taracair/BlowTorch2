@@ -26,6 +26,7 @@ Registrations live in `Connection` (built-ins) and Lua
 | `.timer <action> <name> [silent]` | Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`) |
 | `.dobell` | Fire configured bell reaction |
 | `.togglefullscreen` | Toggle fullscreen preference |
+| `.wrap [on\|off]` | Input bar growth (default on); also Options → Window → Grow Input Bar? |
 | `.keyboard` / `.kb` | Input-bar control (`add`, `popup`, `flush`, `close`, `clear`, `selectall`, `copy`, `paste`, `cursorstart`, `cursorend`); no args prints help |
 | `.disconnect` | Local “Disconnected.” notice (use overflow **Disconnect** for a real disconnect) |
 | `.reconnect` | Local “Reconnecting . . .” notice (use overflow **Reconnect** to reconnect) |

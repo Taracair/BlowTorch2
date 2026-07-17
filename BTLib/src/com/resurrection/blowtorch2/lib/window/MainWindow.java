@@ -241,6 +241,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_CURSOR_END = 913;
 	protected static final int MESSAGE_SCROLLBACK_SEARCH = 914;
 	protected static final int MESSAGE_SCROLLBACK_SEARCH_NAV = 915;
+	public static final int MESSAGE_GROW_INPUT_BAR = 916;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -679,6 +680,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_SETKEEPLAST:
 					MainWindow.this.setKeepLast((msg.arg1 == 1) ? true : false);
+					break;
+				case MESSAGE_GROW_INPUT_BAR:
+					MainWindow.this.applyGrowInputBar(msg.arg1 == 1);
 					break;
 				case MESSAGE_MARKSETTINGSDIRTY:
 					MainWindow.this.markSettingsDirty();
@@ -2811,6 +2815,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			boolean useExtractUI = (Boolean)((BaseOption)group.findOptionByKey("fullscreen_editor")).getValue();
 			boolean sugtmp = (Boolean)((BaseOption)group.findOptionByKey("use_suggestions")).getValue();
+			BaseOption growOpt = (BaseOption) group.findOptionByKey("grow_input_bar");
+			if (growOpt != null && growOpt.getValue() instanceof Boolean) {
+				mGrowInputBar = (Boolean) growOpt.getValue();
+			}
 			setupEditor(useExtractUI,sugtmp);
 			fullscreenEditor = useExtractUI;
 			useSuggestions = sugtmp;
@@ -2901,8 +2909,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean fullscreenEditor = false;
 	private boolean useSuggestions = false;
 	public void setupEditor(boolean useExtractUI,boolean useSuggestions) {
-		mInputBox.setHorizontallyScrolling(false);
-		mInputBox.setMaxLines(19);
+		if (mGrowInputBar) {
+			mInputBox.setHorizontallyScrolling(false);
+			mInputBox.setSingleLine(false);
+			mInputBox.setMaxLines(INPUT_GROW_MAX_LINES);
+		} else {
+			mInputBox.setMaxLines(1);
+			mInputBox.setSingleLine(true);
+			mInputBox.setHorizontallyScrolling(true);
+		}
 	
 		if(useExtractUI) {
 			
@@ -2933,6 +2948,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputBox.setUseFullScreen(false);
 			//Log.e("WINDOW","SETTINGS NOW "+Integer.toHexString(input_box.getImeOptions()));
 		}
+		scheduleInputActionLayoutRefresh();
 	}
 	
 	private Typeface loadFontFromName(String name) {
@@ -3615,10 +3631,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private static final String PREFS_INPUT_EDIT = "INPUT_EDIT_STRIP";
 	private static final String KEY_EDIT_EXPANDED = "expanded";
+	private static final int INPUT_GROW_MAX_LINES = 19;
+	/** When true, input bar grows with multiline text (default / .wrap on). */
+	private boolean mGrowInputBar = true;
+	private ViewGroup mInputActionButtons = null;
+	private Button mInputSendButton = null;
 
 	private void setupInputEditStrip() {
 		final View tools = findViewById(R.id.input_edit_tools);
 		final Button toggle = (Button) findViewById(R.id.input_edit_toggle);
+		mInputActionButtons = (ViewGroup) findViewById(R.id.input_action_buttons);
+		mInputSendButton = (Button) findViewById(R.id.input_send);
 		View select = findViewById(R.id.input_btn_select);
 		View cut = findViewById(R.id.input_btn_cut);
 		View copy = findViewById(R.id.input_btn_copy);
@@ -3627,7 +3650,46 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		View left = findViewById(R.id.input_btn_left);
 		View right = findViewById(R.id.input_btn_right);
 		View end = findViewById(R.id.input_btn_end);
+
+		if (mInputSendButton != null) {
+			mInputSendButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					myhandler.sendEmptyMessage(MESSAGE_PROCESSINPUTWINDOW);
+				}
+			});
+		}
+
+		if (mInputBox != null) {
+			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
+				@Override
+				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+				}
+
+				@Override
+				public void onTextChanged(CharSequence s, int start, int before, int count) {
+				}
+
+				@Override
+				public void afterTextChanged(android.text.Editable s) {
+					scheduleInputActionLayoutRefresh();
+				}
+			});
+			mInputBox.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+				@Override
+				public void onLayoutChange(View v, int left, int top, int right, int bottom,
+						int oldLeft, int oldTop, int oldRight, int oldBottom) {
+					int oldH = oldBottom - oldTop;
+					int newH = bottom - top;
+					if (oldH != newH) {
+						refreshInputActionLayout();
+					}
+				}
+			});
+		}
+
 		if (mInputBox == null || tools == null || toggle == null || select == null) {
+			refreshInputActionLayout();
 			return;
 		}
 
@@ -3734,6 +3796,71 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				mInputBox.setSelection(mInputBox.getText().length());
 			}
 		});
+		refreshInputActionLayout();
+	}
+
+	private final Runnable mRefreshInputActionLayoutRunnable = new Runnable() {
+		@Override
+		public void run() {
+			refreshInputActionLayout();
+		}
+	};
+
+	private void scheduleInputActionLayoutRefresh() {
+		if (mInputBox == null) {
+			return;
+		}
+		mInputBox.removeCallbacks(mRefreshInputActionLayoutRunnable);
+		mInputBox.post(mRefreshInputActionLayoutRunnable);
+	}
+
+	/**
+	 * Lay out Send relative to Edit/Hide: normally beside Edit; when wrap is off
+	 * and the input is tall, stack Send under Edit/Hide.
+	 */
+	private void refreshInputActionLayout() {
+		if (!(mInputActionButtons instanceof LinearLayout) || mInputSendButton == null) {
+			return;
+		}
+		LinearLayout actions = (LinearLayout) mInputActionButtons;
+		boolean stackUnder = !mGrowInputBar && isInputBarTall();
+		int wanted = stackUnder ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
+		if (actions.getOrientation() != wanted) {
+			actions.setOrientation(wanted);
+			actions.requestLayout();
+		}
+	}
+
+	private boolean isInputBarTall() {
+		if (mInputBox == null) {
+			return false;
+		}
+		int h = mInputBox.getHeight();
+		if (h <= 0) {
+			h = mInputBox.getMeasuredHeight();
+		}
+		float density = getResources().getDisplayMetrics().density;
+		int singleLineApprox = (int) (36 * density + 0.5f);
+		return h > singleLineApprox;
+	}
+
+	/** Apply Options → Window → Grow Input Bar? / {@code .wrap} to the input field. */
+	private void applyGrowInputBar(boolean grow) {
+		mGrowInputBar = grow;
+		if (mInputBox == null) {
+			return;
+		}
+		if (grow) {
+			mInputBox.setSingleLine(false);
+			mInputBox.setMaxLines(INPUT_GROW_MAX_LINES);
+			mInputBox.setHorizontallyScrolling(false);
+		} else {
+			mInputBox.setMaxLines(1);
+			mInputBox.setSingleLine(true);
+			mInputBox.setHorizontallyScrolling(true);
+		}
+		scheduleInputActionLayoutRefresh();
+		refreshGameChrome();
 	}
 
 	private void applyInputEditExpanded(View tools, Button toggle, boolean expanded) {

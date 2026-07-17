@@ -45,7 +45,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical"
+                android:gravity="top"
                 android:paddingLeft="4dip"
                 android:paddingRight="2dip"
                 android:paddingTop="2dip"
@@ -74,17 +74,36 @@
                 android:textSize="24sp"
                 android:typeface="monospace" />
 
-            <Button
-                android:id="@+id/input_edit_toggle"
-                style="@style/InputEditToolButton"
+            <LinearLayout
+                android:id="@+id/input_action_buttons"
                 android:layout_width="wrap_content"
-                android:layout_height="32dip"
-                android:minHeight="32dip"
-                android:minWidth="56dip"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="top|end"
                 android:layout_marginLeft="4dip"
-                android:layout_marginRight="4dip"
-                android:text="Edit"
-                android:contentDescription="Toggle edit tools" />
+                android:layout_marginRight="4dip">
+
+                <Button
+                    android:id="@+id/input_edit_toggle"
+                    style="@style/InputEditToolButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dip"
+                    android:minHeight="32dip"
+                    android:minWidth="56dip"
+                    android:layout_marginRight="2dip"
+                    android:text="Edit"
+                    android:contentDescription="Toggle edit tools" />
+
+                <Button
+                    android:id="@+id/input_send"
+                    style="@style/InputEditToolButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dip"
+                    android:minHeight="32dip"
+                    android:minWidth="56dip"
+                    android:text="Send"
+                    android:contentDescription="Send input" />
+            </LinearLayout>
             </LinearLayout>
 
         </LinearLayout>

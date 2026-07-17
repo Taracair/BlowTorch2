@@ -178,6 +178,11 @@ function moveTouch.onTouch(v,e)
 			return true
 		end
 	end
+
+	if(e:getAction() == MotionEvent.ACTION_CANCEL) then
+		touchMoving = false
+		return true
+	end
 	
 	return true
 end
@@ -407,6 +412,16 @@ function managerTouch.onTouch(v,e)
 		return true
 	end
 
+	if(e:getAction() == MotionEvent.ACTION_CANCEL) then
+		-- Gesture stolen (e.g. edge-back); do not open editor or create buttons.
+		dragmoving = false
+		fingerdown = false
+		selectedtouchstart = false
+		touchedbutton = {}
+		view:invalidate()
+		return true
+	end
+
 	return false
 end
 
@@ -547,9 +562,12 @@ end
 multiTouchCancelled = false
 
 local function cancelActiveTouchGesture()
+	-- Abort paths (ACTION_CANCEL, multi-touch): clear pressed/highlight without click.
 	CancelCallback(EDITOR_CALLBACK_ID)
 	CancelCallback(HOLD_CALLBACK_ID)
 	CancelCallback(ACCORDION_HOLD_CALLBACK_ID)
+	shortHoldFired = false
+	accordionHoldFired = false
 	if fingerdown then
 		resetTouchedButtonVisual()
 		fingerdown = false
@@ -746,6 +764,12 @@ function normalTouch.onTouch(v,e)
 			--debugPrint("button not touched, returning false")
 			return false
 		end
+	elseif masked == ACTION_CANCEL then
+		-- Edge-back / IME / parent intercept abort the gesture with CANCEL, not UP.
+		-- Without this, buttons stay visually pressed and hold callbacks may still fire.
+		multiTouchCancelled = false
+		cancelActiveTouchGesture()
+		return true
 	end
 	--debugPrint("reached end of normal touch handler, returning false")
 	return false
@@ -1492,6 +1516,7 @@ MotionEvent = luajava.bindClass("android.view.MotionEvent")
 ACTION_MOVE = MotionEvent.ACTION_MOVE
 ACTION_DOWN = MotionEvent.ACTION_DOWN
 ACTION_UP = MotionEvent.ACTION_UP
+ACTION_CANCEL = MotionEvent.ACTION_CANCEL
 ACTION_POINTER_DOWN = MotionEvent.ACTION_POINTER_DOWN
 ACTION_POINTER_UP = MotionEvent.ACTION_POINTER_UP
 prevevent = 0;
