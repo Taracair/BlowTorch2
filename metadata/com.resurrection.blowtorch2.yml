@@ -17,6 +17,23 @@ RepoType: git
 Repo: https://github.com/Taracair/BlowTorch2.git
 
 Builds:
+  - versionName: '2.1.5'
+    versionCode: 229
+    commit: v2.1.5
+    subdir: BT_Free
+    sudo:
+      - apt-get update || apt-get update
+      - apt-get install -y openjdk-17-jdk-headless gcc make
+      - update-alternatives --auto java || true
+    gradle:
+      - production
+    ndk: r26b
+    prebuild: sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ && cd .. && ./build_ndk_libraries.sh
+    scandelete:
+      - BTLib/key
+      - LuaJIT-2.1
+
   - versionName: '2.1.3'
     versionCode: 227
     commit: v2.1.3
@@ -46,5 +63,5 @@ MaintainerNotes: |
 ArchivePolicy: 2 versions
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: '2.1.3'
-CurrentVersionCode: 227
+CurrentVersion: '2.1.5'
+CurrentVersionCode: 229
