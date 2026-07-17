@@ -1613,9 +1613,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mBuffer.getBrokenLineCount() < 1) {
 			return; //no scroller to show.
 		}
+
+		final boolean atLiveBottom = mScrollback <= SCROLL_MIN + 3 * mDensity;
 		
 		if (mHomeWidgetDrawable != null
-				&& mScrollback > SCROLL_MIN + 3 * mDensity
+				&& !atLiveBottom
 				&& mBuffer.getBrokenLineCount() > mCalculatedLinesInWindow) {
 			homeWidgetShowing = true;
 			c.drawBitmap(mHomeWidgetDrawable, mHomeWidgetRect.left, mHomeWidgetRect.top, null);
@@ -1634,22 +1636,26 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (windowPercent > 1) {
 			//then we have but 1 page to show
 			return;
-		} else {
+		}
+
+		// Live output: do not paint the always-on right-edge thumb (reads as a stray
+		// blue line). Show it only while scrolled into history.
+		if (!atLiveBottom) {
 			scrollerSize = windowPercent * workingHeight;
 			posPercent = (mScrollback - (workingHeight / 2)) / (mBuffer.getBrokenLineCount() * mPrefLineSize);
 			scrollerPos = workingHeight * posPercent;
 			scrollerPos = workingHeight - scrollerPos;
+
+			int blueValue = Math.max(0, Math.min(255, (int) (-1 * 255 * posPercent + 255)));
+			int redValue = Math.max(0, Math.min(255, (int) (255 * posPercent)));
+			int alphaValue = Math.max(0, Math.min(255, (int) ((255 - 70) * posPercent + 70)));
+			int finalColor = android.graphics.Color.argb(alphaValue, redValue, 100, blueValue);
+			mScrollerPaint.setColor(finalColor);
+			float density = this.getResources().getDisplayMetrics().density;
+			scrollerRect.set((int) workingWidth - (int) (2 * density), (int) (scrollerPos - scrollerSize / 2), (int) workingWidth, (int) (scrollerPos + scrollerSize / 2));
+
+			c.drawRect(scrollerRect, mScrollerPaint);
 		}
-		
-		int blueValue = (int) (-1*255*posPercent + 255);
-		int redValue = (int) (255 * posPercent);
-		int alphaValue = (int) ((255 - 70) * posPercent + 70);
-		int finalColor = android.graphics.Color.argb(alphaValue, redValue, 100, blueValue);
-		mScrollerPaint.setColor(finalColor);
-		float density = this.getResources().getDisplayMetrics().density;
-		scrollerRect.set((int) workingWidth - (int) (2 * density), (int) (scrollerPos - scrollerSize / 2), (int) workingWidth, (int) (scrollerPos + scrollerSize / 2));
-		
-		c.drawRect(scrollerRect, mScrollerPaint);
 		
 		if (theSelection != null) {
 			//compute rects for the guys.
