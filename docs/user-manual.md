@@ -78,7 +78,7 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 
 ## On-screen buttons: swipe + accordion
 
-**Edit layout:** long-press the **⋮** (three dots) next to Edit/Send. Cancel is on the left, Done on the right; the gear opens set options.
+**Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. Cancel is on the left, Done on the right; the gear opens set options.
 
 The default `button_window` plugin supports more than tap:
 
