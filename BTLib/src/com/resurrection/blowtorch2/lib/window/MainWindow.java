@@ -1649,6 +1649,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void showGameplayOptionsMenu(final View anchor) {
+		// Editing uses the FAB strip (settings / done / cancel); ⋮ is hidden then.
+		if (menuStack.size() > 0) {
+			return;
+		}
 		// IME lift translates the FAB strip; ListPopupWindow used that mid-screen Y
 		// as stretch height even after the keyboard was gone. Collapse IME + lift first.
 		hideSoftInputForMenu();
@@ -4737,8 +4741,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/**
 	 * Button-layout editing uses overlay icons (settings/done/cancel) to the left
-	 * of the overflow control. The ActionBar toolbar stays hidden so chrome never
-	 * jumps to the top of the screen.
+	 * of the overflow control. Hide ⋮ while editing — those actions already live
+	 * on the FAB strip (overflow popup cannot invoke Lua menu click listeners).
+	 * The ActionBar toolbar stays hidden so chrome never jumps to the top.
 	 */
 	private void updateMenuChrome() {
 		final androidx.appcompat.widget.Toolbar toolbar =
@@ -4762,7 +4767,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			getSupportActionBar().hide();
 		}
 		if (overflowMenu != null) {
-			overflowMenu.setVisibility(View.VISIBLE);
+			overflowMenu.setVisibility(showEditorChrome ? View.GONE : View.VISIBLE);
 		}
 		if (editorActions != null) {
 			editorActions.setVisibility(showEditorChrome ? View.VISIBLE : View.GONE);
