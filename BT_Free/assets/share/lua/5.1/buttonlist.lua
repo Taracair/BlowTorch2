@@ -490,8 +490,8 @@ newButtonListener = luajava.createProxy("android.view.View$OnClickListener",{
     cancel:setLayoutParams(fillparams)
     cancel:setOnClickListener(newSetCancelListener)
     
-    buttonholder:addView(done)
     buttonholder:addView(cancel)
+    buttonholder:addView(done)
     
     linear:addView(newSetEdit)
     linear:addView(buttonholder)
