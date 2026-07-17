@@ -1,0 +1,9 @@
+BlowTorch 2 v2.1.4 — revival vs classic BlowTorch
+
+• Modern Android (SDK 36, min 28); new package id; production + test flavors
+• Shared /BlowTorch/ tree + optional All files access; SAF import/export; zip backups
+• Input Edit/Send, growable bar (.wrap), ⋮ overflow, tablet chrome, Cancel|Done order
+• Buttons: four-way swipe, hold, accordion, gesture hints; edit via long-press ⋮
+• Session logs, uptime notification, battery helper, reliable alert sounds
+• .kb, .search, .gmcp helpers; Help + user manual
+• F-Droid-oriented packaging; ForgeMap still test-only
