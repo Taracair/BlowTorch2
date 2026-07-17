@@ -168,11 +168,13 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void willShowToolbar(LinearLayout toolbar, int row) {
-		//this will be called before the toolbar is shown, it will give the implementer the option to set up on/off lock/unlock etc.
-		ImageButton b = (ImageButton)toolbar.getChildAt(1);
-		toolbar.getChildAt(1);
 		AliasData data = dataMap.get(getItemKey(row));
-		if(data.isEnabled()) {
+		if (data == null || toolbar.getChildCount() == 0) {
+			return;
+		}
+		// Always-visible actions: toggle is the first control.
+		ImageButton b = (ImageButton) toolbar.getChildAt(0);
+		if (data.isEnabled()) {
 			b.setImageResource(R.drawable.toolbar_toggleon_button);
 		} else {
 			b.setImageResource(R.drawable.toolbar_toggleoff_button);

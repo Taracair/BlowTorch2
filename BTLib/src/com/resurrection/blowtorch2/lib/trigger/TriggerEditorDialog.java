@@ -12,7 +12,6 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -28,6 +27,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
@@ -53,6 +53,7 @@ import com.resurrection.blowtorch2.lib.responder.script.ScriptResponderEditor;
 import com.resurrection.blowtorch2.lib.responder.toast.*;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.validator.Validator;
+import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
 
 public class TriggerEditorDialog extends Dialog implements DialogInterface.OnClickListener,TriggerResponderEditorDoneListener{
@@ -78,7 +79,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	String selectedPlugin = null;
 	
 	public TriggerEditorDialog(Context context,TriggerData input,IConnectionBinder pService,Handler finisher,String selectedPlugin,boolean showWarning) {
-		super(context);
+		super(context, EditorDialogChrome.dialogTheme());
 		mEditorWarning = showWarning;
 		this.selectedPlugin = selectedPlugin;
 		service = pService;
@@ -188,6 +189,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		literal.setOnCheckedChangeListener(new LiteralCheckChangedListener());
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
 		setupTriggerPreview(title, pattern, literal);
+		EditorDialogChrome.applyNearlyFullScreen(this);
 	}
 	
 	private void setupTriggerPreview(final EditText title, final EditText pattern, final CheckBox literal) {
@@ -413,21 +415,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			}
 			label.setGravity(Gravity.CENTER);
 			label.setSingleLine(true);
-			int labelwidth = 0;
-			//Display display = ;
-			switch(this.getContext().getResources().getConfiguration().orientation) {
-			
-			case Configuration.ORIENTATION_PORTRAIT:
-				labelwidth = 70;
-				break;
-			case Configuration.ORIENTATION_LANDSCAPE:
-			default:
-				labelwidth = 130;
-				break;
-			}
-			
-			
-			label.setWidth((int) (labelwidth * this.getContext().getResources().getDisplayMetrics().density));
+			TableRow.LayoutParams labelLp = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f);
+			label.setLayoutParams(labelLp);
 			LinearLayout l1 = new LinearLayout(this.getContext());
 			l1.setGravity(Gravity.CENTER);
 			LinearLayout l2 = new LinearLayout(this.getContext());
@@ -444,18 +433,31 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			windowOpen.setOnCheckedChangeListener(new WindowOpenCheckChangeListener(the_trigger.getResponders().indexOf(responder)));
 			windowClose.setOnCheckedChangeListener(new WindowClosedCheckChangeListener(the_trigger.getResponders().indexOf(responder)));
 			
-			Button delete = new Button(this.getContext()); delete.setBackgroundResource(android.R.drawable.ic_delete);
+			int deleteSize = (int) (36 * this.getContext().getResources().getDisplayMetrics().density);
+			LinearLayout deleteHolder = new LinearLayout(this.getContext());
+			deleteHolder.setGravity(Gravity.CENTER);
+			ImageButton delete = new ImageButton(this.getContext());
+			delete.setBackgroundColor(0);
+			delete.setImageResource(android.R.drawable.ic_menu_delete);
+			delete.setPadding(0, 0, 0, 0);
+			delete.setLayoutParams(new LinearLayout.LayoutParams(deleteSize, deleteSize));
+			delete.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
 			delete.setOnClickListener(new DeleteResponderListener(the_trigger.getResponders().indexOf(responder)));
+			deleteHolder.addView(delete);
 			
 			windowOpen.setGravity(Gravity.CENTER); windowOpen.setText("");
 			windowClose.setGravity(Gravity.CENTER); windowClose.setText("");
-			delete.setGravity(Gravity.CENTER | Gravity.CENTER_VERTICAL);
 			
 			l1.addView(windowOpen);
 			l2.addView(windowClose);
-			//windowOpen.setLayoutParams(params); windowClose.setLayoutParams(params); delete.setLayoutParams(params);
 			
-			row.addView(label); row.addView(l1); row.addView(l2); row.addView(delete);
+			TableRow.LayoutParams fixedLp = new TableRow.LayoutParams(
+					TableRow.LayoutParams.WRAP_CONTENT, TableRow.LayoutParams.WRAP_CONTENT);
+			l1.setLayoutParams(fixedLp);
+			l2.setLayoutParams(fixedLp);
+			deleteHolder.setLayoutParams(fixedLp);
+			
+			row.addView(label); row.addView(l1); row.addView(l2); row.addView(deleteHolder);
 			responderTable.addView(row);
 			
 			

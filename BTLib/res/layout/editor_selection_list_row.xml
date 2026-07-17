@@ -7,41 +7,42 @@
   	android:minHeight="64dip"
   	android:paddingTop="6dip"
   	android:paddingBottom="6dip"
+  	android:paddingLeft="6dip"
+  	android:paddingRight="4dip"
   	android:id="@+id/root">
-  	
-    
-      <ImageView
-  		android:layout_width="wrap_content"
-  		android:layout_height="wrap_content"
-  		android:layout_alignParentRight="true"
-  		android:layout_alignParentTop="true"
-  		android:layout_alignParentBottom="true"
-  		android:src="@drawable/toolbar_tab"
-  		android:focusable="false"
-  		android:focusableInTouchMode="false"
-  		android:visibility="invisible"
-  		android:id="@+id/spacer"/>
-      
+
+  	 <LinearLayout
+  	     android:id="@+id/toolbarholder"
+  	     android:layout_width="wrap_content"
+  	     android:layout_height="wrap_content"
+  	     android:layout_alignParentTop="true"
+  	     android:layout_alignParentBottom="true"
+  	     android:layout_alignParentRight="true"
+  	     android:gravity="center_vertical|right"
+  	     android:orientation="horizontal"
+  	     android:paddingLeft="4dip"/>
+
   	 <TextView
   		style="@style/ListFont"
   		android:id="@+id/infoTitle"
-  		android:layout_width="fill_parent"
+  		android:layout_width="match_parent"
   		android:layout_height="wrap_content"
   		android:layout_alignParentTop="true"
-  		android:layout_toLeftOf="@id/spacer"
+  		android:layout_toLeftOf="@id/toolbarholder"
   		android:text="Main Title"
   		android:focusable="false"
   		android:focusableInTouchMode="false"
   		android:lines="1"
+  		android:ellipsize="end"
   		android:textSize="18dip"
   		android:textStyle="bold"/>
-  	 
+
   	<ImageView
   		android:layout_width="wrap_content"
   		android:layout_height="wrap_content"
-  		android:layout_alignParentRight="true"
   		android:layout_alignParentBottom="true"
   		android:layout_below="@id/infoTitle"
+  		android:layout_toLeftOf="@id/toolbarholder"
   		android:focusable="false"
   		android:focusableInTouchMode="false"
   		android:src="@drawable/notificationicon"
@@ -49,7 +50,7 @@
 
   	 <TextView
   		style="@style/ListFont"
-  		android:layout_width="fill_parent"
+  		android:layout_width="match_parent"
   		android:layout_height="wrap_content"
   		android:layout_toLeftOf="@id/icon"
   		android:layout_below="@id/infoTitle"
@@ -59,17 +60,11 @@
   		android:gravity="center_vertical"
   		android:paddingLeft="10dip"
   		android:paddingTop="2dip"
-  		android:textSize="13dip"
+  		android:paddingRight="6dip"
+  		android:textSize="14dip"
+  		android:textColor="#FFE8E8E8"
   		android:lines="1"
+  		android:ellipsize="end"
   		android:id="@+id/infoExtended"/>
-  	 
-  	 <com.resurrection.blowtorch2.lib.window.AnimatedRelativeLayout
-  	     android:id="@+id/toolbarholder"
-  	     android:layout_width="wrap_content"
-  	     android:layout_height="fill_parent"
-  	     android:layout_alignParentTop="true"
-  	     android:layout_alignParentBottom="true"
-  	     android:layout_alignParentRight="true"
-  	     />
 
  </RelativeLayout>
