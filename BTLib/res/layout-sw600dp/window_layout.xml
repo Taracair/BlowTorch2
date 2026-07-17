@@ -84,8 +84,8 @@
                 android:id="@+id/input_action_buttons"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="bottom|end"
+                android:orientation="horizontal"
+                android:gravity="center_vertical|end"
                 android:layout_gravity="bottom"
                 android:layout_marginLeft="4dip"
                 android:layout_marginRight="4dip">
@@ -97,7 +97,7 @@
                     android:layout_height="32dip"
                     android:minHeight="32dip"
                     android:minWidth="56dip"
-                    android:layout_marginBottom="2dip"
+                    android:layout_marginRight="2dip"
                     android:text="Edit"
                     android:contentDescription="Toggle edit tools" />
 

@@ -47,9 +47,11 @@
                 android:layout_width="0dip"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:layout_gravity="bottom"
                 android:background="@drawable/input_bar_bg"
                 android:candidatesTextStyleSpans=""
                 android:editable="true"
+                android:inputType="textMultiLine"
                 android:imeOptions="actionSend"
                 android:isScrollContainer="false"
                 android:keepScreenOn="true"
@@ -71,8 +73,8 @@
                 android:id="@+id/input_action_buttons"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="bottom|end"
+                android:orientation="horizontal"
+                android:gravity="center_vertical|end"
                 android:layout_gravity="bottom"
                 android:layout_marginLeft="4dip"
                 android:layout_marginRight="2dip">
@@ -84,7 +86,7 @@
                     android:layout_height="28dip"
                     android:minHeight="28dip"
                     android:minWidth="48dip"
-                    android:layout_marginBottom="2dip"
+                    android:layout_marginRight="2dip"
                     android:text="Edit"
                     android:contentDescription="Toggle edit tools" />
 
