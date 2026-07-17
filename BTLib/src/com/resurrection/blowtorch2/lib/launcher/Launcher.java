@@ -1201,6 +1201,14 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 
 	private void writeSettingsBackupZip(File preferredZip) {
+		writeSettingsBackupZip(preferredZip, true);
+	}
+
+	/**
+	 * @param showDialog when false (auto backup after version bump), use a Toast instead of a
+	 *                   blocking "Backup ready" dialog so startup is not alarming.
+	 */
+	private void writeSettingsBackupZip(File preferredZip, boolean showDialog) {
 		try {
 			SimpleDateFormat stampFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US);
 			String stamp = stampFormat.format(new Date());
@@ -1221,13 +1229,20 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			} catch (IOException mirrorError) {
 				Log.w("BlowTorch", "Optional Documents mirror failed: " + mirrorError.getMessage());
 			}
-			AlertDialog.Builder done = new AlertDialog.Builder(this);
-			done.setTitle("Backup ready");
-			done.setMessage("Saved " + copied + " settings file(s).\n\n"
-					+ zipFile.getAbsolutePath()
-					+ "\n\nAfter reinstall: Launcher ⋮ → Restore Settings Backup → pick this zip.");
-			done.setPositiveButton("OK", null);
-			done.show();
+			String summary = "Saved " + copied + " settings file(s).\n" + zipFile.getAbsolutePath();
+			if (showDialog) {
+				AlertDialog.Builder done = new AlertDialog.Builder(this);
+				done.setTitle("Backup ready");
+				done.setMessage(summary
+						+ "\n\nAfter reinstall: Launcher ⋮ → Restore Settings Backup → pick this zip.");
+				done.setPositiveButton("OK", null);
+				done.show();
+			} else {
+				Toast.makeText(this,
+						"App updated — settings backup saved (" + copied + " file(s)).\n"
+								+ zipFile.getName(),
+						Toast.LENGTH_LONG).show();
+			}
 		} catch (IOException e) {
 			Log.e("LAUNCHER", "Backup failed", e);
 			Toast.makeText(this, "Backup failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -1263,7 +1278,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			return;
 		}
 		try {
-			writeSettingsBackupZip(null);
+			writeSettingsBackupZip(null, false);
 			prefs.edit().putString("last_version", current).apply();
 		} catch (Exception e) {
 			Log.w("BlowTorch", "Pre-update backup skipped: " + e.getMessage());
