@@ -62,6 +62,7 @@
 		android:layout_alignParentBottom="true"
 		android:layout_alignParentRight="true"
 		android:layout_height="wrap_content"
+		android:minHeight="48dip"
 		android:layout_width="120dip"
 		android:text="Done"/>
 
@@ -71,6 +72,7 @@
 		android:layout_alignParentLeft="true"
 		android:layout_toLeftOf="@id/done"
 		android:layout_height="wrap_content"
+		android:minHeight="48dip"
 		android:layout_width="match_parent"
 		android:text="New"/>
 		

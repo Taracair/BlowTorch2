@@ -108,6 +108,14 @@
 		<item name="android:windowIsFloating">true</item>
 	</style>
 
+	<!-- Edge-to-edge selection dialogs (Plugins, Speedwalk, Button Sets, etc.). -->
+	<style name="BlowTorch.Dialog.FullScreen" parent="@style/BlowTorch.Dialog">
+		<item name="android:windowIsFloating">false</item>
+		<item name="android:windowFullscreen">false</item>
+		<item name="android:statusBarColor">@android:color/transparent</item>
+		<item name="android:navigationBarColor">@android:color/black</item>
+	</style>
+
 	<style name="BlowTorch.Dialog.SlideFromRight" parent="@style/BlowTorch.Dialog">
 		<item name="android:windowIsFloating">false</item>
 		<item name="android:windowAnimationStyle">@style/BlowTorch.Dialog.SlideFromRight.Animation</item>

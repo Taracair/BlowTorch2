@@ -55,9 +55,9 @@
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:background="@android:color/transparent"
-        android:contentDescription="@string/app_name"
-        android:padding="8dp"
+        android:contentDescription="More options"
+        android:padding="10dp"
         android:scaleType="centerInside"
-        android:src="@drawable/ic_menu_options" />
+        android:src="@drawable/ic_overflow_more" />
 
 </LinearLayout>
