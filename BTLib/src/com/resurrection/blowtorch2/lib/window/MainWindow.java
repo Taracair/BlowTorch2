@@ -3887,6 +3887,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mOriginalDividerLayoutParams = new RelativeLayout.LayoutParams(divider.getLayoutParams());
 		inputBar.setBackgroundColor(0xFF0A0A0A);
 		inputBar.setId(LEGACY_INPUT_BAR_ID);
+
+		// Divider id changed — refresh ⋮ rule so it stays above the divider, not over Send.
+		View fabStrip = findViewById(R.id.gameplay_fab_strip);
+		if (fabStrip != null && fabStrip.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
+			RelativeLayout.LayoutParams fabLp =
+					(RelativeLayout.LayoutParams) fabStrip.getLayoutParams();
+			fabLp.addRule(RelativeLayout.ABOVE, LEGACY_DIVIDER_ID);
+			fabLp.addRule(RelativeLayout.ALIGN_PARENT_END);
+			fabStrip.setLayoutParams(fabLp);
+		}
+
 		setupInputEditStrip();
 		setupScrollbackSearchBar();
 	}
@@ -4497,6 +4508,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		int bottomGap = margin + (int) (liftDip * density + 0.5f);
 		RelativeLayout.LayoutParams stripLp = new RelativeLayout.LayoutParams(
 				LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
+		// Use current divider id (may be LEGACY_DIVIDER_ID after assignLegacyChromeIds).
 		stripLp.addRule(RelativeLayout.ABOVE, divider.getId());
 		stripLp.addRule(RelativeLayout.ALIGN_PARENT_END);
 		stripLp.setMargins(0, 0, margin, bottomGap);
