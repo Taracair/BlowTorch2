@@ -236,10 +236,17 @@ public class DataPumper extends Thread {
 	public final void run() {
 		Looper.prepare();
 		init();
-		mHandler = new Handler(new ReadHandler());
-		if (mReader != null) {
-			mHandler.sendEmptyMessage(MESSAGE_RETRIEVE);
+		if (!mConnected || mReader == null) {
+			// Failed DNS/TCP — exit cleanly. Leaving a Looper here made isAlive()==true
+			// and blocked every later initXfer / MESSAGE_STARTUP until manual reconnect.
+			Log.w("BlowTorch", "DataPumper connect failed for " + mHost + ":" + mPort);
+			if (mReportTo != null) {
+				mReportTo.sendEmptyMessage(Connection.MESSAGE_DISCONNECTED);
+			}
+			return;
 		}
+		mHandler = new Handler(new ReadHandler());
+		mHandler.sendEmptyMessage(MESSAGE_RETRIEVE);
 		Looper.loop();
 	}
 	
@@ -286,7 +293,8 @@ public class DataPumper extends Thread {
 			default:
 				break;
 			}
-			if (!mHandler.hasMessages(MESSAGE_RETRIEVE) && mConnected) {
+			if (!mHandler.hasMessages(MESSAGE_RETRIEVE) && mConnected && !mClosing
+					&& msg.what != MESSAGE_END) {
 				//only send if there are no messages already in queue.
 				if (!mThrottle) {
 					mHandler.sendEmptyMessageDelayed(MESSAGE_RETRIEVE, NO_THROTTLE_DELAY);
@@ -295,17 +303,19 @@ public class DataPumper extends Thread {
 				}
 			}
 			
-			if(mClosing) {
+			if(mClosing && msg.what != MESSAGE_END) {
 				shutdownSocket();
 			}
 			return true;
 		}
 
 		private void shutdownSocket() {
-			mHandler.removeMessages(MESSAGE_RETRIEVE);
+			if (mHandler != null) {
+				mHandler.removeMessages(MESSAGE_RETRIEVE);
+			}
 			Log.e("TEST", "DATA PUMPER STARTING END SEQUENCE");
 			try {
-				if (mWriterThread != null) {
+				if (mWriterThread != null && mWriterThread.mOutputHandler != null) {
 					mWriterThread.mOutputHandler.sendEmptyMessage(OutputWriterThread.MESSAGE_END);
 					try {
 						Log.e("TEST", "KILLING WRITER THREAD");
@@ -388,6 +398,7 @@ public class DataPumper extends Thread {
 			numtoread = mReader.available();
 		} catch (IOException e) {
 			if (!mClosing) {
+				Log.w("BlowTorch", "Socket available() failed — disconnect", e);
 				mReportTo.sendEmptyMessage(Connection.MESSAGE_DISCONNECTED);
 			}
 			mConnected = false;
@@ -399,6 +410,7 @@ public class DataPumper extends Thread {
 			try {
 				if (mReader.read() == -1) {
 					if (!mClosing) {
+						Log.w("BlowTorch", "Connection terminated by peer (EOF)");
 						sendWarning("\n" + Colorizer.getRedColor() + "Connection terminated by peer." + Colorizer.getWhiteColor() + "\n");
 						mReportTo.sendEmptyMessage(Connection.MESSAGE_TERMINATED_BY_PEER);
 					}
@@ -409,6 +421,7 @@ public class DataPumper extends Thread {
 			} catch (IOException e) { 
 				e.printStackTrace();
 				if (!mClosing) {
+					Log.w("BlowTorch", "Socket probe read failed — disconnect", e);
 					mReportTo.sendEmptyMessage(Connection.MESSAGE_DISCONNECTED);
 				}
 				mConnected = false;
@@ -422,6 +435,7 @@ public class DataPumper extends Thread {
 			
 			} catch (IOException e) {
 				if (!mClosing) {
+					Log.w("BlowTorch", "Socket read failed — disconnect", e);
 					mReportTo.sendEmptyMessage(Connection.MESSAGE_DISCONNECTED);
 				}
 				mConnected = false;

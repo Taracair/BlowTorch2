@@ -70,7 +70,9 @@ public class WindowToken implements Parcelable {
 		/** Buffer size. */
 		buffer_size,
 		/** Path to the font to use. */
-		font_path
+		font_path,
+		/** Tap empty game area to dismiss soft keyboard. */
+		tap_dismiss_keyboard
 	}
 	/** Hyperlink decoration off. */
 	private static final int HYPERLINK_OFF = 0;
