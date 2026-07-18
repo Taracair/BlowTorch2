@@ -3,5 +3,5 @@ BlowTorch 2 v2.1.5
 • Input bar: Edit/Send stable when text wraps; grows to ~7 lines
 • One connection notification; hide live scroll thumb
 • Button edit polish; xterm-256 color fix
-• Accordion spinner menus opaque; Swipe help text fixed
-• Help: aliases/triggers with $1 captures
+• Accordion menus: solid black dropdowns
+• Swipe help text fixed; Help: aliases/triggers with $1
