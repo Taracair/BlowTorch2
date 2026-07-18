@@ -98,7 +98,7 @@ public class HyperSAXParser extends BaseParser {
 				tmp.setHapticFeedbackMode( (attributes.getValue("",ATTR_OVERRIDEHF) == null) ? "auto" : (attributes.getValue("",ATTR_OVERRIDEHF).equals("")) ? "auto" : attributes.getValue("",ATTR_OVERRIDEHF));
 				tmp.setHapticFeedbackOnPress( (attributes.getValue("",ATTR_HFONPRESS) == null) ? "auto" : (attributes.getValue("",ATTR_HFONPRESS).equals("")) ? "auto" : attributes.getValue("",ATTR_HFONPRESS));
 				tmp.setHapticFeedbackOnFlip( (attributes.getValue("",ATTR_HFONFLIP) == null) ? "none" : (attributes.getValue("",ATTR_HFONFLIP).equals("")) ? "none" : attributes.getValue("",ATTR_HFONFLIP));
-				tmp.setEncoding( (attributes.getValue("",ATTR_ENCODING) == null) ? "ISO-8859-1" : attributes.getValue("",ATTR_ENCODING));
+				tmp.setEncoding( (attributes.getValue("",ATTR_ENCODING) == null) ? "UTF-8" : attributes.getValue("",ATTR_ENCODING));
 				tmp.setKeepScreenOn( (attributes.getValue("",ATTR_KEEPSCREENON) == null) ? true : (attributes.getValue("",ATTR_KEEPSCREENON).equals("true")) ? true : false);
 				tmp.setFullScreen( (attributes.getValue("",ATTR_FULLSCREEN) == null) ? false : (attributes.getValue("",ATTR_FULLSCREEN).equals("true")) ? true : false);
 				tmp.setRoundButtons( (attributes.getValue("",ATTR_ROUNDBUTTONS) == null) ? false : (attributes.getValue("",ATTR_ROUNDBUTTONS).equals("true")) ? true:false);

@@ -10,7 +10,7 @@ public class KeyboardCommand extends SpecialCommand {
 	String encoding;
 	public KeyboardCommand() {
 		this.commandName = "keyboard";
-		this.encoding = "ISO-8859-1";
+		this.encoding = "UTF-8";
 	}
 	
 	public void setEncoding(String encoding) {

@@ -11,7 +11,7 @@ public class EncodingOption extends BaseOption implements Parcelable {
 
 	public EncodingOption() {
 		this.type = TYPE.ENCODING;
-		setValue("ISO-8859-1");
+		setValue("UTF-8");
 	}
 	
 	public EncodingOption(Parcel p) {

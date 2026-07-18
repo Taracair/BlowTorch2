@@ -64,6 +64,15 @@ public final class TC {
 	
 	/** Telnet GMCP constant. */
 	public static final byte GMCP = (byte) 201;
+
+	/** Telnet CHARSET option (RFC 2066). */
+	public static final byte CHARSET = (byte) 42;
+	/** CHARSET subnegotiation: REQUEST. */
+	public static final byte CHARSET_REQUEST = 0x01;
+	/** CHARSET subnegotiation: ACCEPTED. */
+	public static final byte CHARSET_ACCEPTED = 0x02;
+	/** CHARSET subnegotiation: REJECTED. */
+	public static final byte CHARSET_REJECTED = 0x03;
 	
 	/** LSB mask for a 32 bit int. */
 	public static final int LSB_MASK = 0x000000FF;
@@ -159,6 +168,12 @@ public final class TC {
 			break;
 		case TC.ECHO:
 			output = "ECHO";
+			break;
+		case TC.CHARSET:
+			output = "CHARSET";
+			break;
+		case TC.GMCP:
+			output = "GMCP";
 			break;
 			
 		//many more types.
