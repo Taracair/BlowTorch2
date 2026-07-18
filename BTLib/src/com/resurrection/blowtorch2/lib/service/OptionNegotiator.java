@@ -376,7 +376,8 @@ public class OptionNegotiator {
 	public final byte[] getCharsetRequestUtf8() {
 		try {
 			byte[] name = "UTF-8".getBytes("US-ASCII");
-			ByteBuffer buf = ByteBuffer.allocate(6 + name.length);
+			// IAC SB CHARSET REQUEST <sep> <name> IAC SE  => 7 + name.length
+			ByteBuffer buf = ByteBuffer.allocate(7 + name.length);
 			buf.put(TC.IAC);
 			buf.put(TC.SB);
 			buf.put(TC.CHARSET);
