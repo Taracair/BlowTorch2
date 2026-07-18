@@ -127,11 +127,19 @@ public class LayoutElementListener implements StartElementListener {
 		int numattributes = a.getLength();
 		for (int i = 0; i < numattributes; i++) {
 			String attribute = a.getLocalName(i);
+			if (attribute == null) {
+				continue;
+			}
+			// Not RelativeLayout rules — handled above via DIMENSION_SPEC.
+			if ("width".equals(attribute) || "height".equals(attribute)
+					|| "orientation".equals(attribute)) {
+				continue;
+			}
 			int value = 0;
 			try {
 				value = Integer.parseInt(a.getValue("", attribute));
 			} catch (NumberFormatException e) {
-				e.printStackTrace();
+				continue;
 			}
 			try {
 				RULES rule = RULES.valueOf(attribute);
@@ -177,8 +185,7 @@ public class LayoutElementListener implements StartElementListener {
 					break;
 				}
 			} catch (IllegalArgumentException e) {
-				//orientation, height and width will be run through this. they are not RULES, so they will be ignored here.
-				e.printStackTrace();
+				// Unknown attribute — ignore quietly.
 			}
 			
 		}

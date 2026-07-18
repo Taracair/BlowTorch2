@@ -623,18 +623,28 @@ public class TextTree {
 		//Log.e("TREE","BUFFER CONTAINS:" +sb.toString() + "||||");
 		
 		if(sb.position() > 0) {
-			//Line last = new Line();
-			//last.getData().addLast(new Text(sb.toString()));
 			int fsize = sb.position();
 			byte[] tmpb = new byte[fsize];
 			sb.rewind();
 			sb.get(tmpb,0,fsize);
-			tmp.getData().addLast(new Text(tmpb));
-			//Log.e("TEXTTREE",getLastTwenty(false));
-			//Log.e("TEXTTREE","ADDED TEXT: LAST 20 LINES");
-			//Log.e("TREE",">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>NOT ENDED BY NEWLINE:" + deColorLine(tmp));
-			
-			
+			// Incomplete UTF-8 at the end of a TCP chunk must be held — otherwise
+			// █ (E2 96 88) split across packets becomes three U+FFFD cells and maps skew.
+			int incomplete = ("UTF-8".equalsIgnoreCase(encoding)
+					|| "UTF8".equalsIgnoreCase(encoding))
+					? utf8IncompleteTailLength(tmpb) : 0;
+			if (incomplete > 0 && incomplete < fsize) {
+				byte[] complete = new byte[fsize - incomplete];
+				System.arraycopy(tmpb, 0, complete, 0, complete.length);
+				holdover = new byte[incomplete];
+				System.arraycopy(tmpb, complete.length, holdover, 0, incomplete);
+				tmpb = complete;
+			} else if (incomplete > 0) {
+				holdover = tmpb;
+				tmpb = null;
+			}
+			if (tmpb != null && tmpb.length > 0) {
+				tmp.getData().addLast(new Text(tmpb));
+			}
 			sb.rewind();
 		}
 		
@@ -653,6 +663,41 @@ public class TextTree {
 		return endcount - startcount;
 	}
 	
+	/**
+	 * Bytes at the end of {@code buf} that form an incomplete UTF-8 sequence, or 0.
+	 * Used so multi-byte glyphs (e.g. U+2588 █) are not decoded as � across packet boundaries.
+	 */
+	private static int utf8IncompleteTailLength(final byte[] buf) {
+		if (buf == null || buf.length == 0) {
+			return 0;
+		}
+		// Only relevant when decoding as UTF-8 (default for modern MUDs).
+		final int len = buf.length;
+		int i = len - 1;
+		if ((buf[i] & 0x80) == 0) {
+			return 0; // trailing ASCII — complete
+		}
+		while (i > 0 && (buf[i] & 0xC0) == 0x80) {
+			i--;
+		}
+		final int lead = buf[i] & 0xFF;
+		final int expected;
+		if ((lead & 0xE0) == 0xC0) {
+			expected = 2;
+		} else if ((lead & 0xF0) == 0xE0) {
+			expected = 3;
+		} else if ((lead & 0xF8) == 0xF0) {
+			expected = 4;
+		} else {
+			return 0;
+		}
+		final int have = len - i;
+		if (have > 0 && have < expected) {
+			return have;
+		}
+		return 0;
+	}
+
 	public void prune() {
 		if(mLines.size() > MAX_LINES) {
 			while(mLines.size() > MAX_LINES) {
@@ -800,7 +845,7 @@ public class TextTree {
 				if(charsinline > breakAt) {
 					int amount = charsinline - breakAt;
 					if(wordWrap) {
-						if(whiteSpaceFound) {
+						if(whiteSpaceFound && !segmentLooksLikeAnsiMap()) {
 							//find the nearest whitespace and break.
 							boolean found = false;
 							//i.previous(); //advance back because we are on the right hand side of the unit that broke.
@@ -821,15 +866,14 @@ public class TextTree {
 							charsinline = 0;
 						
 						} else {
-							//just break here and continue
-							//if(amount > u.charcount) {
-							//	Log.e("TREE","INVESTIGATE ME");
-							//}
+							// Hard break: no whitespace yet, or this segment is an ANSI/Unicode map
+							// (Block Elements) — soft-wrapping at colored spaces shreds the grid.
 							int pos = u.charcount - (u.charcount-amount);
 							pos += 1;
 							pos -= 1;
 							breakAt(theIterator,u,pos,u.charcount);
 							charsinline = 0;
+							whiteSpaceFound = false;
 						}
 						
 					//if the number of non whitespace characters is < breakAt, then we should go back and search for the whitespace
@@ -861,6 +905,36 @@ public class TextTree {
 			
 		}
 		
+		/**
+		 * True when the current unbroken segment contains Unicode Block Elements.
+		 * Soft-wrapping those lines at spaces destroys Eden-style ANSI maps.
+		 */
+		private boolean segmentLooksLikeAnsiMap() {
+			int idx = theIterator.nextIndex();
+			ListIterator<Unit> scan = mData.listIterator(idx);
+			int checked = 0;
+			while (scan.hasPrevious() && checked < 64) {
+				Unit tmp = scan.previous();
+				if (tmp instanceof Break || tmp instanceof NewLine) {
+					break;
+				}
+				if (tmp instanceof Text) {
+					String s = ((Text) tmp).getString();
+					if (s != null) {
+						for (int i = 0; i < s.length(); ) {
+							int cp = s.codePointAt(i);
+							if (cp >= 0x2580 && cp <= 0x259F) {
+								return true;
+							}
+							i += Character.charCount(cp);
+						}
+					}
+				}
+				checked++;
+			}
+			return false;
+		}
+
 		public ListIterator<Unit> getIterator() {
 			return theIterator;
 		}
@@ -1077,7 +1151,8 @@ public class TextTree {
 			}
 			
 			data = input;
-			this.charcount = data.length();
+			// Columns = Unicode code points (█ is one cell), not UTF-16 units / bytes.
+			this.charcount = data.codePointCount(0, data.length());
 			try {
 				bin = data.getBytes(encoding);
 				this.bytecount = bin.length;
@@ -1098,7 +1173,7 @@ public class TextTree {
 					this.link = true;
 				}
 			}
-			this.charcount = data.length();
+			this.charcount = data.codePointCount(0, data.length());
 			bytecount = bin.length;
 			this.type = UNIT_TYPE.TEXT;
 		}

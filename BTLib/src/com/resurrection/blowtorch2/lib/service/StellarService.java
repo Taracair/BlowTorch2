@@ -195,12 +195,14 @@ public class StellarService extends Service {
 			case MESSAGE_STARTUP:
 				Connection active = mConnections.get(mConnectionClutch);
 				if (active != null) {
-					if (active.getPump() == null) {
-						active.getHandler().sendEmptyMessage(Connection.MESSAGE_STARTUP);
-					} else {
+					// A non-null pump that failed TCP (or is still handshaking) used to
+					// block forever here — UI looked "not connected" until manual reconnect.
+					if (active.isConnected()) {
 						updateForegroundNotification(
 								active.getDisplay(),
 								buildConnectedStatus(active));
+					} else {
+						active.getHandler().sendEmptyMessage(Connection.MESSAGE_STARTUP);
 					}
 				}
 				break;
@@ -940,6 +942,13 @@ public class StellarService extends Service {
 
 		@Override
 		public void initXfer() throws RemoteException {
+			Connection active = mConnections.get(mConnectionClutch);
+			// Only skip when the socket is actually up. A zombie Looper after a failed
+			// connect used to make isAlive()==true and block all further startups.
+			if (active != null && active.isConnected()) {
+				android.util.Log.i("BlowTorch", "initXfer skipped — already connected");
+				return;
+			}
 			mHandler.sendEmptyMessage(MESSAGE_STARTUP);
 		}
 
@@ -1084,7 +1093,7 @@ public class StellarService extends Service {
 			if (c == null) {
 				return;
 			}
-			c.getProcessor().setDisplayDimensions(rows, cols);
+			c.applyLiveDisplayDimensions(rows, cols);
 		}
 
 		@Override

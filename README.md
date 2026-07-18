@@ -1,22 +1,22 @@
 # BlowTorch 2
 
-Hello folks and beware! This is my first public repo and first bigger github work.
+MUD client for Android. Fork of classic [BlowTorch](https://github.com/blockda/BlowTorch) by Daniel Block / Offset Null Entertainment (MIT).
 
-I present to you - revamped MUD client for Android. Fork of classic [BlowTorch](https://github.com/blockda/BlowTorch) by Daniel Block / Offset Null Entertainment (MIT).
-
-The old client still works as a MUD app, this fork is mainly about running on current Android, fixing storage/backups, and a few extras I wanted while playing.
+The old client still works as a MUD app; this fork is mainly about running on current Android, fixing storage/backups, and a few extras I wanted while playing.
 
 **Package:** `com.resurrection.blowtorch2`  
 **Repo:** [Taracair/BlowTorch2](https://github.com/Taracair/BlowTorch2)  
 **Commands:** [`docs/user-manual.md`](docs/user-manual.md) (also in-app **Help**)
 
-I use LLM for writing code or docs. I still test and decide what ships.
+I sometimes use an LLM for drafting code or docs. I still review and decide what ships.
 
 ---
 
 ## Credit
 
 BlowTorch itself is Daniel Block and Offset Null Entertainment, LLC (2010–2018). The MUD core, Lua plugins, triggers, and so on are theirs. This fork exists so that stuff keeps working when the old APK does not. Same MIT license — see [`LICENSE`](LICENSE).
+
+One maintainer. Bug reports with steps to reproduce help.
 
 ---
 
@@ -63,7 +63,7 @@ More detail: [`docs/FDROID_README.md`](docs/FDROID_README.md).
 | Area | Examples |
 |------|----------|
 | Input | `.wrap`, `.kb` |
-| Scrollback search | `.search` |
+| Scrollback | `.search` |
 | GMCP | `.gmcp status`, sniff, sniff tail, … |
 | Classic | `.run`, `.timer`, `.loadset`, `.switch`, … |
 
