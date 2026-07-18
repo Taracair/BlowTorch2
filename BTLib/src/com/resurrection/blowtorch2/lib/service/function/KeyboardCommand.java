@@ -31,15 +31,15 @@ public class KeyboardCommand extends SpecialCommand {
 					"Edit ops: sel | selectall, cut, copy, paste\n" +
 					"Cursor: start | cursorstart, end | cursorend,\n" +
 					"        stepf | stepr (right), stepb | stepl (left),\n" +
-					"        stepu (up), stepd (down)\n" +
+					"        stepu (history ↑ / older), stepd (history ↓ / newer)\n" +
 					"Examples:\n" +
 					"  .kb popup reply   — set text and show IME\n" +
 					"  .kb add foo       — append without popup\n" +
 					"  .kb flush         — send current input\n" +
 					"  .kb sel / .kb cut — select all / cut\n" +
 					"  .kb start / .kb end — caret to start / end\n" +
-					"  .kb stepf / .kb stepb — caret ±1 character\n"));
-			return null;
+					"  .kb stepf / .kb stepb — caret ±1 character\n" +
+					"  .kb stepu / .kb stepd — previous / next command\n"));			return null;
 		}
 
 		Pattern p = Pattern.compile(
