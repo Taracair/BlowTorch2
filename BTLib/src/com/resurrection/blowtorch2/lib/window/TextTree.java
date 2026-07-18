@@ -410,9 +410,7 @@ public class TextTree {
 			//Log.e("TREE","DATA PROCESSING LOOP: " + deColorLine(tmp));
 			switch(data[i]) {
 			case ESC:
-				//Log.e("TREE","BEGIN ANSI ESCAPE");
-				//end current text node.
-				
+				// Flush pending text before handling an escape sequence.
 				if(sb.position() > 0) {
 					int size = sb.position();
 					strag = new byte[size];
@@ -430,128 +428,114 @@ public class TextTree {
 						break;
 					}
 					runtype = RUN.NEW;
-					
-					
 				}
-				//text.data = sb.toString();
-				//sb.rewind();
-				//tmp.getData().addLast(text);
-				//text = new Text();
-				
+
 				if( (i+1) >= data.length) {
 					holdover = new byte[]{ ESC };
-					//Log.e("TREE","APPEND DUE TO HOLDOVER EVENT: " + deColorLine(tmp));
 					addLine(tmp);
 					linesadded += tmp.breaks + 1;
-					//tmp = new Line();
-					//Log.e("TEXTTREE",getLastTwenty(false));
-					
-					//Log.e("TREE","HOLDOVER EVENENT, ESC ONLY");
-					int endcount = this.getBrokenLineCount();
-					//prune();
-					return endcount - startcount;
+					return this.getBrokenLineCount() - startcount;
 				}
-				//start ansi process sequence.
-				if(data[i+1] != BRACKET) {
-					//invalid ansi sequence.
-				}
-				cb.put(data[i]);
-				cb.put(data[i+1]);
-				
-				boolean done = false;
-				
-				if( (i+2) >= data.length) {
-					int tmpsize = cb.position();
-					holdover = new byte[tmpsize];
+
+				byte intro = data[i+1];
+
+				// CSI: ESC [ ... final (0x40-0x7E). Color 'm' is applied; others skipped.
+				if(intro == BRACKET) {
 					cb.rewind();
-					cb.get(holdover,0,tmpsize);
-					//Log.e("TREE","APPEND DUE TO HOLDOVER EVENT: " + deColorLine(tmp));
-					addLine(tmp);
-					linesadded += tmp.breaks + 1;
-					//Log.e("TEXTTREE",getLastTwenty(false));
-					//Log.e("TREE","HOLDOVER EVENT, ESC AND [");
-					int endcount = this.getBrokenLineCount();
-					//prune();
-					return endcount - startcount;
-				}
-				
-				for(int j=i+2;j<data.length;j++) {
-					//Log.e("TREE","ANSI ESCAPE ANALYSIS: " + new String(new byte[]{data[j]}));					
-					
-					switch(data[j]) {
-					case m:
-						//Log.e("TREE","STOPPING COLOR PARSE");
-						done = true;
-						cb.put(m);
-						int cmdsize = cb.position();
-						byte[] cmd = new byte[cmdsize];
+					cb.put(data[i]);
+					cb.put(data[i+1]);
+
+					if( (i+2) >= data.length) {
+						int tmpsize = cb.position();
+						holdover = new byte[tmpsize];
 						cb.rewind();
-						cb.get(cmd,0,cmdsize);
-						
-						Color c = new Color(cmd);
-						if(lastColor == null) {
-							lastColor = c;
-							tmp.getData().addLast(c);
-						} else if(lastColor.equals(c)) {
-							//if(strag != null) {
-								//tmp.getData().removeLast();
-								//sb.put(strag);	
-							//}
-							//dont add because the last color is the same.
-							if(this.isCullExtraneous()) {
-								//do nothing
+						cb.get(holdover,0,tmpsize);
+						addLine(tmp);
+						linesadded += tmp.breaks + 1;
+						return this.getBrokenLineCount() - startcount;
+					}
+
+					boolean done = false;
+					for(int j=i+2;j<data.length;j++) {
+						byte b = data[j];
+						if(b == m) {
+							done = true;
+							cb.put(m);
+							int cmdsize = cb.position();
+							byte[] cmd = new byte[cmdsize];
+							cb.rewind();
+							cb.get(cmd,0,cmdsize);
+
+							Color c = new Color(cmd);
+							if(lastColor == null) {
+								lastColor = c;
+								tmp.getData().addLast(c);
+							} else if(lastColor.equals(c)) {
+								if(this.isCullExtraneous()) {
+									//do nothing
+								} else {
+									tmp.getData().addLast(c);
+								}
 							} else {
 								tmp.getData().addLast(c);
+								lastColor = c;
 							}
-						} else {
-							tmp.getData().addLast(c);
-							lastColor = c;
+
+							cb.rewind();
+							i = j;
+							break;
 						}
-						
-						cb.rewind();
-						break;
-					case A:
-					case B:
-					case C:
-					case D:
-					case E:
-					case F:
-					case G:
-					case H:
-					case J:
-					case K:
-					case S:
-					case T:
-					case f:
-					case n:
-					case s:
-					case u:
-						done=true;
-						cb.rewind();
-						break;
-					default:
-						//Log.e("TREE","APPENDING FOR PARSE");
-						cb.put(data[j]);
-						break;
+						// Any CSI final byte (@ through ~) terminates the sequence.
+						int ub = b & 0xFF;
+						if(ub >= 0x40 && ub <= 0x7E) {
+							done = true;
+							cb.rewind();
+							i = j;
+							break;
+						}
+						cb.put(b);
 					}
-					if(done) {
-						i = j; //advance the cursor.
-						break;
+					if(!done) {
+						int mtmpsz = cb.position();
+						holdover = new byte[mtmpsz];
+						cb.rewind();
+						cb.get(holdover,0,mtmpsz);
+						addLine(tmp);
+						linesadded += tmp.breaks + 1;
+						return this.getBrokenLineCount() - startcount;
 					}
+					break;
 				}
-				if(cb.position() > 0) {
-					int mtmpsz = cb.position();
-					holdover = new byte[mtmpsz];
-					cb.rewind();
-					cb.get(holdover,0,mtmpsz);
-					//Log.e("TREE","APPEND DUE TO UNTERMINATED ANSI SEQUENCE:"  + deColorLine(tmp));
-					addLine(tmp);
-					linesadded += tmp.breaks + 1;
-					//Log.e("TREE","WARNING: UNTERMINATED ASCII SEQUENCE: " + new String(holdover,encoding));
-					int endcount = this.getBrokenLineCount();
-					//prune();
-					return startcount - endcount;
+
+				// OSC (ESC ]), DCS (ESC P), APC (ESC _), PM (ESC ^): skip until BEL or ST (ESC \).
+				if(intro == (byte)0x5D || intro == (byte)0x50
+						|| intro == (byte)0x5F || intro == (byte)0x5E) {
+					boolean done = false;
+					for(int j = i + 2; j < data.length; j++) {
+						if(data[j] == 0x07) { // BEL
+							done = true;
+							i = j;
+							break;
+						}
+						if(data[j] == ESC && (j + 1) < data.length && data[j + 1] == (byte)0x5C) {
+							done = true;
+							i = j + 1;
+							break;
+						}
+					}
+					if(!done) {
+						int len = data.length - i;
+						holdover = new byte[len];
+						System.arraycopy(data, i, holdover, 0, len);
+						addLine(tmp);
+						linesadded += tmp.breaks + 1;
+						return this.getBrokenLineCount() - startcount;
+					}
+					break;
 				}
+
+				// Two-byte ESC sequences (ESC 7/8/c/D/E/H/M/…): consume and ignore.
+				i = i + 1;
 				break;
 			case TAB:
 				//make new tab node.
