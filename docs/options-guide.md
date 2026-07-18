@@ -72,7 +72,7 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 
 Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recovered/`). Use **Backup All Settings** instead.
 
-**Account notes** on New/Edit connection: optional login/password/mail slots per server. Informational only (not auto-login). Stored in the launcher list XML on device — **plaintext**; see warning in the dialog.
+**Account notes** on New/Edit connection: optional login/password/mail per server. Notes only — not auto-login. Stored as plain text in the launcher list on this device; see the warning in the dialog.
 
 ## Dot commands
 

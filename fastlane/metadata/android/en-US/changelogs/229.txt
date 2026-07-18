@@ -1,5 +1,5 @@
 BlowTorch 2 v2.1.5
 
-• Input bar: stable Edit/Send; grow up to ~7 lines; wider tap targets
-• Single connection notification; hide live scroll thumb
-• Button edit polish; xterm-256 color bleed fix
+• Input bar: Edit/Send stable when text wraps; grows to ~7 lines
+• One connection notification; hide live scroll thumb
+• Button edit polish; xterm-256 color fix

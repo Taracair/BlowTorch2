@@ -50,9 +50,10 @@ Built-in commands
   Subcommands:
     .gmcp                 help
     .gmcp status          current flags
-    .gmcp sniff [on|off]  log handshake/packets to app error log
-                          (files/logs/blowtorch2.log; also session log if on.
-                          prints absolute path when enabled; Crash report → Show log)
+    .gmcp sniff [on|off]  log handshake/packets to blowtorch2.log
+                          (under /BlowTorch/logs/ or app storage; also session
+                          log if on. Prints the path when enabled; Crash report
+                          → Show log)
     .gmcp sniff tail [N]  show last N GMCP lines from that log in-game (0-100, default 40)
     .gmcp version         client hello / syntax notes
     .gmcp supports […]   show or set supports modules
@@ -122,23 +123,23 @@ Built-in commands
 
 On-screen buttons (button_window)
 ---------------------------------
-Edit button layout: open ⋮ → **Edit buttons**, or long-press the ⋮ next to
+Edit button layout: open ⋮ → Edit buttons, or long-press the ⋮ next to
 Edit/Send. In edit mode the ⋮ is hidden; use the strip icons: gear (set
-options), Cancel (left), Done (right).
-strip; the gear opens set options (grid, gesture-hint badges, defaults).
+options), Cancel (left), Done (right). The gear opens set options (grid,
+gesture-hint badges, defaults).
 
 Tap runs the primary command. Extra gestures (edit a button → Swipe / Accordion):
 
   Swipe up / down / left / right
     Each direction can run a different command (overrides classic Flip).
-    Drag ~finger-width off the button to fire that direction.
+    Drag about a finger-width off the button to fire that direction.
 
   Hold
     Optional hold-command after a short press-and-hold.
 
   Accordion
     Up to 5 child buttons expand from a parent (direction + tap/hold/swipe
-    trigger). Great for packing many macros into one tile. Badges in the
+    trigger). Handy when you want several macros on one tile. Badges in the
     editor: T = tap, H = hold, S = swipe. Options can show gesture hint
     arrows on-screen (uncheck to hide U/D/L/R and Hold markers).
 
