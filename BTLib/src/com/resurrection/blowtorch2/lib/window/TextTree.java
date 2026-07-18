@@ -39,7 +39,7 @@ public class TextTree {
 	private int MAX_LINES = 2000;
 	private static final int ABSOLUTE_MAX_LINES = 8000;
 	
-	private String encoding = "ISO-8859-1";
+	private String encoding = "UTF-8";
 	
 	public String getEncoding() {
 		return encoding;
