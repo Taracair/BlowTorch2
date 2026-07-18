@@ -211,7 +211,7 @@ public class DataPumper extends Thread {
 		} catch (ProtocolException e) {
 			dispatchDialog("Protocol Exception: " + e.getMessage());
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			dispatchDialog("I/O error: " + e.getMessage());
 		}
 	}
 	

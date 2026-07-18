@@ -55,7 +55,7 @@
                 android:imeOptions="actionSend"
                 android:isScrollContainer="false"
                 android:keepScreenOn="true"
-                android:maxLines="18"
+                android:maxLines="7"
                 android:minHeight="28dip"
                 android:paddingTop="2dip"
                 android:paddingBottom="2dip"
@@ -85,8 +85,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="28dip"
                     android:minHeight="28dip"
-                    android:minWidth="48dip"
+                    android:minWidth="64dip"
                     android:layout_marginRight="2dip"
+                    android:maxLines="1"
                     android:text="Edit"
                     android:contentDescription="Toggle edit tools" />
 
@@ -96,7 +97,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="28dip"
                     android:minHeight="28dip"
-                    android:minWidth="48dip"
+                    android:minWidth="64dip"
+                    android:maxLines="1"
                     android:text="Send"
                     android:contentDescription="Send input" />
             </LinearLayout>

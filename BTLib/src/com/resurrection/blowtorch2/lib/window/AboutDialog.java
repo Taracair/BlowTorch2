@@ -1,6 +1,5 @@
 package com.resurrection.blowtorch2.lib.window;
 
-import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 
 import android.app.Dialog;
@@ -16,13 +15,14 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 /**
- * About / donate dialog (launcher + session overflow).
+ * About dialog (launcher + session overflow).
  * Crash log actions live in {@link CrashReportDialog}.
  */
 public class AboutDialog extends Dialog {
+
+	private static final String PROJECT_URL = "https://github.com/Taracair/BlowTorch2";
 
 	public AboutDialog(Context context) {
 		super(context);
@@ -44,29 +44,24 @@ public class AboutDialog extends Dialog {
 			e.printStackTrace();
 		}
 		
-		int aardid = this.getContext().getResources().getIdentifier("aardwolf_button", "id", this.getContext().getPackageName());
-		if(aardid != 0) {
-		this.findViewById(aardid).setOnClickListener(new View.OnClickListener() {
-			
-			public void onClick(View v) {
-				Intent web_help = new Intent(Intent.ACTION_VIEW,Uri.parse("http://www.aardmud.org/"));
-				AboutDialog.this.getContext().startActivity(web_help);
-			}
-		});
-		}
-		
 		int btid = this.getContext().getResources().getIdentifier("blowtorch_button", "id", this.getContext().getPackageName());
 		if (btid != 0) {
 			View websiteButton = this.findViewById(btid);
 			if (websiteButton != null) {
-				websiteButton.setVisibility(View.GONE);
+				websiteButton.setOnClickListener(new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL));
+						AboutDialog.this.getContext().startActivity(web);
+					}
+				});
 			}
 		}
-		
-		appendDonateSection();
+
+		appendProjectLink();
 	}
 
-	private void appendDonateSection() {
+	private void appendProjectLink() {
 		ScrollView scroll = findScrollView((ViewGroup) getWindow().getDecorView());
 		if (scroll == null || scroll.getChildCount() == 0 || !(scroll.getChildAt(0) instanceof LinearLayout)) {
 			return;
@@ -75,26 +70,20 @@ public class AboutDialog extends Dialog {
 		float density = getContext().getResources().getDisplayMetrics().density;
 		int pad = (int) (16 * density);
 
-		TextView section = new TextView(getContext());
-		section.setText("Donate");
-		section.setTextSize(16f);
-		section.setPadding(pad, pad, pad, (int) (4 * density));
-		root.addView(section);
-
-		Button donate = new Button(getContext());
-		donate.setText("Donate (coming soon)");
-		donate.setOnClickListener(new View.OnClickListener() {
+		Button github = new Button(getContext());
+		github.setText("Project on GitHub");
+		github.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				Toast.makeText(getContext(),
-						"Donate link not configured yet.", Toast.LENGTH_SHORT).show();
+				Intent web = new Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL));
+				AboutDialog.this.getContext().startActivity(web);
 			}
 		});
 		LinearLayout.LayoutParams btnLp = new LinearLayout.LayoutParams(
 				LinearLayout.LayoutParams.MATCH_PARENT,
 				LinearLayout.LayoutParams.WRAP_CONTENT);
-		btnLp.setMargins(pad / 2, 0, pad / 2, pad);
-		root.addView(donate, btnLp);
+		btnLp.setMargins(pad / 2, (int) (8 * density), pad / 2, pad);
+		root.addView(github, btnLp);
 	}
 	
 	private ScrollView findScrollView(ViewGroup parent) {
