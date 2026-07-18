@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
 <blowtorch xmlversion="2">
-  <window lineSize="10" spaceExtra="2" maxLines="300" fontName="monospace" fontPath="none" useExtractUI="false" useSuggest="false" keepLast="false" backspaceBugFix="false" launchEditor="true" disableColor="false" hapticFeedBackOnModify="auto" hapticFeedBackOnPress="auto" hapticFeedBackOnFlip="none" encoding="ISO-8859-1" keepScreenOn="true" fullScreen="true" roundButtons="true" orientation="0" breakAmount="0" wordWrap="true" removeExtraColor="true" debugTelnet="false" wrapMode="1" hyperLinkMode="highlight_color_bland_only" hyperLinkColor="ff3333aa" hyperLinkEnabled="true" id="6666"/>
+  <window lineSize="10" spaceExtra="2" maxLines="300" fontName="monospace" fontPath="none" useExtractUI="false" useSuggest="false" keepLast="false" backspaceBugFix="false" launchEditor="true" disableColor="false" hapticFeedBackOnModify="auto" hapticFeedBackOnPress="auto" hapticFeedBackOnFlip="none" encoding="UTF-8" keepScreenOn="true" fullScreen="true" roundButtons="true" orientation="0" breakAmount="0" wordWrap="true" removeExtraColor="true" debugTelnet="false" wrapMode="1" hyperLinkMode="highlight_color_bland_only" hyperLinkColor="ff3333aa" hyperLinkEnabled="true" id="6666"/>
   <windows>
     <window name="mainDisplay" id="6666">
       <layoutGroup target="normal">
