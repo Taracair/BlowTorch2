@@ -1,9 +1,6 @@
-BlowTorch 2 v2.1.4 — vs classic BlowTorch
+BlowTorch 2 v2.1.4 (first release)
 
-• Modern Android (SDK 36, min 28); side-by-side package; Help + Crash report
-• /BlowTorch/ tree + optional All files access; SAF pickers; zip backup/restore
-• Edit/Send input, growable bar (.wrap), .kb clipboard/caret, Cancel|Done dialogs
-• Buttons: four-way swipe, hold, accordion, gesture hints; Edit buttons in ⋮
-• Session logs, uptime notification, wake lock + battery helper, sound presets
-• .search scrollback; .gmcp helpers + Log GMCP; timer edits persist
-• Larger editors; account notes; Lua refresh on upgrade; anchored-alias fix
+• Current Android builds; installs beside classic BlowTorch
+• /BlowTorch/ folder or system pickers; zip backup/restore
+• Edit/Send input, growable bar, swipe/hold/accordion buttons
+• Session logs, .search, .wrap, .kb, GMCP helpers

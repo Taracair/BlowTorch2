@@ -1,14 +1,14 @@
 # Local profile samples (not in git)
 
-MUD profile XML and launcher list files belong on your device or machine only.
-They are **gitignored** and must not be committed.
+Profile XML and launcher lists stay on your machine/device.
+They are gitignored — do not commit them.
 
-Typical local files (create or copy from a backup):
+Example local names:
 
 | File | Purpose |
 |------|---------|
-| `test.xml` | Test-server profile |
-| `samsaramoo.xml` | Production profile |
+| `test.xml` | Scratch / test profile |
+| `my_mud.xml` | Your real profile |
 | `blowtorch_launcher_list.xml` | Launcher connection list |
 
 Push to a device (example):

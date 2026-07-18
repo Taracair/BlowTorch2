@@ -1,18 +1,18 @@
-BlowTorch 2 is an independent continuation of the classic BlowTorch MUD client for Android.
+BlowTorch 2 is a fork of the classic BlowTorch MUD client for Android.
 
-Connect to text-based games (MUDs/MUXs/MOOs), keep custom button panels on screen, and automate play with triggers, aliases, timers, speedwalks, and Lua plugins. ANSI colors, GMCP, and background connections are supported.
+Connect to text games (MUDs), keep button panels on screen, and use triggers, aliases, timers, speedwalks, and Lua plugins. ANSI colors, GMCP, and background connections are supported.
 
-This fork focuses on modern Android: current SDK/NDK builds, clearer Options, session logging, battery-optimization helpers, multi-line input growth, notification sounds, and day-to-day crash/permission fixes.
+This fork is aimed at current Android: builds that install, storage/backups that work again, a clearer input bar, session logs, and a few extras (swipe/hold/accordion buttons, .search, .wrap, GMCP helpers).
 
-What you get beyond a simple “keep it compiling” port:
-• Separate production package so test builds can sit beside a stable install
-• Import/export and zip backup/restore (shared /BlowTorch/ folder or system file pickers)
-• Session log to file, GMCP helpers (including in-game sniff tail), connection duration on notifications
-• Growable input bar (.wrap), plugin refresh, in-app Help and crash/log report
+Also:
+• Separate production package so a test build can sit beside a stable install
+• Import/export and zip backup/restore (/BlowTorch/ folder or system file pickers)
+• Session log to file, connection time on the notification
+• Growable input bar (.wrap), in-app Help and crash/log report
 • Four-way swipe / hold / accordion buttons; Edit buttons from the overflow menu
 
-Privacy in short: no ads, no analytics, no BlowTorch cloud account. The app connects only to MUD hosts you configure. “All files access” is optional — only so settings/backups/logs can live in a normal /BlowTorch/ folder you can see in a file manager; you can refuse it and still play (files stay in app storage or you pick folders with the system picker). Full permission explanation: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
+No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. “All files access” is optional — only so settings/backups/logs can live in a normal /BlowTorch/ folder. You can refuse it and still play. Details: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
 
-BlowTorch was originally created by Daniel Block / Offset Null Entertainment (MIT). This project is a respectful revival, not an official sequel. Back up your settings before upgrading.
+Original BlowTorch: Daniel Block / Offset Null Entertainment (MIT). This is an unofficial fork. Back up your settings before upgrading.
 
-Source, issues, and build notes: https://github.com/Taracair/BlowTorch2
+Source and issues: https://github.com/Taracair/BlowTorch2
