@@ -6,6 +6,7 @@ package com.resurrection.blowtorch2.lib.service;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import org.json.JSONException;
@@ -120,62 +121,70 @@ public class Processor {
 		if (data == null) {
 			return null;
 		}
-		
-		if (data.length == 1) {
-			if (data[0] == TC.IAC) {
-				return null; //nothing to do here.
-			}
+
+		// Re-assemble incomplete IAC sequences that spanned packet boundaries.
+		byte[] input = data;
+		if (mHoldover != null) {
+			ByteBuffer combined = ByteBuffer.allocate(mHoldover.length + data.length);
+			combined.put(mHoldover);
+			combined.put(data);
+			mHoldover = null;
+			input = combined.array();
 		}
 
-		ByteBuffer buff = null;
-		if (mHoldover == null) { 
-			buff = ByteBuffer.allocate(data.length); 
-		} else { 
-			buff = ByteBuffer.allocate(data.length + mHoldover.length); 
-			buff.put(mHoldover); 
-			mHoldover = null; 
+		if (input.length == 1 && input[0] == TC.IAC) {
+			mHoldover = new byte[] { TC.IAC };
+			return null;
 		}
-		ByteBuffer opbuf = ByteBuffer.allocate(data.length * 2);
+
+		ByteBuffer buff = ByteBuffer.allocate(input.length);
+		ByteBuffer opbuf = ByteBuffer.allocate(input.length * 2);
 
 		int count = 0; // count of the number of bytes in the buffer;
-		for (int i = 0; i < data.length; i++) {
-			switch (data[i]) {
+		for (int i = 0; i < input.length; i++) {
+			switch (input[i]) {
 			case TC.IAC:
-				// if the next byte is
-				if (i > data.length - 1) {
-					mHoldover = new byte[] {TC.IAC};
-					return null;
+				if (i + 1 >= input.length) {
+					mHoldover = new byte[] { TC.IAC };
+					return truncBuffer(buff, count);
 				}
-				if ((data[i + 1] >= TC.WILL && data[i + 1] <= TC.DONT)
-						|| data[i + 1] == TC.SB) {
-					//Log.e("SERVICE", "DO IAC");
-					// switch(data[i+1])
-					if (data[i + 1] == TC.SB) {
-						// subnegotiation
-						// now we have an optional number of bytes between the
-						// indicated subnegotiation and the IAC SE end of
-						// sequence.
+				if ((input[i + 1] >= TC.WILL && input[i + 1] <= TC.DONT)
+						|| input[i + 1] == TC.SB) {
+					if (input[i + 1] == TC.SB) {
+						// Need at least IAC SB <option>
+						if (i + 2 >= input.length) {
+							mHoldover = Arrays.copyOfRange(input, i, input.length);
+							return truncBuffer(buff, count);
+						}
+						// Scan for IAC SE, honoring escaped IAC IAC in the payload.
 						boolean done = false;
 						int j = i + SKIP_BYTES;
-						while (!done) {
-							if (data[j] == TC.IAC) {
-								if (data[j + 1] == TC.SE) {
+						while (j + 1 < input.length) {
+							if (input[j] == TC.IAC) {
+								if (input[j + 1] == TC.SE) {
 									done = true;
+									break;
+								} else if (input[j + 1] == TC.IAC) {
+									j += 2; // literal 0xFF in SB data
+									continue;
 								}
-							} else {
-								//opbuf.put(data[j]);
-								j++;
+								// Unexpected IAC command inside SB — skip the IAC byte.
+								j += 1;
+								continue;
 							}
+							j++;
 						}
-						// so if we are here, than j - (i+3) is the number of
-						// optional bytes.
+						if (!done) {
+							mHoldover = Arrays.copyOfRange(input, i, input.length);
+							return truncBuffer(buff, count);
+						}
 						opbuf = ByteBuffer.allocate(j - (i + SKIP_BYTES) + PAYLOAD_BYTES);
 						opbuf.put(TC.IAC);
-						opbuf.put(data[i + 1]);
-						opbuf.put(data[i + 2]);
+						opbuf.put(input[i + 1]);
+						opbuf.put(input[i + 2]);
 						if (j - (i + SKIP_BYTES) > 0) {
 							for (int q = i + SKIP_BYTES; q < j; q++) {
-								opbuf.put(data[q]);
+								opbuf.put(input[q]);
 							}
 						}
 						opbuf.put(TC.IAC);
@@ -184,9 +193,9 @@ public class Processor {
 						opbuf.rewind();
 						boolean compress = dispatchSUB(opbuf.array());
 						if (compress) {
-							ByteBuffer b = ByteBuffer.allocate(data.length - PAYLOAD_BYTES - i);
-							for (int z = i + PAYLOAD_BYTES; z < data.length; z++) {
-								b.put(data[z]);
+							ByteBuffer b = ByteBuffer.allocate(input.length - (j + 2 - i));
+							for (int z = j + 2; z < input.length; z++) {
+								b.put(input[z]);
 							}
 
 							b.rewind();
@@ -198,33 +207,28 @@ public class Processor {
 								String message = "\n" + Colorizer.getTeloptStartColor() + "IN:[IAC SB COMPRESS2 IAC SE] -BEGIN COMPRESSION-" + Colorizer.getResetColor() + "\n";
 								mReportTo.sendMessageDelayed(mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message), 1);
 							}
-							byte[] trunc = new byte[count];
-							buff.rewind();
-							buff.get(trunc, 0, count);
-							return trunc;
+							return truncBuffer(buff, count);
 
 						} else {
-							i = i + 2 + (j - (i + SKIP_BYTES)) + 2; // (original pos,
-															// plus the 2
-															// mandatory bytes,
-															// plus the optional
-															// data length, plus
-															// the 2 bytes at
-															// the end (one is
-															// included in the
-															// loop).
-															// Thus the extra 2 + 2, and not the PAYLOAD_BYTES constant.
+							// Advance past IAC SE (for-loop will i++).
+							i = j + 1;
 						}
 					} else {
-						dispatchIAC(data[i + 1], data[i + 2]);
+						// WILL/WONT/DO/DONT require the option byte.
+						if (i + 2 >= input.length) {
+							mHoldover = Arrays.copyOfRange(input, i, input.length);
+							return truncBuffer(buff, count);
+						}
+						dispatchIAC(input[i + 1], input[i + 2]);
 						i = i + 2;
 					}
 				} else {
 
-					switch (data[i + 1]) {
+					switch (input[i + 1]) {
 					case TC.IAC:
-						buff.put(data[i]); // and one IAC and consume the extra.
+						buff.put(input[i]); // keep one IAC and consume the extra.
 						count++;
+						i++;
 						break;
 					case TC.GOAHEAD:
 					case TC.IP:
@@ -254,18 +258,25 @@ public class Processor {
 				//strip carriage returns
 				break;
 			default:
-				buff.put(data[i]);
+				buff.put(input[i]);
 				count++;
 				break;
 			}
 
 		}
 		
-		buff.rewind();
-		byte[] tmp = new byte[count];
-		buff.get(tmp, 0, count);
-		return tmp;
+		return truncBuffer(buff, count);
 		
+	}
+
+	/** Copy the first {@code count} bytes out of {@code buff}. */
+	private static byte[] truncBuffer(final ByteBuffer buff, final int count) {
+		byte[] trunc = new byte[count];
+		if (count > 0) {
+			buff.rewind();
+			buff.get(trunc, 0, count);
+		}
+		return trunc;
 	}
 
 	/** Telnet negotiation sequence.
