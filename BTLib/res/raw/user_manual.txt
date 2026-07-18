@@ -8,9 +8,58 @@ is enabled (default). Type ".." alone to toggle that processing on or off.
 Prefix a server command with ".." to send a leading "." to the game without
 running a client command (e.g. "..look" sends ".look").
 
-Aliases that share a name with a command win when you type ".name newtext"
-(that updates the alias). Plugins may register additional commands via
-RegisterSpecialCommand; those appear only while the plugin is loaded.
+Aliases that share a simple name with a command win when you type ".name newtext"
+(that changes the alias replacement text). Plugins may register additional
+commands via RegisterSpecialCommand; those appear only while the plugin is
+loaded.
+
+Aliases and triggers (patterns / $1)
+------------------------------------
+BlowTorch does not use TinTin-style %1 wildcards. Patterns are regular
+expressions (Java regex). Captured pieces go into $1, $2, ... in the
+replacement or trigger action.
+
+Aliases (alias editor):
+  Replace = pattern to match what you type
+  With    = text to send (may include $1, $2, ...)
+  Optional checkboxes: start of line (^) / end of line ($)
+
+  Examples:
+    Replace  ^cast (.+)$     With  c $1
+      Typing "cast fireball" sends "c fireball"
+    Replace  ^kill (.+)$     With  k $1
+      Typing "kill goblin" sends "k goblin"
+
+  Without ^/$, the pattern is wrapped in word boundaries and With uses
+  normal regex $n groups.
+  With only ^ (no trailing $), the line is split on spaces: $0 first word,
+  $1 next, and so on.
+  With both ^ and $, $1 is the first (...) group in the pattern.
+
+  Changing an alias from the input bar (simple word names only):
+    .name new replacement text
+  Updates the With field. Example: alias key "c", then
+    .c cast 'fireball'
+  Patterns with spaces or regex (like ^cast (.+)$) must be edited in the
+  alias dialog — .name only works for simple word keys (letters, digits, _).
+
+Triggers (trigger editor):
+  Literal? on  = match as plain text (no regex)
+  Literal? off = pattern is a regular expression
+
+  In regex mode, use (...) to capture and $1, $2, ... in Ack / Replace /
+  Toast / Notification (and similar) text.
+
+  Examples (Literal off):
+    Pattern  You hit (.+) for (\d+)
+    Ack      emote crushed $1 ($2 dmg)
+    Pattern  A (.+) appears
+    Ack      kill $1
+
+  GMCP note: a literal trigger whose pattern starts with % (default GMCP
+  character) is a GMCP hook (%module.path), not a line wildcard.
+  Options → Service → Regular Expression Warning? controls the reminder
+  when you turn Literal off.
 
 Built-in commands
 -----------------
