@@ -110,7 +110,7 @@
 		<CheckBoxPreference
 			android:key="SESSION_LOG"
 			android:title="Log Session to File?"
-			android:summary="Append incoming text to a .txt file under app files/session_logs/."
+			android:summary="Append incoming text to a .txt file under /BlowTorch/session_logs/ (or app storage if All files access is off)."
 			android:defaultValue="false"/>
 		
 		

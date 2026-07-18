@@ -7,5 +7,5 @@
 	<string name="ongoingNotificationLabel">BlowTorch</string>
 	<string name="exportDirectory">BlowTorch</string>
 	<string name="terminalTypeString">BlowTorch</string>
-	<string name="blowtorch_desc">BlowTorch is a mobile MUD client with triggers, aliases, timers, speedwalks, and customizable button panels.</string>
+	<string name="blowtorch_desc">BlowTorch 2 is a MUD client with triggers, aliases, timers, speedwalks, and on-screen buttons.</string>
 </resources>
