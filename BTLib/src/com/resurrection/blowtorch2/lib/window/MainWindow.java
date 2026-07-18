@@ -1445,8 +1445,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	protected void markSettingsDirty() {
-		// TODO Auto-generated method stub
-		
+		loadSettings();
 	}
 
 	protected void markWindowsDirty() {
@@ -1610,9 +1609,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 1200,1200,"Reset Settings");
 		menu.add(0, 1300,1300,"Export Settings");
 		menu.add(0, 1400,1400,"Import Settings");
-		// Bottom of expandable menu: Crash report → About/donate → Help
+		// Bottom of expandable menu: Crash report → About → Help
 		menu.add(0, 1500, 1500, "Crash report");
-		menu.add(0, 1600, 1600, "About/donate");
+		menu.add(0, 1600, 1600, "About");
 		menu.add(0, 1700, 1700, "Help");
 		// Storage access lives under Options → Miscellaneous.
 		//menu.add(0, 1800,1800,"App Settings");
@@ -1799,7 +1798,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 1500: // Crash report
 			new CrashReportDialog(this).show();
 			break;
-		case 1600: // About/donate
+		case 1600: // About
 			new AboutDialog(this).show();
 			break;
 		case 1700: // Help
@@ -3853,7 +3852,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (saved != null && !saved.isEmpty()) {
 			return saved;
 		}
-		return "Aardwolf RPG";
+		return "Connection";
 	}
 
 	private String getConnectionHost() {
@@ -3869,7 +3868,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (saved != null && !saved.isEmpty()) {
 			return saved;
 		}
-		return "aardmud.org";
+		return "localhost";
 	}
 
 	private int getConnectionPort() {
@@ -3891,7 +3890,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			} catch (NumberFormatException ignored) {
 			}
 		}
-		return 7777;
+		return 23;
 	}
 
 	private void assignLegacyChromeIds() {
@@ -3922,15 +3921,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private static final String PREFS_INPUT_EDIT = "INPUT_EDIT_STRIP";
 	private static final String KEY_EDIT_EXPANDED = "expanded";
-	private static final int INPUT_GROW_MAX_LINES = 19;
+	/** Soft-wrap grow limit for the input bar (~thumb-reachable height on phones). */
+	private static final int INPUT_GROW_MAX_LINES = 7;
 	/** When true, input bar grows with multiline text (default / .wrap on). */
 	private boolean mGrowInputBar = true;
 	private ViewGroup mInputActionButtons = null;
 	private Button mInputSendButton = null;
 	/** True while Edit/Send are stacked vertically. */
 	private boolean mActionsStacked = false;
-	/** Fixed action-column width (side-by-side size) so stacking never changes EditText wrap. */
-	private int mActionColumnFixedWidthPx = 0;
+	/** Side-by-side Edit/Send widths (thumb-friendly); column = sum + gap. */
+	private int mActionEditWidthPx = 0;
+	private int mActionSendWidthPx = 0;
 
 	private void setupInputEditStrip() {
 		final View tools = findViewById(R.id.input_edit_tools);
@@ -3959,19 +3960,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		if (mInputBox != null) {
-			// Only watch line-count changes. Do not react to height — our own
-			// stack toggle used to change height and re-enter a layout loop.
+			// Defer until after layout so lineCount is accurate at the soft-wrap edge.
 			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
-				private int mLastLines = -1;
 				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 				@Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
 				@Override
 				public void afterTextChanged(android.text.Editable s) {
-					int lines = Math.max(1, mInputBox.getLineCount());
-					if (lines != mLastLines) {
-						mLastLines = lines;
-						scheduleInputActionLayoutRefresh();
-					}
+					scheduleInputActionLayoutRefresh();
 				}
 			});
 		}
@@ -4076,25 +4071,38 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		refreshInputActionLayout();
 	}
 
-	private final Runnable mRefreshInputActionLayoutRunnable = new Runnable() {
-		@Override
-		public void run() {
-			ensureInputActionColumn();
-		}
-	};
-
 	private void scheduleInputActionLayoutRefresh() {
 		if (mInputBox == null) {
 			return;
 		}
 		mInputBox.removeCallbacks(mRefreshInputActionLayoutRunnable);
+		// Double-post: first afterTextChanged, then after the EditText reflows.
 		mInputBox.post(mRefreshInputActionLayoutRunnable);
 	}
 
+	private final Runnable mRefreshInputActionLayoutRunnable = new Runnable() {
+		@Override
+		public void run() {
+			if (mInputBox == null) {
+				return;
+			}
+			mInputBox.post(new Runnable() {
+				@Override
+				public void run() {
+					ensureInputActionColumn();
+				}
+			});
+		}
+	};
+
 	/**
-	 * Single-line: Edit | Send side-by-side.
-	 * Multi-line: Edit above Send at bottom-right; EditText fills the row height
-	 * so the tall empty strip beside the buttons remains tappable for typing.
+	 * Single-line: Edit | Send side-by-side (thumb-wide targets).
+	 * Multi-line: Edit above Send (bottom-right).
+	 * <p>
+	 * Action column always reserves the side-by-side footprint so stacking never
+	 * changes EditText wrap width (avoids flicker at the 1↔2 line boundary).
+	 * EditText stays {@code WRAP_CONTENT} so the bar can grow up to
+	 * {@link #INPUT_GROW_MAX_LINES} — {@code MATCH_PARENT} capped growth at ~2 button heights.
 	 */
 	private void ensureInputActionColumn() {
 		if (!(mInputActionButtons instanceof LinearLayout) || mInputSendButton == null || mInputBox == null) {
@@ -4106,14 +4114,49 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 
-		boolean stack = isInputMultiline();
-		int wantedOri = stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
 		float density = getResources().getDisplayMetrics().density;
 		int gap = Math.max(1, (int) (2 * density + 0.5f));
+		// Slightly wider than content — hard to hit with a thumb otherwise.
+		int minTouch = Math.max(1, (int) (64 * density + 0.5f));
+
+		if (mActionEditWidthPx <= 0 || mActionSendWidthPx <= 0) {
+			// Measure true wrap sizes (ignore any previously forced width).
+			int unspec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+			ViewGroup.LayoutParams elp0 = edit.getLayoutParams();
+			ViewGroup.LayoutParams slp0 = mInputSendButton.getLayoutParams();
+			int oldEw = elp0 != null ? elp0.width : ViewGroup.LayoutParams.WRAP_CONTENT;
+			int oldSw = slp0 != null ? slp0.width : ViewGroup.LayoutParams.WRAP_CONTENT;
+			if (elp0 != null) {
+				elp0.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+			}
+			if (slp0 != null) {
+				slp0.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+			}
+			edit.measure(unspec, unspec);
+			mInputSendButton.measure(unspec, unspec);
+			mActionEditWidthPx = Math.max(edit.getMeasuredWidth(), minTouch);
+			mActionSendWidthPx = Math.max(mInputSendButton.getMeasuredWidth(), minTouch);
+			if (elp0 != null) {
+				elp0.width = oldEw;
+			}
+			if (slp0 != null) {
+				slp0.width = oldSw;
+			}
+		}
+		final int editNat = mActionEditWidthPx;
+		final int sendNat = mActionSendWidthPx;
+		final int colW = editNat + gap + sendNat;
+
+		boolean stack = isInputMultiline();
+		int wantedOri = stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
 
 		boolean changed = false;
 		if (actions.getOrientation() != wantedOri) {
 			actions.setOrientation(wantedOri);
+			changed = true;
+		}
+		if (mActionsStacked != stack) {
+			mActionsStacked = stack;
 			changed = true;
 		}
 		actions.setGravity(stack
@@ -4123,10 +4166,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		ViewGroup.LayoutParams rawAlp = actions.getLayoutParams();
 		if (rawAlp instanceof LinearLayout.LayoutParams) {
 			LinearLayout.LayoutParams alp = (LinearLayout.LayoutParams) rawAlp;
-			if (alp.width != LinearLayout.LayoutParams.WRAP_CONTENT
+			if (alp.width != colW
 					|| alp.height != LinearLayout.LayoutParams.WRAP_CONTENT
 					|| alp.gravity != android.view.Gravity.BOTTOM) {
-				alp.width = LinearLayout.LayoutParams.WRAP_CONTENT;
+				alp.width = colW;
 				alp.height = LinearLayout.LayoutParams.WRAP_CONTENT;
 				alp.gravity = android.view.Gravity.BOTTOM;
 				actions.setLayoutParams(alp);
@@ -4134,16 +4177,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 
+		// Side-by-side: each keeps its own width (never average — that crushed Send).
+		// Stacked: both stretch to the reserved column width.
+		int editW = stack ? colW : editNat;
+		int sendW = stack ? colW : sendNat;
+		// Same height as the single-line input row (textinput minHeight 28dip).
+		int btnH = Math.max(1, (int) (28 * density + 0.5f));
 		LinearLayout.LayoutParams editLp = (edit.getLayoutParams() instanceof LinearLayout.LayoutParams)
 				? (LinearLayout.LayoutParams) edit.getLayoutParams()
-				: new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-						LinearLayout.LayoutParams.WRAP_CONTENT);
+				: new LinearLayout.LayoutParams(editW, btnH);
 		LinearLayout.LayoutParams sendLp = (mInputSendButton.getLayoutParams() instanceof LinearLayout.LayoutParams)
 				? (LinearLayout.LayoutParams) mInputSendButton.getLayoutParams()
-				: new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-						LinearLayout.LayoutParams.WRAP_CONTENT);
-		editLp.width = LinearLayout.LayoutParams.WRAP_CONTENT;
-		sendLp.width = LinearLayout.LayoutParams.WRAP_CONTENT;
+				: new LinearLayout.LayoutParams(sendW, btnH);
+		editLp.width = editW;
+		sendLp.width = sendW;
+		editLp.height = btnH;
+		sendLp.height = btnH;
 		editLp.weight = 0f;
 		sendLp.weight = 0f;
 		if (stack) {
@@ -4155,16 +4204,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		edit.setLayoutParams(editLp);
 		mInputSendButton.setLayoutParams(sendLp);
+		edit.setMinWidth(editW);
+		mInputSendButton.setMinWidth(sendW);
+		edit.setMaxLines(1);
+		mInputSendButton.setMaxLines(1);
 		edit.setVisibility(View.VISIBLE);
 		mInputSendButton.setVisibility(View.VISIBLE);
 
-		// Fill the row when stacked so taps above the caret still focus the field.
+		// WRAP_CONTENT so soft-wrap can grow the row up to maxLines (not button-stack height).
 		ViewGroup.LayoutParams etLp = mInputBox.getLayoutParams();
 		if (etLp instanceof LinearLayout.LayoutParams) {
 			LinearLayout.LayoutParams elp = (LinearLayout.LayoutParams) etLp;
-			int wantH = stack ? LinearLayout.LayoutParams.MATCH_PARENT : LinearLayout.LayoutParams.WRAP_CONTENT;
-			if (elp.height != wantH) {
-				elp.height = wantH;
+			if (elp.height != LinearLayout.LayoutParams.WRAP_CONTENT
+					|| elp.gravity != android.view.Gravity.BOTTOM) {
+				elp.height = LinearLayout.LayoutParams.WRAP_CONTENT;
 				elp.gravity = android.view.Gravity.BOTTOM;
 				mInputBox.setLayoutParams(elp);
 				changed = true;

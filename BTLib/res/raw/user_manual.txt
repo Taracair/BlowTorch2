@@ -153,7 +153,7 @@ Menus (session overflow)
 ------------------------
 Edit buttons — Enter on-screen button layout edit mode
 Crash report — Show log / Share log (app error log)
-About/donate — Version and description
+About — Version and description
 Help — This manual
 
 Connection duration appears on the ongoing connection notification and on the

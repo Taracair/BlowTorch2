@@ -496,7 +496,7 @@ public class PluginSelectorDialog extends Dialog {
 			content.setBackgroundColor(0xFF000000);
 			//content.setFo
 			
-			content.loadDataWithBaseURL("/mnt/sdcard/BlowTorch/plugins/aardwolf/", desc.getDescription(), null, null, null);
+			content.loadDataWithBaseURL("file:///android_asset/", desc.getDescription(), "text/html", "UTF-8", null);
 			
 			return view;
 		}

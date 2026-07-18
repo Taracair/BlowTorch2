@@ -144,8 +144,17 @@ gradle-app.setting
 # # Work around https://youtrack.jetbrains.com/issue/IDEA-116898
 # gradle/wrapper/gradle-wrapper.properties
 *.DS_Store
+# Signing keys — never commit (also purged from public history)
+BTLib/key/*.keystore
+BTLib/key/*.keystore.*
 BTLib/key/bt_privatekey.keystore
 BT_Aard/key/signiture_cert
+**/local.properties
+local.properties
+
+# Internal task notes — not for the public tree
+tasks/
+tasks/**
 
 # Local MUD profiles — never commit (device-specific settings)
 samples/*.xml

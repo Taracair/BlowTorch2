@@ -68,7 +68,7 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 | **Export Server List** | Save launcher connections XML (default dir or SAF **Choose location…**) |
 | **Backup All Settings** | Zip all private session `*.xml` settings (default `…/backups/` or SAF **Choose location…** — preferred way to keep a portable copy) |
 | **Restore Settings Backup** | Restore that zip (or a scanned backup folder) into private files — restart after |
-| **About** | About / donate dialog |
+| **About** | About dialog |
 
 Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recovered/`). Use **Backup All Settings** instead.
 

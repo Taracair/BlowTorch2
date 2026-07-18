@@ -1855,6 +1855,7 @@ public class StellarService extends Service {
 				e.printStackTrace();
 			}
 		}
+		mCallbacks.finishBroadcast();
 	}
 
 	/** Implementation of the working method that sets the foreground window input bar's keep last setting.

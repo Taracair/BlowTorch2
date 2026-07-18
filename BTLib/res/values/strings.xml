@@ -8,7 +8,7 @@
     <string name="launcher_menu_export_server_list">Export Server List</string>
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
-    <string name="launcher_account_plaintext_warn">Informational only — not used for auto-login. Stored on this device in the launcher list (plaintext). Do not store secrets you cannot afford to lose.</string>
+    <string name="launcher_account_plaintext_warn">Informational only — not used for auto-login. Stored on this device in the launcher list as plaintext XML. Android backup is disabled for this app; still avoid storing secrets you cannot afford to lose. Leave blank if unsure.</string>
     <string name="launcher_extra_accounts_hint">Tap a slot to edit. Delete removes it.</string>
     <string name="launcher_extra_account_row">%1$s · login %2$s · mail %3$s · pass %4$s</string>
     <string name="hello">Hello World, BaardTERMLauncher!</string>
