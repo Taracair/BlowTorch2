@@ -58,6 +58,8 @@ public class OptionNegotiator {
 	private boolean mDoneNAWS = false;
 	/** Tracker for if GMCP should be negotiated. */
 	private Boolean mUseGMCP = false;
+	/** Encoding selected via CHARSET subnegotiation; consumed by Processor. */
+	private String mPendingCharset = null;
 	
 	
 	/** Constructor.
@@ -115,6 +117,9 @@ public class OptionNegotiator {
 	    				response = IAC_DONT;
 	    			}
 	    			break;
+	    		case TC.CHARSET:
+	    			response = IAC_DO;
+	    			break;
 	    		default:
 	    			response = IAC_DONT;
 	    		}
@@ -131,6 +136,9 @@ public class OptionNegotiator {
 	    			mDoneNAWS = false;
 	    			break; 
 	    		case TC.TERM:
+	    			response = IAC_WILL;
+	    			break;
+	    		case TC.CHARSET:
 	    			response = IAC_WILL;
 	    			break;
 	    		default:
@@ -217,6 +225,8 @@ public class OptionNegotiator {
     	case GMCP:
     		return new byte[] {TC.GMCP};
     		//break;
+    	case TC.CHARSET:
+    		return buildCharsetSubnegotiationResponse(sequence);
     	default:
     	}
     	
@@ -226,6 +236,168 @@ public class OptionNegotiator {
     	return null;
 	}
 	
+	/** Build a CHARSET subnegotiation reply and stash the Java encoding name if accepted. */
+	private byte[] buildCharsetSubnegotiationResponse(final byte[] sequence) {
+		// IAC SB CHARSET <cmd> ... IAC SE  — need at least 6 bytes
+		if (sequence.length < 6) {
+			return charsetRejected();
+		}
+		byte cmd = sequence[3];
+		try {
+			if (cmd == TC.CHARSET_REQUEST) {
+				String chosenWire = pickCharsetFromRequest(sequence);
+				if (chosenWire == null) {
+					return charsetRejected();
+				}
+				mPendingCharset = mapCharsetToJava(chosenWire);
+				byte[] nameBytes = chosenWire.getBytes("US-ASCII");
+				ByteBuffer buf = ByteBuffer.allocate(6 + nameBytes.length);
+				buf.put(TC.IAC);
+				buf.put(TC.SB);
+				buf.put(TC.CHARSET);
+				buf.put(TC.CHARSET_ACCEPTED);
+				buf.put(nameBytes);
+				buf.put(TC.IAC);
+				buf.put(TC.SE);
+				return buf.array();
+			}
+			if (cmd == TC.CHARSET_ACCEPTED) {
+				// Server accepted our REQUEST — apply the charset they echoed.
+				int nameLen = sequence.length - 6;
+				if (nameLen > 0) {
+					String name = new String(sequence, 4, nameLen, "US-ASCII").trim();
+					mPendingCharset = mapCharsetToJava(name);
+				}
+				// Marker only — no reply to send.
+				return new byte[] { TC.CHARSET };
+			}
+			if (cmd == TC.CHARSET_REJECTED) {
+				return new byte[] { TC.CHARSET };
+			}
+		} catch (UnsupportedEncodingException e) {
+			return charsetRejected();
+		}
+		return charsetRejected();
+	}
+
+	/** Parse RFC 2066 REQUEST payload: REQUEST <sep><name>(<sep><name>)* */
+	private static String pickCharsetFromRequest(final byte[] sequence) {
+		if (sequence.length < 7) {
+			return null;
+		}
+		// Bytes 4..len-3 are separator + charset list (before IAC SE).
+		int start = 4;
+		int end = sequence.length - 2;
+		if (start >= end) {
+			return null;
+		}
+		byte sep = sequence[start];
+		java.util.ArrayList<String> names = new java.util.ArrayList<String>();
+		StringBuilder cur = new StringBuilder();
+		for (int i = start + 1; i < end; i++) {
+			byte b = sequence[i];
+			if (b == sep) {
+				if (cur.length() > 0) {
+					names.add(cur.toString());
+					cur.setLength(0);
+				}
+			} else if (b == TC.IAC && i + 1 < end && sequence[i + 1] == TC.IAC) {
+				cur.append((char) (TC.IAC & 0xFF));
+				i++;
+			} else {
+				cur.append((char) (b & 0xFF));
+			}
+		}
+		if (cur.length() > 0) {
+			names.add(cur.toString());
+		}
+		// Prefer UTF-8, then ISO-8859-1 / ASCII.
+		String fallback = null;
+		for (String n : names) {
+			String javaName = mapCharsetToJava(n);
+			if (javaName == null) {
+				continue;
+			}
+			if ("UTF-8".equals(javaName)) {
+				return normalizeWireName(n, javaName);
+			}
+			if (fallback == null) {
+				fallback = normalizeWireName(n, javaName);
+			}
+		}
+		return fallback;
+	}
+
+	private static String normalizeWireName(final String wire, final String javaName) {
+		if ("UTF-8".equals(javaName)) {
+			return "UTF-8";
+		}
+		if ("ISO-8859-1".equals(javaName)) {
+			return "ISO-8859-1";
+		}
+		return wire;
+	}
+
+	/** Map a CHARSET wire name to a Java Charset name, or null if unsupported. */
+	static String mapCharsetToJava(final String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String n = raw.trim();
+		if (n.length() == 0) {
+			return null;
+		}
+		String u = n.toUpperCase(java.util.Locale.US);
+		if (u.equals("UTF-8") || u.equals("UTF8") || u.equals("UTF_8")) {
+			return "UTF-8";
+		}
+		if (u.equals("ISO-8859-1") || u.equals("ISO8859-1") || u.equals("ISO_8859_1")
+				|| u.equals("LATIN1") || u.equals("LATIN-1") || u.equals("US-ASCII")
+				|| u.equals("ASCII")) {
+			return "ISO-8859-1";
+		}
+		// Accept any charset Java knows.
+		try {
+			if (java.nio.charset.Charset.isSupported(n)) {
+				return java.nio.charset.Charset.forName(n).name();
+			}
+		} catch (Exception ignored) {
+		}
+		return null;
+	}
+
+	private static byte[] charsetRejected() {
+		return new byte[] {
+				TC.IAC, TC.SB, TC.CHARSET, TC.CHARSET_REJECTED, TC.IAC, TC.SE
+		};
+	}
+
+	/** Build a client-initiated CHARSET REQUEST for UTF-8. */
+	public final byte[] getCharsetRequestUtf8() {
+		try {
+			byte[] name = "UTF-8".getBytes("US-ASCII");
+			ByteBuffer buf = ByteBuffer.allocate(6 + name.length);
+			buf.put(TC.IAC);
+			buf.put(TC.SB);
+			buf.put(TC.CHARSET);
+			buf.put(TC.CHARSET_REQUEST);
+			buf.put((byte) ';');
+			buf.put(name);
+			buf.put(TC.IAC);
+			buf.put(TC.SE);
+			return buf.array();
+		} catch (UnsupportedEncodingException e) {
+			return null;
+		}
+	}
+
+	/** Return and clear a charset accepted via subnegotiation, or null. */
+	public final String consumePendingCharset() {
+		String pending = mPendingCharset;
+		mPendingCharset = null;
+		return pending;
+	}
+
 	/** Method to set the number of columns for NAWS.
 	 * 
 	 * @param columns The columns to use for NAWS.

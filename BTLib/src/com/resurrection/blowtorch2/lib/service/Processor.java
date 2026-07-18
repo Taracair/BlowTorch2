@@ -313,6 +313,26 @@ public class Processor {
 				initGMCP();
 			}
 		}
+
+		if (action == TC.WILL && option == TC.CHARSET) {
+			// Many servers advertise CHARSET then send UTF-8 without a REQUEST SB.
+			// Switch optimistically; a later REQUEST/ACCEPTED can refine.
+			setEncoding("UTF-8");
+			mReportTo.sendMessage(mReportTo.obtainMessage(Connection.MESSAGE_CHARSET, "UTF-8"));
+			byte[] req = mOptionHandler.getCharsetRequestUtf8();
+			if (req != null) {
+				Message reqMsg = mReportTo.obtainMessage(Connection.MESSAGE_SENDOPTIONDATA);
+				Bundle rb = reqMsg.getData();
+				rb.putByteArray("THE_DATA", req);
+				if (mDebugTelnet) {
+					rb.putString("DEBUG_MESSAGE",
+							Colorizer.getTeloptStartColor() + "OUT:[" + TC.decodeSUB(req) + "]"
+									+ Colorizer.getResetColor() + "\n");
+				}
+				reqMsg.setData(rb);
+				mReportTo.sendMessageDelayed(reqMsg, 2);
+			}
+		}
 		
 	}
 	
@@ -387,6 +407,14 @@ public class Processor {
 			
 			
 			return false;
+		} else if (sub.length == 1 && sub[0] == TC.CHARSET) {
+			// CHARSET ACCEPTED/REJECTED from server — apply pending encoding, no reply.
+			applyPendingCharset();
+			if (mDebugTelnet) {
+				String message = "\n" + Colorizer.getTeloptStartColor() + "IN:[" + TC.decodeSUB(negotiation) + "]" + Colorizer.getResetColor() + "\n";
+				mReportTo.sendMessageDelayed(mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message), 1);
+			}
+			return false;
 		} else {
 			String message = null;
 			if (mDebugTelnet) {
@@ -399,10 +427,24 @@ public class Processor {
 			b.putString("DEBUG_MESSAGE", message);
 			sbm.setData(b);
 			mReportTo.sendMessage(sbm);
+			// Our ACCEPTED reply to a REQUEST also sets pending charset.
+			if (sub.length > 3 && sub[2] == TC.CHARSET && sub[3] == TC.CHARSET_ACCEPTED) {
+				applyPendingCharset();
+			}
 			return false;
 		}
 		
 		
+	}
+
+	/** Notify Connection to switch display encoding after CHARSET negotiation. */
+	private void applyPendingCharset() {
+		String charset = mOptionHandler.consumePendingCharset();
+		if (charset == null || charset.length() == 0) {
+			return;
+		}
+		setEncoding(charset);
+		mReportTo.sendMessage(mReportTo.obtainMessage(Connection.MESSAGE_CHARSET, charset));
 	}
 
 	/** Setter for mEncoding.

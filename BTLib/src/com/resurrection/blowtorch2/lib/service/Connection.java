@@ -212,6 +212,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Sent from the DataPumper indicating the orderly shutdown of the tcp connection. */
 	public static final int MESSAGE_TERMINATED_BY_PEER = 41;
+
+	/** CHARSET negotiation selected a new encoding (obj is String charset name). */
+	public static final int MESSAGE_CHARSET = 42;
 	
 	/** Sent from the foreground window indicating that the DataPumper
 	 *  should re-establish the tcp connection to the server. */
@@ -543,6 +546,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				killNetThreads(true);
 				doDisconnect(true);
 				mIsConnected = false;
+				break;
+			case MESSAGE_CHARSET:
+				if (msg.obj instanceof String) {
+					doUpdateEncoding((String) msg.obj);
+				}
 				break;
 			case MESSAGE_TIMERSTOP:
 				doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.STOP);

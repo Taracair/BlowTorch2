@@ -349,7 +349,7 @@ public final static int DEFAULT_HYPERLINK_COLOR = 0xFF3333AA;
 	private boolean UseExtractUI = false;
 	private boolean AttemptSuggestions = false;
 	
-	private String encoding = "ISO-8859-1";
+	private String encoding = "UTF-8";
 	
 	private boolean SemiIsNewLine = true;
 	private boolean ProcessPeriod = true;

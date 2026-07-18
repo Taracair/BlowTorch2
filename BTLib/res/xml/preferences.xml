@@ -11,7 +11,7 @@
 			android:key="ENCODING"
 			android:title="Encoding"
 			android:summary="The encoding used to draw and process text."
-			android:defaultValue="ISO-8859-1"/>	
+			android:defaultValue="UTF-8"/>	
 		<PreferenceScreen
 			android:key="INPUT_SCREEN"
 			android:title="Window"
