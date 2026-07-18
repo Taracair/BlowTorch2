@@ -651,13 +651,27 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		featurePaint.setTypeface(mPrefFont);
 		featurePaint.setTextSize(mPrefFontSize);
-		mOneCharWidth = (int) Math.ceil(featurePaint.measureText("a")); //measure a single character
+		// Use the wider of common mono glyphs so proportional fallbacks still grid.
+		float w = featurePaint.measureText("W");
+		float m = featurePaint.measureText("M");
+		float sp = featurePaint.measureText(" ");
+		float zero = featurePaint.measureText("0");
+		mOneCharWidth = (int) Math.ceil(Math.max(Math.max(w, m), Math.max(sp, zero)));
+		if (mOneCharWidth < 1) {
+			mOneCharWidth = 1;
+		}
 		mCalculatedRowsInWindow = width / mOneCharWidth;
+		if (mCalculatedRowsInWindow < 1) {
+			mCalculatedRowsInWindow = 1;
+		}
+		if (mCalculatedLinesInWindow < 1) {
+			mCalculatedLinesInWindow = 1;
+		}
 		
 		mSelectionIndicatorPaint.setTextSize(mSelectionIndicatorFontSize);
 		mSelectionIndicatorPaint.setTypeface(mPrefFont);
 		mSelectionIndicatorPaint.setAntiAlias(true);
-		mSelectionCharacterWidth = (int) Math.ceil(mSelectionIndicatorPaint.measureText("a"));
+		mSelectionCharacterWidth = (int) Math.ceil(mSelectionIndicatorPaint.measureText("W"));
 		selectionIndicatorVectorX = mOneCharWidth + mSelectionIndicatorHalfDimension;
 		if (automaticBreaks) {
 			this.setLineBreaks(0);
@@ -667,6 +681,143 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			jumpToZero();
 		}
 		
+	}
+
+	/** Pixel width of {@code charCount} terminal cells (ANSI maps need a fixed grid). */
+	private float cellWidth(final int charCount) {
+		if (charCount <= 0 || mOneCharWidth <= 0) {
+			return 0f;
+		}
+		return mOneCharWidth * (float) charCount;
+	}
+
+	/** Pixel width of a text unit on the fixed cell grid (one cell per Unicode code point). */
+	private float cellWidth(final TextTree.Text text) {
+		if (text == null) {
+			return 0f;
+		}
+		final String s = text.getString();
+		if (s != null && s.length() > 0) {
+			return cellWidth(s.codePointCount(0, s.length()));
+		}
+		return cellWidth(text.charcount);
+	}
+
+	/**
+	 * Draw {@code s} on a fixed terminal grid starting at {@code x}.
+	 * Each Unicode code point occupies one cell of width {@link #mOneCharWidth}.
+	 * Block elements (U+2580–U+259F) are painted geometrically so maps stay aligned
+	 * even when the active font lacks those glyphs. Every glyph is clipped to its
+	 * cell so fallback fonts cannot bleed into neighboring columns.
+	 * Returns the pixel advance for the whole run.
+	 */
+	private float drawTextOnGrid(final Canvas c, final String s, final float x, final float y,
+			final Paint paint) {
+		if (s == null || s.length() == 0) {
+			return 0f;
+		}
+		float cursor = x;
+		final float cell = mOneCharWidth;
+		final Paint.FontMetrics fm = paint.getFontMetrics();
+		// Block fills use the full line box; text must keep room below the baseline
+		// for descenders (y, g, j, p) — clipping to baseline cut them off.
+		final float lineTop = y - mPrefLineSize + Math.max(0, mPrefLineExtra);
+		final float lineBot = y + Math.max(fm.descent + 1f, (float) mPrefLineExtra);
+		final float textTop = y + fm.ascent;
+		final float textBot = y + fm.descent + 1f;
+		for (int i = 0; i < s.length(); ) {
+			final int cp = s.codePointAt(i);
+			final int len = Character.charCount(cp);
+			c.save();
+			if (cp >= 0x2580 && cp <= 0x259F) {
+				c.clipRect(cursor, lineTop, cursor + cell, lineBot);
+				drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
+			} else {
+				c.clipRect(cursor, textTop, cursor + cell, textBot);
+				c.drawText(s, i, i + len, cursor, y, paint);
+			}
+			c.restore();
+			cursor += cell;
+			i += len;
+		}
+		return cursor - x;
+	}
+
+	/** Top of the ANSI background / block cell for baseline {@code y}. */
+	private float cellTop(final float baselineY) {
+		return baselineY - mPrefLineSize + Math.max(0, mPrefLineExtra);
+	}
+
+	/** Bottom of the ANSI background cell — includes descender room. */
+	private float cellBottom(final float baselineY) {
+		return baselineY + Math.max(2, mPrefLineExtra + 2);
+	}
+
+	/**
+	 * Paint Unicode Block Elements into a single cell. Returns true if handled.
+	 * Shades are opaque blends (not alpha) so they keep a hard cell edge on colored backgrounds.
+	 * @see <a href="https://www.unicode.org/charts/PDF/U2580.pdf">U+2580 Block Elements</a>
+	 */
+	private boolean drawBlockElement(final Canvas c, final int cp, final float left,
+			final float top, final float bot, final float cell, final Paint paint) {
+		if (cp < 0x2580 || cp > 0x259F) {
+			return false;
+		}
+		final int oldStyle = paint.getStyle() == Paint.Style.FILL ? 0
+				: (paint.getStyle() == Paint.Style.STROKE ? 1 : 2);
+		paint.setStyle(Paint.Style.FILL);
+		final float h = bot - top;
+		final float right = left + cell;
+		switch (cp) {
+		case 0x2588: // FULL BLOCK
+			c.drawRect(left, top, right, bot, paint);
+			break;
+		case 0x2580: // UPPER HALF
+			c.drawRect(left, top, right, top + h * 0.5f, paint);
+			break;
+		case 0x2584: // LOWER HALF
+			c.drawRect(left, top + h * 0.5f, right, bot, paint);
+			break;
+		case 0x258C: // LEFT HALF
+			c.drawRect(left, top, left + cell * 0.5f, bot, paint);
+			break;
+		case 0x2590: // RIGHT HALF
+			c.drawRect(left + cell * 0.5f, top, right, bot, paint);
+			break;
+		case 0x2591: // LIGHT SHADE
+		case 0x2592: // MEDIUM SHADE
+		case 0x2593: // DARK SHADE
+			{
+				final int amount = (cp == 0x2591) ? 64 : (cp == 0x2592) ? 128 : 192;
+				final int color = paint.getColor();
+				final int r = (((color >> 16) & 0xFF) * amount) / 255;
+				final int g = (((color >> 8) & 0xFF) * amount) / 255;
+				final int b = ((color & 0xFF) * amount) / 255;
+				paint.setColor(0xFF000000 | (r << 16) | (g << 8) | b);
+				c.drawRect(left, top, right, bot, paint);
+				paint.setColor(color);
+			}
+			break;
+		default:
+			{
+				// Remaining partial blocks (⅛…⅞): approximate by filled fraction.
+				if (cp >= 0x2581 && cp <= 0x2587) {
+					final float frac = (cp - 0x2580) / 8f; // lower N/8
+					c.drawRect(left, bot - h * frac, right, bot, paint);
+				} else if (cp >= 0x2589 && cp <= 0x258F) {
+					c.drawRect(left, top, left + cell * ((cp - 0x2588) / 8f), bot, paint);
+				} else {
+					c.drawRect(left, top, right, bot, paint);
+				}
+			}
+			break;
+		}
+		if (oldStyle == 1) {
+			paint.setStyle(Paint.Style.STROKE);
+		} else if (oldStyle == 2) {
+			paint.setStyle(Paint.Style.FILL_AND_STROKE);
+		}
+		return true;
 	}
 	
 
@@ -1203,51 +1354,49 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						if (theSelection  != null) {
 							switch(linemode) {
 							case 1:
-								int finishCol = workingcol + text.bytecount;
+								int finishCol = workingcol + text.charcount;
 								if (finishCol > startcol && finishCol - 1 <= endcol){
-									if ((finishCol - startcol) < text.bytecount) {
+									if ((finishCol - startcol) < text.charcount) {
 										int overshoot = startcol - workingcol;
 										int overshootPixels = overshoot * mOneCharWidth;
-										int stringWidth = (int) p.measureText(text.getString());
-										c.drawRect(x + overshootPixels, y - p.getTextSize() + (3 * mDensity), x + stringWidth, y + (4 * mDensity), mTextSelectionIndicatorBackgroundPaint);
+										c.drawRect(x + overshootPixels, cellTop(y), x + cellWidth(text), cellBottom(y), mTextSelectionIndicatorBackgroundPaint);
 									} else {
-										c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + p.measureText(text.getString()), y + (4 * mDensity), mTextSelectionIndicatorBackgroundPaint);
+										c.drawRect(x, cellTop(y), x + cellWidth(text), cellBottom(y), mTextSelectionIndicatorBackgroundPaint);
 									}
 								} else if (finishCol > endcol) {
-									if ((finishCol - endcol) < text.bytecount) {
+									if ((finishCol - endcol) < text.charcount) {
 										int overshoot = endcol - workingcol + 1;
 										int overshootPixels = overshoot * mOneCharWidth;
-										c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + overshootPixels, y + (4 * mDensity), mTextSelectionIndicatorBackgroundPaint);
+										c.drawRect(x, cellTop(y), x + overshootPixels, cellBottom(y), mTextSelectionIndicatorBackgroundPaint);
 									} 
 								} 
 								break;
 							case 2:
-								finishCol = workingcol + text.bytecount;
+								finishCol = workingcol + text.charcount;
 								if (finishCol > startcol) {
-									if ((finishCol - startcol) < text.bytecount) {
+									if ((finishCol - startcol) < text.charcount) {
 										int overshoot = startcol - workingcol;
 										int overshootPixels = overshoot * mOneCharWidth;
-										int stringWidth = (int) p.measureText(text.getString());
-										c.drawRect(x + overshootPixels, y - p.getTextSize() + (2 * mDensity), x + stringWidth, y + (4 * mDensity), mTextSelectionIndicatorBackgroundPaint);
+										c.drawRect(x + overshootPixels, cellTop(y), x + cellWidth(text), cellBottom(y), mTextSelectionIndicatorBackgroundPaint);
 									} else {
-										c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + p.measureText(text.getString()), y + (4 * mDensity), mTextSelectionIndicatorBackgroundPaint);
+										c.drawRect(x, cellTop(y), x + cellWidth(text), cellBottom(y), mTextSelectionIndicatorBackgroundPaint);
 									}
 								} 
 								break;
 							case 3:
 								
-								c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + p.measureText(text.getString()), y + (4 * mDensity), mTextSelectionIndicatorBackgroundPaint);
+								c.drawRect(x, cellTop(y), x + cellWidth(text), cellBottom(y), mTextSelectionIndicatorBackgroundPaint);
 								break;
 							case 4:
-								finishCol = workingcol + text.bytecount;
+								finishCol = workingcol + text.charcount;
 								if (finishCol >= endcol) {
-									if ((finishCol - endcol) < text.bytecount) {
+									if ((finishCol - endcol) < text.charcount) {
 										int overshoot = endcol - workingcol + 1;
 										int overshootPixels = overshoot * mOneCharWidth;
-										c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + overshootPixels, y + (4 * mDensity), mScrollerPaint);
+										c.drawRect(x, cellTop(y), x + overshootPixels, cellBottom(y), mScrollerPaint);
 									}
 								} else {
-									c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + p.measureText(text.getString()), y + (4 * mDensity), mTextSelectionIndicatorBackgroundPaint);
+									c.drawRect(x, cellTop(y), x + cellWidth(text), cellBottom(y), mTextSelectionIndicatorBackgroundPaint);
 								}
 								break;
 							default:
@@ -1256,7 +1405,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						}
 						
 						if (useBackground) {
-							c.drawRect(x, y - p.getTextSize() + (2 * mDensity), x + p.measureText(text.getString()), y + (4 * mDensity), b);
+							c.drawRect(x, cellTop(y), x + cellWidth(text), cellBottom(y), b);
 						}
 
 						if (l == mSearchHighlightLine && mSearchMatchLen > 0
@@ -1275,12 +1424,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 									}
 									int localStart = overlapStart - unitPlainStart;
 									int localEnd = overlapEnd - unitPlainStart;
-									float left = x + (localStart > 0
-											? p.measureText(unitStr.substring(0, localStart)) : 0);
-									float right = left + p.measureText(
-											unitStr.substring(localStart, localEnd));
-									c.drawRect(left, y - p.getTextSize() + (1 * mDensity), right,
-											y + (4 * mDensity), mSearchMatchPaint);
+									float left = x + cellWidth(localStart);
+									float right = left + cellWidth(localEnd - localStart);
+									c.drawRect(left, cellTop(y), right, cellBottom(y), mSearchMatchPaint);
 								}
 							}
 						}
@@ -1303,7 +1449,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								Rect r = new Rect();
 								r.left = (int) x;
 								r.top = (int) (y - p.getTextSize());
-								r.right = (int) (x + p.measureText(text.getString()));
+								r.right = (int) (x + cellWidth(text));
 								r.bottom = (int) (y + 5);
 								if (mLinkMode == LINK_MODE.BACKGROUND) {
 									linkColor.setColor(mLinkHighlightColor);
@@ -1371,7 +1517,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 							
 							if (doIndicator) {
-								int unitEndCol = workingcol + (text.bytecount - 1);
+								int unitEndCol = workingcol + (text.charcount - 1);
 								if (unitEndCol > selectedSelector.column - 10 && workingcol < selectedSelector.column + 10) {
 									float size = p.getTextSize();
 									p.setTextSize(30);
@@ -1384,17 +1530,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								}
 								
 							}
-							c.drawText(text.getString(), x, y, linkColor);
+							workingcol += text.charcount;
+							x += drawTextOnGrid(c, text.getString(), x, y, linkColor);
 							if (l == mSearchHighlightLine) {
-								drawSearchMatchText(c, text.getString(), x, y, searchPlainPos);
+								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
 							}
-							x += p.measureText(text.getString());
 							searchPlainPos += text.getString() != null ? text.getString().length() : 0;
 							
 						} else {
 							
 							if (doIndicator) {
-								int unitEndCol = workingcol + (text.bytecount - 1);
+								int unitEndCol = workingcol + (text.charcount - 1);
 								if (unitEndCol > selectedSelector.column - 10 && workingcol < selectedSelector.column + 10) {
 									float size = p.getTextSize();
 									p.setTextSize(30);
@@ -1407,12 +1553,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								}
 								
 							}
-							workingcol += text.bytecount;
-							c.drawText(text.getString(), x, y, p);
+							workingcol += text.charcount;
+							x += drawTextOnGrid(c, text.getString(), x, y, p);
 							if (l == mSearchHighlightLine) {
-								drawSearchMatchText(c, text.getString(), x, y, searchPlainPos);
+								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
 							}
-							x += p.measureText(text.getString());
 							searchPlainPos += text.getString() != null ? text.getString().length() : 0;
 						}
 						
@@ -1876,8 +2021,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			int localStart = overlapStart - unitPlainStart;
 			int localEnd = overlapEnd - unitPlainStart;
-			float left = x + (localStart > 0
-					? p.measureText(unitStr.substring(0, localStart)) : 0);
+			float left = x + cellWidth(localStart);
 			c.drawText(unitStr.substring(localStart, localEnd), left, y, mSearchMatchTextPaint);
 		}
 	}
@@ -1976,6 +2120,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	
 	public Typeface getFont() {
 		return mPrefFont;
+	}
+
+	/** Visible columns in this window (for NAWS / word wrap). */
+	public int getCalculatedColumns() {
+		return mCalculatedRowsInWindow;
+	}
+
+	/** Visible rows in this window (for NAWS). */
+	public int getCalculatedRows() {
+		return mCalculatedLinesInWindow;
 	}
 	
 	
@@ -3508,8 +3662,8 @@ end
 	
 
 	private Typeface loadFontFromName(String name) {
-		Typeface font = Typeface.MONOSPACE;
-		if (name == null || name.length() == 0) {
+		Typeface font = loadBundledOrSystemMonospace();
+		if (name == null || name.length() == 0 || name.equals("none") || name.equals("monospace")) {
 			return font;
 		}
 		try {
@@ -3523,18 +3677,46 @@ end
 					font = Typeface.createFromFile(name);
 				}
 			} else {
-				if(name.equals("monospace")) {
-					font = Typeface.MONOSPACE;
-				} else if(name.equals("sans serif") || name.equals("sans serrif")) {
+				if(name.equals("sans serif") || name.equals("sans serrif")) {
 					font = Typeface.SANS_SERIF;
 				} else if (name.equals("default")) {
 					font = Typeface.DEFAULT;
+				} else {
+					font = loadBundledOrSystemMonospace();
 				}
 			}
 		} catch (RuntimeException e) {
-			font = Typeface.MONOSPACE;
+			font = loadBundledOrSystemMonospace();
 		}
 		return font;
+	}
+
+	/**
+	 * Prefer the bundled DejaVu Sans Mono (includes U+2580–U+259F at mono width),
+	 * then a real system mono TTF, then {@link Typeface#MONOSPACE}.
+	 */
+	private Typeface loadBundledOrSystemMonospace() {
+		try {
+			return Typeface.createFromAsset(getContext().getAssets(), "fonts/DejaVuSansMono.ttf");
+		} catch (RuntimeException ignored) {
+		}
+		String[] candidates = new String[] {
+				"/system/fonts/DroidSansMono.ttf",
+				"/system/fonts/RobotoMono-Regular.ttf",
+				"/system/fonts/CutiveMono.ttf",
+				"/system/fonts/NotoSansMono-Regular.ttf",
+				"/system/fonts/SourceCodePro-Regular.ttf"
+		};
+		for (String path : candidates) {
+			java.io.File f = new java.io.File(path);
+			if (f.isFile()) {
+				try {
+					return Typeface.createFromFile(f);
+				} catch (RuntimeException ignored) {
+				}
+			}
+		}
+		return Typeface.MONOSPACE;
 	}
 	
 	private View.OnTouchListener textSelectionTouchHandler = new View.OnTouchListener() {

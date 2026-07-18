@@ -315,23 +315,10 @@ public class Processor {
 		}
 
 		if (action == TC.WILL && option == TC.CHARSET) {
-			// Many servers advertise CHARSET then send UTF-8 without a REQUEST SB.
-			// Switch optimistically; a later REQUEST/ACCEPTED can refine.
+			// Agree to CHARSET and prefer UTF-8, but do NOT send a client REQUEST.
+			// Some MUDs (incl. eden-test) treat an unsolicited REQUEST poorly.
 			setEncoding("UTF-8");
 			mReportTo.sendMessage(mReportTo.obtainMessage(Connection.MESSAGE_CHARSET, "UTF-8"));
-			byte[] req = mOptionHandler.getCharsetRequestUtf8();
-			if (req != null) {
-				Message reqMsg = mReportTo.obtainMessage(Connection.MESSAGE_SENDOPTIONDATA);
-				Bundle rb = reqMsg.getData();
-				rb.putByteArray("THE_DATA", req);
-				if (mDebugTelnet) {
-					rb.putString("DEBUG_MESSAGE",
-							Colorizer.getTeloptStartColor() + "OUT:[" + TC.decodeSUB(req) + "]"
-									+ Colorizer.getResetColor() + "\n");
-				}
-				reqMsg.setData(rb);
-				mReportTo.sendMessageDelayed(reqMsg, 2);
-			}
 		}
 		
 	}

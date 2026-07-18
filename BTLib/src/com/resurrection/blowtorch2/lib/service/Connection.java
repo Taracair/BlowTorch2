@@ -543,6 +543,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		public boolean handleMessage(final Message msg) {
 			switch(msg.what) {
 			case MESSAGE_TERMINATED_BY_PEER:
+				clearStartupInProgress();
 				killNetThreads(true);
 				doDisconnect(true);
 				mIsConnected = false;
@@ -586,6 +587,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				doReconnect();
 				break;
 			case MESSAGE_CONNECTED:
+				clearStartupInProgress();
 				mAutoReconnectAttempt = 0;
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
@@ -598,6 +600,24 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				if (mProcessor != null) {
 					mProcessor.setLogProfile(mDisplay);
 					applyGmcpLogSetting();
+					if (mLiveCols > 0 && mLiveRows > 0) {
+						mProcessor.setDisplayDimensions(mLiveRows, mLiveCols);
+						mProcessor.disaptchNawsString();
+						mLastSentNawsCols = mLiveCols;
+						mLastSentNawsRows = mLiveRows;
+					}
+				}
+				maybeShowTerminalSizeHint();
+				break;
+			case MESSAGE_SEND_NAWS:
+				if (mIsConnected && mProcessor != null && mLiveCols > 0 && mLiveRows > 0) {
+					if (mLiveCols != mLastSentNawsCols || mLiveRows != mLastSentNawsRows) {
+						mProcessor.setDisplayDimensions(mLiveRows, mLiveCols);
+						mProcessor.disaptchNawsString();
+						mLastSentNawsCols = mLiveCols;
+						mLastSentNawsRows = mLiveRows;
+						Log.i("BlowTorch", "NAWS sent " + mLiveCols + "x" + mLiveRows);
+					}
 				}
 				break;
 			case MESSAGE_DELETEPLUGIN:
@@ -796,6 +816,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 				break;
 			case MESSAGE_DISCONNECTED:
+				clearStartupInProgress();
 				killNetThreads(true);
 				doDisconnect(false);
 				mIsConnected = false;
@@ -856,7 +877,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @note This doesn't work as far as I know.
 	 */
 	protected final void saveDirtyPlugin(final String changedplugin) {
-		if (changedplugin.equals("")) {
+		if (changedplugin == null || changedplugin.equals("")) {
 			saveMainSettings();
 		} else {
 			Plugin p = mPluginMap.get(changedplugin);
@@ -1132,8 +1153,81 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		
 		buildSettingsPage();
+		syncLegacyLineSizeWithFont();
+		undoAggressiveMapDefaults();
 		mService.reloadWindows();
 		
+	}
+
+	/**
+	 * v244 forced word_wrap=false / line_extra=0 on every profile. Restore once per
+	 * install via a SharedPreferences flag — never on every connection load.
+	 */
+	private void undoAggressiveMapDefaults() {
+		if (mWindows == null || mWindows.isEmpty() || mService == null) {
+			return;
+		}
+		try {
+			android.content.SharedPreferences prefs =
+					mService.getSharedPreferences("BT_MIGRATIONS", android.content.Context.MODE_PRIVATE);
+			if (prefs.getBoolean("undo_map_clamp_v245", false)) {
+				return;
+			}
+			boolean dirty = false;
+			for (WindowToken w : mWindows) {
+				if (w == null || w.getSettings() == null) {
+					continue;
+				}
+				Object wrap = w.getSettings().findOptionByKey("word_wrap");
+				if (wrap instanceof BooleanOption && Boolean.FALSE.equals(((BooleanOption) wrap).getValue())) {
+					((BooleanOption) wrap).setValue(true);
+					dirty = true;
+				}
+				Object extra = w.getSettings().findOptionByKey("line_extra");
+				if (extra instanceof IntegerOption) {
+					Object val = ((IntegerOption) extra).getValue();
+					if (val instanceof Integer && (Integer) val == 0) {
+						((IntegerOption) extra).setValue(2);
+						dirty = true;
+					}
+				}
+			}
+			prefs.edit().putBoolean("undo_map_clamp_v245", true).apply();
+			if (dirty) {
+				Log.i("BlowTorch", "Restored word_wrap=true, line_extra=2 (undo map-only clamp)");
+				mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+			}
+		} catch (Exception ignored) {
+		}
+	}
+
+	/**
+	 * Legacy XML still stores {@code lineSize} on {@code <window>}, while the UI uses
+	 * {@code font_size} on the mainDisplay token. Keep them equal so a save/reload
+	 * does not flash between 10 and 18 and change the NAWS column count mid-session.
+	 */
+	private void syncLegacyLineSizeWithFont() {
+		if (mSettings == null || mWindows == null || mWindows.isEmpty()) {
+			return;
+		}
+		try {
+			WindowToken main = mWindows.get(0);
+			if (main == null || main.getSettings() == null) {
+				return;
+			}
+			Object opt = main.getSettings().findOptionByKey("font_size");
+			if (opt instanceof IntegerOption) {
+				int fontSize = (Integer) ((IntegerOption) opt).getValue();
+				if (fontSize > 0) {
+					mSettings.setLineSize(fontSize);
+					// Keep the connection-level options copy in sync when present.
+					if (mSettings.getSettings() != null && mSettings.getSettings().getOptions() != null) {
+						mSettings.getSettings().getOptions().setOption("font_size", Integer.toString(fontSize));
+					}
+				}
+			}
+		} catch (Exception ignored) {
+		}
 	}
 	
 	/** Work horse function to rebuild the trigger system.
@@ -1388,8 +1482,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	protected final void killNetThreads(final boolean noreconnect) {
 		
 		if (mPump == null) {
+			clearStartupInProgress();
 			return;
 		}
+		Log.w("BlowTorch", "killNetThreads(noreconnect=" + noreconnect + ")", new RuntimeException("killNetThreads caller"));
 		markConnectionEnded();
 		if (mPump != null) {
 			if (mPump.getHandler() != null) {
@@ -1401,6 +1497,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			
 				try {
 					mPump.join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			} else {
+				// Handler not ready yet (still in init) — force the thread down.
+				try {
+					mPump.closeSocket();
+					mPump.interrupt();
+					mPump.join(2000);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -1416,6 +1521,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		
 		mPump = null;
+		clearStartupInProgress();
+		mLastSentNawsCols = -1;
+		mLastSentNawsRows = -1;
 	}
 	
 	/** Sends a byte array to the default output window. Does not invoke trigger processing.
@@ -1763,30 +1871,63 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (c != null) {
 				c.rawDataIncoming(data);
 			}
+		} catch (android.os.DeadObjectException e) {
+			// UI process died; drop the stale binder so we do not keep spamming and
+			// leave the socket half-alive until auto-reconnect papers over it.
+			Log.w("BlowTorch", "Main window binder dead; clearing callback", e);
+			synchronized (mWindowSynch) {
+				mWindowCallbackMap.remove(MAIN_WINDOW);
+			}
 		} catch (RemoteException e) {
 			e.printStackTrace();
 		}
 	}
 	
 	/** Meat of the startup sequence. Starts the net threads after the settings have been loaded. */
+	private final Object mStartupLock = new Object();
+	private boolean mStartupInProgress = false;
 	private void doStartup() {
-	
-		killNetThreads(true);
+		synchronized (mStartupLock) {
+			// Skip only when the TCP session is live. isAlive() alone is wrong: a failed
+			// connect leaves a Looper thread that blocked every later initXfer.
+			if (mPump != null && mPump.isConnected()) {
+				Log.i("BlowTorch", "doStartup skipped — already connected");
+				applyTerminalNaws();
+				return;
+			}
+			if (mStartupInProgress) {
+				Log.i("BlowTorch", "doStartup skipped — startup already in progress");
+				return;
+			}
+			Log.i("BlowTorch", "doStartup begin", new RuntimeException("doStartup caller"));
 
-		mService.updateForegroundNotification(mDisplay,
-				mService.getString(com.resurrection.blowtorch2.lib.R.string.notification_status_connecting, mHost, mPort));
-		
-		mPump = new DataPumper(mHost, mPort, mHandler);
-		
-		mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
+			killNetThreads(true);
+			mStartupInProgress = true;
 
-		initSettings();
-		mPump.start();
-		loadGMCPTriggers();
-		// mIsConnected / session "connected" marker wait for MESSAGE_CONNECTED
-		// (DataPumper finished the TCP handshake).
-		mService.showConnectionNotification(mDisplay, mHost, mPort);
-		mService.noteConnectionStarted(mDisplay);
+			mService.updateForegroundNotification(mDisplay,
+					mService.getString(com.resurrection.blowtorch2.lib.R.string.notification_status_connecting, mHost, mPort));
+			
+			mPump = new DataPumper(mHost, mPort, mHandler);
+			
+			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
+
+			initSettings();
+			applyTerminalNaws();
+			mPump.start();
+			loadGMCPTriggers();
+			// mIsConnected / session "connected" marker wait for MESSAGE_CONNECTED
+			// (DataPumper finished the TCP handshake).
+			mService.showConnectionNotification(mDisplay, mHost, mPort);
+			mService.noteConnectionStarted(mDisplay);
+			// Handshaking flag clears on MESSAGE_CONNECTED / disconnect / pump death.
+		}
+	}
+
+	/** Allow a new doStartup after connect success or failure. */
+	private void clearStartupInProgress() {
+		synchronized (mStartupLock) {
+			mStartupInProgress = false;
+		}
 	}
 	
 	/** The gmcp trigger loading routine. This is pretty self explanatory, but it seeks out
@@ -2627,13 +2768,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Helper method to initiate a reconnect right now. */
 	public final void doReconnect() {
-		if (mPump != null) {
-			if (mPump.getHandler() != null) {
-				mPump.getHandler().sendEmptyMessage(DataPumper.MESSAGE_END);
+		synchronized (mStartupLock) {
+			if (mPump != null) {
+				if (mPump.getHandler() != null) {
+					mPump.closeSocket();
+					mPump.getHandler().removeCallbacksAndMessages(null);
+					mPump.getHandler().sendEmptyMessage(DataPumper.MESSAGE_END);
+					try {
+						mPump.join(2000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+				mPump = null;
 			}
-			mPump = null;
 		}
-		
 		doStartup();
 	}
 
@@ -3022,9 +3171,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return; //this is for when the settings are first being loaded.
 		}
 		BaseOption o = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey(key);
+		KEYS tmp;
 		try {
-			KEYS tmp = KEYS.valueOf(key);
-			switch (tmp) {
+			tmp = KEYS.valueOf(key);
+		} catch (IllegalArgumentException e) {
+			// Window/plugin-only keys (font_size, buffer_size, …) are not Connection.KEYS.
+			return;
+		}
+		switch (tmp) {
 			case process_semicolon:
 				mSettings.setSemiIsNewLine((Boolean) o.getValue());
 				break;
@@ -3035,6 +3189,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case encoding:
 				this.doUpdateEncoding((String) o.getValue());
+				break;
+			case terminal_width:
+			case terminal_height:
+				applyTerminalNaws();
+				break;
+			case terminal_size_hint:
+				// Persisted flag only; applied on connect.
 				break;
 			case orientation:
 				mService.doExecuteSetOrientation((Integer) o.getValue());
@@ -3117,9 +3278,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			default:
 				break;
 			}
-		} catch (IllegalArgumentException e) {
-			e.printStackTrace();
-		}
 	}
 
 	private void doSetSessionLog(final boolean enabled) {
@@ -3344,6 +3502,168 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		//everything that doesn't use TextTree's directly to make multi-buffers, will work fine.		
 	}
 
+	/** Apply configured terminal width/height to NAWS (server-side map sizing).
+	 * Prefer last live UI measurement when available. */
+	private void applyTerminalNaws() {
+		if (mProcessor == null) {
+			return;
+		}
+		if (mLiveCols > 0 && mLiveRows > 0) {
+			mProcessor.setDisplayDimensions(mLiveRows, mLiveCols);
+			if (mIsConnected) {
+				mProcessor.disaptchNawsString();
+			}
+			return;
+		}
+		if (mSettings == null || mSettings.getSettings() == null) {
+			return;
+		}
+		int cols = 0;
+		int rows = 0;
+		try {
+			BaseOption w = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("terminal_width");
+			BaseOption h = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("terminal_height");
+			if (w != null && w.getValue() instanceof Integer) {
+				cols = (Integer) w.getValue();
+			}
+			if (h != null && h.getValue() instanceof Integer) {
+				rows = (Integer) h.getValue();
+			}
+		} catch (Exception ignored) {
+		}
+		// 0 = auto: do not claim a desktop-sized terminal before the UI measures itself.
+		if (cols <= 0 && rows <= 0) {
+			return;
+		}
+		int useCols = cols > 0 ? cols : 40;
+		int useRows = rows > 0 ? rows : 20;
+		if (useCols < 20) {
+			useCols = 20;
+		}
+		if (useCols > 200) {
+			useCols = 200;
+		}
+		if (useRows < 5) {
+			useRows = 5;
+		}
+		if (useRows > 24) {
+			useRows = 24;
+		}
+		mProcessor.setDisplayDimensions(useRows, useCols);
+		if (mIsConnected) {
+			mProcessor.disaptchNawsString();
+		}
+	}
+
+	/**
+	 * Live window size from the UI. Never report more columns/rows than the screen
+	 * can show. Rows are capped — absurd heights (100+) have dropped Eden links.
+	 * Columns follow the real screen so ANSI maps match the draw grid.
+	 */
+	private int mLiveCols = 0;
+	private int mLiveRows = 0;
+	public final void applyLiveDisplayDimensions(final int rows, final int cols) {
+		if (rows < 1 || cols < 1) {
+			return;
+		}
+		int cfgCols = 0;
+		int cfgRows = 0;
+		try {
+			if (mSettings != null && mSettings.getSettings() != null) {
+				BaseOption w = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("terminal_width");
+				BaseOption h = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("terminal_height");
+				if (w != null && w.getValue() instanceof Integer) {
+					cfgCols = (Integer) w.getValue();
+				}
+				if (h != null && h.getValue() instanceof Integer) {
+					cfgRows = (Integer) h.getValue();
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		int useCols = cols;
+		int useRows = rows;
+		// Tiny fixed heights (e.g. corrupt terminal_height=5) make MUDs look "frozen".
+		if (cfgRows > 0 && cfgRows < 10) {
+			Log.w("BlowTorch", "Ignoring corrupt terminal_height=" + cfgRows + " (using screen)");
+			try {
+				BaseOption h = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("terminal_height");
+				if (h != null) {
+					h.setValue(0);
+					mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+				}
+			} catch (Exception ignored) {
+			}
+			cfgRows = 0;
+		}
+		if (cfgCols > 0) {
+			useCols = Math.min(cfgCols, cols);
+		}
+		if (cfgRows > 0) {
+			useRows = Math.min(cfgRows, rows);
+		}
+		// Match real screen columns so ANSI maps are not pre-wrapped for a different width.
+		// Only cap rows — absurd heights (100+) have been observed to drop Eden links.
+		if (useCols < 20) {
+			useCols = Math.max(20, Math.min(cols, 40));
+		}
+		if (useCols > 200) {
+			useCols = 200;
+		}
+		if (useRows > 24) {
+			useRows = 24;
+		}
+		if (useRows < 5) {
+			useRows = Math.max(5, Math.min(rows, 24));
+		}
+		mLiveCols = useCols;
+		mLiveRows = useRows;
+		Log.i("BlowTorch", "NAWS live " + useCols + "x" + useRows
+				+ " (screen " + cols + "x" + rows
+				+ ", cfg " + cfgCols + "x" + cfgRows + ")");
+		if (mProcessor == null) {
+			return;
+		}
+		final boolean changed = (useCols != mLastSentNawsCols) || (useRows != mLastSentNawsRows);
+		mProcessor.setDisplayDimensions(useRows, useCols);
+		if (mIsConnected && changed) {
+			// Debounce: layout/IME fires this many times per second; NAWS floods freeze Eden.
+			if (mHandler != null) {
+				mHandler.removeMessages(MESSAGE_SEND_NAWS);
+				mHandler.sendEmptyMessageDelayed(MESSAGE_SEND_NAWS, 350);
+			} else {
+				mProcessor.disaptchNawsString();
+				mLastSentNawsCols = useCols;
+				mLastSentNawsRows = useRows;
+			}
+		}
+	}
+
+	private int mLastSentNawsCols = -1;
+	private int mLastSentNawsRows = -1;
+	private static final int MESSAGE_SEND_NAWS = 8842;
+
+	/** One-time tip for new profiles: set NAWS width/height for ANSI maps. */
+	private void maybeShowTerminalSizeHint() {
+		if (mSettings == null || mSettings.getSettings() == null) {
+			return;
+		}
+		try {
+			BaseOption hint = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("terminal_size_hint");
+			if (hint == null || !(hint.getValue() instanceof Boolean) || !((Boolean) hint.getValue())) {
+				return;
+			}
+			// Mark consumed first — Connection.dispatchDialog is for network errors and
+			// kills the socket + schedules a 20s reconnect when auto_reconnect is on.
+			hint.setValue(false);
+			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+			mService.dispatchToast(
+					"Tip: Terminal Width/Height 0 = match screen (best for ANSI maps).",
+					true);
+		} catch (Exception ignored) {
+		}
+	}
+
 	/** Helper enum to map the main settings plugin's settings keys to strings. */
 	private enum KEYS {
 		/** Semicolon processing. */
@@ -3403,7 +3723,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Custom session log directory (blank = /BlowTorch/session_logs). */
 		session_log_directory,
 		/** Default import/export settings directory. */
-		default_settings_directory
+		default_settings_directory,
+		/** NAWS columns reported to the server. */
+		terminal_width,
+		/** NAWS rows reported to the server. */
+		terminal_height,
+		/** Show one-time terminal size tip on connect. */
+		terminal_size_hint
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
