@@ -117,8 +117,9 @@ Built-in commands
   Edit: sel | selectall, cut, copy, paste
   Cursor: start | cursorstart, end | cursorend,
           stepf | stepr (right one char), stepb | stepl (left),
-          stepu (up one line), stepd (down one line)
+          stepu (command history ↑), stepd (history ↓)
   Also: Edit button opens Sel/Cut/Copy/Paste and a ← ↑ ↓ → pad.
+  ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
   Examples:
     .kb popup reply
     .kb add foo

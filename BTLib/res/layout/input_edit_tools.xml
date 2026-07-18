@@ -65,14 +65,14 @@
         android:layout_width="0dip"
         android:layout_weight="1"
         android:text="↑"
-        android:contentDescription="Cursor up" />
+        android:contentDescription="Previous command" />
     <Button
         android:id="@+id/input_btn_down"
         style="@style/InputEditToolButton.Compact"
         android:layout_width="0dip"
         android:layout_weight="1"
         android:text="↓"
-        android:contentDescription="Cursor down" />
+        android:contentDescription="Next command" />
     <Button
         android:id="@+id/input_btn_right"
         style="@style/InputEditToolButton.Compact"
