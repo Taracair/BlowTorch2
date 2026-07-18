@@ -114,7 +114,7 @@ Enable under **Options → Service → GMCP Options**. Helpers:
 
 1. **Edit buttons** — enter button layout edit mode  
 2. **Crash report** — Show log / Share log  
-3. **About/donate**  
+3. **About**  
 4. **Help** — This manual  
 
 Connection duration appears on the ongoing notification and launcher row.
