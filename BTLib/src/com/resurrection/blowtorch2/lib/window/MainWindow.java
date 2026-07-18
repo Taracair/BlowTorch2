@@ -206,6 +206,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	//protected static final int MESSAGE_BUTTONRELOAD = 882;
 	protected static final int MESSAGE_CLOSEINPUTWINDOW = 884;
 	private static final int MESSAGE_RENAWS = 885;
+	/** Connect only after the first live NAWS measurement (avoids wrong size + startup races). */
+	private static final int MESSAGE_CONNECT_WHEN_READY = 8851;
+	private boolean mPendingInitialConnect = false;
 	public final static int MESSAGE_LAUNCHURL = 886;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
 	protected static final int MESSAGE_MAXVITALS = 100000;
@@ -364,8 +367,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
 				service.registerCallback(the_callback, host, port, display);
-				// Notification / reopen while session still tracked but socket dead.
-				if (!service.isConnected() && service.isConnectedTo(display)) {
+				// Reopen after process death: socket gone but connection object remains.
+				// Skip on first launch — INITIALIZEWINDOWS→initXfer starts the pump;
+				// a parallel reconnect was killing that first socket.
+				if (windowsInitialized && !service.isConnected() && service.isConnectedTo(display)) {
 					service.reconnect(display);
 				}
 			} catch (RemoteException e) {
@@ -726,13 +731,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					
 					loadSettings();
 					MainWindow.this.initiailizeWindows();
-					
-					try {
-						service.initXfer();
-					} catch (RemoteException e5) {
-						// TODO Auto-generated catch block
-						e5.printStackTrace();
-					}
+					windowsInitialized = true;
+					// Defer TCP until mainDisplay has a real cell grid for NAWS.
+					mPendingInitialConnect = true;
+					myhandler.removeMessages(MESSAGE_RENAWS);
+					myhandler.removeMessages(MESSAGE_CONNECT_WHEN_READY);
+					myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 80);
+					myhandler.sendEmptyMessageDelayed(MESSAGE_CONNECT_WHEN_READY, 200);
 					break;
 				case MESSAGE_SWITCH:
 					//mConnection.
@@ -771,13 +776,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					break;
 				case MESSAGE_RENAWS:
-					//try {
-						//TODO: NAWS WORK
-						//service.setDisplayDimensions(screen2.CALCULATED_LINESINWINDOW, screen2.CALCULATED_ROWSINWINDOW);
-					//} catch (RemoteException e5) {
-						
-						//e5.printStackTrace();
-					//}
+					reportLiveNawsToService();
+					break;
+				case MESSAGE_CONNECT_WHEN_READY:
+					tryConnectAfterNaws();
 					break;
 				case MESSAGE_CLEARINPUTWINDOW:
 					ClearKeyboard();
@@ -3068,8 +3070,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//Typeface font = loadFontFromName(tmpname);
 			
 			//screen2.setFont(loadFontFromName(tmpname));
-			//TODO: NAWS-ACTION
-			//service.setDisplayDimensions(screen2.CALCULATED_LINESINWINDOW, screen2.CALCULATED_ROWSINWINDOW);
+			myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 120);
 			
 			//if(fontSizeChanged) {
 			//	screen2.reBreakBuffer();
@@ -3678,7 +3679,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (myToolbar != null) {
 			configureGameplayToolbar(myToolbar);
 		}
-		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
+			layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		updateMenuChrome();
 		//Debug.stopMethodTracing();
 	}
@@ -3817,8 +3818,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int LEGACY_DIVIDER_ID = 40;
 	private static final int LEGACY_TEXT_INPUT_ID = 30;
 	/** Extra gap above the input chrome so ⋮ clears Edit/Send. */
-	private static final float OVERFLOW_LIFT_PHONE_DIP = 6f;
-	private static final float OVERFLOW_LIFT_TABLET_DIP = 10f;
+	private static final float OVERFLOW_LIFT_PHONE_DIP = 20f;
+	private static final float OVERFLOW_LIFT_TABLET_DIP = 24f;
 	private View.OnLayoutChangeListener mInputBarChromeLayoutListener = null;
 
 	private void saveConnectionExtras(Intent intent) {
@@ -4579,10 +4580,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			child.setTranslationY(ty);
 		}
-		// FAB strip lives in a sibling overlay FrameLayout, not under window_container.
+		// FAB strip is in a sibling overlay. Keep it locked to the input bar's IME lift
+		// (same translationY). Positioning uses layout bottomMargin only — do not also
+		// recompute from window locations while translated (that double-counts IME height).
+		View inputbar = findGameplayInputBar(rl);
 		View fabStrip = findViewById(R.id.gameplay_fab_strip);
 		if (fabStrip != null) {
-			fabStrip.setTranslationY(ty);
+			fabStrip.setTranslationY(inputbar != null ? inputbar.getTranslationY() : ty);
 		}
 	}
 
@@ -4724,15 +4728,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (fabStrip == null || inputbar == null) {
 			return;
 		}
-		ViewParent parent = fabStrip.getParent();
-		if (!(parent instanceof View)) {
+		if (!(fabStrip.getParent() instanceof View)) {
 			return;
 		}
-		View overlay = (View) parent;
 		float density = getResources().getDisplayMetrics().density;
 		int inputH = Math.max(inputbar.getHeight(), inputbar.getMeasuredHeight());
-		int parentH = Math.max(overlay.getHeight(), overlay.getMeasuredHeight());
-		if (inputH <= 0 || parentH <= 0) {
+		if (inputH <= 0) {
 			inputbar.post(new Runnable() {
 				@Override
 				public void run() {
@@ -4741,25 +4742,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			});
 			return;
 		}
-		// Prefer geometry from window locations so taller tablet Edit/Send rows clear correctly.
-		int[] inputLoc = new int[2];
-		int[] overlayLoc = new int[2];
-		inputbar.getLocationInWindow(inputLoc);
-		overlay.getLocationInWindow(overlayLoc);
-		int inputTopInOverlay = inputLoc[1] - overlayLoc[1];
-		int bottomInset;
-		if (inputTopInOverlay > 0 && inputTopInOverlay < parentH) {
-			bottomInset = parentH - inputTopInOverlay + margin
-					+ (int) (liftDip * density + 0.5f);
-		} else {
-			bottomInset = inputH + margin + (int) (liftDip * density + 0.5f);
-		}
+		// Layout-only inset above the input bar. IME lift is applied via translationY
+		// synced to the input bar in applyImeChromeLift — do not use window locations here.
+		int bottomInset = inputH + margin + (int) (liftDip * density + 0.5f);
 		android.widget.FrameLayout.LayoutParams stripLp =
 				new android.widget.FrameLayout.LayoutParams(
 						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
 		stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
 		stripLp.setMargins(0, 0, margin, bottomInset);
 		fabStrip.setLayoutParams(stripLp);
+		fabStrip.setTranslationY(inputbar.getTranslationY());
 	}
 
 	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
@@ -4879,6 +4871,59 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		windowCall("button_window", "delayedStatusRefresh", "");
 		if (ConfigurationLoader.isTestMode(this)) {
 			windowCall("forgemap_window", "refreshChromeInsets", "");
+		}
+		if (myhandler != null) {
+			myhandler.removeMessages(MESSAGE_RENAWS);
+			myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 80);
+		}
+	}
+
+	/** Tell the connection the real mainDisplay cell grid for NAWS. */
+	private void reportLiveNawsToService() {
+		if (service == null) {
+			return;
+		}
+		try {
+			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+			if (rl == null) {
+				return;
+			}
+			com.resurrection.blowtorch2.lib.window.Window main =
+					(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
+			if (main == null) {
+				return;
+			}
+			int cols = main.getCalculatedColumns();
+			int rows = main.getCalculatedRows();
+			if (cols < 1 || rows < 1) {
+				return;
+			}
+			service.setDisplayDimensions(rows, cols);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/** Start the socket only after NAWS was applied (or retry shortly). */
+	private void tryConnectAfterNaws() {
+		if (!mPendingInitialConnect || service == null) {
+			return;
+		}
+		try {
+			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+			com.resurrection.blowtorch2.lib.window.Window main = rl == null ? null
+					: (com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
+			if (main == null || main.getCalculatedColumns() < 1) {
+				myhandler.sendEmptyMessageDelayed(MESSAGE_CONNECT_WHEN_READY, 100);
+				return;
+			}
+			// Ensure latest grid is on the processor before TCP/NAWS handshake.
+			reportLiveNawsToService();
+			mPendingInitialConnect = false;
+			service.initXfer();
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			mPendingInitialConnect = false;
 		}
 	}
 

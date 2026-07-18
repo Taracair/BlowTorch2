@@ -18,6 +18,8 @@ I use LLM for writing code or docs. I still test and decide what ships.
 
 BlowTorch itself is Daniel Block and Offset Null Entertainment, LLC (2010–2018). The MUD core, Lua plugins, triggers, and so on are theirs. This fork exists so that stuff keeps working when the old APK does not. Same MIT license — see [`LICENSE`](LICENSE).
 
+One maintainer. Bug reports with steps to reproduce help.
+
 ---
 
 ## What’s different from classic
@@ -63,7 +65,7 @@ More detail: [`docs/FDROID_README.md`](docs/FDROID_README.md).
 | Area | Examples |
 |------|----------|
 | Input | `.wrap`, `.kb` |
-| Scrollback search | `.search` |
+| Scrollback | `.search` |
 | GMCP | `.gmcp status`, sniff, sniff tail, … |
 | Classic | `.run`, `.timer`, `.loadset`, `.switch`, … |
 

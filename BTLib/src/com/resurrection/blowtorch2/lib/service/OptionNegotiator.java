@@ -10,10 +10,10 @@ import android.util.Log;
 
 /** Helper class to the Processor. This object keeps track of the negotiation responses. */
 public class OptionNegotiator {
-	/** The default number of columns for NAWS. */
-	private static final int DEFAULT_COLS = 80;
-	/** The default number of rows for NAWS. */
-	private static final int DEFAULT_ROWS = 21;
+	/** The default number of columns for NAWS (interim until UI reports live size). */
+	private static final int DEFAULT_COLS = 40;
+	/** The default number of rows for NAWS (~phone-friendly terminal height). */
+	private static final int DEFAULT_ROWS = 20;
 	/** IAC WILL. */
 	private static final byte IAC_WILL = (byte) 0xFB; //251
 	/** IAC WONT. */
@@ -454,14 +454,14 @@ public class OptionNegotiator {
 		buf.put(TC.SB); //SB
 		buf.put(TC.NAWS); //NAWS
 		//buf.put((byte)0x00); //IS
-		//extract high byte from column
-		byte highCol = (byte) ((SLSB_MASK & mColumns) >> 2);
-		byte lowCol = (byte) ((LSB_MASK & mColumns));
+		// RFC 1073: 16-bit width/height, network byte order (high byte first).
+		byte highCol = (byte) ((mColumns >> 8) & 0xFF);
+		byte lowCol = (byte) (mColumns & 0xFF);
 		buf.put(highCol); //columns, high byte
 		buf.put(lowCol); //columns, low byte
 		
-		byte highRow = (byte) ((SLSB_MASK & mRows) >> 2);
-		byte lowRow = (byte) ((LSB_MASK & mRows));
+		byte highRow = (byte) ((mRows >> 8) & 0xFF);
+		byte lowRow = (byte) (mRows & 0xFF);
 		buf.put(highRow); //lines, high byte
 		buf.put(lowRow); //lines, low byte
 		

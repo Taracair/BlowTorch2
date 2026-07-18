@@ -43,8 +43,29 @@ public class ConnectionSettingsPlugin extends Plugin {
 		enc.setTitle("System Encoding");
 		enc.setDescription("Specifies the encoding used to process incoming text.");
 		enc.setKey("encoding");
-		enc.setValue("ISO-8859-1");
+		enc.setValue("UTF-8");
 		sg.addOption(enc);
+
+		IntegerOption terminalWidth = new IntegerOption();
+		terminalWidth.setTitle("Terminal Width (NAWS)");
+		terminalWidth.setDescription("Columns reported to the server. 0 = match screen (recommended on phones). If set higher than the real width, the screen width is used so ANSI maps do not wrap.");
+		terminalWidth.setKey("terminal_width");
+		terminalWidth.setValue(0);
+		sg.addOption(terminalWidth);
+
+		IntegerOption terminalHeight = new IntegerOption();
+		terminalHeight.setTitle("Terminal Height (NAWS)");
+		terminalHeight.setDescription("Rows reported to the server. 0 = match screen (recommended).");
+		terminalHeight.setKey("terminal_height");
+		terminalHeight.setValue(0);
+		sg.addOption(terminalHeight);
+
+		BooleanOption terminalHint = new BooleanOption();
+		terminalHint.setTitle("Show Terminal Size Tip?");
+		terminalHint.setDescription("Once per profile, remind that Width/Height 0 matches the screen.");
+		terminalHint.setKey("terminal_size_hint");
+		terminalHint.setValue(true);
+		sg.addOption(terminalHint);
 		
 		ListOption orientation = new ListOption();
 		orientation.setTitle("Orientation");
