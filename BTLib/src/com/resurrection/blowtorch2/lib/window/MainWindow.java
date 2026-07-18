@@ -546,41 +546,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 //			}
 //		});
 //        
-        mInputBox.setOnKeyListener(new TextView.OnKeyListener() {
+		mInputBox.setOnKeyListener(new TextView.OnKeyListener() {
 
 			public boolean onKey(View v, int keyCode, KeyEvent event) {
-				//EditText input_box = (EditText)findViewById(R.id.textinput);
 				if(event.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP && event.getAction() == KeyEvent.ACTION_UP) {
-					
-					String cmd = history.getNext();
-					//try {
-						if(isKeepLast) {
-							if(historyWidgetKept) {
-								String tmp = history.getNext();
-								mInputBox.setText(tmp);
-								mInputBox.setSelection(tmp.length());
-								historyWidgetKept=false;
-							} else {
-								mInputBox.setText(cmd);
-								//input_box.setText(cmd);
-								mInputBox.setSelection(cmd.length());
-							}
-						} else {
-							mInputBox.setText(cmd);
-							mInputBox.setSelection(cmd.length());
-						}
-					//} catch (RemoteException e) {
-					//	throw new RuntimeException(e);
-					//}
+					applyInputHistoryStep(true);
 					return true;
 				} else if(event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN && event.getAction() == KeyEvent.ACTION_UP) {
-					String cmd = history.getPrev();
-					mInputBox.setText(cmd);
-					mInputBox.setSelection(cmd.length());
+					applyInputHistoryStep(false);
 					return true;
 				} else if(event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER && event.getAction() == KeyEvent.ACTION_UP) {
 					myhandler.sendEmptyMessage(MainWindow.MESSAGE_PROCESSINPUTWINDOW);
-					//screen2.jumpToZero();
 					return true;
 				} else if(event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER && event.getAction() == KeyEvent.ACTION_DOWN) {
 					return true;
@@ -590,7 +566,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
    
         });
-        
+
         mInputBox.setDrawingCacheEnabled(true);
         mInputBox.setVisibility(View.VISIBLE);
         mInputBox.setEnabled(true);
@@ -2486,19 +2462,45 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		mInputBox.requestFocus();
 		android.text.Layout layout = mInputBox.getLayout();
-		if (layout == null) {
-			inputCursorStep(lineDelta);
+		if (layout != null && layout.getLineCount() > 1) {
+			int pos = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()));
+			int line = layout.getLineForOffset(pos);
+			int newLine = line + lineDelta;
+			if (newLine >= 0 && newLine < layout.getLineCount()) {
+				float horiz = layout.getPrimaryHorizontal(pos);
+				int newPos = layout.getOffsetForHorizontal(newLine, horiz);
+				mInputBox.setSelection(Math.max(0, Math.min(mInputBox.getText().length(), newPos)));
+				return;
+			}
+		}
+		// At the top/bottom of the field (or single line): same as keyboard ↑/↓ — command history.
+		applyInputHistoryStep(lineDelta < 0);
+	}
+
+	/**
+	 * Browse sent-command history like hardware DPAD up/down.
+	 * @param older true = older command (↑ / stepu), false = newer / clear (↓ / stepd)
+	 */
+	private void applyInputHistoryStep(boolean older) {
+		if (mInputBox == null || history == null) {
 			return;
 		}
-		int pos = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()));
-		int line = layout.getLineForOffset(pos);
-		int newLine = Math.max(0, Math.min(layout.getLineCount() - 1, line + lineDelta));
-		if (newLine == line) {
-			return;
+		mInputBox.requestFocus();
+		String cmd;
+		if (older) {
+			cmd = history.getNext();
+			if (isKeepLast && historyWidgetKept) {
+				cmd = history.getNext();
+				historyWidgetKept = false;
+			}
+		} else {
+			cmd = history.getPrev();
 		}
-		float horiz = layout.getPrimaryHorizontal(pos);
-		int newPos = layout.getOffsetForHorizontal(newLine, horiz);
-		mInputBox.setSelection(Math.max(0, Math.min(mInputBox.getText().length(), newPos)));
+		if (cmd == null) {
+			cmd = "";
+		}
+		mInputBox.setText(cmd);
+		mInputBox.setSelection(cmd.length());
 	}
 	
 	private void requestNotificationPermissionIfNeeded() {
