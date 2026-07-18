@@ -163,3 +163,10 @@ samples/**/*.xml
 BTLib/jni/**/*.mk~
 BTLib/jni/**/*~
 BTLib/jni/Android.mk.old
+
+# Editor / IDE junk
+**/._*
+**/*.iml
+**/.classpath
+**/.settings/
+BTLib/res/raw/foo
