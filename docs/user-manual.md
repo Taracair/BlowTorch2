@@ -138,11 +138,12 @@ Direction letters (editable in Speedwalk Directions): `n e s w u d`,
 | `end` / `cursorend` | Caret to end |
 | `stepf` / `stepr` | Caret one character right |
 | `stepb` / `stepl` | Caret one character left |
-| `stepu` / `stepd` | Caret one line up / down |
+| `stepu` / `stepd` | Command history (↑ older / ↓ newer), like keyboard arrows; within multiline text, move one line first |
+
 
 Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
 
-**Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide** so the screen stays clear).
+**Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
 
 ## On-screen buttons: swipe + accordion
 

@@ -1,7 +1,5 @@
 BlowTorch 2 v2.1.5
 
-• Input bar: Edit/Send stable when text wraps; grows to ~7 lines
-• One connection notification; hide live scroll thumb
-• Button edit polish; xterm-256 color fix
-• Accordion menus: solid black dropdowns
-• Swipe help text fixed; Help: aliases/triggers with $1
+• Input ↑/↓ and .kb stepu/stepd recall command history
+• Input bar wrap/Edit-Send polish; opaque accordion menus
+• Notification / color / button-edit fixes from earlier 2.1.5
