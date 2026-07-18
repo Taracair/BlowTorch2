@@ -579,6 +579,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_CONNECTED:
 				mAutoReconnectAttempt = 0;
+				mIsConnected = true;
+				mConnectedAtElapsed = SystemClock.elapsedRealtime();
+				SessionLogger.setEnabled(mService.getApplicationContext(), isSessionLogEnabled());
+				applySessionLogDirectory();
+				if (SessionLogger.isEnabled(mService.getApplicationContext())) {
+					SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
+					SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "connected");
+				}
+				if (mProcessor != null) {
+					mProcessor.setLogProfile(mDisplay);
+					applyGmcpLogSetting();
+				}
 				break;
 			case MESSAGE_DELETEPLUGIN:
 				doDeletePlugin((String) msg.obj);
@@ -1763,19 +1775,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		initSettings();
 		mPump.start();
 		loadGMCPTriggers();
-		mIsConnected = true;
-		mConnectedAtElapsed = SystemClock.elapsedRealtime();
-		SessionLogger.setEnabled(mService.getApplicationContext(), isSessionLogEnabled());
-		applySessionLogDirectory();
-		if (SessionLogger.isEnabled(mService.getApplicationContext())) {
-			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
-			SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "connected");
-		}
-		if (mProcessor != null) {
-			mProcessor.setLogProfile(mDisplay);
-			applyGmcpLogSetting();
-		}
-		
+		// mIsConnected / session "connected" marker wait for MESSAGE_CONNECTED
+		// (DataPumper finished the TCP handshake).
 		mService.showConnectionNotification(mDisplay, mHost, mPort);
 		mService.noteConnectionStarted(mDisplay);
 	}

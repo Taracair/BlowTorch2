@@ -25,7 +25,11 @@ Package id (F-Droid / production): `com.resurrection.blowtorch2`
 - Does **not** read your photos, contacts, SMS, or call log.
 - Does **not** browse your whole disk for fun — file access is for **your** BlowTorch folders and files you explicitly import/export.
 
-Optional **account notes** on a launcher entry (login/password/mail) are stored **only on the device**, in the launcher list XML, in **plaintext**. They are reminders for you, not auto-login to a third party. Prefer not filling them if that worries you.
+Optional **account notes** on a launcher entry (login/password/mail) are stored **only on this device**, in the launcher list XML, in **plaintext**. They are reminders for you, not auto-login. Prefer leaving them blank. Android **backup is disabled** (`allowBackup=false`) so cloud/ADB backup will not pull that XML; exports/backups you create yourself still include whatever you typed.
+
+### Lua plugins (important)
+
+Installing or running a **Lua plugin** is equivalent to running **untrusted code with the app’s privileges** (same model as classic BlowTorch). Plugins can use the full Lua standard library and are given access to Android `Context` / activity helpers. Only load plugins you trust. Do not treat the plugin folder as a sandbox.
 
 ---
 

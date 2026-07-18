@@ -1,7 +1,5 @@
 BlowTorch 2 v2.1.5
 
-• Single ongoing connection notification (no duplicate / auto-group)
-• Hide live scroll thumb on the right edge (no stray blue line)
-• Button edit: opaque black background; ⋮ hidden — use gear / Cancel / Done
-• Fix xterm-256 color bleed (wrong next word / rest of line after 38;5 / 48;5)
-• README: LLM collaboration note + link to full dot-command docs
+• Input bar: stable Edit/Send; grow up to ~7 lines; wider tap targets
+• Single connection notification; hide live scroll thumb
+• Button edit polish; xterm-256 color bleed fix
