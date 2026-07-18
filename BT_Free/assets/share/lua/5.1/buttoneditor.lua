@@ -360,12 +360,24 @@ function showEditorDialog(editorValues,numediting)
 	local Spinner = luajava.bindClass("android.widget.Spinner")
 	local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
 	local CheckBox = luajava.bindClass("android.widget.CheckBox")
-	local AndroidR_layout = luajava.bindClass("android.R$layout")
 	local ColorDrawable = luajava.bindClass("android.graphics.drawable.ColorDrawable")
-	-- Dark opaque popup — default spinner dropdown is transparent over the editor.
-	local spinnerPopupBg = luajava.new(ColorDrawable, tonumber("FF303030", 16))
+	local pkg = context:getPackageName()
+	local res = context:getResources()
+	local spinnerItemLayout = res:getIdentifier("spinner_item_dark", "layout", pkg)
+	local spinnerDropdownLayout = res:getIdentifier("spinner_dropdown_item_dark", "layout", pkg)
+	-- Fully opaque black popup (ARGB via Color.argb — avoids Lua int/sign issues).
+	local spinnerPopupBg = luajava.new(ColorDrawable, Color:argb(255, 0, 0, 0))
+	local function makeSpinnerAdapter(items)
+		local adapter = luajava.new(ArrayAdapter, context, spinnerItemLayout)
+		for i = 1, #items do
+			adapter:add(items[i])
+		end
+		adapter:setDropDownViewResource(spinnerDropdownLayout)
+		return adapter
+	end
 	local function styleSpinner(spinner)
 		spinner:setPopupBackgroundDrawable(spinnerPopupBg)
+		spinner:setBackgroundColor(Color:argb(255, 0, 0, 0))
 	end
 
 	local showHintsCb = luajava.new(CheckBox,context)
@@ -450,13 +462,7 @@ function showEditorDialog(editorValues,numediting)
 	accordionDirSpinner = luajava.new(Spinner,context)
 	accordionDirSpinner:setLayoutParams(clickLabelEditParams)
 	styleSpinner(accordionDirSpinner)
-	local dirAdapter = luajava.new(ArrayAdapter,context,AndroidR_layout.simple_spinner_item)
-	dirAdapter:add("None")
-	dirAdapter:add("Down")
-	dirAdapter:add("Up")
-	dirAdapter:add("Right")
-	dirAdapter:add("Left")
-	dirAdapter:setDropDownViewResource(AndroidR_layout.simple_spinner_dropdown_item)
+	local dirAdapter = makeSpinnerAdapter({"None", "Down", "Up", "Right", "Left"})
 	accordionDirSpinner:setAdapter(dirAdapter)
 	local currentDir = editorValues.accordionDirection or ""
 	if currentDir == "down" then accordionDirSpinner:setSelection(1)
@@ -480,11 +486,11 @@ function showEditorDialog(editorValues,numediting)
 	accordionLayoutSpinner = luajava.new(Spinner,context)
 	accordionLayoutSpinner:setLayoutParams(clickLabelEditParams)
 	styleSpinner(accordionLayoutSpinner)
-	local layoutAdapter = luajava.new(ArrayAdapter,context,AndroidR_layout.simple_spinner_item)
-	layoutAdapter:add("Auto (follow expand)")
-	layoutAdapter:add("Vertical (column)")
-	layoutAdapter:add("Horizontal (row)")
-	layoutAdapter:setDropDownViewResource(AndroidR_layout.simple_spinner_dropdown_item)
+	local layoutAdapter = makeSpinnerAdapter({
+		"Auto (follow expand)",
+		"Vertical (column)",
+		"Horizontal (row)"
+	})
 	accordionLayoutSpinner:setAdapter(layoutAdapter)
 	local currentLayout = editorValues.accordionChildLayout or "along"
 	if currentLayout == "vertical" then accordionLayoutSpinner:setSelection(1)
@@ -506,11 +512,11 @@ function showEditorDialog(editorValues,numediting)
 	accordionTriggerSpinner = luajava.new(Spinner,context)
 	accordionTriggerSpinner:setLayoutParams(clickLabelEditParams)
 	styleSpinner(accordionTriggerSpinner)
-	local triggerAdapter = luajava.new(ArrayAdapter,context,AndroidR_layout.simple_spinner_item)
-	triggerAdapter:add("Tap (press)")
-	triggerAdapter:add("Hold")
-	triggerAdapter:add("Swipe (expand dir)")
-	triggerAdapter:setDropDownViewResource(AndroidR_layout.simple_spinner_dropdown_item)
+	local triggerAdapter = makeSpinnerAdapter({
+		"Tap (press)",
+		"Hold",
+		"Swipe (expand dir)"
+	})
 	accordionTriggerSpinner:setAdapter(triggerAdapter)
 	local currentTrigger = editorValues.accordionTrigger or "tap"
 	if currentTrigger == "hold" then accordionTriggerSpinner:setSelection(1)
