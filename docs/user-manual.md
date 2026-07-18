@@ -10,12 +10,80 @@ is enabled (default). Type `..` alone to toggle that processing on or off.
 Prefix a server command with `..` to send a leading `.` to the game without
 running a client command (e.g. `..look` sends `.look`).
 
-Aliases that share a name with a command win when you type `.name newtext`
-(that updates the alias). Plugins may register additional commands via
-`RegisterSpecialCommand`; those appear only while the plugin is loaded.
+Aliases that share a simple name with a command win when you type `.name newtext`
+(that changes the alias’s replacement text). Plugins may register additional
+commands via `RegisterSpecialCommand`; those appear only while the plugin is
+loaded.
 
 Registrations live in `Connection` (built-ins) and Lua
 `RegisterSpecialCommand(...)` (plugins).
+
+## Aliases and triggers (patterns / `$1`)
+
+BlowTorch does not use TinTin-style `%1` wildcards. Patterns are **regular
+expressions** (Java regex). Captured pieces go into `$1`, `$2`, … in the
+replacement or trigger action.
+
+### Aliases
+
+Open the alias editor from the session Options / editors list.
+
+- **Replace** = pattern to match what you type  
+- **With** = text to send (can include `$1`, `$2`, …)  
+- Optional **start of line (^)** / **end of line ($)** checkboxes
+
+Examples:
+
+| Replace | With | You type | Sent |
+|---------|------|----------|------|
+| `c` | `cast` | `c fireball` | (word alias; see below) |
+| `^cast (.+)$` | `c $1` | `cast fireball` | `c fireball` |
+| `^kill (.+)$` | `k $1` | `kill goblin` | `k goblin` |
+
+Notes:
+
+- Without `^`/`$`, BlowTorch wraps the pattern in word boundaries and uses
+  normal regex `$n` groups in **With**.
+- With **both** `^` and `$`, `$1` is the first `(…)` group in the pattern
+  (example above).
+- With **only** `^` (no trailing `$`), the line is split on spaces: `$0` is
+  the first word, `$1` the next, and so on.
+
+**Changing an alias from the input bar:** for a simple word name (letters,
+digits, `_`), type:
+
+```
+.name new replacement text
+```
+
+That updates the **With** field only. Example: alias key `c`, then
+`.c cast 'fireball'` sets the replacement. Patterns with spaces or regex
+(like `^cast (.+)$`) must be edited in the alias dialog — the `.name …`
+shortcut only works for simple `\w+` keys.
+
+### Triggers
+
+In the trigger editor:
+
+- **Literal?** on → match the pattern as plain text (no regex)  
+- **Literal?** off → pattern is a regular expression  
+
+In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
+Replace, Toast, Notification text, and similar actions.
+
+Examples (Literal off):
+
+| Pattern | Action text | Meaning |
+|---------|-------------|---------|
+| `You hit (.+) for (\d+)` | `emote crushed $1 ($2 dmg)` | Name → `$1`, damage → `$2` |
+| `A (.+) appears` | `kill $1` | Auto-target the thing that appeared |
+
+**GMCP note:** a **literal** trigger whose pattern starts with `%` (default
+GMCP character) is a GMCP hook (`%module.path`), not a line wildcard. See
+GMCP below.
+
+Options → Service → **Regular Expression Warning?** controls the reminder
+dialog when you turn Literal off.
 
 ## Built-in commands
 
