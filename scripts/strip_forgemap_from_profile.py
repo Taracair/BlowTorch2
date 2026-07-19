@@ -1,31 +1,30 @@
 #!/usr/bin/env python3
-"""Remove ForgeMap plugin block and MAP button from a profile XML (main/production safe)."""
+"""Remove ForgeMap plugin block and MAP buttons from a BlowTorch profile XML."""
 import re
 import sys
 from pathlib import Path
 
 FORGEMAP_PLUGIN_RE = re.compile(
-    r"\s*<plugin name=\"forgemap\" id=\"11\">.*?</plugin>\s*",
-    re.DOTALL,
+    r"\s*<plugin name=\"forgemap\"[^>]*>.*?</plugin>\s*",
+    re.DOTALL | re.IGNORECASE,
 )
-
-MAP_BUTTON_RE = re.compile(
-    r'\{ \["flipLabel"\] = "", \["x"\] = 1090, \["label"\] = "MAP".*?\}, ',
+MAP_BUTTON_XML_RE = re.compile(
+    r"\s*<button[^>]*label=\"MAP\"[^>]*/>\s*",
+    re.IGNORECASE,
 )
 
 
 def strip_forgemap(text: str) -> str:
     text = FORGEMAP_PLUGIN_RE.sub("\n", text)
-    text = MAP_BUTTON_RE.sub("", text)
-    text = text.replace('command"] = ".map"', 'command"] = ".clearbuttons"')  # safety noop if lone
-    text = text.replace('"label"] = "MAP"', '"label"] = "CLEAR"')  # should not trigger after re
+    text = MAP_BUTTON_XML_RE.sub("\n", text)
     return text
 
 
 def main() -> None:
-    paths = sys.argv[1:] or [
-        str(Path(__file__).resolve().parents[1] / "samples" / "samsaramoo.xml"),
-    ]
+    paths = sys.argv[1:]
+    if not paths:
+        print("Usage: strip_forgemap_from_profile.py <profile.xml>...")
+        sys.exit(1)
     for p in paths:
         path = Path(p)
         original = path.read_text(encoding="utf-8")
