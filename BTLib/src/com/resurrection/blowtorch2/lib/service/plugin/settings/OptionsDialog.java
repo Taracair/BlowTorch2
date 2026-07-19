@@ -364,14 +364,13 @@ public class OptionsDialog extends Dialog {
 				fileIndicator.setMaxLines(1);
 				fileIndicator.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
 				String fileVal = fileOption.getValue() == null ? "" : fileOption.getValue().toString();
-				int slash = fileVal.lastIndexOf('/');
-				fileIndicator.setText(slash >= 0 ? fileVal.substring(slash + 1) : fileVal);
+				fileIndicator.setText(displayNameForFontPath(fileVal));
 				LinearLayout.LayoutParams fparam = new LinearLayout.LayoutParams(
 						LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
 				fparam.gravity = Gravity.CENTER;
 				fileIndicator.setLayoutParams(fparam);
 				widget.addView(fileIndicator);
-				v.setOnClickListener(new FileOptionClickedListener());
+				v.setOnClickListener(new FileOptionClickedListener(fileIndicator));
 				break;
 			case STRING:
 				v.setTag(o);
@@ -457,7 +456,57 @@ public class OptionsDialog extends Dialog {
 	
 	}
 	
+	/** Human-readable label for a font path / built-in font key. */
+	static String displayNameForFontPath(String path) {
+		if (path == null || path.length() == 0) {
+			return "";
+		}
+		if ("monospace".equals(path)) {
+			return "monospace";
+		}
+		if ("sans serif".equals(path) || "sans serrif".equals(path)) {
+			return "sans serif";
+		}
+		if ("default".equals(path) || "none".equals(path)) {
+			return path;
+		}
+		String name = path;
+		int slash = path.lastIndexOf('/');
+		if (slash >= 0 && slash < path.length() - 1) {
+			name = path.substring(slash + 1);
+		}
+		if (name.endsWith(".ttf") || name.endsWith(".TTF")) {
+			name = name.substring(0, name.length() - 4);
+		}
+		if ("DejaVuSansMono".equals(name)) {
+			return "DejaVu Sans Mono";
+		}
+		if ("LiberationMono-Regular".equals(name)) {
+			return "Liberation Mono";
+		}
+		if ("VeraMono".equals(name)) {
+			return "Bitstream Vera Sans Mono";
+		}
+		if ("NotoSansMono-Regular".equals(name)) {
+			return "Noto Sans Mono";
+		}
+		if ("DroidSansMono".equals(name)) {
+			return "Droid Sans Mono";
+		}
+		if ("RobotoMono-Regular".equals(name)) {
+			return "Roboto Mono";
+		}
+		// Soften CamelCase / hyphenated file names for system fonts
+		return name.replace('-', ' ').replace('_', ' ');
+	}
+
 	private class FileOptionClickedListener implements View.OnClickListener {
+
+		private final TextView indicator;
+
+		FileOptionClickedListener(TextView indicator) {
+			this.indicator = indicator;
+		}
 
 		@Override
 		public void onClick(View v) {
@@ -485,8 +534,9 @@ public class OptionsDialog extends Dialog {
 			
 			ArrayList<String> items = o.items;
 			for(int i=0;i<items.size();i++) {
-				foundFilePaths.add(items.get(i));
-				foundFileNames.add(items.get(i));
+				String item = items.get(i);
+				foundFilePaths.add(item);
+				foundFileNames.add(displayNameForFontPath(item));
 			}
 			ArrayList<String> paths = o.paths;
 			for(int i=0;i<paths.size();i++) {
@@ -499,7 +549,7 @@ public class OptionsDialog extends Dialog {
 					if (listed != null) {
 						for(File found : listed) {
 							foundFilePaths.add(found.getPath());
-							foundFileNames.add(found.getName());
+							foundFileNames.add(displayNameForFontPath(found.getPath()));
 						}
 					}
 				} else {
@@ -512,7 +562,7 @@ public class OptionsDialog extends Dialog {
 						if (listed != null) {
 							for(File found : listed) {
 								foundFilePaths.add(found.getPath());
-								foundFileNames.add(found.getPath());
+								foundFileNames.add(displayNameForFontPath(found.getPath()));
 							}
 						}
 					}
@@ -533,7 +583,7 @@ public class OptionsDialog extends Dialog {
 			
 			AlertDialog.Builder builder = new AlertDialog.Builder(OptionsDialog.this.getContext());
 			builder.setTitle(o.getTitle());
-			builder.setSingleChoiceItems(entries, selectedIndex,new FileOptionItemClickListener((FileOption)o,foundFilePaths,foundFileNames));
+			builder.setSingleChoiceItems(entries, selectedIndex,new FileOptionItemClickListener((FileOption)o,foundFilePaths,foundFileNames,indicator));
 
 			AlertDialog dialog = builder.create();
 			dialog.show();
@@ -547,17 +597,25 @@ public class OptionsDialog extends Dialog {
 		private ArrayList<String> paths;
 		private ArrayList<String> names;
 		private FileOption option;
+		private TextView indicator;
 		
-		public FileOptionItemClickListener(FileOption option,ArrayList<String> paths,ArrayList<String> names) {
+		public FileOptionItemClickListener(FileOption option,ArrayList<String> paths,ArrayList<String> names, TextView indicator) {
 			this.paths = paths;
 			this.names = names;
 			this.option = option;
+			this.indicator = indicator;
 		}
 		
 		@Override
 		public void onClick(DialogInterface dialog, int which) {
 			String path = paths.get(which);
 			option.setValue(path);
+			if (indicator != null) {
+				String label = (names != null && which < names.size())
+						? names.get(which)
+						: displayNameForFontPath(path);
+				indicator.setText(label);
+			}
 			// Nested groups (e.g. Window → Font) live on mCurrent; update that group so listeners fire.
 			if (mCurrent != null && mCurrent.findOptionByKey(option.getKey()) != null) {
 				mCurrent.updateString(option.getKey(), path);

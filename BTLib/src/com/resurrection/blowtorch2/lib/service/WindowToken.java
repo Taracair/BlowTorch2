@@ -38,8 +38,8 @@ public class WindowToken implements Parcelable {
 	/** Default buffer size. */
 	/** Default scrollback lines. Higher = more history in RAM; session .txt log covers longer runs. */
 	public static final int DEFAULT_BUFFER_SIZE = 2000;
-	/** Default font path. */
-	public static final String DEFAULT_FONT_PATH = "monospace";
+	/** Default font path (bundled asset). */
+	public static final String DEFAULT_FONT_PATH = "fonts/DejaVuSansMono.ttf";
 	/** Required field for the parcelable interface. */
 	public static final Parcelable.Creator<WindowToken> CREATOR = new Parcelable.Creator<WindowToken>() {
 
@@ -337,7 +337,11 @@ public class WindowToken implements Parcelable {
 		fontPath.setTitle("Font");
 		fontPath.setDescription("The font used by the window to render text.");
 		fontPath.setKey("font_path");
-		fontPath.setValue("monospace");
+		fontPath.setValue(DEFAULT_FONT_PATH);
+		fontPath.addItem(DEFAULT_FONT_PATH);
+		fontPath.addItem("fonts/LiberationMono-Regular.ttf");
+		fontPath.addItem("fonts/VeraMono.ttf");
+		fontPath.addItem("fonts/NotoSansMono-Regular.ttf");
 		fontPath.addItem("monospace");
 		fontPath.addItem("sans serif");
 		fontPath.addItem("default");

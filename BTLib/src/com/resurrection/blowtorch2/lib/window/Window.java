@@ -3667,6 +3667,10 @@ end
 			return font;
 		}
 		try {
+			// Bundled assets: "fonts/DejaVuSansMono.ttf"
+			if (name.startsWith("fonts/") && name.endsWith(".ttf")) {
+				return Typeface.createFromAsset(getContext().getAssets(), name);
+			}
 			if(name.contains("/")) {
 				if(name.contains(Environment.getExternalStorageDirectory().getPath())) {
 					String sdstate = Environment.getExternalStorageState();
