@@ -64,7 +64,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		bell_vibrate,
 		bell_notification,
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, show_regex_warning,
-		session_log, session_log_directory, default_settings_directory
+		session_log, session_log_directory, default_settings_directory,
+		terminal_width, terminal_height, terminal_size_hint
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -517,6 +518,22 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case auto_reconnect_limit:
 						if((Integer)opt.getValue() != 5) {
+							dooutput = true;
+						}
+						break;
+					case terminal_width:
+						if((Integer)opt.getValue() != 0) {
+							dooutput = true;
+						}
+						break;
+					case terminal_height:
+						if((Integer)opt.getValue() != 0) {
+							dooutput = true;
+						}
+						break;
+					case terminal_size_hint:
+						// Default is true (show once). Persist false so a disabled tip stays off.
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;

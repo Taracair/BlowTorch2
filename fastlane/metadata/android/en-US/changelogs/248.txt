@@ -1,0 +1,6 @@
+BlowTorch 2 v2.1.9
+
+• ANSI maps: stable connect, NAWS sync, fixed-cell block glyphs, descenders
+• Prose MUDs: wrap/spacing defaults restored after map-focused clamps
+• More bundled monospace fonts; Options shows the selected font name
+• Telnet CHARSET / IAC hardening; UTF-8 default
