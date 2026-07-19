@@ -34,8 +34,7 @@
       <button xPos="130" yPos="130" label="LOOK" command="look" moveMethod="2" />
       <button xPos="130" yPos="24" label="SCORE" command="score" moveMethod="2" />
       <button x="130" y="183" label="CLEAR" moveMethod="0" command=".clearbuttons" />
-      <button x="77" y="183" label="MAP" moveMethod="0" command=".map" primaryColor="-2013265920" labelColor="-1" />
-    </buttonset>
+</buttonset>
     <selectedset>default</selectedset>
   </buttonsets>
   <triggers />
@@ -97,30 +96,9 @@
      			<button x="130" y="130" label="LOOK" command="look" />
      			<button x="130" y="24" label="SCORE" command="score" />
      			<button x="130" y="183" label="CLEAR" command=".clearbuttons" />
-     			<button x="77" y="183" label="MAP" command=".map" />
-    		</buttonset>
+</buttonset>
 			<selected>default</selected>
   		</buttonsets>
 	</plugin>
-	<plugin name="forgemap" id="11">
-		<windows>
-			<window name="forgemap_window" id="10204" script="forgemapwindow" bufferText="false">
-				<layoutGroup target="normal">
-					<layout orientation="landscape" width="fill_parent" height="220" above="10"/>
-					<layout orientation="portrait" width="fill_parent" height="220" above="10"/>
-				</layoutGroup>
-			</window>
-		</windows>
-		<options title="ForgeMap" summary="Walk with the compass to build the map as you play. Tap explored rooms to pathfind.">
-			<boolean title="Auto-open map panel" key="auto_open_map" summary="Show map strip when connecting.">false</boolean>
-			<integer title="Tile size (dp)" key="tile_size_dp" summary="Base tile size on screen.">36</integer>
-			<boolean title="Show tile labels" key="show_labels" summary="Draw room names on explored tiles.">true</boolean>
-			<string title="Room title regex (future)" key="room_title_regex" summary="Planned: regex to capture room title from MUD text into the current tile.">^(.+)$</string>
-		</options>
-		<triggers/>
-		<aliases/>
-		<script name="bootstrap" execute="true"><![CDATA[require("forgemapserver")]]></script>
-		<script name="forgemapwindow"><![CDATA[require("forgemapwindow")]]></script>
-	</plugin>
-  </plugins>
+</plugins>
 </blowtorch>
