@@ -1,0 +1,32 @@
+---
+description: Branch and APK release workflow (staging → test → production)
+alwaysApply: true
+---
+
+# BlowTorch 2 — release workflow
+
+## Branches
+
+- **Daily work:** `staging` only. Keep it current with `origin/staging` before starting.
+- **`main`:** stable / release line. Do not land untested experiments on `main`.
+- Promote `staging` → `main` only after the user confirms the **test APK** is OK.
+
+## Flavors
+
+| Flavor | Package | Use |
+|--------|---------|-----|
+| `btTest` | `com.resurrection.blowtorch2.test` | Daily practice on phone (“BlowTorch 2 Test”) |
+| `production` | `com.resurrection.blowtorch2` | GitHub / public release only |
+
+## Agent checklist
+
+1. Develop and commit on **`staging`**.
+2. Build/install **btTest** for verification:
+   `BT_LOCAL_SIGN=1 ./gradlew :BT_Free:assembleBtTestRelease` → `adb install -r …`
+3. Do **not** create a GitHub release, tag, or production APK until the user asks.
+4. When releasing: show release notes first → wait for OK → bump version → production APK → tag `vX.Y.Z` → `gh release create`.
+5. After a release, sync `staging` with `main` (`ff-only` merge both ways as needed).
+
+## Polish UI chat
+
+Talk to the user in Polish for status and release drafts unless they switch language.

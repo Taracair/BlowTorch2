@@ -4863,15 +4863,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/**
 	 * Jedno źródło prawdy dla chrome gry: odśwież pozycje menu oraz przelicz
-	 * offsety w oknach Lua (przyciski i ForgeMap).
+	 * offsety w oknach Lua (przyciski).
 	 */
 	private void refreshGameChrome() {
 		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		updateMenuChrome();
 		windowCall("button_window", "delayedStatusRefresh", "");
-		if (ConfigurationLoader.isTestMode(this)) {
-			windowCall("forgemap_window", "refreshChromeInsets", "");
-		}
 		if (myhandler != null) {
 			myhandler.removeMessages(MESSAGE_RENAWS);
 			myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 80);
