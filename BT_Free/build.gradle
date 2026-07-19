@@ -9,7 +9,7 @@ android {
     defaultConfig {
         minSdk 28
         targetSdk 36
-        versionCode 247
+        versionCode 248
         // Match BTLib native ABIs — Pixel / Samsung / etc. (32+64-bit ARM).
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'

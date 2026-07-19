@@ -1068,7 +1068,7 @@ public class OptionsDialog extends Dialog {
 		public void onCheckedChanged(CompoundButton v,
 				boolean isChecked) {
 			BooleanOption o = (BooleanOption) v.getTag();
-			
+			o.setValue(isChecked);
 			if(selectedPlugin.equals("main")) {
 				try {
 					service.updateBooleanSetting(o.getKey(),isChecked);
