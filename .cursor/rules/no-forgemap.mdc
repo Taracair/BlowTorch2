@@ -1,0 +1,11 @@
+---
+description: ForgeMap / in-app mapper is cancelled until explicitly revived
+alwaysApply: true
+---
+
+# No ForgeMap (for now)
+
+ForgeMap and the in-app mapper experiment are **cancelled**. Do not restore Lua/Java mapper code, MAP buttons, or forgemap plugins unless the user explicitly starts a new mapper project.
+
+- Old profiles may still mention `forgemap` — `PluginParser` skips that plugin; optionally run `scripts/strip_forgemap_from_profile.py`.
+- Keep **btTest** and **production** feature-parity for core client work (no mapper-only features in test).
