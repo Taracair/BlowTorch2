@@ -1,0 +1,5 @@
+BlowTorch 2 v2.1.9
+
+• Eden/ANSI maps: stable connect, NAWS, fixed-cell grid, block glyphs
+• More bundled monospace fonts; font picker shows the chosen name
+• Telnet CHARSET / IAC hardening; UTF-8 default
