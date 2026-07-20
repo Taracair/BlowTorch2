@@ -923,7 +923,10 @@ public class TextTree {
 					if (s != null) {
 						for (int i = 0; i < s.length(); ) {
 							int cp = s.codePointAt(i);
-							if (cp >= 0x2580 && cp <= 0x259F) {
+							// Block Elements, Braille, Symbols for Legacy Computing (sextants etc.)
+							if ((cp >= 0x2580 && cp <= 0x259F)
+									|| (cp >= 0x2800 && cp <= 0x28FF)
+									|| (cp >= 0x1FB00 && cp <= 0x1FBFF)) {
 								return true;
 							}
 							i += Character.charCount(cp);
