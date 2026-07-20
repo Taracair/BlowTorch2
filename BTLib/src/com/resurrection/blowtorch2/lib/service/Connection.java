@@ -36,6 +36,7 @@ import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
+import com.resurrection.blowtorch2.lib.launcher.BuiltinTutorial;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
@@ -44,6 +45,7 @@ import com.resurrection.blowtorch2.lib.script.ScriptData;
 import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
+import com.resurrection.blowtorch2.lib.service.function.NoteCommand;
 import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
 import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
@@ -492,6 +494,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpeedwalkCommand = new SpeedwalkCommand(null, new Data());
 		LoadButtonsCommand lbcmd = new LoadButtonsCommand();
 		ClearButtonCommand cbcmd = new ClearButtonCommand();
+		NoteCommand notecmd = new NoteCommand();
 		WrapCommand wrapcmd = new WrapCommand();
 		mSpecialCommands.put(colordebug.commandName, colordebug);
 		mSpecialCommands.put(dirtyexit.commandName, dirtyexit);
@@ -505,6 +508,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(mSpeedwalkCommand.commandName, mSpeedwalkCommand);
 		mSpecialCommands.put(lbcmd.commandName, lbcmd);
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
+		mSpecialCommands.put(notecmd.commandName, notecmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		SwitchWindowCommand swdcmd = new SwitchWindowCommand();
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
@@ -898,9 +902,28 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			String red = Colorizer.getRedColor();
 			String white = Colorizer.getWhiteColor();
 			String shown = red + human + white + "\n";
-			dispatchNoProcess(shown.getBytes(mSettings.getEncoding()));
+			String encoding = "UTF-8";
+			if (mSettings != null) {
+				try {
+					String enc = mSettings.getEncoding();
+					if (enc != null && enc.length() > 0) {
+						encoding = enc;
+					}
+				} catch (Exception ignored) {
+				}
+			}
+			if (mWindows == null || mWindows.isEmpty() || mWindows.get(0) == null
+					|| mWindows.get(0).getBuffer() == null) {
+				Log.e("BlowTorch", "Lua error (no window yet): " + human);
+				return;
+			}
+			dispatchNoProcess(shown.getBytes(encoding));
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
+		} catch (Exception e) {
+			// Never crash the connection while reporting a Lua error (e.g. mSettings
+			// still null during early import / alignDefaultButtons).
+			Log.e("BlowTorch", "dispatchLuaError failed: " + message, e);
 		}
 	}
 
@@ -1237,7 +1260,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/**
 	 * Legacy XML still stores {@code lineSize} on {@code <window>}, while the UI uses
 	 * {@code font_size} on the mainDisplay token. Keep them equal so a save/reload
-	 * does not flash between 10 and 18 and change the NAWS column count mid-session.
+	 * does not flash between 10 and 20 and change the NAWS column count mid-session.
 	 */
 	private void syncLegacyLineSizeWithFont() {
 		if (mSettings == null || mWindows == null || mWindows.isEmpty()) {
@@ -1939,6 +1962,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private boolean mStartupInProgress = false;
 	private void doStartup() {
 		synchronized (mStartupLock) {
+			if (isOfflineMode()) {
+				doOfflineStartupLocked();
+				return;
+			}
 			// Skip only when the TCP session is live. isAlive() alone is wrong: a failed
 			// connect leaves a Looper thread that blocked every later initXfer.
 			if (mPump != null && mPump.isConnected()) {
@@ -1974,6 +2001,87 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mService.showConnectionNotification(mDisplay, mHost, mPort);
 			mService.noteConnectionStarted(mDisplay);
 			// Handshaking flag clears on MESSAGE_CONNECTED / disconnect / pump death.
+		}
+	}
+
+	/** True for the built-in Starter Tutorial (host {@code offline}). */
+	private boolean isOfflineMode() {
+		return BuiltinTutorial.isTutorialHost(mHost);
+	}
+
+	/**
+	 * Open a local-only session: settings/plugins/buttons work, no TCP, no reconnect loop.
+	 * Must hold {@link #mStartupLock}.
+	 */
+	private void doOfflineStartupLocked() {
+		if (mIsConnected) {
+			Log.i("BlowTorch", "doOfflineStartup skipped — already open");
+			clearStartupInProgress();
+			return;
+		}
+		if (mStartupInProgress) {
+			Log.i("BlowTorch", "doOfflineStartup skipped — startup already in progress");
+			return;
+		}
+		Log.i("BlowTorch", "doOfflineStartup begin");
+		mStartupInProgress = true;
+		killNetThreads(true);
+		mHandler.removeMessages(MESSAGE_RECONNECT);
+		mAutoReconnect = false;
+		mAutoReconnectAttempt = 0;
+
+		mService.updateForegroundNotification(mDisplay, "Offline · Starter Tutorial");
+
+		mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
+		mProcessor.setDisplayName(mDisplay);
+		initSettings();
+		applyOfflinePresentationDefaults();
+		// Window/button layer may bind slightly later — re-apply once more.
+		mHandler.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				applyOfflinePresentationDefaults();
+			}
+		}, 350);
+		applyTerminalNaws();
+		loadGMCPTriggers();
+		loadMcpTriggers();
+
+		mIsConnected = true;
+		mConnectedAtElapsed = SystemClock.elapsedRealtime();
+		clearStartupInProgress();
+
+		mService.showConnectionNotification(mDisplay, mHost, mPort);
+		mService.noteConnectionStarted(mDisplay);
+
+		sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ "Starter Tutorial — offline session (no network).\n"
+				+ Colorizer.getWhiteColor()
+				+ "Walk lessons with .tutorial next  ·  .tutorial topics  ·  .tutorial done\n\n");
+	}
+
+	/** Readable font + starter button layout for the offline tutorial profile. */
+	private void applyOfflinePresentationDefaults() {
+		try {
+			if (mWindows != null && !mWindows.isEmpty() && mWindows.get(0) != null
+					&& mWindows.get(0).getSettings() != null) {
+				mWindows.get(0).getSettings().setOption("font_size", "20");
+				mSettings.setLineSize(20);
+				IWindowCallback cb = mWindowCallbackMap.get(mWindows.get(0).getName());
+				if (cb != null) {
+					cb.updateSetting("font_size", "20");
+				}
+			}
+		} catch (Exception e) {
+			Log.w("BlowTorch", "applyOfflinePresentationDefaults font", e);
+		}
+		try {
+			Plugin buttons = mPluginMap.get("button_window");
+			if (buttons != null) {
+				buttons.callFunction("installStarterButtonLayout", "");
+			}
+		} catch (Exception e) {
+			Log.w("BlowTorch", "applyOfflinePresentationDefaults buttons", e);
 		}
 	}
 
@@ -4352,6 +4460,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				
 				if (mPump != null && mPump.isConnected()) {
 					mPump.sendData(tosend);
+				} else if (isOfflineMode()) {
+					sendBytesToWindow(new String(Colorizer.getBrightYellowColor()
+							+ "\n[offline tutorial — not sent to a MUD]\n"
+							+ Colorizer.getWhiteColor()).getBytes("UTF-8"));
 				} else {
 					sendBytesToWindow(new String(Colorizer.getRedColor() + "\nDisconnected.\n" + Colorizer.getWhiteColor()).getBytes("UTF-8"));
 				}
@@ -5091,9 +5203,22 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		
-		if (path == null) {
-			mSettings.getSettings().getOptions().setOption("font_size", Integer.toString(calculate80CharFontSize()));
-		
+		if (path == null || BuiltinTutorial.isTutorialHost(mHost)
+				|| BuiltinTutorial.DISPLAY_NAME.equals(mDisplay)) {
+			// New profiles + offline tutorial: readable phone text (~20), not 80-col squeeze.
+			int fitted = calculate80CharFontSize();
+			int use = Math.max(20, fitted);
+			if (BuiltinTutorial.isTutorialHost(mHost)
+					|| BuiltinTutorial.DISPLAY_NAME.equals(mDisplay)) {
+				use = 20;
+			}
+			String fontStr = Integer.toString(use);
+			mSettings.getSettings().getOptions().setOption("font_size", fontStr);
+			mSettings.setLineSize(use);
+			if (mWindows != null && !mWindows.isEmpty() && mWindows.get(0) != null
+					&& mWindows.get(0).getSettings() != null) {
+				mWindows.get(0).getSettings().setOption("font_size", fontStr);
+			}
 		}
 		
 		buildTriggerSystem();

@@ -50,6 +50,13 @@ public class LauncherSAXParser extends BaseParser {
 				current_item.setHostName((a.getValue("",BaseParser.ATTR_HOST) == null) ? "host not set" : a.getValue("",BaseParser.ATTR_HOST));
 				current_item.setPortString((a.getValue("",BaseParser.ATTR_PORT) == null) ? "4002" : a.getValue("",BaseParser.ATTR_PORT));
 				current_item.setLastPlayed((a.getValue("",BaseParser.ATTR_DATEPLAYED) == null) ? "11-25-2010 11:53am" : a.getValue("",BaseParser.ATTR_DATEPLAYED));
+				String desc = a.getValue("", BaseParser.ATTR_DESCRIPTION);
+				current_item.setDescription(desc != null ? desc : "");
+				String offlineAttr = a.getValue("", BaseParser.ATTR_OFFLINE);
+				boolean offline = "true".equalsIgnoreCase(offlineAttr)
+						|| "1".equals(offlineAttr)
+						|| BuiltinTutorial.isTutorialHost(current_item.getHostName());
+				current_item.setOffline(offline);
 			}
 
 		});

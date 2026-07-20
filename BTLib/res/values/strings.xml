@@ -3,6 +3,14 @@
     <string name="launcher_btn_new">New</string>
     <string name="launcher_btn_help">About</string>
     <string name="launcher_menu_about">About</string>
+    <string name="launcher_menu_hide_starter_tutorial">Hide Starter Tutorial</string>
+    <string name="launcher_menu_show_starter_tutorial">Show Starter Tutorial</string>
+    <string name="launcher_tutorial_hide">Hide</string>
+    <string name="launcher_tutorial_locked_msg">Starter Tutorial is built-in and cannot be deleted. You can hide it from the list (⋮ menu → Show/Hide Starter Tutorial).</string>
+    <string name="launcher_tutorial_cannot_delete">Starter Tutorial cannot be deleted. Hide it from the ⋮ menu instead.</string>
+    <string name="launcher_tutorial_cannot_edit">Starter Tutorial cannot be edited.</string>
+    <string name="launcher_tutorial_hidden_toast">Starter Tutorial hidden</string>
+    <string name="launcher_tutorial_shown_toast">Starter Tutorial shown</string>
     <string name="launcher_menu_import_server_list">Import Server List</string>
     <string name="launcher_menu_export_server_list">Export Server List</string>
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>

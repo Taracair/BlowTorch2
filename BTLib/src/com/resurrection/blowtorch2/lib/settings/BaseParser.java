@@ -149,6 +149,8 @@ public class BaseParser {
 	public static final String ATTR_HOST = "host";
 	public static final String ATTR_PORT = "port";
 	public static final String ATTR_DATEPLAYED = "lastPlayed";
+	public static final String ATTR_DESCRIPTION = "description";
+	public static final String ATTR_OFFLINE = "offline";
 	public static final String TAG_ACCOUNT = "account";
 	public static final String ATTR_ACCOUNT_LABEL = "label";
 	public static final String ATTR_ACCOUNT_LOGIN = "login";

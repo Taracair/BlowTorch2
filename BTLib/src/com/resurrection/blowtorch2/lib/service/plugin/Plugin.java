@@ -229,6 +229,20 @@ public class Plugin implements SettingsChangedListener {
 		
 		L.pushJavaObject(mContext);
 		L.setGlobal("context");
+
+		try {
+			String dn = parent.getDisplayName();
+			String hn = parent.getHostName();
+			L.pushString(dn != null ? dn : "");
+			L.setGlobal("connection_display");
+			L.pushString(hn != null ? hn : "");
+			L.setGlobal("connection_host");
+		} catch (Throwable t) {
+			L.pushString("");
+			L.setGlobal("connection_display");
+			L.pushString("");
+			L.setGlobal("connection_host");
+		}
 		
 		NoteFunction nf = new NoteFunction(L,this,mHandler);
 		nf.register("Note");

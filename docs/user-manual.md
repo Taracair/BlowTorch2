@@ -91,6 +91,7 @@ dialog when you turn Literal off.
 |---------|-------------|
 | `.colordebug <0\|1\|2\|3>` | ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes |
 | `.closewindow` | Dirty-exit the game window |
+| `.note <text>` | Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging |
 | `.timer <action> <name> [silent]` | Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`) |
 | `.dobell` | Fire configured bell reaction |
 | `.togglefullscreen` | Toggle fullscreen preference |
@@ -148,8 +149,15 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 
 ## Copy text from the game window
 
-- **Two-finger tap** on the game text to open the selection / copy widget (one-finger long-press does not).
+- **First finger** — touch where selection should start (marks the start).
+- **Second finger** — tap to open the selection / copy widget.
+- One-finger long-press alone does not open copy.
 - Drag the cursors, then use the widget’s copy control. On-screen buttons may hide while selecting so the widget stays usable.
+
+## Font size
+
+New profiles start around font size **20** (readable on phones). Change under
+Options → Window → Font Size.
 
 ## On-screen buttons: swipe + accordion
 
@@ -218,6 +226,18 @@ Optional protocols (off by default; Options → Service → **MUD Protocols**):
 |---------|-------------|
 | `.loadset <name>` | Load named button set |
 | `.clearbuttons` | Clear via button window |
+
+### `starter_tutorial` (loaded by default)
+
+| Command | Description |
+|---------|-------------|
+| `.tutorial …` | Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>` |
+
+On the default button set, tap **HELP** to run `.tutorial start`. The launcher
+lists a built-in **Starter Tutorial** row first (offline — no MUD). Disable the
+welcome note on normal MUDs via **Options → Starter Tutorial → Show on connect**,
+or type `.tutorial done`. To remove the plugin entirely, unload it under
+**Plugins**.
 
 ## Session overflow menu
 

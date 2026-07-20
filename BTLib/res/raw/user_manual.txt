@@ -50,6 +50,10 @@ Triggers (trigger editor):
   In regex mode, use (...) to capture and $1, $2, ... in Ack / Replace /
   Toast / Notification (and similar) text.
 
+  Enable/disable each trigger from the Triggers list toolbar toggle.
+  (Menu entries named Enable All / Disable All are unfinished stubs —
+  use the per-trigger toggle for now.)
+
   Examples (Literal off):
     Pattern  You hit (.+) for (\d+)
     Ack      emote crushed $1 ($2 dmg)
@@ -74,6 +78,10 @@ Built-in commands
 .closewindow
   Requests a dirty exit of the game window (closes the session UI without a
   clean disconnect sequence).
+
+.note <text>
+  Client-only echo to the game window; never sent to the MUD.
+  Useful for button tips and debugging. With no argument, prints usage.
 
 .timer <action> <name> [silent]
   Control a named timer. Actions: play, pause, reset, stop, info.
@@ -150,9 +158,16 @@ Built-in commands
 
 Copy text from the game window
 ------------------------------
-  Two-finger tap the game text to open the selection / copy widget
-  (one-finger long-press does not). Drag cursors, then copy.
+  First finger — touch where selection should start (marks the start).
+  Second finger — tap to open the selection / copy widget.
+  One-finger long-press alone does not open copy.
+  Drag the cursors, then use the widget copy control.
   On-screen buttons may hide while selecting so the widget stays usable.
+
+Font size
+---------
+  New profiles start around font size 20 (readable on phones).
+  Change under Options → Window → Font Size.
 
 .disconnect
   Disconnects the current session (same as overflow menu Disconnect).
@@ -217,6 +232,14 @@ Plugin commands (when loaded)
 button_window (default Free build):
   .loadset <name>       Load button set
   .clearbuttons         Clear buttons via button window
+
+starter_tutorial (loaded by default):
+  .tutorial …           Starter Tutorial: help / start / next / prev /
+                        skip / done / topics / <topic>
+  On the default button set, tap HELP to run .tutorial start.
+  The launcher lists a built-in Starter Tutorial row first (offline — no MUD).
+  Disable welcome on normal MUDs: Options → Starter Tutorial → Show on connect,
+  or .tutorial done. Unload under Plugins to remove entirely.
 
 Menus (session overflow)
 ------------------------
