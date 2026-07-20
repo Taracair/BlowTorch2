@@ -391,9 +391,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case encoding:
-						if(!((String)opt.getValue()).equals("ISO-8859-1")) {
-							dooutput = true;
-						}
+						// Always persist encoding; runtime default is UTF-8 (needed for chafa / Unicode art).
+						dooutput = true;
 						break;
 					case orientation:
 						if((Integer)opt.getValue() != 0) {

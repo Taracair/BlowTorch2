@@ -1630,6 +1630,14 @@ public final class Colorizer {
 		if (value == XTERM_256_BACKGROUND) { return COLOR_TYPE.XTERM_256_BG_START; }
 		
 		if (value == XTERM_256_FIVE) { return COLOR_TYPE.XTERM_256_FIVE; }
+
+		// Bright ANSI (aixterm): 90–97 FG, 100–107 BG
+		if (value >= 90 && value <= 97) {
+			return COLOR_TYPE.FOREGROUND;
+		}
+		if (value >= 100 && value <= 107) {
+			return COLOR_TYPE.BACKGROUND;
+		}
 		
 		COLOR_TYPE retval = COLOR_TYPE.NOT_A_COLOR;
 		if (value < ANSI_BACKGROUND_START && value >= ANSI_FOREGROUND_START) {
@@ -1666,6 +1674,16 @@ public final class Colorizer {
 		int colorval = 0x000000;
 		
 		if (is256color) { return get256ColorValue(value); }
+
+		// aixterm bright FG 90–97 / BG 100–107 → always bright palette
+		if (value != null && value >= 90 && value <= 97) {
+			return getColorValue(Integer.valueOf(1),
+					Integer.valueOf(ANSI_FOREGROUND_START + (value.intValue() - 90)), false);
+		}
+		if (value != null && value >= 100 && value <= 107) {
+			return getColorValue(Integer.valueOf(1),
+					Integer.valueOf(ANSI_BACKGROUND_START + (value.intValue() - 100)), false);
+		}
 		
 		int onespot = 0;
 		
