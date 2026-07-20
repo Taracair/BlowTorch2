@@ -184,8 +184,11 @@ over editing the raw Supports String. Helpers:
 
 ## MCP (short)
 
-Mud Client Protocol (`#$#…` in-band — not GMCP). Off by default.
-**Options → Service → MCP Options**. Prefer **Manage packages…**.
+Mud Client Protocol ([MCP 2.1](https://www.moo.mud.org/mcp/)) — in-band `#$#…`
+(not GMCP). Off by default. **Options → Service → MCP Options**. Prefer **Manage packages…**.
+
+Native packages (when enabled): hellmoo-status vitals, simpleedit editor,
+displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 
 ```
 .mcp                  — help
@@ -193,11 +196,12 @@ Mud Client Protocol (`#$#…` in-band — not GMCP). Off by default.
 .mcp packages         — enabled vs seen
 .mcp enable|disable   — toggle packages
 .mcp renegotiate      — re-send mcp-negotiate-can
-.mcp sniff [on|off|tail N]
-.mcp feed [on|off]
-.mcp vitals|dump      — HellMOO/Samsara status cache
-.mcp send …           — raw #$# or named message
+.mcp sniff|feed|dump|vitals|send|ping|client
+.mcp cord open|close|send|list
 ```
+
+Lua: `Send_MCP_Packet(s)`, `Get_MCP_Status()`, literal triggers `@message-name`
+(same idea as GMCP `%module`).
 
 Optional protocols (off by default; Options → Service → **MUD Protocols**):
 

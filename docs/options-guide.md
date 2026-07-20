@@ -55,14 +55,16 @@ flags default off except omit-from-output and auto-negotiate (when Use MCP? is o
 |--------|---------|--------|
 | **Use MCP?** | off | Handshake + package negotiate |
 | **Manage packages…** | — | Checkbox UI for `mcp-negotiate-can` |
-| **Packages String (advanced)** | negotiate + hellmoo-status | Raw list |
+| **Packages String (advanced)** | negotiate + hellmoo + simpleedit + displayurl + ping + cord + vmoo | Raw list |
 | **Log MCP?** | off | Also `.mcp sniff` |
 | **Show MCP in game window?** | off | Also `.mcp feed` |
 | **Omit MCP lines from output?** | on | Hide `#$#` from scrollback |
 | **Auto-negotiate packages?** | on | Send can/end after `#$#mcp` |
 
-Native: **dns-org-hellmoo-status** vitals cache (`.mcp vitals`). Helpers: `.mcp ask`,
-`.mcp enable|disable`, `.mcp renegotiate`, `.mcp send`.
+Native handlers: **dns-org-hellmoo-status** (`.mcp vitals`), **simpleedit** (edit dialog),
+**displayurl** (open browser), **ping** (auto-reply), **mcp-cord**, **vmoo-client**.
+Lua: `Send_MCP_Packet`, `Get_MCP_Status`, triggers `@message-name`.
+Helpers: `.mcp ask`, `.mcp cord …`, `.mcp ping`, `.mcp client`, `.mcp send`.
 
 ## MUD Protocols (optional)
 
