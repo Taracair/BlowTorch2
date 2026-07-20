@@ -7,7 +7,8 @@
     <string name="launcher_menu_export_server_list">Export Server List</string>
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
-    <string name="launcher_account_plaintext_warn">Optional notes only — not used for auto-login. Saved as plain text on this device. Leave blank if you do not want passwords stored here.</string>
+    <string name="launcher_account_section">Account (optional)</string>
+    <string name="launcher_account_plaintext_warn">If this MUD supports GMCP Char.Login, the primary login and password below can be used for automatic login. Extra account slots are notes only. Saved as plain text on this device — leave blank if you do not want passwords stored here.</string>
     <string name="launcher_extra_accounts_hint">Tap a slot to edit. Delete removes it.</string>
     <string name="launcher_extra_account_row">%1$s · login %2$s · mail %3$s · pass %4$s</string>
     <string name="whatisnew">BlowTorch 2\n\n• Works on current Android\n• Shared /BlowTorch/ folder or system file pickers\n• Edit/Send input bar, swipe/hold/accordion buttons\n• Session logs, .search, .wrap, .kb, GMCP helpers\n\nFull notes: in-app Help, or the project README.</string>

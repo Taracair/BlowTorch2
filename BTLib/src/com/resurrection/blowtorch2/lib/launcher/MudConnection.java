@@ -9,7 +9,7 @@ public class MudConnection {
 	private String port;
 	private String lastPlayed = "never";
 	private boolean connected = false;
-	/** Informational account slots (login/password/mail); not used for auto-connect. */
+	/** Account slots (login/password/mail); primary used for GMCP Char.Login. */
 	private ArrayList<ServerAccount> accounts = new ArrayList<ServerAccount>();
 
 	public MudConnection copy() {
