@@ -3298,6 +3298,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case log_gmcp:
 				this.doSetLogGMCP((Boolean) o.getValue());
 				break;
+			case gmcp_suggest_modules:
+				this.doSetGmcpSuggestModules((Boolean) o.getValue());
+				break;
 			case session_log:
 				doSetSessionLog((Boolean) o.getValue());
 				break;
@@ -3339,6 +3342,50 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	public final String getGmcpModuleStatus() {
+		boolean use = false;
+		try {
+			BaseOption o = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("use_gmcp");
+			use = o != null && o.getValue() instanceof Boolean && ((Boolean) o.getValue()).booleanValue();
+		} catch (Exception ignored) {
+		}
+		String body;
+		if (mProcessor != null) {
+			body = mProcessor.getModuleRegistry().statusLine();
+		} else {
+			try {
+				BaseOption s = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("gmcp_supports");
+				GmcpModuleRegistry r = GmcpModuleRegistry.fromSupportsOption(
+						s != null && s.getValue() != null ? s.getValue().toString() : GmcpModuleRegistry.DEFAULT_SUPPORTS);
+				body = r.statusLine();
+			} catch (Exception e) {
+				body = "—";
+			}
+		}
+		return (use ? "on" : "off") + " · " + body;
+	}
+
+	@SuppressWarnings("rawtypes")
+	public final java.util.List getGmcpSeenModules() {
+		if (mProcessor != null) {
+			return mProcessor.getModuleRegistry().seenModules();
+		}
+		return new java.util.ArrayList<String>();
+	}
+
+	public final void renegotiateGmcp() {
+		if (mProcessor != null) {
+			mProcessor.renegotiateGMCP();
+		}
+	}
+
+	public final void applyGmcpSupportsFromUi(final String supports, final boolean renegotiate) {
+		updateStringSetting("gmcp_supports", supports != null ? supports : GmcpModuleRegistry.DEFAULT_SUPPORTS);
+		if (renegotiate) {
+			renegotiateGmcp();
+		}
+	}
+
 	/** Implementation of the use gmcp settings handler.
 	 * 
 	 * @param value New value for setting.
@@ -3355,6 +3402,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	private void doSetGmcpSuggestModules(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setSuggestGmcpModules(value != null && value.booleanValue());
+		}
+	}
+
 	private void applyGmcpLogSetting() {
 		try {
 			Object opt = mSettings.getSettings().getOptions().findOptionByKey("log_gmcp");
@@ -3365,6 +3418,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			if (mProcessor != null) {
 				mProcessor.setLogGMCP(on);
+			}
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("gmcp_suggest_modules");
+			boolean on = false;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+			if (mProcessor != null) {
+				mProcessor.setSuggestGmcpModules(on);
 			}
 		} catch (Exception ignored) {
 		}
@@ -3790,7 +3855,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** GMCP Supports string. */
 		gmcp_supports,
 		/** Log GMCP packets to file. */
-		log_gmcp, 
+		log_gmcp,
+		/** Toast when an unseen module arrives (opt-in). */
+		gmcp_suggest_modules,
 		/** Show Regex Warning. */
 		show_regex_warning,
 		/** Append game output to session .txt log. */

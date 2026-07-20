@@ -40,6 +40,8 @@ public class Processor {
 	private boolean mDebugTelnet = false;
 	/** When true, GMCP handshake/packets are written to BlowTorchLogger (+ session log if on). */
 	private boolean mLogGMCP = false;
+	/** Optional toast when server sends a module not in Supports.Set (default off). */
+	private boolean mSuggestGmcpModules = false;
 	/** Optional profile label for session-log GMCP lines. */
 	private String mLogProfile = "session";
 	/** Holdover sequence buffer. Used when a telnet negotation spans a transmission boundary. */
@@ -58,6 +60,8 @@ public class Processor {
 	private GmcpMediaPlayer mMediaPlayer = null;
 	/** Native Char.Login handler. */
 	private GmcpCharLogin mCharLogin = null;
+	/** Module catalog / enabled / seen for this connection. */
+	private final GmcpModuleRegistry mModuleRegistry = new GmcpModuleRegistry();
 	/** Profile display name for Char.Login credential lookup. */
 	private String mDisplayName = "";
 	/** Constructor.
@@ -129,6 +133,10 @@ public class Processor {
 
 	public final void setLogGMCP(final boolean logGMCP) {
 		mLogGMCP = logGMCP;
+	}
+
+	public final void setSuggestGmcpModules(final boolean suggest) {
+		mSuggestGmcpModules = suggest;
 	}
 
 	public final boolean isLogGMCP() {
@@ -405,6 +413,14 @@ public class Processor {
 					module = whole.substring(0, split);
 					data = whole.substring(split + 1).trim();
 				}
+				String suggested = mModuleRegistry.noteSeen(module);
+				if (mSuggestGmcpModules && suggested != null && mReportTo != null) {
+					mReportTo.sendMessageDelayed(mReportTo.obtainMessage(
+							Connection.MESSAGE_PROCESSORWARNING,
+							"GMCP seen (not enabled): " + suggested
+									+ " — Options → Manage modules… or .gmcp enable "
+									+ suggested), 1);
+				}
 				if (data != null && data.length() > 0) {
 					try {
 						JSONObject jo = new JSONObject(data);
@@ -552,6 +568,7 @@ public class Processor {
 		rebuildGmcpHello();
 		ensureMediaPlayer();
 		ensureCharLogin();
+		mModuleRegistry.setLastSupportsSet(mGMCPSupports);
 		try {
 			byte[] hellob = getGMCPResponse(mGMCPHello);
 			byte[] supportb = getGMCPResponse(mGMCPSupports);
@@ -584,6 +601,18 @@ public class Processor {
 		}
 	}
 
+	public final GmcpModuleRegistry getModuleRegistry() {
+		return mModuleRegistry;
+	}
+
+	/** Re-send Hello + Supports without full reconnect. */
+	public final void renegotiateGMCP() {
+		if (!mUseGMCP) {
+			return;
+		}
+		initGMCP();
+	}
+
 	/** Release Client.Media players (call on disconnect). */
 	public final void releaseGmcpHelpers() {
 		if (mMediaPlayer != null) {
@@ -591,6 +620,7 @@ public class Processor {
 			mMediaPlayer = null;
 		}
 		mCharLogin = null;
+		mModuleRegistry.clearSeen();
 	}
 
 	private void dispatchNativeGmcp(final String module, final JSONObject body) {
@@ -764,7 +794,9 @@ public class Processor {
 	 * @param value The new value for mGMCPSupports.
 	 */
 	public final void setGMCPSupports(final String value) {
-		mGMCPSupports = "core.supports.set [" + value + "]";
+		mModuleRegistry.setEnabledFromSupportsString(value);
+		mGMCPSupports = "core.supports.set [" + mModuleRegistry.toSupportsString() + "]";
+		mModuleRegistry.setLastSupportsSet(mGMCPSupports);
 	}
 }
 
