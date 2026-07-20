@@ -1,0 +1,27 @@
+---
+description: Keep Starter Tutorial in sync when features change
+alwaysApply: true
+---
+
+# Starter Tutorial stays current
+
+When you change user-facing client features (`.commands`, buttons, triggers, aliases, timers, GMCP/MCP, Options, launcher, copy, reconnect, plugins), update the offline **Starter Tutorial** in the same change set when the lesson would otherwise be wrong or incomplete.
+
+## Canonical files
+
+- `BT_Free/assets/share/lua/5.1/startertutorial.lua` — topics / `.tutorial`
+- `BT_Free/assets/share/lua/5.1/buttonserver.lua` — starter pad (`STARTER_DEFAULT_BUTTONS`, accordion, align)
+- `BT_Free/assets/share/lua/5.1/buttonwindow.lua` — CLEAR → BACK placement, button UX demos
+- Plugin seed: `starter_tutorial` in `BT_Free/config/default_settings_{test,main}.xml`
+- Bump `BLOWTORCH_LUA_LIBS_VERSION` in `BT_Free/AndroidManifest.xml` when shipping Lua asset changes
+
+## What to update
+
+- New or renamed `.command` → topic text + `TOPIC_ORDER` / help list if it is beginner-relevant
+- Button gestures / sets / `.loadset` / accordion → button lessons + demo pad labels/commands
+- Triggers / aliases / enable-disable UX → `triggers` / `aliases` topics (be honest about unfinished UI)
+- Do not invent APIs; keep tone practical and English (tutorial language)
+
+## Skip
+
+Typo-only, pure refactors, or internal changes with no player-visible behavior.

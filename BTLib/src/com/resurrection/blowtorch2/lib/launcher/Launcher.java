@@ -137,6 +137,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MENU_BACKUP_ALL_SETTINGS = 110;
 	protected static final int MENU_RESTORE_SETTINGS_BACKUP = 111;
 	protected static final int MENU_ABOUT = 112;
+	protected static final int MENU_TOGGLE_STARTER_TUTORIAL = 113;
 	
 	private IConnectionBinder service = null;
 	
@@ -393,6 +394,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			saveXML();
 			Toast.makeText(this, getString(R.string.profiles_discovered, discovered), Toast.LENGTH_LONG).show();
 		}
+
+		if (BuiltinTutorial.ensureIn(launcher_settings)) {
+			launcherSaveEnabled = true;
+			saveXML();
+		}
 		
 		//by here we should have a completly populated list and settings
 		//check version code.
@@ -641,9 +647,32 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 		public boolean onItemLongClick(AdapterView<?> arg0, View arg1,
 				int arg2, long arg3) {
-			//Log.e("LAUNCHER","List item long clicked!");
 			MudConnection muc = apdapter.getItem(arg2);
-			
+
+			if (BuiltinTutorial.isTutorialEntry(muc)) {
+				AlertDialog.Builder build = new AlertDialog.Builder(Launcher.this)
+					.setTitle(muc.getDisplayName())
+					.setMessage(R.string.launcher_tutorial_locked_msg);
+				AlertDialog dialog = build.create();
+				dialog.setButton(AlertDialog.BUTTON_NEUTRAL, getString(R.string.launcher_tutorial_hide),
+						new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface d, int which) {
+								BuiltinTutorial.setHidden(Launcher.this, true);
+								buildList();
+								Toast.makeText(Launcher.this,
+										R.string.launcher_tutorial_hidden_toast,
+										Toast.LENGTH_SHORT).show();
+							}
+						});
+				dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel",
+						new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface arg0, int arg1) {
+								arg0.dismiss();
+							}
+						});
+				dialog.show();
+				return true;
+			}
 			
 			Message delmsg = connectionModifier.obtainMessage(MSG_DELETECONNECTION);
 			delmsg.obj = muc;
@@ -872,14 +901,23 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			switch(msg.what) {
 			case MSG_DELETECONNECTION:
 				MudConnection todelete = (MudConnection)msg.obj;
+				if (BuiltinTutorial.isTutorialEntry(todelete)) {
+					Toast.makeText(Launcher.this,
+							R.string.launcher_tutorial_cannot_delete,
+							Toast.LENGTH_LONG).show();
+					break;
+				}
 				launcher_settings.getList().remove(todelete.getDisplayName());
 				buildList();
-				//MudConnection todelete = (MudConnection)msg.obj;
-				//apdapter.remove(todelete);
-				//apdapter.notifyDataSetChanged();
 				break;
 			case MSG_MODIFYCONNECTION:
 				MudConnection tomodify = (MudConnection)msg.obj;
+				if (BuiltinTutorial.isTutorialEntry(tomodify)) {
+					Toast.makeText(Launcher.this,
+							R.string.launcher_tutorial_cannot_edit,
+							Toast.LENGTH_LONG).show();
+					break;
+				}
 				NewConnectionDialog diag = new NewConnectionDialog(Launcher.this,Launcher.this,tomodify);
 				diag.show();
 				break;
@@ -916,6 +954,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     }*/
     
     public void modify(MudConnection old, MudConnection newData) {
+    	if (BuiltinTutorial.isTutorialEntry(old)) {
+    		Toast.makeText(this, R.string.launcher_tutorial_cannot_edit, Toast.LENGTH_LONG).show();
+    		return;
+    	}
     	launcher_settings.getList().remove(old.getDisplayName());
     	launcher_settings.getList().put(newData.getDisplayName(), newData);
     	launcherSaveEnabled = true;
@@ -1714,10 +1756,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	private void buildList() {
 		apdapter.clear();
 		
-		
+		final boolean hideTutorial = BuiltinTutorial.isHidden(this);
 		for(MudConnection m : launcher_settings.getList().values()) {
-			
-			
+			if (hideTutorial && BuiltinTutorial.isTutorialEntry(m)) {
+				continue;
+			}
 			apdapter.add(m);
 		}
 		
@@ -1737,15 +1780,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			}
 		}
 		
-		//String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
-		//if(!serviceConnected) {
-			//this.startService(new Intent(action));
-			//fgds
-		//} else {
-			
-		//}
 		apdapter.notifyDataSetChanged();
-		//this.bindService(service, conn, flags)
 	}
 	
 	private LauncherSettings tryRecoverLauncherList() {
@@ -1821,7 +1856,16 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	private class ConnectionComparator implements Comparator<MudConnection> {
 
 		public int compare(MudConnection a, MudConnection b) {
-			//pos it above, negative if below
+			// Built-in offline tutorial always first.
+			boolean aTut = BuiltinTutorial.isTutorialEntry(a);
+			boolean bTut = BuiltinTutorial.isTutorialEntry(b);
+			if (aTut && !bTut) {
+				return -1;
+			}
+			if (bTut && !aTut) {
+				return 1;
+			}
+
 			Time at = new Time();
 			Time bt = new Time();
 			
@@ -1848,6 +1892,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	
 	public boolean onCreateOptionsMenu(Menu menu) {
 
+		menu.add(0, MENU_TOGGLE_STARTER_TUTORIAL, 0, R.string.launcher_menu_hide_starter_tutorial);
 		menu.add(0, MENU_IMPORT_SERVER_LIST, 0, R.string.launcher_menu_import_server_list);
 		menu.add(0, MENU_EXPORT_SERVER_LIST, 0, R.string.launcher_menu_export_server_list);
 		menu.add(0, MENU_BACKUP_ALL_SETTINGS, 0, R.string.launcher_menu_backup_all_settings);
@@ -1861,6 +1906,19 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 		return true;
 
+	}
+
+	@Override
+	public boolean onPrepareOptionsMenu(Menu menu) {
+		MenuItem toggle = menu.findItem(MENU_TOGGLE_STARTER_TUTORIAL);
+		if (toggle != null) {
+			if (BuiltinTutorial.isHidden(this)) {
+				toggle.setTitle(R.string.launcher_menu_show_starter_tutorial);
+			} else {
+				toggle.setTitle(R.string.launcher_menu_hide_starter_tutorial);
+			}
+		}
+		return super.onPrepareOptionsMenu(menu);
 	}
 
 	private void AskExportFileName(final boolean external) {
@@ -1940,6 +1998,20 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch(item.getItemId()) {
+		case MENU_TOGGLE_STARTER_TUTORIAL: {
+			boolean hide = !BuiltinTutorial.isHidden(this);
+			BuiltinTutorial.setHidden(this, hide);
+			if (BuiltinTutorial.ensureIn(launcher_settings)) {
+				launcherSaveEnabled = true;
+				saveXML();
+			}
+			buildList();
+			Toast.makeText(this,
+					hide ? R.string.launcher_tutorial_hidden_toast
+							: R.string.launcher_tutorial_shown_toast,
+					Toast.LENGTH_SHORT).show();
+			break;
+		}
 		case MENU_IMPORT_SERVER_LIST:
 			SDCardUtils.hasPermissions(this, findViewById(R.id.launcher_window_content), RP_IMPORT, new Runnable() {
 				@Override
@@ -2022,26 +2094,38 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			if(m != null) {
 				TextView title = (TextView)v.findViewById(R.id.displayname);
 				TextView host = (TextView)v.findViewById(R.id.hoststring);
-				//TextView port = (TextView)v.findViewById(R.id.port);
 				if(title != null) {
 					title.setText(" " + m.getDisplayName());
 				}
 				if(host != null) {
-					String hostLine = "\t"  + m.getHostName() + ":" + m.getPortString();
-					if (service != null) {
-						try {
-							String dur = service.getConnectionDurationText(m.getDisplayName());
-							if (dur != null && dur.length() > 0) {
-								if (m.isConnected()) {
-									hostLine = hostLine + "  ·  "
-											+ getString(R.string.launcher_connected_duration, dur);
-								} else {
-									hostLine = hostLine + "  ·  "
-											+ getString(R.string.launcher_last_duration, dur);
+					String hostLine;
+					if (m.isOffline() || BuiltinTutorial.isTutorialEntry(m)) {
+						String desc = m.getDescription();
+						if (desc == null || desc.length() == 0) {
+							desc = BuiltinTutorial.DESCRIPTION;
+						}
+						hostLine = "\t" + desc;
+					} else {
+						hostLine = "\t"  + m.getHostName() + ":" + m.getPortString();
+						if (service != null) {
+							try {
+								String dur = service.getConnectionDurationText(m.getDisplayName());
+								if (dur != null && dur.length() > 0) {
+									if (m.isConnected()) {
+										hostLine = hostLine + "  ·  "
+												+ getString(R.string.launcher_connected_duration, dur);
+									} else {
+										hostLine = hostLine + "  ·  "
+												+ getString(R.string.launcher_last_duration, dur);
+									}
 								}
+							} catch (RemoteException e) {
+								e.printStackTrace();
 							}
-						} catch (RemoteException e) {
-							e.printStackTrace();
+						}
+						String desc = m.getDescription();
+						if (desc != null && desc.length() > 0) {
+							hostLine = hostLine + "\n\t" + desc;
 						}
 					}
 					host.setText(hostLine);
@@ -2049,12 +2133,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				
 				if(m.isConnected()) {
 					title.setTextColor(0xFF66FF66);
+				} else if (BuiltinTutorial.isTutorialEntry(m)) {
+					title.setTextColor(0xFF7EC8E3);
 				} else {
 					title.setTextColor(0xEEF5F5F5);
 				}
-				//if(port != null) {
-				//	port.setText(" Port: " + m.getPortString());
-				//}
 			}
 			return v;
 			

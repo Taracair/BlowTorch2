@@ -1722,9 +1722,7 @@ function OnSizeChanged(w,h,oldw,oldh)
 	
 
 	
-	revertButtonData.x = w - revertButtonData.width*2
-	revertButtonData.y = h - revertButtonData.height*2
-	revertButton:updateRect(statusoffset)
+	positionRevertButton(w, h)
 	
 	clampAllButtons()
 	drawButtons()
@@ -2322,10 +2320,36 @@ revertButtonData.y = 100
 revertButton = BUTTON:new(revertButtonData,density)
 revertButtonSet = {}
 revertButtonSet[1] = revertButton
+
+-- Place BACK in the upper pad area (same band as starter buttons), not bottom-edge.
+function positionRevertButton(w, h)
+	w = tonumber(w) or (view and view:getWidth()) or 0
+	h = tonumber(h) or (view and view:getHeight()) or 0
+	if w <= 0 or h <= 0 then
+		return
+	end
+	local dens = density or GetDisplayDensity() or 1
+	local ab = tonumber(GetActionBarHeight()) or statusoffset or 0
+	local topPad = 88 * dens
+	local halfH = (revertButtonData.height / 2) * dens
+	revertButtonData.x = w / 2
+	revertButtonData.y = ab + topPad + halfH
+	local minY = halfH
+	local maxY = h - statusoffset - halfH
+	if minY > maxY then
+		minY = halfH
+		maxY = h - halfH
+	end
+	if revertButtonData.y < minY then revertButtonData.y = minY end
+	if revertButtonData.y > maxY then revertButtonData.y = maxY end
+	revertButton:updateRect(statusoffset)
+end
+
 function clearButtons()
 	if(buttonsCleared) then return end
 	buttonsCleared = true
 	revertset = buttons
+	positionRevertButton()
 	buttons = revertButtonSet
 	drawButtons()
 	suppress_editor = true
