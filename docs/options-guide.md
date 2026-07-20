@@ -4,13 +4,13 @@ In-game **Options** dialog groups (Program Settings):
 
 | Group | Purpose |
 |-------|---------|
-| *(root)* | Encoding, orientation, keep screen on, fullscreen |
-| **Window** | Font, buffer, word wrap, etc. (window token settings) |
+| **Window** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
-| **Service** | Background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…** |
-| **GMCP Options** | nested under Service (`Use GMCP?`, Supports String, `Log GMCP?`) |
+| **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
+
+Per-window font/buffer/wrap settings still live under each window’s own settings (not the Program Settings root).
 
 ## Shared storage layout (`/BlowTorch/`)
 
@@ -29,12 +29,16 @@ On Android 11+ this needs **All files access** once: **Options → Miscellaneous
 
 ## GMCP
 
-GMCP is an optional structured out-of-band channel (telnet option 201). Enable
-**Use GMCP?** and set **Supports String** for modules your MUD expects (servers
-differ; common starters: `"char 1"`, `"room 1"`). **Log GMCP?** writes handshake
-and packets to `/BlowTorch/logs/blowtorch2.log` (and to the session log when that
-is enabled). `.gmcp sniff on` prints the absolute path in-game; Overflow → Crash
-report → Show log to view. Dot helpers: `.gmcp` (see Help / user-manual).
+GMCP is an optional structured out-of-band channel (telnet option 201). **Use GMCP?**
+is on by default for new profiles. Set **Supports String** for modules your MUD
+expects (defaults include Char, Room, Core, Char.Login, Client.Media). **Log GMCP?**
+writes handshake and packets to `/BlowTorch/logs/blowtorch2.log` (and to the session
+log when that is enabled). `.gmcp sniff on` prints the absolute path in-game;
+Overflow → Crash report → Show log to view. Dot helpers: `.gmcp` (see Help / user-manual).
+
+Native handlers: **Char.Login** (primary launcher account login/password) and
+**Client.Media** (sound/music). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for
+planned optional MTTS / graphics work.
 
 ## Session log
 
@@ -72,7 +76,9 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 
 Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recovered/`). Use **Backup All Settings** instead.
 
-**Account notes** on New/Edit connection: optional login/password/mail per server. Notes only — not auto-login. Stored as plain text in the launcher list on this device; see the warning in the dialog.
+**Account** on New/Edit connection: optional login/password/mail. Primary login/password
+can be used for GMCP **Char.Login** when the MUD offers it; extra slots are notes only.
+Stored as plain text in the launcher list on this device; see the warning in the dialog.
 
 ## Dot commands
 

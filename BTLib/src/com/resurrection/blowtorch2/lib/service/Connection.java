@@ -3227,7 +3227,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				applyTerminalNaws();
 				break;
 			case terminal_size_hint:
-				// Persisted flag only; applied on connect.
+				// When user turns the tip off, never show again for this profile.
+				if (o.getValue() instanceof Boolean && !((Boolean) o.getValue()).booleanValue()) {
+					markNawsTipDone();
+				}
 				break;
 			case orientation:
 				mService.doExecuteSetOrientation((Integer) o.getValue());
@@ -3678,6 +3681,38 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private static final int MESSAGE_SEND_NAWS = 8842;
 
 	/** One-time tip for new profiles: set NAWS width/height for ANSI maps. */
+	private static final String PREFS_NAWS_TIP = "NAWS_SIZE_TIP";
+
+	private String nawsTipPrefsKey() {
+		String display = (mDisplay != null && mDisplay.length() > 0) ? mDisplay : "default";
+		return "naws_size_tip_done_" + display;
+	}
+
+	private void markNawsTipDone() {
+		try {
+			if (mService == null) {
+				return;
+			}
+			mService.getSharedPreferences(PREFS_NAWS_TIP, Context.MODE_PRIVATE)
+					.edit()
+					.putBoolean(nawsTipPrefsKey(), true)
+					.apply();
+		} catch (Exception ignored) {
+		}
+	}
+
+	private boolean isNawsTipDone() {
+		try {
+			if (mService == null) {
+				return false;
+			}
+			return mService.getSharedPreferences(PREFS_NAWS_TIP, Context.MODE_PRIVATE)
+					.getBoolean(nawsTipPrefsKey(), false);
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
 	private void maybeShowTerminalSizeHint() {
 		if (mSettings == null || mSettings.getSettings() == null) {
 			return;
@@ -3687,8 +3722,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (hint == null || !(hint.getValue() instanceof Boolean) || !((Boolean) hint.getValue())) {
 				return;
 			}
+			if (isNawsTipDone()) {
+				// Prefs already consumed — keep option off and persist.
+				if (((Boolean) hint.getValue()).booleanValue()) {
+					hint.setValue(false);
+					mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+				}
+				return;
+			}
 			// Mark consumed first — Connection.dispatchDialog is for network errors and
 			// kills the socket + schedules a 20s reconnect when auto_reconnect is on.
+			markNawsTipDone();
 			hint.setValue(false);
 			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
 			mService.dispatchToast(

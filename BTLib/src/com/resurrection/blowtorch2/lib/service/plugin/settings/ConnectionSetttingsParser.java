@@ -468,12 +468,13 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case use_gmcp:
-						if((Boolean)opt.getValue() != false) {
+						// Default is true; persist explicit false so disable sticks.
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;
 					case gmcp_supports:
-						if(!((String)opt.getValue()).equals("\"char 1\"]")) {
+						if(!((String)opt.getValue()).equals("\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"")) {
 							dooutput = true;
 						}
 						break;
@@ -532,8 +533,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case terminal_size_hint:
-						// Default is true (show once). Persist false so a disabled tip stays off.
-						if((Boolean)opt.getValue() != true) {
+						// Default is false (tip off). Persist true so enabling the tip sticks.
+						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;

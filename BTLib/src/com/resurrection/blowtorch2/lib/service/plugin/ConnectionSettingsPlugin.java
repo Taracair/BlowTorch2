@@ -39,34 +39,10 @@ public class ConnectionSettingsPlugin extends Plugin {
 		sg.setTitle("Program Settings");
 		sg.setListener(parent.getSettingsListener());
 
-		EncodingOption enc = new EncodingOption();
-		enc.setTitle("System Encoding");
-		enc.setDescription("Specifies the encoding used to process incoming text.");
-		enc.setKey("encoding");
-		enc.setValue("UTF-8");
-		sg.addOption(enc);
+		SettingsGroup window = new SettingsGroup();
+		window.setTitle("Window");
+		window.setDescription("Display, orientation, and terminal size reported to the server (NAWS).");
 
-		IntegerOption terminalWidth = new IntegerOption();
-		terminalWidth.setTitle("Terminal Width (NAWS)");
-		terminalWidth.setDescription("Columns reported to the server. 0 = match screen (recommended on phones). If set higher than the real width, the screen width is used so ANSI maps do not wrap.");
-		terminalWidth.setKey("terminal_width");
-		terminalWidth.setValue(0);
-		sg.addOption(terminalWidth);
-
-		IntegerOption terminalHeight = new IntegerOption();
-		terminalHeight.setTitle("Terminal Height (NAWS)");
-		terminalHeight.setDescription("Rows reported to the server. 0 = match screen (recommended).");
-		terminalHeight.setKey("terminal_height");
-		terminalHeight.setValue(0);
-		sg.addOption(terminalHeight);
-
-		BooleanOption terminalHint = new BooleanOption();
-		terminalHint.setTitle("Show Terminal Size Tip?");
-		terminalHint.setDescription("Once per profile, remind that Width/Height 0 matches the screen.");
-		terminalHint.setKey("terminal_size_hint");
-		terminalHint.setValue(true);
-		sg.addOption(terminalHint);
-		
 		ListOption orientation = new ListOption();
 		orientation.setTitle("Orientation");
 		orientation.setDescription("Sets the layout mode for the application. Automatic will switch the layout when the device rotates.");
@@ -75,24 +51,44 @@ public class ConnectionSettingsPlugin extends Plugin {
 		orientation.addItem("Automatic");
 		orientation.addItem("Landscape");
 		orientation.addItem("Portrait");
-		sg.addOption(orientation);
+		window.addOption(orientation);
 		
 		BooleanOption screen_on = new BooleanOption();
 		screen_on.setTitle("Keep Screen On?");
 		screen_on.setDescription("Keep the screen on while the window is active.");
 		screen_on.setKey("screen_on");
 		screen_on.setValue(true);
-		sg.addOption(screen_on);
+		window.addOption(screen_on);
 		
 		BooleanOption fullscreen = new BooleanOption();
 		fullscreen.setTitle("Use Fullscreen Window?");
 		fullscreen.setDescription("Hides the notification bar. This can be toggled by typing .togglefullscreen");
 		fullscreen.setKey("fullscreen");
 		fullscreen.setValue(true);
-		sg.addOption(fullscreen);
+		window.addOption(fullscreen);
 
-		//SettingsGroup window = token.getSettings();
-		
+		IntegerOption terminalWidth = new IntegerOption();
+		terminalWidth.setTitle("Terminal Width (NAWS)");
+		terminalWidth.setDescription("Columns reported to the server. 0 = match screen (recommended on phones). If set higher than the real width, the screen width is used so ANSI maps do not wrap.");
+		terminalWidth.setKey("terminal_width");
+		terminalWidth.setValue(0);
+		window.addOption(terminalWidth);
+
+		IntegerOption terminalHeight = new IntegerOption();
+		terminalHeight.setTitle("Terminal Height (NAWS)");
+		terminalHeight.setDescription("Rows reported to the server. 0 = match screen (recommended).");
+		terminalHeight.setKey("terminal_height");
+		terminalHeight.setValue(0);
+		window.addOption(terminalHeight);
+
+		BooleanOption terminalHint = new BooleanOption();
+		terminalHint.setTitle("Show Terminal Size Tip?");
+		terminalHint.setDescription("One-shot toast on connect: Width/Height 0 matches the screen. Off by default; turn on only if you want the reminder once.");
+		terminalHint.setKey("terminal_size_hint");
+		terminalHint.setValue(false);
+		window.addOption(terminalHint);
+
+		sg.addOption(window);
 		
 		SettingsGroup input = new SettingsGroup();
 		input.setTitle("Input");
@@ -147,6 +143,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		SettingsGroup servOptions = new SettingsGroup();
 		servOptions.setTitle("Service");
 		servOptions.setDescription("Options for the background service and data processing.");
+
+		EncodingOption enc = new EncodingOption();
+		enc.setTitle("System Encoding");
+		enc.setDescription("Specifies the encoding used to process incoming text.");
+		enc.setKey("encoding");
+		enc.setValue("UTF-8");
+		servOptions.addOption(enc);
 		
 		BooleanOption session_log = new BooleanOption();
 		session_log.setTitle("Log Session to File?");
