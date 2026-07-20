@@ -32,7 +32,7 @@ public class WindowToken implements Parcelable {
 	/** Default colorizing mode. */
 	public static final int DEFAULT_COLOR_MODE = 0;
 	/** Default font size. */
-	public static final int DEFAULT_FONT_SIZE = 18;
+	public static final int DEFAULT_FONT_SIZE = 20;
 	/** Default line spacing extra size. */
 	public static final int DEFAULT_LINE_EXTRA = 3;
 	/** Default buffer size. */

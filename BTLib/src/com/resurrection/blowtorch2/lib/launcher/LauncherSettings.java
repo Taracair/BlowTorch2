@@ -35,6 +35,12 @@ public class LauncherSettings {
 				out.attribute("", BaseParser.ATTR_HOST, item.getHostName());
 				out.attribute("", BaseParser.ATTR_PORT, item.getPortString());
 				out.attribute("", BaseParser.ATTR_DATEPLAYED, item.getLastPlayed());
+				if (item.getDescription() != null && item.getDescription().length() > 0) {
+					out.attribute("", BaseParser.ATTR_DESCRIPTION, item.getDescription());
+				}
+				if (item.isOffline()) {
+					out.attribute("", BaseParser.ATTR_OFFLINE, "true");
+				}
 				if (item.getAccounts() != null) {
 					for (ServerAccount account : item.getAccounts()) {
 						if (account == null || account.isEmpty()) {

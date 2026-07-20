@@ -8,6 +8,10 @@ public class MudConnection {
 	private String hostname;
 	private String port;
 	private String lastPlayed = "never";
+	/** Optional subtitle shown under the title in the launcher list. */
+	private String description = "";
+	/** When true (or host is offline), opening skips TCP connect. */
+	private boolean offline = false;
 	private boolean connected = false;
 	/** Account slots (login/password/mail); primary used for GMCP Char.Login. */
 	private ArrayList<ServerAccount> accounts = new ArrayList<ServerAccount>();
@@ -19,6 +23,8 @@ public class MudConnection {
 		tmp.hostname = this.hostname;
 		tmp.port = this.port;
 		tmp.lastPlayed = this.lastPlayed;
+		tmp.description = this.description;
+		tmp.offline = this.offline;
 		tmp.accounts = new ArrayList<ServerAccount>();
 		if (this.accounts != null) {
 			for (ServerAccount account : this.accounts) {
@@ -94,6 +100,22 @@ public class MudConnection {
 
 	public String getLastPlayed() {
 		return lastPlayed;
+	}
+
+	public void setDescription(String description) {
+		this.description = description != null ? description : "";
+	}
+
+	public String getDescription() {
+		return description != null ? description : "";
+	}
+
+	public void setOffline(boolean offline) {
+		this.offline = offline;
+	}
+
+	public boolean isOffline() {
+		return offline || BuiltinTutorial.isTutorialHost(hostname);
 	}
 
 	public void setConnected(boolean connected) {
