@@ -650,7 +650,10 @@ function installStarterButtonLayout(args)
 	end
 	buttonsets["default"] = set
 	current_set = "default"
-	alignDefaultButtons()
+	local okAlign, alignErr = pcall(alignDefaultButtons)
+	if not okAlign then
+		Note("\nButton align failed: " .. tostring(alignErr) .. "\n")
+	end
 	pcall(ensureTutorialAccordion, "")
 	pcall(loadButtonSet, "default")
 	if SaveSettings ~= nil then
@@ -663,12 +666,12 @@ function alignDefaultButtons()
 	-- (below the status/action bar — not glued to the top edge).
 	local margin = 10
 	local topPad = 88
-	density = GetDisplayDensity()
+	density = tonumber(GetDisplayDensity()) or 1
 	local metrics = context:getResources():getDisplayMetrics()
-	heightPixels = metrics.heightPixels
-	local widthPixels = metrics.widthPixels
-	local ab = GetActionBarHeight()
-	if ab == nil then ab = 0 end
+	heightPixels = tonumber(metrics.heightPixels) or 0
+	local widthPixels = tonumber(metrics.widthPixels) or 0
+	-- GetActionBarHeight() returns a string from Java — must tonumber before compares.
+	local ab = tonumber(GetActionBarHeight()) or 0
 
 	local function alignSet(setName)
 		local set = buttonsets[setName]
