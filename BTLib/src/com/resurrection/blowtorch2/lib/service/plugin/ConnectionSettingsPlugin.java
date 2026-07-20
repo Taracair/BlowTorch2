@@ -286,6 +286,32 @@ public class ConnectionSettingsPlugin extends Plugin {
 		gmcp_suggest.setValue(false);
 		gmcpOptions.addOption(gmcp_suggest);
 
+		SettingsGroup protocolOptions = new SettingsGroup();
+		protocolOptions.setTitle("MUD Protocols");
+		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. All off by default — leave disabled unless your MUD needs them.");
+		protocolOptions.setKey("mud_protocols_group");
+
+		BooleanOption use_mtts = new BooleanOption();
+		use_mtts.setTitle("Use MTTS?");
+		use_mtts.setDescription("Announce terminal capabilities via TTYPE (ANSI + UTF-8 + 256 colors). Helps GraphicMUD-style servers pick an output mode. Off by default — reconnect after changing.");
+		use_mtts.setKey("use_mtts");
+		use_mtts.setValue(false);
+		protocolOptions.addOption(use_mtts);
+
+		BooleanOption use_msdp = new BooleanOption();
+		use_msdp.setTitle("Use MSDP?");
+		use_msdp.setDescription("MUD Server Data Protocol (option 69). Alternative out-of-band channel used by some MUDs (e.g. Aardwolf). Off by default. Corrupt packets are ignored.");
+		use_msdp.setKey("use_msdp");
+		use_msdp.setValue(false);
+		protocolOptions.addOption(use_msdp);
+
+		BooleanOption use_mssp = new BooleanOption();
+		use_mssp.setTitle("Use MSSP?");
+		use_mssp.setDescription("MUD Server Status Protocol (option 70). Server listing info (name, players, …). Off by default. Useful for diagnostics; .mssp dump");
+		use_mssp.setKey("use_mssp");
+		use_mssp.setValue(false);
+		protocolOptions.addOption(use_mssp);
+
 		CallbackOption battery_opt = new CallbackOption();
 		battery_opt.setTitle("Battery optimization…");
 		battery_opt.setDescription("Ask Android not to kill BlowTorch in the background (helps keep connections alive).");
@@ -294,6 +320,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		servOptions.addOption(battery_opt);
 		
 		servOptions.addOption(gmcpOptions);
+		servOptions.addOption(protocolOptions);
 		
 		sg.addOption(servOptions);
 

@@ -64,6 +64,8 @@ public class Processor {
 	private GmcpCharLogin mCharLogin = null;
 	/** Module catalog / enabled / seen for this connection. */
 	private final GmcpModuleRegistry mModuleRegistry = new GmcpModuleRegistry();
+	/** Optional MSDP/MSSP stores (populated only when those protocols are enabled). */
+	private final MudProtocolData mMudProtocols = new MudProtocolData();
 	/** Profile display name for Char.Login credential lookup. */
 	private String mDisplayName = "";
 	/** Constructor.
@@ -482,6 +484,9 @@ public class Processor {
 			
 			
 			return false;
+		} else if (sub[0] == TC.MSDP || sub[0] == TC.MSSP) {
+			handleMsdpOrMssp(negotiation, sub[0]);
+			return false;
 		} else if (sub.length == 1 && sub[0] == TC.CHARSET) {
 			// CHARSET ACCEPTED/REJECTED from server — apply pending encoding, no reply.
 			applyPendingCharset();
@@ -649,6 +654,8 @@ public class Processor {
 		}
 		mCharLogin = null;
 		mModuleRegistry.clearSeen();
+		mMudProtocols.clearMsdp();
+		mMudProtocols.clearMssp();
 	}
 
 	private void dispatchNativeGmcp(final String module, final JSONObject body) {
@@ -814,6 +821,73 @@ public class Processor {
 	public final void setUseGMCP(final Boolean value) {
 		mUseGMCP = value;
 		mOptionHandler.setUseGMCP(mUseGMCP);
+	}
+
+	public final void setUseMTTS(final boolean value) {
+		mOptionHandler.setUseMTTS(value);
+	}
+
+	public final void setUseMSDP(final boolean value) {
+		mOptionHandler.setUseMSDP(value);
+		if (!value) {
+			mMudProtocols.clearMsdp();
+		}
+	}
+
+	public final void setUseMSSP(final boolean value) {
+		mOptionHandler.setUseMSSP(value);
+		if (!value) {
+			mMudProtocols.clearMssp();
+		}
+	}
+
+	public final MudProtocolData getMudProtocols() {
+		return mMudProtocols;
+	}
+
+	/**
+	 * Absorb MSDP/MSSP payload safely. If the matching option is off we should
+	 * not receive these (we answered DONT), but ignore corrupt data anyway.
+	 */
+	private void handleMsdpOrMssp(final byte[] negotiation, final byte option) {
+		try {
+			if (mDebugTelnet && mReportTo != null) {
+				String message = "\n" + Colorizer.getTeloptStartColor() + "IN:["
+						+ TC.decodeSUB(negotiation) + "]" + Colorizer.getResetColor() + "\n";
+				mReportTo.sendMessageDelayed(mReportTo.obtainMessage(
+						Connection.MESSAGE_PROCESSORWARNING, message), 1);
+			}
+			if (negotiation.length <= PAYLOAD_BYTES) {
+				return;
+			}
+			byte[] foo = new byte[negotiation.length - PAYLOAD_BYTES];
+			ByteBuffer wrap = ByteBuffer.wrap(negotiation);
+			wrap.rewind();
+			wrap.position(SKIP_BYTES);
+			wrap.get(foo, 0, foo.length);
+			if (option == TC.MSDP) {
+				if (!mOptionHandler.isUseMSDP()) {
+					return;
+				}
+				mMudProtocols.absorbMsdp(foo);
+				logGmcp("MSDP", mMudProtocols.msdpStatusLine());
+			} else if (option == TC.MSSP) {
+				if (!mOptionHandler.isUseMSSP()) {
+					return;
+				}
+				mMudProtocols.absorbMssp(foo);
+				logGmcp("MSSP", mMudProtocols.msspStatusLine());
+			}
+		} catch (Exception e) {
+			Log.w("MudProto", "MSDP/MSSP handler failed (ignored)", e);
+			if (mReportTo != null) {
+				mReportTo.sendMessageDelayed(mReportTo.obtainMessage(
+						Connection.MESSAGE_PROCESSORWARNING,
+						"\n" + Colorizer.getRedColor()
+								+ "MSDP/MSSP parse error — packet ignored"
+								+ Colorizer.getWhiteColor() + "\n"), 1);
+			}
+		}
 	}
 
 	/** Setter method for mGMCPSupports.

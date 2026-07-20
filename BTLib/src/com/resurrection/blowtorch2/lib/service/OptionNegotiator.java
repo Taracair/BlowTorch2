@@ -42,6 +42,11 @@ public class OptionNegotiator {
 	private static final int TTYPE_MAX_TRIES = 3;
 	/** TTYPE data location. */
 	private static final int TTYPE_DATA_LOCATION = 3;
+	/**
+	 * MTTS bitvector: ANSI (1) + UTF-8 (4) + 256 colors (8). No mouse/truecolor
+	 * yet — conservative announcement for GraphicMUD-style capability probes.
+	 */
+	private static final int MTTS_BITS = 1 | 4 | 8;
 	/** Tracker for the configured number of columns for NAWS. */
 	private int mColumns = DEFAULT_COLS;
 	/** Tracker for the configured number of rows for NAWS. */
@@ -58,6 +63,12 @@ public class OptionNegotiator {
 	private boolean mDoneNAWS = false;
 	/** Tracker for if GMCP should be negotiated. */
 	private Boolean mUseGMCP = false;
+	/** When true, third TTYPE reply is MTTS &lt;bits&gt;. */
+	private boolean mUseMTTS = false;
+	/** When true, answer DO to IAC WILL MSDP. */
+	private boolean mUseMSDP = false;
+	/** When true, answer DO to IAC WILL MSSP. */
+	private boolean mUseMSSP = false;
 	/** Encoding selected via CHARSET subnegotiation; consumed by Processor. */
 	private String mPendingCharset = null;
 	
@@ -68,8 +79,22 @@ public class OptionNegotiator {
 	 */
 	public OptionNegotiator(final String ttype) {
 		mTermType = ttype;
-		mTermTypes = new String[] {mTermType, "ansi", "BlowTorch-256color", "UNKNOWN"};
-		
+		rebuildTermTypes();
+	}
+
+	private void rebuildTermTypes() {
+		String primary = (mTermType != null && mTermType.length() > 0) ? mTermType : "BlowTorch";
+		if (mUseMTTS) {
+			mTermTypes = new String[] {
+					primary,
+					"ANSI",
+					"MTTS " + MTTS_BITS,
+					"UNKNOWN"
+			};
+		} else {
+			mTermTypes = new String[] { primary, "ansi", "BlowTorch-256color", "UNKNOWN" };
+		}
+		mTermTypeAttempt = 0;
 	}
 	
 	/** The top level telnet processing routine.
@@ -116,6 +141,12 @@ public class OptionNegotiator {
 	    			} else {
 	    				response = IAC_DONT;
 	    			}
+	    			break;
+	    		case TC.MSDP:
+	    			response = mUseMSDP ? IAC_DO : IAC_DONT;
+	    			break;
+	    		case TC.MSSP:
+	    			response = mUseMSSP ? IAC_DO : IAC_DONT;
 	    			break;
 	    		case TC.CHARSET:
 	    			response = IAC_DO;
@@ -225,6 +256,10 @@ public class OptionNegotiator {
     	case GMCP:
     		return new byte[] {TC.GMCP};
     		//break;
+    	case TC.MSDP:
+    		return new byte[] { TC.MSDP };
+    	case TC.MSSP:
+    		return new byte[] { TC.MSSP };
     	case TC.CHARSET:
     		return buildCharsetSubnegotiationResponse(sequence);
     	default:
@@ -478,7 +513,7 @@ public class OptionNegotiator {
 
 	/** Reset method, this is just to let the processing routines know that the TTYPE stack is reset to the beginning. */
 	public final void reset() {
-		mTermTypeAttempt = 0;		
+		mTermTypeAttempt = 0;
 	}
 
 	/** Setter method for mUseGMCP.
@@ -487,5 +522,33 @@ public class OptionNegotiator {
 	 */
 	public final void setUseGMCP(final Boolean useGMCP) {
 		mUseGMCP  = useGMCP;
+	}
+
+	public final void setUseMTTS(final boolean useMTTS) {
+		if (mUseMTTS == useMTTS) {
+			return;
+		}
+		mUseMTTS = useMTTS;
+		rebuildTermTypes();
+	}
+
+	public final boolean isUseMTTS() {
+		return mUseMTTS;
+	}
+
+	public final void setUseMSDP(final boolean useMSDP) {
+		mUseMSDP = useMSDP;
+	}
+
+	public final void setUseMSSP(final boolean useMSSP) {
+		mUseMSSP = useMSSP;
+	}
+
+	public final boolean isUseMSDP() {
+		return mUseMSDP;
+	}
+
+	public final boolean isUseMSSP() {
+		return mUseMSSP;
 	}
 }
