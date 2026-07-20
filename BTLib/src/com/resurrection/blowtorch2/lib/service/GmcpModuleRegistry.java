@@ -117,7 +117,31 @@ public final class GmcpModuleRegistry {
 	}
 
 	public synchronized boolean isEnabled(String id) {
-		return enabled.contains(normKey(id));
+		return coversModule(id);
+	}
+
+	/**
+	 * True if {@code id} itself is in Supports.Set, or an ancestor package is
+	 * (e.g. {@code Char} covers {@code Char.Base} / {@code Char.Vitals}).
+	 */
+	public synchronized boolean coversModule(String id) {
+		if (id == null || id.length() == 0) {
+			return false;
+		}
+		String key = normKey(id);
+		if (enabled.contains(key)) {
+			return true;
+		}
+		// Walk parents: Char.Vitals → Char ; Room.Info → Room
+		int dot = key.lastIndexOf('.');
+		while (dot > 0) {
+			String parent = key.substring(0, dot);
+			if (enabled.contains(parent)) {
+				return true;
+			}
+			dot = parent.lastIndexOf('.');
+		}
+		return false;
 	}
 
 	public synchronized void setEnabled(String id, boolean on) {
