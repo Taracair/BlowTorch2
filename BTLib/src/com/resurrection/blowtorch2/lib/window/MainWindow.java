@@ -251,6 +251,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_CUT = 917;
 	protected static final int MESSAGE_INPUT_CURSOR_STEP = 918;
 	protected static final int MESSAGE_INPUT_CURSOR_VERTICAL = 919;
+	/** Raise the named game window above on-screen buttons while text-selecting. */
+	public static final int MESSAGE_TEXTSELECTION_FOCUS = 920;
+	/** Restore button_window above game windows after text selection ends. */
+	public static final int MESSAGE_TEXTSELECTION_RELEASE = 921;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -787,6 +791,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_CLOSEINPUTWINDOW:
 				case MESSAGE_HIDEKEYBOARD:
 					HideKeyboard();
+					break;
+				case MESSAGE_TEXTSELECTION_FOCUS:
+					raiseWindowAboveButtons(msg.obj);
+					break;
+				case MESSAGE_TEXTSELECTION_RELEASE:
+					restoreButtonsAboveWindows();
 					break;
 				case MESSAGE_LINEBREAK:
 					//screen2.setLineBreaks((Integer)msg.obj);
@@ -4650,6 +4660,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (overlay != null) {
 			overlay.bringToFront();
 		}
+	}
+
+	/** Put the selecting game window above button_window so the copy widget is usable. */
+	private void raiseWindowAboveButtons(final Object windowTag) {
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl == null || windowTag == null) {
+			return;
+		}
+		View game = rl.findViewWithTag(windowTag);
+		if (game != null) {
+			game.bringToFront();
+		}
+		bringGameplayChromeToFront(rl);
+	}
+
+	/** Put button_window back above game text after selection ends. */
+	private void restoreButtonsAboveWindows() {
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl == null) {
+			return;
+		}
+		View buttons = rl.findViewWithTag("button_window");
+		if (buttons != null) {
+			buttons.bringToFront();
+		}
+		bringGameplayChromeToFront(rl);
 	}
 
 	private void layoutGameplayChrome(RelativeLayout rl) {
