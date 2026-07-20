@@ -1,9 +1,11 @@
 package com.resurrection.blowtorch2.lib.trigger;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.TreeSet;
 
 import android.app.AlertDialog;
 import android.content.Context;
@@ -28,6 +30,14 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 	String[] sortedKeys;
 	private boolean mShowWarning = true;
 
+	/**
+	 * {@code null} = all groups; {@code ""} = default/ungrouped;
+	 * otherwise exact group name match.
+	 */
+	private String currentGroupFilter = null;
+	/** Named (non-default) groups for the current plugin filter, sorted. */
+	private String[] groupNames = new String[0];
+
 	public BetterTriggerSelectionDialog(Context context,
 			IConnectionBinder service,boolean showWarning) {
 		super(context, service);
@@ -45,6 +55,76 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 	@Override
 	protected String getDisableAllLabel() {
 		return "Disable ALL triggers (current list)";
+	}
+
+	@Override
+	protected String getCurrentFilterLabel() {
+		String base = super.getCurrentFilterLabel();
+		if (currentGroupFilter == null) {
+			return base;
+		}
+		String g = currentGroupFilter.length() == 0 ? "(default)" : currentGroupFilter;
+		return base + " / " + g;
+	}
+
+	@Override
+	protected void addPluginFilterOptions() {
+		if (pluginList == null) {
+			pluginList = new String[0];
+		}
+		this.addOptionItem(getEnableAllLabel(), true);
+		this.addOptionItem(getDisableAllLabel(), true);
+		this.addOptionDivider("Filter by plugin", false);
+		this.addOptionItem("Main", false);
+		for (int i = 0; i < pluginList.length; i++) {
+			this.addOptionItem(pluginList[i], false);
+		}
+		refreshGroupNamesFromService();
+		this.addOptionDivider("Filter by group", false);
+		this.addOptionItem("All groups", false);
+		this.addOptionItem("(default)", false);
+		for (int i = 0; i < groupNames.length; i++) {
+			this.addOptionItem(groupNames[i], false);
+		}
+	}
+
+	private void rebuildOptionsMenu() {
+		this.clearOptionItems();
+		addPluginFilterOptions();
+		this.notifyOptionItemsChanged();
+	}
+
+	@SuppressWarnings("unchecked")
+	private void refreshGroupNamesFromService() {
+		HashMap<String, TriggerData> map = null;
+		try {
+			if (MAIN_SETTINGS.equals(currentPlugin)) {
+				map = (HashMap<String, TriggerData>) service.getTriggerData();
+			} else {
+				map = (HashMap<String, TriggerData>) service.getPluginTriggerData(currentPlugin);
+			}
+		} catch (RemoteException e) {
+			map = null;
+		}
+		TreeSet<String> set = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
+		if (map != null) {
+			for (TriggerData t : map.values()) {
+				if (t == null) {
+					continue;
+				}
+				String g = t.getGroup();
+				if (g != null && g.length() > 0
+						&& !TriggerData.DEFAULT_GROUP.equals(g)) {
+					set.add(g);
+				}
+			}
+		}
+		groupNames = set.toArray(new String[set.size()]);
+	}
+
+	/** First options row index for the group-filter divider. */
+	private int groupFilterDividerIndex() {
+		return OPTION_MAIN + 1 + (pluginList == null ? 0 : pluginList.length);
 	}
 
 	@Override
@@ -145,13 +225,14 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 	}
 
 	private void setAllTriggersEnabled(boolean enabled) {
-		if (dataMap == null || dataMap.isEmpty()) {
+		if (sortedKeys == null || sortedKeys.length == 0) {
 			Toast.makeText(getContext(), "No triggers in current list", Toast.LENGTH_SHORT).show();
 			return;
 		}
 		int count = 0;
 		try {
-			for (TriggerData d : dataMap.values()) {
+			for (String key : sortedKeys) {
+				TriggerData d = dataMap.get(key);
 				if (d == null) {
 					continue;
 				}
@@ -174,6 +255,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 				Toast.LENGTH_SHORT).show();
 	}
 
+	@SuppressWarnings("unchecked")
 	private void buildList() {
 		try {
 			if(currentPlugin.equals(MAIN_SETTINGS)) {
@@ -189,8 +271,14 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 			dataMap = new HashMap<String, TriggerData>();
 		}
 
-		sortedKeys = new String[dataMap.size()];
-		sortedKeys = dataMap.keySet().toArray(sortedKeys);
+		ArrayList<String> keys = new ArrayList<String>();
+		for (String key : dataMap.keySet()) {
+			TriggerData data = dataMap.get(key);
+			if (matchesGroupFilter(data)) {
+				keys.add(key);
+			}
+		}
+		sortedKeys = keys.toArray(new String[keys.size()]);
 		Arrays.sort(sortedKeys, new Comparator<String>() {
 			@Override
 			public int compare(String a, String b) {
@@ -221,6 +309,13 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 
 	}
 
+	private boolean matchesGroupFilter(TriggerData data) {
+		if (currentGroupFilter == null) {
+			return true;
+		}
+		return currentGroupFilter.equals(groupKey(data));
+	}
+
 	private static String groupKey(TriggerData data) {
 		if (data == null || data.getGroup() == null) {
 			return TriggerData.DEFAULT_GROUP;
@@ -247,11 +342,49 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 
 	@Override
 	public void onOptionItemClicked(int row) {
-		super.onOptionItemClicked(row);
 		this.hideOptionsMenu();
-		if (row == OPTION_ENABLE_ALL || row == OPTION_DISABLE_ALL
-				|| row == OPTION_FILTER_DIVIDER) {
+		if (row == OPTION_ENABLE_ALL) {
+			onEnableAll();
 			return;
+		}
+		if (row == OPTION_DISABLE_ALL) {
+			onDisableAll();
+			return;
+		}
+		if (row == OPTION_FILTER_DIVIDER) {
+			return;
+		}
+
+		final int groupDivider = groupFilterDividerIndex();
+		if (row == OPTION_MAIN) {
+			currentPlugin = MAIN_SETTINGS;
+			currentGroupFilter = null;
+			rebuildOptionsMenu();
+			buildList();
+			return;
+		}
+		if (row > OPTION_MAIN && row < groupDivider) {
+			int pluginIndex = row - (OPTION_MAIN + 1);
+			if (pluginIndex >= 0 && pluginIndex < pluginList.length) {
+				currentPlugin = pluginList[pluginIndex];
+			}
+			currentGroupFilter = null;
+			rebuildOptionsMenu();
+			buildList();
+			return;
+		}
+		if (row == groupDivider) {
+			return;
+		}
+		if (row == groupDivider + 1) {
+			currentGroupFilter = null; // All groups
+		} else if (row == groupDivider + 2) {
+			currentGroupFilter = TriggerData.DEFAULT_GROUP; // (default)
+		} else {
+			int gi = row - (groupDivider + 3);
+			if (gi >= 0 && gi < groupNames.length) {
+				currentGroupFilter = groupNames[gi];
+			}
 		}
 		buildList();
 	}
@@ -276,6 +409,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 			switch(msg.what) {
 			case 100:
 				TriggerData d = (TriggerData)msg.obj;
+				BetterTriggerSelectionDialog.this.rebuildOptionsMenu();
 				BetterTriggerSelectionDialog.this.buildList();
 				BetterTriggerSelectionDialog.this.scrollToSelection(d.getName());
 				break;

@@ -1,7 +1,9 @@
 package com.resurrection.blowtorch2.lib.trigger;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -23,6 +25,8 @@ import android.text.util.Linkify;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -35,6 +39,8 @@ import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
 import android.widget.RelativeLayout.LayoutParams;
+
+import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
 
 
 import com.resurrection.blowtorch2.lib.responder.*;
@@ -171,7 +177,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		//if(isEditor) {
 		EditText title = (EditText)findViewById(R.id.trigger_editor_name);
 		EditText pattern = (EditText)findViewById(R.id.trigger_editor_pattern);
-		EditText group = (EditText)findViewById(R.id.trigger_editor_group);
+		AutoCompleteTextView group = (AutoCompleteTextView)findViewById(R.id.trigger_editor_group);
 		
 		CheckBox literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
 		
@@ -180,6 +186,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		if (group != null) {
 			String g = the_trigger.getGroup();
 			group.setText(g != null ? g : "");
+			populateGroupSuggestions(group);
 		}
 		
 		literal.setChecked(!the_trigger.isInterpretAsRegex());
@@ -195,6 +202,40 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
 		setupTriggerPreview(title, pattern, literal);
 		EditorDialogChrome.applyNearlyFullScreen(this);
+	}
+
+	/** Suggest existing group names from the current Main/plugin trigger set. */
+	@SuppressWarnings("unchecked")
+	private void populateGroupSuggestions(AutoCompleteTextView group) {
+		TreeSet<String> names = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
+		try {
+			HashMap<String, TriggerData> map;
+			if (selectedPlugin == null
+					|| PluginFilterSelectionDialog.MAIN_SETTINGS.equals(selectedPlugin)) {
+				map = (HashMap<String, TriggerData>) service.getTriggerData();
+			} else {
+				map = (HashMap<String, TriggerData>) service.getPluginTriggerData(selectedPlugin);
+			}
+			if (map != null) {
+				for (TriggerData t : map.values()) {
+					if (t == null) {
+						continue;
+					}
+					String g = t.getGroup();
+					if (g != null && g.length() > 0
+							&& !TriggerData.DEFAULT_GROUP.equals(g)) {
+						names.add(g);
+					}
+				}
+			}
+		} catch (RemoteException e) {
+			// Suggestions are optional.
+		}
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_dropdown_item_dark,
+				new ArrayList<String>(names));
+		group.setAdapter(adapter);
+		group.setThreshold(1);
 	}
 	
 	private void setupTriggerPreview(final EditText title, final EditText pattern, final CheckBox literal) {
@@ -237,14 +278,13 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 		EditText title = (EditText)findViewById(R.id.trigger_editor_name);
 		EditText pattern = (EditText)findViewById(R.id.trigger_editor_pattern);
-		EditText group = (EditText)findViewById(R.id.trigger_editor_group);
 		
 		CheckBox literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
 		CheckBox fireOnce = (CheckBox)findViewById(R.id.trigger_once_checkbox);
 		boolean retval = false;
 		if(!(title.getText().toString().equals(test.getName()))) retval = true;
 		if(!(pattern.getText().toString().equals(test.getPattern()))) retval = true;
-		String groupText = group != null ? group.getText().toString().trim() : "";
+		String groupText = readGroupField();
 		String existingGroup = test.getGroup() != null ? test.getGroup() : "";
 		if(!groupText.equals(existingGroup)) retval = true;
 		if(test.isInterpretAsRegex() != !literal.isChecked()) retval = true;
@@ -271,7 +311,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 	/** Optional group name; blank means default (ungrouped). */
 	private String readGroupField() {
-		EditText group = (EditText) findViewById(R.id.trigger_editor_group);
+		AutoCompleteTextView group =
+				(AutoCompleteTextView) findViewById(R.id.trigger_editor_group);
 		if (group == null) {
 			return TriggerData.DEFAULT_GROUP;
 		}

@@ -507,6 +507,13 @@ public class BaseSelectionDialog extends Dialog {
 	public void clearOptionItems() {
 		this.optionItems.clear();
 	}
+
+	/** Refresh the options (=) list after {@link #clearOptionItems()} / re-adding rows. */
+	public void notifyOptionItemsChanged() {
+		if (mOptionAdapter != null) {
+			mOptionAdapter.notifyDataSetChanged();
+		}
+	}
 	
 	@Override
 	public void onBackPressed() {
