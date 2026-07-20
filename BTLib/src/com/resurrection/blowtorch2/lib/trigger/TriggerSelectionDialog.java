@@ -208,17 +208,16 @@ public class TriggerSelectionDialog extends Dialog {
 		try {
 			List<String> pluginList = (List<String>)service.getPluginsWithTriggers();
 			
-			plugins = new String[pluginList.size()+4];
+			plugins = new String[pluginList.size()+3];
 			plugins[0] = "Help";
-			plugins[1] = "Disable All";
-			plugins[2] = "divider";
-			plugins[3] = "Main";
+			plugins[1] = "divider";
+			plugins[2] = "Main";
 			
 			String[] tmp = new String[pluginList.size()];
 			tmp = pluginList.toArray(tmp);
 			java.util.Arrays.sort(tmp);
 			for(int i=0;i<tmp.length;i++) {
-				plugins[i+4] = tmp[i];
+				plugins[i+3] = tmp[i];
 				
 			}
 			//java.util.Arrays.sort(plugins);
@@ -245,15 +244,13 @@ public class TriggerSelectionDialog extends Dialog {
 
 			public void onItemClick(AdapterView<?> arg0, View arg1, int pos,
 					long arg3) {
-					if(pos == 0 || pos == 1) {
+					if(pos == 0) {
 						return;
 					}
 					
 					String plugin = plugins[pos];
 					
 					if(plugin.equals("Help")) {
-						
-					} else if(plugin.equals("Disable All")) {
 						
 					} else if(plugin.equals("Main")) {
 						currentPlugin = "main";
@@ -1208,7 +1205,7 @@ public class TriggerSelectionDialog extends Dialog {
 		
 		@Override
 		public int getItemViewType(int pos) {
-			if(pos == 2) {
+			if(pos == 1) {
 				return 1;
 			} else {
 				return 0;
@@ -1222,7 +1219,7 @@ public class TriggerSelectionDialog extends Dialog {
 		
 		@Override
 		public boolean isEnabled(int pos) {
-			if(pos == 2) {
+			if(pos == 1) {
 				return false;
 			} else {
 				return true;
@@ -1232,7 +1229,7 @@ public class TriggerSelectionDialog extends Dialog {
 		@Override
 		public View getView(int pos,View convertView,ViewGroup parent) {
 			
-			if(pos == 2) {
+			if(pos == 1) {
 				//need to do the special text view.
 				View tmp = convertView;
 				if(tmp == null) {

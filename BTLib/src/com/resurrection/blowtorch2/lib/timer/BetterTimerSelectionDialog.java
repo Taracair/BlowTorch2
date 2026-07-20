@@ -173,12 +173,28 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 	@Override
 	public void onHelp() {
 	}
-	
+
+	/** Timers use play/pause — no enable/disable bulk actions. */
+	@Override
+	protected void addPluginFilterOptions() {
+		if (pluginList == null) {
+			pluginList = new String[0];
+		}
+		this.addOptionDivider("Filter by plugin", false);
+		this.addOptionItem("Main", false);
+		for (int i = 0; i < pluginList.length; i++) {
+			this.addOptionItem(pluginList[i], false);
+		}
+	}
+
 	@Override
 	public void onEnableAll() {
-		Log.e("Error","Enable All pressed.");
 	}
-	
+
+	@Override
+	public void onDisableAll() {
+	}
+
 	private void buildList() {
 		//HashMap<String,TriggerData> list = null;
 		//pull the list down, clear out the items list, populate it, and call the superclass to reload the table.
@@ -227,11 +243,25 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 	
 	@Override
 	public void onOptionItemClicked(int row) {
-		super.onOptionItemClicked(row);
+		// Timer options: 0=divider, 1=Main, 2+=plugins (no bulk enable rows).
+		switch (row) {
+		case 0:
+			break;
+		case 1:
+			currentPlugin = MAIN_SETTINGS;
+			break;
+		default:
+			int pluginIndex = row - 2;
+			if (pluginIndex >= 0 && pluginIndex < pluginList.length) {
+				currentPlugin = pluginList[pluginIndex];
+			}
+			break;
+		}
 		this.hideOptionsMenu();
-		if(row < 2) return;
-		buildList();	
-		
+		if (row < 1) {
+			return;
+		}
+		buildList();
 	}
 
 	@Override
