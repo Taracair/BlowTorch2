@@ -1673,7 +1673,43 @@ public class StellarService extends Service {
 			}
 		}
 
+		@Override
+		public void sendMcpSimpleEditSet(String reference, String type, String content)
+				throws RemoteException {
+			Connection c = mConnections.get(mConnectionClutch);
+			if (c != null) {
+				c.sendMcpSimpleEditSet(reference, type, content);
+			}
+		}
+
 	};
+
+	/** Open a browser/viewer for an MCP displayurl. */
+	public final void launchUrl(final String url) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).launchUrl(url);
+			} catch (RemoteException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/** Show MCP simpleedit dialog on the foreground activity. */
+	public final void showMcpSimpleEdit(final String reference, final String title,
+			final String type, final String content) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).showMcpSimpleEdit(reference, title, type, content);
+			} catch (RemoteException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
 
 	/** Dispatches data to the foreground window.
 	 * 

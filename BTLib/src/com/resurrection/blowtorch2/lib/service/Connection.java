@@ -174,6 +174,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Sent from Processor indicating that gmcp has triggered. */
 	public static final int MESSAGE_GMCPTRIGGERED = 19;
+
+	/** MCP Lua trigger fired (mirrors MESSAGE_GMCPTRIGGERED). */
+	public static final int MESSAGE_MCPTRIGGERED = 43;
+
+	/** Raw MCP line to the socket (no alias processing / no in-band quoting). */
+	public static final int MESSAGE_SENDMCPRAW = 44;
 	
 	/** Sent from various sources, containing a string to be sent to 
 	 * the server in the selected encoding. */
@@ -662,6 +668,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				HashMap<String, Object> gdata = (HashMap<String, Object>) msg.obj;
 				Plugin gp = mPluginMap.get(plugin);
 				gp.handleGMCPCallback(gcallback, gdata);
+				break;
+			case MESSAGE_MCPTRIGGERED:
+				String mplugin = msg.getData().getString("TARGET");
+				String mcallback = msg.getData().getString("CALLBACK");
+				HashMap<String, Object> mdata = (HashMap<String, Object>) msg.obj;
+				Plugin mp = mPluginMap.get(mplugin);
+				if (mp != null) {
+					mp.handleGMCPCallback(mcallback, mdata);
+				}
+				break;
+			case MESSAGE_SENDMCPRAW:
+				if (msg.obj instanceof String) {
+					sendMcpRawToPump((String) msg.obj);
+				}
 				break;
 			case MESSAGE_INVALIDATEWINDOWTEXT:
 				String wname = (String) msg.obj;
@@ -1265,7 +1285,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (tmp != null && tmp.size() > 0) {
 			for (int i = 0; i < tmp.size(); i++) {
 				TriggerData t = tmp.get(i);
-				if (!(!t.isInterpretAsRegex() && t.getPattern().startsWith("%"))) {
+				if (!(!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
+						|| t.getPattern().startsWith(McpEngine.TRIGGER_CHAR)))) {
 					if (t.isEnabled()) {
 						if (!addseparator) {
 							mTriggerBuilder.append("(");
@@ -1306,7 +1327,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (tmp != null && tmp.size() > 0) {
 				for (int i = 0; i < tmp.size(); i++) {
 					TriggerData t = tmp.get(i);
-					if (!(!t.isInterpretAsRegex() && t.getPattern().startsWith("%"))) {
+					if (!(!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
+						|| t.getPattern().startsWith(McpEngine.TRIGGER_CHAR)))) {
 						if (t.isEnabled()) {
 							if (i == 0 && !addseparator) {
 								mTriggerBuilder.append("(");
@@ -1343,6 +1365,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mMassivePattern = Pattern.compile(mMassiveTriggerString, Pattern.MULTILINE);
 		mMassiveMatcher = mMassivePattern.matcher("");
 		triggersDirty = false;
+		if (mMcpEngine != null) {
+			loadMcpTriggers();
+		}
 	}
 	
 	/** end of the line of the DrawWindow function. I don't think this is used.
@@ -1943,6 +1968,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			applyTerminalNaws();
 			mPump.start();
 			loadGMCPTriggers();
+			loadMcpTriggers();
 			// mIsConnected / session "connected" marker wait for MESSAGE_CONNECTED
 			// (DataPumper finished the TCP handshake).
 			mService.showConnectionNotification(mDisplay, mHost, mPort);
@@ -1979,6 +2005,28 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								String name = p.getName();
 								mProcessor.addWatcher(module, name, callback);
 							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/** Literal triggers starting with {@link McpEngine#TRIGGER_CHAR} ({@code @}) fire on MCP messages. */
+	private void loadMcpTriggers() {
+		ensureMcpEngine();
+		mMcpEngine.clearWatchers();
+		for (int i = 0; i < mPlugins.size(); i++) {
+			Plugin p = mPlugins.get(i);
+			HashMap<String, TriggerData> triggers = p.getSettings().getTriggers();
+			for (TriggerData t : triggers.values()) {
+				if (!t.isInterpretAsRegex() && t.getPattern().startsWith(McpEngine.TRIGGER_CHAR)) {
+					for (TriggerResponder r : t.getResponders()) {
+						if (r instanceof ScriptResponder) {
+							ScriptResponder s = (ScriptResponder) r;
+							String callback = s.getFunction();
+							String msg = t.getPattern().substring(1);
+							mMcpEngine.addWatcher(msg, p.getName(), callback);
 						}
 					}
 				}
@@ -3502,7 +3550,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			@Override
 			public void sendNetworkLine(String line) {
 				if (mHandler != null && line != null) {
-					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_SENDDATA_STRING, line));
+					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_SENDMCPRAW, line));
 				}
 			}
 
@@ -3531,7 +3579,79 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			public String getDisplayName() {
 				return mDisplay;
 			}
+
+			@Override
+			public void openUrl(String url) {
+				mService.launchUrl(url);
+			}
+
+			@Override
+			public void openSimpleEdit(String reference, String title, String type, String content) {
+				mService.showMcpSimpleEdit(reference, title, type, content);
+			}
+
+			@Override
+			public void fireMcpTrigger(String messageName, HashMap<String, Object> data) {
+				if (mHandler == null || data == null) {
+					return;
+				}
+				Object pluginObj = data.get("_plugin");
+				Object cbObj = data.get("_callback");
+				if (!(pluginObj instanceof String) || !(cbObj instanceof String)) {
+					return;
+				}
+				Message msg = mHandler.obtainMessage(MESSAGE_MCPTRIGGERED, data);
+				Bundle b = msg.getData();
+				b.putString("TARGET", (String) pluginObj);
+				b.putString("CALLBACK", (String) cbObj);
+				msg.setData(b);
+				mHandler.sendMessage(msg);
+			}
+
+			@Override
+			public String getClientName() {
+				return "BlowTorch";
+			}
+
+			@Override
+			public String getClientVersion() {
+				try {
+					return mService.getPackageManager()
+							.getPackageInfo(mService.getPackageName(), 0).versionName;
+				} catch (Exception e) {
+					return "2.1";
+				}
+			}
+
+			@Override
+			public int getDisplayCols() {
+				return mLiveCols;
+			}
+
+			@Override
+			public int getDisplayRows() {
+				return mLiveRows;
+			}
 		}, mHandler);
+	}
+
+	private void sendMcpRawToPump(final String line) {
+		if (line == null || mPump == null || !mPump.isConnected()) {
+			return;
+		}
+		try {
+			String enc = mSettings != null ? mSettings.getEncoding() : "UTF-8";
+			String out = line.endsWith("\n") ? line : (line + "\n");
+			mPump.sendData(out.getBytes(enc));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public final void sendMcpSimpleEditSet(final String reference, final String type,
+			final String content) {
+		ensureMcpEngine();
+		mMcpEngine.sendSimpleEditSet(reference, type, content);
 	}
 
 	public final McpEngine getMcpEngine() {
@@ -4209,6 +4329,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			
 			if (d.mCmdString != null && !d.mCmdString.equals("")) {
 				nosemidata = d.mCmdString;
+				if (mMcpEngine != null && mMcpEngine.isUse()) {
+					nosemidata = mMcpEngine.quoteOutboundInBand(nosemidata);
+				}
 				byte[] sendtest = nosemidata.getBytes(mSettings.getEncoding());
 				ByteBuffer buf = ByteBuffer.allocate(sendtest.length * 2); //just in case EVERY byte is the IAC
 				int count = 0;
@@ -5438,6 +5561,30 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return p.checkPluginSupports(function);
 		}
 		return false;
+	}
+
+	@Override
+	public final java.util.Map getMcpStatusCache() {
+		ensureMcpEngine();
+		return mMcpEngine.getStatusCache();
+	}
+
+	@Override
+	public final void sendMcpPacket(final String payload) {
+		if (payload == null || payload.length() == 0) {
+			return;
+		}
+		ensureMcpEngine();
+		if (mHandler != null) {
+			mHandler.post(new Runnable() {
+				@Override
+				public void run() {
+					mMcpEngine.sendFromCommand(payload.trim());
+				}
+			});
+		} else {
+			mMcpEngine.sendFromCommand(payload.trim());
+		}
 	}
 
 	/** Test to see of a plugin is installed. 

@@ -212,6 +212,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mPendingInitialConnect = false;
 	public final static int MESSAGE_LAUNCHURL = 886;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
+	/** MCP displayurl — open Intent.ACTION_VIEW with obj as URL string. */
+	private static final int MESSAGE_MCP_LAUNCHURL = 8862;
+	/** MCP simpleedit — Bundle with reference/title/type/content. */
+	private static final int MESSAGE_MCP_SIMPLEEDIT = 8863;
 	protected static final int MESSAGE_MAXVITALS = 100000;
 	//protected static final int MESSAGE_VITALS = 1000001;
 	//protected static final int MESSAGE_ENEMYHP = 1000002;
@@ -778,6 +782,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							Intent web_help = new Intent(Intent.ACTION_VIEW,Uri.parse(url));
 							startActivity(web_help);
 						}
+					}
+					break;
+				case MESSAGE_MCP_LAUNCHURL:
+					if (msg.obj instanceof String) {
+						String mcpUrl = ((String) msg.obj).trim();
+						if (mcpUrl.length() > 0) {
+							if (!mcpUrl.contains("://")) {
+								mcpUrl = "http://" + mcpUrl;
+							}
+							try {
+								startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(mcpUrl)));
+							} catch (Exception e) {
+								e.printStackTrace();
+							}
+						}
+					}
+					break;
+				case MESSAGE_MCP_SIMPLEEDIT:
+					if (msg.getData() != null) {
+						Bundle se = msg.getData();
+						com.resurrection.blowtorch2.lib.service.plugin.settings.McpSimpleEditDialog.show(
+								MainWindow.this,
+								service,
+								se.getString("reference"),
+								se.getString("title"),
+								se.getString("type"),
+								se.getString("content"));
 					}
 					break;
 				case MESSAGE_RENAWS:
@@ -3360,6 +3391,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			Message showdlg = myhandler.obtainMessage(MESSAGE_SHOWDIALOG);
 			showdlg.obj = message;
 			myhandler.sendMessage(showdlg);
+		}
+
+		public void launchUrl(String url) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_MCP_LAUNCHURL, url));
+		}
+
+		public void showMcpSimpleEdit(String reference, String title, String type, String content)
+				throws RemoteException {
+			Message msg = myhandler.obtainMessage(MESSAGE_MCP_SIMPLEEDIT);
+			Bundle b = msg.getData();
+			b.putString("reference", reference);
+			b.putString("title", title);
+			b.putString("type", type);
+			b.putString("content", content);
+			msg.setData(b);
+			myhandler.sendMessage(msg);
 		}
 
 		public void doVisualBell() throws RemoteException {

@@ -10,6 +10,7 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 
@@ -18,9 +19,13 @@ import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 /**
  * Mud Client Protocol 2.1 engine: line filter, handshake, negotiate, multiline,
- * native dns-org-hellmoo-status, sniff/feed.
+ * cords, HellMOO status, simpleedit, displayurl, ping, vmoo-client, Lua watchers.
+ *
+ * @see <a href="https://www.moo.mud.org/mcp2/mcp2.html">MCP 2.1</a>
  */
 public final class McpEngine {
+
+	public static final String TRIGGER_CHAR = "@";
 
 	private static final String TAG = "McpEngine";
 	private static final Pattern KV = Pattern.compile(
@@ -32,6 +37,22 @@ public final class McpEngine {
 		String getEncoding();
 		android.content.Context getContext();
 		String getDisplayName();
+		void openUrl(String url);
+		void openSimpleEdit(String reference, String title, String type, String content);
+		void fireMcpTrigger(String messageName, HashMap<String, Object> data);
+		String getClientName();
+		String getClientVersion();
+		int getDisplayCols();
+		int getDisplayRows();
+	}
+
+	private static final class Watcher {
+		final String plugin;
+		final String callback;
+		Watcher(String plugin, String callback) {
+			this.plugin = plugin;
+			this.callback = callback;
+		}
 	}
 
 	private final Sink mSink;
@@ -43,6 +64,10 @@ public final class McpEngine {
 	private final LinkedHashMap<String, String> mStatusCache =
 			new LinkedHashMap<String, String>();
 	private final ArrayList<String> mRecent = new ArrayList<String>();
+	private final LinkedHashMap<String, CordState> mCords =
+			new LinkedHashMap<String, CordState>();
+	private final HashMap<String, ArrayList<Watcher>> mWatchers =
+			new HashMap<String, ArrayList<Watcher>>();
 
 	private boolean mUse = false;
 	private boolean mLog = false;
@@ -52,8 +77,11 @@ public final class McpEngine {
 	private String mAuthKey = "";
 	private boolean mHandshaken = false;
 	private boolean mNegotiateDone = false;
+	private boolean mServerNegotiateEnd = false;
 	private String mServerMin = "";
 	private String mServerMax = "";
+	private int mCordSeq = 0;
+	private int mDataTagSeq = 0;
 
 	private static final class MultilineState {
 		String messageName;
@@ -61,6 +89,12 @@ public final class McpEngine {
 		HashMap<String, String> args = new HashMap<String, String>();
 		HashMap<String, StringBuilder> multi = new HashMap<String, StringBuilder>();
 		HashMap<String, Boolean> isMulti = new HashMap<String, Boolean>();
+	}
+
+	private static final class CordState {
+		String id;
+		String type;
+		boolean open;
 	}
 
 	public McpEngine(Sink sink, Handler connectionHandler) {
@@ -108,9 +142,11 @@ public final class McpEngine {
 		mAuthKey = "";
 		mHandshaken = false;
 		mNegotiateDone = false;
+		mServerNegotiateEnd = false;
 		mServerMin = "";
 		mServerMax = "";
 		mMultiline.clear();
+		mCords.clear();
 		mRegistry.clearSession();
 	}
 
@@ -128,6 +164,47 @@ public final class McpEngine {
 
 	public ArrayList<String> getRecentMessages() {
 		return new ArrayList<String>(mRecent);
+	}
+
+	public Map<String, String> getOpenCords() {
+		LinkedHashMap<String, String> out = new LinkedHashMap<String, String>();
+		for (CordState c : mCords.values()) {
+			if (c.open) {
+				out.put(c.id, c.type);
+			}
+		}
+		return out;
+	}
+
+	public void clearWatchers() {
+		mWatchers.clear();
+	}
+
+	public void addWatcher(String messageName, String plugin, String callback) {
+		if (messageName == null || plugin == null || callback == null) {
+			return;
+		}
+		String key = messageName.toLowerCase(Locale.US);
+		ArrayList<Watcher> list = mWatchers.get(key);
+		if (list == null) {
+			list = new ArrayList<Watcher>();
+			mWatchers.put(key, list);
+		}
+		list.add(new Watcher(plugin, callback));
+	}
+
+	/**
+	 * Quote an in-band user line per MCP 2.1 network-line translation
+	 * when it would otherwise look like OOB ({@code #$#} / {@code #$"}).
+	 */
+	public String quoteOutboundInBand(String line) {
+		if (!mUse || line == null) {
+			return line;
+		}
+		if (line.startsWith("#$#") || line.startsWith("#$\"")) {
+			return "#$\"" + line;
+		}
+		return line;
 	}
 
 	/**
@@ -168,7 +245,6 @@ public final class McpEngine {
 		if (start > 0) {
 			mPending.delete(0, start);
 		}
-		// Cap runaway pending
 		if (mPending.length() > 256 * 1024) {
 			out.append(mPending);
 			mPending.setLength(0);
@@ -178,13 +254,11 @@ public final class McpEngine {
 
 	private String handleNetworkLine(String line) {
 		if (line.startsWith("#$\"")) {
-			// Quoted in-band
 			return line.substring(3);
 		}
 		if (!line.startsWith("#$#")) {
 			return line;
 		}
-		// Out-of-band MCP
 		handleMcpLine(line);
 		return mOmitFromOutput ? null : line;
 	}
@@ -201,7 +275,6 @@ public final class McpEngine {
 			finishMultiline(tag);
 			return;
 		}
-		// #$#message ...
 		String body = line.substring(3).trim();
 		if (body.length() == 0) {
 			return;
@@ -225,11 +298,7 @@ public final class McpEngine {
 			}
 		}
 		if (hasMulti) {
-			String tag = args.get("_data-tag");
-			if (tag == null) {
-				tag = args.get("_data-tag".toLowerCase(Locale.US));
-			}
-			// keys may be mixed case
+			String tag = null;
 			for (Map.Entry<String, String> e : args.entrySet()) {
 				if ("_data-tag".equalsIgnoreCase(e.getKey())) {
 					tag = e.getValue();
@@ -304,9 +373,6 @@ public final class McpEngine {
 
 	private void onMcpHello(String rest) {
 		HashMap<String, String> args = parseArgs(rest);
-		if (args.containsKey("authentication-key")) {
-			// Client hello echo or unexpected — ignore auth from server side of mcp
-		}
 		String ver = first(args, "version");
 		String to = first(args, "to");
 		if (ver != null) {
@@ -317,7 +383,6 @@ public final class McpEngine {
 		} else if (ver != null) {
 			mServerMax = ver;
 		}
-		// Overlap with 2.1 / 1.0
 		if (!versionOverlaps(mServerMin, mServerMax, "1.0", "2.1")) {
 			logDir("NEG", "MCP version mismatch server=" + mServerMin + ".." + mServerMax);
 			return;
@@ -345,6 +410,7 @@ public final class McpEngine {
 		sendRaw("#$#mcp-negotiate-end " + mAuthKey);
 		mNegotiateDone = true;
 		logDir("NEG", "mcp-negotiate-end sent (" + mRegistry.enabledTokens().size() + " packages)");
+		maybeSendVmooClientInfo();
 	}
 
 	public void renegotiate() {
@@ -357,36 +423,19 @@ public final class McpEngine {
 		}
 		mRegistry.clearSession();
 		mNegotiateDone = false;
+		mServerNegotiateEnd = false;
 		sendNegotiate();
 		notify("MCP packages re-negotiated.");
 	}
 
 	private void dispatchMessage(String name, HashMap<String, String> args) {
 		String lower = name.toLowerCase(Locale.US);
-		String key = first(args, "authentication-key");
-		// After handshake, server messages carry auth key as second token already stripped
-		// into name parsing — auth is the first "bare" token before k:v pairs.
-		// Our parseArgs only gets k:v; auth key is separate in message format:
-		// #$#msgname AUTHKEY key: val
-		// So we need to re-parse: actually parseArgs from rest after name may start with auth.
-
-		// Re-check: handleMcpLine passed `rest` after message name into parseArgs for
-		// non-mcp messages — but auth key is NOT key:value, it's a bare word.
-		// Fix: extract auth from args map if we stored it, OR rework parse.
-
-		// For messages we already routed mcp hello. For others, `args` may be wrong.
-		// Looking at handleMcpLine for non-multi: parseArgs(rest) where rest is after name.
-		// Spec: #$#message-name authkey key: value
-		// So first token of rest is auth key if not key:.
-
-		// We'll fix dispatch by accepting auth via special "_auth" if present.
 		String auth = args.remove("_auth");
 		if (mHandshaken && mAuthKey.length() > 0) {
 			if (auth != null && !auth.equals(mAuthKey)) {
 				logDir("DROP", "bad auth on " + name);
 				return;
 			}
-			// If auth missing on server message after handshake, still try (some servers omit on cord)
 		}
 
 		if (lower.startsWith("mcp-negotiate-can")) {
@@ -402,61 +451,272 @@ public final class McpEngine {
 					mRegistry.setNegotiatedVersion(pkg, picked);
 				}
 			}
+			fireWatchers(name, args);
 			return;
 		}
 		if (lower.equals("mcp-negotiate-end")) {
 			mNegotiateDone = true;
+			mServerNegotiateEnd = true;
+			maybeSendVmooClientInfo();
+			fireWatchers(name, args);
 			return;
 		}
 
-		// Derive package from message name (dns-org-hellmoo-status-update → package dns-org-hellmoo-status)
 		String pkgGuess = packageFromMessage(name);
 		if (pkgGuess != null) {
 			mRegistry.noteSeen(pkgGuess);
 		}
 
+		if (lower.equals("mcp-cord-open")) {
+			onCordOpen(args);
+			fireWatchers(name, args);
+			return;
+		}
+		if (lower.equals("mcp-cord-closed")) {
+			onCordClosed(args);
+			fireWatchers(name, args);
+			return;
+		}
+		if (lower.equals("mcp-cord")) {
+			onCordMessage(args);
+			fireWatchers(name, args);
+			return;
+		}
+
 		if (lower.equals("dns-org-hellmoo-status-update")
 				|| lower.endsWith("-status-update")) {
 			onHellmooStatus(args);
+			fireWatchers(name, args);
 			return;
 		}
 		if (lower.equals("dns-com-awns-displayurl")
 				|| lower.equals("dns-com-awns-display-url")) {
-			String url = first(args, "url");
-			if (url != null && url.length() > 0) {
-				notify("\n" + Colorizer.getWhiteColor() + "[MCP URL] " + url + "\n");
-			}
+			onDisplayUrl(args);
+			fireWatchers(name, args);
 			return;
 		}
-		// Generic: feed already logged; keep cache of last args per message
+		if (lower.equals("dns-com-awns-ping")
+				|| lower.equals("dns-com-awns-ping-msg")) {
+			onPing(args);
+			fireWatchers(name, args);
+			return;
+		}
+		if (lower.equals("dns-org-mud-moo-simpleedit-content")
+				|| lower.equals("dns-mud-moo-org-simpleedit-content")) {
+			onSimpleEditContent(args);
+			fireWatchers(name, args);
+			return;
+		}
+		if (lower.startsWith("dns-com-vmoo-client")) {
+			mStatusCache.put("last." + name, args.toString());
+			fireWatchers(name, args);
+			return;
+		}
+
 		mStatusCache.put("last." + name, args.toString());
+		fireWatchers(name, args);
 	}
 
-	/** Parse rest that may start with bare auth key then k:v pairs. */
-	private HashMap<String, String> parseArgs(String rest) {
-		HashMap<String, String> map = new HashMap<String, String>();
-		if (rest == null || rest.length() == 0) {
-			return map;
+	private void onCordOpen(HashMap<String, String> args) {
+		String id = first(args, "_id");
+		String type = first(args, "_type");
+		if (id == null) {
+			return;
 		}
-		String work = rest.trim();
-		// Bare auth key if first token has no colon before space
-		if (work.length() > 0 && !work.startsWith("\"")) {
-			int sp = indexOfWhitespace(work);
-			String firstTok = sp < 0 ? work : work.substring(0, sp);
-			if (firstTok.indexOf(':') < 0) {
-				map.put("_auth", firstTok);
-				work = sp < 0 ? "" : work.substring(sp).trim();
+		CordState c = new CordState();
+		c.id = id;
+		c.type = type != null ? type : "";
+		c.open = true;
+		mCords.put(id, c);
+		if (mFeed) {
+			notify("\n" + Colorizer.getBrightCyanColor() + "[MCP cord open] " + id
+					+ " type=" + c.type + Colorizer.getWhiteColor() + "\n");
+		}
+	}
+
+	private void onCordClosed(HashMap<String, String> args) {
+		String id = first(args, "_id");
+		if (id == null) {
+			return;
+		}
+		CordState c = mCords.get(id);
+		if (c != null) {
+			c.open = false;
+		}
+		if (mFeed) {
+			notify("\n" + Colorizer.getBrightCyanColor() + "[MCP cord closed] " + id
+					+ Colorizer.getWhiteColor() + "\n");
+		}
+	}
+
+	private void onCordMessage(HashMap<String, String> args) {
+		String id = first(args, "_id");
+		String msg = first(args, "_message");
+		if (id != null) {
+			CordState c = mCords.get(id);
+			if (c != null && !c.open) {
+				logDir("DROP", "message on closed cord " + id);
+				return;
 			}
 		}
-		Matcher m = KV.matcher(work);
-		while (m.find()) {
-			String k = m.group(1);
-			String v = m.group(2) != null ? m.group(2) : m.group(3);
-			if (k != null) {
-				map.put(k, v != null ? v : "");
-			}
+		mStatusCache.put("last.cord." + (id != null ? id : "?"),
+				(msg != null ? msg : "") + " " + args.toString());
+		if (mFeed) {
+			notify("\n" + Colorizer.getBrightCyanColor() + "[MCP cord] " + id
+					+ " " + msg + Colorizer.getWhiteColor() + "\n");
 		}
-		return map;
+	}
+
+	/** Open a cord from the client (id prefix R per MCP 2.1). */
+	public String openCord(String type) {
+		if (!mUse || !mHandshaken) {
+			notify("MCP not ready for cords.");
+			return null;
+		}
+		mCordSeq++;
+		String id = "R" + mCordSeq;
+		HashMap<String, String> args = new LinkedHashMap<String, String>();
+		args.put("_id", id);
+		args.put("_type", type != null ? type : "");
+		sendMessage("mcp-cord-open", args);
+		CordState c = new CordState();
+		c.id = id;
+		c.type = type != null ? type : "";
+		c.open = true;
+		mCords.put(id, c);
+		return id;
+	}
+
+	public void closeCord(String id) {
+		if (id == null) {
+			return;
+		}
+		HashMap<String, String> args = new LinkedHashMap<String, String>();
+		args.put("_id", id);
+		sendMessage("mcp-cord-closed", args);
+		CordState c = mCords.get(id);
+		if (c != null) {
+			c.open = false;
+		}
+	}
+
+	public void sendCordMessage(String id, String message, Map<String, String> msgArgs) {
+		HashMap<String, String> args = new LinkedHashMap<String, String>();
+		args.put("_id", id);
+		args.put("_message", message != null ? message : "");
+		if (msgArgs != null) {
+			args.putAll(msgArgs);
+		}
+		sendMessage("mcp-cord", args);
+	}
+
+	private void onDisplayUrl(HashMap<String, String> args) {
+		String url = first(args, "url");
+		if (url == null || url.length() == 0) {
+			return;
+		}
+		notify("\n" + Colorizer.getWhiteColor() + "[MCP URL] " + url + "\n");
+		try {
+			mSink.openUrl(url);
+		} catch (Exception e) {
+			Log.w(TAG, "openUrl failed", e);
+		}
+	}
+
+	private void onPing(HashMap<String, String> args) {
+		String id = first(args, "id");
+		if (id == null) {
+			id = first(args, "Id");
+		}
+		HashMap<String, String> reply = new LinkedHashMap<String, String>();
+		if (id != null) {
+			reply.put("id", id);
+		}
+		// Reply with same message name family
+		sendMessage("dns-com-awns-ping", reply);
+		mStatusCache.put("last.ping", id != null ? id : "");
+	}
+
+	private void onSimpleEditContent(HashMap<String, String> args) {
+		String reference = first(args, "reference");
+		String title = first(args, "name");
+		String type = first(args, "type");
+		String content = first(args, "content");
+		if (reference == null) {
+			reference = "";
+		}
+		if (title == null) {
+			title = reference;
+		}
+		if (type == null) {
+			type = "string-list";
+		}
+		if (content == null) {
+			content = "";
+		}
+		try {
+			mSink.openSimpleEdit(reference, title, type, content);
+		} catch (Exception e) {
+			Log.w(TAG, "openSimpleEdit failed", e);
+			notify("\n" + Colorizer.getRedColor()
+					+ "MCP simpleedit: could not open editor for " + title
+					+ Colorizer.getWhiteColor() + "\n");
+		}
+	}
+
+	/** Client → server simpleedit-set (multiline content*). */
+	public void sendSimpleEditSet(String reference, String type, String content) {
+		if (!mUse || !mHandshaken) {
+			notify("MCP not ready — cannot send simpleedit-set.");
+			return;
+		}
+		if (type == null || type.length() == 0) {
+			type = "string-list";
+		}
+		if (content == null) {
+			content = "";
+		}
+		String tag = nextDataTag();
+		StringBuilder header = new StringBuilder();
+		header.append("#$#dns-org-mud-moo-simpleedit-set ").append(mAuthKey);
+		header.append(" reference: ").append(quoteValue(reference != null ? reference : ""));
+		header.append(" type: ").append(type);
+		header.append(" content*: \"\" _data-tag: ").append(tag);
+		sendRaw(header.toString());
+		String[] lines = content.split("\n", -1);
+		for (String line : lines) {
+			sendRaw("#$#* " + tag + " content: " + line);
+		}
+		sendRaw("#$#:");
+	}
+
+	private void maybeSendVmooClientInfo() {
+		if (!mUse || !mHandshaken) {
+			return;
+		}
+		if (!mRegistry.isEnabled("dns-com-vmoo-client")) {
+			return;
+		}
+		// After we advertised; ok to send once negotiate-end from us is out
+		HashMap<String, String> args = new LinkedHashMap<String, String>();
+		args.put("name", nz(mSink.getClientName(), "BlowTorch"));
+		args.put("text-version", nz(mSink.getClientVersion(), "2.1"));
+		args.put("internal-version", nz(mSink.getClientVersion(), "2.1"));
+		args.put("flags", "edit");
+		int cols = mSink.getDisplayCols();
+		int rows = mSink.getDisplayRows();
+		if (cols > 0) {
+			args.put("columns", String.valueOf(cols));
+		}
+		if (rows > 0) {
+			args.put("rows", String.valueOf(rows));
+		}
+		args.put("os", "Android " + Build.VERSION.RELEASE);
+		sendMessage("dns-com-vmoo-client-info", args);
+	}
+
+	public void sendClientInfo() {
+		maybeSendVmooClientInfo();
 	}
 
 	private void onHellmooStatus(HashMap<String, String> args) {
@@ -476,6 +736,39 @@ public final class McpEngine {
 		}
 	}
 
+	private void fireWatchers(String name, HashMap<String, String> args) {
+		HashMap<String, Object> data = new HashMap<String, Object>();
+		data.put("_message", name);
+		if (args != null) {
+			for (Map.Entry<String, String> e : args.entrySet()) {
+				data.put(e.getKey(), e.getValue());
+			}
+		}
+		// Always offer vitals snapshot on status updates
+		if (name != null && name.toLowerCase(Locale.US).contains("status-update")) {
+			data.putAll(mStatusCache);
+		}
+		ArrayList<Watcher> list = mWatchers.get(name.toLowerCase(Locale.US));
+		if (list != null) {
+			for (Watcher w : list) {
+				HashMap<String, Object> copy = new HashMap<String, Object>(data);
+				copy.put("_plugin", w.plugin);
+				copy.put("_callback", w.callback);
+				mSink.fireMcpTrigger(name, copy);
+			}
+		}
+		// Wildcard @* watchers
+		ArrayList<Watcher> wild = mWatchers.get("*");
+		if (wild != null) {
+			for (Watcher w : wild) {
+				HashMap<String, Object> copy = new HashMap<String, Object>(data);
+				copy.put("_plugin", w.plugin);
+				copy.put("_callback", w.callback);
+				mSink.fireMcpTrigger(name, copy);
+			}
+		}
+	}
+
 	private void putStatus(String k, String v) {
 		if (v != null) {
 			mStatusCache.put(k, v);
@@ -484,6 +777,10 @@ public final class McpEngine {
 
 	private static String nz(String s) {
 		return s != null ? s : "?";
+	}
+
+	private static String nz(String s, String def) {
+		return s != null && s.length() > 0 ? s : def;
 	}
 
 	public void sendRaw(String line) {
@@ -509,15 +806,27 @@ public final class McpEngine {
 		if (args != null) {
 			for (Map.Entry<String, String> e : args.entrySet()) {
 				sb.append(' ').append(e.getKey()).append(": ");
-				String v = e.getValue() != null ? e.getValue() : "";
-				if (v.indexOf(' ') >= 0 || v.indexOf('"') >= 0) {
-					sb.append('"').append(v.replace("\"", "")).append('"');
-				} else {
-					sb.append(v);
-				}
+				sb.append(quoteValue(e.getValue() != null ? e.getValue() : ""));
 			}
 		}
 		sendRaw(sb.toString());
+	}
+
+	/** Parse ".mcp send name key: val …" into sendMessage, or raw #$# line. */
+	public void sendFromCommand(String rest) {
+		if (rest == null || rest.length() == 0) {
+			return;
+		}
+		if (rest.startsWith("#$#")) {
+			sendRaw(rest);
+			return;
+		}
+		int sp = indexOfWhitespace(rest);
+		String name = sp < 0 ? rest : rest.substring(0, sp);
+		String argRest = sp < 0 ? "" : rest.substring(sp).trim();
+		HashMap<String, String> args = parseArgs(argRest);
+		args.remove("_auth");
+		sendMessage(name, args);
 	}
 
 	public String statusReport() {
@@ -525,10 +834,24 @@ public final class McpEngine {
 		sb.append("use=").append(mUse ? "on" : "off");
 		sb.append(" handshaken=").append(mHandshaken);
 		sb.append(" negotiate=").append(mNegotiateDone ? "done" : "pending");
+		sb.append(" peer-end=").append(mServerNegotiateEnd);
 		sb.append(" auth=").append(mAuthKey.length() > 0 ? "(set)" : "(none)");
 		sb.append(" server=").append(mServerMin).append("..").append(mServerMax);
+		sb.append(" cords=").append(mCords.size());
 		sb.append(" ").append(mRegistry.statusLine());
 		return sb.toString();
+	}
+
+	private String nextDataTag() {
+		mDataTagSeq++;
+		return String.valueOf(10000 + (mDataTagSeq % 90000));
+	}
+
+	private static String quoteValue(String v) {
+		if (v.indexOf(' ') >= 0 || v.indexOf('"') >= 0 || v.length() == 0) {
+			return "\"" + v.replace("\"", "") + "\"";
+		}
+		return v;
 	}
 
 	private void logDir(String dir, String payload) {
@@ -564,12 +887,36 @@ public final class McpEngine {
 		if (s == null) {
 			return "";
 		}
-		// Soft-redact long auth keys in feed
 		return s.replaceAll("authentication-key:\\s*\\S+", "authentication-key: ***");
 	}
 
 	private void notify(String msg) {
 		mSink.notifyWindow(msg);
+	}
+
+	private HashMap<String, String> parseArgs(String rest) {
+		HashMap<String, String> map = new HashMap<String, String>();
+		if (rest == null || rest.length() == 0) {
+			return map;
+		}
+		String work = rest.trim();
+		if (work.length() > 0 && !work.startsWith("\"")) {
+			int sp = indexOfWhitespace(work);
+			String firstTok = sp < 0 ? work : work.substring(0, sp);
+			if (firstTok.indexOf(':') < 0) {
+				map.put("_auth", firstTok);
+				work = sp < 0 ? "" : work.substring(sp).trim();
+			}
+		}
+		Matcher m = KV.matcher(work);
+		while (m.find()) {
+			String k = m.group(1);
+			String v = m.group(2) != null ? m.group(2) : m.group(3);
+			if (k != null) {
+				map.put(k, v != null ? v : "");
+			}
+		}
+		return map;
 	}
 
 	private static String first(HashMap<String, String> args, String key) {
@@ -648,11 +995,28 @@ public final class McpEngine {
 		if (n.startsWith("mcp-negotiate")) {
 			return "mcp-negotiate";
 		}
+		if (n.startsWith("mcp-cord")) {
+			return "mcp-cord";
+		}
 		if (n.startsWith("dns-org-hellmoo-status")) {
 			return "dns-org-hellmoo-status";
 		}
+		if (n.startsWith("dns-org-mud-moo-simpleedit")
+				|| n.startsWith("dns-mud-moo-org-simpleedit")) {
+			return "dns-org-mud-moo-simpleedit";
+		}
+		if (n.startsWith("dns-com-awns-displayurl") || n.startsWith("dns-com-awns-display-url")) {
+			return "dns-com-awns-displayurl";
+		}
+		if (n.startsWith("dns-com-awns-ping")) {
+			return "dns-com-awns-ping";
+		}
+		if (n.startsWith("dns-com-vmoo-client")) {
+			return "dns-com-vmoo-client";
+		}
 		if (n.endsWith("-update") || n.endsWith("-set") || n.endsWith("-msg")
-				|| n.endsWith("-open") || n.endsWith("-closed")) {
+				|| n.endsWith("-open") || n.endsWith("-closed") || n.endsWith("-content")
+				|| n.endsWith("-info")) {
 			int dash = name.lastIndexOf('-');
 			if (dash > 0) {
 				return name.substring(0, dash);
