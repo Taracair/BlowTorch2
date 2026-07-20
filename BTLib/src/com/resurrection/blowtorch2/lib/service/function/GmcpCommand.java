@@ -37,6 +37,7 @@ public class GmcpCommand extends SpecialCommand {
 	public static final String OPT_USE = "use_gmcp";
 	public static final String OPT_SUPPORTS = "gmcp_supports";
 	public static final String OPT_LOG = "log_gmcp";
+	public static final String OPT_FEED = "gmcp_feed";
 
 	public GmcpCommand() {
 		this.commandName = "gmcp";
@@ -58,6 +59,10 @@ public class GmcpCommand extends SpecialCommand {
 		case "sniff":
 		case "log":
 			return doSniff(c, rest);
+		case "feed":
+		case "echo":
+		case "show":
+			return doFeed(c, rest);
 		case "version":
 		case "hello":
 			return doVersion(c);
@@ -210,13 +215,15 @@ public class GmcpCommand extends SpecialCommand {
 	private Object doStatus(Connection c) {
 		boolean use = boolOpt(c, OPT_USE, true);
 		boolean log = boolOpt(c, OPT_LOG, false);
+		boolean feed = boolOpt(c, OPT_FEED, false);
 		String supports = stringOpt(c, OPT_SUPPORTS,
 				GmcpModuleRegistry.DEFAULT_SUPPORTS);
 		Processor p = c.getProcessor();
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("GMCP use=").append(use ? "on" : "off");
-		sb.append("  log/sniff=").append(log ? "on" : "off").append("\n");
+		sb.append("  log/sniff=").append(log ? "on" : "off");
+		sb.append("  feed=").append(feed ? "on" : "off").append("\n");
 		if (p != null) {
 			sb.append("Status: ").append(c.getGmcpModuleStatus()).append("\n");
 		}
@@ -228,6 +235,32 @@ public class GmcpCommand extends SpecialCommand {
 		sb.append("Enable under Options → Service → GMCP Options.\n");
 		sb.append(sniffLogLocations(c));
 		c.sendDataToWindow(sb.toString());
+		return null;
+	}
+
+	private Object doFeed(Connection c, String rest) {
+		BooleanOption opt = findBool(c, OPT_FEED);
+		if (opt == null) {
+			c.sendDataToWindow(getErrorMessage("GMCP feed", "gmcp_feed option missing."));
+			return null;
+		}
+		boolean current = ((Boolean) opt.getValue()).booleanValue();
+		if (rest.length() == 0) {
+			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+					+ "GMCP window feed is " + (current ? "on" : "off") + ".\n"
+					+ "Usage: .gmcp feed on | off\n"
+					+ "Also: Options → Service → GMCP → Show GMCP in game window?\n");
+			return null;
+		}
+		Boolean desired = parseOnOff(rest.split("\\s+")[0]);
+		if (desired == null) {
+			c.sendDataToWindow(getErrorMessage("GMCP feed", ".gmcp feed on | off"));
+			return null;
+		}
+		c.updateBooleanSetting(OPT_FEED, desired.booleanValue());
+		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+				+ "GMCP window feed " + (desired.booleanValue() ? "on" : "off")
+				+ " (saved to this profile).\n");
 		return null;
 	}
 
@@ -533,6 +566,7 @@ public class GmcpCommand extends SpecialCommand {
 				+ "  .gmcp status          — current flags\n"
 				+ "  .gmcp sniff [on|off]  — log handshake/packets to app error log\n"
 				+ "  .gmcp sniff tail [N]  — show last N GMCP log lines in-game (0–100, default 40)\n"
+				+ "  .gmcp feed [on|off]   — live IN/OUT GMCP lines in the mud window\n"
 				+ "  .gmcp version         — client hello / syntax notes\n"
 				+ "  .gmcp supports […]    — show or set supports modules\n"
 				+ "  .gmcp dump [path]     — dump cached GMCP table\n"
