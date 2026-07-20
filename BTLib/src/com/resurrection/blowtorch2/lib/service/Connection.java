@@ -49,6 +49,7 @@ import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
 import com.resurrection.blowtorch2.lib.service.function.GmcpCommand;
+import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
 import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
@@ -501,6 +502,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(searchcmd.commandName, searchcmd);
 		GmcpCommand gmcpcmd = new GmcpCommand();
 		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
+		ProtocolsCommand msspcmd = new ProtocolsCommand(false);
+		mSpecialCommands.put(msspcmd.commandName, msspcmd);
+		ProtocolsCommand msdpcmd = new ProtocolsCommand(true);
+		mSpecialCommands.put(msdpcmd.commandName, msdpcmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;
@@ -3304,6 +3309,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case gmcp_suggest_modules:
 				this.doSetGmcpSuggestModules((Boolean) o.getValue());
 				break;
+			case use_mtts:
+				this.doSetUseMTTS((Boolean) o.getValue());
+				break;
+			case use_msdp:
+				this.doSetUseMSDP((Boolean) o.getValue());
+				break;
+			case use_mssp:
+				this.doSetUseMSSP((Boolean) o.getValue());
+				break;
 			case session_log:
 				doSetSessionLog((Boolean) o.getValue());
 				break;
@@ -3417,6 +3431,24 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	private void doSetUseMTTS(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setUseMTTS(value != null && value.booleanValue());
+		}
+	}
+
+	private void doSetUseMSDP(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setUseMSDP(value != null && value.booleanValue());
+		}
+	}
+
+	private void doSetUseMSSP(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setUseMSSP(value != null && value.booleanValue());
+		}
+	}
+
 	private void applyGmcpLogSetting() {
 		try {
 			Object opt = mSettings.getSettings().getOptions().findOptionByKey("log_gmcp");
@@ -3454,6 +3486,34 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		} catch (Exception ignored) {
 		}
+		applyMudProtocolFlags();
+	}
+
+	/** Apply optional MTTS/MSDP/MSSP flags from profile (all default off). */
+	private void applyMudProtocolFlags() {
+		if (mProcessor == null || mSettings == null) {
+			return;
+		}
+		try {
+			mProcessor.setUseMTTS(readBoolOption("use_mtts", false));
+			mProcessor.setUseMSDP(readBoolOption("use_msdp", false));
+			mProcessor.setUseMSSP(readBoolOption("use_mssp", false));
+		} catch (Exception ignored) {
+		}
+	}
+
+	private boolean readBoolOption(final String key, final boolean def) {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey(key);
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				if (val instanceof Boolean) {
+					return ((Boolean) val).booleanValue();
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return def;
 	}
 
 	/** Implementation of the auto reconnect attempt limit settings handler.
@@ -3881,6 +3941,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		gmcp_feed,
 		/** Toast when an unseen module arrives (opt-in). */
 		gmcp_suggest_modules,
+		/** Announce MTTS capabilities in TTYPE. */
+		use_mtts,
+		/** Negotiate MSDP (option 69). */
+		use_msdp,
+		/** Negotiate MSSP (option 70). */
+		use_mssp,
 		/** Show Regex Warning. */
 		show_regex_warning,
 		/** Append game output to session .txt log. */

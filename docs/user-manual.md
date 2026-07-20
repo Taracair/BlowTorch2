@@ -176,6 +176,13 @@ over editing the raw Supports String. Helpers:
 .gmcp send <payload>  — queue a GMCP packet
 ```
 
+Optional protocols (off by default; Options → Service → **MUD Protocols**):
+
+```
+.mssp   — dump MSSP cache (enable Use MSSP? first, reconnect)
+.msdp   — dump MSDP cache (enable Use MSDP? first, reconnect)
+```
+
 ## Plugin commands (when loaded)
 
 ### `button_window` (default Free build)
