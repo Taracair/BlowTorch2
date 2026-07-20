@@ -157,10 +157,15 @@ The default `button_window` plugin supports more than tap:
 
 ## GMCP (short)
 
-Enable under **Options → Service → GMCP Options**. Helpers:
+Enable under **Options → Service → GMCP Options**. Prefer **Manage modules…**
+over editing the raw Supports String. Helpers:
 
 ```
 .gmcp                 — help
+.gmcp ask|handshake   — Hello / enabled / native / seen (honest)
+.gmcp modules         — enabled vs seen this session
+.gmcp enable|disable  — toggle modules (+ live Add/Remove)
+.gmcp renegotiate     — re-send Hello + Supports.Set
 .gmcp status          — flags
 .gmcp sniff [on|off]  — log handshake/packets
 .gmcp sniff tail [N]  — last N GMCP lines in-game (0–100, default 40)

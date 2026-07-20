@@ -138,4 +138,10 @@ interface IConnectionBinder {
 	boolean isPluginInstalled(String desired);
 	void setShowRegexWarning(boolean state);
 	String getPluginOption(String plugin, String key);
+	/** Short GMCP modules status for Options / Manage modules. */
+	String getGmcpModuleStatus();
+	/** Module names seen from the server this session. */
+	List getGmcpSeenModules();
+	/** Re-send Core.Hello + Core.Supports.Set with current supports. */
+	void renegotiateGmcp();
 }

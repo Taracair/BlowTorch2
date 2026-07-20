@@ -34,6 +34,9 @@ LuaJIT-2.0.5/src/host/minilua
 docs/FDROID_APPLY.md
 docs/*feedback*.md
 docs/*roadmap*.md
+docs/*_PLAN.md
+docs/*PLAN*.md
+docs/GMCP_MODULE_MANAGER_PLAN.md
 docs/RELEASE_DRAFT*.md
 docs/backup-encryption-plan.md
 docs/.*.kate-swp

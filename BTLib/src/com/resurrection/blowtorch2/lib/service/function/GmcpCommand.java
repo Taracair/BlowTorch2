@@ -1,11 +1,13 @@
 package com.resurrection.blowtorch2.lib.service.function;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.Connection;
+import com.resurrection.blowtorch2.lib.service.GmcpModuleRegistry;
 import com.resurrection.blowtorch2.lib.service.Processor;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
@@ -15,10 +17,14 @@ import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 /**
  * GMCP helper command. Servers differ; this is a pragmatic sniff / version /
- * supports / dump toolkit rather than a full protocol GUI.
+ * supports / dump / module toolkit rather than a full protocol GUI.
  *
  * <pre>
  * .gmcp
+ * .gmcp ask | handshake
+ * .gmcp modules
+ * .gmcp enable|disable &lt;mods…&gt;
+ * .gmcp renegotiate
  * .gmcp sniff [on|off]
  * .gmcp version
  * .gmcp supports [modules…]
@@ -64,6 +70,22 @@ public class GmcpCommand extends SpecialCommand {
 			return doSend(c, rest);
 		case "status":
 			return doStatus(c);
+		case "ask":
+		case "handshake":
+			return doAsk(c);
+		case "modules":
+		case "module":
+			return doModules(c);
+		case "enable":
+		case "add":
+			return doEnableDisable(c, rest, true);
+		case "disable":
+		case "remove":
+			return doEnableDisable(c, rest, false);
+		case "renegotiate":
+		case "renego":
+		case "resync":
+			return doRenegotiate(c);
 		default:
 			c.sendDataToWindow(getErrorMessage("GMCP usage",
 					"Unknown subcommand '" + sub + "'.\n" + shortUsage()));
@@ -71,16 +93,133 @@ public class GmcpCommand extends SpecialCommand {
 		}
 	}
 
+	private Object doAsk(Connection c) {
+		boolean use = boolOpt(c, OPT_USE, true);
+		String supports = stringOpt(c, OPT_SUPPORTS, GmcpModuleRegistry.DEFAULT_SUPPORTS);
+		Processor p = c.getProcessor();
+		StringBuilder sb = new StringBuilder();
+		sb.append("\n").append(Colorizer.getWhiteColor());
+		sb.append("GMCP handshake / discovery (honest report):\n");
+		sb.append("  Use GMCP? ").append(use ? "on" : "off").append("\n");
+		if (p != null) {
+			sb.append("  Client Hello: ").append(p.getGmcpHello()).append("\n");
+			GmcpModuleRegistry reg = p.getModuleRegistry();
+			sb.append("  Last Supports.Set: ").append(reg.getLastSupportsSet()).append("\n");
+			sb.append("  Enabled (we declare): ").append(join(reg.enabledTokens())).append("\n");
+			ArrayList<String> nativeIds = new ArrayList<String>();
+			for (GmcpModuleRegistry.ModuleInfo m : reg.nativeModules()) {
+				nativeIds.add(m.id);
+			}
+			sb.append("  Native handlers: ").append(join(nativeIds)).append("\n");
+			ArrayList<String> seen = reg.seenModules();
+			sb.append("  Seen this session (server sent): ")
+					.append(seen.isEmpty() ? "(none yet)" : join(seen)).append("\n");
+		} else {
+			sb.append("  Not connected — Supports string: ").append(supports).append("\n");
+			sb.append("  Seen: (no session)\n");
+		}
+		sb.append("  Note: there is no universal \"list all server modules\" API.\n");
+		sb.append("  Seen ≠ auto-enable. Manage: Options → Manage modules… or .gmcp enable …\n");
+		c.sendDataToWindow(sb.toString());
+		return null;
+	}
+
+	private Object doModules(Connection c) {
+		Processor p = c.getProcessor();
+		StringBuilder sb = new StringBuilder();
+		sb.append("\n").append(Colorizer.getWhiteColor());
+		if (p == null) {
+			String supports = stringOpt(c, OPT_SUPPORTS, GmcpModuleRegistry.DEFAULT_SUPPORTS);
+			sb.append("GMCP modules (offline): ").append(supports).append("\n");
+			c.sendDataToWindow(sb.toString());
+			return null;
+		}
+		GmcpModuleRegistry reg = p.getModuleRegistry();
+		sb.append("Enabled: ").append(join(reg.enabledTokens())).append("\n");
+		ArrayList<String> seen = reg.seenModules();
+		sb.append("Seen:    ").append(seen.isEmpty() ? "(none)" : join(seen)).append("\n");
+		c.sendDataToWindow(sb.toString());
+		return null;
+	}
+
+	private Object doEnableDisable(Connection c, String rest, boolean enable) {
+		if (rest.length() == 0) {
+			c.sendDataToWindow(getErrorMessage("GMCP " + (enable ? "enable" : "disable"),
+					".gmcp " + (enable ? "enable" : "disable") + " <Module> [Module…]"));
+			return null;
+		}
+		String[] toks = rest.split("[,\\s]+");
+		ArrayList<String> ids = new ArrayList<String>();
+		for (String t : toks) {
+			if (t.length() > 0) {
+				ids.add(t);
+			}
+		}
+		if (ids.isEmpty()) {
+			c.sendDataToWindow(getErrorMessage("GMCP", "No module names given."));
+			return null;
+		}
+
+		String current = stringOpt(c, OPT_SUPPORTS, GmcpModuleRegistry.DEFAULT_SUPPORTS);
+		GmcpModuleRegistry reg = GmcpModuleRegistry.fromSupportsOption(current);
+		Processor p = c.getProcessor();
+		if (p != null) {
+			// Prefer live registry so seen/catalog stay consistent
+			reg = p.getModuleRegistry();
+		}
+		StringBuilder tokens = new StringBuilder();
+		for (String id : ids) {
+			reg.setEnabled(id, enable);
+			if (tokens.length() > 0) {
+				tokens.append(", ");
+			}
+			tokens.append("\"").append(id).append(" 1\"");
+		}
+		String supports = reg.toSupportsString();
+		c.updateStringSetting(OPT_SUPPORTS, supports);
+
+		if (p != null && boolOpt(c, OPT_USE, true)) {
+			String verb = enable ? "Core.Supports.Add" : "Core.Supports.Remove";
+			p.sendGmcpPacket(verb + " [ " + tokens.toString() + " ]");
+		}
+
+		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+				+ "GMCP " + (enable ? "enabled" : "disabled") + ": " + join(ids) + "\n"
+				+ "Supports now: " + supports + "\n"
+				+ (p != null ? "(live " + (enable ? "Add" : "Remove") + " sent)\n"
+						: "(not connected — saved for next handshake)\n"));
+		return null;
+	}
+
+	private Object doRenegotiate(Connection c) {
+		if (!boolOpt(c, OPT_USE, true)) {
+			c.sendDataToWindow(getErrorMessage("GMCP renegotiate", "Use GMCP? is off."));
+			return null;
+		}
+		Processor p = c.getProcessor();
+		if (p == null) {
+			c.sendDataToWindow(getErrorMessage("GMCP renegotiate", "Not connected."));
+			return null;
+		}
+		c.renegotiateGmcp();
+		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+				+ "GMCP Hello + Supports.Set re-sent.\n");
+		return null;
+	}
+
 	private Object doStatus(Connection c) {
 		boolean use = boolOpt(c, OPT_USE, true);
 		boolean log = boolOpt(c, OPT_LOG, false);
 		String supports = stringOpt(c, OPT_SUPPORTS,
-				"\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"");
+				GmcpModuleRegistry.DEFAULT_SUPPORTS);
 		Processor p = c.getProcessor();
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("GMCP use=").append(use ? "on" : "off");
 		sb.append("  log/sniff=").append(log ? "on" : "off").append("\n");
+		if (p != null) {
+			sb.append("Status: ").append(c.getGmcpModuleStatus()).append("\n");
+		}
 		sb.append("Supports string: ").append(supports).append("\n");
 		if (p != null) {
 			sb.append("Hello: ").append(p.getGmcpHello()).append("\n");
@@ -240,7 +379,7 @@ public class GmcpCommand extends SpecialCommand {
 				+ "Telnet option: IAC SB GMCP (201) … IAC SE\n"
 				+ "Native modules: Char.Login (password), Client.Media (sound/music).\n"
 				+ "Typical supports: \"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"\n"
-				+ "Set permanently: Options → Service → GMCP Options → Supports String\n";
+				+ "Manage: Options → Service → GMCP → Manage modules…\n";
 		c.sendDataToWindow(msg);
 		return null;
 	}
@@ -256,15 +395,15 @@ public class GmcpCommand extends SpecialCommand {
 					+ "Current supports string: " + opt.getValue() + "\n"
 					+ "Usage: .gmcp supports \"char 1\", \"room 1\"\n"
 					+ "Or:    .gmcp supports char room   (adds version 1 to each)\n"
-					+ "Also: Options → Service → GMCP Options → Supports String\n"
-					+ "Reconnect (or toggle Use GMCP) after changing so the server sees it.\n");
+					+ "Prefer: Options → Manage modules… or .gmcp enable / disable\n"
+					+ "Then .gmcp renegotiate (or Apply & renegotiate).\n");
 			return null;
 		}
 		String normalized = normalizeSupports(rest);
 		c.updateStringSetting(OPT_SUPPORTS, normalized);
 		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
 				+ "GMCP supports set to: " + normalized + "\n"
-				+ "Reconnect or re-enable Use GMCP? to renegotiate.\n");
+				+ "Use .gmcp renegotiate or reconnect to push Supports.Set.\n");
 		return null;
 	}
 
@@ -302,6 +441,20 @@ public class GmcpCommand extends SpecialCommand {
 		c.getHandler().sendMessage(c.getHandler().obtainMessage(Connection.MESSAGE_SENDGMCPDATA, rest));
 		c.sendDataToWindow("\n" + Colorizer.getWhiteColor() + "GMCP send queued: " + rest + "\n");
 		return null;
+	}
+
+	private static String join(ArrayList<String> list) {
+		if (list == null || list.isEmpty()) {
+			return "(none)";
+		}
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < list.size(); i++) {
+			if (i > 0) {
+				sb.append(", ");
+			}
+			sb.append(list.get(i));
+		}
+		return sb.toString();
 	}
 
 	private static void dumpMap(StringBuilder sb, String prefix, HashMap<String, Object> map, int depth) {
@@ -351,13 +504,11 @@ public class GmcpCommand extends SpecialCommand {
 			if (sp > 0) {
 				mod = tok.substring(0, sp).trim();
 				ver = tok.substring(sp + 1).trim();
-			} else if (tok.matches(".*\\d$") && tok.contains(".")) {
-				// keep as-is if user typed room.1 style — still wrap as "room 1" if possible
 			}
 			sb.append("\"").append(mod).append(" ").append(ver).append("\"");
 		}
 		return sb.length() == 0
-				? "\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\""
+				? GmcpModuleRegistry.DEFAULT_SUPPORTS
 				: sb.toString();
 	}
 
@@ -367,7 +518,7 @@ public class GmcpCommand extends SpecialCommand {
 				+ "(option 201) for structured JSON-ish updates (vitals, room, media, login).\n"
 				+ "On by default for new profiles. Servers differ — sniff if something looks off.\n\n"
 				+ shortUsage()
-				+ "Options → Service → GMCP Options: Use GMCP?, Supports String, Log GMCP?\n"
+				+ "Options → Service → GMCP: Use GMCP?, Manage modules…, Log GMCP?\n"
 				+ "Native: Char.Login uses launcher account login/password; Client.Media plays sound/music.\n"
 				+ "Lua: Send_GMCP_Packet(\"module {…}\")  Triggers: pattern %module.path\n";
 	}
@@ -375,6 +526,10 @@ public class GmcpCommand extends SpecialCommand {
 	private static String shortUsage() {
 		return "Usage:\n"
 				+ "  .gmcp                 — this help\n"
+				+ "  .gmcp ask|handshake   — Hello / enabled / native / seen (honest)\n"
+				+ "  .gmcp modules         — enabled vs seen\n"
+				+ "  .gmcp enable|disable  — toggle modules (+ live Add/Remove)\n"
+				+ "  .gmcp renegotiate     — re-send Hello + Supports.Set\n"
 				+ "  .gmcp status          — current flags\n"
 				+ "  .gmcp sniff [on|off]  — log handshake/packets to app error log\n"
 				+ "  .gmcp sniff tail [N]  — show last N GMCP log lines in-game (0–100, default 40)\n"
