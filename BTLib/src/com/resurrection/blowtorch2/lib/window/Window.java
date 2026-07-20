@@ -53,6 +53,7 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.RelativeLayout.LayoutParams;
@@ -258,6 +259,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	Float start_x = null;
 	/** The y value of the start of the touch event. */
 	Float mStartY = null;
+	/** Line/column at ACTION_DOWN (for selection / double-tap). */
+	private int mTouchDownLine = 0;
+	private int mTouchDownColumn = 0;
+	/** Last completed tap (for double-tap to start text selection). */
+	private long mLastTapUpTime = 0L;
+	private float mLastTapUpX = 0f;
+	private float mLastTapUpY = 0f;
 	/** The previous touch event. */
 	MotionEvent mTouchPreEvent  = null;
 	/** Indicates that the finger has left the touchpad. */
@@ -615,9 +623,30 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			//start the window buffering so it does not interfere with our biz-nas.
 			this.setBufferText(true);
+			// Draw selection widget above on-screen buttons (button_window is usually on top).
+			if (mMainWindowHandler != null) {
+				mMainWindowHandler.sendMessage(
+						mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_TEXTSELECTION_FOCUS, this.getTag()));
+			}
 			this.invalidate();
 		}
 		
+	}
+
+	private void endTextSelectionMode(final View v) {
+		v.setOnTouchListener(null);
+		if (theSelection != null) {
+			theSelection.start = null;
+			theSelection.end = null;
+		}
+		theSelection = null;
+		selectedSelector = null;
+		Window.this.flushBuffer();
+		Window.this.setBufferText(false);
+		if (mMainWindowHandler != null) {
+			mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_TEXTSELECTION_RELEASE);
+		}
+		v.invalidate();
 	}
 	
 	/** Called from the MainWindow when the system encoding changes. 
@@ -902,8 +931,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				int line = (int) Math.floor(y / (float) mPrefLineSize);
 				
 				int column = (int) Math.floor(x / (float) mOneCharWidth);
+				mTouchDownLine = line;
+				mTouchDownColumn = column;
 				if (mTextSelectionEnabled) {
-					mHandler.sendMessageDelayed(mHandler.obtainMessage(MESSAGE_STARTSELECTION, line, column), 1500);
+					// System long-press (~400–500ms) instead of a rigid 1.5s hold.
+					long longPressMs = ViewConfiguration.getLongPressTimeout();
+					mHandler.sendMessageDelayed(
+							mHandler.obtainMessage(MESSAGE_STARTSELECTION, line, column),
+							longPressMs);
 				}
 				
 				if (homeWidgetShowing) {
@@ -918,6 +953,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 	
 				Float nowY = Float.valueOf(t.getY(index));
+				Float nowX = Float.valueOf(t.getX(index));
 				
 				
 	
@@ -930,7 +966,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				float dist = nowY - prevY;
 				diff_amount = (int) dist;
 				
-				if (Math.abs(nowY - mStartY) > mPrefLineSize * 1.5) {
+				// Cancel long-press only after a real finger move (small font made 1.5 lines too twitchy).
+				float cancelSlop = Math.max(mPrefLineSize * 4f, 48f * mDensity);
+				if (mStartY != null && start_x != null
+						&& (Math.abs(nowY - mStartY) > cancelSlop
+								|| Math.abs(nowX - start_x) > cancelSlop)) {
 					mHandler.removeMessages(MESSAGE_STARTSELECTION);
 				}
 				
@@ -944,10 +984,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					}
 				}
 				mFlingVelocity = velocity;
-				
-				if (Math.abs(nowY - mStartY) > mPrefLineSize * 1.5 * mDensity) {
-					mHandler.removeMessages(MESSAGE_STARTSELECTION);
-				}
 				
 				if (Math.abs(diff_amount) > 5 * mDensity) {
 					
@@ -968,26 +1004,53 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		        mTouchPreEvent = null;
 		        mFingerDown = false;
 		        finger_down_to_up = true;
+
+				float upX = t.getX(index);
+				float upY = t.getY(index);
+				float tapSlop = Math.max(mPrefLineSize * 2f, 32f * mDensity);
+				boolean smallMove = mStartY != null && start_x != null
+						&& Math.abs(upY - mStartY) < tapSlop
+						&& Math.abs(upX - start_x) < tapSlop;
 		         
 				if (mTouchInLink > -1) {
 					mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_LAUNCHURL, linkBoxes.get(mTouchInLink).getData()));
 			        mTouchInLink = -1;
-				}
-				
-				
-				mHandler.removeMessages(MESSAGE_STARTSELECTION);
-					
-				if (homeWidgetShowing && homeWidgetFingerDown) {
-					if (mHomeWidgetRect.contains((int) t.getX(index), (int) t.getY(index))) {
-						mScrollback = SCROLL_MIN;
-						homeWidgetFingerDown = false;
-						this.invalidate();
+					mHandler.removeMessages(MESSAGE_STARTSELECTION);
+				} else if (mTextSelectionEnabled && smallMove) {
+					mHandler.removeMessages(MESSAGE_STARTSELECTION);
+					long now = t.getEventTime();
+					ViewConfiguration vc = ViewConfiguration.get(getContext());
+					int doubleTapSlop = vc.getScaledDoubleTapSlop();
+					boolean isDoubleTap = (now - mLastTapUpTime) <= ViewConfiguration.getDoubleTapTimeout()
+							&& Math.abs(upX - mLastTapUpX) <= doubleTapSlop
+							&& Math.abs(upY - mLastTapUpY) <= doubleTapSlop;
+					if (isDoubleTap) {
+						mLastTapUpTime = 0L;
+						startSelection(mTouchDownLine, mTouchDownColumn);
+					} else {
+						mLastTapUpTime = now;
+						mLastTapUpX = upX;
+						mLastTapUpY = upY;
+						if (homeWidgetShowing && homeWidgetFingerDown) {
+							if (mHomeWidgetRect.contains((int) upX, (int) upY)) {
+								mScrollback = SCROLL_MIN;
+								homeWidgetFingerDown = false;
+								this.invalidate();
+							}
+						} else if (mTapDismissKeyboard) {
+							// Loose tap on the game window (not a button): dismiss soft keyboard.
+							mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_HIDEKEYBOARD);
+						}
 					}
-				} else if (mTapDismissKeyboard && mStartY != null && start_x != null
-						&& Math.abs(t.getY(index) - mStartY) < mPrefLineSize * 1.2f
-						&& Math.abs(t.getX(index) - start_x) < mOneCharWidth * 3f) {
-					// Loose tap on the game window (not a button): dismiss soft keyboard.
-					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_HIDEKEYBOARD);
+				} else {
+					mHandler.removeMessages(MESSAGE_STARTSELECTION);
+					if (homeWidgetShowing && homeWidgetFingerDown) {
+						if (mHomeWidgetRect.contains((int) upX, (int) upY)) {
+							mScrollback = SCROLL_MIN;
+							homeWidgetFingerDown = false;
+							this.invalidate();
+						}
+					}
 				}
 		        
 			}
@@ -4027,14 +4090,7 @@ end
 								String copy = mBuffer.getTextSection(theSelection);
 								ClipboardManager cpMan = (ClipboardManager) v.getContext().getSystemService(Context.CLIPBOARD_SERVICE);
 								cpMan.setText(copy);
-								v.setOnTouchListener(null);
-								theSelection.start = null;
-								theSelection.end = null;
-								theSelection = null;
-								selectedSelector = null;
-								Window.this.flushBuffer();
-								Window.this.setBufferText(false);
-								v.invalidate();
+								endTextSelectionMode(v);
 								return true;
 							case LEFT:
 								doScrollLeft(false);
@@ -4055,14 +4111,7 @@ end
 								break;
 							case EXIT:
 								//get out and don't copy.
-								v.setOnTouchListener(null);
-								theSelection.start = null;
-								theSelection.end = null;
-								theSelection = null;
-								selectedSelector = null;
-								Window.this.flushBuffer();
-								Window.this.setBufferText(false);
-								v.invalidate();
+								endTextSelectionMode(v);
 								return true;
 								//break;
 							}
