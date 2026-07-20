@@ -3298,6 +3298,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case log_gmcp:
 				this.doSetLogGMCP((Boolean) o.getValue());
 				break;
+			case gmcp_feed:
+				this.doSetGmcpFeed((Boolean) o.getValue());
+				break;
 			case gmcp_suggest_modules:
 				this.doSetGmcpSuggestModules((Boolean) o.getValue());
 				break;
@@ -3402,6 +3405,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	private void doSetGmcpFeed(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setFeedGMCP(value != null && value.booleanValue());
+		}
+	}
+
 	private void doSetGmcpSuggestModules(final Boolean value) {
 		if (mProcessor != null) {
 			mProcessor.setSuggestGmcpModules(value != null && value.booleanValue());
@@ -3418,6 +3427,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			if (mProcessor != null) {
 				mProcessor.setLogGMCP(on);
+			}
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("gmcp_feed");
+			boolean on = false;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+			if (mProcessor != null) {
+				mProcessor.setFeedGMCP(on);
 			}
 		} catch (Exception ignored) {
 		}
@@ -3856,6 +3877,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		gmcp_supports,
 		/** Log GMCP packets to file. */
 		log_gmcp,
+		/** Echo GMCP packets into the game window. */
+		gmcp_feed,
 		/** Toast when an unseen module arrives (opt-in). */
 		gmcp_suggest_modules,
 		/** Show Regex Warning. */

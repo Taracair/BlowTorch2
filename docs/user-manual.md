@@ -169,6 +169,7 @@ over editing the raw Supports String. Helpers:
 .gmcp status          — flags
 .gmcp sniff [on|off]  — log handshake/packets
 .gmcp sniff tail [N]  — last N GMCP lines in-game (0–100, default 40)
+.gmcp feed [on|off]   — live IN/OUT GMCP in the mud window
 .gmcp version         — client hello / syntax notes
 .gmcp supports […]   — show or set supports modules
 .gmcp dump [path]     — dump cached GMCP table
