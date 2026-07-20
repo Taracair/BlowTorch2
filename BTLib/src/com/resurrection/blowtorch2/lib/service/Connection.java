@@ -49,6 +49,7 @@ import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
 import com.resurrection.blowtorch2.lib.service.function.GmcpCommand;
+import com.resurrection.blowtorch2.lib.service.function.McpCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
@@ -67,6 +68,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.Option;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.VersionProbeParser;
 import com.resurrection.blowtorch2.lib.settings.ColorSetSettings;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
@@ -373,6 +375,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** The Processor instance for this connection. */
 	private Processor mProcessor = null;
+	/** MCP 2.1 engine (in-band #$#). */
+	private McpEngine mMcpEngine = null;
 	//TextTree buffer = null;
 	
 	/** TextTree instance used for trigger parsing input text. */
@@ -502,6 +506,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(searchcmd.commandName, searchcmd);
 		GmcpCommand gmcpcmd = new GmcpCommand();
 		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
+		McpCommand mcpcmd = new McpCommand();
+		mSpecialCommands.put(mcpcmd.commandName, mcpcmd);
 		ProtocolsCommand msspcmd = new ProtocolsCommand(false);
 		mSpecialCommands.put(msspcmd.commandName, msspcmd);
 		ProtocolsCommand msdpcmd = new ProtocolsCommand(true);
@@ -526,6 +532,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mFinished.setMaxLines(TEN_THOUSAND);
 
 		mWindows = new ArrayList<WindowToken>();
+
+		ensureMcpEngine();
 		
 		SharedPreferences sprefs = this.getContext().getSharedPreferences("STATUS_BAR_HEIGHT", 0);
 		mStatusBarHeight = sprefs.getInt("STATUS_BAR_HEIGHT", (int) (STATUS_BAR_DEFAULT_SIZE * this.getContext().getResources().getDisplayMetrics().density));
@@ -602,12 +610,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				if (mProcessor != null) {
 					mProcessor.setLogProfile(mDisplay);
 					applyGmcpLogSetting();
+					applyMcpSettings();
 					if (mLiveCols > 0 && mLiveRows > 0) {
 						mProcessor.setDisplayDimensions(mLiveRows, mLiveCols);
 						mProcessor.disaptchNawsString();
 						mLastSentNawsCols = mLiveCols;
 						mLastSentNawsRows = mLiveRows;
 					}
+				} else {
+					applyMcpSettings();
 				}
 				maybeShowTerminalSizeHint();
 				break;
@@ -1517,6 +1528,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mProcessor != null) {
 			mProcessor.releaseGmcpHelpers();
 		}
+		if (mMcpEngine != null) {
+			mMcpEngine.resetSession();
+		}
 		mProcessor = null;
 		
 		if (noreconnect) {
@@ -1612,6 +1626,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		byte[] raw = mProcessor.rawProcess(data);
 		if (raw == null) { 
 			return; 
+		}
+		ensureMcpEngine();
+		if (mMcpEngine != null && mMcpEngine.isUse()) {
+			raw = mMcpEngine.filterIncoming(raw);
+			if (raw == null || raw.length == 0) {
+				return;
+			}
 		}
 		
 		TextTree buffer = null;
@@ -2795,6 +2816,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return bytes;
 	}
 
+	/** User-initiated disconnect (e.g. {@code .disconnect}), same effect as overflow Disconnect. */
+	public final void disconnectByUser() {
+		killNetThreads(true);
+		doDisconnect(true);
+	}
+
 	/** Helper method that kicks off the reconnection sequence. */
 	public final void startReconnect() {
 		mHandler.sendEmptyMessage(MESSAGE_RECONNECT);
@@ -3309,6 +3336,24 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case gmcp_suggest_modules:
 				this.doSetGmcpSuggestModules((Boolean) o.getValue());
 				break;
+			case use_mcp:
+				this.doSetUseMCP((Boolean) o.getValue());
+				break;
+			case mcp_packages:
+				this.doSetMcpPackages((String) o.getValue());
+				break;
+			case log_mcp:
+				this.doSetLogMCP((Boolean) o.getValue());
+				break;
+			case mcp_feed:
+				this.doSetMcpFeed((Boolean) o.getValue());
+				break;
+			case mcp_omit_output:
+				this.doSetMcpOmit((Boolean) o.getValue());
+				break;
+			case mcp_auto_negotiate:
+				this.doSetMcpAutoNegotiate((Boolean) o.getValue());
+				break;
 			case use_mtts:
 				this.doSetUseMTTS((Boolean) o.getValue());
 				break;
@@ -3446,6 +3491,167 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private void doSetUseMSSP(final Boolean value) {
 		if (mProcessor != null) {
 			mProcessor.setUseMSSP(value != null && value.booleanValue());
+		}
+	}
+
+	private void ensureMcpEngine() {
+		if (mMcpEngine != null) {
+			return;
+		}
+		mMcpEngine = new McpEngine(new McpEngine.Sink() {
+			@Override
+			public void sendNetworkLine(String line) {
+				if (mHandler != null && line != null) {
+					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_SENDDATA_STRING, line));
+				}
+			}
+
+			@Override
+			public void notifyWindow(String message) {
+				if (message != null) {
+					sendDataToWindow(message);
+				}
+			}
+
+			@Override
+			public String getEncoding() {
+				try {
+					return mSettings.getEncoding();
+				} catch (Exception e) {
+					return "UTF-8";
+				}
+			}
+
+			@Override
+			public android.content.Context getContext() {
+				return Connection.this.getContext();
+			}
+
+			@Override
+			public String getDisplayName() {
+				return mDisplay;
+			}
+		}, mHandler);
+	}
+
+	public final McpEngine getMcpEngine() {
+		ensureMcpEngine();
+		return mMcpEngine;
+	}
+
+	private void doSetUseMCP(final Boolean value) {
+		ensureMcpEngine();
+		boolean on = value != null && value.booleanValue();
+		mMcpEngine.setUse(on);
+		if (!on) {
+			mMcpEngine.resetSession();
+		}
+	}
+
+	private void doSetMcpPackages(final String value) {
+		ensureMcpEngine();
+		mMcpEngine.setPackagesFromOption(value != null ? value : McpPackageRegistry.DEFAULT_PACKAGES);
+	}
+
+	private void doSetLogMCP(final Boolean value) {
+		ensureMcpEngine();
+		mMcpEngine.setLog(value != null && value.booleanValue());
+	}
+
+	private void doSetMcpFeed(final Boolean value) {
+		ensureMcpEngine();
+		mMcpEngine.setFeed(value != null && value.booleanValue());
+	}
+
+	private void doSetMcpOmit(final Boolean value) {
+		ensureMcpEngine();
+		mMcpEngine.setOmitFromOutput(value == null || value.booleanValue());
+	}
+
+	private void doSetMcpAutoNegotiate(final Boolean value) {
+		ensureMcpEngine();
+		mMcpEngine.setAutoNegotiate(value == null || value.booleanValue());
+	}
+
+	public final void applyMcpPackagesFromUi(final String packages, final boolean renegotiate) {
+		updateStringSetting("mcp_packages",
+				packages != null ? packages : McpPackageRegistry.DEFAULT_PACKAGES);
+		if (renegotiate) {
+			ensureMcpEngine();
+			mMcpEngine.renegotiate();
+		}
+	}
+
+	public final ArrayList<String> getMcpSeenPackages() {
+		ensureMcpEngine();
+		return mMcpEngine.getRegistry().seenPackages();
+	}
+
+	public final String getMcpStatusHint() {
+		ensureMcpEngine();
+		return mMcpEngine.statusReport();
+	}
+
+	private void applyMcpSettings() {
+		ensureMcpEngine();
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("use_mcp");
+			boolean on = false;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+			mMcpEngine.setUse(on);
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_packages");
+			String pkgs = McpPackageRegistry.DEFAULT_PACKAGES;
+			if (opt instanceof StringOption && ((StringOption) opt).getValue() != null) {
+				pkgs = ((StringOption) opt).getValue().toString();
+			}
+			mMcpEngine.setPackagesFromOption(pkgs);
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("log_mcp");
+			boolean on = false;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+			mMcpEngine.setLog(on);
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_feed");
+			boolean on = false;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+			mMcpEngine.setFeed(on);
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_omit_output");
+			boolean on = true;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = !(val instanceof Boolean) || ((Boolean) val).booleanValue();
+			}
+			mMcpEngine.setOmitFromOutput(on);
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_auto_negotiate");
+			boolean on = true;
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				on = !(val instanceof Boolean) || ((Boolean) val).booleanValue();
+			}
+			mMcpEngine.setAutoNegotiate(on);
+		} catch (Exception ignored) {
 		}
 	}
 
@@ -3941,6 +4147,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		gmcp_feed,
 		/** Toast when an unseen module arrives (opt-in). */
 		gmcp_suggest_modules,
+		/** Use Mud Client Protocol (#$#). */
+		use_mcp,
+		/** MCP packages string for negotiate. */
+		mcp_packages,
+		/** Log MCP packets. */
+		log_mcp,
+		/** Echo MCP into game window. */
+		mcp_feed,
+		/** Hide #$# lines from output. */
+		mcp_omit_output,
+		/** Auto send mcp-negotiate-can after handshake. */
+		mcp_auto_negotiate,
 		/** Announce MTTS capabilities in TTYPE. */
 		use_mtts,
 		/** Negotiate MSDP (option 69). */
