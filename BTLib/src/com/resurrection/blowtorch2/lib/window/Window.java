@@ -223,6 +223,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Bitmap mSelectionIndicatorBitmap = null;
 	/** Canvas that allows drawing to the selection indicator bitmap. */
 	private Canvas mSelectionIndicatorCanvas = null;
+	/** True while {@link #mSelectionIndicatorCanvas} has an unmatched save() for the circular clip. */
+	private boolean mSelectionCanvasSaved = false;
 	/** The font size for the selection widget. */
 	private int mSelectionIndicatorFontSize = 30;
 	/** Another patint object associatied with drawing the selection indicator. */
@@ -623,7 +625,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			//start the window buffering so it does not interfere with our biz-nas.
 			this.setBufferText(true);
-			// Draw selection widget above on-screen buttons (button_window is usually on top).
+			// Hide buttons only — widget stays drawn on this window.
 			if (mMainWindowHandler != null) {
 				mMainWindowHandler.sendMessage(
 						mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_TEXTSELECTION_FOCUS, this.getTag()));
@@ -869,6 +871,18 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	@Override
 	public final boolean onTouchEvent(final MotionEvent t) {
+		final int action = t.getActionMasked();
+		// Two fingers on the game text → open copy widget (one-finger long-press does not).
+		if (mTextSelectionEnabled && theSelection == null
+				&& action == MotionEvent.ACTION_POINTER_DOWN
+				&& t.getPointerCount() >= 2
+				&& mBuffer.getBrokenLineCount() != 0) {
+			mHandler.removeMessages(MESSAGE_STARTSELECTION);
+			mFlingVelocity = 0.0f;
+			startSelection(mTouchDownLine, mTouchDownColumn);
+			return true;
+		}
+
 		int pointerIndex = (t.getAction() & MotionEvent.ACTION_POINTER_ID_MASK) >> MotionEvent.ACTION_POINTER_ID_SHIFT;
 		int pointerId = t.getPointerId(pointerIndex);
 		
@@ -904,7 +918,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			
 			synchronized (mToken) {
-			if (t.getAction() == MotionEvent.ACTION_DOWN) {
+			if (action == MotionEvent.ACTION_DOWN) {
 				pointer = pointerId;
 				start_x = Float.valueOf(t.getX(index));
 				mStartY = Float.valueOf(t.getY(index));
@@ -933,13 +947,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				int column = (int) Math.floor(x / (float) mOneCharWidth);
 				mTouchDownLine = line;
 				mTouchDownColumn = column;
-				if (mTextSelectionEnabled) {
-					// System long-press (~400–500ms) instead of a rigid 1.5s hold.
-					long longPressMs = ViewConfiguration.getLongPressTimeout();
-					mHandler.sendMessageDelayed(
-							mHandler.obtainMessage(MESSAGE_STARTSELECTION, line, column),
-							longPressMs);
-				}
+				// One-finger long-press no longer opens the copy widget.
 				
 				if (homeWidgetShowing) {
 					if (mHomeWidgetRect.contains((int) x, (int) t.getY())) {
@@ -949,7 +957,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 			}
 			
-			if (t.getAction() == MotionEvent.ACTION_MOVE) {
+			if (action == MotionEvent.ACTION_MOVE) {
 				
 	
 				Float nowY = Float.valueOf(t.getY(index));
@@ -965,14 +973,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				float prevY = mTouchPreEvent.getY(index);
 				float dist = nowY - prevY;
 				diff_amount = (int) dist;
-				
-				// Cancel long-press only after a real finger move (small font made 1.5 lines too twitchy).
-				float cancelSlop = Math.max(mPrefLineSize * 4f, 48f * mDensity);
-				if (mStartY != null && start_x != null
-						&& (Math.abs(nowY - mStartY) > cancelSlop
-								|| Math.abs(nowX - start_x) > cancelSlop)) {
-					mHandler.removeMessages(MESSAGE_STARTSELECTION);
-				}
 				
 				float velocity = dist / time;
 				
@@ -993,7 +993,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 			}						
 			
-			if (t.getAction() == (MotionEvent.ACTION_UP)) {
+			if (action == MotionEvent.ACTION_UP) {
 				
 				mTouchPreEvent = null;
 				//prev_y = new Float(0);
@@ -1015,35 +1015,18 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (mTouchInLink > -1) {
 					mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_LAUNCHURL, linkBoxes.get(mTouchInLink).getData()));
 			        mTouchInLink = -1;
-					mHandler.removeMessages(MESSAGE_STARTSELECTION);
-				} else if (mTextSelectionEnabled && smallMove) {
-					mHandler.removeMessages(MESSAGE_STARTSELECTION);
-					long now = t.getEventTime();
-					ViewConfiguration vc = ViewConfiguration.get(getContext());
-					int doubleTapSlop = vc.getScaledDoubleTapSlop();
-					boolean isDoubleTap = (now - mLastTapUpTime) <= ViewConfiguration.getDoubleTapTimeout()
-							&& Math.abs(upX - mLastTapUpX) <= doubleTapSlop
-							&& Math.abs(upY - mLastTapUpY) <= doubleTapSlop;
-					if (isDoubleTap) {
-						mLastTapUpTime = 0L;
-						startSelection(mTouchDownLine, mTouchDownColumn);
-					} else {
-						mLastTapUpTime = now;
-						mLastTapUpX = upX;
-						mLastTapUpY = upY;
-						if (homeWidgetShowing && homeWidgetFingerDown) {
-							if (mHomeWidgetRect.contains((int) upX, (int) upY)) {
-								mScrollback = SCROLL_MIN;
-								homeWidgetFingerDown = false;
-								this.invalidate();
-							}
-						} else if (mTapDismissKeyboard) {
-							// Loose tap on the game window (not a button): dismiss soft keyboard.
-							mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_HIDEKEYBOARD);
+				} else if (smallMove) {
+					if (homeWidgetShowing && homeWidgetFingerDown) {
+						if (mHomeWidgetRect.contains((int) upX, (int) upY)) {
+							mScrollback = SCROLL_MIN;
+							homeWidgetFingerDown = false;
+							this.invalidate();
 						}
+					} else if (mTapDismissKeyboard) {
+						// Loose tap on the game window (not a button): dismiss soft keyboard.
+						mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_HIDEKEYBOARD);
 					}
 				} else {
-					mHandler.removeMessages(MESSAGE_STARTSELECTION);
 					if (homeWidgetShowing && homeWidgetFingerDown) {
 						if (mHomeWidgetRect.contains((int) upX, (int) upY)) {
 							mScrollback = SCROLL_MIN;
@@ -1168,7 +1151,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	@Override
 	public final void onDraw(final Canvas c) {
-		if (selectedSelector != null) {
+		mSelectionCanvasSaved = false;
+		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
+			mSelectionIndicatorBitmap.eraseColor(0x00000000);
 			int color = mScrollerPaint.getColor();
 			int newcolor = 0xFF000000 | color;
 			mScrollerPaint.setColor(newcolor);
@@ -1179,6 +1164,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mScrollerPaint.setColor(color);
 			
 			mSelectionIndicatorCanvas.save();
+			mSelectionCanvasSaved = true;
 			mSelectionIndicatorCanvas.clipPath(mSelectionIndicatorClipPath);
 			mSelectionIndicatorCanvas.drawColor(0xFF444444);
 			
@@ -1896,12 +1882,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		
 		if(selectedSelector != null) {
-			//this.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-			//c.save();
-			
-			
-			//c.clipPath(path);
-			mSelectionIndicatorCanvas.restore();
+			if (mSelectionCanvasSaved) {
+				try {
+					mSelectionIndicatorCanvas.restore();
+				} catch (IllegalArgumentException ignored) {
+				}
+				mSelectionCanvasSaved = false;
+			}
 			Paint edgePaint = new Paint();
 			edgePaint.setStyle(Paint.Style.STROKE);
 			edgePaint.setStrokeWidth(6);
@@ -1910,16 +1897,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			mSelectionIndicatorCanvas.drawPath(mSelectionIndicatorClipPath, edgePaint);
 			
-			//draw the cancel, start, end and copy buttons.
-			Paint cancelPaint = new Paint();
-			cancelPaint.setStyle(Paint.Style.FILL);
-			cancelPaint.setAntiAlias(true);
-			cancelPaint.setColor(0xFFFF0000);
-			int third = (mSelectionIndicatorHalfDimension * 2 ) / 3;
-			mSelectionIndicatorCanvas.drawBitmap(mTextSelectionCopyBitmap, 0, 0, null);
-			mSelectionIndicatorCanvas.drawBitmap(mTextSelectionCancelBitmap, 0, 2 * third, null);
-			mSelectionIndicatorCanvas.drawBitmap(mTextSelectionSwapBitmap, 2 * third, 0, null);
-			
+			// Icons after restore so the circle clip does not crop them; inset into the disc.
+			int full = mSelectionIndicatorHalfDimension * 2;
+			int inset = Math.max(8, (int) (10 * mDensity));
+			drawSelectionIcon(mTextSelectionCopyBitmap, inset, inset);
+			drawSelectionIcon(mTextSelectionCancelBitmap, inset, full - inset - iconHeight(mTextSelectionCancelBitmap));
+			drawSelectionIcon(mTextSelectionSwapBitmap, full - inset - iconWidth(mTextSelectionSwapBitmap), inset);
 			
 			float left = (float) (mSelectionIndicatorHalfDimension - (0.5 * mSelectionCharacterWidth));
 			float top = (float) (mSelectionIndicatorHalfDimension - (0.5 * mSelectionIndicatorFontSize));
@@ -1932,8 +1915,29 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					right + (mWidgetX - mSelectionIndicatorHalfDimension),
 					bottom + (mWidgetY - mSelectionIndicatorHalfDimension), 
 					mScrollerPaint);		
+		} else if (mSelectionCanvasSaved) {
+			try {
+				mSelectionIndicatorCanvas.restore();
+			} catch (IllegalArgumentException ignored) {
+			}
+			mSelectionCanvasSaved = false;
 		}
 		
+	}
+
+	private int iconWidth(final Bitmap bmp) {
+		return bmp != null ? bmp.getWidth() : 0;
+	}
+
+	private int iconHeight(final Bitmap bmp) {
+		return bmp != null ? bmp.getHeight() : 0;
+	}
+
+	private void drawSelectionIcon(final Bitmap bmp, final int x, final int y) {
+		if (bmp == null || mSelectionIndicatorCanvas == null) {
+			return;
+		}
+		mSelectionIndicatorCanvas.drawBitmap(bmp, x, y, null);
 	}
 
 	/** Clears all text from the buffer. */

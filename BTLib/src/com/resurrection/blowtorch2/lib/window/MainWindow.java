@@ -49,6 +49,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
@@ -4662,20 +4663,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
-	/** Put the selecting game window above button_window so the copy widget is usable. */
+	/** Hide on-screen buttons while selecting; keep the copy widget on the game window. */
 	private void raiseWindowAboveButtons(final Object windowTag) {
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
-		if (rl == null || windowTag == null) {
+		if (rl == null) {
 			return;
 		}
-		View game = rl.findViewWithTag(windowTag);
-		if (game != null) {
-			game.bringToFront();
+		View buttons = rl.findViewWithTag("button_window");
+		if (buttons != null) {
+			buttons.setVisibility(View.INVISIBLE);
 		}
-		bringGameplayChromeToFront(rl);
+		// Do not bring game window / root chrome to front — that covered the widget.
 	}
 
-	/** Put button_window back above game text after selection ends. */
+	/** Show button_window again after text selection ends. */
 	private void restoreButtonsAboveWindows() {
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 		if (rl == null) {
@@ -4683,6 +4684,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		View buttons = rl.findViewWithTag("button_window");
 		if (buttons != null) {
+			buttons.setVisibility(View.VISIBLE);
 			buttons.bringToFront();
 		}
 		bringGameplayChromeToFront(rl);

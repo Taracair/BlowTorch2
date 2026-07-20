@@ -144,4 +144,10 @@ interface IConnectionBinder {
 	List getGmcpSeenModules();
 	/** Re-send Core.Hello + Core.Supports.Set with current supports. */
 	void renegotiateGmcp();
+	/** Short MCP status for Options / Manage packages. */
+	String getMcpStatusHint();
+	/** MCP package names seen this session. */
+	List getMcpSeenPackages();
+	/** Re-send mcp-negotiate-can for enabled packages. */
+	void renegotiateMcp();
 }

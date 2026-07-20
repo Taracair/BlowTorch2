@@ -1652,6 +1652,27 @@ public class StellarService extends Service {
 			}
 		}
 
+		@Override
+		public String getMcpStatusHint() throws RemoteException {
+			Connection c = mConnections.get(mConnectionClutch);
+			return c != null ? c.getMcpStatusHint() : "off";
+		}
+
+		@Override
+		@SuppressWarnings("rawtypes")
+		public java.util.List getMcpSeenPackages() throws RemoteException {
+			Connection c = mConnections.get(mConnectionClutch);
+			return c != null ? c.getMcpSeenPackages() : new java.util.ArrayList<String>();
+		}
+
+		@Override
+		public void renegotiateMcp() throws RemoteException {
+			Connection c = mConnections.get(mConnectionClutch);
+			if (c != null && c.getMcpEngine() != null) {
+				c.getMcpEngine().renegotiate();
+			}
+		}
+
 	};
 
 	/** Dispatches data to the foreground window.

@@ -286,6 +286,59 @@ public class ConnectionSettingsPlugin extends Plugin {
 		gmcp_suggest.setValue(false);
 		gmcpOptions.addOption(gmcp_suggest);
 
+		SettingsGroup mcpOptions = new SettingsGroup();
+		mcpOptions.setTitle("MCP Options");
+		mcpOptions.setDescription("Mud Client Protocol (#$# in-band). Used by HellMOO / SamsaraMoo and some MOOs — different from GMCP. Off by default.");
+
+		BooleanOption use_mcp = new BooleanOption();
+		use_mcp.setTitle("Use MCP?");
+		use_mcp.setDescription("Enable MCP 2.1 handshake and package negotiation. Strip #$# lines from the game window when Omit is on. Off by default — reconnect or wait for server #$#mcp after enabling.");
+		use_mcp.setKey("use_mcp");
+		use_mcp.setValue(false);
+		mcpOptions.addOption(use_mcp);
+
+		CallbackOption manage_mcp = new CallbackOption();
+		manage_mcp.setTitle("Manage packages…");
+		manage_mcp.setDescription("Checkbox picker for mcp-negotiate-can packages. Built-in, seen this session, and catalog.");
+		manage_mcp.setKey("manage_mcp_packages");
+		manage_mcp.setValue("manage_mcp_packages");
+		mcpOptions.addOption(manage_mcp);
+
+		StringOption mcp_packages = new StringOption();
+		mcp_packages.setTitle("Packages String (advanced)");
+		mcp_packages.setDescription("Raw package list for negotiate. Prefer Manage packages…. Example: \"mcp-negotiate 1.0 2.0\", \"dns-org-hellmoo-status 1.0\".");
+		mcp_packages.setKey("mcp_packages");
+		mcp_packages.setValue(com.resurrection.blowtorch2.lib.service.McpPackageRegistry.DEFAULT_PACKAGES);
+		mcpOptions.addOption(mcp_packages);
+
+		BooleanOption log_mcp = new BooleanOption();
+		log_mcp.setTitle("Log MCP?");
+		log_mcp.setDescription("Write MCP handshake and packets to the app log (also session log if enabled). Also: .mcp sniff on");
+		log_mcp.setKey("log_mcp");
+		log_mcp.setValue(false);
+		mcpOptions.addOption(log_mcp);
+
+		BooleanOption mcp_feed = new BooleanOption();
+		mcp_feed.setTitle("Show MCP in game window?");
+		mcp_feed.setDescription("Live IN/OUT MCP feed in the mud window (noisy). Off by default. Also: .mcp feed on|off");
+		mcp_feed.setKey("mcp_feed");
+		mcp_feed.setValue(false);
+		mcpOptions.addOption(mcp_feed);
+
+		BooleanOption mcp_omit = new BooleanOption();
+		mcp_omit.setTitle("Omit MCP lines from output?");
+		mcp_omit.setDescription("Hide #$# out-of-band lines from the game window (recommended). Off = show raw MCP in the scrollback.");
+		mcp_omit.setKey("mcp_omit_output");
+		mcp_omit.setValue(true);
+		mcpOptions.addOption(mcp_omit);
+
+		BooleanOption mcp_auto_neg = new BooleanOption();
+		mcp_auto_neg.setTitle("Auto-negotiate packages?");
+		mcp_auto_neg.setDescription("After MCP handshake, automatically send mcp-negotiate-can for enabled packages. On by default.");
+		mcp_auto_neg.setKey("mcp_auto_negotiate");
+		mcp_auto_neg.setValue(true);
+		mcpOptions.addOption(mcp_auto_neg);
+
 		SettingsGroup protocolOptions = new SettingsGroup();
 		protocolOptions.setTitle("MUD Protocols");
 		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. All off by default — leave disabled unless your MUD needs them.");
@@ -320,6 +373,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		servOptions.addOption(battery_opt);
 		
 		servOptions.addOption(gmcpOptions);
+		servOptions.addOption(mcpOptions);
 		servOptions.addOption(protocolOptions);
 		
 		sg.addOption(servOptions);
