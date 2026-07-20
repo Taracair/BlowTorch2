@@ -46,6 +46,8 @@ Aliases (alias editor):
 Triggers (trigger editor):
   Literal? on  = match as plain text (no regex)
   Literal? off = pattern is a regular expression
+  Group        = optional label (e.g. combat); blank = ungrouped. List shows
+                 [group] and sorts by group. Use .trigger group on|off <group>.
 
   In regex mode, use (...) to capture and $1, $2, ... in Ack / Replace /
   Toast / Notification (and similar) text.
