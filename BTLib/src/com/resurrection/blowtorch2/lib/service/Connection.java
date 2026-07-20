@@ -251,9 +251,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** GMCP payload minimum size. */
 	private static final int GMCP_PAYLOAD_SIZE = 5;
 	
-	/** The value of 4. */
-	private static final int FOUR = 4;
-	
 	/** 500 ms timeout, generic timeout or other. */
 	private static final int FIVE_HUNDRED_MILLIS = 500;
 	
@@ -4623,9 +4620,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 	
-	/** Build settings page routine. This is used by the settings loading routine. 
-	 * The reason why the magic number 4 is used is that is the position of the window settings in the
-	 * settings list is similar to the position of the menu item in the v1 client.
+	/** Build settings page routine. This is used by the settings loading routine.
+	 * Inserts the main window's text/font settings (titled "Window") after the
+	 * Program Settings "Display" group so Options is not two menus both named Window.
 	 */
 	@SuppressWarnings("deprecation")
 	private void buildSettingsPage() {
@@ -4653,7 +4650,26 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		
 		buildTriggerSystem();
 		mWindows.get(0).getSettings().setListener(new WindowSettingsChangedListener(mWindows.get(0).getName()));
-		mSettings.getSettings().getOptions().addOptionAt(mWindows.get(0).getSettings(), FOUR);
+		int insertAt = indexAfterDisplayGroup(mSettings.getSettings().getOptions());
+		mSettings.getSettings().getOptions().addOptionAt(mWindows.get(0).getSettings(), insertAt);
+	}
+
+	/** Place WindowToken settings right after Display (NAWS/orientation), else at index 0. */
+	private static int indexAfterDisplayGroup(final SettingsGroup root) {
+		if (root == null || root.getOptions() == null) {
+			return 0;
+		}
+		java.util.ArrayList<Option> opts = root.getOptions();
+		for (int i = 0; i < opts.size(); i++) {
+			Option o = opts.get(i);
+			if (o == null) {
+				continue;
+			}
+			if ("display_group".equals(o.getKey()) || "Display".equals(o.getTitle())) {
+				return i + 1;
+			}
+		}
+		return 0;
 	}
 	
 	/** Attatches a WindowSettingsChangedListener to the given WindowToken.

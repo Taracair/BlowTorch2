@@ -4,13 +4,12 @@ In-game **Options** dialog groups (Program Settings):
 
 | Group | Purpose |
 |-------|---------|
-| **Window** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
+| **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
+| **Window** | Per-window text display: font, buffer, word wrap, hyperlinks, ANSI color |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
-
-Per-window font/buffer/wrap settings still live under each window’s own settings (not the Program Settings root).
 
 ## Shared storage layout (`/BlowTorch/`)
 

@@ -107,15 +107,12 @@ public final class GmcpMediaPlayer {
 			@Override
 			public void run() {
 				File local = cacheRemoteFile(remoteUrl, name);
-				final Uri uri;
-				if (local != null && local.isFile()) {
-					uri = Uri.fromFile(local);
-				} else if (remoteUrl.length() > 0) {
-					uri = Uri.parse(remoteUrl);
-				} else {
-					Log.w(TAG, "Client.Media.Play no source for " + name);
+				if (local == null || !local.isFile() || local.length() <= 0) {
+					Log.w(TAG, "Client.Media.Play no cached file for " + name
+							+ " (download failed or blocked); skipping play");
 					return;
 				}
+				final Uri uri = Uri.fromFile(local);
 				mMain.post(new Runnable() {
 					@Override
 					public void run() {
@@ -194,9 +191,29 @@ public final class GmcpMediaPlayer {
 					}
 				});
 			}
-			player.prepare();
-			player.start();
-			mTracks.add(track);
+			player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+				@Override
+				public void onPrepared(MediaPlayer mp) {
+					try {
+						mp.start();
+						mTracks.add(track);
+					} catch (Exception e) {
+						Log.w(TAG, "start failed for " + name, e);
+						mTracks.remove(track);
+						track.release();
+					}
+				}
+			});
+			player.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+				@Override
+				public boolean onError(MediaPlayer mp, int what, int extra) {
+					Log.w(TAG, "MediaPlayer error for " + name + " what=" + what + " extra=" + extra);
+					mTracks.remove(track);
+					track.release();
+					return true;
+				}
+			});
+			player.prepareAsync();
 		} catch (Exception e) {
 			Log.w(TAG, "play failed for " + name, e);
 			track.release();
