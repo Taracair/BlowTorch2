@@ -151,7 +151,12 @@ public class Processor {
 		if (!mLogGMCP && !mDebugTelnet) {
 			return;
 		}
-		String line = direction + " " + (payload == null ? "" : payload);
+		String safe = payload == null ? "" : payload;
+		// Never write cleartext Char.Login passwords to the app log.
+		if (safe.toLowerCase(java.util.Locale.US).contains("char.login.credentials")) {
+			safe = safe.replaceAll("(?i)(\"password\"\\s*:\\s*\")([^\"]*)(\")", "$1***$3");
+		}
+		String line = direction + " " + safe;
 		Log.i("GMCP", line);
 		if (mContext != null) {
 			BlowTorchLogger.logError(mContext, "GMCP", line);
@@ -692,17 +697,17 @@ public class Processor {
 	 * @throws UnsupportedEncodingException Thrown if the selected encoding isn't supported.
 	 */
 	public final byte[] getGMCPResponse(final String str) throws UnsupportedEncodingException {
-		//check for IAC in the string.
+		// GMCP payloads are UTF-8 (inbound already decoded as UTF-8). ISO-8859-1
+		// mangled non-Latin-1 passwords/account names (e.g. Polish diacritics).
 		int iaccount = 0;
-		byte[] tmp = str.getBytes("ISO-8859-1");
+		byte[] tmp = str.getBytes("UTF-8");
 		for (int i = 0; i < tmp.length; i++) {
 			if (tmp[i] == TC.IAC) {
 				iaccount++;
 			}
 		}
-		
-		
-		byte[] resp = new byte[str.getBytes("ISO-8859-1").length + PAYLOAD_BYTES + iaccount];
+
+		byte[] resp = new byte[tmp.length + PAYLOAD_BYTES + iaccount];
 		resp[0] = TC.IAC;
 		resp[1] = TC.SB;
 		resp[2] = TC.GMCP;
@@ -717,8 +722,7 @@ public class Processor {
 			}
 			j++;
 		}
-		
-		
+
 		return resp;
 	}
 
