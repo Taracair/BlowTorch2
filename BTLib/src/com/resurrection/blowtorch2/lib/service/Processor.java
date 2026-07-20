@@ -652,7 +652,10 @@ public class Processor {
 			mMediaPlayer.release();
 			mMediaPlayer = null;
 		}
-		mCharLogin = null;
+		if (mCharLogin != null) {
+			mCharLogin.release();
+			mCharLogin = null;
+		}
 		mModuleRegistry.clearSeen();
 		mMudProtocols.clearMsdp();
 		mMudProtocols.clearMssp();

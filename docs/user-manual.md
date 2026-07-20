@@ -145,6 +145,12 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 
 **Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
 
+## Copy text from the game window
+
+- **Double-tap** anywhere on the game text to open the selection / copy widget.
+- Or **long-press** (system long-press timing) and hold still enough for the widget to appear.
+- Drag the cursors, then use the widget’s copy control. The widget is raised above on-screen buttons while selecting.
+
 ## On-screen buttons: swipe + accordion
 
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.

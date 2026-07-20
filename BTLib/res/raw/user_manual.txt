@@ -133,6 +133,12 @@ Built-in commands
     .kb clear
     .kb close
 
+Copy text from the game window
+------------------------------
+  Double-tap the game text to open the selection / copy widget.
+  Or long-press (system timing) and hold still enough for the widget.
+  The widget is raised above on-screen buttons while selecting.
+
 .disconnect
   Shows a local "Disconnected." notice in the game window.
   Prefer the overflow menu Disconnect for a real disconnect, or use
