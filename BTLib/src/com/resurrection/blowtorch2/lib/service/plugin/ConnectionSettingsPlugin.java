@@ -250,10 +250,17 @@ public class ConnectionSettingsPlugin extends Plugin {
 		use_gmcp.setKey("use_gmcp");
 		use_gmcp.setValue(true);
 		gmcpOptions.addOption(use_gmcp);
+
+		CallbackOption manage_gmcp = new CallbackOption();
+		manage_gmcp.setTitle("Manage modules…");
+		manage_gmcp.setDescription("Checkbox picker for Supports.Set. Built-in, seen this session, and catalog — nothing auto-enables from traffic.");
+		manage_gmcp.setKey("manage_gmcp_modules");
+		manage_gmcp.setValue("manage_gmcp_modules");
+		gmcpOptions.addOption(manage_gmcp);
 	
 		StringOption gmcp_supports = new StringOption();
-		gmcp_supports.setTitle("Supports String");
-		gmcp_supports.setDescription("Modules enabled on initial negotiation, e.g. \"Char 1\", \"Room 1\". Servers differ.");
+		gmcp_supports.setTitle("Supports String (advanced)");
+		gmcp_supports.setDescription("Raw Core.Supports.Set list. Prefer Manage modules…. Example: \"Char 1\", \"Room 1\".");
 		gmcp_supports.setKey("gmcp_supports");
 		gmcp_supports.setValue("\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"");
 		gmcpOptions.addOption(gmcp_supports);
@@ -264,6 +271,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		log_gmcp.setKey("log_gmcp");
 		log_gmcp.setValue(false);
 		gmcpOptions.addOption(log_gmcp);
+
+		BooleanOption gmcp_suggest = new BooleanOption();
+		gmcp_suggest.setTitle("Suggest modules when seen?");
+		gmcp_suggest.setDescription("Optional toast when the server sends a module you have not enabled. Off by default (non-invasive).");
+		gmcp_suggest.setKey("gmcp_suggest_modules");
+		gmcp_suggest.setValue(false);
+		gmcpOptions.addOption(gmcp_suggest);
 
 		CallbackOption battery_opt = new CallbackOption();
 		battery_opt.setTitle("Battery optimization…");

@@ -29,11 +29,15 @@ On Android 11+ this needs **All files access** once: **Options → Miscellaneous
 ## GMCP
 
 GMCP is an optional structured out-of-band channel (telnet option 201). **Use GMCP?**
-is on by default for new profiles. Set **Supports String** for modules your MUD
-expects (defaults include Char, Room, Core, Char.Login, Client.Media). **Log GMCP?**
-writes handshake and packets to `/BlowTorch/logs/blowtorch2.log` (and to the session
-log when that is enabled). `.gmcp sniff on` prints the absolute path in-game;
-Overflow → Crash report → Show log to view. Dot helpers: `.gmcp` (see Help / user-manual).
+is on by default for new profiles. Use **Manage modules…** to pick what goes in
+`Core.Supports.Set` (built-in, seen this session, catalog). Nothing auto-enables
+from traffic. **Supports String (advanced)** is the raw list if you prefer editing
+it by hand. **Log GMCP?** writes handshake and packets to
+`/BlowTorch/logs/blowtorch2.log` (and to the session log when that is enabled).
+**Suggest modules when seen?** (off by default) can toast when the server sends a
+module you have not enabled. `.gmcp sniff on` prints the absolute path in-game;
+Overflow → Crash report → Show log to view. Dot helpers: `.gmcp ask`,
+`.gmcp enable|disable`, `.gmcp renegotiate` (see Help / user-manual).
 
 Native handlers: **Char.Login** (primary launcher account login/password) and
 **Client.Media** (sound/music). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for

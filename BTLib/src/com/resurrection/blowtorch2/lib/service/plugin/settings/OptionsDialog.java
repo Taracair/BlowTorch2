@@ -378,6 +378,16 @@ public class OptionsDialog extends Dialog {
 				break;
 			case CALLBACK:
 				v.setTag(o);
+				if ("manage_gmcp_modules".equals(o.getKey()) && service != null) {
+					try {
+						String st = service.getGmcpModuleStatus();
+						if (st != null && st.length() > 0) {
+							ext.setText("Status: " + st + "\n"
+									+ (o.getDescription() != null ? o.getDescription() : ""));
+						}
+					} catch (RemoteException ignored) {
+					}
+				}
 				v.setOnClickListener(new CallbackOptionClickedListener());
 				break;
 			}
@@ -446,6 +456,10 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
+			if ("manage_gmcp_modules".equals(key)) {
+				openGmcpModulesDialog();
+				return;
+			}
 			try {
 				service.callPluginFunction(selectedPlugin, (String)option.getValue());
 			} catch (RemoteException e) {
@@ -454,6 +468,75 @@ public class OptionsDialog extends Dialog {
 			}
 		}
 	
+	}
+
+	private void openGmcpModulesDialog() {
+		final Context ctx = getContext();
+		GmcpModulesDialog.show(ctx, new GmcpModulesDialog.Host() {
+			@Override
+			public IConnectionBinder getService() {
+				return service;
+			}
+
+			@Override
+			public String getSupportsString() {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey("gmcp_supports");
+						if (o instanceof StringOption) {
+							Object val = ((StringOption) o).getValue();
+							if (val != null) {
+								return val.toString();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return com.resurrection.blowtorch2.lib.service.GmcpModuleRegistry.DEFAULT_SUPPORTS;
+			}
+
+			@Override
+			public void applySupportsString(String supports, boolean renegotiate) {
+				try {
+					service.updateStringSetting("gmcp_supports", supports);
+					if (renegotiate) {
+						service.renegotiateGmcp();
+					}
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+
+			@Override
+			@SuppressWarnings("unchecked")
+			public ArrayList<String> getSeenModules() {
+				try {
+					java.util.List list = service.getGmcpSeenModules();
+					if (list == null) {
+						return new ArrayList<String>();
+					}
+					ArrayList<String> out = new ArrayList<String>();
+					for (Object o : list) {
+						if (o != null) {
+							out.add(o.toString());
+						}
+					}
+					return out;
+				} catch (RemoteException e) {
+					return new ArrayList<String>();
+				}
+			}
+
+			@Override
+			public String getStatusHint() {
+				try {
+					return service.getGmcpModuleStatus();
+				} catch (RemoteException e) {
+					return "";
+				}
+			}
+		});
 	}
 	
 	/** Human-readable label for a font path / built-in font key. */
