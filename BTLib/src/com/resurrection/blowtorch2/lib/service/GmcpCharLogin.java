@@ -82,7 +82,10 @@ public final class GmcpCharLogin {
 			JSONObject creds = new JSONObject();
 			creds.put("account", mAccount);
 			creds.put("password", mPassword);
-			mSender.sendGmcp("Char.Login.Credentials " + creds.toString());
+			String payload = "Char.Login.Credentials " + creds.toString();
+			Log.i(TAG, "Char.Login.Credentials sending account=\"" + mAccount
+					+ "\" passwordLen=" + mPassword.length());
+			mSender.sendGmcp(payload);
 		} catch (JSONException e) {
 			Log.w(TAG, "Char.Login.Credentials build failed", e);
 		}
