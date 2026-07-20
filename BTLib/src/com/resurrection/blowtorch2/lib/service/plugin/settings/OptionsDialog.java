@@ -388,6 +388,16 @@ public class OptionsDialog extends Dialog {
 					} catch (RemoteException ignored) {
 					}
 				}
+				if ("manage_mcp_packages".equals(o.getKey()) && service != null) {
+					try {
+						String st = service.getMcpStatusHint();
+						if (st != null && st.length() > 0) {
+							ext.setText("Status: " + st + "\n"
+									+ (o.getDescription() != null ? o.getDescription() : ""));
+						}
+					} catch (RemoteException ignored) {
+					}
+				}
 				v.setOnClickListener(new CallbackOptionClickedListener());
 				break;
 			}
@@ -458,6 +468,10 @@ public class OptionsDialog extends Dialog {
 			}
 			if ("manage_gmcp_modules".equals(key)) {
 				openGmcpModulesDialog();
+				return;
+			}
+			if ("manage_mcp_packages".equals(key)) {
+				openMcpPackagesDialog();
 				return;
 			}
 			try {
@@ -532,6 +546,70 @@ public class OptionsDialog extends Dialog {
 			public String getStatusHint() {
 				try {
 					return service.getGmcpModuleStatus();
+				} catch (RemoteException e) {
+					return "";
+				}
+			}
+		});
+	}
+
+	private void openMcpPackagesDialog() {
+		final Context ctx = getContext();
+		McpPackagesDialog.show(ctx, new McpPackagesDialog.Host() {
+			@Override
+			public String getPackagesString() {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey("mcp_packages");
+						if (o instanceof StringOption) {
+							Object val = ((StringOption) o).getValue();
+							if (val != null) {
+								return val.toString();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return com.resurrection.blowtorch2.lib.service.McpPackageRegistry.DEFAULT_PACKAGES;
+			}
+
+			@Override
+			public void applyPackagesString(String packages, boolean renegotiate) {
+				try {
+					service.updateStringSetting("mcp_packages", packages);
+					if (renegotiate) {
+						service.renegotiateMcp();
+					}
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+
+			@Override
+			@SuppressWarnings("unchecked")
+			public ArrayList<String> getSeenPackages() {
+				try {
+					java.util.List list = service.getMcpSeenPackages();
+					if (list == null) {
+						return new ArrayList<String>();
+					}
+					ArrayList<String> out = new ArrayList<String>();
+					for (Object o : list) {
+						if (o != null) {
+							out.add(o.toString());
+						}
+					}
+					return out;
+				} catch (RemoteException e) {
+					return new ArrayList<String>();
+				}
+			}
+
+			@Override
+			public String getStatusHint() {
+				try {
+					return service.getMcpStatusHint();
 				} catch (RemoteException e) {
 					return "";
 				}

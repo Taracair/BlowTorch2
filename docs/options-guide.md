@@ -7,7 +7,7 @@ In-game **Options** dialog groups (Program Settings):
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
 | **Window** | Per-window text display: font, buffer, word wrap, hyperlinks, ANSI color |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
-| **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options** |
+| **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
 
@@ -44,6 +44,25 @@ Overflow → Crash report → Show log to view. Dot helpers: `.gmcp ask`,
 Native handlers: **Char.Login** (primary launcher account login/password) and
 **Client.Media** (sound/music). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for
 planned optional MTTS / graphics work.
+
+## MCP Options
+
+Mud Client Protocol — in-band `#$#` messages (HellMOO / SamsaraMoo and some MOOs).
+**Not** the same as GMCP. Under **Options → Service → MCP Options**. All advanced
+flags default off except omit-from-output and auto-negotiate (when Use MCP? is on):
+
+| Option | Default | Notes |
+|--------|---------|--------|
+| **Use MCP?** | off | Handshake + package negotiate |
+| **Manage packages…** | — | Checkbox UI for `mcp-negotiate-can` |
+| **Packages String (advanced)** | negotiate + hellmoo-status | Raw list |
+| **Log MCP?** | off | Also `.mcp sniff` |
+| **Show MCP in game window?** | off | Also `.mcp feed` |
+| **Omit MCP lines from output?** | on | Hide `#$#` from scrollback |
+| **Auto-negotiate packages?** | on | Send can/end after `#$#mcp` |
+
+Native: **dns-org-hellmoo-status** vitals cache (`.mcp vitals`). Helpers: `.mcp ask`,
+`.mcp enable|disable`, `.mcp renegotiate`, `.mcp send`.
 
 ## MUD Protocols (optional)
 

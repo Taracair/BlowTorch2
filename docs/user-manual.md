@@ -96,9 +96,10 @@ dialog when you turn Literal off.
 | `.togglefullscreen` | Toggle fullscreen preference |
 | `.wrap [on\|off]` | Input bar growth (default on); also Options → Input → Grow Input Bar? |
 | `.gmcp …` | GMCP helpers (status / sniff / version / supports / dump / send); see below |
+| `.mcp …` | MCP helpers (Mud Client Protocol `#$#`); see below |
 | `.keyboard` / `.kb` | Input-bar control — see `.kb` section below |
-| `.disconnect` | Local “Disconnected.” notice (use overflow **Disconnect** for a real disconnect) |
-| `.reconnect` | Local “Reconnecting . . .” notice (use overflow **Reconnect** to reconnect) |
+| `.disconnect` | Disconnect the current session (same as overflow **Disconnect**) |
+| `.reconnect` | Reconnect the current session (same as overflow **Reconnect**) |
 | `.run <directions>` | Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands |
 | `.loadset <setname>` | Built-in stub; `button_window` overrides to load a button set |
 | `.clearbuttons` | Clear on-screen buttons (`button_window` may re-register) |
@@ -147,9 +148,8 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 
 ## Copy text from the game window
 
-- **Double-tap** anywhere on the game text to open the selection / copy widget.
-- Or **long-press** (system long-press timing) and hold still enough for the widget to appear.
-- Drag the cursors, then use the widget’s copy control. The widget is raised above on-screen buttons while selecting.
+- **Two-finger tap** on the game text to open the selection / copy widget (one-finger long-press does not).
+- Drag the cursors, then use the widget’s copy control. On-screen buttons may hide while selecting so the widget stays usable.
 
 ## On-screen buttons: swipe + accordion
 
@@ -180,6 +180,23 @@ over editing the raw Supports String. Helpers:
 .gmcp supports […]   — show or set supports modules
 .gmcp dump [path]     — dump cached GMCP table
 .gmcp send <payload>  — queue a GMCP packet
+```
+
+## MCP (short)
+
+Mud Client Protocol (`#$#…` in-band — not GMCP). Off by default.
+**Options → Service → MCP Options**. Prefer **Manage packages…**.
+
+```
+.mcp                  — help
+.mcp ask|status       — handshake / flags
+.mcp packages         — enabled vs seen
+.mcp enable|disable   — toggle packages
+.mcp renegotiate      — re-send mcp-negotiate-can
+.mcp sniff [on|off|tail N]
+.mcp feed [on|off]
+.mcp vitals|dump      — HellMOO/Samsara status cache
+.mcp send …           — raw #$# or named message
 ```
 
 Optional protocols (off by default; Options → Service → **MUD Protocols**):

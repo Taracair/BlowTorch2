@@ -64,6 +64,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		bell_vibrate,
 		bell_notification,
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
+		use_mcp, mcp_packages, log_mcp, mcp_feed, mcp_omit_output, mcp_auto_negotiate,
 		use_mtts, use_msdp, use_mssp,
 		show_regex_warning,
 		session_log, session_log_directory, default_settings_directory,
@@ -494,6 +495,32 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case gmcp_suggest_modules:
 						// Default false; persist true so opt-in sticks.
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case use_mcp:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case mcp_packages:
+						if(!((String)opt.getValue()).equals(com.resurrection.blowtorch2.lib.service.McpPackageRegistry.DEFAULT_PACKAGES)) {
+							dooutput = true;
+						}
+						break;
+					case log_mcp:
+					case mcp_feed:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case mcp_omit_output:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mcp_auto_negotiate:
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;
