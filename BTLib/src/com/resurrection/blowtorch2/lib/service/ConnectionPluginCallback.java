@@ -76,4 +76,10 @@ public interface ConnectionPluginCallback {
 	 * @return True if <b>plugin</b> supports <b>function</b>. False if not or <b>plugin</b> does not exist.
 	 */
 	boolean pluginSupports(String plugin, String function);
+
+	/** Cached MCP vitals / last message fields (may be empty). */
+	java.util.Map getMcpStatusCache();
+
+	/** Send MCP OOB: raw {@code #$#…} line or {@code name key: val…}. */
+	void sendMcpPacket(String payload);
 }

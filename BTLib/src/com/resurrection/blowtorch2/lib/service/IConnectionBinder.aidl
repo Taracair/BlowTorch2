@@ -150,4 +150,6 @@ interface IConnectionBinder {
 	List getMcpSeenPackages();
 	/** Re-send mcp-negotiate-can for enabled packages. */
 	void renegotiateMcp();
+	/** Reply to MCP simpleedit with edited text. */
+	void sendMcpSimpleEditSet(String reference, String type, String content);
 }

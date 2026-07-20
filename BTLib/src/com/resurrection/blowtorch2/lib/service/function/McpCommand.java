@@ -85,6 +85,14 @@ public class McpCommand extends SpecialCommand {
 		case "bar":
 		case "hellmoo":
 			return doVitals(c);
+		case "cords":
+		case "cord":
+			return doCords(c, rest);
+		case "ping":
+			return doPing(c, rest);
+		case "client":
+		case "vmoo":
+			return doClient(c);
 		default:
 			c.sendDataToWindow(getErrorMessage("MCP usage",
 					"Unknown subcommand '" + sub + "'.\n" + shortUsage()));
@@ -348,20 +356,117 @@ public class McpCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object doCords(Connection c, String rest) {
+		McpEngine eng = c.getMcpEngine();
+		if (eng == null || !boolOpt(c, OPT_USE, false)) {
+			c.sendDataToWindow(getErrorMessage("MCP cord", "MCP off or not ready."));
+			return null;
+		}
+		String[] toks = rest.length() == 0 ? new String[0] : rest.split("\\s+", 3);
+		StringBuilder sb = new StringBuilder();
+		sb.append("\n").append(Colorizer.getWhiteColor());
+		if (toks.length == 0 || "list".equalsIgnoreCase(toks[0])) {
+			Map<String, String> cords = eng.getOpenCords();
+			sb.append("Open MCP cords:\n");
+			if (cords.isEmpty()) {
+				sb.append("  (none)\n");
+			} else {
+				for (Map.Entry<String, String> e : cords.entrySet()) {
+					sb.append("  ").append(e.getKey()).append("  type=").append(e.getValue()).append("\n");
+				}
+			}
+			sb.append("Usage: .mcp cord open <type> | close <id> | send <id> <message> [key: val…]\n");
+			c.sendDataToWindow(sb.toString());
+			return null;
+		}
+		String op = toks[0].toLowerCase(Locale.US);
+		if ("open".equals(op)) {
+			String type = toks.length > 1 ? toks[1] : "generic";
+			String id = eng.openCord(type);
+			sb.append("Opened cord ").append(id).append(" type=").append(type).append("\n");
+			c.sendDataToWindow(sb.toString());
+			return null;
+		}
+		if ("close".equals(op)) {
+			if (toks.length < 2) {
+				c.sendDataToWindow(getErrorMessage("MCP cord close", ".mcp cord close <id>"));
+				return null;
+			}
+			eng.closeCord(toks[1]);
+			sb.append("Closed cord ").append(toks[1]).append("\n");
+			c.sendDataToWindow(sb.toString());
+			return null;
+		}
+		if ("send".equals(op)) {
+			if (toks.length < 3) {
+				c.sendDataToWindow(getErrorMessage("MCP cord send",
+						".mcp cord send <id> <message> [key: val…]"));
+				return null;
+			}
+			String id = toks[1];
+			String[] msgParts = toks[2].split("\\s+", 2);
+			String message = msgParts[0];
+			LinkedHashMap<String, String> args = new LinkedHashMap<String, String>();
+			if (msgParts.length > 1) {
+				java.util.regex.Matcher m = java.util.regex.Pattern
+						.compile("([A-Za-z0-9_.*-]+):\\s*(?:\"([^\"]*)\"|(\\S+))")
+						.matcher(msgParts[1]);
+				while (m.find()) {
+					args.put(m.group(1), m.group(2) != null ? m.group(2) : m.group(3));
+				}
+			}
+			eng.sendCordMessage(id, message, args);
+			sb.append("Cord message sent on ").append(id).append("\n");
+			c.sendDataToWindow(sb.toString());
+			return null;
+		}
+		c.sendDataToWindow(getErrorMessage("MCP cord",
+				".mcp cord [list|open <type>|close <id>|send <id> <msg> …]"));
+		return null;
+	}
+
+	private Object doPing(Connection c, String rest) {
+		McpEngine eng = c.getMcpEngine();
+		if (eng == null || !boolOpt(c, OPT_USE, false)) {
+			c.sendDataToWindow(getErrorMessage("MCP ping", "MCP off or not ready."));
+			return null;
+		}
+		LinkedHashMap<String, String> args = new LinkedHashMap<String, String>();
+		args.put("id", rest.length() > 0 ? rest.split("\\s+")[0]
+				: String.valueOf(System.currentTimeMillis() % 100000));
+		eng.sendMessage("dns-com-awns-ping", args);
+		c.sendDataToWindow("\n" + Colorizer.getWhiteColor() + "MCP ping sent id="
+				+ args.get("id") + "\n");
+		return null;
+	}
+
+	private Object doClient(Connection c) {
+		McpEngine eng = c.getMcpEngine();
+		if (eng == null || !boolOpt(c, OPT_USE, false)) {
+			c.sendDataToWindow(getErrorMessage("MCP client", "MCP off or not ready."));
+			return null;
+		}
+		eng.sendClientInfo();
+		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+				+ "Sent dns-com-vmoo-client-info.\n");
+		return null;
+	}
+
 	private static String helpText() {
 		return "\n" + Colorizer.getWhiteColor()
-				+ "MCP (Mud Client Protocol) — in-band #$# messages (not GMCP).\n"
+				+ "MCP (Mud Client Protocol) 2.1 — in-band #$# messages (not GMCP).\n"
+				+ "Spec: https://www.moo.mud.org/mcp/\n"
 				+ shortUsage()
 				+ "Enable: Options → Service → MCP Options → Use MCP?\n"
-				+ "Samsara/HellMOO: enable dns-org-hellmoo-status for vitals.\n";
+				+ "Lua: Send_MCP_Packet(s)  Get_MCP_Status()  triggers @message-name\n"
+				+ "Native: hellmoo-status, simpleedit, displayurl, ping, cord, vmoo-client.\n";
 	}
 
 	private static String shortUsage() {
-		return "  .mcp ask|status|packages|vitals\n"
-				+ "  .mcp enable|disable <pkg…>\n"
-				+ "  .mcp renegotiate\n"
-				+ "  .mcp sniff [on|off|tail N]   .mcp feed [on|off]\n"
-				+ "  .mcp dump [status|recent]    .mcp send …\n";
+		return "  .mcp ask|status|packages|vitals|cords\n"
+				+ "  .mcp enable|disable <pkg…>   .mcp renegotiate\n"
+				+ "  .mcp sniff|feed|dump|send|ping|client\n"
+				+ "  .mcp cord open|close|send …\n";
 	}
 
 	private static String sniffHint(Connection c) {

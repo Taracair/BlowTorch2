@@ -120,10 +120,11 @@ Built-in commands
     .mcp packages         enabled vs seen
     .mcp enable|disable   toggle packages
     .mcp renegotiate      re-send mcp-negotiate-can
-    .mcp sniff [on|off|tail N]
-    .mcp feed [on|off]
-    .mcp vitals|dump      HellMOO/Samsara status cache
-    .mcp send …           raw #$# or named message
+    .mcp sniff|feed|dump|vitals|send|ping|client
+    .mcp cord open|close|send|list
+  Lua: Send_MCP_Packet(s), Get_MCP_Status(), triggers @message-name
+  Native: hellmoo-status, simpleedit, displayurl, ping, cord, vmoo-client
+  Spec: https://www.moo.mud.org/mcp/
 
 .keyboard …   (alias: .kb)
   Manipulate the input bar. With no arguments, prints usage help.
