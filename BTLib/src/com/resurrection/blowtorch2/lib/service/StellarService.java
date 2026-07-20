@@ -1631,6 +1631,27 @@ public class StellarService extends Service {
 			return mConnections.get(mConnectionClutch).getPluginOptionValue(plugin,key);
 		}
 
+		@Override
+		public String getGmcpModuleStatus() throws RemoteException {
+			Connection c = mConnections.get(mConnectionClutch);
+			return c != null ? c.getGmcpModuleStatus() : "off";
+		}
+
+		@Override
+		@SuppressWarnings("rawtypes")
+		public java.util.List getGmcpSeenModules() throws RemoteException {
+			Connection c = mConnections.get(mConnectionClutch);
+			return c != null ? c.getGmcpSeenModules() : new java.util.ArrayList<String>();
+		}
+
+		@Override
+		public void renegotiateGmcp() throws RemoteException {
+			Connection c = mConnections.get(mConnectionClutch);
+			if (c != null) {
+				c.renegotiateGmcp();
+			}
+		}
+
 	};
 
 	/** Dispatches data to the foreground window.
