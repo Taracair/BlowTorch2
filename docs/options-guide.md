@@ -35,9 +35,11 @@ from traffic. **Supports String (advanced)** is the raw list if you prefer editi
 it by hand. **Log GMCP?** writes handshake and packets to
 `/BlowTorch/logs/blowtorch2.log` (and to the session log when that is enabled).
 **Suggest modules when seen?** (off by default) can toast when the server sends a
-module you have not enabled. `.gmcp sniff on` prints the absolute path in-game;
+module you have not enabled. **Show GMCP in game window?** (or `.gmcp feed on`)
+echoes live IN/OUT packets in the mud window — noisy, but the fastest way to see
+what Eden actually sends. `.gmcp sniff on` prints the absolute path in-game;
 Overflow → Crash report → Show log to view. Dot helpers: `.gmcp ask`,
-`.gmcp enable|disable`, `.gmcp renegotiate` (see Help / user-manual).
+`.gmcp enable|disable`, `.gmcp renegotiate`, `.gmcp feed` (see Help / user-manual).
 
 Native handlers: **Char.Login** (primary launcher account login/password) and
 **Client.Media** (sound/music). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for

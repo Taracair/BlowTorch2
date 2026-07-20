@@ -272,6 +272,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		log_gmcp.setValue(false);
 		gmcpOptions.addOption(log_gmcp);
 
+		BooleanOption gmcp_feed = new BooleanOption();
+		gmcp_feed.setTitle("Show GMCP in game window?");
+		gmcp_feed.setDescription("Live IN/OUT GMCP feed in the mud window (noisy). Off by default. Also: .gmcp feed on|off");
+		gmcp_feed.setKey("gmcp_feed");
+		gmcp_feed.setValue(false);
+		gmcpOptions.addOption(gmcp_feed);
+
 		BooleanOption gmcp_suggest = new BooleanOption();
 		gmcp_suggest.setTitle("Suggest modules when seen?");
 		gmcp_suggest.setDescription("Optional toast when the server sends a package family you have not declared in Supports.Set. Submodules of enabled parents (e.g. Char.Base under Char) do not trigger. Off by default.");

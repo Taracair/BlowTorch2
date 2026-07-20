@@ -40,6 +40,8 @@ public class Processor {
 	private boolean mDebugTelnet = false;
 	/** When true, GMCP handshake/packets are written to BlowTorchLogger (+ session log if on). */
 	private boolean mLogGMCP = false;
+	/** When true, echo GMCP IN/OUT lines into the game window. */
+	private boolean mFeedGMCP = false;
 	/** Optional toast when server sends a module not in Supports.Set (default off). */
 	private boolean mSuggestGmcpModules = false;
 	/** Optional profile label for session-log GMCP lines. */
@@ -135,6 +137,14 @@ public class Processor {
 		mLogGMCP = logGMCP;
 	}
 
+	public final void setFeedGMCP(final boolean feedGMCP) {
+		mFeedGMCP = feedGMCP;
+	}
+
+	public final boolean isFeedGMCP() {
+		return mFeedGMCP;
+	}
+
 	public final void setSuggestGmcpModules(final boolean suggest) {
 		mSuggestGmcpModules = suggest;
 	}
@@ -148,21 +158,34 @@ public class Processor {
 	}
 
 	private void logGmcp(final String direction, final String payload) {
-		if (!mLogGMCP && !mDebugTelnet) {
+		if (!mLogGMCP && !mDebugTelnet && !mFeedGMCP) {
 			return;
 		}
 		String safe = payload == null ? "" : payload;
-		// Never write cleartext Char.Login passwords to the app log.
+		// Never write cleartext Char.Login passwords to the app log / window.
 		if (safe.toLowerCase(java.util.Locale.US).contains("char.login.credentials")) {
 			safe = safe.replaceAll("(?i)(\"password\"\\s*:\\s*\")([^\"]*)(\")", "$1***$3");
 		}
 		String line = direction + " " + safe;
-		Log.i("GMCP", line);
-		if (mContext != null) {
-			BlowTorchLogger.logError(mContext, "GMCP", line);
-			if (mLogGMCP && SessionLogger.isEnabled(mContext)) {
-				SessionLogger.appendMarker(mContext, mLogProfile, "GMCP " + line);
+		if (mLogGMCP || mDebugTelnet) {
+			Log.i("GMCP", line);
+			if (mContext != null) {
+				BlowTorchLogger.logError(mContext, "GMCP", line);
+				if (mLogGMCP && SessionLogger.isEnabled(mContext)) {
+					SessionLogger.appendMarker(mContext, mLogProfile, "GMCP " + line);
+				}
 			}
+		}
+		if (mFeedGMCP && mReportTo != null) {
+			String shown = safe;
+			if (shown.length() > 360) {
+				shown = shown.substring(0, 360) + "…";
+			}
+			String msg = "\n" + Colorizer.getTeloptStartColor()
+					+ "[GMCP " + direction + "] " + shown
+					+ Colorizer.getResetColor() + "\n";
+			mReportTo.sendMessageDelayed(
+					mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, msg), 1);
 		}
 	}
 	
