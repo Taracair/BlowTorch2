@@ -65,6 +65,19 @@
   			</TableRow>
   			<TableRow>
   				<TextView
+  					android:text="Group:"
+  					android:paddingLeft="10dip"/>
+  				<EditText
+  					android:id="@+id/trigger_editor_group"
+  					android:hint="optional, e.g. combat"
+  					android:layout_marginRight="10dip"
+  					android:layout_width="0dip"
+  					android:layout_weight="1"
+  					android:singleLine="true"
+  					android:inputType="text"/>
+  			</TableRow>
+  			<TableRow>
+  				<TextView
   					android:text="Pattern:"
   					android:paddingLeft="10dip"/>
   				<EditText

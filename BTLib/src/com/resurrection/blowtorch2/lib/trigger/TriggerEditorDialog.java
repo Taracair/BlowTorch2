@@ -171,11 +171,16 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		//if(isEditor) {
 		EditText title = (EditText)findViewById(R.id.trigger_editor_name);
 		EditText pattern = (EditText)findViewById(R.id.trigger_editor_pattern);
+		EditText group = (EditText)findViewById(R.id.trigger_editor_group);
 		
 		CheckBox literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
 		
 		title.setText(the_trigger.getName());
 		pattern.setText(the_trigger.getPattern());
+		if (group != null) {
+			String g = the_trigger.getGroup();
+			group.setText(g != null ? g : "");
+		}
 		
 		literal.setChecked(!the_trigger.isInterpretAsRegex());
 		once.setChecked(the_trigger.isFireOnce());
@@ -232,12 +237,16 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 		EditText title = (EditText)findViewById(R.id.trigger_editor_name);
 		EditText pattern = (EditText)findViewById(R.id.trigger_editor_pattern);
+		EditText group = (EditText)findViewById(R.id.trigger_editor_group);
 		
 		CheckBox literal = (CheckBox)findViewById(R.id.trigger_literal_checkbox);
 		CheckBox fireOnce = (CheckBox)findViewById(R.id.trigger_once_checkbox);
 		boolean retval = false;
 		if(!(title.getText().toString().equals(test.getName()))) retval = true;
 		if(!(pattern.getText().toString().equals(test.getPattern()))) retval = true;
+		String groupText = group != null ? group.getText().toString().trim() : "";
+		String existingGroup = test.getGroup() != null ? test.getGroup() : "";
+		if(!groupText.equals(existingGroup)) retval = true;
 		if(test.isInterpretAsRegex() != !literal.isChecked()) retval = true;
 		if(test.isFireOnce() != fireOnce.isChecked()) retval = true; 
 		
@@ -258,6 +267,16 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			
 		}
 		return retval;
+	}
+
+	/** Optional group name; blank means default (ungrouped). */
+	private String readGroupField() {
+		EditText group = (EditText) findViewById(R.id.trigger_editor_group);
+		if (group == null) {
+			return TriggerData.DEFAULT_GROUP;
+		}
+		String text = group.getText() != null ? group.getText().toString().trim() : "";
+		return text.length() == 0 ? TriggerData.DEFAULT_GROUP : text;
 	}
 	
 	private class TriggerEditorDoneListener implements View.OnClickListener {
@@ -333,6 +352,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				//do editor type action
 				the_trigger.setName(title.getText().toString());
 				the_trigger.setPattern(pattern.getText().toString());
+				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
 				
 				//i don't care anymore about the checkchanged listeners. it was a neat idea, but here goes.
@@ -349,6 +369,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			} else {	
 				the_trigger.setName(title.getText().toString());
 				the_trigger.setPattern(pattern.getText().toString());
+				the_trigger.setGroup(readGroupField());
 				the_trigger.setInterpretAsRegex(!literal.isChecked());
 				try {
 					if(selectedPlugin.equals(PluginFilterSelectionDialog.MAIN_SETTINGS)) {
