@@ -72,15 +72,19 @@ public class GmcpCommand extends SpecialCommand {
 	}
 
 	private Object doStatus(Connection c) {
-		boolean use = boolOpt(c, OPT_USE, false);
+		boolean use = boolOpt(c, OPT_USE, true);
 		boolean log = boolOpt(c, OPT_LOG, false);
-		String supports = stringOpt(c, OPT_SUPPORTS, "\"char 1\"");
+		String supports = stringOpt(c, OPT_SUPPORTS,
+				"\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"");
 		Processor p = c.getProcessor();
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("GMCP use=").append(use ? "on" : "off");
 		sb.append("  log/sniff=").append(log ? "on" : "off").append("\n");
 		sb.append("Supports string: ").append(supports).append("\n");
+		if (p != null) {
+			sb.append("Hello: ").append(p.getGmcpHello()).append("\n");
+		}
 		sb.append("Negotiated processor: ").append(p != null ? "yes" : "no (not connected)").append("\n");
 		sb.append("Enable under Options → Service → GMCP Options.\n");
 		sb.append(sniffLogLocations(c));
@@ -227,12 +231,15 @@ public class GmcpCommand extends SpecialCommand {
 	}
 
 	private Object doVersion(Connection c) {
+		Processor p = c.getProcessor();
+		String hello = (p != null) ? p.getGmcpHello()
+				: "core.hello {\"client\":\"BlowTorch\",\"version\":\"(connect to resolve)\"}";
 		String msg = "\n" + Colorizer.getWhiteColor()
 				+ "BlowTorch GMCP client hello:\n"
-				+ "  core.hello {\"client\":\"BlowTorch\",\"version\":\"1.4\"}\n"
+				+ "  " + hello + "\n"
 				+ "Telnet option: IAC SB GMCP (201) … IAC SE\n"
-				+ "Modules vary by server — use .gmcp sniff on and connect to see what yours sends.\n"
-				+ "Typical supports: \"char 1\", \"room 1\", \"comm 1\", \"core 1\"\n"
+				+ "Native modules: Char.Login (password), Client.Media (sound/music).\n"
+				+ "Typical supports: \"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"\n"
 				+ "Set permanently: Options → Service → GMCP Options → Supports String\n";
 		c.sendDataToWindow(msg);
 		return null;
@@ -288,7 +295,7 @@ public class GmcpCommand extends SpecialCommand {
 					".gmcp send <module> [json]\nExample: .gmcp send core.ping"));
 			return null;
 		}
-		if (!boolOpt(c, OPT_USE, false)) {
+		if (!boolOpt(c, OPT_USE, true)) {
 			c.sendDataToWindow(getErrorMessage("GMCP send", "Use GMCP? is off (Options → Service → GMCP Options)."));
 			return null;
 		}
@@ -349,16 +356,19 @@ public class GmcpCommand extends SpecialCommand {
 			}
 			sb.append("\"").append(mod).append(" ").append(ver).append("\"");
 		}
-		return sb.length() == 0 ? "\"char 1\"" : sb.toString();
+		return sb.length() == 0
+				? "\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\""
+				: sb.toString();
 	}
 
 	private static String helpText() {
 		return "\n" + Colorizer.getWhiteColor()
 				+ "GMCP (Generic Mud Communication Protocol) is an out-of-band telnet channel\n"
-				+ "(option 201) for structured JSON-ish updates (vitals, room, etc.).\n"
-				+ "Servers differ — sniff first, then set Supports String for modules you need.\n\n"
+				+ "(option 201) for structured JSON-ish updates (vitals, room, media, login).\n"
+				+ "On by default for new profiles. Servers differ — sniff if something looks off.\n\n"
 				+ shortUsage()
 				+ "Options → Service → GMCP Options: Use GMCP?, Supports String, Log GMCP?\n"
+				+ "Native: Char.Login uses launcher account login/password; Client.Media plays sound/music.\n"
 				+ "Lua: Send_GMCP_Packet(\"module {…}\")  Triggers: pattern %module.path\n";
 	}
 

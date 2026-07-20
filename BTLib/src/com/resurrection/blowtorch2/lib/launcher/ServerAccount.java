@@ -2,7 +2,8 @@ package com.resurrection.blowtorch2.lib.launcher;
 
 /**
  * Informational login slot for a launcher server entry.
- * Not used for auto-login; stored on-device with the server list (currently plaintext).
+ * Used for GMCP Char.Login password-credentials when the server offers it.
+ * Stored on-device with the server list (currently plaintext).
  */
 public class ServerAccount {
 
