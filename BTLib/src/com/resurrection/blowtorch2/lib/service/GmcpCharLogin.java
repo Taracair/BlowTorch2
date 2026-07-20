@@ -67,13 +67,15 @@ public final class GmcpCharLogin {
 			}
 		}
 		if (!wantsPassword) {
-			Log.i(TAG, "Char.Login.Default without password-credentials — sending empty Credentials");
-			mSender.sendGmcp("Char.Login.Credentials {}");
+			// Do not auto-reply — let the player use the normal in-band login/menu.
+			Log.i(TAG, "Char.Login.Default without password-credentials — no auto Credentials");
 			return;
 		}
 		if (mAccount.length() == 0 || mPassword.length() == 0) {
-			Log.i(TAG, "Char.Login: no stored login/password for \"" + mDisplayName + "\"");
-			mSender.sendGmcp("Char.Login.Credentials {}");
+			// Spec allows Credentials {}; some MUDs (e.g. Eden) treat that as a
+			// successful empty login and leave a blank session. Skip auto-login.
+			Log.i(TAG, "Char.Login: no stored login/password for \"" + mDisplayName
+					+ "\" — skipping auto Credentials (use in-band login)");
 			return;
 		}
 		try {
@@ -83,7 +85,6 @@ public final class GmcpCharLogin {
 			mSender.sendGmcp("Char.Login.Credentials " + creds.toString());
 		} catch (JSONException e) {
 			Log.w(TAG, "Char.Login.Credentials build failed", e);
-			mSender.sendGmcp("Char.Login.Credentials {}");
 		}
 	}
 
