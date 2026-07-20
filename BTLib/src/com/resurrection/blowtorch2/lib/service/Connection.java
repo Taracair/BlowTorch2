@@ -1512,6 +1512,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		
+		if (mProcessor != null) {
+			mProcessor.releaseGmcpHelpers();
+		}
 		mProcessor = null;
 		
 		if (noreconnect) {
@@ -1910,6 +1913,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mPump = new DataPumper(mHost, mPort, mHandler);
 			
 			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
+			mProcessor.setDisplayName(mDisplay);
+			loadLoginCredentialsIntoProcessor();
 
 			initSettings();
 			applyTerminalNaws();
@@ -1955,6 +1960,33 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					}
 				}
 			}
+		}
+	}
+
+	/** Resolve launcher ServerAccount login/password for Char.Login auto-auth. */
+	private void loadLoginCredentialsIntoProcessor() {
+		if (mProcessor == null || mService == null) {
+			return;
+		}
+		try {
+			com.resurrection.blowtorch2.lib.launcher.LauncherSAXParser parser =
+					new com.resurrection.blowtorch2.lib.launcher.LauncherSAXParser(
+							"blowtorch_launcher_list.xml", mService.getApplicationContext());
+			com.resurrection.blowtorch2.lib.launcher.LauncherSettings settings = parser.load();
+			if (settings == null || settings.getList() == null) {
+				return;
+			}
+			com.resurrection.blowtorch2.lib.launcher.MudConnection mud =
+					settings.getList().get(mDisplay);
+			if (mud == null) {
+				return;
+			}
+			com.resurrection.blowtorch2.lib.launcher.ServerAccount acc = mud.primaryAccount();
+			if (acc != null) {
+				mProcessor.setLoginCredentials(acc.getLogin(), acc.getPassword());
+			}
+		} catch (Exception e) {
+			Log.w("BlowTorch", "Char.Login credential load failed", e);
 		}
 	}
 
@@ -3546,8 +3578,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (useRows < 5) {
 			useRows = 5;
 		}
-		if (useRows > 24) {
-			useRows = 24;
+		if (useRows > MAX_NAWS_ROWS) {
+			useRows = MAX_NAWS_ROWS;
 		}
 		mProcessor.setDisplayDimensions(useRows, useCols);
 		if (mIsConnected) {
@@ -3560,6 +3592,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * can show. Rows are capped — absurd heights (100+) have dropped Eden links.
 	 * Columns follow the real screen so ANSI maps match the draw grid.
 	 */
+	/** Soft ceiling for NAWS rows (tall phones exceed the old hard 24). */
+	private static final int MAX_NAWS_ROWS = 100;
 	private int mLiveCols = 0;
 	private int mLiveRows = 0;
 	public final void applyLiveDisplayDimensions(final int rows, final int cols) {
@@ -3610,11 +3644,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (useCols > 200) {
 			useCols = 200;
 		}
-		if (useRows > 24) {
-			useRows = 24;
+		if (useRows > MAX_NAWS_ROWS) {
+			useRows = MAX_NAWS_ROWS;
 		}
 		if (useRows < 5) {
-			useRows = Math.max(5, Math.min(rows, 24));
+			useRows = Math.max(5, Math.min(rows, MAX_NAWS_ROWS));
 		}
 		mLiveCols = useCols;
 		mLiveRows = useRows;

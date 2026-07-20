@@ -242,16 +242,16 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption use_gmcp = new BooleanOption();
 		use_gmcp.setTitle("Use GMCP?");
-		use_gmcp.setDescription("Enable or disable GMCP (out-of-band telnet channel for structured game data).");
+		use_gmcp.setDescription("Enable or disable GMCP (out-of-band telnet channel for structured game data). On by default for new profiles.");
 		use_gmcp.setKey("use_gmcp");
-		use_gmcp.setValue(false);
+		use_gmcp.setValue(true);
 		gmcpOptions.addOption(use_gmcp);
 	
 		StringOption gmcp_supports = new StringOption();
 		gmcp_supports.setTitle("Supports String");
-		gmcp_supports.setDescription("Modules enabled on initial negotiation, e.g. \"char 1\", \"room 1\". Servers differ.");
+		gmcp_supports.setDescription("Modules enabled on initial negotiation, e.g. \"Char 1\", \"Room 1\". Servers differ.");
 		gmcp_supports.setKey("gmcp_supports");
-		gmcp_supports.setValue("\"char 1\"");
+		gmcp_supports.setValue("\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"");
 		gmcpOptions.addOption(gmcp_supports);
 
 		BooleanOption log_gmcp = new BooleanOption();

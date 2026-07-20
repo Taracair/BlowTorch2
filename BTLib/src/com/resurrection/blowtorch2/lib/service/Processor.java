@@ -48,12 +48,18 @@ public class Processor {
 	private GMCPData mGMCP = null;
 	/** List of GMCP Triggers. */
 	private HashMap<String, ArrayList<GMCPWatcher>> mGMCPTriggers = new HashMap<String, ArrayList<GMCPWatcher>>();
-	/** GMCP Hello string. */
-	private String mGMCPHello = "core.hello {\"client\": \"BlowTorch\",\"version\": \"1.4\"}";
+	/** GMCP Hello string (version filled from package versionName). */
+	private String mGMCPHello = "core.hello {\"client\": \"BlowTorch\",\"version\": \"2.1.9\"}";
 	/** Tracker for weather or not the use GMCP. */
 	private Boolean mUseGMCP = false;
 	/** GMCP Supports string. */
-	private String mGMCPSupports = "core.supports.set [\"char 1\"]";
+	private String mGMCPSupports = "core.supports.set [\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"]";
+	/** Native Client.Media player (null until first use / init). */
+	private GmcpMediaPlayer mMediaPlayer = null;
+	/** Native Char.Login handler. */
+	private GmcpCharLogin mCharLogin = null;
+	/** Profile display name for Char.Login credential lookup. */
+	private String mDisplayName = "";
 	/** Constructor.
 	 * 
 	 * @param useme reporting handler target.
@@ -68,6 +74,41 @@ public class Processor {
 		mOptionHandler = new OptionNegotiator(ttype);
 		mGMCP = new GMCPData();
 		setEncoding(pEncoding);
+		rebuildGmcpHello();
+	}
+
+	/** Refresh Core.Hello version from the installed APK versionName. */
+	private void rebuildGmcpHello() {
+		String ver = "2.1.9";
+		if (mContext != null) {
+			try {
+				ver = mContext.getPackageManager()
+						.getPackageInfo(mContext.getPackageName(), 0).versionName;
+			} catch (Exception ignored) {
+			}
+		}
+		if (ver == null || ver.length() == 0) {
+			ver = "2.1.9";
+		}
+		mGMCPHello = "core.hello {\"client\": \"BlowTorch\",\"version\": \"" + ver + "\"}";
+	}
+
+	public final String getGmcpHello() {
+		return mGMCPHello;
+	}
+
+	/** Profile display name used to resolve Char.Login credentials from the launcher list. */
+	public final void setDisplayName(final String displayName) {
+		mDisplayName = displayName != null ? displayName : "";
+		if (mCharLogin != null) {
+			// Force reload on next Default if display changes.
+			mCharLogin = null;
+		}
+	}
+
+	public final void setLoginCredentials(final String account, final String password) {
+		ensureCharLogin();
+		mCharLogin.setCredentials(account, password);
 	}
 
 	/** Getter for mDebugTelnet.
@@ -368,12 +409,15 @@ public class Processor {
 					try {
 						JSONObject jo = new JSONObject(data);
 						mGMCP.absorb(module, jo);
+						dispatchNativeGmcp(module, jo);
 					} catch (JSONException e) {
 						Log.e("GMCP", "GMCP PARSING FOR: " + data);
 						Log.e("GMCP", "REASON: " + e.getMessage());
 						logGmcp("ERR", "parse failed for " + module + ": " + e.getMessage());
 						e.printStackTrace();
 					}
+				} else {
+					dispatchNativeGmcp(module, new JSONObject());
 				}
 				
 				//TODO: THIS IS WHERE THE ACTUAL WORK IS DONE TO SEND MUD DATA.
@@ -505,7 +549,9 @@ public class Processor {
 	
 	/** Utility method to initialize GMCP. */
 	public final void initGMCP() {
-		
+		rebuildGmcpHello();
+		ensureMediaPlayer();
+		ensureCharLogin();
 		try {
 			byte[] hellob = getGMCPResponse(mGMCPHello);
 			byte[] supportb = getGMCPResponse(mGMCPSupports);
@@ -533,6 +579,77 @@ public class Processor {
 			sm.setData(bs);
 			mReportTo.sendMessage(sm);
 		
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/** Release Client.Media players (call on disconnect). */
+	public final void releaseGmcpHelpers() {
+		if (mMediaPlayer != null) {
+			mMediaPlayer.release();
+			mMediaPlayer = null;
+		}
+		mCharLogin = null;
+	}
+
+	private void dispatchNativeGmcp(final String module, final JSONObject body) {
+		if (module == null) {
+			return;
+		}
+		String lower = module.toLowerCase(java.util.Locale.US);
+		if (lower.startsWith("client.media")) {
+			ensureMediaPlayer();
+			mMediaPlayer.handle(module, body);
+		} else if (lower.startsWith("char.login")) {
+			ensureCharLogin();
+			mCharLogin.handle(module, body);
+		}
+	}
+
+	private void ensureMediaPlayer() {
+		if (mMediaPlayer == null && mContext != null) {
+			mMediaPlayer = new GmcpMediaPlayer(mContext);
+		}
+	}
+
+	private void ensureCharLogin() {
+		if (mCharLogin == null) {
+			mCharLogin = new GmcpCharLogin(mContext, mDisplayName, new GmcpCharLogin.Sender() {
+				@Override
+				public void sendGmcp(final String payload) {
+					sendGmcpPacket(payload);
+				}
+
+				@Override
+				public void notifyWindow(final String message) {
+					if (mReportTo != null && message != null) {
+						mReportTo.sendMessage(mReportTo.obtainMessage(
+								Connection.MESSAGE_PROCESSORWARNING, message));
+					}
+				}
+			});
+		}
+	}
+
+	/** Queue a GMCP payload to the server (module + optional JSON). */
+	public final void sendGmcpPacket(final String payload) {
+		if (payload == null || payload.length() == 0 || mReportTo == null) {
+			return;
+		}
+		try {
+			byte[] bytes = getGMCPResponse(payload);
+			logGmcp("OUT", payload);
+			Message sm = mReportTo.obtainMessage(Connection.MESSAGE_SENDOPTIONDATA);
+			Bundle bs = sm.getData();
+			bs.putByteArray("THE_DATA", bytes);
+			if (mDebugTelnet) {
+				bs.putString("DEBUG_MESSAGE",
+						Colorizer.getTeloptStartColor() + "OUT:[" + TC.decodeSUB(bytes) + "]"
+								+ Colorizer.getResetColor() + "\n");
+			}
+			sm.setData(bs);
+			mReportTo.sendMessage(sm);
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		}
