@@ -296,17 +296,20 @@ Enable / disable:
   • Each trigger has an on/off toggle in the Triggers list (row toolbar).
   • Options (=) menu: "Enable all triggers (current list)" and
     "Disable ALL triggers (current list)" — these affect every trigger in
-    the active filter only (Main settings or the selected plugin). Disable
-    asks for confirmation first.
-  • From the input bar: .trigger on|off|toggle <name>, .trigger group …,
-    .trigger all on|off (see .trigger for help). Prefer this over long Lua.
+    the active filter only (Main/plugin + optional group). Disable asks
+    for confirmation first.
+  • Options (=) also has Filter by group (All / (default) / named groups).
+  • From the input bar: .trigger on|off|toggle <name|plugin:name>,
+    .trigger group …, .trigger all on|off,
+    .trigger plugin <plugin> all on|off (see .trigger for help).
   • Lua plugins can still use EnableTrigger / TriggerEnabled /
     EnableTriggerGroup.
 
 Groups:
   • In the trigger editor, set Group (e.g. combat). Leave blank for none.
+    The field suggests existing group names from the current list.
   • The list shows [group] before the pattern and sorts by group.
-  • Then: .trigger group off combat  (or group on / toggle)
+  • Then: .trigger group off combat  (or group on / toggle; main+plugins)
 
 GMCP hooks: literal pattern starting with % (e.g. %Char.Vitals).
 MCP hooks: @message-name.
