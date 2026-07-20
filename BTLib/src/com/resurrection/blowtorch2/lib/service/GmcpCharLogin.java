@@ -6,6 +6,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import com.resurrection.blowtorch2.lib.launcher.LauncherSAXParser;
@@ -15,10 +17,14 @@ import com.resurrection.blowtorch2.lib.launcher.ServerAccount;
 
 /**
  * Native handler for GMCP Char.Login (password-credentials). OAuth is not implemented.
+ * Credentials are delayed briefly so servers that still probe telnet capabilities
+ * (e.g. Eden / GraphicMUD) are less likely to reject an early Credentials packet.
  */
 public final class GmcpCharLogin {
 
 	private static final String TAG = "GmcpLogin";
+	/** Delay after Char.Login.Default before sending Credentials (ms). */
+	private static final long CREDENTIALS_DELAY_MS = 2000L;
 
 	public interface Sender {
 		void sendGmcp(String payload);
@@ -28,9 +34,12 @@ public final class GmcpCharLogin {
 	private final android.content.Context mContext;
 	private final String mDisplayName;
 	private final Sender mSender;
+	private final Handler mHandler = new Handler(Looper.getMainLooper());
 	private String mAccount = "";
 	private String mPassword = "";
 	private boolean mCredentialsLoaded;
+	private boolean mCredentialsSent;
+	private Runnable mPendingCredentials;
 
 	public GmcpCharLogin(final android.content.Context context, final String displayName, final Sender sender) {
 		mContext = context;
@@ -42,6 +51,11 @@ public final class GmcpCharLogin {
 		mAccount = account != null ? account : "";
 		mPassword = password != null ? password : "";
 		mCredentialsLoaded = true;
+	}
+
+	/** Cancel any pending delayed Credentials (e.g. on disconnect). */
+	public void release() {
+		cancelPendingCredentials();
 	}
 
 	public void handle(final String module, final JSONObject body) {
@@ -67,31 +81,55 @@ public final class GmcpCharLogin {
 			}
 		}
 		if (!wantsPassword) {
-			// Do not auto-reply — let the player use the normal in-band login/menu.
 			Log.i(TAG, "Char.Login.Default without password-credentials — no auto Credentials");
 			return;
 		}
 		if (mAccount.length() == 0 || mPassword.length() == 0) {
-			// Spec allows Credentials {}; some MUDs (e.g. Eden) treat that as a
-			// successful empty login and leave a blank session. Skip auto-login.
 			Log.i(TAG, "Char.Login: no stored login/password for \"" + mDisplayName
 					+ "\" — skipping auto Credentials (use in-band login)");
 			return;
 		}
+		if (mCredentialsSent) {
+			return;
+		}
+		cancelPendingCredentials();
+		mPendingCredentials = new Runnable() {
+			@Override
+			public void run() {
+				mPendingCredentials = null;
+				sendCredentialsNow();
+			}
+		};
+		Log.i(TAG, "Char.Login.Default — scheduling Credentials in " + CREDENTIALS_DELAY_MS + "ms");
+		mHandler.postDelayed(mPendingCredentials, CREDENTIALS_DELAY_MS);
+	}
+
+	private void sendCredentialsNow() {
+		if (mCredentialsSent) {
+			return;
+		}
+		if (mAccount.length() == 0 || mPassword.length() == 0) {
+			return;
+		}
 		try {
 			JSONObject creds = new JSONObject();
+			// Spec field is "account"; some servers also look at "name".
 			creds.put("account", mAccount);
+			creds.put("name", mAccount);
 			creds.put("password", mPassword);
 			String payload = "Char.Login.Credentials " + creds.toString();
 			Log.i(TAG, "Char.Login.Credentials sending account=\"" + mAccount
 					+ "\" passwordLen=" + mPassword.length());
+			mCredentialsSent = true;
 			mSender.sendGmcp(payload);
 		} catch (JSONException e) {
 			Log.w(TAG, "Char.Login.Credentials build failed", e);
+			mCredentialsSent = false;
 		}
 	}
 
 	private void onResult(final JSONObject body) {
+		cancelPendingCredentials();
 		boolean success = false;
 		Object raw = body.opt("success");
 		if (raw instanceof Boolean) {
@@ -107,7 +145,15 @@ public final class GmcpCharLogin {
 		String message = body.optString("message", "Login failed");
 		Log.w(TAG, "Char.Login.Result failed: " + message);
 		mSender.notifyWindow("\n" + Colorizer.getRedColor() + "GMCP Char.Login: "
-				+ message + Colorizer.getWhiteColor() + "\n");
+				+ message + Colorizer.getWhiteColor()
+				+ "\n(If in-band login works, check login name case — some MUDs are case-sensitive for GMCP Char.Login.)\n");
+	}
+
+	private void cancelPendingCredentials() {
+		if (mPendingCredentials != null) {
+			mHandler.removeCallbacks(mPendingCredentials);
+			mPendingCredentials = null;
+		}
 	}
 
 	private void ensureCredentials() {
