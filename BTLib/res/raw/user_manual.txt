@@ -47,16 +47,19 @@ Triggers (trigger editor):
   Literal? on  = match as plain text (no regex)
   Literal? off = pattern is a regular expression
   Group        = optional label (e.g. combat); blank = ungrouped. List shows
-                 [group] and sorts by group. Use .trigger group on|off <group>.
+                 [group] and sorts by group. Options (=) → Filter by group.
+                 Editor Group field suggests existing names. Use
+                 .trigger group on|off <group> (main + plugins).
 
   In regex mode, use (...) to capture and $1, $2, ... in Ack / Replace /
   Toast / Notification (and similar) text.
 
   Enable/disable each trigger from the Triggers list toolbar toggle.
   Options (=) → Enable all / Disable ALL applies to the current filter
-  (Main or selected plugin); Disable asks for confirmation.
-  From the input bar: .trigger on|off|toggle <name>, .trigger group …,
-  .trigger all on|off (type .trigger for help).
+  (Main or selected plugin, and optional group); Disable asks for confirmation.
+  From the input bar: .trigger on|off|toggle <name|plugin:name>,
+  .trigger group …, .trigger all on|off, .trigger plugin <plugin> all on|off
+  (type .trigger for help).
 
   Examples (Literal off):
     Pattern  You hit (.+) for (\d+)
@@ -88,20 +91,23 @@ Built-in commands
   Useful for button tips and debugging. With no argument, prints usage.
 
 .trigger …
-  Enable/disable main-settings triggers (same scope as the Trigger editor).
-  Plugin triggers: Trigger UI or Lua EnableTrigger / EnableTriggerGroup.
+  Enable/disable triggers (main settings and plugins).
+  Unqualified names: main first, then unique plugin match.
+  Use plugin:name when names collide. Groups apply to main + plugins.
   Subcommands:
-    .trigger                      help
-    .trigger on <name>            enable trigger
-    .trigger off <name>           disable trigger
-    .trigger toggle <name>        toggle trigger
-    .trigger status [name]        status (or enabled/disabled counts)
-    .trigger group on <group>     enable group
-    .trigger group off <group>    disable group
-    .trigger group toggle <group> toggle each in group
-    .trigger all on               enable ALL main triggers
-    .trigger all off              disable ALL main triggers
+    .trigger                           help
+    .trigger on <name|plugin:name>     enable trigger
+    .trigger off <name|plugin:name>    disable trigger
+    .trigger toggle <name|plugin:name> toggle trigger
+    .trigger status [name]             status / counts (main+plugins)
+    .trigger group on <group>          enable group (main+plugins)
+    .trigger group off <group>         disable group (main+plugins)
+    .trigger group toggle <group>      toggle each in group (main+plugins)
+    .trigger all on                    enable ALL main triggers
+    .trigger all off                   disable ALL main triggers
+    .trigger plugin <plugin> all on|off  ALL triggers in one plugin
   Names/groups may contain spaces (rest of line after the action).
+  plugin:name uses the first colon as the separator.
 
 .timer <action> <name> [silent]
   Control a named timer. Actions: play, pause, reset, stop, info.
