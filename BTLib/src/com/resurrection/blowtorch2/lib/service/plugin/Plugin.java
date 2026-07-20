@@ -93,7 +93,7 @@ public class Plugin implements SettingsChangedListener {
 	Pattern alias_replace = Pattern.compile(joined_alias.toString());
 	Matcher alias_replacer = alias_replace.matcher("");
 	Matcher alias_recursive = alias_replace.matcher("");
-	String mEncoding = "ISO-8859-1";
+	String mEncoding = "UTF-8";
 	Pattern whiteSpace = Pattern.compile("\\s");
 	HashMap<String,CustomTimerTask> timerTasks = new HashMap<String,CustomTimerTask>();
 	private boolean enabled = true;

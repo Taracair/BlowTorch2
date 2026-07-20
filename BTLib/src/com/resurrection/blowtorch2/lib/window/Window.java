@@ -203,6 +203,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mXterm256FG = false;
 	/** True while the current background register holds an xterm-256 palette index. */
 	private boolean mXterm256BG = false;
+	/** Collecting {@code 38;2;R;G;B} / {@code 48;2;R;G;B} components. */
+	private boolean mTrueColorCollect = false;
+	private boolean mTrueColorIsFG = true;
+	private int mTrueColorCount = 0;
+	private final int[] mTrueColorRGB = new int[3];
+	/** Foreground is a packed 0xRRGGBB truecolor value in {@link #mSelectedColor}. */
+	private boolean mTrueColorFG = false;
+	/** Background is a packed 0xRRGGBB truecolor value in {@link #mSelectedBackground}. */
+	private boolean mTrueColorBG = false;
 	/** The handler message queue for this window. */
 	private Handler mHandler = null;
 	/** The handler message queue for the main window that holds this window. */
@@ -1309,6 +1318,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						mXterm256Color = false;
 						mXterm256FGStart = false;
 						mXterm256BGStart = false;
+						mTrueColorCollect = false;
+						mTrueColorCount = 0;
 						for (int i = 0; i < ((TextTree.Color) u).getOperations().size(); i++) {
 							updateColorRegisters(((TextTree.Color) u).getOperations().get(i));
 							Colorizer.COLOR_TYPE type = Colorizer.getColorType(((TextTree.Color) u).getOperations().get(i));
@@ -1316,7 +1327,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								bleeding = true;
 							}
 						}
-						if (mXterm256FG) {
+						if (mTrueColorFG) {
+							p.setColor(0xFF000000 | (mSelectedColor.intValue() & 0xFFFFFF));
+						} else if (mXterm256FG) {
 							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, true));
 						} else {
 							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, false));
@@ -1615,6 +1628,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						mXterm256Color = false;
 						mXterm256FGStart = false;
 						mXterm256BGStart = false;
+						mTrueColorCollect = false;
+						mTrueColorCount = 0;
 						for (int i = 0; i < ((TextTree.Color) u).getOperations().size(); i++) {
 							updateColorRegisters(((TextTree.Color) u).getOperations().get(i));
 						}
@@ -1623,8 +1638,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37,false));
 							b.setColor(0xFF000000 | Colorizer.getColorValue(0, 40,false));
 						} else {
-							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, mXterm256FG));
-							b.setColor(0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground, mXterm256BG));
+							applyAnsiPaints(p, b);
 						}
 						if (mColorDebugMode == 1 || mColorDebugMode == 2) {
 							String str = "";
@@ -2306,6 +2320,32 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	
 	private Colorizer.COLOR_TYPE updateColorRegisters(Integer i) {
 		if(i == null) return Colorizer.COLOR_TYPE.NOT_A_COLOR;
+
+		// Truecolor: ESC[38;2;R;G;Bm / ESC[48;2;R;G;Bm (chafa portraits, modern terminals)
+		if (mTrueColorCollect) {
+			int component = i.intValue();
+			if (component < 0) {
+				component = 0;
+			} else if (component > 255) {
+				component = 255;
+			}
+			mTrueColorRGB[mTrueColorCount++] = component;
+			if (mTrueColorCount >= 3) {
+				int packed = (mTrueColorRGB[0] << 16) | (mTrueColorRGB[1] << 8) | mTrueColorRGB[2];
+				if (mTrueColorIsFG) {
+					mSelectedColor = Integer.valueOf(packed);
+					mTrueColorFG = true;
+					mXterm256FG = false;
+				} else {
+					mSelectedBackground = Integer.valueOf(packed);
+					mTrueColorBG = true;
+					mXterm256BG = false;
+				}
+				mTrueColorCollect = false;
+				mTrueColorCount = 0;
+			}
+			return null;
+		}
 		
 		if(mXterm256Color) {
 			if(mXterm256FGStart) {
@@ -2313,11 +2353,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				mXterm256FGStart = false;
 				mXterm256Color = false;
 				mXterm256FG = true;
+				mTrueColorFG = false;
 			} else if(mXterm256BGStart) {
 				mSelectedBackground = i;
 				mXterm256BGStart = false;
 				mXterm256Color = false;
 				mXterm256BG = true;
+				mTrueColorBG = false;
 			}
 			
 			return null;
@@ -2331,20 +2373,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256BGStart = false;
 			mXterm256Color = false;
 			mXterm256FG = false;
-			//opts.setColor(0xFF000000 | Colorizer.getColorValue(selectedBright, selectedColor));
-			//notFound = false;
+			mTrueColorFG = false;
+			mTrueColorCollect = false;
 			break;
 		case BACKGROUND:
-			//Log.e("SLICK","BACKGROUND COLOR ENCOUNTERED: " + i);
 			mSelectedBackground = i;
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
 			mXterm256BG = false;
-			//bg_opts.setColor(0xFF000000 | Colorizer.getColorValue(selectedBackgroundBright, selectedBackgroundColor));
+			mTrueColorBG = false;
+			mTrueColorCollect = false;
 			break;
 		case ZERO_CODE:
-			//Log.e("WINDOW","ZERO CODE ENCOUNTERED");
 			mSelectedBright = 0;
 			mSelectedColor = 37;
 			mSelectedBackground = 40;
@@ -2353,6 +2394,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256Color = false;
 			mXterm256FG = false;
 			mXterm256BG = false;
+			mTrueColorFG = false;
+			mTrueColorBG = false;
+			mTrueColorCollect = false;
+			mTrueColorCount = 0;
 			break;
 		case BRIGHT_CODE:
 			mSelectedBright = 1;
@@ -2360,12 +2405,24 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256BGStart = false;
 			mXterm256Color = false;
 			break;
+		case DIM_CODE:
+			// After 38/48, "2" starts truecolor (not classic DIM).
+			if (mXterm256FGStart || mXterm256BGStart) {
+				mTrueColorCollect = true;
+				mTrueColorIsFG = mXterm256FGStart;
+				mTrueColorCount = 0;
+				mXterm256FGStart = false;
+				mXterm256BGStart = false;
+				mXterm256Color = false;
+			}
+			break;
 		case DEFAULT_FOREGROUND:
 			mSelectedColor = 37;
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;
 			mXterm256FG = false;
+			mTrueColorFG = false;
 			break;
 		case DEFAULT_BACKGROUND:
 			mSelectedBackground = 40;
@@ -2373,12 +2430,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mXterm256BGStart = false;
 			mXterm256Color = false;
 			mXterm256BG = false;
+			mTrueColorBG = false;
 			break;
 		case XTERM_256_FG_START:
 			mXterm256FGStart = true;
+			mTrueColorCollect = false;
 			break;
 		case XTERM_256_BG_START:
 			mXterm256BGStart = true;
+			mTrueColorCollect = false;
 			break;
 		case XTERM_256_FIVE:
 			if(mXterm256BGStart || mXterm256FGStart) {
@@ -2392,8 +2452,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		
 		return type;
-		//opts.setColor(0xFF000000 | Colorizer.getColorValue(selectedBright, selectedColor));
-	
+	}
+
+	/** Apply current FG/BG registers to text and background paints. */
+	private void applyAnsiPaints(final Paint textPaint, final Paint bgPaint) {
+		if (mTrueColorFG) {
+			textPaint.setColor(0xFF000000 | (mSelectedColor.intValue() & 0xFFFFFF));
+		} else {
+			textPaint.setColor(0xFF000000 | Colorizer.getColorValue(
+					mSelectedBright, mSelectedColor, mXterm256FG));
+		}
+		if (mTrueColorBG) {
+			bgPaint.setColor(0xFF000000 | (mSelectedBackground.intValue() & 0xFFFFFF));
+		} else {
+			bgPaint.setColor(0xFF000000 | Colorizer.getColorValue(
+					0, mSelectedBackground, mXterm256BG));
+		}
 	}
 	
 	public void setCullExtraneous(boolean pIn) {
