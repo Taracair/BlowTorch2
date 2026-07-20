@@ -95,7 +95,7 @@
   			android:layout_span="2"
   			android:paddingTop="10dip"
   			android:paddingBottom="2dip"
-  			android:text="Account notes (optional)"
+  			android:text="@string/launcher_account_section"
   			android:textStyle="bold"
   			android:textSize="14sp"
   			android:textColor="#FF333333"/>
