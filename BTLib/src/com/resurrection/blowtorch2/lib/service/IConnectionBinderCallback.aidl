@@ -18,6 +18,10 @@ interface IConnectionBinderCallback {
 	void invokeDirtyExit();
 	void showMessage(String message,boolean longtime);
 	void showDialog(String message);
+	/** Open a URL from MCP dns-com-awns-displayurl. */
+	void launchUrl(String url);
+	/** MCP simpleedit content editor. */
+	void showMcpSimpleEdit(String reference, String title, String type, String content);
 	void doVisualBell();
 	void setScreenMode(boolean fullscreen);
 	void showKeyBoard(String txt,boolean popup,boolean add,boolean flush,boolean clear,boolean close);

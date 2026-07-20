@@ -246,6 +246,8 @@ public class Plugin implements SettingsChangedListener {
 		AppendLineToWindowFunction altwf = new AppendLineToWindowFunction(L);
 		InvalidateWindowTextFunction iwtf = new InvalidateWindowTextFunction(L);
 		GMCPSendFunction gsf = new GMCPSendFunction(L);
+		MCPSendFunction msf = new MCPSendFunction(L);
+		GetMcpStatusFunction gmsf = new GetMcpStatusFunction(L);
 		UserPresentFunction upf = new UserPresentFunction(L);
 		WindowXCallBFunction wxcbf = new WindowXCallBFunction(L);
 		GetExternalStorageDirectoryFunction gesdf = new GetExternalStorageDirectoryFunction(L);
@@ -289,6 +291,8 @@ public class Plugin implements SettingsChangedListener {
 		rfc.register("RegisterSpecialCommand");
 		ssfun.register("SaveSettings");
 		gsf.register("Send_GMCP_Packet");
+		msf.register("Send_MCP_Packet");
+		gmsf.register("Get_MCP_Status");
 		upf.register("UserPresent");
 		wbf.register("WindowBuffer");
 		wxctf.register("WindowXCallS");
@@ -388,7 +392,8 @@ public class Plugin implements SettingsChangedListener {
 			//test this line against each trigger.
 			String str = TextTree.deColorLine(l).toString();
 			for(TriggerData t : triggers) {
-				if(!t.isInterpretAsRegex() && t.getPattern().startsWith("%")) {
+				if(!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
+						|| t.getPattern().startsWith("@"))) {
 					
 				} else {
 					if(t.isEnabled()) {
@@ -1921,6 +1926,58 @@ Send_GMCP_Packet("core.hello foo")
 		
 		
 	}
+
+	/*! \page page1
+\subsection MCPSend Send_MCP_Packet
+Sends an MCP (Mud Client Protocol) out-of-band line or named message.
+
+\par Full Signature
+\luacode
+Send_MCP_Packet(str)
+\endluacode
+\param str \b string either a full {@code #$#…} line, or {@code message-name key: val …}
+\par Example
+\luacode
+Send_MCP_Packet("#$#dns-com-awns-ping 12345 id: 1")
+Send_MCP_Packet("dns-com-awns-ping id: 1")
+\endluacode
+*/
+	private class MCPSendFunction extends JavaFunction {
+		public MCPSendFunction(LuaState L) {
+			super(L);
+		}
+
+		@Override
+		public int execute() throws LuaException {
+			String str = this.getParam(2).getString();
+			if (str != null && str.length() > 0) {
+				parent.sendMcpPacket(str);
+			}
+			return 0;
+		}
+	}
+
+	private class GetMcpStatusFunction extends JavaFunction {
+		public GetMcpStatusFunction(LuaState L) {
+			super(L);
+		}
+
+		@Override
+		public int execute() throws LuaException {
+			@SuppressWarnings("unchecked")
+			java.util.Map<String, String> cache =
+					(java.util.Map<String, String>) parent.getMcpStatusCache();
+			L.newTable();
+			if (cache != null) {
+				for (java.util.Map.Entry<String, String> e : cache.entrySet()) {
+					L.pushString(e.getKey());
+					L.pushString(e.getValue() != null ? e.getValue() : "");
+					L.setTable(-3);
+				}
+			}
+			return 1;
+		}
+	}
 	
 	/*! \page page1
 \subsection TriggerEnabled TriggerEnabled
@@ -3047,7 +3104,8 @@ WindowXCallS(GetPluginID().."_chat_window",42)
 		if(tmp != null && tmp.size() > 0) {
 			for(int i=0;i<tmp.size();i++) {
 				TriggerData t = tmp.get(i);
-				if(!t.isInterpretAsRegex() && t.getPattern().startsWith("%")) {
+				if(!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
+						|| t.getPattern().startsWith("@"))) {
 					
 				} else {
 					if(t.isEnabled()) {

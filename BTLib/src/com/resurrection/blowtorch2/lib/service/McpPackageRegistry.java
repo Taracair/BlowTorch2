@@ -39,7 +39,9 @@ public final class McpPackageRegistry {
 	}
 
 	public static final String DEFAULT_PACKAGES =
-			"\"mcp-negotiate 1.0 2.0\", \"dns-org-hellmoo-status 1.0\"";
+			"\"mcp-negotiate 1.0 2.0\", \"dns-org-hellmoo-status 1.0\", "
+			+ "\"dns-org-mud-moo-simpleedit 1.0\", \"dns-com-awns-displayurl 1.0\", "
+			+ "\"dns-com-awns-ping 1.0\", \"mcp-cord 1.0\", \"dns-com-vmoo-client 1.0\"";
 
 	private static final Pattern TOKEN = Pattern.compile(
 			"\"\\s*([^\"\\s]+)\\s+([^\"\\s]+)(?:\\s+([^\"\\s]+))?\\s*\"|([^\\s,]+)\\s+([^\\s,]+)(?:\\s+([^\\s,]+))?");
@@ -66,15 +68,15 @@ public final class McpPackageRegistry {
 		addCat(new PackageInfo("dns-org-hellmoo-status", "1.0", "1.0",
 				"HellMOO / SamsaraMoo vitals bar (hp, thirst, hunger, stress)", Kind.NATIVE, true));
 		addCat(new PackageInfo("mcp-cord", "1.0", "1.0",
-				"Optional multi-channel cords", Kind.CATALOG, false));
+				"Optional multi-channel cords", Kind.NATIVE, true));
 		addCat(new PackageInfo("dns-org-mud-moo-simpleedit", "1.0", "1.0",
-				"Remote text editor (MOO simpleedit)", Kind.CATALOG, false));
+				"Remote text editor (MOO simpleedit)", Kind.NATIVE, true));
 		addCat(new PackageInfo("dns-com-awns-displayurl", "1.0", "1.0",
-				"Open a URL in the browser", Kind.CATALOG, false));
+				"Open a URL in the browser", Kind.NATIVE, true));
 		addCat(new PackageInfo("dns-com-awns-ping", "1.0", "1.0",
-				"Latency ping", Kind.CATALOG, false));
+				"Latency ping (auto-reply)", Kind.NATIVE, true));
 		addCat(new PackageInfo("dns-com-vmoo-client", "1.0", "1.0",
-				"Client identity / screen size (VMoo)", Kind.CATALOG, false));
+				"Client identity / screen size (VMoo)", Kind.NATIVE, true));
 	}
 
 	private void addCat(PackageInfo p) {
