@@ -5,7 +5,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Handler;
@@ -15,6 +17,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
@@ -102,12 +105,76 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	@Override
 	public void onHelp() {
 	}
-	
+
+	@Override
+	protected String getEnableAllLabel() {
+		return "Enable all aliases (current list)";
+	}
+
+	@Override
+	protected String getDisableAllLabel() {
+		return "Disable ALL aliases (current list)";
+	}
+
 	@Override
 	public void onEnableAll() {
-		Log.e("Error","Enable All pressed.");
+		setAllAliasesEnabled(true);
 	}
-	
+
+	@Override
+	public void onDisableAll() {
+		final String filter = getCurrentFilterLabel();
+		AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+		builder.setTitle("Disable ALL aliases?");
+		builder.setMessage("This disables ALL aliases in the current filter ("
+				+ filter + "). Continue?");
+		builder.setPositiveButton("Disable all", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+				setAllAliasesEnabled(false);
+			}
+		});
+		builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+			}
+		});
+		builder.setIcon(android.R.drawable.ic_dialog_alert);
+		builder.create().show();
+	}
+
+	private void setAllAliasesEnabled(boolean enabled) {
+		if (dataMap == null || dataMap.isEmpty()) {
+			Toast.makeText(getContext(), "No aliases in current list", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		int count = 0;
+		try {
+			for (AliasData d : dataMap.values()) {
+				if (d == null) {
+					continue;
+				}
+				d.setEnabled(enabled);
+				if (currentPlugin.equals(MAIN_SETTINGS)) {
+					service.setAliasEnabled(enabled, d.getPre());
+				} else {
+					service.setPluginAliasEnabled(currentPlugin, enabled, d.getPre());
+				}
+				count++;
+			}
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		buildList();
+		String verb = enabled ? "Enabled" : "Disabled";
+		Toast.makeText(getContext(),
+				verb + " " + count + " alias" + (count == 1 ? "" : "es")
+						+ " (" + getCurrentFilterLabel() + ")",
+				Toast.LENGTH_SHORT).show();
+	}
+
 	private void buildList() {
 		//HashMap<String,TriggerData> list = null;
 		//pull the list down, clear out the items list, populate it, and call the superclass to reload the table.
@@ -161,9 +228,11 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	public void onOptionItemClicked(int row) {
 		super.onOptionItemClicked(row);
 		this.hideOptionsMenu();
-		if(row < 2) return;
-		buildList();	
-		
+		if (row == OPTION_ENABLE_ALL || row == OPTION_DISABLE_ALL
+				|| row == OPTION_FILTER_DIVIDER) {
+			return;
+		}
+		buildList();
 	}
 
 	@Override

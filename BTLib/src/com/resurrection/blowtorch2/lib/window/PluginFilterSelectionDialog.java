@@ -6,17 +6,21 @@ import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 
 import android.content.Context;
 import android.os.RemoteException;
-import android.widget.LinearLayout;
-import android.widget.Toast;
 
 public class PluginFilterSelectionDialog extends BaseSelectionDialog implements BaseSelectionDialog.OptionItemClickListener {
 
 	protected IConnectionBinder service;
 	public final static String MAIN_SETTINGS = "bt_main_settings";
 	protected String currentPlugin = MAIN_SETTINGS;
-	
-	String[] pluginList;
-	
+
+	/** Option list row indices for bulk actions + plugin filter. */
+	protected static final int OPTION_ENABLE_ALL = 0;
+	protected static final int OPTION_DISABLE_ALL = 1;
+	protected static final int OPTION_FILTER_DIVIDER = 2;
+	protected static final int OPTION_MAIN = 3;
+
+	protected String[] pluginList;
+
 	public PluginFilterSelectionDialog(Context context,IConnectionBinder service) {
 		super(context);
 		this.service = service;
@@ -34,16 +38,34 @@ public class PluginFilterSelectionDialog extends BaseSelectionDialog implements 
 			pluginList = new String[0];
 			e.printStackTrace();
 		}
-		
+
 		this.clearOptionItems();
-		
+
 		this.addPluginFilterOptions();
+	}
+
+	protected String getEnableAllLabel() {
+		return "Enable all (current list)";
+	}
+
+	protected String getDisableAllLabel() {
+		return "Disable ALL (current list)";
+	}
+
+	/** Human-readable name of the active Main/plugin filter. */
+	protected String getCurrentFilterLabel() {
+		if (MAIN_SETTINGS.equals(currentPlugin)) {
+			return "Main";
+		}
+		return currentPlugin;
 	}
 
 	protected void addPluginFilterOptions() {
 		if (pluginList == null) {
 			pluginList = new String[0];
 		}
+		this.addOptionItem(getEnableAllLabel(), true);
+		this.addOptionItem(getDisableAllLabel(), true);
 		this.addOptionDivider("Filter by plugin",false);
 		this.addOptionItem("Main", false);
 		for(int i=0;i<pluginList.length;i++) {
@@ -53,35 +75,41 @@ public class PluginFilterSelectionDialog extends BaseSelectionDialog implements 
 
 	@Override
 	public void onOptionItemClicked(int row) {
-		// TODO Auto-generated method stub
 		switch(row) {
-		case 0:
-			//divier
+		case OPTION_ENABLE_ALL:
+			onEnableAll();
 			break;
-		case 1:
+		case OPTION_DISABLE_ALL:
+			onDisableAll();
+			break;
+		case OPTION_FILTER_DIVIDER:
+			break;
+		case OPTION_MAIN:
 			currentPlugin = MAIN_SETTINGS;
 			break;
 		default:
-			currentPlugin = pluginList[row-2];
+			int pluginIndex = row - (OPTION_MAIN + 1);
+			if (pluginIndex >= 0 && pluginIndex < pluginList.length) {
+				currentPlugin = pluginList[pluginIndex];
+			}
 			break;
 		}
 	}
-	
+
 	public void onHelp() {
-		
+
 	}
-	
+
 	public void onEnableAll() {
-		
+
 	}
-	
-	
-	
+
+	public void onDisableAll() {
+
+	}
+
 	public List<String> getPluginList() throws RemoteException {
-		//List<String> foo = (List<String>)service.getPluginsWithTriggers();
 		return null;
 	}
-	
+
 }
-
-

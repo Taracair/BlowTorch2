@@ -37,6 +37,9 @@ import android.view.ViewParent;
 import android.view.Window;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.Animation;
+import android.view.animation.Animation.AnimationListener;
+import android.view.animation.TranslateAnimation;
 
 import com.resurrection.blowtorch2.lib.R;
 
@@ -278,26 +281,94 @@ public class BaseSelectionDialog extends Dialog {
 		//}
 		
 		mOptionAdapter = new OptionListAdapter(this.getContext(),0,optionItems);
-		
-		// Removed confusing "=" plugin-filter button; stubs stay for R.id / legacy code.
+
 		mOptionsList =(ListView) this.findViewById(R.id.optionslist);
 		mOptionsButton = (Button)this.findViewById(R.id.optionsbutton);
-		if (mOptionsButton != null) {
-			mOptionsButton.setVisibility(View.GONE);
-		}
-		if (mOptionsList != null) {
-			mOptionsList.setVisibility(View.GONE);
-		}
-		
+		wireOptionsMenu();
+
 		mTitlebar = (TextView) this.findViewById(R.id.titlebar);
-		
+
 		if (mTitlebar != null) {
 			ViewParent parent = mTitlebar.getParent();
 			if (parent != null) {
 				parent.bringChildToFront(mTitlebar);
+				if (mOptionsButton != null && mOptionsButton.getVisibility() == View.VISIBLE) {
+					parent.bringChildToFront(mOptionsButton);
+				}
 			}
 		}
-		
+
+	}
+
+	/** Show "=" options when option items exist; otherwise keep controls hidden. */
+	private void wireOptionsMenu() {
+		if (mOptionsList == null || mOptionsButton == null) {
+			return;
+		}
+		mOptionsList.setAdapter(mOptionAdapter);
+		mOptionsList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+			@Override
+			public void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
+				if (mOptionItemClickListener != null) {
+					mOptionItemClickListener.onOptionItemClicked(pos);
+				}
+			}
+		});
+		mOptionsList.setVerticalFadingEdgeEnabled(false);
+		mOptionsList.setVisibility(View.INVISIBLE);
+		mOptionsListToggle = false;
+
+		if (optionItems.isEmpty()) {
+			mOptionsButton.setVisibility(View.GONE);
+			return;
+		}
+
+		mOptionsButton.setVisibility(View.VISIBLE);
+		mOptionsButton.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (mPromoteHelp) {
+					if (mOptionItemClickListener != null) {
+						mOptionItemClickListener.onOptionItemClicked(0);
+					}
+					return;
+				}
+				if (mOptionsListToggle) {
+					mOptionsListToggle = false;
+					Animation outAnimation = new TranslateAnimation(0, 0, 0, -mOptionsList.getHeight());
+					outAnimation.setDuration(300);
+					outAnimation.setAnimationListener(new AnimationListener() {
+						@Override
+						public void onAnimationEnd(Animation animation) {
+							mOptionsList.setVisibility(View.INVISIBLE);
+						}
+						@Override
+						public void onAnimationRepeat(Animation animation) {
+						}
+						@Override
+						public void onAnimationStart(Animation animation) {
+						}
+					});
+					mOptionsList.startAnimation(outAnimation);
+				} else {
+					mOptionsListToggle = true;
+					mOptionsList.setVisibility(View.VISIBLE);
+					mOptionsList.bringToFront();
+					if (mTitlebar != null) {
+						mTitlebar.bringToFront();
+					}
+					mOptionsButton.bringToFront();
+					mOptionsList.invalidate();
+					Animation inAnimation = new TranslateAnimation(0, 0, -mOptionsList.getHeight(), 0);
+					inAnimation.setDuration(300);
+					mOptionsList.startAnimation(inAnimation);
+				}
+			}
+		});
+
+		if (mPromoteHelp) {
+			mOptionsButton.setText("?");
+		}
 	}
 	
 	private class DpadSelectionListener implements AdapterView.OnItemSelectedListener {
@@ -627,13 +698,11 @@ public class BaseSelectionDialog extends Dialog {
 					LayoutInflater li = (LayoutInflater) BaseSelectionDialog.this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 					
 					tmp = li.inflate(R.layout.editor_selection_filter_divider_row, null);
-					((TextView)tmp).setText("Filter by plugin");
-					//tmp = new TextView(TriggerSelectionDialog.this.getContext());
-					//AbsListView.LayoutParams params = new AbsListView.LayoutParams(AbsListView.LayoutParams.FILL_PARENT,AbsListView.LayoutParams.WRAP_CONTENT);
-					//tmp.setLayoutParams(params);
-					//((TextView)tmp).setTextSize(13);
+					String dividerTitle = item.title != null ? item.title : "Filter by plugin";
+					((TextView)tmp).setText(dividerTitle);
 					return tmp;
 				} else {
+					((TextView)tmp).setText(item.title != null ? item.title : "");
 					return tmp;
 				}
 			}
