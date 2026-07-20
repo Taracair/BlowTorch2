@@ -67,6 +67,9 @@ In the trigger editor:
 
 - **Literal?** on → match the pattern as plain text (no regex)  
 - **Literal?** off → pattern is a regular expression  
+- **Group** → optional label (e.g. `combat`); blank = ungrouped. The field
+  suggests existing names. The Triggers list shows `[group]`, sorts by
+  group, and Options (=) offers **Filter by group**.
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification text, and similar actions.
@@ -92,7 +95,7 @@ dialog when you turn Literal off.
 | `.colordebug <0\|1\|2\|3>` | ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes |
 | `.closewindow` | Dirty-exit the game window |
 | `.note <text>` | Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging |
-| `.trigger …` | Enable/disable main-settings triggers (`on`/`off`/`toggle`/`status`/`group`/`all`); see below |
+| `.trigger …` | Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below |
 | `.timer <action> <name> [silent]` | Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`) |
 | `.dobell` | Fire configured bell reaction |
 | `.togglefullscreen` | Toggle fullscreen preference |
@@ -112,22 +115,25 @@ dialog when you turn Literal off.
 
 ```
 .trigger
-.trigger on <name>
-.trigger off <name>
-.trigger toggle <name>
+.trigger on <name|plugin:name>
+.trigger off <name|plugin:name>
+.trigger toggle <name|plugin:name>
 .trigger status [name]
 .trigger group on <group>
 .trigger group off <group>
 .trigger group toggle <group>
 .trigger all on
 .trigger all off
+.trigger plugin <plugin> all on|off
 ```
 
-Operates on **main settings** triggers only (same as the Trigger editor).
-Names and groups may contain spaces (rest of line after the action).
-`status` with no name prints enabled/disabled counts. Empty group name
-matches the default group (exact string match, same as Lua
-`EnableTriggerGroup`). Plugin triggers: Trigger UI or Lua.
+Unqualified names resolve **main settings** first, then a unique plugin
+match; use `plugin:name` when names collide. Names and groups may contain
+spaces (rest of line after the action). `status` with no name prints
+main + plugin counts. Empty group name matches the default group (exact
+string match, same as Lua `EnableTriggerGroup`). Group commands apply to
+**main + all plugins**. `.trigger all` affects main only; use
+`.trigger plugin <plugin> all on|off` for one plugin.
 
 ### `.search` forms
 

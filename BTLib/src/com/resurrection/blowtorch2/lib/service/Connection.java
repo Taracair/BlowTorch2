@@ -2867,6 +2867,138 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return n;
 	}
 
+	/**
+	 * Toggles enabled state of a trigger in the target plugin.
+	 *
+	 * @param selectedPlugin Plugin name.
+	 * @param key Trigger name.
+	 * @return New enabled state, or {@code null} if missing.
+	 */
+	public final Boolean togglePluginTriggerEnabled(final String selectedPlugin, final String key) {
+		Plugin p = mPluginMap.get(selectedPlugin);
+		if (p == null) {
+			return null;
+		}
+		TriggerData data = p.getSettings().getTriggers().get(key);
+		if (data == null) {
+			return null;
+		}
+		boolean next = !data.isEnabled();
+		data.setEnabled(next);
+		p.getSettings().setDirty(true);
+		buildTriggerSystem();
+		return Boolean.valueOf(next);
+	}
+
+	/**
+	 * Sets enabled state for all triggers in {@code selectedPlugin} whose
+	 * {@link TriggerData#getGroup()} equals {@code group}.
+	 *
+	 * @return Number of triggers updated.
+	 */
+	public final int setPluginTriggerGroupEnabled(final String selectedPlugin,
+			final String group, final boolean enabled) {
+		Plugin p = mPluginMap.get(selectedPlugin);
+		if (p == null) {
+			return 0;
+		}
+		String g = group == null ? "" : group;
+		int n = 0;
+		for (TriggerData t : p.getSettings().getTriggers().values()) {
+			if (t.getGroup().equals(g)) {
+				t.setEnabled(enabled);
+				n++;
+			}
+		}
+		if (n > 0) {
+			p.getSettings().setDirty(true);
+			buildTriggerSystem();
+		}
+		return n;
+	}
+
+	/**
+	 * Toggles each trigger in {@code selectedPlugin} matching {@code group}.
+	 *
+	 * @return Number of triggers toggled.
+	 */
+	public final int togglePluginTriggerGroupEnabled(final String selectedPlugin,
+			final String group) {
+		Plugin p = mPluginMap.get(selectedPlugin);
+		if (p == null) {
+			return 0;
+		}
+		String g = group == null ? "" : group;
+		int n = 0;
+		for (TriggerData t : p.getSettings().getTriggers().values()) {
+			if (t.getGroup().equals(g)) {
+				t.setEnabled(!t.isEnabled());
+				n++;
+			}
+		}
+		if (n > 0) {
+			p.getSettings().setDirty(true);
+			buildTriggerSystem();
+		}
+		return n;
+	}
+
+	/**
+	 * Enables or disables every trigger in the target plugin.
+	 *
+	 * @return Number of triggers updated.
+	 */
+	public final int setAllPluginTriggersEnabled(final String selectedPlugin,
+			final boolean enabled) {
+		Plugin p = mPluginMap.get(selectedPlugin);
+		if (p == null) {
+			return 0;
+		}
+		int n = 0;
+		for (TriggerData t : p.getSettings().getTriggers().values()) {
+			t.setEnabled(enabled);
+			n++;
+		}
+		if (n > 0) {
+			p.getSettings().setDirty(true);
+			buildTriggerSystem();
+		}
+		return n;
+	}
+
+	/**
+	 * Sets group enabled state across main settings and every loaded plugin.
+	 *
+	 * @return Total triggers updated.
+	 */
+	public final int setTriggerGroupEnabledEverywhere(final String group,
+			final boolean enabled) {
+		int n = setTriggerGroupEnabled(group, enabled);
+		for (Plugin p : mPlugins) {
+			if (p == null || p == mSettings) {
+				continue;
+			}
+			n += setPluginTriggerGroupEnabled(p.getName(), group, enabled);
+		}
+		return n;
+	}
+
+	/**
+	 * Toggles group across main settings and every loaded plugin.
+	 *
+	 * @return Total triggers toggled.
+	 */
+	public final int toggleTriggerGroupEnabledEverywhere(final String group) {
+		int n = toggleTriggerGroupEnabled(group);
+		for (Plugin p : mPlugins) {
+			if (p == null || p == mSettings) {
+				continue;
+			}
+			n += togglePluginTriggerGroupEnabled(p.getName(), group);
+		}
+		return n;
+	}
+
 	/** Removes a trigger from the target plugin.
 	 * 
 	 * @param selectedPlugin Name of the plugin to search in.
