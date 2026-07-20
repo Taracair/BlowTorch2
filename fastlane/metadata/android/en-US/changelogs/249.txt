@@ -1,0 +1,6 @@
+BlowTorch 2 v2.1.10
+
+• GMCP: defaults, module manager, Char.Login, Client.Media, live feed
+• MCP 2.1: HellMOO/Samsara packages, simpleedit, cords, Lua helpers
+• Optional MTTS / MSDP / MSSP; real .disconnect / .reconnect
+• ANSI truecolor (chafa portraits/maps); two-finger text copy
