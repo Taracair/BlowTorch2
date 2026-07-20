@@ -623,21 +623,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * @param column Starting column.
 	 */
 	private void startSelection(final int line, final int column) {
-		int useLine = line;
-		int useColumn = column;
-		final int broken = mBuffer.getBrokenLineCount();
-		if (broken > 0) {
-			if (useLine < 0) {
-				useLine = 0;
-			} else if (useLine >= broken) {
-				useLine = broken - 1;
-			}
-			if (useColumn < 0) {
-				useColumn = 0;
-			}
-		}
-
-		theSelection = mBuffer.getSelectionForPoint(useLine, useColumn);
+		theSelection = resolveSelectionForPoint(line, column);
 		if (theSelection == null) {
 			firstPress = true;
 		} else {
@@ -659,6 +645,70 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			this.invalidate();
 		}
 		
+	}
+
+	/**
+	 * Map a touch to a selection. Short buffers sit at the bottom with empty padding above;
+	 * taps there (or past the end of a short line) used to return null and never open the widget.
+	 */
+	private TextTree.Selection resolveSelectionForPoint(final int line, final int column) {
+		final int broken = mBuffer.getBrokenLineCount();
+		if (broken <= 0) {
+			return null;
+		}
+		int useLine = line;
+		int useColumn = column;
+		if (useLine < 0) {
+			useLine = 0;
+		} else if (useLine >= broken) {
+			useLine = broken - 1;
+		}
+		if (useColumn < 0) {
+			useColumn = 0;
+		}
+
+		TextTree.Selection sel = mBuffer.getSelectionForPoint(useLine, useColumn);
+		if (sel != null) {
+			return sel;
+		}
+		if (useColumn != 0) {
+			sel = mBuffer.getSelectionForPoint(useLine, 0);
+			if (sel != null) {
+				return sel;
+			}
+		}
+		for (int d = 1; d < broken; d++) {
+			final int newer = useLine - d;
+			if (newer >= 0) {
+				sel = mBuffer.getSelectionForPoint(newer, 0);
+				if (sel != null) {
+					return sel;
+				}
+			}
+			final int older = useLine + d;
+			if (older < broken) {
+				sel = mBuffer.getSelectionForPoint(older, 0);
+				if (sel != null) {
+					return sel;
+				}
+			}
+		}
+		return null;
+	}
+
+	/** Convert raw view touch Y to a buffer broken-line index (0 = live bottom / newest). */
+	private int touchYToBufferLine(final float touchY) {
+		// Short content always draws at live bottom; keep scroll delta at 0 so empty
+		// padding above the text does not invent huge line numbers before clamp.
+		double scrollDelta = mScrollback - SCROLL_MIN;
+		if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
+			scrollDelta = 0;
+		}
+		final float y = (float) (this.getHeight() - touchY + scrollDelta);
+		if (mPrefLineSize <= 0) {
+			return 0;
+		}
+		return (int) Math.floor(y / (float) mPrefLineSize);
 	}
 
 	private void endTextSelectionMode(final View v) {
@@ -914,9 +964,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (idx0 >= 0) {
 					float x0 = t.getX(idx0);
 					float y0 = t.getY(idx0);
-					y0 = (float) ((float) this.getHeight() - y0 + (mScrollback - SCROLL_MIN));
-					selLine = (int) Math.floor(y0 / (float) mPrefLineSize);
-					selCol = (int) Math.floor(x0 / (float) mOneCharWidth);
+					selLine = touchYToBufferLine(y0);
+					selCol = mOneCharWidth > 0
+							? (int) Math.floor(x0 / (float) mOneCharWidth) : 0;
 				}
 			} catch (Exception ignored) {
 			}
@@ -979,15 +1029,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					}
 				}
 				
-				//convert y to be at the bottom of the screen.
-				
-				y = (float) ((float) this.getHeight() - y + (mScrollback - SCROLL_MIN));
-				
-				int line = (int) Math.floor(y / (float) mPrefLineSize);
-				
-				int column = (int) Math.floor(x / (float) mOneCharWidth);
-				mTouchDownLine = line;
-				mTouchDownColumn = column;
+				mTouchDownLine = touchYToBufferLine(y);
+				mTouchDownColumn = mOneCharWidth > 0
+						? (int) Math.floor(x / (float) mOneCharWidth) : 0;
 				// One-finger long-press no longer opens the copy widget.
 				
 				if (homeWidgetShowing) {
@@ -2327,7 +2371,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				//mHandler.sendEmptyMessage(MSG_CLEAR_NEW_TEXT_INDICATOR);
 			} else {
 				if(mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
-					mScrollback = (double)mHeight;
+					mScrollback = SCROLL_MIN;
 				} else {
 					if(mScrollback > SCROLL_MIN + mPrefLineSize ) {
 						//scrollback = oldposition * (the_tree.getBrokenLineCount()*PREF_LINESIZE);
@@ -2573,7 +2617,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				offset = ((mPrefLineSize) * mCalculatedLinesInWindow) - this.getHeight();
 			}
 			int under = mCalculatedLinesInWindow-(mBuffer.getBrokenLineCount()-1);
-			while(drawingIterator.hasNext()) {drawingIterator.next(); startline += 1;}
+			// Count broken lines (wraps), not Line objects — matches touch/selection indices.
+			while(drawingIterator.hasNext()) {
+				Line l = drawingIterator.next();
+				startline += 1 + l.getBreaks();
+			}
+			// First drawn row is oldest; workingline starts at this value then decrements to 0 (newest).
+			if (startline > 0) {
+				startline = startline - 1;
+			}
 			float tmpy = (under*pLineSize-(offset+(mPrefLineSize/3)));
 			
 			return new IteratorBundle(drawingIterator,tmpy,0,startline);

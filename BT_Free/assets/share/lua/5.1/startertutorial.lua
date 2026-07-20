@@ -303,6 +303,11 @@ Enable / disable:
   • Lua plugins can still use EnableTrigger / TriggerEnabled /
     EnableTriggerGroup.
 
+Groups:
+  • In the trigger editor, set Group (e.g. combat). Leave blank for none.
+  • The list shows [group] before the pattern and sorts by group.
+  • Then: .trigger group off combat  (or group on / toggle)
+
 GMCP hooks: literal pattern starting with % (e.g. %Char.Vitals).
 MCP hooks: @message-name.
 
@@ -767,13 +772,14 @@ local function isOfflineTutorialSession()
 end
 
 function OnBackgroundStartup()
-	pcall(function()
-		CallPlugin("button_window", "installStarterButtonLayout", "")
-	end)
-	pcall(function()
-		CallPlugin("button_window", "ensureTutorialAccordion", "")
-	end)
+	-- Never rewrite button sets on real MUDs — only the offline Starter Tutorial pad.
 	if isOfflineTutorialSession() then
+		pcall(function()
+			CallPlugin("button_window", "installStarterButtonLayout", "")
+		end)
+		pcall(function()
+			CallPlugin("button_window", "ensureTutorialAccordion", "")
+		end)
 		currentIndex = 1
 		showTopic(TOPIC_ORDER[1])
 	else
