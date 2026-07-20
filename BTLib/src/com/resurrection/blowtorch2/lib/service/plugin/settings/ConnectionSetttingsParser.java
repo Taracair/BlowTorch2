@@ -63,7 +63,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		debug_telnet,
 		bell_vibrate,
 		bell_notification,
-		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_suggest_modules,
+		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
 		show_regex_warning,
 		session_log, session_log_directory, default_settings_directory,
 		terminal_width, terminal_height, terminal_size_hint
@@ -480,6 +480,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case log_gmcp:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case gmcp_feed:
+						// Default false; persist true so enable sticks across reconnect.
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
