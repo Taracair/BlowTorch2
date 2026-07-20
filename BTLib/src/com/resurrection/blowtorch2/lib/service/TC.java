@@ -65,6 +65,24 @@ public final class TC {
 	/** Telnet GMCP constant. */
 	public static final byte GMCP = (byte) 201;
 
+	/** MSDP — MUD Server Data Protocol (option 69). */
+	public static final byte MSDP = (byte) 69;
+	/** MSSP — MUD Server Status Protocol (option 70). */
+	public static final byte MSSP = (byte) 70;
+
+	/** MSDP/MSSP variable marker. */
+	public static final byte MSDP_VAR = 0x01;
+	/** MSDP/MSSP value marker. */
+	public static final byte MSDP_VAL = 0x02;
+	/** MSDP table open. */
+	public static final byte MSDP_TABLE_OPEN = 0x03;
+	/** MSDP table close. */
+	public static final byte MSDP_TABLE_CLOSE = 0x04;
+	/** MSDP array open. */
+	public static final byte MSDP_ARRAY_OPEN = 0x05;
+	/** MSDP array close. */
+	public static final byte MSDP_ARRAY_CLOSE = 0x06;
+
 	/** Telnet CHARSET option (RFC 2066). */
 	public static final byte CHARSET = (byte) 42;
 	/** CHARSET subnegotiation: REQUEST. */
@@ -174,6 +192,12 @@ public final class TC {
 			break;
 		case TC.GMCP:
 			output = "GMCP";
+			break;
+		case TC.MSDP:
+			output = "MSDP";
+			break;
+		case TC.MSSP:
+			output = "MSSP";
 			break;
 			
 		//many more types.

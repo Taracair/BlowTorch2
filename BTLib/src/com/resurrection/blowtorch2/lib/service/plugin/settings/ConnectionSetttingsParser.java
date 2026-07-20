@@ -64,6 +64,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		bell_vibrate,
 		bell_notification,
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
+		use_mtts, use_msdp, use_mssp,
 		show_regex_warning,
 		session_log, session_log_directory, default_settings_directory,
 		terminal_width, terminal_height, terminal_size_hint
@@ -492,6 +493,14 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case gmcp_suggest_modules:
 						// Default false; persist true so opt-in sticks.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case use_mtts:
+					case use_msdp:
+					case use_mssp:
+						// All default false; persist true so enable sticks.
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}

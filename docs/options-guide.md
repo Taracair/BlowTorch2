@@ -45,6 +45,20 @@ Native handlers: **Char.Login** (primary launcher account login/password) and
 **Client.Media** (sound/music). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for
 planned optional MTTS / graphics work.
 
+## MUD Protocols (optional)
+
+Separate from GMCP, under **Options → Service → MUD Protocols**. All **off** by
+default — enable only if a MUD needs them, then reconnect:
+
+| Option | What it does |
+|--------|----------------|
+| **Use MTTS?** | Third TTYPE reply announces ANSI + UTF-8 + 256 colors (helps GraphicMUD-style servers) |
+| **Use MSDP?** | Out-of-band variables (option 69); dump with `.msdp` |
+| **Use MSSP?** | Server listing/status (option 70); dump with `.mssp` |
+
+When off, BlowTorch answers `DONT` so the server should not send those channels.
+Parse errors never disconnect — the packet is ignored.
+
 ## Session log
 
 - Enable: **Options → Service → Log Session to File?**
