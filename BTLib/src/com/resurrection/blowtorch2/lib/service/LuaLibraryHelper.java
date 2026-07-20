@@ -169,7 +169,14 @@ public final class LuaLibraryHelper {
 					return;
 				}
 				int packagever = ai.metaData.getInt("BLOWTORCH_LUA_LIBS_VERSION", 0);
-				if (packagever == 0 || packagever == libsver) {
+				File starterTutorial = new File(ai.dataDir + "/lua/share/5.1/startertutorial.lua");
+				boolean missingStarter = !starterTutorial.isFile();
+				if (packagever == 0) {
+					return;
+				}
+				// Resync when meta-data bumps OR a newly packaged module is absent
+				// (installs that skipped a version bump would otherwise keep stale lua/share).
+				if (packagever == libsver && !missingStarter) {
 					return;
 				}
 				ensureNativeLibsInDataDir(context);

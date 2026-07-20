@@ -40,6 +40,22 @@ public final class ProfileDiscovery {
 			if (settings.getList().containsKey(displayName)) {
 				continue;
 			}
+			// Skip if an existing launcher row already maps to this settings file
+			// (e.g. "Starter Tutorial" → StarterTutorial.xml).
+			boolean covered = false;
+			for (MudConnection existing : settings.getList().values()) {
+				if (existing == null || existing.getDisplayName() == null) {
+					continue;
+				}
+				String sanitized = existing.getDisplayName().replaceAll("\\W", "");
+				if (sanitized.equalsIgnoreCase(displayName)) {
+					covered = true;
+					break;
+				}
+			}
+			if (covered) {
+				continue;
+			}
 			MudConnection connection = new MudConnection();
 			connection.setDisplayName(displayName);
 			connection.setHostName("host not set");

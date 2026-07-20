@@ -623,11 +623,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * @param column Starting column.
 	 */
 	private void startSelection(final int line, final int column) {
-		
-		theSelection = mBuffer.getSelectionForPoint(line, column);
+		int useLine = line;
+		int useColumn = column;
+		final int broken = mBuffer.getBrokenLineCount();
+		if (broken > 0) {
+			if (useLine < 0) {
+				useLine = 0;
+			} else if (useLine >= broken) {
+				useLine = broken - 1;
+			}
+			if (useColumn < 0) {
+				useColumn = 0;
+			}
+		}
+
+		theSelection = mBuffer.getSelectionForPoint(useLine, useColumn);
 		if (theSelection == null) {
 			firstPress = true;
 		} else {
+			// Prefer floating the widget above the caret so it stays on-screen at live bottom.
+			selectionIndicatorVectorX = mOneCharWidth + mSelectionIndicatorHalfDimension;
+			selectionIndicatorVectorY = -mSelectionIndicatorHalfDimension
+					- Math.max(mPrefLineSize, (int) (8 * mDensity));
 			this.setOnTouchListener(textSelectionTouchHandler);
 			selectedSelector = theSelection.end;
 			moveWidgetToSelector(selectedSelector);
@@ -888,7 +905,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				&& mBuffer.getBrokenLineCount() != 0) {
 			mHandler.removeMessages(MESSAGE_STARTSELECTION);
 			mFlingVelocity = 0.0f;
-			startSelection(mTouchDownLine, mTouchDownColumn);
+			// Prefer the first finger's current position (not a stale ACTION_DOWN that may
+			// have been above short text / empty padding and produced a null hit).
+			int selLine = mTouchDownLine;
+			int selCol = mTouchDownColumn;
+			try {
+				int idx0 = t.findPointerIndex(t.getPointerId(0));
+				if (idx0 >= 0) {
+					float x0 = t.getX(idx0);
+					float y0 = t.getY(idx0);
+					y0 = (float) ((float) this.getHeight() - y0 + (mScrollback - SCROLL_MIN));
+					selLine = (int) Math.floor(y0 / (float) mPrefLineSize);
+					selCol = (int) Math.floor(x0 / (float) mOneCharWidth);
+				}
+			} catch (Exception ignored) {
+			}
+			startSelection(selLine, selCol);
 			return true;
 		}
 
@@ -4236,40 +4268,56 @@ end
 		//add the vector to the components of the widget's center
 		int newWidgetX = (int) (startX + selectionIndicatorVectorX);
 		int newWidgetY = (int) ((int) (startY + selectionIndicatorVectorY));
+		final int half = mSelectionIndicatorHalfDimension;
+		final int viewW = this.getWidth();
+		final int viewH = this.getHeight();
 		
-		if((newWidgetX + (mSelectionIndicatorHalfDimension)) > this.getWidth()) {
+		if((newWidgetX + half) > viewW) {
 			selectionIndicatorVectorX -= mOneCharWidth;
-			if(selectionIndicatorVectorX < (mOneCharWidth + mSelectionIndicatorHalfDimension)) {
+			if(selectionIndicatorVectorX < (mOneCharWidth + half)) {
 				selectionIndicatorVectorX = -(selectionIndicatorVectorX+mOneCharWidth);
 			}
 			newWidgetX = (int) (startX + selectionIndicatorVectorX);
 			
-		} else if((newWidgetX - mSelectionIndicatorHalfDimension) < 0) {
+		} else if((newWidgetX - half) < 0) {
 			//flip the vector
 			selectionIndicatorVectorX += mOneCharWidth;
-			if(selectionIndicatorVectorX > -(mOneCharWidth+mSelectionIndicatorHalfDimension)) {
+			if(selectionIndicatorVectorX > -(mOneCharWidth+half)) {
 				selectionIndicatorVectorX = -(selectionIndicatorVectorX-mOneCharWidth);
 			}
 			newWidgetX = (int) (startX + selectionIndicatorVectorX);
 		}
 		
-		if((newWidgetY + (mSelectionIndicatorHalfDimension)) > this.getHeight()) {
+		if((newWidgetY + half) > viewH) {
 			selectionIndicatorVectorY -= mPrefLineSize;
-			//only if we run into 
 			newWidgetY = (int) (startY + selectionIndicatorVectorY);
-			if(newWidgetY + mSelectionIndicatorHalfDimension > this.getHeight()) {
-				selectionIndicatorVectorY = -mSelectionIndicatorHalfDimension;
+			if(newWidgetY + half > viewH) {
+				// Pull fully above the caret / bottom edge (live output case).
+				selectionIndicatorVectorY = -half - Math.max(mPrefLineSize, (int) (8 * mDensity));
 				newWidgetY = (int) (startY + selectionIndicatorVectorY);
 			}
 			
-		} else if ((newWidgetY - mSelectionIndicatorHalfDimension) < 0) {
+		} else if ((newWidgetY - half) < 0) {
 			selectionIndicatorVectorY += mPrefLineSize;
 			
 			newWidgetY = (int) (startY + selectionIndicatorVectorY);
-			if(newWidgetY - mSelectionIndicatorHalfDimension < 0) {
-				selectionIndicatorVectorY = +mSelectionIndicatorHalfDimension;
+			if(newWidgetY - half < 0) {
+				selectionIndicatorVectorY = +half;
 				newWidgetY = (int) (startY + selectionIndicatorVectorY);
 			}
+		}
+
+		// Hard clamp so the full circle stays inside the window (input bar / bottom
+		// caret used to push the widget off-screen so copy appeared "broken").
+		if (newWidgetX - half < 0) {
+			newWidgetX = half;
+		} else if (newWidgetX + half > viewW) {
+			newWidgetX = Math.max(half, viewW - half);
+		}
+		if (newWidgetY - half < 0) {
+			newWidgetY = half;
+		} else if (newWidgetY + half > viewH) {
+			newWidgetY = Math.max(half, viewH - half);
 		}
 		
 		mWidgetX = newWidgetX;

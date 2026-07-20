@@ -30,13 +30,16 @@ function loadButtonSet(args)
 	lob.name = args
 	lob.set = buttonsets[args]
 	
+	if(lob.set == nil) then
+		debugString("Button Set "..tostring(args).." is nil, skip load")
+		return
+	end
+
 	debugString("Button Set "..args.." has ".. #lob.set .." buttons");
 	lob.default = buttonset_defaults[args]
 	
-	if(lob.set ~= nil) then
-		current_set = args
-		WindowXCallB(buttonWindowName,"loadButtons",marshal.encode(lob))
-	end
+	current_set = args
+	WindowXCallB(buttonWindowName,"loadButtons",marshal.encode(lob))
 end
 
 function loadAndEditSet(data)
@@ -170,11 +173,16 @@ function bset.start(a)
 	
 	
 	local tmp = {}
-	tmp.name = a:getValue("","name") or "default"
+	-- Plugin XML may use name= or legacy setName=; both map to the set key.
+	tmp.name = a:getValue("","name") or a:getValue("","setName") or "default"
 	--Note("NEW BUTTON SET:"..tmp.name)
 	tmp.width = a:getValue("","width") or "80"
 	tmp.height = a:getValue("","height") or "80"
 	tmp.labelSize = a:getValue("","labelSize") or "23"
+	local gx = a:getValue("","gridXwidth")
+	if gx ~= nil then tmp.gridXwidth = gx end
+	local gy = a:getValue("","gridYwidth")
+	if gy ~= nil then tmp.gridYwidth = gy end
 	local pColorStr = a:getValue("","primaryColor")
 	if(pColorStr ~=nil) then
 		local BigInt = luajava.newInstance("java.math.BigInteger",pColorStr,16)
@@ -230,6 +238,7 @@ function button.start(a)
 	tmp.swipeDownCommand = a:getValue("","swipeDownCommand") or ""
 	tmp.swipeLeftCommand = a:getValue("","swipeLeftCommand") or ""
 	tmp.swipeRightCommand = a:getValue("","swipeRightCommand") or ""
+	tmp.switchTo = a:getValue("","switchTo") or ""
 	tmp.name = a:getValue("","name")
 	tmp.height = a:getValue("","height")
 	tmp.width = a:getValue("","width")
@@ -575,52 +584,147 @@ end
 android_R_attr = luajava.bindClass("android.R$attr")
 android_R_style = luajava.bindClass("android.R$style")
 android_R_dimen = luajava.bindClass("android.R$dimen")
-function alignDefaultButtons()
-	margin = 7
-	right = 0
-	left = 1000000
-	bottom = 0
-	top = 1000000
-	density = GetDisplayDensity()
-	
-	local set = buttonsets["default"]
-	local defaults = buttonset_defaults["default"]
 
-	for i,b in pairs(set) do
-		b.x = b.x*density
-		b.y = b.y*density
-		
-		local width = b.width or defaults.width
-		local height = b.height or defaults.height
-		
-		width = width*density
-		height = height*density
-		
-		local l = b.x - width/2
-		local r = b.x + width/2
-		local t = b.y - height/2
-		local bot = b.y + height/2
-		
-		if(r > right) then right = r end
-		if(l < left) then left = l end
-		if(t  < top) then top = t end
-		if(bot > bottom) then bottom = bot end
+-- Canonical starter pad in density-independent pixels (centers).
+-- Top row = PREV / NEXT / TOPICS so tutorial navigation is always visible.
+local STARTER_DEFAULT_BUTTONS = {
+	{ x=23,  y=23,  label="PREV",   command=".tutorial prev",   labelSize=11 },
+	{ x=68,  y=23,  label="NEXT",   command=".tutorial next",   labelSize=11 },
+	{ x=113, y=23,  label="TOPICS", command=".tutorial topics", labelSize=10 },
+	{ x=23,  y=68,  label="U",      command="up",    flipCommand="open u", labelSize=14,
+	  holdCommand=".note Hold U: second command on the same tile (doors, look up, …).",
+	  swipeUpCommand=".note Swipe U↑: directional swipe — useful for open u / look up." },
+	{ x=68,  y=68,  label="N",      command="north", flipCommand="open n", labelSize=14,
+	  holdCommand=".note Hold N: e.g. open n while tap still walks north.",
+	  swipeUpCommand=".note Swipe N↑: try pairing with open n or peek north." },
+	{ x=113, y=68,  label="SCORE",  command=".note SCORE demo: offline echo. On a real MUD this would send score.", labelSize=11 },
+	{ x=23,  y=113, label="W",      command="west",  flipCommand="open w", labelSize=14,
+	  holdCommand=".note Hold W: long-press fires Hold; release without hold = tap.",
+	  swipeLeftCommand=".note Swipe W←: left flick — classic for open w." },
+	{ x=113, y=113, label="E",      command="east",  flipCommand="open e", labelSize=14,
+	  holdCommand=".note Hold E: keep combat macros on tap, utilities on hold.",
+	  swipeRightCommand=".note Swipe E→: right flick — same idea as open e." },
+	{ x=23,  y=158, label="D",      command="down",  flipCommand="open d", labelSize=14,
+	  holdCommand=".note Hold D: down often pairs with climb / open d.",
+	  swipeDownCommand=".note Swipe D↓: downward flick for the down exit." },
+	{ x=68,  y=158, label="S",      command="south", flipCommand="open s", labelSize=14,
+	  holdCommand=".note Hold S: hold vs tap is the fastest way to double a pad.",
+	  swipeDownCommand=".note Swipe S↓: south swipe — edit the field to anything you like." },
+	{ x=113, y=158, label="LOOK",   command=".note LOOK demo: client .note only here. Live MUDs: set command to look.", labelSize=11 },
+	{ x=23,  y=203, label="HELP",   command=".tutorial start", labelSize=11 },
+	{ x=68,  y=203, label="SWIPE",  command=".tutorial buttons_swipe", labelSize=11,
+	  swipeUpCommand=".note Swipe↑ tip: about one finger-width past the tile edge.",
+	  swipeDownCommand=".note Swipe↓ tip: swipe beats Flip when both are set.",
+	  swipeLeftCommand=".note Swipe← tip: edit mode → Swipe fields; arrows show if hints are on.",
+	  swipeRightCommand=".note Swipe→ tip: four directions = four extra macros per button." },
+	{ x=113, y=203, label="HOLD",   command=".tutorial buttons_hold", labelSize=11,
+	  holdCommand=".note Hold tip: H badge = Hold is set. Keep hold ~0.5s then release." },
+	{ x=23,  y=248, label="ACC",    command="", labelSize=11 },
+	{ x=68,  y=248, label="CLEAR",  command=".clearbuttons", labelSize=11 },
+	{ x=113, y=248, label="LOAD",   command=".loadset tutorial", labelSize=11,
+	  holdCommand=".note Hold LOAD: .loadset default — restore the full starter pad.",
+	  flipCommand=".loadset default" },
+}
+
+local STARTER_SET_DEFAULTS = {
+	width = 42, height = 42, labelSize = 12, gridXwidth = 45, gridYwidth = 45,
+}
+
+local function cloneStarterButton(src)
+	local b = {}
+	for k,v in pairs(src) do
+		b[k] = v
 	end
-	
-	heightPixels = context:getResources():getDisplayMetrics().heightPixels
-	widthPixels = context:getResources():getDisplayMetrics().widthPixels
-	width = widthPixels
-	if(width < heightPixels) then width = heightPixels end
-		
-	xoffset = width - right - (margin*density)
-	yoffset = GetActionBarHeight()
-	
-	--pcall(getActionBarHeight)
-	--Note("ACTION BAR HEIGHT IS:"..yoffset)
-	for i,b in pairs(set) do
-		b.x = b.x + xoffset
-		b.y = b.y + yoffset
+	return b
+end
+
+-- Rebuild default set from the canonical DP layout, pin bottom-center, refresh UI.
+function installStarterButtonLayout(args)
+	buttonset_defaults["default"] = buttonset_defaults["default"] or {}
+	for k,v in pairs(STARTER_SET_DEFAULTS) do
+		buttonset_defaults["default"][k] = v
 	end
+	local set = {}
+	for i,src in ipairs(STARTER_DEFAULT_BUTTONS) do
+		set[i] = cloneStarterButton(src)
+	end
+	buttonsets["default"] = set
+	current_set = "default"
+	alignDefaultButtons()
+	pcall(ensureTutorialAccordion, "")
+	pcall(loadButtonSet, "default")
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+end
+
+function alignDefaultButtons()
+	-- Scale DP centers by density, then pin starter sets to upper-center
+	-- (below the status/action bar — not glued to the top edge).
+	local margin = 10
+	local topPad = 88
+	density = GetDisplayDensity()
+	local metrics = context:getResources():getDisplayMetrics()
+	heightPixels = metrics.heightPixels
+	local widthPixels = metrics.widthPixels
+	local ab = GetActionBarHeight()
+	if ab == nil then ab = 0 end
+
+	local function alignSet(setName)
+		local set = buttonsets[setName]
+		local defaults = buttonset_defaults[setName]
+		if set == nil then return end
+
+		local right = 0
+		local left = 1000000
+		local bottom = 0
+		local top = 1000000
+
+		for i,b in pairs(set) do
+			b.x = (tonumber(b.x) or 0) * density
+			b.y = (tonumber(b.y) or 0) * density
+
+			local width = tonumber(b.width) or tonumber(defaults and defaults.width) or 42
+			local height = tonumber(b.height) or tonumber(defaults and defaults.height) or 42
+			width = width * density
+			height = height * density
+
+			local l = b.x - width / 2
+			local r = b.x + width / 2
+			local t = b.y - height / 2
+			local bot = b.y + height / 2
+
+			if r > right then right = r end
+			if l < left then left = l end
+			if t < top then top = t end
+			if bot > bottom then bottom = bot end
+		end
+
+		local clusterW = right - left
+		local xoffset = ((widthPixels - clusterW) / 2) - left
+		if xoffset < margin * density then
+			xoffset = margin * density - left
+		end
+
+		-- Upper third: below action/status bar + topPad, never flush with the top.
+		local yoffset = ab + (topPad * density) - top
+		if yoffset < ab + (margin * density) then
+			yoffset = ab + (margin * density)
+		end
+		-- Keep the whole pad on-screen vertically.
+		local maxBottom = heightPixels - (56 * density)
+		if bottom + yoffset > maxBottom then
+			yoffset = maxBottom - bottom
+		end
+
+		for i,b in pairs(set) do
+			b.x = b.x + xoffset
+			b.y = b.y + yoffset
+		end
+	end
+
+	alignSet("default")
+	alignSet("tutorial")
 end
 
 optionsTable = {}
@@ -701,6 +805,61 @@ function importButtons(data)
    end
  end
  WindowXCallS(buttonWindowName,"importSuccess",tostring(count))
+end
+
+-- In-memory accordion demo for default/tutorial ACC buttons.
+-- CallPlugin always passes one string arg (may be ""); we ignore it.
+-- With accordionTrigger "tap", parent command does not fire — keep command empty.
+-- Skip buttons that already have accordion children (do not overwrite custom ACC).
+function ensureTutorialAccordion(args)
+	local function applyAccordion(btn)
+		btn.command = ""
+		-- Expand downward so children do not cover HELP/SWIPE/HOLD above ACC.
+		btn.accordionDirection = "down"
+		btn.accordionTrigger = "tap"
+		btn.accordionAutoClose = true
+		btn.accordionHoldMs = 450
+		btn.accordionChildLayout = "along"
+		btn.accordionChildren = {
+			{ label = "LOOK", command = "look" },
+			{ label = "SCORE", command = "score" },
+			{ label = "TIP", command = ".tutorial buttons_accordion" },
+		}
+	end
+
+	local function ensureSet(setName, insertX, insertY)
+		local set = buttonsets[setName]
+		if set == nil then return end
+
+		local found = nil
+		for i,b in ipairs(set) do
+			if b.label == "ACC" then
+				found = b
+				break
+			end
+		end
+
+		if found ~= nil then
+			-- Always refresh starter ACC so direction/layout fixes apply after updates.
+			applyAccordion(found)
+		else
+			local tmp = {}
+			tmp.x = insertX
+			tmp.y = insertY
+			tmp.label = "ACC"
+			tmp.labelSize = 12
+			applyAccordion(tmp)
+			table.insert(set, tmp)
+		end
+	end
+
+	ensureSet("default", 23, 248)
+	ensureSet("tutorial", 68, 68)
+
+	-- Reload if the visible set is one we mutated; pcall if window not ready yet.
+	if current_set == "default" or current_set == "tutorial" then
+		pcall(loadButtonSet, current_set)
+	end
 end
 
 debugString("Button Server Loaded")

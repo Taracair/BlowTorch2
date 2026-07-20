@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8' standalone='yes' ?>
 <blowtorch xmlversion="2">
-  <window lineSize="18" spaceExtra="2" maxLines="300" fontName="monospace" fontPath="none" useExtractUI="false" useSuggest="false" keepLast="false" backspaceBugFix="false" launchEditor="true" disableColor="false" hapticFeedBackOnModify="auto" hapticFeedBackOnPress="auto" hapticFeedBackOnFlip="none" encoding="UTF-8" keepScreenOn="true" fullScreen="true" roundButtons="true" orientation="0" breakAmount="0" wordWrap="true" removeExtraColor="true" debugTelnet="false" wrapMode="1" hyperLinkMode="highlight_color_bland_only" hyperLinkColor="ff3333aa" hyperLinkEnabled="true" id="6666"/>
+  <window lineSize="20" spaceExtra="2" maxLines="300" fontName="monospace" fontPath="none" useExtractUI="false" useSuggest="false" keepLast="false" backspaceBugFix="false" launchEditor="true" disableColor="false" hapticFeedBackOnModify="auto" hapticFeedBackOnPress="auto" hapticFeedBackOnFlip="none" encoding="UTF-8" keepScreenOn="true" fullScreen="true" roundButtons="true" orientation="0" breakAmount="0" wordWrap="true" removeExtraColor="true" debugTelnet="false" wrapMode="1" hyperLinkMode="highlight_color_bland_only" hyperLinkColor="ff3333aa" hyperLinkEnabled="true" id="6666"/>
   <windows>
     <window name="mainDisplay" id="6666">
       <layoutGroup target="normal">
@@ -23,18 +23,38 @@
     <entry dir="k" cmd="sw" />
     <entry dir="h" cmd="nw" />
   </directions>
+  <!-- Legacy top-level buttonsets (Java HyperSAXParser). Gestures are not parsed here; see button_window plugin below. -->
   <buttonsets>
-    <buttonset setName="default">
-      <button xPos="77" yPos="24" label="N" command="north" flipCommand="open n" moveMethod="2" labelSize="24" />
-      <button xPos="130" yPos="77" label="E" command="east" flipCommand="open e" moveMethod="2" labelSize="24" />
-      <button xPos="77" yPos="130" label="S" command="south" flipCommand="open s" moveMethod="2" labelSize="24" />
-      <button xPos="24" yPos="77" label="W" command="west" flipCommand="open w" moveMethod="2" labelSize="24" />
-      <button xPos="24" yPos="24" label="U" command="up" flipCommand="open u" moveMethod="2" labelSize="24" />
-      <button xPos="24" yPos="130" label="D" command="down" flipCommand="open d" moveMethod="2" labelSize="24" />
-      <button xPos="130" yPos="130" label="LOOK" command="look" moveMethod="2" />
-      <button xPos="130" yPos="24" label="SCORE" command="score" moveMethod="2" />
-      <button x="130" y="183" label="CLEAR" moveMethod="0" command=".clearbuttons" />
-</buttonset>
+    <buttonset setName="default" buttonWidth="42" buttonHeight="42" labelSize="12">
+      <button xPos="23" yPos="23" label="U" command="up" flipCommand="open u" moveMethod="2" labelSize="14" />
+      <button xPos="68" yPos="23" label="N" command="north" flipCommand="open n" moveMethod="2" labelSize="14" />
+      <button xPos="113" yPos="23" label="SCORE" command="score" moveMethod="2" labelSize="12" />
+      <button xPos="23" yPos="68" label="W" command="west" flipCommand="open w" moveMethod="2" labelSize="14" />
+      <button xPos="113" yPos="68" label="E" command="east" flipCommand="open e" moveMethod="2" labelSize="14" />
+      <button xPos="23" yPos="113" label="D" command="down" flipCommand="open d" moveMethod="2" labelSize="14" />
+      <button xPos="68" yPos="113" label="S" command="south" flipCommand="open s" moveMethod="2" labelSize="14" />
+      <button xPos="113" yPos="113" label="LOOK" command="look" moveMethod="2" labelSize="12" />
+      <button xPos="23" yPos="158" label="HELP" command=".tutorial start" moveMethod="2" labelSize="12" />
+      <button xPos="68" yPos="158" label="TIP" command=".tutorial topics" moveMethod="2" labelSize="12" />
+      <button xPos="113" yPos="158" label="SWIPE" command=".tutorial buttons_swipe" moveMethod="2" labelSize="12" />
+      <button xPos="23" yPos="203" label="HOLD" command=".tutorial buttons_hold" moveMethod="2" labelSize="12" />
+      <button xPos="68" yPos="203" label="ACC" command=".tutorial buttons_accordion" moveMethod="2" labelSize="12" />
+      <button xPos="113" yPos="203" label="CLEAR" command=".clearbuttons" moveMethod="0" labelSize="12" />
+    </buttonset>
+    <buttonset setName="tutorial" buttonWidth="42" buttonHeight="42" labelSize="12">
+      <button xPos="23" yPos="23" label="START" command=".tutorial start" moveMethod="2" labelSize="12" />
+      <button xPos="68" yPos="23" label="TOPICS" command=".tutorial topics" moveMethod="2" labelSize="12" />
+      <button xPos="113" yPos="23" label="SWIPE" command=".tutorial buttons_swipe" moveMethod="2" labelSize="12" />
+      <button xPos="23" yPos="68" label="HOLD" command=".tutorial buttons_hold" moveMethod="2" labelSize="12" />
+      <button xPos="68" yPos="68" label="ACC" command=".tutorial buttons_accordion" moveMethod="2" labelSize="12" />
+      <button xPos="113" yPos="68" label="N" command="north" moveMethod="2" labelSize="14" />
+      <button xPos="23" yPos="113" label="W" command="west" moveMethod="2" labelSize="14" />
+      <button xPos="68" yPos="113" label="S" command="south" moveMethod="2" labelSize="14" />
+      <button xPos="113" yPos="113" label="E" command="east" moveMethod="2" labelSize="14" />
+      <button xPos="23" yPos="158" label="LOOK" command="look" moveMethod="2" labelSize="12" />
+      <button xPos="68" yPos="158" label="DEF" command=".loadset default" moveMethod="2" labelSize="12" />
+      <button xPos="113" yPos="158" label="CLEAR" command=".clearbuttons" moveMethod="0" labelSize="12" />
+    </buttonset>
     <selectedset>default</selectedset>
   </buttonsets>
   <triggers />
@@ -85,20 +105,89 @@
 			require("buttonwindow")
 		]]>
   		</script>
-  		<buttonsets>
-   			<buttonset setName="default" width="48" height="48">
-     			<button x="77" y="24" label="N" command="north" flipCommand="open n" labelSize="24" />
-     			<button x="130" y="77" label="E" command="east" flipCommand="open e" labelSize="24" />
-     			<button x="77" y="130" label="S" command="south" flipCommand="open s" labelSize="24" />
-     			<button x="24" y="77" label="W" command="west" flipCommand="open w" labelSize="24" />
-     			<button x="24" y="24" label="U" command="up" flipCommand="open u" labelSize="24" />
-     			<button x="24" y="130" label="D" command="down" flipCommand="open d" labelSize="24" />
-     			<button x="130" y="130" label="LOOK" command="look" />
-     			<button x="130" y="24" label="SCORE" command="score" />
-     			<button x="130" y="183" label="CLEAR" command=".clearbuttons" />
+  		<!--
+  		  Starter layout: 42x42, ~45 dp grid, portrait bottom-left after alignDefaultButtons.
+  		  Movement taps send game commands; hold/swipe teach gestures via .note / .tutorial.
+  		  Accordion children need Lua serialization (not expressible in XML) — ACC opens the tutorial.
+  		-->
+   		<buttonsets>
+   			<buttonset name="default" setName="default" width="42" height="42" labelSize="12" gridXwidth="45" gridYwidth="45">
+     			<button x="23" y="23" label="PREV" command=".tutorial prev" labelSize="11" />
+     			<button x="68" y="23" label="NEXT" command=".tutorial next" labelSize="11" />
+     			<button x="113" y="23" label="TOPICS" command=".tutorial topics" labelSize="10" />
+     			<button x="23" y="68" label="U" command="up" flipCommand="open u" labelSize="14"
+     				holdCommand=".note Hold on U: HOLD — long-press a button for a second command."
+     				swipeUpCommand=".tutorial buttons_swipe" />
+     			<button x="68" y="68" label="N" command="north" flipCommand="open n" labelSize="14"
+     				holdCommand=".note Hold on N: this is HOLD — long-press a button for a second command."
+     				swipeUpCommand=".tutorial buttons_swipe" />
+     			<button x="113" y="68" label="SCORE" command="score" labelSize="11" />
+     			<button x="23" y="113" label="W" command="west" flipCommand="open w" labelSize="14"
+     				holdCommand=".note Hold on W: HOLD runs a second command after a long-press."
+     				swipeLeftCommand=".tutorial buttons_swipe" />
+     			<button x="113" y="113" label="E" command="east" flipCommand="open e" labelSize="14"
+     				holdCommand=".note Hold on E: HOLD runs a second command after a long-press."
+     				swipeRightCommand=".tutorial buttons_swipe" />
+     			<button x="23" y="158" label="D" command="down" flipCommand="open d" labelSize="14"
+     				holdCommand=".note Hold on D: HOLD runs a second command after a long-press."
+     				swipeDownCommand=".tutorial buttons_swipe" />
+     			<button x="68" y="158" label="S" command="south" flipCommand="open s" labelSize="14"
+     				holdCommand=".note Hold on S: HOLD runs a second command after a long-press."
+     				swipeDownCommand=".tutorial buttons_swipe" />
+     			<button x="113" y="158" label="LOOK" command="look" labelSize="11" />
+     			<button x="23" y="203" label="HELP" command=".tutorial start" labelSize="11" />
+     			<button x="68" y="203" label="SWIPE" command=".tutorial buttons_swipe" labelSize="11"
+     				swipeUpCommand=".note Swipe UP: flick the button upward for a directional command."
+     				swipeDownCommand=".note Swipe DOWN: flick the button downward for a directional command."
+     				swipeLeftCommand=".note Swipe LEFT: flick the button left for a directional command."
+     				swipeRightCommand=".note Swipe RIGHT: flick the button right for a directional command." />
+     			<button x="113" y="203" label="HOLD" command=".tutorial buttons_hold" labelSize="11"
+     				holdCommand=".note Hold fired: secondary command." />
+     			<button x="23" y="248" label="ACC" command=".tutorial buttons_accordion" labelSize="11" />
+     			<button x="68" y="248" label="CLEAR" command=".clearbuttons" labelSize="11" />
+</buttonset>
+   			<buttonset name="tutorial" setName="tutorial" width="42" height="42" labelSize="12" gridXwidth="45" gridYwidth="45">
+     			<button x="23" y="23" label="PREV" command=".tutorial prev" labelSize="11" />
+     			<button x="68" y="23" label="NEXT" command=".tutorial next" labelSize="11" />
+     			<button x="113" y="23" label="TOPICS" command=".tutorial topics" labelSize="10" />
+     			<button x="23" y="68" label="START" command=".tutorial start" labelSize="11" />
+     			<button x="68" y="68" label="SWIPE" command=".tutorial buttons_swipe" labelSize="11"
+     				swipeUpCommand=".note Swipe UP teaches a directional gesture."
+     				swipeDownCommand=".note Swipe DOWN teaches a directional gesture."
+     				swipeLeftCommand=".note Swipe LEFT teaches a directional gesture."
+     				swipeRightCommand=".note Swipe RIGHT teaches a directional gesture." />
+     			<button x="113" y="68" label="HOLD" command=".tutorial buttons_hold" labelSize="11"
+     				holdCommand=".note Hold fired: secondary command." />
+     			<button x="23" y="113" label="N" command="north" labelSize="14"
+     				holdCommand=".note Hold on movement buttons also teaches HOLD."
+     				swipeUpCommand=".tutorial buttons_swipe" />
+     			<button x="68" y="113" label="S" command="south" labelSize="14"
+     				holdCommand=".note Hold on movement buttons also teaches HOLD."
+     				swipeDownCommand=".tutorial buttons_swipe" />
+     			<button x="113" y="113" label="E" command="east" labelSize="14"
+     				holdCommand=".note Hold on movement buttons also teaches HOLD."
+     				swipeRightCommand=".tutorial buttons_swipe" />
+     			<button x="23" y="158" label="W" command="west" labelSize="14"
+     				holdCommand=".note Hold on movement buttons also teaches HOLD."
+     				swipeLeftCommand=".tutorial buttons_swipe" />
+     			<button x="68" y="158" label="LOOK" command="look" labelSize="11" />
+     			<button x="113" y="158" label="DEF" command=".loadset default" labelSize="11" />
+     			<button x="23" y="203" label="ACC" command=".tutorial buttons_accordion" labelSize="11" />
+     			<button x="68" y="203" label="CLEAR" command=".clearbuttons" labelSize="11" />
 </buttonset>
 			<selected>default</selected>
   		</buttonsets>
+	</plugin>
+	<plugin name="starter_tutorial" id="20">
+		<author>BlowTorch</author>
+		<description>Interactive English starter guide for new players. Disable via Options when done.</description>
+		<version>1.0</version>
+		<options title="Starter Tutorial" summary="Onboarding tips for new players.">
+			<boolean title="Show welcome on connect" key="show_on_connect" summary="Print a short welcome tip when connecting to a normal MUD (the Starter Tutorial launcher entry always opens the full guide).">false</boolean>
+		</options>
+		<script name="bootstrap" execute="true"><![CDATA[
+			require("startertutorial")
+		]]></script>
 	</plugin>
 </plugins>
 </blowtorch>
