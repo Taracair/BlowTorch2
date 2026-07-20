@@ -46,6 +46,7 @@ import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
 import com.resurrection.blowtorch2.lib.service.function.NoteCommand;
+import com.resurrection.blowtorch2.lib.service.function.TriggerCommand;
 import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
 import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
@@ -516,6 +517,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(searchcmd.commandName, searchcmd);
 		GmcpCommand gmcpcmd = new GmcpCommand();
 		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
+		TriggerCommand triggercmd = new TriggerCommand();
+		mSpecialCommands.put(triggercmd.commandName, triggercmd);
 		McpCommand mcpcmd = new McpCommand();
 		mSpecialCommands.put(mcpcmd.commandName, mcpcmd);
 		ProtocolsCommand msspcmd = new ProtocolsCommand(false);
@@ -2783,6 +2786,85 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			data.setEnabled(enabled);
 			buildTriggerSystem();
 		}
+	}
+
+	/**
+	 * Toggles enabled state of a main-settings trigger.
+	 *
+	 * @param key Trigger name.
+	 * @return New enabled state, or {@code null} if the trigger does not exist.
+	 */
+	public final Boolean toggleTriggerEnabled(final String key) {
+		TriggerData data = mSettings.getSettings().getTriggers().get(key);
+		if (data == null) {
+			return null;
+		}
+		boolean next = !data.isEnabled();
+		data.setEnabled(next);
+		buildTriggerSystem();
+		return Boolean.valueOf(next);
+	}
+
+	/**
+	 * Sets enabled state for all main-settings triggers whose
+	 * {@link TriggerData#getGroup()} equals {@code group} (exact match,
+	 * same as Lua {@code EnableTriggerGroup}).
+	 *
+	 * @param group Group name (empty string = default group).
+	 * @param enabled Desired state.
+	 * @return Number of triggers updated.
+	 */
+	public final int setTriggerGroupEnabled(final String group, final boolean enabled) {
+		String g = group == null ? "" : group;
+		int n = 0;
+		for (TriggerData t : mSettings.getSettings().getTriggers().values()) {
+			if (t.getGroup().equals(g)) {
+				t.setEnabled(enabled);
+				n++;
+			}
+		}
+		if (n > 0) {
+			buildTriggerSystem();
+		}
+		return n;
+	}
+
+	/**
+	 * Toggles each main-settings trigger in {@code group} (exact
+	 * {@link TriggerData#getGroup()} match).
+	 *
+	 * @param group Group name (empty string = default group).
+	 * @return Number of triggers toggled.
+	 */
+	public final int toggleTriggerGroupEnabled(final String group) {
+		String g = group == null ? "" : group;
+		int n = 0;
+		for (TriggerData t : mSettings.getSettings().getTriggers().values()) {
+			if (t.getGroup().equals(g)) {
+				t.setEnabled(!t.isEnabled());
+				n++;
+			}
+		}
+		if (n > 0) {
+			buildTriggerSystem();
+		}
+		return n;
+	}
+
+	/**
+	 * Enables or disables every trigger in the main settings plugin.
+	 *
+	 * @param enabled Desired state.
+	 * @return Number of triggers updated.
+	 */
+	public final int setAllTriggersEnabled(final boolean enabled) {
+		int n = 0;
+		for (TriggerData t : mSettings.getSettings().getTriggers().values()) {
+			t.setEnabled(enabled);
+			n++;
+		}
+		buildTriggerSystem();
+		return n;
 	}
 
 	/** Removes a trigger from the target plugin.

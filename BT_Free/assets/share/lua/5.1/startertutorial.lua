@@ -293,12 +293,15 @@ Open: ⋮ → Triggers → add. Keep Literal on until you need regex. Captures
 in regex mode become $1, $2 in Ack / Replace / Toast text.
 
 Enable / disable:
-  • Each trigger has an on/off toggle in the Triggers list (toolbar).
-    Turn one off when you are debugging without deleting it.
-  • Older menus also list "Enable All" / "Disable All" — those entries are
-    unfinished stubs today; prefer the per-trigger toggle. We will clean
-    that UX up later.
-  • Lua plugins can use EnableTrigger / TriggerEnabled / EnableTriggerGroup.
+  • Each trigger has an on/off toggle in the Triggers list (row toolbar).
+  • Options (=) menu: "Enable all triggers (current list)" and
+    "Disable ALL triggers (current list)" — these affect every trigger in
+    the active filter only (Main settings or the selected plugin). Disable
+    asks for confirmation first.
+  • From the input bar: .trigger on|off|toggle <name>, .trigger group …,
+    .trigger all on|off (see .trigger for help). Prefer this over long Lua.
+  • Lua plugins can still use EnableTrigger / TriggerEnabled /
+    EnableTriggerGroup.
 
 GMCP hooks: literal pattern starting with % (e.g. %Char.Vitals).
 MCP hooks: @message-name.

@@ -51,8 +51,10 @@ Triggers (trigger editor):
   Toast / Notification (and similar) text.
 
   Enable/disable each trigger from the Triggers list toolbar toggle.
-  (Menu entries named Enable All / Disable All are unfinished stubs —
-  use the per-trigger toggle for now.)
+  Options (=) → Enable all / Disable ALL applies to the current filter
+  (Main or selected plugin); Disable asks for confirmation.
+  From the input bar: .trigger on|off|toggle <name>, .trigger group …,
+  .trigger all on|off (type .trigger for help).
 
   Examples (Literal off):
     Pattern  You hit (.+) for (\d+)
@@ -82,6 +84,22 @@ Built-in commands
 .note <text>
   Client-only echo to the game window; never sent to the MUD.
   Useful for button tips and debugging. With no argument, prints usage.
+
+.trigger …
+  Enable/disable main-settings triggers (same scope as the Trigger editor).
+  Plugin triggers: Trigger UI or Lua EnableTrigger / EnableTriggerGroup.
+  Subcommands:
+    .trigger                      help
+    .trigger on <name>            enable trigger
+    .trigger off <name>           disable trigger
+    .trigger toggle <name>        toggle trigger
+    .trigger status [name]        status (or enabled/disabled counts)
+    .trigger group on <group>     enable group
+    .trigger group off <group>    disable group
+    .trigger group toggle <group> toggle each in group
+    .trigger all on               enable ALL main triggers
+    .trigger all off              disable ALL main triggers
+  Names/groups may contain spaces (rest of line after the action).
 
 .timer <action> <name> [silent]
   Control a named timer. Actions: play, pause, reset, stop, info.
