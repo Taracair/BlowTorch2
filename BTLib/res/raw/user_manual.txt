@@ -319,6 +319,8 @@ Mapper
   Title / notes / links:
     .map title <text>
     .map note <text>
+    .map title for <tileId> <text>
+    .map note for <tileId> <text>
     .map link <cmd> [from <id>] to <tileId>
     .map unlink <cmd> [from <id>]
     .map conflict list

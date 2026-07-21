@@ -77,12 +77,10 @@ public class MapCommand extends SpecialCommand {
 		case "go":
 			return doPath(c, mapper, rest, true);
 		case "title":
-			note(c, mapper.setTitle(rest));
-			return null;
+			return doTitleOrNotes(c, mapper, rest, true);
 		case "note":
 		case "notes":
-			note(c, mapper.setNotes(rest));
-			return null;
+			return doTitleOrNotes(c, mapper, rest, false);
 		case "link":
 			return doLink(c, mapper, rest);
 		case "unlink":
@@ -147,6 +145,35 @@ public class MapCommand extends SpecialCommand {
 	private Object doOpen(Connection c, MapperController mapper) {
 		c.requestMapperUi(1);
 		note(c, "Mapper: open.");
+		return null;
+	}
+
+	/**
+	 * {@code .map title|note <text>} on current, or
+	 * {@code .map title|note for <tileId> <text>} on a specific tile.
+	 */
+	private Object doTitleOrNotes(Connection c, MapperController mapper, String rest,
+			boolean title) {
+		String tileId = null;
+		String text = rest;
+		String lower = rest.toLowerCase(Locale.US);
+		if (lower.startsWith("for ")) {
+			String after = rest.substring(4).trim();
+			int sp = after.indexOf(' ');
+			if (sp <= 0) {
+				note(c, title
+						? "Usage: .map title for <tileId> <text>"
+						: "Usage: .map note for <tileId> <text>");
+				return null;
+			}
+			tileId = after.substring(0, sp).trim();
+			text = after.substring(sp + 1);
+		}
+		if (title) {
+			note(c, mapper.setTitle(tileId, text));
+		} else {
+			note(c, mapper.setNotes(tileId, text));
+		}
 		return null;
 	}
 
@@ -532,6 +559,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map level list|prev|next|set <name>\n");
 		sb.append("  .map find <query> | .map path <query> | .map goto <query>\n");
 		sb.append("  .map title <text> | .map note <text>\n");
+		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
 		sb.append("  .map dirs  (movement lexicon / grid offsets)\n");
 		sb.append("  .map add [x y] [title] [here] | .map here [id] | .map delete [id]\n");

@@ -920,25 +920,45 @@ public class MapperController {
 	}
 
 	public String setTitle(final String text) {
-		MapTile t = currentTile();
+		return setTitle(null, text);
+	}
+
+	/** Set title on {@code tileId}, or current tile when tileId is null/empty. */
+	public String setTitle(final String tileId, final String text) {
+		MapTile t = resolveEditTile(tileId);
 		if (t == null) {
-			return "Mapper: no current tile.";
+			return "Mapper: no tile.";
 		}
 		pushUndo();
 		t.setTitle(text);
 		notifyChanged();
-		return "Mapper: title set.";
+		return "Mapper: title set on " + shortId(t.getId()) + ".";
 	}
 
 	public String setNotes(final String text) {
-		MapTile t = currentTile();
+		return setNotes(null, text);
+	}
+
+	/** Set notes on {@code tileId}, or current tile when tileId is null/empty. */
+	public String setNotes(final String tileId, final String text) {
+		MapTile t = resolveEditTile(tileId);
 		if (t == null) {
-			return "Mapper: no current tile.";
+			return "Mapper: no tile.";
 		}
 		pushUndo();
 		t.setNotes(text);
 		notifyChanged();
-		return "Mapper: notes set.";
+		return "Mapper: notes set on " + shortId(t.getId()) + ".";
+	}
+
+	private MapTile resolveEditTile(final String tileId) {
+		if (mMap == null) {
+			return null;
+		}
+		if (tileId != null && tileId.trim().length() > 0) {
+			return mMap.findTile(tileId.trim());
+		}
+		return currentTile();
 	}
 
 	public String link(final String cmd, final String toTileId) {

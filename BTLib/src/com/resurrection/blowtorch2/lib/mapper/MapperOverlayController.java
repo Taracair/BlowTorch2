@@ -1298,20 +1298,41 @@ public class MapperOverlayController
 		if (tile == null) {
 			return;
 		}
+		selectedTileId = tile.getId();
+		if (mapperView != null) {
+			mapperView.setSelectedTileId(tile.getId());
+		}
 		if (controller != null) {
 			new MapperTileEditorDialog(host.getMainWindow(), controller, tile).show();
 			return;
 		}
-		final EditText title = new EditText(host.getMainWindow());
-		title.setText(tile.getTitle() != null ? tile.getTitle() : "");
+		// Service process owns the map — edit via .map title|note for <id>
+		MainWindow activity = host.getMainWindow();
+		LinearLayout root = new LinearLayout(activity);
+		root.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (12 * activity.getResources().getDisplayMetrics().density);
+		root.setPadding(pad, pad, pad, pad);
+		final EditText title = new EditText(activity);
 		title.setHint("Title");
-		new AlertDialog.Builder(host.getMainWindow())
-				.setTitle("Tile title")
-				.setView(title)
+		title.setSingleLine(true);
+		title.setText(tile.getTitle() != null ? tile.getTitle() : "");
+		final EditText notes = new EditText(activity);
+		notes.setHint("Notes");
+		notes.setMinLines(2);
+		notes.setText(tile.getNotes() != null ? tile.getNotes() : "");
+		root.addView(title);
+		root.addView(notes);
+		final String tileId = tile.getId();
+		new AlertDialog.Builder(activity)
+				.setTitle("Edit tile")
+				.setView(root)
 				.setPositiveButton("Save", new DialogInterface.OnClickListener() {
 					@Override
 					public void onClick(DialogInterface dialog, int which) {
-						host.runMapCommand("title " + title.getText().toString());
+						String t = title.getText().toString();
+						String n = notes.getText().toString();
+						host.runMapCommand("title for " + tileId + " " + t);
+						host.runMapCommand("note for " + tileId + " " + n);
 						pullSnapshotFromService();
 					}
 				})
