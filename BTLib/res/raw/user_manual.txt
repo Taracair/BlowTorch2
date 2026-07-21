@@ -277,21 +277,22 @@ Mapper
                             then copy into /BlowTorch/maps/
 
   Title: map · L-1 ← Hallway when on a nested floor (← = door you entered).
-  [REC] = recording. Title bar: Browse | Edit (Browse default). Edit required
-  to create nests, Draw, Links, delete levels. Long-press title = Floors radial.
+  [REC] = recording. Title: Browse|Edit and Float|Full (Browse / Float default).
+  Edit required for nests, Draw, Links, delete. Long-press title = Floors radial.
 
   Top chips (category radials — in-map pie, no status-bar flash):
-    Nav: Rec, Follow, Center, Find, Undo, Close
+    Nav: Record, Follow, Center, Find, Undo, Close
     Floors: List, ↑, ↓, Root, Door, Delete (Delete = Edit only)
     Build: Draw, Links, Paths, Here, Edit (tile)
     File: Save, Maps, New, Export
-  Also Full/Float/✕ on the title bar.
   Level browser (Floors → List): tap = view; long-press = Go Here.
     Edit adds Delete… (confirm) — removes floor + all tiles; cannot delete last.
   Draw (Edit) = tap empty=place; long-press empty=place+Here
   Links (Edit) = tap FROM then TO, enter walk verb (or unlink)
   Paths/Pack = Paths spaces tiles for arrows; Pack compresses
   ↑/↓ = nest up/down from Here. Browse: follow/return only; create needs Edit.
+  Recording: outbound = your command; reverse guessed; walk back overwrites
+  the guess with your return command (e.g. s → go south).
   Long-press tile + drag = move (release without move = tile menu).
   Double-tap tile = Set as Here. Double-tap empty = center on current.
 

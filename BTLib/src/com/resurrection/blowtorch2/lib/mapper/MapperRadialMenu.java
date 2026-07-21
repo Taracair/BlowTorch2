@@ -63,7 +63,7 @@ public final class MapperRadialMenu {
 			ACTION_UNDO, ACTION_CLOSE
 	};
 	private static final String[] NAV_LABELS = {
-			"Rec", "Follow", "Center", "Find", "Undo", "Close"
+			"Record", "Follow", "Center", "Find", "Undo", "Close"
 	};
 
 	private static final String[] FLOORS_ACTIONS = {

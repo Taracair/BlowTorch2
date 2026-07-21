@@ -206,9 +206,10 @@ or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 
 Title bar shows a breadcrumb when you are on a nested floor, e.g.
 `map · L-1 ← Hallway` (map name · level · door you entered from). **[REC]** means
-recording is on. The title also has a **Browse | Edit** segment (**Browse** is
-default). **Edit** is required to create nests, use **Draw** / **Links**, and
-delete levels. Long-press the title opens the **Floors** radial.
+recording is on. The title has **Browse | Edit** and **Float | Full** segments
+(**Browse** / **Float** default). **Edit** is required to create nests, use
+**Draw** / **Links**, and delete levels. Long-press the title opens the
+**Floors** radial.
 
 ### Category radials (top chips)
 
@@ -217,7 +218,7 @@ in-map pie menu (no system status-bar flash).
 
 | Chip | Actions |
 |------|---------|
-| **Nav** | Rec, Follow, Center, Find, Undo, Close |
+| **Nav** | Record, Follow, Center, Find, Undo, Close |
 | **Floors** | List, ↑, ↓, Root, Door, Delete (**Delete** = **Edit** only) |
 | **Build** | Draw, Links, Paths, Here, Edit (tile) |
 | **File** | Save, Maps, New, Export |
@@ -230,8 +231,11 @@ You cannot delete the last level.
 **Links** (Edit): tap FROM then TO, then enter a walk verb (or unlink).
 **Paths** / **Pack**: Paths spaces tiles for arrows; Pack compresses neighbors.
 **Here**: set current to the selected tile. Tile **Edit** dialog: title / notes /
-level / exits. **Save** / **Export**: write map file now. **Full** / **Float** /
-**✕**: presentation mode / close.
+level / exits. **Save** / **Export**: write map file now. **✕**: close.
+
+While **Record**ing, outbound exits store your typed command; the reverse edge is
+guessed. Walking back the same path overwrites that guess with your return
+command (e.g. guessed `s` → your `go south`).
 
 Long-press a tile and drag to move it on the grid (release without moving opens the
 tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
@@ -329,7 +333,7 @@ Without GMCP (typical on many MOOs), use **Rec** while walking, switch to
 
 ### Typical workflows
 
-1. **Record while exploring:** `.map new mymap` → open map → **Nav → Rec** → walk → Rec again to stop → **File → Save**.
+1. **Record while exploring:** `.map new mymap` → open map → **Nav → Record** → walk → Record again to stop → **File → Save**.
 2. **Draw by hand:** title **Edit** → **Build → Draw** → tap empty cells → **Links** → **Here** on your room.
 3. **Fix layout:** long-press a tile and drag (or **Move…**). Use **Paths** to see arrows.
 

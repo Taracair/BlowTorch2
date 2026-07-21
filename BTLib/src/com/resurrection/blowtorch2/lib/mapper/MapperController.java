@@ -1853,13 +1853,23 @@ public class MapperController {
 				to = createDestination(from, norm, delta, special);
 				existing.setToId(to.getId());
 			}
+			// Re-walk (incl. return trip): prefer the player's actual wording
+			// over a previously guessed reverse (e.g. "s" → "go south").
+			adoptRecordedExitCommand(existing, from, to, stored, special);
 		} else {
 			to = createDestination(from, norm, delta, special);
-			String rev = MapDirections.suggestReverse(stored, directionMap());
-			MapExit exit = new MapExit(from.getId(), to.getId(), stored, special, rev);
-			from.addExit(exit);
-			if (mAutoReverse && rev != null) {
-				ensureReverse(from, to, stored);
+			MapExit byDest = findExitTo(from, to.getId());
+			if (byDest != null) {
+				// Same edge under a different spelling than the guessed reverse.
+				adoptRecordedExitCommand(byDest, from, to, stored, special);
+				removeOtherExitsTo(from, to.getId(), byDest);
+			} else {
+				String rev = MapDirections.suggestReverse(stored, directionMap());
+				MapExit exit = new MapExit(from.getId(), to.getId(), stored, special, rev);
+				from.addExit(exit);
+				if (mAutoReverse && rev != null) {
+					ensureReverse(from, to, stored);
+				}
 			}
 		}
 
@@ -1867,6 +1877,53 @@ public class MapperController {
 		mMap.setCurrentLevelId(to.getLevelId());
 		refreshConflicts();
 		notifyChanged();
+	}
+
+	/**
+	 * Store the command the player just typed on this exit and sync the
+	 * opposite edge's {@code reverseCommand} hint.
+	 */
+	private void adoptRecordedExitCommand(final MapExit exit, final MapTile from,
+			final MapTile to, final String stored, final boolean special) {
+		if (exit == null || stored == null) {
+			return;
+		}
+		exit.setCommand(stored);
+		exit.setSpecial(special);
+		exit.setReverseCommand(MapDirections.suggestReverse(stored, directionMap()));
+		if (to == null || from == null) {
+			return;
+		}
+		MapExit back = findExitTo(to, from.getId());
+		if (back != null) {
+			back.setReverseCommand(stored);
+		}
+	}
+
+	private MapExit findExitTo(final MapTile tile, final String toId) {
+		if (tile == null || toId == null) {
+			return null;
+		}
+		for (MapExit e : tile.getExits()) {
+			if (e != null && toId.equals(e.getToId())) {
+				return e;
+			}
+		}
+		return null;
+	}
+
+	private void removeOtherExitsTo(final MapTile tile, final String toId,
+			final MapExit keep) {
+		if (tile == null || toId == null) {
+			return;
+		}
+		List<MapExit> exits = tile.getExits();
+		for (int i = exits.size() - 1; i >= 0; i--) {
+			MapExit e = exits.get(i);
+			if (e != keep && e != null && toId.equals(e.getToId())) {
+				exits.remove(i);
+			}
+		}
 	}
 
 	private MapTile createDestination(final MapTile from, final String norm,
@@ -1946,10 +2003,12 @@ public class MapperController {
 			return;
 		}
 		String revNorm = normalize(rev);
-		if (findExit(to, revNorm) == null) {
-			boolean special = MapDirections.gridDelta(revNorm) == null;
-			to.addExit(new MapExit(to.getId(), from.getId(), revNorm, special, forwardCmd));
+		if (findExit(to, revNorm) != null || findExitTo(to, from.getId()) != null) {
+			return;
 		}
+		boolean special = MapDirections.gridDelta(revNorm) == null;
+		String storedRev = MapDirections.storeCommand(rev, revNorm);
+		to.addExit(new MapExit(to.getId(), from.getId(), storedRev, special, forwardCmd));
 	}
 
 	private MapTile createTileAt(final String levelId, final int x, final int y) {
