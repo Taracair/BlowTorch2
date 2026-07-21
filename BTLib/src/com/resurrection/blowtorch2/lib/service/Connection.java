@@ -61,6 +61,7 @@ import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
+import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
@@ -246,28 +247,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private static final int MESSAGE_CALLPLUGIN = 35;
 	
 	/** Sent from the timer command. */
-	private static final int MESSAGE_TIMERINFO = 36;
+	public static final int MESSAGE_TIMERINFO = 36;
 	
 	/** Sent from the timer command. */
-	private static final int MESSAGE_TIMERSTART = 37;
+	public static final int MESSAGE_TIMERSTART = 37;
 	
 	/** Sent from the timer command. */
-	private static final int MESSAGE_TIMERPAUSE = 38;
+	public static final int MESSAGE_TIMERPAUSE = 38;
 	
 	/** Sent from the timer command. */
-	private static final int MESSAGE_TIMERRESET = 39;
+	public static final int MESSAGE_TIMERRESET = 39;
 	
 	/** Sent from the timer command. */
-	private static final int MESSAGE_TIMERSTOP = 40;
-	
-	/** GMCP payload minimum size. */
-	private static final int GMCP_PAYLOAD_SIZE = 5;
-	
-	/** 500 ms timeout, generic timeout or other. */
-	private static final int FIVE_HUNDRED_MILLIS = 500;
-	
-	/** 1000 mm. */
-	private static final double ONE_THOUSAND_MILLIS = 1000.0;
+	public static final int MESSAGE_TIMERSTOP = 40;
 	
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
@@ -297,12 +289,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Value of -2. */
 	private static final int NEGATIVE_TWO = -2;
-	
-	/** ANSI Color code pattern. */
-	private static final Pattern COLOR_PATTERN = Pattern.compile("\\x1B\\x5B.+?m");
-	
-	/** ANSI Color code matcher. */
-	private static final Matcher COLOR_MATCHER = COLOR_PATTERN.matcher("");
 	
 	/** Generic "match a line" pattern. */
 	private static final Pattern LINE_PATTERN = Pattern.compile("^.*$", Pattern.MULTILINE);
@@ -364,7 +350,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private Matcher mMassiveMatcher = null;
 	/** The main looper handler for this "foreground" thread, although I'm not sure
 	 *  if service processes get "foreground threads". */
-	private Handler mHandler = null;
+	Handler mHandler = null;
 	/** Global handler for the speedwalk command, useful for changing the settings. */
 	private SpeedwalkCommand mSpeedwalkCommand = null;
 	
@@ -374,16 +360,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final Matcher mXMLExtensionMatcher = mXMLExtensionPattern.matcher("");
 	
 	/** Main tracker for plugins, generic ordered list of plugins in the order they were loaded. */
-	private ArrayList<Plugin> mPlugins = null;
+	ArrayList<Plugin> mPlugins = null;
 	
 	/** Global map for handling the capture transformation for triggers and aliases. */
 	private HashMap<String, String> mCaptureMap = new HashMap<String, String>();
 	
 	/** The DataPumper instance for this connection. */
-	private DataPumper mPump = null;
+	DataPumper mPump = null;
 	
 	/** The Processor instance for this connection. */
-	private Processor mProcessor = null;
+	Processor mProcessor = null;
 	/** MCP 2.1 engine (in-band #$#). */
 	private McpEngine mMcpEngine = null;
 	//TextTree buffer = null;
@@ -404,7 +390,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private HashMap<String, String> mFailedLinks = new HashMap<String, String>();
 	
 	/** Mapping of plugin names to plugin objects. */
-	private HashMap<String, Plugin> mPluginMap = new HashMap<String, Plugin>(0);
+	HashMap<String, Plugin> mPluginMap = new HashMap<String, Plugin>(0);
 	
 	/** Not really sure what this is. */
 	private boolean mLoaded = false;
@@ -425,25 +411,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private HashMap<String, IWindowCallback> mWindowCallbackMap = 
 			new HashMap<String, IWindowCallback>();
 
-	
-	/** Enum used for the Timer command action ordinals. */
-	private enum TIMER_ACTION {
-		/** Play action.*/
-		PLAY,
-		/** Pause action. */
-		PAUSE,
-		/** Reset action.*/
-		RESET,
-		/** Info action.*/
-		INFO,
-		/** Stop action. */
-		STOP,
-		/** No action. */
-		NONE
-	}
+	/** Timer CRUD / .timer command actions. */
+	private final ConnectionTimers mTimers = new ConnectionTimers(this);
+
+	/** GMCP settings / status / message handlers. */
+	private final ConnectionGmcp mGmcp = new ConnectionGmcp(this);
 	
 	/** Instance of our parent service. This is bad. */
-	private StellarService mService = null;
+	StellarService mService = null;
 	
 	/** A simple holder for if we are connected or not. */
 	private boolean mIsConnected = false;
@@ -453,7 +428,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private long mLastDurationMs = 0L;
 	
 	/** The main settings wad/plugin. */
-	private ConnectionSettingsPlugin mSettings = null;
+	ConnectionSettingsPlugin mSettings = null;
 	
 	/** The keyboard command instance, not sure why this is here. */
 	private KeyboardCommand mKeyboardCommand;
@@ -577,19 +552,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 				break;
 			case MESSAGE_TIMERSTOP:
-				doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.STOP);
-				break;
 			case MESSAGE_TIMERSTART:
-				doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.PLAY);
-				break;
 			case MESSAGE_TIMERRESET:
-				doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.RESET);
-				break;
 			case MESSAGE_TIMERINFO:
-				doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.INFO);
-				break;
 			case MESSAGE_TIMERPAUSE:
-				doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.PAUSE);
+				mTimers.handleTimerMessage(msg);
 				break;
 			case MESSAGE_CALLPLUGIN:
 				String ptmp = msg.getData().getString("PLUGIN");
@@ -622,7 +589,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 				if (mProcessor != null) {
 					mProcessor.setLogProfile(mDisplay);
-					applyGmcpLogSetting();
+					mGmcp.applyGmcpLogSetting();
 					applyMcpSettings();
 					if (mLiveCols > 0 && mLiveRows > 0) {
 						mProcessor.setDisplayDimensions(mLiveRows, mLiveCols);
@@ -670,11 +637,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				Connection.this.saveDirtyPlugin(changedplugin);
 				break;
 			case MESSAGE_GMCPTRIGGERED:
-				String plugin = msg.getData().getString("TARGET");
-				String gcallback = msg.getData().getString("CALLBACK");
-				HashMap<String, Object> gdata = (HashMap<String, Object>) msg.obj;
-				Plugin gp = mPluginMap.get(plugin);
-				gp.handleGMCPCallback(gcallback, gdata);
+				mGmcp.handleGmcpTriggered(msg);
 				break;
 			case MESSAGE_MCPTRIGGERED:
 				String mplugin = msg.getData().getString("TARGET");
@@ -787,31 +750,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				sendToServer((byte[]) msg.obj);
 				break;
 			case MESSAGE_SENDGMCPDATA:
-				byte bIAC = TC.IAC;
-				byte bSB = TC.SB;
-				byte bSE = TC.SE;
-				byte bGMCP = TC.GMCP;
-				int size = ((String) msg.obj).length() + GMCP_PAYLOAD_SIZE;
-				ByteBuffer fub = ByteBuffer.allocate(size);
-				fub.put(bIAC).put(bSB).put(bGMCP);
-				try {
-					fub.put(((String) msg.obj).getBytes("ISO-8859-1"));
-				} catch (UnsupportedEncodingException e2) {
-					e2.printStackTrace();
-				}
-				fub.put(bIAC).put(bSE);
-				byte[] fubtmp = new byte[size];
-				fub.rewind();
-				fub.get(fubtmp);
-				if (mProcessor != null && msg.obj instanceof String
-						&& (mProcessor.isLogGMCP() || mProcessor.isDebugTelnet())) {
-					BlowTorchLogger.logError(mService.getApplicationContext(), "GMCP", "OUT " + msg.obj);
-				}
-				if (mPump != null && mPump.isConnected()) {
-					mPump.sendData(fubtmp);
-				} else {
-					mHandler.sendMessageDelayed(mHandler.obtainMessage(MESSAGE_SENDGMCPDATA, msg.obj), FIVE_HUNDRED_MILLIS);
-				}
+				mGmcp.handleSendGmcpData(msg);
 				break;
 			case MESSAGE_STARTUP:
 				doStartup();
@@ -1600,7 +1539,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @param data The data to send.
 	 */
-	private void dispatchNoProcess(final byte[] data) {
+	public final void dispatchNoProcess(final byte[] data) {
 		mWindows.get(0).getBuffer().addBytesImplSimple(data);
 		sendBytesToWindow(data);
 	}
@@ -1702,8 +1641,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mWorking.setModCount(0);
 		
 		//strip the color out.
-		COLOR_MATCHER.reset(new String(raw, mSettings.getEncoding()));
-		String stripped = COLOR_MATCHER.replaceAll("");
+		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
 		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
 		
 		if (triggersDirty) {
@@ -1997,7 +1935,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			initSettings();
 			applyTerminalNaws();
 			mPump.start();
-			loadGMCPTriggers();
+			mGmcp.loadGMCPTriggers();
 			loadMcpTriggers();
 			// mIsConnected / session "connected" marker wait for MESSAGE_CONNECTED
 			// (DataPumper finished the TCP handshake).
@@ -2047,7 +1985,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}, 350);
 		applyTerminalNaws();
-		loadGMCPTriggers();
+		mGmcp.loadGMCPTriggers();
 		loadMcpTriggers();
 
 		mIsConnected = true;
@@ -2095,34 +2033,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 	
-	/** The gmcp trigger loading routine. This is pretty self explanatory, but it seeks out
-	 * non-regex triggers that start witht he gmcp trigger char (default %) and tracks them 
-	 * accordingly.
-	 */
-	private void loadGMCPTriggers() {
-		String gmcpChar = mSettings.getGMCPTriggerChar();
-		for (int i = 0; i < mPlugins.size(); i++) {
-			Plugin p = mPlugins.get(i);
-			HashMap<String, TriggerData> triggers = p.getSettings().getTriggers();
-			for (TriggerData t : triggers.values()) {
-				if (!t.isInterpretAsRegex()) { //this actually means literal
-					if (t.getPattern().startsWith(gmcpChar)) {
-						//add it to the watch list, if it has a script responder
-						for (TriggerResponder r : t.getResponders()) {
-							if (r instanceof ScriptResponder) {
-								ScriptResponder s = (ScriptResponder) r;
-								String callback = s.getFunction();
-								String module = t.getPattern().substring(1, t.getPattern().length());
-								String name = p.getName();
-								mProcessor.addWatcher(module, name, callback);
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
 	/** Literal triggers starting with {@link McpEngine#TRIGGER_CHAR} ({@code @}) fire on MCP messages. */
 	private void loadMcpTriggers() {
 		ensureMcpEngine();
@@ -3223,12 +3133,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param name Name of the timer to remove.
 	 */
 	public final void deletePluginTimer(final String plugin, final String name) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.getSettings().getTimers().remove(name);
-			p.getSettings().setDirty(true);
-			persistTimerSettings();
-		}
+		mTimers.deletePluginTimer(plugin, name);
 	}
 
 	/** Gets a timer from the main settings plugin.
@@ -3237,8 +3142,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The timer associated with <b>name</b>.
 	 */
 	public final TimerData getTimer(final String name) {
-		TimerData timer = mSettings.getSettings().getTimers().get(name);
-		return (timer == null) ? null : timer.copy();
+		return mTimers.getTimer(name);
 	}
 
 	/** Removes a timer from the main settings plugin.
@@ -3246,9 +3150,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param name Name of the trigger to remove.
 	 */
 	public final void deleteTimer(final String name) {
-		mSettings.getSettings().getTimers().remove(name);
-		mSettings.getSettings().setDirty(true);
-		persistTimerSettings();
+		mTimers.deleteTimer(name);
 	}
 
 	/** Gets a timer from the target plugin.
@@ -3258,13 +3160,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The trigger associated with <b>name</b>.
 	 */
 	public final TimerData getPluginTimer(final String plugin, final String name) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			TimerData timer = p.getSettings().getTimers().get(name);
-			return (timer == null) ? null : timer.copy();
-		} else {
-			return null;
-		}
+		return mTimers.getPluginTimer(plugin, name);
 	}
 
 	/** Adds a timer to the target plugin.
@@ -3273,13 +3169,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param newtimer New timer data.
 	 */
 	public final void addPluginTimer(final String plugin, final TimerData newtimer) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			newtimer.setRemainingTime(newtimer.getSeconds());
-			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
-			p.getSettings().setDirty(true);
-			persistTimerSettings();
-		}
+		mTimers.addPluginTimer(plugin, newtimer);
 	}
 
 	/** Updates a timer in the target plugin.
@@ -3290,14 +3180,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void updatePluginTimer(final String plugin, final TimerData old,
 		final TimerData newtimer) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.getSettings().getTimers().remove(old.getName());
-			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
-			p.getSettings().setDirty(true);
-			persistTimerSettings();
-		}
-		
+		mTimers.updatePluginTimer(plugin, old, newtimer);
 	}
 
 	/** Updates a timer in the main settings plugin.
@@ -3306,10 +3189,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param newtimer New timer data.
 	 */
 	public final void updateTimer(final TimerData old, final TimerData newtimer) {
-		mSettings.getSettings().getTimers().remove(old.getName());
-		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
-		mSettings.getSettings().setDirty(true);
-		persistTimerSettings();
+		mTimers.updateTimer(old, newtimer);
 	}
 
 	/** Gets the timer map for the main settings plugin.
@@ -3317,13 +3197,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The timer map.
 	 */
 	public final HashMap<String, TimerData> getTimers() {
-		mSettings.updateTimerProgress();
-		HashMap<String, TimerData> timers = mSettings.getSettings().getTimers();
-		HashMap<String, TimerData> copy = new HashMap<String, TimerData>(timers.size());
-		for (java.util.Map.Entry<String, TimerData> entry : timers.entrySet()) {
-			copy.put(entry.getKey(), entry.getValue().copy());
-		}
-		return copy;
+		return mTimers.getTimers();
 	}
 
 	/** Gets the timer map for a target plugin.
@@ -3332,18 +3206,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The tier map.
 	 */
 	public final HashMap<String, TimerData> getPluginTimers(final String plugin) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.updateTimerProgress();
-			HashMap<String, TimerData> timers = p.getSettings().getTimers();
-			HashMap<String, TimerData> copy = new HashMap<String, TimerData>(timers.size());
-			for (java.util.Map.Entry<String, TimerData> entry : timers.entrySet()) {
-				copy.put(entry.getKey(), entry.getValue().copy());
-			}
-			return copy;
-		} else {
-			return null;
-		}
+		return mTimers.getPluginTimers(plugin);
 	}
 
 	/** Adds a new timer into the main settings plugin.
@@ -3351,10 +3214,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param newtimer New timer to add.
 	 */
 	public final void addTimer(final TimerData newtimer) {
-		newtimer.setRemainingTime(newtimer.getSeconds());
-		mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
-		mSettings.getSettings().setDirty(true);
-		persistTimerSettings();
+		mTimers.addTimer(newtimer);
 	}
 
 	/** Helper method to see if the window is currently being shown.
@@ -3386,7 +3246,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key Name of the timer to start.
 	 */
 	public final void playTimer(final String key) {
-		mSettings.startTimer(key);
+		mTimers.playTimer(key);
 	}
 	
 	/** Starts a timer in the target plugin.
@@ -3395,10 +3255,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param timer Name of the timer to start.
 	 */
 	public final void playPluginTimer(final String plugin, final String timer) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.startTimer(timer);
-		}
+		mTimers.playPluginTimer(plugin, timer);
 	}
 	
 	/** Pauses a timer in the main settings plugin.
@@ -3406,7 +3263,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key Name of the plugin to pause.
 	 */
 	public final void pauseTimer(final String key) {
-		mSettings.pauseTimer(key);
+		mTimers.pauseTimer(key);
 	}
 	
 	/** Pauses a timer in the target plugin.
@@ -3415,10 +3272,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param timer Name of the timer to pause.
 	 */
 	public final void pausePluginTimer(final String plugin, final String timer) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.pauseTimer(timer);
-		}
+		mTimers.pausePluginTimer(plugin, timer);
 	}
 	
 	/** Stops a timer in the main settings plugin.
@@ -3426,7 +3280,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key Name of the timer to stop.
 	 */
 	public final void stopTimer(final String key) {
-		mSettings.stopTimer(key);
+		mTimers.stopTimer(key);
 	}
 	
 	/** Stops a timer in the target plugin.
@@ -3435,10 +3289,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key Name of the timer to stop.
 	 */
 	public final void stopPluginTimer(final String plugin, final String key) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.stopTimer(key);
-		}
+		mTimers.stopPluginTimer(plugin, key);
 	}
 
 	/** Gets the settings object for the main settings plugin.
@@ -3692,19 +3543,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				doSetRegexWarning((Boolean) o.getValue());
 				break;
 			case use_gmcp:
-				this.doSetUseGMCP((Boolean) o.getValue());
+				mGmcp.doSetUseGMCP((Boolean) o.getValue());
 				break;
 			case gmcp_supports:
-				this.doSetGMCPSupports((String) o.getValue());
+				mGmcp.doSetGMCPSupports((String) o.getValue());
 				break;
 			case log_gmcp:
-				this.doSetLogGMCP((Boolean) o.getValue());
+				mGmcp.doSetLogGMCP((Boolean) o.getValue());
 				break;
 			case gmcp_feed:
-				this.doSetGmcpFeed((Boolean) o.getValue());
+				mGmcp.doSetGmcpFeed((Boolean) o.getValue());
 				break;
 			case gmcp_suggest_modules:
-				this.doSetGmcpSuggestModules((Boolean) o.getValue());
+				mGmcp.doSetGmcpSuggestModules((Boolean) o.getValue());
 				break;
 			case use_mcp:
 				this.doSetUseMCP((Boolean) o.getValue());
@@ -3764,86 +3615,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	/** Implementation of the gmcp supports string setting handler.
-	 * 
-	 * @param value New value for setting.
-	 */
-	private void doSetGMCPSupports(final String value) {
-		if (mProcessor != null) {
-			mProcessor.setGMCPSupports(value);
-		}
-	}
-
 	public final String getGmcpModuleStatus() {
-		boolean use = false;
-		try {
-			BaseOption o = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("use_gmcp");
-			use = o != null && o.getValue() instanceof Boolean && ((Boolean) o.getValue()).booleanValue();
-		} catch (Exception ignored) {
-		}
-		String body;
-		if (mProcessor != null) {
-			body = mProcessor.getModuleRegistry().statusLine();
-		} else {
-			try {
-				BaseOption s = (BaseOption) mSettings.getSettings().getOptions().findOptionByKey("gmcp_supports");
-				GmcpModuleRegistry r = GmcpModuleRegistry.fromSupportsOption(
-						s != null && s.getValue() != null ? s.getValue().toString() : GmcpModuleRegistry.DEFAULT_SUPPORTS);
-				body = r.statusLine();
-			} catch (Exception e) {
-				body = "—";
-			}
-		}
-		return (use ? "on" : "off") + " · " + body;
+		return mGmcp.getGmcpModuleStatus();
 	}
 
 	@SuppressWarnings("rawtypes")
 	public final java.util.List getGmcpSeenModules() {
-		if (mProcessor != null) {
-			return mProcessor.getModuleRegistry().seenModules();
-		}
-		return new java.util.ArrayList<String>();
+		return mGmcp.getGmcpSeenModules();
 	}
 
 	public final void renegotiateGmcp() {
-		if (mProcessor != null) {
-			mProcessor.renegotiateGMCP();
-		}
+		mGmcp.renegotiateGmcp();
 	}
 
 	public final void applyGmcpSupportsFromUi(final String supports, final boolean renegotiate) {
-		updateStringSetting("gmcp_supports", supports != null ? supports : GmcpModuleRegistry.DEFAULT_SUPPORTS);
-		if (renegotiate) {
-			renegotiateGmcp();
-		}
-	}
-
-	/** Implementation of the use gmcp settings handler.
-	 * 
-	 * @param value New value for setting.
-	 */
-	private void doSetUseGMCP(final Boolean value) {
-		if (mProcessor != null) {
-			mProcessor.setUseGMCP(value);
-		}
-	}
-
-	private void doSetLogGMCP(final Boolean value) {
-		if (mProcessor != null) {
-			mProcessor.setLogGMCP(value != null && value.booleanValue());
-		}
-	}
-
-	private void doSetGmcpFeed(final Boolean value) {
-		if (mProcessor != null) {
-			mProcessor.setFeedGMCP(value != null && value.booleanValue());
-		}
-	}
-
-	private void doSetGmcpSuggestModules(final Boolean value) {
-		if (mProcessor != null) {
-			mProcessor.setSuggestGmcpModules(value != null && value.booleanValue());
-		}
+		mGmcp.applyGmcpSupportsFromUi(supports, renegotiate);
 	}
 
 	private void doSetUseMTTS(final Boolean value) {
@@ -4097,48 +3883,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	private void applyGmcpLogSetting() {
-		try {
-			Object opt = mSettings.getSettings().getOptions().findOptionByKey("log_gmcp");
-			boolean on = false;
-			if (opt instanceof BooleanOption) {
-				Object val = ((BooleanOption) opt).getValue();
-				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
-			}
-			if (mProcessor != null) {
-				mProcessor.setLogGMCP(on);
-			}
-		} catch (Exception ignored) {
-		}
-		try {
-			Object opt = mSettings.getSettings().getOptions().findOptionByKey("gmcp_feed");
-			boolean on = false;
-			if (opt instanceof BooleanOption) {
-				Object val = ((BooleanOption) opt).getValue();
-				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
-			}
-			if (mProcessor != null) {
-				mProcessor.setFeedGMCP(on);
-			}
-		} catch (Exception ignored) {
-		}
-		try {
-			Object opt = mSettings.getSettings().getOptions().findOptionByKey("gmcp_suggest_modules");
-			boolean on = false;
-			if (opt instanceof BooleanOption) {
-				Object val = ((BooleanOption) opt).getValue();
-				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
-			}
-			if (mProcessor != null) {
-				mProcessor.setSuggestGmcpModules(on);
-			}
-		} catch (Exception ignored) {
-		}
-		applyMudProtocolFlags();
-	}
-
 	/** Apply optional MTTS/MSDP/MSSP flags from profile (all default off). */
-	private void applyMudProtocolFlags() {
+	void applyMudProtocolFlags() {
 		if (mProcessor == null || mSettings == null) {
 			return;
 		}
@@ -4724,11 +4470,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		prefsname = prefsname.replaceAll("/", "");
 		String rootPath = prefsname + ".xml";
 		exportSettings(new File(mService.getApplicationContext().getFilesDir(), rootPath).getAbsolutePath());
-	}
-
-	/** Persists timer edits immediately so they survive session close and reconnect. */
-	private void persistTimerSettings() {
-		saveMainSettings();
 	}
 	
 	/** Export settings routine. Called from either the main settings save routine or the export settings dialog.
@@ -5935,171 +5676,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mPluginMap.containsKey(desired);
 	}
 	
-	/** Utility class providing the .timer command. */
-	private class TimerCommand extends SpecialCommand {
-		/** Acceptable timer action strings. */
-		private ArrayList<String> mTimerActions = new ArrayList<String>();
-		/** Ordinal capture group. */
-		private final int mOrdinalGroupIndex = 3;
-		/** Silent marker. */
-		private final int mSilent = 50;
-		/** Generic constructor. */
-		public TimerCommand() {
-			this.commandName = "timer";
-			mTimerActions.add("play");
-			mTimerActions.add("pause");
-			mTimerActions.add("info");
-			mTimerActions.add("reset");
-			mTimerActions.add("stop");
-		}
-		/** Execute method for this command.
-		 * 
-		 * @param o parameter object.
-		 * @param c connection that called this function
-		 * @return whatever this function returns.
-		 */
-		public Object execute(final Object o, final Connection c)  {
-			//example argument " info 0"
-			//regex = "^\s+(\S+)\s+(\d+)";
-			Pattern p = Pattern.compile("^\\s*(\\S+)\\s+(\\S+)\\s*(\\S*)");
-			
-			Matcher m = p.matcher((String) o);
-			
-			if (m.matches()) {
-				//extract arguments
-				String action = m.group(1).toLowerCase(Locale.US);
-				String ordinal = m.group(2);
-				String silent = "";
-				if (m.groupCount() > 2) {
-					silent = m.group(mOrdinalGroupIndex);
-				}
-				if (!mTimerActions.contains(action)) {
-					//error with bad action.
-					dispatchNoProcess(getErrorMessage("Timer action arguemnt " + action + " is invalid.", "Acceptable arguments are \"play\",\"pause\",\"reset\",\"stop\" and \"info\".").getBytes());
-					return null;
-				}
-				int domsg = mSilent;
-				if (!silent.equals("")) {
-					domsg = 0;
-				}
-				
-				if (action.equals("info")) {
-					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_TIMERINFO, ordinal));
-					return null;
-				}
-				if (action.equals("reset")) {
-					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_TIMERRESET, 0, domsg, ordinal));
-					return null;
-				}
-				if (action.equals("play")) {
-					//play
-					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_TIMERSTART, 0, domsg, ordinal));
-					return null;
-				}
-				if (action.equals("pause")) {
-					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_TIMERPAUSE, 0, domsg, ordinal));
-					return null;
-				}
-				if (action.equals("stop")) {
-					mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_TIMERSTOP, 0, domsg, ordinal));
-					return null;
-				}
-			} else {
-				dispatchNoProcess(getErrorMessage("Timer command: \".timer " + (String) o + "\" is invalid.", "Timer function format \".timer action index [silent]\"\n"
-							+ "Where action is \"play\",\"pause\",\"reset\" or \"info\".\nIndex is the timer index displayed in the timer selection list.").getBytes());
-			}
-			
-			return null;
-			
-		}
-	}
-	
-	/** Work horse method for the timer command.
-	 * 
-	 * @param obj The name of the timer.
-	 * @param arg2 The silent flag (0 = silent, anything else = not silent).
-	 * @param action The action that was harvested from the entry point.
-	 */
-	private void doTimerAction(final String obj, final int arg2, final TIMER_ACTION action) {
-		//check for valid ordinals.
-		boolean found = false;
-		Plugin host = null;
-		if (mSettings.getSettings().getTimers().containsKey(obj)) {
-			host = mSettings;
-			found = true;
-		} else {
-			//check plugins
-			for (Plugin p : mPlugins) {
-				if (p.getSettings().getTimers().containsKey(obj)) {
-					host = p;
-					found = true;
-				}
-			}
-		}
-		boolean silent = false;
-		if (arg2 == 0) {
-			silent = true;
-		}
-		
-		if (!found) {
-			//show error message.
-			dispatchNoProcess(SpecialCommand.getErrorMessage("Timer command error", "No timer with name " + obj + " found.").getBytes());
-		} else {
-			switch (action) {
-			case PLAY:
-				host.startTimer(obj);
-				if (!silent) {
-					toast("Timer " + obj + " started.");
-				}
-				break;
-			case PAUSE:
-				host.pauseTimer(obj);
-				if (!silent) {
-					toast("Timer " + obj + " paused.");
-				}
-				break;
-			case RESET:
-				host.resetTimer(obj);
-				if (!silent) {
-					toast("Timer " + obj + " reset.");
-				}
-				break;
-			case STOP:
-				host.pauseTimer(obj);
-				host.resetTimer(obj);
-				if (!silent) {
-					toast("Timer " + obj + " stopped.");
-				}
-				break;
-			case INFO:
-				TimerData t = host.getSettings().getTimers().get(obj);
-				if (t.isPlaying()) {
-					long now = SystemClock.elapsedRealtime();
-					long dur = now - t.getStartTime();
-					int sec = t.getSeconds() - (int) (dur / ONE_THOUSAND_MILLIS);
-					toast(obj + ": " + sec + "s");
-				} else {
-					if (t.getRemainingTime() != t.getSeconds()) {
-						int sec = t.getSeconds() - t.getRemainingTime();
-						toast("Timer " + obj + " is paused, " + sec + " remain.");
-					} else {
-						toast("Timer " + obj + " is not running.");
-					}
-				}
-				break;
-			case NONE:
-				break;
-			default:
-				break;
-			}
-		}
-	}
-	
 	/** Utility method for putting up a generic toast message.
 	 * 
 	 * @param str The string to use for the toast message.
 	 */
-	private void toast(final String str) {
+	void toast(final String str) {
 		Context c = this.getContext();
 		Toast t = Toast.makeText(c, str, Toast.LENGTH_SHORT);
 		float density = c.getResources().getDisplayMetrics().density;
