@@ -112,6 +112,12 @@ Enable/Disable all (Triggers/Aliases) stays under Options (`=`).
 Timers support an optional **Group** in the timer editor (same idea as
 triggers): list subtitle `[group]`, sort by group, XML `group` attribute.
 
+Timers also support **Conditions** in the timer editor — an extra gate when
+the timer fires (same AND/OR types as triggers). Empty = always fire
+responders. Types: Trigger enabled/disabled, Variable equals/exists. Set
+vars with the **Set Variable** responder or Lua `SetVariable` /
+`GetVariable` / `UnsetVariable` (session only).
+
 ## Built-in commands
 
 | Command | Description |
