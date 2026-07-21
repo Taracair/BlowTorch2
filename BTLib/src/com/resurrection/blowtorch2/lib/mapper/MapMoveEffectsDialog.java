@@ -67,18 +67,30 @@ public class MapMoveEffectsDialog extends Dialog {
 			"Custom grid step"
 	};
 
-	private final MapperController controller;
 	private final Listener listener;
 	private final ArrayList<Row> rows = new ArrayList<Row>();
 	private ArrayAdapter<String> listAdapter;
 	private ListView listView;
 	private TextView emptyHint;
+	/** Combined table text from snapshot / controller (may be empty → defaults). */
+	private final String initialTable;
 
 	public MapMoveEffectsDialog(Context context, MapperController controller,
 			Listener listener) {
+		this(context,
+				controller != null ? controller.getCombinedMoveEffectsDisplay() : null,
+				listener);
+	}
+
+	/**
+	 * @param initialCombinedTable serialized effects (one per line or {@code ;}),
+	 *        or null/empty to load built-in defaults
+	 */
+	public MapMoveEffectsDialog(Context context, String initialCombinedTable,
+			Listener listener) {
 		super(context, EditorDialogChrome.dialogTheme());
-		this.controller = controller;
 		this.listener = listener;
+		this.initialTable = initialCombinedTable;
 	}
 
 	@Override
@@ -212,17 +224,13 @@ public class MapMoveEffectsDialog extends Dialog {
 
 	private void loadFromController() {
 		rows.clear();
-		Map<String, MapMoveEffect> source = null;
-		if (controller != null && controller.getMoveEffects() != null
-				&& !controller.getMoveEffects().isEmpty()) {
-			source = controller.getMoveEffects();
-		} else {
-			LinkedHashMap<String, MapMoveEffect> def =
-					MapDirections.defaultMoveEffects();
-			MapDirections.applyLevelCommands(def,
+		LinkedHashMap<String, MapMoveEffect> source =
+				MapDirections.parseMoveEffects(initialTable);
+		if (source.isEmpty()) {
+			source = MapDirections.defaultMoveEffects();
+			MapDirections.applyLevelCommands(source,
 					MapDirections.DEFAULT_LEVEL_UP_COMMANDS,
 					MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
-			source = def;
 		}
 		for (Map.Entry<String, MapMoveEffect> e : source.entrySet()) {
 			if (e.getKey() == null || e.getValue() == null) {
