@@ -144,6 +144,9 @@ public class TimerData implements Parcelable {
 				ColorAction color = in.readParcelable(ColorAction.class.getClassLoader());
 				responders.add(color);
 				break;
+			case TriggerResponder.RESPONDER_TYPE_SET_VARIABLE:
+				responders.add((com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder)in.readParcelable(com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder.class.getClassLoader()));
+				break;
 			default:
 				break;
 			}

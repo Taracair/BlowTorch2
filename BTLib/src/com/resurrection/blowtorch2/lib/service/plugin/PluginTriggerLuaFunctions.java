@@ -585,3 +585,34 @@ class TriggerEnabledFunction extends JavaFunction {
 	
 }
 
+class SetVariableFunction extends JavaFunction {
+	Plugin plugin;
+	public SetVariableFunction(LuaState L, Plugin plugin) { super(L); this.plugin = plugin; }
+	@Override public int execute() throws LuaException {
+		String name = this.getParam(2) != null ? this.getParam(2).getString() : null;
+		String value = this.getParam(3) != null ? this.getParam(3).getString() : "";
+		if (name == null || name.length() == 0) { L.pushString("SetVariable: name required"); return 1; }
+		plugin.parent.getSessionVariables().set(name, value != null ? value : "");
+		return 0;
+	}
+}
+class GetVariableFunction extends JavaFunction {
+	Plugin plugin;
+	public GetVariableFunction(LuaState L, Plugin plugin) { super(L); this.plugin = plugin; }
+	@Override public int execute() throws LuaException {
+		String name = this.getParam(2) != null ? this.getParam(2).getString() : null;
+		if (name == null) { L.pushNil(); return 1; }
+		String v = plugin.parent.getSessionVariables().get(name);
+		if (v == null) L.pushNil(); else L.pushString(v);
+		return 1;
+	}
+}
+class UnsetVariableFunction extends JavaFunction {
+	Plugin plugin;
+	public UnsetVariableFunction(LuaState L, Plugin plugin) { super(L); this.plugin = plugin; }
+	@Override public int execute() throws LuaException {
+		String name = this.getParam(2) != null ? this.getParam(2).getString() : null;
+		if (name != null) plugin.parent.getSessionVariables().unset(name);
+		return 0;
+	}
+}

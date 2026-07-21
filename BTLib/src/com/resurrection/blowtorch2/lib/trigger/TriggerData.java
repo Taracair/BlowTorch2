@@ -13,7 +13,9 @@ import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
 import com.resurrection.blowtorch2.lib.responder.notification.NotificationResponder;
 import com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
 
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -36,6 +38,7 @@ public class TriggerData implements Parcelable {
 	private boolean keepEvaluating = DEFAULT_KEEPEVAL;
 	private String group = DEFAULT_GROUP;
 	private List<TriggerResponder> responders;
+	private ConditionGroup conditions;
 	
 	private Pattern p = null;
 	private Matcher m = null;
@@ -46,6 +49,7 @@ public class TriggerData implements Parcelable {
 		pattern = "";
 		interpretAsRegex = false;
 		responders = new ArrayList<TriggerResponder>();
+		conditions = new ConditionGroup();
 		fireOnce = false;
 		hidden = false;
 		enabled = true;
@@ -69,6 +73,7 @@ public class TriggerData implements Parcelable {
 		for(TriggerResponder responder : this.responders) {
 			tmp.responders.add(responder.copy());
 		}
+		tmp.conditions = this.conditions != null ? this.conditions.copy() : new ConditionGroup();
 		tmp.buildData();
 		return tmp;
 	}
@@ -100,6 +105,10 @@ public class TriggerData implements Parcelable {
 		if(test.sequence != this.sequence) return false;
 		if(test.group != this.group) return false;
 		if(test.keepEvaluating != this.keepEvaluating) return false;
+		ConditionGroup otherCond = test.conditions != null ? test.conditions : new ConditionGroup();
+		ConditionGroup myCond = this.conditions != null ? this.conditions : new ConditionGroup();
+		if(!otherCond.equals(myCond)) return false;
+		if(test.responders.size() != this.responders.size()) return false;
 		Iterator<TriggerResponder> test_responders = test.responders.iterator();
 		Iterator<TriggerResponder> my_responders = this.responders.iterator();
 		while(test_responders.hasNext()) {
@@ -177,7 +186,15 @@ public class TriggerData implements Parcelable {
 				ColorAction color = in.readParcelable(com.resurrection.blowtorch2.lib.responder.color.ColorAction.class.getClassLoader());
 				responders.add(color);
 				break;
+			case TriggerResponder.RESPONDER_TYPE_SET_VARIABLE:
+				SetVariableResponder setVar = in.readParcelable(com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder.class.getClassLoader());
+				responders.add(setVar);
+				break;
 			}
+		}
+		conditions = in.readParcelable(ConditionGroup.class.getClassLoader());
+		if (conditions == null) {
+			conditions = new ConditionGroup();
 		}
 	}
 	
@@ -205,6 +222,7 @@ public class TriggerData implements Parcelable {
 				out.writeParcelable(responder, 0);
 			//}
 		}
+		out.writeParcelable(conditions != null ? conditions : new ConditionGroup(), 0);
 	}
 
 	public void setName(String name) {
@@ -309,6 +327,17 @@ public class TriggerData implements Parcelable {
 
 	public void setGroup(String group) {
 		this.group = group;
+	}
+
+	public ConditionGroup getConditions() {
+		if (conditions == null) {
+			conditions = new ConditionGroup();
+		}
+		return conditions;
+	}
+
+	public void setConditions(ConditionGroup conditions) {
+		this.conditions = conditions != null ? conditions : new ConditionGroup();
 	}
 		
 	//}

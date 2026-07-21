@@ -77,6 +77,16 @@ public class BasePluginParser {
 	public static final String ATTR_GAGLOG = "fromLog";
 	public static final String ATTR_GAGOUTPUT = "fromOuput";
 	
+	public static final String TAG_SETVARIABLE = "setVariable";
+
+	public static final String TAG_CONDITIONS = "conditions";
+	public static final String TAG_CONDITION = "condition";
+	public static final String ATTR_CONDITIONS_OP = "op";
+	public static final String ATTR_CONDITION_TYPE = "type";
+	public static final String ATTR_CONDITION_PLUGIN = "plugin";
+	public static final String ATTR_CONDITION_VALUE = "value";
+	public static final String ATTR_CONDITION_KEY = "key";
+	
 	public static final String TAG_SCRIPT = "script";
 	//public static final String TAG_PLUGIN = "plugin";
 	///static final String 
