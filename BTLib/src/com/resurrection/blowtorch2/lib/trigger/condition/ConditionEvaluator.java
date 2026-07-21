@@ -22,7 +22,10 @@ public final class ConditionEvaluator {
 		if (trigger == null) {
 			return true;
 		}
-		ConditionGroup group = trigger.getConditions();
+		return evaluate(trigger.getConditions(), connection);
+	}
+
+	public static boolean evaluate(ConditionGroup group, Connection connection) {
 		if (group == null || group.isEmpty()) {
 			return true;
 		}

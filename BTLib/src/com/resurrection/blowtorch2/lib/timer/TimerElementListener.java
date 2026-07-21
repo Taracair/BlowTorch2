@@ -7,6 +7,7 @@ import org.xml.sax.Attributes;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BasePluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
 
 import android.sax.Element;
 import android.sax.ElementListener;
@@ -34,6 +35,7 @@ public class TimerElementListener implements ElementListener {
 				? TimerData.DEFAULT_GROUP
 				: a.getValue("", BasePluginParser.ATTR_GROUP));
 		current_timer.setResponders(new ArrayList<TriggerResponder>());
+		current_timer.setConditions(new ConditionGroup());
 	}
 
 	public void end() {

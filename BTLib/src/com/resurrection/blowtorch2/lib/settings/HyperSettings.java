@@ -379,6 +379,10 @@ public class HyperSettings {
 				out.attribute("", BaseParser.ATTR_SECONDS, timer.getSeconds().toString());
 				out.attribute("", BaseParser.ATTR_REPEAT, (timer.isRepeat()) ? "true" : "false");
 				out.attribute("", BaseParser.ATTR_PLAYING, (timer.isPlaying()) ? "true" : "false");
+				try {
+					com.resurrection.blowtorch2.lib.trigger.condition.ConditionParser.saveConditionsToXML(out, timer);
+				} catch (Exception ignored) {
+				}
 				OutputResponders(out,timer.getResponders());
 				out.endTag("", BaseParser.TAG_TIMER);
 			}
