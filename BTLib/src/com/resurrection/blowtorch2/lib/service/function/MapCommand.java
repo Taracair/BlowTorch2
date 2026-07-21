@@ -3,11 +3,9 @@ package com.resurrection.blowtorch2.lib.service.function;
 import java.util.List;
 import java.util.Locale;
 
-import com.resurrection.blowtorch2.lib.mapper.MapConflict;
 import com.resurrection.blowtorch2.lib.mapper.MapDirections;
 import com.resurrection.blowtorch2.lib.mapper.MapTile;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
-import com.resurrection.blowtorch2.lib.mapper.MapperUiBridge;
 import com.resurrection.blowtorch2.lib.mapper.MudMap;
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.Connection;
@@ -24,8 +22,9 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * .map find|path|goto &lt;query&gt;
  * .map title|note &lt;text&gt;
  * .map link|unlink …
- * .map maps | load | new | export | undo | center | mode …
+ * .map maps | load | new | import | export | undo | center | zoom | mode …
  * .map capture preview|apply
+ * .map conflict[s] [list [all]|resolve|ignore …]
  * </pre>
  */
 public class MapCommand extends SpecialCommand {
@@ -110,11 +109,17 @@ public class MapCommand extends SpecialCommand {
 			return doConflicts(c, mapper, rest);
 		case "export":
 		case "save":
-			note(c, mapper.save());
+			note(c, mapper.exportMap(rest));
+			return null;
+		case "import":
+			note(c, mapper.importMap(rest));
 			return null;
 		case "center":
 			mapper.centerUi();
 			note(c, "Mapper: center.");
+			return null;
+		case "zoom":
+			note(c, mapper.zoom(rest));
 			return null;
 		case "mode":
 			return doMode(c, mapper, rest);
@@ -466,21 +471,34 @@ public class MapCommand extends SpecialCommand {
 	}
 
 	private Object doConflicts(Connection c, MapperController mapper, String rest) {
-		List<MapConflict> list = mapper.listConflicts();
-		if (list.isEmpty()) {
-			note(c, "Mapper: no open conflicts.");
+		String a = rest.trim();
+		if (a.length() == 0 || a.equalsIgnoreCase("list")) {
+			note(c, mapper.conflictList(false));
 			return null;
 		}
-		StringBuilder sb = new StringBuilder();
-		sb.append("Mapper conflicts (").append(list.size()).append("):\n");
-		int n = Math.min(list.size(), 30);
-		for (int i = 0; i < n; i++) {
-			MapConflict conf = list.get(i);
-			sb.append("  [").append(conf.getType()).append("] ");
-			sb.append(conf.getMessage() != null ? conf.getMessage() : "");
-			sb.append("\n");
+		String[] p = a.split("\\s+", 2);
+		String sub = p[0].toLowerCase(Locale.US);
+		String arg = p.length > 1 ? p[1].trim() : "";
+		if (sub.equals("list")) {
+			boolean all = arg.equalsIgnoreCase("all") || arg.equalsIgnoreCase("resolved");
+			note(c, mapper.conflictList(all));
+		} else if (sub.equals("resolve") || sub.equals("ignore")) {
+			if (arg.equalsIgnoreCase("all")) {
+				note(c, sub.equals("ignore")
+						? mapper.ignoreAllConflicts()
+						: mapper.resolveAllConflicts());
+			} else if (arg.length() == 0) {
+				note(c, "Usage: .map conflict " + sub + " <id|n>|all");
+			} else {
+				note(c, sub.equals("ignore")
+						? mapper.ignoreConflict(arg)
+						: mapper.resolveConflict(arg));
+			}
+		} else if (sub.equals("purge")) {
+			note(c, mapper.purgeResolved());
+		} else {
+			note(c, "Usage: .map conflict [list [all]|resolve|ignore <id|n>|all|purge]");
 		}
-		note(c, sb.toString());
 		return null;
 	}
 
@@ -571,10 +589,12 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map dirs|directions|lexicon  (compass grid; before Speedwalk keys)\n");
 		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
 		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
-		sb.append("  .map conflict[s] | .map export|save | .map undo | .map center\n");
+		sb.append("  .map conflict[s] [list [all]|resolve|ignore <id|n>|all|purge]\n");
+		sb.append("  .map export|save [path] | .map import <path|name> | .map undo | .map center\n");
+		sb.append("  .map zoom in|out|reset  (or .map zoom <factor>)\n");
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name>\n");
-		sb.append("  .map capture preview|apply  (default regex on buffer; UI dialog for custom)\n");
+		sb.append("  .map capture preview|apply  (Options → Mapper regex; UI dialog for one-off)\n");
 		sb.append("  UI always adds: Links, Paths/Pack, Draw, Here, Edit, Save\n");
 		return sb.toString();
 	}

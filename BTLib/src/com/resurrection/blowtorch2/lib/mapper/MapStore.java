@@ -68,8 +68,51 @@ public final class MapStore {
 		if (file == null || !file.isFile()) {
 			return null;
 		}
+		return loadFromFile(file);
+	}
+
+	/**
+	 * Load map JSON from an absolute {@link File}.
+	 *
+	 * @return map or null if missing / not a file
+	 */
+	public static MudMap loadFromFile(File file) throws IOException, JSONException {
+		if (file == null || !file.isFile()) {
+			return null;
+		}
 		String json = readFile(file);
 		return fromJson(json);
+	}
+
+	/**
+	 * Load map JSON from an absolute path, or a path relative to the BlowTorch root
+	 * (e.g. {@code maps/backup.json} → {@code /BlowTorch/maps/backup.json}).
+	 *
+	 * @return map or null if missing / not a file
+	 */
+	public static MudMap loadFromPath(Context context, String path)
+			throws IOException, JSONException {
+		File file = resolveExternalPath(context, path);
+		return loadFromFile(file);
+	}
+
+	/**
+	 * Resolve {@code path} to a {@link File}: absolute paths as-is; otherwise under
+	 * the BlowTorch root.
+	 */
+	public static File resolveExternalPath(Context context, String path) {
+		if (TextUtils.isEmpty(path)) {
+			return null;
+		}
+		String p = path.trim();
+		if (p.startsWith("/")) {
+			return new File(p);
+		}
+		if (context == null) {
+			return new File(p);
+		}
+		File root = SDCardUtils.resolveBlowTorchRoot(context);
+		return new File(root, p);
 	}
 
 	/**
@@ -86,6 +129,21 @@ public final class MapStore {
 			name = map.getId() != null ? map.getId() : "unnamed";
 		}
 		File file = mapFile(context, name);
+		return saveToFile(file, map);
+	}
+
+	/**
+	 * Write map JSON to an arbitrary file (creates parent directories when needed).
+	 *
+	 * @return the file written
+	 */
+	public static File saveToFile(File file, MudMap map) throws IOException, JSONException {
+		if (map == null) {
+			throw new IllegalArgumentException("map is null");
+		}
+		if (file == null) {
+			throw new IllegalArgumentException("file is null");
+		}
 		String json = toJson(map).toString(2);
 		writeFile(file, json);
 		return file;

@@ -1654,6 +1654,31 @@ public class MapperOverlayController
 	}
 
 	@Override
+	public void zoomMap(final String action) {
+		runOnUi(new Runnable() {
+			@Override
+			public void run() {
+				if (mapperView == null || action == null) {
+					return;
+				}
+				String a = action.trim().toLowerCase(java.util.Locale.US);
+				if (a.equals("in") || a.equals("+")) {
+					mapperView.zoomIn();
+				} else if (a.equals("out") || a.equals("-")) {
+					mapperView.zoomOut();
+				} else if (a.equals("reset") || a.equals("1") || a.equals("100%")) {
+					mapperView.zoomReset();
+				} else {
+					try {
+						mapperView.zoomBy(Float.parseFloat(a));
+					} catch (NumberFormatException ignored) {
+					}
+				}
+			}
+		});
+	}
+
+	@Override
 	public void onMapModelChanged() {
 		runOnUi(new Runnable() {
 			@Override
