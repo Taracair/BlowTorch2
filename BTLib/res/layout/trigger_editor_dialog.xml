@@ -170,12 +170,27 @@
   				android:popupBackground="#FF000000"/>
   		</LinearLayout>
   		<TextView
+  			android:id="@+id/trigger_conditions_note"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:paddingLeft="6dip"
+  			android:paddingRight="6dip"
+  			android:paddingTop="6dip"
+  			android:paddingBottom="2dip"
+  			android:textColor="#FFDDDDDD"
+  			android:textSize="12sp"
+  			android:text="Extra gate after the pattern matches — not a substitute for the pattern. Checked before responders run."/>
+  		<TextView
   			android:id="@+id/trigger_conditions_hint"
   			android:layout_width="match_parent"
   			android:layout_height="wrap_content"
   			android:layout_marginLeft="10dip"
   			android:layout_marginRight="10dip"
-  			android:padding="6dip"
+  			android:paddingLeft="6dip"
+  			android:paddingRight="6dip"
+  			android:paddingBottom="6dip"
   			android:textColor="#FFCCCCCC"
   			android:textSize="12sp"
   			android:text="No conditions — always runs when the pattern matches."/>

@@ -312,8 +312,9 @@ Groups:
   • Then: .trigger group off combat  (or group on / toggle; main+plugins)
 
 Conditions (advanced, in the trigger editor):
-  • Optional list of IF checks (All/AND or Any/OR) after the pattern matches
-    and before responders run. Empty list = always fire (old behavior).
+  • Extra gate after the pattern matches — not a substitute for the pattern.
+    Optional IF checks (All/AND or Any/OR) run before responders.
+    Empty list = always fire (old behavior).
   • Example: only Ack when another trigger "combat_mode" is enabled —
     add Condition "Trigger enabled" and pick combat_mode.
   • Variables: Set Variable responder (or Lua SetVariable) stores a session
