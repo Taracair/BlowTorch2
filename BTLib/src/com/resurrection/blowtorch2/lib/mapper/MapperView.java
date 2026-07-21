@@ -72,6 +72,7 @@ public class MapperView extends View {
 	private float lastPanX;
 	private float lastPanY;
 	private boolean panning;
+	private boolean scaling;
 	private final Handler handler = new Handler(Looper.getMainLooper());
 
 	public MapperView(Context context) {
@@ -114,16 +115,35 @@ public class MapperView extends View {
 		scaleDetector = new ScaleGestureDetector(context,
 				new ScaleGestureDetector.SimpleOnScaleGestureListener() {
 					@Override
+					public boolean onScaleBegin(ScaleGestureDetector detector) {
+						scaling = true;
+						panning = false;
+						followMode = false;
+						return true;
+					}
+
+					@Override
 					public boolean onScale(ScaleGestureDetector detector) {
 						float focusX = detector.getFocusX();
 						float focusY = detector.getFocusY();
 						float prev = scale;
-						scale = clamp(scale * detector.getScaleFactor(), MIN_SCALE, MAX_SCALE);
-						offsetX = focusX - (focusX - offsetX) * (scale / prev);
-						offsetY = focusY - (focusY - offsetY) * (scale / prev);
-						followMode = false;
+						float next = clamp(prev * detector.getScaleFactor(), MIN_SCALE, MAX_SCALE);
+						if (prev <= 0f || Math.abs(next - prev) < 0.0001f) {
+							return true;
+						}
+						// Keep the map point under the pinch midpoint fixed on screen.
+						float worldX = (focusX - offsetX) / prev;
+						float worldY = (focusY - offsetY) / prev;
+						scale = next;
+						offsetX = focusX - worldX * scale;
+						offsetY = focusY - worldY * scale;
 						invalidate();
 						return true;
+					}
+
+					@Override
+					public void onScaleEnd(ScaleGestureDetector detector) {
+						scaling = false;
 					}
 				});
 
@@ -424,7 +444,7 @@ public class MapperView extends View {
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		scaleDetector.onTouchEvent(event);
-		if (!tileDragging) {
+		if (!tileDragging && !scaling && event.getPointerCount() < 2) {
 			gestureDetector.onTouchEvent(event);
 		}
 		final int action = event.getActionMasked();
@@ -433,6 +453,12 @@ public class MapperView extends View {
 			lastPanX = event.getX();
 			lastPanY = event.getY();
 			panning = !tileDragging;
+			scaling = false;
+			break;
+		case MotionEvent.ACTION_POINTER_DOWN:
+			// Second finger: stop one-finger pan so pinch does not jump.
+			panning = false;
+			scaling = true;
 			break;
 		case MotionEvent.ACTION_MOVE:
 			if (tileDragging) {
@@ -444,7 +470,8 @@ public class MapperView extends View {
 				}
 				break;
 			}
-			if (panning && !scaleDetector.isInProgress() && event.getPointerCount() == 1) {
+			if (panning && !scaling && !scaleDetector.isInProgress()
+					&& event.getPointerCount() == 1) {
 				float dx = event.getX() - lastPanX;
 				float dy = event.getY() - lastPanY;
 				if (Math.abs(dx) > 1f || Math.abs(dy) > 1f) {
@@ -457,6 +484,20 @@ public class MapperView extends View {
 				}
 			}
 			break;
+		case MotionEvent.ACTION_POINTER_UP: {
+			// Remaining finger must not inherit stale pan deltas from before pinch.
+			int upIndex = event.getActionIndex();
+			int remainIndex = upIndex == 0 ? 1 : 0;
+			if (remainIndex < event.getPointerCount()) {
+				lastPanX = event.getX(remainIndex);
+				lastPanY = event.getY(remainIndex);
+			}
+			panning = event.getPointerCount() - 1 == 1 && !tileDragging;
+			if (event.getPointerCount() - 1 < 2) {
+				scaling = false;
+			}
+			break;
+		}
 		case MotionEvent.ACTION_UP:
 		case MotionEvent.ACTION_CANCEL:
 			if (tileDragging) {
@@ -471,6 +512,7 @@ public class MapperView extends View {
 				}
 			}
 			panning = false;
+			scaling = false;
 			break;
 		default:
 			break;
