@@ -203,14 +203,28 @@ public class MapperController {
 
 	/**
 	 * Switch between Browse and Edit. Browse is navigate/view only; Edit allows
-	 * creating nests, drawing, linking, and deleting levels/tiles.
+	 * recording, creating nests, drawing, linking, and deleting levels/tiles.
+	 * Leaving Edit stops recording.
 	 */
 	public void setEditMode(final boolean edit) {
 		if (mEditMode == edit) {
 			return;
 		}
 		mEditMode = edit;
+		if (!edit) {
+			mRecording = false;
+		}
 		notifyChanged();
+	}
+
+	/**
+	 * @return error message when Browse forbids map changes; {@code null} if Edit.
+	 */
+	public String requireEditMode() {
+		if (!mEditMode) {
+			return "Mapper: Browse mode — switch to Edit to change the map.";
+		}
+		return null;
 	}
 
 	/** Toggle Browse ↔ Edit; returns the new edit-mode state. */
@@ -837,8 +851,23 @@ public class MapperController {
 	}
 
 	public void setRecording(final boolean recording) {
+		if (recording && !mEditMode) {
+			return;
+		}
 		mRecording = recording;
 		notifyChanged();
+	}
+
+	/**
+	 * Enable/disable recording. Returns a status line (including Browse denial).
+	 */
+	public String setRecordingStatus(final boolean recording) {
+		if (recording && !mEditMode) {
+			return "Mapper: Browse mode — switch to Edit to record.";
+		}
+		mRecording = recording;
+		notifyChanged();
+		return "Mapper recording: " + (mRecording ? "on" : "off");
 	}
 
 	public void setFollow(final boolean follow) {
@@ -1037,7 +1066,7 @@ public class MapperController {
 	 * Splits on CRLF / semicolon-separated lines when present.
 	 */
 	public void onPlayerCommand(final String cmd) {
-		if (!mEnabled || !mRecording || mSuppressRecord || cmd == null) {
+		if (!mEnabled || !mRecording || !mEditMode || mSuppressRecord || cmd == null) {
 			return;
 		}
 		String raw = cmd.trim();

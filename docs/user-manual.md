@@ -207,9 +207,10 @@ or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 Title bar shows a breadcrumb when you are on a nested floor, e.g.
 `map · L-1 ← Hallway` (map name · level · door you entered from). **[REC]** means
 recording is on. The title has **Browse | Edit** and **Float | Full** segments
-(**Browse** / **Float** default). **Edit** is required to create nests, use
-**Draw** / **Links**, and delete levels. Long-press the title opens the
-**Floors** radial.
+(**Browse** / **Float** default). **Browse** is view/navigate only — no
+recording, Draw, Links, or tile edits. **Edit** is required to record, create
+nests, use **Draw** / **Links**, and delete levels. Long-press the title opens
+the **Floors** radial.
 
 ### Category radials (top chips)
 
