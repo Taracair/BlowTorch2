@@ -151,6 +151,11 @@ public class MapperView extends View {
 	private float lastPanY;
 	private boolean panning;
 	private boolean scaling;
+	/**
+	 * True once a second finger joined this gesture. Blocks long-press tile
+	 * menus / drag so pinch-zoom is not interrupted.
+	 */
+	private boolean multiTouchActive;
 	private final Handler handler = new Handler(Looper.getMainLooper());
 
 	public MapperView(Context context) {
@@ -293,6 +298,10 @@ public class MapperView extends View {
 
 					@Override
 					public void onLongPress(MotionEvent e) {
+						// Only single-finger hold opens tile edit / drag.
+						if (multiTouchActive || scaling) {
+							return;
+						}
 						MapTile tile = hitTest(e.getX(), e.getY());
 						if (tile != null) {
 							selectedTileId = tile.getId();
@@ -964,10 +973,19 @@ public class MapperView extends View {
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		scaleDetector.onTouchEvent(event);
-		if (!tileDragging && !scaling && event.getPointerCount() < 2) {
+		final int action = event.getActionMasked();
+		if (action == MotionEvent.ACTION_DOWN) {
+			multiTouchActive = false;
+		} else if (action == MotionEvent.ACTION_POINTER_DOWN
+				|| event.getPointerCount() >= 2) {
+			multiTouchActive = true;
+			cancelPendingGestures(event);
+		}
+		// One-finger only: do not leave a long-press timer running during pinch.
+		if (!tileDragging && !scaling && !multiTouchActive
+				&& event.getPointerCount() < 2) {
 			gestureDetector.onTouchEvent(event);
 		}
-		final int action = event.getActionMasked();
 		switch (action) {
 		case MotionEvent.ACTION_DOWN:
 			lastPanX = event.getX();
@@ -990,7 +1008,8 @@ public class MapperView extends View {
 				}
 				break;
 			}
-			if (panning && !scaling && !scaleDetector.isInProgress()
+			if (panning && !scaling && !multiTouchActive
+					&& !scaleDetector.isInProgress()
 					&& event.getPointerCount() == 1) {
 				float dx = event.getX() - lastPanX;
 				float dy = event.getY() - lastPanY;
@@ -1033,11 +1052,23 @@ public class MapperView extends View {
 			}
 			panning = false;
 			scaling = false;
+			multiTouchActive = false;
 			break;
 		default:
 			break;
 		}
 		return true;
+	}
+
+	/** Abort GestureDetector long-press / tap state (e.g. when a pinch starts). */
+	private void cancelPendingGestures(MotionEvent prototype) {
+		if (prototype == null) {
+			return;
+		}
+		MotionEvent cancel = MotionEvent.obtain(prototype);
+		cancel.setAction(MotionEvent.ACTION_CANCEL);
+		gestureDetector.onTouchEvent(cancel);
+		cancel.recycle();
 	}
 
 	private MapTile hitTest(float x, float y) {
