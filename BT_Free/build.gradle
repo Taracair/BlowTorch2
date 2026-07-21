@@ -9,7 +9,7 @@ android {
     defaultConfig {
         minSdk 28
         targetSdk 36
-        versionCode 249
+        versionCode 250
         // Match BTLib native ABIs — Pixel / Samsung / etc. (32+64-bit ARM).
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
@@ -21,7 +21,7 @@ android {
         btTest {
             dimension "edition"
             applicationId "com.resurrection.blowtorch2.test"
-            versionName "2.1.10-test"
+            versionName "2.1.11-test"
             manifestPlaceholders = [
                     appLabel: "BlowTorch 2 Test",
                     appProcess: "com.resurrection.blowtorch2.test",
@@ -30,7 +30,7 @@ android {
         production {
             dimension "edition"
             applicationId "com.resurrection.blowtorch2"
-            versionName "2.1.10"
+            versionName "2.1.11"
             manifestPlaceholders = [
                     appLabel: "BlowTorch 2",
                     appProcess: "com.resurrection.blowtorch2",

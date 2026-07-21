@@ -1,0 +1,11 @@
+BlowTorch 2 v2.1.11
+
+• Trigger Conditions: optional AND/OR gate after a pattern match (trigger enabled/disabled, session variables); Set Variable action + Lua SetVariable / GetVariable / UnsetVariable
+• Triggers / Aliases / Timers: Plugin (and Group) filter spinners under search; Enable/Disable all stays under Options (=)
+• Timer groups: editor field, list [group] labels, and Group filter
+• .trigger CLI: on/off/toggle/status/group (plugin-aware); Enable/Disable all in the Triggers UI
+• Fix plugin enable/disable toggle (now persists and actually disables)
+• Fix empty Button Sets menu from the overflow menu
+• Fix Starter Tutorial skipping the first lesson
+• Fix short-buffer text copy/selection; timer editor Seconds field layout
+• Docs and Starter Tutorial updated for groups, filters, and conditions
