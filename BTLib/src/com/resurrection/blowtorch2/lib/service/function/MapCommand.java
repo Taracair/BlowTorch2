@@ -78,16 +78,31 @@ public class MapCommand extends SpecialCommand {
 		case "walkto":
 			return doPath(c, mapper, rest, true, true);
 		case "title":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			return doTitleOrNotes(c, mapper, rest, true);
 		case "note":
 		case "notes":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			return doTitleOrNotes(c, mapper, rest, false);
 		case "link":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			return doLink(c, mapper, rest);
 		case "unlink":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			return doUnlink(c, mapper, rest);
 		case "add":
 		case "place":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			return doAdd(c, mapper, rest);
 		case "here":
 			note(c, mapper.setHere(rest));
@@ -99,12 +114,21 @@ public class MapCommand extends SpecialCommand {
 		case "delete":
 		case "del":
 		case "rm":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			note(c, mapper.deleteTile(rest));
 			return null;
 		case "neighbor":
 		case "nb":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			return doNeighbor(c, mapper, rest);
 		case "move":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			return doMoveTile(c, mapper, rest);
 		case "conflict":
 		case "conflicts":
@@ -114,6 +138,9 @@ public class MapCommand extends SpecialCommand {
 			note(c, mapper.exportMap(rest));
 			return null;
 		case "import":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			note(c, mapper.importMap(rest));
 			return null;
 		case "center":
@@ -132,9 +159,15 @@ public class MapCommand extends SpecialCommand {
 			note(c, mapper.openMap(rest));
 			return null;
 		case "new":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			note(c, mapper.newMap(rest));
 			return null;
 		case "undo":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			note(c, mapper.undoStatus());
 			return null;
 		case "capture":
@@ -199,16 +232,19 @@ public class MapCommand extends SpecialCommand {
 	private Object doRecord(Connection c, MapperController mapper, String rest) {
 		String a = rest.toLowerCase(Locale.US);
 		if (a.equals("on") || a.equals("1") || a.equals("true")) {
-			mapper.setRecording(true);
+			note(c, mapper.setRecordingStatus(true));
 		} else if (a.equals("off") || a.equals("0") || a.equals("false")) {
-			mapper.setRecording(false);
+			note(c, mapper.setRecordingStatus(false));
 		} else if (a.equals("toggle") || a.length() == 0) {
-			mapper.setRecording(!mapper.isRecording());
+			if (!mapper.isEditMode() && !mapper.isRecording()) {
+				note(c, mapper.setRecordingStatus(true));
+			} else {
+				note(c, mapper.setRecordingStatus(!mapper.isRecording()));
+			}
 		} else {
 			note(c, "Usage: .map record on|off|toggle");
 			return null;
 		}
-		note(c, "Mapper recording: " + (mapper.isRecording() ? "on" : "off"));
 		return null;
 	}
 
@@ -248,12 +284,18 @@ public class MapCommand extends SpecialCommand {
 		} else if (sub.equals("set")) {
 			note(c, mapper.levelSet(name));
 		} else if (sub.equals("delete") || sub.equals("del") || sub.equals("rm")) {
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			if (name.length() == 0) {
 				note(c, "Usage: .map level delete <id|name>");
 			} else {
 				note(c, mapper.deleteLevel(name));
 			}
 		} else if (sub.equals("move")) {
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			String[] mp = name.split("\\s+", 2);
 			if (mp.length < 2) {
 				note(c, "Usage: .map level move <tileId> <levelName>");
@@ -578,6 +620,9 @@ public class MapCommand extends SpecialCommand {
 		if (a.startsWith("preview") || a.length() == 0) {
 			note(c, mapper.capturePreview(20));
 		} else if (a.startsWith("apply")) {
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
 			note(c, mapper.captureApply());
 		} else {
 			note(c, "Usage: .map capture preview|apply");
@@ -595,6 +640,15 @@ public class MapCommand extends SpecialCommand {
 		} else {
 			c.sendDataToWindow(Colorizer.getWhiteColor() + msg);
 		}
+	}
+
+	private static boolean requireEdit(Connection c, MapperController mapper) {
+		String deny = mapper.requireEditMode();
+		if (deny != null) {
+			note(c, deny);
+			return false;
+		}
+		return true;
 	}
 
 	private static String shortId(String id) {
@@ -634,11 +688,11 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map conflict[s] [list [all]|resolve|ignore <id|n>|all|purge]\n");
 		sb.append("  .map export|save [path] | .map import <path|name> | .map undo | .map center\n");
 		sb.append("  .map zoom in|out|reset  (or .map zoom <factor>)\n");
-		sb.append("  .map mode browse|edit|toggle  (session; Browse = view only)\n");
+		sb.append("  .map mode browse|edit|toggle  (Browse = view/nav only; Edit = record+edit)\n");
 		sb.append("  .map mode fullscreen|float\n");
-		sb.append("  .map maps | .map load|openmap <name> | .map new <name>\n");
-		sb.append("  .map capture preview|apply  (Options → Mapper regex; UI dialog for one-off)\n");
-		sb.append("  UI always adds: Links, Paths/Pack, Draw, Here, Edit, Save\n");
+		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (new/import = Edit)\n");
+		sb.append("  .map capture preview|apply  (apply = Edit; Options → Mapper regex)\n");
+		sb.append("  Browse: no record / Draw / Links / tile edit. Edit to change the map.\n");
 		return sb.toString();
 	}
 }

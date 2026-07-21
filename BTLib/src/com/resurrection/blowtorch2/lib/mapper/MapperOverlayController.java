@@ -286,15 +286,20 @@ public class MapperOverlayController
 			public void onEmptyLongPress(int gridX, int gridY) {
 				if (drawEditMode) {
 					placeTileAt(gridX, gridY, true);
-				} else {
+				} else if (isControllerEditMode()) {
 					Toast.makeText(host.getMainWindow(),
-							"Turn on Draw to place tiles here", Toast.LENGTH_SHORT).show();
+							"Turn on Draw (Build) to place tiles here",
+							Toast.LENGTH_SHORT).show();
 				}
 			}
 
 			@Override
 			public void onTileDragEnd(MapTile tile, int gridX, int gridY) {
 				if (tile == null) {
+					return;
+				}
+				if (!isControllerEditMode()) {
+					showTileContext(tile);
 					return;
 				}
 				if (tile.getGridX() == gridX && tile.getGridY() == gridY) {
@@ -317,7 +322,7 @@ public class MapperOverlayController
 
 		wireDragResize();
 		if (mapperView != null) {
-			mapperView.setTileDragEnabled(true);
+			mapperView.setTileDragEnabled(isControllerEditMode());
 			mapperView.setPathsLayout(pathsLayout);
 		}
 		rebuildToolbar();
@@ -644,6 +649,9 @@ public class MapperOverlayController
 		}
 		if (controller == null) {
 			if ("rec".equals(a) || "record".equals(a)) {
+				if (!requireEditModeToast()) {
+					return;
+				}
 				boolean on = snapshotRecording;
 				host.runMapCommand(on ? "record off" : "record on");
 			} else if ("follow".equals(a)) {
@@ -656,6 +664,9 @@ public class MapperOverlayController
 				openSearch();
 				return;
 			} else if ("undo".equals(a)) {
+				if (!requireEditModeToast()) {
+					return;
+				}
 				host.runMapCommand("undo");
 			} else if ("center".equals(a)) {
 				centerOnPlayer();
@@ -664,6 +675,9 @@ public class MapperOverlayController
 				close();
 				return;
 			} else if ("capture".equals(a)) {
+				if (!requireEditModeToast()) {
+					return;
+				}
 				openCapture();
 				return;
 			} else {
@@ -674,10 +688,11 @@ public class MapperOverlayController
 			return;
 		}
 		if ("rec".equals(a) || "record".equals(a)) {
-			controller.setRecording(!controller.isRecording());
-			Toast.makeText(host.getMainWindow(),
-					controller.isRecording() ? "Recording on" : "Recording stopped",
-					Toast.LENGTH_SHORT).show();
+			if (!controller.isRecording() && !requireEditModeToast()) {
+				return;
+			}
+			String status = controller.setRecordingStatus(!controller.isRecording());
+			Toast.makeText(host.getMainWindow(), status, Toast.LENGTH_SHORT).show();
 		} else if ("follow".equals(a)) {
 			controller.setFollow(!controller.isFollowPlayer());
 			if (mapperView != null) {
@@ -690,12 +705,18 @@ public class MapperOverlayController
 		} else if ("find".equals(a) || "search".equals(a)) {
 			openSearch();
 		} else if ("undo".equals(a)) {
+			if (!requireEditModeToast()) {
+				return;
+			}
 			toastStatus(controller.undoStatus());
 		} else if ("center".equals(a)) {
 			centerOnPlayer();
 		} else if ("close".equals(a)) {
 			close();
 		} else if ("capture".equals(a)) {
+			if (!requireEditModeToast()) {
+				return;
+			}
 			openCapture();
 		} else {
 			Toast.makeText(host.getMainWindow(), "Unknown: " + action, Toast.LENGTH_SHORT).show();
@@ -703,10 +724,18 @@ public class MapperOverlayController
 		refreshFromController();
 	}
 
+	/** @return false when Browse — toast already shown. */
+	private boolean requireEditModeToast() {
+		if (isControllerEditMode()) {
+			return true;
+		}
+		Toast.makeText(host.getMainWindow(), "Switch to Edit mode first",
+				Toast.LENGTH_SHORT).show();
+		return false;
+	}
+
 	private void toggleLinkEditMode() {
-		if (!isControllerEditMode()) {
-			Toast.makeText(host.getMainWindow(), "Switch to Edit mode first",
-					Toast.LENGTH_SHORT).show();
+		if (!requireEditModeToast()) {
 			return;
 		}
 		linkEditMode = !linkEditMode;
@@ -745,9 +774,7 @@ public class MapperOverlayController
 	}
 
 	private void toggleDrawEditMode() {
-		if (!isControllerEditMode()) {
-			Toast.makeText(host.getMainWindow(), "Switch to Edit mode first",
-					Toast.LENGTH_SHORT).show();
+		if (!requireEditModeToast()) {
 			return;
 		}
 		drawEditMode = !drawEditMode;
@@ -1142,6 +1169,7 @@ public class MapperOverlayController
 		for (int i = 0; i < commands.size(); i++) {
 			items[i] = commands.get(i);
 		}
+		final boolean edit = isControllerEditMode();
 		new AlertDialog.Builder(host.getMainWindow())
 				.setTitle(shortTileLabel(from) + " → " + shortTileLabel(to))
 				.setItems(items, new DialogInterface.OnClickListener() {
@@ -1151,6 +1179,10 @@ public class MapperOverlayController
 							return;
 						}
 						final String cmd = commands.get(which);
+						if (!edit) {
+							Toast.makeText(host.getMainWindow(), cmd, Toast.LENGTH_SHORT).show();
+							return;
+						}
 						new AlertDialog.Builder(host.getMainWindow())
 								.setTitle(cmd)
 								.setMessage("Unlink this exit?")
@@ -1281,15 +1313,42 @@ public class MapperOverlayController
 
 	private void showTileContext(final MapTile tile) {
 		final MainWindow activity = host.getMainWindow();
-		CharSequence[] items = new CharSequence[] {
-				"Set as Here", "Edit", "Move…", "Add neighbor…", "Edit links…",
-				"Path to here", "Go there", "Change level", "Delete tile", "Center"
-		};
+		final boolean edit = isControllerEditMode();
+		final CharSequence[] items = edit
+				? new CharSequence[] {
+						"Set as Here", "Edit", "Move…", "Add neighbor…", "Edit links…",
+						"Path to here", "Go there", "Change level", "Delete tile", "Center"
+				}
+				: new CharSequence[] {
+						"Set as Here", "Path to here", "Go there", "Center"
+				};
 		new AlertDialog.Builder(activity)
 				.setTitle(tile.getTitle() != null ? tile.getTitle() : "Tile")
 				.setItems(items, new DialogInterface.OnClickListener() {
 					@Override
 					public void onClick(DialogInterface dialog, int which) {
+						if (!edit) {
+							switch (which) {
+							case 0:
+								runSetHere(tile.getId());
+								break;
+							case 1:
+								pathToTile(tile);
+								break;
+							case 2:
+								goToTile(tile);
+								break;
+							case 3:
+								if (mapperView != null) {
+									mapperView.setCurrentTileId(tile.getId());
+									mapperView.centerOnTile(tile);
+								}
+								break;
+							default:
+								break;
+							}
+							return;
+						}
 						switch (which) {
 						case 0:
 							runSetHere(tile.getId());
@@ -1796,6 +1855,9 @@ public class MapperOverlayController
 				runSetHere(tile.getId());
 			}
 		} else if (MapperRadialMenu.ACTION_EDIT.equals(action)) {
+			if (!requireEditModeToast()) {
+				return;
+			}
 			MapTile tile = selectedOrCurrentTile();
 			if (tile != null) {
 				openTileEditor(tile);
@@ -1836,6 +1898,9 @@ public class MapperOverlayController
 			Toast.makeText(host.getMainWindow(), "Listed maps in buffer (.map maps)",
 					Toast.LENGTH_SHORT).show();
 		} else if (MapperRadialMenu.ACTION_NEW.equals(action)) {
+			if (!requireEditModeToast()) {
+				return;
+			}
 			promptNewMap();
 		}
 	}
@@ -2030,6 +2095,7 @@ public class MapperOverlayController
 		mapperView.setSelectedTileId(selectedTileId);
 		boolean follow = controller != null ? controller.isFollowPlayer() : snapshotFollow;
 		mapperView.setFollowMode(follow);
+		mapperView.setTileDragEnabled(isControllerEditMode());
 		applyOpacity();
 		updateEditModeToggleUi();
 		rebuildToolbar();
@@ -2060,10 +2126,15 @@ public class MapperOverlayController
 		}
 		if (!edit) {
 			forceOffDrawAndLinks();
+			if (mapperView != null) {
+				mapperView.setTileDragEnabled(false);
+			}
+		} else if (mapperView != null) {
+			mapperView.setTileDragEnabled(true);
 		}
 		updateEditModeToggleUi();
 		Toast.makeText(host.getMainWindow(),
-				edit ? "Edit mode" : "Browse mode", Toast.LENGTH_SHORT).show();
+				edit ? "Edit mode" : "Browse mode (view only)", Toast.LENGTH_SHORT).show();
 		if (controller != null) {
 			if (!linkEditMode && !drawEditMode) {
 				refreshFromController();
