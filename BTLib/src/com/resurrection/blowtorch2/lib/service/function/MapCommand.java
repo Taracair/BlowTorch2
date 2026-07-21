@@ -1,0 +1,415 @@
+package com.resurrection.blowtorch2.lib.service.function;
+
+import java.util.List;
+import java.util.Locale;
+
+import com.resurrection.blowtorch2.lib.mapper.MapConflict;
+import com.resurrection.blowtorch2.lib.mapper.MapTile;
+import com.resurrection.blowtorch2.lib.mapper.MapperController;
+import com.resurrection.blowtorch2.lib.mapper.MapperUiBridge;
+import com.resurrection.blowtorch2.lib.mapper.MudMap;
+import com.resurrection.blowtorch2.lib.service.Colorizer;
+import com.resurrection.blowtorch2.lib.service.Connection;
+
+/**
+ * Mapper special command.
+ *
+ * <pre>
+ * .map / .map help
+ * .map open|close|toggle
+ * .map record on|off|toggle
+ * .map follow on|off
+ * .map level list|prev|next|set &lt;name&gt;
+ * .map find|path|goto &lt;query&gt;
+ * .map title|note &lt;text&gt;
+ * .map link|unlink …
+ * .map maps | load | new | export | undo | center | mode …
+ * .map capture preview|apply
+ * </pre>
+ */
+public class MapCommand extends SpecialCommand {
+
+	public MapCommand() {
+		this.commandName = "map";
+	}
+
+	@Override
+	public Object execute(Object o, Connection c) {
+		String arg = o == null ? "" : o.toString().trim();
+		MapperController mapper = c.getMapper();
+		if (mapper == null) {
+			c.sendDataToWindow(Colorizer.getRedColor()
+					+ "\nMapper unavailable.\n" + Colorizer.getWhiteColor());
+			return null;
+		}
+
+		if (arg.length() == 0 || arg.equalsIgnoreCase("help") || arg.equals("?")) {
+			c.sendDataToWindow(helpText(mapper));
+			return null;
+		}
+
+		String[] parts = arg.split("\\s+", 2);
+		String sub = parts[0].toLowerCase(Locale.US);
+		String rest = parts.length > 1 ? parts[1].trim() : "";
+
+		switch (sub) {
+		case "open":
+			return doOpen(c, mapper);
+		case "close":
+			return doClose(c, mapper);
+		case "toggle":
+			return doToggle(c, mapper);
+		case "record":
+		case "rec":
+			return doRecord(c, mapper, rest);
+		case "follow":
+			return doFollow(c, mapper, rest);
+		case "level":
+		case "lvl":
+			return doLevel(c, mapper, rest);
+		case "find":
+		case "search":
+			return doFind(c, mapper, rest);
+		case "path":
+			return doPath(c, mapper, rest, false);
+		case "goto":
+		case "go":
+			return doPath(c, mapper, rest, true);
+		case "title":
+			note(c, mapper.setTitle(rest));
+			return null;
+		case "note":
+		case "notes":
+			note(c, mapper.setNotes(rest));
+			return null;
+		case "link":
+			return doLink(c, mapper, rest);
+		case "unlink":
+			note(c, mapper.unlink(rest));
+			return null;
+		case "conflict":
+		case "conflicts":
+			return doConflicts(c, mapper, rest);
+		case "export":
+		case "save":
+			note(c, mapper.save());
+			return null;
+		case "center":
+			mapper.centerUi();
+			note(c, "Mapper: center.");
+			return null;
+		case "mode":
+			return doMode(c, mapper, rest);
+		case "maps":
+			return doMaps(c, mapper);
+		case "load":
+		case "openmap":
+			note(c, mapper.openMap(rest));
+			return null;
+		case "new":
+			note(c, mapper.newMap(rest));
+			return null;
+		case "undo":
+			note(c, mapper.undoStatus());
+			return null;
+		case "capture":
+			return doCapture(c, mapper, rest);
+		case "status":
+			c.sendDataToWindow(helpText(mapper));
+			return null;
+		default:
+			c.sendDataToWindow(getErrorMessage("Map usage",
+					"Unknown subcommand '" + sub + "'.\nTry .map help"));
+			return null;
+		}
+	}
+
+	private Object doOpen(Connection c, MapperController mapper) {
+		MapperUiBridge bridge = mapper.getUiBridge();
+		if (bridge != null) {
+			bridge.openMapUi();
+			note(c, "Mapper: open.");
+		} else {
+			note(c, "Mapper: UI not ready (no MapperUiBridge). Engine is active — "
+					+ statusLine(mapper));
+		}
+		return null;
+	}
+
+	private Object doClose(Connection c, MapperController mapper) {
+		MapperUiBridge bridge = mapper.getUiBridge();
+		if (bridge != null) {
+			bridge.closeMapUi();
+			note(c, "Mapper: close.");
+		} else {
+			note(c, "Mapper: UI not ready.");
+		}
+		return null;
+	}
+
+	private Object doToggle(Connection c, MapperController mapper) {
+		MapperUiBridge bridge = mapper.getUiBridge();
+		if (bridge != null) {
+			bridge.toggleMapUi();
+			note(c, "Mapper: toggle.");
+		} else {
+			note(c, "Mapper: UI not ready — " + statusLine(mapper));
+		}
+		return null;
+	}
+
+	private Object doRecord(Connection c, MapperController mapper, String rest) {
+		String a = rest.toLowerCase(Locale.US);
+		if (a.equals("on") || a.equals("1") || a.equals("true")) {
+			mapper.setRecording(true);
+		} else if (a.equals("off") || a.equals("0") || a.equals("false")) {
+			mapper.setRecording(false);
+		} else if (a.equals("toggle") || a.length() == 0) {
+			mapper.setRecording(!mapper.isRecording());
+		} else {
+			note(c, "Usage: .map record on|off|toggle");
+			return null;
+		}
+		note(c, "Mapper recording: " + (mapper.isRecording() ? "on" : "off"));
+		return null;
+	}
+
+	private Object doFollow(Connection c, MapperController mapper, String rest) {
+		String a = rest.toLowerCase(Locale.US);
+		if (a.equals("on") || a.equals("1") || a.equals("true")) {
+			mapper.setFollow(true);
+		} else if (a.equals("off") || a.equals("0") || a.equals("false")) {
+			mapper.setFollow(false);
+		} else if (a.length() == 0) {
+			note(c, "Mapper follow: " + (mapper.isFollowPlayer() ? "on" : "off"));
+			return null;
+		} else {
+			note(c, "Usage: .map follow on|off");
+			return null;
+		}
+		note(c, "Mapper follow: " + (mapper.isFollowPlayer() ? "on" : "off"));
+		return null;
+	}
+
+	private Object doLevel(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0 || rest.equalsIgnoreCase("list")) {
+			note(c, mapper.levelList());
+			return null;
+		}
+		String[] p = rest.split("\\s+", 2);
+		String sub = p[0].toLowerCase(Locale.US);
+		String name = p.length > 1 ? p[1].trim() : "";
+		if (sub.equals("prev") || sub.equals("-")) {
+			note(c, mapper.levelPrev());
+		} else if (sub.equals("next") || sub.equals("+")) {
+			note(c, mapper.levelNext());
+		} else if (sub.equals("set")) {
+			note(c, mapper.levelSet(name));
+		} else {
+			// treat whole rest as level name
+			note(c, mapper.levelSet(rest));
+		}
+		return null;
+	}
+
+	private Object doFind(Connection c, MapperController mapper, String query) {
+		if (query.length() == 0) {
+			note(c, "Usage: .map find <query>");
+			return null;
+		}
+		List<MapTile> hits = mapper.search(query);
+		if (hits.isEmpty()) {
+			note(c, "Mapper: no tiles matching \"" + query + "\".");
+			return null;
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("Mapper find \"").append(query).append("\" (").append(hits.size()).append("):\n");
+		int n = Math.min(hits.size(), 20);
+		for (int i = 0; i < n; i++) {
+			MapTile t = hits.get(i);
+			sb.append("  ").append(shortId(t.getId())).append("  ");
+			sb.append(t.getTitle() != null ? t.getTitle() : "(untitled)");
+			sb.append("  @").append(t.getGridX()).append(",").append(t.getGridY());
+			sb.append("\n");
+		}
+		if (hits.size() > n) {
+			sb.append("  …\n");
+		}
+		note(c, sb.toString());
+		return null;
+	}
+
+	private Object doPath(Connection c, MapperController mapper, String query,
+			boolean gotoMode) {
+		if (query.length() == 0) {
+			note(c, "Usage: .map " + (gotoMode ? "goto" : "path") + " <query>");
+			return null;
+		}
+		List<String> cmds = mapper.findPath(query);
+		if (cmds.isEmpty()) {
+			List<MapTile> hits = mapper.search(query);
+			if (hits.isEmpty()) {
+				note(c, "Mapper: no match for \"" + query + "\".");
+			} else {
+				note(c, "Mapper: no path to \"" + query + "\" (or already there).");
+			}
+			return null;
+		}
+		StringBuilder path = new StringBuilder();
+		for (int i = 0; i < cmds.size(); i++) {
+			if (i > 0) {
+				path.append("; ");
+			}
+			path.append(cmds.get(i));
+		}
+		note(c, "Mapper path (" + cmds.size() + "): " + path);
+
+		if (gotoMode && mapper.isPathAutoSend()) {
+			StringBuilder send = new StringBuilder();
+			for (int i = 0; i < cmds.size(); i++) {
+				send.append(cmds.get(i));
+				if (i < cmds.size() - 1) {
+					send.append("\r\n");
+				}
+			}
+			c.getHandler().sendMessage(c.getHandler().obtainMessage(
+					Connection.MESSAGE_SENDDATA_STRING, send.toString()));
+			note(c, "Mapper: path sent (mapper_path_auto_send).");
+		} else if (gotoMode) {
+			note(c, "Mapper: path_auto_send off — path printed only.");
+		}
+		return null;
+	}
+
+	private Object doLink(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0) {
+			note(c, "Usage: .map link <cmd> [to <tileId>]");
+			return null;
+		}
+		String cmd;
+		String toId = null;
+		String lower = rest.toLowerCase(Locale.US);
+		int toIdx = lower.indexOf(" to ");
+		if (toIdx >= 0) {
+			cmd = rest.substring(0, toIdx).trim();
+			toId = rest.substring(toIdx + 4).trim();
+		} else {
+			String[] p = rest.split("\\s+", 2);
+			cmd = p[0];
+			if (p.length > 1) {
+				toId = p[1].trim();
+			}
+		}
+		note(c, mapper.link(cmd, toId));
+		return null;
+	}
+
+	private Object doConflicts(Connection c, MapperController mapper, String rest) {
+		List<MapConflict> list = mapper.listConflicts();
+		if (list.isEmpty()) {
+			note(c, "Mapper: no open conflicts.");
+			return null;
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("Mapper conflicts (").append(list.size()).append("):\n");
+		int n = Math.min(list.size(), 30);
+		for (int i = 0; i < n; i++) {
+			MapConflict conf = list.get(i);
+			sb.append("  [").append(conf.getType()).append("] ");
+			sb.append(conf.getMessage() != null ? conf.getMessage() : "");
+			sb.append("\n");
+		}
+		note(c, sb.toString());
+		return null;
+	}
+
+	private Object doMode(Connection c, MapperController mapper, String rest) {
+		String a = rest.toLowerCase(Locale.US);
+		if (a.equals("fullscreen") || a.equals("full") || a.equals("fs")) {
+			mapper.setModeFullscreen(true);
+			note(c, "Mapper mode: fullscreen");
+		} else if (a.equals("float") || a.equals("floating") || a.equals("window")) {
+			mapper.setModeFullscreen(false);
+			note(c, "Mapper mode: float");
+		} else {
+			note(c, "Usage: .map mode fullscreen|float");
+		}
+		return null;
+	}
+
+	private Object doMaps(Connection c, MapperController mapper) {
+		List<String> names = mapper.listMaps();
+		MudMap map = mapper.getMap();
+		String cur = map != null ? map.getName() : "(none)";
+		StringBuilder sb = new StringBuilder();
+		sb.append("Mapper maps (current: ").append(cur).append("):\n");
+		if (names.isEmpty()) {
+			sb.append("  (none on disk)\n");
+		} else {
+			for (String n : names) {
+				sb.append(n != null && n.equals(cur) ? " * " : "   ");
+				sb.append(n).append("\n");
+			}
+		}
+		note(c, sb.toString());
+		return null;
+	}
+
+	private Object doCapture(Connection c, MapperController mapper, String rest) {
+		String a = rest.toLowerCase(Locale.US);
+		if (a.startsWith("preview") || a.length() == 0) {
+			note(c, mapper.capturePreview(20));
+		} else if (a.startsWith("apply")) {
+			note(c, mapper.captureApply());
+		} else {
+			note(c, "Usage: .map capture preview|apply");
+		}
+		return null;
+	}
+
+	private static void note(Connection c, String msg) {
+		if (msg == null) {
+			return;
+		}
+		if (!msg.startsWith("\n")) {
+			c.sendDataToWindow("\n" + Colorizer.getWhiteColor() + msg
+					+ (msg.endsWith("\n") ? "" : "\n"));
+		} else {
+			c.sendDataToWindow(Colorizer.getWhiteColor() + msg);
+		}
+	}
+
+	private static String shortId(String id) {
+		if (id == null) {
+			return "?";
+		}
+		return id.length() > 8 ? id.substring(0, 8) : id;
+	}
+
+	private static String statusLine(MapperController m) {
+		MudMap map = m.getMap();
+		String name = map != null && map.getName() != null ? map.getName() : "(none)";
+		int tiles = map != null ? map.getTiles().size() : 0;
+		return "map=" + name + " tiles=" + tiles
+				+ " rec=" + (m.isRecording() ? "on" : "off")
+				+ " follow=" + (m.isFollowPlayer() ? "on" : "off");
+	}
+
+	private static String helpText(MapperController m) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("\n").append(Colorizer.getWhiteColor());
+		sb.append("Mapper (").append(statusLine(m)).append(")\n");
+		sb.append("  .map open|close|toggle\n");
+		sb.append("  .map record on|off|toggle\n");
+		sb.append("  .map follow on|off\n");
+		sb.append("  .map level list|prev|next|set <name>\n");
+		sb.append("  .map find <query> | .map path <query> | .map goto <query>\n");
+		sb.append("  .map title <text> | .map note <text>\n");
+		sb.append("  .map link <cmd> to <tileId> | .map unlink <cmd>\n");
+		sb.append("  .map conflict list | .map export | .map undo | .map center\n");
+		sb.append("  .map mode fullscreen|float\n");
+		sb.append("  .map maps | .map load <name> | .map new <name>\n");
+		sb.append("  .map capture preview|apply\n");
+		return sb.toString();
+	}
+}
