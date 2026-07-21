@@ -63,6 +63,8 @@ public class MapperOverlayController
 	/** When true: tap FROM tile, then TO tile → pick walk verb to link/unlink. */
 	private boolean linkEditMode;
 	private String linkFromTileId;
+	/** When true: tap empty cell to place tiles; long-press places + sets here. */
+	private boolean drawEditMode;
 
 	public MapperOverlayController(Host host) {
 		this.host = host;
@@ -197,6 +199,23 @@ public class MapperOverlayController
 			public void onTileLongPress(MapTile tile) {
 				selectedTileId = tile.getId();
 				showTileContext(tile);
+			}
+
+			@Override
+			public void onEmptyTap(int gridX, int gridY) {
+				if (drawEditMode) {
+					placeTileAt(gridX, gridY, false);
+				}
+			}
+
+			@Override
+			public void onEmptyLongPress(int gridX, int gridY) {
+				if (drawEditMode) {
+					placeTileAt(gridX, gridY, true);
+				} else {
+					Toast.makeText(host.getMainWindow(),
+							"Turn on Draw to place tiles here", Toast.LENGTH_SHORT).show();
+				}
 			}
 		});
 
@@ -393,6 +412,30 @@ public class MapperOverlayController
 		});
 		toolbar.addView(links);
 
+		Button draw = makeToolbarButton(activity, density, drawEditMode ? "Draw●" : "Draw");
+		draw.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				toggleDrawEditMode();
+			}
+		});
+		toolbar.addView(draw);
+
+		Button here = makeToolbarButton(activity, density, "Here");
+		here.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				MapTile tile = selectedOrCurrentTile();
+				if (tile == null) {
+					Toast.makeText(host.getMainWindow(), "Select a tile first",
+							Toast.LENGTH_SHORT).show();
+					return;
+				}
+				runSetHere(tile.getId());
+			}
+		});
+		toolbar.addView(here);
+
 		Button edit = makeToolbarButton(activity, density, "Edit");
 		edit.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -556,6 +599,12 @@ public class MapperOverlayController
 	private void toggleLinkEditMode() {
 		linkEditMode = !linkEditMode;
 		linkFromTileId = null;
+		if (linkEditMode && drawEditMode) {
+			drawEditMode = false;
+			if (mapperView != null) {
+				mapperView.setShowGrid(false);
+			}
+		}
 		if (linkEditMode) {
 			Toast.makeText(host.getMainWindow(),
 					"Links: tap FROM tile, then TO tile", Toast.LENGTH_LONG).show();
@@ -564,6 +613,173 @@ public class MapperOverlayController
 		}
 		updateTitleForLinkMode();
 		rebuildToolbar();
+	}
+
+	private void toggleDrawEditMode() {
+		drawEditMode = !drawEditMode;
+		if (drawEditMode && linkEditMode) {
+			linkEditMode = false;
+			linkFromTileId = null;
+		}
+		if (mapperView != null) {
+			mapperView.setShowGrid(drawEditMode);
+		}
+		if (drawEditMode) {
+			Toast.makeText(host.getMainWindow(),
+					"Draw: tap empty cell = place tile; long-press = place + Here",
+					Toast.LENGTH_LONG).show();
+		} else {
+			Toast.makeText(host.getMainWindow(), "Draw mode off", Toast.LENGTH_SHORT).show();
+		}
+		updateTitleForDrawMode();
+		rebuildToolbar();
+	}
+
+	private void placeTileAt(final int gridX, final int gridY, final boolean setHere) {
+		promptTileTitle(new TitleCallback() {
+			@Override
+			public void onTitle(String title) {
+				if (controller != null) {
+					toastStatus(controller.placeTile(Integer.valueOf(gridX),
+							Integer.valueOf(gridY), title, setHere));
+					refreshFromController();
+				} else {
+					String args = "add " + gridX + " " + gridY;
+					if (title != null && title.length() > 0) {
+						args = args + " " + title;
+					}
+					if (setHere) {
+						args = args + " here";
+					}
+					host.runMapCommand(args);
+					pullSnapshotFromService();
+				}
+			}
+		});
+	}
+
+	private interface TitleCallback {
+		void onTitle(String title);
+	}
+
+	private void promptTileTitle(final TitleCallback cb) {
+		MainWindow activity = host.getMainWindow();
+		final EditText input = new EditText(activity);
+		input.setHint("Room title (optional)");
+		input.setSingleLine(true);
+		new AlertDialog.Builder(activity)
+				.setTitle("New tile")
+				.setView(input)
+				.setPositiveButton("Place", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						cb.onTitle(input.getText().toString().trim());
+					}
+				})
+				.setNeutralButton("No title", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						cb.onTitle(null);
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void runSetHere(String tileId) {
+		if (controller != null) {
+			toastStatus(controller.setHere(tileId));
+			refreshFromController();
+		} else {
+			host.runMapCommand("here " + tileId);
+			pullSnapshotFromService();
+		}
+	}
+
+	private void runDeleteTile(String tileId) {
+		if (controller != null) {
+			toastStatus(controller.deleteTile(tileId));
+			refreshFromController();
+		} else {
+			host.runMapCommand("delete " + tileId);
+			pullSnapshotFromService();
+		}
+	}
+
+	private void promptAddNeighbor(final MapTile from) {
+		if (from == null) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		final EditText cmdEdit = new EditText(activity);
+		cmdEdit.setHint("go west / n / out …");
+		cmdEdit.setSingleLine(true);
+		LinearLayout root = new LinearLayout(activity);
+		root.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (12 * activity.getResources().getDisplayMetrics().density);
+		root.setPadding(pad, pad, pad, pad);
+		TextView info = new TextView(activity);
+		info.setText("Add neighbor from " + shortTileLabel(from));
+		root.addView(info);
+		root.addView(cmdEdit);
+		HorizontalScrollView hsv = new HorizontalScrollView(activity);
+		LinearLayout row = new LinearLayout(activity);
+		row.setOrientation(LinearLayout.HORIZONTAL);
+		String[] verbs = new String[] {
+				"n", "s", "e", "w", "u", "d", "in", "out",
+				"go north", "go south", "go east", "go west"
+		};
+		for (final String verb : verbs) {
+			Button qb = new Button(activity);
+			qb.setText(verb);
+			qb.setTextSize(11f);
+			qb.setAllCaps(false);
+			qb.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					cmdEdit.setText(verb);
+				}
+			});
+			row.addView(qb);
+		}
+		hsv.addView(row);
+		root.addView(hsv);
+		new AlertDialog.Builder(activity)
+				.setTitle("Add neighbor")
+				.setView(root)
+				.setPositiveButton("Add", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						String cmd = cmdEdit.getText().toString().trim();
+						if (cmd.length() == 0) {
+							Toast.makeText(activity, "Enter a walk command",
+									Toast.LENGTH_SHORT).show();
+							return;
+						}
+						if (controller != null) {
+							toastStatus(controller.addNeighbor(from.getId(), cmd));
+							refreshFromController();
+						} else {
+							host.runMapCommand("neighbor " + cmd + " from " + from.getId());
+							pullSnapshotFromService();
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void updateTitleForDrawMode() {
+		if (titleView == null) {
+			return;
+		}
+		if (!drawEditMode) {
+			if (!linkEditMode) {
+				refreshFromController();
+			}
+			return;
+		}
+		titleView.setText("Draw · tap empty cell");
 	}
 
 	private void onLinkEditTap(MapTile tile) {
@@ -758,7 +974,11 @@ public class MapperOverlayController
 			return;
 		}
 		if (!linkEditMode) {
-			refreshFromController();
+			if (drawEditMode) {
+				updateTitleForDrawMode();
+			} else {
+				refreshFromController();
+			}
 			return;
 		}
 		if (linkFromTileId == null) {
@@ -829,7 +1049,8 @@ public class MapperOverlayController
 	private void showTileContext(final MapTile tile) {
 		final MainWindow activity = host.getMainWindow();
 		CharSequence[] items = new CharSequence[] {
-				"Edit", "Edit links…", "Path to here", "Change level", "Center"
+				"Set as Here", "Edit", "Add neighbor…", "Edit links…",
+				"Path to here", "Change level", "Delete tile", "Center"
 		};
 		new AlertDialog.Builder(activity)
 				.setTitle(tile.getTitle() != null ? tile.getTitle() : "Tile")
@@ -838,18 +1059,27 @@ public class MapperOverlayController
 					public void onClick(DialogInterface dialog, int which) {
 						switch (which) {
 						case 0:
-							openTileEditor(tile);
+							runSetHere(tile.getId());
 							break;
 						case 1:
-							showUnlinkPicker(tile);
+							openTileEditor(tile);
 							break;
 						case 2:
-							pathToTile(tile);
+							promptAddNeighbor(tile);
 							break;
 						case 3:
-							promptChangeLevel(tile);
+							showUnlinkPicker(tile);
 							break;
 						case 4:
+							pathToTile(tile);
+							break;
+						case 5:
+							promptChangeLevel(tile);
+							break;
+						case 6:
+							confirmDeleteTile(tile);
+							break;
+						case 7:
 							if (mapperView != null) {
 								mapperView.setCurrentTileId(tile.getId());
 								mapperView.centerOnTile(tile);
@@ -860,6 +1090,20 @@ public class MapperOverlayController
 						}
 					}
 				})
+				.show();
+	}
+
+	private void confirmDeleteTile(final MapTile tile) {
+		new AlertDialog.Builder(host.getMainWindow())
+				.setTitle("Delete tile?")
+				.setMessage(shortTileLabel(tile))
+				.setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						runDeleteTile(tile.getId());
+					}
+				})
+				.setNegativeButton("Cancel", null)
 				.show();
 	}
 
