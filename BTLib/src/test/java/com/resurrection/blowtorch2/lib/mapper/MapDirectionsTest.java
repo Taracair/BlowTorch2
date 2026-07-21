@@ -29,4 +29,15 @@ public class MapDirectionsTest {
 		assertEquals("", MapDirections.normalize("  ", null));
 		assertEquals("", MapDirections.normalize(null, null));
 	}
+
+	@Test
+	public void normalizeGoWalkPrefixes() {
+		assertEquals("w", MapDirections.normalize("go west", null));
+		assertEquals("e", MapDirections.normalize("GO EAST", null));
+		assertEquals("n", MapDirections.normalize("walk north", null));
+		assertEquals("out", MapDirections.normalize("go out", null));
+		assertEquals("south", MapDirections.opposite("go north"));
+		assertEquals("go south", MapDirections.suggestReverse("go north", null));
+		assertEquals("go west", MapDirections.storeCommand("go west", "w"));
+	}
 }

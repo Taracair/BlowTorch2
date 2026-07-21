@@ -85,8 +85,7 @@ public class MapCommand extends SpecialCommand {
 		case "link":
 			return doLink(c, mapper, rest);
 		case "unlink":
-			note(c, mapper.unlink(rest));
-			return null;
+			return doUnlink(c, mapper, rest);
 		case "conflict":
 		case "conflicts":
 			return doConflicts(c, mapper, rest);
@@ -271,24 +270,52 @@ public class MapCommand extends SpecialCommand {
 
 	private Object doLink(Connection c, MapperController mapper, String rest) {
 		if (rest.length() == 0) {
-			note(c, "Usage: .map link <cmd> [to <tileId>]");
+			note(c, "Usage: .map link <cmd> [from <id>] to <tileId>");
 			return null;
 		}
 		String cmd;
 		String toId = null;
-		String lower = rest.toLowerCase(Locale.US);
+		String fromId = null;
+		String work = rest.trim();
+		String lower = work.toLowerCase(Locale.US);
+		int fromIdx = lower.indexOf(" from ");
 		int toIdx = lower.indexOf(" to ");
+		if (fromIdx >= 0 && toIdx > fromIdx) {
+			cmd = work.substring(0, fromIdx).trim();
+			fromId = work.substring(fromIdx + 6, toIdx).trim();
+			toId = work.substring(toIdx + 4).trim();
+			note(c, mapper.linkBetween(fromId, cmd, toId));
+			return null;
+		}
 		if (toIdx >= 0) {
-			cmd = rest.substring(0, toIdx).trim();
-			toId = rest.substring(toIdx + 4).trim();
+			cmd = work.substring(0, toIdx).trim();
+			toId = work.substring(toIdx + 4).trim();
 		} else {
-			String[] p = rest.split("\\s+", 2);
+			String[] p = work.split("\\s+", 2);
 			cmd = p[0];
 			if (p.length > 1) {
 				toId = p[1].trim();
 			}
 		}
 		note(c, mapper.link(cmd, toId));
+		return null;
+	}
+
+	private Object doUnlink(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0) {
+			note(c, "Usage: .map unlink <cmd> [from <tileId>]");
+			return null;
+		}
+		String work = rest.trim();
+		String lower = work.toLowerCase(Locale.US);
+		int fromIdx = lower.indexOf(" from ");
+		if (fromIdx >= 0) {
+			String cmd = work.substring(0, fromIdx).trim();
+			String fromId = work.substring(fromIdx + 6).trim();
+			note(c, mapper.unlinkBetween(fromId, cmd));
+		} else {
+			note(c, mapper.unlink(work));
+		}
 		return null;
 	}
 
@@ -393,7 +420,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map level list|prev|next|set <name>\n");
 		sb.append("  .map find <query> | .map path <query> | .map goto <query>\n");
 		sb.append("  .map title <text> | .map note <text>\n");
-		sb.append("  .map link <cmd> to <tileId> | .map unlink <cmd>\n");
+		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
 		sb.append("  .map conflict list | .map export | .map undo | .map center\n");
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map maps | .map load <name> | .map new <name>\n");
