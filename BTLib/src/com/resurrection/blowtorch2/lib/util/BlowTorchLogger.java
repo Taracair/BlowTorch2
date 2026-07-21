@@ -120,6 +120,13 @@ public final class BlowTorchLogger {
 					+ "Usually this means the plugin expects a library that is not packaged or not synced yet.\n\n"
 					+ "Technical detail:\n" + plain;
 		}
+		if (lower.contains("illegal group reference")
+				|| (lower.contains("illegalargumentexception")
+						&& lower.contains("group"))) {
+			return "A trigger/alias Ack or replace string contained a \"$\" that Java treated as a regex group reference.\n"
+					+ "BlowTorch now quotes those automatically; if you still see this, simplify the Ack text.\n\n"
+					+ "Technical detail:\n" + plain;
+		}
 		if (lower.contains("attempt to call") && lower.contains("nil")) {
 			return "A plugin script called a missing function (nil).\n"
 					+ "The plugin may be outdated or misconfigured for this profile.\n\n"

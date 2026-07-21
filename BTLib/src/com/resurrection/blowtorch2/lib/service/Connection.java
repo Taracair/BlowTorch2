@@ -535,9 +535,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** The connection handler message queue. Coordinates multithreaded efforts from the DataPumper and foreground window via the Service. */
 	private class ConnectionHandler implements Handler.Callback {
 
-		@SuppressWarnings("unchecked")
-		@Override
 		public boolean handleMessage(final Message msg) {
+			try {
+				return handleMessageUnsafe(msg);
+			} catch (Exception e) {
+				// Keep the :stellar connection process alive; show the error in-game.
+				reportRuntimeError("connection handler (msg " + msg.what + ")", e);
+				return true;
+			}
+		}
+
+		@SuppressWarnings("unchecked")
+		private boolean handleMessageUnsafe(final Message msg) {
 			switch(msg.what) {
 			case MESSAGE_TERMINATED_BY_PEER:
 				clearStartupInProgress();
@@ -759,11 +768,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					byte[] bytes = ((String) msg.obj).getBytes(mSettings.getEncoding());
 					sendToServer(bytes);
 				} catch (UnsupportedEncodingException e1) {
-					e1.printStackTrace();
+					reportRuntimeError("outbound encoding", e1);
+				} catch (Exception e1) {
+					reportRuntimeError("outbound command", e1);
 				}
 				break;
 			case MESSAGE_SENDDATA_BYTES:
-				sendToServer((byte[]) msg.obj);
+				try {
+					sendToServer((byte[]) msg.obj);
+				} catch (Exception e1) {
+					reportRuntimeError("outbound command", e1);
+				}
 				break;
 			case MESSAGE_SENDGMCPDATA:
 				mGmcp.handleSendGmcpData(msg);
@@ -807,7 +822,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				try {
 					dispatch((byte[]) msg.obj);
 				} catch (UnsupportedEncodingException e) {
-					e.printStackTrace();
+					reportRuntimeError("incoming text encoding", e);
+				} catch (Exception e) {
+					reportRuntimeError("incoming text / triggers", e);
 				}
 				break;
 			case MESSAGE_DISCONNECTED:
@@ -857,6 +874,34 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			// Never crash the connection while reporting a Lua error (e.g. mSettings
 			// still null during early import / alignDefaultButtons).
 			Log.e("BlowTorch", "dispatchLuaError failed: " + message, e);
+		}
+	}
+
+	/**
+	 * Show a runtime failure in the game window and log it, without killing the
+	 * connection process. Used for trigger/alias/timer responders and the
+	 * connection message loop.
+	 */
+	@Override
+	public final void reportRuntimeError(final String where, final Throwable error) {
+		String place = where != null && where.length() > 0 ? where : "runtime";
+		String detail;
+		if (error == null) {
+			detail = "(no exception)";
+		} else {
+			String msg = error.getMessage();
+			if (msg == null || msg.length() == 0) {
+				msg = error.getClass().getSimpleName();
+			}
+			detail = error.getClass().getSimpleName() + ": " + msg;
+		}
+		String line = "BlowTorch error [" + place + "]: " + detail
+				+ "\n(Connection kept running; check log for details.)";
+		Log.e("BlowTorch", line, error);
+		try {
+			dispatchLuaError(line);
+		} catch (Exception e) {
+			Log.e("BlowTorch", "reportRuntimeError failed to display: " + line, e);
 		}
 	}
 
@@ -1779,6 +1824,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 										keepEvaluating = false;
 									}
 									
+								} catch (Exception eResp) {
+									String tname = t.getName() != null ? t.getName() : "?";
+									String rname = responder != null
+											? responder.getClass().getSimpleName() : "?";
+									reportRuntimeError("trigger \"" + tname + "\" / " + rname,
+											eResp);
 								}
 								if (mWorking.getLines().size() == 0) {
 									keepEvaluating = false;
@@ -4641,7 +4692,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		try {
 			d = processOutputData(new String(bytes, mSettings.getEncoding()));
 		} catch (UnsupportedEncodingException e2) {
-			e2.printStackTrace();
+			reportRuntimeError("outbound encoding", e2);
+			return;
+		} catch (Exception e2) {
+			reportRuntimeError("alias / special command", e2);
+			return;
 		}
 		
 		if (d == null) {
