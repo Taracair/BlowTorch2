@@ -211,10 +211,14 @@ public final class MapDirections {
 
 	/**
 	 * Normalize a player-typed command to a canonical exit token.
-	 * Uses the connection direction map when provided: matches either the
-	 * direction key or the outbound command, preferring the direction key.
-	 * Strips MOO-style {@code go}/{@code walk}/{@code move} prefixes.
-	 * Falls back to common aliases (north→n), else trimmed lowercase input.
+	 * Strips MOO-style {@code go}/{@code walk}/{@code move} prefixes, then
+	 * prefers the built-in movement lexicon ({@code se}, {@code west}, …)
+	 * before the connection Speedwalk map.
+	 * <p>
+	 * Speedwalk defaults bind keys {@code h}/{@code j}/{@code k}/{@code l} to
+	 * commands {@code nw}/{@code ne}/{@code sw}/{@code se}. Matching the
+	 * <em>command</em> must not collapse {@code se}→{@code l}, or recording
+	 * treats diagonals as specials and places them via {@code findFreeNear}.
 	 */
 	public static String normalize(String command, Map<String, DirectionData> directions) {
 		if (command == null) {
@@ -227,21 +231,46 @@ public final class MapDirections {
 		String fullLower = trimmed.toLowerCase(Locale.US);
 		String lower = stripMovementPrefix(fullLower);
 
+		// Built-in lexicon first (cardinals, diagonals, up/down, in/out).
+		String lex = lexiconToken(lower);
+		if (lex != null) {
+			return lex;
+		}
+
 		if (directions != null && !directions.isEmpty()) {
 			String fromMap = matchDirectionMap(fullLower, directions);
 			if (fromMap == null && !lower.equals(fullLower)) {
 				fromMap = matchDirectionMap(lower, directions);
 			}
 			if (fromMap != null) {
-				return fromMap;
+				String mappedLex = lexiconToken(fromMap);
+				return mappedLex != null ? mappedLex : fromMap;
 			}
 		}
 
-		String alias = COMMON_ALIASES.get(lower);
+		return lower;
+	}
+
+	/**
+	 * Canonical built-in movement token, or null if unknown to the lexicon.
+	 */
+	public static String lexiconToken(String token) {
+		if (token == null) {
+			return null;
+		}
+		String n = token.trim().toLowerCase(Locale.US);
+		if (n.length() == 0) {
+			return null;
+		}
+		String alias = COMMON_ALIASES.get(n);
 		if (alias != null) {
 			return alias;
 		}
-		return lower;
+		if (GRID_DELTA.containsKey(n) || LEVEL_DELTA.containsKey(n)
+				|| COMMON_OPPOSITES.containsKey(n)) {
+			return n;
+		}
+		return null;
 	}
 
 	private static String matchDirectionMap(String lower,
@@ -253,35 +282,66 @@ public final class MapDirections {
 			}
 			String key = e.getKey() != null ? e.getKey() : d.getDirection();
 			if (key != null && lower.equals(key.toLowerCase(Locale.US))) {
-				return key.toLowerCase(Locale.US);
+				return mapperTokenFromDirectionEntry(key, d);
 			}
 			String dir = d.getDirection();
 			if (dir != null && lower.equals(dir.toLowerCase(Locale.US))) {
-				return dir.toLowerCase(Locale.US);
+				return mapperTokenFromDirectionEntry(dir, d);
 			}
 			String cmd = d.getCommand();
 			if (cmd != null && lower.equals(cmd.toLowerCase(Locale.US))) {
-				if (dir != null && dir.length() > 0) {
-					return dir.toLowerCase(Locale.US);
-				}
-				if (key != null) {
-					return key.toLowerCase(Locale.US);
-				}
+				return mapperTokenFromCommandMatch(cmd, dir, key);
 			}
 			if (cmd != null) {
 				String cmdStripped = stripMovementPrefix(cmd.toLowerCase(Locale.US));
 				if (lower.equals(cmdStripped)
 						|| stripMovementPrefix(lower).equals(cmdStripped)) {
-					if (dir != null && dir.length() > 0) {
-						return dir.toLowerCase(Locale.US);
-					}
-					if (key != null) {
-						return key.toLowerCase(Locale.US);
-					}
+					return mapperTokenFromCommandMatch(cmd, dir, key);
 				}
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * When the player typed a Speedwalk <em>key</em> ({@code l}), prefer the
+	 * outbound command if it is a known compass move ({@code se}).
+	 */
+	private static String mapperTokenFromDirectionEntry(String matched,
+			DirectionData d) {
+		String matchedLex = lexiconToken(matched);
+		if (matchedLex != null) {
+			return matchedLex;
+		}
+		if (d != null && d.getCommand() != null) {
+			String cmdLex = lexiconToken(stripMovementPrefix(
+					d.getCommand().toLowerCase(Locale.US)));
+			if (cmdLex != null) {
+				return cmdLex;
+			}
+		}
+		return matched.toLowerCase(Locale.US);
+	}
+
+	/**
+	 * When the player typed the outbound command ({@code se} / {@code go se}),
+	 * keep that compass token — do not replace it with the Speedwalk key.
+	 */
+	private static String mapperTokenFromCommandMatch(String cmd, String dir,
+			String key) {
+		String cmdLex = lexiconToken(stripMovementPrefix(cmd.toLowerCase(Locale.US)));
+		if (cmdLex != null) {
+			return cmdLex;
+		}
+		if (dir != null && dir.length() > 0) {
+			String dirLex = lexiconToken(dir);
+			return dirLex != null ? dirLex : dir.toLowerCase(Locale.US);
+		}
+		if (key != null) {
+			String keyLex = lexiconToken(key);
+			return keyLex != null ? keyLex : key.toLowerCase(Locale.US);
+		}
+		return cmd.toLowerCase(Locale.US);
 	}
 
 	/**
