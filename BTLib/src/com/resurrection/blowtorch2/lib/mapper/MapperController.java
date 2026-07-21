@@ -82,6 +82,17 @@ public class MapperController {
 	private MapperUiBridge mUiBridge;
 	/** When true, ignore outbound commands (path send already recorded). */
 	private boolean mSuppressRecord;
+	private final android.os.Handler mAutosaveHandler =
+			new android.os.Handler(android.os.Looper.getMainLooper());
+	private final Runnable mAutosaveRunnable = new Runnable() {
+		@Override
+		public void run() {
+			try {
+				save();
+			} catch (Exception ignored) {
+			}
+		}
+	};
 
 	public MapperController(final Connection connection) {
 		mConnection = connection;
@@ -756,42 +767,63 @@ public class MapperController {
 	}
 
 	public String link(final String cmd, final String toTileId) {
-		MapTile from = currentTile();
+		return linkBetween(null, cmd, toTileId);
+	}
+
+	/**
+	 * Link {@code fromTileId} (or current tile when null) to {@code toTileId}
+	 * with movement command {@code cmd}.
+	 */
+	public String linkBetween(final String fromTileId, final String cmd,
+			final String toTileId) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		MapTile from = fromTileId != null ? mMap.findTile(fromTileId) : currentTile();
 		if (from == null) {
-			return "Mapper: no current tile.";
+			return "Mapper: no source tile.";
 		}
 		if (TextUtils.isEmpty(cmd)) {
-			return "Mapper: usage .map link <cmd> [to <tileId>]";
+			return "Mapper: usage .map link <cmd> [from <id>] to <tileId>";
 		}
 		if (TextUtils.isEmpty(toTileId)) {
-			return "Mapper: provide target tile id (.map link <cmd> to <id>).";
+			return "Mapper: provide target tile id.";
 		}
 		MapTile to = mMap.findTile(toTileId);
 		if (to == null) {
 			return "Mapper: unknown tile id.";
 		}
 		String norm = normalize(cmd);
+		String stored = MapDirections.storeCommand(cmd, norm);
 		pushUndo();
 		MapExit existing = findExit(from, norm);
 		if (existing != null) {
 			existing.setToId(to.getId());
+			existing.setCommand(stored);
 		} else {
-			String rev = MapDirections.suggestReverse(norm, directionMap());
+			String rev = MapDirections.suggestReverse(stored, directionMap());
 			boolean special = isCardinalGrid(norm) == null;
-			from.addExit(new MapExit(from.getId(), to.getId(), norm, special, rev));
+			from.addExit(new MapExit(from.getId(), to.getId(), stored, special, rev));
 		}
 		if (mAutoReverse) {
-			ensureReverse(from, to, norm);
+			ensureReverse(from, to, stored);
 		}
 		refreshConflicts();
 		notifyChanged();
-		return "Mapper: linked " + norm + " → " + shortId(to.getId()) + ".";
+		return "Mapper: linked " + stored + " → " + shortId(to.getId()) + ".";
 	}
 
 	public String unlink(final String cmd) {
-		MapTile from = currentTile();
+		return unlinkBetween(null, cmd);
+	}
+
+	public String unlinkBetween(final String fromTileId, final String cmd) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		MapTile from = fromTileId != null ? mMap.findTile(fromTileId) : currentTile();
 		if (from == null) {
-			return "Mapper: no current tile.";
+			return "Mapper: no source tile.";
 		}
 		String norm = normalize(cmd);
 		pushUndo();
@@ -799,15 +831,15 @@ public class MapperController {
 		boolean removed = false;
 		for (int i = exits.size() - 1; i >= 0; i--) {
 			MapExit e = exits.get(i);
-			if (e != null && norm.equalsIgnoreCase(e.getCommand())) {
+			if (e != null && norm.equalsIgnoreCase(normalize(e.getCommand()))) {
 				exits.remove(i);
 				removed = true;
 			}
 		}
 		refreshConflicts();
 		notifyChanged();
-		return removed ? "Mapper: unlinked " + norm + "."
-				: "Mapper: no exit \"" + norm + "\" on current tile.";
+		return removed ? "Mapper: unlinked " + cmd + "."
+				: "Mapper: no exit \"" + cmd + "\" on tile.";
 	}
 
 	public String relink(final String cmd, final String toTileId) {
@@ -989,6 +1021,7 @@ public class MapperController {
 		if (norm.length() == 0) {
 			return;
 		}
+		String stored = MapDirections.storeCommand(command, norm);
 
 		int[] delta = isCardinalGrid(norm);
 		boolean special = (delta == null);
@@ -1005,11 +1038,11 @@ public class MapperController {
 			}
 		} else {
 			to = createDestination(from, norm, delta, special);
-			String rev = MapDirections.suggestReverse(norm, directionMap());
-			MapExit exit = new MapExit(from.getId(), to.getId(), norm, special, rev);
+			String rev = MapDirections.suggestReverse(stored, directionMap());
+			MapExit exit = new MapExit(from.getId(), to.getId(), stored, special, rev);
 			from.addExit(exit);
 			if (mAutoReverse && rev != null) {
-				ensureReverse(from, to, norm);
+				ensureReverse(from, to, stored);
 			}
 		}
 
@@ -1038,13 +1071,10 @@ public class MapperController {
 		if (n.equals("d") || n.equals("down")) {
 			return tileOnRelativeLevel(from, -1, norm);
 		}
-		// Other specials: same level, free cell near origin
+		// Other specials: same level, free cell near origin (no auto title —
+		// leave blank until capture/GMCP/manual edit).
 		int[] free = findFreeNear(from.getLevelId(), from.getGridX(), from.getGridY());
-		MapTile twin = createTileAt(from.getLevelId(), free[0], free[1]);
-		if (twin.getTitle() == null) {
-			twin.setTitle("(" + norm + ")");
-		}
-		return twin;
+		return createTileAt(from.getLevelId(), free[0], free[1]);
 	}
 
 	private MapTile tileOnRelativeLevel(final MapTile from, final int levelDelta,
@@ -1072,9 +1102,6 @@ public class MapperController {
 			return at;
 		}
 		MapTile tile = createTileAt(level.getId(), from.getGridX(), from.getGridY());
-		if (tile.getTitle() == null) {
-			tile.setTitle("(" + norm + ")");
-		}
 		return tile;
 	}
 
@@ -1138,8 +1165,9 @@ public class MapperController {
 		if (tile == null || command == null) {
 			return null;
 		}
+		String want = normalize(command);
 		for (MapExit e : tile.getExits()) {
-			if (e != null && command.equalsIgnoreCase(e.getCommand())) {
+			if (e != null && want.equalsIgnoreCase(normalize(e.getCommand()))) {
 				return e;
 			}
 		}
@@ -1340,6 +1368,13 @@ public class MapperController {
 			} catch (Exception ignored) {
 			}
 		}
+		scheduleAutosave();
+	}
+
+	/** Debounced write to {@code /BlowTorch/maps/<name>.json}. */
+	private void scheduleAutosave() {
+		mAutosaveHandler.removeCallbacks(mAutosaveRunnable);
+		mAutosaveHandler.postDelayed(mAutosaveRunnable, 2000);
 	}
 
 	private Context context() {
