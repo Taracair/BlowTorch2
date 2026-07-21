@@ -244,7 +244,6 @@ public class Plugin implements SettingsChangedListener {
 		GetWindowFunction mwf = new GetWindowFunction(L, this);
 		WindowBufferFunction wbf = new WindowBufferFunction(L, this);
 		RegisterFunctionCallback rfc = new RegisterFunctionCallback(L, this);
-		DebugFunction df = new DebugFunction(L);
 		WindowXCallSFunction wxctf = new WindowXCallSFunction(L, this);
 		AppendLineToWindowFunction altwf = new AppendLineToWindowFunction(L, this);
 		InvalidateWindowTextFunction iwtf = new InvalidateWindowTextFunction(L, this);
@@ -561,25 +560,6 @@ Note("Example text!")
 
 	
 
-	
-
-	
-	private class DebugFunction extends JavaFunction {
-
-		public DebugFunction(LuaState L) {
-			super(L);
-			// TODO Auto-generated constructor stub
-		}
-
-		@Override
-		public int execute() throws LuaException {
-			String foo = this.getParam(2).getString();
-			Log.e("LUAWINDOW","DEBUG:"+foo);
-			return 0;
-		}
-		
-	}
-	
 	public void shutdown() {
 		// TODO Auto-generated method stub
 		//L.close();
