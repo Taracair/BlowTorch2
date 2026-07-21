@@ -23,6 +23,10 @@ public class MapperView extends View {
 	public interface TileInteractionListener {
 		void onTileTap(MapTile tile);
 		void onTileLongPress(MapTile tile);
+		/** Empty grid cell tapped (Draw mode). */
+		void onEmptyTap(int gridX, int gridY);
+		/** Empty grid cell long-pressed (Draw mode). */
+		void onEmptyLongPress(int gridX, int gridY);
 	}
 
 	private static final float BASE_TILE = 56f;
@@ -37,6 +41,7 @@ public class MapperView extends View {
 	private final Paint exitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint specialPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint bgPaint = new Paint();
+	private final Paint gridPaint = new Paint();
 	private final RectF tmpRect = new RectF();
 
 	private final ScaleGestureDetector scaleDetector;
@@ -52,6 +57,7 @@ public class MapperView extends View {
 	private float offsetY;
 	private boolean followMode = true;
 	private boolean centeredOnce;
+	private boolean showGrid;
 
 	private float lastPanX;
 	private float lastPanY;
@@ -86,6 +92,9 @@ public class MapperView extends View {
 		specialPaint.setColor(0xFFFFB060);
 		specialPaint.setStyle(Paint.Style.FILL);
 		bgPaint.setColor(0x00000000);
+		gridPaint.setColor(0x33FFFFFF);
+		gridPaint.setStrokeWidth(1f);
+		gridPaint.setStyle(Paint.Style.STROKE);
 
 		scaleDetector = new ScaleGestureDetector(context,
 				new ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -121,7 +130,11 @@ public class MapperView extends View {
 							}
 							return true;
 						}
-						return false;
+						if (listener != null) {
+							int[] g = screenToGrid(e.getX(), e.getY());
+							listener.onEmptyTap(g[0], g[1]);
+						}
+						return true;
 					}
 
 					@Override
@@ -133,6 +146,11 @@ public class MapperView extends View {
 							if (listener != null) {
 								listener.onTileLongPress(tile);
 							}
+							return;
+						}
+						if (listener != null) {
+							int[] g = screenToGrid(e.getX(), e.getY());
+							listener.onEmptyLongPress(g[0], g[1]);
 						}
 					}
 
@@ -192,6 +210,26 @@ public class MapperView extends View {
 		return followMode;
 	}
 
+	public void setShowGrid(boolean showGrid) {
+		this.showGrid = showGrid;
+		invalidate();
+	}
+
+	public boolean isShowGrid() {
+		return showGrid;
+	}
+
+	/** Convert screen coordinates to map grid cell. */
+	public int[] screenToGrid(float x, float y) {
+		float tileSize = BASE_TILE * scale;
+		if (tileSize < 1f) {
+			tileSize = 1f;
+		}
+		int gx = (int) Math.floor((x - offsetX) / tileSize);
+		int gy = (int) Math.floor((y - offsetY) / tileSize);
+		return new int[] { gx, gy };
+	}
+
 	public void centerOnCurrentTile(boolean animateIgnored) {
 		MapTile tile = findTile(currentTileId);
 		if (tile == null && tiles.size() > 0) {
@@ -225,6 +263,22 @@ public class MapperView extends View {
 		super.onDraw(canvas);
 		canvas.drawRect(0, 0, getWidth(), getHeight(), bgPaint);
 		float tileSize = BASE_TILE * scale;
+		if (showGrid && tileSize > 8f && getWidth() > 0 && getHeight() > 0) {
+			int minX = (int) Math.floor((-offsetX) / tileSize) - 1;
+			int maxX = (int) Math.ceil((getWidth() - offsetX) / tileSize) + 1;
+			int minY = (int) Math.floor((-offsetY) / tileSize) - 1;
+			int maxY = (int) Math.ceil((getHeight() - offsetY) / tileSize) + 1;
+			maxX = Math.min(maxX, minX + 40);
+			maxY = Math.min(maxY, minY + 60);
+			for (int gx = minX; gx <= maxX; gx++) {
+				float x = offsetX + gx * tileSize;
+				canvas.drawLine(x, 0, x, getHeight(), gridPaint);
+			}
+			for (int gy = minY; gy <= maxY; gy++) {
+				float y = offsetY + gy * tileSize;
+				canvas.drawLine(0, y, getWidth(), y, gridPaint);
+			}
+		}
 		textPaint.setTextSize(Math.max(8f, 11f * scale));
 
 		for (MapTile tile : tiles) {
