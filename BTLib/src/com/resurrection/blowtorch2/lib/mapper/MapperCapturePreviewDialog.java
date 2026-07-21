@@ -63,8 +63,11 @@ public class MapperCapturePreviewDialog extends Dialog {
 		root.addView(titleLabel);
 
 		titleRegex = new EditText(getContext());
-		titleRegex.setHint("^([A-Z].*)$");
+		titleRegex.setHint(MapperController.DEFAULT_CAPTURE_TITLE_REGEX);
 		titleRegex.setSingleLine(true);
+		String titlePrefill = controller != null ? controller.getCaptureTitleRegex() : null;
+		titleRegex.setText(titlePrefill != null ? titlePrefill
+				: MapperController.DEFAULT_CAPTURE_TITLE_REGEX);
 		root.addView(titleRegex);
 
 		TextView exitsLabel = new TextView(getContext());
@@ -73,8 +76,11 @@ public class MapperCapturePreviewDialog extends Dialog {
 		root.addView(exitsLabel);
 
 		exitsRegex = new EditText(getContext());
-		exitsRegex.setHint("(?i)exits?:\\s*(.*)");
+		exitsRegex.setHint(MapperController.DEFAULT_CAPTURE_EXITS_REGEX);
 		exitsRegex.setSingleLine(true);
+		String exitsPrefill = controller != null ? controller.getCaptureExitsRegex() : null;
+		exitsRegex.setText(exitsPrefill != null ? exitsPrefill
+				: MapperController.DEFAULT_CAPTURE_EXITS_REGEX);
 		root.addView(exitsRegex);
 
 		Button previewBtn = new Button(getContext());

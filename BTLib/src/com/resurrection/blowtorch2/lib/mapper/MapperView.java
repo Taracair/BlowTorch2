@@ -45,6 +45,8 @@ public class MapperView extends View {
 	private static final float BASE_TILE = 56f;
 	private static final float MIN_SCALE = 0.35f;
 	private static final float MAX_SCALE = 3.5f;
+	/** Step factor for {@link #zoomIn()}/{@link #zoomOut()} (CLI / buttons). */
+	private static final float ZOOM_STEP = 1.25f;
 	/** Grid pitch multiplier when Paths layout is on (space for arrows). */
 	private static final float PATHS_PITCH = 1.75f;
 	/** Drawn tile body as a fraction of the cell (Paths leaves a wide gutter). */
@@ -425,6 +427,55 @@ public class MapperView extends View {
 		float cs = cellSize();
 		offsetX = getWidth() * 0.5f - (tile.getGridX() * cs + cs * 0.5f);
 		offsetY = getHeight() * 0.5f - (tile.getGridY() * cs + cs * 0.5f);
+		invalidate();
+	}
+
+	/** Zoom in by {@link #ZOOM_STEP}, keeping the view center stable. */
+	public void zoomIn() {
+		zoomAtViewCenter(scale * ZOOM_STEP);
+	}
+
+	/** Zoom out by {@link #ZOOM_STEP}, keeping the view center stable. */
+	public void zoomOut() {
+		zoomAtViewCenter(scale / ZOOM_STEP);
+	}
+
+	/** Reset scale to 1, keeping the view center stable. */
+	public void zoomReset() {
+		zoomAtViewCenter(1f);
+	}
+
+	/**
+	 * Multiply current scale by {@code factor}, keeping the view center stable.
+	 * Same focus math as pinch zoom with focus at the view midpoint.
+	 */
+	public void zoomBy(float factor) {
+		if (factor <= 0f || Float.isNaN(factor) || Float.isInfinite(factor)) {
+			return;
+		}
+		zoomAtViewCenter(scale * factor);
+	}
+
+	/** Apply a target scale while pinning the world point under the view center. */
+	private void zoomAtViewCenter(float nextScale) {
+		followMode = false;
+		float prev = scale;
+		float next = clamp(nextScale, MIN_SCALE, MAX_SCALE);
+		if (prev <= 0f || Math.abs(next - prev) < 0.0001f) {
+			return;
+		}
+		if (getWidth() <= 0 || getHeight() <= 0) {
+			scale = next;
+			invalidate();
+			return;
+		}
+		float focusX = getWidth() * 0.5f;
+		float focusY = getHeight() * 0.5f;
+		float worldX = (focusX - offsetX) / prev;
+		float worldY = (focusY - offsetY) / prev;
+		scale = next;
+		offsetX = focusX - worldX * scale;
+		offsetY = focusY - worldY * scale;
 		invalidate();
 	}
 

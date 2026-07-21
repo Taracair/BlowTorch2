@@ -27,6 +27,13 @@ public interface MapperUiBridge {
 	/** Center the view on the current player tile (if known). */
 	void centerOnPlayer();
 
+	/**
+	 * Zoom the map view.
+	 *
+	 * @param action {@code in}, {@code out}, {@code reset}, or a float scale factor
+	 */
+	void zoomMap(String action);
+
 	/** Request a redraw after map/controller state changed. */
 	void onMapModelChanged();
 }
