@@ -269,27 +269,35 @@ Mapper
     Current   = green = where the mapper thinks you are
     Selected  = yellow outline = tapped tile
     Follow    = camera tracks current (pan/pinch turns it off)
+    Level nest = floor anchored on a door/stairs tile (not a global stack)
   Maps: JSON under /BlowTorch/maps/ (autosave ~2s; Save / .map export)
   .map export|save [path] — bare = maps dir; with path = write JSON there
   .map import <path|name> — absolute / BlowTorch-relative path, or maps name;
                             then copy into /BlowTorch/maps/
 
+  Title: map · L-1 ← Hallway when on a nested floor (← = door you entered).
+  [REC] = recording. Long-press title = ◎ radial menu.
+
   Toolbar (map window):
-    Rec/Stop, Follow, L-/L+, Find, Undo, Center
-    Links  — tap FROM then TO, enter walk verb (or unlink)
-    Paths/Pack — Paths spaces tiles for arrows; Pack compresses
-    Draw   — tap empty=place; long-press empty=place+Here
-    Here, Edit, Save
+    Rec/Stop, Follow, L-/L+, Find, Undo, Center   (CSV-configurable)
+    Links, Paths/Pack, Levels, ◎, Draw, Here, Edit, Save  (always present)
     Full/Float/✕
+  Links = tap FROM then TO, enter walk verb (or unlink)
+  Paths/Pack = Paths spaces tiles for arrows; Pack compresses
+  Draw = tap empty=place; long-press empty=place+Here
+  L-/L+ = nest down/up from Here (follow/create that tile’s pocket, or return
+    to the anchor). Not a global level list.
+  Levels = browse floors (list + via anchor); tap = view; long-press = Here.
+    Does not create. Also: tap ▲/▼/◆ badges on tiles that lead elsewhere.
+  ◎ radial: Levels, Floor ↑/↓, Paths, Draw, Links, Here, Save
   Long-press tile + drag = move (release without move = tile menu).
   Double-tap tile = Set as Here. Double-tap empty = center on current.
-  Left toolbar group is Options → Mapper → Toolbar CSV; Links / Paths/Pack /
-  Draw / Here / Edit / Save are always appended. Optional CSV token: capture.
+  Left toolbar group is Options → Mapper → Toolbar CSV; optional CSV: capture.
 
   Movement lexicon (+x east, +y south; .map dirs for full list):
     n/s/e/w (+ go/walk/move prefixes) → grid neighbor
     ne/nw/se/sw → diagonals
-    u/up/climb, d/down/descend → level change
+    u/up/climb, d/down/descend → level change while Recording
     in/enter, out/leave/exit, other → special (nearby cell)
   Built-in compass wins over Speedwalk keys (default .run h/j/k/l = nw/ne/sw/se),
   so go se still maps southeast. Custom Speedwalk commands still apply for
@@ -299,9 +307,12 @@ Mapper
     .map record on|off|toggle   (alias: rec)
     .map follow on|off|toggle
   With record on, outbound movement builds tiles/exits. Follow centers on you.
+  up/down while Recording still works; L-/L+ is the manual nest tool for weird
+  MUDs (e.g. west into a cellar).
 
-  Levels (L-/L+ switch floors; at the edge they create a new level and move Here):
+  Levels (tile-anchored nests from Here):
     .map level list|prev|next|set <name>
+      prev/next = L-/L+ nest semantics (not global stack index)
     .map level move <tileId> <levelName>
 
   Find / path / goto:
@@ -345,7 +356,8 @@ Mapper
 
   Exits draw as arrows with walk-word labels. Paths spaces tiles for arrows.
   If more than two commands share an edge, the label shows "cmd1 · cmd2 +N";
-  tap to list (and optionally unlink).
+  tap to list (and optionally unlink). Cross-level exits: ▲/▼/◆ badges;
+  tap to jump (browse only).
 
   GMCP Room: when Use GMCP? and Options → Mapper → Use GMCP Room are on,
   Room.* syncs the current room title and creates missing neighbors from
@@ -361,7 +373,8 @@ Mapper
 
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
   recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
-  toolbar actions CSV, capture title/exits regex).
+  toolbar actions CSV, capture title/exits regex). Levels and ◎ are always
+  on the map toolbar.
 
   Typical flows:
     Record: .map new mymap → open → Rec → walk → Stop → Save

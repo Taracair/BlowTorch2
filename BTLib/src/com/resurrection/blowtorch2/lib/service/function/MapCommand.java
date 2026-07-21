@@ -582,6 +582,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map record|rec on|off|toggle\n");
 		sb.append("  .map follow on|off|toggle\n");
 		sb.append("  .map level list|prev|next|set <name>|move <tileId> <level>\n");
+		sb.append("      (L-/L+ = nest under/above Here; does not move the door tile)\n");
 		sb.append("  .map find|search <query> | .map path <query> | .map goto|go <query>\n");
 		sb.append("  .map title <text> | .map note|notes <text>\n");
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
