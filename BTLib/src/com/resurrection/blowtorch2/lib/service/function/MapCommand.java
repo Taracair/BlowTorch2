@@ -125,36 +125,20 @@ public class MapCommand extends SpecialCommand {
 	}
 
 	private Object doOpen(Connection c, MapperController mapper) {
-		MapperUiBridge bridge = mapper.getUiBridge();
-		if (bridge != null) {
-			bridge.openMapUi();
-			note(c, "Mapper: open.");
-		} else {
-			note(c, "Mapper: UI not ready (no MapperUiBridge). Engine is active — "
-					+ statusLine(mapper));
-		}
+		c.requestMapperUi(1);
+		note(c, "Mapper: open.");
 		return null;
 	}
 
 	private Object doClose(Connection c, MapperController mapper) {
-		MapperUiBridge bridge = mapper.getUiBridge();
-		if (bridge != null) {
-			bridge.closeMapUi();
-			note(c, "Mapper: close.");
-		} else {
-			note(c, "Mapper: UI not ready.");
-		}
+		c.requestMapperUi(2);
+		note(c, "Mapper: close.");
 		return null;
 	}
 
 	private Object doToggle(Connection c, MapperController mapper) {
-		MapperUiBridge bridge = mapper.getUiBridge();
-		if (bridge != null) {
-			bridge.toggleMapUi();
-			note(c, "Mapper: toggle.");
-		} else {
-			note(c, "Mapper: UI not ready — " + statusLine(mapper));
-		}
+		c.requestMapperUi(3);
+		note(c, "Mapper: toggle.");
 		return null;
 	}
 
@@ -180,11 +164,15 @@ public class MapCommand extends SpecialCommand {
 			mapper.setFollow(true);
 		} else if (a.equals("off") || a.equals("0") || a.equals("false")) {
 			mapper.setFollow(false);
-		} else if (a.length() == 0) {
-			note(c, "Mapper follow: " + (mapper.isFollowPlayer() ? "on" : "off"));
-			return null;
+		} else if (a.equals("toggle") || a.length() == 0) {
+			if (a.equals("toggle")) {
+				mapper.setFollow(!mapper.isFollowPlayer());
+			} else {
+				note(c, "Mapper follow: " + (mapper.isFollowPlayer() ? "on" : "off"));
+				return null;
+			}
 		} else {
-			note(c, "Usage: .map follow on|off");
+			note(c, "Usage: .map follow on|off|toggle");
 			return null;
 		}
 		note(c, "Mapper follow: " + (mapper.isFollowPlayer() ? "on" : "off"));
