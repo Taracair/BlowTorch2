@@ -206,6 +206,8 @@ public final class MapStore {
 			o.put("id", nullToEmpty(level.getId()));
 			o.put("name", nullToEmpty(level.getName()));
 			o.put("index", level.getIndex());
+			o.put("anchorTileId", nullToEmpty(level.getAnchorTileId()));
+			o.put("anchorDir", nullToEmpty(level.getAnchorDir()));
 			levels.put(o);
 		}
 		root.put("levels", levels);
@@ -280,7 +282,9 @@ public final class MapStore {
 				MapLevel level = new MapLevel(
 						o.optString("id", null),
 						emptyToNull(o.optString("name", "")),
-						o.optInt("index", i));
+						o.optInt("index", i),
+						emptyToNull(o.optString("anchorTileId", "")),
+						emptyToNull(o.optString("anchorDir", "")));
 				list.add(level);
 			}
 			map.setLevels(list);
