@@ -15,6 +15,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.alias.AliasParser;
+import com.resurrection.blowtorch2.lib.mapper.MapDirections;
 import com.resurrection.blowtorch2.lib.script.ScriptData;
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.WindowToken;
@@ -75,7 +76,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		mapper_auto_reverse_link, mapper_accept_one_way_specials,
 		mapper_toolbar_actions,
 		mapper_capture_title_regex, mapper_capture_exits_regex,
-		mapper_level_up_commands, mapper_level_down_commands
+		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -670,6 +671,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case mapper_level_down_commands:
 						if(opt.getValue() != null && !((String)opt.getValue()).equals(
 								"d,down,descend")) {
+							dooutput = true;
+						}
+						break;
+					case mapper_move_effects:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals(
+								MapDirections.defaultMoveEffectsString())) {
 							dooutput = true;
 						}
 						break;

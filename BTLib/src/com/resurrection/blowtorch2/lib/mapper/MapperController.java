@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -111,6 +112,10 @@ public class MapperController {
 	private Map<String, Integer> mLevelDeltas = MapDirections.parseLevelCommandLists(
 			MapDirections.DEFAULT_LEVEL_UP_COMMANDS,
 			MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
+	/** Planar + special (+ level overlay) command → map effect. */
+	private String mMoveEffectsString = MapDirections.defaultMoveEffectsString();
+	private Map<String, MapMoveEffect> mMoveEffects =
+			MapDirections.defaultMoveEffects();
 	private String mSelectedTileId;
 	/** Last `.map capture preview` result for `.map capture apply`. */
 	private CapturePreview mLastCapturePreview;
@@ -133,6 +138,7 @@ public class MapperController {
 	public MapperController(final Connection connection) {
 		mConnection = connection;
 		mRecording = false;
+		rebuildMoveEffects();
 		ensureBlankMap(DEFAULT_MAP_NAME);
 		registerInstance();
 	}
@@ -144,6 +150,7 @@ public class MapperController {
 	public MapperController(final Object uiHostIgnored) {
 		mConnection = null;
 		mRecording = false;
+		rebuildMoveEffects();
 		ensureBlankMap(DEFAULT_MAP_NAME);
 	}
 
@@ -564,7 +571,7 @@ public class MapperController {
 		}
 		String norm = normalize(cmd);
 		String stored = MapDirections.storeCommand(cmd, norm);
-		int[] delta = MapDirections.gridDelta(norm);
+		int[] delta = gridDeltaFor(norm);
 		boolean special = (delta == null);
 		pushUndo();
 		MapExit existing = findExit(from, norm);
@@ -810,13 +817,144 @@ public class MapperController {
 		} else {
 			mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
 		}
-		rebuildLevelDeltas();
+		String moves = stringOpt("mapper_move_effects", null);
+		if (moves != null && moves.trim().length() > 0) {
+			mMoveEffectsString = moves.trim();
+		} else {
+			mMoveEffectsString = MapDirections.defaultMoveEffectsString();
+		}
+		rebuildMoveEffects();
 		notifyChanged();
 	}
 
 	private void rebuildLevelDeltas() {
 		mLevelDeltas = MapDirections.parseLevelCommandLists(
 				mLevelUpCommands, mLevelDownCommands);
+	}
+
+	private void rebuildMoveEffects() {
+		LinkedHashMap<String, MapMoveEffect> base =
+				MapDirections.parseMoveEffects(mMoveEffectsString);
+		if (base.isEmpty()) {
+			base = MapDirections.defaultMoveEffects();
+		}
+		MapDirections.applyLevelCommands(base, mLevelUpCommands,
+				mLevelDownCommands);
+		mMoveEffects = base;
+		rebuildLevelDeltas();
+	}
+
+	/** Compact planar+special table (levels live in Level-Up/Down CSV). */
+	public String getMoveEffectsString() {
+		return mMoveEffectsString;
+	}
+
+	/**
+	 * Combined editable table (planar + special + level) for the Moves dialog.
+	 */
+	public String getCombinedMoveEffectsDisplay() {
+		return MapDirections.serializeMoveEffects(mMoveEffects, false);
+	}
+
+	/** Effective move-effect lookup table (includes level CSV overlay). */
+	public Map<String, MapMoveEffect> getMoveEffects() {
+		return mMoveEffects;
+	}
+
+	/**
+	 * Replace planar+special table from Options / {@code .map moves replace}.
+	 * Does not clear level CSVs. Does not re-write Options (caller may be
+	 * the Options listener).
+	 */
+	public void setMoveEffectsString(final String table) {
+		if (table == null || table.trim().length() == 0) {
+			mMoveEffectsString = MapDirections.defaultMoveEffectsString();
+		} else {
+			mMoveEffectsString = table.trim();
+		}
+		rebuildMoveEffects();
+		notifyChanged();
+	}
+
+	/**
+	 * Apply a combined dialog/CLI table: splits LEVEL rows into Level CSVs
+	 * and the rest into {@code mapper_move_effects}.
+	 */
+	public String applyCombinedMoveEffects(final String combined) {
+		LinkedHashMap<String, MapMoveEffect> parsed =
+				MapDirections.parseMoveEffects(combined);
+		if (parsed.isEmpty() && combined != null
+				&& combined.trim().length() > 0) {
+			return "Mapper: no valid move lines (need cmd=grid:dx:dy | level:N | special).";
+		}
+		if (parsed.isEmpty()) {
+			mMoveEffectsString = MapDirections.defaultMoveEffectsString();
+			mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
+			mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
+		} else {
+			String[] split = MapDirections.splitCombinedEffects(parsed);
+			mMoveEffectsString = split[0] != null && split[0].length() > 0
+					? split[0] : MapDirections.defaultMoveEffectsString();
+			mLevelUpCommands = split[1] != null ? split[1] : "";
+			mLevelDownCommands = split[2] != null ? split[2] : "";
+		}
+		rebuildMoveEffects();
+		persistMapperOption("mapper_move_effects", mMoveEffectsString);
+		persistMapperOption("mapper_level_up_commands", mLevelUpCommands);
+		persistMapperOption("mapper_level_down_commands", mLevelDownCommands);
+		notifyChanged();
+		return "Mapper: moves updated (" + mMoveEffects.size() + " entries).";
+	}
+
+	public String resetMoveEffects() {
+		mMoveEffectsString = MapDirections.defaultMoveEffectsString();
+		mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
+		mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
+		rebuildMoveEffects();
+		persistMapperOption("mapper_move_effects", mMoveEffectsString);
+		persistMapperOption("mapper_level_up_commands", mLevelUpCommands);
+		persistMapperOption("mapper_level_down_commands", mLevelDownCommands);
+		notifyChanged();
+		return "Mapper: moves reset to defaults.";
+	}
+
+	public String setOneMoveEffect(final String cmd, final MapMoveEffect effect) {
+		if (cmd == null || cmd.trim().length() == 0 || effect == null) {
+			return "Mapper: usage .map moves set <cmd> grid <dx> <dy>|level <n>|special";
+		}
+		String key = cmd.trim().toLowerCase(Locale.US);
+		LinkedHashMap<String, MapMoveEffect> copy =
+				new LinkedHashMap<String, MapMoveEffect>(mMoveEffects);
+		copy.put(key, effect);
+		return applyCombinedMoveEffects(
+				MapDirections.serializeMoveEffects(copy, false));
+	}
+
+	public String unsetOneMoveEffect(final String cmd) {
+		if (cmd == null || cmd.trim().length() == 0) {
+			return "Mapper: usage .map moves unset <cmd>";
+		}
+		String key = cmd.trim().toLowerCase(Locale.US);
+		LinkedHashMap<String, MapMoveEffect> copy =
+				new LinkedHashMap<String, MapMoveEffect>(mMoveEffects);
+		if (copy.remove(key) == null) {
+			return "Mapper: no move effect for \"" + key + "\".";
+		}
+		return applyCombinedMoveEffects(
+				MapDirections.serializeMoveEffects(copy, false));
+	}
+
+	private void persistMapperOption(final String key, final String value) {
+		if (mConnection == null || key == null) {
+			return;
+		}
+		try {
+			if (mConnection.getSettings() != null) {
+				mConnection.getSettings().setOption(key,
+						value != null ? value : "");
+			}
+		} catch (Exception ignored) {
+		}
 	}
 
 	/** CSV of commands that create a higher floor while recording. */
@@ -832,14 +970,14 @@ public class MapperController {
 	public void setLevelUpCommands(final String csv) {
 		mLevelUpCommands = csv != null ? csv.trim()
 				: MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
-		rebuildLevelDeltas();
+		rebuildMoveEffects();
 		notifyChanged();
 	}
 
 	public void setLevelDownCommands(final String csv) {
 		mLevelDownCommands = csv != null ? csv.trim()
 				: MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
-		rebuildLevelDeltas();
+		rebuildMoveEffects();
 		notifyChanged();
 	}
 
@@ -848,7 +986,23 @@ public class MapperController {
 	 * Empty Options lists disable auto level creation.
 	 */
 	public Integer levelDeltaFor(final String token) {
+		MapMoveEffect e = MapDirections.effectFor(token, mMoveEffects);
+		if (e != null && e.kind == MapMoveEffect.Kind.LEVEL) {
+			return Integer.valueOf(e.levelDelta);
+		}
 		return MapDirections.levelDelta(token, mLevelDeltas);
+	}
+
+	/** Grid offset from the editable move table (null = not planar). */
+	public int[] gridDeltaFor(final String token) {
+		MapMoveEffect e = MapDirections.effectFor(token, mMoveEffects);
+		if (e != null) {
+			if (e.kind == MapMoveEffect.Kind.GRID) {
+				return new int[] { e.dx, e.dy };
+			}
+			return null;
+		}
+		return MapDirections.gridDelta(token);
 	}
 
 	private boolean mSettingsApplied;
@@ -1294,7 +1448,7 @@ public class MapperController {
 				continue;
 			}
 			String stored = MapDirections.storeCommand(ex, norm);
-			int[] delta = MapDirections.gridDelta(norm);
+			int[] delta = gridDeltaFor(norm);
 			boolean special = (delta == null);
 			MapTile to = createDestination(current, norm, delta, special);
 			String rev = MapDirections.suggestReverse(stored, directionMap());
@@ -1471,7 +1625,7 @@ public class MapperController {
 			existing.setCommand(stored);
 		} else {
 			String rev = MapDirections.suggestReverse(stored, directionMap());
-			boolean special = MapDirections.gridDelta(norm) == null;
+			boolean special = gridDeltaFor(norm) == null;
 			from.addExit(new MapExit(from.getId(), to.getId(), stored, special, rev));
 		}
 		if (mAutoReverse) {
@@ -2007,7 +2161,7 @@ public class MapperController {
 		}
 		String stored = MapDirections.storeCommand(command, norm);
 
-		int[] delta = MapDirections.gridDelta(norm);
+		int[] delta = gridDeltaFor(norm);
 		boolean special = (delta == null);
 
 		pushUndo();
@@ -2208,7 +2362,7 @@ public class MapperController {
 		if (findExit(to, revNorm) != null || findExitTo(to, from.getId()) != null) {
 			return;
 		}
-		boolean special = MapDirections.gridDelta(revNorm) == null;
+		boolean special = gridDeltaFor(revNorm) == null;
 		String storedRev = MapDirections.storeCommand(rev, revNorm);
 		to.addExit(new MapExit(to.getId(), from.getId(), storedRev, special, forwardCmd));
 	}
@@ -2427,11 +2581,11 @@ public class MapperController {
 		if (rev == null || rev.length() == 0) {
 			rev = MapDirections.opposite(D);
 		}
-		boolean special = MapDirections.gridDelta(normalize(stored)) == null;
+		boolean special = gridDeltaFor(normalize(stored)) == null;
 		here.addExit(new MapExit(here.getId(), landing.getId(), stored, special, rev));
 		if (mAutoReverse && rev != null && rev.length() > 0) {
 			String revNorm = normalize(rev);
-			boolean revSpecial = MapDirections.gridDelta(revNorm) == null;
+			boolean revSpecial = gridDeltaFor(revNorm) == null;
 			landing.addExit(new MapExit(landing.getId(), here.getId(), rev, revSpecial,
 					stored));
 		}
