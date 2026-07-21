@@ -376,6 +376,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Settings export/import/load orchestration. */
 	private final ConnectionSettingsIO mSettingsIO = new ConnectionSettingsIO(this);
+
+	/** Session file-log option wrappers. */
+	private final ConnectionSessionLog mSessionLog = new ConnectionSessionLog(this);
 	
 	/** Instance of our parent service. This is bad. */
 	StellarService mService = null;
@@ -541,12 +544,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mAutoReconnectAttempt = 0;
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
-				SessionLogger.setEnabled(mService.getApplicationContext(), isSessionLogEnabled());
-				applySessionLogDirectory();
-				if (SessionLogger.isEnabled(mService.getApplicationContext())) {
-					SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
-					SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "connected");
-				}
+				mSessionLog.onConnected();
 				if (mProcessor != null) {
 					mProcessor.setLogProfile(mDisplay);
 					mGmcp.applyGmcpLogSetting();
@@ -772,31 +770,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @param message The message to show.
 	 */
-	private boolean isSessionLogEnabled() {
-		try {
-			Object opt = mSettings.getSettings().getOptions().findOptionByKey("session_log");
-			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
-				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt).getValue();
-				return val instanceof Boolean && (Boolean) val;
-			}
-		} catch (Exception ignored) {
-		}
-		return SessionLogger.isEnabled(mService.getApplicationContext());
-	}
-
-	private void applySessionLogDirectory() {
-		try {
-			Object opt = mSettings.getSettings().getOptions().findOptionByKey("session_log_directory");
-			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption) {
-				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption) opt).getValue();
-				if (val instanceof String) {
-					SessionLogger.setCustomDirectory(mService.getApplicationContext(), (String) val);
-				}
-			}
-		} catch (Exception ignored) {
-		}
-	}
-
 	protected final void dispatchLuaError(final String message) {
 		BlowTorchLogger.logError(mService.getApplicationContext(), mDisplay, message);
 		String human = BlowTorchLogger.humanizeError(message);
@@ -3545,10 +3518,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				this.doSetUseMSSP((Boolean) o.getValue());
 				break;
 			case session_log:
-				doSetSessionLog((Boolean) o.getValue());
+				mSessionLog.doSetSessionLog((Boolean) o.getValue());
 				break;
 			case session_log_directory:
-				doSetSessionLogDirectory((String) o.getValue());
+				mSessionLog.doSetSessionLogDirectory((String) o.getValue());
 				break;
 			case default_settings_directory:
 				// Path is read when importing/exporting; nothing live to apply.
@@ -3556,23 +3529,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			default:
 				break;
 			}
-	}
-
-	private void doSetSessionLog(final boolean enabled) {
-		SessionLogger.setEnabled(mService.getApplicationContext(), enabled);
-		if (enabled) {
-			applySessionLogDirectory();
-			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
-			SessionLogger.appendMarker(mService.getApplicationContext(), mDisplay, "logging enabled");
-		}
-	}
-
-	private void doSetSessionLogDirectory(final String path) {
-		SessionLogger.setCustomDirectory(mService.getApplicationContext(),
-				path != null ? path : "");
-		if (SessionLogger.isEnabled(mService.getApplicationContext())) {
-			SessionLogger.startSession(mService.getApplicationContext(), mDisplay);
-		}
 	}
 
 	public final String getGmcpModuleStatus() {
