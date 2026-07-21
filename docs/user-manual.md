@@ -199,7 +199,7 @@ stays under the ⋮ chrome so overflow remains reachable.
 | **Level nest** | A floor anchored on a door/stairs tile (not one global stack) |
 
 Maps are JSON files under `/BlowTorch/maps/` (autosave ~2s after changes; **Save**
-on the toolbar or `.map export` / `.map save` forces a write). With a path,
+in **File** or `.map export` / `.map save` forces a write). With a path,
 `.map export|save <path>` writes JSON there (absolute or BlowTorch-relative).
 `.map import <path|name>` loads JSON from an absolute/BlowTorch-relative path
 or a maps-dir name, then copies it into `/BlowTorch/maps/`.
@@ -208,22 +208,21 @@ Title bar shows a breadcrumb when you are on a nested floor, e.g.
 `map · L-1 ← Hallway` (map name · level · door you entered from). **[REC]** means
 recording is on. The title also has a **Browse | Edit** segment (**Browse** is
 default). **Edit** is required to create nests, use **Draw** / **Links**, and
-delete levels. Long-press the title for a radial shortcut.
+delete levels. Long-press the title opens the **Floors** radial.
 
-### Toolbar (map window)
+### Category radials (top chips)
 
-| Control | What it does |
-|---------|----------------|
-| **Rec** / **Stop** | Toggle recording outbound movement into the graph |
-| **Follow** | Toggle camera follow |
-| **L−** / **L+** | Nest **down** / **up** from **Here**. In **Browse**: follow existing nest or return via the anchor only. Creating a nest needs **Edit**. Not a global level list |
-| **Find** | Search rooms |
-| **Undo** | Undo last graph change |
-| **Center** | Center on current |
-| **↕** | **Levels** radial: List, ↑, ↓, Root, Door, Delete (**Delete** = **Edit** only) |
-| **⚙** | **Tools** radial: Paths, Draw, Links, Here, Edit, Save, Find, Rec |
+Under the title: **Nav** · **Floors** · **Build** · **File**. Each opens an
+in-map pie menu (no system status-bar flash).
 
-**Levels** (List): tap a floor to view; long-press = Go Here. In **Edit**, the
+| Chip | Actions |
+|------|---------|
+| **Nav** | Rec, Follow, Center, Find, Undo, Close |
+| **Floors** | List, ↑, ↓, Root, Door, Delete (**Delete** = **Edit** only) |
+| **Build** | Draw, Links, Paths, Here, Edit (tile) |
+| **File** | Save, Maps, New, Export |
+
+**Floors → List**: tap a floor to view; long-press = Go Here. In **Edit**, the
 browser also offers **Delete…** (confirm) — removes that floor and all its tiles.
 You cannot delete the last level.
 
@@ -231,13 +230,12 @@ You cannot delete the last level.
 **Links** (Edit): tap FROM then TO, then enter a walk verb (or unlink).
 **Paths** / **Pack**: Paths spaces tiles for arrows; Pack compresses neighbors.
 **Here**: set current to the selected tile. Tile **Edit** dialog: title / notes /
-level / exits. **Save**: write map file now. **Full** / **Float** / **✕**:
-presentation mode / close.
+level / exits. **Save** / **Export**: write map file now. **Full** / **Float** /
+**✕**: presentation mode / close.
 
 Long-press a tile and drag to move it on the grid (release without moving opens the
 tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
-current. The left toolbar group comes from **Options → Mapper → Toolbar actions**;
-**↕** (Levels) and **⚙** (Tools) are always appended (no duplicate Draw/Links strip).
+current.
 
 Exits with a known destination draw as **arrows** between tiles with walk-word labels
 (`go west`, `n`, …). Use **Paths** so arrows/labels fit between tiles. If more than
@@ -248,15 +246,14 @@ badges on the tile; tap a badge to jump to that floor (browse only).
 ### Levels (tile-anchored)
 
 Floors nest **per Here tile**: each stairs/door can have its own basement or attic.
-**L−** / **L+** follow an existing nest from Here or return to the anchor door when
-leaving (**Browse**). Creating a nest needs **Edit**. They are the manual tool for
-odd MUDs (e.g. west into a cellar).
+**↑** / **↓** (Floors radial) follow an existing nest from Here or return to the
+anchor door when leaving (**Browse**). Creating a nest needs **Edit**.
 
-**Browse floors:** **↕ → List** (name, tile count, “via …” for nests; tap = view;
-long-press = Go Here), or tap ▲/▼/◆ badges. Radial **↑** / **↓** match **L+** /
-**L−**. **Root** / **Door** jump to the root floor or the nest’s anchor door.
+**Browse floors:** **Floors → List** (name, tile count, “via …” for nests; tap =
+view; long-press = Go Here), or tap ▲/▼/◆ badges. **Root** / **Door** jump to the
+root floor or the nest’s anchor door.
 
-Recording still maps `up`/`down` while you walk. Use **L−**/**L+** when you need a
+Recording still maps `up`/`down` while you walk. Use **↑**/**↓** when you need a
 pocket floor that is not a simple vertical stack.
 
 ### Movement lexicon
@@ -319,22 +316,21 @@ Print the summary with `.map dirs`.
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links,
-toolbar actions CSV (optional `capture` token opens the Capture dialog;
-**↕** Levels and **⚙** Tools are always on the toolbar),
+legacy toolbar CSV (UI uses **Nav/Floors/Build/File** chips),
 **Capture Title Regex** / **Capture Exits Regex** (keys
 `mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
-`.map capture` and the Capture dialog).
+`.map capture`).
 
 **GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` syncs the current
 room title (and related hints) and creates missing neighbors from Room exits
 (compass / level / special), without deleting exits not in the GMCP list.
 Without GMCP (typical on many MOOs), use **Rec** while walking, switch to
-**Edit** for **Draw** / **Links**, and/or **Capture** (toolbar or `.map capture`).
+**Edit** for **Draw** / **Links**, and/or `.map capture`.
 
 ### Typical workflows
 
-1. **Record while exploring:** `.map new mymap` → open map → **Rec** → walk → **Stop** → **Save**.
-2. **Draw by hand:** title **Edit** → **⚙ → Draw** → tap empty cells → **Links** (or **Add neighbor**) → **Here** on your room.
+1. **Record while exploring:** `.map new mymap` → open map → **Nav → Rec** → walk → Rec again to stop → **File → Save**.
+2. **Draw by hand:** title **Edit** → **Build → Draw** → tap empty cells → **Links** → **Here** on your room.
 3. **Fix layout:** long-press a tile and drag (or **Move…**). Use **Paths** to see arrows.
 
 ### `.run` defaults

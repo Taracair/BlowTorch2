@@ -5214,6 +5214,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			root.put("follow", mMapper.isFollowPlayer());
 			root.put("preferFloat", mMapper.isPreferFloat());
 			root.put("opacity", mMapper.getOpacity());
+			root.put("editMode", mMapper.isEditMode());
 			root.put("toolbar", mMapper.getToolbarActions() != null
 					? mMapper.getToolbarActions() : "");
 			return root.toString();

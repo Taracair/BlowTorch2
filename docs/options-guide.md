@@ -96,16 +96,16 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Path auto-send** | If on, `.map goto` sends the path; if off, prints only |
 | **Use GMCP Room** | Sync from `Room.*` when GMCP is on (title + create missing exits/neighbors; does not delete exits absent from GMCP) |
 | **Auto reverse links** | Suggest opposite exits when linking |
-| **Toolbar actions** | CSV for the left map buttons (`record,follow,level-,level+,find,undo,center,close`; optional `capture`). **↕** Levels and **⚙** Tools radials are always appended (no duplicate Draw/Links strip). **L−**/**L+** nest down/up from Here (Browse: follow/return; create needs Edit) |
+| **Toolbar actions** | Legacy CSV (still stored); map chrome uses top **Nav/Floors/Build/File** radials instead of the bottom strip |
 | **Capture Title Regex** | Regex for `.map capture` and the Capture dialog title field (`mapper_capture_title_regex`). Group 1 when present; else whole match. Default: `^([A-Z].*)$` |
 | **Capture Exits Regex** | Regex for exits field (`mapper_capture_exits_regex`). Group 1 when present (e.g. after `Exits:`). Default: `(?i)exits?:\s*(.*)` |
 
 Maps are stored as JSON under `/BlowTorch/maps/`. See Help → Mapper for Browse|Edit,
-**↕**/**⚙** radials, Draw/Links/Paths, tile-anchored levels (List browser, ▲/▼/◆
-badges, **L−**/**L+** nests), the movement lexicon (`.map dirs`), and the full
-`.map` command list. Capture uses **Options → Mapper** regexes via
-`.map capture preview|apply`, or the map **Capture** dialog (add `capture` to the
-toolbar CSV) for a one-off edit of those patterns.
+**Nav/Floors/Build/File** radials, Draw/Links/Paths, tile-anchored levels (List
+browser, ▲/▼/◆ badges, ↑/↓ nests), the movement lexicon (`.map dirs`), and the
+full `.map` command list. Capture uses **Options → Mapper** regexes via
+`.map capture preview|apply`, or `.map capture` for a one-off edit of those
+patterns.
 
 ## Session log
 
