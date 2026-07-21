@@ -265,7 +265,8 @@ starter_tutorial (loaded by default):
   On the default button set, tap HELP to run .tutorial start.
   The launcher lists a built-in Starter Tutorial row first (offline — no MUD).
   Disable welcome on normal MUDs: Options → Starter Tutorial → Show on connect,
-  or .tutorial done. Unload under Plugins to remove entirely.
+  or .tutorial done. Toggle starter_tutorial off under Plugins, or unload it
+  to remove entirely.
 
 Menus (session overflow)
 ------------------------

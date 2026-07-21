@@ -4661,6 +4661,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (p.getSettings() != null) {
 			p.getSettings().setDirty(true);
 		}
+		if (enabled) {
+			p.buildAliases();
+		}
 		saveMainSettings();
 		setTriggersDirty();
 		buildTriggerSystem();
