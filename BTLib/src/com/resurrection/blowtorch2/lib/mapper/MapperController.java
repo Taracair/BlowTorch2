@@ -1841,14 +1841,22 @@ public class MapperController {
 		return list;
 	}
 
+	/**
+	 * Switch to the previous/next level. At either end of the list, create a new
+	 * level so the player can organize floors manually (MUDs rarely map 1:1 to
+	 * up/down — a west step can still be “upstairs”).
+	 * <p>
+	 * When a level is created, the current (Here) tile is moved onto it so the
+	 * room you are standing on defines the new floor.
+	 */
 	private String shiftLevel(final int delta) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		ensureDefaultLevel();
 		List<MapLevel> sorted = sortedLevels();
 		if (sorted.isEmpty()) {
 			return "Mapper: no levels.";
-		}
-		if (sorted.size() == 1) {
-			return "Mapper: only one level (\"" + sorted.get(0).getName()
-					+ "\"). Record up/down, or .map level set <name>.";
 		}
 		int idx = 0;
 		for (int i = 0; i < sorted.size(); i++) {
@@ -1858,13 +1866,49 @@ public class MapperController {
 			}
 		}
 		int next = idx + delta;
+		boolean created = false;
+		MapLevel level;
 		if (next < 0 || next >= sorted.size()) {
-			return "Mapper: already at edge of level list"
-					+ " (" + (idx + 1) + "/" + sorted.size() + ").";
+			pushUndo();
+			int newIndex;
+			if (next < 0) {
+				newIndex = sorted.get(0).getIndex() - 1;
+			} else {
+				newIndex = sorted.get(sorted.size() - 1).getIndex() + 1;
+			}
+			String name = Integer.toString(newIndex);
+			// Avoid colliding with an existing display name.
+			if (findLevelByName(name) != null) {
+				name = "L" + newIndex;
+			}
+			level = new MapLevel(null, name, newIndex);
+			mMap.getLevels().add(level);
+			created = true;
+		} else {
+			level = sorted.get(next);
 		}
-		MapLevel level = sorted.get(next);
+
 		mMap.setCurrentLevelId(level.getId());
+		MapTile cur = currentTile();
+		String movedNote = "";
+		if (created && cur != null && !level.getId().equals(cur.getLevelId())) {
+			// Here defines the new floor (player decided this room belongs here).
+			MapTile occupied = findTileAt(level.getId(), cur.getGridX(), cur.getGridY());
+			if (occupied == null || occupied.getId().equals(cur.getId())) {
+				cur.setLevelId(level.getId());
+				movedNote = " · Here moved here";
+			}
+		} else if (cur != null && !level.getId().equals(cur.getLevelId())) {
+			MapTile at = findTileAt(level.getId(), cur.getGridX(), cur.getGridY());
+			if (at != null) {
+				mMap.setCurrentTileId(at.getId());
+			}
+		}
 		notifyChanged();
+		if (created) {
+			return "Mapper: created level \"" + level.getName() + "\"" + movedNote
+					+ ". Draw / move more tiles onto this floor as you like.";
+		}
 		return "Mapper: level \"" + level.getName() + "\".";
 	}
 

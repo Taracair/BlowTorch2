@@ -437,6 +437,8 @@ Two ways to build
 
 Toolbar cheatsheet
   Rec/Stop  Follow  L-/L+  Find  Undo  Center   (CSV-configurable)
+  L-/L+ switch floors; at the edge they create a new level and move Here
+  (you decide floors — even after a plain west/south walk)
   Links  Paths/Pack  Draw  Here  Edit  Save     (always present)
   Paths = space for arrows; Pack = tight tiles
 
