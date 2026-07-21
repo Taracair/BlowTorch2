@@ -72,10 +72,11 @@ In the trigger editor:
   list shows `[group]`, sorts by group, and has **Plugin** / **Group** spinners
   under search (All / Main / plugins, and All groups / (default) / named).
   Options (=) is Enable/Disable all for the current filter.
-- **Conditions** → optional AND/OR list checked after a pattern match and
-  before responders. Empty = always fire. Types: Trigger enabled/disabled
-  (pick another trigger; `plugin:name` ok), Variable equals/exists. Set vars
-  with the **Set Variable** responder or Lua `SetVariable` / `GetVariable` /
+- **Conditions** → extra gate after the pattern matches — not a substitute
+  for the pattern. Optional AND/OR list checked before responders. Empty =
+  always fire. Types: Trigger enabled/disabled (pick another trigger;
+  `plugin:name` ok), Variable equals/exists. Set vars with the **Set
+  Variable** responder or Lua `SetVariable` / `GetVariable` /
   `UnsetVariable` (session only, not persisted).
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
