@@ -96,11 +96,12 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Path auto-send** | If on, `.map goto` sends the path; if off, prints only |
 | **Use GMCP Room** | Sync from `Room.*` when GMCP is on |
 | **Auto reverse links** | Suggest opposite exits when linking |
-| **Toolbar actions** | CSV of map toolbar buttons |
-| **Capture** | Patterns for title/exits without GMCP (preview/apply via `.map capture`) |
+| **Toolbar actions** | CSV for the left map buttons (`record,follow,…`; optional `capture`). Links / Paths/Pack / Draw / Here / Edit / Save are always appended |
 
-Maps are stored as JSON under `/BlowTorch/maps/`. See Help → Mapper for Draw/Links,
-the movement lexicon (`.map dirs`), and the full `.map` command list.
+Maps are stored as JSON under `/BlowTorch/maps/`. See Help → Mapper for Draw/Links/Paths,
+the movement lexicon (`.map dirs`), and the full `.map` command list. Capture uses the
+map **Capture** dialog (add `capture` to the toolbar CSV) or `.map capture preview|apply`
+with default regexes — there is no separate Options “Capture profile” yet.
 
 ## Session log
 

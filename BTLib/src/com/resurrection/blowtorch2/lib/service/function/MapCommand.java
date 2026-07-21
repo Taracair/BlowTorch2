@@ -240,6 +240,13 @@ public class MapCommand extends SpecialCommand {
 			note(c, mapper.levelNext());
 		} else if (sub.equals("set")) {
 			note(c, mapper.levelSet(name));
+		} else if (sub.equals("move")) {
+			String[] mp = name.split("\\s+", 2);
+			if (mp.length < 2) {
+				note(c, "Usage: .map level move <tileId> <levelName>");
+			} else {
+				note(c, mapper.moveTileLevel(mp[0], mp[1]));
+			}
 		} else {
 			// treat whole rest as level name
 			note(c, mapper.levelSet(rest));
@@ -554,20 +561,21 @@ public class MapCommand extends SpecialCommand {
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("Mapper (").append(statusLine(m)).append(")\n");
 		sb.append("  .map open|close|toggle\n");
-		sb.append("  .map record on|off|toggle\n");
-		sb.append("  .map follow on|off\n");
-		sb.append("  .map level list|prev|next|set <name>\n");
-		sb.append("  .map find <query> | .map path <query> | .map goto <query>\n");
-		sb.append("  .map title <text> | .map note <text>\n");
+		sb.append("  .map record|rec on|off|toggle\n");
+		sb.append("  .map follow on|off|toggle\n");
+		sb.append("  .map level list|prev|next|set <name>|move <tileId> <level>\n");
+		sb.append("  .map find|search <query> | .map path <query> | .map goto|go <query>\n");
+		sb.append("  .map title <text> | .map note|notes <text>\n");
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
-		sb.append("  .map dirs  (movement lexicon / grid offsets)\n");
-		sb.append("  .map add [x y] [title] [here] | .map here [id] | .map delete [id]\n");
-		sb.append("  .map neighbor <cmd> [from <id>] | .map move [id] <x> <y>\n");
-		sb.append("  .map conflict list | .map export | .map undo | .map center\n");
+		sb.append("  .map dirs|directions|lexicon  (compass grid; before Speedwalk keys)\n");
+		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
+		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
+		sb.append("  .map conflict[s] | .map export|save | .map undo | .map center\n");
 		sb.append("  .map mode fullscreen|float\n");
-		sb.append("  .map maps | .map load <name> | .map new <name>\n");
-		sb.append("  .map capture preview|apply\n");
+		sb.append("  .map maps | .map load|openmap <name> | .map new <name>\n");
+		sb.append("  .map capture preview|apply  (default regex on buffer; UI dialog for custom)\n");
+		sb.append("  UI always adds: Links, Paths/Pack, Draw, Here, Edit, Save\n");
 		return sb.toString();
 	}
 }

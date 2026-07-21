@@ -219,7 +219,10 @@ on the toolbar or `.map export` / `.map save` forces a write).
 | **Full** / **Float** / **✕** | Presentation mode / close |
 
 Long-press a tile and drag to move it on the grid (release without moving opens the
-tile menu). **Double-tap** a tile = **Set as Here**.
+tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
+current. The left toolbar group comes from **Options → Mapper → Toolbar actions**;
+**Links**, **Paths/Pack**, **Draw**, **Here**, **Edit**, and **Save** are always
+appended.
 
 Exits with a known destination draw as **arrows** between tiles with walk-word labels
 (`go west`, `n`, …). Use **Paths** so arrows/labels fit between tiles. If more than
@@ -238,8 +241,10 @@ Planar grid: **+x = east**, **+y = south** (north decreases y).
 | `d`/`down`/`descend` | Level −1 |
 | `in`/`enter`, `out`/`leave`/`exit`, other text | Special exit (nearby cell, not a compass step) |
 
-Also uses the connection **Speedwalk Directions** map when configured.
-Print the built-in summary with `.map dirs`.
+Recording prefers this built-in compass lexicon before Speedwalk key bindings
+(default `.run`: `h`=nw, `j`=ne, `k`=sw, `l`=se), so typing `go se` still places a
+southeast neighbor. Custom Speedwalk commands still apply for non-compass verbs.
+Print the summary with `.map dirs`.
 
 ### Commands
 
@@ -248,12 +253,13 @@ Print the built-in summary with `.map dirs`.
 | `.map` | Help / status |
 | `.map open\|close\|toggle` | Show or hide the map UI |
 | `.map mode fullscreen\|float` | Presentation mode |
-| `.map record on\|off\|toggle` | Record movement into tiles/exits |
-| `.map follow on\|off` | Keep the view centered on you |
-| `.map level list\|prev\|next\|set <name>` | Levels |
-| `.map find <query>` | Search rooms |
+| `.map record on\|off\|toggle` | Record movement into tiles/exits (`rec` alias) |
+| `.map follow on\|off\|toggle` | Keep the view centered on you |
+| `.map level list\|prev\|next\|set <name>` | Browse / switch level |
+| `.map level move <tileId> <level>` | Move a tile onto another level |
+| `.map find <query>` | Search rooms (`search` alias) |
 | `.map path <query>` | Show path commands (no send) |
-| `.map goto <query>` | Path; send only if **Path auto-send** is on |
+| `.map goto <query>` | Path; send only if **Path auto-send** is on (`go` alias) |
 | `.map center` | Center on current room |
 | `.map undo` | Undo last graph change |
 | `.map dirs` | Movement lexicon / grid offsets |
@@ -268,17 +274,17 @@ Print the built-in summary with `.map dirs`.
 | `.map title for <id> <text>` / `.map note for <id> <text>` | Edit a specific tile |
 | `.map link <cmd> [from <id>] to <tileId>` | Manual link |
 | `.map unlink <cmd> [from <id>]` | Remove an exit |
-| `.map conflict list` | Conflict inbox |
-| `.map capture preview` | Test capture patterns on a pasted sample (or recent buffer) |
-| `.map capture apply` | Apply capture to the current tile |
+| `.map conflict` | List open conflicts |
+| `.map capture preview` | Match default title/exits regex on recent buffer |
+| `.map capture apply` | Apply last preview to the current tile |
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links,
-toolbar actions CSV, capture profile.
+toolbar actions CSV (optional `capture` token opens the regex dialog).
 
-**GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` can sync title /
-position. Without GMCP (typical on many MOOs), use **Rec** while walking,
-manual **Draw** / **Links**, and/or capture patterns.
+**GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` can sync the current
+room title (and related hints). Without GMCP (typical on many MOOs), use **Rec**
+while walking, manual **Draw** / **Links**, and/or **Capture** (toolbar or `.map capture`).
 
 ### Typical workflows
 
@@ -291,6 +297,8 @@ manual **Draw** / **Links**, and/or capture patterns.
 Direction letters (editable in Speedwalk Directions): `n e s w u d`,
 `h`=nw, `j`=ne, `k`=sw, `l`=se. Prefix with a count. Examples:
 `.run 3desw2n`, `.run 3ds,open door,3w`.
+Mapper recording still treats `se`/`sw`/… as compass diagonals even when those
+letters are Speedwalk *keys*.
 
 ### `.keyboard` / `.kb`
 
