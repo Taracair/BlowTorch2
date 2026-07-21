@@ -1846,6 +1846,10 @@ public class MapperController {
 		if (sorted.isEmpty()) {
 			return "Mapper: no levels.";
 		}
+		if (sorted.size() == 1) {
+			return "Mapper: only one level (\"" + sorted.get(0).getName()
+					+ "\"). Record up/down, or .map level set <name>.";
+		}
 		int idx = 0;
 		for (int i = 0; i < sorted.size(); i++) {
 			if (sorted.get(i).getId().equals(mMap.getCurrentLevelId())) {
@@ -1855,7 +1859,8 @@ public class MapperController {
 		}
 		int next = idx + delta;
 		if (next < 0 || next >= sorted.size()) {
-			return "Mapper: already at edge of level list.";
+			return "Mapper: already at edge of level list"
+					+ " (" + (idx + 1) + "/" + sorted.size() + ").";
 		}
 		MapLevel level = sorted.get(next);
 		mMap.setCurrentLevelId(level.getId());
