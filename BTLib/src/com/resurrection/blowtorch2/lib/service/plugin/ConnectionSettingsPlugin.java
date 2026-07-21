@@ -396,6 +396,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		request_storage.setValue("request_storage_access");
 		miscOptions.addOption(request_storage);
 
+		BooleanOption persistent_connection = new BooleanOption();
+		persistent_connection.setTitle("Persistent Connection?");
+		persistent_connection.setDescription("After brief network loss (VPN/Wi-Fi flaps), keep retrying longer without the disconnect dialog, and wait for connectivity before reconnecting. Cannot keep a dead TCP socket alive — the session is re-established when the network returns.");
+		persistent_connection.setKey("persistent_connection");
+		persistent_connection.setValue(false);
+		miscOptions.addOption(persistent_connection);
+
 		sg.addOption(miscOptions);
 		
 		SettingsGroup bellOptions = new SettingsGroup();
