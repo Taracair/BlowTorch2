@@ -297,6 +297,10 @@ Connection duration appears on the ongoing connection notification and on the
 launcher row (uptime while connected; last duration after disconnect).
 Background keepalive: Wi-Fi lock + CPU wake lock; Options → Service →
 Battery optimization… (or a one-shot prompt when connected).
+Persistent Connection (Options → Miscellaneous): after brief network loss
+(VPN/Wi-Fi flaps), keep retrying longer without the disconnect dialog and
+wait for connectivity before reconnecting. Cannot keep a dead TCP socket —
+the MUD session is re-established when the network returns.
 Notification responders: bundled soft/mid/loud sounds + pick file from storage.
 
 See also: docs/options-guide.md for Options groups (Service session log, GMCP,

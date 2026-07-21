@@ -68,7 +68,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		use_mtts, use_msdp, use_mssp,
 		show_regex_warning,
 		session_log, session_log_directory, default_settings_directory,
-		terminal_width, terminal_height, terminal_size_hint
+		terminal_width, terminal_height, terminal_size_hint,
+		persistent_connection
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -582,6 +583,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case terminal_size_hint:
 						// Default is false (tip off). Persist true so enabling the tip sticks.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case persistent_connection:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
