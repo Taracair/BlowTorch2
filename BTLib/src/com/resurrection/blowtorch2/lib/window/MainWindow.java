@@ -244,6 +244,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public static final int MESSAGE_TEXTSELECTION_FOCUS = 920;
 	/** Restore button_window above game windows after text selection ends. */
 	public static final int MESSAGE_TEXTSELECTION_RELEASE = 921;
+	protected static final int MESSAGE_MAPPER_UI = 922;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -662,6 +663,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_GROW_INPUT_BAR:
 					MainWindow.this.applyGrowInputBar(msg.arg1 == 1);
+					break;
+				case MESSAGE_MAPPER_UI:
+					MainWindow.this.handleMapperUiAction(msg.arg1);
 					break;
 				case MESSAGE_MARKSETTINGSDIRTY:
 					MainWindow.this.markSettingsDirty();
@@ -1834,10 +1838,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			swDialog.show();
 			break;
 		case 520: // Map overlay
-			ensureMapperOverlay();
-			if (mapperOverlay != null) {
-				mapperOverlay.toggle();
-			}
+			handleMapperUiAction(3);
 			break;
 		case 900:
 			this.cleanExit();
@@ -3229,6 +3230,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// TODO Auto-generated method stub
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SHOWREGEXWARNING,(value==true) ? 1 : 0,0));
 		}
+
+		@Override
+		public void mapperUi(int action) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_MAPPER_UI, action, 0));
+		}
 	};
 	
 	boolean windowsInitialized = false;
@@ -3389,10 +3395,62 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						e.printStackTrace();
 					}
 				}
+
+				@Override
+				public String fetchMapperSnapshotJson() {
+					if (service == null) {
+						return "";
+					}
+					try {
+						String json = service.getMapperSnapshotJson();
+						return json != null ? json : "";
+					} catch (RemoteException e) {
+						return "";
+					}
+				}
+
+				@Override
+				public void runMapCommand(String args) {
+					if (service == null) {
+						return;
+					}
+					String line = ".map";
+					if (args != null && args.trim().length() > 0) {
+						line = ".map " + args.trim();
+					}
+					try {
+						service.sendData(line.getBytes(service.getEncoding()));
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
 			});
 		}
 		if (mapperController != null) {
 			mapperOverlay.bind(mapperController);
+		}
+	}
+
+	private void handleMapperUiAction(int action) {
+		ensureMapperOverlay();
+		if (mapperOverlay == null) {
+			return;
+		}
+		switch (action) {
+		case 1:
+			mapperOverlay.open();
+			break;
+		case 2:
+			mapperOverlay.close();
+			break;
+		case 3:
+			mapperOverlay.toggle();
+			break;
+		case 4:
+			mapperOverlay.pullSnapshotFromService();
+			break;
+		default:
+			break;
 		}
 	}
 

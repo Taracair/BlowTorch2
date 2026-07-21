@@ -56,6 +56,7 @@ import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
+import com.resurrection.blowtorch2.lib.mapper.MapStore;
 import com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
@@ -5188,6 +5189,33 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Per-connection mapper engine. */
 	public final MapperController getMapper() {
 		return mMapper;
+	}
+
+	/** JSON snapshot for the UI process (Connection runs in :stellar). */
+	public final String getMapperSnapshotJson() {
+		if (mMapper == null || mMapper.getMap() == null) {
+			return "";
+		}
+		try {
+			org.json.JSONObject root = MapStore.toJson(mMapper.getMap());
+			root.put("recording", mMapper.isRecording());
+			root.put("follow", mMapper.isFollowPlayer());
+			root.put("preferFloat", mMapper.isPreferFloat());
+			root.put("opacity", mMapper.getOpacity());
+			root.put("toolbar", mMapper.getToolbarActions() != null
+					? mMapper.getToolbarActions() : "");
+			return root.toString();
+		} catch (Exception e) {
+			Log.w("BlowTorch", "getMapperSnapshotJson failed", e);
+			return "";
+		}
+	}
+
+	/** Ask the UI process to show/hide/refresh the mapper overlay. */
+	public final void requestMapperUi(final int action) {
+		if (mService != null) {
+			mService.notifyMapperUi(action);
+		}
 	}
 	
 	/** Getter for the display name.

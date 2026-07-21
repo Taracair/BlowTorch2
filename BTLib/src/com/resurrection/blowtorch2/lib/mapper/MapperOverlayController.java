@@ -14,6 +14,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -30,6 +31,10 @@ public class MapperOverlayController
 		MainWindow getMainWindow();
 		String getRecentBufferText(int maxLines);
 		void sendMapperPath(List<String> commands);
+		/** Pull live map JSON from the :stellar Connection (may be empty). */
+		String fetchMapperSnapshotJson();
+		/** Run a `.map …` subcommand in the service process (e.g. "record toggle"). */
+		void runMapCommand(String args);
 	}
 
 	private final Host host;
@@ -40,7 +45,12 @@ public class MapperOverlayController
 	private LinearLayout toolbar;
 	private View resizeHandle;
 	private View dragHandle;
-	private Button modeBtn;
+	private TextView modeBtn;
+	private MudMap snapshotMap;
+	private boolean snapshotRecording;
+	private boolean snapshotFollow = true;
+	private int snapshotOpacity = 85;
+	private String snapshotToolbar = MapperController.DEFAULT_TOOLBAR;
 	private boolean attached;
 	private boolean visible;
 	private boolean fullscreen;
@@ -95,6 +105,7 @@ public class MapperOverlayController
 		visible = true;
 		overlayRoot.setVisibility(View.VISIBLE);
 		applyLayoutMode();
+		pullSnapshotFromService();
 		refreshFromController();
 		bringUnderChrome();
 	}
@@ -139,8 +150,8 @@ public class MapperOverlayController
 		toolbar = (LinearLayout) overlayRoot.findViewById(R.id.mapper_toolbar);
 		resizeHandle = overlayRoot.findViewById(R.id.mapper_resize_handle);
 		dragHandle = overlayRoot.findViewById(R.id.mapper_drag_handle);
-		modeBtn = (Button) overlayRoot.findViewById(R.id.mapper_mode_btn);
-		Button closeBtn = (Button) overlayRoot.findViewById(R.id.mapper_close_btn);
+		modeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_btn);
+		TextView closeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_close_btn);
 
 		float density = activity.getResources().getDisplayMetrics().density;
 		floatWidth = (int) (280 * density);
@@ -231,8 +242,8 @@ public class MapperOverlayController
 			lp.topMargin = 0;
 			overlayRoot.setPadding(
 					(int) (4 * density),
-					(int) (28 * density),
-					(int) (56 * density),
+					(int) (8 * density),
+					(int) (8 * density),
 					(int) (4 * density));
 			if (resizeHandle != null) {
 				resizeHandle.setVisibility(View.GONE);
@@ -261,7 +272,7 @@ public class MapperOverlayController
 		if (overlayRoot == null) {
 			return;
 		}
-		int pct = controller != null ? controller.getOpacity() : 85;
+		int pct = controller != null ? controller.getOpacity() : snapshotOpacity;
 		overlayRoot.setAlpha(Math.max(40, Math.min(100, pct)) / 100f);
 	}
 
@@ -331,8 +342,10 @@ public class MapperOverlayController
 			return;
 		}
 		toolbar.removeAllViews();
-		String csv = controller != null ? controller.getToolbarActions()
-				: "Rec,Follow,L-,L+,Find,Undo,Center,Close";
+		String csv = controller != null ? controller.getToolbarActions() : snapshotToolbar;
+		if (csv == null || csv.length() == 0) {
+			csv = MapperController.DEFAULT_TOOLBAR;
+		}
 		String[] parts = csv.split(",");
 		MainWindow activity = host.getMainWindow();
 		float density = activity.getResources().getDisplayMetrics().density;
@@ -418,11 +431,37 @@ public class MapperOverlayController
 	}
 
 	private void runToolbarAction(String action) {
+		String a = action.toLowerCase(Locale.US);
 		if (controller == null) {
-			Toast.makeText(host.getMainWindow(), "Mapper not ready", Toast.LENGTH_SHORT).show();
+			if ("rec".equals(a) || "record".equals(a)) {
+				host.runMapCommand("record toggle");
+			} else if ("follow".equals(a)) {
+				host.runMapCommand("follow toggle");
+			} else if ("l-".equals(a) || "level-".equals(a) || "prev".equals(a)) {
+				host.runMapCommand("level prev");
+			} else if ("l+".equals(a) || "level+".equals(a) || "next".equals(a)) {
+				host.runMapCommand("level next");
+			} else if ("find".equals(a) || "search".equals(a)) {
+				openSearch();
+				return;
+			} else if ("undo".equals(a)) {
+				host.runMapCommand("undo");
+			} else if ("center".equals(a)) {
+				centerOnPlayer();
+				return;
+			} else if ("close".equals(a)) {
+				close();
+				return;
+			} else if ("capture".equals(a)) {
+				openCapture();
+				return;
+			} else {
+				Toast.makeText(host.getMainWindow(), "Unknown: " + action, Toast.LENGTH_SHORT).show();
+				return;
+			}
+			pullSnapshotFromService();
 			return;
 		}
-		String a = action.toLowerCase(Locale.US);
 		if ("rec".equals(a) || "record".equals(a)) {
 			controller.setRecording(!controller.isRecording());
 			Toast.makeText(host.getMainWindow(),
@@ -460,16 +499,38 @@ public class MapperOverlayController
 	}
 
 	private MapTile selectedOrCurrentTile() {
-		if (controller == null || controller.getMap() == null) {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null) {
 			return null;
 		}
 		if (selectedTileId != null) {
-			MapTile t = controller.getMap().findTile(selectedTileId);
+			MapTile t = map.findTile(selectedTileId);
 			if (t != null) {
 				return t;
 			}
 		}
-		return controller.currentTile();
+		if (controller != null) {
+			return controller.currentTile();
+		}
+		return map.findTile(map.getCurrentTileId());
+	}
+
+	private void pathToTile(MapTile tile) {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null || tile == null) {
+			return;
+		}
+		String from = map.getCurrentTileId();
+		List<String> path = MapPathfinder.findCommands(map, from, tile.getId());
+		if (path == null || path.isEmpty()) {
+			Toast.makeText(host.getMainWindow(), "No path", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		Toast.makeText(host.getMainWindow(), "Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
+		boolean auto = controller != null && controller.isPathAutoSend();
+		if (auto) {
+			host.sendMapperPath(path);
+		}
 	}
 
 	private void showTileContext(final MapTile tile) {
@@ -506,27 +567,12 @@ public class MapperOverlayController
 				.show();
 	}
 
-	private void pathToTile(MapTile tile) {
-		if (controller == null || tile == null || controller.getMap() == null) {
-			return;
-		}
-		String from = controller.getMap().getCurrentTileId();
-		List<String> path = MapPathfinder.findCommands(controller.getMap(), from, tile.getId());
-		if (path == null || path.isEmpty()) {
-			Toast.makeText(host.getMainWindow(), "No path", Toast.LENGTH_SHORT).show();
-			return;
-		}
-		Toast.makeText(host.getMainWindow(), "Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
-		if (controller.isPathAutoSend()) {
-			host.sendMapperPath(path);
-		}
-	}
-
 	private void promptChangeLevel(final MapTile tile) {
-		if (controller == null || controller.getMap() == null) {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null || tile == null) {
 			return;
 		}
-		final List<MapLevel> levels = controller.getMap().getLevels();
+		final List<MapLevel> levels = map.getLevels();
 		CharSequence[] names = new CharSequence[levels.size()];
 		for (int i = 0; i < levels.size(); i++) {
 			MapLevel l = levels.get(i);
@@ -540,7 +586,12 @@ public class MapperOverlayController
 						if (which >= 0 && which < levels.size()) {
 							MapLevel level = levels.get(which);
 							String name = level.getName() != null ? level.getName() : level.getId();
-							toastStatus(controller.moveTileLevel(tile.getId(), name));
+							if (controller != null) {
+								toastStatus(controller.moveTileLevel(tile.getId(), name));
+							} else {
+								host.runMapCommand("level set " + name);
+								pullSnapshotFromService();
+							}
 						}
 					}
 				})
@@ -548,98 +599,151 @@ public class MapperOverlayController
 	}
 
 	private void openTileEditor(MapTile tile) {
-		if (controller == null || tile == null) {
+		if (tile == null) {
 			return;
 		}
-		new MapperTileEditorDialog(host.getMainWindow(), controller, tile).show();
+		if (controller != null) {
+			new MapperTileEditorDialog(host.getMainWindow(), controller, tile).show();
+			return;
+		}
+		final EditText title = new EditText(host.getMainWindow());
+		title.setText(tile.getTitle() != null ? tile.getTitle() : "");
+		title.setHint("Title");
+		new AlertDialog.Builder(host.getMainWindow())
+				.setTitle("Tile title")
+				.setView(title)
+				.setPositiveButton("Save", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						host.runMapCommand("title " + title.getText().toString());
+						pullSnapshotFromService();
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
 	}
 
 	private void openSearch() {
-		if (controller == null) {
+		if (controller != null) {
+			new MapperSearchDialog(host.getMainWindow(), controller,
+					new MapperSearchDialog.Callback() {
+						@Override
+						public void onGo(MapTile tile, List<String> path) {
+							if (tile != null && mapperView != null) {
+								selectedTileId = tile.getId();
+								mapperView.setSelectedTileId(tile.getId());
+								mapperView.centerOnTile(tile);
+							}
+							if (path != null && !path.isEmpty() && controller.isPathAutoSend()) {
+								host.sendMapperPath(path);
+							}
+						}
+
+						@Override
+						public void onPath(MapTile tile, List<String> path) {
+							if (path == null || path.isEmpty()) {
+								Toast.makeText(host.getMainWindow(), "No path",
+										Toast.LENGTH_SHORT).show();
+							} else {
+								Toast.makeText(host.getMainWindow(),
+										"Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
+							}
+						}
+					}).show();
 			return;
 		}
-		new MapperSearchDialog(host.getMainWindow(), controller,
-				new MapperSearchDialog.Callback() {
-					@Override
-					public void onGo(MapTile tile, List<String> path) {
-						if (tile != null && mapperView != null) {
-							selectedTileId = tile.getId();
-							mapperView.setSelectedTileId(tile.getId());
-							mapperView.centerOnTile(tile);
-						}
-						if (path != null && !path.isEmpty() && controller.isPathAutoSend()) {
-							host.sendMapperPath(path);
-						}
-					}
-
-					@Override
-					public void onPath(MapTile tile, List<String> path) {
-						if (path == null || path.isEmpty()) {
-							Toast.makeText(host.getMainWindow(), "No path",
-									Toast.LENGTH_SHORT).show();
-						} else {
-							Toast.makeText(host.getMainWindow(),
-									"Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
-						}
-					}
-				}).show();
+		host.runMapCommand("find ");
+		Toast.makeText(host.getMainWindow(),
+				"Use .map find <query> in the input bar (or open Find after recording).",
+				Toast.LENGTH_LONG).show();
 	}
 
 	private void openCapture() {
-		if (controller == null) {
+		if (controller != null) {
+			new MapperCapturePreviewDialog(host.getMainWindow(), controller,
+					host.getRecentBufferText(40)).show();
 			return;
 		}
-		new MapperCapturePreviewDialog(host.getMainWindow(), controller,
-				host.getRecentBufferText(40)).show();
+		host.runMapCommand("capture preview");
 	}
 
 	public void refreshFromController() {
 		if (mapperView == null) {
 			return;
 		}
-		if (controller == null) {
+		MudMap map = snapshotMap;
+		if (map == null && controller != null) {
+			map = controller.getMap();
+		}
+		if (map == null) {
 			if (titleView != null) {
-				titleView.setText("Map (not ready)");
+				titleView.setText("Map");
 			}
 			mapperView.setTiles(new ArrayList<MapTile>());
 			return;
 		}
-		MudMap map = controller.getMap();
 		if (titleView != null) {
-			String name = map != null && map.getName() != null ? map.getName() : "Map";
+			String name = map.getName() != null ? map.getName() : "Map";
 			String level = "?";
-			if (map != null) {
-				MapLevel l = map.findLevel(map.getCurrentLevelId());
-				if (l != null && l.getName() != null) {
-					level = l.getName();
-				}
+			MapLevel l = map.findLevel(map.getCurrentLevelId());
+			if (l != null && l.getName() != null) {
+				level = l.getName();
 			}
-			String rec = controller.isRecording() ? " [REC]" : "";
-			titleView.setText(name + " · L" + level + rec);
+			boolean rec = controller != null ? controller.isRecording() : snapshotRecording;
+			String recMark = rec ? " [REC]" : "";
+			titleView.setText(name + " · L" + level + recMark);
 		}
-		mapperView.setTiles(tilesOnCurrentLevel());
-		if (map != null) {
-			mapperView.setCurrentTileId(map.getCurrentTileId());
-		}
+		mapperView.setTiles(tilesOnCurrentLevel(map));
+		mapperView.setCurrentTileId(map.getCurrentTileId());
 		mapperView.setSelectedTileId(selectedTileId);
-		mapperView.setFollowMode(controller.isFollowPlayer());
+		boolean follow = controller != null ? controller.isFollowPlayer() : snapshotFollow;
+		mapperView.setFollowMode(follow);
 		applyOpacity();
 		rebuildToolbar();
 	}
 
-	private List<MapTile> tilesOnCurrentLevel() {
-		List<MapTile> out = new ArrayList<MapTile>();
-		if (controller == null || controller.getMap() == null) {
+	/** Pull JSON from the service process and apply to the overlay. */
+	public void pullSnapshotFromService() {
+		if (host == null) {
+			return;
+		}
+		String json = host.fetchMapperSnapshotJson();
+		if (json == null || json.length() == 0) {
+			return;
+		}
+		try {
+			org.json.JSONObject root = new org.json.JSONObject(json);
+			snapshotRecording = root.optBoolean("recording", false);
+			snapshotFollow = root.optBoolean("follow", true);
+			snapshotOpacity = root.optInt("opacity", 85);
+			if (root.has("preferFloat")) {
+				fullscreen = !root.optBoolean("preferFloat", true);
+			}
+			String tb = root.optString("toolbar", "");
+			if (tb != null && tb.length() > 0) {
+				snapshotToolbar = tb;
+			}
+			snapshotMap = MapStore.fromJson(json);
+			applyOpacity();
+			applyLayoutMode();
+			refreshFromController();
+		} catch (Exception e) {
+			android.util.Log.w("BlowTorch", "mapper snapshot parse failed", e);
+		}
+	}
+
+	private List<MapTile> tilesOnCurrentLevel(MudMap map) {
+		ArrayList<MapTile> out = new ArrayList<MapTile>();
+		if (map == null) {
 			return out;
 		}
-		MudMap map = controller.getMap();
-		String levelId = map.getCurrentLevelId();
-		for (MapTile tile : map.getTiles()) {
-			if (tile == null) {
+		String level = map.getCurrentLevelId();
+		for (MapTile t : map.getTiles()) {
+			if (t == null) {
 				continue;
 			}
-			if (levelId == null || levelId.equals(tile.getLevelId())) {
-				out.add(tile);
+			if (level == null || level.equals(t.getLevelId())) {
+				out.add(t);
 			}
 		}
 		return out;
@@ -703,6 +807,7 @@ public class MapperOverlayController
 		runOnUi(new Runnable() {
 			@Override
 			public void run() {
+				pullSnapshotFromService();
 				refreshFromController();
 			}
 		});

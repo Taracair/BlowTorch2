@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Floating / fullscreen mapper chrome. Attached under window_container so
-     gameplay_chrome_overlay (⋮) stays above. paddingEnd/Top keep chrome clear. -->
+     gameplay_chrome_overlay (⋮) stays above via z-order (do NOT pad away title buttons). -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/mapper_overlay_root"
     android:layout_width="match_parent"
@@ -8,9 +8,9 @@
     android:background="#CC1A1A1A"
     android:clickable="true"
     android:focusable="true"
-    android:paddingTop="28dp"
-    android:paddingEnd="56dp"
-    android:paddingRight="56dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="8dp"
+    android:paddingRight="8dp"
     android:paddingBottom="4dp"
     android:paddingStart="4dp"
     android:paddingLeft="4dp">
@@ -18,11 +18,11 @@
     <LinearLayout
         android:id="@+id/mapper_title_bar"
         android:layout_width="match_parent"
-        android:layout_height="36dp"
+        android:layout_height="40dp"
         android:layout_alignParentTop="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingLeft="6dp"
+        android:paddingLeft="4dp"
         android:paddingRight="4dp"
         android:background="#AA000000">
 
@@ -50,27 +50,28 @@
             android:textColor="#EEEEEE"
             android:textSize="14sp" />
 
-        <Button
+        <TextView
             android:id="@+id/mapper_mode_btn"
             android:layout_width="wrap_content"
-            android:layout_height="28dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
             android:text="Float"
-            android:textAllCaps="false"
-            android:textSize="12sp" />
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:background="#44FFFFFF"
+            android:contentDescription="Toggle float or fullscreen" />
 
-        <Button
+        <TextView
             android:id="@+id/mapper_close_btn"
-            android:layout_width="36dp"
-            android:layout_height="28dp"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
+            android:layout_width="40dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
             android:text="✕"
-            android:textAllCaps="false"
-            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:background="#44FFFFFF"
             android:contentDescription="Close map" />
     </LinearLayout>
 
