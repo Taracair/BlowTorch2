@@ -88,6 +88,12 @@ Examples (Literal off):
 | `You hit (.+) for (\d+)` | `emote crushed $1 ($2 dmg)` | Name → `$1`, damage → `$2` |
 | `A (.+) appears` | `kill $1` | Auto-target the thing that appeared |
 
+**Sample — fire only if another trigger is enabled:** create trigger
+`combat_mode` (any pattern; leave it disabled until you want the mode on). On
+a second trigger, under **Conditions**, Add → Trigger enabled → pick
+`combat_mode`. Responders on the second trigger run only while `combat_mode`
+is enabled (`.trigger on combat_mode`).
+
 **GMCP note:** a **literal** trigger whose pattern starts with `%` (default
 GMCP character) is a GMCP hook (`%module.path`), not a line wildcard. See
 GMCP below.

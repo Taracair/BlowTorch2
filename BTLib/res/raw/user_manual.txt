@@ -79,6 +79,11 @@ Triggers (trigger editor):
     Pattern  A (.+) appears
     Ack      kill $1
 
+  Sample — fire only if another trigger is enabled:
+    1) Make trigger "combat_mode" (any pattern); leave disabled until needed.
+    2) On another trigger: Conditions → Add → Trigger enabled → pick combat_mode.
+    3) Responders run only while combat_mode is enabled (.trigger on combat_mode).
+
   GMCP note: a literal trigger whose pattern starts with % (default GMCP
   character) is a GMCP hook (%module.path), not a line wildcard.
   Options → Service → Regular Expression Warning? controls the reminder
