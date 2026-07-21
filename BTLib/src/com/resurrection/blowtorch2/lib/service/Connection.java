@@ -47,6 +47,7 @@ import com.resurrection.blowtorch2.lib.service.function.McpCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
+import com.resurrection.blowtorch2.lib.service.function.MapCommand;
 import com.resurrection.blowtorch2.lib.service.function.ReconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
@@ -54,6 +55,7 @@ import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
+import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
@@ -164,6 +166,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public static final int MESSAGE_SENDMCPRAW = 44;
 	public static final int MESSAGE_SET_VARIABLE = 45;
 	public static final int MESSAGE_UNSET_VARIABLE = 46;
+	/** Native GMCP Room.* → mapper sync (obj = JSON body String; module in Bundle). */
+	public static final int MESSAGE_MAPPER_ROOM = 47;
 	
 	/** Sent from various sources, containing a string to be sent to 
 	 * the server in the selected encoding. */
@@ -403,6 +407,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Session file-log option wrappers. */
 	private final ConnectionSessionLog mSessionLog = new ConnectionSessionLog(this);
+
+	/** Per-connection mapper engine (recording, path, GMCP room sync). */
+	private MapperController mMapper;
 	
 	/** Instance of our parent service. This is bad. */
 	StellarService mService = null;
@@ -487,11 +494,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(msspcmd.commandName, msspcmd);
 		ProtocolsCommand msdpcmd = new ProtocolsCommand(true);
 		mSpecialCommands.put(msdpcmd.commandName, msdpcmd);
+		MapCommand mapcmd = new MapCommand();
+		mSpecialCommands.put(mapcmd.commandName, mapcmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;
 		this.mPort = port;
 		this.mService = service;
+
+		mMapper = new MapperController(this);
 		
 		mPlugins = new ArrayList<Plugin>();
 		mHandler = new Handler(new ConnectionHandler());
@@ -648,6 +659,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_UNSET_VARIABLE:
 				if (msg.obj instanceof String) {
 					mSessionVariables.unset((String) msg.obj);
+				}
+				break;
+			case MESSAGE_MAPPER_ROOM:
+				if (mMapper != null && msg.obj instanceof String) {
+					String module = msg.getData() != null
+							? msg.getData().getString("MODULE") : null;
+					mMapper.onGmcpRoomRaw(module, (String) msg.obj);
 				}
 				break;
 			case MESSAGE_INVALIDATEWINDOWTEXT:
@@ -1125,6 +1143,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSettingsIO.buildSettingsPage();
 		syncLegacyLineSizeWithFont();
 		undoAggressiveMapDefaults();
+		if (mMapper != null) {
+			mMapper.applySettingsFromConnection();
+			mMapper.openMap(MapperController.DEFAULT_MAP_NAME);
+		}
 		mService.reloadWindows();
 		
 	}
@@ -3630,6 +3652,57 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case default_settings_directory:
 				// Path is read when importing/exporting; nothing live to apply.
 				break;
+			case mapper_enabled:
+				if (mMapper != null) {
+					mMapper.setEnabled((Boolean) o.getValue());
+				}
+				break;
+			case mapper_recording_default:
+				// Seed only; live toggle is .map record
+				break;
+			case mapper_follow:
+				if (mMapper != null) {
+					mMapper.setFollow((Boolean) o.getValue());
+				}
+				break;
+			case mapper_float:
+				if (mMapper != null) {
+					mMapper.setPreferFloat((Boolean) o.getValue());
+				}
+				break;
+			case mapper_opacity:
+				if (mMapper != null) {
+					int op = (Integer) o.getValue();
+					if (op < 40) {
+						op = 40;
+						((IntegerOption) o).setValue(40);
+					} else if (op > 100) {
+						op = 100;
+						((IntegerOption) o).setValue(100);
+					}
+					mMapper.setOpacity(op);
+				}
+				break;
+			case mapper_path_auto_send:
+				if (mMapper != null) {
+					mMapper.setPathAutoSend((Boolean) o.getValue());
+				}
+				break;
+			case mapper_use_gmcp:
+				if (mMapper != null) {
+					mMapper.setUseGmcp((Boolean) o.getValue());
+				}
+				break;
+			case mapper_auto_reverse_link:
+				if (mMapper != null) {
+					mMapper.setAutoReverse((Boolean) o.getValue());
+				}
+				break;
+			case mapper_toolbar_actions:
+				if (mMapper != null) {
+					mMapper.applySettingsFromConnection();
+				}
+				break;
 			default:
 				break;
 			}
@@ -4506,7 +4579,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** NAWS rows reported to the server. */
 		terminal_height,
 		/** Show one-time terminal size tip on connect. */
-		terminal_size_hint
+		terminal_size_hint,
+		/** Mapper module enable. */
+		mapper_enabled,
+		mapper_recording_default,
+		mapper_follow,
+		mapper_float,
+		mapper_opacity,
+		mapper_path_auto_send,
+		mapper_use_gmcp,
+		mapper_auto_reverse_link,
+		mapper_toolbar_actions
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
@@ -4566,6 +4649,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							+ Colorizer.getWhiteColor()).getBytes("UTF-8"));
 				} else {
 					sendBytesToWindow(new String(Colorizer.getRedColor() + "\nDisconnected.\n" + Colorizer.getWhiteColor()).getBytes("UTF-8"));
+				}
+				// Record movement for mapper (after aliases; never sends from mapper).
+				if (mMapper != null && mMapper.isRecording() && nosemidata != null) {
+					mMapper.onPlayerCommand(nosemidata);
 				}
 			} else {
 				if (d.mCmdString.equals("") && d.mVisString == null) {
@@ -5096,6 +5183,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final Processor getProcessor() {
 		return mProcessor;
+	}
+
+	/** Per-connection mapper engine. */
+	public final MapperController getMapper() {
+		return mMapper;
 	}
 	
 	/** Getter for the display name.

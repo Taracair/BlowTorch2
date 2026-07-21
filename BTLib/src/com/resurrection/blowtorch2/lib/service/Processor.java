@@ -672,6 +672,27 @@ public class Processor {
 		} else if (lower.startsWith("char.login")) {
 			ensureCharLogin();
 			mCharLogin.handle(module, body);
+		} else if (lower.startsWith("room.")) {
+			dispatchRoomGmcp(module, body);
+		}
+	}
+
+	/** Forward Room.* GMCP to Connection → MapperController. */
+	private void dispatchRoomGmcp(final String module, final JSONObject body) {
+		if (mReportTo == null) {
+			return;
+		}
+		try {
+			String json = body != null ? body.toString() : "{}";
+			Message msg = mReportTo.obtainMessage(Connection.MESSAGE_MAPPER_ROOM, json);
+			Bundle b = msg.getData();
+			if (b == null) {
+				b = new Bundle();
+			}
+			b.putString("MODULE", module);
+			msg.setData(b);
+			mReportTo.sendMessage(msg);
+		} catch (Exception ignored) {
 		}
 	}
 
