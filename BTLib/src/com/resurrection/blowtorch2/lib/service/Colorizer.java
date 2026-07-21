@@ -4,10 +4,11 @@
 package com.resurrection.blowtorch2.lib.service;
 
 import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
-import android.util.SparseIntArray;
 
 /** Utility class for looking up ansi and xterm 256 color codes. Also keeps a few easy string constants to flavor strings with color. */
 public final class Colorizer {
@@ -1140,271 +1141,266 @@ public final class Colorizer {
 	private static final int XTERM_256_BACKGROUND = 48;
 	/** XTERM 256 five byte marker. */
 	private static final int XTERM_256_FIVE = 5;
-	/** The map of xterm 256 color codes and corresponding colors. */
-	private static SparseIntArray colormap256 = new SparseIntArray() {
-
-		{
-			this.put(CODE_0, XTERM_COLOR_0); //0xFF000000); //BLACK
-			this.put(CODE_1, XTERM_COLOR_1); //0xFFBB0000); //RED
-			this.put(CODE_2, XTERM_COLOR_2); //0xFF00BB00); //GREEN
-			this.put(CODE_3, XTERM_COLOR_3); //0xFFBBBB00); //YELLOW
-			this.put(CODE_4, XTERM_COLOR_4); //0xFF0000EE); //BLUE
-			this.put(CODE_5, XTERM_COLOR_5); //0xFFBB00BB); //MAGENTA
-			this.put(CODE_6, XTERM_COLOR_6); //0xFF00BBBB); //CYAN
-			this.put(CODE_7, XTERM_COLOR_7); //0xFFBBBBBB); //WHITE
-			this.put(CODE_8, XTERM_COLOR_8); //0xFF555555); //BRIGHT BLACK (GREY)
-			this.put(CODE_9, XTERM_COLOR_9); //0xFFFF5555); //BRIGHT RED
-			this.put(CODE_10, XTERM_COLOR_10); //0xFF55FF55); //BRIGHT GREEN
-			this.put(CODE_11, XTERM_COLOR_11); //0xFFFFFF55); //BRIGHT YELLOW
-			this.put(CODE_12, XTERM_COLOR_12); //0xFF5555FF); //BRIGHT BLUE
-			this.put(CODE_13, XTERM_COLOR_13); //0xFFFF55FF); //BRIGHT MAGENTA
-			this.put(CODE_14, XTERM_COLOR_14); //0xFF55FFFF); //BRIGHT CYAN
-			this.put(CODE_15, XTERM_COLOR_15); //0xFFFFFFFF); //BRIGHT WHITE
-			
-			//start normative xterm256 color
-			this.put(CODE_16, XTERM_COLOR_16); //0xFF000000);
-			this.put(CODE_17, XTERM_COLOR_17); //0xFF00005F);
-			this.put(CODE_18, XTERM_COLOR_18); //0xFF000087);
-			this.put(CODE_19, XTERM_COLOR_19); //0xFF0000AF);
-			this.put(CODE_20, XTERM_COLOR_20); //0xFF0000D7);
-			this.put(CODE_21, XTERM_COLOR_21); //0xFF0000FF);
-			this.put(CODE_22, XTERM_COLOR_22); //0xFF005F00);
-			this.put(CODE_23, XTERM_COLOR_23); //0xFF005F5F);
-			this.put(CODE_24, XTERM_COLOR_24); //0xFF005F87);
-			this.put(CODE_25, XTERM_COLOR_25); //0xFF005FAF);
-			this.put(CODE_26, XTERM_COLOR_26); //0xFF005FD7);
-			this.put(CODE_27, XTERM_COLOR_27); //0xFF005FFF);
-			this.put(CODE_28, XTERM_COLOR_28); //0xFF008700);
-			this.put(CODE_29, XTERM_COLOR_29); //0xFF00875F);
-			this.put(CODE_30, XTERM_COLOR_30); //0xFF008787);
-			this.put(CODE_31, XTERM_COLOR_31); //0xFF0087AF);
-			this.put(CODE_32, XTERM_COLOR_32); //0xFF0087D7);
-			this.put(CODE_33, XTERM_COLOR_33); //0xFF0087FF);
-			this.put(CODE_34, XTERM_COLOR_34); //0xFF00AF00);
-			this.put(CODE_35, XTERM_COLOR_35); //0xFF00AF5F);
-			this.put(CODE_36, XTERM_COLOR_36); //0xFF00AF87);
-			this.put(CODE_37, XTERM_COLOR_37); //0xFF00AFAF);
-			this.put(CODE_38, XTERM_COLOR_38); //0xFF00AFD7);
-			this.put(CODE_39, XTERM_COLOR_39); //0xFF00AFFF);
-			this.put(CODE_40, XTERM_COLOR_40); //0xFF00D700);
-			this.put(CODE_41, XTERM_COLOR_41); //0xFF00D75F);
-			this.put(CODE_42, XTERM_COLOR_42); //0xFF00D787);
-			this.put(CODE_43, XTERM_COLOR_43); //0xFF00D7AF);
-			this.put(CODE_44, XTERM_COLOR_44); //0xFF00D7D7);
-			this.put(CODE_45, XTERM_COLOR_45); //0xFF00D7FF);
-			this.put(CODE_46, XTERM_COLOR_46); //0xFF00FF00);
-			this.put(CODE_47, XTERM_COLOR_47); //0xFF00FF5F);
-			this.put(CODE_48, XTERM_COLOR_48); //0xFF00FF87);
-			this.put(CODE_49, XTERM_COLOR_49); //0xFF00FFAF);
-			this.put(CODE_50, XTERM_COLOR_50); //0xFF00FFD7);
-			this.put(CODE_51, XTERM_COLOR_51); //0xFF00FFFF);
-			this.put(CODE_52, XTERM_COLOR_52); //0xFF5F0000);
-			this.put(CODE_53, XTERM_COLOR_53); //0xFF5F005F);
-			this.put(CODE_54, XTERM_COLOR_54); //0xFF5F0087);
-			this.put(CODE_55, XTERM_COLOR_55); //0xFF5F00AF);
-			this.put(CODE_56, XTERM_COLOR_56); //0xFF5F00D7);
-			this.put(CODE_57, XTERM_COLOR_57); //0xFF5F00FF);
-			this.put(CODE_58, XTERM_COLOR_58); //0xFF5F5F00);
-			this.put(CODE_59, XTERM_COLOR_59); //0xFF5F5F5F);
-			this.put(CODE_60, XTERM_COLOR_60); //0xFF5F5F87);
-			this.put(CODE_61, XTERM_COLOR_61); //0xFF5F5FAF);
-			this.put(CODE_62, XTERM_COLOR_62); //0xFF5F5FD7);
-			this.put(CODE_63, XTERM_COLOR_63); //0xFF5F5FFF);
-			this.put(CODE_64, XTERM_COLOR_64); //0xFF5F8700);
-			this.put(CODE_65, XTERM_COLOR_65); //0xFF5F875F);
-			this.put(CODE_66, XTERM_COLOR_66); //0xFF5F8787);
-			this.put(CODE_67, XTERM_COLOR_67); //0xFF5F87AF);
-			this.put(CODE_68, XTERM_COLOR_68); //0xFF5F87D7);
-			this.put(CODE_69, XTERM_COLOR_69); //0xFF5F87FF);
-			this.put(CODE_70, XTERM_COLOR_70); //0xFF5FAF00);
-			this.put(CODE_71, XTERM_COLOR_71); //0xFF5FAF5F);
-			this.put(CODE_72, XTERM_COLOR_72); //0xFF5FAF87);
-			this.put(CODE_73, XTERM_COLOR_73); //0xFF5FAFAF);
-			this.put(CODE_74, XTERM_COLOR_74); //0xFF5FAFD7);
-			this.put(CODE_75, XTERM_COLOR_75); //0xFF5FAFFF);
-			this.put(CODE_76, XTERM_COLOR_76); //0xFF5FD700);
-			this.put(CODE_77, XTERM_COLOR_77); //0xFF5FD75F);
-			this.put(CODE_78, XTERM_COLOR_78); //0xFF5FD787);
-			this.put(CODE_79, XTERM_COLOR_79); //0xFF5FD7AF);
-			this.put(CODE_80, XTERM_COLOR_80); //0xFF5FD7D7);
-			this.put(CODE_81, XTERM_COLOR_81); //0xFF5FD7FF);
-			this.put(CODE_82, XTERM_COLOR_82); //0xFF5FFF00);
-			this.put(CODE_83, XTERM_COLOR_83); //0xFF5FFF5F);
-			this.put(CODE_84, XTERM_COLOR_84); //0xFF5FFF87);
-			this.put(CODE_85, XTERM_COLOR_85); //0xFF5FFFAF);
-			this.put(CODE_86, XTERM_COLOR_86); //0xFF5FFFD7);
-			this.put(CODE_87, XTERM_COLOR_87); //0xFF5FFFFF);
-			this.put(CODE_88, XTERM_COLOR_88); //0xFF870000);
-			this.put(CODE_89, XTERM_COLOR_89); //0xFF87005F);
-			this.put(CODE_90, XTERM_COLOR_90); //0xFF870087);
-			this.put(CODE_91, XTERM_COLOR_91); //0xFF8700AF);
-			this.put(CODE_92, XTERM_COLOR_92); //0xFF8700D7);
-			this.put(CODE_93, XTERM_COLOR_93); //0xFF8700FF);
-			this.put(CODE_94, XTERM_COLOR_94); //0xFF875F00);
-			this.put(CODE_95, XTERM_COLOR_95); //0xFF875F5F);
-			this.put(CODE_96, XTERM_COLOR_96); //0xFF875F87);
-			this.put(CODE_97, XTERM_COLOR_97); //0xFF875FAF);
-			this.put(CODE_98, XTERM_COLOR_98); //0xFF875FD7);
-			this.put(CODE_99, XTERM_COLOR_99); //0xFF875FFF);
-			this.put(CODE_100, XTERM_COLOR_100); //0xFF878700);
-			this.put(CODE_101, XTERM_COLOR_101); //0xFF87875F);
-			this.put(CODE_102, XTERM_COLOR_102); //0xFF878787);
-			this.put(CODE_103, XTERM_COLOR_103); //0xFF8787AF);
-			this.put(CODE_104, XTERM_COLOR_104); //0xFF8787D7);
-			this.put(CODE_105, XTERM_COLOR_105); //0xFF8787FF);
-			this.put(CODE_106, XTERM_COLOR_106); //0xFF87AF00);
-			this.put(CODE_107, XTERM_COLOR_107); //0xFF87AF5F);
-			this.put(CODE_108, XTERM_COLOR_108); //0xFF87AF87);
-			this.put(CODE_109, XTERM_COLOR_109); //0xFF87AFAF);
-			this.put(CODE_110, XTERM_COLOR_110); //0xFF87AFD7);
-			this.put(CODE_111, XTERM_COLOR_111); //0xFF87AFFF);
-			this.put(CODE_112, XTERM_COLOR_112); //0xFF87D700);
-			this.put(CODE_113, XTERM_COLOR_113); //0xFF87D75F);
-			this.put(CODE_114, XTERM_COLOR_114); //0xFF87D787);
-			this.put(CODE_115, XTERM_COLOR_115); //0xFF87D7AF);
-			this.put(CODE_116, XTERM_COLOR_116); //0xFF87D7D7);
-			this.put(CODE_117, XTERM_COLOR_117); //0xFF87D7FF);
-			this.put(CODE_118, XTERM_COLOR_118); //0xFF87FF00);
-			this.put(CODE_119, XTERM_COLOR_119); //0xFF87FF5F);
-			this.put(CODE_120, XTERM_COLOR_120); //0xFF87FF87);
-			this.put(CODE_121, XTERM_COLOR_121); //0xFF87FFAF);
-			this.put(CODE_122, XTERM_COLOR_122); //0xFF87FFD7);
-			this.put(CODE_123, XTERM_COLOR_123); //0xFF87FFFF);
-			this.put(CODE_124, XTERM_COLOR_124); //0xFFAF0000);
-			this.put(CODE_125, XTERM_COLOR_125); //0xFFAF005F);
-			this.put(CODE_126, XTERM_COLOR_126); //0xFFAF0087);
-			this.put(CODE_127, XTERM_COLOR_127); //0xFFAF00AF);
-			this.put(CODE_128, XTERM_COLOR_128); //0xFFAF00D7);
-			this.put(CODE_129, XTERM_COLOR_129); //0xFFAF00FF);
-			this.put(CODE_130, XTERM_COLOR_130); //0xFFAF5F00);
-			this.put(CODE_131, XTERM_COLOR_131); //0xFFAF5F5F);
-			this.put(CODE_132, XTERM_COLOR_132); //0xFFAF5F87);
-			this.put(CODE_133, XTERM_COLOR_133); //0xFFAF5FAF);
-			this.put(CODE_134, XTERM_COLOR_134); //0xFFAF5FD7);
-			this.put(CODE_135, XTERM_COLOR_135); //0xFFAF5FFF);
-			this.put(CODE_136, XTERM_COLOR_136); //0xFFAF8700);
-			this.put(CODE_137, XTERM_COLOR_137); //0xFFAF875F);
-			this.put(CODE_138, XTERM_COLOR_138); //0xFFAF8787);
-			this.put(CODE_139, XTERM_COLOR_139); //0xFFAF87AF);
-			this.put(CODE_140, XTERM_COLOR_140); //0xFFAF87D7);
-			this.put(CODE_141, XTERM_COLOR_141); //0xFFAF87FF);
-			this.put(CODE_142, XTERM_COLOR_142); //0xFFAFAF00);
-			this.put(CODE_143, XTERM_COLOR_143); //0xFFAFAF5F);
-			this.put(CODE_144, XTERM_COLOR_144); //0xFFAFAF87);
-			this.put(CODE_145, XTERM_COLOR_145); //0xFFAFAFAF);
-			this.put(CODE_146, XTERM_COLOR_146); //0xFFAFAFD7);
-			this.put(CODE_147, XTERM_COLOR_147); //0xFFAFAFFF);
-			this.put(CODE_148, XTERM_COLOR_148); //0xFFAFD700);
-			this.put(CODE_149, XTERM_COLOR_149); //0xFFAFD75F);
-			this.put(CODE_150, XTERM_COLOR_150); //0xFFAFD787);
-			this.put(CODE_151, XTERM_COLOR_151); //0xFFAFD7AF);
-			this.put(CODE_152, XTERM_COLOR_152); //0xFFAFD7D7);
-			this.put(CODE_153, XTERM_COLOR_153); //0xFFAFD7FF);
-			this.put(CODE_154, XTERM_COLOR_154); //0xFFAFFF00);
-			this.put(CODE_155, XTERM_COLOR_155); //0xFFAFFF5F);
-			this.put(CODE_156, XTERM_COLOR_156); //0xFFAFFF87);
-			this.put(CODE_157, XTERM_COLOR_157); //0xFFAFFFAF);
-			this.put(CODE_158, XTERM_COLOR_158); //0xFFAFFFD7);
-			this.put(CODE_159, XTERM_COLOR_159); //0xFFAFFFFF);
-			this.put(CODE_160, XTERM_COLOR_160); //0xFFD70000);
-			this.put(CODE_161, XTERM_COLOR_161); //0xFFD7005F);
-			this.put(CODE_162, XTERM_COLOR_162); //0xFFD70087);
-			this.put(CODE_163, XTERM_COLOR_163); //0xFFD700AF);
-			this.put(CODE_164, XTERM_COLOR_164); //0xFFD700D7);
-			this.put(CODE_165, XTERM_COLOR_165); //0xFFD700FF);
-			this.put(CODE_166, XTERM_COLOR_166); //0xFFD75F00);
-			this.put(CODE_167, XTERM_COLOR_167); //0xFFD75F5F);
-			this.put(CODE_168, XTERM_COLOR_168); //0xFFD75F87);
-			this.put(CODE_169, XTERM_COLOR_169); //0xFFD75FAF);
-			this.put(CODE_170, XTERM_COLOR_170); //0xFFD75FD7);
-			this.put(CODE_171, XTERM_COLOR_171); //0xFFD75FFF);
-			this.put(CODE_172, XTERM_COLOR_172); //0xFFD78700);
-			this.put(CODE_173, XTERM_COLOR_173); //0xFFD7875F);
-			this.put(CODE_174, XTERM_COLOR_174); //0xFFD78787);
-			this.put(CODE_175, XTERM_COLOR_175); //0xFFD787AF);
-			this.put(CODE_176, XTERM_COLOR_176); //0xFFD787D7);
-			this.put(CODE_177, XTERM_COLOR_177); //0xFFD787FF);
-			this.put(CODE_178, XTERM_COLOR_178); //0xFFD7AF00);
-			this.put(CODE_179, XTERM_COLOR_179); //0xFFD7AF5F);
-			this.put(CODE_180, XTERM_COLOR_180); //0xFFD7AF87);
-			this.put(CODE_181, XTERM_COLOR_181); //0xFFD7AFAF);
-			this.put(CODE_182, XTERM_COLOR_182); //0xFFD7AFD7);
-			this.put(CODE_183, XTERM_COLOR_183); //0xFFD7AFFF);
-			this.put(CODE_184, XTERM_COLOR_184); //0xFFD7D700);
-			this.put(CODE_185, XTERM_COLOR_185); //0xFFD7D75F);
-			this.put(CODE_186, XTERM_COLOR_186); //0xFFD7D787);
-			this.put(CODE_187, XTERM_COLOR_187); //0xFFD7D7AF);
-			this.put(CODE_188, XTERM_COLOR_188); //0xFFD7D7D7);
-			this.put(CODE_189, XTERM_COLOR_189); //0xFFD7D7FF);
-			this.put(CODE_190, XTERM_COLOR_190); //0xFFD7FF00);
-			this.put(CODE_191, XTERM_COLOR_191); //0xFFD7FF5F);
-			this.put(CODE_192, XTERM_COLOR_192); //0xFFD7FF87);
-			this.put(CODE_193, XTERM_COLOR_193); //0xFFD7FFAF);
-			this.put(CODE_194, XTERM_COLOR_194); //0xFFD7FFD7);
-			this.put(CODE_195, XTERM_COLOR_195); //0xFFD7FFFF);
-			this.put(CODE_196, XTERM_COLOR_196); //0xFFFF0000);
-			this.put(CODE_197, XTERM_COLOR_197); //0xFFFF005F);
-			this.put(CODE_198, XTERM_COLOR_198); //0xFFFF0087);
-			this.put(CODE_199, XTERM_COLOR_199); //0xFFFF00AF);
-			this.put(CODE_200, XTERM_COLOR_200); //0xFFFF00D7);
-			this.put(CODE_201, XTERM_COLOR_201); //0xFFFF00FF);
-			this.put(CODE_202, XTERM_COLOR_202); //0xFFFF5F00);
-			this.put(CODE_203, XTERM_COLOR_203); //0xFFFF5F5F);
-			this.put(CODE_204, XTERM_COLOR_204); //0xFFFF5F87);
-			this.put(CODE_205, XTERM_COLOR_205); //0xFFFF5FAF);
-			this.put(CODE_206, XTERM_COLOR_206); //0xFFFF5FD7);
-			this.put(CODE_207, XTERM_COLOR_207); //0xFFFF5FFF);
-			this.put(CODE_208, XTERM_COLOR_208); //0xFFFF8700);
-			this.put(CODE_209, XTERM_COLOR_209); //0xFFFF875F);
-			this.put(CODE_210, XTERM_COLOR_210); //0xFFFF8787);
-			this.put(CODE_211, XTERM_COLOR_211); //0xFFFF87AF);
-			this.put(CODE_212, XTERM_COLOR_212); //0xFFFF87D7);
-			this.put(CODE_213, XTERM_COLOR_213); //0xFFFF87FF);
-			this.put(CODE_214, XTERM_COLOR_214); //0xFFFFAF00);
-			this.put(CODE_215, XTERM_COLOR_215); //0xFFFFAF5F);
-			this.put(CODE_216, XTERM_COLOR_216); //0xFFFFAF87);
-			this.put(CODE_217, XTERM_COLOR_217); //0xFFFFAFAF);
-			this.put(CODE_218, XTERM_COLOR_218); //0xFFFFAFD7);
-			this.put(CODE_219, XTERM_COLOR_219); //0xFFFFAFFF);
-			this.put(CODE_220, XTERM_COLOR_220); //0xFFFFD700);
-			this.put(CODE_221, XTERM_COLOR_221); //0xFFFFD75F);
-			this.put(CODE_222, XTERM_COLOR_222); //0xFFFFD787);
-			this.put(CODE_223, XTERM_COLOR_223); //0xFFFFD7AF);
-			this.put(CODE_224, XTERM_COLOR_224); //0xFFFFD7D7);
-			this.put(CODE_225, XTERM_COLOR_225); //0xFFFFD7FF);
-			this.put(CODE_226, XTERM_COLOR_226); //0xFFFFFF00);
-			this.put(CODE_227, XTERM_COLOR_227); //0xFFFFFF5F);
-			this.put(CODE_228, XTERM_COLOR_228); //0xFFFFFF87);
-			this.put(CODE_229, XTERM_COLOR_229); //0xFFFFFFAF);
-			this.put(CODE_230, XTERM_COLOR_230); //0xFFFFFFD7);
-			this.put(CODE_231, XTERM_COLOR_231); //0xFFFFFFFF);
-			//blacks/greys
-			this.put(CODE_232, XTERM_COLOR_232); //0xFF080808);
-			this.put(CODE_233, XTERM_COLOR_233); //0xFF121212);
-			this.put(CODE_234, XTERM_COLOR_234); //0xFF1C1C1C);
-			this.put(CODE_235, XTERM_COLOR_235); //0xFF262626);
-			this.put(CODE_236, XTERM_COLOR_236); //0xFF303030);
-			this.put(CODE_237, XTERM_COLOR_237); //0xFF3A3A3A);
-			this.put(CODE_238, XTERM_COLOR_238); //0xFF444444);
-			this.put(CODE_239, XTERM_COLOR_239); //0xFF4E4E4E);
-			this.put(CODE_240, XTERM_COLOR_240); //0xFF585858);
-			this.put(CODE_241, XTERM_COLOR_241); //0xFF626262);
-			this.put(CODE_242, XTERM_COLOR_242); //0xFF6C6C6C);
-			this.put(CODE_243, XTERM_COLOR_243); //0xFF767676);
-			this.put(CODE_244, XTERM_COLOR_244); //0xFF808080);
-			this.put(CODE_245, XTERM_COLOR_245); //0xFF8A8A8A);
-			this.put(CODE_246, XTERM_COLOR_246); //0xFF949494);
-			this.put(CODE_247, XTERM_COLOR_247); //0xFF9E9E9E);
-			this.put(CODE_248, XTERM_COLOR_248); //0xFFA8A8A8);
-			this.put(CODE_249, XTERM_COLOR_249); //0xFFB2B2B2);
-			this.put(CODE_250, XTERM_COLOR_250); //0xFFBCBCBC);
-			this.put(CODE_251, XTERM_COLOR_251); //0xFFC6C6C6);
-			this.put(CODE_252, XTERM_COLOR_252); //0xFFD0D0D0);
-			this.put(CODE_253, XTERM_COLOR_253); //0xFFDADADA);
-			this.put(CODE_254, XTERM_COLOR_254); //0xFFE4E4E4);
-			this.put(CODE_255, XTERM_COLOR_255); //0xFFEEEEEE);
-		}
-	};
+	/** xterm 256 palette (HashMap so JVM unit tests can load Colorizer). */
+	private static final HashMap<Integer, Integer> colormap256 = new HashMap<Integer, Integer>();
+	static {
+			colormap256.put(CODE_0, XTERM_COLOR_0); //0xFF000000); //BLACK
+			colormap256.put(CODE_1, XTERM_COLOR_1); //0xFFBB0000); //RED
+			colormap256.put(CODE_2, XTERM_COLOR_2); //0xFF00BB00); //GREEN
+			colormap256.put(CODE_3, XTERM_COLOR_3); //0xFFBBBB00); //YELLOW
+			colormap256.put(CODE_4, XTERM_COLOR_4); //0xFF0000EE); //BLUE
+			colormap256.put(CODE_5, XTERM_COLOR_5); //0xFFBB00BB); //MAGENTA
+			colormap256.put(CODE_6, XTERM_COLOR_6); //0xFF00BBBB); //CYAN
+			colormap256.put(CODE_7, XTERM_COLOR_7); //0xFFBBBBBB); //WHITE
+			colormap256.put(CODE_8, XTERM_COLOR_8); //0xFF555555); //BRIGHT BLACK (GREY)
+			colormap256.put(CODE_9, XTERM_COLOR_9); //0xFFFF5555); //BRIGHT RED
+			colormap256.put(CODE_10, XTERM_COLOR_10); //0xFF55FF55); //BRIGHT GREEN
+			colormap256.put(CODE_11, XTERM_COLOR_11); //0xFFFFFF55); //BRIGHT YELLOW
+			colormap256.put(CODE_12, XTERM_COLOR_12); //0xFF5555FF); //BRIGHT BLUE
+			colormap256.put(CODE_13, XTERM_COLOR_13); //0xFFFF55FF); //BRIGHT MAGENTA
+			colormap256.put(CODE_14, XTERM_COLOR_14); //0xFF55FFFF); //BRIGHT CYAN
+			colormap256.put(CODE_15, XTERM_COLOR_15); //0xFFFFFFFF); //BRIGHT WHITE
+			colormap256.put(CODE_16, XTERM_COLOR_16); //0xFF000000);
+			colormap256.put(CODE_17, XTERM_COLOR_17); //0xFF00005F);
+			colormap256.put(CODE_18, XTERM_COLOR_18); //0xFF000087);
+			colormap256.put(CODE_19, XTERM_COLOR_19); //0xFF0000AF);
+			colormap256.put(CODE_20, XTERM_COLOR_20); //0xFF0000D7);
+			colormap256.put(CODE_21, XTERM_COLOR_21); //0xFF0000FF);
+			colormap256.put(CODE_22, XTERM_COLOR_22); //0xFF005F00);
+			colormap256.put(CODE_23, XTERM_COLOR_23); //0xFF005F5F);
+			colormap256.put(CODE_24, XTERM_COLOR_24); //0xFF005F87);
+			colormap256.put(CODE_25, XTERM_COLOR_25); //0xFF005FAF);
+			colormap256.put(CODE_26, XTERM_COLOR_26); //0xFF005FD7);
+			colormap256.put(CODE_27, XTERM_COLOR_27); //0xFF005FFF);
+			colormap256.put(CODE_28, XTERM_COLOR_28); //0xFF008700);
+			colormap256.put(CODE_29, XTERM_COLOR_29); //0xFF00875F);
+			colormap256.put(CODE_30, XTERM_COLOR_30); //0xFF008787);
+			colormap256.put(CODE_31, XTERM_COLOR_31); //0xFF0087AF);
+			colormap256.put(CODE_32, XTERM_COLOR_32); //0xFF0087D7);
+			colormap256.put(CODE_33, XTERM_COLOR_33); //0xFF0087FF);
+			colormap256.put(CODE_34, XTERM_COLOR_34); //0xFF00AF00);
+			colormap256.put(CODE_35, XTERM_COLOR_35); //0xFF00AF5F);
+			colormap256.put(CODE_36, XTERM_COLOR_36); //0xFF00AF87);
+			colormap256.put(CODE_37, XTERM_COLOR_37); //0xFF00AFAF);
+			colormap256.put(CODE_38, XTERM_COLOR_38); //0xFF00AFD7);
+			colormap256.put(CODE_39, XTERM_COLOR_39); //0xFF00AFFF);
+			colormap256.put(CODE_40, XTERM_COLOR_40); //0xFF00D700);
+			colormap256.put(CODE_41, XTERM_COLOR_41); //0xFF00D75F);
+			colormap256.put(CODE_42, XTERM_COLOR_42); //0xFF00D787);
+			colormap256.put(CODE_43, XTERM_COLOR_43); //0xFF00D7AF);
+			colormap256.put(CODE_44, XTERM_COLOR_44); //0xFF00D7D7);
+			colormap256.put(CODE_45, XTERM_COLOR_45); //0xFF00D7FF);
+			colormap256.put(CODE_46, XTERM_COLOR_46); //0xFF00FF00);
+			colormap256.put(CODE_47, XTERM_COLOR_47); //0xFF00FF5F);
+			colormap256.put(CODE_48, XTERM_COLOR_48); //0xFF00FF87);
+			colormap256.put(CODE_49, XTERM_COLOR_49); //0xFF00FFAF);
+			colormap256.put(CODE_50, XTERM_COLOR_50); //0xFF00FFD7);
+			colormap256.put(CODE_51, XTERM_COLOR_51); //0xFF00FFFF);
+			colormap256.put(CODE_52, XTERM_COLOR_52); //0xFF5F0000);
+			colormap256.put(CODE_53, XTERM_COLOR_53); //0xFF5F005F);
+			colormap256.put(CODE_54, XTERM_COLOR_54); //0xFF5F0087);
+			colormap256.put(CODE_55, XTERM_COLOR_55); //0xFF5F00AF);
+			colormap256.put(CODE_56, XTERM_COLOR_56); //0xFF5F00D7);
+			colormap256.put(CODE_57, XTERM_COLOR_57); //0xFF5F00FF);
+			colormap256.put(CODE_58, XTERM_COLOR_58); //0xFF5F5F00);
+			colormap256.put(CODE_59, XTERM_COLOR_59); //0xFF5F5F5F);
+			colormap256.put(CODE_60, XTERM_COLOR_60); //0xFF5F5F87);
+			colormap256.put(CODE_61, XTERM_COLOR_61); //0xFF5F5FAF);
+			colormap256.put(CODE_62, XTERM_COLOR_62); //0xFF5F5FD7);
+			colormap256.put(CODE_63, XTERM_COLOR_63); //0xFF5F5FFF);
+			colormap256.put(CODE_64, XTERM_COLOR_64); //0xFF5F8700);
+			colormap256.put(CODE_65, XTERM_COLOR_65); //0xFF5F875F);
+			colormap256.put(CODE_66, XTERM_COLOR_66); //0xFF5F8787);
+			colormap256.put(CODE_67, XTERM_COLOR_67); //0xFF5F87AF);
+			colormap256.put(CODE_68, XTERM_COLOR_68); //0xFF5F87D7);
+			colormap256.put(CODE_69, XTERM_COLOR_69); //0xFF5F87FF);
+			colormap256.put(CODE_70, XTERM_COLOR_70); //0xFF5FAF00);
+			colormap256.put(CODE_71, XTERM_COLOR_71); //0xFF5FAF5F);
+			colormap256.put(CODE_72, XTERM_COLOR_72); //0xFF5FAF87);
+			colormap256.put(CODE_73, XTERM_COLOR_73); //0xFF5FAFAF);
+			colormap256.put(CODE_74, XTERM_COLOR_74); //0xFF5FAFD7);
+			colormap256.put(CODE_75, XTERM_COLOR_75); //0xFF5FAFFF);
+			colormap256.put(CODE_76, XTERM_COLOR_76); //0xFF5FD700);
+			colormap256.put(CODE_77, XTERM_COLOR_77); //0xFF5FD75F);
+			colormap256.put(CODE_78, XTERM_COLOR_78); //0xFF5FD787);
+			colormap256.put(CODE_79, XTERM_COLOR_79); //0xFF5FD7AF);
+			colormap256.put(CODE_80, XTERM_COLOR_80); //0xFF5FD7D7);
+			colormap256.put(CODE_81, XTERM_COLOR_81); //0xFF5FD7FF);
+			colormap256.put(CODE_82, XTERM_COLOR_82); //0xFF5FFF00);
+			colormap256.put(CODE_83, XTERM_COLOR_83); //0xFF5FFF5F);
+			colormap256.put(CODE_84, XTERM_COLOR_84); //0xFF5FFF87);
+			colormap256.put(CODE_85, XTERM_COLOR_85); //0xFF5FFFAF);
+			colormap256.put(CODE_86, XTERM_COLOR_86); //0xFF5FFFD7);
+			colormap256.put(CODE_87, XTERM_COLOR_87); //0xFF5FFFFF);
+			colormap256.put(CODE_88, XTERM_COLOR_88); //0xFF870000);
+			colormap256.put(CODE_89, XTERM_COLOR_89); //0xFF87005F);
+			colormap256.put(CODE_90, XTERM_COLOR_90); //0xFF870087);
+			colormap256.put(CODE_91, XTERM_COLOR_91); //0xFF8700AF);
+			colormap256.put(CODE_92, XTERM_COLOR_92); //0xFF8700D7);
+			colormap256.put(CODE_93, XTERM_COLOR_93); //0xFF8700FF);
+			colormap256.put(CODE_94, XTERM_COLOR_94); //0xFF875F00);
+			colormap256.put(CODE_95, XTERM_COLOR_95); //0xFF875F5F);
+			colormap256.put(CODE_96, XTERM_COLOR_96); //0xFF875F87);
+			colormap256.put(CODE_97, XTERM_COLOR_97); //0xFF875FAF);
+			colormap256.put(CODE_98, XTERM_COLOR_98); //0xFF875FD7);
+			colormap256.put(CODE_99, XTERM_COLOR_99); //0xFF875FFF);
+			colormap256.put(CODE_100, XTERM_COLOR_100); //0xFF878700);
+			colormap256.put(CODE_101, XTERM_COLOR_101); //0xFF87875F);
+			colormap256.put(CODE_102, XTERM_COLOR_102); //0xFF878787);
+			colormap256.put(CODE_103, XTERM_COLOR_103); //0xFF8787AF);
+			colormap256.put(CODE_104, XTERM_COLOR_104); //0xFF8787D7);
+			colormap256.put(CODE_105, XTERM_COLOR_105); //0xFF8787FF);
+			colormap256.put(CODE_106, XTERM_COLOR_106); //0xFF87AF00);
+			colormap256.put(CODE_107, XTERM_COLOR_107); //0xFF87AF5F);
+			colormap256.put(CODE_108, XTERM_COLOR_108); //0xFF87AF87);
+			colormap256.put(CODE_109, XTERM_COLOR_109); //0xFF87AFAF);
+			colormap256.put(CODE_110, XTERM_COLOR_110); //0xFF87AFD7);
+			colormap256.put(CODE_111, XTERM_COLOR_111); //0xFF87AFFF);
+			colormap256.put(CODE_112, XTERM_COLOR_112); //0xFF87D700);
+			colormap256.put(CODE_113, XTERM_COLOR_113); //0xFF87D75F);
+			colormap256.put(CODE_114, XTERM_COLOR_114); //0xFF87D787);
+			colormap256.put(CODE_115, XTERM_COLOR_115); //0xFF87D7AF);
+			colormap256.put(CODE_116, XTERM_COLOR_116); //0xFF87D7D7);
+			colormap256.put(CODE_117, XTERM_COLOR_117); //0xFF87D7FF);
+			colormap256.put(CODE_118, XTERM_COLOR_118); //0xFF87FF00);
+			colormap256.put(CODE_119, XTERM_COLOR_119); //0xFF87FF5F);
+			colormap256.put(CODE_120, XTERM_COLOR_120); //0xFF87FF87);
+			colormap256.put(CODE_121, XTERM_COLOR_121); //0xFF87FFAF);
+			colormap256.put(CODE_122, XTERM_COLOR_122); //0xFF87FFD7);
+			colormap256.put(CODE_123, XTERM_COLOR_123); //0xFF87FFFF);
+			colormap256.put(CODE_124, XTERM_COLOR_124); //0xFFAF0000);
+			colormap256.put(CODE_125, XTERM_COLOR_125); //0xFFAF005F);
+			colormap256.put(CODE_126, XTERM_COLOR_126); //0xFFAF0087);
+			colormap256.put(CODE_127, XTERM_COLOR_127); //0xFFAF00AF);
+			colormap256.put(CODE_128, XTERM_COLOR_128); //0xFFAF00D7);
+			colormap256.put(CODE_129, XTERM_COLOR_129); //0xFFAF00FF);
+			colormap256.put(CODE_130, XTERM_COLOR_130); //0xFFAF5F00);
+			colormap256.put(CODE_131, XTERM_COLOR_131); //0xFFAF5F5F);
+			colormap256.put(CODE_132, XTERM_COLOR_132); //0xFFAF5F87);
+			colormap256.put(CODE_133, XTERM_COLOR_133); //0xFFAF5FAF);
+			colormap256.put(CODE_134, XTERM_COLOR_134); //0xFFAF5FD7);
+			colormap256.put(CODE_135, XTERM_COLOR_135); //0xFFAF5FFF);
+			colormap256.put(CODE_136, XTERM_COLOR_136); //0xFFAF8700);
+			colormap256.put(CODE_137, XTERM_COLOR_137); //0xFFAF875F);
+			colormap256.put(CODE_138, XTERM_COLOR_138); //0xFFAF8787);
+			colormap256.put(CODE_139, XTERM_COLOR_139); //0xFFAF87AF);
+			colormap256.put(CODE_140, XTERM_COLOR_140); //0xFFAF87D7);
+			colormap256.put(CODE_141, XTERM_COLOR_141); //0xFFAF87FF);
+			colormap256.put(CODE_142, XTERM_COLOR_142); //0xFFAFAF00);
+			colormap256.put(CODE_143, XTERM_COLOR_143); //0xFFAFAF5F);
+			colormap256.put(CODE_144, XTERM_COLOR_144); //0xFFAFAF87);
+			colormap256.put(CODE_145, XTERM_COLOR_145); //0xFFAFAFAF);
+			colormap256.put(CODE_146, XTERM_COLOR_146); //0xFFAFAFD7);
+			colormap256.put(CODE_147, XTERM_COLOR_147); //0xFFAFAFFF);
+			colormap256.put(CODE_148, XTERM_COLOR_148); //0xFFAFD700);
+			colormap256.put(CODE_149, XTERM_COLOR_149); //0xFFAFD75F);
+			colormap256.put(CODE_150, XTERM_COLOR_150); //0xFFAFD787);
+			colormap256.put(CODE_151, XTERM_COLOR_151); //0xFFAFD7AF);
+			colormap256.put(CODE_152, XTERM_COLOR_152); //0xFFAFD7D7);
+			colormap256.put(CODE_153, XTERM_COLOR_153); //0xFFAFD7FF);
+			colormap256.put(CODE_154, XTERM_COLOR_154); //0xFFAFFF00);
+			colormap256.put(CODE_155, XTERM_COLOR_155); //0xFFAFFF5F);
+			colormap256.put(CODE_156, XTERM_COLOR_156); //0xFFAFFF87);
+			colormap256.put(CODE_157, XTERM_COLOR_157); //0xFFAFFFAF);
+			colormap256.put(CODE_158, XTERM_COLOR_158); //0xFFAFFFD7);
+			colormap256.put(CODE_159, XTERM_COLOR_159); //0xFFAFFFFF);
+			colormap256.put(CODE_160, XTERM_COLOR_160); //0xFFD70000);
+			colormap256.put(CODE_161, XTERM_COLOR_161); //0xFFD7005F);
+			colormap256.put(CODE_162, XTERM_COLOR_162); //0xFFD70087);
+			colormap256.put(CODE_163, XTERM_COLOR_163); //0xFFD700AF);
+			colormap256.put(CODE_164, XTERM_COLOR_164); //0xFFD700D7);
+			colormap256.put(CODE_165, XTERM_COLOR_165); //0xFFD700FF);
+			colormap256.put(CODE_166, XTERM_COLOR_166); //0xFFD75F00);
+			colormap256.put(CODE_167, XTERM_COLOR_167); //0xFFD75F5F);
+			colormap256.put(CODE_168, XTERM_COLOR_168); //0xFFD75F87);
+			colormap256.put(CODE_169, XTERM_COLOR_169); //0xFFD75FAF);
+			colormap256.put(CODE_170, XTERM_COLOR_170); //0xFFD75FD7);
+			colormap256.put(CODE_171, XTERM_COLOR_171); //0xFFD75FFF);
+			colormap256.put(CODE_172, XTERM_COLOR_172); //0xFFD78700);
+			colormap256.put(CODE_173, XTERM_COLOR_173); //0xFFD7875F);
+			colormap256.put(CODE_174, XTERM_COLOR_174); //0xFFD78787);
+			colormap256.put(CODE_175, XTERM_COLOR_175); //0xFFD787AF);
+			colormap256.put(CODE_176, XTERM_COLOR_176); //0xFFD787D7);
+			colormap256.put(CODE_177, XTERM_COLOR_177); //0xFFD787FF);
+			colormap256.put(CODE_178, XTERM_COLOR_178); //0xFFD7AF00);
+			colormap256.put(CODE_179, XTERM_COLOR_179); //0xFFD7AF5F);
+			colormap256.put(CODE_180, XTERM_COLOR_180); //0xFFD7AF87);
+			colormap256.put(CODE_181, XTERM_COLOR_181); //0xFFD7AFAF);
+			colormap256.put(CODE_182, XTERM_COLOR_182); //0xFFD7AFD7);
+			colormap256.put(CODE_183, XTERM_COLOR_183); //0xFFD7AFFF);
+			colormap256.put(CODE_184, XTERM_COLOR_184); //0xFFD7D700);
+			colormap256.put(CODE_185, XTERM_COLOR_185); //0xFFD7D75F);
+			colormap256.put(CODE_186, XTERM_COLOR_186); //0xFFD7D787);
+			colormap256.put(CODE_187, XTERM_COLOR_187); //0xFFD7D7AF);
+			colormap256.put(CODE_188, XTERM_COLOR_188); //0xFFD7D7D7);
+			colormap256.put(CODE_189, XTERM_COLOR_189); //0xFFD7D7FF);
+			colormap256.put(CODE_190, XTERM_COLOR_190); //0xFFD7FF00);
+			colormap256.put(CODE_191, XTERM_COLOR_191); //0xFFD7FF5F);
+			colormap256.put(CODE_192, XTERM_COLOR_192); //0xFFD7FF87);
+			colormap256.put(CODE_193, XTERM_COLOR_193); //0xFFD7FFAF);
+			colormap256.put(CODE_194, XTERM_COLOR_194); //0xFFD7FFD7);
+			colormap256.put(CODE_195, XTERM_COLOR_195); //0xFFD7FFFF);
+			colormap256.put(CODE_196, XTERM_COLOR_196); //0xFFFF0000);
+			colormap256.put(CODE_197, XTERM_COLOR_197); //0xFFFF005F);
+			colormap256.put(CODE_198, XTERM_COLOR_198); //0xFFFF0087);
+			colormap256.put(CODE_199, XTERM_COLOR_199); //0xFFFF00AF);
+			colormap256.put(CODE_200, XTERM_COLOR_200); //0xFFFF00D7);
+			colormap256.put(CODE_201, XTERM_COLOR_201); //0xFFFF00FF);
+			colormap256.put(CODE_202, XTERM_COLOR_202); //0xFFFF5F00);
+			colormap256.put(CODE_203, XTERM_COLOR_203); //0xFFFF5F5F);
+			colormap256.put(CODE_204, XTERM_COLOR_204); //0xFFFF5F87);
+			colormap256.put(CODE_205, XTERM_COLOR_205); //0xFFFF5FAF);
+			colormap256.put(CODE_206, XTERM_COLOR_206); //0xFFFF5FD7);
+			colormap256.put(CODE_207, XTERM_COLOR_207); //0xFFFF5FFF);
+			colormap256.put(CODE_208, XTERM_COLOR_208); //0xFFFF8700);
+			colormap256.put(CODE_209, XTERM_COLOR_209); //0xFFFF875F);
+			colormap256.put(CODE_210, XTERM_COLOR_210); //0xFFFF8787);
+			colormap256.put(CODE_211, XTERM_COLOR_211); //0xFFFF87AF);
+			colormap256.put(CODE_212, XTERM_COLOR_212); //0xFFFF87D7);
+			colormap256.put(CODE_213, XTERM_COLOR_213); //0xFFFF87FF);
+			colormap256.put(CODE_214, XTERM_COLOR_214); //0xFFFFAF00);
+			colormap256.put(CODE_215, XTERM_COLOR_215); //0xFFFFAF5F);
+			colormap256.put(CODE_216, XTERM_COLOR_216); //0xFFFFAF87);
+			colormap256.put(CODE_217, XTERM_COLOR_217); //0xFFFFAFAF);
+			colormap256.put(CODE_218, XTERM_COLOR_218); //0xFFFFAFD7);
+			colormap256.put(CODE_219, XTERM_COLOR_219); //0xFFFFAFFF);
+			colormap256.put(CODE_220, XTERM_COLOR_220); //0xFFFFD700);
+			colormap256.put(CODE_221, XTERM_COLOR_221); //0xFFFFD75F);
+			colormap256.put(CODE_222, XTERM_COLOR_222); //0xFFFFD787);
+			colormap256.put(CODE_223, XTERM_COLOR_223); //0xFFFFD7AF);
+			colormap256.put(CODE_224, XTERM_COLOR_224); //0xFFFFD7D7);
+			colormap256.put(CODE_225, XTERM_COLOR_225); //0xFFFFD7FF);
+			colormap256.put(CODE_226, XTERM_COLOR_226); //0xFFFFFF00);
+			colormap256.put(CODE_227, XTERM_COLOR_227); //0xFFFFFF5F);
+			colormap256.put(CODE_228, XTERM_COLOR_228); //0xFFFFFF87);
+			colormap256.put(CODE_229, XTERM_COLOR_229); //0xFFFFFFAF);
+			colormap256.put(CODE_230, XTERM_COLOR_230); //0xFFFFFFD7);
+			colormap256.put(CODE_231, XTERM_COLOR_231); //0xFFFFFFFF);
+			colormap256.put(CODE_232, XTERM_COLOR_232); //0xFF080808);
+			colormap256.put(CODE_233, XTERM_COLOR_233); //0xFF121212);
+			colormap256.put(CODE_234, XTERM_COLOR_234); //0xFF1C1C1C);
+			colormap256.put(CODE_235, XTERM_COLOR_235); //0xFF262626);
+			colormap256.put(CODE_236, XTERM_COLOR_236); //0xFF303030);
+			colormap256.put(CODE_237, XTERM_COLOR_237); //0xFF3A3A3A);
+			colormap256.put(CODE_238, XTERM_COLOR_238); //0xFF444444);
+			colormap256.put(CODE_239, XTERM_COLOR_239); //0xFF4E4E4E);
+			colormap256.put(CODE_240, XTERM_COLOR_240); //0xFF585858);
+			colormap256.put(CODE_241, XTERM_COLOR_241); //0xFF626262);
+			colormap256.put(CODE_242, XTERM_COLOR_242); //0xFF6C6C6C);
+			colormap256.put(CODE_243, XTERM_COLOR_243); //0xFF767676);
+			colormap256.put(CODE_244, XTERM_COLOR_244); //0xFF808080);
+			colormap256.put(CODE_245, XTERM_COLOR_245); //0xFF8A8A8A);
+			colormap256.put(CODE_246, XTERM_COLOR_246); //0xFF949494);
+			colormap256.put(CODE_247, XTERM_COLOR_247); //0xFF9E9E9E);
+			colormap256.put(CODE_248, XTERM_COLOR_248); //0xFFA8A8A8);
+			colormap256.put(CODE_249, XTERM_COLOR_249); //0xFFB2B2B2);
+			colormap256.put(CODE_250, XTERM_COLOR_250); //0xFFBCBCBC);
+			colormap256.put(CODE_251, XTERM_COLOR_251); //0xFFC6C6C6);
+			colormap256.put(CODE_252, XTERM_COLOR_252); //0xFFD0D0D0);
+			colormap256.put(CODE_253, XTERM_COLOR_253); //0xFFDADADA);
+			colormap256.put(CODE_254, XTERM_COLOR_254); //0xFFE4E4E4);
+			colormap256.put(CODE_255, XTERM_COLOR_255); //0xFFEEEEEE);
+	}
 	/** This maps a string value to a corresponding integer value. */
 	private static HashMap<CharSequence, Integer> colormap = new HashMap<CharSequence, Integer>();
 	static
@@ -1836,5 +1832,24 @@ public final class Colorizer {
 		return telOptColorEnd;
 	}
 
+	/** ANSI Color code pattern. */
+	private static final Pattern COLOR_PATTERN = Pattern.compile("\\x1B\\x5B.+?m");
+
+	/** ANSI Color code matcher. */
+	private static final Matcher COLOR_MATCHER = COLOR_PATTERN.matcher("");
+
+	/**
+	 * Strip ANSI SGR escape sequences from {@code input}.
+	 *
+	 * @param input text that may contain ESC[…m sequences
+	 * @return input with those sequences removed (empty string if input is null)
+	 */
+	public static String stripAnsiEscapes(final String input) {
+		if (input == null) {
+			return "";
+		}
+		COLOR_MATCHER.reset(input);
+		return COLOR_MATCHER.replaceAll("");
+	}
 
 }
