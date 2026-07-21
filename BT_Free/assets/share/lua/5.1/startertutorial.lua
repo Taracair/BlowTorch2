@@ -311,6 +311,14 @@ Groups:
   • The list shows [group] before the pattern and sorts by group.
   • Then: .trigger group off combat  (or group on / toggle; main+plugins)
 
+Conditions (advanced, in the trigger editor):
+  • Optional list of IF checks (All/AND or Any/OR) after the pattern matches
+    and before responders run. Empty list = always fire (old behavior).
+  • Example: only Ack when another trigger "combat_mode" is enabled —
+    add Condition "Trigger enabled" and pick combat_mode.
+  • Variables: Set Variable responder (or Lua SetVariable) stores a session
+    string; condition "Variable equals/exists" can gate later triggers.
+
 GMCP hooks: literal pattern starting with % (e.g. %Char.Vitals).
 MCP hooks: @message-name.
 
@@ -319,6 +327,7 @@ Responders worth knowing early:
   Replace / Gag  change or hide the matched line
   Color          tint matching text
   Toast / Notification   phone-side alerts
+  Set Variable   store a session name=value (may use $1)
 
 Try: open Triggers, glance at the list, toggle one if you already have
 any — then come back with .tutorial next.]])
