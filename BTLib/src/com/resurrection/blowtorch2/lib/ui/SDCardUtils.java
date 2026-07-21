@@ -31,6 +31,7 @@ public class SDCardUtils {
     public static final String SUBDIR_LAUNCHER = "launcher";
     public static final String SUBDIR_SESSION_LOGS = "session_logs";
     public static final String SUBDIR_LOGS = "logs";
+    public static final String SUBDIR_MAPS = "maps";
 
     public static String getExportDirectoryName(Context context) {
         String name = ConfigurationLoader.getConfigurationValue("exportDirectory", context);
@@ -226,6 +227,7 @@ public class SDCardUtils {
         ensureWritableDirectory(new File(root, SUBDIR_LAUNCHER));
         ensureWritableDirectory(new File(root, SUBDIR_SESSION_LOGS));
         ensureWritableDirectory(new File(root, SUBDIR_LOGS));
+        ensureWritableDirectory(new File(root, SUBDIR_MAPS));
     }
 
     public static File resolveBlowTorchSubdir(Context context, String subdir) {
