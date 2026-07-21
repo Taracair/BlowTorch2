@@ -259,6 +259,7 @@ Print the built-in summary with `.map dirs`.
 | `.map neighbor <cmd> [from <id>]` | Create/link a neighbor by walk verb |
 | `.map move [id] <x> <y>` | Reposition a tile on the grid |
 | `.map title` / `.map note` | Edit current tile text |
+| `.map title for <id> <text>` / `.map note for <id> <text>` | Edit a specific tile |
 | `.map link <cmd> [from <id>] to <tileId>` | Manual link |
 | `.map unlink <cmd> [from <id>]` | Remove an exit |
 | `.map conflict list` | Conflict inbox |
