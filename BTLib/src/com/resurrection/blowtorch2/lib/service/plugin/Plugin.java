@@ -1143,6 +1143,9 @@ Note("Example text!")
 	
 	private void DoTimerResponders(String ordinal) {
 		//synchronized(the_settings) {
+			if (!isEnabled()) {
+				return;
+			}
 			
 			//just a precaution, 
 			if(innerHandler == null) {
@@ -1536,7 +1539,7 @@ Note("Example text!")
 	}
 
 	public void setEnabled(boolean enabled) {
-		enabled = true;
+		this.enabled = enabled;
 	}
 	
 	public boolean isEnabled() {

@@ -1217,6 +1217,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		
 		for (Plugin p : mPlugins) {
+			if (p == null || !p.isEnabled()) {
+				continue;
+			}
 			tmp = p.getSortedTriggers();
 			if (tmp == null) {
 				p.sortTriggers();
@@ -1982,6 +1985,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mMcpEngine.clearWatchers();
 		for (int i = 0; i < mPlugins.size(); i++) {
 			Plugin p = mPlugins.get(i);
+			if (p == null || !p.isEnabled()) {
+				continue;
+			}
 			HashMap<String, TriggerData> triggers = p.getSettings().getTriggers();
 			for (TriggerData t : triggers.values()) {
 				if (!t.isInterpretAsRegex() && t.getPattern().startsWith(McpEngine.TRIGGER_CHAR)) {
@@ -2107,6 +2113,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								p = mSettings;
 							} else {
 								p = mPlugins.get(i - 1);
+							}
+							if (p != mSettings && (p == null || !p.isEnabled())) {
+								continue;
 							}
 							if (p.getSettings().getAliases().size() > 0) {
 								Boolean reprocess = true;
@@ -2469,7 +2478,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param args The data to supply to @param callback.
 	 */
 	public final void executeFunctionCallback(final int id, final String callback, final String args) {
+		if (id < 0 || id >= mPlugins.size()) {
+			return;
+		}
 		Plugin p = mPlugins.get(id);
+		if (p == null || !p.isEnabled()) {
+			return;
+		}
 		p.execute(callback, args);
 	}
 
@@ -2481,7 +2496,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void pluginXcallS(final String plugin, final String function, final String str) {
 		for (Plugin p : mPlugins) {
-			if (p.getName().equals(plugin)) {
+			if (p.getName().equals(plugin) && p.isEnabled()) {
 				p.xcallS(function, str);
 			}
 		}
@@ -3019,6 +3034,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		int count = mPlugins.size();
 		for (int i = 0; i < count; i++) {
 			Plugin p = mPlugins.get(i);
+			if (p == null || !p.isEnabled()) {
+				continue;
+			}
 			byte[] tmp = p.doAliasReplacement(bytes, reprocess);
 			if (tmp.length != bytes.length) {
 				return tmp;
@@ -4617,16 +4635,43 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_DELETEPLUGIN, plugin));
 	}
 
-	/** Sets a plugin enabled.
-	 * 
+	/** Sets a plugin enabled (or disabled). Persists via {@code enabled="false"} on
+	 * the plugin element in settings XML. Does not unload the plugin from the list.
+	 *
 	 * @param plugin Name of the plugin to affect.
 	 * @param enabled Desired state of the plugin.
+	 * @return {@code true} if applied; {@code false} if refused or missing.
 	 */
-	public final void setPluginEnabled(final String plugin, final boolean enabled) {
+	public final boolean setPluginEnabled(final String plugin, final boolean enabled) {
+		if (plugin == null || plugin.length() == 0) {
+			return false;
+		}
+		// button_window owns the on-screen pad — never allow disable.
+		if (!enabled && "button_window".equals(plugin)) {
+			mService.dispatchToast(
+					"Cannot disable button_window — it provides the on-screen buttons.",
+					true);
+			return false;
+		}
 		Plugin p = mPluginMap.get(plugin);
+		if (p == null) {
+			return false;
+		}
 		p.setEnabled(enabled);
+		if (p.getSettings() != null) {
+			p.getSettings().setDirty(true);
+		}
 		saveMainSettings();
-		reloadSettings();
+		setTriggersDirty();
+		buildTriggerSystem();
+		loadMcpTriggers();
+		return true;
+	}
+
+	/** Whether a loaded plugin is currently enabled. */
+	public final boolean isPluginEnabled(final String plugin) {
+		Plugin p = mPluginMap.get(plugin);
+		return p != null && p.isEnabled();
 	}
 
 	/** Gets the direction data from the main settings plugin.
@@ -4735,6 +4780,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public final void callPluginFunction(final String plugin, final String function) {
 		Plugin p = mPluginMap.get(plugin);
 		if (p != null) {
+			if (!p.isEnabled()) {
+				this.dispatchLuaText("\n" + Colorizer.getRedColor() + "Plugin disabled: " + plugin
+						+ Colorizer.getWhiteColor() + "\n");
+				return;
+			}
 			p.callFunction(function);
 		} else {
 			this.dispatchLuaText("\n" + Colorizer.getRedColor() + "No plugin named: " + plugin + Colorizer.getRedColor() + "\n");
