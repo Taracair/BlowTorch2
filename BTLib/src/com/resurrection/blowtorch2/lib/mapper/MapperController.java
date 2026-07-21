@@ -5,11 +5,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -90,6 +92,8 @@ public class MapperController {
 	private boolean mUseGmcp = true;
 	private boolean mAutoReverse = true;
 	private boolean mPreferFloat = true;
+	/** Session-only: false = Browse (navigate/view), true = Edit (create/draw/link/delete). */
+	private boolean mEditMode = false;
 	private boolean mPathAutoSend;
 	private int mOpacity = 85;
 	private String mToolbarActions = DEFAULT_TOOLBAR;
@@ -185,6 +189,29 @@ public class MapperController {
 
 	public boolean isPreferFloat() {
 		return mPreferFloat;
+	}
+
+	/** Browse (false) vs Edit (true). Session-only; defaults to Browse. */
+	public boolean isEditMode() {
+		return mEditMode;
+	}
+
+	/**
+	 * Switch between Browse and Edit. Browse is navigate/view only; Edit allows
+	 * creating nests, drawing, linking, and deleting levels/tiles.
+	 */
+	public void setEditMode(final boolean edit) {
+		if (mEditMode == edit) {
+			return;
+		}
+		mEditMode = edit;
+		notifyChanged();
+	}
+
+	/** Toggle Browse ↔ Edit; returns the new edit-mode state. */
+	public boolean toggleEditMode() {
+		setEditMode(!mEditMode);
+		return mEditMode;
 	}
 
 	public boolean isPathAutoSend() {
@@ -401,6 +428,97 @@ public class MapperController {
 		refreshConflicts();
 		notifyChanged();
 		return "Mapper: deleted tile " + shortId(id) + ".";
+	}
+
+	/**
+	 * Delete an entire level by id or name. Removes all tiles on that floor
+	 * (with the same exit cleanup as {@link #deleteTile}), clears anchors on
+	 * other levels that pointed at deleted tiles, and switches current level
+	 * if needed. Refuses when only one level remains.
+	 */
+	public String deleteLevel(final String levelIdOrName) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(levelIdOrName)) {
+			return "Mapper: usage .map level delete <id|name>";
+		}
+		String key = levelIdOrName.trim();
+		MapLevel level = mMap.findLevel(key);
+		if (level == null) {
+			level = findLevelByName(key);
+		}
+		if (level == null) {
+			return "Mapper: unknown level.";
+		}
+		if (mMap.getLevels().size() <= 1) {
+			return "Mapper: cannot delete the only level.";
+		}
+
+		pushUndo();
+		final String lid = level.getId();
+		final String levelName = level.getName() != null ? level.getName() : lid;
+
+		Set<String> deletedIds = new HashSet<String>();
+		List<MapTile> tiles = mMap.getTiles();
+		for (MapTile t : tiles) {
+			if (t != null && lid.equals(t.getLevelId()) && t.getId() != null) {
+				deletedIds.add(t.getId());
+			}
+		}
+
+		// Remove exits on surviving tiles that pointed at deleted tiles.
+		for (MapTile t : tiles) {
+			if (t == null || t.getExits() == null || deletedIds.contains(t.getId())) {
+				continue;
+			}
+			List<MapExit> exits = t.getExits();
+			for (int i = exits.size() - 1; i >= 0; i--) {
+				MapExit e = exits.get(i);
+				if (e != null && e.getToId() != null && deletedIds.contains(e.getToId())) {
+					exits.remove(i);
+				}
+			}
+		}
+
+		int removed = 0;
+		for (int i = tiles.size() - 1; i >= 0; i--) {
+			MapTile t = tiles.get(i);
+			if (t != null && deletedIds.contains(t.getId())) {
+				tiles.remove(i);
+				removed++;
+			}
+		}
+
+		mMap.getLevels().remove(level);
+
+		if (lid.equals(mMap.getCurrentLevelId())) {
+			List<MapLevel> remaining = sortedLevels();
+			MapLevel next = remaining.isEmpty() ? null : remaining.get(0);
+			mMap.setCurrentLevelId(next != null ? next.getId() : null);
+		}
+
+		String curTileId = mMap.getCurrentTileId();
+		if (curTileId != null && deletedIds.contains(curTileId)) {
+			MapTile first = firstTileOnLevel(mMap.getCurrentLevelId());
+			mMap.setCurrentTileId(first != null ? first.getId() : null);
+		}
+		if (mSelectedTileId != null && deletedIds.contains(mSelectedTileId)) {
+			mSelectedTileId = mMap.getCurrentTileId();
+		}
+
+		for (MapLevel other : mMap.getLevels()) {
+			if (other != null && other.getAnchorTileId() != null
+					&& deletedIds.contains(other.getAnchorTileId())) {
+				other.setAnchorTileId(null);
+				other.setAnchorDir(null);
+			}
+		}
+
+		refreshConflicts();
+		notifyChanged();
+		return "Mapper: deleted level \"" + levelName + "\" (" + removed
+				+ " tile" + (removed == 1 ? "" : "s") + ").";
 	}
 
 	/**
@@ -1963,8 +2081,9 @@ public class MapperController {
 	 * destination is on another level in that direction.</li>
 	 * <li>Else, if the current level is anchored and D is the opposite of how we
 	 * entered, return to {@code anchorTileId}.</li>
-	 * <li>Else create a new nest: level anchored on Here, landing tile, linked
-	 * exits; move Here to the landing (door tile stays).</li>
+	 * <li>Else (Edit mode only) create a new nest: level anchored on Here,
+	 * landing tile, linked exits; move Here to the landing. In Browse mode,
+	 * returns a status message instead of creating.</li>
 	 * </ol>
 	 */
 	private String shiftLevel(final String dir) {
@@ -1979,6 +2098,9 @@ public class MapperController {
 
 		MapTile here = currentTile();
 		if (here == null) {
+			if (!mEditMode) {
+				return "Mapper: Browse mode — no nested floor that way. Switch to Edit to create, or open Levels.";
+			}
 			here = createTileAt(mMap.getCurrentLevelId(), 0, 0);
 			mMap.setCurrentTileId(here.getId());
 		}
@@ -2028,7 +2150,11 @@ public class MapperController {
 			}
 		}
 
-		// 3. Create nest anchored on Here.
+		// 3. Create nest anchored on Here — Edit mode only.
+		if (!mEditMode) {
+			return "Mapper: Browse mode — no nested floor that way. Switch to Edit to create, or open Levels.";
+		}
+
 		pushUndo();
 		int newIndex = adjacentNestIndex(here.getLevelId(), D);
 		String name = suggestNestName(here, D, newIndex);

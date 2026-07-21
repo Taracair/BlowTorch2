@@ -18,7 +18,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * .map open|close|toggle
  * .map record on|off|toggle
  * .map follow on|off
- * .map level list|prev|next|set &lt;name&gt;
+ * .map level list|prev|next|set &lt;name&gt;|delete &lt;id|name&gt;
  * .map find|path|goto &lt;query&gt;
  * .map title|note &lt;text&gt;
  * .map link|unlink …
@@ -245,6 +245,12 @@ public class MapCommand extends SpecialCommand {
 			note(c, mapper.levelNext());
 		} else if (sub.equals("set")) {
 			note(c, mapper.levelSet(name));
+		} else if (sub.equals("delete") || sub.equals("del") || sub.equals("rm")) {
+			if (name.length() == 0) {
+				note(c, "Usage: .map level delete <id|name>");
+			} else {
+				note(c, mapper.deleteLevel(name));
+			}
 		} else if (sub.equals("move")) {
 			String[] mp = name.split("\\s+", 2);
 			if (mp.length < 2) {
@@ -504,14 +510,23 @@ public class MapCommand extends SpecialCommand {
 
 	private Object doMode(Connection c, MapperController mapper, String rest) {
 		String a = rest.toLowerCase(Locale.US);
-		if (a.equals("fullscreen") || a.equals("full") || a.equals("fs")) {
+		if (a.equals("browse") || a.equals("view") || a.equals("nav")) {
+			mapper.setEditMode(false);
+			note(c, "Mapper mode: Browse");
+		} else if (a.equals("edit")) {
+			mapper.setEditMode(true);
+			note(c, "Mapper mode: Edit");
+		} else if (a.equals("toggle") || a.equals("swap")) {
+			boolean edit = mapper.toggleEditMode();
+			note(c, "Mapper mode: " + (edit ? "Edit" : "Browse"));
+		} else if (a.equals("fullscreen") || a.equals("full") || a.equals("fs")) {
 			mapper.setModeFullscreen(true);
-			note(c, "Mapper mode: fullscreen");
+			note(c, "Mapper display: fullscreen");
 		} else if (a.equals("float") || a.equals("floating") || a.equals("window")) {
 			mapper.setModeFullscreen(false);
-			note(c, "Mapper mode: float");
+			note(c, "Mapper display: float");
 		} else {
-			note(c, "Usage: .map mode fullscreen|float");
+			note(c, "Usage: .map mode browse|edit|toggle | fullscreen|float");
 		}
 		return null;
 	}
@@ -570,6 +585,7 @@ public class MapCommand extends SpecialCommand {
 		String name = map != null && map.getName() != null ? map.getName() : "(none)";
 		int tiles = map != null ? map.getTiles().size() : 0;
 		return "map=" + name + " tiles=" + tiles
+				+ " mode=" + (m.isEditMode() ? "edit" : "browse")
 				+ " rec=" + (m.isRecording() ? "on" : "off")
 				+ " follow=" + (m.isFollowPlayer() ? "on" : "off");
 	}
@@ -581,8 +597,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map open|close|toggle\n");
 		sb.append("  .map record|rec on|off|toggle\n");
 		sb.append("  .map follow on|off|toggle\n");
-		sb.append("  .map level list|prev|next|set <name>|move <tileId> <level>\n");
-		sb.append("      (L-/L+ = nest under/above Here; does not move the door tile)\n");
+		sb.append("  .map level list|prev|next|set <name>|delete <id|name>|move <tileId> <level>\n");
+		sb.append("      (L-/L+ follow/return nests; create only in Edit mode)\n");
 		sb.append("  .map find|search <query> | .map path <query> | .map goto|go <query>\n");
 		sb.append("  .map title <text> | .map note|notes <text>\n");
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
@@ -593,6 +609,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map conflict[s] [list [all]|resolve|ignore <id|n>|all|purge]\n");
 		sb.append("  .map export|save [path] | .map import <path|name> | .map undo | .map center\n");
 		sb.append("  .map zoom in|out|reset  (or .map zoom <factor>)\n");
+		sb.append("  .map mode browse|edit|toggle  (session; Browse = view only)\n");
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name>\n");
 		sb.append("  .map capture preview|apply  (Options → Mapper regex; UI dialog for one-off)\n");

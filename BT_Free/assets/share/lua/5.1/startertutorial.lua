@@ -419,9 +419,10 @@ What you see
   • Green tile  = current (where the mapper thinks you are)
   • Yellow edge = selected (last tap)
   • [REC] in the title = recording is on
-  • Title breadcrumb on nests: map · L-1 ← Hallway
+  • Title: Browse | Edit (Browse default) + nest breadcrumb
   • Full / Float / ✕ = window mode and close
   The map stays under ⋮ so the overflow menu stays usable.
+  Edit mode is required to create nests, Draw, Links, and delete levels.
 
 Two ways to build
   1) Record while you walk
@@ -431,23 +432,24 @@ Two ways to build
      go se, …) place neighbors on a grid; up/down change level while
      Recording; out/in become special exits beside the room.
   2) Draw by hand (no walking required)
-     Draw → tap empty cells to place rooms
+     Title → Edit → ⚙ → Draw → tap empty cells to place rooms
      Long-press empty = place and set Here
      Links → tap FROM then TO → type the walk verb (go west, n, out…)
      Or long-press a tile → Add neighbor… / Move… / Set as Here / Delete
 
 Levels (tile-anchored — not one global stack)
   Each Here tile can open its own basement/attic (per-door nests).
-  L-/L+ = nest down/up from Here (follow, create, or return to the door).
-  Browse without creating: toolbar Levels (list + via anchor), or tap
-  ▲/▼/◆ badges on tiles that lead to other floors.
-  ◎ radial: Levels, Floor ↑/↓, Paths, Draw, Links, Here, Save
-  (long-press title also opens ◎). up/down while Recording still works;
+  L-/L+ = nest down/up from Here. Browse: follow/return only; create needs Edit.
+  Browse floors: ↕ → List (tap = view; long-press = Go Here), or tap ▲/▼/◆
+  badges. Edit adds Delete… (confirm; removes floor + tiles; not last level).
+  ↕ Levels radial: List, ↑, ↓, Root, Door, Delete (Delete = Edit only)
+  ⚙ Tools radial: Paths, Draw, Links, Here, Edit, Save, Find, Rec
+  (long-press title also opens a radial). up/down while Recording still works;
   L-/L+ is the manual tool for weird MUDs (e.g. west into a cellar).
 
 Toolbar cheatsheet
   Rec/Stop  Follow  L-/L+  Find  Undo  Center   (CSV-configurable)
-  Links  Paths/Pack  Levels  ◎  Draw  Here  Edit  Save  (always present)
+  ↕ Levels   ⚙ Tools   (always present; no Draw/Links strip)
   Paths = space for arrows; Pack = tight tiles
 
 Gestures
@@ -467,8 +469,10 @@ Movement lexicon (summary; full list: .map dirs)
 Useful .map commands
   .map / .map help
   .map mode float|fullscreen
+  .map mode browse|edit|toggle
   .map record|follow …
   .map level list|prev|next|set <name>   (prev/next = L-/L+ nests)
+  .map level delete <id|name>
   .map find|path|goto <query>
   .map maps | load <name> | new <name>
   .map import <path|name>   .map export|save [path]
@@ -481,7 +485,7 @@ Files live under /BlowTorch/maps/ (autosave after edits).
 Options → Mapper: enable, float default, opacity, follow, path auto-send,
 Use GMCP Room (also builds neighbors from Room exits), toolbar CSV
 (optional capture token), Capture Title/Exits Regex.
-Without GMCP (many MOOs), prefer Rec + Draw/Links.
+Without GMCP (many MOOs), prefer Rec + Edit Draw/Links.
 Full reference: overflow → Help → Mapper.]])
 end
 
