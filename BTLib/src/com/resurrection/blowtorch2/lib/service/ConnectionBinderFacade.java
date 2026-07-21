@@ -689,9 +689,14 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	}
 
 	@Override
-	public void setPluginEnabled(final String plugin, final boolean enabled)
+	public boolean setPluginEnabled(final String plugin, final boolean enabled)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setPluginEnabled(plugin, enabled);
+		return service.mConnections.get(service.mConnectionClutch).setPluginEnabled(plugin, enabled);
+	}
+
+	@Override
+	public boolean isPluginEnabled(final String plugin) throws RemoteException {
+		return service.mConnections.get(service.mConnectionClutch).isPluginEnabled(plugin);
 	}
 
 	@SuppressWarnings("rawtypes")

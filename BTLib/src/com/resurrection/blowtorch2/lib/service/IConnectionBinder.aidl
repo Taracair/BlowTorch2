@@ -135,7 +135,8 @@ interface IConnectionBinder {
 	void dispatchLuaError(String message);
 	void addLink(String path);
 	void deletePlugin(String plugin);
-	void setPluginEnabled(String plugin,boolean enabled);
+	boolean setPluginEnabled(String plugin,boolean enabled);
+	boolean isPluginEnabled(String plugin);
 	List getPluginsWithAliases();
 	List getPluginsWithTimers();
 	boolean isLinkLoaded(String link);

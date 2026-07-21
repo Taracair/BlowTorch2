@@ -53,6 +53,8 @@ public class PluginParser extends BasePluginParser {
 	PluginSettings tmp = null;
 	Handler serviceHandler = null;
 	ConnectionPluginCallback parent = null;
+	/** Pending {@code enabled} attribute from the current {@code <plugin>} start tag. */
+	private boolean currentPluginEnabled = true;
 	
 	enum TYPE {
 		EXTERNAL,
@@ -306,6 +308,8 @@ public class PluginParser extends BasePluginParser {
 				tmp.setName(a.getValue("",BasePluginParser.ATTR_NAME));
 				//tmp.setAuthor(a.getValue("",BasePluginParser.ATTR_AUTHOR));
 				tmp.setId(Integer.parseInt(a.getValue("",BasePluginParser.ATTR_ID)));
+				String enabledAttr = a.getValue("", BasePluginParser.ATTR_TRIGGERENEABLED);
+				currentPluginEnabled = enabledAttr == null || !"false".equalsIgnoreCase(enabledAttr);
 				/*if(a.getValue("","location") == null) {
 					tmp.setLocationType(PLUGIN_LOCATION.INTERNAL);
 				} else {
@@ -337,12 +341,14 @@ public class PluginParser extends BasePluginParser {
 					tmp.setPath(path);
 					p.setSettings(tmp);
 					p.getSettings().getOptions().setListener(p);
+					p.setEnabled(currentPluginEnabled);
 					plugins.add(p);
 				} catch (LuaException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 				tmp = new PluginSettings();
+				currentPluginEnabled = true;
 				
 			}
 			
@@ -767,6 +773,9 @@ public class PluginParser extends BasePluginParser {
 		out.startTag("", "plugin");
 		out.attribute("", "name", plugin.getName());
 		out.attribute("", "id", Integer.toString(plugin.getSettings().getId()));
+		if (!plugin.isEnabled()) {
+			out.attribute("", BasePluginParser.ATTR_TRIGGERENEABLED, "false");
+		}
 		
 		if(plugin.getSettings().getAuthor() != null) {
 			out.startTag("", "author");

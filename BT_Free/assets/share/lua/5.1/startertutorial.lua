@@ -560,12 +560,17 @@ TOPICS.plugins = function()
 and starter_tutorial). Use Load to add a plugin from
 /BlowTorch/plugins/; remove one from the list to unload it.
 
+Each row has an on/off toggle (lightbulb). Off keeps the plugin loaded
+but skips its triggers, aliases, timers, and .commands until you turn
+it back on. button_window cannot be disabled (it owns the button pad).
+
 Plugin Options pages show under Options only while that plugin is
 loaded — Button for gesture hints, Starter Tutorial for Show on connect.
 
 To stop this tour’s welcome without removing the plugin:
   Options → Starter Tutorial → Show on connect = off
   or .tutorial done
+  or toggle starter_tutorial off in the Plugins list
 
 To remove the tutorial entirely, delete starter_tutorial under Plugins
 (you can Load it again later). Only load plugins you trust.]])

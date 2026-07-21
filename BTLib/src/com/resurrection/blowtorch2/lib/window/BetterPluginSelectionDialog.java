@@ -15,7 +15,9 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.Toast;
 
+import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 
 public class BetterPluginSelectionDialog extends StandardSelectionDialog implements BaseSelectionDialog.UtilityToolbarListener,BaseSelectionDialog.OptionItemClickListener, PluginSelectorDialog.OnPluginLoadListener {
@@ -53,8 +55,17 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		for(String key : sortedSet) {
 			String info = plist.get(key);
 			String title = displayTitleForPluginKey(key, info);
+			boolean enabled = true;
+			if (info == null || !info.startsWith("MISSING")) {
+				try {
+					enabled = service.isPluginEnabled(key);
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+			int icon = enabled ? R.drawable.toolbar_mini_enabled : R.drawable.toolbar_mini_disabled;
 			items.add(key);
-			this.addListItem(key, title, info, 0, true);
+			this.addListItem(key, title, info, icon, enabled);
 		}
 		this.invalidateList();
 	}
@@ -92,17 +103,90 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 	
 	@Override
 	public void onButtonPressed(View v, int row, int index) {
-		// TODO Auto-generated method stub
-		
+		// Plugins have no inline editor; toggle/delete cover enable and unload.
 	}
 
 	@Override
 	public void onButtonStateChanged(ImageButton v, int row, int index, boolean state) {
-		// TODO Auto-generated method stub
-		
-	}
-	
+		String plugin = getItemKey(row);
+		if (plugin == null) {
+			if (row < 0 || row >= items.size()) {
+				return;
+			}
+			plugin = items.get(row);
+		}
+		String info = null;
+		try {
+			HashMap<String, String> plist = (HashMap<String, String>) service.getPluginList();
+			if (plist != null) {
+				info = plist.get(plugin);
+			}
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		if (info != null && info.startsWith("MISSING")) {
+			Toast.makeText(getContext(), "Cannot toggle a missing plugin link — delete it instead.",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
 
+		boolean currentlyEnabled = true;
+		try {
+			currentlyEnabled = service.isPluginEnabled(plugin);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		boolean next = !currentlyEnabled;
+
+		if (!next && "button_window".equals(plugin)) {
+			Toast.makeText(getContext(),
+					"Cannot disable button_window — it provides the on-screen buttons.",
+					Toast.LENGTH_LONG).show();
+			if (v != null) {
+				v.setImageResource(R.drawable.toolbar_toggleon_button);
+			}
+			this.setItemMiniIcon(row, R.drawable.toolbar_mini_enabled);
+			return;
+		}
+
+		boolean applied = false;
+		try {
+			applied = service.setPluginEnabled(plugin, next);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+
+		if (!applied) {
+			// Service refused (e.g. required plugin) — keep UI showing current state.
+			if (v != null) {
+				v.setImageResource(currentlyEnabled
+						? R.drawable.toolbar_toggleon_button
+						: R.drawable.toolbar_toggleoff_button);
+			}
+			this.setItemMiniIcon(row, currentlyEnabled
+					? R.drawable.toolbar_mini_enabled
+					: R.drawable.toolbar_mini_disabled);
+			return;
+		}
+
+		if (next) {
+			if (v != null) {
+				v.setImageResource(R.drawable.toolbar_toggleon_button);
+			}
+			this.setItemMiniIcon(row, R.drawable.toolbar_mini_enabled);
+			Toast.makeText(getContext(), "Enabled " + plugin, Toast.LENGTH_SHORT).show();
+		} else {
+			if (v != null) {
+				v.setImageResource(R.drawable.toolbar_toggleoff_button);
+			}
+			this.setItemMiniIcon(row, R.drawable.toolbar_mini_disabled);
+			String msg = "Disabled " + plugin;
+			if ("starter_tutorial".equals(plugin)) {
+				msg = "Disabled starter_tutorial — .tutorial commands will stop until re-enabled.";
+			}
+			Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+		}
+	}
 
 	@Override
 	public void onItemDeleted(int row) {
@@ -145,8 +229,11 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 
 	@Override
 	public void onDonePressed(View v) {
-		// TODO Auto-generated method stub
-		
+		try {
+			service.saveSettings();
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -156,15 +243,28 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 	}
 
 	@Override
-	public void willShowToolbar(LinearLayout v, int row) {
-		// TODO Auto-generated method stub
-		
+	public void willShowToolbar(LinearLayout toolbar, int row) {
+		String plugin = getItemKey(row);
+		if (plugin == null || toolbar.getChildCount() == 0) {
+			return;
+		}
+		boolean enabled = true;
+		try {
+			enabled = service.isPluginEnabled(plugin);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		ImageButton b = (ImageButton) toolbar.getChildAt(0);
+		if (enabled) {
+			b.setImageResource(R.drawable.toolbar_toggleon_button);
+		} else {
+			b.setImageResource(R.drawable.toolbar_toggleoff_button);
+		}
 	}
 
 	@Override
 	public void willHideToolbar(LinearLayout v, int row) {
-		// TODO Auto-generated method stub
-		
+		// no-op
 	}
 	
 	@Override
