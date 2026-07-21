@@ -78,6 +78,11 @@ public class MapperController {
 	private int mOpacity = 85;
 	private String mToolbarActions = DEFAULT_TOOLBAR;
 	private String mSelectedTileId;
+	/** Last `.map capture preview` result for `.map capture apply`. */
+	private CapturePreview mLastCapturePreview;
+
+	private static final String DEFAULT_CAPTURE_TITLE_REGEX = "^([A-Z].*)$";
+	private static final String DEFAULT_CAPTURE_EXITS_REGEX = "(?i)exits?:\\s*(.*)";
 
 	private MapperUiBridge mUiBridge;
 	/** When true, ignore outbound commands (path send already recorded). */
@@ -1144,19 +1149,57 @@ public class MapperController {
 	public String capturePreview(final int maxLines) {
 		List<String> lines = lastBufferLines(maxLines > 0 ? maxLines : 20);
 		if (lines.isEmpty()) {
-			return "Mapper capture preview: (buffer empty)";
+			mLastCapturePreview = null;
+			return "Mapper capture preview: (buffer empty — open Capture on the map"
+					+ " toolbar for custom regex, or wait for more output)";
 		}
+		StringBuilder text = new StringBuilder();
+		for (int i = 0; i < lines.size(); i++) {
+			if (i > 0) {
+				text.append('\n');
+			}
+			text.append(lines.get(i));
+		}
+		CapturePreview preview = previewCapture(DEFAULT_CAPTURE_TITLE_REGEX,
+				DEFAULT_CAPTURE_EXITS_REGEX, text.toString(), lines.size());
+		mLastCapturePreview = preview;
 		StringBuilder sb = new StringBuilder();
-		sb.append("Mapper capture preview (last ").append(lines.size()).append(" lines):\n");
-		for (String line : lines) {
-			sb.append(line).append("\n");
-		}
-		sb.append("(apply not implemented yet — stub)");
+		sb.append("Mapper capture preview (last ").append(lines.size())
+				.append(" lines; default title/exits regex):\n");
+		sb.append("  title: ").append(preview.title != null ? preview.title : "(no match)")
+				.append("\n");
+		sb.append("  exits: ").append(preview.exits != null ? preview.exits : "(no match)")
+				.append("\n");
+		sb.append("Use .map capture apply to write matches onto the current tile.\n");
+		sb.append("For custom regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
 		return sb.toString();
 	}
 
 	public String captureApply() {
-		return "Mapper capture apply: not implemented yet (stub).";
+		if (mLastCapturePreview == null) {
+			capturePreview(20);
+		}
+		if (mLastCapturePreview == null) {
+			return "Mapper capture apply: nothing to apply (empty buffer).";
+		}
+		boolean hasTitle = mLastCapturePreview.title != null
+				&& mLastCapturePreview.title.length() > 0;
+		boolean hasExits = mLastCapturePreview.exits != null
+				&& mLastCapturePreview.exits.length() > 0;
+		if (!hasTitle && !hasExits) {
+			return "Mapper capture apply: no title/exits matched — try the Capture dialog"
+					+ " (toolbar CSV token \"capture\") with custom regex.";
+		}
+		applyCapture(mLastCapturePreview);
+		StringBuilder sb = new StringBuilder("Mapper capture apply: updated current tile");
+		if (hasTitle) {
+			sb.append(" title=\"").append(mLastCapturePreview.title).append("\"");
+		}
+		if (hasExits) {
+			sb.append(" exits=\"").append(mLastCapturePreview.exits).append("\"");
+		}
+		sb.append(".");
+		return sb.toString();
 	}
 
 	public MapTile currentTile() {

@@ -205,6 +205,8 @@ public final class MapDirections {
 		out.add("Special (off-grid neighbor):");
 		out.add("  in/enter, out/leave/exit, and any other command");
 		out.add("Prefixes stripped: go | walk | move  (e.g. go west → w)");
+		out.add("Built-in compass wins over Speedwalk keys:");
+		out.add("  default .run: h=nw j=ne k=sw l=se — typing se/sw still maps SE/SW");
 		out.add("Also uses connection Speedwalk direction map when set.");
 		return Collections.unmodifiableList(out);
 	}

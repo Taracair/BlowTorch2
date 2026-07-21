@@ -440,7 +440,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		StringOption mapper_toolbar = new StringOption();
 		mapper_toolbar.setTitle("Toolbar Actions (CSV)");
-		mapper_toolbar.setDescription("Comma-separated map toolbar actions: record,follow,level-,level+,find,undo,center,close");
+		mapper_toolbar.setDescription("Left-side map buttons (CSV): record,follow,level-,level+,find,undo,center,close,capture. Links, Paths/Pack, Draw, Here, Edit, Save are always added.");
 		mapper_toolbar.setKey("mapper_toolbar_actions");
 		mapper_toolbar.setValue("record,follow,level-,level+,find,undo,center,close");
 		mapperOptions.addOption(mapper_toolbar);
