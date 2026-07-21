@@ -166,31 +166,34 @@ public abstract class TriggerResponder implements Parcelable {
 		
 		
 		boolean found = false;
-		while(replacer.find()) {
-			found = true;
-			String desired = replacer.group(1);
-			
-			String replacetext = "";
-			if(map.containsKey(desired)) {
-				replacetext = map.get(desired);
-			} else {
-				// Keep a literal "$N" when that capture is missing (quote so
-				// appendReplacement does not treat "$" as a group reference).
-				replacetext = replacer.group(0);
+		try {
+			while(replacer.find()) {
+				found = true;
+				String desired = replacer.group(1);
+				
+				String replacetext = "";
+				if(map.containsKey(desired)) {
+					replacetext = map.get(desired);
+				} else {
+					// Keep a literal "$N" when that capture is missing (quote so
+					// appendReplacement does not treat "$" as a group reference).
+					replacetext = replacer.group(0);
+				}
+				if (replacetext == null) {
+					replacetext = "";
+				}
+				// Captured text may contain "$" (prices, etc.) — must be quoted or
+				// Matcher throws IllegalArgumentException: Illegal group reference.
+				replacer.appendReplacement(output, Matcher.quoteReplacement(replacetext));
 			}
-			if (replacetext == null) {
-				replacetext = "";
-			}
-			// Captured text may contain "$" (prices, etc.) — must be quoted or
-			// Matcher throws IllegalArgumentException: Illegal group reference.
-			replacer.appendReplacement(output, Matcher.quoteReplacement(replacetext));
 			
-		}
-		
-		if(found) {
-			replacer.appendTail(output);
-			return output.toString();
-		} else {
+			if(found) {
+				replacer.appendTail(output);
+				return output.toString();
+			}
+			return input;
+		} catch (RuntimeException e) {
+			// Callers also catch; return original Ack/replace text instead of crashing.
 			return input;
 		}
 		
