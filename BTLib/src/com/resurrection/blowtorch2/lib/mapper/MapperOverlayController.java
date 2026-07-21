@@ -975,8 +975,9 @@ public class MapperOverlayController
 		root.setPadding(pad, pad, pad, pad);
 
 		TextView info = new TextView(activity);
-		info.setText("Link " + shortTileLabel(from) + " → " + shortTileLabel(toTile)
-				+ "\nEnter walk command (go west, n, out…)");
+		info.setText("Walk command from " + shortTileLabel(from)
+				+ " → " + shortTileLabel(toTile)
+				+ "\n(e.g. go west, n, out)");
 		root.addView(info);
 
 		final EditText cmdEdit = new EditText(activity);
@@ -1037,11 +1038,10 @@ public class MapperOverlayController
 		}
 
 		final AlertDialog dialog = new AlertDialog.Builder(activity)
-				.setTitle("Edit link")
+				.setTitle("Add link")
 				.setView(root)
 				.setPositiveButton("Link", null)
 				.setNegativeButton("Cancel", null)
-				.setNeutralButton("Unlink list…", null)
 				.create();
 		dialog.setOnShowListener(new DialogInterface.OnShowListener() {
 			@Override
@@ -1057,14 +1057,11 @@ public class MapperOverlayController
 									return;
 								}
 								runLink(fromId, cmd, toTile.getId());
+								linkEditMode = false;
+								linkFromTileId = null;
+								updateTitleForLinkMode();
+								rebuildToolbar();
 								dialog.dismiss();
-							}
-						});
-				dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(
-						new View.OnClickListener() {
-							@Override
-							public void onClick(View v) {
-								showUnlinkPicker(from);
 							}
 						});
 			}
@@ -1224,7 +1221,7 @@ public class MapperOverlayController
 							promptAddNeighbor(tile);
 							break;
 						case 4:
-							showUnlinkPicker(tile);
+							showEditLinksMenu(tile);
 							break;
 						case 5:
 							pathToTile(tile);
@@ -1247,6 +1244,58 @@ public class MapperOverlayController
 					}
 				})
 				.show();
+	}
+
+	/**
+	 * Edit links: add (pick destination on map, then walk verb) or unlink existing.
+	 */
+	private void showEditLinksMenu(final MapTile from) {
+		if (from == null) {
+			return;
+		}
+		CharSequence[] items = new CharSequence[] {
+				"Add link (tap destination)…",
+				"Unlink existing…"
+		};
+		new AlertDialog.Builder(host.getMainWindow())
+				.setTitle("Links from " + shortTileLabel(from))
+				.setItems(items, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which == 0) {
+							startAddLinkPickDestination(from);
+						} else if (which == 1) {
+							showUnlinkPicker(from);
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	/** Prefill Links mode FROM this tile; next tap chooses TO, then verb dialog. */
+	private void startAddLinkPickDestination(MapTile from) {
+		if (from == null) {
+			return;
+		}
+		if (drawEditMode) {
+			drawEditMode = false;
+			if (mapperView != null) {
+				mapperView.setShowGrid(false);
+				mapperView.setTileDragEnabled(false);
+			}
+		}
+		linkEditMode = true;
+		linkFromTileId = from.getId();
+		selectedTileId = from.getId();
+		if (mapperView != null) {
+			mapperView.setSelectedTileId(from.getId());
+		}
+		updateTitleForLinkMode();
+		rebuildToolbar();
+		Toast.makeText(host.getMainWindow(),
+				"FROM " + shortTileLabel(from) + " — tap destination tile, then enter walk word",
+				Toast.LENGTH_LONG).show();
 	}
 
 	private void confirmDeleteTile(final MapTile tile) {
