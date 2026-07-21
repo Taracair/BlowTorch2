@@ -62,6 +62,7 @@ import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.timer.TimerParser;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerParser;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 
@@ -1166,8 +1167,10 @@ Note("Example text!")
 			if(data == null) {
 				return; //this shoudn't happen. means there is a null entry in the map.
 			}
-			
+
+			Connection connection = (parent instanceof Connection) ? (Connection) parent : null;
 			//hasListener = isWindowShowing();
+			if (ConditionEvaluator.evaluate(data.getConditions(), connection)) {
 			for(TriggerResponder responder : data.getResponders()) {
 				try {
 					responder.doResponse(mContext,null,0,null,null,0,0,"",(Object)getSettings().getTimers().get(ordinal), parent.getDisplayName(),parent.getHostName(),parent.getPort(), StellarService.getNotificationId(), parent.isWindowShowing(), mHandler,captureMap,L,Plugin.this.getSettings().getTimers().get(ordinal).getName(),mEncoding);
@@ -1176,6 +1179,7 @@ Note("Example text!")
 				}
 				//service.
 				//responder.doResponse(parent.getContext(),null,null,null,null, parent.getDisplayName(), StellarService.getNotificationId(), parent.isWindowShowing(), mHandler, null,L,data.getName());
+			}
 			}
 			
 			if(data.isRepeat()) {
