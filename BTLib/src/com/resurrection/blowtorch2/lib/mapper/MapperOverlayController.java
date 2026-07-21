@@ -13,6 +13,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
@@ -44,6 +45,9 @@ public class MapperOverlayController
 	private MapperView mapperView;
 	private TextView titleView;
 	private LinearLayout toolbar;
+	private HorizontalScrollView toolbarScroll;
+	private TextView toolbarHintLeft;
+	private TextView toolbarHintRight;
 	private View resizeHandle;
 	private View dragHandle;
 	private TextView modeBtn;
@@ -154,6 +158,10 @@ public class MapperOverlayController
 		mapperView = (MapperView) overlayRoot.findViewById(R.id.mapper_view);
 		titleView = (TextView) overlayRoot.findViewById(R.id.mapper_title);
 		toolbar = (LinearLayout) overlayRoot.findViewById(R.id.mapper_toolbar);
+		toolbarScroll = (HorizontalScrollView) overlayRoot.findViewById(R.id.mapper_toolbar_scroll);
+		toolbarHintLeft = (TextView) overlayRoot.findViewById(R.id.mapper_toolbar_hint_left);
+		toolbarHintRight = (TextView) overlayRoot.findViewById(R.id.mapper_toolbar_hint_right);
+		wireToolbarScrollHints();
 		resizeHandle = overlayRoot.findViewById(R.id.mapper_resize_handle);
 		dragHandle = overlayRoot.findViewById(R.id.mapper_drag_handle);
 		modeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_btn);
@@ -477,6 +485,86 @@ public class MapperOverlayController
 			}
 		});
 		toolbar.addView(save);
+		scheduleToolbarScrollHintUpdate();
+	}
+
+	private void wireToolbarScrollHints() {
+		if (toolbarScroll == null) {
+			return;
+		}
+		toolbarScroll.setOnScrollChangeListener(new View.OnScrollChangeListener() {
+			@Override
+			public void onScrollChange(View v, int scrollX, int scrollY,
+					int oldScrollX, int oldScrollY) {
+				updateToolbarScrollHints();
+			}
+		});
+		if (toolbarHintLeft != null) {
+			toolbarHintLeft.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (toolbarScroll != null) {
+						toolbarScroll.smoothScrollBy(
+								-(int) (80 * host.getMainWindow().getResources()
+										.getDisplayMetrics().density), 0);
+					}
+				}
+			});
+		}
+		if (toolbarHintRight != null) {
+			toolbarHintRight.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (toolbarScroll != null) {
+						toolbarScroll.smoothScrollBy(
+								(int) (80 * host.getMainWindow().getResources()
+										.getDisplayMetrics().density), 0);
+					}
+				}
+			});
+		}
+	}
+
+	private void scheduleToolbarScrollHintUpdate() {
+		if (toolbarScroll == null) {
+			return;
+		}
+		toolbarScroll.post(new Runnable() {
+			@Override
+			public void run() {
+				updateToolbarScrollHints();
+			}
+		});
+		toolbarScroll.getViewTreeObserver().addOnGlobalLayoutListener(
+				new ViewTreeObserver.OnGlobalLayoutListener() {
+					@Override
+					public void onGlobalLayout() {
+						toolbarScroll.getViewTreeObserver()
+								.removeOnGlobalLayoutListener(this);
+						updateToolbarScrollHints();
+					}
+				});
+	}
+
+	private void updateToolbarScrollHints() {
+		if (toolbarScroll == null || toolbar == null) {
+			return;
+		}
+		int scrollX = toolbarScroll.getScrollX();
+		int viewW = toolbarScroll.getWidth();
+		int contentW = toolbar.getWidth();
+		boolean canScroll = contentW > viewW + 2;
+		boolean moreLeft = canScroll && scrollX > 2;
+		boolean moreRight = canScroll && scrollX + viewW < contentW - 2;
+		if (toolbarHintLeft != null) {
+			toolbarHintLeft.setVisibility(moreLeft ? View.VISIBLE : View.GONE);
+		}
+		if (toolbarHintRight != null) {
+			// Always show › when there is overflow to the right, or a static
+			// cue when content is wider than the strip at scroll start.
+			toolbarHintRight.setVisibility(moreRight || (canScroll && !moreLeft)
+					? View.VISIBLE : View.GONE);
+		}
 	}
 
 	private Button makeToolbarButton(MainWindow activity, float density, String label) {
