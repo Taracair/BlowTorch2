@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Former layout-xlarge/window_layout.xml sizing (same as sw600dp). -->
+    <dimen name="game_input_text_size">24sp</dimen>
+    <dimen name="game_input_min_height">32dp</dimen>
+    <dimen name="game_input_row_padding_vertical">2dp</dimen>
+    <dimen name="game_input_action_margin_end">4dp</dimen>
+    <dimen name="game_input_button_height">32dp</dimen>
+    <dimen name="game_input_button_min_width">56dp</dimen>
+</resources>
