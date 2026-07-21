@@ -732,7 +732,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 		public void onClick(View v) {
 			//give out a list of options
-			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable"};
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -879,11 +879,6 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		case 6:
 			ReplaceActionEditorDialog rep = new ReplaceActionEditorDialog(TriggerEditorDialog.this.getContext(),null,TriggerEditorDialog.this);
 			rep.show();
-			break;
-		case 7:
-			SetVariableResponderEditor svedit = new SetVariableResponderEditor(
-					TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this);
-			svedit.show();
 			break;
 		default:
 			break;
