@@ -52,7 +52,8 @@ public class MapperOverlayController
 	private TextView toolbarHintRight;
 	private View resizeHandle;
 	private View dragHandle;
-	private TextView modeBtn;
+	private TextView modeFloatBtn;
+	private TextView modeFullBtn;
 	private TextView modeBrowseBtn;
 	private TextView modeEditBtn;
 	private MudMap snapshotMap;
@@ -142,11 +143,11 @@ public class MapperOverlayController
 		this.fullscreen = fullscreen;
 		if (controller != null) {
 			controller.setPreferFloat(!fullscreen);
+		} else {
+			host.runMapCommand(fullscreen ? "mode fullscreen" : "mode float");
 		}
 		applyLayoutMode();
-		if (modeBtn != null) {
-			modeBtn.setText(fullscreen ? "Full" : "Float");
-		}
+		updateDisplayModeToggleUi();
 	}
 
 	private void ensureAttached() {
@@ -175,7 +176,8 @@ public class MapperOverlayController
 		wireToolbarScrollHints();
 		resizeHandle = overlayRoot.findViewById(R.id.mapper_resize_handle);
 		dragHandle = overlayRoot.findViewById(R.id.mapper_drag_handle);
-		modeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_btn);
+		modeFloatBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_float);
+		modeFullBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_full);
 		modeBrowseBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_browse);
 		modeEditBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_edit);
 		TextView closeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_close_btn);
@@ -196,12 +198,23 @@ public class MapperOverlayController
 				close();
 			}
 		});
-		modeBtn.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				setFullscreen(!fullscreen);
-			}
-		});
+		if (modeFloatBtn != null) {
+			modeFloatBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					setFullscreen(false);
+				}
+			});
+		}
+		if (modeFullBtn != null) {
+			modeFullBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					setFullscreen(true);
+				}
+			});
+		}
+		updateDisplayModeToggleUi();
 		if (modeBrowseBtn != null) {
 			modeBrowseBtn.setOnClickListener(new View.OnClickListener() {
 				@Override
@@ -386,11 +399,29 @@ public class MapperOverlayController
 					(int) (2 * density));
 			if (resizeHandle != null) {
 				resizeHandle.setVisibility(View.VISIBLE);
+				resizeHandle.bringToFront();
 			}
 		}
 		overlayRoot.setLayoutParams(lp);
-		if (modeBtn != null) {
-			modeBtn.setText(fullscreen ? "Full" : "Float");
+		updateDisplayModeToggleUi();
+	}
+
+	private void updateDisplayModeToggleUi() {
+		final int active = 0xFFE8C547;
+		final int inactive = 0xFF888888;
+		final int activeBg = 0x33000000;
+		final int clearBg = 0x00000000;
+		if (modeFloatBtn != null) {
+			modeFloatBtn.setTextColor(fullscreen ? inactive : active);
+			modeFloatBtn.setBackgroundColor(fullscreen ? clearBg : activeBg);
+			modeFloatBtn.getPaint().setFakeBoldText(!fullscreen);
+			modeFloatBtn.invalidate();
+		}
+		if (modeFullBtn != null) {
+			modeFullBtn.setTextColor(fullscreen ? active : inactive);
+			modeFullBtn.setBackgroundColor(fullscreen ? activeBg : clearBg);
+			modeFullBtn.getPaint().setFakeBoldText(fullscreen);
+			modeFullBtn.invalidate();
 		}
 	}
 
@@ -562,7 +593,7 @@ public class MapperOverlayController
 	private static String actionLabel(String action, boolean recording) {
 		String a = action.toLowerCase(Locale.US);
 		if ("rec".equals(a) || "record".equals(a)) {
-			return recording ? "Stop" : "Rec";
+			return recording ? "Stop" : "Record";
 		}
 		if ("follow".equals(a)) {
 			return "Follow";
