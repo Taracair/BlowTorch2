@@ -13,11 +13,13 @@ import com.resurrection.blowtorch2.lib.responder.gag.GagActionParser;
 import com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderParser;
 import com.resurrection.blowtorch2.lib.responder.replace.ReplaceParser;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponderParser;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponderParser;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponderParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BasePluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginSettings;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionParser;
 
 import android.sax.Element;
 import android.sax.EndElementListener;
@@ -30,6 +32,7 @@ public final class TriggerParser {
 
 		trigger.setElementListener(listener);
 
+		ConditionParser.registerListeners(trigger, current_trigger);
 		AckResponderParser.registerListeners(trigger, current_trigger, current_timer, current_trigger);
 		ToastResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
 		NotificationResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
@@ -37,6 +40,7 @@ public final class TriggerParser {
 		ReplaceParser.registerListeners(trigger, current_trigger);
 		ColorActionParser.registerListeners(trigger, current_trigger);
 		GagActionParser.registerListeners(trigger, current_trigger);
+		SetVariableResponderParser.registerListeners(trigger, current_trigger, current_timer, current_trigger);
 		
 	}
 	
@@ -64,6 +68,7 @@ public final class TriggerParser {
 				//out.attribute("", BasePluginParser.ATTR_KEEPEVALUATING, trigger.isKeepEvaluating() ? "true" : "false");
 			//}
 			
+			ConditionParser.saveConditionsToXML(out, trigger);
 			for(TriggerResponder r : trigger.getResponders()){
 				r.saveResponderToXML(out);
 			}

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/newsetvariablelayout"
+  android:layout_width="match_parent"
+  android:layout_height="wrap_content"
+  android:minWidth="300dip">
+
+  <TextView
+		android:id="@+id/titlebar"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:layout_alignParentTop="true"
+		android:text="SET VARIABLE"
+		android:textColor="#FF333333"
+		android:background="#FF999999"
+		android:textSize="15dip"
+		android:textStyle="bold"
+		android:gravity="center"/>
+
+  <Button
+    	android:layout_width="wrap_content"
+  		android:layout_height="wrap_content"
+  		android:id="@+id/responder_setvariable_cancel"
+  		android:layout_alignParentBottom="true"
+  		android:layout_alignParentLeft="true"
+  		android:text="Cancel" />
+
+  <Button
+  	android:layout_width="match_parent"
+  	android:layout_height="wrap_content"
+  	android:text="Done"
+  	android:id="@+id/responder_setvariable_done"
+  	android:layout_toRightOf="@id/responder_setvariable_cancel"
+  	android:layout_alignParentRight="true"
+  	android:layout_alignParentBottom="true"/>
+
+  <LinearLayout
+  	android:layout_width="match_parent"
+  	android:layout_height="wrap_content"
+  	android:orientation="vertical"
+  	android:padding="8dip"
+  	android:layout_above="@id/responder_setvariable_done"
+  	android:layout_below="@id/titlebar">
+  	<TextView android:text="Variable name:" android:textColor="#FFE8E8E8"/>
+  	<EditText android:id="@+id/responder_setvariable_name" android:singleLine="true"
+  		android:hint="e.g. combat"/>
+  	<TextView android:text="Value (may use $1):" android:textColor="#FFE8E8E8"
+  		android:layout_marginTop="8dip"/>
+  	<EditText android:id="@+id/responder_setvariable_value" android:singleLine="true"
+  		android:hint="e.g. 1 or $1"/>
+  </LinearLayout>
+</RelativeLayout>
