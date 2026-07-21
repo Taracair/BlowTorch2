@@ -58,7 +58,11 @@ import com.resurrection.blowtorch2.lib.responder.replace.ReplaceActionEditorDial
 import com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponderEditor;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponderEditor;
 import com.resurrection.blowtorch2.lib.responder.toast.*;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionLeaf;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.validator.Validator;
 import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
@@ -68,6 +72,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 	private TableRow legend;
 	private TableLayout responderTable;
+	private TableLayout conditionsTable;
 	
 	private TriggerData the_trigger;
 	private TriggerData original_trigger;
@@ -123,6 +128,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		legend= (TableRow)findViewById(R.id.trigger_notification_legend);
 		responderTable = (TableLayout)findViewById(R.id.trigger_notification_table);
 		refreshResponderTable();
+		setupConditionsSection();
 		
 		Button newresponder = (Button)findViewById(R.id.trigger_new_notification);
 		newresponder.setOnClickListener(new NewResponderListener());
@@ -345,6 +351,14 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		if(test.isInterpretAsRegex() != !literal.isChecked()) retval = true;
 		if(test.isFireOnce() != fireOnce.isChecked()) retval = true; 
 		
+		ConditionGroup origCond = original_trigger.getConditions() != null
+				? original_trigger.getConditions() : new ConditionGroup();
+		ConditionGroup curCond = the_trigger.getConditions() != null
+				? the_trigger.getConditions() : new ConditionGroup();
+		if (!origCond.equals(curCond)) {
+			retval = true;
+		}
+
 		boolean checkresponder = false;
 		if(test.getResponders().size() == the_trigger.getResponders().size()) { checkresponder = true; } else { retval = true; }
 		
@@ -529,6 +543,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				label.setText("Gag");
 			} else if(responder.getType() == RESPONDER_TYPE.COLOR) {
 				label.setText("Color: " + Integer.toString(((ColorAction)responder).getColor()));
+			} else if(responder.getType() == RESPONDER_TYPE.SET_VARIABLE) {
+				SetVariableResponder sv = (SetVariableResponder) responder;
+				label.setText("SetVariable: " + sv.getVariableName() + "=" + sv.getVariableValue());
 			}
 			label.setGravity(Gravity.CENTER);
 			label.setSingleLine(true);
@@ -644,6 +661,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				ReplaceActionEditorDialog rep = new ReplaceActionEditorDialog(TriggerEditorDialog.this.getContext(),(ReplaceResponder)responder.copy(),TriggerEditorDialog.this);
 				rep.show();
 				break;
+			case SET_VARIABLE:
+				new SetVariableResponderEditor(TriggerEditorDialog.this.getContext(),
+						(SetVariableResponder) responder.copy(), TriggerEditorDialog.this).show();
+				break;
 			default:
 				break;
 			}
@@ -732,7 +753,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 		public void onClick(View v) {
 			//give out a list of options
-			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace"};
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -880,6 +901,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			ReplaceActionEditorDialog rep = new ReplaceActionEditorDialog(TriggerEditorDialog.this.getContext(),null,TriggerEditorDialog.this);
 			rep.show();
 			break;
+		case 7:
+			new SetVariableResponderEditor(TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
+			break;
 		default:
 			break;
 		}
@@ -906,6 +930,121 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		//so the new responder is in.
 		the_trigger.getResponders().add(newresponder);
 		refreshResponderTable();
+	}
+
+
+	private void setupConditionsSection() {
+		conditionsTable = (TableLayout) findViewById(R.id.trigger_conditions_table);
+		Spinner opSpinner = (Spinner) findViewById(R.id.trigger_conditions_op);
+		if (the_trigger.getConditions() == null) {
+			the_trigger.setConditions(new ConditionGroup());
+		}
+		if (opSpinner != null) {
+			ArrayAdapter<String> opAdapter = new ArrayAdapter<String>(getContext(),
+					R.layout.spinner_item_dark,
+					new String[] { "All (AND)", "Any (OR)" });
+			opAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+			opSpinner.setAdapter(opAdapter);
+			opSpinner.setSelection(
+					the_trigger.getConditions().getOp() == ConditionGroup.Op.OR ? 1 : 0, false);
+			opSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+				public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+					the_trigger.getConditions().setOp(
+							position == 1 ? ConditionGroup.Op.OR : ConditionGroup.Op.AND);
+					updateConditionsHint();
+				}
+				public void onNothingSelected(AdapterView<?> parent) {
+				}
+			});
+		}
+		Button add = (Button) findViewById(R.id.trigger_new_condition);
+		if (add != null) {
+			add.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					new ConditionLeafEditorDialog(
+							TriggerEditorDialog.this.getContext(), null, service, selectedPlugin,
+							new ConditionLeafEditorDialog.DoneListener() {
+								public void onConditionDone(ConditionLeaf leaf, ConditionLeaf originalOrNull) {
+									the_trigger.getConditions().getChildren().add(leaf);
+									refreshConditionsTable();
+								}
+							}).show();
+				}
+			});
+		}
+		refreshConditionsTable();
+	}
+
+	private void updateConditionsHint() {
+		TextView hint = (TextView) findViewById(R.id.trigger_conditions_hint);
+		if (hint == null) {
+			return;
+		}
+		if (the_trigger.getConditions() == null || the_trigger.getConditions().isEmpty()) {
+			hint.setText("No conditions — always runs when the pattern matches.");
+		} else if (the_trigger.getConditions().getOp() == ConditionGroup.Op.OR) {
+			hint.setText("Any condition may be true (OR).");
+		} else {
+			hint.setText("All conditions must be true (AND).");
+		}
+	}
+
+	private void refreshConditionsTable() {
+		if (conditionsTable == null) {
+			conditionsTable = (TableLayout) findViewById(R.id.trigger_conditions_table);
+		}
+		if (conditionsTable == null) {
+			return;
+		}
+		conditionsTable.removeAllViews();
+		if (the_trigger.getConditions() == null) {
+			the_trigger.setConditions(new ConditionGroup());
+		}
+		updateConditionsHint();
+		int deleteSize = (int) (36 * getContext().getResources().getDisplayMetrics().density);
+		java.util.List<ConditionLeaf> leaves = the_trigger.getConditions().getChildren();
+		for (int i = 0; i < leaves.size(); i++) {
+			final int index = i;
+			ConditionLeaf leaf = leaves.get(i);
+			TableRow row = new TableRow(getContext());
+			TextView label = new TextView(getContext());
+			label.setText(leaf.summary());
+			label.setTextColor(0xFFE8E8E8);
+			label.setSingleLine(true);
+			label.setGravity(Gravity.CENTER_VERTICAL);
+			label.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f));
+			label.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					ConditionLeaf existing = the_trigger.getConditions().getChildren().get(index);
+					new ConditionLeafEditorDialog(
+							TriggerEditorDialog.this.getContext(), existing, service, selectedPlugin,
+							new ConditionLeafEditorDialog.DoneListener() {
+								public void onConditionDone(ConditionLeaf leaf, ConditionLeaf originalOrNull) {
+									the_trigger.getConditions().getChildren().set(index, leaf);
+									refreshConditionsTable();
+								}
+							}).show();
+				}
+			});
+			LinearLayout deleteHolder = new LinearLayout(getContext());
+			deleteHolder.setGravity(Gravity.CENTER);
+			ImageButton delete = new ImageButton(getContext());
+			delete.setBackgroundColor(0);
+			delete.setImageResource(android.R.drawable.ic_menu_delete);
+			delete.setPadding(0, 0, 0, 0);
+			delete.setLayoutParams(new LinearLayout.LayoutParams(deleteSize, deleteSize));
+			delete.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+			delete.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					the_trigger.getConditions().getChildren().remove(index);
+					refreshConditionsTable();
+				}
+			});
+			deleteHolder.addView(delete);
+			row.addView(label);
+			row.addView(deleteHolder);
+			conditionsTable.addView(row);
+		}
 	}
 
 	public void updateOrientation(int newOrientation) {
