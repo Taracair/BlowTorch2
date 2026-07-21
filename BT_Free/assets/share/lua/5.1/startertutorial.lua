@@ -60,6 +60,7 @@ local TOPIC_ORDER = {
 	"coloring",
 	"keyboard",
 	"search",
+	"mapper",
 	"wrap",
 	"logging_export",
 	"overflow_menu",
@@ -89,8 +90,8 @@ Try it now:
 
 This tour is hands-on: you will build a .loadset button, learn triggers for
 beginners, and poke swipe / hold / accordion demos. Lessons also cover
-aliases, timers, colors, keyboard, search, wrap, logging, ⋮ menu, GMCP/MCP,
-reconnect, copy, Options, display, and plugins.
+aliases, timers, colors, keyboard, search, mapper, wrap, logging, ⋮ menu,
+GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
 Type:  .tutorial next
 Or:    .tutorial topics
@@ -409,6 +410,27 @@ Also: overflow → Search scrollback. Buttons may use /search 'phrase'.
 Matches highlight in the buffer; next/prev walk through them.]])
 end
 
+TOPICS.mapper = function()
+	noteBlock("Mapper — .map",
+[[Built-in room map (not ForgeMap). Open overflow → Map, or:
+
+  .map                 help / status
+  .map open|close|toggle
+  .map mode float|fullscreen
+  .map record on|off|toggle
+  .map follow on|off
+  .map level list|prev|next|set <name>
+  .map find|path|goto <query>
+  .map maps | load <name> | new <name>
+  .map capture preview|apply
+
+Floating map: drag + resize; opacity under Options → Mapper.
+Path auto-send (Options → Mapper) controls whether .map goto sends
+commands or only prints the path. GMCP Room can sync when enabled.
+Capture preview tests patterns on a pasted sample (or recent buffer
+lines when the dialog can load them). Full list: overflow → Help.]])
+end
+
 TOPICS.wrap = function()
 	noteBlock("Input wrap — .wrap",
 [[.wrap controls whether the input bar grows with multiline text
@@ -454,6 +476,7 @@ TOPICS.overflow_menu = function()
   Plugins                 load / manage Lua plugins
   Reconnect / Disconnect  connection control
   Quit                    leave the session window
+  Map                     built-in Mapper (also .map open|toggle)
   Search scrollback       same as .search
   Reload / Reset Settings
   Export / Import Settings
