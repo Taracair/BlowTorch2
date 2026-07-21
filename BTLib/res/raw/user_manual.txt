@@ -300,7 +300,7 @@ Mapper
     .map follow on|off|toggle
   With record on, outbound movement builds tiles/exits. Follow centers on you.
 
-  Levels (L-/L+ only switch existing levels — create via Rec+up/down or set):
+  Levels (L-/L+ switch floors; at the edge they create a new level and move Here):
     .map level list|prev|next|set <name>
     .map level move <tileId> <levelName>
 
