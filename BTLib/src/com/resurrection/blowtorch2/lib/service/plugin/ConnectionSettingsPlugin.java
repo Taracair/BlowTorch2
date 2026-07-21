@@ -378,6 +378,75 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		sg.addOption(servOptions);
 
+		SettingsGroup mapperOptions = new SettingsGroup();
+		mapperOptions.setTitle("Mapper");
+		mapperOptions.setDescription("Built-in MUD map recorder, pathfinding, and overlay.");
+
+		BooleanOption mapper_enabled = new BooleanOption();
+		mapper_enabled.setTitle("Enable Mapper?");
+		mapper_enabled.setDescription("Master switch for recording, GMCP room sync, and .map commands engine.");
+		mapper_enabled.setKey("mapper_enabled");
+		mapper_enabled.setValue(true);
+		mapperOptions.addOption(mapper_enabled);
+
+		BooleanOption mapper_recording_default = new BooleanOption();
+		mapper_recording_default.setTitle("Record by Default?");
+		mapper_recording_default.setDescription("Start recording movement when a session loads. Toggle live with .map record.");
+		mapper_recording_default.setKey("mapper_recording_default");
+		mapper_recording_default.setValue(false);
+		mapperOptions.addOption(mapper_recording_default);
+
+		BooleanOption mapper_follow = new BooleanOption();
+		mapper_follow.setTitle("Follow Player?");
+		mapper_follow.setDescription("Keep the map view centered on the current room when it changes.");
+		mapper_follow.setKey("mapper_follow");
+		mapper_follow.setValue(true);
+		mapperOptions.addOption(mapper_follow);
+
+		BooleanOption mapper_float = new BooleanOption();
+		mapper_float.setTitle("Prefer Floating Window?");
+		mapper_float.setDescription("Open the map as a floating overlay instead of fullscreen (tablets).");
+		mapper_float.setKey("mapper_float");
+		mapper_float.setValue(true);
+		mapperOptions.addOption(mapper_float);
+
+		IntegerOption mapper_opacity = new IntegerOption();
+		mapper_opacity.setTitle("Overlay Opacity (40–100)");
+		mapper_opacity.setDescription("Floating map opacity percent. Clamped to 40–100.");
+		mapper_opacity.setKey("mapper_opacity");
+		mapper_opacity.setValue(85);
+		mapperOptions.addOption(mapper_opacity);
+
+		BooleanOption mapper_path_auto_send = new BooleanOption();
+		mapper_path_auto_send.setTitle("Auto-Send Path?");
+		mapper_path_auto_send.setDescription("When using .map goto, send path commands to the MUD. Off = print path only.");
+		mapper_path_auto_send.setKey("mapper_path_auto_send");
+		mapper_path_auto_send.setValue(false);
+		mapperOptions.addOption(mapper_path_auto_send);
+
+		BooleanOption mapper_use_gmcp = new BooleanOption();
+		mapper_use_gmcp.setTitle("Use GMCP Room Sync?");
+		mapper_use_gmcp.setDescription("Apply Room.* GMCP (name/coords) to the current map tile when available.");
+		mapper_use_gmcp.setKey("mapper_use_gmcp");
+		mapper_use_gmcp.setValue(true);
+		mapperOptions.addOption(mapper_use_gmcp);
+
+		BooleanOption mapper_auto_reverse = new BooleanOption();
+		mapper_auto_reverse.setTitle("Auto Reverse Links?");
+		mapper_auto_reverse.setDescription("When recording n/s/e/w (etc.), also create the opposite exit on the destination tile.");
+		mapper_auto_reverse.setKey("mapper_auto_reverse_link");
+		mapper_auto_reverse.setValue(true);
+		mapperOptions.addOption(mapper_auto_reverse);
+
+		StringOption mapper_toolbar = new StringOption();
+		mapper_toolbar.setTitle("Toolbar Actions (CSV)");
+		mapper_toolbar.setDescription("Comma-separated map toolbar actions: record,follow,level-,level+,find,undo,center,close");
+		mapper_toolbar.setKey("mapper_toolbar_actions");
+		mapper_toolbar.setValue("record,follow,level-,level+,find,undo,center,close");
+		mapperOptions.addOption(mapper_toolbar);
+
+		sg.addOption(mapperOptions);
+
 		SettingsGroup miscOptions = new SettingsGroup();
 		miscOptions.setTitle("Miscellaneous");
 		miscOptions.setDescription("Storage paths, permissions, and other app-wide helpers.");

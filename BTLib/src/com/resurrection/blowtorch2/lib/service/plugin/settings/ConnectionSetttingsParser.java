@@ -69,7 +69,10 @@ public class ConnectionSetttingsParser extends PluginParser {
 		show_regex_warning,
 		session_log, session_log_directory, default_settings_directory,
 		terminal_width, terminal_height, terminal_size_hint,
-		persistent_connection
+		persistent_connection,
+		mapper_enabled, mapper_recording_default, mapper_follow, mapper_float,
+		mapper_opacity, mapper_path_auto_send, mapper_use_gmcp,
+		mapper_auto_reverse_link, mapper_toolbar_actions
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -589,6 +592,52 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case persistent_connection:
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case mapper_enabled:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_recording_default:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case mapper_follow:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_float:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_opacity:
+						if((Integer)opt.getValue() != 85) {
+							dooutput = true;
+						}
+						break;
+					case mapper_path_auto_send:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case mapper_use_gmcp:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_auto_reverse_link:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_toolbar_actions:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals(
+								"record,follow,level-,level+,find,undo,center,close")) {
 							dooutput = true;
 						}
 						break;
