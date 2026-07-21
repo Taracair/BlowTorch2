@@ -96,6 +96,7 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Path auto-send** | If on, `.map goto` sends the path; if off, prints only |
 | **Use GMCP Room** | Sync from `Room.*` when GMCP is on (title + create missing exits/neighbors; does not delete exits absent from GMCP) |
 | **Auto reverse links** | Suggest opposite exits when linking |
+| **Accept One-Way Specials?** | ON = recording `out`/`enter` always makes a new tile. OFF (default) = if exactly one room already leads into Here, link the special back there. Also **Build → 1-way** |
 | **Level-Up Commands (CSV)** | Recording moves that create a higher floor (`u,up,climb,ascend` default). Clear Up+Down to never auto-create levels |
 | **Level-Down Commands (CSV)** | Recording moves that create a lower floor (`d,down,descend` default) |
 | **Toolbar actions** | Legacy CSV (still stored); map chrome uses top **Nav/Floors/Build/File** radials instead of the bottom strip |

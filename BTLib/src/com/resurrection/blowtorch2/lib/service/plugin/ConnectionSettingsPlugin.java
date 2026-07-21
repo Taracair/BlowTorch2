@@ -439,6 +439,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		mapper_auto_reverse.setValue(true);
 		mapperOptions.addOption(mapper_auto_reverse);
 
+		BooleanOption mapper_one_way = new BooleanOption();
+		mapper_one_way.setTitle("Accept One-Way Specials?");
+		mapper_one_way.setDescription("When ON, recording out/enter/leave always places a new nearby tile. When OFF (default), if exactly one room already leads into Here, link the special back there (e.g. freezer out → hallway). Toggle also in map Build radial (1-way).");
+		mapper_one_way.setKey("mapper_accept_one_way_specials");
+		mapper_one_way.setValue(false);
+		mapperOptions.addOption(mapper_one_way);
+
 		StringOption mapper_toolbar = new StringOption();
 		mapper_toolbar.setTitle("Toolbar Actions (CSV)");
 		mapper_toolbar.setDescription("Left-side map buttons (CSV): record,follow,level-,level+,find,undo,center,close,capture. Links, Paths/Pack, Draw, Here, Edit, Save are always added.");
