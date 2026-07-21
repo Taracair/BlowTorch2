@@ -140,7 +140,7 @@ vars with the **Set Variable** responder or Lua `SetVariable` /
 | `.clearbuttons` | Clear on-screen buttons (`button_window` may re-register) |
 | `.switch <connection>` | Switch foreground UI to another open connection by display name |
 | `.search …` | Scrollback search; see forms below |
-| `.map …` | Built-in Mapper (open/record/find/path/maps/capture); see Mapper |
+| `.map …` | Built-in Mapper (record/draw/links/find/path/maps); see Mapper |
 
 ### `.trigger` forms
 
@@ -181,11 +181,61 @@ Empty argument opens the search UI. Buttons may also use `/search 'phrase'`.
 
 ## Mapper
 
-Built-in room map (not ForgeMap). Open from overflow **Map**, or `.map` /
-`.map open` / `.map close` / `.map toggle`. Prefer floating or fullscreen
-with `.map mode float|fullscreen` (also Options → Mapper). Floating windows
-can be dragged and resized; opacity is in Options. The overlay stays under
-the ⋮ chrome so overflow remains reachable.
+Built-in room map (not the legacy ForgeMap plugin). Open from overflow **Map**,
+or `.map` / `.map open` / `.map close` / `.map toggle`. Prefer floating or
+fullscreen with `.map mode float|fullscreen` (also **Options → Mapper**).
+Floating windows can be dragged and resized; opacity is in Options. The overlay
+stays under the ⋮ chrome so overflow remains reachable.
+
+### Concepts
+
+| Idea | Meaning |
+|------|---------|
+| **Tile** | One room cell on a grid (x, y) plus a **level** |
+| **Exit** | Edge from tile A to B via a walk command (`n`, `go west`, `out`, …) |
+| **Current** | Where the mapper thinks you are (green highlight) |
+| **Selected** | Tile you tapped (yellow outline); used by Edit / Here / Links |
+| **Follow** | Camera keeps current centered; pan/pinch turns Follow off until you Center |
+
+Maps are JSON files under `/BlowTorch/maps/` (autosave ~2s after changes; **Save**
+on the toolbar or `.map export` / `.map save` forces a write).
+
+### Toolbar (map window)
+
+| Control | What it does |
+|---------|----------------|
+| **Rec** / **Stop** | Toggle recording outbound movement into the graph |
+| **Follow** | Toggle camera follow |
+| **L−** / **L+** | Previous / next level |
+| **Find** | Search rooms |
+| **Undo** | Undo last graph change |
+| **Center** | Center on current |
+| **Links** | Link mode: tap FROM tile, then TO, then enter a walk verb (or unlink) |
+| **Draw** | Manual edit: grid on; tap empty cell to place; long-press empty = place + Here; long-press tile and drag = move |
+| **Here** | Set current to the selected tile |
+| **Edit** | Title / notes / level / exits dialog |
+| **Save** | Write map file now |
+| **Full** / **Float** / **✕** | Presentation mode / close |
+
+Long-press a tile (when not dragging) for **Set as Here**, **Move…**, **Add neighbor…**,
+delete, path, etc.
+
+### Movement lexicon
+
+Planar grid: **+x = east**, **+y = south** (north decreases y).
+
+| Commands | Effect |
+|----------|--------|
+| `n`/`north`, `s`/`south`, `e`/`east`, `w`/`west` (and `go`/`walk`/`move` prefixes) | Neighbor on the same level |
+| `ne`/`nw`/`se`/`sw` | Diagonal |
+| `u`/`up`/`climb`/`ascend` | Level +1 |
+| `d`/`down`/`descend` | Level −1 |
+| `in`/`enter`, `out`/`leave`/`exit`, other text | Special exit (nearby cell, not a compass step) |
+
+Also uses the connection **Speedwalk Directions** map when configured.
+Print the built-in summary with `.map dirs`.
+
+### Commands
 
 | Command | Description |
 |---------|-------------|
@@ -200,19 +250,34 @@ the ⋮ chrome so overflow remains reachable.
 | `.map goto <query>` | Path; send only if **Path auto-send** is on |
 | `.map center` | Center on current room |
 | `.map undo` | Undo last graph change |
+| `.map dirs` | Movement lexicon / grid offsets |
 | `.map maps` / `.map load <name>` / `.map new <name>` | Multiple maps |
-| `.map export` | Save now (`/BlowTorch/maps/`) |
-| `.map title` / `.map note` / `.map link` / `.map unlink` | Edit current tile |
+| `.map export` / `.map save` | Save now (`/BlowTorch/maps/`) |
+| `.map add [x y] [title] [here]` | Place a tile (optional title; `here` sets current) |
+| `.map here [id]` | Mark current position |
+| `.map delete [id]` | Remove a tile (and links to it) |
+| `.map neighbor <cmd> [from <id>]` | Create/link a neighbor by walk verb |
+| `.map move [id] <x> <y>` | Reposition a tile on the grid |
+| `.map title` / `.map note` | Edit current tile text |
+| `.map link <cmd> [from <id>] to <tileId>` | Manual link |
+| `.map unlink <cmd> [from <id>]` | Remove an exit |
 | `.map conflict list` | Conflict inbox |
-| `.map capture preview` | Test capture patterns on a pasted sample (or recent buffer lines when available) |
+| `.map capture preview` | Test capture patterns on a pasted sample (or recent buffer) |
 | `.map capture apply` | Apply capture to the current tile |
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
-recording defaults, follow, path auto-send, Use GMCP Room, toolbar actions,
-capture profile.
+recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links,
+toolbar actions CSV, capture profile.
 
 **GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` can sync title /
-position / exits. Without GMCP, use capture patterns + preview/apply.
+position. Without GMCP (typical on many MOOs), use **Rec** while walking,
+manual **Draw** / **Links**, and/or capture patterns.
+
+### Typical workflows
+
+1. **Record while exploring:** `.map new mymap` → open map → **Rec** → walk → **Stop** → **Save**.
+2. **Draw by hand:** **Draw** → tap empty cells → **Links** (or **Add neighbor**) → **Here** on your room.
+3. **Fix layout:** **Draw** → long-press a tile and drag, or long-press → **Move…**.
 
 ### `.run` defaults
 

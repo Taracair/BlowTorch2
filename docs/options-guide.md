@@ -10,16 +10,18 @@ In-game **Options** dialog groups (Program Settings):
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
+| **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links, toolbar actions CSV, capture patterns |
 
 ## Shared storage layout (`/BlowTorch/`)
 
-Default for import/export, backups, launcher lists, session logs, and app/GMCP logs is **outside** `Android/data`:
+Default for import/export, backups, launcher lists, session logs, maps, and app/GMCP logs is **outside** `Android/data`:
 
 ```text
 /storage/emulated/0/BlowTorch/
   settings/       # session Import/Export Settings (default)
   backups/        # launcher Backup All Settings
   launcher/       # server list export/import
+  maps/           # Mapper JSON maps (.map export / autosave)
   session_logs/   # incremental game .txt logs
   logs/           # blowtorch2.log (errors + GMCP when Log GMCP? is on)
 ```
@@ -79,6 +81,26 @@ default — enable only if a MUD needs them, then reconnect:
 
 When off, BlowTorch answers `DONT` so the server should not send those channels.
 Parse errors never disconnect — the packet is ignored.
+
+## Mapper
+
+Session group **Options → Mapper** (also overflow → **Map** / `.map`):
+
+| Option | Notes |
+|--------|--------|
+| **Enable mapper** | Master switch for the built-in map module |
+| **Prefer floating window** | Default float vs fullscreen when opening |
+| **Opacity** | Overlay transparency |
+| **Recording default** | Seed for new sessions (live toggle is still Rec / `.map record`) |
+| **Follow player** | Camera tracks current room |
+| **Path auto-send** | If on, `.map goto` sends the path; if off, prints only |
+| **Use GMCP Room** | Sync from `Room.*` when GMCP is on |
+| **Auto reverse links** | Suggest opposite exits when linking |
+| **Toolbar actions** | CSV of map toolbar buttons |
+| **Capture** | Patterns for title/exits without GMCP (preview/apply via `.map capture`) |
+
+Maps are stored as JSON under `/BlowTorch/maps/`. See Help → Mapper for Draw/Links,
+the movement lexicon (`.map dirs`), and the full `.map` command list.
 
 ## Session log
 
