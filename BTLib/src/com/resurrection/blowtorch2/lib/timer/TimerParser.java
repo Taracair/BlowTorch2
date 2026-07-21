@@ -8,6 +8,7 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BasePluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionParser;
 
 import android.sax.Element;
 
@@ -15,6 +16,7 @@ public final class TimerParser {
 	public static void registerListeners(Element root, PluginParser.NewItemCallback callback, TriggerData current_trigger, TimerData current_timer) {
 		Element timer = root.getChild(BasePluginParser.TAG_TIMER);
 		TimerElementListener.register(timer, callback, current_timer);
+		ConditionParser.registerListeners(timer, current_timer);
 	}
 
 	public static void saveTimerToXML(XmlSerializer out, TimerData timer) throws IllegalArgumentException, IllegalStateException, IOException {
@@ -27,6 +29,7 @@ public final class TimerParser {
 				&& !TimerData.DEFAULT_GROUP.equals(timer.getGroup())) {
 			out.attribute("", BasePluginParser.ATTR_GROUP, timer.getGroup());
 		}
+		ConditionParser.saveConditionsToXML(out, timer);
 		for (TriggerResponder r : timer.getResponders()) {
 			r.saveResponderToXML(out);
 		}

@@ -12,6 +12,7 @@ import com.resurrection.blowtorch2.lib.responder.notification.NotificationRespon
 import com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
 
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -30,6 +31,7 @@ public class TimerData implements Parcelable {
 	private String group = DEFAULT_GROUP;
 
 	private List<TriggerResponder> responders;
+	private ConditionGroup conditions;
 
 	public TimerData() {
 		name="";
@@ -39,6 +41,7 @@ public class TimerData implements Parcelable {
 		playing = false;
 		group = DEFAULT_GROUP;
 		responders = new ArrayList<TriggerResponder>();
+		conditions = new ConditionGroup();
 	}
 
 	public void reset() {
@@ -57,6 +60,7 @@ public class TimerData implements Parcelable {
 		for(TriggerResponder responder : this.responders) {
 			tmp.responders.add(responder.copy());
 		}
+		tmp.conditions = this.conditions != null ? this.conditions.copy() : new ConditionGroup();
 
 		return tmp;
 
@@ -76,6 +80,10 @@ public class TimerData implements Parcelable {
 		} else if (!test.group.equals(this.group)) {
 			return false;
 		}
+		ConditionGroup otherCond = test.conditions != null ? test.conditions : new ConditionGroup();
+		ConditionGroup myCond = this.conditions != null ? this.conditions : new ConditionGroup();
+		if(!otherCond.equals(myCond)) return false;
+		if(test.responders.size() != this.responders.size()) return false;
 		Iterator<TriggerResponder> test_responders = test.responders.iterator();
 		Iterator<TriggerResponder> my_responders = this.responders.iterator();
 		while(test_responders.hasNext()) {
@@ -151,6 +159,10 @@ public class TimerData implements Parcelable {
 				break;
 			}
 		}
+		conditions = in.readParcelable(ConditionGroup.class.getClassLoader());
+		if (conditions == null) {
+			conditions = new ConditionGroup();
+		}
 	}
 	public int describeContents() {
 		return 0;
@@ -169,6 +181,7 @@ public class TimerData implements Parcelable {
 			o.writeInt(responder.getType().getIntVal());
 			o.writeParcelable(responder, 0);
 		}
+		o.writeParcelable(conditions != null ? conditions : new ConditionGroup(), 0);
 
 	}
 
@@ -242,6 +255,17 @@ public class TimerData implements Parcelable {
 
 	public void setGroup(String group) {
 		this.group = group != null ? group : DEFAULT_GROUP;
+	}
+
+	public ConditionGroup getConditions() {
+		if (conditions == null) {
+			conditions = new ConditionGroup();
+		}
+		return conditions;
+	}
+
+	public void setConditions(ConditionGroup conditions) {
+		this.conditions = conditions != null ? conditions : new ConditionGroup();
 	}
 
 }
