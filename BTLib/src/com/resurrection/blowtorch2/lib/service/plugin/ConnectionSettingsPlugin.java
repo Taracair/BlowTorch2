@@ -476,10 +476,17 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		StringOption mapper_level_down = new StringOption();
 		mapper_level_down.setTitle("Level-Down Commands (CSV)");
-		mapper_level_down.setDescription("While recording, these moves create a lower floor (−1). Default: d,down,descend. Example: put enter in Up and leave in Down for vertical portals.");
+		mapper_level_down.setDescription("While recording, these moves create a lower floor (−1). Default: d,down,descend. Example: put enter in Up and leave in Down for vertical portals. Also editable via map File → Moves.");
 		mapper_level_down.setKey("mapper_level_down_commands");
 		mapper_level_down.setValue(MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
 		mapperOptions.addOption(mapper_level_down);
+
+		StringOption mapper_moves = new StringOption();
+		mapper_moves.setTitle("Move Effects (planar/special)");
+		mapper_moves.setDescription("What each walk command does on the map. Format: n=grid:0:-1;out=special (or newlines). Levels use the Level-Up/Down CSVs above. Easiest edit: map overlay File → Moves. Empty = built-in compass + in/out specials.");
+		mapper_moves.setKey("mapper_move_effects");
+		mapper_moves.setValue(MapDirections.defaultMoveEffectsString());
+		mapperOptions.addOption(mapper_moves);
 
 		sg.addOption(mapperOptions);
 

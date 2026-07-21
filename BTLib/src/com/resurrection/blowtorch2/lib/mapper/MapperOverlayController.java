@@ -1907,7 +1907,35 @@ public class MapperOverlayController
 			promptNewMap();
 		} else if (MapperRadialMenu.ACTION_ONE_WAY.equals(action)) {
 			toggleAcceptOneWaySpecials();
+		} else if (MapperRadialMenu.ACTION_MOVES.equals(action)) {
+			openMoveEffectsEditor();
 		}
+	}
+
+	private void openMoveEffectsEditor() {
+		pullSnapshotFromService();
+		if (controller == null) {
+			Toast.makeText(host.getMainWindow(), "Mapper not ready",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		MapMoveEffectsDialog dlg = new MapMoveEffectsDialog(
+				host.getMainWindow(), controller,
+				new MapMoveEffectsDialog.Listener() {
+					@Override
+					public void onSaveCombinedTable(String combinedTable) {
+						String oneLine = combinedTable != null
+								? combinedTable.replace('\n', ';').replace('\r', ';')
+								: "";
+						host.runMapCommand("moves apply " + oneLine);
+						if (controller != null) {
+							controller.applyCombinedMoveEffects(combinedTable);
+						}
+						Toast.makeText(host.getMainWindow(), "Moves saved",
+								Toast.LENGTH_SHORT).show();
+					}
+				});
+		dlg.show();
 	}
 
 	private boolean isAcceptOneWaySpecials() {
@@ -2335,6 +2363,11 @@ public class MapperOverlayController
 			String tb = root.optString("toolbar", "");
 			if (tb != null && tb.length() > 0) {
 				snapshotToolbar = tb;
+			}
+			String me = root.optString("moveEffects", "");
+			if (me != null && me.trim().length() > 0 && controller != null) {
+				// UI-side copy for File → Moves (service remains authoritative).
+				controller.applyCombinedMoveEffects(me);
 			}
 			snapshotMap = MapStore.fromJson(json);
 			applyOpacity();

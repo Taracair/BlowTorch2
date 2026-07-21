@@ -275,11 +275,13 @@ public final class MapDirections {
 		out.add("  e/east      → (+1,0)");
 		out.add("  w/west      → (-1,0)");
 		out.add("  ne/nw/se/sw → diagonals");
-		out.add("Levels (defaults; override in Options → Mapper):");
+		out.add("Levels (Options → Mapper Level-Up/Down CSV, or File → Moves):");
 		out.add("  up CSV:   " + DEFAULT_LEVEL_UP_COMMANDS + " → level +1");
 		out.add("  down CSV: " + DEFAULT_LEVEL_DOWN_COMMANDS + " → level -1");
 		out.add("Special (off-grid neighbor):");
-		out.add("  in/enter, out/leave/exit, and any other command");
+		out.add("  in/enter, out/leave/exit, and any other unlisted command");
+		out.add("Edit the full table: map File → Moves, Options → Mapper Move Effects,");
+		out.add("  or .map moves [list|reset|set|unset|replace …]");
 		out.add("Prefixes stripped: go | walk | move  (e.g. go west → w)");
 		out.add("Built-in compass wins over Speedwalk keys:");
 		out.add("  default .run: h=nw j=ne k=sw l=se — typing se/sw still maps SE/SW");
@@ -540,5 +542,290 @@ public final class MapDirections {
 			return "go " + toLongForm(opp);
 		}
 		return opp;
+	}
+
+	/**
+	 * Default planar + special move table (levels come from Options CSVs).
+	 * Format when serialized: {@code cmd=grid:dx:dy} / {@code cmd=special}.
+	 */
+	public static LinkedHashMap<String, MapMoveEffect> defaultMoveEffects() {
+		LinkedHashMap<String, MapMoveEffect> out =
+				new LinkedHashMap<String, MapMoveEffect>();
+		for (Map.Entry<String, int[]> e : GRID_DELTA.entrySet()) {
+			int[] d = e.getValue();
+			if (e.getKey() == null || d == null || d.length < 2) {
+				continue;
+			}
+			out.put(e.getKey(), MapMoveEffect.grid(d[0], d[1]));
+		}
+		String[] specials = new String[] {
+				"in", "out", "enter", "leave", "exit"
+		};
+		for (String s : specials) {
+			if (!out.containsKey(s)) {
+				out.put(s, MapMoveEffect.special());
+			}
+		}
+		return out;
+	}
+
+	/** Compact single-line default for Options ({@code ;}-separated). */
+	public static String defaultMoveEffectsString() {
+		return serializeMoveEffects(defaultMoveEffects(), true);
+	}
+
+	/**
+	 * Serialize effects. When {@code compact}, join with {@code ;};
+	 * otherwise one entry per line (dialog-friendly).
+	 */
+	public static String serializeMoveEffects(
+			Map<String, MapMoveEffect> table, boolean compact) {
+		if (table == null || table.isEmpty()) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder();
+		String sep = compact ? ";" : "\n";
+		boolean first = true;
+		for (Map.Entry<String, MapMoveEffect> e : table.entrySet()) {
+			if (e.getKey() == null || e.getValue() == null) {
+				continue;
+			}
+			if (!first) {
+				sb.append(sep);
+			}
+			first = false;
+			sb.append(e.getKey()).append('=');
+			MapMoveEffect fx = e.getValue();
+			if (fx.kind == MapMoveEffect.Kind.GRID) {
+				sb.append("grid:").append(fx.dx).append(':').append(fx.dy);
+			} else if (fx.kind == MapMoveEffect.Kind.LEVEL) {
+				sb.append("level:").append(fx.levelDelta);
+			} else {
+				sb.append("special");
+			}
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * Parse a move-effects table. Entries separated by newlines or {@code ;}.
+	 * Forms: {@code n=grid:0:-1}, {@code u=level:1}, {@code out=special},
+	 * or space-separated {@code n grid 0 -1}.
+	 */
+	public static LinkedHashMap<String, MapMoveEffect> parseMoveEffects(
+			String raw) {
+		LinkedHashMap<String, MapMoveEffect> out =
+				new LinkedHashMap<String, MapMoveEffect>();
+		if (raw == null || raw.trim().length() == 0) {
+			return out;
+		}
+		String[] parts = raw.split("[;\\n\\r]+");
+		for (String part : parts) {
+			if (part == null) {
+				continue;
+			}
+			String line = part.trim();
+			if (line.length() == 0 || line.startsWith("#")) {
+				continue;
+			}
+			String cmd;
+			String rest;
+			int eq = line.indexOf('=');
+			if (eq > 0) {
+				cmd = line.substring(0, eq).trim().toLowerCase(Locale.US);
+				rest = line.substring(eq + 1).trim().toLowerCase(Locale.US);
+			} else {
+				String[] tok = line.split("\\s+");
+				if (tok.length < 2) {
+					continue;
+				}
+				cmd = tok[0].trim().toLowerCase(Locale.US);
+				StringBuilder rb = new StringBuilder();
+				for (int i = 1; i < tok.length; i++) {
+					if (i > 1) {
+						rb.append(' ');
+					}
+					rb.append(tok[i]);
+				}
+				rest = rb.toString().toLowerCase(Locale.US);
+			}
+			if (cmd.length() == 0 || rest.length() == 0) {
+				continue;
+			}
+			MapMoveEffect fx = parseOneEffect(rest);
+			if (fx != null) {
+				out.put(cmd, fx);
+			}
+		}
+		return out;
+	}
+
+	private static MapMoveEffect parseOneEffect(String rest) {
+		if (rest == null) {
+			return null;
+		}
+		String r = rest.trim().toLowerCase(Locale.US).replace(',', ':');
+		if (r.equals("special") || r.equals("spec") || r.equals("s")) {
+			return MapMoveEffect.special();
+		}
+		String[] bits = r.split("[:\\s]+");
+		if (bits.length == 0) {
+			return null;
+		}
+		String kind = bits[0];
+		if (kind.equals("grid") || kind.equals("g") || kind.equals("planar")) {
+			if (bits.length < 3) {
+				return null;
+			}
+			try {
+				return MapMoveEffect.grid(Integer.parseInt(bits[1]),
+						Integer.parseInt(bits[2]));
+			} catch (NumberFormatException e) {
+				return null;
+			}
+		}
+		if (kind.equals("level") || kind.equals("lvl") || kind.equals("l")) {
+			if (bits.length < 2) {
+				return null;
+			}
+			try {
+				return MapMoveEffect.level(Integer.parseInt(bits[1]));
+			} catch (NumberFormatException e) {
+				return null;
+			}
+		}
+		// Bare "up" / "down" as effect kind shortcuts
+		if (kind.equals("up") || kind.equals("+") || kind.equals("+1")) {
+			return MapMoveEffect.level(1);
+		}
+		if (kind.equals("down") || kind.equals("-") || kind.equals("-1")) {
+			return MapMoveEffect.level(-1);
+		}
+		return null;
+	}
+
+	/**
+	 * Look up a move effect with alias / prefix stripping (same rules as
+	 * {@link #gridDelta(String)}).
+	 */
+	public static MapMoveEffect effectFor(String token,
+			Map<String, MapMoveEffect> table) {
+		if (token == null || table == null || table.isEmpty()) {
+			return null;
+		}
+		String n = token.trim().toLowerCase(Locale.US);
+		if (n.length() == 0) {
+			return null;
+		}
+		MapMoveEffect e = table.get(n);
+		if (e != null) {
+			return e;
+		}
+		String canon = COMMON_ALIASES.get(n);
+		if (canon != null) {
+			e = table.get(canon);
+			if (e != null) {
+				return e;
+			}
+		}
+		String stripped = stripMovementPrefix(n);
+		if (!stripped.equals(n)) {
+			e = table.get(stripped);
+			if (e != null) {
+				return e;
+			}
+			canon = COMMON_ALIASES.get(stripped);
+			if (canon != null) {
+				return table.get(canon);
+			}
+		}
+		String lex = lexiconToken(n);
+		if (lex != null && !lex.equals(n)) {
+			return table.get(lex);
+		}
+		return null;
+	}
+
+	/**
+	 * Overlay level-up/down CSV tokens as {@link MapMoveEffect.Kind#LEVEL}
+	 * entries (replacing any previous LEVEL rows for those commands).
+	 */
+	public static void applyLevelCommands(Map<String, MapMoveEffect> table,
+			String upCsv, String downCsv) {
+		if (table == null) {
+			return;
+		}
+		List<String> toRemove = new ArrayList<String>();
+		for (Map.Entry<String, MapMoveEffect> e : table.entrySet()) {
+			if (e.getValue() != null
+					&& e.getValue().kind == MapMoveEffect.Kind.LEVEL) {
+				toRemove.add(e.getKey());
+			}
+		}
+		for (String k : toRemove) {
+			table.remove(k);
+		}
+		putLevelCsv(table, upCsv, 1);
+		putLevelCsv(table, downCsv, -1);
+	}
+
+	private static void putLevelCsv(Map<String, MapMoveEffect> table,
+			String csv, int delta) {
+		if (table == null || csv == null) {
+			return;
+		}
+		String[] parts = csv.split("[,;]+");
+		for (String part : parts) {
+			if (part == null) {
+				continue;
+			}
+			String raw = part.trim().toLowerCase(Locale.US);
+			if (raw.length() == 0) {
+				continue;
+			}
+			table.put(raw, MapMoveEffect.level(delta));
+		}
+	}
+
+	/**
+	 * Split a combined effects map into planar/special table string and
+	 * level-up / level-down CSV strings.
+	 *
+	 * @return {@code {moveTable, upCsv, downCsv}}
+	 */
+	public static String[] splitCombinedEffects(
+			Map<String, MapMoveEffect> combined) {
+		LinkedHashMap<String, MapMoveEffect> planar =
+				new LinkedHashMap<String, MapMoveEffect>();
+		StringBuilder up = new StringBuilder();
+		StringBuilder down = new StringBuilder();
+		if (combined != null) {
+			for (Map.Entry<String, MapMoveEffect> e : combined.entrySet()) {
+				MapMoveEffect fx = e.getValue();
+				if (e.getKey() == null || fx == null) {
+					continue;
+				}
+				if (fx.kind == MapMoveEffect.Kind.LEVEL) {
+					if (fx.levelDelta > 0) {
+						if (up.length() > 0) {
+							up.append(',');
+						}
+						up.append(e.getKey());
+					} else if (fx.levelDelta < 0) {
+						if (down.length() > 0) {
+							down.append(',');
+						}
+						down.append(e.getKey());
+					}
+				} else {
+					planar.put(e.getKey(), fx);
+				}
+			}
+		}
+		return new String[] {
+				serializeMoveEffects(planar, true),
+				up.toString(),
+				down.toString()
+		};
 	}
 }
