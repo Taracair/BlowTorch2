@@ -218,7 +218,11 @@ on the toolbar or `.map export` / `.map save` forces a write).
 | **Full** / **Float** / **✕** | Presentation mode / close |
 
 Long-press a tile (when not dragging) for **Set as Here**, **Move…**, **Add neighbor…**,
-delete, path, etc.
+delete, path, etc. **Double-tap** a tile = **Set as Here**.
+
+Exits with a known destination draw as **arrows** between tiles with walk-word labels
+(`go west`, `n`, …). If more than two commands share the same edge, the label shows
+`cmd1 · cmd2 +N` — tap it to open the full list (and optionally unlink).
 
 ### Movement lexicon
 
