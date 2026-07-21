@@ -13,9 +13,14 @@ import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponderEditor;
 import com.resurrection.blowtorch2.lib.responder.notification.NotificationResponder;
 import com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponderEditor;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponderEditor;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
+import com.resurrection.blowtorch2.lib.trigger.ConditionLeafEditorDialog;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionLeaf;
 import com.resurrection.blowtorch2.lib.validator.Validator;
 import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
@@ -50,6 +55,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 
 	private TableRow legend;
 	private TableLayout responderTable;
+	private TableLayout conditionsTable;
 	
 	private TimerData the_timer;
 	private TimerData orig_timer;
@@ -111,6 +117,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		
 		
 		refreshResponderTable();
+		setupConditionsSection();
 		
 		//hook up additional buttons.
 		Button cancelbutton = (Button)findViewById(R.id.timer_editor_cancel);
@@ -341,6 +348,9 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				label.setText("Toast Message: " + ((ToastResponder)responder).getMessage());
 			} else if(responder.getType() == RESPONDER_TYPE.ACK){
 				label.setText("Ack With: " + ((AckResponder)responder).getAckWith());
+			} else if(responder.getType() == RESPONDER_TYPE.SET_VARIABLE) {
+				SetVariableResponder sv = (SetVariableResponder) responder;
+				label.setText("SetVariable: " + sv.getVariableName() + "=" + sv.getVariableValue());
 			}
 			label.setGravity(Gravity.CENTER);
 			label.setSingleLine(true);
@@ -448,7 +458,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 
 		public void onClick(View v) {
 			//give out a list of options
-			CharSequence[] items = {"Notification","Toast Message","Ack With"};
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Set Variable"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TimerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -474,6 +484,9 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			AckResponderEditor aedit = new AckResponderEditor(TimerEditorDialog.this.getContext(),null,TimerEditorDialog.this);
 			aedit.show();
 			break; //ack
+		case 3:
+			new SetVariableResponderEditor(TimerEditorDialog.this.getContext(), null, TimerEditorDialog.this).show();
+			break;
 		default:
 			break;
 		}
@@ -503,6 +516,10 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			case ACK:
 				AckResponderEditor aedit = new AckResponderEditor(TimerEditorDialog.this.getContext(),(AckResponder)responder.copy(),TimerEditorDialog.this);
 				aedit.show();
+				break;
+			case SET_VARIABLE:
+				new SetVariableResponderEditor(TimerEditorDialog.this.getContext(),
+						(SetVariableResponder) responder.copy(), TimerEditorDialog.this).show();
 				break;
 			default:
 				break;
@@ -573,5 +590,119 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		}
 		
 	};
+	
+	private void setupConditionsSection() {
+		conditionsTable = (TableLayout) findViewById(R.id.timer_conditions_table);
+		Spinner opSpinner = (Spinner) findViewById(R.id.timer_conditions_op);
+		if (the_timer.getConditions() == null) {
+			the_timer.setConditions(new ConditionGroup());
+		}
+		if (opSpinner != null) {
+			ArrayAdapter<String> opAdapter = new ArrayAdapter<String>(getContext(),
+					R.layout.spinner_item_dark,
+					new String[] { "All (AND)", "Any (OR)" });
+			opAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+			opSpinner.setAdapter(opAdapter);
+			opSpinner.setSelection(
+					the_timer.getConditions().getOp() == ConditionGroup.Op.OR ? 1 : 0, false);
+			opSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+				public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+					the_timer.getConditions().setOp(
+							position == 1 ? ConditionGroup.Op.OR : ConditionGroup.Op.AND);
+					updateConditionsHint();
+				}
+				public void onNothingSelected(AdapterView<?> parent) {
+				}
+			});
+		}
+		Button add = (Button) findViewById(R.id.timer_new_condition);
+		if (add != null) {
+			add.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					new ConditionLeafEditorDialog(
+							TimerEditorDialog.this.getContext(), null, service, plugin,
+							new ConditionLeafEditorDialog.DoneListener() {
+								public void onConditionDone(ConditionLeaf leaf, ConditionLeaf originalOrNull) {
+									the_timer.getConditions().getChildren().add(leaf);
+									refreshConditionsTable();
+								}
+							}).show();
+				}
+			});
+		}
+		refreshConditionsTable();
+	}
+
+	private void updateConditionsHint() {
+		TextView hint = (TextView) findViewById(R.id.timer_conditions_hint);
+		if (hint == null) {
+			return;
+		}
+		if (the_timer.getConditions() == null || the_timer.getConditions().isEmpty()) {
+			hint.setText("No conditions — always runs when the timer fires.");
+		} else if (the_timer.getConditions().getOp() == ConditionGroup.Op.OR) {
+			hint.setText("Any condition may be true (OR).");
+		} else {
+			hint.setText("All conditions must be true (AND).");
+		}
+	}
+
+	private void refreshConditionsTable() {
+		if (conditionsTable == null) {
+			conditionsTable = (TableLayout) findViewById(R.id.timer_conditions_table);
+		}
+		if (conditionsTable == null) {
+			return;
+		}
+		conditionsTable.removeAllViews();
+		if (the_timer.getConditions() == null) {
+			the_timer.setConditions(new ConditionGroup());
+		}
+		updateConditionsHint();
+		int deleteSize = (int) (36 * getContext().getResources().getDisplayMetrics().density);
+		java.util.List<ConditionLeaf> leaves = the_timer.getConditions().getChildren();
+		for (int i = 0; i < leaves.size(); i++) {
+			final int index = i;
+			ConditionLeaf leaf = leaves.get(i);
+			TableRow row = new TableRow(getContext());
+			TextView label = new TextView(getContext());
+			label.setText(leaf.summary());
+			label.setTextColor(0xFFE8E8E8);
+			label.setSingleLine(true);
+			label.setGravity(Gravity.CENTER_VERTICAL);
+			label.setLayoutParams(new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f));
+			label.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					ConditionLeaf existing = the_timer.getConditions().getChildren().get(index);
+					new ConditionLeafEditorDialog(
+							TimerEditorDialog.this.getContext(), existing, service, plugin,
+							new ConditionLeafEditorDialog.DoneListener() {
+								public void onConditionDone(ConditionLeaf leaf, ConditionLeaf originalOrNull) {
+									the_timer.getConditions().getChildren().set(index, leaf);
+									refreshConditionsTable();
+								}
+							}).show();
+				}
+			});
+			LinearLayout deleteHolder = new LinearLayout(getContext());
+			deleteHolder.setGravity(Gravity.CENTER);
+			ImageButton delete = new ImageButton(getContext());
+			delete.setBackgroundColor(0);
+			delete.setImageResource(android.R.drawable.ic_menu_delete);
+			delete.setPadding(0, 0, 0, 0);
+			delete.setLayoutParams(new LinearLayout.LayoutParams(deleteSize, deleteSize));
+			delete.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+			delete.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					the_timer.getConditions().getChildren().remove(index);
+					refreshConditionsTable();
+				}
+			});
+			deleteHolder.addView(delete);
+			row.addView(label);
+			row.addView(deleteHolder);
+			conditionsTable.addView(row);
+		}
+	}
 	
 }

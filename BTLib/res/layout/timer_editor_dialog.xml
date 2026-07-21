@@ -133,6 +133,75 @@
   				android:layout_height="wrap_content"
   				android:layout_gravity="center_vertical"/>
   		</LinearLayout>
+    		<LinearLayout
+  			android:id="@+id/timer_conditions_header"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:layout_marginTop="8dip"
+  			android:orientation="horizontal"
+  			android:gravity="center_vertical"
+  			android:background="#FF999999"
+  			android:paddingLeft="6dip"
+  			android:paddingRight="4dip">
+  			<TextView
+  				android:layout_width="0dip"
+  				android:layout_height="wrap_content"
+  				android:layout_weight="1"
+  				android:text="CONDITIONS (advanced)"
+  				android:gravity="center_vertical"
+  				android:textStyle="bold"
+  				android:textColor="#FF111111"/>
+  			<Spinner
+  				android:id="@+id/timer_conditions_op"
+  				android:layout_width="wrap_content"
+  				android:layout_height="wrap_content"
+  				android:minWidth="72dip"
+  				android:popupBackground="#FF000000"/>
+  		</LinearLayout>
+  		<TextView
+  			android:id="@+id/timer_conditions_note"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:paddingLeft="6dip"
+  			android:paddingRight="6dip"
+  			android:paddingTop="6dip"
+  			android:paddingBottom="2dip"
+  			android:textColor="#FFDDDDDD"
+  			android:textSize="12sp"
+  			android:text="Extra gate when the timer fires — not a substitute for the interval. Checked before responders run."/>
+  		<TextView
+  			android:id="@+id/timer_conditions_hint"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:paddingLeft="6dip"
+  			android:paddingRight="6dip"
+  			android:paddingBottom="6dip"
+  			android:textColor="#FFCCCCCC"
+  			android:textSize="12sp"
+  			android:text="No conditions — always runs when the timer fires."/>
+  		<TableLayout
+  			android:id="@+id/timer_conditions_table"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:stretchColumns="0"
+  			android:shrinkColumns="0"
+  			android:background="@drawable/movemethod_frame"/>
+  		<Button
+  			android:id="@+id/timer_new_condition"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:layout_marginBottom="8dip"
+  			android:text="Add Condition"/>
   		<TextView android:layout_width="match_parent"
   					android:layout_height="wrap_content"
   					android:text="EXECUTE ACTIONS"
