@@ -834,7 +834,9 @@ final class ConnectionSettingsIO {
 		
 		host.mSettings.buildAliases();
 		for (Plugin pl : host.mPlugins) {
-			pl.buildAliases();
+			if (pl != null && pl.isEnabled()) {
+				pl.buildAliases();
+			}
 		}
 		
 		host.buildTriggerSystem();
