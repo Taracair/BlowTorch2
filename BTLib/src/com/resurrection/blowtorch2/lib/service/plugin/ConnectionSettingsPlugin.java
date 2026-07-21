@@ -426,7 +426,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mapper_use_gmcp = new BooleanOption();
 		mapper_use_gmcp.setTitle("Use GMCP Room Sync?");
-		mapper_use_gmcp.setDescription("Apply Room.* GMCP (name/coords) to the current map tile when available.");
+		mapper_use_gmcp.setDescription("Apply Room.* GMCP (name/coords/exits) to the current map tile when available. Known compass exits create neighbor tiles; special exits place a nearby free cell. Independent of Capture regex (.map capture / dialog).");
 		mapper_use_gmcp.setKey("mapper_use_gmcp");
 		mapper_use_gmcp.setValue(true);
 		mapperOptions.addOption(mapper_use_gmcp);
@@ -444,6 +444,20 @@ public class ConnectionSettingsPlugin extends Plugin {
 		mapper_toolbar.setKey("mapper_toolbar_actions");
 		mapper_toolbar.setValue("record,follow,level-,level+,find,undo,center,close");
 		mapperOptions.addOption(mapper_toolbar);
+
+		StringOption mapper_capture_title = new StringOption();
+		mapper_capture_title.setTitle("Capture Title Regex");
+		mapper_capture_title.setDescription("Regex for .map capture and the Capture dialog title field. Group 1 is used when present; otherwise the whole match. Default matches a capitalized line.");
+		mapper_capture_title.setKey("mapper_capture_title_regex");
+		mapper_capture_title.setValue("^([A-Z].*)$");
+		mapperOptions.addOption(mapper_capture_title);
+
+		StringOption mapper_capture_exits = new StringOption();
+		mapper_capture_exits.setTitle("Capture Exits Regex");
+		mapper_capture_exits.setDescription("Regex for .map capture and the Capture dialog exits field. Group 1 is used when present (e.g. text after Exits:). Case-insensitive by default.");
+		mapper_capture_exits.setKey("mapper_capture_exits_regex");
+		mapper_capture_exits.setValue("(?i)exits?:\\s*(.*)");
+		mapperOptions.addOption(mapper_capture_exits);
 
 		sg.addOption(mapperOptions);
 

@@ -72,7 +72,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		persistent_connection,
 		mapper_enabled, mapper_recording_default, mapper_follow, mapper_float,
 		mapper_opacity, mapper_path_auto_send, mapper_use_gmcp,
-		mapper_auto_reverse_link, mapper_toolbar_actions
+		mapper_auto_reverse_link, mapper_toolbar_actions,
+		mapper_capture_title_regex, mapper_capture_exits_regex
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -638,6 +639,18 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case mapper_toolbar_actions:
 						if(opt.getValue() != null && !((String)opt.getValue()).equals(
 								"record,follow,level-,level+,find,undo,center,close")) {
+							dooutput = true;
+						}
+						break;
+					case mapper_capture_title_regex:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals(
+								"^([A-Z].*)$")) {
+							dooutput = true;
+						}
+						break;
+					case mapper_capture_exits_regex:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals(
+								"(?i)exits?:\\s*(.*)")) {
 							dooutput = true;
 						}
 						break;

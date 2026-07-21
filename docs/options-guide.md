@@ -10,7 +10,7 @@ In-game **Options** dialog groups (Program Settings):
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
-| **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links, toolbar actions CSV, capture patterns |
+| **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
 ## Shared storage layout (`/BlowTorch/`)
 
@@ -94,14 +94,16 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Recording default** | Seed for new sessions (live toggle is still Rec / `.map record`) |
 | **Follow player** | Camera tracks current room |
 | **Path auto-send** | If on, `.map goto` sends the path; if off, prints only |
-| **Use GMCP Room** | Sync from `Room.*` when GMCP is on |
+| **Use GMCP Room** | Sync from `Room.*` when GMCP is on (title + create missing exits/neighbors; does not delete exits absent from GMCP) |
 | **Auto reverse links** | Suggest opposite exits when linking |
 | **Toolbar actions** | CSV for the left map buttons (`record,follow,…`; optional `capture`). Links / Paths/Pack / Draw / Here / Edit / Save are always appended |
+| **Capture Title Regex** | Regex for `.map capture` and the Capture dialog title field (`mapper_capture_title_regex`). Group 1 when present; else whole match. Default: `^([A-Z].*)$` |
+| **Capture Exits Regex** | Regex for exits field (`mapper_capture_exits_regex`). Group 1 when present (e.g. after `Exits:`). Default: `(?i)exits?:\s*(.*)` |
 
 Maps are stored as JSON under `/BlowTorch/maps/`. See Help → Mapper for Draw/Links/Paths,
-the movement lexicon (`.map dirs`), and the full `.map` command list. Capture uses the
-map **Capture** dialog (add `capture` to the toolbar CSV) or `.map capture preview|apply`
-with default regexes — there is no separate Options “Capture profile” yet.
+the movement lexicon (`.map dirs`), and the full `.map` command list. Capture uses
+**Options → Mapper** regexes via `.map capture preview|apply`, or the map **Capture**
+dialog (add `capture` to the toolbar CSV) for a one-off edit of those patterns.
 
 ## Session log
 

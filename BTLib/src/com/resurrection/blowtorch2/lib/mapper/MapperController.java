@@ -1,9 +1,11 @@
 package com.resurrection.blowtorch2.lib.mapper;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -41,6 +43,10 @@ public class MapperController {
 	/** Default CSV for the mapper overlay toolbar. */
 	public static final String DEFAULT_TOOLBAR =
 			"record,follow,level-,level+,find,undo,center,close";
+	/** Default title regex for `.map capture` / Capture dialog (group 1 optional). */
+	public static final String DEFAULT_CAPTURE_TITLE_REGEX = "^([A-Z].*)$";
+	/** Default exits regex for `.map capture` / Capture dialog (group 1 optional). */
+	public static final String DEFAULT_CAPTURE_EXITS_REGEX = "(?i)exits?:\\s*(.*)";
 
 	/** Listeners notified when the map model or session flags change. */
 	public interface Listener {
@@ -77,12 +83,11 @@ public class MapperController {
 	private boolean mPathAutoSend;
 	private int mOpacity = 85;
 	private String mToolbarActions = DEFAULT_TOOLBAR;
+	private String mCaptureTitleRegex = DEFAULT_CAPTURE_TITLE_REGEX;
+	private String mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
 	private String mSelectedTileId;
 	/** Last `.map capture preview` result for `.map capture apply`. */
 	private CapturePreview mLastCapturePreview;
-
-	private static final String DEFAULT_CAPTURE_TITLE_REGEX = "^([A-Z].*)$";
-	private static final String DEFAULT_CAPTURE_EXITS_REGEX = "(?i)exits?:\\s*(.*)";
 
 	private MapperUiBridge mUiBridge;
 	/** When true, ignore outbound commands (path send already recorded). */
@@ -182,6 +187,30 @@ public class MapperController {
 
 	public String getToolbarActions() {
 		return mToolbarActions;
+	}
+
+	public String getCaptureTitleRegex() {
+		return mCaptureTitleRegex != null ? mCaptureTitleRegex : DEFAULT_CAPTURE_TITLE_REGEX;
+	}
+
+	public String getCaptureExitsRegex() {
+		return mCaptureExitsRegex != null ? mCaptureExitsRegex : DEFAULT_CAPTURE_EXITS_REGEX;
+	}
+
+	public void setCaptureTitleRegex(final String regex) {
+		if (regex != null && regex.trim().length() > 0) {
+			mCaptureTitleRegex = regex.trim();
+		} else {
+			mCaptureTitleRegex = DEFAULT_CAPTURE_TITLE_REGEX;
+		}
+	}
+
+	public void setCaptureExitsRegex(final String regex) {
+		if (regex != null && regex.trim().length() > 0) {
+			mCaptureExitsRegex = regex.trim();
+		} else {
+			mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
+		}
 	}
 
 	public void setUiBridge(final MapperUiBridge bridge) {
@@ -602,6 +631,18 @@ public class MapperController {
 		if (toolbar != null && toolbar.trim().length() > 0) {
 			mToolbarActions = toolbar.trim();
 		}
+		String titleRx = stringOpt("mapper_capture_title_regex", null);
+		if (titleRx != null && titleRx.trim().length() > 0) {
+			mCaptureTitleRegex = titleRx.trim();
+		} else {
+			mCaptureTitleRegex = DEFAULT_CAPTURE_TITLE_REGEX;
+		}
+		String exitsRx = stringOpt("mapper_capture_exits_regex", null);
+		if (exitsRx != null && exitsRx.trim().length() > 0) {
+			mCaptureExitsRegex = exitsRx.trim();
+		} else {
+			mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
+		}
 		notifyChanged();
 	}
 
@@ -716,6 +757,99 @@ public class MapperController {
 	}
 
 	/**
+	 * Import a map from a file path or an existing maps-dir name.
+	 * Paths containing {@code /} or ending in {@code .json} are loaded as files
+	 * (absolute, or relative to the BlowTorch root). Other args are map names
+	 * under {@code /BlowTorch/maps/}. After load, the map becomes active and a
+	 * copy is saved into the maps directory.
+	 */
+	public String importMap(final String pathOrName) {
+		if (TextUtils.isEmpty(pathOrName)) {
+			return "Mapper: usage .map import <path|name>";
+		}
+		String arg = pathOrName.trim();
+		boolean looksLikePath = arg.indexOf('/') >= 0
+				|| arg.toLowerCase(Locale.US).endsWith(".json");
+		Context ctx = context();
+		if (ctx == null) {
+			return "Mapper: cannot import (no context).";
+		}
+		MudMap loaded;
+		String fallbackName = arg;
+		try {
+			if (looksLikePath) {
+				File file = MapStore.resolveExternalPath(ctx, arg);
+				if (file == null || !file.isFile()) {
+					return "Mapper: import file not found: " + arg;
+				}
+				loaded = MapStore.loadFromFile(file);
+				if (loaded == null) {
+					return "Mapper: import failed (unreadable): " + arg;
+				}
+				String base = file.getName();
+				if (base.toLowerCase(Locale.US).endsWith(".json")) {
+					base = base.substring(0, base.length() - 5);
+				}
+				fallbackName = base;
+			} else {
+				loaded = MapStore.load(ctx, arg);
+				if (loaded == null) {
+					return "Mapper: map \"" + arg + "\" not found.";
+				}
+				fallbackName = arg;
+			}
+		} catch (Exception e) {
+			return "Mapper: import failed: " + e.getMessage();
+		}
+		String mapName = loaded.getName();
+		if (TextUtils.isEmpty(mapName)) {
+			mapName = fallbackName;
+			loaded.setName(mapName);
+		}
+		mMap = loaded;
+		ensureDefaultLevel();
+		clearUndo();
+		try {
+			MapStore.save(ctx, mMap);
+		} catch (Exception e) {
+			notifyChanged();
+			return "Mapper: imported \"" + mapName + "\" (" + mMap.getTiles().size()
+					+ " tiles) but save failed: " + e.getMessage();
+		}
+		notifyChanged();
+		return "Mapper: imported \"" + mapName + "\" ("
+				+ mMap.getTiles().size() + " tiles).";
+	}
+
+	/**
+	 * Export the active map. With no path, saves under {@code /BlowTorch/maps/}
+	 * (same as {@link #save()}). With a path, writes JSON to that absolute path
+	 * (or path relative to the BlowTorch root), creating parent dirs if needed.
+	 */
+	public String exportMap(final String path) {
+		if (TextUtils.isEmpty(path)) {
+			return save();
+		}
+		if (mMap == null) {
+			return "Mapper: nothing to export.";
+		}
+		Context ctx = context();
+		if (ctx == null) {
+			return "Mapper: cannot export (no context).";
+		}
+		try {
+			File file = MapStore.resolveExternalPath(ctx, path.trim());
+			if (file == null) {
+				return "Mapper: invalid export path.";
+			}
+			MapStore.saveToFile(file, mMap);
+			return "Mapper: exported to \"" + file.getAbsolutePath() + "\".";
+		} catch (Exception e) {
+			return "Mapper: export failed: " + e.getMessage();
+		}
+	}
+
+	/**
 	 * Record a player command if recording is on. Never sends to the server.
 	 * Splits on CRLF / semicolon-separated lines when present.
 	 */
@@ -818,15 +952,8 @@ public class MapperController {
 		}
 
 		if (exits != null && current != null && exits.size() > 0) {
-			// Soft sync: ensure exit stubs exist (unlinked special if no target yet)
-			for (String ex : exits) {
-				if (ex == null || ex.trim().length() == 0) {
-					continue;
-				}
-				String norm = normalize(ex);
-				if (findExit(current, norm) == null) {
-					// Do not invent destinations from GMCP alone in v1
-				}
+			if (syncExitsFromGmcp(current, exits)) {
+				changed = true;
 			}
 		}
 
@@ -836,6 +963,53 @@ public class MapperController {
 		} else if (mFollowPlayer) {
 			notifyChanged();
 		}
+	}
+
+	/**
+	 * Ensure each GMCP exit exists on {@code current}. Existing exits are kept
+	 * (destinations never wiped). Missing exits get a destination via
+	 * {@link #createDestination} (planar neighbor, relative level, or nearby
+	 * free cell for specials) — same growth rules as {@link #recordMove}.
+	 * Exits on the tile that are absent from GMCP are left alone.
+	 *
+	 * @return true if any exit or tile was added
+	 */
+	private boolean syncExitsFromGmcp(final MapTile current, final List<String> exits) {
+		List<String> missing = new ArrayList<String>();
+		for (String ex : exits) {
+			if (ex == null || ex.trim().length() == 0) {
+				continue;
+			}
+			String norm = normalize(ex);
+			if (norm.length() == 0) {
+				continue;
+			}
+			if (findExit(current, norm) == null) {
+				missing.add(ex);
+			}
+		}
+		if (missing.isEmpty()) {
+			return false;
+		}
+		pushUndo();
+		boolean changed = false;
+		for (String ex : missing) {
+			String norm = normalize(ex);
+			if (norm.length() == 0 || findExit(current, norm) != null) {
+				continue;
+			}
+			String stored = MapDirections.storeCommand(ex, norm);
+			int[] delta = MapDirections.gridDelta(norm);
+			boolean special = (delta == null);
+			MapTile to = createDestination(current, norm, delta, special);
+			String rev = MapDirections.suggestReverse(stored, directionMap());
+			current.addExit(new MapExit(current.getId(), to.getId(), stored, special, rev));
+			if (mAutoReverse && rev != null) {
+				ensureReverse(current, to, stored);
+			}
+			changed = true;
+		}
+		return changed;
 	}
 
 	/** Parse a GMCP Room.* JSON body and forward to {@link #onGmcpRoom}. */
@@ -1134,16 +1308,171 @@ public class MapperController {
 	}
 
 	public List<MapConflict> listConflicts() {
+		return conflictsFiltered(false);
+	}
+
+	/**
+	 * Format conflicts for the window. When {@code includeResolved} is false,
+	 * only open (unresolved) conflicts are listed.
+	 */
+	public String conflictList(final boolean includeResolved) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		List<MapConflict> list = conflictsFiltered(includeResolved);
+		if (list.isEmpty()) {
+			return includeResolved
+					? "Mapper: no conflicts."
+					: "Mapper: no open conflicts.";
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("Mapper conflicts (").append(list.size());
+		sb.append(includeResolved ? " total" : " open").append("):\n");
+		int n = Math.min(list.size(), 50);
+		for (int i = 0; i < n; i++) {
+			MapConflict conf = list.get(i);
+			sb.append("  ").append(i + 1).append(". [");
+			sb.append(conf.getType() != null ? conf.getType().name() : "?");
+			sb.append("] ").append(shortId(conf.getId()));
+			if (conf.isResolved()) {
+				sb.append(" (resolved)");
+			}
+			sb.append("  ");
+			sb.append(conf.getMessage() != null ? conf.getMessage() : "");
+			sb.append("\n");
+		}
+		if (list.size() > n) {
+			sb.append("  …\n");
+		}
+		return sb.toString();
+	}
+
+	/** Mark one open conflict resolved (by 1-based index or id prefix). */
+	public String resolveConflict(final String idOrIndex) {
+		return setConflictResolved(idOrIndex, true);
+	}
+
+	/** Alias of {@link #resolveConflict} — marks the conflict resolved/ignored. */
+	public String ignoreConflict(final String idOrIndex) {
+		return setConflictResolved(idOrIndex, true);
+	}
+
+	/** Mark all open conflicts resolved. */
+	public String resolveAllConflicts() {
+		return setAllConflictsResolved();
+	}
+
+	/** Alias of {@link #resolveAllConflicts}. */
+	public String ignoreAllConflicts() {
+		return setAllConflictsResolved();
+	}
+
+	/** Remove resolved conflicts from the map (open ones kept). */
+	public String purgeResolved() {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		List<MapConflict> conflicts = mMap.getConflicts();
+		int removed = 0;
+		Iterator<MapConflict> it = conflicts.iterator();
+		while (it.hasNext()) {
+			MapConflict c = it.next();
+			if (c != null && c.isResolved()) {
+				it.remove();
+				removed++;
+			}
+		}
+		if (removed > 0) {
+			notifyChanged();
+		}
+		return "Mapper: purged " + removed + " resolved conflict(s).";
+	}
+
+	private String setConflictResolved(final String idOrIndex, final boolean resolved) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(idOrIndex)) {
+			return "Mapper: usage .map conflict resolve|ignore <id|n>";
+		}
+		MapConflict conf = findConflict(idOrIndex.trim());
+		if (conf == null) {
+			return "Mapper: conflict not found: " + idOrIndex.trim();
+		}
+		if (conf.isResolved() == resolved) {
+			return "Mapper: conflict " + shortId(conf.getId())
+					+ (resolved ? " already resolved." : " already open.");
+		}
+		conf.setResolved(resolved);
+		notifyChanged();
+		return "Mapper: conflict " + shortId(conf.getId())
+				+ (resolved ? " resolved." : " reopened.");
+	}
+
+	private String setAllConflictsResolved() {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		int n = 0;
+		for (MapConflict c : mMap.getConflicts()) {
+			if (c != null && !c.isResolved()) {
+				c.setResolved(true);
+				n++;
+			}
+		}
+		if (n > 0) {
+			notifyChanged();
+		}
+		return "Mapper: resolved " + n + " conflict(s).";
+	}
+
+	/**
+	 * Find an open conflict by 1-based index in the open list, or any conflict
+	 * by full id / id prefix (case-insensitive).
+	 */
+	private MapConflict findConflict(final String idOrIndex) {
+		List<MapConflict> open = conflictsFiltered(false);
+		try {
+			int idx = Integer.parseInt(idOrIndex);
+			if (idx >= 1 && idx <= open.size()) {
+				return open.get(idx - 1);
+			}
+		} catch (NumberFormatException ignored) {
+		}
+		String want = idOrIndex.toLowerCase(Locale.US);
+		MapConflict prefixHit = null;
+		for (MapConflict c : mMap.getConflicts()) {
+			if (c == null || c.getId() == null) {
+				continue;
+			}
+			String id = c.getId().toLowerCase(Locale.US);
+			if (id.equals(want)) {
+				return c;
+			}
+			if (id.startsWith(want)) {
+				if (prefixHit != null) {
+					return null; // ambiguous prefix
+				}
+				prefixHit = c;
+			}
+		}
+		return prefixHit;
+	}
+
+	private List<MapConflict> conflictsFiltered(final boolean includeResolved) {
 		if (mMap == null) {
 			return Collections.emptyList();
 		}
-		List<MapConflict> open = new ArrayList<MapConflict>();
+		List<MapConflict> out = new ArrayList<MapConflict>();
 		for (MapConflict c : mMap.getConflicts()) {
-			if (c != null && !c.isResolved()) {
-				open.add(c);
+			if (c == null) {
+				continue;
+			}
+			if (includeResolved || !c.isResolved()) {
+				out.add(c);
 			}
 		}
-		return open;
+		return out;
 	}
 
 	public String capturePreview(final int maxLines) {
@@ -1160,18 +1489,18 @@ public class MapperController {
 			}
 			text.append(lines.get(i));
 		}
-		CapturePreview preview = previewCapture(DEFAULT_CAPTURE_TITLE_REGEX,
-				DEFAULT_CAPTURE_EXITS_REGEX, text.toString(), lines.size());
+		CapturePreview preview = previewCapture(getCaptureTitleRegex(),
+				getCaptureExitsRegex(), text.toString(), lines.size());
 		mLastCapturePreview = preview;
 		StringBuilder sb = new StringBuilder();
 		sb.append("Mapper capture preview (last ").append(lines.size())
-				.append(" lines; default title/exits regex):\n");
+				.append(" lines; Options → Mapper capture regex):\n");
 		sb.append("  title: ").append(preview.title != null ? preview.title : "(no match)")
 				.append("\n");
 		sb.append("  exits: ").append(preview.exits != null ? preview.exits : "(no match)")
 				.append("\n");
 		sb.append("Use .map capture apply to write matches onto the current tile.\n");
-		sb.append("For custom regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
+		sb.append("For one-off regex, add \"capture\" to Mapper toolbar CSV and use the dialog.");
 		return sb.toString();
 	}
 
@@ -1239,6 +1568,32 @@ public class MapperController {
 		if (mUiBridge != null) {
 			mUiBridge.centerOnPlayer();
 		}
+	}
+
+	/**
+	 * Zoom the open map UI. {@code action} is {@code in}, {@code out},
+	 * {@code reset}, or a float scale factor (same as pinch focus at view center).
+	 *
+	 * @return status string for the window
+	 */
+	public String zoom(final String action) {
+		if (action == null || action.trim().length() == 0) {
+			return "Usage: .map zoom in|out|reset";
+		}
+		String a = action.trim();
+		if (mUiBridge != null) {
+			mUiBridge.zoomMap(a);
+			return "Mapper: zoom " + a.toLowerCase(Locale.US) + ".";
+		}
+		// Cross-process: UI overlay lives in :stellar; push via IPC.
+		if (mConnection != null) {
+			try {
+				mConnection.requestMapperUiArg(5, a);
+				return "Mapper: zoom " + a.toLowerCase(Locale.US) + ".";
+			} catch (Exception ignored) {
+			}
+		}
+		return "Mapper: zoom (UI not open)";
 	}
 
 	/** Temporarily suppress recording (e.g. while auto-sending a path). */
@@ -1638,40 +1993,100 @@ public class MapperController {
 		return null;
 	}
 
-	private static List<String> parseExits(final JSONObject o) {
+	/**
+	 * Extract exit command/direction names from a GMCP Room payload fragment.
+	 * Supports common shapes:
+	 * <ul>
+	 *   <li>array of strings: {@code ["n","s","e"]}</li>
+	 *   <li>array of objects with dir/direction/name/command/exit</li>
+	 *   <li>object map direction→dest: {@code {"n":123,"e":456}} (keys used)</li>
+	 *   <li>nested {@code exits} object/array inside the exits value</li>
+	 *   <li>comma/whitespace-separated string: {@code "n, s, e"}</li>
+	 * </ul>
+	 * Also accepts singular key {@code exit}.
+	 */
+	static List<String> parseExits(final JSONObject o) {
 		List<String> out = new ArrayList<String>();
-		if (o == null || !o.has("exits")) {
+		if (o == null) {
 			return out;
 		}
-		Object ex = o.opt("exits");
+		Object ex = null;
+		if (o.has("exits") && !o.isNull("exits")) {
+			ex = o.opt("exits");
+		} else if (o.has("exit") && !o.isNull("exit")) {
+			ex = o.opt("exit");
+		}
+		if (ex == null) {
+			return out;
+		}
+		appendParsedExits(out, ex);
+		return out;
+	}
+
+	private static void appendParsedExits(final List<String> out, final Object ex) {
 		if (ex instanceof JSONArray) {
 			JSONArray arr = (JSONArray) ex;
 			for (int i = 0; i < arr.length(); i++) {
-				String s = arr.optString(i, null);
-				if (s != null && s.length() > 0) {
-					out.add(s);
+				Object item = arr.opt(i);
+				if (item == null || item == JSONObject.NULL) {
+					continue;
+				}
+				if (item instanceof JSONObject) {
+					String s = firstString((JSONObject) item,
+							"dir", "direction", "name", "command", "exit");
+					if (s != null) {
+						addExitName(out, s);
+					}
+				} else {
+					String s = String.valueOf(item).trim();
+					if (s.length() > 0 && !"null".equals(s)) {
+						addExitName(out, s);
+					}
 				}
 			}
 		} else if (ex instanceof JSONObject) {
 			JSONObject jo = (JSONObject) ex;
+			// Nested exits: { "exits": [...] } or { "exits": {...} }
+			if (jo.has("exits") && !jo.isNull("exits")) {
+				Object nested = jo.opt("exits");
+				if (nested instanceof JSONArray || nested instanceof JSONObject
+						|| nested instanceof String) {
+					appendParsedExits(out, nested);
+				}
+			}
 			JSONArray names = jo.names();
 			if (names != null) {
 				for (int i = 0; i < names.length(); i++) {
 					String key = names.optString(i, null);
-					if (key != null) {
-						out.add(key);
+					if (key != null && key.length() > 0 && !"exits".equals(key)) {
+						addExitName(out, key);
 					}
 				}
 			}
 		} else if (ex instanceof String) {
 			String s = (String) ex;
-			for (String part : s.split("[,\\s]+")) {
+			for (String part : s.split("[,;\\s]+")) {
 				if (part.length() > 0) {
-					out.add(part);
+					addExitName(out, part);
 				}
 			}
 		}
-		return out;
+	}
+
+	private static void addExitName(final List<String> out, final String name) {
+		if (name == null) {
+			return;
+		}
+		String t = name.trim();
+		if (t.length() == 0) {
+			return;
+		}
+		for (String existing : out) {
+			if (t.equalsIgnoreCase(existing)) {
+				return;
+			}
+		}
+		out.add(t);
 	}
 
 	private boolean boolOpt(final String key, final boolean def) {

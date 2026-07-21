@@ -198,7 +198,10 @@ stays under the ⋮ chrome so overflow remains reachable.
 | **Follow** | Camera keeps current centered; pan/pinch turns Follow off until you Center |
 
 Maps are JSON files under `/BlowTorch/maps/` (autosave ~2s after changes; **Save**
-on the toolbar or `.map export` / `.map save` forces a write).
+on the toolbar or `.map export` / `.map save` forces a write). With a path,
+`.map export|save <path>` writes JSON there (absolute or BlowTorch-relative).
+`.map import <path|name>` loads JSON from an absolute/BlowTorch-relative path
+or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 
 ### Toolbar (map window)
 
@@ -265,6 +268,10 @@ Print the summary with `.map dirs`.
 | `.map dirs` | Movement lexicon / grid offsets |
 | `.map maps` / `.map load <name>` / `.map new <name>` | Multiple maps |
 | `.map export` / `.map save` | Save now (`/BlowTorch/maps/`) |
+| `.map export\|save <path>` | Write JSON to that path |
+| `.map import <path\|name>` | Import JSON (path or maps-dir name); copy into maps |
+| `.map zoom in\|out\|reset` | Zoom the open map UI |
+| `.map zoom <factor>` | Zoom by scale factor (map UI must be open) |
 | `.map add [x y] [title] [here]` | Place a tile (optional title; `here` sets current) |
 | `.map here [id]` | Mark current position |
 | `.map delete [id]` | Remove a tile (and links to it) |
@@ -274,17 +281,25 @@ Print the summary with `.map dirs`.
 | `.map title for <id> <text>` / `.map note for <id> <text>` | Edit a specific tile |
 | `.map link <cmd> [from <id>] to <tileId>` | Manual link |
 | `.map unlink <cmd> [from <id>]` | Remove an exit |
-| `.map conflict` | List open conflicts |
-| `.map capture preview` | Match default title/exits regex on recent buffer |
+| `.map conflict` / `list` / `list all` | List open conflicts (or all, including resolved) |
+| `.map conflict resolve\|ignore <id\|n>` | Mark one conflict resolved |
+| `.map conflict resolve\|ignore all` | Mark all open conflicts resolved |
+| `.map conflict purge` | Remove resolved conflicts (open ones kept) |
+| `.map capture preview` | Match Options title/exits regex on recent buffer |
 | `.map capture apply` | Apply last preview to the current tile |
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links,
-toolbar actions CSV (optional `capture` token opens the regex dialog).
+toolbar actions CSV (optional `capture` token opens the Capture dialog),
+**Capture Title Regex** / **Capture Exits Regex** (keys
+`mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
+`.map capture` and the Capture dialog).
 
-**GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` can sync the current
-room title (and related hints). Without GMCP (typical on many MOOs), use **Rec**
-while walking, manual **Draw** / **Links**, and/or **Capture** (toolbar or `.map capture`).
+**GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` syncs the current
+room title (and related hints) and creates missing neighbors from Room exits
+(compass / level / special), without deleting exits not in the GMCP list.
+Without GMCP (typical on many MOOs), use **Rec** while walking, manual
+**Draw** / **Links**, and/or **Capture** (toolbar or `.map capture`).
 
 ### Typical workflows
 

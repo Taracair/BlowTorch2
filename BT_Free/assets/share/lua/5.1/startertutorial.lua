@@ -459,13 +459,16 @@ Useful .map commands
   .map record|follow …
   .map find|path|goto <query>
   .map maps | load <name> | new <name>
+  .map import <path|name>   .map export|save [path]
   .map add | here | delete | neighbor | move
-  .map link|unlink …   .map export|save   .map dirs
-  .map capture preview|apply   (or toolbar Capture dialog)
+  .map link|unlink …   .map dirs   .map zoom in|out|reset|<factor>
+  .map conflict [list [all]|resolve|ignore <id|n>|all|purge]
+  .map capture preview|apply   (Options regex; or toolbar Capture dialog)
 
 Files live under /BlowTorch/maps/ (autosave after edits).
 Options → Mapper: enable, float default, opacity, follow, path auto-send,
-Use GMCP Room, toolbar CSV (optional capture token).
+Use GMCP Room (also builds neighbors from Room exits), toolbar CSV
+(optional capture token), Capture Title/Exits Regex.
 Without GMCP (many MOOs), prefer Rec + Draw/Links.
 Full reference: overflow → Help → Mapper.]])
 end

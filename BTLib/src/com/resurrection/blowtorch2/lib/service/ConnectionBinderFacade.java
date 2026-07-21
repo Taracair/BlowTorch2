@@ -829,4 +829,19 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		service.notifyMapperUi(action);
 	}
 
+	@Override
+	public void requestMapperUiArg(int action, String arg) throws RemoteException {
+		Connection c = service.mConnections.get(service.mConnectionClutch);
+		if (c != null) {
+			c.setMapperUiArg(arg);
+		}
+		service.notifyMapperUi(action);
+	}
+
+	@Override
+	public String takeMapperUiArg() throws RemoteException {
+		Connection c = service.mConnections.get(service.mConnectionClutch);
+		return c != null ? c.takeMapperUiArg() : null;
+	}
+
 }
