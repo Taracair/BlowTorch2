@@ -15,10 +15,11 @@ import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
 
 import android.os.Parcel;
 import android.os.Parcelable;
-//import android.util.Log;
 
 public class TimerData implements Parcelable {
-	
+
+	public static final String DEFAULT_GROUP = "";
+
 	private String name;
 	private Integer ordinal;
 	private Integer seconds;
@@ -26,33 +27,25 @@ public class TimerData implements Parcelable {
 	private boolean playing;
 	private long startTime;
 	private int remainingTime;
-	
-	
-	//data that is not serialized, but should still be parcelable.
-	//private long ttf;
-	//private Long pauseLocation;
-	
+	private String group = DEFAULT_GROUP;
+
 	private List<TriggerResponder> responders;
-	
+
 	public TimerData() {
 		name="";
 		ordinal=0;
 		seconds=30;
 		repeat=true;
 		playing = false;
-		//ttf = seconds*1000;
+		group = DEFAULT_GROUP;
 		responders = new ArrayList<TriggerResponder>();
-		//pauseLocation = 0l;
-		
 	}
-	
+
 	public void reset() {
-		//ttf = seconds*1000;
-		//pauseLocation = 0l;
 	}
-	
+
 	public TimerData copy() {
-		
+
 		TimerData tmp = new TimerData();
 		tmp.name = this.name;
 		tmp.ordinal = this.ordinal;
@@ -60,14 +53,15 @@ public class TimerData implements Parcelable {
 		tmp.repeat = this.repeat;
 		tmp.playing = this.playing;
 		tmp.remainingTime =  this.remainingTime;
+		tmp.group = this.group;
 		for(TriggerResponder responder : this.responders) {
 			tmp.responders.add(responder.copy());
 		}
-		
+
 		return tmp;
-		
+
 	}
-	
+
 	public boolean equals(Object o) {
 		if(o == this) return true;
 		if(!(o instanceof TimerData)) return false;
@@ -77,7 +71,11 @@ public class TimerData implements Parcelable {
 		if(test.seconds != this.seconds) return false;
 		if(test.repeat != this.repeat) return false;
 		if(test.playing != this.playing) return false;
-		//ttf shouldn't be considered for equality. it seems wrong.
+		if (test.group == null) {
+			if (this.group != null && this.group.length() > 0) return false;
+		} else if (!test.group.equals(this.group)) {
+			return false;
+		}
 		Iterator<TriggerResponder> test_responders = test.responders.iterator();
 		Iterator<TriggerResponder> my_responders = this.responders.iterator();
 		while(test_responders.hasNext()) {
@@ -85,10 +83,10 @@ public class TimerData implements Parcelable {
 			TriggerResponder my_responder = my_responders.next();
 			if(!test_responder.equals(my_responder)) return false;
 		}
-		
+
 		return true;
 	}
-	
+
 	public static final Parcelable.Creator<TimerData> CREATOR = new Parcelable.Creator<TimerData>() {
 
 		public TimerData createFromParcel(Parcel arg0) {
@@ -99,7 +97,7 @@ public class TimerData implements Parcelable {
 			return new TimerData[arg0];
 		}
 	};
-	
+
 	public TimerData(Parcel in) {
 		readFromParcel(in);
 	}
@@ -111,15 +109,10 @@ public class TimerData implements Parcelable {
 		setRepeat( (in.readInt() == 1) ? true : false);
 		setPlaying( (in.readInt() == 1) ? true : false);
 		setRemainingTime( in.readInt());
+		setGroup(in.readString());
 		int numresponders = in.readInt();
 		responders = new ArrayList<TriggerResponder>();
-		//Log.e("PARCLE","IN: name=" + name);
-		//Log.e("PARCLE","IN: ordinal=" + ordinal);
-		//Log.e("PARCLE","IN: seconds=" + seconds);
-		//Log.e("PARCLE","IN: repeat" + repeat);
-		//Log.e("PARCLE","IN: playing=" + playing);
-		//Log.e("PARCLE","IN: #responders=" + numresponders);
-		
+
 		for(int i = 0;i<numresponders;i++) {
 			int type = in.readInt();
 			switch(type) {
@@ -155,8 +148,6 @@ public class TimerData implements Parcelable {
 				break;
 			}
 		}
-		
-		//Log.e("PARCEL","PARCLE COMPLETE!");
 	}
 	public int describeContents() {
 		return 0;
@@ -169,12 +160,13 @@ public class TimerData implements Parcelable {
 		o.writeInt((repeat) ? 1 : 0);
 		o.writeInt((playing) ? 1 : 0);
 		o.writeInt(remainingTime);
+		o.writeString(group != null ? group : DEFAULT_GROUP);
 		o.writeInt(responders.size());
 		for(TriggerResponder responder : responders) {
 			o.writeInt(responder.getType().getIntVal());
 			o.writeParcelable(responder, 0);
 		}
-		
+
 	}
 
 	public void setName(String name) {
@@ -195,7 +187,6 @@ public class TimerData implements Parcelable {
 
 	public void setSeconds(Integer seconds) {
 		this.seconds = seconds;
-		//ttf = seconds*1000;
 	}
 
 	public Integer getSeconds() {
@@ -241,5 +232,13 @@ public class TimerData implements Parcelable {
 	public void setRemainingTime(int remainingTime) {
 		this.remainingTime = remainingTime;
 	}
-	
+
+	public String getGroup() {
+		return group != null ? group : DEFAULT_GROUP;
+	}
+
+	public void setGroup(String group) {
+		this.group = group != null ? group : DEFAULT_GROUP;
+	}
+
 }

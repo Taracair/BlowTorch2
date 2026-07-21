@@ -30,6 +30,9 @@ public class TimerElementListener implements ElementListener {
 		current_timer.setRemainingTime(current_timer.getSeconds());
 		current_timer.setRepeat((a.getValue("", BasePluginParser.ATTR_REPEAT) == null) ? false : a.getValue("", BasePluginParser.ATTR_REPEAT).equals("true"));
 		current_timer.setPlaying((a.getValue("", BasePluginParser.ATTR_PLAYING) == null) ? false : a.getValue("", BasePluginParser.ATTR_PLAYING).equals("true"));
+		current_timer.setGroup((a.getValue("", BasePluginParser.ATTR_GROUP) == null)
+				? TimerData.DEFAULT_GROUP
+				: a.getValue("", BasePluginParser.ATTR_GROUP));
 		current_timer.setResponders(new ArrayList<TriggerResponder>());
 	}
 

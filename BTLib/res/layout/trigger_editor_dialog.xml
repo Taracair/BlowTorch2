@@ -67,15 +67,29 @@
   				<TextView
   					android:text="Group:"
   					android:paddingLeft="10dip"/>
-  				<AutoCompleteTextView
-  					android:id="@+id/trigger_editor_group"
-  					android:hint="optional, e.g. combat"
-  					android:layout_marginRight="10dip"
+  				<LinearLayout
   					android:layout_width="0dip"
+  					android:layout_height="wrap_content"
   					android:layout_weight="1"
-  					android:singleLine="true"
-  					android:completionThreshold="1"
-  					android:inputType="text"/>
+  					android:layout_marginRight="10dip"
+  					android:orientation="horizontal"
+  					android:gravity="center_vertical">
+  					<AutoCompleteTextView
+  						android:id="@+id/trigger_editor_group"
+  						android:hint="optional, e.g. combat"
+  						android:layout_width="0dip"
+  						android:layout_height="wrap_content"
+  						android:layout_weight="1"
+  						android:singleLine="true"
+  						android:completionThreshold="1"
+  						android:inputType="text"/>
+  					<Spinner
+  						android:id="@+id/trigger_editor_group_spinner"
+  						android:layout_width="48dip"
+  						android:layout_height="wrap_content"
+  						android:minHeight="40dip"
+  						android:popupBackground="#FF000000"/>
+  				</LinearLayout>
   			</TableRow>
   			<TableRow>
   				<TextView
