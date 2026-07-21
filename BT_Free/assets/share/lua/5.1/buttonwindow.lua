@@ -2393,9 +2393,9 @@ topMenuItem = nil
 function PopulateMenu(menu)
 	--debugPrint("in options menu populate")
 
-		-- During button edit, Settings / Done / Cancel live on the FAB strip next to ⋮.
-		-- Do not re-add them here: the overflow ListPopupWindow routes clicks through
-		-- onOptionsItemSelected and never fires Lua OnMenuItemClickListener.
+		-- During button edit, Settings / Done / Cancel live on the FAB strip.
+		-- Overflow hides ⋮ while editing; when shown, ListPopupWindow now invokes
+		-- MenuItem click listeners (see MainWindow.showGameplayOptionsMenuNow).
 		if(showeditormenu) then
 			return
 		end
@@ -2419,10 +2419,15 @@ end
 
 buttonsetMenuClicked = {}
 function buttonsetMenuClicked.onMenuItemClick(item)
-    PluginXCallS("getButtonSetList","all")
+	buttonList()
 	return true
 end
 buttonsetMenuClicked_cb = luajava.createProxy("android.view.MenuItem$OnMenuItemClickListener",buttonsetMenuClicked)
+
+-- AddOptionCallback("buttonList", ...) and overflow case 401 call this.
+function buttonList()
+	PluginXCallS("getButtonSetList","all")
+end
 
 buttonsetMenuDoneClicked = {}
 function buttonsetMenuDoneClicked.onMenuItemClick(item)

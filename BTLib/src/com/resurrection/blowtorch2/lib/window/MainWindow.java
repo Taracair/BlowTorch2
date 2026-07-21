@@ -1730,7 +1730,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					int position, long id) {
 				popup.dismiss();
 				if (position >= 0 && position < visibleItems.size()) {
-					MainWindow.this.onOptionsItemSelected(visibleItems.get(position));
+					MenuItem item = visibleItems.get(position);
+					// ListPopupWindow does not call MenuItem.OnMenuItemClickListener.
+					// Lua PopulateMenu (Button Sets, etc.) attaches listeners that must
+					// run via MenuItemImpl.invoke() before the Java switch.
+					if (item instanceof androidx.appcompat.view.menu.MenuItemImpl
+							&& ((androidx.appcompat.view.menu.MenuItemImpl) item).invoke()) {
+						return;
+					}
+					MainWindow.this.onOptionsItemSelected(item);
 				}
 			}
 		});
@@ -1795,6 +1803,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			break;
 		case 450: // Edit buttons (same as long-press ⋮)
 			windowCall("button_window", "doEdit", "");
+			break;
+		case 401: // Button Sets (Lua PopulateMenu; backup if invoke() did not run)
+			try {
+				if (service != null) {
+					service.pluginXcallS("button_window", "getButtonSetList", "all");
+				}
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
 			break;
 		case 500: //speedwalk config
 			BetterSpeedWalkConfigurationDialog swDialog = new BetterSpeedWalkConfigurationDialog(this,service);
