@@ -1260,17 +1260,30 @@ public class MapperOverlayController
 			return;
 		}
 		Toast.makeText(host.getMainWindow(), "Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
-		boolean auto = controller != null && controller.isPathAutoSend();
-		if (auto) {
-			host.sendMapperPath(path);
+	}
+
+	/** Show path toast and send walk commands to the MUD (always). */
+	private void goToTile(MapTile tile) {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null || tile == null) {
+			return;
 		}
+		String from = map.getCurrentTileId();
+		List<String> path = MapPathfinder.findCommands(map, from, tile.getId());
+		if (path == null || path.isEmpty()) {
+			Toast.makeText(host.getMainWindow(), "No path", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		Toast.makeText(host.getMainWindow(), "Go: " + join(path, ";"), Toast.LENGTH_LONG).show();
+		// Service-side .map go suppresses recording while sending.
+		host.runMapCommand("go " + tile.getId());
 	}
 
 	private void showTileContext(final MapTile tile) {
 		final MainWindow activity = host.getMainWindow();
 		CharSequence[] items = new CharSequence[] {
 				"Set as Here", "Edit", "Move…", "Add neighbor…", "Edit links…",
-				"Path to here", "Change level", "Delete tile", "Center"
+				"Path to here", "Go there", "Change level", "Delete tile", "Center"
 		};
 		new AlertDialog.Builder(activity)
 				.setTitle(tile.getTitle() != null ? tile.getTitle() : "Tile")
@@ -1297,12 +1310,15 @@ public class MapperOverlayController
 							pathToTile(tile);
 							break;
 						case 6:
-							promptChangeLevel(tile);
+							goToTile(tile);
 							break;
 						case 7:
-							confirmDeleteTile(tile);
+							promptChangeLevel(tile);
 							break;
 						case 8:
+							confirmDeleteTile(tile);
+							break;
+						case 9:
 							if (mapperView != null) {
 								mapperView.setCurrentTileId(tile.getId());
 								mapperView.centerOnTile(tile);
@@ -1474,8 +1490,15 @@ public class MapperOverlayController
 								mapperView.setSelectedTileId(tile.getId());
 								mapperView.centerOnTile(tile);
 							}
-							if (path != null && !path.isEmpty() && controller.isPathAutoSend()) {
-								host.sendMapperPath(path);
+							if (path == null || path.isEmpty()) {
+								Toast.makeText(host.getMainWindow(), "No path",
+										Toast.LENGTH_SHORT).show();
+								return;
+							}
+							Toast.makeText(host.getMainWindow(),
+									"Go: " + join(path, ";"), Toast.LENGTH_LONG).show();
+							if (tile != null) {
+								host.runMapCommand("go " + tile.getId());
 							}
 						}
 

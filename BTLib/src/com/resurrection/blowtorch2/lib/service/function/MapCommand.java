@@ -71,10 +71,12 @@ public class MapCommand extends SpecialCommand {
 		case "search":
 			return doFind(c, mapper, rest);
 		case "path":
-			return doPath(c, mapper, rest, false);
+			return doPath(c, mapper, rest, false, false);
 		case "goto":
+			return doPath(c, mapper, rest, true, false);
 		case "go":
-			return doPath(c, mapper, rest, true);
+		case "walkto":
+			return doPath(c, mapper, rest, true, true);
 		case "title":
 			return doTitleOrNotes(c, mapper, rest, true);
 		case "note":
@@ -293,15 +295,20 @@ public class MapCommand extends SpecialCommand {
 	}
 
 	private Object doPath(Connection c, MapperController mapper, String query,
-			boolean gotoMode) {
+			boolean gotoMode, boolean forceSend) {
 		if (query.length() == 0) {
-			note(c, "Usage: .map " + (gotoMode ? "goto" : "path") + " <query>");
+			note(c, "Usage: .map " + (forceSend ? "go" : (gotoMode ? "goto" : "path"))
+					+ " <query|tileId>");
 			return null;
 		}
-		List<String> cmds = mapper.findPath(query);
-		if (cmds.isEmpty()) {
+		List<String> cmds = mapper.findPathToTile(query.trim());
+		if (cmds == null || cmds.isEmpty()) {
+			cmds = mapper.findPath(query);
+		}
+		if (cmds == null || cmds.isEmpty()) {
 			List<MapTile> hits = mapper.search(query);
-			if (hits.isEmpty()) {
+			if (hits.isEmpty() && mapper.getMap() != null
+					&& mapper.getMap().findTile(query.trim()) == null) {
 				note(c, "Mapper: no match for \"" + query + "\".");
 			} else {
 				note(c, "Mapper: no path to \"" + query + "\" (or already there).");
@@ -317,19 +324,36 @@ public class MapCommand extends SpecialCommand {
 		}
 		note(c, "Mapper path (" + cmds.size() + "): " + path);
 
-		if (gotoMode && mapper.isPathAutoSend()) {
-			StringBuilder send = new StringBuilder();
+		boolean send = forceSend || (gotoMode && mapper.isPathAutoSend());
+		if (send) {
+			final String sendPayload;
+			StringBuilder sendBuf = new StringBuilder();
 			for (int i = 0; i < cmds.size(); i++) {
-				send.append(cmds.get(i));
+				sendBuf.append(cmds.get(i));
 				if (i < cmds.size() - 1) {
-					send.append("\r\n");
+					sendBuf.append("\r\n");
 				}
 			}
-			c.getHandler().sendMessage(c.getHandler().obtainMessage(
-					Connection.MESSAGE_SENDDATA_STRING, send.toString()));
-			note(c, "Mapper: path sent (mapper_path_auto_send).");
+			sendPayload = sendBuf.toString();
+			c.getHandler().post(new Runnable() {
+				@Override
+				public void run() {
+					mapper.setSuppressRecord(true);
+					try {
+						c.getHandler().handleMessage(c.getHandler().obtainMessage(
+								Connection.MESSAGE_SENDDATA_STRING, sendPayload));
+					} catch (Exception e) {
+						note(c, "Mapper: failed to send path.");
+					} finally {
+						mapper.setSuppressRecord(false);
+					}
+				}
+			});
+			note(c, forceSend
+					? "Mapper: path sent."
+					: "Mapper: path sent (mapper_path_auto_send).");
 		} else if (gotoMode) {
-			note(c, "Mapper: path_auto_send off — path printed only.");
+			note(c, "Mapper: path_auto_send off — path printed only. Use .map go to send.");
 		}
 		return null;
 	}
@@ -599,7 +623,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map follow on|off|toggle\n");
 		sb.append("  .map level list|prev|next|set <name>|delete <id|name>|move <tileId> <level>\n");
 		sb.append("      (L-/L+ follow/return nests; create only in Edit mode)\n");
-		sb.append("  .map find|search <query> | .map path <query> | .map goto|go <query>\n");
+		sb.append("  .map find|search <query> | .map path <query>\n");
+		sb.append("  .map goto <query>  (send if path_auto_send) | .map go <query|id> (always send)\n");
 		sb.append("  .map title <text> | .map note|notes <text>\n");
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");

@@ -3714,6 +3714,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.setCaptureExitsRegex((String) o.getValue());
 				}
 				break;
+			case mapper_level_up_commands:
+				if (mMapper != null) {
+					mMapper.setLevelUpCommands((String) o.getValue());
+				}
+				break;
+			case mapper_level_down_commands:
+				if (mMapper != null) {
+					mMapper.setLevelDownCommands((String) o.getValue());
+				}
+				break;
 			default:
 				break;
 			}
@@ -4602,7 +4612,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_auto_reverse_link,
 		mapper_toolbar_actions,
 		mapper_capture_title_regex,
-		mapper_capture_exits_regex
+		mapper_capture_exits_regex,
+		mapper_level_up_commands,
+		mapper_level_down_commands
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.

@@ -56,6 +56,23 @@ public class MapDirectionsTest {
 	}
 
 	@Test
+	public void customLevelCommandListsReplaceBuiltins() {
+		java.util.Map<String, Integer> custom = MapDirections.parseLevelCommandLists(
+				"enter", "leave");
+		assertEquals(Integer.valueOf(1), MapDirections.levelDelta("enter", custom));
+		assertEquals(Integer.valueOf(-1), MapDirections.levelDelta("leave", custom));
+		// Built-in up/down no longer apply when a custom map is provided.
+		assertNull(MapDirections.levelDelta("up", custom));
+		assertNull(MapDirections.levelDelta("down", custom));
+		java.util.Map<String, Integer> withGo = MapDirections.parseLevelCommandLists(
+				"go up", "");
+		assertEquals(Integer.valueOf(1), MapDirections.levelDelta("go up", withGo));
+		assertEquals(Integer.valueOf(1), MapDirections.levelDelta("up", withGo));
+		java.util.Map<String, Integer> empty = MapDirections.parseLevelCommandLists("", "");
+		assertNull(MapDirections.levelDelta("up", empty));
+	}
+
+	@Test
 	public void normalizeIgnoresSpeedwalkDiagonalKeys() {
 		java.util.HashMap<String, com.resurrection.blowtorch2.lib.speedwalk.DirectionData> map =
 				new java.util.HashMap<String, com.resurrection.blowtorch2.lib.speedwalk.DirectionData>();
