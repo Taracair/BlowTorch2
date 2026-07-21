@@ -57,6 +57,8 @@ public class MapperOverlayController
 	private TextView modeBrowseBtn;
 	private TextView modeEditBtn;
 	private MudMap snapshotMap;
+	/** Move-effects table from last service snapshot (UI process has no live controller). */
+	private String snapshotMoveEffects = "";
 	private boolean snapshotRecording;
 	private boolean snapshotFollow = true;
 	private int snapshotOpacity = 85;
@@ -1881,7 +1883,8 @@ public class MapperOverlayController
 				toastStatus(controller.exportMap(""));
 			} else {
 				host.runMapCommand("export");
-				Toast.makeText(host.getMainWindow(), "Exporting map…",
+				Toast.makeText(host.getMainWindow(),
+						"Exporting map to /BlowTorch/maps/…",
 						Toast.LENGTH_SHORT).show();
 			}
 		} else if (MapperRadialMenu.ACTION_FIND.equals(action)) {
@@ -1897,9 +1900,7 @@ public class MapperOverlayController
 		} else if (MapperRadialMenu.ACTION_CLOSE.equals(action)) {
 			close();
 		} else if (MapperRadialMenu.ACTION_MAPS.equals(action)) {
-			host.runMapCommand("maps");
-			Toast.makeText(host.getMainWindow(), "Listed maps in buffer (.map maps)",
-					Toast.LENGTH_SHORT).show();
+			openMapsBrowser();
 		} else if (MapperRadialMenu.ACTION_NEW.equals(action)) {
 			if (!requireEditModeToast()) {
 				return;
@@ -1912,15 +1913,75 @@ public class MapperOverlayController
 		}
 	}
 
-	private void openMoveEffectsEditor() {
-		pullSnapshotFromService();
-		if (controller == null) {
-			Toast.makeText(host.getMainWindow(), "Mapper not ready",
-					Toast.LENGTH_SHORT).show();
+	private void openMapsBrowser() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
 			return;
 		}
-		MapMoveEffectsDialog dlg = new MapMoveEffectsDialog(
-				host.getMainWindow(), controller,
+		pullSnapshotFromService();
+		final String currentName;
+		if (controller != null && controller.getMap() != null) {
+			currentName = controller.getMap().getName();
+		} else if (snapshotMap != null) {
+			currentName = snapshotMap.getName();
+		} else {
+			currentName = null;
+		}
+		MapperMapsBrowserDialog.show(new MapperMapsBrowserDialog.Host() {
+			@Override
+			public String getCurrentMapName() {
+				return currentName;
+			}
+
+			@Override
+			public void openMap(String name) {
+				if (name == null || name.trim().length() == 0) {
+					return;
+				}
+				host.runMapCommand("load " + name.trim());
+				Toast.makeText(host.getMainWindow(), "Opening \"" + name + "\"…",
+						Toast.LENGTH_SHORT).show();
+				if (overlayRoot != null) {
+					overlayRoot.postDelayed(new Runnable() {
+						@Override
+						public void run() {
+							pullSnapshotFromService();
+							refreshFromController();
+						}
+					}, 400);
+				}
+			}
+
+			@Override
+			public void createNewMap() {
+				if (!requireEditModeToast()) {
+					return;
+				}
+				promptNewMap();
+			}
+
+			@Override
+			public android.content.Context getContext() {
+				return host.getMainWindow();
+			}
+		});
+	}
+
+	private void openMoveEffectsEditor() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		pullSnapshotFromService();
+		String initial = snapshotMoveEffects;
+		if ((initial == null || initial.trim().length() == 0)
+				&& controller != null) {
+			initial = controller.getCombinedMoveEffectsDisplay();
+		}
+		if (initial == null) {
+			initial = "";
+		}
+		MapMoveEffectsDialog dlg = new MapMoveEffectsDialog(activity, initial,
 				new MapMoveEffectsDialog.Listener() {
 					@Override
 					public void onSaveCombinedTable(String combinedTable) {
@@ -1928,6 +1989,8 @@ public class MapperOverlayController
 								? combinedTable.replace('\n', ';').replace('\r', ';')
 								: "";
 						host.runMapCommand("moves apply " + oneLine);
+						snapshotMoveEffects = combinedTable != null
+								? combinedTable : "";
 						if (controller != null) {
 							controller.applyCombinedMoveEffects(combinedTable);
 						}
@@ -2365,8 +2428,11 @@ public class MapperOverlayController
 				snapshotToolbar = tb;
 			}
 			String me = root.optString("moveEffects", "");
+			if (me != null) {
+				snapshotMoveEffects = me;
+			}
 			if (me != null && me.trim().length() > 0 && controller != null) {
-				// UI-side copy for File → Moves (service remains authoritative).
+				// UI-side copy when a live controller exists in-process.
 				controller.applyCombinedMoveEffects(me);
 			}
 			snapshotMap = MapStore.fromJson(json);
