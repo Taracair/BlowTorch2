@@ -73,6 +73,10 @@ import com.resurrection.blowtorch2.lib.alias.AliasData;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -250,6 +254,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** 20 seconds. */
 	private static final int TWENTY_THOUSAND_MILLIS = 20000;
+
+	/** Grace delay after a flap when Persistent Connection is on. */
+	private static final int PERSISTENT_SHORT_RECONNECT_MILLIS = 8000;
+	/** Delay after connect/network errors when Persistent Connection is on. */
+	private static final int PERSISTENT_ERROR_RECONNECT_MILLIS = 15000;
+	/** Max wait for connectivity before attempting a blind reconnect. */
+	private static final int PERSISTENT_NETWORK_WAIT_CAP_MILLIS = 180000;
+	/** Floor for reconnect attempts when Persistent Connection is on. */
+	private static final int PERSISTENT_MIN_TRIES = 20;
 	
 	
 	/** Status bar height holder. */
@@ -308,6 +321,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private Integer mAutoReconnectAttempt = 0;
 	/** Weather or not we should auto reconnect on connection failure. */
 	private Boolean mAutoReconnect;
+	/** Patient reconnect through brief network loss / VPN flaps (Miscellaneous). */
+	private Boolean mPersistentConnection = false;
+	/** Optional callback: wait for network before scheduling reconnect. */
+	private ConnectivityManager.NetworkCallback mPersistentNetworkCallback;
+	/** Runnable that caps how long we wait for network. */
+	private Runnable mPersistentNetworkWaitTimeout;
 	/** The amalgamated trigger string. Very long in most cases. */
 	private String mMassiveTriggerString = null;
 	/** The amalgamated trigger string pattern object. */
@@ -511,7 +530,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_TERMINATED_BY_PEER:
 				clearStartupInProgress();
 				killNetThreads(true);
-				doDisconnect(true);
+				// Default: peer closed → no auto-reconnect. Persistent: treat like a network flap.
+				doDisconnect(!Boolean.TRUE.equals(mPersistentConnection));
 				mIsConnected = false;
 				break;
 			case MESSAGE_CHARSET:
@@ -546,6 +566,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_CONNECTED:
 				clearStartupInProgress();
+				clearPersistentNetworkWait();
 				mAutoReconnectAttempt = 0;
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
@@ -1417,17 +1438,31 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mHandler == null) {
 			return;
 		}
-		if (mAutoReconnect && !override) {
-			if (mAutoReconnectAttempt < mAutoReconnectLimit) {
+		boolean wantsReconnect = !override
+				&& (Boolean.TRUE.equals(mAutoReconnect) || Boolean.TRUE.equals(mPersistentConnection));
+		if (wantsReconnect) {
+			int limit = effectiveReconnectLimit();
+			if (mAutoReconnectAttempt < limit) {
 				mAutoReconnectAttempt++;
+				int remaining = limit - mAutoReconnectAttempt;
+				String modeNote = Boolean.TRUE.equals(mPersistentConnection)
+						? " Persistent connection is on."
+						: "";
 				String message = "\n" + Colorizer.getRedColor() + "Network connection disconnected.\n"
-								 + "Attempting reconnect in 3 seconds. " + (mAutoReconnectLimit - mAutoReconnectAttempt) + " tries remaining." + Colorizer.getWhiteColor() + "\n";
+								 + "Attempting reconnect"
+								 + (Boolean.TRUE.equals(mPersistentConnection)
+										 ? " (waiting for network if needed)."
+										 : " in 3 seconds.")
+								 + " " + remaining + " tries remaining."
+								 + modeNote
+								 + Colorizer.getWhiteColor() + "\n";
 				mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
-				mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, THREE_THOUSAND_MILLIS);
+				scheduleReconnectAttempt(THREE_THOUSAND_MILLIS);
 				return;
 			}
 		}
-		
+
+		clearPersistentNetworkWait();
 		markConnectionEnded();
 		mService.doDisconnect(this);
 	}
@@ -1444,6 +1479,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		Log.w("BlowTorch", "killNetThreads(noreconnect=" + noreconnect + ")", new RuntimeException("killNetThreads caller"));
 		markConnectionEnded();
+		if (noreconnect) {
+			clearPersistentNetworkWait();
+		}
 		if (mPump != null) {
 			if (mPump.getHandler() != null) {
 				mPump.closeSocket();
@@ -1804,17 +1842,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	protected final void dispatchDialog(final String str) {
 		if (mHandler == null || str == null) { return; }
-		if (mAutoReconnect) {
-			if (mAutoReconnectAttempt < mAutoReconnectLimit) {
+		boolean wantsReconnect = Boolean.TRUE.equals(mAutoReconnect)
+				|| Boolean.TRUE.equals(mPersistentConnection);
+		if (wantsReconnect) {
+			int limit = effectiveReconnectLimit();
+			if (mAutoReconnectAttempt < limit) {
 				mAutoReconnectAttempt++;
 				killNetThreads(true);
-				String message = "\n" + Colorizer.getRedColor() + "Network Error: " + str + "\n" + "Attempting reconnect in 20 seconds. " + (mAutoReconnectLimit - mAutoReconnectAttempt) 
-						+ " tries remaining." + Colorizer.getWhiteColor() + "\n";
+				int remaining = limit - mAutoReconnectAttempt;
+				String message = "\n" + Colorizer.getRedColor() + "Network Error: " + str + "\n"
+						+ "Attempting reconnect"
+						+ (Boolean.TRUE.equals(mPersistentConnection)
+								? " (waiting for network if needed)."
+								: " in 20 seconds.")
+						+ " " + remaining + " tries remaining."
+						+ Colorizer.getWhiteColor() + "\n";
 				mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
-				mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, TWENTY_THOUSAND_MILLIS);
+				scheduleReconnectAttempt(TWENTY_THOUSAND_MILLIS);
 				return;
 			}
 		}
+		clearPersistentNetworkWait();
 		mService.dispatchDialog(str);
 	}
 
@@ -3510,6 +3558,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case auto_reconnect_limit:
 				this.setAutoReconnectLimit((Integer) o.getValue());
 				break;
+			case persistent_connection:
+				this.setPersistentConnection((Boolean) o.getValue());
+				break;
 			case cull_extraneous_color:
 				this.doSetCullExtraneousColor((Boolean) o.getValue());
 				break;
@@ -3895,7 +3946,125 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mAutoReconnect = value;
 	}
 
-	/** Impelemntation of the bell vibrate settings handler.
+	private void setPersistentConnection(final Boolean value) {
+		mPersistentConnection = value != null ? value : false;
+		if (!Boolean.TRUE.equals(mPersistentConnection)) {
+			clearPersistentNetworkWait();
+		}
+	}
+
+	private int effectiveReconnectLimit() {
+		int base = mAutoReconnectLimit != null ? mAutoReconnectLimit.intValue() : 5;
+		if (Boolean.TRUE.equals(mPersistentConnection)) {
+			return Math.max(base * 4, PERSISTENT_MIN_TRIES);
+		}
+		return base;
+	}
+
+	private boolean isNetworkUsable() {
+		try {
+			ConnectivityManager cm = (ConnectivityManager)
+					mService.getSystemService(Context.CONNECTIVITY_SERVICE);
+			if (cm == null) {
+				return true;
+			}
+			Network active = cm.getActiveNetwork();
+			if (active == null) {
+				return false;
+			}
+			NetworkCapabilities caps = cm.getNetworkCapabilities(active);
+			return caps != null
+					&& caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
+		} catch (Exception e) {
+			return true;
+		}
+	}
+
+	private void scheduleReconnectAttempt(final long normalDelayMs) {
+		if (mHandler == null) {
+			return;
+		}
+		long delay = normalDelayMs;
+		if (Boolean.TRUE.equals(mPersistentConnection)) {
+			if (normalDelayMs <= THREE_THOUSAND_MILLIS) {
+				delay = PERSISTENT_SHORT_RECONNECT_MILLIS;
+			} else {
+				delay = PERSISTENT_ERROR_RECONNECT_MILLIS;
+			}
+			if (!isNetworkUsable()) {
+				waitForNetworkThenReconnect(delay);
+				return;
+			}
+		}
+		mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, delay);
+	}
+
+	private void waitForNetworkThenReconnect(final long afterAvailableDelayMs) {
+		if (mHandler == null || mService == null) {
+			return;
+		}
+		clearPersistentNetworkWait();
+		String message = "\n" + Colorizer.getRedColor()
+				+ "No usable network right now. Will reconnect when connectivity returns…"
+				+ Colorizer.getWhiteColor() + "\n";
+		mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
+		try {
+			final ConnectivityManager cm = (ConnectivityManager)
+					mService.getSystemService(Context.CONNECTIVITY_SERVICE);
+			if (cm == null) {
+				mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, afterAvailableDelayMs);
+				return;
+			}
+			mPersistentNetworkCallback = new ConnectivityManager.NetworkCallback() {
+				@Override
+				public void onAvailable(Network network) {
+					clearPersistentNetworkWait();
+					if (mHandler != null) {
+						mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, afterAvailableDelayMs);
+					}
+				}
+			};
+			NetworkRequest request = new NetworkRequest.Builder()
+					.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+					.build();
+			cm.registerNetworkCallback(request, mPersistentNetworkCallback);
+			mPersistentNetworkWaitTimeout = new Runnable() {
+				@Override
+				public void run() {
+					if (mPersistentNetworkCallback != null) {
+						clearPersistentNetworkWait();
+						if (mHandler != null) {
+							mHandler.sendEmptyMessage(MESSAGE_RECONNECT);
+						}
+					}
+				}
+			};
+			mHandler.postDelayed(mPersistentNetworkWaitTimeout, PERSISTENT_NETWORK_WAIT_CAP_MILLIS);
+		} catch (Exception e) {
+			Log.w("BlowTorch", "Persistent network wait failed; reconnecting blindly", e);
+			mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, afterAvailableDelayMs);
+		}
+	}
+
+	private void clearPersistentNetworkWait() {
+		if (mHandler != null && mPersistentNetworkWaitTimeout != null) {
+			mHandler.removeCallbacks(mPersistentNetworkWaitTimeout);
+			mPersistentNetworkWaitTimeout = null;
+		}
+		if (mPersistentNetworkCallback != null && mService != null) {
+			try {
+				ConnectivityManager cm = (ConnectivityManager)
+						mService.getSystemService(Context.CONNECTIVITY_SERVICE);
+				if (cm != null) {
+					cm.unregisterNetworkCallback(mPersistentNetworkCallback);
+				}
+			} catch (Exception ignored) {
+			}
+			mPersistentNetworkCallback = null;
+		}
+	}
+
+	/** Impelementation of the bell vibrate settings handler.
 	 * 
 	 * @param value New value to use.
 	 */
@@ -4293,7 +4462,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Auto reconnect. */
 		auto_reconnect, 
 		/** Auto reconnect limit. */
-		auto_reconnect_limit, 
+		auto_reconnect_limit,
+		/** Patient reconnect through brief network loss / VPN flaps. */
+		persistent_connection, 
 		/** Use GMCP. */
 		use_gmcp, 
 		/** GMCP Supports string. */

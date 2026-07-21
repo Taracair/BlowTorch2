@@ -300,6 +300,11 @@ it entirely to remove the plugin.
 
 Connection duration appears on the ongoing notification and launcher row.
 
+**Persistent Connection?** (Options → Miscellaneous): after brief network loss
+(VPN/Wi-Fi flaps), keep retrying longer without the disconnect dialog and wait
+for connectivity before reconnecting. Cannot keep a dead TCP socket — the MUD
+session is re-established when the network returns.
+
 ## Related docs
 
 - [`options-guide.md`](options-guide.md) — Options / storage layout  
