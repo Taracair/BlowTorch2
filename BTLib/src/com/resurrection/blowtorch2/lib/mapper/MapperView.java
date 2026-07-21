@@ -1,11 +1,14 @@
 package com.resurrection.blowtorch2.lib.mapper;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,24 +19,47 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 
 /**
- * Draws map tiles on a pan/zoomable grid with exit ticks and current-room highlight.
+ * Draws map tiles on a pan/zoomable grid with exit arrows/labels and
+ * current-room highlight.
  */
 public class MapperView extends View {
 
 	public interface TileInteractionListener {
 		void onTileTap(MapTile tile);
 		void onTileLongPress(MapTile tile);
+		/** Double-tap a tile (Set as Here). */
+		void onTileDoubleTap(MapTile tile);
 		/** Empty grid cell tapped (Draw mode). */
 		void onEmptyTap(int gridX, int gridY);
 		/** Empty grid cell long-pressed (Draw mode). */
 		void onEmptyLongPress(int gridX, int gridY);
 		/** Tile dragged to a new grid cell (Draw mode). */
 		void onTileDragEnd(MapTile tile, int gridX, int gridY);
+		/**
+		 * User tapped an overflow link label (more than
+		 * {@link #MAX_VISIBLE_LINK_LABELS} commands on one edge).
+		 */
+		void onLinkCommandsTap(MapTile from, MapTile to, List<String> commands);
 	}
 
 	private static final float BASE_TILE = 56f;
 	private static final float MIN_SCALE = 0.35f;
 	private static final float MAX_SCALE = 3.5f;
+	/** Show this many walk words on an edge before collapsing to “+N”. */
+	public static final int MAX_VISIBLE_LINK_LABELS = 2;
+
+	private static final class LinkBadge {
+		final RectF bounds = new RectF();
+		final String fromId;
+		final String toId;
+		final List<String> commands;
+
+		LinkBadge(String fromId, String toId, List<String> commands) {
+			this.fromId = fromId;
+			this.toId = toId;
+			this.commands = commands;
+		}
+	}
 
 	private final Paint tileFill = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint tileStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -41,12 +67,17 @@ public class MapperView extends View {
 	private final Paint selectedStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint exitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint linkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint linkLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint linkLabelBg = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint specialPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint bgPaint = new Paint();
 	private final Paint gridPaint = new Paint();
 	private final Paint dragGhostFill = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint dragGhostStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final RectF tmpRect = new RectF();
+	private final Path arrowPath = new Path();
+	private final List<LinkBadge> linkBadges = new ArrayList<LinkBadge>();
 
 	private final ScaleGestureDetector scaleDetector;
 	private final GestureDetector gestureDetector;
@@ -100,6 +131,14 @@ public class MapperView extends View {
 		exitPaint.setColor(0xFFB8D4FF);
 		exitPaint.setStrokeWidth(3f);
 		exitPaint.setStyle(Paint.Style.STROKE);
+		linkPaint.setColor(0xFF9EC5FF);
+		linkPaint.setStrokeWidth(2.5f);
+		linkPaint.setStyle(Paint.Style.STROKE);
+		linkPaint.setStrokeCap(Paint.Cap.ROUND);
+		linkLabelPaint.setColor(0xFFF0F6FF);
+		linkLabelPaint.setTextAlign(Paint.Align.CENTER);
+		linkLabelBg.setColor(0xCC102030);
+		linkLabelBg.setStyle(Paint.Style.FILL);
 		specialPaint.setColor(0xFFFFB060);
 		specialPaint.setStyle(Paint.Style.FILL);
 		bgPaint.setColor(0x00000000);
@@ -131,7 +170,6 @@ public class MapperView extends View {
 						if (prev <= 0f || Math.abs(next - prev) < 0.0001f) {
 							return true;
 						}
-						// Keep the map point under the pinch midpoint fixed on screen.
 						float worldX = (focusX - offsetX) / prev;
 						float worldY = (focusY - offsetY) / prev;
 						scale = next;
@@ -156,6 +194,16 @@ public class MapperView extends View {
 
 					@Override
 					public boolean onSingleTapConfirmed(MotionEvent e) {
+						LinkBadge badge = hitLinkBadge(e.getX(), e.getY());
+						if (badge != null && listener != null) {
+							MapTile from = findTile(badge.fromId);
+							MapTile to = findTile(badge.toId);
+							if (from != null && to != null) {
+								listener.onLinkCommandsTap(from, to,
+										new ArrayList<String>(badge.commands));
+								return true;
+							}
+						}
 						MapTile tile = hitTest(e.getX(), e.getY());
 						if (tile != null) {
 							selectedTileId = tile.getId();
@@ -201,6 +249,15 @@ public class MapperView extends View {
 
 					@Override
 					public boolean onDoubleTap(MotionEvent e) {
+						MapTile tile = hitTest(e.getX(), e.getY());
+						if (tile != null) {
+							selectedTileId = tile.getId();
+							invalidate();
+							if (listener != null) {
+								listener.onTileDoubleTap(tile);
+							}
+							return true;
+						}
 						centerOnCurrentTile(true);
 						return true;
 					}
@@ -336,8 +393,11 @@ public class MapperView extends View {
 				canvas.drawLine(0, y, getWidth(), y, gridPaint);
 			}
 		}
-		textPaint.setTextSize(Math.max(8f, 11f * scale));
 
+		linkBadges.clear();
+		drawLinkArrows(canvas, tileSize);
+
+		textPaint.setTextSize(Math.max(8f, 11f * scale));
 		for (MapTile tile : tiles) {
 			if (tile == null) {
 				continue;
@@ -350,7 +410,7 @@ public class MapperView extends View {
 			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, isCurrent ? currentFill : tileFill);
 			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale,
 					isSelected ? selectedStroke : tileStroke);
-			drawExits(canvas, tile, left, top, tileSize);
+			drawSpecialExitDots(canvas, tile, left, top, tileSize);
 			String label = tile.getTitle();
 			if (label == null || label.length() == 0) {
 				label = shortId(tile.getId());
@@ -369,76 +429,169 @@ public class MapperView extends View {
 		}
 	}
 
-	private void drawExits(Canvas canvas, MapTile tile, float left, float top, float tileSize) {
+	/**
+	 * Draw directed arrows between tiles for exits that have a known destination
+	 * on the same drawn set. Labels show walk words; overflow becomes a tappable +N.
+	 */
+	private void drawLinkArrows(Canvas canvas, float tileSize) {
+		if (scale < 0.4f) {
+			return;
+		}
+		Map<String, List<String>> grouped = new HashMap<String, List<String>>();
+		for (MapTile tile : tiles) {
+			if (tile == null || tile.getExits() == null) {
+				continue;
+			}
+			for (MapExit exit : tile.getExits()) {
+				if (exit == null || exit.getToId() == null || exit.getCommand() == null) {
+					continue;
+				}
+				MapTile dest = findTile(exit.getToId());
+				if (dest == null) {
+					continue;
+				}
+				String key = tile.getId() + "\0" + dest.getId();
+				List<String> cmds = grouped.get(key);
+				if (cmds == null) {
+					cmds = new ArrayList<String>();
+					grouped.put(key, cmds);
+				}
+				String cmd = exit.getCommand().trim();
+				if (cmd.length() > 0 && !cmds.contains(cmd)) {
+					cmds.add(cmd);
+				}
+			}
+		}
+
+		linkPaint.setStrokeWidth(Math.max(1.5f, 2.2f * scale));
+		linkLabelPaint.setTextSize(Math.max(8f, 9.5f * scale));
+
+		for (Map.Entry<String, List<String>> e : grouped.entrySet()) {
+			String key = e.getKey();
+			int sep = key.indexOf('\0');
+			if (sep <= 0) {
+				continue;
+			}
+			MapTile from = findTile(key.substring(0, sep));
+			MapTile to = findTile(key.substring(sep + 1));
+			List<String> cmds = e.getValue();
+			if (from == null || to == null || cmds == null || cmds.isEmpty()) {
+				continue;
+			}
+			float fromCx = offsetX + from.getGridX() * tileSize + tileSize * 0.5f;
+			float fromCy = offsetY + from.getGridY() * tileSize + tileSize * 0.5f;
+			float toCx = offsetX + to.getGridX() * tileSize + tileSize * 0.5f;
+			float toCy = offsetY + to.getGridY() * tileSize + tileSize * 0.5f;
+			float dx = toCx - fromCx;
+			float dy = toCy - fromCy;
+			float len = (float) Math.sqrt(dx * dx + dy * dy);
+			if (len < 4f) {
+				continue;
+			}
+			float ux = dx / len;
+			float uy = dy / len;
+			// Parallel offset so A→B and B→A do not overlap.
+			float ox = -uy * (5f * scale);
+			float oy = ux * (5f * scale);
+			float edge = tileSize * 0.38f;
+			float x1 = fromCx + ux * edge + ox;
+			float y1 = fromCy + uy * edge + oy;
+			float x2 = toCx - ux * edge + ox;
+			float y2 = toCy - uy * edge + oy;
+			canvas.drawLine(x1, y1, x2, y2, linkPaint);
+			drawArrowHead(canvas, x2, y2, ux, uy);
+
+			float midX = (x1 + x2) * 0.5f;
+			float midY = (y1 + y2) * 0.5f - 4f * scale;
+			String label = formatLinkLabel(cmds);
+			float tw = linkLabelPaint.measureText(label);
+			float pad = 4f * scale;
+			float bh = linkLabelPaint.getTextSize() + pad * 1.2f;
+			tmpRect.set(midX - tw * 0.5f - pad, midY - bh + pad * 0.3f,
+					midX + tw * 0.5f + pad, midY + pad * 0.5f);
+			canvas.drawRoundRect(tmpRect, 4f * scale, 4f * scale, linkLabelBg);
+			canvas.drawText(label, midX, midY, linkLabelPaint);
+			if (cmds.size() > MAX_VISIBLE_LINK_LABELS) {
+				LinkBadge badge = new LinkBadge(from.getId(), to.getId(), cmds);
+				badge.bounds.set(tmpRect);
+				// Enlarge hit target a bit for fat fingers.
+				badge.bounds.inset(-6f * scale, -6f * scale);
+				linkBadges.add(badge);
+			}
+		}
+	}
+
+	private static String formatLinkLabel(List<String> cmds) {
+		if (cmds.size() <= MAX_VISIBLE_LINK_LABELS) {
+			StringBuilder sb = new StringBuilder();
+			for (int i = 0; i < cmds.size(); i++) {
+				if (i > 0) {
+					sb.append(" · ");
+				}
+				sb.append(shortCmd(cmds.get(i)));
+			}
+			return sb.toString();
+		}
+		return shortCmd(cmds.get(0)) + " · " + shortCmd(cmds.get(1))
+				+ " +" + (cmds.size() - MAX_VISIBLE_LINK_LABELS);
+	}
+
+	private static String shortCmd(String cmd) {
+		if (cmd == null) {
+			return "?";
+		}
+		String c = cmd.trim();
+		if (c.length() <= 12) {
+			return c;
+		}
+		return c.substring(0, 11) + "…";
+	}
+
+	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux, float uy) {
+		float size = Math.max(6f, 8f * scale);
+		float bx = tipX - ux * size;
+		float by = tipY - uy * size;
+		float px = -uy * size * 0.55f;
+		float py = ux * size * 0.55f;
+		arrowPath.reset();
+		arrowPath.moveTo(tipX, tipY);
+		arrowPath.lineTo(bx + px, by + py);
+		arrowPath.lineTo(bx - px, by - py);
+		arrowPath.close();
+		linkPaint.setStyle(Paint.Style.FILL);
+		canvas.drawPath(arrowPath, linkPaint);
+		linkPaint.setStyle(Paint.Style.STROKE);
+	}
+
+	/** Dots for specials / level exits that have no drawable destination arrow. */
+	private void drawSpecialExitDots(Canvas canvas, MapTile tile, float left, float top,
+			float tileSize) {
 		float cx = left + tileSize * 0.5f;
 		float cy = top + tileSize * 0.5f;
-		float tick = Math.max(4f, 7f * scale);
 		int specialIndex = 0;
 		for (MapExit exit : tile.getExits()) {
 			if (exit == null || exit.getCommand() == null) {
 				continue;
 			}
-			String dir = MapDirections.normalize(exit.getCommand(), null);
-			if (exit.isSpecial() || isVerticalOrPortal(dir)) {
-				float ox = cx + (specialIndex % 3 - 1) * (6f * scale);
-				float oy = cy + tileSize * 0.18f + (specialIndex / 3) * (6f * scale);
-				canvas.drawCircle(ox, oy, Math.max(2.5f, 3.5f * scale), specialPaint);
-				specialIndex++;
-				continue;
+			MapTile dest = exit.getToId() != null ? findTile(exit.getToId()) : null;
+			if (dest != null) {
+				continue; // drawn as arrow
 			}
-			float x1 = cx;
-			float y1 = cy;
-			float x2 = cx;
-			float y2 = cy;
-			boolean drawn = true;
-			if ("n".equals(dir) || "north".equals(dir)) {
-				y1 = top + 4;
-				y2 = y1 + tick;
-			} else if ("s".equals(dir) || "south".equals(dir)) {
-				y1 = top + tileSize - 4;
-				y2 = y1 - tick;
-			} else if ("e".equals(dir) || "east".equals(dir)) {
-				x1 = left + tileSize - 4;
-				x2 = x1 - tick;
-			} else if ("w".equals(dir) || "west".equals(dir)) {
-				x1 = left + 4;
-				x2 = x1 + tick;
-			} else if ("ne".equals(dir)) {
-				x1 = left + tileSize - 6;
-				y1 = top + 6;
-				x2 = x1 - tick * 0.7f;
-				y2 = y1 + tick * 0.7f;
-			} else if ("nw".equals(dir)) {
-				x1 = left + 6;
-				y1 = top + 6;
-				x2 = x1 + tick * 0.7f;
-				y2 = y1 + tick * 0.7f;
-			} else if ("se".equals(dir)) {
-				x1 = left + tileSize - 6;
-				y1 = top + tileSize - 6;
-				x2 = x1 - tick * 0.7f;
-				y2 = y1 - tick * 0.7f;
-			} else if ("sw".equals(dir)) {
-				x1 = left + 6;
-				y1 = top + tileSize - 6;
-				x2 = x1 + tick * 0.7f;
-				y2 = y1 - tick * 0.7f;
-			} else {
-				drawn = false;
-				float ox = cx + (specialIndex % 3 - 1) * (6f * scale);
-				float oy = cy + tileSize * 0.2f + (specialIndex / 3) * (6f * scale);
-				canvas.drawCircle(ox, oy, Math.max(2.5f, 3.5f * scale), specialPaint);
-				specialIndex++;
-			}
-			if (drawn) {
-				canvas.drawLine(x1, y1, x2, y2, exitPaint);
-			}
+			float ox = cx + (specialIndex % 3 - 1) * (6f * scale);
+			float oy = cy + tileSize * 0.18f + (specialIndex / 3) * (6f * scale);
+			canvas.drawCircle(ox, oy, Math.max(2.5f, 3.5f * scale), specialPaint);
+			specialIndex++;
 		}
 	}
 
-	private static boolean isVerticalOrPortal(String dir) {
-		return "u".equals(dir) || "d".equals(dir) || "up".equals(dir) || "down".equals(dir)
-				|| "in".equals(dir) || "out".equals(dir);
+	private LinkBadge hitLinkBadge(float x, float y) {
+		for (int i = linkBadges.size() - 1; i >= 0; i--) {
+			LinkBadge b = linkBadges.get(i);
+			if (b.bounds.contains(x, y)) {
+				return b;
+			}
+		}
+		return null;
 	}
 
 	@Override
