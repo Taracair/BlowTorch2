@@ -43,6 +43,8 @@ public final class MapperRadialMenu {
 	public static final String ACTION_LINKS = "links";
 	public static final String ACTION_HERE = "here";
 	public static final String ACTION_EDIT = "edit";
+	/** Toggle accept-one-way specials (Build radial). */
+	public static final String ACTION_ONE_WAY = "oneway";
 
 	// Nav / session
 	public static final String ACTION_REC = "rec";
@@ -75,10 +77,8 @@ public final class MapperRadialMenu {
 	};
 
 	private static final String[] BUILD_ACTIONS = {
-			ACTION_DRAW, ACTION_LINKS, ACTION_PATHS, ACTION_HERE, ACTION_EDIT
-	};
-	private static final String[] BUILD_LABELS = {
-			"Draw", "Links", "Paths", "Here", "Edit"
+			ACTION_DRAW, ACTION_LINKS, ACTION_PATHS, ACTION_HERE,
+			ACTION_EDIT, ACTION_ONE_WAY
 	};
 
 	private static final String[] FILE_ACTIONS = {
@@ -107,7 +107,20 @@ public final class MapperRadialMenu {
 	}
 
 	public static void showBuild(ViewGroup parent, Listener listener) {
-		show(parent, "Build", BUILD_ACTIONS, BUILD_LABELS, listener);
+		showBuild(parent, listener, false);
+	}
+
+	/**
+	 * @param acceptOneWay when true, label shows {@code 1-way ON} (specials
+	 *        always spawn new tiles); when false, {@code 1-way off} (smart close).
+	 */
+	public static void showBuild(ViewGroup parent, Listener listener,
+			boolean acceptOneWay) {
+		String[] labels = {
+				"Draw", "Links", "Paths", "Here", "Edit",
+				acceptOneWay ? "1-way ON" : "1-way off"
+		};
+		show(parent, "Build", BUILD_ACTIONS, labels, listener);
 	}
 
 	public static void showFile(ViewGroup parent, Listener listener) {

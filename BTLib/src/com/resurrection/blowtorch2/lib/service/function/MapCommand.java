@@ -152,6 +152,9 @@ public class MapCommand extends SpecialCommand {
 			return null;
 		case "mode":
 			return doMode(c, mapper, rest);
+		case "oneway":
+		case "one-way":
+			return doOneWay(c, mapper, rest);
 		case "maps":
 			return doMaps(c, mapper);
 		case "load":
@@ -597,6 +600,24 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object doOneWay(Connection c, MapperController mapper, String rest) {
+		String a = rest.toLowerCase(Locale.US);
+		if (a.equals("on") || a.equals("1") || a.equals("true") || a.equals("accept")) {
+			mapper.setAcceptOneWaySpecials(true);
+		} else if (a.equals("off") || a.equals("0") || a.equals("false")
+				|| a.equals("smart") || a.equals("close")) {
+			mapper.setAcceptOneWaySpecials(false);
+		} else if (a.equals("toggle") || a.length() == 0) {
+			mapper.toggleAcceptOneWaySpecials();
+		} else {
+			note(c, "Usage: .map oneway on|off|toggle");
+			return null;
+		}
+		note(c, "Mapper accept one-way specials: "
+				+ (mapper.isAcceptOneWaySpecials() ? "on" : "off"));
+		return null;
+	}
+
 	private Object doMaps(Connection c, MapperController mapper) {
 		List<String> names = mapper.listMaps();
 		MudMap map = mapper.getMap();
@@ -690,9 +711,10 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map zoom in|out|reset  (or .map zoom <factor>)\n");
 		sb.append("  .map mode browse|edit|toggle  (Browse = view/nav only; Edit = record+edit)\n");
 		sb.append("  .map mode fullscreen|float\n");
+		sb.append("  .map oneway on|off|toggle  (ON = specials spawn new tiles; OFF = close to unique inbound)\n");
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (new/import = Edit)\n");
 		sb.append("  .map capture preview|apply  (apply = Edit; Options → Mapper regex)\n");
-		sb.append("  Browse: no record / Draw / Links / tile edit. Edit to change the map.\n");
+		sb.append("  Browse: no record / Draw / Links / tile edit. Follow tracks known exits while walking.\n");
 		return sb.toString();
 	}
 }

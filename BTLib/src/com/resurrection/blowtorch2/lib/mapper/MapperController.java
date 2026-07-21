@@ -91,6 +91,13 @@ public class MapperController {
 	private boolean mEnabled = true;
 	private boolean mUseGmcp = true;
 	private boolean mAutoReverse = true;
+	/**
+	 * When true, special exits ({@code out}/{@code enter}/…) always create a new
+	 * nearby tile (classic one-way / unknown return). When false (default), if
+	 * exactly one other tile already exits into Here, link the special there
+	 * (e.g. freezer {@code out} → hallway after hallway {@code west} → freezer).
+	 */
+	private boolean mAcceptOneWaySpecials = false;
 	private boolean mPreferFloat = true;
 	/** Session-only: false = Browse (navigate/view), true = Edit (create/draw/link/delete). */
 	private boolean mEditMode = false;
@@ -773,6 +780,7 @@ public class MapperController {
 		mPathAutoSend = boolOpt("mapper_path_auto_send", false);
 		mUseGmcp = boolOpt("mapper_use_gmcp", true);
 		mAutoReverse = boolOpt("mapper_auto_reverse_link", true);
+		mAcceptOneWaySpecials = boolOpt("mapper_accept_one_way_specials", false);
 		mOpacity = clampOpacity(intOpt("mapper_opacity", 85));
 		String toolbar = stringOpt("mapper_toolbar_actions", null);
 		if (toolbar != null && toolbar.trim().length() > 0) {
@@ -890,6 +898,25 @@ public class MapperController {
 
 	public void setAutoReverse(final boolean auto) {
 		mAutoReverse = auto;
+	}
+
+	/**
+	 * When true, special exits always spawn a new nearby tile. When false
+	 * (default), try linking to the unique inbound neighbor first.
+	 */
+	public boolean isAcceptOneWaySpecials() {
+		return mAcceptOneWaySpecials;
+	}
+
+	public void setAcceptOneWaySpecials(final boolean accept) {
+		mAcceptOneWaySpecials = accept;
+		notifyChanged();
+	}
+
+	public boolean toggleAcceptOneWaySpecials() {
+		mAcceptOneWaySpecials = !mAcceptOneWaySpecials;
+		notifyChanged();
+		return mAcceptOneWaySpecials;
 	}
 
 	public void setOpacity(final int opacity) {
@@ -1062,11 +1089,15 @@ public class MapperController {
 	}
 
 	/**
-	 * Record a player command if recording is on. Never sends to the server.
-	 * Splits on CRLF / semicolon-separated lines when present.
+	 * Handle an outbound player command for the mapper.
+	 * <ul>
+	 *   <li>Edit + Record: grow the graph ({@link #recordMove}).</li>
+	 *   <li>Otherwise, if Follow is on: advance Here along an existing exit
+	 *       only (no new tiles) so the camera can track movement.</li>
+	 * </ul>
 	 */
 	public void onPlayerCommand(final String cmd) {
-		if (!mEnabled || !mRecording || !mEditMode || mSuppressRecord || cmd == null) {
+		if (!mEnabled || mSuppressRecord || cmd == null) {
 			return;
 		}
 		String raw = cmd.trim();
@@ -1077,14 +1108,66 @@ public class MapperController {
 		if (raw.startsWith(".")) {
 			return;
 		}
-		String[] parts = raw.split("[\\r\\n;]+");
-		for (String part : parts) {
-			String piece = part.trim();
-			if (piece.length() == 0) {
-				continue;
+		if (mRecording && mEditMode) {
+			String[] parts = raw.split("[\\r\\n;]+");
+			for (String part : parts) {
+				String piece = part.trim();
+				if (piece.length() == 0) {
+					continue;
+				}
+				recordMove(piece);
 			}
-			recordMove(piece);
+			return;
 		}
+		if (mFollowPlayer) {
+			boolean moved = false;
+			String[] parts = raw.split("[\\r\\n;]+");
+			for (String part : parts) {
+				String piece = part.trim();
+				if (piece.length() == 0) {
+					continue;
+				}
+				if (advanceAlongExistingExit(piece)) {
+					moved = true;
+				}
+			}
+			if (moved) {
+				notifyChanged();
+			}
+		}
+	}
+
+	/**
+	 * Move Here along a known exit for {@code command} without creating tiles.
+	 *
+	 * @return true if current position changed
+	 */
+	private boolean advanceAlongExistingExit(final String command) {
+		if (mMap == null) {
+			return false;
+		}
+		MapTile from = currentTile();
+		if (from == null) {
+			return false;
+		}
+		String norm = normalize(command);
+		if (norm.length() == 0) {
+			return false;
+		}
+		MapExit existing = findExit(from, norm);
+		if (existing == null || existing.getToId() == null) {
+			return false;
+		}
+		MapTile to = mMap.findTile(existing.getToId());
+		if (to == null) {
+			return false;
+		}
+		if (to.getId().equals(from.getId())) {
+			return false;
+		}
+		mMap.setCurrentTileId(to.getId());
+		mMap.setCurrentLevelId(to.getLevelId());
+		return true;
 	}
 
 	/**
@@ -1941,7 +2024,15 @@ public class MapperController {
 			// over a previously guessed reverse (e.g. "s" → "go south").
 			adoptRecordedExitCommand(existing, from, to, stored, special);
 		} else {
-			to = createDestination(from, norm, delta, special);
+			MapTile smartReturn = null;
+			if (special && levelDeltaFor(norm) == null && !mAcceptOneWaySpecials) {
+				smartReturn = findUniqueInboundNeighbor(from);
+			}
+			if (smartReturn != null) {
+				to = smartReturn;
+			} else {
+				to = createDestination(from, norm, delta, special);
+			}
 			MapExit byDest = findExitTo(from, to.getId());
 			if (byDest != null) {
 				// Same edge under a different spelling than the guessed reverse.
@@ -1951,7 +2042,9 @@ public class MapperController {
 				String rev = MapDirections.suggestReverse(stored, directionMap());
 				MapExit exit = new MapExit(from.getId(), to.getId(), stored, special, rev);
 				from.addExit(exit);
-				if (mAutoReverse && rev != null) {
+				// Skip auto-reverse when we closed a special back to the room
+				// that already leads here (reverse edge already exists).
+				if (mAutoReverse && rev != null && smartReturn == null) {
 					ensureReverse(from, to, stored);
 				}
 			}
@@ -2008,6 +2101,31 @@ public class MapperController {
 				exits.remove(i);
 			}
 		}
+	}
+
+	/**
+	 * If exactly one other tile has an exit into {@code here}, return it.
+	 * Used to close special returns ({@code out}/{@code leave}) when recording.
+	 */
+	private MapTile findUniqueInboundNeighbor(final MapTile here) {
+		if (mMap == null || here == null || here.getId() == null) {
+			return null;
+		}
+		String hereId = here.getId();
+		MapTile unique = null;
+		for (MapTile tile : mMap.getTiles()) {
+			if (tile == null || hereId.equals(tile.getId())) {
+				continue;
+			}
+			if (findExitTo(tile, hereId) == null) {
+				continue;
+			}
+			if (unique != null) {
+				return null;
+			}
+			unique = tile;
+		}
+		return unique;
 	}
 
 	private MapTile createDestination(final MapTile from, final String norm,

@@ -3699,6 +3699,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.setAutoReverse((Boolean) o.getValue());
 				}
 				break;
+			case mapper_accept_one_way_specials:
+				if (mMapper != null) {
+					mMapper.setAcceptOneWaySpecials((Boolean) o.getValue());
+				}
+				break;
 			case mapper_toolbar_actions:
 				if (mMapper != null) {
 					mMapper.applySettingsFromConnection();
@@ -4610,6 +4615,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_path_auto_send,
 		mapper_use_gmcp,
 		mapper_auto_reverse_link,
+		mapper_accept_one_way_specials,
 		mapper_toolbar_actions,
 		mapper_capture_title_regex,
 		mapper_capture_exits_regex,
@@ -4675,8 +4681,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				} else {
 					sendBytesToWindow(new String(Colorizer.getRedColor() + "\nDisconnected.\n" + Colorizer.getWhiteColor()).getBytes("UTF-8"));
 				}
-				// Record movement for mapper (after aliases; never sends from mapper).
-				if (mMapper != null && mMapper.isRecording() && nosemidata != null) {
+				// Record / follow movement for mapper (after aliases; never sends).
+				if (mMapper != null && nosemidata != null) {
 					mMapper.onPlayerCommand(nosemidata);
 				}
 			} else {
@@ -5227,6 +5233,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			root.put("preferFloat", mMapper.isPreferFloat());
 			root.put("opacity", mMapper.getOpacity());
 			root.put("editMode", mMapper.isEditMode());
+			root.put("acceptOneWaySpecials", mMapper.isAcceptOneWaySpecials());
 			root.put("toolbar", mMapper.getToolbarActions() != null
 					? mMapper.getToolbarActions() : "");
 			return root.toString();
