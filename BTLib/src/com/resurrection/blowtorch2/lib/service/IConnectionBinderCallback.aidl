@@ -65,4 +65,6 @@ interface IConnectionBinderCallback {
 	void setUseSuggestions(boolean value);
 	void setCompatibilityMode(boolean value);
 	void setRegexWarning(boolean value);
+	/** Mapper overlay: 1=open, 2=close, 3=toggle, 4=refresh snapshot. */
+	void mapperUi(int action);
 }

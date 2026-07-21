@@ -562,6 +562,19 @@ public class StellarService extends Service {
 		}
 		mCallbacks.finishBroadcast();
 	}
+
+	/** Tell the UI process to open/close/toggle/refresh the mapper overlay. */
+	public final void notifyMapperUi(final int action) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).mapperUi(action);
+			} catch (RemoteException e) {
+				// UI may have died; skip
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
 	
 	/** Gets a new unique id for notifications. Always increments the value so it will be unique with each call.
 	 * 

@@ -818,4 +818,15 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		}
 	}
 
+	@Override
+	public String getMapperSnapshotJson() throws RemoteException {
+		Connection c = service.mConnections.get(service.mConnectionClutch);
+		return c != null ? c.getMapperSnapshotJson() : "";
+	}
+
+	@Override
+	public void requestMapperUi(int action) throws RemoteException {
+		service.notifyMapperUi(action);
+	}
+
 }

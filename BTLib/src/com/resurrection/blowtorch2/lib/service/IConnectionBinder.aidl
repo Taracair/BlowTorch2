@@ -162,4 +162,9 @@ interface IConnectionBinder {
 	void renegotiateMcp();
 	/** Reply to MCP simpleedit with edited text. */
 	void sendMcpSimpleEditSet(String reference, String type, String content);
+	// ---- Mapper (service-process engine; UI pulls snapshot) ----
+	/** JSON MudMap snapshot (+ recording/follow/opacity meta in wrapper). */
+	String getMapperSnapshotJson();
+	/** Ask the UI process to open/close/toggle/refresh mapper (1/2/3/4). */
+	void requestMapperUi(int action);
 }

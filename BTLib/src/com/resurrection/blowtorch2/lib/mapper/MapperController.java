@@ -1333,6 +1333,13 @@ public class MapperController {
 			} catch (Exception ignored) {
 			}
 		}
+		// UI runs in a different process than Connection — push a refresh hint.
+		if (mConnection != null) {
+			try {
+				mConnection.requestMapperUi(4);
+			} catch (Exception ignored) {
+			}
+		}
 	}
 
 	private Context context() {
