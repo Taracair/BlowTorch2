@@ -40,4 +40,18 @@ public class MapDirectionsTest {
 		assertEquals("go south", MapDirections.suggestReverse("go north", null));
 		assertEquals("go west", MapDirections.storeCommand("go west", "w"));
 	}
+
+	@Test
+	public void gridDeltaLexicon() {
+		assertEquals(0, MapDirections.gridDelta("n")[0]);
+		assertEquals(-1, MapDirections.gridDelta("n")[1]);
+		assertEquals(1, MapDirections.gridDelta("east")[0]);
+		assertEquals(0, MapDirections.gridDelta("e")[1]);
+		assertEquals(-1, MapDirections.gridDelta(MapDirections.normalize("go west", null))[0]);
+		assertNull(MapDirections.gridDelta("out"));
+		assertNull(MapDirections.gridDelta("portal"));
+		assertEquals(Integer.valueOf(1), MapDirections.levelDelta("climb"));
+		assertEquals(Integer.valueOf(-1), MapDirections.levelDelta("descend"));
+		assertEquals("u", MapDirections.normalize("ascend", null));
+	}
 }

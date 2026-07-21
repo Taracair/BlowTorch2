@@ -217,6 +217,19 @@ public class MapperOverlayController
 							"Turn on Draw to place tiles here", Toast.LENGTH_SHORT).show();
 				}
 			}
+
+			@Override
+			public void onTileDragEnd(MapTile tile, int gridX, int gridY) {
+				if (tile == null) {
+					return;
+				}
+				if (tile.getGridX() == gridX && tile.getGridY() == gridY) {
+					// Dropped on same cell — show context instead
+					showTileContext(tile);
+					return;
+				}
+				runMoveTile(tile.getId(), gridX, gridY);
+			}
 		});
 
 		wireDragResize();
@@ -623,10 +636,11 @@ public class MapperOverlayController
 		}
 		if (mapperView != null) {
 			mapperView.setShowGrid(drawEditMode);
+			mapperView.setTileDragEnabled(drawEditMode);
 		}
 		if (drawEditMode) {
 			Toast.makeText(host.getMainWindow(),
-					"Draw: tap empty cell = place tile; long-press = place + Here",
+					"Draw: tap empty=place · long-press empty=Here · long-press tile+drag=move",
 					Toast.LENGTH_LONG).show();
 		} else {
 			Toast.makeText(host.getMainWindow(), "Draw mode off", Toast.LENGTH_SHORT).show();
@@ -704,6 +718,57 @@ public class MapperOverlayController
 			host.runMapCommand("delete " + tileId);
 			pullSnapshotFromService();
 		}
+	}
+
+	private void runMoveTile(String tileId, int x, int y) {
+		if (controller != null) {
+			toastStatus(controller.moveTileOnGrid(tileId, x, y));
+			refreshFromController();
+		} else {
+			host.runMapCommand("move " + tileId + " " + x + " " + y);
+			pullSnapshotFromService();
+		}
+	}
+
+	private void promptMoveTile(final MapTile tile) {
+		if (tile == null) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		LinearLayout root = new LinearLayout(activity);
+		root.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (12 * activity.getResources().getDisplayMetrics().density);
+		root.setPadding(pad, pad, pad, pad);
+		final EditText xEdit = new EditText(activity);
+		xEdit.setHint("grid X");
+		xEdit.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+				| android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+		xEdit.setText(Integer.toString(tile.getGridX()));
+		final EditText yEdit = new EditText(activity);
+		yEdit.setHint("grid Y");
+		yEdit.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+				| android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+		yEdit.setText(Integer.toString(tile.getGridY()));
+		root.addView(xEdit);
+		root.addView(yEdit);
+		new AlertDialog.Builder(activity)
+				.setTitle("Move " + shortTileLabel(tile))
+				.setView(root)
+				.setPositiveButton("Move", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						try {
+							int x = Integer.parseInt(xEdit.getText().toString().trim());
+							int y = Integer.parseInt(yEdit.getText().toString().trim());
+							runMoveTile(tile.getId(), x, y);
+						} catch (NumberFormatException e) {
+							Toast.makeText(activity, "Invalid coordinates",
+									Toast.LENGTH_SHORT).show();
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
 	}
 
 	private void promptAddNeighbor(final MapTile from) {
@@ -1049,7 +1114,7 @@ public class MapperOverlayController
 	private void showTileContext(final MapTile tile) {
 		final MainWindow activity = host.getMainWindow();
 		CharSequence[] items = new CharSequence[] {
-				"Set as Here", "Edit", "Add neighbor…", "Edit links…",
+				"Set as Here", "Edit", "Move…", "Add neighbor…", "Edit links…",
 				"Path to here", "Change level", "Delete tile", "Center"
 		};
 		new AlertDialog.Builder(activity)
@@ -1065,21 +1130,24 @@ public class MapperOverlayController
 							openTileEditor(tile);
 							break;
 						case 2:
-							promptAddNeighbor(tile);
+							promptMoveTile(tile);
 							break;
 						case 3:
-							showUnlinkPicker(tile);
+							promptAddNeighbor(tile);
 							break;
 						case 4:
-							pathToTile(tile);
+							showUnlinkPicker(tile);
 							break;
 						case 5:
-							promptChangeLevel(tile);
+							pathToTile(tile);
 							break;
 						case 6:
-							confirmDeleteTile(tile);
+							promptChangeLevel(tile);
 							break;
 						case 7:
+							confirmDeleteTile(tile);
+							break;
+						case 8:
 							if (mapperView != null) {
 								mapperView.setCurrentTileId(tile.getId());
 								mapperView.centerOnTile(tile);

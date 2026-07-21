@@ -376,7 +376,7 @@ public class MapperController {
 		}
 		String norm = normalize(cmd);
 		String stored = MapDirections.storeCommand(cmd, norm);
-		int[] delta = isCardinalGrid(norm);
+		int[] delta = MapDirections.gridDelta(norm);
 		boolean special = (delta == null);
 		pushUndo();
 		MapExit existing = findExit(from, norm);
@@ -977,7 +977,7 @@ public class MapperController {
 			existing.setCommand(stored);
 		} else {
 			String rev = MapDirections.suggestReverse(stored, directionMap());
-			boolean special = isCardinalGrid(norm) == null;
+			boolean special = MapDirections.gridDelta(norm) == null;
 			from.addExit(new MapExit(from.getId(), to.getId(), stored, special, rev));
 		}
 		if (mAutoReverse) {
@@ -1198,7 +1198,7 @@ public class MapperController {
 		}
 		String stored = MapDirections.storeCommand(command, norm);
 
-		int[] delta = isCardinalGrid(norm);
+		int[] delta = MapDirections.gridDelta(norm);
 		boolean special = (delta == null);
 
 		pushUndo();
@@ -1238,13 +1238,10 @@ public class MapperController {
 			}
 			return createTileAt(from.getLevelId(), nx, ny);
 		}
-		// Vertical: auto level change (v1)
-		String n = norm.toLowerCase(Locale.US);
-		if (n.equals("u") || n.equals("up")) {
-			return tileOnRelativeLevel(from, 1, norm);
-		}
-		if (n.equals("d") || n.equals("down")) {
-			return tileOnRelativeLevel(from, -1, norm);
+		// Vertical / climb: auto level change
+		Integer lvl = MapDirections.levelDelta(norm);
+		if (lvl != null) {
+			return tileOnRelativeLevel(from, lvl.intValue(), norm);
 		}
 		// Other specials: same level, free cell near origin (no auto title —
 		// leave blank until capture/GMCP/manual edit).
@@ -1308,7 +1305,7 @@ public class MapperController {
 		}
 		String revNorm = normalize(rev);
 		if (findExit(to, revNorm) == null) {
-			boolean special = isCardinalGrid(revNorm) == null;
+			boolean special = MapDirections.gridDelta(revNorm) == null;
 			to.addExit(new MapExit(to.getId(), from.getId(), revNorm, special, forwardCmd));
 		}
 	}
@@ -1345,41 +1342,6 @@ public class MapperController {
 			if (e != null && want.equalsIgnoreCase(normalize(e.getCommand()))) {
 				return e;
 			}
-		}
-		return null;
-	}
-
-	/**
-	 * @return [dx, dy] for grid moves, or null if special / unknown
-	 */
-	private int[] isCardinalGrid(final String norm) {
-		if (norm == null) {
-			return null;
-		}
-		String n = norm.toLowerCase(Locale.US);
-		if (n.equals("n") || n.equals("north")) {
-			return new int[] { 0, -1 };
-		}
-		if (n.equals("s") || n.equals("south")) {
-			return new int[] { 0, 1 };
-		}
-		if (n.equals("e") || n.equals("east")) {
-			return new int[] { 1, 0 };
-		}
-		if (n.equals("w") || n.equals("west")) {
-			return new int[] { -1, 0 };
-		}
-		if (n.equals("ne") || n.equals("northeast")) {
-			return new int[] { 1, -1 };
-		}
-		if (n.equals("nw") || n.equals("northwest")) {
-			return new int[] { -1, -1 };
-		}
-		if (n.equals("se") || n.equals("southeast")) {
-			return new int[] { 1, 1 };
-		}
-		if (n.equals("sw") || n.equals("southwest")) {
-			return new int[] { -1, 1 };
 		}
 		return null;
 	}
