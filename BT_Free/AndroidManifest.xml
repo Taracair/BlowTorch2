@@ -16,7 +16,7 @@
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="false" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled" android:usesCleartextTraffic="true">
-    	<meta-data android:value="164" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
+    	<meta-data android:value="165" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
     	<activity android:name="com.resurrection.blowtorch2.FreeLauncher"
     	          android:label="${appLabel}"
     	          android:exported="true">
