@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 
 import com.resurrection.blowtorch2.lib.mapper.MapConflict;
+import com.resurrection.blowtorch2.lib.mapper.MapDirections;
 import com.resurrection.blowtorch2.lib.mapper.MapTile;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperUiBridge;
@@ -92,6 +93,10 @@ public class MapCommand extends SpecialCommand {
 		case "here":
 			note(c, mapper.setHere(rest));
 			return null;
+		case "dirs":
+		case "directions":
+		case "lexicon":
+			return doDirs(c);
 		case "delete":
 		case "del":
 		case "rm":
@@ -335,6 +340,16 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object doDirs(Connection c) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Mapper movement lexicon:\n");
+		for (String line : MapDirections.lexiconSummary()) {
+			sb.append(line).append('\n');
+		}
+		note(c, sb.toString());
+		return null;
+	}
+
 	private Object doAdd(Connection c, MapperController mapper, String rest) {
 		Integer x = null;
 		Integer y = null;
@@ -518,6 +533,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map find <query> | .map path <query> | .map goto <query>\n");
 		sb.append("  .map title <text> | .map note <text>\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
+		sb.append("  .map dirs  (movement lexicon / grid offsets)\n");
 		sb.append("  .map add [x y] [title] [here] | .map here [id] | .map delete [id]\n");
 		sb.append("  .map neighbor <cmd> [from <id>] | .map move [id] <x> <y>\n");
 		sb.append("  .map conflict list | .map export | .map undo | .map center\n");

@@ -1,20 +1,33 @@
 package com.resurrection.blowtorch2.lib.mapper;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 
 /**
- * Direction helpers for mapper exits: normalize player input against the
- * connection direction map, and suggest common / configured reverses.
+ * Movement lexicon for the mapper: synonyms → canonical tokens, opposites,
+ * and how planar moves shift tiles on the grid ({@code dx}/{@code dy}).
+ * <p>
+ * Grid convention (screen): {@code +x = east}, {@code +y = south}
+ * (north decreases {@code y}).
+ * Level changes ({@code up}/{@code down}) are not grid offsets — see
+ * {@link #levelDelta(String)}.
  */
 public final class MapDirections {
 
 	private static final Map<String, String> COMMON_OPPOSITES = new HashMap<String, String>();
 	private static final Map<String, String> COMMON_ALIASES = new HashMap<String, String>();
 	private static final Map<String, String> SHORT_TO_LONG = new HashMap<String, String>();
+	/** Canonical token → {@code {dx, dy}} on the map grid. */
+	private static final Map<String, int[]> GRID_DELTA = new LinkedHashMap<String, int[]>();
+	/** Canonical token → level index delta (+1 up / -1 down). */
+	private static final Map<String, Integer> LEVEL_DELTA = new HashMap<String, Integer>();
 
 	static {
 		putPair("n", "s");
@@ -28,17 +41,41 @@ public final class MapDirections {
 		putPair("northeast", "southwest");
 		putPair("nw", "se");
 		putPair("northwest", "southeast");
+		putPair("enter", "leave");
+		putPair("climb", "descend");
 
-		COMMON_ALIASES.put("north", "n");
-		COMMON_ALIASES.put("south", "s");
-		COMMON_ALIASES.put("east", "e");
-		COMMON_ALIASES.put("west", "w");
-		COMMON_ALIASES.put("up", "u");
-		COMMON_ALIASES.put("down", "d");
-		COMMON_ALIASES.put("northeast", "ne");
-		COMMON_ALIASES.put("northwest", "nw");
-		COMMON_ALIASES.put("southeast", "se");
-		COMMON_ALIASES.put("southwest", "sw");
+		// Long / short forms
+		alias("north", "n");
+		alias("south", "s");
+		alias("east", "e");
+		alias("west", "w");
+		alias("up", "u");
+		alias("down", "d");
+		alias("northeast", "ne");
+		alias("northwest", "nw");
+		alias("southeast", "se");
+		alias("southwest", "sw");
+
+		// Extra movement synonyms → canonical short token
+		alias("northern", "n");
+		alias("southern", "s");
+		alias("eastern", "e");
+		alias("western", "w");
+		alias("nort", "n");
+		alias("nord", "n");
+		alias("sud", "s");
+		alias("ost", "e");
+		alias("ouest", "w");
+		alias("neast", "ne");
+		alias("nwest", "nw");
+		alias("seast", "se");
+		alias("swest", "sw");
+		alias("climb", "u");
+		alias("ascend", "u");
+		alias("descend", "d");
+		alias("leave", "out");
+		alias("exit", "out");
+		alias("enter", "in");
 
 		SHORT_TO_LONG.put("n", "north");
 		SHORT_TO_LONG.put("s", "south");
@@ -50,6 +87,31 @@ public final class MapDirections {
 		SHORT_TO_LONG.put("nw", "northwest");
 		SHORT_TO_LONG.put("se", "southeast");
 		SHORT_TO_LONG.put("sw", "southwest");
+		SHORT_TO_LONG.put("in", "enter");
+		SHORT_TO_LONG.put("out", "leave");
+
+		// Planar grid: +x east, +y south
+		putGrid("n", 0, -1);
+		putGrid("s", 0, 1);
+		putGrid("e", 1, 0);
+		putGrid("w", -1, 0);
+		putGrid("ne", 1, -1);
+		putGrid("nw", -1, -1);
+		putGrid("se", 1, 1);
+		putGrid("sw", -1, 1);
+		putGrid("north", 0, -1);
+		putGrid("south", 0, 1);
+		putGrid("east", 1, 0);
+		putGrid("west", -1, 0);
+		putGrid("northeast", 1, -1);
+		putGrid("northwest", -1, -1);
+		putGrid("southeast", 1, 1);
+		putGrid("southwest", -1, 1);
+
+		LEVEL_DELTA.put("u", Integer.valueOf(1));
+		LEVEL_DELTA.put("up", Integer.valueOf(1));
+		LEVEL_DELTA.put("d", Integer.valueOf(-1));
+		LEVEL_DELTA.put("down", Integer.valueOf(-1));
 	}
 
 	private MapDirections() {
@@ -60,16 +122,99 @@ public final class MapDirections {
 		COMMON_OPPOSITES.put(b, a);
 	}
 
+	private static void alias(String from, String toCanonical) {
+		COMMON_ALIASES.put(from, toCanonical);
+	}
+
+	private static void putGrid(String token, int dx, int dy) {
+		GRID_DELTA.put(token, new int[] { dx, dy });
+	}
+
+	/**
+	 * Grid offset for a (preferably normalized) movement token.
+	 *
+	 * @return {@code {dx, dy}} or {@code null} if not a planar grid move
+	 */
+	public static int[] gridDelta(String token) {
+		if (token == null) {
+			return null;
+		}
+		String n = token.trim().toLowerCase(Locale.US);
+		if (n.length() == 0) {
+			return null;
+		}
+		int[] d = GRID_DELTA.get(n);
+		if (d != null) {
+			return new int[] { d[0], d[1] };
+		}
+		String canon = COMMON_ALIASES.get(n);
+		if (canon != null) {
+			d = GRID_DELTA.get(canon);
+			if (d != null) {
+				return new int[] { d[0], d[1] };
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Level-index delta for up/down style moves.
+	 *
+	 * @return +1 / -1 or {@code null} if not a level change
+	 */
+	public static Integer levelDelta(String token) {
+		if (token == null) {
+			return null;
+		}
+		String n = token.trim().toLowerCase(Locale.US);
+		Integer d = LEVEL_DELTA.get(n);
+		if (d != null) {
+			return d;
+		}
+		String canon = COMMON_ALIASES.get(n);
+		if (canon != null) {
+			return LEVEL_DELTA.get(canon);
+		}
+		return null;
+	}
+
+	/** True when the token builds a neighbor on the same level grid. */
+	public static boolean isPlanarMove(String token) {
+		return gridDelta(token) != null;
+	}
+
+	/** True when the token changes map level (up/down). */
+	public static boolean isLevelChange(String token) {
+		return levelDelta(token) != null;
+	}
+
+	/**
+	 * Human-readable lexicon lines for {@code .map dirs} / help.
+	 */
+	public static List<String> lexiconSummary() {
+		List<String> out = new ArrayList<String>();
+		out.add("Grid (+x east, +y south):");
+		out.add("  n/north     → (0,-1)");
+		out.add("  s/south     → (0,+1)");
+		out.add("  e/east      → (+1,0)");
+		out.add("  w/west      → (-1,0)");
+		out.add("  ne/nw/se/sw → diagonals");
+		out.add("Levels:");
+		out.add("  u/up/climb/ascend → level +1");
+		out.add("  d/down/descend    → level -1");
+		out.add("Special (off-grid neighbor):");
+		out.add("  in/enter, out/leave/exit, and any other command");
+		out.add("Prefixes stripped: go | walk | move  (e.g. go west → w)");
+		out.add("Also uses connection Speedwalk direction map when set.");
+		return Collections.unmodifiableList(out);
+	}
+
 	/**
 	 * Normalize a player-typed command to a canonical exit token.
 	 * Uses the connection direction map when provided: matches either the
 	 * direction key or the outbound command, preferring the direction key.
 	 * Strips MOO-style {@code go}/{@code walk}/{@code move} prefixes.
 	 * Falls back to common aliases (north→n), else trimmed lowercase input.
-	 *
-	 * @param command   raw player command (may be null)
-	 * @param directions connection direction map; may be null or empty
-	 * @return canonical form, or empty string if command is null/blank
 	 */
 	public static String normalize(String command, Map<String, DirectionData> directions) {
 		if (command == null) {
@@ -123,7 +268,6 @@ public final class MapDirections {
 					return key.toLowerCase(Locale.US);
 				}
 			}
-			// Match "go west" against map command after stripping prefix on either side
 			if (cmd != null) {
 				String cmdStripped = stripMovementPrefix(cmd.toLowerCase(Locale.US));
 				if (lower.equals(cmdStripped)
@@ -187,8 +331,8 @@ public final class MapDirections {
 	}
 
 	/**
-	 * Opposite of a common direction (n/s, e/w, u/d, in/out, diagonals).
-	 * Accepts short or long forms. Returns null when unknown.
+	 * Opposite of a common direction. Accepts short or long forms.
+	 * Returns null when unknown.
 	 */
 	public static String opposite(String command) {
 		if (command == null) {

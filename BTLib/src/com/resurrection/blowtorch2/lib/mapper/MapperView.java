@@ -27,6 +27,8 @@ public class MapperView extends View {
 		void onEmptyTap(int gridX, int gridY);
 		/** Empty grid cell long-pressed (Draw mode). */
 		void onEmptyLongPress(int gridX, int gridY);
+		/** Tile dragged to a new grid cell (Draw mode). */
+		void onTileDragEnd(MapTile tile, int gridX, int gridY);
 	}
 
 	private static final float BASE_TILE = 56f;
@@ -42,6 +44,8 @@ public class MapperView extends View {
 	private final Paint specialPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint bgPaint = new Paint();
 	private final Paint gridPaint = new Paint();
+	private final Paint dragGhostFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint dragGhostStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final RectF tmpRect = new RectF();
 
 	private final ScaleGestureDetector scaleDetector;
@@ -58,6 +62,12 @@ public class MapperView extends View {
 	private boolean followMode = true;
 	private boolean centeredOnce;
 	private boolean showGrid;
+	/** When true, long-press on a tile starts reposition drag. */
+	private boolean tileDragEnabled;
+	private boolean tileDragging;
+	private MapTile draggingTile;
+	private int dragGridX;
+	private int dragGridY;
 
 	private float lastPanX;
 	private float lastPanY;
@@ -95,6 +105,11 @@ public class MapperView extends View {
 		gridPaint.setColor(0x33FFFFFF);
 		gridPaint.setStrokeWidth(1f);
 		gridPaint.setStyle(Paint.Style.STROKE);
+		dragGhostFill.setColor(0x66E8C547);
+		dragGhostFill.setStyle(Paint.Style.FILL);
+		dragGhostStroke.setColor(0xFFE8C547);
+		dragGhostStroke.setStyle(Paint.Style.STROKE);
+		dragGhostStroke.setStrokeWidth(3f);
 
 		scaleDetector = new ScaleGestureDetector(context,
 				new ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -142,6 +157,16 @@ public class MapperView extends View {
 						MapTile tile = hitTest(e.getX(), e.getY());
 						if (tile != null) {
 							selectedTileId = tile.getId();
+							if (tileDragEnabled) {
+								tileDragging = true;
+								draggingTile = tile;
+								int[] g = screenToGrid(e.getX(), e.getY());
+								dragGridX = g[0];
+								dragGridY = g[1];
+								panning = false;
+								invalidate();
+								return;
+							}
 							invalidate();
 							if (listener != null) {
 								listener.onTileLongPress(tile);
@@ -217,6 +242,18 @@ public class MapperView extends View {
 
 	public boolean isShowGrid() {
 		return showGrid;
+	}
+
+	public void setTileDragEnabled(boolean tileDragEnabled) {
+		this.tileDragEnabled = tileDragEnabled;
+		if (!tileDragEnabled) {
+			tileDragging = false;
+			draggingTile = null;
+		}
+	}
+
+	public boolean isTileDragEnabled() {
+		return tileDragEnabled;
 	}
 
 	/** Convert screen coordinates to map grid cell. */
@@ -303,6 +340,13 @@ public class MapperView extends View {
 						top + tileSize * 0.55f, textPaint);
 			}
 		}
+		if (tileDragging && draggingTile != null) {
+			float left = offsetX + dragGridX * tileSize;
+			float top = offsetY + dragGridY * tileSize;
+			tmpRect.set(left + 2, top + 2, left + tileSize - 2, top + tileSize - 2);
+			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, dragGhostFill);
+			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, dragGhostStroke);
+		}
 	}
 
 	private void drawExits(Canvas canvas, MapTile tile, float left, float top, float tileSize) {
@@ -380,15 +424,26 @@ public class MapperView extends View {
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		scaleDetector.onTouchEvent(event);
-		gestureDetector.onTouchEvent(event);
+		if (!tileDragging) {
+			gestureDetector.onTouchEvent(event);
+		}
 		final int action = event.getActionMasked();
 		switch (action) {
 		case MotionEvent.ACTION_DOWN:
 			lastPanX = event.getX();
 			lastPanY = event.getY();
-			panning = true;
+			panning = !tileDragging;
 			break;
 		case MotionEvent.ACTION_MOVE:
+			if (tileDragging) {
+				int[] g = screenToGrid(event.getX(), event.getY());
+				if (g[0] != dragGridX || g[1] != dragGridY) {
+					dragGridX = g[0];
+					dragGridY = g[1];
+					invalidate();
+				}
+				break;
+			}
 			if (panning && !scaleDetector.isInProgress() && event.getPointerCount() == 1) {
 				float dx = event.getX() - lastPanX;
 				float dy = event.getY() - lastPanY;
@@ -404,6 +459,17 @@ public class MapperView extends View {
 			break;
 		case MotionEvent.ACTION_UP:
 		case MotionEvent.ACTION_CANCEL:
+			if (tileDragging) {
+				MapTile moved = draggingTile;
+				int gx = dragGridX;
+				int gy = dragGridY;
+				tileDragging = false;
+				draggingTile = null;
+				invalidate();
+				if (moved != null && listener != null) {
+					listener.onTileDragEnd(moved, gx, gy);
+				}
+			}
 			panning = false;
 			break;
 		default:
