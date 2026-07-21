@@ -140,6 +140,7 @@ vars with the **Set Variable** responder or Lua `SetVariable` /
 | `.clearbuttons` | Clear on-screen buttons (`button_window` may re-register) |
 | `.switch <connection>` | Switch foreground UI to another open connection by display name |
 | `.search …` | Scrollback search; see forms below |
+| `.map …` | Built-in Mapper (open/record/find/path/maps/capture); see Mapper |
 
 ### `.trigger` forms
 
@@ -177,6 +178,41 @@ string match, same as Lua `EnableTriggerGroup`). Group commands apply to
 ```
 
 Empty argument opens the search UI. Buttons may also use `/search 'phrase'`.
+
+## Mapper
+
+Built-in room map (not ForgeMap). Open from overflow **Map**, or `.map` /
+`.map open` / `.map close` / `.map toggle`. Prefer floating or fullscreen
+with `.map mode float|fullscreen` (also Options → Mapper). Floating windows
+can be dragged and resized; opacity is in Options. The overlay stays under
+the ⋮ chrome so overflow remains reachable.
+
+| Command | Description |
+|---------|-------------|
+| `.map` | Help / status |
+| `.map open\|close\|toggle` | Show or hide the map UI |
+| `.map mode fullscreen\|float` | Presentation mode |
+| `.map record on\|off\|toggle` | Record movement into tiles/exits |
+| `.map follow on\|off` | Keep the view centered on you |
+| `.map level list\|prev\|next\|set <name>` | Levels |
+| `.map find <query>` | Search rooms |
+| `.map path <query>` | Show path commands (no send) |
+| `.map goto <query>` | Path; send only if **Path auto-send** is on |
+| `.map center` | Center on current room |
+| `.map undo` | Undo last graph change |
+| `.map maps` / `.map load <name>` / `.map new <name>` | Multiple maps |
+| `.map export` | Save now (`/BlowTorch/maps/`) |
+| `.map title` / `.map note` / `.map link` / `.map unlink` | Edit current tile |
+| `.map conflict list` | Conflict inbox |
+| `.map capture preview` | Test capture patterns on a pasted sample (or recent buffer lines when available) |
+| `.map capture apply` | Apply capture to the current tile |
+
+**Options → Mapper:** enable module, float/fullscreen default, opacity,
+recording defaults, follow, path auto-send, Use GMCP Room, toolbar actions,
+capture profile.
+
+**GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` can sync title /
+position / exits. Without GMCP, use capture patterns + preview/apply.
 
 ### `.run` defaults
 
@@ -299,10 +335,11 @@ it entirely to remove the plugin.
 
 ## Session overflow menu
 
-1. **Edit buttons** — enter button layout edit mode  
-2. **Crash report** — Show log / Share log  
-3. **About**  
-4. **Help** — This manual  
+1. **Map** — open / toggle the built-in Mapper (also `.map open|toggle`)  
+2. **Edit buttons** — enter button layout edit mode  
+3. **Crash report** — Show log / Share log  
+4. **About**  
+5. **Help** — This manual  
 
 Connection duration appears on the ongoing notification and launcher row.
 

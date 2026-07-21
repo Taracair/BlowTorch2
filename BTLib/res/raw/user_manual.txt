@@ -254,6 +254,57 @@ Font size
   Opens or drives scrollback search. Empty argument opens the search UI.
   Buttons may also use: /search 'phrase'
 
+Mapper
+------
+  Built-in room map (not ForgeMap). Open from overflow → Map, or:
+    .map                 help / status
+    .map open|close|toggle
+    .map mode fullscreen|float
+  Floating mode: drag to move, resize handle, opacity from Options.
+  The map stays under the ⋮ chrome so overflow stays reachable.
+
+  Recording & follow:
+    .map record on|off|toggle
+    .map follow on|off
+  With record on, movement commands build tiles and exits (n/e/s/w grid;
+  special exits for doors/up/down when needed). Follow centers on you.
+
+  Levels:
+    .map level list|prev|next|set <name>
+
+  Find / path / goto:
+    .map find <query>    list matching rooms
+    .map path <query>    show command path (do not send)
+    .map goto <query>    path; send if Options → Mapper → Path auto-send
+                         is on, otherwise print the path only
+    .map center          center on current room
+    .map undo
+
+  Multiple maps (JSON under /BlowTorch/maps/):
+    .map maps
+    .map load <name>
+    .map new <name>
+    .map export          save now
+
+  Title / notes / links on the current tile:
+    .map title <text>
+    .map note <text>
+    .map link <cmd>
+    .map unlink <cmd>
+    .map conflict list
+
+  GMCP Room: when Use GMCP? and Options → Mapper → Use GMCP Room are on,
+  Room.* packets can update the current room title/position/exits.
+
+  Capture (no GMCP): configure patterns under Options → Mapper → Capture.
+    .map capture preview   test patterns against a pasted sample (or recent
+                           buffer lines when the dialog can load them)
+    .map capture apply     apply a successful capture to the current tile
+
+  Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
+  recording defaults, follow, path auto-send, GMCP Room, toolbar actions,
+  capture profile).
+
 On-screen buttons (button_window)
 ---------------------------------
 Edit button layout: open ⋮ → Edit buttons, or long-press the ⋮ next to
@@ -294,6 +345,7 @@ starter_tutorial (loaded by default):
 
 Menus (session overflow)
 ------------------------
+Map — Open / toggle the built-in Mapper (also .map open|toggle)
 Edit buttons — Enter on-screen button layout edit mode
 Crash report — Show log / Share log (app error log)
 About — Version and description
