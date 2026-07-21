@@ -167,4 +167,8 @@ interface IConnectionBinder {
 	String getMapperSnapshotJson();
 	/** Ask the UI process to open/close/toggle/refresh mapper (1/2/3/4). */
 	void requestMapperUi(int action);
+	/** Like requestMapperUi but with a string payload (e.g. zoom action). */
+	void requestMapperUiArg(int action, String arg);
+	/** Consume the last UI arg set by requestMapperUiArg (UI process). */
+	String takeMapperUiArg();
 }

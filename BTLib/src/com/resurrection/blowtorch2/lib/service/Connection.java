@@ -3704,6 +3704,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.applySettingsFromConnection();
 				}
 				break;
+			case mapper_capture_title_regex:
+				if (mMapper != null) {
+					mMapper.setCaptureTitleRegex((String) o.getValue());
+				}
+				break;
+			case mapper_capture_exits_regex:
+				if (mMapper != null) {
+					mMapper.setCaptureExitsRegex((String) o.getValue());
+				}
+				break;
 			default:
 				break;
 			}
@@ -4590,7 +4600,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_path_auto_send,
 		mapper_use_gmcp,
 		mapper_auto_reverse_link,
-		mapper_toolbar_actions
+		mapper_toolbar_actions,
+		mapper_capture_title_regex,
+		mapper_capture_exits_regex
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
@@ -5216,6 +5228,25 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mService != null) {
 			mService.notifyMapperUi(action);
 		}
+	}
+
+	/** Optional string payload for {@link #requestMapperUi} (e.g. zoom action). */
+	private volatile String mMapperUiArg;
+
+	public final void setMapperUiArg(final String arg) {
+		mMapperUiArg = arg;
+	}
+
+	public final String takeMapperUiArg() {
+		String a = mMapperUiArg;
+		mMapperUiArg = null;
+		return a;
+	}
+
+	/** Ask UI to run a mapper action with a string arg (5 = zoom). */
+	public final void requestMapperUiArg(final int action, final String arg) {
+		setMapperUiArg(arg);
+		requestMapperUi(action);
 	}
 	
 	/** Getter for the display name.

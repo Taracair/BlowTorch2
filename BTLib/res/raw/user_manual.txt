@@ -270,6 +270,9 @@ Mapper
     Selected  = yellow outline = tapped tile
     Follow    = camera tracks current (pan/pinch turns it off)
   Maps: JSON under /BlowTorch/maps/ (autosave ~2s; Save / .map export)
+  .map export|save [path] — bare = maps dir; with path = write JSON there
+  .map import <path|name> — absolute / BlowTorch-relative path, or maps name;
+                            then copy into /BlowTorch/maps/
 
   Toolbar (map window):
     Rec/Stop, Follow, L-/L+, Find, Undo, Center
@@ -314,7 +317,12 @@ Mapper
     .map maps
     .map load <name>
     .map new <name>
-    .map export | .map save     save now
+    .map export | .map save [path]   bare = maps dir; path = write there
+    .map import <path|name>
+
+  Zoom (map UI must be open):
+    .map zoom in|out|reset
+    .map zoom <factor>
 
   Manual place / here / delete / neighbor / move:
     .map add [x y] [title] [here]
@@ -323,31 +331,37 @@ Mapper
     .map neighbor <cmd> [from <id>]
     .map move [id] <x> <y>
 
-  Title / notes / links:
+  Title / notes / links / conflicts:
     .map title <text>
     .map note <text>
     .map title for <tileId> <text>
     .map note for <tileId> <text>
     .map link <cmd> [from <id>] to <tileId>
     .map unlink <cmd> [from <id>]
-    .map conflict
+    .map conflict | list | list all
+    .map conflict resolve|ignore <id|n>
+    .map conflict resolve|ignore all
+    .map conflict purge
 
   Exits draw as arrows with walk-word labels. Paths spaces tiles for arrows.
   If more than two commands share an edge, the label shows "cmd1 · cmd2 +N";
   tap to list (and optionally unlink).
 
   GMCP Room: when Use GMCP? and Options → Mapper → Use GMCP Room are on,
-  Room.* can update the current room title. Without GMCP, use Rec while
-  walking and/or Draw/Links by hand.
+  Room.* syncs the current room title and creates missing neighbors from
+  Room exits (compass / level / special), without deleting exits not in the
+  list. Without GMCP, use Rec while walking and/or Draw/Links by hand.
 
   Capture (no GMCP / custom room lines):
-    Add "capture" to Mapper toolbar CSV → dialog with custom title/exits regex.
-    .map capture preview   default regex on recent buffer
+    Options → Mapper → Capture Title Regex / Capture Exits Regex
+    (mapper_capture_title_regex / mapper_capture_exits_regex).
+    Add "capture" to Mapper toolbar CSV → dialog (seeded from those Options).
+    .map capture preview   Options regex on recent buffer
     .map capture apply     apply last preview to the current tile
 
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
   recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
-  toolbar actions CSV).
+  toolbar actions CSV, capture title/exits regex).
 
   Typical flows:
     Record: .map new mymap → open → Rec → walk → Stop → Save

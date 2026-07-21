@@ -3449,6 +3449,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 4:
 			mapperOverlay.pullSnapshotFromService();
 			break;
+		case 5: {
+			// Zoom request from service (.map zoom …)
+			String zoomArg = null;
+			try {
+				if (service != null) {
+					zoomArg = service.takeMapperUiArg();
+				}
+			} catch (Exception ignored) {
+			}
+			if (zoomArg != null && zoomArg.length() > 0) {
+				mapperOverlay.zoomMap(zoomArg);
+			}
+			break;
+		}
 		default:
 			break;
 		}
