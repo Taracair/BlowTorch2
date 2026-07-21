@@ -1,11 +1,20 @@
 ---
-description: ForgeMap / in-app mapper is cancelled until explicitly revived
+description: Old ForgeMap plugin stays banned; new in-app Mapper module is allowed when user starts it
 alwaysApply: true
 ---
 
-# No ForgeMap (for now)
+# Mapper policy
 
-ForgeMap and the in-app mapper experiment are **cancelled**. Do not restore Lua/Java mapper code, MAP buttons, or forgemap plugins unless the user explicitly starts a new mapper project.
+## Banned: legacy ForgeMap
+
+Do **not** restore the old `forgemap` Lua plugin, MAP buttons from that experiment, or revive deleted ForgeMap code paths.
 
 - Old profiles may still mention `forgemap` — `PluginParser` skips that plugin; optionally run `scripts/strip_forgemap_from_profile.py`.
-- Keep **btTest** and **production** feature-parity for core client work (no mapper-only features in test).
+
+## Allowed: new Mapper (`lib/mapper/`)
+
+The user has started a **new** first-party Mapper project (Java UI + thin APIs), documented in the local gitignored plan `docs/MAPPER_V1_PLAN.md`.
+
+- Implement under `com.resurrection.blowtorch2.lib.mapper` (and related UI/commands/settings).
+- Work on **`staging`** + **btTest** until an explicit production release is requested.
+- Do not reintroduce the old plugin name `forgemap`.
