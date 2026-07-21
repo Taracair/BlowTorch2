@@ -196,6 +196,7 @@ stays under the ⋮ chrome so overflow remains reachable.
 | **Current** | Where the mapper thinks you are (green highlight) |
 | **Selected** | Tile you tapped (yellow outline); used by Edit / Here / Links |
 | **Follow** | Camera keeps current centered; pan/pinch turns Follow off until you Center |
+| **Level nest** | A floor anchored on a door/stairs tile (not one global stack) |
 
 Maps are JSON files under `/BlowTorch/maps/` (autosave ~2s after changes; **Save**
 on the toolbar or `.map export` / `.map save` forces a write). With a path,
@@ -203,18 +204,24 @@ on the toolbar or `.map export` / `.map save` forces a write). With a path,
 `.map import <path|name>` loads JSON from an absolute/BlowTorch-relative path
 or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 
+Title bar shows a breadcrumb when you are on a nested floor, e.g.
+`map · L-1 ← Hallway` (map name · level · door you entered from). **[REC]** means
+recording is on. Long-press the title for the **◎** radial menu.
+
 ### Toolbar (map window)
 
 | Control | What it does |
 |---------|----------------|
 | **Rec** / **Stop** | Toggle recording outbound movement into the graph |
 | **Follow** | Toggle camera follow |
-| **L−** / **L+** | Previous / next level; at the edge **creates** a new floor and moves **Here** onto it (you decide floors — not only up/down) |
+| **L−** / **L+** | Nest **down** / **up** from **Here** (follow or create that tile’s pocket floor; return via the anchor). Not a global level list |
 | **Find** | Search rooms |
 | **Undo** | Undo last graph change |
 | **Center** | Center on current |
 | **Links** | Link mode: tap FROM tile, then TO, then enter a walk verb (or unlink) |
 | **Paths** / **Pack** | Paths = spaced tiles with room for arrows; Pack = compressed neighbors |
+| **Levels** | Browse floors (list + via anchor); does not create |
+| **◎** | Radial: Levels, Floor ↑/↓, Paths, Draw, Links, Here, Save |
 | **Draw** | Manual edit: grid on; tap empty cell to place; long-press empty = place + Here |
 | **Here** | Set current to the selected tile |
 | **Edit** | Title / notes / level / exits dialog |
@@ -224,13 +231,28 @@ or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 Long-press a tile and drag to move it on the grid (release without moving opens the
 tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
 current. The left toolbar group comes from **Options → Mapper → Toolbar actions**;
-**Links**, **Paths/Pack**, **Draw**, **Here**, **Edit**, and **Save** are always
-appended.
+**Links**, **Paths/Pack**, **Levels**, **◎**, **Draw**, **Here**, **Edit**, and
+**Save** are always appended.
 
 Exits with a known destination draw as **arrows** between tiles with walk-word labels
 (`go west`, `n`, …). Use **Paths** so arrows/labels fit between tiles. If more than
 two commands share the same edge, the label shows `cmd1 · cmd2 +N` — tap it to open
-the full list (and optionally unlink).
+the full list (and optionally unlink). Cross-level exits show **▲** / **▼** / **◆**
+badges on the tile; tap a badge to jump to that floor (browse only).
+
+### Levels (tile-anchored)
+
+Floors nest **per Here tile**: each stairs/door can have its own basement or attic.
+**L−** / **L+** follow an existing nest from Here, or create one if none exists, or
+return to the anchor door when leaving. They are the manual tool for odd MUDs
+(e.g. west into a cellar).
+
+**Browse without creating:** toolbar **Levels** (list shows name, tile count, and
+“via …” for nests; tap = view; long-press = Set Here on that floor’s first tile),
+or tap ▲/▼/◆ badges. Radial **Floor ↑** / **Floor ↓** match **L+** / **L−**.
+
+Recording still maps `up`/`down` while you walk. Use **L−**/**L+** when you need a
+pocket floor that is not a simple vertical stack.
 
 ### Movement lexicon
 
@@ -240,8 +262,8 @@ Planar grid: **+x = east**, **+y = south** (north decreases y).
 |----------|--------|
 | `n`/`north`, `s`/`south`, `e`/`east`, `w`/`west` (and `go`/`walk`/`move` prefixes) | Neighbor on the same level |
 | `ne`/`nw`/`se`/`sw` | Diagonal |
-| `u`/`up`/`climb`/`ascend` | Level +1 |
-| `d`/`down`/`descend` | Level −1 |
+| `u`/`up`/`climb`/`ascend` | Level +1 (while Recording) |
+| `d`/`down`/`descend` | Level −1 (while Recording) |
 | `in`/`enter`, `out`/`leave`/`exit`, other text | Special exit (nearby cell, not a compass step) |
 
 Recording prefers this built-in compass lexicon before Speedwalk key bindings
@@ -258,7 +280,7 @@ Print the summary with `.map dirs`.
 | `.map mode fullscreen\|float` | Presentation mode |
 | `.map record on\|off\|toggle` | Record movement into tiles/exits (`rec` alias) |
 | `.map follow on\|off\|toggle` | Keep the view centered on you |
-| `.map level list\|prev\|next\|set <name>` | Browse / switch level |
+| `.map level list\|prev\|next\|set <name>` | List / nest down (prev) / nest up (next) / jump by name |
 | `.map level move <tileId> <level>` | Move a tile onto another level |
 | `.map find <query>` | Search rooms (`search` alias) |
 | `.map path <query>` | Show path commands (no send) |
@@ -290,7 +312,8 @@ Print the summary with `.map dirs`.
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links,
-toolbar actions CSV (optional `capture` token opens the Capture dialog),
+toolbar actions CSV (optional `capture` token opens the Capture dialog;
+**Levels** and **◎** are always on the toolbar),
 **Capture Title Regex** / **Capture Exits Regex** (keys
 `mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
 `.map capture` and the Capture dialog).

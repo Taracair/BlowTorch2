@@ -40,6 +40,11 @@ public class MapperView extends View {
 		 * {@link #MAX_VISIBLE_LINK_LABELS} commands on one edge).
 		 */
 		void onLinkCommandsTap(MapTile from, MapTile to, List<String> commands);
+		/**
+		 * User tapped an inter-level exit badge (▲/▼/◆) on a tile.
+		 * {@code dest} is the exit destination on another level.
+		 */
+		void onInterLevelExitTap(MapTile from, MapExit exit, MapTile dest);
 	}
 
 	private static final float BASE_TILE = 56f;
@@ -68,6 +73,26 @@ public class MapperView extends View {
 		}
 	}
 
+	/** Kind of cross-level exit badge drawn on a tile body. */
+	private enum InterLevelKind {
+		UP, DOWN, SPECIAL
+	}
+
+	private static final class InterLevelBadge {
+		final RectF bounds = new RectF();
+		final String fromId;
+		final MapExit exit;
+		final String destId;
+		final InterLevelKind kind;
+
+		InterLevelBadge(String fromId, MapExit exit, String destId, InterLevelKind kind) {
+			this.fromId = fromId;
+			this.exit = exit;
+			this.destId = destId;
+			this.kind = kind;
+		}
+	}
+
 	private final Paint tileFill = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint tileStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint currentFill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -78,6 +103,11 @@ public class MapperView extends View {
 	private final Paint linkLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint linkLabelBg = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint specialPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint interUpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint interDownPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint interSpecialPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint interBadgeBg = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint interLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint bgPaint = new Paint();
 	private final Paint gridPaint = new Paint();
 	private final Paint dragGhostFill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -85,11 +115,16 @@ public class MapperView extends View {
 	private final RectF tmpRect = new RectF();
 	private final Path arrowPath = new Path();
 	private final List<LinkBadge> linkBadges = new ArrayList<LinkBadge>();
+	private final List<InterLevelBadge> interLevelBadges = new ArrayList<InterLevelBadge>();
 
 	private final ScaleGestureDetector scaleDetector;
 	private final GestureDetector gestureDetector;
 
 	private List<MapTile> tiles = new ArrayList<MapTile>();
+	/** Full-map id→tile index for resolving exits to other levels. */
+	private Map<String, MapTile> tileById = new HashMap<String, MapTile>();
+	/** Full-map id→level for index / name lookups. */
+	private Map<String, MapLevel> levelById = new HashMap<String, MapLevel>();
 	private String currentTileId;
 	private String selectedTileId;
 	private TileInteractionListener listener;
@@ -153,6 +188,19 @@ public class MapperView extends View {
 		linkLabelBg.setStyle(Paint.Style.FILL);
 		specialPaint.setColor(0xFFFFB060);
 		specialPaint.setStyle(Paint.Style.FILL);
+		interUpPaint.setColor(0xFF5ED4E8);
+		interUpPaint.setStyle(Paint.Style.FILL);
+		interUpPaint.setTextAlign(Paint.Align.CENTER);
+		interDownPaint.setColor(0xFFE8B84A);
+		interDownPaint.setStyle(Paint.Style.FILL);
+		interDownPaint.setTextAlign(Paint.Align.CENTER);
+		interSpecialPaint.setColor(0xFFFF8C40);
+		interSpecialPaint.setStyle(Paint.Style.FILL);
+		interSpecialPaint.setTextAlign(Paint.Align.CENTER);
+		interBadgeBg.setColor(0xAA102030);
+		interBadgeBg.setStyle(Paint.Style.FILL);
+		interLabelPaint.setColor(0xFFD0E8F0);
+		interLabelPaint.setTextAlign(Paint.Align.CENTER);
 		bgPaint.setColor(0x00000000);
 		gridPaint.setColor(0x33FFFFFF);
 		gridPaint.setStrokeWidth(1f);
@@ -206,6 +254,17 @@ public class MapperView extends View {
 
 					@Override
 					public boolean onSingleTapConfirmed(MotionEvent e) {
+						InterLevelBadge inter = hitInterLevelBadge(e.getX(), e.getY());
+						if (inter != null && listener != null) {
+							MapTile from = findTile(inter.fromId);
+							MapTile dest = resolveTile(inter.destId);
+							if (from != null && dest != null && inter.exit != null) {
+								selectedTileId = from.getId();
+								invalidate();
+								listener.onInterLevelExitTap(from, inter.exit, dest);
+								return true;
+							}
+						}
 						LinkBadge badge = hitLinkBadge(e.getX(), e.getY());
 						if (badge != null && listener != null) {
 							MapTile from = findTile(badge.fromId);
@@ -291,6 +350,27 @@ public class MapperView extends View {
 				}
 			});
 		}
+		invalidate();
+	}
+
+	/**
+	 * Full-map tile id→tile lookup so exits can resolve destinations on other
+	 * levels (current {@link #setTiles} list is level-filtered).
+	 */
+	public void setTileIndex(Map<String, MapTile> byId) {
+		this.tileById = byId != null
+				? new HashMap<String, MapTile>(byId)
+				: new HashMap<String, MapTile>();
+		invalidate();
+	}
+
+	/**
+	 * Full-map level id→level lookup for index comparison and badge labels.
+	 */
+	public void setLevelIndex(Map<String, MapLevel> byId) {
+		this.levelById = byId != null
+				? new HashMap<String, MapLevel>(byId)
+				: new HashMap<String, MapLevel>();
 		invalidate();
 	}
 
@@ -503,6 +583,7 @@ public class MapperView extends View {
 		}
 
 		linkBadges.clear();
+		interLevelBadges.clear();
 		drawLinkArrows(canvas, bs);
 
 		textPaint.setTextSize(Math.max(8f, 11f * scale * (pathsLayout ? 0.95f : 1f)));
@@ -527,6 +608,7 @@ public class MapperView extends View {
 				canvas.drawText(truncate(label, scale), left + bs * 0.5f,
 						top + bs * 0.55f, textPaint);
 			}
+			drawInterLevelBadges(canvas, tile, left, top, bs);
 		}
 		if (tileDragging && draggingTile != null) {
 			float left = bodyLeft(dragGridX);
@@ -672,7 +754,7 @@ public class MapperView extends View {
 		linkPaint.setStyle(Paint.Style.STROKE);
 	}
 
-	/** Dots for specials / level exits that have no drawable destination arrow. */
+	/** Dots for specials / unknown exits that have no drawable destination arrow. */
 	private void drawSpecialExitDots(Canvas canvas, MapTile tile, float left, float top,
 			float tileSize) {
 		float cx = left + tileSize * 0.5f;
@@ -682,9 +764,10 @@ public class MapperView extends View {
 			if (exit == null || exit.getCommand() == null) {
 				continue;
 			}
-			MapTile dest = exit.getToId() != null ? findTile(exit.getToId()) : null;
+			MapTile dest = resolveTile(exit.getToId());
 			if (dest != null) {
-				continue; // drawn as arrow
+				// Same-level → arrow; cross-level → corner badge (not a center dot).
+				continue;
 			}
 			float ox = cx + (specialIndex % 3 - 1) * (6f * scale);
 			float oy = cy + tileSize * 0.18f + (specialIndex / 3) * (6f * scale);
@@ -693,9 +776,184 @@ public class MapperView extends View {
 		}
 	}
 
+	/**
+	 * Corner glyphs for exits whose destination tile is on another level.
+	 * ▲ top (up), ▼ bottom (down), ◆ mid-right (in/out/portal/other).
+	 */
+	private void drawInterLevelBadges(Canvas canvas, MapTile tile, float left, float top,
+			float tileSize) {
+		if (tile == null || tile.getExits() == null || scale < 0.35f) {
+			return;
+		}
+		MapExit upExit = null;
+		MapExit downExit = null;
+		MapExit specialExit = null;
+		MapTile upDest = null;
+		MapTile downDest = null;
+		MapTile specialDest = null;
+		for (MapExit exit : tile.getExits()) {
+			if (exit == null || exit.getToId() == null) {
+				continue;
+			}
+			MapTile dest = resolveTile(exit.getToId());
+			if (dest == null || sameLevel(tile, dest)) {
+				continue;
+			}
+			InterLevelKind kind = classifyInterLevel(tile, dest, exit.getCommand());
+			if (kind == InterLevelKind.UP && upExit == null) {
+				upExit = exit;
+				upDest = dest;
+			} else if (kind == InterLevelKind.DOWN && downExit == null) {
+				downExit = exit;
+				downDest = dest;
+			} else if (kind == InterLevelKind.SPECIAL && specialExit == null) {
+				specialExit = exit;
+				specialDest = dest;
+			}
+		}
+		float glyphSize = Math.max(10f, 13f * scale);
+		float pad = Math.max(3f, 4f * scale);
+		float hitPad = Math.max(6f, 8f * scale);
+		if (upExit != null && upDest != null) {
+			placeInterLevelBadge(canvas, tile, upExit, upDest, InterLevelKind.UP,
+					left + tileSize * 0.5f, top + pad + glyphSize * 0.35f,
+					glyphSize, hitPad, "▲", interUpPaint);
+		}
+		if (downExit != null && downDest != null) {
+			placeInterLevelBadge(canvas, tile, downExit, downDest, InterLevelKind.DOWN,
+					left + tileSize * 0.5f, top + tileSize - pad,
+					glyphSize, hitPad, "▼", interDownPaint);
+		}
+		if (specialExit != null && specialDest != null) {
+			placeInterLevelBadge(canvas, tile, specialExit, specialDest, InterLevelKind.SPECIAL,
+					left + tileSize - pad - glyphSize * 0.2f,
+					top + tileSize * 0.5f + glyphSize * 0.15f,
+					glyphSize, hitPad, "◆", interSpecialPaint);
+		}
+	}
+
+	private void placeInterLevelBadge(Canvas canvas, MapTile from, MapExit exit, MapTile dest,
+			InterLevelKind kind, float cx, float baselineY, float glyphSize, float hitPad,
+			String glyph, Paint paint) {
+		paint.setTextSize(glyphSize);
+		float tw = paint.measureText(glyph);
+		float bgPad = Math.max(2f, 3f * scale);
+		tmpRect.set(cx - tw * 0.5f - bgPad, baselineY - glyphSize + bgPad * 0.4f,
+				cx + tw * 0.5f + bgPad, baselineY + bgPad * 0.6f);
+		canvas.drawRoundRect(tmpRect, 3f * scale, 3f * scale, interBadgeBg);
+		canvas.drawText(glyph, cx, baselineY, paint);
+
+		InterLevelBadge badge = new InterLevelBadge(from.getId(), exit, dest.getId(), kind);
+		badge.bounds.set(tmpRect);
+		badge.bounds.inset(-hitPad, -hitPad);
+		interLevelBadges.add(badge);
+
+		if (scale >= 0.95f) {
+			String lvlName = levelLabel(dest.getLevelId());
+			if (lvlName != null && lvlName.length() > 0) {
+				interLabelPaint.setTextSize(Math.max(7f, 8.5f * scale));
+				String shortName = truncate(lvlName, scale * 0.85f);
+				float ly;
+				if (kind == InterLevelKind.UP) {
+					ly = tmpRect.top - 2f * scale;
+				} else if (kind == InterLevelKind.DOWN) {
+					ly = tmpRect.bottom + interLabelPaint.getTextSize();
+				} else {
+					ly = tmpRect.centerY() + interLabelPaint.getTextSize() * 0.35f;
+					cx = tmpRect.right + 2f * scale
+							+ interLabelPaint.measureText(shortName) * 0.5f;
+				}
+				canvas.drawText(shortName, cx, ly, interLabelPaint);
+			}
+		}
+	}
+
+	private InterLevelKind classifyInterLevel(MapTile from, MapTile dest, String command) {
+		String norm = MapDirections.normalize(command, null);
+		Integer delta = MapDirections.levelDelta(norm);
+		if (delta != null) {
+			return delta.intValue() > 0 ? InterLevelKind.UP : InterLevelKind.DOWN;
+		}
+		if (norm != null) {
+			String n = norm.toLowerCase(java.util.Locale.US);
+			if ("climb".equals(n) || "ascend".equals(n)) {
+				return InterLevelKind.UP;
+			}
+			if ("descend".equals(n)) {
+				return InterLevelKind.DOWN;
+			}
+		}
+		int fromIdx = levelIndex(from != null ? from.getLevelId() : null);
+		int toIdx = levelIndex(dest != null ? dest.getLevelId() : null);
+		if (fromIdx != Integer.MIN_VALUE && toIdx != Integer.MIN_VALUE) {
+			if (toIdx > fromIdx) {
+				return InterLevelKind.UP;
+			}
+			if (toIdx < fromIdx) {
+				return InterLevelKind.DOWN;
+			}
+		}
+		return InterLevelKind.SPECIAL;
+	}
+
+	private boolean sameLevel(MapTile a, MapTile b) {
+		if (a == null || b == null) {
+			return false;
+		}
+		String la = a.getLevelId();
+		String lb = b.getLevelId();
+		if (la == null && lb == null) {
+			return true;
+		}
+		return la != null && la.equals(lb);
+	}
+
+	private int levelIndex(String levelId) {
+		if (levelId == null) {
+			return Integer.MIN_VALUE;
+		}
+		MapLevel level = levelById.get(levelId);
+		return level != null ? level.getIndex() : Integer.MIN_VALUE;
+	}
+
+	private String levelLabel(String levelId) {
+		if (levelId == null) {
+			return null;
+		}
+		MapLevel level = levelById.get(levelId);
+		if (level == null) {
+			return null;
+		}
+		if (level.getName() != null && level.getName().length() > 0) {
+			return level.getName();
+		}
+		return "L" + level.getIndex();
+	}
+
+	private MapTile resolveTile(String id) {
+		if (id == null) {
+			return null;
+		}
+		MapTile t = tileById.get(id);
+		if (t != null) {
+			return t;
+		}
+		return findTile(id);
+	}
+
 	private LinkBadge hitLinkBadge(float x, float y) {
 		for (int i = linkBadges.size() - 1; i >= 0; i--) {
 			LinkBadge b = linkBadges.get(i);
+			if (b.bounds.contains(x, y)) {
+				return b;
+			}
+		}
+		return null;
+	}
+
+	private InterLevelBadge hitInterLevelBadge(float x, float y) {
+		for (int i = interLevelBadges.size() - 1; i >= 0; i--) {
+			InterLevelBadge b = interLevelBadges.get(i);
 			if (b.bounds.contains(x, y)) {
 				return b;
 			}

@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.mapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -121,6 +122,60 @@ public class MudMap {
 		}
 		for (MapLevel level : levels) {
 			if (levelId.equals(level.getId())) {
+				return level;
+			}
+		}
+		return null;
+	}
+
+	/** Levels whose door/stairs tile is {@code tileId} (any entry direction). */
+	public List<MapLevel> findLevelsAnchoredOn(String tileId) {
+		List<MapLevel> out = new ArrayList<MapLevel>();
+		if (tileId == null) {
+			return out;
+		}
+		for (MapLevel level : levels) {
+			if (level != null && tileId.equals(level.getAnchorTileId())) {
+				out.add(level);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * First level anchored on {@code tileId} with matching entry direction
+	 * ({@code dir} compared via lexicon normalize / long form; null/empty dir
+	 * matches any).
+	 */
+	public MapLevel findLevelAnchoredOn(String tileId, String dir) {
+		if (tileId == null) {
+			return null;
+		}
+		String want = dir != null ? MapDirections.normalize(dir, null) : "";
+		if (want.length() == 0 && dir != null) {
+			want = dir.trim().toLowerCase(Locale.US);
+		}
+		String wantLong = want.length() > 0 ? MapDirections.toLongForm(want) : "";
+		for (MapLevel level : levels) {
+			if (level == null || !tileId.equals(level.getAnchorTileId())) {
+				continue;
+			}
+			if (want.length() == 0) {
+				return level;
+			}
+			String ad = level.getAnchorDir();
+			if (ad == null) {
+				continue;
+			}
+			String got = MapDirections.normalize(ad, null);
+			if (got.length() == 0) {
+				got = ad.trim().toLowerCase(Locale.US);
+			}
+			if (want.equalsIgnoreCase(got)) {
+				return level;
+			}
+			String gotLong = MapDirections.toLongForm(got);
+			if (wantLong != null && wantLong.equalsIgnoreCase(gotLong)) {
 				return level;
 			}
 		}
