@@ -210,6 +210,19 @@ public class MapperOverlayController
 			}
 
 			@Override
+			public void onTileDoubleTap(MapTile tile) {
+				if (tile == null) {
+					return;
+				}
+				selectedTileId = tile.getId();
+				if (linkEditMode) {
+					onLinkEditTap(tile);
+					return;
+				}
+				runSetHere(tile.getId());
+			}
+
+			@Override
 			public void onEmptyTap(int gridX, int gridY) {
 				if (drawEditMode) {
 					placeTileAt(gridX, gridY, false);
@@ -232,11 +245,15 @@ public class MapperOverlayController
 					return;
 				}
 				if (tile.getGridX() == gridX && tile.getGridY() == gridY) {
-					// Dropped on same cell — show context instead
 					showTileContext(tile);
 					return;
 				}
 				runMoveTile(tile.getId(), gridX, gridY);
+			}
+
+			@Override
+			public void onLinkCommandsTap(MapTile from, MapTile to, List<String> commands) {
+				showLinkCommandsPopup(from, to, commands);
 			}
 		});
 
@@ -1096,6 +1113,43 @@ public class MapperOverlayController
 					}
 				})
 				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	/** Expand overflow link label (+N) into a small menu of walk commands. */
+	private void showLinkCommandsPopup(final MapTile from, final MapTile to,
+			final List<String> commands) {
+		if (from == null || to == null || commands == null || commands.isEmpty()) {
+			return;
+		}
+		CharSequence[] items = new CharSequence[commands.size()];
+		for (int i = 0; i < commands.size(); i++) {
+			items[i] = commands.get(i);
+		}
+		new AlertDialog.Builder(host.getMainWindow())
+				.setTitle(shortTileLabel(from) + " → " + shortTileLabel(to))
+				.setItems(items, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which < 0 || which >= commands.size()) {
+							return;
+						}
+						final String cmd = commands.get(which);
+						new AlertDialog.Builder(host.getMainWindow())
+								.setTitle(cmd)
+								.setMessage("Unlink this exit?")
+								.setPositiveButton("Unlink",
+										new DialogInterface.OnClickListener() {
+											@Override
+											public void onClick(DialogInterface d, int w) {
+												runUnlink(from.getId(), cmd);
+											}
+										})
+								.setNegativeButton("Close", null)
+								.show();
+					}
+				})
+				.setNegativeButton("Close", null)
 				.show();
 	}
 
