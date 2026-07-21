@@ -23,6 +23,10 @@ public final class TimerParser {
 		out.attribute("", BasePluginParser.ATTR_SECONDS, timer.getSeconds().toString());
 		out.attribute("", BasePluginParser.ATTR_REPEAT, (timer.isRepeat()) ? "true" : "false");
 		out.attribute("", BasePluginParser.ATTR_PLAYING, (timer.isPlaying()) ? "true" : "false");
+		if (timer.getGroup() != null
+				&& !TimerData.DEFAULT_GROUP.equals(timer.getGroup())) {
+			out.attribute("", BasePluginParser.ATTR_GROUP, timer.getGroup());
+		}
 		for (TriggerResponder r : timer.getResponders()) {
 			r.saveResponderToXML(out);
 		}

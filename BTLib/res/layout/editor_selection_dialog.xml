@@ -28,24 +28,63 @@
 		android:textStyle="bold"
 		android:gravity="center"/>
 
-	<EditText
-		android:id="@+id/search_field"
+	<LinearLayout
+		android:id="@+id/search_filter_block"
 		android:layout_width="fill_parent"
 		android:layout_height="wrap_content"
-		android:minHeight="44dip"
 		android:layout_below="@id/titlebar"
-		android:hint="Search name or pattern"
-		android:inputType="text"
-		android:maxLines="1"
-		android:imeOptions="actionSearch"
-		android:textColor="#FF000000"
-		android:textColorHint="#FF666666"
-		android:background="#FFCCCCCC"
-		android:paddingLeft="10dip"
-		android:paddingRight="10dip"
-		android:paddingTop="10dip"
-		android:paddingBottom="10dip"
-		android:textSize="16dip"/>
+		android:orientation="vertical">
+
+		<EditText
+			android:id="@+id/search_field"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:hint="Search name or pattern"
+			android:inputType="text"
+			android:maxLines="1"
+			android:imeOptions="actionSearch"
+			android:textColor="#FF000000"
+			android:textColorHint="#FF666666"
+			android:background="#FFCCCCCC"
+			android:paddingLeft="10dip"
+			android:paddingRight="10dip"
+			android:paddingTop="10dip"
+			android:paddingBottom="10dip"
+			android:textSize="16dip"/>
+
+		<LinearLayout
+			android:id="@+id/filter_bar"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"
+			android:orientation="horizontal"
+			android:gravity="center_vertical"
+			android:background="#FFBBBBBB"
+			android:paddingLeft="6dip"
+			android:paddingRight="6dip"
+			android:paddingTop="4dip"
+			android:paddingBottom="4dip"
+			android:visibility="gone">
+
+			<Spinner
+				android:id="@+id/plugin_filter_spinner"
+				android:layout_width="0dip"
+				android:layout_height="wrap_content"
+				android:layout_weight="1"
+				android:minHeight="40dip"
+				android:popupBackground="#FF000000"/>
+
+			<Spinner
+				android:id="@+id/group_filter_spinner"
+				android:layout_width="0dip"
+				android:layout_height="wrap_content"
+				android:layout_weight="1"
+				android:minHeight="40dip"
+				android:layout_marginLeft="4dip"
+				android:popupBackground="#FF000000"
+				android:visibility="gone"/>
+		</LinearLayout>
+	</LinearLayout>
 
 	<Button
 		android:id="@+id/done"
@@ -81,7 +120,7 @@
 	    android:layout_width="match_parent"
 	    android:layout_height="fill_parent"
 	    android:layout_above="@id/add"
-	    android:layout_below="@id/search_field"
+	    android:layout_below="@id/search_filter_block"
 	    android:layout_margin="0dip"
 	    android:padding="0dip" >
 

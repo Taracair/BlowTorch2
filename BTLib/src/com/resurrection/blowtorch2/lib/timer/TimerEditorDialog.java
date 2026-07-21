@@ -1,6 +1,8 @@
 package com.resurrection.blowtorch2.lib.timer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.TreeSet;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
@@ -28,6 +30,9 @@ import android.os.RemoteException;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -35,6 +40,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
+import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -126,9 +132,112 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			seconds.setText(orig_timer.getSeconds().toString());
 			repeat.setChecked(orig_timer.isRepeat());
 			donebutton.setText("Done");
-			
+
 		}
+		setupGroupField();
 		EditorDialogChrome.applyNearlyFullScreen(this);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void setupGroupField() {
+		AutoCompleteTextView group =
+				(AutoCompleteTextView) findViewById(R.id.timer_editor_group);
+		if (group == null) {
+			return;
+		}
+		String existing = the_timer.getGroup();
+		group.setText(existing != null ? existing : "");
+
+		TreeSet<String> names = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
+		try {
+			HashMap<String, TimerData> map;
+			if (PluginFilterSelectionDialog.MAIN_SETTINGS.equals(plugin)) {
+				map = (HashMap<String, TimerData>) service.getTimers();
+			} else {
+				map = (HashMap<String, TimerData>) service.getPluginTimers(plugin);
+			}
+			if (map != null) {
+				for (TimerData t : map.values()) {
+					if (t == null) {
+						continue;
+					}
+					String g = t.getGroup();
+					if (g != null && g.length() > 0
+							&& !TimerData.DEFAULT_GROUP.equals(g)) {
+						names.add(g);
+					}
+				}
+			}
+		} catch (RemoteException e) {
+			// optional
+		}
+		ArrayList<String> nameList = new ArrayList<String>(names);
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_dropdown_item_dark, nameList);
+		group.setAdapter(adapter);
+		group.setThreshold(1);
+		group.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+			@Override
+			public void onFocusChange(View v, boolean hasFocus) {
+				if (hasFocus && group.getAdapter() != null
+						&& group.getAdapter().getCount() > 0) {
+					group.showDropDown();
+				}
+			}
+		});
+
+		Spinner picker = (Spinner) findViewById(R.id.timer_editor_group_spinner);
+		if (picker == null) {
+			return;
+		}
+		final ArrayList<String> spinnerLabels = new ArrayList<String>();
+		spinnerLabels.add("(default)");
+		spinnerLabels.addAll(nameList);
+		ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_item_dark, spinnerLabels);
+		spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		picker.setAdapter(spinnerAdapter);
+		String current = group.getText() != null ? group.getText().toString().trim() : "";
+		int selected = 0;
+		if (current.length() > 0) {
+			for (int i = 0; i < nameList.size(); i++) {
+				if (nameList.get(i).equals(current)) {
+					selected = i + 1;
+					break;
+				}
+			}
+		}
+		picker.setSelection(selected, false);
+		picker.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			private boolean first = true;
+			@Override
+			public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+				if (first) {
+					first = false;
+					return;
+				}
+				if (position <= 0) {
+					group.setText("");
+				} else {
+					group.setText(spinnerLabels.get(position));
+					group.setSelection(group.getText().length());
+				}
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
+	}
+
+	private String readGroupField() {
+		AutoCompleteTextView group =
+				(AutoCompleteTextView) findViewById(R.id.timer_editor_group);
+		if (group == null) {
+			return TimerData.DEFAULT_GROUP;
+		}
+		String text = group.getText() != null ? group.getText().toString().trim() : "";
+		return text.length() == 0 ? TimerData.DEFAULT_GROUP : text;
 	}
 	
 	private class TimerEditerDoneListener implements View.OnClickListener {
@@ -156,7 +265,8 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				the_timer.setName(theName);
 				the_timer.setSeconds(Integer.parseInt(theSeconds));
 				the_timer.setRepeat(theRepeat);
-				
+				the_timer.setGroup(readGroupField());
+
 				//responders should be handled already.
 				try {
 					if(plugin.equals(PluginFilterSelectionDialog.MAIN_SETTINGS)) {
@@ -173,9 +283,9 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				the_timer.setName(theName);
 				the_timer.setSeconds(Integer.parseInt(theSeconds));
 				the_timer.setRepeat(theRepeat);
-				
+				the_timer.setGroup(readGroupField());
+
 				try {
-					//the_timer.setOrdinal(service.getNextTimerOrdinal());
 					if(plugin.equals(PluginFilterSelectionDialog.MAIN_SETTINGS)) {
 						service.addTimer(the_timer);
 					} else {

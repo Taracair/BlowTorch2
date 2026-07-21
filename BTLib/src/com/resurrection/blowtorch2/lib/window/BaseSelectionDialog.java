@@ -28,6 +28,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.LinearLayout.LayoutParams;
 import android.view.Gravity;
@@ -59,7 +60,14 @@ public class BaseSelectionDialog extends Dialog {
 
 	private TextView mTitlebar;
 	private CharSequence mNewTitle = "New";
-	
+
+	private LinearLayout mFilterBar;
+	private Spinner mPluginFilterSpinner;
+	private Spinner mGroupFilterSpinner;
+	private boolean mFilterBarPendingShow = false;
+	private boolean mFilterBarWantPlugin = false;
+	private boolean mFilterBarWantGroup = false;
+
 	public BaseSelectionDialog(Context context) {
 		super(context, R.style.BlowTorch_Dialog_FullScreen);
 		// TODO Auto-generated constructor stub
@@ -196,7 +204,7 @@ public class BaseSelectionDialog extends Dialog {
 		
 		
 		mList.setEmptyView(findViewById(R.id.empty));
-		
+
 		EditText searchField = (EditText) findViewById(R.id.search_field);
 		if (searchField != null) {
 			if (!mSearchVisible) {
@@ -222,9 +230,17 @@ public class BaseSelectionDialog extends Dialog {
 				});
 			}
 		}
-		
+
+		mFilterBar = (LinearLayout) findViewById(R.id.filter_bar);
+		mPluginFilterSpinner = (Spinner) findViewById(R.id.plugin_filter_spinner);
+		mGroupFilterSpinner = (Spinner) findViewById(R.id.group_filter_spinner);
+		if (mFilterBarPendingShow) {
+			showFilterBar(mFilterBarWantPlugin, mFilterBarWantGroup);
+		}
+
 		buildRawList();
-		
+		onSelectionDialogReady();
+
 		Button newbutton = (Button)findViewById(R.id.add);
 		newbutton.setText(mNewTitle );
 		
@@ -465,7 +481,71 @@ public class BaseSelectionDialog extends Dialog {
 			searchField.setVisibility(visible ? View.VISIBLE : View.GONE);
 		}
 	}
-	
+
+	/** Called after list/search/options wiring in {@link #onCreate}; subclasses wire filters here. */
+	protected void onSelectionDialogReady() {
+	}
+
+	protected LinearLayout getFilterBar() {
+		return mFilterBar;
+	}
+
+	protected Spinner getPluginFilterSpinner() {
+		return mPluginFilterSpinner;
+	}
+
+	protected Spinner getGroupFilterSpinner() {
+		return mGroupFilterSpinner;
+	}
+
+	/**
+	 * Show or hide the filter bar under search. Plugin/group spinners are independently
+	 * visible when {@code plugin}/{@code group} is true. Safe to call before {@link #onCreate}.
+	 */
+	public void showFilterBar(boolean plugin, boolean group) {
+		mFilterBarWantPlugin = plugin;
+		mFilterBarWantGroup = group;
+		if (mFilterBar == null) {
+			mFilterBarPendingShow = plugin || group;
+			return;
+		}
+		mFilterBarPendingShow = false;
+		boolean showBar = plugin || group;
+		mFilterBar.setVisibility(showBar ? View.VISIBLE : View.GONE);
+		if (mPluginFilterSpinner != null) {
+			mPluginFilterSpinner.setVisibility(plugin ? View.VISIBLE : View.GONE);
+		}
+		if (mGroupFilterSpinner != null) {
+			mGroupFilterSpinner.setVisibility(group ? View.VISIBLE : View.GONE);
+		}
+	}
+
+	/** Apply a dark spinner adapter to the plugin filter spinner (no-op if missing). */
+	protected void setPluginFilterAdapter(ArrayAdapter<String> adapter) {
+		if (mPluginFilterSpinner == null || adapter == null) {
+			return;
+		}
+		adapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		mPluginFilterSpinner.setAdapter(adapter);
+	}
+
+	/** Apply a dark spinner adapter to the group filter spinner (no-op if missing). */
+	protected void setGroupFilterAdapter(ArrayAdapter<String> adapter) {
+		if (mGroupFilterSpinner == null || adapter == null) {
+			return;
+		}
+		adapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		mGroupFilterSpinner.setAdapter(adapter);
+	}
+
+	/** Build a dark-themed string adapter for filter spinners. */
+	protected ArrayAdapter<String> makeFilterSpinnerAdapter(List<String> labels) {
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_item_dark, labels);
+		adapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		return adapter;
+	}
+
 	public void addListItem(String name,String extra,int mini_icon,boolean enabled) {
 		addListItem(name, name, extra, mini_icon, enabled);
 	}
@@ -984,9 +1064,13 @@ public class BaseSelectionDialog extends Dialog {
 	}
 	
 	public void scrollToSelection(String str) {
+		if (mAdapter == null || str == null) {
+			return;
+		}
 		for(int i=0;i<mAdapter.getCount();i++) {
 			ItemEntry foo = mAdapter.getItem(i);
-			if(str.equals(foo.title)) {
+			if (str.equals(foo.key) || str.equals(foo.title)
+					|| (foo.title != null && foo.title.endsWith(": " + str))) {
 				mList.setSelection(i);
 				return;
 			}
