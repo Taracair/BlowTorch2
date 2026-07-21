@@ -1,5 +1,6 @@
 package com.resurrection.blowtorch2.lib.service.function;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -375,22 +376,26 @@ public class MapCommand extends SpecialCommand {
 
 		boolean send = forceSend || (gotoMode && mapper.isPathAutoSend());
 		if (send) {
-			final String sendPayload;
-			StringBuilder sendBuf = new StringBuilder();
-			for (int i = 0; i < cmds.size(); i++) {
-				sendBuf.append(cmds.get(i));
-				if (i < cmds.size() - 1) {
-					sendBuf.append("\r\n");
-				}
-			}
-			sendPayload = sendBuf.toString();
+			final List<String> toSend = new ArrayList<String>(cmds);
 			c.getHandler().post(new Runnable() {
 				@Override
 				public void run() {
 					mapper.setSuppressRecord(true);
 					try {
-						c.getHandler().handleMessage(c.getHandler().obtainMessage(
-								Connection.MESSAGE_SENDDATA_STRING, sendPayload));
+						for (int i = 0; i < toSend.size(); i++) {
+							String step = toSend.get(i);
+							if (step == null) {
+								continue;
+							}
+							step = step.trim();
+							if (step.length() == 0) {
+								continue;
+							}
+							// One command per message — processOutputData does not
+							// split on embedded CR/LF, so a joined blob never walks.
+							c.getHandler().handleMessage(c.getHandler().obtainMessage(
+									Connection.MESSAGE_SENDDATA_STRING, step));
+						}
 					} catch (Exception e) {
 						note(c, "Mapper: failed to send path.");
 					} finally {
@@ -399,8 +404,9 @@ public class MapCommand extends SpecialCommand {
 				}
 			});
 			note(c, forceSend
-					? "Mapper: path sent."
-					: "Mapper: path sent (mapper_path_auto_send).");
+					? "Mapper: path sent (" + cmds.size() + " steps)."
+					: "Mapper: path sent (mapper_path_auto_send, "
+							+ cmds.size() + " steps).");
 		} else if (gotoMode) {
 			note(c, "Mapper: path_auto_send off — path printed only. Use .map go to send.");
 		}

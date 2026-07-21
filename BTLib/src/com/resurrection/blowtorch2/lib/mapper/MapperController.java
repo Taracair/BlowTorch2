@@ -1251,7 +1251,7 @@ public class MapperController {
 	 * </ul>
 	 */
 	public void onPlayerCommand(final String cmd) {
-		if (!mEnabled || mSuppressRecord || cmd == null) {
+		if (!mEnabled || cmd == null) {
 			return;
 		}
 		String raw = cmd.trim();
@@ -1262,7 +1262,7 @@ public class MapperController {
 		if (raw.startsWith(".")) {
 			return;
 		}
-		if (mRecording && mEditMode) {
+		if (mRecording && mEditMode && !mSuppressRecord) {
 			String[] parts = raw.split("[\\r\\n;]+");
 			for (String part : parts) {
 				String piece = part.trim();
@@ -1273,6 +1273,7 @@ public class MapperController {
 			}
 			return;
 		}
+		// Follow still runs while suppress is on (path auto-walk must update Here).
 		if (mFollowPlayer) {
 			boolean moved = false;
 			String[] parts = raw.split("[\\r\\n;]+");
