@@ -482,8 +482,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		mapperOptions.addOption(mapper_level_down);
 
 		StringOption mapper_moves = new StringOption();
-		mapper_moves.setTitle("Move Effects (planar/special)");
-		mapper_moves.setDescription("What each walk command does on the map. Format: n=grid:0:-1;out=special (or newlines). Levels use the Level-Up/Down CSVs above. Easiest edit: map overlay File → Moves. Empty = built-in compass + in/out specials.");
+		mapper_moves.setTitle("Move Effects (advanced)");
+		mapper_moves.setDescription("Raw table for power users. Prefer map overlay File → Moves (friendly list). Format: n=grid:0:-1;out=special. Levels also use Level-Up/Down CSV. Empty = built-in defaults.");
 		mapper_moves.setKey("mapper_move_effects");
 		mapper_moves.setValue(MapDirections.defaultMoveEffectsString());
 		mapperOptions.addOption(mapper_moves);
