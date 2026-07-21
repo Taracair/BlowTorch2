@@ -347,6 +347,10 @@ TOPICS.timers = function()
 interval (seconds), optional repeat, and responders (same kinds as
 triggers: Ack, Toast, Notification, …).
 
+Conditions (in the timer editor):
+  • Extra gate when the timer fires — same AND/OR types as triggers.
+    Empty = always fire responders. Set Variable / session vars still apply.
+
 Control from the input bar:
   .timer play <name>
   .timer pause <name>
