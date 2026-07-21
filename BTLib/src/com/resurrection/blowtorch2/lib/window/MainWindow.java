@@ -127,6 +127,8 @@ import com.resurrection.blowtorch2.lib.timer.BetterTimerSelectionDialog;
 import com.resurrection.blowtorch2.lib.trigger.BetterTriggerSelectionDialog;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
+import com.resurrection.blowtorch2.lib.mapper.MapperController;
+import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
@@ -263,6 +265,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	private ChromeController chrome;
 	private MainWindowSettingsTransfer settingsTransfer;
+	private MapperOverlayController mapperOverlay;
+	private MapperController mapperController;
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -358,6 +362,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
 				service.registerCallback(the_callback, host, port, display);
+				// Bind live mapper engine from the Connection (same process).
+				MapperController live = MapperController.forDisplay(display);
+				if (live != null) {
+					MainWindow.this.setMapperController(live);
+				}
 				// Reopen after process death: socket gone but connection object remains.
 				// Skip on first launch — INITIALIZEWINDOWS→initXfer starts the pump;
 				// a parallel reconnect was killing that first socket.
@@ -372,6 +381,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				serviceConnected.notify();
 				serviceConnected = true;
 			}
+			MainWindow.this.runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					ensureMapperOverlay();
+				}
+			});
 			//finishInitializiation();
 			//loadSettings();
 			//Log.e("window","ending onServiceConnected()");
@@ -1586,6 +1601,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//SubMenu sm = menu.addSubMenu(0, 900, 0, "More");
 		menu.add(0, 450, 450, "Edit buttons");
 		menu.add(0, 500, 500 ,"Speedwalk Directions");
+		menu.add(0, 520, 520, "Map");
 		menu.add(0, 600, 600, "Plugins");
 		menu.add(0, 700, 700, "Reconnect");
 		menu.add(0, 800, 800, "Disconnect");
@@ -1816,6 +1832,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 500: //speedwalk config
 			BetterSpeedWalkConfigurationDialog swDialog = new BetterSpeedWalkConfigurationDialog(this,service);
 			swDialog.show();
+			break;
+		case 520: // Map overlay
+			ensureMapperOverlay();
+			if (mapperOverlay != null) {
+				mapperOverlay.toggle();
+			}
 			break;
 		case 900:
 			this.cleanExit();
@@ -3325,7 +3347,100 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 			chrome.layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		chrome.updateMenuChrome();
+		ensureMapperOverlay();
 		//Debug.stopMethodTracing();
+	}
+
+	/** Bind mapper UI under window_container (chrome ⋮ stays above). */
+	private void ensureMapperOverlay() {
+		MapperController live = MapperController.forDisplay(getConnectionDisplay());
+		if (live != null) {
+			mapperController = live;
+		}
+		if (mapperOverlay == null) {
+			mapperOverlay = new MapperOverlayController(new MapperOverlayController.Host() {
+				@Override
+				public MainWindow getMainWindow() {
+					return MainWindow.this;
+				}
+
+				@Override
+				public String getRecentBufferText(int maxLines) {
+					return MainWindow.this.getRecentMainBufferText(maxLines);
+				}
+
+				@Override
+				public void sendMapperPath(java.util.List<String> commands) {
+					if (commands == null || commands.isEmpty() || service == null) {
+						return;
+					}
+					StringBuilder sb = new StringBuilder();
+					for (int i = 0; i < commands.size(); i++) {
+						if (i > 0) {
+							sb.append('\n');
+						}
+						sb.append(commands.get(i));
+					}
+					try {
+						service.sendData(sb.toString().getBytes(service.getEncoding()));
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					} catch (java.io.UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+		if (mapperController != null) {
+			mapperOverlay.bind(mapperController);
+		}
+	}
+
+	private String getRecentMainBufferText(int maxLines) {
+		com.resurrection.blowtorch2.lib.window.Window w = null;
+		if (windowMap != null) {
+			w = windowMap.get("mainDisplay");
+		}
+		if (w == null) {
+			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+			if (rl != null) {
+				w = (com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
+			}
+		}
+		if (w == null || w.getBuffer() == null) {
+			return "";
+		}
+		try {
+			String plain = w.getBuffer().dumpPlainText();
+			if (plain == null || plain.length() == 0) {
+				return "";
+			}
+			String[] lines = plain.split("\n", -1);
+			int start = Math.max(0, lines.length - Math.max(1, maxLines));
+			StringBuilder sb = new StringBuilder();
+			for (int i = start; i < lines.length; i++) {
+				if (sb.length() > 0) {
+					sb.append('\n');
+				}
+				sb.append(lines[i]);
+			}
+			return sb.toString();
+		} catch (Throwable t) {
+			return "";
+		}
+	}
+
+	/** Used when engine/service exposes a real MapperController. */
+	public void setMapperController(MapperController controller) {
+		mapperController = controller;
+		ensureMapperOverlay();
+		if (mapperOverlay != null) {
+			mapperOverlay.bind(mapperController);
+		}
+	}
+
+	public MapperController getMapperController() {
+		return mapperController;
 	}
 	
 	private void initWindow(WindowToken w,String dataDir) {
