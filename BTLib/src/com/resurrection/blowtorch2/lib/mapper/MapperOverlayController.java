@@ -1419,7 +1419,7 @@ public class MapperOverlayController
 							if (controller != null) {
 								toastStatus(controller.moveTileLevel(tile.getId(), name));
 							} else {
-								host.runMapCommand("level set " + name);
+								host.runMapCommand("level move " + tile.getId() + " " + name);
 								pullSnapshotFromService();
 							}
 						}

@@ -279,28 +279,33 @@ Mapper
     Here, Edit, Save
     Full/Float/✕
   Long-press tile + drag = move (release without move = tile menu).
-  Double-tap tile = Set as Here.
+  Double-tap tile = Set as Here. Double-tap empty = center on current.
+  Left toolbar group is Options → Mapper → Toolbar CSV; Links / Paths/Pack /
+  Draw / Here / Edit / Save are always appended. Optional CSV token: capture.
 
   Movement lexicon (+x east, +y south; .map dirs for full list):
     n/s/e/w (+ go/walk/move prefixes) → grid neighbor
     ne/nw/se/sw → diagonals
     u/up/climb, d/down/descend → level change
     in/enter, out/leave/exit, other → special (nearby cell)
-  Also uses Speedwalk Directions from the connection when set.
+  Built-in compass wins over Speedwalk keys (default .run h/j/k/l = nw/ne/sw/se),
+  so go se still maps southeast. Custom Speedwalk commands still apply for
+  non-compass verbs.
 
   Recording & follow:
-    .map record on|off|toggle
-    .map follow on|off
+    .map record on|off|toggle   (alias: rec)
+    .map follow on|off|toggle
   With record on, outbound movement builds tiles/exits. Follow centers on you.
 
   Levels:
     .map level list|prev|next|set <name>
+    .map level move <tileId> <levelName>
 
   Find / path / goto:
-    .map find <query>    list matching rooms
+    .map find <query>    list matching rooms (alias: search)
     .map path <query>    show command path (do not send)
     .map goto <query>    path; send if Options → Mapper → Path auto-send
-                         is on, otherwise print the path only
+                         is on, otherwise print the path only (alias: go)
     .map center          center on current room
     .map undo
     .map dirs            movement lexicon / grid offsets
@@ -325,20 +330,24 @@ Mapper
     .map note for <tileId> <text>
     .map link <cmd> [from <id>] to <tileId>
     .map unlink <cmd> [from <id>]
-    .map conflict list
+    .map conflict
+
+  Exits draw as arrows with walk-word labels. Paths spaces tiles for arrows.
+  If more than two commands share an edge, the label shows "cmd1 · cmd2 +N";
+  tap to list (and optionally unlink).
 
   GMCP Room: when Use GMCP? and Options → Mapper → Use GMCP Room are on,
-  Room.* packets can update the current room. Without GMCP, use Rec while
+  Room.* can update the current room title. Without GMCP, use Rec while
   walking and/or Draw/Links by hand.
 
-  Capture (no GMCP): configure patterns under Options → Mapper → Capture.
-    .map capture preview   test patterns against a pasted sample (or recent
-                           buffer lines when the dialog can load them)
-    .map capture apply     apply a successful capture to the current tile
+  Capture (no GMCP / custom room lines):
+    Add "capture" to Mapper toolbar CSV → dialog with custom title/exits regex.
+    .map capture preview   default regex on recent buffer
+    .map capture apply     apply last preview to the current tile
 
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
   recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
-  toolbar actions, capture profile).
+  toolbar actions CSV).
 
   Typical flows:
     Record: .map new mymap → open → Rec → walk → Stop → Save

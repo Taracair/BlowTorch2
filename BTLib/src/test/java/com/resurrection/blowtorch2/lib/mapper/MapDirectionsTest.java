@@ -54,4 +54,22 @@ public class MapDirectionsTest {
 		assertEquals(Integer.valueOf(-1), MapDirections.levelDelta("descend"));
 		assertEquals("u", MapDirections.normalize("ascend", null));
 	}
+
+	@Test
+	public void normalizeIgnoresSpeedwalkDiagonalKeys() {
+		java.util.HashMap<String, com.resurrection.blowtorch2.lib.speedwalk.DirectionData> map =
+				new java.util.HashMap<String, com.resurrection.blowtorch2.lib.speedwalk.DirectionData>();
+		map.put("h", new com.resurrection.blowtorch2.lib.speedwalk.DirectionData("h", "nw"));
+		map.put("j", new com.resurrection.blowtorch2.lib.speedwalk.DirectionData("j", "ne"));
+		map.put("k", new com.resurrection.blowtorch2.lib.speedwalk.DirectionData("k", "sw"));
+		map.put("l", new com.resurrection.blowtorch2.lib.speedwalk.DirectionData("l", "se"));
+		assertEquals("se", MapDirections.normalize("go se", map));
+		assertEquals("sw", MapDirections.normalize("go sw", map));
+		assertEquals("se", MapDirections.normalize("se", map));
+		assertEquals("se", MapDirections.normalize("l", map));
+		assertEquals(1, MapDirections.gridDelta(MapDirections.normalize("go se", map))[0]);
+		assertEquals(1, MapDirections.gridDelta(MapDirections.normalize("go se", map))[1]);
+		assertEquals(-1, MapDirections.gridDelta(MapDirections.normalize("go sw", map))[0]);
+		assertEquals(1, MapDirections.gridDelta(MapDirections.normalize("go sw", map))[1]);
+	}
 }

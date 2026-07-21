@@ -426,9 +426,9 @@ Two ways to build
   1) Record while you walk
      .map new mymap   (optional fresh file)
      Open the map → Rec → walk the MUD as usual → Stop → Save
-     Outbound commands become exits. Compass moves (n/e/s/w, go west, …)
-     place neighbors on a grid; up/down change level; out/in/door-like
-     words become special exits beside the room.
+     Outbound commands become exits. Compass moves (n/e/s/w, go west,
+     go se, …) place neighbors on a grid; up/down change level; out/in
+     become special exits beside the room.
   2) Draw by hand (no walking required)
      Draw → tap empty cells to place rooms
      Long-press empty = place and set Here
@@ -436,8 +436,14 @@ Two ways to build
      Or long-press a tile → Add neighbor… / Move… / Set as Here / Delete
 
 Toolbar cheatsheet
-  Rec/Stop  Follow  L-/L+  Find  Undo  Center
-  Links  Draw  Here  Edit  Save
+  Rec/Stop  Follow  L-/L+  Find  Undo  Center   (CSV-configurable)
+  Links  Paths/Pack  Draw  Here  Edit  Save     (always present)
+  Paths = space for arrows; Pack = tight tiles
+
+Gestures
+  Long-press tile + drag = move (release without move = tile menu)
+  Double-tap tile = Set as Here
+  Tap arrow label / +N = list walk verbs on that edge (unlink optional)
 
 Movement lexicon (summary; full list: .map dirs)
   +x = east, +y = south on the grid
@@ -445,7 +451,7 @@ Movement lexicon (summary; full list: .map dirs)
   ne/nw/se/sw → diagonal
   up/climb vs down/descend → level change
   in/enter, out/leave → special
-  Connection Speedwalk Directions also apply when configured.
+  Built-in compass wins over Speedwalk keys (h/j/k/l = nw/ne/sw/se)
 
 Useful .map commands
   .map / .map help
@@ -455,11 +461,11 @@ Useful .map commands
   .map maps | load <name> | new <name>
   .map add | here | delete | neighbor | move
   .map link|unlink …   .map export|save   .map dirs
-  .map capture preview|apply
+  .map capture preview|apply   (or toolbar Capture dialog)
 
 Files live under /BlowTorch/maps/ (autosave after edits).
 Options → Mapper: enable, float default, opacity, follow, path auto-send,
-Use GMCP Room, toolbar CSV, capture patterns.
+Use GMCP Room, toolbar CSV (optional capture token).
 Without GMCP (many MOOs), prefer Rec + Draw/Links.
 Full reference: overflow → Help → Mapper.]])
 end
