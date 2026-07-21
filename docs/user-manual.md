@@ -221,7 +221,7 @@ in-map pie menu (no system status-bar flash).
 |------|---------|
 | **Nav** | Record, Follow, Center, Find, Undo, Close |
 | **Floors** | List, ↑, ↓, Root, Door, Delete (**Delete** = **Edit** only) |
-| **Build** | Draw, Links, Paths, Here, Edit (tile) |
+| **Build** | Draw, Links, Paths, Here, Edit (tile), **1-way** (toggle accept one-way specials) |
 | **File** | Save, Maps, New, Export |
 
 **Floors → List**: tap a floor to view; long-press = Go Here. In **Edit**, the
@@ -236,7 +236,11 @@ level / exits. **Save** / **Export**: write map file now. **✕**: close.
 
 While **Record**ing, outbound exits store your typed command; the reverse edge is
 guessed. Walking back the same path overwrites that guess with your return
-command (e.g. guessed `s` → your `go south`).
+command (e.g. guessed `s` → your `go south`). Specials (`out`/`enter`) with
+**1-way off** (default) close to the unique room that already leads into Here
+(e.g. freezer `out` → hallway). **1-way ON** always places a new nearby tile.
+**Follow** (without Record) advances Here along known exits so the map camera
+tracks you.
 
 Long-press a tile: **Path to here** (toast only) or **Go there** (toast + send
 commands so the character walks). Find dialog **Go** does the same.
