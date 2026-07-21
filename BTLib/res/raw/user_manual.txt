@@ -260,6 +260,7 @@ Mapper
     .map                 help / status
     .map open|close|toggle
     .map mode fullscreen|float
+    .map mode browse|edit|toggle
   Floating mode: drag to move, resize handle, opacity from Options.
   The map stays under the ⋮ chrome so overflow stays reachable.
 
@@ -276,20 +277,22 @@ Mapper
                             then copy into /BlowTorch/maps/
 
   Title: map · L-1 ← Hallway when on a nested floor (← = door you entered).
-  [REC] = recording. Long-press title = ◎ radial menu.
+  [REC] = recording. Title bar: Browse | Edit (Browse default). Edit required
+  to create nests, Draw, Links, delete levels. Long-press title = radial shortcut.
 
   Toolbar (map window):
     Rec/Stop, Follow, L-/L+, Find, Undo, Center   (CSV-configurable)
-    Links, Paths/Pack, Levels, ◎, Draw, Here, Edit, Save  (always present)
+    ↕ Levels radial, ⚙ Tools radial   (always present; no Draw/Links strip)
     Full/Float/✕
-  Links = tap FROM then TO, enter walk verb (or unlink)
+  ↕ Levels: List, ↑, ↓, Root, Door, Delete (Delete = Edit only)
+  ⚙ Tools: Paths, Draw, Links, Here, Edit, Save, Find, Rec
+  Level browser (↕ → List): tap = view; long-press = Go Here.
+    Edit adds Delete… (confirm) — removes floor + all tiles; cannot delete last.
+  Draw (Edit) = tap empty=place; long-press empty=place+Here
+  Links (Edit) = tap FROM then TO, enter walk verb (or unlink)
   Paths/Pack = Paths spaces tiles for arrows; Pack compresses
-  Draw = tap empty=place; long-press empty=place+Here
-  L-/L+ = nest down/up from Here (follow/create that tile’s pocket, or return
-    to the anchor). Not a global level list.
-  Levels = browse floors (list + via anchor); tap = view; long-press = Here.
-    Does not create. Also: tap ▲/▼/◆ badges on tiles that lead elsewhere.
-  ◎ radial: Levels, Floor ↑/↓, Paths, Draw, Links, Here, Save
+  L-/L+ = nest down/up from Here. Browse: follow/return only; create needs Edit.
+    Not a global level list.
   Long-press tile + drag = move (release without move = tile menu).
   Double-tap tile = Set as Here. Double-tap empty = center on current.
   Left toolbar group is Options → Mapper → Toolbar CSV; optional CSV: capture.
@@ -308,11 +311,15 @@ Mapper
     .map follow on|off|toggle
   With record on, outbound movement builds tiles/exits. Follow centers on you.
   up/down while Recording still works; L-/L+ is the manual nest tool for weird
-  MUDs (e.g. west into a cellar).
+  MUDs (e.g. west into a cellar). Browse follows/returns; create needs Edit.
+
+  Interaction mode:
+    .map mode browse|edit|toggle   (Browse default; Edit for nests/Draw/Links/delete)
 
   Levels (tile-anchored nests from Here):
     .map level list|prev|next|set <name>
       prev/next = L-/L+ nest semantics (not global stack index)
+    .map level delete <id|name>   Edit; removes floor + tiles; not last level
     .map level move <tileId> <levelName>
 
   Find / path / goto:
@@ -373,12 +380,12 @@ Mapper
 
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
   recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
-  toolbar actions CSV, capture title/exits regex). Levels and ◎ are always
-  on the map toolbar.
+  toolbar actions CSV, capture title/exits regex). ↕ Levels and ⚙ Tools are
+  always on the map toolbar.
 
   Typical flows:
     Record: .map new mymap → open → Rec → walk → Stop → Save
-    Draw:   Draw → place tiles → Links/neighbor → Here
+    Draw:   title Edit → ⚙ Draw → place tiles → Links/neighbor → Here
     Layout: Paths for arrows; long-press tile and drag, or Move…
 
 On-screen buttons (button_window)

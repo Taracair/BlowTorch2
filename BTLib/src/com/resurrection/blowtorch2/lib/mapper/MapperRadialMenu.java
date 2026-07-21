@@ -17,6 +17,7 @@ import android.widget.FrameLayout;
 /**
  * Pie / radial menu overlay for mapper actions.
  * Dark translucent circle, wedges with short labels; tap outside dismisses.
+ * Configurable via constructor; use {@link #createLevelsMenu} / {@link #createToolsMenu}.
  */
 public class MapperRadialMenu extends Dialog {
 
@@ -24,36 +25,72 @@ public class MapperRadialMenu extends Dialog {
 		void onRadialAction(String action);
 	}
 
-	/** Stable action ids consumed by {@link MapperOverlayController}. */
-	public static final String ACTION_LEVELS = "levels";
-	public static final String ACTION_FLOOR_UP = "floor_up";
-	public static final String ACTION_FLOOR_DOWN = "floor_down";
+	// --- Levels radial ---
+	public static final String ACTION_LIST = "list";
+	public static final String ACTION_UP = "up";
+	public static final String ACTION_DOWN = "down";
+	public static final String ACTION_ROOT = "home";
+	public static final String ACTION_PARENT = "parent";
+	public static final String ACTION_DELETE_LEVEL = "delete";
+
+	/** @deprecated alias of {@link #ACTION_LIST} */
+	@Deprecated
+	public static final String ACTION_LEVELS = ACTION_LIST;
+	/** @deprecated alias of {@link #ACTION_UP} */
+	@Deprecated
+	public static final String ACTION_FLOOR_UP = ACTION_UP;
+	/** @deprecated alias of {@link #ACTION_DOWN} */
+	@Deprecated
+	public static final String ACTION_FLOOR_DOWN = ACTION_DOWN;
+
+	// --- Tools radial ---
 	public static final String ACTION_PATHS = "paths";
 	public static final String ACTION_DRAW = "draw";
 	public static final String ACTION_LINKS = "links";
 	public static final String ACTION_HERE = "here";
+	public static final String ACTION_EDIT = "edit";
 	public static final String ACTION_SAVE = "save";
+	public static final String ACTION_FIND = "find";
+	public static final String ACTION_REC = "rec";
 
-	private static final String[] ACTIONS = {
-			ACTION_LEVELS,
-			ACTION_FLOOR_UP,
-			ACTION_FLOOR_DOWN,
+	private static final String[] LEVELS_ACTIONS = {
+			ACTION_LIST,
+			ACTION_UP,
+			ACTION_DOWN,
+			ACTION_ROOT,
+			ACTION_PARENT,
+			ACTION_DELETE_LEVEL
+	};
+
+	private static final String[] LEVELS_LABELS = {
+			"List",
+			"↑",
+			"↓",
+			"Root",
+			"Door",
+			"Delete"
+	};
+
+	private static final String[] TOOLS_ACTIONS = {
 			ACTION_PATHS,
 			ACTION_DRAW,
 			ACTION_LINKS,
 			ACTION_HERE,
-			ACTION_SAVE
+			ACTION_EDIT,
+			ACTION_SAVE,
+			ACTION_FIND,
+			ACTION_REC
 	};
 
-	private static final String[] LABELS = {
-			"Levels",
-			"Floor ↑",
-			"Floor ↓",
+	private static final String[] TOOLS_LABELS = {
 			"Paths",
 			"Draw",
 			"Links",
 			"Here",
-			"Save"
+			"Edit",
+			"Save",
+			"Find",
+			"Rec"
 	};
 
 	private static final int COLOR_BG = 0xE61A1A1A;
@@ -64,12 +101,34 @@ public class MapperRadialMenu extends Dialog {
 	private static final int COLOR_RING = 0x88E8C547;
 
 	private final Listener listener;
+	private final String hubLabel;
+	private final String[] actions;
+	private final String[] labels;
 
-	public MapperRadialMenu(Context context, Listener listener) {
-		super(context, android.R.style.Theme_Translucent_NoTitleBar);
+	public MapperRadialMenu(Context ctx, String hubLabel, String[] actions,
+			String[] labels, Listener listener) {
+		super(ctx, android.R.style.Theme_Translucent_NoTitleBar);
 		this.listener = listener;
+		this.hubLabel = hubLabel != null ? hubLabel : "◎";
+		if (actions == null || labels == null || actions.length == 0
+				|| actions.length != labels.length) {
+			throw new IllegalArgumentException(
+					"actions/labels must be non-null, non-empty, and same length");
+		}
+		this.actions = actions;
+		this.labels = labels;
 		setCancelable(true);
 		setCanceledOnTouchOutside(true);
+	}
+
+	/** Levels browse / floor / root / door / delete radial (hub ↕). */
+	public static MapperRadialMenu createLevelsMenu(Context ctx, Listener listener) {
+		return new MapperRadialMenu(ctx, "↕", LEVELS_ACTIONS, LEVELS_LABELS, listener);
+	}
+
+	/** Tools radial: paths, draw, links, here, edit, save, find, rec (hub ⚙). */
+	public static MapperRadialMenu createToolsMenu(Context ctx, Listener listener) {
+		return new MapperRadialMenu(ctx, "⚙", TOOLS_ACTIONS, TOOLS_LABELS, listener);
 	}
 
 	@Override
@@ -153,10 +212,10 @@ public class MapperRadialMenu extends Dialog {
 			float hubR = radius * 0.28f;
 			float density = getResources().getDisplayMetrics().density;
 			textPaint.setTextSize(12f * density);
-			hubText.setTextSize(14f * density);
+			hubText.setTextSize(hubLabel.length() > 2 ? 11f * density : 14f * density);
 
 			oval.set(cx - radius, cy - radius, cx + radius, cy + radius);
-			int n = ACTIONS.length;
+			int n = actions.length;
 			float sweep = 360f / n;
 			// Start at top (-90°)
 			float start = -90f - sweep / 2f;
@@ -183,13 +242,13 @@ public class MapperRadialMenu extends Dialog {
 						- (textPaint.descent() + textPaint.ascent()) / 2f;
 				int labelColor = i == highlight ? 0xFF1A1A1A : COLOR_LABEL;
 				textPaint.setColor(labelColor);
-				canvas.drawText(LABELS[i], lx, ly, textPaint);
+				canvas.drawText(labels[i], lx, ly, textPaint);
 			}
 
 			canvas.drawCircle(cx, cy, radius, strokePaint);
 			canvas.drawCircle(cx, cy, hubR, hubPaint);
 			canvas.drawCircle(cx, cy, hubR, strokePaint);
-			canvas.drawText("◎", cx,
+			canvas.drawText(hubLabel, cx,
 					cy - (hubText.descent() + hubText.ascent()) / 2f, hubText);
 		}
 
@@ -225,8 +284,8 @@ public class MapperRadialMenu extends Dialog {
 					int idx = wedgeAt(dx, dy);
 					highlight = -1;
 					invalidate();
-					if (idx >= 0 && idx < ACTIONS.length) {
-						fire(ACTIONS[idx]);
+					if (idx >= 0 && idx < actions.length) {
+						fire(actions[idx]);
 					}
 					return true;
 				}
@@ -242,14 +301,13 @@ public class MapperRadialMenu extends Dialog {
 			return true;
 		}
 
-		/** Map touch vector to wedge index (0 = top / Levels). */
+		/** Map touch vector to wedge index (0 = top). */
 		private int wedgeAt(float dx, float dy) {
-			int n = ACTIONS.length;
+			int n = actions.length;
 			float sweep = 360f / n;
 			float start = -90f - sweep / 2f;
 			double deg = Math.toDegrees(Math.atan2(dy, dx));
 			float angle = (float) deg;
-			// Normalize into [start, start+360)
 			float rel = angle - start;
 			while (rel < 0f) {
 				rel += 360f;

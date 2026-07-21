@@ -50,6 +50,44 @@
             android:textColor="#EEEEEE"
             android:textSize="14sp" />
 
+        <!-- Browse | Edit segmented control (session-only; Browse is safer default). -->
+        <LinearLayout
+            android:id="@+id/mapper_edit_mode_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:layout_marginLeft="4dp"
+            android:layout_marginRight="4dp"
+            android:orientation="horizontal"
+            android:background="#55FFFFFF"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/mapper_mode_browse"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:text="Browse"
+                android:textColor="#E8C547"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:background="#33000000"
+                android:contentDescription="Browse mode — navigate only" />
+
+            <TextView
+                android:id="@+id/mapper_mode_edit"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:text="Edit"
+                android:textColor="#888888"
+                android:textSize="12sp"
+                android:contentDescription="Edit mode — create and modify" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/mapper_mode_btn"
             android:layout_width="wrap_content"
