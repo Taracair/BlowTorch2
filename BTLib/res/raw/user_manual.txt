@@ -53,10 +53,11 @@ Triggers (trigger editor):
                  Options (=) → Enable all / Disable ALL for the current filter.
                  Use .trigger group on|off <group> (main + plugins).
 
-  Conditions   = optional AND/OR list checked after a pattern match and before
-                 responders. Empty = always fire. Types: Trigger enabled /
-                 disabled (pick another trigger; plugin:name ok), Variable
-                 equals / exists. Set vars with Set Variable responder or Lua
+  Conditions   = extra gate after the pattern matches — not a substitute for
+                 the pattern. Optional AND/OR list checked before responders.
+                 Empty = always fire. Types: Trigger enabled / disabled
+                 (pick another trigger; plugin:name ok), Variable equals /
+                 exists. Set vars with Set Variable responder or Lua
                  SetVariable / GetVariable / UnsetVariable (session only).
 
   In regex mode, use (...) to capture and $1, $2, ... in Ack / Replace /
