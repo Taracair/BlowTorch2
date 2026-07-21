@@ -157,25 +157,101 @@ public final class MapDirections {
 		return null;
 	}
 
+	/** Default Options value for level-up recording commands. */
+	public static final String DEFAULT_LEVEL_UP_COMMANDS = "u,up,climb,ascend";
+	/** Default Options value for level-down recording commands. */
+	public static final String DEFAULT_LEVEL_DOWN_COMMANDS = "d,down,descend";
+
 	/**
-	 * Level-index delta for up/down style moves.
+	 * Level-index delta for up/down style moves (built-in lexicon).
 	 *
 	 * @return +1 / -1 or {@code null} if not a level change
 	 */
 	public static Integer levelDelta(String token) {
+		return levelDelta(token, null);
+	}
+
+	/**
+	 * Level-index delta using an optional custom command map.
+	 * When {@code custom} is non-null it fully replaces the built-in list
+	 * (empty map = no recording move creates a new level).
+	 *
+	 * @return +1 / -1 or {@code null}
+	 */
+	public static Integer levelDelta(String token, Map<String, Integer> custom) {
 		if (token == null) {
 			return null;
 		}
 		String n = token.trim().toLowerCase(Locale.US);
-		Integer d = LEVEL_DELTA.get(n);
+		if (n.length() == 0) {
+			return null;
+		}
+		Map<String, Integer> table = custom != null ? custom : LEVEL_DELTA;
+		Integer d = table.get(n);
 		if (d != null) {
 			return d;
 		}
 		String canon = COMMON_ALIASES.get(n);
 		if (canon != null) {
-			return LEVEL_DELTA.get(canon);
+			return table.get(canon);
+		}
+		String stripped = stripMovementPrefix(n);
+		if (!stripped.equals(n)) {
+			d = table.get(stripped);
+			if (d != null) {
+				return d;
+			}
+			canon = COMMON_ALIASES.get(stripped);
+			if (canon != null) {
+				return table.get(canon);
+			}
 		}
 		return null;
+	}
+
+	/**
+	 * Build a level-delta lookup from Options CSV lists.
+	 * Each token is stored as typed and in normalized / alias forms.
+	 *
+	 * @param upCsv   commands that create a higher level (+1)
+	 * @param downCsv commands that create a lower level (-1)
+	 */
+	public static Map<String, Integer> parseLevelCommandLists(String upCsv,
+			String downCsv) {
+		HashMap<String, Integer> out = new HashMap<String, Integer>();
+		addLevelCsv(out, upCsv, Integer.valueOf(1));
+		addLevelCsv(out, downCsv, Integer.valueOf(-1));
+		return out;
+	}
+
+	private static void addLevelCsv(Map<String, Integer> out, String csv,
+			Integer delta) {
+		if (out == null || csv == null || delta == null) {
+			return;
+		}
+		String[] parts = csv.split("[,;]+");
+		for (String part : parts) {
+			if (part == null) {
+				continue;
+			}
+			String raw = part.trim().toLowerCase(Locale.US);
+			if (raw.length() == 0) {
+				continue;
+			}
+			out.put(raw, delta);
+			String stripped = stripMovementPrefix(raw);
+			if (stripped.length() > 0) {
+				out.put(stripped, delta);
+			}
+			String lex = lexiconToken(stripped.length() > 0 ? stripped : raw);
+			if (lex != null) {
+				out.put(lex, delta);
+			}
+			String longForm = toLongForm(lex != null ? lex : stripped);
+			if (longForm != null && longForm.length() > 0) {
+				out.put(longForm.toLowerCase(Locale.US), delta);
+			}
+		}
 	}
 
 	/** True when the token builds a neighbor on the same level grid. */
@@ -199,9 +275,9 @@ public final class MapDirections {
 		out.add("  e/east      → (+1,0)");
 		out.add("  w/west      → (-1,0)");
 		out.add("  ne/nw/se/sw → diagonals");
-		out.add("Levels:");
-		out.add("  u/up/climb/ascend → level +1");
-		out.add("  d/down/descend    → level -1");
+		out.add("Levels (defaults; override in Options → Mapper):");
+		out.add("  up CSV:   " + DEFAULT_LEVEL_UP_COMMANDS + " → level +1");
+		out.add("  down CSV: " + DEFAULT_LEVEL_DOWN_COMMANDS + " → level -1");
 		out.add("Special (off-grid neighbor):");
 		out.add("  in/enter, out/leave/exit, and any other command");
 		out.add("Prefixes stripped: go | walk | move  (e.g. go west → w)");

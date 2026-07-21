@@ -237,6 +237,8 @@ While **Record**ing, outbound exits store your typed command; the reverse edge i
 guessed. Walking back the same path overwrites that guess with your return
 command (e.g. guessed `s` → your `go south`).
 
+Long-press a tile: **Path to here** (toast only) or **Go there** (toast + send
+commands so the character walks). Find dialog **Go** does the same.
 Long-press a tile and drag to move it on the grid (release without moving opens the
 tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
 current.
@@ -292,7 +294,8 @@ Print the summary with `.map dirs`.
 | `.map level move <tileId> <level>` | Move a tile onto another level |
 | `.map find <query>` | Search rooms (`search` alias) |
 | `.map path <query>` | Show path commands (no send) |
-| `.map goto <query>` | Path; send only if **Path auto-send** is on (`go` alias) |
+| `.map goto <query>` | Path; send only if **Path auto-send** is on |
+| `.map go <query\|id>` | Path and **always** send walk commands (tile long-press **Go there**) |
 | `.map center` | Center on current room |
 | `.map undo` | Undo last graph change |
 | `.map dirs` | Movement lexicon / grid offsets |
