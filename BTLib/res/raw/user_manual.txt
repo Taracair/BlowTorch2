@@ -274,10 +274,12 @@ Mapper
   Toolbar (map window):
     Rec/Stop, Follow, L-/L+, Find, Undo, Center
     Links  — tap FROM then TO, enter walk verb (or unlink)
-    Draw   — tap empty=place; long-press empty=place+Here;
-             long-press tile+drag=move (or menu Move…)
+    Paths/Pack — Paths spaces tiles for arrows; Pack compresses
+    Draw   — tap empty=place; long-press empty=place+Here
     Here, Edit, Save
     Full/Float/✕
+  Long-press tile + drag = move (release without move = tile menu).
+  Double-tap tile = Set as Here.
 
   Movement lexicon (+x east, +y south; .map dirs for full list):
     n/s/e/w (+ go/walk/move prefixes) → grid neighbor
@@ -341,7 +343,7 @@ Mapper
   Typical flows:
     Record: .map new mymap → open → Rec → walk → Stop → Save
     Draw:   Draw → place tiles → Links/neighbor → Here
-    Layout: Draw → long-press tile and drag, or Move…
+    Layout: Paths for arrows; long-press tile and drag, or Move…
 
 On-screen buttons (button_window)
 ---------------------------------

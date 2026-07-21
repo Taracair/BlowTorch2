@@ -33,7 +33,7 @@ public class MapperView extends View {
 		void onEmptyTap(int gridX, int gridY);
 		/** Empty grid cell long-pressed (Draw mode). */
 		void onEmptyLongPress(int gridX, int gridY);
-		/** Tile dragged to a new grid cell (Draw mode). */
+		/** Tile dragged to a new grid cell (long-press + drag). */
 		void onTileDragEnd(MapTile tile, int gridX, int gridY);
 		/**
 		 * User tapped an overflow link label (more than
@@ -45,6 +45,11 @@ public class MapperView extends View {
 	private static final float BASE_TILE = 56f;
 	private static final float MIN_SCALE = 0.35f;
 	private static final float MAX_SCALE = 3.5f;
+	/** Grid pitch multiplier when Paths layout is on (space for arrows). */
+	private static final float PATHS_PITCH = 1.75f;
+	/** Drawn tile body as a fraction of the cell (Paths leaves a wide gutter). */
+	private static final float PATHS_BODY_FRAC = 0.48f;
+	private static final float PACK_BODY_FRAC = 0.88f;
 	/** Show this many walk words on an edge before collapsing to “+N”. */
 	public static final int MAX_VISIBLE_LINK_LABELS = 2;
 
@@ -93,8 +98,13 @@ public class MapperView extends View {
 	private boolean followMode = true;
 	private boolean centeredOnce;
 	private boolean showGrid;
+	/**
+	 * When true, cells are spaced apart so exit arrows/labels fit between tiles.
+	 * When false (Pack), tiles sit nearly adjacent.
+	 */
+	private boolean pathsLayout = true;
 	/** When true, long-press on a tile starts reposition drag. */
-	private boolean tileDragEnabled;
+	private boolean tileDragEnabled = true;
 	private boolean tileDragging;
 	private MapTile draggingTile;
 	private int dragGridX;
@@ -321,6 +331,31 @@ public class MapperView extends View {
 		return showGrid;
 	}
 
+	/** Spread tiles for arrows (Paths) vs packed neighbors (Pack). */
+	public void setPathsLayout(boolean pathsLayout) {
+		if (this.pathsLayout == pathsLayout) {
+			return;
+		}
+		float oldCs = cellSize();
+		float centerWorldX = 0f;
+		float centerWorldY = 0f;
+		if (oldCs > 0f && getWidth() > 0 && getHeight() > 0) {
+			centerWorldX = (getWidth() * 0.5f - offsetX) / oldCs;
+			centerWorldY = (getHeight() * 0.5f - offsetY) / oldCs;
+		}
+		this.pathsLayout = pathsLayout;
+		if (oldCs > 0f && getWidth() > 0 && getHeight() > 0) {
+			float newCs = cellSize();
+			offsetX = getWidth() * 0.5f - centerWorldX * newCs;
+			offsetY = getHeight() * 0.5f - centerWorldY * newCs;
+		}
+		invalidate();
+	}
+
+	public boolean isPathsLayout() {
+		return pathsLayout;
+	}
+
 	public void setTileDragEnabled(boolean tileDragEnabled) {
 		this.tileDragEnabled = tileDragEnabled;
 		if (!tileDragEnabled) {
@@ -333,14 +368,45 @@ public class MapperView extends View {
 		return tileDragEnabled;
 	}
 
+	/** Spacing of the logical grid (cell pitch). */
+	private float cellSize() {
+		float pitch = pathsLayout ? PATHS_PITCH : 1f;
+		float cs = BASE_TILE * scale * pitch;
+		return cs < 1f ? 1f : cs;
+	}
+
+	/** Drawn size of the tile body inside its cell. */
+	private float bodySize() {
+		return cellSize() * (pathsLayout ? PATHS_BODY_FRAC : PACK_BODY_FRAC);
+	}
+
+	private float bodyLeft(int gridX) {
+		float cs = cellSize();
+		float bs = bodySize();
+		return offsetX + gridX * cs + (cs - bs) * 0.5f;
+	}
+
+	private float bodyTop(int gridY) {
+		float cs = cellSize();
+		float bs = bodySize();
+		return offsetY + gridY * cs + (cs - bs) * 0.5f;
+	}
+
+	private float cellCenterX(int gridX) {
+		float cs = cellSize();
+		return offsetX + gridX * cs + cs * 0.5f;
+	}
+
+	private float cellCenterY(int gridY) {
+		float cs = cellSize();
+		return offsetY + gridY * cs + cs * 0.5f;
+	}
+
 	/** Convert screen coordinates to map grid cell. */
 	public int[] screenToGrid(float x, float y) {
-		float tileSize = BASE_TILE * scale;
-		if (tileSize < 1f) {
-			tileSize = 1f;
-		}
-		int gx = (int) Math.floor((x - offsetX) / tileSize);
-		int gy = (int) Math.floor((y - offsetY) / tileSize);
+		float cs = cellSize();
+		int gx = (int) Math.floor((x - offsetX) / cs);
+		int gy = (int) Math.floor((y - offsetY) / cs);
 		return new int[] { gx, gy };
 	}
 
@@ -349,26 +415,16 @@ public class MapperView extends View {
 		if (tile == null && tiles.size() > 0) {
 			tile = tiles.get(0);
 		}
-		if (tile == null || getWidth() == 0 || getHeight() == 0) {
-			return;
-		}
-		float tileSize = BASE_TILE * scale;
-		float cx = tile.getGridX() * tileSize + tileSize * 0.5f;
-		float cy = tile.getGridY() * tileSize + tileSize * 0.5f;
-		offsetX = getWidth() * 0.5f - cx;
-		offsetY = getHeight() * 0.5f - cy;
-		invalidate();
+		centerOnTile(tile);
 	}
 
 	public void centerOnTile(MapTile tile) {
 		if (tile == null || getWidth() == 0 || getHeight() == 0) {
 			return;
 		}
-		float tileSize = BASE_TILE * scale;
-		float cx = tile.getGridX() * tileSize + tileSize * 0.5f;
-		float cy = tile.getGridY() * tileSize + tileSize * 0.5f;
-		offsetX = getWidth() * 0.5f - cx;
-		offsetY = getHeight() * 0.5f - cy;
+		float cs = cellSize();
+		offsetX = getWidth() * 0.5f - (tile.getGridX() * cs + cs * 0.5f);
+		offsetY = getHeight() * 0.5f - (tile.getGridY() * cs + cs * 0.5f);
 		invalidate();
 	}
 
@@ -376,54 +432,55 @@ public class MapperView extends View {
 	protected void onDraw(Canvas canvas) {
 		super.onDraw(canvas);
 		canvas.drawRect(0, 0, getWidth(), getHeight(), bgPaint);
-		float tileSize = BASE_TILE * scale;
-		if (showGrid && tileSize > 8f && getWidth() > 0 && getHeight() > 0) {
-			int minX = (int) Math.floor((-offsetX) / tileSize) - 1;
-			int maxX = (int) Math.ceil((getWidth() - offsetX) / tileSize) + 1;
-			int minY = (int) Math.floor((-offsetY) / tileSize) - 1;
-			int maxY = (int) Math.ceil((getHeight() - offsetY) / tileSize) + 1;
+		float cs = cellSize();
+		float bs = bodySize();
+		if (showGrid && cs > 8f && getWidth() > 0 && getHeight() > 0) {
+			int minX = (int) Math.floor((-offsetX) / cs) - 1;
+			int maxX = (int) Math.ceil((getWidth() - offsetX) / cs) + 1;
+			int minY = (int) Math.floor((-offsetY) / cs) - 1;
+			int maxY = (int) Math.ceil((getHeight() - offsetY) / cs) + 1;
 			maxX = Math.min(maxX, minX + 40);
 			maxY = Math.min(maxY, minY + 60);
 			for (int gx = minX; gx <= maxX; gx++) {
-				float x = offsetX + gx * tileSize;
+				float x = offsetX + gx * cs;
 				canvas.drawLine(x, 0, x, getHeight(), gridPaint);
 			}
 			for (int gy = minY; gy <= maxY; gy++) {
-				float y = offsetY + gy * tileSize;
+				float y = offsetY + gy * cs;
 				canvas.drawLine(0, y, getWidth(), y, gridPaint);
 			}
 		}
 
 		linkBadges.clear();
-		drawLinkArrows(canvas, tileSize);
+		drawLinkArrows(canvas, bs);
 
-		textPaint.setTextSize(Math.max(8f, 11f * scale));
+		textPaint.setTextSize(Math.max(8f, 11f * scale * (pathsLayout ? 0.95f : 1f)));
 		for (MapTile tile : tiles) {
 			if (tile == null) {
 				continue;
 			}
-			float left = offsetX + tile.getGridX() * tileSize;
-			float top = offsetY + tile.getGridY() * tileSize;
-			tmpRect.set(left + 2, top + 2, left + tileSize - 2, top + tileSize - 2);
+			float left = bodyLeft(tile.getGridX());
+			float top = bodyTop(tile.getGridY());
+			tmpRect.set(left, top, left + bs, top + bs);
 			boolean isCurrent = currentTileId != null && currentTileId.equals(tile.getId());
 			boolean isSelected = selectedTileId != null && selectedTileId.equals(tile.getId());
 			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, isCurrent ? currentFill : tileFill);
 			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale,
 					isSelected ? selectedStroke : tileStroke);
-			drawSpecialExitDots(canvas, tile, left, top, tileSize);
+			drawSpecialExitDots(canvas, tile, left, top, bs);
 			String label = tile.getTitle();
 			if (label == null || label.length() == 0) {
 				label = shortId(tile.getId());
 			}
-			if (scale >= 0.55f) {
-				canvas.drawText(truncate(label, scale), left + tileSize * 0.5f,
-						top + tileSize * 0.55f, textPaint);
+			if (scale >= 0.45f) {
+				canvas.drawText(truncate(label, scale), left + bs * 0.5f,
+						top + bs * 0.55f, textPaint);
 			}
 		}
 		if (tileDragging && draggingTile != null) {
-			float left = offsetX + dragGridX * tileSize;
-			float top = offsetY + dragGridY * tileSize;
-			tmpRect.set(left + 2, top + 2, left + tileSize - 2, top + tileSize - 2);
+			float left = bodyLeft(dragGridX);
+			float top = bodyTop(dragGridY);
+			tmpRect.set(left, top, left + bs, top + bs);
 			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, dragGhostFill);
 			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, dragGhostStroke);
 		}
@@ -433,7 +490,7 @@ public class MapperView extends View {
 	 * Draw directed arrows between tiles for exits that have a known destination
 	 * on the same drawn set. Labels show walk words; overflow becomes a tappable +N.
 	 */
-	private void drawLinkArrows(Canvas canvas, float tileSize) {
+	private void drawLinkArrows(Canvas canvas, float bodySize) {
 		if (scale < 0.4f) {
 			return;
 		}
@@ -465,6 +522,8 @@ public class MapperView extends View {
 
 		linkPaint.setStrokeWidth(Math.max(1.5f, 2.2f * scale));
 		linkLabelPaint.setTextSize(Math.max(8f, 9.5f * scale));
+		// Start/end arrows just outside the tile body so labels sit in the gutter.
+		float edge = bodySize * 0.52f;
 
 		for (Map.Entry<String, List<String>> e : grouped.entrySet()) {
 			String key = e.getKey();
@@ -478,10 +537,10 @@ public class MapperView extends View {
 			if (from == null || to == null || cmds == null || cmds.isEmpty()) {
 				continue;
 			}
-			float fromCx = offsetX + from.getGridX() * tileSize + tileSize * 0.5f;
-			float fromCy = offsetY + from.getGridY() * tileSize + tileSize * 0.5f;
-			float toCx = offsetX + to.getGridX() * tileSize + tileSize * 0.5f;
-			float toCy = offsetY + to.getGridY() * tileSize + tileSize * 0.5f;
+			float fromCx = cellCenterX(from.getGridX());
+			float fromCy = cellCenterY(from.getGridY());
+			float toCx = cellCenterX(to.getGridX());
+			float toCy = cellCenterY(to.getGridY());
 			float dx = toCx - fromCx;
 			float dy = toCy - fromCy;
 			float len = (float) Math.sqrt(dx * dx + dy * dy);
@@ -493,7 +552,6 @@ public class MapperView extends View {
 			// Parallel offset so A→B and B→A do not overlap.
 			float ox = -uy * (5f * scale);
 			float oy = ux * (5f * scale);
-			float edge = tileSize * 0.38f;
 			float x1 = fromCx + ux * edge + ox;
 			float y1 = fromCy + uy * edge + oy;
 			float x2 = toCx - ux * edge + ox;
@@ -674,19 +732,30 @@ public class MapperView extends View {
 	}
 
 	private MapTile hitTest(float x, float y) {
-		float tileSize = BASE_TILE * scale;
+		float cs = cellSize();
+		float bs = bodySize();
+		// Prefer the drawn body; fall back to the full cell for fat-finger taps.
+		MapTile bodyHit = null;
+		MapTile cellHit = null;
 		for (int i = tiles.size() - 1; i >= 0; i--) {
 			MapTile tile = tiles.get(i);
 			if (tile == null) {
 				continue;
 			}
-			float left = offsetX + tile.getGridX() * tileSize;
-			float top = offsetY + tile.getGridY() * tileSize;
-			if (x >= left && x <= left + tileSize && y >= top && y <= top + tileSize) {
-				return tile;
+			float bl = bodyLeft(tile.getGridX());
+			float bt = bodyTop(tile.getGridY());
+			if (x >= bl && x <= bl + bs && y >= bt && y <= bt + bs) {
+				bodyHit = tile;
+				break;
+			}
+			float cl = offsetX + tile.getGridX() * cs;
+			float ct = offsetY + tile.getGridY() * cs;
+			if (cellHit == null
+					&& x >= cl && x <= cl + cs && y >= ct && y <= ct + cs) {
+				cellHit = tile;
 			}
 		}
-		return null;
+		return bodyHit != null ? bodyHit : cellHit;
 	}
 
 	private MapTile findTile(String id) {
