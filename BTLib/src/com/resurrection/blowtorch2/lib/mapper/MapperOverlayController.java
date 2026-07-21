@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -59,6 +60,9 @@ public class MapperOverlayController
 	private int floatX;
 	private int floatY;
 	private String selectedTileId;
+	/** When true: tap FROM tile, then TO tile → pick walk verb to link/unlink. */
+	private boolean linkEditMode;
+	private String linkFromTileId;
 
 	public MapperOverlayController(Host host) {
 		this.host = host;
@@ -180,8 +184,12 @@ public class MapperOverlayController
 			@Override
 			public void onTileTap(MapTile tile) {
 				selectedTileId = tile.getId();
+				if (linkEditMode) {
+					onLinkEditTap(tile);
+					return;
+				}
 				String title = tile.getTitle() != null && tile.getTitle().length() > 0
-						? tile.getTitle() : "(untitled)";
+						? tile.getTitle() : shortTileLabel(tile);
 				Toast.makeText(host.getMainWindow(), title, Toast.LENGTH_SHORT).show();
 			}
 
@@ -235,11 +243,19 @@ public class MapperOverlayController
 		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) raw;
 		MainWindow activity = host.getMainWindow();
 		float density = activity.getResources().getDisplayMetrics().density;
+		View inputbar = activity.findViewById(R.id.inputbar);
 		if (fullscreen) {
 			lp.width = RelativeLayout.LayoutParams.MATCH_PARENT;
 			lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
 			lp.leftMargin = 0;
 			lp.topMargin = 0;
+			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+			lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+			if (inputbar != null) {
+				lp.addRule(RelativeLayout.ABOVE, R.id.inputbar);
+			}
+			// Stay clear of input chrome — MATCH_PARENT alone was eating the toolbar.
 			overlayRoot.setPadding(
 					(int) (4 * density),
 					(int) (8 * density),
@@ -249,6 +265,10 @@ public class MapperOverlayController
 				resizeHandle.setVisibility(View.GONE);
 			}
 		} else {
+			lp.removeRule(RelativeLayout.ABOVE);
+			lp.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
+			lp.removeRule(RelativeLayout.ALIGN_PARENT_LEFT);
+			lp.removeRule(RelativeLayout.ALIGN_PARENT_RIGHT);
 			lp.width = floatWidth;
 			lp.height = floatHeight;
 			lp.leftMargin = floatX;
@@ -349,24 +369,13 @@ public class MapperOverlayController
 		String[] parts = csv.split(",");
 		MainWindow activity = host.getMainWindow();
 		float density = activity.getResources().getDisplayMetrics().density;
+		boolean recording = controller != null ? controller.isRecording() : snapshotRecording;
 		for (String part : parts) {
 			final String action = part.trim();
 			if (action.length() == 0) {
 				continue;
 			}
-			Button b = new Button(activity);
-			b.setText(actionLabel(action));
-			b.setTextSize(12f);
-			b.setAllCaps(false);
-			b.setMinHeight(0);
-			b.setMinWidth(0);
-			b.setPadding((int) (8 * density), (int) (4 * density),
-					(int) (8 * density), (int) (4 * density));
-			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-					LinearLayout.LayoutParams.WRAP_CONTENT,
-					(int) (32 * density));
-			lp.rightMargin = (int) (4 * density);
-			b.setLayoutParams(lp);
+			Button b = makeToolbarButton(activity, density, actionLabel(action, recording));
 			b.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
@@ -375,15 +384,16 @@ public class MapperOverlayController
 			});
 			toolbar.addView(b);
 		}
-		Button edit = new Button(activity);
-		edit.setText("Edit");
-		edit.setTextSize(12f);
-		edit.setAllCaps(false);
-		edit.setMinHeight(0);
-		edit.setMinWidth(0);
-		edit.setPadding((int) (8 * density), (int) (4 * density),
-				(int) (8 * density), (int) (4 * density));
-		toolbar.addView(edit);
+		Button links = makeToolbarButton(activity, density, linkEditMode ? "Links●" : "Links");
+		links.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				toggleLinkEditMode();
+			}
+		});
+		toolbar.addView(links);
+
+		Button edit = makeToolbarButton(activity, density, "Edit");
 		edit.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -396,12 +406,44 @@ public class MapperOverlayController
 				}
 			}
 		});
+		toolbar.addView(edit);
+
+		Button save = makeToolbarButton(activity, density, "Save");
+		save.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (controller != null) {
+					toastStatus(controller.save());
+				} else {
+					host.runMapCommand("save");
+					Toast.makeText(host.getMainWindow(), "Saving map…", Toast.LENGTH_SHORT).show();
+				}
+			}
+		});
+		toolbar.addView(save);
 	}
 
-	private static String actionLabel(String action) {
+	private Button makeToolbarButton(MainWindow activity, float density, String label) {
+		Button b = new Button(activity);
+		b.setText(label);
+		b.setTextSize(12f);
+		b.setAllCaps(false);
+		b.setMinHeight(0);
+		b.setMinWidth(0);
+		b.setPadding((int) (8 * density), (int) (4 * density),
+				(int) (8 * density), (int) (4 * density));
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				(int) (36 * density));
+		lp.rightMargin = (int) (4 * density);
+		b.setLayoutParams(lp);
+		return b;
+	}
+
+	private static String actionLabel(String action, boolean recording) {
 		String a = action.toLowerCase(Locale.US);
 		if ("rec".equals(a) || "record".equals(a)) {
-			return "Rec";
+			return recording ? "Stop" : "Rec";
 		}
 		if ("follow".equals(a)) {
 			return "Follow";
@@ -427,14 +469,33 @@ public class MapperOverlayController
 		if ("capture".equals(a)) {
 			return "Capture";
 		}
+		if ("links".equals(a) || "link".equals(a)) {
+			return "Links";
+		}
+		if ("save".equals(a) || "export".equals(a)) {
+			return "Save";
+		}
 		return action;
 	}
 
 	private void runToolbarAction(String action) {
 		String a = action.toLowerCase(Locale.US);
+		if ("links".equals(a) || "link".equals(a)) {
+			toggleLinkEditMode();
+			return;
+		}
+		if ("save".equals(a) || "export".equals(a)) {
+			if (controller != null) {
+				toastStatus(controller.save());
+			} else {
+				host.runMapCommand("save");
+			}
+			return;
+		}
 		if (controller == null) {
 			if ("rec".equals(a) || "record".equals(a)) {
-				host.runMapCommand("record toggle");
+				boolean on = snapshotRecording;
+				host.runMapCommand(on ? "record off" : "record on");
 			} else if ("follow".equals(a)) {
 				host.runMapCommand("follow toggle");
 			} else if ("l-".equals(a) || "level-".equals(a) || "prev".equals(a)) {
@@ -465,7 +526,7 @@ public class MapperOverlayController
 		if ("rec".equals(a) || "record".equals(a)) {
 			controller.setRecording(!controller.isRecording());
 			Toast.makeText(host.getMainWindow(),
-					controller.isRecording() ? "Recording on" : "Recording off",
+					controller.isRecording() ? "Recording on" : "Recording stopped",
 					Toast.LENGTH_SHORT).show();
 		} else if ("follow".equals(a)) {
 			controller.setFollow(!controller.isFollowPlayer());
@@ -490,6 +551,238 @@ public class MapperOverlayController
 			Toast.makeText(host.getMainWindow(), "Unknown: " + action, Toast.LENGTH_SHORT).show();
 		}
 		refreshFromController();
+	}
+
+	private void toggleLinkEditMode() {
+		linkEditMode = !linkEditMode;
+		linkFromTileId = null;
+		if (linkEditMode) {
+			Toast.makeText(host.getMainWindow(),
+					"Links: tap FROM tile, then TO tile", Toast.LENGTH_LONG).show();
+		} else {
+			Toast.makeText(host.getMainWindow(), "Links mode off", Toast.LENGTH_SHORT).show();
+		}
+		updateTitleForLinkMode();
+		rebuildToolbar();
+	}
+
+	private void onLinkEditTap(MapTile tile) {
+		if (tile == null) {
+			return;
+		}
+		if (linkFromTileId == null) {
+			linkFromTileId = tile.getId();
+			if (mapperView != null) {
+				mapperView.setSelectedTileId(tile.getId());
+			}
+			Toast.makeText(host.getMainWindow(),
+					"FROM " + shortTileLabel(tile) + " — now tap TO",
+					Toast.LENGTH_SHORT).show();
+			updateTitleForLinkMode();
+			return;
+		}
+		if (linkFromTileId.equals(tile.getId())) {
+			Toast.makeText(host.getMainWindow(), "Pick a different TO tile",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		final String fromId = linkFromTileId;
+		final MapTile toTile = tile;
+		linkFromTileId = null;
+		updateTitleForLinkMode();
+		showLinkVerbDialog(fromId, toTile);
+	}
+
+	private void showLinkVerbDialog(final String fromId, final MapTile toTile) {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		final MapTile from = map != null ? map.findTile(fromId) : null;
+		if (from == null || toTile == null) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		LinearLayout root = new LinearLayout(activity);
+		root.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (12 * activity.getResources().getDisplayMetrics().density);
+		root.setPadding(pad, pad, pad, pad);
+
+		TextView info = new TextView(activity);
+		info.setText("Link " + shortTileLabel(from) + " → " + shortTileLabel(toTile)
+				+ "\nEnter walk command (go west, n, out…)");
+		root.addView(info);
+
+		final EditText cmdEdit = new EditText(activity);
+		cmdEdit.setHint("go west");
+		cmdEdit.setSingleLine(true);
+		root.addView(cmdEdit);
+
+		LinearLayout quick = new LinearLayout(activity);
+		quick.setOrientation(LinearLayout.HORIZONTAL);
+		String[] verbs = new String[] {
+				"n", "s", "e", "w", "u", "d", "in", "out",
+				"go north", "go south", "go east", "go west", "go out"
+		};
+		// Wrap quick verbs in a horizontal scroll via nested layout — keep a short row
+		HorizontalScrollView hsv = new HorizontalScrollView(activity);
+		LinearLayout row = new LinearLayout(activity);
+		row.setOrientation(LinearLayout.HORIZONTAL);
+		for (final String verb : verbs) {
+			Button qb = new Button(activity);
+			qb.setText(verb);
+			qb.setTextSize(11f);
+			qb.setAllCaps(false);
+			qb.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					cmdEdit.setText(verb);
+					cmdEdit.setSelection(verb.length());
+				}
+			});
+			row.addView(qb);
+		}
+		hsv.addView(row);
+		root.addView(hsv);
+
+		// Existing exits on FROM for unlink
+		if (from.getExits() != null && !from.getExits().isEmpty()) {
+			TextView exLabel = new TextView(activity);
+			exLabel.setText("Existing exits (tap to unlink):");
+			exLabel.setPadding(0, pad, 0, 0);
+			root.addView(exLabel);
+			for (final MapExit exit : from.getExits()) {
+				if (exit == null || exit.getCommand() == null) {
+					continue;
+				}
+				Button ub = new Button(activity);
+				String dest = exit.getToId() != null ? shortId(exit.getToId()) : "?";
+				ub.setText("Unlink " + exit.getCommand() + " → " + dest);
+				ub.setAllCaps(false);
+				ub.setTextSize(12f);
+				ub.setOnClickListener(new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						runUnlink(fromId, exit.getCommand());
+					}
+				});
+				root.addView(ub);
+			}
+		}
+
+		final AlertDialog dialog = new AlertDialog.Builder(activity)
+				.setTitle("Edit link")
+				.setView(root)
+				.setPositiveButton("Link", null)
+				.setNegativeButton("Cancel", null)
+				.setNeutralButton("Unlink list…", null)
+				.create();
+		dialog.setOnShowListener(new DialogInterface.OnShowListener() {
+			@Override
+			public void onShow(DialogInterface d) {
+				dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(
+						new View.OnClickListener() {
+							@Override
+							public void onClick(View v) {
+								String cmd = cmdEdit.getText().toString().trim();
+								if (cmd.length() == 0) {
+									Toast.makeText(activity, "Enter a walk command",
+											Toast.LENGTH_SHORT).show();
+									return;
+								}
+								runLink(fromId, cmd, toTile.getId());
+								dialog.dismiss();
+							}
+						});
+				dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(
+						new View.OnClickListener() {
+							@Override
+							public void onClick(View v) {
+								showUnlinkPicker(from);
+							}
+						});
+			}
+		});
+		dialog.show();
+	}
+
+	private void showUnlinkPicker(final MapTile from) {
+		if (from == null || from.getExits() == null || from.getExits().isEmpty()) {
+			Toast.makeText(host.getMainWindow(), "No exits on this tile",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		final List<MapExit> exits = new ArrayList<MapExit>();
+		List<CharSequence> labels = new ArrayList<CharSequence>();
+		for (MapExit e : from.getExits()) {
+			if (e == null || e.getCommand() == null) {
+				continue;
+			}
+			exits.add(e);
+			labels.add(e.getCommand() + " → " + shortId(e.getToId()));
+		}
+		CharSequence[] items = labels.toArray(new CharSequence[labels.size()]);
+		new AlertDialog.Builder(host.getMainWindow())
+				.setTitle("Unlink exit")
+				.setItems(items, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which >= 0 && which < exits.size()) {
+							runUnlink(from.getId(), exits.get(which).getCommand());
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void runLink(String fromId, String cmd, String toId) {
+		if (controller != null) {
+			toastStatus(controller.linkBetween(fromId, cmd, toId));
+			refreshFromController();
+		} else {
+			host.runMapCommand("link " + cmd + " from " + fromId + " to " + toId);
+			pullSnapshotFromService();
+		}
+	}
+
+	private void runUnlink(String fromId, String cmd) {
+		if (controller != null) {
+			toastStatus(controller.unlinkBetween(fromId, cmd));
+			refreshFromController();
+		} else {
+			host.runMapCommand("unlink " + cmd + " from " + fromId);
+			pullSnapshotFromService();
+		}
+	}
+
+	private void updateTitleForLinkMode() {
+		if (titleView == null) {
+			return;
+		}
+		if (!linkEditMode) {
+			refreshFromController();
+			return;
+		}
+		if (linkFromTileId == null) {
+			titleView.setText("Links · tap FROM");
+		} else {
+			titleView.setText("Links · tap TO");
+		}
+	}
+
+	private static String shortTileLabel(MapTile tile) {
+		if (tile == null) {
+			return "?";
+		}
+		if (tile.getTitle() != null && tile.getTitle().length() > 0) {
+			return tile.getTitle();
+		}
+		return shortId(tile.getId());
+	}
+
+	private static String shortId(String id) {
+		if (id == null || id.length() == 0) {
+			return "?";
+		}
+		return id.length() > 6 ? id.substring(0, 6) : id;
 	}
 
 	private void toastStatus(String msg) {
@@ -536,7 +829,7 @@ public class MapperOverlayController
 	private void showTileContext(final MapTile tile) {
 		final MainWindow activity = host.getMainWindow();
 		CharSequence[] items = new CharSequence[] {
-				"Edit", "Path to here", "Change level", "Center"
+				"Edit", "Edit links…", "Path to here", "Change level", "Center"
 		};
 		new AlertDialog.Builder(activity)
 				.setTitle(tile.getTitle() != null ? tile.getTitle() : "Tile")
@@ -548,12 +841,15 @@ public class MapperOverlayController
 							openTileEditor(tile);
 							break;
 						case 1:
-							pathToTile(tile);
+							showUnlinkPicker(tile);
 							break;
 						case 2:
-							promptChangeLevel(tile);
+							pathToTile(tile);
 							break;
 						case 3:
+							promptChangeLevel(tile);
+							break;
+						case 4:
 							if (mapperView != null) {
 								mapperView.setCurrentTileId(tile.getId());
 								mapperView.centerOnTile(tile);
