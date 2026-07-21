@@ -53,6 +53,8 @@ public class MapperOverlayController
 	private View resizeHandle;
 	private View dragHandle;
 	private TextView modeBtn;
+	private TextView modeBrowseBtn;
+	private TextView modeEditBtn;
 	private MudMap snapshotMap;
 	private boolean snapshotRecording;
 	private boolean snapshotFollow = true;
@@ -169,6 +171,8 @@ public class MapperOverlayController
 		resizeHandle = overlayRoot.findViewById(R.id.mapper_resize_handle);
 		dragHandle = overlayRoot.findViewById(R.id.mapper_drag_handle);
 		modeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_btn);
+		modeBrowseBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_browse);
+		modeEditBtn = (TextView) overlayRoot.findViewById(R.id.mapper_mode_edit);
 		TextView closeBtn = (TextView) overlayRoot.findViewById(R.id.mapper_close_btn);
 
 		float density = activity.getResources().getDisplayMetrics().density;
@@ -193,11 +197,28 @@ public class MapperOverlayController
 				setFullscreen(!fullscreen);
 			}
 		});
+		if (modeBrowseBtn != null) {
+			modeBrowseBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					setEditModeFromUi(false);
+				}
+			});
+		}
+		if (modeEditBtn != null) {
+			modeEditBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					setEditModeFromUi(true);
+				}
+			});
+		}
+		updateEditModeToggleUi();
 		if (titleView != null) {
 			titleView.setOnLongClickListener(new View.OnLongClickListener() {
 				@Override
 				public boolean onLongClick(View v) {
-					openRadialMenu();
+					openLevelsRadial();
 					return true;
 				}
 			});
@@ -463,94 +484,24 @@ public class MapperOverlayController
 			});
 			toolbar.addView(b);
 		}
-		Button links = makeToolbarButton(activity, density, linkEditMode ? "Links●" : "Links");
-		links.setOnClickListener(new View.OnClickListener() {
+		// Trailing strip: Levels radial + Tools radial only (no duplicate Draw/Links/…)
+		Button levelsRadial = makeToolbarButton(activity, density, "↕");
+		levelsRadial.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				toggleLinkEditMode();
+				openLevelsRadial();
 			}
 		});
-		toolbar.addView(links);
+		toolbar.addView(levelsRadial);
 
-		Button paths = makeToolbarButton(activity, density, pathsLayout ? "Paths●" : "Pack");
-		paths.setOnClickListener(new View.OnClickListener() {
+		Button toolsRadial = makeToolbarButton(activity, density, "⚙");
+		toolsRadial.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				togglePathsLayout();
+				openToolsRadial();
 			}
 		});
-		toolbar.addView(paths);
-
-		Button levels = makeToolbarButton(activity, density, "Levels");
-		levels.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				openLevelBrowser();
-			}
-		});
-		toolbar.addView(levels);
-
-		Button radial = makeToolbarButton(activity, density, "◎");
-		radial.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				openRadialMenu();
-			}
-		});
-		toolbar.addView(radial);
-
-		Button draw = makeToolbarButton(activity, density, drawEditMode ? "Draw●" : "Draw");
-		draw.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				toggleDrawEditMode();
-			}
-		});
-		toolbar.addView(draw);
-
-		Button here = makeToolbarButton(activity, density, "Here");
-		here.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				MapTile tile = selectedOrCurrentTile();
-				if (tile == null) {
-					Toast.makeText(host.getMainWindow(), "Select a tile first",
-							Toast.LENGTH_SHORT).show();
-					return;
-				}
-				runSetHere(tile.getId());
-			}
-		});
-		toolbar.addView(here);
-
-		Button edit = makeToolbarButton(activity, density, "Edit");
-		edit.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				MapTile tile = selectedOrCurrentTile();
-				if (tile != null) {
-					openTileEditor(tile);
-				} else {
-					Toast.makeText(host.getMainWindow(), "No tile selected",
-							Toast.LENGTH_SHORT).show();
-				}
-			}
-		});
-		toolbar.addView(edit);
-
-		Button save = makeToolbarButton(activity, density, "Save");
-		save.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				if (controller != null) {
-					toastStatus(controller.save());
-				} else {
-					host.runMapCommand("save");
-					Toast.makeText(host.getMainWindow(), "Saving map…", Toast.LENGTH_SHORT).show();
-				}
-			}
-		});
-		toolbar.addView(save);
+		toolbar.addView(toolsRadial);
 		scheduleToolbarScrollHintUpdate();
 	}
 
@@ -764,6 +715,11 @@ public class MapperOverlayController
 	}
 
 	private void toggleLinkEditMode() {
+		if (!isControllerEditMode()) {
+			Toast.makeText(host.getMainWindow(), "Switch to Edit mode first",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
 		linkEditMode = !linkEditMode;
 		linkFromTileId = null;
 		if (linkEditMode && drawEditMode) {
@@ -800,6 +756,11 @@ public class MapperOverlayController
 	}
 
 	private void toggleDrawEditMode() {
+		if (!isControllerEditMode()) {
+			Toast.makeText(host.getMainWindow(), "Switch to Edit mode first",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
 		drawEditMode = !drawEditMode;
 		if (drawEditMode && linkEditMode) {
 			linkEditMode = false;
@@ -1398,6 +1359,11 @@ public class MapperOverlayController
 		if (from == null) {
 			return;
 		}
+		if (!isControllerEditMode()) {
+			Toast.makeText(host.getMainWindow(), "Switch to Edit mode first",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
 		if (drawEditMode) {
 			drawEditMode = false;
 			if (mapperView != null) {
@@ -1573,6 +1539,11 @@ public class MapperOverlayController
 			}
 
 			@Override
+			public boolean isEditMode() {
+				return isControllerEditMode();
+			}
+
+			@Override
 			public void browseLevel(String levelId) {
 				runBrowseLevel(levelId);
 			}
@@ -1618,15 +1589,77 @@ public class MapperOverlayController
 					mapperView.centerOnTile(tile);
 				}
 			}
+
+			@Override
+			public void deleteLevel(final String levelId) {
+				confirmDeleteLevel(levelId);
+			}
 		});
 	}
 
-	private void openRadialMenu() {
+	private void confirmDeleteLevel(final String levelId) {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || levelId == null || levelId.length() == 0) {
+			return;
+		}
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		MapLevel level = map != null ? map.findLevel(levelId) : null;
+		String name;
+		if (level != null && level.getName() != null && level.getName().length() > 0) {
+			name = level.getName();
+		} else if (level != null) {
+			name = String.valueOf(level.getIndex());
+		} else {
+			name = levelId.length() > 8 ? levelId.substring(0, 8) : levelId;
+		}
+		int tileCount = 0;
+		if (map != null) {
+			for (MapTile t : map.getTiles()) {
+				if (t != null && levelId.equals(t.getLevelId())) {
+					tileCount++;
+				}
+			}
+		}
+		final String message = "Delete level \"" + name + "\" and " + tileCount
+				+ " tiles? This cannot be undone easily (Undo may help).";
+		new AlertDialog.Builder(activity)
+				.setTitle("Delete level?")
+				.setMessage(message)
+				.setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (controller != null) {
+							toastStatus(controller.deleteLevel(levelId));
+							refreshFromController();
+						} else {
+							host.runMapCommand("level delete " + levelId);
+							pullSnapshotFromService();
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void openLevelsRadial() {
 		MainWindow activity = host.getMainWindow();
 		if (activity == null) {
 			return;
 		}
-		new MapperRadialMenu(activity, new MapperRadialMenu.Listener() {
+		MapperRadialMenu.createLevelsMenu(activity, new MapperRadialMenu.Listener() {
+			@Override
+			public void onRadialAction(String action) {
+				runRadialAction(action);
+			}
+		}).show();
+	}
+
+	private void openToolsRadial() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		MapperRadialMenu.createToolsMenu(activity, new MapperRadialMenu.Listener() {
 			@Override
 			public void onRadialAction(String action) {
 				runRadialAction(action);
@@ -1638,12 +1671,23 @@ public class MapperOverlayController
 		if (action == null) {
 			return;
 		}
-		if (MapperRadialMenu.ACTION_LEVELS.equals(action)) {
+		// Levels radial
+		if (MapperRadialMenu.ACTION_LIST.equals(action)
+				|| MapperRadialMenu.ACTION_LEVELS.equals(action)) {
 			openLevelBrowser();
-		} else if (MapperRadialMenu.ACTION_FLOOR_UP.equals(action)) {
+		} else if (MapperRadialMenu.ACTION_UP.equals(action)
+				|| MapperRadialMenu.ACTION_FLOOR_UP.equals(action)) {
 			runFloorUp();
-		} else if (MapperRadialMenu.ACTION_FLOOR_DOWN.equals(action)) {
+		} else if (MapperRadialMenu.ACTION_DOWN.equals(action)
+				|| MapperRadialMenu.ACTION_FLOOR_DOWN.equals(action)) {
 			runFloorDown();
+		} else if (MapperRadialMenu.ACTION_ROOT.equals(action)) {
+			runGoRootLevel();
+		} else if (MapperRadialMenu.ACTION_PARENT.equals(action)) {
+			runGoParentDoor();
+		} else if (MapperRadialMenu.ACTION_DELETE_LEVEL.equals(action)) {
+			confirmDeleteCurrentLevel();
+		// Tools radial
 		} else if (MapperRadialMenu.ACTION_PATHS.equals(action)) {
 			togglePathsLayout();
 		} else if (MapperRadialMenu.ACTION_DRAW.equals(action)) {
@@ -1658,6 +1702,14 @@ public class MapperOverlayController
 			} else {
 				runSetHere(tile.getId());
 			}
+		} else if (MapperRadialMenu.ACTION_EDIT.equals(action)) {
+			MapTile tile = selectedOrCurrentTile();
+			if (tile != null) {
+				openTileEditor(tile);
+			} else {
+				Toast.makeText(host.getMainWindow(), "No tile selected",
+						Toast.LENGTH_SHORT).show();
+			}
 		} else if (MapperRadialMenu.ACTION_SAVE.equals(action)) {
 			if (controller != null) {
 				toastStatus(controller.save());
@@ -1666,7 +1718,101 @@ public class MapperOverlayController
 				Toast.makeText(host.getMainWindow(), "Saving map…",
 						Toast.LENGTH_SHORT).show();
 			}
+		} else if (MapperRadialMenu.ACTION_FIND.equals(action)) {
+			openSearch();
+		} else if (MapperRadialMenu.ACTION_REC.equals(action)) {
+			runToolbarAction("rec");
 		}
+	}
+
+	/** Browse/go to unanchored root level (index 0, or first without anchor). */
+	private void runGoRootLevel() {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null || map.getLevels() == null || map.getLevels().isEmpty()) {
+			Toast.makeText(host.getMainWindow(), "No levels", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		MapLevel root = null;
+		for (MapLevel level : map.getLevels()) {
+			if (level == null) {
+				continue;
+			}
+			String anchor = level.getAnchorTileId();
+			if (anchor == null || anchor.length() == 0) {
+				if (level.getIndex() == 0) {
+					root = level;
+					break;
+				}
+				if (root == null) {
+					root = level;
+				}
+			}
+		}
+		if (root == null) {
+			root = map.getLevels().get(0);
+		}
+		if (root == null || root.getId() == null) {
+			Toast.makeText(host.getMainWindow(), "No root level", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		runBrowseLevel(root.getId());
+	}
+
+	/** Return to the anchor tile of the current level, if any. */
+	private void runGoParentDoor() {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null) {
+			Toast.makeText(host.getMainWindow(), "No map", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		MapLevel current = map.findLevel(map.getCurrentLevelId());
+		if (current == null) {
+			Toast.makeText(host.getMainWindow(), "No current level", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		String anchorId = current.getAnchorTileId();
+		if (anchorId == null || anchorId.length() == 0) {
+			Toast.makeText(host.getMainWindow(), "Already at root (no door)",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		MapTile door = map.findTile(anchorId);
+		if (door == null) {
+			Toast.makeText(host.getMainWindow(), "Anchor tile missing",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		if (door.getLevelId() != null) {
+			runBrowseLevel(door.getLevelId());
+		}
+		runSetHere(door.getId());
+		if (mapperView != null) {
+			mapperView.centerOnTile(door);
+		}
+	}
+
+	/**
+	 * Delete current level — requires Edit mode; confirms then calls
+	 * {@link MapperController#deleteLevel}.
+	 */
+	private void confirmDeleteCurrentLevel() {
+		if (!isControllerEditMode()) {
+			Toast.makeText(host.getMainWindow(),
+					"Switch to Edit mode first",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null) {
+			Toast.makeText(host.getMainWindow(), "No map", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		MapLevel current = map.findLevel(map.getCurrentLevelId());
+		if (current == null) {
+			Toast.makeText(host.getMainWindow(), "No current level", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		confirmDeleteLevel(current.getId());
 	}
 
 	private void runBrowseLevel(String levelId) {
@@ -1737,7 +1883,77 @@ public class MapperOverlayController
 		boolean follow = controller != null ? controller.isFollowPlayer() : snapshotFollow;
 		mapperView.setFollowMode(follow);
 		applyOpacity();
+		updateEditModeToggleUi();
 		rebuildToolbar();
+	}
+
+	private boolean isControllerEditMode() {
+		return controller != null && controller.isEditMode();
+	}
+
+	/**
+	 * Title-bar Browse|Edit segmented control. Switching to Browse force-offs
+	 * Draw and Links tools.
+	 */
+	private void setEditModeFromUi(final boolean edit) {
+		if (controller == null) {
+			Toast.makeText(host.getMainWindow(), "Mapper not ready", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		if (controller.isEditMode() == edit) {
+			updateEditModeToggleUi();
+			return;
+		}
+		controller.setEditMode(edit);
+		if (!edit) {
+			forceOffDrawAndLinks();
+		}
+		updateEditModeToggleUi();
+		Toast.makeText(host.getMainWindow(),
+				edit ? "Edit mode" : "Browse mode", Toast.LENGTH_SHORT).show();
+		if (!linkEditMode && !drawEditMode) {
+			refreshFromController();
+		}
+	}
+
+	private void forceOffDrawAndLinks() {
+		boolean changed = false;
+		if (drawEditMode) {
+			drawEditMode = false;
+			changed = true;
+			if (mapperView != null) {
+				mapperView.setShowGrid(false);
+			}
+		}
+		if (linkEditMode) {
+			linkEditMode = false;
+			linkFromTileId = null;
+			changed = true;
+		}
+		if (changed) {
+			updateTitleForLinkMode();
+			rebuildToolbar();
+		}
+	}
+
+	private void updateEditModeToggleUi() {
+		boolean edit = isControllerEditMode();
+		final int active = 0xFFE8C547;
+		final int inactive = 0xFF888888;
+		final int activeBg = 0x33000000;
+		final int clearBg = 0x00000000;
+		if (modeBrowseBtn != null) {
+			modeBrowseBtn.setTextColor(edit ? inactive : active);
+			modeBrowseBtn.setBackgroundColor(edit ? clearBg : activeBg);
+			modeBrowseBtn.getPaint().setFakeBoldText(!edit);
+			modeBrowseBtn.invalidate();
+		}
+		if (modeEditBtn != null) {
+			modeEditBtn.setTextColor(edit ? active : inactive);
+			modeEditBtn.setBackgroundColor(edit ? activeBg : clearBg);
+			modeEditBtn.getPaint().setFakeBoldText(edit);
+			modeEditBtn.invalidate();
+		}
 	}
 
 	private String formatTitleBreadcrumb(MudMap map) {
@@ -1751,7 +1967,8 @@ public class MapperOverlayController
 		}
 		boolean rec = controller != null ? controller.isRecording() : snapshotRecording;
 		String recMark = rec ? " [REC]" : "";
-		String base = name + " · L" + level;
+		String modeMark = isControllerEditMode() ? "[Edit] " : "[Browse] ";
+		String base = modeMark + name + " · L" + level;
 		String anchorId = l != null ? l.getAnchorTileId() : null;
 		if (anchorId != null && anchorId.length() > 0) {
 			MapTile anchor = map.findTile(anchorId);
@@ -1966,6 +2183,9 @@ public class MapperOverlayController
 		runOnUi(new Runnable() {
 			@Override
 			public void run() {
+				if (controller != null && !controller.isEditMode()) {
+					forceOffDrawAndLinks();
+				}
 				pullSnapshotFromService();
 				refreshFromController();
 			}
