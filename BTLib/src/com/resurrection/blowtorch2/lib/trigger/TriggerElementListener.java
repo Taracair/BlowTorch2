@@ -8,6 +8,7 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BasePluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginSettings;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
 
 import android.sax.ElementListener;
 import android.sax.StartElementListener;
@@ -51,6 +52,7 @@ public class TriggerElementListener implements ElementListener {
 		current_trigger.setKeepEvaluating((a.getValue("",BasePluginParser.ATTR_KEEPEVALUATING) == null) ? true : ("true".equals(a.getValue("",BasePluginParser.ATTR_KEEPEVALUATING))) ? true : false);
 		
 		current_trigger.setResponders(new ArrayList<TriggerResponder>());
+		current_trigger.setConditions(new ConditionGroup());
 		
 	
 	}

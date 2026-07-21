@@ -109,6 +109,22 @@ public final class TimerResponderListeners {
 				currentTimer.getResponders().add(r.copy());
 			}
 		});
+
+		timer.getChild(BasePluginParser.TAG_SETVARIABLE).setStartElementListener(new StartElementListener() {
+			@Override
+			public void start(Attributes a) {
+				com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder r =
+						new com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder();
+				String name = a.getValue("", BasePluginParser.ATTR_NAME);
+				r.setVariableName(name != null ? name : "");
+				String value = a.getValue("", BasePluginParser.ATTR_CONDITION_VALUE);
+				if (value == null) value = a.getValue("", "value");
+				r.setVariableValue(value != null ? value : "");
+				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
+				currentTimer.getResponders().add(r.copy());
+			}
+		});
+
 	}
 
 	private static FIRE_WHEN parseFireType(String fireType) {

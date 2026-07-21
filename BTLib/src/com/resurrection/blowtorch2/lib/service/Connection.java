@@ -31,6 +31,8 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.script.ScriptData;
+import com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator;
+import com.resurrection.blowtorch2.lib.trigger.condition.SessionVariableStore;
 import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
@@ -156,6 +158,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Raw MCP line to the socket (no alias processing / no in-band quoting). */
 	public static final int MESSAGE_SENDMCPRAW = 44;
+	public static final int MESSAGE_SET_VARIABLE = 45;
+	public static final int MESSAGE_UNSET_VARIABLE = 46;
 	
 	/** Sent from various sources, containing a string to be sent to 
 	 * the server in the selected encoding. */
@@ -321,6 +325,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Global map for handling the capture transformation for triggers and aliases. */
 	private HashMap<String, String> mCaptureMap = new HashMap<String, String>();
+	private final SessionVariableStore mSessionVariables = new SessionVariableStore();
 	
 	/** The DataPumper instance for this connection. */
 	DataPumper mPump = null;
@@ -609,6 +614,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_SENDMCPRAW:
 				if (msg.obj instanceof String) {
 					sendMcpRawToPump((String) msg.obj);
+				}
+				break;
+			case MESSAGE_SET_VARIABLE:
+				if (msg.obj instanceof String[]) {
+					String[] pair = (String[]) msg.obj;
+					if (pair.length >= 2) {
+						mSessionVariables.set(pair[0], pair[1]);
+					}
+				}
+				break;
+			case MESSAGE_UNSET_VARIABLE:
+				if (msg.obj instanceof String) {
+					mSessionVariables.unset((String) msg.obj);
 				}
 				break;
 			case MESSAGE_INVALIDATEWINDOWTEXT:
@@ -1654,6 +1672,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							gagged = true;
 						}
 						if (t != null && t.isEnabled() && !gagged) {
+							if (!ConditionEvaluator.evaluate(t, Connection.this)) {
+							} else {
 							mCaptureMap.clear();
 							for (int i = index; i <= (t.getMatcher().groupCount() + index); i++) {
 								
@@ -1702,6 +1722,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								if (mWorking.getLines().size() == 0) {
 									keepEvaluating = false;
 								}
+							}
 							}
 						}
 					}
@@ -2541,6 +2562,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final HashMap<String, TriggerData> getTriggers() {
 		return mSettings.getSettings().getTriggers();
+	}
+
+	public final SessionVariableStore getSessionVariables() {
+		return mSessionVariables;
 	}
 
 	/** Helper function to get the triggers for a given plugin.
