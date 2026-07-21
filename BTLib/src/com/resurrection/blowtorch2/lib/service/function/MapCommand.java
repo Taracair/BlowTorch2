@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 
 import com.resurrection.blowtorch2.lib.mapper.MapDirections;
+import com.resurrection.blowtorch2.lib.mapper.MapMoveEffect;
 import com.resurrection.blowtorch2.lib.mapper.MapTile;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MudMap;
@@ -110,7 +111,10 @@ public class MapCommand extends SpecialCommand {
 		case "dirs":
 		case "directions":
 		case "lexicon":
-			return doDirs(c);
+			return doDirs(c, mapper);
+		case "moves":
+		case "moveeffects":
+			return doMoves(c, mapper, rest);
 		case "delete":
 		case "del":
 		case "rm":
@@ -454,13 +458,100 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
-	private Object doDirs(Connection c) {
+	private Object doDirs(Connection c, MapperController mapper) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("Mapper movement lexicon:\n");
+		sb.append("Mapper movement lexicon (effective):\n");
+		if (mapper != null) {
+			String table = mapper.getCombinedMoveEffectsDisplay();
+			if (table != null && table.length() > 0) {
+				sb.append(table).append('\n');
+			}
+		}
+		sb.append("\nBuilt-in notes:\n");
 		for (String line : MapDirections.lexiconSummary()) {
 			sb.append(line).append('\n');
 		}
 		note(c, sb.toString());
+		return null;
+	}
+
+	private Object doMoves(Connection c, MapperController mapper, String rest) {
+		String work = rest != null ? rest.trim() : "";
+		if (work.length() == 0 || work.equalsIgnoreCase("list")
+				|| work.equalsIgnoreCase("show")) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("Mapper moves (edit: File → Moves, or Options → Mapper):\n");
+			sb.append(mapper.getCombinedMoveEffectsDisplay());
+			sb.append("\nUsage: .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");
+			note(c, sb.toString());
+			return null;
+		}
+		String lower = work.toLowerCase(Locale.US);
+		if (lower.equals("reset") || lower.equals("default")
+				|| lower.equals("defaults")) {
+			note(c, mapper.resetMoveEffects());
+			return null;
+		}
+		if (lower.startsWith("apply ") || lower.startsWith("replace ")
+				|| lower.startsWith("load ")) {
+			int sp = work.indexOf(' ');
+			String body = sp >= 0 ? work.substring(sp + 1).trim() : "";
+			note(c, mapper.applyCombinedMoveEffects(body));
+			return null;
+		}
+		if (lower.startsWith("unset ") || lower.startsWith("rm ")
+				|| lower.startsWith("delete ") || lower.startsWith("del ")) {
+			int sp = work.indexOf(' ');
+			String cmd = sp >= 0 ? work.substring(sp + 1).trim() : "";
+			note(c, mapper.unsetOneMoveEffect(cmd));
+			return null;
+		}
+		if (lower.startsWith("set ")) {
+			String[] p = work.substring(4).trim().split("\\s+");
+			if (p.length < 2) {
+				note(c, "Usage: .map moves set <cmd> grid <dx> <dy>|level <n>|special");
+				return null;
+			}
+			String cmd = p[0];
+			String kind = p[1].toLowerCase(Locale.US);
+			MapMoveEffect fx = null;
+			if (kind.equals("special") || kind.equals("spec") || kind.equals("s")) {
+				fx = MapMoveEffect.special();
+			} else if (kind.equals("level") || kind.equals("lvl") || kind.equals("l")) {
+				if (p.length < 3) {
+					note(c, "Usage: .map moves set <cmd> level <+1|-1|n>");
+					return null;
+				}
+				try {
+					fx = MapMoveEffect.level(Integer.parseInt(p[2]));
+				} catch (NumberFormatException e) {
+					note(c, "Mapper: level delta must be an integer.");
+					return null;
+				}
+			} else if (kind.equals("grid") || kind.equals("g") || kind.equals("planar")) {
+				if (p.length < 4) {
+					note(c, "Usage: .map moves set <cmd> grid <dx> <dy>");
+					return null;
+				}
+				try {
+					fx = MapMoveEffect.grid(Integer.parseInt(p[2]),
+							Integer.parseInt(p[3]));
+				} catch (NumberFormatException e) {
+					note(c, "Mapper: grid dx/dy must be integers.");
+					return null;
+				}
+			} else if (kind.equals("up")) {
+				fx = MapMoveEffect.level(1);
+			} else if (kind.equals("down")) {
+				fx = MapMoveEffect.level(-1);
+			} else {
+				note(c, "Usage: .map moves set <cmd> grid <dx> <dy>|level <n>|special");
+				return null;
+			}
+			note(c, mapper.setOneMoveEffect(cmd, fx));
+			return null;
+		}
+		note(c, "Usage: .map moves [list|reset|set …|unset …|apply …]");
 		return null;
 	}
 
@@ -703,7 +794,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map title <text> | .map note|notes <text>\n");
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
-		sb.append("  .map dirs|directions|lexicon  (compass grid; before Speedwalk keys)\n");
+		sb.append("  .map dirs|directions|lexicon  (current move table + notes)\n");
+		sb.append("  .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");
 		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
 		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
 		sb.append("  .map conflict[s] [list [all]|resolve|ignore <id|n>|all|purge]\n");
