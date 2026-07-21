@@ -69,6 +69,8 @@ public class MapperOverlayController
 	private String linkFromTileId;
 	/** When true: tap empty cell to place tiles; long-press places + sets here. */
 	private boolean drawEditMode;
+	/** Spread layout for arrows (true) vs packed neighbors (false). */
+	private boolean pathsLayout = true;
 
 	public MapperOverlayController(Host host) {
 		this.host = host;
@@ -258,6 +260,10 @@ public class MapperOverlayController
 		});
 
 		wireDragResize();
+		if (mapperView != null) {
+			mapperView.setTileDragEnabled(true);
+			mapperView.setPathsLayout(pathsLayout);
+		}
 		rebuildToolbar();
 		applyOpacity();
 
@@ -449,6 +455,15 @@ public class MapperOverlayController
 			}
 		});
 		toolbar.addView(links);
+
+		Button paths = makeToolbarButton(activity, density, pathsLayout ? "Paths●" : "Pack");
+		paths.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				togglePathsLayout();
+			}
+		});
+		toolbar.addView(paths);
 
 		Button draw = makeToolbarButton(activity, density, drawEditMode ? "Draw●" : "Draw");
 		draw.setOnClickListener(new View.OnClickListener() {
@@ -733,6 +748,23 @@ public class MapperOverlayController
 		rebuildToolbar();
 	}
 
+	private void togglePathsLayout() {
+		pathsLayout = !pathsLayout;
+		if (mapperView != null) {
+			mapperView.setPathsLayout(pathsLayout);
+		}
+		if (pathsLayout) {
+			Toast.makeText(host.getMainWindow(),
+					"Paths: tiles spaced so exit arrows/labels show",
+					Toast.LENGTH_SHORT).show();
+		} else {
+			Toast.makeText(host.getMainWindow(),
+					"Pack: tiles compressed next to each other",
+					Toast.LENGTH_SHORT).show();
+		}
+		rebuildToolbar();
+	}
+
 	private void toggleDrawEditMode() {
 		drawEditMode = !drawEditMode;
 		if (drawEditMode && linkEditMode) {
@@ -741,11 +773,11 @@ public class MapperOverlayController
 		}
 		if (mapperView != null) {
 			mapperView.setShowGrid(drawEditMode);
-			mapperView.setTileDragEnabled(drawEditMode);
+			mapperView.setTileDragEnabled(true);
 		}
 		if (drawEditMode) {
 			Toast.makeText(host.getMainWindow(),
-					"Draw: tap empty=place · long-press empty=Here · long-press tile+drag=move",
+					"Draw: tap empty=place · long-press empty=Here",
 					Toast.LENGTH_LONG).show();
 		} else {
 			Toast.makeText(host.getMainWindow(), "Draw mode off", Toast.LENGTH_SHORT).show();
@@ -1336,7 +1368,6 @@ public class MapperOverlayController
 			drawEditMode = false;
 			if (mapperView != null) {
 				mapperView.setShowGrid(false);
-				mapperView.setTileDragEnabled(false);
 			}
 		}
 		linkEditMode = true;
