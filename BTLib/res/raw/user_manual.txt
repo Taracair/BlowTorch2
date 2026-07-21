@@ -325,7 +325,7 @@ Mapper
     .map find <query>    list matching rooms (alias: search)
     .map path <query>    show command path (do not send)
     .map goto <query>    path; send if Options → Mapper → Path auto-send
-                         is on, otherwise print the path only (alias: go)
+    .map go <query|id>   path and always send (tile menu Go there)
     .map center          center on current room
     .map undo
     .map dirs            movement lexicon / grid offsets
@@ -378,8 +378,10 @@ Mapper
 
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
   recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
-  legacy toolbar CSV, capture title/exits regex). Map chrome uses top chips
-  Nav / Floors / Build / File (in-map pie menus).
+  level-up/down command CSVs, legacy toolbar CSV, capture title/exits regex).
+  Map chrome uses top chips Nav / Floors / Build / File (in-map pie menus).
+  Level-up/down CSVs control which recording moves create new floors
+  (default u,up,climb,ascend / d,down,descend; clear both = never auto-level).
 
   Typical flows:
     Record: .map new mymap → open → Nav Rec → walk → Rec → File Save

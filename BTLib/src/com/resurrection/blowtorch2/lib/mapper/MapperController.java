@@ -99,6 +99,11 @@ public class MapperController {
 	private String mToolbarActions = DEFAULT_TOOLBAR;
 	private String mCaptureTitleRegex = DEFAULT_CAPTURE_TITLE_REGEX;
 	private String mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
+	private String mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
+	private String mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
+	private Map<String, Integer> mLevelDeltas = MapDirections.parseLevelCommandLists(
+			MapDirections.DEFAULT_LEVEL_UP_COMMANDS,
+			MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
 	private String mSelectedTileId;
 	/** Last `.map capture preview` result for `.map capture apply`. */
 	private CapturePreview mLastCapturePreview;
@@ -771,7 +776,57 @@ public class MapperController {
 		} else {
 			mCaptureExitsRegex = DEFAULT_CAPTURE_EXITS_REGEX;
 		}
+		String upCsv = stringOpt("mapper_level_up_commands", null);
+		if (upCsv != null) {
+			mLevelUpCommands = upCsv.trim();
+		} else {
+			mLevelUpCommands = MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
+		}
+		String downCsv = stringOpt("mapper_level_down_commands", null);
+		if (downCsv != null) {
+			mLevelDownCommands = downCsv.trim();
+		} else {
+			mLevelDownCommands = MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
+		}
+		rebuildLevelDeltas();
 		notifyChanged();
+	}
+
+	private void rebuildLevelDeltas() {
+		mLevelDeltas = MapDirections.parseLevelCommandLists(
+				mLevelUpCommands, mLevelDownCommands);
+	}
+
+	/** CSV of commands that create a higher floor while recording. */
+	public String getLevelUpCommands() {
+		return mLevelUpCommands;
+	}
+
+	/** CSV of commands that create a lower floor while recording. */
+	public String getLevelDownCommands() {
+		return mLevelDownCommands;
+	}
+
+	public void setLevelUpCommands(final String csv) {
+		mLevelUpCommands = csv != null ? csv.trim()
+				: MapDirections.DEFAULT_LEVEL_UP_COMMANDS;
+		rebuildLevelDeltas();
+		notifyChanged();
+	}
+
+	public void setLevelDownCommands(final String csv) {
+		mLevelDownCommands = csv != null ? csv.trim()
+				: MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS;
+		rebuildLevelDeltas();
+		notifyChanged();
+	}
+
+	/**
+	 * Level delta for recording / nest classification using Options lists.
+	 * Empty Options lists disable auto level creation.
+	 */
+	public Integer levelDeltaFor(final String token) {
+		return MapDirections.levelDelta(token, mLevelDeltas);
 	}
 
 	private boolean mSettingsApplied;
@@ -1937,8 +1992,8 @@ public class MapperController {
 			}
 			return createTileAt(from.getLevelId(), nx, ny);
 		}
-		// Vertical / climb: auto level change
-		Integer lvl = MapDirections.levelDelta(norm);
+		// Vertical / climb: auto level change (Options → Mapper level CSVs)
+		Integer lvl = levelDeltaFor(norm);
 		if (lvl != null) {
 			return tileOnRelativeLevel(from, lvl.intValue(), norm);
 		}

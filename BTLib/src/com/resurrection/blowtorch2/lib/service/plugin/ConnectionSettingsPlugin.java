@@ -9,6 +9,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 import android.os.Handler;
 
+import com.resurrection.blowtorch2.lib.mapper.MapDirections;
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.ConnectionPluginCallback;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
@@ -458,6 +459,20 @@ public class ConnectionSettingsPlugin extends Plugin {
 		mapper_capture_exits.setKey("mapper_capture_exits_regex");
 		mapper_capture_exits.setValue("(?i)exits?:\\s*(.*)");
 		mapperOptions.addOption(mapper_capture_exits);
+
+		StringOption mapper_level_up = new StringOption();
+		mapper_level_up.setTitle("Level-Up Commands (CSV)");
+		mapper_level_up.setDescription("While recording, these moves create a higher floor (+1). Default: u,up,climb,ascend. Clear both Up and Down to never auto-create levels (place as special neighbors instead).");
+		mapper_level_up.setKey("mapper_level_up_commands");
+		mapper_level_up.setValue(MapDirections.DEFAULT_LEVEL_UP_COMMANDS);
+		mapperOptions.addOption(mapper_level_up);
+
+		StringOption mapper_level_down = new StringOption();
+		mapper_level_down.setTitle("Level-Down Commands (CSV)");
+		mapper_level_down.setDescription("While recording, these moves create a lower floor (−1). Default: d,down,descend. Example: put enter in Up and leave in Down for vertical portals.");
+		mapper_level_down.setKey("mapper_level_down_commands");
+		mapper_level_down.setValue(MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
+		mapperOptions.addOption(mapper_level_down);
 
 		sg.addOption(mapperOptions);
 
