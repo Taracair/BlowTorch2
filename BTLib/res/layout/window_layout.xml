@@ -39,8 +39,8 @@
                 android:gravity="bottom"
                 android:paddingLeft="4dip"
                 android:paddingRight="2dip"
-                android:paddingTop="0dip"
-                android:paddingBottom="0dip">
+                android:paddingTop="@dimen/game_input_row_padding_vertical"
+                android:paddingBottom="@dimen/game_input_row_padding_vertical">
 
             <com.resurrection.blowtorch2.lib.window.BetterEditText
                 android:id="@+id/textinput"
@@ -55,8 +55,8 @@
                 android:imeOptions="actionSend"
                 android:isScrollContainer="false"
                 android:keepScreenOn="true"
-                android:maxLines="7"
-                android:minHeight="28dip"
+                android:maxLines="@integer/game_input_max_lines"
+                android:minHeight="@dimen/game_input_min_height"
                 android:paddingTop="2dip"
                 android:paddingBottom="2dip"
                 android:nextFocusDown="@id/textinput"
@@ -66,7 +66,7 @@
                 android:scrollHorizontally="false"
                 android:textColor="@color/game_input_text"
                 android:textColorHighlight="@color/game_input_highlight"
-                android:textSize="16sp"
+                android:textSize="@dimen/game_input_text_size"
                 android:typeface="monospace" />
 
             <LinearLayout
@@ -77,15 +77,15 @@
                 android:gravity="center_vertical|end"
                 android:layout_gravity="bottom"
                 android:layout_marginLeft="4dip"
-                android:layout_marginRight="2dip">
+                android:layout_marginRight="@dimen/game_input_action_margin_end">
 
                 <Button
                     android:id="@+id/input_edit_toggle"
                     style="@style/InputEditToolButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dip"
-                    android:minHeight="28dip"
-                    android:minWidth="64dip"
+                    android:layout_height="@dimen/game_input_button_height"
+                    android:minHeight="@dimen/game_input_button_height"
+                    android:minWidth="@dimen/game_input_button_min_width"
                     android:layout_marginRight="2dip"
                     android:maxLines="1"
                     android:text="Edit"
@@ -95,9 +95,9 @@
                     android:id="@+id/input_send"
                     style="@style/InputEditToolButton"
                     android:layout_width="wrap_content"
-                    android:layout_height="28dip"
-                    android:minHeight="28dip"
-                    android:minWidth="64dip"
+                    android:layout_height="@dimen/game_input_button_height"
+                    android:minHeight="@dimen/game_input_button_height"
+                    android:minWidth="@dimen/game_input_button_min_width"
                     android:maxLines="1"
                     android:text="Send"
                     android:contentDescription="Send input" />
