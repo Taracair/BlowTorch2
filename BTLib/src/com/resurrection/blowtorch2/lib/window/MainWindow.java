@@ -2,21 +2,16 @@ package com.resurrection.blowtorch2.lib.window;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -67,7 +62,6 @@ import android.preference.PreferenceManager;
 import com.google.android.material.snackbar.Snackbar;
 import androidx.core.app.ActivityCompat;
 import android.text.InputType;
-import android.text.TextUtils;
 import android.util.Log;
 //import android.util.Log;
 //import android.util.Log;
@@ -122,9 +116,7 @@ import com.resurrection.blowtorch2.lib.button.SlickButtonData;
 import com.resurrection.blowtorch2.lib.service.*;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.OptionsDialog;
-import com.resurrection.blowtorch2.lib.service.plugin.settings.Option;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
-import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.settings.ColorSetSettings;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
@@ -136,7 +128,6 @@ import com.resurrection.blowtorch2.lib.trigger.BetterTriggerSelectionDialog;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 
-import androidx.documentfile.provider.DocumentFile;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.widget.PopupMenu;
@@ -153,8 +144,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int RP_EXPORT = 5001;
 	private static final int RP_IMPORT = 5002;
 	private static final int RP_NOTIFICATIONS = 5003;
-	private static final int REQUEST_IMPORT_SETTINGS_XML = 2101;
-	private static final int REQUEST_EXPORT_SETTINGS_XML = 2102;
 	private static final int REQUEST_PICK_DIRECTORY = 2103;
 	
 	//public static final String PREFS_NAME = "CONDIALOG_SETTINGS";
@@ -273,6 +262,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private String overrideHFPress = "auto";
 	
 	private ChromeController chrome;
+	private MainWindowSettingsTransfer settingsTransfer;
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -412,6 +402,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		super.onCreate(icicle);
 		windowMap = new HashMap<String,com.resurrection.blowtorch2.lib.window.Window>(0);
 		chrome = new ChromeController(this);
+		settingsTransfer = new MainWindowSettingsTransfer(this);
 
 		
 		//this.requestWindowFeature(Window.FEATURE_ACTION_MODE_OVERLAY);
@@ -1758,13 +1749,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		switch(item.getItemId()) {
 		case 1200:
 			//reset
-			doResetDialog();
+			settingsTransfer.doResetDialog();
 			break;
 		case 1300:
 			SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_EXPORT, new Runnable() {
 				@Override
 				public void run() {
-					doExportDialog();
+					settingsTransfer.doExportDialog();
 				}
 			});
 			break;
@@ -1772,7 +1763,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_IMPORT, new Runnable() {
 				@Override
 				public void run() {
-					doImportDialog(SDCardUtils.hasStoragePermissions(MainWindow.this));
+					settingsTransfer.doImportDialog(SDCardUtils.hasStoragePermissions(MainWindow.this));
 				}
 			});
 			break;
@@ -1934,34 +1925,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return true;
 	}
 	
-	private Pattern xmlinsensitive = Pattern.compile("^.+\\.[Xx][Mm][Ll]$");
-	private Matcher xmlimatcher = xmlinsensitive.matcher("");
-	
-	private String getConfiguredDefaultSettingsDirectory() {
-		try {
-			if (service != null) {
-				SettingsGroup g = service.getSettings();
-				if (g != null) {
-					Option o = g.findOptionByKey("default_settings_directory");
-					if (o instanceof StringOption) {
-						Object v = ((StringOption) o).getValue();
-						if (v instanceof String) {
-							return ((String) v).trim();
-						}
-					}
-				}
-			}
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
-		return "";
-	}
-
-	private File resolveSessionSettingsDirectory(boolean external) {
-		return SDCardUtils.resolveDefaultSettingsDirectory(
-				this, external, getConfiguredDefaultSettingsDirectory());
-	}
-
 	/** Opens the system folder picker for Options directory StringOptions. */
 	public void pickDirectoryForOption() {
 		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -1975,352 +1938,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			Toast.makeText(this, "Folder picker unavailable: " + e.getMessage(),
 					Toast.LENGTH_LONG).show();
 		}
-	}
-
-	private void doImportDialog(boolean external) {
-		final boolean hasExternal = external;
-		AlertDialog.Builder b = new AlertDialog.Builder(this);
-		b.setTitle("Import Settings");
-		CharSequence[] items = new CharSequence[] {
-				"Pick file…",
-				"Import from default directory"
-		};
-		b.setItems(items, new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				if (which == 0) {
-					pickImportSettingsFile();
-				} else {
-					showDefaultDirectoryImportList(hasExternal);
-				}
-			}
-		});
-		b.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				dialog.dismiss();
-			}
-		});
-		b.show();
-	}
-
-	private void pickImportSettingsFile() {
-		Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-		intent.addCategory(Intent.CATEGORY_OPENABLE);
-		intent.setType("*/*");
-		intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
-				"text/xml",
-				"application/xml",
-				"application/octet-stream"
-		});
-		startActivityForResult(intent, REQUEST_IMPORT_SETTINGS_XML);
-	}
-
-	private void showDefaultDirectoryImportList(boolean external) {
-		String custom = getConfiguredDefaultSettingsDirectory();
-		if (SDCardUtils.isContentUri(custom)
-				&& SDCardUtils.mapTreeUriToFile(Uri.parse(custom)) == null) {
-			showSafTreeImportList(Uri.parse(custom));
-			return;
-		}
-
-		File btermdir = resolveSessionSettingsDirectory(external);
-		if (!btermdir.exists()) {
-			//noinspection ResultOfMethodCallIgnored
-			btermdir.mkdirs();
-		}
-
-		FilenameFilter xml_only = new FilenameFilter() {
-			public boolean accept(File arg0, String arg1) {
-				xmlimatcher.reset(arg1);
-				return xmlimatcher.matches();
-			}
-		};
-
-		HashMap<String,String> xmlfiles = new HashMap<String,String>();
-		File[] listed = btermdir.listFiles(xml_only);
-		if (listed != null) {
-			for (File xml : listed) {
-				if (xml != null && xml.isFile()) {
-					xmlfiles.put(xml.getName(), xml.getPath());
-				}
-			}
-		}
-
-		if (xmlfiles.isEmpty()) {
-			Toast.makeText(this,
-					"No .xml settings in:\n" + btermdir.getAbsolutePath(),
-					Toast.LENGTH_LONG).show();
-			return;
-		}
-
-		Set<String> xmlkeys = xmlfiles.keySet();
-		List<String> sortedxmlkeys = new ArrayList<String>(xmlkeys);
-		Collections.sort(sortedxmlkeys, String.CASE_INSENSITIVE_ORDER);
-
-		String[] xmlentries = new String[sortedxmlkeys.size()];
-		String[] xmlpaths = new String[sortedxmlkeys.size()];
-		int i = 0;
-		for (String file : sortedxmlkeys) {
-			xmlentries[i] = file;
-			xmlpaths[i] = xmlfiles.get(file);
-			i++;
-		}
-
-		AlertDialog.Builder b = new AlertDialog.Builder(this);
-		b.setTitle("Import from default directory");
-		b.setItems(xmlentries, new ImportDialogListener(xmlpaths));
-		b.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				dialog.dismiss();
-			}
-		});
-		b.show();
-	}
-
-	private void showSafTreeImportList(Uri treeUri) {
-		DocumentFile tree = DocumentFile.fromTreeUri(this, treeUri);
-		if (tree == null || !tree.isDirectory()) {
-			Toast.makeText(this, "Cannot open selected settings folder.", Toast.LENGTH_LONG).show();
-			return;
-		}
-		HashMap<String, String> xmlfiles = new HashMap<String, String>();
-		DocumentFile[] children = tree.listFiles();
-		if (children != null) {
-			for (DocumentFile child : children) {
-				if (child == null || !child.isFile()) {
-					continue;
-				}
-				String name = child.getName();
-				if (name == null) {
-					continue;
-				}
-				xmlimatcher.reset(name);
-				if (xmlimatcher.matches()) {
-					xmlfiles.put(name, child.getUri().toString());
-				}
-			}
-		}
-		if (xmlfiles.isEmpty()) {
-			Toast.makeText(this,
-					"No .xml settings in selected folder.",
-					Toast.LENGTH_LONG).show();
-			return;
-		}
-		Set<String> xmlkeys = xmlfiles.keySet();
-		List<String> sortedxmlkeys = new ArrayList<String>(xmlkeys);
-		Collections.sort(sortedxmlkeys, String.CASE_INSENSITIVE_ORDER);
-		final String[] xmlentries = new String[sortedxmlkeys.size()];
-		final String[] xmlUris = new String[sortedxmlkeys.size()];
-		int i = 0;
-		for (String file : sortedxmlkeys) {
-			xmlentries[i] = file;
-			xmlUris[i] = xmlfiles.get(file);
-			i++;
-		}
-		AlertDialog.Builder b = new AlertDialog.Builder(this);
-		b.setTitle("Import from default directory");
-		b.setItems(xmlentries, new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				importSettingsFromUri(Uri.parse(xmlUris[which]));
-			}
-		});
-		b.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				dialog.dismiss();
-			}
-		});
-		b.show();
-	}
-
-	private class ImportDialogListener implements DialogInterface.OnClickListener {
-		String[] items = null;
-
-		public ImportDialogListener(String[] items) {
-			this.items = items;
-		}
-
-		@Override
-		public void onClick(DialogInterface dialog, int which) {
-			try {
-				service.loadSettingsFromPath(items[which]);
-			} catch (RemoteException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
-	EditText filenameExport = null;
-
-	private void doExportDialog() {
-		final boolean external = SDCardUtils.hasStoragePermissions(this);
-		final String custom = getConfiguredDefaultSettingsDirectory();
-		final String dirLabel;
-		if (SDCardUtils.isContentUri(custom)
-				&& SDCardUtils.mapTreeUriToFile(Uri.parse(custom)) == null) {
-			dirLabel = custom;
-		} else {
-			dirLabel = resolveSessionSettingsDirectory(external).getAbsolutePath();
-		}
-
-		AlertDialog.Builder b = new AlertDialog.Builder(this);
-		b.setTitle("Export Settings");
-
-		LinearLayout layout = new LinearLayout(this);
-		layout.setOrientation(LinearLayout.VERTICAL);
-		int pad = (int) (16 * getResources().getDisplayMetrics().density);
-		layout.setPadding(pad, pad / 2, pad, pad / 2);
-
-		TextView hint = new TextView(this);
-		hint.setText("Default directory:\n" + dirLabel);
-		layout.addView(hint);
-
-		filenameExport = new EditText(this);
-		filenameExport.setHint("Enter file name");
-		filenameExport.setSingleLine(true);
-		layout.addView(filenameExport);
-		b.setView(layout);
-
-		b.setPositiveButton("Export to default directory", null);
-		b.setNeutralButton("Choose location…", null);
-		b.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				dialog.dismiss();
-			}
-		});
-
-		final AlertDialog d = b.create();
-		d.setOnShowListener(new DialogInterface.OnShowListener() {
-			@Override
-			public void onShow(DialogInterface dialog) {
-				d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						String name = filenameExport.getText() != null
-								? filenameExport.getText().toString().trim() : "";
-						if (TextUtils.isEmpty(name)) {
-							Toast.makeText(MainWindow.this, "Enter a file name first.", Toast.LENGTH_SHORT).show();
-							return;
-						}
-						MainWindow.this.myhandler.sendMessage(
-								MainWindow.this.myhandler.obtainMessage(MainWindow.MESSAGE_EXPORTSETTINGS, name));
-						d.dismiss();
-					}
-				});
-				d.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new View.OnClickListener() {
-					@Override
-					public void onClick(View v) {
-						String name = filenameExport.getText() != null
-								? filenameExport.getText().toString().trim() : "";
-						if (TextUtils.isEmpty(name)) {
-							name = "settings.xml";
-						}
-						xmlimatcher.reset(name);
-						if (!xmlimatcher.matches()) {
-							name = name + ".xml";
-						}
-						pickExportSettingsFile(name);
-						d.dismiss();
-					}
-				});
-			}
-		});
-		d.show();
-	}
-
-	private void pickExportSettingsFile(String suggestedName) {
-		Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-		intent.addCategory(Intent.CATEGORY_OPENABLE);
-		intent.setType("application/xml");
-		intent.putExtra(Intent.EXTRA_TITLE, suggestedName);
-		startActivityForResult(intent, REQUEST_EXPORT_SETTINGS_XML);
-	}
-
-	private void importSettingsFromUri(Uri uri) {
-		InputStream in = null;
-		OutputStream out = null;
-		try {
-			in = getContentResolver().openInputStream(uri);
-			if (in == null) {
-				Toast.makeText(this, "Could not open selected file.", Toast.LENGTH_LONG).show();
-				return;
-			}
-			File tmp = new File(getCacheDir(), "import_settings_saf.xml");
-			out = new FileOutputStream(tmp);
-			byte[] buf = new byte[4096];
-			int len;
-			while ((len = in.read(buf)) > 0) {
-				out.write(buf, 0, len);
-			}
-			out.flush();
-			service.loadSettingsFromPath(tmp.getAbsolutePath());
-		} catch (Exception e) {
-			Toast.makeText(this, "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-		} finally {
-			if (in != null) try { in.close(); } catch (IOException ignored) {}
-			if (out != null) try { out.close(); } catch (IOException ignored) {}
-		}
-	}
-
-	private void exportSettingsToUri(Uri uri) {
-		File tmp = new File(getCacheDir(), "export_settings_saf.xml");
-		try {
-			doExportSettings(tmp.getAbsolutePath());
-			InputStream in = null;
-			OutputStream out = null;
-			try {
-				in = new FileInputStream(tmp);
-				out = getContentResolver().openOutputStream(uri);
-				if (out == null) {
-					Toast.makeText(this, "Could not write selected location.", Toast.LENGTH_LONG).show();
-					return;
-				}
-				byte[] buf = new byte[4096];
-				int len;
-				while ((len = in.read(buf)) > 0) {
-					out.write(buf, 0, len);
-				}
-				out.flush();
-				Toast.makeText(this, "Settings exported.", Toast.LENGTH_LONG).show();
-			} finally {
-				if (in != null) try { in.close(); } catch (IOException ignored) {}
-				if (out != null) try { out.close(); } catch (IOException ignored) {}
-			}
-		} catch (Exception e) {
-			Toast.makeText(this, "Export failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-		} finally {
-			//noinspection ResultOfMethodCallIgnored
-			tmp.delete();
-		}
-	}
-
-	private void doResetDialog() {
-		AlertDialog.Builder b = new AlertDialog.Builder(this);
-		b.setTitle("Reset Settings?");
-		b.setMessage("Are you sure you want to reset settings?");
-		b.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-			
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				MainWindow.this.myhandler.sendEmptyMessage(MainWindow.this.MESSAGE_DORESETSETTINGS);
-				dialog.dismiss();
-			}
-		});
-		
-		b.setNegativeButton("No", new DialogInterface.OnClickListener() {
-			
-			@Override
-			public void onClick(DialogInterface dialog, int which) {
-				dialog.dismiss();
-			}
-		});
-		
-		AlertDialog d = b.create();
-		d.show();
 	}
 
 	boolean actionBarTested = false;
@@ -2799,18 +2416,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			return;
 		}
-		if (requestCode == REQUEST_IMPORT_SETTINGS_XML && resultCode == RESULT_OK && data != null) {
-			Uri uri = data.getData();
-			if (uri != null) {
-				importSettingsFromUri(uri);
-			}
-			return;
-		}
-		if (requestCode == REQUEST_EXPORT_SETTINGS_XML && resultCode == RESULT_OK && data != null) {
-			Uri uri = data.getData();
-			if (uri != null) {
-				exportSettingsToUri(uri);
-			}
+		if (settingsTransfer.handleSettingsTransferResult(requestCode, resultCode, data)) {
 			return;
 		}
 		if (resultCode == RESULT_OK) {
@@ -4800,42 +4406,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		SDCardUtils.hasPermissions(this, root, RP_INFO, new Runnable() {
 			@Override
 			public void run() {
-				showPermissionsMessage(SDCardUtils.hasStoragePermissions(MainWindow.this));
+				settingsTransfer.showPermissionsMessage(SDCardUtils.hasStoragePermissions(MainWindow.this));
 			}
 		});
-	}
-
-	private void showPermissionsMessage(boolean granted) {
-		File rootDir = SDCardUtils.resolveBlowTorchRoot(this);
-		boolean shared = SDCardUtils.isUsingSharedBlowTorchRoot(this);
-		String message;
-		if (granted && shared) {
-			message = "Storage ready:\n" + rootDir.getAbsolutePath()
-					+ "\n(settings, backups, launcher, session_logs, logs)";
-		} else if (granted) {
-			message = "All-files not granted — using app folder:\n" + rootDir.getAbsolutePath()
-					+ "\nTap Manage Storage Access and allow All files access for /BlowTorch/.";
-		} else {
-			message = String.format(getString(R.string.sd_perm_denies), rootDir.getAbsolutePath());
-		}
-		Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-	}
-
-	private void showImportMessage(final boolean external) {
-		String dir = SDCardUtils.getSDCardRoot(this,external);
-		String message = (external == true) ? String.format(getString(R.string.launcher_import_granted),dir) : String.format(getString(R.string.launcher_import_denied),dir);
-		Snackbar bar = Snackbar.make(mRootView, message,
-				Snackbar.LENGTH_INDEFINITE)
-				.setAction(android.R.string.ok,new View.OnClickListener() {
-					@Override
-					public void onClick(View view) {
-						doImportDialog(external);
-					}});
-
-		View snackbarView = bar.getView();
-		TextView textView = (TextView) snackbarView.findViewById(com.google.android.material.R.id.snackbar_text);
-		textView.setMaxLines(5);  // show multiple line
-		bar.show();
 	}
 
 	@Override
@@ -4851,7 +4424,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						grantResults, featureRes, new Runnable() {
 					@Override
 					public void run() {
-						showPermissionsMessage(external);
+						settingsTransfer.showPermissionsMessage(external);
 					}
 				}, null);
 				break;
@@ -4860,7 +4433,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						grantResults, featureRes, new Runnable() {
 					@Override
 					public void run() {
-						doExportDialog();
+						settingsTransfer.doExportDialog();
 					}
 				}, null);
 				break;
@@ -4869,7 +4442,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						grantResults, featureRes, new Runnable() {
 					@Override
 					public void run() {
-						doImportDialog(external);
+						settingsTransfer.doImportDialog(external);
 					}
 				}, null);
 				break;
