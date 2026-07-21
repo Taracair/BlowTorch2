@@ -47,7 +47,6 @@ import android.content.pm.ApplicationInfo;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -115,7 +114,6 @@ import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinderCallback;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
-import com.resurrection.blowtorch2.lib.alias.AliasSelectionDialog;
 import com.resurrection.blowtorch2.lib.alias.BetterAliasSelectionDialog;
 import com.resurrection.blowtorch2.lib.button.ButtonEditorDialog;
 import com.resurrection.blowtorch2.lib.button.ButtonSetSelectorDialog;
@@ -134,22 +132,17 @@ import com.resurrection.blowtorch2.lib.settings.HyperSettingsActivity;
 import com.resurrection.blowtorch2.lib.speedwalk.BetterSpeedWalkConfigurationDialog;
 import com.resurrection.blowtorch2.lib.speedwalk.SpeedWalkConfigurationDialog;
 import com.resurrection.blowtorch2.lib.timer.BetterTimerSelectionDialog;
-import com.resurrection.blowtorch2.lib.timer.TimerSelectionDialog;
 import com.resurrection.blowtorch2.lib.trigger.BetterTriggerSelectionDialog;
-import com.resurrection.blowtorch2.lib.trigger.TriggerSelectionDialog;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 
 import androidx.documentfile.provider.DocumentFile;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
-import androidx.core.graphics.Insets;
 import androidx.appcompat.widget.PopupMenu;
 import androidx.core.view.MenuItemCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
-import androidx.core.view.WindowInsetsControllerCompat;
 
 public class MainWindow extends AppCompatActivity implements MainWindowCallback,ActivityCompat.OnRequestPermissionsResultCallback {
 	
@@ -279,7 +272,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private String overrideHFFlip = "auto";
 	private String overrideHFPress = "auto";
 	
-	private boolean isFullScreen = false;
+	private ChromeController chrome;
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -293,7 +286,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	IConnectionBinder service = null;
 	Processor the_processor = null;
-	private int statusBarHeight = 1;
 	//GestureDetector gestureDetector = null;
 	OnTouchListener gestureListener = null;
 	//ByteView screen2 = null;
@@ -412,7 +404,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		
 	};
-	private int titleBarHeight;
 	
 	//private LayerManager mLayers = null;
 	public void onCreate(Bundle icicle) {
@@ -420,6 +411,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//Debug.startMethodTracing("window");
 		super.onCreate(icicle);
 		windowMap = new HashMap<String,com.resurrection.blowtorch2.lib.window.Window>(0);
+		chrome = new ChromeController(this);
 
 		
 		//this.requestWindowFeature(Window.FEATURE_ACTION_MODE_OVERLAY);
@@ -428,9 +420,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//Thread.setDefaultUncaughtExceptionHandler(new com.resurrection.blowtorch2.lib.crashreport.CrashReporter(this.getApplicationContext()));
 		}
 		
-		SharedPreferences sprefs = this.getSharedPreferences("STATUS_BAR_HEIGHT", 0);
-		statusBarHeight = sprefs.getInt("STATUS_BAR_HEIGHT", (int)(25 * this.getResources().getDisplayMetrics().density));
-		titleBarHeight = sprefs.getInt("TITLE_BAR_HEIGHT", 0);
+		chrome.loadHeightsFromPrefs();
 		setContentView(R.layout.window_layout);
 		assignLegacyChromeIds();
 		saveConnectionExtras(getIntent());
@@ -452,30 +442,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (getSupportActionBar() != null) {
 			getSupportActionBar().hide();
 		}
-		configureGameplayToolbar(myToolbar);
+		chrome.configureGameplayToolbar(myToolbar);
 
-		bindGameplayFabControls();
+		chrome.bindGameplayFabControls();
 
 		final View chromeRoot = findViewById(R.id.window_container);
-		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) -> {
-			Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-			Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-			// Nav-bar padding only — do not pad for IME (that resizes Lua button_window and
-			// causes incorrect button reflow). Lift content with translation instead.
-			view.setPadding(0, 0, 0, bars.bottom);
-			int lift = Math.max(0, ime.bottom - bars.bottom);
-			applyImeChromeLift((RelativeLayout) view, lift);
-			statusBarHeight = bars.top;
-			titleBarHeight = bars.top;
-			SharedPreferences.Editor insetEditor = getSharedPreferences("STATUS_BAR_HEIGHT", 0).edit();
-			insetEditor.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
-			insetEditor.putInt("STATUS_BAR_HEIGHT", bars.top);
-			insetEditor.apply();
-			refreshGameChrome();
-			return windowInsets;
-		});
-		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
-		updateMenuChrome();
+		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) ->
+				chrome.onApplyWindowInsets(view, windowInsets));
+		chrome.layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
+		chrome.updateMenuChrome();
 
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
 			@Override
@@ -878,22 +853,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						fullscreen = true;
 					}
 					boolean needschange = false;
-					if(fullscreen && !isFullScreen) {
+					if(fullscreen && !chrome.isFullScreen()) {
 						//switch to fullscreen.
 						
 							//service.setFullScreen(true);
-						isFullScreen = true;
+						chrome.setFullScreen(true);
 					    MainWindow.this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 					    MainWindow.this.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
 					    needschange = true;
 						
 					}
 					
-					if(!fullscreen && isFullScreen) {
+					if(!fullscreen && chrome.isFullScreen()) {
 						//switch to non full screen.
 						
 						//service.setFullScreen(false);
-						isFullScreen = false;
+						chrome.setFullScreen(false);
 						MainWindow.this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
 						MainWindow.this.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 					
@@ -1305,7 +1280,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_HOME);
 			getSupportActionBar().setDisplayOptions(0, androidx.appcompat.app.ActionBar.DISPLAY_SHOW_TITLE);
 		}
-		configureGameplayToolbar((androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar));
+		chrome.configureGameplayToolbar((androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar));
 
 
 
@@ -1437,7 +1412,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//if(supportsActionBar()) {
 			this.invalidateOptionsMenu();
 		//}
-		updateMenuChrome();
+		chrome.updateMenuChrome();
 	}
 
 	Stack<MenuStackItem> menuStack = new Stack<MenuStackItem>();
@@ -1447,7 +1422,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//if(supportsActionBar()) {
 			this.invalidateOptionsMenu();
 		//}
-		updateMenuChrome();
+		chrome.updateMenuChrome();
 	}
 	
 	private class MenuStackItem {
@@ -1667,7 +1642,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
-	private void showGameplayOptionsMenu(final View anchor) {
+	void showGameplayOptionsMenu(final View anchor) {
 		// Editing uses the FAB strip (settings / done / cancel); ⋮ is hidden then.
 		if (menuStack.size() > 0) {
 			return;
@@ -1677,7 +1652,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		hideSoftInputForMenu();
 		View windowContainer = findViewById(R.id.window_container);
 		if (windowContainer instanceof RelativeLayout) {
-			applyImeChromeLift((RelativeLayout) windowContainer, 0);
+			chrome.applyImeChromeLift((RelativeLayout) windowContainer, 0);
 		}
 		if (anchor != null) {
 			anchor.post(new Runnable() {
@@ -1858,18 +1833,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 300:
 			BetterTimerSelectionDialog sel = new BetterTimerSelectionDialog(this,service);
 			sel.show();
-			//TimerSelectionDialog tsel = null;
-			//tsel = new TimerSelectionDialog(MainWindow.this,service);
-			//tsel.show();
-			
 			break;
 		case 100:
-			BetterAliasSelectionDialog d = null;
-			//try {
-			d = new BetterAliasSelectionDialog(this,service);
-			//} catch (RemoteException e) {
-			//	throw new RuntimeException(e);
-			//}
+			BetterAliasSelectionDialog d = new BetterAliasSelectionDialog(this,service);
 			d.setTitle("Edit Aliases:");
 			d.show();
 			break;
@@ -1959,9 +1925,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 //
 //			//break;
 		case 200:
-			//launch the sweet trigger dialog.
-			//TriggerSelectionDialog trigger_selector = new TriggerSelectionDialog(this,service);
-			//trigger_selector.show();
 			BetterTriggerSelectionDialog btsd = new BetterTriggerSelectionDialog(this,service,mShowRegexWarning);
 			btsd.show();
 			break;
@@ -3079,7 +3042,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//
 
 			MainWindow.this.findViewById(R.id.window_container).requestLayout();
-			isFullScreen = fullscreen;
+			chrome.setFullScreen(fullscreen);
 			refreshGameChrome();
 			final View chromeRootRefresh = findViewById(R.id.window_container);
 			if (chromeRootRefresh != null) {
@@ -3735,10 +3698,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		if (myToolbar != null) {
-			configureGameplayToolbar(myToolbar);
+			chrome.configureGameplayToolbar(myToolbar);
 		}
-			layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
-		updateMenuChrome();
+			chrome.layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
+		chrome.updateMenuChrome();
 		//Debug.stopMethodTracing();
 	}
 	
@@ -3771,7 +3734,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			if (params != null) {
 				params.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-				anchorWindowAboveInputChrome(params, w.getName());
+				chrome.anchorWindowAboveInputChrome(params, w.getName());
 			}
 
 			tmp.setLayoutParams(params);
@@ -3869,17 +3832,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				rl.removeViewAt(rl.getChildCount()-2);
 			}
 		}*/
-		layoutGameplayChrome(rl);
+		chrome.layoutGameplayChrome(rl);
 	}
 	
-	private static final int LEGACY_INPUT_BAR_ID = 10;
-	private static final int LEGACY_DIVIDER_ID = 40;
-	private static final int LEGACY_TEXT_INPUT_ID = 30;
-	/** Extra gap above the input chrome so ⋮ clears Edit/Send. */
-	private static final float OVERFLOW_LIFT_PHONE_DIP = 20f;
-	private static final float OVERFLOW_LIFT_TABLET_DIP = 24f;
-	private View.OnLayoutChangeListener mInputBarChromeLayoutListener = null;
-
 	private void saveConnectionExtras(Intent intent) {
 		if (intent == null) {
 			return;
@@ -3961,20 +3916,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (divider.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
 				RelativeLayout.LayoutParams dividerparams =
 						(RelativeLayout.LayoutParams) divider.getLayoutParams();
-				dividerparams.addRule(RelativeLayout.ABOVE, LEGACY_INPUT_BAR_ID);
+				dividerparams.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
 				mOriginalDividerLayoutParams = new RelativeLayout.LayoutParams(dividerparams);
 			}
-			divider.setId(LEGACY_DIVIDER_ID);
+			divider.setId(ChromeController.LEGACY_DIVIDER_ID);
 		}
 
 		View v = findViewById(R.id.textinput);
 		mInputBox = (BetterEditText) v;
-		mInputBox.setId(LEGACY_TEXT_INPUT_ID);
+		mInputBox.setId(ChromeController.LEGACY_TEXT_INPUT_ID);
 
 		View inputBar = findViewById(R.id.inputbar);
 		mOriginalInputBarLayoutParams = new RelativeLayout.LayoutParams(inputBar.getLayoutParams());
 		inputBar.setBackgroundColor(0xFF0A0A0A);
-		inputBar.setId(LEGACY_INPUT_BAR_ID);
+		inputBar.setId(ChromeController.LEGACY_INPUT_BAR_ID);
 
 		setupInputEditStrip();
 		setupScrollbackSearchBar();
@@ -4294,7 +4249,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			actions.requestLayout();
 		}
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
-		bringGameplayChromeToFront(rl);
+		chrome.bringGameplayChromeToFront(rl);
 	}
 
 	private void refreshInputActionLayout() {
@@ -4443,7 +4398,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		mScrollbackSearchBar.setVisibility(View.VISIBLE);
-		bringGameplayChromeToFront((RelativeLayout) findViewById(R.id.window_container));
+		chrome.bringGameplayChromeToFront((RelativeLayout) findViewById(R.id.window_container));
 		String q = query == null ? "" : query;
 		if (mScrollbackSearchQuery != null) {
 			if (q.length() > 0) {
@@ -4601,115 +4556,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return win;
 	}
 
-	private View findGameplayInputBar(RelativeLayout rl) {
-		View inputbar = rl.findViewById(LEGACY_INPUT_BAR_ID);
-		if (inputbar == null) {
-			inputbar = rl.findViewById(R.id.inputbar);
-		}
-		return inputbar;
-	}
-
-	private View findGameplayDivider(RelativeLayout rl) {
-		View divider = rl.findViewById(LEGACY_DIVIDER_ID);
-		if (divider == null) {
-			divider = rl.findViewById(R.id.divider);
-		}
-		return divider;
-	}
-
-	/**
-	 * Translate gameplay content above the IME while keeping adjustNothing / no IME padding.
-	 * Lifts input chrome and game text windows so output stays readable. Leaves
-	 * {@code button_window} untranslated so Lua button coordinates do not jump from a
-	 * layout resize (buttons under the IME stay covered until the keyboard closes).
-	 */
-	private void applyImeChromeLift(RelativeLayout rl, int liftPx) {
-		if (rl == null) {
-			return;
-		}
-		float ty = -liftPx;
-		for (int i = 0; i < rl.getChildCount(); i++) {
-			View child = rl.getChildAt(i);
-			if (child instanceof com.resurrection.blowtorch2.lib.window.Window
-					&& "button_window".equals(String.valueOf(child.getTag()))) {
-				// Keep Lua buttons fixed; prioritize text readability over button usability under IME.
-				child.setTranslationY(0f);
-				continue;
-			}
-			child.setTranslationY(ty);
-		}
-		// FAB strip is in a sibling overlay. Keep it locked to the input bar's IME lift
-		// (same translationY). Positioning uses layout bottomMargin only — do not also
-		// recompute from window locations while translated (that double-counts IME height).
-		View inputbar = findGameplayInputBar(rl);
-		View fabStrip = findViewById(R.id.gameplay_fab_strip);
-		if (fabStrip != null) {
-			fabStrip.setTranslationY(inputbar != null ? inputbar.getTranslationY() : ty);
-		}
-	}
-
-	/**
-	 * Profiles still say {@code above="40"} (legacy divider). The divider now lives
-	 * inside the input bar, so RelativeLayout ignores that rule and text windows
-	 * draw under the chrome. Remap to the input bar id (10) for non-overlay windows.
-	 */
-	private void anchorWindowAboveInputChrome(RelativeLayout.LayoutParams params,
-			String windowName) {
-		if (params == null) {
-			return;
-		}
-		// button_window stays full-bleed so Lua button coordinates stay stable.
-		if ("button_window".equals(windowName)) {
-			return;
-		}
-		int above = params.getRule(RelativeLayout.ABOVE);
-		if (above == LEGACY_DIVIDER_ID || above == R.id.divider) {
-			params.addRule(RelativeLayout.ABOVE, LEGACY_INPUT_BAR_ID);
-		}
-	}
-
-	/** Re-apply chrome anchors when input bar height changes (grow / search / Edit). */
-	private void rematerializeGameWindowChromeAnchors(RelativeLayout rl) {
-		if (rl == null) {
-			return;
-		}
-		boolean changed = false;
-		for (int i = 0; i < rl.getChildCount(); i++) {
-			View child = rl.getChildAt(i);
-			if (!(child instanceof com.resurrection.blowtorch2.lib.window.Window)) {
-				continue;
-			}
-			ViewGroup.LayoutParams glp = child.getLayoutParams();
-			if (!(glp instanceof RelativeLayout.LayoutParams)) {
-				continue;
-			}
-			RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
-			int before = lp.getRule(RelativeLayout.ABOVE);
-			anchorWindowAboveInputChrome(lp, String.valueOf(child.getTag()));
-			if (lp.getRule(RelativeLayout.ABOVE) != before) {
-				child.setLayoutParams(lp);
-				changed = true;
-			}
-		}
-		if (changed) {
-			rl.requestLayout();
-		}
-	}
-
-	private void bringGameplayChromeToFront(RelativeLayout rl) {
-		if (rl == null) {
-			return;
-		}
-		View inputbar = findGameplayInputBar(rl);
-		if (inputbar != null) {
-			inputbar.bringToFront();
-		}
-		View overlay = findViewById(R.id.gameplay_chrome_overlay);
-		if (overlay != null) {
-			overlay.bringToFront();
-		}
-	}
-
 	/** Hide on-screen buttons while selecting; keep the copy widget on the game window. */
 	private void raiseWindowAboveButtons(final Object windowTag) {
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
@@ -4734,159 +4580,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			buttons.setVisibility(View.VISIBLE);
 			buttons.bringToFront();
 		}
-		bringGameplayChromeToFront(rl);
+		chrome.bringGameplayChromeToFront(rl);
 	}
 
-	private void layoutGameplayChrome(RelativeLayout rl) {
-		if (rl == null) {
-			return;
-		}
-		final View inputbar = findGameplayInputBar(rl);
-		final View divider = findGameplayDivider(rl);
-		final View toolbar = rl.findViewById(R.id.my_toolbar);
-		final View fabStrip = findViewById(R.id.gameplay_fab_strip);
-		if (inputbar == null) {
-			return;
-		}
-		final float density = getResources().getDisplayMetrics().density;
-		final int margin = (int) (4 * density);
-		final int dividerHeight = (int) (3 * density);
-
-		RelativeLayout.LayoutParams inputLp = new RelativeLayout.LayoutParams(
-				LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-		inputLp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-		inputbar.setLayoutParams(inputLp);
-
-		// Legacy layouts kept divider as a RelativeLayout sibling above the input bar.
-		if (divider != null && divider.getParent() == rl
-				&& divider.getLayoutParams() instanceof RelativeLayout.LayoutParams) {
-			RelativeLayout.LayoutParams dividerLp = new RelativeLayout.LayoutParams(
-					LayoutParams.MATCH_PARENT, dividerHeight);
-			dividerLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
-			divider.setLayoutParams(dividerLp);
-		}
-
-		if (toolbar != null) {
-			RelativeLayout.LayoutParams toolbarLp = new RelativeLayout.LayoutParams(
-					LayoutParams.MATCH_PARENT, 0);
-			toolbarLp.addRule(RelativeLayout.ABOVE, inputbar.getId());
-			toolbar.setLayoutParams(toolbarLp);
-		}
-
-		if (fabStrip != null) {
-			final View inputbarFinal = inputbar;
-			final int marginFinal = margin;
-			final float liftDip = getResources().getConfiguration().smallestScreenWidthDp >= 600
-					? OVERFLOW_LIFT_TABLET_DIP
-					: OVERFLOW_LIFT_PHONE_DIP;
-			Runnable placeFab = new Runnable() {
-				@Override
-				public void run() {
-					placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
-				}
-			};
-			inputbar.removeCallbacks(placeFab);
-			inputbar.post(placeFab);
-			if (mInputBarChromeLayoutListener == null) {
-				mInputBarChromeLayoutListener = new View.OnLayoutChangeListener() {
-					@Override
-					public void onLayoutChange(View v, int left, int top, int right, int bottom,
-							int oldLeft, int oldTop, int oldRight, int oldBottom) {
-						int oldH = oldBottom - oldTop;
-						int newH = bottom - top;
-						if (oldH != newH) {
-							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
-						}
-					}
-				};
-			}
-			inputbar.removeOnLayoutChangeListener(mInputBarChromeLayoutListener);
-			inputbar.addOnLayoutChangeListener(mInputBarChromeLayoutListener);
-		}
-		bindGameplayFabControls();
-		rematerializeGameWindowChromeAnchors(rl);
-		bringGameplayChromeToFront(rl);
-	}
-
-	/** Anchor ⋮ above the input chrome (never over Edit/Send). */
-	private void placeGameplayFabStrip(View fabStrip, View inputbar, int margin, float liftDip) {
-		if (fabStrip == null || inputbar == null) {
-			return;
-		}
-		if (!(fabStrip.getParent() instanceof View)) {
-			return;
-		}
-		float density = getResources().getDisplayMetrics().density;
-		int inputH = Math.max(inputbar.getHeight(), inputbar.getMeasuredHeight());
-		if (inputH <= 0) {
-			inputbar.post(new Runnable() {
-				@Override
-				public void run() {
-					placeGameplayFabStrip(fabStrip, inputbar, margin, liftDip);
-				}
-			});
-			return;
-		}
-		// Layout-only inset above the input bar. IME lift is applied via translationY
-		// synced to the input bar in applyImeChromeLift — do not use window locations here.
-		int bottomInset = inputH + margin + (int) (liftDip * density + 0.5f);
-		android.widget.FrameLayout.LayoutParams stripLp =
-				new android.widget.FrameLayout.LayoutParams(
-						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
-		stripLp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-		stripLp.setMargins(0, 0, margin, bottomInset);
-		fabStrip.setLayoutParams(stripLp);
-		fabStrip.setTranslationY(inputbar.getTranslationY());
-	}
-
-	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
-	private void bindGameplayFabControls() {
-		final View overflowMenu = findViewById(R.id.overflow_menu);
-		if (overflowMenu != null) {
-			overflowMenu.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					MainWindow.this.showGameplayOptionsMenu(v);
-				}
-			});
-			overflowMenu.setOnLongClickListener(new View.OnLongClickListener() {
-				@Override
-				public boolean onLongClick(View v) {
-					// Long-press overflow enters button edit mode.
-					windowCall("button_window", "doEdit", "");
-					return true;
-				}
-			});
-		}
-		View settings = findViewById(R.id.editor_settings);
-		if (settings != null) {
-			settings.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					windowCall("button_window", "editorMenuSettings", "");
-				}
-			});
-		}
-		View done = findViewById(R.id.editor_done);
-		if (done != null) {
-			done.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					windowCall("button_window", "editorMenuDone", "");
-				}
-			});
-		}
-		View cancel = findViewById(R.id.editor_cancel);
-		if (cancel != null) {
-			cancel.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					windowCall("button_window", "editorMenuCancel", "");
-				}
-			});
-		}
-	}
-	
 	public void callWindowScript(String window, String callback) {
 		RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
 		
@@ -4926,16 +4622,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	public double getStatusBarHeight() {
-		return statusBarHeight;
-
+		return chrome.getStatusBarHeight();
 	}
 	
 	public boolean isStatusBarHidden() {
-		return isFullScreen;
+		return chrome.isStatusBarHidden();
 	}
 	
 	public double getTitleBarHeight() {
-		return titleBarHeight;
+		return chrome.getTitleBarHeight();
+	}
+
+	int getEditorMenuStackSize() {
+		return menuStack.size();
+	}
+
+	void scheduleRenawsAfterChromeRefresh() {
+		if (myhandler != null) {
+			myhandler.removeMessages(MESSAGE_RENAWS);
+			myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 80);
+		}
 	}
 
 	private int getActionBarHeightPx() {
@@ -4946,18 +4652,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return (int) (48 * getResources().getDisplayMetrics().density);
 	}
 
-	/**
-	 * Jedno źródło prawdy dla chrome gry: odśwież pozycje menu oraz przelicz
-	 * offsety w oknach Lua (przyciski).
-	 */
 	private void refreshGameChrome() {
-		layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
-		updateMenuChrome();
-		windowCall("button_window", "delayedStatusRefresh", "");
-		if (myhandler != null) {
-			myhandler.removeMessages(MESSAGE_RENAWS);
-			myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 80);
-		}
+		chrome.refresh();
 	}
 
 	/** Tell the connection the real mainDisplay cell grid for NAWS. */
@@ -5009,85 +4705,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
-	/**
-	 * Button-layout editing uses overlay icons (settings/done/cancel) to the left
-	 * of the overflow control. Hide ⋮ while editing — those actions already live
-	 * on the FAB strip (overflow popup cannot invoke Lua menu click listeners).
-	 * The ActionBar toolbar stays hidden so chrome never jumps to the top.
-	 */
-	private void updateMenuChrome() {
-		final androidx.appcompat.widget.Toolbar toolbar =
-				(androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
-		final View overflowMenu = findViewById(R.id.overflow_menu);
-		final View editorActions = findViewById(R.id.editor_actions);
-		final boolean showEditorChrome = menuStack.size() > 0;
-
-		if (toolbar != null) {
-			ViewGroup.LayoutParams lp = toolbar.getLayoutParams();
-			if (lp != null) {
-				lp.height = 0;
-				if (lp instanceof ViewGroup.MarginLayoutParams) {
-					((ViewGroup.MarginLayoutParams) lp).topMargin = 0;
-				}
-				toolbar.setLayoutParams(lp);
-			}
-			toolbar.setVisibility(View.GONE);
-		}
-		if (getSupportActionBar() != null) {
-			getSupportActionBar().hide();
-		}
-		if (overflowMenu != null) {
-			overflowMenu.setVisibility(showEditorChrome ? View.GONE : View.VISIBLE);
-		}
-		if (editorActions != null) {
-			editorActions.setVisibility(showEditorChrome ? View.VISIBLE : View.GONE);
-		}
-		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
-		bringGameplayChromeToFront(rl);
-	}
-
-	private void configureGameplayToolbar(androidx.appcompat.widget.Toolbar toolbar) {
-		if (toolbar == null) {
-			return;
-		}
-		ColorDrawable transparent = new ColorDrawable(Color.TRANSPARENT);
-		toolbar.setBackground(transparent);
-		toolbar.setBackgroundDrawable(transparent);
-		toolbar.setElevation(0f);
-		toolbar.setClickable(false);
-		toolbar.setFocusable(false);
-		toolbar.setContentInsetsAbsolute(0, 0);
-		toolbar.setContentInsetsRelative(0, 0);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-			toolbar.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
-			toolbar.setStateListAnimator(null);
-		}
-		if (getSupportActionBar() != null) {
-			getSupportActionBar().setBackgroundDrawable(transparent);
-			getSupportActionBar().setElevation(0f);
-		}
-		if (toolbar.getParent() instanceof View) {
-			View parent = (View) toolbar.getParent();
-			parent.setBackgroundColor(Color.TRANSPARENT);
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-				parent.setElevation(0f);
-			}
-		}
-		View decor = getWindow().getDecorView();
-		if (decor != null) {
-			decor.setBackgroundColor(Color.TRANSPARENT);
-		}
-		toolbar.post(new Runnable() {
-			@Override
-			public void run() {
-				toolbar.setBackground(transparent);
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-					toolbar.setBackgroundTintList(ColorStateList.valueOf(Color.TRANSPARENT));
-				}
-			}
-		});
-	}
-	
 	@Override
 	public void onNewIntent(Intent i) {
 		//this is if the activity is currently open, and a new intent has been posted.
