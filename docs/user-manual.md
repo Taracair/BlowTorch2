@@ -209,7 +209,7 @@ or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 |---------|----------------|
 | **Rec** / **Stop** | Toggle recording outbound movement into the graph |
 | **Follow** | Toggle camera follow |
-| **L−** / **L+** | Previous / next level |
+| **L−** / **L+** | Previous / next **existing** level (noop until you have 2+; create via Rec+up/down or `.map level set`) |
 | **Find** | Search rooms |
 | **Undo** | Undo last graph change |
 | **Center** | Center on current |
