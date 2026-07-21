@@ -264,8 +264,8 @@ Optional protocols (off by default; Options → Service → **MUD Protocols**):
 On the default button set, tap **HELP** to run `.tutorial start`. The launcher
 lists a built-in **Starter Tutorial** row first (offline — no MUD). Disable the
 welcome note on normal MUDs via **Options → Starter Tutorial → Show on connect**,
-or type `.tutorial done`. To remove the plugin entirely, unload it under
-**Plugins**.
+or type `.tutorial done`. Toggle `starter_tutorial` off under **Plugins**, or unload
+it entirely to remove the plugin.
 
 ## Session overflow menu
 
