@@ -26,9 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.text.SimpleDateFormat;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import android.annotation.TargetApi;
@@ -1191,18 +1188,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		bar.show();
 	}
 	
-	private void copySettingsFile(File source, File dest) throws IOException {
-		InputStream in = new FileInputStream(source);
-		OutputStream out = new FileOutputStream(dest);
-		byte[] buf = new byte[1024];
-		int len;
-		while ((len = in.read(buf)) > 0) {
-			out.write(buf, 0, len);
-		}
-		in.close();
-		out.close();
-	}
-	
 	private void DoBackupAllSettings() {
 		AskBackupAllSettings();
 	}
@@ -1265,9 +1250,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				throw new IOException("Cannot create writable backup folder:\n"
 						+ (parent != null ? parent.getAbsolutePath() : "(null)"));
 			}
-			int copied = zipSettingsDirectory(getFilesDir(), zipFile);
+			int copied = LauncherBackupIO.zipSettingsDirectory(getFilesDir(), zipFile);
 			try {
-				mirrorBackupToDocuments(zipFile);
+				LauncherBackupIO.mirrorBackupToDocuments(zipFile);
 			} catch (IOException mirrorError) {
 				Log.w("BlowTorch", "Optional Documents mirror failed: " + mirrorError.getMessage());
 			}
@@ -1327,134 +1312,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 	}
 	
-	private int zipSettingsDirectory(File sourceDir, File zipFile) throws IOException {
-		int copied = 0;
-		if (sourceDir == null || !sourceDir.isDirectory()) {
-			throw new IOException("Settings directory unavailable");
-		}
-		ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile));
-		try {
-			String[] names = sourceDir.list();
-			if (names != null) {
-				byte[] buffer = new byte[4096];
-				for (String name : names) {
-					if (name == null || !name.endsWith(".xml")) {
-						continue;
-					}
-					File file = new File(sourceDir, name);
-					if (!file.isFile()) {
-						continue;
-					}
-					ZipEntry entry = new ZipEntry(name);
-					zos.putNextEntry(entry);
-					FileInputStream in = new FileInputStream(file);
-					try {
-						int len;
-						while ((len = in.read(buffer)) > 0) {
-							zos.write(buffer, 0, len);
-						}
-					} finally {
-						in.close();
-					}
-					zos.closeEntry();
-					copied++;
-				}
-			}
-		} finally {
-			zos.close();
-		}
-		return copied;
-	}
-	
-	private void mirrorBackupToDocuments(File zipFile) throws IOException {
-		File docsRoot = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2/backups");
-		if (!docsRoot.mkdirs() && !docsRoot.exists()) {
-			return;
-		}
-		copySettingsFile(zipFile, new File(docsRoot, zipFile.getName()));
-	}
-
-	private static class SettingsImportCandidate {
-		final File file;
-		final String label;
-
-		SettingsImportCandidate(File file, String label) {
-			this.file = file;
-			this.label = label;
-		}
-	}
-
-	private void collectSettingsImportCandidates(ArrayList<File> choices, ArrayList<String> labels) {
-		boolean external = SDCardUtils.hasStoragePermissions(this);
-		File defaultBackup = resolveBackupDirectory(external);
-		File sd = Environment.getExternalStorageDirectory();
-		File[] scanRoots = new File[] {
-				defaultBackup,
-				new File(sd, "BlowTorch2/backups"),
-				new File(sd, "BlowTorch/backups"),
-				new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2/backups"),
-				new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "BlowTorch2"),
-				Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-		};
-		java.util.HashSet<String> seen = new java.util.HashSet<String>();
-		ArrayList<SettingsImportCandidate> candidates = new ArrayList<SettingsImportCandidate>();
-		for (File root : scanRoots) {
-			if (root == null || !root.exists()) {
-				continue;
-			}
-			boolean allowFolders = root.getAbsolutePath().contains("BlowTorch2");
-			File[] entries = root.listFiles();
-			if (entries == null) {
-				continue;
-			}
-			for (File entry : entries) {
-				if (entry.isDirectory()) {
-					if (!allowFolders || entry.getName().endsWith(".zip")) {
-						continue;
-					}
-					String[] inner = entry.list();
-					if (inner != null && inner.length > 0) {
-						boolean hasXml = false;
-						for (String name : inner) {
-							if (name.endsWith(".xml")) {
-								hasXml = true;
-								break;
-							}
-						}
-						if (hasXml) {
-							String key = entry.getAbsolutePath();
-							if (seen.add(key)) {
-								candidates.add(new SettingsImportCandidate(entry,
-										"[folder] " + root.getName() + "/" + entry.getName()));
-							}
-						}
-					}
-					continue;
-				}
-				if (!entry.getName().endsWith(".zip")) {
-					continue;
-				}
-				String key = entry.getAbsolutePath();
-				if (seen.add(key)) {
-					candidates.add(new SettingsImportCandidate(entry, root.getName() + "/" + entry.getName()));
-				}
-			}
-		}
-		java.util.Collections.sort(candidates, new Comparator<SettingsImportCandidate>() {
-			public int compare(SettingsImportCandidate a, SettingsImportCandidate b) {
-				return Long.signum(b.file.lastModified() - a.file.lastModified());
-			}
-		});
-		for (SettingsImportCandidate candidate : candidates) {
-			choices.add(candidate.file);
-			labels.add(candidate.label);
-		}
-	}
-
 	private void AskImportSettings() {
 		final ArrayList<File> choices = new ArrayList<File>();
 		final ArrayList<String> labels = new ArrayList<String>();
-		collectSettingsImportCandidates(choices, labels);
+		LauncherBackupIO.collectSettingsImportCandidates(this, choices, labels);
 		labels.add("Browse for .zip file…");
 		choices.add(null);
 		if (labels.size() == 1) {
@@ -1471,7 +1332,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					return;
 				}
 				try {
-					int restored = restoreBackup(selected);
+					int restored = LauncherBackupIO.restoreBackup(Launcher.this, selected);
 					Toast.makeText(Launcher.this,
 							"Restored " + restored + " file(s). Restart BlowTorch to reload settings.",
 							Toast.LENGTH_LONG).show();
@@ -1508,7 +1369,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		try {
 			if (requestCode == REQUEST_PICK_SETTINGS_ZIP) {
-				int restored = restoreBackupFromUri(uri);
+				int restored = LauncherBackupIO.restoreBackupFromUri(this, uri);
 				Toast.makeText(this,
 						"Restored " + restored + " file(s). Restart BlowTorch to reload settings.",
 						Toast.LENGTH_LONG).show();
@@ -1518,7 +1379,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				exportServerListToUri(uri);
 			} else if (requestCode == REQUEST_CREATE_SETTINGS_ZIP) {
 				File tempZip = new File(SDCardUtils.resolveCacheDir(this), "export_settings_backup.zip");
-				int copied = zipSettingsDirectory(getFilesDir(), tempZip);
+				int copied = LauncherBackupIO.zipSettingsDirectory(getFilesDir(), tempZip);
 				OutputStream out = getContentResolver().openOutputStream(uri);
 				if (out == null) {
 					Toast.makeText(this, "Could not write selected location.", Toast.LENGTH_LONG).show();
@@ -1567,70 +1428,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		Toast.makeText(this, "Server list exported.", Toast.LENGTH_LONG).show();
 	}
 
-	private int restoreBackupFromUri(Uri uri) throws IOException {
-		InputStream in = getContentResolver().openInputStream(uri);
-		if (in == null) {
-			throw new IOException("Could not open selected file");
-		}
-		File tempZip = new File(SDCardUtils.resolveCacheDir(this), "import_settings.zip");
-		OutputStream out = new FileOutputStream(tempZip);
-		byte[] buffer = new byte[4096];
-		int len;
-		while ((len = in.read(buffer)) > 0) {
-			out.write(buffer, 0, len);
-		}
-		in.close();
-		out.close();
-		return restoreZipBackup(tempZip);
-	}
-	
-	private int restoreBackup(File backup) throws IOException {
-		if (backup.isDirectory()) {
-			return restoreDirectoryBackup(backup);
-		}
-		return restoreZipBackup(backup);
-	}
-	
-	private int restoreDirectoryBackup(File backupDir) throws IOException {
-		int restored = 0;
-		String[] names = backupDir.list();
-		if (names == null) {
-			return 0;
-		}
-		for (String name : names) {
-			if (!name.endsWith(".xml")) {
-				continue;
-			}
-			copySettingsFile(new File(backupDir, name), new File(getFilesDir(), name));
-			restored++;
-		}
-		return restored;
-	}
-	
-	private int restoreZipBackup(File zipFile) throws IOException {
-		int restored = 0;
-		ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));
-		ZipEntry entry;
-		byte[] buffer = new byte[4096];
-		while ((entry = zis.getNextEntry()) != null) {
-			if (entry.isDirectory() || !entry.getName().endsWith(".xml")) {
-				zis.closeEntry();
-				continue;
-			}
-			File out = new File(getFilesDir(), new File(entry.getName()).getName());
-			FileOutputStream fos = new FileOutputStream(out);
-			int len;
-			while ((len = zis.read(buffer)) > 0) {
-				fos.write(buffer, 0, len);
-			}
-			fos.close();
-			zis.closeEntry();
-			restored++;
-		}
-		zis.close();
-		return restored;
-	}
-	
 	private void DoWhatsNew() throws NameNotFoundException { 
 		
 		//get the version information.
