@@ -68,6 +68,16 @@ public class MapperController {
 		public String exits;
 	}
 
+	/** Summary row for the level browser UI / {@link #levelBrowserLines()}. */
+	public static class LevelInfo {
+		public String id;
+		public String name;
+		public int index;
+		public int tileCount;
+		/** e.g. {@code via Hallway (down)} or empty for root floors. */
+		public String anchorSummary;
+	}
+
 	private final Connection mConnection;
 	private final List<Listener> mListeners = new CopyOnWriteArrayList<Listener>();
 	private final List<MapperUiListener> mUiListeners = new CopyOnWriteArrayList<MapperUiListener>();
@@ -1253,17 +1263,23 @@ public class MapperController {
 			boolean cur = level.getId().equals(mMap.getCurrentLevelId());
 			sb.append(cur ? " * " : "   ");
 			sb.append(level.getIndex()).append(": ").append(level.getName());
+			String anchor = formatAnchorSummary(level);
+			if (anchor.length() > 0) {
+				sb.append("  (").append(anchor).append(")");
+			}
 			sb.append("\n");
 		}
 		return sb.toString();
 	}
 
+	/** L−: nest follow/create in the {@code down} direction from Here. */
 	public String levelPrev() {
-		return shiftLevel(-1);
+		return shiftLevel("down");
 	}
 
+	/** L+: nest follow/create in the {@code up} direction from Here. */
 	public String levelNext() {
-		return shiftLevel(1);
+		return shiftLevel("up");
 	}
 
 	public String levelSet(final String name) {
@@ -1281,6 +1297,96 @@ public class MapperController {
 			MapTile at = findTileAt(level.getId(), cur.getGridX(), cur.getGridY());
 			if (at != null) {
 				mMap.setCurrentTileId(at.getId());
+			}
+		}
+		notifyChanged();
+		return "Mapper: level \"" + level.getName() + "\".";
+	}
+
+	/**
+	 * View a level without moving Here. Sets {@code currentLevelId} only;
+	 * if Here is not on that floor it stays selected but will not paint until
+	 * the player picks a tile on the viewed level.
+	 */
+	public String browseLevel(final String levelId) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(levelId)) {
+			return "Mapper: level id required.";
+		}
+		MapLevel level = mMap.findLevel(levelId);
+		if (level == null) {
+			return "Mapper: unknown level.";
+		}
+		mMap.setCurrentLevelId(level.getId());
+		notifyChanged();
+		return "Mapper: viewing level \"" + level.getName() + "\".";
+	}
+
+	/** Formatted level browser lines for UI (name, tiles, anchor). */
+	public List<String> levelBrowserLines() {
+		List<String> lines = new ArrayList<String>();
+		for (LevelInfo info : listLevelInfo()) {
+			StringBuilder sb = new StringBuilder();
+			sb.append(info.name != null ? info.name : "?");
+			sb.append(" · ").append(info.tileCount).append(" tiles");
+			if (info.anchorSummary != null && info.anchorSummary.length() > 0) {
+				sb.append(" · ").append(info.anchorSummary);
+			}
+			lines.add(sb.toString());
+		}
+		return lines;
+	}
+
+	/** Structured level list for UI browsers. */
+	public List<LevelInfo> listLevelInfo() {
+		List<LevelInfo> out = new ArrayList<LevelInfo>();
+		if (mMap == null) {
+			return out;
+		}
+		for (MapLevel level : sortedLevels()) {
+			if (level == null) {
+				continue;
+			}
+			LevelInfo info = new LevelInfo();
+			info.id = level.getId();
+			info.name = level.getName();
+			info.index = level.getIndex();
+			info.tileCount = countTilesOnLevel(level.getId());
+			info.anchorSummary = formatAnchorSummary(level);
+			out.add(info);
+		}
+		return out;
+	}
+
+	/**
+	 * Switch view to {@code levelId}. When {@code moveHereIfPossible}, also set
+	 * Here to a tile on that level (prefer same grid as current Here, else first).
+	 */
+	public String goToLevel(final String levelId, final boolean moveHereIfPossible) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(levelId)) {
+			return "Mapper: level id required.";
+		}
+		MapLevel level = mMap.findLevel(levelId);
+		if (level == null) {
+			return "Mapper: unknown level.";
+		}
+		mMap.setCurrentLevelId(level.getId());
+		if (moveHereIfPossible) {
+			MapTile cur = currentTile();
+			MapTile dest = null;
+			if (cur != null) {
+				dest = findTileAt(level.getId(), cur.getGridX(), cur.getGridY());
+			}
+			if (dest == null) {
+				dest = firstTileOnLevel(level.getId());
+			}
+			if (dest != null) {
+				mMap.setCurrentTileId(dest.getId());
 			}
 		}
 		notifyChanged();
@@ -1813,7 +1919,16 @@ public class MapperController {
 				max = l.getIndex();
 			}
 		}
-		MapLevel level = new MapLevel(null, name, max + 1);
+		return addLevel(name, max + 1, null, null);
+	}
+
+	/**
+	 * Create a level at an explicit index, optionally anchored on a door tile.
+	 */
+	public MapLevel addLevel(final String name, final int index,
+			final String anchorTileId, final String anchorDir) {
+		ensureDefaultLevel();
+		MapLevel level = new MapLevel(null, name, index, anchorTileId, anchorDir);
 		mMap.getLevels().add(level);
 		return level;
 	}
@@ -1842,74 +1957,246 @@ public class MapperController {
 	}
 
 	/**
-	 * Switch to the previous/next level. At either end of the list, create a new
-	 * level so the player can organize floors manually (MUDs rarely map 1:1 to
-	 * up/down — a west step can still be “upstairs”).
-	 * <p>
-	 * When a level is created, the current (Here) tile is moved onto it so the
-	 * room you are standing on defines the new floor.
+	 * Here-centric nest navigation for L− / L+ ({@code down} / {@code up}).
+	 * <ol>
+	 * <li>Follow an existing nest anchored on Here with dir D, or an exit whose
+	 * destination is on another level in that direction.</li>
+	 * <li>Else, if the current level is anchored and D is the opposite of how we
+	 * entered, return to {@code anchorTileId}.</li>
+	 * <li>Else create a new nest: level anchored on Here, landing tile, linked
+	 * exits; move Here to the landing (door tile stays).</li>
+	 * </ol>
 	 */
-	private String shiftLevel(final int delta) {
+	private String shiftLevel(final String dir) {
 		if (mMap == null) {
 			return "Mapper: no map.";
 		}
 		ensureDefaultLevel();
-		List<MapLevel> sorted = sortedLevels();
-		if (sorted.isEmpty()) {
-			return "Mapper: no levels.";
+		final String D = dir != null ? dir.trim().toLowerCase(Locale.US) : "";
+		if (!"up".equals(D) && !"down".equals(D)) {
+			return "Mapper: nest direction must be up or down.";
 		}
-		int idx = 0;
-		for (int i = 0; i < sorted.size(); i++) {
-			if (sorted.get(i).getId().equals(mMap.getCurrentLevelId())) {
-				idx = i;
-				break;
+
+		MapTile here = currentTile();
+		if (here == null) {
+			here = createTileAt(mMap.getCurrentLevelId(), 0, 0);
+			mMap.setCurrentTileId(here.getId());
+		}
+
+		// 1a. Level already anchored on Here with matching entry dir.
+		MapLevel nested = mMap.findLevelAnchoredOn(here.getId(), D);
+		if (nested != null) {
+			MapTile landing = firstTileOnLevel(nested.getId());
+			if (landing == null) {
+				pushUndo();
+				landing = createTileAt(nested.getId(), here.getGridX(), here.getGridY());
+			}
+			mMap.setCurrentLevelId(nested.getId());
+			mMap.setCurrentTileId(landing.getId());
+			notifyChanged();
+			return "Mapper: entered level \"" + nested.getName() + "\" via "
+					+ shortTileLabel(here) + " (" + nestLabel(D) + ").";
+		}
+
+		// 1b. Follow an exit from Here onto another level in direction D.
+		MapTile exitDest = findInterLevelExitDest(here, D);
+		if (exitDest != null) {
+			mMap.setCurrentLevelId(exitDest.getLevelId());
+			mMap.setCurrentTileId(exitDest.getId());
+			notifyChanged();
+			MapLevel destLevel = mMap.findLevel(exitDest.getLevelId());
+			String lname = destLevel != null && destLevel.getName() != null
+					? destLevel.getName() : "?";
+			return "Mapper: entered level \"" + lname + "\" via "
+					+ shortTileLabel(here) + " (" + nestLabel(D) + ").";
+		}
+
+		// 2. Return via this level's anchor (entered via opposite of D).
+		MapLevel currentLevel = mMap.findLevel(here.getLevelId());
+		if (currentLevel != null && currentLevel.getAnchorTileId() != null) {
+			String enteredVia = currentLevel.getAnchorDir();
+			String returnDir = MapDirections.opposite(enteredVia);
+			if (returnDir != null && dirEquals(D, returnDir)) {
+				MapTile door = mMap.findTile(currentLevel.getAnchorTileId());
+				if (door != null) {
+					mMap.setCurrentLevelId(door.getLevelId());
+					mMap.setCurrentTileId(door.getId());
+					notifyChanged();
+					return "Mapper: returned to \"" + shortTileLabel(door)
+							+ "\" (" + nestLabel(D) + ").";
+				}
 			}
 		}
-		int next = idx + delta;
-		boolean created = false;
-		MapLevel level;
-		if (next < 0 || next >= sorted.size()) {
-			pushUndo();
-			int newIndex;
-			if (next < 0) {
-				newIndex = sorted.get(0).getIndex() - 1;
-			} else {
-				newIndex = sorted.get(sorted.size() - 1).getIndex() + 1;
-			}
-			String name = Integer.toString(newIndex);
-			// Avoid colliding with an existing display name.
-			if (findLevelByName(name) != null) {
-				name = "L" + newIndex;
-			}
-			level = new MapLevel(null, name, newIndex);
-			mMap.getLevels().add(level);
-			created = true;
-		} else {
-			level = sorted.get(next);
+
+		// 3. Create nest anchored on Here.
+		pushUndo();
+		int newIndex = adjacentNestIndex(here.getLevelId(), D);
+		String name = suggestNestName(here, D, newIndex);
+		MapLevel level = addLevel(name, newIndex, here.getId(), D);
+		MapTile landing = createTileAt(level.getId(), here.getGridX(), here.getGridY());
+
+		String stored = MapDirections.storeCommand(D, D);
+		String rev = MapDirections.suggestReverse(stored, directionMap());
+		if (rev == null || rev.length() == 0) {
+			rev = MapDirections.opposite(D);
+		}
+		boolean special = MapDirections.gridDelta(normalize(stored)) == null;
+		here.addExit(new MapExit(here.getId(), landing.getId(), stored, special, rev));
+		if (mAutoReverse && rev != null && rev.length() > 0) {
+			String revNorm = normalize(rev);
+			boolean revSpecial = MapDirections.gridDelta(revNorm) == null;
+			landing.addExit(new MapExit(landing.getId(), here.getId(), rev, revSpecial,
+					stored));
 		}
 
 		mMap.setCurrentLevelId(level.getId());
-		MapTile cur = currentTile();
-		String movedNote = "";
-		if (created && cur != null && !level.getId().equals(cur.getLevelId())) {
-			// Here defines the new floor (player decided this room belongs here).
-			MapTile occupied = findTileAt(level.getId(), cur.getGridX(), cur.getGridY());
-			if (occupied == null || occupied.getId().equals(cur.getId())) {
-				cur.setLevelId(level.getId());
-				movedNote = " · Here moved here";
-			}
-		} else if (cur != null && !level.getId().equals(cur.getLevelId())) {
-			MapTile at = findTileAt(level.getId(), cur.getGridX(), cur.getGridY());
-			if (at != null) {
-				mMap.setCurrentTileId(at.getId());
-			}
-		}
+		mMap.setCurrentTileId(landing.getId());
+		refreshConflicts();
 		notifyChanged();
-		if (created) {
-			return "Mapper: created level \"" + level.getName() + "\"" + movedNote
-					+ ". Draw / move more tiles onto this floor as you like.";
+		return "Mapper: entered level \"" + level.getName() + "\" via "
+				+ shortTileLabel(here) + " (" + nestLabel(D) + ").";
+	}
+
+	/** L− / L+ label for status messages. */
+	private static String nestLabel(final String dir) {
+		if ("down".equalsIgnoreCase(dir)) {
+			return "L-";
 		}
-		return "Mapper: level \"" + level.getName() + "\".";
+		if ("up".equalsIgnoreCase(dir)) {
+			return "L+";
+		}
+		return dir;
+	}
+
+	/**
+	 * Destination of an exit from {@code here} that leaves this level in
+	 * direction {@code dir} (normalized command, or dest level anchored on here).
+	 */
+	private MapTile findInterLevelExitDest(final MapTile here, final String dir) {
+		if (here == null || mMap == null) {
+			return null;
+		}
+		String hereLevel = here.getLevelId() != null ? here.getLevelId() : "";
+		for (MapExit e : here.getExits()) {
+			if (e == null || e.getToId() == null) {
+				continue;
+			}
+			MapTile dest = mMap.findTile(e.getToId());
+			if (dest == null) {
+				continue;
+			}
+			String destLevel = dest.getLevelId() != null ? dest.getLevelId() : "";
+			if (destLevel.equals(hereLevel)) {
+				continue;
+			}
+			String norm = normalize(e.getCommand());
+			boolean cmdMatches = dirEquals(dir, norm);
+			MapLevel destLvl = mMap.findLevel(dest.getLevelId());
+			boolean anchorMatches = destLvl != null
+					&& here.getId().equals(destLvl.getAnchorTileId())
+					&& dirEquals(dir, destLvl.getAnchorDir());
+			if (cmdMatches || anchorMatches) {
+				return dest;
+			}
+		}
+		return null;
+	}
+
+	private static boolean dirEquals(final String a, final String b) {
+		if (a == null || b == null) {
+			return false;
+		}
+		String na = MapDirections.normalize(a, null);
+		String nb = MapDirections.normalize(b, null);
+		if (na.length() > 0 && na.equalsIgnoreCase(nb)) {
+			return true;
+		}
+		// Long/short: up↔u, down↔d
+		String la = MapDirections.toLongForm(na.length() > 0 ? na : a);
+		String lb = MapDirections.toLongForm(nb.length() > 0 ? nb : b);
+		return la != null && la.equalsIgnoreCase(lb);
+	}
+
+	private int adjacentNestIndex(final String fromLevelId, final String dir) {
+		MapLevel from = mMap.findLevel(fromLevelId);
+		int base = from != null ? from.getIndex() : 0;
+		return "down".equalsIgnoreCase(dir) ? base - 1 : base + 1;
+	}
+
+	private String suggestNestName(final MapTile here, final String dir,
+			final int newIndex) {
+		String numeric = Integer.toString(newIndex);
+		if (findLevelByName(numeric) == null) {
+			return numeric;
+		}
+		String shortLabel = shortTileLabel(here);
+		String descriptive = "down".equalsIgnoreCase(dir)
+				? "under " + shortLabel
+				: "above " + shortLabel;
+		if (findLevelByName(descriptive) == null) {
+			return descriptive;
+		}
+		return "L" + newIndex;
+	}
+
+	private String shortTileLabel(final MapTile tile) {
+		if (tile == null) {
+			return "?";
+		}
+		if (tile.getTitle() != null && tile.getTitle().trim().length() > 0) {
+			String t = tile.getTitle().trim();
+			return t.length() > 24 ? t.substring(0, 24) : t;
+		}
+		String id = tile.getId();
+		if (id != null && id.length() > 8) {
+			return id.substring(0, 8);
+		}
+		return id != null ? id : "?";
+	}
+
+	private String formatAnchorSummary(final MapLevel level) {
+		if (level == null || level.getAnchorTileId() == null) {
+			return "";
+		}
+		MapTile door = mMap != null ? mMap.findTile(level.getAnchorTileId()) : null;
+		String via = door != null ? shortTileLabel(door) : level.getAnchorTileId();
+		String dir = level.getAnchorDir() != null ? level.getAnchorDir() : "?";
+		return "via " + via + " (" + dir + ")";
+	}
+
+	private int countTilesOnLevel(final String levelId) {
+		int n = 0;
+		if (mMap == null) {
+			return 0;
+		}
+		String want = levelId != null ? levelId : "";
+		for (MapTile t : mMap.getTiles()) {
+			if (t == null) {
+				continue;
+			}
+			String lid = t.getLevelId() != null ? t.getLevelId() : "";
+			if (lid.equals(want)) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	private MapTile firstTileOnLevel(final String levelId) {
+		if (mMap == null) {
+			return null;
+		}
+		String want = levelId != null ? levelId : "";
+		for (MapTile t : mMap.getTiles()) {
+			if (t == null) {
+				continue;
+			}
+			String lid = t.getLevelId() != null ? t.getLevelId() : "";
+			if (lid.equals(want)) {
+				return t;
+			}
+		}
+		return null;
 	}
 
 	private void pushUndo() {

@@ -1,8 +1,10 @@
 package com.resurrection.blowtorch2.lib.mapper;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
@@ -191,6 +193,15 @@ public class MapperOverlayController
 				setFullscreen(!fullscreen);
 			}
 		});
+		if (titleView != null) {
+			titleView.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					openRadialMenu();
+					return true;
+				}
+			});
+		}
 
 		mapperView.setTileInteractionListener(new MapperView.TileInteractionListener() {
 			@Override
@@ -256,6 +267,11 @@ public class MapperOverlayController
 			@Override
 			public void onLinkCommandsTap(MapTile from, MapTile to, List<String> commands) {
 				showLinkCommandsPopup(from, to, commands);
+			}
+
+			@Override
+			public void onInterLevelExitTap(MapTile from, MapExit exit, MapTile dest) {
+				jumpToInterLevelDest(dest);
 			}
 		});
 
@@ -464,6 +480,24 @@ public class MapperOverlayController
 			}
 		});
 		toolbar.addView(paths);
+
+		Button levels = makeToolbarButton(activity, density, "Levels");
+		levels.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				openLevelBrowser();
+			}
+		});
+		toolbar.addView(levels);
+
+		Button radial = makeToolbarButton(activity, density, "◎");
+		radial.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				openRadialMenu();
+			}
+		});
+		toolbar.addView(radial);
 
 		Button draw = makeToolbarButton(activity, density, drawEditMode ? "Draw●" : "Draw");
 		draw.setOnClickListener(new View.OnClickListener() {
@@ -1518,6 +1552,163 @@ public class MapperOverlayController
 		host.runMapCommand("capture preview");
 	}
 
+	private void openLevelBrowser() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		MapperLevelBrowserDialog.show(activity, new MapperLevelBrowserDialog.Host() {
+			@Override
+			public MudMap getMap() {
+				if (controller != null) {
+					return controller.getMap();
+				}
+				return snapshotMap;
+			}
+
+			@Override
+			public String getCurrentLevelId() {
+				MudMap map = getMap();
+				return map != null ? map.getCurrentLevelId() : null;
+			}
+
+			@Override
+			public void browseLevel(String levelId) {
+				runBrowseLevel(levelId);
+			}
+
+			@Override
+			public void goHereOnLevel(String levelId) {
+				if (controller != null) {
+					toastStatus(controller.goToLevel(levelId, true));
+					refreshFromController();
+				} else {
+					runBrowseLevel(levelId);
+					MudMap map = snapshotMap;
+					MapTile first = null;
+					if (map != null && levelId != null) {
+						for (MapTile t : map.getTiles()) {
+							if (t != null && levelId.equals(t.getLevelId())) {
+								first = t;
+								break;
+							}
+						}
+					}
+					if (first != null) {
+						runSetHere(first.getId());
+					}
+				}
+			}
+
+			@Override
+			public void floorUp() {
+				runFloorUp();
+			}
+
+			@Override
+			public void floorDown() {
+				runFloorDown();
+			}
+
+			@Override
+			public void centerOnTile(MapTile tile) {
+				if (tile != null && mapperView != null) {
+					selectedTileId = tile.getId();
+					mapperView.setSelectedTileId(tile.getId());
+					mapperView.centerOnTile(tile);
+				}
+			}
+		});
+	}
+
+	private void openRadialMenu() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		new MapperRadialMenu(activity, new MapperRadialMenu.Listener() {
+			@Override
+			public void onRadialAction(String action) {
+				runRadialAction(action);
+			}
+		}).show();
+	}
+
+	private void runRadialAction(String action) {
+		if (action == null) {
+			return;
+		}
+		if (MapperRadialMenu.ACTION_LEVELS.equals(action)) {
+			openLevelBrowser();
+		} else if (MapperRadialMenu.ACTION_FLOOR_UP.equals(action)) {
+			runFloorUp();
+		} else if (MapperRadialMenu.ACTION_FLOOR_DOWN.equals(action)) {
+			runFloorDown();
+		} else if (MapperRadialMenu.ACTION_PATHS.equals(action)) {
+			togglePathsLayout();
+		} else if (MapperRadialMenu.ACTION_DRAW.equals(action)) {
+			toggleDrawEditMode();
+		} else if (MapperRadialMenu.ACTION_LINKS.equals(action)) {
+			toggleLinkEditMode();
+		} else if (MapperRadialMenu.ACTION_HERE.equals(action)) {
+			MapTile tile = selectedOrCurrentTile();
+			if (tile == null) {
+				Toast.makeText(host.getMainWindow(), "Select a tile first",
+						Toast.LENGTH_SHORT).show();
+			} else {
+				runSetHere(tile.getId());
+			}
+		} else if (MapperRadialMenu.ACTION_SAVE.equals(action)) {
+			if (controller != null) {
+				toastStatus(controller.save());
+			} else {
+				host.runMapCommand("save");
+				Toast.makeText(host.getMainWindow(), "Saving map…",
+						Toast.LENGTH_SHORT).show();
+			}
+		}
+	}
+
+	private void runBrowseLevel(String levelId) {
+		if (levelId == null || levelId.length() == 0) {
+			return;
+		}
+		if (controller != null) {
+			toastStatus(controller.browseLevel(levelId));
+			refreshFromController();
+			return;
+		}
+		MudMap map = snapshotMap;
+		MapLevel level = map != null ? map.findLevel(levelId) : null;
+		if (level != null) {
+			String name = level.getName() != null ? level.getName() : level.getId();
+			host.runMapCommand("level set " + name);
+			pullSnapshotFromService();
+		} else {
+			Toast.makeText(host.getMainWindow(), "Unknown level", Toast.LENGTH_SHORT).show();
+		}
+	}
+
+	private void runFloorUp() {
+		if (controller != null) {
+			toastStatus(controller.levelNext());
+			refreshFromController();
+		} else {
+			host.runMapCommand("level next");
+			pullSnapshotFromService();
+		}
+	}
+
+	private void runFloorDown() {
+		if (controller != null) {
+			toastStatus(controller.levelPrev());
+			refreshFromController();
+		} else {
+			host.runMapCommand("level prev");
+			pullSnapshotFromService();
+		}
+	}
+
 	public void refreshFromController() {
 		if (mapperView == null) {
 			return;
@@ -1531,19 +1722,15 @@ public class MapperOverlayController
 				titleView.setText("Map");
 			}
 			mapperView.setTiles(new ArrayList<MapTile>());
+			mapperView.setTileIndex(new HashMap<String, MapTile>());
+			mapperView.setLevelIndex(new HashMap<String, MapLevel>());
 			return;
 		}
-		if (titleView != null) {
-			String name = map.getName() != null ? map.getName() : "Map";
-			String level = "?";
-			MapLevel l = map.findLevel(map.getCurrentLevelId());
-			if (l != null && l.getName() != null) {
-				level = l.getName();
-			}
-			boolean rec = controller != null ? controller.isRecording() : snapshotRecording;
-			String recMark = rec ? " [REC]" : "";
-			titleView.setText(name + " · L" + level + recMark);
+		if (titleView != null && !linkEditMode && !drawEditMode) {
+			titleView.setText(formatTitleBreadcrumb(map));
 		}
+		mapperView.setTileIndex(buildTileIndex(map));
+		mapperView.setLevelIndex(buildLevelIndex(map));
 		mapperView.setTiles(tilesOnCurrentLevel(map));
 		mapperView.setCurrentTileId(map.getCurrentTileId());
 		mapperView.setSelectedTileId(selectedTileId);
@@ -1551,6 +1738,102 @@ public class MapperOverlayController
 		mapperView.setFollowMode(follow);
 		applyOpacity();
 		rebuildToolbar();
+	}
+
+	private String formatTitleBreadcrumb(MudMap map) {
+		String name = map.getName() != null ? map.getName() : "Map";
+		String level = "?";
+		MapLevel l = map.findLevel(map.getCurrentLevelId());
+		if (l != null && l.getName() != null) {
+			level = l.getName();
+		} else if (l != null) {
+			level = Integer.toString(l.getIndex());
+		}
+		boolean rec = controller != null ? controller.isRecording() : snapshotRecording;
+		String recMark = rec ? " [REC]" : "";
+		String base = name + " · L" + level;
+		String anchorId = l != null ? l.getAnchorTileId() : null;
+		if (anchorId != null && anchorId.length() > 0) {
+			MapTile anchor = map.findTile(anchorId);
+			String via = shortTileLabel(anchor);
+			base = base + " ← " + via;
+		}
+		return base + recMark;
+	}
+
+	private Map<String, MapTile> buildTileIndex(MudMap map) {
+		HashMap<String, MapTile> byId = new HashMap<String, MapTile>();
+		if (map == null || map.getTiles() == null) {
+			return byId;
+		}
+		for (MapTile t : map.getTiles()) {
+			if (t != null && t.getId() != null) {
+				byId.put(t.getId(), t);
+			}
+		}
+		return byId;
+	}
+
+	private Map<String, MapLevel> buildLevelIndex(MudMap map) {
+		HashMap<String, MapLevel> byId = new HashMap<String, MapLevel>();
+		if (map == null || map.getLevels() == null) {
+			return byId;
+		}
+		for (MapLevel level : map.getLevels()) {
+			if (level != null && level.getId() != null) {
+				byId.put(level.getId(), level);
+			}
+		}
+		return byId;
+	}
+
+	/**
+	 * Jump camera / Here to an inter-level exit destination and toast the level name.
+	 */
+	private void jumpToInterLevelDest(final MapTile dest) {
+		if (dest == null) {
+			return;
+		}
+		selectedTileId = dest.getId();
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		String levelName = "?";
+		if (map != null) {
+			MapLevel destLevel = map.findLevel(dest.getLevelId());
+			if (destLevel != null && destLevel.getName() != null
+					&& destLevel.getName().length() > 0) {
+				levelName = destLevel.getName();
+			} else if (destLevel != null) {
+				levelName = "L" + destLevel.getIndex();
+			}
+		}
+		if (controller != null) {
+			// Browse to dest level for camera, then Set Here on the exit target.
+			controller.browseLevel(dest.getLevelId());
+			controller.setHere(dest.getId());
+			refreshFromController();
+		} else if (snapshotMap != null) {
+			snapshotMap.setCurrentTileId(dest.getId());
+			snapshotMap.setCurrentLevelId(dest.getLevelId());
+			refreshFromController();
+		}
+		final String destId = dest.getId();
+		final String toastLevel = levelName;
+		if (mapperView != null) {
+			mapperView.post(new Runnable() {
+				@Override
+				public void run() {
+					MudMap m = controller != null ? controller.getMap() : snapshotMap;
+					MapTile t = m != null ? m.findTile(destId) : null;
+					if (t == null) {
+						return;
+					}
+					mapperView.setSelectedTileId(t.getId());
+					mapperView.setFollowMode(false);
+					mapperView.centerOnTile(t);
+				}
+			});
+		}
+		Toast.makeText(host.getMainWindow(), "→ " + toastLevel, Toast.LENGTH_SHORT).show();
 	}
 
 	/** Pull JSON from the service process and apply to the overlay. */

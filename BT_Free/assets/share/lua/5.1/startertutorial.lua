@@ -419,6 +419,7 @@ What you see
   • Green tile  = current (where the mapper thinks you are)
   • Yellow edge = selected (last tap)
   • [REC] in the title = recording is on
+  • Title breadcrumb on nests: map · L-1 ← Hallway
   • Full / Float / ✕ = window mode and close
   The map stays under ⋮ so the overflow menu stays usable.
 
@@ -427,31 +428,39 @@ Two ways to build
      .map new mymap   (optional fresh file)
      Open the map → Rec → walk the MUD as usual → Stop → Save
      Outbound commands become exits. Compass moves (n/e/s/w, go west,
-     go se, …) place neighbors on a grid; up/down change level; out/in
-     become special exits beside the room.
+     go se, …) place neighbors on a grid; up/down change level while
+     Recording; out/in become special exits beside the room.
   2) Draw by hand (no walking required)
      Draw → tap empty cells to place rooms
      Long-press empty = place and set Here
      Links → tap FROM then TO → type the walk verb (go west, n, out…)
      Or long-press a tile → Add neighbor… / Move… / Set as Here / Delete
 
+Levels (tile-anchored — not one global stack)
+  Each Here tile can open its own basement/attic (per-door nests).
+  L-/L+ = nest down/up from Here (follow, create, or return to the door).
+  Browse without creating: toolbar Levels (list + via anchor), or tap
+  ▲/▼/◆ badges on tiles that lead to other floors.
+  ◎ radial: Levels, Floor ↑/↓, Paths, Draw, Links, Here, Save
+  (long-press title also opens ◎). up/down while Recording still works;
+  L-/L+ is the manual tool for weird MUDs (e.g. west into a cellar).
+
 Toolbar cheatsheet
   Rec/Stop  Follow  L-/L+  Find  Undo  Center   (CSV-configurable)
-  L-/L+ switch floors; at the edge they create a new level and move Here
-  (you decide floors — even after a plain west/south walk)
-  Links  Paths/Pack  Draw  Here  Edit  Save     (always present)
+  Links  Paths/Pack  Levels  ◎  Draw  Here  Edit  Save  (always present)
   Paths = space for arrows; Pack = tight tiles
 
 Gestures
   Long-press tile + drag = move (release without move = tile menu)
   Double-tap tile = Set as Here
   Tap arrow label / +N = list walk verbs on that edge (unlink optional)
+  Tap ▲/▼/◆ = jump to linked floor (browse)
 
 Movement lexicon (summary; full list: .map dirs)
   +x = east, +y = south on the grid
   n/s/e/w (+ go/walk/move) → grid step
   ne/nw/se/sw → diagonal
-  up/climb vs down/descend → level change
+  up/climb vs down/descend → level change while Recording
   in/enter, out/leave → special
   Built-in compass wins over Speedwalk keys (h/j/k/l = nw/ne/sw/se)
 
@@ -459,6 +468,7 @@ Useful .map commands
   .map / .map help
   .map mode float|fullscreen
   .map record|follow …
+  .map level list|prev|next|set <name>   (prev/next = L-/L+ nests)
   .map find|path|goto <query>
   .map maps | load <name> | new <name>
   .map import <path|name>   .map export|save [path]
