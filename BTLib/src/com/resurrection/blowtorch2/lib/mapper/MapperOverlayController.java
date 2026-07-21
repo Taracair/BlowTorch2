@@ -81,6 +81,8 @@ public class MapperOverlayController
 	 * (service owns it) — keep local copy and sync via {@code .map mode} + snapshot.
 	 */
 	private boolean sessionEditMode;
+	/** Mirrors service {@code mapper_accept_one_way_specials} for Build radial label. */
+	private boolean sessionAcceptOneWaySpecials;
 
 	public MapperOverlayController(Host host) {
 		this.host = host;
@@ -1783,7 +1785,8 @@ public class MapperOverlayController
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
-				MapperRadialMenu.showBuild((ViewGroup) overlayRoot, radialListener());
+				MapperRadialMenu.showBuild((ViewGroup) overlayRoot, radialListener(),
+						isAcceptOneWaySpecials());
 			}
 		});
 	}
@@ -1902,6 +1905,34 @@ public class MapperOverlayController
 				return;
 			}
 			promptNewMap();
+		} else if (MapperRadialMenu.ACTION_ONE_WAY.equals(action)) {
+			toggleAcceptOneWaySpecials();
+		}
+	}
+
+	private boolean isAcceptOneWaySpecials() {
+		if (controller != null) {
+			return controller.isAcceptOneWaySpecials();
+		}
+		return sessionAcceptOneWaySpecials;
+	}
+
+	private void toggleAcceptOneWaySpecials() {
+		boolean next;
+		if (controller != null) {
+			next = controller.toggleAcceptOneWaySpecials();
+		} else {
+			next = !sessionAcceptOneWaySpecials;
+			sessionAcceptOneWaySpecials = next;
+			host.runMapCommand(next ? "oneway on" : "oneway off");
+		}
+		Toast.makeText(host.getMainWindow(),
+				next
+						? "1-way ON — specials spawn new tiles"
+						: "1-way off — specials close to unique inbound room",
+				Toast.LENGTH_LONG).show();
+		if (controller == null) {
+			pullSnapshotFromService();
 		}
 	}
 
@@ -2295,6 +2326,8 @@ public class MapperOverlayController
 			snapshotRecording = root.optBoolean("recording", false);
 			snapshotFollow = root.optBoolean("follow", true);
 			sessionEditMode = root.optBoolean("editMode", sessionEditMode);
+			sessionAcceptOneWaySpecials = root.optBoolean("acceptOneWaySpecials",
+					sessionAcceptOneWaySpecials);
 			snapshotOpacity = root.optInt("opacity", 85);
 			if (root.has("preferFloat")) {
 				fullscreen = !root.optBoolean("preferFloat", true);

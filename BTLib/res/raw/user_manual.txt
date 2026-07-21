@@ -285,13 +285,16 @@ Mapper
   Top chips (category radials — in-map pie, no status-bar flash):
     Nav: Record, Follow, Center, Find, Undo, Close
     Floors: List, ↑, ↓, Root, Door, Delete (Delete = Edit only)
-    Build: Draw, Links, Paths, Here, Edit (tile)
+    Build: Draw, Links, Paths, Here, Edit (tile), 1-way (accept one-way specials)
     File: Save, Maps, New, Export
   Level browser (Floors → List): tap = view; long-press = Go Here.
     Edit adds Delete… (confirm) — removes floor + all tiles; cannot delete last.
   Draw (Edit) = tap empty=place; long-press empty=place+Here
   Links (Edit) = tap FROM then TO, enter walk verb (or unlink)
   Paths/Pack = Paths spaces tiles for arrows; Pack compresses
+  1-way off (default): Record out/enter closes to unique inbound room.
+  1-way ON: specials always spawn a new nearby tile (.map oneway / Options).
+  Follow (no Record): advances Here along known exits so the camera tracks you.
   ↑/↓ = nest up/down from Here. Browse: follow/return only; create needs Edit.
   Recording: outbound = your command; reverse guessed; walk back overwrites
   the guess with your return command (e.g. s → go south).
