@@ -927,40 +927,21 @@ public class MapperOverlayController
 		if (from == null) {
 			return;
 		}
+		pullSnapshotFromService();
 		MainWindow activity = host.getMainWindow();
 		final EditText cmdEdit = new EditText(activity);
-		cmdEdit.setHint("go west / n / out …");
+		cmdEdit.setHint("command from Moves, or type your own");
 		cmdEdit.setSingleLine(true);
 		LinearLayout root = new LinearLayout(activity);
 		root.setOrientation(LinearLayout.VERTICAL);
 		int pad = (int) (12 * activity.getResources().getDisplayMetrics().density);
 		root.setPadding(pad, pad, pad, pad);
 		TextView info = new TextView(activity);
-		info.setText("Add neighbor from " + shortTileLabel(from));
+		info.setText("Add neighbor from " + shortTileLabel(from)
+				+ "\nPick a Moves command (or type one).");
 		root.addView(info);
 		root.addView(cmdEdit);
-		HorizontalScrollView hsv = new HorizontalScrollView(activity);
-		LinearLayout row = new LinearLayout(activity);
-		row.setOrientation(LinearLayout.HORIZONTAL);
-		String[] verbs = new String[] {
-				"n", "s", "e", "w", "u", "d", "in", "out",
-				"go north", "go south", "go east", "go west"
-		};
-		for (final String verb : verbs) {
-			Button qb = new Button(activity);
-			qb.setText(verb);
-			qb.setTextSize(11f);
-			qb.setAllCaps(false);
-			qb.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					cmdEdit.setText(verb);
-				}
-			});
-			row.addView(qb);
-		}
-		hsv.addView(row);
-		root.addView(hsv);
+		root.addView(buildMovesCommandPicker(activity, cmdEdit));
 		new AlertDialog.Builder(activity)
 				.setTitle("Add neighbor")
 				.setView(root)
@@ -984,6 +965,132 @@ public class MapperOverlayController
 				})
 				.setNegativeButton("Cancel", null)
 				.show();
+	}
+
+	/**
+	 * Chips + full list from File→Moves (snapshot or defaults). Filling
+	 * {@code cmdEdit} with the chosen command string.
+	 */
+	private View buildMovesCommandPicker(final MainWindow activity,
+			final EditText cmdEdit) {
+		float density = activity.getResources().getDisplayMetrics().density;
+		int pad = (int) (8 * density);
+		LinearLayout box = new LinearLayout(activity);
+		box.setOrientation(LinearLayout.VERTICAL);
+
+		final List<String> cmds = listMoveCommands();
+		HorizontalScrollView hsv = new HorizontalScrollView(activity);
+		LinearLayout row = new LinearLayout(activity);
+		row.setOrientation(LinearLayout.HORIZONTAL);
+		int chipCount = Math.min(cmds.size(), 16);
+		for (int i = 0; i < chipCount; i++) {
+			final String verb = cmds.get(i);
+			Button qb = new Button(activity);
+			qb.setText(verb);
+			qb.setTextSize(11f);
+			qb.setAllCaps(false);
+			qb.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					cmdEdit.setText(verb);
+					cmdEdit.setSelection(verb.length());
+				}
+			});
+			row.addView(qb);
+		}
+		hsv.addView(row);
+		box.addView(hsv);
+
+		Button pickAll = new Button(activity);
+		pickAll.setText("Pick from Moves… (" + cmds.size() + ")");
+		pickAll.setAllCaps(false);
+		pickAll.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				showMovesCommandList(activity, cmdEdit, cmds);
+			}
+		});
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		lp.topMargin = pad / 2;
+		box.addView(pickAll, lp);
+		return box;
+	}
+
+	private void showMovesCommandList(MainWindow activity, final EditText cmdEdit,
+			final List<String> cmds) {
+		if (cmds == null || cmds.isEmpty()) {
+			Toast.makeText(activity, "No Moves defined — use File → Moves",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		final CharSequence[] labels = new CharSequence[cmds.size()];
+		java.util.Map<String, MapMoveEffect> effects = resolveMoveEffectsMap();
+		for (int i = 0; i < cmds.size(); i++) {
+			String c = cmds.get(i);
+			MapMoveEffect fx = effects != null ? effects.get(c) : null;
+			if (fx == null && effects != null) {
+				fx = MapDirections.effectFor(c, effects);
+			}
+			String human = MapMoveEffectsDialog.humanEffect(fx);
+			labels[i] = c + "  →  " + human;
+		}
+		new AlertDialog.Builder(activity)
+				.setTitle("Moves")
+				.setItems(labels, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which >= 0 && which < cmds.size()) {
+							String c = cmds.get(which);
+							cmdEdit.setText(c);
+							cmdEdit.setSelection(c.length());
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	/** Effective Moves table for pickers (snapshot → controller → defaults). */
+	private java.util.LinkedHashMap<String, MapMoveEffect> resolveMoveEffectsMap() {
+		java.util.LinkedHashMap<String, MapMoveEffect> map =
+				MapDirections.parseMoveEffects(snapshotMoveEffects);
+		if (map.isEmpty() && controller != null) {
+			map = MapDirections.parseMoveEffects(
+					controller.getCombinedMoveEffectsDisplay());
+		}
+		if (map.isEmpty()) {
+			map = MapDirections.defaultMoveEffects();
+			MapDirections.applyLevelCommands(map,
+					MapDirections.DEFAULT_LEVEL_UP_COMMANDS,
+					MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
+		}
+		return map;
+	}
+
+	private List<String> listMoveCommands() {
+		java.util.LinkedHashMap<String, MapMoveEffect> map = resolveMoveEffectsMap();
+		ArrayList<String> out = new ArrayList<String>();
+		// Prefer short compass / common first when present
+		String[] prefer = new String[] {
+				"n", "s", "e", "w", "ne", "nw", "se", "sw",
+				"u", "d", "in", "out", "enter", "leave"
+		};
+		java.util.HashSet<String> seen = new java.util.HashSet<String>();
+		for (String p : prefer) {
+			if (map.containsKey(p)) {
+				out.add(p);
+				seen.add(p);
+			}
+		}
+		for (String key : map.keySet()) {
+			if (key != null && !seen.contains(key)) {
+				out.add(key);
+				seen.add(key);
+			}
+		}
+		return out;
 	}
 
 	private void updateTitleForDrawMode() {
@@ -1027,6 +1134,7 @@ public class MapperOverlayController
 	}
 
 	private void showLinkVerbDialog(final String fromId, final MapTile toTile) {
+		pullSnapshotFromService();
 		MudMap map = controller != null ? controller.getMap() : snapshotMap;
 		final MapTile from = map != null ? map.findTile(fromId) : null;
 		if (from == null || toTile == null) {
@@ -1041,40 +1149,15 @@ public class MapperOverlayController
 		TextView info = new TextView(activity);
 		info.setText("Walk command from " + shortTileLabel(from)
 				+ " → " + shortTileLabel(toTile)
-				+ "\n(e.g. go west, n, out)");
+				+ "\nPick from Moves, or type your own.");
 		root.addView(info);
 
 		final EditText cmdEdit = new EditText(activity);
-		cmdEdit.setHint("go west");
+		cmdEdit.setHint("command from Moves");
 		cmdEdit.setSingleLine(true);
 		root.addView(cmdEdit);
 
-		LinearLayout quick = new LinearLayout(activity);
-		quick.setOrientation(LinearLayout.HORIZONTAL);
-		String[] verbs = new String[] {
-				"n", "s", "e", "w", "u", "d", "in", "out",
-				"go north", "go south", "go east", "go west", "go out"
-		};
-		// Wrap quick verbs in a horizontal scroll via nested layout — keep a short row
-		HorizontalScrollView hsv = new HorizontalScrollView(activity);
-		LinearLayout row = new LinearLayout(activity);
-		row.setOrientation(LinearLayout.HORIZONTAL);
-		for (final String verb : verbs) {
-			Button qb = new Button(activity);
-			qb.setText(verb);
-			qb.setTextSize(11f);
-			qb.setAllCaps(false);
-			qb.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					cmdEdit.setText(verb);
-					cmdEdit.setSelection(verb.length());
-				}
-			});
-			row.addView(qb);
-		}
-		hsv.addView(row);
-		root.addView(hsv);
+		root.addView(buildMovesCommandPicker(activity, cmdEdit));
 
 		// Existing exits on FROM for unlink
 		if (from.getExits() != null && !from.getExits().isEmpty()) {
@@ -1311,7 +1394,7 @@ public class MapperOverlayController
 			return;
 		}
 		Toast.makeText(host.getMainWindow(), "Go: " + join(path, ";"), Toast.LENGTH_LONG).show();
-		// Service-side .map go suppresses recording while sending.
+		// Service .map go sends each step separately (Record suppressed, Follow on).
 		host.runMapCommand("go " + tile.getId());
 	}
 

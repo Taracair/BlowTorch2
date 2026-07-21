@@ -3380,15 +3380,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (commands == null || commands.isEmpty() || service == null) {
 						return;
 					}
-					StringBuilder sb = new StringBuilder();
-					for (int i = 0; i < commands.size(); i++) {
-						if (i > 0) {
-							sb.append('\n');
-						}
-						sb.append(commands.get(i));
-					}
 					try {
-						service.sendData(sb.toString().getBytes(service.getEncoding()));
+						String enc = service.getEncoding();
+						// One sendData per step — Connection does not split on CR/LF.
+						for (int i = 0; i < commands.size(); i++) {
+							String step = commands.get(i);
+							if (step == null) {
+								continue;
+							}
+							step = step.trim();
+							if (step.length() == 0) {
+								continue;
+							}
+							service.sendData(step.getBytes(enc));
+						}
 					} catch (RemoteException e) {
 						e.printStackTrace();
 					} catch (java.io.UnsupportedEncodingException e) {
