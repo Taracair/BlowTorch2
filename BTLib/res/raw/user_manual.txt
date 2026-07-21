@@ -74,6 +74,12 @@ Triggers (trigger editor):
   Timers also have Group (like triggers): editor field + list [group] subtitle
   + Group spinner filter.
 
+  Timers (timer editor) — Conditions = extra gate when the timer fires
+                 (same AND/OR types as triggers). Empty = always fire
+                 responders. Types: Trigger enabled / disabled, Variable
+                 equals / exists. Set vars with Set Variable responder or
+                 Lua SetVariable / GetVariable / UnsetVariable (session only).
+
   Examples (Literal off):
     Pattern  You hit (.+) for (\d+)
     Ack      emote crushed $1 ($2 dmg)
