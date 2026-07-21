@@ -531,7 +531,8 @@ public class AliasEditorDialog extends Dialog {
 				matched = true;
 				AliasData d = existingAliases.get(reMatch.group(0));
 				if(tries > 0) { if(!offenders.contains(reMatch.group(0))) { offenders.add(reMatch.group(0)); } }
-				reMatch.appendReplacement(replaceHolder, d.getPost());
+				reMatch.appendReplacement(replaceHolder,
+						Matcher.quoteReplacement(d.getPost()));
 			}
 			if(matched) {
 				reMatch.appendTail(replaceHolder);

@@ -951,7 +951,20 @@ Note("Example text!")
 		//Log.e("SERVICE","BUILDING ALIAS PATTERN: " + joined_alias.toString());
 	}
 	
-	public byte[] doAliasReplacement(byte[] input,Boolean reprocess) {
+	public byte[] doAliasReplacement(byte[] input, Boolean reprocess) {
+		try {
+			return doAliasReplacementImpl(input, reprocess);
+		} catch (Exception e) {
+			if (parent != null) {
+				parent.reportRuntimeError("alias replacement", e);
+			} else {
+				Log.e("BlowTorch", "alias replacement failed", e);
+			}
+			return input != null ? input : new byte[0];
+		}
+	}
+
+	private byte[] doAliasReplacementImpl(byte[] input,Boolean reprocess) {
 		if(joined_alias.length() > 0) {
 
 			//Pattern to_replace = Pattern.compile(joined_alias.toString());
@@ -1021,7 +1034,8 @@ Note("Example text!")
 					doTail = false;
 					
 				} else {
-					alias_replacer.appendReplacement(replaced, replace_with.getPost());
+					alias_replacer.appendReplacement(replaced,
+							Matcher.quoteReplacement(replace_with.getPost()));
 				}
 			}
 			if(doTail) {
@@ -1071,7 +1085,10 @@ Note("Example text!")
 								map.put(Integer.toString(i), tParts[i]);
 							} 
 							eatTail = true;
-							alias_recursive.appendReplacement(buffertemp, r.translate(replace_with.getPost(),map) + sepchar +rest);
+							alias_recursive.appendReplacement(buffertemp,
+									Matcher.quoteReplacement(
+											r.translate(replace_with.getPost(),map)
+													+ sepchar + rest));
 							reprocess = false;
 						} else if(replace_with.getPre().startsWith("^") && replace_with.getPre().endsWith("$")) {
 							String matched = alias_recursive.group(idx);
@@ -1082,7 +1099,8 @@ Note("Example text!")
 							alias_recursive.appendReplacement(buffertemp, Matcher.quoteReplacement(finalString));
 							reprocess = false;
 						} else {
-							alias_recursive.appendReplacement(buffertemp, replace_with.getPost());
+							alias_recursive.appendReplacement(buffertemp,
+									Matcher.quoteReplacement(replace_with.getPost()));
 						}
 						
 					}
@@ -1176,9 +1194,16 @@ Note("Example text!")
 					responder.doResponse(mContext,null,0,null,null,0,0,"",(Object)getSettings().getTimers().get(ordinal), parent.getDisplayName(),parent.getHostName(),parent.getPort(), StellarService.getNotificationId(), parent.isWindowShowing(), mHandler,captureMap,L,Plugin.this.getSettings().getTimers().get(ordinal).getName(),mEncoding);
 				} catch (IteratorModifiedException e) {
 					// won't ever get here because gag/replace actions can't be applied to timers.
+				} catch (Exception e) {
+					String tname = data.getName() != null ? data.getName() : ordinal;
+					String rname = responder != null
+							? responder.getClass().getSimpleName() : "?";
+					if (parent != null) {
+						parent.reportRuntimeError("timer \"" + tname + "\" / " + rname, e);
+					} else {
+						Log.e("BlowTorch", "timer responder failed: " + tname, e);
+					}
 				}
-				//service.
-				//responder.doResponse(parent.getContext(),null,null,null,null, parent.getDisplayName(), StellarService.getNotificationId(), parent.isWindowShowing(), mHandler, null,L,data.getName());
 			}
 			}
 			
