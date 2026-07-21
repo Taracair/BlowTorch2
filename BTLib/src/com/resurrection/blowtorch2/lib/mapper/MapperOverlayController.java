@@ -75,6 +75,11 @@ public class MapperOverlayController
 	private boolean drawEditMode;
 	/** Spread layout for arrows (true) vs packed neighbors (false). */
 	private boolean pathsLayout = true;
+	/**
+	 * Session Browse/Edit flag. UI process often has no live MapperController
+	 * (service owns it) — keep local copy and sync via {@code .map mode} + snapshot.
+	 */
+	private boolean sessionEditMode;
 
 	public MapperOverlayController(Host host) {
 		this.host = host;
@@ -214,11 +219,12 @@ public class MapperOverlayController
 			});
 		}
 		updateEditModeToggleUi();
+		wireCategoryChips();
 		if (titleView != null) {
 			titleView.setOnLongClickListener(new View.OnLongClickListener() {
 				@Override
 				public boolean onLongClick(View v) {
-					openLevelsRadial();
+					openFloorsRadial();
 					return true;
 				}
 			});
@@ -455,54 +461,6 @@ public class MapperOverlayController
 				}
 			});
 		}
-	}
-
-	private void rebuildToolbar() {
-		if (toolbar == null) {
-			return;
-		}
-		toolbar.removeAllViews();
-		String csv = controller != null ? controller.getToolbarActions() : snapshotToolbar;
-		if (csv == null || csv.length() == 0) {
-			csv = MapperController.DEFAULT_TOOLBAR;
-		}
-		String[] parts = csv.split(",");
-		MainWindow activity = host.getMainWindow();
-		float density = activity.getResources().getDisplayMetrics().density;
-		boolean recording = controller != null ? controller.isRecording() : snapshotRecording;
-		for (String part : parts) {
-			final String action = part.trim();
-			if (action.length() == 0) {
-				continue;
-			}
-			Button b = makeToolbarButton(activity, density, actionLabel(action, recording));
-			b.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					runToolbarAction(action);
-				}
-			});
-			toolbar.addView(b);
-		}
-		// Trailing strip: Levels radial + Tools radial only (no duplicate Draw/Links/…)
-		Button levelsRadial = makeToolbarButton(activity, density, "↕");
-		levelsRadial.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				openLevelsRadial();
-			}
-		});
-		toolbar.addView(levelsRadial);
-
-		Button toolsRadial = makeToolbarButton(activity, density, "⚙");
-		toolsRadial.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				openToolsRadial();
-			}
-		});
-		toolbar.addView(toolsRadial);
-		scheduleToolbarScrollHintUpdate();
 	}
 
 	private void wireToolbarScrollHints() {
@@ -1641,37 +1599,119 @@ public class MapperOverlayController
 				.show();
 	}
 
-	private void openLevelsRadial() {
-		MainWindow activity = host.getMainWindow();
-		if (activity == null) {
+	private void rebuildToolbar() {
+		// Bottom toolbar retired — tools live in top category radials (Nav/Floors/Build/File).
+		if (toolbar != null) {
+			toolbar.removeAllViews();
+		}
+	}
+
+	private void wireCategoryChips() {
+		if (overlayRoot == null) {
 			return;
 		}
-		MapperRadialMenu.createLevelsMenu(activity, new MapperRadialMenu.Listener() {
+		TextView nav = (TextView) overlayRoot.findViewById(R.id.mapper_cat_nav);
+		TextView floors = (TextView) overlayRoot.findViewById(R.id.mapper_cat_floors);
+		TextView build = (TextView) overlayRoot.findViewById(R.id.mapper_cat_build);
+		TextView file = (TextView) overlayRoot.findViewById(R.id.mapper_cat_file);
+		if (nav != null) {
+			nav.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					openNavRadial();
+				}
+			});
+		}
+		if (floors != null) {
+			floors.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					openFloorsRadial();
+				}
+			});
+		}
+		if (build != null) {
+			build.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					openBuildRadial();
+				}
+			});
+		}
+		if (file != null) {
+			file.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					openFileRadial();
+				}
+			});
+		}
+	}
+
+	private void openNavRadial() {
+		showRadialOnOverlay(new Runnable() {
+			@Override
+			public void run() {
+				MapperRadialMenu.showNav((ViewGroup) overlayRoot, radialListener());
+			}
+		});
+	}
+
+	private void openFloorsRadial() {
+		showRadialOnOverlay(new Runnable() {
+			@Override
+			public void run() {
+				MapperRadialMenu.showFloors((ViewGroup) overlayRoot, radialListener());
+			}
+		});
+	}
+
+	private void openBuildRadial() {
+		showRadialOnOverlay(new Runnable() {
+			@Override
+			public void run() {
+				MapperRadialMenu.showBuild((ViewGroup) overlayRoot, radialListener());
+			}
+		});
+	}
+
+	private void openFileRadial() {
+		showRadialOnOverlay(new Runnable() {
+			@Override
+			public void run() {
+				MapperRadialMenu.showFile((ViewGroup) overlayRoot, radialListener());
+			}
+		});
+	}
+
+	private void showRadialOnOverlay(Runnable show) {
+		if (overlayRoot == null || !(overlayRoot instanceof ViewGroup)) {
+			return;
+		}
+		show.run();
+	}
+
+	private MapperRadialMenu.Listener radialListener() {
+		return new MapperRadialMenu.Listener() {
 			@Override
 			public void onRadialAction(String action) {
 				runRadialAction(action);
 			}
-		}).show();
+		};
+	}
+
+	private void openLevelsRadial() {
+		openFloorsRadial();
 	}
 
 	private void openToolsRadial() {
-		MainWindow activity = host.getMainWindow();
-		if (activity == null) {
-			return;
-		}
-		MapperRadialMenu.createToolsMenu(activity, new MapperRadialMenu.Listener() {
-			@Override
-			public void onRadialAction(String action) {
-				runRadialAction(action);
-			}
-		}).show();
+		openBuildRadial();
 	}
 
 	private void runRadialAction(String action) {
 		if (action == null) {
 			return;
 		}
-		// Levels radial
 		if (MapperRadialMenu.ACTION_LIST.equals(action)
 				|| MapperRadialMenu.ACTION_LEVELS.equals(action)) {
 			openLevelBrowser();
@@ -1687,7 +1727,6 @@ public class MapperOverlayController
 			runGoParentDoor();
 		} else if (MapperRadialMenu.ACTION_DELETE_LEVEL.equals(action)) {
 			confirmDeleteCurrentLevel();
-		// Tools radial
 		} else if (MapperRadialMenu.ACTION_PATHS.equals(action)) {
 			togglePathsLayout();
 		} else if (MapperRadialMenu.ACTION_DRAW.equals(action)) {
@@ -1718,11 +1757,66 @@ public class MapperOverlayController
 				Toast.makeText(host.getMainWindow(), "Saving map…",
 						Toast.LENGTH_SHORT).show();
 			}
+		} else if (MapperRadialMenu.ACTION_EXPORT.equals(action)) {
+			if (controller != null) {
+				toastStatus(controller.exportMap(""));
+			} else {
+				host.runMapCommand("export");
+				Toast.makeText(host.getMainWindow(), "Exporting map…",
+						Toast.LENGTH_SHORT).show();
+			}
 		} else if (MapperRadialMenu.ACTION_FIND.equals(action)) {
 			openSearch();
 		} else if (MapperRadialMenu.ACTION_REC.equals(action)) {
 			runToolbarAction("rec");
+		} else if (MapperRadialMenu.ACTION_FOLLOW.equals(action)) {
+			runToolbarAction("follow");
+		} else if (MapperRadialMenu.ACTION_UNDO.equals(action)) {
+			runToolbarAction("undo");
+		} else if (MapperRadialMenu.ACTION_CENTER.equals(action)) {
+			runToolbarAction("center");
+		} else if (MapperRadialMenu.ACTION_CLOSE.equals(action)) {
+			close();
+		} else if (MapperRadialMenu.ACTION_MAPS.equals(action)) {
+			host.runMapCommand("maps");
+			Toast.makeText(host.getMainWindow(), "Listed maps in buffer (.map maps)",
+					Toast.LENGTH_SHORT).show();
+		} else if (MapperRadialMenu.ACTION_NEW.equals(action)) {
+			promptNewMap();
 		}
+	}
+
+	private void promptNewMap() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		final android.widget.EditText input = new android.widget.EditText(activity);
+		input.setHint("map name");
+		input.setSingleLine(true);
+		input.setText("default");
+		new AlertDialog.Builder(activity)
+				.setTitle("New map")
+				.setView(input)
+				.setPositiveButton("Create", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						String name = input.getText() != null
+								? input.getText().toString().trim() : "";
+						if (name.length() == 0) {
+							name = "default";
+						}
+						if (controller != null) {
+							toastStatus(controller.newMap(name));
+							refreshFromController();
+						} else {
+							host.runMapCommand("new " + name);
+							pullSnapshotFromService();
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
 	}
 
 	/** Browse/go to unanchored root level (index 0, or first without anchor). */
@@ -1888,31 +1982,40 @@ public class MapperOverlayController
 	}
 
 	private boolean isControllerEditMode() {
-		return controller != null && controller.isEditMode();
+		if (controller != null) {
+			return controller.isEditMode();
+		}
+		return sessionEditMode;
 	}
 
 	/**
 	 * Title-bar Browse|Edit segmented control. Switching to Browse force-offs
-	 * Draw and Links tools.
+	 * Draw and Links tools. When the map engine lives in the service process
+	 * (controller == null), flip a local flag and send {@code .map mode …}.
 	 */
 	private void setEditModeFromUi(final boolean edit) {
-		if (controller == null) {
-			Toast.makeText(host.getMainWindow(), "Mapper not ready", Toast.LENGTH_SHORT).show();
-			return;
-		}
-		if (controller.isEditMode() == edit) {
+		if (isControllerEditMode() == edit) {
 			updateEditModeToggleUi();
 			return;
 		}
-		controller.setEditMode(edit);
+		sessionEditMode = edit;
+		if (controller != null) {
+			controller.setEditMode(edit);
+		} else {
+			host.runMapCommand(edit ? "mode edit" : "mode browse");
+		}
 		if (!edit) {
 			forceOffDrawAndLinks();
 		}
 		updateEditModeToggleUi();
 		Toast.makeText(host.getMainWindow(),
 				edit ? "Edit mode" : "Browse mode", Toast.LENGTH_SHORT).show();
-		if (!linkEditMode && !drawEditMode) {
-			refreshFromController();
+		if (controller != null) {
+			if (!linkEditMode && !drawEditMode) {
+				refreshFromController();
+			}
+		} else {
+			pullSnapshotFromService();
 		}
 	}
 
@@ -2066,6 +2169,7 @@ public class MapperOverlayController
 			org.json.JSONObject root = new org.json.JSONObject(json);
 			snapshotRecording = root.optBoolean("recording", false);
 			snapshotFollow = root.optBoolean("follow", true);
+			sessionEditMode = root.optBoolean("editMode", sessionEditMode);
 			snapshotOpacity = root.optInt("opacity", 85);
 			if (root.has("preferFloat")) {
 				fullscreen = !root.optBoolean("preferFloat", true);
@@ -2183,10 +2287,10 @@ public class MapperOverlayController
 		runOnUi(new Runnable() {
 			@Override
 			public void run() {
-				if (controller != null && !controller.isEditMode()) {
+				pullSnapshotFromService();
+				if (!isControllerEditMode()) {
 					forceOffDrawAndLinks();
 				}
-				pullSnapshotFromService();
 				refreshFromController();
 			}
 		});
