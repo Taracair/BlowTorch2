@@ -174,9 +174,16 @@ public abstract class TriggerResponder implements Parcelable {
 			if(map.containsKey(desired)) {
 				replacetext = map.get(desired);
 			} else {
-				replacetext = "\\" + replacer.group(0);
+				// Keep a literal "$N" when that capture is missing (quote so
+				// appendReplacement does not treat "$" as a group reference).
+				replacetext = replacer.group(0);
 			}
-			replacer.appendReplacement(output, replacetext); //append with map data if exists, use the group count if not.
+			if (replacetext == null) {
+				replacetext = "";
+			}
+			// Captured text may contain "$" (prices, etc.) — must be quoted or
+			// Matcher throws IllegalArgumentException: Illegal group reference.
+			replacer.appendReplacement(output, Matcher.quoteReplacement(replacetext));
 			
 		}
 		

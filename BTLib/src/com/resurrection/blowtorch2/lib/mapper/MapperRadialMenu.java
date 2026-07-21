@@ -59,6 +59,8 @@ public final class MapperRadialMenu {
 	public static final String ACTION_MAPS = "maps";
 	public static final String ACTION_NEW = "new";
 	public static final String ACTION_EXPORT = "export";
+	/** Edit planar / level / special move lexicon. */
+	public static final String ACTION_MOVES = "moves";
 
 	private static final String[] NAV_ACTIONS = {
 			ACTION_REC, ACTION_FOLLOW, ACTION_CENTER, ACTION_FIND,
@@ -82,10 +84,10 @@ public final class MapperRadialMenu {
 	};
 
 	private static final String[] FILE_ACTIONS = {
-			ACTION_SAVE, ACTION_MAPS, ACTION_NEW, ACTION_EXPORT
+			ACTION_SAVE, ACTION_MAPS, ACTION_NEW, ACTION_EXPORT, ACTION_MOVES
 	};
 	private static final String[] FILE_LABELS = {
-			"Save", "Maps", "New", "Export"
+			"Save", "Maps", "New", "Export", "Moves"
 	};
 
 	private static final int COLOR_BG = 0xE61A1A1A;

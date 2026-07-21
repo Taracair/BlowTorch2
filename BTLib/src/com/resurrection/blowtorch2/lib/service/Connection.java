@@ -3729,6 +3729,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.setLevelDownCommands((String) o.getValue());
 				}
 				break;
+			case mapper_move_effects:
+				if (mMapper != null) {
+					mMapper.setMoveEffectsString((String) o.getValue());
+				}
+				break;
 			default:
 				break;
 			}
@@ -4620,7 +4625,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_capture_title_regex,
 		mapper_capture_exits_regex,
 		mapper_level_up_commands,
-		mapper_level_down_commands
+		mapper_level_down_commands,
+		mapper_move_effects
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
@@ -5236,6 +5242,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			root.put("acceptOneWaySpecials", mMapper.isAcceptOneWaySpecials());
 			root.put("toolbar", mMapper.getToolbarActions() != null
 					? mMapper.getToolbarActions() : "");
+			root.put("moveEffects", mMapper.getCombinedMoveEffectsDisplay());
 			return root.toString();
 		} catch (Exception e) {
 			Log.w("BlowTorch", "getMapperSnapshotJson failed", e);
