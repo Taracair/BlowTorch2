@@ -25,6 +25,7 @@ import android.text.util.Linkify;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
@@ -35,6 +36,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
@@ -204,9 +206,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		EditorDialogChrome.applyNearlyFullScreen(this);
 	}
 
-	/** Suggest existing group names from the current Main/plugin trigger set. */
+	/** Suggest existing group names; autocomplete + dropdown spinner of known groups. */
 	@SuppressWarnings("unchecked")
-	private void populateGroupSuggestions(AutoCompleteTextView group) {
+	private void populateGroupSuggestions(final AutoCompleteTextView group) {
 		TreeSet<String> names = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
 		try {
 			HashMap<String, TriggerData> map;
@@ -231,11 +233,64 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		} catch (RemoteException e) {
 			// Suggestions are optional.
 		}
+		ArrayList<String> nameList = new ArrayList<String>(names);
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
 				R.layout.spinner_dropdown_item_dark,
-				new ArrayList<String>(names));
+				nameList);
 		group.setAdapter(adapter);
 		group.setThreshold(1);
+		group.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+			@Override
+			public void onFocusChange(View v, boolean hasFocus) {
+				if (hasFocus && group.getAdapter() != null
+						&& group.getAdapter().getCount() > 0) {
+					group.showDropDown();
+				}
+			}
+		});
+
+		Spinner picker = (Spinner) findViewById(R.id.trigger_editor_group_spinner);
+		if (picker == null) {
+			return;
+		}
+		final ArrayList<String> spinnerLabels = new ArrayList<String>();
+		spinnerLabels.add("(default)");
+		spinnerLabels.addAll(nameList);
+		ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_item_dark, spinnerLabels);
+		spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		picker.setAdapter(spinnerAdapter);
+		String current = group.getText() != null ? group.getText().toString().trim() : "";
+		int selected = 0;
+		if (current.length() > 0) {
+			for (int i = 0; i < nameList.size(); i++) {
+				if (nameList.get(i).equals(current)) {
+					selected = i + 1;
+					break;
+				}
+			}
+		}
+		picker.setSelection(selected, false);
+		picker.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			private boolean first = true;
+			@Override
+			public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+				if (first) {
+					first = false;
+					return;
+				}
+				if (position <= 0) {
+					group.setText("");
+				} else {
+					group.setText(spinnerLabels.get(position));
+					group.setSelection(group.getText().length());
+				}
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
 	}
 	
 	private void setupTriggerPreview(final EditText title, final EditText pattern, final CheckBox literal) {

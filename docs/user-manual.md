@@ -67,12 +67,19 @@ In the trigger editor:
 
 - **Literal?** on → match the pattern as plain text (no regex)  
 - **Literal?** off → pattern is a regular expression  
-- **Group** → optional label (e.g. `combat`); blank = ungrouped. The field
-  suggests existing names. The Triggers list shows `[group]`, sorts by
-  group, and Options (=) offers **Filter by group**.
+- **Group** → optional label (e.g. `combat`); blank = ungrouped. Use the
+  **Group** dropdown (existing names) or type a new name below it. The Triggers
+  list shows `[group]`, sorts by group, and has **Plugin** / **Group** spinners
+  under search (All / Main / plugins, and All groups / (default) / named).
+  Options (=) is Enable/Disable all for the current filter.
+- **Conditions** → optional AND/OR list checked after a pattern match and
+  before responders. Empty = always fire. Types: Trigger enabled/disabled
+  (pick another trigger; `plugin:name` ok), Variable equals/exists. Set vars
+  with the **Set Variable** responder or Lua `SetVariable` / `GetVariable` /
+  `UnsetVariable` (session only, not persisted).
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
-Replace, Toast, Notification text, and similar actions.
+Replace, Toast, Notification, Set Variable text, and similar actions.
 
 Examples (Literal off):
 
@@ -87,6 +94,16 @@ GMCP below.
 
 Options → Service → **Regular Expression Warning?** controls the reminder
 dialog when you turn Literal off.
+
+### Aliases and Timers list filters
+
+Triggers, Aliases, and Timers lists show **Plugin** (All / Main / plugins) next
+to search. Triggers and Timers also show **Group** (All groups / (default) /
+named). Changing a spinner rebuilds the list and shows a short toast.
+Enable/Disable all (Triggers/Aliases) stays under Options (`=`).
+
+Timers support an optional **Group** in the timer editor (same idea as
+triggers): list subtitle `[group]`, sort by group, XML `group` attribute.
 
 ## Built-in commands
 

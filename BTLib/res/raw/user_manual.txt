@@ -46,20 +46,32 @@ Aliases (alias editor):
 Triggers (trigger editor):
   Literal? on  = match as plain text (no regex)
   Literal? off = pattern is a regular expression
-  Group        = optional label (e.g. combat); blank = ungrouped. List shows
-                 [group] and sorts by group. Options (=) → Filter by group.
-                 Editor Group field suggests existing names. Use
-                 .trigger group on|off <group> (main + plugins).
+  Group        = optional label (e.g. combat); blank = ungrouped. Use the Group
+                 dropdown (existing names) or type a new name below it. List
+                 shows [group] and sorts by group. Plugin/Group spinners sit
+                 under search (All/Main/plugins; All groups/(default)/named).
+                 Options (=) → Enable all / Disable ALL for the current filter.
+                 Use .trigger group on|off <group> (main + plugins).
+
+  Conditions   = optional AND/OR list checked after a pattern match and before
+                 responders. Empty = always fire. Types: Trigger enabled /
+                 disabled (pick another trigger; plugin:name ok), Variable
+                 equals / exists. Set vars with Set Variable responder or Lua
+                 SetVariable / GetVariable / UnsetVariable (session only).
 
   In regex mode, use (...) to capture and $1, $2, ... in Ack / Replace /
-  Toast / Notification (and similar) text.
+  Toast / Notification / Set Variable (and similar) text.
 
   Enable/disable each trigger from the Triggers list toolbar toggle.
   Options (=) → Enable all / Disable ALL applies to the current filter
-  (Main or selected plugin, and optional group); Disable asks for confirmation.
+  (plugin spinner + optional group); Disable asks for confirmation.
   From the input bar: .trigger on|off|toggle <name|plugin:name>,
   .trigger group …, .trigger all on|off, .trigger plugin <plugin> all on|off
   (type .trigger for help).
+
+  Aliases and Timers lists use the same Plugin spinner next to search.
+  Timers also have Group (like triggers): editor field + list [group] subtitle
+  + Group spinner filter.
 
   Examples (Literal off):
     Pattern  You hit (.+) for (\d+)

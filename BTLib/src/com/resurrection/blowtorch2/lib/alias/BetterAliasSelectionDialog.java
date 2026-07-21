@@ -4,12 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
@@ -28,7 +27,7 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 
 	HashMap<String,AliasData> dataMap;
 	String[] sortedKeys;
-	
+
 	public BetterAliasSelectionDialog(Context context,
 			IConnectionBinder service) {
 		super(context, service);
@@ -38,27 +37,35 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	}
 
 	@Override
+	protected void rebuildFilteredList() {
+		buildList();
+	}
+
+	@Override
 	public void onButtonPressed(View v, int row, int index) {
-		AliasData d = dataMap.get(getItemKey(row));
+		String key = getItemKey(row);
+		AliasData d = dataMap.get(key);
 		Log.e("Trigger","trigger item selected for modification: "+d.getPre());
 
-		AliasEditorDialog editor = new AliasEditorDialog(BetterAliasSelectionDialog.this.getContext(),BetterAliasSelectionDialog.this,d.getPre(),d.getPost(),row,d,service,computeNames(d.getPre()),currentPlugin);
+		AliasEditorDialog editor = new AliasEditorDialog(BetterAliasSelectionDialog.this.getContext(),BetterAliasSelectionDialog.this,d.getPre(),d.getPost(),row,d,service,computeNames(d.getPre()),getSourcePlugin(key));
 		editor.show();
 	}
 
 	@Override
 	public void onButtonStateChanged(ImageButton v, int row, int index, boolean statea) {
-		AliasData d = dataMap.get(getItemKey(row));
+		String key = getItemKey(row);
+		AliasData d = dataMap.get(key);
 		boolean state = !d.isEnabled();
 		d.setEnabled(state);
+		String src = getSourcePlugin(key);
 		try {
-			if(currentPlugin.equals(MAIN_SETTINGS)) {
+			if(MAIN_SETTINGS.equals(src)) {
 				service.setAliasEnabled(state, d.getPre());
 			} else {
-				service.setPluginAliasEnabled(currentPlugin, state, d.getPre());
+				service.setPluginAliasEnabled(src, state, d.getPre());
 			}
 		} catch (RemoteException e) {
-			
+
 		}
 		if(state) {
 			v.setImageResource(R.drawable.toolbar_toggleon_button);
@@ -72,23 +79,25 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void onItemDeleted(int row) {
-		AliasData d = dataMap.get(getItemKey(row));
-		
+		String key = getItemKey(row);
+		AliasData d = dataMap.get(key);
+		String src = getSourcePlugin(key);
+
 		try {
-			if(currentPlugin.equals(MAIN_SETTINGS)) {
+			if(MAIN_SETTINGS.equals(src)) {
 				service.deleteAlias(d.getPre());
 			} else {
-				service.deletePluginAlias(currentPlugin, d.getPre());
+				service.deletePluginAlias(src, d.getPre());
 			}
 		} catch (RemoteException e) {
-			
+
 		}
 		Log.e("Trigger","alias item selected for delete: "+d.getPre());
 	}
 
 	@Override
 	public void onNewPressed(View v) {
-		AliasEditorDialog editor = new AliasEditorDialog(BetterAliasSelectionDialog.this.getContext(),BetterAliasSelectionDialog.this,service,computeNames(""),currentPlugin);
+		AliasEditorDialog editor = new AliasEditorDialog(BetterAliasSelectionDialog.this.getContext(),BetterAliasSelectionDialog.this,service,computeNames(""),getEditorPlugin());
 		editor.show();
 	}
 
@@ -97,11 +106,10 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 		try {
 			service.saveSettings();
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-	
+
 	@Override
 	public void onHelp() {
 	}
@@ -146,21 +154,23 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	}
 
 	private void setAllAliasesEnabled(boolean enabled) {
-		if (dataMap == null || dataMap.isEmpty()) {
+		if (sortedKeys == null || sortedKeys.length == 0) {
 			Toast.makeText(getContext(), "No aliases in current list", Toast.LENGTH_SHORT).show();
 			return;
 		}
 		int count = 0;
 		try {
-			for (AliasData d : dataMap.values()) {
+			for (String key : sortedKeys) {
+				AliasData d = dataMap.get(key);
 				if (d == null) {
 					continue;
 				}
 				d.setEnabled(enabled);
-				if (currentPlugin.equals(MAIN_SETTINGS)) {
+				String src = getSourcePlugin(key);
+				if (MAIN_SETTINGS.equals(src)) {
 					service.setAliasEnabled(enabled, d.getPre());
 				} else {
-					service.setPluginAliasEnabled(currentPlugin, enabled, d.getPre());
+					service.setPluginAliasEnabled(src, enabled, d.getPre());
 				}
 				count++;
 			}
@@ -175,29 +185,35 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 				Toast.LENGTH_SHORT).show();
 	}
 
+	@SuppressWarnings("unchecked")
 	private void buildList() {
-		//HashMap<String,TriggerData> list = null;
-		//pull the list down, clear out the items list, populate it, and call the superclass to reload the table.
 		try {
-			if (currentPlugin.equals(MAIN_SETTINGS)) {
-				dataMap = (HashMap<String, AliasData>) service.getAliases();
-			} else {
-				dataMap = (HashMap<String, AliasData>) service.getPluginAliases(currentPlugin);
-			}
+			dataMap = new HashMap<String, AliasData>();
+			loadScopedData(dataMap, new ScopedMapLoader<AliasData>() {
+				@Override
+				public Map<String, AliasData> loadMain() throws RemoteException {
+					return (Map<String, AliasData>) service.getAliases();
+				}
+
+				@Override
+				public Map<String, AliasData> loadPlugin(String plugin) throws RemoteException {
+					return (Map<String, AliasData>) service.getPluginAliases(plugin);
+				}
+			});
 		} catch (RemoteException e) {
-			
+			if (dataMap == null) {
+				dataMap = new HashMap<String, AliasData>();
+			}
 		}
-		
+
 		sortedKeys = new String[dataMap.size()];
-		
 		sortedKeys = dataMap.keySet().toArray(sortedKeys);
-		//for(int i = 0;i<sortedKeys.length;i++) {
-		//	String key = sortedKeys[i];
-			//if(key.startsWith("^")) { key = key.substring(1,key.length()); }
-			//if(key.endsWith("$")) { key = key.substring(0, key.length()-1); }
-		//	sortedKeys[i] = key;
-		//}
-		Arrays.sort(sortedKeys,String.CASE_INSENSITIVE_ORDER);
+		Arrays.sort(sortedKeys, new java.util.Comparator<String>() {
+			@Override
+			public int compare(String a, String b) {
+				return displayNameForKey(a).compareToIgnoreCase(displayNameForKey(b));
+			}
+		});
 		clearListItems();
 		for(int i=0;i<sortedKeys.length;i++) {
 			AliasData data = dataMap.get(sortedKeys[i]);
@@ -207,32 +223,24 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			} else {
 				resource = R.drawable.toolbar_mini_disabled;
 			}
-			//String name = data.getPre();
-			//if(name.startsWith("^")) { name = name.substring(1,name.length()); }
-			//if(name.endsWith("$")) { name = name.substring(0, name.length()-1); }
-			
-			this.addListItem(sortedKeys[i], data.getPost(),resource, data.isEnabled());
+			String title = displayNameForKey(sortedKeys[i]);
+			if (ALL_SETTINGS.equals(currentPlugin)) {
+				String src = getSourcePlugin(sortedKeys[i]);
+				if (!MAIN_SETTINGS.equals(src)) {
+					title = src + ": " + title;
+				}
+			}
+			this.addListItem(sortedKeys[i], title, data.getPost(), resource, data.isEnabled());
 		}
-		
+
 		invalidateList();
-		
+
 	}
-	
-	@Override 
+
+	@Override
 	public List<String> getPluginList() throws RemoteException {
 		List<String> foo = (List<String>)service.getPluginsWithAliases();
 		return foo;
-	}
-	
-	@Override
-	public void onOptionItemClicked(int row) {
-		super.onOptionItemClicked(row);
-		this.hideOptionsMenu();
-		if (row == OPTION_ENABLE_ALL || row == OPTION_DISABLE_ALL
-				|| row == OPTION_FILTER_DIVIDER) {
-			return;
-		}
-		buildList();
 	}
 
 	@Override
@@ -241,7 +249,6 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 		if (data == null || toolbar.getChildCount() == 0) {
 			return;
 		}
-		// Always-visible actions: toggle is the first control.
 		ImageButton b = (ImageButton) toolbar.getChildAt(0);
 		if (data.isEnabled()) {
 			b.setImageResource(R.drawable.toolbar_toggleon_button);
@@ -249,9 +256,9 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			b.setImageResource(R.drawable.toolbar_toggleoff_button);
 		}
 	}
-	
+
 	private final Handler aliasEditorDoneHandler = new Handler() {
-		
+
 		public void handleMessage(Message msg) {
 			switch(msg.what) {
 			case 100:
@@ -260,63 +267,32 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 				BetterAliasSelectionDialog.this.scrollToSelection(d.getPre());
 				break;
 			}
-			
+
 		}
 	};
 	private ArrayList<String> names = new ArrayList<String>();
-	
+
 	private List<String> computeNames(String name) {
-		
-		names.clear(); 
-		
+
+		names.clear();
+
 		if(name.startsWith("^")) name = name.substring(1,name.length());
 		if(name.endsWith("$")) name = name.substring(0,name.length()-1);
-		
+
 		if(dataMap != null) {
 			for(String key : dataMap.keySet()) {
-				if(!key.equals(name)) {
-					names.add(key);
+				String display = displayNameForKey(key);
+				if(!display.equals(name)) {
+					names.add(display);
 				}
 			}
 		}
-		
-		
-		/*for(int i=0;i<apdapter.getCount();i++) {
-			if(!apdapter.getItem(i).pre.equals(name)) {
-				//Log.e("FLOOP","COMPUTED " + apdapter.getItem(i).pre + " AS INVALID");
-				names.add(apdapter.getItem(i).pre);
-			}
-		}*/
-		
+
 		return names;
 	}
-	
+
 	public void newAliasDialogDone(String pre, String post,boolean enabled) {
-
-		
-		/****
-		 * 
-		 * CHECK FOR CIRCULUAR REFERENCES
-		 * 
-		 */
-
-		/*lastSelectedIndex = -1;
-		if(theToolbar.getParent() != null) {
-			((RelativeLayout)theToolbar.getParent()).removeView(theToolbar);
-		}
-		AliasEntry tmp = new AliasEntry(pre,post,enabled);
-		apdapter.add(tmp);
-		apdapter.notifyDataSetChanged();
-		apdapter.sort(new AliasComparator());*/
-		
 		try {
-			/*HashMap<String,AliasData> existingAliases = null;
-			if(currentPlugin.equals("main")) {
-				existingAliases =(HashMap<String, AliasData>) service.getAliases();
-			} else {
-				existingAliases =(HashMap<String, AliasData>) service.getPluginAliases(currentPlugin);
-			}*/
-			
 			AliasData newAlias = new AliasData();
 			newAlias.setPost(post);
 			newAlias.setPre(pre);
@@ -324,48 +300,50 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			String newKey = newAlias.getPre();
 			if(newKey.startsWith("^")) newKey = newKey.substring(1,newKey.length());
 			if(newKey.endsWith("$")) newKey = newKey.substring(0,newKey.length()-1);
-			
-			dataMap.put(newKey, newAlias);
-			if(currentPlugin.equals(MAIN_SETTINGS)) {
-				service.setAliases(dataMap);
+
+			String target = getEditorPlugin();
+			HashMap<String, AliasData> map;
+			if (MAIN_SETTINGS.equals(target)) {
+				map = (HashMap<String, AliasData>) service.getAliases();
 			} else {
-				service.setPluginAliases(currentPlugin,dataMap);
+				map = (HashMap<String, AliasData>) service.getPluginAliases(target);
 			}
-			
+			if (map == null) {
+				map = new HashMap<String, AliasData>();
+			}
+			map.put(newKey, newAlias);
+			if(MAIN_SETTINGS.equals(target)) {
+				service.setAliases(map);
+			} else {
+				service.setPluginAliases(target, map);
+			}
+
 			aliasEditorDoneHandler.sendMessageDelayed(aliasEditorDoneHandler.obtainMessage(100,newAlias),10);
-			
+
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		
-
 	}
-	
+
+	@SuppressWarnings("unchecked")
 	public void editAliasDialogDone(String pre,String post,boolean enabled,int pos,AliasData orig) {
-		/*lastSelectedIndex = -1;
-		if(theToolbar.getParent() != null) {
-			((RelativeLayout)theToolbar.getParent()).removeView(theToolbar);
-		}
-		
-		apdapter.remove(apdapter.getItem(pos));
-		AliasEntry tmp = new AliasEntry(pre,post,enabled);
-		apdapter.insert(tmp,pos);
-		apdapter.notifyDataSetChanged();
-		apdapter.sort(new AliasComparator());
-		pos = apdapter.getPosition(tmp);*/
-		
-		
-		
-		//remove from the list and add the new one.
 		try {
-			
+			String target = getSourcePlugin(getItemKey(pos));
+			HashMap<String, AliasData> map;
+			if (MAIN_SETTINGS.equals(target)) {
+				map = (HashMap<String, AliasData>) service.getAliases();
+			} else {
+				map = (HashMap<String, AliasData>) service.getPluginAliases(target);
+			}
+			if (map == null) {
+				map = new HashMap<String, AliasData>();
+			}
+
 			String oldKey = orig.getPre();
 			if(oldKey.startsWith("^")) oldKey = oldKey.substring(1,oldKey.length());
 			if(oldKey.endsWith("$")) oldKey = oldKey.substring(0,oldKey.length()-1);
-			dataMap.remove(oldKey);
-			
+			map.remove(oldKey);
+
 			String newKey = pre;
 			if(newKey.startsWith("^")) newKey = newKey.substring(1,newKey.length());
 			if(newKey.endsWith("$")) newKey = newKey.substring(0,newKey.length()-1);
@@ -373,27 +351,24 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			newAlias.setPre(pre);
 			newAlias.setPost(post);
 			newAlias.setEnabled(enabled);
-			dataMap.put(newKey, newAlias);
-			if(currentPlugin.equals(MAIN_SETTINGS)) {
-				service.setAliases(dataMap);
+			map.put(newKey, newAlias);
+			if(MAIN_SETTINGS.equals(target)) {
+				service.setAliases(map);
 			} else {
-				service.setPluginAliases(currentPlugin,dataMap);
+				service.setPluginAliases(target, map);
 			}
-			
+
 			aliasEditorDoneHandler.sendMessageDelayed(aliasEditorDoneHandler.obtainMessage(100,newAlias),10);
-			
+
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		
+
+
 	}
 
 	@Override
 	public void willHideToolbar(LinearLayout v, int row) {
-		// TODO Auto-generated method stub
-		
 	}
 
 }
