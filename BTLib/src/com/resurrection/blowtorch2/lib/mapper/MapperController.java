@@ -247,6 +247,181 @@ public class MapperController {
 		notifyChanged();
 	}
 
+	/** Mark tile as the player's current position ("I am here"). */
+	public String setHere(final String tileId) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		String id = tileId;
+		if (TextUtils.isEmpty(id)) {
+			MapTile sel = currentOrSelectedTile();
+			if (sel == null) {
+				return "Mapper: no tile (select one or pass id).";
+			}
+			id = sel.getId();
+		}
+		MapTile t = mMap.findTile(id);
+		if (t == null) {
+			return "Mapper: unknown tile.";
+		}
+		setCurrentTileId(t.getId());
+		return "Mapper: here = " + (t.getTitle() != null && t.getTitle().length() > 0
+				? t.getTitle() : shortId(t.getId())) + ".";
+	}
+
+	/**
+	 * Manually place a tile on the current level. Occupied cells are rejected.
+	 * When x/y are null, places near current (or at 0,0).
+	 */
+	public String placeTile(final Integer x, final Integer y, final String title) {
+		return placeTile(x, y, title, false);
+	}
+
+	public String placeTile(final Integer x, final Integer y, final String title,
+			final boolean makeCurrent) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		ensureDefaultLevel();
+		String levelId = mMap.getCurrentLevelId();
+		int gx;
+		int gy;
+		if (x != null && y != null) {
+			gx = x.intValue();
+			gy = y.intValue();
+		} else {
+			MapTile cur = currentTile();
+			if (cur != null) {
+				int[] free = findFreeNear(levelId, cur.getGridX(), cur.getGridY());
+				gx = free[0];
+				gy = free[1];
+			} else {
+				gx = 0;
+				gy = 0;
+			}
+		}
+		if (findTileAt(levelId, gx, gy) != null) {
+			return "Mapper: cell (" + gx + "," + gy + ") occupied.";
+		}
+		pushUndo();
+		MapTile tile = createTileAt(levelId, gx, gy);
+		if (title != null && title.trim().length() > 0) {
+			tile.setTitle(title.trim());
+		}
+		mSelectedTileId = tile.getId();
+		if (makeCurrent || mMap.getCurrentTileId() == null) {
+			mMap.setCurrentTileId(tile.getId());
+		}
+		notifyChanged();
+		return "Mapper: placed tile at (" + gx + "," + gy + ") id="
+				+ shortId(tile.getId()) + ".";
+	}
+
+	public String deleteTile(final String tileId) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		String id = tileId;
+		if (TextUtils.isEmpty(id)) {
+			MapTile sel = currentOrSelectedTile();
+			if (sel == null) {
+				return "Mapper: no tile to delete.";
+			}
+			id = sel.getId();
+		}
+		MapTile target = mMap.findTile(id);
+		if (target == null) {
+			return "Mapper: unknown tile.";
+		}
+		pushUndo();
+		List<MapTile> tiles = mMap.getTiles();
+		for (MapTile t : tiles) {
+			if (t == null || t.getExits() == null) {
+				continue;
+			}
+			List<MapExit> exits = t.getExits();
+			for (int i = exits.size() - 1; i >= 0; i--) {
+				MapExit e = exits.get(i);
+				if (e != null && id.equals(e.getToId())) {
+					exits.remove(i);
+				}
+			}
+		}
+		tiles.remove(target);
+		if (id.equals(mMap.getCurrentTileId())) {
+			mMap.setCurrentTileId(tiles.isEmpty() ? null : tiles.get(0).getId());
+		}
+		if (id.equals(mSelectedTileId)) {
+			mSelectedTileId = mMap.getCurrentTileId();
+		}
+		refreshConflicts();
+		notifyChanged();
+		return "Mapper: deleted tile " + shortId(id) + ".";
+	}
+
+	/**
+	 * From {@code fromTileId} (or current), create a destination in direction
+	 * {@code cmd} if needed and link both ways when auto-reverse is on.
+	 */
+	public String addNeighbor(final String fromTileId, final String cmd) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(cmd)) {
+			return "Mapper: usage .map neighbor <cmd>";
+		}
+		MapTile from = fromTileId != null ? mMap.findTile(fromTileId) : currentOrSelectedTile();
+		if (from == null) {
+			return "Mapper: no source tile.";
+		}
+		String norm = normalize(cmd);
+		String stored = MapDirections.storeCommand(cmd, norm);
+		int[] delta = isCardinalGrid(norm);
+		boolean special = (delta == null);
+		pushUndo();
+		MapExit existing = findExit(from, norm);
+		MapTile to;
+		if (existing != null && existing.getToId() != null) {
+			to = mMap.findTile(existing.getToId());
+			if (to == null) {
+				to = createDestination(from, norm, delta, special);
+				existing.setToId(to.getId());
+				existing.setCommand(stored);
+			}
+		} else {
+			to = createDestination(from, norm, delta, special);
+			String rev = MapDirections.suggestReverse(stored, directionMap());
+			from.addExit(new MapExit(from.getId(), to.getId(), stored, special, rev));
+			if (mAutoReverse && rev != null) {
+				ensureReverse(from, to, stored);
+			}
+		}
+		mSelectedTileId = to.getId();
+		refreshConflicts();
+		notifyChanged();
+		return "Mapper: neighbor " + stored + " → " + shortId(to.getId())
+				+ " at (" + to.getGridX() + "," + to.getGridY() + ").";
+	}
+
+	public String moveTileOnGrid(final String tileId, final int x, final int y) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		MapTile tile = tileId != null ? mMap.findTile(tileId) : currentOrSelectedTile();
+		if (tile == null) {
+			return "Mapper: no tile.";
+		}
+		MapTile occupied = findTileAt(tile.getLevelId(), x, y);
+		if (occupied != null && !occupied.getId().equals(tile.getId())) {
+			return "Mapper: cell (" + x + "," + y + ") occupied.";
+		}
+		pushUndo();
+		tile.setGridX(x);
+		tile.setGridY(y);
+		notifyChanged();
+		return "Mapper: moved tile to (" + x + "," + y + ").";
+	}
+
 	public void toggleRecording() {
 		setRecording(!mRecording);
 	}
