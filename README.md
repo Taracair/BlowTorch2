@@ -64,6 +64,7 @@ More detail: [`docs/FDROID_README.md`](docs/FDROID_README.md).
 |------|----------|
 | Input | `.wrap`, `.kb` |
 | Scrollback | `.search` |
+| Mapper | `.map open`, `.map record`, `.map dirs`, … |
 | GMCP | `.gmcp status`, sniff, sniff tail, … |
 | Classic | `.run`, `.timer`, `.loadset`, `.switch`, … |
 
