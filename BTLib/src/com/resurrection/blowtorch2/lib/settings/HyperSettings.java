@@ -358,6 +358,10 @@ public class HyperSettings {
 				if(trigger.isHidden())  out.attribute("", BaseParser.ATTR_TRIGGERHIDDEN, "true");
 				out.attribute("", BaseParser.ATTR_TRIGGERENEABLED, trigger.isEnabled() ? "true" : "false");
 				
+				try {
+					com.resurrection.blowtorch2.lib.trigger.condition.ConditionParser.saveConditionsToXML(out, trigger);
+				} catch (Exception ignored) {
+				}
 				OutputResponders(out,trigger.getResponders());
 				out.endTag("", BaseParser.TAG_TRIGGER);
 				}
@@ -449,7 +453,11 @@ public class HyperSettings {
 				out.attribute("", BaseParser.ATTR_FIRETYPE, scr.getFireType().getString());
 				out.endTag("", BaseParser.TAG_SCRIPTRESPONDER);
 				break;
+			case SET_VARIABLE:
+				responder.saveResponderToXML(out);
+				break;
 			default:
+				try { responder.saveResponderToXML(out); } catch (Exception ignored) {}
 				break;
 			}
 		}
