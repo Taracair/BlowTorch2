@@ -26,6 +26,7 @@ import com.resurrection.blowtorch2.lib.service.WindowToken;
 
 
 interface IConnectionBinder {
+	// ---- session / connection lifecycle ----
 	List getConnections();
 	void switchTo(String display);
 	void registerCallback(IConnectionBinderCallback c,String host,int port,String display);
@@ -41,6 +42,7 @@ interface IConnectionBinder {
 	void saveSettings();
 	void setConnectionData(String host,int port,String display);
 	List getSystemCommands();
+	// ---- aliases ----
 	AliasData getAlias(String key);
 	AliasData getPluginAlias(String plugin,String key);
 	Map getAliases();
@@ -54,6 +56,7 @@ interface IConnectionBinder {
 	void loadSettingsFromPath(String path);
 	void exportSettingsToPath(String path);
 	void resetSettings();
+	// ---- triggers ----
 	Map getTriggerData();
 	Map getDirectionData();
 	Map getPluginTriggerData(String id);
@@ -72,6 +75,7 @@ interface IConnectionBinder {
 	
 	void setDisplayDimensions(int rows,int cols);
 	void reconnect(String str);
+	// ---- timers ----
 	Map getTimers();
 	Map getPluginTimers(String plugin);
 	TimerData getTimer(String ordinal);
@@ -99,14 +103,17 @@ interface IConnectionBinder {
 	void setTriggerEnabled(boolean enabled,String key);
 	String getConnectionDurationText(String display);
 	void setPluginTriggerEnabled(String selectedPlugin,boolean enabled,String key);
+	// ---- buttons ----
 	void setButtonSetLocked(boolean locked,String key);
 	boolean isButtonSetLocked(String key);
 	boolean isButtonSetLockedMoveButtons(String key);
 	boolean isButtonSetLockedNewButtons(String key);
 	boolean isButtonSetLockedEditButtons(String key);
+	// ---- windows ----
 	WindowToken[] getWindowTokens();
 	void registerWindowCallback(String displayName,String name,IWindowCallback callback);
 	void unregisterWindowCallback(String name,IWindowCallback callback);
+	// ---- plugins / settings ----
 	String getScript(String plugin,String name);
 	void reloadSettings();
 	void pluginXcallS(String plugin,String function,String str);
@@ -138,12 +145,14 @@ interface IConnectionBinder {
 	boolean isPluginInstalled(String desired);
 	void setShowRegexWarning(boolean state);
 	String getPluginOption(String plugin, String key);
+	// ---- GMCP ----
 	/** Short GMCP modules status for Options / Manage modules. */
 	String getGmcpModuleStatus();
 	/** Module names seen from the server this session. */
 	List getGmcpSeenModules();
 	/** Re-send Core.Hello + Core.Supports.Set with current supports. */
 	void renegotiateGmcp();
+	// ---- MCP ----
 	/** Short MCP status for Options / Manage packages. */
 	String getMcpStatusHint();
 	/** MCP package names seen this session. */
