@@ -84,4 +84,14 @@ public interface ConnectionPluginCallback {
 	void sendMcpPacket(String payload);
 
 	com.resurrection.blowtorch2.lib.trigger.condition.SessionVariableStore getSessionVariables();
+
+	/**
+	 * Report a non-fatal runtime problem to the game window (and log) without
+	 * killing the connection process. Prefer this over letting exceptions escape
+	 * trigger / alias / timer responders.
+	 *
+	 * @param where short context (e.g. {@code "trigger Foo / Ack"})
+	 * @param error the failure (may be null)
+	 */
+	void reportRuntimeError(String where, Throwable error);
 }
