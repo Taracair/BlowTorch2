@@ -23,12 +23,12 @@ import android.widget.Toast;
 
 /**
  * Edit tile title, notes, level, exits; add link command; move-to-level.
+ * Always targets the {@link MapTile} passed in — never silently the "Here" tile.
  */
 public class MapperTileEditorDialog extends Dialog {
 
 	private final MapperController controller;
 	private final MapTile tile;
-	private final String previousCurrentId;
 	private EditText titleEdit;
 	private EditText notesEdit;
 	private Spinner levelSpinner;
@@ -41,8 +41,6 @@ public class MapperTileEditorDialog extends Dialog {
 		super(context, EditorDialogChrome.dialogTheme());
 		this.controller = controller;
 		this.tile = tile;
-		MudMap map = controller.getMap();
-		this.previousCurrentId = map != null ? map.getCurrentTileId() : null;
 	}
 
 	@Override
@@ -132,13 +130,9 @@ public class MapperTileEditorDialog extends Dialog {
 							Toast.LENGTH_SHORT).show();
 					return;
 				}
-				withCurrentTile(new Runnable() {
-					@Override
-					public void run() {
-						Toast.makeText(getContext(), controller.link(cmd, to),
-								Toast.LENGTH_SHORT).show();
-					}
-				});
+				Toast.makeText(getContext(),
+						controller.linkBetween(tile.getId(), cmd, to),
+						Toast.LENGTH_SHORT).show();
 				MapTile fresh = controller.getMap() != null
 						? controller.getMap().findTile(tile.getId()) : null;
 				if (fresh != null) {
@@ -160,7 +154,6 @@ public class MapperTileEditorDialog extends Dialog {
 		cancel.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				restoreCurrent();
 				dismiss();
 			}
 		});
@@ -171,13 +164,8 @@ public class MapperTileEditorDialog extends Dialog {
 		save.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				withCurrentTile(new Runnable() {
-					@Override
-					public void run() {
-						controller.setTitle(titleEdit.getText().toString());
-						controller.setNotes(notesEdit.getText().toString());
-					}
-				});
+				controller.setTitle(tile.getId(), titleEdit.getText().toString());
+				controller.setNotes(tile.getId(), notesEdit.getText().toString());
 				int idx = levelSpinner.getSelectedItemPosition();
 				if (idx >= 0 && idx < levels.size()) {
 					MapLevel level = levels.get(idx);
@@ -186,7 +174,7 @@ public class MapperTileEditorDialog extends Dialog {
 						controller.moveTileLevel(tile.getId(), name);
 					}
 				}
-				restoreCurrent();
+				Toast.makeText(getContext(), "Saved", Toast.LENGTH_SHORT).show();
 				dismiss();
 			}
 		});
@@ -195,22 +183,6 @@ public class MapperTileEditorDialog extends Dialog {
 
 		setContentView(scroll);
 		EditorDialogChrome.applyNearlyFullScreen(this);
-	}
-
-	private void withCurrentTile(Runnable action) {
-		MudMap map = controller.getMap();
-		if (map != null) {
-			map.setCurrentTileId(tile.getId());
-		}
-		action.run();
-	}
-
-	private void restoreCurrent() {
-		MudMap map = controller.getMap();
-		if (map != null && previousCurrentId != null) {
-			map.setCurrentTileId(previousCurrentId);
-			controller.fireChanged();
-		}
 	}
 
 	private TextView label(String text) {
@@ -244,12 +216,7 @@ public class MapperTileEditorDialog extends Dialog {
 			unlink.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					withCurrentTile(new Runnable() {
-						@Override
-						public void run() {
-							controller.unlink(exit.getCommand());
-						}
-					});
+					controller.unlinkBetween(tile.getId(), exit.getCommand());
 					tile.getExits().remove(exit);
 					refreshExits();
 				}
