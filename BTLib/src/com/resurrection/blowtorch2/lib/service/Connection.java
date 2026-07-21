@@ -1928,10 +1928,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mService.showConnectionNotification(mDisplay, mHost, mPort);
 		mService.noteConnectionStarted(mDisplay);
 
+		// Brief offline banner, then open lesson 1 (welcome). Do not stop at a
+		// nav-only blurb: that left currentIndex at welcome while the user only
+		// saw "Walk lessons with .tutorial next", so NEXT skipped to lesson 2.
 		sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
 				+ "Starter Tutorial — offline session (no network).\n"
-				+ Colorizer.getWhiteColor()
-				+ "Walk lessons with .tutorial next  ·  .tutorial topics  ·  .tutorial done\n\n");
+				+ Colorizer.getWhiteColor() + "\n");
+		try {
+			Plugin tutorial = mPluginMap.get("starter_tutorial");
+			if (tutorial != null) {
+				tutorial.callFunction("starterTutorialBegin", "");
+			}
+		} catch (Exception e) {
+			Log.w("BlowTorch", "doOfflineStartup starterTutorialBegin", e);
+		}
 	}
 
 	/** Readable font + starter button layout for the offline tutorial profile. */

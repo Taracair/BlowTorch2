@@ -591,7 +591,8 @@ To stop the welcome note on connect:
 Happy mudding.]])
 end
 
-local currentIndex = 1
+-- 0 = not yet on a lesson (so NEXT from bare intro opens lesson 1, not lesson 2).
+local currentIndex = 0
 
 local function topicIndex(name)
 	for i, n in ipairs(TOPIC_ORDER) do
@@ -621,6 +622,15 @@ local function showTopic(name)
 		currentIndex, #TOPIC_ORDER)
 	noteLine(nav)
 	return true
+end
+
+-- Called from Java doOfflineStartup once the offline session / window is ready.
+-- Do not rely on OnBackgroundStartup for lesson text: that runs during settings
+-- load, before the session window is live, so Notes can be lost while still
+-- advancing currentIndex (NEXT then skips welcome → lesson 2).
+function starterTutorialBegin(args)
+	currentIndex = 1
+	showTopic(TOPIC_ORDER[1])
 end
 
 local function showHelp()
@@ -704,7 +714,10 @@ function tutorialCommand(args)
 		return
 	end
 	if cmd == "next" then
-		if currentIndex < #TOPIC_ORDER then
+		-- From not-started (0), NEXT opens lesson 1; otherwise advance.
+		if currentIndex < 1 then
+			currentIndex = 1
+		elseif currentIndex < #TOPIC_ORDER then
 			currentIndex = currentIndex + 1
 		end
 		showTopic(TOPIC_ORDER[currentIndex])
@@ -713,6 +726,8 @@ function tutorialCommand(args)
 	if cmd == "prev" or cmd == "previous" then
 		if currentIndex > 1 then
 			currentIndex = currentIndex - 1
+		else
+			currentIndex = 1
 		end
 		showTopic(TOPIC_ORDER[currentIndex])
 		return
@@ -776,6 +791,9 @@ end
 
 function OnBackgroundStartup()
 	-- Never rewrite button sets on real MUDs — only the offline Starter Tutorial pad.
+	-- Lesson text is shown later via starterTutorialBegin() from doOfflineStartup
+	-- (window ready). Showing here races settings load and can leave only the Java
+	-- nav blurb visible while currentIndex already points at welcome.
 	if isOfflineTutorialSession() then
 		pcall(function()
 			CallPlugin("button_window", "installStarterButtonLayout", "")
@@ -783,8 +801,6 @@ function OnBackgroundStartup()
 		pcall(function()
 			CallPlugin("button_window", "ensureTutorialAccordion", "")
 		end)
-		currentIndex = 1
-		showTopic(TOPIC_ORDER[1])
 	else
 		starterTutorialMaybeWelcome()
 	end
