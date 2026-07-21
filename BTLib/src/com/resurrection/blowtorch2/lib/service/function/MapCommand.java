@@ -86,6 +86,22 @@ public class MapCommand extends SpecialCommand {
 			return doLink(c, mapper, rest);
 		case "unlink":
 			return doUnlink(c, mapper, rest);
+		case "add":
+		case "place":
+			return doAdd(c, mapper, rest);
+		case "here":
+			note(c, mapper.setHere(rest));
+			return null;
+		case "delete":
+		case "del":
+		case "rm":
+			note(c, mapper.deleteTile(rest));
+			return null;
+		case "neighbor":
+		case "nb":
+			return doNeighbor(c, mapper, rest);
+		case "move":
+			return doMoveTile(c, mapper, rest);
 		case "conflict":
 		case "conflicts":
 			return doConflicts(c, mapper, rest);
@@ -319,6 +335,87 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object doAdd(Connection c, MapperController mapper, String rest) {
+		Integer x = null;
+		Integer y = null;
+		String title = null;
+		boolean makeHere = false;
+		if (rest.length() > 0) {
+			String work = rest.trim();
+			String lower = work.toLowerCase(Locale.US);
+			if (lower.endsWith(" here")) {
+				makeHere = true;
+				work = work.substring(0, work.length() - 5).trim();
+			} else if (lower.equals("here")) {
+				makeHere = true;
+				work = "";
+			}
+			if (work.length() > 0) {
+				String[] p = work.split("\\s+");
+				if (p.length >= 2) {
+					try {
+						x = Integer.valueOf(p[0]);
+						y = Integer.valueOf(p[1]);
+						if (p.length > 2) {
+							StringBuilder sb = new StringBuilder();
+							for (int i = 2; i < p.length; i++) {
+								if (i > 2) {
+									sb.append(' ');
+								}
+								sb.append(p[i]);
+							}
+							title = sb.toString();
+						}
+					} catch (NumberFormatException e) {
+						title = work;
+					}
+				} else {
+					title = work;
+				}
+			}
+		}
+		note(c, mapper.placeTile(x, y, title, makeHere));
+		return null;
+	}
+
+	private Object doNeighbor(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0) {
+			note(c, "Usage: .map neighbor <cmd> [from <tileId>]");
+			return null;
+		}
+		String work = rest.trim();
+		String lower = work.toLowerCase(Locale.US);
+		int fromIdx = lower.indexOf(" from ");
+		if (fromIdx >= 0) {
+			String cmd = work.substring(0, fromIdx).trim();
+			String fromId = work.substring(fromIdx + 6).trim();
+			note(c, mapper.addNeighbor(fromId, cmd));
+		} else {
+			note(c, mapper.addNeighbor(null, work));
+		}
+		return null;
+	}
+
+	private Object doMoveTile(Connection c, MapperController mapper, String rest) {
+		String[] p = rest.split("\\s+");
+		if (p.length < 2) {
+			note(c, "Usage: .map move <x> <y>  OR  .map move <tileId> <x> <y>");
+			return null;
+		}
+		try {
+			if (p.length >= 3) {
+				note(c, mapper.moveTileOnGrid(p[0],
+						Integer.parseInt(p[1]), Integer.parseInt(p[2])));
+			} else {
+				note(c, mapper.moveTileOnGrid(null,
+						Integer.parseInt(p[0]), Integer.parseInt(p[1])));
+			}
+		} catch (NumberFormatException e) {
+			note(c, "Usage: .map move <x> <y>  OR  .map move <tileId> <x> <y>");
+		}
+		return null;
+	}
+
 	private Object doConflicts(Connection c, MapperController mapper, String rest) {
 		List<MapConflict> list = mapper.listConflicts();
 		if (list.isEmpty()) {
@@ -421,6 +518,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map find <query> | .map path <query> | .map goto <query>\n");
 		sb.append("  .map title <text> | .map note <text>\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
+		sb.append("  .map add [x y] [title] [here] | .map here [id] | .map delete [id]\n");
+		sb.append("  .map neighbor <cmd> [from <id>] | .map move [id] <x> <y>\n");
 		sb.append("  .map conflict list | .map export | .map undo | .map center\n");
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map maps | .map load <name> | .map new <name>\n");
