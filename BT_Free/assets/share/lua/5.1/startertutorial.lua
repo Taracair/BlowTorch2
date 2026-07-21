@@ -411,24 +411,57 @@ Matches highlight in the buffer; next/prev walk through them.]])
 end
 
 TOPICS.mapper = function()
-	noteBlock("Mapper — .map",
-[[Built-in room map (not ForgeMap). Open overflow → Map, or:
+	noteBlock("Mapper — room map",
+[[Built-in map of rooms (tiles) and exits — not the old ForgeMap plugin.
+Open it from overflow → Map, or type .map open (close / toggle also work).
 
-  .map                 help / status
-  .map open|close|toggle
+What you see
+  • Green tile  = current (where the mapper thinks you are)
+  • Yellow edge = selected (last tap)
+  • [REC] in the title = recording is on
+  • Full / Float / ✕ = window mode and close
+  The map stays under ⋮ so the overflow menu stays usable.
+
+Two ways to build
+  1) Record while you walk
+     .map new mymap   (optional fresh file)
+     Open the map → Rec → walk the MUD as usual → Stop → Save
+     Outbound commands become exits. Compass moves (n/e/s/w, go west, …)
+     place neighbors on a grid; up/down change level; out/in/door-like
+     words become special exits beside the room.
+  2) Draw by hand (no walking required)
+     Draw → tap empty cells to place rooms
+     Long-press empty = place and set Here
+     Links → tap FROM then TO → type the walk verb (go west, n, out…)
+     Or long-press a tile → Add neighbor… / Move… / Set as Here / Delete
+
+Toolbar cheatsheet
+  Rec/Stop  Follow  L-/L+  Find  Undo  Center
+  Links  Draw  Here  Edit  Save
+
+Movement lexicon (summary; full list: .map dirs)
+  +x = east, +y = south on the grid
+  n/s/e/w (+ go/walk/move) → grid step
+  ne/nw/se/sw → diagonal
+  up/climb vs down/descend → level change
+  in/enter, out/leave → special
+  Connection Speedwalk Directions also apply when configured.
+
+Useful .map commands
+  .map / .map help
   .map mode float|fullscreen
-  .map record on|off|toggle
-  .map follow on|off
-  .map level list|prev|next|set <name>
+  .map record|follow …
   .map find|path|goto <query>
   .map maps | load <name> | new <name>
+  .map add | here | delete | neighbor | move
+  .map link|unlink …   .map export|save   .map dirs
   .map capture preview|apply
 
-Floating map: drag + resize; opacity under Options → Mapper.
-Path auto-send (Options → Mapper) controls whether .map goto sends
-commands or only prints the path. GMCP Room can sync when enabled.
-Capture preview tests patterns on a pasted sample (or recent buffer
-lines when the dialog can load them). Full list: overflow → Help.]])
+Files live under /BlowTorch/maps/ (autosave after edits).
+Options → Mapper: enable, float default, opacity, follow, path auto-send,
+Use GMCP Room, toolbar CSV, capture patterns.
+Without GMCP (many MOOs), prefer Rec + Draw/Links.
+Full reference: overflow → Help → Mapper.]])
 end
 
 TOPICS.wrap = function()

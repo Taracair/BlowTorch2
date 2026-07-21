@@ -263,11 +263,33 @@ Mapper
   Floating mode: drag to move, resize handle, opacity from Options.
   The map stays under the ⋮ chrome so overflow stays reachable.
 
+  Concepts:
+    Tile      = room cell (grid x,y + level)
+    Exit      = link A → B via a walk command
+    Current   = green = where the mapper thinks you are
+    Selected  = yellow outline = tapped tile
+    Follow    = camera tracks current (pan/pinch turns it off)
+  Maps: JSON under /BlowTorch/maps/ (autosave ~2s; Save / .map export)
+
+  Toolbar (map window):
+    Rec/Stop, Follow, L-/L+, Find, Undo, Center
+    Links  — tap FROM then TO, enter walk verb (or unlink)
+    Draw   — tap empty=place; long-press empty=place+Here;
+             long-press tile+drag=move (or menu Move…)
+    Here, Edit, Save
+    Full/Float/✕
+
+  Movement lexicon (+x east, +y south; .map dirs for full list):
+    n/s/e/w (+ go/walk/move prefixes) → grid neighbor
+    ne/nw/se/sw → diagonals
+    u/up/climb, d/down/descend → level change
+    in/enter, out/leave/exit, other → special (nearby cell)
+  Also uses Speedwalk Directions from the connection when set.
+
   Recording & follow:
     .map record on|off|toggle
     .map follow on|off
-  With record on, movement commands build tiles and exits (n/e/s/w grid;
-  special exits for doors/up/down when needed). Follow centers on you.
+  With record on, outbound movement builds tiles/exits. Follow centers on you.
 
   Levels:
     .map level list|prev|next|set <name>
@@ -279,22 +301,31 @@ Mapper
                          is on, otherwise print the path only
     .map center          center on current room
     .map undo
+    .map dirs            movement lexicon / grid offsets
 
   Multiple maps (JSON under /BlowTorch/maps/):
     .map maps
     .map load <name>
     .map new <name>
-    .map export          save now
+    .map export | .map save     save now
 
-  Title / notes / links on the current tile:
+  Manual place / here / delete / neighbor / move:
+    .map add [x y] [title] [here]
+    .map here [id]
+    .map delete [id]
+    .map neighbor <cmd> [from <id>]
+    .map move [id] <x> <y>
+
+  Title / notes / links:
     .map title <text>
     .map note <text>
-    .map link <cmd>
-    .map unlink <cmd>
+    .map link <cmd> [from <id>] to <tileId>
+    .map unlink <cmd> [from <id>]
     .map conflict list
 
   GMCP Room: when Use GMCP? and Options → Mapper → Use GMCP Room are on,
-  Room.* packets can update the current room title/position/exits.
+  Room.* packets can update the current room. Without GMCP, use Rec while
+  walking and/or Draw/Links by hand.
 
   Capture (no GMCP): configure patterns under Options → Mapper → Capture.
     .map capture preview   test patterns against a pasted sample (or recent
@@ -302,8 +333,13 @@ Mapper
     .map capture apply     apply a successful capture to the current tile
 
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
-  recording defaults, follow, path auto-send, GMCP Room, toolbar actions,
-  capture profile).
+  recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
+  toolbar actions, capture profile).
+
+  Typical flows:
+    Record: .map new mymap → open → Rec → walk → Stop → Save
+    Draw:   Draw → place tiles → Links/neighbor → Here
+    Layout: Draw → long-press tile and drag, or Move…
 
 On-screen buttons (button_window)
 ---------------------------------
