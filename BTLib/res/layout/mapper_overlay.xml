@@ -75,29 +75,64 @@
             android:contentDescription="Close map" />
     </LinearLayout>
 
-    <HorizontalScrollView
-        android:id="@+id/mapper_toolbar_scroll"
+    <FrameLayout
+        android:id="@+id/mapper_toolbar_frame"
         android:layout_width="match_parent"
         android:layout_height="44dp"
         android:layout_alignParentBottom="true"
-        android:background="#AA000000"
-        android:scrollbars="none">
+        android:background="#AA000000">
 
-        <LinearLayout
-            android:id="@+id/mapper_toolbar"
-            android:layout_width="wrap_content"
+        <HorizontalScrollView
+            android:id="@+id/mapper_toolbar_scroll"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingLeft="4dp"
-            android:paddingRight="4dp" />
-    </HorizontalScrollView>
+            android:scrollbars="none"
+            android:fadeScrollbars="false"
+            android:overScrollMode="ifContentScrolls">
+
+            <LinearLayout
+                android:id="@+id/mapper_toolbar"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="18dp"
+                android:paddingRight="18dp" />
+        </HorizontalScrollView>
+
+        <!-- Hints that the toolbar scrolls horizontally when content overflows. -->
+        <TextView
+            android:id="@+id/mapper_toolbar_hint_left"
+            android:layout_width="18dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="start|center_vertical"
+            android:gravity="center"
+            android:background="#CC000000"
+            android:text="‹"
+            android:textColor="#EEEEEE"
+            android:textSize="18sp"
+            android:visibility="gone"
+            android:contentDescription="Scroll toolbar left" />
+
+        <TextView
+            android:id="@+id/mapper_toolbar_hint_right"
+            android:layout_width="18dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end|center_vertical"
+            android:gravity="center"
+            android:background="#CC000000"
+            android:text="›"
+            android:textColor="#EEEEEE"
+            android:textSize="18sp"
+            android:visibility="visible"
+            android:contentDescription="Scroll toolbar right" />
+    </FrameLayout>
 
     <FrameLayout
         android:id="@+id/mapper_map_holder"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/mapper_toolbar_scroll"
+        android:layout_above="@id/mapper_toolbar_frame"
         android:layout_below="@id/mapper_title_bar">
 
         <com.resurrection.blowtorch2.lib.mapper.MapperView
