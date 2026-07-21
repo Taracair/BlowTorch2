@@ -211,18 +211,20 @@ on the toolbar or `.map export` / `.map save` forces a write).
 | **Undo** | Undo last graph change |
 | **Center** | Center on current |
 | **Links** | Link mode: tap FROM tile, then TO, then enter a walk verb (or unlink) |
-| **Draw** | Manual edit: grid on; tap empty cell to place; long-press empty = place + Here; long-press tile and drag = move |
+| **Paths** / **Pack** | Paths = spaced tiles with room for arrows; Pack = compressed neighbors |
+| **Draw** | Manual edit: grid on; tap empty cell to place; long-press empty = place + Here |
 | **Here** | Set current to the selected tile |
 | **Edit** | Title / notes / level / exits dialog |
 | **Save** | Write map file now |
 | **Full** / **Float** / **✕** | Presentation mode / close |
 
-Long-press a tile (when not dragging) for **Set as Here**, **Move…**, **Add neighbor…**,
-delete, path, etc. **Double-tap** a tile = **Set as Here**.
+Long-press a tile and drag to move it on the grid (release without moving opens the
+tile menu). **Double-tap** a tile = **Set as Here**.
 
 Exits with a known destination draw as **arrows** between tiles with walk-word labels
-(`go west`, `n`, …). If more than two commands share the same edge, the label shows
-`cmd1 · cmd2 +N` — tap it to open the full list (and optionally unlink).
+(`go west`, `n`, …). Use **Paths** so arrows/labels fit between tiles. If more than
+two commands share the same edge, the label shows `cmd1 · cmd2 +N` — tap it to open
+the full list (and optionally unlink).
 
 ### Movement lexicon
 
@@ -282,7 +284,7 @@ manual **Draw** / **Links**, and/or capture patterns.
 
 1. **Record while exploring:** `.map new mymap` → open map → **Rec** → walk → **Stop** → **Save**.
 2. **Draw by hand:** **Draw** → tap empty cells → **Links** (or **Add neighbor**) → **Here** on your room.
-3. **Fix layout:** **Draw** → long-press a tile and drag, or long-press → **Move…**.
+3. **Fix layout:** long-press a tile and drag (or **Move…**). Use **Paths** to see arrows.
 
 ### `.run` defaults
 
