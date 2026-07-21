@@ -95,18 +95,42 @@
                     android:contentDescription="Edit mode — create and modify" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/mapper_mode_btn"
+            <LinearLayout
+                android:id="@+id/mapper_display_mode_bar"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:paddingLeft="8dp"
-                android:paddingRight="8dp"
-                android:text="Float"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:background="#44FFFFFF"
-                android:contentDescription="Toggle float or fullscreen" />
+                android:layout_height="26dp"
+                android:layout_marginLeft="2dp"
+                android:layout_marginRight="4dp"
+                android:orientation="horizontal"
+                android:background="#55FFFFFF"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/mapper_mode_float"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingLeft="7dp"
+                    android:paddingRight="7dp"
+                    android:text="Float"
+                    android:textColor="#E8C547"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:background="#33000000"
+                    android:contentDescription="Floating map window" />
+
+                <TextView
+                    android:id="@+id/mapper_mode_full"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingLeft="7dp"
+                    android:paddingRight="7dp"
+                    android:text="Full"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:contentDescription="Fullscreen map" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/mapper_close_btn"
@@ -245,12 +269,20 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <View
+        <!-- Corner grip: diagonal lines, not a solid yellow square. -->
+        <TextView
             android:id="@+id/mapper_resize_handle"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:layout_gravity="bottom|end"
-            android:background="#66E8C547"
+            android:gravity="bottom|end"
+            android:paddingBottom="2dp"
+            android:paddingRight="4dp"
+            android:paddingEnd="4dp"
+            android:text="◢"
+            android:textColor="#E8C547"
+            android:textSize="22sp"
+            android:background="#00000000"
             android:contentDescription="Resize map window" />
     </FrameLayout>
 </RelativeLayout>
