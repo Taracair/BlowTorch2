@@ -272,6 +272,9 @@ public class Plugin implements SettingsChangedListener {
 		SimulateInputFunction sif = new SimulateInputFunction(L, this);
 		DeleteTriggerGroupFunction dtgf = new DeleteTriggerGroupFunction(L, this);
 		GetPluginNameFunction gpnf = new GetPluginNameFunction(L, this);
+		SetVariableFunction svf = new SetVariableFunction(L, this);
+		GetVariableFunction gvf = new GetVariableFunction(L, this);
+		UnsetVariableFunction uvf = new UnsetVariableFunction(L, this);
 		//common functions
 		
 		gabhf.register("GetActionBarHeight");
@@ -307,6 +310,9 @@ public class Plugin implements SettingsChangedListener {
 		sif.register("Simulate");
 		dtgf.register("DeleteTriggerGroup");
 		gpnf.register("GetPluginName");
+		svf.register("SetVariable");
+		gvf.register("GetVariable");
+		uvf.register("UnsetVariable");
 		/*L.getGlobal("Note");
 		L.pushString("this is a test");
 		int ret = L.pcall(1, 0, 0);

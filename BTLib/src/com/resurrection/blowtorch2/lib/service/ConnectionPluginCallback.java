@@ -82,4 +82,6 @@ public interface ConnectionPluginCallback {
 
 	/** Send MCP OOB: raw {@code #$#…} line or {@code name key: val…}. */
 	void sendMcpPacket(String payload);
+
+	com.resurrection.blowtorch2.lib.trigger.condition.SessionVariableStore getSessionVariables();
 }
