@@ -425,6 +425,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		mapper_path_auto_send.setValue(false);
 		mapperOptions.addOption(mapper_path_auto_send);
 
+		BooleanOption mapper_echo_window = new BooleanOption();
+		mapper_echo_window.setTitle("Echo mapper status to game window?");
+		mapper_echo_window.setDescription("When on, .map / overlay toggles print status lines into the scrollback. Off = keep feedback in the map overlay only (More → Window echo).");
+		mapper_echo_window.setKey("mapper_echo_window");
+		mapper_echo_window.setValue(true);
+		mapperOptions.addOption(mapper_echo_window);
+
 		BooleanOption mapper_use_gmcp = new BooleanOption();
 		mapper_use_gmcp.setTitle("Use GMCP Room Sync?");
 		mapper_use_gmcp.setDescription("Apply Room.* GMCP to the map (title, room num, coords, exits). Needs GMCP on + Room in Manage modules…. Prefer Configure Room Sync… below. Independent of Capture regex.");
