@@ -26,20 +26,21 @@
   <!-- Legacy top-level buttonsets (Java HyperSAXParser). Gestures are not parsed here; see button_window plugin below. -->
   <buttonsets>
     <buttonset setName="default" buttonWidth="42" buttonHeight="42" labelSize="12">
-      <button xPos="23" yPos="23" label="U" command="up" flipCommand="open u" moveMethod="2" labelSize="14" />
-      <button xPos="68" yPos="23" label="N" command="north" flipCommand="open n" moveMethod="2" labelSize="14" />
-      <button xPos="113" yPos="23" label="SCORE" command="score" moveMethod="2" labelSize="12" />
-      <button xPos="23" yPos="68" label="W" command="west" flipCommand="open w" moveMethod="2" labelSize="14" />
-      <button xPos="113" yPos="68" label="E" command="east" flipCommand="open e" moveMethod="2" labelSize="14" />
-      <button xPos="23" yPos="113" label="D" command="down" flipCommand="open d" moveMethod="2" labelSize="14" />
-      <button xPos="68" yPos="113" label="S" command="south" flipCommand="open s" moveMethod="2" labelSize="14" />
-      <button xPos="113" yPos="113" label="LOOK" command="look" moveMethod="2" labelSize="12" />
-      <button xPos="23" yPos="158" label="HELP" command=".tutorial start" moveMethod="2" labelSize="12" />
-      <button xPos="68" yPos="158" label="TIP" command=".tutorial topics" moveMethod="2" labelSize="12" />
-      <button xPos="113" yPos="158" label="SWIPE" command=".tutorial buttons_swipe" moveMethod="2" labelSize="12" />
-      <button xPos="23" yPos="203" label="HOLD" command=".tutorial buttons_hold" moveMethod="2" labelSize="12" />
-      <button xPos="68" yPos="203" label="ACC" command=".tutorial buttons_accordion" moveMethod="2" labelSize="12" />
-      <button xPos="113" yPos="203" label="CLEAR" command=".clearbuttons" moveMethod="0" labelSize="12" />
+      <button xPos="23" yPos="23" label="U" command="up" flipCommand="close u" moveMethod="2" labelSize="14" />
+      <button xPos="68" yPos="23" label="N" command="north" flipCommand="close n" moveMethod="2" labelSize="14" />
+      <button xPos="113" yPos="23" label="INV" command="inventory" moveMethod="2" labelSize="11" />
+      <button xPos="23" yPos="68" label="W" command="west" flipCommand="close w" moveMethod="2" labelSize="14" />
+      <button xPos="68" yPos="68" label="LOOK" command="look" moveMethod="2" labelSize="11" />
+      <button xPos="113" yPos="68" label="E" command="east" flipCommand="close e" moveMethod="2" labelSize="14" />
+      <button xPos="23" yPos="113" label="D" command="down" flipCommand="close d" moveMethod="2" labelSize="14" />
+      <button xPos="68" yPos="113" label="S" command="south" flipCommand="close s" moveMethod="2" labelSize="14" />
+      <button xPos="113" yPos="113" label="SCORE" command="score" moveMethod="2" labelSize="10" />
+      <button xPos="23" yPos="158" label="GET" command="get all" moveMethod="2" labelSize="11" />
+      <button xPos="68" yPos="158" label="WHO" command="who" moveMethod="2" labelSize="11" />
+      <button xPos="113" yPos="158" label="EXITS" command="exits" moveMethod="2" labelSize="10" />
+      <button xPos="23" yPos="203" label="EQ" command="equipment" moveMethod="2" labelSize="11" />
+      <button xPos="68" yPos="203" label="MAP" command=".map toggle" moveMethod="2" labelSize="11" />
+      <button xPos="113" yPos="203" label="CLEAR" command=".clearbuttons" moveMethod="0" labelSize="10" />
     </buttonset>
     <buttonset setName="tutorial" buttonWidth="42" buttonHeight="42" labelSize="12">
       <button xPos="23" yPos="23" label="START" command=".tutorial start" moveMethod="2" labelSize="12" />
@@ -104,45 +105,52 @@
 		]]>
   		</script>
   		<!--
-  		  Starter layout: 42x42, ~45 dp grid, portrait bottom-left after alignDefaultButtons.
-  		  Movement taps send game commands; hold/swipe teach gestures via .note / .tutorial.
-  		  Accordion children need Lua serialization (not expressible in XML) — ACC opens the tutorial.
+  		  Fresh-MUD default pad (42×42, ~45 dp grid; alignDefaultButtons pins upper-center).
+  		  Compass: tap=walk · outward swipe=look · opposite swipe=open · flip/hold=close.
+  		  LOOK (center): tap=look · swipes=look n/s/e/w.
+  		  Tutorial chrome lives in the separate "tutorial" set (Starter Tutorial only).
   		-->
    		<buttonsets>
    			<buttonset name="default" setName="default" width="42" height="42" labelSize="12" gridXwidth="45" gridYwidth="45">
-     			<button x="23" y="23" label="PREV" command=".tutorial prev" labelSize="11" />
-     			<button x="68" y="23" label="NEXT" command=".tutorial next" labelSize="11" />
-     			<button x="113" y="23" label="TOPICS" command=".tutorial topics" labelSize="10" />
-     			<button x="23" y="68" label="U" command="up" flipCommand="open u" labelSize="14"
-     				holdCommand=".note Hold on U: HOLD — long-press a button for a second command."
-     				swipeUpCommand=".tutorial buttons_swipe" />
-     			<button x="68" y="68" label="N" command="north" flipCommand="open n" labelSize="14"
-     				holdCommand=".note Hold on N: this is HOLD — long-press a button for a second command."
-     				swipeUpCommand=".tutorial buttons_swipe" />
-     			<button x="113" y="68" label="SCORE" command="score" labelSize="11" />
-     			<button x="23" y="113" label="W" command="west" flipCommand="open w" labelSize="14"
-     				holdCommand=".note Hold on W: HOLD runs a second command after a long-press."
-     				swipeLeftCommand=".tutorial buttons_swipe" />
-     			<button x="113" y="113" label="E" command="east" flipCommand="open e" labelSize="14"
-     				holdCommand=".note Hold on E: HOLD runs a second command after a long-press."
-     				swipeRightCommand=".tutorial buttons_swipe" />
-     			<button x="23" y="158" label="D" command="down" flipCommand="open d" labelSize="14"
-     				holdCommand=".note Hold on D: HOLD runs a second command after a long-press."
-     				swipeDownCommand=".tutorial buttons_swipe" />
-     			<button x="68" y="158" label="S" command="south" flipCommand="open s" labelSize="14"
-     				holdCommand=".note Hold on S: HOLD runs a second command after a long-press."
-     				swipeDownCommand=".tutorial buttons_swipe" />
-     			<button x="113" y="158" label="LOOK" command="look" labelSize="11" />
-     			<button x="23" y="203" label="HELP" command=".tutorial start" labelSize="11" />
-     			<button x="68" y="203" label="SWIPE" command=".tutorial buttons_swipe" labelSize="11"
-     				swipeUpCommand=".note Swipe UP: flick the button upward for a directional command."
-     				swipeDownCommand=".note Swipe DOWN: flick the button downward for a directional command."
-     				swipeLeftCommand=".note Swipe LEFT: flick the button left for a directional command."
-     				swipeRightCommand=".note Swipe RIGHT: flick the button right for a directional command." />
-     			<button x="113" y="203" label="HOLD" command=".tutorial buttons_hold" labelSize="11"
-     				holdCommand=".note Hold fired: secondary command." />
-     			<button x="23" y="248" label="ACC" command=".tutorial buttons_accordion" labelSize="11" />
-     			<button x="68" y="248" label="CLEAR" command=".clearbuttons" labelSize="11" />
+     			<button x="23" y="23" label="U" command="up" flipCommand="close u" labelSize="14"
+     				holdCommand="close u"
+     				swipeUpCommand="look u"
+     				swipeDownCommand="open u" />
+     			<button x="68" y="23" label="N" command="north" flipCommand="close n" labelSize="14"
+     				holdCommand="close n"
+     				swipeUpCommand="look n"
+     				swipeDownCommand="open n" />
+     			<button x="113" y="23" label="INV" command="inventory" labelSize="11" />
+     			<button x="23" y="68" label="W" command="west" flipCommand="close w" labelSize="14"
+     				holdCommand="close w"
+     				swipeLeftCommand="look w"
+     				swipeRightCommand="open w" />
+     			<button x="68" y="68" label="LOOK" command="look" labelSize="11"
+     				swipeUpCommand="look n"
+     				swipeDownCommand="look s"
+     				swipeLeftCommand="look w"
+     				swipeRightCommand="look e" />
+     			<button x="113" y="68" label="E" command="east" flipCommand="close e" labelSize="14"
+     				holdCommand="close e"
+     				swipeRightCommand="look e"
+     				swipeLeftCommand="open e" />
+     			<button x="23" y="113" label="D" command="down" flipCommand="close d" labelSize="14"
+     				holdCommand="close d"
+     				swipeDownCommand="look d"
+     				swipeUpCommand="open d" />
+     			<button x="68" y="113" label="S" command="south" flipCommand="close s" labelSize="14"
+     				holdCommand="close s"
+     				swipeDownCommand="look s"
+     				swipeUpCommand="open s" />
+     			<button x="113" y="113" label="SCORE" command="score" labelSize="10" />
+     			<button x="23" y="158" label="GET" command="get all" labelSize="11" />
+     			<button x="68" y="158" label="WHO" command="who" labelSize="11" />
+     			<button x="113" y="158" label="EXITS" command="exits" labelSize="10" />
+     			<button x="23" y="203" label="EQ" command="equipment" labelSize="11" />
+     			<button x="68" y="203" label="MAP" command=".map toggle" labelSize="11"
+     				holdCommand=".map open"
+     				flipCommand=".map close" />
+     			<button x="113" y="203" label="CLEAR" command=".clearbuttons" labelSize="10" />
 </buttonset>
    			<buttonset name="tutorial" setName="tutorial" width="42" height="42" labelSize="12" gridXwidth="45" gridYwidth="45">
      			<button x="23" y="23" label="PREV" command=".tutorial prev" labelSize="11" />
