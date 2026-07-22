@@ -199,7 +199,7 @@ stays under the ⋮ chrome so overflow remains reachable.
 | **Level nest** | A floor anchored on a door/stairs tile (not one global stack) |
 
 Maps are JSON files under `/BlowTorch/maps/` (autosave ~2s after changes; **Save**
-in **File** or `.map export` / `.map save` forces a write). With a path,
+in **More** or `.map export` / `.map save` forces a write). With a path,
 `.map export|save <path>` writes JSON there (absolute or BlowTorch-relative).
 `.map import <path|name>` loads JSON from an absolute/BlowTorch-relative path
 or a maps-dir name, then copies it into `/BlowTorch/maps/`.
@@ -212,27 +212,29 @@ recording, Draw, Links, or tile edits. **Edit** is required to record, create
 nests, use **Draw** / **Links**, and delete levels. Long-press the title opens
 the **Floors** radial.
 
-### Category radials (top chips)
+### Category radials (bottom chips; hide with ▾ tools)
 
-Under the title: **Nav** · **Floors** · **Build** · **File**. Each opens an
-in-map pie menu (no system status-bar flash).
+Bottom chrome: **Nav** · **Floors** · **Edit** · **More**, plus **Browse|Edit** and
+**Float|Full**. Tap **▾ tools** in the title to hide that chrome when you want
+more map. Each category opens an in-map pie menu (no system status-bar flash).
+Toggle wedges show their current state under the label (e.g. Follow **on**).
 
 | Chip | Actions |
 |------|---------|
-| **Nav** | Record, Follow, Center, Find, Undo, Close |
-| **Floors** | List, ↑, ↓, Root, Door, Delete (**Delete** = **Edit** only) |
-| **Build** | Draw, Links, Paths, Here, Edit (tile), **1-way** (toggle accept one-way specials) |
-| **File** | Save, Maps, New, Export |
+| **Nav** | Go there, Find, Center, Follow, Record, Undo |
+| **Floors** | Floor list, Floor ↑/↓, Root floor, To entrance, Rename floor, Delete floor |
+| **Edit** | Draw, Link mode, Set Here, Edit tile, Layout (spread/packed), 1-way specials, Moves, Link map |
+| **More** | Save, Maps, New map, Export, Opacity…, Capture |
 
-**Floors → List**: tap a floor to view; long-press = Go Here. In **Edit**, the
-browser also offers **Delete…** (confirm) — removes that floor and all its tiles.
-You cannot delete the last level.
+**Close** is only the title **✕** (not in the pie menus).
+
+**Floors → Floor list**: tap a floor to view; long-press = Go Here. In **Edit**,
+**Rename…** / **Delete…** on the selected row. You cannot delete the last level.
 
 **Draw** (Edit): grid on; tap empty cell to place; long-press empty = place + Here.
-**Links** (Edit): tap FROM then TO, then enter a walk verb (or unlink).
-**Paths** / **Pack**: Paths spaces tiles for arrows; Pack compresses neighbors.
-**Here**: set current to the selected tile. Tile **Edit** dialog: title / notes /
-level / exits. **Save** / **Export**: write map file now. **✕**: close.
+**Link mode** (Edit): tap FROM then TO, then pick a Moves verb (or unlink).
+**Layout**: **spread** spaces tiles for arrows + labels; **packed** is compact
+(arrows only, thinner heads). **Opacity…** (More): pick a percent — 100% is fully opaque.
 
 While **Record**ing, outbound exits store your typed command; the reverse edge is
 guessed. Walking back the same path overwrites that guess with your return
@@ -248,11 +250,22 @@ Long-press a tile and drag to move it on the grid (release without moving opens 
 tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
 current.
 
-Exits with a known destination draw as **arrows** between tiles with walk-word labels
-(`go west`, `n`, …). Use **Paths** so arrows/labels fit between tiles. If more than
-two commands share the same edge, the label shows `cmd1 · cmd2 +N` — tap it to open
-the full list (and optionally unlink). Cross-level exits show **▲** / **▼** / **◆**
-badges on the tile; tap a badge to jump to that floor (browse only).
+Exits with a known destination draw as **arrows** between tiles. In **spread**
+layout, walk-word labels sit on the shaft; in **packed**, only the shaft + heads
+(including diagonals). If more than two commands share an edge in spread mode,
+the label shows `cmd1 · cmd2 +N` — tap it for the full list.
+
+Badge glyphs on a tile:
+
+| Glyph | Meaning | Tap |
+|-------|---------|-----|
+| **▲** / **▼** | Exit to another **floor** of this map | Jump camera / Here to that floor |
+| **◆** | Special same-map nest (`enter` / `out`, …) | Jump to that floor |
+| **○** | Portal to **another map file** | Save current map, then open the linked map in the overlay |
+
+To create a portal: Edit → long-press tile → **Link to map…** (or **Edit → Link map**),
+pick the destination map and Moves command. Walking that command with **Follow**
+also loads the other map.
 
 ### Levels (tile-anchored)
 
@@ -260,9 +273,12 @@ Floors nest **per Here tile**: each stairs/door can have its own basement or att
 **↑** / **↓** (Floors radial) follow an existing nest from Here or return to the
 anchor door when leaving (**Browse**). Creating a nest needs **Edit**.
 
-**Browse floors:** **Floors → List** (name, tile count, “via …” for nests; tap =
-view; long-press = Go Here), or tap ▲/▼/◆ badges. **Root** / **Door** jump to the
-root floor or the nest’s anchor door.
+**Browse floors:** **Floors → Floor list** (name, tile count, “via …” for nests;
+tap = view; long-press = Go Here), or tap ▲/▼/◆/○ badges. **Root floor** /
+**To entrance** jump to the root floor or the nest’s anchor door.
+
+Hierarchy: **map file** → **floors (levels)** → **tiles**. Same-map height or
+independent floors stay in one file; a wholly separate zone is another map + **○**.
 
 Recording still maps `up`/`down` while you walk. Use **↑**/**↓** when you need a
 pocket floor that is not a simple vertical stack.
@@ -305,6 +321,10 @@ Print the summary with `.map dirs`.
 | `.map undo` | Undo last graph change |
 | `.map dirs` | Movement lexicon / grid offsets |
 | `.map maps` / `.map load <name>` / `.map new <name>` | Multiple maps |
+| `.map portal\|linkmap <cmd> map <name> [from <id>]` | Portal exit to another map file |
+| `.map levelink <cmd> new\|to <levelId>\|independent <name> [from <id>]` | Floor link (↑/↓ / existing / independent) |
+| `.map level rename [<id\|name>] <newName>` | Rename a floor |
+| `.map opacity [40-100]` | Overlay opacity |
 | `.map export` / `.map save` | Save now (`/BlowTorch/maps/`) |
 | `.map export\|save <path>` | Write JSON to that path |
 | `.map import <path\|name>` | Import JSON (path or maps-dir name); copy into maps |
@@ -328,7 +348,7 @@ Print the summary with `.map dirs`.
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links,
-legacy toolbar CSV (UI uses **Nav/Floors/Build/File** chips),
+legacy toolbar CSV (UI uses **Nav/Floors/Edit/More** chips),
 **Capture Title Regex** / **Capture Exits Regex** (keys
 `mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
 `.map capture`).
@@ -339,11 +359,13 @@ room title (and related hints) and creates missing neighbors from Room exits
 Without GMCP (typical on many MOOs), use **Rec** while walking, switch to
 **Edit** for **Draw** / **Links**, and/or `.map capture`.
 
-### Typical workflows
+### Typical workflows (mini-tutorial)
 
-1. **Record while exploring:** `.map new mymap` → open map → **Nav → Record** → walk → Record again to stop → **File → Save**.
-2. **Draw by hand:** title **Edit** → **Build → Draw** → tap empty cells → **Links** → **Here** on your room.
-3. **Fix layout:** long-press a tile and drag (or **Move…**). Use **Paths** to see arrows.
+1. **Record while exploring:** `.map new mymap` → open map → **Edit** mode → **Nav → Record** → walk → Record off → **More → Save**.
+2. **Draw by hand:** **Edit** mode → **Edit → Draw** → tap empty cells → **Link mode** → **Set Here** on your room.
+3. **Floors:** long-press a tile → **Add level…** → Floor ↑/↓ (new or existing) / Independent floor / Another map….
+4. **Jump maps:** after linking, tap **○** on the tile (or walk the portal command with Follow on).
+5. **Fix layout:** long-press-drag a tile. Use **Layout → spread** to see arrow labels.
 
 ### `.run` defaults
 

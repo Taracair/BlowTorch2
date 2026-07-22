@@ -335,6 +335,11 @@ public class MapperOverlayController
 
 			@Override
 			public void onInterLevelExitTap(MapTile from, MapExit exit, MapTile dest) {
+				if (exit != null && exit.getTargetMap() != null
+						&& exit.getTargetMap().trim().length() > 0) {
+					openLinkedMapVisual(exit.getTargetMap().trim(), exit.getCommand());
+					return;
+				}
 				jumpToInterLevelDest(dest);
 			}
 		});
@@ -2559,6 +2564,50 @@ public class MapperOverlayController
 			}
 		}
 		return byId;
+	}
+
+	/**
+	 * Visually switch the overlay to a linked map file (portal ○ badge).
+	 * Saves the current map first so you do not lose edits.
+	 */
+	private void openLinkedMapVisual(final String mapName, final String viaCmd) {
+		if (mapName == null || mapName.trim().length() == 0) {
+			return;
+		}
+		final String name = mapName.trim();
+		MainWindow activity = host.getMainWindow();
+		if (controller != null) {
+			toastStatus(controller.save());
+			toastStatus(controller.openMap(name));
+			selectedTileId = null;
+			refreshFromController();
+			if (mapperView != null) {
+				mapperView.post(new Runnable() {
+					@Override
+					public void run() {
+						MudMap m = controller.getMap();
+						if (m == null || mapperView == null) {
+							return;
+						}
+						MapTile here = m.findTile(m.getCurrentTileId());
+						if (here != null) {
+							mapperView.setFollowMode(false);
+							mapperView.centerOnTile(here);
+						}
+					}
+				});
+			}
+		} else {
+			host.runMapCommand("save");
+			host.runMapCommand("load " + name);
+			selectedTileId = null;
+			pullSnapshotFromService();
+		}
+		String via = viaCmd != null && viaCmd.trim().length() > 0
+				? " via " + viaCmd.trim() : "";
+		if (activity != null) {
+			Toast.makeText(activity, "→ map:" + name + via, Toast.LENGTH_SHORT).show();
+		}
 	}
 
 	/**
