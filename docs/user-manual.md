@@ -415,6 +415,14 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 New profiles start around font size **20** (readable on phones). Change under
 Options → Window → Font Size.
 
+## Newest text at top
+
+By default, fresh game output sits at the **bottom** of the window (classic
+terminal). Enable **Options → Window → Newest text at top?** to put live lines
+at the **top** and older scrollback below — handy when on-screen buttons cover
+the bottom edge. Drag **up** to dig into history; the home chevron still jumps
+back to live output.
+
 ## On-screen buttons: swipe + accordion
 
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.

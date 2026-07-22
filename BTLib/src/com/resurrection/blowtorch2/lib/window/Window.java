@@ -139,6 +139,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private final Paint mSearchMatchPaint = new Paint();
 	private final Paint mSearchMatchTextPaint = new Paint();
 	private boolean mTapDismissKeyboard = true;
+	/** When true, newest buffer lines draw at the top (older below). */
+	private boolean mNewestAtTop = false;
 	/** The buffer object that this window uses to store and draw ansi text. */
 	private TextTree mBuffer = null;
 	/** The buffer that is used to buffer text when BufferText() is set. */
@@ -540,6 +542,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (tapDismiss != null) {
 			mTapDismissKeyboard = (Boolean) tapDismiss.getValue();
 		}
+		BooleanOption newestAtTop = (BooleanOption) settings.findOptionByKey("newest_at_top");
+		if (newestAtTop != null) {
+			mNewestAtTop = (Boolean) newestAtTop.getValue();
+		}
 		
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
 		
@@ -696,19 +702,47 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return null;
 	}
 
-	/** Convert raw view touch Y to a buffer broken-line index (0 = live bottom / newest). */
+	/** Convert raw view touch Y to a buffer broken-line index (0 = live / newest). */
 	private int touchYToBufferLine(final float touchY) {
-		// Short content always draws at live bottom; keep scroll delta at 0 so empty
-		// padding above the text does not invent huge line numbers before clamp.
+		// Short content always draws at the live edge; keep scroll delta at 0 so empty
+		// padding does not invent huge line numbers before clamp.
 		double scrollDelta = mScrollback - SCROLL_MIN;
 		if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
 			scrollDelta = 0;
 		}
-		final float y = (float) (this.getHeight() - touchY + scrollDelta);
+		final float y;
+		if (mNewestAtTop) {
+			// Newest at top: line 0 near touchY=0.
+			y = (float) (touchY + scrollDelta);
+		} else {
+			// Classic: newest at bottom.
+			y = (float) (this.getHeight() - touchY + scrollDelta);
+		}
 		if (mPrefLineSize <= 0) {
 			return 0;
 		}
 		return (int) Math.floor(y / (float) mPrefLineSize);
+	}
+
+	/**
+	 * Map iterator-space baseline Y (classic bottom-anchored) to on-screen baseline.
+	 * When {@link #mNewestAtTop}, the live edge flips to the top of the window.
+	 */
+	private float screenBaselineY(final float logicalY) {
+		if (!mNewestAtTop) {
+			return logicalY;
+		}
+		return mHeight - logicalY + mPrefLineSize;
+	}
+
+	/** Screen Y for a buffer line index (0 = newest), used by selection chrome. */
+	private int bufferLineToScreenY(final int line, final float withinLineOffset) {
+		final double scrollDelta = mScrollback - SCROLL_MIN;
+		final float logicalFromBottom = line * mPrefLineSize + withinLineOffset - (float) scrollDelta;
+		if (mNewestAtTop) {
+			return (int) (logicalFromBottom);
+		}
+		return (int) (this.getHeight() - logicalFromBottom);
 	}
 
 	private void endTextSelectionMode(final View v) {
@@ -823,15 +857,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (s == null || s.length() == 0) {
 			return 0f;
 		}
+		final float baseline = screenBaselineY(y);
 		float cursor = x;
 		final float cell = mOneCharWidth;
 		final Paint.FontMetrics fm = paint.getFontMetrics();
 		// Block fills use the full line box; text must keep room below the baseline
 		// for descenders (y, g, j, p) — clipping to baseline cut them off.
-		final float lineTop = y - mPrefLineSize + Math.max(0, mPrefLineExtra);
-		final float lineBot = y + Math.max(fm.descent + 1f, (float) mPrefLineExtra);
-		final float textTop = y + fm.ascent;
-		final float textBot = y + fm.descent + 1f;
+		final float lineTop = baseline - mPrefLineSize + Math.max(0, mPrefLineExtra);
+		final float lineBot = baseline + Math.max(fm.descent + 1f, (float) mPrefLineExtra);
+		final float textTop = baseline + fm.ascent;
+		final float textBot = baseline + fm.descent + 1f;
 		for (int i = 0; i < s.length(); ) {
 			final int cp = s.codePointAt(i);
 			final int len = Character.charCount(cp);
@@ -841,7 +876,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
 			} else {
 				c.clipRect(cursor, textTop, cursor + cell, textBot);
-				c.drawText(s, i, i + len, cursor, y, paint);
+				c.drawText(s, i, i + len, cursor, baseline, paint);
 			}
 			c.restore();
 			cursor += cell;
@@ -852,12 +887,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Top of the ANSI background / block cell for baseline {@code y}. */
 	private float cellTop(final float baselineY) {
-		return baselineY - mPrefLineSize + Math.max(0, mPrefLineExtra);
+		final float y = screenBaselineY(baselineY);
+		return y - mPrefLineSize + Math.max(0, mPrefLineExtra);
 	}
 
 	/** Bottom of the ANSI background cell — includes descender room. */
 	private float cellBottom(final float baselineY) {
-		return baselineY + Math.max(2, mPrefLineExtra + 2);
+		return screenBaselineY(baselineY) + Math.max(2, mPrefLineExtra + 2);
 	}
 
 	/**
@@ -1138,7 +1174,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mLastFrameTime == 0) { //never drawn before
 			if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) { mScrollback = SCROLL_MIN; return;}
 			if (mFingerDown) {
-				mScrollback = (double) Math.floor(mScrollback + diff_amount);
+				// Newest-at-top: drag up to dig into history (older lines below).
+				final double delta = mNewestAtTop ? -diff_amount : diff_amount;
+				mScrollback = (double) Math.floor(mScrollback + delta);
 				if (mScrollback < SCROLL_MIN) {
 					mScrollback = SCROLL_MIN;
 				} else {
@@ -1160,12 +1198,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 				float durationSinceLastFrame = ((float) (nowdrawtime - mLastFrameTime)) / 1000.0f; //convert to seconds
 				mLastFrameTime = System.currentTimeMillis();
+				final double flingSign = mNewestAtTop ? -1.0 : 1.0;
 				if (mFlingVelocity < 0) {
 					mFlingVelocity = mFlingVelocity + fling_accel * durationSinceLastFrame;
-					mScrollback =  mScrollback + mFlingVelocity * durationSinceLastFrame;
+					mScrollback =  mScrollback + flingSign * mFlingVelocity * durationSinceLastFrame;
 				} else if (mFlingVelocity > 0) {
 					mFlingVelocity = mFlingVelocity - fling_accel * durationSinceLastFrame;
-					mScrollback =  mScrollback + mFlingVelocity * durationSinceLastFrame;
+					mScrollback =  mScrollback + flingSign * mFlingVelocity * durationSinceLastFrame;
 				}
 				
 				if (Math.abs(Double.valueOf(mFlingVelocity)) < 15) {
@@ -1585,10 +1624,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								
 								
 								Rect r = new Rect();
+								final float linkY = screenBaselineY(y);
 								r.left = (int) x;
-								r.top = (int) (y - p.getTextSize());
+								r.top = (int) (linkY - p.getTextSize());
 								r.right = (int) (x + cellWidth(text));
-								r.bottom = (int) (y + 5);
+								r.bottom = (int) (linkY + 5);
 								if (mLinkMode == LINK_MODE.BACKGROUND) {
 									linkColor.setColor(mLinkHighlightColor);
 									c.drawRect(r.left, r.top, r.right, r.bottom, linkColor);
@@ -1723,7 +1763,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							} catch (UnsupportedEncodingException e) {
 								e.printStackTrace();
 							}
-							c.drawText(str, x, y, p);
+							c.drawText(str, x, screenBaselineY(y), p);
 							x += p.measureText(str);
 						}
 						break;
@@ -1917,7 +1957,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			scrollerSize = windowPercent * workingHeight;
 			posPercent = (mScrollback - (workingHeight / 2)) / (mBuffer.getBrokenLineCount() * mPrefLineSize);
 			scrollerPos = workingHeight * posPercent;
-			scrollerPos = workingHeight - scrollerPos;
+			if (!mNewestAtTop) {
+				scrollerPos = workingHeight - scrollerPos;
+			}
 
 			int blueValue = Math.max(0, Math.min(255, (int) (-1 * 255 * posPercent + 255)));
 			int redValue = Math.max(0, Math.min(255, (int) (255 * posPercent)));
@@ -1931,21 +1973,29 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		if (theSelection != null) {
 			//compute rects for the guys.
-			//compute the current line in pixels from the bottom of the screen.
-			int currentLine = theSelection.start.line * mPrefLineSize;
-			currentLine = (int) (currentLine - (mScrollback - SCROLL_MIN));
-			
-			
-			int startBottom = (int) (this.getHeight() - currentLine);
-			int startTop = startBottom - mPrefLineSize;
+			int startEdge = bufferLineToScreenY(theSelection.start.line, 0);
+			int startTop;
+			int startBottom;
+			if (mNewestAtTop) {
+				startTop = startEdge;
+				startBottom = startEdge + mPrefLineSize;
+			} else {
+				startBottom = startEdge;
+				startTop = startEdge - mPrefLineSize;
+			}
 			int startLeft = theSelection.start.column * mOneCharWidth;
 			int startRight = startLeft + mOneCharWidth;
 			
-			currentLine = theSelection.end.line * mPrefLineSize;
-			currentLine = (int) (currentLine - (mScrollback - SCROLL_MIN));
-			
-			int endBottom = (int) (this.getHeight() - currentLine);
-			int endTop = endBottom - mPrefLineSize;
+			int endEdge = bufferLineToScreenY(theSelection.end.line, 0);
+			int endTop;
+			int endBottom;
+			if (mNewestAtTop) {
+				endTop = endEdge;
+				endBottom = endEdge + mPrefLineSize;
+			} else {
+				endBottom = endEdge;
+				endTop = endEdge - mPrefLineSize;
+			}
 			int endLeft = theSelection.end.column * mOneCharWidth;
 			int endRight = endLeft + mOneCharWidth;
 			
@@ -2165,6 +2215,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				|| unitStr == null || unitStr.length() == 0) {
 			return;
 		}
+		final float baseline = screenBaselineY(y);
 		int unitLen = unitStr.length();
 		mSearchMatchTextPaint.setTextSize(p.getTextSize());
 		mSearchMatchTextPaint.setTypeface(p.getTypeface());
@@ -2179,7 +2230,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int localStart = overlapStart - unitPlainStart;
 			int localEnd = overlapEnd - unitPlainStart;
 			float left = x + cellWidth(localStart);
-			c.drawText(unitStr.substring(localStart, localEnd), left, y, mSearchMatchTextPaint);
+			c.drawText(unitStr.substring(localStart, localEnd), left, baseline, mSearchMatchTextPaint);
 		}
 	}
 
@@ -3805,6 +3856,11 @@ end
 			case word_wrap:
 				this.setWordWrap((Boolean)o.getValue());
 				break;
+			case newest_at_top:
+				mNewestAtTop = (Boolean) o.getValue();
+				jumpToZero();
+				this.invalidate();
+				break;
 			
 			case color_option:
 				switch((Integer)o.getValue()) {
@@ -3876,6 +3932,7 @@ end
 		hyperlink_mode,
 		hyperlink_color,
 		word_wrap,
+		newest_at_top,
 		color_option,
 		screen_on,
 		font_size,
@@ -3957,10 +4014,13 @@ end
 			float x = event.getX();
 			float y = event.getY();
 			
-			//convert y to be at the bottom of the screen.
-			y = (float)v.getHeight() - y;
-			
-			y += (mScrollback-SCROLL_MIN);
+			if (mNewestAtTop) {
+				y = y + (float) (mScrollback - SCROLL_MIN);
+			} else {
+				// convert y to be at the bottom of the screen.
+				y = (float) v.getHeight() - y;
+				y += (mScrollback - SCROLL_MIN);
+			}
 			
 			float xform_to_line = y / (float)mPrefLineSize;
 			int line = (int)Math.floor(xform_to_line);
@@ -4394,7 +4454,7 @@ end
 		}
 		
 		int endx = (int) ((selectedSelector.column * mOneCharWidth) + (0.5*mOneCharWidth));
-		int endy = (int) ((this.getHeight() - ((selectedSelector.line * mPrefLineSize) + (0.5*mSelectionIndicatorFontSize) - (mScrollback-SCROLL_MIN))));
+		int endy = bufferLineToScreenY(selectedSelector.line, (float) (0.5 * mSelectionIndicatorFontSize));
 		//widgetX = endx;
 		//widgetY = endy;
 		selectorCenterX = endx;

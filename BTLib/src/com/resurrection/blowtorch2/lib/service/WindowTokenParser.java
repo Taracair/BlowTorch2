@@ -257,6 +257,15 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case newest_at_top:
+						// Default is false; persist only when enabled.
+						if ((Boolean) ((BooleanOption) o).getValue()) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text("true");
+							out.endTag("", "option");
+						}
+						break;
 					case hyperlink_color:
 						if (((Integer) ((ColorOption) o).getValue()) != WindowToken.DEFAULT_HYPERLINK_COLOR) {
 							out.startTag("", "option");
