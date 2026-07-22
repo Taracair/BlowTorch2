@@ -280,25 +280,29 @@ Mapper
   [REC] = recording (Edit mode only). Title: Browse|Edit and Float|Full
   (Browse / Float default). Browse = view/nav only (no record, Draw, Links,
   tile edit). Edit required for nests, Draw, Links, delete.
-  Long-press title = Floors radial.
+  Long-press title = Floors radial. Title ✕ closes the map (not in pie menus).
+  ▾ tools hides bottom chrome (radials + Browse/Edit + Float/Full).
 
-  Top chips (category radials — in-map pie, no status-bar flash):
-    Nav: Record, Follow, Center, Find, Undo, Close
-    Floors: List, ↑, ↓, Root, Door, Delete (Delete = Edit only)
-    Build: Draw, Links, Paths, Here, Edit (tile), 1-way (accept one-way specials)
-    File: Save, Maps, New, Export
-  Level browser (Floors → List): tap = view; long-press = Go Here.
-    Edit adds Delete… (confirm) — removes floor + all tiles; cannot delete last.
+  Bottom chips (category radials — in-map pie, no status-bar flash):
+    Nav:    Go there, Find, Center, Follow, Record, Undo
+    Floors: Floor list, Floor ↑/↓, Root floor, To entrance, Rename, Delete
+    Edit:   Draw, Link mode, Set Here, Edit tile, Layout (spread/packed),
+            1-way specials, Moves, Link map
+    More:   Save, Maps, New map, Export, Opacity…, Capture
+  Level browser (Floors → Floor list): tap = view; long-press = Go Here.
+    Edit adds Rename… / Delete…; cannot delete last level.
   Draw (Edit) = tap empty=place; long-press empty=place+Here
-  Links (Edit) = tap FROM then TO, enter walk verb (or unlink)
-  Paths/Pack = Paths spaces tiles for arrows; Pack compresses
+  Link mode (Edit) = tap FROM then TO, pick Moves verb (or unlink)
+  Layout: spread = arrows + labels; packed = compact arrows only
+  Badges: ▲/▼ floor · ◆ same-map special · ○ other map (tap opens that map)
   1-way off (default): Record out/enter closes to unique inbound room.
   1-way ON: specials always spawn a new nearby tile (.map oneway / Options).
-  Follow (no Record): advances Here along known exits so the camera tracks you.
+  Follow (no Record): advances Here along known exits (and ○ portals).
   ↑/↓ = nest up/down from Here. Browse: follow/return only; create needs Edit.
   Recording: outbound = your command; reverse guessed; walk back overwrites
   the guess with your return command (e.g. s → go south).
   Long-press tile + drag = move (release without move = tile menu).
+  Long-press tile → Add level… / Link to map… for floors and portals.
   Double-tap tile = Set as Here. Double-tap empty = center on current.
 
   Movement lexicon (+x east, +y south; .map dirs for full list):
@@ -323,8 +327,10 @@ Mapper
   Levels (tile-anchored nests from Here):
     .map level list|prev|next|set <name>
       prev/next = Floors ↑/↓ nest semantics (not global stack index)
+    .map level rename [<id|name>] <newName>
     .map level delete <id|name>   Edit; removes floor + tiles; not last level
     .map level move <tileId> <levelName>
+    .map levelink <cmd> new|to <levelId>|independent <name> [from <id>]
 
   Find / path / goto:
     .map find <query>    list matching rooms (alias: search)
@@ -334,6 +340,7 @@ Mapper
     .map center          center on current room
     .map undo
     .map dirs            movement lexicon / grid offsets
+    .map opacity [40-100]
 
   Multiple maps (JSON under /BlowTorch/maps/):
     .map maps
@@ -341,6 +348,7 @@ Mapper
     .map new <name>
     .map export | .map save [path]   bare = maps dir; path = write there
     .map import <path|name>
+    .map portal|linkmap <cmd> map <name> [from <id>]
 
   Zoom (map UI must be open):
     .map zoom in|out|reset
@@ -384,14 +392,16 @@ Mapper
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
   recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
   level-up/down command CSVs, legacy toolbar CSV, capture title/exits regex).
-  Map chrome uses top chips Nav / Floors / Build / File (in-map pie menus).
+  Map chrome uses bottom chips Nav / Floors / Edit / More (hide with ▾ tools).
   Level-up/down CSVs control which recording moves create new floors
   (default u,up,climb,ascend / d,down,descend; clear both = never auto-level).
 
   Typical flows:
-    Record: .map new mymap → open → Nav Rec → walk → Rec → File Save
-    Draw:   title Edit → Build Draw → place tiles → Links → Here
-    Layout: Build Paths for arrows; long-press tile and drag, or Move…
+    Record: .map new mymap → open → Edit mode → Nav Record → walk → More Save
+    Draw:   Edit mode → Edit Draw → place tiles → Link mode → Set Here
+    Floors: long-press tile → Add level… (↑/↓ / independent / another map)
+    Layout: Edit → Layout spread for labels; packed = compact arrows
+    Portal: Link to map… then tap ○ to open the linked map
 
 On-screen buttons (button_window)
 ---------------------------------
