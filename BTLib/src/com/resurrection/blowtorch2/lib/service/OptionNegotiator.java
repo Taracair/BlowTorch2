@@ -38,13 +38,11 @@ public class OptionNegotiator {
 	private static final int LSB_MASK = 0x000000FF;
 	/** Second LSB mask for an int. */
 	private static final int SLSB_MASK = 0x0000FF00;
-	/** Maximum number of tries for TTYPE attempts. */
-	private static final int TTYPE_MAX_TRIES = 3;
 	/** TTYPE data location. */
 	private static final int TTYPE_DATA_LOCATION = 3;
 	/**
-	 * MTTS bitvector: ANSI (1) + UTF-8 (4) + 256 colors (8). No mouse/truecolor
-	 * yet — conservative announcement for GraphicMUD-style capability probes.
+	 * MTTS bitvector: ANSI (1) + UTF-8 (4) + 256 colors (8) = 13.
+	 * @see <a href="https://mudstandards.org/mud/mtts">MUD Terminal Type Standard</a>
 	 */
 	private static final int MTTS_BITS = 1 | 4 | 8;
 	/** Tracker for the configured number of columns for NAWS. */
@@ -84,16 +82,14 @@ public class OptionNegotiator {
 
 	private void rebuildTermTypes() {
 		String primary = (mTermType != null && mTermType.length() > 0) ? mTermType : "BlowTorch";
-		if (mUseMTTS) {
-			mTermTypes = new String[] {
-					primary,
-					"ANSI",
-					"MTTS " + MTTS_BITS,
-					"UNKNOWN"
-			};
-		} else {
-			mTermTypes = new String[] { primary, "ansi", "BlowTorch-256color", "UNKNOWN" };
-		}
+		// Always use the MTTS three-reply cycle (name → ANSI → MTTS <bits>).
+		// Use MTTS? selects full capability bits (13) vs ANSI-only (1).
+		final int bits = mUseMTTS ? MTTS_BITS : 1;
+		mTermTypes = new String[] {
+				primary,
+				"ANSI",
+				"MTTS " + bits
+		};
 		mTermTypeAttempt = 0;
 	}
 	
@@ -239,9 +235,10 @@ public class OptionNegotiator {
     		buf.put(responsedata, 0 , responsedata.length);
     		buf.put(sequence, sequence.length - 2, 2);
     		
-    		if (mTermTypeAttempt < TTYPE_MAX_TRIES) {
+    		// Advance until the last entry, then keep repeating it (RFC1091 / MTTS cycle end).
+    		if (mTermTypeAttempt < mTermTypes.length - 1) {
     			mTermTypeAttempt++;
-    		} //else return UNKNOWN every time
+    		}
     		return buf.array();
     		
     		//break;

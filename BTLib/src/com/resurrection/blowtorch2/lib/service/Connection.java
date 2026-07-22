@@ -4157,7 +4157,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		try {
-			mProcessor.setUseMTTS(readBoolOption("use_mtts", false));
+			mProcessor.setUseMTTS(readBoolOption("use_mtts", true));
 			mProcessor.setUseMSDP(readBoolOption("use_msdp", false));
 			mProcessor.setUseMSSP(readBoolOption("use_mssp", false));
 		} catch (Exception ignored) {
