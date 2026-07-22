@@ -362,11 +362,14 @@ Mapper
     .map neighbor <cmd> [from <id>]
     .map move [id] <x> <y>
 
-  Title / notes / links / conflicts:
+  Title / notes / links / locks / conflicts:
     .map title <text>
     .map note <text>
     .map title for <tileId> <text>
     .map note for <tileId> <text>
+    .map locktitle [for <tileId>] on|off|toggle
+    .map lockposition [for <tileId>] on|off|toggle
+    Edit tile dialog: Lock title / Lock position (GMCP won't overwrite)
     .map link <cmd> [from <id>] to <tileId>
     .map unlink <cmd> [from <id>]
     .map conflict | list | list all
@@ -382,6 +385,7 @@ Mapper
   GMCP Room: Use GMCP? + Room in Manage modules… + Mapper → Use GMCP Room
   (or Configure Room Sync…). Room.Info builds the map: num/id as identity,
   coords/coord x,y (z = floor), exits {dir:vnum} as neighbors/stubs.
+  Lock title / Lock position on a tile keep GMCP from overwriting that field.
   Does not parse ASCII maps from game text. Without GMCP: Rec / Draw / Capture.
 
   Capture (no GMCP / custom room lines):

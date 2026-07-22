@@ -25,6 +25,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
  * .map level list|prev|next|set &lt;name&gt;|delete &lt;id|name&gt;
  * .map find|path|goto &lt;query&gt;
  * .map title|note &lt;text&gt;
+ * .map locktitle|lockposition [for &lt;id&gt;] on|off|toggle
  * .map link|unlink …
  * .map maps | load | new | import | export | undo | center | zoom | mode …
  * .map capture preview|apply
@@ -92,6 +93,17 @@ public class MapCommand extends SpecialCommand {
 				return null;
 			}
 			return doTitleOrNotes(c, mapper, rest, false);
+		case "locktitle":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			return doLockFlag(c, mapper, rest, true);
+		case "lockposition":
+		case "lockpos":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			return doLockFlag(c, mapper, rest, false);
 		case "link":
 			if (!requireEdit(c, mapper)) {
 				return null;
@@ -255,6 +267,61 @@ public class MapCommand extends SpecialCommand {
 			note(c, mapper.setTitle(tileId, text));
 		} else {
 			note(c, mapper.setNotes(tileId, text));
+		}
+		return null;
+	}
+
+	/**
+	 * {@code .map locktitle|lockposition [for <tileId>] on|off|toggle}.
+	 */
+	private Object doLockFlag(Connection c, MapperController mapper, String rest,
+			boolean titleLock) {
+		String work = rest != null ? rest.trim() : "";
+		String tileId = null;
+		String lower = work.toLowerCase(Locale.US);
+		if (lower.startsWith("for ")) {
+			String after = work.substring(4).trim();
+			int sp = after.indexOf(' ');
+			if (sp <= 0) {
+				note(c, titleLock
+						? "Usage: .map locktitle for <tileId> on|off|toggle"
+						: "Usage: .map lockposition for <tileId> on|off|toggle");
+				return null;
+			}
+			tileId = after.substring(0, sp).trim();
+			work = after.substring(sp + 1).trim();
+			lower = work.toLowerCase(Locale.US);
+		}
+		MapTile tile = null;
+		if (tileId != null && tileId.length() > 0) {
+			MudMap map = mapper.getMap();
+			tile = map != null ? map.findTile(tileId) : null;
+		} else {
+			MudMap map = mapper.getMap();
+			String cur = map != null ? map.getCurrentTileId() : null;
+			tile = map != null && cur != null ? map.findTile(cur) : null;
+		}
+		if (tile == null) {
+			note(c, "Mapper: no tile.");
+			return null;
+		}
+		boolean next;
+		if (lower.equals("on") || lower.equals("1") || lower.equals("true")) {
+			next = true;
+		} else if (lower.equals("off") || lower.equals("0") || lower.equals("false")) {
+			next = false;
+		} else if (lower.equals("toggle") || lower.length() == 0) {
+			next = titleLock ? !tile.isLockTitle() : !tile.isLockPosition();
+		} else {
+			note(c, titleLock
+					? "Usage: .map locktitle [for <tileId>] on|off|toggle"
+					: "Usage: .map lockposition [for <tileId>] on|off|toggle");
+			return null;
+		}
+		if (titleLock) {
+			note(c, mapper.setLockTitle(tile.getId(), next));
+		} else {
+			note(c, mapper.setLockPosition(tile.getId(), next));
 		}
 		return null;
 	}
@@ -987,6 +1054,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map goto <query>  (send if path_auto_send) | .map go <query|id> (always send)\n");
 		sb.append("  .map title <text> | .map note|notes <text>\n");
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
+		sb.append("  .map locktitle [for <id>] on|off|toggle\n");
+		sb.append("  .map lockposition|lockpos [for <id>] on|off|toggle\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
 		sb.append("  .map dirs|directions|lexicon  (current move table + notes)\n");
 		sb.append("  .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");

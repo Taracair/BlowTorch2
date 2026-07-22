@@ -883,6 +883,8 @@ public class MapperController {
 			existing.setLevelId(tile.getLevelId());
 			existing.setGridX(tile.getGridX());
 			existing.setGridY(tile.getGridY());
+			existing.setLockTitle(tile.isLockTitle());
+			existing.setLockPosition(tile.isLockPosition());
 			existing.setExits(tile.getExits());
 		}
 		refreshConflicts();
@@ -2263,6 +2265,36 @@ public class MapperController {
 		t.setNotes(text);
 		notifyChanged();
 		return "Mapper: notes set on " + shortId(t.getId()) + ".";
+	}
+
+	/**
+	 * Lock/unlock GMCP title overwrite on {@code tileId}, or current when null/empty.
+	 */
+	public String setLockTitle(final String tileId, final boolean locked) {
+		MapTile t = resolveEditTile(tileId);
+		if (t == null) {
+			return "Mapper: no tile.";
+		}
+		pushUndo();
+		t.setLockTitle(locked);
+		notifyChanged();
+		return "Mapper: lock title " + (locked ? "on" : "off")
+				+ " for " + shortId(t.getId()) + ".";
+	}
+
+	/**
+	 * Lock/unlock GMCP position overwrite on {@code tileId}, or current when null/empty.
+	 */
+	public String setLockPosition(final String tileId, final boolean locked) {
+		MapTile t = resolveEditTile(tileId);
+		if (t == null) {
+			return "Mapper: no tile.";
+		}
+		pushUndo();
+		t.setLockPosition(locked);
+		notifyChanged();
+		return "Mapper: lock position " + (locked ? "on" : "off")
+				+ " for " + shortId(t.getId()) + ".";
 	}
 
 	private MapTile resolveEditTile(final String tileId) {

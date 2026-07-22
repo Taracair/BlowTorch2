@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
@@ -1605,7 +1606,7 @@ public class MapperOverlayController
 			new MapperTileEditorDialog(host.getMainWindow(), controller, tile).show();
 			return;
 		}
-		// Service process owns the map — edit via .map title|note for <id>
+		// Service process owns the map — edit via .map title|note|lock* for <id>
 		MainWindow activity = host.getMainWindow();
 		LinearLayout root = new LinearLayout(activity);
 		root.setOrientation(LinearLayout.VERTICAL);
@@ -1619,8 +1620,16 @@ public class MapperOverlayController
 		notes.setHint("Notes");
 		notes.setMinLines(2);
 		notes.setText(tile.getNotes() != null ? tile.getNotes() : "");
+		final CheckBox lockTitle = new CheckBox(activity);
+		lockTitle.setText("Lock title (GMCP won't overwrite)");
+		lockTitle.setChecked(tile.isLockTitle());
+		final CheckBox lockPosition = new CheckBox(activity);
+		lockPosition.setText("Lock position (GMCP won't move)");
+		lockPosition.setChecked(tile.isLockPosition());
 		root.addView(title);
 		root.addView(notes);
+		root.addView(lockTitle);
+		root.addView(lockPosition);
 		final String tileId = tile.getId();
 		new AlertDialog.Builder(activity)
 				.setTitle("Edit tile")
@@ -1632,6 +1641,10 @@ public class MapperOverlayController
 						String n = notes.getText().toString();
 						host.runMapCommand("title for " + tileId + " " + t);
 						host.runMapCommand("note for " + tileId + " " + n);
+						host.runMapCommand("locktitle for " + tileId + " "
+								+ (lockTitle.isChecked() ? "on" : "off"));
+						host.runMapCommand("lockposition for " + tileId + " "
+								+ (lockPosition.isChecked() ? "on" : "off"));
 						pullSnapshotFromService();
 					}
 				})
