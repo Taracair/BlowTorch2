@@ -132,6 +132,12 @@ public class MapCommand extends SpecialCommand {
 				return null;
 			}
 			return doNeighbor(c, mapper, rest);
+		case "levelink":
+		case "levellink":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			return doLevelLink(c, mapper, rest);
 		case "portal":
 		case "linkmap":
 			if (!requireEdit(c, mapper)) {
@@ -658,6 +664,51 @@ public class MapCommand extends SpecialCommand {
 			note(c, mapper.addNeighbor(fromId, cmd));
 		} else {
 			note(c, mapper.addNeighbor(null, work));
+		}
+		return null;
+	}
+
+	/**
+	 * {@code .map levelink <cmd> new [from <tileId>]}
+	 * {@code .map levelink <cmd> to <levelId> [from <tileId>]}
+	 * {@code .map levelink <cmd> independent <name> [from <tileId>]}
+	 */
+	private Object doLevelLink(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0) {
+			note(c, "Usage: .map levelink <cmd> new|to <levelId>|independent <name> [from <tileId>]");
+			return null;
+		}
+		String work = rest.trim();
+		String lower = work.toLowerCase(Locale.US);
+		String fromId = null;
+		int fromIdx = lower.indexOf(" from ");
+		if (fromIdx >= 0) {
+			fromId = work.substring(fromIdx + 6).trim();
+			work = work.substring(0, fromIdx).trim();
+			lower = work.toLowerCase(Locale.US);
+		}
+		int sp = work.indexOf(' ');
+		if (sp <= 0) {
+			note(c, "Usage: .map levelink <cmd> new|to <levelId>|independent <name> [from <tileId>]");
+			return null;
+		}
+		String cmd = work.substring(0, sp).trim();
+		String mode = work.substring(sp + 1).trim();
+		String modeLower = mode.toLowerCase(Locale.US);
+		if (modeLower.equals("new")) {
+			note(c, mapper.addLevelNeighbor(fromId, cmd, null, null));
+		} else if (modeLower.startsWith("to ")) {
+			String levelId = mode.substring(3).trim();
+			note(c, mapper.addLevelNeighbor(fromId, cmd, levelId, null));
+		} else if (modeLower.startsWith("independent ")) {
+			String name = mode.substring("independent ".length()).trim();
+			if (name.length() == 0) {
+				note(c, "Usage: .map levelink <cmd> independent <name> [from <tileId>]");
+			} else {
+				note(c, mapper.addLevelNeighbor(fromId, cmd, null, name));
+			}
+		} else {
+			note(c, "Usage: .map levelink <cmd> new|to <levelId>|independent <name> [from <tileId>]");
 		}
 		return null;
 	}
