@@ -94,10 +94,11 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Recording default** | Seed for new sessions (live toggle is still Rec / `.map record`) |
 | **Follow player** | Camera tracks current room |
 | **Path auto-send** | If on, `.map goto` sends the path; if off, prints only |
-| **Use GMCP Room** | Sync from `Room.*` when GMCP is on |
-| **Configure Room Sync…** | Checkboxes: match by `num`, absolute `coords`/`coord`, create exit neighbors (Eden/IRE-style) |
+| **Use GMCP Room** | Sync from `Room.*` when GMCP is on (independent of Record/Draw) |
+| **Configure Room Sync…** | Auto-grow, match by `num`, absolute coords (off by default), create exits |
+| **GMCP: Auto-grow map?** | Create rooms/exits from Room.Info; off = follow existing by number only |
 | **GMCP: Match by room number?** | Prefer `num`/`id`/`vnum` as tile identity |
-| **GMCP: Use absolute coordinates?** | Place at x,y (z → floor); off = title/exits on current tile only |
+| **GMCP: Use absolute coordinates?** | Place at x,y only when ≤1 cell away; off = grow beside previous (Eden) |
 | **GMCP: Create exit neighbors?** | Create/link missing exits; vnum stubs until visited; never deletes exits |
 | **Auto reverse links** | Suggest opposite exits when linking |
 | **Accept One-Way Specials?** | ON = recording `out`/`enter` always makes a new tile. OFF (default) = if exactly one room already leads into Here, link the special back there. Also **Build → 1-way** |
