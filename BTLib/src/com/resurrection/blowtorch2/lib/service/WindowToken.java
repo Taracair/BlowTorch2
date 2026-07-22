@@ -38,6 +38,8 @@ public class WindowToken implements Parcelable {
 	/** Default buffer size. */
 	/** Default scrollback lines. Higher = more history in RAM; session .txt log covers longer runs. */
 	public static final int DEFAULT_BUFFER_SIZE = 2000;
+	/** Default top text inset (pixels). */
+	public static final int DEFAULT_TOP_PADDING = 0;
 	/** Default font path (bundled asset). */
 	public static final String DEFAULT_FONT_PATH = "fonts/DejaVuSansMono.ttf";
 	/** Required field for the parcelable interface. */
@@ -63,6 +65,8 @@ public class WindowToken implements Parcelable {
 		word_wrap,
 		/** Newest game lines at the top of the window (older below). */
 		newest_at_top,
+		/** Top inset for game text (pixels); keeps lines clear of camera cutouts. */
+		top_padding,
 		/** Color mode (see color debug option). */
 		color_option,
 		/** Font size option. */
@@ -302,6 +306,13 @@ public class WindowToken implements Parcelable {
 		newestAtTop.setKey("newest_at_top");
 		newestAtTop.setValue(false);
 		window.addOption(newestAtTop);
+
+		IntegerOption topPadding = new IntegerOption();
+		topPadding.setTitle("Top padding (px)");
+		topPadding.setDescription("Extra empty space above game text (pixels). Use for notch/camera cutouts; on-screen buttons are unaffected.");
+		topPadding.setKey("top_padding");
+		topPadding.setValue(DEFAULT_TOP_PADDING);
+		window.addOption(topPadding);
 
 		BooleanOption tapDismiss = new BooleanOption();
 		tapDismiss.setTitle("Tap window hides keyboard?");

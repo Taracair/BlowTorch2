@@ -5,7 +5,7 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text display: font, buffer, word wrap, **Newest text at top?**, hyperlinks, ANSI color |
+| **Window** | Per-window text display: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, hyperlinks, ANSI color |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
