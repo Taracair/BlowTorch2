@@ -275,12 +275,12 @@ public final class MapDirections {
 		out.add("  e/east      → (+1,0)");
 		out.add("  w/west      → (-1,0)");
 		out.add("  ne/nw/se/sw → diagonals");
-		out.add("Levels (Options → Mapper Level-Up/Down CSV, or File → Moves):");
+		out.add("Levels (Options → Mapper Level-Up/Down CSV, or Edit → Moves):");
 		out.add("  up CSV:   " + DEFAULT_LEVEL_UP_COMMANDS + " → level +1");
 		out.add("  down CSV: " + DEFAULT_LEVEL_DOWN_COMMANDS + " → level -1");
 		out.add("Special (off-grid neighbor):");
 		out.add("  in/enter, out/leave/exit, and any other unlisted command");
-		out.add("Edit the full table: map File → Moves, Options → Mapper Move Effects,");
+		out.add("Edit the full table: map Edit → Moves, Options → Mapper Move Effects,");
 		out.add("  or .map moves [list|reset|set|unset|replace …]");
 		out.add("Prefixes stripped: go | walk | move  (e.g. go west → w)");
 		out.add("Built-in compass wins over Speedwalk keys:");

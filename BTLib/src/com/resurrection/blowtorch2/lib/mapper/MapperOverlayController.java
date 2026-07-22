@@ -87,8 +87,11 @@ public class MapperOverlayController
 	 * (service owns it) — keep local copy and sync via {@code .map mode} + snapshot.
 	 */
 	private boolean sessionEditMode;
-	/** Mirrors service {@code mapper_accept_one_way_specials} for Build radial label. */
+	/** Mirrors service {@code mapper_accept_one_way_specials} for Edit radial label. */
 	private boolean sessionAcceptOneWaySpecials;
+	/** Mirrors service GMCP Room sync / grow flags for More radial labels. */
+	private boolean snapshotUseGmcp;
+	private boolean snapshotGmcpGrow = true;
 
 	public MapperOverlayController(Host host) {
 		this.host = host;
@@ -307,7 +310,7 @@ public class MapperOverlayController
 					placeTileAt(gridX, gridY, true);
 				} else if (isControllerEditMode()) {
 					Toast.makeText(host.getMainWindow(),
-							"Turn on Draw (Build) to place tiles here",
+							"Turn on Draw (Edit → Draw) to place tiles here",
 							Toast.LENGTH_SHORT).show();
 				}
 			}
@@ -983,7 +986,7 @@ public class MapperOverlayController
 	}
 
 	/**
-	 * Chips + full list from File→Moves (snapshot or defaults). Filling
+	 * Chips + full list from Edit→Moves (snapshot or defaults). Filling
 	 * {@code cmdEdit} with the chosen command string.
 	 */
 	private View buildMovesCommandPicker(final MainWindow activity,
@@ -1953,8 +1956,10 @@ public class MapperOverlayController
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
-				boolean gmcpOn = controller != null && controller.isUseGmcp();
-				boolean gmcpGrow = controller == null || controller.isGmcpGrow();
+				boolean gmcpOn = controller != null
+						? controller.isUseGmcp() : snapshotUseGmcp;
+				boolean gmcpGrow = controller != null
+						? controller.isGmcpGrow() : snapshotGmcpGrow;
 				MapperRadialMenu.showMore((ViewGroup) overlayRoot, radialListener(),
 						currentOpacityPercent(), gmcpOn, gmcpGrow);
 			}
@@ -2688,10 +2693,9 @@ public class MapperOverlayController
 			controller.browseLevel(dest.getLevelId());
 			controller.setHere(dest.getId());
 			refreshFromController();
-		} else if (snapshotMap != null) {
-			snapshotMap.setCurrentTileId(dest.getId());
-			snapshotMap.setCurrentLevelId(dest.getLevelId());
-			refreshFromController();
+		} else {
+			// Service owns the map — setHere also switches currentLevelId.
+			runSetHere(dest.getId());
 		}
 		final String destId = dest.getId();
 		final String toastLevel = levelName;
@@ -2729,6 +2733,8 @@ public class MapperOverlayController
 			sessionEditMode = root.optBoolean("editMode", sessionEditMode);
 			sessionAcceptOneWaySpecials = root.optBoolean("acceptOneWaySpecials",
 					sessionAcceptOneWaySpecials);
+			snapshotUseGmcp = root.optBoolean("useGmcp", snapshotUseGmcp);
+			snapshotGmcpGrow = root.optBoolean("gmcpGrow", snapshotGmcpGrow);
 			snapshotOpacity = root.optInt("opacity", 85);
 			if (root.has("preferFloat")) {
 				fullscreen = !root.optBoolean("preferFloat", true);
