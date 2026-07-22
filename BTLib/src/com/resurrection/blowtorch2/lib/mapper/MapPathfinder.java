@@ -25,21 +25,48 @@ public final class MapPathfinder {
 	 * @return command list, empty if already there or unreachable / invalid ids
 	 */
 	public static List<String> findCommands(MudMap map, String fromTileId, String toTileId) {
-		List<String> empty = Collections.emptyList();
-		if (map == null || fromTileId == null || toTileId == null) {
-			return empty;
+		PathResult r = findPath(map, fromTileId, toTileId);
+		return r != null ? r.commands : Collections.<String>emptyList();
+	}
+
+	/**
+	 * Ordered tile ids along the shortest path (includes start and goal).
+	 * Empty if unreachable; single-element if already there.
+	 */
+	public static List<String> findTileIds(MudMap map, String fromTileId, String toTileId) {
+		PathResult r = findPath(map, fromTileId, toTileId);
+		if (r == null) {
+			return Collections.emptyList();
 		}
-		if (fromTileId.equals(toTileId)) {
-			return empty;
+		return r.tileIds;
+	}
+
+	private static final class PathResult {
+		final List<String> commands;
+		final List<String> tileIds;
+
+		PathResult(List<String> commands, List<String> tileIds) {
+			this.commands = commands;
+			this.tileIds = tileIds;
+		}
+	}
+
+	private static PathResult findPath(MudMap map, String fromTileId, String toTileId) {
+		if (map == null || fromTileId == null || toTileId == null) {
+			return null;
 		}
 		if (map.findTile(fromTileId) == null || map.findTile(toTileId) == null) {
-			return empty;
+			return null;
+		}
+		if (fromTileId.equals(toTileId)) {
+			List<String> one = new ArrayList<String>();
+			one.add(fromTileId);
+			return new PathResult(Collections.<String>emptyList(), one);
 		}
 
 		Map<String, List<MapExit>> adjacency = buildAdjacency(map);
 		Queue<String> queue = new LinkedList<String>();
 		Set<String> visited = new HashSet<String>();
-		// predecessor tile id -> exit used to reach current from predecessor
 		Map<String, MapExit> cameVia = new HashMap<String, MapExit>();
 		Map<String, String> parent = new HashMap<String, String>();
 
@@ -61,12 +88,12 @@ public final class MapPathfinder {
 				parent.put(next, current);
 				cameVia.put(next, exit);
 				if (next.equals(toTileId)) {
-					return reconstruct(toTileId, parent, cameVia);
+					return reconstructFull(fromTileId, toTileId, parent, cameVia);
 				}
 				queue.add(next);
 			}
 		}
-		return empty;
+		return null;
 	}
 
 	private static Map<String, List<MapExit>> buildAdjacency(MudMap map) {
@@ -94,10 +121,12 @@ public final class MapPathfinder {
 		return adj;
 	}
 
-	private static List<String> reconstruct(String goal, Map<String, String> parent,
-			Map<String, MapExit> cameVia) {
+	private static PathResult reconstructFull(String start, String goal,
+			Map<String, String> parent, Map<String, MapExit> cameVia) {
 		LinkedList<String> commands = new LinkedList<String>();
+		LinkedList<String> tiles = new LinkedList<String>();
 		String cur = goal;
+		tiles.addFirst(goal);
 		while (cameVia.containsKey(cur)) {
 			MapExit via = cameVia.get(cur);
 			commands.addFirst(via.getCommand());
@@ -105,7 +134,11 @@ public final class MapPathfinder {
 			if (cur == null) {
 				break;
 			}
+			tiles.addFirst(cur);
 		}
-		return new ArrayList<String>(commands);
+		if (tiles.isEmpty() || !start.equals(tiles.getFirst())) {
+			tiles.addFirst(start);
+		}
+		return new PathResult(new ArrayList<String>(commands), new ArrayList<String>(tiles));
 	}
 }
