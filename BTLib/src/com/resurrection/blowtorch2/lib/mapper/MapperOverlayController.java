@@ -2028,7 +2028,7 @@ public class MapperOverlayController
 		} else if (MapperRadialMenu.ACTION_MOVES.equals(action)) {
 			openMoveEffectsEditor();
 		} else if (MapperRadialMenu.ACTION_OPACITY.equals(action)) {
-			cycleOpacity();
+			promptOpacity();
 		} else if (MapperRadialMenu.ACTION_CAPTURE.equals(action)) {
 			openCapture();
 		} else if (MapperRadialMenu.ACTION_LINK_MAP.equals(action)) {
@@ -2716,26 +2716,44 @@ public class MapperOverlayController
 		}
 	}
 
-	private void cycleOpacity() {
-		int cur = currentOpacityPercent();
-		int[] steps = new int[] { 100, 85, 70, 55, 40 };
-		int next = steps[0];
-		boolean found = false;
+	/** Pick opacity from a list — no step-cycling through near-invisible. */
+	private void promptOpacity() {
+		final MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		final int[] steps = new int[] { 100, 90, 80, 70, 60, 50 };
+		final int cur = currentOpacityPercent();
+		CharSequence[] labels = new CharSequence[steps.length];
+		int checked = 0;
+		int bestDist = Integer.MAX_VALUE;
 		for (int i = 0; i < steps.length; i++) {
-			if (cur == steps[i]) {
-				next = steps[(i + 1) % steps.length];
-				found = true;
-				break;
+			labels[i] = steps[i] + "%";
+			int dist = Math.abs(steps[i] - cur);
+			if (dist < bestDist) {
+				bestDist = dist;
+				checked = i;
 			}
 		}
-		if (!found) {
-			for (int i = 0; i < steps.length; i++) {
-				if (cur > steps[i]) {
-					next = steps[i];
-					break;
-				}
-			}
-		}
+		new AlertDialog.Builder(activity)
+				.setTitle("Map opacity (now " + cur + "%)")
+				.setSingleChoiceItems(labels, checked,
+						new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog, int which) {
+								if (which < 0 || which >= steps.length) {
+									return;
+								}
+								applyOpacityPercent(steps[which]);
+								dialog.dismiss();
+							}
+						})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void applyOpacityPercent(int pct) {
+		int next = Math.max(40, Math.min(100, pct));
 		snapshotOpacity = next;
 		if (controller != null) {
 			controller.setOpacity(next);
@@ -2743,8 +2761,6 @@ public class MapperOverlayController
 			host.runMapCommand("opacity " + next);
 		}
 		applyOpacity();
-		Toast.makeText(host.getMainWindow(), "Opacity " + next + "%",
-				Toast.LENGTH_SHORT).show();
 	}
 
 	private String describeExitFloorChange(MapTile from, MapExit exit) {

@@ -157,7 +157,7 @@ public final class MapperRadialMenu {
 				new Item(ACTION_MAPS, "Maps"),
 				new Item(ACTION_NEW, "New map"),
 				new Item(ACTION_EXPORT, "Export"),
-				new Item(ACTION_OPACITY, "Opacity", opacity + "%"),
+				new Item(ACTION_OPACITY, "Opacity…", opacity + "%"),
 				new Item(ACTION_CAPTURE, "Capture")
 		};
 		show(parent, "More", items, listener);
