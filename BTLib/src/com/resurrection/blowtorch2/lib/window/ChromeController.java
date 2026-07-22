@@ -105,23 +105,27 @@ public final class ChromeController {
 	}
 
 	/**
-	 * Translate gameplay content above the IME while keeping adjustNothing / no IME padding.
-	 * Lifts input chrome and game text windows so output stays readable. Leaves
-	 * {@code button_window} untranslated so Lua button coordinates do not jump from a
-	 * layout resize (buttons under the IME stay covered until the keyboard closes).
+	 * Translate gameplay chrome above the IME while keeping adjustNothing / no IME padding.
+	 * By default lifts input chrome and game text so output stays readable. Leaves
+	 * {@code button_window} untranslated so Lua button coordinates stay stable.
+	 * When Options → Window → Keep text still with keyboard? is on, game text windows
+	 * also stay put (only the input bar / FAB rise).
 	 */
 	void applyImeChromeLift(RelativeLayout rl, int liftPx) {
 		if (rl == null) {
 			return;
 		}
+		final boolean keepText = activity.keepTextStillWithIme();
 		float ty = -liftPx;
 		for (int i = 0; i < rl.getChildCount(); i++) {
 			View child = rl.getChildAt(i);
-			if (child instanceof com.resurrection.blowtorch2.lib.window.Window
-					&& "button_window".equals(String.valueOf(child.getTag()))) {
-				// Keep Lua buttons fixed; prioritize text readability over button usability under IME.
-				child.setTranslationY(0f);
-				continue;
+			if (child instanceof com.resurrection.blowtorch2.lib.window.Window) {
+				String tag = String.valueOf(child.getTag());
+				if ("button_window".equals(tag) || keepText) {
+					// Buttons always fixed; game text fixed when Keep text still is on.
+					child.setTranslationY(0f);
+					continue;
+				}
 			}
 			// Mapper is a floating/fullscreen overlay — do not ride the IME lift
 			// (keyboard must not shove the map window up the screen).

@@ -427,6 +427,10 @@ the bottom edge. Drag **up** to dig into history; the home chevron stays in the
 notch/camera cutouts (on-screen buttons are unaffected). Try values like
 `40`–`80` on punched-hole phones.
 
+**Options → Window → Keep text still with keyboard?** — when on, opening the soft
+keyboard lifts only the input bar; game text stays put (may sit under the IME).
+Works with either text direction. Off = classic lift (text rises with the keyboard).
+
 ## On-screen buttons: swipe + accordion
 
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.

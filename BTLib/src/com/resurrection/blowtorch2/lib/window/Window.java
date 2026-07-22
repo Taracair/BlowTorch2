@@ -143,6 +143,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mNewestAtTop = false;
 	/** Extra empty pixels above game text (notch / camera). Buttons unaffected. */
 	private int mTopPadding = 0;
+	/** When true, IME lift skips game text windows (input bar still rises). */
+	private boolean mImeKeepText = false;
 	/** The buffer object that this window uses to store and draw ansi text. */
 	private TextTree mBuffer = null;
 	/** The buffer that is used to buffer text when BufferText() is set. */
@@ -551,6 +553,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		IntegerOption topPadding = (IntegerOption) settings.findOptionByKey("top_padding");
 		if (topPadding != null) {
 			mTopPadding = Math.max(0, (Integer) topPadding.getValue());
+		}
+		BooleanOption imeKeepText = (BooleanOption) settings.findOptionByKey("ime_keep_text");
+		if (imeKeepText != null) {
+			mImeKeepText = (Boolean) imeKeepText.getValue();
 		}
 		
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
@@ -3911,6 +3917,12 @@ end
 				jumpToZero();
 				this.invalidate();
 				break;
+			case ime_keep_text:
+				mImeKeepText = (Boolean) o.getValue();
+				if (mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_IME_LIFT);
+				}
+				break;
 			
 			case color_option:
 				switch((Integer)o.getValue()) {
@@ -3984,6 +3996,7 @@ end
 		word_wrap,
 		newest_at_top,
 		top_padding,
+		ime_keep_text,
 		color_option,
 		screen_on,
 		font_size,
@@ -4898,7 +4911,12 @@ end
 	public boolean isScrollingEnabled() {
 		return this.scrollingEnabled;
 	}
-	
+
+	/** Options → Window → Keep text still with keyboard? */
+	public boolean isImeKeepText() {
+		return mImeKeepText;
+	}
+
 	public void jumpToStart() {
 		mScrollback = SCROLL_MIN;
 		mFlingVelocity=0;
