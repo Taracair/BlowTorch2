@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Floating / fullscreen mapper chrome. Attached under window_container so
-     gameplay_chrome_overlay (⋮) stays above via z-order. -->
+<!-- Floating / fullscreen mapper chrome. Title top; modes + radials bottom
+     (hideable to maximize map). -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/mapper_overlay_root"
     android:layout_width="match_parent"
@@ -8,7 +8,7 @@
     android:background="#CC1A1A1A"
     android:clickable="true"
     android:focusable="true"
-    android:paddingTop="8dp"
+    android:paddingTop="4dp"
     android:paddingEnd="8dp"
     android:paddingRight="8dp"
     android:paddingBottom="4dp"
@@ -18,9 +18,69 @@
     <LinearLayout
         android:id="@+id/mapper_title_bar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="36dp"
         android:layout_alignParentTop="true"
-        android:minHeight="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:background="#AA000000"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp">
+
+        <TextView
+            android:id="@+id/mapper_drag_handle"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingLeft="4dp"
+            android:paddingRight="6dp"
+            android:text="☰"
+            android:textColor="#CCCCCC"
+            android:textSize="16sp"
+            android:contentDescription="Drag map window" />
+
+        <TextView
+            android:id="@+id/mapper_title"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:maxLines="1"
+            android:text="Map"
+            android:textColor="#EEEEEE"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/mapper_chrome_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:layout_marginRight="4dp"
+            android:gravity="center"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:text="▾ tools"
+            android:textColor="#9EC5FF"
+            android:textSize="11sp"
+            android:background="#332A3A4A"
+            android:contentDescription="Show or hide bottom tool bar" />
+
+        <TextView
+            android:id="@+id/mapper_close_btn"
+            android:layout_width="36dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="✕"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:background="#44FFFFFF"
+            android:contentDescription="Close map" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/mapper_bottom_chrome"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
         android:orientation="vertical"
         android:background="#AA000000"
         android:paddingLeft="4dp"
@@ -28,137 +88,18 @@
         android:paddingTop="2dp"
         android:paddingBottom="2dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="36dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/mapper_drag_handle"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:paddingLeft="4dp"
-                android:paddingRight="6dp"
-                android:text="☰"
-                android:textColor="#CCCCCC"
-                android:textSize="16sp"
-                android:contentDescription="Drag map window" />
-
-            <TextView
-                android:id="@+id/mapper_title"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:gravity="center_vertical"
-                android:maxLines="1"
-                android:text="Map"
-                android:textColor="#EEEEEE"
-                android:textSize="13sp" />
-
-            <LinearLayout
-                android:id="@+id/mapper_edit_mode_bar"
-                android:layout_width="wrap_content"
-                android:layout_height="26dp"
-                android:layout_marginLeft="2dp"
-                android:layout_marginRight="4dp"
-                android:orientation="horizontal"
-                android:background="#55FFFFFF"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/mapper_mode_browse"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:paddingLeft="7dp"
-                    android:paddingRight="7dp"
-                    android:text="Browse"
-                    android:textColor="#E8C547"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:background="#33000000"
-                    android:contentDescription="Browse mode — navigate only" />
-
-                <TextView
-                    android:id="@+id/mapper_mode_edit"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:paddingLeft="7dp"
-                    android:paddingRight="7dp"
-                    android:text="Edit"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:contentDescription="Edit mode — create and modify" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/mapper_display_mode_bar"
-                android:layout_width="wrap_content"
-                android:layout_height="26dp"
-                android:layout_marginLeft="2dp"
-                android:layout_marginRight="4dp"
-                android:orientation="horizontal"
-                android:background="#55FFFFFF"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/mapper_mode_float"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:paddingLeft="7dp"
-                    android:paddingRight="7dp"
-                    android:text="Float"
-                    android:textColor="#E8C547"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:background="#33000000"
-                    android:contentDescription="Floating map window" />
-
-                <TextView
-                    android:id="@+id/mapper_mode_full"
-                    android:layout_width="wrap_content"
-                    android:layout_height="match_parent"
-                    android:gravity="center"
-                    android:paddingLeft="7dp"
-                    android:paddingRight="7dp"
-                    android:text="Full"
-                    android:textColor="#888888"
-                    android:textSize="11sp"
-                    android:contentDescription="Fullscreen map" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/mapper_close_btn"
-                android:layout_width="36dp"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="✕"
-                android:textColor="#FFFFFF"
-                android:textSize="15sp"
-                android:background="#44FFFFFF"
-                android:contentDescription="Close map" />
-        </LinearLayout>
-
-        <!-- Category chips: open in-overlay radials (no system status bar flash). -->
         <HorizontalScrollView
             android:id="@+id/mapper_category_scroll"
             android:layout_width="match_parent"
             android:layout_height="32dp"
-            android:scrollbars="none"
-            android:fillViewport="false">
+            android:scrollbars="none">
 
             <LinearLayout
                 android:id="@+id/mapper_category_bar"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingBottom="2dp">
+                android:orientation="horizontal">
 
                 <TextView
                     android:id="@+id/mapper_cat_nav"
@@ -196,11 +137,11 @@
                     android:gravity="center"
                     android:paddingLeft="10dp"
                     android:paddingRight="10dp"
-                    android:text="Build"
+                    android:text="Edit"
                     android:textColor="#9EC5FF"
                     android:textSize="12sp"
                     android:background="#332A3A4A"
-                    android:contentDescription="Build radial" />
+                    android:contentDescription="Edit radial" />
 
                 <TextView
                     android:id="@+id/mapper_cat_file"
@@ -209,16 +150,95 @@
                     android:gravity="center"
                     android:paddingLeft="10dp"
                     android:paddingRight="10dp"
-                    android:text="File"
+                    android:text="More"
                     android:textColor="#9EC5FF"
                     android:textSize="12sp"
                     android:background="#332A3A4A"
-                    android:contentDescription="File radial" />
+                    android:contentDescription="More radial" />
             </LinearLayout>
         </HorizontalScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="28dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingTop="2dp">
+
+            <LinearLayout
+                android:id="@+id/mapper_edit_mode_bar"
+                android:layout_width="wrap_content"
+                android:layout_height="26dp"
+                android:layout_marginRight="6dp"
+                android:orientation="horizontal"
+                android:background="#55FFFFFF"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/mapper_mode_browse"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingLeft="7dp"
+                    android:paddingRight="7dp"
+                    android:text="Browse"
+                    android:textColor="#E8C547"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:background="#33000000"
+                    android:contentDescription="Browse mode — navigate only" />
+
+                <TextView
+                    android:id="@+id/mapper_mode_edit"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingLeft="7dp"
+                    android:paddingRight="7dp"
+                    android:text="Edit"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:contentDescription="Edit mode — create and modify" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/mapper_display_mode_bar"
+                android:layout_width="wrap_content"
+                android:layout_height="26dp"
+                android:orientation="horizontal"
+                android:background="#55FFFFFF"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/mapper_mode_float"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingLeft="7dp"
+                    android:paddingRight="7dp"
+                    android:text="Float"
+                    android:textColor="#E8C547"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:background="#33000000"
+                    android:contentDescription="Floating map window" />
+
+                <TextView
+                    android:id="@+id/mapper_mode_full"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingLeft="7dp"
+                    android:paddingRight="7dp"
+                    android:text="Full"
+                    android:textColor="#888888"
+                    android:textSize="11sp"
+                    android:contentDescription="Fullscreen map" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Legacy bottom toolbar kept hidden; tools live in top category radials. -->
+    <!-- Legacy toolbar kept hidden. -->
     <FrameLayout
         android:id="@+id/mapper_toolbar_frame"
         android:layout_width="match_parent"
@@ -262,14 +282,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/mapper_title_bar"
-        android:layout_alignParentBottom="true">
+        android:layout_above="@id/mapper_bottom_chrome">
 
         <com.resurrection.blowtorch2.lib.mapper.MapperView
             android:id="@+id/mapper_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <!-- Corner grip: diagonal lines, not a solid yellow square. -->
         <TextView
             android:id="@+id/mapper_resize_handle"
             android:layout_width="36dp"

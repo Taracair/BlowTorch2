@@ -598,6 +598,43 @@ public class MapperController {
 				+ " at (" + to.getGridX() + "," + to.getGridY() + ").";
 	}
 
+	/**
+	 * Add a portal exit on {@code fromTileId} that loads another saved map when
+	 * walked (Follow / Record). Destination tile is the source itself; travel is
+	 * via {@link MapExit#getTargetMap()}.
+	 */
+	public String linkMapPortal(final String fromTileId, final String cmd,
+			final String mapName) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(cmd) || TextUtils.isEmpty(mapName)) {
+			return "Mapper: usage .map portal <cmd> map <name> [from <tileId>]";
+		}
+		MapTile from = fromTileId != null ? mMap.findTile(fromTileId)
+				: currentOrSelectedTile();
+		if (from == null) {
+			return "Mapper: no source tile.";
+		}
+		String norm = normalize(cmd);
+		String stored = MapDirections.storeCommand(cmd, norm);
+		String target = mapName.trim();
+		pushUndo();
+		MapExit existing = findExit(from, norm);
+		if (existing != null) {
+			existing.setTargetMap(target);
+			existing.setToId(from.getId());
+			existing.setSpecial(true);
+			existing.setCommand(stored);
+		} else {
+			MapExit exit = new MapExit(from.getId(), from.getId(), stored, true, null);
+			exit.setTargetMap(target);
+			from.addExit(exit);
+		}
+		notifyChanged();
+		return "Mapper: portal " + stored + " → map:" + target + ".";
+	}
+
 	public String moveTileOnGrid(final String tileId, final int x, final int y) {
 		if (mMap == null) {
 			return "Mapper: no map.";
@@ -1310,7 +1347,15 @@ public class MapperController {
 			return false;
 		}
 		MapExit existing = findExit(from, norm);
-		if (existing == null || existing.getToId() == null) {
+		if (existing == null) {
+			return false;
+		}
+		String portal = existing.getTargetMap();
+		if (portal != null && portal.trim().length() > 0) {
+			openMap(portal.trim());
+			return true;
+		}
+		if (existing.getToId() == null) {
 			return false;
 		}
 		MapTile to = mMap.findTile(existing.getToId());
