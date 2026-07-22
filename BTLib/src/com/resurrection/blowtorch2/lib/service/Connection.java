@@ -3772,6 +3772,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.setGmcpGrow((Boolean) o.getValue());
 				}
 				break;
+			case mapper_gmcp_policy:
+				if (mMapper != null) {
+					mMapper.setGmcpPolicy((String) o.getValue());
+				}
+				break;
 			case mapper_auto_reverse_link:
 				if (mMapper != null) {
 					mMapper.setAutoReverse((Boolean) o.getValue());
@@ -4701,6 +4706,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_gmcp_use_coords,
 		mapper_gmcp_create_exits,
 		mapper_gmcp_grow,
+		mapper_gmcp_policy,
 		mapper_auto_reverse_link,
 		mapper_accept_one_way_specials,
 		mapper_toolbar_actions,
@@ -5328,6 +5334,29 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			root.put("acceptOneWaySpecials", mMapper.isAcceptOneWaySpecials());
 			root.put("useGmcp", mMapper.isUseGmcp());
 			root.put("gmcpGrow", mMapper.isGmcpGrow());
+			root.put("gmcpPolicy", mMapper.getGmcpPolicy() != null
+					? mMapper.getGmcpPolicy() : "sync");
+			MapperController.PendingGmcpConflict pending =
+					mMapper.getPendingGmcpConflict();
+			if (pending != null) {
+				org.json.JSONObject pc = new org.json.JSONObject();
+				pc.put("tileId", pending.tileId != null ? pending.tileId : "");
+				pc.put("kind", pending.kind != null ? pending.kind : "");
+				pc.put("message", pending.message != null ? pending.message : "");
+				if (pending.proposedTitle != null) {
+					pc.put("proposedTitle", pending.proposedTitle);
+				}
+				if (pending.proposedX != null) {
+					pc.put("proposedX", pending.proposedX.intValue());
+				}
+				if (pending.proposedY != null) {
+					pc.put("proposedY", pending.proposedY.intValue());
+				}
+				if (pending.proposedLevelId != null) {
+					pc.put("proposedLevelId", pending.proposedLevelId);
+				}
+				root.put("pendingGmcpConflict", pc);
+			}
 			root.put("toolbar", mMapper.getToolbarActions() != null
 					? mMapper.getToolbarActions() : "");
 			root.put("moveEffects", mMapper.getCombinedMoveEffectsDisplay());

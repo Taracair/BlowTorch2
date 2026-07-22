@@ -434,28 +434,35 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		CallbackOption mapper_gmcp_cfg = new CallbackOption();
 		mapper_gmcp_cfg.setTitle("Configure Room Sync…");
-		mapper_gmcp_cfg.setDescription("Checkboxes: match by room number, absolute coordinates, create exit neighbors. Explains Eden/IRE-style Room.Info.");
+		mapper_gmcp_cfg.setDescription("Sync policy (follow/sync/strict), room number matching, absolute coordinates, exit neighbors, and per-host layout presets.");
 		mapper_gmcp_cfg.setKey("manage_mapper_gmcp");
 		mapper_gmcp_cfg.setValue("manage_mapper_gmcp");
 		mapperOptions.addOption(mapper_gmcp_cfg);
 
+		StringOption mapper_gmcp_policy = new StringOption();
+		mapper_gmcp_policy.setTitle("GMCP Sync Policy");
+		mapper_gmcp_policy.setDescription("follow = jump only; sync = create/grow + prompt on title conflicts (default); strict = always overwrite unlocked titles. Also in Configure Room Sync… / More radial grow toggle.");
+		mapper_gmcp_policy.setKey("mapper_gmcp_policy");
+		mapper_gmcp_policy.setValue("sync");
+		mapperOptions.addOption(mapper_gmcp_policy);
+
 		BooleanOption mapper_gmcp_use_num = new BooleanOption();
 		mapper_gmcp_use_num.setTitle("GMCP: Match by room number?");
-		mapper_gmcp_use_num.setDescription("Use Room.Info num/id/vnum as stable tile identity (recommended for Eden/IRE). Also in Configure Room Sync….");
+		mapper_gmcp_use_num.setDescription("Use Room.Info num/id/vnum as stable tile identity (recommended). Also in Configure Room Sync….");
 		mapper_gmcp_use_num.setKey("mapper_gmcp_use_num");
 		mapper_gmcp_use_num.setValue(true);
 		mapperOptions.addOption(mapper_gmcp_use_num);
 
 		BooleanOption mapper_gmcp_use_coords = new BooleanOption();
 		mapper_gmcp_use_coords.setTitle("GMCP: Use absolute coordinates?");
-		mapper_gmcp_use_coords.setDescription("Place at coords/coord x,y only when adjacent (≤1 cell). Off (default) = grow beside previous room — use this on Eden to avoid long arrows. Also in Configure Room Sync….");
+		mapper_gmcp_use_coords.setDescription("Place at coords/coord x,y only when adjacent (≤1 cell). Off (default) = grow beside previous room — better for sparse world coordinates. Also in Configure Room Sync….");
 		mapper_gmcp_use_coords.setKey("mapper_gmcp_use_coords");
 		mapper_gmcp_use_coords.setValue(false);
 		mapperOptions.addOption(mapper_gmcp_use_coords);
 
 		BooleanOption mapper_gmcp_grow = new BooleanOption();
 		mapper_gmcp_grow.setTitle("GMCP: Auto-grow map?");
-		mapper_gmcp_grow.setDescription("Create rooms/exits from Room.Info. Off = follow existing rooms by number only (hand-drawn maps). Independent of Record/Draw. Also in Configure Room Sync… / More radial.");
+		mapper_gmcp_grow.setDescription("Derived from Sync Policy (off = follow). Create rooms/exits from Room.Info when on. Also in Configure Room Sync… / More radial.");
 		mapper_gmcp_grow.setKey("mapper_gmcp_grow");
 		mapper_gmcp_grow.setValue(true);
 		mapperOptions.addOption(mapper_gmcp_grow);

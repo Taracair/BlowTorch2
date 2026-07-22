@@ -100,6 +100,9 @@ public class MapperOverlayController
 	/** Mirrors service GMCP Room sync / grow flags for More radial labels. */
 	private boolean snapshotUseGmcp;
 	private boolean snapshotGmcpGrow = true;
+	private String snapshotGmcpPolicy = MapperController.GMCP_POLICY_SYNC;
+	/** Avoid re-showing the same pending GMCP conflict dialog. */
+	private String lastShownGmcpConflictKey;
 
 	public MapperOverlayController(Host host) {
 		this.host = host;
@@ -1999,13 +2002,13 @@ public class MapperOverlayController
 	}
 
 	private void openMoreRadial() {
+		pullSnapshotFromService();
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
-				boolean gmcpOn = controller != null
-						? controller.isUseGmcp() : snapshotUseGmcp;
-				boolean gmcpGrow = controller != null
-						? controller.isGmcpGrow() : snapshotGmcpGrow;
+				// Service owns truth — UI controller is often null/stale.
+				boolean gmcpOn = snapshotUseGmcp;
+				boolean gmcpGrow = snapshotGmcpGrow;
 				MapperRadialMenu.showMore((ViewGroup) overlayRoot, radialListener(),
 						currentOpacityPercent(), gmcpOn, gmcpGrow);
 			}
@@ -2156,23 +2159,24 @@ public class MapperOverlayController
 		} else if (MapperRadialMenu.ACTION_CAPTURE.equals(action)) {
 			openCapture();
 		} else if (MapperRadialMenu.ACTION_GMCP.equals(action)) {
-			if (controller != null) {
-				boolean on = controller.toggleUseGmcp();
-				Toast.makeText(host.getMainWindow(),
-						on ? "GMCP room sync ON" : "GMCP room sync off",
-						Toast.LENGTH_SHORT).show();
-			} else {
-				host.runMapCommand("gmcp toggle");
-			}
+			snapshotUseGmcp = !snapshotUseGmcp;
+			host.runMapCommand("gmcp toggle");
+			Toast.makeText(host.getMainWindow(),
+					snapshotUseGmcp ? "GMCP room sync ON" : "GMCP room sync off",
+					Toast.LENGTH_SHORT).show();
+			refreshGmcpSnapshotSoon();
 		} else if (MapperRadialMenu.ACTION_GMCP_GROW.equals(action)) {
-			if (controller != null) {
-				boolean on = controller.toggleGmcpGrow();
-				Toast.makeText(host.getMainWindow(),
-						on ? "GMCP auto-grow ON (creates rooms)" : "GMCP grow off (follow only)",
-						Toast.LENGTH_LONG).show();
-			} else {
-				host.runMapCommand("gmcp grow toggle");
-			}
+			snapshotGmcpGrow = !snapshotGmcpGrow;
+			snapshotGmcpPolicy = snapshotGmcpGrow
+					? MapperController.GMCP_POLICY_SYNC
+					: MapperController.GMCP_POLICY_FOLLOW;
+			host.runMapCommand("gmcp grow toggle");
+			Toast.makeText(host.getMainWindow(),
+					snapshotGmcpGrow
+							? "GMCP auto-grow ON (sync)"
+							: "GMCP grow off (follow only)",
+					Toast.LENGTH_LONG).show();
+			refreshGmcpSnapshotSoon();
 		} else if (MapperRadialMenu.ACTION_LINK_MAP.equals(action)) {
 			if (!requireEditModeToast()) {
 				return;
@@ -2763,6 +2767,71 @@ public class MapperOverlayController
 		Toast.makeText(host.getMainWindow(), "→ " + toastLevel, Toast.LENGTH_SHORT).show();
 	}
 
+	private void refreshGmcpSnapshotSoon() {
+		if (overlayRoot == null) {
+			pullSnapshotFromService();
+			return;
+		}
+		overlayRoot.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				pullSnapshotFromService();
+			}
+		}, 250);
+	}
+
+	private void maybeShowPendingGmcpConflict(final org.json.JSONObject pending) {
+		if (pending == null) {
+			lastShownGmcpConflictKey = null;
+			return;
+		}
+		final String tileId = pending.optString("tileId", "");
+		final String kind = pending.optString("kind", "");
+		final String message = pending.optString("message", "GMCP layout conflict");
+		String key = tileId + "|" + kind + "|" + message;
+		if (key.equals(lastShownGmcpConflictKey)) {
+			return;
+		}
+		final MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		lastShownGmcpConflictKey = key;
+		final CharSequence[] choices = new CharSequence[] {
+				"Apply",
+				"Keep mine",
+				"Apply all (this session)",
+				"Keep all (this session)"
+		};
+		new AlertDialog.Builder(activity)
+				.setTitle("GMCP map conflict")
+				.setMessage(message)
+				.setItems(choices, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						lastShownGmcpConflictKey = null;
+						if (which == 0) {
+							host.runMapCommand("gmcp apply");
+						} else if (which == 1) {
+							host.runMapCommand("gmcp keep");
+						} else if (which == 2) {
+							host.runMapCommand("gmcp applyall");
+						} else {
+							host.runMapCommand("gmcp keepall");
+						}
+						refreshGmcpSnapshotSoon();
+					}
+				})
+				.setNegativeButton(android.R.string.cancel,
+						new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface dialog, int which) {
+								lastShownGmcpConflictKey = null;
+							}
+						})
+				.show();
+	}
+
 	/** Pull JSON from the service process and apply to the overlay. */
 	public void pullSnapshotFromService() {
 		if (host == null) {
@@ -2781,6 +2850,13 @@ public class MapperOverlayController
 					sessionAcceptOneWaySpecials);
 			snapshotUseGmcp = root.optBoolean("useGmcp", snapshotUseGmcp);
 			snapshotGmcpGrow = root.optBoolean("gmcpGrow", snapshotGmcpGrow);
+			snapshotGmcpPolicy = root.optString("gmcpPolicy", snapshotGmcpPolicy);
+			if (snapshotGmcpPolicy == null || snapshotGmcpPolicy.length() == 0) {
+				snapshotGmcpPolicy = snapshotGmcpGrow
+						? MapperController.GMCP_POLICY_SYNC
+						: MapperController.GMCP_POLICY_FOLLOW;
+			}
+			maybeShowPendingGmcpConflict(root.optJSONObject("pendingGmcpConflict"));
 			snapshotOpacity = root.optInt("opacity", 85);
 			if (root.has("preferFloat")) {
 				fullscreen = !root.optBoolean("preferFloat", true);
