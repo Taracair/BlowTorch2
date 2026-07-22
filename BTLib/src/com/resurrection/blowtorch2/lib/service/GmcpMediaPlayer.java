@@ -10,6 +10,7 @@ import java.util.Iterator;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.json.JSONObject;
 
@@ -24,6 +25,11 @@ import android.util.Log;
 /**
  * Native handler for GMCP Client.Media (Default / Load / Play / Stop).
  * Sound and music only — video is ignored in this pass.
+ * <p>
+ * Per <a href="https://wiki.mudlet.org/w/Standards:MUD_Client_Media_Protocol">MCMP</a>,
+ * {@code Client.Media.Stop} with no name/type/tag/key/priority filters stops all media
+ * (including {@code {"fadeaway": true}} alone). Filters combine with AND.
+ * Fade-out applies only when {@code fadeaway} is true or {@code fadeout} is present.
  */
 public final class GmcpMediaPlayer {
 
@@ -34,8 +40,12 @@ public final class GmcpMediaPlayer {
 
 	private final Context mAppContext;
 	private final Handler mMain = new Handler(Looper.getMainLooper());
-	private final ExecutorService mIo = Executors.newSingleThreadExecutor();
+	private ExecutorService mIo = Executors.newSingleThreadExecutor();
 	private final ArrayList<Track> mTracks = new ArrayList<Track>();
+	private final ArrayList<Runnable> mFadeTicks = new ArrayList<Runnable>();
+	/** Bumped on release / hard stop-all so in-flight downloads cannot restart audio. */
+	private final AtomicInteger mEpoch = new AtomicInteger(0);
+	private volatile boolean mReleased = false;
 
 	private String mDefaultUrl = "";
 
@@ -44,6 +54,9 @@ public final class GmcpMediaPlayer {
 	}
 
 	public void handle(final String module, final JSONObject body) {
+		if (mReleased) {
+			return;
+		}
 		String action = lastSegment(module).toLowerCase(Locale.US);
 		JSONObject data = body != null ? body : new JSONObject();
 		if ("default".equals(action)) {
@@ -57,9 +70,13 @@ public final class GmcpMediaPlayer {
 				Log.w(TAG, "Client.Media.Load missing name/url");
 				return;
 			}
+			final int epoch = mEpoch.get();
 			mIo.execute(new Runnable() {
 				@Override
 				public void run() {
+					if (mReleased || epoch != mEpoch.get()) {
+						return;
+					}
 					cacheRemoteFile(url, name);
 				}
 			});
@@ -74,14 +91,38 @@ public final class GmcpMediaPlayer {
 		}
 	}
 
-	public void release() {
-		mMain.post(new Runnable() {
+	/**
+	 * Stop every playing track immediately (disconnect, task removed, app teardown).
+	 * Safe to call repeatedly; does not shut down the player for future Play packets.
+	 */
+	public void stopAllImmediatePublic() {
+		if (mReleased) {
+			return;
+		}
+		mEpoch.incrementAndGet();
+		runOnMain(new Runnable() {
 			@Override
 			public void run() {
+				cancelFades();
 				stopAllImmediate();
 			}
 		});
-		mIo.shutdownNow();
+	}
+
+	public void release() {
+		mReleased = true;
+		mEpoch.incrementAndGet();
+		runOnMain(new Runnable() {
+			@Override
+			public void run() {
+				cancelFades();
+				stopAllImmediate();
+			}
+		});
+		try {
+			mIo.shutdownNow();
+		} catch (Exception ignored) {
+		}
 	}
 
 	private void play(final JSONObject data) {
@@ -100,12 +141,17 @@ public final class GmcpMediaPlayer {
 		final int volume = clamp(data.optInt("volume", 50), 1, 100);
 		final int loops = data.optInt("loops", 1);
 		final int priority = data.optInt("priority", 50);
-		final boolean continueMusic = data.optBoolean("continue", true);
+		final boolean continueMusic = optTruthy(data, "continue", true);
+		final int playFadeout = data.has("fadeout") ? Math.max(0, data.optInt("fadeout", 0)) : 0;
 		final String remoteUrl = resolveUrl(data.optString("url", ""), name);
+		final int epoch = mEpoch.get();
 
 		mIo.execute(new Runnable() {
 			@Override
 			public void run() {
+				if (mReleased || epoch != mEpoch.get()) {
+					return;
+				}
 				File local = cacheRemoteFile(remoteUrl, name);
 				if (local == null || !local.isFile() || local.length() <= 0) {
 					Log.w(TAG, "Client.Media.Play no cached file for " + name
@@ -116,7 +162,11 @@ public final class GmcpMediaPlayer {
 				mMain.post(new Runnable() {
 					@Override
 					public void run() {
-						startTrack(name, type, tag, key, volume, loops, priority, continueMusic, uri);
+						if (mReleased || epoch != mEpoch.get()) {
+							return;
+						}
+						startTrack(name, type, tag, key, volume, loops, priority, continueMusic,
+								playFadeout, uri);
 					}
 				});
 			}
@@ -124,7 +174,8 @@ public final class GmcpMediaPlayer {
 	}
 
 	private void startTrack(final String name, final String type, final String tag, final String key,
-			final int volume, final int loops, final int priority, final boolean continueMusic, final Uri uri) {
+			final int volume, final int loops, final int priority, final boolean continueMusic,
+			final int playFadeout, final Uri uri) {
 		if (key.length() > 0) {
 			Iterator<Track> it = mTracks.iterator();
 			while (it.hasNext()) {
@@ -155,7 +206,7 @@ public final class GmcpMediaPlayer {
 		}
 
 		MediaPlayer player = new MediaPlayer();
-		Track track = new Track(name, type, tag, key, priority, volume, player);
+		Track track = new Track(name, type, tag, key, priority, volume, playFadeout, player);
 		try {
 			player.setAudioStreamType(AudioManager.STREAM_MUSIC);
 			player.setDataSource(mAppContext, uri);
@@ -194,6 +245,11 @@ public final class GmcpMediaPlayer {
 			player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
 				@Override
 				public void onPrepared(MediaPlayer mp) {
+					if (mReleased) {
+						mTracks.remove(track);
+						track.release();
+						return;
+					}
 					try {
 						mp.start();
 						mTracks.add(track);
@@ -221,52 +277,81 @@ public final class GmcpMediaPlayer {
 	}
 
 	private void stop(final JSONObject data) {
-		mMain.post(new Runnable() {
+		final JSONObject body = data != null ? data : new JSONObject();
+		runOnMain(new Runnable() {
 			@Override
 			public void run() {
-				boolean empty = data.length() == 0;
-				String name = data.optString("name", "");
-				String type = data.optString("type", "");
-				String tag = data.optString("tag", "");
-				String key = data.optString("key", "");
-				int priority = data.has("priority") ? data.optInt("priority") : -1;
-				boolean fadeaway = data.optBoolean("fadeaway", false);
-				int fadeout = data.optInt("fadeout", DEFAULT_STOP_FADE_MS);
+				if (mReleased) {
+					return;
+				}
+				final String name = body.optString("name", "");
+				final String type = body.optString("type", "");
+				final String tag = body.optString("tag", "");
+				final String key = body.optString("key", "");
+				final boolean hasPriority = body.has("priority");
+				final int priority = hasPriority ? body.optInt("priority") : -1;
+				final boolean fadeaway = optTruthy(body, "fadeaway", false);
+				final boolean hasFadeout = body.has("fadeout");
+				final int stopFadeout = hasFadeout
+						? Math.max(200, body.optInt("fadeout", DEFAULT_STOP_FADE_MS))
+						: DEFAULT_STOP_FADE_MS;
+				final boolean doFade = shouldFade(fadeaway, hasFadeout);
 
+				int stopped = 0;
 				Iterator<Track> it = mTracks.iterator();
 				while (it.hasNext()) {
 					Track t = it.next();
-					boolean match = empty;
-					if (!empty) {
-						match = false;
-						if (name.length() > 0 && name.equals(t.name)) {
-							match = true;
-						}
-						if (type.length() > 0 && type.equalsIgnoreCase(t.type)) {
-							match = true;
-						}
-						if (tag.length() > 0 && tag.equals(t.tag)) {
-							match = true;
-						}
-						if (key.length() > 0 && key.equals(t.key)) {
-							match = true;
-						}
-						if (priority >= 0 && t.priority <= priority) {
-							match = true;
-						}
-					}
-					if (!match) {
+					if (!matchesStop(t.name, t.type, t.tag, t.key, t.priority,
+							name, type, tag, key, hasPriority, priority)) {
 						continue;
 					}
 					it.remove();
-					if (fadeaway || fadeout > 0) {
-						fadeAndRelease(t, Math.max(200, fadeout));
+					stopped++;
+					if (doFade) {
+						int fadeMs = t.playFadeout > 0 ? t.playFadeout : stopFadeout;
+						fadeAndRelease(t, Math.max(200, fadeMs));
 					} else {
 						t.release();
 					}
 				}
+				Log.i(TAG, "Client.Media.Stop matched=" + stopped
+						+ " filters={name=" + name + ",type=" + type + ",tag=" + tag
+						+ ",key=" + key + ",priority=" + (hasPriority ? String.valueOf(priority) : "-")
+						+ "} fade=" + doFade);
 			}
 		});
+	}
+
+	/**
+	 * MCMP Stop matching: unspecified filters are ignored; specified filters AND together.
+	 * No filters at all (including fadeaway-only) → match every track.
+	 */
+	static boolean matchesStop(final String trackName, final String trackType, final String trackTag,
+			final String trackKey, final int trackPriority,
+			final String name, final String type, final String tag, final String key,
+			final boolean hasPriority, final int priority) {
+		if (name != null && name.length() > 0 && !name.equals(trackName)) {
+			return false;
+		}
+		if (type != null && type.length() > 0
+				&& !type.equalsIgnoreCase(trackType != null ? trackType : "")) {
+			return false;
+		}
+		if (tag != null && tag.length() > 0 && !tag.equals(trackTag)) {
+			return false;
+		}
+		if (key != null && key.length() > 0 && !key.equals(trackKey)) {
+			return false;
+		}
+		if (hasPriority && trackPriority > priority) {
+			return false;
+		}
+		return true;
+	}
+
+	/** Fade only when fadeaway is true or an explicit fadeout was sent on Stop. */
+	static boolean shouldFade(final boolean fadeaway, final boolean hasFadeoutKey) {
+		return fadeaway || hasFadeoutKey;
 	}
 
 	private void fadeAndRelease(final Track track, final int durationMs) {
@@ -283,9 +368,10 @@ public final class GmcpMediaPlayer {
 		tick[0] = new Runnable() {
 			@Override
 			public void run() {
+				mFadeTicks.remove(tick[0]);
 				step[0]++;
 				float frac = 1f - (step[0] / (float) steps);
-				if (frac <= 0f || step[0] >= steps) {
+				if (frac <= 0f || step[0] >= steps || mReleased) {
 					track.release();
 					return;
 				}
@@ -296,10 +382,19 @@ public final class GmcpMediaPlayer {
 					track.release();
 					return;
 				}
+				mFadeTicks.add(tick[0]);
 				mMain.postDelayed(tick[0], stepMs);
 			}
 		};
+		mFadeTicks.add(tick[0]);
 		mMain.post(tick[0]);
+	}
+
+	private void cancelFades() {
+		for (Runnable r : mFadeTicks) {
+			mMain.removeCallbacks(r);
+		}
+		mFadeTicks.clear();
 	}
 
 	private void stopAllImmediate() {
@@ -307,6 +402,14 @@ public final class GmcpMediaPlayer {
 			t.release();
 		}
 		mTracks.clear();
+	}
+
+	private void runOnMain(final Runnable r) {
+		if (Looper.myLooper() == Looper.getMainLooper()) {
+			r.run();
+		} else {
+			mMain.post(r);
+		}
 	}
 
 	private File cacheRemoteFile(final String url, final String name) {
@@ -429,6 +532,28 @@ public final class GmcpMediaPlayer {
 		return v;
 	}
 
+	/** Spec: boolean values may also arrive as strings. */
+	static boolean optTruthy(final JSONObject data, final String key, final boolean defaultValue) {
+		if (data == null || !data.has(key)) {
+			return defaultValue;
+		}
+		Object raw = data.opt(key);
+		if (raw instanceof Boolean) {
+			return ((Boolean) raw).booleanValue();
+		}
+		if (raw instanceof Number) {
+			return ((Number) raw).intValue() != 0;
+		}
+		String s = String.valueOf(raw).toLowerCase(Locale.US).trim();
+		if ("true".equals(s) || "1".equals(s) || "yes".equals(s)) {
+			return true;
+		}
+		if ("false".equals(s) || "0".equals(s) || "no".equals(s)) {
+			return false;
+		}
+		return defaultValue;
+	}
+
 	private static final class Track {
 		final String name;
 		final String type;
@@ -436,17 +561,19 @@ public final class GmcpMediaPlayer {
 		final String key;
 		final int priority;
 		final int volume;
+		final int playFadeout;
 		MediaPlayer player;
 		int remainingLoops;
 
 		Track(final String name, final String type, final String tag, final String key,
-				final int priority, final int volume, final MediaPlayer player) {
+				final int priority, final int volume, final int playFadeout, final MediaPlayer player) {
 			this.name = name;
 			this.type = type;
 			this.tag = tag;
 			this.key = key;
 			this.priority = priority;
 			this.volume = volume;
+			this.playFadeout = playFadeout;
 			this.player = player;
 		}
 
