@@ -43,7 +43,9 @@ what Eden actually sends. `.gmcp sniff on` prints the absolute path in-game;
 Overflow → Crash report → Show log to view. Dot helpers: `.gmcp ask`,
 `.gmcp enable|disable`, `.gmcp renegotiate`, `.gmcp feed` (see Help / user-manual).
 
-Native handlers: **Char.Login** (primary launcher account login/password) and
+Native handlers: **Char.Login** (primary launcher account login/password; if none
+stored, sends empty `Char.Login.Credentials {}` so the MUD falls back to in-band
+login — required on Eden and similar) and
 **Client.Media** (sound/music). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for
 planned optional MTTS / graphics work.
 
