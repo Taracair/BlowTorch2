@@ -3412,6 +3412,31 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
+				public void insertMapperText(String text) {
+					if (text == null || text.length() == 0 || mInputBox == null) {
+						return;
+					}
+					final String insert = text;
+					runOnUiThread(new Runnable() {
+						@Override
+						public void run() {
+							if (mInputBox == null) {
+								return;
+							}
+							String cur = mInputBox.getText() != null
+									? mInputBox.getText().toString() : "";
+							if (cur.length() > 0 && !cur.endsWith(" ")
+									&& !cur.endsWith(";") && !insert.startsWith(";")) {
+								mInputBox.setText(cur + ";" + insert);
+							} else {
+								mInputBox.setText(cur + insert);
+							}
+							mInputBox.setSelection(mInputBox.getText().toString().length());
+						}
+					});
+				}
+
+				@Override
 				public String fetchMapperSnapshotJson() {
 					if (service == null) {
 						return "";

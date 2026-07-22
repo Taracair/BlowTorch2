@@ -121,10 +121,13 @@ public class MapperView extends View {
 	private final Paint gridPaint = new Paint();
 	private final Paint dragGhostFill = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint dragGhostStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint pathHighlightFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint pathHighlightStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final RectF tmpRect = new RectF();
 	private final Path arrowPath = new Path();
 	private final List<LinkBadge> linkBadges = new ArrayList<LinkBadge>();
 	private final List<InterLevelBadge> interLevelBadges = new ArrayList<InterLevelBadge>();
+	private final java.util.HashSet<String> pathHighlightIds = new java.util.HashSet<String>();
 
 	private final ScaleGestureDetector scaleDetector;
 	private final GestureDetector gestureDetector;
@@ -149,6 +152,8 @@ public class MapperView extends View {
 	 * When false (Pack), tiles sit nearly adjacent.
 	 */
 	private boolean pathsLayout = true;
+	/** Draw exit command labels on arrows (spread and packed). */
+	private boolean showLinkLabels = true;
 	/** When true, long-press on a tile starts reposition drag. */
 	private boolean tileDragEnabled = true;
 	private boolean tileDragging;
@@ -224,6 +229,11 @@ public class MapperView extends View {
 		dragGhostStroke.setColor(0xFFE8C547);
 		dragGhostStroke.setStyle(Paint.Style.STROKE);
 		dragGhostStroke.setStrokeWidth(3f);
+		pathHighlightFill.setColor(0x443D7AB8);
+		pathHighlightFill.setStyle(Paint.Style.FILL);
+		pathHighlightStroke.setColor(0xFF6EB0FF);
+		pathHighlightStroke.setStyle(Paint.Style.STROKE);
+		pathHighlightStroke.setStrokeWidth(3f);
 
 		scaleDetector = new ScaleGestureDetector(context,
 				new ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -461,6 +471,40 @@ public class MapperView extends View {
 		return pathsLayout;
 	}
 
+	/** Show exit command labels on arrows (spread and packed). */
+	public void setShowLinkLabels(boolean show) {
+		if (this.showLinkLabels == show) {
+			return;
+		}
+		this.showLinkLabels = show;
+		invalidate();
+	}
+
+	public boolean isShowLinkLabels() {
+		return showLinkLabels;
+	}
+
+	/** Highlight a route (tile ids). Null/empty clears. */
+	public void setPathHighlight(List<String> tileIds) {
+		pathHighlightIds.clear();
+		if (tileIds != null) {
+			for (String id : tileIds) {
+				if (id != null && id.length() > 0) {
+					pathHighlightIds.add(id);
+				}
+			}
+		}
+		invalidate();
+	}
+
+	public void clearPathHighlight() {
+		if (pathHighlightIds.isEmpty()) {
+			return;
+		}
+		pathHighlightIds.clear();
+		invalidate();
+	}
+
 	public void setTileDragEnabled(boolean tileDragEnabled) {
 		this.tileDragEnabled = tileDragEnabled;
 		if (!tileDragEnabled) {
@@ -618,9 +662,15 @@ public class MapperView extends View {
 			tmpRect.set(left, top, left + bs, top + bs);
 			boolean isCurrent = currentTileId != null && currentTileId.equals(tile.getId());
 			boolean isSelected = selectedTileId != null && selectedTileId.equals(tile.getId());
-			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, isCurrent ? currentFill : tileFill);
+			boolean onPath = pathHighlightIds.contains(tile.getId());
+			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale,
+					onPath && !isCurrent ? pathHighlightFill
+							: (isCurrent ? currentFill : tileFill));
 			canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale,
 					isSelected ? selectedStroke : tileStroke);
+			if (onPath) {
+				canvas.drawRoundRect(tmpRect, 6f * scale, 6f * scale, pathHighlightStroke);
+			}
 			drawSpecialExitDots(canvas, tile, left, top, bs);
 			String label = tile.getTitle();
 			if (label == null || label.length() == 0) {
@@ -640,9 +690,9 @@ public class MapperView extends View {
 
 	/**
 	 * Draw directed arrows between tiles for exits that have a known destination
-	 * on the same drawn set. Spread mode: offset A→B / B→A with labels.
-	 * Packed mode: one centered shaft per pair (bidirectional → heads both ends),
-	 * no word labels — avoids the ugly double-lines in tight cells.
+	 * on the same drawn set. Spread mode: offset A→B / B→A.
+	 * Packed mode: one centered shaft per pair (bidirectional → heads both ends).
+	 * Exit labels follow {@link #showLinkLabels} in both layouts.
 	 */
 	private void drawLinkArrows(Canvas canvas, float bodySize) {
 		if (scale < 0.4f) {
@@ -675,7 +725,7 @@ public class MapperView extends View {
 		}
 
 		linkPaint.setStrokeCap(Paint.Cap.ROUND);
-		linkLabelPaint.setTextSize(Math.max(8f, 9.5f * scale));
+		linkLabelPaint.setTextSize(Math.max(7f, (pathsLayout ? 9.5f : 8f) * scale));
 		java.util.HashSet<String> drawnUndirected = new java.util.HashSet<String>();
 
 		for (Map.Entry<String, List<String>> e : grouped.entrySet()) {
@@ -710,7 +760,6 @@ public class MapperView extends View {
 			float uy = dy / len;
 
 			if (!pathsLayout) {
-				// One draw per undirected pair.
 				String undirected = fromId.compareTo(toId) < 0
 						? fromId + "\0" + toId
 						: toId + "\0" + fromId;
@@ -722,10 +771,22 @@ public class MapperView extends View {
 				boolean bidir = back != null && !back.isEmpty();
 				drawPackedLink(canvas, bodySize, fromCx, fromCy, toCx, toCy,
 						ux, uy, bidir);
+				if (showLinkLabels) {
+					float midX = (fromCx + toCx) * 0.5f;
+					float midY = (fromCy + toCy) * 0.5f - 3f * scale;
+					List<String> labelCmds = new ArrayList<String>(cmds);
+					if (bidir && back != null) {
+						for (String b : back) {
+							if (b != null && !labelCmds.contains(b)) {
+								labelCmds.add(b);
+							}
+						}
+					}
+					drawLinkLabelAt(canvas, midX, midY, labelCmds, from.getId(), to.getId());
+				}
 				continue;
 			}
 
-			// Spread: room for offset + labels.
 			linkPaint.setStrokeWidth(Math.max(1.5f, 2.2f * scale));
 			float edge = bodySize * 0.52f;
 			float off = 5f * scale;
@@ -738,22 +799,29 @@ public class MapperView extends View {
 			canvas.drawLine(x1, y1, x2, y2, linkPaint);
 			drawArrowHead(canvas, x2, y2, ux, uy, false);
 
-			float midX = (x1 + x2) * 0.5f;
-			float midY = (y1 + y2) * 0.5f - 4f * scale;
-			String label = formatLinkLabel(cmds);
-			float tw = linkLabelPaint.measureText(label);
-			float pad = 4f * scale;
-			float bh = linkLabelPaint.getTextSize() + pad * 1.2f;
-			tmpRect.set(midX - tw * 0.5f - pad, midY - bh + pad * 0.3f,
-					midX + tw * 0.5f + pad, midY + pad * 0.5f);
-			canvas.drawRoundRect(tmpRect, 4f * scale, 4f * scale, linkLabelBg);
-			canvas.drawText(label, midX, midY, linkLabelPaint);
-			if (cmds.size() > MAX_VISIBLE_LINK_LABELS) {
-				LinkBadge badge = new LinkBadge(from.getId(), to.getId(), cmds);
-				badge.bounds.set(tmpRect);
-				badge.bounds.inset(-6f * scale, -6f * scale);
-				linkBadges.add(badge);
+			if (showLinkLabels) {
+				float midX = (x1 + x2) * 0.5f;
+				float midY = (y1 + y2) * 0.5f - 4f * scale;
+				drawLinkLabelAt(canvas, midX, midY, cmds, from.getId(), to.getId());
 			}
+		}
+	}
+
+	private void drawLinkLabelAt(Canvas canvas, float midX, float midY,
+			List<String> cmds, String fromId, String toId) {
+		String label = formatLinkLabel(cmds);
+		float tw = linkLabelPaint.measureText(label);
+		float pad = 4f * scale;
+		float bh = linkLabelPaint.getTextSize() + pad * 1.2f;
+		tmpRect.set(midX - tw * 0.5f - pad, midY - bh + pad * 0.3f,
+				midX + tw * 0.5f + pad, midY + pad * 0.5f);
+		canvas.drawRoundRect(tmpRect, 4f * scale, 4f * scale, linkLabelBg);
+		canvas.drawText(label, midX, midY, linkLabelPaint);
+		if (cmds.size() > MAX_VISIBLE_LINK_LABELS) {
+			LinkBadge badge = new LinkBadge(fromId, toId, cmds);
+			badge.bounds.set(tmpRect);
+			badge.bounds.inset(-6f * scale, -6f * scale);
+			linkBadges.add(badge);
 		}
 	}
 

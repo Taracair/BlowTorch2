@@ -36,6 +36,8 @@ public class MapperOverlayController
 		MainWindow getMainWindow();
 		String getRecentBufferText(int maxLines);
 		void sendMapperPath(List<String> commands);
+		/** Insert text into the input bar without sending (e.g. path speedwalk). */
+		void insertMapperText(String text);
 		/** Pull live map JSON from the :stellar Connection (may be empty). */
 		String fetchMapperSnapshotJson();
 		/** Run a `.map …` subcommand in the service process (e.g. "record toggle"). */
@@ -90,6 +92,21 @@ public class MapperOverlayController
 	private boolean drawEditMode;
 	/** Spread layout for arrows (true) vs packed neighbors (false). */
 	private boolean pathsLayout = true;
+	/** Exit command labels on arrows (both layouts). */
+	private boolean showLinkLabels = true;
+	/** One-shot empty-map coach for this overlay attach. */
+	private boolean emptyMapHintShown = false;
+	/** Sticky one-line status under the title breadcrumb. */
+	private String stickyStatus = "";
+	private final android.os.Handler stickyHandler = new android.os.Handler(
+			android.os.Looper.getMainLooper());
+	private final Runnable clearStickyRunnable = new Runnable() {
+		@Override
+		public void run() {
+			stickyStatus = "";
+			refreshTitleOnly();
+		}
+	};
 	/**
 	 * Session Browse/Edit flag. UI process often has no live MapperController
 	 * (service owns it) — keep local copy and sync via {@code .map mode} + snapshot.
@@ -151,11 +168,17 @@ public class MapperOverlayController
 		applyLayoutMode();
 		pullSnapshotFromService();
 		refreshFromController();
+		maybeShowEmptyMapHint();
 		bringUnderChrome();
 	}
 
 	public void close() {
 		visible = false;
+		stickyHandler.removeCallbacks(clearStickyRunnable);
+		stickyStatus = "";
+		if (mapperView != null) {
+			mapperView.clearPathHighlight();
+		}
 		if (overlayRoot != null) {
 			overlayRoot.setVisibility(View.GONE);
 		}
@@ -286,7 +309,11 @@ public class MapperOverlayController
 				}
 				String title = tile.getTitle() != null && tile.getTitle().length() > 0
 						? tile.getTitle() : shortTileLabel(tile);
-				Toast.makeText(host.getMainWindow(), title, Toast.LENGTH_SHORT).show();
+				setStickyStatus("Selected: " + title);
+				if (mapperView != null) {
+					mapperView.setSelectedTileId(selectedTileId);
+				}
+				refreshTitleOnly();
 			}
 
 			@Override
@@ -303,6 +330,15 @@ public class MapperOverlayController
 				selectedTileId = tile.getId();
 				if (linkEditMode) {
 					onLinkEditTap(tile);
+					return;
+				}
+				// Browse: select only — avoids accidental Set Here.
+				if (!isControllerEditMode()) {
+					setStickyStatus("Selected (Edit mode to Set Here)");
+					if (mapperView != null) {
+						mapperView.setSelectedTileId(selectedTileId);
+					}
+					refreshTitleOnly();
 					return;
 				}
 				runSetHere(tile.getId());
@@ -362,6 +398,7 @@ public class MapperOverlayController
 		if (mapperView != null) {
 			mapperView.setTileDragEnabled(isControllerEditMode());
 			mapperView.setPathsLayout(pathsLayout);
+			mapperView.setShowLinkLabels(showLinkLabels);
 		}
 		rebuildToolbar();
 		applyOpacity();
@@ -827,9 +864,19 @@ public class MapperOverlayController
 		}
 		Toast.makeText(host.getMainWindow(),
 				pathsLayout
-						? "Layout: spread (space for arrows + labels)"
-						: "Layout: packed (compact, arrows only)",
+						? "Layout: spread"
+						: "Layout: packed",
 				Toast.LENGTH_SHORT).show();
+	}
+
+	private void toggleArrowLabels() {
+		showLinkLabels = !showLinkLabels;
+		if (mapperView != null) {
+			mapperView.setShowLinkLabels(showLinkLabels);
+		}
+		setStickyStatus(showLinkLabels
+				? "Arrow labels on"
+				: "Arrow labels off");
 	}
 
 	private void toggleDrawEditMode() {
@@ -1390,7 +1437,37 @@ public class MapperOverlayController
 
 	private void toastStatus(String msg) {
 		if (msg != null && msg.length() > 0) {
-			Toast.makeText(host.getMainWindow(), msg, Toast.LENGTH_SHORT).show();
+			setStickyStatus(msg);
+		}
+	}
+
+	/** Sticky one-liner under the title breadcrumb (auto-clears). */
+	private void setStickyStatus(String msg) {
+		stickyHandler.removeCallbacks(clearStickyRunnable);
+		stickyStatus = msg != null ? msg : "";
+		refreshTitleOnly();
+		if (stickyStatus.length() > 0) {
+			stickyHandler.postDelayed(clearStickyRunnable, 8000);
+		}
+	}
+
+	private void refreshTitleOnly() {
+		if (titleView == null || linkEditMode || drawEditMode) {
+			return;
+		}
+		MudMap map = snapshotMap;
+		if (map == null && controller != null) {
+			map = controller.getMap();
+		}
+		if (map == null) {
+			titleView.setText(stickyStatus.length() > 0 ? stickyStatus : "Map");
+			return;
+		}
+		String base = formatTitleBreadcrumb(map);
+		if (stickyStatus != null && stickyStatus.length() > 0) {
+			titleView.setText(base + "\n" + stickyStatus);
+		} else {
+			titleView.setText(base);
 		}
 	}
 
@@ -1418,14 +1495,42 @@ public class MapperOverlayController
 		}
 		String from = map.getCurrentTileId();
 		List<String> path = MapPathfinder.findCommands(map, from, tile.getId());
+		List<String> tileIds = MapPathfinder.findTileIds(map, from, tile.getId());
 		if (path == null || path.isEmpty()) {
-			Toast.makeText(host.getMainWindow(), "No path", Toast.LENGTH_SHORT).show();
+			if (mapperView != null) {
+				mapperView.clearPathHighlight();
+			}
+			setStickyStatus("No path");
 			return;
 		}
-		Toast.makeText(host.getMainWindow(), "Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
+		if (mapperView != null) {
+			mapperView.setPathHighlight(tileIds);
+		}
+		final String joined = join(path, ";");
+		setStickyStatus("Path: " + joined);
+		final MapTile dest = tile;
+		MainWindow activity = host.getMainWindow();
+		new AlertDialog.Builder(activity)
+				.setTitle("Path (" + path.size() + " steps)")
+				.setMessage(joined)
+				.setPositiveButton("Copy to input", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						host.insertMapperText(joined);
+						setStickyStatus("Copied to input");
+					}
+				})
+				.setNeutralButton("Go", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						goToTile(dest);
+					}
+				})
+				.setNegativeButton("OK", null)
+				.show();
 	}
 
-	/** Show path toast and send walk commands to the MUD (always). */
+	/** Highlight path, sticky status, and send walk commands to the MUD. */
 	private void goToTile(MapTile tile) {
 		MudMap map = controller != null ? controller.getMap() : snapshotMap;
 		if (map == null || tile == null) {
@@ -1433,11 +1538,18 @@ public class MapperOverlayController
 		}
 		String from = map.getCurrentTileId();
 		List<String> path = MapPathfinder.findCommands(map, from, tile.getId());
+		List<String> tileIds = MapPathfinder.findTileIds(map, from, tile.getId());
 		if (path == null || path.isEmpty()) {
-			Toast.makeText(host.getMainWindow(), "No path", Toast.LENGTH_SHORT).show();
+			if (mapperView != null) {
+				mapperView.clearPathHighlight();
+			}
+			setStickyStatus("No path");
 			return;
 		}
-		Toast.makeText(host.getMainWindow(), "Go: " + join(path, ";"), Toast.LENGTH_LONG).show();
+		if (mapperView != null) {
+			mapperView.setPathHighlight(tileIds);
+		}
+		setStickyStatus("Go: " + join(path, ";"));
 		// Service .map go sends each step separately (Record suppressed, Follow on).
 		host.runMapCommand("go " + tile.getId());
 	}
@@ -1715,12 +1827,12 @@ public class MapperOverlayController
 
 					@Override
 					public void onPath(MapTile tile, List<String> path) {
-						if (path == null || path.isEmpty()) {
-							Toast.makeText(host.getMainWindow(), "No path",
-									Toast.LENGTH_SHORT).show();
+						if (tile != null) {
+							pathToTile(tile);
+						} else if (path == null || path.isEmpty()) {
+							setStickyStatus("No path");
 						} else {
-							Toast.makeText(host.getMainWindow(),
-									"Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
+							setStickyStatus("Path: " + join(path, ";"));
 						}
 					}
 				}).show();
@@ -2010,7 +2122,7 @@ public class MapperOverlayController
 				boolean gmcpOn = snapshotUseGmcp;
 				boolean gmcpGrow = snapshotGmcpGrow;
 				MapperRadialMenu.showMore((ViewGroup) overlayRoot, radialListener(),
-						currentOpacityPercent(), gmcpOn, gmcpGrow);
+						currentOpacityPercent(), gmcpOn, gmcpGrow, showLinkLabels);
 			}
 		});
 	}
@@ -2143,6 +2255,14 @@ public class MapperOverlayController
 			} else {
 				goToTile(tile);
 			}
+		} else if (MapperRadialMenu.ACTION_PATH_TO.equals(action)) {
+			MapTile tile = selectedOrCurrentTile();
+			if (tile == null) {
+				Toast.makeText(host.getMainWindow(), "Select a tile first",
+						Toast.LENGTH_SHORT).show();
+			} else {
+				pathToTile(tile);
+			}
 		} else if (MapperRadialMenu.ACTION_MAPS.equals(action)) {
 			openMapsBrowser();
 		} else if (MapperRadialMenu.ACTION_NEW.equals(action)) {
@@ -2156,6 +2276,8 @@ public class MapperOverlayController
 			openMoveEffectsEditor();
 		} else if (MapperRadialMenu.ACTION_OPACITY.equals(action)) {
 			promptOpacity();
+		} else if (MapperRadialMenu.ACTION_ARROW_LABELS.equals(action)) {
+			toggleArrowLabels();
 		} else if (MapperRadialMenu.ACTION_CAPTURE.equals(action)) {
 			openCapture();
 		} else if (MapperRadialMenu.ACTION_GMCP.equals(action)) {
@@ -2521,15 +2643,15 @@ public class MapperOverlayController
 		}
 		if (map == null) {
 			if (titleView != null) {
-				titleView.setText("Map");
+				refreshTitleOnly();
 			}
 			mapperView.setTiles(new ArrayList<MapTile>());
 			mapperView.setTileIndex(new HashMap<String, MapTile>());
 			mapperView.setLevelIndex(new HashMap<String, MapLevel>());
 			return;
 		}
-		if (titleView != null && !linkEditMode && !drawEditMode) {
-			titleView.setText(formatTitleBreadcrumb(map));
+		if (!linkEditMode && !drawEditMode) {
+			refreshTitleOnly();
 		}
 		mapperView.setTileIndex(buildTileIndex(map));
 		mapperView.setLevelIndex(buildLevelIndex(map));
@@ -2576,8 +2698,7 @@ public class MapperOverlayController
 			mapperView.setTileDragEnabled(true);
 		}
 		updateEditModeToggleUi();
-		Toast.makeText(host.getMainWindow(),
-				edit ? "Edit mode" : "Browse mode (view only)", Toast.LENGTH_SHORT).show();
+		setStickyStatus(edit ? "Edit mode" : "Browse mode (view only)");
 		if (controller != null) {
 			if (!linkEditMode && !drawEditMode) {
 				refreshFromController();
@@ -2646,7 +2767,78 @@ public class MapperOverlayController
 			String via = shortTileLabel(anchor);
 			base = base + " ← " + via;
 		}
+		int openConflicts = countOpenConflicts(map);
+		if (openConflicts > 0) {
+			base = base + " ⚠" + openConflicts;
+		}
+		if (isControllerEditMode() && controller != null) {
+			int undo = controller.getUndoDepth();
+			if (undo > 0) {
+				base = base + " ·↺" + undo;
+			}
+		}
 		return base + recMark;
+	}
+
+	private static int countOpenConflicts(MudMap map) {
+		if (map == null || map.getConflicts() == null) {
+			return 0;
+		}
+		int n = 0;
+		for (MapConflict c : map.getConflicts()) {
+			if (c != null && !c.isResolved()) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** First-open coach when the map has no tiles yet. */
+	private void maybeShowEmptyMapHint() {
+		if (emptyMapHintShown || !visible) {
+			return;
+		}
+		MudMap map = snapshotMap;
+		if (map == null && controller != null) {
+			map = controller.getMap();
+		}
+		if (map == null) {
+			return;
+		}
+		if (map.getTiles() != null && !map.getTiles().isEmpty()) {
+			return;
+		}
+		emptyMapHintShown = true;
+		final MainWindow activity = host.getMainWindow();
+		final CharSequence[] items = new CharSequence[] {
+				"Record while walking",
+				"Draw tiles",
+				"Use GMCP Room.Info"
+		};
+		new AlertDialog.Builder(activity)
+				.setTitle("Empty map — get started")
+				.setItems(items, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which == 0) {
+							setEditModeFromUi(true);
+							runToolbarAction("rec");
+						} else if (which == 1) {
+							setEditModeFromUi(true);
+							if (!drawEditMode) {
+								toggleDrawEditMode();
+							}
+						} else if (which == 2) {
+							if (!snapshotUseGmcp) {
+								snapshotUseGmcp = true;
+								host.runMapCommand("gmcp on");
+							}
+							setStickyStatus("GMCP Room.Info on — walk to grow map");
+						}
+					}
+				})
+				.setNegativeButton("Later", null)
+				.show();
 	}
 
 	private Map<String, MapTile> buildTileIndex(MudMap map) {
