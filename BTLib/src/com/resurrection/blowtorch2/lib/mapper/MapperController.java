@@ -1737,6 +1737,43 @@ public class MapperController {
 		return "Mapper: moved tile to level \"" + level.getName() + "\".";
 	}
 
+	/**
+	 * Rename a level by id or current name. {@code newName} must be unique
+	 * among other levels (case-insensitive).
+	 */
+	public String renameLevel(final String idOrName, final String newName) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(idOrName)) {
+			return "Mapper: usage .map level rename <id|name> <newName>";
+		}
+		if (TextUtils.isEmpty(newName)) {
+			return "Mapper: new level name required.";
+		}
+		String key = idOrName.trim();
+		MapLevel level = mMap.findLevel(key);
+		if (level == null) {
+			level = findLevelByName(key);
+		}
+		if (level == null) {
+			return "Mapper: unknown level.";
+		}
+		String trimmed = newName.trim();
+		if (trimmed.length() == 0) {
+			return "Mapper: new level name required.";
+		}
+		MapLevel clash = findLevelByName(trimmed);
+		if (clash != null && !clash.getId().equals(level.getId())) {
+			return "Mapper: level \"" + trimmed + "\" already exists.";
+		}
+		pushUndo();
+		String old = level.getName() != null ? level.getName() : key;
+		level.setName(trimmed);
+		notifyChanged();
+		return "Mapper: renamed \"" + old + "\" → \"" + trimmed + "\".";
+	}
+
 	public String levelList() {
 		if (mMap == null) {
 			return "Mapper: no map.";

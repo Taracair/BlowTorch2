@@ -54,6 +54,7 @@ public final class MapperRadialMenu {
 	public static final String ACTION_ROOT = "home";
 	public static final String ACTION_PARENT = "parent";
 	public static final String ACTION_DELETE_LEVEL = "delete";
+	public static final String ACTION_RENAME_LEVEL = "rename";
 	@Deprecated
 	public static final String ACTION_LEVELS = ACTION_LIST;
 	@Deprecated
@@ -115,6 +116,7 @@ public final class MapperRadialMenu {
 				new Item(ACTION_DOWN, "Floor ↓"),
 				new Item(ACTION_ROOT, "Root floor"),
 				new Item(ACTION_PARENT, "To entrance"),
+				new Item(ACTION_RENAME_LEVEL, "Rename floor"),
 				new Item(ACTION_DELETE_LEVEL, "Delete floor")
 		};
 		show(parent, "Floors", items, listener);
