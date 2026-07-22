@@ -47,7 +47,9 @@ public final class MapConflictDetector {
 			if (c == null) {
 				continue;
 			}
-			if (c.isResolved() || c.getType() == MapConflict.Type.GMCP_MISMATCH) {
+			if (c.isResolved()
+					|| c.getType() == MapConflict.Type.GMCP_MISMATCH
+					|| c.getType() == MapConflict.Type.GMCP_LAYOUT) {
 				keep.add(c);
 			}
 		}

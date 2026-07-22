@@ -511,9 +511,35 @@ public class OptionsDialog extends Dialog {
 				return def;
 			}
 
+			private String readString(String key, String def) {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey(key);
+						if (o instanceof StringOption) {
+							Object val = ((StringOption) o).getValue();
+							if (val instanceof String) {
+								return (String) val;
+							}
+							if (val != null) {
+								return val.toString();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return def;
+			}
+
 			@Override
 			public boolean getUseGmcp() {
 				return readBool("mapper_use_gmcp", true);
+			}
+
+			@Override
+			public String getPolicy() {
+				return readString("mapper_gmcp_policy",
+						readBool("mapper_gmcp_grow", true) ? "sync" : "follow");
 			}
 
 			@Override
@@ -537,10 +563,31 @@ public class OptionsDialog extends Dialog {
 			}
 
 			@Override
-			public void apply(boolean useGmcp, boolean grow, boolean useNum, boolean useCoords,
-					boolean createExits) {
+			public String getHostHint() {
 				try {
+					String connected = service.getConnectedTo();
+					if (connected != null && connected.trim().length() > 0) {
+						return connected.trim();
+					}
+				} catch (Exception ignored) {
+				}
+				return null;
+			}
+
+			@Override
+			public Context getAppContext() {
+				return ctx.getApplicationContext() != null
+						? ctx.getApplicationContext() : ctx;
+			}
+
+			@Override
+			public void apply(boolean useGmcp, String policy, boolean useNum,
+					boolean useCoords, boolean createExits) {
+				try {
+					String pol = policy != null ? policy : "sync";
+					boolean grow = !"follow".equalsIgnoreCase(pol);
 					service.updateBooleanSetting("mapper_use_gmcp", useGmcp);
+					service.updateStringSetting("mapper_gmcp_policy", pol);
 					service.updateBooleanSetting("mapper_gmcp_grow", grow);
 					service.updateBooleanSetting("mapper_gmcp_use_num", useNum);
 					service.updateBooleanSetting("mapper_gmcp_use_coords", useCoords);

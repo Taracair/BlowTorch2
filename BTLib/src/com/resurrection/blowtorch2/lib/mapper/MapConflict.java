@@ -13,7 +13,9 @@ public class MapConflict {
 		ASYMMETRIC,
 		GRID_COLLISION,
 		DUPLICATE_EXIT,
-		GMCP_MISMATCH
+		GMCP_MISMATCH,
+		/** GMCP wants a title or position change that may fight the user layout. */
+		GMCP_LAYOUT
 	}
 
 	private String id;

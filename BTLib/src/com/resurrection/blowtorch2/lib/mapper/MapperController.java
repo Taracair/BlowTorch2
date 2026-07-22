@@ -51,6 +51,13 @@ public class MapperController {
 	/** Default exits regex for `.map capture` / Capture dialog (group 1 optional). */
 	public static final String DEFAULT_CAPTURE_EXITS_REGEX = "(?i)exits?:\\s*(.*)";
 
+	/** Follow-only: jump by room num; no create rooms/exits; title if unlocked. */
+	public static final String GMCP_POLICY_FOLLOW = "follow";
+	/** Create/grow + update titles when unlocked (default). Conflicts may prompt. */
+	public static final String GMCP_POLICY_SYNC = "sync";
+	/** Like sync but always overwrite unlocked titles (no title conflict prompt). */
+	public static final String GMCP_POLICY_STRICT = "strict";
+
 	/** Listeners notified when the map model or session flags change. */
 	public interface Listener {
 		void onMapperChanged();
@@ -69,6 +76,17 @@ public class MapperController {
 		public String matchedLines;
 		public String title;
 		public String exits;
+	}
+
+	/** Queued GMCP layout conflict for the overlay AlertDialog. */
+	public static class PendingGmcpConflict {
+		public String tileId;
+		public String kind; // "title" | "position"
+		public String message;
+		public String proposedTitle;
+		public Integer proposedX;
+		public Integer proposedY;
+		public String proposedLevelId;
 	}
 
 	/** Summary row for the level browser UI / {@link #levelBrowserLines()}. */
@@ -103,8 +121,23 @@ public class MapperController {
 	/**
 	 * When false, GMCP only follows existing rooms (by num) and updates the title —
 	 * does not create tiles or exits. Independent of Record/Draw.
+	 * Derived from {@link #mGmcpPolicy} ({@code follow} ⇒ off).
 	 */
 	private boolean mGmcpGrow = true;
+	/**
+	 * GMCP Room sync policy: {@link #GMCP_POLICY_FOLLOW}, {@link #GMCP_POLICY_SYNC}
+	 * (default), or {@link #GMCP_POLICY_STRICT}.
+	 */
+	private String mGmcpPolicy = GMCP_POLICY_SYNC;
+	/** Queued GMCP layout conflict awaiting Apply / Keep mine in the UI. */
+	private PendingGmcpConflict mPendingGmcpConflict;
+	/** Session: apply all further GMCP title/position conflicts without prompting. */
+	private boolean mGmcpConflictApplyAll;
+	/** Session: keep mine for all further GMCP title/position conflicts. */
+	private boolean mGmcpConflictKeepAll;
+	/** Per-tile session choices: {@code "apply"} or {@code "keep"}. */
+	private final Map<String, String> mGmcpConflictTileChoice =
+			new HashMap<String, String>();
 	private boolean mAutoReverse = true;
 	/**
 	 * When true, special exits ({@code out}/{@code enter}/…) always create a new
@@ -969,7 +1002,13 @@ public class MapperController {
 		mGmcpUseNum = boolOpt("mapper_gmcp_use_num", true);
 		mGmcpUseCoords = boolOpt("mapper_gmcp_use_coords", false);
 		mGmcpCreateExits = boolOpt("mapper_gmcp_create_exits", true);
-		mGmcpGrow = boolOpt("mapper_gmcp_grow", true);
+		String policyOpt = stringOpt("mapper_gmcp_policy", null);
+		if (policyOpt != null && policyOpt.trim().length() > 0) {
+			applyGmcpPolicyInternal(normalizeGmcpPolicy(policyOpt), false);
+		} else {
+			mGmcpGrow = boolOpt("mapper_gmcp_grow", true);
+			mGmcpPolicy = mGmcpGrow ? GMCP_POLICY_SYNC : GMCP_POLICY_FOLLOW;
+		}
 		mAutoReverse = boolOpt("mapper_auto_reverse_link", true);
 		mAcceptOneWaySpecials = boolOpt("mapper_accept_one_way_specials", false);
 		mOpacity = clampOpacity(intOpt("mapper_opacity", 85));
@@ -1240,6 +1279,7 @@ public class MapperController {
 	public void setUseGmcp(final boolean use) {
 		mUseGmcp = use;
 		persistMapperOption("mapper_use_gmcp", Boolean.toString(mUseGmcp));
+		notifyChanged();
 	}
 
 	public void setGmcpUseNum(final boolean use) {
@@ -1254,9 +1294,49 @@ public class MapperController {
 		mGmcpCreateExits = create;
 	}
 
+	/**
+	 * Sets grow flag and maps to policy for backward compat:
+	 * grow off → {@link #GMCP_POLICY_FOLLOW}; grow on → {@link #GMCP_POLICY_SYNC}
+	 * when currently follow (keeps sync/strict otherwise).
+	 */
 	public void setGmcpGrow(final boolean grow) {
 		mGmcpGrow = grow;
+		if (!grow) {
+			mGmcpPolicy = GMCP_POLICY_FOLLOW;
+		} else if (GMCP_POLICY_FOLLOW.equals(mGmcpPolicy)) {
+			mGmcpPolicy = GMCP_POLICY_SYNC;
+		}
 		persistMapperOption("mapper_gmcp_grow", Boolean.toString(mGmcpGrow));
+		persistMapperOption("mapper_gmcp_policy", mGmcpPolicy);
+		notifyChanged();
+	}
+
+	public void setGmcpPolicy(final String policy) {
+		applyGmcpPolicyInternal(normalizeGmcpPolicy(policy), true);
+		notifyChanged();
+	}
+
+	private void applyGmcpPolicyInternal(final String policy, final boolean persist) {
+		mGmcpPolicy = normalizeGmcpPolicy(policy);
+		mGmcpGrow = !GMCP_POLICY_FOLLOW.equals(mGmcpPolicy);
+		if (persist) {
+			persistMapperOption("mapper_gmcp_policy", mGmcpPolicy);
+			persistMapperOption("mapper_gmcp_grow", Boolean.toString(mGmcpGrow));
+		}
+	}
+
+	public static String normalizeGmcpPolicy(final String policy) {
+		if (policy == null) {
+			return GMCP_POLICY_SYNC;
+		}
+		String p = policy.trim().toLowerCase(Locale.US);
+		if (GMCP_POLICY_FOLLOW.equals(p) || "off".equals(p) || "nogrow".equals(p)) {
+			return GMCP_POLICY_FOLLOW;
+		}
+		if (GMCP_POLICY_STRICT.equals(p)) {
+			return GMCP_POLICY_STRICT;
+		}
+		return GMCP_POLICY_SYNC;
 	}
 
 	public boolean isUseGmcp() {
@@ -1267,6 +1347,22 @@ public class MapperController {
 		return mGmcpGrow;
 	}
 
+	public String getGmcpPolicy() {
+		return mGmcpPolicy;
+	}
+
+	public boolean isGmcpUseNum() {
+		return mGmcpUseNum;
+	}
+
+	public boolean isGmcpUseCoords() {
+		return mGmcpUseCoords;
+	}
+
+	public boolean isGmcpCreateExits() {
+		return mGmcpCreateExits;
+	}
+
 	public boolean toggleUseGmcp() {
 		mUseGmcp = !mUseGmcp;
 		persistMapperOption("mapper_use_gmcp", Boolean.toString(mUseGmcp));
@@ -1275,10 +1371,70 @@ public class MapperController {
 	}
 
 	public boolean toggleGmcpGrow() {
-		mGmcpGrow = !mGmcpGrow;
-		persistMapperOption("mapper_gmcp_grow", Boolean.toString(mGmcpGrow));
-		notifyChanged();
+		setGmcpGrow(!mGmcpGrow);
 		return mGmcpGrow;
+	}
+
+	public PendingGmcpConflict getPendingGmcpConflict() {
+		return mPendingGmcpConflict;
+	}
+
+	/** Apply the queued GMCP conflict change to the map. */
+	public String applyPendingGmcpConflict(final boolean allSession) {
+		PendingGmcpConflict pending = mPendingGmcpConflict;
+		if (pending == null || mMap == null) {
+			return "Mapper: no pending GMCP conflict.";
+		}
+		MapTile tile = mMap.findTile(pending.tileId);
+		if (tile == null) {
+			mPendingGmcpConflict = null;
+			return "Mapper: conflict tile gone.";
+		}
+		if (allSession) {
+			mGmcpConflictApplyAll = true;
+		}
+		if (pending.tileId != null) {
+			mGmcpConflictTileChoice.put(pending.tileId, "apply");
+		}
+		pushUndo();
+		if ("position".equals(pending.kind)) {
+			if (pending.proposedX != null) {
+				tile.setGridX(pending.proposedX.intValue());
+			}
+			if (pending.proposedY != null) {
+				tile.setGridY(pending.proposedY.intValue());
+			}
+			if (pending.proposedLevelId != null) {
+				tile.setLevelId(pending.proposedLevelId);
+			}
+		} else if ("title".equals(pending.kind)) {
+			if (pending.proposedTitle != null && !tile.isLockTitle()) {
+				tile.setTitle(pending.proposedTitle);
+			}
+		}
+		mPendingGmcpConflict = null;
+		refreshConflicts();
+		notifyChanged();
+		return "Mapper: applied GMCP " + pending.kind
+				+ (allSession ? " (apply all this session)" : "") + ".";
+	}
+
+	/** Keep the user's layout; dismiss the queued conflict. */
+	public String keepPendingGmcpConflict(final boolean allSession) {
+		PendingGmcpConflict pending = mPendingGmcpConflict;
+		if (pending == null) {
+			return "Mapper: no pending GMCP conflict.";
+		}
+		if (allSession) {
+			mGmcpConflictKeepAll = true;
+		}
+		if (pending.tileId != null) {
+			mGmcpConflictTileChoice.put(pending.tileId, "keep");
+		}
+		mPendingGmcpConflict = null;
+		notifyChanged();
+		return "Mapper: kept mine for GMCP " + pending.kind
+				+ (allSession ? " (keep all this session)" : "") + ".";
 	}
 
 	public void setAutoReverse(final boolean auto) {
@@ -1626,10 +1782,10 @@ public class MapperController {
 	/**
 	 * Sync from GMCP Room.* payload when mapper_use_gmcp is on.
 	 * <p>
-	 * Independent of Record/Draw. With {@code mapper_gmcp_grow} off, only jumps to
-	 * an existing room (by num) and updates its title — no new tiles/exits.
-	 * Absolute coords are optional and skipped when they would stretch existing
-	 * links (Eden world coords often skip cells between exits).
+	 * Independent of Record/Draw. Policy {@link #GMCP_POLICY_FOLLOW} only jumps to
+	 * an existing room (by num) and may update its unlocked title — no new
+	 * tiles/exits. Locked title/position are never overwritten. Title/position
+	 * conflicts may queue a pending prompt for the UI.
 	 */
 	public void onGmcpRoom(final String name, final String roomNum,
 			final Integer x, final Integer y, final Integer z,
@@ -1674,9 +1830,13 @@ public class MapperController {
 			if (!mGmcpGrow) {
 				// Follow-only: stay put when the room is unknown.
 				if (name != null && name.length() > 0 && current != null
+						&& !current.isLockTitle()
 						&& (current.getTitle() == null || !name.equals(current.getTitle()))) {
-					pushUndo();
-					current.setTitle(name);
+					if (maybeApplyOrQueueTitle(current, name)) {
+						changed = true;
+					}
+				}
+				if (changed) {
 					notifyChanged();
 				} else if (mFollowPlayer) {
 					notifyChanged();
@@ -1721,14 +1881,16 @@ public class MapperController {
 			changed = true;
 		}
 
-		if (mGmcpUseCoords && x != null && y != null && mGmcpGrow) {
+		if (mGmcpUseCoords && x != null && y != null && mGmcpGrow
+				&& !tile.isLockPosition()) {
 			int gx = x.intValue();
 			int gy = y.intValue();
 			boolean levelDiff = levelId != null && !levelId.equals(tile.getLevelId());
-			if ((tile.getGridX() != gx || tile.getGridY() != gy || levelDiff)
-					&& !wouldStretchLinks(tile, gx, gy, levelId)) {
+			if (tile.getGridX() != gx || tile.getGridY() != gy || levelDiff) {
+				boolean stretch = wouldStretchLinks(tile, gx, gy, levelId);
 				MapTile occupied = findTileAt(levelId, gx, gy);
-				if (occupied == null || occupied.getId().equals(tile.getId())) {
+				boolean free = occupied == null || occupied.getId().equals(tile.getId());
+				if (free && !stretch) {
 					if (!changed) {
 						pushUndo();
 					}
@@ -1738,17 +1900,19 @@ public class MapperController {
 						tile.setLevelId(levelId);
 					}
 					changed = true;
+				} else if (free && stretch) {
+					if (maybeApplyOrQueuePosition(tile, gx, gy, levelId)) {
+						changed = true;
+					}
 				}
 			}
 		}
 
-		if (name != null && name.length() > 0
+		if (name != null && name.length() > 0 && !tile.isLockTitle()
 				&& (tile.getTitle() == null || !name.equals(tile.getTitle()))) {
-			if (!changed) {
-				pushUndo();
+			if (maybeApplyOrQueueTitle(tile, name)) {
+				changed = true;
 			}
-			tile.setTitle(name);
-			changed = true;
 		}
 
 		if (current != null && !tile.getId().equals(current.getId())) {
@@ -1773,9 +1937,106 @@ public class MapperController {
 		if (changed) {
 			refreshConflicts();
 			notifyChanged();
-		} else if (mFollowPlayer) {
+		} else if (mFollowPlayer || mPendingGmcpConflict != null) {
 			notifyChanged();
 		}
+	}
+
+	/**
+	 * @return true if title was applied now
+	 */
+	private boolean maybeApplyOrQueueTitle(final MapTile tile, final String name) {
+		if (tile == null || name == null || name.length() == 0 || tile.isLockTitle()) {
+			return false;
+		}
+		boolean empty = tile.getTitle() == null || tile.getTitle().trim().length() == 0;
+		String choice = conflictChoiceFor(tile.getId());
+		if ("keep".equals(choice)) {
+			return false;
+		}
+		boolean applyNow = empty
+				|| GMCP_POLICY_STRICT.equals(mGmcpPolicy)
+				|| "apply".equals(choice)
+				|| mGmcpConflictApplyAll;
+		if (applyNow) {
+			pushUndo();
+			tile.setTitle(name);
+			return true;
+		}
+		// sync/follow with existing different title → prompt unless already pending
+		queueGmcpConflict(tile, "title",
+				"GMCP title differs: \"" + safeShort(tile.getTitle()) + "\" → \""
+						+ safeShort(name) + "\"",
+				name, null, null, null);
+		return false;
+	}
+
+	/**
+	 * @return true if position was applied now
+	 */
+	private boolean maybeApplyOrQueuePosition(final MapTile tile, final int gx,
+			final int gy, final String levelId) {
+		if (tile == null || tile.isLockPosition()) {
+			return false;
+		}
+		String choice = conflictChoiceFor(tile.getId());
+		if ("keep".equals(choice) || mGmcpConflictKeepAll) {
+			return false;
+		}
+		if ("apply".equals(choice) || mGmcpConflictApplyAll) {
+			pushUndo();
+			tile.setGridX(gx);
+			tile.setGridY(gy);
+			if (levelId != null) {
+				tile.setLevelId(levelId);
+			}
+			return true;
+		}
+		queueGmcpConflict(tile, "position",
+				"GMCP wants to move room (may stretch exits) to (" + gx + "," + gy + ")",
+				null, Integer.valueOf(gx), Integer.valueOf(gy), levelId);
+		return false;
+	}
+
+	private String conflictChoiceFor(final String tileId) {
+		if (tileId == null) {
+			return null;
+		}
+		if (mGmcpConflictKeepAll) {
+			return "keep";
+		}
+		if (mGmcpConflictApplyAll) {
+			return "apply";
+		}
+		return mGmcpConflictTileChoice.get(tileId);
+	}
+
+	private void queueGmcpConflict(final MapTile tile, final String kind,
+			final String message, final String proposedTitle,
+			final Integer proposedX, final Integer proposedY,
+			final String proposedLevelId) {
+		if (tile == null || mPendingGmcpConflict != null) {
+			return;
+		}
+		PendingGmcpConflict c = new PendingGmcpConflict();
+		c.tileId = tile.getId();
+		c.kind = kind;
+		c.message = message;
+		c.proposedTitle = proposedTitle;
+		c.proposedX = proposedX;
+		c.proposedY = proposedY;
+		c.proposedLevelId = proposedLevelId;
+		mPendingGmcpConflict = c;
+		MapConflict recorded = new MapConflict(MapConflict.Type.GMCP_LAYOUT,
+				message, java.util.Collections.singletonList(tile.getId()));
+		mMap.getConflicts().add(recorded);
+	}
+
+	private static String safeShort(final String s) {
+		if (s == null) {
+			return "";
+		}
+		return s.length() > 40 ? s.substring(0, 40) + "…" : s;
 	}
 
 	/**
