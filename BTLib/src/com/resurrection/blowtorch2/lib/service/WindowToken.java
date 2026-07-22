@@ -304,7 +304,7 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption newestAtTop = new BooleanOption();
 		newestAtTop.setTitle("Newest text at top?");
-		newestAtTop.setDescription("Put fresh game output at the top of the window (older lines below). Useful when buttons sit along the bottom edge.");
+		newestAtTop.setDescription("Put fresh game output at the top (older lines below). Handy with buttons along the bottom. Warning: reverses line order, so built-in MUD maps and ASCII art/graphics will appear upside down — leave off for those games.");
 		newestAtTop.setKey("newest_at_top");
 		newestAtTop.setValue(false);
 		window.addOption(newestAtTop);

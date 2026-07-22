@@ -423,6 +423,12 @@ at the **top** and older scrollback below — handy when on-screen buttons cover
 the bottom edge. Drag **up** to dig into history; the home chevron stays in the
 **bottom-right** and points **up** toward live output.
 
+**Caveat:** this reverses the on-screen order of consecutive lines. MUD maps,
+room diagrams, and other ASCII graphics drawn line-by-line will appear
+**upside down**. Leave the option off for those games (or use **Top padding** /
+**Keep text still with keyboard?** instead to keep buttons usable without
+flipping text).
+
 **Options → Window → Top padding (px)** leaves empty space above game text for
 notch/camera cutouts (on-screen buttons are unaffected). Try values like
 `40`–`80` on punched-hole phones.
