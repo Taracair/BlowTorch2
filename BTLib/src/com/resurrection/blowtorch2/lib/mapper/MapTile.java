@@ -20,6 +20,10 @@ public class MapTile {
 	 * {@code vnum}). Used to match rooms across revisits even when coords jump.
 	 */
 	private String externalId;
+	/** When true, GMCP Room sync must not overwrite {@link #title}. */
+	private boolean lockTitle;
+	/** When true, GMCP Room sync must not move this tile on the grid. */
+	private boolean lockPosition;
 	private final List<MapExit> exits = new ArrayList<MapExit>();
 
 	public MapTile() {
@@ -87,6 +91,22 @@ public class MapTile {
 
 	public void setExternalId(String externalId) {
 		this.externalId = externalId;
+	}
+
+	public boolean isLockTitle() {
+		return lockTitle;
+	}
+
+	public void setLockTitle(boolean lockTitle) {
+		this.lockTitle = lockTitle;
+	}
+
+	public boolean isLockPosition() {
+		return lockPosition;
+	}
+
+	public void setLockPosition(boolean lockPosition) {
+		this.lockPosition = lockPosition;
 	}
 
 	/** Outgoing exits from this tile. Mutable list owned by the tile. */

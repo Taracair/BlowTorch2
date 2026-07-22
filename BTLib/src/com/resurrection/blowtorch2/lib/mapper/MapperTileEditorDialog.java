@@ -14,6 +14,7 @@ import android.view.View;
 import android.view.Window;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -22,7 +23,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 /**
- * Edit tile title, notes, level, exits; add link command; move-to-level.
+ * Edit tile title, notes, GMCP locks, level, exits; add link command; move-to-level.
  * Always targets the {@link MapTile} passed in — never silently the "Here" tile.
  */
 public class MapperTileEditorDialog extends Dialog {
@@ -31,6 +32,8 @@ public class MapperTileEditorDialog extends Dialog {
 	private final MapTile tile;
 	private EditText titleEdit;
 	private EditText notesEdit;
+	private CheckBox lockTitleCheck;
+	private CheckBox lockPositionCheck;
 	private Spinner levelSpinner;
 	private EditText linkCmdEdit;
 	private EditText linkToEdit;
@@ -76,6 +79,19 @@ public class MapperTileEditorDialog extends Dialog {
 		notesEdit.setMinLines(3);
 		notesEdit.setGravity(Gravity.TOP | Gravity.START);
 		root.addView(notesEdit);
+
+		root.addView(label("GMCP locks"));
+		lockTitleCheck = new CheckBox(getContext());
+		lockTitleCheck.setText("Lock title (GMCP won't overwrite)");
+		lockTitleCheck.setTextColor(0xFFDDDDDD);
+		lockTitleCheck.setChecked(tile.isLockTitle());
+		root.addView(lockTitleCheck);
+
+		lockPositionCheck = new CheckBox(getContext());
+		lockPositionCheck.setText("Lock position (GMCP won't move)");
+		lockPositionCheck.setTextColor(0xFFDDDDDD);
+		lockPositionCheck.setChecked(tile.isLockPosition());
+		root.addView(lockPositionCheck);
 
 		root.addView(label("Level"));
 		levelSpinner = new Spinner(getContext());
@@ -166,6 +182,8 @@ public class MapperTileEditorDialog extends Dialog {
 			public void onClick(View v) {
 				controller.setTitle(tile.getId(), titleEdit.getText().toString());
 				controller.setNotes(tile.getId(), notesEdit.getText().toString());
+				controller.setLockTitle(tile.getId(), lockTitleCheck.isChecked());
+				controller.setLockPosition(tile.getId(), lockPositionCheck.isChecked());
 				int idx = levelSpinner.getSelectedItemPosition();
 				if (idx >= 0 && idx < levels.size()) {
 					MapLevel level = levels.get(idx);
