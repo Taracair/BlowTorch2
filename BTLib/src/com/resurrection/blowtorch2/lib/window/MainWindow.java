@@ -1847,8 +1847,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			BetterSpeedWalkConfigurationDialog swDialog = new BetterSpeedWalkConfigurationDialog(this,service);
 			swDialog.show();
 			break;
-		case 520: // Map overlay
-			handleMapperUiAction(3);
+		case 520: // Map overlay — always open (re-runs first-map intro when needed)
+			handleMapperUiAction(1);
 			break;
 		case 900:
 			this.cleanExit();
