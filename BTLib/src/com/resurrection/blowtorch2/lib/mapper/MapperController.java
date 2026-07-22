@@ -91,6 +91,12 @@ public class MapperController {
 	private boolean mFollowPlayer = true;
 	private boolean mEnabled = true;
 	private boolean mUseGmcp = true;
+	/** Match/create tiles by GMCP room num/id/vnum when present. */
+	private boolean mGmcpUseNum = true;
+	/** Place/move tiles using absolute GMCP x/y (Eden/IRE). Off = title/exits only. */
+	private boolean mGmcpUseCoords = true;
+	/** Create neighbor stubs for exits listed in Room.Info. */
+	private boolean mGmcpCreateExits = true;
 	private boolean mAutoReverse = true;
 	/**
 	 * When true, special exits ({@code out}/{@code enter}/…) always create a new
@@ -950,6 +956,9 @@ public class MapperController {
 		mPreferFloat = boolOpt("mapper_float", true);
 		mPathAutoSend = boolOpt("mapper_path_auto_send", false);
 		mUseGmcp = boolOpt("mapper_use_gmcp", true);
+		mGmcpUseNum = boolOpt("mapper_gmcp_use_num", true);
+		mGmcpUseCoords = boolOpt("mapper_gmcp_use_coords", true);
+		mGmcpCreateExits = boolOpt("mapper_gmcp_create_exits", true);
 		mAutoReverse = boolOpt("mapper_auto_reverse_link", true);
 		mAcceptOneWaySpecials = boolOpt("mapper_accept_one_way_specials", false);
 		mOpacity = clampOpacity(intOpt("mapper_opacity", 85));
@@ -1219,6 +1228,18 @@ public class MapperController {
 
 	public void setUseGmcp(final boolean use) {
 		mUseGmcp = use;
+	}
+
+	public void setGmcpUseNum(final boolean use) {
+		mGmcpUseNum = use;
+	}
+
+	public void setGmcpUseCoords(final boolean use) {
+		mGmcpUseCoords = use;
+	}
+
+	public void setGmcpCreateExits(final boolean create) {
+		mGmcpCreateExits = create;
 	}
 
 	public void setAutoReverse(final boolean auto) {
@@ -1517,52 +1538,21 @@ public class MapperController {
 
 	/**
 	 * Sync from GMCP Room.* payload when mapper_use_gmcp is on.
+	 * <p>
+	 * Prefers stable room {@code num}/{@code id}/{@code vnum} when enabled, then
+	 * absolute coordinates (Eden {@code coords}, IRE {@code coord}). Never relocates
+	 * an existing different room onto new coords — creates or jumps to the matching
+	 * tile instead. Exit destination vnums create/link stubs for later visits.
 	 */
-	public void onGmcpRoom(final String name, final Integer x, final Integer y,
-			final Integer z, final List<String> exits) {
+	public void onGmcpRoom(final String name, final String roomNum,
+			final Integer x, final Integer y, final Integer z,
+			final List<String> exits, final Map<String, String> exitDestNums) {
 		if (!mEnabled || !mUseGmcp || mMap == null) {
 			return;
 		}
 		ensureDefaultLevel();
-		MapTile current = currentTile();
 		boolean changed = false;
-
-		if (name != null && name.length() > 0) {
-			if (current == null) {
-				current = createTileAt(mMap.getCurrentLevelId(), 0, 0);
-				mMap.setCurrentTileId(current.getId());
-				changed = true;
-			}
-			if (current.getTitle() == null || !name.equals(current.getTitle())) {
-				pushUndo();
-				current.setTitle(name);
-				changed = true;
-			}
-		}
-
-		if (x != null && y != null && current != null) {
-			int gx = x.intValue();
-			int gy = y.intValue();
-			if (current.getGridX() != gx || current.getGridY() != gy) {
-				MapTile at = findTileAt(current.getLevelId(), gx, gy);
-				if (at != null && !at.getId().equals(current.getId())) {
-					// GMCP says we are at a different tile on the grid
-					pushUndo();
-					mMap.setCurrentTileId(at.getId());
-					if (name != null && name.length() > 0) {
-						at.setTitle(name);
-					}
-					changed = true;
-					addGmcpMismatch(current, at, name);
-				} else if (at == null) {
-					pushUndo();
-					current.setGridX(gx);
-					current.setGridY(gy);
-					changed = true;
-				}
-			}
-		}
-
+		String levelId = mMap.getCurrentLevelId();
 		if (z != null) {
 			String levelName = Integer.toString(z.intValue());
 			MapLevel level = findLevelByName(levelName);
@@ -1571,28 +1561,112 @@ public class MapperController {
 				level = addLevel(levelName);
 				changed = true;
 			}
-			if (current != null && !level.getId().equals(current.getLevelId())) {
-				MapTile at = findTileAt(level.getId(),
-						current.getGridX(), current.getGridY());
-				if (at == null) {
-					pushUndo();
-					current.setLevelId(level.getId());
-					mMap.setCurrentLevelId(level.getId());
-					changed = true;
-				} else {
-					pushUndo();
-					mMap.setCurrentTileId(at.getId());
-					mMap.setCurrentLevelId(level.getId());
-					changed = true;
-				}
-			} else if (!level.getId().equals(mMap.getCurrentLevelId())) {
-				mMap.setCurrentLevelId(level.getId());
+			levelId = level.getId();
+			if (!levelId.equals(mMap.getCurrentLevelId())) {
+				mMap.setCurrentLevelId(levelId);
 				changed = true;
 			}
 		}
+		if (levelId == null) {
+			levelId = mMap.getCurrentLevelId();
+		}
 
-		if (exits != null && current != null && exits.size() > 0) {
-			if (syncExitsFromGmcp(current, exits)) {
+		MapTile current = currentTile();
+		MapTile tile = null;
+		String num = (mGmcpUseNum && roomNum != null && roomNum.length() > 0)
+				? roomNum.trim() : null;
+
+		if (num != null) {
+			tile = findTileByExternalId(num);
+		}
+		if (tile == null && mGmcpUseCoords && x != null && y != null) {
+			tile = findTileAt(levelId, x.intValue(), y.intValue());
+		}
+
+		if (tile == null) {
+			if (mGmcpUseCoords && x != null && y != null) {
+				pushUndo();
+				tile = createTileAt(levelId, x.intValue(), y.intValue());
+				changed = true;
+			} else if (num != null && current != null
+					&& (current.getExternalId() == null
+							|| current.getExternalId().length() == 0)) {
+				// First Room.Info on an anonymous current tile — stamp identity.
+				tile = current;
+			} else if (num != null && current != null
+					&& current.getExternalId() != null
+					&& !num.equals(current.getExternalId())) {
+				// Moved to a new room id without coordinates — place nearby.
+				pushUndo();
+				int[] free = findFreeNear(levelId, current.getGridX(), current.getGridY());
+				tile = createTileAt(levelId, free[0], free[1]);
+				changed = true;
+			} else if (current == null) {
+				pushUndo();
+				tile = createTileAt(levelId, 0, 0);
+				changed = true;
+			} else {
+				// Title/exits-only MUDs: keep updating the current tile.
+				tile = current;
+			}
+		}
+
+		if (tile == null) {
+			return;
+		}
+
+		if (num != null && (tile.getExternalId() == null || !num.equals(tile.getExternalId()))) {
+			if (!changed) {
+				pushUndo();
+			}
+			tile.setExternalId(num);
+			changed = true;
+		}
+
+		if (mGmcpUseCoords && x != null && y != null) {
+			int gx = x.intValue();
+			int gy = y.intValue();
+			boolean levelDiff = levelId != null && !levelId.equals(tile.getLevelId());
+			if (tile.getGridX() != gx || tile.getGridY() != gy || levelDiff) {
+				MapTile occupied = findTileAt(levelId, gx, gy);
+				if (occupied == null || occupied.getId().equals(tile.getId())) {
+					if (!changed) {
+						pushUndo();
+					}
+					tile.setGridX(gx);
+					tile.setGridY(gy);
+					if (levelId != null) {
+						tile.setLevelId(levelId);
+					}
+					changed = true;
+				}
+			}
+		}
+
+		if (name != null && name.length() > 0
+				&& (tile.getTitle() == null || !name.equals(tile.getTitle()))) {
+			if (!changed) {
+				pushUndo();
+			}
+			tile.setTitle(name);
+			changed = true;
+		}
+
+		if (current != null && !tile.getId().equals(current.getId())) {
+			addGmcpMismatch(current, tile, name);
+		}
+		if (!tile.getId().equals(mMap.getCurrentTileId())) {
+			mMap.setCurrentTileId(tile.getId());
+			changed = true;
+		}
+		if (tile.getLevelId() != null
+				&& !tile.getLevelId().equals(mMap.getCurrentLevelId())) {
+			mMap.setCurrentLevelId(tile.getLevelId());
+			changed = true;
+		}
+
+		if (mGmcpCreateExits && exits != null && exits.size() > 0) {
+			if (syncExitsFromGmcp(tile, exits, exitDestNums)) {
 				changed = true;
 			}
 		}
@@ -1607,15 +1681,16 @@ public class MapperController {
 
 	/**
 	 * Ensure each GMCP exit exists on {@code current}. Existing exits are kept
-	 * (destinations never wiped). Missing exits get a destination via
-	 * {@link #createDestination} (planar neighbor, relative level, or nearby
-	 * free cell for specials) — same growth rules as {@link #recordMove}.
-	 * Exits on the tile that are absent from GMCP are left alone.
+	 * (destinations never wiped). Missing exits get a destination via room num
+	 * stub or {@link #createDestination}. Exits on the tile that are absent from
+	 * GMCP are left alone.
 	 *
 	 * @return true if any exit or tile was added
 	 */
-	private boolean syncExitsFromGmcp(final MapTile current, final List<String> exits) {
+	private boolean syncExitsFromGmcp(final MapTile current, final List<String> exits,
+			final Map<String, String> exitDestNums) {
 		List<String> missing = new ArrayList<String>();
+		boolean changedStamp = false;
 		for (String ex : exits) {
 			if (ex == null || ex.trim().length() == 0) {
 				continue;
@@ -1626,23 +1701,67 @@ public class MapperController {
 			}
 			if (findExit(current, norm) == null) {
 				missing.add(ex);
+			} else if (exitDestNums != null && mGmcpUseNum) {
+				String destNum = exitDestNums.get(norm);
+				if (destNum == null) {
+					destNum = exitDestNums.get(ex);
+				}
+				if (destNum != null) {
+					MapExit existing = findExit(current, norm);
+					MapTile dest = existing != null ? findTileById(existing.getToId()) : null;
+					if (dest != null && (dest.getExternalId() == null
+							|| dest.getExternalId().length() == 0)) {
+						if (!changedStamp) {
+							pushUndo();
+							changedStamp = true;
+						}
+						dest.setExternalId(destNum);
+					}
+				}
 			}
 		}
+		boolean changed = changedStamp;
 		if (missing.isEmpty()) {
-			return false;
+			return changed;
 		}
-		pushUndo();
-		boolean changed = false;
+		if (!changedStamp) {
+			pushUndo();
+		}
 		for (String ex : missing) {
 			String norm = normalize(ex);
 			if (norm.length() == 0 || findExit(current, norm) != null) {
 				continue;
 			}
 			String stored = MapDirections.storeCommand(ex, norm);
-			int[] delta = gridDeltaFor(norm);
-			boolean special = (delta == null);
-			MapTile to = createDestination(current, norm, delta, special);
+			String destNum = null;
+			if (exitDestNums != null) {
+				destNum = exitDestNums.get(norm);
+				if (destNum == null) {
+					destNum = exitDestNums.get(ex);
+				}
+				if (destNum == null) {
+					for (Map.Entry<String, String> e : exitDestNums.entrySet()) {
+						if (e.getKey() != null && normalize(e.getKey()).equals(norm)) {
+							destNum = e.getValue();
+							break;
+						}
+					}
+				}
+			}
+			MapTile to = null;
+			if (destNum != null && mGmcpUseNum) {
+				to = findTileByExternalId(destNum);
+			}
+			if (to == null) {
+				int[] delta = gridDeltaFor(norm);
+				boolean special = (delta == null);
+				to = createDestination(current, norm, delta, special);
+				if (destNum != null && mGmcpUseNum) {
+					to.setExternalId(destNum);
+				}
+			}
 			String rev = MapDirections.suggestReverse(stored, directionMap());
+			boolean special = gridDeltaFor(norm) == null;
 			current.addExit(new MapExit(current.getId(), to.getId(), stored, special, rev));
 			if (mAutoReverse && rev != null) {
 				ensureReverse(current, to, stored);
@@ -1667,39 +1786,215 @@ public class MapperController {
 			if (name == null) {
 				name = firstString(body, "name", "short", "title");
 			}
+			String roomNum = firstRoomNum(info);
+			if (roomNum == null) {
+				roomNum = firstRoomNum(body);
+			}
 			Integer x = null;
 			Integer y = null;
 			Integer z = null;
-			if (info.has("coords") && info.opt("coords") instanceof JSONObject) {
-				JSONObject c = info.getJSONObject("coords");
-				if (c.has("x")) {
-					x = Integer.valueOf(c.optInt("x"));
-				}
-				if (c.has("y")) {
-					y = Integer.valueOf(c.optInt("y"));
-				}
-				if (c.has("z")) {
-					z = Integer.valueOf(c.optInt("z"));
-				}
-			} else {
-				if (info.has("x")) {
-					x = Integer.valueOf(info.optInt("x"));
-				}
-				if (info.has("y")) {
-					y = Integer.valueOf(info.optInt("y"));
-				}
-				if (info.has("z")) {
-					z = Integer.valueOf(info.optInt("z"));
-				}
+			Integer[] xyz = parseRoomCoords(info);
+			if (xyz == null) {
+				xyz = parseRoomCoords(body);
+			}
+			if (xyz != null) {
+				x = xyz[0];
+				y = xyz[1];
+				z = xyz[2];
 			}
 			List<String> exits = parseExits(info);
 			if (exits.isEmpty()) {
 				exits = parseExits(body);
 			}
-			onGmcpRoom(name, x, y, z, exits);
+			Map<String, String> exitDests = parseExitDestinations(info);
+			if (exitDests.isEmpty()) {
+				exitDests = parseExitDestinations(body);
+			}
+			onGmcpRoom(name, roomNum, x, y, z, exits, exitDests);
 		} catch (JSONException ignored) {
 			// Loose parse: ignore malformed Room payloads
 		}
+	}
+
+	/** GMCP room identity: {@code num}, {@code id}, {@code vnum}, {@code room}. */
+	static String firstRoomNum(final JSONObject o) {
+		if (o == null) {
+			return null;
+		}
+		String[] keys = new String[] { "num", "id", "vnum", "room", "roomnum", "room_id" };
+		for (String key : keys) {
+			if (!o.has(key) || o.isNull(key)) {
+				continue;
+			}
+			Object v = o.opt(key);
+			if (v instanceof Number) {
+				return Long.toString(((Number) v).longValue());
+			}
+			String s = String.valueOf(v).trim();
+			if (s.length() > 0 && !"null".equals(s)) {
+				return s;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Extract x/y/z from common GMCP shapes:
+	 * {@code coords}/{@code coord} object, top-level x/y/z, or string
+	 * {@code "x,y"} / {@code "id,x,y,z"} / {@code "x,y,z"}.
+	 *
+	 * @return {@code [x, y, z]} with nulls for missing axes, or null if none
+	 */
+	static Integer[] parseRoomCoords(final JSONObject info) {
+		if (info == null) {
+			return null;
+		}
+		JSONObject c = null;
+		if (info.has("coords") && info.opt("coords") instanceof JSONObject) {
+			c = info.optJSONObject("coords");
+		} else if (info.has("coord") && info.opt("coord") instanceof JSONObject) {
+			c = info.optJSONObject("coord");
+		} else if (info.has("coords") && info.opt("coords") instanceof String) {
+			return parseCoordsString(info.optString("coords", null));
+		} else if (info.has("coord") && info.opt("coord") instanceof String) {
+			return parseCoordsString(info.optString("coord", null));
+		}
+		if (c != null) {
+			Integer x = c.has("x") ? Integer.valueOf(c.optInt("x")) : null;
+			Integer y = c.has("y") ? Integer.valueOf(c.optInt("y")) : null;
+			Integer z = c.has("z") ? Integer.valueOf(c.optInt("z")) : null;
+			if (x != null || y != null || z != null) {
+				return new Integer[] { x, y, z };
+			}
+		}
+		Integer x = info.has("x") ? Integer.valueOf(info.optInt("x")) : null;
+		Integer y = info.has("y") ? Integer.valueOf(info.optInt("y")) : null;
+		Integer z = info.has("z") ? Integer.valueOf(info.optInt("z")) : null;
+		if (x != null || y != null || z != null) {
+			return new Integer[] { x, y, z };
+		}
+		return null;
+	}
+
+	static Integer[] parseCoordsString(final String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String s = raw.trim();
+		if (s.length() == 0) {
+			return null;
+		}
+		String[] parts = s.split("[,;\\s]+");
+		if (parts.length < 2) {
+			return null;
+		}
+		try {
+			if (parts.length >= 4) {
+				// id,x,y,z
+				return new Integer[] {
+						Integer.valueOf(parts[1]),
+						Integer.valueOf(parts[2]),
+						Integer.valueOf(parts[3])
+				};
+			}
+			if (parts.length == 3) {
+				return new Integer[] {
+						Integer.valueOf(parts[0]),
+						Integer.valueOf(parts[1]),
+						Integer.valueOf(parts[2])
+				};
+			}
+			return new Integer[] {
+					Integer.valueOf(parts[0]),
+					Integer.valueOf(parts[1]),
+					null
+			};
+		} catch (NumberFormatException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Direction → destination room id from an exits object map
+	 * ({@code {"n":123,"e":456}} or {@code {"north":"abc"}}). Empty if exits is
+	 * an array/string without destinations.
+	 */
+	static Map<String, String> parseExitDestinations(final JSONObject o) {
+		Map<String, String> out = new LinkedHashMap<String, String>();
+		if (o == null) {
+			return out;
+		}
+		Object ex = null;
+		if (o.has("exits") && !o.isNull("exits")) {
+			ex = o.opt("exits");
+		} else if (o.has("exit") && !o.isNull("exit")) {
+			ex = o.opt("exit");
+		}
+		if (!(ex instanceof JSONObject)) {
+			return out;
+		}
+		JSONObject jo = (JSONObject) ex;
+		if (jo.has("exits") && !jo.isNull("exits") && jo.opt("exits") instanceof JSONObject) {
+			jo = jo.optJSONObject("exits");
+		}
+		if (jo == null) {
+			return out;
+		}
+		Iterator<?> keys = jo.keys();
+		while (keys.hasNext()) {
+			Object k = keys.next();
+			if (k == null) {
+				continue;
+			}
+			String dir = String.valueOf(k).trim();
+			if (dir.length() == 0 || "exits".equalsIgnoreCase(dir)) {
+				continue;
+			}
+			Object dest = jo.opt(dir);
+			if (dest == null || dest == JSONObject.NULL) {
+				continue;
+			}
+			String destId;
+			if (dest instanceof Number) {
+				destId = Long.toString(((Number) dest).longValue());
+			} else if (dest instanceof JSONObject) {
+				destId = firstRoomNum((JSONObject) dest);
+				if (destId == null) {
+					continue;
+				}
+			} else {
+				destId = String.valueOf(dest).trim();
+				if (destId.length() == 0 || "null".equals(destId)) {
+					continue;
+				}
+			}
+			out.put(dir.toLowerCase(Locale.US), destId);
+		}
+		return out;
+	}
+
+	private MapTile findTileByExternalId(final String externalId) {
+		if (mMap == null || externalId == null || externalId.length() == 0) {
+			return null;
+		}
+		for (MapTile tile : mMap.getTiles()) {
+			if (tile != null && externalId.equals(tile.getExternalId())) {
+				return tile;
+			}
+		}
+		return null;
+	}
+
+	private MapTile findTileById(final String id) {
+		if (mMap == null || id == null) {
+			return null;
+		}
+		for (MapTile tile : mMap.getTiles()) {
+			if (tile != null && id.equals(tile.getId())) {
+				return tile;
+			}
+		}
+		return null;
 	}
 
 	public List<String> findPath(final String query) {

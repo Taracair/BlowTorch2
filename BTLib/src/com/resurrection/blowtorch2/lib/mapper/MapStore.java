@@ -224,6 +224,9 @@ public final class MapStore {
 			o.put("gridY", tile.getGridY());
 			o.put("title", nullToEmpty(tile.getTitle()));
 			o.put("notes", nullToEmpty(tile.getNotes()));
+			if (tile.getExternalId() != null && tile.getExternalId().length() > 0) {
+				o.put("externalId", tile.getExternalId());
+			}
 			JSONArray exits = new JSONArray();
 			for (MapExit exit : tile.getExits()) {
 				if (exit == null) {
@@ -305,6 +308,7 @@ public final class MapStore {
 						o.optInt("gridY", 0));
 				tile.setTitle(emptyToNull(o.optString("title", "")));
 				tile.setNotes(emptyToNull(o.optString("notes", "")));
+				tile.setExternalId(emptyToNull(o.optString("externalId", "")));
 				JSONArray exits = o.optJSONArray("exits");
 				if (exits != null) {
 					for (int j = 0; j < exits.length(); j++) {

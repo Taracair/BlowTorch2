@@ -378,10 +378,10 @@ Mapper
   tap to list (and optionally unlink). Cross-level exits: ▲/▼/◆ badges;
   tap to jump (browse only).
 
-  GMCP Room: when Use GMCP? and Options → Mapper → Use GMCP Room are on,
-  Room.* syncs the current room title and creates missing neighbors from
-  Room exits (compass / level / special), without deleting exits not in the
-  list. Without GMCP, use Rec while walking and/or Draw/Links by hand.
+  GMCP Room: Use GMCP? + Room in Manage modules… + Mapper → Use GMCP Room
+  (or Configure Room Sync…). Room.Info builds the map: num/id as identity,
+  coords/coord x,y (z = floor), exits {dir:vnum} as neighbors/stubs.
+  Does not parse ASCII maps from game text. Without GMCP: Rec / Draw / Capture.
 
   Capture (no GMCP / custom room lines):
     Options → Mapper → Capture Title Regex / Capture Exits Regex
@@ -390,8 +390,9 @@ Mapper
     .map capture apply     apply last preview to the current tile
 
   Full settings: Options → Mapper (enable, float/fullscreen default, opacity,
-  recording defaults, follow, path auto-send, GMCP Room, auto reverse links,
-  level-up/down command CSVs, legacy toolbar CSV, capture title/exits regex).
+  recording defaults, follow, path auto-send, GMCP Room + Configure Room Sync…,
+  auto reverse links, level-up/down command CSVs, legacy toolbar CSV,
+  capture title/exits regex).
   Map chrome uses bottom chips Nav / Floors / Edit / More (hide with ▾ tools).
   Level-up/down CSVs control which recording moves create new floors
   (default u,up,climb,ascend / d,down,descend; clear both = never auto-level).
