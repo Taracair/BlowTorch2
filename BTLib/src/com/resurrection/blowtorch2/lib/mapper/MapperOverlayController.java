@@ -60,6 +60,10 @@ public class MapperOverlayController
 	/** Move-effects table from last service snapshot (UI process has no live controller). */
 	private String snapshotMoveEffects = "";
 	private boolean snapshotRecording;
+	/** Bottom tool chrome (radials + Browse/Edit + Float/Full). */
+	private View bottomChrome;
+	private TextView chromeToggleBtn;
+	private boolean chromeVisible = true;
 	private boolean snapshotFollow = true;
 	private int snapshotOpacity = 85;
 	private String snapshotToolbar = MapperController.DEFAULT_TOOLBAR;
@@ -237,6 +241,17 @@ public class MapperOverlayController
 		}
 		updateEditModeToggleUi();
 		wireCategoryChips();
+		bottomChrome = overlayRoot.findViewById(R.id.mapper_bottom_chrome);
+		chromeToggleBtn = (TextView) overlayRoot.findViewById(R.id.mapper_chrome_toggle);
+		if (chromeToggleBtn != null) {
+			chromeToggleBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					setChromeVisible(!chromeVisible);
+				}
+			});
+		}
+		applyChromeVisibility();
 		if (titleView != null) {
 			titleView.setOnLongClickListener(new View.OnLongClickListener() {
 				@Override
@@ -765,16 +780,11 @@ public class MapperOverlayController
 		if (mapperView != null) {
 			mapperView.setPathsLayout(pathsLayout);
 		}
-		if (pathsLayout) {
-			Toast.makeText(host.getMainWindow(),
-					"Paths: tiles spaced so exit arrows/labels show",
-					Toast.LENGTH_SHORT).show();
-		} else {
-			Toast.makeText(host.getMainWindow(),
-					"Pack: tiles compressed next to each other",
-					Toast.LENGTH_SHORT).show();
-		}
-		rebuildToolbar();
+		Toast.makeText(host.getMainWindow(),
+				pathsLayout
+						? "Layout: spread (space for arrows + labels)"
+						: "Layout: packed (compact, arrows only)",
+				Toast.LENGTH_SHORT).show();
 	}
 
 	private void toggleDrawEditMode() {
@@ -930,7 +940,7 @@ public class MapperOverlayController
 		pullSnapshotFromService();
 		MainWindow activity = host.getMainWindow();
 		final EditText cmdEdit = new EditText(activity);
-		cmdEdit.setHint("command from Moves, or type your own");
+		cmdEdit.setHint("pick from Moves…");
 		cmdEdit.setSingleLine(true);
 		LinearLayout root = new LinearLayout(activity);
 		root.setOrientation(LinearLayout.VERTICAL);
@@ -938,7 +948,7 @@ public class MapperOverlayController
 		root.setPadding(pad, pad, pad, pad);
 		TextView info = new TextView(activity);
 		info.setText("Add neighbor from " + shortTileLabel(from)
-				+ "\nPick a Moves command (or type one).");
+				+ "\nPick the walk command from Moves.");
 		root.addView(info);
 		root.addView(cmdEdit);
 		root.addView(buildMovesCommandPicker(activity, cmdEdit));
@@ -977,30 +987,7 @@ public class MapperOverlayController
 		int pad = (int) (8 * density);
 		LinearLayout box = new LinearLayout(activity);
 		box.setOrientation(LinearLayout.VERTICAL);
-
 		final List<String> cmds = listMoveCommands();
-		HorizontalScrollView hsv = new HorizontalScrollView(activity);
-		LinearLayout row = new LinearLayout(activity);
-		row.setOrientation(LinearLayout.HORIZONTAL);
-		int chipCount = Math.min(cmds.size(), 16);
-		for (int i = 0; i < chipCount; i++) {
-			final String verb = cmds.get(i);
-			Button qb = new Button(activity);
-			qb.setText(verb);
-			qb.setTextSize(11f);
-			qb.setAllCaps(false);
-			qb.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					cmdEdit.setText(verb);
-					cmdEdit.setSelection(verb.length());
-				}
-			});
-			row.addView(qb);
-		}
-		hsv.addView(row);
-		box.addView(hsv);
-
 		Button pickAll = new Button(activity);
 		pickAll.setText("Pick from Moves… (" + cmds.size() + ")");
 		pickAll.setAllCaps(false);
@@ -1021,7 +1008,7 @@ public class MapperOverlayController
 	private void showMovesCommandList(MainWindow activity, final EditText cmdEdit,
 			final List<String> cmds) {
 		if (cmds == null || cmds.isEmpty()) {
-			Toast.makeText(activity, "No Moves defined — use File → Moves",
+			Toast.makeText(activity, "No Moves defined — use Edit → Moves",
 					Toast.LENGTH_SHORT).show();
 			return;
 		}
@@ -1171,7 +1158,13 @@ public class MapperOverlayController
 				}
 				Button ub = new Button(activity);
 				String dest = exit.getToId() != null ? shortId(exit.getToId()) : "?";
-				ub.setText("Unlink " + exit.getCommand() + " → " + dest);
+				String floorHint = describeExitFloorChange(from, exit);
+				String mapHint = "";
+				if (exit.getTargetMap() != null && exit.getTargetMap().length() > 0) {
+					mapHint = " · map:" + exit.getTargetMap();
+				}
+				ub.setText("Unlink " + exit.getCommand() + " → " + dest
+						+ floorHint + mapHint);
 				ub.setAllCaps(false);
 				ub.setTextSize(12f);
 				ub.setOnClickListener(new View.OnClickListener() {
@@ -1229,7 +1222,13 @@ public class MapperOverlayController
 				continue;
 			}
 			exits.add(e);
-			labels.add(e.getCommand() + " → " + shortId(e.getToId()));
+			String floorHint = describeExitFloorChange(from, e);
+			String mapHint = "";
+			if (e.getTargetMap() != null && e.getTargetMap().length() > 0) {
+				mapHint = " · map:" + e.getTargetMap();
+			}
+			labels.add(e.getCommand() + " → " + shortId(e.getToId())
+					+ floorHint + mapHint);
 		}
 		CharSequence[] items = labels.toArray(new CharSequence[labels.size()]);
 		new AlertDialog.Builder(host.getMainWindow())
@@ -1403,7 +1402,8 @@ public class MapperOverlayController
 		final boolean edit = isControllerEditMode();
 		final CharSequence[] items = edit
 				? new CharSequence[] {
-						"Set as Here", "Edit", "Move…", "Add neighbor…", "Edit links…",
+						"Set as Here", "Edit tile", "Move…", "Add neighbor…", "Edit links…",
+						"Add level…", "Link to map…",
 						"Path to here", "Go there", "Change level", "Delete tile", "Center"
 				}
 				: new CharSequence[] {
@@ -1453,18 +1453,24 @@ public class MapperOverlayController
 							showEditLinksMenu(tile);
 							break;
 						case 5:
-							pathToTile(tile);
+							promptAddLevelFromTile(tile);
 							break;
 						case 6:
-							goToTile(tile);
+							promptLinkToMap(tile);
 							break;
 						case 7:
-							promptChangeLevel(tile);
+							pathToTile(tile);
 							break;
 						case 8:
-							confirmDeleteTile(tile);
+							goToTile(tile);
 							break;
 						case 9:
+							promptChangeLevel(tile);
+							break;
+						case 10:
+							confirmDeleteTile(tile);
+							break;
+						case 11:
 							if (mapperView != null) {
 								mapperView.setCurrentTileId(tile.getId());
 								mapperView.centerOnTile(tile);
@@ -1626,45 +1632,41 @@ public class MapperOverlayController
 	}
 
 	private void openSearch() {
-		if (controller != null) {
-			new MapperSearchDialog(host.getMainWindow(), controller,
-					new MapperSearchDialog.Callback() {
-						@Override
-						public void onGo(MapTile tile, List<String> path) {
-							if (tile != null && mapperView != null) {
-								selectedTileId = tile.getId();
-								mapperView.setSelectedTileId(tile.getId());
-								mapperView.centerOnTile(tile);
-							}
-							if (path == null || path.isEmpty()) {
-								Toast.makeText(host.getMainWindow(), "No path",
-										Toast.LENGTH_SHORT).show();
-								return;
-							}
-							Toast.makeText(host.getMainWindow(),
-									"Go: " + join(path, ";"), Toast.LENGTH_LONG).show();
-							if (tile != null) {
-								host.runMapCommand("go " + tile.getId());
-							}
-						}
-
-						@Override
-						public void onPath(MapTile tile, List<String> path) {
-							if (path == null || path.isEmpty()) {
-								Toast.makeText(host.getMainWindow(), "No path",
-										Toast.LENGTH_SHORT).show();
-							} else {
-								Toast.makeText(host.getMainWindow(),
-										"Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
-							}
-						}
-					}).show();
+		pullSnapshotFromService();
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
 			return;
 		}
-		host.runMapCommand("find ");
-		Toast.makeText(host.getMainWindow(),
-				"Use .map find <query> in the input bar (or open Find after recording).",
-				Toast.LENGTH_LONG).show();
+		if (map == null) {
+			Toast.makeText(activity, "No map loaded", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		new MapperSearchDialog(activity, map,
+				new MapperSearchDialog.Callback() {
+					@Override
+					public void onGo(MapTile tile, List<String> path) {
+						if (tile != null && mapperView != null) {
+							selectedTileId = tile.getId();
+							mapperView.setSelectedTileId(tile.getId());
+							mapperView.centerOnTile(tile);
+						}
+						if (tile != null) {
+							goToTile(tile);
+						}
+					}
+
+					@Override
+					public void onPath(MapTile tile, List<String> path) {
+						if (path == null || path.isEmpty()) {
+							Toast.makeText(host.getMainWindow(), "No path",
+									Toast.LENGTH_SHORT).show();
+						} else {
+							Toast.makeText(host.getMainWindow(),
+									"Path: " + join(path, ";"), Toast.LENGTH_LONG).show();
+						}
+					}
+				}).show();
 	}
 
 	private void openCapture() {
@@ -1778,8 +1780,8 @@ public class MapperOverlayController
 				}
 			}
 		}
-		final String message = "Delete level \"" + name + "\" and " + tileCount
-				+ " tiles? This cannot be undone easily (Undo may help).";
+		final String message = "Delete floor \"" + name + "\" and " + tileCount
+				+ " tiles?\n\nUndo restores the whole map to the state before this delete.";
 		new AlertDialog.Builder(activity)
 				.setTitle("Delete level?")
 				.setMessage(message)
@@ -1852,7 +1854,8 @@ public class MapperOverlayController
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
-				MapperRadialMenu.showNav((ViewGroup) overlayRoot, radialListener());
+				MapperRadialMenu.showNav((ViewGroup) overlayRoot, radialListener(),
+						isRecordingNow(), isFollowNow());
 			}
 		});
 	}
@@ -1870,7 +1873,8 @@ public class MapperOverlayController
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
-				MapperRadialMenu.showBuild((ViewGroup) overlayRoot, radialListener(),
+				MapperRadialMenu.showEdit((ViewGroup) overlayRoot, radialListener(),
+						drawEditMode, linkEditMode, pathsLayout,
 						isAcceptOneWaySpecials());
 			}
 		});
@@ -1880,9 +1884,31 @@ public class MapperOverlayController
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
-				MapperRadialMenu.showFile((ViewGroup) overlayRoot, radialListener());
+				MapperRadialMenu.showMore((ViewGroup) overlayRoot, radialListener(),
+						currentOpacityPercent());
 			}
 		});
+	}
+
+	private boolean isRecordingNow() {
+		if (controller != null) {
+			return controller.isRecording();
+		}
+		return snapshotRecording;
+	}
+
+	private boolean isFollowNow() {
+		if (controller != null) {
+			return controller.isFollowPlayer();
+		}
+		return snapshotFollow;
+	}
+
+	private int currentOpacityPercent() {
+		if (controller != null) {
+			return controller.getOpacity();
+		}
+		return snapshotOpacity;
 	}
 
 	private void showRadialOnOverlay(Runnable show) {
@@ -1981,7 +2007,15 @@ public class MapperOverlayController
 		} else if (MapperRadialMenu.ACTION_CENTER.equals(action)) {
 			runToolbarAction("center");
 		} else if (MapperRadialMenu.ACTION_CLOSE.equals(action)) {
-			close();
+			// Title-bar ✕ closes the map; ignore legacy radial Close.
+		} else if (MapperRadialMenu.ACTION_GO_THERE.equals(action)) {
+			MapTile tile = selectedOrCurrentTile();
+			if (tile == null) {
+				Toast.makeText(host.getMainWindow(), "Select a tile first",
+						Toast.LENGTH_SHORT).show();
+			} else {
+				goToTile(tile);
+			}
 		} else if (MapperRadialMenu.ACTION_MAPS.equals(action)) {
 			openMapsBrowser();
 		} else if (MapperRadialMenu.ACTION_NEW.equals(action)) {
@@ -1993,6 +2027,32 @@ public class MapperOverlayController
 			toggleAcceptOneWaySpecials();
 		} else if (MapperRadialMenu.ACTION_MOVES.equals(action)) {
 			openMoveEffectsEditor();
+		} else if (MapperRadialMenu.ACTION_OPACITY.equals(action)) {
+			cycleOpacity();
+		} else if (MapperRadialMenu.ACTION_CAPTURE.equals(action)) {
+			openCapture();
+		} else if (MapperRadialMenu.ACTION_LINK_MAP.equals(action)) {
+			if (!requireEditModeToast()) {
+				return;
+			}
+			MapTile tile = selectedOrCurrentTile();
+			if (tile == null) {
+				Toast.makeText(host.getMainWindow(), "Select a tile first",
+						Toast.LENGTH_SHORT).show();
+			} else {
+				promptLinkToMap(tile);
+			}
+		} else if (MapperRadialMenu.ACTION_ADD_LEVEL.equals(action)) {
+			if (!requireEditModeToast()) {
+				return;
+			}
+			MapTile tile = selectedOrCurrentTile();
+			if (tile == null) {
+				Toast.makeText(host.getMainWindow(), "Select a tile first",
+						Toast.LENGTH_SHORT).show();
+			} else {
+				promptAddLevelFromTile(tile);
+			}
 		}
 	}
 
@@ -2190,7 +2250,7 @@ public class MapperOverlayController
 		}
 		String anchorId = current.getAnchorTileId();
 		if (anchorId == null || anchorId.length() == 0) {
-			Toast.makeText(host.getMainWindow(), "Already at root (no door)",
+			Toast.makeText(host.getMainWindow(), "No entrance anchor on this floor",
 					Toast.LENGTH_SHORT).show();
 			return;
 		}
@@ -2640,6 +2700,251 @@ public class MapperOverlayController
 	public void onMapperChanged() {
 		onMapModelChanged();
 	}
+
+
+	private void setChromeVisible(boolean visibleTools) {
+		chromeVisible = visibleTools;
+		applyChromeVisibility();
+	}
+
+	private void applyChromeVisibility() {
+		if (bottomChrome != null) {
+			bottomChrome.setVisibility(chromeVisible ? View.VISIBLE : View.GONE);
+		}
+		if (chromeToggleBtn != null) {
+			chromeToggleBtn.setText(chromeVisible ? "▾ tools" : "▸ tools");
+		}
+	}
+
+	private void cycleOpacity() {
+		int cur = currentOpacityPercent();
+		int[] steps = new int[] { 100, 85, 70, 55, 40 };
+		int next = steps[0];
+		boolean found = false;
+		for (int i = 0; i < steps.length; i++) {
+			if (cur == steps[i]) {
+				next = steps[(i + 1) % steps.length];
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			for (int i = 0; i < steps.length; i++) {
+				if (cur > steps[i]) {
+					next = steps[i];
+					break;
+				}
+			}
+		}
+		snapshotOpacity = next;
+		if (controller != null) {
+			controller.setOpacity(next);
+		} else {
+			host.runMapCommand("opacity " + next);
+		}
+		applyOpacity();
+		Toast.makeText(host.getMainWindow(), "Opacity " + next + "%",
+				Toast.LENGTH_SHORT).show();
+	}
+
+	private String describeExitFloorChange(MapTile from, MapExit exit) {
+		if (from == null || exit == null) {
+			return "";
+		}
+		if (exit.getTargetMap() != null && exit.getTargetMap().length() > 0) {
+			return "";
+		}
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		MapTile to = null;
+		if (map != null && exit.getToId() != null) {
+			to = map.findTile(exit.getToId());
+		}
+		if (to != null && from.getLevelId() != null
+				&& !from.getLevelId().equals(to.getLevelId())) {
+			int fromIdx = levelIndexOf(map, from.getLevelId());
+			int toIdx = levelIndexOf(map, to.getLevelId());
+			if (fromIdx != Integer.MIN_VALUE && toIdx != Integer.MIN_VALUE) {
+				if (toIdx > fromIdx) {
+					return " · floor ↑";
+				}
+				if (toIdx < fromIdx) {
+					return " · floor ↓";
+				}
+			}
+			return " · other floor";
+		}
+		MapMoveEffect fx = MapDirections.effectFor(exit.getCommand(),
+				resolveMoveEffectsMap());
+		if (fx != null && fx.kind == MapMoveEffect.Kind.LEVEL) {
+			return fx.levelDelta > 0 ? " · floor ↑" : " · floor ↓";
+		}
+		return "";
+	}
+
+	private int levelIndexOf(MudMap map, String levelId) {
+		if (map == null || levelId == null) {
+			return Integer.MIN_VALUE;
+		}
+		List<MapLevel> levels = map.getLevels();
+		for (int i = 0; i < levels.size(); i++) {
+			MapLevel l = levels.get(i);
+			if (l != null && levelId.equals(l.getId())) {
+				return l.getIndex();
+			}
+		}
+		return Integer.MIN_VALUE;
+	}
+
+	private void promptAddLevelFromTile(final MapTile tile) {
+		if (tile == null) {
+			return;
+		}
+		final MainWindow activity = host.getMainWindow();
+		new AlertDialog.Builder(activity)
+				.setTitle("Add level")
+				.setMessage("Create a neighboring floor from this tile.")
+				.setPositiveButton("Floor ↑", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						pickMoveThenNeighbor(tile, 1);
+					}
+				})
+				.setNeutralButton("Floor ↓", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						pickMoveThenNeighbor(tile, -1);
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void pickMoveThenNeighbor(final MapTile tile, final int levelDelta) {
+		final MainWindow activity = host.getMainWindow();
+		final EditText cmdEdit = new EditText(activity);
+		cmdEdit.setHint(levelDelta > 0 ? "u / up / climb…" : "d / down / descend…");
+		cmdEdit.setSingleLine(true);
+		java.util.Map<String, MapMoveEffect> effects = resolveMoveEffectsMap();
+		for (java.util.Map.Entry<String, MapMoveEffect> e : effects.entrySet()) {
+			if (e.getValue() != null && e.getValue().kind == MapMoveEffect.Kind.LEVEL
+					&& e.getValue().levelDelta == levelDelta) {
+				cmdEdit.setText(e.getKey());
+				break;
+			}
+		}
+		LinearLayout root = new LinearLayout(activity);
+		root.setOrientation(LinearLayout.VERTICAL);
+		int pad = (int) (12 * activity.getResources().getDisplayMetrics().density);
+		root.setPadding(pad, pad, pad, pad);
+		TextView info = new TextView(activity);
+		info.setText((levelDelta > 0 ? "Up" : "Down")
+				+ " from " + shortTileLabel(tile)
+				+ "\nPick the Moves command that enters this floor.");
+		root.addView(info);
+		root.addView(cmdEdit);
+		root.addView(buildMovesCommandPicker(activity, cmdEdit));
+		new AlertDialog.Builder(activity)
+				.setTitle("How do you enter?")
+				.setView(root)
+				.setPositiveButton("Add", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						String cmd = cmdEdit.getText().toString().trim();
+						if (cmd.length() == 0) {
+							Toast.makeText(activity, "Pick a Moves command",
+									Toast.LENGTH_SHORT).show();
+							return;
+						}
+						runSetHere(tile.getId());
+						if (controller != null) {
+							toastStatus(controller.addNeighbor(tile.getId(), cmd));
+							refreshFromController();
+						} else {
+							host.runMapCommand("neighbor " + cmd + " from " + tile.getId());
+							pullSnapshotFromService();
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void promptLinkToMap(final MapTile tile) {
+		if (tile == null) {
+			return;
+		}
+		final MainWindow activity = host.getMainWindow();
+		final List<String> names = new ArrayList<String>(
+				MapStore.listMaps(activity));
+		if (names.isEmpty()) {
+			Toast.makeText(activity, "No maps on disk yet — Save one first",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		final CharSequence[] labels = names.toArray(new CharSequence[names.size()]);
+		new AlertDialog.Builder(activity)
+				.setTitle("Link to map")
+				.setItems(labels, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which < 0 || which >= names.size()) {
+							return;
+						}
+						final String mapName = names.get(which);
+						final EditText cmdEdit = new EditText(activity);
+						cmdEdit.setHint("enter / portal / out…");
+						cmdEdit.setSingleLine(true);
+						LinearLayout root = new LinearLayout(activity);
+						root.setOrientation(LinearLayout.VERTICAL);
+						int pad = (int) (12 * activity.getResources()
+								.getDisplayMetrics().density);
+						root.setPadding(pad, pad, pad, pad);
+						TextView info = new TextView(activity);
+						info.setText("Walk command that opens map \"" + mapName + "\"");
+						root.addView(info);
+						root.addView(cmdEdit);
+						root.addView(buildMovesCommandPicker(activity, cmdEdit));
+						new AlertDialog.Builder(activity)
+								.setTitle("Portal command")
+								.setView(root)
+								.setPositiveButton("Link",
+										new DialogInterface.OnClickListener() {
+											@Override
+											public void onClick(DialogInterface d,
+													int w) {
+												String cmd = cmdEdit.getText()
+														.toString().trim();
+												if (cmd.length() == 0) {
+													Toast.makeText(activity,
+															"Enter a command",
+															Toast.LENGTH_SHORT).show();
+													return;
+												}
+												createMapPortal(tile, cmd, mapName);
+											}
+										})
+								.setNegativeButton("Cancel", null)
+								.show();
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void createMapPortal(MapTile tile, String cmd, String mapName) {
+		if (tile == null || cmd == null || mapName == null) {
+			return;
+		}
+		if (controller != null) {
+			toastStatus(controller.linkMapPortal(tile.getId(), cmd, mapName));
+			refreshFromController();
+			return;
+		}
+		host.runMapCommand("portal " + cmd + " map " + mapName
+				+ " from " + tile.getId());
+		pullSnapshotFromService();
+	}
+
 
 	public void detach() {
 		if (controller != null) {

@@ -12,6 +12,11 @@ public class MapExit {
 	private boolean special;
 	/** Optional reverse command hint (e.g. south for a north exit). May be null. */
 	private String reverseCommand;
+	/**
+	 * Optional portal to another saved map (basename). When set, walking this
+	 * exit loads that map instead of (or after) moving to {@code toId}.
+	 */
+	private String targetMap;
 
 	public MapExit() {
 	}
@@ -67,5 +72,13 @@ public class MapExit {
 
 	public void setReverseCommand(String reverseCommand) {
 		this.reverseCommand = reverseCommand;
+	}
+
+	public String getTargetMap() {
+		return targetMap;
+	}
+
+	public void setTargetMap(String targetMap) {
+		this.targetMap = targetMap;
 	}
 }
