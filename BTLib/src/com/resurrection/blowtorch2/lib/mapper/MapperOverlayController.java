@@ -171,14 +171,26 @@ public class MapperOverlayController
 		if (overlayRoot == null) {
 			return;
 		}
+		final boolean justOpened = !visible;
 		visible = true;
-		mapperIntroShownThisOpen = false;
+		if (justOpened) {
+			mapperIntroShownThisOpen = false;
+		}
 		overlayRoot.setVisibility(View.VISIBLE);
 		applyLayoutMode();
 		pullSnapshotFromService();
 		refreshFromController();
-		maybeShowMapperIntro();
 		bringUnderChrome();
+		// After layout — AlertDialog during the same frame as attach can fail to
+		// appear on some devices (Samsung); also re-check after snapshot settle.
+		if (!mapperIntroShownThisOpen) {
+			overlayRoot.post(new Runnable() {
+				@Override
+				public void run() {
+					maybeShowMapperIntro();
+				}
+			});
+		}
 	}
 
 	public void close() {
@@ -2813,13 +2825,17 @@ public class MapperOverlayController
 		return n;
 	}
 
-	/** First-open intro until the player creates/names a map (or already has tiles). */
+	/**
+	 * First-open intro until the player names/creates a map.
+	 * Empty auto-{@code default} maps always get the intro (even if a stale
+	 * onboarding pref was set), so a blank Samsara/etc. session still coaches.
+	 */
 	private void maybeShowMapperIntro() {
 		if (!visible || mapperIntroShownThisOpen) {
 			return;
 		}
 		final MainWindow activity = host.getMainWindow();
-		if (activity == null) {
+		if (activity == null || activity.isFinishing()) {
 			return;
 		}
 		MudMap map = snapshotMap;
@@ -2830,11 +2846,30 @@ public class MapperOverlayController
 			markMapperOnboardingDone(activity);
 			return;
 		}
-		if (isMapperOnboardingDone(activity)) {
+		if (isEmptyStarterMap(map)) {
+			// Still on blank default — keep coaching even if pref was set early.
+			clearMapperOnboardingDone(activity);
+		} else if (isMapperOnboardingDone(activity)) {
 			return;
 		}
 		mapperIntroShownThisOpen = true;
+		android.util.Log.i("BlowTorch", "mapper intro: showing (map="
+				+ (map != null ? map.getName() : "null") + ")");
+		setStickyStatus("Name your map to get started");
 		showMapperIntroDialog(activity);
+	}
+
+	/** Blank in-memory/auto map: no tiles, name empty or {@code default}. */
+	private static boolean isEmptyStarterMap(MudMap map) {
+		if (mapHasTiles(map)) {
+			return false;
+		}
+		if (map == null) {
+			return true;
+		}
+		String name = map.getName();
+		return name == null || name.trim().length() == 0
+				|| "default".equalsIgnoreCase(name.trim());
 	}
 
 	private static boolean mapHasTiles(MudMap map) {
@@ -2859,24 +2894,47 @@ public class MapperOverlayController
 				.apply();
 	}
 
+	private static void clearMapperOnboardingDone(MainWindow activity) {
+		if (activity == null) {
+			return;
+		}
+		activity.getSharedPreferences(PREFS_MAPPER_ONBOARDING, 0)
+				.edit()
+				.putBoolean(PREF_MAPPER_ONBOARDING_DONE, false)
+				.apply();
+	}
+
 	private void showMapperIntroDialog(final MainWindow activity) {
+		if (activity == null || activity.isFinishing()) {
+			return;
+		}
 		String message = "MUD maps differ a lot — room layout, exits, and whether the "
 				+ "server sends Room.Info over GMCP.\n\n"
 				+ "This mapper is experimental and may have bugs. Please report issues "
 				+ "on GitHub:\n"
 				+ MAPPER_ISSUES_URL
 				+ "\n\nStart by naming your new map.";
-		new AlertDialog.Builder(activity)
-				.setTitle("Welcome to the mapper")
-				.setMessage(message)
-				.setPositiveButton("Name my map…", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						promptFirstMapName(activity);
-					}
-				})
-				.setNegativeButton("Later", null)
-				.show();
+		try {
+			AlertDialog dlg = new AlertDialog.Builder(activity)
+					.setTitle("Welcome to the mapper")
+					.setMessage(message)
+					.setCancelable(true)
+					.setPositiveButton("Name my map…", new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							promptFirstMapName(activity);
+						}
+					})
+					.setNegativeButton("Later", null)
+					.create();
+			dlg.show();
+		} catch (Exception e) {
+			android.util.Log.e("BlowTorch", "mapper intro dialog failed", e);
+			Toast.makeText(activity,
+					"Mapper is experimental — use More → New map to name it. "
+							+ "Bugs: " + MAPPER_ISSUES_URL,
+					Toast.LENGTH_LONG).show();
+		}
 	}
 
 	private void promptFirstMapName(final MainWindow activity) {
