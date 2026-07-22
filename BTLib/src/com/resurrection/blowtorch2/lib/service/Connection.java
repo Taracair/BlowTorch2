@@ -5326,6 +5326,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			root.put("opacity", mMapper.getOpacity());
 			root.put("editMode", mMapper.isEditMode());
 			root.put("acceptOneWaySpecials", mMapper.isAcceptOneWaySpecials());
+			root.put("useGmcp", mMapper.isUseGmcp());
+			root.put("gmcpGrow", mMapper.isGmcpGrow());
 			root.put("toolbar", mMapper.getToolbarActions() != null
 					? mMapper.getToolbarActions() : "");
 			root.put("moveEffects", mMapper.getCombinedMoveEffectsDisplay());
