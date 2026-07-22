@@ -76,6 +76,74 @@
             android:contentDescription="Close map" />
     </LinearLayout>
 
+    <!-- Legacy toolbar kept hidden. -->
+    <FrameLayout
+        android:id="@+id/mapper_toolbar_frame"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_alignParentBottom="true"
+        android:visibility="gone">
+
+        <HorizontalScrollView
+            android:id="@+id/mapper_toolbar_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/mapper_toolbar"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="4dp"
+                android:paddingRight="4dp" />
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/mapper_toolbar_hint_left"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="start|center_vertical"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/mapper_toolbar_hint_right"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="end|center_vertical"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Map surface first so title + bottom chrome paint above it if measure overlaps. -->
+    <FrameLayout
+        android:id="@+id/mapper_map_holder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/mapper_title_bar"
+        android:layout_above="@+id/mapper_bottom_chrome">
+
+        <com.resurrection.blowtorch2.lib.mapper.MapperView
+            android:id="@+id/mapper_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <TextView
+            android:id="@+id/mapper_resize_handle"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="bottom|end"
+            android:gravity="bottom|end"
+            android:paddingBottom="2dp"
+            android:paddingRight="4dp"
+            android:paddingEnd="4dp"
+            android:text="◢"
+            android:textColor="#E8C547"
+            android:textSize="22sp"
+            android:background="#00000000"
+            android:contentDescription="Resize map window" />
+    </FrameLayout>
+
     <LinearLayout
         android:id="@+id/mapper_bottom_chrome"
         android:layout_width="match_parent"
@@ -237,71 +305,4 @@
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
-
-    <!-- Legacy toolbar kept hidden. -->
-    <FrameLayout
-        android:id="@+id/mapper_toolbar_frame"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_alignParentBottom="true"
-        android:visibility="gone">
-
-        <HorizontalScrollView
-            android:id="@+id/mapper_toolbar_scroll"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scrollbars="none">
-
-            <LinearLayout
-                android:id="@+id/mapper_toolbar"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingLeft="4dp"
-                android:paddingRight="4dp" />
-        </HorizontalScrollView>
-
-        <TextView
-            android:id="@+id/mapper_toolbar_hint_left"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_gravity="start|center_vertical"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/mapper_toolbar_hint_right"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_gravity="end|center_vertical"
-            android:visibility="gone" />
-    </FrameLayout>
-
-    <FrameLayout
-        android:id="@+id/mapper_map_holder"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_below="@id/mapper_title_bar"
-        android:layout_above="@id/mapper_bottom_chrome">
-
-        <com.resurrection.blowtorch2.lib.mapper.MapperView
-            android:id="@+id/mapper_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-        <TextView
-            android:id="@+id/mapper_resize_handle"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_gravity="bottom|end"
-            android:gravity="bottom|end"
-            android:paddingBottom="2dp"
-            android:paddingRight="4dp"
-            android:paddingEnd="4dp"
-            android:text="◢"
-            android:textColor="#E8C547"
-            android:textSize="22sp"
-            android:background="#00000000"
-            android:contentDescription="Resize map window" />
-    </FrameLayout>
 </RelativeLayout>
