@@ -2880,33 +2880,153 @@ public class MapperOverlayController
 			return;
 		}
 		final MainWindow activity = host.getMainWindow();
+		CharSequence[] items = new CharSequence[] {
+				"Floor ↑ — new or existing (same map)",
+				"Floor ↓ — new or existing (same map)",
+				"Independent floor — same map, no height (enter/out)",
+				"Another map… — separate file (portal)"
+		};
 		new AlertDialog.Builder(activity)
-				.setTitle("Add level")
-				.setMessage("Create a neighboring floor from this tile.")
-				.setPositiveButton("Floor ↑", new DialogInterface.OnClickListener() {
+				.setTitle("Link from " + shortTileLabel(tile))
+				.setItems(items, new DialogInterface.OnClickListener() {
 					@Override
 					public void onClick(DialogInterface dialog, int which) {
-						pickMoveThenNeighbor(tile, 1);
-					}
-				})
-				.setNeutralButton("Floor ↓", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						pickMoveThenNeighbor(tile, -1);
+						if (which == 0) {
+							promptLevelTargetChoice(tile, 1);
+						} else if (which == 1) {
+							promptLevelTargetChoice(tile, -1);
+						} else if (which == 2) {
+							promptIndependentFloor(tile);
+						} else if (which == 3) {
+							promptLinkToMap(tile);
+						}
 					}
 				})
 				.setNegativeButton("Cancel", null)
 				.show();
 	}
 
-	private void pickMoveThenNeighbor(final MapTile tile, final int levelDelta) {
+	/**
+	 * Explicit choice: brand-new floor vs link back to a floor that already exists.
+	 */
+	private void promptLevelTargetChoice(final MapTile tile, final int levelDelta) {
+		final MainWindow activity = host.getMainWindow();
+		final MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		final List<MapLevel> others = new ArrayList<MapLevel>();
+		if (map != null) {
+			for (MapLevel l : map.getLevels()) {
+				if (l == null) {
+					continue;
+				}
+				if (tile.getLevelId() != null && tile.getLevelId().equals(l.getId())) {
+					continue;
+				}
+				others.add(l);
+			}
+		}
+		CharSequence[] items;
+		if (others.isEmpty()) {
+			items = new CharSequence[] {
+					"Create a NEW floor " + (levelDelta > 0 ? "above" : "below"),
+					"(no other floors to link yet)"
+			};
+		} else {
+			items = new CharSequence[] {
+					"Create a NEW floor " + (levelDelta > 0 ? "above" : "below"),
+					"Link to an EXISTING floor…"
+			};
+		}
+		String dir = levelDelta > 0 ? "up" : "down";
+		new AlertDialog.Builder(activity)
+				.setTitle("Floor " + dir)
+				.setItems(items, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which == 0) {
+							pickMoveThenLevelLink(tile, levelDelta, null, null);
+						} else if (which == 1 && !others.isEmpty()) {
+							pickExistingLevelThenLink(tile, levelDelta, others);
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	/** Same-map zone with no ↑/↓ relationship (shop, guild, ship…). */
+	private void promptIndependentFloor(final MapTile tile) {
+		final MainWindow activity = host.getMainWindow();
+		final EditText nameEdit = new EditText(activity);
+		nameEdit.setHint("Floor name (e.g. Guild hall)");
+		nameEdit.setSingleLine(true);
+		new AlertDialog.Builder(activity)
+				.setTitle("Independent floor")
+				.setMessage("Stays in this map file, but is not above/below by height.\n"
+						+ "Use Another map… if it should be a separate saved zone.")
+				.setView(nameEdit)
+				.setPositiveButton("Next", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						String name = nameEdit.getText().toString().trim();
+						if (name.length() == 0) {
+							name = "Area";
+						}
+						pickMoveThenLevelLink(tile, 0, null, name);
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void pickExistingLevelThenLink(final MapTile tile, final int levelDelta,
+			final List<MapLevel> others) {
+		final MainWindow activity = host.getMainWindow();
+		final CharSequence[] labels = new CharSequence[others.size()];
+		for (int i = 0; i < others.size(); i++) {
+			MapLevel l = others.get(i);
+			String name = l.getName() != null && l.getName().length() > 0
+					? l.getName() : ("#" + l.getIndex());
+			labels[i] = name + "  (index " + l.getIndex() + ")";
+		}
+		new AlertDialog.Builder(activity)
+				.setTitle("Which existing floor?")
+				.setItems(labels, new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						if (which < 0 || which >= others.size()) {
+							return;
+						}
+						pickMoveThenLevelLink(tile, levelDelta,
+								others.get(which).getId(), null);
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void pickMoveThenLevelLink(final MapTile tile, final int levelDelta,
+			final String existingLevelId, final String independentName) {
 		final MainWindow activity = host.getMainWindow();
 		final EditText cmdEdit = new EditText(activity);
-		cmdEdit.setHint(levelDelta > 0 ? "u / up / climb…" : "d / down / descend…");
+		final boolean independent = independentName != null
+				&& independentName.length() > 0;
+		if (independent) {
+			cmdEdit.setHint("enter / out / portal…");
+		} else {
+			cmdEdit.setHint(levelDelta > 0 ? "u / up / climb…" : "d / down / descend…");
+		}
 		cmdEdit.setSingleLine(true);
 		java.util.Map<String, MapMoveEffect> effects = resolveMoveEffectsMap();
 		for (java.util.Map.Entry<String, MapMoveEffect> e : effects.entrySet()) {
-			if (e.getValue() != null && e.getValue().kind == MapMoveEffect.Kind.LEVEL
+			if (e.getValue() == null) {
+				continue;
+			}
+			if (independent) {
+				if (e.getValue().kind == MapMoveEffect.Kind.SPECIAL) {
+					cmdEdit.setText(e.getKey());
+					break;
+				}
+			} else if (e.getValue().kind == MapMoveEffect.Kind.LEVEL
 					&& e.getValue().levelDelta == levelDelta) {
 				cmdEdit.setText(e.getKey());
 				break;
@@ -2917,9 +3037,16 @@ public class MapperOverlayController
 		int pad = (int) (12 * activity.getResources().getDisplayMetrics().density);
 		root.setPadding(pad, pad, pad, pad);
 		TextView info = new TextView(activity);
-		info.setText((levelDelta > 0 ? "Up" : "Down")
-				+ " from " + shortTileLabel(tile)
-				+ "\nPick the Moves command that enters this floor.");
+		String target;
+		if (existingLevelId != null) {
+			target = "Link to an EXISTING floor";
+		} else if (independent) {
+			target = "New independent floor \"" + independentName + "\"";
+		} else {
+			target = "Create a NEW floor " + (levelDelta > 0 ? "above" : "below");
+		}
+		info.setText(target + " from " + shortTileLabel(tile)
+				+ "\nPick the Moves command for this exit.");
 		root.addView(info);
 		root.addView(cmdEdit);
 		root.addView(buildMovesCommandPicker(activity, cmdEdit));
@@ -2937,16 +3064,31 @@ public class MapperOverlayController
 						}
 						runSetHere(tile.getId());
 						if (controller != null) {
-							toastStatus(controller.addNeighbor(tile.getId(), cmd));
+							toastStatus(controller.addLevelNeighbor(
+									tile.getId(), cmd, existingLevelId,
+									independentName));
 							refreshFromController();
+						} else if (existingLevelId != null) {
+							host.runMapCommand("levelink " + cmd + " to "
+									+ existingLevelId + " from " + tile.getId());
+							pullSnapshotFromService();
+						} else if (independent) {
+							host.runMapCommand("levelink " + cmd + " independent "
+									+ independentName + " from " + tile.getId());
+							pullSnapshotFromService();
 						} else {
-							host.runMapCommand("neighbor " + cmd + " from " + tile.getId());
+							host.runMapCommand("levelink " + cmd + " new from "
+									+ tile.getId());
 							pullSnapshotFromService();
 						}
 					}
 				})
 				.setNegativeButton("Cancel", null)
 				.show();
+	}
+
+	private void pickMoveThenNeighbor(final MapTile tile, final int levelDelta) {
+		pickMoveThenLevelLink(tile, levelDelta, null, null);
 	}
 
 	private void promptLinkToMap(final MapTile tile) {
