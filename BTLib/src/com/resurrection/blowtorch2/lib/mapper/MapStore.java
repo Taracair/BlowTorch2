@@ -161,6 +161,12 @@ public final class MapStore {
 		return file.delete();
 	}
 
+	/** True if a map JSON already exists for this display name (after sanitizing). */
+	public static boolean exists(Context context, String name) {
+		File file = mapFile(context, name);
+		return file != null && file.isFile();
+	}
+
 	public static File mapFile(Context context, String name) {
 		String safe = safeName(name);
 		if (safe.length() == 0) {

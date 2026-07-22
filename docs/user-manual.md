@@ -320,7 +320,8 @@ Print the summary with `.map dirs`.
 | `.map center` | Center on current room |
 | `.map undo` | Undo last graph change |
 | `.map dirs` | Movement lexicon / grid offsets |
-| `.map maps` / `.map load <name>` / `.map new <name>` | Multiple maps |
+| `.map maps` / `.map load <name>` / `.map new <name>` | List / open / create (new name must be unique) |
+| `.map deletemap <name>` | Delete a saved map file (UI: **More → Maps** → long-press) |
 | `.map portal\|linkmap <cmd> map <name> [from <id>]` | Portal exit to another map file |
 | `.map levelink <cmd> new\|to <levelId>\|independent <name> [from <id>]` | Floor link (↑/↓ / existing / independent) |
 | `.map level rename [<id\|name>] <newName>` | Rename a floor |
