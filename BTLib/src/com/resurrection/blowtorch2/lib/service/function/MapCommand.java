@@ -951,6 +951,7 @@ public class MapCommand extends SpecialCommand {
 				mapper.toggleUseGmcp();
 			}
 			note(c, "Mapper GMCP sync: " + (mapper.isUseGmcp() ? "on" : "off")
+					+ " · policy: " + mapper.getGmcpPolicy()
 					+ " · grow: " + (mapper.isGmcpGrow() ? "on" : "off"));
 			return null;
 		}
@@ -963,10 +964,41 @@ public class MapCommand extends SpecialCommand {
 			} else {
 				mapper.toggleGmcpGrow();
 			}
-			note(c, "Mapper GMCP grow: " + (mapper.isGmcpGrow() ? "on" : "off"));
+			note(c, "Mapper GMCP grow: " + (mapper.isGmcpGrow() ? "on" : "off")
+					+ " · policy: " + mapper.getGmcpPolicy());
 			return null;
 		}
-		note(c, "Usage: .map gmcp on|off|toggle | .map gmcp grow on|off|toggle");
+		if (a.startsWith("policy") || a.startsWith("mode")) {
+			String b = a.contains(" ") ? a.substring(a.indexOf(' ') + 1).trim() : "";
+			if (b.length() == 0) {
+				note(c, "Mapper GMCP policy: " + mapper.getGmcpPolicy()
+						+ " (follow|sync|strict)");
+				return null;
+			}
+			mapper.setGmcpPolicy(b);
+			note(c, "Mapper GMCP policy: " + mapper.getGmcpPolicy()
+					+ " · grow: " + (mapper.isGmcpGrow() ? "on" : "off"));
+			return null;
+		}
+		if (a.equals("apply") || a.equals("applyall") || a.equals("keep")
+				|| a.equals("keepall")) {
+			if (a.startsWith("apply")) {
+				note(c, mapper.applyPendingGmcpConflict(a.equals("applyall")));
+			} else {
+				note(c, mapper.keepPendingGmcpConflict(a.equals("keepall")));
+			}
+			return null;
+		}
+		if (a.equals("status") || a.equals("?")) {
+			note(c, "Mapper GMCP sync: " + (mapper.isUseGmcp() ? "on" : "off")
+					+ " · policy: " + mapper.getGmcpPolicy()
+					+ " · grow: " + (mapper.isGmcpGrow() ? "on" : "off")
+					+ " · coords: " + (mapper.isGmcpUseCoords() ? "on" : "off")
+					+ " · num: " + (mapper.isGmcpUseNum() ? "on" : "off"));
+			return null;
+		}
+		note(c, "Usage: .map gmcp on|off|toggle | grow on|off|toggle"
+				+ " | policy follow|sync|strict | apply|keep|applyall|keepall");
 		return null;
 	}
 
@@ -1071,6 +1103,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map oneway on|off|toggle  (ON = specials spawn new tiles; OFF = close to unique inbound)\n");
 		sb.append("  .map gmcp on|off|toggle | .map gmcp grow on|off|toggle\n");
+		sb.append("  .map gmcp policy follow|sync|strict | .map gmcp apply|keep|applyall|keepall\n");
+		sb.append("  .map locktitle|lockposition [for <id>] on|off|toggle\n");
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (unique name; Edit)\n");
 		sb.append("  .map deletemap|rmmap <name> | .map delete map <name>\n");
 		sb.append("  .map capture preview|apply  (apply = Edit; Options → Mapper regex)\n");
