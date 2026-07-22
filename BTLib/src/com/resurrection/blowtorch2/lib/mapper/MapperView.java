@@ -12,6 +12,10 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Layout;
+import android.text.StaticLayout;
+import android.text.TextPaint;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -102,7 +106,7 @@ public class MapperView extends View {
 	private final Paint tileStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint currentFill = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint selectedStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
-	private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint exitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint linkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint linkLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -184,7 +188,7 @@ public class MapperView extends View {
 		selectedStroke.setStyle(Paint.Style.STROKE);
 		selectedStroke.setStrokeWidth(3.5f);
 		textPaint.setColor(0xFFEEEEEE);
-		textPaint.setTextAlign(Paint.Align.CENTER);
+		textPaint.setTextAlign(Paint.Align.LEFT);
 		exitPaint.setColor(0xFFB8D4FF);
 		exitPaint.setStrokeWidth(3f);
 		exitPaint.setStyle(Paint.Style.STROKE);
@@ -605,7 +609,6 @@ public class MapperView extends View {
 		interLevelBadges.clear();
 		drawLinkArrows(canvas, bs);
 
-		textPaint.setTextSize(Math.max(8f, 11f * scale * (pathsLayout ? 0.95f : 1f)));
 		for (MapTile tile : tiles) {
 			if (tile == null) {
 				continue;
@@ -623,10 +626,7 @@ public class MapperView extends View {
 			if (label == null || label.length() == 0) {
 				label = shortId(tile.getId());
 			}
-			if (scale >= 0.45f) {
-				canvas.drawText(truncate(label, scale), left + bs * 0.5f,
-						top + bs * 0.55f, textPaint);
-			}
+			drawTileTitle(canvas, label, left, top, bs);
 			drawInterLevelBadges(canvas, tile, left, top, bs);
 		}
 		if (tileDragging && draggingTile != null) {
@@ -1227,6 +1227,66 @@ public class MapperView extends View {
 		return null;
 	}
 
+	/**
+	 * Draw room title inside the tile body: 1–3 wrapped lines, adaptive font
+	 * (short titles larger, long titles smaller), clipped/ellipsized so text
+	 * never sticks out past the tile rectangle. Exit arrow labels are separate.
+	 */
+	private void drawTileTitle(Canvas canvas, String label, float left, float top,
+			float bs) {
+		if (scale < 0.45f || label == null || label.length() == 0) {
+			return;
+		}
+		float pad = Math.max(2f, bs * 0.08f);
+		int maxW = Math.max(8, (int) (bs - pad * 2f));
+		float maxH = bs - pad * 2f;
+		if (maxH < 8f) {
+			return;
+		}
+		float maxSize = Math.max(8f, 12f * scale * (pathsLayout ? 0.95f : 1f));
+		float minSize = Math.max(6f, 6.5f * scale);
+		StaticLayout layout = null;
+		float lo = minSize;
+		float hi = maxSize;
+		// Largest font that still fits in ≤3 lines within the tile height.
+		for (int i = 0; i < 10; i++) {
+			float mid = (lo + hi) * 0.5f;
+			textPaint.setTextSize(mid);
+			StaticLayout candidate = buildTileTitleLayout(label, maxW, true);
+			if (candidate.getHeight() <= maxH) {
+				lo = mid;
+			} else {
+				hi = mid;
+			}
+		}
+		textPaint.setTextSize(lo);
+		layout = buildTileTitleLayout(label, maxW, true);
+		if (layout.getHeight() > maxH) {
+			textPaint.setTextSize(minSize);
+			layout = buildTileTitleLayout(label, maxW, true);
+		}
+		canvas.save();
+		canvas.clipRect(left + pad, top + pad, left + bs - pad, top + bs - pad);
+		float dy = top + pad + Math.max(0f, (maxH - layout.getHeight()) * 0.5f);
+		canvas.translate(left + pad, dy);
+		layout.draw(canvas);
+		canvas.restore();
+	}
+
+	private StaticLayout buildTileTitleLayout(String label, int maxW,
+			boolean ellipsize) {
+		StaticLayout.Builder b = StaticLayout.Builder.obtain(
+				label, 0, label.length(), textPaint, maxW)
+				.setAlignment(Layout.Alignment.ALIGN_CENTER)
+				.setIncludePad(false)
+				.setLineSpacing(0f, 1f)
+				.setMaxLines(3);
+		if (ellipsize) {
+			b.setEllipsize(TextUtils.TruncateAt.END);
+		}
+		return b.build();
+	}
+
 	private static float clamp(float v, float min, float max) {
 		return Math.max(min, Math.min(max, v));
 	}
@@ -1238,6 +1298,7 @@ public class MapperView extends View {
 		return id.length() > 4 ? id.substring(0, 4) : id;
 	}
 
+	/** Truncate for compact badges (exit/inter-level labels) — not tile titles. */
 	private static String truncate(String s, float scale) {
 		int max = scale >= 1.2f ? 14 : (scale >= 0.8f ? 10 : 6);
 		if (s == null) {
