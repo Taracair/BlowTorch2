@@ -155,7 +155,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption session_log = new BooleanOption();
 		session_log.setTitle("Log Session to File?");
-		session_log.setDescription("Append incoming game text to a .txt under /BlowTorch/session_logs/ (or a custom folder). Requires All files access — use Manage Storage Access once.");
+		session_log.setDescription("Append incoming game text live to a .txt under /BlowTorch/session_logs/ (or custom folder). Flushes about every 0.75s / 4KB and on disconnect — not only when you quit. Requires All files access.");
 		session_log.setKey("session_log");
 		session_log.setValue(false);
 		servOptions.addOption(session_log);

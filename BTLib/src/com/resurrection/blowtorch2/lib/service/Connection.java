@@ -5387,6 +5387,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mService.noteConnectionEnded(mDisplay, mLastDurationMs);
 		}
 		mIsConnected = false;
+		mSessionLog.onDisconnected();
 	}
 
 	public final long getConnectedAtElapsed() {
