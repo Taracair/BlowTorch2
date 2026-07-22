@@ -948,6 +948,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
 		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
 		sb.append("  .map portal|linkmap <cmd> map <name> [from <id>]\n");
+		sb.append("  .map levelink <cmd> new|to <levelId>|independent <name> [from <id>]\n");
 		sb.append("  .map opacity [40-100]\n");
 		sb.append("  .map conflict[s] [list [all]|resolve|ignore <id|n>|all|purge]\n");
 		sb.append("  .map export|save [path] | .map import <path|name> | .map undo | .map center\n");

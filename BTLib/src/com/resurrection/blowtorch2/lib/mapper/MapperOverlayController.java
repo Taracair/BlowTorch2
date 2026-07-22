@@ -1869,7 +1869,8 @@ public class MapperOverlayController
 	}
 
 	private void rebuildToolbar() {
-		// Bottom toolbar retired — tools live in top category radials (Nav/Floors/Build/File).
+		// Bottom toolbar retired — tools live in bottom category radials
+		// (Nav/Floors/Edit/More), hideable via title ▾ tools.
 		if (toolbar != null) {
 			toolbar.removeAllViews();
 		}
@@ -1881,8 +1882,9 @@ public class MapperOverlayController
 		}
 		TextView nav = (TextView) overlayRoot.findViewById(R.id.mapper_cat_nav);
 		TextView floors = (TextView) overlayRoot.findViewById(R.id.mapper_cat_floors);
-		TextView build = (TextView) overlayRoot.findViewById(R.id.mapper_cat_build);
-		TextView file = (TextView) overlayRoot.findViewById(R.id.mapper_cat_file);
+		// Resource IDs keep legacy _build/_file names; chips label Edit/More.
+		TextView editCat = (TextView) overlayRoot.findViewById(R.id.mapper_cat_build);
+		TextView moreCat = (TextView) overlayRoot.findViewById(R.id.mapper_cat_file);
 		if (nav != null) {
 			nav.setOnClickListener(new View.OnClickListener() {
 				@Override
@@ -1899,19 +1901,19 @@ public class MapperOverlayController
 				}
 			});
 		}
-		if (build != null) {
-			build.setOnClickListener(new View.OnClickListener() {
+		if (editCat != null) {
+			editCat.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					openBuildRadial();
+					openEditRadial();
 				}
 			});
 		}
-		if (file != null) {
-			file.setOnClickListener(new View.OnClickListener() {
+		if (moreCat != null) {
+			moreCat.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					openFileRadial();
+					openMoreRadial();
 				}
 			});
 		}
@@ -1936,7 +1938,7 @@ public class MapperOverlayController
 		});
 	}
 
-	private void openBuildRadial() {
+	private void openEditRadial() {
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
@@ -1947,7 +1949,7 @@ public class MapperOverlayController
 		});
 	}
 
-	private void openFileRadial() {
+	private void openMoreRadial() {
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
@@ -1999,7 +2001,7 @@ public class MapperOverlayController
 	}
 
 	private void openToolsRadial() {
-		openBuildRadial();
+		openEditRadial();
 	}
 
 	private void runRadialAction(String action) {
@@ -2018,7 +2020,7 @@ public class MapperOverlayController
 		} else if (MapperRadialMenu.ACTION_ROOT.equals(action)) {
 			runGoRootLevel();
 		} else if (MapperRadialMenu.ACTION_PARENT.equals(action)) {
-			runGoParentDoor();
+			runGoToEntrance();
 		} else if (MapperRadialMenu.ACTION_DELETE_LEVEL.equals(action)) {
 			confirmDeleteCurrentLevel();
 		} else if (MapperRadialMenu.ACTION_RENAME_LEVEL.equals(action)) {
@@ -2306,7 +2308,7 @@ public class MapperOverlayController
 	}
 
 	/** Return to the anchor tile of the current level, if any. */
-	private void runGoParentDoor() {
+	private void runGoToEntrance() {
 		MudMap map = controller != null ? controller.getMap() : snapshotMap;
 		if (map == null) {
 			Toast.makeText(host.getMainWindow(), "No map", Toast.LENGTH_SHORT).show();
