@@ -94,8 +94,11 @@ public class MapperOverlayController
 	private boolean pathsLayout = true;
 	/** Exit command labels on arrows (both layouts). */
 	private boolean showLinkLabels = true;
-	/** One-shot empty-map coach for this overlay attach. */
-	private boolean emptyMapHintShown = false;
+	/**
+	 * One-shot per overlay open for the first-map intro dialog.
+	 * Until onboarding is marked done (prefs), each open shows it again.
+	 */
+	private boolean mapperIntroShownThisOpen = false;
 	/** Sticky one-line status under the title breadcrumb. */
 	private String stickyStatus = "";
 	private final android.os.Handler stickyHandler = new android.os.Handler(
@@ -107,6 +110,11 @@ public class MapperOverlayController
 			refreshTitleOnly();
 		}
 	};
+
+	private static final String PREFS_MAPPER_ONBOARDING = "MAPPER_ONBOARDING";
+	private static final String PREF_MAPPER_ONBOARDING_DONE = "done";
+	private static final String MAPPER_ISSUES_URL =
+			"https://github.com/Taracair/BlowTorch2/issues";
 	/**
 	 * Session Browse/Edit flag. UI process often has no live MapperController
 	 * (service owns it) — keep local copy and sync via {@code .map mode} + snapshot.
@@ -164,11 +172,12 @@ public class MapperOverlayController
 			return;
 		}
 		visible = true;
+		mapperIntroShownThisOpen = false;
 		overlayRoot.setVisibility(View.VISIBLE);
 		applyLayoutMode();
 		pullSnapshotFromService();
 		refreshFromController();
-		maybeShowEmptyMapHint();
+		maybeShowMapperIntro();
 		bringUnderChrome();
 	}
 
@@ -2496,6 +2505,7 @@ public class MapperOverlayController
 									host.runMapCommand("new " + name);
 									pullSnapshotFromService();
 								}
+								markMapperOnboardingDone(activity);
 							}
 						});
 			}
@@ -2703,8 +2713,18 @@ public class MapperOverlayController
 			if (!linkEditMode && !drawEditMode) {
 				refreshFromController();
 			}
-		} else {
-			pullSnapshotFromService();
+		} else if (overlayRoot != null) {
+			// Service applies .map mode asynchronously — an immediate snapshot
+			// still has editMode=false and would clobber sessionEditMode.
+			final boolean wantEdit = edit;
+			overlayRoot.postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					pullSnapshotFromService();
+					sessionEditMode = wantEdit;
+					updateEditModeToggleUi();
+				}
+			}, 250);
 		}
 	}
 
@@ -2793,41 +2813,144 @@ public class MapperOverlayController
 		return n;
 	}
 
-	/** First-open coach when the map has no tiles yet. */
-	private void maybeShowEmptyMapHint() {
-		if (emptyMapHintShown || !visible) {
+	/** First-open intro until the player creates/names a map (or already has tiles). */
+	private void maybeShowMapperIntro() {
+		if (!visible || mapperIntroShownThisOpen) {
+			return;
+		}
+		final MainWindow activity = host.getMainWindow();
+		if (activity == null) {
 			return;
 		}
 		MudMap map = snapshotMap;
 		if (map == null && controller != null) {
 			map = controller.getMap();
 		}
-		if (map == null) {
+		if (mapHasTiles(map)) {
+			markMapperOnboardingDone(activity);
 			return;
 		}
-		if (map.getTiles() != null && !map.getTiles().isEmpty()) {
+		if (isMapperOnboardingDone(activity)) {
 			return;
 		}
-		emptyMapHintShown = true;
-		final MainWindow activity = host.getMainWindow();
+		mapperIntroShownThisOpen = true;
+		showMapperIntroDialog(activity);
+	}
+
+	private static boolean mapHasTiles(MudMap map) {
+		return map != null && map.getTiles() != null && !map.getTiles().isEmpty();
+	}
+
+	private static boolean isMapperOnboardingDone(MainWindow activity) {
+		if (activity == null) {
+			return true;
+		}
+		return activity.getSharedPreferences(PREFS_MAPPER_ONBOARDING, 0)
+				.getBoolean(PREF_MAPPER_ONBOARDING_DONE, false);
+	}
+
+	private static void markMapperOnboardingDone(MainWindow activity) {
+		if (activity == null) {
+			return;
+		}
+		activity.getSharedPreferences(PREFS_MAPPER_ONBOARDING, 0)
+				.edit()
+				.putBoolean(PREF_MAPPER_ONBOARDING_DONE, true)
+				.apply();
+	}
+
+	private void showMapperIntroDialog(final MainWindow activity) {
+		String message = "MUD maps differ a lot — room layout, exits, and whether the "
+				+ "server sends Room.Info over GMCP.\n\n"
+				+ "This mapper is experimental and may have bugs. Please report issues "
+				+ "on GitHub:\n"
+				+ MAPPER_ISSUES_URL
+				+ "\n\nStart by naming your new map.";
+		new AlertDialog.Builder(activity)
+				.setTitle("Welcome to the mapper")
+				.setMessage(message)
+				.setPositiveButton("Name my map…", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						promptFirstMapName(activity);
+					}
+				})
+				.setNegativeButton("Later", null)
+				.show();
+	}
+
+	private void promptFirstMapName(final MainWindow activity) {
+		final EditText input = new EditText(activity);
+		input.setHint("map name");
+		input.setSingleLine(true);
+		input.setText("");
+		final AlertDialog dlg = new AlertDialog.Builder(activity)
+				.setTitle("Name your new map")
+				.setMessage("Pick a unique name for this world (saved under /BlowTorch/maps/).")
+				.setView(input)
+				.setPositiveButton("Create", null)
+				.setNegativeButton("Back", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						// Re-show intro next open until a map is created.
+						mapperIntroShownThisOpen = false;
+						showMapperIntroDialog(activity);
+					}
+				})
+				.create();
+		dlg.setOnShowListener(new DialogInterface.OnShowListener() {
+			@Override
+			public void onShow(DialogInterface dialog) {
+				dlg.getButton(AlertDialog.BUTTON_POSITIVE)
+						.setOnClickListener(new View.OnClickListener() {
+							@Override
+							public void onClick(View v) {
+								String name = input.getText() != null
+										? input.getText().toString().trim() : "";
+								if (name.length() == 0) {
+									Toast.makeText(activity, "Enter a map name",
+											Toast.LENGTH_SHORT).show();
+									return;
+								}
+								if (MapStore.exists(activity, name)) {
+									Toast.makeText(activity,
+											"Map \"" + MapStore.safeName(name)
+													+ "\" already exists — choose another name",
+											Toast.LENGTH_LONG).show();
+									return;
+								}
+								dlg.dismiss();
+								if (controller != null) {
+									toastStatus(controller.newMap(name));
+									refreshFromController();
+								} else {
+									host.runMapCommand("new " + name);
+									pullSnapshotFromService();
+								}
+								markMapperOnboardingDone(activity);
+								showMapperStartChoices(activity);
+							}
+						});
+			}
+		});
+		dlg.show();
+	}
+
+	private void showMapperStartChoices(final MainWindow activity) {
 		final CharSequence[] items = new CharSequence[] {
 				"Record while walking",
 				"Draw tiles",
 				"Use GMCP Room.Info"
 		};
 		new AlertDialog.Builder(activity)
-				.setTitle("Empty map — get started")
+				.setTitle("How do you want to map?")
 				.setItems(items, new DialogInterface.OnClickListener() {
 					@Override
 					public void onClick(DialogInterface dialog, int which) {
 						if (which == 0) {
-							setEditModeFromUi(true);
-							runToolbarAction("rec");
+							enterEditAndRecord();
 						} else if (which == 1) {
-							setEditModeFromUi(true);
-							if (!drawEditMode) {
-								toggleDrawEditMode();
-							}
+							enterEditAndDraw();
 						} else if (which == 2) {
 							if (!snapshotUseGmcp) {
 								snapshotUseGmcp = true;
@@ -2837,8 +2960,47 @@ public class MapperOverlayController
 						}
 					}
 				})
-				.setNegativeButton("Later", null)
+				.setNegativeButton("Close", null)
 				.show();
+	}
+
+	/** Switch to Edit and turn on Draw (avoids stale snapshot clobbering Edit). */
+	private void enterEditAndDraw() {
+		sessionEditMode = true;
+		if (controller != null) {
+			controller.setEditMode(true);
+		} else {
+			host.runMapCommand("mode edit");
+		}
+		if (linkEditMode) {
+			linkEditMode = false;
+			linkFromTileId = null;
+		}
+		drawEditMode = true;
+		if (mapperView != null) {
+			mapperView.setShowGrid(true);
+			mapperView.setTileDragEnabled(true);
+		}
+		updateEditModeToggleUi();
+		updateTitleForDrawMode();
+		rebuildToolbar();
+		setStickyStatus("Draw: tap empty cell to place · long-press = Here");
+	}
+
+	/** Switch to Edit and start recording. */
+	private void enterEditAndRecord() {
+		sessionEditMode = true;
+		if (controller != null) {
+			controller.setEditMode(true);
+		} else {
+			host.runMapCommand("mode edit");
+		}
+		updateEditModeToggleUi();
+		if (mapperView != null) {
+			mapperView.setTileDragEnabled(true);
+		}
+		runToolbarAction("rec");
+		setStickyStatus("Edit + Record — walk to grow the map");
 	}
 
 	private Map<String, MapTile> buildTileIndex(MudMap map) {
