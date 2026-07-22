@@ -634,9 +634,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			firstPress = true;
 		} else {
 			// Prefer floating the widget above the caret so it stays on-screen at live bottom.
+			// Newest-at-top: float below so it stays clear of the live edge at the top.
 			selectionIndicatorVectorX = mOneCharWidth + mSelectionIndicatorHalfDimension;
-			selectionIndicatorVectorY = -mSelectionIndicatorHalfDimension
-					- Math.max(mPrefLineSize, (int) (8 * mDensity));
+			if (mNewestAtTop) {
+				selectionIndicatorVectorY = mSelectionIndicatorHalfDimension
+						+ Math.max(mPrefLineSize, (int) (8 * mDensity));
+			} else {
+				selectionIndicatorVectorY = -mSelectionIndicatorHalfDimension
+						- Math.max(mPrefLineSize, (int) (8 * mDensity));
+			}
 			this.setOnTouchListener(textSelectionTouchHandler);
 			selectedSelector = theSelection.end;
 			moveWidgetToSelector(selectedSelector);
@@ -1926,13 +1932,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return; //no scroller to show.
 		}
 
-		final boolean atLiveBottom = mScrollback <= SCROLL_MIN + 3 * mDensity;
+		final boolean atLiveEdge = mScrollback <= SCROLL_MIN + 3 * mDensity;
 		
 		if (mHomeWidgetDrawable != null
-				&& !atLiveBottom
+				&& !atLiveEdge
 				&& mBuffer.getBrokenLineCount() > mCalculatedLinesInWindow) {
 			homeWidgetShowing = true;
+			layoutHomeWidgetRect();
+			c.save();
+			if (mNewestAtTop) {
+				// Asset points down (classic jump-to-bottom); flip so it points up to live.
+				c.scale(1f, -1f, mHomeWidgetRect.exactCenterX(), mHomeWidgetRect.exactCenterY());
+			}
 			c.drawBitmap(mHomeWidgetDrawable, mHomeWidgetRect.left, mHomeWidgetRect.top, null);
+			c.restore();
 		} else {
 			homeWidgetShowing = false;
 		}
@@ -1953,7 +1966,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 		// Live output: do not paint the always-on right-edge thumb (reads as a stray
 		// blue line). Show it only while scrolled into history.
-		if (!atLiveBottom) {
+		if (!atLiveEdge) {
 			scrollerSize = windowPercent * workingHeight;
 			posPercent = (mScrollback - (workingHeight / 2)) / (mBuffer.getBrokenLineCount() * mPrefLineSize);
 			scrollerPos = workingHeight * posPercent;
@@ -3858,6 +3871,7 @@ end
 				break;
 			case newest_at_top:
 				mNewestAtTop = (Boolean) o.getValue();
+				layoutHomeWidgetRect();
 				jumpToZero();
 				this.invalidate();
 				break;
@@ -4660,14 +4674,7 @@ end
 
 		
 		if (mHomeWidgetDrawable != null) {
-			// Keep clear of the overflow/wrench FAB in the bottom-right corner.
-			int clear = (int) (56 * mDensity);
-			int hw = mHomeWidgetDrawable.getWidth();
-			int hh = mHomeWidgetDrawable.getHeight();
-			mHomeWidgetRect.set(mWidth - hw - (int) (4 * mDensity),
-					mHeight - hh - clear,
-					mWidth - (int) (4 * mDensity),
-					mHeight - clear);
+			layoutHomeWidgetRect();
 		}
 		
 		Float foo = new Float(0);
@@ -4720,6 +4727,30 @@ end
 	}
 	boolean hasOnSizeChanged = true;
 	
+	/**
+	 * Place the jump-to-live chevron near the live edge: bottom-right (classic) or
+	 * top-right (newest-at-top). Bottom placement clears the overflow FAB.
+	 */
+	private void layoutHomeWidgetRect() {
+		if (mHomeWidgetDrawable == null || mWidth <= 0 || mHeight <= 0) {
+			return;
+		}
+		int hw = mHomeWidgetDrawable.getWidth();
+		int hh = mHomeWidgetDrawable.getHeight();
+		int margin = (int) (4 * mDensity);
+		if (mNewestAtTop) {
+			int clear = (int) (8 * mDensity);
+			mHomeWidgetRect.set(mWidth - hw - margin, clear,
+					mWidth - margin, clear + hh);
+		} else {
+			int clear = (int) (56 * mDensity);
+			mHomeWidgetRect.set(mWidth - hw - margin,
+					mHeight - hh - clear,
+					mWidth - margin,
+					mHeight - clear);
+		}
+	}
+
 	private void doScrollDown(boolean repeat) {
 		//Log.e("FOO","do scroll down");
 		selectedSelector.line -= 1;
@@ -4727,11 +4758,21 @@ end
 			selectedSelector.line = 0;
 			repeat = false;
 		} else {
-			int remainder = ((int)(mScrollback-SCROLL_MIN) % mPrefLineSize) + mPrefLineSize;
-			selectorCenterY += mPrefLineSize;
-			if(selectorCenterY > this.getHeight() - remainder) {
+			if (mNewestAtTop) {
+				// Newer lines sit toward the top.
+				int remainder = ((int) (mScrollback - SCROLL_MIN) % mPrefLineSize) - mPrefLineSize;
 				selectorCenterY -= mPrefLineSize;
-				mScrollback -= mPrefLineSize;
+				if (selectorCenterY - mPrefLineSize < remainder) {
+					selectorCenterY += mPrefLineSize;
+					mScrollback -= mPrefLineSize;
+				}
+			} else {
+				int remainder = ((int)(mScrollback-SCROLL_MIN) % mPrefLineSize) + mPrefLineSize;
+				selectorCenterY += mPrefLineSize;
+				if(selectorCenterY > this.getHeight() - remainder) {
+					selectorCenterY -= mPrefLineSize;
+					mScrollback -= mPrefLineSize;
+				}
 			}
 			calculateWidgetPosition(selectorCenterX,selectorCenterY);
 		}
@@ -4751,23 +4792,24 @@ end
 			selectedSelector.line -= 1;
 			repeat = false;
 		} else {
-			int remainder = ((int)(mScrollback-SCROLL_MIN) % mPrefLineSize)-mPrefLineSize;
-			selectorCenterY -= mPrefLineSize;
-			if(selectorCenterY - (mPrefLineSize) < remainder) {
-				selectorCenterY = selectorCenterY + mPrefLineSize;
-				mScrollback += mPrefLineSize;
+			if (mNewestAtTop) {
+				// Older lines sit toward the bottom.
+				int remainder = ((int) (mScrollback - SCROLL_MIN) % mPrefLineSize) + mPrefLineSize;
+				selectorCenterY += mPrefLineSize;
+				if (selectorCenterY > this.getHeight() - remainder) {
+					selectorCenterY -= mPrefLineSize;
+					mScrollback += mPrefLineSize;
+				}
+			} else {
+				int remainder = ((int)(mScrollback-SCROLL_MIN) % mPrefLineSize)-mPrefLineSize;
+				selectorCenterY -= mPrefLineSize;
+				if(selectorCenterY - (mPrefLineSize) < remainder) {
+					selectorCenterY = selectorCenterY + mPrefLineSize;
+					mScrollback += mPrefLineSize;
+				}
 			}
 			calculateWidgetPosition(selectorCenterX,selectorCenterY);
 		}
-//		selectedSelector.line += 1;
-//		if(selectedSelector.line >= the_tree.getBrokenLineCount()) {
-//			selectedSelector.line -= 1;
-//			repeat = false;
-//		} else {
-//			scrollback += PREF_LINESIZE;
-//		}
-//		calculateWidgetPosition(selectorCenterX,selectorCenterY);
-		//calculateWidgetPosition()
 		this.invalidate();
 		if(repeat) {
 			mHandler.sendEmptyMessageDelayed(MESSAGE_SCROLLUP,mScrollRepeatRate);

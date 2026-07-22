@@ -420,8 +420,8 @@ Options → Window → Font Size.
 By default, fresh game output sits at the **bottom** of the window (classic
 terminal). Enable **Options → Window → Newest text at top?** to put live lines
 at the **top** and older scrollback below — handy when on-screen buttons cover
-the bottom edge. Drag **up** to dig into history; the home chevron still jumps
-back to live output.
+the bottom edge. Drag **up** to dig into history; the home chevron moves to the
+**top-right** and points **up** toward live output.
 
 ## On-screen buttons: swipe + accordion
 
