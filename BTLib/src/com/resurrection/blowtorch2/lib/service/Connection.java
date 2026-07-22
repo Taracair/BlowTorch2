@@ -538,9 +538,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		public boolean handleMessage(final Message msg) {
 			try {
 				return handleMessageUnsafe(msg);
-			} catch (Exception e) {
+			} catch (Throwable t) {
 				// Keep the :stellar connection process alive; show the error in-game.
-				reportRuntimeError("connection handler (msg " + msg.what + ")", e);
+				// Catch Throwable so StackOverflowError / OOM during settings load
+				// become a window error instead of killing the process.
+				reportRuntimeError("connection handler (msg " + msg.what + ")", t);
 				return true;
 			}
 		}
@@ -3724,7 +3726,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case mapper_opacity:
 				if (mMapper != null) {
-					int op = (Integer) o.getValue();
+					int op = 85;
+					try {
+						op = (Integer) o.getValue();
+					} catch (Exception ignored) {
+					}
 					if (op < 40) {
 						op = 40;
 						((IntegerOption) o).setValue(40);
@@ -3732,7 +3738,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						op = 100;
 						((IntegerOption) o).setValue(100);
 					}
-					mMapper.setOpacity(op);
+					// Apply without re-entering settings persistence.
+					mMapper.applyOpacityFromSettings(op);
 				}
 				break;
 			case mapper_path_auto_send:
