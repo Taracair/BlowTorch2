@@ -120,6 +120,15 @@ patterns.
 - Blank directory = `/BlowTorch/session_logs/`. Use **Browse…** for SAF or an absolute path.
 - Incremental plain text of **incoming game output** (ANSI stripped), not keyboard input.
 - Files are named `{profile}_{yyyy-MM-dd_HH-mm-ss}.txt`.
+- Writes are **near-live**: kept in an open stream, flushed about every **0.75s** or
+  **4 KB**, plus **fsync** so other apps see growth; also flushed on disconnect.
+  Not delayed until you leave the game.
+- Reconnect to the same profile **continues the same file** (marker `reconnected`).
+  A brand-new file is created when you first enable logging or connect with no
+  active log for that profile.
+- Tip: check the `connected → /path/...` marker at the top of the file so you
+  open the log that is actually being written (do not edit that file in another
+  app while playing).
 
 ## Background connection / battery
 

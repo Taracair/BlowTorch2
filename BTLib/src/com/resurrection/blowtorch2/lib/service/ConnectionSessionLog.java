@@ -44,7 +44,9 @@ final class ConnectionSessionLog {
 		if (enabled) {
 			applySessionLogDirectory();
 			SessionLogger.startSession(host.mService.getApplicationContext(), host.mDisplay);
-			SessionLogger.appendMarker(host.mService.getApplicationContext(), host.mDisplay, "logging enabled");
+			SessionLogger.appendMarker(host.mService.getApplicationContext(), host.mDisplay,
+					"logging enabled → " + SessionLogger.getLogLocationLabel(
+							host.mService.getApplicationContext()));
 		}
 	}
 
@@ -61,8 +63,19 @@ final class ConnectionSessionLog {
 		SessionLogger.setEnabled(host.mService.getApplicationContext(), isSessionLogEnabled());
 		applySessionLogDirectory();
 		if (SessionLogger.isEnabled(host.mService.getApplicationContext())) {
-			SessionLogger.startSession(host.mService.getApplicationContext(), host.mDisplay);
-			SessionLogger.appendMarker(host.mService.getApplicationContext(), host.mDisplay, "connected");
+			// Same profile: keep appending to the open file (reconnect). New file only
+			// when there is no active session log for this profile.
+			boolean continuing = SessionLogger.hasActiveSessionFor(host.mDisplay);
+			SessionLogger.continueOrStartSession(host.mService.getApplicationContext(),
+					host.mDisplay);
+			String path = SessionLogger.getLogLocationLabel(host.mService.getApplicationContext());
+			SessionLogger.appendMarker(host.mService.getApplicationContext(), host.mDisplay,
+					(continuing ? "reconnected → " : "connected → ") + path);
 		}
+	}
+
+	/** Flush buffered bytes to disk when the TCP session ends. */
+	void onDisconnected() {
+		SessionLogger.endSession(host.mService.getApplicationContext());
 	}
 }
