@@ -821,13 +821,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_SENDBUTTONDATA:
 					
 					try {
-						service.sendData(((String)msg.obj).getBytes(service.getEncoding()));
+						if (service == null) {
+							break;
+						}
+						String enc = service.getEncoding();
+						if (enc == null || enc.length() == 0) {
+							enc = "UTF-8";
+						}
+						service.sendData(((String)msg.obj).getBytes(enc));
 						
 					} catch (RemoteException e) {
 						e.printStackTrace();
 					} catch (UnsupportedEncodingException e) {
 						
 						e.printStackTrace();
+					} catch (NullPointerException e) {
+						// Service died mid-message (e.g. :stellar crash) — don't kill UI.
+						Log.e("BlowTorch", "send button data: no connection", e);
 					}
 					//screen2.jumpToZero();
 					break;
