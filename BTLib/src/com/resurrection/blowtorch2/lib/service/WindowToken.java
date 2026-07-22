@@ -61,6 +61,8 @@ public class WindowToken implements Parcelable {
 		hyperlink_color,
 		/** Word wrapping on or off. */
 		word_wrap,
+		/** Newest game lines at the top of the window (older below). */
+		newest_at_top,
 		/** Color mode (see color debug option). */
 		color_option,
 		/** Font size option. */
@@ -293,6 +295,13 @@ public class WindowToken implements Parcelable {
 		wordWrap.setKey("word_wrap");
 		wordWrap.setValue(true);
 		window.addOption(wordWrap);
+
+		BooleanOption newestAtTop = new BooleanOption();
+		newestAtTop.setTitle("Newest text at top?");
+		newestAtTop.setDescription("Put fresh game output at the top of the window (older lines below). Useful when buttons sit along the bottom edge.");
+		newestAtTop.setKey("newest_at_top");
+		newestAtTop.setValue(false);
+		window.addOption(newestAtTop);
 
 		BooleanOption tapDismiss = new BooleanOption();
 		tapDismiss.setTitle("Tap window hides keyboard?");
