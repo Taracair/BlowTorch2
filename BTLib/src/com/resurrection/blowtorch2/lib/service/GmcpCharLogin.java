@@ -17,13 +17,20 @@ import com.resurrection.blowtorch2.lib.launcher.ServerAccount;
 
 /**
  * Native handler for GMCP Char.Login (password-credentials). OAuth is not implemented.
- * Credentials are delayed briefly so servers that still probe telnet capabilities
- * (e.g. Eden / GraphicMUD) are less likely to reject an early Credentials packet.
+ * <p>
+ * Per <a href="https://wiki.mudlet.org/w/Standards:GMCP_Authentication">GMCP Authentication</a>,
+ * after {@code Char.Login.Default} with {@code password-credentials} the client
+ * <b>must</b> reply with either filled {@code Char.Login.Credentials} or an empty
+ * {@code Char.Login.Credentials {}} (cancel / hand off to in-band login). Silent
+ * ignore leaves servers such as Eden waiting on the GMCP password prompt.
+ * <p>
+ * Filled credentials are delayed briefly so servers that still probe telnet
+ * capabilities (e.g. Eden / GraphicMUD) are less likely to reject an early packet.
  */
 public final class GmcpCharLogin {
 
 	private static final String TAG = "GmcpLogin";
-	/** Delay after Char.Login.Default before sending Credentials (ms). */
+	/** Delay after Char.Login.Default before sending filled Credentials (ms). */
 	private static final long CREDENTIALS_DELAY_MS = 2000L;
 
 	public interface Sender {
@@ -34,7 +41,7 @@ public final class GmcpCharLogin {
 	private final android.content.Context mContext;
 	private final String mDisplayName;
 	private final Sender mSender;
-	private final Handler mHandler = new Handler(Looper.getMainLooper());
+	private Handler mHandler;
 	private String mAccount = "";
 	private String mPassword = "";
 	private boolean mCredentialsLoaded;
@@ -45,6 +52,13 @@ public final class GmcpCharLogin {
 		mContext = context;
 		mDisplayName = displayName != null ? displayName : "";
 		mSender = sender;
+	}
+
+	private Handler handler() {
+		if (mHandler == null) {
+			mHandler = new Handler(Looper.getMainLooper());
+		}
+		return mHandler;
 	}
 
 	public void setCredentials(final String account, final String password) {
@@ -69,6 +83,10 @@ public final class GmcpCharLogin {
 
 	private void onDefault(final JSONObject body) {
 		ensureCredentials();
+		// New offer from the server — allow another Credentials / cancel cycle.
+		mCredentialsSent = false;
+		cancelPendingCredentials();
+
 		JSONArray types = body.optJSONArray("type");
 		boolean wantsPassword = false;
 		if (types != null) {
@@ -81,18 +99,21 @@ public final class GmcpCharLogin {
 			}
 		}
 		if (!wantsPassword) {
-			Log.i(TAG, "Char.Login.Default without password-credentials — no auto Credentials");
+			// OAuth-only (or unknown) — we cannot fulfill; cancel so the server
+			// falls back to interactive / in-band login instead of hanging.
+			Log.i(TAG, "Char.Login.Default without password-credentials — sending empty Credentials");
+			sendEmptyCredentials();
 			return;
 		}
 		if (mAccount.length() == 0 || mPassword.length() == 0) {
 			Log.i(TAG, "Char.Login: no stored login/password for \"" + mDisplayName
-					+ "\" — skipping auto Credentials (use in-band login)");
+					+ "\" — Char.Login.Credentials {} (in-band login)");
+			sendEmptyCredentials();
+			mSender.notifyWindow("\n" + Colorizer.getBrightYellowColor()
+					+ "GMCP Char.Login: no launcher account/password — using normal in-game login."
+					+ Colorizer.getWhiteColor() + "\n");
 			return;
 		}
-		if (mCredentialsSent) {
-			return;
-		}
-		cancelPendingCredentials();
 		mPendingCredentials = new Runnable() {
 			@Override
 			public void run() {
@@ -101,7 +122,17 @@ public final class GmcpCharLogin {
 			}
 		};
 		Log.i(TAG, "Char.Login.Default — scheduling Credentials in " + CREDENTIALS_DELAY_MS + "ms");
-		mHandler.postDelayed(mPendingCredentials, CREDENTIALS_DELAY_MS);
+		handler().postDelayed(mPendingCredentials, CREDENTIALS_DELAY_MS);
+	}
+
+	/** Spec cancel / “I cannot fulfill this method”: empty Credentials object. */
+	private void sendEmptyCredentials() {
+		if (mCredentialsSent) {
+			return;
+		}
+		mCredentialsSent = true;
+		Log.i(TAG, "Char.Login.Credentials {}");
+		mSender.sendGmcp("Char.Login.Credentials {}");
 	}
 
 	private void sendCredentialsNow() {
@@ -109,6 +140,7 @@ public final class GmcpCharLogin {
 			return;
 		}
 		if (mAccount.length() == 0 || mPassword.length() == 0) {
+			sendEmptyCredentials();
 			return;
 		}
 		try {
@@ -125,6 +157,7 @@ public final class GmcpCharLogin {
 		} catch (JSONException e) {
 			Log.w(TAG, "Char.Login.Credentials build failed", e);
 			mCredentialsSent = false;
+			sendEmptyCredentials();
 		}
 	}
 
@@ -150,8 +183,10 @@ public final class GmcpCharLogin {
 	}
 
 	private void cancelPendingCredentials() {
-		if (mPendingCredentials != null) {
+		if (mPendingCredentials != null && mHandler != null) {
 			mHandler.removeCallbacks(mPendingCredentials);
+			mPendingCredentials = null;
+		} else if (mPendingCredentials != null) {
 			mPendingCredentials = null;
 		}
 	}
