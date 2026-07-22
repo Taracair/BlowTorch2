@@ -427,10 +427,38 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mapper_use_gmcp = new BooleanOption();
 		mapper_use_gmcp.setTitle("Use GMCP Room Sync?");
-		mapper_use_gmcp.setDescription("Apply Room.* GMCP (name/coords/exits) to the current map tile when available. Known compass exits create neighbor tiles; special exits place a nearby free cell. Independent of Capture regex (.map capture / dialog).");
+		mapper_use_gmcp.setDescription("Apply Room.* GMCP to the map (title, room num, coords, exits). Needs GMCP on + Room in Manage modules…. Prefer Configure Room Sync… below. Independent of Capture regex.");
 		mapper_use_gmcp.setKey("mapper_use_gmcp");
 		mapper_use_gmcp.setValue(true);
 		mapperOptions.addOption(mapper_use_gmcp);
+
+		CallbackOption mapper_gmcp_cfg = new CallbackOption();
+		mapper_gmcp_cfg.setTitle("Configure Room Sync…");
+		mapper_gmcp_cfg.setDescription("Checkboxes: match by room number, absolute coordinates, create exit neighbors. Explains Eden/IRE-style Room.Info.");
+		mapper_gmcp_cfg.setKey("manage_mapper_gmcp");
+		mapper_gmcp_cfg.setValue("manage_mapper_gmcp");
+		mapperOptions.addOption(mapper_gmcp_cfg);
+
+		BooleanOption mapper_gmcp_use_num = new BooleanOption();
+		mapper_gmcp_use_num.setTitle("GMCP: Match by room number?");
+		mapper_gmcp_use_num.setDescription("Use Room.Info num/id/vnum as stable tile identity (recommended for Eden/IRE). Also in Configure Room Sync….");
+		mapper_gmcp_use_num.setKey("mapper_gmcp_use_num");
+		mapper_gmcp_use_num.setValue(true);
+		mapperOptions.addOption(mapper_gmcp_use_num);
+
+		BooleanOption mapper_gmcp_use_coords = new BooleanOption();
+		mapper_gmcp_use_coords.setTitle("GMCP: Use absolute coordinates?");
+		mapper_gmcp_use_coords.setDescription("Place tiles at coords/coord x,y (z → floor). Off = title/exits on current tile only. Also in Configure Room Sync….");
+		mapper_gmcp_use_coords.setKey("mapper_gmcp_use_coords");
+		mapper_gmcp_use_coords.setValue(true);
+		mapperOptions.addOption(mapper_gmcp_use_coords);
+
+		BooleanOption mapper_gmcp_create_exits = new BooleanOption();
+		mapper_gmcp_create_exits.setTitle("GMCP: Create exit neighbors?");
+		mapper_gmcp_create_exits.setDescription("Create/link missing exits from Room.Info (vnum stubs when given). Does not delete exits. Also in Configure Room Sync….");
+		mapper_gmcp_create_exits.setKey("mapper_gmcp_create_exits");
+		mapper_gmcp_create_exits.setValue(true);
+		mapperOptions.addOption(mapper_gmcp_create_exits);
 
 		BooleanOption mapper_auto_reverse = new BooleanOption();
 		mapper_auto_reverse.setTitle("Auto Reverse Links?");

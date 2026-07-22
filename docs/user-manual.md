@@ -347,17 +347,23 @@ Print the summary with `.map dirs`.
 | `.map capture apply` | Apply last preview to the current tile |
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
-recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links,
-legacy toolbar CSV (UI uses **Nav/Floors/Edit/More** chips),
+recording defaults, follow, path auto-send, Use GMCP Room,
+**Configure Room Sync…** (room number / absolute coords / create exits),
+auto reverse links, legacy toolbar CSV (UI uses **Nav/Floors/Edit/More** chips),
 **Capture Title Regex** / **Capture Exits Regex** (keys
 `mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
 `.map capture`).
 
-**GMCP Room:** with GMCP and **Use GMCP Room** on, `Room.*` syncs the current
-room title (and related hints) and creates missing neighbors from Room exits
-(compass / level / special), without deleting exits not in the GMCP list.
-Without GMCP (typical on many MOOs), use **Rec** while walking, switch to
-**Edit** for **Draw** / **Links**, and/or `.map capture`.
+**GMCP Room:** with GMCP and **Use GMCP Room** on (and **Room** in Manage
+modules…), `Room.Info` builds the map as you walk:
+- **num/id/vnum** → stable tile identity (Eden / IRE / Forsaken)
+- **coords** / **coord** `{x,y,z}` → place on the grid (z → floor)
+- **exits** `{n:123,…}` → create/link neighbors (destination stubs by vnum)
+
+Does not delete exits absent from GMCP. Does **not** parse ASCII maps from
+game text — that is Capture regex / Record / Draw. Without GMCP (typical on
+many MOOs), use **Rec** while walking, **Edit** for **Draw** / **Links**,
+and/or `.map capture`.
 
 ### Typical workflows (mini-tutorial)
 

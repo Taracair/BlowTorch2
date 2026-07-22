@@ -3752,6 +3752,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.setUseGmcp((Boolean) o.getValue());
 				}
 				break;
+			case mapper_gmcp_use_num:
+				if (mMapper != null) {
+					mMapper.setGmcpUseNum((Boolean) o.getValue());
+				}
+				break;
+			case mapper_gmcp_use_coords:
+				if (mMapper != null) {
+					mMapper.setGmcpUseCoords((Boolean) o.getValue());
+				}
+				break;
+			case mapper_gmcp_create_exits:
+				if (mMapper != null) {
+					mMapper.setGmcpCreateExits((Boolean) o.getValue());
+				}
+				break;
 			case mapper_auto_reverse_link:
 				if (mMapper != null) {
 					mMapper.setAutoReverse((Boolean) o.getValue());
@@ -4677,6 +4692,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_opacity,
 		mapper_path_auto_send,
 		mapper_use_gmcp,
+		mapper_gmcp_use_num,
+		mapper_gmcp_use_coords,
+		mapper_gmcp_create_exits,
 		mapper_auto_reverse_link,
 		mapper_accept_one_way_specials,
 		mapper_toolbar_actions,

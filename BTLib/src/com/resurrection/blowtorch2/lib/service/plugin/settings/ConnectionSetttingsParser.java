@@ -73,6 +73,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		persistent_connection,
 		mapper_enabled, mapper_recording_default, mapper_follow, mapper_float,
 		mapper_opacity, mapper_path_auto_send, mapper_use_gmcp,
+		mapper_gmcp_use_num, mapper_gmcp_use_coords, mapper_gmcp_create_exits,
 		mapper_auto_reverse_link, mapper_accept_one_way_specials,
 		mapper_toolbar_actions,
 		mapper_capture_title_regex, mapper_capture_exits_regex,
@@ -630,6 +631,21 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case mapper_use_gmcp:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_gmcp_use_num:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_gmcp_use_coords:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case mapper_gmcp_create_exits:
 						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
