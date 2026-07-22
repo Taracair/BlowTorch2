@@ -1754,7 +1754,69 @@ public class MapperOverlayController
 			public void deleteLevel(final String levelId) {
 				confirmDeleteLevel(levelId);
 			}
+
+			@Override
+			public void renameLevel(final String levelId) {
+				promptRenameLevel(levelId);
+			}
 		});
+	}
+
+	private void promptRenameLevel(final String levelId) {
+		if (!isControllerEditMode()) {
+			Toast.makeText(host.getMainWindow(), "Switch to Edit mode first",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || levelId == null || levelId.length() == 0) {
+			return;
+		}
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		MapLevel level = map != null ? map.findLevel(levelId) : null;
+		if (level == null) {
+			Toast.makeText(activity, "Unknown level", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		final EditText nameEdit = new EditText(activity);
+		nameEdit.setSingleLine(true);
+		nameEdit.setHint("Floor name");
+		String cur = level.getName() != null ? level.getName() : "";
+		nameEdit.setText(cur);
+		nameEdit.setSelection(cur.length());
+		new AlertDialog.Builder(activity)
+				.setTitle("Rename floor")
+				.setView(nameEdit)
+				.setPositiveButton("Rename", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						String neu = nameEdit.getText().toString().trim();
+						if (neu.length() == 0) {
+							Toast.makeText(activity, "Name required",
+									Toast.LENGTH_SHORT).show();
+							return;
+						}
+						if (controller != null) {
+							toastStatus(controller.renameLevel(levelId, neu));
+							refreshFromController();
+						} else {
+							host.runMapCommand("level rename " + levelId + " " + neu);
+							pullSnapshotFromService();
+						}
+					}
+				})
+				.setNegativeButton("Cancel", null)
+				.show();
+	}
+
+	private void promptRenameCurrentLevel() {
+		MudMap map = controller != null ? controller.getMap() : snapshotMap;
+		if (map == null || map.getCurrentLevelId() == null) {
+			Toast.makeText(host.getMainWindow(), "No current floor",
+					Toast.LENGTH_SHORT).show();
+			return;
+		}
+		promptRenameLevel(map.getCurrentLevelId());
 	}
 
 	private void confirmDeleteLevel(final String levelId) {
@@ -1954,6 +2016,8 @@ public class MapperOverlayController
 			runGoParentDoor();
 		} else if (MapperRadialMenu.ACTION_DELETE_LEVEL.equals(action)) {
 			confirmDeleteCurrentLevel();
+		} else if (MapperRadialMenu.ACTION_RENAME_LEVEL.equals(action)) {
+			promptRenameCurrentLevel();
 		} else if (MapperRadialMenu.ACTION_PATHS.equals(action)) {
 			togglePathsLayout();
 		} else if (MapperRadialMenu.ACTION_DRAW.equals(action)) {

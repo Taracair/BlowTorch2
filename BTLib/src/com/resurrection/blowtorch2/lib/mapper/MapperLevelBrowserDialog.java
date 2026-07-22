@@ -46,6 +46,10 @@ public final class MapperLevelBrowserDialog {
 		 * Delete a level by id. Host shows confirmation, then removes it.
 		 */
 		void deleteLevel(String levelId);
+		/**
+		 * Rename a level by id. Host shows a name dialog.
+		 */
+		void renameLevel(String levelId);
 	}
 
 	private MapperLevelBrowserDialog() {
@@ -110,7 +114,17 @@ public final class MapperLevelBrowserDialog {
 		root.addView(list);
 
 		final Button deleteBtn;
+		final Button renameBtn;
 		if (editMode) {
+			renameBtn = new Button(context);
+			renameBtn.setText("Rename…");
+			LinearLayout.LayoutParams renLp = new LinearLayout.LayoutParams(
+					LinearLayout.LayoutParams.MATCH_PARENT,
+					LinearLayout.LayoutParams.WRAP_CONTENT);
+			renLp.topMargin = pad / 2;
+			renameBtn.setLayoutParams(renLp);
+			root.addView(renameBtn);
+
 			deleteBtn = new Button(context);
 			deleteBtn.setText("Delete…");
 			LinearLayout.LayoutParams delLp = new LinearLayout.LayoutParams(
@@ -121,10 +135,12 @@ public final class MapperLevelBrowserDialog {
 			root.addView(deleteBtn);
 		} else {
 			deleteBtn = null;
+			renameBtn = null;
 		}
 
 		updateHint(hint, editMode, levels, selectedIndex[0]);
 		updateDeleteEnabled(deleteBtn, levels, selectedIndex[0]);
+		updateDeleteEnabled(renameBtn, levels, selectedIndex[0]);
 
 		AlertDialog.Builder builder = new AlertDialog.Builder(context)
 				.setTitle("Levels")
@@ -162,6 +178,7 @@ public final class MapperLevelBrowserDialog {
 				}
 				updateHint(hint, editMode, levels, selectedIndex[0]);
 				updateDeleteEnabled(deleteBtn, levels, selectedIndex[0]);
+				updateDeleteEnabled(renameBtn, levels, selectedIndex[0]);
 			}
 		});
 		list.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -179,6 +196,7 @@ public final class MapperLevelBrowserDialog {
 							Toast.LENGTH_SHORT).show();
 					updateHint(hint, editMode, levels, selectedIndex[0]);
 					updateDeleteEnabled(deleteBtn, levels, selectedIndex[0]);
+					updateDeleteEnabled(renameBtn, levels, selectedIndex[0]);
 					return true;
 				}
 				host.goHereOnLevel(level.getId());
@@ -189,6 +207,23 @@ public final class MapperLevelBrowserDialog {
 				return true;
 			}
 		});
+
+		if (renameBtn != null) {
+			renameBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					int idx = selectedIndex[0];
+					if (idx < 0 || idx >= levels.size()) {
+						Toast.makeText(context, "Select a level first",
+								Toast.LENGTH_SHORT).show();
+						return;
+					}
+					MapLevel level = levels.get(idx);
+					dialog.dismiss();
+					host.renameLevel(level.getId());
+				}
+			});
+		}
 
 		if (deleteBtn != null) {
 			deleteBtn.setOnClickListener(new View.OnClickListener() {
@@ -222,7 +257,7 @@ public final class MapperLevelBrowserDialog {
 		}
 		String base;
 		if (editMode) {
-			base = "Tap = view · Long-press = Go Here · Use Delete on a selected row (Edit only).";
+			base = "Tap = view · Long-press = Go Here · Rename/Delete on selected row (Edit).";
 		} else {
 			base = "Tap = view floor · Long-press = Go Here. Creating nests requires Edit mode.";
 		}

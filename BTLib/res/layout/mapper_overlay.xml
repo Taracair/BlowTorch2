@@ -5,7 +5,7 @@
     android:id="@+id/mapper_overlay_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#CC1A1A1A"
+    android:background="#FF1A1A1A"
     android:clickable="true"
     android:focusable="true"
     android:paddingTop="4dp"
@@ -22,7 +22,7 @@
         android:layout_alignParentTop="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:background="#AA000000"
+        android:background="#FF111111"
         android:paddingLeft="4dp"
         android:paddingRight="4dp">
 
@@ -82,7 +82,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:orientation="vertical"
-        android:background="#AA000000"
+        android:background="#FF111111"
         android:paddingLeft="4dp"
         android:paddingRight="4dp"
         android:paddingTop="2dp"
