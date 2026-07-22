@@ -46,7 +46,11 @@ Overflow → Crash report → Show log to view. Dot helpers: `.gmcp ask`,
 Native handlers: **Char.Login** (primary launcher account login/password; if none
 stored, sends empty `Char.Login.Credentials {}` so the MUD falls back to in-band
 login — required on Eden and similar) and
-**Client.Media** (sound/music). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for
+**Client.Media** (sound/music). `Client.Media.Stop` with no name/type/tag/key
+filters (including `{"fadeaway":true}` alone) stops all tracks; fade only when
+`fadeaway` or an explicit `fadeout` is sent. Audio is also hard-stopped on
+disconnect and when the app is swiped away from Recents (service may stay for
+persistent connection). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for
 planned optional MTTS / graphics work.
 
 ## MCP Options

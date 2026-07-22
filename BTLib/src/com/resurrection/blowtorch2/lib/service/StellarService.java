@@ -239,7 +239,23 @@ public class StellarService extends Service {
 		doShutdown();
 		super.onDestroy();
 	}
-	
+
+	/**
+	 * Recents swipe / "kill app" often leaves this foreground service alive.
+	 * Stop looping Client.Media so music does not keep playing in the background.
+	 */
+	@Override
+	public void onTaskRemoved(final Intent rootIntent) {
+		if (mConnections != null) {
+			for (Connection c : mConnections.values()) {
+				if (c != null) {
+					c.stopGmcpMedia();
+				}
+			}
+		}
+		super.onTaskRemoved(rootIntent);
+	}
+
 	/** The top level disconnect function.
 	 * 
 	 * This method is initated by a connection when it has disconnected. This method

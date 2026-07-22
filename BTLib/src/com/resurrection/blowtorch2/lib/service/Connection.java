@@ -3257,6 +3257,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		doDisconnect(true);
 	}
 
+	/** Hard-stop Client.Media audio (keep connection). Used when the task is swiped away. */
+	public final void stopGmcpMedia() {
+		if (mProcessor != null) {
+			mProcessor.stopGmcpMedia();
+		}
+	}
+
 	/** Helper method that kicks off the reconnection sequence. */
 	public final void startReconnect() {
 		mHandler.sendEmptyMessage(MESSAGE_RECONNECT);

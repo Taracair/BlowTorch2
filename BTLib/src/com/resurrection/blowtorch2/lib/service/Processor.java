@@ -646,6 +646,13 @@ public class Processor {
 		initGMCP();
 	}
 
+	/** Stop Client.Media audio without tearing down helpers (e.g. task removed). */
+	public final void stopGmcpMedia() {
+		if (mMediaPlayer != null) {
+			mMediaPlayer.stopAllImmediatePublic();
+		}
+	}
+
 	/** Release Client.Media players (call on disconnect). */
 	public final void releaseGmcpHelpers() {
 		if (mMediaPlayer != null) {
