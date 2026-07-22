@@ -1114,10 +1114,17 @@ public class MapperController {
 		}
 		try {
 			if (mConnection.getSettings() != null) {
-				mConnection.getSettings().setOption(key,
-						value != null ? value : "");
+				String cur = mConnection.getSettings().getOptionValue(key);
+				String next = value != null ? value : "";
+				if (cur != null && cur.equals(next)) {
+					return;
+				}
+				mConnection.getSettings().setOption(key, next);
 			}
 		} catch (Exception ignored) {
+		} catch (Error e) {
+			// Never let settings re-entry take down :stellar (e.g. StackOverflow).
+			android.util.Log.e("BlowTorch", "persistMapperOption failed: " + key, e);
 		}
 	}
 
@@ -1238,10 +1245,19 @@ public class MapperController {
 	}
 
 	public void setOpacity(final int opacity) {
-		mOpacity = clampOpacity(opacity);
-		// Do not notifyChanged(): a full UI refresh jumps the viewed floor /
-		// camera. Overlay applies alpha locally; snapshot still exports opacity.
+		int next = clampOpacity(opacity);
+		// Avoid re-entry: persist → SettingsGroup.setOption → updateSetting →
+		// setOpacity must not recurse (StackOverflow when entering a connection).
+		if (next == mOpacity) {
+			return;
+		}
+		mOpacity = next;
 		persistMapperOption("mapper_opacity", Integer.toString(mOpacity));
+	}
+
+	/** Settings-driven apply only — never writes back into settings. */
+	public void applyOpacityFromSettings(final int opacity) {
+		mOpacity = clampOpacity(opacity);
 	}
 
 	public List<String> listMaps() {
