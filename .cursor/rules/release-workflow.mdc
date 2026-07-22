@@ -24,8 +24,25 @@ alwaysApply: true
 2. Build/install **btTest** for verification:
    `BT_LOCAL_SIGN=1 ./gradlew :BT_Free:assembleBtTestRelease` → `adb install -r …`
 3. Do **not** create a GitHub release, tag, or production APK until the user asks.
-4. When releasing: show release notes first → wait for OK → bump version → production APK → tag `vX.Y.Z` → `gh release create`.
+4. When releasing: show release notes first → wait for OK → bump `versionCode` / `versionName` → production APK → tag `vX.Y.Z` → `gh release create` on **Taracair/BlowTorch2**.
 5. After a release, sync `staging` with `main` (`ff-only` merge both ways as needed).
+
+## GitHub Release asset + notes (required)
+
+Match the **v2.1.10** scheme (not the raw Gradle output name):
+
+- **Asset filename:** `BlowTorch2-vX.Y.Z-production-release.apk`  
+  Example: copy/rename  
+  `BT_Free/build/outputs/apk/production/release/BT_Free-production-release.apk` → that name before `gh release upload` / `create`.
+- **Release body** must end with:
+
+```markdown
+## Notes
+- versionCode **NNN** / versionName **X.Y.Z**
+```
+
+- Prefer sections like `## Highlights` (and optional Fixes / Docs), same style as v2.1.10.
+- Always pass `-R Taracair/BlowTorch2` to `gh release` (default `gh` remote may be upstream).
 
 ## Polish UI chat
 
