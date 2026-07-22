@@ -245,6 +245,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/** Restore button_window above game windows after text selection ends. */
 	public static final int MESSAGE_TEXTSELECTION_RELEASE = 921;
 	protected static final int MESSAGE_MAPPER_UI = 922;
+	/** Re-apply IME chrome lift after Window → Keep text still with keyboard? changes. */
+	public static final int MESSAGE_REFRESH_IME_LIFT = 923;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -815,6 +817,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_TEXTSELECTION_RELEASE:
 					restoreButtonsAboveWindows();
 					break;
+				case MESSAGE_REFRESH_IME_LIFT: {
+					View chromeRootRefresh = findViewById(R.id.window_container);
+					if (chromeRootRefresh != null) {
+						ViewCompat.requestApplyInsets(chromeRootRefresh);
+					}
+					break;
+				}
 				case MESSAGE_LINEBREAK:
 					//screen2.setLineBreaks((Integer)msg.obj);
 					break;
@@ -2311,6 +2320,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		imm.hideSoftInputFromWindow(mInputBox.getWindowToken(), 0);
 		//Log.e("WINDOW","ATTEMPTING TO HIDE THE KEYBOARD");
 		mInputBox.setOnTouchListener(mEditBoxTouchListener);
+	}
+
+	/**
+	 * Options → Window → Keep text still with keyboard?
+	 * When true, {@link ChromeController#applyImeChromeLift} leaves game text untranslated.
+	 */
+	boolean keepTextStillWithIme() {
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl != null) {
+			View main = rl.findViewWithTag("mainDisplay");
+			if (main instanceof com.resurrection.blowtorch2.lib.window.Window) {
+				return ((com.resurrection.blowtorch2.lib.window.Window) main).isImeKeepText();
+			}
+		}
+		if (mWindows != null) {
+			for (WindowToken tok : mWindows) {
+				if (tok == null || !"mainDisplay".equals(tok.getName())) {
+					continue;
+				}
+				Object opt = tok.getSettings().findOptionByKey("ime_keep_text");
+				if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+					return (Boolean) ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt).getValue();
+				}
+			}
+		}
+		return false;
 	}
 	
 	private void DoHapticFeedback() {
