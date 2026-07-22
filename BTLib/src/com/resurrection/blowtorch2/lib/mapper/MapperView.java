@@ -265,14 +265,19 @@ public class MapperView extends View {
 					@Override
 					public boolean onSingleTapConfirmed(MotionEvent e) {
 						InterLevelBadge inter = hitInterLevelBadge(e.getX(), e.getY());
-						if (inter != null && listener != null) {
+						if (inter != null && listener != null && inter.exit != null) {
 							MapTile from = findTile(inter.fromId);
-							MapTile dest = resolveTile(inter.destId);
-							if (from != null && dest != null && inter.exit != null) {
-								selectedTileId = from.getId();
-								invalidate();
-								listener.onInterLevelExitTap(from, inter.exit, dest);
-								return true;
+							if (from != null) {
+								MapTile dest = resolveTile(inter.destId);
+								boolean portal = inter.exit.getTargetMap() != null
+										&& inter.exit.getTargetMap().trim().length() > 0;
+								// Cross-map portals may use self as toId; still fire.
+								if (dest != null || portal) {
+									selectedTileId = from.getId();
+									invalidate();
+									listener.onInterLevelExitTap(from, inter.exit, dest);
+									return true;
+								}
 							}
 						}
 						LinkBadge badge = hitLinkBadge(e.getX(), e.getY());
@@ -876,8 +881,8 @@ public class MapperView extends View {
 	}
 
 	/**
-	 * Corner glyphs for exits whose destination tile is on another level.
-	 * ▲ top (up), ▼ bottom (down), ◆ mid-right (in/out/portal/other).
+	 * Corner glyphs: ▲ up, ▼ down, ○ other-map portal (tap opens that map),
+	 * ◆ in/out / other floor on this map.
 	 */
 	private void drawInterLevelBadges(Canvas canvas, MapTile tile, float left, float top,
 			float tileSize) {
@@ -886,6 +891,7 @@ public class MapperView extends View {
 		}
 		MapExit upExit = null;
 		MapExit downExit = null;
+		MapExit mapPortalExit = null;
 		MapExit specialExit = null;
 		MapTile upDest = null;
 		MapTile downDest = null;
@@ -894,11 +900,9 @@ public class MapperView extends View {
 			if (exit == null) {
 				continue;
 			}
-			// Cross-map portal → ◆ even when toId is self / missing.
 			if (exit.getTargetMap() != null && exit.getTargetMap().trim().length() > 0) {
-				if (specialExit == null) {
-					specialExit = exit;
-					specialDest = tile;
+				if (mapPortalExit == null) {
+					mapPortalExit = exit;
 				}
 				continue;
 			}
@@ -934,7 +938,12 @@ public class MapperView extends View {
 					left + tileSize * 0.5f, top + tileSize - pad,
 					glyphSize, hitPad, "▼", interDownPaint);
 		}
-		if (specialExit != null && specialDest != null) {
+		if (mapPortalExit != null) {
+			placeInterLevelBadge(canvas, tile, mapPortalExit, tile, InterLevelKind.SPECIAL,
+					left + tileSize - pad - glyphSize * 0.2f,
+					top + tileSize * 0.38f + glyphSize * 0.15f,
+					glyphSize, hitPad, "○", interSpecialPaint);
+		} else if (specialExit != null && specialDest != null) {
 			placeInterLevelBadge(canvas, tile, specialExit, specialDest, InterLevelKind.SPECIAL,
 					left + tileSize - pad - glyphSize * 0.2f,
 					top + tileSize * 0.5f + glyphSize * 0.15f,
@@ -960,10 +969,16 @@ public class MapperView extends View {
 
 		// Spread layout only — packed cells have no room for floor name text.
 		if (pathsLayout && scale >= 0.95f) {
-			String lvlName = levelLabel(dest.getLevelId());
-			if (lvlName != null && lvlName.length() > 0) {
+			String label = null;
+			if (exit != null && exit.getTargetMap() != null
+					&& exit.getTargetMap().trim().length() > 0) {
+				label = exit.getTargetMap().trim();
+			} else {
+				label = levelLabel(dest != null ? dest.getLevelId() : null);
+			}
+			if (label != null && label.length() > 0) {
 				interLabelPaint.setTextSize(Math.max(7f, 8.5f * scale));
-				String shortName = truncate(lvlName, scale * 0.85f);
+				String shortName = truncate(label, scale * 0.85f);
 				float ly;
 				if (kind == InterLevelKind.UP) {
 					ly = tmpRect.top - 2f * scale;
