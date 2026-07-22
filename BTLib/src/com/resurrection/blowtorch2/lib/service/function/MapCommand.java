@@ -320,9 +320,38 @@ public class MapCommand extends SpecialCommand {
 			} else {
 				note(c, mapper.moveTileLevel(mp[0], mp[1]));
 			}
+		} else if (sub.equals("rename")) {
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			return doLevelRename(c, mapper, name);
 		} else {
 			// treat whole rest as level name
 			note(c, mapper.levelSet(rest));
+		}
+		return null;
+	}
+
+	/**
+	 * {@code .map level rename <id|oldName> <newName>}
+	 * or {@code .map level rename <newName>} (current floor).
+	 */
+	private Object doLevelRename(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0) {
+			note(c, "Usage: .map level rename [<id|oldName>] <newName>");
+			return null;
+		}
+		String[] parts = rest.split("\\s+", 2);
+		if (parts.length == 1) {
+			MudMap map = mapper.getMap();
+			String curId = map != null ? map.getCurrentLevelId() : null;
+			if (curId == null) {
+				note(c, "Mapper: no current level.");
+				return null;
+			}
+			note(c, mapper.renameLevel(curId, parts[0]));
+		} else {
+			note(c, mapper.renameLevel(parts[0], parts[1]));
 		}
 		return null;
 	}
@@ -856,7 +885,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map open|close|toggle\n");
 		sb.append("  .map record|rec on|off|toggle\n");
 		sb.append("  .map follow on|off|toggle\n");
-		sb.append("  .map level list|prev|next|set <name>|delete <id|name>|move <tileId> <level>\n");
+		sb.append("  .map level list|prev|next|set <name>|rename [<id|name>] <new>|delete <id|name>|move <tileId> <level>\n");
 		sb.append("      (L-/L+ follow/return nests; create only in Edit mode)\n");
 		sb.append("  .map find|search <query> | .map path <query>\n");
 		sb.append("  .map goto <query>  (send if path_auto_send) | .map go <query|id> (always send)\n");

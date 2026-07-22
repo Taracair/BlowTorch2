@@ -56,7 +56,7 @@ public class MapperView extends View {
 	private static final float PATHS_PITCH = 1.75f;
 	/** Drawn tile body as a fraction of the cell (Paths leaves a wide gutter). */
 	private static final float PATHS_BODY_FRAC = 0.48f;
-	private static final float PACK_BODY_FRAC = 0.88f;
+	private static final float PACK_BODY_FRAC = 0.82f;
 	/** Show this many walk words on an edge before collapsing to “+N”. */
 	public static final int MAX_VISIBLE_LINK_LABELS = 2;
 
@@ -630,7 +630,9 @@ public class MapperView extends View {
 
 	/**
 	 * Draw directed arrows between tiles for exits that have a known destination
-	 * on the same drawn set. Labels show walk words; overflow becomes a tappable +N.
+	 * on the same drawn set. Spread mode: offset A→B / B→A with labels.
+	 * Packed mode: one centered shaft per pair (bidirectional → heads both ends),
+	 * no word labels — avoids the ugly double-lines in tight cells.
 	 */
 	private void drawLinkArrows(Canvas canvas, float bodySize) {
 		if (scale < 0.4f) {
@@ -662,12 +664,9 @@ public class MapperView extends View {
 			}
 		}
 
-		linkPaint.setStrokeWidth(Math.max(1.5f,
-				(pathsLayout ? 2.2f : 4.0f) * scale));
 		linkPaint.setStrokeCap(Paint.Cap.ROUND);
 		linkLabelPaint.setTextSize(Math.max(8f, 9.5f * scale));
-		// Spread: leave gutter for labels. Packed: shorter stubs so shafts read clearly.
-		float edge = bodySize * (pathsLayout ? 0.52f : 0.36f);
+		java.util.HashSet<String> drawnUndirected = new java.util.HashSet<String>();
 
 		for (Map.Entry<String, List<String>> e : grouped.entrySet()) {
 			String key = e.getKey();
@@ -675,16 +674,18 @@ public class MapperView extends View {
 			if (sep <= 0) {
 				continue;
 			}
-			MapTile from = findTile(key.substring(0, sep));
-			MapTile to = findTile(key.substring(sep + 1));
+			String fromId = key.substring(0, sep);
+			String toId = key.substring(sep + 1);
+			MapTile from = findTile(fromId);
+			MapTile to = findTile(toId);
 			List<String> cmds = e.getValue();
 			if (from == null || to == null || cmds == null || cmds.isEmpty()) {
 				continue;
 			}
-			// Self-portals / same-cell: no shaft (drawn as ◆ badge elsewhere).
-			if (from.getId() != null && from.getId().equals(to.getId())) {
+			if (fromId.equals(toId)) {
 				continue;
 			}
+
 			float fromCx = cellCenterX(from.getGridX());
 			float fromCy = cellCenterY(from.getGridY());
 			float toCx = cellCenterX(to.getGridX());
@@ -697,8 +698,27 @@ public class MapperView extends View {
 			}
 			float ux = dx / len;
 			float uy = dy / len;
-			// Parallel offset so A→B and B→A do not overlap (tighter when packed).
-			float off = (pathsLayout ? 5f : 3.2f) * scale;
+
+			if (!pathsLayout) {
+				// One draw per undirected pair.
+				String undirected = fromId.compareTo(toId) < 0
+						? fromId + "\0" + toId
+						: toId + "\0" + fromId;
+				if (drawnUndirected.contains(undirected)) {
+					continue;
+				}
+				drawnUndirected.add(undirected);
+				List<String> back = grouped.get(toId + "\0" + fromId);
+				boolean bidir = back != null && !back.isEmpty();
+				drawPackedLink(canvas, bodySize, fromCx, fromCy, toCx, toCy,
+						ux, uy, bidir);
+				continue;
+			}
+
+			// Spread: room for offset + labels.
+			linkPaint.setStrokeWidth(Math.max(1.5f, 2.2f * scale));
+			float edge = bodySize * 0.52f;
+			float off = 5f * scale;
 			float ox = -uy * off;
 			float oy = ux * off;
 			float x1 = fromCx + ux * edge + ox;
@@ -706,12 +726,7 @@ public class MapperView extends View {
 			float x2 = toCx - ux * edge + ox;
 			float y2 = toCy - uy * edge + oy;
 			canvas.drawLine(x1, y1, x2, y2, linkPaint);
-			drawArrowHead(canvas, x2, y2, ux, uy);
-
-			// Packed layout: arrows only — word labels clutter tight cells.
-			if (!pathsLayout) {
-				continue;
-			}
+			drawArrowHead(canvas, x2, y2, ux, uy, false);
 
 			float midX = (x1 + x2) * 0.5f;
 			float midY = (y1 + y2) * 0.5f - 4f * scale;
@@ -726,10 +741,38 @@ public class MapperView extends View {
 			if (cmds.size() > MAX_VISIBLE_LINK_LABELS) {
 				LinkBadge badge = new LinkBadge(from.getId(), to.getId(), cmds);
 				badge.bounds.set(tmpRect);
-				// Enlarge hit target a bit for fat fingers.
 				badge.bounds.inset(-6f * scale, -6f * scale);
 				linkBadges.add(badge);
 			}
+		}
+	}
+
+	/**
+	 * Compact neighbor link: single centered shaft; bidirectional gets heads
+	 * on both ends. No parallel offset (that caused the double-line mess).
+	 */
+	private void drawPackedLink(Canvas canvas, float bodySize,
+			float fromCx, float fromCy, float toCx, float toCy,
+			float ux, float uy, boolean bidirectional) {
+		float half = bodySize * 0.48f;
+		float x1 = fromCx + ux * half;
+		float y1 = fromCy + uy * half;
+		float x2 = toCx - ux * half;
+		float y2 = toCy - uy * half;
+		float gap = (float) Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+		if (gap < 2f) {
+			// Bodies almost touch — draw edge chevrons only.
+			drawArrowHead(canvas, x2, y2, ux, uy, true);
+			if (bidirectional) {
+				drawArrowHead(canvas, x1, y1, -ux, -uy, true);
+			}
+			return;
+		}
+		linkPaint.setStrokeWidth(Math.max(2f, 2.8f * scale));
+		canvas.drawLine(x1, y1, x2, y2, linkPaint);
+		drawArrowHead(canvas, x2, y2, ux, uy, true);
+		if (bidirectional) {
+			drawArrowHead(canvas, x1, y1, -ux, -uy, true);
 		}
 	}
 
@@ -759,9 +802,10 @@ public class MapperView extends View {
 		return c.substring(0, 11) + "…";
 	}
 
-	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux, float uy) {
-		float size = Math.max(6f, (pathsLayout ? 8f : 13f) * scale);
-		float spread = pathsLayout ? 0.55f : 0.62f;
+	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux,
+			float uy, boolean packed) {
+		float size = Math.max(6f, (packed ? 10f : 8f) * scale);
+		float spread = packed ? 0.58f : 0.55f;
 		float bx = tipX - ux * size;
 		float by = tipY - uy * size;
 		float px = -uy * size * spread;
@@ -769,12 +813,19 @@ public class MapperView extends View {
 		arrowPath.reset();
 		arrowPath.moveTo(tipX, tipY);
 		arrowPath.lineTo(bx + px, by + py);
-		arrowPath.lineTo(bx - ux * size * 0.25f, by - uy * size * 0.25f);
+		if (packed) {
+			arrowPath.lineTo(bx - ux * size * 0.2f, by - uy * size * 0.2f);
+		}
 		arrowPath.lineTo(bx - px, by - py);
 		arrowPath.close();
 		linkPaint.setStyle(Paint.Style.FILL);
 		canvas.drawPath(arrowPath, linkPaint);
 		linkPaint.setStyle(Paint.Style.STROKE);
+	}
+
+	/** @deprecated use {@link #drawArrowHead(Canvas, float, float, float, float, boolean)} */
+	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux, float uy) {
+		drawArrowHead(canvas, tipX, tipY, ux, uy, !pathsLayout);
 	}
 
 	/** Dots for specials / unknown exits that have no drawable destination arrow. */
