@@ -3747,6 +3747,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mMapper.setPathAutoSend((Boolean) o.getValue());
 				}
 				break;
+			case mapper_echo_window:
+				if (mMapper != null) {
+					mMapper.setEchoWindow((Boolean) o.getValue());
+				}
+				break;
 			case mapper_use_gmcp:
 				if (mMapper != null) {
 					mMapper.setUseGmcp((Boolean) o.getValue());
@@ -4701,6 +4706,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_float,
 		mapper_opacity,
 		mapper_path_auto_send,
+		mapper_echo_window,
 		mapper_use_gmcp,
 		mapper_gmcp_use_num,
 		mapper_gmcp_use_coords,
@@ -5334,6 +5340,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			root.put("acceptOneWaySpecials", mMapper.isAcceptOneWaySpecials());
 			root.put("useGmcp", mMapper.isUseGmcp());
 			root.put("gmcpGrow", mMapper.isGmcpGrow());
+			root.put("echoWindow", mMapper.isEchoWindow());
 			root.put("gmcpPolicy", mMapper.getGmcpPolicy() != null
 					? mMapper.getGmcpPolicy() : "sync");
 			MapperController.PendingGmcpConflict pending =

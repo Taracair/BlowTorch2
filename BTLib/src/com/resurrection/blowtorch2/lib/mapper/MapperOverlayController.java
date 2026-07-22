@@ -125,6 +125,7 @@ public class MapperOverlayController
 	/** Mirrors service GMCP Room sync / grow flags for More radial labels. */
 	private boolean snapshotUseGmcp;
 	private boolean snapshotGmcpGrow = true;
+	private boolean snapshotEchoWindow = true;
 	private String snapshotGmcpPolicy = MapperController.GMCP_POLICY_SYNC;
 	/** Avoid re-showing the same pending GMCP conflict dialog. */
 	private String lastShownGmcpConflictKey;
@@ -2143,7 +2144,8 @@ public class MapperOverlayController
 				boolean gmcpOn = snapshotUseGmcp;
 				boolean gmcpGrow = snapshotGmcpGrow;
 				MapperRadialMenu.showMore((ViewGroup) overlayRoot, radialListener(),
-						currentOpacityPercent(), gmcpOn, gmcpGrow, showLinkLabels);
+						currentOpacityPercent(), gmcpOn, gmcpGrow, showLinkLabels,
+						snapshotEchoWindow);
 			}
 		});
 	}
@@ -2299,6 +2301,12 @@ public class MapperOverlayController
 			promptOpacity();
 		} else if (MapperRadialMenu.ACTION_ARROW_LABELS.equals(action)) {
 			toggleArrowLabels();
+		} else if (MapperRadialMenu.ACTION_WINDOW_ECHO.equals(action)) {
+			snapshotEchoWindow = !snapshotEchoWindow;
+			host.runMapCommand(snapshotEchoWindow ? "echo on" : "echo off");
+			setStickyStatus(snapshotEchoWindow
+					? "Window echo on"
+					: "Window echo off — status stays on the map");
 		} else if (MapperRadialMenu.ACTION_CAPTURE.equals(action)) {
 			openCapture();
 		} else if (MapperRadialMenu.ACTION_GMCP.equals(action)) {
@@ -3262,6 +3270,7 @@ public class MapperOverlayController
 					sessionAcceptOneWaySpecials);
 			snapshotUseGmcp = root.optBoolean("useGmcp", snapshotUseGmcp);
 			snapshotGmcpGrow = root.optBoolean("gmcpGrow", snapshotGmcpGrow);
+			snapshotEchoWindow = root.optBoolean("echoWindow", snapshotEchoWindow);
 			snapshotGmcpPolicy = root.optString("gmcpPolicy", snapshotGmcpPolicy);
 			if (snapshotGmcpPolicy == null || snapshotGmcpPolicy.length() == 0) {
 				snapshotGmcpPolicy = snapshotGmcpGrow

@@ -59,13 +59,13 @@ public class MapperView extends View {
 	/** Grid pitch multiplier when Paths layout is on (space for arrows). */
 	private static final float PATHS_PITCH = 1.75f;
 	/**
-	 * Packed pitch — barely above 1 so a thin gutter shows shaft + arrowhead
-	 * (including diagonals) without looking like spread layout.
+	 * Packed pitch — thin gutter for shaft + arrowheads (cardinals and diagonals)
+	 * without looking like spread layout.
 	 */
-	private static final float PACK_PITCH = 1.12f;
+	private static final float PACK_PITCH = 1.22f;
 	/** Drawn tile body as a fraction of the cell (Paths leaves a wide gutter). */
 	private static final float PATHS_BODY_FRAC = 0.48f;
-	private static final float PACK_BODY_FRAC = 0.78f;
+	private static final float PACK_BODY_FRAC = 0.72f;
 	/** Show this many walk words on an edge before collapsing to “+N”. */
 	public static final int MAX_VISIBLE_LINK_LABELS = 2;
 

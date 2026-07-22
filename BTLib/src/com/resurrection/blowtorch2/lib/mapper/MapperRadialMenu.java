@@ -84,6 +84,7 @@ public final class MapperRadialMenu {
 	public static final String ACTION_GMCP = "gmcp";
 	public static final String ACTION_GMCP_GROW = "gmcpgrow";
 	public static final String ACTION_ARROW_LABELS = "arrowlabels";
+	public static final String ACTION_WINDOW_ECHO = "windowecho";
 
 	/** @deprecated Close lives on the title-bar ✕ only. */
 	@Deprecated
@@ -159,7 +160,7 @@ public final class MapperRadialMenu {
 	}
 
 	public static void showMore(ViewGroup parent, Listener listener, int opacity,
-			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels) {
+			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels, boolean windowEcho) {
 		Item[] items = {
 				new Item(ACTION_SAVE, "Save"),
 				new Item(ACTION_MAPS, "Maps"),
@@ -167,6 +168,7 @@ public final class MapperRadialMenu {
 				new Item(ACTION_EXPORT, "Export"),
 				new Item(ACTION_OPACITY, "Opacity…", opacity + "%"),
 				new Item(ACTION_ARROW_LABELS, "Arrow labels", arrowLabels ? "on" : "off"),
+				new Item(ACTION_WINDOW_ECHO, "Window echo", windowEcho ? "on" : "off"),
 				new Item(ACTION_CAPTURE, "Capture"),
 				new Item(ACTION_GMCP, "GMCP sync", gmcpOn ? "on" : "off"),
 				new Item(ACTION_GMCP_GROW, "GMCP grow", gmcpGrow ? "on" : "off")
@@ -177,20 +179,27 @@ public final class MapperRadialMenu {
 	/** @deprecated use {@link #showMore} with full flags */
 	@Deprecated
 	public static void showMore(ViewGroup parent, Listener listener, int opacity,
+			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels) {
+		showMore(parent, listener, opacity, gmcpOn, gmcpGrow, arrowLabels, true);
+	}
+
+	/** @deprecated use {@link #showMore} with full flags */
+	@Deprecated
+	public static void showMore(ViewGroup parent, Listener listener, int opacity,
 			boolean gmcpOn, boolean gmcpGrow) {
-		showMore(parent, listener, opacity, gmcpOn, gmcpGrow, true);
+		showMore(parent, listener, opacity, gmcpOn, gmcpGrow, true, true);
 	}
 
 	/** @deprecated use {@link #showMore} with GMCP flags */
 	@Deprecated
 	public static void showMore(ViewGroup parent, Listener listener, int opacity) {
-		showMore(parent, listener, opacity, true, true, true);
+		showMore(parent, listener, opacity, true, true, true, true);
 	}
 
 	/** @deprecated use {@link #showMore} */
 	@Deprecated
 	public static void showFile(ViewGroup parent, Listener listener) {
-		showMore(parent, listener, 85, true, true, true);
+		showMore(parent, listener, 85, true, true, true, true);
 	}
 
 	public static void show(ViewGroup parent, String hubLabel, Item[] items,

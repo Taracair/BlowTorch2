@@ -150,6 +150,11 @@ public class MapperController {
 	/** Session-only: false = Browse (navigate/view), true = Edit (create/draw/link/delete). */
 	private boolean mEditMode = false;
 	private boolean mPathAutoSend;
+	/**
+	 * When true, {@code .map} status lines are echoed into the game window.
+	 * Off keeps the scrollback clean while using the overlay (sticky status instead).
+	 */
+	private boolean mEchoWindow = true;
 	private int mOpacity = 85;
 	private String mToolbarActions = DEFAULT_TOOLBAR;
 	private String mCaptureTitleRegex = DEFAULT_CAPTURE_TITLE_REGEX;
@@ -998,6 +1003,7 @@ public class MapperController {
 		mFollowPlayer = boolOpt("mapper_follow", true);
 		mPreferFloat = boolOpt("mapper_float", true);
 		mPathAutoSend = boolOpt("mapper_path_auto_send", false);
+		mEchoWindow = boolOpt("mapper_echo_window", true);
 		mUseGmcp = boolOpt("mapper_use_gmcp", true);
 		mGmcpUseNum = boolOpt("mapper_gmcp_use_num", true);
 		mGmcpUseCoords = boolOpt("mapper_gmcp_use_coords", false);
@@ -1274,6 +1280,21 @@ public class MapperController {
 
 	public void setPathAutoSend(final boolean autoSend) {
 		mPathAutoSend = autoSend;
+	}
+
+	public boolean isEchoWindow() {
+		return mEchoWindow;
+	}
+
+	public void setEchoWindow(final boolean echo) {
+		mEchoWindow = echo;
+		persistMapperOption("mapper_echo_window", Boolean.toString(mEchoWindow));
+		notifyChanged();
+	}
+
+	public boolean toggleEchoWindow() {
+		setEchoWindow(!mEchoWindow);
+		return mEchoWindow;
 	}
 
 	public void setUseGmcp(final boolean use) {
