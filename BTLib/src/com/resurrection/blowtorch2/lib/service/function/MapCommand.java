@@ -278,11 +278,8 @@ public class MapCommand extends SpecialCommand {
 		} else if (a.equals("off") || a.equals("0") || a.equals("false")) {
 			note(c, mapper.setRecordingStatus(false));
 		} else if (a.equals("toggle") || a.length() == 0) {
-			if (!mapper.isEditMode() && !mapper.isRecording()) {
-				note(c, mapper.setRecordingStatus(true));
-			} else {
-				note(c, mapper.setRecordingStatus(!mapper.isRecording()));
-			}
+			// setRecordingStatus denies turning ON while Browse; OFF always works.
+			note(c, mapper.setRecordingStatus(!mapper.isRecording()));
 		} else {
 			note(c, "Usage: .map record on|off|toggle");
 			return null;
@@ -550,7 +547,7 @@ public class MapCommand extends SpecialCommand {
 		if (work.length() == 0 || work.equalsIgnoreCase("list")
 				|| work.equalsIgnoreCase("show")) {
 			StringBuilder sb = new StringBuilder();
-			sb.append("Mapper moves (edit: File → Moves, or Options → Mapper):\n");
+			sb.append("Mapper moves (edit: Edit → Moves, or Options → Mapper):\n");
 			sb.append(mapper.getCombinedMoveEffectsDisplay());
 			sb.append("\nUsage: .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");
 			note(c, sb.toString());
