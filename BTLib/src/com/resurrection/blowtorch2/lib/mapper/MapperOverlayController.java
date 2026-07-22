@@ -1953,8 +1953,10 @@ public class MapperOverlayController
 		showRadialOnOverlay(new Runnable() {
 			@Override
 			public void run() {
+				boolean gmcpOn = controller != null && controller.isUseGmcp();
+				boolean gmcpGrow = controller == null || controller.isGmcpGrow();
 				MapperRadialMenu.showMore((ViewGroup) overlayRoot, radialListener(),
-						currentOpacityPercent());
+						currentOpacityPercent(), gmcpOn, gmcpGrow);
 			}
 		});
 	}
@@ -2102,6 +2104,24 @@ public class MapperOverlayController
 			promptOpacity();
 		} else if (MapperRadialMenu.ACTION_CAPTURE.equals(action)) {
 			openCapture();
+		} else if (MapperRadialMenu.ACTION_GMCP.equals(action)) {
+			if (controller != null) {
+				boolean on = controller.toggleUseGmcp();
+				Toast.makeText(host.getMainWindow(),
+						on ? "GMCP room sync ON" : "GMCP room sync off",
+						Toast.LENGTH_SHORT).show();
+			} else {
+				host.runMapCommand("gmcp toggle");
+			}
+		} else if (MapperRadialMenu.ACTION_GMCP_GROW.equals(action)) {
+			if (controller != null) {
+				boolean on = controller.toggleGmcpGrow();
+				Toast.makeText(host.getMainWindow(),
+						on ? "GMCP auto-grow ON (creates rooms)" : "GMCP grow off (follow only)",
+						Toast.LENGTH_LONG).show();
+			} else {
+				host.runMapCommand("gmcp grow toggle");
+			}
 		} else if (MapperRadialMenu.ACTION_LINK_MAP.equals(action)) {
 			if (!requireEditModeToast()) {
 				return;
