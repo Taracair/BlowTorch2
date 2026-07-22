@@ -54,13 +54,12 @@
             android:fadingEdge="horizontal" />
             
         <TextView android:id="@+id/infoExtended"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@id/infoTitle"
             android:layout_alignLeft="@id/infoTitle"
             android:textAppearance="?android:attr/textAppearanceSmall"
-            android:textColor="?android:attr/textColorSecondary"
-            android:maxLines="4" />
+            android:textColor="?android:attr/textColorSecondary" />
 
     </RelativeLayout>
 
