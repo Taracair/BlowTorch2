@@ -347,9 +347,9 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption use_mtts = new BooleanOption();
 		use_mtts.setTitle("Use MTTS?");
-		use_mtts.setDescription("Announce terminal capabilities via TTYPE (ANSI + UTF-8 + 256 colors). Helps GraphicMUD-style servers pick an output mode. Off by default — reconnect after changing.");
+		use_mtts.setDescription("When on, TTYPE announces ANSI+UTF-8+256 colors as MTTS 13. When off, still sends a standards-compliant MTTS cycle but only ANSI (MTTS 1). Reconnect after changing.");
 		use_mtts.setKey("use_mtts");
-		use_mtts.setValue(false);
+		use_mtts.setValue(true);
 		protocolOptions.addOption(use_mtts);
 
 		BooleanOption use_msdp = new BooleanOption();

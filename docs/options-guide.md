@@ -75,7 +75,7 @@ default — enable only if a MUD needs them, then reconnect:
 
 | Option | What it does |
 |--------|----------------|
-| **Use MTTS?** | Third TTYPE reply announces ANSI + UTF-8 + 256 colors (helps GraphicMUD-style servers) |
+| **Use MTTS?** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI` → `MTTS <bits>`. On = bits **13** (ANSI+UTF-8+256); off = bits **1** (ANSI only). Reconnect after change. |
 | **Use MSDP?** | Out-of-band variables (option 69); dump with `.msdp` |
 | **Use MSSP?** | Server listing/status (option 70); dump with `.mssp` |
 
