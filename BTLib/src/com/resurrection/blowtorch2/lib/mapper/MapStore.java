@@ -233,6 +233,12 @@ public final class MapStore {
 			if (tile.getExternalId() != null && tile.getExternalId().length() > 0) {
 				o.put("externalId", tile.getExternalId());
 			}
+			if (tile.isLockTitle()) {
+				o.put("lockTitle", true);
+			}
+			if (tile.isLockPosition()) {
+				o.put("lockPosition", true);
+			}
 			JSONArray exits = new JSONArray();
 			for (MapExit exit : tile.getExits()) {
 				if (exit == null) {
@@ -315,6 +321,8 @@ public final class MapStore {
 				tile.setTitle(emptyToNull(o.optString("title", "")));
 				tile.setNotes(emptyToNull(o.optString("notes", "")));
 				tile.setExternalId(emptyToNull(o.optString("externalId", "")));
+				tile.setLockTitle(o.optBoolean("lockTitle", false));
+				tile.setLockPosition(o.optBoolean("lockPosition", false));
 				JSONArray exits = o.optJSONArray("exits");
 				if (exits != null) {
 					for (int j = 0; j < exits.length(); j++) {
