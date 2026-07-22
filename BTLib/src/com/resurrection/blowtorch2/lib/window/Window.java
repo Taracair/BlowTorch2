@@ -141,6 +141,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mTapDismissKeyboard = true;
 	/** When true, newest buffer lines draw at the top (older below). */
 	private boolean mNewestAtTop = false;
+	/** Extra empty pixels above game text (notch / camera). Buttons unaffected. */
+	private int mTopPadding = 0;
 	/** The buffer object that this window uses to store and draw ansi text. */
 	private TextTree mBuffer = null;
 	/** The buffer that is used to buffer text when BufferText() is set. */
@@ -546,6 +548,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (newestAtTop != null) {
 			mNewestAtTop = (Boolean) newestAtTop.getValue();
 		}
+		IntegerOption topPadding = (IntegerOption) settings.findOptionByKey("top_padding");
+		if (topPadding != null) {
+			mTopPadding = Math.max(0, (Integer) topPadding.getValue());
+		}
 		
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
 		
@@ -716,13 +722,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
 			scrollDelta = 0;
 		}
+		final int pad = textPadTop();
+		final float localY = Math.max(0f, touchY - pad);
 		final float y;
 		if (mNewestAtTop) {
-			// Newest at top: line 0 near touchY=0.
-			y = (float) (touchY + scrollDelta);
+			// Newest at top: line 0 near top of content area.
+			y = (float) (localY + scrollDelta);
 		} else {
-			// Classic: newest at bottom.
-			y = (float) (this.getHeight() - touchY + scrollDelta);
+			// Classic: newest at bottom of content area.
+			y = (float) (contentHeight() - localY + scrollDelta);
 		}
 		if (mPrefLineSize <= 0) {
 			return 0;
@@ -731,24 +739,42 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 
 	/**
-	 * Map iterator-space baseline Y (classic bottom-anchored) to on-screen baseline.
-	 * When {@link #mNewestAtTop}, the live edge flips to the top of the window.
+	 * Map iterator-space baseline Y (content-height space) to on-screen baseline.
+	 * Applies top padding and optional newest-at-top flip.
 	 */
 	private float screenBaselineY(final float logicalY) {
+		final int pad = textPadTop();
+		final int ch = contentHeight();
 		if (!mNewestAtTop) {
-			return logicalY;
+			return pad + logicalY;
 		}
-		return mHeight - logicalY + mPrefLineSize;
+		return pad + (ch - logicalY + mPrefLineSize);
 	}
 
 	/** Screen Y for a buffer line index (0 = newest), used by selection chrome. */
 	private int bufferLineToScreenY(final int line, final float withinLineOffset) {
 		final double scrollDelta = mScrollback - SCROLL_MIN;
 		final float logicalFromBottom = line * mPrefLineSize + withinLineOffset - (float) scrollDelta;
+		final int pad = textPadTop();
+		final int ch = contentHeight();
 		if (mNewestAtTop) {
-			return (int) (logicalFromBottom);
+			return pad + (int) logicalFromBottom;
 		}
-		return (int) (this.getHeight() - logicalFromBottom);
+		return pad + (int) (ch - logicalFromBottom);
+	}
+
+	/** Clamped top inset for game text (pixels). */
+	private int textPadTop() {
+		if (mTopPadding <= 0 || mHeight <= 0) {
+			return 0;
+		}
+		final int minText = Math.max(1, mPrefLineSize);
+		return Math.min(mTopPadding, Math.max(0, mHeight - minText));
+	}
+
+	/** Drawable text area height after top padding. */
+	private int contentHeight() {
+		return Math.max(Math.max(1, mPrefLineSize), mHeight - textPadTop());
 	}
 
 	private void endTextSelectionMode(final View v) {
@@ -794,7 +820,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (height == 0 && width == 0) {
 			return;
 		}
-		mCalculatedLinesInWindow = (int) (height / mPrefLineSize);
+		mCalculatedLinesInWindow = (int) (contentHeight() / mPrefLineSize);
 		
 		featurePaint.setTypeface(mPrefFont);
 		featurePaint.setTextSize(mPrefFontSize);
@@ -1338,16 +1364,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			calculateScrollBack();
 			c.save();
 			
+			b.setColor(0xFF0A0A0A);
+			c.drawColor(0xFF0A0A0A); // full window (incl. top pad) stays black
 			
-			mClipRect.top = 0;
+			mClipRect.top = textPadTop();
 			mClipRect.left = 0;
 			mClipRect.right = mWidth;
 			mClipRect.bottom = mHeight;
 			
 			c.clipRect(mClipRect);
 			
-			b.setColor(0xFF0A0A0A);
-			c.drawColor(0xFF0A0A0A); //fill with black
 			c.drawRect(0, 0, mClipRect.right - mClipRect.left, mClipRect.top - mClipRect.bottom, b);
 			p.setTypeface(mPrefFont);
 			p.setAntiAlias(true);
@@ -1356,9 +1382,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			float x = 0;
 			float y = 0;
-			if (mPrefLineSize * mCalculatedLinesInWindow < this.getHeight()) {
+			final int ch = contentHeight();
+			if (mPrefLineSize * mCalculatedLinesInWindow < ch) {
 				
-				y = ((mPrefLineSize * mCalculatedLinesInWindow) - this.getHeight()) - mPrefLineSize;
+				y = ((mPrefLineSize * mCalculatedLinesInWindow) - ch) - mPrefLineSize;
 				//Log.e("STARTY","STARTY IS:"+y);
 			}
 			
@@ -1954,9 +1981,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		double scrollerPos = 0.0f;
 		double posPercent = 0.0f;
 		
-		float workingHeight = mHeight;
+		float workingHeight = contentHeight();
 		float workingWidth = mWidth;
 		final float density = this.getResources().getDisplayMetrics().density;
+		final int pad = textPadTop();
 		
 		Float windowPercent = workingHeight / (mBuffer.getBrokenLineCount()*mPrefLineSize);
 		if (windowPercent > 1) {
@@ -1973,6 +2001,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (!mNewestAtTop) {
 				scrollerPos = workingHeight - scrollerPos;
 			}
+			scrollerPos += pad;
 
 			int blueValue = Math.max(0, Math.min(255, (int) (-1 * 255 * posPercent + 255)));
 			int redValue = Math.max(0, Math.min(255, (int) (255 * posPercent)));
@@ -2284,7 +2313,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** If the window has been scrolled back, this function will return it to home. */
 	public final void jumpToZero() {
 		synchronized (mToken) {
-			SCROLL_MIN = mHeight - (double) (5 * Window.this.getResources().getDisplayMetrics().density);
+			SCROLL_MIN = contentHeight() - (double) (5 * Window.this.getResources().getDisplayMetrics().density);
 			mScrollback = SCROLL_MIN;
 			mFlingVelocity = 0;
 		}
@@ -2676,9 +2705,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		if(mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
 			int offset = 0;
-			if(mPrefLineSize * mCalculatedLinesInWindow < this.getHeight()) {
+			final int ch = contentHeight();
+			if(mPrefLineSize * mCalculatedLinesInWindow < ch) {
 				
-				offset = ((mPrefLineSize) * mCalculatedLinesInWindow) - this.getHeight();
+				offset = ((mPrefLineSize) * mCalculatedLinesInWindow) - ch;
 			}
 			int under = mCalculatedLinesInWindow-(mBuffer.getBrokenLineCount()-1);
 			// Count broken lines (wraps), not Line objects — matches touch/selection indices.
@@ -2705,9 +2735,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			if(working_h >= pY) {
 				int y = 0;
-				if(mPrefLineSize * mCalculatedLinesInWindow < this.getHeight()) {
+				final int ch = contentHeight();
+				if(mPrefLineSize * mCalculatedLinesInWindow < ch) {
 					
-					y = ((mPrefLineSize) * mCalculatedLinesInWindow) - this.getHeight();
+					y = ((mPrefLineSize) * mCalculatedLinesInWindow) - ch;
 				}
 				double delta = working_h - pY;
 				double offset = delta - pLineSize;
@@ -3871,7 +3902,12 @@ end
 				break;
 			case newest_at_top:
 				mNewestAtTop = (Boolean) o.getValue();
-				layoutHomeWidgetRect();
+				jumpToZero();
+				this.invalidate();
+				break;
+			case top_padding:
+				mTopPadding = Math.max(0, (Integer) o.getValue());
+				calculateCharacterFeatures(mWidth, mHeight);
 				jumpToZero();
 				this.invalidate();
 				break;
@@ -3947,6 +3983,7 @@ end
 		hyperlink_color,
 		word_wrap,
 		newest_at_top,
+		top_padding,
 		color_option,
 		screen_on,
 		font_size,
@@ -4027,12 +4064,14 @@ end
 			
 			float x = event.getX();
 			float y = event.getY();
+			final int pad = textPadTop();
+			final float localY = Math.max(0f, y - pad);
 			
 			if (mNewestAtTop) {
-				y = y + (float) (mScrollback - SCROLL_MIN);
+				y = localY + (float) (mScrollback - SCROLL_MIN);
 			} else {
-				// convert y to be at the bottom of the screen.
-				y = (float) v.getHeight() - y;
+				// convert y to be at the bottom of the content area.
+				y = (float) contentHeight() - localY;
 				y += (mScrollback - SCROLL_MIN);
 			}
 			
@@ -4659,12 +4698,12 @@ end
 		//int diff = oldh - h;
 		//scrollback -= diff;
 		if(mScrollback == SCROLL_MIN) {
-			SCROLL_MIN = mHeight-(double)(5*Window.this.getResources().getDisplayMetrics().density);
+			SCROLL_MIN = contentHeight()-(double)(5*Window.this.getResources().getDisplayMetrics().density);
 			mScrollback = SCROLL_MIN;
 		} else {
 			//we have to calculate the new scrollback position.
 			double oldmin = SCROLL_MIN;
-			SCROLL_MIN = mHeight-(double)(5*Window.this.getResources().getDisplayMetrics().density);
+			SCROLL_MIN = contentHeight()-(double)(5*Window.this.getResources().getDisplayMetrics().density);
 			mScrollback -= oldmin - SCROLL_MIN;
 		}
 		
@@ -4728,8 +4767,8 @@ end
 	boolean hasOnSizeChanged = true;
 	
 	/**
-	 * Place the jump-to-live chevron near the live edge: bottom-right (classic) or
-	 * top-right (newest-at-top). Bottom placement clears the overflow FAB.
+	 * Place the jump-to-live chevron at bottom-right (clears the overflow FAB).
+	 * Newest-at-top only flips the arrow direction when drawing.
 	 */
 	private void layoutHomeWidgetRect() {
 		if (mHomeWidgetDrawable == null || mWidth <= 0 || mHeight <= 0) {
@@ -4738,17 +4777,11 @@ end
 		int hw = mHomeWidgetDrawable.getWidth();
 		int hh = mHomeWidgetDrawable.getHeight();
 		int margin = (int) (4 * mDensity);
-		if (mNewestAtTop) {
-			int clear = (int) (8 * mDensity);
-			mHomeWidgetRect.set(mWidth - hw - margin, clear,
-					mWidth - margin, clear + hh);
-		} else {
-			int clear = (int) (56 * mDensity);
-			mHomeWidgetRect.set(mWidth - hw - margin,
-					mHeight - hh - clear,
-					mWidth - margin,
-					mHeight - clear);
-		}
+		int clear = (int) (56 * mDensity);
+		mHomeWidgetRect.set(mWidth - hw - margin,
+				mHeight - hh - clear,
+				mWidth - margin,
+				mHeight - clear);
 	}
 
 	private void doScrollDown(boolean repeat) {

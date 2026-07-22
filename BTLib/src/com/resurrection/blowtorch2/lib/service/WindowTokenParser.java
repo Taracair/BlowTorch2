@@ -266,6 +266,14 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case top_padding:
+						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_TOP_PADDING) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
 					case hyperlink_color:
 						if (((Integer) ((ColorOption) o).getValue()) != WindowToken.DEFAULT_HYPERLINK_COLOR) {
 							out.startTag("", "option");
