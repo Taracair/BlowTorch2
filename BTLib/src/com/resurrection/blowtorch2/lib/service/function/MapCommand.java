@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import android.os.Message;
+
 import com.resurrection.blowtorch2.lib.mapper.MapDirections;
 import com.resurrection.blowtorch2.lib.mapper.MapMoveEffect;
 import com.resurrection.blowtorch2.lib.mapper.MapTile;
@@ -130,6 +132,14 @@ public class MapCommand extends SpecialCommand {
 				return null;
 			}
 			return doNeighbor(c, mapper, rest);
+		case "portal":
+		case "linkmap":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			return doPortal(c, mapper, rest);
+		case "opacity":
+			return doOpacity(c, mapper, rest);
 		case "move":
 			if (!requireEdit(c, mapper)) {
 				return null;
@@ -391,10 +401,11 @@ public class MapCommand extends SpecialCommand {
 							if (step.length() == 0) {
 								continue;
 							}
-							// One command per message — processOutputData does not
-							// split on embedded CR/LF, so a joined blob never walks.
-							c.getHandler().handleMessage(c.getHandler().obtainMessage(
-									Connection.MESSAGE_SENDDATA_STRING, step));
+							// Callback-based Handler: handleMessage() is a no-op —
+							// must dispatchMessage (or sendMessage) to run ConnectionHandler.
+							Message m = c.getHandler().obtainMessage(
+									Connection.MESSAGE_SENDDATA_STRING, step);
+							c.getHandler().dispatchMessage(m);
 						}
 					} catch (Exception e) {
 						note(c, "Mapper: failed to send path.");
@@ -622,6 +633,58 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
+	/**
+	 * {@code .map portal <cmd> map <mapName> [from <tileId>]}
+	 * or {@code .map portal <cmd> <mapName> [from <tileId>]}.
+	 */
+	private Object doPortal(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0) {
+			note(c, "Usage: .map portal <cmd> map <mapName> [from <tileId>]");
+			return null;
+		}
+		String work = rest.trim();
+		String lower = work.toLowerCase(Locale.US);
+		String fromId = null;
+		int fromIdx = lower.indexOf(" from ");
+		if (fromIdx >= 0) {
+			fromId = work.substring(fromIdx + 6).trim();
+			work = work.substring(0, fromIdx).trim();
+			lower = work.toLowerCase(Locale.US);
+		}
+		String cmd;
+		String mapName;
+		int mapIdx = lower.indexOf(" map ");
+		if (mapIdx >= 0) {
+			cmd = work.substring(0, mapIdx).trim();
+			mapName = work.substring(mapIdx + 5).trim();
+		} else {
+			int sp = work.indexOf(' ');
+			if (sp <= 0) {
+				note(c, "Usage: .map portal <cmd> map <mapName> [from <tileId>]");
+				return null;
+			}
+			cmd = work.substring(0, sp).trim();
+			mapName = work.substring(sp + 1).trim();
+		}
+		note(c, mapper.linkMapPortal(fromId, cmd, mapName));
+		return null;
+	}
+
+	private Object doOpacity(Connection c, MapperController mapper, String rest) {
+		if (rest.length() == 0) {
+			note(c, "Mapper: opacity " + mapper.getOpacity() + "%");
+			return null;
+		}
+		try {
+			int pct = Integer.parseInt(rest.trim());
+			mapper.setOpacity(pct);
+			note(c, "Mapper: opacity " + mapper.getOpacity() + "%");
+		} catch (NumberFormatException e) {
+			note(c, "Usage: .map opacity [40-100]");
+		}
+		return null;
+	}
+
 	private Object doMoveTile(Connection c, MapperController mapper, String rest) {
 		String[] p = rest.split("\\s+");
 		if (p.length < 2) {
@@ -804,6 +867,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");
 		sb.append("  .map add|place [x y] [title] [here] | .map here [id] | .map delete|del|rm [id]\n");
 		sb.append("  .map neighbor|nb <cmd> [from <id>] | .map move [id] <x> <y>\n");
+		sb.append("  .map portal|linkmap <cmd> map <name> [from <id>]\n");
+		sb.append("  .map opacity [40-100]\n");
 		sb.append("  .map conflict[s] [list [all]|resolve|ignore <id|n>|all|purge]\n");
 		sb.append("  .map export|save [path] | .map import <path|name> | .map undo | .map center\n");
 		sb.append("  .map zoom in|out|reset  (or .map zoom <factor>)\n");

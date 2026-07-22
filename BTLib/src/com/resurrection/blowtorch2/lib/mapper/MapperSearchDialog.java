@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.mapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
@@ -22,6 +23,7 @@ import android.widget.Toast;
 
 /**
  * Search tiles by title/notes; Path / Go actions on a selected hit.
+ * Works from a {@link MudMap} snapshot (UI process) or a live controller.
  */
 public class MapperSearchDialog extends Dialog {
 
@@ -30,16 +32,21 @@ public class MapperSearchDialog extends Dialog {
 		void onGo(MapTile tile, List<String> path);
 	}
 
-	private final MapperController controller;
+	private final MudMap map;
 	private final Callback callback;
 	private EditText queryEdit;
 	private ListView resultsList;
 	private List<MapTile> results = new ArrayList<MapTile>();
 	private MapTile selected;
 
-	public MapperSearchDialog(Context context, MapperController controller, Callback callback) {
+	public MapperSearchDialog(Context context, MapperController controller,
+			Callback callback) {
+		this(context, controller != null ? controller.getMap() : null, callback);
+	}
+
+	public MapperSearchDialog(Context context, MudMap map, Callback callback) {
 		super(context, EditorDialogChrome.dialogTheme());
-		this.controller = controller;
+		this.map = map;
 		this.callback = callback;
 	}
 
@@ -84,7 +91,8 @@ public class MapperSearchDialog extends Dialog {
 		root.addView(resultsList);
 		resultsList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 			@Override
-			public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+			public void onItemClick(AdapterView<?> parent, View view, int position,
+					long id) {
 				if (position >= 0 && position < results.size()) {
 					selected = results.get(position);
 				}
@@ -95,7 +103,7 @@ public class MapperSearchDialog extends Dialog {
 		actions.setOrientation(LinearLayout.HORIZONTAL);
 
 		Button pathBtn = new Button(getContext());
-		pathBtn.setText("Path");
+		pathBtn.setText("Show path");
 		pathBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -104,16 +112,15 @@ public class MapperSearchDialog extends Dialog {
 					Toast.makeText(getContext(), "No result", Toast.LENGTH_SHORT).show();
 					return;
 				}
-				List<String> path = pathTo(tile);
 				if (callback != null) {
-					callback.onPath(tile, path);
+					callback.onPath(tile, pathTo(tile));
 				}
 			}
 		});
 		actions.addView(pathBtn);
 
 		Button goBtn = new Button(getContext());
-		goBtn.setText("Go");
+		goBtn.setText("Go there");
 		goBtn.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -122,9 +129,8 @@ public class MapperSearchDialog extends Dialog {
 					Toast.makeText(getContext(), "No result", Toast.LENGTH_SHORT).show();
 					return;
 				}
-				List<String> path = pathTo(tile);
 				if (callback != null) {
-					callback.onGo(tile, path);
+					callback.onGo(tile, pathTo(tile));
 				}
 				dismiss();
 			}
@@ -147,7 +153,6 @@ public class MapperSearchDialog extends Dialog {
 	}
 
 	private List<String> pathTo(MapTile tile) {
-		MudMap map = controller.getMap();
 		if (map == null || tile == null) {
 			return new ArrayList<String>();
 		}
@@ -155,7 +160,9 @@ public class MapperSearchDialog extends Dialog {
 	}
 
 	private void doSearch() {
-		results = controller.search(queryEdit.getText().toString());
+		String q = queryEdit.getText() != null
+				? queryEdit.getText().toString().trim() : "";
+		results = searchMap(map, q);
 		selected = results.isEmpty() ? null : results.get(0);
 		List<String> labels = new ArrayList<String>();
 		for (MapTile t : results) {
@@ -170,8 +177,33 @@ public class MapperSearchDialog extends Dialog {
 		resultsList.setAdapter(new ArrayAdapter<String>(
 				getContext(), android.R.layout.simple_list_item_1, labels));
 		if (results.isEmpty()) {
-			Toast.makeText(getContext(), "No matches", Toast.LENGTH_SHORT).show();
+			Toast.makeText(getContext(),
+					map == null ? "No map loaded" : "No matches",
+					Toast.LENGTH_SHORT).show();
 		}
+	}
+
+	static List<MapTile> searchMap(MudMap map, String query) {
+		ArrayList<MapTile> out = new ArrayList<MapTile>();
+		if (map == null) {
+			return out;
+		}
+		String q = query != null ? query.trim().toLowerCase(Locale.US) : "";
+		for (MapTile t : map.getTiles()) {
+			if (t == null) {
+				continue;
+			}
+			if (q.length() == 0) {
+				out.add(t);
+				continue;
+			}
+			String title = t.getTitle() != null ? t.getTitle().toLowerCase(Locale.US) : "";
+			String notes = t.getNotes() != null ? t.getNotes().toLowerCase(Locale.US) : "";
+			if (title.contains(q) || notes.contains(q)) {
+				out.add(t);
+			}
+		}
+		return out;
 	}
 
 	private MapTile selectedOrFirst() {
