@@ -662,10 +662,12 @@ public class MapperView extends View {
 			}
 		}
 
-		linkPaint.setStrokeWidth(Math.max(1.5f, 2.2f * scale));
+		linkPaint.setStrokeWidth(Math.max(1.5f,
+				(pathsLayout ? 2.2f : 4.0f) * scale));
+		linkPaint.setStrokeCap(Paint.Cap.ROUND);
 		linkLabelPaint.setTextSize(Math.max(8f, 9.5f * scale));
-		// Start/end arrows just outside the tile body so labels sit in the gutter.
-		float edge = bodySize * 0.52f;
+		// Spread: leave gutter for labels. Packed: shorter stubs so shafts read clearly.
+		float edge = bodySize * (pathsLayout ? 0.52f : 0.36f);
 
 		for (Map.Entry<String, List<String>> e : grouped.entrySet()) {
 			String key = e.getKey();
@@ -677,6 +679,10 @@ public class MapperView extends View {
 			MapTile to = findTile(key.substring(sep + 1));
 			List<String> cmds = e.getValue();
 			if (from == null || to == null || cmds == null || cmds.isEmpty()) {
+				continue;
+			}
+			// Self-portals / same-cell: no shaft (drawn as ◆ badge elsewhere).
+			if (from.getId() != null && from.getId().equals(to.getId())) {
 				continue;
 			}
 			float fromCx = cellCenterX(from.getGridX());
@@ -691,15 +697,21 @@ public class MapperView extends View {
 			}
 			float ux = dx / len;
 			float uy = dy / len;
-			// Parallel offset so A→B and B→A do not overlap.
-			float ox = -uy * (5f * scale);
-			float oy = ux * (5f * scale);
+			// Parallel offset so A→B and B→A do not overlap (tighter when packed).
+			float off = (pathsLayout ? 5f : 3.2f) * scale;
+			float ox = -uy * off;
+			float oy = ux * off;
 			float x1 = fromCx + ux * edge + ox;
 			float y1 = fromCy + uy * edge + oy;
 			float x2 = toCx - ux * edge + ox;
 			float y2 = toCy - uy * edge + oy;
 			canvas.drawLine(x1, y1, x2, y2, linkPaint);
 			drawArrowHead(canvas, x2, y2, ux, uy);
+
+			// Packed layout: arrows only — word labels clutter tight cells.
+			if (!pathsLayout) {
+				continue;
+			}
 
 			float midX = (x1 + x2) * 0.5f;
 			float midY = (y1 + y2) * 0.5f - 4f * scale;
@@ -748,14 +760,16 @@ public class MapperView extends View {
 	}
 
 	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux, float uy) {
-		float size = Math.max(6f, 8f * scale);
+		float size = Math.max(6f, (pathsLayout ? 8f : 13f) * scale);
+		float spread = pathsLayout ? 0.55f : 0.62f;
 		float bx = tipX - ux * size;
 		float by = tipY - uy * size;
-		float px = -uy * size * 0.55f;
-		float py = ux * size * 0.55f;
+		float px = -uy * size * spread;
+		float py = ux * size * spread;
 		arrowPath.reset();
 		arrowPath.moveTo(tipX, tipY);
 		arrowPath.lineTo(bx + px, by + py);
+		arrowPath.lineTo(bx - ux * size * 0.25f, by - uy * size * 0.25f);
 		arrowPath.lineTo(bx - px, by - py);
 		arrowPath.close();
 		linkPaint.setStyle(Paint.Style.FILL);
@@ -801,7 +815,18 @@ public class MapperView extends View {
 		MapTile downDest = null;
 		MapTile specialDest = null;
 		for (MapExit exit : tile.getExits()) {
-			if (exit == null || exit.getToId() == null) {
+			if (exit == null) {
+				continue;
+			}
+			// Cross-map portal → ◆ even when toId is self / missing.
+			if (exit.getTargetMap() != null && exit.getTargetMap().trim().length() > 0) {
+				if (specialExit == null) {
+					specialExit = exit;
+					specialDest = tile;
+				}
+				continue;
+			}
+			if (exit.getToId() == null) {
 				continue;
 			}
 			MapTile dest = resolveTile(exit.getToId());

@@ -237,6 +237,9 @@ public final class MapStore {
 				if (exit.getReverseCommand() != null) {
 					e.put("reverseCommand", exit.getReverseCommand());
 				}
+				if (exit.getTargetMap() != null && exit.getTargetMap().length() > 0) {
+					e.put("targetMap", exit.getTargetMap());
+				}
 				exits.put(e);
 			}
 			o.put("exits", exits);
@@ -315,6 +318,9 @@ public final class MapStore {
 								emptyToNull(e.optString("command", "")),
 								e.optBoolean("special", false),
 								reverse);
+						if (e.has("targetMap")) {
+							exit.setTargetMap(emptyToNull(e.optString("targetMap", "")));
+						}
 						tile.addExit(exit);
 					}
 				}
