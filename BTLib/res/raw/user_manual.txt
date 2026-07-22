@@ -345,7 +345,8 @@ Mapper
   Multiple maps (JSON under /BlowTorch/maps/):
     .map maps
     .map load <name>
-    .map new <name>
+    .map new <name>          name must not already exist
+    .map deletemap <name>    or More → Maps → long-press
     .map export | .map save [path]   bare = maps dir; path = write there
     .map import <path|name>
     .map portal|linkmap <cmd> map <name> [from <id>]

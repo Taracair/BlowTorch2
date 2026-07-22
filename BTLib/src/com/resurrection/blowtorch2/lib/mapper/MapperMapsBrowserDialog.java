@@ -17,7 +17,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 /**
- * Pick a saved map from {@link MapStore} — tap to open, no game-buffer dump.
+ * Pick a saved map from {@link MapStore} — tap to open, long-press to delete.
  */
 public final class MapperMapsBrowserDialog {
 
@@ -28,6 +28,8 @@ public final class MapperMapsBrowserDialog {
 		void openMap(String name);
 		/** Create a new empty map (host shows name prompt). */
 		void createNewMap();
+		/** Delete a saved map (host confirms / refreshes). */
+		void deleteMap(String name);
 		Context getContext();
 	}
 
@@ -60,7 +62,7 @@ public final class MapperMapsBrowserDialog {
 		String curLabel = current != null && current.length() > 0
 				? current : "(unnamed)";
 		help.setText("Current: " + curLabel
-				+ "\nTap a map to open it.");
+				+ "\nTap a map to open · long-press to delete.");
 		help.setTextSize(12f);
 		help.setTextColor(0xFFBBBBBB);
 		help.setPadding(0, pad / 2, 0, pad / 2);
@@ -126,6 +128,33 @@ public final class MapperMapsBrowserDialog {
 				String name = names.get(position);
 				dlg.dismiss();
 				host.openMap(name);
+			}
+		});
+
+		list.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+			@Override
+			public boolean onItemLongClick(AdapterView<?> parent, View view,
+					int position, long id) {
+				if (position < 0 || position >= names.size()) {
+					return true;
+				}
+				final String name = names.get(position);
+				new AlertDialog.Builder(context)
+						.setTitle("Delete map?")
+						.setMessage("Delete \"" + name + "\" from disk?\n"
+								+ "This cannot be undone.")
+						.setPositiveButton("Delete",
+								new DialogInterface.OnClickListener() {
+									@Override
+									public void onClick(DialogInterface d,
+											int which) {
+										dlg.dismiss();
+										host.deleteMap(name);
+									}
+								})
+						.setNegativeButton("Cancel", null)
+						.show();
+				return true;
 			}
 		});
 
