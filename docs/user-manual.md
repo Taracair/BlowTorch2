@@ -489,12 +489,16 @@ displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 Lua: `Send_MCP_Packet(s)`, `Get_MCP_Status()`, literal triggers `@message-name`
 (same idea as GMCP `%module`).
 
-Optional protocols (off by default; Options → Service → **MUD Protocols**):
+Optional protocols (Options → Service → **MUD Protocols**):
 
 ```
 .mssp   — dump MSSP cache (enable Use MSSP? first, reconnect)
 .msdp   — dump MSDP cache (enable Use MSDP? first, reconnect)
 ```
+
+**Use MTTS?** — TTYPE always follows the MUD Terminal Type Standard
+(`BlowTorch` → `ANSI` → `MTTS <bits>`). On = bits **13** (ANSI+UTF-8+256);
+off = bits **1** (ANSI only). Reconnect after changing.
 
 ## Plugin commands (when loaded)
 
