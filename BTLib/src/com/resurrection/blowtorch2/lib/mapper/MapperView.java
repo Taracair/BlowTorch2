@@ -768,7 +768,7 @@ public class MapperView extends View {
 			}
 			return;
 		}
-		linkPaint.setStrokeWidth(Math.max(2f, 2.8f * scale));
+		linkPaint.setStrokeWidth(Math.max(1.2f, 1.5f * scale));
 		canvas.drawLine(x1, y1, x2, y2, linkPaint);
 		drawArrowHead(canvas, x2, y2, ux, uy, true);
 		if (bidirectional) {
@@ -804,8 +804,8 @@ public class MapperView extends View {
 
 	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux,
 			float uy, boolean packed) {
-		float size = Math.max(6f, (packed ? 10f : 8f) * scale);
-		float spread = packed ? 0.58f : 0.55f;
+		float size = Math.max(5f, (packed ? 6.5f : 8f) * scale);
+		float spread = packed ? 0.5f : 0.55f;
 		float bx = tipX - ux * size;
 		float by = tipY - uy * size;
 		float px = -uy * size * spread;
@@ -814,7 +814,7 @@ public class MapperView extends View {
 		arrowPath.moveTo(tipX, tipY);
 		arrowPath.lineTo(bx + px, by + py);
 		if (packed) {
-			arrowPath.lineTo(bx - ux * size * 0.2f, by - uy * size * 0.2f);
+			arrowPath.lineTo(bx - ux * size * 0.15f, by - uy * size * 0.15f);
 		}
 		arrowPath.lineTo(bx - px, by - py);
 		arrowPath.close();
@@ -933,7 +933,8 @@ public class MapperView extends View {
 		badge.bounds.inset(-hitPad, -hitPad);
 		interLevelBadges.add(badge);
 
-		if (scale >= 0.95f) {
+		// Spread layout only — packed cells have no room for floor name text.
+		if (pathsLayout && scale >= 0.95f) {
 			String lvlName = levelLabel(dest.getLevelId());
 			if (lvlName != null && lvlName.length() > 0) {
 				interLabelPaint.setTextSize(Math.max(7f, 8.5f * scale));

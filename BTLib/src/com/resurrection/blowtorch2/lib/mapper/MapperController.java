@@ -599,6 +599,133 @@ public class MapperController {
 	}
 
 	/**
+	 * Add a nest/portal exit from a tile onto another floor of this map.
+	 *
+	 * @param existingLevelId link to this floor when non-null
+	 * @param newIndependentName when creating a new floor with no ↑/↓ height
+	 *        (enter/out zone). Ignored when {@code existingLevelId} is set.
+	 *        When both null, create a new floor in the ↑/↓ direction of {@code cmd}.
+	 */
+	public String addLevelNeighbor(final String fromTileId, final String cmd,
+			final String existingLevelId, final String newIndependentName) {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		if (TextUtils.isEmpty(cmd)) {
+			return "Mapper: usage .map neighbor <cmd>";
+		}
+		MapTile from = fromTileId != null ? mMap.findTile(fromTileId)
+				: currentOrSelectedTile();
+		if (from == null) {
+			return "Mapper: no source tile.";
+		}
+		String norm = normalize(cmd);
+		String stored = MapDirections.storeCommand(cmd, norm);
+		boolean toExisting = existingLevelId != null && existingLevelId.length() > 0;
+		boolean independent = !toExisting && newIndependentName != null
+				&& newIndependentName.trim().length() > 0;
+		Integer lvlDelta = levelDeltaFor(norm);
+		if (!toExisting && !independent && lvlDelta == null) {
+			return "Mapper: \"" + stored
+					+ "\" is not a level move — pick up/down from Moves, "
+					+ "or create an independent floor.";
+		}
+		pushUndo();
+		MapLevel targetLevel;
+		if (toExisting) {
+			targetLevel = mMap.findLevel(existingLevelId);
+			if (targetLevel == null) {
+				return "Mapper: unknown target level.";
+			}
+			if (from.getLevelId() != null
+					&& from.getLevelId().equals(targetLevel.getId())) {
+				return "Mapper: already on that floor.";
+			}
+		} else if (independent) {
+			targetLevel = createIndependentLevel(from, newIndependentName.trim(),
+					stored);
+		} else {
+			targetLevel = createLevelBeside(from, lvlDelta.intValue(), stored);
+		}
+		MapTile to = findTileAt(targetLevel.getId(), from.getGridX(), from.getGridY());
+		if (to == null) {
+			to = createTileAt(targetLevel.getId(), from.getGridX(), from.getGridY());
+		}
+		MapExit existing = findExit(from, norm);
+		if (existing != null) {
+			existing.setToId(to.getId());
+			existing.setCommand(stored);
+			existing.setSpecial(true);
+		} else {
+			String rev = MapDirections.suggestReverse(stored, directionMap());
+			from.addExit(new MapExit(from.getId(), to.getId(), stored, true, rev));
+			if (mAutoReverse && rev != null) {
+				ensureReverse(from, to, stored);
+			}
+		}
+		if (targetLevel.getAnchorTileId() == null) {
+			targetLevel.setAnchorTileId(from.getId());
+			targetLevel.setAnchorDir(stored);
+		}
+		mSelectedTileId = to.getId();
+		refreshConflicts();
+		notifyChanged();
+		String lname = targetLevel.getName() != null ? targetLevel.getName()
+				: targetLevel.getId();
+		return "Mapper: " + stored + " → floor \"" + lname + "\" ("
+				+ shortId(to.getId()) + ").";
+	}
+
+	/** @deprecated use {@link #addLevelNeighbor(String, String, String, String)} */
+	public String addLevelNeighbor(final String fromTileId, final String cmd,
+			final String existingLevelId) {
+		return addLevelNeighbor(fromTileId, cmd, existingLevelId, null);
+	}
+
+	/** New floor with no ↑/↓ index relation — next free high index + custom name. */
+	private MapLevel createIndependentLevel(final MapTile from, final String name,
+			final String enterCmd) {
+		List<MapLevel> sorted = sortedLevels();
+		int max = -1;
+		for (MapLevel l : sorted) {
+			if (l != null && l.getIndex() > max) {
+				max = l.getIndex();
+			}
+		}
+		String levelName = name;
+		if (findLevelByName(levelName) != null) {
+			levelName = name + " " + (max + 2);
+		}
+		return addLevel(levelName, max + 1, from.getId(), enterCmd);
+	}
+
+	/** Always allocate a new floor above/below {@code from}. */
+	private MapLevel createLevelBeside(final MapTile from, final int levelDelta,
+			final String enterCmd) {
+		List<MapLevel> sorted = sortedLevels();
+		int baseIndex = 0;
+		for (int i = 0; i < sorted.size(); i++) {
+			if (sorted.get(i).getId().equals(from.getLevelId())) {
+				baseIndex = sorted.get(i).getIndex();
+				break;
+			}
+		}
+		int step = levelDelta >= 0 ? 1 : -1;
+		int newIndex = baseIndex + step;
+		java.util.HashSet<Integer> used = new java.util.HashSet<Integer>();
+		for (MapLevel l : sorted) {
+			if (l != null) {
+				used.add(Integer.valueOf(l.getIndex()));
+			}
+		}
+		while (used.contains(Integer.valueOf(newIndex))) {
+			newIndex += step;
+		}
+		String name = "L" + newIndex;
+		return addLevel(name, newIndex, from.getId(), enterCmd);
+	}
+
+	/**
 	 * Add a portal exit on {@code fromTileId} that loads another saved map when
 	 * walked (Follow / Record). Destination tile is the source itself; travel is
 	 * via {@link MapExit#getTargetMap()}.
@@ -1112,7 +1239,9 @@ public class MapperController {
 
 	public void setOpacity(final int opacity) {
 		mOpacity = clampOpacity(opacity);
-		notifyChanged();
+		// Do not notifyChanged(): a full UI refresh jumps the viewed floor /
+		// camera. Overlay applies alpha locally; snapshot still exports opacity.
+		persistMapperOption("mapper_opacity", Integer.toString(mOpacity));
 	}
 
 	public List<String> listMaps() {
