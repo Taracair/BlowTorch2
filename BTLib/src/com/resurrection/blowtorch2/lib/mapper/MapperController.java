@@ -2865,7 +2865,12 @@ public class MapperController {
 
 	/** Human-readable undo for .map undo. */
 	public String undoStatus() {
-		return undo() ? "Mapper: undo OK." : "Mapper: nothing to undo.";
+		return undo() ? "Mapper: undo OK (" + mUndoStack.size() + " left)."
+				: "Mapper: nothing to undo.";
+	}
+
+	public int getUndoDepth() {
+		return mUndoStack.size();
 	}
 
 	public List<MapConflict> listConflicts() {

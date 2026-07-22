@@ -41,6 +41,7 @@ public final class MapperRadialMenu {
 
 	// Nav
 	public static final String ACTION_GO_THERE = "gothere";
+	public static final String ACTION_PATH_TO = "pathto";
 	public static final String ACTION_FIND = "find";
 	public static final String ACTION_CENTER = "center";
 	public static final String ACTION_FOLLOW = "follow";
@@ -82,6 +83,7 @@ public final class MapperRadialMenu {
 	public static final String ACTION_CAPTURE = "capture";
 	public static final String ACTION_GMCP = "gmcp";
 	public static final String ACTION_GMCP_GROW = "gmcpgrow";
+	public static final String ACTION_ARROW_LABELS = "arrowlabels";
 
 	/** @deprecated Close lives on the title-bar ✕ only. */
 	@Deprecated
@@ -101,6 +103,7 @@ public final class MapperRadialMenu {
 	public static void showNav(ViewGroup parent, Listener listener,
 			boolean recording, boolean follow) {
 		Item[] items = {
+				new Item(ACTION_PATH_TO, "Path to"),
 				new Item(ACTION_GO_THERE, "Go there"),
 				new Item(ACTION_FIND, "Find"),
 				new Item(ACTION_CENTER, "Center"),
@@ -156,13 +159,14 @@ public final class MapperRadialMenu {
 	}
 
 	public static void showMore(ViewGroup parent, Listener listener, int opacity,
-			boolean gmcpOn, boolean gmcpGrow) {
+			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels) {
 		Item[] items = {
 				new Item(ACTION_SAVE, "Save"),
 				new Item(ACTION_MAPS, "Maps"),
 				new Item(ACTION_NEW, "New map"),
 				new Item(ACTION_EXPORT, "Export"),
 				new Item(ACTION_OPACITY, "Opacity…", opacity + "%"),
+				new Item(ACTION_ARROW_LABELS, "Arrow labels", arrowLabels ? "on" : "off"),
 				new Item(ACTION_CAPTURE, "Capture"),
 				new Item(ACTION_GMCP, "GMCP sync", gmcpOn ? "on" : "off"),
 				new Item(ACTION_GMCP_GROW, "GMCP grow", gmcpGrow ? "on" : "off")
@@ -170,16 +174,23 @@ public final class MapperRadialMenu {
 		show(parent, "More", items, listener);
 	}
 
+	/** @deprecated use {@link #showMore} with full flags */
+	@Deprecated
+	public static void showMore(ViewGroup parent, Listener listener, int opacity,
+			boolean gmcpOn, boolean gmcpGrow) {
+		showMore(parent, listener, opacity, gmcpOn, gmcpGrow, true);
+	}
+
 	/** @deprecated use {@link #showMore} with GMCP flags */
 	@Deprecated
 	public static void showMore(ViewGroup parent, Listener listener, int opacity) {
-		showMore(parent, listener, opacity, true, true);
+		showMore(parent, listener, opacity, true, true, true);
 	}
 
 	/** @deprecated use {@link #showMore} */
 	@Deprecated
 	public static void showFile(ViewGroup parent, Listener listener) {
-		showMore(parent, listener, 85, true, true);
+		showMore(parent, listener, 85, true, true, true);
 	}
 
 	public static void show(ViewGroup parent, String hubLabel, Item[] items,

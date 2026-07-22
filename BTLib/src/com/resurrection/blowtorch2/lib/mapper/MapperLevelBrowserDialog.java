@@ -143,7 +143,7 @@ public final class MapperLevelBrowserDialog {
 		updateDeleteEnabled(renameBtn, levels, selectedIndex[0]);
 
 		AlertDialog.Builder builder = new AlertDialog.Builder(context)
-				.setTitle("Levels")
+				.setTitle("Floors")
 				.setView(root)
 				.setNegativeButton("Close", null);
 		if (editMode) {
