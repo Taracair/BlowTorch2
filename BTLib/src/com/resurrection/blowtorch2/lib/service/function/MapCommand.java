@@ -124,7 +124,23 @@ public class MapCommand extends SpecialCommand {
 			if (!requireEdit(c, mapper)) {
 				return null;
 			}
+			if (rest != null) {
+				String r = rest.trim();
+				String rl = r.toLowerCase(Locale.US);
+				if (rl.startsWith("map ") || rl.equals("map")) {
+					String mapName = rl.startsWith("map ") ? r.substring(4).trim() : "";
+					note(c, mapper.deleteMap(mapName));
+					return null;
+				}
+			}
 			note(c, mapper.deleteTile(rest));
+			return null;
+		case "deletemap":
+		case "rmmap":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			note(c, mapper.deleteMap(rest));
 			return null;
 		case "neighbor":
 		case "nb":
@@ -956,7 +972,8 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map mode browse|edit|toggle  (Browse = view/nav only; Edit = record+edit)\n");
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map oneway on|off|toggle  (ON = specials spawn new tiles; OFF = close to unique inbound)\n");
-		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (new/import = Edit)\n");
+		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (unique name; Edit)\n");
+		sb.append("  .map deletemap|rmmap <name> | .map delete map <name>\n");
 		sb.append("  .map capture preview|apply  (apply = Edit; Options → Mapper regex)\n");
 		sb.append("  Browse: no record / Draw / Links / tile edit. Follow tracks known exits while walking.\n");
 		return sb.toString();

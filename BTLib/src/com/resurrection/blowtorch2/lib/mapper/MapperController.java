@@ -1322,9 +1322,15 @@ public class MapperController {
 
 	/**
 	 * Create a fresh empty map with the given name (replaces session map).
+	 * Refuses if a map file with that name already exists.
 	 */
 	public String newMap(final String name) {
 		String mapName = TextUtils.isEmpty(name) ? DEFAULT_MAP_NAME : name.trim();
+		Context ctx = context();
+		if (ctx != null && MapStore.exists(ctx, mapName)) {
+			return "Mapper: map \"" + MapStore.safeName(mapName)
+					+ "\" already exists. Open it from Maps, or choose another name.";
+		}
 		ensureBlankMap(mapName);
 		if (mConnection != null && mConnection.getHost() != null) {
 			mMap.setHostHint(mConnection.getHost());
@@ -1333,6 +1339,48 @@ public class MapperController {
 		String saveMsg = save();
 		notifyChanged();
 		return "Mapper: new map \"" + mapName + "\". " + saveMsg;
+	}
+
+	/**
+	 * Delete a saved map file. If it is the active map, switches to another
+	 * saved map or a blank default.
+	 */
+	public String deleteMap(final String name) {
+		if (TextUtils.isEmpty(name)) {
+			return "Mapper: delete needs a map name.";
+		}
+		Context ctx = context();
+		if (ctx == null) {
+			return "Mapper: cannot delete (no context).";
+		}
+		String mapName = name.trim();
+		String safe = MapStore.safeName(mapName);
+		if (safe.length() == 0) {
+			return "Mapper: invalid map name.";
+		}
+		if (!MapStore.exists(ctx, mapName)) {
+			return "Mapper: no map \"" + safe + "\" on disk.";
+		}
+		boolean wasCurrent = mMap != null && safe.equals(MapStore.safeName(mMap.getName()));
+		if (!MapStore.delete(ctx, mapName)) {
+			return "Mapper: failed to delete \"" + safe + "\".";
+		}
+		if (wasCurrent) {
+			List<String> left = MapStore.listMaps(ctx);
+			if (!left.isEmpty()) {
+				openMap(left.get(0));
+				return "Mapper: deleted \"" + safe + "\". Switched to \""
+						+ left.get(0) + "\".";
+			}
+			ensureBlankMap(DEFAULT_MAP_NAME);
+			clearUndo();
+			save();
+			notifyChanged();
+			return "Mapper: deleted \"" + safe + "\". Started blank \""
+					+ DEFAULT_MAP_NAME + "\".";
+		}
+		notifyChanged();
+		return "Mapper: deleted \"" + safe + "\".";
 	}
 
 	/** Persist the active map now. */

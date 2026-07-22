@@ -2175,6 +2175,21 @@ public class MapperOverlayController
 			}
 
 			@Override
+			public void deleteMap(String name) {
+				if (name == null || name.trim().length() == 0) {
+					return;
+				}
+				if (controller != null) {
+					toastStatus(controller.deleteMap(name.trim()));
+					refreshFromController();
+				} else {
+					host.runMapCommand("deletemap " + name.trim());
+					pullSnapshotFromService();
+					refreshFromController();
+				}
+			}
+
+			@Override
 			public android.content.Context getContext() {
 				return host.getMainWindow();
 			}
@@ -2250,28 +2265,45 @@ public class MapperOverlayController
 		input.setHint("map name");
 		input.setSingleLine(true);
 		input.setText("default");
-		new AlertDialog.Builder(activity)
+		final AlertDialog dlg = new AlertDialog.Builder(activity)
 				.setTitle("New map")
+				.setMessage("Name must be unique (not already on disk).")
 				.setView(input)
-				.setPositiveButton("Create", new DialogInterface.OnClickListener() {
-					@Override
-					public void onClick(DialogInterface dialog, int which) {
-						String name = input.getText() != null
-								? input.getText().toString().trim() : "";
-						if (name.length() == 0) {
-							name = "default";
-						}
-						if (controller != null) {
-							toastStatus(controller.newMap(name));
-							refreshFromController();
-						} else {
-							host.runMapCommand("new " + name);
-							pullSnapshotFromService();
-						}
-					}
-				})
+				.setPositiveButton("Create", null)
 				.setNegativeButton("Cancel", null)
-				.show();
+				.create();
+		dlg.setOnShowListener(new DialogInterface.OnShowListener() {
+			@Override
+			public void onShow(DialogInterface dialog) {
+				dlg.getButton(AlertDialog.BUTTON_POSITIVE)
+						.setOnClickListener(new View.OnClickListener() {
+							@Override
+							public void onClick(View v) {
+								String name = input.getText() != null
+										? input.getText().toString().trim() : "";
+								if (name.length() == 0) {
+									name = "default";
+								}
+								if (MapStore.exists(activity, name)) {
+									Toast.makeText(activity,
+											"Map \"" + MapStore.safeName(name)
+													+ "\" already exists — choose another name",
+											Toast.LENGTH_LONG).show();
+									return;
+								}
+								dlg.dismiss();
+								if (controller != null) {
+									toastStatus(controller.newMap(name));
+									refreshFromController();
+								} else {
+									host.runMapCommand("new " + name);
+									pullSnapshotFromService();
+								}
+							}
+						});
+			}
+		});
+		dlg.show();
 	}
 
 	/** Browse/go to unanchored root level (index 0, or first without anchor). */
