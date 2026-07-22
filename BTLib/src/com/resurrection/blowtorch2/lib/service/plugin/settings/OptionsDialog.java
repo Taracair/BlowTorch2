@@ -517,13 +517,18 @@ public class OptionsDialog extends Dialog {
 			}
 
 			@Override
+			public boolean getGrow() {
+				return readBool("mapper_gmcp_grow", true);
+			}
+
+			@Override
 			public boolean getUseNum() {
 				return readBool("mapper_gmcp_use_num", true);
 			}
 
 			@Override
 			public boolean getUseCoords() {
-				return readBool("mapper_gmcp_use_coords", true);
+				return readBool("mapper_gmcp_use_coords", false);
 			}
 
 			@Override
@@ -532,10 +537,11 @@ public class OptionsDialog extends Dialog {
 			}
 
 			@Override
-			public void apply(boolean useGmcp, boolean useNum, boolean useCoords,
+			public void apply(boolean useGmcp, boolean grow, boolean useNum, boolean useCoords,
 					boolean createExits) {
 				try {
 					service.updateBooleanSetting("mapper_use_gmcp", useGmcp);
+					service.updateBooleanSetting("mapper_gmcp_grow", grow);
 					service.updateBooleanSetting("mapper_gmcp_use_num", useNum);
 					service.updateBooleanSetting("mapper_gmcp_use_coords", useCoords);
 					service.updateBooleanSetting("mapper_gmcp_create_exits", createExits);

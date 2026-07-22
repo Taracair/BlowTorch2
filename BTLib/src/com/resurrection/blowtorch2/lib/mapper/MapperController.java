@@ -93,10 +93,18 @@ public class MapperController {
 	private boolean mUseGmcp = true;
 	/** Match/create tiles by GMCP room num/id/vnum when present. */
 	private boolean mGmcpUseNum = true;
-	/** Place/move tiles using absolute GMCP x/y (Eden/IRE). Off = title/exits only. */
-	private boolean mGmcpUseCoords = true;
+	/**
+	 * Place/move tiles using absolute GMCP x/y. Off (default) = grow by exits /
+	 * near the previous room — better when coords skip cells (Eden).
+	 */
+	private boolean mGmcpUseCoords = false;
 	/** Create neighbor stubs for exits listed in Room.Info. */
 	private boolean mGmcpCreateExits = true;
+	/**
+	 * When false, GMCP only follows existing rooms (by num) and updates the title —
+	 * does not create tiles or exits. Independent of Record/Draw.
+	 */
+	private boolean mGmcpGrow = true;
 	private boolean mAutoReverse = true;
 	/**
 	 * When true, special exits ({@code out}/{@code enter}/…) always create a new
@@ -957,8 +965,9 @@ public class MapperController {
 		mPathAutoSend = boolOpt("mapper_path_auto_send", false);
 		mUseGmcp = boolOpt("mapper_use_gmcp", true);
 		mGmcpUseNum = boolOpt("mapper_gmcp_use_num", true);
-		mGmcpUseCoords = boolOpt("mapper_gmcp_use_coords", true);
+		mGmcpUseCoords = boolOpt("mapper_gmcp_use_coords", false);
 		mGmcpCreateExits = boolOpt("mapper_gmcp_create_exits", true);
+		mGmcpGrow = boolOpt("mapper_gmcp_grow", true);
 		mAutoReverse = boolOpt("mapper_auto_reverse_link", true);
 		mAcceptOneWaySpecials = boolOpt("mapper_accept_one_way_specials", false);
 		mOpacity = clampOpacity(intOpt("mapper_opacity", 85));
@@ -1228,6 +1237,7 @@ public class MapperController {
 
 	public void setUseGmcp(final boolean use) {
 		mUseGmcp = use;
+		persistMapperOption("mapper_use_gmcp", Boolean.toString(mUseGmcp));
 	}
 
 	public void setGmcpUseNum(final boolean use) {
@@ -1240,6 +1250,33 @@ public class MapperController {
 
 	public void setGmcpCreateExits(final boolean create) {
 		mGmcpCreateExits = create;
+	}
+
+	public void setGmcpGrow(final boolean grow) {
+		mGmcpGrow = grow;
+		persistMapperOption("mapper_gmcp_grow", Boolean.toString(mGmcpGrow));
+	}
+
+	public boolean isUseGmcp() {
+		return mUseGmcp;
+	}
+
+	public boolean isGmcpGrow() {
+		return mGmcpGrow;
+	}
+
+	public boolean toggleUseGmcp() {
+		mUseGmcp = !mUseGmcp;
+		persistMapperOption("mapper_use_gmcp", Boolean.toString(mUseGmcp));
+		notifyChanged();
+		return mUseGmcp;
+	}
+
+	public boolean toggleGmcpGrow() {
+		mGmcpGrow = !mGmcpGrow;
+		persistMapperOption("mapper_gmcp_grow", Boolean.toString(mGmcpGrow));
+		notifyChanged();
+		return mGmcpGrow;
 	}
 
 	public void setAutoReverse(final boolean auto) {
@@ -1587,10 +1624,10 @@ public class MapperController {
 	/**
 	 * Sync from GMCP Room.* payload when mapper_use_gmcp is on.
 	 * <p>
-	 * Prefers stable room {@code num}/{@code id}/{@code vnum} when enabled, then
-	 * absolute coordinates (Eden {@code coords}, IRE {@code coord}). Never relocates
-	 * an existing different room onto new coords — creates or jumps to the matching
-	 * tile instead. Exit destination vnums create/link stubs for later visits.
+	 * Independent of Record/Draw. With {@code mapper_gmcp_grow} off, only jumps to
+	 * an existing room (by num) and updates its title — no new tiles/exits.
+	 * Absolute coords are optional and skipped when they would stretch existing
+	 * links (Eden world coords often skip cells between exits).
 	 */
 	public void onGmcpRoom(final String name, final String roomNum,
 			final Integer x, final Integer y, final Integer z,
@@ -1601,7 +1638,7 @@ public class MapperController {
 		ensureDefaultLevel();
 		boolean changed = false;
 		String levelId = mMap.getCurrentLevelId();
-		if (z != null) {
+		if (z != null && mGmcpGrow) {
 			String levelName = Integer.toString(z.intValue());
 			MapLevel level = findLevelByName(levelName);
 			if (level == null) {
@@ -1632,30 +1669,41 @@ public class MapperController {
 		}
 
 		if (tile == null) {
-			if (mGmcpUseCoords && x != null && y != null) {
+			if (!mGmcpGrow) {
+				// Follow-only: stay put when the room is unknown.
+				if (name != null && name.length() > 0 && current != null
+						&& (current.getTitle() == null || !name.equals(current.getTitle()))) {
+					pushUndo();
+					current.setTitle(name);
+					notifyChanged();
+				} else if (mFollowPlayer) {
+					notifyChanged();
+				}
+				return;
+			}
+			if (mGmcpUseCoords && x != null && y != null
+					&& canPlaceAtAbsolute(current, x.intValue(), y.intValue())) {
 				pushUndo();
 				tile = createTileAt(levelId, x.intValue(), y.intValue());
 				changed = true;
 			} else if (num != null && current != null
 					&& (current.getExternalId() == null
 							|| current.getExternalId().length() == 0)) {
-				// First Room.Info on an anonymous current tile — stamp identity.
 				tile = current;
-			} else if (num != null && current != null
-					&& current.getExternalId() != null
-					&& !num.equals(current.getExternalId())) {
-				// Moved to a new room id without coordinates — place nearby.
+			} else if (current != null) {
 				pushUndo();
-				int[] free = findFreeNear(levelId, current.getGridX(), current.getGridY());
-				tile = createTileAt(levelId, free[0], free[1]);
-				changed = true;
-			} else if (current == null) {
-				pushUndo();
-				tile = createTileAt(levelId, 0, 0);
+				int[] slot = preferAdjacentSlot(current, levelId, num, exitDestNums);
+				if (slot == null) {
+					slot = findFreeNear(levelId, current.getGridX(), current.getGridY());
+				}
+				tile = createTileAt(levelId, slot[0], slot[1]);
 				changed = true;
 			} else {
-				// Title/exits-only MUDs: keep updating the current tile.
-				tile = current;
+				pushUndo();
+				int gx = (mGmcpUseCoords && x != null) ? x.intValue() : 0;
+				int gy = (mGmcpUseCoords && y != null) ? y.intValue() : 0;
+				tile = createTileAt(levelId, gx, gy);
+				changed = true;
 			}
 		}
 
@@ -1671,11 +1719,12 @@ public class MapperController {
 			changed = true;
 		}
 
-		if (mGmcpUseCoords && x != null && y != null) {
+		if (mGmcpUseCoords && x != null && y != null && mGmcpGrow) {
 			int gx = x.intValue();
 			int gy = y.intValue();
 			boolean levelDiff = levelId != null && !levelId.equals(tile.getLevelId());
-			if (tile.getGridX() != gx || tile.getGridY() != gy || levelDiff) {
+			if ((tile.getGridX() != gx || tile.getGridY() != gy || levelDiff)
+					&& !wouldStretchLinks(tile, gx, gy, levelId)) {
 				MapTile occupied = findTileAt(levelId, gx, gy);
 				if (occupied == null || occupied.getId().equals(tile.getId())) {
 					if (!changed) {
@@ -1713,7 +1762,7 @@ public class MapperController {
 			changed = true;
 		}
 
-		if (mGmcpCreateExits && exits != null && exits.size() > 0) {
+		if (mGmcpGrow && mGmcpCreateExits && exits != null && exits.size() > 0) {
 			if (syncExitsFromGmcp(tile, exits, exitDestNums)) {
 				changed = true;
 			}
@@ -1725,6 +1774,109 @@ public class MapperController {
 		} else if (mFollowPlayer) {
 			notifyChanged();
 		}
+	}
+
+	/**
+	 * Absolute coords are usable when there is no previous room, or the jump is
+	 * at most one cell (true grid MUDs). Larger jumps (Eden world coords) grow
+	 * topologically instead — avoids long W/E arrows across the screen.
+	 */
+	private boolean canPlaceAtAbsolute(final MapTile from, final int gx, final int gy) {
+		if (from == null) {
+			return true;
+		}
+		return chebyshev(from.getGridX(), from.getGridY(), gx, gy) <= 1;
+	}
+
+	private static int chebyshev(final int x0, final int y0, final int x1, final int y1) {
+		return Math.max(Math.abs(x0 - x1), Math.abs(y0 - y1));
+	}
+
+	/** True if moving {@code tile} to (gx,gy) would leave a compass link spanning &gt; 1 cell. */
+	private boolean wouldStretchLinks(final MapTile tile, final int gx, final int gy,
+			final String levelId) {
+		if (tile == null || mMap == null) {
+			return false;
+		}
+		for (MapExit e : tile.getExits()) {
+			if (e == null || e.getToId() == null) {
+				continue;
+			}
+			MapTile dest = findTileById(e.getToId());
+			if (dest == null) {
+				continue;
+			}
+			if (levelId != null && dest.getLevelId() != null
+					&& !levelId.equals(dest.getLevelId())) {
+				continue;
+			}
+			if (chebyshev(gx, gy, dest.getGridX(), dest.getGridY()) > 1) {
+				return true;
+			}
+		}
+		for (MapTile other : mMap.getTiles()) {
+			if (other == null || other.getId().equals(tile.getId())) {
+				continue;
+			}
+			for (MapExit e : other.getExits()) {
+				if (e != null && tile.getId().equals(e.getToId())) {
+					if (chebyshev(other.getGridX(), other.getGridY(), gx, gy) > 1) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * If the previous room already has an exit toward this room num, place on
+	 * that compass neighbor cell; else null.
+	 */
+	private int[] preferAdjacentSlot(final MapTile from, final String levelId,
+			final String destNum, final Map<String, String> exitDestNums) {
+		if (from == null) {
+			return null;
+		}
+		// Exit on from already pointing at a stub without coords match — use delta.
+		for (MapExit e : from.getExits()) {
+			if (e == null) {
+				continue;
+			}
+			MapTile dest = findTileById(e.getToId());
+			if (dest != null && destNum != null && destNum.equals(dest.getExternalId())) {
+				return new int[] { dest.getGridX(), dest.getGridY() };
+			}
+			int[] delta = gridDeltaFor(normalize(e.getCommand()));
+			if (delta != null && destNum != null && dest != null
+					&& (dest.getExternalId() == null || dest.getExternalId().length() == 0)) {
+				// keep existing stub cell
+				return new int[] { dest.getGridX(), dest.getGridY() };
+			}
+		}
+		// Infer from new room exits listing the previous room: place on the
+		// opposite compass cell (new.W→from ⇒ new is east of from).
+		if (destNum != null && exitDestNums != null && from.getExternalId() != null) {
+			for (Map.Entry<String, String> en : exitDestNums.entrySet()) {
+				if (en.getValue() == null || !en.getValue().equals(from.getExternalId())) {
+					continue;
+				}
+				String towardNew = MapDirections.suggestReverse(en.getKey(), directionMap());
+				if (towardNew == null) {
+					towardNew = en.getKey();
+				}
+				int[] delta = gridDeltaFor(normalize(towardNew));
+				if (delta == null) {
+					continue;
+				}
+				int nx = from.getGridX() + delta[0];
+				int ny = from.getGridY() + delta[1];
+				if (findTileAt(levelId, nx, ny) == null) {
+					return new int[] { nx, ny };
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

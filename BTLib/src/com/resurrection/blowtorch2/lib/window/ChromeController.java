@@ -123,6 +123,12 @@ public final class ChromeController {
 				child.setTranslationY(0f);
 				continue;
 			}
+			// Mapper is a floating/fullscreen overlay — do not ride the IME lift
+			// (keyboard must not shove the map window up the screen).
+			if (child.getId() == R.id.mapper_overlay_root) {
+				child.setTranslationY(0f);
+				continue;
+			}
 			child.setTranslationY(ty);
 		}
 		// FAB strip is in a sibling overlay. Keep it locked to the input bar's IME lift
