@@ -54,9 +54,14 @@ public class MapperView extends View {
 	private static final float ZOOM_STEP = 1.25f;
 	/** Grid pitch multiplier when Paths layout is on (space for arrows). */
 	private static final float PATHS_PITCH = 1.75f;
+	/**
+	 * Packed pitch — barely above 1 so a thin gutter shows shaft + arrowhead
+	 * (including diagonals) without looking like spread layout.
+	 */
+	private static final float PACK_PITCH = 1.12f;
 	/** Drawn tile body as a fraction of the cell (Paths leaves a wide gutter). */
 	private static final float PATHS_BODY_FRAC = 0.48f;
-	private static final float PACK_BODY_FRAC = 0.82f;
+	private static final float PACK_BODY_FRAC = 0.78f;
 	/** Show this many walk words on an edge before collapsing to “+N”. */
 	public static final int MAX_VISIBLE_LINK_LABELS = 2;
 
@@ -461,7 +466,7 @@ public class MapperView extends View {
 
 	/** Spacing of the logical grid (cell pitch). */
 	private float cellSize() {
-		float pitch = pathsLayout ? PATHS_PITCH : 1f;
+		float pitch = pathsLayout ? PATHS_PITCH : PACK_PITCH;
 		float cs = BASE_TILE * scale * pitch;
 		return cs < 1f ? 1f : cs;
 	}
@@ -749,31 +754,52 @@ public class MapperView extends View {
 
 	/**
 	 * Compact neighbor link: single centered shaft; bidirectional gets heads
-	 * on both ends. No parallel offset (that caused the double-line mess).
+	 * on both ends. Uses square-edge ray hits so diagonal arrows exit at the
+	 * correct corner and their heads point NE/NW/SE/SW.
 	 */
 	private void drawPackedLink(Canvas canvas, float bodySize,
 			float fromCx, float fromCy, float toCx, float toCy,
 			float ux, float uy, boolean bidirectional) {
-		float half = bodySize * 0.48f;
-		float x1 = fromCx + ux * half;
-		float y1 = fromCy + uy * half;
-		float x2 = toCx - ux * half;
-		float y2 = toCy - uy * half;
+		float bodyHalf = bodySize * 0.5f;
+		float edge = rayHitSquare(bodyHalf, ux, uy);
+		// Sit tips just outside the body so the head lives in the gutter.
+		float out = Math.max(1.2f, 1.8f * scale);
+		float tipToX = toCx - ux * (edge + out);
+		float tipToY = toCy - uy * (edge + out);
+		float tipFromX = fromCx + ux * (edge + out);
+		float tipFromY = fromCy + uy * (edge + out);
+
+		float head = Math.max(5f, 6.2f * scale);
+		float shaftPad = head * 0.72f;
+		float x1 = tipFromX + ux * (bidirectional ? shaftPad : head * 0.15f);
+		float y1 = tipFromY + uy * (bidirectional ? shaftPad : head * 0.15f);
+		float x2 = tipToX - ux * shaftPad;
+		float y2 = tipToY - uy * shaftPad;
+
 		float gap = (float) Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-		if (gap < 2f) {
-			// Bodies almost touch — draw edge chevrons only.
-			drawArrowHead(canvas, x2, y2, ux, uy, true);
-			if (bidirectional) {
-				drawArrowHead(canvas, x1, y1, -ux, -uy, true);
-			}
-			return;
+		linkPaint.setStrokeWidth(Math.max(1.1f, 1.4f * scale));
+		if (gap >= 2f) {
+			canvas.drawLine(x1, y1, x2, y2, linkPaint);
 		}
-		linkPaint.setStrokeWidth(Math.max(1.2f, 1.5f * scale));
-		canvas.drawLine(x1, y1, x2, y2, linkPaint);
-		drawArrowHead(canvas, x2, y2, ux, uy, true);
+		// Always draw heads in the true link direction (works for diagonals).
+		drawArrowHead(canvas, tipToX, tipToY, ux, uy, true);
 		if (bidirectional) {
-			drawArrowHead(canvas, x1, y1, -ux, -uy, true);
+			drawArrowHead(canvas, tipFromX, tipFromY, -ux, -uy, true);
 		}
+	}
+
+	/**
+	 * Distance from square center to the border along unit vector (ux, uy).
+	 * Diagonals hit a corner ({@code half·√2}); cardinals hit a side ({@code half}).
+	 */
+	private static float rayHitSquare(float half, float ux, float uy) {
+		float ax = Math.abs(ux);
+		float ay = Math.abs(uy);
+		float m = Math.max(ax, ay);
+		if (m < 0.0001f) {
+			return half;
+		}
+		return half / m;
 	}
 
 	private static String formatLinkLabel(List<String> cmds) {
@@ -804,8 +830,8 @@ public class MapperView extends View {
 
 	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux,
 			float uy, boolean packed) {
-		float size = Math.max(5f, (packed ? 6.5f : 8f) * scale);
-		float spread = packed ? 0.5f : 0.55f;
+		float size = Math.max(5f, (packed ? 6.0f : 8f) * scale);
+		float spread = packed ? 0.52f : 0.55f;
 		float bx = tipX - ux * size;
 		float by = tipY - uy * size;
 		float px = -uy * size * spread;
@@ -813,9 +839,8 @@ public class MapperView extends View {
 		arrowPath.reset();
 		arrowPath.moveTo(tipX, tipY);
 		arrowPath.lineTo(bx + px, by + py);
-		if (packed) {
-			arrowPath.lineTo(bx - ux * size * 0.15f, by - uy * size * 0.15f);
-		}
+		arrowPath.lineTo(bx - ux * size * (packed ? 0.18f : 0.12f),
+				by - uy * size * (packed ? 0.18f : 0.12f));
 		arrowPath.lineTo(bx - px, by - py);
 		arrowPath.close();
 		linkPaint.setStyle(Paint.Style.FILL);
