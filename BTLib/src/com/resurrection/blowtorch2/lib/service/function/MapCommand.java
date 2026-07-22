@@ -192,6 +192,8 @@ public class MapCommand extends SpecialCommand {
 		case "oneway":
 		case "one-way":
 			return doOneWay(c, mapper, rest);
+		case "gmcp":
+			return doGmcp(c, mapper, rest);
 		case "maps":
 			return doMaps(c, mapper);
 		case "load":
@@ -874,6 +876,36 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object doGmcp(Connection c, MapperController mapper, String rest) {
+		String a = rest != null ? rest.trim().toLowerCase(Locale.US) : "";
+		if (a.equals("on") || a.equals("off") || a.equals("toggle") || a.length() == 0) {
+			if (a.equals("on")) {
+				mapper.setUseGmcp(true);
+			} else if (a.equals("off")) {
+				mapper.setUseGmcp(false);
+			} else {
+				mapper.toggleUseGmcp();
+			}
+			note(c, "Mapper GMCP sync: " + (mapper.isUseGmcp() ? "on" : "off")
+					+ " · grow: " + (mapper.isGmcpGrow() ? "on" : "off"));
+			return null;
+		}
+		if (a.startsWith("grow")) {
+			String b = a.length() > 4 ? a.substring(4).trim() : "toggle";
+			if (b.equals("on")) {
+				mapper.setGmcpGrow(true);
+			} else if (b.equals("off")) {
+				mapper.setGmcpGrow(false);
+			} else {
+				mapper.toggleGmcpGrow();
+			}
+			note(c, "Mapper GMCP grow: " + (mapper.isGmcpGrow() ? "on" : "off"));
+			return null;
+		}
+		note(c, "Usage: .map gmcp on|off|toggle | .map gmcp grow on|off|toggle");
+		return null;
+	}
+
 	private Object doMaps(Connection c, MapperController mapper) {
 		List<String> names = mapper.listMaps();
 		MudMap map = mapper.getMap();
@@ -972,6 +1004,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map mode browse|edit|toggle  (Browse = view/nav only; Edit = record+edit)\n");
 		sb.append("  .map mode fullscreen|float\n");
 		sb.append("  .map oneway on|off|toggle  (ON = specials spawn new tiles; OFF = close to unique inbound)\n");
+		sb.append("  .map gmcp on|off|toggle | .map gmcp grow on|off|toggle\n");
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (unique name; Edit)\n");
 		sb.append("  .map deletemap|rmmap <name> | .map delete map <name>\n");
 		sb.append("  .map capture preview|apply  (apply = Edit; Options → Mapper regex)\n");

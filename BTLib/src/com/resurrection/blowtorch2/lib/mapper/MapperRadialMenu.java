@@ -80,6 +80,8 @@ public final class MapperRadialMenu {
 	public static final String ACTION_EXPORT = "export";
 	public static final String ACTION_OPACITY = "opacity";
 	public static final String ACTION_CAPTURE = "capture";
+	public static final String ACTION_GMCP = "gmcp";
+	public static final String ACTION_GMCP_GROW = "gmcpgrow";
 
 	/** @deprecated Close lives on the title-bar ✕ only. */
 	@Deprecated
@@ -153,22 +155,31 @@ public final class MapperRadialMenu {
 		showEdit(parent, listener, false, false, true, acceptOneWay);
 	}
 
-	public static void showMore(ViewGroup parent, Listener listener, int opacity) {
+	public static void showMore(ViewGroup parent, Listener listener, int opacity,
+			boolean gmcpOn, boolean gmcpGrow) {
 		Item[] items = {
 				new Item(ACTION_SAVE, "Save"),
 				new Item(ACTION_MAPS, "Maps"),
 				new Item(ACTION_NEW, "New map"),
 				new Item(ACTION_EXPORT, "Export"),
 				new Item(ACTION_OPACITY, "Opacity…", opacity + "%"),
-				new Item(ACTION_CAPTURE, "Capture")
+				new Item(ACTION_CAPTURE, "Capture"),
+				new Item(ACTION_GMCP, "GMCP sync", gmcpOn ? "on" : "off"),
+				new Item(ACTION_GMCP_GROW, "GMCP grow", gmcpGrow ? "on" : "off")
 		};
 		show(parent, "More", items, listener);
+	}
+
+	/** @deprecated use {@link #showMore} with GMCP flags */
+	@Deprecated
+	public static void showMore(ViewGroup parent, Listener listener, int opacity) {
+		showMore(parent, listener, opacity, true, true);
 	}
 
 	/** @deprecated use {@link #showMore} */
 	@Deprecated
 	public static void showFile(ViewGroup parent, Listener listener) {
-		showMore(parent, listener, 85);
+		showMore(parent, listener, 85, true, true);
 	}
 
 	public static void show(ViewGroup parent, String hubLabel, Item[] items,

@@ -448,10 +448,17 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mapper_gmcp_use_coords = new BooleanOption();
 		mapper_gmcp_use_coords.setTitle("GMCP: Use absolute coordinates?");
-		mapper_gmcp_use_coords.setDescription("Place tiles at coords/coord x,y (z → floor). Off = title/exits on current tile only. Also in Configure Room Sync….");
+		mapper_gmcp_use_coords.setDescription("Place at coords/coord x,y only when adjacent (≤1 cell). Off (default) = grow beside previous room — use this on Eden to avoid long arrows. Also in Configure Room Sync….");
 		mapper_gmcp_use_coords.setKey("mapper_gmcp_use_coords");
-		mapper_gmcp_use_coords.setValue(true);
+		mapper_gmcp_use_coords.setValue(false);
 		mapperOptions.addOption(mapper_gmcp_use_coords);
+
+		BooleanOption mapper_gmcp_grow = new BooleanOption();
+		mapper_gmcp_grow.setTitle("GMCP: Auto-grow map?");
+		mapper_gmcp_grow.setDescription("Create rooms/exits from Room.Info. Off = follow existing rooms by number only (hand-drawn maps). Independent of Record/Draw. Also in Configure Room Sync… / More radial.");
+		mapper_gmcp_grow.setKey("mapper_gmcp_grow");
+		mapper_gmcp_grow.setValue(true);
+		mapperOptions.addOption(mapper_gmcp_grow);
 
 		BooleanOption mapper_gmcp_create_exits = new BooleanOption();
 		mapper_gmcp_create_exits.setTitle("GMCP: Create exit neighbors?");
