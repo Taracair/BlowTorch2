@@ -1190,6 +1190,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		
 		mSettingsIO.buildSettingsPage();
 		syncLegacyLineSizeWithFont();
+		clampExcessiveFontSizeFromBadFit();
 		undoAggressiveMapDefaults();
 		if (mMapper != null) {
 			mMapper.applySettingsFromConnection();
@@ -1197,6 +1198,50 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		mService.reloadWindows();
 		
+	}
+
+	/**
+	 * Profiles created with {@code Math.max(20, calculate80CharFontSize())} got
+	 * ~40–50px fonts on modern phones. Cap once back to a readable default.
+	 */
+	private void clampExcessiveFontSizeFromBadFit() {
+		if (mWindows == null || mWindows.isEmpty() || mSettings == null) {
+			return;
+		}
+		try {
+			WindowToken main = mWindows.get(0);
+			if (main == null || main.getSettings() == null) {
+				return;
+			}
+			Object opt = main.getSettings().findOptionByKey("font_size");
+			if (!(opt instanceof IntegerOption)) {
+				return;
+			}
+			int fontSize = (Integer) ((IntegerOption) opt).getValue();
+			// 80-col fit on a ~2400px edge lands around 40–55; real prefs are usually ≤28.
+			if (fontSize <= 36) {
+				return;
+			}
+			int use = WindowToken.DEFAULT_FONT_SIZE;
+			String fontStr = Integer.toString(use);
+			main.getSettings().setOption("font_size", fontStr);
+			mSettings.setLineSize(use);
+			if (mSettings.getSettings() != null && mSettings.getSettings().getOptions() != null) {
+				mSettings.getSettings().getOptions().setOption("font_size", fontStr);
+			}
+			IWindowCallback cb = mWindowCallbackMap.get(main.getName());
+			if (cb != null) {
+				try {
+					cb.updateSetting("font_size", fontStr);
+				} catch (RemoteException e) {
+					Log.w("BlowTorch", "clamp font_size UI update failed", e);
+				}
+			}
+			Log.i("BlowTorch", "Clamped excessive font_size " + fontSize + " → " + use);
+			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+		} catch (Exception e) {
+			Log.w("BlowTorch", "clampExcessiveFontSizeFromBadFit failed", e);
+		}
 	}
 
 	/**
@@ -3554,6 +3599,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				callback.updateSetting(key, value);
 			} catch (RemoteException e) {
 				e.printStackTrace();
+			}
+			// Keep legacy lineSize in sync so the next save/reload cannot resurrect
+			// a stale giant font from the first-profile 80-col fit.
+			if ("font_size".equals(key) && value != null && mSettings != null) {
+				try {
+					int fontSize = Integer.parseInt(value.trim());
+					if (fontSize > 0) {
+						mSettings.setLineSize(fontSize);
+					}
+				} catch (NumberFormatException ignored) {
+				}
 			}
 	}
 
