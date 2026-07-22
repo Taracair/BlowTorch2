@@ -476,7 +476,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption mapper_one_way = new BooleanOption();
 		mapper_one_way.setTitle("Accept One-Way Specials?");
-		mapper_one_way.setDescription("When ON, recording out/enter/leave always places a new nearby tile. When OFF (default), if exactly one room already leads into Here, link the special back there (e.g. freezer out → hallway). Toggle also in map Build radial (1-way).");
+		mapper_one_way.setDescription("When ON, recording out/enter/leave always places a new nearby tile. When OFF (default), if exactly one room already leads into Here, link the special back there (e.g. freezer out → hallway). Toggle also in map Edit radial (1-way specials).");
 		mapper_one_way.setKey("mapper_accept_one_way_specials");
 		mapper_one_way.setValue(false);
 		mapperOptions.addOption(mapper_one_way);
@@ -511,14 +511,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		StringOption mapper_level_down = new StringOption();
 		mapper_level_down.setTitle("Level-Down Commands (CSV)");
-		mapper_level_down.setDescription("While recording, these moves create a lower floor (−1). Default: d,down,descend. Example: put enter in Up and leave in Down for vertical portals. Also editable via map File → Moves.");
+		mapper_level_down.setDescription("While recording, these moves create a lower floor (−1). Default: d,down,descend. Example: put enter in Up and leave in Down for vertical portals. Also editable via map Edit → Moves.");
 		mapper_level_down.setKey("mapper_level_down_commands");
 		mapper_level_down.setValue(MapDirections.DEFAULT_LEVEL_DOWN_COMMANDS);
 		mapperOptions.addOption(mapper_level_down);
 
 		StringOption mapper_moves = new StringOption();
 		mapper_moves.setTitle("Move Effects (advanced)");
-		mapper_moves.setDescription("Raw table for power users. Prefer map overlay File → Moves (friendly list). Format: n=grid:0:-1;out=special. Levels also use Level-Up/Down CSV. Empty = built-in defaults.");
+		mapper_moves.setDescription("Raw table for power users. Prefer map overlay Edit → Moves (friendly list). Format: n=grid:0:-1;out=special. Levels also use Level-Up/Down CSV. Empty = built-in defaults.");
 		mapper_moves.setKey("mapper_move_effects");
 		mapper_moves.setValue(MapDirections.defaultMoveEffectsString());
 		mapperOptions.addOption(mapper_moves);
