@@ -772,12 +772,19 @@ final class ConnectionSettingsIO {
 		
 		if (path == null || BuiltinTutorial.isTutorialHost(host.mHost)
 				|| BuiltinTutorial.DISPLAY_NAME.equals(host.mDisplay)) {
-			// New profiles + offline tutorial: readable phone text (~20), not 80-col squeeze.
-			int fitted = calculate80CharFontSize();
-			int use = Math.max(20, fitted);
+			// New profiles + offline tutorial: readable phone text (~20).
+			// Do NOT use Math.max(20, calculate80CharFontSize()) — on modern
+			// displays the 80-col fit yields ~40–50px and looks broken after reload.
+			int use = WindowToken.DEFAULT_FONT_SIZE;
 			if (BuiltinTutorial.isTutorialHost(host.mHost)
 					|| BuiltinTutorial.DISPLAY_NAME.equals(host.mDisplay)) {
-				use = 20;
+				use = WindowToken.DEFAULT_FONT_SIZE;
+			} else {
+				// Only shrink below default on very small screens.
+				int fitted = calculate80CharFontSize();
+				if (fitted > 0 && fitted < use) {
+					use = Math.max(14, fitted);
+				}
 			}
 			String fontStr = Integer.toString(use);
 			host.mSettings.getSettings().getOptions().setOption("font_size", fontStr);
