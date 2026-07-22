@@ -15,6 +15,11 @@ public class MapTile {
 	private int gridY;
 	private String title;
 	private String notes;
+	/**
+	 * Stable room id from the MUD when available (GMCP {@code num}/{@code id}/
+	 * {@code vnum}). Used to match rooms across revisits even when coords jump.
+	 */
+	private String externalId;
 	private final List<MapExit> exits = new ArrayList<MapExit>();
 
 	public MapTile() {
@@ -74,6 +79,14 @@ public class MapTile {
 
 	public void setNotes(String notes) {
 		this.notes = notes;
+	}
+
+	public String getExternalId() {
+		return externalId;
+	}
+
+	public void setExternalId(String externalId) {
+		this.externalId = externalId;
 	}
 
 	/** Outgoing exits from this tile. Mutable list owned by the tile. */

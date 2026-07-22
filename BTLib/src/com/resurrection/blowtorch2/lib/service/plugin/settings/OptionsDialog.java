@@ -470,6 +470,10 @@ public class OptionsDialog extends Dialog {
 				openGmcpModulesDialog();
 				return;
 			}
+			if ("manage_mapper_gmcp".equals(key)) {
+				openMapperGmcpDialog();
+				return;
+			}
 			if ("manage_mcp_packages".equals(key)) {
 				openMcpPackagesDialog();
 				return;
@@ -482,6 +486,64 @@ public class OptionsDialog extends Dialog {
 			}
 		}
 	
+	}
+
+	private void openMapperGmcpDialog() {
+		final Context ctx = getContext();
+		MapperGmcpDialog.show(ctx, new MapperGmcpDialog.Host() {
+			private boolean readBool(String key, boolean def) {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey(key);
+						if (o instanceof BooleanOption) {
+							Object val = ((BooleanOption) o).getValue();
+							if (val instanceof Boolean) {
+								return ((Boolean) val).booleanValue();
+							}
+							if (val != null) {
+								return Boolean.parseBoolean(val.toString());
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return def;
+			}
+
+			@Override
+			public boolean getUseGmcp() {
+				return readBool("mapper_use_gmcp", true);
+			}
+
+			@Override
+			public boolean getUseNum() {
+				return readBool("mapper_gmcp_use_num", true);
+			}
+
+			@Override
+			public boolean getUseCoords() {
+				return readBool("mapper_gmcp_use_coords", true);
+			}
+
+			@Override
+			public boolean getCreateExits() {
+				return readBool("mapper_gmcp_create_exits", true);
+			}
+
+			@Override
+			public void apply(boolean useGmcp, boolean useNum, boolean useCoords,
+					boolean createExits) {
+				try {
+					service.updateBooleanSetting("mapper_use_gmcp", useGmcp);
+					service.updateBooleanSetting("mapper_gmcp_use_num", useNum);
+					service.updateBooleanSetting("mapper_gmcp_use_coords", useCoords);
+					service.updateBooleanSetting("mapper_gmcp_create_exits", createExits);
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 
 	private void openGmcpModulesDialog() {

@@ -10,7 +10,7 @@ In-game **Options** dialog groups (Program Settings):
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
-| **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
+| **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
 ## Shared storage layout (`/BlowTorch/`)
 
@@ -94,7 +94,11 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Recording default** | Seed for new sessions (live toggle is still Rec / `.map record`) |
 | **Follow player** | Camera tracks current room |
 | **Path auto-send** | If on, `.map goto` sends the path; if off, prints only |
-| **Use GMCP Room** | Sync from `Room.*` when GMCP is on (title + create missing exits/neighbors; does not delete exits absent from GMCP) |
+| **Use GMCP Room** | Sync from `Room.*` when GMCP is on |
+| **Configure Room Sync…** | Checkboxes: match by `num`, absolute `coords`/`coord`, create exit neighbors (Eden/IRE-style) |
+| **GMCP: Match by room number?** | Prefer `num`/`id`/`vnum` as tile identity |
+| **GMCP: Use absolute coordinates?** | Place at x,y (z → floor); off = title/exits on current tile only |
+| **GMCP: Create exit neighbors?** | Create/link missing exits; vnum stubs until visited; never deletes exits |
 | **Auto reverse links** | Suggest opposite exits when linking |
 | **Accept One-Way Specials?** | ON = recording `out`/`enter` always makes a new tile. OFF (default) = if exactly one room already leads into Here, link the special back there. Also **Build → 1-way** |
 | **Level-Up Commands (CSV)** | Recording moves that create a higher floor (`u,up,climb,ascend` default). Clear Up+Down to never auto-create levels |
