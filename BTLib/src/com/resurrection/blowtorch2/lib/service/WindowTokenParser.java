@@ -274,6 +274,14 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case ime_keep_text:
+						if ((Boolean) ((BooleanOption) o).getValue()) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text("true");
+							out.endTag("", "option");
+						}
+						break;
 					case hyperlink_color:
 						if (((Integer) ((ColorOption) o).getValue()) != WindowToken.DEFAULT_HYPERLINK_COLOR) {
 							out.startTag("", "option");

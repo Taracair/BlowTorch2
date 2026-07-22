@@ -67,6 +67,8 @@ public class WindowToken implements Parcelable {
 		newest_at_top,
 		/** Top inset for game text (pixels); keeps lines clear of camera cutouts. */
 		top_padding,
+		/** Soft keyboard lifts input only; game text stays put. */
+		ime_keep_text,
 		/** Color mode (see color debug option). */
 		color_option,
 		/** Font size option. */
@@ -313,6 +315,13 @@ public class WindowToken implements Parcelable {
 		topPadding.setKey("top_padding");
 		topPadding.setValue(DEFAULT_TOP_PADDING);
 		window.addOption(topPadding);
+
+		BooleanOption imeKeepText = new BooleanOption();
+		imeKeepText.setTitle("Keep text still with keyboard?");
+		imeKeepText.setDescription("When on, opening the soft keyboard lifts only the input bar — game text stays put (may sit under the keyboard). When off, text rises with the keyboard.");
+		imeKeepText.setKey("ime_keep_text");
+		imeKeepText.setValue(false);
+		window.addOption(imeKeepText);
 
 		BooleanOption tapDismiss = new BooleanOption();
 		tapDismiss.setTitle("Tap window hides keyboard?");
