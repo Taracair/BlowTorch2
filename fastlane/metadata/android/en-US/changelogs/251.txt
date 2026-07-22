@@ -1,0 +1,7 @@
+BlowTorch 2 v2.1.12
+
+• First-party Mapper + GMCP Room.Info / Capture
+• Standard MUD button pad (swipe look/open) on new connections
+• Session logs, Persistent Connection, Timer Conditions
+• Window: top padding, keyboard keep-text, optional newest-at-top
+• Fix oversized default font on new profiles
