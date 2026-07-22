@@ -65,6 +65,13 @@ public class MapperOverlayController
 	private View bottomChrome;
 	private TextView chromeToggleBtn;
 	private boolean chromeVisible = true;
+	/**
+	 * Same as ChromeController.LEGACY_INPUT_BAR_ID. MainWindow.assignLegacyChromeIds
+	 * remaps {@code R.id.inputbar} to this value, so ABOVE must use id 10 — not
+	 * {@code R.id.inputbar} — or the first Full switch leaves bottom chrome under
+	 * the input bar.
+	 */
+	private static final int LEGACY_INPUT_BAR_ID = 10;
 	private boolean snapshotFollow = true;
 	private int snapshotOpacity = 85;
 	private String snapshotToolbar = MapperController.DEFAULT_TOOLBAR;
@@ -361,9 +368,9 @@ public class MapperOverlayController
 				RelativeLayout.LayoutParams.MATCH_PARENT);
 		lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 		lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
-		View inputbar = container.findViewById(R.id.inputbar);
+		View inputbar = findGameplayInputBar(container);
 		if (inputbar != null && inputbar.getId() != View.NO_ID) {
-			lp.addRule(RelativeLayout.ABOVE, R.id.inputbar);
+			lp.addRule(RelativeLayout.ABOVE, inputbar.getId());
 		}
 		container.addView(overlayRoot, lp);
 		overlayRoot.setVisibility(View.GONE);
@@ -371,9 +378,38 @@ public class MapperOverlayController
 		bringUnderChrome();
 	}
 
+	/**
+	 * Resolve the gameplay input bar after {@code assignLegacyChromeIds} remaps
+	 * {@code R.id.inputbar} → legacy id 10.
+	 */
+	private View findGameplayInputBar(ViewGroup container) {
+		if (container == null) {
+			MainWindow activity = host.getMainWindow();
+			if (activity == null) {
+				return null;
+			}
+			container = (ViewGroup) activity.findViewById(R.id.window_container);
+		}
+		if (container == null) {
+			return null;
+		}
+		View inputbar = container.findViewById(LEGACY_INPUT_BAR_ID);
+		if (inputbar == null) {
+			inputbar = container.findViewById(R.id.inputbar);
+		}
+		return inputbar;
+	}
+
 	private void bringUnderChrome() {
 		if (overlayRoot != null) {
 			overlayRoot.bringToFront();
+			View titleBar = overlayRoot.findViewById(R.id.mapper_title_bar);
+			if (bottomChrome != null) {
+				bottomChrome.bringToFront();
+			}
+			if (titleBar != null) {
+				titleBar.bringToFront();
+			}
 		}
 		MainWindow activity = host.getMainWindow();
 		if (activity != null) {
@@ -388,24 +424,24 @@ public class MapperOverlayController
 		if (overlayRoot == null) {
 			return;
 		}
-		ViewGroup.LayoutParams raw = overlayRoot.getLayoutParams();
-		if (!(raw instanceof RelativeLayout.LayoutParams)) {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
 			return;
 		}
-		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) raw;
-		MainWindow activity = host.getMainWindow();
 		float density = activity.getResources().getDisplayMetrics().density;
-		View inputbar = activity.findViewById(R.id.inputbar);
+		View inputbar = findGameplayInputBar(null);
+		// Fresh params — mutating removeRule/addRule across Float↔Full left ABOVE
+		// stale/wrong on the first Full switch (bottom Browse/Edit + Float/Full hidden).
+		RelativeLayout.LayoutParams lp;
 		if (fullscreen) {
-			lp.width = RelativeLayout.LayoutParams.MATCH_PARENT;
-			lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
-			lp.leftMargin = 0;
-			lp.topMargin = 0;
+			lp = new RelativeLayout.LayoutParams(
+					RelativeLayout.LayoutParams.MATCH_PARENT,
+					RelativeLayout.LayoutParams.MATCH_PARENT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-			if (inputbar != null) {
-				lp.addRule(RelativeLayout.ABOVE, R.id.inputbar);
+			if (inputbar != null && inputbar.getId() != View.NO_ID) {
+				lp.addRule(RelativeLayout.ABOVE, inputbar.getId());
 			}
 			// Stay clear of input chrome — MATCH_PARENT alone was eating the toolbar.
 			overlayRoot.setPadding(
@@ -417,12 +453,7 @@ public class MapperOverlayController
 				resizeHandle.setVisibility(View.GONE);
 			}
 		} else {
-			lp.removeRule(RelativeLayout.ABOVE);
-			lp.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
-			lp.removeRule(RelativeLayout.ALIGN_PARENT_LEFT);
-			lp.removeRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-			lp.width = floatWidth;
-			lp.height = floatHeight;
+			lp = new RelativeLayout.LayoutParams(floatWidth, floatHeight);
 			lp.leftMargin = floatX;
 			lp.topMargin = floatY;
 			overlayRoot.setPadding(
@@ -436,7 +467,9 @@ public class MapperOverlayController
 			}
 		}
 		overlayRoot.setLayoutParams(lp);
+		bringUnderChrome();
 		updateDisplayModeToggleUi();
+		overlayRoot.requestLayout();
 	}
 
 	private void updateDisplayModeToggleUi() {
