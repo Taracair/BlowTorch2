@@ -72,7 +72,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		terminal_width, terminal_height, terminal_size_hint,
 		persistent_connection,
 		mapper_enabled, mapper_recording_default, mapper_follow, mapper_float,
-		mapper_opacity, mapper_path_auto_send, mapper_use_gmcp,
+		mapper_opacity, mapper_path_auto_send, mapper_echo_window, mapper_use_gmcp,
 		mapper_gmcp_use_num, mapper_gmcp_use_coords, mapper_gmcp_create_exits,
 		mapper_gmcp_grow, mapper_gmcp_policy,
 		mapper_auto_reverse_link, mapper_accept_one_way_specials,
@@ -628,6 +628,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case mapper_path_auto_send:
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case mapper_echo_window:
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;

@@ -206,6 +206,9 @@ public class MapCommand extends SpecialCommand {
 			return doOneWay(c, mapper, rest);
 		case "gmcp":
 			return doGmcp(c, mapper, rest);
+		case "echo":
+		case "quiet":
+			return doEcho(c, mapper, rest);
 		case "maps":
 			return doMaps(c, mapper);
 		case "load":
@@ -1002,6 +1005,32 @@ public class MapCommand extends SpecialCommand {
 		return null;
 	}
 
+	/**
+	 * Toggle whether {@code .map} status lines appear in the game window.
+	 * Always prints the resulting state (even when turning echo off).
+	 */
+	private Object doEcho(Connection c, MapperController mapper, String rest) {
+		String a = rest != null ? rest.trim().toLowerCase(Locale.US) : "";
+		if (a.equals("on") || a.equals("1") || a.equals("true")) {
+			mapper.setEchoWindow(true);
+		} else if (a.equals("off") || a.equals("0") || a.equals("false")
+				|| a.equals("quiet")) {
+			mapper.setEchoWindow(false);
+		} else if (a.equals("toggle") || a.length() == 0) {
+			mapper.toggleEchoWindow();
+		} else {
+			c.sendDataToWindow(Colorizer.getWhiteColor()
+					+ "Usage: .map echo on|off|toggle\n");
+			return null;
+		}
+		boolean on = mapper.isEchoWindow();
+		c.sendDataToWindow(Colorizer.getWhiteColor()
+				+ "Mapper window echo: " + (on ? "on" : "off")
+				+ (on ? "" : " (status stays in the map overlay)")
+				+ "\n");
+		return null;
+	}
+
 	private Object doMaps(Connection c, MapperController mapper) {
 		List<String> names = mapper.listMaps();
 		MudMap map = mapper.getMap();
@@ -1037,6 +1066,9 @@ public class MapCommand extends SpecialCommand {
 
 	private static void note(Connection c, String msg) {
 		if (msg == null) {
+			return;
+		}
+		if (c != null && c.getMapper() != null && !c.getMapper().isEchoWindow()) {
 			return;
 		}
 		if (!msg.startsWith("\n")) {
@@ -1104,6 +1136,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map oneway on|off|toggle  (ON = specials spawn new tiles; OFF = close to unique inbound)\n");
 		sb.append("  .map gmcp on|off|toggle | .map gmcp grow on|off|toggle\n");
 		sb.append("  .map gmcp policy follow|sync|strict | .map gmcp apply|keep|applyall|keepall\n");
+		sb.append("  .map echo on|off|toggle  (echo .map status into the game window)\n");
 		sb.append("  .map locktitle|lockposition [for <id>] on|off|toggle\n");
 		sb.append("  .map maps | .map load|openmap <name> | .map new <name> (unique name; Edit)\n");
 		sb.append("  .map deletemap|rmmap <name> | .map delete map <name>\n");
