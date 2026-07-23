@@ -3403,6 +3403,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				if(x instanceof WindowToken) {
 					w = (WindowToken)x;
 				}
+				if (isExtraTextSlotWindow(w.getName())) {
+					continue; // hosted by ExtraTextOverlayController, not RelativeLayout tags
+				}
 				com.resurrection.blowtorch2.lib.window.Window v = (com.resurrection.blowtorch2.lib.window.Window)rl.findViewWithTag(w.getName());
 				if(v != null) {
 					v.runScriptOnCreate();

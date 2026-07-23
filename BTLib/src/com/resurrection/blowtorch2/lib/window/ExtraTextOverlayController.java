@@ -238,7 +238,9 @@ public class ExtraTextOverlayController {
 		win.setLayoutParams(new FrameLayout.LayoutParams(
 				FrameLayout.LayoutParams.MATCH_PARENT,
 				FrameLayout.LayoutParams.MATCH_PARENT));
-		win.setBufferText(token.isBufferText());
+		// Overlay windows must paint immediately (bufferText=true only queues to hold buffer).
+		token.setBufferText(false);
+		win.setBufferText(false);
 		if (token.getBuffer() != null) {
 			win.setBuffer(token.getBuffer());
 		}
@@ -254,6 +256,8 @@ public class ExtraTextOverlayController {
 			activity.windowMap.put(token.getName(), win);
 		}
 		win.setVisibility(View.VISIBLE);
+		win.flushBuffer();
+		win.invalidate();
 	}
 
 	private void applyChromeForMode(OverlayEntry e) {
