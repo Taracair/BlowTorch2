@@ -60,6 +60,8 @@ public final class ExtraTextSlot {
 	private int floatY = 120;
 	private int floatW = 320;
 	private int floatH = 220;
+	/** Overlay opacity percent 40–100 (same range as mapper float). */
+	private int opacity = 85;
 	private boolean visible = true;
 	private boolean collapsed = false;
 
@@ -135,6 +137,21 @@ public final class ExtraTextSlot {
 		this.floatH = floatH > 0 ? floatH : 220;
 	}
 
+	public int getOpacity() {
+		return opacity;
+	}
+
+	/** Clamp to 40–100 (readable minimum, like mapper overlay). */
+	public void setOpacity(final int opacity) {
+		if (opacity < 40) {
+			this.opacity = 40;
+		} else if (opacity > 100) {
+			this.opacity = 100;
+		} else {
+			this.opacity = opacity;
+		}
+	}
+
 	public boolean isVisible() {
 		return visible;
 	}
@@ -162,6 +179,7 @@ public final class ExtraTextSlot {
 		s.floatY = this.floatY;
 		s.floatW = this.floatW;
 		s.floatH = this.floatH;
+		s.opacity = this.opacity;
 		s.visible = this.visible;
 		s.collapsed = this.collapsed;
 		return s;
@@ -178,6 +196,7 @@ public final class ExtraTextSlot {
 		o.put("float_y", floatY);
 		o.put("float_w", floatW);
 		o.put("float_h", floatH);
+		o.put("opacity", opacity);
 		o.put("visible", visible);
 		o.put("collapsed", collapsed);
 		return o;
@@ -215,6 +234,13 @@ public final class ExtraTextSlot {
 		if (s.floatH <= 0) {
 			s.floatH = 220;
 		}
+		int op = o.optInt("opacity", 85);
+		if (op < 40) {
+			op = 40;
+		} else if (op > 100) {
+			op = 100;
+		}
+		s.opacity = op;
 		s.visible = o.optBoolean("visible", true);
 		s.collapsed = o.optBoolean("collapsed", false);
 		return s;

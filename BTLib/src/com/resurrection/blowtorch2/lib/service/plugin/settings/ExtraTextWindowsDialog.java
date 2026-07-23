@@ -93,6 +93,7 @@ public final class ExtraTextWindowsDialog {
 					TextView title = new TextView(context);
 					title.setText(slot.getName() + " — " + slot.getTitle()
 							+ " [" + slot.getMode().toJsonValue() + "]"
+							+ " " + slot.getOpacity() + "%"
 							+ (slot.isVisible() ? "" : " (hidden)"));
 					title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
 					row.addView(title);
@@ -211,6 +212,14 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "Drawer height (dp)"));
 		form.addView(height);
 
+		final EditText opacity = new EditText(context);
+		opacity.setHint("opacity 40–100 (float / overlay)");
+		opacity.setSingleLine(true);
+		opacity.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+		opacity.setText(Integer.toString(existing != null ? existing.getOpacity() : 85));
+		form.addView(label(context, "Opacity % (40–100)"));
+		form.addView(opacity);
+
 		final Spinner visible = new Spinner(context);
 		String[] visItems = new String[] { "Visible", "Hidden" };
 		ArrayAdapter<String> visAdapter = new ArrayAdapter<String>(context,
@@ -258,6 +267,12 @@ public final class ExtraTextWindowsDialog {
 					slot.setHeightDp(h);
 				} catch (Exception e) {
 					slot.setHeightDp(160);
+				}
+				try {
+					int op = Integer.parseInt(opacity.getText().toString().trim());
+					slot.setOpacity(op);
+				} catch (Exception e) {
+					slot.setOpacity(85);
 				}
 				slot.setVisible(visible.getSelectedItemPosition() == 0);
 				if (existing == null) {

@@ -20,7 +20,7 @@ Under **Options → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` / `drawer_bottom` / `float`), drawer height, visibility |
+| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` / `drawer_bottom` / `float`), drawer height, **opacity % (40–100)**, visibility |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
 Slot **name** is the public id shared with gag/replace retarget, Lua

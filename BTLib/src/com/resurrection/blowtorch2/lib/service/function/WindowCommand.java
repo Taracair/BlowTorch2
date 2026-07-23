@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
  * .window show|hide|clear &lt;slot&gt;
  * .window create &lt;slot&gt; [title…]
  * .window destroy &lt;slot&gt;
+ * .window opacity &lt;slot&gt; [40-100]
  * </pre>
  */
 public class WindowCommand extends SpecialCommand {
@@ -55,6 +56,9 @@ public class WindowCommand extends SpecialCommand {
 		case "remove":
 		case "rm":
 			return doDestroy(c, rest);
+		case "opacity":
+		case "alpha":
+			return doOpacity(c, rest);
 		default:
 			c.sendDataToWindow(getErrorMessage("Window usage",
 					"Unknown subcommand '" + sub + "'.\n" + shortUsage()));
@@ -81,6 +85,7 @@ public class WindowCommand extends SpecialCommand {
 				sb.append("  ").append(s.getName())
 						.append(" — ").append(s.getTitle())
 						.append(" [").append(s.getMode().toJsonValue()).append("]")
+						.append(" ").append(s.getOpacity()).append("%")
 						.append(s.isVisible() ? "" : " (hidden)")
 						.append(s.isCollapsed() ? " (collapsed)" : "")
 						.append("\n");
@@ -183,13 +188,47 @@ public class WindowCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object doOpacity(Connection c, String rest) {
+		if (rest.length() == 0) {
+			c.sendDataToWindow(getErrorMessage("Window",
+					".window opacity <slot> [40-100]"));
+			return null;
+		}
+		String[] parts = rest.split("\\s+", 2);
+		String name = parts[0];
+		ExtraTextSlot slot = c.findExtraTextSlot(name);
+		if (slot == null) {
+			c.sendDataToWindow(getErrorMessage("Window",
+					"No extra text slot named \"" + name + "\"."));
+			return null;
+		}
+		if (parts.length < 2) {
+			echo(c, "Window " + slot.getName() + " opacity: " + slot.getOpacity() + "%");
+			return null;
+		}
+		try {
+			int op = Integer.parseInt(parts[1].trim());
+			slot.setOpacity(op);
+		} catch (Exception e) {
+			c.sendDataToWindow(getErrorMessage("Window",
+					"Opacity must be an integer 40–100."));
+			return null;
+		}
+		if (!c.upsertExtraTextSlot(slot)) {
+			c.sendDataToWindow(getErrorMessage("Window", "Failed to update slot."));
+			return null;
+		}
+		echo(c, "Window " + slot.getName() + " opacity: " + slot.getOpacity() + "%");
+		return null;
+	}
+
 	private static void echo(Connection c, String msg) {
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor() + msg
 				+ Colorizer.getWhiteColor() + "\n");
 	}
 
 	private static String shortUsage() {
-		return ".window list|show|hide|clear|create|destroy …";
+		return ".window list|show|hide|clear|create|destroy|opacity …";
 	}
 
 	private static String helpText() {
@@ -200,6 +239,7 @@ public class WindowCommand extends SpecialCommand {
 				+ "  clear <slot>             — clear buffer\n"
 				+ "  create <slot> [title…]   — add/update slot (max 8)\n"
 				+ "  destroy <slot>           — remove slot\n"
+				+ "  opacity <slot> [40-100]  — get/set overlay opacity\n"
 				+ "Also: Options → Extra text windows → Manage windows…\n"
 				+ "Lua: CreateTextWindow, NoteToWindow, AppendLineToWindow, …\n";
 	}
