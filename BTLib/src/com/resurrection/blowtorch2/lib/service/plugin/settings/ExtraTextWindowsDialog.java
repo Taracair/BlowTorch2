@@ -81,8 +81,8 @@ public final class ExtraTextWindowsDialog {
 
 		TextView intro = new TextView(context);
 		intro.setText("Extra text windows (max " + ExtraTextSlotsStore.MAX_SLOTS
-				+ "). Names: lowercase a-z, 0-9, _. Used by gag/replace retarget, "
-				+ "AppendLineToWindow, GMCP routes, and .window.");
+				+ "). Modes: drawer_top or float. Names: lowercase a-z, 0-9, _. "
+				+ "Used by gag/replace retarget, AppendLineToWindow, GMCP routes, and .window.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
 		root.addView(intro);
@@ -213,7 +213,7 @@ public final class ExtraTextWindowsDialog {
 		form.addView(title);
 
 		final Spinner mode = new Spinner(context);
-		String[] modes = new String[] { "drawer_bottom", "drawer_top", "float" };
+		String[] modes = new String[] { "drawer_top", "float" };
 		ArrayAdapter<String> modeAdapter = new ArrayAdapter<String>(context,
 				android.R.layout.simple_spinner_item, modes);
 		modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
@@ -226,8 +226,10 @@ public final class ExtraTextWindowsDialog {
 					break;
 				}
 			}
+		} else {
+			mode.setSelection(0); // drawer_top
 		}
-		form.addView(label(context, "Mode"));
+		form.addView(label(context, "Mode (top drawer or floating)"));
 		form.addView(mode);
 
 		final EditText height = new EditText(context);
@@ -253,7 +255,7 @@ public final class ExtraTextWindowsDialog {
 		visAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 		visible.setAdapter(visAdapter);
 		visible.setSelection(existing != null && !existing.isVisible() ? 1 : 0);
-		form.addView(label(context, "Visibility"));
+		form.addView(label(context, "Show window (or use .window show/hide)"));
 		form.addView(visible);
 
 		form.addView(label(context, "GMCP modules to dump into this window"));

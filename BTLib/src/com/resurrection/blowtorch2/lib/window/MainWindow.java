@@ -277,17 +277,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private final java.util.ArrayList<ExtraTextSlot> extraTextSlotsCache =
 			new java.util.ArrayList<ExtraTextSlot>();
 	private boolean extraTextWindowsEnabled = true;
-	private boolean extraTextPushMain = true;
-	/** Last push spacer heights applied to mainDisplay (px). */
-	private int mainTextDrawerInsetTopPx = 0;
-	private int mainTextDrawerInsetBottomPx = 0;
-	/** True while push spacers pin mainDisplay below/above drawers. */
-	private boolean mainTextDrawerPushActive = false;
-	/** Transparent layout spacers so mainDisplay is truly BELOW/ABOVE drawers. */
-	private View mainTextPushSpacerTop;
-	private View mainTextPushSpacerBottom;
-	private static final String PUSH_SPACER_TOP_TAG = "extra_text_push_spacer_top";
-	private static final String PUSH_SPACER_BOTTOM_TAG = "extra_text_push_spacer_bottom";
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -1588,18 +1577,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	public boolean onCreateOptionsMenu(Menu menu) {
 		RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
-		
-		if(menuStack.size() > 0) {
-			com.resurrection.blowtorch2.lib.window.Window tmp = (com.resurrection.blowtorch2.lib.window.Window)rl.findViewWithTag(menuStack.peek().window);
-			tmp.populateMenu(menu);
+		if (rl == null) {
 			return true;
 		}
-		
+
+		if(menuStack.size() > 0) {
+			com.resurrection.blowtorch2.lib.window.Window tmp =
+					(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag(menuStack.peek().window);
+			if (tmp != null) {
+				tmp.populateMenu(menu);
+			}
+			return true;
+		}
+
 		if(mWindows != null) {
 			for(WindowToken w : mWindows) {
-				com.resurrection.blowtorch2.lib.window.Window tmp = (com.resurrection.blowtorch2.lib.window.Window)rl.findViewWithTag(w.getName());
-				tmp.populateMenu(menu);
-
+				if (w == null || isExtraTextSlotWindow(w.getName())) {
+					// Extra text Views live in overlays, not under window_container tags.
+					continue;
+				}
+				com.resurrection.blowtorch2.lib.window.Window tmp =
+						(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag(w.getName());
+				if (tmp == null && windowMap != null) {
+					tmp = windowMap.get(w.getName());
+				}
+				if (tmp != null) {
+					tmp.populateMenu(menu);
+				}
 			}
 		}
 		
@@ -2226,11 +2230,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if(menuStack.size() > 0) {
 			MenuStackItem tmp = menuStack.peek();
 			RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
-			
-			com.resurrection.blowtorch2.lib.window.Window w = (com.resurrection.blowtorch2.lib.window.Window)rl.findViewWithTag(tmp.window);
-			w.callFunction(tmp.callback,null);
-				
-			
+			if (rl == null || tmp == null || tmp.window == null) {
+				return;
+			}
+			com.resurrection.blowtorch2.lib.window.Window w =
+					(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag(tmp.window);
+			if (w != null) {
+				w.callFunction(tmp.callback, null);
+			}
 			return;
 		}
 		
@@ -2444,6 +2451,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//we want to kill the service when we go.
 		cleanupWindows();
 		//shut down the service
+		if (service == null) {
+			isBound = false;
+			return;
+		}
 		
 		try {
 			String connected = service.getConnectedTo();
@@ -2458,14 +2469,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		if(isBound) {
 			try {
-				if(service != null) {
-					service.unregisterCallback(the_callback);
-				}
+				service.unregisterCallback(the_callback);
 			} catch (RemoteException e) {
 				//e.printStackTrace();
 			}
 			
-			unbindService(mConnection);
+			try {
+				unbindService(mConnection);
+			} catch (IllegalArgumentException e) {
+				// Already unbound during teardown.
+			}
 			
 			
 			
@@ -3569,7 +3582,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private void refreshExtraTextSlotsFromSettings(SettingsGroup group) {
 		extraTextSlotsCache.clear();
 		extraTextWindowsEnabled = true;
-		extraTextPushMain = true;
 		if (group == null) {
 			return;
 		}
@@ -3578,13 +3590,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			Object v = ((BaseOption) enabledOpt).getValue();
 			if (v instanceof Boolean) {
 				extraTextWindowsEnabled = (Boolean) v;
-			}
-		}
-		Object pushOpt = group.findOptionByKey(ExtraTextSlotsStore.PUSH_MAIN_KEY);
-		if (pushOpt instanceof BaseOption) {
-			Object v = ((BaseOption) pushOpt).getValue();
-			if (v instanceof Boolean) {
-				extraTextPushMain = (Boolean) v;
 			}
 		}
 		Object raw = group.findOptionByKey(ExtraTextSlotsStore.SETTING_KEY);
@@ -3668,10 +3673,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						return;
 					}
 					try {
-						String key = token != null ? token.getDisplayHost() : "";
-						Object tag = window.getTag();
-						if ((key == null || key.length() == 0) && tag != null) {
-							key = tag.toString();
+						String key = token != null ? token.getDisplayHost() : null;
+						if (key == null || key.length() == 0) {
+							key = getConnectionDisplay();
+						}
+						if (key == null || key.length() == 0) {
+							return;
 						}
 						service.unregisterWindowCallback(key, window.getCallback());
 					} catch (RemoteException e) {
@@ -3721,16 +3728,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						e.printStackTrace();
 					}
 				}
-
-				@Override
-				public boolean isPushMainTextEnabled() {
-					return extraTextWindowsEnabled && extraTextPushMain;
-				}
-
-				@Override
-				public void setMainTextDrawerInsets(int topPx, int bottomPx) {
-					MainWindow.this.applyMainTextDrawerInsets(topPx, bottomPx);
-				}
 			});
 		}
 		if (extraTextSlotsCache.isEmpty() && service != null) {
@@ -3741,168 +3738,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 		extraTextOverlay.sync();
-	}
-
-	/**
-	 * Push game text clear of drawers using transparent RelativeLayout spacers.
-	 * {@code mainDisplay} becomes BELOW the top spacer / ABOVE the bottom spacer so
-	 * its real bounds move (paint insets alone left a black band with bottom-aligned
-	 * text). Spacers are covered by the opaque drawer overlay. button_window is
-	 * untouched. Pass zeros to restore default chrome anchors.
-	 */
-	private void applyMainTextDrawerInsets(int topPx, int bottomPx) {
-		if (topPx < 0) {
-			topPx = 0;
-		}
-		if (bottomPx < 0) {
-			bottomPx = 0;
-		}
-		mainTextDrawerInsetTopPx = topPx;
-		mainTextDrawerInsetBottomPx = bottomPx;
-		mainTextDrawerPushActive = (topPx > 0 || bottomPx > 0);
-
-		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
-		if (rl == null) {
-			return;
-		}
-		View main = rl.findViewWithTag("mainDisplay");
-		if (!(main instanceof com.resurrection.blowtorch2.lib.window.Window)) {
-			return;
-		}
-		com.resurrection.blowtorch2.lib.window.Window mainWin =
-				(com.resurrection.blowtorch2.lib.window.Window) main;
-		// Paint insets off — layout spacers own geometry now.
-		mainWin.setDrawerTextInsets(0, 0);
-
-		ensurePushSpacers(rl);
-		sizePushSpacer(mainTextPushSpacerTop, topPx, true);
-		sizePushSpacer(mainTextPushSpacerBottom, bottomPx, false);
-
-		ViewGroup.LayoutParams glp = main.getLayoutParams();
-		if (!(glp instanceof RelativeLayout.LayoutParams)) {
-			return;
-		}
-		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
-		lp.topMargin = 0;
-		lp.bottomMargin = 0;
-		lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
-
-		if (topPx > 0 && mainTextPushSpacerTop != null
-				&& mainTextPushSpacerTop.getId() != View.NO_ID) {
-			lp.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
-			lp.addRule(RelativeLayout.BELOW, mainTextPushSpacerTop.getId());
-		} else {
-			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-			lp.removeRule(RelativeLayout.BELOW);
-		}
-
-		if (bottomPx > 0 && mainTextPushSpacerBottom != null
-				&& mainTextPushSpacerBottom.getId() != View.NO_ID) {
-			lp.addRule(RelativeLayout.ABOVE, mainTextPushSpacerBottom.getId());
-		} else {
-			lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
-			if (chrome != null) {
-				chrome.anchorWindowAboveInputChrome(lp, "mainDisplay");
-			}
-		}
-
-		main.setLayoutParams(lp);
-		main.requestLayout();
-		main.invalidate();
-		bringPushLayerOrder(rl);
-		scheduleRenawsAfterChromeRefresh();
-	}
-
-	private void ensurePushSpacers(RelativeLayout rl) {
-		if (mainTextPushSpacerTop == null) {
-			View existing = rl.findViewWithTag(PUSH_SPACER_TOP_TAG);
-			if (existing != null) {
-				mainTextPushSpacerTop = existing;
-			} else {
-				mainTextPushSpacerTop = new View(this);
-				mainTextPushSpacerTop.setTag(PUSH_SPACER_TOP_TAG);
-				mainTextPushSpacerTop.setId(View.generateViewId());
-				mainTextPushSpacerTop.setWillNotDraw(true);
-				mainTextPushSpacerTop.setClickable(false);
-				mainTextPushSpacerTop.setFocusable(false);
-				mainTextPushSpacerTop.setBackgroundColor(0x00000000);
-				RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
-						RelativeLayout.LayoutParams.MATCH_PARENT, 0);
-				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-				lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
-				lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-				rl.addView(mainTextPushSpacerTop, 0, lp);
-			}
-		}
-		if (mainTextPushSpacerBottom == null) {
-			View existing = rl.findViewWithTag(PUSH_SPACER_BOTTOM_TAG);
-			if (existing != null) {
-				mainTextPushSpacerBottom = existing;
-			} else {
-				mainTextPushSpacerBottom = new View(this);
-				mainTextPushSpacerBottom.setTag(PUSH_SPACER_BOTTOM_TAG);
-				mainTextPushSpacerBottom.setId(View.generateViewId());
-				mainTextPushSpacerBottom.setWillNotDraw(true);
-				mainTextPushSpacerBottom.setClickable(false);
-				mainTextPushSpacerBottom.setFocusable(false);
-				mainTextPushSpacerBottom.setBackgroundColor(0x00000000);
-				RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
-						RelativeLayout.LayoutParams.MATCH_PARENT, 0);
-				lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
-				lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-				lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
-				rl.addView(mainTextPushSpacerBottom, 0, lp);
-			}
-		} else {
-			ViewGroup.LayoutParams glp = mainTextPushSpacerBottom.getLayoutParams();
-			if (glp instanceof RelativeLayout.LayoutParams) {
-				((RelativeLayout.LayoutParams) glp).addRule(RelativeLayout.ABOVE,
-						ChromeController.LEGACY_INPUT_BAR_ID);
-			}
-		}
-	}
-
-	private void sizePushSpacer(View spacer, int heightPx, boolean top) {
-		if (spacer == null) {
-			return;
-		}
-		ViewGroup.LayoutParams glp = spacer.getLayoutParams();
-		if (!(glp instanceof RelativeLayout.LayoutParams)) {
-			return;
-		}
-		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
-		int h = heightPx > 0 ? heightPx : 0;
-		boolean changed = lp.height != h
-				|| spacer.getVisibility() != (h > 0 ? View.VISIBLE : View.GONE);
-		lp.height = h;
-		if (top) {
-			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-		} else {
-			lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
-		}
-		spacer.setVisibility(h > 0 ? View.VISIBLE : View.GONE);
-		if (changed) {
-			spacer.setLayoutParams(lp);
-		}
-	}
-
-	private void bringPushLayerOrder(RelativeLayout rl) {
-		if (rl == null) {
-			return;
-		}
-		View main = rl.findViewWithTag("mainDisplay");
-		if (main != null) {
-			main.bringToFront();
-		}
-		View buttons = rl.findViewWithTag("button_window");
-		if (buttons != null) {
-			buttons.bringToFront();
-		}
-		if (extraTextOverlay != null) {
-			extraTextOverlay.bringOverlaysUnderChrome();
-		} else if (chrome != null) {
-			chrome.bringGameplayChromeToFront(rl);
-		}
 	}
 
 	private void handleExtraTextUiAction(int action) {
@@ -4092,7 +3927,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			extraTextOverlay.detach();
 		}
 		RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
-		if(mWindows == null) return;
+		if(mWindows == null || rl == null) return;
 		for(Object x : mWindows) {
 			if(x instanceof WindowToken) {
 				WindowToken w = (WindowToken)x;
@@ -4103,7 +3938,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				
 				if(tmp instanceof com.resurrection.blowtorch2.lib.window.Window) {
 					try {
-						service.unregisterWindowCallback(w.getDisplayHost(), ((com.resurrection.blowtorch2.lib.window.Window)tmp).getCallback());
+						if (service != null) {
+							service.unregisterWindowCallback(w.getDisplayHost(), ((com.resurrection.blowtorch2.lib.window.Window)tmp).getCallback());
+						}
 					} catch (RemoteException e) {
 						e.printStackTrace();
 					}
@@ -4961,23 +4798,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return (int) (48 * getResources().getDisplayMetrics().density);
 	}
 
-	/** True while drawer-push owns mainDisplay height (skip chrome rematerialize). */
-	boolean isMainTextDrawerPushActive() {
-		return mainTextDrawerPushActive;
-	}
-
-	/** Re-apply drawer push after input-bar / chrome size changes. */
-	void reapplyExtraTextPushInsets() {
-		if (extraTextOverlay != null) {
-			extraTextOverlay.reapplyPushInsets();
-		} else if (mainTextDrawerPushActive) {
-			applyMainTextDrawerInsets(mainTextDrawerInsetTopPx, mainTextDrawerInsetBottomPx);
-		}
-	}
-
 	private void refreshGameChrome() {
 		chrome.refresh();
-		reapplyExtraTextPushInsets();
 	}
 
 	/** Tell the connection the real mainDisplay cell grid for NAWS. */

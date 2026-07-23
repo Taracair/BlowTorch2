@@ -5,23 +5,21 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, **Keep text still with keyboard?**, hyperlinks, ANSI color |
+| **Window** | Per-window text: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, **Keep text still with keyboard?**, hyperlinks, ANSI color; nested **Extra text windows** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
-| **Extra text windows** | Enable overlays; drawers push game text; **Manage windows…**; advanced JSON |
 
 ## Extra text windows
 
-Under **Options → Extra text windows**:
+Under **Options → Window → Extra text windows**:
 
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Drawers push game text?** | Top/bottom drawers reserve layout space so `mainDisplay` starts clear of the drawer (on-screen buttons stay full-bleed). Ignored for floating windows. Default on. |
-| **Manage windows…** | List / add / delete / edit name, title, mode, height, opacity, visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
+| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` or `float`), height, opacity, visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
 Slot **name** is the public id shared with gag/replace retarget, Lua

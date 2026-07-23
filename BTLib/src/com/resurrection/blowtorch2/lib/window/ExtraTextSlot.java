@@ -15,7 +15,6 @@ public final class ExtraTextSlot {
 	/** Layout / presentation mode for the overlay. */
 	public enum Mode {
 		DRAWER_TOP("drawer_top"),
-		DRAWER_BOTTOM("drawer_bottom"),
 		FLOAT("float");
 
 		private final String jsonValue;
@@ -29,32 +28,34 @@ public final class ExtraTextSlot {
 		}
 
 		/**
-		 * Parse a contract mode string; unknown / null → {@link #DRAWER_BOTTOM}.
+		 * Parse a contract mode string. Legacy {@code drawer_bottom} maps to
+		 * {@link #DRAWER_TOP}. Unknown / null → {@link #DRAWER_TOP}.
 		 */
 		public static Mode fromJsonValue(final String raw) {
 			if (raw == null) {
-				return DRAWER_BOTTOM;
+				return DRAWER_TOP;
 			}
 			String s = raw.trim().toLowerCase(java.util.Locale.US);
+			if ("float".equals(s) || "floating".equals(s)) {
+				return FLOAT;
+			}
+			// drawer_bottom retired — treat as top drawer
+			if ("drawer_bottom".equals(s) || "drawerbottom".equals(s)
+					|| "drawer_top".equals(s) || "drawertop".equals(s)) {
+				return DRAWER_TOP;
+			}
 			for (Mode m : values()) {
 				if (m.jsonValue.equals(s)) {
 					return m;
 				}
 			}
-			// Also accept enum-style names.
-			if ("drawer_top".equals(s) || "drawertop".equals(s)) {
-				return DRAWER_TOP;
-			}
-			if ("float".equals(s) || "floating".equals(s)) {
-				return FLOAT;
-			}
-			return DRAWER_BOTTOM;
+			return DRAWER_TOP;
 		}
 	}
 
 	private String name = "";
 	private String title = "";
-	private Mode mode = Mode.DRAWER_BOTTOM;
+	private Mode mode = Mode.DRAWER_TOP;
 	private int heightDp = 160;
 	private int floatX = 24;
 	private int floatY = 120;
@@ -96,11 +97,11 @@ public final class ExtraTextSlot {
 	}
 
 	public Mode getMode() {
-		return mode != null ? mode : Mode.DRAWER_BOTTOM;
+		return mode != null ? mode : Mode.DRAWER_TOP;
 	}
 
 	public void setMode(final Mode mode) {
-		this.mode = mode != null ? mode : Mode.DRAWER_BOTTOM;
+		this.mode = mode != null ? mode : Mode.DRAWER_TOP;
 	}
 
 	public int getHeightDp() {
@@ -108,7 +109,8 @@ public final class ExtraTextSlot {
 	}
 
 	public void setHeightDp(final int heightDp) {
-		this.heightDp = heightDp > 0 ? heightDp : 160;
+		// Keep enough height for the bottom grab strip (~28dp) + a few lines of text.
+		this.heightDp = heightDp < 50 ? 50 : heightDp;
 	}
 
 	public int getFloatX() {
@@ -334,10 +336,10 @@ public final class ExtraTextSlot {
 		s.name = normalized;
 		String t = o.optString("title", "");
 		s.title = (t != null && t.length() > 0) ? t : normalized;
-		s.mode = Mode.fromJsonValue(o.optString("mode", "drawer_bottom"));
+		s.mode = Mode.fromJsonValue(o.optString("mode", "drawer_top"));
 		s.heightDp = o.optInt("height_dp", 160);
-		if (s.heightDp <= 0) {
-			s.heightDp = 160;
+		if (s.heightDp < 50) {
+			s.heightDp = 50;
 		}
 		s.floatX = o.optInt("float_x", 24);
 		s.floatY = o.optInt("float_y", 120);

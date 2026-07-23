@@ -285,9 +285,9 @@ public class StellarService extends Service {
 				try {
 					mCallbacks.getBroadcastItem(i).doDisconnectNotice(c.getDisplay());
 				} catch (RemoteException e) {
-					throw new RuntimeException(e);
+					// UI already gone (Back + disconnect) — do not crash the service.
+					android.util.Log.w("BlowTorch", "doDisconnectNotice: client gone", e);
 				}
-				//notify listeners that data can be read
 			}
 			mCallbacks.finishBroadcast();
 			

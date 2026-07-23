@@ -450,16 +450,15 @@ The default `button_window` plugin supports more than tap:
 
 ## Extra text windows
 
-Optional drawer or floating panes (chat, tells, combat, …) beside the main game
+Optional top-drawer or floating panes (chat, tells, combat, …) beside the main game
 output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
 slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
 
-Configure under **Options → Extra text windows** (**Enable**, **Drawers push
-game text?**, **Manage windows…**, or advanced JSON). Overlay geometry (drawer
-height, float position, **opacity 40–100%**) is owned by the UI; buffers are
-named `WindowToken`s. When **Drawers push game text?** is on, top/bottom drawers
-reserve space with layout spacers so `mainDisplay` starts clear of the drawer
-(buttons stay full-bleed; floats never push).
+Configure under **Options → Window → Extra text windows** (**Enable**, **Manage windows…**,
+or advanced JSON). Modes: **`drawer_top`** (top strip, no title bar — show/hide via
+`.window show|hide` or Manage → Show window) or **`float`** (titled, draggable panes).
+Overlay geometry (drawer height ≥ 50dp, float position, **opacity 40–100%**) is owned by
+the UI; buffers are named `WindowToken`s.
 
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
 like `Comm.*`). Routes need **Options → Service → GMCP → Use GMCP?** on.
@@ -506,7 +505,7 @@ AppendLineToWindow("chat", line)   -- (windowName, line) — matches Java
 
 ### GMCP → window
 
-**Options → Extra text windows → Manage windows… → Edit** has GMCP checkboxes (and an
+**Options → Window → Extra text windows → Manage windows… → Edit** has GMCP checkboxes (and an
 advanced CSV). Matching inbound GMCP packets are written into that slot as
 `[GMCP] ModuleName {json…}` (passwords redacted). Patterns: exact (`Char.Vitals`),
 family (`Char.` / `Char.*`), or `Comm.*`.
@@ -515,7 +514,9 @@ GMCP is out-of-band — it does **not** appear in the main mud buffer unless **S
 GMCP in game window?** is on. When a module is routed to an extra window, that
 module is **not** also fed into main (intercept for the live feed only). Lua GMCP
 watchers and mapper/native handlers still run. In-band MUD lines are unchanged —
-use gag/replace if you also want to hide related room text.## GMCP (short)
+use gag/replace if you also want to hide related room text.
+
+## GMCP (short)
 
 Enable under **Options → Service → GMCP Options**. Prefer **Manage modules…**
 over editing the raw Supports String. Helpers:

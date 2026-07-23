@@ -33,7 +33,8 @@ public class ExtraTextOverlayController {
 
 	private static final String TAG = "ExtraTextOverlay";
 	private static final int LEGACY_INPUT_BAR_ID = ChromeController.LEGACY_INPUT_BAR_ID;
-	private static final int MIN_DRAWER_DP = 80;
+	/** Min drawer height (dp): keep grab strip usable; cannot shrink away. */
+	private static final int MIN_DRAWER_DP = 50;
 	private static final int MIN_FLOAT_DP = 160;
 	private static final float MAX_DRAWER_SCREEN_FRACTION = 0.70f;
 	private static final long PERSIST_DEBOUNCE_MS = 450L;
@@ -61,15 +62,6 @@ public class ExtraTextOverlayController {
 
 		/** Persist slot geometry/visibility (debounced by controller). */
 		void persistExtraTextSlots(List<ExtraTextSlot> slots);
-
-		/** Options → Drawers push game text? */
-		boolean isPushMainTextEnabled();
-
-		/**
-		 * Reserve vertical space for drawers via transparent spacers and pin
-		 * {@code mainDisplay} BELOW/ABOVE them. Pass zeros to clear.
-		 */
-		void setMainTextDrawerInsets(int topPx, int bottomPx);
 	}
 
 	private static final class OverlayEntry {
@@ -82,6 +74,7 @@ public class ExtraTextOverlayController {
 		FrameLayout contentHost;
 		View edgeTop;
 		View edgeBottom;
+		View accentLine;
 		View resizeHandle;
 		Window window;
 	}
@@ -124,6 +117,17 @@ public class ExtraTextOverlayController {
 			}
 			keep.add(slot.getName());
 			OverlayEntry entry = entries.get(slot.getName());
+			// New overlay XML (FrameLayout + weighted body; edge overlaid, not in body).
+			if (entry != null && entry.overlayRoot != null) {
+				View body = entry.overlayRoot.findViewById(R.id.extra_text_body);
+				View edge = entry.overlayRoot.findViewById(R.id.extra_text_edge_bottom);
+				boolean legacy = body == null
+						|| (edge != null && body != null && edge.getParent() == body);
+				if (legacy) {
+					destroyEntry(slot.getName());
+					entry = null;
+				}
+			}
 			if (entry == null) {
 				entry = inflateOverlay(activity, container, slot);
 				if (entry == null) {
@@ -150,8 +154,6 @@ public class ExtraTextOverlayController {
 			destroyEntry(remove.get(i));
 		}
 
-		updateMainTextInsets();
-
 		ChromeController chrome = activity.getChromeController();
 		if (chrome != null) {
 			chrome.bringViewUnderChrome(null);
@@ -160,90 +162,6 @@ public class ExtraTextOverlayController {
 			if (chromeView != null) {
 				chromeView.bringToFront();
 			}
-		}
-	}
-
-	/**
-	 * When push-main is on, report drawer heights so MainWindow can pin
-	 * transparent spacers and move {@code mainDisplay} below/above them.
-	 * Uses the same height math as {@link #applyLayout} (not on-screen overlap —
-	 * overlap fights the spacer layout). Floats never contribute.
-	 */
-	private void updateMainTextInsets() {
-		MainWindow activity = host.getMainWindow();
-		if (!host.isPushMainTextEnabled() || activity == null) {
-			host.setMainTextDrawerInsets(0, 0);
-			return;
-		}
-		float density = activity.getResources().getDisplayMetrics().density;
-		int screenH = activity.getResources().getDisplayMetrics().heightPixels;
-		int topPx = 0;
-		int bottomPx = 0;
-		for (OverlayEntry e : entries.values()) {
-			if (e == null || e.slot == null || e.overlayRoot == null) {
-				continue;
-			}
-			if (!e.slot.isVisible()
-					|| e.overlayRoot.getVisibility() != View.VISIBLE) {
-				continue;
-			}
-			ExtraTextSlot.Mode mode = e.slot.getMode();
-			if (mode == ExtraTextSlot.Mode.FLOAT) {
-				continue;
-			}
-			int h = drawerHeightForPush(e, density, screenH);
-			if (h <= 0) {
-				continue;
-			}
-			if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
-				if (h > topPx) {
-					topPx = h;
-				}
-			} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
-				if (h > bottomPx) {
-					bottomPx = h;
-				}
-			}
-		}
-		host.setMainTextDrawerInsets(topPx, bottomPx);
-	}
-
-	/**
-	 * Same height math as {@link #applyLayout} so push spacers match the visible
-	 * drawer even before the overlay has been measured.
-	 */
-	private int drawerHeightForPush(OverlayEntry e, float density, int screenH) {
-		if (e == null || e.slot == null) {
-			return 0;
-		}
-		if (e.slot.isCollapsed()) {
-			return measureTitleBarHeight(e, density);
-		}
-		int fromLayout = 0;
-		ViewGroup.LayoutParams lp = e.overlayRoot != null
-				? e.overlayRoot.getLayoutParams() : null;
-		if (lp != null && lp.height > 0) {
-			fromLayout = lp.height;
-		}
-		if (fromLayout <= 0 && e.overlayRoot != null) {
-			fromLayout = e.overlayRoot.getHeight();
-		}
-		int maxH = screenH > 0 ? (int) (screenH * MAX_DRAWER_SCREEN_FRACTION) : Integer.MAX_VALUE;
-		int minH = (int) (MIN_DRAWER_DP * density);
-		int fromSlot = Math.max(minH,
-				Math.min(maxH, (int) (e.slot.getHeightDp() * density)));
-		return fromLayout > 0 ? fromLayout : fromSlot;
-	}
-
-	/** Recompute push spacers (e.g. after input-bar chrome height changes). */
-	public void reapplyPushInsets() {
-		updateMainTextInsets();
-	}
-
-	/** Raise extra-text overlays under chrome (after push spacer z-order tweaks). */
-	public void bringOverlaysUnderChrome() {
-		for (OverlayEntry e : entries.values()) {
-			bringUnderChrome(e);
 		}
 	}
 
@@ -281,7 +199,6 @@ public class ExtraTextOverlayController {
 			destroyEntry(names.get(i));
 		}
 		entries.clear();
-		host.setMainTextDrawerInsets(0, 0);
 	}
 
 	private OverlayEntry inflateOverlay(MainWindow activity, RelativeLayout container,
@@ -298,6 +215,7 @@ public class ExtraTextOverlayController {
 		e.contentHost = (FrameLayout) root.findViewById(R.id.extra_text_content);
 		e.edgeTop = root.findViewById(R.id.extra_text_edge_top);
 		e.edgeBottom = root.findViewById(R.id.extra_text_edge_bottom);
+		e.accentLine = root.findViewById(R.id.extra_text_accent);
 		e.resizeHandle = root.findViewById(R.id.extra_text_resize_handle);
 		e.overlayRoot.setTag("extra_text_overlay:" + slot.getName());
 		ensureViewId(e.overlayRoot);
@@ -378,6 +296,10 @@ public class ExtraTextOverlayController {
 		// Overlay windows must paint immediately (bufferText=true only queues to hold buffer).
 		token.setBufferText(false);
 		win.setBufferText(false);
+		win.setWordWrap(true);
+		if (token.getSettings() != null) {
+			token.getSettings().setOption("word_wrap", "true");
+		}
 		if (token.getBuffer() != null) {
 			win.setBuffer(token.getBuffer());
 		}
@@ -395,6 +317,35 @@ public class ExtraTextOverlayController {
 		win.setVisibility(View.VISIBLE);
 		win.flushBuffer();
 		win.invalidate();
+		win.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+			@Override
+			public void onLayoutChange(View v, int left, int top, int right, int bottom,
+					int oldLeft, int oldTop, int oldRight, int oldBottom) {
+				int nw = right - left;
+				int nh = bottom - top;
+				int ow = oldRight - oldLeft;
+				int oh = oldBottom - oldTop;
+				if (nw <= 1 || nh <= 1) {
+					return;
+				}
+				if (nw == ow && nh == oh) {
+					return;
+				}
+				v.invalidate();
+			}
+		});
+		// First layout often runs before the overlay has a real size — repaint after.
+		e.contentHost.post(new Runnable() {
+			@Override
+			public void run() {
+				if (e.window == null) {
+					return;
+				}
+				e.window.requestLayout();
+				e.window.flushBuffer();
+				e.window.invalidate();
+			}
+		});
 	}
 
 	private void applyChromeForMode(OverlayEntry e) {
@@ -402,51 +353,57 @@ public class ExtraTextOverlayController {
 			return;
 		}
 		ExtraTextSlot.Mode mode = e.slot.getMode();
+		if (mode != ExtraTextSlot.Mode.FLOAT && mode != ExtraTextSlot.Mode.DRAWER_TOP) {
+			mode = ExtraTextSlot.Mode.DRAWER_TOP;
+			e.slot.setMode(mode);
+		}
 		boolean floatMode = mode == ExtraTextSlot.Mode.FLOAT;
 		boolean drawer = !floatMode;
 
+		// Drawer: no title / no collapse — show/hide via .window / Options only.
+		// Float: title + drag + muted accent under title.
+		if (e.titleBar != null) {
+			e.titleBar.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+		}
 		if (e.titleView != null) {
 			String t = e.slot.getTitle();
 			if (t == null || t.length() == 0) {
 				t = e.slot.getName();
 			}
 			e.titleView.setText(t);
+			e.titleView.setVisibility(floatMode ? View.VISIBLE : View.GONE);
 		}
 		if (e.dragHandle != null) {
 			e.dragHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);
 		}
 		if (e.collapseBtn != null) {
-			e.collapseBtn.setVisibility(drawer ? View.VISIBLE : View.GONE);
-			updateCollapseChevron(e);
+			e.collapseBtn.setVisibility(View.GONE);
+		}
+		if (e.accentLine != null) {
+			e.accentLine.setVisibility(floatMode ? View.VISIBLE : View.GONE);
 		}
 		if (e.resizeHandle != null) {
-			e.resizeHandle.setVisibility(
-					floatMode && !e.slot.isCollapsed() ? View.VISIBLE : View.GONE);
+			e.resizeHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			if (floatMode) {
+				e.resizeHandle.bringToFront();
+			}
 		}
 		if (e.edgeTop != null) {
-			e.edgeTop.setVisibility(
-					mode == ExtraTextSlot.Mode.DRAWER_BOTTOM && !e.slot.isCollapsed()
-							? View.VISIBLE : View.GONE);
+			e.edgeTop.setVisibility(View.GONE);
 		}
 		if (e.edgeBottom != null) {
-			e.edgeBottom.setVisibility(
-					mode == ExtraTextSlot.Mode.DRAWER_TOP && !e.slot.isCollapsed()
-							? View.VISIBLE : View.GONE);
+			// Drawer always shows the bottom grab strip (min height keeps it usable).
+			e.edgeBottom.setVisibility(drawer ? View.VISIBLE : View.GONE);
+			if (drawer) {
+				e.edgeBottom.bringToFront();
+			}
 		}
 		if (e.contentHost != null) {
-			e.contentHost.setVisibility(e.slot.isCollapsed() ? View.GONE : View.VISIBLE);
+			e.contentHost.setVisibility(View.VISIBLE);
 		}
-	}
-
-	private void updateCollapseChevron(OverlayEntry e) {
-		if (e.collapseBtn == null || e.slot == null) {
-			return;
-		}
-		boolean top = e.slot.getMode() == ExtraTextSlot.Mode.DRAWER_TOP;
-		if (e.slot.isCollapsed()) {
-			e.collapseBtn.setText(top ? "▾" : "▴");
-		} else {
-			e.collapseBtn.setText(top ? "▴" : "▾");
+		// Collapse flag is obsolete for drawers — clear so geometry uses full height.
+		if (drawer && e.slot.isCollapsed()) {
+			e.slot.setCollapsed(false);
 		}
 	}
 
@@ -499,53 +456,21 @@ public class ExtraTextOverlayController {
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 		} else {
-			int heightPx;
-			if (e.slot.isCollapsed()) {
-				heightPx = measureTitleBarHeight(e, density);
-			} else {
-				int maxH = (int) (screenH * MAX_DRAWER_SCREEN_FRACTION);
-				int minH = (int) (MIN_DRAWER_DP * density);
-				heightPx = Math.max(minH,
-						Math.min(maxH, (int) (e.slot.getHeightDp() * density)));
-			}
+			int maxH = (int) (screenH * MAX_DRAWER_SCREEN_FRACTION);
+			int minH = (int) (MIN_DRAWER_DP * density);
+			int heightPx = Math.max(minH,
+					Math.min(maxH, (int) (e.slot.getHeightDp() * density)));
 			lp = new RelativeLayout.LayoutParams(
 					RelativeLayout.LayoutParams.MATCH_PARENT, heightPx);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-			if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
-				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-			} else if (inputbar != null && inputbar.getId() != View.NO_ID) {
-				lp.addRule(RelativeLayout.ABOVE, inputbar.getId());
-			} else {
-				lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-			}
+			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 		}
 		e.overlayRoot.setLayoutParams(lp);
 		e.overlayRoot.requestLayout();
 		if (e.resizeHandle != null && mode == ExtraTextSlot.Mode.FLOAT) {
 			e.resizeHandle.bringToFront();
 		}
-		updateMainTextInsets();
-		// Re-anchor after the drawer has a real laid-out height / position.
-		e.overlayRoot.post(new Runnable() {
-			@Override
-			public void run() {
-				updateMainTextInsets();
-			}
-		});
-	}
-
-	private int measureTitleBarHeight(OverlayEntry e, float density) {
-		if (e.titleBar != null) {
-			int h = e.titleBar.getHeight();
-			if (h <= 0) {
-				h = e.titleBar.getMeasuredHeight();
-			}
-			if (h > 0) {
-				return h + (int) (4 * density);
-			}
-		}
-		return (int) (40 * density);
 	}
 
 	private int clampFloatTop(int top, int height, View inputbar, int screenH) {
@@ -578,20 +503,6 @@ public class ExtraTextOverlayController {
 				public boolean onLongClick(View v) {
 					showOpacityPicker(e);
 					return true;
-				}
-			});
-		}
-		if (e.collapseBtn != null) {
-			e.collapseBtn.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					if (e.slot == null || e.slot.getMode() == ExtraTextSlot.Mode.FLOAT) {
-						return;
-					}
-					e.slot.setCollapsed(!e.slot.isCollapsed());
-					applyChromeForMode(e);
-					applyLayout(e);
-					schedulePersist();
 				}
 			});
 		}
@@ -693,8 +604,7 @@ public class ExtraTextOverlayController {
 
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
-				if (e.slot == null || e.slot.isCollapsed()
-						|| e.slot.getMode() == ExtraTextSlot.Mode.FLOAT) {
+				if (e.slot == null || e.slot.getMode() == ExtraTextSlot.Mode.FLOAT) {
 					return false;
 				}
 				MainWindow activity = host.getMainWindow();
@@ -705,7 +615,6 @@ public class ExtraTextOverlayController {
 				int screenH = activity.getResources().getDisplayMetrics().heightPixels;
 				int maxDp = Math.max(MIN_DRAWER_DP,
 						(int) ((screenH * MAX_DRAWER_SCREEN_FRACTION) / density));
-				boolean topDrawer = e.slot.getMode() == ExtraTextSlot.Mode.DRAWER_TOP;
 				switch (event.getActionMasked()) {
 				case MotionEvent.ACTION_DOWN:
 					lastY = event.getRawY();
@@ -713,8 +622,8 @@ public class ExtraTextOverlayController {
 				case MotionEvent.ACTION_MOVE: {
 					float dy = event.getRawY() - lastY;
 					lastY = event.getRawY();
-					int deltaDp = Math.round(dy / density);
-					int next = e.slot.getHeightDp() + (topDrawer ? deltaDp : -deltaDp);
+					// Drag down grows height; floor at MIN_DRAWER_DP.
+					int next = e.slot.getHeightDp() + Math.round(dy / density);
 					if (next < MIN_DRAWER_DP) {
 						next = MIN_DRAWER_DP;
 					}
@@ -810,9 +719,8 @@ public class ExtraTextOverlayController {
 		if (e.window != null) {
 			WindowToken token = host.findWindowToken(name);
 			try {
-				if (token != null) {
-					host.unregisterWindowCallback(token, e.window);
-				}
+				// Always unregister — token may already be removed from Connection.
+				host.unregisterWindowCallback(token, e.window);
 			} catch (Exception ex) {
 				Log.e(TAG, "unregisterWindowCallback failed for " + name, ex);
 			}

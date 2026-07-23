@@ -1,0 +1,6 @@
+BlowTorch 2 v2.1.13
+• Extra text windows: top drawer + floating panes (chat/tells/combat), GMCP dump, gag retarget, .window
+• Options → Window → Extra text windows (manage slots, opacity, visibility)
+• Smoother scrolling in the main game window
+• Fix crash when leaving the game (Back + disconnect) with extra windows open
+• Drawer/float chrome polish (thin edge, no title on top drawer)
