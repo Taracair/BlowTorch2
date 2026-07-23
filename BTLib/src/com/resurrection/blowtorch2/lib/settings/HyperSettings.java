@@ -40,7 +40,7 @@ public class HyperSettings {
 			return mode;
 		}
 	}
-	public final static int DEFAULT_HYPERLINK_COLOR = 0xFF3333AA;
+	public final static int DEFAULT_HYPERLINK_COLOR = 0xFF66CCFF;
 	
 	private int LineSize = 18;
 	private int LineSpaceExtra = 2;

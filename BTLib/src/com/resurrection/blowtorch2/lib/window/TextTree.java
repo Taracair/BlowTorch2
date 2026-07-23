@@ -17,9 +17,71 @@ import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 
 public class TextTree {
 	
-	public static final String urlFinderString = "(http://.+\\b)|(www\\..+\\b)"; 
-	private final Pattern urlPattern = Pattern.compile(urlFinderString);
-	private final Matcher urlMatcher = urlPattern.matcher("");
+	/**
+	 * Detect http(s)://, www., and bare hostnames with a common TLD
+	 * (example.com, mud.org/path, …). Case-insensitive; trailing punctuation
+	 * is stripped by {@link #extractUrl(String)} / {@link #normalizeUrl(String)}.
+	 */
+	public static final String urlFinderString =
+			"(?i)\\b("
+					+ "(?:https?://|www\\.)[^\\s<>\"'\\]\\),]+"
+					+ "|"
+					+ "[a-z0-9](?:[a-z0-9\\-]{0,61}[a-z0-9])?"
+					+ "(?:\\.[a-z0-9](?:[a-z0-9\\-]{0,61}[a-z0-9])?)*"
+					+ "\\.(?:com|org|net|edu|gov|io|co|uk|us|de|fr|pl|eu|info|biz|me|tv|"
+					+ "app|dev|xyz|online|site|tech|ai|gg|wiki|blog|cz|sk|nl|se|no|fi|"
+					+ "it|es|ca|au|jp|cn|ru|br|mx|in|kr|tw|hk|sg|id|ph|vn|th|ar|cl|pe|"
+					+ "to|cc|be|at|ch|dk|ie|nz|za)"
+					+ "(?::[0-9]{2,5})?"
+					+ "(?:/[^\\s<>\"'\\]\\),]*)?"
+					+ ")";
+	private static final Pattern URL_PATTERN = Pattern.compile(urlFinderString);
+	private final Matcher urlMatcher = URL_PATTERN.matcher("");
+
+	/** Strip trailing punctuation often glued to URLs in prose. */
+	public static String trimUrlJunk(final String raw) {
+		if (raw == null || raw.length() == 0) {
+			return raw;
+		}
+		String url = raw;
+		while (url.length() > 0) {
+			char c = url.charAt(url.length() - 1);
+			if (".,;:!?)]}>'\"".indexOf(c) >= 0) {
+				url = url.substring(0, url.length() - 1);
+			} else {
+				break;
+			}
+		}
+		return url;
+	}
+
+	/** First URL-like substring in {@code text}, or null. */
+	public static String extractUrl(final String text) {
+		if (text == null || text.length() < 4) {
+			return null;
+		}
+		Matcher m = URL_PATTERN.matcher(text);
+		if (!m.find()) {
+			return null;
+		}
+		String found = m.group(1) != null ? m.group(1) : m.group();
+		return trimUrlJunk(found);
+	}
+
+	/**
+	 * Turn a matched link into something {@link android.net.Uri#parse} can open.
+	 * Adds {@code http://} when the scheme is missing (www. / bare domain).
+	 */
+	public static String normalizeUrl(final String matched) {
+		String url = trimUrlJunk(matched);
+		if (url == null || url.length() == 0) {
+			return null;
+		}
+		if (!url.contains("://")) {
+			url = "http://" + url;
+		}
+		return url;
+	}
 	
 	public static final int MESSAGE_ADDTEXT = 0;
 	Pattern colordata = Pattern.compile("\\x1B\\x5B.+m");

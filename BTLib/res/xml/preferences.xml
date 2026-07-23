@@ -28,7 +28,7 @@
 			android:summary="Options for highlighting web page URLs.">
 		<CheckBoxPreference
 			android:key="HYPERLINK_ENABLED"
-			android:summary="Make text that starts with http:// or www. a clickable link."
+			android:summary="Make http(s)://, www., and typical domain URLs clickable."
 			android:title="Enable Hyperlinks?"
 			android:defaultValue="true"/>
 		<ListPreference

@@ -26,7 +26,7 @@ import android.widget.RelativeLayout;
 /** The serializable data that constitutes a foreground miniwindow. */
 public class WindowToken implements Parcelable {
 	/** Default hyperlink color. */
-	public static final int DEFAULT_HYPERLINK_COLOR = 0xFF0000FF;
+	public static final int DEFAULT_HYPERLINK_COLOR = 0xFF66CCFF;
 	/** Default hyperlink mode. */
 	public static final int DEFAULT_HYPERLINK_MODE = 3;
 	/** Default colorizing mode. */
@@ -269,7 +269,7 @@ public class WindowToken implements Parcelable {
 		
 		BooleanOption hyperlinksEnabled = new BooleanOption();
 		hyperlinksEnabled.setTitle("Enable Hyperlinks?");
-		hyperlinksEnabled.setDescription("Make text that starts with http:// or www. a clickable link.");
+		hyperlinksEnabled.setDescription("Make http(s)://, www., and typical domain URLs (example.com) clickable.");
 		hyperlinksEnabled.setKey("hyperlinks_enabled");
 		hyperlinksEnabled.setValue(true);
 		hyperlinks.addOption(hyperlinksEnabled);
