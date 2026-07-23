@@ -1,0 +1,23 @@
+---
+description: Keep README.md author voice; never polish or rewrite it
+globs: README.md
+alwaysApply: true
+---
+
+# README voice (do not rewrite)
+
+`README.md` is the maintainer’s own public intro. **Do not rewrite, soften, or “professionalize” it.**
+
+## Locked voice (must stay)
+
+- Opening: first public repo / first bigger GitHub work (“Hello folks and beware! …”)
+- Honest LLM line: uses LLM for code/docs; still tests and decides what ships
+- Casual first-person tone presenting the fork
+
+## Allowed edits only
+
+- Fact updates the user asked for (new commands, paths, build steps, package ids, links)
+- Fix broken links or clearly wrong technical facts
+- Never change the intro paragraphs or LLM disclosure unless the user explicitly rewrites them
+
+If docs need a more formal tone, put that in `docs/FDROID_README.md` / store metadata — **not** by replacing root `README.md`.
