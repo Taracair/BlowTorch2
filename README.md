@@ -146,7 +146,7 @@ Release APKs are unsigned by default (F-Droid/CI sign their own). Output: `BT_Fr
 | `BT_Free/` | App module |
 | `LuaJIT-2.0.5/` | Native LuaJIT |
 | `fastlane/metadata/` | Store / F-Droid text |
-| `docs/` | Guides — including [`RELEASE_WORKFLOW.md`](docs/RELEASE_WORKFLOW.md) (staging → test APK → release) |
+| `docs/` | Public guides: [`user-manual.md`](docs/user-manual.md), [`options-guide.md`](docs/options-guide.md), F-Droid notes |
 | `metadata/` | Example F-Droid recipe |
 
 F-Droid: production flavor only. See [`docs/fdroid.md`](docs/fdroid.md).
