@@ -13,7 +13,8 @@ Do **not** restore the old `forgemap` Lua plugin, MAP buttons from that experime
 
 ## Allowed: new Mapper (`lib/mapper/`)
 
-The user has started a **new** first-party Mapper project (Java UI + thin APIs), documented in the local gitignored plan `docs/MAPPER_V1_PLAN.md`.
+The user has started a **new** first-party Mapper project (Java UI + thin APIs).
+Do not revive or reintroduce ForgeMap.
 
 - Implement under `com.resurrection.blowtorch2.lib.mapper` (and related UI/commands/settings).
 - Work on **`staging`** + **btTest** until an explicit production release is requested.

@@ -50,8 +50,7 @@ login — required on Eden and similar) and
 filters (including `{"fadeaway":true}` alone) stops all tracks; fade only when
 `fadeaway` or an explicit `fadeout` is sent. Audio is also hard-stopped on
 disconnect and when the app is swiped away from Recents (service may stay for
-persistent connection). See also `docs/FUTURE_OPTIONAL_FEATURES.md` for
-planned optional MTTS / graphics work.
+persistent connection).
 
 ## MCP Options
 
