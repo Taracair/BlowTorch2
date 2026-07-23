@@ -66,10 +66,8 @@ public class ExtraTextOverlayController {
 		boolean isPushMainTextEnabled();
 
 		/**
-		 * Inset {@code mainDisplay} by drawer heights (px) using explicit layout
-		 * geometry (not MATCH_PARENT margins — those do not shrink the Window).
-		 * Pass zeros to restore the default chrome layout. Does not move
-		 * {@code button_window}.
+		 * Inset painted game text on {@code mainDisplay} by drawer overlap (px).
+		 * Does not change view layout. Pass zeros to clear.
 		 */
 		void setMainTextDrawerInsets(int topPx, int bottomPx);
 	}
@@ -166,44 +164,103 @@ public class ExtraTextOverlayController {
 	}
 
 	/**
-	 * When push-main is on, reserve top/bottom space equal to drawer heights so
-	 * {@code mainDisplay} is laid out with an explicit pixel height (MATCH_PARENT
-	 * + margins / ABOVE-drawer rules do not shrink the Window). Floats never
-	 * contribute. Buttons stay full-bleed.
+	 * When push-main is on, inset mainDisplay's <em>painted</em> text by the
+	 * on-screen overlap with top/bottom drawers (not layout margins — those
+	 * created a black gap). Floats never contribute.
 	 */
 	private void updateMainTextInsets() {
+		if (!host.isPushMainTextEnabled()) {
+			host.setMainTextDrawerInsets(0, 0);
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			host.setMainTextDrawerInsets(0, 0);
+			return;
+		}
+		RelativeLayout container = (RelativeLayout) activity.findViewById(R.id.window_container);
+		View main = container != null ? container.findViewWithTag("mainDisplay") : null;
+		if (main == null || main.getHeight() <= 0) {
+			// Fall back to slot heights before main is measured.
+			applyInsetFallbackFromSlotHeights(activity);
+			return;
+		}
+
+		int[] mainLoc = new int[2];
+		main.getLocationOnScreen(mainLoc);
+		int mainTop = mainLoc[1];
+		int mainBottom = mainTop + main.getHeight();
 		int topPx = 0;
 		int bottomPx = 0;
-		if (host.isPushMainTextEnabled()) {
-			MainWindow activity = host.getMainWindow();
-			float density = activity != null
-					? activity.getResources().getDisplayMetrics().density : 1f;
-			int screenH = activity != null
-					? activity.getResources().getDisplayMetrics().heightPixels : 0;
-			for (OverlayEntry e : entries.values()) {
-				if (e == null || e.slot == null || e.overlayRoot == null) {
-					continue;
+		int[] dLoc = new int[2];
+		for (OverlayEntry e : entries.values()) {
+			if (e == null || e.slot == null || e.overlayRoot == null) {
+				continue;
+			}
+			if (!e.slot.isVisible()
+					|| e.overlayRoot.getVisibility() != View.VISIBLE) {
+				continue;
+			}
+			ExtraTextSlot.Mode mode = e.slot.getMode();
+			if (mode == ExtraTextSlot.Mode.FLOAT) {
+				continue;
+			}
+			int h = e.overlayRoot.getHeight();
+			if (h <= 0) {
+				continue;
+			}
+			e.overlayRoot.getLocationOnScreen(dLoc);
+			int dTop = dLoc[1];
+			int dBottom = dTop + h;
+			if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
+				int cover = dBottom - mainTop;
+				if (cover > topPx) {
+					topPx = cover;
 				}
-				if (!e.slot.isVisible()
-						|| e.overlayRoot.getVisibility() != View.VISIBLE) {
-					continue;
+			} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
+				int cover = mainBottom - dTop;
+				if (cover > bottomPx) {
+					bottomPx = cover;
 				}
-				ExtraTextSlot.Mode mode = e.slot.getMode();
-				if (mode == ExtraTextSlot.Mode.FLOAT) {
-					continue;
+			}
+		}
+		if (topPx < 0) {
+			topPx = 0;
+		}
+		if (bottomPx < 0) {
+			bottomPx = 0;
+		}
+		host.setMainTextDrawerInsets(topPx, bottomPx);
+	}
+
+	private void applyInsetFallbackFromSlotHeights(MainWindow activity) {
+		float density = activity.getResources().getDisplayMetrics().density;
+		int screenH = activity.getResources().getDisplayMetrics().heightPixels;
+		int topPx = 0;
+		int bottomPx = 0;
+		for (OverlayEntry e : entries.values()) {
+			if (e == null || e.slot == null || e.overlayRoot == null) {
+				continue;
+			}
+			if (!e.slot.isVisible()
+					|| e.overlayRoot.getVisibility() != View.VISIBLE) {
+				continue;
+			}
+			ExtraTextSlot.Mode mode = e.slot.getMode();
+			if (mode == ExtraTextSlot.Mode.FLOAT) {
+				continue;
+			}
+			int h = drawerHeightForPush(e, density, screenH);
+			if (h <= 0) {
+				continue;
+			}
+			if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
+				if (h > topPx) {
+					topPx = h;
 				}
-				int h = drawerHeightForPush(e, density, screenH);
-				if (h <= 0) {
-					continue;
-				}
-				if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
-					if (h > topPx) {
-						topPx = h;
-					}
-				} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
-					if (h > bottomPx) {
-						bottomPx = h;
-					}
+			} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
+				if (h > bottomPx) {
+					bottomPx = h;
 				}
 			}
 		}

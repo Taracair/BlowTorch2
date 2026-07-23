@@ -9,15 +9,20 @@
     android:focusable="true"
     android:padding="2dp">
 
-    <!-- Top edge drag for bottom drawers (height resize). -->
-    <View
+    <!-- Top edge drag for bottom drawers: fat touch, thin gold line. -->
+    <FrameLayout
         android:id="@+id/extra_text_edge_top"
         android:layout_width="match_parent"
-        android:layout_height="10dp"
+        android:layout_height="12dp"
         android:layout_alignParentTop="true"
-        android:background="#44E8C547"
         android:visibility="gone"
-        android:contentDescription="Resize drawer height" />
+        android:contentDescription="Resize drawer height">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_gravity="center"
+            android:background="#B3E8C547" />
+    </FrameLayout>
 
     <LinearLayout
         android:id="@+id/extra_text_title_bar"
@@ -94,13 +99,18 @@
         android:visibility="gone"
         android:contentDescription="Resize floating window" />
 
-    <!-- Bottom edge drag for top drawers (height resize). -->
-    <View
+    <!-- Bottom edge drag for top drawers: fat touch, thin gold line. -->
+    <FrameLayout
         android:id="@+id/extra_text_edge_bottom"
         android:layout_width="match_parent"
-        android:layout_height="10dp"
+        android:layout_height="12dp"
         android:layout_alignParentBottom="true"
-        android:background="#44E8C547"
         android:visibility="gone"
-        android:contentDescription="Resize drawer height" />
+        android:contentDescription="Resize drawer height">
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_gravity="center"
+            android:background="#B3E8C547" />
+    </FrameLayout>
 </RelativeLayout>

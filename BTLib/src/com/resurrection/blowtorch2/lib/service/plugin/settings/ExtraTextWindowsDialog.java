@@ -1,14 +1,18 @@
 package com.resurrection.blowtorch2.lib.service.plugin.settings;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.graphics.Color;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -16,12 +20,13 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.resurrection.blowtorch2.lib.service.GmcpModuleRegistry;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 
 /**
- * Manage extra text window slots: list / add / delete / rename / mode / height / show.
+ * Manage extra text window slots: list / add / delete / rename / mode / height / show / GMCP.
  */
 public final class ExtraTextWindowsDialog {
 
@@ -36,6 +41,12 @@ public final class ExtraTextWindowsDialog {
 
 		/** Optional: force overlay refresh after apply. */
 		void onSlotsChanged();
+
+		/** Options → GMCP → Use GMCP? */
+		boolean isGmcpEnabled();
+
+		/** Session-seen GMCP module families (may be empty). */
+		ArrayList<String> getSeenGmcpModules();
 	}
 
 	private ExtraTextWindowsDialog() {
@@ -57,6 +68,16 @@ public final class ExtraTextWindowsDialog {
 		root.setOrientation(LinearLayout.VERTICAL);
 		root.setPadding(pad, pad, pad, pad);
 		scroll.addView(root);
+
+		if (!host.isGmcpEnabled()) {
+			TextView warn = new TextView(context);
+			warn.setText("GMCP is off — enable Options → Service → GMCP Options → "
+					+ "Use GMCP? before module routes into these windows will receive data.");
+			warn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+			warn.setTextColor(Color.parseColor("#C62828"));
+			warn.setPadding(0, 0, 0, pad);
+			root.addView(warn);
+		}
 
 		TextView intro = new TextView(context);
 		intro.setText("Extra text windows (max " + ExtraTextSlotsStore.MAX_SLOTS
@@ -108,7 +129,7 @@ public final class ExtraTextWindowsDialog {
 					edit.setOnClickListener(new View.OnClickListener() {
 						@Override
 						public void onClick(View v) {
-							editSlot(context, slots, slot, refreshHolder[0]);
+							editSlot(context, host, slots, slot, refreshHolder[0]);
 						}
 					});
 					buttons.addView(edit);
@@ -141,7 +162,7 @@ public final class ExtraTextWindowsDialog {
 							+ " windows.", Toast.LENGTH_SHORT).show();
 					return;
 				}
-				editSlot(context, slots, null, refreshHolder[0]);
+				editSlot(context, host, slots, null, refreshHolder[0]);
 			}
 		});
 		root.addView(add);
@@ -162,13 +183,16 @@ public final class ExtraTextWindowsDialog {
 		b.show();
 	}
 
-	private static void editSlot(final Context context, final ArrayList<ExtraTextSlot> slots,
-			final ExtraTextSlot existing, final Runnable onDone) {
+	private static void editSlot(final Context context, final Host host,
+			final ArrayList<ExtraTextSlot> slots, final ExtraTextSlot existing,
+			final Runnable onDone) {
 		int pad = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 12,
 				context.getResources().getDisplayMetrics());
+		ScrollView scroll = new ScrollView(context);
 		LinearLayout form = new LinearLayout(context);
 		form.setOrientation(LinearLayout.VERTICAL);
 		form.setPadding(pad, pad, pad, pad);
+		scroll.addView(form);
 
 		final EditText name = new EditText(context);
 		name.setHint("name (chat, tells, …)");
@@ -232,20 +256,134 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "Visibility"));
 		form.addView(visible);
 
-		final EditText gmcp = new EditText(context);
-		gmcp.setHint("Char.Vitals, Comm.*, Char.");
-		gmcp.setSingleLine(false);
-		gmcp.setMinLines(2);
-		if (existing != null) {
-			gmcp.setText(existing.getGmcpModulesCsv());
+		form.addView(label(context, "GMCP modules to dump into this window"));
+		if (!host.isGmcpEnabled()) {
+			TextView warn = new TextView(context);
+			warn.setText("GMCP is disabled — turn on Use GMCP? under Service → GMCP Options.");
+			warn.setTextColor(Color.parseColor("#C62828"));
+			warn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+			warn.setPadding(0, 0, 0, pad / 2);
+			form.addView(warn);
 		}
-		form.addView(label(context,
-				"GMCP modules (comma-separated; exact, Char., or Comm.*)"));
-		form.addView(gmcp);
+
+		final LinkedHashSet<String> selected = new LinkedHashSet<String>();
+		if (existing != null) {
+			selected.addAll(existing.getGmcpModules());
+		}
+
+		final EditText gmcpAdvanced = new EditText(context);
+		gmcpAdvanced.setHint("Char.Vitals, Comm.*, Char.");
+		gmcpAdvanced.setSingleLine(false);
+		gmcpAdvanced.setMinLines(2);
+		gmcpAdvanced.setText(csvFromSet(selected));
+
+		final boolean[] syncing = new boolean[] { false };
+		final Runnable pushAdvanced = new Runnable() {
+			@Override
+			public void run() {
+				syncing[0] = true;
+				gmcpAdvanced.setText(csvFromSet(selected));
+				syncing[0] = false;
+			}
+		};
+
+		GmcpModuleRegistry reg = new GmcpModuleRegistry();
+		ArrayList<String> seen = host.getSeenGmcpModules();
+		if (seen != null) {
+			for (int i = 0; i < seen.size(); i++) {
+				reg.noteSeen(seen.get(i));
+			}
+		}
+
+		addGmcpCheckSection(context, form, "Built-in", reg.nativeModules(), selected, pushAdvanced);
+		ArrayList<GmcpModuleRegistry.ModuleInfo> seenRows =
+				new ArrayList<GmcpModuleRegistry.ModuleInfo>();
+		for (String s : reg.seenModules()) {
+			boolean isNative = false;
+			for (GmcpModuleRegistry.ModuleInfo n : reg.nativeModules()) {
+				if (GmcpModuleRegistry.normKey(n.id).equals(GmcpModuleRegistry.normKey(s))) {
+					isNative = true;
+					break;
+				}
+			}
+			if (isNative) {
+				continue;
+			}
+			seenRows.add(new GmcpModuleRegistry.ModuleInfo(
+					reg.canonicalId(s), 1, "Seen from this server",
+					GmcpModuleRegistry.Kind.SEEN, false));
+		}
+		if (!seenRows.isEmpty()) {
+			addGmcpCheckSection(context, form, "Seen this session", seenRows, selected, pushAdvanced);
+		}
+		addGmcpCheckSection(context, form, "Catalog", reg.catalogModules(), selected, pushAdvanced);
+
+		// Patterns already in the slot that are not plain catalog ids (e.g. Char.*)
+		ArrayList<String> customOnly = new ArrayList<String>();
+		for (String p : selected) {
+			if (!isKnownModuleId(reg, p)) {
+				customOnly.add(p);
+			}
+		}
+		if (!customOnly.isEmpty()) {
+			TextView customLabel = label(context, "Custom patterns (from advanced string)");
+			form.addView(customLabel);
+			for (int i = 0; i < customOnly.size(); i++) {
+				TextView tv = new TextView(context);
+				tv.setText("• " + customOnly.get(i));
+				tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+				form.addView(tv);
+			}
+		}
+
+		final TextView advLabel = label(context, "Advanced patterns (CSV)");
+		advLabel.setVisibility(View.GONE);
+		gmcpAdvanced.setVisibility(View.GONE);
+		form.addView(advLabel);
+		form.addView(gmcpAdvanced);
+
+		Button toggleAdv = new Button(context);
+		toggleAdv.setText("Show advanced string…");
+		toggleAdv.setOnClickListener(new View.OnClickListener() {
+			boolean open;
+			@Override
+			public void onClick(View v) {
+				open = !open;
+				int vis = open ? View.VISIBLE : View.GONE;
+				advLabel.setVisibility(vis);
+				gmcpAdvanced.setVisibility(vis);
+				toggleAdv.setText(open ? "Hide advanced string" : "Show advanced string…");
+				if (open) {
+					pushAdvanced.run();
+				}
+			}
+		});
+		form.addView(toggleAdv);
+
+		gmcpAdvanced.addTextChangedListener(new android.text.TextWatcher() {
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+			}
+
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+			}
+
+			@Override
+			public void afterTextChanged(android.text.Editable s) {
+				if (syncing[0]) {
+					return;
+				}
+				selected.clear();
+				ExtraTextSlot tmp = new ExtraTextSlot("tmp");
+				tmp.setGmcpModulesCsv(s != null ? s.toString() : "");
+				selected.addAll(tmp.getGmcpModules());
+			}
+		});
 
 		AlertDialog.Builder b = new AlertDialog.Builder(context);
 		b.setTitle(existing == null ? "Add window" : "Edit window");
-		b.setView(form);
+		b.setView(scroll);
 		b.setNegativeButton("Cancel", null);
 		b.setPositiveButton("OK", new DialogInterface.OnClickListener() {
 			@Override
@@ -258,7 +396,6 @@ public final class ExtraTextWindowsDialog {
 							Toast.LENGTH_LONG).show();
 					return;
 				}
-				// Duplicate check (allow same slot when editing).
 				for (int i = 0; i < slots.size(); i++) {
 					ExtraTextSlot s = slots.get(i);
 					if (s == null || s == existing) {
@@ -288,8 +425,12 @@ public final class ExtraTextWindowsDialog {
 					slot.setOpacity(85);
 				}
 				slot.setVisible(visible.getSelectedItemPosition() == 0);
-				String gmcpCsv = gmcp.getText() != null ? gmcp.getText().toString() : "";
-				slot.setGmcpModulesCsv(gmcpCsv);
+				if (gmcpAdvanced.getVisibility() == View.VISIBLE) {
+					slot.setGmcpModulesCsv(gmcpAdvanced.getText() != null
+							? gmcpAdvanced.getText().toString() : "");
+				} else {
+					slot.setGmcpModules(new ArrayList<String>(selected));
+				}
 				if (existing == null) {
 					if (slots.size() >= ExtraTextSlotsStore.MAX_SLOTS) {
 						Toast.makeText(context, "Maximum slots reached.", Toast.LENGTH_SHORT).show();
@@ -301,6 +442,113 @@ public final class ExtraTextWindowsDialog {
 			}
 		});
 		b.show();
+	}
+
+	private static void addGmcpCheckSection(Context context, LinearLayout form, String title,
+			ArrayList<GmcpModuleRegistry.ModuleInfo> modules,
+			final LinkedHashSet<String> selected, final Runnable onChanged) {
+		if (modules == null || modules.isEmpty()) {
+			return;
+		}
+		TextView h = new TextView(context);
+		h.setText(title);
+		h.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+		h.setTypeface(null, android.graphics.Typeface.BOLD);
+		h.setPadding(0, (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 8,
+				context.getResources().getDisplayMetrics()), 0, 2);
+		form.addView(h);
+
+		for (final GmcpModuleRegistry.ModuleInfo m : modules) {
+			CheckBox cb = new CheckBox(context);
+			cb.setText(m.id + (m.summary.length() > 0 ? (" — " + m.summary) : ""));
+			cb.setChecked(setContainsIgnoreCase(selected, m.id)
+					|| setContainsPrefixFamily(selected, m.id));
+			cb.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+				@Override
+				public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+					removeIgnoreCase(selected, m.id);
+					if (isChecked) {
+						selected.add(m.id);
+					}
+					onChanged.run();
+				}
+			});
+			form.addView(cb);
+		}
+	}
+
+	private static boolean isKnownModuleId(GmcpModuleRegistry reg, String pattern) {
+		if (pattern == null) {
+			return false;
+		}
+		String p = pattern.trim();
+		if (p.endsWith(".*") || p.endsWith("*") || p.endsWith(".")) {
+			return false;
+		}
+		for (GmcpModuleRegistry.ModuleInfo m : reg.allKnownModules()) {
+			if (m.id.equalsIgnoreCase(p)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean setContainsIgnoreCase(LinkedHashSet<String> set, String id) {
+		for (String s : set) {
+			if (s != null && s.equalsIgnoreCase(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Char. matches / Char.* counts as selecting family Char for checkbox UI. */
+	private static boolean setContainsPrefixFamily(LinkedHashSet<String> set, String id) {
+		if (id == null) {
+			return false;
+		}
+		String fam = id + ".";
+		String famStar = id + ".*";
+		String famStar2 = id + "*";
+		for (String s : set) {
+			if (s == null) {
+				continue;
+			}
+			if (s.equalsIgnoreCase(fam) || s.equalsIgnoreCase(famStar)
+					|| s.equalsIgnoreCase(famStar2)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static void removeIgnoreCase(LinkedHashSet<String> set, String id) {
+		ArrayList<String> drop = new ArrayList<String>();
+		for (String s : set) {
+			if (s != null && s.equalsIgnoreCase(id)) {
+				drop.add(s);
+			}
+		}
+		set.removeAll(drop);
+	}
+
+	private static String csvFromSet(LinkedHashSet<String> set) {
+		if (set == null || set.isEmpty()) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder();
+		boolean first = true;
+		for (String s : set) {
+			if (s == null || s.trim().length() == 0) {
+				continue;
+			}
+			if (!first) {
+				sb.append(", ");
+			}
+			first = false;
+			sb.append(s.trim());
+		}
+		return sb.toString();
 	}
 
 	private static TextView label(Context context, String text) {

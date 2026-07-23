@@ -800,6 +800,42 @@ public class OptionsDialog extends Dialog {
 			public void onSlotsChanged() {
 				// Settings update triggers Connection.ensureExtraTextSlots + UI notify.
 			}
+
+			@Override
+			public boolean isGmcpEnabled() {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey("use_gmcp");
+						if (o instanceof BooleanOption) {
+							Object val = ((BooleanOption) o).getValue();
+							if (val instanceof Boolean) {
+								return ((Boolean) val).booleanValue();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return true;
+			}
+
+			@Override
+			public java.util.ArrayList<String> getSeenGmcpModules() {
+				java.util.ArrayList<String> out = new java.util.ArrayList<String>();
+				try {
+					java.util.List list = service.getGmcpSeenModules();
+					if (list != null) {
+						for (int i = 0; i < list.size(); i++) {
+							Object o = list.get(i);
+							if (o != null) {
+								out.add(o.toString());
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return out;
+			}
 		});
 	}
 	

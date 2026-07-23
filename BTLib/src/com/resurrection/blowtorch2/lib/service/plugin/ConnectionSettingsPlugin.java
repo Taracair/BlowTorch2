@@ -561,7 +561,9 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		CallbackOption manage_extra_text = new CallbackOption();
 		manage_extra_text.setTitle("Manage windows…");
-		manage_extra_text.setDescription("Add, remove, or edit extra text windows (list / mode / height / opacity / show).");
+		manage_extra_text.setDescription(
+				"Add, remove, or edit extra text windows (mode / height / opacity / GMCP modules). "
+				+ "GMCP routes need Use GMCP? enabled under Service → GMCP Options.");
 		manage_extra_text.setKey("manage_extra_text_windows");
 		manage_extra_text.setValue("manage_extra_text_windows");
 		extraTextOptions.addOption(manage_extra_text);

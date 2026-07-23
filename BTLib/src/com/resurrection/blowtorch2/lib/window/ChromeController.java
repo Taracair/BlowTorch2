@@ -127,9 +127,13 @@ public final class ChromeController {
 					continue;
 				}
 			}
-			// Mapper is a floating/fullscreen overlay — do not ride the IME lift
-			// (keyboard must not shove the map window up the screen).
+			// Mapper / extra-text overlays stay pinned; only game Windows + input lift.
 			if (child.getId() == R.id.mapper_overlay_root) {
+				child.setTranslationY(0f);
+				continue;
+			}
+			Object tagObj = child.getTag();
+			if (tagObj != null && tagObj.toString().startsWith("extra_text_overlay:")) {
 				child.setTranslationY(0f);
 				continue;
 			}
@@ -174,12 +178,6 @@ public final class ChromeController {
 		for (int i = 0; i < rl.getChildCount(); i++) {
 			View child = rl.getChildAt(i);
 			if (!(child instanceof com.resurrection.blowtorch2.lib.window.Window)) {
-				continue;
-			}
-			// Extra-text push owns mainDisplay geometry — do not re-anchor it to
-			// the input bar (that restores MATCH_PARENT full-bleed under drawers).
-			if ("mainDisplay".equals(String.valueOf(child.getTag()))
-					&& activity != null && activity.isMainTextDrawerPushActive()) {
 				continue;
 			}
 			ViewGroup.LayoutParams glp = child.getLayoutParams();
