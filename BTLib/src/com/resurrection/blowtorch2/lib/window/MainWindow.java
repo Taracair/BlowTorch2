@@ -765,20 +765,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//exist.LdoString("Note(\"Fooooooo\")");
 					break;
 				case MESSAGE_LAUNCHURL:
-					Pattern urlPattern = Pattern.compile(TextTree.urlFinderString);
-					Matcher urlMatcher = urlPattern.matcher((String)msg.obj);
-					if(urlMatcher.find()) {
-						String url = "";
-						if(urlMatcher.group(1) == null || urlMatcher.group(1).equals("")) {
-							if(urlMatcher.group(2) == null || !urlMatcher.group(2).equals("")) {
-								url = "http://"+urlMatcher.group(2);
+					if (msg.obj instanceof String) {
+						String raw = (String) msg.obj;
+						String extracted = TextTree.extractUrl(raw);
+						String url = TextTree.normalizeUrl(
+								extracted != null ? extracted : raw);
+						if (url != null && url.length() > 0) {
+							try {
+								startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+							} catch (Exception e) {
+								e.printStackTrace();
 							}
-						} else {
-							url = urlMatcher.group(1);
-						}
-						if(!url.equals("")) {
-							Intent web_help = new Intent(Intent.ACTION_VIEW,Uri.parse(url));
-							startActivity(web_help);
 						}
 					}
 					break;

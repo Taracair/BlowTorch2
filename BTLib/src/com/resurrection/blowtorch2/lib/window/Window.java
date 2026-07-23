@@ -2478,7 +2478,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 	
 	public void setLinkColor(int linkColor) {
+		// Old default navy (0xFF3333AA) is unreadable on black MUD backgrounds.
+		if ((linkColor & 0x00FFFFFF) == 0x003333AA) {
+			linkColor = HyperSettings.DEFAULT_HYPERLINK_COLOR;
+		}
 		this.mLinkHighlightColor = linkColor;
+	}
+
+	public void setBuffer(TextTree buffer) {
+		boolean linkify = mBuffer != null && mBuffer.isLinkify();
+		this.mBuffer = buffer;
+		if (this.mBuffer != null) {
+			this.mBuffer.setLinkify(linkify);
+		}
 	}
 	
 	public void clearAllText() {
@@ -5031,12 +5043,6 @@ end
 		} else {
 			mL.pop(2);
 		}
-	}
-
-	public void setBuffer(TextTree buffer) {
-		// TODO Auto-generated method stub
-		this.mBuffer = buffer;
-		
 	}
 
 	public boolean checkSupports(String function) {

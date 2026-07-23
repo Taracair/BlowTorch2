@@ -9,6 +9,7 @@ import java.util.Set;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.WindowToken;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -303,6 +304,18 @@ public class ExtraTextOverlayController {
 		if (token.getBuffer() != null) {
 			win.setBuffer(token.getBuffer());
 		}
+		// Re-apply after buffer swap so linkify from Window settings sticks.
+		boolean linksOn = true;
+		if (token.getSettings() != null) {
+			try {
+				Object o = token.getSettings().findOptionByKey("hyperlinks_enabled");
+				if (o instanceof BooleanOption && ((BooleanOption) o).getValue() instanceof Boolean) {
+					linksOn = ((Boolean) ((BooleanOption) o).getValue()).booleanValue();
+				}
+			} catch (Exception ignored) {
+			}
+		}
+		win.setLinksEnabled(linksOn);
 		try {
 			host.registerWindowCallback(token, win);
 		} catch (Exception ex) {
