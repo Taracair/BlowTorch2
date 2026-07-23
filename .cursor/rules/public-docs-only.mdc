@@ -1,0 +1,28 @@
+---
+description: Keep docs/ public-only; never commit internal AI/plans/audits
+alwaysApply: true
+---
+
+# Public `docs/` policy
+
+GitHub `docs/` is **player- and packager-facing only**. Allowed tracked files:
+
+- `docs/user-manual.md`
+- `docs/options-guide.md`
+- `docs/fdroid.md`
+- `docs/FDROID_README.md`
+
+`docs/FDROID_APPLY.md` may exist locally (gitignored); do not force-add it.
+
+## Never put in `docs/` (and never `git add` them)
+
+- Internal AI / agent plans, pause notes, architecture edit maps
+- Audits, UX reviews, roadmaps, release drafts, follow-up feedback
+- Polish working notes meant for the team only
+- Feature design plans (`*PLAN*`, `*_PLAN.md`, mapper reviews, GMCP manager plans, etc.)
+
+If you need a written plan or audit, put it **outside the repo** (e.g. `~/Coding/blowtorch-private-docs/`) or in chat. Do **not** create new markdown under `docs/` unless the user explicitly asks to update one of the four public guides above.
+
+## When documenting a feature for players
+
+Update `user-manual.md` and/or `options-guide.md` in English. Do not add a parallel “plan” file in `docs/`.
