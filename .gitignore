@@ -36,6 +36,8 @@ docs/*feedback*.md
 docs/*roadmap*.md
 docs/*_PLAN.md
 docs/*PLAN*.md
+docs/*AUDIT*.md
+docs/*REVIEW*.md
 docs/GMCP_MODULE_MANAGER_PLAN.md
 docs/RELEASE_DRAFT*.md
 docs/backup-encryption-plan.md
