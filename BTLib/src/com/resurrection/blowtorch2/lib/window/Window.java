@@ -807,8 +807,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mDrawerInsetBottom = b;
 		if (mWidth > 0 && mHeight > 0) {
 			calculateCharacterFeatures(mWidth, mHeight);
+			if (mScrollback == SCROLL_MIN) {
+				SCROLL_MIN = contentHeight()
+						- (double) (5 * Window.this.getResources().getDisplayMetrics().density);
+				mScrollback = SCROLL_MIN;
+			} else {
+				double oldmin = SCROLL_MIN;
+				SCROLL_MIN = contentHeight()
+						- (double) (5 * Window.this.getResources().getDisplayMetrics().density);
+				mScrollback -= oldmin - SCROLL_MIN;
+			}
 		}
 		invalidate();
+		android.content.Context ctx = getContext();
+		if (ctx instanceof MainWindow) {
+			((MainWindow) ctx).scheduleRenawsAfterChromeRefresh();
+		}
 	}
 
 	private void endTextSelectionMode(final View v) {
