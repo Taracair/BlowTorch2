@@ -176,6 +176,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Extra text window slots changed — UI should sync overlays (via {@link #requestExtraTextUi}). */
 	public static final int MESSAGE_EXTRA_TEXT_CHANGED = 48;
+
+	/**
+	 * Route one inbound GMCP packet into matching extra text slots
+	 * (obj = JSON body String; module name in Bundle {@code MODULE}).
+	 */
+	public static final int MESSAGE_GMCP_EXTRA_TEXT = 49;
 	
 	/** Sent from various sources, containing a string to be sent to 
 	 * the server in the selected encoding. */
@@ -689,6 +695,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					String module = msg.getData() != null
 							? msg.getData().getString("MODULE") : null;
 					mMapper.onGmcpRoomRaw(module, (String) msg.obj);
+				}
+				break;
+			case MESSAGE_GMCP_EXTRA_TEXT:
+				if (msg.obj instanceof String) {
+					String module = msg.getData() != null
+							? msg.getData().getString("MODULE") : null;
+					routeGmcpToExtraWindows(module, (String) msg.obj);
 				}
 				break;
 			case MESSAGE_INVALIDATEWINDOWTEXT:
@@ -1493,6 +1506,52 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					if (c != null) {
 						c.rawDataIncoming(lol);		
 					}
+			}
+		}
+	}
+
+	/**
+	 * Fan out one inbound GMCP packet to extra text slots whose {@code gmcp}
+	 * patterns match {@code module}. Does not dump all GMCP — only configured routes.
+	 */
+	protected final void routeGmcpToExtraWindows(final String module, final String bodyJson) {
+		if (module == null || module.length() == 0) {
+			return;
+		}
+		if (mExtraTextSlots == null || mExtraTextSlots.isEmpty()) {
+			return;
+		}
+		boolean any = false;
+		for (int i = 0; i < mExtraTextSlots.size(); i++) {
+			ExtraTextSlot s = mExtraTextSlots.get(i);
+			if (s != null && s.matchesGmcpModule(module)) {
+				any = true;
+				break;
+			}
+		}
+		if (!any) {
+			return;
+		}
+		String safe = bodyJson != null ? bodyJson : "";
+		if (module.toLowerCase(java.util.Locale.US).contains("char.login.credentials")
+				|| safe.toLowerCase(java.util.Locale.US).contains("\"password\"")) {
+			safe = safe.replaceAll("(?i)(\"password\"\\s*:\\s*\")([^\"]*)(\")", "$1***$3");
+		}
+		if (safe.length() > 2000) {
+			safe = safe.substring(0, 2000) + "…";
+		}
+		String line = "\n" + Colorizer.getTeloptStartColor()
+				+ "[GMCP] " + module + (safe.length() > 0 ? (" " + safe) : "")
+				+ Colorizer.getResetColor() + "\n";
+		for (int i = 0; i < mExtraTextSlots.size(); i++) {
+			ExtraTextSlot s = mExtraTextSlots.get(i);
+			if (s == null || !s.matchesGmcpModule(module)) {
+				continue;
+			}
+			try {
+				lineToWindow(s.getName(), line);
+			} catch (RemoteException e) {
+				e.printStackTrace();
 			}
 		}
 	}

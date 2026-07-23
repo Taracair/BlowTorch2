@@ -20,17 +20,18 @@ Under **Options → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Drawers push game text?** | Top/bottom drawers shrink the main game text area so lines are not covered. On-screen buttons stay full-bleed. Ignored for floating windows. Default on. |
-| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` / `drawer_bottom` / `float`), drawer height, **opacity % (40–100)**, visibility |
+| **Drawers push game text?** | Top/bottom drawers anchor the main game text area so lines sit above/below the drawer (not covered). On-screen buttons stay full-bleed. Ignored for floating windows. Default on. |
+| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` / `drawer_bottom` / `float`), drawer height, **opacity % (40–100)**, visibility, **GMCP modules** (comma-separated routes into this pane) |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
 Slot **name** is the public id shared with gag/replace retarget, Lua
 (`CreateTextWindow`, `NoteToWindow`, `AppendLineToWindow(windowName, line)`),
 and `.window`. Max 8 slots; reserved names: `main`, `mainDisplay`, `button_window`.
 
-GMCP is not auto-routed into these panes — use a `%Module` literal trigger plus
-`NoteToWindow` / script (see user-manual).
-
+**GMCP routes:** in Manage windows, set e.g. `Char.Vitals, Comm.*` on a slot.
+Inbound packets for those modules appear as `[GMCP] …` lines in that pane.
+Optional custom formatting still uses a `%Module` literal trigger +
+`NoteToWindow` (see user-manual).
 ## Shared storage layout (`/BlowTorch/`)
 
 Default for import/export, backups, launcher lists, session logs, maps, and app/GMCP logs is **outside** `Android/data`:

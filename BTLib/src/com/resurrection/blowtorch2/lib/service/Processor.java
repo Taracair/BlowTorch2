@@ -456,14 +456,17 @@ public class Processor {
 						JSONObject jo = new JSONObject(data);
 						mGMCP.absorb(module, jo);
 						dispatchNativeGmcp(module, jo);
+						dispatchGmcpExtraText(module, jo.toString());
 					} catch (JSONException e) {
 						Log.e("GMCP", "GMCP PARSING FOR: " + data);
 						Log.e("GMCP", "REASON: " + e.getMessage());
 						logGmcp("ERR", "parse failed for " + module + ": " + e.getMessage());
 						e.printStackTrace();
+						dispatchGmcpExtraText(module, data);
 					}
 				} else {
 					dispatchNativeGmcp(module, new JSONObject());
+					dispatchGmcpExtraText(module, "{}");
 				}
 				
 				//TODO: THIS IS WHERE THE ACTUAL WORK IS DONE TO SEND MUD DATA.
@@ -692,6 +695,25 @@ public class Processor {
 		try {
 			String json = body != null ? body.toString() : "{}";
 			Message msg = mReportTo.obtainMessage(Connection.MESSAGE_MAPPER_ROOM, json);
+			Bundle b = msg.getData();
+			if (b == null) {
+				b = new Bundle();
+			}
+			b.putString("MODULE", module);
+			msg.setData(b);
+			mReportTo.sendMessage(msg);
+		} catch (Exception ignored) {
+		}
+	}
+
+	/** Fan-out inbound GMCP into extra text slots that list matching modules. */
+	private void dispatchGmcpExtraText(final String module, final String bodyJson) {
+		if (mReportTo == null || module == null || module.length() == 0) {
+			return;
+		}
+		try {
+			String json = bodyJson != null ? bodyJson : "";
+			Message msg = mReportTo.obtainMessage(Connection.MESSAGE_GMCP_EXTRA_TEXT, json);
 			Bundle b = msg.getData();
 			if (b == null) {
 				b = new Bundle();

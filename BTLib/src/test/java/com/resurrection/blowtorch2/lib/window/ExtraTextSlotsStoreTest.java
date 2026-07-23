@@ -41,21 +41,37 @@ public class ExtraTextSlotsStoreTest {
 		String json = "["
 				+ "{\"name\":\"chat\",\"title\":\"Chat\",\"mode\":\"drawer_bottom\","
 				+ "\"height_dp\":160,\"float_x\":24,\"float_y\":120,\"float_w\":320,\"float_h\":220,"
-				+ "\"opacity\":70,\"visible\":true,\"collapsed\":false}"
+				+ "\"opacity\":70,\"visible\":true,\"collapsed\":false,"
+				+ "\"gmcp\":[\"Char.Vitals\",\"Comm.*\"]}"
 				+ "]";
 		ArrayList<ExtraTextSlot> slots = ExtraTextSlotsStore.parse(json);
 		assertEquals(1, slots.size());
 		assertEquals("chat", slots.get(0).getName());
 		assertEquals(ExtraTextSlot.Mode.DRAWER_BOTTOM, slots.get(0).getMode());
 		assertEquals(70, slots.get(0).getOpacity());
+		assertEquals(2, slots.get(0).getGmcpModules().size());
+		assertTrue(slots.get(0).matchesGmcpModule("Char.Vitals"));
+		assertTrue(slots.get(0).matchesGmcpModule("Comm.Channel"));
+		assertFalse(slots.get(0).matchesGmcpModule("Room.Info"));
 		String out = ExtraTextSlotsStore.toJson(slots);
 		ArrayList<ExtraTextSlot> again = ExtraTextSlotsStore.parse(out);
 		assertEquals(1, again.size());
 		assertEquals("chat", again.get(0).getName());
 		assertEquals("Chat", again.get(0).getTitle());
 		assertEquals(70, again.get(0).getOpacity());
+		assertTrue(again.get(0).matchesGmcpModule("comm.channel"));
 	}
 
+	@Test
+	public void gmcpPattern_exactAndPrefix() {
+		ExtraTextSlot s = new ExtraTextSlot("vitals");
+		s.setGmcpModulesCsv("Char.Vitals, Char., Room.*");
+		assertTrue(s.matchesGmcpModule("Char.Vitals"));
+		assertTrue(s.matchesGmcpModule("char.status"));
+		assertTrue(s.matchesGmcpModule("Room.Info"));
+		assertFalse(s.matchesGmcpModule("Comm.Channel"));
+		assertEquals("Char.Vitals, Char., Room.*", s.getGmcpModulesCsv());
+	}
 	@Test
 	public void opacity_clampedToReadableRange() {
 		ExtraTextSlot s = new ExtraTextSlot("chat");

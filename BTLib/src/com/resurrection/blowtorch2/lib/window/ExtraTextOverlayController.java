@@ -66,10 +66,12 @@ public class ExtraTextOverlayController {
 		boolean isPushMainTextEnabled();
 
 		/**
-		 * Shrink {@code mainDisplay} by drawer insets (px). Does not move
-		 * {@code button_window}. Pass zeros to clear.
+		 * Anchor {@code mainDisplay} to drawer overlays so game text sits
+		 * below a top drawer / above a bottom drawer. Pass null anchors to
+		 * restore the default chrome layout (above input bar). Does not move
+		 * {@code button_window}.
 		 */
-		void setMainTextDrawerInsets(int topPx, int bottomPx);
+		void setMainTextDrawerPushAnchors(View topDrawer, View bottomDrawer);
 	}
 
 	private static final class OverlayEntry {
@@ -164,47 +166,66 @@ public class ExtraTextOverlayController {
 	}
 
 	/**
-	 * When push-main is on, top/bottom drawers reserve space in mainDisplay
-	 * (margins). Floating windows never contribute. Buttons stay full-bleed.
+	 * When push-main is on, top/bottom drawers become RelativeLayout anchors
+	 * for {@code mainDisplay} (BELOW top / ABOVE bottom). Floats never
+	 * contribute. Buttons stay full-bleed.
 	 */
 	private void updateMainTextInsets() {
-		int topPx = 0;
-		int bottomPx = 0;
+		View topAnchor = null;
+		View bottomAnchor = null;
+		int topH = 0;
+		int bottomH = 0;
 		if (host.isPushMainTextEnabled()) {
 			for (OverlayEntry e : entries.values()) {
 				if (e == null || e.slot == null || e.overlayRoot == null) {
 					continue;
 				}
-				if (!e.slot.isVisible()) {
+				if (!e.slot.isVisible()
+						|| e.overlayRoot.getVisibility() != View.VISIBLE) {
 					continue;
 				}
 				ExtraTextSlot.Mode mode = e.slot.getMode();
 				if (mode == ExtraTextSlot.Mode.FLOAT) {
 					continue;
 				}
-				int h = 0;
-				ViewGroup.LayoutParams lp = e.overlayRoot.getLayoutParams();
-				if (lp != null && lp.height > 0) {
-					h = lp.height;
-				}
-				if (h <= 0) {
-					h = e.overlayRoot.getHeight();
-				}
-				if (h <= 0) {
-					continue;
-				}
+				ensureViewId(e.overlayRoot);
+				int h = measureOverlayHeightPx(e);
 				if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
-					if (h > topPx) {
-						topPx = h;
+					if (h >= topH) {
+						topH = h;
+						topAnchor = e.overlayRoot;
 					}
 				} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
-					if (h > bottomPx) {
-						bottomPx = h;
+					if (h >= bottomH) {
+						bottomH = h;
+						bottomAnchor = e.overlayRoot;
 					}
 				}
 			}
 		}
-		host.setMainTextDrawerInsets(topPx, bottomPx);
+		host.setMainTextDrawerPushAnchors(topAnchor, bottomAnchor);
+	}
+
+	/** Prefer layout params height; fall back to measured/on-screen height. */
+	private int measureOverlayHeightPx(OverlayEntry e) {
+		if (e == null || e.overlayRoot == null) {
+			return 0;
+		}
+		ViewGroup.LayoutParams lp = e.overlayRoot.getLayoutParams();
+		if (lp != null && lp.height > 0) {
+			return lp.height;
+		}
+		int h = e.overlayRoot.getHeight();
+		if (h <= 0) {
+			h = e.overlayRoot.getMeasuredHeight();
+		}
+		return Math.max(0, h);
+	}
+
+	private static void ensureViewId(View v) {
+		if (v != null && v.getId() == View.NO_ID) {
+			v.setId(View.generateViewId());
+		}
 	}
 
 	/** True if {@code windowName} is an extra-text slot (skip {@code initWindow}). */
@@ -235,7 +256,7 @@ public class ExtraTextOverlayController {
 			destroyEntry(names.get(i));
 		}
 		entries.clear();
-		host.setMainTextDrawerInsets(0, 0);
+		host.setMainTextDrawerPushAnchors(null, null);
 	}
 
 	private OverlayEntry inflateOverlay(MainWindow activity, RelativeLayout container,
@@ -254,6 +275,7 @@ public class ExtraTextOverlayController {
 		e.edgeBottom = root.findViewById(R.id.extra_text_edge_bottom);
 		e.resizeHandle = root.findViewById(R.id.extra_text_resize_handle);
 		e.overlayRoot.setTag("extra_text_overlay:" + slot.getName());
+		ensureViewId(e.overlayRoot);
 
 		RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
 				RelativeLayout.LayoutParams.MATCH_PARENT,
@@ -479,6 +501,13 @@ public class ExtraTextOverlayController {
 			e.resizeHandle.bringToFront();
 		}
 		updateMainTextInsets();
+		// Re-anchor after the drawer has a real laid-out height / position.
+		e.overlayRoot.post(new Runnable() {
+			@Override
+			public void run() {
+				updateMainTextInsets();
+			}
+		});
 	}
 
 	private int measureTitleBarHeight(OverlayEntry e, float density) {

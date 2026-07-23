@@ -61,7 +61,7 @@ public final class ExtraTextWindowsDialog {
 		TextView intro = new TextView(context);
 		intro.setText("Extra text windows (max " + ExtraTextSlotsStore.MAX_SLOTS
 				+ "). Names: lowercase a-z, 0-9, _. Used by gag/replace retarget, "
-				+ "AppendLineToWindow, and .window.");
+				+ "AppendLineToWindow, GMCP routes, and .window.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
 		root.addView(intro);
@@ -91,10 +91,12 @@ public final class ExtraTextWindowsDialog {
 					row.setPadding(0, 0, 0, pad / 2);
 
 					TextView title = new TextView(context);
+					String gmcpHint = slot.getGmcpModulesCsv();
 					title.setText(slot.getName() + " — " + slot.getTitle()
 							+ " [" + slot.getMode().toJsonValue() + "]"
 							+ " " + slot.getOpacity() + "%"
-							+ (slot.isVisible() ? "" : " (hidden)"));
+							+ (slot.isVisible() ? "" : " (hidden)")
+							+ (gmcpHint.length() > 0 ? ("\nGMCP: " + gmcpHint) : ""));
 					title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
 					row.addView(title);
 
@@ -230,6 +232,17 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "Visibility"));
 		form.addView(visible);
 
+		final EditText gmcp = new EditText(context);
+		gmcp.setHint("Char.Vitals, Comm.*, Char.");
+		gmcp.setSingleLine(false);
+		gmcp.setMinLines(2);
+		if (existing != null) {
+			gmcp.setText(existing.getGmcpModulesCsv());
+		}
+		form.addView(label(context,
+				"GMCP modules (comma-separated; exact, Char., or Comm.*)"));
+		form.addView(gmcp);
+
 		AlertDialog.Builder b = new AlertDialog.Builder(context);
 		b.setTitle(existing == null ? "Add window" : "Edit window");
 		b.setView(form);
@@ -275,6 +288,8 @@ public final class ExtraTextWindowsDialog {
 					slot.setOpacity(85);
 				}
 				slot.setVisible(visible.getSelectedItemPosition() == 0);
+				String gmcpCsv = gmcp.getText() != null ? gmcp.getText().toString() : "";
+				slot.setGmcpModulesCsv(gmcpCsv);
 				if (existing == null) {
 					if (slots.size() >= ExtraTextSlotsStore.MAX_SLOTS) {
 						Toast.makeText(context, "Maximum slots reached.", Toast.LENGTH_SHORT).show();

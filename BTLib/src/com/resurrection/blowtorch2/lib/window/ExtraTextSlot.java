@@ -64,6 +64,12 @@ public final class ExtraTextSlot {
 	private int opacity = 85;
 	private boolean visible = true;
 	private boolean collapsed = false;
+	/**
+	 * GMCP module names/patterns routed into this slot (case-insensitive).
+	 * Exact match, or prefix with trailing {@code .} / {@code .*}/ {@code *}
+	 * (e.g. {@code Char.Vitals}, {@code Char.}, {@code Comm.*}).
+	 */
+	private final java.util.ArrayList<String> gmcpModules = new java.util.ArrayList<String>();
 
 	public ExtraTextSlot() {
 	}
@@ -168,6 +174,105 @@ public final class ExtraTextSlot {
 		this.collapsed = collapsed;
 	}
 
+	/** Never null; may be empty. */
+	public java.util.ArrayList<String> getGmcpModules() {
+		return gmcpModules;
+	}
+
+	public void setGmcpModules(final java.util.List<String> modules) {
+		gmcpModules.clear();
+		if (modules == null) {
+			return;
+		}
+		for (int i = 0; i < modules.size(); i++) {
+			String m = normalizeGmcpPattern(modules.get(i));
+			if (m != null && !gmcpModules.contains(m)) {
+				gmcpModules.add(m);
+			}
+		}
+	}
+
+	/** Parse comma/space separated patterns from the Options editor. */
+	public void setGmcpModulesCsv(final String csv) {
+		gmcpModules.clear();
+		if (csv == null || csv.trim().length() == 0) {
+			return;
+		}
+		String[] parts = csv.split("[,;\\s]+");
+		for (int i = 0; i < parts.length; i++) {
+			String m = normalizeGmcpPattern(parts[i]);
+			if (m != null && !gmcpModules.contains(m)) {
+				gmcpModules.add(m);
+			}
+		}
+	}
+
+	public String getGmcpModulesCsv() {
+		if (gmcpModules.isEmpty()) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < gmcpModules.size(); i++) {
+			if (i > 0) {
+				sb.append(", ");
+			}
+			sb.append(gmcpModules.get(i));
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * True if this slot should receive {@code module} (e.g. {@code Char.Vitals}).
+	 */
+	public boolean matchesGmcpModule(final String module) {
+		if (module == null || module.length() == 0 || gmcpModules.isEmpty()) {
+			return false;
+		}
+		String mod = module.trim();
+		for (int i = 0; i < gmcpModules.size(); i++) {
+			if (patternMatchesModule(gmcpModules.get(i), mod)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static String normalizeGmcpPattern(final String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String s = raw.trim();
+		if (s.length() == 0) {
+			return null;
+		}
+		return s;
+	}
+
+	static boolean patternMatchesModule(final String pattern, final String module) {
+		if (pattern == null || module == null) {
+			return false;
+		}
+		String p = pattern.trim();
+		String m = module.trim();
+		if (p.length() == 0 || m.length() == 0) {
+			return false;
+		}
+		// Trailing .* or * → prefix
+		if (p.endsWith(".*")) {
+			String pref = p.substring(0, p.length() - 2);
+			return m.regionMatches(true, 0, pref, 0, pref.length());
+		}
+		if (p.endsWith("*") && !p.endsWith(".*")) {
+			String pref = p.substring(0, p.length() - 1);
+			return m.regionMatches(true, 0, pref, 0, pref.length());
+		}
+		// Trailing . → family prefix (Char. matches Char.Vitals)
+		if (p.endsWith(".")) {
+			return m.regionMatches(true, 0, p, 0, p.length());
+		}
+		return m.equalsIgnoreCase(p);
+	}
+
 	/** Deep copy for safe UI/service handoff. */
 	public ExtraTextSlot copy() {
 		ExtraTextSlot s = new ExtraTextSlot();
@@ -182,6 +287,8 @@ public final class ExtraTextSlot {
 		s.opacity = this.opacity;
 		s.visible = this.visible;
 		s.collapsed = this.collapsed;
+		s.gmcpModules.clear();
+		s.gmcpModules.addAll(this.gmcpModules);
 		return s;
 	}
 
@@ -199,6 +306,13 @@ public final class ExtraTextSlot {
 		o.put("opacity", opacity);
 		o.put("visible", visible);
 		o.put("collapsed", collapsed);
+		if (!gmcpModules.isEmpty()) {
+			org.json.JSONArray arr = new org.json.JSONArray();
+			for (int i = 0; i < gmcpModules.size(); i++) {
+				arr.put(gmcpModules.get(i));
+			}
+			o.put("gmcp", arr);
+		}
 		return o;
 	}
 
@@ -243,6 +357,22 @@ public final class ExtraTextSlot {
 		s.opacity = op;
 		s.visible = o.optBoolean("visible", true);
 		s.collapsed = o.optBoolean("collapsed", false);
+		s.gmcpModules.clear();
+		org.json.JSONArray gmcp = o.optJSONArray("gmcp");
+		if (gmcp != null) {
+			for (int i = 0; i < gmcp.length(); i++) {
+				String m = normalizeGmcpPattern(gmcp.optString(i, ""));
+				if (m != null && !s.gmcpModules.contains(m)) {
+					s.gmcpModules.add(m);
+				}
+			}
+		} else {
+			// Also accept a single string / CSV for hand-edited JSON.
+			String csv = o.optString("gmcp", "");
+			if (csv != null && csv.length() > 0 && !csv.startsWith("[")) {
+				s.setGmcpModulesCsv(csv);
+			}
+		}
 		return s;
 	}
 }
