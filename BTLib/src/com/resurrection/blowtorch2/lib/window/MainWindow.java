@@ -278,6 +278,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			new java.util.ArrayList<ExtraTextSlot>();
 	private boolean extraTextWindowsEnabled = true;
 	private boolean extraTextPushMain = true;
+	/** Last push insets applied to mainDisplay (px); -1 = not tracking. */
+	private int mainTextDrawerInsetTopPx = 0;
+	private int mainTextDrawerInsetBottomPx = 0;
+	/** True while mainDisplay uses explicit height for drawer push. */
+	private boolean mainTextDrawerPushActive = false;
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -3718,8 +3723,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
-				public void setMainTextDrawerPushAnchors(View topDrawer, View bottomDrawer) {
-					MainWindow.this.applyMainTextDrawerPushAnchors(topDrawer, bottomDrawer);
+				public void setMainTextDrawerInsets(int topPx, int bottomPx) {
+					MainWindow.this.applyMainTextDrawerInsets(topPx, bottomPx);
 				}
 			});
 		}
@@ -3734,65 +3739,110 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Anchor mainDisplay below a top drawer and/or above a bottom drawer so game
-	 * text is not covered. Leaves {@code button_window} full-bleed. Floating
-	 * overlays never use this. Null anchors restore the default chrome layout
-	 * (ALIGN_PARENT_TOP + ABOVE input bar).
+	 * Shrink mainDisplay around top/bottom drawers with an <b>explicit pixel
+	 * height</b>. MATCH_PARENT + margins / sibling ABOVE rules leave the Window
+	 * full-bleed (black strip covers text without reflow). button_window is
+	 * untouched. Floating overlays never use this.
 	 */
-	private void applyMainTextDrawerPushAnchors(View topDrawer, View bottomDrawer) {
-		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+	private void applyMainTextDrawerInsets(int topPx, int bottomPx) {
+		if (topPx < 0) {
+			topPx = 0;
+		}
+		if (bottomPx < 0) {
+			bottomPx = 0;
+		}
+		mainTextDrawerInsetTopPx = topPx;
+		mainTextDrawerInsetBottomPx = bottomPx;
+
+		final RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 		if (rl == null) {
 			return;
 		}
-		View main = rl.findViewWithTag("mainDisplay");
+		final View main = rl.findViewWithTag("mainDisplay");
 		if (!(main instanceof com.resurrection.blowtorch2.lib.window.Window)) {
 			return;
 		}
-		ViewGroup.LayoutParams glp = main.getLayoutParams();
+		final ViewGroup.LayoutParams glp = main.getLayoutParams();
 		if (!(glp instanceof RelativeLayout.LayoutParams)) {
 			return;
 		}
-		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
-		int wantBelow = (topDrawer != null) ? topDrawer.getId() : 0;
-		int wantAbove = (bottomDrawer != null)
-				? bottomDrawer.getId()
-				: ChromeController.LEGACY_INPUT_BAR_ID;
-		if (wantBelow != 0 && wantBelow == View.NO_ID) {
-			return;
-		}
-		if (bottomDrawer != null && wantAbove == View.NO_ID) {
-			return;
-		}
 
-		int curBelow = lp.getRule(RelativeLayout.BELOW);
-		int curAbove = lp.getRule(RelativeLayout.ABOVE);
-		boolean wantAlignTop = (topDrawer == null);
-		boolean curAlignTop = lp.getRule(RelativeLayout.ALIGN_PARENT_TOP)
-				== RelativeLayout.TRUE;
-		boolean changed = curBelow != wantBelow
-				|| curAbove != wantAbove
-				|| curAlignTop != wantAlignTop
-				|| lp.topMargin != 0
-				|| lp.bottomMargin != 0;
+		final int top = topPx;
+		final int bottom = bottomPx;
+		Runnable apply = new Runnable() {
+			@Override
+			public void run() {
+				ViewGroup.LayoutParams cur = main.getLayoutParams();
+				if (!(cur instanceof RelativeLayout.LayoutParams)) {
+					return;
+				}
+				RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) cur;
+				View input = rl.findViewById(ChromeController.LEGACY_INPUT_BAR_ID);
+				if (input == null) {
+					input = findViewById(R.id.inputbar);
+				}
 
-		// Clear the broken margin-based approach from earlier builds.
-		lp.topMargin = 0;
-		lp.bottomMargin = 0;
+				if (top <= 0 && bottom <= 0) {
+					mainTextDrawerPushActive = false;
+					lp.topMargin = 0;
+					lp.bottomMargin = 0;
+					lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
+					lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+					lp.removeRule(RelativeLayout.BELOW);
+					lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
+					if (chrome != null) {
+						chrome.anchorWindowAboveInputChrome(lp, "mainDisplay");
+					}
+					main.setLayoutParams(lp);
+					main.requestLayout();
+					main.invalidate();
+					return;
+				}
 
-		if (topDrawer != null) {
-			lp.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
-			lp.addRule(RelativeLayout.BELOW, wantBelow);
+				int inputTop = 0;
+				if (input != null) {
+					inputTop = input.getTop();
+					if (inputTop <= 0) {
+						int parentH = rl.getHeight();
+						int inputH = input.getHeight();
+						if (parentH > 0 && inputH > 0) {
+							inputTop = parentH - inputH;
+						}
+					}
+				}
+				if (inputTop <= 0) {
+					inputTop = rl.getHeight();
+				}
+				if (inputTop <= 0) {
+					// Not laid out yet — try again next frame.
+					rl.post(this);
+					return;
+				}
+
+				int height = inputTop - top - bottom;
+				if (height < 80) {
+					height = 80;
+				}
+
+				mainTextDrawerPushActive = true;
+				lp.topMargin = top;
+				lp.bottomMargin = 0;
+				lp.height = height;
+				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+				lp.removeRule(RelativeLayout.BELOW);
+				// Explicit top+height already clears the drawer and input; ABOVE
+				// MATCH_PARENT would fight this and restore full-bleed paint.
+				lp.removeRule(RelativeLayout.ABOVE);
+				main.setLayoutParams(lp);
+				main.requestLayout();
+				main.invalidate();
+			}
+		};
+
+		if (rl.getHeight() > 0) {
+			apply.run();
 		} else {
-			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-			lp.removeRule(RelativeLayout.BELOW);
-		}
-
-		lp.addRule(RelativeLayout.ABOVE, wantAbove);
-
-		if (changed) {
-			main.setLayoutParams(lp);
-			main.requestLayout();
-			main.invalidate();
+			rl.post(apply);
 		}
 	}
 
@@ -4852,8 +4902,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return (int) (48 * getResources().getDisplayMetrics().density);
 	}
 
+	/** True while drawer-push owns mainDisplay height (skip chrome rematerialize). */
+	boolean isMainTextDrawerPushActive() {
+		return mainTextDrawerPushActive;
+	}
+
+	/** Re-apply drawer push after input-bar / chrome size changes. */
+	void reapplyExtraTextPushInsets() {
+		if (extraTextOverlay != null) {
+			extraTextOverlay.reapplyPushInsets();
+		} else if (mainTextDrawerPushActive) {
+			applyMainTextDrawerInsets(mainTextDrawerInsetTopPx, mainTextDrawerInsetBottomPx);
+		}
+	}
+
 	private void refreshGameChrome() {
 		chrome.refresh();
+		reapplyExtraTextPushInsets();
 	}
 
 	/** Tell the connection the real mainDisplay cell grid for NAWS. */

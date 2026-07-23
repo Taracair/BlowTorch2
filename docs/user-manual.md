@@ -458,8 +458,8 @@ Configure under **Options → Extra text windows** (**Enable**, **Drawers push
 game text?**, **Manage windows…**, or advanced JSON). Overlay geometry (drawer
 height, float position, **opacity 40–100%**) is owned by the UI; buffers are
 named `WindowToken`s. When **Drawers push game text?** is on, top/bottom drawers
-anchor `mainDisplay` so game lines sit above/below the drawer (on-screen buttons
-unchanged; floats never push).
+resize `mainDisplay` to an explicit height so game lines sit clear of the drawer
+(on-screen buttons unchanged; floats never push).
 
 ### `.window` forms
 
