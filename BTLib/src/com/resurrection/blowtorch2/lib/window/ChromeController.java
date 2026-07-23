@@ -207,6 +207,18 @@ public final class ChromeController {
 		}
 	}
 
+	/**
+	 * Raise an overlay (mapper / extra text), then put gameplay chrome above it
+	 * so ⋮ stays tappable. Mirrors MapperOverlayController.bringUnderChrome.
+	 */
+	void bringViewUnderChrome(View overlay) {
+		if (overlay != null) {
+			overlay.bringToFront();
+		}
+		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
+		bringGameplayChromeToFront(rl);
+	}
+
 	void layoutGameplayChrome(RelativeLayout rl) {
 		if (rl == null) {
 			return;

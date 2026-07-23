@@ -97,7 +97,11 @@ public class ReplaceResponder extends TriggerResponder implements Parcelable {
 		ReplaceResponder a = this;
 		if(!a.getWith().equals(b.getWith())) return false;
 		if(a.getFireType() != b.getFireType()) return false;
-		if(a.getRetarget() != b.getRetarget()) return false;
+		if(a.retarget == null) {
+			if(b.retarget != null) return false;
+		} else if(!a.retarget.equals(b.retarget)) {
+			return false;
+		}
 		//if(!a.getWindowTarget().equals(b.getWindowTarget())) return false;
 		return true;
 	}
@@ -312,8 +316,13 @@ public class ReplaceResponder extends TriggerResponder implements Parcelable {
 		this.with = with;
 	}
 
+	/** Empty / whitespace-only strings are treated as no retarget (null). */
 	public void setRetarget(String retarget) {
-		this.retarget = retarget;
+		if (retarget == null || retarget.trim().length() == 0) {
+			this.retarget = null;
+		} else {
+			this.retarget = retarget;
+		}
 	}
 
 	public String getRetarget() {

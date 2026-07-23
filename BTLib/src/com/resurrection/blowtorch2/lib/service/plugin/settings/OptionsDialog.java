@@ -478,6 +478,10 @@ public class OptionsDialog extends Dialog {
 				openMcpPackagesDialog();
 				return;
 			}
+			if ("manage_extra_text_windows".equals(key)) {
+				openExtraTextWindowsDialog();
+				return;
+			}
 			try {
 				service.callPluginFunction(selectedPlugin, (String)option.getValue());
 			} catch (RemoteException e) {
@@ -728,6 +732,73 @@ public class OptionsDialog extends Dialog {
 				} catch (RemoteException e) {
 					return "";
 				}
+			}
+		});
+	}
+
+	private void openExtraTextWindowsDialog() {
+		final Context ctx = getContext();
+		ExtraTextWindowsDialog.show(ctx, new ExtraTextWindowsDialog.Host() {
+			@Override
+			public IConnectionBinder getService() {
+				return service;
+			}
+
+			@Override
+			public String getSlotsJson() {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey(
+								com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore.SETTING_KEY);
+						if (o instanceof StringOption) {
+							Object val = ((StringOption) o).getValue();
+							if (val != null) {
+								return val.toString();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return "[]";
+			}
+
+			@Override
+			public boolean isEnabled() {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey(
+								com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore.ENABLED_KEY);
+						if (o instanceof BooleanOption) {
+							Object val = ((BooleanOption) o).getValue();
+							if (val instanceof Boolean) {
+								return ((Boolean) val).booleanValue();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return true;
+			}
+
+			@Override
+			public void applySlotsJson(String json, boolean enabled) {
+				try {
+					service.updateStringSetting(
+							com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore.SETTING_KEY,
+							json != null ? json : "[]");
+					service.updateBooleanSetting(
+							com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore.ENABLED_KEY,
+							enabled);
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+
+			@Override
+			public void onSlotsChanged() {
+				// Settings update triggers Connection.ensureExtraTextSlots + UI notify.
 			}
 		});
 	}

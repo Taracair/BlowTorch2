@@ -539,6 +539,33 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		sg.addOption(mapperOptions);
 
+		SettingsGroup extraTextOptions = new SettingsGroup();
+		extraTextOptions.setTitle("Extra text windows");
+		extraTextOptions.setDescription("Optional drawer/floating text panes (chat, tells, combat). Overlay owns geometry; lines target the slot name.");
+
+		BooleanOption extra_text_enabled = new BooleanOption();
+		extra_text_enabled.setTitle("Enable Extra Text Windows?");
+		extra_text_enabled.setDescription("Master switch for extra text overlays. Slot definitions are kept when off.");
+		extra_text_enabled.setKey("extra_text_windows_enabled");
+		extra_text_enabled.setValue(true);
+		extraTextOptions.addOption(extra_text_enabled);
+
+		CallbackOption manage_extra_text = new CallbackOption();
+		manage_extra_text.setTitle("Manage windows…");
+		manage_extra_text.setDescription("Add, remove, or edit extra text windows (list / mode / height / show).");
+		manage_extra_text.setKey("manage_extra_text_windows");
+		manage_extra_text.setValue("manage_extra_text_windows");
+		extraTextOptions.addOption(manage_extra_text);
+
+		StringOption extra_text_windows = new StringOption();
+		extra_text_windows.setTitle("Windows JSON");
+		extra_text_windows.setDescription("Persisted slot list (JSON array). Prefer Manage windows…; edit raw JSON only if needed.");
+		extra_text_windows.setKey("extra_text_windows");
+		extra_text_windows.setValue("[]");
+		extraTextOptions.addOption(extra_text_windows);
+
+		sg.addOption(extraTextOptions);
+
 		SettingsGroup miscOptions = new SettingsGroup();
 		miscOptions.setTitle("Miscellaneous");
 		miscOptions.setDescription("Storage paths, permissions, and other app-wide helpers.");

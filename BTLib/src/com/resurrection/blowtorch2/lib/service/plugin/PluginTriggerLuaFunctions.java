@@ -201,6 +201,7 @@ NewTrigger(name,pattern,config[,action,...])
 --{
 --	type = "replace", (must be set for the action type).
 --	text = [string] text to replace matched text with.
+--	retarget = [string] optional window/slot to send the replaced line to.
 --}
 
 --color action table configuration
@@ -453,23 +454,33 @@ class NewTriggerFunction extends JavaFunction {
 					log = true;
 				}
 				
-				if(retarget == null && !(retarget instanceof String)) {
-					retarget = "";
+				if(retarget != null && !(retarget instanceof String)) {
+					retarget = null;
+				}
+				if(retarget instanceof String && ((String) retarget).trim().length() == 0) {
+					retarget = null;
 				}
 				
 				tmp.setGagOutput((Boolean)output);
 				tmp.setGagLog((Boolean)log);
-				tmp.setRetarget((String)retarget);
+				tmp.setRetarget(retarget == null ? null : (String) retarget);
 				
 				r = tmp;
 			} else if(type.equals("replace")) {
 				ReplaceResponder tmp = new ReplaceResponder();
 				Object text = data.get("text");
+				Object retarget = data.get("retarget");
 				if(text == null || !(text instanceof String)) {
 					text = "";
 				}
+				if(retarget != null && !(retarget instanceof String)) {
+					retarget = null;
+				}
+				if(retarget instanceof String && ((String) retarget).trim().length() == 0) {
+					retarget = null;
+				}
 				tmp.setWith((String)text);
-				tmp.setRetarget(null);
+				tmp.setRetarget(retarget == null ? null : (String) retarget);
 				r = tmp;
 			} else if(type.equals("color")) {
 				ColorAction tmp = new ColorAction();

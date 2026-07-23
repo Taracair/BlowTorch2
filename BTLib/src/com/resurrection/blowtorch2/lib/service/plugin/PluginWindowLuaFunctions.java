@@ -15,18 +15,21 @@ import com.resurrection.blowtorch2.lib.window.TextTree;
 /*! \page page1
 \section service Service Functions
 \subsection AppendLineToWindow AppendLineToWindow
-Sends a packet of GMCP data to the server
- 
+Appends a line (or string) to a named window / extra text slot.
+
 \par Full Signature
 \luacode
-AppendLineToWindow(line,windowName)
+AppendLineToWindow(windowName, line)
 \endluacode
-\param line \b com.resurrection.blowtorch2.lib.window.TextTree$Line the line to append, this usually comes from a trigger callback
+\param windowName \b string window or extra-text slot id (e.g. {@code chat}); {@code main} aliases to {@code mainDisplay}
+\param line \b com.resurrection.blowtorch2.lib.window.TextTree$Line or \b string the line to append
 \returns none
 \par Example 
 \luacode
 function calledFromTrigger(line,number,map)
-AppendLineToWindow(line,GetPluginID().."_chat_window")
+AppendLineToWindow(GetPluginID().."_chat_window", line)
+-- or an extra text slot:
+AppendLineToWindow("chat", line)
 end
 \endluacode
 */
@@ -41,8 +44,7 @@ class AppendLineToWindowFunction extends JavaFunction {
 
 	@Override
 	public int execute() throws LuaException {
-		//the only arguments should be a TextTree.Line copied from the one passed to it from a trigger script action
-		//and the window id to send it to.
+		// Args match Java: (windowName, line). getParam(1) is the function.
 		LuaObject o = this.getParam(3);
 		
 		TextTree.Line line = null;
@@ -475,6 +477,344 @@ class WindowXCallSFunction extends JavaFunction {
 		plugin.mHandler.sendMessage(msg);
 		// TODO Auto-generated method stub
 		return 1;
+	}
+}
+
+/*! \page page1
+\subsection CreateTextWindow CreateTextWindow
+Creates or updates an extra text window slot (drawer/float overlay). Max 8 slots.
+Slot names: lowercase {@code [a-z0-9_]+}, length 1–24. Reserved: {@code main}, {@code mainDisplay}, {@code button_window}.
+
+\par Full Signature
+\luacode
+CreateTextWindow(name [, title])
+\endluacode
+\param name \b string public slot id
+\param title \b string optional display title (defaults to name)
+\returns \b boolean true if accepted
+\par Example
+\luacode
+CreateTextWindow("chat", "Chat")
+\endluacode
+*/
+class CreateTextWindowFunction extends JavaFunction {
+	Plugin plugin;
+
+	public CreateTextWindowFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject pName = this.getParam(2);
+		LuaObject pTitle = this.getParam(3);
+		if (pName == null || pName.isNil() || !pName.isString()) {
+			L.pushBoolean(false);
+			return 1;
+		}
+		String name = pName.getString();
+		String title = null;
+		if (pTitle != null && !pTitle.isNil() && pTitle.isString()) {
+			title = pTitle.getString();
+		}
+		Connection c = ExtraTextLuaSupport.connection(plugin);
+		boolean ok = false;
+		if (c != null) {
+			com.resurrection.blowtorch2.lib.window.ExtraTextSlot slot =
+					c.findExtraTextSlot(name);
+			if (slot == null) {
+				slot = new com.resurrection.blowtorch2.lib.window.ExtraTextSlot(name);
+			}
+			if (title != null && title.length() > 0) {
+				slot.setTitle(title);
+			}
+			ok = c.upsertExtraTextSlot(slot);
+		}
+		L.pushBoolean(ok);
+		return 1;
+	}
+}
+
+/*! \page page1
+\subsection DestroyTextWindow DestroyTextWindow
+Removes an extra text window slot and its buffer token.
+
+\par Full Signature
+\luacode
+DestroyTextWindow(name)
+\endluacode
+\param name \b string slot id
+\returns \b boolean true if a slot was removed
+*/
+class DestroyTextWindowFunction extends JavaFunction {
+	Plugin plugin;
+
+	public DestroyTextWindowFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject pName = this.getParam(2);
+		boolean ok = false;
+		if (pName != null && !pName.isNil() && pName.isString()) {
+			Connection c = ExtraTextLuaSupport.connection(plugin);
+			if (c != null) {
+				ok = c.removeExtraTextSlot(pName.getString());
+			}
+		}
+		L.pushBoolean(ok);
+		return 1;
+	}
+}
+
+/*! \page page1
+\subsection ListTextWindows ListTextWindows
+Returns a 1-based Lua array of configured extra text slot names.
+
+\par Full Signature
+\luacode
+names = ListTextWindows()
+\endluacode
+\returns \b table array of strings
+*/
+class ListTextWindowsFunction extends JavaFunction {
+	Plugin plugin;
+
+	public ListTextWindowsFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		Connection c = ExtraTextLuaSupport.connection(plugin);
+		L.newTable();
+		int i = 1;
+		if (c != null) {
+			java.util.ArrayList<com.resurrection.blowtorch2.lib.window.ExtraTextSlot> slots =
+					c.getExtraTextSlots();
+			for (int n = 0; n < slots.size(); n++) {
+				com.resurrection.blowtorch2.lib.window.ExtraTextSlot s = slots.get(n);
+				if (s != null && s.getName() != null) {
+					L.pushNumber(i);
+					L.pushString(s.getName());
+					L.setTable(-3);
+					i++;
+				}
+			}
+		}
+		return 1;
+	}
+}
+
+/*! \page page1
+\subsection ShowTextWindow ShowTextWindow
+Shows or hides an extra text window overlay (does not destroy the slot).
+
+\par Full Signature
+\luacode
+ShowTextWindow(name, visible)
+\endluacode
+\param name \b string slot id
+\param visible \b boolean
+\returns \b boolean true if the slot existed and was updated
+*/
+class ShowTextWindowFunction extends JavaFunction {
+	Plugin plugin;
+
+	public ShowTextWindowFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject pName = this.getParam(2);
+		LuaObject pVis = this.getParam(3);
+		boolean ok = false;
+		if (pName != null && !pName.isNil() && pName.isString()) {
+			boolean visible = true;
+			if (pVis != null && !pVis.isNil()) {
+				if (pVis.isBoolean()) {
+					visible = pVis.getBoolean();
+				} else if (pVis.isNumber()) {
+					visible = pVis.getNumber() != 0;
+				}
+			}
+			Connection c = ExtraTextLuaSupport.connection(plugin);
+			if (c != null) {
+				com.resurrection.blowtorch2.lib.window.ExtraTextSlot slot =
+						c.findExtraTextSlot(pName.getString());
+				if (slot != null) {
+					slot.setVisible(visible);
+					ok = c.upsertExtraTextSlot(slot);
+				}
+			}
+		}
+		L.pushBoolean(ok);
+		return 1;
+	}
+}
+
+/*! \page page1
+\subsection ClearTextWindow ClearTextWindow
+Clears the text buffer of a named window / slot.
+
+\par Full Signature
+\luacode
+ClearTextWindow(name)
+\endluacode
+\param name \b string window or slot name
+\returns \b boolean true if a buffer was found and cleared
+*/
+class ClearTextWindowFunction extends JavaFunction {
+	Plugin plugin;
+
+	public ClearTextWindowFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject pName = this.getParam(2);
+		boolean ok = false;
+		if (pName != null && !pName.isNil() && pName.isString()) {
+			ok = ExtraTextLuaSupport.clearWindow(plugin, pName.getString());
+		}
+		L.pushBoolean(ok);
+		return 1;
+	}
+}
+
+/*! \page page1
+\subsection NoteToWindow NoteToWindow
+Client-only note (colored like {@code .note}) appended to a named window / slot. Never sent to the MUD.
+
+\par Full Signature
+\luacode
+NoteToWindow(name, text)
+\endluacode
+\param name \b string window or slot name
+\param text \b string text to show
+\returns none
+\par Example
+\luacode
+-- GMCP hook pattern: literal trigger "%Char.Vitals" with a script responder
+NoteToWindow("vitals", "HP updated")
+\endluacode
+*/
+class NoteToWindowFunction extends JavaFunction {
+	Plugin plugin;
+
+	public NoteToWindowFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject pName = this.getParam(2);
+		LuaObject pText = this.getParam(3);
+		if (pName == null || pName.isNil() || !pName.isString()) {
+			return 0;
+		}
+		String text = "";
+		if (pText != null && !pText.isNil()) {
+			if (pText.isString()) {
+				text = pText.getString();
+			} else if (pText.isNumber()) {
+				text = Double.toString(pText.getNumber());
+			}
+		}
+		String colored = com.resurrection.blowtorch2.lib.service.Colorizer.getBrightCyanColor()
+				+ text + com.resurrection.blowtorch2.lib.service.Colorizer.getWhiteColor();
+		Message m = plugin.mHandler.obtainMessage(Connection.MESSAGE_LINETOWINDOW, "\n" + colored + "\n");
+		m.getData().putString("TARGET", pName.getString());
+		plugin.mHandler.sendMessage(m);
+		return 0;
+	}
+}
+
+/*! \page page1
+\subsection WindowExists WindowExists
+True if an extra text slot or WindowToken with that name exists.
+
+\par Full Signature
+\luacode
+WindowExists(name)
+\endluacode
+\param name \b string
+\returns \b boolean
+*/
+class WindowExistsFunction extends JavaFunction {
+	Plugin plugin;
+
+	public WindowExistsFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		LuaObject pName = this.getParam(2);
+		boolean ok = false;
+		if (pName != null && !pName.isNil() && pName.isString()) {
+			String name = pName.getString();
+			Connection c = ExtraTextLuaSupport.connection(plugin);
+			if (c != null) {
+				if (c.findExtraTextSlot(name) != null) {
+					ok = true;
+				} else if (c.getWindowByName(name) != null) {
+					ok = true;
+				} else if ("main".equals(name) && c.getWindowByName("mainDisplay") != null) {
+					ok = true;
+				}
+			} else if (plugin.parent != null && plugin.parent.getWindowByName(name) != null) {
+				ok = true;
+			}
+		}
+		L.pushBoolean(ok);
+		return 1;
+	}
+}
+
+/** Shared helpers for extra-text Lua functions. */
+final class ExtraTextLuaSupport {
+	private ExtraTextLuaSupport() {
+	}
+
+	static Connection connection(Plugin plugin) {
+		if (plugin != null && plugin.parent instanceof Connection) {
+			return (Connection) plugin.parent;
+		}
+		return null;
+	}
+
+	static boolean clearWindow(Plugin plugin, String name) {
+		if (plugin == null || name == null) {
+			return false;
+		}
+		String target = name;
+		if ("main".equals(name)) {
+			target = "mainDisplay";
+		}
+		WindowToken tok = null;
+		if (plugin.parent != null) {
+			tok = plugin.parent.getWindowByName(target);
+		}
+		if (tok == null) {
+			return false;
+		}
+		if (tok.getBuffer() != null) {
+			tok.getBuffer().empty();
+		}
+		plugin.mHandler.sendMessage(plugin.mHandler.obtainMessage(
+				Connection.MESSAGE_INVALIDATEWINDOWTEXT, target));
+		return true;
 	}
 }
 

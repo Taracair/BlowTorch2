@@ -1,50 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
     android:layout_marginLeft="10dip"
     android:layout_marginRight="10dip"
+    android:minWidth="300dip"
     android:orientation="vertical" >
 
-
     <TextView
-        android:id="@+id/textView2"
+        android:id="@+id/titlebar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#FF999999"
         android:gravity="center_horizontal"
-        android:text="GAG RESPONDER"
+        android:text="REPLACE RESPONDER"
         android:textAppearance="?android:attr/textAppearanceSmall"
         android:textColor="#FF333333"
         android:textSize="15dip"
         android:textStyle="bold" />
 
+    <TextView
+        android:id="@+id/action_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Replace triggered text with:"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
 
-    <LinearLayout
+    <EditText
+        android:id="@+id/function"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:orientation="vertical" >
-
-
-        <CheckBox
-            android:id="@+id/gag_output"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Gag from output" />
-
-
-        <CheckBox
-            android:id="@+id/gag_log"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Gag from log" />
-
-    </LinearLayout>
-
+        android:singleLine="true" />
 
     <TextView
-        android:id="@+id/textView1"
+        android:id="@+id/retarget_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Retarget To Window:"
@@ -59,32 +48,26 @@
         android:id="@+id/retarget_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Custom slot name (optional)" >
-
-        <requestFocus />
-    </EditText>
-
-
+        android:hint="Custom slot name (optional)" />
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" >
-
+        android:layout_height="wrap_content"
+        android:orientation="horizontal" >
 
         <Button
             android:id="@+id/cancel"
-            android:layout_width="wrap_content"
+            android:layout_width="0dip"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Cancel" />
 
         <Button
             android:id="@+id/done"
-            android:layout_width="wrap_content"
+            android:layout_width="0dip"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Done" />
-
     </LinearLayout>
 
 </LinearLayout>

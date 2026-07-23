@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Extra text window overlay: title/drag bar, drawer collapse, float resize. -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/extra_text_overlay_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#FF1A1A1A"
+    android:clickable="true"
+    android:focusable="true"
+    android:padding="2dp">
+
+    <!-- Top edge drag for bottom drawers (height resize). -->
+    <View
+        android:id="@+id/extra_text_edge_top"
+        android:layout_width="match_parent"
+        android:layout_height="10dp"
+        android:layout_alignParentTop="true"
+        android:background="#44E8C547"
+        android:visibility="gone"
+        android:contentDescription="Resize drawer height" />
+
+    <LinearLayout
+        android:id="@+id/extra_text_title_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="36dp"
+        android:layout_below="@id/extra_text_edge_top"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:background="#FF111111"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp">
+
+        <TextView
+            android:id="@+id/extra_text_drag_handle"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingLeft="4dp"
+            android:paddingRight="6dp"
+            android:text="☰"
+            android:textColor="#CCCCCC"
+            android:textSize="16sp"
+            android:contentDescription="Drag window" />
+
+        <TextView
+            android:id="@+id/extra_text_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:gravity="center_vertical"
+            android:maxLines="1"
+            android:text="Window"
+            android:textColor="#EEEEEE"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/extra_text_collapse"
+            android:layout_width="36dp"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="▾"
+            android:textColor="#9EC5FF"
+            android:textSize="16sp"
+            android:visibility="gone"
+            android:contentDescription="Collapse or expand drawer" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/extra_text_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/extra_text_title_bar"
+        android:layout_above="@+id/extra_text_edge_bottom" />
+
+    <TextView
+        android:id="@+id/extra_text_resize_handle"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:gravity="bottom|end"
+        android:paddingBottom="2dp"
+        android:paddingRight="4dp"
+        android:paddingEnd="4dp"
+        android:text="◢"
+        android:textColor="#E8C547"
+        android:textSize="22sp"
+        android:background="#00000000"
+        android:visibility="gone"
+        android:contentDescription="Resize floating window" />
+
+    <!-- Bottom edge drag for top drawers (height resize). -->
+    <View
+        android:id="@+id/extra_text_edge_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="10dp"
+        android:layout_alignParentBottom="true"
+        android:background="#44E8C547"
+        android:visibility="gone"
+        android:contentDescription="Resize drawer height" />
+</RelativeLayout>

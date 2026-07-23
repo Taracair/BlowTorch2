@@ -12,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
@@ -54,6 +55,7 @@ import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
+import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapStore;
@@ -69,6 +71,8 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
+import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
@@ -169,6 +173,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public static final int MESSAGE_UNSET_VARIABLE = 46;
 	/** Native GMCP Room.* → mapper sync (obj = JSON body String; module in Bundle). */
 	public static final int MESSAGE_MAPPER_ROOM = 47;
+
+	/** Extra text window slots changed — UI should sync overlays (via {@link #requestExtraTextUi}). */
+	public static final int MESSAGE_EXTRA_TEXT_CHANGED = 48;
 	
 	/** Sent from various sources, containing a string to be sent to 
 	 * the server in the selected encoding. */
@@ -320,6 +327,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final RemoteCallbackList<IWindowCallback> mWindowCallbacks = new RemoteCallbackList<IWindowCallback>();
 	/** The list of window tokens in loaded order. */
 	ArrayList<WindowToken> mWindows;
+	/** Extra text window slots for this connection (drawer/float overlays). */
+	private ArrayList<ExtraTextSlot> mExtraTextSlots = new ArrayList<ExtraTextSlot>();
 	/** The auto reconnect limit helper varialbe. */
 	private Integer mAutoReconnectLimit;
 	/** The current auto reconnect attempt. */
@@ -497,6 +506,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(msdpcmd.commandName, msdpcmd);
 		MapCommand mapcmd = new MapCommand();
 		mSpecialCommands.put(mapcmd.commandName, mapcmd);
+		WindowCommand windowcmd = new WindowCommand();
+		mSpecialCommands.put(windowcmd.commandName, windowcmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;
@@ -1196,6 +1207,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mMapper.applySettingsFromConnection();
 			mMapper.openMap(MapperController.DEFAULT_MAP_NAME);
 		}
+		ensureExtraTextSlots(false);
 		mService.reloadWindows();
 		
 	}
@@ -1450,9 +1462,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @throws RemoteException Thrown when there is a problem with the aidl bridge.
 	 */
 	protected final void lineToWindow(final String target, final Object line) throws RemoteException {
-		
+		String resolved = target;
+		if (target != null && "main".equals(target)) {
+			resolved = MAIN_WINDOW;
+		}
 		for (WindowToken w : mWindows) {
-			if (w.getName().equals(target)) {
+			if (w.getName().equals(resolved)) {
 				TextTree tmp = new TextTree();
 				tmp.setEncoding(mSettings.getEncoding());
 				if (line instanceof TextTree.Line) {
@@ -1474,7 +1489,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					e.printStackTrace();
 				}
 
-					IWindowCallback c = mWindowCallbackMap.get(target);
+					IWindowCallback c = mWindowCallbackMap.get(resolved);
 					if (c != null) {
 						c.rawDataIncoming(lol);		
 					}
@@ -3511,6 +3526,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void updateStringSetting(final String key, final String value) {
 		mSettings.updateStringSetting(key, value);
+		// SettingsGroup notifies via listener when wired; also apply Connection.KEYS
+		// handlers so extra_text_windows / encoding-style keys always live-update.
+		updateSetting(key, value);
 	}
 	
 	/** Updates a string setting in the target plugin.
@@ -3884,6 +3902,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				if (mMapper != null) {
 					mMapper.setMoveEffectsString((String) o.getValue());
 				}
+				break;
+			case extra_text_windows_enabled:
+				requestExtraTextUi();
+				break;
+			case extra_text_windows:
+				ensureExtraTextSlots(true);
 				break;
 			default:
 				break;
@@ -4783,7 +4807,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_capture_exits_regex,
 		mapper_level_up_commands,
 		mapper_level_down_commands,
-		mapper_move_effects
+		mapper_move_effects,
+		/** Extra text windows master switch. */
+		extra_text_windows_enabled,
+		/** Extra text windows JSON slot list. */
+		extra_text_windows
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
@@ -5444,6 +5472,244 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Ask the UI process to sync extra text overlays after slot list / enable changes.
+	 * Action is typically {@link #MESSAGE_EXTRA_TEXT_CHANGED}.
+	 */
+	public final void requestExtraTextUi() {
+		requestExtraTextUi(MESSAGE_EXTRA_TEXT_CHANGED);
+	}
+
+	/** Ask the UI process to sync extra text overlays with an explicit action code. */
+	public final void requestExtraTextUi(final int action) {
+		if (mService != null) {
+			mService.notifyExtraTextUi(action);
+		}
+	}
+
+	/** Snapshot of configured extra text slots (never null; may be empty). */
+	public final ArrayList<ExtraTextSlot> getExtraTextSlots() {
+		if (mExtraTextSlots == null) {
+			mExtraTextSlots = new ArrayList<ExtraTextSlot>();
+		}
+		ArrayList<ExtraTextSlot> copy = new ArrayList<ExtraTextSlot>(mExtraTextSlots.size());
+		for (ExtraTextSlot s : mExtraTextSlots) {
+			if (s != null) {
+				copy.add(s.copy());
+			}
+		}
+		return copy;
+	}
+
+	/** Whether extra text overlays are enabled (default true). */
+	public final boolean isExtraTextWindowsEnabled() {
+		if (mSettings == null || mSettings.getSettings() == null
+				|| mSettings.getSettings().getOptions() == null) {
+			return true;
+		}
+		try {
+			Object o = mSettings.getSettings().getOptions()
+					.findOptionByKey(ExtraTextSlotsStore.ENABLED_KEY);
+			if (o instanceof BooleanOption) {
+				Object val = ((BooleanOption) o).getValue();
+				if (val instanceof Boolean) {
+					return ((Boolean) val).booleanValue();
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return true;
+	}
+
+	/**
+	 * Ensure each configured slot has a {@link WindowToken} in {@link #mWindows}
+	 * (buffer + default window options; no LayoutGroup). Reloads slots from the
+	 * {@code extra_text_windows} setting first. Notifies UI when {@code notify} is true.
+	 */
+	public final void ensureExtraTextSlots() {
+		ensureExtraTextSlots(true);
+	}
+
+	/**
+	 * Same as {@link #ensureExtraTextSlots()} with optional UI notify
+	 * (skip during {@link #loadPlugins} — {@code reloadWindows} follows).
+	 */
+	public final void ensureExtraTextSlots(final boolean notify) {
+		HashSet<String> previousNames = new HashSet<String>();
+		if (mExtraTextSlots != null) {
+			for (ExtraTextSlot s : mExtraTextSlots) {
+				if (s != null && s.getName() != null) {
+					previousNames.add(s.getName());
+				}
+			}
+		}
+		reloadExtraTextSlotsFromSettings();
+		if (mWindows == null) {
+			mWindows = new ArrayList<WindowToken>();
+		}
+		HashSet<String> nextNames = new HashSet<String>();
+		for (ExtraTextSlot slot : mExtraTextSlots) {
+			if (slot == null || slot.getName() == null) {
+				continue;
+			}
+			String name = slot.getName();
+			nextNames.add(name);
+			if (getWindowByName(name) == null) {
+				WindowToken tok = new WindowToken(name, null, null, mDisplay);
+				tok.setBufferText(true);
+				mWindows.add(tok);
+			}
+		}
+		// Remove tokens for slots that disappeared from the JSON list.
+		for (String old : previousNames) {
+			if (old != null && !nextNames.contains(old) && mWindows != null) {
+				for (int i = mWindows.size() - 1; i >= 0; i--) {
+					WindowToken w = mWindows.get(i);
+					if (w != null && old.equals(w.getName())) {
+						mWindows.remove(i);
+					}
+				}
+			}
+		}
+		if (notify) {
+			requestExtraTextUi();
+		}
+	}
+
+	private void reloadExtraTextSlotsFromSettings() {
+		String json = "[]";
+		if (mSettings != null && mSettings.getSettings() != null
+				&& mSettings.getSettings().getOptions() != null) {
+			try {
+				Object o = mSettings.getSettings().getOptions()
+						.findOptionByKey(ExtraTextSlotsStore.SETTING_KEY);
+				if (o instanceof StringOption) {
+					Object val = ((StringOption) o).getValue();
+					if (val != null) {
+						json = val.toString();
+					}
+				}
+			} catch (Exception e) {
+				Log.w("BlowTorch", "reloadExtraTextSlotsFromSettings failed", e);
+			}
+		}
+		mExtraTextSlots = ExtraTextSlotsStore.parse(json);
+	}
+
+	private void persistExtraTextSlots() {
+		if (mSettings == null || mSettings.getSettings() == null
+				|| mSettings.getSettings().getOptions() == null) {
+			return;
+		}
+		ExtraTextSlotsStore.validate(mExtraTextSlots);
+		String json = ExtraTextSlotsStore.toJson(mExtraTextSlots);
+		mSettings.getSettings().getOptions().setOption(ExtraTextSlotsStore.SETTING_KEY, json);
+		if (mHandler != null) {
+			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+		}
+	}
+
+	/**
+	 * Find a slot by name (normalized). Returns a copy, or null.
+	 */
+	public final ExtraTextSlot findExtraTextSlot(final String name) {
+		String n = ExtraTextSlotsStore.normalizeName(name);
+		if (n == null) {
+			if (name != null) {
+				String lower = name.trim().toLowerCase(java.util.Locale.US);
+				for (ExtraTextSlot s : mExtraTextSlots) {
+					if (s != null && lower.equals(s.getName())) {
+						return s.copy();
+					}
+				}
+			}
+			return null;
+		}
+		for (ExtraTextSlot s : mExtraTextSlots) {
+			if (s != null && n.equals(s.getName())) {
+				return s.copy();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Insert or update a slot by name. Validates name / max 8; persists JSON;
+	 * ensures WindowToken; notifies UI.
+	 *
+	 * @return true if accepted
+	 */
+	public final boolean upsertExtraTextSlot(final ExtraTextSlot slot) {
+		if (slot == null) {
+			return false;
+		}
+		String n = ExtraTextSlotsStore.normalizeName(slot.getName());
+		if (n == null) {
+			return false;
+		}
+		slot.setName(n);
+		if (slot.getTitle() == null || slot.getTitle().length() == 0) {
+			slot.setTitle(n);
+		}
+		int existing = -1;
+		for (int i = 0; i < mExtraTextSlots.size(); i++) {
+			ExtraTextSlot s = mExtraTextSlots.get(i);
+			if (s != null && n.equals(s.getName())) {
+				existing = i;
+				break;
+			}
+		}
+		if (existing >= 0) {
+			mExtraTextSlots.set(existing, slot.copy());
+		} else {
+			if (mExtraTextSlots.size() >= ExtraTextSlotsStore.MAX_SLOTS) {
+				return false;
+			}
+			mExtraTextSlots.add(slot.copy());
+		}
+		persistExtraTextSlots();
+		ensureExtraTextSlots(true);
+		return true;
+	}
+
+	/**
+	 * Remove a slot by name. Persists, drops matching WindowToken if present, notifies UI.
+	 *
+	 * @return true if a slot was removed
+	 */
+	public final boolean removeExtraTextSlot(final String name) {
+		String n = ExtraTextSlotsStore.normalizeName(name);
+		if (n == null && name != null) {
+			n = name.trim().toLowerCase(java.util.Locale.US);
+		}
+		if (n == null || n.length() == 0) {
+			return false;
+		}
+		boolean removed = false;
+		for (int i = mExtraTextSlots.size() - 1; i >= 0; i--) {
+			ExtraTextSlot s = mExtraTextSlots.get(i);
+			if (s != null && n.equals(s.getName())) {
+				mExtraTextSlots.remove(i);
+				removed = true;
+			}
+		}
+		if (!removed) {
+			return false;
+		}
+		persistExtraTextSlots();
+		if (mWindows != null) {
+			for (int i = mWindows.size() - 1; i >= 0; i--) {
+				WindowToken w = mWindows.get(i);
+				if (w != null && n.equals(w.getName())) {
+					mWindows.remove(i);
+				}
+			}
+		}
+		// Keep in-memory list in sync without re-adding the removed token.
+		requestExtraTextUi();
+		return true;
+	}
+
 	/** Optional string payload for {@link #requestMapperUi} (e.g. zoom action). */
 	private volatile String mMapperUiArg;
 
@@ -5535,6 +5801,35 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		Plugin p = mPluginMap.get(plugin);
 		if(p == null) return "Plugin " + plugin + " does not exist.";
 		return p.getOptionValue(key);
+	}
+
+	/**
+	 * Replace slot list, write JSON setting, ensure tokens, optionally save.
+	 * Used by overlay geometry persist and Options / Lua.
+	 */
+	public final void replaceExtraTextSlots(final java.util.List<ExtraTextSlot> slots,
+			final boolean save) {
+		ArrayList<ExtraTextSlot> next = new ArrayList<ExtraTextSlot>();
+		if (slots != null) {
+			for (int i = 0; i < slots.size(); i++) {
+				ExtraTextSlot s = slots.get(i);
+				if (s != null) {
+					next.add(s.copy());
+				}
+			}
+		}
+		ExtraTextSlotsStore.validate(next);
+		mExtraTextSlots = next;
+		String json = ExtraTextSlotsStore.toJson(mExtraTextSlots);
+		if (mSettings != null && mSettings.getSettings() != null
+				&& mSettings.getSettings().getOptions() != null) {
+			mSettings.getSettings().getOptions().setOption(
+					ExtraTextSlotsStore.SETTING_KEY, json);
+		}
+		ensureExtraTextSlots(true);
+		if (save && mHandler != null) {
+			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+		}
 	}
 	
 }

@@ -67,4 +67,6 @@ interface IConnectionBinderCallback {
 	void setRegexWarning(boolean value);
 	/** Mapper overlay: 1=open, 2=close, 3=toggle, 4=refresh snapshot. */
 	void mapperUi(int action);
+	/** Extra text window overlays changed (action typically Connection.MESSAGE_EXTRA_TEXT_CHANGED). */
+	void extraTextUi(int action);
 }

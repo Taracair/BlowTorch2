@@ -78,7 +78,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		mapper_auto_reverse_link, mapper_accept_one_way_specials,
 		mapper_toolbar_actions,
 		mapper_capture_title_regex, mapper_capture_exits_regex,
-		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects
+		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects,
+		extra_text_windows_enabled, extra_text_windows
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -709,6 +710,17 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case mapper_move_effects:
 						if(opt.getValue() != null && !((String)opt.getValue()).equals(
 								MapDirections.defaultMoveEffectsString())) {
+							dooutput = true;
+						}
+						break;
+					case extra_text_windows_enabled:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case extra_text_windows:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals("[]")
+								&& !((String)opt.getValue()).equals("")) {
 							dooutput = true;
 						}
 						break;

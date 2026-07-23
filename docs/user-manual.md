@@ -141,6 +141,7 @@ vars with the **Set Variable** responder or Lua `SetVariable` /
 | `.switch <connection>` | Switch foreground UI to another open connection by display name |
 | `.search …` | Scrollback search; see forms below |
 | `.map …` | Built-in Mapper (record/draw/links/find/path/maps); see Mapper |
+| `.window …` | Extra text windows (list/show/hide/clear/create/destroy); see below |
 
 ### `.trigger` forms
 
@@ -446,6 +447,72 @@ The default `button_window` plugin supports more than tap:
 - **Swipe up / down / left / right** — each direction can run a different command (edit button → Swipe). Overrides classic Flip. Drag roughly a finger-width off the tile.
 - **Hold** — optional command after press-and-hold.
 - **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hint arrows (uncheck to hide U/D/L/R and Hold markers).
+
+## Extra text windows
+
+Optional drawer or floating panes (chat, tells, combat, …) beside the main game
+output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
+slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
+
+Configure under **Options → Extra text windows** (**Enable**, **Manage
+windows…**, or advanced JSON). Overlay geometry (drawer height, float position)
+is owned by the UI; buffers are named `WindowToken`s.
+
+### `.window` forms
+
+```
+.window
+.window list
+.window show <slot>
+.window hide <slot>
+.window clear <slot>
+.window create <slot> [title…]
+.window destroy <slot>
+```
+
+### Gag / replace retarget
+
+In the trigger gag or replace editor, pick a known slot from the spinner
+(**None** = no retarget) or type a custom name. An empty retarget string means
+no retarget. Gag removes the line from the main window and can forward it to the
+slot; replace can rewrite text and optionally send the line to the slot.
+
+Lua `NewTrigger` tables:
+
+```lua
+{ type = "gag", output = true, log = true, retarget = "chat" }
+{ type = "replace", text = "[redacted]", retarget = "tells" }
+```
+
+### Lua (extra text)
+
+```lua
+CreateTextWindow("chat", "Chat")   -- create/update slot
+DestroyTextWindow("chat")
+ListTextWindows()                  -- array of names
+ShowTextWindow("chat", true)
+ClearTextWindow("chat")
+NoteToWindow("chat", "hello")      -- client-only note into the slot
+WindowExists("chat")
+AppendLineToWindow("chat", line)   -- (windowName, line) — matches Java
+```
+
+### GMCP → window pattern
+
+BlowTorch does **not** auto-route all GMCP into extra windows. Use a **literal**
+trigger whose pattern starts with `%` (the GMCP character), then a script (or
+replace/gag) that calls `NoteToWindow` / `AppendLineToWindow`:
+
+```lua
+-- Example: NewTrigger from Lua, or the trigger editor
+NewTrigger("vitals_to_pane", "%Char.Vitals",
+  { regex = false, enabled = true },
+  { type = "script", function = "onVitals" })
+
+function onVitals(line, number, map)
+  NoteToWindow("vitals", "Vitals update")
+end
+```
 
 ## GMCP (short)
 

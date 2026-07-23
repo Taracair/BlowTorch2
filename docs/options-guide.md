@@ -11,6 +11,24 @@ In-game **Options** dialog groups (Program Settings):
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
+| **Extra text windows** | Enable overlays; **Manage windows…** (add/delete/mode/height/show); advanced JSON slot list |
+
+## Extra text windows
+
+Under **Options → Extra text windows**:
+
+| Option | Notes |
+|--------|--------|
+| **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
+| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` / `drawer_bottom` / `float`), drawer height, visibility |
+| **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
+
+Slot **name** is the public id shared with gag/replace retarget, Lua
+(`CreateTextWindow`, `NoteToWindow`, `AppendLineToWindow(windowName, line)`),
+and `.window`. Max 8 slots; reserved names: `main`, `mainDisplay`, `button_window`.
+
+GMCP is not auto-routed into these panes — use a `%Module` literal trigger plus
+`NoteToWindow` / script (see user-manual).
 
 ## Shared storage layout (`/BlowTorch/`)
 
