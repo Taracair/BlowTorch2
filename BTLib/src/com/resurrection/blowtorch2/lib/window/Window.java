@@ -143,6 +143,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mNewestAtTop = false;
 	/** Extra empty pixels above game text (notch / camera). Buttons unaffected. */
 	private int mTopPadding = 0;
+	/**
+	 * Extra insets when an extra-text drawer covers this window (push-main).
+	 * Shrinks the painted text region only — layout stays full-bleed so
+	 * {@code button_window} coordinates are unchanged.
+	 */
+	private int mDrawerInsetTop = 0;
+	private int mDrawerInsetBottom = 0;
 	/** When true, IME lift skips game text windows (input bar still rises). */
 	private boolean mImeKeepText = false;
 	/** The buffer object that this window uses to store and draw ansi text. */
@@ -771,16 +778,37 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Clamped top inset for game text (pixels). */
 	private int textPadTop() {
-		if (mTopPadding <= 0 || mHeight <= 0) {
+		final int raw = mTopPadding + mDrawerInsetTop;
+		if (raw <= 0 || mHeight <= 0) {
 			return 0;
 		}
 		final int minText = Math.max(1, mPrefLineSize);
-		return Math.min(mTopPadding, Math.max(0, mHeight - minText));
+		final int maxPad = Math.max(0, mHeight - minText - Math.max(0, mDrawerInsetBottom));
+		return Math.min(raw, maxPad);
 	}
 
-	/** Drawable text area height after top padding. */
+	/** Drawable text area height after top/bottom padding. */
 	private int contentHeight() {
-		return Math.max(Math.max(1, mPrefLineSize), mHeight - textPadTop());
+		return Math.max(Math.max(1, mPrefLineSize),
+				mHeight - textPadTop() - Math.max(0, mDrawerInsetBottom));
+	}
+
+	/**
+	 * Cover game text with drawer overlays without changing view layout
+	 * (keeps button_window full-bleed). Pass zeros to clear.
+	 */
+	public final void setDrawerTextInsets(final int topPx, final int bottomPx) {
+		int t = topPx < 0 ? 0 : topPx;
+		int b = bottomPx < 0 ? 0 : bottomPx;
+		if (t == mDrawerInsetTop && b == mDrawerInsetBottom) {
+			return;
+		}
+		mDrawerInsetTop = t;
+		mDrawerInsetBottom = b;
+		if (mWidth > 0 && mHeight > 0) {
+			calculateCharacterFeatures(mWidth, mHeight);
+		}
+		invalidate();
 	}
 
 	private void endTextSelectionMode(final View v) {
@@ -1376,7 +1404,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mClipRect.top = textPadTop();
 			mClipRect.left = 0;
 			mClipRect.right = mWidth;
-			mClipRect.bottom = mHeight;
+			mClipRect.bottom = Math.max(mClipRect.top + 1,
+					mHeight - Math.max(0, mDrawerInsetBottom));
 			
 			c.clipRect(mClipRect);
 			

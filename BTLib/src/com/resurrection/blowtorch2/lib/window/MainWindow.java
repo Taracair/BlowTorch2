@@ -3739,10 +3739,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Shrink mainDisplay around top/bottom drawers with an <b>explicit pixel
-	 * height</b>. MATCH_PARENT + margins / sibling ABOVE rules leave the Window
-	 * full-bleed (black strip covers text without reflow). button_window is
-	 * untouched. Floating overlays never use this.
+	 * Push game text clear of top/bottom drawers by insetting the painted text
+	 * region inside {@code mainDisplay} (same idea as Window top-padding).
+	 * Layout stays MATCH_PARENT / ABOVE input so button_window coordinates are
+	 * unchanged and no black layout gap appears. Floating overlays never use this.
 	 */
 	private void applyMainTextDrawerInsets(int topPx, int bottomPx) {
 		if (topPx < 0) {
@@ -3753,97 +3753,43 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		mainTextDrawerInsetTopPx = topPx;
 		mainTextDrawerInsetBottomPx = bottomPx;
+		mainTextDrawerPushActive = (topPx > 0 || bottomPx > 0);
 
-		final RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 		if (rl == null) {
 			return;
 		}
-		final View main = rl.findViewWithTag("mainDisplay");
+		View main = rl.findViewWithTag("mainDisplay");
 		if (!(main instanceof com.resurrection.blowtorch2.lib.window.Window)) {
 			return;
 		}
-		final ViewGroup.LayoutParams glp = main.getLayoutParams();
-		if (!(glp instanceof RelativeLayout.LayoutParams)) {
-			return;
-		}
+		com.resurrection.blowtorch2.lib.window.Window mainWin =
+				(com.resurrection.blowtorch2.lib.window.Window) main;
 
-		final int top = topPx;
-		final int bottom = bottomPx;
-		Runnable apply = new Runnable() {
-			@Override
-			public void run() {
-				ViewGroup.LayoutParams cur = main.getLayoutParams();
-				if (!(cur instanceof RelativeLayout.LayoutParams)) {
-					return;
-				}
-				RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) cur;
-				View input = rl.findViewById(ChromeController.LEGACY_INPUT_BAR_ID);
-				if (input == null) {
-					input = findViewById(R.id.inputbar);
-				}
-
-				if (top <= 0 && bottom <= 0) {
-					mainTextDrawerPushActive = false;
-					lp.topMargin = 0;
-					lp.bottomMargin = 0;
-					lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
-					lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-					lp.removeRule(RelativeLayout.BELOW);
-					lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
-					if (chrome != null) {
-						chrome.anchorWindowAboveInputChrome(lp, "mainDisplay");
-					}
-					main.setLayoutParams(lp);
-					main.requestLayout();
-					main.invalidate();
-					return;
-				}
-
-				int inputTop = 0;
-				if (input != null) {
-					inputTop = input.getTop();
-					if (inputTop <= 0) {
-						int parentH = rl.getHeight();
-						int inputH = input.getHeight();
-						if (parentH > 0 && inputH > 0) {
-							inputTop = parentH - inputH;
-						}
-					}
-				}
-				if (inputTop <= 0) {
-					inputTop = rl.getHeight();
-				}
-				if (inputTop <= 0) {
-					// Not laid out yet — try again next frame.
-					rl.post(this);
-					return;
-				}
-
-				int height = inputTop - top - bottom;
-				if (height < 80) {
-					height = 80;
-				}
-
-				mainTextDrawerPushActive = true;
-				lp.topMargin = top;
+		// Always restore default chrome layout — never shrink/reposition the view.
+		ViewGroup.LayoutParams glp = main.getLayoutParams();
+		if (glp instanceof RelativeLayout.LayoutParams) {
+			RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
+			boolean layoutDirty = lp.topMargin != 0 || lp.bottomMargin != 0
+					|| lp.height != RelativeLayout.LayoutParams.MATCH_PARENT
+					|| lp.getRule(RelativeLayout.ABOVE) != ChromeController.LEGACY_INPUT_BAR_ID
+					|| lp.getRule(RelativeLayout.BELOW) != 0;
+			if (layoutDirty) {
+				lp.topMargin = 0;
 				lp.bottomMargin = 0;
-				lp.height = height;
+				lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
 				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
 				lp.removeRule(RelativeLayout.BELOW);
-				// Explicit top+height already clears the drawer and input; ABOVE
-				// MATCH_PARENT would fight this and restore full-bleed paint.
-				lp.removeRule(RelativeLayout.ABOVE);
+				lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
+				if (chrome != null) {
+					chrome.anchorWindowAboveInputChrome(lp, "mainDisplay");
+				}
 				main.setLayoutParams(lp);
 				main.requestLayout();
-				main.invalidate();
 			}
-		};
-
-		if (rl.getHeight() > 0) {
-			apply.run();
-		} else {
-			rl.post(apply);
 		}
+
+		mainWin.setDrawerTextInsets(topPx, bottomPx);
 	}
 
 	private void handleExtraTextUiAction(int action) {

@@ -20,8 +20,8 @@ Under **Options → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Drawers push game text?** | Top/bottom drawers resize the main game text area to an explicit height so lines sit clear of the drawer. On-screen buttons stay full-bleed. Ignored for floating windows. Default on. |
-| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` / `drawer_bottom` / `float`), drawer height, **opacity % (40–100)**, visibility, **GMCP modules** (comma-separated routes into this pane) |
+| **Drawers push game text?** | Top/bottom drawers inset the painted MUD text inside `mainDisplay` so lines sit clear of the drawer (layout stays full-bleed — on-screen buttons unchanged). Ignored for floating windows. Default on. |
+| **Manage windows…** | List / add / delete / edit name, title, mode, height, opacity, visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
 Slot **name** is the public id shared with gag/replace retarget, Lua
