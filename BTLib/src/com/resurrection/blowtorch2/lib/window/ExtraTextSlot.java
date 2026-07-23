@@ -248,7 +248,8 @@ public final class ExtraTextSlot {
 		return s;
 	}
 
-	static boolean patternMatchesModule(final String pattern, final String module) {
+	/** Match GMCP module name against a route pattern (exact / prefix / wildcard). */
+	public static boolean patternMatchesModule(final String pattern, final String module) {
 		if (pattern == null || module == null) {
 			return false;
 		}

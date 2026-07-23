@@ -159,6 +159,10 @@ public class Processor {
 		mLogProfile = (profile == null || profile.length() == 0) ? "session" : profile;
 	}
 
+	/** Optional patterns that route inbound GMCP into extra text windows (suppress main feed). */
+	private final java.util.ArrayList<String> mGmcpExtraRoutePatterns =
+			new java.util.ArrayList<String>();
+
 	private void logGmcp(final String direction, final String payload) {
 		if (!mLogGMCP && !mDebugTelnet && !mFeedGMCP) {
 			return;
@@ -179,6 +183,10 @@ public class Processor {
 			}
 		}
 		if (mFeedGMCP && mReportTo != null) {
+			// Inbound modules routed to an extra text window are not also dumped in main.
+			if ("IN".equals(direction) && isGmcpRoutedToExtraWindow(safe)) {
+				return;
+			}
 			String shown = safe;
 			if (shown.length() > 360) {
 				shown = shown.substring(0, 360) + "…";
@@ -189,6 +197,45 @@ public class Processor {
 			mReportTo.sendMessageDelayed(
 					mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, msg), 1);
 		}
+	}
+
+	/**
+	 * Patterns from extra-text slot {@code gmcp} lists. When a packet matches,
+	 * {@link #mFeedGMCP} skips echoing it into the main mud window (the pane gets it).
+	 */
+	public final void setGmcpExtraRoutePatterns(final java.util.List<String> patterns) {
+		mGmcpExtraRoutePatterns.clear();
+		if (patterns == null) {
+			return;
+		}
+		for (int i = 0; i < patterns.size(); i++) {
+			String p = patterns.get(i);
+			if (p != null) {
+				String t = p.trim();
+				if (t.length() > 0 && !mGmcpExtraRoutePatterns.contains(t)) {
+					mGmcpExtraRoutePatterns.add(t);
+				}
+			}
+		}
+	}
+
+	private boolean isGmcpRoutedToExtraWindow(final String payload) {
+		if (mGmcpExtraRoutePatterns.isEmpty() || payload == null || payload.length() == 0) {
+			return false;
+		}
+		String whole = payload.trim();
+		int sp = whole.indexOf(' ');
+		String module = sp < 0 ? whole : whole.substring(0, sp);
+		if (module.length() == 0) {
+			return false;
+		}
+		for (int i = 0; i < mGmcpExtraRoutePatterns.size(); i++) {
+			if (com.resurrection.blowtorch2.lib.window.ExtraTextSlot.patternMatchesModule(
+					mGmcpExtraRoutePatterns.get(i), module)) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	/** The main processing routine.
