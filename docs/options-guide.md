@@ -28,11 +28,11 @@ Slot **name** is the public id shared with gag/replace retarget, Lua
 (`CreateTextWindow`, `NoteToWindow`, `AppendLineToWindow(windowName, line)`),
 and `.window`. Max 8 slots; reserved names: `main`, `mainDisplay`, `button_window`.
 
-**GMCP routes:** in Manage windows, set e.g. `Char.Vitals, Comm.*` on a slot.
-Inbound packets for those modules appear as `[GMCP] …` lines in that pane.
-Optional custom formatting still uses a `%Module` literal trigger +
-`NoteToWindow` (see user-manual).
-## Shared storage layout (`/BlowTorch/`)
+**GMCP routes:** in Manage windows, pick modules (or advanced CSV e.g. `Char.Vitals, Comm.*`).
+Inbound packets for those modules appear as `[GMCP] …` in that pane and are
+**not** also echoed into main when **Show GMCP in game window?** is on. Optional
+custom formatting still uses a `%Module` literal trigger + `NoteToWindow`
+(see user-manual). In-band MUD text is separate — gag it if needed.## Shared storage layout (`/BlowTorch/`)
 
 Default for import/export, backups, launcher lists, session logs, maps, and app/GMCP logs is **outside** `Android/data`:
 

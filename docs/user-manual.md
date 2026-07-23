@@ -506,32 +506,16 @@ AppendLineToWindow("chat", line)   -- (windowName, line) — matches Java
 
 ### GMCP → window
 
-**Options → Extra text windows → Manage windows… → Edit** has a **GMCP modules**
-field (comma-separated). Matching inbound GMCP lines are written into that slot
-as `[GMCP] ModuleName {json…}` (passwords redacted). Patterns:
+**Options → Extra text windows → Manage windows… → Edit** has GMCP checkboxes (and an
+advanced CSV). Matching inbound GMCP packets are written into that slot as
+`[GMCP] ModuleName {json…}` (passwords redacted). Patterns: exact (`Char.Vitals`),
+family (`Char.` / `Char.*`), or `Comm.*`.
 
-| Pattern | Matches |
-|---------|---------|
-| `Char.Vitals` | Exact module (case-insensitive) |
-| `Char.` or `Char.*` | Family prefix (`Char.Vitals`, `Char.Status`, …) |
-| `Comm.*` | Same prefix style |
-
-You can still use a **literal** `%Module` trigger + `NoteToWindow` / script when you
-need custom formatting instead of the raw JSON dump:
-
-```lua
-NewTrigger("vitals_to_pane", "%Char.Vitals",
-  { regex = false, enabled = true },
-  { type = "script", function = "onVitals" })
-
-function onVitals(line, number, map)
-  NoteToWindow("vitals", "Vitals update")
-end
-```
-
-BlowTorch does **not** dump every GMCP packet into every pane — only modules you
-list on a slot (or handle yourself with triggers/Lua).
-## GMCP (short)
+GMCP is out-of-band — it does **not** appear in the main mud buffer unless **Show
+GMCP in game window?** is on. When a module is routed to an extra window, that
+module is **not** also fed into main (intercept for the live feed only). Lua GMCP
+watchers and mapper/native handlers still run. In-band MUD lines are unchanged —
+use gag/replace if you also want to hide related room text.## GMCP (short)
 
 Enable under **Options → Service → GMCP Options**. Prefer **Manage modules…**
 over editing the raw Supports String. Helpers:

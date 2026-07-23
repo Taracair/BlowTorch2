@@ -2134,6 +2134,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 			initSettings();
 			applyTerminalNaws();
+			syncGmcpExtraRoutesToProcessor();
 			mPump.start();
 			mGmcp.loadGMCPTriggers();
 			loadMcpTriggers();
@@ -2176,6 +2177,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 		mProcessor.setDisplayName(mDisplay);
 		initSettings();
+		syncGmcpExtraRoutesToProcessor();
 		applyOfflinePresentationDefaults();
 		// Window/button layer may bind slightly later — re-apply once more.
 		mHandler.postDelayed(new Runnable() {
@@ -5662,6 +5664,30 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		mExtraTextSlots = ExtraTextSlotsStore.parse(json);
+		syncGmcpExtraRoutesToProcessor();
+	}
+
+	/** Tell Processor which GMCP modules are claimed by extra-text panes (suppress main feed). */
+	private void syncGmcpExtraRoutesToProcessor() {
+		if (mProcessor == null) {
+			return;
+		}
+		java.util.ArrayList<String> patterns = new java.util.ArrayList<String>();
+		if (mExtraTextSlots != null) {
+			for (int i = 0; i < mExtraTextSlots.size(); i++) {
+				ExtraTextSlot s = mExtraTextSlots.get(i);
+				if (s == null || s.getGmcpModules() == null) {
+					continue;
+				}
+				for (int j = 0; j < s.getGmcpModules().size(); j++) {
+					String p = s.getGmcpModules().get(j);
+					if (p != null && p.trim().length() > 0 && !patterns.contains(p)) {
+						patterns.add(p);
+					}
+				}
+			}
+		}
+		mProcessor.setGmcpExtraRoutePatterns(patterns);
 	}
 
 	private void persistExtraTextSlots() {
