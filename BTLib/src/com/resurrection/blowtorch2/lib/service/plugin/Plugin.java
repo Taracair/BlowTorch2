@@ -248,6 +248,13 @@ public class Plugin implements SettingsChangedListener {
 		WindowXCallSFunction wxctf = new WindowXCallSFunction(L, this);
 		AppendLineToWindowFunction altwf = new AppendLineToWindowFunction(L, this);
 		InvalidateWindowTextFunction iwtf = new InvalidateWindowTextFunction(L, this);
+		CreateTextWindowFunction ctwf = new CreateTextWindowFunction(L, this);
+		DestroyTextWindowFunction dtwf = new DestroyTextWindowFunction(L, this);
+		ListTextWindowsFunction ltwf = new ListTextWindowsFunction(L, this);
+		ShowTextWindowFunction stwf = new ShowTextWindowFunction(L, this);
+		ClearTextWindowFunction cltwf = new ClearTextWindowFunction(L, this);
+		NoteToWindowFunction ntwf = new NoteToWindowFunction(L, this);
+		WindowExistsFunction wef = new WindowExistsFunction(L, this);
 		GMCPSendFunction gsf = new GMCPSendFunction(L, this);
 		MCPSendFunction msf = new MCPSendFunction(L, this);
 		GetMcpStatusFunction gmsf = new GetMcpStatusFunction(L, this);
@@ -288,6 +295,13 @@ public class Plugin implements SettingsChangedListener {
 		//server functions
 		altwf.register("AppendLineToWindow");
 		awsf.register("AppendWindowSettings");
+		ctwf.register("CreateTextWindow");
+		dtwf.register("DestroyTextWindow");
+		ltwf.register("ListTextWindows");
+		stwf.register("ShowTextWindow");
+		cltwf.register("ClearTextWindow");
+		ntwf.register("NoteToWindow");
+		wef.register("WindowExists");
 		esf.register("ExecuteScript");
 		gpsf.register("GetPluginSettings");
 		mwf.register("GetWindowTokenByName");

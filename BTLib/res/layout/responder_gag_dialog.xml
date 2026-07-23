@@ -7,14 +7,6 @@
     android:orientation="vertical" >
 
 
-
-
-
-
-
-
-
-
     <TextView
         android:id="@+id/textView2"
         android:layout_width="match_parent"
@@ -26,8 +18,6 @@
         android:textColor="#FF333333"
         android:textSize="15dip"
         android:textStyle="bold" />
-
-
 
 
     <LinearLayout
@@ -60,11 +50,16 @@
         android:text="Retarget To Window:"
         android:textAppearance="?android:attr/textAppearanceMedium" />
 
+    <Spinner
+        android:id="@+id/retarget_spinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
 
     <EditText
         android:id="@+id/retarget_text"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" >
+        android:layout_height="wrap_content"
+        android:hint="Custom slot name (optional)" >
 
         <requestFocus />
     </EditText>
@@ -74,8 +69,6 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content" >
-
-
 
 
         <Button

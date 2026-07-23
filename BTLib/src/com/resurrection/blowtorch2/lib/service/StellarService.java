@@ -591,6 +591,19 @@ public class StellarService extends Service {
 		}
 		mCallbacks.finishBroadcast();
 	}
+
+	/** Tell the UI process to sync extra text window overlays. */
+	public final void notifyExtraTextUi(final int action) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).extraTextUi(action);
+			} catch (RemoteException e) {
+				// UI may have died; skip
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
 	
 	/** Gets a new unique id for notifications. Always increments the value so it will be unique with each call.
 	 * 

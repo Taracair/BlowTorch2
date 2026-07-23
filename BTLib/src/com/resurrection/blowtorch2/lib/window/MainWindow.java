@@ -247,6 +247,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_MAPPER_UI = 922;
 	/** Re-apply IME chrome lift after Window → Keep text still with keyboard? changes. */
 	public static final int MESSAGE_REFRESH_IME_LIFT = 923;
+	/** Extra text overlays: sync after Connection slot mutate / settings change. */
+	protected static final int MESSAGE_EXTRA_TEXT_UI = 924;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -270,6 +272,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MainWindowSettingsTransfer settingsTransfer;
 	private MapperOverlayController mapperOverlay;
 	private MapperController mapperController;
+	private ExtraTextOverlayController extraTextOverlay;
+	/** Cached extra-text slots from settings (UI process; Connection holds service copy). */
+	private final java.util.ArrayList<ExtraTextSlot> extraTextSlotsCache =
+			new java.util.ArrayList<ExtraTextSlot>();
+	private boolean extraTextWindowsEnabled = true;
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -388,6 +395,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override
 				public void run() {
 					ensureMapperOverlay();
+					ensureExtraTextOverlays();
 				}
 			});
 			//finishInitializiation();
@@ -668,6 +676,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_MAPPER_UI:
 					MainWindow.this.handleMapperUiAction(msg.arg1);
+					break;
+				case MESSAGE_EXTRA_TEXT_UI:
+					MainWindow.this.handleExtraTextUiAction(msg.arg1);
 					break;
 				case MESSAGE_MARKSETTINGSDIRTY:
 					MainWindow.this.markSettingsDirty();
@@ -2840,6 +2851,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//imm.
 			//im
 			//get the rest of the window options that are necessary to function
+
+			refreshExtraTextSlotsFromSettings(group);
+			ensureExtraTextOverlays();
 			
 		} catch (RemoteException e1) {
 			throw new RuntimeException(e1);
@@ -3280,6 +3294,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		public void mapperUi(int action) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_MAPPER_UI, action, 0));
 		}
+
+		@Override
+		public void extraTextUi(int action) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_EXTRA_TEXT_UI, action, 0));
+		}
 	};
 	
 	boolean windowsInitialized = false;
@@ -3355,6 +3374,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				e.printStackTrace();
 			}
 			String dataDir = ai.dataDir;
+
+			try {
+				refreshExtraTextSlotsFromSettings(service.getSettings());
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
 		
 			//initialize windows.
 			for(Object x : mWindows) {
@@ -3399,6 +3424,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			chrome.layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		chrome.updateMenuChrome();
 		ensureMapperOverlay();
+		ensureExtraTextOverlays();
 		//Debug.stopMethodTracing();
 	}
 
@@ -3506,6 +3532,197 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	ChromeController getChromeController() {
+		return chrome;
+	}
+
+	private boolean isExtraTextSlotWindow(String name) {
+		if (name == null) {
+			return false;
+		}
+		if (extraTextOverlay != null && extraTextOverlay.managesWindowName(name)) {
+			return true;
+		}
+		for (int i = 0; i < extraTextSlotsCache.size(); i++) {
+			ExtraTextSlot s = extraTextSlotsCache.get(i);
+			if (s != null && name.equals(s.getName())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void refreshExtraTextSlotsFromSettings(SettingsGroup group) {
+		extraTextSlotsCache.clear();
+		extraTextWindowsEnabled = true;
+		if (group == null) {
+			return;
+		}
+		Object enabledOpt = group.findOptionByKey(ExtraTextSlotsStore.ENABLED_KEY);
+		if (enabledOpt instanceof BaseOption) {
+			Object v = ((BaseOption) enabledOpt).getValue();
+			if (v instanceof Boolean) {
+				extraTextWindowsEnabled = (Boolean) v;
+			}
+		}
+		Object raw = group.findOptionByKey(ExtraTextSlotsStore.SETTING_KEY);
+		String json = "[]";
+		if (raw instanceof BaseOption) {
+			Object v = ((BaseOption) raw).getValue();
+			if (v != null) {
+				json = v.toString();
+			}
+		}
+		java.util.ArrayList<ExtraTextSlot> parsed = ExtraTextSlotsStore.parse(json);
+		ExtraTextSlotsStore.validate(parsed);
+		extraTextSlotsCache.addAll(parsed);
+	}
+
+	/** Bind extra-text overlays under window_container (chrome ⋮ stays above). */
+	private void ensureExtraTextOverlays() {
+		if (extraTextOverlay == null) {
+			extraTextOverlay = new ExtraTextOverlayController(new ExtraTextOverlayController.Host() {
+				@Override
+				public MainWindow getMainWindow() {
+					return MainWindow.this;
+				}
+
+				@Override
+				public java.util.List<ExtraTextSlot> getExtraTextSlots() {
+					if (!extraTextWindowsEnabled) {
+						return java.util.Collections.emptyList();
+					}
+					java.util.ArrayList<ExtraTextSlot> out =
+							new java.util.ArrayList<ExtraTextSlot>();
+					for (int i = 0; i < extraTextSlotsCache.size(); i++) {
+						ExtraTextSlot s = extraTextSlotsCache.get(i);
+						if (s != null) {
+							out.add(s.copy());
+						}
+					}
+					return out;
+				}
+
+				@Override
+				public WindowToken findWindowToken(String name) {
+					if (name == null || service == null) {
+						return null;
+					}
+					try {
+						WindowToken[] tokens = service.getWindowTokens();
+						if (tokens == null) {
+							return null;
+						}
+						for (int i = 0; i < tokens.length; i++) {
+							WindowToken t = tokens[i];
+							if (t != null && name.equals(t.getName())) {
+								return t;
+							}
+						}
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					}
+					return null;
+				}
+
+				@Override
+				public void registerWindowCallback(WindowToken token,
+						com.resurrection.blowtorch2.lib.window.Window window) {
+					if (token == null || window == null || service == null) {
+						return;
+					}
+					try {
+						service.registerWindowCallback(token.getDisplayHost(),
+								token.getName(), window.getCallback());
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					}
+				}
+
+				@Override
+				public void unregisterWindowCallback(WindowToken token,
+						com.resurrection.blowtorch2.lib.window.Window window) {
+					if (window == null || service == null) {
+						return;
+					}
+					try {
+						String key = token != null ? token.getDisplayHost() : "";
+						Object tag = window.getTag();
+						if ((key == null || key.length() == 0) && tag != null) {
+							key = tag.toString();
+						}
+						service.unregisterWindowCallback(key, window.getCallback());
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					}
+				}
+
+				@Override
+				public String getDataDir() {
+					try {
+						ApplicationInfo ai = getPackageManager().getApplicationInfo(
+								getPackageName(), PackageManager.GET_META_DATA);
+						return ai != null ? ai.dataDir : "";
+					} catch (NameNotFoundException e) {
+						return "";
+					}
+				}
+
+				@Override
+				public android.os.Handler getUiHandler() {
+					return myhandler;
+				}
+
+				@Override
+				public void persistExtraTextSlots(java.util.List<ExtraTextSlot> slots) {
+					extraTextSlotsCache.clear();
+					if (slots != null) {
+						java.util.ArrayList<ExtraTextSlot> next =
+								new java.util.ArrayList<ExtraTextSlot>();
+						for (int i = 0; i < slots.size(); i++) {
+							ExtraTextSlot s = slots.get(i);
+							if (s != null) {
+								next.add(s.copy());
+							}
+						}
+						ExtraTextSlotsStore.validate(next);
+						extraTextSlotsCache.addAll(next);
+					}
+					String json = ExtraTextSlotsStore.toJson(extraTextSlotsCache);
+					if (service == null) {
+						return;
+					}
+					try {
+						service.updateStringSetting(ExtraTextSlotsStore.SETTING_KEY, json);
+						service.saveSettings();
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+		if (extraTextSlotsCache.isEmpty() && service != null) {
+			try {
+				refreshExtraTextSlotsFromSettings(service.getSettings());
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
+		}
+		extraTextOverlay.sync();
+	}
+
+	private void handleExtraTextUiAction(int action) {
+		// action is typically Connection.MESSAGE_EXTRA_TEXT_CHANGED (48).
+		try {
+			if (service != null) {
+				refreshExtraTextSlotsFromSettings(service.getSettings());
+			}
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		ensureExtraTextOverlays();
+	}
+
 	private void handleMapperUiAction(int action) {
 		ensureMapperOverlay();
 		if (mapperOverlay == null) {
@@ -3591,6 +3808,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	private void initWindow(WindowToken w,String dataDir) {
+		if (w != null && isExtraTextSlotWindow(w.getName())) {
+			// Overlay owns geometry — ExtraTextOverlayController hosts the Window view.
+			return;
+		}
 		RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
 		View v = rl.findViewWithTag(w.getName());
 		if(v == null) {
@@ -3673,11 +3894,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	
 	public void cleanupWindows() {
+		if (extraTextOverlay != null) {
+			extraTextOverlay.detach();
+		}
 		RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
 		if(mWindows == null) return;
 		for(Object x : mWindows) {
 			if(x instanceof WindowToken) {
 				WindowToken w = (WindowToken)x;
+				if (isExtraTextSlotWindow(w.getName())) {
+					continue;
+				}
 				View tmp = rl.findViewWithTag(w.getName());
 				
 				if(tmp instanceof com.resurrection.blowtorch2.lib.window.Window) {
@@ -3697,6 +3924,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		for(Object x : mWindows) {
 			if(x instanceof WindowToken) {
 				WindowToken w = (WindowToken)x;
+				if (isExtraTextSlotWindow(w.getName())) {
+					continue;
+				}
 				View tmp = rl.findViewWithTag(w.getName());
 				if(tmp instanceof com.resurrection.blowtorch2.lib.window.Window) {
 					((com.resurrection.blowtorch2.lib.window.Window)tmp).closeLua();

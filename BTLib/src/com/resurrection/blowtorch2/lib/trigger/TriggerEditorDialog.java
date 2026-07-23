@@ -654,11 +654,11 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				color.show();
 				break;
 			case GAG:
-				GagActionEditorDialog gag = new GagActionEditorDialog(TriggerEditorDialog.this.getContext(),(GagAction)responder.copy(),TriggerEditorDialog.this);
+				GagActionEditorDialog gag = new GagActionEditorDialog(TriggerEditorDialog.this.getContext(),(GagAction)responder.copy(),TriggerEditorDialog.this, service);
 				gag.show();
 				break;
 			case REPLACE:
-				ReplaceActionEditorDialog rep = new ReplaceActionEditorDialog(TriggerEditorDialog.this.getContext(),(ReplaceResponder)responder.copy(),TriggerEditorDialog.this);
+				ReplaceActionEditorDialog rep = new ReplaceActionEditorDialog(TriggerEditorDialog.this.getContext(),(ReplaceResponder)responder.copy(),TriggerEditorDialog.this, service);
 				rep.show();
 				break;
 			case SET_VARIABLE:
@@ -894,11 +894,11 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			color.show();
 			break;
 		case 5:
-			GagActionEditorDialog gag = new GagActionEditorDialog(TriggerEditorDialog.this.getContext(),null,TriggerEditorDialog.this);
+			GagActionEditorDialog gag = new GagActionEditorDialog(TriggerEditorDialog.this.getContext(),null,TriggerEditorDialog.this, service);
 			gag.show();
 			break;
 		case 6:
-			ReplaceActionEditorDialog rep = new ReplaceActionEditorDialog(TriggerEditorDialog.this.getContext(),null,TriggerEditorDialog.this);
+			ReplaceActionEditorDialog rep = new ReplaceActionEditorDialog(TriggerEditorDialog.this.getContext(),null,TriggerEditorDialog.this, service);
 			rep.show();
 			break;
 		case 7:

@@ -30,7 +30,7 @@ public class GagAction extends TriggerResponder implements Parcelable {
 	private boolean gagLog = DEFAULT_GAGLOG;
 	private boolean gagOutput = DEFAULT_GAGOUTPUT;
 	
-	private String retarget = "";
+	private String retarget = null;
 	public GagAction(RESPONDER_TYPE pType) {
 		super(pType);
 		// TODO Auto-generated constructor stub
@@ -122,7 +122,11 @@ public class GagAction extends TriggerResponder implements Parcelable {
 		GagAction a = this;
 		if(a.gagLog != b.gagLog) return false;
 		if(a.gagOutput != b.gagOutput) return false;
-		if(!a.retarget.equals(b.retarget)) return false;
+		if(a.retarget == null) {
+			if(b.retarget != null) return false;
+		} else if(!a.retarget.equals(b.retarget)) {
+			return false;
+		}
 		if(a.getFireType() != b.getFireType()) return false;
 		return true;
 	}
@@ -182,8 +186,13 @@ public class GagAction extends TriggerResponder implements Parcelable {
 		return gagOutput;
 	}
 
+	/** Empty / whitespace-only strings are treated as no retarget (null). */
 	public void setRetarget(String retarget) {
-		this.retarget = retarget;
+		if(retarget == null || retarget.trim().length() == 0) {
+			this.retarget = null;
+		} else {
+			this.retarget = retarget;
+		}
 	}
 
 	public String getRetarget() {
