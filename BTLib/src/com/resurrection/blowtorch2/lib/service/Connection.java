@@ -5554,10 +5554,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			String name = slot.getName();
 			nextNames.add(name);
-			if (getWindowByName(name) == null) {
+			WindowToken existing = getWindowByName(name);
+			if (existing == null) {
 				WindowToken tok = new WindowToken(name, null, null, mDisplay);
-				tok.setBufferText(true);
+				// Must stay false — bufferText holds bytes without painting (Window.addBytesImpl).
+				tok.setBufferText(false);
 				mWindows.add(tok);
+			} else {
+				existing.setBufferText(false);
 			}
 		}
 		// Remove tokens for slots that disappeared from the JSON list.
