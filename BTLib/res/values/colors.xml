@@ -3,5 +3,7 @@
     <color name="game_input_text">#9999FF</color>
     <color name="game_input_bg">#0A0A0A</color>
     <color name="game_divider">#FF444488</color>
+    <!-- Softer edge for extra-text drawer/float handles (input-bar family, lower alpha). -->
+    <color name="game_chrome_edge">#66444488</color>
     <color name="game_input_highlight">#555555</color>
 </resources>

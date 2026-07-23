@@ -39,7 +39,7 @@ public class ExtraTextSlotsStoreTest {
 	@Test
 	public void parseAndToJson_roundTrip() {
 		String json = "["
-				+ "{\"name\":\"chat\",\"title\":\"Chat\",\"mode\":\"drawer_bottom\","
+				+ "{\"name\":\"chat\",\"title\":\"Chat\",\"mode\":\"drawer_top\","
 				+ "\"height_dp\":160,\"float_x\":24,\"float_y\":120,\"float_w\":320,\"float_h\":220,"
 				+ "\"opacity\":70,\"visible\":true,\"collapsed\":false,"
 				+ "\"gmcp\":[\"Char.Vitals\",\"Comm.*\"]}"
@@ -47,7 +47,7 @@ public class ExtraTextSlotsStoreTest {
 		ArrayList<ExtraTextSlot> slots = ExtraTextSlotsStore.parse(json);
 		assertEquals(1, slots.size());
 		assertEquals("chat", slots.get(0).getName());
-		assertEquals(ExtraTextSlot.Mode.DRAWER_BOTTOM, slots.get(0).getMode());
+		assertEquals(ExtraTextSlot.Mode.DRAWER_TOP, slots.get(0).getMode());
 		assertEquals(70, slots.get(0).getOpacity());
 		assertEquals(2, slots.get(0).getGmcpModules().size());
 		assertTrue(slots.get(0).matchesGmcpModule("Char.Vitals"));
@@ -58,8 +58,18 @@ public class ExtraTextSlotsStoreTest {
 		assertEquals(1, again.size());
 		assertEquals("chat", again.get(0).getName());
 		assertEquals("Chat", again.get(0).getTitle());
+		assertEquals(ExtraTextSlot.Mode.DRAWER_TOP, again.get(0).getMode());
 		assertEquals(70, again.get(0).getOpacity());
 		assertTrue(again.get(0).matchesGmcpModule("comm.channel"));
+	}
+
+	@Test
+	public void parse_legacyDrawerBottom_mapsToTop() {
+		String json = "[{\"name\":\"old\",\"mode\":\"drawer_bottom\"}]";
+		ArrayList<ExtraTextSlot> slots = ExtraTextSlotsStore.parse(json);
+		assertEquals(1, slots.size());
+		assertEquals(ExtraTextSlot.Mode.DRAWER_TOP, slots.get(0).getMode());
+		assertEquals("drawer_top", slots.get(0).getMode().toJsonValue());
 	}
 
 	@Test

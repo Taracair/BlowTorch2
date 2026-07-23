@@ -240,7 +240,7 @@ public class WindowCommand extends SpecialCommand {
 				+ "  create <slot> [title…]   — add/update slot (max 8)\n"
 				+ "  destroy <slot>           — remove slot\n"
 				+ "  opacity <slot> [40-100]  — get/set overlay opacity\n"
-				+ "Also: Options → Extra text windows → Manage windows…\n"
-				+ "Lua: CreateTextWindow, NoteToWindow, AppendLineToWindow, …\n";
+				+ "Also: Options → Window → Extra text windows → Manage windows…\n"
+				+ "Modes: drawer_top (top strip) or float. Lua: CreateTextWindow, NoteToWindow, …\n";
 	}
 }

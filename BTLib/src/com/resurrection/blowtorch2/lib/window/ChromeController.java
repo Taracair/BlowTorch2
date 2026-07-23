@@ -282,7 +282,6 @@ public final class ChromeController {
 						int newH = bottom - top;
 						if (oldH != newH) {
 							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
-							activity.reapplyExtraTextPushInsets();
 						}
 					}
 				};

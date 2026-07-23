@@ -117,7 +117,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Lua relative stack location -2. */
 	private static final int TOP_MINUS_FIVE = -5;
 	/** Maximum fling velocity. */
-	private static final float MAX_VELOCITY = 700; 
+	private static final float MAX_VELOCITY = 900f;
+	/** Stop fling coast below this (px/s); keep in sync with calculateScrollBack. */
+	private static final float FLING_STOP_VELOCITY = 15f;
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
 	/** The bitmap that holds the "return to the bottom of the buffer" button graphic. */
@@ -290,8 +292,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private long mLastTapUpTime = 0L;
 	private float mLastTapUpX = 0f;
 	private float mLastTapUpY = 0f;
-	/** The previous touch event. */
-	MotionEvent mTouchPreEvent  = null;
+	/** Previous MOVE sample (avoids allocating MotionEvent every frame). */
+	private float mMoveLastY = 0f;
+	private long mMoveLastTime = 0L;
 	/** Indicates that the finger has left the touchpad. */
 	boolean finger_down_to_up = false;
 	/** The system time in millis that the last frame was drawn at. */
@@ -447,9 +450,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		this.mSettings = settings;
 		this.mSettings.setListener(this);
 		mBuffer = new TextTree();
-		if (name.equals("mainDisplay")) {
-			mBuffer.debugLineAdd = true;
-		}
 		mHoldBuffer = new TextTree();
 		mHandler = new Handler() {
 			public void handleMessage(final Message msg) {
@@ -1129,19 +1129,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				pointer = pointerId;
 				start_x = Float.valueOf(t.getX(index));
 				mStartY = Float.valueOf(t.getY(index));
-				mTouchPreEvent = MotionEvent.obtainNoHistory(t);
+				mMoveLastY = mStartY.floatValue();
+				mMoveLastTime = t.getEventTime();
 				//calculate row/col
 				float x = t.getX(index);
 				float y = t.getY(index);
-				//t.recycle();
 				mFlingVelocity = 0.0f;
 				mFingerDown = true;
 				finger_down_to_up = false;
 				mLastFrameTime = 0;
 				
-				for (int tmpCount = 0; tmpCount < linkBoxes.size(); tmpCount++) {
-					if (linkBoxes.get(tmpCount).getBox().contains(start_x.intValue(), mStartY.intValue())) {
-						mTouchInLink = tmpCount;
+				// Only hit-test links when idle — boxes are stale during drag/fling.
+				mTouchInLink = -1;
+				if (Math.abs(mFlingVelocity) <= FLING_STOP_VELOCITY) {
+					for (int tmpCount = 0; tmpCount < linkBoxes.size(); tmpCount++) {
+						if (linkBoxes.get(tmpCount).getBox().contains(start_x.intValue(), mStartY.intValue())) {
+							mTouchInLink = tmpCount;
+						}
 					}
 				}
 				
@@ -1159,50 +1163,44 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			
 			if (action == MotionEvent.ACTION_MOVE) {
-				
-	
-				Float nowY = Float.valueOf(t.getY(index));
-				Float nowX = Float.valueOf(t.getX(index));
-				
-				
-	
-				float thentime = mTouchPreEvent.getEventTime();
-				float nowtime = t.getEventTime();
-				
-				float time = (nowtime - thentime) / 1000.0f; //convert to seconds
-				
-				float prevY = mTouchPreEvent.getY(index);
-				float dist = nowY - prevY;
-				diff_amount = (int) dist;
-				
+				float nowY = t.getY(index);
+				long nowtime = t.getEventTime();
+				float time = (nowtime - mMoveLastTime) / 1000.0f;
+				if (time < 0.001f) {
+					time = 0.001f;
+				}
+				float dist = nowY - mMoveLastY;
 				float velocity = dist / time;
-				
-				if (Math.abs(velocity) > MAX_VELOCITY) {
-					if (velocity > 0) {
-						velocity = MAX_VELOCITY;
-					} else {
-						velocity = MAX_VELOCITY * -1;
-					}
+				if (velocity > MAX_VELOCITY) {
+					velocity = MAX_VELOCITY;
+				} else if (velocity < -MAX_VELOCITY) {
+					velocity = -MAX_VELOCITY;
 				}
 				mFlingVelocity = velocity;
-				
-				if (Math.abs(diff_amount) > 5 * mDensity) {
-					
-					mTouchPreEvent = MotionEvent.obtainNoHistory(t);
-					//t.recycle();
+
+				if (mStartY != null
+						&& Math.abs(nowY - mStartY) >= Math.max(mPrefLineSize * 2f, 32f * mDensity)) {
+					mTouchInLink = -1;
 				}
-				
+
+				if (dist != 0f) {
+					final double delta = mNewestAtTop ? -dist : dist;
+					mScrollback = mScrollback + delta;
+					if (mScrollback < SCROLL_MIN) {
+						mScrollback = SCROLL_MIN;
+					} else if (mScrollback >= ((mBuffer.getBrokenLineCount() * mPrefLineSize))) {
+						mScrollback = (double) ((mBuffer.getBrokenLineCount() * mPrefLineSize));
+					}
+					diff_amount = 0;
+					mMoveLastY = nowY;
+					mMoveLastTime = nowtime;
+				} else {
+					mMoveLastTime = nowtime;
+				}
 			}						
 			
 			if (action == MotionEvent.ACTION_UP) {
-				
-				mTouchPreEvent = null;
-				//prev_y = new Float(0);
-		        
-		        //reset the priority
 		        pointer = -1;
-	
-		        mTouchPreEvent = null;
 		        mFingerDown = false;
 		        finger_down_to_up = true;
 
@@ -1213,7 +1211,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						&& Math.abs(upY - mStartY) < tapSlop
 						&& Math.abs(upX - start_x) < tapSlop;
 		         
-				if (mTouchInLink > -1) {
+				if (mTouchInLink > -1 && smallMove) {
 					mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_LAUNCHURL, linkBoxes.get(mTouchInLink).getData()));
 			        mTouchInLink = -1;
 				} else if (smallMove) {
@@ -1240,7 +1238,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			
 			}
-			this.invalidate();
+			// Sync to vsync during drag/fling — full invalidate() every MOVE was janky on main.
+			if (action == MotionEvent.ACTION_MOVE
+					|| (action == MotionEvent.ACTION_UP && Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY)) {
+				postInvalidateOnAnimation();
+			} else {
+				this.invalidate();
+			}
 			
 			return true; //consumes
 		}
@@ -1255,16 +1259,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) { mScrollback = SCROLL_MIN; return;}
 			if (mFingerDown) {
 				// Newest-at-top: drag up to dig into history (older lines below).
-				final double delta = mNewestAtTop ? -diff_amount : diff_amount;
-				mScrollback = (double) Math.floor(mScrollback + delta);
-				if (mScrollback < SCROLL_MIN) {
-					mScrollback = SCROLL_MIN;
-				} else {
-					if (mScrollback >= ((mBuffer.getBrokenLineCount() * mPrefLineSize))) {
-						mScrollback = (double) ((mBuffer.getBrokenLineCount() * mPrefLineSize));
+				// Prefer live MOVE updates; this path is a fallback if MOVE skipped a frame.
+				if (diff_amount != 0) {
+					final double delta = mNewestAtTop ? -diff_amount : diff_amount;
+					mScrollback = mScrollback + delta;
+					if (mScrollback < SCROLL_MIN) {
+						mScrollback = SCROLL_MIN;
+					} else {
+						if (mScrollback >= ((mBuffer.getBrokenLineCount() * mPrefLineSize))) {
+							mScrollback = (double) ((mBuffer.getBrokenLineCount() * mPrefLineSize));
+						}
 					}
+					diff_amount = 0;
 				}
-				diff_amount = 0;
 			} else {
 				if (finger_down_to_up) {
 					mLastFrameTime = System.currentTimeMillis(); 
@@ -1287,7 +1294,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					mScrollback =  mScrollback + flingSign * mFlingVelocity * durationSinceLastFrame;
 				}
 				
-				if (Math.abs(Double.valueOf(mFlingVelocity)) < 15) {
+				if (Math.abs(mFlingVelocity) < FLING_STOP_VELOCITY) {
 					mFlingVelocity = 0;
 					mLastFrameTime = 0;
 					Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
@@ -1418,8 +1425,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mClipRect.top = textPadTop();
 			mClipRect.left = 0;
 			mClipRect.right = mWidth;
-			mClipRect.bottom = Math.max(mClipRect.top + 1,
-					mHeight - Math.max(0, mDrawerInsetBottom));
+			mClipRect.bottom = Math.max(mClipRect.top + 1, mHeight);
 			
 			c.clipRect(mClipRect);
 			
@@ -1468,18 +1474,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			boolean gotIt = false;
 			int maxTries = 20;
 			int tries = 0;
-			
+
 			while (!gotIt && tries <= maxTries) {
 				try {
 					tries = tries + 1;
 					bundle = getScreenIterator(mScrollback, mPrefLineSize);
 					gotIt = true;
-					
 				} catch (ConcurrentModificationException e) {
-					//loop again to get it, continue till you get one.
-					synchronized(this) {
+					// Buffer mutated mid-draw — retry briefly instead of leaving a blank frame.
+					synchronized (this) {
 						try {
-							//Log.e("DRAWRUNNER","CAUGHT CONCURRENT MODIFICATION, tried:" + tries);
 							this.wait(5);
 						} catch (InterruptedException e1) {
 							e1.printStackTrace();
@@ -1555,12 +1559,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//TODO: STEP 5
 			//draw the text, from top to bottom.	
 			
+			boolean scrollingGesture = mFingerDown
+					|| Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY;
+
 			int drawnlines = 0;
-			
 			boolean doingLink = false;
 			
 			mCurrentLink.setLength(0);
-			linkBoxes.clear();
+			if (!scrollingGesture) {
+				linkBoxes.clear();
+			}
 			
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
@@ -1726,7 +1734,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								}
 								
 								LinkBox linkbox = new LinkBox(null, r);
-								linkBoxes.add(linkbox);
+								if (!scrollingGesture) {
+									linkBoxes.add(linkbox);
+								}
 								
 							}
 						}
@@ -1906,13 +1916,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				workingcol = 0;
 				l.resetIterator();
 			}
-			showScroller(c);
+			if (!scrollingGesture || theSelection != null) {
+				showScroller(c);
+			}
 			c.restore();
-			if (Math.abs(mFlingVelocity) > mPrefLineSize) {
-				if (!mHandler.hasMessages(MESSAGE_DRAW)) {
-					this.mHandler.sendEmptyMessageDelayed(MESSAGE_DRAW, 3);
-				}
-			} else {
+			if (!mFingerDown && Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
+				postInvalidateOnAnimation();
+			} else if (!mFingerDown) {
 				mFlingVelocity = 0;
 			}
 		
@@ -1920,7 +1930,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		//phew, do the lua stuff, and lets be done with this.
 		c.save();
-		if (mHasDrawRoutine) {
+		boolean scrollingNow = mFingerDown
+				|| Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY;
+		if (mHasDrawRoutine && !scrollingNow) {
 			if (mL != null) {
 				
 /*! \page entry_points
@@ -2531,7 +2543,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			mBuffer.prune();
 			tmpcount = mBuffer.getBrokenLineCount();
-		this.invalidate();
+			drawingIterator = null;
+			if (mFingerDown || Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
+				postInvalidateOnAnimation();
+			} else {
+				this.invalidate();
+			}
 	}
 	
 	
@@ -2734,34 +2751,33 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 	}
 	ListIterator<Line> drawingIterator = null;
-	private IteratorBundle getScreenIterator(double pIn,float pLineSize) {
+	private IteratorBundle getScreenIterator(double pIn, float pLineSize) {
 		float working_h = 0;
 		double pY = pIn;
 		double max = mBuffer.getBrokenLineCount() * pLineSize;
-		if(pY >= max) {
+		if (pY >= max) {
 			pY = max;
 		}
-		
+
 		int startline = 0;
 		int current = 0;
-		if(drawingIterator == null) {
+		if (drawingIterator == null) {
 			drawingIterator = mBuffer.getLines().listIterator();
 		} else {
-			while(drawingIterator.hasPrevious()) {
-				drawingIterator.previous(); //reset to beginning
+			while (drawingIterator.hasPrevious()) {
+				drawingIterator.previous(); // reset to beginning
 			}
 		}
-		
-		if(mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
+
+		if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
 			int offset = 0;
 			final int ch = contentHeight();
-			if(mPrefLineSize * mCalculatedLinesInWindow < ch) {
-				
+			if (mPrefLineSize * mCalculatedLinesInWindow < ch) {
 				offset = ((mPrefLineSize) * mCalculatedLinesInWindow) - ch;
 			}
-			int under = mCalculatedLinesInWindow-(mBuffer.getBrokenLineCount()-1);
+			int under = mCalculatedLinesInWindow - (mBuffer.getBrokenLineCount() - 1);
 			// Count broken lines (wraps), not Line objects — matches touch/selection indices.
-			while(drawingIterator.hasNext()) {
+			while (drawingIterator.hasNext()) {
 				Line l = drawingIterator.next();
 				startline += 1 + l.getBreaks();
 			}
@@ -2769,40 +2785,39 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (startline > 0) {
 				startline = startline - 1;
 			}
-			float tmpy = (under*pLineSize-(offset+(mPrefLineSize/3)));
-			
-			return new IteratorBundle(drawingIterator,tmpy,0,startline);
+			float tmpy = (under * pLineSize - (offset + (mPrefLineSize / 3)));
+
+			return new IteratorBundle(drawingIterator, tmpy, 0, startline);
 		}
 		int lines = 1;
-		
-		while(drawingIterator.hasNext()) {
-			//position = drawingIterator.nextIndex();
+
+		while (drawingIterator.hasNext()) {
 			Line l = drawingIterator.next();
 			working_h += pLineSize * (1 + l.getBreaks());
 			current += 1 + l.getBreaks();
 			lines = lines + 1;
-			
-			if(working_h >= pY) {
+
+			if (working_h >= pY) {
 				int y = 0;
 				final int ch = contentHeight();
-				if(mPrefLineSize * mCalculatedLinesInWindow < ch) {
-					
+				if (mPrefLineSize * mCalculatedLinesInWindow < ch) {
 					y = ((mPrefLineSize) * mCalculatedLinesInWindow) - ch;
 				}
 				double delta = working_h - pY;
 				double offset = delta - pLineSize;
-				int extra = (int) Math.ceil(delta/pLineSize);
-				if(drawingIterator.hasPrevious()) drawingIterator.previous();
-				if(l.breaks > 0) {
+				int extra = (int) Math.ceil(delta / pLineSize);
+				if (drawingIterator.hasPrevious()) {
+					drawingIterator.previous();
+				}
+				if (l.breaks > 0) {
 					startline += l.breaks;
 				}
-				return new IteratorBundle(drawingIterator,-1*offset,extra,startline);
-			} 
+				return new IteratorBundle(drawingIterator, -1 * offset, extra, startline);
+			}
 			startline += 1 + l.getBreaks();
 		}
-		
-		return new IteratorBundle(drawingIterator,pLineSize,0,startline);
-		
+
+		return new IteratorBundle(drawingIterator, pLineSize, 0, startline);
 	}
 
 	public void setLinksEnabled(boolean hyperLinkEnabled) {

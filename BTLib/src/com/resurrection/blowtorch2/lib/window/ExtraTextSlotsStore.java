@@ -24,8 +24,6 @@ public final class ExtraTextSlotsStore {
 	public static final int MAX_SLOTS = 8;
 	public static final String SETTING_KEY = "extra_text_windows";
 	public static final String ENABLED_KEY = "extra_text_windows_enabled";
-	/** When true, drawer overlays shrink mainDisplay so game text is not covered (buttons unchanged). */
-	public static final String PUSH_MAIN_KEY = "extra_text_push_main";
 
 	private static final Pattern NAME_PATTERN = Pattern.compile("^[a-z0-9_]{1,24}$");
 	private static final Set<String> RESERVED_NAMES;
