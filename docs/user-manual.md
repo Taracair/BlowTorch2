@@ -455,8 +455,8 @@ output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
 slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
 
 Configure under **Options → Extra text windows** (**Enable**, **Manage
-windows…**, or advanced JSON). Overlay geometry (drawer height, float position)
-is owned by the UI; buffers are named `WindowToken`s.
+windows…**, or advanced JSON). Overlay geometry (drawer height, float position,
+**opacity 40–100%**) is owned by the UI; buffers are named `WindowToken`s.
 
 ### `.window` forms
 
@@ -468,6 +468,7 @@ is owned by the UI; buffers are named `WindowToken`s.
 .window clear <slot>
 .window create <slot> [title…]
 .window destroy <slot>
+.window opacity <slot> [40-100]
 ```
 
 ### Gag / replace retarget

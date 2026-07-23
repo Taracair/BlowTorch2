@@ -41,17 +41,28 @@ public class ExtraTextSlotsStoreTest {
 		String json = "["
 				+ "{\"name\":\"chat\",\"title\":\"Chat\",\"mode\":\"drawer_bottom\","
 				+ "\"height_dp\":160,\"float_x\":24,\"float_y\":120,\"float_w\":320,\"float_h\":220,"
-				+ "\"visible\":true,\"collapsed\":false}"
+				+ "\"opacity\":70,\"visible\":true,\"collapsed\":false}"
 				+ "]";
 		ArrayList<ExtraTextSlot> slots = ExtraTextSlotsStore.parse(json);
 		assertEquals(1, slots.size());
 		assertEquals("chat", slots.get(0).getName());
 		assertEquals(ExtraTextSlot.Mode.DRAWER_BOTTOM, slots.get(0).getMode());
+		assertEquals(70, slots.get(0).getOpacity());
 		String out = ExtraTextSlotsStore.toJson(slots);
 		ArrayList<ExtraTextSlot> again = ExtraTextSlotsStore.parse(out);
 		assertEquals(1, again.size());
 		assertEquals("chat", again.get(0).getName());
 		assertEquals("Chat", again.get(0).getTitle());
+		assertEquals(70, again.get(0).getOpacity());
+	}
+
+	@Test
+	public void opacity_clampedToReadableRange() {
+		ExtraTextSlot s = new ExtraTextSlot("chat");
+		s.setOpacity(10);
+		assertEquals(40, s.getOpacity());
+		s.setOpacity(200);
+		assertEquals(100, s.getOpacity());
 	}
 
 	@Test

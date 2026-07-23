@@ -207,6 +207,40 @@ public class ExtraTextOverlayController {
 		return e;
 	}
 
+	private void showOpacityPicker(final OverlayEntry e) {
+		if (e == null || e.slot == null) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		final int[] choices = new int[] { 40, 50, 60, 70, 80, 85, 90, 100 };
+		CharSequence[] labels = new CharSequence[choices.length];
+		int cur = e.slot.getOpacity();
+		int selected = 5;
+		for (int i = 0; i < choices.length; i++) {
+			labels[i] = choices[i] + "%";
+			if (choices[i] == cur) {
+				selected = i;
+			}
+		}
+		new android.app.AlertDialog.Builder(activity)
+				.setTitle("Opacity (now " + cur + "%)")
+				.setSingleChoiceItems(labels, selected,
+						new android.content.DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(android.content.DialogInterface dialog, int which) {
+								e.slot.setOpacity(choices[which]);
+								applyOpacity(e);
+								schedulePersist();
+								dialog.dismiss();
+							}
+						})
+				.setNegativeButton(android.R.string.cancel, null)
+				.show();
+	}
+
 	private void bindContent(OverlayEntry e) {
 		if (e == null || e.contentHost == null || e.slot == null || e.window != null) {
 			return;
@@ -318,6 +352,20 @@ public class ExtraTextOverlayController {
 			return;
 		}
 		e.overlayRoot.setVisibility(e.slot.isVisible() ? View.VISIBLE : View.GONE);
+		applyOpacity(e);
+	}
+
+	private void applyOpacity(OverlayEntry e) {
+		if (e == null || e.overlayRoot == null || e.slot == null) {
+			return;
+		}
+		int pct = e.slot.getOpacity();
+		if (pct < 40) {
+			pct = 40;
+		} else if (pct > 100) {
+			pct = 100;
+		}
+		e.overlayRoot.setAlpha(pct / 100f);
 	}
 
 	private void applyLayout(OverlayEntry e) {
@@ -404,6 +452,24 @@ public class ExtraTextOverlayController {
 	}
 
 	private void wireInteractions(final OverlayEntry e) {
+		if (e.titleView != null) {
+			e.titleView.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					showOpacityPicker(e);
+					return true;
+				}
+			});
+		}
+		if (e.titleBar != null) {
+			e.titleBar.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					showOpacityPicker(e);
+					return true;
+				}
+			});
+		}
 		if (e.collapseBtn != null) {
 			e.collapseBtn.setOnClickListener(new View.OnClickListener() {
 				@Override
