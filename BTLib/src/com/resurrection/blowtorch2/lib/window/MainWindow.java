@@ -278,9 +278,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			new java.util.ArrayList<ExtraTextSlot>();
 	private boolean extraTextWindowsEnabled = true;
 	private boolean extraTextPushMain = true;
-	/** Last drawer insets applied to mainDisplay (px). */
-	private int mainTextDrawerInsetTopPx = 0;
-	private int mainTextDrawerInsetBottomPx = 0;
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -3721,8 +3718,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
-				public void setMainTextDrawerInsets(int topPx, int bottomPx) {
-					MainWindow.this.applyMainTextDrawerInsets(topPx, bottomPx);
+				public void setMainTextDrawerPushAnchors(View topDrawer, View bottomDrawer) {
+					MainWindow.this.applyMainTextDrawerPushAnchors(topDrawer, bottomDrawer);
 				}
 			});
 		}
@@ -3737,18 +3734,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Shrink mainDisplay around top/bottom drawers so game text is not covered.
-	 * Leaves {@code button_window} full-bleed. Floating overlays never use this.
+	 * Anchor mainDisplay below a top drawer and/or above a bottom drawer so game
+	 * text is not covered. Leaves {@code button_window} full-bleed. Floating
+	 * overlays never use this. Null anchors restore the default chrome layout
+	 * (ALIGN_PARENT_TOP + ABOVE input bar).
 	 */
-	private void applyMainTextDrawerInsets(int topPx, int bottomPx) {
-		if (topPx < 0) {
-			topPx = 0;
-		}
-		if (bottomPx < 0) {
-			bottomPx = 0;
-		}
-		mainTextDrawerInsetTopPx = topPx;
-		mainTextDrawerInsetBottomPx = bottomPx;
+	private void applyMainTextDrawerPushAnchors(View topDrawer, View bottomDrawer) {
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 		if (rl == null) {
 			return;
@@ -3762,9 +3753,42 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
-		boolean changed = lp.topMargin != topPx || lp.bottomMargin != bottomPx;
-		lp.topMargin = topPx;
-		lp.bottomMargin = bottomPx;
+		int wantBelow = (topDrawer != null) ? topDrawer.getId() : 0;
+		int wantAbove = (bottomDrawer != null)
+				? bottomDrawer.getId()
+				: ChromeController.LEGACY_INPUT_BAR_ID;
+		if (wantBelow != 0 && wantBelow == View.NO_ID) {
+			return;
+		}
+		if (bottomDrawer != null && wantAbove == View.NO_ID) {
+			return;
+		}
+
+		int curBelow = lp.getRule(RelativeLayout.BELOW);
+		int curAbove = lp.getRule(RelativeLayout.ABOVE);
+		boolean wantAlignTop = (topDrawer == null);
+		boolean curAlignTop = lp.getRule(RelativeLayout.ALIGN_PARENT_TOP)
+				== RelativeLayout.TRUE;
+		boolean changed = curBelow != wantBelow
+				|| curAbove != wantAbove
+				|| curAlignTop != wantAlignTop
+				|| lp.topMargin != 0
+				|| lp.bottomMargin != 0;
+
+		// Clear the broken margin-based approach from earlier builds.
+		lp.topMargin = 0;
+		lp.bottomMargin = 0;
+
+		if (topDrawer != null) {
+			lp.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
+			lp.addRule(RelativeLayout.BELOW, wantBelow);
+		} else {
+			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			lp.removeRule(RelativeLayout.BELOW);
+		}
+
+		lp.addRule(RelativeLayout.ABOVE, wantAbove);
+
 		if (changed) {
 			main.setLayoutParams(lp);
 			main.requestLayout();

@@ -458,8 +458,8 @@ Configure under **Options → Extra text windows** (**Enable**, **Drawers push
 game text?**, **Manage windows…**, or advanced JSON). Overlay geometry (drawer
 height, float position, **opacity 40–100%**) is owned by the UI; buffers are
 named `WindowToken`s. When **Drawers push game text?** is on, top/bottom drawers
-shrink `mainDisplay` so game lines are not covered (on-screen buttons unchanged;
-floats never push).
+anchor `mainDisplay` so game lines sit above/below the drawer (on-screen buttons
+unchanged; floats never push).
 
 ### `.window` forms
 
@@ -501,14 +501,22 @@ WindowExists("chat")
 AppendLineToWindow("chat", line)   -- (windowName, line) — matches Java
 ```
 
-### GMCP → window pattern
+### GMCP → window
 
-BlowTorch does **not** auto-route all GMCP into extra windows. Use a **literal**
-trigger whose pattern starts with `%` (the GMCP character), then a script (or
-replace/gag) that calls `NoteToWindow` / `AppendLineToWindow`:
+**Options → Extra text windows → Manage windows… → Edit** has a **GMCP modules**
+field (comma-separated). Matching inbound GMCP lines are written into that slot
+as `[GMCP] ModuleName {json…}` (passwords redacted). Patterns:
+
+| Pattern | Matches |
+|---------|---------|
+| `Char.Vitals` | Exact module (case-insensitive) |
+| `Char.` or `Char.*` | Family prefix (`Char.Vitals`, `Char.Status`, …) |
+| `Comm.*` | Same prefix style |
+
+You can still use a **literal** `%Module` trigger + `NoteToWindow` / script when you
+need custom formatting instead of the raw JSON dump:
 
 ```lua
--- Example: NewTrigger from Lua, or the trigger editor
 NewTrigger("vitals_to_pane", "%Char.Vitals",
   { regex = false, enabled = true },
   { type = "script", function = "onVitals" })
@@ -518,6 +526,8 @@ function onVitals(line, number, map)
 end
 ```
 
+BlowTorch does **not** dump every GMCP packet into every pane — only modules you
+list on a slot (or handle yourself with triggers/Lua).
 ## GMCP (short)
 
 Enable under **Options → Service → GMCP Options**. Prefer **Manage modules…**
