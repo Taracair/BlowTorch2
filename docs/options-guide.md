@@ -20,7 +20,7 @@ Under **Options → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Drawers push game text?** | Top/bottom drawers inset the painted MUD text inside `mainDisplay` so lines sit clear of the drawer (layout stays full-bleed — on-screen buttons unchanged). Ignored for floating windows. Default on. |
+| **Drawers push game text?** | Top/bottom drawers reserve layout space so `mainDisplay` starts clear of the drawer (on-screen buttons stay full-bleed). Ignored for floating windows. Default on. |
 | **Manage windows…** | List / add / delete / edit name, title, mode, height, opacity, visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 

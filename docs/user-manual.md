@@ -458,7 +458,8 @@ Configure under **Options → Extra text windows** (**Enable**, **Drawers push
 game text?**, **Manage windows…**, or advanced JSON). Overlay geometry (drawer
 height, float position, **opacity 40–100%**) is owned by the UI; buffers are
 named `WindowToken`s. When **Drawers push game text?** is on, top/bottom drawers
-inset painted text inside `mainDisplay` (buttons stay full-bleed; floats never push).
+reserve space with layout spacers so `mainDisplay` starts clear of the drawer
+(buttons stay full-bleed; floats never push).
 
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
 like `Comm.*`). Routes need **Options → Service → GMCP → Use GMCP?** on.

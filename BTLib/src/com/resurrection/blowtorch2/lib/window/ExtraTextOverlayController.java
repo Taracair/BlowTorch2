@@ -66,8 +66,8 @@ public class ExtraTextOverlayController {
 		boolean isPushMainTextEnabled();
 
 		/**
-		 * Inset painted game text on {@code mainDisplay} by drawer overlap (px).
-		 * Does not change view layout. Pass zeros to clear.
+		 * Reserve vertical space for drawers via transparent spacers and pin
+		 * {@code mainDisplay} BELOW/ABOVE them. Pass zeros to clear.
 		 */
 		void setMainTextDrawerInsets(int topPx, int bottomPx);
 	}
@@ -164,76 +164,17 @@ public class ExtraTextOverlayController {
 	}
 
 	/**
-	 * When push-main is on, inset mainDisplay's <em>painted</em> text by the
-	 * on-screen overlap with top/bottom drawers (not layout margins — those
-	 * created a black gap). Floats never contribute.
+	 * When push-main is on, report drawer heights so MainWindow can pin
+	 * transparent spacers and move {@code mainDisplay} below/above them.
+	 * Uses the same height math as {@link #applyLayout} (not on-screen overlap —
+	 * overlap fights the spacer layout). Floats never contribute.
 	 */
 	private void updateMainTextInsets() {
-		if (!host.isPushMainTextEnabled()) {
-			host.setMainTextDrawerInsets(0, 0);
-			return;
-		}
 		MainWindow activity = host.getMainWindow();
-		if (activity == null) {
+		if (!host.isPushMainTextEnabled() || activity == null) {
 			host.setMainTextDrawerInsets(0, 0);
 			return;
 		}
-		RelativeLayout container = (RelativeLayout) activity.findViewById(R.id.window_container);
-		View main = container != null ? container.findViewWithTag("mainDisplay") : null;
-		if (main == null || main.getHeight() <= 0) {
-			// Fall back to slot heights before main is measured.
-			applyInsetFallbackFromSlotHeights(activity);
-			return;
-		}
-
-		int[] mainLoc = new int[2];
-		main.getLocationOnScreen(mainLoc);
-		int mainTop = mainLoc[1];
-		int mainBottom = mainTop + main.getHeight();
-		int topPx = 0;
-		int bottomPx = 0;
-		int[] dLoc = new int[2];
-		for (OverlayEntry e : entries.values()) {
-			if (e == null || e.slot == null || e.overlayRoot == null) {
-				continue;
-			}
-			if (!e.slot.isVisible()
-					|| e.overlayRoot.getVisibility() != View.VISIBLE) {
-				continue;
-			}
-			ExtraTextSlot.Mode mode = e.slot.getMode();
-			if (mode == ExtraTextSlot.Mode.FLOAT) {
-				continue;
-			}
-			int h = e.overlayRoot.getHeight();
-			if (h <= 0) {
-				continue;
-			}
-			e.overlayRoot.getLocationOnScreen(dLoc);
-			int dTop = dLoc[1];
-			int dBottom = dTop + h;
-			if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
-				int cover = dBottom - mainTop;
-				if (cover > topPx) {
-					topPx = cover;
-				}
-			} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
-				int cover = mainBottom - dTop;
-				if (cover > bottomPx) {
-					bottomPx = cover;
-				}
-			}
-		}
-		if (topPx < 0) {
-			topPx = 0;
-		}
-		if (bottomPx < 0) {
-			bottomPx = 0;
-		}
-		host.setMainTextDrawerInsets(topPx, bottomPx);
-	}
-
-	private void applyInsetFallbackFromSlotHeights(MainWindow activity) {
 		float density = activity.getResources().getDisplayMetrics().density;
 		int screenH = activity.getResources().getDisplayMetrics().heightPixels;
 		int topPx = 0;
@@ -268,8 +209,8 @@ public class ExtraTextOverlayController {
 	}
 
 	/**
-	 * Same height math as {@link #applyLayout} so push matches the visible drawer
-	 * even before the overlay has been measured.
+	 * Same height math as {@link #applyLayout} so push spacers match the visible
+	 * drawer even before the overlay has been measured.
 	 */
 	private int drawerHeightForPush(OverlayEntry e, float density, int screenH) {
 		if (e == null || e.slot == null) {
@@ -294,9 +235,16 @@ public class ExtraTextOverlayController {
 		return fromLayout > 0 ? fromLayout : fromSlot;
 	}
 
-	/** Recompute push insets (e.g. after input-bar chrome height changes). */
+	/** Recompute push spacers (e.g. after input-bar chrome height changes). */
 	public void reapplyPushInsets() {
 		updateMainTextInsets();
+	}
+
+	/** Raise extra-text overlays under chrome (after push spacer z-order tweaks). */
+	public void bringOverlaysUnderChrome() {
+		for (OverlayEntry e : entries.values()) {
+			bringUnderChrome(e);
+		}
 	}
 
 	private static void ensureViewId(View v) {

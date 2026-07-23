@@ -278,11 +278,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			new java.util.ArrayList<ExtraTextSlot>();
 	private boolean extraTextWindowsEnabled = true;
 	private boolean extraTextPushMain = true;
-	/** Last push insets applied to mainDisplay (px); -1 = not tracking. */
+	/** Last push spacer heights applied to mainDisplay (px). */
 	private int mainTextDrawerInsetTopPx = 0;
 	private int mainTextDrawerInsetBottomPx = 0;
-	/** True while mainDisplay uses explicit height for drawer push. */
+	/** True while push spacers pin mainDisplay below/above drawers. */
 	private boolean mainTextDrawerPushActive = false;
+	/** Transparent layout spacers so mainDisplay is truly BELOW/ABOVE drawers. */
+	private View mainTextPushSpacerTop;
+	private View mainTextPushSpacerBottom;
+	private static final String PUSH_SPACER_TOP_TAG = "extra_text_push_spacer_top";
+	private static final String PUSH_SPACER_BOTTOM_TAG = "extra_text_push_spacer_bottom";
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -3739,10 +3744,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Push game text clear of top/bottom drawers by insetting the painted text
-	 * region inside {@code mainDisplay} (same idea as Window top-padding).
-	 * Layout stays MATCH_PARENT / ABOVE input so button_window coordinates are
-	 * unchanged and no black layout gap appears. Floating overlays never use this.
+	 * Push game text clear of drawers using transparent RelativeLayout spacers.
+	 * {@code mainDisplay} becomes BELOW the top spacer / ABOVE the bottom spacer so
+	 * its real bounds move (paint insets alone left a black band with bottom-aligned
+	 * text). Spacers are covered by the opaque drawer overlay. button_window is
+	 * untouched. Pass zeros to restore default chrome anchors.
 	 */
 	private void applyMainTextDrawerInsets(int topPx, int bottomPx) {
 		if (topPx < 0) {
@@ -3765,31 +3771,138 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		com.resurrection.blowtorch2.lib.window.Window mainWin =
 				(com.resurrection.blowtorch2.lib.window.Window) main;
+		// Paint insets off — layout spacers own geometry now.
+		mainWin.setDrawerTextInsets(0, 0);
 
-		// Always restore default chrome layout — never shrink/reposition the view.
+		ensurePushSpacers(rl);
+		sizePushSpacer(mainTextPushSpacerTop, topPx, true);
+		sizePushSpacer(mainTextPushSpacerBottom, bottomPx, false);
+
 		ViewGroup.LayoutParams glp = main.getLayoutParams();
-		if (glp instanceof RelativeLayout.LayoutParams) {
-			RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
-			boolean layoutDirty = lp.topMargin != 0 || lp.bottomMargin != 0
-					|| lp.height != RelativeLayout.LayoutParams.MATCH_PARENT
-					|| lp.getRule(RelativeLayout.ABOVE) != ChromeController.LEGACY_INPUT_BAR_ID
-					|| lp.getRule(RelativeLayout.BELOW) != 0;
-			if (layoutDirty) {
-				lp.topMargin = 0;
-				lp.bottomMargin = 0;
-				lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
-				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-				lp.removeRule(RelativeLayout.BELOW);
-				lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
-				if (chrome != null) {
-					chrome.anchorWindowAboveInputChrome(lp, "mainDisplay");
-				}
-				main.setLayoutParams(lp);
-				main.requestLayout();
+		if (!(glp instanceof RelativeLayout.LayoutParams)) {
+			return;
+		}
+		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
+		lp.topMargin = 0;
+		lp.bottomMargin = 0;
+		lp.height = RelativeLayout.LayoutParams.MATCH_PARENT;
+
+		if (topPx > 0 && mainTextPushSpacerTop != null
+				&& mainTextPushSpacerTop.getId() != View.NO_ID) {
+			lp.removeRule(RelativeLayout.ALIGN_PARENT_TOP);
+			lp.addRule(RelativeLayout.BELOW, mainTextPushSpacerTop.getId());
+		} else {
+			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			lp.removeRule(RelativeLayout.BELOW);
+		}
+
+		if (bottomPx > 0 && mainTextPushSpacerBottom != null
+				&& mainTextPushSpacerBottom.getId() != View.NO_ID) {
+			lp.addRule(RelativeLayout.ABOVE, mainTextPushSpacerBottom.getId());
+		} else {
+			lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
+			if (chrome != null) {
+				chrome.anchorWindowAboveInputChrome(lp, "mainDisplay");
 			}
 		}
 
-		mainWin.setDrawerTextInsets(topPx, bottomPx);
+		main.setLayoutParams(lp);
+		main.requestLayout();
+		main.invalidate();
+		bringPushLayerOrder(rl);
+		scheduleRenawsAfterChromeRefresh();
+	}
+
+	private void ensurePushSpacers(RelativeLayout rl) {
+		if (mainTextPushSpacerTop == null) {
+			View existing = rl.findViewWithTag(PUSH_SPACER_TOP_TAG);
+			if (existing != null) {
+				mainTextPushSpacerTop = existing;
+			} else {
+				mainTextPushSpacerTop = new View(this);
+				mainTextPushSpacerTop.setTag(PUSH_SPACER_TOP_TAG);
+				mainTextPushSpacerTop.setId(View.generateViewId());
+				mainTextPushSpacerTop.setWillNotDraw(true);
+				mainTextPushSpacerTop.setClickable(false);
+				mainTextPushSpacerTop.setFocusable(false);
+				mainTextPushSpacerTop.setBackgroundColor(0x00000000);
+				RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
+						RelativeLayout.LayoutParams.MATCH_PARENT, 0);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+				rl.addView(mainTextPushSpacerTop, 0, lp);
+			}
+		}
+		if (mainTextPushSpacerBottom == null) {
+			View existing = rl.findViewWithTag(PUSH_SPACER_BOTTOM_TAG);
+			if (existing != null) {
+				mainTextPushSpacerBottom = existing;
+			} else {
+				mainTextPushSpacerBottom = new View(this);
+				mainTextPushSpacerBottom.setTag(PUSH_SPACER_BOTTOM_TAG);
+				mainTextPushSpacerBottom.setId(View.generateViewId());
+				mainTextPushSpacerBottom.setWillNotDraw(true);
+				mainTextPushSpacerBottom.setClickable(false);
+				mainTextPushSpacerBottom.setFocusable(false);
+				mainTextPushSpacerBottom.setBackgroundColor(0x00000000);
+				RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
+						RelativeLayout.LayoutParams.MATCH_PARENT, 0);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+				lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
+				rl.addView(mainTextPushSpacerBottom, 0, lp);
+			}
+		} else {
+			ViewGroup.LayoutParams glp = mainTextPushSpacerBottom.getLayoutParams();
+			if (glp instanceof RelativeLayout.LayoutParams) {
+				((RelativeLayout.LayoutParams) glp).addRule(RelativeLayout.ABOVE,
+						ChromeController.LEGACY_INPUT_BAR_ID);
+			}
+		}
+	}
+
+	private void sizePushSpacer(View spacer, int heightPx, boolean top) {
+		if (spacer == null) {
+			return;
+		}
+		ViewGroup.LayoutParams glp = spacer.getLayoutParams();
+		if (!(glp instanceof RelativeLayout.LayoutParams)) {
+			return;
+		}
+		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
+		int h = heightPx > 0 ? heightPx : 0;
+		boolean changed = lp.height != h
+				|| spacer.getVisibility() != (h > 0 ? View.VISIBLE : View.GONE);
+		lp.height = h;
+		if (top) {
+			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+		} else {
+			lp.addRule(RelativeLayout.ABOVE, ChromeController.LEGACY_INPUT_BAR_ID);
+		}
+		spacer.setVisibility(h > 0 ? View.VISIBLE : View.GONE);
+		if (changed) {
+			spacer.setLayoutParams(lp);
+		}
+	}
+
+	private void bringPushLayerOrder(RelativeLayout rl) {
+		if (rl == null) {
+			return;
+		}
+		View main = rl.findViewWithTag("mainDisplay");
+		if (main != null) {
+			main.bringToFront();
+		}
+		View buttons = rl.findViewWithTag("button_window");
+		if (buttons != null) {
+			buttons.bringToFront();
+		}
+		if (extraTextOverlay != null) {
+			extraTextOverlay.bringOverlaysUnderChrome();
+		} else if (chrome != null) {
+			chrome.bringGameplayChromeToFront(rl);
+		}
 	}
 
 	private void handleExtraTextUiAction(int action) {
