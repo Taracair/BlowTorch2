@@ -66,12 +66,12 @@ public class ExtraTextOverlayController {
 		boolean isPushMainTextEnabled();
 
 		/**
-		 * Anchor {@code mainDisplay} to drawer overlays so game text sits
-		 * below a top drawer / above a bottom drawer. Pass null anchors to
-		 * restore the default chrome layout (above input bar). Does not move
+		 * Inset {@code mainDisplay} by drawer heights (px) using explicit layout
+		 * geometry (not MATCH_PARENT margins — those do not shrink the Window).
+		 * Pass zeros to restore the default chrome layout. Does not move
 		 * {@code button_window}.
 		 */
-		void setMainTextDrawerPushAnchors(View topDrawer, View bottomDrawer);
+		void setMainTextDrawerInsets(int topPx, int bottomPx);
 	}
 
 	private static final class OverlayEntry {
@@ -166,16 +166,20 @@ public class ExtraTextOverlayController {
 	}
 
 	/**
-	 * When push-main is on, top/bottom drawers become RelativeLayout anchors
-	 * for {@code mainDisplay} (BELOW top / ABOVE bottom). Floats never
+	 * When push-main is on, reserve top/bottom space equal to drawer heights so
+	 * {@code mainDisplay} is laid out with an explicit pixel height (MATCH_PARENT
+	 * + margins / ABOVE-drawer rules do not shrink the Window). Floats never
 	 * contribute. Buttons stay full-bleed.
 	 */
 	private void updateMainTextInsets() {
-		View topAnchor = null;
-		View bottomAnchor = null;
-		int topH = 0;
-		int bottomH = 0;
+		int topPx = 0;
+		int bottomPx = 0;
 		if (host.isPushMainTextEnabled()) {
+			MainWindow activity = host.getMainWindow();
+			float density = activity != null
+					? activity.getResources().getDisplayMetrics().density : 1f;
+			int screenH = activity != null
+					? activity.getResources().getDisplayMetrics().heightPixels : 0;
 			for (OverlayEntry e : entries.values()) {
 				if (e == null || e.slot == null || e.overlayRoot == null) {
 					continue;
@@ -188,38 +192,54 @@ public class ExtraTextOverlayController {
 				if (mode == ExtraTextSlot.Mode.FLOAT) {
 					continue;
 				}
-				ensureViewId(e.overlayRoot);
-				int h = measureOverlayHeightPx(e);
+				int h = drawerHeightForPush(e, density, screenH);
+				if (h <= 0) {
+					continue;
+				}
 				if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
-					if (h >= topH) {
-						topH = h;
-						topAnchor = e.overlayRoot;
+					if (h > topPx) {
+						topPx = h;
 					}
 				} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
-					if (h >= bottomH) {
-						bottomH = h;
-						bottomAnchor = e.overlayRoot;
+					if (h > bottomPx) {
+						bottomPx = h;
 					}
 				}
 			}
 		}
-		host.setMainTextDrawerPushAnchors(topAnchor, bottomAnchor);
+		host.setMainTextDrawerInsets(topPx, bottomPx);
 	}
 
-	/** Prefer layout params height; fall back to measured/on-screen height. */
-	private int measureOverlayHeightPx(OverlayEntry e) {
-		if (e == null || e.overlayRoot == null) {
+	/**
+	 * Same height math as {@link #applyLayout} so push matches the visible drawer
+	 * even before the overlay has been measured.
+	 */
+	private int drawerHeightForPush(OverlayEntry e, float density, int screenH) {
+		if (e == null || e.slot == null) {
 			return 0;
 		}
-		ViewGroup.LayoutParams lp = e.overlayRoot.getLayoutParams();
+		if (e.slot.isCollapsed()) {
+			return measureTitleBarHeight(e, density);
+		}
+		int fromLayout = 0;
+		ViewGroup.LayoutParams lp = e.overlayRoot != null
+				? e.overlayRoot.getLayoutParams() : null;
 		if (lp != null && lp.height > 0) {
-			return lp.height;
+			fromLayout = lp.height;
 		}
-		int h = e.overlayRoot.getHeight();
-		if (h <= 0) {
-			h = e.overlayRoot.getMeasuredHeight();
+		if (fromLayout <= 0 && e.overlayRoot != null) {
+			fromLayout = e.overlayRoot.getHeight();
 		}
-		return Math.max(0, h);
+		int maxH = screenH > 0 ? (int) (screenH * MAX_DRAWER_SCREEN_FRACTION) : Integer.MAX_VALUE;
+		int minH = (int) (MIN_DRAWER_DP * density);
+		int fromSlot = Math.max(minH,
+				Math.min(maxH, (int) (e.slot.getHeightDp() * density)));
+		return fromLayout > 0 ? fromLayout : fromSlot;
+	}
+
+	/** Recompute push insets (e.g. after input-bar chrome height changes). */
+	public void reapplyPushInsets() {
+		updateMainTextInsets();
 	}
 
 	private static void ensureViewId(View v) {
@@ -256,7 +276,7 @@ public class ExtraTextOverlayController {
 			destroyEntry(names.get(i));
 		}
 		entries.clear();
-		host.setMainTextDrawerPushAnchors(null, null);
+		host.setMainTextDrawerInsets(0, 0);
 	}
 
 	private OverlayEntry inflateOverlay(MainWindow activity, RelativeLayout container,

@@ -176,6 +176,12 @@ public final class ChromeController {
 			if (!(child instanceof com.resurrection.blowtorch2.lib.window.Window)) {
 				continue;
 			}
+			// Extra-text push owns mainDisplay geometry — do not re-anchor it to
+			// the input bar (that restores MATCH_PARENT full-bleed under drawers).
+			if ("mainDisplay".equals(String.valueOf(child.getTag()))
+					&& activity != null && activity.isMainTextDrawerPushActive()) {
+				continue;
+			}
 			ViewGroup.LayoutParams glp = child.getLayoutParams();
 			if (!(glp instanceof RelativeLayout.LayoutParams)) {
 				continue;
@@ -278,6 +284,7 @@ public final class ChromeController {
 						int newH = bottom - top;
 						if (oldH != newH) {
 							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
+							activity.reapplyExtraTextPushInsets();
 						}
 					}
 				};
