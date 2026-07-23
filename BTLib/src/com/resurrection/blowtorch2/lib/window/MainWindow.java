@@ -277,6 +277,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private final java.util.ArrayList<ExtraTextSlot> extraTextSlotsCache =
 			new java.util.ArrayList<ExtraTextSlot>();
 	private boolean extraTextWindowsEnabled = true;
+	private boolean extraTextPushMain = true;
+	/** Last drawer insets applied to mainDisplay (px). */
+	private int mainTextDrawerInsetTopPx = 0;
+	private int mainTextDrawerInsetBottomPx = 0;
 	
 	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
@@ -3558,6 +3562,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private void refreshExtraTextSlotsFromSettings(SettingsGroup group) {
 		extraTextSlotsCache.clear();
 		extraTextWindowsEnabled = true;
+		extraTextPushMain = true;
 		if (group == null) {
 			return;
 		}
@@ -3566,6 +3571,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			Object v = ((BaseOption) enabledOpt).getValue();
 			if (v instanceof Boolean) {
 				extraTextWindowsEnabled = (Boolean) v;
+			}
+		}
+		Object pushOpt = group.findOptionByKey(ExtraTextSlotsStore.PUSH_MAIN_KEY);
+		if (pushOpt instanceof BaseOption) {
+			Object v = ((BaseOption) pushOpt).getValue();
+			if (v instanceof Boolean) {
+				extraTextPushMain = (Boolean) v;
 			}
 		}
 		Object raw = group.findOptionByKey(ExtraTextSlotsStore.SETTING_KEY);
@@ -3702,6 +3714,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						e.printStackTrace();
 					}
 				}
+
+				@Override
+				public boolean isPushMainTextEnabled() {
+					return extraTextWindowsEnabled && extraTextPushMain;
+				}
+
+				@Override
+				public void setMainTextDrawerInsets(int topPx, int bottomPx) {
+					MainWindow.this.applyMainTextDrawerInsets(topPx, bottomPx);
+				}
 			});
 		}
 		if (extraTextSlotsCache.isEmpty() && service != null) {
@@ -3712,6 +3734,42 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 		extraTextOverlay.sync();
+	}
+
+	/**
+	 * Shrink mainDisplay around top/bottom drawers so game text is not covered.
+	 * Leaves {@code button_window} full-bleed. Floating overlays never use this.
+	 */
+	private void applyMainTextDrawerInsets(int topPx, int bottomPx) {
+		if (topPx < 0) {
+			topPx = 0;
+		}
+		if (bottomPx < 0) {
+			bottomPx = 0;
+		}
+		mainTextDrawerInsetTopPx = topPx;
+		mainTextDrawerInsetBottomPx = bottomPx;
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl == null) {
+			return;
+		}
+		View main = rl.findViewWithTag("mainDisplay");
+		if (!(main instanceof com.resurrection.blowtorch2.lib.window.Window)) {
+			return;
+		}
+		ViewGroup.LayoutParams glp = main.getLayoutParams();
+		if (!(glp instanceof RelativeLayout.LayoutParams)) {
+			return;
+		}
+		RelativeLayout.LayoutParams lp = (RelativeLayout.LayoutParams) glp;
+		boolean changed = lp.topMargin != topPx || lp.bottomMargin != bottomPx;
+		lp.topMargin = topPx;
+		lp.bottomMargin = bottomPx;
+		if (changed) {
+			main.setLayoutParams(lp);
+			main.requestLayout();
+			main.invalidate();
+		}
 	}
 
 	private void handleExtraTextUiAction(int action) {

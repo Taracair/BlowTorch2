@@ -3906,6 +3906,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case extra_text_windows_enabled:
 				requestExtraTextUi();
 				break;
+			case extra_text_push_main:
+				requestExtraTextUi();
+				break;
 			case extra_text_windows:
 				ensureExtraTextSlots(true);
 				break;
@@ -4810,6 +4813,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mapper_move_effects,
 		/** Extra text windows master switch. */
 		extra_text_windows_enabled,
+		/** Drawers reserve space in mainDisplay (not button_window). */
+		extra_text_push_main,
 		/** Extra text windows JSON slot list. */
 		extra_text_windows
 	}

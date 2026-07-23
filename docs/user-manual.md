@@ -454,9 +454,12 @@ Optional drawer or floating panes (chat, tells, combat, …) beside the main gam
 output. Each slot has a public **name** (lowercase `a-z`, `0-9`, `_`, max 8
 slots). The same name is used for gag/replace **retarget**, Lua, and `.window`.
 
-Configure under **Options → Extra text windows** (**Enable**, **Manage
-windows…**, or advanced JSON). Overlay geometry (drawer height, float position,
-**opacity 40–100%**) is owned by the UI; buffers are named `WindowToken`s.
+Configure under **Options → Extra text windows** (**Enable**, **Drawers push
+game text?**, **Manage windows…**, or advanced JSON). Overlay geometry (drawer
+height, float position, **opacity 40–100%**) is owned by the UI; buffers are
+named `WindowToken`s. When **Drawers push game text?** is on, top/bottom drawers
+shrink `mainDisplay` so game lines are not covered (on-screen buttons unchanged;
+floats never push).
 
 ### `.window` forms
 
