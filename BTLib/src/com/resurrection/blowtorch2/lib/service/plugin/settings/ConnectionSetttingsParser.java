@@ -79,7 +79,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		mapper_toolbar_actions,
 		mapper_capture_title_regex, mapper_capture_exits_regex,
 		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects,
-		extra_text_windows_enabled, extra_text_windows
+		extra_text_windows_enabled, extra_text_push_main, extra_text_windows
 	}
 	
 	ConnectionSettingsPlugin settings = null;
@@ -714,6 +714,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case extra_text_windows_enabled:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case extra_text_push_main:
 						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}

@@ -550,9 +550,18 @@ public class ConnectionSettingsPlugin extends Plugin {
 		extra_text_enabled.setValue(true);
 		extraTextOptions.addOption(extra_text_enabled);
 
+		BooleanOption extra_text_push_main = new BooleanOption();
+		extra_text_push_main.setTitle("Drawers push game text?");
+		extra_text_push_main.setDescription(
+				"Top/bottom drawers shrink the main game text area so lines are not covered. "
+				+ "On-screen buttons stay full-bleed. Does not apply to floating windows.");
+		extra_text_push_main.setKey("extra_text_push_main");
+		extra_text_push_main.setValue(true);
+		extraTextOptions.addOption(extra_text_push_main);
+
 		CallbackOption manage_extra_text = new CallbackOption();
 		manage_extra_text.setTitle("Manage windows…");
-		manage_extra_text.setDescription("Add, remove, or edit extra text windows (list / mode / height / show).");
+		manage_extra_text.setDescription("Add, remove, or edit extra text windows (list / mode / height / opacity / show).");
 		manage_extra_text.setKey("manage_extra_text_windows");
 		manage_extra_text.setValue("manage_extra_text_windows");
 		extraTextOptions.addOption(manage_extra_text);

@@ -61,6 +61,15 @@ public class ExtraTextOverlayController {
 
 		/** Persist slot geometry/visibility (debounced by controller). */
 		void persistExtraTextSlots(List<ExtraTextSlot> slots);
+
+		/** Options → Drawers push game text? */
+		boolean isPushMainTextEnabled();
+
+		/**
+		 * Shrink {@code mainDisplay} by drawer insets (px). Does not move
+		 * {@code button_window}. Pass zeros to clear.
+		 */
+		void setMainTextDrawerInsets(int topPx, int bottomPx);
 	}
 
 	private static final class OverlayEntry {
@@ -141,6 +150,8 @@ public class ExtraTextOverlayController {
 			destroyEntry(remove.get(i));
 		}
 
+		updateMainTextInsets();
+
 		ChromeController chrome = activity.getChromeController();
 		if (chrome != null) {
 			chrome.bringViewUnderChrome(null);
@@ -150,6 +161,50 @@ public class ExtraTextOverlayController {
 				chromeView.bringToFront();
 			}
 		}
+	}
+
+	/**
+	 * When push-main is on, top/bottom drawers reserve space in mainDisplay
+	 * (margins). Floating windows never contribute. Buttons stay full-bleed.
+	 */
+	private void updateMainTextInsets() {
+		int topPx = 0;
+		int bottomPx = 0;
+		if (host.isPushMainTextEnabled()) {
+			for (OverlayEntry e : entries.values()) {
+				if (e == null || e.slot == null || e.overlayRoot == null) {
+					continue;
+				}
+				if (!e.slot.isVisible()) {
+					continue;
+				}
+				ExtraTextSlot.Mode mode = e.slot.getMode();
+				if (mode == ExtraTextSlot.Mode.FLOAT) {
+					continue;
+				}
+				int h = 0;
+				ViewGroup.LayoutParams lp = e.overlayRoot.getLayoutParams();
+				if (lp != null && lp.height > 0) {
+					h = lp.height;
+				}
+				if (h <= 0) {
+					h = e.overlayRoot.getHeight();
+				}
+				if (h <= 0) {
+					continue;
+				}
+				if (mode == ExtraTextSlot.Mode.DRAWER_TOP) {
+					if (h > topPx) {
+						topPx = h;
+					}
+				} else if (mode == ExtraTextSlot.Mode.DRAWER_BOTTOM) {
+					if (h > bottomPx) {
+						bottomPx = h;
+					}
+				}
+			}
+		}
+		host.setMainTextDrawerInsets(topPx, bottomPx);
 	}
 
 	/** True if {@code windowName} is an extra-text slot (skip {@code initWindow}). */
@@ -180,6 +235,7 @@ public class ExtraTextOverlayController {
 			destroyEntry(names.get(i));
 		}
 		entries.clear();
+		host.setMainTextDrawerInsets(0, 0);
 	}
 
 	private OverlayEntry inflateOverlay(MainWindow activity, RelativeLayout container,
@@ -422,6 +478,7 @@ public class ExtraTextOverlayController {
 		if (e.resizeHandle != null && mode == ExtraTextSlot.Mode.FLOAT) {
 			e.resizeHandle.bringToFront();
 		}
+		updateMainTextInsets();
 	}
 
 	private int measureTitleBarHeight(OverlayEntry e, float density) {

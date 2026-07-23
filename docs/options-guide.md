@@ -11,7 +11,7 @@ In-game **Options** dialog groups (Program Settings):
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory (for import/export), manage storage access |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
-| **Extra text windows** | Enable overlays; **Manage windows…** (add/delete/mode/height/show); advanced JSON slot list |
+| **Extra text windows** | Enable overlays; drawers push game text; **Manage windows…**; advanced JSON |
 
 ## Extra text windows
 
@@ -20,6 +20,7 @@ Under **Options → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
+| **Drawers push game text?** | Top/bottom drawers shrink the main game text area so lines are not covered. On-screen buttons stay full-bleed. Ignored for floating windows. Default on. |
 | **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` / `drawer_bottom` / `float`), drawer height, **opacity % (40–100)**, visibility |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
