@@ -424,6 +424,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Session file-log option wrappers. */
 	private final ConnectionSessionLog mSessionLog = new ConnectionSessionLog(this);
 
+	/** Alias CRUD and keyboard alias replacement. */
+	private final ConnectionAliases mAliases = new ConnectionAliases(this);
+
+	/** Trigger CRUD and enable/disable/toggle handling. */
+	private final ConnectionTriggers mTriggers = new ConnectionTriggers(this);
+
 	/** Per-connection mapper engine (recording, path, GMCP room sync). */
 	private MapperController mMapper;
 	
@@ -2802,11 +2808,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	}
 
 	/** Helper function to get the triggers for the main conenction settings.
-	 * 
+	 *
 	 * @return the triggers for the main connection settings.
 	 */
 	public final HashMap<String, TriggerData> getTriggers() {
-		return mSettings.getSettings().getTriggers();
+		return mTriggers.getTriggers();
 	}
 
 	public final SessionVariableStore getSessionVariables() {
@@ -2814,116 +2820,88 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	}
 
 	/** Helper function to get the triggers for a given plugin.
-	 * 
+	 *
 	 * @param name The name of the plugin to interrogate.
 	 * @return The triggers of the given plugin, null if <b>name</b> does not correspond to a loaded plugin.
 	 */
 	public final HashMap<String, TriggerData> getPluginTriggers(final String name) {
-		Plugin p = mPluginMap.get(name);
-		if (p != null) {
-			return p.getSettings().getTriggers();
-		} else {
-			return null;
-		}
+		return mTriggers.getPluginTriggers(name);
 	}
 
 	/** Adds a trigger into the main settings plugin.
-	 * 
+	 *
 	 * @param data The trigger to add.
 	 */
 	public final void addTrigger(final TriggerData data) {
-		mSettings.addTrigger(data);
+		mTriggers.addTrigger(data);
 	}
 
 	/** Updates a trigger in the main settings plugin.
-	 * 
+	 *
 	 * @param from Old trigger.
 	 * @param to New trigger.
 	 */
 	public final void updateTrigger(final TriggerData from, final TriggerData to) {
-		mSettings.updateTrigger(from, to);
+		mTriggers.updateTrigger(from, to);
 	}
 
 	/** Updates a trigger in the target plugin.
-	 * 
+	 *
 	 * @param selectedPlugin Name of the plugin to work in.
 	 * @param from Old plugin.
 	 * @param to New plugin.
 	 */
 	public final void updatePluginTrigger(final String selectedPlugin, final TriggerData from,
 			final TriggerData to) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p != null) {
-			p.updateTrigger(from, to);
-		}
+		mTriggers.updatePluginTrigger(selectedPlugin, from, to);
 	}
 
 	/** Adds a new trigger in the target plugin.
-	 * 
+	 *
 	 * @param selectedPlugin Target plugin for the new trigger.
 	 * @param data The new trigger.
 	 */
 	public final void newPluginTrigger(final String selectedPlugin, final TriggerData data) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p != null) {
-			p.addTrigger(data);
-		}
+		mTriggers.newPluginTrigger(selectedPlugin, data);
 	}
 
 	/** Gets a trigger in the target plugin.
-	 * 
+	 *
 	 * @param selectedPlugin Name of the plugin to look in.
 	 * @param pattern Name of the desired trigger.
 	 * @return The trigger, <b>null</b> if it does not exist.
 	 */
 	public final TriggerData getPluginTrigger(final String selectedPlugin, final String pattern) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p != null) {
-			return p.getSettings().getTriggers().get(pattern);
-		} else {
-			return null;
-		}
+		return mTriggers.getPluginTrigger(selectedPlugin, pattern);
 	}
 
 	/** Gets a trigger from the main settings plugin.
-	 * 
+	 *
 	 * @param pattern Name of the trigger to get.
 	 * @return The trigger, <b>null</b> if it does not exist.
 	 */
 	public final TriggerData getTrigger(final String pattern) {
-		return mSettings.getSettings().getTriggers().get(pattern);
+		return mTriggers.getTrigger(pattern);
 	}
 
 	/** Sets the enabled state of a trigger in the target plugin.
-	 * 
+	 *
 	 * @param selectedPlugin Name of the target plugin to affect.
 	 * @param enabled Desired state of the trigger.
 	 * @param key The name of the trigger to affect.
 	 */
 	public final void setPluginTriggerEnabled(final String selectedPlugin, final boolean enabled,
 			final String key) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p != null) {
-			TriggerData data = p.getSettings().getTriggers().get(key);
-			if (data != null) {
-				data.setEnabled(enabled);
-				p.getSettings().setDirty(true);
-				buildTriggerSystem();
-			}
-		}
+		mTriggers.setPluginTriggerEnabled(selectedPlugin, enabled, key);
 	}
-	
+
 	/** Sets the enabled state of a trigger in the main settings plugin.
-	 * 
+	 *
 	 * @param enabled Desired state of the target trigger.
 	 * @param key Name of the trigger to affect.
 	 */
 	public final void setTriggerEnabled(final boolean enabled, final String key) {
-		TriggerData data = mSettings.getSettings().getTriggers().get(key);
-		if (data != null) {
-			data.setEnabled(enabled);
-			buildTriggerSystem();
-		}
+		mTriggers.setTriggerEnabled(enabled, key);
 	}
 
 	/**
@@ -2933,14 +2911,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return New enabled state, or {@code null} if the trigger does not exist.
 	 */
 	public final Boolean toggleTriggerEnabled(final String key) {
-		TriggerData data = mSettings.getSettings().getTriggers().get(key);
-		if (data == null) {
-			return null;
-		}
-		boolean next = !data.isEnabled();
-		data.setEnabled(next);
-		buildTriggerSystem();
-		return Boolean.valueOf(next);
+		return mTriggers.toggleTriggerEnabled(key);
 	}
 
 	/**
@@ -2953,18 +2924,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return Number of triggers updated.
 	 */
 	public final int setTriggerGroupEnabled(final String group, final boolean enabled) {
-		String g = group == null ? "" : group;
-		int n = 0;
-		for (TriggerData t : mSettings.getSettings().getTriggers().values()) {
-			if (t.getGroup().equals(g)) {
-				t.setEnabled(enabled);
-				n++;
-			}
-		}
-		if (n > 0) {
-			buildTriggerSystem();
-		}
-		return n;
+		return mTriggers.setTriggerGroupEnabled(group, enabled);
 	}
 
 	/**
@@ -2975,18 +2935,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return Number of triggers toggled.
 	 */
 	public final int toggleTriggerGroupEnabled(final String group) {
-		String g = group == null ? "" : group;
-		int n = 0;
-		for (TriggerData t : mSettings.getSettings().getTriggers().values()) {
-			if (t.getGroup().equals(g)) {
-				t.setEnabled(!t.isEnabled());
-				n++;
-			}
-		}
-		if (n > 0) {
-			buildTriggerSystem();
-		}
-		return n;
+		return mTriggers.toggleTriggerGroupEnabled(group);
 	}
 
 	/**
@@ -2996,13 +2945,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return Number of triggers updated.
 	 */
 	public final int setAllTriggersEnabled(final boolean enabled) {
-		int n = 0;
-		for (TriggerData t : mSettings.getSettings().getTriggers().values()) {
-			t.setEnabled(enabled);
-			n++;
-		}
-		buildTriggerSystem();
-		return n;
+		return mTriggers.setAllTriggersEnabled(enabled);
 	}
 
 	/**
@@ -3013,19 +2956,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return New enabled state, or {@code null} if missing.
 	 */
 	public final Boolean togglePluginTriggerEnabled(final String selectedPlugin, final String key) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p == null) {
-			return null;
-		}
-		TriggerData data = p.getSettings().getTriggers().get(key);
-		if (data == null) {
-			return null;
-		}
-		boolean next = !data.isEnabled();
-		data.setEnabled(next);
-		p.getSettings().setDirty(true);
-		buildTriggerSystem();
-		return Boolean.valueOf(next);
+		return mTriggers.togglePluginTriggerEnabled(selectedPlugin, key);
 	}
 
 	/**
@@ -3036,23 +2967,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final int setPluginTriggerGroupEnabled(final String selectedPlugin,
 			final String group, final boolean enabled) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p == null) {
-			return 0;
-		}
-		String g = group == null ? "" : group;
-		int n = 0;
-		for (TriggerData t : p.getSettings().getTriggers().values()) {
-			if (t.getGroup().equals(g)) {
-				t.setEnabled(enabled);
-				n++;
-			}
-		}
-		if (n > 0) {
-			p.getSettings().setDirty(true);
-			buildTriggerSystem();
-		}
-		return n;
+		return mTriggers.setPluginTriggerGroupEnabled(selectedPlugin, group, enabled);
 	}
 
 	/**
@@ -3062,23 +2977,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final int togglePluginTriggerGroupEnabled(final String selectedPlugin,
 			final String group) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p == null) {
-			return 0;
-		}
-		String g = group == null ? "" : group;
-		int n = 0;
-		for (TriggerData t : p.getSettings().getTriggers().values()) {
-			if (t.getGroup().equals(g)) {
-				t.setEnabled(!t.isEnabled());
-				n++;
-			}
-		}
-		if (n > 0) {
-			p.getSettings().setDirty(true);
-			buildTriggerSystem();
-		}
-		return n;
+		return mTriggers.togglePluginTriggerGroupEnabled(selectedPlugin, group);
 	}
 
 	/**
@@ -3088,20 +2987,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final int setAllPluginTriggersEnabled(final String selectedPlugin,
 			final boolean enabled) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p == null) {
-			return 0;
-		}
-		int n = 0;
-		for (TriggerData t : p.getSettings().getTriggers().values()) {
-			t.setEnabled(enabled);
-			n++;
-		}
-		if (n > 0) {
-			p.getSettings().setDirty(true);
-			buildTriggerSystem();
-		}
-		return n;
+		return mTriggers.setAllPluginTriggersEnabled(selectedPlugin, enabled);
 	}
 
 	/**
@@ -3111,14 +2997,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final int setTriggerGroupEnabledEverywhere(final String group,
 			final boolean enabled) {
-		int n = setTriggerGroupEnabled(group, enabled);
-		for (Plugin p : mPlugins) {
-			if (p == null || p == mSettings) {
-				continue;
-			}
-			n += setPluginTriggerGroupEnabled(p.getName(), group, enabled);
-		}
-		return n;
+		return mTriggers.setTriggerGroupEnabledEverywhere(group, enabled);
 	}
 
 	/**
@@ -3127,39 +3006,24 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return Total triggers toggled.
 	 */
 	public final int toggleTriggerGroupEnabledEverywhere(final String group) {
-		int n = toggleTriggerGroupEnabled(group);
-		for (Plugin p : mPlugins) {
-			if (p == null || p == mSettings) {
-				continue;
-			}
-			n += togglePluginTriggerGroupEnabled(p.getName(), group);
-		}
-		return n;
+		return mTriggers.toggleTriggerGroupEnabledEverywhere(group);
 	}
 
 	/** Removes a trigger from the target plugin.
-	 * 
+	 *
 	 * @param selectedPlugin Name of the plugin to search in.
 	 * @param which Name of the trigger to remove.
 	 */
 	public final void deletePluginTrigger(final String selectedPlugin, final String which) {
-		Plugin p = mPluginMap.get(selectedPlugin);
-		if (p != null) {
-			p.getSettings().getTriggers().remove(which);
-			p.getSettings().setDirty(true);
-			p.sortTriggers();
-		}
-		buildTriggerSystem();
+		mTriggers.deletePluginTrigger(selectedPlugin, which);
 	}
 
 	/** Removes a trigger from the main settings plugin.
-	 * 
+	 *
 	 * @param which Name of the trigger to remove.
 	 */
 	public final void deleteTrigger(final String which) {
-		mSettings.getSettings().getTriggers().remove(which);
-		mSettings.sortTriggers();
-		buildTriggerSystem();
+		mTriggers.deleteTrigger(which);
 	}
 
 	/** Sets the aliases for the main settings plugin. This comes from the foreground window in one glob.
@@ -3167,8 +3031,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param map The new alias map (HashMap<String, AliasData>).
 	 */
 	public final void setAliases(final HashMap<String, AliasData> map) {
-		mSettings.getSettings().setAliases(map);
-		mSettings.buildAliases();
+		mAliases.setAliases(map);
 	}
 	
 	/** Sets the aliases for a given plugin. This comes from the foreground window in one glob.
@@ -3177,12 +3040,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param map The new alias map (HashMap<String, AliasData>)
 	 */
 	public final void setPluginAliases(final String plugin, final HashMap<String, AliasData> map) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.getSettings().setAliases(map);
-			p.getSettings().setDirty(true);
-			p.buildAliases();
-		}
+		mAliases.setPluginAliases(plugin, map);
 	}
 	
 	/** Gets an alias for a target plugin.
@@ -3192,11 +3050,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The AliasData associated with <b>key</b>.
 	 */
 	public final AliasData getPluginAlias(final String plugin, final String key) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			return p.getSettings().getAliases().get(key);
-		}
-		return null;
+		return mAliases.getPluginAlias(plugin, key);
 	}
 	
 	/** Gets an alias from the main settings plugin.
@@ -3205,7 +3059,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The AliasData associated with <b>key</b>
 	 */
 	public final AliasData getAlias(final String key) {
-		return mSettings.getSettings().getAliases().get(key);
+		return mAliases.getAlias(key);
 	}
 	
 	/** Removes an alias form the main settings plugin.
@@ -3213,7 +3067,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key The pre part of the alias to delete.
 	 */
 	public final void deleteAlias(final String key) {
-		mSettings.getSettings().getAliases().remove(key);
+		mAliases.deleteAlias(key);
 	}
 	
 	/** Removes an alias from the target plugin.
@@ -3222,10 +3076,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key The pre part of the alias to remove.
 	 */
 	public final void deletePluginAlias(final String plugin, final String key) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			p.getSettings().getAliases().remove(key);
-		}
+		mAliases.deletePluginAlias(plugin, key);
 	}
 	
 	/** Gets the alias map for the main settings plugin.
@@ -3233,7 +3084,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The alais map for the main settings plugin.
 	 */
 	public final HashMap<String, AliasData> getAliases() {
-		return mSettings.getSettings().getAliases();
+		return mAliases.getAliases();
 	}
 	
 	/** Gets the alias map for a target plugin.
@@ -3242,12 +3093,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The alias map for <b>plugin</b>.
 	 */
 	public final HashMap<String, AliasData> getPluginAliases(final String plugin) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			return p.getSettings().getAliases();
-		} else {
-			return null;
-		}
+		return mAliases.getPluginAliases(plugin);
 	}
 	
 	/** Gets the list of all the installed system commands.
@@ -3270,15 +3116,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key The pre part of the alias to affect.
 	 */
 	public final void setPluginAliasEnabled(final String plugin, final boolean enabled, final String key) {
-		Plugin p = mPluginMap.get(plugin);
-		if (p != null) {
-			AliasData data = p.getSettings().getAliases().get(key);
-			if (data != null) {
-				data.setEnabled(enabled);
-				p.getSettings().setDirty(true);
-				p.buildAliases();
-			}
-		}
+		mAliases.setPluginAliasEnabled(plugin, enabled, key);
 	}
 
 	/** Sets the enabled state of an alias in the main settings plugin.
@@ -3287,11 +3125,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param key The pre part of the alias to affect.
 	 */
 	public final void setAliasEnabled(final boolean enabled, final String key) {
-		AliasData data = mSettings.getSettings().getAliases().get(key);
-		if (data != null) {
-			data.setEnabled(enabled);
-			mSettings.buildAliases();
-		}
+		mAliases.setAliasEnabled(enabled, key);
 	}
 
 	/** Helper function for the keyboard command. Does an alias replacment in a special kind of way.
@@ -3301,30 +3135,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The processed command bytes.
 	 */
 	public final byte[] doKeyboardAliasReplace(final byte[] bytes, final Boolean reprocess) {
-		int count = mPlugins.size();
-		for (int i = 0; i < count; i++) {
-			Plugin p = mPlugins.get(i);
-			if (p == null || !p.isEnabled()) {
-				continue;
-			}
-			byte[] tmp = p.doAliasReplacement(bytes, reprocess);
-			if (tmp.length != bytes.length) {
-				return tmp;
-			} else {
-				boolean same = true;
-				for (int j = 0; j < tmp.length; j++) {
-					if (tmp[j] != bytes[j]) {
-						same = false;
-						j = tmp.length;
-					}
-				}
-				if (!same) {
-					return tmp;
-				}
-			}
-		}
-		
-		return bytes;
+		return mAliases.doKeyboardAliasReplace(bytes, reprocess);
 	}
 
 	/** User-initiated disconnect (e.g. {@code .disconnect}), same effect as overflow Disconnect. */
