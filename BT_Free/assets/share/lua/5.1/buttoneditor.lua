@@ -60,10 +60,13 @@ local swipeUpCmdEdit
 local swipeDownCmdEdit
 local swipeLeftCmdEdit
 local swipeRightCmdEdit
--- The swipe tab has no rows for the four diagonal directions yet. doneClickListener
--- lives at module scope and cannot see showEditorDialog's editorValues, so the
--- stored diagonal commands are parked here on open and written back on save.
--- Without this, editing any button would silently wipe its diagonal commands.
+local swipeUpLeftCmdEdit
+local swipeUpRightCmdEdit
+local swipeDownLeftCmdEdit
+local swipeDownRightCmdEdit
+-- Values as they were when the dialog opened. Used when the matching field is
+-- disabled (editing several buttons at once), so saving does not blank out
+-- diagonal commands the fields were never allowed to show.
 local carriedDiagonalSwipes = {}
 local accordionDirSpinner
 local accordionLayoutSpinner
@@ -386,7 +389,7 @@ function showEditorDialog(editorValues,numediting)
 	end
 
 	local showHintsCb = luajava.new(CheckBox,context)
-	showHintsCb:setText("Show U/D/L/R, Hold and accordion badges on buttons")
+	showHintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges on buttons")
 	local hintsOn = editorValues.showGestureHints
 	if hintsOn == nil then hintsOn = true end
 	showHintsCb:setChecked(hintsOn)
@@ -405,7 +408,7 @@ function showEditorDialog(editorValues,numediting)
 	}))
 	swipePage:addView(showHintsCb)
 	
-	addHelpText(swipePage, "Swipe commands override Flip when set. Drag ~24dp in a direction. A second finger cancels the gesture. Hold fires at ~0.45s. To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).")
+	addHelpText(swipePage, "Swipe commands override Flip when set. Drag ~24dp in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at ~0.45s. To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).")
 	
 	local function addGestureRow(parent, labelText, initialValue)
 		local row = luajava.new(LinearLayout,context)
@@ -414,7 +417,7 @@ function showEditorDialog(editorValues,numediting)
 		label:setTextSize(textSize)
 		label:setText(labelText)
 		label:setGravity(Gravity.RIGHT)
-		local labelParams = luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT)
+		local labelParams = luajava.new(LinearLayoutParams,100*density,WRAP_CONTENT)
 		label:setLayoutParams(labelParams)
 		local edit = luajava.new(EditText,context)
 		edit:setTextSize(textSize)
@@ -433,11 +436,23 @@ function showEditorDialog(editorValues,numediting)
 		return edit
 	end
 	
+	local function addSectionHeader(parent, text)
+		local header = luajava.new(TextView, context)
+		header:setTextSize(textSize)
+		header:setText(text)
+		local pad = math.floor(8 * density)
+		header:setPadding(pad, math.floor(12 * density), pad, math.floor(2 * density))
+		header:setLayoutParams(fillparams)
+		parent:addView(header)
+	end
+
 	holdCmdEdit = addGestureRow(swipePage, "Hold:", editorValues.holdCommand)
-	swipeUpCmdEdit = addGestureRow(swipePage, "Swipe up:", editorValues.swipeUpCommand)
-	swipeDownCmdEdit = addGestureRow(swipePage, "Swipe down:", editorValues.swipeDownCommand)
-	swipeLeftCmdEdit = addGestureRow(swipePage, "Swipe left:", editorValues.swipeLeftCommand)
-	swipeRightCmdEdit = addGestureRow(swipePage, "Swipe right:", editorValues.swipeRightCommand)
+
+	addSectionHeader(swipePage, "Straight swipes")
+	swipeUpCmdEdit = addGestureRow(swipePage, "↑  Up:", editorValues.swipeUpCommand)
+	swipeDownCmdEdit = addGestureRow(swipePage, "↓  Down:", editorValues.swipeDownCommand)
+	swipeLeftCmdEdit = addGestureRow(swipePage, "←  Left:", editorValues.swipeLeftCommand)
+	swipeRightCmdEdit = addGestureRow(swipePage, "→  Right:", editorValues.swipeRightCommand)
 
 	carriedDiagonalSwipes = {
 		swipeUpLeftCommand = editorValues.swipeUpLeftCommand or "",
@@ -445,6 +460,44 @@ function showEditorDialog(editorValues,numediting)
 		swipeDownLeftCommand = editorValues.swipeDownLeftCommand or "",
 		swipeDownRightCommand = editorValues.swipeDownRightCommand or "",
 	}
+
+	-- Nine command rows is a lot to take in, and most buttons only ever use the
+	-- four straight directions. Keep the diagonals folded away, and unfold them
+	-- automatically for a button that already uses one so nothing hides.
+	local diagonalsInUse = false
+	for _, value in pairs(carriedDiagonalSwipes) do
+		if value ~= "" then diagonalsInUse = true end
+	end
+
+	local diagonalBox = luajava.new(LinearLayout, context)
+	diagonalBox:setLayoutParams(fillparams)
+	diagonalBox:setOrientation(LinearLayout.VERTICAL)
+
+	local diagonalsCb = luajava.new(CheckBox, context)
+	diagonalsCb:setText("Diagonal swipes   ↖ ↗ ↙ ↘")
+	diagonalsCb:setChecked(diagonalsInUse)
+	diagonalsCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
+		onCheckedChanged = function(v, isChecked)
+			if isChecked then
+				diagonalBox:setVisibility(View.VISIBLE)
+			else
+				diagonalBox:setVisibility(View.GONE)
+			end
+		end
+	}))
+	swipePage:addView(diagonalsCb)
+	swipePage:addView(diagonalBox)
+	if diagonalsInUse then
+		diagonalBox:setVisibility(View.VISIBLE)
+	else
+		diagonalBox:setVisibility(View.GONE)
+	end
+
+	addHelpText(diagonalBox, "A corner with no command falls back to the nearest straight swipe, so adding these never changes how the straight ones behave.")
+	swipeUpLeftCmdEdit = addGestureRow(diagonalBox, "↖  Up-left:", editorValues.swipeUpLeftCommand)
+	swipeUpRightCmdEdit = addGestureRow(diagonalBox, "↗  Up-right:", editorValues.swipeUpRightCommand)
+	swipeDownLeftCmdEdit = addGestureRow(diagonalBox, "↙  Down-left:", editorValues.swipeDownLeftCommand)
+	swipeDownRightCmdEdit = addGestureRow(diagonalBox, "↘  Down-right:", editorValues.swipeDownRightCommand)
 	
 	swipePageScroller:addView(swipePage)
 	content:addView(swipePageScroller)
@@ -731,10 +784,19 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     d.swipeLeftCommand = swipeLeftCmdEdit:getText():toString()
     d.swipeRightCommand = swipeRightCmdEdit:getText():toString()
 
-    -- Diagonals have no editor rows yet; hand back whatever the button already had.
-    for field, value in pairs(carriedDiagonalSwipes) do
-      d[field] = value
+    -- Gesture fields are disabled when several buttons are edited at once, and a
+    -- disabled field reads back empty. Fall back to what the button had on open
+    -- so a multi-button edit does not blank out diagonals it never displayed.
+    local function diagonalValue(edit, field)
+      if edit == nil or not edit:isEnabled() then
+        return carriedDiagonalSwipes[field] or ""
+      end
+      return edit:getText():toString()
     end
+    d.swipeUpLeftCommand = diagonalValue(swipeUpLeftCmdEdit, "swipeUpLeftCommand")
+    d.swipeUpRightCommand = diagonalValue(swipeUpRightCmdEdit, "swipeUpRightCommand")
+    d.swipeDownLeftCommand = diagonalValue(swipeDownLeftCmdEdit, "swipeDownLeftCommand")
+    d.swipeDownRightCommand = diagonalValue(swipeDownRightCmdEdit, "swipeDownRightCommand")
 
     local tmp = advancedEditor.getEditorValues()
     
