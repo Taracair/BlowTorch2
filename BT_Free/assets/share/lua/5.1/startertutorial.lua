@@ -142,15 +142,22 @@ end
 
 TOPICS.buttons_swipe = function()
 	noteBlock("Buttons — Swipe",
-[[Each button can define swipeUp / swipeDown / swipeLeft / swipeRight
-commands. Drag roughly a finger-width off the tile in that direction.
+[[Each button can define eight swipe commands: the four straight directions
+↑ ↓ ← → and the four corners ↖ ↗ ↙ ↘. Drag roughly a finger-width off the
+tile in that direction.
 
-Try now: open the SWIPE tile and flick it ↑ ↓ ← → — each direction has a
-different tip. Compass tiles (N/E/S/W/U/D) also have one demo swipe each.
+Try now: open the SWIPE tile and flick it — each direction has a different
+tip. Compass tiles also have one demo swipe each: straight tiles use the
+straight swipes, corner tiles (NW/NE/SW/SE) use the matching corner.
+
+A corner swipe with nothing bound falls back to the nearest straight
+direction, so a button that only uses ↑ ↓ ← → still behaves exactly as it
+always did — you do not have to aim more carefully than before.
 
 Swipe overrides the older Flip action when a swipe command is set. In Edit
 mode, open a button and fill the Swipe fields. Optional gesture-hint arrows
-draw on the tile (Options → Button → Show gesture hints).]])
+draw on the tile (Options → Button → Show gesture hints): letters on the
+edges for straight swipes, small arrows in the corners for diagonals.]])
 end
 
 TOPICS.buttons_hold = function()

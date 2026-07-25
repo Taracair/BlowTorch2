@@ -590,39 +590,59 @@ android_R_style = luajava.bindClass("android.R$style")
 android_R_dimen = luajava.bindClass("android.R$dimen")
 
 -- Canonical offline-tutorial pad in density-independent pixels (centers).
--- Top row = PREV / NEXT / TOPICS. Compass teaches the same gesture map as the
--- fresh-MUD default: tap=walk, outward swipe=look, opposite swipe=open, flip/hold=close.
+-- Columns 1-3 are a full eight-direction compass rose so the player can see the
+-- diagonal layout straight away; column 4 is tutorial navigation. Same gesture map
+-- as the fresh-MUD default: tap=walk, outward swipe=look, opposite swipe=open,
+-- flip/hold=close. The diagonal tiles use the diagonal swipes for that, which
+-- doubles as a live demo of eight-way gestures.
 local STARTER_DEFAULT_BUTTONS = {
 	{ x=23,  y=23,  label="PREV",   command=".tutorial prev",   labelSize=11 },
 	{ x=68,  y=23,  label="NEXT",   command=".tutorial next",   labelSize=11 },
 	{ x=113, y=23,  label="TOPICS", command=".tutorial topics", labelSize=10 },
-	{ x=23,  y=68,  label="U",      command="up",    flipCommand="close u", holdCommand="close u", labelSize=14,
-	  swipeUpCommand="look u", swipeDownCommand="open u" },
+	{ x=158, y=23,  label="HELP",   command=".tutorial start",  labelSize=11 },
+
+	{ x=23,  y=68,  label="NW",     command="northwest", flipCommand="close nw", holdCommand="close nw", labelSize=14,
+	  swipeUpLeftCommand="look nw", swipeDownRightCommand="open nw" },
 	{ x=68,  y=68,  label="N",      command="north", flipCommand="close n", holdCommand="close n", labelSize=14,
 	  swipeUpCommand="look n", swipeDownCommand="open n" },
-	{ x=113, y=68,  label="INV",    command=".note INV: on a real MUD this sends inventory.", labelSize=11 },
+	{ x=113, y=68,  label="NE",     command="northeast", flipCommand="close ne", holdCommand="close ne", labelSize=14,
+	  swipeUpRightCommand="look ne", swipeDownLeftCommand="open ne" },
+	{ x=158, y=68,  label="INV",    command=".note INV: on a real MUD this sends inventory.", labelSize=11 },
+
 	{ x=23,  y=113, label="W",      command="west",  flipCommand="close w", holdCommand="close w", labelSize=14,
 	  swipeLeftCommand="look w", swipeRightCommand="open w" },
+	{ x=68,  y=113, label="LOOK",   command=".note LOOK: tap=look; swipes peek in all eight directions on a live pad.", labelSize=11,
+	  swipeUpCommand=".note Swipe↑ = look n", swipeDownCommand=".note Swipe↓ = look s",
+	  swipeLeftCommand=".note Swipe← = look w", swipeRightCommand=".note Swipe→ = look e",
+	  swipeUpLeftCommand=".note Swipe↖ = look nw", swipeUpRightCommand=".note Swipe↗ = look ne",
+	  swipeDownLeftCommand=".note Swipe↙ = look sw", swipeDownRightCommand=".note Swipe↘ = look se" },
 	{ x=113, y=113, label="E",      command="east",  flipCommand="close e", holdCommand="close e", labelSize=14,
 	  swipeRightCommand="look e", swipeLeftCommand="open e" },
-	{ x=23,  y=158, label="D",      command="down",  flipCommand="close d", holdCommand="close d", labelSize=14,
-	  swipeDownCommand="look d", swipeUpCommand="open d" },
-	{ x=68,  y=158, label="S",      command="south", flipCommand="close s", holdCommand="close s", labelSize=14,
-	  swipeDownCommand="look s", swipeUpCommand="open s" },
-	{ x=113, y=158, label="LOOK",   command=".note LOOK: tap=look; swipes peek n/s/e/w on a live pad.", labelSize=11,
-	  swipeUpCommand=".note Swipe↑ = look n", swipeDownCommand=".note Swipe↓ = look s",
-	  swipeLeftCommand=".note Swipe← = look w", swipeRightCommand=".note Swipe→ = look e" },
-	{ x=23,  y=203, label="HELP",   command=".tutorial start", labelSize=11 },
-	{ x=68,  y=203, label="SWIPE",  command=".tutorial buttons_swipe", labelSize=11,
+	{ x=158, y=113, label="SWIPE",  command=".tutorial buttons_swipe", labelSize=11,
 	  swipeUpCommand=".note Swipe↑ tip: about one finger-width past the tile edge.",
 	  swipeDownCommand=".note Swipe↓ tip: swipe beats Flip when both are set.",
-	  swipeLeftCommand=".note Swipe← tip: on N/S/E/W outward=look, opposite=open.",
-	  swipeRightCommand=".note Swipe→ tip: flip/hold = close that way." },
-	{ x=113, y=203, label="HOLD",   command=".tutorial buttons_hold", labelSize=11,
+	  swipeLeftCommand=".note Swipe← tip: outward=look, opposite=open — diagonals too.",
+	  swipeRightCommand=".note Swipe→ tip: flip/hold = close that way.",
+	  swipeUpLeftCommand=".note Swipe↖ tip: corners are their own gesture now.",
+	  swipeDownRightCommand=".note Swipe↘ tip: a corner with nothing set falls back to the nearest straight swipe." },
+
+	{ x=23,  y=158, label="SW",     command="southwest", flipCommand="close sw", holdCommand="close sw", labelSize=14,
+	  swipeDownLeftCommand="look sw", swipeUpRightCommand="open sw" },
+	{ x=68,  y=158, label="S",      command="south", flipCommand="close s", holdCommand="close s", labelSize=14,
+	  swipeDownCommand="look s", swipeUpCommand="open s" },
+	{ x=113, y=158, label="SE",     command="southeast", flipCommand="close se", holdCommand="close se", labelSize=14,
+	  swipeDownRightCommand="look se", swipeUpLeftCommand="open se" },
+	{ x=158, y=158, label="HOLD",   command=".tutorial buttons_hold", labelSize=11,
 	  holdCommand=".note Hold tip: H badge = Hold is set. On the compass, hold = close." },
-	{ x=23,  y=248, label="ACC",    command="", labelSize=11 },
-	{ x=68,  y=248, label="CLEAR",  command=".clearbuttons", labelSize=11 },
-	{ x=113, y=248, label="LOAD",   command=".loadset tutorial", labelSize=11,
+
+	{ x=23,  y=203, label="U",      command="up",    flipCommand="close u", holdCommand="close u", labelSize=14,
+	  swipeUpCommand="look u", swipeDownCommand="open u" },
+	{ x=68,  y=203, label="D",      command="down",  flipCommand="close d", holdCommand="close d", labelSize=14,
+	  swipeDownCommand="look d", swipeUpCommand="open d" },
+	{ x=113, y=203, label="ACC",    command="", labelSize=11 },
+	{ x=158, y=203, label="CLEAR",  command=".clearbuttons", labelSize=11 },
+
+	{ x=23,  y=248, label="LOAD",   command=".loadset tutorial", labelSize=11,
 	  holdCommand=".note Hold LOAD: .loadset default — restore the full starter pad.",
 	  flipCommand=".loadset default" },
 }
