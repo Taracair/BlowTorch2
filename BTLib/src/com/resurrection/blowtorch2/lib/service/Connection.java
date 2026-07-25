@@ -12,7 +12,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
@@ -80,10 +79,6 @@ import com.resurrection.blowtorch2.lib.alias.AliasData;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.net.ConnectivityManager;
-import android.net.Network;
-import android.net.NetworkCapabilities;
-import android.net.NetworkRequest;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -229,7 +224,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Sent from the foreground window indicating that the DataPumper
 	 *  should re-establish the tcp connection to the server. */
-	private static final int MESSAGE_RECONNECT = 31;
+	static final int MESSAGE_RECONNECT = 31;
 	
 	/** Sent from the foreground window, initates a settings reset. */
 	private static final int MESSAGE_DORESETSETTINGS = 27;
@@ -268,20 +263,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private static final int TEN_THOUSAND = 10000;
 	
 	/** 3 seconds. */
-	private static final int THREE_THOUSAND_MILLIS = 3000;
+	static final int THREE_THOUSAND_MILLIS = 3000;
 	
 	/** 20 seconds. */
 	private static final int TWENTY_THOUSAND_MILLIS = 20000;
 
-	/** Grace delay after a flap when Persistent Connection is on. */
-	private static final int PERSISTENT_SHORT_RECONNECT_MILLIS = 8000;
-	/** Delay after connect/network errors when Persistent Connection is on. */
-	private static final int PERSISTENT_ERROR_RECONNECT_MILLIS = 15000;
-	/** Max wait for connectivity before attempting a blind reconnect. */
-	private static final int PERSISTENT_NETWORK_WAIT_CAP_MILLIS = 180000;
-	/** Floor for reconnect attempts when Persistent Connection is on. */
-	private static final int PERSISTENT_MIN_TRIES = 20;
-	
 	
 	/** Status bar height holder. */
 	private static final int STATUS_BAR_DEFAULT_SIZE = 25;
@@ -334,19 +320,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** The list of window tokens in loaded order. */
 	ArrayList<WindowToken> mWindows;
 	/** Extra text window slots for this connection (drawer/float overlays). */
-	private ArrayList<ExtraTextSlot> mExtraTextSlots = new ArrayList<ExtraTextSlot>();
+	private final ConnectionExtraText mExtraText = new ConnectionExtraText(this);
 	/** The auto reconnect limit helper varialbe. */
-	private Integer mAutoReconnectLimit;
-	/** The current auto reconnect attempt. */
-	private Integer mAutoReconnectAttempt = 0;
-	/** Weather or not we should auto reconnect on connection failure. */
-	private Boolean mAutoReconnect;
-	/** Patient reconnect through brief network loss / VPN flaps (Miscellaneous). */
-	private Boolean mPersistentConnection = false;
-	/** Optional callback: wait for network before scheduling reconnect. */
-	private ConnectivityManager.NetworkCallback mPersistentNetworkCallback;
-	/** Runnable that caps how long we wait for network. */
-	private Runnable mPersistentNetworkWaitTimeout;
+	/** Auto-reconnect / persistent-connection state and scheduling. */
+	private final ConnectionReconnect mReconnect = new ConnectionReconnect(this);
+
 	/** The amalgamated trigger string. Very long in most cases. */
 	private String mMassiveTriggerString = null;
 	/** The amalgamated trigger string pattern object. */
@@ -577,7 +555,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				clearStartupInProgress();
 				killNetThreads(true);
 				// Default: peer closed → no auto-reconnect. Persistent: treat like a network flap.
-				doDisconnect(!Boolean.TRUE.equals(mPersistentConnection));
+				doDisconnect(!mReconnect.isPersistent());
 				mIsConnected = false;
 				break;
 			case MESSAGE_CHARSET:
@@ -612,8 +590,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_CONNECTED:
 				clearStartupInProgress();
-				clearPersistentNetworkWait();
-				mAutoReconnectAttempt = 0;
+				mReconnect.onConnected();
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
 				mSessionLog.onConnected();
@@ -1524,12 +1501,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (module == null || module.length() == 0) {
 			return;
 		}
-		if (mExtraTextSlots == null || mExtraTextSlots.isEmpty()) {
+		if (mExtraText.isEmpty()) {
 			return;
 		}
+		// Read-only view: this runs per received GMCP message, so it avoids copying.
+		java.util.List<ExtraTextSlot> slots = mExtraText.peekSlots();
 		boolean any = false;
-		for (int i = 0; i < mExtraTextSlots.size(); i++) {
-			ExtraTextSlot s = mExtraTextSlots.get(i);
+		for (int i = 0; i < slots.size(); i++) {
+			ExtraTextSlot s = slots.get(i);
 			if (s != null && s.matchesGmcpModule(module)) {
 				any = true;
 				break;
@@ -1549,8 +1528,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		String line = "\n" + Colorizer.getTeloptStartColor()
 				+ "[GMCP] " + module + (safe.length() > 0 ? (" " + safe) : "")
 				+ Colorizer.getResetColor() + "\n";
-		for (int i = 0; i < mExtraTextSlots.size(); i++) {
-			ExtraTextSlot s = mExtraTextSlots.get(i);
+		for (int i = 0; i < slots.size(); i++) {
+			ExtraTextSlot s = slots.get(i);
 			if (s == null || !s.matchesGmcpModule(module)) {
 				continue;
 			}
@@ -1633,31 +1612,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mHandler == null) {
 			return;
 		}
-		boolean wantsReconnect = !override
-				&& (Boolean.TRUE.equals(mAutoReconnect) || Boolean.TRUE.equals(mPersistentConnection));
-		if (wantsReconnect) {
-			int limit = effectiveReconnectLimit();
-			if (mAutoReconnectAttempt < limit) {
-				mAutoReconnectAttempt++;
-				int remaining = limit - mAutoReconnectAttempt;
-				String modeNote = Boolean.TRUE.equals(mPersistentConnection)
-						? " Persistent connection is on."
-						: "";
+		if (!override) {
+			int remaining = mReconnect.consumeAttempt(THREE_THOUSAND_MILLIS);
+			if (remaining >= 0) {
 				String message = "\n" + Colorizer.getRedColor() + "Network connection disconnected.\n"
 								 + "Attempting reconnect"
-								 + (Boolean.TRUE.equals(mPersistentConnection)
-										 ? " (waiting for network if needed)."
-										 : " in 3 seconds.")
+								 + mReconnect.describeNextAttempt(" in 3 seconds.")
 								 + " " + remaining + " tries remaining."
-								 + modeNote
+								 + mReconnect.persistentNote()
 								 + Colorizer.getWhiteColor() + "\n";
 				mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
-				scheduleReconnectAttempt(THREE_THOUSAND_MILLIS);
 				return;
 			}
 		}
 
-		clearPersistentNetworkWait();
+		mReconnect.clearNetworkWait();
 		markConnectionEnded();
 		mService.doDisconnect(this);
 	}
@@ -1675,7 +1644,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		Log.w("BlowTorch", "killNetThreads(noreconnect=" + noreconnect + ")", new RuntimeException("killNetThreads caller"));
 		markConnectionEnded();
 		if (noreconnect) {
-			clearPersistentNetworkWait();
+			mReconnect.clearNetworkWait();
 		}
 		if (mPump != null) {
 			if (mPump.getHandler() != null) {
@@ -2043,27 +2012,22 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	protected final void dispatchDialog(final String str) {
 		if (mHandler == null || str == null) { return; }
-		boolean wantsReconnect = Boolean.TRUE.equals(mAutoReconnect)
-				|| Boolean.TRUE.equals(mPersistentConnection);
-		if (wantsReconnect) {
-			int limit = effectiveReconnectLimit();
-			if (mAutoReconnectAttempt < limit) {
-				mAutoReconnectAttempt++;
-				killNetThreads(true);
-				int remaining = limit - mAutoReconnectAttempt;
+		// killNetThreads(true) has to run before the attempt is scheduled, so the
+		// budget check is separate from consuming it here.
+		if (mReconnect.canAttempt()) {
+			killNetThreads(true);
+			int remaining = mReconnect.consumeAttempt(TWENTY_THOUSAND_MILLIS);
+			if (remaining >= 0) {
 				String message = "\n" + Colorizer.getRedColor() + "Network Error: " + str + "\n"
 						+ "Attempting reconnect"
-						+ (Boolean.TRUE.equals(mPersistentConnection)
-								? " (waiting for network if needed)."
-								: " in 20 seconds.")
+						+ mReconnect.describeNextAttempt(" in 20 seconds.")
 						+ " " + remaining + " tries remaining."
 						+ Colorizer.getWhiteColor() + "\n";
 				mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
-				scheduleReconnectAttempt(TWENTY_THOUSAND_MILLIS);
 				return;
 			}
 		}
-		clearPersistentNetworkWait();
+		mReconnect.clearNetworkWait();
 		mService.dispatchDialog(str);
 	}
 
@@ -2140,7 +2104,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 			initSettings();
 			applyTerminalNaws();
-			syncGmcpExtraRoutesToProcessor();
+			mExtraText.syncGmcpRoutes();
 			mPump.start();
 			mGmcp.loadGMCPTriggers();
 			loadMcpTriggers();
@@ -2175,15 +2139,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mStartupInProgress = true;
 		killNetThreads(true);
 		mHandler.removeMessages(MESSAGE_RECONNECT);
-		mAutoReconnect = false;
-		mAutoReconnectAttempt = 0;
+		mReconnect.disableForSession();
 
 		mService.updateForegroundNotification(mDisplay, "Offline · Starter Tutorial");
 
 		mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 		mProcessor.setDisplayName(mDisplay);
 		initSettings();
-		syncGmcpExtraRoutesToProcessor();
+		mExtraText.syncGmcpRoutes();
 		applyOfflinePresentationDefaults();
 		// Window/button layer may bind slightly later — re-apply once more.
 		mHandler.postDelayed(new Runnable() {
@@ -3582,13 +3545,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				this.doSetKeepWifiAlive((Boolean) o.getValue());
 				break;
 			case auto_reconnect:
-				this.setAutoReconnect((Boolean) o.getValue());
+				mReconnect.setAutoReconnect((Boolean) o.getValue());
 				break;
 			case auto_reconnect_limit:
-				this.setAutoReconnectLimit((Integer) o.getValue());
+				mReconnect.setLimit((Integer) o.getValue());
 				break;
 			case persistent_connection:
-				this.setPersistentConnection((Boolean) o.getValue());
+				mReconnect.setPersistent((Boolean) o.getValue());
 				break;
 			case cull_extraneous_color:
 				this.doSetCullExtraneousColor((Boolean) o.getValue());
@@ -4079,140 +4042,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		} catch (Exception ignored) {
 		}
 		return def;
-	}
-
-	/** Implementation of the auto reconnect attempt limit settings handler.
-	 * 
-	 * @param value New value for setting.
-	 */
-	private void setAutoReconnectLimit(final Integer value) {
-		mAutoReconnectLimit = value;
-	}
-
-	/** Impelementation of the use auto reconnect settings handler.
-	 * 
-	 * @param value New value for setting.
-	 */
-	private void setAutoReconnect(final Boolean value) {
-		mAutoReconnect = value;
-	}
-
-	private void setPersistentConnection(final Boolean value) {
-		mPersistentConnection = value != null ? value : false;
-		if (!Boolean.TRUE.equals(mPersistentConnection)) {
-			clearPersistentNetworkWait();
-		}
-	}
-
-	private int effectiveReconnectLimit() {
-		int base = mAutoReconnectLimit != null ? mAutoReconnectLimit.intValue() : 5;
-		if (Boolean.TRUE.equals(mPersistentConnection)) {
-			return Math.max(base * 4, PERSISTENT_MIN_TRIES);
-		}
-		return base;
-	}
-
-	private boolean isNetworkUsable() {
-		try {
-			ConnectivityManager cm = (ConnectivityManager)
-					mService.getSystemService(Context.CONNECTIVITY_SERVICE);
-			if (cm == null) {
-				return true;
-			}
-			Network active = cm.getActiveNetwork();
-			if (active == null) {
-				return false;
-			}
-			NetworkCapabilities caps = cm.getNetworkCapabilities(active);
-			return caps != null
-					&& caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
-		} catch (Exception e) {
-			return true;
-		}
-	}
-
-	private void scheduleReconnectAttempt(final long normalDelayMs) {
-		if (mHandler == null) {
-			return;
-		}
-		long delay = normalDelayMs;
-		if (Boolean.TRUE.equals(mPersistentConnection)) {
-			if (normalDelayMs <= THREE_THOUSAND_MILLIS) {
-				delay = PERSISTENT_SHORT_RECONNECT_MILLIS;
-			} else {
-				delay = PERSISTENT_ERROR_RECONNECT_MILLIS;
-			}
-			if (!isNetworkUsable()) {
-				waitForNetworkThenReconnect(delay);
-				return;
-			}
-		}
-		mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, delay);
-	}
-
-	private void waitForNetworkThenReconnect(final long afterAvailableDelayMs) {
-		if (mHandler == null || mService == null) {
-			return;
-		}
-		clearPersistentNetworkWait();
-		String message = "\n" + Colorizer.getRedColor()
-				+ "No usable network right now. Will reconnect when connectivity returns…"
-				+ Colorizer.getWhiteColor() + "\n";
-		mHandler.sendMessage(mHandler.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message));
-		try {
-			final ConnectivityManager cm = (ConnectivityManager)
-					mService.getSystemService(Context.CONNECTIVITY_SERVICE);
-			if (cm == null) {
-				mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, afterAvailableDelayMs);
-				return;
-			}
-			mPersistentNetworkCallback = new ConnectivityManager.NetworkCallback() {
-				@Override
-				public void onAvailable(Network network) {
-					clearPersistentNetworkWait();
-					if (mHandler != null) {
-						mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, afterAvailableDelayMs);
-					}
-				}
-			};
-			NetworkRequest request = new NetworkRequest.Builder()
-					.addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-					.build();
-			cm.registerNetworkCallback(request, mPersistentNetworkCallback);
-			mPersistentNetworkWaitTimeout = new Runnable() {
-				@Override
-				public void run() {
-					if (mPersistentNetworkCallback != null) {
-						clearPersistentNetworkWait();
-						if (mHandler != null) {
-							mHandler.sendEmptyMessage(MESSAGE_RECONNECT);
-						}
-					}
-				}
-			};
-			mHandler.postDelayed(mPersistentNetworkWaitTimeout, PERSISTENT_NETWORK_WAIT_CAP_MILLIS);
-		} catch (Exception e) {
-			Log.w("BlowTorch", "Persistent network wait failed; reconnecting blindly", e);
-			mHandler.sendEmptyMessageDelayed(MESSAGE_RECONNECT, afterAvailableDelayMs);
-		}
-	}
-
-	private void clearPersistentNetworkWait() {
-		if (mHandler != null && mPersistentNetworkWaitTimeout != null) {
-			mHandler.removeCallbacks(mPersistentNetworkWaitTimeout);
-			mPersistentNetworkWaitTimeout = null;
-		}
-		if (mPersistentNetworkCallback != null && mService != null) {
-			try {
-				ConnectivityManager cm = (ConnectivityManager)
-						mService.getSystemService(Context.CONNECTIVITY_SERVICE);
-				if (cm != null) {
-					cm.unregisterNetworkCallback(mPersistentNetworkCallback);
-				}
-			} catch (Exception ignored) {
-			}
-			mPersistentNetworkCallback = null;
-		}
 	}
 
 	/** Impelementation of the bell vibrate settings handler.
@@ -5352,6 +5181,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		requestExtraTextUi(MESSAGE_EXTRA_TEXT_CHANGED);
 	}
 
+	/** Queue a settings save on the connection handler, if one is running. */
+	void requestSettingsSave() {
+		if (mHandler != null) {
+			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+		}
+	}
+
 	/** Ask the UI process to sync extra text overlays with an explicit action code. */
 	public final void requestExtraTextUi(final int action) {
 		if (mService != null) {
@@ -5361,45 +5197,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Snapshot of configured extra text slots (never null; may be empty). */
 	public final ArrayList<ExtraTextSlot> getExtraTextSlots() {
-		if (mExtraTextSlots == null) {
-			mExtraTextSlots = new ArrayList<ExtraTextSlot>();
-		}
-		ArrayList<ExtraTextSlot> copy = new ArrayList<ExtraTextSlot>(mExtraTextSlots.size());
-		for (ExtraTextSlot s : mExtraTextSlots) {
-			if (s != null) {
-				copy.add(s.copy());
-			}
-		}
-		return copy;
+		return mExtraText.getSlots();
 	}
 
 	/** Whether extra text overlays are enabled (default true). */
 	public final boolean isExtraTextWindowsEnabled() {
-		if (mSettings == null || mSettings.getSettings() == null
-				|| mSettings.getSettings().getOptions() == null) {
-			return true;
-		}
-		try {
-			Object o = mSettings.getSettings().getOptions()
-					.findOptionByKey(ExtraTextSlotsStore.ENABLED_KEY);
-			if (o instanceof BooleanOption) {
-				Object val = ((BooleanOption) o).getValue();
-				if (val instanceof Boolean) {
-					return ((Boolean) val).booleanValue();
-				}
-			}
-		} catch (Exception ignored) {
-		}
-		return true;
+		return mExtraText.isEnabled();
 	}
 
 	/**
 	 * Ensure each configured slot has a {@link WindowToken} in {@link #mWindows}
 	 * (buffer + default window options; no LayoutGroup). Reloads slots from the
-	 * {@code extra_text_windows} setting first. Notifies UI when {@code notify} is true.
+	 * {@code extra_text_windows} setting first. Notifies UI.
 	 */
 	public final void ensureExtraTextSlots() {
-		ensureExtraTextSlots(true);
+		mExtraText.ensureSlots(true);
 	}
 
 	/**
@@ -5407,136 +5219,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * (skip during {@link #loadPlugins} — {@code reloadWindows} follows).
 	 */
 	public final void ensureExtraTextSlots(final boolean notify) {
-		HashSet<String> previousNames = new HashSet<String>();
-		if (mExtraTextSlots != null) {
-			for (ExtraTextSlot s : mExtraTextSlots) {
-				if (s != null && s.getName() != null) {
-					previousNames.add(s.getName());
-				}
-			}
-		}
-		reloadExtraTextSlotsFromSettings();
-		if (mWindows == null) {
-			mWindows = new ArrayList<WindowToken>();
-		}
-		HashSet<String> nextNames = new HashSet<String>();
-		for (ExtraTextSlot slot : mExtraTextSlots) {
-			if (slot == null || slot.getName() == null) {
-				continue;
-			}
-			String name = slot.getName();
-			nextNames.add(name);
-			WindowToken existing = getWindowByName(name);
-			if (existing == null) {
-				WindowToken tok = new WindowToken(name, null, null, mDisplay);
-				// Must stay false — bufferText holds bytes without painting (Window.addBytesImpl).
-				tok.setBufferText(false);
-				if (tok.getSettings() != null) {
-					tok.getSettings().setOption("word_wrap", "true");
-				}
-				mWindows.add(tok);
-			} else {
-				existing.setBufferText(false);
-				if (existing.getSettings() != null) {
-					existing.getSettings().setOption("word_wrap", "true");
-				}
-			}
-		}
-		// Remove tokens for slots that disappeared from the JSON list.
-		for (String old : previousNames) {
-			if (old != null && !nextNames.contains(old) && mWindows != null) {
-				for (int i = mWindows.size() - 1; i >= 0; i--) {
-					WindowToken w = mWindows.get(i);
-					if (w != null && old.equals(w.getName())) {
-						mWindows.remove(i);
-					}
-				}
-			}
-		}
-		if (notify) {
-			requestExtraTextUi();
-		}
-	}
-
-	private void reloadExtraTextSlotsFromSettings() {
-		String json = "[]";
-		if (mSettings != null && mSettings.getSettings() != null
-				&& mSettings.getSettings().getOptions() != null) {
-			try {
-				Object o = mSettings.getSettings().getOptions()
-						.findOptionByKey(ExtraTextSlotsStore.SETTING_KEY);
-				if (o instanceof StringOption) {
-					Object val = ((StringOption) o).getValue();
-					if (val != null) {
-						json = val.toString();
-					}
-				}
-			} catch (Exception e) {
-				Log.w("BlowTorch", "reloadExtraTextSlotsFromSettings failed", e);
-			}
-		}
-		mExtraTextSlots = ExtraTextSlotsStore.parse(json);
-		syncGmcpExtraRoutesToProcessor();
-	}
-
-	/** Tell Processor which GMCP modules are claimed by extra-text panes (suppress main feed). */
-	private void syncGmcpExtraRoutesToProcessor() {
-		if (mProcessor == null) {
-			return;
-		}
-		java.util.ArrayList<String> patterns = new java.util.ArrayList<String>();
-		if (mExtraTextSlots != null) {
-			for (int i = 0; i < mExtraTextSlots.size(); i++) {
-				ExtraTextSlot s = mExtraTextSlots.get(i);
-				if (s == null || s.getGmcpModules() == null) {
-					continue;
-				}
-				for (int j = 0; j < s.getGmcpModules().size(); j++) {
-					String p = s.getGmcpModules().get(j);
-					if (p != null && p.trim().length() > 0 && !patterns.contains(p)) {
-						patterns.add(p);
-					}
-				}
-			}
-		}
-		mProcessor.setGmcpExtraRoutePatterns(patterns);
-	}
-
-	private void persistExtraTextSlots() {
-		if (mSettings == null || mSettings.getSettings() == null
-				|| mSettings.getSettings().getOptions() == null) {
-			return;
-		}
-		ExtraTextSlotsStore.validate(mExtraTextSlots);
-		String json = ExtraTextSlotsStore.toJson(mExtraTextSlots);
-		mSettings.getSettings().getOptions().setOption(ExtraTextSlotsStore.SETTING_KEY, json);
-		if (mHandler != null) {
-			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
-		}
+		mExtraText.ensureSlots(notify);
 	}
 
 	/**
 	 * Find a slot by name (normalized). Returns a copy, or null.
 	 */
 	public final ExtraTextSlot findExtraTextSlot(final String name) {
-		String n = ExtraTextSlotsStore.normalizeName(name);
-		if (n == null) {
-			if (name != null) {
-				String lower = name.trim().toLowerCase(java.util.Locale.US);
-				for (ExtraTextSlot s : mExtraTextSlots) {
-					if (s != null && lower.equals(s.getName())) {
-						return s.copy();
-					}
-				}
-			}
-			return null;
-		}
-		for (ExtraTextSlot s : mExtraTextSlots) {
-			if (s != null && n.equals(s.getName())) {
-				return s.copy();
-			}
-		}
-		return null;
+		return mExtraText.find(name);
 	}
 
 	/**
@@ -5546,36 +5236,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return true if accepted
 	 */
 	public final boolean upsertExtraTextSlot(final ExtraTextSlot slot) {
-		if (slot == null) {
-			return false;
-		}
-		String n = ExtraTextSlotsStore.normalizeName(slot.getName());
-		if (n == null) {
-			return false;
-		}
-		slot.setName(n);
-		if (slot.getTitle() == null || slot.getTitle().length() == 0) {
-			slot.setTitle(n);
-		}
-		int existing = -1;
-		for (int i = 0; i < mExtraTextSlots.size(); i++) {
-			ExtraTextSlot s = mExtraTextSlots.get(i);
-			if (s != null && n.equals(s.getName())) {
-				existing = i;
-				break;
-			}
-		}
-		if (existing >= 0) {
-			mExtraTextSlots.set(existing, slot.copy());
-		} else {
-			if (mExtraTextSlots.size() >= ExtraTextSlotsStore.MAX_SLOTS) {
-				return false;
-			}
-			mExtraTextSlots.add(slot.copy());
-		}
-		persistExtraTextSlots();
-		ensureExtraTextSlots(true);
-		return true;
+		return mExtraText.upsert(slot);
 	}
 
 	/**
@@ -5584,36 +5245,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return true if a slot was removed
 	 */
 	public final boolean removeExtraTextSlot(final String name) {
-		String n = ExtraTextSlotsStore.normalizeName(name);
-		if (n == null && name != null) {
-			n = name.trim().toLowerCase(java.util.Locale.US);
-		}
-		if (n == null || n.length() == 0) {
-			return false;
-		}
-		boolean removed = false;
-		for (int i = mExtraTextSlots.size() - 1; i >= 0; i--) {
-			ExtraTextSlot s = mExtraTextSlots.get(i);
-			if (s != null && n.equals(s.getName())) {
-				mExtraTextSlots.remove(i);
-				removed = true;
-			}
-		}
-		if (!removed) {
-			return false;
-		}
-		persistExtraTextSlots();
-		if (mWindows != null) {
-			for (int i = mWindows.size() - 1; i >= 0; i--) {
-				WindowToken w = mWindows.get(i);
-				if (w != null && n.equals(w.getName())) {
-					mWindows.remove(i);
-				}
-			}
-		}
-		// Keep in-memory list in sync without re-adding the removed token.
-		requestExtraTextUi();
-		return true;
+		return mExtraText.remove(name);
 	}
 
 	/** Optional string payload for {@link #requestMapperUi} (e.g. zoom action). */
@@ -5715,27 +5347,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void replaceExtraTextSlots(final java.util.List<ExtraTextSlot> slots,
 			final boolean save) {
-		ArrayList<ExtraTextSlot> next = new ArrayList<ExtraTextSlot>();
-		if (slots != null) {
-			for (int i = 0; i < slots.size(); i++) {
-				ExtraTextSlot s = slots.get(i);
-				if (s != null) {
-					next.add(s.copy());
-				}
-			}
-		}
-		ExtraTextSlotsStore.validate(next);
-		mExtraTextSlots = next;
-		String json = ExtraTextSlotsStore.toJson(mExtraTextSlots);
-		if (mSettings != null && mSettings.getSettings() != null
-				&& mSettings.getSettings().getOptions() != null) {
-			mSettings.getSettings().getOptions().setOption(
-					ExtraTextSlotsStore.SETTING_KEY, json);
-		}
-		ensureExtraTextSlots(true);
-		if (save && mHandler != null) {
-			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
-		}
+		mExtraText.replaceAll(slots, save);
 	}
 	
 }
