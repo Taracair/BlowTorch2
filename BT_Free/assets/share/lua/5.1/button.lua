@@ -13,6 +13,9 @@ buttonShowHints = true
 -- Live arrow drawn under the finger during a swipe, showing which direction is
 -- currently being aimed at. Off-putting for some, so it has its own switch.
 buttonShowSwipePreview = true
+-- Callout above the tile naming the command the current gesture would send, for
+-- when a button has more bindings than anyone remembers. Per-button setting.
+buttonShowGestureLabels = true
 BUTTONSET_DATA = {
 						height 			= 48,
 						width 			= 48,
@@ -35,6 +38,7 @@ BUTTONSET_DATA = {
 						swipeUpRightCommand = "",
 						swipeDownLeftCommand = "",
 						swipeDownRightCommand = "",
+						showGestureLabel = true,
 						name = "",
 						switchTo = "",
 						accordionDirection = "",
@@ -341,6 +345,71 @@ end
 -- the finger is currently aimed at, so a corner gesture can be told apart from a
 -- straight one before letting go. `direction` is the direction that would
 -- actually fire, so the arrow never promises something the release will not do.
+-- Callout above the tile naming what the current gesture would send.
+--
+-- Sized from the text, with a floor of a bit wider and taller than the tile, so
+-- it reads as a label about the button rather than part of it. Flips below the
+-- tile when there is no room above, and is nudged sideways to stay on screen —
+-- a hint that runs off the edge helps nobody.
+function BUTTON:drawGestureLabel(canvas, text, screenWidth)
+	if text == nil or text == "" then
+		return
+	end
+	if self.data.showGestureLabel == false or buttonShowGestureLabels == false then
+		return
+	end
+	local d = self.density
+	local rect = self.rect
+	local paint = self.paintOpts
+	local previousStyle = paint:getStyle()
+	local label = text
+	if #label > 48 then
+		label = string.sub(label, 1, 47) .. "…"
+	end
+
+	paint:setStyle(PaintStyle.FILL)
+	paint:setTextSize(math.max(11 * d, 12))
+	local textW = paint:measureText(label)
+	local padX, padY = 8 * d, 6 * d
+	local tileW = rectRight(rect) - rectLeft(rect)
+	local tileH = rectBottom(rect) - rectTop(rect)
+	local boxW = math.max(textW + padX * 2, tileW * 1.25)
+	local boxH = math.max(paint:getTextSize() + padY * 2, tileH * 0.55)
+
+	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
+	local left = cx - boxW * 0.5
+	local gap = 6 * d
+	local top = rectTop(rect) - gap - boxH
+	if top < gap then
+		-- No room above: sit below the tile instead.
+		top = rectBottom(rect) + gap
+	end
+	if screenWidth ~= nil and screenWidth > 0 then
+		if left < gap then
+			left = gap
+		end
+		if left + boxW > screenWidth - gap then
+			left = screenWidth - gap - boxW
+		end
+	end
+
+	local box = luajava.newInstance("android.graphics.RectF")
+	box:set(left, top, left + boxW, top + boxH)
+	paint:setColor(Color:argb(232, 0x14, 0x14, 0x18))
+	canvas:drawRoundRect(box, 6 * d, 6 * d, paint)
+	paint:setColor(Color:argb(150, 0x88, 0xCC, 0xFF))
+	paint:setStyle(PaintStyle.STROKE)
+	canvas:drawRoundRect(box, 6 * d, 6 * d, paint)
+
+	paint:setStyle(PaintStyle.FILL)
+	paint:setColor(Color:argb(255, 0xEE, 0xEE, 0xEE))
+	canvas:drawText(label,
+			left + (boxW - textW) * 0.5,
+			top + boxH * 0.5 + paint:getTextSize() * 0.36,
+			paint)
+	paint:setStyle(previousStyle)
+end
+
 function BUTTON:drawSwipePreview(canvas, direction)
 	if direction == nil then
 		return

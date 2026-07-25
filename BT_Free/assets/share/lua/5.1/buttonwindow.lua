@@ -449,6 +449,9 @@ accordionWasExpandedAtDown = false
 -- Direction currently shown by the live swipe arrow, nil when nothing is shown.
 -- Kept so the layer is only repainted when the direction actually changes.
 swipePreviewDir = nil
+-- Text currently shown in the gesture callout, nil when none is shown. Same
+-- reason: repaint only when the wording changes, not on every move event.
+gestureLabelText = nil
 
 local function hasButtonCommand(cmd)
 	return cmd ~= nil and cmd ~= ""
@@ -527,6 +530,35 @@ end
 -- the button has nothing bound there. Both the live preview arrow and the
 -- dispatch on finger-up go through here, so the arrow can never point somewhere
 -- other than where the release will send you.
+-- Arrow glyph per direction, so the callout says which gesture it is describing.
+local DIRECTION_GLYPHS = {
+	up = "↑", down = "↓", left = "←", right = "→",
+	upleft = "↖", upright = "↗", downleft = "↙", downright = "↘",
+}
+
+-- What the gesture callout should say right now, or nil for nothing.
+--
+-- While aiming a swipe it names that swipe's command. Before any swipe starts it
+-- names the hold command, which is the useful moment for hold: the callout is up
+-- during the delay before hold fires, so an unwanted one can still be avoided by
+-- lifting off.
+local function gestureLabelFor(data, direction)
+	if data == nil then
+		return nil
+	end
+	if direction ~= nil then
+		local cmd = getSwipeCommand(data, direction)
+		if hasButtonCommand(cmd) then
+			return (DIRECTION_GLYPHS[direction] or "") .. "  " .. cmd
+		end
+		return nil
+	end
+	if hasButtonCommand(data.holdCommand) then
+		return "hold  " .. data.holdCommand
+	end
+	return nil
+end
+
 local function resolveSwipeDirection(data, dx, dy, threshold)
 	if classifySwipe(dx, dy, threshold) == nil then
 		return nil
@@ -600,6 +632,7 @@ end
 local function resetTouchedButtonVisual()
 	normalTouchState = 0
 	swipePreviewDir = nil
+	gestureLabelText = nil
 	if touchedbutton ~= nil then
 		touchedbutton.selected = false
 	end
@@ -703,11 +736,14 @@ function normalTouch.onTouch(v,e)
 			b.selected = true
 			touchedindex = index
 			normalTouchState = 1
-			if needsFullRedraw or b.isAccordionChild or b.expanded then
+			-- Show the hold command straight away, while there is still time to
+			-- lift off before it fires.
+			gestureLabelText = gestureLabelFor(b.data, nil)
+			if needsFullRedraw or b.isAccordionChild or b.expanded or gestureLabelText ~= nil then
 				drawButtons()
-			else
-				b:draw(normalTouchState,buttonCanvas)
 			end
+			b:draw(normalTouchState,buttonCanvas)
+			b:drawGestureLabel(buttonCanvas, gestureLabelText, width)
 			performHapticPress()
 			selectedtouchstart = true
 			view:invalidate()
@@ -770,14 +806,19 @@ function normalTouch.onTouch(v,e)
 			-- changes when the finger crosses a sector edge, not on every move
 			-- event. drawButtons() clears first so the old arrow goes with it,
 			-- then the touched button is drawn on top exactly as before.
-			if wantState ~= normalTouchState or previewDir ~= swipePreviewDir then
+			local labelText = gestureLabelFor(touchedbutton.data, previewDir)
+
+			if wantState ~= normalTouchState or previewDir ~= swipePreviewDir
+					or labelText ~= gestureLabelText then
 				normalTouchState = wantState
 				swipePreviewDir = previewDir
+				gestureLabelText = labelText
 				drawButtons()
 				touchedbutton:draw(normalTouchState,buttonCanvas)
 				if swipePreviewDir ~= nil then
 					touchedbutton:drawSwipePreview(buttonCanvas, swipePreviewDir)
 				end
+				touchedbutton:drawGestureLabel(buttonCanvas, gestureLabelText, width)
 				if flipping then
 					performHapticFlip()
 				end
@@ -1971,6 +2012,7 @@ function buttonEditorDone(data)
 		tmp.data.swipeUpRightCommand = data.swipeUpRightCommand or ""
 		tmp.data.swipeDownLeftCommand = data.swipeDownLeftCommand or ""
 		tmp.data.swipeDownRightCommand = data.swipeDownRightCommand or ""
+		tmp.data.showGestureLabel = data.showGestureLabel ~= false
 		
 		tmp.data.accordionDirection = data.accordionDirection or ""
 		tmp.data.accordionChildren = data.accordionChildren or {}
@@ -2096,6 +2138,7 @@ function showEditorDialog()
 		editorValues.swipeUpRightCommand = button.data.swipeUpRightCommand or ""
 		editorValues.swipeDownLeftCommand = button.data.swipeDownLeftCommand or ""
 		editorValues.swipeDownRightCommand = button.data.swipeDownRightCommand or ""
+		editorValues.showGestureLabel = button.data.showGestureLabel ~= false
 		editorValues.accordionDirection = button.data.accordionDirection or ""
 		editorValues.accordionChildren = button.data.accordionChildren or {}
 		editorValues.accordionTrigger = button.data.accordionTrigger or "tap"

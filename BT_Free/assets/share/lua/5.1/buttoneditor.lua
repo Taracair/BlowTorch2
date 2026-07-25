@@ -64,6 +64,12 @@ local swipeUpLeftCmdEdit
 local swipeUpRightCmdEdit
 local swipeDownLeftCmdEdit
 local swipeDownRightCmdEdit
+-- Globals on purpose: showEditorDialog is already at Lua 5.1's 60-upvalue
+-- ceiling, and two more file locals push it over. gestureLabelCarried holds the
+-- value the dialog opened with, for when the checkbox is disabled (editing
+-- several buttons at once) and would otherwise read back as unchecked.
+gestureLabelCb = nil
+gestureLabelCarried = true
 -- Values as they were when the dialog opened. Used when the matching field is
 -- disabled (editing several buttons at once), so saving does not blank out
 -- diagonal commands the fields were never allowed to show.
@@ -467,6 +473,8 @@ function showEditorDialog(editorValues,numediting)
 	swipeLeftCmdEdit = addGestureRow(swipePage, "←  Left:", editorValues.swipeLeftCommand)
 	swipeRightCmdEdit = addGestureRow(swipePage, "→  Right:", editorValues.swipeRightCommand)
 
+	gestureLabelCarried = editorValues.showGestureLabel ~= false
+
 	carriedDiagonalSwipes = {
 		swipeUpLeftCommand = editorValues.swipeUpLeftCommand or "",
 		swipeUpRightCommand = editorValues.swipeUpRightCommand or "",
@@ -507,6 +515,14 @@ function showEditorDialog(editorValues,numediting)
 	end
 
 	addHelpText(diagonalBox, "A corner with no command falls back to the nearest straight swipe, so adding these never changes how the straight ones behave.")
+	gestureLabelCb = luajava.new(CheckBox,context)
+	gestureLabelCb:setText("Name the command above this button while gesturing")
+	gestureLabelCb:setChecked(editorValues.showGestureLabel ~= false)
+	if numediting > 1 then
+		gestureLabelCb:setEnabled(false)
+	end
+	swipePage:addView(gestureLabelCb)
+
 	swipeUpLeftCmdEdit = addGestureRow(diagonalBox, "↖  Up-left:", editorValues.swipeUpLeftCommand)
 	swipeUpRightCmdEdit = addGestureRow(diagonalBox, "↗  Up-right:", editorValues.swipeUpRightCommand)
 	swipeDownLeftCmdEdit = addGestureRow(diagonalBox, "↙  Down-left:", editorValues.swipeDownLeftCommand)
@@ -810,6 +826,11 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     d.swipeUpRightCommand = diagonalValue(swipeUpRightCmdEdit, "swipeUpRightCommand")
     d.swipeDownLeftCommand = diagonalValue(swipeDownLeftCmdEdit, "swipeDownLeftCommand")
     d.swipeDownRightCommand = diagonalValue(swipeDownRightCmdEdit, "swipeDownRightCommand")
+    if gestureLabelCb ~= nil and gestureLabelCb:isEnabled() then
+      d.showGestureLabel = gestureLabelCb:isChecked()
+    else
+      d.showGestureLabel = gestureLabelCarried
+    end
 
     local tmp = advancedEditor.getEditorValues()
     
