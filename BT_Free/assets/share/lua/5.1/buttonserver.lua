@@ -238,6 +238,10 @@ function button.start(a)
 	tmp.swipeDownCommand = a:getValue("","swipeDownCommand") or ""
 	tmp.swipeLeftCommand = a:getValue("","swipeLeftCommand") or ""
 	tmp.swipeRightCommand = a:getValue("","swipeRightCommand") or ""
+	tmp.swipeUpLeftCommand = a:getValue("","swipeUpLeftCommand") or ""
+	tmp.swipeUpRightCommand = a:getValue("","swipeUpRightCommand") or ""
+	tmp.swipeDownLeftCommand = a:getValue("","swipeDownLeftCommand") or ""
+	tmp.swipeDownRightCommand = a:getValue("","swipeDownRightCommand") or ""
 	tmp.switchTo = a:getValue("","switchTo") or ""
 	tmp.name = a:getValue("","name")
 	tmp.height = a:getValue("","height")

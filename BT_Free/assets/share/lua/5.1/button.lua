@@ -28,6 +28,10 @@ BUTTONSET_DATA = {
 						swipeDownCommand = "",
 						swipeLeftCommand = "",
 						swipeRightCommand = "",
+						swipeUpLeftCommand = "",
+						swipeUpRightCommand = "",
+						swipeDownLeftCommand = "",
+						swipeDownRightCommand = "",
 						name = "",
 						switchTo = "",
 						accordionDirection = "",
@@ -185,29 +189,40 @@ end
 
 PaintStyle = luajava.bindClass("android.graphics.Paint$Style")
 
+-- Unit vector per gesture direction. Screen y grows downward, so "up" is -1.
+local DIRECTION_VECTORS = {
+	up        = {  0,       -1       },
+	down      = {  0,        1       },
+	left      = { -1,        0       },
+	right     = {  1,        0       },
+	upleft    = { -0.70711, -0.70711 },
+	upright   = {  0.70711, -0.70711 },
+	downleft  = { -0.70711,  0.70711 },
+	downright = {  0.70711,  0.70711 },
+}
+
+-- Isoceles triangle pointing along `direction`, centred on (cx, cy).
+--
+-- Built from the direction vector rather than a branch per direction so the four
+-- diagonals come for free. For up/down/left/right this produces exactly the same
+-- three points the previous hand-written branches did, so accordion chevrons and
+-- existing gesture hints are pixel-identical.
 local function drawDirectionArrow(canvas, paint, cx, cy, direction, size, color)
+	local vec = DIRECTION_VECTORS[direction]
+	if vec == nil then
+		return
+	end
 	local previousStyle = paint:getStyle()
 	paint:setColor(color)
 	paint:setStyle(PaintStyle.FILL)
 	local path = luajava.newInstance("android.graphics.Path")
 	local half = size * 0.5
-	if direction == "up" then
-		path:moveTo(cx, cy - half)
-		path:lineTo(cx - half, cy + half * 0.6)
-		path:lineTo(cx + half, cy + half * 0.6)
-	elseif direction == "down" then
-		path:moveTo(cx, cy + half)
-		path:lineTo(cx - half, cy - half * 0.6)
-		path:lineTo(cx + half, cy - half * 0.6)
-	elseif direction == "left" then
-		path:moveTo(cx - half, cy)
-		path:lineTo(cx + half * 0.6, cy - half)
-		path:lineTo(cx + half * 0.6, cy + half)
-	elseif direction == "right" then
-		path:moveTo(cx + half, cy)
-		path:lineTo(cx - half * 0.6, cy - half)
-		path:lineTo(cx - half * 0.6, cy + half)
-	end
+	local ux, uy = vec[1], vec[2]
+	local px, py = -uy, ux                       -- perpendicular, spreads the base
+	local baseX, baseY = cx - ux * half * 0.6, cy - uy * half * 0.6
+	path:moveTo(cx + ux * half, cy + uy * half)  -- tip
+	path:lineTo(baseX - px * half, baseY - py * half)
+	path:lineTo(baseX + px * half, baseY + py * half)
 	path:close()
 	canvas:drawPath(path, paint)
 	paint:setStyle(previousStyle)
@@ -253,37 +268,69 @@ local function drawAccordionChevron(canvas, paint, rect, direction, expanded, de
 	drawDirectionArrow(canvas, paint, cx, cy, drawDir, size, color)
 end
 
+-- Compass layout for the gesture hints: the four straight swipes are lettered on
+-- the edge midpoints, the four diagonals are small arrows in the corners.
+--
+-- The letters used to sit at 72% of the width/height, which is a corner. That was
+-- fine while only four directions existed; it collides with the diagonals now, so
+-- they moved to true midpoints.
+local STRAIGHT_HINTS = {
+	{ field = "swipeUpCommand",    text = "U", edge = "top"    },
+	{ field = "swipeDownCommand",  text = "D", edge = "bottom" },
+	{ field = "swipeLeftCommand",  text = "L", edge = "left"   },
+	{ field = "swipeRightCommand", text = "R", edge = "right"  },
+}
+
+local DIAGONAL_HINTS = {
+	{ field = "swipeUpLeftCommand",    dir = "upleft"    },
+	{ field = "swipeUpRightCommand",   dir = "upright"   },
+	{ field = "swipeDownLeftCommand",  dir = "downleft"  },
+	{ field = "swipeDownRightCommand", dir = "downright" },
+}
+
 function BUTTON:drawGestureIndicators(canvas, paint)
 	local rect = self.rect
 	local inset = edgeInset(rect, self.density)
 	local arrow = indicatorSize(rect, self.density)
 	local color = Color:argb(150, 0xFF, 0xFF, 0xFF)
-	local w = rectRight(rect) - rectLeft(rect)
-	local h = rectBottom(rect) - rectTop(rect)
-	if hasGestureCommand(self.data, "swipeUpCommand") then
-		paint:setColor(color)
-		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
-		canvas:drawText("U", rectLeft(rect) + w * 0.72, rectTop(rect) + inset + arrow * 0.35, paint)
+	local left, right = rectLeft(rect), rectRight(rect)
+	local top, bottom = rectTop(rect), rectBottom(rect)
+	local midX = (left + right) * 0.5
+	local midY = (top + bottom) * 0.5
+
+	paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
+	for _, hint in ipairs(STRAIGHT_HINTS) do
+		if hasGestureCommand(self.data, hint.field) then
+			local hx, hy
+			if hint.edge == "top" then
+				hx, hy = midX - arrow * 0.4, top + inset + arrow * 0.35
+			elseif hint.edge == "bottom" then
+				hx, hy = midX - arrow * 0.4, bottom - inset + arrow * 0.15
+			elseif hint.edge == "left" then
+				hx, hy = left + inset, midY + arrow * 0.35
+			else
+				hx, hy = right - inset - arrow * 0.6, midY + arrow * 0.35
+			end
+			paint:setColor(color)
+			canvas:drawText(hint.text, hx, hy, paint)
+		end
 	end
-	if hasGestureCommand(self.data, "swipeDownCommand") then
-		paint:setColor(color)
-		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
-		canvas:drawText("D", rectLeft(rect) + w * 0.72, rectBottom(rect) - inset + arrow * 0.15, paint)
+
+	local cornerInset = inset + arrow * 0.55
+	for _, hint in ipairs(DIAGONAL_HINTS) do
+		if hasGestureCommand(self.data, hint.field) then
+			local isLeft = (hint.dir == "upleft" or hint.dir == "downleft")
+			local isTop = (hint.dir == "upleft" or hint.dir == "upright")
+			local hx = isLeft and (left + cornerInset) or (right - cornerInset)
+			local hy = isTop and (top + cornerInset) or (bottom - cornerInset)
+			drawDirectionArrow(canvas, paint, hx, hy, hint.dir, arrow * 0.95, color)
+		end
 	end
-	if hasGestureCommand(self.data, "swipeLeftCommand") then
-		paint:setColor(color)
-		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
-		canvas:drawText("L", rectLeft(rect) + inset, rectTop(rect) + h * 0.72 + arrow * 0.35, paint)
-	end
-	if hasGestureCommand(self.data, "swipeRightCommand") then
-		paint:setColor(color)
-		paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
-		canvas:drawText("R", rectRight(rect) - inset - arrow * 0.6, rectTop(rect) + h * 0.72 + arrow * 0.35, paint)
-	end
+
 	if hasGestureCommand(self.data, "holdCommand") then
 		paint:setColor(Color:argb(170, 0xFF, 0xFF, 0x66))
 		paint:setTextSize(math.max(7 * self.density, arrow * 1.2))
-		canvas:drawText("Hold", rectRight(rect) - 16 * self.density, rectBottom(rect) - 4 * self.density, paint)
+		canvas:drawText("Hold", right - 16 * self.density, bottom - 4 * self.density, paint)
 	end
 end
 

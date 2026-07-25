@@ -467,6 +467,36 @@ function classifySwipe(dx, dy, threshold)
 	return "up"
 end
 
+-- Sector order starting at "right" and going counter-clockwise, 45 degrees each.
+local SWIPE8_SECTORS = {
+	"right", "upright", "up", "upleft", "left", "downleft", "down", "downright",
+}
+
+-- Eight-way classifier, deliberately a separate function rather than a rewrite of
+-- classifySwipe.
+--
+-- classifySwipe must keep returning only up/down/left/right: the accordion swipe
+-- trigger compares its result against accordionDirection, which is never diagonal.
+-- Diagonals are resolved on top of the 4-way answer in the touch handler, so a
+-- button with no diagonal commands behaves exactly as it did before.
+--
+-- Same threshold and same dead zone as classifySwipe, so both agree on whether a
+-- gesture counts as a swipe at all.
+function classifySwipe8(dx, dy, threshold)
+	if math.abs(dx) < threshold and math.abs(dy) < threshold then
+		return nil
+	end
+	-- Screen y grows downward; negate it so the angle reads like ordinary maths.
+	local angle = math.deg(math.atan2(-dy, dx))
+	if angle < 0 then
+		angle = angle + 360
+	end
+	-- The +22.5 offset puts straight up/down/left/right in the middle of a sector
+	-- instead of on a boundary between two.
+	local sector = math.floor((angle + 22.5) / 45) % 8
+	return SWIPE8_SECTORS[sector + 1]
+end
+
 local function getSwipeCommand(data, direction)
 	if direction == "up" then
 		return data.swipeUpCommand
@@ -476,6 +506,14 @@ local function getSwipeCommand(data, direction)
 		return data.swipeLeftCommand
 	elseif direction == "right" then
 		return data.swipeRightCommand
+	elseif direction == "upleft" then
+		return data.swipeUpLeftCommand
+	elseif direction == "upright" then
+		return data.swipeUpRightCommand
+	elseif direction == "downleft" then
+		return data.swipeDownLeftCommand
+	elseif direction == "downright" then
+		return data.swipeDownRightCommand
 	end
 	return nil
 end
@@ -739,15 +777,24 @@ function normalTouch.onTouch(v,e)
 			local dy = y - touchStartY
 			local swipeThreshold = SWIPE_THRESHOLD_DP * density
 			local swipeDir = classifySwipe(dx, dy, swipeThreshold)
+			local swipeDir8 = classifySwipe8(dx, dy, swipeThreshold)
 			local sent = false
 			if swipeDir ~= nil then
 				if hasAccordionConfig(touchedbutton.data)
 					and getAccordionTrigger(touchedbutton.data) == "swipe"
 					and swipeDir == touchedbutton.data.accordionDirection then
+					-- Accordion still matches on the 4-way direction only.
 					toggleAccordion(touchedbutton)
 					sent = true
 				else
-					local swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir)
+					-- Prefer the diagonal the finger actually drew, but fall back to the
+					-- 4-way direction when this button has nothing bound there. A button
+					-- with no diagonal commands therefore resolves every gesture exactly
+					-- as it did before 8-way swipe existed.
+					local swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir8)
+					if not hasButtonCommand(swipeCmd) then
+						swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir)
+					end
 					if hasButtonCommand(swipeCmd) then
 						sent = dispatchButtonAction(swipeCmd)
 					end
@@ -1877,6 +1924,10 @@ function buttonEditorDone(data)
 		tmp.data.swipeDownCommand = data.swipeDownCommand or ""
 		tmp.data.swipeLeftCommand = data.swipeLeftCommand or ""
 		tmp.data.swipeRightCommand = data.swipeRightCommand or ""
+		tmp.data.swipeUpLeftCommand = data.swipeUpLeftCommand or ""
+		tmp.data.swipeUpRightCommand = data.swipeUpRightCommand or ""
+		tmp.data.swipeDownLeftCommand = data.swipeDownLeftCommand or ""
+		tmp.data.swipeDownRightCommand = data.swipeDownRightCommand or ""
 		
 		tmp.data.accordionDirection = data.accordionDirection or ""
 		tmp.data.accordionChildren = data.accordionChildren or {}
@@ -1998,6 +2049,10 @@ function showEditorDialog()
 		editorValues.swipeDownCommand = button.data.swipeDownCommand or ""
 		editorValues.swipeLeftCommand = button.data.swipeLeftCommand or ""
 		editorValues.swipeRightCommand = button.data.swipeRightCommand or ""
+		editorValues.swipeUpLeftCommand = button.data.swipeUpLeftCommand or ""
+		editorValues.swipeUpRightCommand = button.data.swipeUpRightCommand or ""
+		editorValues.swipeDownLeftCommand = button.data.swipeDownLeftCommand or ""
+		editorValues.swipeDownRightCommand = button.data.swipeDownRightCommand or ""
 		editorValues.accordionDirection = button.data.accordionDirection or ""
 		editorValues.accordionChildren = button.data.accordionChildren or {}
 		editorValues.accordionTrigger = button.data.accordionTrigger or "tap"

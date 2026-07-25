@@ -60,6 +60,11 @@ local swipeUpCmdEdit
 local swipeDownCmdEdit
 local swipeLeftCmdEdit
 local swipeRightCmdEdit
+-- The swipe tab has no rows for the four diagonal directions yet. doneClickListener
+-- lives at module scope and cannot see showEditorDialog's editorValues, so the
+-- stored diagonal commands are parked here on open and written back on save.
+-- Without this, editing any button would silently wipe its diagonal commands.
+local carriedDiagonalSwipes = {}
 local accordionDirSpinner
 local accordionLayoutSpinner
 local accordionTriggerSpinner
@@ -433,6 +438,13 @@ function showEditorDialog(editorValues,numediting)
 	swipeDownCmdEdit = addGestureRow(swipePage, "Swipe down:", editorValues.swipeDownCommand)
 	swipeLeftCmdEdit = addGestureRow(swipePage, "Swipe left:", editorValues.swipeLeftCommand)
 	swipeRightCmdEdit = addGestureRow(swipePage, "Swipe right:", editorValues.swipeRightCommand)
+
+	carriedDiagonalSwipes = {
+		swipeUpLeftCommand = editorValues.swipeUpLeftCommand or "",
+		swipeUpRightCommand = editorValues.swipeUpRightCommand or "",
+		swipeDownLeftCommand = editorValues.swipeDownLeftCommand or "",
+		swipeDownRightCommand = editorValues.swipeDownRightCommand or "",
+	}
 	
 	swipePageScroller:addView(swipePage)
 	content:addView(swipePageScroller)
@@ -718,7 +730,12 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     d.swipeDownCommand = swipeDownCmdEdit:getText():toString()
     d.swipeLeftCommand = swipeLeftCmdEdit:getText():toString()
     d.swipeRightCommand = swipeRightCmdEdit:getText():toString()
-    
+
+    -- Diagonals have no editor rows yet; hand back whatever the button already had.
+    for field, value in pairs(carriedDiagonalSwipes) do
+      d[field] = value
+    end
+
     local tmp = advancedEditor.getEditorValues()
     
     for i,v in pairs(tmp) do
