@@ -36,6 +36,10 @@ local itemClicked = nil
 local adapter = nil
 local dialog = nil
 local toolbar = nil
+-- Computed once, together with `toolbar`. Must outlive the call that builds the
+-- toolbar: init() runs again every time the set list is reopened, and on those
+-- later calls the build block below is skipped because `toolbar` already exists.
+local toolbarlength = nil
 local animateIn = nil
 local animateOut = {}
 local animateOutAndDelete = {}
@@ -262,7 +266,6 @@ end
 
 makeToolbar = function()
 	--toolbar = toolbar or {}
-	local toolbarlength
 	if(not toolbar) then
 		toolbar = layoutInflater:inflate(R_layout.editor_selection_list_row_toolbar,nil)
 		local toolbarparams = luajava.new(RelativeLayoutParams,RelativeLayoutParams.WRAP_CONTENT,RelativeLayoutParams.WRAP_CONTENT)
