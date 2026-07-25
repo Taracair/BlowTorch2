@@ -46,6 +46,8 @@ local setGridSnapTest
 local setAdvancedProperties
 local setShowGestureHints
 local setShowSwipePreview
+local applySize
+local tidyLayout
 local editorDone
 local editorCancel
 setEditorDoneCallback = function(c) editorDone = c end
@@ -60,6 +62,8 @@ setGridSnapTestCallback = function(c) setGridSnapTest = c end
 setAdvancedPropertiesCallback = function(c) setAdvancedProperties = c end
 setShowGestureHintsCallback = function(c) setShowGestureHints = c end
 setShowSwipePreviewCallback = function(c) setShowSwipePreview = c end
+setApplySizeCallback = function(c) applySize = c end
+setTidyLayoutCallback = function(c) tidyLayout = c end
 --end callback handling variables
 
 --local vairables to keep track of widget values
@@ -81,6 +85,8 @@ local gridOpacitySeekBarChangeListener
 local gridIntersectionTestRadioChangedListener
 local showGestureHintsCheckChangeListener
 local showSwipePreviewCheckChangeListener
+local applySizeListener
+local tidyLayoutListener
 local doneListener
 local cancelListener
 local setDefaultsEditorListener
@@ -90,6 +96,11 @@ local dialog
 local xSeekBarLabel
 local ySeekBarLabel
 local opacitySeekBarLabel
+-- Set while the dialog is built; the click listeners live at module scope and
+-- cannot reach showDialog's locals.
+local sizeWidthField
+local sizeHeightField
+local tidyColumnsField
 
 function init(pContext)
   context = pContext
@@ -235,6 +246,48 @@ function showDialog(initialValues)
   swipePreviewCb:setLayoutParams(fillparams)
   ll:addView(swipePreviewCb)
 
+  -- Section headers: the dialog was one flat run of checkboxes, sliders and
+  -- radio buttons with no grouping, which made it hard to scan.
+  local function addSectionHeader(text)
+    local header = luajava.newInstance("android.widget.TextView", context)
+    header:setText(text)
+    header:setTextSize(textSize)
+    header:setTextColor(Color:argb(255, 0x88, 0xCC, 0xFF))
+    header:setPadding(math.floor(6 * density), math.floor(14 * density),
+        math.floor(6 * density), math.floor(4 * density))
+    header:setLayoutParams(fillparams)
+    ll:addView(header)
+  end
+
+  local function addHint(text)
+    local hint = luajava.newInstance("android.widget.TextView", context)
+    hint:setText(text)
+    hint:setTextSize(textSizeSmall)
+    hint:setPadding(math.floor(6 * density), 0, math.floor(6 * density),
+        math.floor(4 * density))
+    hint:setLayoutParams(fillparams)
+    ll:addView(hint)
+  end
+
+  local function addNumberField(row, labelText, value, widthDp)
+    local label = luajava.newInstance("android.widget.TextView", context)
+    label:setText(labelText)
+    label:setTextSize(textSizeSmall)
+    label:setGravity(Gravity.RIGHT)
+    label:setLayoutParams(luajava.new(LinearLayoutParams,
+        math.floor(58 * density), WRAP_CONTENT))
+    local edit = luajava.newInstance("android.widget.EditText", context)
+    edit:setTextSize(textSize)
+    edit:setInputType(TYPE_CLASS_NUMBER)
+    edit:setText(tostring(value))
+    edit:setLayoutParams(luajava.new(LinearLayoutParams,
+        math.floor(widthDp * density), WRAP_CONTENT))
+    row:addView(label)
+    row:addView(edit)
+    return edit
+  end
+
+  addSectionHeader("Grid")
   ll:addView(xSeekBarLabel)
   ll:addView(xSeekBar)
   ll:addView(ySeekBarLabel)
@@ -243,6 +296,39 @@ function showDialog(initialValues)
   ll:addView(opacitySeekBar)
   ll:addView(selectionTextLabel)
   ll:addView(rg)
+
+  addSectionHeader("Arrange buttons")
+  addHint("Applies to the selected buttons, or to every button when nothing is selected.")
+
+  local sizeRow = luajava.newInstance("android.widget.LinearLayout", context)
+  sizeRow:setLayoutParams(fillparams)
+  local sizeWEdit = addNumberField(sizeRow, "Size  W:", initialValues.width or 42, 54)
+  local sizeHEdit = addNumberField(sizeRow, "H:", initialValues.height or 42, 54)
+  local applySizeButton = luajava.new(Button, context)
+  applySizeButton:setText("Apply size")
+  applySizeButton:setTextSize(textSizeSmall)
+  applySizeButton:setLayoutParams(fillparams)
+  applySizeButton:setOnClickListener(applySizeListener)
+  sizeRow:addView(applySizeButton)
+  ll:addView(sizeRow)
+
+  local tidyRow = luajava.newInstance("android.widget.LinearLayout", context)
+  tidyRow:setLayoutParams(fillparams)
+  local tidyColsEdit = addNumberField(tidyRow, "Columns:", 0, 54)
+  local tidyButton = luajava.new(Button, context)
+  tidyButton:setText("Line up on grid")
+  tidyButton:setTextSize(textSizeSmall)
+  tidyButton:setLayoutParams(fillparams)
+  tidyButton:setOnClickListener(tidyLayoutListener)
+  tidyRow:addView(tidyButton)
+  ll:addView(tidyRow)
+  addHint("Columns 0 picks a square-ish shape. Buttons keep their reading order and top-left corner; spacing comes from the grid above.")
+
+  -- The listeners live at module scope and cannot see these fields, so hand the
+  -- widgets over for them to read on click.
+  sizeWidthField = sizeWEdit
+  sizeHeightField = sizeHEdit
+  tidyColumnsField = tidyColsEdit
   
   local boptHolder = luajava.new(LinearLayout,context)
   boptHolder:setLayoutParams(fillparams)
@@ -307,6 +393,38 @@ showSwipePreviewCheckChangeListener = luajava.createProxy("android.widget.Compou
     if(setShowSwipePreview ~= nil) then
       setShowSwipePreview(isChecked)
     end
+  end
+})
+
+applySizeListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if applySize == nil or sizeWidthField == nil or sizeHeightField == nil then
+      return
+    end
+    local w = tonumber(sizeWidthField:getText():toString())
+    local h = tonumber(sizeHeightField:getText():toString())
+    if w == nil or h == nil then
+      Note("\nEnter a width and a height first.\n")
+      return
+    end
+    if w < 16 or h < 16 then
+      Note("\nButtons smaller than 16dp are hard to hit; ignoring.\n")
+      return
+    end
+    applySize(w, h)
+  end
+})
+
+tidyLayoutListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if tidyLayout == nil then
+      return
+    end
+    local cols = 0
+    if tidyColumnsField ~= nil then
+      cols = tonumber(tidyColumnsField:getText():toString()) or 0
+    end
+    tidyLayout(cols)
   end
 })
 

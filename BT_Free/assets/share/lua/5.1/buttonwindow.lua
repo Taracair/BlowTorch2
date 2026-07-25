@@ -1199,6 +1199,110 @@ function exitManagerModeNoSave()
 	view:invalidate()
 end
 
+-- Buttons the layout tools act on: the selection if there is one, otherwise all
+-- of them. Selecting nothing and pressing Apply meaning "everything" is the
+-- behaviour people expect, and it saves a select-all step.
+local function layoutTargets()
+	local chosen = {}
+	for i = 1, #buttons do
+		if buttons[i] ~= nil and buttons[i].selected then
+			chosen[#chosen + 1] = buttons[i]
+		end
+	end
+	if #chosen > 0 then
+		return chosen, true
+	end
+	local all = {}
+	for i = 1, #buttons do
+		if buttons[i] ~= nil then
+			all[#all + 1] = buttons[i]
+		end
+	end
+	return all, false
+end
+
+-- Give every target the same width and height, in dp.
+function applyButtonSize(w, h)
+	local targets, hadSelection = layoutTargets()
+	if #targets == 0 then
+		return
+	end
+	local newW = tonumber(w)
+	local newH = tonumber(h)
+	if newW == nil or newH == nil or newW < 16 or newH < 16 then
+		return
+	end
+	for i = 1, #targets do
+		targets[i].data.width = newW
+		targets[i].data.height = newH
+		targets[i]:updateRect(statusoffset)
+	end
+	if not hadSelection then
+		-- Nothing selected means this was a set-wide change, so it becomes the
+		-- default for buttons added later too.
+		defaults.width = newW
+		defaults.height = newH
+	end
+	drawButtons()
+	view:invalidate()
+	saveDefaultOptions()
+	Note("\nButton size set to " .. newW .. "x" .. newH .. " for "
+		.. #targets .. (hadSelection and " selected button(s).\n" or " button(s).\n"))
+end
+
+-- Lay the targets out on a regular grid, reading order, keeping their current
+-- top-left corner as the origin. Column count of 0 means "work it out", which
+-- keeps the pad roughly as wide as it already is.
+function tidyButtonLayout(columns)
+	local targets, hadSelection = layoutTargets()
+	if #targets < 2 then
+		return
+	end
+	-- Reading order from where the buttons already are, so a tidy-up does not
+	-- shuffle them into an unfamiliar arrangement.
+	local rowTolerance = 0
+	for i = 1, #targets do
+		local h = (tonumber(targets[i].data.height) or 42) * density
+		if h > rowTolerance then rowTolerance = h end
+	end
+	rowTolerance = rowTolerance * 0.6
+	table.sort(targets, function(a, b)
+		if math.abs(a.data.y - b.data.y) > rowTolerance then
+			return a.data.y < b.data.y
+		end
+		return a.data.x < b.data.x
+	end)
+
+	local cols = tonumber(columns) or 0
+	if cols < 1 then
+		cols = math.ceil(math.sqrt(#targets))
+	end
+
+	local minX, minY = targets[1].data.x, targets[1].data.y
+	for i = 1, #targets do
+		if targets[i].data.x < minX then minX = targets[i].data.x end
+		if targets[i].data.y < minY then minY = targets[i].data.y end
+	end
+
+	local stepX = gridXwidth
+	local stepY = gridYwidth
+	if stepX == nil or stepX < 1 then stepX = 45 * density end
+	if stepY == nil or stepY < 1 then stepY = 45 * density end
+
+	for i = 1, #targets do
+		local col = (i - 1) % cols
+		local row = math.floor((i - 1) / cols)
+		targets[i].data.x = minX + col * stepX
+		targets[i].data.y = minY + row * stepY
+		targets[i]:updateRect(statusoffset)
+	end
+	drawButtons()
+	view:invalidate()
+	saveDefaultOptions()
+	Note("\nArranged " .. #targets .. (hadSelection and " selected" or "")
+		.. " button(s) into " .. cols .. " column(s).\n")
+end
+
 function drawManagerGrid()
 		local c = managerCanvas
 		local width = view:getWidth()
@@ -1386,6 +1490,14 @@ function buttonOptions()
   end)
   editorOptionsDialog.setGridSnapCallback(function(v)
     gridsnap = v
+  end)
+  -- Layout tools. Each acts on the selection when there is one, otherwise on
+  -- every button, which is what "apply to all" means with nothing selected.
+  editorOptionsDialog.setApplySizeCallback(function(w, h)
+    applyButtonSize(w, h)
+  end)
+  editorOptionsDialog.setTidyLayoutCallback(function(columns)
+    tidyButtonLayout(columns)
   end)
   editorOptionsDialog.setGridXSpacingCallback(function(v)
     gridXwidth = v*density
