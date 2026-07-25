@@ -36,8 +36,20 @@ function loadButtonSet(args)
 	end
 
 	debugString("Button Set "..args.." has ".. #lob.set .." buttons");
+
+	-- Never hand the window a set with tiles outside the screen: they cannot be
+	-- tapped, and if the set has no reachable way back the session is stuck.
+	local okSanitize, repaired = pcall(sanitizeButtonSet, args)
+	if okSanitize and repaired then
+		Note("\nButton set \"" .. tostring(args) .. "\" had buttons off screen; moved them back into view.\n")
+		if SaveSettings ~= nil then
+			pcall(SaveSettings)
+		end
+	end
+
+	lob.set = buttonsets[args]
 	lob.default = buttonset_defaults[args]
-	
+
 	current_set = args
 	WindowXCallB(buttonWindowName,"loadButtons",marshal.encode(lob))
 end
@@ -655,6 +667,29 @@ local STARTER_DEFAULT_BUTTONS = {
 	  flipCommand=".loadset default" },
 }
 
+-- The smaller pad that LOAD switches to, so ".loadset" can be demonstrated.
+-- DEF sits in it as the visible way back to the main pad.
+--
+-- This has to exist as a canonical dp table for the same reason the pad above
+-- does: alignDefaultButtons scales dp to pixels in place, so any set it touches
+-- must be rebuilt from dp first or it gets multiplied by the display density all
+-- over again on every run.
+local STARTER_TUTORIAL_BUTTONS = {
+	{ x=23,  y=23,  label="START",  command=".tutorial start",             labelSize=11 },
+	{ x=68,  y=23,  label="TOPICS", command=".tutorial topics",            labelSize=10 },
+	{ x=113, y=23,  label="SWIPE",  command=".tutorial buttons_swipe",     labelSize=11 },
+	{ x=23,  y=68,  label="HOLD",   command=".tutorial buttons_hold",      labelSize=11 },
+	{ x=68,  y=68,  label="ACC",    command=".tutorial buttons_accordion", labelSize=11 },
+	{ x=113, y=68,  label="LOOK",   command="look",                        labelSize=11 },
+	{ x=23,  y=113, label="N",      command="north", labelSize=14 },
+	{ x=68,  y=113, label="W",      command="west",  labelSize=14 },
+	{ x=113, y=113, label="S",      command="south", labelSize=14 },
+	{ x=23,  y=158, label="E",      command="east",  labelSize=14 },
+	{ x=68,  y=158, label="DEF",    command=".loadset default", labelSize=11,
+	  holdCommand=".note DEF goes back to the main pad — this is how you undo LOAD." },
+	{ x=113, y=158, label="CLEAR",  command=".clearbuttons", labelSize=11 },
+}
+
 local STARTER_SET_DEFAULTS = {
 	width = 42, height = 42, labelSize = 12, gridXwidth = 45, gridYwidth = 45,
 }
@@ -667,17 +702,29 @@ local function cloneStarterButton(src)
 	return b
 end
 
--- Rebuild default set from the canonical DP layout, pin bottom-center, refresh UI.
-function installStarterButtonLayout(args)
-	buttonset_defaults["default"] = buttonset_defaults["default"] or {}
+local function rebuildStarterSet(setName, source)
+	buttonset_defaults[setName] = buttonset_defaults[setName] or {}
 	for k,v in pairs(STARTER_SET_DEFAULTS) do
-		buttonset_defaults["default"][k] = v
+		buttonset_defaults[setName][k] = v
 	end
 	local set = {}
-	for i,src in ipairs(STARTER_DEFAULT_BUTTONS) do
+	for i,src in ipairs(source) do
 		set[i] = cloneStarterButton(src)
 	end
-	buttonsets["default"] = set
+	buttonsets[setName] = set
+end
+
+-- Rebuild the starter sets from the canonical DP layouts, pin them, refresh UI.
+--
+-- Both sets are rebuilt, not just "default". alignDefaultButtons scales dp to
+-- pixels in place and is applied to both, so a set it aligns without rebuilding
+-- gets multiplied by the display density again on every run. That is what
+-- happened to "tutorial": its coordinates compounded to around 1e15, which put
+-- nearly the whole pad — including the DEF button that leads back — far off
+-- screen, leaving a handful of stray tiles and no way to undo LOAD.
+function installStarterButtonLayout(args)
+	rebuildStarterSet("default", STARTER_DEFAULT_BUTTONS)
+	rebuildStarterSet("tutorial", STARTER_TUTORIAL_BUTTONS)
 	current_set = "default"
 	local okAlign, alignErr = pcall(alignDefaultButtons)
 	if not okAlign then
@@ -688,6 +735,47 @@ function installStarterButtonLayout(args)
 	if SaveSettings ~= nil then
 		pcall(SaveSettings)
 	end
+end
+
+-- Pull every tile of a set back onto the screen.
+--
+-- Pure clamping, never scaling. Saved sets already hold pixel coordinates, and
+-- multiplying those again is exactly what drove the tutorial pad to ~1e15. This
+-- runs on every load, so a set damaged by an older build — or dragged somewhere
+-- silly — still comes back reachable instead of sitting off the edge where it
+-- cannot be tapped or edited.
+--
+-- Deliberately only enforces screen bounds, not a keep-out under the overflow
+-- menu: that would quietly move tiles a user placed there on purpose. Starter
+-- pads clear the menu through alignDefaultButtons' topPad instead.
+function sanitizeButtonSet(setName)
+	local set = buttonsets[setName]
+	if set == nil or context == nil then return false end
+	local d = tonumber(GetDisplayDensity()) or 1
+	local metrics = context:getResources():getDisplayMetrics()
+	local w = tonumber(metrics.widthPixels) or 0
+	local h = tonumber(metrics.heightPixels) or 0
+	if w <= 0 or h <= 0 then return false end
+	local ab = tonumber(GetActionBarHeight()) or 0
+
+	local minX, maxX = 24 * d, w - 24 * d
+	local minY, maxY = ab + 8 * d, h - 56 * d
+	local moved = false
+	for i,b in pairs(set) do
+		local x = tonumber(b.x)
+		local y = tonumber(b.y)
+		-- nil and NaN both fail these comparisons, so both land on the minimum.
+		if x == nil or x ~= x or x < minX then x = minX end
+		if x > maxX then x = maxX end
+		if y == nil or y ~= y or y < minY then y = minY end
+		if y > maxY then y = maxY end
+		if x ~= b.x or y ~= b.y then
+			moved = true
+		end
+		b.x = x
+		b.y = y
+	end
+	return moved
 end
 
 function alignDefaultButtons()
