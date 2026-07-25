@@ -10,6 +10,9 @@ local DEFAULT_BOLD_TYPEFACE = Typeface.DEFAULT_BOLD
 
 buttonRoundness = 16
 buttonShowHints = true
+-- Live arrow drawn under the finger during a swipe, showing which direction is
+-- currently being aimed at. Off-putting for some, so it has its own switch.
+buttonShowSwipePreview = true
 BUTTONSET_DATA = {
 						height 			= 48,
 						width 			= 48,
@@ -332,6 +335,23 @@ function BUTTON:drawGestureIndicators(canvas, paint)
 		paint:setTextSize(math.max(7 * self.density, arrow * 1.2))
 		canvas:drawText("Hold", right - 16 * self.density, bottom - 4 * self.density, paint)
 	end
+end
+
+-- Translucent arrow across the middle of the tile showing which swipe direction
+-- the finger is currently aimed at, so a corner gesture can be told apart from a
+-- straight one before letting go. `direction` is the direction that would
+-- actually fire, so the arrow never promises something the release will not do.
+function BUTTON:drawSwipePreview(canvas, direction)
+	if direction == nil then
+		return
+	end
+	local rect = self.rect
+	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
+	local cy = (rectTop(rect) + rectBottom(rect)) * 0.5
+	local size = math.min(rectRight(rect) - rectLeft(rect),
+			rectBottom(rect) - rectTop(rect)) * 0.55
+	drawDirectionArrow(canvas, self.paintOpts, cx, cy, direction, size,
+			Color:argb(105, 0xFF, 0xFF, 0xFF))
 end
 
 function BUTTON:draw(state,canvas)

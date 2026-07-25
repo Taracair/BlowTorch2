@@ -569,6 +569,14 @@ function setShowGestureHints(value)
 	loadOptions()
 end
 
+function setShowSwipePreview(value)
+	-- Same contract as setShowGestureHints: string from PluginXCallS, boolean
+	-- from the OnOptionChanged path.
+	local on = (value == true or value == "true" or value == "1")
+	options.show_swipe_preview = on and "true" or "false"
+	loadOptions()
+end
+
 
 Integer = luajava.newInstance("java.lang.Integer",0)
 IntegerClass = Integer:getClass()
@@ -760,6 +768,7 @@ optionsTable.roundess = setRoundness
 optionsTable.auto_launch = setAutoLaunch
 optionsTable.auto_create = setAutoCreate
 optionsTable.show_gesture_hints = setShowGestureHints
+optionsTable.show_swipe_preview = setShowSwipePreview
 
 options = {}
 options.haptic_edit = 0
@@ -771,6 +780,7 @@ options.roundness = 6
 options.auto_launch = false
 options.auto_create = true
 options.show_gesture_hints = true
+options.show_swipe_preview = true
 
 function setDebug(off)
 	if(not off) then

@@ -446,6 +446,9 @@ HOLD_CANCEL_MOVE_DP = 10
 shortHoldFired = false
 accordionHoldFired = false
 accordionWasExpandedAtDown = false
+-- Direction currently shown by the live swipe arrow, nil when nothing is shown.
+-- Kept so the layer is only repainted when the direction actually changes.
+swipePreviewDir = nil
 
 local function hasButtonCommand(cmd)
 	return cmd ~= nil and cmd ~= ""
@@ -518,6 +521,27 @@ local function getSwipeCommand(data, direction)
 	return nil
 end
 
+-- Which swipe direction this movement will actually fire, or nil for none.
+--
+-- Prefer the diagonal the finger drew; fall back to the four-way direction when
+-- the button has nothing bound there. Both the live preview arrow and the
+-- dispatch on finger-up go through here, so the arrow can never point somewhere
+-- other than where the release will send you.
+local function resolveSwipeDirection(data, dx, dy, threshold)
+	if classifySwipe(dx, dy, threshold) == nil then
+		return nil
+	end
+	local diagonal = classifySwipe8(dx, dy, threshold)
+	if hasButtonCommand(getSwipeCommand(data, diagonal)) then
+		return diagonal
+	end
+	local straight = classifySwipe(dx, dy, threshold)
+	if hasButtonCommand(getSwipeCommand(data, straight)) then
+		return straight
+	end
+	return nil
+end
+
 local function hasButtonSwitch(data)
 	return data ~= nil and data.switchTo ~= nil and data.switchTo ~= ""
 end
@@ -575,9 +599,11 @@ end
 
 local function resetTouchedButtonVisual()
 	normalTouchState = 0
+	swipePreviewDir = nil
 	if touchedbutton ~= nil then
 		touchedbutton.selected = false
 	end
+	-- drawButtons() clears the layer, which also takes away the live swipe arrow.
 	drawButtons()
 	view:invalidate()
 end
@@ -725,21 +751,37 @@ function normalTouch.onTouch(v,e)
 				CancelCallback(ACCORDION_HOLD_CALLBACK_ID)
 			end
 			local r = touchedbutton.rect
-			if(r:contains(x,y)) then
-				if(normalTouchState ~= 1) then
-					normalTouchState = 1
-					touchedbutton:draw(normalTouchState,buttonCanvas)
-					view:invalidate()
-				end
-			else
+			local insideButton = r:contains(x,y)
+			if not insideButton then
 				CancelCallback(EDITOR_CALLBACK_ID)
-				if(normalTouchState ~= 2) then
-					normalTouchState = 2
-					touchedbutton:draw(normalTouchState,buttonCanvas)
-					performHapticFlip()
-					view:invalidate()
+			end
+			local wantState = insideButton and 1 or 2
+			local flipping = (wantState == 2 and normalTouchState ~= 2)
+
+			-- Direction a release right now would fire, or nil for none.
+			local previewDir = nil
+			if buttonShowSwipePreview ~= false then
+				previewDir = resolveSwipeDirection(touchedbutton.data, dx, dy,
+						SWIPE_THRESHOLD_DP * density)
+			end
+
+			-- One repaint path for the pressed/flip state and the arrow together.
+			-- Only repaint when something actually changed: the direction only
+			-- changes when the finger crosses a sector edge, not on every move
+			-- event. drawButtons() clears first so the old arrow goes with it,
+			-- then the touched button is drawn on top exactly as before.
+			if wantState ~= normalTouchState or previewDir ~= swipePreviewDir then
+				normalTouchState = wantState
+				swipePreviewDir = previewDir
+				drawButtons()
+				touchedbutton:draw(normalTouchState,buttonCanvas)
+				if swipePreviewDir ~= nil then
+					touchedbutton:drawSwipePreview(buttonCanvas, swipePreviewDir)
 				end
-				
+				if flipping then
+					performHapticFlip()
+				end
+				view:invalidate()
 			end
 			
 			--debugPrint("action move, moving button, returning true")
@@ -777,7 +819,6 @@ function normalTouch.onTouch(v,e)
 			local dy = y - touchStartY
 			local swipeThreshold = SWIPE_THRESHOLD_DP * density
 			local swipeDir = classifySwipe(dx, dy, swipeThreshold)
-			local swipeDir8 = classifySwipe8(dx, dy, swipeThreshold)
 			local sent = false
 			if swipeDir ~= nil then
 				if hasAccordionConfig(touchedbutton.data)
@@ -787,16 +828,9 @@ function normalTouch.onTouch(v,e)
 					toggleAccordion(touchedbutton)
 					sent = true
 				else
-					-- Prefer the diagonal the finger actually drew, but fall back to the
-					-- 4-way direction when this button has nothing bound there. A button
-					-- with no diagonal commands therefore resolves every gesture exactly
-					-- as it did before 8-way swipe existed.
-					local swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir8)
-					if not hasButtonCommand(swipeCmd) then
-						swipeCmd = getSwipeCommand(touchedbutton.data, swipeDir)
-					end
-					if hasButtonCommand(swipeCmd) then
-						sent = dispatchButtonAction(swipeCmd)
+					local fireDir = resolveSwipeDirection(touchedbutton.data, dx, dy, swipeThreshold)
+					if fireDir ~= nil then
+						sent = dispatchButtonAction(getSwipeCommand(touchedbutton.data, fireDir))
 					end
 				end
 			end
@@ -2145,6 +2179,9 @@ function showEditorDialog()
 	editorValues.defaultFlipLabelColor = defaults.flipLabelColor
 	editorValues.showGestureHints = buttonShowHints ~= false and buttonShowHints ~= "false"
 		and buttonShowHints ~= 0 and buttonShowHints ~= "0"
+	editorValues.showSwipePreview = buttonShowSwipePreview ~= false
+		and buttonShowSwipePreview ~= "false"
+		and buttonShowSwipePreview ~= 0 and buttonShowSwipePreview ~= "0"
 	
  local buttonEditor = require("buttoneditor")
  buttonEditor.init(mContext)
@@ -2320,6 +2357,12 @@ function loadOptions(data)
 	buttonShowHints = options.show_gesture_hints == true
 		or options.show_gesture_hints == "true"
 		or options.show_gesture_hints == "1"
+	-- nil counts as on: settings saved before this option existed should still
+	-- get the arrow rather than silently starting switched off.
+	buttonShowSwipePreview = options.show_swipe_preview == nil
+		or options.show_swipe_preview == true
+		or options.show_swipe_preview == "true"
+		or options.show_swipe_preview == "1"
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()

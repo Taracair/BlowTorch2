@@ -407,7 +407,20 @@ function showEditorDialog(editorValues,numediting)
 		end
 	}))
 	swipePage:addView(showHintsCb)
-	
+
+	local swipePreviewCb = luajava.new(CheckBox,context)
+	swipePreviewCb:setText("Show a live arrow while swiping (which direction you are aiming at)")
+	local previewOn = editorValues.showSwipePreview
+	if previewOn == nil then previewOn = true end
+	swipePreviewCb:setChecked(previewOn)
+	swipePreviewCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
+		onCheckedChanged = function(v, isChecked)
+			buttonShowSwipePreview = isChecked and true or false
+			PluginXCallS("setShowSwipePreview", isChecked and "true" or "false")
+		end
+	}))
+	swipePage:addView(swipePreviewCb)
+
 	addHelpText(swipePage, "Swipe commands override Flip when set. Drag ~24dp in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at ~0.45s. To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).")
 	
 	local function addGestureRow(parent, labelText, initialValue)

@@ -39,24 +39,25 @@ end
 local first = findLine("^function classifySwipe%(dx", "classifySwipe")
 local stop = findLine("^local function hasButtonSwitch", "hasButtonSwitch")
 
-local chunk = table.concat(lines, "\n", first, stop - 1)
-	.. "\nreturn classifySwipe, classifySwipe8, getSwipeCommand\n"
+-- hasButtonCommand is defined above classifySwipe and resolveSwipeDirection needs
+-- it, so provide the same one-liner the module has.
+local chunk = "local function hasButtonCommand(cmd) return cmd ~= nil and cmd ~= '' end\n"
+	.. table.concat(lines, "\n", first, stop - 1)
+	.. "\nreturn classifySwipe, classifySwipe8, getSwipeCommand, resolveSwipeDirection\n"
 
-local classifySwipe, classifySwipe8, getSwipeCommand =
+local classifySwipe, classifySwipe8, getSwipeCommand, resolveSwipeDirection =
 	assert(loadstring(chunk, "buttonwindow-extract"))()
-assert(classifySwipe and classifySwipe8 and getSwipeCommand,
+assert(classifySwipe and classifySwipe8 and getSwipeCommand and resolveSwipeDirection,
 	"extracted chunk did not define the expected functions")
 
 local function has(cmd) return cmd ~= nil and cmd ~= "" end
 
--- Mirrors the resolution order in the ACTION_UP handler in buttonwindow.lua.
+-- Uses the real resolveSwipeDirection, the same function the touch handler and
+-- the live preview arrow both call.
 local function resolveNew(data, dx, dy, threshold)
-	if classifySwipe(dx, dy, threshold) == nil then return nil end
-	local cmd = getSwipeCommand(data, classifySwipe8(dx, dy, threshold))
-	if not has(cmd) then
-		cmd = getSwipeCommand(data, classifySwipe(dx, dy, threshold))
-	end
-	return has(cmd) and cmd or nil
+	local dir = resolveSwipeDirection(data, dx, dy, threshold)
+	if dir == nil then return nil end
+	return getSwipeCommand(data, dir)
 end
 
 -- What the handler did before diagonals were added.
