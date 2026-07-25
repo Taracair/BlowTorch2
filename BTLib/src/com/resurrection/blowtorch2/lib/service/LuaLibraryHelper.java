@@ -162,6 +162,7 @@ public final class LuaLibraryHelper {
 		synchronized (LUA_SYNC_LOCK) {
 			SharedPreferences prefs = context.getSharedPreferences("SERVICE_INFO", 0);
 			int libsver = prefs.getInt("CURRENT_LUA_LIBS_VERSION", 0);
+			long syncedInstall = prefs.getLong("CURRENT_LUA_INSTALL_STAMP", -1L);
 			try {
 				ApplicationInfo ai = context.getApplicationContext().getPackageManager()
 						.getApplicationInfo(context.getPackageName(), PackageManager.GET_META_DATA);
@@ -174,14 +175,29 @@ public final class LuaLibraryHelper {
 				if (packagever == 0) {
 					return;
 				}
-				// Resync when meta-data bumps OR a newly packaged module is absent
-				// (installs that skipped a version bump would otherwise keep stale lua/share).
-				if (packagever == libsver && !missingStarter) {
+				// The apk carries the Lua sources, but the interpreter loads them from
+				// lua/share in app data, so a stale copy there wins over whatever was
+				// just installed. Resync on any of:
+				//   - the meta-data version bumped
+				//   - a newly packaged module is missing
+				//   - the package itself was installed or updated since the last sync
+				//
+				// That last one is the one that matters in practice: relying on the
+				// version bump alone means any Lua edit that forgets to bump it ships
+				// inside the apk and never reaches the running app, with no error to
+				// show for it. lastUpdateTime changes on every install, so it cannot
+				// be forgotten.
+				long installStamp = context.getApplicationContext().getPackageManager()
+						.getPackageInfo(context.getPackageName(), 0).lastUpdateTime;
+				if (packagever == libsver && !missingStarter && installStamp == syncedInstall) {
 					return;
 				}
 				ensureNativeLibsInDataDir(context);
 				syncLuaLibsFromAssets(context);
-				prefs.edit().putInt("CURRENT_LUA_LIBS_VERSION", packagever).commit();
+				prefs.edit()
+						.putInt("CURRENT_LUA_LIBS_VERSION", packagever)
+						.putLong("CURRENT_LUA_INSTALL_STAMP", installStamp)
+						.commit();
 			} catch (PackageManager.NameNotFoundException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
