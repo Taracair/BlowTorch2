@@ -120,6 +120,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private static final float MAX_VELOCITY = 900f;
 	/** Stop fling coast below this (px/s); keep in sync with calculateScrollBack. */
 	private static final float FLING_STOP_VELOCITY = 15f;
+
+	/** How far above the screen to look for the colour still in effect. */
+	private static final int BLEED_SEARCH_MAX_LINES = 1000;
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
 	/** The bitmap that holds the "return to the bottom of the buffer" button graphic. */
@@ -1509,8 +1512,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//find bleed.
 			boolean bleeding = false;
 			int back = 0;
-			while (screenIt.hasNext() && !bleeding) {
-				
+			// Bounded on purpose. This searches back for the colour still in effect at
+			// the top of the screen, and stops at the first one it finds. With no
+			// colour to find it used to walk to the end of the scrollback and back
+			// again on every frame — the original comment below calls that out. That
+			// is why plain output scrolled worse than coloured output.
+			//
+			// Giving up after BLEED_SEARCH_MAX_LINES means: no colour code within that
+			// many lines above the screen, so the default colour is what should be
+			// drawn anyway. A buffer that plain has nothing to bleed.
+			while (screenIt.hasNext() && !bleeding && back < BLEED_SEARCH_MAX_LINES) {
+
 				Line l = screenIt.next();
 				back++;
 
@@ -2773,13 +2785,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 		int startline = 0;
 		int current = 0;
-		if (drawingIterator == null) {
-			drawingIterator = mBuffer.getLines().listIterator();
-		} else {
-			while (drawingIterator.hasPrevious()) {
-				drawingIterator.previous(); // reset to beginning
-			}
-		}
+		// A fresh listIterator() is already positioned at the head and costs O(1) on
+		// a LinkedList. Rewinding the cached one instead walked every node back to
+		// the start on each frame, so scrolling got slower the longer the scrollback
+		// grew — visibly janky well before the buffer looked full on screen.
+		drawingIterator = mBuffer.getLines().listIterator();
 
 		if (mBuffer.getBrokenLineCount() <= mCalculatedLinesInWindow) {
 			int offset = 0;
