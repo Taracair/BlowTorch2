@@ -1255,6 +1255,10 @@ function buttonOptions()
     or options.show_gesture_hints == "true"
     or options.show_gesture_hints == "1"
     or options.show_gesture_hints == nil
+  editorValues.showSwipePreview = options.show_swipe_preview == true
+    or options.show_swipe_preview == "true"
+    or options.show_swipe_preview == "1"
+    or options.show_swipe_preview == nil
 
   local editorSnapshot = {
     gridsnap = gridsnap,
@@ -1369,6 +1373,11 @@ function buttonOptions()
     buttonShowHints = v and true or false
     drawButtons()
     view:invalidate()
+  end)
+  editorOptionsDialog.setShowSwipePreviewCallback(function(v)
+    PluginXCallS("setShowSwipePreview", v and "true" or "false")
+    buttonShowSwipePreview = v and true or false
+    -- Nothing to redraw: the arrow only exists while a finger is down.
   end)
   editorOptionsDialog.setEditorCancelCallback(function()
     gridsnap = editorSnapshot.gridsnap

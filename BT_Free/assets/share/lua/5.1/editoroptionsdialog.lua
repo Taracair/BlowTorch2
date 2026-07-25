@@ -45,6 +45,7 @@ local setGridOpacity
 local setGridSnapTest
 local setAdvancedProperties
 local setShowGestureHints
+local setShowSwipePreview
 local editorDone
 local editorCancel
 setEditorDoneCallback = function(c) editorDone = c end
@@ -58,6 +59,7 @@ setGridOpacityCallback = function(c) setGridOpacity = c end
 setGridSnapTestCallback = function(c) setGridSnapTest = c end
 setAdvancedPropertiesCallback = function(c) setAdvancedProperties = c end
 setShowGestureHintsCallback = function(c) setShowGestureHints = c end
+setShowSwipePreviewCallback = function(c) setShowSwipePreview = c end
 --end callback handling variables
 
 --local vairables to keep track of widget values
@@ -67,6 +69,7 @@ local gridY
 local gridOpacity
 local gridIntersectionTest
 local showGestureHints
+local showSwipePreview
 local setEditorValues
 local editorValues
 
@@ -77,6 +80,7 @@ local gridYSeekBarChangeListener
 local gridOpacitySeekBarChangeListener
 local gridIntersectionTestRadioChangedListener
 local showGestureHintsCheckChangeListener
+local showSwipePreviewCheckChangeListener
 local doneListener
 local cancelListener
 local setDefaultsEditorListener
@@ -99,6 +103,7 @@ function showDialog(initialValues)
   gridIntersectionTest = initialValues.gridIntersectionTest
   gridSnap = initialValues.gridSnap
   showGestureHints = initialValues.showGestureHints ~= false
+  showSwipePreview = initialValues.showSwipePreview ~= false
   
   editorValues = initialValues
 
@@ -216,11 +221,19 @@ function showDialog(initialValues)
 
   local hintsCb = luajava.newInstance("android.widget.CheckBox",context)
   hintsCb:setChecked(showGestureHints)
-  hintsCb:setText("Show U/D/L/R, Hold and accordion badges on buttons")
+  hintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges on buttons")
   hintsCb:setTextSize(textSizeSmall)
   hintsCb:setOnCheckedChangeListener(showGestureHintsCheckChangeListener)
   hintsCb:setLayoutParams(fillparams)
   ll:addView(hintsCb)
+
+  local swipePreviewCb = luajava.newInstance("android.widget.CheckBox",context)
+  swipePreviewCb:setChecked(showSwipePreview)
+  swipePreviewCb:setText("Show a live arrow while swiping (which direction you are aiming at)")
+  swipePreviewCb:setTextSize(textSizeSmall)
+  swipePreviewCb:setOnCheckedChangeListener(showSwipePreviewCheckChangeListener)
+  swipePreviewCb:setLayoutParams(fillparams)
+  ll:addView(swipePreviewCb)
 
   ll:addView(xSeekBarLabel)
   ll:addView(xSeekBar)
@@ -284,6 +297,15 @@ showGestureHintsCheckChangeListener = luajava.createProxy("android.widget.Compou
     showGestureHints = isChecked
     if(setShowGestureHints ~= nil) then
       setShowGestureHints(isChecked)
+    end
+  end
+})
+
+showSwipePreviewCheckChangeListener = luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
+  onCheckedChanged = function(v,isChecked)
+    showSwipePreview = isChecked
+    if(setShowSwipePreview ~= nil) then
+      setShowSwipePreview(isChecked)
     end
   end
 })
