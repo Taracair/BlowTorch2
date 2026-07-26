@@ -149,6 +149,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mFrameRetries = 0;
 	private int mFrameScanLines = 0;
 	private int mFrameBleedLines = 0;
+	// Which path drawTextOnGrid took. A batched run is one canvas call for many
+	// glyphs; the other two are one call per glyph.
+	private int mFrameRunDraws = 0;
+	private int mFrameGlyphDraws = 0;
+	private int mFrameClipDraws = 0;
+	private int mFrameTextUnits = 0;
+	private int mProfRunDraws = 0;
+	private int mProfGlyphDraws = 0;
+	private int mProfClipDraws = 0;
+	private int mProfTextUnits = 0;
 	// Snapshot of the worst frame seen since the last dump.
 	private long mProfWorstFrameNanos = 0;
 	private long mProfWorstScanNanos = 0;
@@ -921,6 +931,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mCalculatedRowsInWindow < 1) {
 			mCalculatedRowsInWindow = 1;
 		}
+		Log.e(PROF_TAG, "advance win=" + System.identityHashCode(this)
+				+ " W=" + w + " M=" + m + " sp=" + sp + " zero=" + zero
+				+ " -> oneCharWidth=" + mOneCharWidth
+				+ " rows=" + mCalculatedRowsInWindow + " cols=" + width);
 		if (mCalculatedLinesInWindow < 1) {
 			mCalculatedLinesInWindow = 1;
 		}
@@ -1031,12 +1045,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			} else {
 				if (runStart >= 0) {
 					c.drawText(s, runStart, i, runX, baseline, paint);
+					mFrameRunDraws++;
 					runStart = -1;
 				}
 				if (fitsCell) {
 					// Fits its cell, so no clip is needed; just place it.
 					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					mFrameGlyphDraws++;
 				} else {
+					mFrameClipDraws++;
 					c.save();
 					if (isBlock) {
 						c.clipRect(cursor, lineTop, cursor + cell, lineBot);
@@ -1053,7 +1070,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		if (runStart >= 0) {
 			c.drawText(s, runStart, len, runX, baseline, paint);
+			mFrameRunDraws++;
 		}
+		mFrameTextUnits++;
 		return cursor - x;
 	}
 
@@ -1461,6 +1480,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFrameRetries = 0;
 		mFrameScanLines = 0;
 		mFrameBleedLines = 0;
+		mFrameRunDraws = 0;
+		mFrameGlyphDraws = 0;
+		mFrameClipDraws = 0;
+		mFrameTextUnits = 0;
 		mSelectionCanvasSaved = false;
 		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
 			mSelectionIndicatorBitmap.eraseColor(0x00000000);
@@ -2102,6 +2125,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfRetries += mFrameRetries;
 		mProfScanLines += mFrameScanLines;
 		mProfBleedLines += mFrameBleedLines;
+		mProfRunDraws += mFrameRunDraws;
+		mProfGlyphDraws += mFrameGlyphDraws;
+		mProfClipDraws += mFrameClipDraws;
+		mProfTextUnits += mFrameTextUnits;
 		if (mFrameRetries > mProfWorstRetries) {
 			mProfWorstRetries = mFrameRetries;
 		}
@@ -2134,6 +2161,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				+ " | retries=" + mProfRetries + " worstRetries=" + mProfWorstRetries
 				+ " | scanLines/f=" + (mProfScanLines / mProfFrames)
 				+ " bleedLines/f=" + (mProfBleedLines / mProfFrames)
+				+ " | DRAWS/f run=" + (mProfRunDraws / mProfFrames)
+				+ " glyph=" + (mProfGlyphDraws / mProfFrames)
+				+ " clip=" + (mProfClipDraws / mProfFrames)
+				+ " textUnits=" + (mProfTextUnits / mProfFrames)
 				+ " | scrollback=" + mScrollback.intValue()
 				+ " buffer=" + mBuffer.getBrokenLineCount());
 		mProfFrames = 0;
@@ -2150,6 +2181,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfWorstRetries = 0;
 		mProfScanLines = 0;
 		mProfBleedLines = 0;
+		mProfRunDraws = 0;
+		mProfGlyphDraws = 0;
+		mProfClipDraws = 0;
+		mProfTextUnits = 0;
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
