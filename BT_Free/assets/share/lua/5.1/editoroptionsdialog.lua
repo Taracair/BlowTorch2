@@ -348,6 +348,7 @@ function showDialog(initialValues)
 
   -- Exact spacing, next to the sliders rather than instead of them: the sliders
   -- are quick, typing is precise.
+  addHint("Drag the sliders for a rough size, or type an exact one here — the sliders keep these boxes up to date.")
   local gridExactRow = luajava.newInstance("android.widget.LinearLayout", context)
   gridExactRow:setLayoutParams(fillparams)
   gridXField = addNumberField(gridExactRow, "X:", gridX, 50)
@@ -620,6 +621,7 @@ gridXSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekB
   onProgressChanged = function(v,progress,state)
     gridX = (progress + 32)
     xSeekBarLabel:setText("Grid X Spacing: "..gridX)
+    if gridXField ~= nil then gridXField:setText(tostring(gridX)) end
     if(setGridXSpacing ~= nil) then
       setGridXSpacing(gridX)
     end
@@ -630,6 +632,7 @@ gridYSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekB
   onProgressChanged = function(v,progress,state)
     gridY = (progress + 32)
     ySeekBarLabel:setText("Grid Y Spacing: "..gridY)
+    if gridYField ~= nil then gridYField:setText(tostring(gridY)) end
     if(setGridYSpacing ~= nil) then
       setGridYSpacing(gridY)
     end
