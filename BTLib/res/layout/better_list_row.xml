@@ -1,140 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<!--
+  One button set.
+
+  The controls used to hide behind a tab you had to slide open, which is the
+  opposite of every other list in the app — aliases, triggers and timers all
+  keep theirs in the open. They live in the row now, same shape and same
+  glyphs, and the ViewFlipper that hid them is gone.
+-->
 <RelativeLayout
   	xmlns:android="http://schemas.android.com/apk/res/android"
-  	android:layout_width="250dip"
+  	android:layout_width="match_parent"
   	android:layout_height="wrap_content"
+  	android:minHeight="48dip"
+  	android:paddingTop="5dip"
+  	android:paddingBottom="5dip"
+  	android:paddingLeft="10dip"
+  	android:paddingRight="6dip"
   	android:id="@+id/root">
+
+  	<LinearLayout
+  		android:id="@+id/button_holder"
+  		android:orientation="horizontal"
+  		android:layout_width="wrap_content"
+  		android:layout_height="wrap_content"
+  		android:layout_alignParentTop="true"
+  		android:layout_alignParentBottom="true"
+  		android:layout_alignParentRight="true"
+  		android:gravity="center_vertical|right"
+  		android:paddingLeft="6dip"/>
+
   	<ImageView
   		android:layout_width="wrap_content"
   		android:layout_height="wrap_content"
-  		android:layout_alignParentRight="true"
-  		android:layout_alignParentTop="true"
-  		android:layout_alignParentBottom="true"
-  		android:src="@drawable/toolbar_tab"
+  		android:layout_centerVertical="true"
+  		android:layout_toLeftOf="@id/button_holder"
+  		android:layout_marginRight="6dip"
   		android:focusable="false"
   		android:focusableInTouchMode="false"
-  		android:id="@+id/spacer"/>
-  	<RelativeLayout
-  		android:layout_width="fill_parent"
-  		android:layout_height="78dip"
-  		android:layout_toLeftOf="@id/spacer"
-  		  		android:focusable="false"
-  		android:focusableInTouchMode="false"
-  		android:layout_alignBottom="@id/spacer"
-  		android:layout_alignTop="@id/spacer">
-  		<RelativeLayout
-  			android:layout_width="fill_parent"
-  			android:layout_height="wrap_content"
-  			android:layout_alignParentBottom="true"
-  			android:layout_alignParentLeft="true"
-  			android:layout_alignParentRight="true"
-  			android:focusable="false"
-  			android:focusableInTouchMode="false"
-  			android:id="@+id/extendedPanel">
-  			<ImageView
-  				android:layout_width="wrap_content"
-  				android:layout_height="wrap_content"
-  				android:layout_alignParentRight="true"
-  				
-  				android:focusable="false"
-  				android:focusableInTouchMode="false"
-  				android:src="@drawable/notificationicon"
-  				android:id="@+id/icon"/>
-  			<TextView
-  				style="@style/ListFont"
-  				android:layout_width="fill_parent"
-  				android:layout_height="fill_parent"
-  				android:layout_toLeftOf="@id/icon"
-  				android:layout_alignBottom="@id/icon"
-  				android:focusable="false"
-  				android:focusableInTouchMode="false"
-  				android:text="Extended Info"
-  				android:gravity="center_vertical"
-  				android:layout_marginLeft="10dip"
-  				android:textSize="14dip"
-  				android:id="@+id/infoExtended"/>
-  			
-  		</RelativeLayout>
-  		<TextView
-  			style="@style/ListFont"
-  			android:id="@+id/infoTitle"
-  			android:layout_width="fill_parent"
-  			android:layout_height="wrap_content"
-  			
-  			android:layout_above="@id/extendedPanel"
-  			android:text="Main Title"
-  			android:focusable="false"
-  			android:focusableInTouchMode="false"
-  			
-  			android:textSize="24dip"
-  			android:textStyle="bold"/>
-  	</RelativeLayout>
-  	<ViewFlipper
-  		android:layout_width="fill_parent"
+  		android:id="@+id/icon"/>
+
+  	<TextView
+  		android:id="@+id/infoTitle"
+  		android:layout_width="match_parent"
   		android:layout_height="wrap_content"
-  		android:id="@+id/flipper">
-	  	<LinearLayout
-	  		android:layout_width="fill_parent"
-		  	android:layout_height="wrap_content"
-		  	android:orientation="horizontal"
-		  	android:background="#00000000"
-		  	android:gravity="right"
-		  	android:id="@+id/toolbar_holder"> 
-		  	<ImageButton
-		  		android:layout_width="wrap_content"
-		  		android:layout_height="wrap_content"
-		  		android:layout_alignParentLeft="true"
-		  		android:layout_alignParentTop="true"
-		  		android:background="#00000000"
-		  		android:src="@drawable/toolbar_selector"
-		  		android:id="@+id/toolbar_tab"/>
-	  	</LinearLayout>
-	  	<LinearLayout
-	  		android:layout_width="fill_parent"
-		  	android:layout_height="wrap_content"
-		  	android:orientation="horizontal"
-		  	android:gravity="right"
-		  	android:background="#00000000"
-		  	android:id="@+id/toolbar_holder_open"> 
-		  	<ImageButton
-		  		android:layout_width="wrap_content"
-		  		android:layout_height="wrap_content"
-		  		android:layout_alignParentLeft="true"
-		  		android:layout_alignParentTop="true"
-		  		android:background="#00000000"
-		  		android:src="@drawable/toolbar_selector"
-		  		android:id="@+id/toolbar_tab_close"/>
-		   	<!-- <ImageButton
-		  		android:layout_width="wrap_content"
-		  		android:layout_height="wrap_content"
-		  		android:layout_alignTop="@id/toolbar_tab"
-		  		android:layout_alignBottom="@id/toolbar_tab"
-		  		android:layout_toRightOf="@id/toolbar_tab"
-		  		android:background="#00000000"
-		  		android:src="@drawable/toolbar_selector"/>  -->
-		  	<LinearLayout
-		  		android:id="@+id/button_holder"
-		  		android:orientation="horizontal"
-		  		android:layout_width="wrap_content"
-		  		android:layout_height="wrap_content">
-			  	<!-- BUTTONS SHOULD BE CONSTRUCTED AT RUNTIME!!!!!!! <ImageButton
-			  		android:layout_height="wrap_content"
-			  		android:layout_width="wrap_content"
-			  		android:background="#00000000"
-			  		android:src="@drawable/toolbar_toggleon_button"/>
-			  	<ImageButton
-			  		android:layout_height="wrap_content"
-			  		android:layout_width="wrap_content"
-			  		android:background="#00000000"
-			  		android:src="@drawable/toolbar_modify_button"/>
-			  	<ImageButton
-			  		android:layout_height="wrap_content"
-			  		android:layout_width="wrap_content"
-			  		android:background="#00000000"
-			  		android:src="@drawable/toolbar_delete_button"/> -->
-		  	</LinearLayout>
-	  	</LinearLayout>
-	  	
-  	</ViewFlipper>
+  		android:layout_alignParentTop="true"
+  		android:layout_toLeftOf="@id/icon"
+  		android:text="Main Title"
+  		android:focusable="false"
+  		android:focusableInTouchMode="false"
+  		android:lines="1"
+  		android:ellipsize="end"
+  		android:textSize="16dip"
+  		android:textColor="#FFF2F4F6"
+  		android:textStyle="bold"/>
+
+  	<TextView
+  		android:layout_width="match_parent"
+  		android:layout_height="wrap_content"
+  		android:layout_toLeftOf="@id/icon"
+  		android:layout_below="@id/infoTitle"
+  		android:focusable="false"
+  		android:focusableInTouchMode="false"
+  		android:text="Extended Info"
+  		android:paddingTop="1dip"
+  		android:paddingRight="6dip"
+  		android:textSize="12dip"
+  		android:textColor="#FF9AA3AD"
+  		android:lines="1"
+  		android:ellipsize="end"
+  		android:id="@+id/infoExtended"/>
+
  </RelativeLayout>

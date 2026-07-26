@@ -72,6 +72,7 @@ public class ExtraTextOverlayController {
 		TextView titleView;
 		TextView dragHandle;
 		TextView collapseBtn;
+		android.widget.ImageButton closeBtn;
 		FrameLayout contentHost;
 		View edgeTop;
 		View edgeBottom;
@@ -213,6 +214,7 @@ public class ExtraTextOverlayController {
 		e.titleView = (TextView) root.findViewById(R.id.extra_text_title);
 		e.dragHandle = (TextView) root.findViewById(R.id.extra_text_drag_handle);
 		e.collapseBtn = (TextView) root.findViewById(R.id.extra_text_collapse);
+		e.closeBtn = (android.widget.ImageButton) root.findViewById(R.id.extra_text_close);
 		e.contentHost = (FrameLayout) root.findViewById(R.id.extra_text_content);
 		e.edgeTop = root.findViewById(R.id.extra_text_edge_top);
 		e.edgeBottom = root.findViewById(R.id.extra_text_edge_bottom);
@@ -391,6 +393,24 @@ public class ExtraTextOverlayController {
 		}
 		if (e.collapseBtn != null) {
 			e.collapseBtn.setVisibility(View.GONE);
+		}
+		// A floating window had no way to close itself: you had to know .window hide,
+		// or find the slot in Options. Drawers are shown and hidden by their own
+		// chrome, so the control only appears on the floating ones.
+		if (e.closeBtn != null) {
+			e.closeBtn.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			final OverlayEntry entry = e;
+			e.closeBtn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (entry.slot == null) {
+						return;
+					}
+					entry.slot.setVisible(false);
+					applyVisibility(entry);
+					schedulePersist();
+				}
+			});
 		}
 		if (e.accentLine != null) {
 			e.accentLine.setVisibility(floatMode ? View.VISIBLE : View.GONE);

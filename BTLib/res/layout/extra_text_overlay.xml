@@ -53,6 +53,16 @@
                 android:textColor="#EEEEEE"
                 android:textSize="13sp" />
 
+            <ImageButton
+                android:id="@+id/extra_text_close"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:padding="6dp"
+                android:background="#00000000"
+                android:src="@drawable/ic_window_close"
+                android:contentDescription="Close window"
+                android:visibility="gone" />
+
             <!-- Kept for ID stability; collapse UI removed. -->
             <TextView
                 android:id="@+id/extra_text_collapse"

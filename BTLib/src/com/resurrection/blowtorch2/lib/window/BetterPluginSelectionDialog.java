@@ -63,9 +63,9 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 					e.printStackTrace();
 				}
 			}
-			int icon = enabled ? R.drawable.toolbar_mini_enabled : R.drawable.toolbar_mini_disabled;
+			// No state badge: the row dims and the toggle changes colour instead.
 			items.add(key);
-			this.addListItem(key, title, info, icon, enabled);
+			this.addListItem(key, title, info, 0, enabled);
 		}
 		this.invalidateList();
 	}
@@ -142,10 +142,8 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 			Toast.makeText(getContext(),
 					"Cannot disable button_window — it provides the on-screen buttons.",
 					Toast.LENGTH_LONG).show();
-			if (v != null) {
-				v.setImageResource(R.drawable.toolbar_toggleon_button);
-			}
-			this.setItemMiniIcon(row, R.drawable.toolbar_mini_enabled);
+			applyToggleTint(v, true);
+			this.setItemEnabled(row, true);
 			return;
 		}
 
@@ -158,28 +156,18 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 
 		if (!applied) {
 			// Service refused (e.g. required plugin) — keep UI showing current state.
-			if (v != null) {
-				v.setImageResource(currentlyEnabled
-						? R.drawable.toolbar_toggleon_button
-						: R.drawable.toolbar_toggleoff_button);
-			}
-			this.setItemMiniIcon(row, currentlyEnabled
-					? R.drawable.toolbar_mini_enabled
-					: R.drawable.toolbar_mini_disabled);
+			applyToggleTint(v, currentlyEnabled);
+			this.setItemEnabled(row, currentlyEnabled);
 			return;
 		}
 
 		if (next) {
-			if (v != null) {
-				v.setImageResource(R.drawable.toolbar_toggleon_button);
-			}
-			this.setItemMiniIcon(row, R.drawable.toolbar_mini_enabled);
+			applyToggleTint(v, true);
+			this.setItemEnabled(row, true);
 			Toast.makeText(getContext(), "Enabled " + plugin, Toast.LENGTH_SHORT).show();
 		} else {
-			if (v != null) {
-				v.setImageResource(R.drawable.toolbar_toggleoff_button);
-			}
-			this.setItemMiniIcon(row, R.drawable.toolbar_mini_disabled);
+			applyToggleTint(v, false);
+			this.setItemEnabled(row, false);
 			String msg = "Disabled " + plugin;
 			if ("starter_tutorial".equals(plugin)) {
 				msg = "Disabled starter_tutorial — .tutorial commands will stop until re-enabled.";
@@ -254,12 +242,7 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		} catch (RemoteException e) {
 			e.printStackTrace();
 		}
-		ImageButton b = (ImageButton) toolbar.getChildAt(0);
-		if (enabled) {
-			b.setImageResource(R.drawable.toolbar_toggleon_button);
-		} else {
-			b.setImageResource(R.drawable.toolbar_toggleoff_button);
-		}
+		applyToggleTint((ImageButton) toolbar.getChildAt(0), enabled);
 	}
 
 	@Override

@@ -183,80 +183,12 @@ public class ButtonSetSelectorDialog extends Dialog {
 		});*/
 		
 		//lv.setOnItemLongClickListener(new ButtonSetEditorOpener());
-		lv.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-
-			public void onItemSelected(AdapterView<?> arg0, View arg1,
-					int arg2, long arg3) {
-				arg0.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
-				for(int i = 0;i<adapter.getCount();i++) {
-					int first = arg0.getFirstVisiblePosition();
-					int last = arg0.getLastVisiblePosition();
-					int index = i;
-					boolean dostuff = false;
-					if(first <= index && index <= last) {
-						index = index - first;
-						dostuff = true;
-					} else if (index >= last) {
-						//dont care.
-					} 
-					//if(arg0.getChildAt(i) != null) {
-					if(dostuff) {
-						arg0.getChildAt(index).findViewById(R.id.toolbar_tab).setFocusable(false);
-						//arg0.getChildAt(i).findViewById(R.id.toolbar_tab).s(false);
-						if(i==arg2) {
-							arg0.getChildAt(index).findViewById(R.id.toolbar_tab).setFocusable(true);
-						}
-					}
-					//}
-					
-				}
-				lastSelectedIndex = arg2;
-				arg1.findViewById(R.id.toolbar_tab).requestFocus();
-				
-				//Log.e("LIST","SELECTED ELEMENT:" + arg2);
-			}
-
-			public void onNothingSelected(AdapterView<?> arg0) {
-				// TODO Auto-generated method stub
-				
-				//Log.e("LIST","NOTHING SELECTED");
-				
-			}
-		});
-		lv.setOnFocusChangeListener(new ListFocusFixerListener());
+		// The row controls are ordinary focusable buttons now, so there is nothing
+		// left to hand focus to by hand. This used to chase a hidden tab view --
+		// the handle that slid the controls into view -- around the visible rows.
+		lv.setOnFocusChangeListener(null);
 		list = lv;
 		
-	}
-	
-	public class ListFocusFixerListener implements View.OnFocusChangeListener {
-		public void onFocusChange(View v, boolean hasFocus) {
-			if(hasFocus) {
-				for(int i=0;i<adapter.getCount();i++) {
-					View view = list.getChildAt(i);
-					if(view != null)  {
-						view.findViewById(R.id.toolbar_tab).setFocusable(false);
-					}
-				}
-				if(lastSelectedIndex < 0) {
-					
-				} else {
-					//Log.e("LIST","SETTING FOCUS ON:" + lastSelectedIndex);
-					int index = lastSelectedIndex;
-					int first = list.getFirstVisiblePosition();
-					int last = list.getLastVisiblePosition();
-					if(first <= index && index <= last) {
-						index = index - first;
-					} else {
-						index = list.getFirstVisiblePosition();
-					}
-					list.setSelection(lastSelectedIndex);
-					list.getChildAt(index).findViewById(R.id.toolbar_tab).setFocusable(true);
-					list.getChildAt(index).findViewById(R.id.toolbar_tab).requestFocus();
-				}
-				
-			}
-			//Log.e("FOCUS","FOCUS CHANGE LISTENER FIRE, focus is " + hasFocus);
-		}
 	}
 	
 	public void onStart() {
@@ -402,15 +334,6 @@ public class ButtonSetSelectorDialog extends Dialog {
 			if(v == null) {
 				LayoutInflater li = (LayoutInflater)this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 				v = li.inflate(R.layout.better_list_row,null);
-			} else {
-				//need to make sure that the list view has 
-				//attempt to get viewflipper.
-				ViewFlipper f = (ViewFlipper) v.findViewById(R.id.flipper);
-				if (f.getCurrentView().getId() == R.id.toolbar_holder_open) {
-					f.setInAnimation(new TranslateAnimation(0,0,0,0));
-					f.setOutAnimation(new TranslateAnimation(0,0,0,0));
-					f.showNext();
-				}
 			}
 			
 			ButtonEntry e = items.get(pos);
@@ -421,22 +344,12 @@ public class ButtonSetSelectorDialog extends Dialog {
 				RelativeLayout root = (RelativeLayout)v.findViewById(R.id.root);
 				root.setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
 				
-				v.findViewById(R.id.spacer).setVisibility(View.INVISIBLE);
-				
-				ImageView iv = (ImageView) v.findViewById(R.id.icon);
-				if(e.locked) {
-					iv.setImageResource(R.drawable.toolbar_mini_locked);
-					iv.setVisibility(View.VISIBLE);
-				} else {
-					iv.setVisibility(View.INVISIBLE);
-				}
-				
 				ImageView icon = (ImageView) v.findViewById(R.id.icon);
 				if(e.locked) {
-					icon.setImageResource(R.drawable.toolbar_mini_locked);
+					icon.setImageResource(R.drawable.ic_mini_locked);
 					icon.setVisibility(View.VISIBLE);
 				} else {
-					icon.setVisibility(View.INVISIBLE);
+					icon.setVisibility(View.GONE);
 				}
 				
 				ImageButton load = new ImageButton(ButtonSetSelectorDialog.this.getContext());
@@ -452,19 +365,20 @@ public class ButtonSetSelectorDialog extends Dialog {
 				modify.setLayoutParams(params);
 				delete.setLayoutParams(params);
 				
-				load.setPadding(0,0,0,0);
-				lock.setPadding(0,0,0,0);
-				modify.setPadding(0,0,0,0);
-				delete.setPadding(0,0,0,0);
+				final int pad = Math.round(6f * getContext().getResources().getDisplayMetrics().density);
+				load.setPadding(pad,pad,pad,pad);
+				lock.setPadding(pad,pad,pad,pad);
+				modify.setPadding(pad,pad,pad,pad);
+				delete.setPadding(pad,pad,pad,pad);
 				
-				load.setImageResource(R.drawable.toolbar_load_button);
+				load.setImageResource(R.drawable.ic_row_load);
 				if(e.locked) {
-					lock.setImageResource(R.drawable.toolbar_locked_button);
+					lock.setImageResource(R.drawable.ic_row_lock);
 				} else {
-					lock.setImageResource(R.drawable.toolbar_unlocked_button);
+					lock.setImageResource(R.drawable.ic_row_unlock);
 				}
-				modify.setImageResource(R.drawable.toolbar_modify_button);
-				delete.setImageResource(R.drawable.toolbar_delete_button);
+				modify.setImageResource(R.drawable.ic_row_edit);
+				delete.setImageResource(R.drawable.ic_row_delete);
 				
 				load.setBackgroundColor(0);
 				lock.setBackgroundColor(0);
@@ -483,46 +397,18 @@ public class ButtonSetSelectorDialog extends Dialog {
 				holder.addView(modify);
 				holder.addView(delete);
 				
-				int width = load.getDrawable().getIntrinsicWidth() + lock.getDrawable().getIntrinsicWidth() + modify.getDrawable().getIntrinsicWidth() + delete.getDrawable().getIntrinsicWidth();
-				
 				load.setOnClickListener(new LoadButtonListener(pos));
 				lock.setOnClickListener(new LockButtonListener(pos,icon));
 				modify.setOnClickListener(new ModifyButtonListener(pos));
-				delete.setOnClickListener(new DeleteButtonListener(pos,(ViewFlipper)v.findViewById(R.id.flipper),width));
-				
-				v.findViewById(R.id.toolbar_tab).setOnClickListener(new ToolbarTabOpenListener(v,(ViewFlipper)v.findViewById(R.id.flipper),width,pos));
-				
-				v.findViewById(R.id.toolbar_tab_close).setOnClickListener(new ToolbarTabCloseListener(v,(ViewFlipper)v.findViewById(R.id.flipper),width,v.findViewById(R.id.toolbar_tab)));
-				v.findViewById(R.id.toolbar_tab_close).setOnKeyListener(theButtonKeyListener);
-				
-				v.findViewById(R.id.toolbar_tab).setOnFocusChangeListener(new View.OnFocusChangeListener() {
-					
-					public void onFocusChange(View v, boolean hasFocus) {
-						if(hasFocus) {
-							v.setFocusable(true);
-							v.setFocusableInTouchMode(true);
-						} else {
-							v.setFocusable(false);
-							v.setFocusableInTouchMode(false);
-						}
-					}
-				});
+				delete.setOnClickListener(new DeleteButtonListener(pos, v));
 				
 				TextView label = (TextView)v.findViewById(R.id.infoTitle);
 				TextView extra = (TextView)v.findViewById(R.id.infoExtended);
 				
 				label.setText(e.name);
-				extra.setText("Contains " + e.entries + " buttons.");
+				extra.setText(e.entries + (e.entries == 1 ? " button" : " buttons"));
 				RelativeLayout r = (RelativeLayout)v.findViewById(R.id.root);
-				if(e.name.equals(selected_set)) {
-					label.setBackgroundColor(0x00888888);
-					extra.setBackgroundColor(0x00888888);
-					r.setBackgroundColor(0xAA707070);
-				} else {
-					label.setBackgroundColor(0x00333333);
-					extra.setBackgroundColor(0x00333333);
-					r.setBackgroundColor(0xAA333333);
-				}
+				r.setBackgroundColor(e.name.equals(selected_set) ? 0xFF262C34 : 0xFF16181C);
 			}
 			
 			return v;
@@ -605,19 +491,17 @@ public class ButtonSetSelectorDialog extends Dialog {
 	public class DeleteButtonListener implements View.OnClickListener {
 
 		private int entry = -1;
-		ViewFlipper flip = null;
-		private int animateDistance = 0;
-		public DeleteButtonListener(int element,ViewFlipper flip,int animateDistance) {
+		View row = null;
+		public DeleteButtonListener(int element, View row) {
 			this.entry = element;
-			this.flip = flip;
-			this.animateDistance = animateDistance;
+			this.row = row;
 		}
 		
 		public void onClick(View v) {
 			AlertDialog.Builder builder = new AlertDialog.Builder(ButtonSetSelectorDialog.this.getContext());
 			builder.setTitle("Delete Button Set");
 			builder.setMessage("Confirm Delete?");
-			builder.setPositiveButton("Delete", new ReallyDeleteTriggerListener(flip,animateDistance,entry));
+			builder.setPositiveButton("Delete", new ReallyDeleteTriggerListener(row,entry));
 			builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				
 				public void onClick(DialogInterface dialog, int which) {
@@ -632,24 +516,28 @@ public class ButtonSetSelectorDialog extends Dialog {
 	}
 	
 	public class ReallyDeleteTriggerListener implements DialogInterface.OnClickListener {
-		ViewFlipper flip = null;
+		View row = null;
 		int animateDistance = 0;
 		int entry = -1;
-		public ReallyDeleteTriggerListener(ViewFlipper flip,int animateDistance,int entry) {
-			this.flip = flip;
+		public ReallyDeleteTriggerListener(View row,int entry) {
+			this.row = row;
 			this.animateDistance = animateDistance;
 			this.entry = entry;
 		}
 		public void onClick(DialogInterface dialog, int which) {
 			// TODO Auto-generated method stub
 			dialog.dismiss();
-			Animation a = new TranslateAnimation(0, animateDistance, 0, 0);
-			a.setDuration(800);
+			// Slide the row itself out. This used to flip the row's ViewFlipper and
+			// hang the delete off that animation; the flipper existed only to hide
+			// the controls, so the row carries the animation now.
+			Animation a = new TranslateAnimation(0, row != null ? row.getWidth() : 0, 0, 0);
+			a.setDuration(300);
 			a.setAnimationListener(new DeleteAnimationListener(entry));
-			//list.setOnFocusChangeListener(null);
-			//list.setFocusable(false);
-			flip.setOutAnimation(a);
-			flip.showNext();
+			if (row != null) {
+				row.startAnimation(a);
+			} else {
+				new DeleteAnimationListener(entry).onAnimationEnd(null);
+			}
 		}
 		
 	}
@@ -700,80 +588,7 @@ public class ButtonSetSelectorDialog extends Dialog {
 		
 	}
 	
-	public class ToolbarTabOpenListener implements View.OnClickListener {
-		View parent = null;
-		ViewFlipper targetFlipper = null;
-		int toolbarLength = 0;
-		private int index;
-		
-		public ToolbarTabOpenListener(View parent, ViewFlipper targetFlipper, int toolBarWidth,int index) {
-			this.parent = parent;
-			this.targetFlipper = targetFlipper;
-			toolbarLength = toolBarWidth;
-			this.index = index;
-		}
-		
-		public void onClick(View v) {
-			//v.requestFocus();
-			lastSelectedIndex = this.index;
-			
-			//int targetWidth = 100;
-			Animation ai = new TranslateAnimation(toolbarLength, 0, 0, 0);
-			ai.setDuration(800);
-			
-			targetFlipper.setInAnimation(ai);
-			
-			Animation ao = new TranslateAnimation(0, toolbarLength, 0, 0);
-			ao.setDuration(800);
-			
-			targetFlipper.setOutAnimation(ao);
-			
-			targetFlipper.showNext();
-			
-			parent.findViewById(R.id.toolbar_tab_close).requestFocus();
-		}
-		
-	}
-	
 	private int lastSelectedIndex = -1;
-	
-	public class ToolbarTabCloseListener implements View.OnClickListener {
-		View viewToFocus = null;
-		View parent = null;
-		ViewFlipper targetFlipper = null;
-		int toolbarLength = 0;
-		public ToolbarTabCloseListener(View parent, ViewFlipper targetFlipper, int toolBarWidth,View viewToFocus) {
-			this.parent = parent;
-			this.viewToFocus = viewToFocus;
-			this.targetFlipper = targetFlipper;
-			toolbarLength = toolBarWidth;
-		}
-		
-		public void onClick(View v) {
-			//int totalWidth = TriggerSelectionDialog.this.findViewById(R.id.toolbar_holder).getWidth();
-			//int tabWidth = TriggerSelectionDialog.this.findViewById(R.id.toolbar_tab).getWidth();
-			
-			//int targetWidth = TriggerSelectionDialog.this.findViewById(R.id.button_holder).getWidth();
-			
-			Animation ao = new TranslateAnimation(0, toolbarLength, 0, 0);
-			ao.setDuration(800);
-			//a.setFillBefore(true);
-			//a.setFillAfter(false);
-			targetFlipper.setOutAnimation(ao);
-			
-			Animation ai = new TranslateAnimation(toolbarLength, 0, 0, 0);
-			ai.setDuration(800);
-			//a.setFillBefore(true);
-			//a.setFillAfter(false);
-			targetFlipper.setInAnimation(ai);
-			targetFlipper.showNext();
-			
-			//parent.findViewById(R.id.toolbar_tab).requestFocus();
-			viewToFocus.setFocusable(true);
-			viewToFocus.requestFocus();
-		}
-		
-	}
 	
 	boolean setSettingsHaveChanged = false;
 	private Handler editordonelistenr = new Handler() {
@@ -806,7 +621,6 @@ public class ButtonSetSelectorDialog extends Dialog {
 	protected void finishDelete() {
 		buildList();
 		list.setFocusable(true);
-		list.setOnFocusChangeListener(new ListFocusFixerListener());
 	}
 	
 	private class EntryCompare implements Comparator<ButtonEntry> {
