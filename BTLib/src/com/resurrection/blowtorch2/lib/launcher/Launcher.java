@@ -128,7 +128,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int RP_STARTUP = 104;
 	protected static final int MENU_IMPORT_SERVER_LIST = 100;
 	protected static final int MENU_EXPORT_SERVER_LIST = 105;
-	protected static final int MENU_USER_NAME = 106;
 	protected static final int MENU_SDCARD_PERMISSIONS = 108;
 	protected static final int MENU_APP_SETTINGS = 109;
 	protected static final int MENU_BACKUP_ALL_SETTINGS = 110;
@@ -491,6 +490,17 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		Button newbutton = (Button)findViewById(R.id.new_connection);
 		styleLauncherActionButton(newbutton);
 		newbutton.setOnClickListener(new newClickedListener());
+
+		Button guideButton = (Button) findViewById(R.id.user_guide_button);
+		if (guideButton != null) {
+			styleLauncherActionButton(guideButton);
+			guideButton.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					new com.resurrection.blowtorch2.lib.window.HelpDialog(Launcher.this).show();
+				}
+			});
+		}
 
 		Log.e("LAUNCHER","BINDING SERVICE (FGS starts on MUD connect via MainWindow)");
 		String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
@@ -1695,7 +1705,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		menu.add(0, MENU_BACKUP_ALL_SETTINGS, 0, R.string.launcher_menu_backup_all_settings);
 		menu.add(0, MENU_RESTORE_SETTINGS_BACKUP, 0, R.string.launcher_menu_restore_settings_backup);
 		if (ConfigurationLoader.isTestMode(this)) {
-			menu.add(0, MENU_USER_NAME, 0, "User Name");
 		}
 		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, "Ask for storage permissions");
 		menu.add(0, MENU_APP_SETTINGS, 0, "App Settings");
@@ -1840,9 +1849,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					AskImportSettings();
 				}
 			});
-			break;
-		case MENU_USER_NAME:
-
 			break;
 		case MENU_SDCARD_PERMISSIONS:
 			boolean state = SDCardUtils.hasPermissions(this,findViewById(R.id.launcher_window_content), RP_INFO);

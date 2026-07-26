@@ -156,6 +156,11 @@
   	android:layout_width="wrap_content"
   	android:gravity="right|center_vertical"
   	android:paddingRight="6dip"/>
+  	   <LinearLayout
+  	android:layout_width="0dip"
+  	android:layout_weight="1"
+  	android:layout_height="wrap_content"
+  	android:orientation="horizontal">
   	   <EditText
   	android:id="@+id/passwordinput"
   	android:layout_width="0dip"
@@ -165,6 +170,19 @@
     android:imeOptions="actionNone|flagNoEnterAction"
     android:singleLine="true"
     android:textSize="15sp"/>
+  	   <!-- Reveal toggle: passwords are stored in plain text on the device
+  	        anyway, and typing one blind into a MUD login is a common way to
+  	        end up locked out. -->
+  	   <androidx.appcompat.widget.AppCompatButton
+  	android:id="@+id/password_reveal"
+  	android:layout_width="wrap_content"
+  	android:layout_height="wrap_content"
+  	android:minWidth="0dip"
+  	android:paddingLeft="10dip"
+  	android:paddingRight="10dip"
+  	android:textSize="14sp"
+  	android:text="@string/password_show"/>
+  	   </LinearLayout>
   	</TableRow>
   	<TableRow>
   	  <TextView

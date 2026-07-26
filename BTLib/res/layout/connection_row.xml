@@ -7,7 +7,7 @@
   android:paddingRight="12dip"
   android:paddingTop="8dip"
   android:paddingBottom="4dip"
-  android:background="#66000000">
+  android:background="#FF1B1E23">
 
   <TextView
     android:id="@+id/displayname"
@@ -15,7 +15,7 @@
   	android:layout_height="wrap_content"
   	android:textSize="22sp"
   	android:textStyle="bold"
-  	android:textColor="#EEF5F5F5"
+  	android:textColor="#FFF2F4F6"
   	android:background="#00000000"/>
 
   <TextView
@@ -30,7 +30,7 @@
   	android:textStyle="italic"
   	android:textSize="14sp"
   	android:lineSpacingExtra="2dp"
-  	android:textColor="#CCD0D0D0"
+  	android:textColor="#FF9AA3AD"
   	android:background="#00000000"/>
 
 </RelativeLayout>
