@@ -50,13 +50,6 @@
     </LinearLayout>
   </ScrollView>
 
-  <androidx.appcompat.widget.AppCompatButton
-    android:id="@+id/blowtorch_button"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginLeft="10dip"
-    android:layout_marginRight="10dip"
-    android:layout_marginTop="6dip"
-    android:text="@string/about_project_page"/>
+
 
 </LinearLayout>

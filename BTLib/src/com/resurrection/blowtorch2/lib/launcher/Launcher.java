@@ -257,6 +257,11 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		setContentView(R.layout.new_launcher_layout);
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		setSupportActionBar(myToolbar);
+		// The header below carries the name; without this the toolbar shows the
+		// app label as well and it reads twice.
+		if (getSupportActionBar() != null) {
+			getSupportActionBar().setDisplayShowTitleEnabled(false);
+		}
 		final View tableContainer = findViewById(R.id.table_container);
 		ViewCompat.setOnApplyWindowInsetsListener(myToolbar, (view, windowInsets) -> {
 			int topInset = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars()).top;

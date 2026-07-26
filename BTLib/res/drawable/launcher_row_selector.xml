@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neutral grey press state. The stock AppCompat selector tints with the
+     accent colour, which read as a blue wash over every row. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true" android:drawable="@color/launcher_row_pressed"/>
+    <item android:state_selected="true" android:drawable="@color/launcher_row_pressed"/>
+    <item android:drawable="@android:color/transparent"/>
+</selector>

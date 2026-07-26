@@ -935,35 +935,91 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * cell so fallback fonts cannot bleed into neighboring columns.
 	 * Returns the pixel advance for the whole run.
 	 */
+	/** Reused so drawing a run of text does not allocate; getFontMetrics()
+	 * returns a fresh object on every call. */
+	private final Paint.FontMetrics mGridFontMetrics = new Paint.FontMetrics();
+
+	/** Widths for a run of text, reused for the same reason. */
+	private float[] mGridWidths = new float[256];
+
 	private float drawTextOnGrid(final Canvas c, final String s, final float x, final float y,
 			final Paint paint) {
 		if (s == null || s.length() == 0) {
 			return 0f;
 		}
 		final float baseline = screenBaselineY(y);
-		float cursor = x;
 		final float cell = mOneCharWidth;
-		final Paint.FontMetrics fm = paint.getFontMetrics();
+		paint.getFontMetrics(mGridFontMetrics);
+		final Paint.FontMetrics fm = mGridFontMetrics;
 		// Block fills use the full line box; text must keep room below the baseline
 		// for descenders (y, g, j, p) — clipping to baseline cut them off.
 		final float lineTop = baseline - mPrefLineSize + Math.max(0, mPrefLineExtra);
 		final float lineBot = baseline + Math.max(fm.descent + 1f, (float) mPrefLineExtra);
 		final float textTop = baseline + fm.ascent;
 		final float textBot = baseline + fm.descent + 1f;
-		for (int i = 0; i < s.length(); ) {
+
+		final int len = s.length();
+		if (mGridWidths.length < len) {
+			mGridWidths = new float[len];
+		}
+		paint.getTextWidths(s, mGridWidths);
+
+		// Draw a run in one call only when the font's own advance matches the cell
+		// exactly; otherwise place each glyph on the grid itself.
+		//
+		// Every glyph used to get its own save/clipRect/drawText/restore — four
+		// canvas ops each, five figures per frame on a full screen, and clipRect
+		// in particular breaks up draw batching. The clip only matters for glyphs
+		// that would spill outside their cell, so ordinary text is drawn without
+		// one either way.
+		//
+		// The run path is guarded because mOneCharWidth is a ceil() of the glyph
+		// advance: if the two differ, a run drifts off the grid a fraction of a
+		// pixel per character and the columns visibly bend. Same-position output
+		// is worth more than the extra batching.
+		float cursor = x;
+		int runStart = -1;
+		float runX = x;
+		int i = 0;
+		while (i < len) {
 			final int cp = s.codePointAt(i);
-			final int len = Character.charCount(cp);
-			c.save();
-			if (cp >= 0x2580 && cp <= 0x259F) {
-				c.clipRect(cursor, lineTop, cursor + cell, lineBot);
-				drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
+			final int charCount = Character.charCount(cp);
+			final boolean isBlock = cp >= 0x2580 && cp <= 0x259F;
+			final float w = mGridWidths[i];
+			// Zero-width and combining marks report 0 and must not join a run.
+			final boolean exactCell = !isBlock && Math.abs(w - cell) < 0.01f;
+			final boolean fitsCell = !isBlock && w > 0f && w <= cell + 0.5f;
+
+			if (exactCell) {
+				if (runStart < 0) {
+					runStart = i;
+					runX = cursor;
+				}
 			} else {
-				c.clipRect(cursor, textTop, cursor + cell, textBot);
-				c.drawText(s, i, i + len, cursor, baseline, paint);
+				if (runStart >= 0) {
+					c.drawText(s, runStart, i, runX, baseline, paint);
+					runStart = -1;
+				}
+				if (fitsCell) {
+					// Fits its cell, so no clip is needed; just place it.
+					c.drawText(s, i, i + charCount, cursor, baseline, paint);
+				} else {
+					c.save();
+					if (isBlock) {
+						c.clipRect(cursor, lineTop, cursor + cell, lineBot);
+						drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
+					} else {
+						c.clipRect(cursor, textTop, cursor + cell, textBot);
+						c.drawText(s, i, i + charCount, cursor, baseline, paint);
+					}
+					c.restore();
+				}
 			}
-			c.restore();
 			cursor += cell;
-			i += len;
+			i += charCount;
+		}
+		if (runStart >= 0) {
+			c.drawText(s, runStart, len, runX, baseline, paint);
 		}
 		return cursor - x;
 	}

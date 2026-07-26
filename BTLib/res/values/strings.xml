@@ -56,4 +56,5 @@
     <string name="notification_status_lasted">lasted %1$s</string>
     <string name="launcher_connected_duration">connected · %1$s</string>
     <string name="launcher_last_duration">last · %1$s</string>
+    <color name="launcher_row_pressed">#FF2A2E35</color>
 </resources>

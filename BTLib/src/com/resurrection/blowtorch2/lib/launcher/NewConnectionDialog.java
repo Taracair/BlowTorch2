@@ -116,8 +116,12 @@ public class NewConnectionDialog extends Dialog {
 		toggle.setOnClickListener(new android.view.View.OnClickListener() {
 			@Override
 			public void onClick(android.view.View v) {
-				boolean hidden = (password.getInputType()
-						& android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD) != 0;
+				// Compare the variation field itself: VISIBLE_PASSWORD contains the
+				// PASSWORD bits, so a bitwise test reports "hidden" in both states.
+				int variation = password.getInputType()
+						& android.text.InputType.TYPE_MASK_VARIATION;
+				boolean hidden =
+						variation == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
 				int caret = password.getSelectionStart();
 				if (hidden) {
 					password.setInputType(android.text.InputType.TYPE_CLASS_TEXT
