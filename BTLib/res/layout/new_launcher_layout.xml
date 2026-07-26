@@ -7,6 +7,8 @@
 	android:layout_width="match_parent"
 	android:background="#FF16181C">
 
+	<!-- Wordmark lives inside the toolbar, beside the overflow: a separate strip
+	     below it spent a band of screen on two lines of text. -->
 	<androidx.appcompat.widget.Toolbar
 		android:id="@+id/my_toolbar"
 		android:layout_width="match_parent"
@@ -15,43 +17,35 @@
 		android:elevation="4dp"
 		android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
 		android:layout_alignParentTop="true"
-		app:popupTheme="@style/ThemeOverlay.AppCompat.Dark"/>
+		app:contentInsetStart="16dp"
+		app:popupTheme="@style/ThemeOverlay.AppCompat.Dark">
 
-	<!-- Wordmark and tagline, replacing the old "Connections" heading: the list
-	     below is plainly a list of connections, so the space says what the app
-	     is instead. Two lines so the name can be large and the tagline small. -->
-	<LinearLayout
-		android:id="@+id/launcher_header"
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:orientation="vertical"
-		android:layout_below="@id/my_toolbar"
-		android:paddingLeft="16dip"
-		android:paddingRight="16dip"
-		android:paddingTop="10dip"
-		android:paddingBottom="10dip"
-		android:background="#FF1E2126">
-
-		<TextView
-			android:id="@+id/launcher_title"
-			android:layout_width="match_parent"
+		<LinearLayout
+			android:id="@+id/launcher_header"
+			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
-			android:text="@string/launcher_title"
-			android:textSize="24sp"
-			android:textStyle="bold"
-			android:singleLine="true"
-			android:textColor="#FFF2F4F6"/>
+			android:orientation="vertical">
 
-		<TextView
-			android:id="@+id/launcher_tagline"
-			android:layout_width="match_parent"
-			android:layout_height="wrap_content"
-			android:text="@string/launcher_tagline"
-			android:textSize="12sp"
-			android:singleLine="true"
-			android:paddingTop="1dip"
-			android:textColor="#FF9AA3AD"/>
-	</LinearLayout>
+			<TextView
+				android:id="@+id/launcher_title"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/launcher_title"
+				android:textSize="19sp"
+				android:textStyle="bold"
+				android:singleLine="true"
+				android:textColor="#FFF2F4F6"/>
+
+			<TextView
+				android:id="@+id/launcher_tagline"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text="@string/launcher_tagline"
+				android:textSize="11sp"
+				android:singleLine="true"
+				android:textColor="#FF9AA3AD"/>
+		</LinearLayout>
+	</androidx.appcompat.widget.Toolbar>
 
 	<LinearLayout
 		android:id="@+id/table_container"
@@ -121,7 +115,7 @@
 		android:layout_margin="0dip"
 		android:padding="0dip"
 		android:layout_above="@id/table_container"
-		android:layout_below="@id/launcher_header">
+		android:layout_below="@id/my_toolbar">
 
 		<ListView
 			android:id="@+id/connection_list"

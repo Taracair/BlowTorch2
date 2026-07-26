@@ -26,7 +26,6 @@
   	android:layout_alignParentLeft="true"
   	android:maxLines="4"
   	android:ellipsize="end"
-  	android:drawableBottom="@drawable/dashedline"
   	android:textStyle="italic"
   	android:textSize="14sp"
   	android:lineSpacingExtra="2dp"
