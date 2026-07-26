@@ -36,7 +36,6 @@ public final class ChromeGestureTouchListener implements View.OnTouchListener {
 	private final float holdCancel;
 	private final long holdDelay;
 
-	private ChromeGestures bindings;
 	private float startX;
 	private float startY;
 	private boolean holdFired;
@@ -44,25 +43,16 @@ public final class ChromeGestureTouchListener implements View.OnTouchListener {
 	private Runnable pendingHold;
 
 	public ChromeGestureTouchListener(final String target, final float density,
-			final ChromeGestures bindings, final CommandSink sink) {
+			final CommandSink sink) {
 		this.target = target;
-		this.bindings = bindings;
 		this.sink = sink;
 		this.threshold = SWIPE_THRESHOLD_DP * density;
 		this.holdCancel = HOLD_CANCEL_MOVE_DP * density;
 		this.holdDelay = ViewConfiguration.getLongPressTimeout();
 	}
 
-	/** Swap in a new set after the user edits them. */
-	public void setBindings(final ChromeGestures next) {
-		this.bindings = next;
-	}
-
 	@Override
 	public boolean onTouch(final View v, final MotionEvent e) {
-		if (bindings == null) {
-			return false;
-		}
 		switch (e.getActionMasked()) {
 		case MotionEvent.ACTION_DOWN:
 			startX = e.getX();
@@ -98,7 +88,7 @@ public final class ChromeGestureTouchListener implements View.OnTouchListener {
 		if (!ChromeGestures.supportsHold(target)) {
 			return;
 		}
-		final String command = bindings.get(target, ChromeGestures.GESTURE_HOLD);
+		final String command = ChromeGestures.current().get(target, ChromeGestures.GESTURE_HOLD);
 		if (command == null) {
 			return;
 		}
@@ -134,7 +124,7 @@ public final class ChromeGestureTouchListener implements View.OnTouchListener {
 		} else {
 			direction = dy > 0 ? "down" : "up";
 		}
-		String command = bindings.get(target, direction);
+		String command = ChromeGestures.current().get(target, direction);
 		if (command == null) {
 			return false;
 		}

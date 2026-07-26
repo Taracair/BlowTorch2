@@ -2590,6 +2590,13 @@ function loadOptions(data)
 		or options.show_gesture_hints == "1"
 	-- nil counts as on: settings saved before this option existed should still
 	-- get the arrow rather than silently starting switched off.
+	-- The plugin's Lua runs in this process, so hand the bindings straight to the
+	-- chrome listeners instead of routing them back out through the service.
+	pcall(function()
+		local ChromeGesturesClass =
+			luajava.bindClass("com.resurrection.blowtorch2.lib.window.ChromeGestures")
+		ChromeGesturesClass:publish(options.chrome_gestures or "")
+	end)
 	buttonShowSwipePreview = options.show_swipe_preview == nil
 		or options.show_swipe_preview == true
 		or options.show_swipe_preview == "true"

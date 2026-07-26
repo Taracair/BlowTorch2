@@ -394,7 +394,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				public void run() {
 					ensureMapperOverlay();
 					ensureExtraTextOverlays();
-					reloadChromeGestures();
 				}
 			});
 			//finishInitializiation();
@@ -4086,21 +4085,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private ViewGroup mInputActionButtons = null;
 	private Button mInputSendButton = null;
 
-	/** Gesture bindings for the input bar and the Edit / Send / overflow buttons. */
-	private ChromeGestures mChromeGestures = new ChromeGestures();
-
-	/** Live listeners, kept so new bindings can be pushed without re-attaching. */
-	private final java.util.ArrayList<ChromeGestureTouchListener> mChromeGestureListeners =
-			new java.util.ArrayList<ChromeGestureTouchListener>();
-
 	/** Attach gesture handling to the chrome around the game view.
 	 *
 	 * The listeners sit alongside the existing click handling and only claim an
 	 * event once a swipe or hold actually fired, so tapping Send, typing in the
-	 * input bar and long-pressing the overflow all behave as before.
+	 * input bar and long-pressing the overflow all behave as before. They read
+	 * the bindings from ChromeGestures.current() at gesture time, so edits take
+	 * effect without re-attaching anything.
 	 */
 	private void attachChromeGestureListeners() {
-		mChromeGestureListeners.clear();
 		float density = getResources().getDisplayMetrics().density;
 		ChromeGestureTouchListener.CommandSink sink =
 				new ChromeGestureTouchListener.CommandSink() {
@@ -4124,28 +4117,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (view == null) {
 			return;
 		}
-		ChromeGestureTouchListener listener =
-				new ChromeGestureTouchListener(target, density, mChromeGestures, sink);
-		view.setOnTouchListener(listener);
-		mChromeGestureListeners.add(listener);
-	}
-
-	/** Re-read the bindings from the button_window plugin settings. */
-	private void reloadChromeGestures() {
-		String stored = null;
-		try {
-			if (service != null) {
-				stored = service.getPluginOption(
-						ChromeGestures.SETTING_PLUGIN, ChromeGestures.SETTING_KEY);
-			}
-		} catch (Exception e) {
-			// Settings unavailable (not bound yet): keep whatever is loaded.
-			return;
-		}
-		mChromeGestures = ChromeGestures.parse(stored);
-		for (int i = 0; i < mChromeGestureListeners.size(); i++) {
-			mChromeGestureListeners.get(i).setBindings(mChromeGestures);
-		}
+		view.setOnTouchListener(new ChromeGestureTouchListener(target, density, sink));
 	}
 
 	/** Run a command a chrome gesture resolved to.

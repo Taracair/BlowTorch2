@@ -53,6 +53,22 @@ public final class ChromeGestures {
 
 	private final Map<String, String> bindings = new HashMap<String, String>();
 
+	/** Bindings the button plugin last published, shared with the touch
+	 * listeners. The plugin's Lua runs in this process, so it hands the value
+	 * over directly rather than going back out through the service; the settings
+	 * option this mirrors is only readable once the plugin has parsed it. */
+	private static volatile ChromeGestures sCurrent = new ChromeGestures();
+
+	/** Called from the button window Lua when the plugin's options load. */
+	public static void publish(final String stored) {
+		sCurrent = parse(stored);
+	}
+
+	/** The bindings in effect right now. */
+	public static ChromeGestures current() {
+		return sCurrent;
+	}
+
 	/** Whether this target can carry a hold binding. */
 	public static boolean supportsHold(final String target) {
 		return !TARGET_OVERFLOW.equals(target);

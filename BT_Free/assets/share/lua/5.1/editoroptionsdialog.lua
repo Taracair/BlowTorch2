@@ -169,12 +169,21 @@ function showDialog(initialValues)
 
   local ll = luajava.newInstance("android.widget.LinearLayout",context)
   ll:setOrientation(1)
-  local llparams = luajava.new(LinearLayoutParams,350*density,LinearLayoutParams.WRAP_CONTENT,1)
+  -- Fill the dialog rather than sitting at a fixed 350dp inside it, which left
+  -- every row hugging the left edge with dead space down the right. The button
+  -- editor already sizes itself this way.
+  local utils = require("buttonutils")
+  local dialogWidth = utils.getDialogDimensions(context)
+  local llparams = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT,LinearLayoutParams.WRAP_CONTENT)
   ll:setLayoutParams(llparams)
-  --ll:setGravity(Gravity.CENTER)
-  
+  ll:setPadding(math.floor(10*density),0,math.floor(10*density),0)
+
   local scroller = luajava.new(ScrollView,context)
-  scroller:setLayoutParams(llparams)
+  -- Its own params object: sharing one between two views in different parents
+  -- is how the widths ended up disagreeing.
+  scroller:setLayoutParams(luajava.new(LinearLayoutParams,
+      dialogWidth,LinearLayoutParams.WRAP_CONTENT,1))
   
   local fillparams = luajava.new(LinearLayoutParams,LinearLayoutParams.FILL_PARENT,LinearLayoutParams.WRAP_CONTENT,1)
   local wrapparams = luajava.new(LinearLayoutParams,LinearLayoutParams.WRAP_CONTENT,LinearLayoutParams.WRAP_CONTENT,1)

@@ -322,6 +322,14 @@ buttonserializer = {}
 buttonserializer["end"] = handleButtonSerializer
 buttonserializer_cb = luajava.createProxy("android.sax.TextElementListener",buttonserializer)
 
+function handleChromeGestures(body)
+	options.chrome_gestures = body or ""
+	loadOptions()
+end
+chromegestureserializer = {}
+chromegestureserializer["end"] = handleChromeGestures
+chromegestureserializer_cb = luajava.createProxy("android.sax.TextElementListener",chromegestureserializer)
+
 function handleButtonSetSerializer(body)
 	--Note("doing string serailze for buttonsets")
 	buttonset_defaults = loadstring(body)()
@@ -339,6 +347,7 @@ function OnPrepareXML(root)
 	
 	buttons = sets:getChild("buttons")
 	defaults = sets:getChild("defaults")
+	local chromegestures = sets:getChild("chromegestures")
 
 	set:setStartElementListener(bset_cb)
 	button:setStartElementListener(button_cb)
@@ -346,6 +355,7 @@ function OnPrepareXML(root)
 	
 	buttons:setTextElementListener(buttonserializer_cb)
 	defaults:setTextElementListener(buttonsetserializer_cb)
+	chromegestures:setTextElementListener(chromegestureserializer_cb)
 end
 --Note("loaded button prototypes")
 
@@ -501,6 +511,14 @@ function OnXmlExport(out)
 	out:startTag("","defaults")
 		out:cdsect(serialize(buttonset_defaults))
 	out:endTag("","defaults")
+
+	-- Chrome gestures ride along here rather than in the plugin's settings
+	-- options: those are written by the options dialog only, and this is edited
+	-- from the button editor. Written as its own element so an older profile
+	-- without it simply never fires the listener.
+	out:startTag("","chromegestures")
+		out:cdsect(options.chrome_gestures or "")
+	out:endTag("","chromegestures")
 	out:endTag("","buttonsets")
 	--delta = System:currentTimeMillis() - now
 	----Note("saved all buttons, took "..delta.." millis.")
@@ -588,6 +606,10 @@ end
 function setChromeGestures(value)
 	options.chrome_gestures = value ~= nil and value or ""
 	loadOptions()
+	-- Force the plugin XML to be rewritten so the bindings survive a restart.
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
 end
 
 function setShowSwipePreview(value)
