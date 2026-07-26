@@ -1148,8 +1148,6 @@ public class OptionsDialog extends Dialog {
 				Integer number = Integer.parseInt(text);
 				option.setValue(number);
 				widget.setText(text);
-				android.util.Log.e("BTOPT", "dialog integer key=" + option.getKey()
-						+ " value=" + number + " plugin=" + selectedPlugin);
 				if(selectedPlugin.equals("main")) {
 					service.updateIntegerSetting(option.getKey(), number);
 				} else {
@@ -1454,8 +1452,6 @@ public class OptionsDialog extends Dialog {
 				boolean isChecked) {
 			BooleanOption o = (BooleanOption) v.getTag();
 			o.setValue(isChecked);
-			android.util.Log.e("BTOPT", "dialog boolean key=" + o.getKey()
-					+ " value=" + isChecked + " plugin=" + selectedPlugin);
 			if(selectedPlugin.equals("main")) {
 				try {
 					service.updateBooleanSetting(o.getKey(),isChecked);

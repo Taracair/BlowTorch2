@@ -4123,8 +4123,6 @@ end
 	public void updateSetting(String key, String value) {
 		//convert to enum value, then switch, handle accordingly.
 		BaseOption o = (BaseOption) mSettings.findOptionByKey(key);
-		android.util.Log.e("BTOPT", "window updateSetting key=" + key + " value=" + value
-				+ " known=" + (o != null) + " win=" + mName);
 		if (o == null) {
 			return;
 		}
@@ -4153,17 +4151,12 @@ end
 				break;
 			case top_padding:
 				mTopPadding = Math.max(0, (Integer) o.getValue());
-				android.util.Log.e("BTOPT", "top_padding applied mTopPadding=" + mTopPadding
-						+ " drawerInsetTop=" + mDrawerInsetTop + " padTop=" + textPadTop()
-						+ " height=" + mHeight + " contentHeight=" + contentHeight());
 				calculateCharacterFeatures(mWidth, mHeight);
 				jumpToZero();
 				this.invalidate();
 				break;
 			case ime_keep_text:
 				mImeKeepText = (Boolean) o.getValue();
-				android.util.Log.e("BTOPT", "ime_keep_text applied value=" + mImeKeepText
-						+ " handler=" + (mMainWindowHandler != null));
 				if (mMainWindowHandler != null) {
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_IME_LIFT);
 				}

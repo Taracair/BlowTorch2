@@ -170,8 +170,6 @@ public class SettingsGroup extends Option implements Parcelable {
 	
 	public void updateBoolean(String key,boolean value) {
 		BaseOption o = (BaseOption) optionsMap.get(key);
-		android.util.Log.e("BTOPT", "group boolean key=" + key + " known=" + (o != null)
-				+ " listener=" + (listenerMap.get(key) != null) + " group=" + getKey());
 		if(o != null) {
 			o.setValue(value);
 			SettingsChangedListener tmp = listenerMap.get(key);
@@ -185,8 +183,6 @@ public class SettingsGroup extends Option implements Parcelable {
 	
 	public void updateInteger(String key,int value) {
 		BaseOption o = (BaseOption) optionsMap.get(key);
-		android.util.Log.e("BTOPT", "group integer key=" + key + " known=" + (o != null)
-				+ " listener=" + (listenerMap.get(key) != null) + " group=" + getKey());
 		if(o != null) {
 			o.setValue(value);
 			SettingsChangedListener tmp = listenerMap.get(key);
@@ -268,12 +264,18 @@ public class SettingsGroup extends Option implements Parcelable {
 
 	public void setListener(SettingsChangedListener listener) {
 		this.listener = listener;
-		
+		// Clear once, here. The walk below used to clear on the way into every
+		// nested group, which threw away everything gathered before it — so this
+		// map ended up holding only the last subgroup's keys. Options → Window
+		// nests Extra text last, after word wrap, top padding, keep text still and
+		// the rest, and those all lost their listener: changing one stored the new
+		// value and notified nobody, so nothing happened until the profile was
+		// loaded again and read the value straight off the option.
+		listenerMap.clear();
 		recursiveListenerUpdate(this);
 	}
-	
+
 	private void recursiveListenerUpdate(SettingsGroup group) {
-		listenerMap.clear();
 		int size = group.getOptions().size();
 		for(int i = 0;i<size;i++) {
 			Option tmp = group.getOptions().get(i);
