@@ -308,9 +308,6 @@ public class BaseSelectionDialog extends Dialog {
 			ViewParent parent = mTitlebar.getParent();
 			if (parent != null) {
 				parent.bringChildToFront(mTitlebar);
-				if (mOptionsButton != null && mOptionsButton.getVisibility() == View.VISIBLE) {
-					parent.bringChildToFront(mOptionsButton);
-				}
 			}
 		}
 
@@ -351,7 +348,7 @@ public class BaseSelectionDialog extends Dialog {
 				}
 				if (mOptionsListToggle) {
 					mOptionsListToggle = false;
-					Animation outAnimation = new TranslateAnimation(0, 0, 0, -mOptionsList.getHeight());
+					Animation outAnimation = new TranslateAnimation(0, 0, 0, mOptionsList.getHeight());
 					outAnimation.setDuration(300);
 					outAnimation.setAnimationListener(new AnimationListener() {
 						@Override
@@ -373,9 +370,11 @@ public class BaseSelectionDialog extends Dialog {
 					if (mTitlebar != null) {
 						mTitlebar.bringToFront();
 					}
-					mOptionsButton.bringToFront();
+					// Deliberately not bringing the More button forward: it lives in a
+					// horizontal row now, and bringToFront() there moves it to the end
+					// of the row rather than just above its neighbours.
 					mOptionsList.invalidate();
-					Animation inAnimation = new TranslateAnimation(0, 0, -mOptionsList.getHeight(), 0);
+					Animation inAnimation = new TranslateAnimation(0, 0, mOptionsList.getHeight(), 0);
 					inAnimation.setDuration(300);
 					mOptionsList.startAnimation(inAnimation);
 				}

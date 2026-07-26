@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-
- <TextView
-     	xmlns:android="http://schemas.android.com/apk/res/android" 
-  		android:id="@+id/title"
-  		android:layout_width="fill_parent"
-  		android:layout_height="wrap_content"
-  		android:text="filter option"
-  		android:paddingLeft="5dip"
-  		android:textSize="26dip"
-  		android:textStyle="bold"
-  		android:singleLine="true"
-  		android:scrollHorizontally="true"
-  		android:textColor="#FFAAAAAA"
-  		android:background="#FF444444"/>
+<!-- One command in the More menu. Was 26dip bold on flat grey, which read as a
+     block of slab rather than a menu. -->
+<TextView
+    	xmlns:android="http://schemas.android.com/apk/res/android"
+ 		android:id="@+id/title"
+ 		android:layout_width="fill_parent"
+ 		android:layout_height="wrap_content"
+ 		android:minHeight="46dip"
+ 		android:text="filter option"
+ 		android:paddingLeft="16dip"
+ 		android:paddingRight="16dip"
+ 		android:gravity="center_vertical"
+ 		android:textSize="16dip"
+ 		android:singleLine="true"
+ 		android:ellipsize="end"
+ 		android:textColor="#FFE8ECF1"
+ 		android:background="@drawable/editor_options_row_selector"/>

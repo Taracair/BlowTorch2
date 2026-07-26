@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Floating More menu. Rounded and inset so it reads as a panel over the list. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FF23272E"/>
+    <stroke android:width="1dp" android:color="#FF3A4048"/>
+    <corners android:radius="12dp"/>
+    <padding android:left="4dp" android:top="6dp" android:right="4dp" android:bottom="6dp"/>
+</shape>

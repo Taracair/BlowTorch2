@@ -175,13 +175,15 @@
 	    android:layout_width="fill_parent"
 	    android:layout_height="wrap_content"
 	    android:layout_above="@id/button_row"
-	 	android:layout_marginRight="20dip"
-	 	android:layout_marginLeft="20dip"
-	 	android:divider="@drawable/optionslist_separator"
-	 	android:dividerHeight="3dip"
-	 	android:background="@drawable/optionslist_border"
-	    android:listSelector="@drawable/timer_list_item_selector"
-	    android:drawSelectorOnTop="true"
+	 	android:layout_marginRight="14dip"
+	 	android:layout_marginLeft="14dip"
+	 	android:layout_marginBottom="6dip"
+	 	android:divider="@drawable/editor_options_divider"
+	 	android:dividerHeight="1dip"
+	 	android:background="@drawable/editor_options_panel"
+	    android:listSelector="#00000000"
+	    android:elevation="12dp"
+	    android:drawSelectorOnTop="false"
 	    android:visibility="invisible"/>
 
 </RelativeLayout>

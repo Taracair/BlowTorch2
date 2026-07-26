@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-
- <TextView
-     	xmlns:android="http://schemas.android.com/apk/res/android" 
-  		android:id="@+id/title"
-  		android:layout_width="fill_parent"
-  		android:layout_height="wrap_content"
-  		android:text="filter option"
-  		android:textSize="15dip"
-  		android:textStyle="bold"
-  		android:textColor="#FFAAAAAA"
-  		android:background="#FF111111"/>
+<!-- Section heading inside the More menu. -->
+<TextView
+    	xmlns:android="http://schemas.android.com/apk/res/android"
+ 		android:id="@+id/title"
+ 		android:layout_width="fill_parent"
+ 		android:layout_height="wrap_content"
+ 		android:text="filter option"
+ 		android:paddingLeft="16dip"
+ 		android:paddingRight="16dip"
+ 		android:paddingTop="10dip"
+ 		android:paddingBottom="4dip"
+ 		android:textSize="12dip"
+ 		android:textStyle="bold"
+ 		android:textColor="#FF8A929C"
+ 		android:background="#00000000"/>
