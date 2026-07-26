@@ -126,13 +126,8 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 		} catch (RemoteException e) {
 
 		}
-		if(state) {
-			v.setImageResource(R.drawable.toolbar_toggleon_button);
-			this.setItemMiniIcon(row, R.drawable.toolbar_mini_enabled);
-		} else {
-			v.setImageResource(R.drawable.toolbar_toggleoff_button);
-			this.setItemMiniIcon(row, R.drawable.toolbar_mini_disabled);
-		}
+		applyToggleTint(v, state);
+		this.setItemEnabled(row, state);
 		Log.e("Trigger","trigger item selected for enable/disable: "+d.getName());
 	}
 
@@ -280,12 +275,8 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 		clearListItems();
 		for(int i=0;i<sortedKeys.length;i++) {
 			TriggerData data = dataMap.get(sortedKeys[i]);
+			// No state badge: the row dims and the toggle changes colour instead.
 			int resource = 0;
-			if(data.isEnabled()) {
-				resource = R.drawable.toolbar_mini_enabled;
-			} else {
-				resource = R.drawable.toolbar_mini_disabled;
-			}
 			String title = data.getName();
 			if (ALL_SETTINGS.equals(currentPlugin)) {
 				String src = getSourcePlugin(sortedKeys[i]);
@@ -337,12 +328,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 		if (data == null || toolbar.getChildCount() == 0) {
 			return;
 		}
-		ImageButton b = (ImageButton) toolbar.getChildAt(0);
-		if (data.isEnabled()) {
-			b.setImageResource(R.drawable.toolbar_toggleon_button);
-		} else {
-			b.setImageResource(R.drawable.toolbar_toggleoff_button);
-		}
+		applyToggleTint((ImageButton) toolbar.getChildAt(0), data.isEnabled());
 	}
 
 	private final Handler triggerEditorDoneHandler = new Handler() {

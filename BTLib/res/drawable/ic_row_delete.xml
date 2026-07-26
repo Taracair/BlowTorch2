@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Delete. Replaces the old bin bitmap. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp"
+    android:height="22dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFAAB2BC">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,19c0,1.1 0.9,2 2,2h8c1.1,0 2,-0.9 2,-2V7H6v12zM9,9h2v9H9V9zM13,9h2v9h-2V9zM15.5,4l-1,-1h-5l-1,1H5v2h14V4z" />
+</vector>

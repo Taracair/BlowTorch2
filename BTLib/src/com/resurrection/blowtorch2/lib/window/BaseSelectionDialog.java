@@ -76,15 +76,15 @@ public class BaseSelectionDialog extends Dialog {
 		
 		UtilityButton delete = new UtilityButton();
 		delete.action = UTILITY_BUTTON_ACTION.DELETE;
-		delete.imageResource = R.drawable.toolbar_delete_button;
+		delete.imageResource = R.drawable.ic_row_delete;
 		
 		UtilityButton toggle = new UtilityButton();
 		toggle.action = UTILITY_BUTTON_ACTION.TOGGLE;
-		toggle.imageResource = R.drawable.toolbar_toggleon_button;
+		toggle.imageResource = R.drawable.ic_row_toggle;
 		
 		UtilityButton edit = new UtilityButton();
 		edit.action = UTILITY_BUTTON_ACTION.NORMAL;
-		edit.imageResource = R.drawable.toolbar_modify_button;
+		edit.imageResource = R.drawable.ic_row_edit;
 		
 		mToolbarButtons.add(toggle);
 		mToolbarButtons.add(edit);
@@ -655,7 +655,11 @@ public class BaseSelectionDialog extends Dialog {
 				
 				label.setBackgroundColor(0x00000000);
 				extra.setBackgroundColor(0x00000000);
-				
+				// A disabled entry reads as switched off by going dim, which costs no
+				// row height and no extra glyph. The coloured dot that used to say this
+				// repeated what the toggle already showed.
+				label.setTextColor(e.enabled ? ROW_TITLE_COLOR : ROW_TITLE_COLOR_OFF);
+				extra.setTextColor(e.enabled ? ROW_EXTRA_COLOR : ROW_EXTRA_COLOR_OFF);
 			}
 			
 			ImageView iv = (ImageView) v.findViewById(R.id.icon);
@@ -680,7 +684,8 @@ public class BaseSelectionDialog extends Dialog {
 			UtilityButton b = mToolbarButtons.get(i);
 			ImageButton tmp = new ImageButton(mContext);
 			tmp.setLayoutParams(params);
-			tmp.setPadding(0, 0, 0, 0);
+			final int pad = Math.round(6f * mContext.getResources().getDisplayMetrics().density);
+			tmp.setPadding(pad, pad, pad, pad);
 			tmp.setImageResource(b.imageResource);
 			tmp.setBackgroundColor(0);
 			tmp.setFocusable(false);
@@ -839,6 +844,15 @@ public class BaseSelectionDialog extends Dialog {
 		
 	}
 	
+	/** Row text, and the dimmed pair used when an entry is switched off. */
+	public static final int ROW_TITLE_COLOR = 0xFFF2F4F6;
+	public static final int ROW_TITLE_COLOR_OFF = 0xFF6E767F;
+	public static final int ROW_EXTRA_COLOR = 0xFF9AA3AD;
+	public static final int ROW_EXTRA_COLOR_OFF = 0xFF5C646D;
+	/** Toggle tint: on is the launcher's green, off is the same grey as the other icons. */
+	public static final int TOGGLE_TINT_ON = 0xFF66C97A;
+	public static final int TOGGLE_TINT_OFF = 0xFF6E767F;
+
 	public ArrayList<UtilityButton> mToolbarButtons;
 	
 	private int rowFromTag(View v) {
@@ -1032,6 +1046,39 @@ public class BaseSelectionDialog extends Dialog {
 		this.optionItems.add(divider);
 	}
 	
+	/** Colour a row's toggle so the icon itself says on or off. */
+	public static void applyToggleTint(ImageButton button, boolean on) {
+		if (button == null) {
+			return;
+		}
+		button.setColorFilter(on ? TOGGLE_TINT_ON : TOGGLE_TINT_OFF);
+	}
+
+	/** Re-dim a row in place after its enabled state was toggled. */
+	public void setItemEnabled(int row, boolean enabled) {
+		ItemEntry entry = mAdapter.getItem(row);
+		if (entry == null) {
+			return;
+		}
+		entry.enabled = enabled;
+		if (mList == null || row < mList.getFirstVisiblePosition()
+				|| row > mList.getLastVisiblePosition()) {
+			return;
+		}
+		View root = mList.getChildAt(row - mList.getFirstVisiblePosition());
+		if (root == null) {
+			return;
+		}
+		TextView title = (TextView) root.findViewById(R.id.infoTitle);
+		TextView extra = (TextView) root.findViewById(R.id.infoExtended);
+		if (title != null) {
+			title.setTextColor(enabled ? ROW_TITLE_COLOR : ROW_TITLE_COLOR_OFF);
+		}
+		if (extra != null) {
+			extra.setTextColor(enabled ? ROW_EXTRA_COLOR : ROW_EXTRA_COLOR_OFF);
+		}
+	}
+
 	public void setItemMiniIcon(int row,int resource) {
 		ItemEntry entry = mAdapter.getItem(row);
 		

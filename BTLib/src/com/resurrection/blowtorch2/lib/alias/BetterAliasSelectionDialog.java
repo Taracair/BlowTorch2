@@ -67,13 +67,8 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 		} catch (RemoteException e) {
 
 		}
-		if(state) {
-			v.setImageResource(R.drawable.toolbar_toggleon_button);
-			this.setItemMiniIcon(row, R.drawable.toolbar_mini_enabled);
-		} else {
-			v.setImageResource(R.drawable.toolbar_toggleoff_button);
-			this.setItemMiniIcon(row, R.drawable.toolbar_mini_disabled);
-		}
+		applyToggleTint(v, state);
+		this.setItemEnabled(row, state);
 		Log.e("Alias","alias item selected for enable/disable: "+d.getPre());
 	}
 
@@ -217,12 +212,8 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 		clearListItems();
 		for(int i=0;i<sortedKeys.length;i++) {
 			AliasData data = dataMap.get(sortedKeys[i]);
+			// No state badge: the row dims and the toggle changes colour instead.
 			int resource = 0;
-			if(data.isEnabled()) {
-				resource = R.drawable.toolbar_mini_enabled;
-			} else {
-				resource = R.drawable.toolbar_mini_disabled;
-			}
 			String title = displayNameForKey(sortedKeys[i]);
 			if (ALL_SETTINGS.equals(currentPlugin)) {
 				String src = getSourcePlugin(sortedKeys[i]);
@@ -249,12 +240,7 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 		if (data == null || toolbar.getChildCount() == 0) {
 			return;
 		}
-		ImageButton b = (ImageButton) toolbar.getChildAt(0);
-		if (data.isEnabled()) {
-			b.setImageResource(R.drawable.toolbar_toggleon_button);
-		} else {
-			b.setImageResource(R.drawable.toolbar_toggleoff_button);
-		}
+		applyToggleTint((ImageButton) toolbar.getChildAt(0), data.isEnabled());
 	}
 
 	private final Handler aliasEditorDoneHandler = new Handler() {

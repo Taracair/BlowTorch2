@@ -1,57 +1,114 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Alias / Trigger / Timer chooser.
+
+  Search and the filter spinners sit at the bottom now, directly above the
+  buttons, so the top of the screen is nothing but entries — the list is what
+  you came for, and the search box was pushing it down. Colours follow the
+  launcher rather than the old light-grey chrome. The "=" overflow is a small
+  labelled More button; a lone equals sign told nobody what it did.
+-->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" >
-
-	<Button
-		android:id="@+id/optionsbutton"
-		android:layout_width="40dip"
-		android:layout_height="40dip"
-		android:layout_alignParentTop="true"
-		android:layout_alignParentRight="true"
-		android:background="@drawable/optionsbutton_selector"
-		android:text="="
-		android:textSize="20dip"
-		android:visibility="gone" />
+    android:layout_height="match_parent"
+    android:background="#FF16181C" >
 
 	<TextView
 		android:id="@+id/titlebar"
 		android:layout_width="fill_parent"
-		android:layout_height="40dip"
+		android:layout_height="42dip"
 		android:layout_alignParentTop="true"
-		android:layout_toLeftOf="@id/optionsbutton"
 		android:text="SELECT TRIGGER"
-		android:textColor="#FF333333"
-		android:background="#FF999999"
-		android:textSize="15dip"
+		android:textColor="#FFF2F4F6"
+		android:background="#FF1E2126"
+		android:textSize="14dip"
 		android:textStyle="bold"
 		android:gravity="center"/>
+
+	<LinearLayout
+		android:id="@+id/button_row"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_alignParentBottom="true"
+		android:orientation="horizontal"
+		android:background="#FF1E2126"
+		android:paddingLeft="6dip"
+		android:paddingRight="6dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="6dip">
+
+		<Button
+			android:id="@+id/add"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:text="New"/>
+
+		<Button
+			android:id="@+id/refresh"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:layout_marginLeft="6dip"
+			android:visibility="gone"
+			android:text="Refresh"/>
+
+		<Button
+			android:id="@+id/optionsbutton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:minWidth="72dip"
+			android:layout_marginLeft="6dip"
+			android:background="@drawable/editor_more_button_bg"
+			android:textColor="#FFC7CDD4"
+			android:text="More"
+			android:textSize="14dip"
+			android:visibility="gone" />
+
+		<Button
+			android:id="@+id/done"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:layout_marginLeft="6dip"
+			android:text="Done"/>
+	</LinearLayout>
 
 	<LinearLayout
 		android:id="@+id/search_filter_block"
 		android:layout_width="fill_parent"
 		android:layout_height="wrap_content"
-		android:layout_below="@id/titlebar"
+		android:layout_above="@id/button_row"
+		android:background="@drawable/editor_bottom_bar_bg"
+		android:paddingLeft="6dip"
+		android:paddingRight="6dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="2dip"
 		android:orientation="vertical">
 
 		<EditText
 			android:id="@+id/search_field"
 			android:layout_width="fill_parent"
 			android:layout_height="wrap_content"
-			android:minHeight="44dip"
+			android:minHeight="42dip"
 			android:hint="Search name or pattern"
 			android:inputType="text"
 			android:maxLines="1"
 			android:imeOptions="actionSearch"
-			android:textColor="#FF000000"
-			android:textColorHint="#FF666666"
-			android:background="#FFCCCCCC"
+			android:textColor="#FFF2F4F6"
+			android:textColorHint="#FF7A828C"
+			android:background="@drawable/editor_search_field_bg"
 			android:paddingLeft="10dip"
 			android:paddingRight="10dip"
-			android:paddingTop="10dip"
-			android:paddingBottom="10dip"
-			android:textSize="16dip"/>
+			android:paddingTop="8dip"
+			android:paddingBottom="8dip"
+			android:textSize="15dip"/>
 
 		<LinearLayout
 			android:id="@+id/filter_bar"
@@ -59,11 +116,7 @@
 			android:layout_height="wrap_content"
 			android:orientation="horizontal"
 			android:gravity="center_vertical"
-			android:background="#FFBBBBBB"
-			android:paddingLeft="6dip"
-			android:paddingRight="6dip"
 			android:paddingTop="4dip"
-			android:paddingBottom="4dip"
 			android:visibility="gone">
 
 			<Spinner
@@ -72,7 +125,7 @@
 				android:layout_height="wrap_content"
 				android:layout_weight="1"
 				android:minHeight="40dip"
-				android:popupBackground="#FF000000"/>
+				android:popupBackground="#FF1E2126"/>
 
 			<Spinner
 				android:id="@+id/group_filter_spinner"
@@ -81,64 +134,39 @@
 				android:layout_weight="1"
 				android:minHeight="40dip"
 				android:layout_marginLeft="4dip"
-				android:popupBackground="#FF000000"
+				android:popupBackground="#FF1E2126"
 				android:visibility="gone"/>
 		</LinearLayout>
 	</LinearLayout>
-
-	<Button
-		android:id="@+id/done"
-		android:layout_alignParentBottom="true"
-		android:layout_alignParentRight="true"
-		android:layout_height="wrap_content"
-		android:minHeight="48dip"
-		android:layout_width="120dip"
-		android:text="Done"/>
-
-	<Button
-		android:id="@+id/refresh"
-		android:layout_alignParentBottom="true"
-		android:layout_toLeftOf="@id/done"
-		android:layout_height="wrap_content"
-		android:minHeight="48dip"
-		android:layout_width="120dip"
-		android:visibility="gone"
-		android:text="Refresh"/>
-
-	<Button
-		android:id="@+id/add"
-		android:layout_alignParentBottom="true"
-		android:layout_alignParentLeft="true"
-		android:layout_toLeftOf="@id/refresh"
-		android:layout_height="wrap_content"
-		android:minHeight="48dip"
-		android:layout_width="match_parent"
-		android:text="New"/>
 
 	<FrameLayout
 	    android:id="@+id/frame"
 	    android:layout_width="match_parent"
 	    android:layout_height="fill_parent"
-	    android:layout_above="@id/add"
-	    android:layout_below="@id/search_filter_block"
+	    android:layout_above="@id/search_filter_block"
+	    android:layout_below="@id/titlebar"
 	    android:layout_margin="0dip"
 	    android:padding="0dip" >
 
 		<ListView
 			android:id="@+id/list"
 			android:layout_height="fill_parent"
-			android:layout_width="match_parent"/>
+			android:layout_width="match_parent"
+			android:background="#FF16181C"
+			android:cacheColorHint="#00000000"
+			android:divider="@drawable/editor_row_divider"
+			android:dividerHeight="1dip"/>
 		<TextView
 			android:id="@+id/empty"
 			android:layout_width="match_parent"
 			android:layout_height="fill_parent"
 			android:text="No items to display."
-			android:textColor="#FFFFFFFF"
-			android:background="#FF000000"
+			android:textColor="#FF9AA3AD"
+			android:background="#FF16181C"
 			android:layout_margin="0dip"
 			android:padding="0dip"
 			android:textStyle="bold"
-			android:textSize="18dip"
+			android:textSize="16dip"
 			android:gravity="center"/>
 	</FrameLayout>
 
@@ -146,7 +174,7 @@
 	    android:id="@+id/optionslist"
 	    android:layout_width="fill_parent"
 	    android:layout_height="wrap_content"
-	    android:layout_below="@id/optionsbutton"
+	    android:layout_above="@id/button_row"
 	 	android:layout_marginRight="20dip"
 	 	android:layout_marginLeft="20dip"
 	 	android:divider="@drawable/optionslist_separator"

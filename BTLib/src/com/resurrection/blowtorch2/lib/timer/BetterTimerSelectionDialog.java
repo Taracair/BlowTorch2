@@ -36,10 +36,10 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		this.setToolbarListener(this);
 
 		this.clearToolbarButtons();
-		this.addToolbarButton(R.drawable.toolbar_play_button,0);
-		this.addToolbarButton(R.drawable.toolbar_stop_button,1);
-		this.addToolbarButton(R.drawable.toolbar_modify_button,2);
-		this.addToolbarDeleteButton(R.drawable.toolbar_delete_button,3);
+		this.addToolbarButton(R.drawable.ic_row_play,0);
+		this.addToolbarButton(R.drawable.ic_row_stop,1);
+		this.addToolbarButton(R.drawable.ic_row_edit,2);
+		this.addToolbarDeleteButton(R.drawable.ic_row_delete,3);
 
 		this.setTitle("TIMERS");
 	}
@@ -108,9 +108,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		switch(index) {
 		case 0:
 			if(d.isPlaying()) {
-				icon = R.drawable.toolbar_mini_pause;
+				icon = R.drawable.ic_mini_pause;
 				ImageButton b = (ImageButton)v;
-				b.setImageResource(R.drawable.toolbar_pause_button);
+				b.setImageResource(R.drawable.ic_row_pause);
 				try {
 					if(MAIN_SETTINGS.equals(src)) {
 						service.pauseTimer(d.getName());
@@ -122,9 +122,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 					e.printStackTrace();
 				}
 			} else {
-				icon = R.drawable.toolbar_mini_play;
+				icon = R.drawable.ic_mini_play;
 				ImageButton b = (ImageButton)v;
-				b.setImageResource(R.drawable.toolbar_play_button);
+				b.setImageResource(R.drawable.ic_row_play);
 
 				try {
 					if(MAIN_SETTINGS.equals(src)) {
@@ -142,7 +142,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 			break;
 		case 1:
 			action = "stop";
-			icon = R.drawable.toolbar_mini_stop;
+			icon = R.drawable.ic_mini_stop;
 			try {
 				if(MAIN_SETTINGS.equals(src)) {
 					service.stopTimer(d.getName());
@@ -263,14 +263,14 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 			TimerData data = dataMap.get(sortedKeys[i]);
 			int resource = 0;
 			if(data.isPlaying()) {
-				resource = R.drawable.toolbar_mini_play;
+				resource = R.drawable.ic_mini_play;
 				tag = " Running.";
 			} else {
 				if(data.getRemainingTime() != data.getSeconds()) {
-					resource = R.drawable.toolbar_mini_pause;
+					resource = R.drawable.ic_mini_pause;
 					tag = " Paused, " + data.getRemainingTime() +" seconds remaining.";
 				} else {
-					resource = R.drawable.toolbar_mini_stop;
+					resource = R.drawable.ic_mini_stop;
 					tag = " Stopped.";
 				}
 			}
@@ -326,9 +326,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		}
 		ImageButton play = (ImageButton) toolbar.getChildAt(0);
 		if (data.isPlaying()) {
-			play.setImageResource(R.drawable.toolbar_pause_button);
+			play.setImageResource(R.drawable.ic_row_pause);
 		} else {
-			play.setImageResource(R.drawable.toolbar_play_button);
+			play.setImageResource(R.drawable.ic_row_play);
 		}
 	}
 
