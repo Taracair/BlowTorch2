@@ -28,6 +28,9 @@ local Note = _G["Note"]
 local string = _G["string"]
 local tonumber = _G["tonumber"]
 local serialize = _G["serialize"]
+-- module(...) sandboxes globals, so anything used here has to be pulled in.
+local table = _G["table"]
+local ipairs = _G["ipairs"]
 module(...)
 
 local context
@@ -49,6 +52,7 @@ local setShowSwipePreview
 local applySize
 local tidyLayout
 local setChromeGestures
+local fitGrid
 local editorDone
 local editorCancel
 setEditorDoneCallback = function(c) editorDone = c end
@@ -66,6 +70,7 @@ setShowSwipePreviewCallback = function(c) setShowSwipePreview = c end
 setApplySizeCallback = function(c) applySize = c end
 setTidyLayoutCallback = function(c) tidyLayout = c end
 setChromeGesturesCallback = function(c) setChromeGestures = c end
+setFitGridCallback = function(c) fitGrid = c end
 --end callback handling variables
 
 --local vairables to keep track of widget values
@@ -102,6 +107,11 @@ local opacitySeekBarLabel
 -- cannot reach showDialog's locals.
 local chromeFields
 local chromeGesturesListener
+local fitSquareListener
+local fitStretchListener
+local gridFieldListener
+local gridXField
+local gridYField
 local sizeWidthField
 local sizeHeightField
 local tidyColumnsField
@@ -336,6 +346,37 @@ function showDialog(initialValues)
   ll:addView(selectionTextLabel)
   ll:addView(rg)
 
+  -- Exact spacing, next to the sliders rather than instead of them: the sliders
+  -- are quick, typing is precise.
+  local gridExactRow = luajava.newInstance("android.widget.LinearLayout", context)
+  gridExactRow:setLayoutParams(fillparams)
+  gridXField = addNumberField(gridExactRow, "X:", gridX, 50)
+  gridYField = addNumberField(gridExactRow, "Y:", gridY, 50)
+  local gridSetButton = luajava.new(Button, context)
+  gridSetButton:setText("Set")
+  gridSetButton:setTextSize(textSizeSmall)
+  gridSetButton:setLayoutParams(fillparams)
+  gridSetButton:setOnClickListener(gridFieldListener)
+  gridExactRow:addView(gridSetButton)
+  ll:addView(gridExactRow)
+
+  local fitRow = luajava.newInstance("android.widget.LinearLayout", context)
+  fitRow:setLayoutParams(fillparams)
+  local fitSquare = luajava.new(Button, context)
+  fitSquare:setText("Fit — square")
+  fitSquare:setTextSize(textSizeSmall)
+  fitSquare:setLayoutParams(fillparams)
+  fitSquare:setOnClickListener(fitSquareListener)
+  local fitStretch = luajava.new(Button, context)
+  fitStretch:setText("Fit — fill window")
+  fitStretch:setTextSize(textSizeSmall)
+  fitStretch:setLayoutParams(fillparams)
+  fitStretch:setOnClickListener(fitStretchListener)
+  fitRow:addView(fitSquare)
+  fitRow:addView(fitStretch)
+  ll:addView(fitRow)
+  addHint("Square keeps buttons square and leaves any spare width at the right edge. Fill window uses the whole screen, so cells stop being square.")
+
   addSectionHeader("Arrange buttons")
   addHint("Applies to the selected buttons, or to every button when nothing is selected.")
 
@@ -370,7 +411,7 @@ function showDialog(initialValues)
   tidyColumnsField = tidyColsEdit
 
   addSectionHeader("Just when you thought you were out of room for gestures")
-  addHint("Swipe or hold the chrome itself. Taps keep working; these only fire on a gesture. Dot commands fit well here — .kb, .window show chat, .search.")
+  addHint("Swipe or hold the chrome itself. Taps keep working; these only fire on a gesture. Dot commands suit this well.")
 
   chromeFields = {}
   local chromeStored = parseChromeGestures(initialValues.chromeGestures)
@@ -508,6 +549,38 @@ applySizeListener = luajava.createProxy("android.view.View$OnClickListener",{
       return
     end
     applySize(w, h)
+  end
+})
+
+fitSquareListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if fitGrid ~= nil then fitGrid(true) end
+  end
+})
+
+fitStretchListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if fitGrid ~= nil then fitGrid(false) end
+  end
+})
+
+-- Typing an exact spacing. The sliders stay; they are quick but cannot hit a
+-- specific number, which matters when lining a pad up to a size.
+gridFieldListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if gridXField == nil or gridYField == nil then
+      return
+    end
+    local gx = tonumber(gridXField:getText():toString())
+    local gy = tonumber(gridYField:getText():toString())
+    if gx == nil or gy == nil or gx < 8 or gy < 8 then
+      Note("\nGrid spacing needs two numbers of 8 or more.\n")
+      return
+    end
+    if setGridXSpacing ~= nil then setGridXSpacing(gx) end
+    if setGridYSpacing ~= nil then setGridYSpacing(gy) end
+    if xSeekBarLabel ~= nil then xSeekBarLabel:setText("Grid X Spacing: "..gx) end
+    if ySeekBarLabel ~= nil then ySeekBarLabel:setText("Grid Y Spacing: "..gy) end
   end
 })
 

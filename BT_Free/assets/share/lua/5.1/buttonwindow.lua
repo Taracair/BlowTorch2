@@ -1250,9 +1250,15 @@ function applyButtonSize(w, h)
 		.. #targets .. (hadSelection and " selected button(s).\n" or " button(s).\n"))
 end
 
--- Lay the targets out on a regular grid, reading order, keeping their current
--- top-left corner as the origin. Column count of 0 means "work it out", which
--- keeps the pad roughly as wide as it already is.
+-- Lay the targets out on the grid, in reading order.
+--
+-- Cells are anchored to the drawn grid lines (vertical at k*gridXwidth,
+-- horizontal at statusoffset + k*gridYwidth) rather than to wherever the
+-- buttons already happened to sit, which is what left them a half cell out of
+-- true. A button is positioned by its centre, so the centre goes to the cell
+-- corner plus half the button.
+--
+-- Column count of 0 means "as many as fit across the screen".
 function tidyButtonLayout(columns)
 	local targets, hadSelection = layoutTargets()
 	if #targets < 2 then
@@ -1273,34 +1279,88 @@ function tidyButtonLayout(columns)
 		return a.data.x < b.data.x
 	end)
 
-	local cols = tonumber(columns) or 0
-	if cols < 1 then
-		cols = math.ceil(math.sqrt(#targets))
-	end
-
-	local minX, minY = targets[1].data.x, targets[1].data.y
-	for i = 1, #targets do
-		if targets[i].data.x < minX then minX = targets[i].data.x end
-		if targets[i].data.y < minY then minY = targets[i].data.y end
-	end
-
 	local stepX = gridXwidth
 	local stepY = gridYwidth
 	if stepX == nil or stepX < 1 then stepX = 45 * density end
 	if stepY == nil or stepY < 1 then stepY = 45 * density end
 
+	local screenW = view:getWidth()
+	local cols = tonumber(columns) or 0
+	if cols < 1 then
+		cols = math.max(1, math.floor(screenW / stepX))
+	end
+
+	-- Start at the grid cell nearest the current top-left of the group, so the
+	-- pad stays roughly where it was instead of jumping to the corner.
+	local minX, minY = targets[1].data.x, targets[1].data.y
 	for i = 1, #targets do
-		local col = (i - 1) % cols
-		local row = math.floor((i - 1) / cols)
-		targets[i].data.x = minX + col * stepX
-		targets[i].data.y = minY + row * stepY
-		targets[i]:updateRect(statusoffset)
+		if targets[i].data.x < minX then minX = targets[i].data.x end
+		if targets[i].data.y < minY then minY = targets[i].data.y end
+	end
+	local originCol = math.max(0, math.floor((minX - stepX * 0.5) / stepX + 0.5))
+	local originRow = math.max(0, math.floor((minY - statusoffset - stepY * 0.5) / stepY + 0.5))
+
+	for i = 1, #targets do
+		local b = targets[i]
+		local col = originCol + ((i - 1) % cols)
+		local row = originRow + math.floor((i - 1) / cols)
+		local halfW = ((tonumber(b.data.width) or 42) * density) / 2
+		local halfH = ((tonumber(b.data.height) or 42) * density) / 2
+		b.data.x = col * stepX + halfW
+		b.data.y = statusoffset + row * stepY + halfH
+		b:updateRect(statusoffset)
 	end
 	drawButtons()
 	view:invalidate()
 	saveDefaultOptions()
 	Note("\nArranged " .. #targets .. (hadSelection and " selected" or "")
-		.. " button(s) into " .. cols .. " column(s).\n")
+		.. " button(s) into " .. cols .. " column(s) on the grid.\n")
+end
+
+-- Pick a grid that tiles the screen width exactly.
+--
+-- square = true keeps cells square, so buttons stay square and whatever is left
+-- over stays at the right edge, as it does now. square = false stretches the
+-- cells to fill both directions, which fills the screen but stops the cells
+-- being square.
+function fitGridToScreen(square)
+	local screenW = view:getWidth()
+	local screenH = view:getHeight() - statusoffset
+	if screenW <= 0 or screenH <= 0 then
+		return
+	end
+	local current = gridXwidth
+	if current == nil or current < 1 then current = 45 * density end
+	local cols = math.max(1, math.floor(screenW / current + 0.5))
+	local cellX = math.floor(screenW / cols)
+
+	local cellY
+	if square then
+		cellY = cellX
+	else
+		local rows = math.max(1, math.floor(screenH / current + 0.5))
+		cellY = math.floor(screenH / rows)
+	end
+
+	gridXwidth = cellX
+	gridYwidth = cellY
+	defaults.gridXwidth = math.floor(cellX / density + 0.5)
+	defaults.gridYwidth = math.floor(cellY / density + 0.5)
+
+	-- Buttons follow the cell so they still fill it; square cells keep them square.
+	local size = math.floor(math.min(cellX, cellY) / density + 0.5) - 3
+	if size >= 16 then
+		applyButtonSize(size, size)
+	else
+		drawManagerGrid()
+		drawButtons()
+		view:invalidate()
+		saveDefaultOptions()
+	end
+	Note("\nGrid set to " .. cols .. " columns of "
+		.. math.floor(cellX / density + 0.5) .. "x"
+		.. math.floor(cellY / density + 0.5) .. "dp"
+		.. (square and " (square)." or " (stretched to the window).") .. "\n")
 end
 
 function drawManagerGrid()
@@ -1499,6 +1559,9 @@ function buttonOptions()
   end)
   editorOptionsDialog.setTidyLayoutCallback(function(columns)
     tidyButtonLayout(columns)
+  end)
+  editorOptionsDialog.setFitGridCallback(function(square)
+    fitGridToScreen(square)
   end)
   editorOptionsDialog.setChromeGesturesCallback(function(v)
     PluginXCallS("setChromeGestures", v ~= nil and v or "")
