@@ -582,6 +582,14 @@ function setShowGestureHints(value)
 	loadOptions()
 end
 
+-- Gesture bindings for the input bar and the Edit / Send / overflow buttons.
+-- One option holding every binding, because nineteen separate options would be
+-- unreadable in the settings file. MainWindow parses it (ChromeGestures.java).
+function setChromeGestures(value)
+	options.chrome_gestures = value ~= nil and value or ""
+	loadOptions()
+end
+
 function setShowSwipePreview(value)
 	-- Same contract as setShowGestureHints: string from PluginXCallS, boolean
 	-- from the OnOptionChanged path.
@@ -858,6 +866,7 @@ optionsTable.auto_launch = setAutoLaunch
 optionsTable.auto_create = setAutoCreate
 optionsTable.show_gesture_hints = setShowGestureHints
 optionsTable.show_swipe_preview = setShowSwipePreview
+optionsTable.chrome_gestures = setChromeGestures
 
 options = {}
 options.haptic_edit = 0
@@ -870,6 +879,7 @@ options.auto_launch = false
 options.auto_create = true
 options.show_gesture_hints = true
 options.show_swipe_preview = true
+options.chrome_gestures = ""
 
 function setDebug(off)
 	if(not off) then

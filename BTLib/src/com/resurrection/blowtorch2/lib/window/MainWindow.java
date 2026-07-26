@@ -394,6 +394,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				public void run() {
 					ensureMapperOverlay();
 					ensureExtraTextOverlays();
+					reloadChromeGestures();
 				}
 			});
 			//finishInitializiation();
@@ -4084,6 +4085,80 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mGrowInputBar = true;
 	private ViewGroup mInputActionButtons = null;
 	private Button mInputSendButton = null;
+
+	/** Gesture bindings for the input bar and the Edit / Send / overflow buttons. */
+	private ChromeGestures mChromeGestures = new ChromeGestures();
+
+	/** Live listeners, kept so new bindings can be pushed without re-attaching. */
+	private final java.util.ArrayList<ChromeGestureTouchListener> mChromeGestureListeners =
+			new java.util.ArrayList<ChromeGestureTouchListener>();
+
+	/** Attach gesture handling to the chrome around the game view.
+	 *
+	 * The listeners sit alongside the existing click handling and only claim an
+	 * event once a swipe or hold actually fired, so tapping Send, typing in the
+	 * input bar and long-pressing the overflow all behave as before.
+	 */
+	private void attachChromeGestureListeners() {
+		mChromeGestureListeners.clear();
+		float density = getResources().getDisplayMetrics().density;
+		ChromeGestureTouchListener.CommandSink sink =
+				new ChromeGestureTouchListener.CommandSink() {
+			@Override
+			public void runChromeCommand(final String command) {
+				runChromeGestureCommand(command);
+			}
+		};
+		attachChromeGesture(findViewById(R.id.inputbar),
+				ChromeGestures.TARGET_INPUT_BAR, density, sink);
+		attachChromeGesture(findViewById(R.id.input_edit_toggle),
+				ChromeGestures.TARGET_EDIT, density, sink);
+		attachChromeGesture(findViewById(R.id.input_send),
+				ChromeGestures.TARGET_SEND, density, sink);
+		attachChromeGesture(findViewById(R.id.overflow_menu),
+				ChromeGestures.TARGET_OVERFLOW, density, sink);
+	}
+
+	private void attachChromeGesture(final View view, final String target,
+			final float density, final ChromeGestureTouchListener.CommandSink sink) {
+		if (view == null) {
+			return;
+		}
+		ChromeGestureTouchListener listener =
+				new ChromeGestureTouchListener(target, density, mChromeGestures, sink);
+		view.setOnTouchListener(listener);
+		mChromeGestureListeners.add(listener);
+	}
+
+	/** Re-read the bindings from the button_window plugin settings. */
+	private void reloadChromeGestures() {
+		String stored = null;
+		try {
+			if (service != null) {
+				stored = service.getPluginOption(
+						ChromeGestures.SETTING_PLUGIN, ChromeGestures.SETTING_KEY);
+			}
+		} catch (Exception e) {
+			// Settings unavailable (not bound yet): keep whatever is loaded.
+			return;
+		}
+		mChromeGestures = ChromeGestures.parse(stored);
+		for (int i = 0; i < mChromeGestureListeners.size(); i++) {
+			mChromeGestureListeners.get(i).setBindings(mChromeGestures);
+		}
+	}
+
+	/** Run a command a chrome gesture resolved to.
+	 *
+	 * Goes down the same path as a button press, so dot commands work exactly as
+	 * they do from a button — which is the point of the feature.
+	 */
+	private void runChromeGestureCommand(final String command) {
+		if (command == null || command.length() == 0) {
+			return;
+		}
+		myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SENDBUTTONDATA, command));
+	}
 	/** True while Edit/Send are stacked vertically. */
 	private boolean mActionsStacked = false;
 	/** Side-by-side Edit/Send widths (thumb-friendly); column = sum + gap. */
@@ -4115,6 +4190,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			});
 		}
+
+		attachChromeGestureListeners();
 
 		if (mInputBox != null) {
 			// Defer until after layout so lineCount is accurate at the soft-wrap edge.

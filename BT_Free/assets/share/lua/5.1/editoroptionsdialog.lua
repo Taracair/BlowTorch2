@@ -48,6 +48,7 @@ local setShowGestureHints
 local setShowSwipePreview
 local applySize
 local tidyLayout
+local setChromeGestures
 local editorDone
 local editorCancel
 setEditorDoneCallback = function(c) editorDone = c end
@@ -64,6 +65,7 @@ setShowGestureHintsCallback = function(c) setShowGestureHints = c end
 setShowSwipePreviewCallback = function(c) setShowSwipePreview = c end
 setApplySizeCallback = function(c) applySize = c end
 setTidyLayoutCallback = function(c) tidyLayout = c end
+setChromeGesturesCallback = function(c) setChromeGestures = c end
 --end callback handling variables
 
 --local vairables to keep track of widget values
@@ -98,9 +100,46 @@ local ySeekBarLabel
 local opacitySeekBarLabel
 -- Set while the dialog is built; the click listeners live at module scope and
 -- cannot reach showDialog's locals.
+local chromeFields
+local chromeGesturesListener
 local sizeWidthField
 local sizeHeightField
 local tidyColumnsField
+
+-- Chrome gesture bindings arrive as target.gesture=command lines, the format
+-- ChromeGestures.java reads. Kept as one setting because nineteen separate
+-- options would be unreadable in the settings file.
+function parseChromeGestures(stored)
+  local out = {}
+  if stored == nil or stored == "" then
+    return out
+  end
+  for line in string.gmatch(stored, "[^\n]+") do
+    local key, cmd = string.match(line, "^%s*([%w_]+%.[%w_]+)%s*=%s*(.-)%s*$")
+    if key ~= nil and cmd ~= nil and cmd ~= "" then
+      out[key] = cmd
+    end
+  end
+  return out
+end
+
+function addChromeField(row, labelText, value)
+  local label = luajava.newInstance("android.widget.TextView", context)
+  label:setText(labelText)
+  label:setTextSize(textSizeSmall)
+  label:setGravity(Gravity.RIGHT)
+  label:setLayoutParams(luajava.new(LinearLayoutParams,
+      math.floor(34 * density), WRAP_CONTENT))
+  local edit = luajava.newInstance("android.widget.EditText", context)
+  edit:setTextSize(textSizeSmall)
+  edit:setSingleLine(true)
+  edit:setText(value ~= nil and value or "")
+  edit:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, WRAP_CONTENT, 1))
+  row:addView(label)
+  row:addView(edit)
+  return edit
+end
 
 function init(pContext)
   context = pContext
@@ -329,6 +368,63 @@ function showDialog(initialValues)
   sizeWidthField = sizeWEdit
   sizeHeightField = sizeHEdit
   tidyColumnsField = tidyColsEdit
+
+  addSectionHeader("Just when you thought you were out of room for gestures")
+  addHint("Swipe or hold the chrome itself. Taps keep working; these only fire on a gesture. Dot commands fit well here — .kb, .window show chat, .search.")
+
+  chromeFields = {}
+  local chromeStored = parseChromeGestures(initialValues.chromeGestures)
+  local chromeGroups = {
+    { key = "inputbar", label = "Input bar",     hold = true },
+    { key = "edit",     label = "Edit button",   hold = true },
+    { key = "send",     label = "Send button",   hold = true },
+    { key = "overflow", label = "Overflow  ⋮",   hold = false },
+  }
+  local chromeGestureRows = {
+    { g = "up",    label = "↑" },
+    { g = "down",  label = "↓" },
+    { g = "left",  label = "←" },
+    { g = "right", label = "→" },
+  }
+  for i = 1, #chromeGroups do
+    local group = chromeGroups[i]
+    local groupLabel = luajava.newInstance("android.widget.TextView", context)
+    groupLabel:setText(group.label)
+    groupLabel:setTextSize(textSizeSmall)
+    groupLabel:setPadding(math.floor(6 * density), math.floor(8 * density), 0, 0)
+    groupLabel:setLayoutParams(fillparams)
+    ll:addView(groupLabel)
+    local rows = chromeGestureRows
+    for r = 1, #rows do
+      local row = luajava.newInstance("android.widget.LinearLayout", context)
+      row:setLayoutParams(fillparams)
+      local edit = addChromeField(row, rows[r].label,
+          chromeStored[group.key .. "." .. rows[r].g])
+      chromeFields[#chromeFields + 1] =
+          { key = group.key .. "." .. rows[r].g, edit = edit }
+      ll:addView(row)
+    end
+    if group.hold then
+      local row = luajava.newInstance("android.widget.LinearLayout", context)
+      row:setLayoutParams(fillparams)
+      local edit = addChromeField(row, "hold", chromeStored[group.key .. ".hold"])
+      chromeFields[#chromeFields + 1] = { key = group.key .. ".hold", edit = edit }
+      ll:addView(row)
+    else
+      local note = luajava.newInstance("android.widget.TextView", context)
+      note:setText("   hold stays as Edit buttons")
+      note:setTextSize(textSizeSmall)
+      note:setLayoutParams(fillparams)
+      ll:addView(note)
+    end
+  end
+
+  local chromeApply = luajava.new(Button, context)
+  chromeApply:setText("Save chrome gestures")
+  chromeApply:setTextSize(textSizeSmall)
+  chromeApply:setLayoutParams(fillparams)
+  chromeApply:setOnClickListener(chromeGesturesListener)
+  ll:addView(chromeApply)
   
   local boptHolder = luajava.new(LinearLayout,context)
   boptHolder:setLayoutParams(fillparams)
@@ -412,6 +508,25 @@ applySizeListener = luajava.createProxy("android.view.View$OnClickListener",{
       return
     end
     applySize(w, h)
+  end
+})
+
+chromeGesturesListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if chromeFields == nil or setChromeGestures == nil then
+      return
+    end
+    local parts = {}
+    for i = 1, #chromeFields do
+      local entry = chromeFields[i]
+      local cmd = entry.edit:getText():toString()
+      cmd = string.gsub(cmd, "^%s*(.-)%s*$", "%1")
+      if cmd ~= "" then
+        parts[#parts + 1] = entry.key .. "=" .. cmd
+      end
+    end
+    setChromeGestures(table.concat(parts, "\n"))
+    Note("\nChrome gestures saved (" .. #parts .. " bound).\n")
   end
 })
 

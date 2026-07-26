@@ -1400,6 +1400,7 @@ function buttonOptions()
     or options.show_gesture_hints == "true"
     or options.show_gesture_hints == "1"
     or options.show_gesture_hints == nil
+  editorValues.chromeGestures = options.chrome_gestures or ""
   editorValues.showSwipePreview = options.show_swipe_preview == true
     or options.show_swipe_preview == "true"
     or options.show_swipe_preview == "1"
@@ -1498,6 +1499,9 @@ function buttonOptions()
   end)
   editorOptionsDialog.setTidyLayoutCallback(function(columns)
     tidyButtonLayout(columns)
+  end)
+  editorOptionsDialog.setChromeGesturesCallback(function(v)
+    PluginXCallS("setChromeGestures", v ~= nil and v or "")
   end)
   editorOptionsDialog.setGridXSpacingCallback(function(v)
     gridXwidth = v*density
