@@ -151,6 +151,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mFrameBleedLines = 0;
 	// Which path drawTextOnGrid took. A batched run is one canvas call for many
 	// glyphs; the other two are one call per glyph.
+	private long mFrameMetricsNanos = 0;
+	private long mFrameWidthsNanos = 0;
+	private long mFrameEmitNanos = 0;
+	private int mFrameGlyphs = 0;
+	private long mProfMetricsNanos = 0;
+	private long mProfWidthsNanos = 0;
+	private long mProfEmitNanos = 0;
+	private int mProfGlyphs = 0;
 	private int mFrameRunDraws = 0;
 	private int mFrameGlyphDraws = 0;
 	private int mFrameClipDraws = 0;
@@ -996,7 +1004,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		final float baseline = screenBaselineY(y);
 		final float cell = mOneCharWidth;
+		final long profMetricsStart = System.nanoTime();
 		paint.getFontMetrics(mGridFontMetrics);
+		mFrameMetricsNanos += System.nanoTime() - profMetricsStart;
 		final Paint.FontMetrics fm = mGridFontMetrics;
 		// Block fills use the full line box; text must keep room below the baseline
 		// for descenders (y, g, j, p) — clipping to baseline cut them off.
@@ -1009,7 +1019,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mGridWidths.length < len) {
 			mGridWidths = new float[len];
 		}
+		final long profWidthsStart = System.nanoTime();
 		paint.getTextWidths(s, mGridWidths);
+		mFrameWidthsNanos += System.nanoTime() - profWidthsStart;
+		mFrameGlyphs += len;
 
 		// Draw a run in one call only when the font's own advance matches the cell
 		// exactly; otherwise place each glyph on the grid itself.
@@ -1024,6 +1037,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// advance: if the two differ, a run drifts off the grid a fraction of a
 		// pixel per character and the columns visibly bend. Same-position output
 		// is worth more than the extra batching.
+		final long profEmitStart = System.nanoTime();
 		float cursor = x;
 		int runStart = -1;
 		float runX = x;
@@ -1072,6 +1086,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			c.drawText(s, runStart, len, runX, baseline, paint);
 			mFrameRunDraws++;
 		}
+		mFrameEmitNanos += System.nanoTime() - profEmitStart;
 		mFrameTextUnits++;
 		return cursor - x;
 	}
@@ -1480,6 +1495,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFrameRetries = 0;
 		mFrameScanLines = 0;
 		mFrameBleedLines = 0;
+		mFrameMetricsNanos = 0;
+		mFrameWidthsNanos = 0;
+		mFrameEmitNanos = 0;
+		mFrameGlyphs = 0;
 		mFrameRunDraws = 0;
 		mFrameGlyphDraws = 0;
 		mFrameClipDraws = 0;
@@ -2125,6 +2144,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfRetries += mFrameRetries;
 		mProfScanLines += mFrameScanLines;
 		mProfBleedLines += mFrameBleedLines;
+		mProfMetricsNanos += mFrameMetricsNanos;
+		mProfWidthsNanos += mFrameWidthsNanos;
+		mProfEmitNanos += mFrameEmitNanos;
+		mProfGlyphs += mFrameGlyphs;
 		mProfRunDraws += mFrameRunDraws;
 		mProfGlyphDraws += mFrameGlyphDraws;
 		mProfClipDraws += mFrameClipDraws;
@@ -2161,6 +2184,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				+ " | retries=" + mProfRetries + " worstRetries=" + mProfWorstRetries
 				+ " | scanLines/f=" + (mProfScanLines / mProfFrames)
 				+ " bleedLines/f=" + (mProfBleedLines / mProfFrames)
+				+ " | INSIDE DRAW metrics=" + (mProfMetricsNanos / mProfFrames / 1000) + "us"
+				+ " widths=" + (mProfWidthsNanos / mProfFrames / 1000) + "us"
+				+ " emit=" + (mProfEmitNanos / mProfFrames / 1000) + "us"
+				+ " glyphs/f=" + (mProfGlyphs / mProfFrames)
 				+ " | DRAWS/f run=" + (mProfRunDraws / mProfFrames)
 				+ " glyph=" + (mProfGlyphDraws / mProfFrames)
 				+ " clip=" + (mProfClipDraws / mProfFrames)
@@ -2181,6 +2208,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfWorstRetries = 0;
 		mProfScanLines = 0;
 		mProfBleedLines = 0;
+		mProfMetricsNanos = 0;
+		mProfWidthsNanos = 0;
+		mProfEmitNanos = 0;
+		mProfGlyphs = 0;
 		mProfRunDraws = 0;
 		mProfGlyphDraws = 0;
 		mProfClipDraws = 0;
