@@ -8,12 +8,14 @@ import java.util.Map;
 
 /** Commands bound to swipes and holds on the chrome around the game view.
  *
- * The chrome is the input bar and the Edit, Send and overflow buttons. They keep
- * their normal tap behaviour; these are extra bindings on gestures that were
- * doing nothing.
+ * The chrome is the Edit, Send and overflow buttons. They keep their normal tap
+ * behaviour; these are extra bindings on gestures that were doing nothing.
  *
- * Stored as one setting rather than one per binding, because there are nineteen
- * of them and a plugin option each would be unreadable. The format is
+ * The input bar is deliberately not among them: dragging there selects text and
+ * moves the caret, and a swipe binding would be fighting the editing gestures.
+ *
+ * Stored as one setting rather than one per binding, because a plugin option each
+ * would be unreadable. The format is
  * {@code target.gesture=command} joined by newlines; commands may not contain a
  * newline, which the editor enforces.
  *
@@ -28,9 +30,6 @@ public final class ChromeGestures {
 	/** Plugin that owns the setting. */
 	public static final String SETTING_PLUGIN = "button_window";
 
-	/** Input bar target name. */
-	public static final String TARGET_INPUT_BAR = "inputbar";
-
 	/** Edit button target name. */
 	public static final String TARGET_EDIT = "edit";
 
@@ -42,7 +41,7 @@ public final class ChromeGestures {
 
 	/** Targets in the order the editor lists them. */
 	public static final String[] TARGETS = {
-		TARGET_INPUT_BAR, TARGET_EDIT, TARGET_SEND, TARGET_OVERFLOW,
+		TARGET_EDIT, TARGET_SEND, TARGET_OVERFLOW,
 	};
 
 	/** Gestures every target supports. */
@@ -76,9 +75,6 @@ public final class ChromeGestures {
 
 	/** Human label for a target, for the editor and for help text. */
 	public static String labelFor(final String target) {
-		if (TARGET_INPUT_BAR.equals(target)) {
-			return "Input bar";
-		}
 		if (TARGET_EDIT.equals(target)) {
 			return "Edit button";
 		}

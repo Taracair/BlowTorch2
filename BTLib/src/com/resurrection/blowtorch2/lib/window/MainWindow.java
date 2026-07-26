@@ -4102,8 +4102,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				runChromeGestureCommand(command);
 			}
 		};
-		attachChromeGesture(findViewById(R.id.inputbar),
-				ChromeGestures.TARGET_INPUT_BAR, density, sink);
 		attachChromeGesture(findViewById(R.id.input_edit_toggle),
 				ChromeGestures.TARGET_EDIT, density, sink);
 		attachChromeGesture(findViewById(R.id.input_send),

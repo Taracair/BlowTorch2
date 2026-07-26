@@ -421,12 +421,11 @@ function showDialog(initialValues)
   tidyColumnsField = tidyColsEdit
 
   addSectionHeader("Just when you thought you were out of room for gestures")
-  addHint("Swipe or hold the chrome itself. Taps keep working; these only fire on a gesture. Dot commands suit this well.")
+  addHint("Swipe or hold these buttons. Taps keep working; these only fire on a gesture. Dot commands suit this well. The input bar is left out — dragging there selects text.")
 
   chromeFields = {}
   local chromeStored = parseChromeGestures(initialValues.chromeGestures)
   local chromeGroups = {
-    { key = "inputbar", label = "Input bar",     hold = true },
     { key = "edit",     label = "Edit button",   hold = true },
     { key = "send",     label = "Send button",   hold = true },
     { key = "overflow", label = "Overflow  ⋮",   hold = false },
