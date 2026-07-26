@@ -151,6 +151,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mFrameBleedLines = 0;
 	// Which path drawTextOnGrid took. A batched run is one canvas call for many
 	// glyphs; the other two are one call per glyph.
+	private int mFrameSkippedUnits = 0;
+	private int mProfSkippedUnits = 0;
 	private long mFrameTextArmNanos = 0;
 	private long mProfTextArmNanos = 0;
 	private long mFrameMetricsNanos = 0;
@@ -1049,6 +1051,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mGridAsciiUniform = uniform;
 	}
 
+	/** True when the unit is nothing but spaces. */
+	private static boolean isAllSpaces(final String s, final int len) {
+		for (int i = 0; i < len; i++) {
+			if (s.charAt(i) != ' ') {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/** True when every character is printable ASCII, so the probe above covers it. */
 	private static boolean isPlainAscii(final String s, final int len) {
 		for (int i = 0; i < len; i++) {
@@ -1067,6 +1079,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		final float baseline = screenBaselineY(y);
 		final float cell = mOneCharWidth;
+
+		// A space paints nothing, so the only reason to hand one to the canvas is a
+		// decoration that spans it. Backgrounds, selection and search matches are all
+		// drawn as their own rectangles by the caller, which leaves underline. About
+		// half of all units are whitespace -- every gap between two words is its own
+		// unit -- so skipping them halves the number of draw calls a line costs.
+		final int spaceLen = s.length();
+		if (isAllSpaces(s, spaceLen)
+				&& !paint.isUnderlineText() && !paint.isStrikeThruText()) {
+			mFrameSkippedUnits++;
+			mFrameTextUnits++;
+			return cell * spaceLen;
+		}
+
 		final long profMetricsStart = System.nanoTime();
 		ensureGridCache(paint);
 		mFrameMetricsNanos += System.nanoTime() - profMetricsStart;
@@ -1572,6 +1598,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFrameRetries = 0;
 		mFrameScanLines = 0;
 		mFrameBleedLines = 0;
+		mFrameSkippedUnits = 0;
 		mFrameTextArmNanos = 0;
 		mFrameMetricsNanos = 0;
 		mFrameWidthsNanos = 0;
@@ -2224,6 +2251,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfRetries += mFrameRetries;
 		mProfScanLines += mFrameScanLines;
 		mProfBleedLines += mFrameBleedLines;
+		mProfSkippedUnits += mFrameSkippedUnits;
 		mProfTextArmNanos += mFrameTextArmNanos;
 		mProfMetricsNanos += mFrameMetricsNanos;
 		mProfWidthsNanos += mFrameWidthsNanos;
@@ -2274,6 +2302,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				+ " glyph=" + (mProfGlyphDraws / mProfFrames)
 				+ " clip=" + (mProfClipDraws / mProfFrames)
 				+ " textUnits=" + (mProfTextUnits / mProfFrames)
+				+ " skipped=" + (mProfSkippedUnits / mProfFrames)
 				+ " | scrollback=" + mScrollback.intValue()
 				+ " buffer=" + mBuffer.getBrokenLineCount());
 		mProfFrames = 0;
@@ -2290,6 +2319,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfWorstRetries = 0;
 		mProfScanLines = 0;
 		mProfBleedLines = 0;
+		mProfSkippedUnits = 0;
 		mProfTextArmNanos = 0;
 		mProfMetricsNanos = 0;
 		mProfWidthsNanos = 0;
