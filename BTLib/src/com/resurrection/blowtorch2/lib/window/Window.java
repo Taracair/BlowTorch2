@@ -124,64 +124,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** How far above the screen to look for the colour still in effect. */
 	private static final int BLEED_SEARCH_MAX_LINES = 1000;
 
-	// --- Temporary scroll profiling. ---------------------------------------
-	// onDraw has three candidate hot spans and no data saying which one costs.
-	// Totals are summed per frame and logged once per PROF_FRAMES_PER_DUMP, so
-	// the logging itself does not distort the frame budget it is measuring.
-	// Pull all of this back out once the answer is in.
-	private static final String PROF_TAG = "BTPROF";
-	private static final int PROF_FRAMES_PER_DUMP = 60;
-	private int mProfFrames = 0;
-	private long mProfWindowStart = 0;
-	private long mProfScanNanos = 0;
-	private long mProfBleedNanos = 0;
-	private long mProfDrawNanos = 0;
-	private long mProfFrameNanos = 0;
-	private int mProfRetries = 0;
-	private int mProfBleedLines = 0;
-	private int mProfScanLines = 0;
-	// This frame's own numbers, so the worst frame in the window can be reported
-	// whole. Jank lives in the tail; an average over sixty frames buries a single
-	// 100ms stall and would point at whichever span is merely steady and large.
-	private long mFrameScanNanos = 0;
-	private long mFrameBleedNanos = 0;
-	private long mFrameDrawNanos = 0;
-	private int mFrameRetries = 0;
-	private int mFrameScanLines = 0;
-	private int mFrameBleedLines = 0;
-	// Which path drawTextOnGrid took. A batched run is one canvas call for many
-	// glyphs; the other two are one call per glyph.
-	private long mFrameColorArmNanos = 0;
-	private long mProfColorArmNanos = 0;
-	private int mFrameUnits = 0;
-	private int mProfUnits = 0;
-	private int mFrameSkippedUnits = 0;
-	private int mProfSkippedUnits = 0;
-	private long mFrameTextArmNanos = 0;
-	private long mProfTextArmNanos = 0;
-	private long mFrameMetricsNanos = 0;
-	private long mFrameWidthsNanos = 0;
-	private long mFrameEmitNanos = 0;
-	private int mFrameGlyphs = 0;
-	private long mProfMetricsNanos = 0;
-	private long mProfWidthsNanos = 0;
-	private long mProfEmitNanos = 0;
-	private int mProfGlyphs = 0;
-	private int mFrameRunDraws = 0;
-	private int mFrameGlyphDraws = 0;
-	private int mFrameClipDraws = 0;
-	private int mFrameTextUnits = 0;
-	private int mProfRunDraws = 0;
-	private int mProfGlyphDraws = 0;
-	private int mProfClipDraws = 0;
-	private int mProfTextUnits = 0;
-	// Snapshot of the worst frame seen since the last dump.
-	private long mProfWorstFrameNanos = 0;
-	private long mProfWorstScanNanos = 0;
-	private long mProfWorstBleedNanos = 0;
-	private long mProfWorstDrawNanos = 0;
-	private int mProfWorstRetries = 0;
-
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
 	/** The bitmap that holds the "return to the bottom of the buffer" button graphic. */
@@ -957,10 +899,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mCalculatedRowsInWindow < 1) {
 			mCalculatedRowsInWindow = 1;
 		}
-		Log.e(PROF_TAG, "advance win=" + System.identityHashCode(this)
-				+ " W=" + w + " M=" + m + " sp=" + sp + " zero=" + zero
-				+ " -> oneCharWidth=" + mOneCharWidth
-				+ " rows=" + mCalculatedRowsInWindow + " cols=" + width);
 		if (mCalculatedLinesInWindow < 1) {
 			mCalculatedLinesInWindow = 1;
 		}
@@ -1102,25 +1040,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final int spaceLen = s.length();
 		if (isAllSpaces(s, spaceLen)
 				&& !paint.isUnderlineText() && !paint.isStrikeThruText()) {
-			mFrameSkippedUnits++;
-			mFrameTextUnits++;
 			return cell * spaceLen;
 		}
 
-		final long profMetricsStart = System.nanoTime();
 		ensureGridCache(paint);
-		mFrameMetricsNanos += System.nanoTime() - profMetricsStart;
 
 		// Ordinary output is printable ASCII in a monospaced font, which the probe has
 		// already shown lands one glyph per cell. Nothing to measure and nothing to
 		// clip: draw the whole unit in one call.
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
-			final long profFastStart = System.nanoTime();
 			c.drawText(s, 0, s.length(), x, baseline, paint);
-			mFrameEmitNanos += System.nanoTime() - profFastStart;
-			mFrameRunDraws++;
-			mFrameGlyphs += s.length();
-			mFrameTextUnits++;
 			return cell * s.length();
 		}
 
@@ -1136,10 +1065,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mGridWidths.length < len) {
 			mGridWidths = new float[len];
 		}
-		final long profWidthsStart = System.nanoTime();
 		paint.getTextWidths(s, mGridWidths);
-		mFrameWidthsNanos += System.nanoTime() - profWidthsStart;
-		mFrameGlyphs += len;
 
 		// Draw a run in one call only when the font's own advance matches the cell
 		// exactly; otherwise place each glyph on the grid itself.
@@ -1154,7 +1080,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// advance: if the two differ, a run drifts off the grid a fraction of a
 		// pixel per character and the columns visibly bend. Same-position output
 		// is worth more than the extra batching.
-		final long profEmitStart = System.nanoTime();
 		float cursor = x;
 		int runStart = -1;
 		float runX = x;
@@ -1176,15 +1101,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			} else {
 				if (runStart >= 0) {
 					c.drawText(s, runStart, i, runX, baseline, paint);
-					mFrameRunDraws++;
 					runStart = -1;
 				}
 				if (fitsCell) {
 					// Fits its cell, so no clip is needed; just place it.
 					c.drawText(s, i, i + charCount, cursor, baseline, paint);
-					mFrameGlyphDraws++;
 				} else {
-					mFrameClipDraws++;
 					c.save();
 					if (isBlock) {
 						c.clipRect(cursor, lineTop, cursor + cell, lineBot);
@@ -1201,10 +1123,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		if (runStart >= 0) {
 			c.drawText(s, runStart, len, runX, baseline, paint);
-			mFrameRunDraws++;
 		}
-		mFrameEmitNanos += System.nanoTime() - profEmitStart;
-		mFrameTextUnits++;
 		return cursor - x;
 	}
 
@@ -1605,25 +1524,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	@Override
 	public final void onDraw(final Canvas c) {
-		final long profFrameStart = System.nanoTime();
-		mFrameScanNanos = 0;
-		mFrameBleedNanos = 0;
-		mFrameDrawNanos = 0;
-		mFrameRetries = 0;
-		mFrameScanLines = 0;
-		mFrameBleedLines = 0;
-		mFrameColorArmNanos = 0;
-		mFrameUnits = 0;
-		mFrameSkippedUnits = 0;
-		mFrameTextArmNanos = 0;
-		mFrameMetricsNanos = 0;
-		mFrameWidthsNanos = 0;
-		mFrameEmitNanos = 0;
-		mFrameGlyphs = 0;
-		mFrameRunDraws = 0;
-		mFrameGlyphDraws = 0;
-		mFrameClipDraws = 0;
-		mFrameTextUnits = 0;
 		mSelectionCanvasSaved = false;
 		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
 			mSelectionIndicatorBitmap.eraseColor(0x00000000);
@@ -1737,7 +1637,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int maxTries = 20;
 			int tries = 0;
 
-			final long profScanStart = System.nanoTime();
 			while (!gotIt && tries <= maxTries) {
 				try {
 					tries = tries + 1;
@@ -1754,10 +1653,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					}
 				}
 			}
-			mFrameScanNanos += System.nanoTime() - profScanStart;
-			mFrameRetries += tries - 1;
 			if (!gotIt) {
-				profEndFrame(profFrameStart);
 				this.invalidate();
 				return;
 			}
@@ -1765,7 +1661,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			y = bundle.getOffset();
 
 			int extraLines = bundle.getExtraLines();
-			if (screenIt == null) { profEndFrame(profFrameStart); return;}
+			if (screenIt == null) { return;}
 			
 			int startline = bundle.getStartLine();
 			int workingline = startline;
@@ -1775,7 +1671,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//find bleed.
 			boolean bleeding = false;
 			int back = 0;
-			final long profBleedStart = System.nanoTime();
 			// Bounded on purpose. This searches back for the colour still in effect at
 			// the top of the screen, and stops at the first one it finds. With no
 			// colour to find it used to walk to the end of the scrollback and back
@@ -1824,7 +1719,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//TODO: STEP 4
 			//advance the iterator back the number of units it took to find a bleed.
 			//second real expensive move. In the case of a no color text buffer, it would walk from scroll to end and back every time. USE COLOR 
-			mFrameBleedLines += back;
 			while (back > 0) {
 				screenIt.previous();
 				back--;
@@ -1833,7 +1727,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (screenIt.hasNext()) {
 				screenIt.next(); // the bleed/back stuff seems to be messing with my calculation
 			}
-			mFrameBleedNanos += System.nanoTime() - profBleedStart;
 			//TODO: STEP 5
 			//draw the text, from top to bottom.	
 			
@@ -1848,7 +1741,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				linkBoxes.clear();
 			}
 			
-			final long profDrawStart = System.nanoTime();
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
 				int searchPlainPos = 0;
@@ -1879,7 +1771,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 				while (unitIterator.hasNext()) {
 					Unit u = unitIterator.next();
-					mFrameUnits++;
 					final boolean useBackground =
 							mBgPaintColor != 0xFF0A0A0A && mBgPaintColor != 0xFF000000;
 					
@@ -1887,7 +1778,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					case WHITESPACE:
 					case TEXT:
 						TextTree.Text text = (TextTree.Text) u;
-						final long profArmStart = System.nanoTime();
 						boolean doIndicator = false;
 						int indicatorlineoffset = 0;
 						if (selectedSelector != null && selectedSelector.line == workingline) {
@@ -2109,11 +1999,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 							searchPlainPos += text.getString() != null ? text.getString().length() : 0;
 						}
-						mFrameTextArmNanos += System.nanoTime() - profArmStart;
 
 						break;
 					case COLOR:
-						final long profColorStart = System.nanoTime();
 						mXterm256Color = false;
 						mXterm256FGStart = false;
 						mXterm256BGStart = false;
@@ -2129,7 +2017,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						} else {
 							applyAnsiPaints(p, b);
 						}
-						mFrameColorArmNanos += System.nanoTime() - profColorStart;
 						if (mColorDebugMode == 1 || mColorDebugMode == 2) {
 							String str = "";
 							try {
@@ -2198,7 +2085,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				workingcol = 0;
 				l.resetIterator();
 			}
-			mFrameDrawNanos += System.nanoTime() - profDrawStart;
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
 			}
@@ -2252,106 +2138,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 
 		c.restore();
-		profEndFrame(profFrameStart);
-	}
-
-	/**
-	 * Close out one profiled frame, and every PROF_FRAMES_PER_DUMP frames log
-	 * the totals. Temporary — goes away with the rest of the PROF_ fields.
-	 */
-	private void profEndFrame(final long pFrameStart) {
-		final long frame = System.nanoTime() - pFrameStart;
-		mProfFrameNanos += frame;
-		mProfScanNanos += mFrameScanNanos;
-		mProfBleedNanos += mFrameBleedNanos;
-		mProfDrawNanos += mFrameDrawNanos;
-		mProfRetries += mFrameRetries;
-		mProfScanLines += mFrameScanLines;
-		mProfBleedLines += mFrameBleedLines;
-		mProfColorArmNanos += mFrameColorArmNanos;
-		mProfUnits += mFrameUnits;
-		mProfSkippedUnits += mFrameSkippedUnits;
-		mProfTextArmNanos += mFrameTextArmNanos;
-		mProfMetricsNanos += mFrameMetricsNanos;
-		mProfWidthsNanos += mFrameWidthsNanos;
-		mProfEmitNanos += mFrameEmitNanos;
-		mProfGlyphs += mFrameGlyphs;
-		mProfRunDraws += mFrameRunDraws;
-		mProfGlyphDraws += mFrameGlyphDraws;
-		mProfClipDraws += mFrameClipDraws;
-		mProfTextUnits += mFrameTextUnits;
-		if (mFrameRetries > mProfWorstRetries) {
-			mProfWorstRetries = mFrameRetries;
-		}
-		if (frame > mProfWorstFrameNanos) {
-			mProfWorstFrameNanos = frame;
-			mProfWorstScanNanos = mFrameScanNanos;
-			mProfWorstBleedNanos = mFrameBleedNanos;
-			mProfWorstDrawNanos = mFrameDrawNanos;
-		}
-		mProfFrames++;
-		if (mProfWindowStart == 0) {
-			mProfWindowStart = pFrameStart;
-		}
-		if (mProfFrames < PROF_FRAMES_PER_DUMP) {
-			return;
-		}
-		final long wall = System.nanoTime() - mProfWindowStart;
-		Log.e(PROF_TAG, "win=" + System.identityHashCode(this)
-				+ " frames=" + mProfFrames
-				+ " wall=" + (wall / 1000000) + "ms"
-				+ " fps=" + (wall > 0 ? (mProfFrames * 1000000000L / wall) : 0)
-				+ " | AVG frame=" + (mProfFrameNanos / mProfFrames / 1000) + "us"
-				+ " scan=" + (mProfScanNanos / mProfFrames / 1000) + "us"
-				+ " bleed=" + (mProfBleedNanos / mProfFrames / 1000) + "us"
-				+ " draw=" + (mProfDrawNanos / mProfFrames / 1000) + "us"
-				+ " | WORST frame=" + (mProfWorstFrameNanos / 1000) + "us"
-				+ " scan=" + (mProfWorstScanNanos / 1000) + "us"
-				+ " bleed=" + (mProfWorstBleedNanos / 1000) + "us"
-				+ " draw=" + (mProfWorstDrawNanos / 1000) + "us"
-				+ " | retries=" + mProfRetries + " worstRetries=" + mProfWorstRetries
-				+ " | scanLines/f=" + (mProfScanLines / mProfFrames)
-				+ " bleedLines/f=" + (mProfBleedLines / mProfFrames)
-				+ " | INSIDE DRAW colorArm=" + (mProfColorArmNanos / mProfFrames / 1000) + "us"
-				+ " allUnits=" + (mProfUnits / mProfFrames)
-				+ " textArm=" + (mProfTextArmNanos / mProfFrames / 1000) + "us"
-				+ " metrics=" + (mProfMetricsNanos / mProfFrames / 1000) + "us"
-				+ " widths=" + (mProfWidthsNanos / mProfFrames / 1000) + "us"
-				+ " emit=" + (mProfEmitNanos / mProfFrames / 1000) + "us"
-				+ " glyphs/f=" + (mProfGlyphs / mProfFrames)
-				+ " | DRAWS/f run=" + (mProfRunDraws / mProfFrames)
-				+ " glyph=" + (mProfGlyphDraws / mProfFrames)
-				+ " clip=" + (mProfClipDraws / mProfFrames)
-				+ " textUnits=" + (mProfTextUnits / mProfFrames)
-				+ " skipped=" + (mProfSkippedUnits / mProfFrames)
-				+ " | scrollback=" + mScrollback.intValue()
-				+ " buffer=" + mBuffer.getBrokenLineCount());
-		mProfFrames = 0;
-		mProfWindowStart = 0;
-		mProfScanNanos = 0;
-		mProfBleedNanos = 0;
-		mProfDrawNanos = 0;
-		mProfFrameNanos = 0;
-		mProfWorstFrameNanos = 0;
-		mProfWorstScanNanos = 0;
-		mProfWorstBleedNanos = 0;
-		mProfWorstDrawNanos = 0;
-		mProfRetries = 0;
-		mProfWorstRetries = 0;
-		mProfScanLines = 0;
-		mProfBleedLines = 0;
-		mProfColorArmNanos = 0;
-		mProfUnits = 0;
-		mProfSkippedUnits = 0;
-		mProfTextArmNanos = 0;
-		mProfMetricsNanos = 0;
-		mProfWidthsNanos = 0;
-		mProfEmitNanos = 0;
-		mProfGlyphs = 0;
-		mProfRunDraws = 0;
-		mProfGlyphDraws = 0;
-		mProfClipDraws = 0;
-		mProfTextUnits = 0;
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
@@ -3206,13 +2992,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (l.breaks > 0) {
 					startline += l.breaks;
 				}
-				mFrameScanLines += lines;
 				return new IteratorBundle(drawingIterator, -1 * offset, extra, startline);
 			}
 			startline += 1 + l.getBreaks();
 		}
 
-		mFrameScanLines += lines;
 		return new IteratorBundle(drawingIterator, pLineSize, 0, startline);
 	}
 
