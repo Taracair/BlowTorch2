@@ -151,6 +151,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mFrameBleedLines = 0;
 	// Which path drawTextOnGrid took. A batched run is one canvas call for many
 	// glyphs; the other two are one call per glyph.
+	private long mFrameTextArmNanos = 0;
+	private long mProfTextArmNanos = 0;
 	private long mFrameMetricsNanos = 0;
 	private long mFrameWidthsNanos = 0;
 	private long mFrameEmitNanos = 0;
@@ -970,14 +972,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return mOneCharWidth * (float) charCount;
 	}
 
-	/** Pixel width of a text unit on the fixed cell grid (one cell per Unicode code point). */
+	/** Pixel width of a text unit on the fixed cell grid (one cell per Unicode code point).
+	 * charcount is the code point count: every Text constructor derives it from its own
+	 * data, and breakAt() replaces a split unit with fresh Text objects rather than
+	 * editing one in place, so the two cannot drift apart. Counting again per unit cost
+	 * a codePointCount() walk on every drawn word. */
 	private float cellWidth(final TextTree.Text text) {
 		if (text == null) {
 			return 0f;
-		}
-		final String s = text.getString();
-		if (s != null && s.length() > 0) {
-			return cellWidth(s.codePointCount(0, s.length()));
 		}
 		return cellWidth(text.charcount);
 	}
@@ -997,6 +999,67 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Widths for a run of text, reused for the same reason. */
 	private float[] mGridWidths = new float[256];
 
+	/** Printable ASCII, probed once per font to learn whether it all sits on the grid. */
+	private static final String ASCII_PROBE = buildAsciiProbe();
+
+	private static String buildAsciiProbe() {
+		final StringBuilder sb = new StringBuilder(0x7F - 0x20);
+		for (int cp = 0x20; cp < 0x7F; cp++) {
+			sb.append((char) cp);
+		}
+		return sb.toString();
+	}
+
+	// What the cached grid facts below were measured against. Advances depend on the
+	// typeface and the text size, so those are the key -- not the Paint instance, since
+	// drawing alternates between the body paint and the link paint.
+	private Typeface mGridCacheTypeface = null;
+	private float mGridCacheTextSize = -1f;
+	private int mGridCacheCell = -1;
+	private boolean mGridAsciiUniform = false;
+
+	/**
+	 * Refresh the cached font metrics and the "all printable ASCII is exactly one cell
+	 * wide" answer, but only when the font actually changed. Both used to be recomputed
+	 * for every drawn word: getTextWidths shapes the string through the text engine, so
+	 * an ordinary line of output was being shaped twice, once to measure and once to draw.
+	 */
+	private void ensureGridCache(final Paint paint) {
+		final Typeface tf = paint.getTypeface();
+		final float ts = paint.getTextSize();
+		if (tf == mGridCacheTypeface && ts == mGridCacheTextSize && mOneCharWidth == mGridCacheCell) {
+			return;
+		}
+		mGridCacheTypeface = tf;
+		mGridCacheTextSize = ts;
+		mGridCacheCell = mOneCharWidth;
+		paint.getFontMetrics(mGridFontMetrics);
+		final int probeLen = ASCII_PROBE.length();
+		if (mGridWidths.length < probeLen) {
+			mGridWidths = new float[probeLen];
+		}
+		paint.getTextWidths(ASCII_PROBE, mGridWidths);
+		boolean uniform = mOneCharWidth > 0;
+		for (int i = 0; i < probeLen; i++) {
+			if (Math.abs(mGridWidths[i] - mOneCharWidth) >= 0.01f) {
+				uniform = false;
+				break;
+			}
+		}
+		mGridAsciiUniform = uniform;
+	}
+
+	/** True when every character is printable ASCII, so the probe above covers it. */
+	private static boolean isPlainAscii(final String s, final int len) {
+		for (int i = 0; i < len; i++) {
+			final char ch = s.charAt(i);
+			if (ch < 0x20 || ch > 0x7E) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private float drawTextOnGrid(final Canvas c, final String s, final float x, final float y,
 			final Paint paint) {
 		if (s == null || s.length() == 0) {
@@ -1005,8 +1068,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final float baseline = screenBaselineY(y);
 		final float cell = mOneCharWidth;
 		final long profMetricsStart = System.nanoTime();
-		paint.getFontMetrics(mGridFontMetrics);
+		ensureGridCache(paint);
 		mFrameMetricsNanos += System.nanoTime() - profMetricsStart;
+
+		// Ordinary output is printable ASCII in a monospaced font, which the probe has
+		// already shown lands one glyph per cell. Nothing to measure and nothing to
+		// clip: draw the whole unit in one call.
+		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
+			final long profFastStart = System.nanoTime();
+			c.drawText(s, 0, s.length(), x, baseline, paint);
+			mFrameEmitNanos += System.nanoTime() - profFastStart;
+			mFrameRunDraws++;
+			mFrameGlyphs += s.length();
+			mFrameTextUnits++;
+			return cell * s.length();
+		}
+
 		final Paint.FontMetrics fm = mGridFontMetrics;
 		// Block fills use the full line box; text must keep room below the baseline
 		// for descenders (y, g, j, p) — clipping to baseline cut them off.
@@ -1495,6 +1572,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFrameRetries = 0;
 		mFrameScanLines = 0;
 		mFrameBleedLines = 0;
+		mFrameTextArmNanos = 0;
 		mFrameMetricsNanos = 0;
 		mFrameWidthsNanos = 0;
 		mFrameEmitNanos = 0;
@@ -1767,6 +1845,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					case WHITESPACE:
 					case TEXT:
 						TextTree.Text text = (TextTree.Text) u;
+						final long profArmStart = System.nanoTime();
 						boolean doIndicator = false;
 						int indicatorlineoffset = 0;
 						if (selectedSelector != null && selectedSelector.line == workingline) {
@@ -1988,7 +2067,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 							searchPlainPos += text.getString() != null ? text.getString().length() : 0;
 						}
-						
+						mFrameTextArmNanos += System.nanoTime() - profArmStart;
+
 						break;
 					case COLOR:
 						mXterm256Color = false;
@@ -2144,6 +2224,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfRetries += mFrameRetries;
 		mProfScanLines += mFrameScanLines;
 		mProfBleedLines += mFrameBleedLines;
+		mProfTextArmNanos += mFrameTextArmNanos;
 		mProfMetricsNanos += mFrameMetricsNanos;
 		mProfWidthsNanos += mFrameWidthsNanos;
 		mProfEmitNanos += mFrameEmitNanos;
@@ -2184,7 +2265,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				+ " | retries=" + mProfRetries + " worstRetries=" + mProfWorstRetries
 				+ " | scanLines/f=" + (mProfScanLines / mProfFrames)
 				+ " bleedLines/f=" + (mProfBleedLines / mProfFrames)
-				+ " | INSIDE DRAW metrics=" + (mProfMetricsNanos / mProfFrames / 1000) + "us"
+				+ " | INSIDE DRAW textArm=" + (mProfTextArmNanos / mProfFrames / 1000) + "us"
+				+ " metrics=" + (mProfMetricsNanos / mProfFrames / 1000) + "us"
 				+ " widths=" + (mProfWidthsNanos / mProfFrames / 1000) + "us"
 				+ " emit=" + (mProfEmitNanos / mProfFrames / 1000) + "us"
 				+ " glyphs/f=" + (mProfGlyphs / mProfFrames)
@@ -2208,6 +2290,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfWorstRetries = 0;
 		mProfScanLines = 0;
 		mProfBleedLines = 0;
+		mProfTextArmNanos = 0;
 		mProfMetricsNanos = 0;
 		mProfWidthsNanos = 0;
 		mProfEmitNanos = 0;
