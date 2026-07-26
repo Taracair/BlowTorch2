@@ -151,6 +151,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mFrameBleedLines = 0;
 	// Which path drawTextOnGrid took. A batched run is one canvas call for many
 	// glyphs; the other two are one call per glyph.
+	private long mFrameColorArmNanos = 0;
+	private long mProfColorArmNanos = 0;
+	private int mFrameUnits = 0;
+	private int mProfUnits = 0;
 	private int mFrameSkippedUnits = 0;
 	private int mProfSkippedUnits = 0;
 	private long mFrameTextArmNanos = 0;
@@ -381,6 +385,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	Paint p = new Paint();
 	/** Backgrond highlighting paint object, short name for code readabliity. */
 	Paint b = new Paint();
+	/** What b's colour was last set to. The draw loop tests it once per unit, and
+	 * Paint.getColor() crosses into native code every time; b is only ever recoloured
+	 * from the four places that call setBgPaintColor. Paint defaults to black. */
+	private int mBgPaintColor = 0xFF000000;
+
+	/** Recolour the background paint, keeping the cached copy in step. */
+	private void setBgPaintColor(final int color) {
+		b.setColor(color);
+		mBgPaintColor = color;
+	}
 	/** The configured hyperlink background or highlight color. */
 	Paint linkColor = null;
 	/** The minimum amount of scroll, i think this gets set before use. */
@@ -1598,6 +1612,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFrameRetries = 0;
 		mFrameScanLines = 0;
 		mFrameBleedLines = 0;
+		mFrameColorArmNanos = 0;
+		mFrameUnits = 0;
 		mFrameSkippedUnits = 0;
 		mFrameTextArmNanos = 0;
 		mFrameMetricsNanos = 0;
@@ -1665,7 +1681,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			calculateScrollBack();
 			c.save();
 			
-			b.setColor(0xFF0A0A0A);
+			setBgPaintColor(0xFF0A0A0A);
 			c.drawColor(0xFF0A0A0A); // full window (incl. top pad) stays black
 			
 			mClipRect.top = textPadTop();
@@ -1796,7 +1812,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, false));
 						}
 						
-						b.setColor(0xFF000000);//no not bleed background colors
+						setBgPaintColor(0xFF000000);//no not bleed background colors
 	
 					}
 				}
@@ -1863,10 +1879,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 				while (unitIterator.hasNext()) {
 					Unit u = unitIterator.next();
-					boolean useBackground = false;
-					if (b.getColor() != 0xFF0A0A0A && b.getColor() != 0xFF000000) {
-						useBackground = true;
-					}
+					mFrameUnits++;
+					final boolean useBackground =
+							mBgPaintColor != 0xFF0A0A0A && mBgPaintColor != 0xFF000000;
 					
 					switch(u.type) {
 					case WHITESPACE:
@@ -2098,6 +2113,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 						break;
 					case COLOR:
+						final long profColorStart = System.nanoTime();
 						mXterm256Color = false;
 						mXterm256FGStart = false;
 						mXterm256BGStart = false;
@@ -2109,10 +2125,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						
 						if (mColorDebugMode == 2 || mColorDebugMode == 3) {
 							p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37,false));
-							b.setColor(0xFF000000 | Colorizer.getColorValue(0, 40,false));
+							setBgPaintColor(0xFF000000 | Colorizer.getColorValue(0, 40,false));
 						} else {
 							applyAnsiPaints(p, b);
 						}
+						mFrameColorArmNanos += System.nanoTime() - profColorStart;
 						if (mColorDebugMode == 1 || mColorDebugMode == 2) {
 							String str = "";
 							try {
@@ -2251,6 +2268,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfRetries += mFrameRetries;
 		mProfScanLines += mFrameScanLines;
 		mProfBleedLines += mFrameBleedLines;
+		mProfColorArmNanos += mFrameColorArmNanos;
+		mProfUnits += mFrameUnits;
 		mProfSkippedUnits += mFrameSkippedUnits;
 		mProfTextArmNanos += mFrameTextArmNanos;
 		mProfMetricsNanos += mFrameMetricsNanos;
@@ -2293,7 +2312,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				+ " | retries=" + mProfRetries + " worstRetries=" + mProfWorstRetries
 				+ " | scanLines/f=" + (mProfScanLines / mProfFrames)
 				+ " bleedLines/f=" + (mProfBleedLines / mProfFrames)
-				+ " | INSIDE DRAW textArm=" + (mProfTextArmNanos / mProfFrames / 1000) + "us"
+				+ " | INSIDE DRAW colorArm=" + (mProfColorArmNanos / mProfFrames / 1000) + "us"
+				+ " allUnits=" + (mProfUnits / mProfFrames)
+				+ " textArm=" + (mProfTextArmNanos / mProfFrames / 1000) + "us"
 				+ " metrics=" + (mProfMetricsNanos / mProfFrames / 1000) + "us"
 				+ " widths=" + (mProfWidthsNanos / mProfFrames / 1000) + "us"
 				+ " emit=" + (mProfEmitNanos / mProfFrames / 1000) + "us"
@@ -2319,6 +2340,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfWorstRetries = 0;
 		mProfScanLines = 0;
 		mProfBleedLines = 0;
+		mProfColorArmNanos = 0;
+		mProfUnits = 0;
 		mProfSkippedUnits = 0;
 		mProfTextArmNanos = 0;
 		mProfMetricsNanos = 0;
@@ -3069,11 +3092,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			textPaint.setColor(0xFF000000 | Colorizer.getColorValue(
 					mSelectedBright, mSelectedColor, mXterm256FG));
 		}
-		if (mTrueColorBG) {
-			bgPaint.setColor(0xFF000000 | (mSelectedBackground.intValue() & 0xFFFFFF));
-		} else {
-			bgPaint.setColor(0xFF000000 | Colorizer.getColorValue(
-					0, mSelectedBackground, mXterm256BG));
+		final int bg = mTrueColorBG
+				? (0xFF000000 | (mSelectedBackground.intValue() & 0xFFFFFF))
+				: (0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground, mXterm256BG));
+		bgPaint.setColor(bg);
+		if (bgPaint == b) {
+			mBgPaintColor = bg;
 		}
 	}
 	
