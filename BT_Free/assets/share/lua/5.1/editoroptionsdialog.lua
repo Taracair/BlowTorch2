@@ -354,6 +354,7 @@ function showDialog(initialValues)
   ll:addView(opacitySeekBar)
   ll:addView(selectionTextLabel)
   ll:addView(rg)
+  addHint("How a drag rectangle decides what it picks up. Intersect takes every button the rectangle touches, even a corner. Contains takes only the buttons that fit inside it whole.")
 
   -- Exact spacing, next to the sliders rather than instead of them: the sliders
   -- are quick, typing is precise.
@@ -387,7 +388,7 @@ function showDialog(initialValues)
   ll:addView(fitRow)
   addHint("Square keeps buttons square and leaves any spare width at the right edge. Fill window uses the whole screen, so cells stop being square.")
 
-  addSectionHeader("Arrange buttons")
+  addSectionHeader("Automatic arrange buttons")
   addHint("Applies to the selected buttons, or to every button when nothing is selected.")
 
   local sizeRow = luajava.newInstance("android.widget.LinearLayout", context)
@@ -420,8 +421,8 @@ function showDialog(initialValues)
   sizeHeightField = sizeHEdit
   tidyColumnsField = tidyColsEdit
 
-  addSectionHeader("Just when you thought you were out of room for gestures")
-  addHint("Swipe or hold these buttons. Taps keep working; these only fire on a gesture. Dot commands suit this well. The input bar is left out — dragging there selects text.")
+  addSectionHeader("Additional gestures")
+  addHint("Swipe or hold these buttons. Taps keep working; these only fire on a gesture. Dot commands suit this well.")
 
   chromeFields = {}
   local chromeStored = parseChromeGestures(initialValues.chromeGestures)
@@ -470,7 +471,7 @@ function showDialog(initialValues)
   end
 
   local chromeApply = luajava.new(Button, context)
-  chromeApply:setText("Save chrome gestures")
+  chromeApply:setText("Save additional gestures")
   chromeApply:setTextSize(textSizeSmall)
   chromeApply:setLayoutParams(fillparams)
   chromeApply:setOnClickListener(chromeGesturesListener)

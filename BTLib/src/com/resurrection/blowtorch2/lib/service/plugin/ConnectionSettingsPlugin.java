@@ -292,7 +292,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		SettingsGroup mcpOptions = new SettingsGroup();
 		mcpOptions.setTitle("MCP Options");
-		mcpOptions.setDescription("Mud Client Protocol (#$# in-band). Used by HellMOO / SamsaraMoo and some MOOs — different from GMCP. Off by default.");
+		mcpOptions.setDescription("Mud Client Protocol (#$# in-band). Used by some MOOs — different from GMCP. Off by default.");
 
 		BooleanOption use_mcp = new BooleanOption();
 		use_mcp.setTitle("Use MCP?");

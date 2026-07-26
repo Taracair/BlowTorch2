@@ -1,6 +1,20 @@
 BlowTorch User Manual
 =====================
 
+Before you start
+----------------
+This is the complete reference. It covers everything the client can do, so it is
+long, and reading it start to finish on day one will be overwhelming. That is
+expected — nobody needs all of this to play.
+
+If you are new, close this and run the tutorial in the server list instead. It
+walks you through the parts you actually need first. Come back here when you
+want the detail on something specific.
+
+What matters on day one is a few simple buttons for the commands you type most.
+Everything else — triggers, aliases, timers, gestures — will make sense once you
+have played a while, and none of it is needed to connect and start moving.
+
 Dot commands
 ------------
 Lines that start with a single "." are handled by BlowTorch when "process period"

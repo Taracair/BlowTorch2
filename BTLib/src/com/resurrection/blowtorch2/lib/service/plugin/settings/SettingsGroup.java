@@ -170,6 +170,8 @@ public class SettingsGroup extends Option implements Parcelable {
 	
 	public void updateBoolean(String key,boolean value) {
 		BaseOption o = (BaseOption) optionsMap.get(key);
+		android.util.Log.e("BTOPT", "group boolean key=" + key + " known=" + (o != null)
+				+ " listener=" + (listenerMap.get(key) != null) + " group=" + getKey());
 		if(o != null) {
 			o.setValue(value);
 			SettingsChangedListener tmp = listenerMap.get(key);
@@ -183,6 +185,8 @@ public class SettingsGroup extends Option implements Parcelable {
 	
 	public void updateInteger(String key,int value) {
 		BaseOption o = (BaseOption) optionsMap.get(key);
+		android.util.Log.e("BTOPT", "group integer key=" + key + " known=" + (o != null)
+				+ " listener=" + (listenerMap.get(key) != null) + " group=" + getKey());
 		if(o != null) {
 			o.setValue(value);
 			SettingsChangedListener tmp = listenerMap.get(key);

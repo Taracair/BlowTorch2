@@ -883,7 +883,9 @@ optionsTable.haptic_edit = setHapticFeedbackEditor
 optionsTable.haptic_press = setHapticFeedbackPressed
 optionsTable.haptic_flip = setHapticFeedbackFlipped
 optionsTable.roundess = setRoundness
--- auto_launch kept for settings XML compat; long-press on buttons never opens editor.
+-- Both of these are gone from the settings screen: the editor is reached by holding
+-- the overflow icon or picking Edit buttons, and nothing reads auto_create. The
+-- setters stay so a preference saved by an older build still lands somewhere.
 optionsTable.auto_launch = setAutoLaunch
 optionsTable.auto_create = setAutoCreate
 optionsTable.show_gesture_hints = setShowGestureHints
