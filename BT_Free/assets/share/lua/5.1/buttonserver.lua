@@ -63,14 +63,6 @@ function loadButtonSet(args)
 	local tSanitize = btprofNow()
 	local okSanitize, repaired = pcall(sanitizeButtonSet, args)
 	btprof("t3 sanitizeButtonSet repaired=" .. tostring(okSanitize and repaired), tSanitize)
-	if okSanitize and repaired then
-		Note("\nButton set \"" .. tostring(args) .. "\" had buttons off screen; moved them back into view.\n")
-		if SaveSettings ~= nil then
-			local tSave = btprofNow()
-			pcall(SaveSettings)
-			btprof("t3b SaveSettings (whole settings file + fsync)", tSave)
-		end
-	end
 
 	lob.set = buttonsets[args]
 	lob.default = buttonset_defaults[args]
@@ -82,6 +74,19 @@ function loadButtonSet(args)
 	local tSend = btprofNow()
 	WindowXCallB(buttonWindowName,"loadButtons",payload)
 	btprof("t4b WindowXCallB returned", tSend)
+
+	-- Hand the buttons over first, then save. Both WindowXCallB and SaveSettings
+	-- only post to the same Connection handler, so whichever is queued first
+	-- runs first: saving before this put an entire settings write in front of
+	-- the payload, and the player sat looking at the old set until it finished.
+	if okSanitize and repaired then
+		Note("\nButton set \"" .. tostring(args) .. "\" had buttons off screen; moved them back into view.\n")
+		if SaveSettings ~= nil then
+			local tSave = btprofNow()
+			pcall(SaveSettings)
+			btprof("t3b SaveSettings posted", tSave)
+		end
+	end
 	btprof("t4c loadButtonSet total", tEnter)
 end
 

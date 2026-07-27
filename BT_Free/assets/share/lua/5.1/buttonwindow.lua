@@ -676,6 +676,10 @@ local function dispatchButtonAction(cmd)
 end
 
 local function resetTouchedButtonVisual()
+	-- The swipe arrow and the gesture callout are drawn outside the tile, so
+	-- taking them away needs the whole layer cleared. A plain tap dirties only
+	-- the one tile and can repaint just that.
+	local hadOverlay = swipePreviewDir ~= nil or gestureLabelText ~= nil
 	normalTouchState = 0
 	swipePreviewDir = nil
 	gestureLabelText = nil
@@ -683,7 +687,15 @@ local function resetTouchedButtonVisual()
 		touchedbutton.selected = false
 	end
 	-- drawButtons() clears the layer, which also takes away the live swipe arrow.
-	drawButtons()
+	-- It is also a full repaint of every tile, measured at ~40ms on a 93 button
+	-- set, and it ran on every single button press.
+	if hadOverlay or manage or touchedbutton == nil
+			or touchedbutton.expanded or touchedbutton.isAccordionChild then
+		drawButtons()
+	else
+		clearButton(touchedbutton)
+		touchedbutton:draw(0, buttonCanvas)
+	end
 	view:invalidate()
 end
 

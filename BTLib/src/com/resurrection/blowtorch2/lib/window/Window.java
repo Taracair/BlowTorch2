@@ -124,6 +124,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** How far above the screen to look for the colour still in effect. */
 	private static final int BLEED_SEARCH_MAX_LINES = 1000;
+	/** TEMPORARY (BTPROF): rolling worst case of the bleed scan. Comes out with the probes. */
+	private int btprofBleedFrames = 0;
+	private int btprofBleedWorstLines = 0;
+	private long btprofBleedWorstMs = 0;
 
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
@@ -1845,11 +1849,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			if ("mainDisplay".equals(mName)) {
 				long btprofBleedMs = android.os.SystemClock.uptimeMillis() - btprofBleedStart;
-				// Only the frames worth looking at: a scan that found colour in the
-				// first few lines is the common case and would drown the log.
-				if (btprofBleedLines > 50 || btprofBleedMs > 2) {
-					android.util.Log.i("BTPROF", "bleed scan walked " + btprofBleedLines
-							+ " lines (bleeding=" + bleeding + ") in " + btprofBleedMs + "ms");
+				if (btprofBleedLines > btprofBleedWorstLines) {
+					btprofBleedWorstLines = btprofBleedLines;
+				}
+				if (btprofBleedMs > btprofBleedWorstMs) {
+					btprofBleedWorstMs = btprofBleedMs;
+				}
+				// Heartbeat, not just outliers. Silence from a threshold probe is
+				// indistinguishable from a probe that never ran, and "nothing in the
+				// log" is exactly the answer we are trying to trust here.
+				if (++btprofBleedFrames >= 300) {
+					android.util.Log.i("BTPROF", "bleed scan over " + btprofBleedFrames
+							+ " frames: worst " + btprofBleedWorstLines + " lines, "
+							+ btprofBleedWorstMs + "ms (limit " + BLEED_SEARCH_MAX_LINES + ")");
+					btprofBleedFrames = 0;
+					btprofBleedWorstLines = 0;
+					btprofBleedWorstMs = 0;
 				}
 			}
 
