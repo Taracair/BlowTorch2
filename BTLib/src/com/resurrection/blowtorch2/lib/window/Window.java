@@ -1662,6 +1662,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 			}
 			if (!gotIt) {
+				releaseSelectionCanvas();
 				this.invalidate();
 				return;
 			}
@@ -1669,7 +1670,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			y = bundle.getOffset();
 
 			int extraLines = bundle.getExtraLines();
-			if (screenIt == null) { return;}
+			if (screenIt == null) { releaseSelectionCanvas(); return;}
 			
 			int startline = bundle.getStartLine();
 			int workingline = startline;
@@ -2095,6 +2096,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
+			} else if (selectedSelector != null) {
+				selDiag("scroller skipped while selecting");
 			}
 			c.restore();
 			if (!mFingerDown && Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
@@ -2302,6 +2305,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		
 		if(selectedSelector != null) {
+			selDiag("drawing widget");
 			if (mSelectionCanvasSaved) {
 				try {
 					mSelectionIndicatorCanvas.restore();
@@ -2343,6 +2347,49 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mSelectionCanvasSaved = false;
 		}
 		
+	}
+
+	/**
+	 * Undo the clip save taken at the top of onDraw for the selection widget.
+	 *
+	 * onDraw saves the widget canvas before drawing the disc, and showScroller is
+	 * what pairs it with a restore. Two early returns sit between the two, so a
+	 * frame that bailed out left an unmatched save behind and the next frame
+	 * stacked another one on top of it.
+	 */
+	/** Temporary. The selection widget sometimes never appears although it is live
+	 * and still answering taps; this reports the state once a second while a
+	 * selection is up, so a reproduction says which of those it is. */
+	private long mSelDiagLast = 0;
+	private void selDiag(final String what) {
+		final long now = android.os.SystemClock.uptimeMillis();
+		if (now - mSelDiagLast < 1000) {
+			return;
+		}
+		mSelDiagLast = now;
+		final int half = mSelectionIndicatorHalfDimension;
+		Log.e("BTSEL", what
+				+ " win=" + mName
+				+ " widget=" + mWidgetX + "," + mWidgetY + " half=" + half
+				+ " view=" + mWidth + "x" + mHeight
+				+ " onScreen=" + (mWidgetX - half >= 0 && mWidgetY - half >= 0
+						&& mWidgetX + half <= mWidth && mWidgetY + half <= mHeight)
+				+ " sel=" + (theSelection != null)
+				+ " bufferLines=" + mBuffer.getBrokenLineCount()
+				+ " canvasSaved=" + mSelectionCanvasSaved
+				+ " bitmap=" + (mSelectionIndicatorBitmap == null ? "null"
+						: mSelectionIndicatorBitmap.getWidth() + "x" + mSelectionIndicatorBitmap.getHeight()));
+	}
+
+	private void releaseSelectionCanvas() {
+		if (!mSelectionCanvasSaved) {
+			return;
+		}
+		try {
+			mSelectionIndicatorCanvas.restore();
+		} catch (IllegalArgumentException ignored) {
+		}
+		mSelectionCanvasSaved = false;
 	}
 
 	private int iconWidth(final Bitmap bmp) {
