@@ -24,8 +24,25 @@ public final class BlowTorchLogger {
 	private BlowTorchLogger() {
 	}
 
+	/**
+	 * Where errors get written.
+	 *
+	 * The shared /BlowTorch tree is preferred, but it belongs to whichever flavour
+	 * created it: the test build cannot write into a directory the production build
+	 * owns. resolveBlowTorchSubdir does not report that, so the writes below were
+	 * failing with an IOException nobody saw and the log simply stopped growing.
+	 * Fall back to the app's own files directory, which is always writable.
+	 */
 	public static File getLogDirectory(Context context) {
-		return SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_LOGS);
+		File shared = SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_LOGS);
+		if (shared != null && shared.isDirectory() && shared.canWrite()) {
+			return shared;
+		}
+		File fallback = new File(context.getFilesDir(), "logs");
+		if (!fallback.isDirectory()) {
+			fallback.mkdirs();
+		}
+		return fallback;
 	}
 
 	public static File getLogFile(Context context) {
@@ -78,7 +95,7 @@ public final class BlowTorchLogger {
 			out = new FileOutputStream(logFile, true);
 			out.write(line.getBytes(StandardCharsets.UTF_8));
 		} catch (IOException e) {
-			e.printStackTrace();
+			android.util.Log.e("BlowTorch", "Could not write error log: " + line.trim(), e);
 		} finally {
 			if (out != null) {
 				try {
@@ -88,6 +105,9 @@ public final class BlowTorchLogger {
 				}
 			}
 		}
+		// Mirror to logcat regardless. A player can screenshot the game window, but a
+		// screenshot is not something anyone can grep.
+		android.util.Log.e("BlowTorch", "[" + source + "] " + plain);
 	}
 
 	public static String stripColors(String message) {

@@ -402,6 +402,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * @param message The lua error to display.
 	 */
 	public final void displayLuaError(final String message) {
+		// Recorded here as well as on the service side: this is the process the error
+		// happened in, and if the hop across to the service fails the only trace left
+		// would be red text in the game window.
+		try {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logError(
+					getContext().getApplicationContext(), mName == null ? "window" : mName, message);
+		} catch (Exception ignored) {
+		}
 		mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_DISPLAYLUAERROR, "\n" + Colorizer.getRedColor() + message + Colorizer.getWhiteColor() + "\n"));
 	}
 	

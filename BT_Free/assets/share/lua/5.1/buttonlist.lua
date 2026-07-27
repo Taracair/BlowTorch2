@@ -25,6 +25,11 @@ local KeyEvent = _G["KeyEvent"]
 local modifyButtonSetCallback = _G["modifyButtonSet"]
 local DialogInterface = _G["DialogInterface"]
 local PluginXCallS = _G["PluginXCallS"]
+-- module() swaps the environment for the module table, so anything not pulled in
+-- above is simply nil in here. showList() guards its dismiss with pcall, which was
+-- never on this list: reopening the set list threw "attempt to call global 'pcall'
+-- (a nil value)" instead of quietly dropping a stale dialog.
+local pcall = _G["pcall"]
 module(...)
 
 local lastSelectedIndex = -1
@@ -35,29 +40,21 @@ local list = nil
 local itemClicked = nil
 local adapter = nil
 local dialog = nil
-local toolbar = nil
--- Computed once, together with `toolbar`. Must outlive the call that builds the
--- toolbar: init() runs again every time the set list is reopened, and on those
--- later calls the build block below is skipped because `toolbar` already exists.
-local toolbarlength = nil
-local animateIn = nil
-local animateOut = {}
-local animateOutAndDelete = {}
-local animateOutListener = nil
-local animateOutAndDeleteListener = {}
+-- Row waiting on a delete confirmation.
+local pendingDeleteIndex = -1
 local dpadupdownlistener = nil
 local dpadselectionlistener = nil
-local makeToolbar = nil
 local layoutInflater = nil
 local context = nil
-local modifyClickListener = nil
+local rowModifyListener = nil
+local rowLoadListener = nil
+local rowDeleteListener = nil
+local makeRowButton = nil
 local newButtonListener = nil
 local newSetDoneListener = nil
 local newSetCancelListener = nil
 local newSetEdit = nil
 local newButtonSetDialog = nil
-local loadClickListener = nil
-local deleteClickListener = nil
 local deleteConfirmListener = nil
 local deleteCancelListener = nil
 local doneListener = nil
@@ -70,20 +67,77 @@ function init(pContext)
 	context = pContext
 	layoutInflater = context:getSystemService(Context.LAYOUT_INFLATER_SERVICE)
 	
-	makeToolbar()
 end
 
-modifyClickListener = luajava.createProxy("android.view.View$OnClickListener",{
+-- Which row a control belongs to travels on the control itself.
+local function rowIndexOf(v)
+  local tag = v:getTag()
+  if tag == nil then
+    return -1
+  end
+  return tag:intValue()
+end
+
+local function entryFor(v)
+  local index = rowIndexOf(v)
+  if index < 0 then
+    return nil
+  end
+  return sortedList[index+1]
+end
+
+makeRowButton = function(icon,listener,pos)
+  local button = luajava.new(ImageButton,context)
+  local pad = math.floor(6 * (context:getResources()):getDisplayMetrics().density + 0.5)
+  button:setPadding(pad,pad,pad,pad)
+  button:setLayoutParams(luajava.new(LinearLayoutParams,LinearLayoutParams.WRAP_CONTENT,LinearLayoutParams.WRAP_CONTENT))
+  button:setBackgroundColor(0)
+  button:setImageResource(icon)
+  button:setTag(luajava.newInstance("java.lang.Integer",pos))
+  button:setOnClickListener(listener)
+  button:setFocusable(false)
+  button:setFocusableInTouchMode(false)
+  return button
+end
+
+rowModifyListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v)
-    if lastSelectedIndex == nil or lastSelectedIndex < 0 then
-      return
-    end
-    local item = sortedList[lastSelectedIndex+1]
+    local item = entryFor(v)
     if item == nil then
       return
     end
     modifyButtonSetCallback(item)
     dialog:dismiss()
+  end
+})
+
+rowLoadListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    local entry = entryFor(v)
+    if entry == nil then
+      return
+    end
+    if(entry.name ~= selectedSet) then
+      PluginXCallS("loadButtonSet",entry.name)
+    end
+    dialog:dismiss()
+  end
+})
+
+rowDeleteListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    local index = rowIndexOf(v)
+    if index < 0 or sortedList[index+1] == nil then
+      return
+    end
+    pendingDeleteIndex = index
+    local builder = luajava.newInstance("android.app.AlertDialog$Builder",v:getContext())
+    builder:setTitle("Delete Button Set")
+    builder:setMessage("Confirm delete?")
+    builder:setPositiveButton("Yes",deleteConfirmListener)
+    builder:setNegativeButton("No",deleteCancelListener)
+    local confirm = builder:create()
+    confirm:show()
   end
 })
 
@@ -113,6 +167,14 @@ adapter = luajava.createProxy("android.widget.ListAdapter",{
 			holder:removeAllViews()
 			-- Do not reset lastSelectedIndex here; recycling would clear a valid selection.
 		end
+		
+		-- Load, edit and delete live in the row. They used to be one shared toolbar
+		-- that slid in over whichever row you tapped, which is unlike every other
+		-- list in the app and hid the actions until you went looking for them. Each
+		-- button carries its own row index, so no selection has to be remembered.
+		holder:addView(makeRowButton(R_drawable.ic_row_load, rowLoadListener, pos))
+		holder:addView(makeRowButton(R_drawable.ic_row_edit, rowModifyListener, pos))
+		holder:addView(makeRowButton(R_drawable.ic_row_delete, rowDeleteListener, pos))
 		
 		item = sortedList[tonumber(pos)+1]
 		
@@ -191,10 +253,6 @@ function showList(unsortedList,lastLoadedSet)
 	
 	selectedSet = lastLoadedSet
 	
-	if(toolbar:getParent() ~= nil) then
-		local parent = toolbar:getParent()
-		parent:removeView(toolbar)
-	end
 	--sort the list
 	sortList(unsortedList)
 	
@@ -264,78 +322,10 @@ end
 --function buttonListAdapter.
 
 
-makeToolbar = function()
-	--toolbar = toolbar or {}
-	if(not toolbar) then
-		toolbar = layoutInflater:inflate(R_layout.editor_selection_list_row_toolbar,nil)
-		local toolbarparams = luajava.new(RelativeLayoutParams,RelativeLayoutParams.WRAP_CONTENT,RelativeLayoutParams.WRAP_CONTENT)
-		toolbarparams:addRule(RelativeLayout.ALIGN_PARENT_TOP)
-		toolbarparams:addRule(RelativeLayout.ALIGN_PARENT_BOTTOM)
-		toolbarparams:addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
-		toolbar:setLayoutParams(toolbarparams)
-		
-		
-		
-		local buttonParams = luajava.new(LinearLayoutParams,LinearLayoutParams.WRAP_CONTENT,LinearLayoutParams.WRAP_CONTENT)
-		buttonParams:setMargins(0,0,0,0)
-		
-		local makeButton = function(icon,listener)
-			local button = luajava.new(ImageButton,context)
-			button:setPadding(0,0,0,0)
-			button:setOnKeyListener(dpadupdownlistener)
-			button:setLayoutParams(buttonParams)
-			button:setImageResource(icon)
-			button:setOnClickListener(listener)
-			button:setNextFocusDownId(R_id.list)
-			button:setNextFocusUpId(R_id.list)
-			return button
-		end
-		
-		local toolbarToggle = makeButton(R_drawable.toolbar_load_button,loadClickListener)
-		local toolbarModify = makeButton(R_drawable.toolbar_modify_button,modifyClickListener)
-		local toolbarDelete = makeButton(R_drawable.toolbar_delete_button,deleteClickListener)
-		
-		toolbar:addView(toolbarToggle)
-		toolbar:addView(toolbarModify)
-		toolbar:addView(toolbarDelete)
-		
-		local closeButton = toolbar:findViewById(R_id.toolbar_tab_close)
-		closeButton:setOnKeyListener(dpadupdownlistener)
-		closeButton:setNextFocusUpId(R_id.list)
-		closeButton:setNextFocusDownId(R_id.list)
-		
-		local tmpa = closeButton:getDrawable()
-		local tmpb = toolbarToggle:getDrawable()
-		
-		toolbarlength = tmpa:getIntrinsicWidth() + 3 * tmpb:getIntrinsicWidth()
-	end
-	--animateInController = nil
-	animateOut = nil	
-	
-	animateIn = luajava.new(TranslateAnimation,toolbarlength,0,0,0)
-	animateIn:setDuration(200)
-	
-	animateOut = luajava.new(TranslateAnimation,0,toolbarlength,0,0)
-	animateOut:setDuration(200)
-	animateOut:setAnimationListener(animateOutListener)
-	
-	animateOutAndDelete = luajava.new(TranslateAnimation,0,toolbarlength,0,0)
-	animateOutAndDelete:setDuration(200)
-	animateOutAndDelete:setAnimationListener(animateOutAndDeleteListener)
-	
-end
-
-local function removeToolbar()
-	toolbar:startAnimation(animateOut)
-end
 
 
 dpadupdownlistener = luajava.createProxy("android.view.View$OnKeyListener",{
 	onKey = function(v,keyCode,event)
-		if(KeyEvent.KEYCODE_DPAD_UP == keyCode or KeyEvent.KEYCODE_DPAD_DOWN == keyCode) then
-			removeToolbar()
-			--list:requestFocus()
-		end
 		return false
 	end
 })
@@ -359,73 +349,17 @@ local function makeSelectionRunnerForRow(pos,target)
 end
 
 
-animateOutListener = luajava.createProxy("android.view.animation.Animation$AnimationListener",{
-	onAnimationEnd = function(animation)
-		local parent = toolbar:getParent()
-		if(parent ~= nil) then 
-			parent:removeView(toolbar)
-			--list:requestFocus()
-		end
-	end
-})
-
-animateOutAndDeleteListener = luajava.createProxy("android.view.animation.Animation$AnimationListener",{
-  onAnimationEnd = function(animation)
-    local parent = toolbar:getParent()
-    if(parent ~= nil) then 
-      parent:removeView(toolbar)
-      --list:requestFocus()
-    end
-    local entry = sortedList[lastSelectedIndex+1]
-    sortedList[entry] = nil
-    table.remove(sortedList,lastSelectedIndex+1)
-    PluginXCallS("deleteButtonSet",entry.name)
-  end
-})
-
-
-
 itemClicked = luajava.createProxy("android.widget.AdapterView$OnItemClickListener",{
 	onItemClick = function(arg0,view,position,arg3)
-		--Note("\ndoing click\n")
-		if(toolbar:getParent() ~= nil) then
-			removeToolbar()
+		local entry = sortedList[position+1]
+		if entry == nil then
 			return
 		end
-		
-		local duration = 500
-		if(view:getBottom() > list:getHeight() or view:getTop() < 0) then
-			--Note("\nsmoothscrolling\n")
-			list:smoothScrollToPosition(position,100)
-			reclick_.target = position
-			list:postDelayed(luajava.createProxy("java.lang.Runnable",reclick_),100)
-			return
-		end
-		
-		--list:setSelector(R_drawable.blue_frame_nomargin_nobackground)
-		
 		lastSelectedIndex = position
-		local frame = list:getParent()
-		local target = frame:getParent()
-		local params = luajava.new(RelativeLayoutParams,RelativeLayoutParams.WRAP_CONTENT,RelativeLayoutParams.WRAP_CONTENT)
-		params:addRule(RelativeLayout.ALIGN_PARENT_RIGHT)
-		params:addRule(RelativeLayout.ALIGN_PARENT_TOP)
-		local y = position - list:getFirstVisiblePosition()
-		local row = list:getChildAt(y)
-		if row == nil then
-			return
+		if(entry.name ~= selectedSet) then
+			PluginXCallS("loadButtonSet",entry.name)
 		end
-		local v_top = row:getTop()
-		local f_top = frame:getTop()
-		
-		params:setMargins(0,v_top + f_top,0,0)
-		toolbar:setLayoutParams(params)
-		target:addView(toolbar)
-		toolbar:startAnimation(animateIn)
-		local child = toolbar:getChildAt(1)
-		if child ~= nil then
-			child:requestFocus()
-		end
+		dialog:dismiss()
 	end,
 	onNothingSelected = function(arg0) end --don't care
 })
@@ -437,15 +371,7 @@ end
 
 scrollListener = luajava.createProxy("android.widget.AbsListView$OnScrollListener",{
 	onScrollStateChanged = function(view,scrollstate)
-		if(toolbar:getParent() ~= nil) then
-		  --toolbar:getParent():clearFocus()
-		  --list:setSelection(lastSelectedIndex)
-			removeToolbar()
-			
-			--list:setSelection(0)
-			--list:setSelector(R_drawable.transparent)
-			--list:clearFocus();
-		end
+		-- Nothing to dismiss on scroll now that the controls ride in the rows.
 	end,
 	onScroll = function(view,first,visCount,totalCount)
 		--don't care
@@ -518,45 +444,24 @@ newSetCancelListener = luajava.createProxy("android.view.View$OnClickListener",{
   end
 })
 
-loadClickListener = luajava.createProxy("android.view.View$OnClickListener",{
-  onClick = function(v)
-  local entry = sortedList[lastSelectedIndex+1]
-  if(entry.name ~= selectedSet) then
-    PluginXCallS("loadButtonSet",entry.name)
-  end
-  dialog:dismiss()
-end
-})
-
 deleteConfirmListener = luajava.createProxy("android.content.DialogInterface$OnClickListener",{
-  onClick = function(dialog,which)
-  --Note("deleting,"..which)
+  onClick = function(confirmDialog,which)
     if(which == DialogInterface.BUTTON_POSITIVE) then
-      --local entry = sortedList[lastSelectedIndex+1]
-      --sortedList[entry] = nil
-      --table.remove(sortedList,lastSelectedIndex+1)
-      --PluginXCallS("deleteButtonSet",entry.name)
-      toolbar:startAnimation(animateOutAndDelete)
+      local index = pendingDeleteIndex
+      local entry = sortedList[index+1]
+      if entry ~= nil then
+        table.remove(sortedList,index+1)
+        PluginXCallS("deleteButtonSet",entry.name)
+        list:setAdapter(adapter)
+      end
     end
+    pendingDeleteIndex = -1
   end
 })
 
 deleteCancelListener = luajava.createProxy("android.content.DialogInterface$OnClickListener",{
   onClick = function(dialog,which)
     dialog:dismiss()
-  end
-})
-
-deleteClickListener = luajava.createProxy("android.view.View$OnClickListener",{
-  onClick = function(v)
-    local builder = luajava.newInstance("android.app.AlertDialog$Builder",v:getContext())
-    builder:setTitle("Delete Button Set")
-    builder:setMessage("Confirm delete?")
-    builder:setPositiveButton("Yes",deleteConfirmListener)
-    builder:setNegativeButton("No",deleteCancelListener)
-    
-    local canceldialog = builder:create()
-    canceldialog:show()
   end
 })
 
