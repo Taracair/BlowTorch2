@@ -1014,6 +1014,50 @@ public class MapperController {
 		return new int[] { ox + 100, oy };
 	}
 
+	/**
+	 * Mark every exit on the map as unchecked again.
+	 *
+	 * A map made before exits were being checked reads as though all of it had
+	 * been walked, which is the compatible reading but hides exactly what the
+	 * check was added to show. This puts the whole map back to claims so walking
+	 * it proves them one at a time -- everything else about it, titles, notes,
+	 * layout and pins, is untouched, which is what makes it better than deleting
+	 * the map and starting again.
+	 */
+	public String recheckAllExits() {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		int count = 0;
+		for (MapTile t : mMap.getTiles()) {
+			if (t == null || t.getExits() == null) {
+				continue;
+			}
+			for (MapExit e : t.getExits()) {
+				if (e != null && e.isVerified()) {
+					count++;
+				}
+			}
+		}
+		if (count == 0) {
+			return "Mapper: nothing is marked as walked already.";
+		}
+		pushUndo();
+		for (MapTile t : mMap.getTiles()) {
+			if (t == null || t.getExits() == null) {
+				continue;
+			}
+			for (MapExit e : t.getExits()) {
+				if (e != null) {
+					e.setVerified(false);
+				}
+			}
+		}
+		notifyChanged();
+		return "Mapper: " + count + " exit(s) back to unchecked. Walk them to confirm; "
+				+ "undo puts the marks back.";
+	}
+
 	public String moveTileToLevel(final String tileId, final String levelId) {
 		if (mMap == null || tileId == null || levelId == null) {
 			return "Mapper: missing tile/level.";
@@ -2019,6 +2063,9 @@ public class MapperController {
 
 		MapTile current = currentTile();
 		MapTile tile = null;
+		// Read once for the whole arrival: it decides where a new room is put and
+		// then, further down, which exit this walk has proved.
+		final String movedBy = consumeLastMove();
 		String num = (mGmcpUseNum && roomNum != null && roomNum.length() > 0)
 				? roomNum.trim() : null;
 
@@ -2057,7 +2104,6 @@ public class MapperController {
 				tile = current;
 			} else if (current != null) {
 				pushUndo();
-				String movedBy = consumeLastMove();
 				int[] delta = gridDeltaFor(movedBy);
 				int[] slot = null;
 				// The direction the player actually walked beats anything inferred
@@ -2089,6 +2135,38 @@ public class MapperController {
 
 		if (tile == null) {
 			return;
+		}
+
+		// The walk that got us here is the only proof this exit works. Everything
+		// else on the map is a claim: the game listed it, or the mapper assumed
+		// the way back. On worlds that do not fold neatly those claims are wrong
+		// in both directions at once, which is what the map kept insisting on.
+		if (movedBy != null && current != null && !current.getId().equals(tile.getId())) {
+			MapExit walked = findExit(current, movedBy);
+			if (walked == null) {
+				if (!changed) {
+					pushUndo();
+				}
+				boolean special = gridDeltaFor(movedBy) == null;
+				MapExit proved = new MapExit(current.getId(), tile.getId(),
+						MapDirections.storeCommand(movedBy, movedBy), special, null);
+				proved.setVerified(true);
+				current.addExit(proved);
+				changed = true;
+			} else if (tile.getId().equals(walked.getToId())) {
+				if (!walked.isVerified()) {
+					if (!changed) {
+						pushUndo();
+					}
+					walked.setVerified(true);
+					// It has been walked, so it is no longer anybody's guess.
+					walked.setGuessed(false);
+					changed = true;
+				}
+			}
+			// An exit for this command pointing somewhere else is left exactly as
+			// it is, and stays unverified. Silently re-aiming it is how a wrong
+			// link becomes permanent; the conflict detector can raise it instead.
 		}
 
 		if (num != null && (tile.getExternalId() == null || !num.equals(tile.getExternalId()))) {

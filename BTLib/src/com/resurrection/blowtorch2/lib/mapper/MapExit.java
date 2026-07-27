@@ -25,6 +25,18 @@ public class MapExit {
 	 * exit list contradicts it; anything the player made stays put.
 	 */
 	private boolean guessed;
+	/**
+	 * True once the player has actually walked this exit and arrived where it
+	 * says. Everything else -- an exit the game merely listed, a reverse the
+	 * mapper assumed -- is a claim nobody has checked, and worlds exist where
+	 * those claims are wrong in both directions at once.
+	 *
+	 * <p>False on a newly built exit, so nothing counts as checked by accident.
+	 * Maps written before this existed are read as checked instead -- those were
+	 * walked, the record simply was not kept, and calling all of them unchecked
+	 * would replace one false statement with another. See {@code MapStore}.
+	 */
+	private boolean verified;
 
 	public MapExit() {
 	}
@@ -64,6 +76,14 @@ public class MapExit {
 
 	public void setCommand(String command) {
 		this.command = command;
+	}
+
+	public boolean isVerified() {
+		return verified;
+	}
+
+	public void setVerified(boolean verified) {
+		this.verified = verified;
 	}
 
 	public boolean isGuessed() {

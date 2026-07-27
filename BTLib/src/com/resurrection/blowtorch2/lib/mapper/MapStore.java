@@ -260,6 +260,10 @@ public final class MapStore {
 				if (exit.isGuessed()) {
 					e.put("guessed", true);
 				}
+				// Always written, both values: absent has to keep meaning "from
+				// before this was recorded", so an unchecked exit cannot be
+				// mistaken for an old one on the way back in.
+				e.put("verified", exit.isVerified());
 				exits.put(e);
 			}
 			o.put("exits", exits);
@@ -347,6 +351,9 @@ public final class MapStore {
 						// Absent in maps written before this existed, which is the
 						// safe reading: those exits are never withdrawn.
 						exit.setGuessed(e.optBoolean("guessed", false));
+						// Absent means the map predates the record. Those exits were
+						// walked; only the note of it is missing.
+						exit.setVerified(e.optBoolean("verified", true));
 						tile.addExit(exit);
 					}
 				}

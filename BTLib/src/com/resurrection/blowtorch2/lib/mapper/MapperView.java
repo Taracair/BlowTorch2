@@ -2,8 +2,10 @@ package com.resurrection.blowtorch2.lib.mapper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -121,8 +123,16 @@ public class MapperView extends View {
 	private final Paint mismatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	/** Same amber, solid: a dash effect on a filled arrow head eats the head. */
 	private final Paint mismatchHeadPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	/**
+	 * Exits nobody has walked yet -- listed by the game, or a reverse the mapper
+	 * assumed. Drawn dim and quiet: they are claims, not knowledge, and they
+	 * must not shout louder than a link known to be real but drawn crookedly.
+	 */
+	private final Paint unverifiedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint unverifiedHeadPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	/** Dash lengths are in pixels, so the effect is rebuilt when zoom changes. */
 	private float dashBuiltForScale = -1f;
+	private DashPathEffect dashEffect;
 	private final Path elbowPath = new Path();
 	private final Paint specialPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint interUpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -221,6 +231,13 @@ public class MapperView extends View {
 		mismatchPaint.setStrokeJoin(Paint.Join.ROUND);
 		mismatchHeadPaint.setColor(0xFFFFB454);
 		mismatchHeadPaint.setStyle(Paint.Style.FILL);
+		unverifiedPaint.setColor(0x888C97A8);
+		unverifiedPaint.setStrokeWidth(2.5f);
+		unverifiedPaint.setStyle(Paint.Style.STROKE);
+		unverifiedPaint.setStrokeCap(Paint.Cap.ROUND);
+		unverifiedPaint.setStrokeJoin(Paint.Join.ROUND);
+		unverifiedHeadPaint.setColor(0x888C97A8);
+		unverifiedHeadPaint.setStyle(Paint.Style.FILL);
 		linkLabelPaint.setColor(0xFFF0F6FF);
 		linkLabelPaint.setTextAlign(Paint.Align.CENTER);
 		linkLabelBg.setColor(0xCC102030);
@@ -719,6 +736,9 @@ public class MapperView extends View {
 			return;
 		}
 		Map<String, List<String>> grouped = new HashMap<String, List<String>>();
+		// Commands proved by actually walking them, kept beside the raw list so
+		// tap handling and the overflow popup still see plain commands.
+		Map<String, Set<String>> walked = new HashMap<String, Set<String>>();
 		for (MapTile tile : tiles) {
 			if (tile == null || tile.getExits() == null) {
 				continue;
@@ -740,6 +760,14 @@ public class MapperView extends View {
 				String cmd = exit.getCommand().trim();
 				if (cmd.length() > 0 && !cmds.contains(cmd)) {
 					cmds.add(cmd);
+				}
+				if (cmd.length() > 0 && exit.isVerified()) {
+					Set<String> proved = walked.get(key);
+					if (proved == null) {
+						proved = new HashSet<String>();
+						walked.put(key, proved);
+					}
+					proved.add(cmd);
 				}
 			}
 		}
@@ -790,16 +818,30 @@ public class MapperView extends View {
 				List<String> back = grouped.get(toId + "\0" + fromId);
 				boolean bidir = back != null && !back.isEmpty();
 				boolean asCommanded = linkDrawnAsCommanded(from, to, cmds, back);
+				Set<String> proved = walked.get(key);
+				Set<String> provedBack = walked.get(toId + "\0" + fromId);
+				boolean anyWalked = (proved != null && !proved.isEmpty())
+						|| (provedBack != null && !provedBack.isEmpty());
 				float midX;
 				float midY;
-				if (asCommanded) {
+				if (!anyWalked) {
+					// Nobody has been through this yet, either way. Dim and dashed:
+					// it is a claim, and it must not shout over a link known to be
+					// real but drawn crookedly.
+					drawMismatchLink(canvas, bodySize, from, to,
+							fromCx, fromCy, toCx, toCy, bidir,
+							unverifiedPaint, unverifiedHeadPaint);
+					midX = elbowLabelX;
+					midY = elbowLabelY;
+				} else if (asCommanded) {
 					drawPackedLink(canvas, bodySize, fromCx, fromCy, toCx, toCy,
 							ux, uy, bidir);
 					midX = (fromCx + toCx) * 0.5f;
 					midY = (fromCy + toCy) * 0.5f - 3f * scale;
 				} else {
 					drawMismatchLink(canvas, bodySize, from, to,
-							fromCx, fromCy, toCx, toCy, bidir);
+							fromCx, fromCy, toCx, toCy, bidir,
+							mismatchPaint, mismatchHeadPaint);
 					midX = elbowLabelX;
 					midY = elbowLabelY;
 				}
@@ -812,17 +854,39 @@ public class MapperView extends View {
 							}
 						}
 					}
-					drawLinkLabelAt(canvas, midX, midY, labelCmds, from.getId(), to.getId());
+					Set<String> labelWalked = new HashSet<String>();
+					if (proved != null) {
+						labelWalked.addAll(proved);
+					}
+					if (provedBack != null) {
+						labelWalked.addAll(provedBack);
+					}
+					drawLinkLabelAt(canvas, midX, midY, labelCmds, from.getId(),
+							to.getId(), labelWalked);
+				}
+				continue;
+			}
+
+			Set<String> provedOne = walked.get(key);
+			boolean walkedOne = provedOne != null && !provedOne.isEmpty();
+			if (!walkedOne) {
+				drawMismatchLink(canvas, bodySize, from, to,
+						fromCx, fromCy, toCx, toCy, false,
+						unverifiedPaint, unverifiedHeadPaint);
+				if (showLinkLabels) {
+					drawLinkLabelAt(canvas, elbowLabelX, elbowLabelY, cmds,
+							from.getId(), to.getId(), provedOne);
 				}
 				continue;
 			}
 
 			if (!linkDrawnAsCommanded(from, to, cmds, grouped.get(toId + "\0" + fromId))) {
 				drawMismatchLink(canvas, bodySize, from, to,
-						fromCx, fromCy, toCx, toCy, false);
+						fromCx, fromCy, toCx, toCy, false,
+						mismatchPaint, mismatchHeadPaint);
 				if (showLinkLabels) {
 					drawLinkLabelAt(canvas, elbowLabelX, elbowLabelY, cmds,
-							from.getId(), to.getId());
+							from.getId(), to.getId(), provedOne);
 				}
 				continue;
 			}
@@ -842,14 +906,15 @@ public class MapperView extends View {
 			if (showLinkLabels) {
 				float midX = (x1 + x2) * 0.5f;
 				float midY = (y1 + y2) * 0.5f - 4f * scale;
-				drawLinkLabelAt(canvas, midX, midY, cmds, from.getId(), to.getId());
+				drawLinkLabelAt(canvas, midX, midY, cmds, from.getId(), to.getId(),
+						provedOne);
 			}
 		}
 	}
 
 	private void drawLinkLabelAt(Canvas canvas, float midX, float midY,
-			List<String> cmds, String fromId, String toId) {
-		String label = formatLinkLabel(cmds);
+			List<String> cmds, String fromId, String toId, Set<String> walkedCmds) {
+		String label = formatLinkLabel(cmds, walkedCmds);
 		float tw = linkLabelPaint.measureText(label);
 		float pad = 4f * scale;
 		float bh = linkLabelPaint.getTextSize() + pad * 1.2f;
@@ -921,9 +986,10 @@ public class MapperView extends View {
 	 */
 	private void drawMismatchLink(Canvas canvas, float bodySize,
 			MapTile from, MapTile to, float fromCx, float fromCy,
-			float toCx, float toCy, boolean bidirectional) {
-		ensureDashForScale();
-		mismatchPaint.setStrokeWidth(Math.max(1.1f, 1.6f * scale));
+			float toCx, float toCy, boolean bidirectional,
+			Paint linePaint, Paint headPaint) {
+		ensureDashForScale(linePaint);
+		linePaint.setStrokeWidth(Math.max(1.1f, 1.6f * scale));
 		float bodyHalf = bodySize * 0.5f;
 		float out = Math.max(1.2f, 1.8f * scale);
 		float head = Math.max(5f, 6.2f * scale);
@@ -993,14 +1059,14 @@ public class MapperView extends View {
 			elbowLabelY = (startY + endY) * 0.5f - 3f * scale;
 		}
 		elbowPath.lineTo(endX, endY);
-		canvas.drawPath(elbowPath, mismatchPaint);
+		canvas.drawPath(elbowPath, linePaint);
 
 		// Heads are drawn solid: a dashed outline on a filled triangle eats it.
-		drawArrowHead(canvas, tipToX, tipToY, u2x, u2y, true, mismatchHeadPaint);
+		drawArrowHead(canvas, tipToX, tipToY, u2x, u2y, true, headPaint);
 		if (bidirectional) {
 			float tipFromX = fromCx + u1x * (rayHitSquare(bodyHalf, u1x, u1y) + out);
 			float tipFromY = fromCy + u1y * (rayHitSquare(bodyHalf, u1x, u1y) + out);
-			drawArrowHead(canvas, tipFromX, tipFromY, -u1x, -u1y, true, mismatchHeadPaint);
+			drawArrowHead(canvas, tipFromX, tipFromY, -u1x, -u1y, true, headPaint);
 		}
 	}
 
@@ -1044,13 +1110,13 @@ public class MapperView extends View {
 		return null;
 	}
 
-	private void ensureDashForScale() {
-		if (dashBuiltForScale == scale) {
-			return;
+	private void ensureDashForScale(Paint paint) {
+		if (dashBuiltForScale != scale) {
+			dashEffect = new DashPathEffect(new float[] {
+					Math.max(3f, 4.5f * scale), Math.max(2.5f, 3.5f * scale) }, 0f);
+			dashBuiltForScale = scale;
 		}
-		mismatchPaint.setPathEffect(new DashPathEffect(new float[] {
-				Math.max(3f, 4.5f * scale), Math.max(2.5f, 3.5f * scale) }, 0f));
-		dashBuiltForScale = scale;
+		paint.setPathEffect(dashEffect);
 	}
 
 	/**
@@ -1067,19 +1133,35 @@ public class MapperView extends View {
 		return half / m;
 	}
 
-	private static String formatLinkLabel(List<String> cmds) {
+	/**
+	 * Commands on a link, with the ones nobody has walked in brackets.
+	 *
+	 * The brackets are per command, not per link, because the two directions are
+	 * separate claims: walking e from Beehives into Herb Garden proves that
+	 * step and says nothing about w coming back. So a link can read {@code e ·
+	 * (w)} until the way back has been tried too.
+	 */
+	private static String formatLinkLabel(List<String> cmds, Set<String> walkedCmds) {
 		if (cmds.size() <= MAX_VISIBLE_LINK_LABELS) {
 			StringBuilder sb = new StringBuilder();
 			for (int i = 0; i < cmds.size(); i++) {
 				if (i > 0) {
 					sb.append(" · ");
 				}
-				sb.append(shortCmd(cmds.get(i)));
+				sb.append(labelFor(cmds.get(i), walkedCmds));
 			}
 			return sb.toString();
 		}
-		return shortCmd(cmds.get(0)) + " · " + shortCmd(cmds.get(1))
+		return labelFor(cmds.get(0), walkedCmds) + " · " + labelFor(cmds.get(1), walkedCmds)
 				+ " +" + (cmds.size() - MAX_VISIBLE_LINK_LABELS);
+	}
+
+	private static String labelFor(String cmd, Set<String> walkedCmds) {
+		String shown = shortCmd(cmd);
+		if (walkedCmds != null && walkedCmds.contains(cmd)) {
+			return shown;
+		}
+		return "(" + shown + ")";
 	}
 
 	private static String shortCmd(String cmd) {
