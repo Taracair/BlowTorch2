@@ -75,6 +75,12 @@ local function rowIndexOf(v)
   if tag == nil then
     return -1
   end
+  -- LuaJava may hand the Integer back already unwrapped to a Lua number, or as
+  -- the Java object. tonumber() returns nil for the latter, so try both.
+  local n = tonumber(tag)
+  if n ~= nil then
+    return n
+  end
   return tag:intValue()
 end
 
@@ -88,12 +94,15 @@ end
 
 makeRowButton = function(icon,listener,pos)
   local button = luajava.new(ImageButton,context)
-  local pad = math.floor(6 * (context:getResources()):getDisplayMetrics().density + 0.5)
+  -- density comes from the host; there is no math library inside a module()
+  -- environment, so round by hand rather than reaching for math.floor.
+  local pad = 6 * density
+  pad = pad - pad % 1
   button:setPadding(pad,pad,pad,pad)
   button:setLayoutParams(luajava.new(LinearLayoutParams,LinearLayoutParams.WRAP_CONTENT,LinearLayoutParams.WRAP_CONTENT))
   button:setBackgroundColor(0)
   button:setImageResource(icon)
-  button:setTag(luajava.newInstance("java.lang.Integer",pos))
+  button:setTag(luajava.newInstance("java.lang.Integer",tonumber(pos)))
   button:setOnClickListener(listener)
   button:setFocusable(false)
   button:setFocusableInTouchMode(false)
