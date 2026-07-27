@@ -1567,8 +1567,91 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		mCallbacksStarted = true;
 		}
+		// Outside the lock on purpose: resetWithRawDataIncoming is a synchronous binder
+		// call back into the UI process, and holding mWindowSynch across it would let a
+		// busy UI thread stall every other window's routing.
+		replayBufferToExtraTextWindow(name, callback);
 	}
-	
+
+	/** Largest replay we will hand to a single binder transaction.
+	 * The limit is about 1 MB and shared process-wide, and a full chat slot can get
+	 * close, so stay well under it: TransactionTooLargeException arrives as a plain
+	 * RemoteException and would leave the window silently blank — the very thing this
+	 * replay exists to prevent. */
+	private static final int MAX_REPLAY_BYTES = 128 * 1024;
+
+	/** Hand a newly attached extra text window the text it missed while it was closed.
+	 *
+	 * <p>{@link #lineToWindow} always writes into the WindowToken's buffer and only
+	 * then notifies the callback if one is registered, so a hidden slot has been
+	 * collecting all along. Nothing replayed it, though, and WindowToken does not
+	 * parcel its buffer, so the freshly built Window started empty and only showed
+	 * whatever arrived after it opened. Turning a chat window back on left you looking
+	 * at a blank panel until somebody spoke.
+	 *
+	 * @param name The window being registered.
+	 * @param callback Its fresh callback.
+	 */
+	private void replayBufferToExtraTextWindow(final String name, final IWindowCallback callback) {
+		if (name == null || callback == null) {
+			return;
+		}
+		// Extra text slots only. mainDisplay's token buffer is filled too, and replaying
+		// that would duplicate the whole session on top of what the main window already
+		// shows, every time it re-registers.
+		if (mExtraText.find(name) == null) {
+			return;
+		}
+		WindowToken token = getWindowByName(name);
+		if (token == null || token.getBuffer() == null) {
+			return;
+		}
+		// keep == true: this is a replay, not a handover. dumpToBytes(false) empties the
+		// tree, which would make the window blank again the second time it was opened.
+		byte[] history = token.getBuffer().dumpToBytes(true);
+		if (history == null || history.length == 0) {
+			return;
+		}
+		history = trimToNewestLines(history, MAX_REPLAY_BYTES);
+		try {
+			callback.resetWithRawDataIncoming(history);
+		} catch (RemoteException e) {
+			Log.w("BlowTorch", "Could not replay history to extra text window " + name, e);
+		}
+	}
+
+	/** Cut a dump down to its newest bytes without starting mid-line.
+	 *
+	 * <p>dumpToBytes walks oldest to newest, so the newest text is at the end and the
+	 * tail is what we want to keep. Advancing past the first newline costs at most one
+	 * partial line and avoids opening the window on half a sentence.
+	 *
+	 * @param data The full dump.
+	 * @param budget Maximum bytes to return.
+	 * @return data itself when it already fits, otherwise its tail.
+	 */
+	static byte[] trimToNewestLines(final byte[] data, final int budget) {
+		if (data == null || data.length <= budget) {
+			return data;
+		}
+		final int rawCut = data.length - budget;
+		int start = rawCut;
+		for (int i = rawCut; i < data.length; i++) {
+			if (data[i] == '\n') {
+				start = i + 1;
+				break;
+			}
+		}
+		if (start >= data.length) {
+			// The only newline in the window was the last byte. Tidiness is not worth
+			// handing back nothing and blanking the window we came here to fill.
+			start = rawCut;
+		}
+		byte[] out = new byte[data.length - start];
+		System.arraycopy(data, start, out, 0, out.length);
+		return out;
+	}
+
 	/** Called from the aidl bridge housing in StellarService when the foreground window has stopped and destroyed a
 	 * window and needs to let the Connection know that the IWindowCallback is invalid.
 	 * 
