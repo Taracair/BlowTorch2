@@ -4029,6 +4029,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			long dur = System.currentTimeMillis() - start;
 			Log.e("WINDOW","Init Window ("+w.getName()+"): took:" + dur + " millis.");
 		}
+		// Overlays set to "same as main window" read their speed off the main
+		// Window, which only just entered windowMap. Any sync() that ran before
+		// this point resolved against the default and would otherwise stay there
+		// for the whole session.
+		if (extraTextOverlay != null) {
+			extraTextOverlay.refreshScrollSpeeds();
+		}
 	}
 	
 	

@@ -112,8 +112,10 @@ function loadButtons(args)
 	view:invalidate()
 	btprof("t11 loadButtons total", tEnter)
 	if BTPROF_T0 ~= nil then
-		btprof("t12 tap to painted", BTPROF_T0)
-		BTPROF_T0 = nil
+		-- Not "tap to painted": the whole switch is one blocking UI stack, so
+		-- the frame cannot be drawn until the touch handler returns. The real
+		-- freeze is this plus t13 below.
+		btprof("t12 tap to invalidate scheduled", BTPROF_T0)
 	end
 
 	debugString(string.format("Button Window loaded button set, %s successfully",lastLoadedSet))
@@ -654,10 +656,14 @@ local function dispatchButtonAction(cmd)
 		revertButtons()
 		return true
 	end
+	local tJump = btprofNow()
 	mainwindow:jumpToStart()
 	if hasButtonSwitch(touchedbutton.data) then
-		BTPROF_T0 = btprofNow()
-		btprof("t0 dispatch, switchTo=" .. tostring(touchedbutton.data.switchTo))
+		-- t0 sits before jumpToStart so nothing between the finger lifting and
+		-- the call is outside the measured window.
+		BTPROF_T0 = tJump
+		btprof("t0 dispatch, switchTo=" .. tostring(touchedbutton.data.switchTo)
+			.. ", jumpToStart took " .. (btprofNow() - tJump) .. "ms")
 		PluginXCallS("loadButtonSet", touchedbutton.data.switchTo)
 		btprof("t1 PluginXCallS returned", BTPROF_T0)
 		return true
@@ -935,7 +941,15 @@ function normalTouch.onTouch(v,e)
 					sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 				end
 			end
+			-- This runs after dispatch, so a set switch redraws every button a
+			-- second time here on top of the drawButtons() inside loadButtons.
+			local tReset = btprofNow()
 			resetTouchedButtonVisual()
+			if BTPROF_T0 ~= nil then
+				btprof("t13 resetTouchedButtonVisual (2nd full redraw)", tReset)
+				btprof("t14 finger up to handler returning", BTPROF_T0)
+				BTPROF_T0 = nil
+			end
 			return true
 		else
 			--debugPrint("button not touched, returning false")
