@@ -54,6 +54,7 @@ import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
+import com.resurrection.blowtorch2.lib.service.function.SettingsCommand;
 import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
@@ -498,6 +499,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(mapcmd.commandName, mapcmd);
 		WindowCommand windowcmd = new WindowCommand();
 		mSpecialCommands.put(windowcmd.commandName, windowcmd);
+		SettingsCommand settingscmd = new SettingsCommand();
+		mSpecialCommands.put(settingscmd.commandName, settingscmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;
@@ -4699,6 +4702,28 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** The main starting point for the save settings routine. This is called for a few different locations. */
 	public final void saveMainSettings() {
 		mSettingsIO.saveMainSettings();
+	}
+
+	/** One line about the kept copy of this connection's settings, for .settings.
+	 *
+	 * @return what exists on disk and when it was last written.
+	 */
+	public final String describeSettingsBackup() {
+		return mSettingsIO.describeMainSettingsBackup();
+	}
+
+	/** Put the kept copy of the settings back and reload from it.
+	 *
+	 * @return a message for the player saying what happened.
+	 */
+	public final String restoreSettingsBackup() {
+		String message = mSettingsIO.restoreMainSettingsBackup();
+		if (message != null && message.startsWith("Restored")) {
+			// Restoring the file is only half of it — everything live was built from
+			// the copy we just replaced.
+			reloadSettings();
+		}
+		return message;
 	}
 	
 	/** Export settings routine. Called from either the main settings save routine or the export settings dialog.
