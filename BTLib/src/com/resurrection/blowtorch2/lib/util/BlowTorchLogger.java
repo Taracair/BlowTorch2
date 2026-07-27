@@ -70,44 +70,143 @@ public final class BlowTorchLogger {
 		if (backup.exists()) {
 			backup.delete();
 		}
+		// Both processes write this file, so the other one may have rotated it a
+		// moment ago. renameTo and createNewFile both just report false in that case;
+		// losing the race is fine, and throwing a fit about it would be worse than the
+		// few lines at stake.
 		logFile.renameTo(backup);
 		try {
 			logFile.createNewFile();
 		} catch (IOException e) {
-			e.printStackTrace();
+			android.util.Log.w(TAG, "Could not reopen the log after rotating", e);
 		}
+	}
+
+	/** Application context, stashed so error paths do not each have to find one.
+	 *
+	 * <p>Set from {@link com.resurrection.blowtorch2.lib.BlowTorchApp}, which the
+	 * framework instantiates once per process — so this is populated in the UI process
+	 * and in :stellar alike. Null only before that runs, and then we still reach
+	 * logcat. Never a plain Activity: this outlives every one of them. */
+	private static volatile Context sAppContext = null;
+
+	/** How long the same failure is kept out of the file after it has been recorded. */
+	private static final long REPEAT_QUIET_MS = 10000;
+	private static final java.util.HashMap<String, long[]> RECENT = new java.util.HashMap<String, long[]>();
+
+	static final String TAG = "BlowTorch";
+
+	/** Remember the application context for later error reporting.
+	 *
+	 * @param context Any context; its application context is what gets kept.
+	 */
+	public static void attach(final Context context) {
+		if (context != null && sAppContext == null) {
+			sAppContext = context.getApplicationContext();
+		}
+	}
+
+	/** Record a failure that means something is broken: file log and logcat.
+	 *
+	 * <p>For the paths where silence has actually cost us — binder calls, file IO,
+	 * settings load and save, window and service lifecycle. Not for a failed parse of
+	 * something a player typed; a log where routine and serious look alike is the
+	 * problem this is meant to solve, arrived at from the other side.
+	 *
+	 * @param source Where it happened, for the log line.
+	 * @param t The failure.
+	 */
+	public static void logThrowable(final String source, final Throwable t) {
+		if (t == null) {
+			return;
+		}
+		String detail = t.getClass().getSimpleName()
+				+ (t.getMessage() != null ? (": " + t.getMessage()) : "");
+		if (!shouldRecord(source, t)) {
+			// Still visible while it is happening, just not filling the file.
+			android.util.Log.w(TAG, "[" + source + "] (repeat) " + detail);
+			return;
+		}
+		Context ctx = sAppContext;
+		if (ctx == null) {
+			android.util.Log.e(TAG, "[" + source + "] " + detail, t);
+			return;
+		}
+		writeLine(ctx, source, stripColors(detail).trim());
+		// The trace goes to logcat only. It is the useful half when someone is looking
+		// live, and the half that would turn the file into a wall of frames.
+		android.util.Log.e(TAG, "[" + source + "] " + detail, t);
+	}
+
+	/** Note a failure that is expected in normal use: logcat only, never the file.
+	 *
+	 * @param source Where it happened.
+	 * @param t The failure.
+	 */
+	public static void logMinor(final String source, final Throwable t) {
+		if (t == null) {
+			return;
+		}
+		android.util.Log.w(TAG, "[" + source + "] " + t.getClass().getSimpleName()
+				+ (t.getMessage() != null ? (": " + t.getMessage()) : ""));
+	}
+
+	/** False when this same failure was written recently.
+	 *
+	 * <p>A failure inside a draw or a read loop repeats at whatever rate that loop
+	 * runs. Without this the file rotates in minutes and takes the history worth
+	 * keeping with it.
+	 */
+	private static synchronized boolean shouldRecord(final String source, final Throwable t) {
+		String key = source + "|" + t.getClass().getName() + "|" + t.getMessage();
+		long now = System.currentTimeMillis();
+		long[] seen = RECENT.get(key);
+		if (seen != null && (now - seen[0]) < REPEAT_QUIET_MS) {
+			seen[1]++;
+			return false;
+		}
+		if (RECENT.size() > 200) {
+			RECENT.clear();
+		}
+		RECENT.put(key, new long[] { now, 1 });
+		return true;
 	}
 
 	public static synchronized void logError(Context context, String source, String message) {
 		if (context == null || message == null) {
 			return;
 		}
+		String plain = stripColors(message).trim();
+		writeLine(context, source, plain);
+		// Mirror to logcat regardless. A player can screenshot the game window, but a
+		// screenshot is not something anyone can grep.
+		android.util.Log.e(TAG, "[" + source + "] " + plain);
+	}
+
+	/** Append one line to the on-device log. Callers decide what reaches logcat. */
+	private static synchronized void writeLine(Context context, String source, String plain) {
 		ensureLogFile(context);
 		File logFile = getLogFile(context);
 		if (logFile.length() > MAX_BYTES) {
 			rotateLog(logFile.getParentFile(), logFile);
 		}
 		String stamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
-		String plain = stripColors(message).trim();
 		String line = stamp + " [" + source + "] " + plain + "\n";
 		FileOutputStream out = null;
 		try {
 			out = new FileOutputStream(logFile, true);
 			out.write(line.getBytes(StandardCharsets.UTF_8));
 		} catch (IOException e) {
-			android.util.Log.e("BlowTorch", "Could not write error log: " + line.trim(), e);
+			android.util.Log.e(TAG, "Could not write error log: " + line.trim(), e);
 		} finally {
 			if (out != null) {
 				try {
 					out.close();
 				} catch (IOException e) {
-					e.printStackTrace();
+					android.util.Log.w(TAG, "Could not close the error log", e);
 				}
 			}
 		}
-		// Mirror to logcat regardless. A player can screenshot the game window, but a
-		// screenshot is not something anyone can grep.
-		android.util.Log.e("BlowTorch", "[" + source + "] " + plain);
 	}
 
 	public static String stripColors(String message) {
