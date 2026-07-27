@@ -13,6 +13,24 @@ local function debugString(string)
 	end
 end
 
+-- TEMPORARY: timing probes for the button set switch, tag BTPROF. Runs in the
+-- service process; uptimeMillis is system-wide so these interleave with the
+-- "win" lines from buttonwindow.lua on one logcat timeline.
+BTPROF_Log = luajava.bindClass("android.util.Log")
+BTPROF_SystemClock = luajava.bindClass("android.os.SystemClock")
+local function btprofNow()
+	-- tonumber: uptimeMillis is a Java long, and arithmetic on the boxed value
+	-- is not something luajava can be trusted to do.
+	return tonumber(BTPROF_SystemClock:uptimeMillis()) or 0
+end
+local function btprof(stage, since)
+	if since == nil then
+		BTPROF_Log:i("BTPROF", "srv " .. stage)
+	else
+		BTPROF_Log:i("BTPROF", "srv " .. stage .. " +" .. (btprofNow() - since) .. "ms")
+	end
+end
+
 debugString("Button Server Loading...")
 
 buttonsets = {} --raw table, holds tables of buttons.
@@ -24,12 +42,15 @@ set = {}
 lob = {}
 
 function loadButtonSet(args)
-	
+
+	local tEnter = btprofNow()
+	btprof("t2 loadButtonSet entered, set=" .. tostring(args))
+
 	debugString("Button Server sending button set, "..args)
 
 	lob.name = args
 	lob.set = buttonsets[args]
-	
+
 	if(lob.set == nil) then
 		debugString("Button Set "..tostring(args).." is nil, skip load")
 		return
@@ -39,11 +60,15 @@ function loadButtonSet(args)
 
 	-- Never hand the window a set with tiles outside the screen: they cannot be
 	-- tapped, and if the set has no reachable way back the session is stuck.
+	local tSanitize = btprofNow()
 	local okSanitize, repaired = pcall(sanitizeButtonSet, args)
+	btprof("t3 sanitizeButtonSet repaired=" .. tostring(okSanitize and repaired), tSanitize)
 	if okSanitize and repaired then
 		Note("\nButton set \"" .. tostring(args) .. "\" had buttons off screen; moved them back into view.\n")
 		if SaveSettings ~= nil then
+			local tSave = btprofNow()
 			pcall(SaveSettings)
+			btprof("t3b SaveSettings (whole settings file + fsync)", tSave)
 		end
 	end
 
@@ -51,7 +76,13 @@ function loadButtonSet(args)
 	lob.default = buttonset_defaults[args]
 
 	current_set = args
-	WindowXCallB(buttonWindowName,"loadButtons",marshal.encode(lob))
+	local tEncode = btprofNow()
+	local payload = marshal.encode(lob)
+	btprof("t4 marshal.encode, " .. #payload .. " bytes", tEncode)
+	local tSend = btprofNow()
+	WindowXCallB(buttonWindowName,"loadButtons",payload)
+	btprof("t4b WindowXCallB returned", tSend)
+	btprof("t4c loadButtonSet total", tEnter)
 end
 
 function loadAndEditSet(data)
