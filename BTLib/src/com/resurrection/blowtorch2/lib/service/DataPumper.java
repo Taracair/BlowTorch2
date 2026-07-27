@@ -29,6 +29,9 @@ import android.util.Log;
 /** Data pumper thread implementation. This object manages itself as a thread, as well as a child
  * thread process to write output data to. */
 public class DataPumper extends Thread {
+
+	/** How long to give the writer thread to stop before closing the socket regardless. */
+	private static final int WRITER_SHUTDOWN_WAIT_MS = 2000;
 	/** Constant indicating the socket polling loop. */
 	public static final int MESSAGE_RETRIEVE = 100;
 	/** Constant indicating orderly shutdown via user. */
@@ -318,11 +321,22 @@ public class DataPumper extends Thread {
 				if (mWriterThread != null && mWriterThread.mOutputHandler != null) {
 					mWriterThread.mOutputHandler.sendEmptyMessage(OutputWriterThread.MESSAGE_END);
 					try {
-						Log.e("TEST", "KILLING WRITER THREAD");
-						mWriterThread.join();
-						Log.e("TEST", "WRITER THREAD DEAD");
+						// Bounded, and deliberately so. MESSAGE_END only gets read when
+						// the writer comes back round its loop; a writer blocked in a
+						// send on a half-open socket never does. Waiting for it here
+						// would be waiting for something that only the socket close
+						// below can free — so give it a moment, then go and do that.
+						mWriterThread.join(WRITER_SHUTDOWN_WAIT_MS);
+						if (mWriterThread.isAlive()) {
+							mWriterThread.interrupt();
+							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+									"DataPumper.shutdownSocket",
+									new IllegalStateException("writer thread still running after "
+											+ WRITER_SHUTDOWN_WAIT_MS + "ms; closing the socket anyway"));
+						}
 					} catch (InterruptedException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+								"DataPumper.shutdownSocket", e);
 					}
 				}
 				if (mReader != null) {

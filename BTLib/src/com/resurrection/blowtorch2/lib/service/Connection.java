@@ -1721,6 +1721,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @param noreconnect true if there should be no reconnect attempt made.
 	 */
+	/** How long to give a net thread to stop before moving on without it. */
+	private static final int PUMP_SHUTDOWN_WAIT_MS = 2000;
+
 	protected final void killNetThreads(final boolean noreconnect) {
 		
 		if (mPump == null) {
@@ -1741,7 +1744,22 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			
 			
 				try {
-					mPump.join();
+					// Bounded, like the branch below already is. This runs on the
+					// connection handler — the thread that processes every command,
+					// reconnect and window update for this session. Waiting forever
+					// for a pump stuck in a read on a half-open socket would freeze
+					// the whole connection while the service still looked healthy.
+					mPump.join(PUMP_SHUTDOWN_WAIT_MS);
+					if (mPump.isAlive()) {
+						mPump.interrupt();
+						mPump.join(PUMP_SHUTDOWN_WAIT_MS);
+					}
+					if (mPump.isAlive()) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"Connection.killNetThreads",
+								new IllegalStateException("data pump did not stop within "
+										+ (2 * PUMP_SHUTDOWN_WAIT_MS) + "ms; carrying on without it"));
+					}
 				} catch (InterruptedException e) {
 					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.killNetThreads", e);
 				}
