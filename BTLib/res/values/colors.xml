@@ -8,6 +8,9 @@
     <color name="game_input_highlight">#555555</color>
     <!-- Marching dashed edge around dialogs. Same blue the mapper uses for links and
          labels, so the chrome reads as one family instead of a leftover red. Defined
-         once here because three drawables draw this same border. -->
-    <color name="dialog_frame_edge">#FF9EC5FF</color>
+         once here because three drawables draw this same border.
+         Alpha, not a darker blue: game_chrome_edge already softens the same way, and
+         it keeps one hue in the file. At full strength this read as a cage — the
+         border is frame, not content. #66 quieter still, #CC louder. -->
+    <color name="dialog_frame_edge">#999EC5FF</color>
 </resources>
