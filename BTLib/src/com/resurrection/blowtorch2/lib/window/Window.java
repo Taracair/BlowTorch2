@@ -1642,23 +1642,24 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			IteratorBundle bundle = null;
 			boolean gotIt = false;
-			int maxTries = 20;
+			// Retry without sleeping. This used to wait(5) between tries, up to twenty
+			// times, which is a tenth of a second of frozen UI inside one frame — and
+			// sleeping the only thread that drains the message queue cannot help,
+			// because on this Handler the buffer is filled by that same thread.
+			// Retries are also not free: a late throw means getScreenIterator walked
+			// most of the scrollback first, so a few tries is the sensible ceiling and
+			// the frame after this one is a better place to be than this one.
+			int maxTries = 3;
 			int tries = 0;
 
-			while (!gotIt && tries <= maxTries) {
+			while (!gotIt && tries < maxTries) {
 				try {
 					tries = tries + 1;
 					bundle = getScreenIterator(mScrollback, mPrefLineSize);
 					gotIt = true;
 				} catch (ConcurrentModificationException e) {
-					// Buffer mutated mid-draw — retry briefly instead of leaving a blank frame.
-					synchronized (this) {
-						try {
-							this.wait(5);
-						} catch (InterruptedException e1) {
-							e1.printStackTrace();
-						}
-					}
+					// Buffer mutated mid-draw. Give up on this frame and ask for another.
+					Log.e("BlowTorch", "buffer changed under onDraw, try " + tries, e);
 				}
 			}
 			if (!gotIt) {
