@@ -143,6 +143,7 @@ public class ExtraTextOverlayController {
 			applyChromeForMode(entry);
 			applyLayout(entry);
 			applyVisibility(entry);
+			applyScrollSpeed(entry);
 			bringUnderChrome(entry);
 		}
 
@@ -438,6 +439,46 @@ public class ExtraTextOverlayController {
 		if (drawer && e.slot.isCollapsed()) {
 			e.slot.setCollapsed(false);
 		}
+	}
+
+	/**
+	 * Push the slot's scroll speed onto the live overlay.
+	 *
+	 * <p>Deliberately not routed through the overlay's SettingsGroup: extra-text
+	 * WindowTokens are rebuilt by {@code Connection.ensureExtraTextSlots()} and
+	 * never land in {@code settings.getWindows()}, so nothing there is saved.
+	 * The slot JSON is the durable copy; this only mirrors it onto the view, and
+	 * it runs on every {@link #sync()} so a change applies without reopening.
+	 */
+	private void applyScrollSpeed(OverlayEntry e) {
+		if (e == null || e.window == null || e.slot == null) {
+			return;
+		}
+		e.window.applyScrollSensitivityChoice(
+				Integer.valueOf(e.slot.resolveScrollChoice(mainWindowScrollChoice())));
+	}
+
+	/** Re-apply every overlay's speed; used when the main window's choice moves. */
+	public void refreshScrollSpeeds() {
+		for (OverlayEntry e : entries.values()) {
+			applyScrollSpeed(e);
+		}
+	}
+
+	/**
+	 * @return The main window's current {@code scroll_sensitivity} choice, or the
+	 *         default when the main Window view is not up yet.
+	 */
+	private int mainWindowScrollChoice() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || activity.windowMap == null) {
+			return WindowToken.DEFAULT_SCROLL_SENSITIVITY;
+		}
+		Window main = activity.windowMap.get("mainDisplay");
+		if (main == null) {
+			return WindowToken.DEFAULT_SCROLL_SENSITIVITY;
+		}
+		return main.getScrollSensitivityChoice();
 	}
 
 	private void applyVisibility(OverlayEntry e) {
