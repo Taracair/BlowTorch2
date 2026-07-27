@@ -826,14 +826,21 @@ function sanitizeButtonSet(setName)
 	for i,b in pairs(set) do
 		local x = tonumber(b.x)
 		local y = tonumber(b.y)
+		-- Compare against the numeric original, not the raw field. Coordinates
+		-- come back from the settings XML as strings, and in Lua 1 ~= "1", so
+		-- comparing to b.x reported every button as moved on the first load
+		-- after a profile read — a settings write and a Note() in the game
+		-- window every time, for buttons that were never off screen.
+		local ox, oy = x, y
 		-- nil and NaN both fail these comparisons, so both land on the minimum.
 		if x == nil or x ~= x or x < minX then x = minX end
 		if x > maxX then x = maxX end
 		if y == nil or y ~= y or y < minY then y = minY end
 		if y > maxY then y = maxY end
-		if x ~= b.x or y ~= b.y then
+		if x ~= ox or y ~= oy then
 			moved = true
 		end
+		-- Still normalise the stored value to a number either way.
 		b.x = x
 		b.y = y
 	end
