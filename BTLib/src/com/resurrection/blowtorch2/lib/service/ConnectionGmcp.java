@@ -15,7 +15,6 @@ import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
-import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 
 /** GMCP settings, status, trigger loading, and message-handler bodies for a Connection. */
 final class ConnectionGmcp {
@@ -62,7 +61,9 @@ final class ConnectionGmcp {
 		fub.get(fubtmp);
 		if (host.mProcessor != null && msg.obj instanceof String
 				&& (host.mProcessor.isLogGMCP() || host.mProcessor.isDebugTelnet())) {
-			BlowTorchLogger.logError(host.mService.getApplicationContext(), "GMCP", "OUT " + msg.obj);
+			// Logcat only. This fires per outbound packet, and the error log is a
+			// place to find out why something broke, not a protocol dump.
+			android.util.Log.i("GMCP", "OUT " + msg.obj);
 		}
 		if (host.mPump != null && host.mPump.isConnected()) {
 			host.mPump.sendData(fubtmp);

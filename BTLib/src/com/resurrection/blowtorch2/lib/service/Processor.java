@@ -13,7 +13,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
-import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 import android.content.Context;
@@ -38,7 +37,7 @@ public class Processor {
 	private Context mContext = null;
 	/** Weather or not to display telnet debugging messages. */
 	private boolean mDebugTelnet = false;
-	/** When true, GMCP handshake/packets are written to BlowTorchLogger (+ session log if on). */
+	/** When true, GMCP handshake/packets go to logcat (+ session log if on). */
 	private boolean mLogGMCP = false;
 	/** When true, echo GMCP IN/OUT lines into the game window. */
 	private boolean mFeedGMCP = false;
@@ -176,7 +175,9 @@ public class Processor {
 		if (mLogGMCP || mDebugTelnet) {
 			Log.i("GMCP", line);
 			if (mContext != null) {
-				BlowTorchLogger.logError(mContext, "GMCP", line);
+				// Not the error log: this is a trace of every GMCP packet, and it used
+				// to roll the error history away under it. Logcat for watching live,
+				// session log for keeping.
 				if (mLogGMCP && SessionLogger.isEnabled(mContext)) {
 					SessionLogger.appendMarker(mContext, mLogProfile, "GMCP " + line);
 				}

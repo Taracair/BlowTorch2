@@ -14,7 +14,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 
-import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 /**
@@ -858,10 +857,10 @@ public final class McpEngine {
 		if (mLog) {
 			String line = "[MCP] " + dir + " " + payload;
 			Log.i(TAG, line);
-			try {
-				BlowTorchLogger.logError(mSink.getContext(), "MCP", dir + " " + payload);
-			} catch (Exception ignored) {
-			}
+			// Deliberately not the error log. Every MCP message went in there, and a
+			// chatty server filled it to the 2 MB rotation limit in a session — taking
+			// the actual errors with it. Protocol traffic belongs in the session log,
+			// which is right below and is what session logs are for.
 			try {
 				SessionLogger.appendMarker(mSink.getContext(), mSink.getDisplayName(),
 						"MCP " + dir + " " + redact(payload));
