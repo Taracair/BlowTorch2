@@ -6,4 +6,8 @@
     <!-- Softer edge for extra-text drawer/float handles (input-bar family, lower alpha). -->
     <color name="game_chrome_edge">#66444488</color>
     <color name="game_input_highlight">#555555</color>
+    <!-- Marching dashed edge around dialogs. Same blue the mapper uses for links and
+         labels, so the chrome reads as one family instead of a leftover red. Defined
+         once here because three drawables draw this same border. -->
+    <color name="dialog_frame_edge">#FF9EC5FF</color>
 </resources>
