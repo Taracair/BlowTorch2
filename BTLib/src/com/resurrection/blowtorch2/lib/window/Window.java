@@ -1794,6 +1794,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// Giving up after BLEED_SEARCH_MAX_LINES means: no colour code within that
 			// many lines above the screen, so the default colour is what should be
 			// drawn anyway. A buffer that plain has nothing to bleed.
+			// TEMPORARY (BTPROF): the last unmeasured span in onDraw. Worst case is a
+			// buffer with no colour above the screen, which walks the full limit and
+			// then rewinds it. Coloured output stops at the first code found, so this
+			// is expected to be cheap on a real MUD — that is what we are checking.
+			final long btprofBleedStart = android.os.SystemClock.uptimeMillis();
 			while (screenIt.hasNext() && !bleeding && back < BLEED_SEARCH_MAX_LINES) {
 
 				Line l = screenIt.next();
@@ -1833,9 +1838,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//TODO: STEP 4
 			//advance the iterator back the number of units it took to find a bleed.
 			//second real expensive move. In the case of a no color text buffer, it would walk from scroll to end and back every time. USE COLOR 
+			final int btprofBleedLines = back;
 			while (back > 0) {
 				screenIt.previous();
 				back--;
+			}
+			if ("mainDisplay".equals(mName)) {
+				long btprofBleedMs = android.os.SystemClock.uptimeMillis() - btprofBleedStart;
+				// Only the frames worth looking at: a scan that found colour in the
+				// first few lines is the common case and would drown the log.
+				if (btprofBleedLines > 50 || btprofBleedMs > 2) {
+					android.util.Log.i("BTPROF", "bleed scan walked " + btprofBleedLines
+							+ " lines (bleeding=" + bleeding + ") in " + btprofBleedMs + "ms");
+				}
 			}
 
 			if (screenIt.hasNext()) {
