@@ -425,21 +425,23 @@ public class TextTree {
 			holdover = null;
 		}
 		
+		// A line is finished when the newline that closed it is its last unit, and
+		// every path that closes one puts the NewLine there last. Asking the last
+		// unit directly is therefore the whole question.
+		//
+		// This used to scan the line for the last Text or NewLine, which answered
+		// nothing at all when the newest line held neither -- and then left
+		// appendLast holding whatever the previous call had worked out, since it
+		// is a field. A chunk ending "text\n\033[0m" leaves exactly that: the
+		// newline closes the line, and the colour reset opens a fresh one carrying
+		// a single Color unit. With a stale false that unit was orphaned as a
+		// blank line, and the text belonging to it began another line below.
+		appendLast = false;
 		if(mLines.size() > 0) {
-			Line analyze = mLines.get(0);
-			
-			//boolean appendLast = false;
-			//Log.e("TREE","ANALYZING: " + deColorLine(analyze));
-			
-			for(Unit u : analyze.getData()) {
-				if(u instanceof Text) {
-					appendLast = true;
-				} else if(u instanceof NewLine) {
-					appendLast = false;
-					//linesadded = 1;
-				}
-			}
-			//Log.e("TREE","APPEND LAST IS:" + appendLast);
+			LinkedList<Unit> newest = mLines.get(0).getData();
+			// Empty is only ever an artefact -- a blank line from the server is a
+			// line holding a NewLine -- so continue into it rather than leave it.
+			appendLast = newest.isEmpty() || !(newest.getLast() instanceof NewLine);
 		}
 		
 		LinkedList<Unit> ldata = null;
@@ -494,8 +496,13 @@ public class TextTree {
 
 				if( (i+1) >= data.length) {
 					holdover = new byte[]{ ESC };
-					addLine(tmp);
-					linesadded += tmp.breaks + 1;
+					// Guarded like the end of the method: an escape arriving right
+					// after a newline leaves tmp empty, and adding it put a blank
+					// line in the buffer that the server never sent.
+					if(tmp.getData().size() > 0) {
+						addLine(tmp);
+						linesadded += tmp.breaks + 1;
+					}
 					return this.getBrokenLineCount() - startcount;
 				}
 
@@ -512,8 +519,10 @@ public class TextTree {
 						holdover = new byte[tmpsize];
 						cb.rewind();
 						cb.get(holdover,0,tmpsize);
-						addLine(tmp);
-						linesadded += tmp.breaks + 1;
+						if(tmp.getData().size() > 0) {
+							addLine(tmp);
+							linesadded += tmp.breaks + 1;
+						}
 						return this.getBrokenLineCount() - startcount;
 					}
 
@@ -562,8 +571,10 @@ public class TextTree {
 						holdover = new byte[mtmpsz];
 						cb.rewind();
 						cb.get(holdover,0,mtmpsz);
-						addLine(tmp);
-						linesadded += tmp.breaks + 1;
+						if(tmp.getData().size() > 0) {
+							addLine(tmp);
+							linesadded += tmp.breaks + 1;
+						}
 						return this.getBrokenLineCount() - startcount;
 					}
 					break;
@@ -589,8 +600,10 @@ public class TextTree {
 						int len = data.length - i;
 						holdover = new byte[len];
 						System.arraycopy(data, i, holdover, 0, len);
-						addLine(tmp);
-						linesadded += tmp.breaks + 1;
+						if(tmp.getData().size() > 0) {
+							addLine(tmp);
+							linesadded += tmp.breaks + 1;
+						}
 						return this.getBrokenLineCount() - startcount;
 					}
 					break;
