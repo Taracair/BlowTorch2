@@ -51,7 +51,8 @@ public class IntegerOption extends BaseOption implements Parcelable {
 					int num = Integer.parseInt((String)o);
 					value = (Integer)num;
 				}
-			} catch(NumberFormatException e) {
+			} catch(NumberFormatException ignored) {
+				// Not a number: keep the value already held.
 				
 			}
 		}

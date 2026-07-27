@@ -120,7 +120,8 @@ public class SpeedWalkDirectionEditorDialog extends Dialog {
 			int val = Integer.parseInt(direction.getText().toString());
 			checker.showMessage(SpeedWalkDirectionEditorDialog.this.getContext(), "Direction field can not be a number. " + val + " is invalid.");
 			return false;
-		} catch(NumberFormatException e) {
+		} catch(NumberFormatException ignored) {
+			// The validator above has already told the player what is wrong.
 			
 		}
 		

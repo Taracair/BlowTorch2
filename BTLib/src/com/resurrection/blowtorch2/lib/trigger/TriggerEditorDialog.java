@@ -238,6 +238,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			}
 		} catch (RemoteException e) {
 			// Suggestions are optional.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("TriggerEditorDialog.save trigger", e);
 		}
 		ArrayList<String> nameList = new ArrayList<String>(names);
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),

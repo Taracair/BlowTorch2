@@ -80,7 +80,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 						(Map<String, TriggerData>) service.getPluginTriggerData(currentPlugin));
 			}
 		} catch (RemoteException e) {
-			// keep empty
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterTriggerSelectionDialog.load triggers", e);
 		}
 		groupNames = set.toArray(new String[set.size()]);
 	}
@@ -125,6 +125,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 			}
 		} catch (RemoteException e) {
 
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterTriggerSelectionDialog.enable trigger", e);
 		}
 		applyToggleTint(v, state);
 		this.setItemEnabled(row, state);
@@ -145,6 +146,7 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 			}
 		} catch (RemoteException e) {
 
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterTriggerSelectionDialog.delete trigger", e);
 		}
 		Log.e("Trigger","trigger item selected for delete: "+d.getName());
 	}

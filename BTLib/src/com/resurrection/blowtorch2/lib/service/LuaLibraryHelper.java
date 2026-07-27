@@ -38,6 +38,7 @@ public final class LuaLibraryHelper {
 			}
 		} catch (PackageManager.NameNotFoundException e) {
 			// keep dataDir-only path
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("LuaLibraryHelper.lua library path", e);
 		}
 		return cpath.toString();
 	}

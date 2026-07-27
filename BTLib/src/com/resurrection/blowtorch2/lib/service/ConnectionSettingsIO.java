@@ -192,6 +192,7 @@ final class ConnectionSettingsIO {
 					fos.close();
 				} catch (IOException e) {
 					// ignore
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO.close settings file", e);
 				}
 				fos = null;
 			}

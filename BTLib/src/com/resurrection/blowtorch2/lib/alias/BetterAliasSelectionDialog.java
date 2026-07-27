@@ -66,6 +66,7 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			}
 		} catch (RemoteException e) {
 
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterAliasSelectionDialog.alias enable", e);
 		}
 		applyToggleTint(v, state);
 		this.setItemEnabled(row, state);
@@ -86,6 +87,7 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			}
 		} catch (RemoteException e) {
 
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterAliasSelectionDialog.alias delete", e);
 		}
 		Log.e("Trigger","alias item selected for delete: "+d.getPre());
 	}

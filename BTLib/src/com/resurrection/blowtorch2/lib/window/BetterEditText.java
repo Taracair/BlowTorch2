@@ -143,7 +143,8 @@ public class BetterEditText extends EditText {
 	        if (kl != null) {
 	            try {
 	                kl.clearMetaKeyState(mTextView, content, states);
-	            } catch (AbstractMethodError e) {
+	            } catch (AbstractMethodError ignored) {
+	            	// Some IMEs ship a KeyListener without this method; nothing to do about it.
 	                // This is an old listener that doesn't implement the
 	                // new method.
 	            }

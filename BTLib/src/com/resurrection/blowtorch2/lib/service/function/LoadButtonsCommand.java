@@ -16,6 +16,7 @@ public Object execute(Object o,Connection c) {
 			try {
 				callbacks.getBroadcastItem(i).reloadButtons(str);
 			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("LoadButtonsCommand.reload buttons broadcast", e);
 			}
 		}
 		callbacks.finishBroadcast();

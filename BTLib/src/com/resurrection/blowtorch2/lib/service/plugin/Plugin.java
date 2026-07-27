@@ -1206,7 +1206,7 @@ Note("Example text!")
 			for(TriggerResponder responder : data.getResponders()) {
 				try {
 					responder.doResponse(mContext,null,0,null,null,0,0,"",(Object)getSettings().getTimers().get(ordinal), parent.getDisplayName(),parent.getHostName(),parent.getPort(), StellarService.getNotificationId(), parent.isWindowShowing(), mHandler,captureMap,L,Plugin.this.getSettings().getTimers().get(ordinal).getName(),mEncoding);
-				} catch (IteratorModifiedException e) {
+				} catch (IteratorModifiedException ignored) {
 					// won't ever get here because gag/replace actions can't be applied to timers.
 				} catch (Exception e) {
 					String tname = data.getName() != null ? data.getName() : ordinal;

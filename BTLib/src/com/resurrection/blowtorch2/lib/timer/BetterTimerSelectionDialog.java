@@ -78,6 +78,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 			}
 		} catch (RemoteException e) {
 			// keep empty
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterTimerSelectionDialog.load timers", e);
 		}
 		groupNames = set.toArray(new String[set.size()]);
 	}
@@ -183,6 +184,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 			}
 		} catch (RemoteException e) {
 
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("BetterTimerSelectionDialog.delete timer", e);
 		}
 		Log.e("Trigger","trigger item selected for delete: "+d.getName());
 	}

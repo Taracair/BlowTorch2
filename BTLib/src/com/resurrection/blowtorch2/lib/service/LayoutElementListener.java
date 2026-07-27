@@ -186,6 +186,7 @@ public class LayoutElementListener implements StartElementListener {
 				}
 			} catch (IllegalArgumentException e) {
 				// Unknown attribute — ignore quietly.
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("LayoutElementListener.layout attribute", e);
 			}
 			
 		}

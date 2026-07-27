@@ -177,6 +177,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			}
 		} catch (RemoteException e) {
 			// optional
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("TimerEditorDialog.save timer", e);
 		}
 		ArrayList<String> nameList = new ArrayList<String>(names);
 		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),

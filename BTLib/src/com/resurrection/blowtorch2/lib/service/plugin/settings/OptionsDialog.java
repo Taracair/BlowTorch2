@@ -209,6 +209,7 @@ public class OptionsDialog extends Dialog {
 			
 		} catch(RemoteException e) {
 		
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("OptionsDialog.apply option", e);
 		}
 		
 		
@@ -1154,7 +1155,8 @@ public class OptionsDialog extends Dialog {
 					service.updatePluginIntegerSetting(selectedPlugin,option.getKey(), number);
 				}
 			
-			} catch(NumberFormatException e) {
+			} catch(NumberFormatException ignored) {
+				// Typed something that is not a number: leave the option alone.
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();

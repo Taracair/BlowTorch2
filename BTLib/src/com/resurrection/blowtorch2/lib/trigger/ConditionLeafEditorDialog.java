@@ -251,6 +251,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 			}
 		} catch (RemoteException e) {
 			// picker optional
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConditionLeafEditorDialog.save condition", e);
 		}
 		triggerChoices.addAll(names);
 	}

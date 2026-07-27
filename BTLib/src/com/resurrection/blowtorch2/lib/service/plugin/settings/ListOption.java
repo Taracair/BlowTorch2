@@ -71,7 +71,8 @@ public class ListOption extends BaseOption implements Parcelable {
 			try {
 				int num = Integer.parseInt((String)o);
 				value = (Integer)num;
-			} catch(NumberFormatException e) {
+			} catch(NumberFormatException ignored) {
+				// Not a number: keep the selection already held.
 				
 			}
 		}

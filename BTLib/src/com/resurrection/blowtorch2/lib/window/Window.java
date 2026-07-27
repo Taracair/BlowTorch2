@@ -4326,8 +4326,9 @@ end
 				break;
 				
 			}
-		} catch(IllegalArgumentException e) {
-		} catch (NullPointerException e) {
+		} catch(IllegalArgumentException ignored) {
+			// Key belongs to some other settings group; not ours to apply.
+		} catch (NullPointerException ignored) {
 			// Missing option object — ignore rather than crash the options UI.
 		}
 	}

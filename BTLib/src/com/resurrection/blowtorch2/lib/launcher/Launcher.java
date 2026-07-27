@@ -1584,6 +1584,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
 				//e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Launcher.list connections", e);
 			}
 			if(connectedList != null) {
 				for(int i=0;i<apdapter.getCount();i++) {

@@ -391,6 +391,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			} catch (RemoteException e) {
 				//do nothing here, as there isn't much we can do
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.reconnect", e);
 			}
 			synchronized(serviceConnected) {
 				//Log.e("WINDOW","SERVICE CONNECTED, SENDING NOTIFICATION");
@@ -415,6 +416,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				if(service != null) service.unregisterCallback(the_callback);
 			} catch (RemoteException e) {
 				//do nothing here, as there isn't much we can do
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("MainWindow.unregister callback", e);
 			}
 			
 			service = null;
@@ -1328,7 +1330,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		synchronized(this) {
 			try {
 				this.wait(5);
-			} catch (InterruptedException e) {
+			} catch (InterruptedException ignored) {
 			}
 		}
 		
@@ -2495,11 +2497,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				service.unregisterCallback(the_callback);
 			} catch (RemoteException e) {
 				//e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("MainWindow.unregister callback", e);
 			}
 			
 			try {
 				unbindService(mConnection);
-			} catch (IllegalArgumentException e) {
+			} catch (IllegalArgumentException ignored) {
 				// Already unbound during teardown.
 			}
 			
@@ -2525,6 +2528,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			} catch (RemoteException e) {
 				//e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("MainWindow.unregister callback", e);
 			}
 			
 			unbindService(mConnection);

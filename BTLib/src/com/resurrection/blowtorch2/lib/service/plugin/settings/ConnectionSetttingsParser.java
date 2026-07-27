@@ -733,6 +733,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 					}
 				} catch (IllegalArgumentException e){
 					
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSetttingsParser.write settings option", e);
 				}
 			}
 		}

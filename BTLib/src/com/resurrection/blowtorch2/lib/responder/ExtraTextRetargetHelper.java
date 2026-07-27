@@ -60,10 +60,10 @@ public final class ExtraTextRetargetHelper {
 					}
 				}
 			}
-		} catch (RemoteException e) {
-			// ignore — editor still allows custom typing
-		} catch (Exception e) {
-			// ignore
+		} catch (RemoteException ignored) {
+			// The editor still allows custom typing, so a missing slot list is not fatal.
+		} catch (Exception ignored) {
+			// Same: a name list is a convenience here, never a requirement.
 		}
 		return names;
 	}

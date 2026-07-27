@@ -84,7 +84,8 @@ public class Validator {
 							validated = false;
 							message += field + " should be a number between 0 and 65535.\n";
 						}
-					} catch (NumberFormatException e) {
+					} catch (NumberFormatException ignored) {
+						// Failing to parse is the finding; the message was appended above.
 						//shouldn't be here, they should use VALIDATE_NUMBER ALSO
 						//validated = false;
 						//message += field + " is not a valid number.";
@@ -112,7 +113,8 @@ public class Validator {
 							validated = false;
 							message += field + " must contain a number greater than 0.\n";
 						}
-					} catch (NumberFormatException e) {
+					} catch (NumberFormatException ignored) {
+						// Failing to parse is the finding; the message was appended above.
 						//they should use VALIDATE_NUMBER ALSO ON THIS.
 					}
 				}

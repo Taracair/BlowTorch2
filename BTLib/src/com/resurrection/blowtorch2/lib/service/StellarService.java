@@ -587,6 +587,7 @@ public class StellarService extends Service {
 				mCallbacks.getBroadcastItem(i).mapperUi(action);
 			} catch (RemoteException e) {
 				// UI may have died; skip
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.mapper ui broadcast", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -600,6 +601,7 @@ public class StellarService extends Service {
 				mCallbacks.getBroadcastItem(i).extraTextUi(action);
 			} catch (RemoteException e) {
 				// UI may have died; skip
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.extra text ui broadcast", e);
 			}
 		}
 		mCallbacks.finishBroadcast();

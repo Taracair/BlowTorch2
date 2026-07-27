@@ -159,7 +159,8 @@ public class GMCPData {
 				insertData((JSONObject)sub, newnode, completePath + "." + tmp);
 				//return;
 				skip = true;
-			} catch(JSONException e) {
+			} catch(JSONException ignored) {
+				// Malformed packet: skip is set above, the rest of the session carries on.
 				//this is an ugly situation here where the object.getJSONObject call above must be done
 				//and if the result is anything but a json object it will throw an exception here.
 				//there used to be an e.printStackTrace() but it fires an awful lot.

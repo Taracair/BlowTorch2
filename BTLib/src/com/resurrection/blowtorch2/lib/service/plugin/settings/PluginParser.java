@@ -668,7 +668,8 @@ public class PluginParser extends BasePluginParser {
 					int num = Integer.parseInt(body);
 					o.setValue(num);
 					tmp.getOptions().addOption(o);
-				} catch(NumberFormatException e) {
+				} catch(NumberFormatException ignored) {
+					// Bad number in plugin XML: the option keeps its default.
 					
 				}
 			}

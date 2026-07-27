@@ -139,6 +139,7 @@ public final class ExtraTextSlotsStore {
 					count++;
 				} catch (JSONException e) {
 					// skip bad slot
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ExtraTextSlotsStore.serialize slot", e);
 				}
 			}
 		}

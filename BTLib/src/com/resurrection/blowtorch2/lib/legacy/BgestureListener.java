@@ -32,6 +32,7 @@ class BgestureListener extends SimpleOnGestureListener {
 			}
 		} catch (Exception e) {
     // nothing
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("BgestureListener.legacy gesture", e);
 		}
 	return false;
 	}
