@@ -996,12 +996,21 @@ public class MapperOverlayController
 		}
 	}
 
+	/**
+	 * Placing a tile by hand pins it. Otherwise the automatic layout is free to
+	 * move it back on the next visit, which makes hand-placement useless exactly
+	 * where it is needed -- the rooms whose real layout only a player can work
+	 * out. Unpin from the tile editor if the automatic layout should have it
+	 * back. {@code .map move} is left alone so scripts keep their old behaviour.
+	 */
 	private void runMoveTile(String tileId, int x, int y) {
 		if (controller != null) {
 			toastStatus(controller.moveTileOnGrid(tileId, x, y));
+			controller.setLockPosition(tileId, true);
 			refreshFromController();
 		} else {
 			host.runMapCommand("move " + tileId + " " + x + " " + y);
+			host.runMapCommand("lockposition for " + tileId + " on");
 			pullSnapshotFromService();
 		}
 	}
