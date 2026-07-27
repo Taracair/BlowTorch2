@@ -1939,6 +1939,27 @@ public class MapperController {
 		if (raw.startsWith(".")) {
 			return;
 		}
+		// Remembered before anything else can return early. Recording mode used to
+		// jump straight to recordMove and out, so in the one mode where the player
+		// is deliberately building a map, the room that arrived next had no idea
+		// which way they had gone.
+		String[] moves = raw.split("[\\r\\n;]+");
+		for (int i = moves.length - 1; i >= 0; i--) {
+			String piece = moves[i].trim();
+			if (piece.length() == 0) {
+				continue;
+			}
+			String norm = normalize(piece);
+			// Up and down count. They have no grid delta, so testing for one threw
+			// them away -- which is why going down into a cellar was never
+			// recognised as the move that got you there.
+			if (gridDeltaFor(norm) != null || levelDeltaFor(norm) != null) {
+				// The last move in the line is the one that lands us.
+				mLastMoveCommand = norm;
+				mLastMoveAt = System.currentTimeMillis();
+				break;
+			}
+		}
 		if (mRecording && mEditMode && !mSuppressRecord) {
 			String[] parts = raw.split("[\\r\\n;]+");
 			for (String part : parts) {
@@ -1949,22 +1970,6 @@ public class MapperController {
 				recordMove(piece);
 			}
 			return;
-		}
-		// Remembered whether or not follow is on: the GMCP room that arrives next
-		// needs to know which way the player went, and that is true either way.
-		String[] moves = raw.split("[\\r\\n;]+");
-		for (int i = moves.length - 1; i >= 0; i--) {
-			String piece = moves[i].trim();
-			if (piece.length() == 0) {
-				continue;
-			}
-			String norm = normalize(piece);
-			if (gridDeltaFor(norm) != null) {
-				// The last compass move in the line is the one that lands us.
-				mLastMoveCommand = norm;
-				mLastMoveAt = System.currentTimeMillis();
-				break;
-			}
 		}
 		// Follow still runs while suppress is on (path auto-walk must update Here).
 		if (mFollowPlayer) {

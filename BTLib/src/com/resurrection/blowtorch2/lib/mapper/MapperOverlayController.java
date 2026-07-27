@@ -167,6 +167,43 @@ public class MapperOverlayController
 		}
 	}
 
+	/**
+	 * Whether the map was on screen when the client was last used. Kept in the
+	 * UI process rather than the connection settings: it is a preference about
+	 * this screen, and the connection is not up yet when it has to be answered.
+	 */
+	private static final String UI_PREFS = "MAPPER_UI";
+	private static final String KEY_OPEN = "open";
+	private boolean visibilityRestored;
+
+	private void rememberVisibility(boolean open) {
+		MainWindow activity = host != null ? host.getMainWindow() : null;
+		if (activity == null) {
+			return;
+		}
+		activity.getSharedPreferences(UI_PREFS, 0).edit()
+				.putBoolean(KEY_OPEN, open).apply();
+	}
+
+	/**
+	 * Put the map back on screen if that is how it was left. Closing it was
+	 * never meant to be a per-session decision the player has to make again
+	 * every time they connect.
+	 */
+	public void restoreVisibility() {
+		if (visibilityRestored || visible) {
+			return;
+		}
+		visibilityRestored = true;
+		MainWindow activity = host != null ? host.getMainWindow() : null;
+		if (activity == null) {
+			return;
+		}
+		if (activity.getSharedPreferences(UI_PREFS, 0).getBoolean(KEY_OPEN, false)) {
+			open();
+		}
+	}
+
 	public void open() {
 		ensureAttached();
 		if (overlayRoot == null) {
@@ -174,6 +211,8 @@ public class MapperOverlayController
 		}
 		final boolean justOpened = !visible;
 		visible = true;
+		visibilityRestored = true;
+		rememberVisibility(true);
 		if (justOpened) {
 			mapperIntroShownThisOpen = false;
 		}
@@ -196,6 +235,8 @@ public class MapperOverlayController
 
 	public void close() {
 		visible = false;
+		visibilityRestored = true;
+		rememberVisibility(false);
 		stickyHandler.removeCallbacks(clearStickyRunnable);
 		stickyStatus = "";
 		if (mapperView != null) {

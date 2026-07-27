@@ -3552,6 +3552,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mapperController != null) {
 			mapperOverlay.bind(mapperController);
 		}
+		// Put the map back if that is how the player left it. Closing it was
+		// never meant to be a decision they have to repeat on every connect.
+		mapperOverlay.restoreVisibility();
 	}
 
 	ChromeController getChromeController() {
