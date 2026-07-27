@@ -149,6 +149,13 @@ public class MapperView extends View {
 	private final RectF tmpRect = new RectF();
 	private final Path arrowPath = new Path();
 	private final List<LinkBadge> linkBadges = new ArrayList<LinkBadge>();
+	/**
+	 * Label boxes already put down this frame. Links are labelled at their own
+	 * midpoint, and midpoints collide -- two directions of one link share theirs
+	 * exactly, and neighbouring links land close enough to overlap. Each new
+	 * label is stepped aside until it sits clear of these.
+	 */
+	private final List<RectF> placedLabels = new ArrayList<RectF>();
 	private final List<InterLevelBadge> interLevelBadges = new ArrayList<InterLevelBadge>();
 	private final java.util.HashSet<String> pathHighlightIds = new java.util.HashSet<String>();
 
@@ -687,6 +694,7 @@ public class MapperView extends View {
 		}
 
 		linkBadges.clear();
+		placedLabels.clear();
 		interLevelBadges.clear();
 		drawLinkArrows(canvas, bs);
 
@@ -862,31 +870,39 @@ public class MapperView extends View {
 						labelWalked.addAll(provedBack);
 					}
 					drawLinkLabelAt(canvas, midX, midY, labelCmds, from.getId(),
-							to.getId(), labelWalked);
+							to.getId(), labelWalked, ux, uy);
 				}
 				continue;
 			}
+
+			// This layout draws each direction as its own line, nudged to one
+			// side so the pair runs parallel. The dashed routes have to take the
+			// same nudge, or both directions of a link land on the same pixels
+			// and their labels sit exactly on top of one another.
+			float sideOff = 5f * scale;
+			float sideX = -uy * sideOff;
+			float sideY = ux * sideOff;
 
 			Set<String> provedOne = walked.get(key);
 			boolean walkedOne = provedOne != null && !provedOne.isEmpty();
 			if (!walkedOne) {
 				drawMismatchLink(canvas, bodySize, from, to,
-						fromCx, fromCy, toCx, toCy, false,
-						unverifiedPaint, unverifiedHeadPaint);
+						fromCx + sideX, fromCy + sideY, toCx + sideX, toCy + sideY,
+						false, unverifiedPaint, unverifiedHeadPaint);
 				if (showLinkLabels) {
 					drawLinkLabelAt(canvas, elbowLabelX, elbowLabelY, cmds,
-							from.getId(), to.getId(), provedOne);
+							from.getId(), to.getId(), provedOne, ux, uy);
 				}
 				continue;
 			}
 
 			if (!linkDrawnAsCommanded(from, to, cmds, grouped.get(toId + "\0" + fromId))) {
 				drawMismatchLink(canvas, bodySize, from, to,
-						fromCx, fromCy, toCx, toCy, false,
-						mismatchPaint, mismatchHeadPaint);
+						fromCx + sideX, fromCy + sideY, toCx + sideX, toCy + sideY,
+						false, mismatchPaint, mismatchHeadPaint);
 				if (showLinkLabels) {
 					drawLinkLabelAt(canvas, elbowLabelX, elbowLabelY, cmds,
-							from.getId(), to.getId(), provedOne);
+							from.getId(), to.getId(), provedOne, ux, uy);
 				}
 				continue;
 			}
@@ -907,27 +923,91 @@ public class MapperView extends View {
 				float midX = (x1 + x2) * 0.5f;
 				float midY = (y1 + y2) * 0.5f - 4f * scale;
 				drawLinkLabelAt(canvas, midX, midY, cmds, from.getId(), to.getId(),
-						provedOne);
+						provedOne, ux, uy);
 			}
 		}
 	}
 
+	/**
+	 * Label a link, stepped aside from any label already placed this frame.
+	 *
+	 * The step is perpendicular to the link, so labels that would have stacked
+	 * end up beside each other: two rooms one above the other put their
+	 * labels left and right of the line, two side by side put theirs above and
+	 * below. It alternates either way of the line and widens, so a busy junction
+	 * fans out instead of piling up. After a few tries it gives up and draws
+	 * where it is -- better a rare overlap than a label wandering far from the
+	 * link it belongs to.
+	 */
 	private void drawLinkLabelAt(Canvas canvas, float midX, float midY,
-			List<String> cmds, String fromId, String toId, Set<String> walkedCmds) {
+			List<String> cmds, String fromId, String toId, Set<String> walkedCmds,
+			float ux, float uy) {
 		String label = formatLinkLabel(cmds, walkedCmds);
 		float tw = linkLabelPaint.measureText(label);
 		float pad = 4f * scale;
 		float bh = linkLabelPaint.getTextSize() + pad * 1.2f;
-		tmpRect.set(midX - tw * 0.5f - pad, midY - bh + pad * 0.3f,
-				midX + tw * 0.5f + pad, midY + pad * 0.5f);
+
+		float px = -uy;
+		float py = ux;
+		if (Math.abs(px) < 0.001f && Math.abs(py) < 0.001f) {
+			px = 1f;
+			py = 0f;
+		}
+		float stepX = px * (tw * 0.5f + pad * 2f);
+		float stepY = py * (bh + 2f * scale);
+
+		float cx = midX;
+		float cy = midY;
+		boolean clear = false;
+		for (int attempt = 0; attempt < 7 && !clear; attempt++) {
+			float[] nudge = labelNudge(attempt, stepX, stepY);
+			cx = midX + nudge[0];
+			cy = midY + nudge[1];
+			tmpRect.set(cx - tw * 0.5f - pad, cy - bh + pad * 0.3f,
+					cx + tw * 0.5f + pad, cy + pad * 0.5f);
+			clear = !overlapsPlacedLabel(tmpRect);
+		}
+		if (!clear) {
+			// Nowhere free nearby. Back to the link's own midpoint: a label that
+			// overlaps is a nuisance, one sitting beside the wrong link is a lie.
+			cx = midX;
+			cy = midY;
+			tmpRect.set(cx - tw * 0.5f - pad, cy - bh + pad * 0.3f,
+					cx + tw * 0.5f + pad, cy + pad * 0.5f);
+		}
+
 		canvas.drawRoundRect(tmpRect, 4f * scale, 4f * scale, linkLabelBg);
-		canvas.drawText(label, midX, midY, linkLabelPaint);
+		canvas.drawText(label, cx, cy, linkLabelPaint);
+		placedLabels.add(new RectF(tmpRect));
 		if (cmds.size() > MAX_VISIBLE_LINK_LABELS) {
 			LinkBadge badge = new LinkBadge(fromId, toId, cmds);
 			badge.bounds.set(tmpRect);
 			badge.bounds.inset(-6f * scale, -6f * scale);
 			linkBadges.add(badge);
 		}
+	}
+
+	/**
+	 * Offset for the n-th attempt at placing a label: nothing, then one step to
+	 * one side, then one step to the other, then two, and so on. Alternating
+	 * keeps the fan symmetrical about the link instead of drifting off one way.
+	 */
+	static float[] labelNudge(int attempt, float stepX, float stepY) {
+		if (attempt <= 0) {
+			return new float[] { 0f, 0f };
+		}
+		int ring = (attempt + 1) / 2;
+		float sign = (attempt % 2 == 1) ? 1f : -1f;
+		return new float[] { stepX * ring * sign, stepY * ring * sign };
+	}
+
+	private boolean overlapsPlacedLabel(RectF candidate) {
+		for (int i = 0; i < placedLabels.size(); i++) {
+			if (RectF.intersects(placedLabels.get(i), candidate)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
