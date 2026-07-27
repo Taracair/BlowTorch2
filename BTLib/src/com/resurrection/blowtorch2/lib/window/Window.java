@@ -1470,10 +1470,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		mBufferThreadWarned = true;
-		Log.e("BlowTorch", "Window '" + mName + "': " + what + " ran on "
-				+ Thread.currentThread().getName() + ", not the UI thread. onDraw walks"
-				+ " this buffer unguarded — post a message instead of calling in directly.",
-				new IllegalStateException("buffer changed off the UI thread"));
+		// logThrowable, not plain logcat: this is a latent crash, and a rule broken
+		// during a play session is no use to anyone if it has rolled out of the ring
+		// buffer by the time the crash gets reported.
+		com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+				"Window[" + mName + "]." + what,
+				new IllegalStateException("buffer changed on " + Thread.currentThread().getName()
+						+ ", not the UI thread; onDraw walks it unguarded — post a message instead"));
 	}
 
 	static float scrollSensitivityFromChoice(final Integer choice) {
