@@ -80,6 +80,53 @@ final class ConnectionSettingsIO {
 		this.host = host;
 	}
 
+	/** File name this connection's settings live under, inside getFilesDir(). */
+	String mainSettingsFileName() {
+		if (host.mSettings == null) {
+			return null;
+		}
+		String prefsname = Pattern.compile("\\W").matcher(host.mDisplay).replaceAll("");
+		return prefsname.replaceAll("/", "") + ".xml";
+	}
+
+	/** Describe the kept copy of the settings, for the .settings command.
+	 *
+	 * @return one line naming the file and when the copy was last written.
+	 */
+	String describeMainSettingsBackup() {
+		String name = mainSettingsFileName();
+		if (name == null) {
+			return "No settings are loaded.";
+		}
+		File backup = new File(host.mService.getApplicationContext().getFilesDir(), name + ".bak");
+		if (!backup.isFile() || backup.length() == 0) {
+			return "Settings: " + name + ". No kept copy yet — one is made on every save.";
+		}
+		return "Settings: " + name + ". Kept copy from " + new java.util.Date(backup.lastModified())
+				+ " (" + backup.length() + " bytes).";
+	}
+
+	/** Put the previous settings file back, if one was kept.
+	 *
+	 * @return a message for the player saying what happened.
+	 */
+	String restoreMainSettingsBackup() {
+		String name = mainSettingsFileName();
+		if (name == null) {
+			return "No settings are loaded, so there is nothing to restore.";
+		}
+		Context appCtx = host.mService.getApplicationContext();
+		File backup = new File(appCtx.getFilesDir(), name + ".bak");
+		if (!backup.isFile() || backup.length() == 0) {
+			return "No backup of " + name + " exists yet. One is kept each time settings are saved.";
+		}
+		java.util.Date when = new java.util.Date(backup.lastModified());
+		if (!com.resurrection.blowtorch2.lib.util.AtomicFiles.restoreBackup(appCtx, name)) {
+			return "Could not restore " + name + " — see the error log.";
+		}
+		return "Restored " + name + " from the copy saved " + when + ". Reloading settings.";
+	}
+
 	/** The main starting point for the save settings routine. This is called for a few different locations. */
 	void saveMainSettings() {
 		if (host.mSettings == null) {
