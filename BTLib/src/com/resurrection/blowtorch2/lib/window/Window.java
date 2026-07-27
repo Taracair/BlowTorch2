@@ -42,6 +42,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
@@ -160,8 +161,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mDrawerInsetBottom = 0;
 	/** When true, IME lift skips game text windows (input bar still rises). */
 	private boolean mImeKeepText = false;
-	/** The buffer object that this window uses to store and draw ansi text. */
+	/** The buffer object that this window uses to store and draw ansi text.
+	 *
+	 * <p><b>Only the UI thread may change this buffer.</b> onDraw walks its line list
+	 * three times per frame -- getScreenIterator, the bleed search and the draw loop --
+	 * and only the first of those catches ConcurrentModificationException. A change
+	 * from another thread would therefore not slow drawing down, it would throw out of
+	 * onDraw and take the activity with it.
+	 *
+	 * <p>That is safe today because everything arrives through mHandler, which is
+	 * created on the UI thread: the IWindowCallback binder stub only ever posts
+	 * messages, it never touches the buffer itself. Keep it that way. If you need to
+	 * feed text in from another thread, post a MESSAGE_ADDTEXT rather than calling
+	 * addBytes directly -- {@link #warnIfNotUiThread} will complain in the log if you
+	 * forget. */
 	private TextTree mBuffer = null;
+	/** Set once the buffer-thread rule has been reported, so the log is not flooded. */
+	private boolean mBufferThreadWarned = false;
 	/** The buffer that is used to buffer text when BufferText() is set. */
 	private TextTree mHoldBuffer = null;
 	/** The maximum height for this window. I don't think this is used. */
@@ -1436,6 +1452,30 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * @param choice Index into the option's item list.
 	 * @return Multiplier for scroll distance and fling speed; 1.0 tracks the finger.
 	 */
+	/** Reports, once, if this window's buffer is being changed off the UI thread.
+	 *
+	 * <p>Deliberately a loud complaint rather than a lock or a swallowed exception. The
+	 * rule described on {@link #mBuffer} holds today, so anything this catches is a new
+	 * mistake, and the useful thing is a stack trace pointing at the caller that broke
+	 * it -- not a quietly dropped frame that hides the cause, and not a lock on every
+	 * frame paying for a race that does not exist.
+	 *
+	 * @param what Name of the operation, for the log line.
+	 */
+	private void warnIfNotUiThread(final String what) {
+		if (mBufferThreadWarned) {
+			return;
+		}
+		if (Looper.myLooper() == Looper.getMainLooper()) {
+			return;
+		}
+		mBufferThreadWarned = true;
+		Log.e("BlowTorch", "Window '" + mName + "': " + what + " ran on "
+				+ Thread.currentThread().getName() + ", not the UI thread. onDraw walks"
+				+ " this buffer unguarded — post a message instead of calling in directly.",
+				new IllegalStateException("buffer changed off the UI thread"));
+	}
+
 	static float scrollSensitivityFromChoice(final Integer choice) {
 		if (choice == null) {
 			return 1.0f;
@@ -2431,12 +2471,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Clears all text from the buffer. */
 	public final void clearText() {
+		warnIfNotUiThread("clearText");
 		mBuffer.dumpToBytes(false);
 		mBuffer.prune();
 	}
 	
 	/** If the window was in buffering mode, this function will dump the buffered text into the real buffer. */
 	public final void flushBuffer() {
+		warnIfNotUiThread("flushBuffer");
 		try {
 			mBuffer.addBytesImpl(mHoldBuffer.dumpToBytes(false));
 		} catch (UnsupportedEncodingException e) {
@@ -2740,6 +2782,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 	
 	public void clearAllText() {
+			warnIfNotUiThread("clearAllText");
 			mBuffer.empty();
 	}
 	
@@ -2757,6 +2800,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 	
 	private void addBytesImpl(byte[] obj,boolean jumpToEnd) {
+		warnIfNotUiThread("addBytes");
 		if(obj.length == 0) return;
 		
 			if(mBufferText) {
