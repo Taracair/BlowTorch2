@@ -1248,6 +1248,12 @@ function applyButtonSize(w, h)
 	saveDefaultOptions()
 	Note("\nButton size set to " .. newW .. "x" .. newH .. " for "
 		.. #targets .. (hadSelection and " selected button(s).\n" or " button(s).\n"))
+	-- Handed back so the options dialog can show what actually landed; it sits
+	-- full screen over the buttons, so its own fields are all the user can see.
+	-- The third value says whether this also became the set default, which the
+	-- dialog needs: it must not let a size meant for two selected buttons end
+	-- up as what every new button starts at.
+	return newW, newH, not hadSelection
 end
 
 -- Lay the targets out on the grid, in reading order.
@@ -1349,8 +1355,9 @@ function fitGridToScreen(square)
 
 	-- Buttons follow the cell so they still fill it; square cells keep them square.
 	local size = math.floor(math.min(cellX, cellY) / density + 0.5) - 3
+	local appliedW, appliedH, becameDefault
 	if size >= 16 then
-		applyButtonSize(size, size)
+		appliedW, appliedH, becameDefault = applyButtonSize(size, size)
 	else
 		drawManagerGrid()
 		drawButtons()
@@ -1361,6 +1368,7 @@ function fitGridToScreen(square)
 		.. math.floor(cellX / density + 0.5) .. "x"
 		.. math.floor(cellY / density + 0.5) .. "dp"
 		.. (square and " (square)." or " (stretched to the window).") .. "\n")
+	return appliedW, appliedH, becameDefault
 end
 
 function drawManagerGrid()
@@ -1451,8 +1459,10 @@ function buttonOptions()
   editorValues.x = 0
   editorValues.y = 0  
   
-  editorValues.gridX = gridXwidth / density
-  editorValues.gridY = gridYwidth / density
+  -- Rounded: after a Fit the grid is a whole number of pixels, which divides
+  -- back into something like 39.272727dp and reads as noise in the dialog.
+  editorValues.gridX = math.floor(gridXwidth / density + 0.5)
+  editorValues.gridY = math.floor(gridYwidth / density + 0.5)
   editorValues.gridOpacity = manageropacity
   editorValues.gridIntersectionTest = intersectMode
   editorValues.gridSnap = gridsnap
@@ -1530,14 +1540,22 @@ function buttonOptions()
      
     end
     
-    defaults.width = tmp.width
-    defaults.height = tmp.height
-    defaults.primaryColor = tmp.normalColor
-    defaults.flipColor = tmp.flipColor
-    defaults.selectedColor = tmp.pressedColor
-    defaults.labelColor = tmp.normalLabelColor
-    defaults.flipLabelColor = tmp.pressedLabelColor
-    defaults.labelSize = tmp.labelSize
+    -- The defaults editor names its colours differently from the set data, and
+    -- hands back nothing at all when it was never opened -- Done alone arrives
+    -- with the values the dialog started from. Without a fallback every plain
+    -- Done wrote nil here, and since `defaults` inherits from BUTTONSET_DATA a
+    -- nil silently reverts to the factory blue/green/red, taking with it every
+    -- button whose own colour was cleared just above for matching the default.
+    -- pressedLabelColor was worse: nothing produces that name, so the flip
+    -- label colour reset on every Done.
+    defaults.width = tmp.width or defaults.width
+    defaults.height = tmp.height or defaults.height
+    defaults.primaryColor = tmp.normalColor or tmp.primaryColor or defaults.primaryColor
+    defaults.flipColor = tmp.flipColor or defaults.flipColor
+    defaults.selectedColor = tmp.pressedColor or tmp.selectedColor or defaults.selectedColor
+    defaults.labelColor = tmp.normalLabelColor or tmp.labelColor or defaults.labelColor
+    defaults.flipLabelColor = tmp.flipLabelColor or defaults.flipLabelColor
+    defaults.labelSize = tmp.labelSize or defaults.labelSize
     
     for i=1,#buttons do
       local b = buttons[i]
@@ -1552,16 +1570,35 @@ function buttonOptions()
   editorOptionsDialog.setGridSnapCallback(function(v)
     gridsnap = v
   end)
+  -- The dialog covers the whole screen, so a tool that quietly changes the grid
+  -- or the button size leaves the user with no way to see it happened short of
+  -- closing and reopening settings. Report the result back instead.
+  -- becameDefault is passed straight through: the dialog shows the size that
+  -- was applied either way, but only adopts it as the set default when the
+  -- change really was set-wide.
+  local function reportEditorState(w, h, becameDefault)
+    editorOptionsDialog.refreshValues({
+      gridX = math.floor(gridXwidth / density + 0.5),
+      gridY = math.floor(gridYwidth / density + 0.5),
+      width = w,
+      height = h,
+      becameDefault = becameDefault
+    })
+  end
+
   -- Layout tools. Each acts on the selection when there is one, otherwise on
   -- every button, which is what "apply to all" means with nothing selected.
   editorOptionsDialog.setApplySizeCallback(function(w, h)
-    applyButtonSize(w, h)
+    local aw, ah, becameDefault = applyButtonSize(w, h)
+    reportEditorState(aw, ah, becameDefault)
   end)
   editorOptionsDialog.setTidyLayoutCallback(function(columns)
     tidyButtonLayout(columns)
+    reportEditorState()
   end)
   editorOptionsDialog.setFitGridCallback(function(square)
-    fitGridToScreen(square)
+    local aw, ah, becameDefault = fitGridToScreen(square)
+    reportEditorState(aw, ah, becameDefault)
   end)
   editorOptionsDialog.setChromeGesturesCallback(function(v)
     PluginXCallS("setChromeGestures", v ~= nil and v or "")

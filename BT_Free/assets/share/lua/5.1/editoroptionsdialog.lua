@@ -98,18 +98,43 @@ local doneListener
 local cancelListener
 local setDefaultsEditorListener
 
+-- Grid spacing range, in dp. The sliders used to run on the default 0..100 max
+-- with 32 added, so they could not reach a spacing the number field happily
+-- accepted; both ends now come from here and typed values clamp to it.
+local GRID_MIN = 8
+local GRID_MAX = 160
+
 --ui widgets
 local dialog
 local xSeekBarLabel
 local ySeekBarLabel
 local opacitySeekBarLabel
+local xSeekBar
+local ySeekBar
+local opacitySeekBar
+-- Set while a slider is being moved from code. setProgress() calls
+-- onProgressChanged synchronously, which would push the clamped slider value
+-- straight back into the grid and undo whatever we were displaying.
+local suppressGridSync = false
+-- Declared up here on purpose. module(...) makes every free name a lookup in
+-- the module table, so a helper defined further down the file reads as nil
+-- inside showDialog rather than as the local it looks like.
+local clampGrid
+local setSliderQuietly
+local commitGridFields
+local gridFieldFocusListener
+local gridFieldActionListener
+local saveChromeGestures
+local serialiseChromeFields
+-- What the gesture boxes held when the dialog opened, in the same form they
+-- serialise to, so "did the user change anything" is a string compare and not
+-- a guess about field ordering.
+local chromeBaseline
 -- Set while the dialog is built; the click listeners live at module scope and
 -- cannot reach showDialog's locals.
 local chromeFields
-local chromeGesturesListener
 local fitSquareListener
 local fitStretchListener
-local gridFieldListener
 local gridXField
 local gridYField
 local sizeWidthField
@@ -157,8 +182,15 @@ end
 
 function showDialog(initialValues)
 
-  gridX = initialValues.gridX
-  gridY = initialValues.gridY
+  -- Module state outlives the dialog. Left over from a previous visit to the
+  -- defaults editor, this would re-apply those values on a later plain Done.
+  setEditorValues = nil
+
+  -- Clamped so the slider, the box and the grid cannot open disagreeing. A
+  -- spacing outside this range means two columns on a phone, and normalising it
+  -- on the way in beats showing a number the controls cannot represent.
+  gridX = clampGrid(math.floor(initialValues.gridX or 40))
+  gridY = clampGrid(math.floor(initialValues.gridY or 40))
   gridOpacity = initialValues.gridOpacity
   gridIntersectionTest = initialValues.gridIntersectionTest
   gridSnap = initialValues.gridSnap
@@ -198,45 +230,43 @@ function showDialog(initialValues)
   cb:setTextSize(textSizeSmall)
   cb:setOnCheckedChangeListener(gridSnapCheckChangeListener)
   cb:setLayoutParams(fillparams)
-  
-  local subrow = luajava.new(LinearLayout,context)
-  subrow:setLayoutParams(fillparams)
-  
-  --gridSizeRow = luajava.newInstance("android.widget.LinearLayout",context)
-  --gridSizeRow:setOrientation(1)
-  
+
   --Note("seekbar creation")
-  local xSeekBar = luajava.newInstance("android.widget.SeekBar",context)
-  xSeekBar:setOnSeekBarChangeListener(gridXSeekBarChangeListener)
+  xSeekBar = luajava.newInstance("android.widget.SeekBar",context)
   xSeekBar:setLayoutParams(fillparams)
+  xSeekBar:setMax(GRID_MAX - GRID_MIN)
+  xSeekBar:setProgress(gridX - GRID_MIN)
+  xSeekBar:setOnSeekBarChangeListener(gridXSeekBarChangeListener)
   xSeekBarLabel = luajava.newInstance("android.widget.TextView",context)
   xSeekBarLabel:setLayoutParams(wrapparams)
   xSeekBarLabel:setTextSize(textSizeSmall)
-  xSeekBarLabel:setText("Grid X Spacing: "..gridX)
-  xSeekBar:setProgress((gridX)-32)
-  
-  local ySeekBar = luajava.newInstance("android.widget.SeekBar",context)
-  ySeekBar:setOnSeekBarChangeListener(gridYSeekBarChangeListener)
+  xSeekBarLabel:setText("Grid X spacing")
+
+  ySeekBar = luajava.newInstance("android.widget.SeekBar",context)
   ySeekBar:setLayoutParams(fillparams)
+  ySeekBar:setMax(GRID_MAX - GRID_MIN)
+  ySeekBar:setProgress(gridY - GRID_MIN)
+  ySeekBar:setOnSeekBarChangeListener(gridYSeekBarChangeListener)
   ySeekBarLabel = luajava.newInstance("android.widget.TextView",context)
   ySeekBarLabel:setLayoutParams(wrapparams)
   ySeekBarLabel:setTextSize(textSizeSmall)
-  ySeekBarLabel:setText("Grid Y Spacing: "..gridY)
-  ySeekBar:setProgress((gridY)-32)
-  
-  local opacitySeekBar = luajava.newInstance("android.widget.SeekBar",context)
-  
+  ySeekBarLabel:setText("Grid Y spacing")
+
+  opacitySeekBar = luajava.newInstance("android.widget.SeekBar",context)
+
   opacitySeekBar:setLayoutParams(fillparams)
   opacitySeekBar:setMax(255)
   ----Note("settings opacity slider to:"..manageropacity)
   opacitySeekBar:setProgress(gridOpacity)
   opacitySeekBar:setOnSeekBarChangeListener(gridOpacitySeekBarChangeListener)
-  
+
   opacitySeekBarLabel = luajava.newInstance("android.widget.TextView",context)
   opacitySeekBarLabel:setLayoutParams(wrapparams)
   opacitySeekBarLabel:setTextSize(textSizeSmall)
-  opacitySeekBarLabel:setText("Grid Opacity: "..gridOpacity)
-  
+  -- The slider reports a percentage, so start with one rather than the raw
+  -- 0..255 alpha the label used to open with.
+  opacitySeekBarLabel:setText("Grid opacity: "..math.floor((gridOpacity / 255) * 100).."%")
+
   local rg_static = luajava.bindClass("android.widget.RadioGroup")
   
   --local subrow2 = luajava.new(LinearLayout,context)
@@ -280,13 +310,8 @@ function showDialog(initialValues)
   
   local setSettingsButton = luajava.new(Button,context)
   setSettingsButton:setLayoutParams(fillparams)
-  setSettingsButton:setText("Edit Defaults")
+  setSettingsButton:setText("Edit set defaults…")
   setSettingsButton:setOnClickListener(setDefaultsEditorListener)
-  --Note("adding views")
-  
-  subrow:addView(cb)
-  subrow:addView(setSettingsButton)
-  ll:addView(subrow)
 
   local hintsCb = luajava.newInstance("android.widget.CheckBox",context)
   hintsCb:setChecked(showGestureHints)
@@ -294,7 +319,6 @@ function showDialog(initialValues)
   hintsCb:setTextSize(textSizeSmall)
   hintsCb:setOnCheckedChangeListener(showGestureHintsCheckChangeListener)
   hintsCb:setLayoutParams(fillparams)
-  ll:addView(hintsCb)
 
   local swipePreviewCb = luajava.newInstance("android.widget.CheckBox",context)
   swipePreviewCb:setChecked(showSwipePreview)
@@ -302,7 +326,6 @@ function showDialog(initialValues)
   swipePreviewCb:setTextSize(textSizeSmall)
   swipePreviewCb:setOnCheckedChangeListener(showSwipePreviewCheckChangeListener)
   swipePreviewCb:setLayoutParams(fillparams)
-  ll:addView(swipePreviewCb)
 
   -- Section headers: the dialog was one flat run of checkboxes, sliders and
   -- radio buttons with no grouping, which made it hard to scan.
@@ -345,31 +368,42 @@ function showDialog(initialValues)
     return edit
   end
 
+  -- The slider and the number are one control now. They used to be a labelled
+  -- slider up here and a separate X/Y/Set row further down, which read as two
+  -- unrelated ways to set the same thing. The slider is quick, the box is
+  -- exact, and each keeps the other honest.
+  local function addSliderRow(labelView, seekBar, value)
+    local row = luajava.newInstance("android.widget.LinearLayout", context)
+    row:setLayoutParams(fillparams)
+    labelView:setLayoutParams(luajava.new(LinearLayoutParams,
+        WRAP_CONTENT, WRAP_CONTENT, 1))
+    labelView:setGravity(Gravity.CENTER_VERTICAL)
+    local edit = luajava.newInstance("android.widget.EditText", context)
+    edit:setTextSize(textSize)
+    edit:setInputType(TYPE_CLASS_NUMBER)
+    edit:setSingleLine(true)
+    edit:setText(tostring(value))
+    edit:setGravity(Gravity.RIGHT)
+    edit:setLayoutParams(luajava.new(LinearLayoutParams,
+        math.floor(56 * density), WRAP_CONTENT))
+    -- Applied when the box loses focus or the keyboard's action key is
+    -- pressed, so a half-typed "1" of "120" never reaches the grid.
+    edit:setOnFocusChangeListener(gridFieldFocusListener)
+    edit:setOnEditorActionListener(gridFieldActionListener)
+    row:addView(labelView)
+    row:addView(edit)
+    ll:addView(row)
+    ll:addView(seekBar)
+    return edit
+  end
+
   addSectionHeader("Grid")
-  ll:addView(xSeekBarLabel)
-  ll:addView(xSeekBar)
-  ll:addView(ySeekBarLabel)
-  ll:addView(ySeekBar)
+  ll:addView(cb)
+  gridXField = addSliderRow(xSeekBarLabel, xSeekBar, gridX)
+  gridYField = addSliderRow(ySeekBarLabel, ySeekBar, gridY)
+  addHint("Spacing in dp, between " .. GRID_MIN .. " and " .. GRID_MAX .. ". Drag for a rough size or type an exact one — the two stay in step.")
   ll:addView(opacitySeekBarLabel)
   ll:addView(opacitySeekBar)
-  ll:addView(selectionTextLabel)
-  ll:addView(rg)
-  addHint("How a drag rectangle decides what it picks up. Intersect takes every button the rectangle touches, even a corner. Contains takes only the buttons that fit inside it whole.")
-
-  -- Exact spacing, next to the sliders rather than instead of them: the sliders
-  -- are quick, typing is precise.
-  addHint("Drag the sliders for a rough size, or type an exact one here — the sliders keep these boxes up to date.")
-  local gridExactRow = luajava.newInstance("android.widget.LinearLayout", context)
-  gridExactRow:setLayoutParams(fillparams)
-  gridXField = addNumberField(gridExactRow, "X:", gridX, 50)
-  gridYField = addNumberField(gridExactRow, "Y:", gridY, 50)
-  local gridSetButton = luajava.new(Button, context)
-  gridSetButton:setText("Set")
-  gridSetButton:setTextSize(textSizeSmall)
-  gridSetButton:setLayoutParams(fillparams)
-  gridSetButton:setOnClickListener(gridFieldListener)
-  gridExactRow:addView(gridSetButton)
-  ll:addView(gridExactRow)
 
   local fitRow = luajava.newInstance("android.widget.LinearLayout", context)
   fitRow:setLayoutParams(fillparams)
@@ -386,7 +420,11 @@ function showDialog(initialValues)
   fitRow:addView(fitSquare)
   fitRow:addView(fitStretch)
   ll:addView(fitRow)
-  addHint("Square keeps buttons square and leaves any spare width at the right edge. Fill window uses the whole screen, so cells stop being square.")
+  addHint("Square keeps buttons square and leaves any spare width at the right edge. Fill window uses the whole screen, so cells stop being square. Both resize the buttons to match, and the boxes above follow.")
+
+  ll:addView(selectionTextLabel)
+  ll:addView(rg)
+  addHint("How a drag rectangle decides what it picks up. Intersect takes every button the rectangle touches, even a corner. Contains takes only the buttons that fit inside it whole.")
 
   addSectionHeader("Automatic arrange buttons")
   addHint("Applies to the selected buttons, or to every button when nothing is selected.")
@@ -421,8 +459,18 @@ function showDialog(initialValues)
   sizeHeightField = sizeHEdit
   tidyColumnsField = tidyColsEdit
 
+  addSectionHeader("Markings on buttons")
+  ll:addView(hintsCb)
+  ll:addView(swipePreviewCb)
+
+  -- Not the same ground as the tools above, though it is easy to read it that
+  -- way: those change the buttons that exist, this sets what a set starts from.
+  addSectionHeader("Set defaults")
+  addHint("Colours, label size and the size a newly added button starts at. Apply size above changes buttons you already have; this decides what the next one looks like.")
+  ll:addView(setSettingsButton)
+
   addSectionHeader("Additional gestures")
-  addHint("Swipe or hold these buttons. Taps keep working; these only fire on a gesture. Dot commands suit this well.")
+  addHint("Swipe or hold these buttons. Taps keep working; these only fire on a gesture. Dot commands suit this well. Done saves them.")
 
   chromeFields = {}
   local chromeStored = parseChromeGestures(initialValues.chromeGestures)
@@ -470,13 +518,12 @@ function showDialog(initialValues)
     end
   end
 
-  local chromeApply = luajava.new(Button, context)
-  chromeApply:setText("Save additional gestures")
-  chromeApply:setTextSize(textSizeSmall)
-  chromeApply:setLayoutParams(fillparams)
-  chromeApply:setOnClickListener(chromeGesturesListener)
-  ll:addView(chromeApply)
-  
+  -- "Save additional gestures" is gone: Done saves them now. A second save
+  -- button next to a Done that saved everything else was a trap -- typing a
+  -- gesture and pressing Done lost it. Taken from the fields rather than from
+  -- initialValues so it is comparable with what Done will serialise.
+  chromeBaseline = serialiseChromeFields()
+
   local boptHolder = luajava.new(LinearLayout,context)
   boptHolder:setLayoutParams(fillparams)
   boptHolder:setOrientation(0)
@@ -574,44 +621,148 @@ fitStretchListener = luajava.createProxy("android.view.View$OnClickListener",{
   end
 })
 
--- Typing an exact spacing. The sliders stay; they are quick but cannot hit a
--- specific number, which matters when lining a pad up to a size.
-gridFieldListener = luajava.createProxy("android.view.View$OnClickListener",{
-  onClick = function(v)
-    if gridXField == nil or gridYField == nil then
-      return
+-- Move a slider from code without it answering back. setProgress() runs
+-- onProgressChanged there and then, which would push the clamped slider value
+-- into the grid and quietly undo a Fit that landed outside the slider's range.
+setSliderQuietly = function(bar, progress)
+  if bar == nil then
+    return
+  end
+  suppressGridSync = true
+  bar:setProgress(progress)
+  suppressGridSync = false
+end
+
+clampGrid = function(v)
+  if v < GRID_MIN then return GRID_MIN end
+  if v > GRID_MAX then return GRID_MAX end
+  return v
+end
+
+-- One axis of the grid. Returns the spacing that ended up in force.
+local function commitAxis(field, current, bar, setter)
+  local v = tonumber(field:getText():toString())
+  if v == nil then
+    -- Put back what the grid actually is rather than nagging: an empty box on
+    -- the way to typing a number is not a mistake worth a message.
+    field:setText(tostring(current))
+    return current
+  end
+  v = math.floor(v)
+  if v == current then
+    -- Nothing was typed. Leave it completely alone -- clamping here would let
+    -- a plain Done quietly shrink a spacing that a Fit had legitimately set
+    -- above the slider's range.
+    return current
+  end
+  v = clampGrid(v)
+  setSliderQuietly(bar, v - GRID_MIN)
+  if setter ~= nil then setter(v) end
+  -- The typed text may have been out of range, so show what was applied.
+  field:setText(tostring(v))
+  return v
+end
+
+-- Make the grid, the sliders and the boxes agree. Called when a box loses focus,
+-- when the keyboard action key is pressed, and on Done.
+commitGridFields = function()
+  if gridXField == nil or gridYField == nil then
+    return
+  end
+  gridX = commitAxis(gridXField, gridX, xSeekBar, setGridXSpacing)
+  gridY = commitAxis(gridYField, gridY, ySeekBar, setGridYSpacing)
+end
+
+gridFieldFocusListener = luajava.createProxy("android.view.View$OnFocusChangeListener",{
+  onFocusChange = function(v,hasFocus)
+    if not hasFocus then
+      commitGridFields()
     end
-    local gx = tonumber(gridXField:getText():toString())
-    local gy = tonumber(gridYField:getText():toString())
-    if gx == nil or gy == nil or gx < 8 or gy < 8 then
-      Note("\nGrid spacing needs two numbers of 8 or more.\n")
-      return
-    end
-    if setGridXSpacing ~= nil then setGridXSpacing(gx) end
-    if setGridYSpacing ~= nil then setGridYSpacing(gy) end
-    if xSeekBarLabel ~= nil then xSeekBarLabel:setText("Grid X Spacing: "..gx) end
-    if ySeekBarLabel ~= nil then ySeekBarLabel:setText("Grid Y Spacing: "..gy) end
   end
 })
 
-chromeGesturesListener = luajava.createProxy("android.view.View$OnClickListener",{
-  onClick = function(v)
-    if chromeFields == nil or setChromeGestures == nil then
-      return
-    end
-    local parts = {}
-    for i = 1, #chromeFields do
-      local entry = chromeFields[i]
-      local cmd = entry.edit:getText():toString()
-      cmd = string.gsub(cmd, "^%s*(.-)%s*$", "%1")
-      if cmd ~= "" then
-        parts[#parts + 1] = entry.key .. "=" .. cmd
-      end
-    end
-    setChromeGestures(table.concat(parts, "\n"))
-    Note("\nChrome gestures saved (" .. #parts .. " bound).\n")
+gridFieldActionListener = luajava.createProxy("android.widget.TextView$OnEditorActionListener",{
+  onEditorAction = function(v,actionId,event)
+    commitGridFields()
+    -- false: let the keyboard do its usual thing on top of this.
+    return false
   end
 })
+
+serialiseChromeFields = function()
+  local parts = {}
+  if chromeFields == nil then
+    return "", 0
+  end
+  for i = 1, #chromeFields do
+    local entry = chromeFields[i]
+    local cmd = entry.edit:getText():toString()
+    cmd = string.gsub(cmd, "^%s*(.-)%s*$", "%1")
+    if cmd ~= "" then
+      parts[#parts + 1] = entry.key .. "=" .. cmd
+    end
+  end
+  return table.concat(parts, "\n"), #parts
+end
+
+-- Shared by Done. The gestures used to need their own save button, which meant
+-- typing one and pressing Done threw it away. Returns how many are bound and
+-- whether anything actually changed, so Done stays quiet when it has nothing
+-- to report.
+saveChromeGestures = function()
+  if chromeFields == nil or setChromeGestures == nil then
+    return 0, false
+  end
+  local joined, count = serialiseChromeFields()
+  if joined == chromeBaseline then
+    return count, false
+  end
+  setChromeGestures(joined)
+  chromeBaseline = joined
+  return count, true
+end
+
+-- Called back after a tool has changed the grid or the button size behind the
+-- dialog. The dialog is full screen, so without this the only way to see what
+-- a Fit did was to close settings and open them again.
+function refreshValues(values)
+  if values == nil then
+    return
+  end
+  -- Reported as it is, not clamped: this is what the grid actually became, and
+  -- a box quietly showing 160 when the grid is 200 is the kind of small lie
+  -- that costs an afternoon. Only the slider position gets clamped, because
+  -- that is all a slider can express.
+  if values.gridX ~= nil then
+    gridX = math.floor(values.gridX)
+    setSliderQuietly(xSeekBar, clampGrid(gridX) - GRID_MIN)
+    if gridXField ~= nil then gridXField:setText(tostring(gridX)) end
+    if editorValues ~= nil then editorValues.gridX = gridX end
+  end
+  if values.gridY ~= nil then
+    gridY = math.floor(values.gridY)
+    setSliderQuietly(ySeekBar, clampGrid(gridY) - GRID_MIN)
+    if gridYField ~= nil then gridYField:setText(tostring(gridY)) end
+    if editorValues ~= nil then editorValues.gridY = gridY end
+  end
+  -- The box always shows the size that was applied. editorValues only follows
+  -- when the change was set-wide, because Done writes editorValues.width to the
+  -- set default -- and a size meant for two selected buttons must not become
+  -- what every new button starts at. Leaving it alone is equally deliberate:
+  -- Done would otherwise write the stale open-time size back over the new one.
+  if values.width ~= nil then
+    if sizeWidthField ~= nil then sizeWidthField:setText(tostring(values.width)) end
+    if editorValues ~= nil and values.becameDefault then
+      editorValues.width = values.width
+    end
+  end
+  if values.height ~= nil then
+    if sizeHeightField ~= nil then sizeHeightField:setText(tostring(values.height)) end
+    if editorValues ~= nil and values.becameDefault then
+      editorValues.height = values.height
+    end
+  end
+end
 
 tidyLayoutListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v)
@@ -628,8 +779,10 @@ tidyLayoutListener = luajava.createProxy("android.view.View$OnClickListener",{
 
 gridXSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekBarChangeListener",{
   onProgressChanged = function(v,progress,state)
-    gridX = (progress + 32)
-    xSeekBarLabel:setText("Grid X Spacing: "..gridX)
+    if suppressGridSync then
+      return
+    end
+    gridX = (progress + GRID_MIN)
     if gridXField ~= nil then gridXField:setText(tostring(gridX)) end
     if(setGridXSpacing ~= nil) then
       setGridXSpacing(gridX)
@@ -639,8 +792,10 @@ gridXSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekB
 
 gridYSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekBarChangeListener",{
   onProgressChanged = function(v,progress,state)
-    gridY = (progress + 32)
-    ySeekBarLabel:setText("Grid Y Spacing: "..gridY)
+    if suppressGridSync then
+      return
+    end
+    gridY = (progress + GRID_MIN)
     if gridYField ~= nil then gridYField:setText(tostring(gridY)) end
     if(setGridYSpacing ~= nil) then
       setGridYSpacing(gridY)
@@ -652,7 +807,7 @@ gridOpacitySeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$O
   onProgressChanged = function(v,progress,state)
     gridOpacity = progress
     local opacitypct = math.floor((gridOpacity / 255)*100)
-    opacitySeekBarLabel:setText("Grid Opacity: "..opacitypct.."%")
+    opacitySeekBarLabel:setText("Grid opacity: "..opacitypct.."%")
     if(setGridOpacity ~= nil) then
       setGridOpacity(progress)
     end
@@ -670,6 +825,11 @@ gridIntersectionTestRadioChangedListener = luajava.createProxy("android.widget.R
 
 doneListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v)
+    -- A grid box the user typed into and never left still holds uncommitted
+    -- text; Done is a commit.
+    commitGridFields()
+    local bound, changed = saveChromeGestures()
+
     --collect editor values
     if(setEditorValues ~= nil) then
       for i,k in pairs(setEditorValues) do
@@ -679,7 +839,11 @@ doneListener = luajava.createProxy("android.view.View$OnClickListener",{
     if(editorDone ~= nil) then
       editorDone(editorValues)
     end
-  
+
+    if changed then
+      Note("\nSaved, including " .. bound .. " additional gesture(s).\n")
+    end
+
     dialog:dismiss()
   end
 })
