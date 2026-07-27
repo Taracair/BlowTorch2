@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -175,6 +176,20 @@ public class MapperController {
 	private MapperUiBridge mUiBridge;
 	/** When true, ignore outbound commands (path send already recorded). */
 	private boolean mSuppressRecord;
+	/**
+	 * The compass move the player last typed, kept only long enough for the GMCP
+	 * room that answers it. Without this, placing a new room was direction-blind:
+	 * it guessed from exit lists and fell back to a fixed scan order, which is
+	 * how a room entered by w ended up drawn directly below its neighbour.
+	 */
+	private String mLastMoveCommand;
+	private long mLastMoveAt;
+	/**
+	 * A move older than this is not the one this room answers -- a portal, a
+	 * follow walk or a teleport happened in between, and a stale direction places
+	 * worse than no direction at all.
+	 */
+	private static final long MOVE_MEMORY_MS = 4000L;
 	private final android.os.Handler mAutosaveHandler =
 			new android.os.Handler(android.os.Looper.getMainLooper());
 	private final Runnable mAutosaveRunnable = new Runnable() {
@@ -1740,6 +1755,22 @@ public class MapperController {
 			}
 			return;
 		}
+		// Remembered whether or not follow is on: the GMCP room that arrives next
+		// needs to know which way the player went, and that is true either way.
+		String[] moves = raw.split("[\\r\\n;]+");
+		for (int i = moves.length - 1; i >= 0; i--) {
+			String piece = moves[i].trim();
+			if (piece.length() == 0) {
+				continue;
+			}
+			String norm = normalize(piece);
+			if (gridDeltaFor(norm) != null) {
+				// The last compass move in the line is the one that lands us.
+				mLastMoveCommand = norm;
+				mLastMoveAt = System.currentTimeMillis();
+				break;
+			}
+		}
 		// Follow still runs while suppress is on (path auto-walk must update Here).
 		if (mFollowPlayer) {
 			boolean moved = false;
@@ -1875,9 +1906,24 @@ public class MapperController {
 				tile = current;
 			} else if (current != null) {
 				pushUndo();
-				int[] slot = preferAdjacentSlot(current, levelId, num, exitDestNums);
+				String movedBy = consumeLastMove();
+				int[] delta = gridDeltaFor(movedBy);
+				int[] slot = null;
+				// The direction the player actually walked beats anything inferred
+				// from exit lists. Only when it is unknown or the cell is taken do
+				// we fall back to guessing.
+				if (delta != null) {
+					int nx = current.getGridX() + delta[0];
+					int ny = current.getGridY() + delta[1];
+					if (findTileAt(levelId, nx, ny) == null) {
+						slot = new int[] { nx, ny };
+					}
+				}
 				if (slot == null) {
-					slot = findFreeNear(levelId, current.getGridX(), current.getGridY());
+					slot = preferAdjacentSlot(current, levelId, num, exitDestNums, movedBy);
+				}
+				if (slot == null) {
+					slot = findFreeNear(levelId, current.getGridX(), current.getGridY(), delta);
 				}
 				tile = createTileAt(levelId, slot[0], slot[1]);
 				changed = true;
@@ -2118,7 +2164,8 @@ public class MapperController {
 	 * that compass neighbor cell; else null.
 	 */
 	private int[] preferAdjacentSlot(final MapTile from, final String levelId,
-			final String destNum, final Map<String, String> exitDestNums) {
+			final String destNum, final Map<String, String> exitDestNums,
+			final String movedBy) {
 		if (from == null) {
 			return null;
 		}
@@ -2130,6 +2177,13 @@ public class MapperController {
 			MapTile dest = findTileById(e.getToId());
 			if (dest != null && destNum != null && destNum.equals(dest.getExternalId())) {
 				return new int[] { dest.getGridX(), dest.getGridY() };
+			}
+			// Only the stub for the exit we actually walked. This used to accept
+			// any exit with a direction at all, so which cell won came down to
+			// getExits() order -- a room entered by w could land on the cell that
+			// belonged to the s stub, and the link drew straight down.
+			if (movedBy == null || !movedBy.equals(normalize(e.getCommand()))) {
+				continue;
 			}
 			int[] delta = gridDeltaFor(normalize(e.getCommand()));
 			if (delta != null && destNum != null && dest != null
@@ -3375,24 +3429,73 @@ public class MapperController {
 	}
 
 	private int[] findFreeNear(final String levelId, final int ox, final int oy) {
-		if (findTileAt(levelId, ox, oy) == null) {
-			// Prefer not stacking on origin when origin is occupied by `from`
-		}
+		return findFreeNear(levelId, ox, oy, null);
+	}
+
+	/**
+	 * Nearest free cell to (ox,oy), preferring the way the player travelled.
+	 *
+	 * The ring scan alone runs -r..r on both axes, so it hands back the
+	 * north-west corner of the ring first and works round from there, whichever
+	 * way the player was going. That is how a walk east filled a column
+	 * downwards. With {@code travel} known, ring candidates are ordered by how
+	 * well they agree with it, so the room lands behind the player only when
+	 * everything ahead is taken.
+	 */
+	private int[] findFreeNear(final String levelId, final int ox, final int oy,
+			final int[] travel) {
 		for (int r = 1; r < 30; r++) {
-			for (int dx = -r; dx <= r; dx++) {
-				for (int dy = -r; dy <= r; dy++) {
-					if (Math.abs(dx) != r && Math.abs(dy) != r) {
-						continue;
-					}
-					int x = ox + dx;
-					int y = oy + dy;
-					if (findTileAt(levelId, x, y) == null) {
-						return new int[] { x, y };
-					}
+			for (int[] off : ringOffsetsByTravel(r, travel)) {
+				int x = ox + off[0];
+				int y = oy + off[1];
+				if (findTileAt(levelId, x, y) == null) {
+					return new int[] { x, y };
 				}
 			}
 		}
 		return new int[] { ox + 50, oy };
+	}
+
+	/**
+	 * Cells on the ring at radius {@code r}, the ones most nearly ahead first.
+	 *
+	 * With {@code travel} null this is the plain scan: north-west corner, then
+	 * round. That order is unrelated to where the player was going, which is how
+	 * a walk east could put the new room north-west of the old one and fill a
+	 * column downwards. Sorting by cosine against the travel vector puts the
+	 * room behind the player only when everything ahead is taken. The sort is
+	 * stable, so cells that agree equally well keep the plain order.
+	 */
+	static List<int[]> ringOffsetsByTravel(final int r, final int[] travel) {
+		List<int[]> cells = new ArrayList<int[]>();
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dy = -r; dy <= r; dy++) {
+				if (Math.abs(dx) != r && Math.abs(dy) != r) {
+					continue;
+				}
+				cells.add(new int[] { dx, dy });
+			}
+		}
+		if (travel == null || (travel[0] == 0 && travel[1] == 0)) {
+			return cells;
+		}
+		final double tlen = Math.sqrt((double) travel[0] * travel[0]
+				+ (double) travel[1] * travel[1]);
+		Collections.sort(cells, new Comparator<int[]>() {
+			@Override
+			public int compare(int[] a, int[] b) {
+				return Double.compare(agreement(b), agreement(a));
+			}
+
+			private double agreement(int[] c) {
+				double len = Math.sqrt((double) c[0] * c[0] + (double) c[1] * c[1]);
+				if (len < 0.0001) {
+					return 0;
+				}
+				return (c[0] * travel[0] + c[1] * travel[1]) / (len * tlen);
+			}
+		});
+		return cells;
 	}
 
 	private void ensureReverse(final MapTile from, final MapTile to, final String forwardCmd) {
@@ -3447,6 +3550,23 @@ public class MapperController {
 
 	private String normalize(final String cmd) {
 		return MapDirections.normalize(cmd, directionMap());
+	}
+
+	/**
+	 * The move that this room arrival answers, if it is recent enough to be that
+	 * move. Read once: a second room without a fresh command did not come from
+	 * walking, so it must not reuse the direction.
+	 */
+	private String consumeLastMove() {
+		String cmd = mLastMoveCommand;
+		mLastMoveCommand = null;
+		if (cmd == null) {
+			return null;
+		}
+		if (System.currentTimeMillis() - mLastMoveAt > MOVE_MEMORY_MS) {
+			return null;
+		}
+		return cmd;
 	}
 
 	private Map<String, DirectionData> directionMap() {
