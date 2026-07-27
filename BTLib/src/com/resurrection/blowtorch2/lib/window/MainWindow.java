@@ -309,7 +309,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	boolean isKeepLast = false; //for keeping last
 	boolean historyWidgetKept = false;
 	Boolean settingsLoaded = false; //synchronize or try to mitigate failures of writing button data, or failures to read data
-	Boolean serviceConnected = false;
+	/** Whether the service binding is currently up.
+	 *
+	 * <p>A plain boolean on purpose. This used to be a Boolean guarded by
+	 * synchronized(serviceConnected) with a notify() inside — three problems in one
+	 * line: autoboxed Booleans are interned, so that locked an object shared with
+	 * every other class in the process; the assignment inside the block changed which
+	 * object the next block would lock; and nothing anywhere ever wait()ed for the
+	 * notify. It only ever ran on the UI thread, so a field is all it needs to be. */
+	boolean serviceConnected = false;
 	Boolean isResumed = false;
 	WindowToken[] mWindows = null;
 	//VitalsView vitals = null;
@@ -393,11 +401,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				//do nothing here, as there isn't much we can do
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.reconnect", e);
 			}
-			synchronized(serviceConnected) {
-				//Log.e("WINDOW","SERVICE CONNECTED, SENDING NOTIFICATION");
-				serviceConnected.notify();
-				serviceConnected = true;
-			}
+			serviceConnected = true;
 			MainWindow.this.runOnUiThread(new Runnable() {
 				@Override
 				public void run() {
@@ -435,10 +439,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mRebindAttempts = 0;
 			scheduleServiceRebind();
 
-			synchronized(serviceConnected) {
-				serviceConnected.notify();
-				serviceConnected = false;
-			}
+			serviceConnected = false;
 		}
 		
 	};
