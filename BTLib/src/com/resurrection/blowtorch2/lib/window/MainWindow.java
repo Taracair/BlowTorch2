@@ -253,6 +253,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_MAPPER_UI = 922;
 	/** Re-apply IME chrome lift after Window → Keep text still with keyboard? changes. */
 	public static final int MESSAGE_REFRESH_IME_LIFT = 923;
+	/** Main window scroll sensitivity changed; overlays set to inherit must follow. */
+	public static final int MESSAGE_REFRESH_EXTRA_TEXT_SCROLL = 927;
 	/** Extra text overlays: sync after Connection slot mutate / settings change. */
 	protected static final int MESSAGE_EXTRA_TEXT_UI = 924;
 	protected boolean settingsDialogRun = false;
@@ -861,6 +863,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					break;
 				}
+				case MESSAGE_REFRESH_EXTRA_TEXT_SCROLL:
+					if (extraTextOverlay != null) {
+						extraTextOverlay.refreshScrollSpeeds();
+					}
+					break;
 				case MESSAGE_LINEBREAK:
 					//screen2.setLineBreaks((Integer)msg.obj);
 					break;

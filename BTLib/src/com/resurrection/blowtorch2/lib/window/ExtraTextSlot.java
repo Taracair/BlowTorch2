@@ -12,6 +12,11 @@ import org.json.JSONObject;
  */
 public final class ExtraTextSlot {
 
+	/** {@link #getScrollSpeed()} value meaning "use the main window's setting". */
+	public static final int SCROLL_SPEED_INHERIT = 0;
+	/** Highest stored value: one past the last {@code scroll_sensitivity} choice. */
+	public static final int SCROLL_SPEED_MAX = 5;
+
 	/** Layout / presentation mode for the overlay. */
 	public enum Mode {
 		DRAWER_TOP("drawer_top"),
@@ -63,6 +68,15 @@ public final class ExtraTextSlot {
 	private int floatH = 220;
 	/** Overlay opacity percent 40–100 (same range as mapper float). */
 	private int opacity = 85;
+	/**
+	 * Scroll speed for this overlay's text. {@link #SCROLL_SPEED_INHERIT} means
+	 * follow the main window's "Scroll sensitivity"; otherwise it is a
+	 * {@code scroll_sensitivity} list choice plus one, so 0 can mean inherit.
+	 * Kept here rather than on the WindowToken because extra-text tokens are
+	 * rebuilt by ensureSlots() and never reach settings.getWindows(), so their
+	 * SettingsGroup is not serialized — this JSON is the only durable home.
+	 */
+	private int scrollSpeed = SCROLL_SPEED_INHERIT;
 	private boolean visible = true;
 	private boolean collapsed = false;
 	/**
@@ -276,6 +290,39 @@ public final class ExtraTextSlot {
 		return m.equalsIgnoreCase(p);
 	}
 
+	/**
+	 * @return {@link #SCROLL_SPEED_INHERIT}, or a {@code scroll_sensitivity}
+	 *         choice index plus one.
+	 */
+	public int getScrollSpeed() {
+		return scrollSpeed;
+	}
+
+	public void setScrollSpeed(final int scrollSpeed) {
+		this.scrollSpeed = clampScrollSpeed(scrollSpeed);
+	}
+
+	/** Out-of-range values fall back to inherit rather than to a guessed speed. */
+	static int clampScrollSpeed(final int raw) {
+		if (raw < SCROLL_SPEED_INHERIT || raw > SCROLL_SPEED_MAX) {
+			return SCROLL_SPEED_INHERIT;
+		}
+		return raw;
+	}
+
+	/**
+	 * Resolve this slot's stored speed against the main window's current choice.
+	 *
+	 * @param mainWindowChoice The main window's {@code scroll_sensitivity} index.
+	 * @return A {@code scroll_sensitivity} choice index to hand to the overlay.
+	 */
+	public int resolveScrollChoice(final int mainWindowChoice) {
+		if (scrollSpeed == SCROLL_SPEED_INHERIT) {
+			return mainWindowChoice;
+		}
+		return scrollSpeed - 1;
+	}
+
 	/** Deep copy for safe UI/service handoff. */
 	public ExtraTextSlot copy() {
 		ExtraTextSlot s = new ExtraTextSlot();
@@ -288,6 +335,7 @@ public final class ExtraTextSlot {
 		s.floatW = this.floatW;
 		s.floatH = this.floatH;
 		s.opacity = this.opacity;
+		s.scrollSpeed = this.scrollSpeed;
 		s.visible = this.visible;
 		s.collapsed = this.collapsed;
 		s.gmcpModules.clear();
@@ -307,6 +355,7 @@ public final class ExtraTextSlot {
 		o.put("float_w", floatW);
 		o.put("float_h", floatH);
 		o.put("opacity", opacity);
+		o.put("scroll_speed", scrollSpeed);
 		o.put("visible", visible);
 		o.put("collapsed", collapsed);
 		if (!gmcpModules.isEmpty()) {
@@ -358,6 +407,7 @@ public final class ExtraTextSlot {
 			op = 100;
 		}
 		s.opacity = op;
+		s.scrollSpeed = clampScrollSpeed(o.optInt("scroll_speed", SCROLL_SPEED_INHERIT));
 		s.visible = o.optBoolean("visible", true);
 		s.collapsed = o.optBoolean("collapsed", false);
 		s.gmcpModules.clear();

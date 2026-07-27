@@ -153,6 +153,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Gain applied to finger travel when scrolling. 1.0 means the text tracks the finger. */
 	private float mScrollSensitivity = 1.0f;
 	/**
+	 * The {@code scroll_sensitivity} list choice behind {@link #mScrollSensitivity}.
+	 * Kept alongside the gain so extra-text overlays can inherit this window's
+	 * choice without reading the settings tree from another process.
+	 */
+	private int mScrollSensitivityChoice = WindowToken.DEFAULT_SCROLL_SENSITIVITY;
+	/**
 	 * Extra insets when an extra-text drawer covers this window (push-main).
 	 * Shrinks the painted text region only — layout stays full-bleed so
 	 * {@code button_window} coordinates are unchanged.
@@ -607,7 +613,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		ListOption scrollSensitivity = (ListOption) settings.findOptionByKey("scroll_sensitivity");
 		if (scrollSensitivity != null) {
-			mScrollSensitivity = scrollSensitivityFromChoice((Integer) scrollSensitivity.getValue());
+			mScrollSensitivityChoice = (Integer) scrollSensitivity.getValue();
+			mScrollSensitivity = scrollSensitivityFromChoice(Integer.valueOf(mScrollSensitivityChoice));
 		}
 		
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
@@ -1477,6 +1484,27 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				"Window[" + mName + "]." + what,
 				new IllegalStateException("buffer changed on " + Thread.currentThread().getName()
 						+ ", not the UI thread; onDraw walks it unguarded — post a message instead"));
+	}
+
+	/** @return This window's {@code scroll_sensitivity} list choice. */
+	public final int getScrollSensitivityChoice() {
+		return mScrollSensitivityChoice;
+	}
+
+	/**
+	 * Set the scroll gain from a {@code scroll_sensitivity} list choice.
+	 * Extra-text overlays are driven through here rather than through their
+	 * SettingsGroup, which is never persisted for them.
+	 *
+	 * @param choice A {@code scroll_sensitivity} index; out of range means Normal.
+	 */
+	public final void applyScrollSensitivityChoice(final Integer choice) {
+		mScrollSensitivityChoice = choice == null
+				? WindowToken.DEFAULT_SCROLL_SENSITIVITY : choice.intValue();
+		mScrollSensitivity = scrollSensitivityFromChoice(choice);
+		// A fling in flight was scaled by the old gain; let it stop rather than
+		// change speed under the finger that already left the screen.
+		mFlingVelocity = 0;
 	}
 
 	static float scrollSensitivityFromChoice(final Integer choice) {
@@ -4286,8 +4314,12 @@ end
 				}
 				break;
 			case scroll_sensitivity:
-				mScrollSensitivity = scrollSensitivityFromChoice((Integer) o.getValue());
-				mFlingVelocity = 0;
+				applyScrollSensitivityChoice((Integer) o.getValue());
+				// Overlays set to "same as main window" track this value, and they
+				// live in MainWindow, not in the settings tree.
+				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_EXTRA_TEXT_SCROLL);
+				}
 				break;
 			
 			case color_option:

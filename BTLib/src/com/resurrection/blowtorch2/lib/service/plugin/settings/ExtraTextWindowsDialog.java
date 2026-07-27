@@ -248,6 +248,20 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "Opacity % (40–100)"));
 		form.addView(opacity);
 
+		// Index 0 is inherit, so the main window's Scroll sensitivity setting doubles
+		// as "all extra windows at once" for every slot left on the default.
+		final Spinner scrollSpeed = new Spinner(context);
+		String[] scrollItems = new String[] { "Same as main window", "Slower (75%)",
+				"Normal (100%)", "Faster (150%)", "Much faster (200%)", "Fastest (300%)" };
+		ArrayAdapter<String> scrollAdapter = new ArrayAdapter<String>(context,
+				android.R.layout.simple_spinner_item, scrollItems);
+		scrollAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		scrollSpeed.setAdapter(scrollAdapter);
+		scrollSpeed.setSelection(existing != null
+				? existing.getScrollSpeed() : ExtraTextSlot.SCROLL_SPEED_INHERIT);
+		form.addView(label(context, "Scroll speed"));
+		form.addView(scrollSpeed);
+
 		final Spinner visible = new Spinner(context);
 		String[] visItems = new String[] { "Visible", "Hidden" };
 		ArrayAdapter<String> visAdapter = new ArrayAdapter<String>(context,
@@ -426,6 +440,7 @@ public final class ExtraTextWindowsDialog {
 				} catch (Exception e) {
 					slot.setOpacity(85);
 				}
+				slot.setScrollSpeed(scrollSpeed.getSelectedItemPosition());
 				slot.setVisible(visible.getSelectedItemPosition() == 0);
 				if (gmcpAdvanced.getVisibility() == View.VISIBLE) {
 					slot.setGmcpModulesCsv(gmcpAdvanced.getText() != null
