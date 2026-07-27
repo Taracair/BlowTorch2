@@ -259,18 +259,30 @@ final class ConnectionSettingsIO {
 				if (success) {
 					Log.e("BT","file shadow copy success");
 				} else {
+					// renameTo fails across filesystems, and the staging file lives in
+					// the cache while this destination usually does not — so this is
+					// the ordinary path for an external save, not a rare one.
 					Log.e("BT","renameTo failed, falling back to stream copy");
+					// Copy beside the destination and rename, rather than opening the
+					// destination itself. FileOutputStream truncates on open: the old
+					// version used to be destroyed before the first byte of the new one
+					// arrived, so a copy that failed half way left nothing at all. A
+					// sibling is on the same filesystem, so this rename does work.
+					File staging = new File(file.getAbsolutePath() + ".new");
 					FileInputStream copyIn = null;
 					FileOutputStream copyOut = null;
+					boolean copied = false;
 					try {
 						copyIn = new FileInputStream(tmpfile);
-						copyOut = new FileOutputStream(file);
+						copyOut = new FileOutputStream(staging);
 						byte[] buf = new byte[4096];
 						int len;
 						while ((len = copyIn.read(buf)) > 0) {
 							copyOut.write(buf, 0, len);
 						}
 						copyOut.flush();
+						copyOut.getFD().sync();
+						copied = true;
 						Log.e("BT","stream copy success");
 					} catch (IOException copyEx) {
 						Log.e("BT","stream copy failed: " + copyEx.getMessage());
@@ -283,6 +295,17 @@ final class ConnectionSettingsIO {
 					} finally {
 						if (copyIn != null) try { copyIn.close(); } catch (IOException ignored) {}
 						if (copyOut != null) try { copyOut.close(); } catch (IOException ignored) {}
+					}
+					if (copied && !staging.renameTo(file)) {
+						// Nothing was lost — the previous file is still where it was.
+						passed = false;
+						staging.delete();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"ConnectionSettingsIO.exportSettings",
+								new IOException("could not put " + file.getName()
+										+ " in place; the previous file is untouched"));
+					} else if (!copied) {
+						staging.delete();
 					}
 					tmpfile.delete();
 				}
