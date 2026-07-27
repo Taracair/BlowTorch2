@@ -191,6 +191,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int MESSAGE_RENAWS = 885;
 	/** Connect only after the first live NAWS measurement (avoids wrong size + startup races). */
 	private static final int MESSAGE_CONNECT_WHEN_READY = 8851;
+	private static final int MESSAGE_RETRYWINDOWTOKENS = 925;
 	private boolean mPendingInitialConnect = false;
 	public final static int MESSAGE_LAUNCHURL = 886;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
@@ -803,6 +804,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 								se.getString("type"),
 								se.getString("content"));
 					}
+					break;
+				case MESSAGE_RETRYWINDOWTOKENS:
+					retryWindowTokens();
 					break;
 				case MESSAGE_RENAWS:
 					reportLiveNawsToService();
@@ -3321,6 +3325,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	};
 	
 	boolean windowsInitialized = false;
+	/** Retries left before we stop asking the service for windows. ~6 s in total. */
+	private static final int MAX_WINDOW_TOKEN_ATTEMPTS = 20;
+	private static final int WINDOW_TOKEN_RETRY_MS = 300;
+	private int mWindowTokenAttempts = 0;
 	//boolean landscape = false
 	public void initiailizeWindows() {
 		//ask the service for all the current windows for the connection.
@@ -3347,44 +3355,68 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//}
 		landscape = isLandscape();
 		windowsInitialized = true;
-		String displayname = "";
-		
+
+		myhandler.removeMessages(MESSAGE_RETRYWINDOWTOKENS);
+		mWindowTokenAttempts = 0;
+		if(!fetchWindowTokens()) {
+			// The connection may still be loading its plugins; loadPlugins() empties
+			// mWindows before refilling it, so an empty answer here is normal. Come
+			// back on the handler instead of blocking the UI thread on it.
+			scheduleWindowTokenRetry();
+			return;
+		}
+		finishInitializeWindows();
+	}
+
+	/** Ask the service for the window list. False when it has none to give yet. */
+	private boolean fetchWindowTokens() {
+		if(service == null) {
+			// onServiceDisconnected() nulls this; a queued INITIALIZEWINDOWS can land after.
+			mWindows = null;
+			return false;
+		}
 		try {
 			mWindows = service.getWindowTokens();
-			//displayname = service.getConnectedTo();
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			Log.e("BlowTorch","getWindowTokens failed", e);
+			mWindows = null;
 		}
-		
-		if(mWindows == null || mWindows.length == 0) {
-			//Exception e = new Exception("No windows to show.");
-			//throw new RuntimeException(e);
-			synchronized(this) {
-				while(mWindows == null || mWindows.length == 0) {
-					try {
-						this.wait(300);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					boolean done = false;
-					//while(!done) {
-						try {
-							mWindows = service.getWindowTokens();
-							if(mWindows != null) {
-								if(mWindows.length > 0) {
-									done = true;
-								}
-							}
-						} catch (RemoteException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-					//}
-				}
-			}
-		} 
+		return mWindows != null && mWindows.length > 0;
+	}
+
+	private void scheduleWindowTokenRetry() {
+		myhandler.removeMessages(MESSAGE_RETRYWINDOWTOKENS);
+		myhandler.sendEmptyMessageDelayed(MESSAGE_RETRYWINDOWTOKENS, WINDOW_TOKEN_RETRY_MS);
+	}
+
+	/** Handler side of the retry. Replaces a wait() loop that used to run on the UI thread. */
+	void retryWindowTokens() {
+		if(mWindows != null && mWindows.length > 0) {
+			return;
+		}
+		mWindowTokenAttempts++;
+		if(fetchWindowTokens()) {
+			finishInitializeWindows();
+			return;
+		}
+		if(mWindowTokenAttempts >= MAX_WINDOW_TOKEN_ATTEMPTS) {
+			// Loading failed in :stellar, or the binder is dead. Leave the UI alive
+			// and let the next markWindowsDirty()/loadWindowSettings() start over.
+			String why = "Gave up waiting for window tokens after "
+					+ mWindowTokenAttempts + " tries; the connection has no windows.";
+			Log.e("BlowTorch", why);
+			// Also to the on-device log: this is the sort of silence worth a record.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logError(this, "initiailizeWindows", why);
+			windowsInitialized = false;
+			mPendingInitialConnect = false;
+			myhandler.removeMessages(MESSAGE_CONNECT_WHEN_READY);
+			return;
+		}
+		scheduleWindowTokenRetry();
+	}
+
+	/** Everything that needs a populated mWindows. */
+	private void finishInitializeWindows() {
 			ApplicationInfo ai = null;
 			try {
 				ai = this.getPackageManager().getApplicationInfo(this.getPackageName(), PackageManager.GET_META_DATA);
