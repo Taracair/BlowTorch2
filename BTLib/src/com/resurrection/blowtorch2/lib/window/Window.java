@@ -149,6 +149,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mNewestAtTop = false;
 	/** Extra empty pixels above game text (notch / camera). Buttons unaffected. */
 	private int mTopPadding = 0;
+	/** Gain applied to finger travel when scrolling. 1.0 means the text tracks the finger. */
+	private float mScrollSensitivity = 1.0f;
 	/**
 	 * Extra insets when an extra-text drawer covers this window (push-main).
 	 * Shrinks the painted text region only — layout stays full-bleed so
@@ -586,6 +588,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		BooleanOption imeKeepText = (BooleanOption) settings.findOptionByKey("ime_keep_text");
 		if (imeKeepText != null) {
 			mImeKeepText = (Boolean) imeKeepText.getValue();
+		}
+		ListOption scrollSensitivity = (ListOption) settings.findOptionByKey("scroll_sensitivity");
+		if (scrollSensitivity != null) {
+			mScrollSensitivity = scrollSensitivityFromChoice((Integer) scrollSensitivity.getValue());
 		}
 		
 		ListOption hlmode = (ListOption) settings.findOptionByKey("hyperlink_mode");
@@ -1341,12 +1347,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				float dist = nowY - mMoveLastY;
 				float velocity = dist / time;
+				// Cap what a finger can plausibly do first, then apply the sensitivity
+				// gain — clamping afterwards would make every setting above Normal
+				// saturate at the same speed and feel identical.
 				if (velocity > MAX_VELOCITY) {
 					velocity = MAX_VELOCITY;
 				} else if (velocity < -MAX_VELOCITY) {
 					velocity = -MAX_VELOCITY;
 				}
-				mFlingVelocity = velocity;
+				mFlingVelocity = velocity * mScrollSensitivity;
 
 				if (mStartY != null
 						&& Math.abs(nowY - mStartY) >= Math.max(mPrefLineSize * 2f, 32f * mDensity)) {
@@ -1354,7 +1363,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 
 				if (dist != 0f) {
-					final double delta = mNewestAtTop ? -dist : dist;
+					final double delta = (mNewestAtTop ? -dist : dist) * mScrollSensitivity;
 					mScrollback = mScrollback + delta;
 					if (mScrollback < SCROLL_MIN) {
 						mScrollback = SCROLL_MIN;
@@ -1422,6 +1431,25 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return false;
 	}
 	
+	/** Maps the Options -> Window "Scroll sensitivity" choice onto a gain on finger travel.
+	 *
+	 * @param choice Index into the option's item list.
+	 * @return Multiplier for scroll distance and fling speed; 1.0 tracks the finger.
+	 */
+	static float scrollSensitivityFromChoice(final Integer choice) {
+		if (choice == null) {
+			return 1.0f;
+		}
+		switch (choice.intValue()) {
+		case 0: return 0.75f;
+		case 1: return 1.0f;
+		case 2: return 1.5f;
+		case 3: return 2.0f;
+		case 4: return 3.0f;
+		default: return 1.0f;
+		}
+	}
+
 	/** Called from onDraw, calculates a new scrollback value for this frame. */
 	private void calculateScrollBack() {
 		
@@ -1456,11 +1484,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				float durationSinceLastFrame = ((float) (nowdrawtime - mLastFrameTime)) / 1000.0f; //convert to seconds
 				mLastFrameTime = System.currentTimeMillis();
 				final double flingSign = mNewestAtTop ? -1.0 : 1.0;
+				// Scale the deceleration by the same gain as the speed. A fling covers
+				// v^2 / 2a, so leaving `a` alone would make double sensitivity travel
+				// four times as far — this keeps the distance linear in the setting and
+				// the fling lasting about as long at every setting.
+				final float decel = fling_accel * mScrollSensitivity;
 				if (mFlingVelocity < 0) {
-					mFlingVelocity = mFlingVelocity + fling_accel * durationSinceLastFrame;
+					mFlingVelocity = mFlingVelocity + decel * durationSinceLastFrame;
 					mScrollback =  mScrollback + flingSign * mFlingVelocity * durationSinceLastFrame;
 				} else if (mFlingVelocity > 0) {
-					mFlingVelocity = mFlingVelocity - fling_accel * durationSinceLastFrame;
+					mFlingVelocity = mFlingVelocity - decel * durationSinceLastFrame;
 					mScrollback =  mScrollback + flingSign * mFlingVelocity * durationSinceLastFrame;
 				}
 				
@@ -4205,6 +4238,10 @@ end
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_IME_LIFT);
 				}
 				break;
+			case scroll_sensitivity:
+				mScrollSensitivity = scrollSensitivityFromChoice((Integer) o.getValue());
+				mFlingVelocity = 0;
+				break;
 			
 			case color_option:
 				switch((Integer)o.getValue()) {
@@ -4279,6 +4316,7 @@ end
 		newest_at_top,
 		top_padding,
 		ime_keep_text,
+		scroll_sensitivity,
 		color_option,
 		screen_on,
 		font_size,

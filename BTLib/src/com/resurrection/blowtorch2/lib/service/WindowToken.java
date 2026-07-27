@@ -40,6 +40,8 @@ public class WindowToken implements Parcelable {
 	public static final int DEFAULT_BUFFER_SIZE = 2000;
 	/** Default top text inset (pixels). */
 	public static final int DEFAULT_TOP_PADDING = 0;
+	/** Default scroll sensitivity: index of "Normal", where text follows the finger 1:1. */
+	public static final int DEFAULT_SCROLL_SENSITIVITY = 1;
 	/** Default font path (bundled asset). */
 	public static final String DEFAULT_FONT_PATH = "fonts/DejaVuSansMono.ttf";
 	/** Required field for the parcelable interface. */
@@ -69,6 +71,8 @@ public class WindowToken implements Parcelable {
 		top_padding,
 		/** Soft keyboard lifts input only; game text stays put. */
 		ime_keep_text,
+		/** How far the text travels per unit of finger travel when scrolling. */
+		scroll_sensitivity,
 		/** Color mode (see color debug option). */
 		color_option,
 		/** Font size option. */
@@ -322,6 +326,18 @@ public class WindowToken implements Parcelable {
 		imeKeepText.setKey("ime_keep_text");
 		imeKeepText.setValue(false);
 		window.addOption(imeKeepText);
+
+		ListOption scrollSensitivity = new ListOption();
+		scrollSensitivity.setTitle("Scroll sensitivity");
+		scrollSensitivity.setDescription("How far the text moves for a given swipe. Normal means the text follows your finger exactly; the faster settings cover more scrollback per swipe, which saves repeated swiping on long history. Flings scale to match.");
+		scrollSensitivity.setKey("scroll_sensitivity");
+		scrollSensitivity.setValue(Integer.valueOf(DEFAULT_SCROLL_SENSITIVITY));
+		scrollSensitivity.addItem("Slower (75%)");
+		scrollSensitivity.addItem("Normal (100%)");
+		scrollSensitivity.addItem("Faster (150%)");
+		scrollSensitivity.addItem("Much faster (200%)");
+		scrollSensitivity.addItem("Fastest (300%)");
+		window.addOption(scrollSensitivity);
 
 		BooleanOption tapDismiss = new BooleanOption();
 		tapDismiss.setTitle("Tap window hides keyboard?");

@@ -274,6 +274,14 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case scroll_sensitivity:
+						if (((Integer) ((ListOption) o).getValue()) != WindowToken.DEFAULT_SCROLL_SENSITIVITY) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((ListOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
 					case ime_keep_text:
 						if ((Boolean) ((BooleanOption) o).getValue()) {
 							out.startTag("", "option");
