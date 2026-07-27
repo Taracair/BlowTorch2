@@ -201,6 +201,12 @@ public class MapperController {
 	private RememberedMove mLastMove;
 	private long mLastMoveAt;
 	/**
+	 * The GMCP map file whose coordinate space this map is drawn in -- learnt
+	 * from the first room that names one. Rooms belonging to any other file are
+	 * placed by their exits instead, since their numbers mean nothing here.
+	 */
+	private String mHomeMapSpace;
+	/**
 	 * A move older than this is not the one this room answers -- a portal, a
 	 * follow walk or a teleport happened in between, and a stale direction places
 	 * worse than no direction at all.
@@ -2607,6 +2613,25 @@ public class MapperController {
 				y = xyz[1];
 				z = xyz[2];
 			}
+			// Rooms carry the map file their coordinates belong to. Areas with
+			// their own file number their own space from scratch: a cave room
+			// reached by going down reports z=0 in its map, which read against
+			// the surface says the cellar's cellar is back up at ground level.
+			// That contradiction is what kept raising conflicts, so coordinates
+			// are only believed inside the space they were measured in.
+			String space = firstString(info, "map");
+			if (space == null) {
+				space = firstString(body, "map");
+			}
+			if (space != null && space.length() > 0) {
+				if (mHomeMapSpace == null) {
+					mHomeMapSpace = space;
+				} else if (!mHomeMapSpace.equals(space)) {
+					x = null;
+					y = null;
+					z = null;
+				}
+			}
 			List<String> exits = parseExits(info);
 			if (exits.isEmpty()) {
 				exits = parseExits(body);
@@ -3927,7 +3952,22 @@ public class MapperController {
 		}
 	}
 
+	/**
+	 * A level named with a number is a floor number, and its order is that
+	 * number. This is what the GMCP z path creates, and handing out max+1
+	 * regardless put "-1" second and therefore *above* "0": going down from a
+	 * cellar then walked into the level above it, found the room standing at the
+	 * same cell, and reused it -- so the cellar's own down led back up to the
+	 * room the player had come from.
+	 *
+	 * Names that are not numbers keep the old behaviour, as does a number whose
+	 * place is already taken.
+	 */
 	private MapLevel addLevel(final String name) {
+		Integer numbered = numericLevelIndex(name);
+		if (numbered != null && findLevelByIndex(numbered.intValue()) == null) {
+			return addLevel(name, numbered.intValue(), null, null);
+		}
 		int max = -1;
 		for (MapLevel l : mMap.getLevels()) {
 			if (l.getIndex() > max) {
@@ -3935,6 +3975,33 @@ public class MapperController {
 			}
 		}
 		return addLevel(name, max + 1, null, null);
+	}
+
+	private static Integer numericLevelIndex(final String name) {
+		if (name == null) {
+			return null;
+		}
+		String trimmed = name.trim();
+		if (trimmed.length() == 0) {
+			return null;
+		}
+		try {
+			return Integer.valueOf(Integer.parseInt(trimmed));
+		} catch (NumberFormatException notANumber) {
+			return null;
+		}
+	}
+
+	private MapLevel findLevelByIndex(final int index) {
+		if (mMap == null) {
+			return null;
+		}
+		for (MapLevel l : mMap.getLevels()) {
+			if (l != null && l.getIndex() == index) {
+				return l;
+			}
+		}
+		return null;
 	}
 
 	/**
