@@ -7,6 +7,7 @@ import java.util.Map;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
@@ -111,6 +112,18 @@ public class MapperView extends View {
 	private final Paint linkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint linkLabelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint linkLabelBg = new Paint(Paint.ANTI_ALIAS_FLAG);
+	/**
+	 * Links whose drawn line does not mean what the command means -- a {@code w}
+	 * that lands diagonally because the world does not fit a grid. Amber and
+	 * dashed, and routed along the axes rather than straight, so the diagonal is
+	 * never read as a diagonal move.
+	 */
+	private final Paint mismatchPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	/** Same amber, solid: a dash effect on a filled arrow head eats the head. */
+	private final Paint mismatchHeadPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	/** Dash lengths are in pixels, so the effect is rebuilt when zoom changes. */
+	private float dashBuiltForScale = -1f;
+	private final Path elbowPath = new Path();
 	private final Paint specialPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint interUpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint interDownPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -201,6 +214,13 @@ public class MapperView extends View {
 		linkPaint.setStrokeWidth(2.5f);
 		linkPaint.setStyle(Paint.Style.STROKE);
 		linkPaint.setStrokeCap(Paint.Cap.ROUND);
+		mismatchPaint.setColor(0xFFFFB454);
+		mismatchPaint.setStrokeWidth(2.5f);
+		mismatchPaint.setStyle(Paint.Style.STROKE);
+		mismatchPaint.setStrokeCap(Paint.Cap.ROUND);
+		mismatchPaint.setStrokeJoin(Paint.Join.ROUND);
+		mismatchHeadPaint.setColor(0xFFFFB454);
+		mismatchHeadPaint.setStyle(Paint.Style.FILL);
 		linkLabelPaint.setColor(0xFFF0F6FF);
 		linkLabelPaint.setTextAlign(Paint.Align.CENTER);
 		linkLabelBg.setColor(0xCC102030);
@@ -769,11 +789,21 @@ public class MapperView extends View {
 				drawnUndirected.add(undirected);
 				List<String> back = grouped.get(toId + "\0" + fromId);
 				boolean bidir = back != null && !back.isEmpty();
-				drawPackedLink(canvas, bodySize, fromCx, fromCy, toCx, toCy,
-						ux, uy, bidir);
+				boolean asCommanded = linkDrawnAsCommanded(from, to, cmds, back);
+				float midX;
+				float midY;
+				if (asCommanded) {
+					drawPackedLink(canvas, bodySize, fromCx, fromCy, toCx, toCy,
+							ux, uy, bidir);
+					midX = (fromCx + toCx) * 0.5f;
+					midY = (fromCy + toCy) * 0.5f - 3f * scale;
+				} else {
+					drawMismatchLink(canvas, bodySize, from, to,
+							fromCx, fromCy, toCx, toCy, bidir);
+					midX = elbowLabelX;
+					midY = elbowLabelY;
+				}
 				if (showLinkLabels) {
-					float midX = (fromCx + toCx) * 0.5f;
-					float midY = (fromCy + toCy) * 0.5f - 3f * scale;
 					List<String> labelCmds = new ArrayList<String>(cmds);
 					if (bidir && back != null) {
 						for (String b : back) {
@@ -783,6 +813,16 @@ public class MapperView extends View {
 						}
 					}
 					drawLinkLabelAt(canvas, midX, midY, labelCmds, from.getId(), to.getId());
+				}
+				continue;
+			}
+
+			if (!linkDrawnAsCommanded(from, to, cmds, grouped.get(toId + "\0" + fromId))) {
+				drawMismatchLink(canvas, bodySize, from, to,
+						fromCx, fromCy, toCx, toCy, false);
+				if (showLinkLabels) {
+					drawLinkLabelAt(canvas, elbowLabelX, elbowLabelY, cmds,
+							from.getId(), to.getId());
 				}
 				continue;
 			}
@@ -861,6 +901,158 @@ public class MapperView extends View {
 		}
 	}
 
+	/** Corner of the last elbow drawn, so the caller can hang the label there. */
+	private float elbowLabelX;
+	private float elbowLabelY;
+
+	/**
+	 * A link whose geometry disagrees with its command: dashed amber, and routed
+	 * along the axes with one right-angled turn instead of running straight.
+	 *
+	 * The turn is what carries the meaning. A straight diagonal reads as "there
+	 * is a southwest exit here"; a line that leaves west and then drops south
+	 * reads as "this room is over there, and getting to it is not a diagonal
+	 * move" -- which is what the map actually knows.
+	 *
+	 * The corner goes through whichever of the two candidate cells is empty, so
+	 * the detour does not cut across a room. With both occupied there is no room
+	 * to turn in, and it stays straight -- still dashed and amber, so the link is
+	 * marked either way.
+	 */
+	private void drawMismatchLink(Canvas canvas, float bodySize,
+			MapTile from, MapTile to, float fromCx, float fromCy,
+			float toCx, float toCy, boolean bidirectional) {
+		ensureDashForScale();
+		mismatchPaint.setStrokeWidth(Math.max(1.1f, 1.6f * scale));
+		float bodyHalf = bodySize * 0.5f;
+		float out = Math.max(1.2f, 1.8f * scale);
+		float head = Math.max(5f, 6.2f * scale);
+
+		boolean sameRow = from.getGridY() == to.getGridY();
+		boolean sameCol = from.getGridX() == to.getGridX();
+		float cornerX = 0f;
+		float cornerY = 0f;
+		boolean elbow = false;
+		if (!sameRow && !sameCol) {
+			// Leaving horizontally turns at the destination's column; leaving
+			// vertically turns at its row.
+			boolean horizontalFirstFree = tileAt(to.getGridX(), from.getGridY()) == null;
+			boolean verticalFirstFree = tileAt(from.getGridX(), to.getGridY()) == null;
+			if (horizontalFirstFree) {
+				cornerX = toCx;
+				cornerY = fromCy;
+				elbow = true;
+			} else if (verticalFirstFree) {
+				cornerX = fromCx;
+				cornerY = toCy;
+				elbow = true;
+			}
+		}
+
+		float u1x;
+		float u1y;
+		float u2x;
+		float u2y;
+		if (elbow) {
+			u1x = Math.signum(cornerX - fromCx);
+			u1y = Math.signum(cornerY - fromCy);
+			u2x = Math.signum(toCx - cornerX);
+			u2y = Math.signum(toCy - cornerY);
+		} else {
+			float dx = toCx - fromCx;
+			float dy = toCy - fromCy;
+			float len = (float) Math.sqrt(dx * dx + dy * dy);
+			if (len < 0.001f) {
+				return;
+			}
+			u1x = dx / len;
+			u1y = dy / len;
+			u2x = u1x;
+			u2y = u1y;
+		}
+
+		float startX = fromCx + u1x * (rayHitSquare(bodyHalf, u1x, u1y) + out);
+		float startY = fromCy + u1y * (rayHitSquare(bodyHalf, u1x, u1y) + out);
+		float tipToX = toCx - u2x * (rayHitSquare(bodyHalf, u2x, u2y) + out);
+		float tipToY = toCy - u2y * (rayHitSquare(bodyHalf, u2x, u2y) + out);
+		float endX = tipToX - u2x * head * 0.72f;
+		float endY = tipToY - u2y * head * 0.72f;
+		if (bidirectional) {
+			startX += u1x * head * 0.72f;
+			startY += u1y * head * 0.72f;
+		}
+
+		elbowPath.reset();
+		elbowPath.moveTo(startX, startY);
+		if (elbow) {
+			elbowPath.lineTo(cornerX, cornerY);
+			elbowLabelX = cornerX;
+			elbowLabelY = cornerY - 3f * scale;
+		} else {
+			elbowLabelX = (startX + endX) * 0.5f;
+			elbowLabelY = (startY + endY) * 0.5f - 3f * scale;
+		}
+		elbowPath.lineTo(endX, endY);
+		canvas.drawPath(elbowPath, mismatchPaint);
+
+		// Heads are drawn solid: a dashed outline on a filled triangle eats it.
+		drawArrowHead(canvas, tipToX, tipToY, u2x, u2y, true, mismatchHeadPaint);
+		if (bidirectional) {
+			float tipFromX = fromCx + u1x * (rayHitSquare(bodyHalf, u1x, u1y) + out);
+			float tipFromY = fromCy + u1y * (rayHitSquare(bodyHalf, u1x, u1y) + out);
+			drawArrowHead(canvas, tipFromX, tipFromY, -u1x, -u1y, true, mismatchHeadPaint);
+		}
+	}
+
+	/**
+	 * Does the line we are about to draw mean what the command means?
+	 *
+	 * Honest when at least one command on the link is a compass move whose grid
+	 * step points the way the line points. Beehive sits down and to the left of
+	 * Herb Garden, but the command is {@code w}: the diagonal is where the room
+	 * had to be put, not a southwest exit, and saying so is the whole point of
+	 * marking it. Commands that are not compass moves at all -- enter, climb --
+	 * never match, which is right: they have no direction to disagree with.
+	 */
+	private static boolean linkDrawnAsCommanded(MapTile from, MapTile to,
+			List<String> forward, List<String> back) {
+		int sx = Integer.signum(to.getGridX() - from.getGridX());
+		int sy = Integer.signum(to.getGridY() - from.getGridY());
+		return anyCommandSteps(forward, sx, sy) || anyCommandSteps(back, -sx, -sy);
+	}
+
+	private static boolean anyCommandSteps(List<String> cmds, int sx, int sy) {
+		if (cmds == null) {
+			return false;
+		}
+		for (String cmd : cmds) {
+			int[] d = MapDirections.gridDelta(cmd);
+			if (d != null && Integer.signum(d[0]) == sx && Integer.signum(d[1]) == sy) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Tile occupying a grid cell on the drawn level, or null. */
+	private MapTile tileAt(int gridX, int gridY) {
+		for (MapTile t : tiles) {
+			if (t != null && t.getGridX() == gridX && t.getGridY() == gridY) {
+				return t;
+			}
+		}
+		return null;
+	}
+
+	private void ensureDashForScale() {
+		if (dashBuiltForScale == scale) {
+			return;
+		}
+		mismatchPaint.setPathEffect(new DashPathEffect(new float[] {
+				Math.max(3f, 4.5f * scale), Math.max(2.5f, 3.5f * scale) }, 0f));
+		dashBuiltForScale = scale;
+	}
+
 	/**
 	 * Distance from square center to the border along unit vector (ux, uy).
 	 * Diagonals hit a corner ({@code half·√2}); cardinals hit a side ({@code half}).
@@ -903,6 +1095,11 @@ public class MapperView extends View {
 
 	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux,
 			float uy, boolean packed) {
+		drawArrowHead(canvas, tipX, tipY, ux, uy, packed, linkPaint);
+	}
+
+	private void drawArrowHead(Canvas canvas, float tipX, float tipY, float ux,
+			float uy, boolean packed, Paint paint) {
 		float size = Math.max(5f, (packed ? 6.0f : 8f) * scale);
 		float spread = packed ? 0.52f : 0.55f;
 		float bx = tipX - ux * size;
