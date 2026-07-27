@@ -1629,38 +1629,17 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		return null;
 	}
 
-	private void backupLauncherListFile() {
-		File current = new File(getFilesDir(), "blowtorch_launcher_list.xml");
-		if (!current.exists()) {
-			return;
-		}
-		File backup = new File(getFilesDir(), "blowtorch_launcher_list.xml.bak");
-		try {
-			InputStream in = new FileInputStream(current);
-			OutputStream out = new FileOutputStream(backup);
-			byte[] buffer = new byte[1024];
-			int read;
-			while ((read = in.read(buffer)) != -1) {
-				out.write(buffer, 0, read);
-			}
-			in.close();
-			out.close();
-		} catch (IOException e) {
-			Log.e("BLOWTORCH", "Failed to back up launcher list", e);
-		}
-	}
-
 	private void saveXML() {
 		if (!launcherSaveEnabled) {
 			return;
 		}
 		try {
-			backupLauncherListFile();
-			FileOutputStream fos = this.openFileOutput("blowtorch_launcher_list.xml",Context.MODE_PRIVATE);
-			fos.write(LauncherSettings.writeXml(launcher_settings).getBytes("UTF-8"));
-			fos.close();
-		} catch (FileNotFoundException e) {
-			throw new RuntimeException(e);
+			// This file is the entire list of MUDs the player has set up, and it was
+			// being written straight over itself. AtomicFiles stages it and keeps the
+			// previous copy, which is what backupLauncherListFile used to do by hand.
+			com.resurrection.blowtorch2.lib.util.AtomicFiles.writeInternal(this,
+					"blowtorch_launcher_list.xml",
+					LauncherSettings.writeXml(launcher_settings).getBytes("UTF-8"), true);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}

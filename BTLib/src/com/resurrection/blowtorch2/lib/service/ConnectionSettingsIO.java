@@ -164,28 +164,11 @@ final class ConnectionSettingsIO {
 			String foo = ConnectionSetttingsParser.outputXML(host.mSettings, host.mPlugins);
 			byte[] xmlBytes = foo.getBytes("UTF-8");
 			if (internalSettingsFile) {
-				// Write beside the real file and swap it in, rather than over it.
-				// Writing in place meant that dying part way through — a kill in the
-				// background, a battery pull — left a truncated settings file, which
-				// is every alias, trigger and button the player has. A rename within
-				// one directory is atomic: either the old file or the new one, never
-				// half of either.
-				String stagingName = internalFileName + ".new";
-				fos = appCtx.openFileOutput(stagingName, Context.MODE_PRIVATE);
-				fos.write(xmlBytes);
-				fos.flush();
-				// close() alone only means the kernel has the bytes. Without this the
-				// rename can outlive the data and leave a valid-looking empty file.
-				fos.getFD().sync();
-				fos.close();
-				fos = null;
-				File staged = new File(appCtx.getFilesDir(), stagingName);
-				File live = new File(appCtx.getFilesDir(), internalFileName);
-				if (!staged.renameTo(live)) {
-					staged.delete();
-					throw new IOException("Could not put the new settings file in place: "
-							+ live.getAbsolutePath());
-				}
+				// Staged, synced, renamed, and the previous copy kept — see AtomicFiles
+				// for why each of those is here. This is the common path: saveMainSettings
+				// resolves to a file under getFilesDir().
+				com.resurrection.blowtorch2.lib.util.AtomicFiles.writeInternal(
+						appCtx, internalFileName, xmlBytes, true);
 			} else {
 				if (cachedir != null && !cachedir.exists()) {
 					//noinspection ResultOfMethodCallIgnored
