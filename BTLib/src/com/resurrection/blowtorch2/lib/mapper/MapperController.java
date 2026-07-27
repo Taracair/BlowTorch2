@@ -182,7 +182,23 @@ public class MapperController {
 	 * it guessed from exit lists and fell back to a fixed scan order, which is
 	 * how a room entered by w ended up drawn directly below its neighbour.
 	 */
-	private String mLastMoveCommand;
+	/**
+	 * The move, and the room it was typed in. The room has to be captured here
+	 * and not read back later: with Follow on, the current tile is advanced along
+	 * the exit as soon as the command is sent, so by the time the GMCP room
+	 * arrives "where we came from" is already "where we are".
+	 */
+	private static final class RememberedMove {
+		private final String command;
+		private final String fromTileId;
+
+		RememberedMove(final String command, final String fromTileId) {
+			this.command = command;
+			this.fromTileId = fromTileId;
+		}
+	}
+
+	private RememberedMove mLastMove;
 	private long mLastMoveAt;
 	/**
 	 * A move older than this is not the one this room answers -- a portal, a
@@ -1954,8 +1970,10 @@ public class MapperController {
 			// them away -- which is why going down into a cellar was never
 			// recognised as the move that got you there.
 			if (gridDeltaFor(norm) != null || levelDeltaFor(norm) != null) {
-				// The last move in the line is the one that lands us.
-				mLastMoveCommand = norm;
+				// The last move in the line is the one that lands us. Take the
+				// room we are standing in now, before Follow moves us on.
+				MapTile here = currentTile();
+				mLastMove = new RememberedMove(norm, here != null ? here.getId() : null);
 				mLastMoveAt = System.currentTimeMillis();
 				break;
 			}
@@ -2070,7 +2088,12 @@ public class MapperController {
 		MapTile tile = null;
 		// Read once for the whole arrival: it decides where a new room is put and
 		// then, further down, which exit this walk has proved.
-		final String movedBy = consumeLastMove();
+		final RememberedMove moved = consumeLastMove();
+		final String movedBy = moved != null ? moved.command : null;
+		// Where the move was typed, which is not necessarily where we are: Follow
+		// has already stepped us along the exit by now.
+		final MapTile movedFrom = moved != null && moved.fromTileId != null
+				? findTileById(moved.fromTileId) : current;
 		String num = (mGmcpUseNum && roomNum != null && roomNum.length() > 0)
 				? roomNum.trim() : null;
 
@@ -2146,17 +2169,18 @@ public class MapperController {
 		// else on the map is a claim: the game listed it, or the mapper assumed
 		// the way back. On worlds that do not fold neatly those claims are wrong
 		// in both directions at once, which is what the map kept insisting on.
-		if (movedBy != null && current != null && !current.getId().equals(tile.getId())) {
-			MapExit walked = findExit(current, movedBy);
+		if (movedBy != null && movedFrom != null
+				&& !movedFrom.getId().equals(tile.getId())) {
+			MapExit walked = findExit(movedFrom, movedBy);
 			if (walked == null) {
 				if (!changed) {
 					pushUndo();
 				}
 				boolean special = gridDeltaFor(movedBy) == null;
-				MapExit proved = new MapExit(current.getId(), tile.getId(),
+				MapExit proved = new MapExit(movedFrom.getId(), tile.getId(),
 						MapDirections.storeCommand(movedBy, movedBy), special, null);
 				proved.setVerified(true);
-				current.addExit(proved);
+				movedFrom.addExit(proved);
 				changed = true;
 			} else if (tile.getId().equals(walked.getToId())) {
 				if (!walked.isVerified()) {
@@ -3853,16 +3877,16 @@ public class MapperController {
 	 * move. Read once: a second room without a fresh command did not come from
 	 * walking, so it must not reuse the direction.
 	 */
-	private String consumeLastMove() {
-		String cmd = mLastMoveCommand;
-		mLastMoveCommand = null;
-		if (cmd == null) {
+	private RememberedMove consumeLastMove() {
+		RememberedMove move = mLastMove;
+		mLastMove = null;
+		if (move == null) {
 			return null;
 		}
 		if (System.currentTimeMillis() - mLastMoveAt > MOVE_MEMORY_MS) {
 			return null;
 		}
-		return cmd;
+		return move;
 	}
 
 	private Map<String, DirectionData> directionMap() {
