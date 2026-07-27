@@ -2096,9 +2096,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
-			} else if (selectedSelector != null) {
-				selDiag("scroller skipped while selecting");
 			}
+			drawSelectionWidget(c);
 			c.restore();
 			if (!mFingerDown && Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY) {
 				postInvalidateOnAnimation();
@@ -2304,8 +2303,40 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 		}
 		
+	}
+
+	/**
+	 * Undo the clip save taken at the top of onDraw for the selection widget.
+	 *
+	 * onDraw saves the widget canvas before drawing the disc, and showScroller is
+	 * what pairs it with a restore. Two early returns sit between the two, so a
+	 * frame that bailed out left an unmatched save behind and the next frame
+	 * stacked another one on top of it.
+	 */
+	private void releaseSelectionCanvas() {
+		if (!mSelectionCanvasSaved) {
+			return;
+		}
+		try {
+			mSelectionIndicatorCanvas.restore();
+		} catch (IllegalArgumentException ignored) {
+		}
+		mSelectionCanvasSaved = false;
+	}
+
+	/**
+	 * Paint the text selection widget.
+	 *
+	 * This used to live at the tail of showScroller, behind that method's own exit
+	 * conditions -- and showScroller returns early when the buffer fits on one page,
+	 * since there is no scrollbar worth drawing. Selection would then be fully live:
+	 * touch handler installed, buttons hidden, taps landing on the widget's icons --
+	 * with nothing painted. Pressing where the close icon happens to be put it all
+	 * back, which is what made it look like the widget had broken rather than never
+	 * been drawn. It is the selection's business, not the scrollbar's.
+	 */
+	private void drawSelectionWidget(final Canvas c) {
 		if(selectedSelector != null) {
-			selDiag("drawing widget");
 			if (mSelectionCanvasSaved) {
 				try {
 					mSelectionIndicatorCanvas.restore();
@@ -2347,49 +2378,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mSelectionCanvasSaved = false;
 		}
 		
-	}
-
-	/**
-	 * Undo the clip save taken at the top of onDraw for the selection widget.
-	 *
-	 * onDraw saves the widget canvas before drawing the disc, and showScroller is
-	 * what pairs it with a restore. Two early returns sit between the two, so a
-	 * frame that bailed out left an unmatched save behind and the next frame
-	 * stacked another one on top of it.
-	 */
-	/** Temporary. The selection widget sometimes never appears although it is live
-	 * and still answering taps; this reports the state once a second while a
-	 * selection is up, so a reproduction says which of those it is. */
-	private long mSelDiagLast = 0;
-	private void selDiag(final String what) {
-		final long now = android.os.SystemClock.uptimeMillis();
-		if (now - mSelDiagLast < 1000) {
-			return;
-		}
-		mSelDiagLast = now;
-		final int half = mSelectionIndicatorHalfDimension;
-		Log.e("BTSEL", what
-				+ " win=" + mName
-				+ " widget=" + mWidgetX + "," + mWidgetY + " half=" + half
-				+ " view=" + mWidth + "x" + mHeight
-				+ " onScreen=" + (mWidgetX - half >= 0 && mWidgetY - half >= 0
-						&& mWidgetX + half <= mWidth && mWidgetY + half <= mHeight)
-				+ " sel=" + (theSelection != null)
-				+ " bufferLines=" + mBuffer.getBrokenLineCount()
-				+ " canvasSaved=" + mSelectionCanvasSaved
-				+ " bitmap=" + (mSelectionIndicatorBitmap == null ? "null"
-						: mSelectionIndicatorBitmap.getWidth() + "x" + mSelectionIndicatorBitmap.getHeight()));
-	}
-
-	private void releaseSelectionCanvas() {
-		if (!mSelectionCanvasSaved) {
-			return;
-		}
-		try {
-			mSelectionIndicatorCanvas.restore();
-		} catch (IllegalArgumentException ignored) {
-		}
-		mSelectionCanvasSaved = false;
 	}
 
 	private int iconWidth(final Bitmap bmp) {
