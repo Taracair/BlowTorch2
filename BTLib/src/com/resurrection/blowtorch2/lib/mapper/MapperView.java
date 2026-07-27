@@ -830,48 +830,24 @@ public class MapperView extends View {
 				Set<String> provedBack = walked.get(toId + "\0" + fromId);
 				boolean anyWalked = (proved != null && !proved.isEmpty())
 						|| (provedBack != null && !provedBack.isEmpty());
-				float midX;
-				float midY;
 				if (!anyWalked) {
-					// Nobody has been through this yet, either way. Dim and dashed:
-					// it is a claim, and it must not shout over a link known to be
-					// real but drawn crookedly.
+					// Nobody has been through this yet, either way. Dim and
+					// dashed: it is a claim, not knowledge.
 					drawMismatchLink(canvas, bodySize, from, to,
 							fromCx, fromCy, toCx, toCy, bidir,
-							unverifiedPaint, unverifiedHeadPaint);
-					midX = elbowLabelX;
-					midY = elbowLabelY;
+							unverifiedPaint, unverifiedHeadPaint, true);
 				} else if (asCommanded) {
 					drawPackedLink(canvas, bodySize, fromCx, fromCy, toCx, toCy,
 							ux, uy, bidir);
-					midX = (fromCx + toCx) * 0.5f;
-					midY = (fromCy + toCy) * 0.5f - 3f * scale;
 				} else {
 					drawMismatchLink(canvas, bodySize, from, to,
 							fromCx, fromCy, toCx, toCy, bidir,
-							mismatchPaint, mismatchHeadPaint);
-					midX = elbowLabelX;
-					midY = elbowLabelY;
+							mismatchPaint, mismatchHeadPaint, false);
 				}
-				if (showLinkLabels) {
-					List<String> labelCmds = new ArrayList<String>(cmds);
-					if (bidir && back != null) {
-						for (String b : back) {
-							if (b != null && !labelCmds.contains(b)) {
-								labelCmds.add(b);
-							}
-						}
-					}
-					Set<String> labelWalked = new HashSet<String>();
-					if (proved != null) {
-						labelWalked.addAll(proved);
-					}
-					if (provedBack != null) {
-						labelWalked.addAll(provedBack);
-					}
-					drawLinkLabelAt(canvas, midX, midY, labelCmds, from.getId(),
-							to.getId(), labelWalked, ux, uy);
-				}
+				// No labels here on purpose. This layout exists to be compact,
+				// and that is lost the moment text is threaded between rooms
+				// drawn a few pixels apart. Spread layout is where commands
+				// are meant to be read.
 				continue;
 			}
 
@@ -888,7 +864,7 @@ public class MapperView extends View {
 			if (!walkedOne) {
 				drawMismatchLink(canvas, bodySize, from, to,
 						fromCx + sideX, fromCy + sideY, toCx + sideX, toCy + sideY,
-						false, unverifiedPaint, unverifiedHeadPaint);
+						false, unverifiedPaint, unverifiedHeadPaint, true);
 				if (showLinkLabels) {
 					drawLinkLabelAt(canvas, elbowLabelX, elbowLabelY, cmds,
 							from.getId(), to.getId(), provedOne, ux, uy);
@@ -899,7 +875,7 @@ public class MapperView extends View {
 			if (!linkDrawnAsCommanded(from, to, cmds, grouped.get(toId + "\0" + fromId))) {
 				drawMismatchLink(canvas, bodySize, from, to,
 						fromCx + sideX, fromCy + sideY, toCx + sideX, toCy + sideY,
-						false, mismatchPaint, mismatchHeadPaint);
+						false, mismatchPaint, mismatchHeadPaint, false);
 				if (showLinkLabels) {
 					drawLinkLabelAt(canvas, elbowLabelX, elbowLabelY, cmds,
 							from.getId(), to.getId(), provedOne, ux, uy);
@@ -1067,8 +1043,15 @@ public class MapperView extends View {
 	private void drawMismatchLink(Canvas canvas, float bodySize,
 			MapTile from, MapTile to, float fromCx, float fromCy,
 			float toCx, float toCy, boolean bidirectional,
-			Paint linePaint, Paint headPaint) {
-		ensureDashForScale(linePaint);
+			Paint linePaint, Paint headPaint, boolean dashed) {
+		// Dashes mean one thing only: nobody has walked this yet. A link that has
+		// been walked draws solid even when the grid forced it round a corner --
+		// the corner already says the geometry is not literal.
+		if (dashed) {
+			ensureDashForScale(linePaint);
+		} else {
+			linePaint.setPathEffect(null);
+		}
 		linePaint.setStrokeWidth(Math.max(1.1f, 1.6f * scale));
 		float bodyHalf = bodySize * 0.5f;
 		float out = Math.max(1.2f, 1.8f * scale);

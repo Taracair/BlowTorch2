@@ -3237,11 +3237,17 @@ public class MapperOverlayController
 			return;
 		}
 		lastShownGmcpConflictKey = key;
+		// The first four settle this one conflict. The last two are for when the
+		// map is going wrong faster than it can be answered: a conflict usually
+		// means the next few rooms will be wrong too, and having to leave the
+		// dialog, find the menu and stop recording lets that happen meanwhile.
 		final CharSequence[] choices = new CharSequence[] {
 				"Apply",
 				"Keep mine",
 				"Apply all (this session)",
-				"Keep all (this session)"
+				"Keep all (this session)",
+				"Undo last change",
+				"Stop: recording and GMCP sync off"
 		};
 		new AlertDialog.Builder(activity)
 				.setTitle("GMCP map conflict")
@@ -3256,8 +3262,18 @@ public class MapperOverlayController
 							host.runMapCommand("gmcp keep");
 						} else if (which == 2) {
 							host.runMapCommand("gmcp applyall");
-						} else {
+						} else if (which == 3) {
 							host.runMapCommand("gmcp keepall");
+						} else if (which == 4) {
+							// Settle the prompt with "keep mine" first so it does not
+							// fire again, then step back past the change that caused
+							// it. Applying and then undoing would fight each other.
+							host.runMapCommand("gmcp keep");
+							host.runMapCommand("undo");
+						} else {
+							host.runMapCommand("gmcp keep");
+							host.runMapCommand("record off");
+							host.runMapCommand("gmcp off");
 						}
 						refreshGmcpSnapshotSoon();
 					}
