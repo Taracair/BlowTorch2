@@ -164,10 +164,28 @@ final class ConnectionSettingsIO {
 			String foo = ConnectionSetttingsParser.outputXML(host.mSettings, host.mPlugins);
 			byte[] xmlBytes = foo.getBytes("UTF-8");
 			if (internalSettingsFile) {
-				fos = appCtx.openFileOutput(internalFileName, Context.MODE_PRIVATE);
+				// Write beside the real file and swap it in, rather than over it.
+				// Writing in place meant that dying part way through — a kill in the
+				// background, a battery pull — left a truncated settings file, which
+				// is every alias, trigger and button the player has. A rename within
+				// one directory is atomic: either the old file or the new one, never
+				// half of either.
+				String stagingName = internalFileName + ".new";
+				fos = appCtx.openFileOutput(stagingName, Context.MODE_PRIVATE);
 				fos.write(xmlBytes);
+				fos.flush();
+				// close() alone only means the kernel has the bytes. Without this the
+				// rename can outlive the data and leave a valid-looking empty file.
+				fos.getFD().sync();
 				fos.close();
 				fos = null;
+				File staged = new File(appCtx.getFilesDir(), stagingName);
+				File live = new File(appCtx.getFilesDir(), internalFileName);
+				if (!staged.renameTo(live)) {
+					staged.delete();
+					throw new IOException("Could not put the new settings file in place: "
+							+ live.getAbsolutePath());
+				}
 			} else {
 				if (cachedir != null && !cachedir.exists()) {
 					//noinspection ResultOfMethodCallIgnored
@@ -176,6 +194,10 @@ final class ConnectionSettingsIO {
 				tmpfile = File.createTempFile("settings", "xml", cachedir);
 				fos = new FileOutputStream(tmpfile);
 				fos.write(xmlBytes);
+				fos.flush();
+				// Same reason as the internal path: get the bytes onto storage before
+				// anything promotes this file over the one that still works.
+				fos.getFD().sync();
 				fos.close();
 				fos = null;
 			}
@@ -287,6 +309,9 @@ final class ConnectionSettingsIO {
 				extfile = new File(fullpath);
 				extfilestream = new FileOutputStream(tmppluginfile);
 				extfilestream.write(writer.toString().getBytes());
+				extfilestream.flush();
+				// On storage before the rename below promotes it over the working copy.
+				extfilestream.getFD().sync();
 				extfilestream.close();
 				} catch(Exception e) {
 					try {
