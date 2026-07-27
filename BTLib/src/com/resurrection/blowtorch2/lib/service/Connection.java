@@ -692,7 +692,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				try {
 					doInvalidateWindowText(wname);
 				} catch (RemoteException e4) {
-					e4.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection", e4);
 				}
 				break;
 			case MESSAGE_WINDOWXCALLS:
@@ -705,7 +705,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				try {
 					Connection.this.windowXCallS(token, function, o);
 				} catch (RemoteException e3) {
-					e3.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection", e3);
 				}
 				break;
 			case MESSAGE_WINDOWXCALLB:
@@ -715,7 +715,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				try {
 					Connection.this.windowXCallB(tokens, functions, bytesa);
 				} catch (RemoteException e3) {
-					e3.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection", e3);
 				}
 				break;
 			case MESSAGE_ADDFUNCTIONCALLBACK:
@@ -759,7 +759,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					try {
 						dispatchNoProcess(str.getBytes(mSettings.getEncoding()));
 					} catch (UnsupportedEncodingException e1) {
-						e1.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection", e1);
 					}
 				}
 				break;
@@ -769,7 +769,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				try {
 					Connection.this.lineToWindow(target, line);
 				} catch (RemoteException e3) {
-					e3.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection", e3);
 				}
 				break;
 			case MESSAGE_SENDDATA_STRING:
@@ -878,7 +878,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			dispatchNoProcess(shown.getBytes(encoding));
 		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.dispatchLuaError", e);
 		} catch (Exception e) {
 			// Never crash the connection while reporting a Lua error (e.g. mSettings
 			// still null during early import / alignDefaultButtons).
@@ -1015,7 +1015,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 				c.shutdown();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.reloadSettings", e);
 			}
 		}
 		
@@ -1159,11 +1159,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				} catch (FileNotFoundException e) {
 					mFailedLinks.put(link, "file not found");
 					buffer.addString(Colorizer.getRedColor() + " file not found." + Colorizer.getWhiteColor() + "\n");
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.reloadSettings", e);
 				} catch (IOException e) {
 					mFailedLinks.put(link, "read error");
 					buffer.addString(Colorizer.getRedColor() + " read error." + Colorizer.getWhiteColor() + "\n");
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.reloadSettings", e);
 				} catch (SAXException e) {
 					String detail = e.getLocalizedMessage();
 					if (detail == null || detail.length() == 0) {
@@ -1446,7 +1446,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 					w.redraw();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.redrawWindow", e);
 			}
 
 	}
@@ -1472,7 +1472,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					try {
 						tmp.addBytesImpl(((String) line).getBytes(mSettings.getEncoding()));
 					} catch (UnsupportedEncodingException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.lineToWindow", e);
 					}
 				}
 				tmp.updateMetrics();
@@ -1482,7 +1482,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					w.getBuffer().addBytesImpl(lol);
 				} catch (UnsupportedEncodingException e) {
 					
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.lineToWindow", e);
 				}
 
 					IWindowCallback c = mWindowCallbackMap.get(resolved);
@@ -1536,7 +1536,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 				lineToWindow(s.getName(), line);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.routeGmcpToExtraWindows", e);
 			}
 		}
 	}
@@ -1562,7 +1562,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 				mWindowCallbackMap.put(w.getName(), w);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.registerWindowCallback", e);
 			}
 		}
 		mCallbacksStarted = true;
@@ -1668,7 +1668,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			Log.e("LOG","UNREGISTERING " + callback.getName());
 		} catch (RemoteException e1) {
 			// TODO Auto-generated catch block
-			e1.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.unregisterWindowCallback", e1);
 		}
 		mWindowCallbacks.unregister(callback);
 
@@ -1679,7 +1679,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 				mWindowCallbackMap.put(w.getName(), w);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.unregisterWindowCallback", e);
 			}
 		}
 		
@@ -1740,7 +1740,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				try {
 					mPump.join();
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.killNetThreads", e);
 				}
 			} else {
 				// Handler not ready yet (still in init) — force the thread down.
@@ -1749,7 +1749,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					mPump.interrupt();
 					mPump.join(2000);
 				} catch (InterruptedException e) {
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.killNetThreads", e);
 				}
 			}
 		}
@@ -2123,7 +2123,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		try {
 			sendBytesToWindow(message.getBytes(mSettings.getEncoding()));
 		} catch (UnsupportedEncodingException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.sendDataToWindow", e);
 		}
 	}
 	
@@ -2147,7 +2147,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mWindowCallbackMap.remove(MAIN_WINDOW);
 			}
 		} catch (RemoteException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.sendBytesToWindow", e);
 		}
 	}
 	
@@ -2833,7 +2833,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	        Field idField = c.getDeclaredField(variableName);
 	        return idField.getInt(idField);
 	    } catch (Exception e) {
-	        e.printStackTrace();
+	        com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.getResId", e);
 	        return -1;
 	    } 
 	}
@@ -3213,7 +3213,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					try {
 						mPump.join(2000);
 					} catch (InterruptedException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.doReconnect", e);
 					}
 				}
 				mPump = null;
@@ -3541,7 +3541,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 				callback.updateSetting(key, value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.handleWindowSettingsChanged", e);
 			}
 			// Keep legacy lineSize in sync so the next save/reload cannot resurrect
 			// a stale giant font from the first-profile 80-col fit.
@@ -3969,7 +3969,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			String out = line.endsWith("\n") ? line : (line + "\n");
 			mPump.sendData(out.getBytes(enc));
 		} catch (Exception e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.sendMcpRawToPump", e);
 		}
 	}
 
@@ -4257,7 +4257,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 				w.setEncoding(value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.doUpdateEncoding", e);
 			}
 		}
 		
@@ -4794,7 +4794,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			try {
 				c.shutdown();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.doResetSettings", e);
 			}
 		}
 		mService.markWindowsDirty();

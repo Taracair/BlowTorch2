@@ -56,7 +56,9 @@ public final class BlowTorchLogger {
 			try {
 				logFile.createNewFile();
 			} catch (IOException e) {
-				e.printStackTrace();
+				// Straight to logcat, never through logThrowable: the file is what just
+				// failed, and routing this back through here would recurse.
+				android.util.Log.e(TAG, "Could not create the error log", e);
 			}
 			return;
 		}

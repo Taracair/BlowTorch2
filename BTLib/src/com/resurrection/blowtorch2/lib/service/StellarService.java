@@ -469,7 +469,7 @@ public class StellarService extends Service {
 			try {
 				mLauncherCallbacks.getBroadcastItem(i).connectionDisconnected();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.notifyLauncherDurationChanged", e);
 			}
 		}
 		mLauncherCallbacks.finishBroadcast();
@@ -506,7 +506,7 @@ public class StellarService extends Service {
 			notificationIntent.setClass(
 					this.createPackageContext(this.getPackageName(), Context.CONTEXT_INCLUDE_CODE), w);
 		} catch (Exception e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.doNotifyBell", e);
 			notificationIntent.setPackage(getPackageName());
 		}
 		notificationIntent.putExtra("DISPLAY", display);
@@ -650,21 +650,21 @@ public class StellarService extends Service {
 		try {
 			apkName = this.getPackageManager().getApplicationInfo(this.getPackageName(), 0).sourceDir;
 		} catch (NameNotFoundException e1) {
-			e1.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.showDisconnectedNotification", e1);
 		}
 		Class<?> w = null;
     	PathClassLoader cl = new dalvik.system.PathClassLoader(apkName, ClassLoader.getSystemClassLoader());
     	try {
 			w = Class.forName("com.resurrection.blowtorch2.lib.window.MainWindow", false, cl);
 		} catch (ClassNotFoundException e1) {
-			e1.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.showDisconnectedNotification", e1);
 		}
 	
 		
 		try {
 			notificationIntent.setClass(this.createPackageContext(this.getPackageName(), Context.CONTEXT_INCLUDE_CODE), w);
 		} catch (NameNotFoundException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.showDisconnectedNotification", e);
 		}
 		notificationIntent.putExtra("DISPLAY", display);
 		notificationIntent.putExtra("HOST", host);
@@ -694,7 +694,7 @@ public class StellarService extends Service {
 			try {
 				mLauncherCallbacks.getBroadcastItem(i).connectionDisconnected();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.showDisconnectedNotification", e);
 			}
 		}
 		mLauncherCallbacks.finishBroadcast();
@@ -718,20 +718,20 @@ public class StellarService extends Service {
 		try {
 			apkName = this.getPackageManager().getApplicationInfo(this.getPackageName(), 0).sourceDir;
 		} catch (NameNotFoundException e1) {
-			e1.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.updateForegroundNotification", e1);
 		}
 		Class<?> w = null;
 		PathClassLoader cl = new dalvik.system.PathClassLoader(apkName, ClassLoader.getSystemClassLoader());
 		try {
 			w = Class.forName("com.resurrection.blowtorch2.lib.window.MainWindow", false, cl);
 		} catch (ClassNotFoundException e1) {
-			e1.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.updateForegroundNotification", e1);
 		}
 		try {
 			notificationIntent.setClass(
 					this.createPackageContext(this.getPackageName(), Context.CONTEXT_INCLUDE_CODE), w);
 		} catch (NameNotFoundException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.updateForegroundNotification", e);
 		}
 		if (display != null) {
 			notificationIntent.putExtra("DISPLAY", display);
@@ -924,7 +924,7 @@ public class StellarService extends Service {
 				mCallbacks.getBroadcastItem(i).loadSettings();
 				mCallbacks.getBroadcastItem(i).reloadBuffer();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.switchTo", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -938,7 +938,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(0).loadWindowSettings();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.reloadWindows", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -983,7 +983,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).rawDataIncoming(data);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.sendRawDataToWindow", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1007,7 +1007,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).clearAllButtons();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.doClearAllButtons", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1187,7 +1187,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).markWindowsDirty();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.markWindowsDirty", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1200,7 +1200,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).markSettingsDirty();
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.markSettingsDirty", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1216,7 +1216,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setKeepLast((boolean) value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.dispatchKeepLast", e);
 			}
 		}
 		
@@ -1231,7 +1231,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setGrowInputBar((boolean) value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.dispatchGrowInputBar", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1247,7 +1247,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setRegexWarning((boolean) value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.dispatchShowRegexWarning", e);
 			}
 		}
 		
@@ -1291,7 +1291,7 @@ public class StellarService extends Service {
 		try {
 			files = assetManager.list("lib/lua/5.1");
 		} catch (IOException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.updateLibs", e);
 		}
 		
 		if (files != null) {
@@ -1424,7 +1424,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setOrientation(value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.doExecuteSetOrientation", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1440,7 +1440,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setKeepScreenOn(value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.doExecuteKeepScreenOn", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1456,7 +1456,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setUseFullscreenEditor(value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.doExecuteFullscreenEditor", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1472,7 +1472,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setUseSuggestions(value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.doExecuteUseSuggestions", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
@@ -1488,7 +1488,7 @@ public class StellarService extends Service {
 			try {
 				mCallbacks.getBroadcastItem(i).setCompatibilityMode(value);
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.doExecuteCompatibilityMode", e);
 			}
 		}
 		mCallbacks.finishBroadcast();

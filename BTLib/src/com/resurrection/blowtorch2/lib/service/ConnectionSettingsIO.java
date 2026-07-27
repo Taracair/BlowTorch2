@@ -183,7 +183,7 @@ final class ConnectionSettingsIO {
 			try {
 				host.mService.dispatchSaveError(e.getLocalizedMessage());
 			} catch (RemoteException e1) {
-				e1.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e1);
 			}
 			passed = false;
 		} finally {
@@ -226,7 +226,7 @@ final class ConnectionSettingsIO {
 						try {
 							host.mService.dispatchSaveError(copyEx.getLocalizedMessage());
 						} catch (RemoteException e1) {
-							e1.printStackTrace();
+							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e1);
 						}
 					} finally {
 						if (copyIn != null) try { copyIn.close(); } catch (IOException ignored) {}
@@ -293,7 +293,7 @@ final class ConnectionSettingsIO {
 						host.mService.dispatchPluginSaveError(currentplugin,e.getLocalizedMessage());
 					} catch (RemoteException e1) {
 						// TODO Auto-generated catch block
-						e1.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e1);
 					}
 					passed = false;
 				} finally {
@@ -302,7 +302,7 @@ final class ConnectionSettingsIO {
 							extfilestream.close();
 						} catch (IOException e) {
 							// TODO Auto-generated catch block
-							e.printStackTrace();
+							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 						}
 					}
 					
@@ -393,7 +393,7 @@ final class ConnectionSettingsIO {
 			try {
 				host.mService.dispatchSaveError(e.getLocalizedMessage());
 			} catch (RemoteException e1) {
-				e1.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e1);
 			}
 		} finally {
 			if (out != null) {
@@ -469,7 +469,7 @@ final class ConnectionSettingsIO {
 					ai = host.mService.getApplicationContext().getPackageManager().getApplicationInfo(host.mService.getPackageName(), PackageManager.GET_META_DATA);
 				} catch (NameNotFoundException e) {
 					// TODO Auto-generated catch block
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("ConnectionSettingsIO", e);
 				}
 				String dataDir = ai.dataDir;
 				
@@ -721,7 +721,7 @@ final class ConnectionSettingsIO {
 						ai = host.mService.getApplicationContext().getPackageManager().getApplicationInfo(host.mService.getPackageName(), PackageManager.GET_META_DATA);
 					} catch (NameNotFoundException e) {
 						// TODO Auto-generated catch block
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("ConnectionSettingsIO", e);
 					}
 					String dataDir = ai.dataDir;
 					tmpplugs = csp.load(host,dataDir);
@@ -749,7 +749,7 @@ final class ConnectionSettingsIO {
 					try {
 						host.mService.dispatchXMLError("Error " + verb.toLowerCase(Locale.US) + " settings, invalid or missing version attribute.\n");
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 					}
 					return;
 				}
@@ -758,16 +758,16 @@ final class ConnectionSettingsIO {
 			
 			
 		} catch (FileNotFoundException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 		} catch (IOException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 		} catch (SAXException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 			try {
 				host.mService.dispatchXMLError(e.getLocalizedMessage());
 				return;
 			} catch (RemoteException e1) {
-				e1.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e1);
 			}
 		}
 		

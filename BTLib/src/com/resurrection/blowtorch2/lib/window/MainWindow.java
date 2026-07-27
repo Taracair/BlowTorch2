@@ -716,7 +716,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						service.updateWindowBufferMaxValue(pluginl,window,amount);
 					} catch (RemoteException e3) {
 						// TODO Auto-generated catch block
-						e3.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e3);
 					}
 					break;
 				case MESSAGE_PLUGINXCALLS:
@@ -727,7 +727,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						service.pluginXcallS(plugin,function,(String)msg.obj);
 					} catch (RemoteException e9) {
 						// TODO Auto-generated catch block
-						e9.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e9);
 					}
 					break;
 				case MESSAGE_ADDOPTIONCALLBACK:
@@ -796,7 +796,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							try {
 								startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
 							} catch (Exception e) {
-								e.printStackTrace();
+								com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 							}
 						}
 					}
@@ -811,7 +811,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							try {
 								startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(mcpUrl)));
 							} catch (Exception e) {
-								e.printStackTrace();
+								com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 							}
 						}
 					}
@@ -876,10 +876,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						service.sendData(((String)msg.obj).getBytes(enc));
 						
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 					} catch (UnsupportedEncodingException e) {
 						
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("MainWindow.onCreate", e);
 					} catch (NullPointerException e) {
 						// Service died mid-message (e.g. :stellar crash) — don't kill UI.
 						Log.e("BlowTorch", "send button data: no connection", e);
@@ -1150,10 +1150,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						buf.put(pdata.getBytes(service.getEncoding()));
 					} catch (UnsupportedEncodingException e) {
 						
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("MainWindow.onCreate", e);
 					} catch (RemoteException e) {
 						
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 					}
 				
 					buf.rewind();
@@ -1163,7 +1163,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					try {
 						service.sendData(buffbytes);
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 					}
 					myhandler.sendEmptyMessage(MainWindow.MESSAGE_RESETINPUTWINDOW);
 					break;
@@ -1202,7 +1202,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						service.sendData((byte[])msg.obj);
 						
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 					}
 					//screen2.jumpToZero();
 					
@@ -1216,7 +1216,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						try {
 							service.pluginXcallS("button_window", "loadButtonSet", (String) msg.obj);
 						} catch (RemoteException e) {
-							e.printStackTrace();
+							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 						}
 					}
 					break;
@@ -1411,7 +1411,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			service.exportSettingsToPath(path);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.doExportSettings", e);
 		}
 	}
 
@@ -1420,7 +1420,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			service.resetSettings();
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.doResetSettings", e);
 		}
 	}
 
@@ -1459,7 +1459,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			service.dispatchLuaError(obj);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.dispatchLuaError", e);
 		}
 	}
 	
@@ -1468,7 +1468,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			service.dispatchLuaText(obj);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.dispatchLuaText", e);
 		}
 	}
 
@@ -1564,7 +1564,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				try {
 					service.reconnect(str);
 				} catch (RemoteException e) {
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.DoDisconnectMessage", e);
 				}
 			}
 		});
@@ -1585,7 +1585,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//}
 				} catch (RemoteException e) {
 					// TODO Auto-generated catch block
-					e.printStackTrace();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.DoDisconnectMessage", e);
 				}
 			}
 		});
@@ -1876,7 +1876,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				service.reloadSettings();
 			} catch (RemoteException e2) {
 				// TODO Auto-generated catch block
-				e2.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onOptionsItemSelected", e2);
 			}
 			break;
 		case 1500: // Crash report
@@ -1900,7 +1900,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					service.pluginXcallS("button_window", "getButtonSetList", "all");
 				}
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onOptionsItemSelected", e);
 			}
 			break;
 		case 500: //speedwalk config
@@ -1921,14 +1921,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				service.endXfer();
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onOptionsItemSelected", e);
 			}
 			break;
 		case 700:
 			try {
 				service.reconnect(service.getConnectedTo());
 			} catch (RemoteException e1) {
-				e1.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onOptionsItemSelected", e1);
 			}
 			break;
 		case 300:
@@ -1963,7 +1963,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				sg = service.getSettings();
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onOptionsItemSelected", e);
 			}
 			
 			//give up the list to the dialog.
@@ -2467,7 +2467,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				return false;
 			}
 		} catch (RemoteException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.isServiceConnected", e);
 		}
 		return false;
 	}
@@ -2489,7 +2489,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.cleanExit", e);
 		}
 		
 		if(isBound) {
@@ -2623,7 +2623,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					
 				}
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onDestroy", e);
 				
 			}
 			isBound = false;
@@ -2654,7 +2654,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			service.windowShowing(false);
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onPause", e);
 		}
 		//screen2.pauseDrawing();
 		//screen2.clearAllText();
@@ -2683,7 +2683,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
-				e1.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onResume", e1);
 			}
 			Intent i = this.getIntent();
 			String display = getConnectionDisplay();
@@ -2698,7 +2698,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onResume", e);
 			}
 			
 			
@@ -3494,14 +3494,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				ai = this.getPackageManager().getApplicationInfo(this.getPackageName(), PackageManager.GET_META_DATA);
 			} catch (NameNotFoundException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("MainWindow.finishInitializeWindows", e);
 			}
 			String dataDir = ai.dataDir;
 
 			try {
 				refreshExtraTextSlotsFromSettings(service.getSettings());
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.finishInitializeWindows", e);
 			}
 		
 			//initialize windows.
@@ -3592,9 +3592,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							service.sendData(step.getBytes(enc));
 						}
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureMapperOverlay", e);
 					} catch (java.io.UnsupportedEncodingException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("MainWindow.ensureMapperOverlay", e);
 					}
 				}
 
@@ -3648,7 +3648,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					try {
 						service.sendData(line.getBytes(service.getEncoding()));
 					} catch (Exception e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureMapperOverlay", e);
 					}
 				}
 			});
@@ -3749,7 +3749,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							}
 						}
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 					}
 					return null;
 				}
@@ -3764,7 +3764,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						service.registerWindowCallback(token.getDisplayHost(),
 								token.getName(), window.getCallback());
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 					}
 				}
 
@@ -3784,7 +3784,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 						service.unregisterWindowCallback(key, window.getCallback());
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 					}
 				}
 
@@ -3827,7 +3827,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						service.updateStringSetting(ExtraTextSlotsStore.SETTING_KEY, json);
 						service.saveSettings();
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 					}
 				}
 			});
@@ -3836,7 +3836,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			try {
 				refreshExtraTextSlotsFromSettings(service.getSettings());
 			} catch (RemoteException e) {
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 			}
 		}
 		extraTextOverlay.sync();
@@ -3849,7 +3849,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				refreshExtraTextSlotsFromSettings(service.getSettings());
 			}
 		} catch (RemoteException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.handleExtraTextUiAction", e);
 		}
 		ensureExtraTextOverlays();
 	}
@@ -3998,14 +3998,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				tmp.loadScript(body);
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.initWindow", e);
 			}
 			tmp.setBufferText(w.isBufferText());
 			try {
 				service.registerWindowCallback(w.getDisplayHost(),w.getName(),tmp.getCallback());
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.initWindow", e);
 			}
 			
 			if(w.getBuffer() != null) {
@@ -4044,7 +4044,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							service.unregisterWindowCallback(w.getDisplayHost(), ((com.resurrection.blowtorch2.lib.window.Window)tmp).getCallback());
 						}
 					} catch (RemoteException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.cleanupWindows", e);
 					}
 					Log.e("WINDOW","SHUTTING DOWN WINDOW " + w.getName());
 					((com.resurrection.blowtorch2.lib.window.Window)tmp).shutdown();
@@ -4892,7 +4892,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			service.unregisterWindowCallback(window.getName(), window.getCallback());
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.shutdownWindow", e);
 		}
 	}
 	
@@ -4973,7 +4973,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			service.setDisplayDimensions(rows, cols);
 		} catch (RemoteException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.reportLiveNawsToService", e);
 		}
 	}
 
@@ -4995,7 +4995,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mPendingInitialConnect = false;
 			service.initXfer();
 		} catch (RemoteException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.tryConnectAfterNaws", e);
 			mPendingInitialConnect = false;
 		}
 	}
@@ -5019,7 +5019,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			}
 		} catch (RemoteException e) {
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onNewIntent", e);
 		}
 	}
 
@@ -5029,7 +5029,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return path;
 		} catch (RemoteException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.getPathForPlugin", e);
 		}
 		
 		return null;
