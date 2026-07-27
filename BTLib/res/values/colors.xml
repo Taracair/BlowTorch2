@@ -12,5 +12,5 @@
          Alpha, not a darker blue: game_chrome_edge already softens the same way, and
          it keeps one hue in the file. At full strength this read as a cage — the
          border is frame, not content. #66 quieter still, #CC louder. -->
-    <color name="dialog_frame_edge">#999EC5FF</color>
+    <color name="dialog_frame_edge">#889EC5FF</color>
 </resources>
