@@ -386,12 +386,34 @@ public class ConnectionSetttingsParser extends PluginParser {
 		out.endTag("", "options");
 	}
 	
+	/** Keys this parser owns. Lookup, so a foreign key costs nothing to skip. */
+	private static final java.util.HashSet<String> CONNECTION_OPTION_KEYS =
+			new java.util.HashSet<String>();
+	static {
+		for (OPTION_KEY k : OPTION_KEY.values()) {
+			CONNECTION_OPTION_KEYS.add(k.name());
+		}
+	}
+
+	/** @return true if {@code key} is a connection option this parser should write. */
+	public static boolean isConnectionOptionKey(final String key) {
+		return key != null && CONNECTION_OPTION_KEYS.contains(key);
+	}
+
 	private static void dumpOptions(XmlSerializer out,SettingsGroup o) throws IllegalArgumentException, IllegalStateException, IOException {
 		for(Option tmp : o.getOptions()) {
 			if(tmp instanceof SettingsGroup) {
 				dumpOptions(out,(SettingsGroup)tmp);
 			} else {
 				BaseOption opt = (BaseOption)tmp;
+				// Root options now contain the main window's group (see
+				// ConnectionSettingsIO.buildSettingsPage). Those keys belong to
+				// WindowTokenParser and are written there, inside <window>. We still
+				// recurse so the nested "Extra text" group is reached, but a key we
+				// do not own is skipped rather than thrown on.
+				if (!isConnectionOptionKey(opt.getKey())) {
+					continue;
+				}
 				try {
 					boolean dooutput = false;
 					OPTION_KEY key = OPTION_KEY.valueOf(opt.getKey());

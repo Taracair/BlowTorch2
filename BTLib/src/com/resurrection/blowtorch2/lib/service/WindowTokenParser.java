@@ -233,8 +233,22 @@ public final class WindowTokenParser {
 		
 	}
 	
+	/** Keys this parser owns. Lookup, so a foreign key costs nothing to skip. */
+	private static final java.util.HashSet<String> WINDOW_OPTION_KEYS =
+			new java.util.HashSet<String>();
+	static {
+		for (WindowToken.OPTION_KEY k : WindowToken.OPTION_KEY.values()) {
+			WINDOW_OPTION_KEYS.add(k.name());
+		}
+	}
+
+	/** @return true if {@code key} is a window option this parser should write. */
+	static boolean isWindowOptionKey(final String key) {
+		return key != null && WINDOW_OPTION_KEYS.contains(key);
+	}
+
 	/** Recursive option dumping routine.
-	 * 
+	 *
 	 * @param out The XmlSerializer to dump options to.
 	 * @param group A settings group object.
 	 */
@@ -245,6 +259,13 @@ public final class WindowTokenParser {
 				dumpOptions(out, (SettingsGroup) tmp);
 			} else {
 				BaseOption o = (BaseOption) tmp;
+				// The window group carries a nested "Extra text" group (see
+				// ConnectionSettingsIO.nestExtraTextUnderWindow), whose keys belong to
+				// ConnectionSetttingsParser and are written there. Recursing into it is
+				// what we want for the UI tree; throwing on every foreign key is not.
+				if (!isWindowOptionKey(o.getKey())) {
+					continue;
+				}
 				try {
 					WindowToken.OPTION_KEY key = WindowToken.OPTION_KEY.valueOf(o.getKey());
 					switch(key) {
