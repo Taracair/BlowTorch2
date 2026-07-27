@@ -540,9 +540,17 @@ public class ExtraTextOverlayController {
 			});
 		}
 
+		// Every gesture below measures from where the finger went down rather than
+		// from the previous move event. Per-event deltas were converted to dp with
+		// Math.round and the fraction thrown away each time, so at this screen's
+		// density a slow drag delivering a pixel per event rounded to zero every
+		// time and nothing moved at all until the finger was yanked hard enough to
+		// carry two pixels in one event.
 		View.OnTouchListener floatDrag = new View.OnTouchListener() {
-			float lastX;
-			float lastY;
+			float downX;
+			float downY;
+			int startXDp;
+			int startYDp;
 
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
@@ -556,18 +564,16 @@ public class ExtraTextOverlayController {
 				float density = activity.getResources().getDisplayMetrics().density;
 				switch (event.getActionMasked()) {
 				case MotionEvent.ACTION_DOWN:
-					lastX = event.getRawX();
-					lastY = event.getRawY();
+					downX = event.getRawX();
+					downY = event.getRawY();
+					startXDp = e.slot.getFloatX();
+					startYDp = e.slot.getFloatY();
 					return true;
 				case MotionEvent.ACTION_MOVE: {
-					int dx = (int) (event.getRawX() - lastX);
-					int dy = (int) (event.getRawY() - lastY);
-					lastX = event.getRawX();
-					lastY = event.getRawY();
-					e.slot.setFloatX(Math.max(0,
-							e.slot.getFloatX() + Math.round(dx / density)));
-					e.slot.setFloatY(Math.max(0,
-							e.slot.getFloatY() + Math.round(dy / density)));
+					int dxDp = Math.round((event.getRawX() - downX) / density);
+					int dyDp = Math.round((event.getRawY() - downY) / density);
+					e.slot.setFloatX(Math.max(0, startXDp + dxDp));
+					e.slot.setFloatY(Math.max(0, startYDp + dyDp));
 					applyLayout(e);
 					bringUnderChrome(e);
 					return true;
@@ -590,8 +596,10 @@ public class ExtraTextOverlayController {
 
 		if (e.resizeHandle != null) {
 			e.resizeHandle.setOnTouchListener(new View.OnTouchListener() {
-				float lastX;
-				float lastY;
+				float downX;
+				float downY;
+				int startW;
+				int startH;
 
 				@Override
 				public boolean onTouch(View v, MotionEvent event) {
@@ -605,18 +613,16 @@ public class ExtraTextOverlayController {
 					float density = activity.getResources().getDisplayMetrics().density;
 					switch (event.getActionMasked()) {
 					case MotionEvent.ACTION_DOWN:
-						lastX = event.getRawX();
-						lastY = event.getRawY();
+						downX = event.getRawX();
+						downY = event.getRawY();
+						startW = e.slot.getFloatW();
+						startH = e.slot.getFloatH();
 						return true;
 					case MotionEvent.ACTION_MOVE: {
-						int dx = (int) (event.getRawX() - lastX);
-						int dy = (int) (event.getRawY() - lastY);
-						lastX = event.getRawX();
-						lastY = event.getRawY();
-						e.slot.setFloatW(Math.max(MIN_FLOAT_DP,
-								e.slot.getFloatW() + Math.round(dx / density)));
-						e.slot.setFloatH(Math.max(MIN_FLOAT_DP,
-								e.slot.getFloatH() + Math.round(dy / density)));
+						int dwDp = Math.round((event.getRawX() - downX) / density);
+						int dhDp = Math.round((event.getRawY() - downY) / density);
+						e.slot.setFloatW(Math.max(MIN_FLOAT_DP, startW + dwDp));
+						e.slot.setFloatH(Math.max(MIN_FLOAT_DP, startH + dhDp));
 						applyLayout(e);
 						bringUnderChrome(e);
 						return true;
@@ -633,7 +639,8 @@ public class ExtraTextOverlayController {
 		}
 
 		View.OnTouchListener drawerResize = new View.OnTouchListener() {
-			float lastY;
+			float downY;
+			int startHeightDp;
 
 			@Override
 			public boolean onTouch(View v, MotionEvent event) {
@@ -650,13 +657,15 @@ public class ExtraTextOverlayController {
 						(int) ((screenH * MAX_DRAWER_SCREEN_FRACTION) / density));
 				switch (event.getActionMasked()) {
 				case MotionEvent.ACTION_DOWN:
-					lastY = event.getRawY();
+					downY = event.getRawY();
+					startHeightDp = e.slot.getHeightDp();
 					return true;
 				case MotionEvent.ACTION_MOVE: {
-					float dy = event.getRawY() - lastY;
-					lastY = event.getRawY();
-					// Drag down grows height; floor at MIN_DRAWER_DP.
-					int next = e.slot.getHeightDp() + Math.round(dy / density);
+					// Drag down grows height; floor at MIN_DRAWER_DP. Measured from
+					// the down point, so dragging back out of a clamp returns the
+					// height the finger actually describes rather than crawling.
+					int next = startHeightDp
+							+ Math.round((event.getRawY() - downY) / density);
 					if (next < MIN_DRAWER_DP) {
 						next = MIN_DRAWER_DP;
 					}
