@@ -255,6 +255,11 @@ public final class MapStore {
 				if (exit.getTargetMap() != null && exit.getTargetMap().length() > 0) {
 					e.put("targetMap", exit.getTargetMap());
 				}
+				// Written only when true, so maps without guesses are unchanged
+				// and older readers ignore it.
+				if (exit.isGuessed()) {
+					e.put("guessed", true);
+				}
 				exits.put(e);
 			}
 			o.put("exits", exits);
@@ -339,6 +344,9 @@ public final class MapStore {
 						if (e.has("targetMap")) {
 							exit.setTargetMap(emptyToNull(e.optString("targetMap", "")));
 						}
+						// Absent in maps written before this existed, which is the
+						// safe reading: those exits are never withdrawn.
+						exit.setGuessed(e.optBoolean("guessed", false));
 						tile.addExit(exit);
 					}
 				}

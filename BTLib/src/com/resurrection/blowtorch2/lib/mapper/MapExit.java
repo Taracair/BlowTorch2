@@ -17,6 +17,14 @@ public class MapExit {
 	 * exit loads that map instead of (or after) moving to {@code toId}.
 	 */
 	private String targetMap;
+	/**
+	 * True when the mapper invented this exit instead of seeing it listed or
+	 * walked. Reverse links are guesses: walking {@code s} into a room is no
+	 * proof that {@code n} comes back out of it, and in worlds that do not fold
+	 * neatly it often does not. A guess is withdrawn the moment the room's own
+	 * exit list contradicts it; anything the player made stays put.
+	 */
+	private boolean guessed;
 
 	public MapExit() {
 	}
@@ -56,6 +64,14 @@ public class MapExit {
 
 	public void setCommand(String command) {
 		this.command = command;
+	}
+
+	public boolean isGuessed() {
+		return guessed;
+	}
+
+	public void setGuessed(boolean guessed) {
+		this.guessed = guessed;
 	}
 
 	public boolean isSpecial() {

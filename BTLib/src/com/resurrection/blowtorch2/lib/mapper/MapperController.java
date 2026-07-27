@@ -2380,6 +2380,15 @@ public class MapperController {
 			final Map<String, String> exitDestNums) {
 		List<String> missing = new ArrayList<String>();
 		boolean changedStamp = false;
+		// The game has just told us what this room offers, so anything the mapper
+		// invented for it and the game does not list was a bad guess. Undo is
+		// pushed first so it captures the state before the withdrawal.
+		List<MapExit> badGuesses = guessedExitsContradictedBy(current, exits);
+		if (!badGuesses.isEmpty()) {
+			pushUndo();
+			changedStamp = true;
+			current.getExits().removeAll(badGuesses);
+		}
 		for (String ex : exits) {
 			if (ex == null || ex.trim().length() == 0) {
 				continue;
@@ -3660,7 +3669,60 @@ public class MapperController {
 		}
 		boolean special = gridDeltaFor(revNorm) == null;
 		String storedRev = MapDirections.storeCommand(rev, revNorm);
-		to.addExit(new MapExit(to.getId(), from.getId(), storedRev, special, forwardCmd));
+		MapExit back = new MapExit(to.getId(), from.getId(), storedRev, special, forwardCmd);
+		// Walking s into a room does not prove n comes back out of it. Marked as
+		// a guess so the room's own exit list can withdraw it.
+		back.setGuessed(true);
+		to.addExit(back);
+	}
+
+	/**
+	 * Drop invented exits the room's own list does not have.
+	 *
+	 * The mapper adds a reverse exit whenever the player walks into a room,
+	 * which is a fair guess and often right. When it is wrong the map grows a
+	 * way through that does not exist -- Training Ground gained an n back to
+	 * Beehives because s led there, while the room only ever offered E and W --
+	 * and the invented exit then misleads the map, the path finder and the
+	 * player equally.
+	 *
+	 * Only guesses are withdrawn, and only when the game has actually told us
+	 * what the room offers. Exits the player walked, linked by hand or that the
+	 * game listed are never touched.
+	 */
+	private List<MapExit> guessedExitsContradictedBy(final MapTile tile,
+			final List<String> exits) {
+		if (tile == null || exits == null || exits.isEmpty() || tile.getExits() == null) {
+			return Collections.emptyList();
+		}
+		Set<String> listed = new HashSet<String>();
+		for (String ex : exits) {
+			if (ex == null) {
+				continue;
+			}
+			String norm = normalize(ex);
+			if (norm.length() > 0) {
+				listed.add(norm);
+			}
+		}
+		if (listed.isEmpty()) {
+			return Collections.emptyList();
+		}
+		List<MapExit> withdraw = new ArrayList<MapExit>();
+		for (MapExit e : tile.getExits()) {
+			if (e == null || !e.isGuessed()) {
+				continue;
+			}
+			// A portal is the player's doing whatever else is true of it.
+			if (e.getTargetMap() != null && e.getTargetMap().trim().length() > 0) {
+				continue;
+			}
+			String norm = normalize(e.getCommand());
+			if (norm.length() > 0 && !listed.contains(norm)) {
+				withdraw.add(e);
+			}
+		}
+		return withdraw;
 	}
 
 	private MapTile createTileAt(final String levelId, final int x, final int y) {
