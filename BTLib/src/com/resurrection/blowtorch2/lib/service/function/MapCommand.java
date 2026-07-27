@@ -227,6 +227,13 @@ public class MapCommand extends SpecialCommand {
 			}
 			note(c, mapper.undoStatus());
 			return null;
+		case "relayout":
+		case "tidy":
+			if (!requireEdit(c, mapper)) {
+				return null;
+			}
+			note(c, mapper.relayoutFromExits());
+			return null;
 		case "capture":
 			return doCapture(c, mapper, rest);
 		case "status":
@@ -1120,6 +1127,7 @@ public class MapCommand extends SpecialCommand {
 		sb.append("  .map title for <id> <text> | .map note for <id> <text>\n");
 		sb.append("  .map locktitle [for <id>] on|off|toggle\n");
 		sb.append("  .map lockposition|lockpos [for <id>] on|off|toggle\n");
+		sb.append("  .map relayout|tidy  (rebuild this level's positions from its exits; pinned tiles stay)\n");
 		sb.append("  .map link <cmd> [from <id>] to <tileId> | .map unlink <cmd> [from <id>]\n");
 		sb.append("  .map dirs|directions|lexicon  (current move table + notes)\n");
 		sb.append("  .map moves [list|reset|set <cmd> …|unset <cmd>|apply <table>]\n");

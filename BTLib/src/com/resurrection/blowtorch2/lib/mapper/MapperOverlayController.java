@@ -2306,6 +2306,17 @@ public class MapperOverlayController
 			toggleAcceptOneWaySpecials();
 		} else if (MapperRadialMenu.ACTION_MOVES.equals(action)) {
 			openMoveEffectsEditor();
+		} else if (MapperRadialMenu.ACTION_RELAYOUT.equals(action)) {
+			if (!requireEditModeToast()) {
+				return;
+			}
+			if (controller != null) {
+				toastStatus(controller.relayoutFromExits());
+				refreshFromController();
+			} else {
+				host.runMapCommand("relayout");
+				pullSnapshotFromService();
+			}
 		} else if (MapperRadialMenu.ACTION_OPACITY.equals(action)) {
 			promptOpacity();
 		} else if (MapperRadialMenu.ACTION_ARROW_LABELS.equals(action)) {

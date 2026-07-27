@@ -863,6 +863,157 @@ public class MapperController {
 		return MapPathfinder.findCommands(mMap, mMap.getCurrentTileId(), toTileId);
 	}
 
+	/**
+	 * Rebuild the current level's positions from its exits.
+	 *
+	 * Placement only decides where a room goes at the moment it is first seen,
+	 * with whatever was on the map then. A map grown before the direction was
+	 * known -- or grown in an awkward order -- keeps those decisions forever, and
+	 * the only cure was deleting it and walking the whole area again. This walks
+	 * the rooms breadth-first from where the player is and puts each neighbour on
+	 * the cell its own command asks for, which is the same rule placement now
+	 * follows, applied to every room at once instead of one at a time.
+	 *
+	 * Pinned tiles do not move and are laid down first, so hand-placed rooms
+	 * survive and everything else arranges itself around them. Rooms the walk
+	 * cannot reach keep their positions unless something has taken the cell.
+	 * Nothing but coordinates changes, and it is a single undo.
+	 */
+	public String relayoutFromExits() {
+		if (mMap == null) {
+			return "Mapper: no map.";
+		}
+		final String levelId = mMap.getCurrentLevelId();
+		List<MapTile> level = new ArrayList<MapTile>();
+		for (MapTile t : mMap.getTiles()) {
+			if (t != null && (levelId == null ? t.getLevelId() == null
+					: levelId.equals(t.getLevelId()))) {
+				level.add(t);
+			}
+		}
+		if (level.size() < 2) {
+			return "Mapper: nothing to lay out on this level.";
+		}
+
+		Map<String, int[]> placed = new LinkedHashMap<String, int[]>();
+		Set<String> taken = new HashSet<String>();
+		// Pinned first: they are fixed points the rest has to work around.
+		for (MapTile t : level) {
+			if (t.isLockPosition()) {
+				placed.put(t.getId(), new int[] { t.getGridX(), t.getGridY() });
+				taken.add(cellKey(t.getGridX(), t.getGridY()));
+			}
+		}
+
+		MapTile seed = currentTile();
+		if (seed == null || !level.contains(seed)) {
+			seed = level.get(0);
+		}
+		if (!placed.containsKey(seed.getId())) {
+			int[] anchor = freeCellNear(taken, seed.getGridX(), seed.getGridY(), null);
+			placed.put(seed.getId(), anchor);
+			taken.add(cellKey(anchor[0], anchor[1]));
+		}
+
+		LinkedList<MapTile> queue = new LinkedList<MapTile>();
+		queue.add(seed);
+		Set<String> visited = new HashSet<String>();
+		visited.add(seed.getId());
+		while (!queue.isEmpty()) {
+			MapTile tile = queue.removeFirst();
+			int[] here = placed.get(tile.getId());
+			if (here == null || tile.getExits() == null) {
+				continue;
+			}
+			for (MapExit e : tile.getExits()) {
+				if (e == null || e.getToId() == null) {
+					continue;
+				}
+				MapTile dest = findTileById(e.getToId());
+				if (dest == null || !level.contains(dest)
+						|| dest.getId().equals(tile.getId())) {
+					continue;
+				}
+				if (!placed.containsKey(dest.getId())) {
+					int[] delta = gridDeltaFor(normalize(e.getCommand()));
+					int[] cell;
+					if (delta == null) {
+						// enter, climb, a portal: no direction to honour, so put it
+						// beside its neighbour and let the label explain.
+						cell = freeCellNear(taken, here[0], here[1], null);
+					} else {
+						int wantX = here[0] + delta[0];
+						int wantY = here[1] + delta[1];
+						cell = taken.contains(cellKey(wantX, wantY))
+								? freeCellNear(taken, here[0], here[1], delta)
+								: new int[] { wantX, wantY };
+					}
+					placed.put(dest.getId(), cell);
+					taken.add(cellKey(cell[0], cell[1]));
+				}
+				if (visited.add(dest.getId())) {
+					queue.add(dest);
+				}
+			}
+		}
+
+		// Anything the walk never reached: leave it be unless its cell is gone.
+		for (MapTile t : level) {
+			if (placed.containsKey(t.getId())) {
+				continue;
+			}
+			int[] cell = taken.contains(cellKey(t.getGridX(), t.getGridY()))
+					? freeCellNear(taken, t.getGridX(), t.getGridY(), null)
+					: new int[] { t.getGridX(), t.getGridY() };
+			placed.put(t.getId(), cell);
+			taken.add(cellKey(cell[0], cell[1]));
+		}
+
+		int moved = 0;
+		for (MapTile t : level) {
+			int[] cell = placed.get(t.getId());
+			if (cell != null && (t.getGridX() != cell[0] || t.getGridY() != cell[1])) {
+				moved++;
+			}
+		}
+		if (moved == 0) {
+			return "Mapper: layout already follows the exits.";
+		}
+		pushUndo();
+		for (MapTile t : level) {
+			int[] cell = placed.get(t.getId());
+			if (cell != null) {
+				t.setGridX(cell[0]);
+				t.setGridY(cell[1]);
+			}
+		}
+		notifyChanged();
+		return "Mapper: laid out " + level.size() + " room(s) from their exits, "
+				+ moved + " moved. Undo restores the old positions.";
+	}
+
+	private static String cellKey(final int x, final int y) {
+		return x + "," + y;
+	}
+
+	/** Nearest cell not in {@code taken}, preferring {@code travel} when given. */
+	private static int[] freeCellNear(final Set<String> taken, final int ox,
+			final int oy, final int[] travel) {
+		if (!taken.contains(cellKey(ox, oy))) {
+			return new int[] { ox, oy };
+		}
+		for (int r = 1; r < 60; r++) {
+			for (int[] off : ringOffsetsByTravel(r, travel)) {
+				int x = ox + off[0];
+				int y = oy + off[1];
+				if (!taken.contains(cellKey(x, y))) {
+					return new int[] { x, y };
+				}
+			}
+		}
+		return new int[] { ox + 100, oy };
+	}
+
 	public String moveTileToLevel(final String tileId, final String levelId) {
 		if (mMap == null || tileId == null || levelId == null) {
 			return "Mapper: missing tile/level.";

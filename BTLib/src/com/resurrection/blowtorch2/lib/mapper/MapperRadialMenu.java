@@ -73,6 +73,7 @@ public final class MapperRadialMenu {
 	public static final String ACTION_MOVES = "moves";
 	public static final String ACTION_ADD_LEVEL = "addlevel";
 	public static final String ACTION_LINK_MAP = "linkmap";
+	public static final String ACTION_RELAYOUT = "relayout";
 
 	// More
 	public static final String ACTION_SAVE = "save";
@@ -141,7 +142,8 @@ public final class MapperRadialMenu {
 				new Item(ACTION_ONE_WAY, "1-way specials",
 						acceptOneWay ? "on" : "off"),
 				new Item(ACTION_MOVES, "Moves"),
-				new Item(ACTION_LINK_MAP, "Link map")
+				new Item(ACTION_LINK_MAP, "Link map"),
+				new Item(ACTION_RELAYOUT, "Tidy layout")
 		};
 		show(parent, "Edit", items, listener);
 	}
