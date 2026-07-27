@@ -192,6 +192,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/** Connect only after the first live NAWS measurement (avoids wrong size + startup races). */
 	private static final int MESSAGE_CONNECT_WHEN_READY = 8851;
 	private static final int MESSAGE_RETRYWINDOWTOKENS = 925;
+	private static final int MESSAGE_REBINDSERVICE = 926;
+	/** The framework schedules a crashed foreground service to restart in about a
+	 * second, so there is no point asking sooner; a handful of tries covers a slow
+	 * restart without turning into a permanent poll. */
+	private static final int REBIND_DELAY_MS = 1200;
+	private static final int MAX_REBIND_ATTEMPTS = 5;
+	private int mRebindAttempts = 0;
 	private boolean mPendingInitialConnect = false;
 	public final static int MESSAGE_LAUNCHURL = 886;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
@@ -411,7 +418,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			
 			service = null;
-			
+			// The binding died with the process, so this activity is not bound any more
+			// whatever isBound says. Leaving it true was the whole bug: onResume only
+			// rebinds when !isBound, so coming back to the app took the "already bound"
+			// branch, service stayed null, and every call quietly did nothing while the
+			// UI still looked alive.
+			isBound = false;
+			// Every window's callback was registered with the Connection that just
+			// died, so they are all talking to nothing. Leaving windowsInitialized
+			// true made initiailizeWindows() return at its guard when the new service
+			// asked for window settings, so the windows were never rebuilt and never
+			// re-registered — the service came back and the text still went nowhere.
+			markWindowsDirty();
+			mRebindAttempts = 0;
+			scheduleServiceRebind();
+
 			synchronized(serviceConnected) {
 				serviceConnected.notify();
 				serviceConnected = false;
@@ -807,6 +828,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_RETRYWINDOWTOKENS:
 					retryWindowTokens();
+					break;
+				case MESSAGE_REBINDSERVICE:
+					rebindServiceAfterDeath();
 					break;
 				case MESSAGE_RENAWS:
 					reportLiveNawsToService();
@@ -3366,6 +3390,50 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		finishInitializeWindows();
+	}
+
+	private void scheduleServiceRebind() {
+		if (myhandler == null) {
+			return;
+		}
+		myhandler.removeMessages(MESSAGE_REBINDSERVICE);
+		myhandler.sendEmptyMessageDelayed(MESSAGE_REBINDSERVICE, REBIND_DELAY_MS);
+	}
+
+	/** Reconnect to StellarService after its process died under us.
+	 *
+	 * <p>bindService was called with flag 0, which does not keep the service alive and
+	 * does not bring the binding back by itself. The system does restart the service —
+	 * it is a started foreground service — but nothing reattaches this activity to it,
+	 * so without this the app sits there with a null service until it is killed and
+	 * relaunched by hand. */
+	void rebindServiceAfterDeath() {
+		if (isFinishing() || isBound || service != null) {
+			return;
+		}
+		mRebindAttempts++;
+		boolean asked = false;
+		try {
+			String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
+			asked = this.bindService(new Intent(serviceBindAction, null, this, StellarService.class),
+					mConnection, 0);
+		} catch (Exception e) {
+			Log.e("BlowTorch", "rebind to StellarService failed", e);
+		}
+		if (asked) {
+			// onServiceConnected takes it from here: it re-registers the callback and,
+			// when the connection object outlived the socket, asks for a reconnect.
+			isBound = true;
+			return;
+		}
+		if (mRebindAttempts >= MAX_REBIND_ATTEMPTS) {
+			String why = "Could not rebind to the connection service after "
+					+ mRebindAttempts + " tries; the app is running without one.";
+			Log.e("BlowTorch", why);
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logError(this, "rebindService", why);
+			return;
+		}
+		scheduleServiceRebind();
 	}
 
 	/** Ask the service for the window list. False when it has none to give yet. */
