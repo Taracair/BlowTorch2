@@ -217,16 +217,44 @@ public class SDCardUtils {
      */
     private static volatile File sRootCache;
 
+    /**
+     * The grant state the cached root was worked out under.
+     *
+     * <p>Explicit invalidation was not enough and produced a real bug: the UI
+     * and the {@code :stellar} service are separate processes with separate
+     * copies of this static, so clearing it in the UI did nothing for the
+     * service, which is where settings export and import actually run. Granting
+     * All files access left the service writing to app-internal storage
+     * forever, and import could not find anything.
+     *
+     * <p>Checking the grant instead is self-correcting in both processes.
+     * {@link Environment#isExternalStorageManager()} is a cheap state read, not
+     * the eight filesystem probes that made caching worth doing.
+     */
+    private static volatile boolean sRootCacheHadAllFiles;
+
     /** Forget the cached root; call after granting or losing All files access. */
     public static void invalidateRootCache() {
         sRootCache = null;
         sEnsuredSubdirs.clear();
     }
 
+    /** Cheap read of the grant that decides which root we get. */
+    private static boolean hasAllFilesNow() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                && Environment.isExternalStorageManager();
+    }
+
     public static File resolveBlowTorchRoot(Context context) {
+        boolean allFiles = hasAllFilesNow();
         File cached = sRootCache;
-        if (cached != null) {
+        if (cached != null && allFiles == sRootCacheHadAllFiles) {
             return cached;
+        }
+        if (cached != null) {
+            // The grant changed under us. Re-create the subfolders too: the ones
+            // we made last time were under the other root.
+            sEnsuredSubdirs.clear();
         }
         File resolved;
         File preferred = getPreferredBlowTorchRoot(context);
@@ -240,6 +268,7 @@ public class SDCardUtils {
             resolved = fallback;
         }
         sRootCache = resolved;
+        sRootCacheHadAllFiles = allFiles;
         return resolved;
     }
 
