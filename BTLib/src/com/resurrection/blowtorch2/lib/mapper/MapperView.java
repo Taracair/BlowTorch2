@@ -931,12 +931,16 @@ public class MapperView extends View {
 		}
 		float stepX = px * (tw * 0.5f + pad * 2f);
 		float stepY = py * (bh + 2f * scale);
+		// Sliding along the link keeps a label obviously on that link. Stepping
+		// away from it does not, which is why the search now tries along first.
+		float alongX = ux * (tw * 0.5f + pad * 2f);
+		float alongY = uy * (bh + 2f * scale);
 
 		float cx = midX;
 		float cy = midY;
 		boolean clear = false;
-		for (int attempt = 0; attempt < 7 && !clear; attempt++) {
-			float[] nudge = labelNudge(attempt, stepX, stepY);
+		for (int attempt = 0; attempt < LABEL_ATTEMPTS && !clear; attempt++) {
+			float[] nudge = labelNudge(attempt, stepX, stepY, alongX, alongY);
 			cx = midX + nudge[0];
 			cy = midY + nudge[1];
 			tmpRect.set(cx - tw * 0.5f - pad, cy - bh + pad * 0.3f,
@@ -963,18 +967,49 @@ public class MapperView extends View {
 		}
 	}
 
+	/** How many places {@link #labelNudge} can offer before we give up. */
+	static final int LABEL_ATTEMPTS = 7;
+
 	/**
-	 * Offset for the n-th attempt at placing a label: nothing, then one step to
-	 * one side, then one step to the other, then two, and so on. Alternating
-	 * keeps the fan symmetrical about the link instead of drifting off one way.
+	 * Offset for the n-th attempt at placing a link label.
+	 *
+	 * <p>Order matters more than coverage here. The old version only stepped
+	 * <em>away</em> from the link, widening by a whole label height each time,
+	 * so in a crowded corner a label ended up two or three heights out and read
+	 * as belonging to some other link — the "w" and "e" between Beehives and
+	 * Herb Garden floated up above the tiles.
+	 *
+	 * <p>Now it slides <em>along</em> the link first, which keeps the label
+	 * visibly attached to the line it names, and only then steps to the side.
+	 * Nothing ever goes further than one step out and one along, so a label can
+	 * no longer detach from its arrow. Sides alternate so a fan stays
+	 * symmetrical rather than drifting one way.
+	 *
+	 * @param attempt Zero-based try number.
+	 * @param stepX Perpendicular step, x.
+	 * @param stepY Perpendicular step, y.
+	 * @param alongX Along-link step, x.
+	 * @param alongY Along-link step, y.
+	 * @return {@code [dx, dy]} to add to the link midpoint.
 	 */
-	static float[] labelNudge(int attempt, float stepX, float stepY) {
-		if (attempt <= 0) {
+	static float[] labelNudge(int attempt, float stepX, float stepY,
+			float alongX, float alongY) {
+		switch (attempt) {
+		case 1:
+			return new float[] { alongX, alongY };
+		case 2:
+			return new float[] { -alongX, -alongY };
+		case 3:
+			return new float[] { stepX, stepY };
+		case 4:
+			return new float[] { -stepX, -stepY };
+		case 5:
+			return new float[] { alongX + stepX, alongY + stepY };
+		case 6:
+			return new float[] { -alongX - stepX, -alongY - stepY };
+		default:
 			return new float[] { 0f, 0f };
 		}
-		int ring = (attempt + 1) / 2;
-		float sign = (attempt % 2 == 1) ? 1f : -1f;
-		return new float[] { stepX * ring * sign, stepY * ring * sign };
 	}
 
 	private boolean overlapsPlacedLabel(RectF candidate) {
