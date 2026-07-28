@@ -31,7 +31,10 @@ public final class AliasExpansion {
 		 * group in the pattern, as people expect from a regex.
 		 */
 		ANCHORED,
-		/** Neither anchor. The pattern is wrapped in word boundaries. */
+		/**
+		 * Neither anchor. The pattern is wrapped in word boundaries, and
+		 * substitutes from its own groups exactly as {@link #ANCHORED} does.
+		 */
 		PLAIN
 	}
 
@@ -100,10 +103,12 @@ public final class AliasExpansion {
 			return CaptureSubstitution.apply(post,
 					AnchoredAliasCaptures.fromMatch(alias.getPre(), matched));
 		default:
-			// Plain aliases substitute nothing here. See the note on
-			// PLAIN in Mode: what "$1" does in this form is currently
-			// literal, which contradicts the manual.
-			return post;
+			// Same extraction as the anchored form: the alias's own pattern is
+			// re-run against the text it matched, so $0 is the whole match and
+			// $1 the first group. Consistent between the two forms, and it is
+			// what the manual has always described.
+			return CaptureSubstitution.apply(post,
+					AnchoredAliasCaptures.fromMatch(alias.getPre(), matched));
 		}
 	}
 }
