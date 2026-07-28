@@ -214,18 +214,33 @@
                     android:background="#332A3A4A"
                     android:contentDescription="Edit radial" />
 
+                <!-- id kept as _file for compatibility; this hub is now "Map". -->
                 <TextView
                     android:id="@+id/mapper_cat_file"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:layout_marginRight="4dp"
+                    android:gravity="center"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:text="Map"
+                    android:textColor="#9EC5FF"
+                    android:textSize="12sp"
+                    android:background="#332A3A4A"
+                    android:contentDescription="Map file radial" />
+
+                <TextView
+                    android:id="@+id/mapper_cat_view"
                     android:layout_width="wrap_content"
                     android:layout_height="28dp"
                     android:gravity="center"
                     android:paddingLeft="10dp"
                     android:paddingRight="10dp"
-                    android:text="More"
+                    android:text="View"
                     android:textColor="#9EC5FF"
                     android:textSize="12sp"
                     android:background="#332A3A4A"
-                    android:contentDescription="More radial" />
+                    android:contentDescription="View and sync radial" />
             </LinearLayout>
         </HorizontalScrollView>
 

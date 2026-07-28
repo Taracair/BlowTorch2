@@ -110,8 +110,8 @@ public final class MapperRadialMenu {
 				new Item(ACTION_FIND, "Find"),
 				new Item(ACTION_CENTER, "Center"),
 				new Item(ACTION_FOLLOW, "Follow", follow ? "on" : "off"),
-				new Item(ACTION_REC, "Record", recording ? "on" : "off"),
-				new Item(ACTION_UNDO, "Undo")
+				new Item(ACTION_REC, "Record", recording ? "on" : "off")
+				// Undo lives in Edit: it undoes edits, not movement.
 		};
 		show(parent, "Nav", items, listener);
 	}
@@ -137,13 +137,16 @@ public final class MapperRadialMenu {
 				new Item(ACTION_LINKS, "Link mode", linksOn ? "on" : "off"),
 				new Item(ACTION_HERE, "Set Here"),
 				new Item(ACTION_EDIT, "Edit tile"),
-				new Item(ACTION_PATHS, "Layout",
+				// "Layout" and "Tidy layout" sat next to each other and read as the
+				// same thing. One is a standing preference, the other is a verb.
+				new Item(ACTION_PATHS, "Spacing",
 						pathsSpread ? "spread" : "packed"),
+				new Item(ACTION_RELAYOUT, "Tidy now"),
 				new Item(ACTION_ONE_WAY, "1-way specials",
 						acceptOneWay ? "on" : "off"),
 				new Item(ACTION_MOVES, "Moves"),
 				new Item(ACTION_LINK_MAP, "Link map"),
-				new Item(ACTION_RELAYOUT, "Tidy layout")
+				new Item(ACTION_UNDO, "Undo")
 		};
 		show(parent, "Edit", items, listener);
 	}
@@ -161,21 +164,46 @@ public final class MapperRadialMenu {
 		showEdit(parent, listener, false, false, true, acceptOneWay);
 	}
 
-	public static void showMore(ViewGroup parent, Listener listener, int opacity,
-			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels, boolean windowEcho) {
+	/**
+	 * The map as a file: what you keep, load and hand to someone else.
+	 */
+	public static void showMapFile(ViewGroup parent, Listener listener) {
 		Item[] items = {
 				new Item(ACTION_SAVE, "Save"),
 				new Item(ACTION_MAPS, "Maps"),
 				new Item(ACTION_NEW, "New map"),
 				new Item(ACTION_EXPORT, "Export"),
+				new Item(ACTION_CAPTURE, "Capture")
+		};
+		show(parent, "Map", items, listener);
+	}
+
+	/**
+	 * How the map looks, and how much the game is allowed to draw on it.
+	 * Both are standing preferences rather than things you do once, which is
+	 * what separates them from Map and Edit.
+	 */
+	public static void showViewSync(ViewGroup parent, Listener listener, int opacity,
+			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels, boolean windowEcho) {
+		Item[] items = {
 				new Item(ACTION_OPACITY, "Opacity…", opacity + "%"),
 				new Item(ACTION_ARROW_LABELS, "Arrow labels", arrowLabels ? "on" : "off"),
 				new Item(ACTION_WINDOW_ECHO, "Window echo", windowEcho ? "on" : "off"),
-				new Item(ACTION_CAPTURE, "Capture"),
 				new Item(ACTION_GMCP, "GMCP sync", gmcpOn ? "on" : "off"),
 				new Item(ACTION_GMCP_GROW, "GMCP grow", gmcpGrow ? "on" : "off")
 		};
-		show(parent, "More", items, listener);
+		show(parent, "View & sync", items, listener);
+	}
+
+	/**
+	 * @deprecated Split into {@link #showMapFile} and {@link #showViewSync}. Ten
+	 *     items covering files, appearance and sync policy was three menus in a
+	 *     coat. Kept so older callers still compile.
+	 */
+	@Deprecated
+	public static void showMore(ViewGroup parent, Listener listener, int opacity,
+			boolean gmcpOn, boolean gmcpGrow, boolean arrowLabels, boolean windowEcho) {
+		showViewSync(parent, listener, opacity, gmcpOn, gmcpGrow, arrowLabels, windowEcho);
 	}
 
 	/** @deprecated use {@link #showMore} with full flags */
