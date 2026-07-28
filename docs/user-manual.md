@@ -126,12 +126,15 @@ vars with the **Set Variable** responder or Lua `SetVariable` /
 | `.closewindow` | Dirty-exit the game window |
 | `.note <text>` | Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging |
 | `.trigger …` | Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below |
+| `.alias …` | Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below |
 | `.timer <action> <name> [silent]` | Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`) |
 | `.dobell` | Fire configured bell reaction |
 | `.togglefullscreen` | Toggle fullscreen preference |
 | `.wrap [on\|off]` | Input bar growth (default on); also Options → Input → Grow Input Bar? |
 | `.gmcp …` | GMCP helpers (status / sniff / version / supports / dump / send); see below |
 | `.mcp …` | MCP helpers (Mud Client Protocol `#$#`); see below |
+| `.mssp` | Dump the cached MSSP server listing (server announces it; nothing to ask for) |
+| `.msdp …` | Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>` |
 | `.keyboard` / `.kb` | Input-bar control — see `.kb` section below |
 | `.disconnect` | Disconnect the current session (same as overflow **Disconnect**) |
 | `.reconnect` | Reconnect the current session (same as overflow **Reconnect**) |
@@ -532,6 +535,18 @@ GMCP in game window?** is on. When a module is routed to an extra window, that
 module is **not** also fed into main (intercept for the live feed only). Lua GMCP
 watchers and mapper/native handlers still run. In-band MUD lines are unchanged —
 use gag/replace if you also want to hide related room text.
+
+### `.alias` forms
+
+```
+.alias list                    every alias and whether it is on
+.alias status [name]           counts, or one alias and what it expands to
+.alias on|off|toggle <name>    turn one on or off
+.alias all on|off              every alias in main settings
+```
+
+Use `plugin:name` when the same name exists in more than one plugin. A disabled
+alias stops matching immediately.
 
 ### Switching alias sets by mode
 

@@ -1691,8 +1691,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 1050, 1050, "Search scrollback");
 		menu.add(0, 1100,1100,"Reload Settings");
 		menu.add(0, 1200,1200,"Reset Settings");
-		menu.add(0, 1300,1300,"Export Settings");
-		menu.add(0, 1400,1400,"Import Settings");
+		// Export/Import Settings moved to Options → Miscellaneous, next to the
+		// storage settings they depend on. This menu was sixteen items long and
+		// these two are setup-and-migration jobs, not things you reach for mid
+		// session. The menu ids stay wired for the Options entries.
 		// Bottom of expandable menu: Crash report → About → Help
 		menu.add(0, 1500, 1500, "Crash report");
 		menu.add(0, 1600, 1600, "About");
@@ -5174,6 +5176,29 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/** Options → Miscellaneous → Manage Storage Access. */
+	/** Options → Miscellaneous → Export Settings. Same path as the old menu item. */
+	public void exportSettingsFromOptions() {
+		SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_EXPORT,
+				new Runnable() {
+					@Override
+					public void run() {
+						settingsTransfer.doExportDialog();
+					}
+				});
+	}
+
+	/** Options → Miscellaneous → Import Settings. Same path as the old menu item. */
+	public void importSettingsFromOptions() {
+		SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_IMPORT,
+				new Runnable() {
+					@Override
+					public void run() {
+						settingsTransfer.doImportDialog(
+								SDCardUtils.hasStoragePermissions(MainWindow.this));
+					}
+				});
+	}
+
 	public void requestStorageAccessFromOptions() {
 		// The grant may have changed since the root was last worked out, and the
 		// cached answer would keep everything in app storage forever.

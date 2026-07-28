@@ -511,6 +511,22 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
+			if ("export_settings".equals(key)) {
+				MainWindow mwe = findMainWindowHost();
+				if (mwe != null) {
+					dismiss();
+					mwe.exportSettingsFromOptions();
+				}
+				return;
+			}
+			if ("import_settings".equals(key)) {
+				MainWindow mwi = findMainWindowHost();
+				if (mwi != null) {
+					dismiss();
+					mwi.importSettingsFromOptions();
+				}
+				return;
+			}
 			if ("check_updates_now".equals(key)) {
 				runManualUpdateCheck();
 				return;
