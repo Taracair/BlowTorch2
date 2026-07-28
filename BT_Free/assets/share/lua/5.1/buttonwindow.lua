@@ -639,10 +639,17 @@ local function resetTouchedButtonVisual()
 	if touchedbutton ~= nil then
 		touchedbutton.selected = false
 	end
+	-- "No button touched" is spelled {} here, not nil, so a nil check passes an
+	-- empty table straight through -- which is how the fast path below reached
+	-- clearButton with no paintOpts and killed a cancelled gesture. Test for the
+	-- fields a real BUTTON has instead.
+	local realButton = touchedbutton ~= nil
+			and touchedbutton.paintOpts ~= nil
+			and touchedbutton.rect ~= nil
 	-- drawButtons() clears the layer, which also takes away the live swipe arrow.
 	-- It is also a full repaint of every tile, measured at ~40ms on a 93 button
 	-- set, and it ran on every single button press.
-	if hadOverlay or manage or touchedbutton == nil
+	if hadOverlay or manage or not realButton
 			or touchedbutton.expanded or touchedbutton.isAccordionChild then
 		drawButtons()
 	else
