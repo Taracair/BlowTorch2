@@ -177,13 +177,15 @@ patterns.
 
 ## Miscellaneous
 
-- **Check for updates?** — off by default. When on, asks GitHub once a day
-  whether a newer BlowTorch 2 release exists and tells you at startup, with a
-  button to the release page and instructions for downloading the APK there.
-  This is the only thing in the app that contacts anything other than a MUD you
-  added, which is why it is opt-in. If you installed from **F-Droid, leave it
-  off** — F-Droid updates you already. The test flavour never checks, whatever
-  this is set to.
+- **Check for updates?** — **on by default.** Asks GitHub once a day whether a
+  newer BlowTorch 2 release exists and tells you at startup, with a button to
+  the release page and instructions for downloading the APK there. This is the
+  only connection the app makes to anything other than a MUD you added: a plain
+  read of the public releases page, with nothing about you in the request. Turn
+  it off and the app talks to nothing but your MUDs. If you installed from
+  **F-Droid, turn it off** — F-Droid updates you already. The test flavour never
+  checks, whatever this is set to. Failures are silent; "Skip this one"
+  suppresses a version you do not want to be reminded about.
 - **Persistent Connection?** — ride out brief network loss without the
   disconnect dialog.
 

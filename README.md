@@ -122,8 +122,26 @@ worth a great deal.
 
 ## Privacy and permissions
 
-A local client. It connects to the MUDs you add and nothing else. No ads, no
-analytics, no accounts, no server of mine anywhere.
+A local client. No ads, no analytics, no accounts, no server of mine anywhere.
+
+It makes exactly one connection that is not a MUD you added: an update check
+against GitHub, on by default, at most once a day. It is a plain GET of the
+public releases page — no identifier, no telemetry, nothing about you in the
+request:
+
+```java
+conn = (HttpURLConnection) new URL(API_URL).openConnection();
+conn.setRequestMethod("GET");
+conn.setRequestProperty("Accept", "application/vnd.github+json");
+conn.setRequestProperty("User-Agent", "BlowTorch2");
+```
+
+The whole of it is in
+[`BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java`](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
+— about two hundred lines, worth a read if you would rather verify than take my
+word. Turn it off under **Options → Miscellaneous → Check for updates?** and the
+app talks to nothing but your MUDs. If you installed from F-Droid, turn it off:
+F-Droid updates you already. Test builds never check, whatever the setting says.
 
 | Permission | Needed to play? |
 |------------|-----------------|
