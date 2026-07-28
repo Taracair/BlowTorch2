@@ -627,3 +627,43 @@ class UnsetVariableFunction extends JavaFunction {
 		return 0;
 	}
 }
+
+/**
+ * {@code EnableAlias(name[, state])} — read or set whether an alias is live.
+ *
+ * <p>Aliases already have an enabled flag and {@link Plugin#buildAliases()}
+ * skips the disabled ones when it builds the combined matcher, so flipping it
+ * and rebuilding is all that is needed. Nothing touches the replacement loop.
+ *
+ * <p>This is what lets a trigger switch alias sets by mode: a combat trigger
+ * enables the combat aliases and disables the travel ones. Triggers and timers
+ * have full conditions; aliases have this.
+ */
+class EnableAliasFunction extends JavaFunction {
+	Plugin plugin;
+
+	public EnableAliasFunction(LuaState L, Plugin plugin) {
+		super(L);
+		this.plugin = plugin;
+	}
+
+	@Override
+	public int execute() throws LuaException {
+		String alias = this.getParam(2) != null ? this.getParam(2).getString() : null;
+		if (alias == null || !plugin.getSettings().getAliases().containsKey(alias)) {
+			L.pushString("Function: EnableAlias(string[,boolean]) Error: \""
+					+ alias + "\" does not exist");
+			return 1;
+		}
+		if (this.getParam(3) == null) {
+			L.pushBoolean(plugin.getSettings().getAliases().get(alias).isEnabled());
+			return 1;
+		}
+		boolean state = this.getParam(3).getBoolean();
+		plugin.getSettings().getAliases().get(alias).setEnabled(state);
+		// The combined matcher is built from the enabled ones, so it has to go.
+		plugin.buildAliases();
+		L.pushBoolean(true);
+		return 1;
+	}
+}

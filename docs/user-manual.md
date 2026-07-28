@@ -533,6 +533,24 @@ module is **not** also fed into main (intercept for the live feed only). Lua GMC
 watchers and mapper/native handlers still run. In-band MUD lines are unchanged —
 use gag/replace if you also want to hide related room text.
 
+### Switching alias sets by mode
+
+`EnableAlias(name)` returns whether an alias is live; `EnableAlias(name, true|false)`
+turns it on or off. A disabled alias stops matching immediately.
+
+Call it from a trigger's script action and aliases become mode-dependent — a
+combat trigger can enable the combat aliases and switch off the travel ones:
+
+```lua
+EnableAlias("kk", true)
+EnableAlias("travel_home", false)
+```
+
+Triggers and timers go further: both carry **conditions** (trigger enabled,
+trigger disabled, variable equals, variable exists, combined with and/or) that
+decide whether they fire at all, edited in their own editors. Aliases have no
+conditions — use `EnableAlias` for the same effect.
+
 ## GMCP (short)
 
 Enable under **Options → Service → GMCP Options**. Prefer **Manage modules…**
