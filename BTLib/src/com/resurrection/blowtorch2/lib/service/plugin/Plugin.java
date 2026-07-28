@@ -995,28 +995,24 @@ Note("Example text!")
 				
 				if(startAnchor && !endAnchor) {
 					doTail = false;
-					//do special replace.
-					String[] tParts = null;
+					String typedLine = "";
 					try {
-						tParts = whiteSpace.split(new String(input,mEncoding));
+						typedLine = new String(input, mEncoding);
 					} catch (UnsupportedEncodingException e) {
-						e.printStackTrace();
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+								"Plugin.doAliasReplacement", e);
 					}
-					HashMap<String,String> map = new HashMap<String,String>();
-					for(int i=0;i<tParts.length;i++) {
-						map.put(Integer.toString(i), tParts[i]);
-					}
-					ToastResponder r = new ToastResponder();
-					String finalString = r.translate(replace_with.getPost(), map);
-					
+					// Same tested path as the other two forms, so ${name}
+					// variables work here as well.
+					String finalString = AliasExpansion.expand(replace_with, typedLine,
+							alias_replacer.group(index), sessionVariables());
+
 					replaced.append(finalString);
-					
+
 				} else if(startAnchor && endAnchor) {
 					String matched = alias_replacer.group(index);
-					HashMap<String,String> anchorCaptures = AnchoredAliasCaptures.fromMatch(replace_with.getPre(), matched);
-
-					ToastResponder t = new ToastResponder();
-					String finalString = t.translate(replace_with.getPost(), anchorCaptures);
+					String finalString = AliasExpansion.expand(replace_with, matched,
+							matched, sessionVariables());
 
 					if(finalString.startsWith(scriptBlock)) {
 						this.runLuaString(finalString.substring(scriptBlock.length(),finalString.length()));
@@ -1092,9 +1088,8 @@ Note("Example text!")
 							reprocess = false;
 						} else if(replace_with.getPre().startsWith("^") && replace_with.getPre().endsWith("$")) {
 							String matched = alias_recursive.group(idx);
-							HashMap<String,String> anchorCaptures = AnchoredAliasCaptures.fromMatch(replace_with.getPre(), matched);
-							ToastResponder r = new ToastResponder();
-							String finalString = r.translate(replace_with.getPost(), anchorCaptures);
+							String finalString = AliasExpansion.expand(replace_with, matched,
+									matched, sessionVariables());
 							eatTail = true;
 							alias_recursive.appendReplacement(buffertemp, Matcher.quoteReplacement(finalString));
 							reprocess = false;

@@ -101,4 +101,47 @@ public class AliasExpansionTest {
 		assertEquals("kill goblin and $9",
 				AliasExpansion.expand(a, "kk goblin", "kk"));
 	}
+
+	private static java.util.Map<String, String> vars(String... pairs) {
+		java.util.Map<String, String> m = new java.util.HashMap<String, String>();
+		for (int i = 0; i + 1 < pairs.length; i += 2) {
+			m.put(pairs[i], pairs[i + 1]);
+		}
+		return m;
+	}
+
+	/**
+	 * Session variables must work in every alias form, not just the unanchored
+	 * one. They were first wired into that branch only, so an anchored alias
+	 * silently sent "${target}" to the game.
+	 */
+	@Test
+	public void variablesWorkInAllThreeForms() {
+		assertEquals("kill goblin", AliasExpansion.expand(
+				alias("att", "kill ${target}"), "att", "att",
+				vars("target", "goblin")));
+
+		assertEquals("kill goblin", AliasExpansion.expand(
+				alias("^att$", "kill ${target}"), "att", "att",
+				vars("target", "goblin")));
+
+		assertEquals("kill goblin", AliasExpansion.expand(
+				alias("^att", "kill ${target}"), "att now", "att",
+				vars("target", "goblin")));
+	}
+
+	/** Captures and variables in one replacement, each from its own source. */
+	@Test
+	public void capturesAndVariablesTogether() {
+		assertEquals("cast fire at goblin", AliasExpansion.expand(
+				alias("^cast (.+)$", "cast $1 at ${target}"),
+				"cast fire", "cast fire", vars("target", "goblin")));
+	}
+
+	/** No variables supplied is not the same as an empty replacement. */
+	@Test
+	public void noVariableMapLeavesReferencesAlone() {
+		assertEquals("kill ${target}", AliasExpansion.expand(
+				alias("att", "kill ${target}"), "att", "att", null));
+	}
 }
