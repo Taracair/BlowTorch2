@@ -51,6 +51,68 @@ public final class UpdateChecker {
 		void onUpdateAvailable(String latestVersion, String releaseUrl);
 	}
 
+	/**
+	 * Richer outcome for a check the player asked for by hand, where silence
+	 * would look like a broken button.
+	 */
+	public interface Result {
+		/** @param latestVersion Newer release found. @param releaseUrl Where to get it. */
+		void onNewer(String latestVersion, String releaseUrl);
+
+		/** @param currentVersion This build, which is the newest there is. */
+		void onUpToDate(String currentVersion);
+
+		/** No network, rate limited, or GitHub said something unexpected. */
+		void onFailed();
+	}
+
+	/**
+	 * Check right now because someone tapped a button.
+	 *
+	 * <p>Ignores the once-a-day limit and the release-build guard: the guard
+	 * exists to stop test builds phoning home <em>by themselves</em>, and an
+	 * explicit tap is not that. It is also the only way to see the feature work
+	 * on a test build.
+	 *
+	 * @param context Any context.
+	 * @param result Called on the UI thread, exactly once.
+	 */
+	public static void checkNowAsync(final Context context, final Result result) {
+		if (context == null || result == null) {
+			return;
+		}
+		final Context app = context.getApplicationContext();
+		final Handler ui = new Handler(Looper.getMainLooper());
+		Thread t = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				String current = currentVersion(app);
+				String latest = null;
+				try {
+					latest = fetchLatestTag();
+				} catch (Exception e) {
+					android.util.Log.i("BlowTorch", "manual update check failed: " + e);
+				}
+				final String cur = current;
+				final String found = latest;
+				ui.post(new Runnable() {
+					@Override
+					public void run() {
+						if (found == null || cur == null) {
+							result.onFailed();
+						} else if (compareVersions(found, cur) > 0) {
+							result.onNewer(found, RELEASES_URL);
+						} else {
+							result.onUpToDate(cur);
+						}
+					}
+				});
+			}
+		}, "update-check-now");
+		t.setDaemon(true);
+		t.start();
+	}
+
 	private UpdateChecker() {
 	}
 
@@ -67,12 +129,12 @@ public final class UpdateChecker {
 			return;
 		}
 		final Context app = context.getApplicationContext();
-		if (!isReleaseBuild(app)) {
-			// The test flavour is rebuilt many times a day and its versionName
-			// carries a -test suffix, so every published release looks newer than
-			// it and it would nag on every launch. Blocked here rather than by a
-			// setting: a build that should never phone home should not depend on
-			// a checkbox being right.
+		if (!force && !isReleaseBuild(app)) {
+			// The test flavour is rebuilt many times a day, so it never checks on
+			// its own. Blocked here rather than by a setting: a build that should
+			// not phone home by itself should not depend on a checkbox being
+			// right. An explicit tap (force) is the person asking, which is a
+			// different thing, and is how the feature gets verified at all.
 			return;
 		}
 		if (!force && !dueForCheck(app)) {

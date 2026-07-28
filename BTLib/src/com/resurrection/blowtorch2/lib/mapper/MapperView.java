@@ -922,7 +922,14 @@ public class MapperView extends View {
 		String label = formatLinkLabel(cmds, walkedCmds);
 		float tw = linkLabelPaint.measureText(label);
 		float pad = 4f * scale;
-		float bh = linkLabelPaint.getTextSize() + pad * 1.2f;
+		// Font metrics rather than text size. Ascent and descent are not
+		// symmetrical about the baseline, so deriving the box from the size
+		// alone left the glyphs sitting low in it -- invisible on a vertical
+		// link, where the offset is sideways, but plainly off-axis on a
+		// horizontal one, which is exactly how it looked on the map.
+		final Paint.FontMetrics fm = linkLabelPaint.getFontMetrics();
+		final float halfGlyph = (fm.ascent + fm.descent) * 0.5f;
+		float bh = (fm.descent - fm.ascent) + pad * 1.2f;
 
 		float px = -uy;
 		float py = ux;
@@ -944,9 +951,10 @@ public class MapperView extends View {
 		// Sit the chip *on* the shaft rather than tucked beside it. Its opaque
 		// background masks the line underneath, which reads as the label being
 		// part of the arrow instead of floating near it. cy is a text baseline,
-		// so this is what centres the box on the point we were given.
+		// so subtracting the glyph half-height puts the letters, not just the
+		// box, on the point we were given.
 		final float baseX = midX;
-		final float baseY = midY + bh * 0.5f - pad * 0.4f;
+		final float baseY = midY - halfGlyph;
 
 		float cx = baseX;
 		float cy = baseY;
@@ -955,8 +963,8 @@ public class MapperView extends View {
 			float[] nudge = labelNudge(attempt, stepX, stepY, alongX, alongY);
 			cx = baseX + nudge[0];
 			cy = baseY + nudge[1];
-			tmpRect.set(cx - tw * 0.5f - pad, cy - bh + pad * 0.3f,
-					cx + tw * 0.5f + pad, cy + pad * 0.5f);
+			tmpRect.set(cx - tw * 0.5f - pad, cy + fm.ascent - pad * 0.6f,
+					cx + tw * 0.5f + pad, cy + fm.descent + pad * 0.6f);
 			clear = !overlapsPlacedLabel(tmpRect);
 		}
 		if (!clear) {
@@ -964,8 +972,8 @@ public class MapperView extends View {
 			// is a nuisance, one sitting beside the wrong link is a lie.
 			cx = baseX;
 			cy = baseY;
-			tmpRect.set(cx - tw * 0.5f - pad, cy - bh + pad * 0.3f,
-					cx + tw * 0.5f + pad, cy + pad * 0.5f);
+			tmpRect.set(cx - tw * 0.5f - pad, cy + fm.ascent - pad * 0.6f,
+					cx + tw * 0.5f + pad, cy + fm.descent + pad * 0.6f);
 		}
 
 		canvas.drawRoundRect(tmpRect, 4f * scale, 4f * scale, linkLabelBg);
