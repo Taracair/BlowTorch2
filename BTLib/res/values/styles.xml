@@ -143,5 +143,16 @@
 		<item name="android:popupBackground">@drawable/dialog_window_crawler1</item>
 		<item name="android:textColorPrimary">@android:color/white</item>
 	</style>
-
+	<!--
+	  For an activity that exists only to start another one and finish. No
+	  window is drawn and no transition is animated, so the hand-off is not
+	  visible. windowNoDisplay is only safe because FreeLauncher finishes inside
+	  onCreate and never reaches onResume.
+	-->
+	<style name="BlowTorch.Invisible" parent="@android:style/Theme.Translucent.NoTitleBar">
+		<item name="android:windowNoDisplay">true</item>
+		<item name="android:windowBackground">@android:color/transparent</item>
+		<item name="android:windowAnimationStyle">@null</item>
+		<item name="android:windowDisablePreview">true</item>
+	</style>
 </resources>
