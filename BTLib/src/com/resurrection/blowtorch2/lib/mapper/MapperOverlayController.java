@@ -315,6 +315,7 @@ public class MapperOverlayController
 	public void close() {
 		visible = false;
 		visibilityRestored = true;
+		rememberFloatGeometry();
 		rememberVisibility(false);
 		stickyHandler.removeCallbacks(clearStickyRunnable);
 		stickyStatus = "";
@@ -374,6 +375,12 @@ public class MapperOverlayController
 		floatHeight = (int) (320 * density);
 		floatX = (int) (12 * density);
 		floatY = (int) (48 * density);
+		// Defaults first, then whatever this world had saved wins. The overlay is
+		// attached more than once in a session, and this block runs every time,
+		// so restoring only on the first attach meant the defaults simply
+		// overwrote the saved position again afterwards.
+		floatGeometryRestored = false;
+		restoreFloatGeometry();
 
 		if (controller != null) {
 			fullscreen = !controller.isPreferFloat();
@@ -4045,6 +4052,10 @@ public class MapperOverlayController
 
 
 	public void detach() {
+		// Last chance: a session can end without the drag gesture ever finishing,
+		// which is how "it does not remember after logging out" happens even when
+		// dragging saves correctly.
+		rememberFloatGeometry();
 		if (controller != null) {
 			controller.removeListener(this);
 			if (controller.getUiBridge() == this) {
