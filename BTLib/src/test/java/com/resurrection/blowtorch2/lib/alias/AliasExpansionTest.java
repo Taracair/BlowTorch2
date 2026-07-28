@@ -8,8 +8,9 @@ import org.junit.Test;
  * The three shapes an alias can take, and how each substitutes.
  *
  * <p>These are pinned as they behave today, not as anyone might wish they
- * behaved. One of them, {@link AliasExpansion.Mode#PLAIN}, does not match the
- * user manual -- see {@link #plainAliasesDoNotSubstituteAtAllRightNow()}.
+ * behaved. {@link AliasExpansion.Mode#PLAIN} once ignored $1 entirely and now
+ * substitutes from its own groups -- see
+ * {@link #plainAliasesSubstituteFromTheirOwnGroups()}.
  */
 public class AliasExpansionTest {
 
