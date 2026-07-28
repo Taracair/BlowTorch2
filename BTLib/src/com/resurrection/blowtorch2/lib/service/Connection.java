@@ -1877,6 +1877,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void dispatch(final byte[] data) throws UnsupportedEncodingException {
 
+		if (mProcessor == null) {
+			// Bytes that were already queued when the connection was torn down.
+			// killNetThreads nulls the processor, and anything still in the
+			// handler queue arrives after that, so this is a normal race rather
+			// than a fault -- there is simply nothing left to decode them with.
+			// Every other user of mProcessor already checks; this one did not,
+			// and threw NullPointerException into the connection thread on
+			// disconnect. Seen on the phone, in the error log, as
+			// "Processor.rawProcess on a null object reference".
+			return;
+		}
 		byte[] raw = mProcessor.rawProcess(data);
 		if (raw == null) { 
 			return; 
