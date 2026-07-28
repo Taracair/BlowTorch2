@@ -824,6 +824,67 @@ public class Processor {
 		}
 	}
 	
+	/**
+	 * Send one MSDP command: {@code IAC SB MSDP MSDP_VAR <cmd> MSDP_VAL <arg> IAC SE}.
+	 *
+	 * <p>MSDP is the only one of the three optional protocols here that expects
+	 * the client to talk back. We parsed whatever a server volunteered and could
+	 * never ask for anything, and most servers volunteer nothing until asked, so
+	 * in practice the option did nothing at all.
+	 *
+	 * @param command One of LIST, SEND, REPORT, UNREPORT, RESET.
+	 * @param argument The variable or group name; sent as the value.
+	 * @return true if the packet was queued.
+	 */
+	public final boolean sendMsdpCommand(final String command, final String argument) {
+		if (command == null || command.length() == 0 || mReportTo == null) {
+			return false;
+		}
+		if (!mOptionHandler.isUseMSDP()) {
+			return false;
+		}
+		byte[] cmd = latin1(command);
+		byte[] arg = latin1(argument == null ? "" : argument);
+		java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+		out.write(TC.IAC);
+		out.write(TC.SB);
+		out.write(TC.MSDP);
+		out.write(TC.MSDP_VAR);
+		writeMsdpEscaped(out, cmd);
+		out.write(TC.MSDP_VAL);
+		writeMsdpEscaped(out, arg);
+		out.write(TC.IAC);
+		out.write(TC.SE);
+		byte[] bytes = out.toByteArray();
+		logGmcp("OUT", "MSDP " + command + " " + (argument == null ? "" : argument));
+		Message sm = mReportTo.obtainMessage(Connection.MESSAGE_SENDOPTIONDATA);
+		Bundle bs = sm.getData();
+		bs.putByteArray("THE_DATA", bytes);
+		sm.setData(bs);
+		mReportTo.sendMessage(sm);
+		return true;
+	}
+
+	/** A literal 0xFF inside sub-negotiation data has to be doubled. */
+	private static void writeMsdpEscaped(final java.io.ByteArrayOutputStream out,
+			final byte[] data) {
+		for (int i = 0; i < data.length; i++) {
+			out.write(data[i]);
+			if (data[i] == TC.IAC) {
+				out.write(TC.IAC);
+			}
+		}
+	}
+
+	/** MSDP names are plain ASCII; encoding is not negotiable here. */
+	private static byte[] latin1(final String s) {
+		try {
+			return s.getBytes("ISO-8859-1");
+		} catch (UnsupportedEncodingException e) {
+			return s.getBytes();
+		}
+	}
+
 	/** Helper method to respond to the GMCP negotiation sequence.
 	 * 
 	 * @param str The subnegotiation string.

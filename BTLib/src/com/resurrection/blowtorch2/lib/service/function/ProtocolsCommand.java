@@ -24,15 +24,60 @@ public class ProtocolsCommand extends SpecialCommand {
 
 	@Override
 	public Object execute(Object o, Connection c) {
-		String arg = o == null ? "" : ((String) o).trim().toLowerCase(Locale.US);
+		String raw = o == null ? "" : ((String) o).trim();
+		String arg = raw.toLowerCase(Locale.US);
 		if (arg.equals("help") || arg.equals("?")) {
 			c.sendDataToWindow(help());
 			return null;
+		}
+		if (mMsdp && raw.length() > 0) {
+			String[] parts = raw.split("\\s+", 2);
+			String sub = parts[0].toLowerCase(Locale.US);
+			String rest = parts.length > 1 ? parts[1].trim() : "";
+			if (sub.equals("list") || sub.equals("send") || sub.equals("report")
+					|| sub.equals("unreport") || sub.equals("reset")) {
+				return doMsdpCommand(c, sub, rest);
+			}
 		}
 		if (mMsdp) {
 			return dumpMsdp(c);
 		}
 		return dumpMssp(c);
+	}
+
+	/**
+	 * Ask the server for something. MSDP is the one optional protocol here that
+	 * is two-way, and until now the client could only listen.
+	 */
+	private Object doMsdpCommand(Connection c, String sub, String rest) {
+		Processor p = c.getProcessor();
+		if (p == null) {
+			c.sendDataToWindow("\nMSDP: not connected.\n");
+			return null;
+		}
+		if (!boolOpt(c, "use_msdp", false)) {
+			c.sendDataToWindow("\nMSDP is off — enable Use MSDP? under"
+					+ " Options → Service → MUD Protocols and reconnect.\n");
+			return null;
+		}
+		String command = sub.toUpperCase(Locale.US);
+		String argument = rest;
+		if (argument.length() == 0) {
+			// LIST with no argument is the useful default: ask what there is.
+			// The others genuinely need a name, so say so rather than send junk.
+			if (command.equals("LIST")) {
+				argument = "COMMANDS";
+			} else {
+				c.sendDataToWindow("\nUsage: .msdp " + sub + " <variable>\n");
+				return null;
+			}
+		}
+		boolean sent = p.sendMsdpCommand(command, argument);
+		c.sendDataToWindow(sent
+				? "\nMSDP → " + command + " " + argument
+						+ "\n(replies land in the cache; .msdp to dump it)\n"
+				: "\nMSDP: could not send (option not negotiated).\n");
+		return null;
 	}
 
 	private Object dumpMssp(Connection c) {
@@ -82,9 +127,16 @@ public class ProtocolsCommand extends SpecialCommand {
 	private static String help() {
 		return "\n" + Colorizer.getWhiteColor()
 				+ "Optional MUD protocols (off by default):\n"
-				+ "  .mssp   — dump MSSP server status cache\n"
-				+ "  .msdp   — dump MSDP variable cache\n"
-				+ "Enable under Options → Service → MUD Protocols, then reconnect.\n";
+				+ "  .mssp                     dump MSSP server status cache\n"
+				+ "  .msdp                     dump MSDP variable cache\n"
+				+ "  .msdp list [COMMANDS]     ask what the server supports\n"
+				+ "  .msdp send <var>          ask for a variable once\n"
+				+ "  .msdp report <var>        ask to be told whenever it changes\n"
+				+ "  .msdp unreport <var>      stop those updates\n"
+				+ "  .msdp reset <group>       reset a group of variables\n"
+				+ "Enable under Options → Service → MUD Protocols, then reconnect.\n"
+				+ "MSSP is one-way (server announces); MSDP is two-way, so it needs\n"
+				+ "you to ask before most servers send anything.\n";
 	}
 
 	private static boolean boolOpt(Connection c, String key, boolean def) {
