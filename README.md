@@ -53,18 +53,33 @@ and clipboard, session logging, connection time on the notification, wifi and
 wake locks, alert sounds, and an in-app crash log viewer so a bug report can
 carry something useful.
 
-### Commands
+### Commands you will actually use
 
-| Area | Examples |
-|------|----------|
-| Input | `.wrap`, `.kb` |
-| Scrollback | `.search` |
-| Mapper | `.map open`, `.map record`, `.map dirs`, … |
-| GMCP | `.gmcp status`, `.gmcp sniff`, … |
-| Classic | `.run`, `.timer`, `.loadset`, `.switch`, … |
+Typed into the input bar like anything else. These are the ones worth knowing:
 
-Dot commands are on by default; `..` alone toggles them, and prefixing `..`
-sends a literal leading `.` to the game.
+| Command | What it does |
+|---------|--------------|
+| `.run 3n2ew` | Speedwalk. Walks three north, two east, one west, pausing between steps. |
+| `.map open` | Show or hide the map overlay. |
+| `.map record` | Draw the map from your movement, for worlds that send no room data. |
+| `.map find <text>` | Find a room by name and highlight it. |
+| `.map goto <room>` | Walk you there along a route the mapper works out. |
+| `.timer 30 quaff health` | Run a command after thirty seconds. Name it and you can pause, reset or stop it later. |
+| `.loadset combat` | Switch the on-screen button set. Works from a button, so one tap can change the whole pad. |
+| `.switch <name>` | Jump to another open connection without disconnecting this one. |
+| `.search <text>` | Search the scrollback and jump to the hit. |
+| `.gmcp status` | What the world is sending, and which modules you subscribed to. |
+| `.gmcp sniff on` | Show every GMCP packet in the window. Useful when a world's data is not doing what you expect. |
+| `.wrap` | Let the input bar grow to several lines, for long lines and pasted text. |
+| `.kb` | Selection, clipboard and cursor keys for the input bar. |
+
+Dot commands are on by default. `..` on its own turns them off and on, and
+prefixing a line with `..` sends a literal leading `.` to the game, for worlds
+that use one.
+
+**Everything else** — every command, every argument, and the Lua plugin API —
+is in [`docs/user-manual.md`](docs/user-manual.md), which is also available
+in-app under **Help**.
 
 ---
 
