@@ -1,10 +1,10 @@
 # CLAUDE.md
 
 **Read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) before doing anything
-else in this repo**, and [`docs/HANDOFF.md`](docs/HANDOFF.md) for where things
-stand and what to pick up next. It is the full guide: architecture facts that are expensive
+else in this repo.** It is the full guide: architecture facts that are expensive
 to rediscover, the working method, the device lab, and a catalogue of mistakes
-already made here. This file is only the short version.
+already made here. Then read [`docs/HANDOFF.md`](docs/HANDOFF.md) for where
+things stand and what to pick up next. This file is only the short version.
 
 ## The ten rules
 
