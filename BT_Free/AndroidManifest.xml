@@ -17,17 +17,24 @@
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="false" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled" android:usesCleartextTraffic="true">
     	<meta-data android:value="171" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
+        <!--
+          The home screen opens Launcher directly. FreeLauncher used to be the
+          entry point and did nothing but start Launcher and finish, so every
+          cold start drew and threw away one extra activity window, which is the
+          blank flash seen before the server list. It stays declared and
+          exported so an old
+          home screen shortcut pointing explicitly at it still lands somewhere.
+        -->
     	<activity android:name="com.resurrection.blowtorch2.FreeLauncher"
     	          android:label="${appLabel}"
-    	          android:exported="true">
+    	          android:exported="true" />
+        <activity android:name="com.resurrection.blowtorch2.lib.launcher.Launcher"
+                  android:label="${appLabel}"
+                  android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-        <activity android:name="com.resurrection.blowtorch2.lib.launcher.Launcher"
-                  android:label="BlowTorch"
-                  android:exported="false">
         </activity>
         <activity android:name="com.resurrection.blowtorch2.lib.window.MainWindow"
         		  android:theme="@style/BlowTorch.GameWindow"
