@@ -271,7 +271,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption log_gmcp = new BooleanOption();
 		log_gmcp.setTitle("Log GMCP?");
-		log_gmcp.setDescription("Write GMCP handshake and packets to the app error log (files/logs/blowtorch2.log; also session log if enabled). Also: .gmcp sniff on");
+		log_gmcp.setDescription("Write the GMCP handshake and every packet to logs/gmcp.log (its own file, so it cannot bury the crash log; also the session log if that is on). Use it to see exactly what a world sends. Also: .gmcp sniff on");
 		log_gmcp.setKey("log_gmcp");
 		log_gmcp.setValue(false);
 		gmcpOptions.addOption(log_gmcp);

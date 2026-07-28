@@ -19,6 +19,8 @@ public final class BlowTorchLogger {
 
 	private static final String LOG_FILE = "blowtorch2.log";
 	private static final String LOG_BACKUP = "blowtorch2.log.bak";
+	private static final String GMCP_LOG_FILE = "gmcp.log";
+	private static final String GMCP_LOG_BACKUP = "gmcp.log.bak";
 	private static final long MAX_BYTES = 2 * 1024 * 1024;
 
 	private BlowTorchLogger() {
@@ -183,6 +185,53 @@ public final class BlowTorchLogger {
 		// Mirror to logcat regardless. A player can screenshot the game window, but a
 		// screenshot is not something anyone can grep.
 		android.util.Log.e(TAG, "[" + source + "] " + plain);
+	}
+
+	/** Where "Log GMCP?" writes. Separate file, see {@link #logGmcpTrace}. */
+	public static File getGmcpLogFile(Context context) {
+		return new File(getLogDirectory(context), GMCP_LOG_FILE);
+	}
+
+	/**
+	 * Append one GMCP packet to its own trace file.
+	 *
+	 * <p>Deliberately not the crash log. A busy world sends GMCP constantly, and
+	 * putting that in {@code blowtorch2.log} rolled the error history away under
+	 * it — the reason the trace was pulled out of there in the first place. The
+	 * player still gets a file they can read and send, just not that one.
+	 *
+	 * @param context Application context; a null context is ignored.
+	 * @param line Already-redacted packet text.
+	 */
+	public static synchronized void logGmcpTrace(final Context context, final String line) {
+		if (context == null || line == null) {
+			return;
+		}
+		File dir = getLogDirectory(context);
+		File file = new File(dir, GMCP_LOG_FILE);
+		if (file.length() > MAX_BYTES) {
+			File backup = new File(dir, GMCP_LOG_BACKUP);
+			if (backup.exists()) {
+				backup.delete();
+			}
+			file.renameTo(backup);
+		}
+		String stamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
+		FileOutputStream out = null;
+		try {
+			out = new FileOutputStream(file, true);
+			out.write((stamp + " " + line + "\n").getBytes(StandardCharsets.UTF_8));
+		} catch (IOException e) {
+			android.util.Log.w(TAG, "Could not write the GMCP log", e);
+		} finally {
+			if (out != null) {
+				try {
+					out.close();
+				} catch (IOException e) {
+					android.util.Log.w(TAG, "Could not close the GMCP log", e);
+				}
+			}
+		}
 	}
 
 	/** Append one line to the on-device log. Callers decide what reaches logcat. */

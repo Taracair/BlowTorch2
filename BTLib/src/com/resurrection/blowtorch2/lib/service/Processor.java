@@ -174,11 +174,14 @@ public class Processor {
 		String line = direction + " " + safe;
 		if (mLogGMCP || mDebugTelnet) {
 			Log.i("GMCP", line);
-			if (mContext != null) {
-				// Not the error log: this is a trace of every GMCP packet, and it used
-				// to roll the error history away under it. Logcat for watching live,
-				// session log for keeping.
-				if (mLogGMCP && SessionLogger.isEnabled(mContext)) {
+			if (mContext != null && mLogGMCP) {
+				// Its own file, not the error log: a trace of every packet used to
+				// roll the crash history away under it. Logcat is fine for watching
+				// live, but a player on a phone cannot read logcat, and the option
+				// promised a file, so here is the file.
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger
+						.logGmcpTrace(mContext, line);
+				if (SessionLogger.isEnabled(mContext)) {
 					SessionLogger.appendMarker(mContext, mLogProfile, "GMCP " + line);
 				}
 			}
