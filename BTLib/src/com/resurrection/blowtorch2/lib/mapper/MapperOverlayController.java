@@ -2357,9 +2357,10 @@ public class MapperOverlayController
 		} else if (MapperRadialMenu.ACTION_MAPS.equals(action)) {
 			openMapsBrowser();
 		} else if (MapperRadialMenu.ACTION_NEW.equals(action)) {
-			if (!requireEditModeToast()) {
-				return;
-			}
+			// Not gated on Edit mode. Starting a map is a file operation like Maps
+			// and Save, neither of which is gated, and the welcome dialog sends
+			// players straight here to name their first one -- where the gate just
+			// answered "Switch to Edit mode first" and nothing happened.
 			promptNewMap();
 		} else if (MapperRadialMenu.ACTION_ONE_WAY.equals(action)) {
 			toggleAcceptOneWaySpecials();
@@ -2561,6 +2562,30 @@ public class MapperOverlayController
 		}
 	}
 
+	/**
+	 * A map name nobody is using yet: {@code default}, else {@code default 2}
+	 * and upwards.
+	 *
+	 * @param activity Context for reading the saved map list.
+	 * @return A free name, or plain {@code default} if the list cannot be read.
+	 */
+	private static String suggestFreeMapName(final MainWindow activity) {
+		if (activity == null) {
+			return MapperController.DEFAULT_MAP_NAME;
+		}
+		String base = MapperController.DEFAULT_MAP_NAME;
+		if (!MapStore.exists(activity, base)) {
+			return base;
+		}
+		for (int n = 2; n < 100; n++) {
+			String candidate = base + " " + n;
+			if (!MapStore.exists(activity, candidate)) {
+				return candidate;
+			}
+		}
+		return base;
+	}
+
 	private void promptNewMap() {
 		MainWindow activity = host.getMainWindow();
 		if (activity == null) {
@@ -2569,7 +2594,12 @@ public class MapperOverlayController
 		final android.widget.EditText input = new android.widget.EditText(activity);
 		input.setHint("map name");
 		input.setSingleLine(true);
-		input.setText("default");
+		// Suggest a name that is actually free. It used to always offer "default",
+		// so anyone who already had a map called default -- which is what the
+		// mapper starts you with -- got "already exists, choose another name" and
+		// a dialog that would not close, with no hint at what to type instead.
+		input.setText(suggestFreeMapName(activity));
+		input.selectAll();
 		final AlertDialog dlg = new AlertDialog.Builder(activity)
 				.setTitle("New map")
 				.setMessage("Name must be unique (not already on disk).")
