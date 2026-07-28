@@ -2789,6 +2789,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			if(group == null) return; //haven't fully loaded yet.
 			if(group.getOptions().size() == 0) return;
+			maybeCheckForUpdates(group);
 			boolean fullscreen = (Boolean)((BaseOption)group.findOptionByKey("fullscreen")).getValue();
 			if(fullscreen) {
 			    MainWindow.this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -3563,6 +3564,86 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/** Bind mapper UI under window_container (chrome ⋮ stays above). */
+	/** One update check per launch at most, however often settings are applied. */
+	private boolean updateCheckStartedThisLaunch = false;
+
+	/**
+	 * Ask GitHub about a newer release, if the player asked us to.
+	 *
+	 * <p>Opt-in, once per launch, and at most once a day inside the checker.
+	 * Silent on any failure — an update check that cannot reach the network is
+	 * not worth interrupting a session for.
+	 *
+	 * @param group Program settings; the option is read fresh each time.
+	 */
+	private void maybeCheckForUpdates(final SettingsGroup group) {
+		if (updateCheckStartedThisLaunch || group == null) {
+			return;
+		}
+		Object opt = group.findOptionByKey("check_for_updates");
+		if (!(opt instanceof BaseOption)) {
+			return;
+		}
+		Object value = ((BaseOption) opt).getValue();
+		if (!(value instanceof Boolean) || !((Boolean) value).booleanValue()) {
+			return;
+		}
+		updateCheckStartedThisLaunch = true;
+		com.resurrection.blowtorch2.lib.util.UpdateChecker.checkAsync(this, false,
+				new com.resurrection.blowtorch2.lib.util.UpdateChecker.Listener() {
+					@Override
+					public void onUpdateAvailable(String latestVersion, String releaseUrl) {
+						showUpdateAvailableDialog(latestVersion, releaseUrl);
+					}
+				});
+	}
+
+	/** Tell the player, and say where the file is — GitHub is not obvious. */
+	private void showUpdateAvailableDialog(final String latestVersion,
+			final String releaseUrl) {
+		if (isFinishing()) {
+			return;
+		}
+		String current = com.resurrection.blowtorch2.lib.util.UpdateChecker
+				.currentVersion(this);
+		String message = "BlowTorch 2 " + latestVersion + " is out."
+				+ (current != null ? " You have " + current + "." : "")
+				+ "\n\nThe button below opens the release page on GitHub. Scroll down"
+				+ " to \"Assets\", tap the .apk file to download it, then open the"
+				+ " download to install it over this one. Your settings, maps and"
+				+ " button sets are kept."
+				+ "\n\nIf you installed from F-Droid, update there instead.";
+		try {
+			new android.app.AlertDialog.Builder(this)
+					.setTitle("New version available")
+					.setMessage(message)
+					.setPositiveButton("Open GitHub", new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							try {
+								startActivity(new Intent(Intent.ACTION_VIEW,
+										android.net.Uri.parse(releaseUrl)));
+							} catch (Exception e) {
+								Toast.makeText(MainWindow.this, releaseUrl,
+										Toast.LENGTH_LONG).show();
+							}
+						}
+					})
+					.setNeutralButton("Skip this one", new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							com.resurrection.blowtorch2.lib.util.UpdateChecker
+									.skipVersion(MainWindow.this, latestVersion);
+						}
+					})
+					.setNegativeButton("Later", null)
+					.show();
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.showUpdateAvailableDialog", e);
+		}
+	}
+
 	private void ensureMapperOverlay() {
 		MapperController live = MapperController.forDisplay(getConnectionDisplay());
 		if (live != null) {

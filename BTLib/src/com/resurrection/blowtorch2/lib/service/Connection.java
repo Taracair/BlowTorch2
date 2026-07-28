@@ -3657,6 +3657,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case persistent_connection:
 				mReconnect.setPersistent((Boolean) o.getValue());
 				break;
+			case check_for_updates:
+				// Read by MainWindow at startup; nothing to apply in the service.
+				break;
 			case cull_extraneous_color:
 				this.doSetCullExtraneousColor((Boolean) o.getValue());
 				break;
@@ -4548,7 +4551,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Auto reconnect limit. */
 		auto_reconnect_limit,
 		/** Patient reconnect through brief network loss / VPN flaps. */
-		persistent_connection, 
+		persistent_connection,
+		/** Ask GitHub once a day whether a newer release exists (opt-in). */
+		check_for_updates,
 		/** Use GMCP. */
 		use_gmcp, 
 		/** GMCP Supports string. */
