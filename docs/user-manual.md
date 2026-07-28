@@ -118,6 +118,154 @@ responders. Types: Trigger enabled/disabled, Variable equals/exists. Set
 vars with the **Set Variable** responder or Lua `SetVariable` /
 `GetVariable` / `UnsetVariable` (session only).
 
+## Recipes
+
+Worked examples. Each one is a complete thing you can build; the field names
+match what you see in the editors.
+
+### 1. A shortcut that takes an argument
+
+**Want:** type `kk goblin`, send `kill goblin`.
+
+Options → Aliases → new:
+
+| Field | Value |
+|-------|-------|
+| Replace | `kk (.+)` |
+| With | `kill $1` |
+
+The `(.+)` captures what you typed after `kk`, and `$1` puts it back. **The
+pattern must contain a group** — a bare `kk` has nothing to capture, and `$1`
+would be sent literally.
+
+### 2. Remember something the game said, use it later
+
+**Want:** the game names a target; you attack it without retyping the name.
+
+This is the one thing aliases cannot do alone: an alias only sees what *you*
+type. A trigger sees what the *game* prints. A session variable joins them.
+
+**Trigger** — Options → Triggers → new:
+
+| Field | Value |
+|-------|-------|
+| Pattern | `A plush suede (\w+) sits against the wall\.` |
+| Literal? | **off** (this is a regex) |
+| Action | **Set Variable**, name `target`, value `$1` |
+
+**Alias** — Options → Aliases → new:
+
+| Field | Value |
+|-------|-------|
+| Replace | `att` |
+| With | `kill ${target}` |
+
+Walk into the room, then type `att`. The client sends `kill recliner`.
+
+Braces are required: `${target}` is a variable, `$1` is a capture. An unset
+variable is left written as `${target}` rather than vanishing, so you can see
+what went wrong.
+
+**Tip while building one of these:** add a second action to the trigger,
+**Ack** with `.note got target=$1`. That prints a line only you can see, so you
+know whether the trigger fired before you start blaming the alias.
+
+### 3. Combat mode: a set of triggers that arm and disarm together
+
+**Want:** healing triggers that only run while you are fighting.
+
+1. Give each combat trigger the same **Group**, e.g. `combat`.
+2. Make one trigger that spots the fight starting. Its action is **Script**:
+   ```lua
+   EnableTriggerGroup("combat", true)
+   ```
+3. Another spots it ending: `EnableTriggerGroup("combat", false)`.
+
+Turn the whole group on or off by hand any time with
+`.trigger group on combat` / `.trigger group off combat`.
+
+### 4. A trigger that only fires under a condition
+
+**Want:** auto-eat, but only when a `hungry` flag is set.
+
+On the trigger, under **Conditions**: Add → *Variable equals* → name `hungry`,
+value `1`. Empty conditions mean "always fire".
+
+Set the flag from another trigger's **Set Variable** action, or from Lua with
+`SetVariable("hungry", "1")`.
+
+Timers take the same conditions, which is how you get "heal every 10s, but only
+in combat".
+
+### 5. Two alias sets, one for travel and one for fighting
+
+Aliases have no conditions, but they can be switched:
+
+```lua
+EnableAlias("travel_home", false)
+EnableAlias("kk", true)
+```
+
+Put that in a trigger's Script action. From the input bar the same thing is
+`.alias off travel_home` and `.alias on kk`; `.alias list` shows every alias and
+whether it is on.
+
+### 6. One button, five commands
+
+Edit buttons (⋮ → Edit buttons), then edit a tile:
+
+- **Command** — plain tap
+- **Swipe up/down/left/right** — four more
+- **Hold** — a sixth
+
+Set **Switch to named button set** on a tile and tapping it swaps the whole pad
+— a movement pad that becomes a combat pad. Same as `.loadset combat`.
+
+### 7. Walk a route
+
+```
+.run 3n2ew
+```
+
+Three north, two east, one west. Add your own direction words under ⋮ →
+Speedwalk Directions. Commas insert literal commands:
+`.run 2n,open door,n`.
+
+### 8. Put chat in its own window
+
+Options → Window → Extra text windows → **Manage windows…** → add a slot named
+`chat`. Then either:
+
+- **GMCP**: tick the modules to route into it, e.g. `Comm.*`.
+- **Triggers**: on a trigger, use the **Ack**/note action targeted at the
+  window, or Lua `NoteToWindow("chat", "$1")`.
+
+Each slot keeps its own scrollback while closed and shows what it missed when
+you open it.
+
+### 9. Highlight or hide a line
+
+On a trigger:
+
+- **Color** action — recolour the matching line.
+- **Gag** action — hide it entirely.
+- **Replace** action — swap text in it, `$1` works here too.
+
+Several actions on one trigger run in order, so you can gag a line *and* print
+your own version of it.
+
+### 10. Start mapping
+
+1. Open the map: ⋮ → **Map**, or `.map open`
+2. Switch **Browse** → **Edit**
+3. **Nav → Record** on, then walk. Rooms appear as you go.
+
+If your MUD sends GMCP `Room.Info`, turn on **View & sync → GMCP sync** instead
+and just walk — nothing to record. `.map find <text>` locates a room,
+`.map goto <room>` walks you there.
+
+Maps are per world, saved under `/BlowTorch/maps/`.
+
 ## Built-in commands
 
 | Command | Description |
