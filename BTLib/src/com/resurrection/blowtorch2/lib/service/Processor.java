@@ -682,10 +682,38 @@ public class Processor {
 			}
 			sm.setData(bs);
 			mReportTo.sendMessage(sm);
-		
+
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		}
+		announceMudstdFrameSupport();
+	}
+
+	/** The GMCP package name as the proposal spells it — lower case, both words. */
+	private static final String MUDSTD_FRAME_MODULE = "mudstd.frame";
+
+	/**
+	 * What BlowTorch can host if a server asks: a floating window showing an
+	 * image. The published draft lists "docked" and "external" for type, not
+	 * "floating"; this is the wording requested for the proof of concept, and it
+	 * describes what the extra text windows actually are.
+	 */
+	private static final String MUDSTD_FRAME_SUPPORT =
+			"mudstd.frame.support {\"type\": [\"floating\"], \"content\": [\"image\"]}";
+
+	/**
+	 * Volunteer our frame capabilities, immediately behind Core.Supports.Set so
+	 * that it arrives on the same queue in that order.
+	 *
+	 * <p>Only when the module is switched on in Manage modules…. It is off by
+	 * default: this answers frame.support, but nothing yet draws what frame.open
+	 * would ask for, and claiming otherwise to every server would be a lie.
+	 */
+	private void announceMudstdFrameSupport() {
+		if (mModuleRegistry == null || !mModuleRegistry.isEnabled(MUDSTD_FRAME_MODULE)) {
+			return;
+		}
+		sendGmcpPacket(MUDSTD_FRAME_SUPPORT);
 	}
 
 	public final GmcpModuleRegistry getModuleRegistry() {
