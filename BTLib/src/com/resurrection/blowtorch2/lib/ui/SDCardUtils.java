@@ -243,7 +243,13 @@ public class SDCardUtils {
      */
     private static volatile boolean sRootCacheHadAllFiles;
 
-    /** Forget the cached root; call after granting or losing All files access. */
+    /**
+     * Forget the cached root; call after granting or losing All files access.
+     *
+     * <p>Deliberately leaves {@code sCacheDirCache} alone: the cache directory
+     * comes from the Context, not from the shared-storage grant, so it cannot
+     * move the way the root can.
+     */
     public static void invalidateRootCache() {
         sRootCache = null;
         sEnsuredSubdirs.clear();
