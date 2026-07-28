@@ -608,6 +608,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		check_for_updates.setValue(true);
 		miscOptions.addOption(check_for_updates);
 
+		CallbackOption check_updates_now = new CallbackOption();
+		check_updates_now.setTitle("Check for updates now");
+		check_updates_now.setDescription("Ask GitHub straight away and say what it found, whether or not anything is newer. Works on test builds too, since you asked for it rather than the app deciding on its own.");
+		check_updates_now.setKey("check_updates_now");
+		check_updates_now.setValue("check_updates_now");
+		miscOptions.addOption(check_updates_now);
+
 		sg.addOption(miscOptions);
 		
 		SettingsGroup bellOptions = new SettingsGroup();
