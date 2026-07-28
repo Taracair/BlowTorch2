@@ -14,13 +14,18 @@ and backups sorted out, and a fair amount added.
 
 ## What it does
 
-**Triggers that can turn each other on and off.** Triggers live in named groups,
-and any trigger can enable or disable a whole group — so a combat set can switch
-itself on when you engage and off when you flee, and a quest chain can arm the
-next step as each one fires. A trigger's script action is real Lua with access
-to `EnableTrigger`, `EnableTriggerGroup`, `SetVariable`/`GetVariable` and the
-ability to create or delete triggers at runtime. This is the part people build
-whole play styles on.
+**Triggers and timers with conditions.** A trigger or a timer can carry a
+condition that decides whether it fires at all: *is this other trigger enabled*,
+*is that one disabled*, *does a variable equal something*, *does a variable
+exist* — combined with and/or. Triggers also live in named groups, and any
+trigger can enable or disable a whole group.
+
+Together that is a state machine. A combat set arms itself when you engage and
+disarms when you flee. A quest chain arms the next step as each one fires. A
+heal timer only fires while a `fighting` variable is set. A trigger's script
+action is real Lua as well, with `EnableTrigger`, `EnableTriggerGroup`,
+`SetVariable`/`GetVariable`, and creating or deleting triggers at runtime. This
+is the part people build whole play styles on.
 
 Triggers can also colour a line, gag it, replace text in it, fire a
 notification, raise a toast, set a variable, send commands, or push output into
