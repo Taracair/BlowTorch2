@@ -2109,6 +2109,13 @@ public class MapperController {
 		if (tile == null && mGmcpUseCoords && x != null && y != null) {
 			tile = findTileAt(levelId, x.intValue(), y.intValue());
 		}
+		if (tile == null && num == null) {
+			// No identity at all: no room number from the server, or the player
+			// turned matching by number off. Without this, nothing can ever match
+			// an arrival to a tile that already exists, so grow mode treats every
+			// revisit as a discovery and pacing between two rooms fills the map.
+			tile = findRevisitedTile(movedFrom, movedBy, levelId, name);
+		}
 
 		if (tile == null) {
 			if (!mGmcpGrow) {
@@ -2644,6 +2651,66 @@ public class MapperController {
 		} catch (JSONException ignored) {
 			// Loose parse: ignore malformed Room payloads
 		}
+	}
+
+	/**
+	 * Identity of last resort for a world that hands out no room numbers.
+	 *
+	 * <p>Only ever considers the one tile the walk points at: the destination
+	 * already recorded for the exit taken, or failing that the neighbouring cell
+	 * in the direction walked. Room names are not unique across a world and can
+	 * change over time, so this deliberately never searches the whole map for a
+	 * matching title — a wrong merge is far harder for a player to notice, and
+	 * to undo, than a duplicate tile.
+	 *
+	 * @param from The tile the move was typed in, or null if unknown.
+	 * @param movedBy The command walked, or null if the arrival was not a walk.
+	 * @param levelId Level to look on for the neighbouring cell.
+	 * @param name Room title reported by the server.
+	 * @return The tile we have evidently walked back into, or null.
+	 */
+	private MapTile findRevisitedTile(final MapTile from, final String movedBy,
+			final String levelId, final String name) {
+		if (from == null || movedBy == null || name == null || name.length() == 0) {
+			return null;
+		}
+		MapExit walked = findExit(from, movedBy);
+		if (walked != null && walked.getToId() != null) {
+			MapTile dest = findTileById(walked.getToId());
+			if (isTileWeWalkedInto(dest, name)) {
+				return dest;
+			}
+		}
+		int[] delta = gridDeltaFor(movedBy);
+		if (delta == null) {
+			return null;
+		}
+		MapTile neighbour = findTileAt(levelId,
+				from.getGridX() + delta[0], from.getGridY() + delta[1]);
+		if (isTileWeWalkedInto(neighbour, name)) {
+			return neighbour;
+		}
+		return null;
+	}
+
+	/**
+	 * Whether a tile the walk points at is the room we have just arrived in.
+	 *
+	 * <p>True when the title matches, and also when the tile has no title at
+	 * all: arriving from an exit list creates a bare stub for every listed
+	 * direction, and the stub for the exit we then walked <em>is</em> this room.
+	 * Not claiming it left the stub orphaned forever and put the real room in
+	 * the next cell along, one stray tile per exit per move.
+	 */
+	private static boolean isTileWeWalkedInto(final MapTile tile, final String name) {
+		if (tile == null) {
+			return false;
+		}
+		String title = tile.getTitle();
+		if (title == null || title.trim().length() == 0) {
+			return true;
+		}
+		return title.equals(name);
 	}
 
 	/** GMCP room identity: {@code num}, {@code id}, {@code vnum}, {@code room}. */
