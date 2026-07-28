@@ -1,196 +1,297 @@
 # Working on BlowTorch 2
 
-This file is for whoever works on this code next — an AI assistant, or a human
-with no AI at all. It exists because the expensive knowledge in this project is
-not the code. It is the handful of facts that took a device, a logcat and two
-wrong guesses each to establish.
+For whoever works on this next: an AI assistant, or a human with no AI at all.
 
-Two halves:
-
-- **Part 1 — how this codebase is shaped.** Facts that are costly to rediscover
-  and easy to get confidently wrong.
-- **Part 2 — how to work on it.** The method that produced the fixes in
-  `git log`. It is not generic advice; every rule here is in the repo because
-  breaking it already cost us a wrong diagnosis.
-
-If you read nothing else, read [Part 2, rule 1](#1-measure-before-you-touch).
+The expensive knowledge in this project is not the code. It is a few dozen
+facts that each cost a physical phone, a logcat, and usually two wrong guesses
+to establish. This file is those facts, and the working method that produced
+them.
 
 ---
 
-## Part 1 — How this codebase is shaped
+## Part 0 — The ten rules
 
-### It is two processes, and that explains most surprises
+If you read nothing else, read this. Everything after it is elaboration.
+
+1. **Measure before you touch.** Reading this code has produced a confident,
+   wrong hypothesis at least six times. The device is the authority.
+2. **Never `adb uninstall`.** Always `install -r`. Uninstalling destroys the
+   maintainer's server list and profiles.
+3. **The maintainer runs the device tests.** Say the exact gesture, what a
+   failure looks like, and which log command to run. Never report "works" when
+   you mean "compiles".
+4. **Say what you did not verify.** Every time. A confident sentence about
+   something unchecked is the most expensive thing you can produce here.
+5. **Instrumentation goes in its own commit, comes back out, and leaves its
+   number behind in a code comment.** Otherwise it gets re-measured.
+6. **Do not guess mechanisms.** A measurement is a fact. The explanation for it
+   is a guess until you check it, and a plausible wrong explanation in a durable
+   place is worse than no explanation.
+7. **Fix the cause, not the symptom.** Removing a throw beats downgrading a log
+   line. Widening a `catch` moves the symptom away from the cause.
+8. **"Behaviour-preserving" needs an argument, not an assertion.** Show why the
+   output is identical. "This should be safe" is not that.
+9. **Prefer barriers to fixes.** The leverage is the class of bug prevented at
+   the point of cause, not the next bug fixed.
+10. **Stay in scope.** Do the task asked. Report what else you found and let the
+    maintainer decide.
+
+Work on branch **`staging`**. Never commit directly to `main`.
+
+---
+
+## Part 1 — What this project is
+
+BlowTorch was an Android MUD client by Daniel Block / Offset Null Entertainment,
+developed 2010–2018, then abandoned. This is a fork that makes it run on modern
+Android. MIT, same as the original.
+
+One maintainer. Most code written by an LLM, all of it tested on a real phone by
+a human who decides what ships.
+
+### Where the bugs come from
+
+818 commits: **487 from 2010–2018**, eight years of silence, then **331 in 2026**.
+
+**Every serious stability bug was inherited.** The ANR loop, `wait(5)` in
+`onDraw`, unbounded `join()`, settings saved over the live file, the recursive
+listener-map clear — all 2012–2013. The 2026 work introduced bugs in *new
+features* (mapper, extra text windows), not regressions in old code.
+
+The real signature of the 2026 work is subtler: **new code copied the
+surrounding style including its faults** — `printStackTrace` everywhere,
+protocol traces dumped into the error log. Match the surrounding code's idiom,
+not its mistakes.
+
+### The repair boundary
+
+**Fix what has a credible path to a player-visible failure. Leave what does
+not — and say you are leaving it.**
+
+Deliberately not fixed: ~150 `printStackTrace` in dialogs and parsers (the error
+is local and visible to whoever triggered it), 162 do-nothing
+`catch (RemoteException)`, file streams without try-with-resources on read
+paths. That is a decision, not a backlog.
+
+---
+
+## Part 2 — How this codebase is actually shaped
+
+Facts that are costly to rediscover and easy to get confidently wrong.
+
+### It is two processes
 
 | | UI process | Service process (`:stellar`) |
 |---|---|---|
 | Owns | `MainWindow`, `Window`, overlays, the button window Lua | `Connection`, `StellarService`, plugins and their Lua |
 | Talks to | the player | the MUD socket |
 
-They communicate over AIDL binder. **The two legs are not symmetric, and this
-is the single most misleading thing in the codebase:**
+**The two binder legs are not symmetric. This is the single most misleading
+thing here.**
 
-- **UI → service** is *synchronous*. `PluginXCallS` → `Connection.pluginXcallS`
-  → `Plugin.xcallS` runs the plugin's Lua **on the calling thread**. Slow Lua on
-  that path freezes the UI directly.
-- **service → UI** is *queued*. `WindowXCallB` only posts a message to
-  `ConnectionHandler` and returns in a few ms. The payload reaches the UI when
-  the service main thread gets round to that message.
+- **UI → service is synchronous.** `PluginXCallS` → `Connection.pluginXcallS` →
+  `Plugin.xcallS` runs the plugin's Lua **on the calling thread**. Slow Lua
+  there freezes the UI directly.
+- **service → UI is queued.** `WindowXCallB` posts a message to
+  `ConnectionHandler` and returns in a few ms.
 
-The consequence bit us for real: `SaveSettings` also only posts, to the *same*
-handler. Anything posted before a payload delays that payload by its own full
-duration. A button set switch took 1.1s because a settings save was sitting in
-front of it in the queue. See `git log --grep="forty-five exceptions"`.
+`SaveSettings` also only posts, to the **same** handler. Whatever is queued
+first delays everything behind it. A button set switch took 1.1s because a
+settings save was in front of it in that queue.
 
 **When something is slow, ask which queue it is waiting in before you look for
 slow code.**
 
-### Thread ownership rules that are enforced, not just intended
+### Static state is per process
 
-- **`Window.mBuffer` may only be touched by the UI thread.** `onDraw` walks the
-  line list three times per frame and only the first walk is guarded, so a
-  mutation from elsewhere is a crash, not a glitch. `Window.warnIfNotUiThread`
-  logs a stack trace naming the culprit, once per window.
+Both processes load the same classes. A `static` field exists **twice**, and
+they never see each other's writes.
+
+This caused a real bug: a cache in `SDCardUtils` was invalidated explicitly from
+the UI, which did nothing for the service — and settings import/export runs in
+the service. **If you cache something static, make it self-correcting (check a
+cheap source of truth) rather than relying on being told to clear it.**
+
+### Thread ownership
+
+- **`Window.mBuffer` is UI-thread only.** `onDraw` walks the line list three
+  times a frame and only the first walk is guarded, so a mutation from elsewhere
+  is a crash, not a glitch. `Window.warnIfNotUiThread` logs a stack trace naming
+  the culprit, once per window.
 - **`Connection` legitimately mutates its own `TextTree`s off the UI thread.**
-  That is why the barrier lives in `Window` and *not* in `TextTree`. Do not
-  "fix" this by adding locks to `TextTree`.
-- There is no lock around the buffer on purpose. A lock would pay every frame
+  That is why the barrier lives in `Window`, not `TextTree`. Do not "fix" this
+  by putting locks in `TextTree`.
+- There is deliberately no lock around the buffer. A lock would pay every frame
   for a race that does not exist.
+- **Responders run on two different threads**: triggers on the connection
+  thread, timers on a timer thread. Anything they share must be local. One
+  shared `Matcher` and `StringBuffer` used to sit in responder instance fields.
 
 ### The settings tree has two writers with overlapping reach
 
 `ConnectionSettingsIO.buildSettingsPage` nests the main window's `SettingsGroup`
-into the root options, and `nestExtraTextUnderWindow` nests the extra-text group
-into the window group. That is good for the Options menu and confusing for
-serialisation, because both writers walk recursively:
+into root options, and `nestExtraTextUnderWindow` nests the extra-text group
+into the window group. Good for the Options menu, confusing for serialisation,
+because both writers walk recursively:
 
-- `WindowTokenParser` owns window keys and writes them inside `<window>`.
-- `ConnectionSetttingsParser` owns connection keys and writes them in `<options>`.
+- `WindowTokenParser` owns window keys, writes them inside `<window>`.
+- `ConnectionSetttingsParser` owns connection keys, writes them in `<options>`.
 
-Each reaches keys the other owns. They now **skip** foreign keys
+Each reaches keys the other owns. They **skip** foreign keys now
 (`isWindowOptionKey` / `isConnectionOptionKey`, guarded by
-`SettingsOptionKeyOwnershipTest`). They used to throw on every one, which cost
-about 45 exceptions and 1.1s per save. If you add an option key, add it to the
-right enum and the test will tell you if the two sets collide.
+`SettingsOptionKeyOwnershipTest`). They used to throw on every one: ~45
+exceptions and 1.1s per save.
 
 **Not everything with a `SettingsGroup` is persisted.** Extra-text
 `WindowToken`s are rebuilt by `ensureSlots()` and never reach
-`settings.getWindows()`, so their settings are *not* serialised. Durable
-per-slot state belongs in the slot JSON (`ExtraTextSlot`), which is why scroll
-speed lives there and not on the token.
+`settings.getWindows()`, so their settings are not serialised. Durable per-slot
+state belongs in the slot JSON (`ExtraTextSlot`).
+
+### What is per world and what is global
+
+Getting this wrong is a recurring bug shape.
+
+- **Per world**: maps (`openMapForHost`, keyed on `hostHint`), mapper overlay
+  visibility and float geometry, per-connection settings.
+- **App-wide**: the update check. It lives in `SharedPreferences`, not a
+  connection profile, because whether the app looks for its own updates is a
+  property of the install.
+
+Ask "is this about this MUD, or about this app?" before choosing where a
+setting lives.
 
 ### Where errors go
 
 - `BlowTorchLogger.logThrowable` → the error log file the player reads after a
   crash. For failures a player could hit.
-- `BlowTorchLogger.logMinor` → logcat only. For routine, locally-visible ones.
-- Protocol chatter (GMCP/MCP traces) must **not** go to the error log. It has
-  been removed twice.
+- `BlowTorchLogger.logMinor` → logcat only. Routine, locally-visible failures.
+- `BlowTorchLogger.logGmcpTrace` → `logs/gmcp.log`, its own file. Protocol
+  chatter must **never** go in the error log; it has been removed from there
+  twice, because it rolls the crash history away.
 - `util/AtomicFiles` is the one place for durable writes. Do not hand-roll a
-  file write for anything the player cannot reconstruct.
+  file write for anything a player cannot reconstruct.
 
 ### The Lua layer
 
-Plugins and the button window are Lua, loaded from
-`BT_Free/assets/share/lua/5.1/`. `buttonserver.lua` runs in the service,
-`buttonwindow.lua` in the UI process. Syntax-check before building — the app
-will not tell you:
+Plugins and the button window are Lua under `BT_Free/assets/share/lua/5.1/`.
+`buttonserver.lua` runs in the service, `buttonwindow.lua` in the UI process.
+**The build does not check Lua syntax.** Always:
 
 ```sh
 luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua
 ```
 
-Lua gotchas that have already caused bugs here: `1 ~= "1"` (values from the
-settings XML arrive as strings), and `WhiteSpace extends Text` in `TextTree`, so
-`instanceof Text` catches whitespace too.
+Lua traps that have already caused bugs here:
 
-### Where the bugs actually come from
+- `1 ~= "1"` — values from the settings XML arrive as strings.
+- **"nothing selected" is spelled `{}`, not `nil`**, in `buttonwindow.lua`. A
+  `== nil` check passes an empty table straight through. This crashed the touch
+  handler on every cancelled gesture.
+- `WhiteSpace extends Text` in `TextTree`, so `instanceof Text` catches
+  whitespace too.
 
-818 commits: 487 from the original (2010–2018), then eight years of silence,
-then the 2026 revival. **Every serious stability bug was inherited** — the ANR
-loop, `wait(5)` in `onDraw`, unbounded `join()`, the settings-save-over-live-file.
-The 2026 work introduced bugs *in new features* (mapper, extra-text windows),
-not regressions in old code.
+### Alias and trigger text substitution
 
-The real 2026 signature is subtler: new code copied the surrounding style
-including its faults — `printStackTrace` everywhere, protocol traces in the
-error log. **Match the surrounding code's idiom, not its mistakes.**
+Three separate mechanisms, easy to confuse:
+
+- `$1` in a **trigger** action comes from the MUD's output line.
+- `$1` in an **alias** comes from what the player typed.
+- `${name}` in either comes from a session variable (`SetVariable` / Lua), which
+  is how the two worlds connect.
+
+An alias substitutes differently depending on its anchors — see
+`AliasExpansion.Mode`. That rule was implicit in a branch inside a 150-line
+method for years.
 
 ---
 
-## Part 2 — How to work on it
+## Part 3 — The working method, in full
 
-### 1. Measure before you touch
+Every rule here is present because breaking it already cost a wrong diagnosis in
+this repo.
 
-This is the rule the others hang off. In this project, careful code reading has
-produced a confident, wrong hypothesis **three times**:
+### 3.1 Measure before you touch
 
-- Settings that "didn't work live" — two rounds of reading gave two wrong
-  causes. Logcat probes along the whole path found it in one pass.
-- The button-set delay — the obvious suspect (Lua recompiling `button.lua` on
-  every switch) measured at 1–8ms and was innocent. The real cause was an
-  exception storm in an unrelated settings save.
-- The scroll "hot spot" — a `wait(5)` retry loop that looked catastrophic turned
-  out to be dead code that had probably never fired.
+Code reading has produced confident, wrong hypotheses repeatedly:
 
-Reading the code tells you what *could* be slow. Only the device tells you what
+- Settings that "didn't work live" — two rounds of reading, two wrong causes.
+  Logcat probes along the whole path found it in one pass.
+- The button-set delay — the obvious suspect (Lua recompiling `button.lua` every
+  switch) measured at 1–8ms and was innocent. The real cause was an exception
+  storm in an unrelated settings save.
+- The `onDraw` "hot spot" — a `wait(5)` retry loop that looked catastrophic was
+  dead code that had probably never fired.
+- Direction label placement — **three** wrong fixes before the real cause (both
+  directions of a link competing for one midpoint).
+
+Reading tells you what *could* be slow or wrong. Only the device tells you what
 *is*. If you are about to optimise something you have not measured, stop.
 
-### 2. Probes are a commit, and they come back out
+### 3.2 Probes are a commit, and they come back out
 
-Put instrumentation in its **own commit**, clearly marked TEMPORARY, so it
-reverts cleanly without taking real fixes with it. Then revert it once you have
-the numbers.
+Instrumentation goes in its **own commit**, marked TEMPORARY, so it reverts
+cleanly. Then revert it once you have numbers.
 
-Careful: if a probe commit also contains a real fix, `git revert` will take the
-fix too. Remove probes surgically in that case and verify the fixes survived.
+If a probe commit also contains a real fix, `git revert` takes the fix too.
+Remove probes surgically in that case and verify the fixes survived.
 
 Use `SystemClock.uptimeMillis()`, not `os.clock()` — the latter is CPU time and
 hides exactly the blocking I/O you are usually hunting. It is system-wide, so
 spans from both processes line up on one logcat timeline.
 
-### 3. Leave the number behind
+### 3.3 Leave the number behind
 
 When a measurement clears something, **write the number into a comment at the
-code that looks suspicious.** `BLEED_SEARCH_MAX_LINES = 1000` reads alarming;
+code that looks suspicious**. `BLEED_SEARCH_MAX_LINES = 1000` reads alarming;
 the comment saying "measured 9 lines, 2ms over 300 frames on a real MUD" is what
 stops the next person spending a session on it.
 
-A measurement that only lives in a commit message will be re-taken.
+A measurement that lives only in a commit message will be re-taken.
 
-### 4. Silence is not evidence
+### 3.4 Silence is not evidence
 
 A threshold probe that logs nothing is indistinguishable from a probe that never
-ran. Emit a heartbeat with a rolling worst case, so "nothing to report" is a
-positive result rather than an absence.
+ran. Emit a heartbeat with a rolling worst case so "nothing to report" is a
+positive result.
 
-### 5. The maintainer runs the device tests
+The same error in a different costume: **absence of data is not data**. The
+mapper's welcome dialog treated "the map snapshot has not arrived yet" as "the
+map is empty", and greeted people who had a full map every time they opened it.
 
-There is one physical phone and it is not yours. So:
+### 3.5 The maintainer runs the device tests
+
+One physical phone, and it is not yours.
 
 - Say exactly what to do: which gesture, which screen, how many times.
 - Say what a failure looks like, so it gets reported rather than shrugged off.
 - Say which log command to run afterwards.
-- Batch it. One build, then one round of testing, beats three.
+- Batch it. One build then one round of testing beats three.
 
-Do not report something as working when what you mean is that it compiled.
+### 3.6 Correct wrong facts loudly, in place
 
-### 6. Correct wrong facts loudly, in place
+When a note or claim turns out to be wrong, do not quietly edit it. Name the old
+claim, say it was wrong, say what disproved it. A durable note carrying a
+plausible falsehood is worse than no note.
 
-When a note or a claim turns out to be wrong, do not quietly edit it. Name the
-old claim, say it was wrong, say what disproved it. A durable note carrying a
-plausible falsehood is worse than no note — the next reader has no reason to
-doubt it.
+There are several such corrections in the git history. All were load-bearing.
 
-There are two such corrections in the notes already. Both were load-bearing.
+### 3.7 Do not guess mechanisms
 
-### 7. Do not guess mechanisms
+If you measured 3ms, that is a fact. If you then explain *why* it is only 3ms
+without checking, that is a guess and will be read as fact later. Record the
+number, mark the mechanism unverified, or go and verify it.
 
-If you measured that something costs 3ms, that is a fact. If you then explain
-*why* it is only 3ms without checking, that explanation is a guess and it will
-be read as fact later. Record the number, mark the mechanism as unverified, or
-go and verify it.
+### 3.8 Evidence has a provenance
 
-### 8. Fix the cause, not the symptom
+**Text pasted from the game window is not a network capture.** A payload pasted
+by hand appeared to show a server sending malformed JSON. A whole fix was built
+on it, and a public claim made that GMCP was broken on that world. The live
+logcat showed perfectly well-formed JSON — the mangling happened in the copy.
+
+For what a server really sent, use `logs/gmcp.log` (Options → Service → GMCP →
+Log GMCP?) or logcat. Not a paste, not a screenshot.
+
+### 3.9 Fix the cause, not the symptom
 
 - Remove the throw; do not just downgrade the log line.
 - A wider `catch` in a draw loop turns a real bug into silently dropped frames.
@@ -199,98 +300,225 @@ go and verify it.
 - If you are about to make an error quieter, ask whether you are moving the
   symptom away from the cause.
 
-### 9. "Behaviour-preserving" needs an argument
+### 3.10 "Behaviour-preserving" needs an argument
 
-Do not assert it — show it. Good: *"`valueOf` threw before anything was
-emitted, so the keys this now skips were never written on that branch; the XML
-output is byte-identical."* That is checkable. "This should be safe" is not.
+Do not assert it — show it. Good: *"`valueOf` threw before anything was emitted,
+so the keys this now skips were never written on that branch; the XML output is
+byte-identical."* That is checkable.
 
-### 10. Prefer barriers to fixes
+Better still: extract the logic, write tests that pass against the **old**
+behaviour, then swap the implementation. If the tests pass first try, that is
+evidence.
 
-The leverage is not the next bug fixed, it is the class of bug prevented at the
-point of cause. `warnIfNotUiThread`, the `logThrowable`/`logMinor` split,
-`AtomicFiles`, `SettingsOptionKeyOwnershipTest`. When you fix something that
-could plausibly come back, ask what would have caught it and whether that is
-cheap to add.
+### 3.11 Prefer barriers to fixes
+
+The leverage is the class of bug prevented at the point of cause:
+
+- `Window.warnIfNotUiThread` — logs the culprit's stack trace.
+- `logThrowable` vs `logMinor` — one decision about where an error goes.
+- `util/AtomicFiles` — one place for durable writes.
+- `SettingsOptionKeyOwnershipTest` — two key sets can never silently collide.
+- StrictMode on the test build — the device reports UI-thread disk and network
+  itself, before anyone complains.
 
 The maintainer asked for these explicitly, in these words: *safeguards in the
 code so the AI does not break it.*
 
-### 11. Know where the repair boundary is
+### 3.12 Extract, then test, then rewire
 
-**Fix what has a credible path to a player-visible failure. Leave what does
-not — and say that you are leaving it.**
+Much of this codebase cannot be tested because pure logic lives inside classes
+that need Lua and Android to construct. The way in:
 
-Deliberately not fixed: ~150 `printStackTrace` in dialogs and parsers (the error
-is local and visible to whoever triggered it), 162 do-nothing
-`catch (RemoteException)`, file streams without try-with-resources on read
-paths. This is a decision, not a backlog.
+1. Find logic with no Android and no Lua in it.
+2. Move it to its own class, unchanged.
+3. Write tests. **They should pass first try** — that is the proof you did not
+   change behaviour.
+4. Delegate from the original.
 
-### 12. Stay in scope
+Done so far: `AliasPattern`, `AliasExpansion`, `CaptureSubstitution`,
+`VariableSubstitution`, `AnchoredAliasCaptures`. The alias replacement loop is
+the standing example of code too tangled to touch safely — chip at it this way.
 
-Do the task asked. If you find something else, say so and let the maintainer
-decide. This project has a long list of known-open items; adding to it
-unprompted is not help.
+### 3.13 Read the code that runs before recommending a change to it
 
-### 13. Tests exist, and they run without Android
+A recommendation to add trigger-style conditions to aliases was made from the
+data model, which looked symmetric. Reading the code that applies aliases showed
+a joined regex over every enabled alias, a second recursive pass, two places
+resolving which alias matched, and `doTail`/`eatTail` threaded through both.
+The recommendation was withdrawn and something smaller shipped instead.
+
+### 3.14 Explain in examples, not architecture
+
+When the maintainer asks what a change means, answer with a worked example of
+what they will see. "Unanchored aliases do not substitute captures" is a
+sentence about implementation. "You type `kk goblin` and the game receives
+`kill $1` instead of `kill goblin`" is the same fact, usable.
+
+---
+
+## Part 4 — The device lab
+
+### Hardware and connection
+
+- **Pixel 9a, GrapheneOS.** `adb` is **not** on PATH:
+  `/home/taracair/Android/Sdk/platform-tools/adb`
+- **The wifi ADB port changes constantly.** It has been 5555, 42135, 41721. When
+  a device shows `offline`, `adb connect` on the old port will not fix it —
+  `adb disconnect`, then ask the maintainer for the current port.
+- **The phone is often on USB and wifi at once**, showing two entries. Every
+  `adb` command then needs `-s <serial>`, or it fails with "more than one
+  device".
+
+### Deployment
+
+```sh
+./gradlew :BTLib:testDebugUnitTest            # JVM tests, no device
+./gradlew :BT_Free:assembleBtTestDebug        # the flavour actually tested
+luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua # the build does NOT do this
+
+~/Android/Sdk/platform-tools/adb -s <serial> install -r \
+  BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
+```
+
+**Never `adb uninstall`.** `install -r` re-registers a changed manifest just as
+well and keeps the data.
+
+Flavours: `production` = `com.resurrection.blowtorch2`,
+`btTest` = `com.resurrection.blowtorch2.test`. They install side by side. The
+maintainer plays on **btTest**.
+
+### Reading the device
+
+```sh
+adb -s <serial> logcat -c                     # clear before a test run
+adb -s <serial> logcat -d -s BTPROF           # your own probes
+adb -s <serial> logcat -d | grep -A 15 "StrictMode policy violation"
+adb -s <serial> logcat -d | grep -E "^.*(BlowTorch|GMCP):"
+```
+
+Aggregate StrictMode hits to your own code:
+
+```sh
+adb -s <serial> logcat -d | grep -E "at com\.resurrection" \
+  | sed 's/.*lib\.//;s/(.*//' | sort | uniq -c | sort -rn
+```
+
+Files on the device that survive reinstall:
+
+```
+/sdcard/BlowTorch/{settings,backups,launcher,maps,session_logs,logs}/
+```
+
+`logs/blowtorch2.log` is the crash log. `logs/gmcp.log` is the protocol trace.
+
+### Things that break the phone experience
+
+- **Do not change which component holds the `MAIN`/`LAUNCHER` intent filter.**
+  Launchers key pinned icons on the component name. Moving the entry point from
+  `FreeLauncher` to `Launcher` made the maintainer's home screen icon stop
+  working while the app was still installed. If a trampoline activity flashes,
+  give it `BlowTorch.Invisible` (`windowNoDisplay`) instead of moving it.
+- StrictMode is on for the **test flavour only**, `penaltyLog` only. Never
+  `penaltyDeath` — that build is the one being played.
+- The update check never runs automatically on the test flavour, whatever the
+  setting says.
+
+---
+
+## Part 5 — Tests
 
 `unitTests.returnDefaultValues = true` in `BTLib/build.gradle`, so plain classes
-can be instantiated in a JVM test. Tests sit in the same package and can see
-`protected` fields. **Check `BTLib/src/test/` before reasoning from the source
-alone** — this was discovered late and would have saved time.
+can be instantiated in a JVM test. Tests live in the same package and can see
+`protected` fields.
 
 ```sh
 ./gradlew :BTLib:testDebugUnitTest --tests '*SomeTest*'
 ```
 
----
+**Check `BTLib/src/test/` before reasoning from source alone.** This was
+discovered late and would have saved time.
 
-## Build, install, test
+Around 205 tests. They cluster on the mapper, `TextTree`, settings key
+ownership, and the alias/responder substitution chain. `Connection`,
+`MainWindow`, `Window` and the mapper controllers are effectively uncovered —
+which is exactly why Part 3.12 exists.
 
-Work on **`staging`**, never directly on `main`.
-
-```sh
-# unit tests
-./gradlew :BTLib:testDebugUnitTest
-
-# the flavour the maintainer actually runs
-./gradlew :BT_Free:assembleBtTestDebug
-# -> BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
-
-# adb is not on PATH
-~/Android/Sdk/platform-tools/adb -s <serial> install -r <apk>
-```
-
-The phone is often attached over both USB and wifi at once, so `adb` sees two
-devices — **always pass `-s`**. The wifi port changes between sessions; check
-`adb devices` rather than trusting a remembered one.
-
-Flavours: `production` = `com.resurrection.blowtorch2`,
-`btTest` = `com.resurrection.blowtorch2.test`. They can be installed together.
+A test is worth writing when it pins something a human cannot easily see: group
+index arithmetic, a chunk boundary, a regex that silently produces the wrong
+alternative. It is not worth writing to assert that a getter returns what was
+set.
 
 ---
 
-## Questions already answered — do not re-derive these
+## Part 6 — Mistakes already made here
+
+Written down so they are not made again. Each cost real time or real data.
+
+| What happened | What to do instead |
+|---|---|
+| `adb uninstall` to "re-register the manifest" — destroyed the maintainer's profiles | `install -r`; it does the same job |
+| Moved the `MAIN`/`LAUNCHER` filter to another component — the home screen icon died while the app was installed | Leave the component alone; theme the trampoline instead |
+| Treated pasted game-window text as proof of what a server sent; built a fix and announced a bug that did not exist | `logs/gmcp.log` or logcat, never a paste |
+| Cached a value in a `static` and invalidated it explicitly from one process — the other process kept the stale value | Make the cache check a cheap source of truth |
+| Guarded a Lua sentinel with `== nil` when it is `{}` — crashed every cancelled gesture | Test for the fields a real object has |
+| Three wrong fixes to label placement, each tuning the collision search | The two labels were competing for one spot; find the cause |
+| Recommended a large change to the alias loop without reading it | Read the code that runs before recommending changes to it |
+| Explained a fix in terms of implementation, twice, and lost the maintainer | Worked example of what they will see |
+| Wrote a plausible mechanism for a measured number without checking it | Record the number; mark the mechanism unverified |
+
+---
+
+## Part 7 — Questions already answered
+
+Do not re-derive these.
 
 | Question | Answer |
 |---|---|
 | Is the `onDraw` bleed scan a performance problem? | No. 9 lines, 2ms worst case over 300 frames on a real MUD. The 1000-line limit only bites on a buffer with no colour at all. |
-| Is `wait(5)` in `Window.onDraw` a real hot spot? | No — it was dead code from a threading model that no longer exists. Removed. |
+| Is `wait(5)` in `Window.onDraw` a real hot spot? | No — dead code from a threading model that no longer exists. Removed. |
 | Does reloading `button.lua` per set switch cost much? | No, 1–8ms measured. |
-| Why did Options → Window do nothing until restart? | `SettingsGroup.recursiveListenerUpdate` cleared the listener map on every descent into a subgroup. Fixed. |
+| What made button set switching take 1.1s? | A settings save queued ahead of the payload on the same handler, slow because it threw ~45 exceptions. |
+| Why did Options → Window do nothing until restart? | `SettingsGroup.recursiveListenerUpdate` cleared the listener map on every descent into a subgroup. |
 | Are extra-text `WindowToken` settings persisted? | No. Use the slot JSON. |
-| Does the mapper already parse GMCP `coord`? | Yes, several shapes, behind `mapper_gmcp_use_coords` (default off) with a Chebyshev ≤1 guard. |
+| Does the mapper parse GMCP `coord`? | Yes, several shapes, behind `mapper_gmcp_use_coords` (default off) with a Chebyshev ≤1 guard. |
+| Are MSSP and MTTS implemented properly? | Yes, both complete. MSSP is one-way by design; MTTS is the full three-reply TTYPE cycle. |
+| Was MSDP complete? | No — transport was correct, but the client could never *ask*. `LIST`/`SEND`/`REPORT`/`UNREPORT`/`RESET` added later. |
 | Are the stability bugs from the 2026 AI work? | No. All inherited from 2010–2018. |
+| Does eden-test send malformed GMCP? | No. That was a paste artefact. |
 
 ---
 
-## A note on using an AI here
+## Part 8 — If you are a human without an AI
 
-The maintainer's terms, and they work: the AI investigates and proposes, the
-maintainer runs it on the phone and decides what ships. Reports from the device
-are treated as the source of truth over anything derived from reading code.
+Everything above still applies; the method is not AI-specific. A few
+orientation notes:
 
-Two habits carry most of the value. **Ask for a measurement instead of
-accepting a plausible story**, and **make the assistant say which parts it did
-not verify.** Most bad AI output here has not been wrong code — it has been a
-confident explanation of a mechanism nobody checked.
+- **`BTLib/` is the whole app.** `BT_Free/` is a thin module plus the Lua
+  plugins in `assets/`.
+- **Five classes are over 4000 lines**: `Connection`, `Window`, `MainWindow`,
+  `MapperController`, `MapperOverlayController`. They are god classes and known
+  to be. Splitting them is *not* recommended as a first task: coverage on them
+  is near zero, and a refactor without tests is how the next unexplainable
+  `wait(5)` gets written. Follow Part 3.12 instead — extract what is already
+  pure, test it, and let the seams appear.
+- `Connection` already delegates to `ConnectionAliases`, `ConnectionTimers`,
+  `ConnectionExtraText`, `ConnectionSettingsIO`. That pattern works and is the
+  cheapest way to continue.
+- The mapper is the newest and least-exercised subsystem, and is marked
+  experimental in the UI.
+
+---
+
+## A note on running this with an AI
+
+The maintainer's terms, and they work: **the AI investigates and proposes, the
+maintainer runs it on the phone and decides what ships.** Reports from the
+device are the source of truth over anything derived from reading code.
+
+Two habits carry most of the value:
+
+- **Ask for a measurement instead of accepting a plausible story.**
+- **Make the assistant say which parts it did not verify.**
+
+Most bad AI output here has not been wrong code. It has been a confident
+explanation of a mechanism nobody checked.
