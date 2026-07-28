@@ -453,7 +453,10 @@ final class ConnectionSettingsIO {
 		OutputStream out = null;
 		try {
 			String foo = ConnectionSetttingsParser.outputXML(host.mSettings, host.mPlugins);
-			out = appCtx.getContentResolver().openOutputStream(outFile.getUri());
+			// "wt" truncates. Plain "w" does not on every provider, so exporting a
+			// shorter file over a longer one left the old tail behind and produced
+			// XML that parses as far as the join and then breaks.
+			out = appCtx.getContentResolver().openOutputStream(outFile.getUri(), "wt");
 			if (out == null) {
 				host.mService.dispatchToast("Export failed: could not open output stream.", true);
 				return;
