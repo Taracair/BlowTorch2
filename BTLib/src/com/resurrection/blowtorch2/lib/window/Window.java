@@ -124,10 +124,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** How far above the screen to look for the colour still in effect. */
 	private static final int BLEED_SEARCH_MAX_LINES = 1000;
-	/** TEMPORARY (BTPROF): rolling worst case of the bleed scan. Comes out with the probes. */
-	private int btprofBleedFrames = 0;
-	private int btprofBleedWorstLines = 0;
-	private long btprofBleedWorstMs = 0;
 
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
@@ -1798,11 +1794,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// Giving up after BLEED_SEARCH_MAX_LINES means: no colour code within that
 			// many lines above the screen, so the default colour is what should be
 			// drawn anyway. A buffer that plain has nothing to bleed.
-			// TEMPORARY (BTPROF): the last unmeasured span in onDraw. Worst case is a
-			// buffer with no colour above the screen, which walks the full limit and
-			// then rewinds it. Coloured output stops at the first code found, so this
-			// is expected to be cheap on a real MUD — that is what we are checking.
-			final long btprofBleedStart = android.os.SystemClock.uptimeMillis();
+			// Measured on a real MUD 28.07.2026: worst case over 300 frames of hard
+			// scrolling was 9 lines and 2ms, because coloured output stops the scan
+			// at the first code found. The 1000 line limit only bites on a buffer
+			// with no colour at all above the screen.
 			while (screenIt.hasNext() && !bleeding && back < BLEED_SEARCH_MAX_LINES) {
 
 				Line l = screenIt.next();
@@ -1842,30 +1837,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//TODO: STEP 4
 			//advance the iterator back the number of units it took to find a bleed.
 			//second real expensive move. In the case of a no color text buffer, it would walk from scroll to end and back every time. USE COLOR 
-			final int btprofBleedLines = back;
 			while (back > 0) {
 				screenIt.previous();
 				back--;
-			}
-			if ("mainDisplay".equals(mName)) {
-				long btprofBleedMs = android.os.SystemClock.uptimeMillis() - btprofBleedStart;
-				if (btprofBleedLines > btprofBleedWorstLines) {
-					btprofBleedWorstLines = btprofBleedLines;
-				}
-				if (btprofBleedMs > btprofBleedWorstMs) {
-					btprofBleedWorstMs = btprofBleedMs;
-				}
-				// Heartbeat, not just outliers. Silence from a threshold probe is
-				// indistinguishable from a probe that never ran, and "nothing in the
-				// log" is exactly the answer we are trying to trust here.
-				if (++btprofBleedFrames >= 300) {
-					android.util.Log.i("BTPROF", "bleed scan over " + btprofBleedFrames
-							+ " frames: worst " + btprofBleedWorstLines + " lines, "
-							+ btprofBleedWorstMs + "ms (limit " + BLEED_SEARCH_MAX_LINES + ")");
-					btprofBleedFrames = 0;
-					btprofBleedWorstLines = 0;
-					btprofBleedWorstMs = 0;
-				}
 			}
 
 			if (screenIt.hasNext()) {
