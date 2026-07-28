@@ -338,9 +338,22 @@ public class SDCardUtils {
         return resolveBlowTorchSubdir(context, SUBDIR_SETTINGS);
     }
 
+    /**
+     * Legacy storage permissions worth asking for, which on a modern phone is
+     * none.
+     *
+     * <p>From Android 11 this app reaches shared storage through All files
+     * access, and without it falls back to app-private storage plus the system
+     * file picker — neither of which needs a runtime permission. From Android 13
+     * the system will not grant {@code READ_EXTERNAL_STORAGE} for this at all,
+     * so asking produced a prompt that could never be satisfied and therefore
+     * came back on every single launch, even with All files access already
+     * granted. That is what "it keeps asking for permissions it already has"
+     * was.
+     */
     public static String[] getStoragePermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return new String[] { Manifest.permission.READ_EXTERNAL_STORAGE };
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return new String[0];
         }
         return new String[] {
                 Manifest.permission.READ_EXTERNAL_STORAGE,
