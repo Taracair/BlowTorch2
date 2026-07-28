@@ -2589,63 +2589,13 @@ public class MapperController {
 		return changed;
 	}
 
-	/**
-	 * Parse a GMCP body, tolerating a server that percent-encodes structure.
-	 *
-	 * <p>eden-test sends the exits object with its braces escaped —
-	 * {@code "exits":%7B"S":1001019%7D} — which is not JSON, so the strict parse
-	 * threw and the surrounding catch dropped the <em>whole</em> room: no name,
-	 * no coordinates, no exits, no warning. GMCP room sync was simply dead on
-	 * that world.
-	 *
-	 * <p>A well-formed payload is parsed by the first attempt and never reaches
-	 * the repair, so nothing changes for servers that were already working. The
-	 * repair only puts back the four structural characters; text is left alone,
-	 * so a description containing a literal percent sign is unharmed.
-	 *
-	 * @param jsonBody Raw GMCP payload.
-	 * @return The parsed object, or null if it is not recoverable.
-	 */
-	static JSONObject parseLoosely(final String jsonBody) {
-		if (jsonBody == null) {
-			return null;
-		}
-		try {
-			return new JSONObject(jsonBody);
-		} catch (JSONException strictFailed) {
-			String repaired = jsonBody
-					.replace("%7B", "{").replace("%7b", "{")
-					.replace("%7D", "}").replace("%7d", "}")
-					.replace("%5B", "[").replace("%5b", "[")
-					.replace("%5D", "]").replace("%5d", "]");
-			if (repaired.equals(jsonBody)) {
-				return null;
-			}
-			try {
-				JSONObject out = new JSONObject(repaired);
-				// Worth a line in logcat: it means the server is sending something
-				// it should not, and the next person to wonder why a world maps
-				// oddly should be able to see it.
-				android.util.Log.w("BlowTorch",
-						"[MapperController.parseLoosely] GMCP payload had percent-encoded"
-						+ " braces; parsed after repair");
-				return out;
-			} catch (JSONException stillBad) {
-				return null;
-			}
-		}
-	}
-
 	/** Parse a GMCP Room.* JSON body and forward to {@link #onGmcpRoom}. */
 	public void onGmcpRoomRaw(final String module, final String jsonBody) {
 		if (!mEnabled || !mUseGmcp || jsonBody == null) {
 			return;
 		}
 		try {
-			JSONObject body = parseLoosely(jsonBody);
-			if (body == null) {
-				return;
-			}
+			JSONObject body = new JSONObject(jsonBody);
 			JSONObject info = body;
 			if (body.has("info") && body.opt("info") instanceof JSONObject) {
 				info = body.getJSONObject("info");
