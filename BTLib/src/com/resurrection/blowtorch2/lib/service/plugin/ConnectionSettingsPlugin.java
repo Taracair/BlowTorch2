@@ -601,6 +601,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		persistent_connection.setValue(false);
 		miscOptions.addOption(persistent_connection);
 
+		BooleanOption check_for_updates = new BooleanOption();
+		check_for_updates.setTitle("Check for updates?");
+		check_for_updates.setDescription("Ask GitHub once a day whether a newer BlowTorch 2 release exists, and say so when you start the app. Off by default: this is the only thing here that contacts anything other than the MUDs you added, and if you installed from F-Droid then F-Droid already handles updates.");
+		check_for_updates.setKey("check_for_updates");
+		check_for_updates.setValue(false);
+		miscOptions.addOption(check_for_updates);
+
 		sg.addOption(miscOptions);
 		
 		SettingsGroup bellOptions = new SettingsGroup();
