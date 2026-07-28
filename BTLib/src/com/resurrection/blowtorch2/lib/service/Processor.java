@@ -683,10 +683,13 @@ public class Processor {
 			sm.setData(bs);
 			mReportTo.sendMessage(sm);
 
+			// Inside the try on purpose: if Supports.Set never went out, there is
+			// nothing for a frame announcement to follow.
+			announceMudstdFrameSupport();
+
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		}
-		announceMudstdFrameSupport();
 	}
 
 	/** The GMCP package name as the proposal spells it — lower case, both words. */
