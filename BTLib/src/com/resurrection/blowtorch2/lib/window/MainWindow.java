@@ -5175,6 +5175,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** Options → Miscellaneous → Manage Storage Access. */
 	public void requestStorageAccessFromOptions() {
+		// The grant may have changed since the root was last worked out, and the
+		// cached answer would keep everything in app storage forever.
+		SDCardUtils.invalidateRootCache();
 		if (SDCardUtils.needsAllFilesAccessPrompt()) {
 			SDCardUtils.openAllFilesAccessSettings(this);
 			Toast.makeText(this,

@@ -205,16 +205,42 @@ public class SDCardUtils {
      * Prefers {@code /BlowTorch} when writable (all-files / legacy write); otherwise
      * {@code &lt;app external&gt;/BlowTorch} so layout stays consistent even without grant.
      */
+    /**
+     * Resolved once per process. Working this out touches shared storage about
+     * eight times -- exists, mkdirs, isDirectory and canWrite for the root and
+     * every standard subfolder -- and it was being redone on every call, which
+     * means on every single line written to a log. StrictMode measured single
+     * calls at over half a second on the main thread.
+     *
+     * <p>Cleared by {@link #invalidateRootCache()} when the storage grant
+     * changes, which is the only thing that can change the answer.
+     */
+    private static volatile File sRootCache;
+
+    /** Forget the cached root; call after granting or losing All files access. */
+    public static void invalidateRootCache() {
+        sRootCache = null;
+        sEnsuredSubdirs.clear();
+    }
+
     public static File resolveBlowTorchRoot(Context context) {
+        File cached = sRootCache;
+        if (cached != null) {
+            return cached;
+        }
+        File resolved;
         File preferred = getPreferredBlowTorchRoot(context);
         if (preferred != null && ensureWritableDirectory(preferred)) {
             ensureStandardSubdirectories(preferred);
-            return preferred;
+            resolved = preferred;
+        } else {
+            File fallback = new File(resolveAppExternalDir(context), getExportDirectoryName(context));
+            ensureWritableDirectory(fallback);
+            ensureStandardSubdirectories(fallback);
+            resolved = fallback;
         }
-        File fallback = new File(resolveAppExternalDir(context), getExportDirectoryName(context));
-        ensureWritableDirectory(fallback);
-        ensureStandardSubdirectories(fallback);
-        return fallback;
+        sRootCache = resolved;
+        return resolved;
     }
 
     /** Create the standard subfolders under a BlowTorch root. */
@@ -230,9 +256,19 @@ public class SDCardUtils {
         ensureWritableDirectory(new File(root, SUBDIR_MAPS));
     }
 
+    /** Subfolders already created this process; see {@link #sRootCache}. */
+    private static final java.util.Set<String> sEnsuredSubdirs =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<String>());
+
     public static File resolveBlowTorchSubdir(Context context, String subdir) {
         File dir = new File(resolveBlowTorchRoot(context), subdir);
-        ensureWritableDirectory(dir);
+        // resolveBlowTorchRoot already created the standard subfolders the first
+        // time through, so re-checking on every call bought nothing and cost a
+        // stat on shared storage per log line.
+        String path = dir.getAbsolutePath();
+        if (sEnsuredSubdirs.add(path)) {
+            ensureWritableDirectory(dir);
+        }
         return dir;
     }
 
