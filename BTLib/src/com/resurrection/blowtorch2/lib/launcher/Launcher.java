@@ -178,9 +178,12 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		
 		launcher_source = this.getIntent().getStringExtra("LAUNCH_MODE");
-		if(launcher_source == null) {
-			//Log.e("BlowTorch","Launcher not provided a valid launch source. Finishing.");
-			this.finish();
+		if (launcher_source == null) {
+			// Started straight from the home screen rather than through the old
+			// FreeLauncher trampoline, which existed only to put this extra on
+			// the intent. Our own package is the only answer it ever gave, and
+			// finishing here made this activity unusable as the entry point.
+			launcher_source = getPackageName();
 		}
 		
 		/*if(launcher_source.equals("com.resurrection.blowtorch2.libtest")) {
