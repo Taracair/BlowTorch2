@@ -176,13 +176,35 @@ public class MapperOverlayController
 	private static final String KEY_OPEN = "open";
 	private boolean visibilityRestored;
 
+	/**
+	 * Which world this preference belongs to.
+	 *
+	 * <p>Keyed on the map name, which is one map per world now. Whether the map
+	 * is showing was a single global flag, so opening it on one MUD opened it on
+	 * every other one too.
+	 *
+	 * @return Per-world key, or null while the map is still unknown.
+	 */
+	private String visibilityKeyForWorld() {
+		MudMap map = snapshotMap;
+		if (map == null && controller != null) {
+			map = controller.getMap();
+		}
+		String name = map != null ? map.getName() : null;
+		if (name == null || name.trim().length() == 0) {
+			return null;
+		}
+		return KEY_OPEN + "_" + name.trim();
+	}
+
 	private void rememberVisibility(boolean open) {
 		MainWindow activity = host != null ? host.getMainWindow() : null;
-		if (activity == null) {
+		String key = visibilityKeyForWorld();
+		if (activity == null || key == null) {
 			return;
 		}
 		activity.getSharedPreferences(UI_PREFS, 0).edit()
-				.putBoolean(KEY_OPEN, open).apply();
+				.putBoolean(key, open).apply();
 	}
 
 	/**
@@ -194,12 +216,19 @@ public class MapperOverlayController
 		if (visibilityRestored || visible) {
 			return;
 		}
-		visibilityRestored = true;
 		MainWindow activity = host != null ? host.getMainWindow() : null;
 		if (activity == null) {
 			return;
 		}
-		if (activity.getSharedPreferences(UI_PREFS, 0).getBoolean(KEY_OPEN, false)) {
+		String key = visibilityKeyForWorld();
+		if (key == null) {
+			// The map has not arrived from the service yet, so we do not know
+			// which world's preference to read. Leave the one-shot flag unset so
+			// this runs again when the snapshot lands, rather than guessing.
+			return;
+		}
+		visibilityRestored = true;
+		if (activity.getSharedPreferences(UI_PREFS, 0).getBoolean(key, false)) {
 			open();
 		}
 	}
@@ -3428,6 +3457,8 @@ public class MapperOverlayController
 				controller.applyCombinedMoveEffects(me);
 			}
 			snapshotMap = MapStore.fromJson(json);
+			// Now the world is known, so a deferred restore can finally run.
+			restoreVisibility();
 			applyOpacity();
 			applyLayoutMode();
 			refreshFromController();
