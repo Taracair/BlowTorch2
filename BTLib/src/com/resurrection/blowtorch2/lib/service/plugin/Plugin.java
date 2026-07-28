@@ -43,10 +43,10 @@ import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.alias.AliasParser;
 import com.resurrection.blowtorch2.lib.alias.AliasExpansion;
 import com.resurrection.blowtorch2.lib.alias.AliasPattern;
+import com.resurrection.blowtorch2.lib.alias.AliasRecursion;
 import com.resurrection.blowtorch2.lib.alias.AnchoredAliasCaptures;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
-import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
 import com.resurrection.blowtorch2.lib.script.ScriptData;
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.Connection;
@@ -84,9 +84,7 @@ public class Plugin implements SettingsChangedListener {
 	StringBuffer joined_alias = new StringBuffer();
 	Pattern alias_replace = Pattern.compile(joined_alias.toString());
 	Matcher alias_replacer = alias_replace.matcher("");
-	Matcher alias_recursive = alias_replace.matcher("");
 	String mEncoding = "UTF-8";
-	Pattern whiteSpace = Pattern.compile("\\s");
 	HashMap<String,CustomTimerTask> timerTasks = new HashMap<String,CustomTimerTask>();
 	private boolean enabled = true;
 	private String scriptBlock = "/";
@@ -939,7 +937,6 @@ Note("Example text!")
 		joined_alias.append(aliasPattern.regex());
 		alias_replace = Pattern.compile(joined_alias.toString());
 		alias_replacer = alias_replace.matcher("");
-		alias_recursive = alias_replace.matcher("");
 	}
 	
 	public byte[] doAliasReplacement(byte[] input, Boolean reprocess) {
@@ -1039,78 +1036,25 @@ Note("Example text!")
 			if(doTail) {
 				alias_replacer.appendTail(replaced);
 			}
-			StringBuffer buffertemp = new StringBuffer();
 			if(found) { //if we replaced a match, we need to continue the find/match process until none are found.
-				boolean recursivefound = false;
-				boolean eatTail = false;
-				do {
-					recursivefound = false;
-					
-					//Matcher recursivematch = to_replace.matcher(replaced.toString());
-					alias_recursive.reset(replaced.toString());
-					buffertemp.setLength(0);
-					while(alias_recursive.find()) {
-						recursivefound = true;
-						int idx = AliasPattern.matchedGroup(alias_recursive);
-						AliasData replace_with = aliasPattern.aliasForGroup(idx);
-						if (replace_with == null) {
-							alias_recursive.appendReplacement(buffertemp,
-									Matcher.quoteReplacement(alias_recursive.group(0)));
-							continue;
-						}
-						//AliasData replace_with = getSettings().getAliases().get(alias_recursive.group(0));
-						if(replace_with.getPre().startsWith("^") && ! replace_with.getPre().endsWith("$")) {
-							ToastResponder r = new ToastResponder();
-							String[] tParts = null;
-							
-							String tmpInput = replaced.toString();
-							int index = tmpInput.indexOf(";");
-							String rest = "";
-							if(index > -1) {
-								rest = tmpInput.substring(index+1,tmpInput.length());
-								tmpInput = tmpInput.substring(0,index);
-							}
-							String sepchar = "";
-							if(rest.length()>0) {
-								sepchar = ";";
-							}
-							tParts = whiteSpace.split(tmpInput);
-							
-							HashMap<String,String> map = new HashMap<String,String>();
-							for(int i=0;i<tParts.length;i++) {
-								map.put(Integer.toString(i), tParts[i]);
-							} 
-							eatTail = true;
-							alias_recursive.appendReplacement(buffertemp,
-									Matcher.quoteReplacement(
-											r.translate(replace_with.getPost(),map)
-													+ sepchar + rest));
-							reprocess = false;
-						} else if(replace_with.getPre().startsWith("^") && replace_with.getPre().endsWith("$")) {
-							String matched = alias_recursive.group(idx);
-							String finalString = AliasExpansion.expand(replace_with, matched,
-									matched, sessionVariables());
-							eatTail = true;
-							alias_recursive.appendReplacement(buffertemp, Matcher.quoteReplacement(finalString));
-							reprocess = false;
-						} else {
-							String plainR = AliasExpansion.expand(replace_with,
-									replaced.toString(), alias_recursive.group(idx),
-									sessionVariables());
-							alias_recursive.appendReplacement(buffertemp,
-									Matcher.quoteReplacement(plainR));
-						}
-						
-					}
-					if(recursivefound) {
-						if(!eatTail) {
-							alias_recursive.appendTail(buffertemp);
-						}
-						replaced.setLength(0);
-						replaced.append(buffertemp);
-						
-					}
-				} while(recursivefound == true);
+				// The loop that used to live here is in AliasRecursion now, which
+				// has tests. It builds its own matcher rather than reusing a
+				// field, so two connections can no longer tread on each other's
+				// match state, and it stops after a bounded number of passes.
+				AliasRecursion.Result recursed = AliasRecursion.expand(alias_replace,
+						aliasPattern, replaced.toString(), sessionVariables());
+				if (recursed.hitLimit() && parent != null) {
+					// Worth interrupting the player for: their alias set expands
+					// into itself, and before the limit existed this hung the
+					// connection thread instead of saying so.
+					parent.reportRuntimeError("alias replacement",
+							new IllegalStateException(
+									"aliases kept expanding after "
+											+ AliasRecursion.DEFAULT_MAX_PASSES
+											+ " passes; one of them probably contains its own trigger"));
+				}
+				replaced.setLength(0);
+				replaced.append(recursed.text());
 			}
 			//so replacer should contain the transformed string now.
 			//pull the bytes back out.
