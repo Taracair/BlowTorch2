@@ -2959,6 +2959,14 @@ public class MapperOverlayController
 		if (map == null && controller != null) {
 			map = controller.getMap();
 		}
+		if (map == null) {
+			// We do not know yet -- the map lives in the service and the snapshot
+			// has not arrived. Not knowing is not the same as it being empty, and
+			// treating it as empty greeted people who had a full map with "welcome
+			// to the mapper" every time they opened it. Leave the shown-this-open
+			// flag alone so this is reconsidered once the snapshot lands.
+			return;
+		}
 		if (mapHasTiles(map)) {
 			markMapperOnboardingDone(activity);
 			return;

@@ -932,8 +932,12 @@ public class MapperView extends View {
 		float stepX = px * (tw * 0.5f + pad * 2f);
 		float stepY = py * (bh + 2f * scale);
 		// Sliding along the link keeps a label obviously on that link. Stepping
-		// away from it does not, which is why the search now tries along first.
-		float alongX = ux * (tw * 0.5f + pad * 2f);
+		// away from it does not, which is why the search tries along first.
+		// A whole label width, not half: the two directions of one link run on
+		// parallel lines only 10*scale apart, so their labels always collide,
+		// and a half-width slide did not clear the other one -- the search fell
+		// through to stepping aside every time, which is the drift being fixed.
+		float alongX = ux * (tw + pad * 3f);
 		float alongY = uy * (bh + 2f * scale);
 
 		float cx = midX;

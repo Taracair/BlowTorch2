@@ -216,9 +216,11 @@ public class MapCommand extends SpecialCommand {
 			note(c, mapper.openMap(rest));
 			return null;
 		case "new":
-			if (!requireEdit(c, mapper)) {
-				return null;
-			}
+			// Not gated on Edit mode, same as open/load/openmap right above:
+			// starting a map is a file operation, not a change to one. The gate
+			// here is what actually swallowed "New map" in Browse mode -- taking
+			// it off the radial button was not enough, because the button sends
+			// this command.
 			note(c, mapper.newMap(rest));
 			return null;
 		case "undo":
