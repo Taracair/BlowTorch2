@@ -111,16 +111,26 @@ public class SDCardUtils {
      * Prefer external cache; fall back to internal cache when external is unavailable.
      */
     public static File resolveCacheDir(Context context) {
-        File ext = context.getExternalCacheDir();
-        if (ext != null) {
-            return ext;
+        // Same shape as sRootCache: these getters stat shared storage, and the
+        // answer cannot change while the process lives. 309 ms in the worst
+        // single call, on the main thread, measured with StrictMode.
+        File cached = sCacheDirCache;
+        if (cached != null) {
+            return cached;
         }
-        File internal = context.getCacheDir();
-        if (internal != null) {
-            return internal;
+        File resolved = context.getExternalCacheDir();
+        if (resolved == null) {
+            resolved = context.getCacheDir();
         }
-        return context.getFilesDir();
+        if (resolved == null) {
+            resolved = context.getFilesDir();
+        }
+        sCacheDirCache = resolved;
+        return resolved;
     }
+
+    /** See {@link #resolveCacheDir(Context)}; one per process, like the root cache. */
+    private static volatile File sCacheDirCache;
 
     /**
      * True when {@code dir} exists (or was created) and is writable.
@@ -259,31 +269,76 @@ public class SDCardUtils {
         File resolved;
         File preferred = getPreferredBlowTorchRoot(context);
         if (preferred != null && ensureWritableDirectory(preferred)) {
-            ensureStandardSubdirectories(preferred);
             resolved = preferred;
         } else {
             File fallback = new File(resolveAppExternalDir(context), getExportDirectoryName(context));
             ensureWritableDirectory(fallback);
-            ensureStandardSubdirectories(fallback);
             resolved = fallback;
         }
         sRootCache = resolved;
         sRootCacheHadAllFiles = allFiles;
+        // The six standard subfolders are created in the background. Nothing
+        // needs them at this instant: every path that opens one goes through
+        // resolveBlowTorchSubdir, which creates it on demand. Doing them here
+        // cost 36 stat rounds on shared storage — 3.7 s across one session,
+        // measured with StrictMode, and the worst of it inside Launcher.onCreate.
+        final File root = resolved;
+        subdirExecutor().execute(new Runnable() {
+            @Override
+            public void run() {
+                ensureStandardSubdirectories(root);
+            }
+        });
         return resolved;
     }
 
-    /** Create the standard subfolders under a BlowTorch root. */
+    /** Creates the standard subfolders eagerly; safe to call off the main thread. */
     public static void ensureStandardSubdirectories(File root) {
         if (root == null) {
             return;
         }
-        ensureWritableDirectory(new File(root, SUBDIR_SETTINGS));
-        ensureWritableDirectory(new File(root, SUBDIR_BACKUPS));
-        ensureWritableDirectory(new File(root, SUBDIR_LAUNCHER));
-        ensureWritableDirectory(new File(root, SUBDIR_SESSION_LOGS));
-        ensureWritableDirectory(new File(root, SUBDIR_LOGS));
-        ensureWritableDirectory(new File(root, SUBDIR_MAPS));
+        ensureSubdirOnce(new File(root, SUBDIR_SETTINGS));
+        ensureSubdirOnce(new File(root, SUBDIR_BACKUPS));
+        ensureSubdirOnce(new File(root, SUBDIR_LAUNCHER));
+        ensureSubdirOnce(new File(root, SUBDIR_SESSION_LOGS));
+        ensureSubdirOnce(new File(root, SUBDIR_LOGS));
+        ensureSubdirOnce(new File(root, SUBDIR_MAPS));
     }
+
+    /**
+     * Create {@code dir} unless this process already did.
+     *
+     * <p>The bookkeeping is deliberately ordered create-then-record: the eager
+     * sweep and an on-demand caller can race, and the worst case that ordering
+     * allows is one wasted {@code mkdirs}. Recording first would let the loser
+     * of the race receive a path whose folder is not there yet.
+     */
+    private static void ensureSubdirOnce(File dir) {
+        if (dir == null || sEnsuredSubdirs.contains(dir.getAbsolutePath())) {
+            return;
+        }
+        ensureWritableDirectory(dir);
+        sEnsuredSubdirs.add(dir.getAbsolutePath());
+    }
+
+    /** One daemon thread; the work is a handful of mkdirs per process. */
+    private static synchronized java.util.concurrent.Executor subdirExecutor() {
+        if (sSubdirExecutor == null) {
+            sSubdirExecutor = java.util.concurrent.Executors.newSingleThreadExecutor(
+                    new java.util.concurrent.ThreadFactory() {
+                        @Override
+                        public Thread newThread(Runnable r) {
+                            Thread t = new Thread(r, "bt-subdirs");
+                            t.setDaemon(true);
+                            t.setPriority(Thread.MIN_PRIORITY);
+                            return t;
+                        }
+                    });
+        }
+        return sSubdirExecutor;
+    }
+
+    private static java.util.concurrent.ExecutorService sSubdirExecutor;
 
     /** Subfolders already created this process; see {@link #sRootCache}. */
     private static final java.util.Set<String> sEnsuredSubdirs =
@@ -291,13 +346,10 @@ public class SDCardUtils {
 
     public static File resolveBlowTorchSubdir(Context context, String subdir) {
         File dir = new File(resolveBlowTorchRoot(context), subdir);
-        // resolveBlowTorchRoot already created the standard subfolders the first
-        // time through, so re-checking on every call bought nothing and cost a
-        // stat on shared storage per log line.
-        String path = dir.getAbsolutePath();
-        if (sEnsuredSubdirs.add(path)) {
-            ensureWritableDirectory(dir);
-        }
+        // Re-checking on every call bought nothing and cost a stat on shared
+        // storage per log line. This is also the guarantee that lets the eager
+        // sweep run in the background: whoever gets here first creates it.
+        ensureSubdirOnce(dir);
         return dir;
     }
 
