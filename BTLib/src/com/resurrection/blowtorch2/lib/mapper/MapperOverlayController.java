@@ -197,6 +197,56 @@ public class MapperOverlayController
 		return KEY_OPEN + "_" + name.trim();
 	}
 
+	/**
+	 * Save where the floating map is and how big it is, for this world.
+	 *
+	 * <p>None of this was saved anywhere, so every launch put the map back at
+	 * 12dp/48dp and 280x320dp however you had arranged it. Per world for the
+	 * same reason the open flag is: a drawer-sized map on one MUD and a big one
+	 * on another is a reasonable thing to want.
+	 */
+	private void rememberFloatGeometry() {
+		MainWindow activity = host != null ? host.getMainWindow() : null;
+		String key = visibilityKeyForWorld();
+		if (activity == null || key == null || fullscreen) {
+			return;
+		}
+		activity.getSharedPreferences(UI_PREFS, 0).edit()
+				.putInt(key + "_x", floatX)
+				.putInt(key + "_y", floatY)
+				.putInt(key + "_w", floatWidth)
+				.putInt(key + "_h", floatHeight)
+				.apply();
+	}
+
+	/** True once geometry has been read back, so it is only restored once. */
+	private boolean floatGeometryRestored;
+
+	/** Put the floating map back where it was left on this world. */
+	private void restoreFloatGeometry() {
+		if (floatGeometryRestored) {
+			return;
+		}
+		MainWindow activity = host != null ? host.getMainWindow() : null;
+		String key = visibilityKeyForWorld();
+		if (activity == null || key == null) {
+			// World not known yet; try again when the snapshot lands.
+			return;
+		}
+		floatGeometryRestored = true;
+		android.content.SharedPreferences p = activity.getSharedPreferences(UI_PREFS, 0);
+		int w = p.getInt(key + "_w", 0);
+		int h = p.getInt(key + "_h", 0);
+		if (w <= 0 || h <= 0) {
+			return;
+		}
+		floatX = p.getInt(key + "_x", floatX);
+		floatY = p.getInt(key + "_y", floatY);
+		floatWidth = w;
+		floatHeight = h;
+		applyLayoutMode();
+	}
+
 	private void rememberVisibility(boolean open) {
 		MainWindow activity = host != null ? host.getMainWindow() : null;
 		String key = visibilityKeyForWorld();
@@ -653,6 +703,11 @@ public class MapperOverlayController
 						lastY = event.getRawY();
 						applyLayoutMode();
 						return true;
+					case MotionEvent.ACTION_UP:
+					case MotionEvent.ACTION_CANCEL:
+						// On release, not on every move: this writes to disk.
+						rememberFloatGeometry();
+						return true;
 					default:
 						return false;
 					}
@@ -683,6 +738,10 @@ public class MapperOverlayController
 						lastX = event.getRawX();
 						lastY = event.getRawY();
 						applyLayoutMode();
+						return true;
+					case MotionEvent.ACTION_UP:
+					case MotionEvent.ACTION_CANCEL:
+						rememberFloatGeometry();
 						return true;
 					default:
 						return false;
@@ -3459,6 +3518,7 @@ public class MapperOverlayController
 			snapshotMap = MapStore.fromJson(json);
 			// Now the world is known, so a deferred restore can finally run.
 			restoreVisibility();
+			restoreFloatGeometry();
 			applyOpacity();
 			applyLayoutMode();
 			refreshFromController();
