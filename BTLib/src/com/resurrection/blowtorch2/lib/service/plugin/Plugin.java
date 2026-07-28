@@ -41,6 +41,7 @@ import android.util.Xml;
 
 import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.alias.AliasParser;
+import com.resurrection.blowtorch2.lib.alias.AliasPattern;
 import com.resurrection.blowtorch2.lib.alias.AnchoredAliasCaptures;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
@@ -914,57 +915,19 @@ Note("Example text!")
 		settings.setDirty(true);
 	}
 	
-	HashMap<Integer,AliasData> aliasMap = null;
+	/** Combined matcher for the enabled aliases; see {@link AliasPattern}. */
+	private AliasPattern aliasPattern = AliasPattern.EMPTY;
+
 	public void buildAliases() {
+		// The joining and the group arithmetic moved to AliasPattern, which has
+		// tests. It produces the same regex this built by hand, alternative for
+		// alternative.
+		aliasPattern = AliasPattern.build(getSettings().getAliases().values());
 		joined_alias.setLength(0);
-		
-		aliasMap = new HashMap<Integer,AliasData>();
-		//Object[] a = the_settings.getAliases().keySet().toArray();
-		Object[] a = getSettings().getAliases().values().toArray();
-		int currentGroup = 1;
-		
-		String prefix = "\\b";
-		String suffix = "\\b";
-		//StringBuffer joined_alias = new StringBuffer();
-		
-		if(a.length > 0) {
-			int j=0;
-			for(int i=0;i<a.length;i++) {
-				if(((AliasData)a[i]).isEnabled()) {
-					if(((AliasData)a[i]).getPre().startsWith("^")) { prefix = ""; } else { prefix = "\\b"; }
-					if(((AliasData)a[i]).getPre().endsWith("$")) { suffix = ""; } else { suffix = "\\b"; }
-					String tmp = "("+prefix+((AliasData)a[i]).getPre()+suffix+")";
-					joined_alias.append(tmp);
-					Matcher m = Pattern.compile(tmp).matcher("");
-					aliasMap.put(currentGroup, (AliasData)a[i]);
-					currentGroup += m.groupCount();
-					j=i+1;
-					i=a.length;
-					
-				}
-			}
-			for(int i=j;i<a.length;i++) {
-				if(((AliasData)a[i]).isEnabled()) {
-					if(((AliasData)a[i]).getPre().startsWith("^")) { prefix = ""; } else { prefix = "\\b"; }
-					if(((AliasData)a[i]).getPre().endsWith("$")) { suffix = ""; } else { suffix = "\\b"; }
-					String tmp = "("+prefix+((AliasData)a[i]).getPre()+suffix+")";
-					//joined_alias.append(tmp);
-					Matcher m = Pattern.compile(tmp).matcher("");
-					aliasMap.put(currentGroup, (AliasData)a[i]);
-					currentGroup += m.groupCount();
-					
-					joined_alias.append("|");
-					joined_alias.append(tmp);
-					//joined_alias.append("("+prefix+((AliasData)a[i]).getPre()+suffix+")");
-				}
-			}
-			
-		}
-		
+		joined_alias.append(aliasPattern.regex());
 		alias_replace = Pattern.compile(joined_alias.toString());
 		alias_replacer = alias_replace.matcher("");
 		alias_recursive = alias_replace.matcher("");
-		//Log.e("SERVICE","BUILDING ALIAS PATTERN: " + joined_alias.toString());
 	}
 	
 	public byte[] doAliasReplacement(byte[] input, Boolean reprocess) {
@@ -1000,15 +963,16 @@ Note("Example text!")
 				found = true;
 				
 				
-				int index = -1;
-				for(int i=1;i<=alias_replacer.groupCount();i++) {
-					if(alias_replacer.group(i) != null) {
-						index = i;
-						i=alias_replacer.groupCount();
-					}
+				int index = AliasPattern.matchedGroup(alias_replacer);
+				AliasData replace_with = aliasPattern.aliasForGroup(index);
+				if (replace_with == null) {
+					// A match we cannot attribute to an alias. Leave the text as
+					// it was rather than dereference null, which is what this did
+					// before and would have taken the connection down with it.
+					alias_replacer.appendReplacement(replaced, Matcher.quoteReplacement(
+							alias_replacer.group(0)));
+					continue;
 				}
-				//String str = alias_replacer.group(0);
-				AliasData replace_with = aliasMap.get(index);
 				//AliasData replace_with = getSettings().getAliases().get(alias_replacer.group(0));
 				//do special replace if only ^ is matched.
 				//do lua execute if ^ and $ is matched
@@ -1069,15 +1033,13 @@ Note("Example text!")
 					buffertemp.setLength(0);
 					while(alias_recursive.find()) {
 						recursivefound = true;
-						int idx = -1;
-						for(int i=1;i<=alias_recursive.groupCount();i++) {
-							if(alias_recursive.group(i) != null) {
-								idx = i;
-								i=alias_recursive.groupCount();
-							}
+						int idx = AliasPattern.matchedGroup(alias_recursive);
+						AliasData replace_with = aliasPattern.aliasForGroup(idx);
+						if (replace_with == null) {
+							alias_recursive.appendReplacement(buffertemp,
+									Matcher.quoteReplacement(alias_recursive.group(0)));
+							continue;
 						}
-						//String str = alias_replacer.group(0);
-						AliasData replace_with = aliasMap.get(idx);
 						//AliasData replace_with = getSettings().getAliases().get(alias_recursive.group(0));
 						if(replace_with.getPre().startsWith("^") && ! replace_with.getPre().endsWith("$")) {
 							ToastResponder r = new ToastResponder();
