@@ -17,25 +17,6 @@ local function debugString(string)
 	end
 end
 
--- TEMPORARY: timing probes for the button set switch, tag BTPROF.
--- os.clock() is CPU time and would hide blocking I/O such as the settings
--- fsync, so this uses wall clock. uptimeMillis is system-wide, which is what
--- lets the service-side spans in buttonserver.lua line up with these.
-BTPROF_Log = luajava.bindClass("android.util.Log")
-BTPROF_SystemClock = luajava.bindClass("android.os.SystemClock")
-function btprofNow()
-	-- tonumber: uptimeMillis is a Java long, and arithmetic on the boxed value
-	-- is not something luajava can be trusted to do.
-	return tonumber(BTPROF_SystemClock:uptimeMillis()) or 0
-end
-function btprof(stage, since)
-	if since == nil then
-		BTPROF_Log:i("BTPROF", "win " .. stage)
-	else
-		BTPROF_Log:i("BTPROF", "win " .. stage .. " +" .. (btprofNow() - since) .. "ms")
-	end
-end
-
 debugString("Button Window Script Loading...")
 
 density = GetDisplayDensity()
@@ -77,20 +58,12 @@ suppress_editor = false
 
 function loadButtons(args)
 
-	local tEnter = btprofNow()
-	if BTPROF_T0 ~= nil then
-		btprof("t5 loadButtons entered (whole round trip)", BTPROF_T0)
-	end
-
 	debugString("Button Window loading buttons...")
 	package.loaded["button"] = nil
 	require("button")
-	btprof("t6 require button.lua", tEnter)
 
-	local tDecode = btprofNow()
 	local tmp = marshal.decode(args)
 	lastLoadedSet = tmp.name
-	btprof("t7 marshal.decode", tDecode)
 	debugString("Button Window decompressed data, set name: "..lastLoadedSet)
 
 	defaults = BUTTONSET_DATA:new(tmp.default)
@@ -98,25 +71,12 @@ function loadButtons(args)
 	BUTTON_DATA.__index = defaults
 	buttons = {}
 	local set = tmp.set
-	local tNew = btprofNow()
 	for i=1,#set do
 		buttons[i] = BUTTON:new(set[i],density)
 	end
-	btprof("t8 BUTTON:new x" .. #set, tNew)
-	local tClamp = btprofNow()
 	clampAllButtons()
-	btprof("t9 clampAllButtons", tClamp)
-	local tDraw = btprofNow()
 	drawButtons()
-	btprof("t10 drawButtons", tDraw)
 	view:invalidate()
-	btprof("t11 loadButtons total", tEnter)
-	if BTPROF_T0 ~= nil then
-		-- Not "tap to painted": the whole switch is one blocking UI stack, so
-		-- the frame cannot be drawn until the touch handler returns. The real
-		-- freeze is this plus t13 below.
-		btprof("t12 tap to invalidate scheduled", BTPROF_T0)
-	end
 
 	debugString(string.format("Button Window loaded button set, %s successfully",lastLoadedSet))
 end
@@ -656,16 +616,9 @@ local function dispatchButtonAction(cmd)
 		revertButtons()
 		return true
 	end
-	local tJump = btprofNow()
 	mainwindow:jumpToStart()
 	if hasButtonSwitch(touchedbutton.data) then
-		-- t0 sits before jumpToStart so nothing between the finger lifting and
-		-- the call is outside the measured window.
-		BTPROF_T0 = tJump
-		btprof("t0 dispatch, switchTo=" .. tostring(touchedbutton.data.switchTo)
-			.. ", jumpToStart took " .. (btprofNow() - tJump) .. "ms")
 		PluginXCallS("loadButtonSet", touchedbutton.data.switchTo)
-		btprof("t1 PluginXCallS returned", BTPROF_T0)
 		return true
 	end
 	if not hasButtonCommand(cmd) then
@@ -953,15 +906,7 @@ function normalTouch.onTouch(v,e)
 					sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 				end
 			end
-			-- This runs after dispatch, so a set switch redraws every button a
-			-- second time here on top of the drawButtons() inside loadButtons.
-			local tReset = btprofNow()
 			resetTouchedButtonVisual()
-			if BTPROF_T0 ~= nil then
-				btprof("t13 resetTouchedButtonVisual (2nd full redraw)", tReset)
-				btprof("t14 finger up to handler returning", BTPROF_T0)
-				BTPROF_T0 = nil
-			end
 			return true
 		else
 			--debugPrint("button not touched, returning false")
