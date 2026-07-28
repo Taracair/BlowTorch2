@@ -266,6 +266,89 @@ and just walk — nothing to record. `.map find <text>` locates a room,
 
 Maps are per world, saved under `/BlowTorch/maps/`.
 
+### 11. A timer that does something every N seconds
+
+**Want:** sip a health potion every 15 seconds while fighting.
+
+Options → Timers → new:
+
+| Field | Value |
+|-------|-------|
+| Timer Name | `heal` |
+| Timer duration | `15` |
+| Repeat | on |
+| Action | **Ack With** → `drink health` |
+
+Control it from the input bar, by name:
+
+```
+.timer play heal      start it
+.timer pause heal     hold it where it is
+.timer reset heal     back to full duration
+.timer stop heal      stop and reset
+.timer info heal      how long is left
+```
+
+Add `silent` as a last word to suppress the toast: `.timer play heal silent`.
+Useful when a trigger drives the timer and you do not want a popup each time.
+
+### 12. A timer that only fires in combat
+
+Timers take the same **Conditions** as triggers. On the `heal` timer:
+
+Conditions → Add → *Variable equals* → name `fighting`, value `1`.
+
+Now leave the timer running permanently. It ticks all the time but only acts
+while `fighting` is `1`. Set that flag from your combat triggers:
+
+- fight starts → **Set Variable** `fighting` = `1`
+- fight ends → **Set Variable** `fighting` = `0`
+
+This is usually nicer than starting and stopping the timer, because you never
+end up with a timer that was left paused.
+
+### 13. A trigger that starts and stops a timer
+
+**Want:** the timer runs only while a specific enemy is up.
+
+On the trigger that spots the enemy appearing, add a **Script** action:
+
+```lua
+SetVariable("fighting", "1")
+```
+
+and on the one that spots it dying:
+
+```lua
+SetVariable("fighting", "0")
+```
+
+A trigger cannot type `.timer play heal` for you — dot commands are read from
+the input bar, not from trigger output — so drive timers with a variable and a
+condition (recipe 12), or with `EnableTriggerGroup` for whole sets.
+
+### 14. One-shot reminder
+
+Leave **Repeat** off and the timer fires once, then stops. Combined with a
+trigger that starts it, that is a "remind me in 30 seconds" — a Notification
+action makes it show up even if you have switched away from the app.
+
+### 15. Debugging any of this
+
+The single most useful habit: add an extra **Ack With** action printing a
+`.note`, which is client-side only and never reaches the game.
+
+```
+.note FIRED: target=$1
+```
+
+Put one on a trigger while you are building it and you can see whether it
+matched at all, and what it captured, before you start suspecting the alias or
+the timer downstream. Delete it when the thing works.
+
+`.trigger status <name>` and `.alias status <name>` tell you whether something
+is enabled; `.alias list` shows every alias at once.
+
 ## Built-in commands
 
 | Command | Description |
