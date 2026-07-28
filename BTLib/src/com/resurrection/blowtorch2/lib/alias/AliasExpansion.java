@@ -89,6 +89,31 @@ public final class AliasExpansion {
 	 */
 	public static String expand(final AliasData alias, final String wholeInput,
 			final String matched) {
+		return expand(alias, wholeInput, matched, null);
+	}
+
+	/**
+	 * As {@link #expand(AliasData, String, String)}, also substituting session
+	 * variables written as <code>${name}</code>.
+	 *
+	 * <p>Captures first, then variables, so a variable holding something like
+	 * {@code $1} is treated as text rather than re-substituted.
+	 *
+	 * @param alias The alias that matched.
+	 * @param wholeInput The whole line the player typed.
+	 * @param matched Just the part the alias matched.
+	 * @param variables Session variables, or null for none.
+	 * @return The replacement text.
+	 */
+	public static String expand(final AliasData alias, final String wholeInput,
+			final String matched, final java.util.Map<String, String> variables) {
+		String expanded = expandCaptures(alias, wholeInput, matched);
+		return com.resurrection.blowtorch2.lib.responder.VariableSubstitution
+				.apply(expanded, variables);
+	}
+
+	private static String expandCaptures(final AliasData alias, final String wholeInput,
+			final String matched) {
 		if (alias == null) {
 			return "";
 		}

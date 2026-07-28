@@ -919,6 +919,17 @@ Note("Example text!")
 	/** Combined matcher for the enabled aliases; see {@link AliasPattern}. */
 	private AliasPattern aliasPattern = AliasPattern.EMPTY;
 
+	/**
+	 * Session variables for <code>${name}</code> in alias text, or null when
+	 * there is no connection to ask.
+	 */
+	private java.util.Map<String, String> sessionVariables() {
+		if (parent == null || parent.getSessionVariables() == null) {
+			return null;
+		}
+		return parent.getSessionVariables().snapshot();
+	}
+
 	public void buildAliases() {
 		// The joining and the group arithmetic moved to AliasPattern, which has
 		// tests. It produces the same regex this built by hand, alternative for
@@ -1023,7 +1034,8 @@ Note("Example text!")
 					// The whole typed line is only needed by the word-splitting
 					// form, which this branch is not; pass the matched text.
 					String plain = AliasExpansion.expand(replace_with,
-							alias_replacer.group(index), alias_replacer.group(index));
+							alias_replacer.group(index), alias_replacer.group(index),
+							sessionVariables());
 					alias_replacer.appendReplacement(replaced,
 							Matcher.quoteReplacement(plain));
 				}
@@ -1088,7 +1100,8 @@ Note("Example text!")
 							reprocess = false;
 						} else {
 							String plainR = AliasExpansion.expand(replace_with,
-									replaced.toString(), alias_recursive.group(idx));
+									replaced.toString(), alias_recursive.group(idx),
+									sessionVariables());
 							alias_recursive.appendReplacement(buffertemp,
 									Matcher.quoteReplacement(plainR));
 						}

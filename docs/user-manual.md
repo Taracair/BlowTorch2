@@ -548,6 +548,25 @@ use gag/replace if you also want to hide related room text.
 Use `plugin:name` when the same name exists in more than one plugin. A disabled
 alias stops matching immediately.
 
+### Session variables in alias text
+
+Write `${name}` in an alias replacement to drop in a session variable:
+
+| Alias pattern | Replacement | Variable | Sent |
+|---------------|-------------|----------|------|
+| `att` | `kill ${target}` | `target` = `goblin` | `kill goblin` |
+
+Set the variable from a trigger's **Set Variable** action, or from Lua with
+`SetVariable("target", "$1")`. That is how text the *game* printed reaches a
+command you type: the trigger captures it, the alias spends it.
+
+Braces are required, so `${name}` never collides with the numeric `$1`
+captures, and a bare `$` in text is left alone. An **unset** variable is left
+written as-is rather than becoming empty — sending `kill` with no target is
+worse than sending something visibly wrong.
+
+Variables are per session and are not saved.
+
 ### Switching alias sets by mode
 
 `EnableAlias(name)` returns whether an alias is live; `EnableAlias(name, true|false)`
