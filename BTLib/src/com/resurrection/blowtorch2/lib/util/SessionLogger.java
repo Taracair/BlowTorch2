@@ -62,7 +62,7 @@ public final class SessionLogger {
 		@Override
 		public void run() {
 			synchronized (SessionLogger.class) {
-				flushLocked(true);
+				flushLocked(false);
 			}
 		}
 	};
@@ -276,8 +276,11 @@ public final class SessionLogger {
 	}
 
 	/**
-	 * Push buffered log bytes to disk now (and fsync when possible). Safe to call
-	 * often; used on disconnect and when the app backgrounds.
+	 * Push buffered log bytes to disk now and fsync. This is one of the two
+	 * moments worth the syscall — the caller is disconnecting or backgrounding,
+	 * so the process may not get another chance. Routine flushes during play do
+	 * not sync; a session log can lose its tail to sudden power loss, unlike
+	 * settings, which are written atomically and synced.
 	 */
 	public static synchronized void flush(Context context) {
 		flushLocked(true);
@@ -390,7 +393,11 @@ public final class SessionLogger {
 			if (forceFlush
 					|| pendingBytes >= FLUSH_BYTES
 					|| (now - lastFlushElapsed) >= FLUSH_INTERVAL_MS) {
-				flushLocked(true);
+				// No fsync here. Every marker line takes this path (appendMarker
+				// forces a flush), and MCP traffic makes markers routine: 46
+				// fsyncs, up to 332 ms each, on the service main thread in one
+				// session. The durability points below still sync.
+				flushLocked(false);
 			} else {
 				scheduleFlushLocked();
 			}
