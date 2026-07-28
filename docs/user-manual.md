@@ -215,19 +215,28 @@ the **Floors** radial.
 
 ### Category radials (bottom chips; hide with ▾ tools)
 
-Bottom chrome: **Nav** · **Floors** · **Edit** · **More**, plus **Browse|Edit** and
-**Float|Full**. Tap **▾ tools** in the title to hide that chrome when you want
-more map. Each category opens an in-map pie menu (no system status-bar flash).
-Toggle wedges show their current state under the label (e.g. Follow **on**).
+Bottom chrome: **Nav** · **Floors** · **Edit** · **Map** · **View**, plus
+**Browse|Edit** and **Float|Full**. The chip row scrolls if it does not fit. Tap
+**▾ tools** in the title to hide that chrome when you want more map. Each
+category opens an in-map pie menu (no system status-bar flash). Toggle wedges
+show their current state under the label (e.g. Follow **on**).
 
-| Chip | Actions |
-|------|---------|
-| **Nav** | Go there, Find, Center, Follow, Record, Undo |
-| **Floors** | Floor list, Floor ↑/↓, Root floor, To entrance, Rename floor, Delete floor |
-| **Edit** | Draw, Link mode, Set Here, Edit tile, Layout (spread/packed), 1-way specials, Moves, Link map |
-| **More** | Save, Maps, New map, Export, Opacity…, Capture |
+| Chip | What it is for | Actions |
+|------|----------------|---------|
+| **Nav** | Getting around | Path to, Go there, Find, Center, Follow, Record |
+| **Floors** | Levels of this map | Floor list, Floor ↑/↓, Root floor, To entrance, Rename floor, Delete floor |
+| **Edit** | Changing the map by hand | Draw, Link mode, Set Here, Edit tile, Spacing (spread/packed), Tidy now, 1-way specials, Moves, Link map, Undo |
+| **Map** | The map as a file | Save, Maps, New map, Export, Capture |
+| **View** | Standing preferences | Opacity…, Arrow labels, Window echo, GMCP sync, GMCP grow |
 
 **Close** is only the title **✕** (not in the pie menus).
+
+Two names worth separating: **Spacing** (Edit) is a standing preference for how
+far apart tiles are drawn, while **Tidy now** re-runs the layout once. **Undo**
+is in Edit because it undoes edits.
+
+**New map** works in Browse as well as Edit — starting a map is a file
+operation, like Maps and Save.
 
 **Floors → Floor list**: tap a floor to view; long-press = Go Here. In **Edit**,
 **Rename…** / **Delete…** on the selected row. You cannot delete the last level.
@@ -460,6 +469,14 @@ or advanced JSON). Modes: **`drawer_top`** (top strip, no title bar — show/hid
 Overlay geometry (drawer height ≥ 50dp, float position, **opacity 40–100%**) is owned by
 the UI; buffers are named `WindowToken`s.
 
+**Scroll speed** is per slot, in Manage windows. The default, *Same as main
+window*, follows **Options → Window → Scroll sensitivity**, so that one control
+still steers every extra window at once and a slot only breaks away when you
+set it to a specific speed. Changes apply straight away, with the window open.
+
+A slot keeps collecting text while it is closed, and shows what it missed when
+you open it again — up to the most recent 128 KB.
+
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
 like `Comm.*`). Routes need **Options → Service → GMCP → Use GMCP?** on.
 
@@ -519,7 +536,14 @@ use gag/replace if you also want to hide related room text.
 ## GMCP (short)
 
 Enable under **Options → Service → GMCP Options**. Prefer **Manage modules…**
-over editing the raw Supports String. Helpers:
+over editing the raw Supports String.
+
+**If you need to know exactly what a world sends**, turn on **Log GMCP?** and
+read `/BlowTorch/logs/gmcp.log`. That file is the real traffic. Text copied out
+of the game window can pick up escaping on the way to the clipboard, so it is
+not evidence of what was on the wire — a lesson learned the expensive way.
+
+Helpers:
 
 ```
 .gmcp                 — help
@@ -528,7 +552,7 @@ over editing the raw Supports String. Helpers:
 .gmcp enable|disable  — toggle modules (+ live Add/Remove)
 .gmcp renegotiate     — re-send Hello + Supports.Set
 .gmcp status          — flags
-.gmcp sniff [on|off]  — log handshake/packets
+.gmcp sniff [on|off]  — log handshake/packets to logs/gmcp.log
 .gmcp sniff tail [N]  — last N GMCP lines in-game (0–100, default 40)
 .gmcp feed [on|off]   — live IN/OUT GMCP in the mud window
 .gmcp version         — client hello / syntax notes

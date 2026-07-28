@@ -5,7 +5,7 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, **Keep text still with keyboard?**, hyperlinks (`http(s)://`, `www.`, bare domains like `example.com`), ANSI color; nested **Extra text windows** |
+| **Window** | Per-window text: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, **Keep text still with keyboard?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, bare domains like `example.com`), ANSI color; nested **Extra text windows** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
@@ -19,12 +19,18 @@ Under **Options → Window → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` or `float`), height, opacity, visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
+| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` or `float`), height, opacity, **scroll speed**, visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
 Slot **name** is the public id shared with gag/replace retarget, Lua
 (`CreateTextWindow`, `NoteToWindow`, `AppendLineToWindow(windowName, line)`),
 and `.window`. Max 8 slots; reserved names: `main`, `mainDisplay`, `button_window`.
+
+**Scroll speed** is per window. The first choice, *Same as main window*, is the
+default and follows **Options → Window → Scroll sensitivity** — so that one
+setting still steers every extra window at once, and a slot only breaks away
+when you set it to something specific. Changing it applies immediately; you do
+not have to reopen the window.
 
 **GMCP routes:** in Manage windows, pick modules (or advanced CSV e.g. `Char.Vitals, Comm.*`).
 Inbound packets for those modules appear as `[GMCP] …` in that pane and are
@@ -41,8 +47,12 @@ Default for import/export, backups, launcher lists, session logs, maps, and app/
   launcher/       # server list export/import
   maps/           # Mapper JSON maps (.map export / autosave)
   session_logs/   # incremental game .txt logs
-  logs/           # blowtorch2.log (errors + GMCP when Log GMCP? is on)
+  logs/           # blowtorch2.log (errors), gmcp.log (when Log GMCP? is on)
 ```
+
+`gmcp.log` is a separate file on purpose: a busy world sends GMCP constantly,
+and mixing it into `blowtorch2.log` used to push the crash history out of the
+file you actually want after a crash. Both rotate at 2 MB.
 
 On Android 11+ this needs **All files access** once: **Options → Miscellaneous → Manage Storage Access** (opens the system permission screen). Without it the app falls back to `Android/data/…/files/BlowTorch/` with the same subfolders.
 
@@ -52,8 +62,11 @@ GMCP is an optional structured out-of-band channel (telnet option 201). **Use GM
 is on by default for new profiles. Use **Manage modules…** to pick what goes in
 `Core.Supports.Set` (built-in, seen this session, catalog). Nothing auto-enables
 from traffic. **Supports String (advanced)** is the raw list if you prefer editing
-it by hand. **Log GMCP?** writes handshake and packets to
-`/BlowTorch/logs/blowtorch2.log` (and to the session log when that is enabled).
+it by hand. **Log GMCP?** writes the handshake and every packet to
+`/BlowTorch/logs/gmcp.log` (and to the session log when that is enabled). This
+is the reliable way to find out what a world really sends — text copied out of
+the game window can pick up escaping on the way and is not proof of what was on
+the wire. Passwords in `Char.Login.Credentials` are redacted before writing.
 **Suggest modules when seen?** (off by default) can toast when the server sends a
 module you have not enabled. **Show GMCP in game window?** (or `.gmcp feed on`)
 echoes live IN/OUT packets in the mud window — noisy, but the fastest way to see
@@ -120,14 +133,14 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Use GMCP Room** | Sync from `Room.*` when GMCP is on (independent of Record/Draw) |
 | **Configure Room Sync…** | Auto-grow, match by `num`, absolute coords (off by default), create exits |
 | **GMCP: Auto-grow map?** | Create rooms/exits from Room.Info; off = follow existing by number only |
-| **GMCP: Match by room number?** | Prefer `num`/`id`/`vnum` as tile identity |
+| **GMCP: Match by room number?** | Prefer `num`/`id`/`vnum` as tile identity. Leave on where the world sends one — it is the only stable identity there is. With it off, or on a world that sends no room number, the mapper falls back to the tile the walk points at, which is reliable for walking but cannot recognise a room you arrive at some other way |
 | **GMCP: Use absolute coordinates?** | Place at x,y only when ≤1 cell away; off = grow beside previous (Eden) |
 | **GMCP: Create exit neighbors?** | Create/link missing exits; vnum stubs until visited; never deletes exits |
 | **Auto reverse links** | Suggest opposite exits when linking |
 | **Accept One-Way Specials?** | ON = recording `out`/`enter` always makes a new tile. OFF (default) = if exactly one room already leads into Here, link the special back there. Also **Build → 1-way** |
 | **Level-Up Commands (CSV)** | Recording moves that create a higher floor (`u,up,climb,ascend` default). Clear Up+Down to never auto-create levels |
 | **Level-Down Commands (CSV)** | Recording moves that create a lower floor (`d,down,descend` default) |
-| **Toolbar actions** | Legacy CSV (still stored); map chrome uses top **Nav/Floors/Build/File** radials instead of the bottom strip |
+| **Toolbar actions** | Legacy CSV (still stored); map chrome uses the **Nav / Floors / Edit / Map / View** radial chips instead of the bottom strip |
 | **Capture Title Regex** | Regex for `.map capture` and the Capture dialog title field (`mapper_capture_title_regex`). Group 1 when present; else whole match. Default: `^([A-Z].*)$` |
 | **Capture Exits Regex** | Regex for exits field (`mapper_capture_exits_regex`). Group 1 when present (e.g. after `Exits:`). Default: `(?i)exits?:\s*(.*)` |
 
@@ -161,6 +174,18 @@ patterns.
 - **Battery optimization…** opens the system exemption flow; a one-shot dialog
   also appears when you are connected if BlowTorch is still battery-optimized.
 - Connection duration is shown on the ongoing notification and launcher rows.
+
+## Miscellaneous
+
+- **Check for updates?** — off by default. When on, asks GitHub once a day
+  whether a newer BlowTorch 2 release exists and tells you at startup, with a
+  button to the release page and instructions for downloading the APK there.
+  This is the only thing in the app that contacts anything other than a MUD you
+  added, which is why it is opt-in. If you installed from **F-Droid, leave it
+  off** — F-Droid updates you already. The test flavour never checks, whatever
+  this is set to.
+- **Persistent Connection?** — ride out brief network loss without the
+  disconnect dialog.
 
 ## Storage
 
