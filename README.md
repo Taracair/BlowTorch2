@@ -2,86 +2,58 @@
 
 A MUD client for Android that still works on a modern phone.
 
-BlowTorch was a genuinely good Android MUD client — triggers, aliases, timers,
-on-screen buttons, a real Lua plugin engine. Then it stopped being updated in
-2018, and Android moved on without it: storage rules changed, the old APK
-stopped installing cleanly, and the thing quietly became unusable.
+BlowTorch was a genuinely good Android MUD client. Then it stopped being
+updated in 2018, Android moved on without it, and it quietly became
+uninstallable. This fork brings it back: same client, current Android, storage
+and backups sorted out, and a fair amount added.
 
-This is a fork that fixes that. Same client, running on current Android, with
-the storage and backup situation sorted out and some things added that I wanted
-while playing.
-
-**Package:** `com.resurrection.blowtorch2` · **Repo:**
-[Taracair/BlowTorch2](https://github.com/Taracair/BlowTorch2) · **Commands:**
-[`docs/user-manual.md`](docs/user-manual.md), also in-app under **Help**
+**Commands:** [`docs/user-manual.md`](docs/user-manual.md), also in-app under
+**Help** · **Every setting:** [`docs/options-guide.md`](docs/options-guide.md)
 
 ---
 
-## Honestly, about how this is made
+## What it does
 
-One person, and a lot of AI. I use an LLM to write most of the code and docs. I
-test everything on a real phone, I decide what ships, and I am the one who reads
-the bug reports.
+**Triggers that can turn each other on and off.** Triggers live in named groups,
+and any trigger can enable or disable a whole group — so a combat set can switch
+itself on when you engage and off when you flee, and a quest chain can arm the
+next step as each one fires. A trigger's script action is real Lua with access
+to `EnableTrigger`, `EnableTriggerGroup`, `SetVariable`/`GetVariable` and the
+ability to create or delete triggers at runtime. This is the part people build
+whole play styles on.
 
-That is not a disclaimer, it is a description of the process — and the process
-is written down. [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) is the working
-agreement: measure on the device before changing anything, instrumentation goes
-in its own commit and comes back out, say plainly what was not verified. It
-exists so the next assistant, or the next human, does not have to rediscover how
-this codebase actually behaves.
+Triggers can also colour a line, gag it, replace text in it, fire a
+notification, raise a toast, set a variable, send commands, or push output into
+a separate window — several at once, in order.
 
-This is my first public repo of any size. Bug reports with steps to reproduce
-are worth a great deal.
+**On-screen buttons that hold more than one command.** Swipe a button up, down,
+left or right for four more bindings. Hold for another. Accordion buttons expand
+into a cluster of related ones. Buttons come in sets you can switch between, and
+a button can switch the set itself — so a movement pad becomes a combat pad on
+one tap. Optional on-screen hints show what a tile is bound to.
 
----
-
-## Credit
-
-BlowTorch is Daniel Block and Offset Null Entertainment, LLC (2010–2018). The
-MUD core, the Lua plugin system, triggers, buttons — all theirs. This fork
-exists so that work keeps running. Same MIT license, see [`LICENSE`](LICENSE).
-
-Huge thanks to Daniel and Offset Null for building this and releasing it under
-MIT. Without that work there would be nothing to keep alive. I am grateful they
-made it, and that they left it where someone else could pick it up.
-
----
-
-## What you get
-
-Everything classic had: connections, ANSI colour, triggers, aliases, timers,
-on-screen buttons, Lua plugins, GMCP.
-
-**Runs on a current phone.** SDK 36, Android 9 and up. Its own package id, so it
-can sit beside an old BlowTorch install. Optional test build alongside the real
-one.
-
-**Storage that behaves.** Classic assumed it could write anywhere, which newer
-Android does not allow. Now there is a `/BlowTorch/` folder (`settings/`,
-`backups/`, `launcher/`, `session_logs/`, `logs/`) if you grant access — and if
-you do not, everything still works from app storage, with import and export
-through the system picker. "All files access" is only about whether you can see
-the folder in a file manager. Settings saves are atomic, so a crash mid-write
-cannot leave you with half a profile.
-
-**Buttons that do more.** Swipe a button up, down, left or right for different
-commands. Hold for another. Accordion buttons expand into a cluster. Optional
-on-screen hints so you can see what a tile is bound to.
-
-**A mapper.** Draws as you walk, follows GMCP room data where a world provides
-it, handles floors, one-way exits and exits that do not lead where the direction
-says. Experimental and openly so — it is the newest part of the app.
+**A mapper that draws itself as you walk.** Follows GMCP `Room.Info` where a
+world sends it, or records your movement where it does not. Handles multiple
+floors, one-way exits, and exits that do not go where the direction implies —
+those get drawn honestly rather than straightened out into a lie. Pathfind to
+any room and walk there. It is the newest and most experimental part of the app,
+and it is marked as such in the UI.
 
 **Extra text windows.** Route GMCP modules or trigger output into their own
-floating or drawer panes, each with its own size, opacity and scroll speed.
+floating or drawer panes — chat in one, vitals in another — each with its own
+size, opacity, scroll speed, and its own scrollback that keeps filling while the
+window is closed.
 
-**Session comforts.** Optional session log, connection time on the notification
-and launcher rows, wifi and wake locks, alert sounds, a growable input bar, and
-an in-app crash log viewer so a bug report can include something useful.
+**The classic toolkit, intact.** Aliases, named timers with play/pause/reset,
+speedwalks, per-connection settings, and the full Lua plugin engine the original
+was built around.
 
----
+**Comfort on a phone.** Growable input bar, scrollback search, text selection
+and clipboard, session logging, connection time on the notification, wifi and
+wake locks, alert sounds, and an in-app crash log viewer so a bug report can
+carry something useful.
 
-## Commands
+### Commands
 
 | Area | Examples |
 |------|----------|
@@ -91,18 +63,47 @@ an in-app crash log viewer so a bug report can include something useful.
 | GMCP | `.gmcp status`, `.gmcp sniff`, … |
 | Classic | `.run`, `.timer`, `.loadset`, `.switch`, … |
 
-Dot commands are on by default; `..` on its own toggles that, and prefixing `..`
+Dot commands are on by default; `..` alone toggles them, and prefixing `..`
 sends a literal leading `.` to the game.
 
-Full list in [`docs/user-manual.md`](docs/user-manual.md); every setting is
-described in [`docs/options-guide.md`](docs/options-guide.md).
+---
+
+## Credit
+
+BlowTorch is Daniel Block and Offset Null Entertainment, LLC (2010–2018). The
+MUD core, the Lua plugin system, triggers, buttons — all theirs. This fork
+exists so that work keeps running on phones people actually own. Same MIT
+license, see [`LICENSE`](LICENSE).
+
+Huge thanks to Daniel and Offset Null for building this and releasing it under
+MIT. Without that work there would be nothing to keep alive. I am grateful they
+made it, and that they left it where someone else could pick it up.
+
+---
+
+## How this is made
+
+One person, and a lot of AI. I use an LLM to write most of the code and docs. I
+test on a real phone, I decide what ships, and I read the bug reports.
+
+The process is written down rather than implied.
+[`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) is the working agreement:
+measure on the device before changing anything, instrumentation goes in its own
+commit and comes back out, leave the measured number in a comment so nobody
+re-measures it, say plainly what was not verified. It also records how the
+codebase actually behaves — which binder calls block and which queue, who owns
+the window buffer — so the next assistant, or the next human, does not rediscover
+it the hard way.
+
+This is my first public repo of any size. Bug reports with steps to reproduce are
+worth a great deal.
 
 ---
 
 ## Privacy and permissions
 
 A local client. It connects to the MUDs you add and nothing else. No ads, no
-analytics, no accounts, no server of mine anywhere in the picture.
+analytics, no accounts, no server of mine anywhere.
 
 | Permission | Needed to play? |
 |------------|-----------------|
@@ -113,19 +114,27 @@ analytics, no accounts, no server of mine anywhere in the picture.
 Two things worth knowing: account notes on launcher rows are stored as plain
 text on the device, so leave them blank if you would rather not keep passwords
 there; and Lua plugins run with the app's privileges, exactly as in classic, so
-only load ones you trust. Details in
-[`docs/FDROID_README.md`](docs/FDROID_README.md).
+only load ones you trust.
+
+**Storage.** Classic assumed it could write anywhere, which newer Android does
+not allow. There is now a `/BlowTorch/` folder (`settings/`, `backups/`,
+`launcher/`, `session_logs/`, `logs/`) if you grant access, and everything still
+works from app storage if you do not, with import and export through the system
+picker. Settings saves are atomic, so a crash mid-write cannot leave you with
+half a profile. Details in [`docs/FDROID_README.md`](docs/FDROID_README.md).
 
 ---
 
 ## Coming from classic BlowTorch
 
-The package id is different, so Android will not migrate anything for you.
+Different package id, so Android will not migrate anything for you.
 
 1. Export from the old client, or keep a copy of its XML
 2. Install BlowTorch 2
 3. Import the server list or settings, or restore a backup
 4. Grant All files access only if you want the folder visible
+
+It can sit alongside an old BlowTorch install — the package ids differ.
 
 ---
 
@@ -136,8 +145,8 @@ The package id is different, so Android will not migrate anything for you.
 | `production` | `com.resurrection.blowtorch2` |
 | `btTest` | `com.resurrection.blowtorch2.test` |
 
-Needs the Android SDK (compileSdk 36), NDK r26+, JDK 17, and `gcc` / `make` for
-the native LuaJIT build.
+Needs the Android SDK (compileSdk 36, min API 28), NDK r26+, JDK 17, and
+`gcc` / `make` for the native LuaJIT build.
 
 ```bash
 export ANDROID_HOME=/path/to/Android/Sdk
@@ -147,22 +156,23 @@ export NDK_HOME=$ANDROID_HOME/ndk/<version>
 BT_LOCAL_SIGN=1 ./gradlew :BT_Free:assembleProductionRelease
 ```
 
-Release APKs are unsigned by default — F-Droid and CI sign their own. Output
-lands in `BT_Free/build/outputs/apk/`.
+Release APKs are unsigned by default — F-Droid and CI sign their own. Output in
+`BT_Free/build/outputs/apk/`.
 
 | Path | What it is |
 |------|------------|
 | `BTLib/` | Shared library, where nearly all the code lives |
-| `BT_Free/` | App module and the Lua plugins in `assets/` |
+| `BT_Free/` | App module, and the Lua plugins under `assets/` |
 | `LuaJIT-2.0.5/` | Native LuaJIT |
-| `docs/` | Guides, and [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) if you are working on the code |
+| `docs/` | Guides, plus [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) |
 | `fastlane/`, `metadata/` | Store and F-Droid text |
 
-F-Droid builds the production flavor only — see [`docs/fdroid.md`](docs/fdroid.md).
+F-Droid builds the production flavor only — see
+[`docs/fdroid.md`](docs/fdroid.md).
 
 **If you are about to change something**, read
 [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) first. It is short, and it will
-save you rediscovering things like which binder calls block and which queue.
+save you a wrong guess or two.
 
 ---
 
