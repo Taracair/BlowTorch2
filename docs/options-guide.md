@@ -9,7 +9,7 @@ In-game **Options** dialog groups (Program Settings):
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
-| **Miscellaneous** | Default settings directory (for import/export), manage storage access |
+| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import Settings**, **Check for updates?** and **Check for updates now**, persistent connection |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
 ## Extra text windows
