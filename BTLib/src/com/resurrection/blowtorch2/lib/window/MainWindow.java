@@ -3580,12 +3580,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (updateCheckStartedThisLaunch || group == null) {
 			return;
 		}
-		Object opt = group.findOptionByKey("check_for_updates");
-		if (!(opt instanceof BaseOption)) {
-			return;
-		}
-		Object value = ((BaseOption) opt).getValue();
-		if (!(value instanceof Boolean) || !((Boolean) value).booleanValue()) {
+		// App-wide preference, not the per-profile option value: whether this
+		// install looks for its own updates should not depend on which MUD is
+		// open. The Options toggle writes through to it.
+		if (!com.resurrection.blowtorch2.lib.util.UpdateChecker.isEnabled(this)) {
 			return;
 		}
 		updateCheckStartedThisLaunch = true;

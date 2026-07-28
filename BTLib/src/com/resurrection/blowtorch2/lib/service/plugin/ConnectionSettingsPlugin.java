@@ -603,7 +603,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption check_for_updates = new BooleanOption();
 		check_for_updates.setTitle("Check for updates?");
-		check_for_updates.setDescription("Ask GitHub once a day whether a newer BlowTorch 2 release exists, and say so when you start the app. This is the only connection BlowTorch makes to anything other than the MUDs you added — turn it off if you would rather it made none, or if you installed from F-Droid, which updates you already. Nothing about you is sent: it is a plain read of the public releases page.");
+		check_for_updates.setDescription("Ask GitHub once a day whether a newer BlowTorch 2 release exists, and say so when you start the app. Applies to the whole app, not just this world — setting it here sets it everywhere. This is the only connection BlowTorch makes to anything other than the MUDs you added; turn it off if you would rather it made none, or if you installed from F-Droid, which updates you already. Nothing about you is sent: it is a plain read of the public releases page.");
 		check_for_updates.setKey("check_for_updates");
 		check_for_updates.setValue(true);
 		miscOptions.addOption(check_for_updates);

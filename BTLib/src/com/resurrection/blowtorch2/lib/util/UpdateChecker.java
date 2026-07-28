@@ -176,6 +176,33 @@ public final class UpdateChecker {
 		t.start();
 	}
 
+	/** App-wide, not per profile. See {@link #isEnabled}. */
+	private static final String KEY_ENABLED = "enabled";
+
+	/**
+	 * Whether the automatic check is on.
+	 *
+	 * <p>Stored app-wide rather than in a connection profile. Whether this app
+	 * looks for its own updates is a property of the install, not of the MUD you
+	 * happen to have open — as a per-profile setting it would have meant "check
+	 * for updates when connected to Eden but not elsewhere", which is not a
+	 * thing anyone wants.
+	 *
+	 * @param context Any context.
+	 * @return true when the automatic check should run. Defaults to on.
+	 */
+	public static boolean isEnabled(final Context context) {
+		return context == null || prefs(context).getBoolean(KEY_ENABLED, true);
+	}
+
+	/** Write the app-wide flag. Called when the Options toggle changes. */
+	public static void setEnabled(final Context context, final boolean enabled) {
+		if (context == null) {
+			return;
+		}
+		prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply();
+	}
+
 	/** Remember that the player does not want to be told about this one again. */
 	public static void skipVersion(final Context context, final String version) {
 		if (context == null || version == null) {

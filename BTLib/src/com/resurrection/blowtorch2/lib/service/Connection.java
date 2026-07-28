@@ -3659,7 +3659,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mReconnect.setPersistent((Boolean) o.getValue());
 				break;
 			case check_for_updates:
-				// Read by MainWindow at startup; nothing to apply in the service.
+				// Write through to the app-wide flag. The option lives in a
+				// connection profile because that is where the Options screen is
+				// built, but the answer applies to the install, so toggling it
+				// under any world sets it for all of them.
+				if (mService != null) {
+					com.resurrection.blowtorch2.lib.util.UpdateChecker.setEnabled(
+							mService.getApplicationContext(), (Boolean) o.getValue());
+				}
 				break;
 			case cull_extraneous_color:
 				this.doSetCullExtraneousColor((Boolean) o.getValue());
