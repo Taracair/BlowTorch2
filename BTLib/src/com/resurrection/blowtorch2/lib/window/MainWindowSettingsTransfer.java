@@ -372,7 +372,8 @@ final class MainWindowSettingsTransfer {
 			OutputStream out = null;
 			try {
 				in = new FileInputStream(tmp);
-				out = activity.getContentResolver().openOutputStream(uri);
+				// "wt" truncates; plain "w" can leave the tail of a longer old file.
+				out = activity.getContentResolver().openOutputStream(uri, "wt");
 				if (out == null) {
 					Toast.makeText(activity, "Could not write selected location.", Toast.LENGTH_LONG).show();
 					return;

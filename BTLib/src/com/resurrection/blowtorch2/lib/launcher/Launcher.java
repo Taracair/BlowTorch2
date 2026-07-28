@@ -1395,7 +1395,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			} else if (requestCode == REQUEST_CREATE_SETTINGS_ZIP) {
 				File tempZip = new File(SDCardUtils.resolveCacheDir(this), "export_settings_backup.zip");
 				int copied = LauncherBackupIO.zipSettingsDirectory(getFilesDir(), tempZip);
-				OutputStream out = getContentResolver().openOutputStream(uri);
+				// "wt" truncates; plain "w" can leave the tail of a longer old file.
+				OutputStream out = getContentResolver().openOutputStream(uri, "wt");
 				if (out == null) {
 					Toast.makeText(this, "Could not write selected location.", Toast.LENGTH_LONG).show();
 					return;
@@ -1421,26 +1422,53 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			throw new IOException("Could not open selected file");
 		}
 		File temp = new File(SDCardUtils.resolveCacheDir(this), "import_server_list.xml");
-		OutputStream out = new FileOutputStream(temp);
-		byte[] buffer = new byte[4096];
-		int len;
-		while ((len = in.read(buffer)) > 0) {
-			out.write(buffer, 0, len);
+		OutputStream out = null;
+		try {
+			out = new FileOutputStream(temp);
+			byte[] buffer = new byte[4096];
+			int len;
+			// != -1, not > 0. A content provider is allowed to hand back 0 bytes
+			// without being at the end, and the old test treated that as done --
+			// a server list truncated at that point, silently.
+			while ((len = in.read(buffer)) != -1) {
+				out.write(buffer, 0, len);
+			}
+			out.flush();
+		} finally {
+			// Both closed even when the copy throws part way. They were closed
+			// only on the happy path before.
+			closeQuietly(out);
+			closeQuietly(in);
 		}
-		in.close();
-		out.close();
 		actionHandler.sendMessage(actionHandler.obtainMessage(MESSAGE_IMPORT, temp.getAbsolutePath()));
 	}
 
 	private void exportServerListToUri(Uri uri) throws IOException {
-		OutputStream out = getContentResolver().openOutputStream(uri);
+		// "wt" truncates; plain "w" can leave the tail of a longer old file, so
+		// exporting a shorter list over a bigger one produced broken XML.
+		OutputStream out = getContentResolver().openOutputStream(uri, "wt");
 		if (out == null) {
 			throw new IOException("Could not write selected location");
 		}
-		byte[] data = LauncherSettings.writeXml(launcher_settings).getBytes("UTF-8");
-		out.write(data);
-		out.close();
+		try {
+			out.write(LauncherSettings.writeXml(launcher_settings).getBytes("UTF-8"));
+			out.flush();
+		} finally {
+			closeQuietly(out);
+		}
 		Toast.makeText(this, "Server list exported.", Toast.LENGTH_LONG).show();
+	}
+
+	/** Close and move on: a failure here cannot change what was already written. */
+	private static void closeQuietly(java.io.Closeable c) {
+		if (c == null) {
+			return;
+		}
+		try {
+			c.close();
+		} catch (IOException ignored) {
+			// Nothing useful to do, and the caller's own error matters more.
+		}
 	}
 
 	private void DoWhatsNew() throws NameNotFoundException { 
