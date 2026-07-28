@@ -1742,6 +1742,74 @@ public class MapperController {
 	 *
 	 * @return status message for the window
 	 */
+	/**
+	 * Open the map that belongs to this world, creating it the first time.
+	 *
+	 * <p>Every connection used to open the file literally called {@code default},
+	 * so every MUD drew into the same map and rooms from different worlds piled
+	 * up in one file. {@code hostHint} was written into each map and then never
+	 * read by anything.
+	 *
+	 * <p>Order: a saved map already claimed by this host wins. Failing that, an
+	 * unclaimed {@code default} is adopted and stamped — that is the map someone
+	 * upgrading already has, and it must not appear to vanish. Otherwise the
+	 * world gets a file of its own, named after its host.
+	 *
+	 * @param host Host of the current connection; blank falls back to the old
+	 *     shared name, since without a host there is nothing to separate.
+	 * @return Status line for the caller to show.
+	 */
+	public String openMapForHost(final String host) {
+		String h = host == null ? "" : host.trim();
+		Context ctx = context();
+		if (ctx == null || h.length() == 0) {
+			return openMap(DEFAULT_MAP_NAME);
+		}
+		String claimed = findMapClaimedBy(ctx, h);
+		if (claimed != null) {
+			return openMap(claimed);
+		}
+		if (MapStore.exists(ctx, DEFAULT_MAP_NAME) && !isClaimedByAnotherHost(ctx, h)) {
+			String status = openMap(DEFAULT_MAP_NAME);
+			if (mMap != null) {
+				mMap.setHostHint(h);
+				save();
+			}
+			return status;
+		}
+		return openMap(MapStore.safeName(h));
+	}
+
+	/** @return Name of a saved map whose hostHint is {@code host}, or null. */
+	private static String findMapClaimedBy(final Context ctx, final String host) {
+		List<String> names = MapStore.listMaps(ctx);
+		if (names == null) {
+			return null;
+		}
+		for (String name : names) {
+			if (host.equalsIgnoreCase(hostHintOf(ctx, name))) {
+				return name;
+			}
+		}
+		return null;
+	}
+
+	/** True when {@code default} already belongs to a different world. */
+	private static boolean isClaimedByAnotherHost(final Context ctx, final String host) {
+		String hint = hostHintOf(ctx, DEFAULT_MAP_NAME);
+		return hint != null && hint.length() > 0 && !host.equalsIgnoreCase(hint);
+	}
+
+	private static String hostHintOf(final Context ctx, final String name) {
+		try {
+			MudMap m = MapStore.load(ctx, name);
+			return m == null ? null : m.getHostHint();
+		} catch (Exception e) {
+			// A map that will not load cannot be claimed by anyone.
+			return null;
+		}
+	}
+
 	public String openMap(final String name) {
 		String mapName = TextUtils.isEmpty(name) ? DEFAULT_MAP_NAME : name.trim();
 		Context ctx = context();

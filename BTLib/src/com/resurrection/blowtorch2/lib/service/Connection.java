@@ -1204,7 +1204,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		undoAggressiveMapDefaults();
 		if (mMapper != null) {
 			mMapper.applySettingsFromConnection();
-			mMapper.openMap(MapperController.DEFAULT_MAP_NAME);
+			// Per world, not one shared "default" for every MUD you connect to.
+			mMapper.openMapForHost(getHost());
 		}
 		ensureExtraTextSlots(false);
 		mService.reloadWindows();
