@@ -63,20 +63,29 @@ public class AliasExpansionTest {
 	}
 
 	/**
-	 * Documents a real discrepancy rather than asserting it is correct.
-	 *
-	 * <p>The manual says an unanchored alias "uses normal regex $n groups in
-	 * With". It does not: the replacement is passed through verbatim. Commit
-	 * f743daaa wrapped it in Matcher.quoteReplacement to stop captured text
-	 * containing a dollar sign from throwing, which also made every $n literal.
-	 *
-	 * <p>Pinned here so that whichever way this is settled, it is a deliberate
-	 * change with a failing test to update, not a silent one.
+	 * The regression fixed: an unanchored alias substitutes from its own groups,
+	 * which is what the manual always said and what commit f743daaa broke by
+	 * wrapping the replacement in Matcher.quoteReplacement to stop a dollar sign
+	 * in captured text from throwing.
 	 */
 	@Test
-	public void plainAliasesDoNotSubstituteAtAllRightNow() {
+	public void plainAliasesSubstituteFromTheirOwnGroups() {
+		AliasData a = alias("kk (.+)", "kill $1");
+		assertEquals("kill goblin", AliasExpansion.expand(a, "kk goblin", "kk goblin"));
+	}
+
+	/** With no group to fill, a reference stays literal rather than vanishing. */
+	@Test
+	public void plainAliasWithoutGroupsLeavesReferencesAlone() {
 		AliasData a = alias("kk", "kill $1");
 		assertEquals("kill $1", AliasExpansion.expand(a, "kk goblin", "kk"));
+	}
+
+	/** A price in the replacement is not a group reference and must survive. */
+	@Test
+	public void aLiteralDollarWithNoMatchingGroupSurvives() {
+		AliasData a = alias("price", "say it costs $5");
+		assertEquals("say it costs $5", AliasExpansion.expand(a, "price", "price"));
 	}
 
 	@Test

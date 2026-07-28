@@ -41,6 +41,7 @@ import android.util.Xml;
 
 import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.alias.AliasParser;
+import com.resurrection.blowtorch2.lib.alias.AliasExpansion;
 import com.resurrection.blowtorch2.lib.alias.AliasPattern;
 import com.resurrection.blowtorch2.lib.alias.AnchoredAliasCaptures;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
@@ -1014,8 +1015,17 @@ Note("Example text!")
 					doTail = false;
 					
 				} else {
+					// Substitute the alias's own capture groups first, then quote
+					// the result. Quoting the raw replacement (which is what
+					// stopped a "$" in captured text from throwing) also made
+					// every $n literal, so unanchored aliases silently lost the
+					// substitution the manual promises.
+					// The whole typed line is only needed by the word-splitting
+					// form, which this branch is not; pass the matched text.
+					String plain = AliasExpansion.expand(replace_with,
+							alias_replacer.group(index), alias_replacer.group(index));
 					alias_replacer.appendReplacement(replaced,
-							Matcher.quoteReplacement(replace_with.getPost()));
+							Matcher.quoteReplacement(plain));
 				}
 			}
 			if(doTail) {
@@ -1077,8 +1087,10 @@ Note("Example text!")
 							alias_recursive.appendReplacement(buffertemp, Matcher.quoteReplacement(finalString));
 							reprocess = false;
 						} else {
+							String plainR = AliasExpansion.expand(replace_with,
+									replaced.toString(), alias_recursive.group(idx));
 							alias_recursive.appendReplacement(buffertemp,
-									Matcher.quoteReplacement(replace_with.getPost()));
+									Matcher.quoteReplacement(plainR));
 						}
 						
 					}
