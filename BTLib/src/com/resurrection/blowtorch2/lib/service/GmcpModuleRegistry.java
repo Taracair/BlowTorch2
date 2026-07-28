@@ -71,6 +71,10 @@ public final class GmcpModuleRegistry {
 		addCatalog("External.Discord", 1, "Discord rich presence");
 		addCatalog("Config", 1, "Client config exchange");
 		addCatalog("MSDP", 1, "MSDP bridge over GMCP");
+		// Proposed at mudstandards.org, no reference implementation yet. Off by
+		// default on purpose: announcing it invites a server to send frames, and
+		// we answer frame.support without yet drawing what frame.open asks for.
+		addCatalogLiteral("mudstd.frame", 1, "Server-controlled frames (proposal, experimental)");
 	}
 
 	private void addNative(String id, int ver, String summary) {
@@ -79,6 +83,15 @@ public final class GmcpModuleRegistry {
 
 	private void addCatalog(String id, int ver, String summary) {
 		catalog.put(normKey(id), new ModuleInfo(canonicalId(id), ver, summary, Kind.CATALOG, false));
+	}
+
+	/**
+	 * Same as {@link #addCatalog} but keeps the id exactly as written, instead of
+	 * title-casing each segment. Needed where a specification names the package
+	 * in lower case and we would otherwise announce "Mudstd.Frame".
+	 */
+	private void addCatalogLiteral(String id, int ver, String summary) {
+		catalog.put(normKey(id), new ModuleInfo(id, ver, summary, Kind.CATALOG, false));
 	}
 
 	public synchronized ArrayList<ModuleInfo> allKnownModules() {
