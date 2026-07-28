@@ -20,5 +20,46 @@ public class BlowTorchApp extends Application {
 	public void onCreate() {
 		super.onCreate();
 		BlowTorchLogger.attach(this);
+		enableStrictModeOnTestBuilds();
+	}
+
+	/**
+	 * Turn on StrictMode, on the test build only.
+	 *
+	 * <p>Every UI-thread problem in this project so far has been found the same
+	 * slow way: someone notices a stutter, describes it, and we go looking with
+	 * probes. StrictMode reports disk and network on the UI thread as it
+	 * happens, with the stack that did it — the evidence arrives before the
+	 * complaint.
+	 *
+	 * <p>Log, never crash. A penalty dialog or death would make the test build
+	 * unusable for actually playing, and it is the build that gets played.
+	 * Production is untouched: this is a development instrument, and it costs
+	 * real time on every disk read.
+	 */
+	private void enableStrictModeOnTestBuilds() {
+		if (!getPackageName().endsWith(".test")) {
+			return;
+		}
+		try {
+			android.os.StrictMode.setThreadPolicy(
+					new android.os.StrictMode.ThreadPolicy.Builder()
+							.detectDiskReads()
+							.detectDiskWrites()
+							.detectNetwork()
+							.detectCustomSlowCalls()
+							.penaltyLog()
+							.build());
+			android.os.StrictMode.setVmPolicy(
+					new android.os.StrictMode.VmPolicy.Builder()
+							.detectLeakedClosableObjects()
+							.detectLeakedSqlLiteObjects()
+							.penaltyLog()
+							.build());
+			android.util.Log.i("BlowTorch", "StrictMode on (test build): "
+					+ "watch logcat for StrictMode policy violation");
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("BlowTorchApp.strictMode", e);
+		}
 	}
 }
