@@ -1127,11 +1127,22 @@ function clampLogicalPosition(x, y, b)
 	return x, y
 end
 
-function clampAllButtons()
+-- forceRect: rebuild every rect even where the clamp changed nothing. Needed
+-- when statusoffset may have moved under all of them (onSizeChanged), but not
+-- on the load path, where BUTTON:new has just built each rect from the same
+-- position and offset -- rebuilding all of them there was pure duplicate work.
+function clampAllButtons(forceRect)
 	for i = 1, #buttons do
 		local b = buttons[i]
-		b.data.x, b.data.y = clampLogicalPosition(b.data.x, b.data.y, b)
-		b:updateRect(statusoffset)
+		local ox, oy = b.data.x, b.data.y
+		local nx, ny = clampLogicalPosition(ox, oy, b)
+		local moved = nx ~= ox or ny ~= oy
+		if moved then
+			b.data.x, b.data.y = nx, ny
+		end
+		if moved or forceRect then
+			b:updateRect(statusoffset)
+		end
 	end
 end
 
@@ -2136,8 +2147,10 @@ function OnSizeChanged(w,h,oldw,oldh)
 
 	
 	positionRevertButton(w, h)
-	
-	clampAllButtons()
+
+	-- The view just changed size, so statusoffset may have moved under every
+	-- button; none of these rects can be trusted.
+	clampAllButtons(true)
 	drawButtons()
 	draw = true
 	
