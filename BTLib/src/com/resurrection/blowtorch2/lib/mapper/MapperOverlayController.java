@@ -2118,9 +2118,10 @@ public class MapperOverlayController
 		}
 		TextView nav = (TextView) overlayRoot.findViewById(R.id.mapper_cat_nav);
 		TextView floors = (TextView) overlayRoot.findViewById(R.id.mapper_cat_floors);
-		// Resource IDs keep legacy _build/_file names; chips label Edit/More.
+		// Resource IDs keep legacy _build/_file names; the chips read Edit/Map.
 		TextView editCat = (TextView) overlayRoot.findViewById(R.id.mapper_cat_build);
-		TextView moreCat = (TextView) overlayRoot.findViewById(R.id.mapper_cat_file);
+		TextView mapCat = (TextView) overlayRoot.findViewById(R.id.mapper_cat_file);
+		TextView viewCat = (TextView) overlayRoot.findViewById(R.id.mapper_cat_view);
 		if (nav != null) {
 			nav.setOnClickListener(new View.OnClickListener() {
 				@Override
@@ -2145,11 +2146,19 @@ public class MapperOverlayController
 				}
 			});
 		}
-		if (moreCat != null) {
-			moreCat.setOnClickListener(new View.OnClickListener() {
+		if (mapCat != null) {
+			mapCat.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					openMoreRadial();
+					openMapFileRadial();
+				}
+			});
+		}
+		if (viewCat != null) {
+			viewCat.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					openViewSyncRadial();
 				}
 			});
 		}
@@ -2185,7 +2194,16 @@ public class MapperOverlayController
 		});
 	}
 
-	private void openMoreRadial() {
+	private void openMapFileRadial() {
+		showRadialOnOverlay(new Runnable() {
+			@Override
+			public void run() {
+				MapperRadialMenu.showMapFile((ViewGroup) overlayRoot, radialListener());
+			}
+		});
+	}
+
+	private void openViewSyncRadial() {
 		pullSnapshotFromService();
 		showRadialOnOverlay(new Runnable() {
 			@Override
@@ -2193,7 +2211,7 @@ public class MapperOverlayController
 				// Service owns truth — UI controller is often null/stale.
 				boolean gmcpOn = snapshotUseGmcp;
 				boolean gmcpGrow = snapshotGmcpGrow;
-				MapperRadialMenu.showMore((ViewGroup) overlayRoot, radialListener(),
+				MapperRadialMenu.showViewSync((ViewGroup) overlayRoot, radialListener(),
 						currentOpacityPercent(), gmcpOn, gmcpGrow, showLinkLabels,
 						snapshotEchoWindow);
 			}
