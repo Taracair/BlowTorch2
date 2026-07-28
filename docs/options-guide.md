@@ -112,7 +112,7 @@ default — enable only if a MUD needs them, then reconnect:
 | Option | What it does |
 |--------|----------------|
 | **Use MTTS?** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI` → `MTTS <bits>`. On = bits **13** (ANSI+UTF-8+256); off = bits **1** (ANSI only). Reconnect after change. |
-| **Use MSDP?** | Out-of-band variables (option 69); dump with `.msdp` |
+| **Use MSDP?** | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
 | **Use MSSP?** | Server listing/status (option 70); dump with `.mssp` |
 
 When off, BlowTorch answers `DONT` so the server should not send those channels.
@@ -188,6 +188,9 @@ patterns.
   suppresses a version you do not want to be reminded about.
 - **Persistent Connection?** — ride out brief network loss without the
   disconnect dialog.
+- **Export Settings** / **Import Settings** — moved here from the ⋮ menu. They
+  are setup and migration jobs rather than things you reach for mid-session, and
+  they sit beside the storage settings they depend on.
 
 ## Storage
 
