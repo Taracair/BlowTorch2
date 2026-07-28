@@ -34,11 +34,20 @@ Open the alias editor from the session Options / editors list.
 
 Examples:
 
-| Replace | With | You type | Sent |
-|---------|------|----------|------|
-| `c` | `cast` | `c fireball` | (word alias; see below) |
-| `^cast (.+)$` | `c $1` | `cast fireball` | `c fireball` |
-| `^kill (.+)$` | `k $1` | `kill goblin` | `k goblin` |
+    `c`
+        With: `cast`
+        You type: `c fireball`
+        Sent: (word alias; see below)
+
+    `^cast (.+)$`
+        With: `c $1`
+        You type: `cast fireball`
+        Sent: `c fireball`
+
+    `^kill (.+)$`
+        With: `k $1`
+        You type: `kill goblin`
+        Sent: `k goblin`
 
 Notes:
 
@@ -84,10 +93,13 @@ Replace, Toast, Notification, Set Variable text, and similar actions.
 
 Examples (Literal off):
 
-| Pattern | Action text | Meaning |
-|---------|-------------|---------|
-| `You hit (.+) for (\d+)` | `emote crushed $1 ($2 dmg)` | Name → `$1`, damage → `$2` |
-| `A (.+) appears` | `kill $1` | Auto-target the thing that appeared |
+    `You hit (.+) for (\d+)`
+        Action text: `emote crushed $1 ($2 dmg)`
+        Meaning: Name → `$1`, damage → `$2`
+
+    `A (.+) appears`
+        Action text: `kill $1`
+        Meaning: Auto-target the thing that appeared
 
 **Sample — fire only if another trigger is enabled:** create trigger
 `combat_mode` (any pattern; leave it disabled until you want the mode on). On
@@ -129,10 +141,8 @@ match what you see in the editors.
 
 Options → Aliases → new:
 
-| Field | Value |
-|-------|-------|
-| Replace | `kk (.+)` |
-| With | `kill $1` |
+    Replace   `kk (.+)`
+    With      `kill $1`
 
 The `(.+)` captures what you typed after `kk`, and `$1` puts it back. **The
 pattern must contain a group** — a bare `kk` has nothing to capture, and `$1`
@@ -147,18 +157,14 @@ type. A trigger sees what the *game* prints. A session variable joins them.
 
 **Trigger** — Options → Triggers → new:
 
-| Field | Value |
-|-------|-------|
-| Pattern | `A plush suede (\w+) sits against the wall\.` |
-| Literal? | **off** (this is a regex) |
-| Action | **Set Variable**, name `target`, value `$1` |
+    Pattern    `A plush suede (\w+) sits against the wall\.`
+    Literal?   **off** (this is a regex)
+    Action     **Set Variable**, name `target`, value `$1`
 
 **Alias** — Options → Aliases → new:
 
-| Field | Value |
-|-------|-------|
-| Replace | `att` |
-| With | `kill ${target}` |
+    Replace   `att`
+    With      `kill ${target}`
 
 Walk into the room, then type `att`. The client sends `kill recliner`.
 
@@ -272,12 +278,10 @@ Maps are per world, saved under `/BlowTorch/maps/`.
 
 Options → Timers → new:
 
-| Field | Value |
-|-------|-------|
-| Timer Name | `heal` |
-| Timer duration | `15` |
-| Repeat | on |
-| Action | **Ack With** → `drink health` |
+    Timer Name       `heal`
+    Timer duration   `15`
+    Repeat           on
+    Action           **Ack With** → `drink health`
 
 Control it from the input bar, by name:
 
@@ -351,31 +355,29 @@ is enabled; `.alias list` shows every alias at once.
 
 ## Built-in commands
 
-| Command | Description |
-|---------|-------------|
-| `.colordebug <0\|1\|2\|3>` | ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes |
-| `.closewindow` | Dirty-exit the game window |
-| `.note <text>` | Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging |
-| `.trigger …` | Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below |
-| `.alias …` | Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below |
-| `.timer <action> <name> [silent]` | Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`) |
-| `.dobell` | Fire configured bell reaction |
-| `.togglefullscreen` | Toggle fullscreen preference |
-| `.wrap [on\|off]` | Input bar growth (default on); also Options → Input → Grow Input Bar? |
-| `.gmcp …` | GMCP helpers (status / sniff / version / supports / dump / send); see below |
-| `.mcp …` | MCP helpers (Mud Client Protocol `#$#`); see below |
-| `.mssp` | Dump the cached MSSP server listing (server announces it; nothing to ask for) |
-| `.msdp …` | Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>` |
-| `.keyboard` / `.kb` | Input-bar control — see `.kb` section below |
-| `.disconnect` | Disconnect the current session (same as overflow **Disconnect**) |
-| `.reconnect` | Reconnect the current session (same as overflow **Reconnect**) |
-| `.run <directions>` | Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands |
-| `.loadset <setname>` | Built-in stub; `button_window` overrides to load a button set |
-| `.clearbuttons` | Clear on-screen buttons (`button_window` may re-register) |
-| `.switch <connection>` | Switch foreground UI to another open connection by display name |
-| `.search …` | Scrollback search; see forms below |
-| `.map …` | Built-in Mapper (record/draw/links/find/path/maps); see Mapper |
-| `.window …` | Extra text windows (list/show/hide/clear/create/destroy); see below |
+    `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
+    `.closewindow`                      Dirty-exit the game window
+    `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
+    `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
+    `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
+    `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
+    `.dobell`                           Fire configured bell reaction
+    `.togglefullscreen`                 Toggle fullscreen preference
+    `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
+    `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
+    `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
+    `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
+    `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
+    `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
+    `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
+    `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
+    `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
+    `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
+    `.clearbuttons`                     Clear on-screen buttons (`button_window` may re-register)
+    `.switch <connection>`              Switch foreground UI to another open connection by display name
+    `.search …`                         Scrollback search; see forms below
+    `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
+    `.window …`                         Extra text windows (list/show/hide/clear/create/destroy); see below
 
 ### `.trigger` forms
 
@@ -424,14 +426,12 @@ stays under the ⋮ chrome so overflow remains reachable.
 
 ### Concepts
 
-| Idea | Meaning |
-|------|---------|
-| **Tile** | One room cell on a grid (x, y) plus a **level** |
-| **Exit** | Edge from tile A to B via a walk command (`n`, `go west`, `out`, …) |
-| **Current** | Where the mapper thinks you are (green highlight) |
-| **Selected** | Tile you tapped (yellow outline); used by Edit / Here / Links |
-| **Follow** | Camera keeps current centered; pan/pinch turns Follow off until you Center |
-| **Level nest** | A floor anchored on a door/stairs tile (not one global stack) |
+    **Tile**         One room cell on a grid (x, y) plus a **level**
+    **Exit**         Edge from tile A to B via a walk command (`n`, `go west`, `out`, …)
+    **Current**      Where the mapper thinks you are (green highlight)
+    **Selected**     Tile you tapped (yellow outline); used by Edit / Here / Links
+    **Follow**       Camera keeps current centered; pan/pinch turns Follow off until you Center
+    **Level nest**   A floor anchored on a door/stairs tile (not one global stack)
 
 Maps are JSON files under `/BlowTorch/maps/` (autosave ~2s after changes; **Save**
 in **More** or `.map export` / `.map save` forces a write). With a path,
@@ -455,13 +455,25 @@ Bottom chrome: **Nav** · **Floors** · **Edit** · **Map** · **View**, plus
 category opens an in-map pie menu (no system status-bar flash). Toggle wedges
 show their current state under the label (e.g. Follow **on**).
 
-| Chip | What it is for | Actions |
-|------|----------------|---------|
-| **Nav** | Getting around | Path to, Go there, Find, Center, Follow, Record |
-| **Floors** | Levels of this map | Floor list, Floor ↑/↓, Root floor, To entrance, Rename floor, Delete floor |
-| **Edit** | Changing the map by hand | Draw, Link mode, Set Here, Edit tile, Spacing (spread/packed), Tidy now, 1-way specials, Moves, Link map, Undo |
-| **Map** | The map as a file | Save, Maps, New map, Export, Capture |
-| **View** | Standing preferences | Opacity…, Arrow labels, Window echo, GMCP sync, GMCP grow |
+    **Nav**
+        What it is for: Getting around
+        Actions: Path to, Go there, Find, Center, Follow, Record
+
+    **Floors**
+        What it is for: Levels of this map
+        Actions: Floor list, Floor ↑/↓, Root floor, To entrance, Rename floor, Delete floor
+
+    **Edit**
+        What it is for: Changing the map by hand
+        Actions: Draw, Link mode, Set Here, Edit tile, Spacing (spread/packed), Tidy now, 1-way specials, Moves, Link map, Undo
+
+    **Map**
+        What it is for: The map as a file
+        Actions: Save, Maps, New map, Export, Capture
+
+    **View**
+        What it is for: Standing preferences
+        Actions: Opacity…, Arrow labels, Window echo, GMCP sync, GMCP grow
 
 **Close** is only the title **✕** (not in the pie menus).
 
@@ -501,11 +513,17 @@ the label shows `cmd1 · cmd2 +N` — tap it for the full list.
 
 Badge glyphs on a tile:
 
-| Glyph | Meaning | Tap |
-|-------|---------|-----|
-| **▲** / **▼** | Exit to another **floor** of this map | Jump camera / Here to that floor |
-| **◆** | Special same-map nest (`enter` / `out`, …) | Jump to that floor |
-| **○** | Portal to **another map file** | Save current map, then open the linked map in the overlay |
+    **▲** / **▼**
+        Meaning: Exit to another **floor** of this map
+        Tap: Jump camera / Here to that floor
+
+    **◆**
+        Meaning: Special same-map nest (`enter` / `out`, …)
+        Tap: Jump to that floor
+
+    **○**
+        Meaning: Portal to **another map file**
+        Tap: Save current map, then open the linked map in the overlay
 
 To create a portal: Edit → long-press tile → **Link to map…** (or **Edit → Link map**),
 pick the destination map and Moves command. Walking that command with **Follow**
@@ -531,13 +549,11 @@ pocket floor that is not a simple vertical stack.
 
 Planar grid: **+x = east**, **+y = south** (north decreases y).
 
-| Commands | Effect |
-|----------|--------|
-| `n`/`north`, `s`/`south`, `e`/`east`, `w`/`west` (and `go`/`walk`/`move` prefixes) | Neighbor on the same level |
-| `ne`/`nw`/`se`/`sw` | Diagonal |
-| `u`/`up`/`climb`/`ascend` | Level +1 (while Recording) |
-| `d`/`down`/`descend` | Level −1 (while Recording) |
-| `in`/`enter`, `out`/`leave`/`exit`, other text | Special exit (nearby cell, not a compass step) |
+    `n`/`north`, `s`/`south`, `e`/`east`, `w`/`west` (and `go`/`walk`/`move` prefixes)   Neighbor on the same level
+    `ne`/`nw`/`se`/`sw`                                                                  Diagonal
+    `u`/`up`/`climb`/`ascend`                                                            Level +1 (while Recording)
+    `d`/`down`/`descend`                                                                 Level −1 (while Recording)
+    `in`/`enter`, `out`/`leave`/`exit`, other text                                       Special exit (nearby cell, not a compass step)
 
 Recording prefers this built-in compass lexicon before Speedwalk key bindings
 (default `.run`: `h`=nw, `j`=ne, `k`=sw, `l`=se), so typing `go se` still places a
@@ -546,50 +562,48 @@ Print the summary with `.map dirs`.
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `.map` | Help / status |
-| `.map open\|close\|toggle` | Show or hide the map UI |
-| `.map mode fullscreen\|float` | Presentation mode |
-| `.map mode browse\|edit\|toggle` | Map interaction mode (Browse default; Edit for nests/Draw/Links/delete) |
-| `.map record on\|off\|toggle` | Record movement into tiles/exits (`rec` alias) |
-| `.map follow on\|off\|toggle` | Keep the view centered on you |
-| `.map level list\|prev\|next\|set <name>` | List / nest down (prev) / nest up (next) / jump by name |
-| `.map level delete <id\|name>` | Delete a floor and all its tiles (Edit; cannot delete last) |
-| `.map level move <tileId> <level>` | Move a tile onto another level |
-| `.map find <query>` | Search rooms (`search` alias) |
-| `.map path <query>` | Show path commands (no send) |
-| `.map goto <query>` | Path; send only if **Path auto-send** is on |
-| `.map go <query\|id>` | Path and **always** send walk commands (tile long-press **Go there**) |
-| `.map center` | Center on current room |
-| `.map undo` | Undo last graph change |
-| `.map dirs` | Movement lexicon / grid offsets |
-| `.map maps` / `.map load <name>` / `.map new <name>` | List / open / create (new name must be unique) |
-| `.map deletemap <name>` | Delete a saved map file (UI: **More → Maps** → long-press) |
-| `.map portal\|linkmap <cmd> map <name> [from <id>]` | Portal exit to another map file |
-| `.map levelink <cmd> new\|to <levelId>\|independent <name> [from <id>]` | Floor link (↑/↓ / existing / independent) |
-| `.map level rename [<id\|name>] <newName>` | Rename a floor |
-| `.map opacity [40-100]` | Overlay opacity |
-| `.map export` / `.map save` | Save now (`/BlowTorch/maps/`) |
-| `.map export\|save <path>` | Write JSON to that path |
-| `.map import <path\|name>` | Import JSON (path or maps-dir name); copy into maps |
-| `.map zoom in\|out\|reset` | Zoom the open map UI |
-| `.map zoom <factor>` | Zoom by scale factor (map UI must be open) |
-| `.map add [x y] [title] [here]` | Place a tile (optional title; `here` sets current) |
-| `.map here [id]` | Mark current position |
-| `.map delete [id]` | Remove a tile (and links to it) |
-| `.map neighbor <cmd> [from <id>]` | Create/link a neighbor by walk verb |
-| `.map move [id] <x> <y>` | Reposition a tile on the grid |
-| `.map title` / `.map note` | Edit current tile text |
-| `.map title for <id> <text>` / `.map note for <id> <text>` | Edit a specific tile |
-| `.map link <cmd> [from <id>] to <tileId>` | Manual link |
-| `.map unlink <cmd> [from <id>]` | Remove an exit |
-| `.map conflict` / `list` / `list all` | List open conflicts (or all, including resolved) |
-| `.map conflict resolve\|ignore <id\|n>` | Mark one conflict resolved |
-| `.map conflict resolve\|ignore all` | Mark all open conflicts resolved |
-| `.map conflict purge` | Remove resolved conflicts (open ones kept) |
-| `.map capture preview` | Match Options title/exits regex on recent buffer |
-| `.map capture apply` | Apply last preview to the current tile |
+    `.map`                                                                  Help / status
+    `.map open|close|toggle`                                                Show or hide the map UI
+    `.map mode fullscreen|float`                                            Presentation mode
+    `.map mode browse|edit|toggle`                                          Map interaction mode (Browse default; Edit for nests/Draw/Links/delete)
+    `.map record on|off|toggle`                                             Record movement into tiles/exits (`rec` alias)
+    `.map follow on|off|toggle`                                             Keep the view centered on you
+    `.map level list|prev|next|set <name>`                                  List / nest down (prev) / nest up (next) / jump by name
+    `.map level delete <id|name>`                                           Delete a floor and all its tiles (Edit; cannot delete last)
+    `.map level move <tileId> <level>`                                      Move a tile onto another level
+    `.map find <query>`                                                     Search rooms (`search` alias)
+    `.map path <query>`                                                     Show path commands (no send)
+    `.map goto <query>`                                                     Path; send only if **Path auto-send** is on
+    `.map go <query|id>`                                                    Path and **always** send walk commands (tile long-press **Go there**)
+    `.map center`                                                           Center on current room
+    `.map undo`                                                             Undo last graph change
+    `.map dirs`                                                             Movement lexicon / grid offsets
+    `.map maps` / `.map load <name>` / `.map new <name>`                    List / open / create (new name must be unique)
+    `.map deletemap <name>`                                                 Delete a saved map file (UI: **More → Maps** → long-press)
+    `.map portal|linkmap <cmd> map <name> [from <id>]`                      Portal exit to another map file
+    `.map levelink <cmd> new|to <levelId>|independent <name> [from <id>]`   Floor link (↑/↓ / existing / independent)
+    `.map level rename [<id|name>] <newName>`                               Rename a floor
+    `.map opacity [40-100]`                                                 Overlay opacity
+    `.map export` / `.map save`                                             Save now (`/BlowTorch/maps/`)
+    `.map export|save <path>`                                               Write JSON to that path
+    `.map import <path|name>`                                               Import JSON (path or maps-dir name); copy into maps
+    `.map zoom in|out|reset`                                                Zoom the open map UI
+    `.map zoom <factor>`                                                    Zoom by scale factor (map UI must be open)
+    `.map add [x y] [title] [here]`                                         Place a tile (optional title; `here` sets current)
+    `.map here [id]`                                                        Mark current position
+    `.map delete [id]`                                                      Remove a tile (and links to it)
+    `.map neighbor <cmd> [from <id>]`                                       Create/link a neighbor by walk verb
+    `.map move [id] <x> <y>`                                                Reposition a tile on the grid
+    `.map title` / `.map note`                                              Edit current tile text
+    `.map title for <id> <text>` / `.map note for <id> <text>`              Edit a specific tile
+    `.map link <cmd> [from <id>] to <tileId>`                               Manual link
+    `.map unlink <cmd> [from <id>]`                                         Remove an exit
+    `.map conflict` / `list` / `list all`                                   List open conflicts (or all, including resolved)
+    `.map conflict resolve|ignore <id|n>`                                   Mark one conflict resolved
+    `.map conflict resolve|ignore all`                                      Mark all open conflicts resolved
+    `.map conflict purge`                                                   Remove resolved conflicts (open ones kept)
+    `.map capture preview`                                                  Match Options title/exits regex on recent buffer
+    `.map capture apply`                                                    Apply last preview to the current tile
 
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, path auto-send, Use GMCP Room,
@@ -628,20 +642,17 @@ letters are Speedwalk *keys*.
 
 ### `.keyboard` / `.kb`
 
-| Token | Action |
-|-------|--------|
-| *(no args)* | Print help |
-| `add` / `popup` + text | Set or append input; `popup` also shows the IME |
-| `flush` | Send current input |
-| `close` / `clear` | Hide IME / clear text |
-| `sel` / `selectall` | Select all |
-| `cut` / `copy` / `paste` | Clipboard |
-| `start` / `cursorstart` | Caret to start |
-| `end` / `cursorend` | Caret to end |
-| `stepf` / `stepr` | Caret one character right |
-| `stepb` / `stepl` | Caret one character left |
-| `stepu` / `stepd` | Command history (↑ older / ↓ newer), like keyboard arrows; within multiline text, move one line first |
-
+    *(no args)*                Print help
+    `add` / `popup` + text     Set or append input; `popup` also shows the IME
+    `flush`                    Send current input
+    `close` / `clear`          Hide IME / clear text
+    `sel` / `selectall`        Select all
+    `cut` / `copy` / `paste`   Clipboard
+    `start` / `cursorstart`    Caret to start
+    `end` / `cursorend`        Caret to end
+    `stepf` / `stepr`          Caret one character right
+    `stepb` / `stepl`          Caret one character left
+    `stepu` / `stepd`          Command history (↑ older / ↓ newer), like keyboard arrows; within multiline text, move one line first
 
 Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
 
@@ -783,9 +794,10 @@ alias stops matching immediately.
 
 Write `${name}` in an alias replacement to drop in a session variable:
 
-| Alias pattern | Replacement | Variable | Sent |
-|---------------|-------------|----------|------|
-| `att` | `kill ${target}` | `target` = `goblin` | `kill goblin` |
+    `att`
+        Replacement: `kill ${target}`
+        Variable: `target` = `goblin`
+        Sent: `kill goblin`
 
 Set the variable from a trigger's **Set Variable** action, or from Lua with
 `SetVariable("target", "$1")`. That is how text the *game* printed reaches a
@@ -880,16 +892,12 @@ off = bits **1** (ANSI only). Reconnect after changing.
 
 ### `button_window` (default Free build)
 
-| Command | Description |
-|---------|-------------|
-| `.loadset <name>` | Load named button set |
-| `.clearbuttons` | Clear via button window |
+    `.loadset <name>`   Load named button set
+    `.clearbuttons`     Clear via button window
 
 ### `starter_tutorial` (loaded by default)
 
-| Command | Description |
-|---------|-------------|
-| `.tutorial …` | Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>` |
+    `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>`
 
 On the default button set, tap **HELP** to run `.tutorial start`. The launcher
 lists a built-in **Starter Tutorial** row first (offline — no MUD). Disable the
