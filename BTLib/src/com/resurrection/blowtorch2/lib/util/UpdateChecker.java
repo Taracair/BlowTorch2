@@ -67,6 +67,14 @@ public final class UpdateChecker {
 			return;
 		}
 		final Context app = context.getApplicationContext();
+		if (!isReleaseBuild(app)) {
+			// The test flavour is rebuilt many times a day and its versionName
+			// carries a -test suffix, so every published release looks newer than
+			// it and it would nag on every launch. Blocked here rather than by a
+			// setting: a build that should never phone home should not depend on
+			// a checkbox being right.
+			return;
+		}
 		if (!force && !dueForCheck(app)) {
 			return;
 		}
@@ -129,6 +137,18 @@ public final class UpdateChecker {
 
 	private static void markChecked(final Context context) {
 		prefs(context).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply();
+	}
+
+	/** The one package id that GitHub releases are published for. */
+	private static final String RELEASE_PACKAGE = "com.resurrection.blowtorch2";
+
+	/**
+	 * @param context Application context.
+	 * @return true only for the production package. The {@code .test} flavour,
+	 *     and anything renamed downstream, never checks.
+	 */
+	static boolean isReleaseBuild(final Context context) {
+		return context != null && RELEASE_PACKAGE.equals(context.getPackageName());
 	}
 
 	/** @return This build's versionName, or null if it cannot be read. */

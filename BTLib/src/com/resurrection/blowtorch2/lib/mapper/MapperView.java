@@ -896,8 +896,8 @@ public class MapperView extends View {
 			drawArrowHead(canvas, x2, y2, ux, uy, false);
 
 			if (showLinkLabels) {
-				float midX = (x1 + x2) * 0.5f;
-				float midY = (y1 + y2) * 0.5f - 4f * scale;
+				float midX = x1 + (x2 - x1) * LINK_LABEL_T;
+				float midY = y1 + (y2 - y1) * LINK_LABEL_T - 4f * scale;
 				drawLinkLabelAt(canvas, midX, midY, cmds, from.getId(), to.getId(),
 						provedOne, ux, uy);
 			}
@@ -973,6 +973,23 @@ public class MapperView extends View {
 
 	/** How many places {@link #labelNudge} can offer before we give up. */
 	static final int LABEL_ATTEMPTS = 7;
+
+	/**
+	 * Where along its own line a direction label sits, from the tile the command
+	 * is typed in towards the tile it leads to.
+	 *
+	 * <p>The two directions of a link used to both want the exact middle. Their
+	 * lines run parallel about 10*scale apart, closer than a label is tall, so
+	 * they always collided and the loser was pushed off its line by the
+	 * collision search — sideways, or diagonally once the map got busy. No
+	 * amount of tuning the search fixed that, because the search was never the
+	 * problem: two labels were competing for one spot.
+	 *
+	 * <p>Biasing each towards its own source separates them by construction.
+	 * They land at opposite ends of their own lines, the search stops firing for
+	 * the common case, and "w" now sits next to the room you type w in.
+	 */
+	private static final float LINK_LABEL_T = 0.30f;
 
 	/**
 	 * Offset for the n-th attempt at placing a link label.
@@ -1157,8 +1174,8 @@ public class MapperView extends View {
 			elbowLabelX = cornerX;
 			elbowLabelY = cornerY - 3f * scale;
 		} else {
-			elbowLabelX = (startX + endX) * 0.5f;
-			elbowLabelY = (startY + endY) * 0.5f - 3f * scale;
+			elbowLabelX = startX + (endX - startX) * LINK_LABEL_T;
+			elbowLabelY = startY + (endY - startY) * LINK_LABEL_T - 3f * scale;
 		}
 		elbowPath.lineTo(endX, endY);
 		canvas.drawPath(elbowPath, linePaint);
