@@ -896,8 +896,9 @@ public class MapperView extends View {
 			drawArrowHead(canvas, x2, y2, ux, uy, false);
 
 			if (showLinkLabels) {
+				// The point on the shaft; drawLinkLabelAt centres the chip on it.
 				float midX = x1 + (x2 - x1) * LINK_LABEL_T;
-				float midY = y1 + (y2 - y1) * LINK_LABEL_T - 4f * scale;
+				float midY = y1 + (y2 - y1) * LINK_LABEL_T;
 				drawLinkLabelAt(canvas, midX, midY, cmds, from.getId(), to.getId(),
 						provedOne, ux, uy);
 			}
@@ -940,22 +941,29 @@ public class MapperView extends View {
 		float alongX = ux * (tw + pad * 3f);
 		float alongY = uy * (bh + 2f * scale);
 
-		float cx = midX;
-		float cy = midY;
+		// Sit the chip *on* the shaft rather than tucked beside it. Its opaque
+		// background masks the line underneath, which reads as the label being
+		// part of the arrow instead of floating near it. cy is a text baseline,
+		// so this is what centres the box on the point we were given.
+		final float baseX = midX;
+		final float baseY = midY + bh * 0.5f - pad * 0.4f;
+
+		float cx = baseX;
+		float cy = baseY;
 		boolean clear = false;
 		for (int attempt = 0; attempt < LABEL_ATTEMPTS && !clear; attempt++) {
 			float[] nudge = labelNudge(attempt, stepX, stepY, alongX, alongY);
-			cx = midX + nudge[0];
-			cy = midY + nudge[1];
+			cx = baseX + nudge[0];
+			cy = baseY + nudge[1];
 			tmpRect.set(cx - tw * 0.5f - pad, cy - bh + pad * 0.3f,
 					cx + tw * 0.5f + pad, cy + pad * 0.5f);
 			clear = !overlapsPlacedLabel(tmpRect);
 		}
 		if (!clear) {
-			// Nowhere free nearby. Back to the link's own midpoint: a label that
-			// overlaps is a nuisance, one sitting beside the wrong link is a lie.
-			cx = midX;
-			cy = midY;
+			// Nowhere free nearby. Back onto its own shaft: a label that overlaps
+			// is a nuisance, one sitting beside the wrong link is a lie.
+			cx = baseX;
+			cy = baseY;
 			tmpRect.set(cx - tw * 0.5f - pad, cy - bh + pad * 0.3f,
 					cx + tw * 0.5f + pad, cy + pad * 0.5f);
 		}
@@ -1175,7 +1183,7 @@ public class MapperView extends View {
 			elbowLabelY = cornerY - 3f * scale;
 		} else {
 			elbowLabelX = startX + (endX - startX) * LINK_LABEL_T;
-			elbowLabelY = startY + (endY - startY) * LINK_LABEL_T - 3f * scale;
+			elbowLabelY = startY + (endY - startY) * LINK_LABEL_T;
 		}
 		elbowPath.lineTo(endX, endY);
 		canvas.drawPath(elbowPath, linePaint);
