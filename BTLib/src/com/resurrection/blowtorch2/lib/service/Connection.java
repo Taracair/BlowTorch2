@@ -2363,9 +2363,22 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// Brief offline banner, then open lesson 1 (welcome). Do not stop at a
 		// nav-only blurb: that left currentIndex at welcome while the user only
 		// saw "Walk lessons with .tutorial next", so NEXT skipped to lesson 2.
+		// Say up front that this is a place, not just a wall of text. Without
+		// this nobody knew there was anything to type at, and the first lesson
+		// arrived talking about "commands" with no idea where they went.
 		sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
 				+ "Starter Tutorial — offline session (no network).\n"
-				+ Colorizer.getWhiteColor() + "\n");
+				+ Colorizer.getWhiteColor()
+				+ "\nThis one is interactive: you are standing in a practice yard, and\n"
+				+ "there is a tutor here who will check the things you build.\n\n"
+				+ Colorizer.getGreenColor() + ">> look" + Colorizer.getWhiteColor()
+				+ "                    see where you are\n"
+				+ Colorizer.getGreenColor() + ">> ask bex about lessons"
+				+ Colorizer.getWhiteColor() + "  start the lessons\n"
+				+ Colorizer.getGreenColor() + ">> commands"
+				+ Colorizer.getWhiteColor() + "                everything this yard understands\n"
+				+ "\nAnything shown in green is something you can type.\n"
+				+ "The reading tour below still works: .tutorial next\n\n");
 		try {
 			Plugin tutorial = mPluginMap.get("starter_tutorial");
 			if (tutorial != null) {
@@ -5085,8 +5098,32 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @param plugin The name of the plugin to remove.
 	 */
-	public final void deletePlugin(final String plugin) {
+	/**
+	 * Plugins the client cannot work without.
+	 *
+	 * <p>The button pad, the settings root and the tutorial are shipped with the
+	 * app rather than installed by the player, and deleting one leaves a client
+	 * with no buttons and no way to get them back. The plugin list offers a trash
+	 * icon on every row, so the guard belongs here, where every route to deletion
+	 * passes, rather than in one dialog.
+	 */
+	private static final java.util.Set<String> UNDELETABLE_PLUGINS =
+			new java.util.HashSet<String>(java.util.Arrays.asList(
+					"button_window", "starter_tutorial", "connection_settings"));
+
+	/**
+	 * @param plugin Name of the plugin to unload and forget.
+	 * @return true when the deletion was accepted; false for a built-in one.
+	 */
+	public final boolean deletePlugin(final String plugin) {
+		if (plugin != null && UNDELETABLE_PLUGINS.contains(plugin.trim().toLowerCase(
+				java.util.Locale.US))) {
+			mService.dispatchToast("\"" + plugin + "\" ships with BlowTorch and cannot be"
+					+ " deleted. Disable it instead.", true);
+			return false;
+		}
 		mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_DELETEPLUGIN, plugin));
+		return true;
 	}
 
 	/** Sets a plugin enabled (or disabled). Persists via {@code enabled="false"} on

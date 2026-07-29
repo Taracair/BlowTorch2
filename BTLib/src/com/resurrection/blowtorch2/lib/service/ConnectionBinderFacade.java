@@ -691,6 +691,8 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void deletePlugin(final String plugin) throws RemoteException {
+		// Return value deliberately dropped here: the refusal is reported to the
+		// player by the service, and the AIDL signature is void.
 		service.mConnections.get(service.mConnectionClutch).deletePlugin(plugin);
 	}
 
