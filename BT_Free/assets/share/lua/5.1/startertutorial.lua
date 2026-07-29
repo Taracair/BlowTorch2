@@ -914,3 +914,83 @@ function OnBackgroundStartup()
 end
 
 RegisterSpecialCommand("tutorial", "tutorialCommand")
+
+--------------------------------------------------------------------------
+-- Practice world
+--------------------------------------------------------------------------
+-- A very small offline MUD, so lessons can be practised instead of read.
+--
+-- OnOfflineCommand returns the text the world replies with, and Java feeds it
+-- back through the normal incoming path (MESSAGE_PROCESS -> dispatch). That
+-- matters: it is the same route real server output takes, so the player's own
+-- triggers fire on it, colouring applies, and the mapper follows the movement.
+-- Returning nil means "not mine", and the client prints its usual offline note.
+--
+-- Room text deliberately looks like a MUD: a title line, a blank line, prose,
+-- then an exits line. Lessons lean on that shape when they ask the player to
+-- write a trigger.
+
+local world = {
+	clearing = {
+		title = "A Sunlit Clearing",
+		body = "Grass grows thick between the stones of an old road. The path "
+			.. "runs north into birch trees.",
+		exits = { north = "path" },
+	},
+	path = {
+		title = "A Birch Path",
+		body = "White trunks crowd the road. Something small rustles in the "
+			.. "leaf litter ahead.",
+		exits = { south = "clearing" },
+	},
+}
+
+local here = "clearing"
+
+local DIRECTIONS = {
+	n = "north", north = "north",
+	s = "south", south = "south",
+	e = "east", east = "east",
+	w = "west", west = "west",
+}
+
+local function describeRoom()
+	local room = world[here]
+	local names = {}
+	for dir in pairs(room.exits) do
+		names[#names + 1] = dir
+	end
+	table.sort(names)
+	local exits = #names > 0 and table.concat(names, ", ") or "none"
+	return "\n" .. cyan() .. room.title .. white() .. "\n\n"
+		.. room.body .. "\n"
+		.. "Obvious exits: " .. exits .. "\n"
+end
+
+--- @return The world's reply, or nil when the command is not one it knows.
+function OnOfflineCommand(line)
+	if line == nil then
+		return nil
+	end
+	local cmd = line:lower():gsub("^%s+", ""):gsub("%s+$", "")
+	if cmd == "" then
+		return nil
+	end
+
+	if cmd == "look" or cmd == "l" then
+		return describeRoom()
+	end
+
+	local dir = DIRECTIONS[cmd]
+	if dir ~= nil then
+		local room = world[here]
+		local dest = room.exits[dir]
+		if dest == nil then
+			return "\n" .. white() .. "You cannot go " .. dir .. " from here.\n"
+		end
+		here = dest
+		return describeRoom()
+	end
+
+	return nil
+end
