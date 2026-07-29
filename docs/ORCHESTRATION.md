@@ -361,7 +361,7 @@ sentence about implementation. "You type `kk goblin` and the game receives
 ### Hardware and connection
 
 - **Pixel 9a, GrapheneOS.** `adb` is **not** on PATH:
-  `/home/taracair/Android/Sdk/platform-tools/adb`
+  `~/Android/Sdk/platform-tools/adb`
 - **The wifi ADB port changes constantly.** It has been 5555, 42135, 41721. When
   a device shows `offline`, `adb connect` on the old port will not fix it —
   `adb disconnect`, then ask the maintainer for the current port.
@@ -484,7 +484,7 @@ Do not re-derive these.
 | Are MSSP and MTTS implemented properly? | Yes, both complete. MSSP is one-way by design; MTTS is the full three-reply TTYPE cycle. |
 | Was MSDP complete? | No — transport was correct, but the client could never *ask*. `LIST`/`SEND`/`REPORT`/`UNREPORT`/`RESET` added later. |
 | Are the stability bugs from the 2026 AI work? | No. All inherited from 2010–2018. |
-| Does eden-test send malformed GMCP? | No. That was a paste artefact. |
+| Did that MUD send malformed GMCP? | No. That was a paste artefact. |
 
 ---
 

@@ -615,7 +615,7 @@ auto reverse links, legacy toolbar CSV (UI uses **Nav/Floors/Edit/More** chips),
 
 **GMCP Room:** with GMCP and **Use GMCP Room** on (and **Room** in Manage
 modules…), `Room.Info` builds the map as you walk:
-- **num/id/vnum** → stable tile identity (Eden / IRE / Forsaken)
+- **num/id/vnum** → stable tile identity (IRE games and others)
 - **coords** / **coord** `{x,y,z}` → place on the grid (z → floor)
 - **exits** `{n:123,…}` → create/link neighbors (destination stubs by vnum)
 

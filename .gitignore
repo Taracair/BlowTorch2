@@ -175,3 +175,6 @@ BTLib/jni/Android.mk.old
 **/.classpath
 **/.settings/
 BTLib/res/raw/foo
+
+# Internal handoff — kept out of the public tree for now
+docs/HANDOFF.md
