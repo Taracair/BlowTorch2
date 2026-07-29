@@ -4797,7 +4797,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 			} else {
 				if (d.mCmdString.equals("") && d.mVisString == null) {
-					mPump.sendData(mCRLF.getBytes(mSettings.getEncoding()));
+					// Pressing Enter on an empty line sends a bare CRLF. Unlike
+					// the branch above, this one never checked for a pump, so
+					// doing it with no connection — the offline tutorial, or
+					// after a disconnect — threw a NullPointerException out of
+					// sendToServer and printed "outbound command" at the player.
+					// The blank line is still echoed either way.
+					if (mPump != null && mPump.isConnected()) {
+						mPump.sendData(mCRLF.getBytes(mSettings.getEncoding()));
+					}
 					d.mVisString = "\n";
 				}
 			}
