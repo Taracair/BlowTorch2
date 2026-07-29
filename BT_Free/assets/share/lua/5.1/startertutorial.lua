@@ -14,18 +14,32 @@ do
 	end
 end
 
-local function cyan()
-	if Colorizer ~= nil then
-		return Colorizer:getBrightCyanColor()
+--- Ask Colorizer for a colour, and fall back rather than throw.
+---
+--- Calling a method that does not exist on the Java object raises out of
+--- luajava, and the whole command dies with "error in error handling" - which
+--- says nothing about the real cause. That is exactly what happened with
+--- getBrightGreenColor, which is not a method Colorizer has. A missing colour
+--- should cost the colour, not the command.
+local function colorOf(method, fallback)
+	if Colorizer == nil then
+		return fallback
 	end
-	return "\027[1;36m"
+	local ok, value = pcall(function()
+		return Colorizer[method](Colorizer)
+	end)
+	if ok and type(value) == "string" then
+		return value
+	end
+	return fallback
+end
+
+local function cyan()
+	return colorOf("getBrightCyanColor", "\027[1;36m")
 end
 
 local function white()
-	if Colorizer ~= nil then
-		return Colorizer:getWhiteColor()
-	end
-	return "\027[0;37m"
+	return colorOf("getWhiteColor", "\027[0;37m")
 end
 
 local function noteBlock(title, body)
@@ -785,7 +799,8 @@ local function listTopics()
 	for i, name in ipairs(TOPIC_ORDER) do
 		lines[#lines + 1] = string.format("  %2d  %s", i, name)
 	end
-	lines[#lines + 1] = "Open with: .tutorial <name>"
+	lines[#lines + 1] = "Open with: .tutorial <number>   e.g. .tutorial 7"
+	lines[#lines + 1] = "        or .tutorial <name>     e.g. .tutorial triggers"
 	noteBlock("Topics", table.concat(lines, "\n"))
 end
 
@@ -884,6 +899,18 @@ Turn off: Options → Starter Tutorial → Show on connect = off]])
 		return
 	end
 
+	-- A bare number opens that topic. The list has been printing numbers all
+	-- along; until now they were decoration, because only the name worked.
+	local n = tonumber(string.match(cmd, "^(%d+)$") or "")
+	if n ~= nil then
+		if n >= 1 and n <= #TOPIC_ORDER then
+			showTopic(TOPIC_ORDER[n])
+		else
+			noteLine("There are " .. #TOPIC_ORDER .. " topics; " .. n .. " is not one.")
+		end
+		return
+	end
+
 	-- First token as topic name (allow trailing junk)
 	local topic = string.match(cmd, "^([%w_]+)")
 	if topic ~= nil and (TOPICS[topic] ~= nil or topic == "overview") then
@@ -961,17 +988,11 @@ RegisterSpecialCommand("tutorial", "tutorialCommand")
 -- triggers fire on it and the mapper follows.
 
 local function green()
-	if Colorizer ~= nil then
-		return Colorizer:getBrightGreenColor()
-	end
-	return "\027[1;32m"
+	return colorOf("getGreenColor", "\027[0;32m")
 end
 
 local function yellow()
-	if Colorizer ~= nil then
-		return Colorizer:getBrightYellowColor()
-	end
-	return "\027[1;33m"
+	return colorOf("getBrightYellowColor", "\027[1;33m")
 end
 
 --- Everything the player may type is written through this, and only this.
