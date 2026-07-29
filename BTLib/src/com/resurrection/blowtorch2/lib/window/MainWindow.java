@@ -2491,16 +2491,36 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		
-		try {
-			String connected = service.getConnectedTo();
-			if(connected != null) {
-				service.closeConnection(connected);
+		// Closing the connection makes the service write the whole settings file
+		// and sync it — measured at about two seconds on a 285 KB profile. It
+		// used to run on the binder call this thread waited for, so answering
+		// "No" to the background prompt froze the app between the tap and the
+		// window closing. StrictMode reported it back here, at cleanExit, with
+		// "via Binder call" above the dialog's click handler.
+		//
+		// Handing it to a thread only stops *us* waiting; the work is unchanged
+		// and still happens in :stellar. That process keeps going without us:
+		// it is a started foreground service, nothing overrides onUnbind, and
+		// stopSelf is reached only from the explicit doShutdown path.
+		final IConnectionBinder pendingService = service;
+		Thread closer = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					String connected = pendingService.getConnectedTo();
+					if (connected != null) {
+						pendingService.closeConnection(connected);
+					}
+				} catch (RemoteException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"MainWindow.cleanExit", e);
+				}
 			}
-			
-		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.cleanExit", e);
-		}
+		}, "bt-clean-exit");
+		// Not a daemon: this activity is finishing, and the settings write must
+		// outlive it rather than be cut short by the last other thread ending.
+		closer.setDaemon(false);
+		closer.start();
 		
 		if(isBound) {
 			try {
