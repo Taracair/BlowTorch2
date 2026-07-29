@@ -607,8 +607,25 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if(!serviceBound) {
 			String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 			bindService(new Intent(action,null,this, StellarService.class),connectionChecker,Context.BIND_AUTO_CREATE);
+		} else if (serviceConnected && service != null) {
+			// onPause unregisters this callback, and the binding survives, so
+			// onServiceConnected never fires again to put it back. From the
+			// first time this screen was paused, it stopped hearing about
+			// connections at all. RemoteCallbackList keys on the binder, so
+			// registering again is not a duplicate.
+			try {
+				service.registerLauncherCallback(the_callback);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Launcher.onResume", e);
+			}
 		}
-		//buildList();
+		// This was commented out, which is why a server stayed green in the list
+		// after leaving it: nothing rebuilt the list on the way back, and the
+		// callback that would have done it was no longer registered. It is one
+		// binder call over a list already in memory, so it is cheap enough to do
+		// every time this screen appears — and it is the answer to "there is no
+		// way to refresh this list".
+		buildList();
 	}
 	
 	@Override

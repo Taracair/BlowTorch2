@@ -471,12 +471,24 @@ public class StellarService extends Service {
 	}
 
 	private void notifyLauncherDurationChanged() {
+		notifyLauncherListChanged();
+	}
+
+	/**
+	 * Tell the launcher its list is out of date, so it rebuilds it.
+	 *
+	 * <p>The callback is named {@code connectionDisconnected} but every caller
+	 * means the same thing: something changed, look again. Deliberately closing a
+	 * connection did not call it at all, so the row for a server you had just
+	 * left stayed green until something else happened to broadcast.
+	 */
+	void notifyLauncherListChanged() {
 		int n = mLauncherCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
 				mLauncherCallbacks.getBroadcastItem(i).connectionDisconnected();
 			} catch (RemoteException e) {
-				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.notifyLauncherDurationChanged", e);
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("StellarService.notifyLauncherListChanged", e);
 			}
 		}
 		mLauncherCallbacks.finishBroadcast();
