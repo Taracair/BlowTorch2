@@ -511,6 +511,14 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
+			if ("reset_settings".equals(key)) {
+				MainWindow mwr = findMainWindowHost();
+				if (mwr != null) {
+					dismiss();
+					mwr.resetSettingsFromOptions();
+				}
+				return;
+			}
 			if ("export_settings".equals(key)) {
 				MainWindow mwe = findMainWindowHost();
 				if (mwe != null) {

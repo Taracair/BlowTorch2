@@ -601,6 +601,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		import_settings.setValue("import_settings");
 		miscOptions.addOption(import_settings);
 
+		CallbackOption reset_settings = new CallbackOption();
+		reset_settings.setTitle("Reset Settings");
+		reset_settings.setDescription("Throw away this world's settings and start from the defaults — every alias, trigger, timer and button. Asks first. Moved here from the ⋮ menu, where it sat beside Reconnect and Disconnect.");
+		reset_settings.setKey("reset_settings");
+		reset_settings.setValue("reset_settings");
+		miscOptions.addOption(reset_settings);
+
 		CallbackOption request_storage = new CallbackOption();
 		request_storage.setTitle("Manage Storage Access");
 		request_storage.setDescription("Grant All files access so BlowTorch can use /BlowTorch/ (settings, backups, launcher, session_logs, logs) outside Android/data. Shows the effective root path.");

@@ -54,7 +54,16 @@ public final class ChromeController {
 	WindowInsetsCompat onApplyWindowInsets(View view, WindowInsetsCompat windowInsets) {
 		Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
 		Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-		view.setPadding(0, 0, 0, bars.bottom);
+		// Sides as well as the bottom. Only the nav bar was padded, so on a phone
+		// with rounded glass or a cutout the content ran straight into the curve
+		// and got shaved off — most visibly the dashed border, which is drawn at
+		// the very edge of the view and lost its corners.
+		Insets edges = windowInsets.getInsets(
+				WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+		int side = Math.max(roundedCornerInset(view), Math.max(edges.left, edges.right));
+		// Top stays unpadded on purpose: this window draws under the status bar
+		// and reports its height for the layout below to use.
+		view.setPadding(side, 0, side, bars.bottom);
 		int lift = Math.max(0, ime.bottom - bars.bottom);
 		applyImeChromeLift((RelativeLayout) view, lift);
 		statusBarHeight = bars.top;
@@ -66,6 +75,51 @@ public final class ChromeController {
 		insetEditor.apply();
 		refresh();
 		return windowInsets;
+	}
+
+	/**
+	 * How far in the rounded corners of the screen reach.
+	 *
+	 * <p>Android has no inset for rounded corners — a corner is a radius, not an
+	 * edge — so the largest radius the display reports is used as a minimum side
+	 * padding. Anything drawn at the view edge inside that band is partly under
+	 * the curve. Returns 0 below Android 12, which is the first version that can
+	 * be asked.
+	 *
+	 * @param view Any view attached to the window being laid out.
+	 * @return Padding in pixels, 0 when unknown.
+	 */
+	private int roundedCornerInset(final View view) {
+		if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+			return 0;
+		}
+		try {
+			android.view.WindowInsets raw = view.getRootWindowInsets();
+			if (raw == null) {
+				return 0;
+			}
+			int largest = 0;
+			int[] positions = {
+					android.view.RoundedCorner.POSITION_TOP_LEFT,
+					android.view.RoundedCorner.POSITION_TOP_RIGHT,
+					android.view.RoundedCorner.POSITION_BOTTOM_LEFT,
+					android.view.RoundedCorner.POSITION_BOTTOM_RIGHT,
+			};
+			for (int position : positions) {
+				android.view.RoundedCorner corner = raw.getRoundedCorner(position);
+				if (corner != null && corner.getRadius() > largest) {
+					largest = corner.getRadius();
+				}
+			}
+			// A radius is the whole quarter-circle; padding by all of it wastes
+			// most of the width for a curve that only bites near the very corner.
+			// Half of it keeps the edge clear without a visible margin.
+			return largest / 2;
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"ChromeController.roundedCornerInset", e);
+			return 0;
+		}
 	}
 
 	double getStatusBarHeight() {
