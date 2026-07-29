@@ -7,6 +7,23 @@ import android.content.Context;
 
 /** Callback interface for plugins to interact with their parent Connection. */
 public interface ConnectionPluginCallback {
+
+	/**
+	 * The player's own triggers — the ones the trigger editor writes, not a
+	 * plugin's private set.
+	 *
+	 * <p>Here so the Starter Tutorial can look at what the player built and say
+	 * whether it will work. A plugin's Lua {@code triggers} global is its own
+	 * set, which is no use for teaching.
+	 */
+	java.util.HashMap<String, com.resurrection.blowtorch2.lib.trigger.TriggerData> getTriggers();
+
+	/** The player's own aliases; see {@link #getTriggers()}. */
+	java.util.HashMap<String, com.resurrection.blowtorch2.lib.alias.AliasData> getAliases();
+
+	/** The player's own timers; see {@link #getTriggers()}. */
+	java.util.HashMap<String, com.resurrection.blowtorch2.lib.timer.TimerData> getTimers();
+
 	/** Sets the plugin system dirty bit. */
 	void setTriggersDirty();
 	/** Finds a window by name.

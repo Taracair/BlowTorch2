@@ -79,25 +79,22 @@ local TOPIC_ORDER = {
 local TOPICS = {}
 
 TOPICS.practice_world = function()
-	noteBlock("Starter Tutorial — The Practice World",
-[[This session also contains a very small MUD. It is offline: nothing you type
-here reaches the network. It exists so the later lessons can be done rather
-than read.
+	noteBlock("Starter Tutorial — Bex and the Practice Yard",
+[[This session also holds a small practice yard with a tutor in it, called
+Bex. It is offline: nothing you type there reaches the network. Three rooms,
+no exploring - the point is the lessons, not the map.
 
-Type ordinary MUD commands at it:
-  look                     describe where you are
-  north south east west    move around (n s e w work too)
-  get key                  pick things up
-  kill goblin              fight; it takes a few rounds
-  commands                 the full list
+Bex teaches four things and then checks your work for real: buttons, aliases,
+triggers and timers. When you say you have made an alias, Bex looks at the
+alias you actually made and says what is wrong with it if anything is - a
+missing capture, a $1 that is never used, a trigger with a pattern and nothing
+attached.
 
-Why it is worth using: the world answers along the same path a real server
-does. Your own triggers fire on its text, colouring applies to it, and the
-mapper draws the rooms as you walk. So when the trigger lesson asks you to
-catch "The goblin dies.", you can go and make it happen.
+Anything you can type is marked like this in the text:
+  >> ask bex about lessons
 
-Suggested first walk:
-  look → north → east → get key → west → north → kill goblin
+To begin, type:  look
+Then:            ask bex about lessons
 
 This reading tour is unchanged and always here: .tutorial next]])
 end
@@ -941,88 +938,34 @@ end
 RegisterSpecialCommand("tutorial", "tutorialCommand")
 
 
+
 --------------------------------------------------------------------------
--- Practice world
+-- The practice yard
 --------------------------------------------------------------------------
--- A small offline MUD, so the lessons can be practised instead of only read.
--- The reading tutorial is untouched and still lives at .tutorial; this is the
--- thing you type ordinary MUD commands at, in the same session.
+-- Not a game. A tutor NPC standing in a small yard, who explains the client
+-- and then checks what the player built.
 --
--- OnOfflineCommand returns the text the world replies with, and Java feeds it
--- back through the normal incoming path (MESSAGE_PROCESS -> dispatch). That is
--- the same route real server output takes, so the player's own triggers fire on
--- it, colouring applies, and the mapper follows along. Returning nil means "not
--- mine", and the client prints its usual offline note.
+-- Design notes, because they are easy to undo by accident:
+--   * Three tiles, no exploring. The point is the lessons, not the map.
+--   * Anything the player can type is marked the same way every time, with
+--     the >> marker and its own colour. A wall of prose where some of it is
+--     typeable and some is not is the thing that makes tutorials useless.
+--   * The tutor checks real client state through GetPlayerTriggers /
+--     GetPlayerAliases / GetPlayerTimers. Saying "well done" without looking
+--     would be worse than saying nothing.
+--   * Lessons push buttons as much as typing: on a phone, the buttons are the
+--     point of this client.
 --
--- OnOfflineRoomInfo hands Java what it needs to call the mapper the same way a
--- GMCP Room.Info would. The mapper has no text-based room detection at all --
--- GMCP is its only input -- so without this the practice world would be
--- unmappable.
---
--- Room text deliberately looks like a MUD: a title line, a blank line, prose,
--- then an exits line. The lessons lean on that shape when they ask the player
--- to write a trigger.
+-- Java calls OnOfflineCommand with whatever the player typed; the text we
+-- return goes back through the normal incoming path, so the player's own
+-- triggers fire on it and the mapper follows.
 
-local world = {
-	clearing = {
-		num = "1001",
-		title = "A Sunlit Clearing",
-		body = "Grass grows thick between the stones of an old road. The path "
-			.. "runs north into birch trees.",
-		exits = { north = "path" },
-	},
-	path = {
-		num = "1002",
-		title = "A Birch Path",
-		body = "White trunks crowd the road. Something small rustles in the "
-			.. "leaf litter. A hollow opens to the east, and the road goes on "
-			.. "north.",
-		exits = { south = "clearing", north = "bridge", east = "hollow" },
-	},
-	hollow = {
-		num = "1003",
-		title = "A Damp Hollow",
-		body = "Ferns fill a dip in the ground. The air smells of wet stone.",
-		exits = { west = "path" },
-		items = { "a rusty key" },
-	},
-	bridge = {
-		num = "1004",
-		title = "A Plank Bridge",
-		body = "Three planks cross a stream that runs too fast to wade. A "
-			.. "goblin track leads north; a mossy shrine stands east.",
-		exits = { south = "path", north = "den", east = "shrine" },
-	},
-	den = {
-		num = "1005",
-		title = "A Goblin Den",
-		body = "Bones and rags line a scrape under the roots of a fallen oak.",
-		exits = { south = "bridge" },
-		npc = {
-			name = "goblin",
-			article = "a goblin",
-			hp = 3,
-			alive = true,
-		},
-	},
-	shrine = {
-		num = "1006",
-		title = "A Mossy Shrine",
-		body = "A low stone altar, furred green. A keyhole is cut into its face.",
-		exits = { west = "bridge" },
-		locked = true,
-	},
-}
-
-local here = "clearing"
-local carried = {}
-
-local DIRECTIONS = {
-	n = "north", north = "north",
-	s = "south", south = "south",
-	e = "east", east = "east",
-	w = "west", west = "west",
-}
+local function green()
+	if Colorizer ~= nil then
+		return Colorizer:getBrightGreenColor()
+	end
+	return "\027[1;32m"
+end
 
 local function yellow()
 	if Colorizer ~= nil then
@@ -1030,6 +973,54 @@ local function yellow()
 	end
 	return "\027[1;33m"
 end
+
+--- Everything the player may type is written through this, and only this.
+local function cmd(text)
+	return green() .. ">> " .. text .. white()
+end
+
+local function tutorSays(lines)
+	return "\n" .. cyan() .. "Bex the tutor says:" .. white() .. "\n" .. lines .. "\n"
+end
+
+--------------------------------------------------------------------------
+-- The yard
+--------------------------------------------------------------------------
+
+local yard = {
+	yard = {
+		num = "2001",
+		title = "The Practice Yard",
+		body = "Hard-packed earth inside a low wall. Bex leans on a fence post, "
+			.. "watching you with the patience of someone who has taught this "
+			.. "many times.",
+		exits = { north = "range", east = "workshop" },
+	},
+	range = {
+		num = "2002",
+		title = "The Target Range",
+		body = "Straw dummies stand in a row. This is where Bex sends you to "
+			.. "make something happen on purpose.",
+		exits = { south = "yard" },
+	},
+	workshop = {
+		num = "2003",
+		title = "The Workshop",
+		body = "A bench of spare parts. Bex uses this room to talk about "
+			.. "buttons, because there is nothing here to distract you.",
+		exits = { west = "yard" },
+	},
+}
+
+local here = "yard"
+local dummy = nil
+
+local DIRECTIONS = {
+	n = "north", north = "north",
+	s = "south", south = "south",
+	e = "east", east = "east",
+	w = "west", west = "west",
+}
 
 local function sortedExits(room)
 	local names = {}
@@ -1041,175 +1032,348 @@ local function sortedExits(room)
 end
 
 local function describeRoom()
-	local room = world[here]
-	local names = sortedExits(room)
-	local exits = #names > 0 and table.concat(names, ", ") or "none"
-	local t = "\n" .. cyan() .. room.title .. white() .. "\n\n"
-		.. room.body .. "\n"
-	if room.items ~= nil then
-		for _, item in ipairs(room.items) do
-			t = t .. "You see " .. item .. " lying here.\n"
+	local room = yard[here]
+	local t = "\n" .. cyan() .. room.title .. white() .. "\n\n" .. room.body .. "\n"
+	if dummy ~= nil and dummy.room == here then
+		t = t .. yellow() .. "A straw dummy stands here, waiting.\n" .. white()
+	end
+	t = t .. "Obvious exits: " .. table.concat(sortedExits(room), ", ") .. "\n"
+	if here == "yard" then
+		t = t .. cmd("ask bex about lessons") .. "\n"
+	end
+	return t
+end
+
+--------------------------------------------------------------------------
+-- Reading what the player actually built
+--------------------------------------------------------------------------
+
+--- Split a tab separated record line into fields.
+local function fields(line)
+	local out = {}
+	for field in (line .. "\t"):gmatch("([^\t]*)\t") do
+		out[#out + 1] = field
+	end
+	return out
+end
+
+local function eachRecord(blob, fn)
+	if blob == nil or blob == "" then
+		return
+	end
+	for line in blob:gmatch("([^\n]+)") do
+		fn(fields(line))
+	end
+end
+
+--- @return The player's trigger whose pattern contains `needle`, or nil.
+local function findTrigger(needle)
+	local found = nil
+	eachRecord(GetPlayerTriggers(), function(f)
+		if found == nil and f[2] ~= nil
+				and f[2]:lower():find(needle:lower(), 1, true) ~= nil then
+			found = { name = f[1], pattern = f[2], regex = f[3] == "true",
+				enabled = f[4] == "true", responders = f[5] or "" }
+		end
+	end)
+	return found
+end
+
+--- @return The player's alias whose pre contains `needle`, or nil.
+local function findAlias(needle)
+	local found = nil
+	eachRecord(GetPlayerAliases(), function(f)
+		if found == nil and f[1] ~= nil
+				and f[1]:lower():find(needle:lower(), 1, true) ~= nil then
+			found = { pre = f[1], post = f[2], enabled = f[3] == "true" }
+		end
+	end)
+	return found
+end
+
+local function anyTimer()
+	local found = nil
+	eachRecord(GetPlayerTimers(), function(f)
+		if found == nil then
+			found = { name = f[1], seconds = tonumber(f[2]) or 0,
+				repeats = f[3] == "true", playing = f[4] == "true" }
+		end
+	end)
+	return found
+end
+
+--------------------------------------------------------------------------
+-- Lessons
+--------------------------------------------------------------------------
+-- Each has a teach() and a check(). check() reads real client state and
+-- answers in three ways: not done yet, done but wrong in a named way, or done.
+
+local lessons = {}
+local lessonOrder = { "buttons", "aliases", "triggers", "timers" }
+local current = nil
+
+lessons.buttons = {
+	title = "Buttons",
+	teach = function()
+		return tutorSays(
+			"On a phone the buttons are the whole point of this client. You are\n"
+			.. "not going to type " .. cmd("kill the goblin with my sword") .. " every\n"
+			.. "time. You press one thing.\n\n"
+			.. "Look at the pad below the text. Try these:\n"
+			.. "  " .. cmd("press a button") .. " - just tap one and watch what it sends\n"
+			.. "  " .. cmd("swipe a button sideways") .. " - many carry a second command\n"
+			.. "  " .. cmd("hold a button") .. " - opens its editor\n\n"
+			.. "Then make one of your own: hold an empty button, give it a label\n"
+			.. "and a command, and save.\n\n"
+			.. "When you have pressed one and made one, tell me:\n"
+			.. "  " .. cmd("bex i am done"))
+	end,
+	check = function()
+		-- Buttons live in the button plugin's Lua state, not in the player's
+		-- trigger/alias/timer sets, so this one is taken on trust rather than
+		-- claimed to be verified. Saying so is better than pretending.
+		return true, tutorSays(
+			"Good. I cannot see your button pad from here, so I am taking your\n"
+			.. "word for that one - the rest I will check properly.\n\n"
+			.. "Next: " .. cmd("bex next"))
+	end,
+}
+
+lessons.aliases = {
+	title = "Aliases",
+	teach = function()
+		return tutorSays(
+			"An alias is a short thing you type that turns into a longer thing\n"
+			.. "the game receives. Make one now. Open the alias editor from the\n"
+			.. "menu and create:\n\n"
+			.. "  what you type:  " .. yellow() .. "zap (.+)" .. white() .. "\n"
+			.. "  what is sent:   " .. yellow() .. "kill $1" .. white() .. "\n\n"
+			.. "The brackets capture a word, and $1 puts it back. Without the\n"
+			.. "brackets there is nothing for $1 to hold - that catches everyone\n"
+			.. "once.\n\n"
+			.. "Then check me: " .. cmd("bex check"))
+	end,
+	check = function()
+		local a = findAlias("zap")
+		if a == nil then
+			return false, tutorSays(
+				"I do not see an alias with " .. yellow() .. "zap" .. white()
+				.. " in it yet. Take your time.")
+		end
+		if a.pre:find("%(") == nil then
+			return false, tutorSays(
+				"Found it: " .. yellow() .. a.pre .. white() .. "\n"
+				.. "But there are no brackets, so nothing is captured and $1 will\n"
+				.. "stay as the literal text $1. Try " .. yellow() .. "zap (.+)" .. white() .. ".")
+		end
+		if a.post:find("%$1") == nil then
+			return false, tutorSays(
+				"The pattern is right, but what it sends - " .. yellow() .. a.post
+				.. white() .. " - never uses $1, so the captured word is thrown away.")
+		end
+		if not a.enabled then
+			return false, tutorSays("It is there and correct, but switched off.")
+		end
+		return true, tutorSays(
+			"That is right: " .. yellow() .. a.pre .. white() .. " sends "
+			.. yellow() .. a.post .. white() .. ".\n"
+			.. "Try it on the dummy at the range if you like.\n\n"
+			.. "Next: " .. cmd("bex next"))
+	end,
+}
+
+lessons.triggers = {
+	title = "Triggers",
+	teach = function()
+		return tutorSays(
+			"A trigger watches what the game sends you and acts on it. This is\n"
+			.. "the one people find hardest, so we will do it on something real.\n\n"
+			.. "Make a trigger whose pattern is:\n\n"
+			.. "  " .. yellow() .. "The dummy topples over." .. white() .. "\n\n"
+			.. "Give it something to do - a note, a sound, a command, anything.\n"
+			.. "A pattern with nothing attached matches and then does nothing,\n"
+			.. "which looks exactly like a broken trigger.\n\n"
+			.. "Then: " .. cmd("bex check"))
+	end,
+	check = function()
+		local t = findTrigger("dummy topples")
+		if t == nil then
+			return false, tutorSays(
+				"No trigger of mine yet. The pattern to catch is\n"
+				.. yellow() .. "The dummy topples over." .. white())
+		end
+		if t.responders == "" then
+			return false, tutorSays(
+				"The pattern is right, but nothing is attached to it, so it will\n"
+				.. "match and do nothing at all. Open it and add a response.")
+		end
+		if not t.enabled then
+			return false, tutorSays("Right shape, but it is switched off.")
+		end
+		return true, tutorSays(
+			"Good - and it does something, which is the half people forget.\n\n"
+			.. "Now watch it work. Go north and knock a dummy over:\n"
+			.. "  " .. cmd("north") .. " then " .. cmd("hit dummy") .. "\n\n"
+			.. "Next lesson: " .. cmd("bex next"))
+	end,
+}
+
+lessons.timers = {
+	title = "Timers",
+	teach = function()
+		return tutorSays(
+			"A timer does something on its own, every so many seconds. Useful\n"
+			.. "for the thing you always forget.\n\n"
+			.. "Make any timer you like from the menu - a few seconds, repeating,\n"
+			.. "and set it running.\n\n"
+			.. "Then: " .. cmd("bex check"))
+	end,
+	check = function()
+		local t = anyTimer()
+		if t == nil then
+			return false, tutorSays("No timers yet.")
+		end
+		if not t.playing then
+			return false, tutorSays(
+				"You made " .. yellow() .. t.name .. white()
+				.. ", but it is not running. A timer that is not started never fires.")
+		end
+		return true, tutorSays(
+			"There it is: " .. yellow() .. t.name .. white() .. ", every "
+			.. t.seconds .. "s" .. (t.repeats and ", repeating" or ", once") .. ".\n\n"
+			.. "That is everything I teach. The reading tour has the rest:\n"
+			.. "  " .. cmd(".tutorial topics"))
+	end,
+}
+
+local function lessonIndex(name)
+	for i, n in ipairs(lessonOrder) do
+		if n == name then
+			return i
 		end
 	end
-	if room.npc ~= nil and room.npc.alive then
-		t = t .. yellow() .. room.npc.article:gsub("^%l", string.upper)
-			.. " is here, watching you.\n" .. white()
-	end
-	return t .. "Obvious exits: " .. exits .. "\n"
+	return 0
 end
 
---- Remove the first item in the room whose text contains `word`.
-local function takeFromRoom(word)
-	local room = world[here]
-	if room.items == nil then
-		return nil
-	end
-	for i, item in ipairs(room.items) do
-		if item:lower():find(word, 1, true) ~= nil then
-			table.remove(room.items, i)
-			return item
-		end
-	end
-	return nil
+local function startLesson(name)
+	current = name
+	return lessons[name].teach()
 end
 
-local function carrying(word)
-	for _, item in ipairs(carried) do
-		if item:lower():find(word, 1, true) ~= nil then
-			return item
-		end
+local function nextLesson()
+	local i = lessonIndex(current)
+	if i == 0 then
+		return startLesson(lessonOrder[1])
 	end
-	return nil
+	if i >= #lessonOrder then
+		return tutorSays("That was the last one. " .. cmd(".tutorial topics"))
+	end
+	return startLesson(lessonOrder[i + 1])
 end
 
---- One round of combat. Deliberately several lines, and always the same
---- wording, so a lesson can ask for a trigger on "The goblin dies."
-local function fight(target)
-	local room = world[here]
-	local npc = room.npc
-	if npc == nil or not npc.alive or npc.name ~= target then
-		return "\n" .. white() .. "There is no " .. target .. " here.\n"
+local function lessonMenu()
+	local t = tutorSays(
+		"I can walk you through four things. Say the word, or just take them\n"
+		.. "in order.\n")
+	for i, name in ipairs(lessonOrder) do
+		t = t .. "  " .. i .. ". " .. cmd("bex " .. name)
+			.. "  - " .. lessons[name].title .. "\n"
 	end
-	npc.hp = npc.hp - 1
-	if npc.hp > 0 then
-		return "\n" .. white() .. "You hit the goblin.\n"
-			.. "The goblin snarls and bites you!\n"
-	end
-	npc.alive = false
-	room.items = room.items or {}
-	room.items[#room.items + 1] = "a bent copper coin"
-	return "\n" .. white() .. "You hit the goblin.\n"
-		.. "The goblin dies.\n"
-		.. "A bent copper coin drops to the ground.\n"
+	return t .. "\n" .. cmd("bex next") .. " walks them in order.\n"
+		.. cmd("bex check") .. " has me look at what you built.\n"
 end
 
-local WORLD_HELP =
-	"Commands this practice world understands:\n"
-	.. "  look (l)                 describe the room\n"
-	.. "  north south east west    move (n s e w work too)\n"
-	.. "  get <thing>              pick something up\n"
-	.. "  drop <thing>             put it down\n"
-	.. "  inventory (i)            what you carry\n"
-	.. "  kill <creature>          attack; takes a few rounds\n"
-	.. "  unlock shrine            needs something from the hollow\n"
+--------------------------------------------------------------------------
+-- Commands
+--------------------------------------------------------------------------
+
+local YARD_HELP =
+	"In here you can:\n"
+	.. "  look                     see where you are\n"
+	.. "  north south east west    move between the three rooms\n"
+	.. "  ask bex about lessons    the lesson list\n"
+	.. "  bex next / bex check     walk lessons, have your work checked\n"
+	.. "  summon dummy             a target to practise on\n"
+	.. "  hit dummy                knock it over\n"
 	.. "  commands                 this list\n"
-	.. "\nThe reading tutorial is still there: type .tutorial\n"
+	.. "\nThe reading tutorial is still here: .tutorial\n"
 
---- @return The world's reply, or nil when the command is not one it knows.
 function OnOfflineCommand(line)
 	if line == nil then
 		return nil
 	end
-	local cmd = line:lower():gsub("^%s+", ""):gsub("%s+$", "")
-	if cmd == "" then
+	local c = line:lower():gsub("^%s+", ""):gsub("%s+$", "")
+	if c == "" then
 		return nil
 	end
 
-	if cmd == "commands" then
-		return "\n" .. cyan() .. WORLD_HELP .. white()
+	if c == "commands" then
+		return "\n" .. cyan() .. YARD_HELP .. white()
 	end
 
-	if cmd == "look" or cmd == "l" then
+	if c == "look" or c == "l" then
 		return describeRoom()
 	end
 
-	local dir = DIRECTIONS[cmd]
+	local dir = DIRECTIONS[c]
 	if dir ~= nil then
-		local room = world[here]
-		if room.npc ~= nil and room.npc.alive then
-			return "\n" .. yellow() .. "The goblin blocks your way!\n" .. white()
-		end
-		local dest = room.exits[dir]
+		local dest = yard[here].exits[dir]
 		if dest == nil then
-			return "\n" .. white() .. "You cannot go " .. dir .. " from here.\n"
-		end
-		if world[dest].locked then
-			return "\n" .. white() .. "The way " .. dir .. " is barred.\n"
+			return "\n" .. white() .. "The wall is that way. Try "
+				.. table.concat(sortedExits(yard[here]), " or ") .. ".\n"
 		end
 		here = dest
 		return describeRoom()
 	end
 
-	if cmd == "inventory" or cmd == "i" then
-		if #carried == 0 then
-			return "\n" .. white() .. "You are carrying nothing.\n"
-		end
-		return "\n" .. white() .. "You are carrying:\n  "
-			.. table.concat(carried, "\n  ") .. "\n"
+	if c == "ask bex about lessons" or c == "ask bex" or c == "lessons" then
+		return lessonMenu()
 	end
 
-	local what = cmd:match("^get%s+(.+)$") or cmd:match("^take%s+(.+)$")
-	if what ~= nil then
-		local item = takeFromRoom(what)
-		if item == nil then
-			return "\n" .. white() .. "You see no " .. what .. " here.\n"
-		end
-		carried[#carried + 1] = item
-		return "\n" .. white() .. "You take " .. item .. ".\n"
+	if c == "bex next" then
+		return nextLesson()
 	end
 
-	what = cmd:match("^drop%s+(.+)$")
-	if what ~= nil then
-		local item = carrying(what)
-		if item == nil then
-			return "\n" .. white() .. "You are not carrying that.\n"
+	if c == "bex check" or c == "bex i am done" then
+		if current == nil then
+			return tutorSays("Pick a lesson first: " .. cmd("ask bex about lessons"))
 		end
-		for i, held in ipairs(carried) do
-			if held == item then
-				table.remove(carried, i)
-				break
-			end
-		end
-		local room = world[here]
-		room.items = room.items or {}
-		room.items[#room.items + 1] = item
-		return "\n" .. white() .. "You drop " .. item .. ".\n"
+		local ok, text = lessons[current].check()
+		return text
 	end
 
-	what = cmd:match("^kill%s+(.+)$") or cmd:match("^attack%s+(.+)$")
-	if what ~= nil then
-		return fight(what)
+	local which = c:match("^bex%s+(%a+)$")
+	if which ~= nil and lessons[which] ~= nil then
+		return startLesson(which)
 	end
 
-	if cmd == "unlock shrine" or cmd == "unlock altar" then
-		if carrying("key") == nil then
-			return "\n" .. white() .. "You have nothing that fits the keyhole.\n"
+	if c == "summon dummy" or c == "summon" then
+		dummy = { room = here, standing = true }
+		return "\n" .. yellow() .. "Bex drags a straw dummy over and sets it upright.\n"
+			.. white() .. cmd("hit dummy") .. "\n"
+	end
+
+	if c == "hit dummy" or c == "kill dummy" or c == "attack dummy" then
+		if dummy == nil or dummy.room ~= here then
+			return "\n" .. white() .. "There is no dummy here. "
+				.. cmd("summon dummy") .. "\n"
 		end
-		if not world.shrine.locked then
-			return "\n" .. white() .. "It is already open.\n"
+		if not dummy.standing then
+			dummy.standing = true
+			return "\n" .. white() .. "You set the dummy upright again.\n"
 		end
-		world.shrine.locked = false
-		return "\n" .. cyan() .. "The key turns. The shrine is open.\n" .. white()
+		dummy.standing = false
+		-- Fixed wording: the trigger lesson asks for exactly this line.
+		return "\n" .. white() .. "You strike the dummy.\n"
+			.. "The dummy topples over.\n"
 	end
 
 	return nil
 end
 
 --- Room facts for the mapper, in the shape Java expects: num, title, exits.
---- Fields are tab separated because room titles contain spaces.
---- @return "num<TAB>title<TAB>north,south" or nil.
 function OnOfflineRoomInfo()
-	local room = world[here]
+	local room = yard[here]
 	if room == nil then
 		return nil
 	end

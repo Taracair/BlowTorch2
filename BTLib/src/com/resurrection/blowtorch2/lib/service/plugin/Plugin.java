@@ -325,6 +325,7 @@ public class Plugin implements SettingsChangedListener {
 		psf.register("PluginSupports");
 		etgf.register("EnableTriggerGroup");
 		sif.register("Simulate");
+		PluginInspectLuaFunctions.registerAll(L, this);
 		dtgf.register("DeleteTriggerGroup");
 		gpnf.register("GetPluginName");
 		svf.register("SetVariable");
@@ -926,6 +927,11 @@ Note("Example text!")
 			return null;
 		}
 		return parent.getSessionVariables().snapshot();
+	}
+
+	/** The connection this plugin belongs to; see PluginInspectLuaFunctions. */
+	ConnectionPluginCallback getParentCallback() {
+		return parent;
 	}
 
 	public void buildAliases() {
