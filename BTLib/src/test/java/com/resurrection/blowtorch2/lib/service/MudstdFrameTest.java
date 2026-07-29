@@ -44,29 +44,74 @@ public class MudstdFrameTest {
 		assertTrue(MudstdFrame.canHost("Floating", "TERMINAL"));
 	}
 
-	/** What we announce is exactly what we can host — no more. */
+	/** What we announce is what we will take on, both content types. */
 	@Test
 	public void announcementMatchesWhatWeAccept() {
 		assertEquals("mudstd.frame.support {\"type\": [\"floating\"], "
-				+ "\"content\": [\"terminal\"]}", MudstdFrame.supportMessage());
+				+ "\"content\": [\"terminal\", \"image\"]}",
+				MudstdFrame.supportMessage());
 		assertTrue(MudstdFrame.canHost("floating", "terminal"));
+		assertTrue(MudstdFrame.canHost("floating", "image"));
 	}
 
+	/** Anything inside the specification's vocabulary is accepted. */
 	@Test
-	public void hostsFloatingTerminalOnly() {
+	public void acceptsEveryKnownCombination() {
 		assertTrue(MudstdFrame.canHost("floating", "terminal"));
-		assertFalse(MudstdFrame.canHost("docked", "terminal"));
-		assertFalse(MudstdFrame.canHost("floating", "image"));
+		assertTrue(MudstdFrame.canHost("docked", "terminal"));
+		assertTrue(MudstdFrame.canHost("tab", "webview"));
+		assertFalse(MudstdFrame.canHost("popup", "terminal"));
+		assertFalse(MudstdFrame.canHost("floating", "video"));
 	}
 
-	/** A refusal has to say which half was the problem. */
+	/** Accepting is not drawing, and the two must not be confused. */
+	@Test
+	public void onlyFloatingTerminalIsActuallyDrawn() {
+		assertTrue(MudstdFrame.canRender("floating", "terminal"));
+		assertFalse(MudstdFrame.canRender("floating", "image"));
+		assertFalse(MudstdFrame.canRender("docked", "terminal"));
+	}
+
+	/** An accepted frame that cannot be drawn has to say so in words. */
+	@Test
+	public void acceptedFramesAdmitWhatTheyAreNotDoing() {
+		assertNull(MudstdFrame.acceptedButNotDrawn("floating", "terminal"));
+		assertTrue(MudstdFrame.acceptedButNotDrawn("floating", "image")
+				.contains("not drawn"));
+		assertTrue(MudstdFrame.acceptedButNotDrawn("floating", "webview")
+				.contains("no webview"));
+		assertTrue(MudstdFrame.acceptedButNotDrawn("docked", "terminal")
+				.contains("floating"));
+	}
+
+	/** Only vocabulary outside the specification is refused now. */
 	@Test
 	public void refusalNamesTheReason() {
 		assertNull(MudstdFrame.refusalFor("floating", "terminal"));
-		assertTrue(MudstdFrame.refusalFor("docked", "terminal").contains("floating"));
-		assertTrue(MudstdFrame.refusalFor("floating", "image").contains("terminal"));
+		assertNull(MudstdFrame.refusalFor("docked", "image"));
 		assertTrue(MudstdFrame.refusalFor("popup", "terminal").contains("unknown frame type"));
 		assertTrue(MudstdFrame.refusalFor("floating", "video").contains("unknown content type"));
+	}
+
+	/** An image is described, never echoed: a base64 map is tens of kilobytes. */
+	@Test
+	public void imagePayloadIsSummarisedNotRepeated() {
+		String summary = MudstdFrame.imageSummary("base64:" + repeat("A", 400));
+		assertTrue(summary.startsWith("base64"));
+		assertTrue(summary.contains("400 chars"));
+		assertTrue(summary.contains("300 bytes"));
+		assertEquals("url, http://example.org/map.png",
+				MudstdFrame.imageSummary("http://example.org/map.png"));
+		assertEquals("no image field", MudstdFrame.imageSummary(""));
+		assertTrue(MudstdFrame.imageSummary("???").contains("unrecognised"));
+	}
+
+	private static String repeat(String s, int n) {
+		StringBuilder b = new StringBuilder();
+		for (int i = 0; i < n; i++) {
+			b.append(s);
+		}
+		return b.toString();
 	}
 
 	@Test
