@@ -100,25 +100,32 @@ public class AliasRecursionTest {
 	public void expansionChainsThroughASecondAlias() {
 		AliasRecursion.Result r = run("kk goblin",
 				alias("^kk", "attack $1"), alias("attack", "kill"));
-		// "kill", not "kill goblin" -- see tailIsLostOnceAWordSplitAliasHasFired.
-		assertEquals("kill", r.text());
+		assertEquals("kill goblin", r.text());
 		assertFalse(r.hitLimit());
 	}
 
 	/**
-	 * A real defect, pinned rather than fixed: {@code eatTail} is set by the
-	 * word-splitting and anchored branches and never cleared, so a later pass
-	 * through the unanchored branch drops everything after its match. Chaining a
-	 * {@code ^kk} alias into a plain one silently loses the argument.
-	 *
-	 * <p>Fixing it belongs in its own change, with the maintainer deciding --
-	 * some alias sets may lean on it by now.
+	 * The regression test for the sticky {@code eatTail}. It used to be declared
+	 * outside the pass loop, so once a {@code ^kk} alias had fired, the next
+	 * pass through the unanchored branch dropped everything after its own match
+	 * and the player's argument vanished: this line produced "kill".
 	 */
 	@Test
-	public void tailIsLostOnceAWordSplitAliasHasFired() {
+	public void tailSurvivesAfterAWordSplitAliasHasFired() {
 		AliasRecursion.Result r = run("kk goblin sword",
 				alias("^kk", "attack $1 $2"), alias("attack", "kill"));
-		assertEquals("kill", r.text());
+		assertEquals("kill goblin sword", r.text());
+	}
+
+	/**
+	 * The reason the flag exists at all: within one pass, the word-splitting
+	 * branch rewrites the whole buffer including everything after the semicolon,
+	 * so the tail must not be appended a second time.
+	 */
+	@Test
+	public void wordSplitDoesNotDuplicateTheTailWithinAPass() {
+		AliasRecursion.Result r = run("kk goblin;flee", alias("^kk", "kill $1"));
+		assertEquals("kill goblin;flee", r.text());
 	}
 
 	/**
