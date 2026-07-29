@@ -728,9 +728,22 @@ final class ConnectionSettingsIO {
 				pL.pushString(s.getLastSelected());
 				pL.setGlobal("current_set");
 				
+				pL.getGlobal("debug");
+				pL.getField(-1, "traceback");
 				pL.getGlobal("legacyButtonsImported");
 				if (pL.getLuaObject(-1).isFunction()) {
-					pL.call(0, 0);
+					// pcall, like the default-settings branch a few lines below.
+					// This one used a bare call, so an error inside a plugin's
+					// legacyButtonsImported hook escaped as a LuaException in the
+					// middle of importing a version 1 profile — the one moment
+					// the player cannot simply retry.
+					int ret = pL.pcall(0, 0, NEGATIVE_TWO);
+					if (ret != 0) {
+						host.dispatchLuaError("ERROR IN legacyButtonsImported:"
+								+ (pL.getLuaObject(-1).getString()));
+					}
+				} else {
+					pL.pop(1);
 				}
 				
 				} else {
