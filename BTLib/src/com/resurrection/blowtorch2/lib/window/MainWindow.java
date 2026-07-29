@@ -1690,7 +1690,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 900, 900, "Quit");
 		menu.add(0, 1050, 1050, "Search scrollback");
 		menu.add(0, 1100,1100,"Reload Settings");
-		menu.add(0, 1200,1200,"Reset Settings");
+		// Reset Settings moved to Options → Miscellaneous, with Export and
+		// Import. It throws away every alias, trigger, timer and button in the
+		// world, and it sat one tap from Reconnect and Disconnect. The id stays
+		// wired below for the Options entry.
 		// Export/Import Settings moved to Options → Miscellaneous, next to the
 		// storage settings they depend on. This menu was sixteen items long and
 		// these two are setup-and-migration jobs, not things you reach for mid
@@ -5196,6 +5199,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/** Options → Miscellaneous → Manage Storage Access. */
+	/** Options → Miscellaneous → Reset Settings. Same confirm dialog as before. */
+	public void resetSettingsFromOptions() {
+		settingsTransfer.doResetDialog();
+	}
+
 	/** Options → Miscellaneous → Export Settings. Same path as the old menu item. */
 	public void exportSettingsFromOptions() {
 		SDCardUtils.hasPermissions(this, findViewById(R.id.window_container), RP_EXPORT,
