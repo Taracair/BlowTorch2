@@ -2263,6 +2263,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			// player's outgoing line.
 			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_PROCESS,
 					reply.getBytes(mSettings.getEncoding())));
+			feedMapperFromOfflineWorld(tutorial);
 			return true;
 		} catch (Exception e) {
 			// A broken practice world must not stop the player typing.
@@ -2270,6 +2271,43 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					"Connection.offerToOfflineWorld", e);
 			return false;
 		}
+	}
+
+	/**
+	 * Tell the mapper where the practice world just put the player.
+	 *
+	 * <p>The mapper has no text-based room detection — {@code onGmcpRoom} is its
+	 * only way in — so without this the tutorial rooms would be walked but never
+	 * drawn. Calling it directly is the same entry point a real Room.Info takes,
+	 * so the tutorial exercises the mapper the player will actually use.
+	 *
+	 * @param tutorial The tutorial plugin, already known to be present.
+	 */
+	private void feedMapperFromOfflineWorld(final Plugin tutorial) {
+		if (mMapper == null) {
+			return;
+		}
+		String info = tutorial.callFunctionResult("OnOfflineRoomInfo", "");
+		if (info == null) {
+			return;
+		}
+		// num <TAB> title <TAB> comma separated exits. Tabs because room titles
+		// contain spaces and exits do not need anything richer.
+		String[] parts = info.split("\t", -1);
+		if (parts.length < 3) {
+			return;
+		}
+		java.util.List<String> exits = new java.util.ArrayList<String>();
+		if (parts[2].length() > 0) {
+			for (String exit : parts[2].split(",")) {
+				String trimmed = exit.trim();
+				if (trimmed.length() > 0) {
+					exits.add(trimmed);
+				}
+			}
+		}
+		mMapper.onGmcpRoom(parts[1], parts[0], null, null, null, exits,
+				new java.util.HashMap<String, String>());
 	}
 
 	/** True for the built-in Starter Tutorial (host {@code offline}). */

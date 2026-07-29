@@ -45,6 +45,7 @@ end
 -- Ordered topic list for start / next / prev
 local TOPIC_ORDER = {
 	"welcome",
+	"practice_world",
 	"client_commands",
 	"buttons_basics",
 	"buttons_swipe",
@@ -76,6 +77,30 @@ local TOPIC_ORDER = {
 }
 
 local TOPICS = {}
+
+TOPICS.practice_world = function()
+	noteBlock("Starter Tutorial — The Practice World",
+[[This session also contains a very small MUD. It is offline: nothing you type
+here reaches the network. It exists so the later lessons can be done rather
+than read.
+
+Type ordinary MUD commands at it:
+  look                     describe where you are
+  north south east west    move around (n s e w work too)
+  get key                  pick things up
+  kill goblin              fight; it takes a few rounds
+  commands                 the full list
+
+Why it is worth using: the world answers along the same path a real server
+does. Your own triggers fire on its text, colouring applies to it, and the
+mapper draws the rooms as you walk. So when the trigger lesson asks you to
+catch "The goblin dies.", you can go and make it happen.
+
+Suggested first walk:
+  look → north → east → get key → west → north → kill goblin
+
+This reading tour is unchanged and always here: .tutorial next]])
+end
 
 TOPICS.welcome = function()
 	noteBlock("Starter Tutorial — Welcome",
@@ -915,37 +940,82 @@ end
 
 RegisterSpecialCommand("tutorial", "tutorialCommand")
 
+
 --------------------------------------------------------------------------
 -- Practice world
 --------------------------------------------------------------------------
--- A very small offline MUD, so lessons can be practised instead of read.
+-- A small offline MUD, so the lessons can be practised instead of only read.
+-- The reading tutorial is untouched and still lives at .tutorial; this is the
+-- thing you type ordinary MUD commands at, in the same session.
 --
 -- OnOfflineCommand returns the text the world replies with, and Java feeds it
--- back through the normal incoming path (MESSAGE_PROCESS -> dispatch). That
--- matters: it is the same route real server output takes, so the player's own
--- triggers fire on it, colouring applies, and the mapper follows the movement.
--- Returning nil means "not mine", and the client prints its usual offline note.
+-- back through the normal incoming path (MESSAGE_PROCESS -> dispatch). That is
+-- the same route real server output takes, so the player's own triggers fire on
+-- it, colouring applies, and the mapper follows along. Returning nil means "not
+-- mine", and the client prints its usual offline note.
+--
+-- OnOfflineRoomInfo hands Java what it needs to call the mapper the same way a
+-- GMCP Room.Info would. The mapper has no text-based room detection at all --
+-- GMCP is its only input -- so without this the practice world would be
+-- unmappable.
 --
 -- Room text deliberately looks like a MUD: a title line, a blank line, prose,
--- then an exits line. Lessons lean on that shape when they ask the player to
--- write a trigger.
+-- then an exits line. The lessons lean on that shape when they ask the player
+-- to write a trigger.
 
 local world = {
 	clearing = {
+		num = "1001",
 		title = "A Sunlit Clearing",
 		body = "Grass grows thick between the stones of an old road. The path "
 			.. "runs north into birch trees.",
 		exits = { north = "path" },
 	},
 	path = {
+		num = "1002",
 		title = "A Birch Path",
 		body = "White trunks crowd the road. Something small rustles in the "
-			.. "leaf litter ahead.",
-		exits = { south = "clearing" },
+			.. "leaf litter. A hollow opens to the east, and the road goes on "
+			.. "north.",
+		exits = { south = "clearing", north = "bridge", east = "hollow" },
+	},
+	hollow = {
+		num = "1003",
+		title = "A Damp Hollow",
+		body = "Ferns fill a dip in the ground. The air smells of wet stone.",
+		exits = { west = "path" },
+		items = { "a rusty key" },
+	},
+	bridge = {
+		num = "1004",
+		title = "A Plank Bridge",
+		body = "Three planks cross a stream that runs too fast to wade. A "
+			.. "goblin track leads north; a mossy shrine stands east.",
+		exits = { south = "path", north = "den", east = "shrine" },
+	},
+	den = {
+		num = "1005",
+		title = "A Goblin Den",
+		body = "Bones and rags line a scrape under the roots of a fallen oak.",
+		exits = { south = "bridge" },
+		npc = {
+			name = "goblin",
+			article = "a goblin",
+			hp = 3,
+			alive = true,
+		},
+	},
+	shrine = {
+		num = "1006",
+		title = "A Mossy Shrine",
+		body = "A low stone altar, furred green. A keyhole is cut into its face.",
+		exits = { west = "bridge" },
+		locked = true,
 	},
 }
 
 local here = "clearing"
+local carried = {}
 
 local DIRECTIONS = {
 	n = "north", north = "north",
@@ -954,18 +1024,96 @@ local DIRECTIONS = {
 	w = "west", west = "west",
 }
 
-local function describeRoom()
-	local room = world[here]
+local function yellow()
+	if Colorizer ~= nil then
+		return Colorizer:getBrightYellowColor()
+	end
+	return "\027[1;33m"
+end
+
+local function sortedExits(room)
 	local names = {}
 	for dir in pairs(room.exits) do
 		names[#names + 1] = dir
 	end
 	table.sort(names)
-	local exits = #names > 0 and table.concat(names, ", ") or "none"
-	return "\n" .. cyan() .. room.title .. white() .. "\n\n"
-		.. room.body .. "\n"
-		.. "Obvious exits: " .. exits .. "\n"
+	return names
 end
+
+local function describeRoom()
+	local room = world[here]
+	local names = sortedExits(room)
+	local exits = #names > 0 and table.concat(names, ", ") or "none"
+	local t = "\n" .. cyan() .. room.title .. white() .. "\n\n"
+		.. room.body .. "\n"
+	if room.items ~= nil then
+		for _, item in ipairs(room.items) do
+			t = t .. "You see " .. item .. " lying here.\n"
+		end
+	end
+	if room.npc ~= nil and room.npc.alive then
+		t = t .. yellow() .. room.npc.article:gsub("^%l", string.upper)
+			.. " is here, watching you.\n" .. white()
+	end
+	return t .. "Obvious exits: " .. exits .. "\n"
+end
+
+--- Remove the first item in the room whose text contains `word`.
+local function takeFromRoom(word)
+	local room = world[here]
+	if room.items == nil then
+		return nil
+	end
+	for i, item in ipairs(room.items) do
+		if item:lower():find(word, 1, true) ~= nil then
+			table.remove(room.items, i)
+			return item
+		end
+	end
+	return nil
+end
+
+local function carrying(word)
+	for _, item in ipairs(carried) do
+		if item:lower():find(word, 1, true) ~= nil then
+			return item
+		end
+	end
+	return nil
+end
+
+--- One round of combat. Deliberately several lines, and always the same
+--- wording, so a lesson can ask for a trigger on "The goblin dies."
+local function fight(target)
+	local room = world[here]
+	local npc = room.npc
+	if npc == nil or not npc.alive or npc.name ~= target then
+		return "\n" .. white() .. "There is no " .. target .. " here.\n"
+	end
+	npc.hp = npc.hp - 1
+	if npc.hp > 0 then
+		return "\n" .. white() .. "You hit the goblin.\n"
+			.. "The goblin snarls and bites you!\n"
+	end
+	npc.alive = false
+	room.items = room.items or {}
+	room.items[#room.items + 1] = "a bent copper coin"
+	return "\n" .. white() .. "You hit the goblin.\n"
+		.. "The goblin dies.\n"
+		.. "A bent copper coin drops to the ground.\n"
+end
+
+local WORLD_HELP =
+	"Commands this practice world understands:\n"
+	.. "  look (l)                 describe the room\n"
+	.. "  north south east west    move (n s e w work too)\n"
+	.. "  get <thing>              pick something up\n"
+	.. "  drop <thing>             put it down\n"
+	.. "  inventory (i)            what you carry\n"
+	.. "  kill <creature>          attack; takes a few rounds\n"
+	.. "  unlock shrine            needs something from the hollow\n"
+	.. "  commands                 this list\n"
+	.. "\nThe reading tutorial is still there: type .tutorial\n"
 
 --- @return The world's reply, or nil when the command is not one it knows.
 function OnOfflineCommand(line)
@@ -977,6 +1125,10 @@ function OnOfflineCommand(line)
 		return nil
 	end
 
+	if cmd == "commands" then
+		return "\n" .. cyan() .. WORLD_HELP .. white()
+	end
+
 	if cmd == "look" or cmd == "l" then
 		return describeRoom()
 	end
@@ -984,13 +1136,83 @@ function OnOfflineCommand(line)
 	local dir = DIRECTIONS[cmd]
 	if dir ~= nil then
 		local room = world[here]
+		if room.npc ~= nil and room.npc.alive then
+			return "\n" .. yellow() .. "The goblin blocks your way!\n" .. white()
+		end
 		local dest = room.exits[dir]
 		if dest == nil then
 			return "\n" .. white() .. "You cannot go " .. dir .. " from here.\n"
+		end
+		if world[dest].locked then
+			return "\n" .. white() .. "The way " .. dir .. " is barred.\n"
 		end
 		here = dest
 		return describeRoom()
 	end
 
+	if cmd == "inventory" or cmd == "i" then
+		if #carried == 0 then
+			return "\n" .. white() .. "You are carrying nothing.\n"
+		end
+		return "\n" .. white() .. "You are carrying:\n  "
+			.. table.concat(carried, "\n  ") .. "\n"
+	end
+
+	local what = cmd:match("^get%s+(.+)$") or cmd:match("^take%s+(.+)$")
+	if what ~= nil then
+		local item = takeFromRoom(what)
+		if item == nil then
+			return "\n" .. white() .. "You see no " .. what .. " here.\n"
+		end
+		carried[#carried + 1] = item
+		return "\n" .. white() .. "You take " .. item .. ".\n"
+	end
+
+	what = cmd:match("^drop%s+(.+)$")
+	if what ~= nil then
+		local item = carrying(what)
+		if item == nil then
+			return "\n" .. white() .. "You are not carrying that.\n"
+		end
+		for i, held in ipairs(carried) do
+			if held == item then
+				table.remove(carried, i)
+				break
+			end
+		end
+		local room = world[here]
+		room.items = room.items or {}
+		room.items[#room.items + 1] = item
+		return "\n" .. white() .. "You drop " .. item .. ".\n"
+	end
+
+	what = cmd:match("^kill%s+(.+)$") or cmd:match("^attack%s+(.+)$")
+	if what ~= nil then
+		return fight(what)
+	end
+
+	if cmd == "unlock shrine" or cmd == "unlock altar" then
+		if carrying("key") == nil then
+			return "\n" .. white() .. "You have nothing that fits the keyhole.\n"
+		end
+		if not world.shrine.locked then
+			return "\n" .. white() .. "It is already open.\n"
+		end
+		world.shrine.locked = false
+		return "\n" .. cyan() .. "The key turns. The shrine is open.\n" .. white()
+	end
+
 	return nil
+end
+
+--- Room facts for the mapper, in the shape Java expects: num, title, exits.
+--- Fields are tab separated because room titles contain spaces.
+--- @return "num<TAB>title<TAB>north,south" or nil.
+function OnOfflineRoomInfo()
+	local room = world[here]
+	if room == nil then
+		return nil
+	end
+	return room.num .. "\t" .. room.title .. "\t"
+		.. table.concat(sortedExits(room), ",")
 end
