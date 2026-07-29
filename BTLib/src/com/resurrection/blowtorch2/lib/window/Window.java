@@ -693,13 +693,55 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 	}
 
+	/**
+	 * Open the widget with everything between the two fingers already selected.
+	 *
+	 * <p>Both ends are resolved the same way a single touch is, so each snaps to
+	 * real text rather than to empty padding, and then the outer edges of the two
+	 * become the span. The player still adjusts it with the widget afterwards —
+	 * this only saves dragging across the whole passage first.
+	 *
+	 * <p>Line 0 is the newest line, so the earlier text is the one with the
+	 * larger line index; that is what decides which end is the start.
+	 *
+	 * @param lineA Buffer line under the first finger.
+	 * @param colA Column under the first finger.
+	 * @param lineB Buffer line under the second finger.
+	 * @param colB Column under the second finger.
+	 */
+	private void startSelectionBetween(final int lineA, final int colA,
+			final int lineB, final int colB) {
+		TextTree.Selection a = resolveSelectionForPoint(lineA, colA);
+		TextTree.Selection b = resolveSelectionForPoint(lineB, colB);
+		if (a == null || b == null) {
+			// One finger was somewhere with no text under it; fall back to the
+			// old behaviour rather than guess at a span.
+			startSelection(lineA, colA);
+			return;
+		}
+		TextTree.Selection earlier = a;
+		TextTree.Selection later = b;
+		if (a.start.line < b.start.line
+				|| (a.start.line == b.start.line && a.start.column > b.start.column)) {
+			earlier = b;
+			later = a;
+		}
+		TextTree.Selection span = mBuffer.new Selection(earlier.start, later.end);
+		beginSelectionWith(span);
+	}
+
 	/** Starts the selection mode, sets up structures and flags that cause the widget to be drawn in onDraw(...).
 	 * 
 	 * @param line Starting line.
 	 * @param column Starting column.
 	 */
 	private void startSelection(final int line, final int column) {
-		theSelection = resolveSelectionForPoint(line, column);
+		beginSelectionWith(resolveSelectionForPoint(line, column));
+	}
+
+	/** The shared half of opening the widget, whatever decided the span. */
+	private void beginSelectionWith(final TextTree.Selection selection) {
+		theSelection = selection;
 		if (theSelection == null) {
 			firstPress = true;
 		} else {
@@ -1285,7 +1327,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 			} catch (Exception ignored) {
 			}
-			startSelection(selLine, selCol);
+			// Where the second finger landed. Selecting everything between the
+			// two is what people expect from a two-finger grab, and it saves
+			// dragging the widget across the whole span afterwards; the widget
+			// then adjusts the edges as before.
+			int selLine2 = selLine;
+			int selCol2 = selCol;
+			boolean haveSecond = false;
+			try {
+				int idx1 = t.findPointerIndex(t.getPointerId(1));
+				if (idx1 >= 0) {
+					selLine2 = touchYToBufferLine(t.getY(idx1));
+					selCol2 = mOneCharWidth > 0
+							? (int) Math.floor(t.getX(idx1) / (float) mOneCharWidth) : 0;
+					haveSecond = true;
+				}
+			} catch (Exception ignored) {
+			}
+			if (haveSecond && (selLine2 != selLine || selCol2 != selCol)) {
+				startSelectionBetween(selLine, selCol, selLine2, selCol2);
+			} else {
+				startSelection(selLine, selCol);
+			}
 			return true;
 		}
 
