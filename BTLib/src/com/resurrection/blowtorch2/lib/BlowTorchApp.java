@@ -20,7 +20,48 @@ public class BlowTorchApp extends Application {
 	public void onCreate() {
 		super.onCreate();
 		BlowTorchLogger.attach(this);
+		recordUncaughtExceptions();
 		enableStrictModeOnTestBuilds();
+	}
+
+	/**
+	 * Write a crash to the error log before the process dies.
+	 *
+	 * <p>Until now nothing did. The only handler in the tree was a commented-out
+	 * line in MainWindow naming a CrashReporter class that does not exist, so an
+	 * uncaught exception took the app down leaving nothing behind but a logcat
+	 * entry that the ring buffer eventually ate. The maintainer's error log
+	 * looked quiet because crashes never reached it, not because there were none.
+	 *
+	 * <p>This records and then hands over to the handler that was already
+	 * installed, so the app still dies exactly as it did. Swallowing the throw
+	 * would leave the process alive in a state nobody designed for, which is a
+	 * worse failure than the crash: a gate belongs where the bad value enters,
+	 * not around the whole application.
+	 *
+	 * <p>Installed per process, since {@code :stellar} crashes independently of
+	 * the UI and its failures are the ones nobody is looking at.
+	 */
+	private void recordUncaughtExceptions() {
+		final Thread.UncaughtExceptionHandler previous =
+				Thread.getDefaultUncaughtExceptionHandler();
+		Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+			@Override
+			public void uncaughtException(final Thread thread, final Throwable error) {
+				try {
+					BlowTorchLogger.logThrowable(
+							"CRASH in " + getPackageName() + " on thread " + thread.getName(),
+							error);
+				} catch (Throwable loggingFailed) {
+					// The process is going down either way; the original throwable
+					// matters more than this one, so make sure it still gets out.
+					android.util.Log.e("BlowTorch", "could not record crash", loggingFailed);
+				}
+				if (previous != null) {
+					previous.uncaughtException(thread, error);
+				}
+			}
+		});
 	}
 
 	/**
