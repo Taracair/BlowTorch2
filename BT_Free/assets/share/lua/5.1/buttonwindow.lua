@@ -2122,11 +2122,16 @@ function OnDraw(canvas)
 	--canvas:save()
 	--canvas:translate(0,statusoffset)
 
-	if(manage and drawManagerLayer) then
+	-- Both layers are recycled and set to nil by OnDestroy, and a frame can
+	-- still arrive before they are rebuilt - Reload settings does exactly that.
+	-- drawBitmap on a nil layer threw out of OnDraw on every frame afterwards,
+	-- which filled the window with the same NullPointerException. A frame with
+	-- nothing to draw is a frame to skip, not an error to report.
+	if(manage and drawManagerLayer and managerLayer ~= nil) then
 		canvas:drawBitmap(managerLayer,0,0,nil)
 	end
-	
-	if(draw) then
+
+	if(draw and buttonLayer ~= nil) then
 		canvas:drawBitmap(buttonLayer,0,0,nil)
 	end
 	
@@ -2185,6 +2190,10 @@ function OnDestroy()
 		--Note("canvas to nil")
 		buttonCanvas = nil
 	end
+	-- Keep the flags with the layers they describe. Leaving draw true while the
+	-- bitmap is gone is what made the next frame throw.
+	draw = false
+	drawManagerLayer = false
 	--Note("finished destroying window")
 end
 

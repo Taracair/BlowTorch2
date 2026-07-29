@@ -1144,8 +1144,9 @@ lessons.buttons = {
 			.. "  " .. cmd("press a button") .. " - just tap one and watch what it sends\n"
 			.. "  " .. cmd("swipe a button sideways") .. " - many carry a second command\n"
 			.. "  " .. cmd("hold a button") .. " - opens its editor\n\n"
-			.. "Then make one of your own: hold an empty button, give it a label\n"
-			.. "and a command, and save.\n\n"
+			.. "To change one, either hold it, or open the menu (the three dots\n"
+			.. "at the top) and choose Edit buttons. Give it a label and a\n"
+			.. "command, and save.\n\n"
 			.. "When you have pressed one and made one, tell me:\n"
 			.. "  " .. cmd("bex i am done"))
 	end,
