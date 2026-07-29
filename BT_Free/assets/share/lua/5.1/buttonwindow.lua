@@ -1406,16 +1406,27 @@ function drawManagerGrid()
 		local height = view:getHeight()
 		-- Opaque black so game text does not show through while editing.
 		c:drawRect(0,0,width,height,managerBgPaint)
-		--draw dashed lines.
+		-- Trim the ends of the guides so they stop short of the screen's rounded
+		-- corners instead of disappearing into them. The lines keep their
+		-- positions, because those positions are what they mean - a guide moved
+		-- inward would be pointing at the wrong snap. Only their extents change.
+		-- Padding the whole window was tried first and cost about 47px of game
+		-- text on each side, which is far too much for a drawing aid.
+		local edge = 10 * density
 		local times = width / gridXwidth
 		for x=1,times do
-			c:drawLine( gridXwidth*x,statusoffset,gridXwidth*x,height,dpaint)
+			local gx = gridXwidth*x
+			if gx >= edge and gx <= width - edge then
+				c:drawLine(gx,statusoffset + edge,gx,height - edge,dpaint)
+			end
 		end
-		
+
 		times = (height - statusoffset) / gridYwidth
 		for y=1,times do
 			local gy = statusoffset + gridYwidth*y
-			c:drawLine(0,gy,width,gy,dpaint)
+			if gy <= height - edge then
+				c:drawLine(edge,gy,width - edge,gy,dpaint)
+			end
 		end
 
 end
