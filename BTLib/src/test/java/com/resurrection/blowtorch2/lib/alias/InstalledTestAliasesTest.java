@@ -26,12 +26,16 @@ public class InstalledTestAliasesTest {
 		return a;
 	}
 
-	/** Exactly the three entries written into the profile XML. */
+	/** Exactly the entries written into the profile XML. */
 	private static AliasPattern installed() {
 		Collection<AliasData> all = new ArrayList<AliasData>();
 		all.add(alias("zzp (.+)", "kill $1"));
 		all.add(alias("^zzw", "kill $1 with $2"));
 		all.add(alias("^zza (.+) at (.+)$", "cast $1 $2"));
+		// The pair that chains a ^alias into an unanchored one, which is the
+		// shape the sticky eatTail used to truncate.
+		all.add(alias("^zzc", "zzt $1 $2"));
+		all.add(alias("zzt", "poke"));
 		return AliasPattern.build(all);
 	}
 
@@ -57,6 +61,15 @@ public class InstalledTestAliasesTest {
 	@Test
 	public void anchoredAliasTakesItsOwnGroups() {
 		assertEquals("cast fireball goblin", typed("zza fireball at goblin"));
+	}
+
+	/**
+	 * The gesture that demonstrates the eatTail fix on the device. Before it,
+	 * this sent "poke" and both arguments were lost.
+	 */
+	@Test
+	public void chainedAliasKeepsItsArguments() {
+		assertEquals("poke goblin sword", typed("zzc goblin sword"));
 	}
 
 	/** A line touching none of them is passed through untouched. */
