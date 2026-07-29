@@ -1,8 +1,9 @@
 BlowTorch 2 v2.2.0
+• Main game window is much faster — quicker start, smoother scrolling, steadier under a busy feed
 • Copy widget: two fingers now select everything between them
 • Interactive tutorial — a tutor who teaches buttons/aliases/triggers/timers and checks your work
+• Tidier interface: options grouped more sensibly, list screens and mapper menus rebuilt
 • Chained aliases no longer lose your arguments; one broken alias no longer disables the rest
 • A mistyped trigger pattern can no longer crash the editor or stop a profile loading
 • A failed settings import no longer overwrites the profile you had
 • No more freeze when leaving the game; server list no longer shows a world you left as connected
-• mudstd.frame GMCP package for server-controlled frames

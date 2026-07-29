@@ -52,8 +52,7 @@ straightforward.
 
 **A picture instead of a character — tile graphics.** The client holds a tileset
 in advance and the server sends a marker in the text stream saying which tile to
-draw. This is the idea taranion described for TinTin++, and it fits us: we choose
-what each cell looks like at draw time.
+draw. It fits us: we choose what each cell looks like at draw time.
 
 Two caveats worth knowing early. Tiles line up in columns only with a monospaced
 font — with a proportional font, a grid does not exist. And the drawing routine
@@ -65,8 +64,7 @@ would not want to give it back.
 the map and the extra text panes work this way. A frame carrying an image is
 better served by one of these than by trying to squeeze a picture between lines
 of text: no interaction with text layout, no scrolling problems, the player can
-move and resize it. This is the intended home for `mudstd.frame` with
-`content: image`.
+move and resize it. This is where any image a server sends should end up.
 
 **A picture between lines of text.** Possible, but the most expensive option
 here, because a line with its own height touches layout and scrolling. Worth

@@ -70,13 +70,13 @@ the wire. Passwords in `Char.Login.Credentials` are redacted before writing.
 **Suggest modules when seen?** (off by default) can toast when the server sends a
 module you have not enabled. **Show GMCP in game window?** (or `.gmcp feed on`)
 echoes live IN/OUT packets in the mud window — noisy, but the fastest way to see
-what Eden actually sends. `.gmcp sniff on` prints the absolute path in-game;
+what your MUD actually sends. `.gmcp sniff on` prints the absolute path in-game;
 Overflow → Crash report → Show log to view. Dot helpers: `.gmcp ask`,
 `.gmcp enable|disable`, `.gmcp renegotiate`, `.gmcp feed` (see Help / user-manual).
 
 Native handlers: **Char.Login** (primary launcher account login/password; if none
 stored, sends empty `Char.Login.Credentials {}` so the MUD falls back to in-band
-login — required on Eden and similar) and
+login — required on some MUDs) and
 **Client.Media** (sound/music). `Client.Media.Stop` with no name/type/tag/key
 filters (including `{"fadeaway":true}` alone) stops all tracks; fade only when
 `fadeaway` or an explicit `fadeout` is sent. Audio is also hard-stopped on
@@ -85,7 +85,7 @@ persistent connection).
 
 ## MCP Options
 
-Mud Client Protocol — in-band `#$#` messages (HellMOO / SamsaraMoo and some MOOs).
+Mud Client Protocol — in-band `#$#` messages, used by a number of MOOs.
 **Not** the same as GMCP. Under **Options → Service → MCP Options**. All advanced
 flags default off except omit-from-output and auto-negotiate (when Use MCP? is on):
 
@@ -134,7 +134,7 @@ Session group **Options → Mapper** (also overflow → **Map** / `.map`):
 | **Configure Room Sync…** | Auto-grow, match by `num`, absolute coords (off by default), create exits |
 | **GMCP: Auto-grow map?** | Create rooms/exits from Room.Info; off = follow existing by number only |
 | **GMCP: Match by room number?** | Prefer `num`/`id`/`vnum` as tile identity. Leave on where the world sends one — it is the only stable identity there is. With it off, or on a world that sends no room number, the mapper falls back to the tile the walk points at, which is reliable for walking but cannot recognise a room you arrive at some other way |
-| **GMCP: Use absolute coordinates?** | Place at x,y only when ≤1 cell away; off = grow beside previous (Eden) |
+| **GMCP: Use absolute coordinates?** | Place at x,y only when ≤1 cell away; off = grow beside previous |
 | **GMCP: Create exit neighbors?** | Create/link missing exits; vnum stubs until visited; never deletes exits |
 | **Auto reverse links** | Suggest opposite exits when linking |
 | **Accept One-Way Specials?** | ON = recording `out`/`enter` always makes a new tile. OFF (default) = if exactly one room already leads into Here, link the special back there. Also **Build → 1-way** |
