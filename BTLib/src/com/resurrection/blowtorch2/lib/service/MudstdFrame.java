@@ -44,43 +44,94 @@ public final class MudstdFrame {
 	/**
 	 * What we tell a server we can host.
 	 *
-	 * <p>Only what actually works. Image frames need a floating window that
-	 * draws a bitmap, which does not exist yet; announcing it would promise
-	 * something we would then decline.
+	 * <p>Floating is the only geometry we have, and saying otherwise would be a
+	 * claim about the window system rather than about a feature. Both content
+	 * types are announced: terminal is shown, and image is accepted, unpacked
+	 * and reported in full even though nothing draws it yet.
+	 *
+	 * <p>That is deliberate. This package exists so the author of the
+	 * specification can develop the other half against a client that answers,
+	 * and a frame silently refused teaches him nothing. What arrives is
+	 * described precisely — see {@link #imageSummary} — so an accepted frame
+	 * never reads as a drawn one.
 	 */
 	public static String supportMessage() {
 		return MODULE + ".support {\"type\": [\"" + TYPE_FLOATING
-				+ "\"], \"content\": [\"" + CONTENT_TERMINAL + "\"]}";
+				+ "\"], \"content\": [\"" + CONTENT_TERMINAL
+				+ "\", \"" + CONTENT_IMAGE + "\"]}";
 	}
 
-	/** True when we can host a frame of this shape. */
+	/** True when we will take the frame on. Anything in the vocabulary is taken. */
 	public static boolean canHost(final String type, final String content) {
-		return TYPE_FLOATING.equalsIgnoreCase(norm(type))
-				&& CONTENT_TERMINAL.equalsIgnoreCase(norm(content));
+		return isKnownType(type) && isKnownContent(content);
+	}
+
+	/** True when we can actually put this frame's content in front of the player. */
+	public static boolean canRender(final String type, final String content) {
+		return TYPE_FLOATING.equals(norm(type)) && CONTENT_TERMINAL.equals(norm(content));
 	}
 
 	/**
 	 * Why we are turning a frame down, in words fit for a log a server author
-	 * will read.
+	 * will read. Only vocabulary outside the specification is refused now: that
+	 * is a protocol error on the sending side, and worth saying so.
 	 *
-	 * @return The reason, or null when the frame is one we can host.
+	 * @return The reason, or null when the frame is one we will take.
 	 */
 	public static String refusalFor(final String type, final String content) {
-		String t = norm(type);
-		String c = norm(content);
-		if (!isKnownType(t)) {
+		if (!isKnownType(type)) {
 			return "unknown frame type '" + type + "'";
 		}
-		if (!isKnownContent(c)) {
+		if (!isKnownContent(content)) {
 			return "unknown content type '" + content + "'";
 		}
-		if (!TYPE_FLOATING.equals(t)) {
-			return "only floating frames are supported, not '" + t + "'";
-		}
-		if (!CONTENT_TERMINAL.equals(c)) {
-			return "only terminal content is supported so far, not '" + c + "'";
-		}
 		return null;
+	}
+
+	/**
+	 * How an accepted frame is being treated, so an acknowledgement is never
+	 * mistaken for a drawing.
+	 *
+	 * @return Plain words for the log and the window, or null when it is drawn.
+	 */
+	public static String acceptedButNotDrawn(final String type, final String content) {
+		if (canRender(type, content)) {
+			return null;
+		}
+		String c = norm(content);
+		if (CONTENT_IMAGE.equals(c)) {
+			return "accepted; image content is received and reported but not drawn yet";
+		}
+		if (CONTENT_WEBVIEW.equals(c)) {
+			return "accepted; there is no webview, so its content is reported only";
+		}
+		return "accepted; treated as floating, since that is the only geometry there is";
+	}
+
+	/**
+	 * Describe an image payload without echoing it.
+	 *
+	 * <p>A base64 map is tens of kilobytes; the useful facts are that it
+	 * arrived, how it was carried, and how big it was.
+	 *
+	 * @param image The raw value of the image field.
+	 * @return One line naming the carrier and the size.
+	 */
+	public static String imageSummary(final String image) {
+		if (image == null || image.length() == 0) {
+			return "no image field";
+		}
+		String trimmed = image.trim();
+		if (trimmed.toLowerCase(Locale.US).startsWith("base64:")) {
+			int payload = trimmed.length() - "base64:".length();
+			// 4 base64 characters carry 3 bytes; padding makes this approximate.
+			return "base64, " + payload + " chars (about " + ((payload / 4) * 3) + " bytes)";
+		}
+		if (trimmed.toLowerCase(Locale.US).startsWith("http://")
+				|| trimmed.toLowerCase(Locale.US).startsWith("https://")) {
+			return "url, " + trimmed;
+		}
+		return "unrecognised carrier, " + trimmed.length() + " chars";
 	}
 
 	public static boolean isKnownType(final String type) {

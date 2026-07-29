@@ -792,6 +792,14 @@ public class Processor {
 				return;
 			}
 			mOpenFrames.add(id);
+			String caveat = MudstdFrame.acceptedButNotDrawn(type, content);
+			if (caveat != null) {
+				// Say it in both places. The server author reads gmcp.log; the
+				// player watching the screen should not think a window failed to
+				// appear when in fact none was ever going to.
+				logGmcp("INFO", "frame '" + id + "': " + caveat);
+				noteToWindow("[frame " + id + "] " + caveat);
+			}
 			// Sizes are what the frame will actually be once it is drawn. Until
 			// there is a window to measure, report the request rather than
 			// invent numbers: sizeValue with sizeUnit "c" is in characters.
@@ -802,6 +810,19 @@ public class Processor {
 			if (mOpenFrames.remove(id)) {
 				sendGmcpPacket(MudstdFrame.closedEvent(id, MudstdFrame.REASON_SYSTEM));
 			}
+		} else if (lowerModule.endsWith(".image")) {
+			if (!mOpenFrames.contains(id)) {
+				logGmcp("INFO", "frame.image for unknown frame '" + id + "'");
+				return;
+			}
+			// Described rather than drawn, and described precisely enough to be
+			// worth something: whether it came as base64 or a url, and how big
+			// it was. That is what tells the other side its payload survived the
+			// trip intact.
+			String summary = MudstdFrame.imageSummary(
+					body != null ? body.optString("image", "") : "");
+			logGmcp("INFO", "frame '" + id + "' image: " + summary);
+			noteToWindow("[frame " + id + "] image received — " + summary);
 		} else if (lowerModule.endsWith(".terminal")) {
 			if (!mOpenFrames.contains(id)) {
 				logGmcp("INFO", "frame.terminal for unknown frame '" + id + "'");
@@ -813,11 +834,18 @@ public class Processor {
 				// labelled with its id. Visibly wrong placement is a better
 				// answer than dropping the server's text on the floor while it
 				// waits to see whether anything arrived.
-				Message m = mReportTo.obtainMessage(Connection.MESSAGE_LUANOTE,
-						"\n[frame " + id + "] " + ansi + "\n");
-				mReportTo.sendMessage(m);
+				noteToWindow("[frame " + id + "] " + ansi);
 			}
 		}
+	}
+
+	/** Put a line in the main window without running it past the triggers. */
+	private void noteToWindow(final String line) {
+		if (mReportTo == null || line == null) {
+			return;
+		}
+		mReportTo.sendMessage(mReportTo.obtainMessage(
+				Connection.MESSAGE_LUANOTE, "\n" + line + "\n"));
 	}
 
 	/** Frame ids the server believes are open here. */
