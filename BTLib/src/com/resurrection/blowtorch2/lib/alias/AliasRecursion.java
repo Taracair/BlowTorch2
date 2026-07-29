@@ -73,9 +73,6 @@ public final class AliasRecursion {
 		StringBuffer replaced = new StringBuffer(input);
 		StringBuffer buffertemp = new StringBuffer();
 		Matcher m = aliasRegex.matcher("");
-		// Deliberately declared outside the loop: once one pass has eaten the
-		// tail, every later pass does too. That is what the inline code did.
-		boolean eatTail = false;
 		int passes = 0;
 		boolean recursivefound;
 		do {
@@ -83,6 +80,13 @@ public final class AliasRecursion {
 				return new Result(replaced.toString(), true);
 			}
 			passes++;
+			// One pass, one decision. The word-splitting branch below rewrites
+			// the whole buffer, tail included, so appending the tail after it
+			// would duplicate text — that is what this flag is for. It used to
+			// be declared outside this loop, which made it stick: after any
+			// ^alias fired, every later pass silently dropped everything past
+			// its own match.
+			boolean eatTail = false;
 			recursivefound = false;
 			m.reset(replaced.toString());
 			buffertemp.setLength(0);
