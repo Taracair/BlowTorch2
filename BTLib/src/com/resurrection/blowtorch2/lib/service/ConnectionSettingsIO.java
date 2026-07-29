@@ -503,7 +503,10 @@ final class ConnectionSettingsIO {
 		
 		VersionProbeParser vpp = new VersionProbeParser(path, host.mService.getApplicationContext());
 
-		
+		// Set by any failure below. Whatever else a failed load does, it must not
+		// end by writing settings back: see the guard on saveMainSettings.
+		boolean loadFailed = false;
+
 		try {
 			boolean isLegacy = vpp.isLegacy();
 			if (isLegacy) {
@@ -852,10 +855,13 @@ final class ConnectionSettingsIO {
 			
 			
 		} catch (FileNotFoundException e) {
+			loadFailed = true;
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 		} catch (IOException e) {
+			loadFailed = true;
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 		} catch (SAXException e) {
+			loadFailed = true;
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConnectionSettingsIO", e);
 			try {
 				host.mService.dispatchXMLError(e.getLocalizedMessage());
@@ -891,7 +897,18 @@ final class ConnectionSettingsIO {
 		}
 		
 		host.buildTriggerSystem();
-		if (save) {
+		if (save && loadFailed) {
+			// Importing a file that could not be read used to end here, writing
+			// the half-built settings over the profile the player already had —
+			// atomically and with an fsync, so it was thorough about it. Only
+			// the SAX branch returned early, and only when it managed to reach
+			// the UI to say so; a missing file or a failed read fell straight
+			// through. Keep the old settings and let the player try again.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"ConnectionSettingsIO.importSettings: refusing to save after a failed load of "
+							+ (path == null ? "the built-in defaults" : path),
+					new IllegalStateException("settings not saved"));
+		} else if (save) {
 			saveMainSettings();
 		}
 	}
