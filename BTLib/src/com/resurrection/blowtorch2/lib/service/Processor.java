@@ -692,17 +692,15 @@ public class Processor {
 		}
 	}
 
-	/** The GMCP package name as the proposal spells it — lower case, both words. */
-	private static final String MUDSTD_FRAME_MODULE = "mudstd.frame";
+	/** The GMCP package name, spelled as the specification spells it. */
+	private static final String MUDSTD_FRAME_MODULE = MudstdFrame.MODULE;
 
 	/**
-	 * What BlowTorch can host if a server asks: a floating window showing an
-	 * image. The published draft lists "docked" and "external" for type, not
-	 * "floating"; this is the wording requested for the proof of concept, and it
-	 * describes what the extra text windows actually are.
+	 * What BlowTorch can host if a server asks. See {@link MudstdFrame}: only
+	 * what actually works goes on the wire, which today is a floating frame
+	 * carrying terminal content.
 	 */
-	private static final String MUDSTD_FRAME_SUPPORT =
-			"mudstd.frame.support {\"type\": [\"floating\"], \"content\": [\"image\"]}";
+	private static final String MUDSTD_FRAME_SUPPORT = MudstdFrame.supportMessage();
 
 	/**
 	 * Volunteer our frame capabilities, immediately behind Core.Supports.Set so
@@ -766,8 +764,65 @@ public class Processor {
 			mCharLogin.handle(module, body);
 		} else if (lower.startsWith("room.")) {
 			dispatchRoomGmcp(module, body);
+		} else if (lower.startsWith(MudstdFrame.MODULE)) {
+			dispatchFrameGmcp(lower, body);
 		}
 	}
+
+	/**
+	 * Answer the {@code mudstd.frame} package.
+	 *
+	 * <p>Only floating terminal frames can be hosted today. Everything else is
+	 * turned down out loud, with {@code frame.closed reason=system}, because a
+	 * server author writing the other half needs to see a definite answer rather
+	 * than silence — and both sides can read the exchange in logs/gmcp.log.
+	 */
+	private void dispatchFrameGmcp(final String lowerModule, final JSONObject body) {
+		if (!mModuleRegistry.isEnabled(MudstdFrame.MODULE)) {
+			return;
+		}
+		String id = body != null ? body.optString("id", "") : "";
+		if (lowerModule.endsWith(".open")) {
+			String type = body != null ? body.optString("type", "") : "";
+			String content = body != null ? body.optString("content", "") : "";
+			String refusal = MudstdFrame.refusalFor(type, content);
+			if (refusal != null) {
+				logGmcp("INFO", "declining frame '" + id + "': " + refusal);
+				sendGmcpPacket(MudstdFrame.closedEvent(id, MudstdFrame.REASON_SYSTEM));
+				return;
+			}
+			mOpenFrames.add(id);
+			// Sizes are what the frame will actually be once it is drawn. Until
+			// there is a window to measure, report the request rather than
+			// invent numbers: sizeValue with sizeUnit "c" is in characters.
+			int cols = "c".equalsIgnoreCase(body.optString("sizeUnit", ""))
+					? body.optInt("sizeValue", 0) : 0;
+			sendGmcpPacket(MudstdFrame.openedEvent(id, cols, 0, 0, 0));
+		} else if (lowerModule.endsWith(".close")) {
+			if (mOpenFrames.remove(id)) {
+				sendGmcpPacket(MudstdFrame.closedEvent(id, MudstdFrame.REASON_SYSTEM));
+			}
+		} else if (lowerModule.endsWith(".terminal")) {
+			if (!mOpenFrames.contains(id)) {
+				logGmcp("INFO", "frame.terminal for unknown frame '" + id + "'");
+				return;
+			}
+			String ansi = body != null ? body.optString("ansi", "") : "";
+			if (ansi.length() > 0 && mReportTo != null) {
+				// No frame window exists yet, so it goes to the main window
+				// labelled with its id. Visibly wrong placement is a better
+				// answer than dropping the server's text on the floor while it
+				// waits to see whether anything arrived.
+				Message m = mReportTo.obtainMessage(Connection.MESSAGE_LUANOTE,
+						"\n[frame " + id + "] " + ansi + "\n");
+				mReportTo.sendMessage(m);
+			}
+		}
+	}
+
+	/** Frame ids the server believes are open here. */
+	private final java.util.Set<String> mOpenFrames =
+			new java.util.LinkedHashSet<String>();
 
 	/** Forward Room.* GMCP to Connection → MapperController. */
 	private void dispatchRoomGmcp(final String module, final JSONObject body) {
