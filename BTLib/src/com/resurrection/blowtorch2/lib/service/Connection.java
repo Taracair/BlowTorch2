@@ -2235,6 +2235,43 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Let the Starter Tutorial answer a typed line as if it were a MUD.
+	 *
+	 * @param command The line, after alias replacement.
+	 * @return true when the tutorial handled it, so nothing else should reply.
+	 */
+	private boolean offerToOfflineWorld(final String command) {
+		if (command == null || command.length() == 0) {
+			return false;
+		}
+		try {
+			Plugin tutorial = mPluginMap.get("starter_tutorial");
+			if (tutorial == null) {
+				return false;
+			}
+			String reply = tutorial.callFunctionResult("OnOfflineCommand", command);
+			if (reply == null || reply.length() == 0) {
+				return false;
+			}
+			// Posted as MESSAGE_PROCESS rather than written to the window
+			// directly. sendBytesToWindow hands bytes straight to the main
+			// window and skips dispatch(), which is where triggers, colouring,
+			// MCP and the mapper live — so text sent that way would look right
+			// and do nothing. Going through the queue also keeps us out of our
+			// own re-entry: this runs while the handler is processing the
+			// player's outgoing line.
+			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_PROCESS,
+					reply.getBytes(mSettings.getEncoding())));
+			return true;
+		} catch (Exception e) {
+			// A broken practice world must not stop the player typing.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.offerToOfflineWorld", e);
+			return false;
+		}
+	}
+
 	/** True for the built-in Starter Tutorial (host {@code offline}). */
 	private boolean isOfflineMode() {
 		return BuiltinTutorial.isTutorialHost(mHost);
@@ -4702,9 +4739,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				if (mPump != null && mPump.isConnected()) {
 					mPump.sendData(tosend);
 				} else if (isOfflineMode()) {
-					sendBytesToWindow(new String(Colorizer.getBrightYellowColor()
-							+ "\n[offline tutorial — not sent to a MUD]\n"
-							+ Colorizer.getWhiteColor()).getBytes("UTF-8"));
+					// Offer the line to the tutorial's practice world first. It
+					// answers through sendBytesToWindow, which is the same path
+					// real server output takes — so the player's own triggers
+					// fire on it, the mapper follows it, and colouring applies.
+					// That is the whole point: a lesson about triggers should be
+					// a trigger going off, not a description of one.
+					if (!offerToOfflineWorld(nosemidata)) {
+						sendBytesToWindow(new String(Colorizer.getBrightYellowColor()
+								+ "\n[offline tutorial — not sent to a MUD]\n"
+								+ Colorizer.getWhiteColor()).getBytes("UTF-8"));
+					}
 				} else {
 					sendBytesToWindow(new String(Colorizer.getRedColor() + "\nDisconnected.\n" + Colorizer.getWhiteColor()).getBytes("UTF-8"));
 				}

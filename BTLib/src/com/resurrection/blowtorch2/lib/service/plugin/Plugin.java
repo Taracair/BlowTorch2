@@ -1554,6 +1554,44 @@ Note("Example text!")
 		}
 	}
 
+	/**
+	 * Call an optional Lua function and return the string it produced.
+	 *
+	 * <p>Unlike {@link #callFunction(String, String)} this says nothing when the
+	 * function is not defined: it is for hooks a plugin may or may not implement,
+	 * where a missing one is an answer rather than a mistake.
+	 *
+	 * @param function The global to call.
+	 * @param data The single string argument.
+	 * @return What the function returned, or null when it is absent, failed, or
+	 *         returned nil.
+	 */
+	public String callFunctionResult(String function, String data) {
+		if (L == null || function == null) {
+			return null;
+		}
+		L.getGlobal("debug");
+		L.getField(-1, "traceback");
+		L.remove(-2);
+
+		L.getGlobal(function);
+		if (!L.getLuaObject(-1).isFunction()) {
+			L.pop(2);
+			return null;
+		}
+		L.pushString(data == null ? "" : data);
+		int retval = L.pcall(1, 1, -2);
+		if (retval != 0) {
+			displayLuaError("Plugin: " + this.getName() + " Script callback(" + function
+					+ ") Error:" + L.getLuaObject(-1).getString());
+			L.pop(2);
+			return null;
+		}
+		String result = L.getLuaObject(-1).getString();
+		L.pop(2);
+		return result;
+	}
+
 	public void callFunction(String function, String data) {
 		L.getGlobal("debug");
 		L.getField(-1, "traceback");
