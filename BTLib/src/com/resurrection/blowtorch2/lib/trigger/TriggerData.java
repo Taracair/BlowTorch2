@@ -78,12 +78,44 @@ public class TriggerData implements Parcelable {
 		return tmp;
 	}
 	
+	/**
+	 * The complaint from the last pattern that would not compile, or null.
+	 *
+	 * @return Text fit to show the player, naming what is wrong with the pattern.
+	 */
+	public String getPatternError() {
+		return patternError;
+	}
+
+	private String patternError;
+
 	private void buildData() {
 		//if(p == null || p.equals("")) return;
-		if(this.interpretAsRegex) {
-			this.p = Pattern.compile(pattern);
+		patternError = null;
+		if (this.interpretAsRegex) {
+			try {
+				this.p = Pattern.compile(pattern);
+			} catch (java.util.regex.PatternSyntaxException bad) {
+				// A player's regex is untrusted input, and this runs in two
+				// places that must not die on it: the trigger editor, on the UI
+				// thread, and the settings parser while loading a profile. An
+				// unguarded compile here meant one mistyped bracket could crash
+				// the editor, and — once saved — stop the whole profile loading.
+				patternError = bad.getDescription() != null
+						? bad.getDescription() + " (at position " + bad.getIndex() + ")"
+						: bad.getMessage();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"TriggerData.buildData: bad pattern in trigger '" + name + "'", bad);
+				// Fall back to matching the text literally. It is what the player
+				// typed, so it stays predictable, and a trigger that quietly
+				// matches nothing is harder to notice than one that misbehaves.
+				this.p = Pattern.compile(Pattern.quote(pattern));
+			}
 		} else {
-			this.p = Pattern.compile("\\Q"+pattern+"\\E");
+			// Pattern.quote rather than hand-built \Q...\E: a literal trigger
+			// containing "\E" ended the quoted span early and left the rest of
+			// the text to be read as a regex, which threw on the next bracket.
+			this.p = Pattern.compile(Pattern.quote(pattern));
 		}
 		this.m = p.matcher("");
 	}

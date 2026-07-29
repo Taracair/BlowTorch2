@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * The combined regular expression that matches every enabled alias at once, and
@@ -60,14 +61,27 @@ public final class AliasPattern {
 			String prefix = pre.startsWith("^") ? "" : "\\b";
 			String suffix = pre.endsWith("$") ? "" : "\\b";
 			String one = "(" + prefix + pre + suffix + ")";
+			int groups;
+			try {
+				// Advance past this alternative's own groups, not just by one: the
+				// alias pattern may declare groups of its own.
+				groups = Pattern.compile(one).matcher("").groupCount();
+			} catch (PatternSyntaxException bad) {
+				// An alias pattern is whatever the player typed. This used to
+				// throw straight out of buildAliases, and since every alias
+				// shares one joined regex, a single mistyped bracket took the
+				// whole alias set down with it. Drop the one that will not
+				// compile and keep the rest working.
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"AliasPattern.build: skipping alias with bad pattern '" + pre + "'", bad);
+				continue;
+			}
 			if (joined.length() > 0) {
 				joined.append("|");
 			}
 			joined.append(one);
 			map.put(Integer.valueOf(currentGroup), alias);
-			// Advance past this alternative's own groups, not just by one: the
-			// alias pattern may declare groups of its own.
-			currentGroup += Pattern.compile(one).matcher("").groupCount();
+			currentGroup += groups;
 		}
 		if (joined.length() == 0) {
 			return EMPTY;
