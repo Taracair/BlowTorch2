@@ -319,6 +319,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/** Length of the kept line; first keystroke should replace it, not append. */
 	private int keepLastReplaceLength = 0;
 	private android.text.TextWatcher keepLastTextWatcher;
+	/** What the keystroke typed, waiting for afterTextChanged to apply it. */
+	private String keepLastPendingReplace = null;
+	/** True while this watcher is the one editing the text. */
+	private boolean keepLastSuppress = false;
 	Boolean settingsLoaded = false; //synchronize or try to mitigate failures of writing button data, or failures to read data
 	/** Whether the service binding is currently up.
 	 *
@@ -4527,19 +4531,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 				@Override
 				public void onTextChanged(CharSequence s, int start, int before, int count) {
+					if (keepLastSuppress) {
+						return;
+					}
 					if (!isKeepLast || keepLastReplaceLength <= 0 || count <= 0) {
 						return;
 					}
 					int oldLen = s.length() - count + before;
 					if (before == 0 && start == oldLen && oldLen == keepLastReplaceLength) {
 						// IME appended at the end instead of replacing the selection.
-						final String typed = s.subSequence(start, start + count).toString();
+						// Note it here, apply it in afterTextChanged: this callback
+						// runs while TextView is still walking its watcher list, and
+						// editing the text from inside it re-enters that walk.
+						keepLastPendingReplace = s.subSequence(start, start + count).toString();
 						keepLastReplaceLength = 0;
 						historyWidgetKept = false;
-						mInputBox.removeTextChangedListener(this);
-						mInputBox.setText(typed);
-						mInputBox.setSelection(typed.length());
-						mInputBox.addTextChangedListener(this);
 						return;
 					}
 					if (before > 0 || start < keepLastReplaceLength) {
@@ -4547,7 +4553,27 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						historyWidgetKept = false;
 					}
 				}
-				@Override public void afterTextChanged(android.text.Editable s) {}
+				@Override
+				public void afterTextChanged(android.text.Editable s) {
+					if (keepLastSuppress || keepLastPendingReplace == null) {
+						return;
+					}
+					final String typed = keepLastPendingReplace;
+					keepLastPendingReplace = null;
+					// A flag rather than removeTextChangedListener: TextView walks
+					// its watchers by index with the count taken up front, so a
+					// watcher that unregisters itself mid-dispatch shifts the rest
+					// down and the one after it never sees the event. Here that is
+					// the watcher which re-measures the input bar, so the bar would
+					// not grow on the keystroke that replaced the kept line.
+					keepLastSuppress = true;
+					try {
+						s.replace(0, s.length(), typed);
+						mInputBox.setSelection(typed.length());
+					} finally {
+						keepLastSuppress = false;
+					}
+				}
 			};
 			mInputBox.addTextChangedListener(keepLastTextWatcher);
 			// Defer until after layout so lineCount is accurate at the soft-wrap edge.
