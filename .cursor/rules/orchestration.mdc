@@ -5,12 +5,12 @@ alwaysApply: true
 
 # BlowTorch — working agreement
 
-**Read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) before changing code.** This is the short version. If `docs/HANDOFF.md` exists locally (gitignored), read it after ORCHESTRATION for current state.
+**Read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) before changing code.** This is the short version. If `docs/HANDOFF.md` exists locally (gitignored), read it after ORCHESTRATION for **open backlog only** (see HANDOFF below).
 
 ## Division of labour
 
-- AI investigates and proposes; **maintainer runs device tests and decides what ships**.
-- Never say "works" when you mean "compiles".
+- AI investigates and proposes; **after every code change, AI builds btTest debug and `install -r`s it on the maintainer's phone**; **maintainer runs device tests and decides what ships**.
+- Never say "works" when you mean "compiles" or "installed".
 - **Say what you did not verify** — every time.
 
 ## The ten rules
@@ -44,6 +44,38 @@ If a session ends with uncommitted finished work, commit before stopping.
 
 **Before each code commit:** run local checks and subagent review per `subagent-review.mdc` (fix findings first).
 
+## HANDOFF.md (open backlog only)
+
+`docs/HANDOFF.md` is **gitignored** and local to the maintainer's machine. Read it after ORCHESTRATION when it exists.
+
+**Only what is still to do.** HANDOFF is a forward-looking queue — not a diary.
+
+- **Keep:** release blockers, device tests the maintainer has not run yet, recommended next work, short ephemeral state (branch, version, unpushed count, paths to draft release assets).
+- **Remove when done:** finished backlog items, "CODE DONE / verified" sections, strikethrough history, tables of recent commits. **Do not archive completed work in HANDOFF** — `staging` commits are the record.
+- **When you finish a task:** commit on `staging` first, then **edit HANDOFF in the same session** to delete the completed lines (not strike through).
+
+**Git is how you learn what was done and how.** When a topic depends on a recent change, or you need the implementation approach, read history before guessing:
+
+```sh
+git log --oneline -20
+git log --oneline -- <path>          # file or directory
+git show <commit>                    # full diff + message
+git blame -L <start>,<end> <file>    # who changed which lines
+```
+
+Use HANDOFF for *what's next*; use `git log` / `git show` / `git blame` for *what already happened and how it was built*. Do not duplicate commit messages or verification logs in HANDOFF.
+
+## Ephemeral scripts (`.scratch/`)
+
+Agents **do not reliably clean up** ad-hoc scripts unless told. **Do not** leave one-off `.py` / `.sh` / dumps in the repo root, `docs/`, or random paths.
+
+- **One-off / session / probe helpers** → `BlowTorch/.scratch/` (**gitignored**). Name clearly (`measure_foo.sh`, `frameserver.py`).
+- **`scripts/`** → only **durable** repo tools the maintainer will reuse (`strictmode_report.py`, etc.). Do **not** add new files there without being asked; **promote** from `.scratch/` only when the maintainer confirms it should stay.
+- **When the task is done:** delete the `.scratch/` files you created in that task (or the whole folder if empty). Do not accumulate stale scripts across sessions.
+- **If the maintainer says keep it:** promote to `scripts/` and commit, or leave a single file in `.scratch/` with a one-line note in HANDOFF — not both.
+
+App-code probes (log lines, `BTPROF` tags) still follow rule 5 — separate TEMPORARY commit, then revert. That is separate from shell scripts in `.scratch/`.
+
 ## Facts that mislead (do not re-derive)
 
 - **UI → service binder calls are synchronous; service → UI ones are queued.** `WindowXCallB` and `SaveSettings` both post to the same `ConnectionHandler` — whatever is queued first delays the rest.
@@ -65,17 +97,45 @@ Fix what has a credible path to a player-visible failure. Deliberately not fixed
 2. Extract pure logic → write tests that pass against old behaviour → delegate from the original (Part 3.12 in ORCHESTRATION).
 3. Do not split god classes (`Connection`, `Window`, `MainWindow`, mapper controllers) without tests.
 
-## Build and deploy (daily)
+## Build and deploy (mandatory after code changes)
+
+**NON-NEGOTIABLE.** After any change to Java/Kotlin, Lua, native, Gradle, or Android resources, the agent **MUST** build **btTest debug** and **`install -r`** on the maintainer's phone before the step is done and before commit. Docs-only / `.cursor/rules` edits skip this.
+
+Run everything from **`BlowTorch/`** (where `./gradlew` lives):
 
 ```sh
-./gradlew :BTLib:testDebugUnitTest
+cd BlowTorch
+./gradlew :BTLib:testDebugUnitTest            # or --tests for the area touched
+luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua # when Lua changed; build does NOT check syntax
 ./gradlew :BT_Free:assembleBtTestDebug
-luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua
+# resolve serial — see Device lab below; never hardcode an old wifi port
 ~/Android/Sdk/platform-tools/adb -s <serial> install -r \
   BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
 ```
 
-`adb` is not on PATH. The phone is often on USB and wifi at once — always pass `-s <serial>`. When a device shows `offline`, `adb connect` on a stale port will not fix it; ask the maintainer for the current port.
+## Device lab (maintainer's phone)
+
+**Phone:** Pixel 9a, GrapheneOS (`device:tegu`, `model:Pixel_9a`). **LAN IP:** `10.0.0.2`.
+
+`adb` is not on PATH — always `ADB=~/Android/Sdk/platform-tools/adb`.
+
+**Wifi ADB port changes often** (examples: `5555`, `42135`, `41721`, `46133`). The agent **must find the current port itself** — do not ask the maintainer for a port unless every step below failed. **Never cache** `10.0.0.2:<port>` from a previous session; always re-resolve before `install -r`.
+
+### Resolve `<serial>` (agent does this every deploy)
+
+1. `$ADB devices -l` — pick the entry that is `device` (not `offline`) and matches `tegu` / `Pixel_9a`.
+2. **USB + wifi both listed?** Prefer the **USB** serial (alphanumeric, not `IP:port`) when it is `device`. Otherwise use the wifi `10.0.0.2:<port>` line.
+3. **Stale `offline` wifi rows?** `$ADB disconnect` them (all or per `IP:port`) before reconnecting.
+4. **No `device` row for the Pixel?** Discover and connect — in order:
+   - `$ADB mdns services` → connect any `_adb._tcp` endpoint that yields `tegu` in `$ADB devices -l`.
+   - Retry recent ports on the known IP:  
+     `for p in 5555 42135 41721 46133; do $ADB connect 10.0.0.2:$p; done` then `$ADB devices -l`.
+   - If still missing, scan `10.0.0.2` (ports often land in ~35000–50000): connect, check for `tegu.*device`, disconnect failures, continue until found.
+5. **Every** `adb` command needs `-s <serial>` when more than one device could appear.
+
+**Never `adb uninstall`.** Only report "APK installed" after a successful `install -r` on the resolved serial.
+
+The agent does not play-test on the device; the maintainer does. Still report build/install success or the exact failure output.
 
 ## Explain to the maintainer in examples
 

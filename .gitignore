@@ -178,3 +178,6 @@ BTLib/res/raw/foo
 
 # Internal handoff — kept out of the public tree for now
 docs/HANDOFF.md
+
+# Ephemeral agent/session scratch — one-off scripts, dumps, probes (see orchestration.mdc)
+.scratch/

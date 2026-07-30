@@ -26,7 +26,9 @@ Run what applies, fix failures before subagents:
 - Prefer **`bugbot`** for bug/regression review (`Diff: uncommitted changes` before commit, or `branch changes` after).
 - Use **`generalPurpose`** when the change is mostly architectural or needs ORCHESTRATION cross-check (prompt: advisor role, cite `docs/ORCHESTRATION.md` traps).
 
-**Fix loop:** triage findings → fix real issues in the parent agent → **call Task again** until clean or you hit a blocker you must report (with what you did not verify). Then commit (see `orchestration.mdc`).
+**Fix loop:** triage findings → fix real issues in the parent agent → **call Task again** until clean or you hit a blocker you must report (with what you did not verify). Then **build btTest debug, resolve ADB serial (wifi port — see `orchestration.mdc` → Device lab), and `install -r`** on the phone. Then commit.
+
+**Order:** local checks → subagent review (fix loop) → **build + install** → commit. Skipping build/install = violating project rules.
 
 ## 3. Broad / structural change — advisors before **and** after
 
@@ -65,4 +67,4 @@ Incorporate valid feedback into the plan; say what you rejected and why.
 
 ## 4. Reporting to the maintainer
 
-End every code task with a **Review** line: which Task subagents ran (type + model), findings fixed vs deferred, and what was **not** verified (device, full test suite, etc.). Do not claim "works" — only "tests pass" / "review clean".
+End every code task with a **Review** line: which Task subagents ran (type + model), findings fixed vs deferred, **build/install result** (`adb -s <serial> install -r` success or error), and what was **not** verified (device behaviour, full test suite, etc.). Do not claim "works" — only "tests pass" / "review clean" / "APK installed".

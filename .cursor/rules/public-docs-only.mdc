@@ -19,7 +19,7 @@ These are intentional exceptions — not plans or audits:
 - `docs/ORCHESTRATION.md` — working agreement for AI and maintainers; read before changing code
 - `docs/canvas-capabilities.md` — capability note for server authors
 
-`docs/FDROID_APPLY.md` and `docs/HANDOFF.md` may exist locally (gitignored); do not force-add them. If `HANDOFF.md` exists, read it after ORCHESTRATION for current state.
+`docs/FDROID_APPLY.md` and `docs/HANDOFF.md` may exist locally (gitignored); do not force-add them. If `HANDOFF.md` exists, read it after ORCHESTRATION — **open backlog only** (see `orchestration.mdc` → HANDOFF). Never copy commit history or "verified" archives into HANDOFF.
 
 ## Never put in `docs/` (and never `git add` them)
 
