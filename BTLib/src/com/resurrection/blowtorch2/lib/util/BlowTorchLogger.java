@@ -138,6 +138,13 @@ public final class BlowTorchLogger {
 	 * Synchronized against {@link #writeLine}, which is what makes the async
 	 * variant above safe: rotation renames the file, and a writer that lost that
 	 * race would append to a file nobody is going to read again.
+	 *
+	 * <p>The cost of that, stated rather than hidden: a thread logging an error
+	 * can now wait behind a background rotation that it would previously have
+	 * raced instead. It is one rotation per process, at startup, on a file that
+	 * has to reach 2 MB before there is anything to rotate — and the alternative
+	 * is an error line appended to a file that has just been renamed away, which
+	 * is the failure this log exists to not have.
 	 */
 	public static synchronized void ensureLogFile(Context context) {
 		File dir = getLogDirectory(context);
