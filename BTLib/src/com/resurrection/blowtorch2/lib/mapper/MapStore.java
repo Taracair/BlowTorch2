@@ -30,6 +30,8 @@ import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 public final class MapStore {
 
 	public static final int SCHEMA_VERSION = 1;
+	/** Legacy shared map file used before per-host separation. */
+	public static final String LEGACY_DEFAULT_NAME = "default";
 	private static final Charset UTF8 = Charset.forName("UTF-8");
 
 	private MapStore() {
@@ -57,6 +59,67 @@ public final class MapStore {
 		}
 		Collections.sort(out, String.CASE_INSENSITIVE_ORDER);
 		return out;
+	}
+
+	/**
+	 * List map names for one MUD world ({@code hostHint} or legacy naming).
+	 * Blank host returns every map (admin / no-connection fallback).
+	 */
+	public static List<String> listMapsForHost(final Context context,
+			final String host) {
+		if (host == null || host.trim().length() == 0) {
+			return listMaps(context);
+		}
+		List<String> all = listMaps(context);
+		if (all.isEmpty()) {
+			return all;
+		}
+		String h = host.trim();
+		List<String> out = new ArrayList<String>();
+		for (String name : all) {
+			String hint = readHostHint(context, name);
+			if (mapBelongsToHost(name, hint, h)) {
+				out.add(name);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Whether a saved map belongs to the given connection host.
+	 *
+	 * <p>Primary key is {@code hostHint} inside the JSON. Legacy files without a
+	 * hint match when the basename equals {@link #safeName(String)} of the host,
+	 * or when the name is {@link #LEGACY_DEFAULT_NAME} and the hint is still
+	 * empty (unclaimed shared default from before per-world separation).
+	 */
+	public static boolean mapBelongsToHost(final String mapName,
+			final String hostHint, final String connectionHost) {
+		if (connectionHost == null || connectionHost.trim().length() == 0) {
+			return true;
+		}
+		String host = connectionHost.trim();
+		if (mapName == null || mapName.trim().length() == 0) {
+			return false;
+		}
+		String name = mapName.trim();
+		if (hostHint != null && hostHint.trim().length() > 0) {
+			return host.equalsIgnoreCase(hostHint.trim());
+		}
+		if (safeName(host).equalsIgnoreCase(name)) {
+			return true;
+		}
+		return LEGACY_DEFAULT_NAME.equalsIgnoreCase(name);
+	}
+
+	/** Read only {@code hostHint} from a map file; null when missing or unreadable. */
+	public static String readHostHint(final Context context, final String name) {
+		try {
+			MudMap map = load(context, name);
+			return map == null ? null : map.getHostHint();
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	/**

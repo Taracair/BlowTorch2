@@ -24,6 +24,8 @@ public final class MapperMapsBrowserDialog {
 	public interface Host {
 		/** Currently loaded map name (may be null). */
 		String getCurrentMapName();
+		/** Active MUD host; maps from other worlds are hidden. May be null. */
+		String getWorldHost();
 		/** Open / load a map by name. */
 		void openMap(String name);
 		/** Create a new empty map (host shows name prompt). */
@@ -41,8 +43,13 @@ public final class MapperMapsBrowserDialog {
 			return;
 		}
 		final Context context = host.getContext();
-		final List<String> names = new ArrayList<String>(
-				MapStore.listMaps(context));
+		final String worldHost = host.getWorldHost();
+		final List<String> names = new ArrayList<String>();
+		if (worldHost != null && worldHost.trim().length() > 0) {
+			names.addAll(MapStore.listMapsForHost(context, worldHost));
+		} else {
+			names.addAll(MapStore.listMaps(context));
+		}
 		final String current = host.getCurrentMapName();
 
 		float density = context.getResources().getDisplayMetrics().density;
@@ -62,6 +69,8 @@ public final class MapperMapsBrowserDialog {
 		String curLabel = current != null && current.length() > 0
 				? current : "(unnamed)";
 		help.setText("Current: " + curLabel
+				+ (worldHost != null && worldHost.length() > 0
+						? "\nWorld: " + worldHost : "")
 				+ "\nTap a map to open · long-press to delete.");
 		help.setTextSize(12f);
 		help.setTextColor(0xFFBBBBBB);
@@ -76,7 +85,9 @@ public final class MapperMapsBrowserDialog {
 
 		if (names.isEmpty()) {
 			TextView empty = new TextView(context);
-			empty.setText("No saved maps yet.\nUse New to create one.");
+			empty.setText(worldHost != null && worldHost.length() > 0
+					? "No saved maps for this world yet.\nUse New to create one."
+					: "No saved maps yet.\nUse New to create one.");
 			empty.setTextColor(0xFF888888);
 			empty.setPadding(0, pad, 0, pad);
 			root.addView(empty);
