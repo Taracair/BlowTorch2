@@ -263,12 +263,14 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
     if content == nil then
       return
     end
-    local h = LinearLayoutParams.WRAP_CONTENT
+    -- ScrollView is a FrameLayout; its only child must use FrameLayout.LayoutParams.
+    local FrameLayoutParams = luajava.bindClass("android.widget.FrameLayout$LayoutParams")
+    local h = FrameLayoutParams.WRAP_CONTENT
     if matchParent then
-      h = LinearLayoutParams.FILL_PARENT
+      h = FrameLayoutParams.FILL_PARENT
     end
-    content:setLayoutParams(luajava.new(LinearLayoutParams,
-        LinearLayoutParams.FILL_PARENT, h))
+    content:setLayoutParams(luajava.new(FrameLayoutParams,
+        FrameLayoutParams.FILL_PARENT, h))
   end
 
   local function applyPanelMode()
@@ -394,9 +396,9 @@ function showDialog(initialValues)
 
   local ll = luajava.newInstance("android.widget.LinearLayout",context)
   ll:setOrientation(1)
-  local llparams = luajava.new(LinearLayoutParams,
-      LinearLayoutParams.FILL_PARENT,LinearLayoutParams.WRAP_CONTENT)
-  ll:setLayoutParams(llparams)
+  local FrameLayoutParams = luajava.bindClass("android.widget.FrameLayout$LayoutParams")
+  ll:setLayoutParams(luajava.new(FrameLayoutParams,
+      FrameLayoutParams.FILL_PARENT, FrameLayoutParams.WRAP_CONTENT))
   ll:setPadding(math.floor(10*density),0,math.floor(10*density),0)
 
   local wm = context:getSystemService(Context.WINDOW_SERVICE)
