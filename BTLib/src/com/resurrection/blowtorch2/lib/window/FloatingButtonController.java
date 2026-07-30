@@ -24,7 +24,9 @@ import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
  * {@link ExtraTextOverlayController}.
  *
  * <p>Layer sits in {@code window_container}, raised under chrome. Mode B never
- * moves with the IME; Mode A shows above the IME when it is up.
+ * moves with the IME; Mode A sits just above {@code WindowVisibleDisplayFrame}
+ * (the uncovered band above the soft keyboard) — not in a system overlay.
+ * {@code SYSTEM_ALERT_WINDOW} is not used and would not draw over the IME.
  */
 public class FloatingButtonController {
 
@@ -120,13 +122,10 @@ public class FloatingButtonController {
 				right = left + Math.max(view.getWidth(), lp.width > 0 ? lp.width : 1);
 			}
 			FloatingButtonModel m = view.getModel();
-			// Mode A: ceiling is just above the soft-keyboard top (same gap as layout).
-			if (m != null && m.isKeyboardMode() && lastImeLiftPx > 0 && layer != null) {
+			// Mode A: ceiling is the visible-frame bottom (top of soft keyboard).
+			if (m != null && m.isKeyboardMode() && isSoftKeyboardCoveringLayer() && layer != null) {
 				float density = view.getResources().getDisplayMetrics().density;
-				int gap = Math.round(4 * density);
-				int imeTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
-				int ceiling = chromeKeepOut(imeTop, left, right, true);
-				return Math.max(0, ceiling - gap);
+				return modeACeiling(left, right, density);
 			}
 			// Mode B: resting keep-out only (D11 — IME must not move the button).
 			return computeMaxBottom(left, right);
@@ -201,15 +200,15 @@ public class FloatingButtonController {
 		if (layer == null || editingHidden || !host.isFloatingButtonsEnabled()) {
 			return;
 		}
+		boolean imeUp = isSoftKeyboardCoveringLayer();
 		for (FloatingButtonView v : views) {
 			FloatingButtonModel m = v.getModel();
 			if (m == null) {
 				continue;
 			}
 			if (m.isKeyboardMode()) {
-				boolean show = lastImeLiftPx > 0;
-				v.setVisibility(show ? View.VISIBLE : View.GONE);
-				if (show) {
+				v.setVisibility(imeUp ? View.VISIBLE : View.GONE);
+				if (imeUp) {
 					layoutChild(v, m, true);
 				}
 			}
@@ -271,11 +270,12 @@ public class FloatingButtonController {
 		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
 		clearViews();
 		setLayerVisible(true);
+		boolean imeUp = isSoftKeyboardCoveringLayer();
 		for (FloatingButtonModel m : models) {
 			FloatingButtonView v = new FloatingButtonView(layer.getContext());
 			v.bind(m, viewCallbacks);
 			boolean keyboard = m.isKeyboardMode();
-			if (keyboard && lastImeLiftPx <= 0) {
+			if (keyboard && !imeUp) {
 				v.setVisibility(View.GONE);
 			}
 			FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
@@ -283,7 +283,7 @@ public class FloatingButtonController {
 					ViewGroup.LayoutParams.WRAP_CONTENT);
 			layer.addView(v, lp);
 			views.add(v);
-			layoutChild(v, m, keyboard && lastImeLiftPx > 0);
+			layoutChild(v, m, keyboard && imeUp);
 		}
 		reclampWhenChromeIsMeasured();
 		bringUnderChrome();
@@ -318,14 +318,11 @@ public class FloatingButtonController {
 					resolvedX = m.floatX;
 				}
 				int maxBottom;
-				if (keyboardAboveIme && lastImeLiftPx > 0) {
-					// Sit on the soft keyboard: bottom edge just above imeTop.
-					// Do not use the lifted input-bar top — that parked Mode A
-					// above the chrome and looked like the keyboard "pushing" it.
-					int gap = Math.round(4 * density);
-					int imeTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
-					int ceiling = chromeKeepOut(imeTop, resolvedX, resolvedX + w, true);
-					maxBottom = Math.max(0, ceiling - gap);
+				if (keyboardAboveIme) {
+					// Park against WindowVisibleDisplayFrame.bottom — the real
+					// top of the soft keyboard on screen — not layerHeight−lift
+					// (that mismatch parked Mode A under the keys).
+					maxBottom = modeACeiling(resolvedX, resolvedX + w, density);
 				} else {
 					maxBottom = computeMaxBottom(resolvedX, resolvedX + w);
 				}
@@ -364,6 +361,74 @@ public class FloatingButtonController {
 		lp.leftMargin = x;
 		lp.topMargin = y;
 		v.setLayoutParams(lp);
+	}
+
+	/**
+	 * Exclusive bottom for Mode A: just above the soft keyboard. Uses the more
+	 * conservative of {@code WindowVisibleDisplayFrame.bottom} and
+	 * {@code layerHeight − imeLift} so a stale frame or lift alone cannot park
+	 * the button under the keys. Stays in our window — not a system overlay.
+	 */
+	private int modeACeiling(int overlayLeft, int overlayRight, float density) {
+		int gap = Math.round(4 * density);
+		int fromLift = Math.max(0, layer.getHeight() - lastImeLiftPx);
+		int fromFrame = visibleFrameBottomInLayer();
+		int keyboardTop = fromLift;
+		if (fromFrame >= 0) {
+			if (lastImeLiftPx > 0) {
+				// Smaller Y = higher on screen = safer above the keys.
+				keyboardTop = Math.min(fromFrame, fromLift);
+			} else {
+				keyboardTop = fromFrame;
+			}
+		}
+		int ceiling = chromeKeepOut(keyboardTop, overlayLeft, overlayRight, true);
+		return Math.max(0, ceiling - gap);
+	}
+
+	/**
+	 * {@code WindowVisibleDisplayFrame.bottom} in floating-layer coordinates, or
+	 * {@code -1} if unknown. When the IME is up this is the top of the keys.
+	 */
+	private int visibleFrameBottomInLayer() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || layer == null || activity.getWindow() == null) {
+			return -1;
+		}
+		android.view.View decor = activity.getWindow().getDecorView();
+		android.graphics.Rect visible = new android.graphics.Rect();
+		decor.getWindowVisibleDisplayFrame(visible);
+		int[] layerLoc = new int[2];
+		layer.getLocationOnScreen(layerLoc);
+		return visible.bottom - layerLoc[1];
+	}
+
+	/**
+	 * True when enough of the floating layer is covered that Mode A should show.
+	 * Prefers the visible display frame when the layer has a real size; falls
+	 * back to {@code lastImeLiftPx} when the layer is not measured yet (rebuild
+	 * before first layout) so Mode A is not stuck GONE.
+	 */
+	private boolean isSoftKeyboardCoveringLayer() {
+		if (lastImeLiftPx > 0 && (layer == null || layer.getHeight() <= 0)) {
+			return true;
+		}
+		if (layer == null) {
+			return lastImeLiftPx > 0;
+		}
+		float density = layer.getResources().getDisplayMetrics().density;
+		int minCovered = Math.round(120 * density);
+		int frameBottom = visibleFrameBottomInLayer();
+		if (frameBottom >= 0 && layer.getHeight() > 0) {
+			int covered = layer.getHeight() - frameBottom;
+			if (covered >= minCovered) {
+				return true;
+			}
+			if (covered <= Math.round(8 * density) && lastImeLiftPx < minCovered) {
+				return false;
+			}
+		}
+		return lastImeLiftPx > 0;
 	}
 
 	/**
@@ -486,7 +551,7 @@ public class FloatingButtonController {
 				for (FloatingButtonView v : views) {
 					FloatingButtonModel m = v.getModel();
 					if (m != null) {
-						boolean kb = m.isKeyboardMode() && lastImeLiftPx > 0;
+						boolean kb = m.isKeyboardMode() && isSoftKeyboardCoveringLayer();
 						layoutChild(v, m, kb);
 					}
 				}
