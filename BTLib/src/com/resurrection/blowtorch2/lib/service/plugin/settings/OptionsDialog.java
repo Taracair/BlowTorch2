@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
+import com.resurrection.blowtorch2.lib.util.SettingsSaver;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 
 import android.app.Activity;
@@ -1555,12 +1556,12 @@ public class OptionsDialog extends Dialog {
 	@Override
 	public void onBackPressed() {
 		if(backStack.size() == 0) {
-			try {
-				service.saveSettings();
-			} catch (RemoteException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			// Off the UI thread on purpose: this is a synchronous binder call
+			// that writes and fsyncs the settings, measured at 276-285 ms, and
+			// it was landing on this dialog's own dismiss animation. The service
+			// already holds every edit -- they go across as they are made -- so
+			// nothing here is waiting to be collected. See SettingsSaver.
+			SettingsSaver.saveInBackground(service);
 			this.dismiss();
 		} else {
 			SettingsGroup key = backStack.pop();
