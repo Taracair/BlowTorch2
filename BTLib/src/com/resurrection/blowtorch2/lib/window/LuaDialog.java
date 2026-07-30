@@ -129,4 +129,22 @@ public class LuaDialog extends Dialog {
 		});
 		ViewCompat.requestApplyInsets(mView);
 	}
+
+	/** Bottom sheet: transparent window, grid visible above. Fullscreen: opaque dialog. */
+	public void setPresentationOverGrid(boolean overGrid) {
+		Window window = getWindow();
+		if (window == null) {
+			return;
+		}
+		if (overGrid) {
+			window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+			WindowManager.LayoutParams attrs = window.getAttributes();
+			attrs.dimAmount = 0.10f;
+			window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+			window.setAttributes(attrs);
+		} else {
+			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+			window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+		}
+	}
 }
