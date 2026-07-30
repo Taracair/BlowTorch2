@@ -314,6 +314,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	boolean isBound = false;
 	boolean isKeepLast = false; //for keeping last
 	boolean historyWidgetKept = false;
+	/** Length of the kept line; first keystroke should replace it, not append. */
+	private int keepLastReplaceLength = 0;
+	private android.text.TextWatcher keepLastTextWatcher;
 	Boolean settingsLoaded = false; //synchronize or try to mitigate failures of writing button data, or failures to read data
 	/** Whether the service binding is currently up.
 	 *
@@ -1187,14 +1190,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//Log.e("WINDOW","Attempting to reset input bar.");
 					
 					//try {
-						if(isKeepLast) {
-							mInputBox.setSelection(0, mInputBox.getText().length());
-							mInputBox.selectAll();
-							historyWidgetKept = true;
-						} else {
-							mInputBox.clearComposingText();
-							mInputBox.setText("");
+					if(isKeepLast) {
+						keepLastReplaceLength = mInputBox.getText().length();
+						historyWidgetKept = true;
+						if (keepLastReplaceLength > 0) {
+							mInputBox.post(new Runnable() {
+								@Override
+								public void run() {
+									if (mInputBox == null || keepLastReplaceLength <= 0) {
+										return;
+									}
+									mInputBox.requestFocus();
+									mInputBox.setSelection(0, keepLastReplaceLength);
+								}
+							});
 						}
+					} else {
+						keepLastReplaceLength = 0;
+						mInputBox.clearComposingText();
+						mInputBox.setText("");
+					}
 						
 						com.resurrection.blowtorch2.lib.window.Window w = (com.resurrection.blowtorch2.lib.window.Window) MainWindow.this.findViewById(MAIN_WINDOW_ID);
 						if(w != null) {
@@ -3693,6 +3708,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
+				public String getConnectionHost() {
+					return MainWindow.this.getConnectionHost();
+				}
+
+				@Override
 				public String getRecentBufferText(int maxLines) {
 					return MainWindow.this.getRecentMainBufferText(maxLines);
 				}
@@ -4496,6 +4516,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		attachChromeGestureListeners();
 
 		if (mInputBox != null) {
+			keepLastTextWatcher = new android.text.TextWatcher() {
+				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+				@Override
+				public void onTextChanged(CharSequence s, int start, int before, int count) {
+					if (!isKeepLast || keepLastReplaceLength <= 0 || count <= 0) {
+						return;
+					}
+					int oldLen = s.length() - count + before;
+					if (before == 0 && start == oldLen && oldLen == keepLastReplaceLength) {
+						// IME appended at the end instead of replacing the selection.
+						final String typed = s.subSequence(start, start + count).toString();
+						keepLastReplaceLength = 0;
+						historyWidgetKept = false;
+						mInputBox.removeTextChangedListener(this);
+						mInputBox.setText(typed);
+						mInputBox.setSelection(typed.length());
+						mInputBox.addTextChangedListener(this);
+						return;
+					}
+					if (before > 0 || start < keepLastReplaceLength) {
+						keepLastReplaceLength = 0;
+						historyWidgetKept = false;
+					}
+				}
+				@Override public void afterTextChanged(android.text.Editable s) {}
+			};
+			mInputBox.addTextChangedListener(keepLastTextWatcher);
 			// Defer until after layout so lineCount is accurate at the soft-wrap edge.
 			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
 				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
