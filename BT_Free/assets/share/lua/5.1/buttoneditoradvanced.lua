@@ -688,6 +688,14 @@ function makeUI(editorValues,numediting)
     ui.advancedPage:addView(ui.floatSectionLabel)
   end
 
+  if(ui.floatHelp == nil) then
+    ui.floatHelp = fnew(TextView,context)
+    ui.floatHelp:setLayoutParams(fillparams)
+    ui.floatHelp:setTextSize(textSizeSmall)
+    ui.floatHelp:setText("Draws a second copy over the game that you can drag. \"Show with keyboard\" hides it until the soft keyboard is up, then parks it just above the keys — for editing keys like .kb stepb / .kb paste (same idea as the keyboard helpers in samples/samsaramoo).")
+    ui.advancedPage:addView(ui.floatHelp)
+  end
+
   if(ui.floatingCheck == nil) then
     ui.floatingCheck = fnew(CheckBox,context)
     ui.floatingCheck:setLayoutParams(fillparams)
@@ -705,7 +713,7 @@ function makeUI(editorValues,numediting)
     ui.floatModeLabel = fnew(TextView,context)
     local floatModeLabelParams = fnew(LinearLayoutParams,80*density,WRAP_CONTENT)
     ui.floatModeLabel:setLayoutParams(floatModeLabelParams)
-    ui.floatModeLabel:setText("IME:")
+    ui.floatModeLabel:setText("When:")
     ui.floatModeLabel:setTextSize(textSize)
     ui.floatModeLabel:setGravity(Gravity.RIGHT)
     ui.floatModeRow:addView(ui.floatModeLabel)
@@ -733,23 +741,59 @@ function makeUI(editorValues,numediting)
     ui.floatModeSpinner:setSelection(0)
   end
 
-  if(ui.floatRoundCheck == nil) then
-    ui.floatRoundCheck = fnew(CheckBox,context)
-    ui.floatRoundCheck:setLayoutParams(fillparams)
-    ui.floatRoundCheck:setText("Round")
-    ui.floatRoundCheck:setTextSize(textSize)
-    ui.advancedPage:addView(ui.floatRoundCheck)
-  end
-  ui.floatRoundCheck:setChecked(editorValues.floatRound == true)
+  -- Shape is exclusive (square OR round). Outline is a separate thin border.
+  if(ui.floatShapeRow == nil) then
+    ui.floatShapeRow = fnew(LinearLayout,context)
+    ui.floatShapeRow:setLayoutParams(fillparams)
+    ui.advancedPage:addView(ui.floatShapeRow)
 
-  if(ui.floatFrameCheck == nil) then
-    ui.floatFrameCheck = fnew(CheckBox,context)
-    ui.floatFrameCheck:setLayoutParams(fillparams)
-    ui.floatFrameCheck:setText("Frame")
-    ui.floatFrameCheck:setTextSize(textSize)
-    ui.advancedPage:addView(ui.floatFrameCheck)
+    ui.floatShapeLabel = fnew(TextView,context)
+    local floatShapeLabelParams = fnew(LinearLayoutParams,80*density,WRAP_CONTENT)
+    ui.floatShapeLabel:setLayoutParams(floatShapeLabelParams)
+    ui.floatShapeLabel:setText("Shape:")
+    ui.floatShapeLabel:setTextSize(textSize)
+    ui.floatShapeLabel:setGravity(Gravity.RIGHT)
+    ui.floatShapeRow:addView(ui.floatShapeLabel)
+
+    ui.floatShapeSpinner = fnew(Spinner,context)
+    local floatShapeEditParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+    ui.floatShapeSpinner:setLayoutParams(floatShapeEditParams)
+    local pkg2 = context:getPackageName()
+    local res2 = context:getResources()
+    local spinnerItemLayout2 = res2:getIdentifier("spinner_item_dark", "layout", pkg2)
+    local spinnerDropdownLayout2 = res2:getIdentifier("spinner_dropdown_item_dark", "layout", pkg2)
+    local shapeAdapter = luajava.new(ArrayAdapter,context,spinnerItemLayout2)
+    shapeAdapter:add("Square")
+    shapeAdapter:add("Round")
+    shapeAdapter:setDropDownViewResource(spinnerDropdownLayout2)
+    ui.floatShapeSpinner:setAdapter(shapeAdapter)
+    local ColorDrawable2 = luajava.bindClass("android.graphics.drawable.ColorDrawable")
+    ui.floatShapeSpinner:setPopupBackgroundDrawable(luajava.new(ColorDrawable2, Color:argb(255, 0, 0, 0)))
+    ui.floatShapeSpinner:setBackgroundColor(Color:argb(255, 0, 0, 0))
+    ui.floatShapeRow:addView(ui.floatShapeSpinner)
   end
-  ui.floatFrameCheck:setChecked(editorValues.floatFrame == true)
+  if editorValues.floatRound == true then
+    ui.floatShapeSpinner:setSelection(1)
+  else
+    ui.floatShapeSpinner:setSelection(0)
+  end
+
+  if(ui.floatOutlineCheck == nil) then
+    ui.floatOutlineCheck = fnew(CheckBox,context)
+    ui.floatOutlineCheck:setLayoutParams(fillparams)
+    ui.floatOutlineCheck:setText("Thin outline")
+    ui.floatOutlineCheck:setTextSize(textSize)
+    ui.advancedPage:addView(ui.floatOutlineCheck)
+  end
+  ui.floatOutlineCheck:setChecked(editorValues.floatFrame == true)
+
+  if(ui.floatOutlineHelp == nil) then
+    ui.floatOutlineHelp = fnew(TextView,context)
+    ui.floatOutlineHelp:setLayoutParams(fillparams)
+    ui.floatOutlineHelp:setTextSize(textSizeSmall)
+    ui.floatOutlineHelp:setText("Optional 1–2 dp border so the floating copy stays readable over game text. Works with square or round.")
+    ui.advancedPage:addView(ui.floatOutlineHelp)
+  end
 
   local floatEnabled = (numediting == 1)
   ui.floatingCheck:setEnabled(floatEnabled)
@@ -759,15 +803,15 @@ function makeUI(editorValues,numediting)
       onCheckedChanged = function(buttonView, isChecked)
         local on = ui.floatingCheck:isEnabled() and isChecked
         ui.floatModeSpinner:setEnabled(on)
-        ui.floatRoundCheck:setEnabled(on)
-        ui.floatFrameCheck:setEnabled(on)
+        ui.floatShapeSpinner:setEnabled(on)
+        ui.floatOutlineCheck:setEnabled(on)
       end
     })
     ui.floatingCheck:setOnCheckedChangeListener(ui.floatCheckListener)
   end
   ui.floatModeSpinner:setEnabled(dependentsOn)
-  ui.floatRoundCheck:setEnabled(dependentsOn)
-  ui.floatFrameCheck:setEnabled(dependentsOn)
+  ui.floatShapeSpinner:setEnabled(dependentsOn)
+  ui.floatOutlineCheck:setEnabled(dependentsOn)
   
   return ui.advancedPageScroller
   
@@ -798,8 +842,12 @@ function getEditorValues()
     else
       tmp.floatMode = "always"
     end
-    tmp.floatRound = ui.floatRoundCheck ~= nil and ui.floatRoundCheck:isChecked()
-    tmp.floatFrame = ui.floatFrameCheck ~= nil and ui.floatFrameCheck:isChecked()
+    local shapeIndex = 0
+    if ui.floatShapeSpinner ~= nil then
+      shapeIndex = tonumber(ui.floatShapeSpinner:getSelectedItemPosition()) or 0
+    end
+    tmp.floatRound = (shapeIndex == 1)
+    tmp.floatFrame = ui.floatOutlineCheck ~= nil and ui.floatOutlineCheck:isChecked()
   end
   return tmp
 end

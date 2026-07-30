@@ -511,6 +511,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		final View chromeRoot = findViewById(R.id.window_container);
 		ViewCompat.setOnApplyWindowInsetsListener(chromeRoot, (view, windowInsets) ->
 				chrome.onApplyWindowInsets(view, windowInsets));
+		chrome.watchImeViaGlobalLayout(chromeRoot);
 		chrome.layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		chrome.updateMenuChrome();
 

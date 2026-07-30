@@ -143,9 +143,11 @@ public class FloatingButtonView extends View {
 			canvas.drawRect(oval, fillPaint);
 		}
 		if (model.floatFrame) {
-			framePaint.setColor(fg);
-			framePaint.setStrokeWidth(Math.max(1f,
-					getResources().getDisplayMetrics().density * 1.5f));
+			// High-contrast outline so the floater stays readable over game text.
+			int outline = contrastingOutline(fg, bg);
+			framePaint.setColor(outline);
+			framePaint.setStrokeWidth(Math.max(2f,
+					getResources().getDisplayMetrics().density * 2f));
 			float inset = framePaint.getStrokeWidth() / 2f;
 			RectF frame = new RectF(inset, inset, getWidth() - inset, getHeight() - inset);
 			if (model.floatRound) {
@@ -457,5 +459,19 @@ public class FloatingButtonView extends View {
 			return "↘";
 		}
 		return "";
+	}
+
+	/** Light outline on dark fill (and the reverse) so the border is visible. */
+	private static int contrastingOutline(int labelColor, int fillColor) {
+		int a = (fillColor >> 24) & 0xFF;
+		int r = (fillColor >> 16) & 0xFF;
+		int g = (fillColor >> 8) & 0xFF;
+		int b = fillColor & 0xFF;
+		// Perceived luminance; translucent fills count as dark over game text.
+		double lum = (0.299 * r + 0.587 * g + 0.114 * b) * (a / 255.0);
+		if (lum < 140) {
+			return 0xE0FFFFFF;
+		}
+		return 0xE0000000;
 	}
 }

@@ -113,7 +113,15 @@ public class FloatingButtonController {
 				left = lp.leftMargin;
 				right = left + Math.max(view.getWidth(), lp.width > 0 ? lp.width : 1);
 			}
-			return computeMaxBottom(left, right);
+			int maxBottom = computeMaxBottom(left, right);
+			FloatingButtonModel m = view.getModel();
+			if (m != null && m.isKeyboardMode() && lastImeLiftPx > 0 && layer != null) {
+				int imeTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
+				if (imeTop < maxBottom) {
+					maxBottom = imeTop;
+				}
+			}
+			return maxBottom;
 		}
 
 		@Override
@@ -294,7 +302,21 @@ public class FloatingButtonController {
 				if (m.floatX == FloatingLayerGeometry.UNPLACED) {
 					resolvedX = marginPx;
 				}
-				int maxBottom = computeMaxBottom(resolvedX, resolvedX + w);
+				int maxBottom;
+				if (keyboardAboveIme && lastImeLiftPx > 0) {
+					// Layer is not IME-translated. The soft keyboard covers the
+					// bottom lastImeLiftPx of the container — park Mode A just
+					// above that, and also above the lifted input bar.
+					int imeTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
+					int inputTop = computeInputBarTopInLayer();
+					maxBottom = imeTop;
+					if (inputTop > 0 && inputTop < maxBottom) {
+						maxBottom = inputTop;
+					}
+					maxBottom = chromeKeepOut(maxBottom, resolvedX, resolvedX + w);
+				} else {
+					maxBottom = computeMaxBottom(resolvedX, resolvedX + w);
+				}
 				if (keyboardAboveIme) {
 					int x = FloatingLayerGeometry.clampX(resolvedX, w, layer.getWidth());
 					int y = FloatingLayerGeometry.clampY(
@@ -336,24 +358,45 @@ public class FloatingButtonController {
 			return 0;
 		}
 		int maxBottom = layer.getHeight();
+		int inputTop = computeInputBarTopInLayer();
+		if (inputTop > 0) {
+			maxBottom = inputTop;
+		}
+		return chromeKeepOut(maxBottom, overlayLeft, overlayRight);
+	}
+
+	/** Top of the input bar in floating-layer coordinates, or 0 if unknown. */
+	private int computeInputBarTopInLayer() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || layer == null) {
+			return 0;
+		}
 		View inputbar = findInputBar(activity);
-		if (inputbar != null && inputbar.getHeight() > 0) {
-			int[] layerLoc = new int[2];
-			int[] barLoc = new int[2];
-			layer.getLocationOnScreen(layerLoc);
-			inputbar.getLocationOnScreen(barLoc);
-			maxBottom = Math.max(0, barLoc[1] - layerLoc[1]);
+		if (inputbar == null || inputbar.getHeight() <= 0) {
+			return 0;
+		}
+		int[] layerLoc = new int[2];
+		int[] barLoc = new int[2];
+		layer.getLocationOnScreen(layerLoc);
+		inputbar.getLocationOnScreen(barLoc);
+		return Math.max(0, barLoc[1] - layerLoc[1]);
+	}
+
+	private int chromeKeepOut(int maxBottom, int overlayLeft, int overlayRight) {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || layer == null) {
+			return maxBottom;
 		}
 		ChromeController chrome = activity.getChromeController();
-		if (chrome != null) {
-			int[] layerLoc = new int[2];
-			layer.getLocationOnScreen(layerLoc);
-			int screenMax = layerLoc[1] + maxBottom;
-			int limited = chrome.floatingOverlayBottomLimit(
-					screenMax, layerLoc[0] + overlayLeft, layerLoc[0] + overlayRight);
-			maxBottom = Math.max(0, limited - layerLoc[1]);
+		if (chrome == null) {
+			return maxBottom;
 		}
-		return maxBottom;
+		int[] layerLoc = new int[2];
+		layer.getLocationOnScreen(layerLoc);
+		int screenMax = layerLoc[1] + maxBottom;
+		int limited = chrome.floatingOverlayBottomLimit(
+				screenMax, layerLoc[0] + overlayLeft, layerLoc[0] + overlayRight);
+		return Math.max(0, limited - layerLoc[1]);
 	}
 
 	private void reclampWhenChromeIsMeasured() {
