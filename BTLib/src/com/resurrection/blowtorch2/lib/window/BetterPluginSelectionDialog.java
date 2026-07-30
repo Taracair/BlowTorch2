@@ -101,9 +101,143 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		});
 	}
 	
+	/**
+	 * There is no inline editor for a plugin — it is an XML file with Lua inside,
+	 * edited on a computer — so this used to be an icon that did nothing at all.
+	 * It now answers the questions the icon invites: what is this, where does it
+	 * live, and what does it bring with it.
+	 */
 	@Override
 	public void onButtonPressed(View v, int row, int index) {
-		// Plugins have no inline editor; toggle/delete cover enable and unload.
+		String plugin = getItemKey(row);
+		if (plugin == null) {
+			if (row < 0 || row >= items.size()) {
+				return;
+			}
+			plugin = items.get(row);
+		}
+		showPluginInfo(plugin);
+	}
+
+	/**
+	 * A read-only description of one plugin.
+	 *
+	 * <p>Every call here is a UI → service binder hop, and those are synchronous:
+	 * they run on this thread. That is fine for one tap on a dialog row — they
+	 * are map reads with no Lua behind them — but it is why this is built on
+	 * demand rather than while the list is populated.
+	 */
+	private void showPluginInfo(String plugin) {
+		String info = null;
+		try {
+			HashMap<String, String> plist = (HashMap<String, String>) service.getPluginList();
+			if (plist != null) {
+				info = plist.get(plugin);
+			}
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		boolean missing = info != null && info.startsWith("MISSING");
+
+		StringBuilder sb = new StringBuilder();
+		if (missing) {
+			sb.append("The file this row points at is gone.\n\n");
+			sb.append("Path: ").append(info.length() > "MISSING".length()
+					? info.substring("MISSING".length()).trim() : plugin).append("\n\n");
+			sb.append("Nothing is loaded, so it cannot be enabled or inspected. ");
+			sb.append("Delete the row to clear it, or put the file back and use Load.");
+			showInfoDialog(plugin, sb.toString());
+			return;
+		}
+
+		if (com.resurrection.blowtorch2.lib.service.Connection.isBuiltInPlugin(plugin)) {
+			sb.append("Ships with BlowTorch. Can be disabled, not deleted.\n\n");
+		}
+
+		boolean enabled = true;
+		try {
+			enabled = service.isPluginEnabled(plugin);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		sb.append("Enabled: ").append(enabled ? "yes" : "no").append("\n");
+
+		String path = null;
+		try {
+			path = service.getPluginPath(plugin);
+		} catch (RemoteException e) {
+			e.printStackTrace();
+		}
+		sb.append("File: ").append(path == null || path.length() == 0
+				? "(not on disk)" : path).append("\n");
+
+		sb.append("Brings: ").append(describeContents(plugin)).append("\n");
+
+		if (info != null && info.length() > 0) {
+			sb.append("\n").append(info).append("\n");
+		}
+
+		sb.append("\nA plugin is an XML file with Lua inside. There is no editor for one ");
+		sb.append("here: change the file, then use Load to bring it back in. Any settings ");
+		sb.append("it declares appear in Options under its own heading.");
+		showInfoDialog(plugin, sb.toString());
+	}
+
+	/** Counts of what a plugin adds, or a plain sentence when it adds none. */
+	private String describeContents(String plugin) {
+		int triggers = pluginMapSize(PluginPart.TRIGGERS, plugin);
+		int aliases = pluginMapSize(PluginPart.ALIASES, plugin);
+		int timers = pluginMapSize(PluginPart.TIMERS, plugin);
+		if (triggers < 0 && aliases < 0 && timers < 0) {
+			return "(could not ask the service)";
+		}
+		StringBuilder sb = new StringBuilder();
+		appendCount(sb, triggers, "trigger", "triggers");
+		appendCount(sb, aliases, "alias", "aliases");
+		appendCount(sb, timers, "timer", "timers");
+		return sb.length() == 0 ? "no triggers, aliases or timers of its own" : sb.toString();
+	}
+
+	private enum PluginPart { TRIGGERS, ALIASES, TIMERS }
+
+	/** @return the entry count, or -1 when the service could not be asked. */
+	private int pluginMapSize(PluginPart part, String plugin) {
+		try {
+			java.util.Map<?, ?> map;
+			switch (part) {
+			case TRIGGERS:
+				map = service.getPluginTriggerData(plugin);
+				break;
+			case ALIASES:
+				map = service.getPluginAliases(plugin);
+				break;
+			default:
+				map = service.getPluginTimers(plugin);
+				break;
+			}
+			return map == null ? 0 : map.size();
+		} catch (RemoteException e) {
+			e.printStackTrace();
+			return -1;
+		}
+	}
+
+	private static void appendCount(StringBuilder sb, int n, String one, String many) {
+		if (n <= 0) {
+			return;
+		}
+		if (sb.length() > 0) {
+			sb.append(", ");
+		}
+		sb.append(n).append(" ").append(n == 1 ? one : many);
+	}
+
+	private void showInfoDialog(String plugin, String body) {
+		new AlertDialog.Builder(getContext())
+				.setTitle(plugin)
+				.setMessage(body)
+				.setPositiveButton("OK", null)
+				.show();
 	}
 
 	@Override
