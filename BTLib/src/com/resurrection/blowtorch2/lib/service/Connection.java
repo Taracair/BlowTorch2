@@ -1824,7 +1824,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void dispatchNoProcess(final byte[] data) {
 		mWindows.get(0).getBuffer().addBytesImplSimple(data);
-		sendBytesToWindow(data);
+		// notifyMainWindow, not sendBytesToWindow: the buffer write is on the
+		// line above, and sendBytesToWindow now does one of its own.
+		notifyMainWindow(data);
 	}
 	
 	/** Utility class used for trigger processing. Maps a start and end value to a line number.	 */
@@ -2139,7 +2141,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		byte[] proc = mFinished.dumpToBytes(false);
 		
 		buffer.addBytesImplSimple(proc);
-		sendBytesToWindow(proc);
+		// notifyMainWindow, not sendBytesToWindow: buffer is this window's own
+		// TextTree and the line above already holds the text.
+		notifyMainWindow(proc);
 		
 	}
 	
@@ -2182,11 +2186,64 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 	
-	/** Sends bytes to the main output window.
-	 * 
+	/** Sends bytes to the main output window, and keeps them.
+	 *
+	 * <p><b>The buffer write is the point.</b> This used to hand the bytes
+	 * straight to the live callback and nothing else, so everything written
+	 * through here existed only in the UI process's copy of the text: the yellow
+	 * GMCP notices, reconnect countdowns, MCP notices, Lua errors, and every
+	 * {@code .command} reply. The main window's content is not kept by the UI —
+	 * {@code MainWindow.initWindow} does {@code tmp.setBuffer(w.getBuffer())},
+	 * i.e. it adopts the service-side {@link WindowToken} buffer wholesale. So
+	 * anything that skipped that buffer vanished the moment the window was
+	 * rebuilt, which is what switching between two live worlds does
+	 * ({@code StellarService.switchTo} → {@code loadWindowSettings}). Reported as
+	 * "switching worlds wipes the yellow GMCP notices"; the cause was one missing
+	 * line and the notices were only the most visible casualty.
+	 *
+	 * <p>The raw bytes go to the buffer, not a re-encoded copy: {@code dispatch}
+	 * writes the same bytes the same way ({@code addBytesImplSimple}), and
+	 * routing them through a temporary TextTree first — as {@code lineToWindow}
+	 * does — would re-normalise what the UI receives and could move colour or
+	 * line breaks.
+	 *
+	 * <p>Callers that have already written to the buffer themselves must use
+	 * {@link #notifyMainWindow} instead, or the text is added twice.
+	 *
 	 * @param data The bytes to send.
 	 */
 	public final void sendBytesToWindow(final byte[] data) {
+		if (data == null || data.length == 0) {
+			return;
+		}
+		// Before the callback, and regardless of it: a window that is not
+		// currently attached is exactly the case this buffer exists for.
+		TextTree buffer = getMainWindowBuffer();
+		if (buffer != null) {
+			buffer.addBytesImplSimple(data);
+		}
+		notifyMainWindow(data);
+	}
+
+	/** The main window's service-side scrollback, or null before windows exist. */
+	private TextTree getMainWindowBuffer() {
+		for (WindowToken w : mWindows) {
+			if (MAIN_WINDOW.equals(w.getName())) {
+				return w.getBuffer();
+			}
+		}
+		return null;
+	}
+
+	/** Hand bytes to the live main window without keeping them.
+	 *
+	 * <p>Only for callers that have already put the same bytes in the main
+	 * window's buffer — {@link #dispatch} and {@link #dispatchNoProcess}.
+	 * Everything else wants {@link #sendBytesToWindow}.
+	 *
+	 * @param data The bytes to send.
+	 */
+	private void notifyMainWindow(final byte[] data) {
 
 		try {
 
@@ -2202,10 +2259,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mWindowCallbackMap.remove(MAIN_WINDOW);
 			}
 		} catch (RemoteException e) {
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.sendBytesToWindow", e);
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.notifyMainWindow", e);
 		}
 	}
-	
+
 	/** Meat of the startup sequence. Starts the net threads after the settings have been loaded. */
 	private final Object mStartupLock = new Object();
 	private boolean mStartupInProgress = false;
