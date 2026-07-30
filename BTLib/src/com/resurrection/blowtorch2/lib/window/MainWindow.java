@@ -313,6 +313,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	boolean input_controls_expanded = false;
 	boolean isBound = false;
 	boolean isKeepLast = false; //for keeping last
+	/** Profile flag: Options → Input → Standard keyboard input. */
+	private boolean mCompatibilityMode = false;
 	boolean historyWidgetKept = false;
 	/** Length of the kept line; first keystroke should replace it, not append. */
 	private int keepLastReplaceLength = 0;
@@ -1456,11 +1458,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	protected void setUseCompatibilityMode(boolean value) {
-		
-		mInputBox.setBackSpaceBugFix(value);
-		setupEditor(fullscreenEditor, value);
-		InputMethodManager imm = (InputMethodManager) mInputBox.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-		imm.restartInput(mInputBox);
+		mCompatibilityMode = value;
+		applyInputConnectionMode();
+	}
+
+	/** Standard Android {@link InputConnection} when keep-last or IME fix is on. */
+	private void applyInputConnectionMode() {
+		if (mInputBox == null) {
+			return;
+		}
+		boolean useStandard = mCompatibilityMode || isKeepLast;
+		mInputBox.setBackSpaceBugFix(useStandard);
+		InputMethodManager imm = (InputMethodManager) mInputBox.getContext()
+				.getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (imm != null) {
+			imm.restartInput(mInputBox);
+		}
 	}
 
 	protected void setUseFullscreenEditor(boolean value) {
@@ -1533,6 +1546,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	protected void setKeepLast(boolean b) {
 		this.isKeepLast = b;
+		applyInputConnectionMode();
 	}
 
 	protected void markSettingsDirty() {
@@ -2859,7 +2873,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				ViewCompat.requestApplyInsets(chromeRootRefresh);
 			}
 			//BetterEditText input_box = (BetterEditText)findViewById(R.id.textinput);
-			mInputBox.setBackSpaceBugFix(true);
 			
 			boolean keep_screen_on = (Boolean)((BaseOption)group.findOptionByKey("screen_on")).getValue();
 			
@@ -2942,17 +2955,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//overrideHFPress = service.getHFOnPress();
 			//overrideHFFlip = service.getHFOnFlip();
 			
-			boolean compatibility = (Boolean)((BaseOption)group.findOptionByKey("compatibility_mode")).getValue();
-			
-			if(compatibility) {
-				//Log.e("WINDOW","APPLYING BACK SPACE BUG FIX");
-				//BetterEditText tmp_bar = (BetterEditText)input_box;
-				mInputBox.setBackSpaceBugFix(true);
-			} else {
-				//BetterEditText tmp_bar = (BetterEditText)input_box;
-				mInputBox.setBackSpaceBugFix(false);
-				//Log.e("WINDOW","NOT APPLYING BACK SPACE BUG FIX");
-			}
+			mCompatibilityMode = (Boolean)((BaseOption)group.findOptionByKey("compatibility_mode")).getValue();
+			applyInputConnectionMode();
 			
 			InputMethodManager imm = (InputMethodManager) mInputBox.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
 			imm.restartInput(mInputBox);
