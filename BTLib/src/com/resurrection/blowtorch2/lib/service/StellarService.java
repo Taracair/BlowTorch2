@@ -143,6 +143,26 @@ public class StellarService extends Service {
 	 *  @return see docs
 	 *  @see Android Documentation for Service.onStartCommand()
 	 */
+	/**
+	 * Where the ongoing notification goes when there is no connection to open.
+	 *
+	 * <p>Whatever the home screen icon opens, so the notification cannot land
+	 * somewhere the launcher never would. Asking the package manager keeps this
+	 * correct if the entry point is ever renamed — and the entry point must not
+	 * be moved anyway, because pinned icons are keyed on the component name.
+	 *
+	 * @return A pending intent, or null if this package has no launcher entry.
+	 */
+	private PendingIntent launcherPendingIntent() {
+		Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+		if (launch == null) {
+			return null;
+		}
+		launch.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		return PendingIntent.getActivity(
+				this, FOREGROUND_NOTIFICATION_ID, launch, activityPendingIntentFlags());
+	}
+
 	public final int onStartCommand(final Intent intent, final int flags, final int startId) {
 		// Always promote to FGS when started via startForegroundService, including
 		// null-intent system restarts and after a previous stopForeground().
@@ -152,12 +172,19 @@ public class StellarService extends Service {
 			if (resId == 0) {
 				resId = android.R.drawable.stat_notify_chat;
 			}
+			// This is not a splash screen. The system restarts the service with a
+			// null intent — after install -r, or on its own — and then nothing
+			// replaces this notification until a connection is made. It said
+			// "Starting…" and had no content intent, so it sat there apparently
+			// hung and did nothing when tapped. It says what is true instead, and
+			// tapping it opens the app.
 			Notification placeholder = new androidx.core.app.NotificationCompat.Builder(this, channelId)
 				.setContentTitle(ConfigurationLoader.getConfigurationValue("ongoingNotificationLabel", this))
-				.setContentText(getString(R.string.notification_status_starting))
+				.setContentText(getString(R.string.notification_status_idle))
 				.setSmallIcon(resId)
 				.setOngoing(true)
 				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+				.setContentIntent(launcherPendingIntent())
 				.build();
 			startForeground(FOREGROUND_NOTIFICATION_ID, placeholder);
 			mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
