@@ -18,6 +18,7 @@ import android.util.Log;
 
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 public class LuaDialog extends Dialog {
@@ -34,6 +35,8 @@ public class LuaDialog extends Dialog {
 	private boolean mTitle;
 	private Drawable mBorder;
 	private int mLayoutMode = LAYOUT_FULLSCREEN;
+	/** Bottom-sheet only: true = see grid above panel; false = opaque fullscreen frame. */
+	private boolean mPresentationOverGrid = false;
 	
 	public LuaDialog(Context context) {
 		super(context);
@@ -82,6 +85,7 @@ public class LuaDialog extends Dialog {
 			this.requestWindowFeature(Window.FEATURE_NO_TITLE);
 		}
 		final boolean bottomSheet = mLayoutMode == LAYOUT_BOTTOM_SHEET;
+		mPresentationOverGrid = bottomSheet;
 		if (bottomSheet) {
 			this.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 		} else if(mBorder != null) {
@@ -97,6 +101,13 @@ public class LuaDialog extends Dialog {
 		
 		Window window = this.getWindow();
 		if (window != null) {
+			// Bottom sheet must draw edge-to-edge so the grid shows through the
+			// transparent region. Opaque fullscreen presentation later opts back
+			// into fitting system windows via setPresentationOverGrid(false).
+			// LAYOUT_FULLSCREEN keeps its existing edge-to-edge + padding path.
+			if (bottomSheet) {
+				WindowCompat.setDecorFitsSystemWindows(window, false);
+			}
 			window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
 			WindowManager.LayoutParams attrs = window.getAttributes();
 			attrs.width = WindowManager.LayoutParams.MATCH_PARENT;
@@ -123,28 +134,47 @@ public class LuaDialog extends Dialog {
 
 		ViewCompat.setOnApplyWindowInsetsListener(mView, (view, insets) -> {
 			Insets sys = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-			view.setPadding(view.getPaddingLeft(), sys.top,
-					view.getPaddingRight(), sys.bottom);
+			// Edge-to-edge bottom sheet: pad content clear of system bars.
+			// Opaque fullscreen sheet: window already fits system bars — do not
+			// also pad, or large empty bands appear inside the dashed frame.
+			boolean padForSystemBars = mLayoutMode != LAYOUT_BOTTOM_SHEET
+					|| mPresentationOverGrid;
+			int top = padForSystemBars ? sys.top : 0;
+			int bottom = padForSystemBars ? sys.bottom : 0;
+			view.setPadding(view.getPaddingLeft(), top,
+					view.getPaddingRight(), bottom);
 			return insets;
 		});
 		ViewCompat.requestApplyInsets(mView);
 	}
 
-	/** Bottom sheet: transparent window, grid visible above. Fullscreen: opaque dialog. */
+	/**
+	 * Bottom sheet: transparent window, grid visible above.
+	 * Fullscreen: opaque dashed frame fitted to the system-bar safe area.
+	 */
 	public void setPresentationOverGrid(boolean overGrid) {
 		Window window = getWindow();
 		if (window == null) {
 			return;
 		}
+		mPresentationOverGrid = overGrid;
 		if (overGrid) {
+			WindowCompat.setDecorFitsSystemWindows(window, false);
 			window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 			WindowManager.LayoutParams attrs = window.getAttributes();
 			attrs.dimAmount = 0.10f;
 			window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
 			window.setAttributes(attrs);
 		} else {
+			// Fit the window (and crawler drawable) to the safe area so the
+			// dashed stroke hugs content. Root padding is cleared by the insets
+			// listener — the drawable's own 3sp shape padding is enough inset.
+			WindowCompat.setDecorFitsSystemWindows(window, true);
 			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 			window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+		}
+		if (mView != null) {
+			ViewCompat.requestApplyInsets(mView);
 		}
 	}
 }

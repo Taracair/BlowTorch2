@@ -184,8 +184,13 @@ end
 
 -- Kept out of showDialog so Lua 5.1's 60-upvalue limit is not exceeded.
 local function presentEditorOptionsSheet(scroller, footer, screenH)
-  local fillparams = luajava.new(LinearLayoutParams,
-      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 1)
+  -- Header/footer must stay weight 0. Weight 1 on them (via shared fillparams)
+  -- made fullscreen share leftover height equally with the scroller, so the
+  -- title and Done/Cancel floated in the middle with black bands above/below.
+  local chromeParams = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0)
+  local rowParams = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT)
   -- Scroll area only; header and Done/Cancel sit below the ~37% band.
   local maxPanelScrollH = math.floor(screenH * 0.37)
 
@@ -207,18 +212,18 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
 
   local header = luajava.newInstance("android.widget.LinearLayout", context)
   header:setOrientation(LinearLayout.VERTICAL)
-  header:setLayoutParams(fillparams)
+  header:setLayoutParams(chromeParams)
   header:setPadding(math.floor(10 * density), math.floor(8 * density),
       math.floor(10 * density), math.floor(4 * density))
 
   local headerTitle = luajava.newInstance("android.widget.TextView", context)
   headerTitle:setText("Button set options")
   headerTitle:setTextSize(textSize)
-  headerTitle:setLayoutParams(fillparams)
+  headerTitle:setLayoutParams(rowParams)
 
   local modeRow = luajava.newInstance("android.widget.LinearLayout", context)
   modeRow:setOrientation(LinearLayout.HORIZONTAL)
-  modeRow:setLayoutParams(fillparams)
+  modeRow:setLayoutParams(rowParams)
   modeRow:setGravity(Gravity.CENTER_VERTICAL)
 
   local function makeModeButton(label)
@@ -253,6 +258,19 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
     end
   end
 
+  local function setScrollContentHeight(matchParent)
+    local content = scroller:getChildAt(0)
+    if content == nil then
+      return
+    end
+    local h = LinearLayoutParams.WRAP_CONTENT
+    if matchParent then
+      h = LinearLayoutParams.FILL_PARENT
+    end
+    content:setLayoutParams(luajava.new(LinearLayoutParams,
+        LinearLayoutParams.FILL_PARENT, h))
+  end
+
   local function applyPanelMode()
     if panelMode == "fullscreen" then
       if sheetDialog ~= nil then
@@ -261,7 +279,10 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
       detachSpacer()
       panel:setBackgroundResource(0)
       scroller:setFillViewport(true)
+      setScrollContentHeight(true)
       scroller:setVisibility(View.VISIBLE)
+      header:setLayoutParams(chromeParams)
+      footer:setLayoutParams(chromeParams)
       panel:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, LinearLayoutParams.FILL_PARENT, 0))
       scroller:setLayoutParams(luajava.new(LinearLayoutParams,
@@ -274,7 +295,10 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
       spacer:setVisibility(View.VISIBLE)
       panel:setBackgroundResource(R_drawable.dialog_window_crawler1)
       scroller:setFillViewport(false)
+      setScrollContentHeight(false)
       scroller:setVisibility(View.GONE)
+      header:setLayoutParams(chromeParams)
+      footer:setLayoutParams(chromeParams)
       spacer:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, 0, 1))
       scroller:setLayoutParams(luajava.new(LinearLayoutParams,
@@ -289,7 +313,10 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
       spacer:setVisibility(View.VISIBLE)
       panel:setBackgroundResource(R_drawable.dialog_window_crawler1)
       scroller:setFillViewport(false)
+      setScrollContentHeight(false)
       scroller:setVisibility(View.VISIBLE)
+      header:setLayoutParams(chromeParams)
+      footer:setLayoutParams(chromeParams)
       spacer:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, 0, 1))
       scroller:setLayoutParams(luajava.new(LinearLayoutParams,
@@ -332,6 +359,7 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
 
   header:addView(headerTitle)
   header:addView(modeRow)
+  footer:setLayoutParams(chromeParams)
   panel:addView(header)
   panel:addView(scroller)
   panel:addView(footer)
