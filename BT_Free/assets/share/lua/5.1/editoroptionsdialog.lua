@@ -186,9 +186,8 @@ end
 local function presentEditorOptionsSheet(scroller, footer, screenH)
   local fillparams = luajava.new(LinearLayoutParams,
       LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 1)
-  local wrapparamsNoWeight = luajava.new(LinearLayoutParams,
-      LinearLayoutParams.WRAP_CONTENT, LinearLayoutParams.WRAP_CONTENT)
-  local maxPanelScrollH = math.floor(screenH * 0.48 * 1.37)
+  -- Scroll area only; header and Done/Cancel sit below the ~37% band.
+  local maxPanelScrollH = math.floor(screenH * 0.37)
 
   local root = luajava.newInstance("android.widget.LinearLayout", context)
   root:setOrientation(LinearLayout.VERTICAL)
@@ -237,9 +236,13 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
   local hideModeButton = makeModeButton("Hide")
 
   local panelMode = "panel"
+  local sheetDialog = nil
 
   local function applyPanelMode()
     if panelMode == "hidden" then
+      if sheetDialog ~= nil then
+        sheetDialog:setPresentationOverGrid(true)
+      end
       scroller:setVisibility(View.GONE)
       spacer:setVisibility(View.VISIBLE)
       spacer:setLayoutParams(luajava.new(LinearLayoutParams,
@@ -249,6 +252,9 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
       panel:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
     elseif panelMode == "panel" then
+      if sheetDialog ~= nil then
+        sheetDialog:setPresentationOverGrid(true)
+      end
       scroller:setVisibility(View.VISIBLE)
       spacer:setVisibility(View.VISIBLE)
       spacer:setLayoutParams(luajava.new(LinearLayoutParams,
@@ -258,15 +264,17 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
       panel:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
     else
+      if sheetDialog ~= nil then
+        sheetDialog:setPresentationOverGrid(false)
+      end
       scroller:setVisibility(View.VISIBLE)
       spacer:setVisibility(View.GONE)
-      spacer:setLayoutParams(luajava.new(LinearLayoutParams,
-          LinearLayoutParams.FILL_PARENT, 0, 0))
+      panel:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, LinearLayoutParams.FILL_PARENT, 0))
       scroller:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, 0, 1))
-      panel:setLayoutParams(luajava.new(LinearLayoutParams,
-          LinearLayoutParams.FILL_PARENT, 0, 1))
     end
+    root:requestLayout()
     panelModeButton:setEnabled(panelMode ~= "panel")
     fullscreenModeButton:setEnabled(panelMode ~= "fullscreen")
     hideModeButton:setEnabled(panelMode ~= "hidden")
@@ -306,11 +314,12 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
   panel:addView(footer)
   root:addView(spacer)
   root:addView(panel)
-  applyPanelMode()
 
   local LuaDialog = luajava.bindClass("com.resurrection.blowtorch2.lib.window.LuaDialog")
-  dialog = luajava.new(LuaDialog, context, root, false, nil, LuaDialog.LAYOUT_BOTTOM_SHEET)
-  dialog:show()
+  sheetDialog = luajava.new(LuaDialog, context, root, false, nil, LuaDialog.LAYOUT_BOTTOM_SHEET)
+  dialog = sheetDialog
+  applyPanelMode()
+  sheetDialog:show()
 end
 
 function showDialog(initialValues)
@@ -342,7 +351,7 @@ function showDialog(initialValues)
   local wm = context:getSystemService(Context.WINDOW_SERVICE)
   local display = wm:getDefaultDisplay()
   local screenH = display:getHeight()
-  local maxScrollH = math.floor(screenH * 0.48 * 1.37)
+  local maxScrollH = math.floor(screenH * 0.37)
 
   local scroller = luajava.new(ScrollView,context)
   scroller:setLayoutParams(luajava.new(LinearLayoutParams,
