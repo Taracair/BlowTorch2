@@ -284,6 +284,9 @@ public class StellarService extends Service {
 			for (Connection c : mConnections.values()) {
 				if (c != null) {
 					c.stopGmcpMedia();
+					// The swipe is the only warning we get, and the map autosave
+					// is debounced 2 s: walk three rooms, swipe, lose three rooms.
+					c.flushMapperSaves();
 				}
 			}
 		}

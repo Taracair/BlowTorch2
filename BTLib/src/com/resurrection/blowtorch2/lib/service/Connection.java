@@ -3402,6 +3402,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/** Put any unwritten map on disk now. For teardown paths only. */
+	public final void flushMapperSaves() {
+		if (mMapper != null) {
+			mMapper.flushPendingSaves();
+		}
+	}
+
 	/** Helper method that kicks off the reconnection sequence. */
 	public final void startReconnect() {
 		mHandler.sendEmptyMessage(MESSAGE_RECONNECT);
@@ -5781,6 +5788,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		mIsConnected = false;
 		mSessionLog.onDisconnected();
+		// Same reason as the line above: the session is over, so anything still
+		// waiting on a debounce or a background writer has no later chance.
+		if (mMapper != null) {
+			mMapper.flushPendingSaves();
+		}
 	}
 
 	public final long getConnectedAtElapsed() {

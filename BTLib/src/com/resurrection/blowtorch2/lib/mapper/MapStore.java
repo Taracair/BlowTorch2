@@ -464,6 +464,36 @@ public final class MapStore {
 		}
 	}
 
+	/**
+	 * Write everything {@link #saveAsync} has queued, on this thread, now.
+	 *
+	 * <p>The writer is a {@code MIN_PRIORITY} daemon, so nothing guarantees it is
+	 * scheduled again before the process goes away. Any teardown that means "this
+	 * is the last chance" has to drain the queue itself rather than hand it over
+	 * — the same reason {@code SessionLogger.endSession} exists.
+	 *
+	 * <p>Safe to race with the writer: both take entries out of {@code PENDING}
+	 * with {@code remove}, so exactly one of them writes each version, and a map
+	 * that has already been written is a no-op here.
+	 */
+	public static void flushPendingWrites() {
+		if (PENDING.isEmpty()) {
+			return;
+		}
+		for (String path : new ArrayList<String>(PENDING.keySet())) {
+			String json = PENDING.remove(path);
+			if (json == null) {
+				// The writer thread got to this one first.
+				continue;
+			}
+			try {
+				writeFile(new File(path), json);
+			} catch (IOException e) {
+				BlowTorchLogger.logThrowable("MapStore.flushPendingWrites", e);
+			}
+		}
+	}
+
 	/** Newest unwritten JSON per map file. See {@link #saveAsync}. */
 	private static final java.util.concurrent.ConcurrentHashMap<String, String> PENDING =
 			new java.util.concurrent.ConcurrentHashMap<String, String>();
