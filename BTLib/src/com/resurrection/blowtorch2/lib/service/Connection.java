@@ -5115,12 +5115,25 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					"button_window", "starter_tutorial", "connection_settings"));
 
 	/**
+	 * True for a plugin that ships with the app rather than one the player
+	 * installed.
+	 *
+	 * <p>Public because the plugin list in the UI process needs the same answer,
+	 * and two hand-kept copies of this list would drift. It is an immutable
+	 * constant, so the usual warning about {@code static} existing twice does not
+	 * bite: both processes compute the same answer from the same literals.
+	 */
+	public static boolean isBuiltInPlugin(final String plugin) {
+		return plugin != null && UNDELETABLE_PLUGINS.contains(
+				plugin.trim().toLowerCase(java.util.Locale.US));
+	}
+
+	/**
 	 * @param plugin Name of the plugin to unload and forget.
 	 * @return true when the deletion was accepted; false for a built-in one.
 	 */
 	public final boolean deletePlugin(final String plugin) {
-		if (plugin != null && UNDELETABLE_PLUGINS.contains(plugin.trim().toLowerCase(
-				java.util.Locale.US))) {
+		if (isBuiltInPlugin(plugin)) {
 			mService.dispatchToast("\"" + plugin + "\" ships with BlowTorch and cannot be"
 					+ " deleted. Disable it instead.", true);
 			return false;
@@ -5257,8 +5270,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @return The full path of the plugin.
 	 */
 	public final String getPluginPath(final String plugin) {
+		// A row in the plugin list can name a link whose file is gone, and asking
+		// that row where it lives is exactly what a player does next. This used to
+		// dereference null and take the binder call down with it.
 		Plugin p = mPluginMap.get(plugin);
-		return p.getFullPath();
+		return p == null ? null : p.getFullPath();
 	}
 
 	/** Entry point for Plugins to send data to the foreground window without trigger parsing.
