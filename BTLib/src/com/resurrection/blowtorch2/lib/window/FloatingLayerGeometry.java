@@ -2,9 +2,9 @@ package com.resurrection.blowtorch2.lib.window;
 
 /**
  * Pure placement maths for floating-layer children: clamp to a keep-out box and
- * resolve the unplaced sentinel ({@link #UNPLACED}) to a default above the
- * input bar. No Android — same extract → test pattern as
- * {@link SuperButtonGestures}.
+ * resolve the unplaced sentinel ({@link #UNPLACED}) from the grid button's
+ * centre, falling back above the input bar when no grid origin is known. No
+ * Android — same extract → test pattern as {@link SuperButtonGestures}.
  */
 public final class FloatingLayerGeometry {
 
@@ -12,9 +12,9 @@ public final class FloatingLayerGeometry {
 	public static final int UNPLACED = -1;
 
 	/**
-	 * Default inset when unplaced, in the same units as stored {@code floatX}/
-	 * {@code floatY} (dp, matching ExtraText overlay positions). Callers that
-	 * lay out in pixels must scale by density first.
+	 * Default inset when unplaced and no grid origin is available, in the same
+	 * units as stored {@code floatX}/{@code floatY} (pixels after density
+	 * scaling by the caller).
 	 */
 	public static final int DEFAULT_MARGIN_DP = 24;
 
@@ -22,9 +22,27 @@ public final class FloatingLayerGeometry {
 	}
 
 	/**
+	 * Grid centre X → floating-layer left edge. Mirrors
+	 * {@code BUTTON:updateRect}: {@code x - (width/2)*density}.
+	 */
+	public static int gridCenterToLeft(final float gridX, final float widthDp,
+			final float density) {
+		return Math.round(gridX - (widthDp * density / 2f));
+	}
+
+	/**
+	 * Grid centre Y → floating-layer top edge. Mirrors
+	 * {@code BUTTON:updateRect}: {@code y - (height/2)*density + statusoffset}.
+	 */
+	public static int gridCenterToTop(final float gridY, final float heightDp,
+			final float density, final int statusOffsetPx) {
+		return Math.round(gridY - (heightDp * density / 2f) + statusOffsetPx);
+	}
+
+	/**
 	 * Resolve a stored X: unplaced becomes a left margin; otherwise the value
-	 * as stored (caller still clamps). Units are whatever the layer stores
-	 * (dp recommended).
+	 * as stored (caller still clamps). Prefer {@link #gridCenterToLeft} when
+	 * the button still lives at its grid origin.
 	 */
 	public static int resolveX(final int floatX) {
 		if (floatX == UNPLACED) {
@@ -36,6 +54,8 @@ public final class FloatingLayerGeometry {
 	/**
 	 * Resolve a stored Y: unplaced sits just above {@code maxBottom} (input-bar
 	 * top / chrome keep-out), minus height and a margin; otherwise as stored.
+	 * Prefer {@link #gridCenterToTop} when the button still lives at its grid
+	 * origin.
 	 *
 	 * @param floatY stored Y, or {@link #UNPLACED}
 	 * @param childHeight height of the floating view in the same units
