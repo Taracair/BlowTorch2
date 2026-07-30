@@ -44,9 +44,11 @@ final class ConnectionSessionLog {
 		if (enabled) {
 			applySessionLogDirectory();
 			SessionLogger.startSession(host.mService.getApplicationContext(), host.mDisplay);
-			SessionLogger.appendMarker(host.mService.getApplicationContext(), host.mDisplay,
-					"logging enabled → " + SessionLogger.getLogLocationLabel(
-							host.mService.getApplicationContext()));
+			// appendLocationMarker, not appendMarker + getLogLocationLabel: the
+			// file is opened on the log's own writer thread, so the path is not
+			// known yet here. The writer fills it in.
+			SessionLogger.appendLocationMarker(host.mService.getApplicationContext(),
+					host.mDisplay, "logging enabled → ");
 		}
 	}
 
@@ -68,9 +70,8 @@ final class ConnectionSessionLog {
 			boolean continuing = SessionLogger.hasActiveSessionFor(host.mDisplay);
 			SessionLogger.continueOrStartSession(host.mService.getApplicationContext(),
 					host.mDisplay);
-			String path = SessionLogger.getLogLocationLabel(host.mService.getApplicationContext());
-			SessionLogger.appendMarker(host.mService.getApplicationContext(), host.mDisplay,
-					(continuing ? "reconnected → " : "connected → ") + path);
+			SessionLogger.appendLocationMarker(host.mService.getApplicationContext(),
+					host.mDisplay, continuing ? "reconnected → " : "connected → ");
 		}
 	}
 

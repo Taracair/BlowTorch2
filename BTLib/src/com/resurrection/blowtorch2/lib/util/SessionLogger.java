@@ -9,13 +9,16 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
@@ -27,10 +30,24 @@ import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 /**
  * Incremental plain-text session log (append-only). Default directory is
  * {@code /BlowTorch/session_logs/} (see {@link SDCardUtils}).
- * <p>
- * Writes are kept in an open stream and flushed to disk on a short interval
- * (or when a few KB accumulate), plus on disconnect / disable — so a file
- * manager sees near-live growth without opening the file on every MUD packet.
+ *
+ * <p><b>All file work happens on one daemon thread.</b> Callers stamp what they
+ * need and enqueue; the writer opens, appends, rotates, flushes and closes.
+ *
+ * <p><b>Measured, 30 July 2026.</b> This class used to do that work on whatever
+ * thread called it, and its callers are the {@code :stellar} main thread —
+ * {@code Connection.dispatch} (per packet), {@code Processor.logGmcp} and
+ * {@code McpEngine.logDir} (per marker). StrictMode on the test build recorded
+ * <b>522 blocking-disk violations through {@code flushLocked}, about 8 s of
+ * main-thread disk in total and up to 301 ms in one hit</b>, which makes it the
+ * largest single main-thread disk source in the app after directory resolution.
+ * Only 45 of those came from the old main-looper flush {@code Handler}; the rest
+ * were the marker and packet paths flushing inline, so moving the timer alone
+ * would have fixed under a tenth of it. There is no {@code Handler} here any
+ * more — the writer does its own timed flush.
+ *
+ * <p>Writes reach the OS within {@link #FLUSH_INTERVAL_MS} (or sooner, once a
+ * few KB accumulate), so a file manager still sees near-live growth.
  */
 public final class SessionLogger {
 
@@ -43,29 +60,84 @@ public final class SessionLogger {
 	private static final long FLUSH_INTERVAL_MS = 750L;
 	/** Flush sooner if this much is buffered. */
 	private static final int FLUSH_BYTES = 4 * 1024;
-	private static final Pattern ANSI = Pattern.compile("\u001B\\[[0-9;]*[A-Za-z]");
+	/**
+	 * Work waiting for the writer.
+	 *
+	 * <p>Bounded, because a world that floods faster than external storage can
+	 * absorb must cost log lines rather than unbounded memory in the service.
+	 * Larger than the GMCP trace queue on purpose: this is the player's own
+	 * record of their session, and one entry here is a whole packet, not a line.
+	 */
+	private static final int QUEUE_LIMIT = 8192;
+	/** How long {@link #endSession} will wait for the tail to reach disk. */
+	private static final long END_SESSION_DRAIN_MS = 400L;
+	private static final Pattern ANSI = Pattern.compile("\\u001B\\[[0-9;]*[A-Za-z]");
 
-	private static File currentFile;
-	private static Uri currentDocUri;
-	private static String currentProfile;
+	// ---- caller-side state ------------------------------------------------
+
 	private static boolean enabledCached = false;
 	private static String customDirCached = "";
 	private static boolean prefsLoaded = false;
 
+	/**
+	 * What the caller has asked for, as opposed to what the writer has managed
+	 * so far. {@link #hasActiveSessionFor} has to answer from this: the answer
+	 * decides the wording of a marker that is enqueued in the same breath, and
+	 * queue order, not disk order, is what those two share.
+	 */
+	private static volatile String intendedProfile;
+	private static volatile boolean intendedHasFile;
+
+	/** Published by the writer once it knows; read by the UI for display. */
+	private static volatile File resolvedFile;
+	private static volatile Uri resolvedDocUri;
+	private static volatile String resolvedDirLabel;
+
+	// ---- writer-owned state ----------------------------------------------
+
+	private static File currentFile;
+	private static Uri currentDocUri;
+	private static String currentProfile;
 	private static FileOutputStream currentFos;
 	private static OutputStream currentOut;
 	private static long pendingBytes;
 	private static long lastFlushElapsed;
 	private static long bytesWrittenThisFile;
-	private static Handler flushHandler;
-	private static final Runnable FLUSH_RUNNABLE = new Runnable() {
-		@Override
-		public void run() {
-			synchronized (SessionLogger.class) {
-				flushLocked(false);
-			}
+
+	private static final BlockingQueue<Op> QUEUE = new LinkedBlockingQueue<Op>(QUEUE_LIMIT);
+	private static final AtomicInteger DROPPED = new AtomicInteger();
+	private static Thread writer;
+	private static Context writerContext;
+
+	/** One unit of work for the writer. */
+	private static final class Op {
+		/** Append {@link #text}. */
+		static final int WRITE = 0;
+		/** Start (or continue) a file for {@link #profile}. */
+		static final int START = 1;
+		/** Append {@link #text} with the resolved log location appended to it. */
+		static final int LOCATION = 2;
+		/** Push to the OS; {@link #flag} asks for fsync as well. */
+		static final int FLUSH = 3;
+		/** Flush and close; {@link #flag} asks for fsync first. */
+		static final int CLOSE = 4;
+		/** Count {@link #latch} down once everything before it is done. */
+		static final int BARRIER = 5;
+
+		final int kind;
+		final String text;
+		final String profile;
+		final boolean flag;
+		final CountDownLatch latch;
+
+		Op(int kind, String text, String profile, boolean flag, CountDownLatch latch) {
+			this.kind = kind;
+			this.text = text;
+			this.profile = profile;
+			this.flag = flag;
+			this.latch = latch;
 		}
-	};
+	}
 
 	private SessionLogger() {
 	}
@@ -83,13 +155,12 @@ public final class SessionLogger {
 		enabledCached = enabled;
 		prefsLoaded = true;
 		if (!enabled && wasEnabled) {
-			if (currentOut != null || currentFile != null || currentDocUri != null) {
-				appendMarkerUnlocked(context,
-						currentProfile != null ? currentProfile : "session",
-						"logging disabled");
+			if (intendedHasFile) {
+				enqueue(context, new Op(Op.WRITE,
+						markerText("logging disabled"), null, false, null));
 			}
-			closeStreamLocked(true);
-			clearCurrentMeta();
+			enqueue(context, new Op(Op.CLOSE, null, null, true, null));
+			clearIntendedMeta();
 		}
 	}
 
@@ -109,8 +180,9 @@ public final class SessionLogger {
 		// Only start a new file when the directory actually changes — re-applying
 		// the same Options value must not truncate an active session log.
 		if (changed) {
-			closeStreamLocked(true);
-			clearCurrentMeta();
+			resolvedDirLabel = null;
+			enqueue(context, new Op(Op.CLOSE, null, null, true, null));
+			clearIntendedMeta();
 		}
 	}
 
@@ -122,71 +194,416 @@ public final class SessionLogger {
 		return enabledCached;
 	}
 
-	public static synchronized File getCurrentLogFile() {
-		return currentFile;
+	/** The file being written, once the writer has opened one. */
+	public static File getCurrentLogFile() {
+		return resolvedFile;
 	}
 
 	/** Display path for UI: filesystem path, SAF document URI, or directory label. */
-	public static synchronized String getLogLocationLabel(Context context) {
+	public static String getLogLocationLabel(Context context) {
+		Uri doc = resolvedDocUri;
+		if (doc != null) {
+			return doc.toString();
+		}
+		File file = resolvedFile;
+		if (file != null) {
+			return file.getAbsolutePath();
+		}
+		String custom;
+		synchronized (SessionLogger.class) {
+			ensurePrefs(context);
+			custom = customDirCached;
+		}
+		if (SDCardUtils.isContentUri(custom)) {
+			return custom;
+		}
+		// Last known directory before resolving one again: resolveBlowTorchSubdir
+		// and ensureWritableDirectory are themselves main-thread disk (517 ms in
+		// the worst measured hit), and this getter is called from the UI.
+		String cached = resolvedDirLabel;
+		if (cached != null) {
+			return cached;
+		}
+		File dir = getLogDirectory(context);
+		return dir != null ? dir.getAbsolutePath() : "";
+	}
+
+	/**
+	 * Resolve the log directory, creating it if need be.
+	 *
+	 * <p>Touches the filesystem, so the writer thread is the right caller. It
+	 * stays public for {@code .gmcp} / options code that wants to name the
+	 * directory; those run off the main thread.
+	 *
+	 * @param context Any context.
+	 * @return The directory, or null when none is writable.
+	 */
+	public static File getLogDirectory(Context context) {
+		String custom;
+		synchronized (SessionLogger.class) {
+			ensurePrefs(context);
+			custom = customDirCached;
+		}
+		File resolved = resolveLogDirectory(context, custom);
+		if (resolved != null) {
+			resolvedDirLabel = resolved.getAbsolutePath();
+		}
+		return resolved;
+	}
+
+	private static File resolveLogDirectory(Context context, String custom) {
+		if (!TextUtils.isEmpty(custom)) {
+			if (SDCardUtils.isContentUri(custom)) {
+				File mapped = SDCardUtils.mapTreeUriToFile(Uri.parse(custom));
+				if (mapped != null && SDCardUtils.ensureWritableDirectory(mapped)) {
+					return mapped;
+				}
+				return null;
+			}
+			File dir = new File(custom);
+			if (SDCardUtils.ensureWritableDirectory(dir)) {
+				return dir;
+			}
+			BlowTorchLogger.logError(context, TAG,
+					"Cannot write session log directory: " + dir.getAbsolutePath());
+			return null;
+		}
+		return SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_SESSION_LOGS);
+	}
+
+	/** Begin a new file for this profile. */
+	public static void startSession(Context context, String profile) {
+		if (context == null || !isEnabled(context)) {
+			return;
+		}
+		intendedProfile = sanitizeProfile(profile);
+		intendedHasFile = true;
+		enqueue(context, new Op(Op.START, null, profile, false, null));
+	}
+
+	/**
+	 * Keep writing to the current profile file after a reconnect; otherwise
+	 * start a new one. The writer decides which, since only it knows whether the
+	 * file it opened is still there.
+	 *
+	 * @param context Any context.
+	 * @param profile Connection display name.
+	 */
+	public static void continueOrStartSession(Context context, String profile) {
+		if (context == null || !isEnabled(context)) {
+			return;
+		}
+		intendedProfile = sanitizeProfile(profile);
+		intendedHasFile = true;
+		enqueue(context, new Op(Op.START, null, profile, true, null));
+	}
+
+	/** True if a log file is already associated with this profile. */
+	public static boolean hasActiveSessionFor(String profile) {
+		String safe = sanitizeProfile(profile);
+		String intended = intendedProfile;
+		return intendedHasFile && intended != null && intended.equals(safe);
+	}
+
+	public static void appendIncoming(Context context, String profile, String text) {
+		if (context == null || text == null || text.length() == 0 || !isEnabled(context)) {
+			return;
+		}
+		// Stripping ANSI is CPU, not disk, and doing it here keeps the writer
+		// from becoming the bottleneck on a busy world.
+		String plain = ANSI.matcher(text).replaceAll("").replace('\r', '\n');
+		ensureIntended(context, profile);
+		enqueue(context, new Op(Op.WRITE, plain, null, false, null));
+	}
+
+	public static void appendMarker(Context context, String profile, String marker) {
+		if (context == null || marker == null || !isEnabled(context)) {
+			return;
+		}
+		ensureIntended(context, profile);
+		enqueue(context, new Op(Op.WRITE, markerText(marker), null, false, null));
+	}
+
+	/**
+	 * A marker that names the log's own location, e.g. {@code "connected → "}.
+	 *
+	 * <p>The caller cannot build this itself any more: the location is only known
+	 * once the writer has resolved a directory and opened a file, and it enqueues
+	 * this marker before that has happened. So the writer fills in the tail.
+	 *
+	 * @param context Any context.
+	 * @param profile Connection display name.
+	 * @param prefix Text before the location.
+	 */
+	public static void appendLocationMarker(Context context, String profile, String prefix) {
+		if (context == null || !isEnabled(context)) {
+			return;
+		}
+		ensureIntended(context, profile);
+		enqueue(context, new Op(Op.LOCATION, prefix != null ? prefix : "", null, false, null));
+	}
+
+	/**
+	 * Push buffered log bytes to disk and fsync.
+	 *
+	 * <p>Enqueued like everything else, so it returns immediately and the syscall
+	 * lands on the writer within a hair. {@link #endSession} is the one that
+	 * waits, because that is the one where the process may be about to stop.
+	 *
+	 * @param context Any context.
+	 */
+	public static void flush(Context context) {
+		if (context == null) {
+			return;
+		}
+		enqueue(context, new Op(Op.FLUSH, null, null, true, null));
+	}
+
+	/**
+	 * Flush and close the open stream without starting a new file.
+	 *
+	 * <p>Waits up to {@link #END_SESSION_DRAIN_MS} for the queue to drain. This
+	 * is the one place worth blocking a caller: the alternative is losing the
+	 * tail of a log on the path where nothing will come back for it. The bound
+	 * matters as much as the wait — {@code onDisconnected} runs on the service
+	 * main thread, and an unbounded wait there is how a disconnect stalls.
+	 *
+	 * @param context Any context.
+	 */
+	public static void endSession(Context context) {
+		if (context == null) {
+			return;
+		}
+		if (intendedHasFile) {
+			enqueue(context, new Op(Op.WRITE, markerText("disconnected"), null, false, null));
+		}
+		enqueue(context, new Op(Op.CLOSE, null, null, true, null));
+		// Keep intendedProfile/resolvedFile so the UI can still show the last
+		// path; the next start replaces them.
+		intendedHasFile = false;
+		CountDownLatch done = new CountDownLatch(1);
+		if (!enqueue(context, new Op(Op.BARRIER, null, null, false, done))) {
+			return;
+		}
+		try {
+			if (!done.await(END_SESSION_DRAIN_MS, TimeUnit.MILLISECONDS)) {
+				Log.w(TAG, "Session log still draining after " + END_SESSION_DRAIN_MS
+						+ " ms; leaving it to the writer");
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	private static String markerText(String marker) {
+		String stamp = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
+		return "\n--- " + stamp + " " + marker + " ---\n";
+	}
+
+	/** A write for a profile we have not opened a file for yet implies a start. */
+	private static void ensureIntended(Context context, String profile) {
+		String safe = sanitizeProfile(profile);
+		if (!intendedHasFile || intendedProfile == null || !intendedProfile.equals(safe)) {
+			intendedProfile = safe;
+			intendedHasFile = true;
+			enqueue(context, new Op(Op.START, null, profile, true, null));
+		}
+	}
+
+	private static void clearIntendedMeta() {
+		intendedProfile = null;
+		intendedHasFile = false;
+		resolvedFile = null;
+		resolvedDocUri = null;
+	}
+
+	private static synchronized void ensurePrefs(Context context) {
+		if (prefsLoaded || context == null) {
+			return;
+		}
+		// Still synchronous, and still main-thread disk on the first call in a
+		// process: 30 violations, worst 180 ms. Deferring it would mean isEnabled
+		// answering "no" before the answer is known, which loses the opening
+		// lines of a session. Reported, not fixed here.
+		SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+		enabledCached = prefs.getBoolean(KEY_ENABLED, false);
+		customDirCached = prefs.getString(KEY_CUSTOM_DIR, "");
+		if (customDirCached == null) {
+			customDirCached = "";
+		}
+		prefsLoaded = true;
+	}
+
+	// ---- the writer ------------------------------------------------------
+
+	/**
+	 * Hand one unit of work to the writer, starting it on first use.
+	 *
+	 * @return false when the queue was full and the work was dropped.
+	 */
+	private static boolean enqueue(Context context, Op op) {
+		startWriter(context.getApplicationContext());
+		if (QUEUE.offer(op)) {
+			return true;
+		}
+		// A full queue is already the busiest moment there is; counting is all
+		// that happens here, and the writer says so once it has room again.
+		DROPPED.incrementAndGet();
+		if (op.latch != null) {
+			op.latch.countDown();
+		}
+		return false;
+	}
+
+	private static synchronized void startWriter(Context app) {
+		writerContext = app;
+		if (writer != null) {
+			return;
+		}
+		writer = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				writerLoop();
+			}
+		}, "session-log");
+		writer.setDaemon(true);
+		writer.setPriority(Thread.MIN_PRIORITY);
+		writer.start();
+	}
+
+	private static void writerLoop() {
+		while (true) {
+			Op op;
+			try {
+				if (pendingBytes > 0) {
+					long due = FLUSH_INTERVAL_MS
+							- (SystemClock.elapsedRealtime() - lastFlushElapsed);
+					op = due <= 0 ? QUEUE.poll() : QUEUE.poll(due, TimeUnit.MILLISECONDS);
+					if (op == null) {
+						// Nothing arrived before the interval was up: this is the
+						// timed flush the main-looper Handler used to do.
+						flushWriter(false);
+						continue;
+					}
+				} else {
+					op = QUEUE.take();
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+			reportDrops();
+			try {
+				apply(op);
+			} catch (RuntimeException e) {
+				// The writer must outlive one bad op; a dead logging thread would
+				// silently stop logging for the rest of the process's life.
+				Log.e(TAG, "Session log op failed", e);
+			}
+			if (op.latch != null) {
+				op.latch.countDown();
+			}
+		}
+	}
+
+	/** Say in the log itself that it has a hole in it. */
+	private static void reportDrops() {
+		int dropped = DROPPED.getAndSet(0);
+		if (dropped <= 0) {
+			return;
+		}
+		Log.w(TAG, "Session log queue was full; dropped " + dropped + " entries");
+		if (currentOut != null) {
+			writeWriter(markerText(dropped + " log entries dropped: writing could not keep up"),
+					false);
+		}
+	}
+
+	private static void apply(Op op) {
+		switch (op.kind) {
+		case Op.WRITE:
+			if (op.text != null && op.text.length() > 0) {
+				rotateIfFull();
+				writeWriter(op.text, false);
+			}
+			break;
+		case Op.LOCATION:
+			rotateIfFull();
+			writeWriter(markerText(op.text + locationLabelWriter()), false);
+			break;
+		case Op.START:
+			startWriterSession(op.profile, op.flag);
+			break;
+		case Op.FLUSH:
+			flushWriter(op.flag);
+			break;
+		case Op.CLOSE:
+			closeWriter(op.flag);
+			clearWriterMeta();
+			break;
+		case Op.BARRIER:
+		default:
+			break;
+		}
+	}
+
+	/** What the writer knows the log's location to be, for a LOCATION marker. */
+	private static String locationLabelWriter() {
 		if (currentDocUri != null) {
 			return currentDocUri.toString();
 		}
 		if (currentFile != null) {
 			return currentFile.getAbsolutePath();
 		}
-		ensurePrefs(context);
-		if (SDCardUtils.isContentUri(customDirCached)) {
-			return customDirCached;
-		}
-		File dir = getLogDirectory(context);
-		return dir != null ? dir.getAbsolutePath() : "";
+		String dir = resolvedDirLabel;
+		return dir != null ? dir : "(nowhere writable)";
 	}
 
-	public static synchronized File getLogDirectory(Context context) {
-		ensurePrefs(context);
-		if (!TextUtils.isEmpty(customDirCached)) {
-			if (SDCardUtils.isContentUri(customDirCached)) {
-				File mapped = SDCardUtils.mapTreeUriToFile(Uri.parse(customDirCached));
-				if (mapped != null && SDCardUtils.ensureWritableDirectory(mapped)) {
-					return mapped;
-				}
-				return null;
-			}
-			File custom = new File(customDirCached);
-			if (SDCardUtils.ensureWritableDirectory(custom)) {
-				return custom;
-			}
-			BlowTorchLogger.logError(context, TAG,
-					"Cannot write session log directory: " + custom.getAbsolutePath());
-			return null;
+	private static void rotateIfFull() {
+		if (currentOut == null || bytesWrittenThisFile <= MAX_BYTES) {
+			return;
 		}
-		return SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_SESSION_LOGS);
+		writeWriter("\n=== log rotated (size limit) ===\n", true);
+		startWriterSession(currentProfile, false);
 	}
 
-	public static synchronized void startSession(Context context, String profile) {
-		if (context == null || !isEnabled(context)) {
+	private static void startWriterSession(String profile, boolean continueIfSame) {
+		Context context = writerContext;
+		if (context == null) {
 			return;
 		}
 		String safe = sanitizeProfile(profile);
+		if (continueIfSame && safe.equals(currentProfile)) {
+			boolean haveFile = (currentFile != null && currentFile.exists())
+					|| currentDocUri != null;
+			if (haveFile && (currentOut != null || openWriterStream(context))) {
+				return;
+			}
+		}
+
 		String stamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(new Date());
 		String header = "=== BlowTorch session log: " + profile + " @ " + stamp + " ===\n";
-		ensurePrefs(context);
-		closeStreamLocked(true);
-		clearCurrentMeta();
+		closeWriter(true);
+		clearWriterMeta();
 
-		if (SDCardUtils.isContentUri(customDirCached)
-				&& SDCardUtils.mapTreeUriToFile(Uri.parse(customDirCached)) == null) {
-			DocumentFile tree = DocumentFile.fromTreeUri(context, Uri.parse(customDirCached));
+		String custom;
+		synchronized (SessionLogger.class) {
+			custom = customDirCached;
+		}
+		if (SDCardUtils.isContentUri(custom)
+				&& SDCardUtils.mapTreeUriToFile(Uri.parse(custom)) == null) {
+			DocumentFile tree = DocumentFile.fromTreeUri(context, Uri.parse(custom));
 			if (tree != null && tree.canWrite()) {
 				DocumentFile file = tree.createFile("text/plain", safe + "_" + stamp + ".txt");
 				if (file != null) {
 					currentDocUri = file.getUri();
 					currentProfile = safe;
-					if (!openStreamLocked(context) || !writeLocked(context, header, true)) {
+					resolvedDocUri = currentDocUri;
+					if (!openWriterStream(context) || !writeWriter(header, true)) {
 						BlowTorchLogger.logError(context, TAG,
 								"Failed to write session log via SAF: " + currentDocUri);
-						closeStreamLocked(false);
-						clearCurrentMeta();
+						closeWriter(false);
+						clearWriterMeta();
 					}
 					return;
 				}
@@ -195,7 +612,7 @@ public final class SessionLogger {
 					"SAF session log tree unusable; falling back to /BlowTorch/session_logs");
 		}
 
-		File dir = getLogDirectory(context);
+		File dir = resolveLogDirectory(context, custom);
 		if (dir == null || !SDCardUtils.ensureWritableDirectory(dir)) {
 			dir = SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_SESSION_LOGS);
 		}
@@ -206,143 +623,32 @@ public final class SessionLogger {
 							+ " — grant All files access (Options → Manage Storage Access)");
 			return;
 		}
+		resolvedDirLabel = dir.getAbsolutePath();
 		File target = new File(dir, safe + "_" + stamp + ".txt");
 		currentFile = target;
 		currentProfile = safe;
-		if (!openStreamLocked(context) || !writeLocked(context, header, true)) {
+		resolvedFile = target;
+		if (!openWriterStream(context) || !writeWriter(header, true)) {
 			BlowTorchLogger.logError(context, TAG,
 					"Failed to create session log file: " + target.getAbsolutePath());
-			closeStreamLocked(false);
-			clearCurrentMeta();
+			closeWriter(false);
+			clearWriterMeta();
 		} else {
 			Log.i(TAG, "Session log started: " + target.getAbsolutePath());
 		}
 	}
 
-	/**
-	 * Keep writing to the current profile file after a reconnect; otherwise
-	 * {@link #startSession}.
-	 */
-	public static synchronized void continueOrStartSession(Context context, String profile) {
-		if (context == null || !isEnabled(context)) {
-			return;
-		}
-		String safe = sanitizeProfile(profile);
-		boolean sameProfile = currentProfile != null && currentProfile.equals(safe);
-		boolean haveFile = (currentFile != null && currentFile.exists()) || currentDocUri != null;
-		if (sameProfile && haveFile) {
-			if (currentOut == null && !openStreamLocked(context)) {
-				startSession(context, profile);
-			}
-			return;
-		}
-		startSession(context, profile);
-	}
-
-	/** True if a log file is already associated with this profile (open or after flush). */
-	public static synchronized boolean hasActiveSessionFor(String profile) {
-		String safe = sanitizeProfile(profile);
-		if (currentProfile == null || !currentProfile.equals(safe)) {
-			return false;
-		}
-		return (currentFile != null && currentFile.exists()) || currentDocUri != null;
-	}
-
-	public static synchronized void appendIncoming(Context context, String profile, String text) {
-		if (context == null || text == null || text.length() == 0 || !isEnabled(context)) {
-			return;
-		}
-		ensureOpen(context, profile);
-		if (currentFile == null && currentDocUri == null) {
-			return;
-		}
-		if (bytesWrittenThisFile > MAX_BYTES) {
-			rotate(context, profile);
-		}
-		String plain = ANSI.matcher(text).replaceAll("");
-		plain = plain.replace('\r', '\n');
-		writeLocked(context, plain, false);
-	}
-
-	public static synchronized void appendMarker(Context context, String profile, String marker) {
-		if (context == null || !isEnabled(context)) {
-			return;
-		}
-		ensureOpen(context, profile);
-		if (currentFile == null && currentDocUri == null) {
-			return;
-		}
-		appendMarkerUnlocked(context, profile, marker);
-	}
-
-	/**
-	 * Push buffered log bytes to disk now and fsync. This is one of the two
-	 * moments worth the syscall — the caller is disconnecting or backgrounding,
-	 * so the process may not get another chance. Routine flushes during play do
-	 * not sync; a session log can lose its tail to sudden power loss, unlike
-	 * settings, which are written atomically and synced.
-	 */
-	public static synchronized void flush(Context context) {
-		flushLocked(true);
-	}
-
-	/** Flush and close the open stream without starting a new file. */
-	public static synchronized void endSession(Context context) {
-		if (context != null && (currentFile != null || currentDocUri != null)) {
-			appendMarkerUnlocked(context,
-					currentProfile != null ? currentProfile : "session", "disconnected");
-		}
-		closeStreamLocked(true);
-		// Keep currentFile/currentDocUri so UI can still show the last path;
-		// next startSession/ensureOpen will replace them.
-	}
-
-	private static void appendMarkerUnlocked(Context context, String profile, String marker) {
-		if (marker == null) {
-			return;
-		}
-		String stamp = new SimpleDateFormat("HH:mm:ss", Locale.US).format(new Date());
-		writeLocked(context, "\n--- " + stamp + " " + marker + " ---\n", true);
-	}
-
-	private static void clearCurrentMeta() {
+	private static void clearWriterMeta() {
 		currentFile = null;
 		currentDocUri = null;
 		currentProfile = null;
 		bytesWrittenThisFile = 0L;
 		pendingBytes = 0L;
+		resolvedDocUri = null;
 	}
 
-	private static void ensurePrefs(Context context) {
-		if (prefsLoaded || context == null) {
-			return;
-		}
-		SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-		enabledCached = prefs.getBoolean(KEY_ENABLED, false);
-		customDirCached = prefs.getString(KEY_CUSTOM_DIR, "");
-		if (customDirCached == null) {
-			customDirCached = "";
-		}
-		prefsLoaded = true;
-	}
-
-	private static void ensureOpen(Context context, String profile) {
-		String safe = sanitizeProfile(profile);
-		if ((currentFile == null && currentDocUri == null)
-				|| currentProfile == null
-				|| !currentProfile.equals(safe)
-				|| currentOut == null) {
-			startSession(context, profile);
-		}
-	}
-
-	private static void rotate(Context context, String profile) {
-		writeLocked(context, "\n=== log rotated (size limit) ===\n", true);
-		startSession(context, profile);
-	}
-
-	private static boolean openStreamLocked(Context context) {
-		closeStreamLocked(false);
+	private static boolean openWriterStream(Context context) {
+		closeWriter(false);
 		pendingBytes = 0L;
 		bytesWrittenThisFile = 0L;
 		lastFlushElapsed = SystemClock.elapsedRealtime();
@@ -377,52 +683,41 @@ public final class SessionLogger {
 		return false;
 	}
 
-	private static boolean writeLocked(Context context, String text, boolean forceFlush) {
+	private static boolean writeWriter(String text, boolean forceFlush) {
+		Context context = writerContext;
 		if (text == null || text.length() == 0) {
 			return true;
 		}
-		if (currentOut == null && !openStreamLocked(context)) {
-			return false;
+		if (currentOut == null) {
+			if (context == null || currentProfile == null) {
+				return false;
+			}
+			if (!openWriterStream(context)) {
+				return false;
+			}
 		}
 		try {
 			byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
 			currentOut.write(bytes);
 			pendingBytes += bytes.length;
 			bytesWrittenThisFile += bytes.length;
-			long now = SystemClock.elapsedRealtime();
-			if (forceFlush
-					|| pendingBytes >= FLUSH_BYTES
-					|| (now - lastFlushElapsed) >= FLUSH_INTERVAL_MS) {
-				// No fsync here. Every marker line takes this path (appendMarker
-				// forces a flush), and MCP traffic makes markers routine: 46
-				// fsyncs, up to 332 ms each, on the service main thread in one
-				// session. The durability points below still sync.
-				flushLocked(false);
-			} else {
-				scheduleFlushLocked();
+			// No fsync on this path. Markers no longer force one either: with the
+			// timed flush on this thread, the file grows within FLUSH_INTERVAL_MS
+			// anyway, and forcing a sync per marker was 46 fsyncs of up to 332 ms
+			// in one session. endSession and flush() still sync.
+			if (forceFlush || pendingBytes >= FLUSH_BYTES) {
+				flushWriter(false);
 			}
 			return true;
 		} catch (IOException e) {
 			Log.e(TAG, "Write failed", e);
-			closeStreamLocked(false);
-			clearCurrentMeta();
+			closeWriter(false);
+			clearWriterMeta();
 			return false;
 		}
 	}
 
-	private static void scheduleFlushLocked() {
-		if (flushHandler == null) {
-			flushHandler = new Handler(Looper.getMainLooper());
-		}
-		flushHandler.removeCallbacks(FLUSH_RUNNABLE);
-		long delay = Math.max(50L, FLUSH_INTERVAL_MS - (SystemClock.elapsedRealtime() - lastFlushElapsed));
-		flushHandler.postDelayed(FLUSH_RUNNABLE, delay);
-	}
-
-	private static void flushLocked(boolean syncToDisk) {
-		if (flushHandler != null) {
-			flushHandler.removeCallbacks(FLUSH_RUNNABLE);
-		}
+	private static void flushWriter(boolean syncToDisk) {
 		if (currentOut == null) {
 			pendingBytes = 0L;
 			return;
@@ -440,15 +735,12 @@ public final class SessionLogger {
 			lastFlushElapsed = SystemClock.elapsedRealtime();
 		} catch (IOException e) {
 			Log.e(TAG, "Flush failed", e);
-			closeStreamLocked(false);
-			clearCurrentMeta();
+			closeWriter(false);
+			clearWriterMeta();
 		}
 	}
 
-	private static void closeStreamLocked(boolean flushFirst) {
-		if (flushHandler != null) {
-			flushHandler.removeCallbacks(FLUSH_RUNNABLE);
-		}
+	private static void closeWriter(boolean flushFirst) {
 		if (currentOut == null) {
 			currentFos = null;
 			pendingBytes = 0L;
