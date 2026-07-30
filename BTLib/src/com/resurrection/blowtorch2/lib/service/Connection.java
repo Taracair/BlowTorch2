@@ -1737,6 +1737,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 		mReconnect.clearNetworkWait();
 		markConnectionEnded();
+		// Here and not in markConnectionEnded: that runs from killNetThreads too,
+		// which fires on every network flap that still has retries left. Writing
+		// the map there would put a serialize and a file write back on the thread
+		// carrying game text, once per flap, which is what 0d10e705 took off it.
+		// Past the retry check above, the session really is over.
+		flushMapperSaves();
 		mService.doDisconnect(this);
 	}
 	
@@ -5347,6 +5353,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Immediatly shuts down this connection and all associated data structures. */
 	public final void shutdown() {
 		this.saveMainSettings();
+		// Does not go through doDisconnect, so it needs its own: this is the
+		// other way a session ends for good.
+		this.flushMapperSaves();
 		this.killNetThreads(true);
 		for (Plugin p : mPlugins) {
 			p.shutdown();
@@ -5788,11 +5797,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		mIsConnected = false;
 		mSessionLog.onDisconnected();
-		// Same reason as the line above: the session is over, so anything still
-		// waiting on a debounce or a background writer has no later chance.
-		if (mMapper != null) {
-			mMapper.flushPendingSaves();
-		}
 	}
 
 	public final long getConnectedAtElapsed() {
