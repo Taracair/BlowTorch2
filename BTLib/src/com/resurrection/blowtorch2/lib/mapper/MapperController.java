@@ -1844,17 +1844,10 @@ public class MapperController {
 		String best = null;
 		int bestTiles = 0;
 		for (String name : names) {
-			try {
-				MudMap m = MapStore.load(ctx, name);
-				if (m == null || m.getTiles() == null) {
-					continue;
-				}
-				int n = m.getTiles().size();
-				if (n > bestTiles) {
-					bestTiles = n;
-					best = name;
-				}
-			} catch (Exception ignored) {
+			int n = MapStore.tileCountOf(ctx, name);
+			if (n > bestTiles) {
+				bestTiles = n;
+				best = name;
 			}
 		}
 		return bestTiles > 0 ? best : null;
@@ -1878,17 +1871,13 @@ public class MapperController {
 			if (MapStore.LEGACY_DEFAULT_NAME.equalsIgnoreCase(name)) {
 				continue;
 			}
-			try {
-				MudMap m = MapStore.load(ctx, name);
-				if (m == null || m.getTiles() == null || m.getTiles().isEmpty()) {
-					continue;
-				}
-				if (found != null) {
-					return null;
-				}
-				found = name;
-			} catch (Exception ignored) {
+			if (MapStore.tileCountOf(ctx, name) <= 0) {
+				continue;
 			}
+			if (found != null) {
+				return null;
+			}
+			found = name;
 		}
 		return found;
 	}

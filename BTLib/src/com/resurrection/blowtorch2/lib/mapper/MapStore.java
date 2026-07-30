@@ -112,14 +112,237 @@ public final class MapStore {
 		return LEGACY_DEFAULT_NAME.equalsIgnoreCase(name);
 	}
 
-	/** Read only {@code hostHint} from a map file; null when missing or unreadable. */
+	/** Read only {@code hostHint} from a map file; null when missing or unreadable.
+	 *
+	 * <p>This is called once per saved map by every {@link #listMapsForHost}, which
+	 * in turn runs on the UI thread when the mapper or the map browser opens, and
+	 * on the connection handler when a world connects. Loading the whole map to
+	 * read one string put a full JSON parse per file on all three. It now reads
+	 * the head of the file and remembers the answer until the file changes.
+	 */
 	public static String readHostHint(final Context context, final String name) {
-		try {
-			MudMap map = load(context, name);
-			return map == null ? null : map.getHostHint();
-		} catch (Exception e) {
+		File file = mapFile(context, name);
+		if (file == null || !file.isFile()) {
 			return null;
 		}
+		String key = file.getAbsolutePath();
+		long modified = file.lastModified();
+		long length = file.length();
+		synchronized (SUMMARIES) {
+			CacheEntry cached = SUMMARIES.get(key);
+			if (cached != null && cached.modified == modified && cached.length == length) {
+				return cached.hostHint;
+			}
+		}
+		String hint = readHostHintFromPrefix(file);
+		if (hint == null) {
+			// The prefix did not settle it: either the file is bigger than the
+			// budget and orders its keys differently, or it was written by
+			// something other than toJson. Pay for one full parse and cache it.
+			try {
+				MudMap map = loadFromFile(file);
+				if (map == null) {
+					return null;
+				}
+				store(key, modified, length, map.getHostHint(),
+						map.getTiles() == null ? 0 : map.getTiles().size());
+				return map.getHostHint();
+			} catch (Exception e) {
+				return null;
+			}
+		}
+		store(key, modified, length, hint, -1);
+		return hint;
+	}
+
+	/** Number of tiles in a saved map, or 0 when missing / unreadable.
+	 *
+	 * <p>Unlike {@link #readHostHint} this cannot be answered from the head of the
+	 * file, so it parses — but only once per file version, and only for the maps a
+	 * caller actually asks about rather than every map on disk.
+	 */
+	public static int tileCountOf(final Context context, final String name) {
+		File file = mapFile(context, name);
+		if (file == null || !file.isFile()) {
+			return 0;
+		}
+		String key = file.getAbsolutePath();
+		long modified = file.lastModified();
+		long length = file.length();
+		synchronized (SUMMARIES) {
+			CacheEntry cached = SUMMARIES.get(key);
+			if (cached != null && cached.modified == modified && cached.length == length
+					&& cached.tileCount >= 0) {
+				return cached.tileCount;
+			}
+		}
+		int tiles;
+		String hint;
+		try {
+			MudMap map = loadFromFile(file);
+			if (map == null) {
+				return 0;
+			}
+			tiles = map.getTiles() == null ? 0 : map.getTiles().size();
+			hint = map.getHostHint();
+		} catch (Exception e) {
+			return 0;
+		}
+		store(key, modified, length, hint, tiles);
+		return tiles;
+	}
+
+	/** What we remember about one map file, plus the stat it was read at.
+	 *
+	 * <p>Keyed on path and validated against {@code lastModified} and
+	 * {@code length} on every call. That stat is deliberately not cached: the UI
+	 * process and {@code :stellar} hold separate copies of this map (statics exist
+	 * once per process), so a save made in one has to be noticed by the other. A
+	 * stat is a syscall; a parse is the whole file.
+	 */
+	private static final class CacheEntry {
+		private long modified;
+		private long length;
+		private String hostHint;
+		/** -1 until something asks for it; reading the hint alone does not count tiles. */
+		private int tileCount = -1;
+	}
+
+	/** How much of a map file to read when only {@code hostHint} is wanted.
+	 *
+	 * <p>Correctness does not rest on this number, nor on where the field sits.
+	 * {@link #readHostHintFromPrefix} only answers when it can: it found the field,
+	 * or it read the entire file and the field is not in it. Otherwise it says so
+	 * and the caller parses properly. Key order decides how often we get the cheap
+	 * answer, not whether the answer is right — which matters, because the field
+	 * order of {@code JSONObject} is a property of the implementation on the
+	 * device, not something the JSON format promises.
+	 *
+	 * <p>The budget is generous because overshooting costs one buffered read and
+	 * undershooting costs a full parse.
+	 */
+	private static final int HINT_PREFIX_BYTES = 8192;
+
+	private static final java.util.Map<String, CacheEntry> SUMMARIES =
+			new java.util.HashMap<String, CacheEntry>();
+
+	private static void store(final String key, final long modified, final long length,
+			final String hostHint, final int tileCount) {
+		synchronized (SUMMARIES) {
+			CacheEntry entry = SUMMARIES.get(key);
+			if (entry == null) {
+				entry = new CacheEntry();
+				SUMMARIES.put(key, entry);
+			}
+			if (entry.modified != modified || entry.length != length) {
+				entry.tileCount = -1;
+			}
+			entry.modified = modified;
+			entry.length = length;
+			entry.hostHint = hostHint;
+			if (tileCount >= 0) {
+				entry.tileCount = tileCount;
+			}
+		}
+	}
+
+	/** Drop what we remember about a map file — call after writing one. */
+	static void invalidateSummary(final File file) {
+		if (file == null) {
+			return;
+		}
+		synchronized (SUMMARIES) {
+			SUMMARIES.remove(file.getAbsolutePath());
+		}
+	}
+
+	/**
+	 * Pull {@code "hostHint": "..."} out of the head of the file without building
+	 * the object model.
+	 *
+	 * @return the hint, "" when the file says it is empty, or null when the prefix
+	 *         did not settle the question and the caller should parse properly.
+	 */
+	// Package-private, not private: MapStoreHostFilterTest pins both this and the
+	// field order in toJson that it depends on.
+	static String readHostHintFromPrefix(final File file) {
+		FileInputStream in = null;
+		try {
+			in = new FileInputStream(file);
+			byte[] buf = new byte[HINT_PREFIX_BYTES];
+			int filled = 0;
+			int n;
+			while (filled < buf.length && (n = in.read(buf, filled, buf.length - filled)) > 0) {
+				filled += n;
+			}
+			// A cut multi-byte character decodes to U+FFFD rather than throwing, and
+			// the key and its value are ASCII, so a truncated tail cannot corrupt a
+			// match that lies before it.
+			String head = new String(buf, 0, filled, UTF8);
+			java.util.regex.Matcher m = HOST_HINT_PATTERN.matcher(head);
+			if (m.find()) {
+				// A room title cannot fake this: a quote inside a JSON string is
+				// written \" and the pattern will not match across the escape.
+				return unescapeJsonString(m.group(1));
+			}
+			if (filled < buf.length) {
+				// The whole file fit in the buffer and the field is nowhere in it,
+				// so "no hint" is a fact here whatever order the keys were written
+				// in — this branch never guesses from a partial read.
+				return "";
+			}
+			// Bigger than the budget and not in the head. Do not conclude anything.
+			return null;
+		} catch (IOException e) {
+			return null;
+		} finally {
+			if (in != null) {
+				try {
+					in.close();
+				} catch (IOException ignored) {
+				}
+			}
+		}
+	}
+
+	private static final java.util.regex.Pattern HOST_HINT_PATTERN =
+			java.util.regex.Pattern.compile("\"hostHint\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+	/** Just enough of JSON string unescaping for a host name. */
+	private static String unescapeJsonString(final String raw) {
+		if (raw == null || raw.indexOf('\\') < 0) {
+			return raw;
+		}
+		StringBuilder sb = new StringBuilder(raw.length());
+		for (int i = 0; i < raw.length(); i++) {
+			char c = raw.charAt(i);
+			if (c != '\\' || i + 1 >= raw.length()) {
+				sb.append(c);
+				continue;
+			}
+			char next = raw.charAt(++i);
+			switch (next) {
+			case 'n': sb.append('\n'); break;
+			case 'r': sb.append('\r'); break;
+			case 't': sb.append('\t'); break;
+			case 'b': sb.append('\b'); break;
+			case 'f': sb.append('\f'); break;
+			case 'u':
+				if (i + 4 < raw.length()) {
+					try {
+						sb.append((char) Integer.parseInt(raw.substring(i + 1, i + 5), 16));
+						i += 4;
+					} catch (NumberFormatException e) {
+						sb.append(next);
+					}
+				} else {
+					sb.append(next);
+				}
+				break;
+			default: sb.append(next); break;
+			}
+		}
+		return sb.toString();
 	}
 
 	/**
@@ -312,6 +535,7 @@ public final class MapStore {
 		if (file == null) {
 			return false;
 		}
+		invalidateSummary(file);
 		if (!file.exists()) {
 			return true;
 		}
@@ -608,6 +832,10 @@ public final class MapStore {
 				} catch (IOException ignored) {
 				}
 			}
+			// Every write in this class lands here. The stat check in readHostHint
+			// would catch this anyway, but not for a rewrite that keeps the length
+			// and lands in the same second.
+			invalidateSummary(file);
 		}
 	}
 }
