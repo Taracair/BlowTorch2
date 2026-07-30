@@ -166,7 +166,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	
 	public void onCreate(Bundle icicle) {
 		super.onCreate(icicle);
-		BlowTorchLogger.ensureLogFile(this);
+		BlowTorchLogger.ensureLogFileAsync(this);
 		fixClassLoaderIssue();
 		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
 		//Log.e("LAUNCHER","Launched from package: " + this.getPackageName());
