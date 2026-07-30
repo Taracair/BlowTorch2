@@ -194,9 +194,11 @@ public class FloatingButtonController {
 
 	/** IME lift changed — Mode A visibility / Y. Mode B untouched. */
 	public void onImeLiftChanged(int liftPx) {
-		// Trust sync: raises under-reported lifts; clears only when frame and
-		// IME insets both say closed. Do not revive from a stale liftPx.
-		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
+		// Use what was passed. This used to throw the argument away and ask a
+		// frame-based estimator instead, which under adjustNothing always
+		// answered 0 — so the correct height the insets listener had just
+		// measured was discarded on the way in.
+		lastImeLiftPx = Math.max(0, liftPx);
 		if (layer == null || editingHidden || !host.isFloatingButtonsEnabled()) {
 			return;
 		}
@@ -364,71 +366,38 @@ public class FloatingButtonController {
 	}
 
 	/**
-	 * Exclusive bottom for Mode A: just above the soft keyboard. Uses the more
-	 * conservative of {@code WindowVisibleDisplayFrame.bottom} and
-	 * {@code layerHeight − imeLift} so a stale frame or lift alone cannot park
-	 * the button under the keys. Stays in our window — not a system overlay.
+	 * Exclusive bottom for Mode A: the top of the soft keyboard.
+	 *
+	 * <p>The layer is pinned — {@code applyImeChromeLift} explicitly leaves it at
+	 * {@code translationY 0} — so its height is the full window and subtracting
+	 * the IME height gives the keyboard's top directly, with nothing to
+	 * double-count. This stays inside our window; it is not a system overlay, so
+	 * it cannot draw *on* the keyboard, only above it.
 	 */
 	private int modeACeiling(int overlayLeft, int overlayRight, float density) {
 		int gap = Math.round(4 * density);
-		int fromLift = Math.max(0, layer.getHeight() - lastImeLiftPx);
-		int fromFrame = visibleFrameBottomInLayer();
-		int keyboardTop = fromLift;
-		if (fromFrame >= 0) {
-			if (lastImeLiftPx > 0) {
-				// Smaller Y = higher on screen = safer above the keys.
-				keyboardTop = Math.min(fromFrame, fromLift);
-			} else {
-				keyboardTop = fromFrame;
-			}
-		}
+		int keyboardTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
 		int ceiling = chromeKeepOut(keyboardTop, overlayLeft, overlayRight, true);
 		return Math.max(0, ceiling - gap);
 	}
 
 	/**
-	 * {@code WindowVisibleDisplayFrame.bottom} in floating-layer coordinates, or
-	 * {@code -1} if unknown. When the IME is up this is the top of the keys.
-	 */
-	private int visibleFrameBottomInLayer() {
-		MainWindow activity = host.getMainWindow();
-		if (activity == null || layer == null || activity.getWindow() == null) {
-			return -1;
-		}
-		android.view.View decor = activity.getWindow().getDecorView();
-		android.graphics.Rect visible = new android.graphics.Rect();
-		decor.getWindowVisibleDisplayFrame(visible);
-		int[] layerLoc = new int[2];
-		layer.getLocationOnScreen(layerLoc);
-		return visible.bottom - layerLoc[1];
-	}
-
-	/**
-	 * True when enough of the floating layer is covered that Mode A should show.
-	 * Prefers the visible display frame when the layer has a real size; falls
-	 * back to {@code lastImeLiftPx} when the layer is not measured yet (rebuild
-	 * before first layout) so Mode A is not stuck GONE.
+	 * True when the soft keyboard is up, so Mode A buttons should show.
+	 *
+	 * <p>One authority: the IME inset the chrome listener measured. The previous
+	 * version preferred {@code getWindowVisibleDisplayFrame} whenever the layer
+	 * had a real size — which is always — and that frame cannot answer here: the
+	 * manifest says {@code adjustNothing}, the window is never resized for the
+	 * keyboard, and the frame therefore never shrinks.
+	 *
+	 * <p>A floor of 120dp so a stray small inset is not mistaken for a keyboard.
 	 */
 	private boolean isSoftKeyboardCoveringLayer() {
-		if (lastImeLiftPx > 0 && (layer == null || layer.getHeight() <= 0)) {
-			return true;
-		}
 		if (layer == null) {
 			return lastImeLiftPx > 0;
 		}
 		float density = layer.getResources().getDisplayMetrics().density;
-		int minCovered = Math.round(120 * density);
-		int frameBottom = visibleFrameBottomInLayer();
-		if (frameBottom >= 0 && layer.getHeight() > 0) {
-			int covered = layer.getHeight() - frameBottom;
-			if (covered >= minCovered) {
-				return true;
-			}
-			if (covered <= Math.round(8 * density) && lastImeLiftPx < minCovered) {
-				return false;
-			}
-		}
-		return lastImeLiftPx > 0;
+		return lastImeLiftPx >= Math.round(120 * density);
 	}
 
 	/**
