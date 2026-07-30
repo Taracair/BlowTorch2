@@ -370,6 +370,52 @@ public final class ChromeController {
 		return stripTop < inputBarTop ? stripTop : inputBarTop;
 	}
 
+	/** True when the ⋮ strip has been measured, so the keep-out can be computed. */
+	boolean fabStripHasSize() {
+		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
+		return fabStrip != null && fabStrip.getWidth() > 0 && fabStrip.getHeight() > 0;
+	}
+
+	/**
+	 * Run {@code action} once the ⋮ strip has a size.
+	 *
+	 * <p>{@link #floatingOverlayBottomLimit} can only answer once the strip has
+	 * been measured, and returns the input bar unchanged before that. Overlays
+	 * restored at startup lay themselves out first, so the keep-out silently did
+	 * nothing on exactly the path that needs it: a floating frame restored into
+	 * the bottom-right corner puts its drag handle inside the ⋮'s 48dp box, and
+	 * since chrome draws on top, every touch there goes to ⋮ — the handle cannot
+	 * be grabbed, so the frame cannot be moved out from under it either. Dragging
+	 * and resizing re-clamp as they go; restoring had nothing to re-clamp on.
+	 *
+	 * <p>Callers should check {@link #fabStripHasSize()} first and only use this
+	 * when it is false, so the common path costs nothing.
+	 */
+	void whenFabStripMeasured(final Runnable action) {
+		if (action == null) {
+			return;
+		}
+		final View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
+		if (fabStrip == null) {
+			return;
+		}
+		if (fabStrip.getWidth() > 0 && fabStrip.getHeight() > 0) {
+			action.run();
+			return;
+		}
+		fabStrip.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+			@Override
+			public void onLayoutChange(View v, int l, int t, int r, int b,
+					int ol, int ot, int or, int ob) {
+				if (v.getWidth() <= 0 || v.getHeight() <= 0) {
+					return;
+				}
+				v.removeOnLayoutChangeListener(this);
+				action.run();
+			}
+		});
+	}
+
 	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
 	void bindGameplayFabControls() {
 		final View overflowMenu = activity.findViewById(R.id.overflow_menu);

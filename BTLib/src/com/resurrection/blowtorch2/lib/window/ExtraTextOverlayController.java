@@ -79,6 +79,8 @@ public class ExtraTextOverlayController {
 		View accentLine;
 		View resizeHandle;
 		Window window;
+		/** A re-clamp is already waiting on the ⋮ strip being measured. */
+		boolean chromeReclampScheduled;
 	}
 
 	private final Host host;
@@ -545,6 +547,33 @@ public class ExtraTextOverlayController {
 		if (e.resizeHandle != null && mode == ExtraTextSlot.Mode.FLOAT) {
 			e.resizeHandle.bringToFront();
 		}
+		if (mode == ExtraTextSlot.Mode.FLOAT) {
+			reclampWhenChromeIsMeasured(e);
+		}
+	}
+
+	/**
+	 * A window restored before the ⋮ strip was measured got no keep-out; lay it
+	 * out again once the strip exists. Once per entry — the second pass finds the
+	 * strip measured and has nothing left to schedule.
+	 */
+	private void reclampWhenChromeIsMeasured(final OverlayEntry e) {
+		if (e.chromeReclampScheduled) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		ChromeController chrome = activity != null ? activity.getChromeController() : null;
+		if (chrome == null || chrome.fabStripHasSize()) {
+			return;
+		}
+		// Set before scheduling: the applyLayout below re-enters this method.
+		e.chromeReclampScheduled = true;
+		chrome.whenFabStripMeasured(new Runnable() {
+			@Override
+			public void run() {
+				applyLayout(e);
+			}
+		});
 	}
 
 	/**
