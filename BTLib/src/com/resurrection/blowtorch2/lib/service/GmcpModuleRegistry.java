@@ -52,6 +52,14 @@ public final class GmcpModuleRegistry {
 	private final LinkedHashSet<String> enabled = new LinkedHashSet<String>();
 	private final TreeSet<String> seen = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
 	private String lastSupportsSet = "";
+	/**
+	 * What a server said it supports, in the order it said it. Session state, so
+	 * it is cleared alongside {@link #seen}.
+	 *
+	 * <p>Distinct from {@link #lastSupportsSet}, which is <em>our</em> outbound
+	 * set. Most servers never volunteer this at all.
+	 */
+	private final ArrayList<String> serverSupports = new ArrayList<String>();
 
 	public GmcpModuleRegistry() {
 		seedCatalog();
@@ -229,8 +237,33 @@ public final class GmcpModuleRegistry {
 		return interesting;
 	}
 
+	/** Forget everything learned from the server on this connection. */
 	public synchronized void clearSeen() {
 		seen.clear();
+		serverSupports.clear();
+	}
+
+	/**
+	 * Record the module list a server volunteered, replacing any earlier one.
+	 *
+	 * <p>Never enables anything. A server saying it can do something is not the
+	 * player asking for it.
+	 */
+	public synchronized void setServerSupports(java.util.List<String> tokens) {
+		serverSupports.clear();
+		if (tokens == null) {
+			return;
+		}
+		for (String token : tokens) {
+			if (token != null && token.trim().length() > 0) {
+				serverSupports.add(token.trim());
+			}
+		}
+	}
+
+	/** What the server said it supports; empty when it never said. */
+	public synchronized ArrayList<String> getServerSupports() {
+		return new ArrayList<String>(serverSupports);
 	}
 
 	public synchronized void setLastSupportsSet(String payload) {
