@@ -1787,6 +1787,15 @@ public class MapperController {
 		if (ctx == null || h.length() == 0) {
 			return openMap(DEFAULT_MAP_NAME);
 		}
+		// What the player last had open on this world beats anything derived.
+		// Everything below works out which map a world *should* get; none of it
+		// knows which one was actually chosen, so a world with more than one map
+		// reopened whatever the chain happened to reach first and the choice made
+		// from the Maps browser was lost on the next connect.
+		String chosen = lastOpenedMapFor(ctx, h);
+		if (chosen != null) {
+			return openMap(chosen);
+		}
 		String claimed = findMapClaimedBy(ctx, h);
 		if (claimed != null) {
 			return openMap(claimed);
@@ -1809,6 +1818,62 @@ public class MapperController {
 			return openMap(orphan);
 		}
 		return openMap(byFile);
+	}
+
+	/** Where the last-opened map name is kept, per world. */
+	private static final String MAP_CHOICE_PREFS = "MAPPER_CHOICE";
+
+	/**
+	 * Remember which map is open, so the next connect reopens this one.
+	 *
+	 * <p>Keyed on the connection host for the same reason the overlay's own
+	 * preferences are ({@code 9ab5cd62}): it is the world's identity and it does
+	 * not change when a map is renamed or another one is loaded.
+	 *
+	 * <p>Written from {@link #openMap}, so it records the auto-picked map as
+	 * readily as a hand-picked one. That is deliberate — the first connect
+	 * records whatever the chain chose, and the moment the player picks
+	 * something else from the Maps browser, that becomes the answer instead.
+	 */
+	private void rememberOpenedMap(final Context ctx, final String mapName) {
+		if (ctx == null || mConnection == null || TextUtils.isEmpty(mapName)) {
+			return;
+		}
+		String h = mConnection.getHost();
+		if (h == null || h.trim().length() == 0) {
+			return;
+		}
+		ctx.getSharedPreferences(MAP_CHOICE_PREFS, 0).edit()
+				.putString(h.trim(), mapName).apply();
+	}
+
+	/**
+	 * The map this world last had open, or null when there is nothing usable.
+	 *
+	 * <p>Nothing usable means: never recorded, the file has since been deleted,
+	 * or it now belongs to a different world. In each case the caller falls back
+	 * to working the map out from the host, which is what it did before.
+	 */
+	private static String lastOpenedMapFor(final Context ctx, final String host) {
+		if (ctx == null || host == null || host.trim().length() == 0) {
+			return null;
+		}
+		String name = ctx.getSharedPreferences(MAP_CHOICE_PREFS, 0)
+				.getString(host.trim(), null);
+		if (name == null || name.trim().length() == 0) {
+			return null;
+		}
+		String trimmed = name.trim();
+		if (!MapStore.exists(ctx, trimmed)) {
+			return null;
+		}
+		String hint = MapStore.readHostHint(ctx, trimmed);
+		if (hint != null && hint.trim().length() > 0
+				&& !host.trim().equalsIgnoreCase(hint.trim())) {
+			// Adopted by another world since. Let the chain decide again.
+			return null;
+		}
+		return trimmed;
 	}
 
 	/** Stamp {@code hostHint} and persist when this world opens a map. */
@@ -1913,6 +1978,7 @@ public class MapperController {
 				return "Mapper: created map \"" + mapName + "\".";
 			}
 			mMap = loaded;
+			rememberOpenedMap(ctx, mapName);
 			String priorHint = loaded.getHostHint();
 			stampHostHintFromConnection();
 			if ((priorHint == null || priorHint.length() == 0) && mConnection != null) {
@@ -4168,6 +4234,10 @@ public class MapperController {
 		if (mConnection != null && mConnection.getHost() != null) {
 			mMap.setHostHint(mConnection.getHost());
 		}
+		// A map made with ".map new" is a choice too, and it never goes through
+		// the load branch of openMap. Recording a name whose file does not exist
+		// yet is harmless: lastOpenedMapFor checks the file before trusting it.
+		rememberOpenedMap(context(), name);
 	}
 
 	private void stampHostHintFromConnection() {
