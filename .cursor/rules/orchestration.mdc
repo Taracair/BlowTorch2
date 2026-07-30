@@ -28,6 +28,36 @@ alwaysApply: true
 
 Work on branch **`staging`**, never `main`.
 
+## The second attempt is the signal
+
+Fixing the same crash in the same file twice means the first fix was a guess.
+**Stop guessing at the third.** Go and read what the API actually requires —
+the `LayoutParams` type a parent demands, the order a framework calls things
+in, what the docs say the callback may not do — and then write one fix.
+
+Three commits in 45 minutes against `editoroptionsdialog.lua` on 30 July
+(`b99bd711`, `23b03263`, `fb8e9bda`) were three guesses at layout params. None
+of them could be checked before install, because neither `luac5.1 -p` nor the
+Gradle build type-checks a `luajava` call. When a mistake costs a full
+build-install-tap cycle, reading first is the cheap option, not the slow one.
+
+## A commit message is a claim, and claims get checked
+
+Rule 8 applies to the message, not just the diff. If it says *"X already does
+this"*, *"nothing reads this"*, or *"equivalent to the old path"*, that is an
+assertion about code somewhere else — **go and look before writing it down**,
+and say in the message how you know.
+
+Two from 30 July that did not survive review:
+
+- *"loadPlugins → buildSettingsPage already rebuilt the trigger tables"* — true
+  for the paths that reach `loadPlugins`; the two catch branches that fall
+  through do not.
+- *":stellar reads these once at Connection construction"* — the two keys in
+  question have no live reader at all; the only reads are commented out.
+
+Neither cost a bug this time. Both cost the next reader the work of finding out.
+
 ## Commits (proactive — no need to ask)
 
 The maintainer works only with AI, not by hand-editing code. **Commit on `staging` after each completed logical step** so bad changes are easy to revert. Do not wait to be asked.
