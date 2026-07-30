@@ -21,7 +21,7 @@ alwaysApply: true
 ## Agent checklist
 
 1. Develop on **`staging`**; **commit after each completed logical step** without being asked (see `orchestration.mdc` → Commits). Do not push unless the maintainer asks.
-2. **After every code change** (before commit): build and **`install -r`** **btTest debug** on the maintainer's phone — mandatory, not optional. Resolve serial per `orchestration.mdc` → Device lab (Pixel 9a @ `10.0.0.2`; **agent finds the wifi port** — it changes often). **Never `adb uninstall`.**
+2. **Before reporting a step as done:** build and **`install -r`** **btTest debug** on the maintainer's phone — mandatory, not optional. Once per step, after its last code commit; not once per commit. Resolve serial per `orchestration.mdc` → Device lab (Pixel 9a @ `10.0.0.2`; **agent finds the wifi port** — it changes often). **Never `adb uninstall`.**
 3. Do **not** report "works" without maintainer device confirmation — give exact gesture, failure shape, and log command (see `orchestration.mdc`). "Build OK" / "installed" is not "works".
 4. Do **not** create a GitHub release, tag, or production APK until the user asks.
 5. When releasing: show release notes first → wait for OK → bump `versionCode` / `versionName` → production APK (`BT_LOCAL_SIGN=1 ./gradlew :BT_Free:assembleProductionRelease`) → tag `vX.Y.Z` → `gh release create` on **Taracair/BlowTorch2**.
