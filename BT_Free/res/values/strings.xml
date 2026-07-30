@@ -4,7 +4,8 @@
 	<string name="notificationIcon">blowtorch_notification2</string>
 	<string name="serviceProcessName">:stellar</string>
 	<string name="serviceBindAction">com.resurrection.blowtorch2.lib.service.IStellarService.MODE_NORMAL</string>
-	<string name="ongoingNotificationLabel">BlowTorch</string>
+	<!-- The app is BlowTorch 2; the notification and its channel said BlowTorch. -->
+	<string name="ongoingNotificationLabel">BlowTorch2</string>
 	<string name="exportDirectory">BlowTorch</string>
 	<string name="terminalTypeString">BlowTorch</string>
 	<string name="blowtorch_desc">BlowTorch 2 is a MUD client with triggers, aliases, timers, speedwalks, and on-screen buttons.</string>
