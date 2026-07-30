@@ -1,0 +1,80 @@
+---
+description: BlowTorch working method — read ORCHESTRATION.md first
+alwaysApply: true
+---
+
+# BlowTorch — working agreement
+
+**Read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) before changing code.** This is the short version. If `docs/HANDOFF.md` exists locally (gitignored), read it after ORCHESTRATION for current state.
+
+## Division of labour
+
+- AI investigates and proposes; **maintainer runs device tests and decides what ships**.
+- Never say "works" when you mean "compiles".
+- **Say what you did not verify** — every time.
+
+## The ten rules
+
+1. **Measure before you touch.** Reading this code has produced confident, wrong hypotheses repeatedly. The device is the authority.
+2. **Never `adb uninstall`.** Always `install -r`. Uninstalling destroys the maintainer's server list and profiles.
+3. **The maintainer runs the device tests.** Give the exact gesture, what a failure looks like, and the log command. Batch: one build, one round of testing.
+4. **Say what you did not verify.** Every time.
+5. **Instrumentation goes in its own commit, comes back out, and leaves its number in a code comment.** Use `SystemClock.uptimeMillis()`, not `os.clock()`.
+6. **Do not guess mechanisms.** A measurement is a fact; the explanation is a guess until checked.
+7. **Fix the cause, not the symptom.** Remove the throw rather than quieten the log; a wider `catch` moves the symptom away from the cause.
+8. **"Behaviour-preserving" needs an argument, not an assertion.** Show why the output is identical, or extract → test against old behaviour → delegate.
+9. **Prefer barriers to fixes** — the class of bug prevented at the point of cause (`warnIfNotUiThread`, `AtomicFiles`, key-ownership tests, etc.).
+10. **Stay in scope.** Report what else you find; let the maintainer decide.
+
+Work on branch **`staging`**, never `main`.
+
+## Commits (proactive — no need to ask)
+
+The maintainer works only with AI, not by hand-editing code. **Commit on `staging` after each completed logical step** so bad changes are easy to revert. Do not wait to be asked.
+
+**One commit = one rollback point** — a finished fix, a doc update, a tutorial sync, a refactor that compiles. Not every file edit, not every chat message.
+
+- **Separate commits** for unrelated work (e.g. a real fix vs a TEMPORARY probe vs a rules/docs tweak).
+- **Probes** always get their own commit (rule 5 above); revert them cleanly once measured.
+- **Message:** 1–2 sentences on *why*, not a file list. Match existing repo style.
+- **Do not commit:** secrets (`.env`, keys), gitignored plans/audits, or WIP that does not build and was not asked to land half-done.
+- **Do not push** unless the maintainer asks. Local commits on `staging` are the safety net.
+
+If a session ends with uncommitted finished work, commit before stopping.
+
+## Facts that mislead (do not re-derive)
+
+- **UI → service binder calls are synchronous; service → UI ones are queued.** `WindowXCallB` and `SaveSettings` both post to the same `ConnectionHandler` — whatever is queued first delays the rest.
+- **`static` fields exist twice** — once per process (`:stellar` vs UI). A cache invalidated in the UI does nothing for the service, where settings I/O runs.
+- **`Window.mBuffer` is UI-thread only** (`warnIfNotUiThread` enforces it), but `Connection` legitimately mutates its own `TextTree`s off it. Do not put locks in `TextTree`.
+- **Extra-text `WindowToken` settings are never persisted** — `ensureSlots()` rebuilds those tokens. Durable per-slot state goes in the slot JSON.
+- **In `buttonwindow.lua`, "nothing selected" is `{}`, not `nil`.** A `== nil` check passes it straight through.
+- **Do not move the `MAIN`/`LAUNCHER` intent filter** — pinned home screen icons are keyed on the component name.
+- **Main window buffer belongs to the service, not the UI.** Send text via `Connection.sendBytesToWindow`; `notifyMainWindow` is only for callers that already buffered.
+- **Pasted game-window text is not a network capture.** Use `logs/gmcp.log` or logcat for what a server really sent.
+
+## Repair boundary
+
+Fix what has a credible path to a player-visible failure. Deliberately not fixed: ~150 `printStackTrace` in dialogs/parsers, empty `RemoteException` catches, hand-rolled file writes outside `util/AtomicFiles`. **Say when you are leaving something.**
+
+## Before you change untestable code
+
+1. Check **`BTLib/src/test/`** before reasoning from source alone.
+2. Extract pure logic → write tests that pass against old behaviour → delegate from the original (Part 3.12 in ORCHESTRATION).
+3. Do not split god classes (`Connection`, `Window`, `MainWindow`, mapper controllers) without tests.
+
+## Build and deploy (daily)
+
+```sh
+./gradlew :BTLib:testDebugUnitTest
+./gradlew :BT_Free:assembleBtTestDebug
+luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua
+~/Android/Sdk/platform-tools/adb -s <serial> install -r \
+  BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
+```
+
+`adb` is not on PATH. The phone is often on USB and wifi at once — always pass `-s <serial>`. When a device shows `offline`, `adb connect` on a stale port will not fix it; ask the maintainer for the current port.
+
+## Explain to the maintainer in examples
+
+"You type `kk goblin` and the game receives `kill $1`" beats "unanchored aliases do not substitute captures".

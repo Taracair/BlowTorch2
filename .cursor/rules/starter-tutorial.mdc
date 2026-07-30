@@ -15,6 +15,18 @@ When you change user-facing client features (`.commands`, buttons, triggers, ali
 - Plugin seed: `starter_tutorial` in `BT_Free/config/default_settings_{test,main}.xml`
 - Bump `BLOWTORCH_LUA_LIBS_VERSION` in `BT_Free/AndroidManifest.xml` when shipping Lua asset changes
 
+## Lua traps (the build does not check syntax)
+
+Before committing Lua changes:
+
+```sh
+luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua
+```
+
+- Values from settings XML arrive as **strings** — `1 ~= "1"`.
+- In `buttonwindow.lua`, **"nothing selected" is `{}`, not `nil`**. A `== nil` check passes an empty table straight through.
+- `WhiteSpace extends Text` in `TextTree`, so `instanceof Text` catches whitespace too.
+
 ## What to update
 
 - New or renamed `.command` → topic text + `TOPIC_ORDER` / help list if it is beginner-relevant
