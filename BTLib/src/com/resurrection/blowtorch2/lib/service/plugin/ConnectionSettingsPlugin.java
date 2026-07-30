@@ -100,22 +100,22 @@ public class ConnectionSettingsPlugin extends Plugin {
 		input.setDescription("Options that deal with the input box and editors.");
 		
 		BooleanOption fullscreen_editor = new BooleanOption();
-		fullscreen_editor.setTitle("Fullscreen Editor?");
-		fullscreen_editor.setDescription("Show the full screen editor when the input bar is clicked.");
+		fullscreen_editor.setTitle("Allow fullscreen keyboard editor");
+		fullscreen_editor.setDescription("On some older keyboards, opens a full-screen typing view instead of the strip above the keys. Many modern keyboards ignore this — if nothing changes when you toggle it, yours does not support it.");
 		fullscreen_editor.setKey("fullscreen_editor");
 		fullscreen_editor.setValue(false);
 		input.addOption(fullscreen_editor);
 		
 		BooleanOption use_suggestions = new BooleanOption();
-		use_suggestions.setTitle("Use Suggestions?");
-		use_suggestions.setDescription("Attempt suggestions if the full screen editor is not used.");
+		use_suggestions.setTitle("Keyboard word suggestions");
+		use_suggestions.setDescription("Show the soft keyboard's autocomplete and spelling bar in the input field. Off is usually better for MUD commands.");
 		use_suggestions.setKey("use_suggestions");
 		use_suggestions.setValue(false);
 		input.addOption(use_suggestions);
 		
 		BooleanOption keep_last = new BooleanOption();
-		keep_last.setTitle("Keep Last Entered?");
-		keep_last.setDescription("Keeps the last text entered in the window and highights after sending.");
+		keep_last.setTitle("Keep last command after send");
+		keep_last.setDescription("After you send, leave that line in the input bar and select it so you can edit or resend. Off clears the bar. Typing replaces the kept line.");
 		keep_last.setKey("keep_last");
 		keep_last.setValue(false);
 		input.addOption(keep_last);
@@ -128,8 +128,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		input.addOption(grow_input_bar);
 		
 		BooleanOption compatilibility_mode = new BooleanOption();
-		compatilibility_mode.setTitle("Enable Compatibility Mode?");
-		compatilibility_mode.setDescription("Enable this if you have problems with bascpace not workin in the non-full screen editor.");
+		compatilibility_mode.setTitle("Standard keyboard input (IME fix)");
+		compatilibility_mode.setDescription("Use Android's normal input connection. Turn on if backspace is wrong or typing appends instead of replacing selected text. Keep last command turns this on automatically.");
 		compatilibility_mode.setKey("compatibility_mode");
 		compatilibility_mode.setValue(false);
 		input.addOption(compatilibility_mode);
