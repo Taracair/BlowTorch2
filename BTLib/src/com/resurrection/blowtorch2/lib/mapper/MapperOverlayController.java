@@ -34,6 +34,8 @@ public class MapperOverlayController
 
 	public interface Host {
 		MainWindow getMainWindow();
+		/** Host name of the active MUD connection (for per-world map lists). */
+		String getConnectionHost();
 		String getRecentBufferText(int maxLines);
 		void sendMapperPath(List<String> commands);
 		/** Insert text into the input bar without sending (e.g. path speedwalk). */
@@ -2549,6 +2551,11 @@ public class MapperOverlayController
 			}
 
 			@Override
+			public String getWorldHost() {
+				return host.getConnectionHost();
+			}
+
+			@Override
 			public void openMap(String name) {
 				if (name == null || name.trim().length() == 0) {
 					return;
@@ -3067,6 +3074,33 @@ public class MapperOverlayController
 			return;
 		}
 		if (isEmptyStarterMap(map)) {
+			final MainWindow activityForDisk = activity;
+			final String mudHost = host.getConnectionHost();
+			final String onDisk = bestSavedMapForHost(activityForDisk, mudHost);
+			if (onDisk != null) {
+				mapperIntroShownThisOpen = true;
+				host.runMapCommand("load " + onDisk);
+				if (overlayRoot != null) {
+					overlayRoot.postDelayed(new Runnable() {
+						@Override
+						public void run() {
+							pullSnapshotFromService();
+							refreshFromController();
+							MudMap refreshed = snapshotMap;
+							if (refreshed == null && controller != null) {
+								refreshed = controller.getMap();
+							}
+							if (mapHasTiles(refreshed)) {
+								markMapperOnboardingDone(activityForDisk);
+							} else {
+								mapperIntroShownThisOpen = false;
+								maybeShowMapperIntro();
+							}
+						}
+					}, 450);
+				}
+				return;
+			}
 			// Still on blank default — keep coaching even if pref was set early.
 			clearMapperOnboardingDone(activity);
 		} else if (isMapperOnboardingDone(activity)) {
@@ -3077,6 +3111,32 @@ public class MapperOverlayController
 				+ (map != null ? map.getName() : "null") + ")");
 		setStickyStatus("Name your map to get started");
 		showMapperIntroDialog(activity);
+	}
+
+	/** Saved map on disk for this world with the most tiles, or null. */
+	private static String bestSavedMapForHost(final MainWindow activity,
+			final String mudHost) {
+		if (activity == null || mudHost == null || mudHost.trim().length() == 0) {
+			return null;
+		}
+		List<String> names = MapStore.listMapsForHost(activity, mudHost.trim());
+		String best = null;
+		int bestTiles = 0;
+		for (String name : names) {
+			try {
+				MudMap m = MapStore.load(activity, name);
+				if (m == null || m.getTiles() == null) {
+					continue;
+				}
+				int n = m.getTiles().size();
+				if (n > bestTiles) {
+					bestTiles = n;
+					best = name;
+				}
+			} catch (Exception ignored) {
+			}
+		}
+		return bestTiles > 0 ? best : null;
 	}
 
 	/** Blank in-memory/auto map: no tiles, name empty or {@code default}. */
@@ -3979,8 +4039,13 @@ public class MapperOverlayController
 			return;
 		}
 		final MainWindow activity = host.getMainWindow();
-		final List<String> names = new ArrayList<String>(
-				MapStore.listMaps(activity));
+		final String mudHost = host.getConnectionHost();
+		final List<String> names = new ArrayList<String>();
+		if (mudHost != null && mudHost.trim().length() > 0) {
+			names.addAll(MapStore.listMapsForHost(activity, mudHost));
+		} else {
+			names.addAll(MapStore.listMaps(activity));
+		}
 		if (names.isEmpty()) {
 			Toast.makeText(activity, "No maps on disk yet — Save one first",
 					Toast.LENGTH_SHORT).show();

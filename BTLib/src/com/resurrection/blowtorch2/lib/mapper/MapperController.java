@@ -1748,7 +1748,15 @@ public class MapperController {
 		if (ctx == null) {
 			return Collections.emptyList();
 		}
-		return MapStore.listMaps(ctx);
+		String host = connectionHost();
+		if (host == null || host.length() == 0) {
+			return MapStore.listMaps(ctx);
+		}
+		return MapStore.listMapsForHost(ctx, host);
+	}
+
+	private String connectionHost() {
+		return mConnection != null ? mConnection.getHost() : null;
 	}
 
 	/**
@@ -1785,13 +1793,31 @@ public class MapperController {
 		}
 		if (MapStore.exists(ctx, DEFAULT_MAP_NAME) && !isClaimedByAnotherHost(ctx, h)) {
 			String status = openMap(DEFAULT_MAP_NAME);
-			if (mMap != null) {
-				mMap.setHostHint(h);
-				save();
-			}
+			stampHostHint(h);
 			return status;
 		}
-		return openMap(MapStore.safeName(h));
+		String byFile = MapStore.safeName(h);
+		if (MapStore.exists(ctx, byFile)) {
+			return openMap(byFile);
+		}
+		String withTiles = findMapWithTilesForHost(ctx, h);
+		if (withTiles != null) {
+			return openMap(withTiles);
+		}
+		String orphan = findSingleOrphanMapWithTiles(ctx);
+		if (orphan != null) {
+			return openMap(orphan);
+		}
+		return openMap(byFile);
+	}
+
+	/** Stamp {@code hostHint} and persist when this world opens a map. */
+	private void stampHostHint(final String host) {
+		if (mMap == null || host == null || host.length() == 0) {
+			return;
+		}
+		mMap.setHostHint(host);
+		save();
 	}
 
 	/** @return Name of a saved map whose hostHint is {@code host}, or null. */
@@ -1806,6 +1832,65 @@ public class MapperController {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Among maps belonging to this host, return one that already has tiles
+	 * (legacy saves with a custom name but no hostHint yet).
+	 */
+	private static String findMapWithTilesForHost(final Context ctx,
+			final String host) {
+		List<String> names = MapStore.listMapsForHost(ctx, host);
+		String best = null;
+		int bestTiles = 0;
+		for (String name : names) {
+			try {
+				MudMap m = MapStore.load(ctx, name);
+				if (m == null || m.getTiles() == null) {
+					continue;
+				}
+				int n = m.getTiles().size();
+				if (n > bestTiles) {
+					bestTiles = n;
+					best = name;
+				}
+			} catch (Exception ignored) {
+			}
+		}
+		return bestTiles > 0 ? best : null;
+	}
+
+	/**
+	 * Legacy upgrade: one nameless-owner map with tiles on disk — adopt it for
+	 * this world rather than creating a second empty file.
+	 */
+	private static String findSingleOrphanMapWithTiles(final Context ctx) {
+		List<String> names = MapStore.listMaps(ctx);
+		if (names == null || names.isEmpty()) {
+			return null;
+		}
+		String found = null;
+		for (String name : names) {
+			String hint = MapStore.readHostHint(ctx, name);
+			if (!TextUtils.isEmpty(hint)) {
+				continue;
+			}
+			if (MapStore.LEGACY_DEFAULT_NAME.equalsIgnoreCase(name)) {
+				continue;
+			}
+			try {
+				MudMap m = MapStore.load(ctx, name);
+				if (m == null || m.getTiles() == null || m.getTiles().isEmpty()) {
+					continue;
+				}
+				if (found != null) {
+					return null;
+				}
+				found = name;
+			} catch (Exception ignored) {
+			}
+		}
+		return found;
 	}
 
 	/** True when {@code default} already belongs to a different world. */
@@ -1839,6 +1924,11 @@ public class MapperController {
 				return "Mapper: created map \"" + mapName + "\".";
 			}
 			mMap = loaded;
+			String priorHint = loaded.getHostHint();
+			stampHostHintFromConnection();
+			if ((priorHint == null || priorHint.length() == 0) && mConnection != null) {
+				scheduleAutosave();
+			}
 			ensureDefaultLevel();
 			clearUndo();
 			notifyChanged();
@@ -1896,7 +1986,7 @@ public class MapperController {
 			return "Mapper: failed to delete \"" + safe + "\".";
 		}
 		if (wasCurrent) {
-			List<String> left = MapStore.listMaps(ctx);
+			List<String> left = listMaps();
 			if (!left.isEmpty()) {
 				openMap(left.get(0));
 				return "Mapper: deleted \"" + safe + "\". Switched to \""
@@ -1918,6 +2008,7 @@ public class MapperController {
 		if (mMap == null) {
 			return "Mapper: nothing to save.";
 		}
+		stampHostHintFromConnection();
 		Context ctx = context();
 		if (ctx == null) {
 			return "Mapper: cannot save (no context).";
@@ -2071,6 +2162,9 @@ public class MapperController {
 			for (String part : parts) {
 				String piece = part.trim();
 				if (piece.length() == 0) {
+					continue;
+				}
+				if (!MapDirections.isRecordableMovement(piece, mMoveEffects)) {
 					continue;
 				}
 				recordMove(piece);
@@ -4084,6 +4178,20 @@ public class MapperController {
 		mMap.setCurrentTileId(null);
 		if (mConnection != null && mConnection.getHost() != null) {
 			mMap.setHostHint(mConnection.getHost());
+		}
+	}
+
+	private void stampHostHintFromConnection() {
+		if (mMap == null || mConnection == null) {
+			return;
+		}
+		String host = mConnection.getHost();
+		if (host == null || host.length() == 0) {
+			return;
+		}
+		if (mMap.getHostHint() == null || mMap.getHostHint().length() == 0
+				|| !host.equalsIgnoreCase(mMap.getHostHint())) {
+			mMap.setHostHint(host);
 		}
 	}
 
