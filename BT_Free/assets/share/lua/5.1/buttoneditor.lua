@@ -292,7 +292,7 @@ function showEditorDialog(editorValues,numediting)
 	flipPage:setId(22)
 	flipPage:setOrientation(LinearLayout.VERTICAL)
 	
-	addHelpText(flipPage, "Flip: drag outside the button in any direction, then release. Works even if you leave through a corner or the side.")
+	addHelpText(flipPage, "Flip: drag outside the button, then release. A callout shows the flip command while you aim; a swipe in that direction wins if it has a command.")
 	
 	local flipLabelRow = luajava.new(LinearLayout,context)
 	flipLabelRow:setLayoutParams(fillparams)
@@ -415,7 +415,7 @@ function showEditorDialog(editorValues,numediting)
 	swipePage:addView(showHintsCb)
 
 	local swipePreviewCb = luajava.new(CheckBox,context)
-	swipePreviewCb:setText("Show a live arrow while swiping (which direction you are aiming at)")
+	swipePreviewCb:setText("Show swipe direction arrow while dragging (command callouts always show)")
 	local previewOn = editorValues.showSwipePreview
 	if previewOn == nil then previewOn = true end
 	swipePreviewCb:setChecked(previewOn)

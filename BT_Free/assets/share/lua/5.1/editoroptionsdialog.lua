@@ -322,7 +322,7 @@ function showDialog(initialValues)
 
   local swipePreviewCb = luajava.newInstance("android.widget.CheckBox",context)
   swipePreviewCb:setChecked(showSwipePreview)
-  swipePreviewCb:setText("Show a live arrow while swiping (which direction you are aiming at)")
+  swipePreviewCb:setText("Show swipe direction arrow while dragging (command callouts always show)")
   swipePreviewCb:setTextSize(textSizeSmall)
   swipePreviewCb:setOnCheckedChangeListener(showSwipePreviewCheckChangeListener)
   swipePreviewCb:setLayoutParams(fillparams)
