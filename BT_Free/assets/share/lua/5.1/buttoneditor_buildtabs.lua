@@ -3,6 +3,12 @@ local luajava = _G["luajava"]
 local ScrollView = _G["ScrollView"]
 local Gravity = _G["Gravity"]
 local LinearLayoutParams = _G["LinearLayoutParams"]
+local TextView = _G["TextView"]
+local EditText = _G["EditText"]
+local Spinner = _G["Spinner"]
+local CheckBox = _G["CheckBox"]
+local ArrayAdapter = _G["ArrayAdapter"]
+local ColorDrawable = luajava.bindClass("android.graphics.drawable.ColorDrawable")
 local FILL_PARENT = LinearLayoutParams.FILL_PARENT
 local WRAP_CONTENT = LinearLayoutParams.WRAP_CONTENT
 local Color = _G["Color"]
@@ -329,6 +335,7 @@ function buildTabs(host, content, o)
 
 	o.addHelpText(diagonalBox, "A corner with no command falls back to the nearest straight swipe, so adding these never changes how the straight ones behave.")
 	o.widgets.gestureLabelCb = luajava.new(CheckBox,o.context)
+	local gestureLabelCb = o.widgets.gestureLabelCb
 	gestureLabelCb:setText("Name the command above this button while gesturing")
 	gestureLabelCb:setChecked(editorValues.showGestureLabel ~= false)
 	if o.numediting > 1 then
@@ -367,6 +374,7 @@ function buildTabs(host, content, o)
 	dirLabel:setGravity(Gravity.RIGHT)
 	dirLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
 	o.widgets.accordionDirSpinner = luajava.new(Spinner,o.context)
+	local accordionDirSpinner = o.widgets.accordionDirSpinner
 	accordionDirSpinner:setLayoutParams(o.clickLabelEditParams)
 	styleSpinner(accordionDirSpinner)
 	local dirAdapter = makeSpinnerAdapter({"None", "Down", "Up", "Right", "Left"})
@@ -391,6 +399,7 @@ function buildTabs(host, content, o)
 	layoutLabel:setGravity(Gravity.RIGHT)
 	layoutLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
 	o.widgets.accordionLayoutSpinner = luajava.new(Spinner,o.context)
+	local accordionLayoutSpinner = o.widgets.accordionLayoutSpinner
 	accordionLayoutSpinner:setLayoutParams(o.clickLabelEditParams)
 	styleSpinner(accordionLayoutSpinner)
 	local layoutAdapter = makeSpinnerAdapter({
@@ -417,6 +426,7 @@ function buildTabs(host, content, o)
 	triggerLabel:setGravity(Gravity.RIGHT)
 	triggerLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
 	o.widgets.accordionTriggerSpinner = luajava.new(Spinner,o.context)
+	local accordionTriggerSpinner = o.widgets.accordionTriggerSpinner
 	accordionTriggerSpinner:setLayoutParams(o.clickLabelEditParams)
 	styleSpinner(accordionTriggerSpinner)
 	local triggerAdapter = makeSpinnerAdapter({
@@ -445,6 +455,7 @@ function buildTabs(host, content, o)
 	holdMsLabel:setGravity(Gravity.RIGHT)
 	holdMsLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
 	o.widgets.accordionHoldMsEdit = luajava.new(EditText,o.context)
+	local accordionHoldMsEdit = o.widgets.accordionHoldMsEdit
 	local InputType = luajava.bindClass("android.text.InputType")
 	accordionHoldMsEdit:setInputType(InputType.TYPE_CLASS_NUMBER)
 	accordionHoldMsEdit:setLayoutParams(o.clickLabelEditParams)
@@ -462,6 +473,7 @@ function buildTabs(host, content, o)
 	accordionPage:addView(holdMsRow)
 	
 	o.widgets.accordionAutoCloseCheck = luajava.new(CheckBox,o.context)
+	local accordionAutoCloseCheck = o.widgets.accordionAutoCloseCheck
 	accordionAutoCloseCheck:setText("Auto-close sub-buttons after tap")
 	if editorValues.accordionAutoClose == false then
 		accordionAutoCloseCheck:setChecked(false)
@@ -510,8 +522,8 @@ function buildTabs(host, content, o)
 		childCmdRow:addView(cmdTitle)
 		childCmdRow:addView(cmdEdit)
 		accordionPage:addView(childCmdRow)
-		accordionChildLabelEdits[i] = labelEdit
-		accordionChildCmdEdits[i] = cmdEdit
+		o.widgets.accordionChildLabelEdits[i] = labelEdit
+		o.widgets.accordionChildCmdEdits[i] = cmdEdit
 	end
 	
 	accordionPageScroller:addView(accordionPage)
