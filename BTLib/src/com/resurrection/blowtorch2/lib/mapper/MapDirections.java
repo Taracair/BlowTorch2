@@ -332,6 +332,27 @@ public final class MapDirections {
 	}
 
 	/**
+	 * Whether manual recording should grow the map for this command.
+	 * Uses the built-in lexicon and move-effects table only — not the game's
+	 * Speedwalk/direction map, which can label {@code look} as a compass key.
+	 */
+	public static boolean isRecordableMovement(String raw,
+			Map<String, MapMoveEffect> effects) {
+		if (raw == null || raw.trim().length() == 0) {
+			return false;
+		}
+		String trimmed = raw.trim();
+		if (effectFor(trimmed, effects) != null) {
+			return true;
+		}
+		String norm = normalize(trimmed, null);
+		if (effectFor(norm, effects) != null) {
+			return true;
+		}
+		return lexiconToken(norm) != null;
+	}
+
+	/**
 	 * Canonical built-in movement token, or null if unknown to the lexicon.
 	 */
 	public static String lexiconToken(String token) {
