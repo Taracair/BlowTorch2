@@ -25,6 +25,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.text.SimpleDateFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -762,6 +765,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			the_time.set(System.currentTimeMillis());
 			muc.setLastPlayed(the_time.format2445());
 			
+			// Measured ~0.9 s on world tap (30 July): the fsync on the launcher
+			// list blocked connect. Only the fsync moves off this thread — see
+			// saveXMLOffThread.
+			saveXMLOffThread();
+
+			buildList();
+
 			launch = muc.copy();
 			PermissionHelper.ensureInternetForFeature(Launcher.this,
 					R.string.permission_feature_connect, new Runnable() {
@@ -770,25 +780,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 					DoNewStartup();
 				}
 			});
-			// Measured ~0.9 s on world tap (30 July): fsync on the launcher list
-			// blocked connect. Re-sort after the write finishes.
-			new Thread(new Runnable() {
-				@Override
-				public void run() {
-					try {
-						saveXML();
-					} catch (RuntimeException e) {
-						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
-								"Launcher.listItemClicked", e);
-					}
-					Launcher.this.runOnUiThread(new Runnable() {
-						@Override
-						public void run() {
-							buildList();
-						}
-					});
-				}
-			}, "bt-launcher-list-save").start();
 		}
 
 		
@@ -1661,7 +1652,64 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			throw new RuntimeException(e);
 		}
 	}
-	
+
+	/** Serializes here, writes elsewhere.
+	 *
+	 * <p>The world list is this thread's state: {@code buildList()} reads it and
+	 * every editing path mutates it. Handing the whole of {@code saveXML()} to
+	 * another thread let {@code writeXml} walk that map while the tap that
+	 * started the connection was still working on it — a
+	 * {@code ConcurrentModificationException} that the caller would have caught
+	 * and logged, leaving the list silently unsaved. Only the fsync was ever
+	 * slow, so only the fsync moves: the bytes are built on the caller's thread
+	 * and are a snapshot by the time the writer sees them.
+	 *
+	 * <p>One worker, not one thread per tap: two quick taps then queue behind
+	 * each other rather than racing for the same file.
+	 */
+	private void saveXMLOffThread() {
+		if (!launcherSaveEnabled) {
+			return;
+		}
+		final byte[] bytes;
+		try {
+			bytes = LauncherSettings.writeXml(launcher_settings).getBytes("UTF-8");
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+		listWriter().execute(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					com.resurrection.blowtorch2.lib.util.AtomicFiles.writeInternal(
+							Launcher.this, "blowtorch_launcher_list.xml", bytes, true);
+				} catch (IOException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"Launcher.saveXMLOffThread", e);
+				}
+			}
+		});
+	}
+
+	/** Single worker for launcher-list writes; created on first use. */
+	private synchronized ExecutorService listWriter() {
+		if (listWriteExecutor == null) {
+			listWriteExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+				@Override
+				public Thread newThread(final Runnable r) {
+					Thread t = new Thread(r, "bt-launcher-list-save");
+					// Daemon: a queued write must never be the reason the process
+					// stays up, and the file it writes is staged atomically.
+					t.setDaemon(true);
+					return t;
+				}
+			});
+		}
+		return listWriteExecutor;
+	}
+
+	private ExecutorService listWriteExecutor = null;
+
 	private class ConnectionComparator implements Comparator<MudConnection> {
 
 		public int compare(MudConnection a, MudConnection b) {
