@@ -28,6 +28,7 @@ local math = _G["math"]
 local tonumber = _G["tonumber"]
 local tostring = _G["tostring"]
 local table = _G["table"]
+local string = _G["string"]
 local PluginXCallS = _G["PluginXCallS"]
 local buttonEditorDone = _G["buttonEditorDone"]
 module(...)
@@ -55,6 +56,7 @@ local clickLabelEdit --click state label editor
 local clickCmdEdit --click state command editor
 local flipLabelEdit --flip state label editor
 local flipCmdEdit --flip state command editor
+local flipSwipeNote
 local holdCmdEdit
 local swipeUpCmdEdit
 local swipeDownCmdEdit
@@ -85,11 +87,101 @@ local accordionChildCmdEdits = {}
 --the rest are harvested from the advanced page editor
 local advancedEditor -- the shared advanced page editor loaded from module
 
+
+local swipeCmdEditsForFlip = {}
+local flipGateNumEditing = 1
+
+local function trimSwipeCmdText(edit)
+	if edit == nil or not edit:isEnabled() then
+		return ""
+	end
+	local t = edit:getText():toString()
+	if t == nil then
+		return ""
+	end
+	return (string.gsub(t, "^%s*(.-)%s*$", "%1"))
+end
+
+local function anySwipeCommandSet()
+	for i = 1, #swipeCmdEditsForFlip do
+		if trimSwipeCmdText(swipeCmdEditsForFlip[i]) ~= "" then
+			return true
+		end
+	end
+	return false
+end
+
+local function updateFlipForSwipes()
+	if flipGateNumEditing > 1 then
+		return
+	end
+	local blocked = anySwipeCommandSet()
+	if flipLabelEdit ~= nil then
+		flipLabelEdit:setEnabled(not blocked)
+	end
+	if flipCmdEdit ~= nil then
+		flipCmdEdit:setEnabled(not blocked)
+	end
+	if flipSwipeNote ~= nil then
+		if blocked then
+			flipSwipeNote:setVisibility(View.VISIBLE)
+		else
+			flipSwipeNote:setVisibility(View.GONE)
+		end
+	end
+end
+
+local swipeFlipWatcher = luajava.createProxy("android.text.TextWatcher", {
+	afterTextChanged = function(s)
+		updateFlipForSwipes()
+	end,
+	beforeTextChanged = function(s, start, count, after) end,
+	onTextChanged = function(s, start, before, count) end,
+})
+
+local function trackSwipeEditForFlip(edit)
+	if edit == nil then
+		return edit
+	end
+	swipeCmdEditsForFlip[#swipeCmdEditsForFlip + 1] = edit
+	edit:addTextChangedListener(swipeFlipWatcher)
+	return edit
+end
+
+local editorFillparams = nil
+local editorClickLabelEditParams = nil
+
+local function addHelpText(parent, text)
+	local help = luajava.new(TextView, context)
+	help:setTextSize(textSizeSmall)
+	help:setText(text)
+	local pad = math.floor(8 * density)
+	help:setPadding(pad, pad, pad, pad)
+	help:setLayoutParams(editorFillparams)
+	parent:addView(help)
+end
+
+local function makeTabLabel(text)
+	local label = luajava.new(TextView, context)
+	local params = luajava.new(LinearLayoutParams, 0, tabMinHeight, 1.0)
+	label:setLayoutParams(params)
+	label:setText(text)
+	label:setTextSize(tabTextSize)
+	label:setBackgroundResource(R_drawable.tab_background)
+	label:setGravity(GRAVITY_CENTER)
+	label:setSingleLine(true)
+	label:setTextColor(Color:argb(255, 0xFF, 0xFF, 0xFF))
+	label:setPadding(math.floor(2 * density), 0, math.floor(2 * density), 0)
+	return label
+end
+
 function init(pContext)
 	context = pContext
 end
 
 function showEditorDialog(editorValues,numediting)
+	flipGateNumEditing = numediting
+	swipeCmdEditsForFlip = {}
 	--make the parent view.
 	--local button = nil
 	
@@ -121,6 +213,7 @@ function showEditorDialog(editorValues,numediting)
 	--make the new tabhost.	
 	local params = luajava.new(LinearLayoutParams,WRAP_CONTENT,WRAP_CONTENT)
 	local fillparams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT,1)
+	editorFillparams = fillparams
 	local contentparams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
 
 	local hostparams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT,2)
@@ -128,16 +221,6 @@ function showEditorDialog(editorValues,numediting)
 
 	host:setId(3)
 	host:setLayoutParams(hostparams)
-	
-	local function addHelpText(parent, text)
-		local help = luajava.new(TextView, context)
-		help:setTextSize(textSizeSmall)
-		help:setText(text)
-		local pad = math.floor(8 * density)
-		help:setPadding(pad, pad, pad, pad)
-		help:setLayoutParams(fillparams)
-		parent:addView(help)
-	end
 	
 	
 	--make the done and cancel buttons.
@@ -170,23 +253,10 @@ function showEditorDialog(editorValues,numediting)
 	
 	local widget = luajava.new(TabWidget,context)
 	widget:setId(android_R_id.tabs)
-	local function makeTabLabel(text)
-		local label = luajava.new(TextView, context)
-		local params = luajava.new(LinearLayoutParams, 0, tabMinHeight, 1.0)
-		label:setLayoutParams(params)
-		label:setText(text)
-		label:setTextSize(tabTextSize)
-		label:setBackgroundResource(R_drawable.tab_background)
-		label:setGravity(GRAVITY_CENTER)
-		label:setSingleLine(true)
-		label:setTextColor(Color:argb(255, 0xFF, 0xFF, 0xFF))
-		label:setPadding(math.floor(2 * density), 0, math.floor(2 * density), 0)
-		return label
-	end
 
 	local tabWidgetParams = luajava.new(LinearLayoutParams, FILL_PARENT, tabMinHeight)
 	widget:setLayoutParams(tabWidgetParams)
-	widget:setWeightSum(5)
+	widget:setWeightSum(4)
 	
 	local content = luajava.new(FrameLayout,context)
 	content:setId(android_R_id.tabcontent)
@@ -198,514 +268,52 @@ function showEditorDialog(editorValues,numediting)
 	host:setup()
 	
 	
-	local tab1 = host:newTabSpec("tab_one_btn_tab")
-	local label1 = makeTabLabel("Click")
-	
-	--first page.
-	
-	--tmpview1 = luajava.new(TextView,context)
-	--tmpview1:setText("first page")
-	--tmpview1:setId(1)
-	--tmpview1:setLayoutParams(fillparams);
-	local clickPageScroller = luajava.new(ScrollView,context)
-	clickPageScroller:setLayoutParams(fillparams)
-	clickPageScroller:setId(1)
-	
-	local clickPage = luajava.new(LinearLayout,context)
-	clickPage:setLayoutParams(fillparams)
-	clickPage:setId(11)
-	clickPage:setOrientation(LinearLayout.VERTICAL)
-	
-	local clickLabelRow = luajava.new(LinearLayout,context)
-	clickLabelRow:setLayoutParams(fillparams)
-	
-	local clickLabel = luajava.new(TextView,context)
-	clickLabel:setTextSize(textSize)
-	clickLabel:setText("Label:")
-	clickLabel:setGravity(Gravity.RIGHT)
-	local clickLabelParams = luajava.new(LinearLayoutParams,80*density,WRAP_CONTENT)
-	clickLabel:setLayoutParams(clickLabelParams)
-	
-	clickLabelEdit = luajava.new(EditText,context)
-	clickLabelEdit:setTextSize(textSize)
-	local clickLabelEditParams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
-	clickLabelEdit:setLines(1)
-	clickLabelEdit:setLayoutParams(clickLabelEditParams)
-	if(numediting > 1) then
-		clickLabelEdit:setEnabled(false)
-	else
-		if(editorValues.label ~= nil) then
-			clickLabelEdit:setText(editorValues.label)
-		end
-	end
-	
-	
-	clickLabelRow:addView(clickLabel)
-	clickLabelRow:addView(clickLabelEdit)
-	
-	
-	local clickCmdRow = luajava.new(LinearLayout,context)
-	clickCmdRow:setLayoutParams(fillparams)
-	
-	local clickCmdLabel = luajava.new(TextView,context)
-	clickCmdLabel:setTextSize(textSize)
-	clickCmdLabel:setText("CMD:")
-	clickCmdLabel:setGravity(Gravity.RIGHT)
-	local clickCmdLabelParams = luajava.new(LinearLayoutParams,80*density,WRAP_CONTENT)
-	clickCmdLabel:setLayoutParams(clickLabelParams)
-	
-	clickCmdEdit = luajava.new(EditText,context)
-	clickCmdEdit:setTextSize(textSize)
-	local clickCmdEditParams = luajava.new(LinearLayoutParams,WRAP_CONTENT,WRAP_CONTENT)
-	clickCmdEdit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
-	clickCmdEdit:setHorizontallyScrolling(false)
-	clickCmdEdit:setMaxLines(1000)
-	clickCmdEdit:setLayoutParams(clickLabelEditParams)
-	if(numediting > 1) then
-		clickCmdEdit:setEnabled(false)
-	else
-		if(editorValues.command ~= nil) then
-			clickCmdEdit:setText(editorValues.command)
-		end
-	end
-	
-	clickCmdRow:addView(clickCmdLabel)
-	clickCmdRow:addView(clickCmdEdit)
-	clickPage:addView(clickLabelRow)
-	clickPage:addView(clickCmdRow)
-	
-	clickPageScroller:addView(clickPage)
-	content:addView(clickPageScroller)
-	tab1:setIndicator(label1)
-	tab1:setContent(1)
-	
-	local tab2 = host:newTabSpec("tab_two_btn_tab")
-	local label2 = makeTabLabel("Flip")
-	
-	--second, flip page.
-	local flipPageScroller = luajava.new(ScrollView,context)
-	flipPageScroller:setLayoutParams(fillparams)
-	flipPageScroller:setId(2)
-	
-	local flipPage = luajava.new(LinearLayout,context)
-	flipPage:setLayoutParams(fillparams)
-	flipPage:setId(22)
-	flipPage:setOrientation(LinearLayout.VERTICAL)
-	
-	addHelpText(flipPage, "Flip: drag outside the button, then release. A callout shows the flip command while you aim; a swipe in that direction wins if it has a command.")
-	
-	local flipLabelRow = luajava.new(LinearLayout,context)
-	flipLabelRow:setLayoutParams(fillparams)
-	
-	local flipLabel = luajava.new(TextView,context)
-	flipLabel:setTextSize(textSize)
-	flipLabel:setText("Label:")
-	flipLabel:setGravity(Gravity.RIGHT)
-	local flipLabelParams = luajava.new(LinearLayoutParams,80*density,WRAP_CONTENT)
-	flipLabel:setLayoutParams(flipLabelParams)
-	
-	flipLabelEdit = luajava.new(EditText,context)
-	flipLabelEdit:setTextSize(textSize)
-	local flipLabelEditParams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
-	flipLabelEdit:setLines(1)
-	flipLabelEdit:setLayoutParams(clickLabelEditParams)
-	if(numediting > 1) then
-		flipLabelEdit:setEnabled(false)
-	else
-		if(editorValues.flipLabel ~= nil) then
-			flipLabelEdit:setText(editorValues.flipLabel)
-		end
-	end
-	
-	flipLabelRow:addView(flipLabel)
-	flipLabelRow:addView(flipLabelEdit)
-	
-	
-	local flipCmdRow = luajava.new(LinearLayout,context)
-	flipCmdRow:setLayoutParams(fillparams)
-	
-	local flipCmdLabel = luajava.new(TextView,context)
-	flipCmdLabel:setTextSize(textSize)
-	flipCmdLabel:setText("CMD:")
-	flipCmdLabel:setGravity(Gravity.RIGHT)
-	local flipCmdLabelParams = luajava.new(LinearLayoutParams,80*density,WRAP_CONTENT)
-	flipCmdLabel:setLayoutParams(clickLabelParams)
-	
-	flipCmdEdit = luajava.new(EditText,context)
-	flipCmdEdit:setTextSize(textSize)
-	local flipCmdEditParams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
-	flipCmdEdit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
-	flipCmdEdit:setHorizontallyScrolling(false)
-	flipCmdEdit:setMaxLines(1000)
-	flipCmdEdit:setLayoutParams(flipLabelEditParams)
-	if(numediting > 1) then
-		flipCmdEdit:setEnabled(false)
-	else
-		if(editorValues.flipCommand ~= nil) then
-			flipCmdEdit:setText(editorValues.flipCommand)
-		end
-	end
-	
-	flipCmdRow:addView(flipCmdLabel)
-	flipCmdRow:addView(flipCmdEdit)
-	flipPage:addView(flipLabelRow)
-	flipPage:addView(flipCmdRow)
-	--tmpview2 = luajava.new(TextView,context)
-	--tmpview2:setText("second page")
-	----tmpview2:setId(2)
-	--tmpview2:setLayoutParams(fillparams);
-	flipPageScroller:addView(flipPage)
-	content:addView(flipPageScroller)
-	tab2:setIndicator(label2)
-	tab2:setContent(2)
-	
-	local tabSwipe = host:newTabSpec("tab_swipe_btn_tab")
-	local labelSwipe = makeTabLabel("Swipe")
-	
-	local swipePageScroller = luajava.new(ScrollView,context)
-	swipePageScroller:setLayoutParams(fillparams)
-	swipePageScroller:setId(3)
-	
-	local swipePage = luajava.new(LinearLayout,context)
-	swipePage:setLayoutParams(fillparams)
-	swipePage:setId(33)
-	swipePage:setOrientation(LinearLayout.VERTICAL)
-	
-	local Spinner = luajava.bindClass("android.widget.Spinner")
-	local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
-	local CheckBox = luajava.bindClass("android.widget.CheckBox")
-	local ColorDrawable = luajava.bindClass("android.graphics.drawable.ColorDrawable")
-	local pkg = context:getPackageName()
-	local res = context:getResources()
-	local spinnerItemLayout = res:getIdentifier("spinner_item_dark", "layout", pkg)
-	local spinnerDropdownLayout = res:getIdentifier("spinner_dropdown_item_dark", "layout", pkg)
-	-- Fully opaque black popup (ARGB via Color.argb — avoids Lua int/sign issues).
-	local spinnerPopupBg = luajava.new(ColorDrawable, Color:argb(255, 0, 0, 0))
-	local function makeSpinnerAdapter(items)
-		local adapter = luajava.new(ArrayAdapter, context, spinnerItemLayout)
-		for i = 1, #items do
-			adapter:add(items[i])
-		end
-		adapter:setDropDownViewResource(spinnerDropdownLayout)
-		return adapter
-	end
-	local function styleSpinner(spinner)
-		spinner:setPopupBackgroundDrawable(spinnerPopupBg)
-		spinner:setBackgroundColor(Color:argb(255, 0, 0, 0))
-	end
-
-	local showHintsCb = luajava.new(CheckBox,context)
-	showHintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges on buttons")
-	local hintsOn = editorValues.showGestureHints
-	if hintsOn == nil then hintsOn = true end
-	showHintsCb:setChecked(hintsOn)
-	showHintsCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
-		onCheckedChanged = function(v, isChecked)
-			-- PluginXCallS only accepts one data arg; update window draw state immediately.
-			buttonShowHints = isChecked and true or false
-			if drawButtons ~= nil then
-				drawButtons()
-			end
-			if view ~= nil then
-				view:invalidate()
-			end
-			PluginXCallS("setShowGestureHints", isChecked and "true" or "false")
-		end
-	}))
-	swipePage:addView(showHintsCb)
-
-	local swipePreviewCb = luajava.new(CheckBox,context)
-	swipePreviewCb:setText("Show swipe direction arrow while dragging (command callouts always show)")
-	local previewOn = editorValues.showSwipePreview
-	if previewOn == nil then previewOn = true end
-	swipePreviewCb:setChecked(previewOn)
-	swipePreviewCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
-		onCheckedChanged = function(v, isChecked)
-			buttonShowSwipePreview = isChecked and true or false
-			PluginXCallS("setShowSwipePreview", isChecked and "true" or "false")
-		end
-	}))
-	swipePage:addView(swipePreviewCb)
-
-	addHelpText(swipePage, "Swipe commands override Flip when set. Drag ~24dp in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at ~0.45s. To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).")
-	
-	local function addGestureRow(parent, labelText, initialValue)
-		local row = luajava.new(LinearLayout,context)
-		row:setLayoutParams(fillparams)
-		local label = luajava.new(TextView,context)
-		label:setTextSize(textSize)
-		label:setText(labelText)
-		label:setGravity(Gravity.RIGHT)
-		local labelParams = luajava.new(LinearLayoutParams,100*density,WRAP_CONTENT)
-		label:setLayoutParams(labelParams)
-		local edit = luajava.new(EditText,context)
-		edit:setTextSize(textSize)
-		edit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
-		edit:setHorizontallyScrolling(false)
-		edit:setMaxLines(4)
-		edit:setLayoutParams(clickLabelEditParams)
-		if(numediting > 1) then
-			edit:setEnabled(false)
-		elseif(initialValue ~= nil) then
-			edit:setText(initialValue)
-		end
-		row:addView(label)
-		row:addView(edit)
-		parent:addView(row)
-		return edit
-	end
-	
-	local function addSectionHeader(parent, text)
-		local header = luajava.new(TextView, context)
-		header:setTextSize(textSize)
-		header:setText(text)
-		local pad = math.floor(8 * density)
-		header:setPadding(pad, math.floor(12 * density), pad, math.floor(2 * density))
-		header:setLayoutParams(fillparams)
-		parent:addView(header)
-	end
-
-	holdCmdEdit = addGestureRow(swipePage, "Hold:", editorValues.holdCommand)
-
-	addSectionHeader(swipePage, "Straight swipes")
-	swipeUpCmdEdit = addGestureRow(swipePage, "↑  Up:", editorValues.swipeUpCommand)
-	swipeDownCmdEdit = addGestureRow(swipePage, "↓  Down:", editorValues.swipeDownCommand)
-	swipeLeftCmdEdit = addGestureRow(swipePage, "←  Left:", editorValues.swipeLeftCommand)
-	swipeRightCmdEdit = addGestureRow(swipePage, "→  Right:", editorValues.swipeRightCommand)
-
-	gestureLabelCarried = editorValues.showGestureLabel ~= false
-
-	carriedDiagonalSwipes = {
-		swipeUpLeftCommand = editorValues.swipeUpLeftCommand or "",
-		swipeUpRightCommand = editorValues.swipeUpRightCommand or "",
-		swipeDownLeftCommand = editorValues.swipeDownLeftCommand or "",
-		swipeDownRightCommand = editorValues.swipeDownRightCommand or "",
+	local buildtabs = require("buttoneditor_buildtabs")
+	local tabState = {
+		editorValues = editorValues,
+		numediting = numediting,
+		fillparams = fillparams,
+		clickLabelEditParams = nil,
+		context = context,
+		textSize = textSize,
+		textSizeSmall = textSizeSmall,
+		addHelpText = addHelpText,
+		makeTabLabel = makeTabLabel,
+		trackSwipeEditForFlip = trackSwipeEditForFlip,
+		updateFlipForSwipes = updateFlipForSwipes,
+		widgets = {},
 	}
+	buildtabs.buildClickTab(host, content, tabState)
+	editorClickLabelEditParams = tabState.clickLabelEditParams
+	local w = tabState.widgets
+	clickLabelEdit = w.clickLabelEdit
+	clickCmdEdit = w.clickCmdEdit
+	flipLabelEdit = w.flipLabelEdit
+	flipCmdEdit = w.flipCmdEdit
+	flipSwipeNote = w.flipSwipeNote
+	local clickLabelEditParams = tabState.clickLabelEditParams
+	buildtabs.buildTabs(host, content, tabState)
+	w = tabState.widgets
+	holdCmdEdit = w.holdCmdEdit
+	swipeUpCmdEdit = w.swipeUpCmdEdit
+	swipeDownCmdEdit = w.swipeDownCmdEdit
+	swipeLeftCmdEdit = w.swipeLeftCmdEdit
+	swipeRightCmdEdit = w.swipeRightCmdEdit
+	swipeUpLeftCmdEdit = w.swipeUpLeftCmdEdit
+	swipeUpRightCmdEdit = w.swipeUpRightCmdEdit
+	swipeDownLeftCmdEdit = w.swipeDownLeftCmdEdit
+	swipeDownRightCmdEdit = w.swipeDownRightCmdEdit
+	gestureLabelCb = w.gestureLabelCb
+	accordionDirSpinner = w.accordionDirSpinner
+	accordionLayoutSpinner = w.accordionLayoutSpinner
+	accordionTriggerSpinner = w.accordionTriggerSpinner
+	accordionHoldMsEdit = w.accordionHoldMsEdit
+	accordionAutoCloseCheck = w.accordionAutoCloseCheck
+	accordionChildLabelEdits = w.accordionChildLabelEdits
+	accordionChildCmdEdits = w.accordionChildCmdEdits
+	if tabState.gestureLabelCarried ~= nil then gestureLabelCarried = tabState.gestureLabelCarried end
+	if tabState.carriedDiagonalSwipes ~= nil then carriedDiagonalSwipes = tabState.carriedDiagonalSwipes end
 
-	-- Nine command rows is a lot to take in, and most buttons only ever use the
-	-- four straight directions. Keep the diagonals folded away, and unfold them
-	-- automatically for a button that already uses one so nothing hides.
-	local diagonalsInUse = false
-	for _, value in pairs(carriedDiagonalSwipes) do
-		if value ~= "" then diagonalsInUse = true end
-	end
-
-	local diagonalBox = luajava.new(LinearLayout, context)
-	diagonalBox:setLayoutParams(fillparams)
-	diagonalBox:setOrientation(LinearLayout.VERTICAL)
-
-	local diagonalsCb = luajava.new(CheckBox, context)
-	diagonalsCb:setText("Diagonal swipes   ↖ ↗ ↙ ↘")
-	diagonalsCb:setChecked(diagonalsInUse)
-	diagonalsCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
-		onCheckedChanged = function(v, isChecked)
-			if isChecked then
-				diagonalBox:setVisibility(View.VISIBLE)
-			else
-				diagonalBox:setVisibility(View.GONE)
-			end
-		end
-	}))
-	swipePage:addView(diagonalsCb)
-	swipePage:addView(diagonalBox)
-	if diagonalsInUse then
-		diagonalBox:setVisibility(View.VISIBLE)
-	else
-		diagonalBox:setVisibility(View.GONE)
-	end
-
-	addHelpText(diagonalBox, "A corner with no command falls back to the nearest straight swipe, so adding these never changes how the straight ones behave.")
-	gestureLabelCb = luajava.new(CheckBox,context)
-	gestureLabelCb:setText("Name the command above this button while gesturing")
-	gestureLabelCb:setChecked(editorValues.showGestureLabel ~= false)
-	if numediting > 1 then
-		gestureLabelCb:setEnabled(false)
-	end
-	swipePage:addView(gestureLabelCb)
-
-	swipeUpLeftCmdEdit = addGestureRow(diagonalBox, "↖  Up-left:", editorValues.swipeUpLeftCommand)
-	swipeUpRightCmdEdit = addGestureRow(diagonalBox, "↗  Up-right:", editorValues.swipeUpRightCommand)
-	swipeDownLeftCmdEdit = addGestureRow(diagonalBox, "↙  Down-left:", editorValues.swipeDownLeftCommand)
-	swipeDownRightCmdEdit = addGestureRow(diagonalBox, "↘  Down-right:", editorValues.swipeDownRightCommand)
-	
-	swipePageScroller:addView(swipePage)
-	content:addView(swipePageScroller)
-	tabSwipe:setIndicator(labelSwipe)
-	tabSwipe:setContent(3)
-	
-	local tabAccordion = host:newTabSpec("tab_accordion_btn_tab")
-	local labelAccordion = makeTabLabel("Accord.")
-	
-	local accordionPageScroller = luajava.new(ScrollView,context)
-	accordionPageScroller:setLayoutParams(fillparams)
-	accordionPageScroller:setId(4)
-	
-	local accordionPage = luajava.new(LinearLayout,context)
-	accordionPage:setLayoutParams(fillparams)
-	accordionPage:setId(44)
-	accordionPage:setOrientation(LinearLayout.VERTICAL)
-	
-	addHelpText(accordionPage, "Up to 5 sub-buttons expand from the parent. Badges on the button: T/H/S = tap/hold/swipe open.")
-	
-	local dirRow = luajava.new(LinearLayout,context)
-	dirRow:setLayoutParams(fillparams)
-	local dirLabel = luajava.new(TextView,context)
-	dirLabel:setText("Expand:")
-	dirLabel:setGravity(Gravity.RIGHT)
-	dirLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
-	accordionDirSpinner = luajava.new(Spinner,context)
-	accordionDirSpinner:setLayoutParams(clickLabelEditParams)
-	styleSpinner(accordionDirSpinner)
-	local dirAdapter = makeSpinnerAdapter({"None", "Down", "Up", "Right", "Left"})
-	accordionDirSpinner:setAdapter(dirAdapter)
-	local currentDir = editorValues.accordionDirection or ""
-	if currentDir == "down" then accordionDirSpinner:setSelection(1)
-	elseif currentDir == "up" then accordionDirSpinner:setSelection(2)
-	elseif currentDir == "right" then accordionDirSpinner:setSelection(3)
-	elseif currentDir == "left" then accordionDirSpinner:setSelection(4)
-	else accordionDirSpinner:setSelection(0) end
-	if(numediting > 1) then
-		accordionDirSpinner:setEnabled(false)
-	end
-	dirRow:addView(dirLabel)
-	dirRow:addView(accordionDirSpinner)
-	accordionPage:addView(dirRow)
-
-	local layoutRow = luajava.new(LinearLayout,context)
-	layoutRow:setLayoutParams(fillparams)
-	local layoutLabel = luajava.new(TextView,context)
-	layoutLabel:setText("Sub-btn layout:")
-	layoutLabel:setGravity(Gravity.RIGHT)
-	layoutLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
-	accordionLayoutSpinner = luajava.new(Spinner,context)
-	accordionLayoutSpinner:setLayoutParams(clickLabelEditParams)
-	styleSpinner(accordionLayoutSpinner)
-	local layoutAdapter = makeSpinnerAdapter({
-		"Auto (follow expand)",
-		"Vertical (column)",
-		"Horizontal (row)"
-	})
-	accordionLayoutSpinner:setAdapter(layoutAdapter)
-	local currentLayout = editorValues.accordionChildLayout or "along"
-	if currentLayout == "vertical" then accordionLayoutSpinner:setSelection(1)
-	elseif currentLayout == "horizontal" then accordionLayoutSpinner:setSelection(2)
-	else accordionLayoutSpinner:setSelection(0) end
-	if(numediting > 1) then
-		accordionLayoutSpinner:setEnabled(false)
-	end
-	layoutRow:addView(layoutLabel)
-	layoutRow:addView(accordionLayoutSpinner)
-	accordionPage:addView(layoutRow)
-	
-	local triggerRow = luajava.new(LinearLayout,context)
-	triggerRow:setLayoutParams(fillparams)
-	local triggerLabel = luajava.new(TextView,context)
-	triggerLabel:setText("Open with:")
-	triggerLabel:setGravity(Gravity.RIGHT)
-	triggerLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
-	accordionTriggerSpinner = luajava.new(Spinner,context)
-	accordionTriggerSpinner:setLayoutParams(clickLabelEditParams)
-	styleSpinner(accordionTriggerSpinner)
-	local triggerAdapter = makeSpinnerAdapter({
-		"Tap (press)",
-		"Hold",
-		"Swipe (expand dir)"
-	})
-	accordionTriggerSpinner:setAdapter(triggerAdapter)
-	local currentTrigger = editorValues.accordionTrigger or "tap"
-	if currentTrigger == "hold" then accordionTriggerSpinner:setSelection(1)
-	elseif currentTrigger == "swipe" then accordionTriggerSpinner:setSelection(2)
-	else accordionTriggerSpinner:setSelection(0) end
-	if(numediting > 1) then
-		accordionTriggerSpinner:setEnabled(false)
-	end
-	triggerRow:addView(triggerLabel)
-	triggerRow:addView(accordionTriggerSpinner)
-	accordionPage:addView(triggerRow)
-	
-	addHelpText(accordionPage, "Tap = open on press, close on second press. Hold = open after hold delay (ms). Swipe = drag in expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right.")
-	
-	local holdMsRow = luajava.new(LinearLayout,context)
-	holdMsRow:setLayoutParams(fillparams)
-	local holdMsLabel = luajava.new(TextView,context)
-	holdMsLabel:setText("Hold ms:")
-	holdMsLabel:setGravity(Gravity.RIGHT)
-	holdMsLabel:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
-	accordionHoldMsEdit = luajava.new(EditText,context)
-	local InputType = luajava.bindClass("android.text.InputType")
-	accordionHoldMsEdit:setInputType(InputType.TYPE_CLASS_NUMBER)
-	accordionHoldMsEdit:setLayoutParams(clickLabelEditParams)
-	local holdMs = editorValues.accordionHoldMs
-	if holdMs == nil or holdMs == "MULTI" then
-		accordionHoldMsEdit:setText("450")
-	else
-		accordionHoldMsEdit:setText(tostring(math.floor(holdMs)))
-	end
-	if(numediting > 1) then
-		accordionHoldMsEdit:setEnabled(false)
-	end
-	holdMsRow:addView(holdMsLabel)
-	holdMsRow:addView(accordionHoldMsEdit)
-	accordionPage:addView(holdMsRow)
-	
-	accordionAutoCloseCheck = luajava.new(CheckBox,context)
-	accordionAutoCloseCheck:setText("Auto-close sub-buttons after tap")
-	if editorValues.accordionAutoClose == false then
-		accordionAutoCloseCheck:setChecked(false)
-	else
-		accordionAutoCloseCheck:setChecked(true)
-	end
-	if(numediting > 1) then
-		accordionAutoCloseCheck:setEnabled(false)
-	end
-	accordionPage:addView(accordionAutoCloseCheck)
-	
-	accordionChildLabelEdits = {}
-	accordionChildCmdEdits = {}
-	local children = editorValues.accordionChildren or {}
-	for i = 1, 5 do
-		local child = children[i] or {}
-		local childLabelRow = luajava.new(LinearLayout,context)
-		childLabelRow:setLayoutParams(fillparams)
-		local childTitle = luajava.new(TextView,context)
-		childTitle:setText("Sub "..i.." label:")
-		childTitle:setGravity(Gravity.RIGHT)
-		childTitle:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
-		local labelEdit = luajava.new(EditText,context)
-		labelEdit:setText(child.label or "")
-		labelEdit:setLayoutParams(clickLabelEditParams)
-		if(numediting > 1) then
-			labelEdit:setEnabled(false)
-		end
-		childLabelRow:addView(childTitle)
-		childLabelRow:addView(labelEdit)
-		accordionPage:addView(childLabelRow)
-		local childCmdRow = luajava.new(LinearLayout,context)
-		childCmdRow:setLayoutParams(fillparams)
-		local cmdTitle = luajava.new(TextView,context)
-		cmdTitle:setText("Sub "..i.." cmd:")
-		cmdTitle:setGravity(Gravity.RIGHT)
-		cmdTitle:setLayoutParams(luajava.new(LinearLayoutParams,90*density,WRAP_CONTENT))
-		local cmdEdit = luajava.new(EditText,context)
-		cmdEdit:setText(child.command or "")
-		cmdEdit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
-		cmdEdit:setMaxLines(3)
-		cmdEdit:setLayoutParams(clickLabelEditParams)
-		if(numediting > 1) then
-			cmdEdit:setEnabled(false)
-		end
-		childCmdRow:addView(cmdTitle)
-		childCmdRow:addView(cmdEdit)
-		accordionPage:addView(childCmdRow)
-		accordionChildLabelEdits[i] = labelEdit
-		accordionChildCmdEdits[i] = cmdEdit
-	end
-	
-	accordionPageScroller:addView(accordionPage)
-	content:addView(accordionPageScroller)
-	tabAccordion:setIndicator(labelAccordion)
-	tabAccordion:setContent(4)
-	
 	local tabOthers = host:newTabSpec("tab_others_btn_tab")
 	local labelOthers = makeTabLabel("Others")
 	
@@ -759,14 +367,13 @@ function showEditorDialog(editorValues,numediting)
 	tabOthers:setContent(5)
 	
 	host:addTab(tab1)
-	host:addTab(tab2)
 	host:addTab(tabSwipe)
 	host:addTab(tabAccordion)
 	host:addTab(tabOthers)
 	
 	
 	if(numediting > 1) then
-		host:setCurrentTab(4)
+		host:setCurrentTab(3)
 	else
 		host:setCurrentTab(0)
 	end
