@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backing plate for the gameplay ⋮.
+
+  It used to have no background at all, which is fine over game text and
+  useless over anything else: a floating frame, the mapper or an extra text
+  window parked bottom-right puts a #FF111111 title bar or a picture directly
+  behind a 53%-white glyph, and the player cannot find the one control that
+  reaches every menu. Chrome z-order already keeps ⋮ on top and tappable
+  there — this is about being *seen*, not being reachable.
+
+  Deliberately translucent rather than solid: over plain game text a hard
+  black disc in the corner is heavier than the control deserves.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="oval">
+            <solid android:color="#F0343A42" />
+            <stroke android:width="1dp" android:color="#AA8888CC" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#D216161C" />
+            <stroke android:width="1dp" android:color="@color/game_chrome_edge" />
+        </shape>
+    </item>
+</selector>

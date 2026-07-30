@@ -523,7 +523,7 @@ public class ExtraTextOverlayController {
 					(int) (e.slot.getFloatH() * density));
 			int x = Math.max(0, (int) (e.slot.getFloatX() * density));
 			int y = Math.max(0, (int) (e.slot.getFloatY() * density));
-			y = clampFloatTop(y, h, inputbar, screenH);
+			y = clampFloatTop(y, h, inputbar, screenH, x, x + w);
 			lp = new RelativeLayout.LayoutParams(w, h);
 			lp.leftMargin = x;
 			lp.topMargin = y;
@@ -547,12 +547,24 @@ public class ExtraTextOverlayController {
 		}
 	}
 
-	private int clampFloatTop(int top, int height, View inputbar, int screenH) {
+	/**
+	 * Above the input bar so the player can still type, and above the ⋮ strip
+	 * when the window reaches that corner — otherwise this window's resize
+	 * handle and ⋮ sit in the same 48dp box and chrome wins every touch.
+	 * See {@link ChromeController#floatingOverlayBottomLimit}.
+	 */
+	private int clampFloatTop(int top, int height, View inputbar, int screenH,
+			int left, int right) {
 		int maxBottom = screenH;
 		if (inputbar != null && inputbar.getHeight() > 0) {
 			int[] loc = new int[2];
 			inputbar.getLocationOnScreen(loc);
 			maxBottom = loc[1];
+		}
+		MainWindow activity = host.getMainWindow();
+		ChromeController chrome = activity != null ? activity.getChromeController() : null;
+		if (chrome != null) {
+			maxBottom = chrome.floatingOverlayBottomLimit(maxBottom, left, right);
 		}
 		int maxTop = Math.max(0, maxBottom - height);
 		if (top > maxTop) {
