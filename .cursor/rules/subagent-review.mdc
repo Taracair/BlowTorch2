@@ -1,0 +1,66 @@
+---
+description: Verify code changes with subagents (Composer 2.5 / Grok); fix findings before commit
+alwaysApply: true
+---
+
+# Subagent verification (mandatory for code)
+
+After **every code change** (Java/Kotlin, Lua, native, Gradle that affects build), verify before committing. Docs-only / `.cursor/rules` edits skip subagents but still get a quick self-check.
+
+**Models:** `composer-2.5` or `cursor-grok-4.5-high`. **Never** `composer-2.5-fast` for review.
+
+## 1. Local checks first (parent agent)
+
+Run what applies, fix failures before subagents:
+
+- Java/Kotlin: `./gradlew :BTLib:testDebugUnitTest` (or `--tests` for the area touched)
+- Lua: `luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua`
+- IDE lints on edited files
+
+## 2. Standard change — one post-change reviewer
+
+Launch **one** subagent (`run_in_background: false`) on the diff:
+
+- Prefer **`bugbot`** for bug/regression review (`Diff: uncommitted changes` before commit, or `branch changes` after).
+- Use **`generalPurpose`** when the change is mostly architectural or needs ORCHESTRATION cross-check (prompt: advisor role, cite `docs/ORCHESTRATION.md` traps).
+
+**Fix loop:** triage findings → fix real issues in the parent agent → re-run the same reviewer until clean or you hit a blocker you must report (with what you did not verify). Then commit (see `orchestration.mdc`).
+
+## 3. Broad / structural change — advisors before **and** after
+
+Treat as **broad** when any of:
+
+- God classes or their delegates: `Connection`, `Window`, `MainWindow`, mapper controllers
+- UI ↔ `:stellar` binder, queues, or `static` shared state
+- Settings serialisation, key ownership, persistence (`AtomicFiles`, slot JSON)
+- Thread ownership (`mBuffer`, responders, `onDraw`)
+- Lua ↔ Java boundary or plugin APIs
+- Touches **3+ files** across different subsystems
+
+### Before implementing
+
+Launch **2+ subagents in parallel** (advisor mode — plan only, no code yet):
+
+| Advisor | Type | Focus |
+|---------|------|--------|
+| Architecture | `generalPurpose` | ORCHESTRATION traps, process/thread/binder boundaries, behaviour-preserving argument |
+| Correctness | `generalPurpose` or `bugbot`* | Regressions, symptom-vs-cause, missing tests |
+| Security (if I/O, network, files, Lua load) | `security-review`* | Only when the change touches trust boundaries |
+
+\*`bugbot` / `security-review` before code: use `Diff: natural language` with a short **planned** change description.
+
+Incorporate valid feedback into the plan; say what you rejected and why.
+
+### After implementing
+
+Launch **2+ subagents in parallel** on the real diff:
+
+- **`bugbot`** — bugs and regressions
+- **`generalPurpose`** — architecture / ORCHESTRATION compliance (advisor, not rewriter)
+- **`security-review`** — when security advisor ran pre-change
+
+**Fix loop** as in §2. Only then commit.
+
+## 4. Reporting to the maintainer
+
+After review, briefly state: which subagents ran, models used, findings fixed vs deferred, and what was **not** verified (device, full test suite, etc.). Do not claim "works" — only "tests pass" / "review clean".

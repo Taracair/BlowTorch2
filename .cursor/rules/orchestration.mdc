@@ -42,6 +42,8 @@ The maintainer works only with AI, not by hand-editing code. **Commit on `stagin
 
 If a session ends with uncommitted finished work, commit before stopping.
 
+**Before each code commit:** run local checks and subagent review per `subagent-review.mdc` (fix findings first).
+
 ## Facts that mislead (do not re-derive)
 
 - **UI → service binder calls are synchronous; service → UI ones are queued.** `WindowXCallB` and `SaveSettings` both post to the same `ConnectionHandler` — whatever is queued first delays the rest.
