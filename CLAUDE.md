@@ -59,6 +59,18 @@ will not recover an `offline` device.
    check passes it straight through.
 6. **Do not move the `MAIN`/`LAUNCHER` intent filter to another component** —
    pinned home screen icons are keyed on the component name.
+7. **The main window's text belongs to the service, not the UI.**
+   `MainWindow.initWindow` does `tmp.setBuffer(w.getBuffer())` — the UI `Window`
+   *adopts* the service-side `WindowToken` buffer. Anything shown to the player
+   that is not written into that buffer disappears the next time the windows are
+   rebuilt, which is what switching worlds does. Send text via
+   `Connection.sendBytesToWindow`, which buffers then notifies;
+   `notifyMainWindow` is only for callers that already buffered.
+8. **⋮ is structurally above every overlay.** `gameplay_chrome_overlay` is a
+   later sibling of `window_container` in `window_layout.xml`, and the overlays
+   (frame, mapper, extra text) live inside the container. So "the overlay covers
+   ⋮" is a visibility complaint, never a z-order one — and the real hazard is the
+   reverse: ⋮ silently takes touches from anything parked under it.
 
 ## Evidence
 
