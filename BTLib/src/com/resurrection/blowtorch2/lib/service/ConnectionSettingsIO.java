@@ -902,7 +902,15 @@ final class ConnectionSettingsIO {
 			}
 		}
 		
-		// loadPlugins -> buildSettingsPage already rebuilt the trigger tables.
+		// loadPlugins -> buildSettingsPage already rebuilt the trigger tables, so
+		// the happy path does not need a second pass. A failed load never reaches
+		// loadPlugins: the FileNotFoundException and IOException branches fall
+		// straight through to here, and so does the SAX one when it cannot reach
+		// the UI to report itself. Those leave the tables built from whatever the
+		// profile held before, which no longer matches the settings in memory.
+		if (loadFailed) {
+			host.buildTriggerSystem();
+		}
 		if (save && loadFailed) {
 			// Importing a file that could not be read used to end here, writing
 			// the half-built settings over the profile the player already had —
