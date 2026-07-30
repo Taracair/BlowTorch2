@@ -136,4 +136,58 @@ public class GmcpModuleRegistryTest {
 		String status = reg.statusLine();
 		assertTrue(status.contains("1 module"));
 	}
+
+	/** A server's own list is kept in the order it sent, and blanks dropped. */
+	@Test
+	public void serverSupportsIsRecordedInOrder() {
+		GmcpModuleRegistry reg = new GmcpModuleRegistry();
+		assertTrue(reg.getServerSupports().isEmpty());
+		ArrayList<String> offered = new ArrayList<String>();
+		offered.add("Core 1");
+		offered.add("  mudstd.room 1  ");
+		offered.add("   ");
+		offered.add("WebView");
+		reg.setServerSupports(offered);
+		ArrayList<String> got = reg.getServerSupports();
+		assertEquals(3, got.size());
+		assertEquals("Core 1", got.get(0));
+		assertEquals("mudstd.room 1", got.get(1));
+		assertEquals("WebView", got.get(2));
+	}
+
+	/**
+	 * Being told a server can do something is not the player asking for it, and
+	 * it is a property of this connection only.
+	 */
+	@Test
+	public void serverSupportsNeitherEnablesNorSurvivesDisconnect() {
+		GmcpModuleRegistry reg = new GmcpModuleRegistry();
+		ArrayList<String> offered = new ArrayList<String>();
+		offered.add("mudstd.tilemap 1");
+		reg.setServerSupports(offered);
+		assertFalse(reg.isEnabled("mudstd.tilemap"));
+		assertFalse(reg.toSupportsString().contains("tilemap"));
+		reg.clearSeen();
+		assertTrue(reg.getServerSupports().isEmpty());
+	}
+
+	/** Our outbound set and the server's list are different things. */
+	@Test
+	public void serverSupportsIsNotLastSupportsSet() {
+		GmcpModuleRegistry reg = new GmcpModuleRegistry();
+		reg.setLastSupportsSet("core.supports.set [\"Core 1\"]");
+		ArrayList<String> offered = new ArrayList<String>();
+		offered.add("Beip 1");
+		reg.setServerSupports(offered);
+		assertEquals("core.supports.set [\"Core 1\"]", reg.getLastSupportsSet());
+		assertEquals("Beip 1", reg.getServerSupports().get(0));
+	}
+
+	/** A null list is an empty list, not a crash. */
+	@Test
+	public void serverSupportsToleratesNull() {
+		GmcpModuleRegistry reg = new GmcpModuleRegistry();
+		reg.setServerSupports(null);
+		assertTrue(reg.getServerSupports().isEmpty());
+	}
 }

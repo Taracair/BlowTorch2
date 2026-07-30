@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
@@ -502,23 +501,39 @@ public class Processor {
 									+ " — Options → Manage modules… or .gmcp enable "
 									+ suggested), 1);
 				}
-				if (data != null && data.length() > 0) {
-					try {
-						JSONObject jo = new JSONObject(data);
-						mGMCP.absorb(module, jo);
-						dispatchNativeGmcp(module, jo);
-						dispatchGmcpExtraText(module, jo.toString());
-					} catch (JSONException e) {
-						Log.e("GMCP", "GMCP PARSING FOR: " + data);
-						Log.e("GMCP", "REASON: " + e.getMessage());
-						logGmcp("ERR", "parse failed for " + module + ": " + e.getMessage());
-						e.printStackTrace();
-						dispatchGmcpExtraText(module, data);
-					}
-				} else {
+				// A GMCP body is any JSON value, not always an object. This used to
+				// call new JSONObject(data) on whatever arrived, so an array — the
+				// shape our own core.supports.set uses — produced a red
+				// "[GMCP ERR] parse failed" line and the packet was dropped.
+				// GmcpBody decides the shape first, and has the tests.
+				GmcpBody body = GmcpBody.of(data);
+				switch (body.shape()) {
+				case OBJECT:
+					mGMCP.absorb(module, body.object());
+					dispatchNativeGmcp(module, body.object());
+					break;
+				case ABSENT:
 					dispatchNativeGmcp(module, new JSONObject());
-					dispatchGmcpExtraText(module, "{}");
+					break;
+				case ARRAY:
+					// The GMCP table is a tree of named nodes with nowhere to put a
+					// bare list, and no native handler takes one, so an array is
+					// recorded where it means something and passed on as raw JSON
+					// rather than absorbed. Lua GMCP triggers on a module that only
+					// ever sends arrays therefore see exactly what they saw before:
+					// getTable() found nothing then and finds nothing now.
+					noteSupportsList(module, body);
+					break;
+				case SCALAR:
+					// Legal JSON with nothing to store. Not worth an error line.
+					break;
+				default:
+					Log.e("GMCP", "GMCP PARSING FOR: " + body.raw());
+					Log.e("GMCP", "REASON: " + body.error());
+					logGmcp("ERR", "parse failed for " + module + ": " + body.error());
+					break;
 				}
+				dispatchGmcpExtraText(module, body.json());
 				
 				//TODO: THIS IS WHERE THE ACTUAL WORK IS DONE TO SEND MUD DATA.
 				ArrayList<GMCPWatcher> list = mGMCPTriggers.get(module);
@@ -749,6 +764,35 @@ public class Processor {
 		mModuleRegistry.clearSeen();
 		mMudProtocols.clearMsdp();
 		mMudProtocols.clearMssp();
+	}
+
+	/**
+	 * Record a supports list a server sent us.
+	 *
+	 * <p>There is no standard "ask a server what it supports" call in GMCP, so
+	 * this is the only way we ever learn: a server that mirrors the shape of our
+	 * own {@code core.supports.set} back at us, as
+	 * {@code Server.Supports.Set ["Core 1", …]}. Until the array shape was
+	 * decoded at all, that list went in the bin with the packet.
+	 *
+	 * <p>Matched on the tail of the module name rather than one server's
+	 * spelling, and it never enables anything: what we ask a server for stays the
+	 * player's choice. It surfaces in {@code .gmcp ask}.
+	 */
+	private void noteSupportsList(final String module, final GmcpBody body) {
+		if (mModuleRegistry == null || module == null) {
+			return;
+		}
+		if (!module.toLowerCase(java.util.Locale.US).endsWith("supports.set")) {
+			return;
+		}
+		ArrayList<String> tokens = body.asStringList();
+		if (tokens.isEmpty()) {
+			return;
+		}
+		mModuleRegistry.setServerSupports(tokens);
+		logGmcp("INFO", module + " understood: " + tokens.size()
+				+ " module(s) the server offers — see .gmcp ask");
 	}
 
 	private void dispatchNativeGmcp(final String module, final JSONObject body) {

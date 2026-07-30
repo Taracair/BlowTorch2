@@ -119,6 +119,9 @@ public class GmcpCommand extends SpecialCommand {
 			ArrayList<String> seen = reg.seenModules();
 			sb.append("  Seen this session (server sent): ")
 					.append(seen.isEmpty() ? "(none yet)" : join(seen)).append("\n");
+			ArrayList<String> offered = reg.getServerSupports();
+			sb.append("  Server says it supports: ")
+					.append(offered.isEmpty() ? "(never told us)" : join(offered)).append("\n");
 		} else {
 			sb.append("  Not connected — Supports string: ").append(supports).append("\n");
 			sb.append("  Seen: (no session)\n");
