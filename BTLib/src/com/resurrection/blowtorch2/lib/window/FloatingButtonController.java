@@ -119,15 +119,17 @@ public class FloatingButtonController {
 				left = lp.leftMargin;
 				right = left + Math.max(view.getWidth(), lp.width > 0 ? lp.width : 1);
 			}
-			int maxBottom = computeMaxBottom(left, right);
 			FloatingButtonModel m = view.getModel();
+			// Mode A: ceiling is just above the soft-keyboard top (same gap as layout).
 			if (m != null && m.isKeyboardMode() && lastImeLiftPx > 0 && layer != null) {
+				float density = view.getResources().getDisplayMetrics().density;
+				int gap = Math.round(4 * density);
 				int imeTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
-				if (imeTop < maxBottom) {
-					maxBottom = imeTop;
-				}
+				int ceiling = chromeKeepOut(imeTop, left, right, true);
+				return Math.max(0, ceiling - gap);
 			}
-			return maxBottom;
+			// Mode B: resting keep-out only (D11 — IME must not move the button).
+			return computeMaxBottom(left, right);
 		}
 
 		@Override
@@ -317,25 +319,21 @@ public class FloatingButtonController {
 				}
 				int maxBottom;
 				if (keyboardAboveIme && lastImeLiftPx > 0) {
-					// Layer is not IME-translated. Soft keyboard covers the
-					// bottom lastImeLiftPx of the container — park Mode A just
-					// above that. Prefer the lifted input-bar top when it is
-					// higher (smaller Y) so we clear both keys and the bar.
+					// Sit on the soft keyboard: bottom edge just above imeTop.
+					// Do not use the lifted input-bar top — that parked Mode A
+					// above the chrome and looked like the keyboard "pushing" it.
+					int gap = Math.round(4 * density);
 					int imeTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
-					int inputTop = computeInputBarTopInLayer();
-					maxBottom = imeTop;
-					if (inputTop > 0 && inputTop < maxBottom) {
-						maxBottom = inputTop;
-					}
-					maxBottom = chromeKeepOut(maxBottom, resolvedX, resolvedX + w);
+					int ceiling = chromeKeepOut(imeTop, resolvedX, resolvedX + w, true);
+					maxBottom = Math.max(0, ceiling - gap);
 				} else {
 					maxBottom = computeMaxBottom(resolvedX, resolvedX + w);
 				}
 				if (keyboardAboveIme) {
-					// Mode A: horizontal from drag/grid; Y always just above IME.
+					// Mode A: X from drag/grid; Y just above the keys.
 					int x = FloatingLayerGeometry.clampX(resolvedX, w, layer.getWidth());
 					int y = FloatingLayerGeometry.clampY(
-							Math.max(0, maxBottom - h - marginPx),
+							Math.max(0, maxBottom - h),
 							h, maxBottom);
 					applyLayoutParams(v, x, y, w, h);
 					return;
@@ -369,8 +367,9 @@ public class FloatingButtonController {
 	}
 
 	/**
-	 * @param overlayLeft left edge in layer coords (intended, not getLeft())
-	 * @param overlayRight right edge in layer coords
+	 * Resting keep-out for Mode B: input bar in layout coordinates, ignoring IME
+	 * {@code translationY}. Using the lifted bar's screen Y would clamp floaters
+	 * upward — the keyboard "pushing" them (D11 forbids that).
 	 */
 	private int computeMaxBottom(int overlayLeft, int overlayRight) {
 		MainWindow activity = host.getMainWindow();
@@ -378,15 +377,21 @@ public class FloatingButtonController {
 			return 0;
 		}
 		int maxBottom = layer.getHeight();
-		int inputTop = computeInputBarTopInLayer();
+		int inputTop = computeInputBarTopInLayer(false);
 		if (inputTop > 0) {
 			maxBottom = inputTop;
 		}
-		return chromeKeepOut(maxBottom, overlayLeft, overlayRight);
+		return chromeKeepOut(maxBottom, overlayLeft, overlayRight, false);
 	}
 
-	/** Top of the input bar in floating-layer coordinates, or 0 if unknown. */
-	private int computeInputBarTopInLayer() {
+	/**
+	 * Top of the input bar in floating-layer coordinates, or 0 if unknown.
+	 *
+	 * @param includeImeTranslation if false, use layout {@link View#getTop()} so
+	 *        IME {@code translationY} cannot push Mode B (D11) while height
+	 *        changes (search chrome) still move the resting ceiling.
+	 */
+	private int computeInputBarTopInLayer(boolean includeImeTranslation) {
 		MainWindow activity = host.getMainWindow();
 		if (activity == null || layer == null) {
 			return 0;
@@ -395,6 +400,10 @@ public class FloatingButtonController {
 		if (inputbar == null || inputbar.getHeight() <= 0) {
 			return 0;
 		}
+		if (!includeImeTranslation) {
+			// Same parent (window_container): layout top ignores translationY.
+			return Math.max(0, inputbar.getTop() - layer.getTop());
+		}
 		int[] layerLoc = new int[2];
 		int[] barLoc = new int[2];
 		layer.getLocationOnScreen(layerLoc);
@@ -402,10 +411,19 @@ public class FloatingButtonController {
 		return Math.max(0, barLoc[1] - layerLoc[1]);
 	}
 
-	private int chromeKeepOut(int maxBottom, int overlayLeft, int overlayRight) {
+	/**
+	 * @param includeImeTranslation Mode A uses live screen keep-out (⋮ rises with
+	 *        the bar). Mode B uses resting coordinates so a lifted ⋮ cannot pull
+	 *        the floater up (D11).
+	 */
+	private int chromeKeepOut(int maxBottom, int overlayLeft, int overlayRight,
+			boolean includeImeTranslation) {
 		MainWindow activity = host.getMainWindow();
 		if (activity == null || layer == null) {
 			return maxBottom;
+		}
+		if (!includeImeTranslation) {
+			return restingFabKeepOut(activity, maxBottom, overlayLeft, overlayRight);
 		}
 		ChromeController chrome = activity.getChromeController();
 		if (chrome == null) {
@@ -417,6 +435,38 @@ public class FloatingButtonController {
 		int limited = chrome.floatingOverlayBottomLimit(
 				screenMax, layerLoc[0] + overlayLeft, layerLoc[0] + overlayRight);
 		return Math.max(0, limited - layerLoc[1]);
+	}
+
+	/**
+	 * ⋮ keep-out in resting (keyboard-down) space: undo the FAB strip's IME
+	 * translation so Mode B is not clamped upward while the keyboard is up.
+	 */
+	private int restingFabKeepOut(MainWindow activity, int maxBottom,
+			int overlayLeft, int overlayRight) {
+		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
+		if (fabStrip == null || fabStrip.getVisibility() != View.VISIBLE
+				|| fabStrip.getWidth() <= 0 || fabStrip.getHeight() <= 0
+				|| layer == null) {
+			return maxBottom;
+		}
+		int[] layerLoc = new int[2];
+		int[] fabLoc = new int[2];
+		layer.getLocationOnScreen(layerLoc);
+		fabStrip.getLocationOnScreen(fabLoc);
+		int stripLeft = fabLoc[0];
+		int stripRight = fabLoc[0] + fabStrip.getWidth();
+		int overlayLeftScreen = layerLoc[0] + overlayLeft;
+		int overlayRightScreen = layerLoc[0] + overlayRight;
+		if (overlayRightScreen <= stripLeft || overlayLeftScreen >= stripRight) {
+			return maxBottom;
+		}
+		int stripTopResting = fabLoc[1] - (int) fabStrip.getTranslationY();
+		int stripTopInLayer = stripTopResting - layerLoc[1]
+				+ (int) layer.getTranslationY();
+		if (stripTopInLayer < maxBottom) {
+			return Math.max(0, stripTopInLayer);
+		}
+		return maxBottom;
 	}
 
 	private void reclampWhenChromeIsMeasured() {
