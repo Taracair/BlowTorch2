@@ -34,8 +34,10 @@ check(lua:match("LAYOUT_BOTTOM_SHEET") ~= nil,
 	"expected LuaDialog.LAYOUT_BOTTOM_SHEET in editoroptionsdialog.lua")
 check(lua:match("Button set options") ~= nil,
 	"expected bottom-sheet header title")
-check(lua:match("togglePanelButton") ~= nil,
-	"expected collapse/expand control")
+check(lua:match("Panel") ~= nil and lua:match("Fullscreen") ~= nil and lua:match("Hide") ~= nil,
+	"expected Panel / Fullscreen / Hide mode controls")
+check(not lua:match("togglePanelButton"),
+	"old Hide/Show toggle should be replaced by three mode buttons")
 check(lua:match("scroller:addView%(ll%)") ~= nil,
 	"settings must stay inside the scroll view")
 check(not lua:match("ll:addView%(boptHolder%)"),
