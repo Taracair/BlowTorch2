@@ -30,6 +30,7 @@ public class BetterEditText extends EditText {
 
 	private Boolean useFullScreen = false;
 	private Boolean BackSpaceBugFix = false;
+	private boolean allowSuggestions = false;
 	
 	public BetterEditText(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
@@ -46,6 +47,11 @@ public class BetterEditText extends EditText {
 	public InputConnection onCreateInputConnection(EditorInfo attrs) {
 		attrs.imeOptions = this.getImeOptions();
 		attrs.inputType = this.getInputType();
+		if (allowSuggestions) {
+			attrs.inputType &= ~InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+		} else {
+			attrs.inputType |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+		}
 		attrs.actionId = EditorInfo.IME_ACTION_SEND;
 		attrs.privateImeOptions = this.getPrivateImeOptions();
 		attrs.extras = this.getInputExtras(true);
@@ -257,6 +263,14 @@ public class BetterEditText extends EditText {
 
 	public Boolean getBackSpaceBugFix() {
 		return BackSpaceBugFix;
+	}
+
+	public void setAllowSuggestions(boolean allowSuggestions) {
+		this.allowSuggestions = allowSuggestions;
+	}
+
+	public boolean getAllowSuggestions() {
+		return allowSuggestions;
 	}
 	
 	@Override

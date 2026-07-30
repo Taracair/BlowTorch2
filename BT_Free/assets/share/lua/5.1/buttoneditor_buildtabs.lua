@@ -161,6 +161,8 @@ function buildClickTab(host, content, o)
 	content:addView(clickPageScroller)
 	tab1:setIndicator(label1)
 	tab1:setContent(1)
+	o.tabs = o.tabs or {}
+	o.tabs.click = tab1
 
 	o.widgets.clickLabelEdit = clickLabelEdit
 	o.widgets.clickCmdEdit = clickCmdEdit
@@ -305,7 +307,7 @@ function buildTabs(host, content, o)
 	-- four straight directions. Keep the diagonals folded away, and unfold them
 	-- automatically for a button that already uses one so nothing hides.
 	local diagonalsInUse = false
-	for _, value in pairs(carriedDiagonalSwipes) do
+	for _, value in pairs(o.carriedDiagonalSwipes) do
 		if value ~= "" then diagonalsInUse = true end
 	end
 
@@ -530,6 +532,10 @@ function buildTabs(host, content, o)
 	content:addView(accordionPageScroller)
 	tabAccordion:setIndicator(labelAccordion)
 	tabAccordion:setContent(4)
+
+	o.tabs = o.tabs or {}
+	o.tabs.swipe = tabSwipe
+	o.tabs.accordion = tabAccordion
 
 	o.updateFlipForSwipes()
 	

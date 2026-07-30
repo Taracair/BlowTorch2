@@ -108,7 +108,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption use_suggestions = new BooleanOption();
 		use_suggestions.setTitle("Keyboard word suggestions");
-		use_suggestions.setDescription("Show the soft keyboard's autocomplete and spelling bar in the input field. Off is usually better for MUD commands.");
+		use_suggestions.setDescription("Ask the soft keyboard to show autocomplete and spelling suggestions in the input field. Off is usually better for MUD commands. SwiftKey, Gboard, and similar keyboards may still show their own prediction row — that is controlled by the keyboard app, not BlowTorch.");
 		use_suggestions.setKey("use_suggestions");
 		use_suggestions.setValue(false);
 		input.addOption(use_suggestions);
