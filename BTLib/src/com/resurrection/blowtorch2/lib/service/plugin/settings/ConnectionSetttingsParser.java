@@ -50,6 +50,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		fullscreen,
 		fullscreen_editor,
 		use_suggestions,
+		floating_buttons_enabled,
 		keep_last,
 		grow_input_bar,
 		compatibility_mode,
@@ -450,6 +451,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case use_suggestions:
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case floating_buttons_enabled:
+						// Default is true; persist explicit false so disable sticks.
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;

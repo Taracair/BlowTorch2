@@ -3824,6 +3824,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case use_suggestions:
 				mService.doExecuteUseSuggestions((Boolean) o.getValue());
 				break;
+			case floating_buttons_enabled:
+				// MainWindow.loadSettings reads floatingButtonsEnabled.
+				mService.doExecuteRequestLoadSettings();
+				break;
 			case keep_last:
 				this.doSetKeepLast((Boolean) o.getValue());
 				break;
@@ -4732,6 +4736,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		fullscreen_editor,
 		/** Make editor use suggestions. */
 		use_suggestions,
+		/** Master switch for floating button copies over the game. */
+		floating_buttons_enabled,
 		/** Keep last entered. */
 		keep_last,
 		/** Grow input bar with multiline text. */

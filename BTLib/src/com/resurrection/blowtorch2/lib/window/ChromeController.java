@@ -35,9 +35,16 @@ public final class ChromeController {
 	private int statusBarHeight = 1;
 	private int titleBarHeight;
 	private boolean isFullScreen = false;
+	/** Last IME lift applied via translationY (px). 0 when keyboard is down. */
+	private int imeLiftPx = 0;
 
 	ChromeController(MainWindow activity) {
 		this.activity = activity;
+	}
+
+	/** Current IME lift in px; floating Mode A uses this. */
+	int getImeLiftPx() {
+		return imeLiftPx;
 	}
 
 	void loadHeightsFromPrefs() {
@@ -63,6 +70,8 @@ public final class ChromeController {
 		view.setPadding(cutout.left, 0, cutout.right, bars.bottom);
 		int lift = Math.max(0, ime.bottom - bars.bottom);
 		applyImeChromeLift((RelativeLayout) view, lift);
+		imeLiftPx = lift;
+		activity.onFloatingButtonsImeLift(lift);
 		statusBarHeight = bars.top;
 		titleBarHeight = bars.top;
 		SharedPreferences.Editor insetEditor =
@@ -133,13 +142,20 @@ public final class ChromeController {
 					continue;
 				}
 			}
-			// Mapper / extra-text overlays stay pinned; only game Windows + input lift.
+			// Mapper / extra-text / floating-button overlays stay pinned; only
+			// game Windows + input lift. Mode B floaters must not move with the
+			// keyboard (SUPER_BUTTON_PLAN D11); Mode A is positioned by
+			// FloatingButtonController against the IME height instead.
 			if (child.getId() == R.id.mapper_overlay_root) {
 				child.setTranslationY(0f);
 				continue;
 			}
 			Object tagObj = child.getTag();
 			if (tagObj != null && tagObj.toString().startsWith("extra_text_overlay:")) {
+				child.setTranslationY(0f);
+				continue;
+			}
+			if (tagObj != null && FloatingButtonController.LAYER_TAG.equals(tagObj.toString())) {
 				child.setTranslationY(0f);
 				continue;
 			}

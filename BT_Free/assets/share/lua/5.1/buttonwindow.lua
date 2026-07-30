@@ -1246,69 +1246,65 @@ function exitManagerModeNoSave()
 end
 
 -- Tell Java which buttons should float. Called after load/edit/manage transitions.
--- When manage is true, snapshot.editing=true and buttons={} so the overlay hides.
+-- When manage is true, editing=true and buttons=[] so the overlay hides.
+-- Payload is JSON (org.json) — Java parses JSONObject, not Lua serialize.
 function notifyFloatingButtonsChanged()
-	local snapshot = { editing = manage == true, buttons = {} }
-	if not snapshot.editing and buttons ~= nil then
-		for i, b in ipairs(buttons) do
-			local d = b.data
-			if d ~= nil and d.floating == true then
-				local mode = d.floatMode
-				if mode ~= "keyboard" then
-					mode = "always"
+	pcall(function()
+		local JSONObject = luajava.bindClass("org.json.JSONObject")
+		local JSONArray = luajava.bindClass("org.json.JSONArray")
+		local root = luajava.new(JSONObject)
+		local editing = manage == true
+		root:put("editing", editing)
+		local arr = luajava.new(JSONArray)
+		if not editing and buttons ~= nil then
+			for i, b in ipairs(buttons) do
+				local d = b.data
+				if d ~= nil and d.floating == true then
+					local mode = d.floatMode
+					if mode ~= "keyboard" then
+						mode = "always"
+					end
+					local o = luajava.new(JSONObject)
+					o:put("index", i)
+					o:put("label", tostring(d.label or ""))
+					o:put("command", tostring(d.command or ""))
+					o:put("flipLabel", tostring(d.flipLabel or ""))
+					o:put("flipCommand", tostring(d.flipCommand or ""))
+					o:put("holdCommand", tostring(d.holdCommand or ""))
+					o:put("swipeUpCommand", tostring(d.swipeUpCommand or ""))
+					o:put("swipeDownCommand", tostring(d.swipeDownCommand or ""))
+					o:put("swipeLeftCommand", tostring(d.swipeLeftCommand or ""))
+					o:put("swipeRightCommand", tostring(d.swipeRightCommand or ""))
+					o:put("swipeUpLeftCommand", tostring(d.swipeUpLeftCommand or ""))
+					o:put("swipeUpRightCommand", tostring(d.swipeUpRightCommand or ""))
+					o:put("swipeDownLeftCommand", tostring(d.swipeDownLeftCommand or ""))
+					o:put("swipeDownRightCommand", tostring(d.swipeDownRightCommand or ""))
+					o:put("showGestureLabel", d.showGestureLabel ~= false)
+					o:put("switchTo", tostring(d.switchTo or ""))
+					o:put("primaryColor", tonumber(d.primaryColor) or 0)
+					o:put("selectedColor", tonumber(d.selectedColor) or 0)
+					o:put("flipColor", tonumber(d.flipColor) or 0)
+					o:put("labelColor", tonumber(d.labelColor) or 0)
+					o:put("flipLabelColor", tonumber(d.flipLabelColor) or 0)
+					o:put("width", tonumber(d.width) or 80)
+					o:put("height", tonumber(d.height) or 80)
+					o:put("labelSize", tonumber(d.labelSize) or 23)
+					o:put("floating", true)
+					o:put("floatMode", mode)
+					o:put("floatX", tonumber(d.floatX) or -1)
+					o:put("floatY", tonumber(d.floatY) or -1)
+					o:put("floatRound", d.floatRound == true)
+					o:put("floatFrame", d.floatFrame == true)
+					arr:put(o)
 				end
-				table.insert(snapshot.buttons, {
-					index = i,
-					label = d.label,
-					command = d.command,
-					flipLabel = d.flipLabel,
-					flipCommand = d.flipCommand,
-					holdCommand = d.holdCommand,
-					swipeUpCommand = d.swipeUpCommand,
-					swipeDownCommand = d.swipeDownCommand,
-					swipeLeftCommand = d.swipeLeftCommand,
-					swipeRightCommand = d.swipeRightCommand,
-					swipeUpLeftCommand = d.swipeUpLeftCommand,
-					swipeUpRightCommand = d.swipeUpRightCommand,
-					swipeDownLeftCommand = d.swipeDownLeftCommand,
-					swipeDownRightCommand = d.swipeDownRightCommand,
-					showGestureLabel = d.showGestureLabel ~= false,
-					switchTo = d.switchTo,
-					primaryColor = d.primaryColor,
-					selectedColor = d.selectedColor,
-					flipColor = d.flipColor,
-					labelColor = d.labelColor,
-					flipLabelColor = d.flipLabelColor,
-					width = d.width,
-					height = d.height,
-					labelSize = d.labelSize,
-					floating = true,
-					floatMode = mode,
-					floatX = d.floatX,
-					floatY = d.floatY,
-					floatRound = d.floatRound == true,
-					floatFrame = d.floatFrame == true,
-				})
 			end
 		end
-	end
-	local payload = serialize(snapshot)
-	local activity = nil
-	local ok, err = pcall(function()
-		activity = GetActivity()
+		root:put("buttons", arr)
+		local activity = GetActivity()
+		if activity ~= nil and activity.onFloatingButtonsChanged ~= nil then
+			activity:onFloatingButtonsChanged(root:toString())
+		end
 	end)
-	if not ok or activity == nil then
-		return
-	end
-	if activity.onFloatingButtonsChanged == nil then
-		return
-	end
-	ok, err = pcall(function()
-		activity:onFloatingButtonsChanged(payload)
-	end)
-	if not ok then
-		debugString("onFloatingButtonsChanged failed: " .. tostring(err))
-	end
 end
 
 -- Java windowCall("button_window", "applyFloatPosition", serialize{index=,floatX=,floatY=})
