@@ -6,8 +6,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -92,8 +92,25 @@ public final class FrameImageStore {
 		}
 	};
 
+	/**
+	 * How many keys {@link #specs} and {@link #failures} remember.
+	 *
+	 * <p>Both were plain {@code HashMap}s while only the window path existed, and
+	 * that path reuses one key per frame, so they stayed small. The in-text path
+	 * mints a unique key per image ({@code Processor.placeImageInText}) and
+	 * nothing calls {@link #forget} when the text scrolls that image out of the
+	 * buffer, so a long session with in-text pictures grew both maps for as long
+	 * as it ran. The bitmaps behind them were capped from the start; only these
+	 * two were not.
+	 *
+	 * <p>A few hundred bytes an entry, so the cap is set where it will never be
+	 * reached by a frame the player can still see, and evicting is only a lost
+	 * chance to re-fetch, never a wrong picture.
+	 */
+	private static final int KEY_MEMORY_LIMIT = 512;
+
 	/** The spec each key was last asked to show, so a dropped bitmap can come back. */
-	private final Map<String, String> specs = new HashMap<String, String>();
+	private final Map<String, String> specs = boundedKeyMap();
 	/** Keys with a load in flight; a second request for one of these is dropped. */
 	private final Set<String> loading = new HashSet<String>();
 	/**
@@ -108,7 +125,24 @@ public final class FrameImageStore {
 	 */
 	private final Set<String> pendingReload = new HashSet<String>();
 	/** Why a key has no picture, in words a player can act on. Empty when fine. */
-	private final Map<String, String> failures = new HashMap<String, String>();
+	private final Map<String, String> failures = boundedKeyMap();
+
+	/**
+	 * Newest {@link #KEY_MEMORY_LIMIT} keys, oldest touched first out.
+	 *
+	 * <p>Access-ordered, so a frame that is still being drawn keeps its place
+	 * however old it is. Safe because every read and write of these maps is on
+	 * the main thread — the worker only decodes, then posts {@code finish} back
+	 * — and access ordering makes {@code get} a structural change.
+	 */
+	private static Map<String, String> boundedKeyMap() {
+		return new LinkedHashMap<String, String>(16, 0.75f, true) {
+			@Override
+			protected boolean removeEldestEntry(final Map.Entry<String, String> eldest) {
+				return size() > KEY_MEMORY_LIMIT;
+			}
+		};
+	}
 
 	private final List<Listener> listeners = new ArrayList<Listener>();
 	private final Handler main = new Handler(Looper.getMainLooper());

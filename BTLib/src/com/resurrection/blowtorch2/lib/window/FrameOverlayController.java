@@ -107,6 +107,8 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 		View accentLine;
 		View edgeBottom;
 		View resizeHandle;
+		/** A re-clamp is already waiting on the ⋮ strip being measured. */
+		boolean chromeReclampScheduled;
 		/** Last size reported to the server, so an unchanged layout says nothing. */
 		int reportedW;
 		int reportedH;
@@ -445,6 +447,33 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 		}
 		e.root.setLayoutParams(lp);
 		e.root.requestLayout();
+		if (shape.floating) {
+			reclampWhenChromeIsMeasured(e);
+		}
+	}
+
+	/**
+	 * A frame restored before the ⋮ strip was measured got no keep-out; lay it
+	 * out again once the strip exists. Once per entry — the second pass finds the
+	 * strip measured and has nothing left to schedule.
+	 */
+	private void reclampWhenChromeIsMeasured(final Entry e) {
+		if (e.chromeReclampScheduled) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		ChromeController chrome = activity != null ? activity.getChromeController() : null;
+		if (chrome == null || chrome.fabStripHasSize()) {
+			return;
+		}
+		// Set before scheduling: the applyLayout below re-enters this method.
+		e.chromeReclampScheduled = true;
+		chrome.whenFabStripMeasured(new Runnable() {
+			@Override
+			public void run() {
+				applyLayout(e);
+			}
+		});
 	}
 
 	/**

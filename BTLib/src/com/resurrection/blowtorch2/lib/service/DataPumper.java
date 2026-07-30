@@ -48,8 +48,11 @@ public class DataPumper extends Thread {
 	public static final int MESSAGE_THROTTLE = 108;
 	/** Constant indicating that throttling should end. */
 	public static final int MESSAGE_NOTHROTTLE = 109;
-	/** Timeout value in millis. */
+	/** How long {@link java.net.Socket#connect} may take. Not a read timeout —
+	 *  {@code setSoTimeout(0)} leaves reads waiting forever, by design. */
 	private static final int SOCKET_TIMEOUT = 14000;
+	/** For putting {@link #SOCKET_TIMEOUT} into a sentence. */
+	private static final int MILLIS_PER_SECOND = 1000;
 	/** Socket buffer size. */
 	private static final int SOCKET_BUFFER_SIZE = 1024;
 	/** No throttling delay. */
@@ -180,7 +183,13 @@ public class DataPumper extends Thread {
 		mClosing = false;
 		
 		sendWarning(new String(Colorizer.getBrightCyanColor() + "Attempting connection to: " + Colorizer.getBrightYellowColor() + mHost + ":" + mPort + "\n"
-		+ Colorizer.getBrightCyanColor() + "Timeout set to 14 seconds." + Colorizer.getWhiteColor() + "\n"));
+		// "Connect timeout", not "Timeout": SOCKET_TIMEOUT is only passed to
+		// Socket.connect. setSoTimeout(0) below means reads never time out, so a
+		// player reading this as "the client gives up after 14 s of silence" was
+		// being told the opposite of what the socket does. The number comes from
+		// the constant rather than the sentence, so the two cannot drift apart.
+		+ Colorizer.getBrightCyanColor() + "Connect timeout: " + (SOCKET_TIMEOUT / MILLIS_PER_SECOND)
+		+ " seconds." + Colorizer.getWhiteColor() + "\n"));
 		
 		try {
 			addr = InetAddress.getByName(mHost);
