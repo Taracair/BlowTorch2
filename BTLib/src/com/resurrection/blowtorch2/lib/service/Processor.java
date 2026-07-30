@@ -1180,6 +1180,9 @@ public class Processor {
 
 	private static final int MAX_REMEMBERED_CLOSED_FRAMES = 8;
 
+	/** Ceiling on ids we remember having complained about. See the note below. */
+	private static final int MAX_NOTED_FRAME_IDS = 64;
+
 	/** Frame ids the player has already been told are closed but still arriving. */
 	private final java.util.HashSet<String> mClosedFrameNoted = new java.util.HashSet<String>();
 
@@ -1212,14 +1215,26 @@ public class Processor {
 		OpenFrame closed = mClosedFrames.get(id);
 		if (closed == null) {
 			// Never open here at all. That is the server's mistake, not a choice
-			// the player made, so it is logged as before — once per id.
+			// the player made, so it is logged as before — once per id, up to a
+			// bound: the ids are the server's to invent, and remembering every one
+			// it ever got wrong is a leak with a remote input for a size.
+			if (mClosedFrameNoted.size() >= MAX_NOTED_FRAME_IDS) {
+				return;
+			}
 			if (mClosedFrameNoted.add(id)) {
 				logGmcp("INFO", "frame.image for unknown frame '" + id
 						+ "'; further images for it are dropped without a line each");
 			}
 			return;
 		}
-		closed.image = raw == null ? "" : raw;
+		// Kept only if it could actually cross the binder on a reopen. The open path
+		// refuses an oversized payload before storing it and this one has to as
+		// well: FrameEvent's limit exists because a transaction past it does not
+		// fail politely, it takes an unrelated call down with it. Dropping the
+		// picture leaves a reopened frame saying no picture has arrived, which is
+		// true of every picture that could be shown.
+		FrameEvent candidate = FrameEvent.image(id, raw);
+		closed.image = candidate.isOversizedPayload() ? "" : candidate.getImage();
 		if (!mClosedFrameNoted.add(id)) {
 			return;
 		}
