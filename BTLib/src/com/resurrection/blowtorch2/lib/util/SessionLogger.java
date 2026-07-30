@@ -119,10 +119,16 @@ public final class SessionLogger {
 		static final int LOCATION = 2;
 		/** Push to the OS; {@link #flag} asks for fsync as well. */
 		static final int FLUSH = 3;
-		/** Flush and close; {@link #flag} asks for fsync first. */
+		/**
+		 * Flush and close, keeping which file this was; {@link #flag} asks for
+		 * fsync first. A closed stream over a remembered file is exactly the
+		 * state a reconnect needs — see {@link #endSession}.
+		 */
 		static final int CLOSE = 4;
+		/** Close and forget the file, so the next write starts a new one. */
+		static final int RESET = 5;
 		/** Count {@link #latch} down once everything before it is done. */
-		static final int BARRIER = 5;
+		static final int BARRIER = 6;
 
 		final int kind;
 		final String text;
@@ -159,7 +165,9 @@ public final class SessionLogger {
 				enqueue(context, new Op(Op.WRITE,
 						markerText("logging disabled"), null, false, null));
 			}
-			enqueue(context, new Op(Op.CLOSE, null, null, true, null));
+			// RESET, not CLOSE: turning logging off must not leave a file that a
+			// later start would append to.
+			enqueue(context, new Op(Op.RESET, null, null, true, null));
 			clearIntendedMeta();
 		}
 	}
@@ -181,7 +189,9 @@ public final class SessionLogger {
 		// the same Options value must not truncate an active session log.
 		if (changed) {
 			resolvedDirLabel = null;
-			enqueue(context, new Op(Op.CLOSE, null, null, true, null));
+			// RESET: the old file is in the old directory, so it is not the one
+			// to keep appending to.
+			enqueue(context, new Op(Op.RESET, null, null, true, null));
 			clearIntendedMeta();
 		}
 	}
@@ -377,10 +387,14 @@ public final class SessionLogger {
 		if (intendedHasFile) {
 			enqueue(context, new Op(Op.WRITE, markerText("disconnected"), null, false, null));
 		}
+		// CLOSE, not RESET, and intendedHasFile stays true. A dropped TCP session
+		// is usually followed by a reconnect, and onConnected wants to keep
+		// appending to the same file rather than fragment the player's log into
+		// one file per drop — it asks hasActiveSessionFor to pick the wording and
+		// continueOrStartSession to pick the file, and both have to still say
+		// yes. The stream is closed; the writer reopens it in append mode on the
+		// next write, because currentProfile is still set.
 		enqueue(context, new Op(Op.CLOSE, null, null, true, null));
-		// Keep intendedProfile/resolvedFile so the UI can still show the last
-		// path; the next start replaces them.
-		intendedHasFile = false;
 		CountDownLatch done = new CountDownLatch(1);
 		if (!enqueue(context, new Op(Op.BARRIER, null, null, false, done))) {
 			return;
@@ -538,6 +552,9 @@ public final class SessionLogger {
 			flushWriter(op.flag);
 			break;
 		case Op.CLOSE:
+			closeWriter(op.flag);
+			break;
+		case Op.RESET:
 			closeWriter(op.flag);
 			clearWriterMeta();
 			break;
