@@ -1,7 +1,10 @@
 package com.resurrection.blowtorch2.lib.service.plugin.settings;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 
 import android.content.Context;
@@ -94,6 +97,9 @@ public class BasePluginParser {
 	final String path;
 	Context mContext;
 	boolean defaultSettings = false;
+
+	/** Cached file body so probe + full parse read disk once per connect. */
+	private byte[] mDocumentBytes;
 	
 	protected BasePluginParser(String location,Context context) {
 		mContext = context;
@@ -118,6 +124,43 @@ public class BasePluginParser {
 		
 		return input;
 		
+	}
+
+	/**
+	 * Reuse bytes already read for version probe so the full settings parse does
+	 * not open the profile file again on connect.
+	 */
+	public void reuseDocumentBytes(final byte[] bytes) {
+		mDocumentBytes = bytes;
+	}
+
+	/**
+	 * @return The settings file body, read once and then cached on this parser.
+	 */
+	public byte[] snapshotDocumentBytes() throws IOException {
+		if (mDocumentBytes != null) {
+			return mDocumentBytes;
+		}
+		InputStream in = getInputStream();
+		if (in == null) {
+			throw new FileNotFoundException(path == null ? "default settings" : path);
+		}
+		try {
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			byte[] buf = new byte[8192];
+			int n;
+			while ((n = in.read(buf)) != -1) {
+				out.write(buf, 0, n);
+			}
+			mDocumentBytes = out.toByteArray();
+			return mDocumentBytes;
+		} finally {
+			in.close();
+		}
+	}
+
+	protected InputStream openDocumentStream() throws IOException {
+		return new ByteArrayInputStream(snapshotDocumentBytes());
 	}
 	
 }
