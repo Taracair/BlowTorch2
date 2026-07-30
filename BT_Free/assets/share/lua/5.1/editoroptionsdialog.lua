@@ -237,26 +237,44 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
 
   local panelMode = "panel"
   local sheetDialog = nil
+  local spacerAttached = true
+
+  local function attachSpacer()
+    if not spacerAttached then
+      root:addView(spacer, 0)
+      spacerAttached = true
+    end
+  end
+
+  local function detachSpacer()
+    if spacerAttached then
+      root:removeView(spacer)
+      spacerAttached = false
+    end
+  end
 
   local function applyPanelMode()
-    if panelMode == "hidden" then
+    if panelMode == "fullscreen" then
       if sheetDialog ~= nil then
-        sheetDialog:setPresentationOverGrid(true)
+        sheetDialog:setPresentationOverGrid(false)
       end
-      scroller:setVisibility(View.GONE)
-      spacer:setVisibility(View.VISIBLE)
-      spacer:setLayoutParams(luajava.new(LinearLayoutParams,
-          LinearLayoutParams.FILL_PARENT, 0, 1))
-      scroller:setLayoutParams(luajava.new(LinearLayoutParams,
-          LinearLayoutParams.FILL_PARENT, maxPanelScrollH, 0))
-      panel:setLayoutParams(luajava.new(LinearLayoutParams,
-          LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
-    elseif panelMode == "panel" then
-      if sheetDialog ~= nil then
-        sheetDialog:setPresentationOverGrid(true)
-      end
+      detachSpacer()
+      panel:setBackgroundResource(0)
+      scroller:setFillViewport(true)
       scroller:setVisibility(View.VISIBLE)
+      panel:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, LinearLayoutParams.FILL_PARENT, 0))
+      scroller:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, 0, 1))
+    elseif panelMode == "hidden" then
+      if sheetDialog ~= nil then
+        sheetDialog:setPresentationOverGrid(true)
+      end
+      attachSpacer()
       spacer:setVisibility(View.VISIBLE)
+      panel:setBackgroundResource(R_drawable.dialog_window_crawler1)
+      scroller:setFillViewport(false)
+      scroller:setVisibility(View.GONE)
       spacer:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, 0, 1))
       scroller:setLayoutParams(luajava.new(LinearLayoutParams,
@@ -265,14 +283,19 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
           LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
     else
       if sheetDialog ~= nil then
-        sheetDialog:setPresentationOverGrid(false)
+        sheetDialog:setPresentationOverGrid(true)
       end
+      attachSpacer()
+      spacer:setVisibility(View.VISIBLE)
+      panel:setBackgroundResource(R_drawable.dialog_window_crawler1)
+      scroller:setFillViewport(false)
       scroller:setVisibility(View.VISIBLE)
-      spacer:setVisibility(View.GONE)
-      panel:setLayoutParams(luajava.new(LinearLayoutParams,
-          LinearLayoutParams.FILL_PARENT, LinearLayoutParams.FILL_PARENT, 0))
-      scroller:setLayoutParams(luajava.new(LinearLayoutParams,
+      spacer:setLayoutParams(luajava.new(LinearLayoutParams,
           LinearLayoutParams.FILL_PARENT, 0, 1))
+      scroller:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, maxPanelScrollH, 0))
+      panel:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
     end
     root:requestLayout()
     panelModeButton:setEnabled(panelMode ~= "panel")

@@ -47,8 +47,10 @@ print("2. LuaDialog exposes bottom-sheet layout mode")
 local java = table.concat(readLines(JAVA), "\n")
 check(java:match("LAYOUT_BOTTOM_SHEET") ~= nil,
 	"LuaDialog must define LAYOUT_BOTTOM_SHEET")
-check(java:match("setPresentationOverGrid") ~= nil,
-	"LuaDialog must switch between over-grid and fullscreen presentation")
+check(lua:match("setFillViewport%(true%)") ~= nil,
+	"fullscreen must expand the scroll view to the available height")
+check(lua:match("setBackgroundResource%(0%)") ~= nil,
+	"fullscreen must not stack a second dashed frame on the panel")
 
 print("")
 if failures == 0 then
