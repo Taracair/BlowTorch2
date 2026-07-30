@@ -753,6 +753,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			Editor e = pref.edit();
 			e.putInt("STATUS_BAR_HEIGHT", statusBarHeight);
 			e.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
+		    // commit (not apply): :stellar reads these once at Connection construction.
 		    e.commit();
 			
 			MudConnection muc = apdapter.getItem(arg2);		
@@ -1525,21 +1526,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		//prefsname = prefsname.replaceAll("/", "");
 		
 		SharedPreferences sprefs = Launcher.this.getSharedPreferences(prefsname,0);
-		//servicestarted = prefs.getBoolean("CONNECTED", false);
-		//finishStart = prefs.getBoolean("FINISHSTART", true);
 		SharedPreferences.Editor editor = sprefs.edit();
 		editor.putBoolean("CONNECTED", false);
 		editor.putBoolean("FINISHSTART", true);
-		editor.commit();
-		//Log.e("LAUNCHER","SERVICE NOT STARTED, AM RESETTING THE INITIALIZER BOOLS IN " + prefsname);
-		
-		//Launcher.this.startActivity(the_intent);
-		//SharedPreferences sprefs = Launcher.this.getSharedPreferences(prefsname,0);
-		//SharedPreferences.Editor editor = sprefs.edit();
-		//editor.putBoolean("CONNECTED", false);
-		//editor.putBoolean("FINISHSTART", true);
-		editor.commit();
-		
+		editor.apply();
 		
 		//launch = muc;
 		DoFinalStartup();
