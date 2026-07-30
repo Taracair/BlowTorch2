@@ -5,9 +5,11 @@ alwaysApply: true
 
 # Subagent verification (mandatory for code)
 
-After **every code change** (Java/Kotlin, Lua, native, Gradle that affects build), verify before committing. Docs-only / `.cursor/rules` edits skip subagents but still get a quick self-check.
+**NON-NEGOTIABLE.** After editing Java/Kotlin, Lua, native, or Gradle build files, you **MUST** launch subagents via the **Task** tool before committing. Self-review in the parent chat is **not** a substitute. Skipping Task = violating project rules.
 
-**Models:** `composer-2.5` or `cursor-grok-4.5-high`. **Never** `composer-2.5-fast` for review.
+Docs-only / `.cursor/rules` edits skip subagents but still get a quick self-check.
+
+**Models:** pass `model: "composer-2.5"` or `model: "cursor-grok-4.5-high"` on every Task call. **Never** `composer-2.5-fast`.
 
 ## 1. Local checks first (parent agent)
 
@@ -19,12 +21,12 @@ Run what applies, fix failures before subagents:
 
 ## 2. Standard change — one post-change reviewer
 
-Launch **one** subagent (`run_in_background: false`) on the diff:
+**Call Task** — launch **one** subagent (`run_in_background: false`) on the diff:
 
 - Prefer **`bugbot`** for bug/regression review (`Diff: uncommitted changes` before commit, or `branch changes` after).
 - Use **`generalPurpose`** when the change is mostly architectural or needs ORCHESTRATION cross-check (prompt: advisor role, cite `docs/ORCHESTRATION.md` traps).
 
-**Fix loop:** triage findings → fix real issues in the parent agent → re-run the same reviewer until clean or you hit a blocker you must report (with what you did not verify). Then commit (see `orchestration.mdc`).
+**Fix loop:** triage findings → fix real issues in the parent agent → **call Task again** until clean or you hit a blocker you must report (with what you did not verify). Then commit (see `orchestration.mdc`).
 
 ## 3. Broad / structural change — advisors before **and** after
 
@@ -39,7 +41,7 @@ Treat as **broad** when any of:
 
 ### Before implementing
 
-Launch **2+ subagents in parallel** (advisor mode — plan only, no code yet):
+**Call Task 2+ times in parallel** (advisor mode — plan only, no code yet):
 
 | Advisor | Type | Focus |
 |---------|------|--------|
@@ -53,7 +55,7 @@ Incorporate valid feedback into the plan; say what you rejected and why.
 
 ### After implementing
 
-Launch **2+ subagents in parallel** on the real diff:
+**Call Task 2+ times in parallel** on the real diff:
 
 - **`bugbot`** — bugs and regressions
 - **`generalPurpose`** — architecture / ORCHESTRATION compliance (advisor, not rewriter)
@@ -63,4 +65,4 @@ Launch **2+ subagents in parallel** on the real diff:
 
 ## 4. Reporting to the maintainer
 
-After review, briefly state: which subagents ran, models used, findings fixed vs deferred, and what was **not** verified (device, full test suite, etc.). Do not claim "works" — only "tests pass" / "review clean".
+End every code task with a **Review** line: which Task subagents ran (type + model), findings fixed vs deferred, and what was **not** verified (device, full test suite, etc.). Do not claim "works" — only "tests pass" / "review clean".
