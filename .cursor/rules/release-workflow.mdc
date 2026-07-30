@@ -15,17 +15,23 @@ alwaysApply: true
 
 | Flavor | Package | Use |
 |--------|---------|-----|
-| `btTest` | `com.resurrection.blowtorch2.test` | Daily practice on phone (“BlowTorch 2 Test”) |
+| `btTest` | `com.resurrection.blowtorch2.test` | Daily practice on phone ("BlowTorch 2 Test") |
 | `production` | `com.resurrection.blowtorch2` | GitHub / public release only |
 
 ## Agent checklist
 
-1. Develop and commit on **`staging`**.
-2. Build/install **btTest** for verification:
-   `BT_LOCAL_SIGN=1 ./gradlew :BT_Free:assembleBtTestRelease` → `adb install -r …`
-3. Do **not** create a GitHub release, tag, or production APK until the user asks.
-4. When releasing: show release notes first → wait for OK → bump `versionCode` / `versionName` → production APK → tag `vX.Y.Z` → `gh release create` on **Taracair/BlowTorch2**.
-5. After a release, sync `staging` with `main` (`ff-only` merge both ways as needed).
+1. Develop on **`staging`**; **commit after each completed logical step** without being asked (see `orchestration.mdc` → Commits). Do not push unless the maintainer asks.
+2. Build/install **btTest debug** for daily verification (the flavour the maintainer actually plays):
+   ```sh
+   ./gradlew :BT_Free:assembleBtTestDebug
+   ~/Android/Sdk/platform-tools/adb -s <serial> install -r \
+     BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
+   ```
+   **Never `adb uninstall`.** `install -r` re-registers a changed manifest and keeps profiles.
+3. Do **not** report "works" without maintainer device confirmation — give exact gesture, failure shape, and log command (see `orchestration.mdc`).
+4. Do **not** create a GitHub release, tag, or production APK until the user asks.
+5. When releasing: show release notes first → wait for OK → bump `versionCode` / `versionName` → production APK (`BT_LOCAL_SIGN=1 ./gradlew :BT_Free:assembleProductionRelease`) → tag `vX.Y.Z` → `gh release create` on **Taracair/BlowTorch2**.
+6. After a release, sync `staging` with `main` (`ff-only` merge both ways as needed).
 
 ## GitHub Release asset + notes (required)
 
