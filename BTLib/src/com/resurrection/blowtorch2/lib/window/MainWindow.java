@@ -2996,6 +2996,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void setupEditor(boolean useExtractUI,boolean useSuggestions) {
 		this.fullscreenEditor = useExtractUI;
 		this.useSuggestions = useSuggestions;
+		if (mInputBox != null) {
+			mInputBox.setAllowSuggestions(useSuggestions);
+		}
 
 		if (useExtractUI) {
 			int current = mInputBox.getImeOptions();

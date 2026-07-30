@@ -365,10 +365,14 @@ function showEditorDialog(editorValues,numediting)
 	content:addView(scrollerpage)
 	tabOthers:setIndicator(labelOthers)
 	tabOthers:setContent(5)
-	
-	host:addTab(tab1)
-	host:addTab(tabSwipe)
-	host:addTab(tabAccordion)
+
+	local tabs = tabState.tabs
+	if tabs == nil or tabs.click == nil or tabs.swipe == nil or tabs.accordion == nil then
+		error("button editor: tab specs were not built in buttoneditor_buildtabs")
+	end
+	host:addTab(tabs.click)
+	host:addTab(tabs.swipe)
+	host:addTab(tabs.accordion)
 	host:addTab(tabOthers)
 	
 	
