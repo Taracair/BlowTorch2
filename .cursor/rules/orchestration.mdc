@@ -129,7 +129,9 @@ Fix what has a credible path to a player-visible failure. Deliberately not fixed
 
 ## Build and deploy (mandatory after code changes)
 
-**NON-NEGOTIABLE.** After any change to Java/Kotlin, Lua, native, Gradle, or Android resources, the agent **MUST** build **btTest debug** and **`install -r`** on the maintainer's phone before the step is done and before commit. Docs-only / `.cursor/rules` edits skip this.
+**NON-NEGOTIABLE.** After any change to Java/Kotlin, Lua, native, Gradle, or Android resources, the agent **MUST** build **btTest debug** and **`install -r`** on the maintainer's phone **before reporting the step as done**. Docs-only / `.cursor/rules` edits skip this.
+
+**Per step, not per commit.** A step that lands as four related commits needs one build and one install, at the end, before saying it is done — not four. What must never happen is reporting work finished with an APK on the phone that does not contain it. If the last commit of a step changed code, the install has to come after it.
 
 Run everything from **`BlowTorch/`** (where `./gradlew` lives):
 
