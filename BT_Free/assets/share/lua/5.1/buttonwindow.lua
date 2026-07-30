@@ -549,14 +549,11 @@ local function gestureLabelFor(data, direction, outsideButton)
 		local cmd = getSwipeCommand(data, direction)
 		if hasButtonCommand(cmd) then
 			local glyph = DIRECTION_GLYPHS[direction] or ""
-			if outsideButton and hasButtonCommand(data.flipCommand) then
-				return glyph .. "  " .. cmd .. "  · flip blocked"
-			end
 			return glyph .. "  " .. cmd
 		end
 	end
 	if outsideButton and hasButtonCommand(data.flipCommand) then
-		return "flip  " .. data.flipCommand
+		return data.flipCommand
 	end
 	if direction == nil and not outsideButton then
 		if hasButtonCommand(data.holdCommand) then
