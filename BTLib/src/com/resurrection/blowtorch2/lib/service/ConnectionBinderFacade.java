@@ -852,4 +852,30 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		return c != null ? c.takeMapperUiArg() : null;
 	}
 
+	@Override
+	public String takeFrameEvents() throws RemoteException {
+		Connection c = service.mConnections.get(service.mConnectionClutch);
+		return c != null ? c.takeFrameEvents() : "[]";
+	}
+
+	@Override
+	public String getOpenFramesJson() throws RemoteException {
+		Connection c = service.mConnections.get(service.mConnectionClutch);
+		return c != null ? c.getOpenFramesJson() : "[]";
+	}
+
+	@Override
+	public boolean closeFrameByUser(String id) throws RemoteException {
+		Connection c = service.mConnections.get(service.mConnectionClutch);
+		return c != null && c.closeFrameByUser(id);
+	}
+
+	@Override
+	public void reportFrameSize(String id, int widthPx, int heightPx) throws RemoteException {
+		Connection c = service.mConnections.get(service.mConnectionClutch);
+		if (c != null) {
+			c.reportFrameSize(id, widthPx, heightPx);
+		}
+	}
+
 }

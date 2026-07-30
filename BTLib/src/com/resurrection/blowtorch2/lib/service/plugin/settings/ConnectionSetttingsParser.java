@@ -65,6 +65,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		bell_vibrate,
 		bell_notification,
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
+		frame_image_placement, frame_image_lines,
 		use_mcp, mcp_packages, log_mcp, mcp_feed, mcp_omit_output, mcp_auto_negotiate,
 		use_mtts, use_msdp, use_mssp,
 		show_regex_warning,
@@ -529,6 +530,17 @@ public class ConnectionSetttingsParser extends PluginParser {
 						// sticks. Written the other way round, turning it off would
 						// silently come back on at the next load.
 						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case frame_image_placement:
+						// 0 = its own window, the default.
+						if((Integer)opt.getValue() != 0) {
+							dooutput = true;
+						}
+						break;
+					case frame_image_lines:
+						if((Integer)opt.getValue() != 12) {
 							dooutput = true;
 						}
 						break;

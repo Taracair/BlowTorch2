@@ -769,8 +769,14 @@ public class Processor {
 		mModuleRegistry.clearSeen();
 		// Frames belong to the connection that opened them. Keeping the ids would
 		// mean .frame list showing frames from a session that is over, and a close
-		// event for a frame the new server never opened.
+		// event for a frame the new server never opened. The windows go with them,
+		// for the same reason.
+		if (!mOpenFrames.isEmpty()) {
+			sendFrameEvent(FrameEvent.clear());
+		}
 		mOpenFrames.clear();
+		mClosedFrames.clear();
+		mClosedFrameNoted.clear();
 		mMudProtocols.clearMsdp();
 		mMudProtocols.clearMssp();
 	}
@@ -857,10 +863,12 @@ public class Processor {
 	/**
 	 * Answer the {@code mudstd.frame} package.
 	 *
-	 * <p>Only floating terminal frames can be hosted today. Everything else is
-	 * turned down out loud, with {@code frame.closed reason=system}, because a
-	 * server author writing the other half needs to see a definite answer rather
-	 * than silence — and both sides can read the exchange in logs/gmcp.log.
+	 * <p>Image frames get a window of their own in the UI process; terminal
+	 * frames are still text in the main window, labelled with the frame id.
+	 * Anything outside the specification's vocabulary is turned down out loud,
+	 * with {@code frame.closed reason=system}, because a server author writing
+	 * the other half needs a definite answer rather than silence — and both
+	 * sides can read the exchange in logs/gmcp.log.
 	 */
 	private void dispatchFrameGmcp(final String lowerModule, final JSONObject body) {
 		if (!mModuleRegistry.isEnabled(MudstdFrame.MODULE)) {
@@ -876,7 +884,30 @@ public class Processor {
 				sendGmcpPacket(MudstdFrame.closedEvent(id, MudstdFrame.REASON_SYSTEM));
 				return;
 			}
-			mOpenFrames.add(id);
+			// Sizes are what the frame will actually be once it is drawn. The
+			// pixel size is not known here — the window that answers it lives in
+			// the other process — so the request is echoed and the UI corrects it
+			// with frame.resized once it has measured itself.
+			//
+			// Two spellings are read. The package page calls the field sizeValue;
+			// eden-test sends size (seen in logs/gmcp.log, 30 July 08:12). Reading
+			// both costs nothing and means the server author is not debugging a
+			// width of zero that came from a field name.
+			int cols = 0;
+			if (body != null && "c".equalsIgnoreCase(body.optString("sizeUnit", ""))) {
+				cols = body.optInt("sizeValue", body.optInt("size", 0));
+			}
+			OpenFrame frame = new OpenFrame();
+			frame.label = body != null ? body.optString("label", "") : "";
+			frame.type = type;
+			frame.content = content;
+			frame.sizeChars = cols;
+			mOpenFrames.put(id, frame);
+			// The server opening it settles any argument about a frame the player
+			// closed earlier: this is a new frame with that id, not the old one.
+			mClosedFrames.remove(id);
+			mClosedFrameNoted.remove(id);
+
 			String caveat = MudstdFrame.acceptedButNotDrawn(type, content);
 			if (caveat != null) {
 				// Say it in both places. The server author reads gmcp.log; the
@@ -886,38 +917,52 @@ public class Processor {
 				noteToWindow("[frame " + id + "] " + caveat
 						+ "\n[frame " + id + "] .frame close " + id + " to shut it");
 			}
-			// Sizes are what the frame will actually be once it is drawn. Until
-			// there is a window to measure, report the request rather than
-			// invent numbers: a width with sizeUnit "c" is in characters.
-			//
-			// Two spellings are read. The package page calls the field sizeValue;
-			// eden-test sends size (seen in logs/gmcp.log, 30 July 08:12). Reading
-			// both costs nothing and means the server author is not debugging a
-			// width of zero that came from a field name.
-			int cols = 0;
-			if ("c".equalsIgnoreCase(body.optString("sizeUnit", ""))) {
-				cols = body.optInt("sizeValue", body.optInt("size", 0));
+			if (MudstdFrame.needsFrameWindow(content) && !mFrameImageInText) {
+				sendFrameEvent(FrameEvent.open(id, frame.label, type, content, cols));
 			}
 			sendGmcpPacket(MudstdFrame.openedEvent(id, cols, 0, 0, 0));
 		} else if (lowerModule.endsWith(".close")) {
-			if (mOpenFrames.remove(id)) {
+			OpenFrame gone = mOpenFrames.remove(id);
+			if (gone != null) {
+				sendFrameEvent(FrameEvent.close(id));
 				sendGmcpPacket(MudstdFrame.closedEvent(id, MudstdFrame.REASON_SYSTEM));
 			}
 		} else if (lowerModule.endsWith(".image")) {
-			if (!mOpenFrames.contains(id)) {
-				logGmcp("INFO", "frame.image for unknown frame '" + id + "'");
+			String raw = body != null ? body.optString("image", "") : "";
+			OpenFrame frame = mOpenFrames.get(id);
+			if (frame == null) {
+				noteImageForClosedFrame(id, raw);
 				return;
 			}
-			// Described rather than drawn, and described precisely enough to be
-			// worth something: whether it came as base64 or a url, and how big
-			// it was. That is what tells the other side its payload survived the
-			// trip intact.
-			String summary = MudstdFrame.imageSummary(
-					body != null ? body.optString("image", "") : "");
-			logGmcp("INFO", "frame '" + id + "' image: " + summary);
-			noteToWindow("[frame " + id + "] image received — " + summary);
+			// Logged as a description rather than echoed: a base64 map is tens of
+			// kilobytes and the useful facts are the carrier and the size. That is
+			// also what tells the other side its payload survived the trip. A URL is
+			// not summarised: the IN line above already carries it in full, and eden
+			// sends eight of these per step between two tiles, so the second copy is
+			// half of a log a server author has to read.
+			if (!MudstdFrame.isUrlCarrier(raw)) {
+				logGmcp("INFO", "frame '" + id + "' image: " + MudstdFrame.imageSummary(raw));
+			}
+			FrameEvent event = FrameEvent.image(id, raw);
+			if (event.isOversizedPayload()) {
+				// Sending this across the binder would risk taking an unrelated
+				// call down with it, so it is refused where the size is known and
+				// the refusal says which limit it broke.
+				String tooBig = "image is " + raw.length() + " characters; the limit for an "
+						+ "inline payload is " + FrameEvent.MAX_BASE64_CHARS
+						+ ". Send a URL instead.";
+				logGmcp("INFO", "frame '" + id + "': " + tooBig);
+				noteToWindow("[frame " + id + "] " + tooBig);
+				return;
+			}
+			frame.image = raw;
+			if (mFrameImageInText) {
+				placeImageInText(id, raw);
+			} else {
+				sendFrameEvent(event);
+			}
 		} else if (lowerModule.endsWith(".terminal")) {
-			if (!mOpenFrames.contains(id)) {
+			if (!mOpenFrames.containsKey(id)) {
 				logGmcp("INFO", "frame.terminal for unknown frame '" + id + "'");
 				return;
 			}
@@ -932,6 +977,107 @@ public class Processor {
 		}
 	}
 
+	/** True when pictures go in the game text rather than in a window. */
+	private boolean mFrameImageInText;
+
+	/** How many lines of game text a picture covers. */
+	private int mFrameImageLines = InlineImageMarker.DEFAULT_LINES;
+
+	/** Makes each in-text picture's key unique — see {@link InlineImageMarker#keyFor}. */
+	private int mInlineImageCounter;
+
+	/**
+	 * Options → GMCP → "Pictures the server sends".
+	 *
+	 * <p>The windows follow the setting immediately, which they did not before.
+	 * A frame opened while pictures went into the text had no window, and turning
+	 * the setting back never built one — every later {@code frame.image} was
+	 * dropped by the UI as an image for a frame it did not have, and the only way
+	 * back was to reconnect. Switching the other way left a window on screen that
+	 * the pictures had stopped going to.
+	 */
+	public final void setFrameImageInText(final boolean inText) {
+		boolean changed = mFrameImageInText != inText;
+		mFrameImageInText = inText;
+		if (!changed) {
+			return;
+		}
+		if (inText) {
+			// The windows go; the frames stay open as far as the server is
+			// concerned, so no frame.closed is sent. Nothing was closed — the
+			// pictures are going somewhere else now.
+			for (java.util.Map.Entry<String, OpenFrame> entry : mOpenFrames.entrySet()) {
+				if (MudstdFrame.needsFrameWindow(entry.getValue().content)) {
+					sendFrameEvent(FrameEvent.close(entry.getKey()));
+				}
+			}
+			return;
+		}
+		// The same events a rebuilt activity is given, for the same reason.
+		ArrayList<FrameEvent> replay = describeOpenFrames();
+		for (int i = 0; i < replay.size(); i++) {
+			sendFrameEvent(replay.get(i));
+		}
+	}
+
+	/** Options → GMCP → "Picture height in the text (lines)". */
+	public final void setFrameImageLines(final int lines) {
+		mFrameImageLines = InlineImageMarker.clampLines(lines);
+	}
+
+	/**
+	 * Print a picture into the game text where it arrived.
+	 *
+	 * <p>Two things go out and they are deliberately not one thing. The marker
+	 * goes down the text pipe, so it lands in the scrollback in its proper place
+	 * among the room descriptions. The picture itself goes to the UI's image
+	 * store as an ordinary frame event, because the text pipe is the wrong place
+	 * for tens of kilobytes of base64 and because a URL written into the text
+	 * would be found by the client's own link detection and underlined.
+	 *
+	 * <p>They can arrive in either order and it does not matter: the marker
+	 * draws nothing until the store has the picture, and the store tells the
+	 * window to repaint when it does.
+	 */
+	private void placeImageInText(final String frameId, final String spec) {
+		mInlineImageCounter++;
+		String key = InlineImageMarker.keyFor(frameId, mInlineImageCounter);
+		sendFrameEvent(FrameEvent.inline(key, spec));
+		noteRawToWindow(InlineImageMarker.encode(key, mFrameImageLines));
+	}
+
+	/**
+	 * Put bytes in the main window verbatim.
+	 *
+	 * <p>Unlike {@link #noteToWindow} this adds no newlines of its own: the
+	 * marker's layout is exact, and an extra line either side would move the
+	 * picture off the space reserved for it.
+	 */
+	private void noteRawToWindow(final String raw) {
+		if (mReportTo == null || raw == null || raw.length() == 0) {
+			return;
+		}
+		mReportTo.sendMessage(mReportTo.obtainMessage(Connection.MESSAGE_LUANOTE, raw));
+	}
+
+	/**
+	 * Hand one frame event to {@link Connection}, which forwards it to the UI.
+	 *
+	 * <p>A batch of one. Batching happens on the queue in {@code Connection},
+	 * not here: this is called from the connection thread as packets arrive, and
+	 * holding a packet back to see whether another follows it would mean
+	 * deciding how long to wait.
+	 */
+	private void sendFrameEvent(final FrameEvent event) {
+		if (mReportTo == null || event == null) {
+			return;
+		}
+		ArrayList<FrameEvent> one = new ArrayList<FrameEvent>(1);
+		one.add(event);
+		mReportTo.sendMessage(mReportTo.obtainMessage(
+				Connection.MESSAGE_FRAME_EVENT, FrameEvent.toJson(one)));
+	}
+
 	/** Put a line in the main window without running it past the triggers. */
 	private void noteToWindow(final String line) {
 		if (mReportTo == null || line == null) {
@@ -941,13 +1087,58 @@ public class Processor {
 				Connection.MESSAGE_LUANOTE, "\n" + line + "\n"));
 	}
 
-	/** Frame ids the server believes are open here. */
-	private final java.util.Set<String> mOpenFrames =
-			new java.util.LinkedHashSet<String>();
+	/**
+	 * What the server believes is open here, in the order it opened, with
+	 * everything needed to put it back on screen.
+	 *
+	 * <p>This used to be a set of ids, which was enough while a frame was only
+	 * ever described in words. A window has to be rebuilt after the activity is
+	 * destroyed, so the label, the shape and the last image stay too.
+	 */
+	private final java.util.LinkedHashMap<String, OpenFrame> mOpenFrames =
+			new java.util.LinkedHashMap<String, OpenFrame>();
+
+	/** One open frame, as much of it as we were told. */
+	private static final class OpenFrame {
+		String label = "";
+		String type = "";
+		String content = "";
+		int sizeChars;
+		/** The last {@code image} field the server sent, raw. May be empty. */
+		String image = "";
+	}
 
 	/** Frame ids the server believes are open, in the order they opened. */
 	public final ArrayList<String> getOpenFrames() {
-		return new ArrayList<String>(mOpenFrames);
+		return new ArrayList<String>(mOpenFrames.keySet());
+	}
+
+	/**
+	 * Every open frame as the events that would create it from nothing.
+	 *
+	 * <p>An {@code open} followed by its {@code image}, in the order they
+	 * opened, which is exactly what a UI that has just been rebuilt needs to
+	 * catch up.
+	 */
+	public final ArrayList<FrameEvent> describeOpenFrames() {
+		ArrayList<FrameEvent> out = new ArrayList<FrameEvent>();
+		if (mFrameImageInText) {
+			// Pictures went into the scrollback, and the scrollback is replayed
+			// by its own machinery. Rebuilding windows here would put a window
+			// on screen that the player never had.
+			return out;
+		}
+		for (java.util.Map.Entry<String, OpenFrame> entry : mOpenFrames.entrySet()) {
+			OpenFrame f = entry.getValue();
+			if (!MudstdFrame.needsFrameWindow(f.content)) {
+				continue;
+			}
+			out.add(FrameEvent.open(entry.getKey(), f.label, f.type, f.content, f.sizeChars));
+			if (f.image.length() > 0) {
+				out.add(FrameEvent.image(entry.getKey(), f.image));
+			}
+		}
+		return out;
 	}
 
 	/**
@@ -964,10 +1155,130 @@ public class Processor {
 	 *         telling a server a frame closed twice is worse than saying nothing.
 	 */
 	public final boolean closeFrameByUser(final String id) {
-		if (id == null || !mOpenFrames.remove(id)) {
+		OpenFrame closed = id == null ? null : mOpenFrames.remove(id);
+		if (closed == null) {
 			return false;
 		}
+		rememberClosed(id, closed);
+		// The window goes too, whichever end the close came from: .frame close
+		// leaves nothing on screen, and a close button does not leave the id in
+		// the list behind it.
+		sendFrameEvent(FrameEvent.close(id));
 		sendGmcpPacket(MudstdFrame.closedEvent(id, MudstdFrame.REASON_USER));
+		return true;
+	}
+
+	/**
+	 * Frames the player closed, kept in case they want them back.
+	 *
+	 * <p>Small on purpose. This is not a history — it is the handful of frames a
+	 * server is probably still feeding, so {@code .frame reopen} has a label, a
+	 * shape and a picture to work from rather than guesses.
+	 */
+	private final java.util.LinkedHashMap<String, OpenFrame> mClosedFrames =
+			new java.util.LinkedHashMap<String, OpenFrame>();
+
+	private static final int MAX_REMEMBERED_CLOSED_FRAMES = 8;
+
+	/** Frame ids the player has already been told are closed but still arriving. */
+	private final java.util.HashSet<String> mClosedFrameNoted = new java.util.HashSet<String>();
+
+	private void rememberClosed(final String id, final OpenFrame frame) {
+		mClosedFrames.remove(id);
+		mClosedFrames.put(id, frame);
+		while (mClosedFrames.size() > MAX_REMEMBERED_CLOSED_FRAMES) {
+			String oldest = mClosedFrames.keySet().iterator().next();
+			mClosedFrames.remove(oldest);
+			mClosedFrameNoted.remove(oldest);
+		}
+	}
+
+	/**
+	 * A picture for a frame that is not open here.
+	 *
+	 * <p>eden keeps sending {@code frame.image} for a frame it was told the player
+	 * closed — eight per step between two tiles — and each one used to be a line
+	 * in {@code gmcp.log} saying it had been dropped, which buried everything
+	 * else. Now the drop is said once per frame, in the window as well as the log,
+	 * and it says how to get the frame back: the player closed it, so quietly
+	 * putting it on screen again would be overruling them, and staying silent left
+	 * them with no way back except reconnecting.
+	 *
+	 * <p>The newest picture is kept while the frame is closed, so a reopen shows
+	 * where the character is standing now rather than where they were when they
+	 * shut it.
+	 */
+	private void noteImageForClosedFrame(final String id, final String raw) {
+		OpenFrame closed = mClosedFrames.get(id);
+		if (closed == null) {
+			// Never open here at all. That is the server's mistake, not a choice
+			// the player made, so it is logged as before — once per id.
+			if (mClosedFrameNoted.add(id)) {
+				logGmcp("INFO", "frame.image for unknown frame '" + id
+						+ "'; further images for it are dropped without a line each");
+			}
+			return;
+		}
+		closed.image = raw == null ? "" : raw;
+		if (!mClosedFrameNoted.add(id)) {
+			return;
+		}
+		logGmcp("INFO", "frame '" + id + "' is closed here and the server is still sending "
+				+ "images; dropping them. .frame reopen " + id + " brings it back");
+		noteToWindow("[frame " + id + "] you closed this frame; the server is still sending "
+				+ "pictures for it.\n[frame " + id + "] .frame reopen " + id
+				+ " brings it back.");
+	}
+
+	/**
+	 * Put back a frame the player closed while the server still believes in it.
+	 *
+	 * <p>{@code frame.opened} goes out again, which is the honest thing to send: as
+	 * far as the server is concerned this frame is open, and the pixel size it was
+	 * last told belonged to a window that no longer exists.
+	 *
+	 * @return false when nothing here remembers that id.
+	 */
+	public final boolean reopenFrameByUser(final String id) {
+		OpenFrame frame = id == null ? null : mClosedFrames.remove(id);
+		if (frame == null) {
+			return false;
+		}
+		mClosedFrameNoted.remove(id);
+		mOpenFrames.put(id, frame);
+		if (MudstdFrame.needsFrameWindow(frame.content) && !mFrameImageInText) {
+			sendFrameEvent(FrameEvent.open(id, frame.label, frame.type, frame.content,
+					frame.sizeChars));
+			if (frame.image.length() > 0) {
+				sendFrameEvent(FrameEvent.image(id, frame.image));
+			}
+		}
+		sendGmcpPacket(MudstdFrame.openedEvent(id, frame.sizeChars, 0, 0, 0));
+		return true;
+	}
+
+	/** Frame ids the player closed that the server has not been told to stop. */
+	public final ArrayList<String> getClosedFrames() {
+		return new ArrayList<String>(mClosedFrames.keySet());
+	}
+
+	/**
+	 * The window measured itself; tell the server how big the frame really is.
+	 *
+	 * <p>{@code frame.opened} goes out when the frame is accepted, before any
+	 * window exists, so its pixel size is zero. This is the correction, and it
+	 * is what {@code frame.resized} is for.
+	 *
+	 * @param id The frame id, exactly as the server spelled it.
+	 * @param widthPx Measured width; {@code heightPx} likewise.
+	 * @return false when that frame is not open, leaving the wire silent.
+	 */
+	public final boolean reportFrameSize(final String id, final int widthPx, final int heightPx) {
+		OpenFrame frame = id == null ? null : mOpenFrames.get(id);
+		if (frame == null) {
+			return false;
+		}
+		sendGmcpPacket(MudstdFrame.resizedEvent(id, frame.sizeChars, 0, widthPx, heightPx));
 		return true;
 	}
 

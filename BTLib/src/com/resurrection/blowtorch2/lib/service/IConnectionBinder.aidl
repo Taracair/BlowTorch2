@@ -171,4 +171,13 @@ interface IConnectionBinder {
 	void requestMapperUiArg(int action, String arg);
 	/** Consume the last UI arg set by requestMapperUiArg (UI process). */
 	String takeMapperUiArg();
+	// ---- mudstd.frame (protocol in the service; the window is in the UI) ----
+	/** Consume queued frame events as JSON (see FrameEvent). Never null. */
+	String takeFrameEvents();
+	/** Every open image frame as open+image events, for a UI that was rebuilt. */
+	String getOpenFramesJson();
+	/** The player closed a frame's window: sends frame.closed reason "user". */
+	boolean closeFrameByUser(String id);
+	/** The frame's window measured itself: sends frame.resized. */
+	void reportFrameSize(String id, int widthPx, int heightPx);
 }

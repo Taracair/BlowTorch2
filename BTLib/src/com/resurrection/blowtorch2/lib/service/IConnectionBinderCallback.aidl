@@ -69,4 +69,6 @@ interface IConnectionBinderCallback {
 	void mapperUi(int action);
 	/** Extra text window overlays changed (action typically Connection.MESSAGE_EXTRA_TEXT_CHANGED). */
 	void extraTextUi(int action);
+	/** mudstd.frame events are waiting; collect them with takeFrameEvents(). */
+	void frameUi(int action);
 }

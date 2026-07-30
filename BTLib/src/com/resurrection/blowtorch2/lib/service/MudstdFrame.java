@@ -44,16 +44,16 @@ public final class MudstdFrame {
 	/**
 	 * What we tell a server we can host.
 	 *
-	 * <p>Floating is the only geometry we have, and saying otherwise would be a
-	 * claim about the window system rather than about a feature. Both content
-	 * types are announced: terminal is shown, and image is accepted, unpacked
-	 * and reported in full even though nothing draws it yet.
+	 * <p>Floating is the only geometry announced. A frame can also be shown as a
+	 * drawer down from the top of the screen, but that is the player's choice
+	 * about presentation rather than a second thing to promise a server, and
+	 * widening the {@code type} array is a change to what a server can ask for.
+	 * There is an open question with the specification's author about what his
+	 * compatibility page matches on, and adding a type while that is unanswered
+	 * would confuse the answer.
 	 *
-	 * <p>That is deliberate. This package exists so the author of the
-	 * specification can develop the other half against a client that answers,
-	 * and a frame silently refused teaches him nothing. What arrives is
-	 * described precisely — see {@link #imageSummary} — so an accepted frame
-	 * never reads as a drawn one.
+	 * <p>Both content types are announced and both are now drawn: terminal as
+	 * text in the main window, image in a window of its own.
 	 */
 	public static String supportMessage() {
 		return MODULE + ".support {\"type\": [\"" + TYPE_FLOATING
@@ -66,9 +66,28 @@ public final class MudstdFrame {
 		return isKnownType(type) && isKnownContent(content);
 	}
 
-	/** True when we can actually put this frame's content in front of the player. */
+	/**
+	 * True when we can actually put this frame's content in front of the player.
+	 *
+	 * <p>Image content is drawn now, in a window of its own. Terminal content is
+	 * still text in the main window labelled with the frame id.
+	 *
+	 * <p>Type is not part of the test, and that is deliberate. Whether a frame
+	 * appears as a floating window or as a drawer down from the top is the
+	 * player's choice here, exactly as it is for BlowTorch's own extra text
+	 * windows — so a {@code docked} frame is as drawable as a {@code floating}
+	 * one. What goes on the wire in {@link #supportMessage()} stays
+	 * {@code floating} only: that is what we volunteer, and widening it is a
+	 * separate conversation with the specification's author.
+	 */
 	public static boolean canRender(final String type, final String content) {
-		return TYPE_FLOATING.equals(norm(type)) && CONTENT_TERMINAL.equals(norm(content));
+		String c = norm(content);
+		return CONTENT_TERMINAL.equals(c) || CONTENT_IMAGE.equals(c);
+	}
+
+	/** True when this frame's content wants a window of its own. */
+	public static boolean needsFrameWindow(final String content) {
+		return CONTENT_IMAGE.equals(norm(content));
 	}
 
 	/**
@@ -98,14 +117,10 @@ public final class MudstdFrame {
 		if (canRender(type, content)) {
 			return null;
 		}
-		String c = norm(content);
-		if (CONTENT_IMAGE.equals(c)) {
-			return "accepted; image content is received and reported but not drawn yet";
-		}
-		if (CONTENT_WEBVIEW.equals(c)) {
-			return "accepted; there is no webview, so its content is reported only";
-		}
-		return "accepted; treated as floating, since that is the only geometry there is";
+		// Everything else in the vocabulary is drawn, and anything outside it was
+		// already turned down by refusalFor before this is reached, so webview is
+		// the only case left.
+		return "accepted; there is no webview, so its content is reported only";
 	}
 
 	/**
@@ -132,6 +147,20 @@ public final class MudstdFrame {
 			return "url, " + trimmed;
 		}
 		return "unrecognised carrier, " + trimmed.length() + " chars";
+	}
+
+	/**
+	 * True when an image field carries a URL rather than the bytes themselves.
+	 *
+	 * <p>Worth telling apart because a URL is short enough to have already been
+	 * logged verbatim, while base64 is not and has to be described instead.
+	 */
+	public static boolean isUrlCarrier(final String image) {
+		if (image == null) {
+			return false;
+		}
+		String lower = image.trim().toLowerCase(Locale.US);
+		return lower.startsWith("http://") || lower.startsWith("https://");
 	}
 
 	public static boolean isKnownType(final String type) {

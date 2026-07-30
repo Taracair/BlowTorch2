@@ -584,16 +584,36 @@ public class TextTree {
 				if(intro == (byte)0x5D || intro == (byte)0x50
 						|| intro == (byte)0x5F || intro == (byte)0x5E) {
 					boolean done = false;
-					for(int j = i + 2; j < data.length; j++) {
+					// i moves onto the terminator below, so where the payload
+					// began has to be kept before that happens.
+					final int oscPayloadStart = i + 2;
+					int payloadEnd = -1;
+					for(int j = oscPayloadStart; j < data.length; j++) {
 						if(data[j] == 0x07) { // BEL
 							done = true;
+							payloadEnd = j;
 							i = j;
 							break;
 						}
 						if(data[j] == ESC && (j + 1) < data.length && data[j + 1] == (byte)0x5C) {
 							done = true;
+							payloadEnd = j;
 							i = j + 1;
 							break;
+						}
+					}
+					// One OSC sequence is ours: the marker that puts a picture into
+					// the text. Every other one is still skipped exactly as before.
+					// Riding on OSC is what makes an unrecognised marker disappear
+					// rather than print — see InlineImageMarker.
+					if(done && intro == (byte)0x5D && payloadEnd > oscPayloadStart) {
+						byte[] payload = new byte[payloadEnd - oscPayloadStart];
+						System.arraycopy(data, oscPayloadStart, payload, 0, payload.length);
+						com.resurrection.blowtorch2.lib.service.InlineImageMarker.Parsed m =
+								com.resurrection.blowtorch2.lib.service.InlineImageMarker.parse(
+										new String(payload, encoding));
+						if(m != null) {
+							tmp.setInlineImage(m.key, m.lines);
 						}
 					}
 					if(!done) {
@@ -842,10 +862,43 @@ public class TextTree {
 		}
 
 		protected LinkedList<Unit> mData;
-		
+
+		/**
+		 * A picture drawn over this line and the ones under it, or null.
+		 *
+		 * <p>Deliberately a field on the line rather than a new kind of
+		 * {@code Unit}. A Unit would have to be understood by every
+		 * {@code switch(u.type)} in the parser and the draw loop, and would be
+		 * asked how many characters wide it is — a question a picture has no
+		 * answer to. As a field it is invisible to all of that: the line stays
+		 * an ordinary empty line, so wrapping, selection, tap targets and the
+		 * scroll arithmetic keep working on it without knowing it is there.
+		 *
+		 * <p>Every line is still the same height. The picture covers whole
+		 * lines; it never makes one taller.
+		 */
+		private String inlineImageKey;
+		/** How many lines the picture covers, this one included. */
+		private int inlineImageLines;
+
 		public Line() {
 			mData = new LinkedList<Unit>();
 			breaks =0;
+		}
+
+		/** Mark this line as the top of a picture. See {@code InlineImageMarker}. */
+		public void setInlineImage(final String key, final int lines) {
+			this.inlineImageKey = key;
+			this.inlineImageLines = lines;
+		}
+
+		/** The picture's key in the UI image store, or null when there is none. */
+		public String getInlineImageKey() {
+			return inlineImageKey;
+		}
+
+		public int getInlineImageLines() {
+			return inlineImageLines;
 		}
 		
 		public void updateData() {

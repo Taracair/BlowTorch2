@@ -861,15 +861,33 @@ Helpers:
 
 Some servers can ask the client to open a window of their own — a stats panel, a
 map image — through the `mudstd.frame` GMCP package. It is **off by default**:
-Options → Manage modules…. Nothing is drawn in a frame yet; a frame's content
-arrives in the game window labelled `[frame <id>]`, and image content is
-reported rather than shown.
+Options → Manage modules….
 
-What is complete is the conversation. When a server opens a frame, BlowTorch
-answers `frame.opened`; when it asks for something it cannot have, BlowTorch
+**Pictures are drawn.** When a server sends an image frame you get the picture
+itself, and where it goes is your choice: Options → GMCP → **Pictures the server
+sends**.
+
+* **In a window of its own** (the default) — a small window over the game text.
+  Drag it by the ☰ handle, resize it from the ◢ corner, close it with the ×.
+  **Long-press its title** for a short menu: switch it to a drawer, change its
+  opacity, or close it. Where you leave a frame is where the next one opens.
+* **In the game text** — the picture is printed into the scrollback where it
+  arrived, next to the room description it belongs to, and scrolls away with it.
+  Set how tall it is with **Picture height in the text (lines)**.
+
+A picture that is still being fetched says *Loading…*, and one that could not be
+fetched says why. A blank box is the one thing it will not do.
+
+Text content (`frame.terminal`) still arrives in the game window labelled
+`[frame <id>]`. There is no webview, so a webview frame is reported rather than
+shown.
+
+The conversation is complete in both directions. When a server opens a frame,
+BlowTorch answers `frame.opened`, and `frame.resized` once the window has
+measured itself; when a server asks for something it cannot have, BlowTorch
 answers `frame.closed` with `reason: system` rather than going quiet. And when
-**you** are done with a frame, `.frame close` tells the server so, with
-`reason: user` — the event a close button would send once frames are drawn.
+**you** close a frame — the × or `.frame close` — the server is told, with
+`reason: user`.
 
 ```
 .frame                — what the server has open here
