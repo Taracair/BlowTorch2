@@ -525,8 +525,10 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case gmcp_suggest_modules:
-						// Default false; persist true so opt-in sticks.
-						if((Boolean)opt.getValue() != false) {
+						// Default true since 2.2.0; persist false so opting *out*
+						// sticks. Written the other way round, turning it off would
+						// silently come back on at the next load.
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;

@@ -40,8 +40,13 @@ public class Processor {
 	private boolean mLogGMCP = false;
 	/** When true, echo GMCP IN/OUT lines into the game window. */
 	private boolean mFeedGMCP = false;
-	/** Optional toast when server sends a module not in Supports.Set (default off). */
-	private boolean mSuggestGmcpModules = false;
+	/**
+	 * Toast when the server sends a module not in Supports.Set, and once on
+	 * connect for a supports list it advertises. On by default since 2.2.0 —
+	 * keep this in step with {@code gmcp_suggest_modules} in
+	 * ConnectionSettingsPlugin and with what ConnectionSetttingsParser persists.
+	 */
+	private boolean mSuggestGmcpModules = true;
 	/** Optional profile label for session-log GMCP lines. */
 	private String mLogProfile = "session";
 	/** Holdover sequence buffer. Used when a telnet negotation spans a transmission boundary. */

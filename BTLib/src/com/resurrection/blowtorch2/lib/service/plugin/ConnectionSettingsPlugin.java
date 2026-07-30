@@ -285,9 +285,9 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption gmcp_suggest = new BooleanOption();
 		gmcp_suggest.setTitle("Suggest modules when seen?");
-		gmcp_suggest.setDescription("Optional toast when the server sends a package family you have not declared in Supports.Set, and one line on connect if the server advertises a supports list of its own. Submodules of enabled parents (e.g. Char.Base under Char) do not trigger. Nothing is ever enabled for you. Off by default.");
+		gmcp_suggest.setDescription("Tell me when the server sends a package family I have not declared in Supports.Set, and once on connect if the server advertises a supports list of its own. Submodules of enabled parents (e.g. Char.Base under Char) do not trigger. Nothing is ever enabled for you. On by default; turn it off here.");
 		gmcp_suggest.setKey("gmcp_suggest_modules");
-		gmcp_suggest.setValue(false);
+		gmcp_suggest.setValue(true);
 		gmcpOptions.addOption(gmcp_suggest);
 
 		SettingsGroup mcpOptions = new SettingsGroup();
