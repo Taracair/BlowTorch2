@@ -214,11 +214,25 @@ public class MapperController {
 	private static final long MOVE_MEMORY_MS = 4000L;
 	private final android.os.Handler mAutosaveHandler =
 			new android.os.Handler(android.os.Looper.getMainLooper());
+	/**
+	 * The debounce timer runs on the main looper, so the save it triggers must
+	 * not touch disk there. {@link MapStore#saveAsync} builds the JSON here --
+	 * the map has to be read on the thread that owns it -- and hands only the
+	 * text to its own writer.
+	 */
 	private final Runnable mAutosaveRunnable = new Runnable() {
 		@Override
 		public void run() {
+			MudMap map = mMap;
+			if (map == null) {
+				return;
+			}
+			Context ctx = context();
+			if (ctx == null) {
+				return;
+			}
 			try {
-				save();
+				MapStore.saveAsync(ctx, map);
 			} catch (Exception ignored) {
 			}
 		}

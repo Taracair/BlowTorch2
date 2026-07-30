@@ -21,6 +21,7 @@ import android.content.Context;
 import android.text.TextUtils;
 
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
+import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 
 /**
  * Persist {@link MudMap} as versioned JSON under {@code /BlowTorch/maps/}.
@@ -124,12 +125,105 @@ public final class MapStore {
 		if (map == null) {
 			throw new IllegalArgumentException("map is null");
 		}
+		File file = fileFor(context, map);
+		return saveToFile(file, map);
+	}
+
+	/** Where this map is kept, by its own name. */
+	private static File fileFor(Context context, MudMap map) {
 		String name = map.getName();
 		if (TextUtils.isEmpty(name)) {
 			name = map.getId() != null ? map.getId() : "unnamed";
 		}
-		File file = mapFile(context, name);
-		return saveToFile(file, map);
+		return mapFile(context, name);
+	}
+
+	/**
+	 * Serialize the map now, put it on disk later.
+	 *
+	 * <p>For the autosave, which fires after every move the player makes and was
+	 * writing the whole map on the caller's thread -- the {@code :stellar} main
+	 * thread, the one carrying text to the window. StrictMode measured 174
+	 * violations through {@code writeFile} in one session; each one is small (15
+	 * ms at worst, 346 ms over the session) so this was never a freeze, but it is
+	 * disk on that thread once per room entered, and there is no reason for it.
+	 *
+	 * <p>The JSON is built here, on the calling thread, on purpose. Handing the
+	 * live {@link MudMap} to another thread would race the mapper mutating it --
+	 * the same mutation that asked for this save. Building the text is memory
+	 * work; only the file open goes elsewhere.
+	 *
+	 * <p>Repeated saves of one map coalesce: a burst of moves costs one write of
+	 * the newest state, not one write per move.
+	 *
+	 * @param context Used to find the maps directory; a null map is ignored.
+	 * @param map The map to persist.
+	 */
+	public static void saveAsync(Context context, MudMap map) throws JSONException {
+		if (map == null) {
+			return;
+		}
+		File file = fileFor(context, map);
+		if (file == null) {
+			return;
+		}
+		String json = toJson(map).toString(2);
+		PENDING.put(file.getAbsolutePath(), json);
+		startWriter();
+		if (!WRITE_QUEUE.offer(file)) {
+			// Unbounded queue; this cannot happen, but losing a map silently is
+			// the one outcome worth a line in the log.
+			BlowTorchLogger.logError(context, "MapStore",
+					"Could not queue a map save: " + file.getAbsolutePath());
+		}
+	}
+
+	/** Newest unwritten JSON per map file. See {@link #saveAsync}. */
+	private static final java.util.concurrent.ConcurrentHashMap<String, String> PENDING =
+			new java.util.concurrent.ConcurrentHashMap<String, String>();
+
+	private static final java.util.concurrent.BlockingQueue<File> WRITE_QUEUE =
+			new java.util.concurrent.LinkedBlockingQueue<File>();
+
+	private static Thread sWriter;
+
+	private static synchronized void startWriter() {
+		if (sWriter != null) {
+			return;
+		}
+		sWriter = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				writerLoop();
+			}
+		}, "bt-map-save");
+		sWriter.setDaemon(true);
+		sWriter.setPriority(Thread.MIN_PRIORITY);
+		sWriter.start();
+	}
+
+	private static void writerLoop() {
+		while (true) {
+			File file;
+			try {
+				file = WRITE_QUEUE.take();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+			// Null means an earlier pass already wrote a newer version of this
+			// map: that is the coalescing, and the reason the queue may hold
+			// more entries than there is work.
+			String json = PENDING.remove(file.getAbsolutePath());
+			if (json == null) {
+				continue;
+			}
+			try {
+				writeFile(file, json);
+			} catch (IOException e) {
+				BlowTorchLogger.logThrowable("MapStore.saveAsync", e);
+			}
+		}
 	}
 
 	/**
