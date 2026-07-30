@@ -257,6 +257,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public static final int MESSAGE_REFRESH_EXTRA_TEXT_SCROLL = 927;
 	/** Extra text overlays: sync after Connection slot mutate / settings change. */
 	protected static final int MESSAGE_EXTRA_TEXT_UI = 924;
+	/** mudstd.frame events are waiting in the service; collect and apply them. */
+	protected static final int MESSAGE_FRAME_UI = 928;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -281,6 +283,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MapperOverlayController mapperOverlay;
 	private MapperController mapperController;
 	private ExtraTextOverlayController extraTextOverlay;
+	/** Windows for mudstd.frame image frames; built on demand, see ensureFrameOverlays(). */
+	private FrameOverlayController frameOverlay;
 	/** Cached extra-text slots from settings (UI process; Connection holds service copy). */
 	private final java.util.ArrayList<ExtraTextSlot> extraTextSlotsCache =
 			new java.util.ArrayList<ExtraTextSlot>();
@@ -409,6 +413,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				public void run() {
 					ensureMapperOverlay();
 					ensureExtraTextOverlays();
+					restoreOpenFrames();
 				}
 			});
 			//finishInitializiation();
@@ -704,6 +709,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_EXTRA_TEXT_UI:
 					MainWindow.this.handleExtraTextUiAction(msg.arg1);
+					break;
+				case MESSAGE_FRAME_UI:
+					MainWindow.this.handleFrameUiAction();
 					break;
 				case MESSAGE_MARKSETTINGSDIRTY:
 					MainWindow.this.markSettingsDirty();
@@ -3384,6 +3392,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		public void extraTextUi(int action) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_EXTRA_TEXT_UI, action, 0));
 		}
+
+		@Override
+		public void frameUi(int action) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_FRAME_UI, action, 0));
+		}
 	};
 	
 	boolean windowsInitialized = false;
@@ -3954,6 +3967,95 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		extraTextOverlay.sync();
 	}
 
+	/**
+	 * Build the frame overlay controller if it is not up yet.
+	 *
+	 * <p>Nothing here costs anything until a server opens a frame, which most
+	 * never will — {@code mudstd.frame} is off unless the player enables it.
+	 */
+	private void ensureFrameOverlays() {
+		if (frameOverlay != null) {
+			return;
+		}
+		frameOverlay = new FrameOverlayController(new FrameOverlayController.Host() {
+			@Override
+			public MainWindow getMainWindow() {
+				return MainWindow.this;
+			}
+
+			@Override
+			public void closeFrameOnServer(String id) {
+				try {
+					if (service != null) {
+						service.closeFrameByUser(id);
+					}
+				} catch (RemoteException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"MainWindow.closeFrameOnServer", e);
+				}
+			}
+
+			@Override
+			public void reportFrameSize(String id, int widthPx, int heightPx) {
+				try {
+					if (service != null) {
+						service.reportFrameSize(id, widthPx, heightPx);
+					}
+				} catch (RemoteException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"MainWindow.reportFrameSize", e);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Collect the frame events the service is holding and put them on screen.
+	 *
+	 * <p>The service sends a nudge, not the events themselves, so several
+	 * packets that arrived close together are drained in one pass — a server
+	 * opening a frame and filling it sends {@code open} then {@code image} back
+	 * to back, and laying out twice for that is work for nothing.
+	 */
+	private void handleFrameUiAction() {
+		ensureFrameOverlays();
+		String json = null;
+		try {
+			if (service != null) {
+				json = service.takeFrameEvents();
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.handleFrameUiAction", e);
+			return;
+		}
+		frameOverlay.apply(com.resurrection.blowtorch2.lib.service.FrameEvent.parse(json));
+	}
+
+	/**
+	 * Put back frames the server still believes are open.
+	 *
+	 * <p>The activity is destroyed and rebuilt on a rotation or a return from
+	 * the launcher while the service and its connection carry straight on. The
+	 * server was told the frame opened and has had no reason to send it again,
+	 * so without this the window would be gone and only the server would think
+	 * otherwise.
+	 */
+	private void restoreOpenFrames() {
+		ensureFrameOverlays();
+		String json = null;
+		try {
+			if (service != null) {
+				json = service.getOpenFramesJson();
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.restoreOpenFrames", e);
+			return;
+		}
+		frameOverlay.apply(com.resurrection.blowtorch2.lib.service.FrameEvent.parse(json));
+	}
+
 	private void handleExtraTextUiAction(int action) {
 		// action is typically Connection.MESSAGE_EXTRA_TEXT_CHANGED (48).
 		try {
@@ -4146,6 +4248,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void cleanupWindows() {
 		if (extraTextOverlay != null) {
 			extraTextOverlay.detach();
+		}
+		if (frameOverlay != null) {
+			frameOverlay.detach();
+			frameOverlay = null;
 		}
 		RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
 		if(mWindows == null || rl == null) return;

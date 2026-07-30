@@ -632,6 +632,20 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	/** Tell the UI process that mudstd.frame events are waiting to be collected. */
+	public final void notifyFrameUi(final int action) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).frameUi(action);
+			} catch (RemoteException e) {
+				// UI may have died; skip
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.frame ui broadcast", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	/** Tell the UI process to sync extra text window overlays. */
 	public final void notifyExtraTextUi(final int action) {
 		final int n = mCallbacks.beginBroadcast();

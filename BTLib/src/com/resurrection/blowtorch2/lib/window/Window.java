@@ -440,11 +440,26 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	@Override
 	protected final void onAttachedToWindow() {
 		windowShowing = true;
+		// Registered here rather than the first time a picture is seen in
+		// onDraw. Doing it from the draw pass meant mutating the store's
+		// listener list from inside a draw, and the store iterates that same
+		// list to announce a load — the exact shape of bug the wait(5) retry
+		// loop in onDraw was built to paper over.
+		if (!mInlineImageListening) {
+			FrameImageStore.get().addListener(mInlineImageRepaint);
+			mInlineImageListening = true;
+		}
 	}
 	
 	@Override
 	protected final void onDetachedFromWindow() {
 		windowShowing = false;
+		// The image store outlives any one Window — it is process-wide — so a
+		// listener left on it would hold this view and its Activity alive.
+		if (mInlineImageListening) {
+			FrameImageStore.get().removeListener(mInlineImageRepaint);
+			mInlineImageListening = false;
+		}
 	}
 	
 
@@ -1206,6 +1221,80 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return cursor - x;
 	}
 
+	/** Reused by {@link #drawInlineImage}; onDraw must not allocate per frame. */
+	private final android.graphics.Rect mInlineImageSrc = new android.graphics.Rect();
+	private final android.graphics.RectF mInlineImageDst = new android.graphics.RectF();
+	private android.graphics.Paint mInlineImagePaint;
+	/** True once this Window has asked the image store to tell it about loads. */
+	private boolean mInlineImageListening;
+
+	/**
+	 * Draw a picture over the block of lines a marker reserved for it.
+	 *
+	 * <p>The block is the marker's own line and the blank lines after it, so its
+	 * height is a whole number of line heights and no line is ever a different
+	 * size from its neighbours. That is the whole trick: scrolling, selection,
+	 * link hit boxes and the scrollbar all assume a uniform line height, and
+	 * this leaves every one of those assumptions true.
+	 *
+	 * <p>Both directions are handled. With "newest at top" on, the lines after
+	 * the marker are drawn <i>above</i> it, so the top of the box is whichever
+	 * end came out smaller on screen rather than the marker's own line.
+	 *
+	 * <p>Nothing is drawn while the picture is still loading, or if it never
+	 * arrived. The reserved lines are simply blank, which is what they already
+	 * were.
+	 */
+	private void drawInlineImage(final Canvas c, final Line line, final float baselineY) {
+		String key = line.getInlineImageKey();
+		if (key == null) {
+			return;
+		}
+		android.graphics.Bitmap bmp = FrameImageStore.get().getBitmap(key);
+		if (bmp == null || bmp.isRecycled()) {
+			return;
+		}
+		int lines = line.getInlineImageLines();
+		if (lines < 1) {
+			lines = 1;
+		}
+		float thisEnd = cellTop(baselineY);
+		float otherEnd = cellTop(baselineY + ((lines - 1) * mPrefLineSize));
+		float top = Math.min(thisEnd, otherEnd);
+		float height = lines * mPrefLineSize;
+		// A hair of margin so a light picture does not run into the screen edge.
+		float left = 2 * mDensity;
+		float width = mWidth - (left * 2);
+		if (width <= 0 || height <= 0) {
+			return;
+		}
+
+		// Fit inside the box and keep the proportions. A map stretched to the
+		// shape of a text block is a map you cannot read distances off.
+		float scale = Math.min(width / bmp.getWidth(), height / bmp.getHeight());
+		float drawW = bmp.getWidth() * scale;
+		float drawH = bmp.getHeight() * scale;
+		float drawX = left + ((width - drawW) / 2f);
+		float drawY = top + ((height - drawH) / 2f);
+
+		if (mInlineImagePaint == null) {
+			mInlineImagePaint = new android.graphics.Paint();
+			mInlineImagePaint.setFilterBitmap(true);
+			mInlineImagePaint.setAntiAlias(true);
+		}
+		mInlineImageSrc.set(0, 0, bmp.getWidth(), bmp.getHeight());
+		mInlineImageDst.set(drawX, drawY, drawX + drawW, drawY + drawH);
+		c.drawBitmap(bmp, mInlineImageSrc, mInlineImageDst, mInlineImagePaint);
+	}
+
+	/** Repaint when a picture finishes loading after the line was already drawn. */
+	private final FrameImageStore.Listener mInlineImageRepaint = new FrameImageStore.Listener() {
+		@Override
+		public void onFrameImageChanged(String key) {
+			postInvalidate();
+		}
+	};
+
 	/** Top of the ANSI background / block cell for baseline {@code y}. */
 	private float cellTop(final float baselineY) {
 		final float y = screenBaselineY(baselineY);
@@ -1925,8 +2014,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
 				int searchPlainPos = 0;
-				
-				
+
+				// A picture the server sent, drawn over this line and the blank
+				// ones under it. Before the text, so a line that somehow has both
+				// still shows its text on top rather than under.
+				if (l.getInlineImageKey() != null) {
+					drawInlineImage(c, l, y);
+				}
+
+
 				if (mCenterJustify) {
 					//center justify.
 

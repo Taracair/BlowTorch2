@@ -290,6 +290,22 @@ public class ConnectionSettingsPlugin extends Plugin {
 		gmcp_suggest.setValue(true);
 		gmcpOptions.addOption(gmcp_suggest);
 
+		ListOption frame_images = new ListOption();
+		frame_images.setTitle("Pictures the server sends");
+		frame_images.setDescription("Where a mudstd.frame image frame is drawn. In a floating separate window it can be moved, resized and closed, and it stays put while the text scrolls. In the game text it scrolls away with the room it belongs to, which suits a map of where you are standing. Switching between the two takes effect at once, on frames already open. Needs mudstd.frame in Manage modules….");
+		frame_images.setKey("frame_image_placement");
+		frame_images.setValue(new Integer(0));
+		frame_images.addItem("In a floating separate window");
+		frame_images.addItem("In the game text");
+		gmcpOptions.addOption(frame_images);
+
+		IntegerOption frame_image_lines = new IntegerOption();
+		frame_image_lines.setTitle("Picture height in the text (lines)");
+		frame_image_lines.setDescription("How many lines of the game text a picture takes up when it is drawn there. The picture keeps its proportions inside that height. Only used when pictures go in the game text.");
+		frame_image_lines.setKey("frame_image_lines");
+		frame_image_lines.setValue(new Integer(12));
+		gmcpOptions.addOption(frame_image_lines);
+
 		SettingsGroup mcpOptions = new SettingsGroup();
 		mcpOptions.setTitle("MCP Options");
 		mcpOptions.setDescription("Mud Client Protocol (#$# in-band). Used by some MOOs — different from GMCP. Off by default.");

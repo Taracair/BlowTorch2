@@ -139,6 +139,35 @@ final class ConnectionGmcp {
 			}
 		} catch (Exception ignored) {
 		}
+		// Where pictures go, and how tall they are when they go in the text.
+		// Both are read here rather than only from the settings listener, so a
+		// profile that was saved with them set arrives at the Processor on
+		// connect instead of only after the player next opens Options.
+		try {
+			Object opt = host.mSettings.getSettings().getOptions()
+					.findOptionByKey("frame_image_placement");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption
+					&& host.mProcessor != null) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption)
+						opt).getValue();
+				host.mProcessor.setFrameImageInText(
+						(val instanceof Integer) && ((Integer) val).intValue() == 1);
+			}
+		} catch (Exception ignored) {
+		}
+		try {
+			Object opt = host.mSettings.getSettings().getOptions()
+					.findOptionByKey("frame_image_lines");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption
+					&& host.mProcessor != null) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption)
+						opt).getValue();
+				if (val instanceof Integer) {
+					host.mProcessor.setFrameImageLines(((Integer) val).intValue());
+				}
+			}
+		} catch (Exception ignored) {
+		}
 		host.applyMudProtocolFlags();
 	}
 
@@ -215,6 +244,19 @@ final class ConnectionGmcp {
 	void doSetGmcpSuggestModules(final Boolean value) {
 		if (host.mProcessor != null) {
 			host.mProcessor.setSuggestGmcpModules(value != null && value.booleanValue());
+		}
+	}
+
+	/** 0 = a window of its own, 1 = in the game text. */
+	void doSetFrameImagePlacement(final Integer value) {
+		if (host.mProcessor != null) {
+			host.mProcessor.setFrameImageInText(value != null && value.intValue() == 1);
+		}
+	}
+
+	void doSetFrameImageLines(final Integer value) {
+		if (host.mProcessor != null && value != null) {
+			host.mProcessor.setFrameImageLines(value.intValue());
 		}
 	}
 }

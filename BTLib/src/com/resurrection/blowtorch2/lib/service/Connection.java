@@ -180,7 +180,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * (obj = JSON body String; module name in Bundle {@code MODULE}).
 	 */
 	public static final int MESSAGE_GMCP_EXTRA_TEXT = 49;
-	
+
+	/**
+	 * One {@code mudstd.frame} event on its way to the UI process
+	 * (obj = JSON from {@link FrameEvent#toJson}).
+	 *
+	 * <p>It goes through the handler rather than straight from {@link Processor}
+	 * so that the queue that owns everything else about this connection owns
+	 * this too: the connection thread is the one reading the socket, and a frame
+	 * is not worth blocking it for.
+	 */
+	public static final int MESSAGE_FRAME_EVENT = 50;
+
 	/** Sent from various sources, containing a string to be sent to 
 	 * the server in the selected encoding. */
 	public static final int MESSAGE_SENDDATA_STRING = 20;
@@ -694,6 +705,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					String module = msg.getData() != null
 							? msg.getData().getString("MODULE") : null;
 					routeGmcpToExtraWindows(module, (String) msg.obj);
+				}
+				break;
+			case MESSAGE_FRAME_EVENT:
+				if (msg.obj instanceof String) {
+					queueFrameEvents((String) msg.obj);
 				}
 				break;
 			case MESSAGE_INVALIDATEWINDOWTEXT:
@@ -3806,6 +3822,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case gmcp_suggest_modules:
 				mGmcp.doSetGmcpSuggestModules((Boolean) o.getValue());
 				break;
+			case frame_image_placement:
+				mGmcp.doSetFrameImagePlacement((Integer) o.getValue());
+				break;
+			case frame_image_lines:
+				mGmcp.doSetFrameImageLines((Integer) o.getValue());
+				break;
 			case use_mcp:
 				this.doSetUseMCP((Boolean) o.getValue());
 				break;
@@ -4677,6 +4699,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		gmcp_feed,
 		/** Toast when an unseen module arrives (opt-in). */
 		gmcp_suggest_modules,
+		/** Where a mudstd.frame picture is drawn: 0 its own window, 1 the game text. */
+		frame_image_placement,
+		/** How many lines of game text a picture takes when drawn there. */
+		frame_image_lines,
 		/** Use Mud Client Protocol (#$#). */
 		use_mcp,
 		/** MCP packages string for negotiate. */
@@ -5493,6 +5519,100 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mService != null) {
 			mService.notifyExtraTextUi(action);
 		}
+	}
+
+	/**
+	 * Frame events waiting for the UI process to collect them.
+	 *
+	 * <p>Written on the connection handler thread and drained on a binder
+	 * thread, so it is synchronized on itself and nothing else touches it.
+	 */
+	private final ArrayList<FrameEvent> mPendingFrameEvents = new ArrayList<FrameEvent>();
+
+	/**
+	 * How many events we will hold for a UI that is not collecting them.
+	 *
+	 * <p>The UI is told about every batch, so a queue this long means nobody is
+	 * listening — the activity is gone, or it never bound. Growing without a
+	 * bound in that case would turn a server that pushes map images into a slow
+	 * leak in the service process, which outlives the window.
+	 */
+	private static final int MAX_PENDING_FRAME_EVENTS = 64;
+
+	/** Queue a batch from {@link Processor} and prod the UI. */
+	private void queueFrameEvents(final String json) {
+		ArrayList<FrameEvent> batch = FrameEvent.parse(json);
+		if (batch.isEmpty()) {
+			return;
+		}
+		synchronized (mPendingFrameEvents) {
+			mPendingFrameEvents.addAll(batch);
+			while (mPendingFrameEvents.size() > MAX_PENDING_FRAME_EVENTS) {
+				// Oldest first: a stale open matters less than the image that
+				// was meant to fill it.
+				mPendingFrameEvents.remove(0);
+			}
+		}
+		if (mService != null) {
+			mService.notifyFrameUi(MESSAGE_FRAME_EVENT);
+		}
+	}
+
+	/**
+	 * Hand the queued frame events to the UI process and forget them.
+	 *
+	 * @return JSON for {@link FrameEvent#parse}; never null.
+	 */
+	public final String takeFrameEvents() {
+		ArrayList<FrameEvent> batch;
+		synchronized (mPendingFrameEvents) {
+			if (mPendingFrameEvents.isEmpty()) {
+				return "[]";
+			}
+			batch = new ArrayList<FrameEvent>(mPendingFrameEvents);
+			mPendingFrameEvents.clear();
+		}
+		return FrameEvent.toJson(batch);
+	}
+
+	/**
+	 * The player closed a frame's window.
+	 *
+	 * <p>Same path as {@code .frame close <id>} — see
+	 * {@link Processor#closeFrameByUser} — so the server sees the one event the
+	 * specification defines for this, whichever way the player did it.
+	 */
+	public final boolean closeFrameByUser(final String id) {
+		Processor p = getProcessor();
+		if (p == null) {
+			return false;
+		}
+		return p.closeFrameByUser(id);
+	}
+
+	/** The frame's window measured itself — see {@link Processor#reportFrameSize}. */
+	public final void reportFrameSize(final String id, final int widthPx, final int heightPx) {
+		Processor p = getProcessor();
+		if (p != null) {
+			p.reportFrameSize(id, widthPx, heightPx);
+		}
+	}
+
+	/**
+	 * Every frame currently open, as an {@code open} event each.
+	 *
+	 * <p>The UI activity can be destroyed and rebuilt (a rotation, a return from
+	 * the launcher) while the service and its connection carry on. Without this
+	 * the rebuilt UI would show nothing until the server happened to send
+	 * another frame, and the player would have lost a window the server still
+	 * believes is on screen.
+	 */
+	public final String getOpenFramesJson() {
+		Processor p = getProcessor();
+		if (p == null) {
+			return "[]";
+		}
+		return FrameEvent.toJson(p.describeOpenFrames());
 	}
 
 	/** Snapshot of configured extra text slots (never null; may be empty). */

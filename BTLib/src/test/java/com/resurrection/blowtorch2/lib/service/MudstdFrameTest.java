@@ -64,24 +64,41 @@ public class MudstdFrameTest {
 		assertFalse(MudstdFrame.canHost("floating", "video"));
 	}
 
-	/** Accepting is not drawing, and the two must not be confused. */
+	/**
+	 * Terminal and image are both drawn now; webview is still only described.
+	 *
+	 * <p>This test used to be called {@code onlyFloatingTerminalIsActuallyDrawn}
+	 * and asserted {@code canRender("floating", "image")} was false. That was
+	 * true when it was written and is not any more: image content gets a window
+	 * of its own. Type dropped out of the test at the same time — whether a
+	 * frame is shown floating or as a top drawer is the player's choice, so a
+	 * docked frame is no less drawable.
+	 */
 	@Test
-	public void onlyFloatingTerminalIsActuallyDrawn() {
+	public void terminalAndImageAreDrawnAndWebviewIsNot() {
 		assertTrue(MudstdFrame.canRender("floating", "terminal"));
-		assertFalse(MudstdFrame.canRender("floating", "image"));
-		assertFalse(MudstdFrame.canRender("docked", "terminal"));
+		assertTrue(MudstdFrame.canRender("floating", "image"));
+		assertTrue(MudstdFrame.canRender("docked", "terminal"));
+		assertFalse(MudstdFrame.canRender("floating", "webview"));
+	}
+
+	/** Only image content wants a window of its own; terminal is text. */
+	@Test
+	public void onlyImageContentAsksForAWindow() {
+		assertTrue(MudstdFrame.needsFrameWindow("image"));
+		assertFalse(MudstdFrame.needsFrameWindow("terminal"));
+		assertFalse(MudstdFrame.needsFrameWindow("webview"));
 	}
 
 	/** An accepted frame that cannot be drawn has to say so in words. */
 	@Test
 	public void acceptedFramesAdmitWhatTheyAreNotDoing() {
 		assertNull(MudstdFrame.acceptedButNotDrawn("floating", "terminal"));
-		assertTrue(MudstdFrame.acceptedButNotDrawn("floating", "image")
-				.contains("not drawn"));
+		assertNull(MudstdFrame.acceptedButNotDrawn("floating", "image"));
 		assertTrue(MudstdFrame.acceptedButNotDrawn("floating", "webview")
 				.contains("no webview"));
-		assertTrue(MudstdFrame.acceptedButNotDrawn("docked", "terminal")
-				.contains("floating"));
+		assertTrue(MudstdFrame.acceptedButNotDrawn("docked", "webview")
+				.contains("no webview"));
 	}
 
 	/** Only vocabulary outside the specification is refused now. */
@@ -104,6 +121,23 @@ public class MudstdFrameTest {
 				MudstdFrame.imageSummary("http://example.org/map.png"));
 		assertEquals("no image field", MudstdFrame.imageSummary(""));
 		assertTrue(MudstdFrame.imageSummary("???").contains("unrecognised"));
+	}
+
+	/**
+	 * The carrier test that decides whether a summary line is worth writing.
+	 *
+	 * <p>A URL is already in the {@code IN} line above it in gmcp.log; base64 is
+	 * not, and never will be. eden sends eight images per step between two tiles,
+	 * so the difference is half the volume of the log taranion reads.
+	 */
+	@Test
+	public void tellsUrlCarrierFromBase64() {
+		assertTrue(MudstdFrame.isUrlCarrier("http://eden-test.example:4080/x/surrounding.png"));
+		assertTrue(MudstdFrame.isUrlCarrier("HTTPS://example.org/map.png"));
+		assertTrue(MudstdFrame.isUrlCarrier("  http://example.org/map.png  "));
+		assertFalse(MudstdFrame.isUrlCarrier("base64:AAAA"));
+		assertFalse(MudstdFrame.isUrlCarrier(""));
+		assertFalse(MudstdFrame.isUrlCarrier(null));
 	}
 
 	private static String repeat(String s, int n) {

@@ -16,11 +16,11 @@ import com.resurrection.blowtorch2.lib.service.Processor;
  * server could open a frame here and never learn the person reading it was
  * done. That is the missing half this command supplies.
  *
- * <p>It is a command rather than a close button because nothing draws a frame
- * yet: frame content is described in the main window. The event on the wire is
- * the one a close button would send, which is the half a server author has to
- * write against, and it can be replaced by a button later without the server
- * noticing.
+ * <p>An image frame now has a close button of its own, and it sends this same
+ * event — the command was written first, deliberately, so that the half a
+ * server author writes against did not change when the button appeared. The
+ * command stays because it also closes frames that have no window: text
+ * content, and anything a server opened that never sent content at all.
  *
  * <p>{@code .window hide/show} is a different thing entirely — that is our own
  * extra text windows, not server-opened frames.
@@ -54,6 +54,9 @@ public class FrameCommand extends SpecialCommand {
 		if (sub.equals("close") || sub.equals("shut")) {
 			return doClose(c, rest);
 		}
+		if (sub.equals("reopen") || sub.equals("open")) {
+			return doReopen(c, rest);
+		}
 		c.sendDataToWindow(getErrorMessage("Frame usage",
 				"Unknown subcommand '" + sub + "'.\n" + helpText()));
 		return null;
@@ -81,8 +84,18 @@ public class FrameCommand extends SpecialCommand {
 		for (String id : open) {
 			sb.append("  ").append(id).append("\n");
 		}
-		sb.append("Close one with .frame close <id>. Their content is shown in this\n");
-		sb.append("window labelled [frame <id>]; nothing is drawn in a frame yet.\n");
+		sb.append("Close one with .frame close <id>, or with the × on the frame\n");
+		sb.append("itself. A picture is drawn in a floating separate window, or in\n");
+		sb.append("the game text — Options → GMCP → Pictures the server sends. Text\n");
+		sb.append("content still appears in this window labelled [frame <id>].\n");
+		ArrayList<String> closed = p.getClosedFrames();
+		if (!closed.isEmpty()) {
+			sb.append("Closed here but still being fed by the server: ");
+			for (int i = 0; i < closed.size(); i++) {
+				sb.append(i > 0 ? ", " : "").append(closed.get(i));
+			}
+			sb.append("\n.frame reopen <id> puts one back.\n");
+		}
 		c.sendDataToWindow(sb.toString());
 		return null;
 	}
@@ -131,6 +144,68 @@ public class FrameCommand extends SpecialCommand {
 		return null;
 	}
 
+	/**
+	 * Put back a frame the player closed while the server kept feeding it.
+	 *
+	 * <p>Not in the specification, and it does not need to be: the client closing
+	 * a frame is a message to the server, and a server that carries on sending
+	 * pictures has not acted on it. eden does exactly that. Without this the only
+	 * way back to a frame closed by mistake is to reconnect.
+	 */
+	private Object doReopen(Connection c, String rest) {
+		Processor p = c.getProcessor();
+		if (p == null) {
+			c.sendDataToWindow(getErrorMessage("Frame reopen", "Not connected."));
+			return null;
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("\n").append(Colorizer.getWhiteColor());
+		ArrayList<String> closed = p.getClosedFrames();
+		if (rest.length() == 0) {
+			if (closed.isEmpty()) {
+				sb.append("No frame here is waiting to be reopened.\n");
+				sb.append("Only a frame you closed yourself can come back, and only\n");
+				sb.append("while the server still believes it is open.\n");
+			} else {
+				sb.append("Which frame? These can come back:\n");
+				for (String id : closed) {
+					sb.append("  ").append(id).append("\n");
+				}
+			}
+			c.sendDataToWindow(sb.toString());
+			return null;
+		}
+		if (rest.equalsIgnoreCase("all")) {
+			if (closed.isEmpty()) {
+				sb.append("No frame here is waiting to be reopened.\n");
+				c.sendDataToWindow(sb.toString());
+				return null;
+			}
+			int back = 0;
+			for (String id : closed) {
+				if (p.reopenFrameByUser(id)) {
+					back++;
+				}
+			}
+			sb.append("Reopened ").append(back);
+			sb.append(back == 1 ? " frame" : " frames");
+			sb.append(", and told the server each one is open again.\n");
+			c.sendDataToWindow(sb.toString());
+			return null;
+		}
+		if (p.reopenFrameByUser(rest)) {
+			sb.append("Reopened frame '").append(rest);
+			sb.append("' — sent ").append(MudstdFrame.MODULE).append(".opened again.\n");
+			sb.append("The last picture the server sent for it is already there.\n");
+		} else {
+			sb.append("No closed frame '").append(rest).append("' to reopen. ");
+			sb.append("Ids are case-sensitive;\n.frame reopen on its own lists what can come "
+					+ "back.\n");
+		}
+		c.sendDataToWindow(sb.toString());
+		return null;
+	}
+
 	private String helpText() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
@@ -139,6 +214,8 @@ public class FrameCommand extends SpecialCommand {
 		sb.append("  .frame list          — the same\n");
 		sb.append("  .frame close <id>    — close it and tell the server you did\n");
 		sb.append("  .frame close all     — close every one\n");
+		sb.append("  .frame reopen <id>   — put back one you closed\n");
+		sb.append("  .frame reopen        — what can come back\n");
 		sb.append("Not the same as .window, which is BlowTorch's own extra text\n");
 		sb.append("windows. A frame is asked for by the server.\n");
 		return sb.toString();
