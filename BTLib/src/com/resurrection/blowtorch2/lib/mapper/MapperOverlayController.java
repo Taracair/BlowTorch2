@@ -179,24 +179,42 @@ public class MapperOverlayController
 	private boolean visibilityRestored;
 
 	/**
-	 * Which world this preference belongs to.
+	 * Which world these preferences belong to.
 	 *
-	 * <p>Keyed on the map name, which is one map per world now. Whether the map
-	 * is showing was a single global flag, so opening it on one MUD opened it on
-	 * every other one too.
+	 * <p>This used to be the map's name, on the reasoning that there is one map
+	 * per world. Two things were wrong with that.
 	 *
-	 * @return Per-world key, or null while the map is still unknown.
+	 * <p><b>The name arrives too late to be useful.</b> In this process the map
+	 * is only known once a snapshot comes back from {@code :stellar}, and the
+	 * snapshot is pulled when the overlay opens. So {@link #restoreVisibility}
+	 * ran with no key, deferred itself, and was never reached again while the
+	 * map stayed shut — the map could not be put back because putting it back
+	 * was what would have told us to. The player had to open it by hand on every
+	 * connect, which is the decision this preference exists to remember.
+	 *
+	 * <p><b>The name is not stable.</b> Loading another map, renaming one, or
+	 * {@code openMapForHost} adopting a legacy file all change it, and geometry
+	 * saved under the old name is then never found again.
+	 *
+	 * <p>The host is the world's identity: it is on the intent before anything
+	 * has connected, and it does not move. Per world for the same reason as
+	 * before — a map open on one MUD should not open it on every other.
+	 *
+	 * <p>The {@code @} keeps these apart from the old name-keyed entries, since
+	 * maps are commonly named after their host. Those old entries are left where
+	 * they are rather than migrated: the geometry among them was never restored
+	 * anyway, and one preference re-learned the first time the player moves or
+	 * closes the map is cheaper than a migration that has to guess which map
+	 * name belonged to which world.
+	 *
+	 * @return Per-world key, or null when the host is unknown.
 	 */
 	private String visibilityKeyForWorld() {
-		MudMap map = snapshotMap;
-		if (map == null && controller != null) {
-			map = controller.getMap();
-		}
-		String name = map != null ? map.getName() : null;
-		if (name == null || name.trim().length() == 0) {
+		String mudHost = host != null ? host.getConnectionHost() : null;
+		if (mudHost == null || mudHost.trim().length() == 0) {
 			return null;
 		}
-		return KEY_OPEN + "_" + name.trim();
+		return KEY_OPEN + "_@" + mudHost.trim();
 	}
 
 	/**
@@ -232,7 +250,7 @@ public class MapperOverlayController
 		MainWindow activity = host != null ? host.getMainWindow() : null;
 		String key = visibilityKeyForWorld();
 		if (activity == null || key == null) {
-			// World not known yet; try again when the snapshot lands.
+			// No host yet; try again rather than settling for the defaults.
 			return;
 		}
 		floatGeometryRestored = true;
@@ -274,9 +292,8 @@ public class MapperOverlayController
 		}
 		String key = visibilityKeyForWorld();
 		if (key == null) {
-			// The map has not arrived from the service yet, so we do not know
-			// which world's preference to read. Leave the one-shot flag unset so
-			// this runs again when the snapshot lands, rather than guessing.
+			// No host on the intent yet. Leave the one-shot flag unset so this
+			// runs again rather than deciding the map should stay shut.
 			return;
 		}
 		visibilityRestored = true;
