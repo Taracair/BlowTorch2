@@ -193,18 +193,103 @@ public final class BlowTorchLogger {
 	}
 
 	/**
-	 * Append one GMCP packet to its own trace file.
+	 * Lines waiting to reach {@code gmcp.log}.
+	 *
+	 * <p>Bounded on purpose. A world that floods GMCP faster than a phone's
+	 * external storage can absorb it must cost a dropped trace line, never
+	 * unbounded memory in the service.
+	 */
+	private static final int GMCP_QUEUE_LIMIT = 4096;
+
+	/** Lines folded into one file open. A connect burst is about ten. */
+	private static final int GMCP_BATCH_MAX = 256;
+
+	private static final java.util.concurrent.BlockingQueue<String> GMCP_QUEUE =
+			new java.util.concurrent.LinkedBlockingQueue<String>(GMCP_QUEUE_LIMIT);
+
+	private static Thread gmcpWriter;
+	private static Context gmcpWriterContext;
+	private static boolean gmcpQueueWasFull;
+
+	/**
+	 * Append one GMCP packet to its own trace file, off whatever thread called.
 	 *
 	 * <p>Deliberately not the crash log. A busy world sends GMCP constantly, and
 	 * putting that in {@code blowtorch2.log} rolled the error history away under
 	 * it — the reason the trace was pulled out of there in the first place. The
 	 * player still gets a file they can read and send, just not that one.
 	 *
+	 * <p><b>Measured, 30 July 2026.</b> This used to open, append and close the
+	 * file on the calling thread, once per packet. The caller is
+	 * {@code Processor.logGmcp}, which runs on the {@code :stellar} main thread —
+	 * the same handler that carries text to the UI. StrictMode on the test build
+	 * recorded <b>60–80 ms of blocking disk per packet</b> (pid 9054, tid 9054),
+	 * 94 violations through this method in one eden-test session, and the connect
+	 * burst was visibly frozen. Turning "Log GMCP?" on was therefore a way to make
+	 * the client stutter, which is not what a diagnostic should cost.
+	 *
+	 * <p>So the caller now only stamps and enqueues. One low-priority daemon
+	 * drains the queue and folds whatever is waiting into a single file open,
+	 * which turns a connect burst of ten packets into one. The stamp is taken
+	 * here, at the moment the packet arrived, not when the disk got round to it —
+	 * a trace with rearranged times would be worse than no trace.
+	 *
 	 * @param context Application context; a null context is ignored.
 	 * @param line Already-redacted packet text.
 	 */
-	public static synchronized void logGmcpTrace(final Context context, final String line) {
+	public static void logGmcpTrace(final Context context, final String line) {
 		if (context == null || line == null) {
+			return;
+		}
+		String stamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
+		startGmcpWriter(context.getApplicationContext());
+		if (!GMCP_QUEUE.offer(stamp + " " + line)) {
+			// Say it once. A queue that is full is already the busiest moment
+			// there is, and a warning per dropped line would make it worse.
+			if (!gmcpQueueWasFull) {
+				gmcpQueueWasFull = true;
+				android.util.Log.w(TAG, "GMCP log queue full; dropping trace lines");
+			}
+		} else {
+			gmcpQueueWasFull = false;
+		}
+	}
+
+	private static synchronized void startGmcpWriter(final Context app) {
+		if (gmcpWriter != null) {
+			return;
+		}
+		gmcpWriterContext = app;
+		gmcpWriter = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				gmcpWriterLoop();
+			}
+		}, "gmcp-log");
+		gmcpWriter.setDaemon(true);
+		gmcpWriter.setPriority(Thread.MIN_PRIORITY);
+		gmcpWriter.start();
+	}
+
+	private static void gmcpWriterLoop() {
+		java.util.ArrayList<String> batch = new java.util.ArrayList<String>();
+		while (true) {
+			try {
+				batch.clear();
+				batch.add(GMCP_QUEUE.take());
+				GMCP_QUEUE.drainTo(batch, GMCP_BATCH_MAX - 1);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				return;
+			}
+			writeGmcpBatch(batch);
+		}
+	}
+
+	/** One rotation check and one file open for however many lines are waiting. */
+	private static void writeGmcpBatch(final java.util.List<String> lines) {
+		Context context = gmcpWriterContext;
+		if (context == null || lines.isEmpty()) {
 			return;
 		}
 		File dir = getLogDirectory(context);
@@ -216,11 +301,14 @@ public final class BlowTorchLogger {
 			}
 			file.renameTo(backup);
 		}
-		String stamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
+		StringBuilder sb = new StringBuilder();
+		for (String line : lines) {
+			sb.append(line).append("\n");
+		}
 		FileOutputStream out = null;
 		try {
 			out = new FileOutputStream(file, true);
-			out.write((stamp + " " + line + "\n").getBytes(StandardCharsets.UTF_8));
+			out.write(sb.toString().getBytes(StandardCharsets.UTF_8));
 		} catch (IOException e) {
 			android.util.Log.w(TAG, "Could not write the GMCP log", e);
 		} finally {

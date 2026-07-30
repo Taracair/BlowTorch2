@@ -876,11 +876,29 @@ Note("Example text!")
 		}
 	}
 
+	/**
+	 * Run a plugin's GMCP trigger callback.
+	 *
+	 * <p>{@code data} is the GMCP table for the module that fired, and it is
+	 * legitimately null: {@code GMCPData.getTable} finds nothing for a module
+	 * whose body was never absorbed — an array body such as
+	 * {@code Server.Supports.Set ["Core 1", …]} has no named node to live under.
+	 * A trigger on such a module used to reach {@code pushTable}, which walks
+	 * {@code map.keySet()}, and take the connection thread down with an NPE.
+	 *
+	 * <p>The callback still fires, with an empty table. A Lua author writing
+	 * {@code for k,v in pairs(t)} gets no iterations, which is the truth: the
+	 * packet arrived and carried nothing this side can name. Not firing at all
+	 * would hide the packet entirely.
+	 */
 	public void handleGMCPCallback(String callback, HashMap<String, Object> data) {
+		if (data == null) {
+			data = new HashMap<String, Object>();
+		}
 		L.getGlobal("debug");
 		L.getField(L.getTop(), "traceback");
 		L.remove(-2);
-		
+
 		L.getGlobal(callback);
 		if(L.getLuaObject(L.getTop()).isFunction()) {
 			pushTable("",data);
