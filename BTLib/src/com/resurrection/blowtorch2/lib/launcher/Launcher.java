@@ -761,54 +761,33 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			the_time.set(System.currentTimeMillis());
 			muc.setLastPlayed(the_time.format2445());
 			
-			saveXML();
-			
-			buildList();
-			
-			//if(debug) return;
-			
-			//Intent the_intent = new Intent(com.resurrection.blowtorch2.lib.window.MainWindow.class.getName());
-	    	
-	    	//the_intent.putExtra("DISPLAY",muc.getDisplayName());
-	    	//the_intent.putExtra("HOST", muc.getHostName());
-	    	//the_intent.putExtra("PORT", muc.getPortString());
-	    	
-	    	//write out the intent to the service so it can do some lookup work in advance of the connection, such as loading the settings wad
-	    	//SharedPreferences prefs = Launcher.this.getSharedPreferences("SERVICE_INFO",0);
-	    	//Editor edit = prefs.edit();
-	    	//Log.e("WINDOW","SETTING " + muc.getDisplayName());
-	    	
-	    	
-	    	//edit.putString("SETTINGS_PATH", muc.getDisplayName());
-	    	//edit.commit();
-	    	
-	    	//check to see if the service is actually running
-	    	
-	    	//boolean found = isServiceRunning();
-	    	
-	    	//if(!found) {
-    			//service is not running, reset the values in the shared prefs that the window uses to keep track of weather or not to finish init routines.
-    			//kill all whitespace in the display name.
-	    		launch = muc.copy();
-	    		PermissionHelper.ensureInternetForFeature(Launcher.this,
-	    				R.string.permission_feature_connect, new Runnable() {
-	    			@Override
-	    			public void run() {
-	    				DoNewStartup();
-	    			}
-	    		});
-	    	/*} else {
-	    		//service exists, we should figure out the name of what it is playing.
-	    		//Log.e("LAUNCHER","SERVICE IS RUNNING");
-	    		launch = muc.copy();
-	    		
-	    		
-	    		String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
-	    		bindService(new Intent(action),mConnection,0);
-	    		
-	    	}*/
-	    	//}
-	    	
+			launch = muc.copy();
+			PermissionHelper.ensureInternetForFeature(Launcher.this,
+					R.string.permission_feature_connect, new Runnable() {
+				@Override
+				public void run() {
+					DoNewStartup();
+				}
+			});
+			// Measured ~0.9 s on world tap (30 July): fsync on the launcher list
+			// blocked connect. Re-sort after the write finishes.
+			new Thread(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						saveXML();
+					} catch (RuntimeException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"Launcher.listItemClicked", e);
+					}
+					Launcher.this.runOnUiThread(new Runnable() {
+						@Override
+						public void run() {
+							buildList();
+						}
+					});
+				}
+			}, "bt-launcher-list-save").start();
 		}
 
 		

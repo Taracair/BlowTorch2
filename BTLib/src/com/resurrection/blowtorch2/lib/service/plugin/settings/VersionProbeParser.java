@@ -50,7 +50,7 @@ public class VersionProbeParser extends BasePluginParser {
 		InputStream in = null;
 		try {
 			Log.e("XMLPARSE", "ATTEMPTING VERSION PROBE OF SETTINGS ROOT ELEMENT");
-			in = this.getInputStream();
+			in = this.openDocumentStream();
 			probed = XmlRootProbe.probe(in);
 		} catch (FileNotFoundException e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(

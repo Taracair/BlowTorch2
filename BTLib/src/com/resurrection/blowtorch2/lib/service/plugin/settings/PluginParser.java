@@ -101,7 +101,7 @@ public class PluginParser extends BasePluginParser {
 		tmp = new PluginSettings();
 		attatchListeners(root);
 		
-		InputStream in = this.getInputStream();
+		InputStream in = this.openDocumentStream();
 		Xml.parse(in, Xml.Encoding.UTF_8, root.getContentHandler());
 		
 		//tmp.setPath(path);
@@ -238,7 +238,7 @@ public class PluginParser extends BasePluginParser {
 		}
 		
 		if(hasXML) {
-			Xml.parse(this.getInputStream(), Xml.Encoding.UTF_8, root2.getContentHandler());	
+			Xml.parse(this.openDocumentStream(), Xml.Encoding.UTF_8, root2.getContentHandler());	
 		}
 		return plugins;
 	}

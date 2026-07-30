@@ -813,6 +813,12 @@ final class ConnectionSettingsIO {
 					Log.e("XMLPARSE", "LOADING V2 SETTINGS FROM PATH: " + path);
 					ArrayList<Plugin> tmpplugs = new ArrayList<Plugin>();
 					ConnectionSetttingsParser csp = new ConnectionSetttingsParser(path, host.mService.getApplicationContext(), tmpplugs, host.mHandler, host);
+					try {
+						csp.reuseDocumentBytes(vpp.snapshotDocumentBytes());
+					} catch (IOException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+								"ConnectionSettingsIO.importSettings", e);
+					}
 					ApplicationInfo ai = null;
 					try {
 						ai = host.mService.getApplicationContext().getPackageManager().getApplicationInfo(host.mService.getPackageName(), PackageManager.GET_META_DATA);
@@ -896,7 +902,7 @@ final class ConnectionSettingsIO {
 			}
 		}
 		
-		host.buildTriggerSystem();
+		// loadPlugins -> buildSettingsPage already rebuilt the trigger tables.
 		if (save && loadFailed) {
 			// Importing a file that could not be read used to end here, writing
 			// the half-built settings over the profile the player already had —
