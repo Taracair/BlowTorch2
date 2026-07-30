@@ -266,6 +266,37 @@ public final class GmcpModuleRegistry {
 		return new ArrayList<String>(serverSupports);
 	}
 
+	/**
+	 * Of what the server offered, the modules we are not already asking for.
+	 *
+	 * <p>Ids only — the version is dropped, because {@code .gmcp enable} takes an
+	 * id — and in the server's own spelling, because {@code mudstd.channel} is
+	 * how mudstandards.org writes it and title-casing it to
+	 * {@code Mudstd.Channel} would put a name on screen that nothing answers to.
+	 *
+	 * <p>An enabled parent covers its children, so a server offering
+	 * {@code Char.Vitals} while we ask for {@code Char} produces nothing.
+	 */
+	public synchronized ArrayList<String> unaskedServerSupports() {
+		ArrayList<String> out = new ArrayList<String>();
+		LinkedHashSet<String> already = new LinkedHashSet<String>();
+		for (String token : serverSupports) {
+			String id = token;
+			int sp = id.indexOf(' ');
+			if (sp > 0) {
+				id = id.substring(0, sp);
+			}
+			id = id.trim();
+			if (id.length() == 0 || coversModule(id)) {
+				continue;
+			}
+			if (already.add(normKey(id))) {
+				out.add(id);
+			}
+		}
+		return out;
+	}
+
 	public synchronized void setLastSupportsSet(String payload) {
 		lastSupportsSet = payload != null ? payload : "";
 	}

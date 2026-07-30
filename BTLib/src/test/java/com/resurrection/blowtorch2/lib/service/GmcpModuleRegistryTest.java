@@ -190,4 +190,53 @@ public class GmcpModuleRegistryTest {
 		reg.setServerSupports(null);
 		assertTrue(reg.getServerSupports().isEmpty());
 	}
+
+	/**
+	 * The suggestion list is what eden-test offers minus what we already ask for.
+	 * Versions are dropped because {@code .gmcp enable} takes an id, and the
+	 * server's own spelling is kept because that is the name that works.
+	 */
+	@Test
+	public void unaskedServerSupportsSkipsWhatWeAlreadyAskFor() {
+		GmcpModuleRegistry reg = GmcpModuleRegistry.fromSupportsOption(
+				"\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"");
+		ArrayList<String> offered = new ArrayList<String>();
+		for (String token : new String[] {
+			"Core 1", "Char 1", "Char.Login 1", "Room 1", "Comm 2", "Char.Vitals 1",
+			"Client.Media 1", "mudstd.channel 1", "mudstd.combat 1",
+			"mudstd.dialog 1", "mudstd.resources 1", "mudstd.room 1",
+			"mudstd.tilemap 1", "WebView 1", "Beip 1",
+		}) {
+			offered.add(token);
+		}
+		reg.setServerSupports(offered);
+		ArrayList<String> unasked = reg.unaskedServerSupports();
+		// Char.Vitals is covered by the enabled Char parent; Core, Room,
+		// Char.Login and Client.Media are asked for outright.
+		assertEquals(9, unasked.size());
+		assertEquals("Comm", unasked.get(0));
+		assertEquals("mudstd.channel", unasked.get(1));
+		assertEquals("Beip", unasked.get(8));
+		assertFalse(unasked.contains("Char.Vitals"));
+		assertFalse(unasked.contains("Core"));
+	}
+
+	/** Offered twice is suggested once. */
+	@Test
+	public void unaskedServerSupportsDeduplicates() {
+		GmcpModuleRegistry reg = GmcpModuleRegistry.fromSupportsOption("\"Core 1\"");
+		ArrayList<String> offered = new ArrayList<String>();
+		offered.add("Beip 1");
+		offered.add("beip 2");
+		offered.add("Beip");
+		reg.setServerSupports(offered);
+		assertEquals(1, reg.unaskedServerSupports().size());
+	}
+
+	/** Nothing offered, nothing to suggest. */
+	@Test
+	public void unaskedServerSupportsIsEmptyWithoutAList() {
+		GmcpModuleRegistry reg = new GmcpModuleRegistry();
+		assertTrue(reg.unaskedServerSupports().isEmpty());
+	}
 }
