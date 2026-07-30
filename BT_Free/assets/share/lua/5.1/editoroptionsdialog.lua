@@ -196,16 +196,14 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
       LinearLayoutParams.FILL_PARENT, LinearLayoutParams.FILL_PARENT))
 
   local spacer = luajava.newInstance("android.view.View", context)
-  local spacerParams = luajava.new(LinearLayoutParams,
-      LinearLayoutParams.FILL_PARENT, 0, 1)
-  spacer:setLayoutParams(spacerParams)
+  spacer:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, 0, 1))
   spacer:setClickable(true)
 
   local panel = luajava.newInstance("android.widget.LinearLayout", context)
   panel:setOrientation(LinearLayout.VERTICAL)
-  local panelParams = luajava.new(LinearLayoutParams,
-      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT)
-  panel:setLayoutParams(panelParams)
+  panel:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
   panel:setBackgroundResource(R_drawable.dialog_window_crawler1)
 
   local header = luajava.newInstance("android.widget.LinearLayout", context)
@@ -239,44 +237,36 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
   local hideModeButton = makeModeButton("Hide")
 
   local panelMode = "panel"
-  local scrollParams = scroller:getLayoutParams()
-  if scrollParams == nil then
-    scrollParams = luajava.new(LinearLayoutParams,
-        LinearLayoutParams.FILL_PARENT, maxPanelScrollH)
-  end
 
   local function applyPanelMode()
     if panelMode == "hidden" then
       scroller:setVisibility(View.GONE)
       spacer:setVisibility(View.VISIBLE)
-      spacerParams.height = 0
-      spacerParams.weight = 1
-      scrollParams.height = maxPanelScrollH
-      scrollParams.weight = 0
-      panelParams.height = LinearLayoutParams.WRAP_CONTENT
-      panelParams.weight = 0
+      spacer:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, 0, 1))
+      scroller:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, maxPanelScrollH, 0))
+      panel:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
     elseif panelMode == "panel" then
       scroller:setVisibility(View.VISIBLE)
       spacer:setVisibility(View.VISIBLE)
-      spacerParams.height = 0
-      spacerParams.weight = 1
-      scrollParams.height = maxPanelScrollH
-      scrollParams.weight = 0
-      panelParams.height = LinearLayoutParams.WRAP_CONTENT
-      panelParams.weight = 0
+      spacer:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, 0, 1))
+      scroller:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, maxPanelScrollH, 0))
+      panel:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 0))
     else
       scroller:setVisibility(View.VISIBLE)
       spacer:setVisibility(View.GONE)
-      spacerParams.height = 0
-      spacerParams.weight = 0
-      scrollParams.height = 0
-      scrollParams.weight = 1
-      panelParams.height = 0
-      panelParams.weight = 1
+      spacer:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, 0, 0))
+      scroller:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, 0, 1))
+      panel:setLayoutParams(luajava.new(LinearLayoutParams,
+          LinearLayoutParams.FILL_PARENT, 0, 1))
     end
-    spacer:setLayoutParams(spacerParams)
-    scroller:setLayoutParams(scrollParams)
-    panel:setLayoutParams(panelParams)
     panelModeButton:setEnabled(panelMode ~= "panel")
     fullscreenModeButton:setEnabled(panelMode ~= "fullscreen")
     hideModeButton:setEnabled(panelMode ~= "hidden")
