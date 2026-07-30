@@ -1553,15 +1553,33 @@ public class OptionsDialog extends Dialog {
 		
 	}
 	
+	/**
+	 * Closing this dialog saves, whichever way it was closed.
+	 *
+	 * <p>Back used to be the only exit that saved. A profile closed through Lua's
+	 * {@code CloseOptionsDialog()} -- which reaches
+	 * {@code MainWindow.closeOptionsDialog}, a bare {@code dismiss()} -- threw
+	 * away whatever had just been changed, and any exit added later would have
+	 * inherited the same hole. Persisting is this dialog's business, not each
+	 * caller's, so it lives at the one point they all go through.
+	 *
+	 * <p>Off the UI thread on purpose: {@code saveSettings} is a synchronous
+	 * binder call that writes and fsyncs, measured at 276-285 ms, and it was
+	 * landing on this dialog's own dismiss animation. The service already holds
+	 * every edit -- they go across as they are made -- so nothing here is waiting
+	 * to be collected. {@code SettingsSaver} drops a second request that arrives
+	 * before the first has started, so a double dismiss does not write twice.
+	 */
+	@Override
+	public void dismiss() {
+		SettingsSaver.saveInBackground(service);
+		super.dismiss();
+	}
+
 	@Override
 	public void onBackPressed() {
 		if(backStack.size() == 0) {
-			// Off the UI thread on purpose: this is a synchronous binder call
-			// that writes and fsyncs the settings, measured at 276-285 ms, and
-			// it was landing on this dialog's own dismiss animation. The service
-			// already holds every edit -- they go across as they are made -- so
-			// nothing here is waiting to be collected. See SettingsSaver.
-			SettingsSaver.saveInBackground(service);
+			// The save lives in dismiss() now, so every way out gets it.
 			this.dismiss();
 		} else {
 			SettingsGroup key = backStack.pop();
