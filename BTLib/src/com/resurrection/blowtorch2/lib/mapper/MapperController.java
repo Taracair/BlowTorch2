@@ -1975,6 +1975,9 @@ public class MapperController {
 			if (loaded == null) {
 				ensureBlankMap(mapName);
 				save();
+				// Asking to open a map that is not there creates it, and that is
+				// still the player naming the map they want.
+				rememberOpenedMap(ctx, mapName);
 				return "Mapper: created map \"" + mapName + "\".";
 			}
 			mMap = loaded;
@@ -2012,6 +2015,8 @@ public class MapperController {
 		}
 		clearUndo();
 		String saveMsg = save();
+		// Making a map is choosing it; the next connect should come back to it.
+		rememberOpenedMap(ctx, mapName);
 		notifyChanged();
 		return "Mapper: new map \"" + mapName + "\". " + saveMsg;
 	}
@@ -4234,10 +4239,12 @@ public class MapperController {
 		if (mConnection != null && mConnection.getHost() != null) {
 			mMap.setHostHint(mConnection.getHost());
 		}
-		// A map made with ".map new" is a choice too, and it never goes through
-		// the load branch of openMap. Recording a name whose file does not exist
-		// yet is harmless: lastOpenedMapFor checks the file before trusting it.
-		rememberOpenedMap(context(), name);
+		// Deliberately does NOT record the choice. This is reached from seven
+		// places and most are fallbacks, not decisions: controller construction,
+		// a load that threw, ensureDefaultLevel finding no map. Recording here
+		// wrote "default" over whatever the player had actually picked, every
+		// connect, which is the bug this whole mechanism was meant to fix.
+		// The callers that really are a choice record it themselves.
 	}
 
 	private void stampHostHintFromConnection() {
