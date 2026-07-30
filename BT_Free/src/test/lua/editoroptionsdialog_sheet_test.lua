@@ -51,8 +51,8 @@ check(java:match("setPresentationOverGrid") ~= nil,
 	"LuaDialog must expose setPresentationOverGrid")
 check(java:match("setDecorFitsSystemWindows") ~= nil,
 	"fullscreen presentation must fit system windows so the dashed frame is not padded twice")
-check(lua:match("setFillViewport%(true%)") ~= nil,
-	"fullscreen must expand the scroll view to the available height")
+check(lua:match("FrameLayout%$LayoutParams") ~= nil,
+	"scroll child must use FrameLayout.LayoutParams inside ScrollView")
 check(lua:match("setBackgroundResource%(0%)") ~= nil,
 	"fullscreen must not stack a second dashed frame on the panel")
 check(lua:match("chromeParams") ~= nil,
