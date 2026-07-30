@@ -1505,6 +1505,20 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	/** Ask the foreground activity to re-read connection options (e.g. floating buttons). */
+	public final void doExecuteRequestLoadSettings() {
+		int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).loadSettings();
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doExecuteRequestLoadSettings", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	/** Implementation of the method that sets the compatibility mode preference for the foreground window's editor.
 	 * 
 	 * @param value True to use compatibility mode, false to not.

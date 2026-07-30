@@ -112,6 +112,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		use_suggestions.setKey("use_suggestions");
 		use_suggestions.setValue(false);
 		input.addOption(use_suggestions);
+
+		BooleanOption floating_buttons_enabled = new BooleanOption();
+		floating_buttons_enabled.setTitle("Floating buttons over the game");
+		floating_buttons_enabled.setDescription("Show floating copies of buttons marked \"Float over the game\" in the button editor. Turn off to hide them all without editing each button.");
+		floating_buttons_enabled.setKey("floating_buttons_enabled");
+		floating_buttons_enabled.setValue(true);
+		input.addOption(floating_buttons_enabled);
 		
 		BooleanOption keep_last = new BooleanOption();
 		keep_last.setTitle("Keep last command after send");

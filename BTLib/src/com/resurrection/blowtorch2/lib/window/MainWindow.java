@@ -283,6 +283,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MapperOverlayController mapperOverlay;
 	private MapperController mapperController;
 	private ExtraTextOverlayController extraTextOverlay;
+	/** Floating button copies over the game; see ensureFloatingButtons(). */
+	private FloatingButtonController floatingButtons;
+	/** Options → Input master switch; default on. */
+	private boolean floatingButtonsEnabled = true;
 	/** Windows for mudstd.frame image frames; built on demand, see ensureFrameOverlays(). */
 	private FrameOverlayController frameOverlay;
 	/** Cached extra-text slots from settings (UI process; Connection holds service copy). */
@@ -422,7 +426,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				public void run() {
 					ensureMapperOverlay();
 					ensureExtraTextOverlays();
+					ensureFloatingButtons();
 					restoreOpenFrames();
+					raiseFloatingButtons();
 				}
 			});
 			//finishInitializiation();
@@ -2921,6 +2927,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			isKeepLast = (Boolean)((BaseOption)group.findOptionByKey("keep_last")).getValue();
 
+			BaseOption floatBtnOpt = (BaseOption) group.findOptionByKey("floating_buttons_enabled");
+			if (floatBtnOpt != null && floatBtnOpt.getValue() instanceof Boolean) {
+				floatingButtonsEnabled = (Boolean) floatBtnOpt.getValue();
+			} else {
+				floatingButtonsEnabled = true;
+			}
+			ensureFloatingButtons();
+			if (floatingButtons != null) {
+				floatingButtons.onMasterSwitchChanged(floatingButtonsEnabled);
+			}
+
 			BaseOption histOpt = (BaseOption) group.findOptionByKey("input_history_size");
 			if (histOpt != null && histOpt.getValue() instanceof Integer) {
 				history.setMax((Integer) histOpt.getValue());
@@ -3624,6 +3641,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		chrome.updateMenuChrome();
 		ensureMapperOverlay();
 		ensureExtraTextOverlays();
+		ensureFloatingButtons();
+		raiseFloatingButtons();
 		//Debug.stopMethodTracing();
 	}
 
@@ -3815,10 +3834,122 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// Put the map back if that is how the player left it. Closing it was
 		// never meant to be a decision they have to repeat on every connect.
 		mapperOverlay.restoreVisibility();
+		raiseFloatingButtons();
 	}
 
 	ChromeController getChromeController() {
 		return chrome;
+	}
+
+	/**
+	 * UI Lua ({@code buttonwindow.notifyFloatingButtonsChanged}) pushes a JSON
+	 * snapshot of floating buttons. Keep this on the Activity so GetActivity()
+	 * can call it without a separate bridge object.
+	 */
+	public void onFloatingButtonsChanged(final String json) {
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				ensureFloatingButtons();
+				if (floatingButtons != null) {
+					floatingButtons.onButtonsChanged(json);
+				}
+			}
+		});
+	}
+
+	/** Chrome IME lift — Mode A floaters sit above the keyboard; Mode B stay put. */
+	void onFloatingButtonsImeLift(int liftPx) {
+		if (floatingButtons != null) {
+			floatingButtons.onImeLiftChanged(liftPx);
+		}
+	}
+
+	private void ensureFloatingButtons() {
+		if (floatingButtons == null) {
+			floatingButtons = new FloatingButtonController(new FloatingButtonController.Host() {
+				@Override
+				public MainWindow getMainWindow() {
+					return MainWindow.this;
+				}
+
+				@Override
+				public Handler getUiHandler() {
+					return myhandler;
+				}
+
+				@Override
+				public void sendCommand(String text) {
+					if (text == null || text.length() == 0 || service == null) {
+						return;
+					}
+					try {
+						service.sendData(text.getBytes(service.getEncoding()));
+					} catch (RemoteException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.floatingButtons.sendCommand", e);
+					} catch (java.io.UnsupportedEncodingException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+								"MainWindow.floatingButtons.sendCommand", e);
+					}
+				}
+
+				@Override
+				public void loadButtonSet(String name) {
+					if (name == null || name.length() == 0 || service == null) {
+						return;
+					}
+					try {
+						service.pluginXcallS("button_window", "loadButtonSet", name);
+					} catch (RemoteException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.floatingButtons.loadButtonSet", e);
+					}
+				}
+
+				@Override
+				public void persistFloatPosition(int buttonIndex, int floatX, int floatY) {
+					String payload = "return {index=" + buttonIndex
+							+ ",floatX=" + floatX
+							+ ",floatY=" + floatY + "}";
+					windowCall("button_window", "applyFloatPosition", payload);
+					windowCall("button_window", "persistFloatingButtons", "");
+				}
+
+				@Override
+				public boolean isFloatingButtonsEnabled() {
+					return floatingButtonsEnabled;
+				}
+
+				@Override
+				public boolean showGestureHints() {
+					return true;
+				}
+
+				@Override
+				public boolean hapticPressEnabled() {
+					return true;
+				}
+
+				@Override
+				public boolean hapticFlipEnabled() {
+					return true;
+				}
+
+				@Override
+				public int getImeLiftPx() {
+					return chrome != null ? chrome.getImeLiftPx() : 0;
+				}
+			});
+		}
+		floatingButtons.bringUnderChrome();
+	}
+
+	/** Re-raise floaters above frames/extra text/mapper, still under ⋮ (D4). */
+	void raiseFloatingButtons() {
+		if (floatingButtons != null) {
+			floatingButtons.bringUnderChrome();
+		}
 	}
 
 	private boolean isExtraTextSlotWindow(String name) {
@@ -3996,6 +4127,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 		extraTextOverlay.sync();
+		raiseFloatingButtons();
 	}
 
 	/**
@@ -4085,6 +4217,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		frameOverlay.apply(com.resurrection.blowtorch2.lib.service.FrameEvent.parse(json));
+		raiseFloatingButtons();
 	}
 
 	private void handleExtraTextUiAction(int action) {
@@ -4279,6 +4412,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void cleanupWindows() {
 		if (extraTextOverlay != null) {
 			extraTextOverlay.detach();
+		}
+		if (floatingButtons != null) {
+			floatingButtons.detach();
+			floatingButtons = null;
 		}
 		if (frameOverlay != null) {
 			frameOverlay.detach();
