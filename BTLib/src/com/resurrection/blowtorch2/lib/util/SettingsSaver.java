@@ -67,8 +67,18 @@ public final class SettingsSaver {
 	/**
 	 * Persist settings on a background thread.
 	 *
-	 * <p>Saves are serialized and coalesced: pressing Back through several
-	 * screens in a row costs one write of the final state.
+	 * <p>Saves are serialized, and a second request arriving before the first
+	 * has started is dropped. That window is small -- the Options dialog only
+	 * saves when the last screen closes, so it does not benefit -- but it is
+	 * what keeps a caller that fires repeatedly from queueing a write per call.
+	 *
+	 * <p><b>Where this runs, which is not what the package layout suggests:</b>
+	 * StrictMode put the settings write on 23944/23944, the UI process's own
+	 * main thread, with {@code Stub.onTransact} in the stack. The transaction is
+	 * serviced in-process, so the disk was really happening on the UI thread
+	 * rather than the UI thread merely waiting on {@code :stellar}. Moving the
+	 * call therefore moves the work, and it does not land on the service's main
+	 * thread, which is the one carrying game text.
 	 *
 	 * @param service The connection binder; null is ignored.
 	 */
