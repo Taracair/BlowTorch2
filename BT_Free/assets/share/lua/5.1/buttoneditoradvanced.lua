@@ -18,6 +18,9 @@ local tostring = _G["tostring"]
 local Note = _G["Note"]
 local string = _G["string"]
 local tonumber = _G["tonumber"]
+local CheckBox = luajava.bindClass("android.widget.CheckBox")
+local Spinner = luajava.bindClass("android.widget.Spinner")
+local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
 module(...)
 
 local context = nil
@@ -670,6 +673,101 @@ function makeUI(editorValues,numediting)
     ui.invisControlLabel:setVisibility(View.INVISIBLE)
     ui.labelRowFour:addView(ui.invisControlLabel)
   end
+
+  -- Floating-button options (Others tab). Single-button edit only.
+  if(ui.floatSectionLabel == nil) then
+    ui.floatSectionLabel = fnew(TextView,context)
+    local floatSectionParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+    floatSectionParams:setMargins(0,10,0,10)
+    ui.floatSectionLabel:setLayoutParams(floatSectionParams)
+    ui.floatSectionLabel:setTextSize(textSize)
+    ui.floatSectionLabel:setText("FLOATING")
+    ui.floatSectionLabel:setGravity(GRAVITY_CENTER)
+    ui.floatSectionLabel:setTextColor(Color:argb(255,0x33,0x33,0x33))
+    ui.floatSectionLabel:setBackgroundColor(bgGrey)
+    ui.advancedPage:addView(ui.floatSectionLabel)
+  end
+
+  if(ui.floatingCheck == nil) then
+    ui.floatingCheck = fnew(CheckBox,context)
+    ui.floatingCheck:setLayoutParams(fillparams)
+    ui.floatingCheck:setText("Float over the game")
+    ui.floatingCheck:setTextSize(textSize)
+    ui.advancedPage:addView(ui.floatingCheck)
+  end
+  ui.floatingCheck:setChecked(editorValues.floating == true)
+
+  if(ui.floatModeRow == nil) then
+    ui.floatModeRow = fnew(LinearLayout,context)
+    ui.floatModeRow:setLayoutParams(fillparams)
+    ui.advancedPage:addView(ui.floatModeRow)
+
+    ui.floatModeLabel = fnew(TextView,context)
+    local floatModeLabelParams = fnew(LinearLayoutParams,80*density,WRAP_CONTENT)
+    ui.floatModeLabel:setLayoutParams(floatModeLabelParams)
+    ui.floatModeLabel:setText("IME:")
+    ui.floatModeLabel:setTextSize(textSize)
+    ui.floatModeLabel:setGravity(Gravity.RIGHT)
+    ui.floatModeRow:addView(ui.floatModeLabel)
+
+    ui.floatModeSpinner = fnew(Spinner,context)
+    local floatModeEditParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+    ui.floatModeSpinner:setLayoutParams(floatModeEditParams)
+    local pkg = context:getPackageName()
+    local res = context:getResources()
+    local spinnerItemLayout = res:getIdentifier("spinner_item_dark", "layout", pkg)
+    local spinnerDropdownLayout = res:getIdentifier("spinner_dropdown_item_dark", "layout", pkg)
+    local modeAdapter = luajava.new(ArrayAdapter,context,spinnerItemLayout)
+    modeAdapter:add("Always visible")
+    modeAdapter:add("Show with keyboard")
+    modeAdapter:setDropDownViewResource(spinnerDropdownLayout)
+    ui.floatModeSpinner:setAdapter(modeAdapter)
+    local ColorDrawable = luajava.bindClass("android.graphics.drawable.ColorDrawable")
+    ui.floatModeSpinner:setPopupBackgroundDrawable(luajava.new(ColorDrawable, Color:argb(255, 0, 0, 0)))
+    ui.floatModeSpinner:setBackgroundColor(Color:argb(255, 0, 0, 0))
+    ui.floatModeRow:addView(ui.floatModeSpinner)
+  end
+  if editorValues.floatMode == "keyboard" then
+    ui.floatModeSpinner:setSelection(1)
+  else
+    ui.floatModeSpinner:setSelection(0)
+  end
+
+  if(ui.floatRoundCheck == nil) then
+    ui.floatRoundCheck = fnew(CheckBox,context)
+    ui.floatRoundCheck:setLayoutParams(fillparams)
+    ui.floatRoundCheck:setText("Round")
+    ui.floatRoundCheck:setTextSize(textSize)
+    ui.advancedPage:addView(ui.floatRoundCheck)
+  end
+  ui.floatRoundCheck:setChecked(editorValues.floatRound == true)
+
+  if(ui.floatFrameCheck == nil) then
+    ui.floatFrameCheck = fnew(CheckBox,context)
+    ui.floatFrameCheck:setLayoutParams(fillparams)
+    ui.floatFrameCheck:setText("Frame")
+    ui.floatFrameCheck:setTextSize(textSize)
+    ui.advancedPage:addView(ui.floatFrameCheck)
+  end
+  ui.floatFrameCheck:setChecked(editorValues.floatFrame == true)
+
+  local floatEnabled = (numediting == 1)
+  ui.floatingCheck:setEnabled(floatEnabled)
+  local dependentsOn = floatEnabled and (editorValues.floating == true)
+  if ui.floatCheckListener == nil then
+    ui.floatCheckListener = luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
+      onCheckedChanged = function(buttonView, isChecked)
+        local on = ui.floatingCheck:isEnabled() and isChecked
+        ui.floatModeSpinner:setEnabled(on)
+        ui.floatRoundCheck:setEnabled(on)
+        ui.floatFrameCheck:setEnabled(on)
+      end
+    })
+    ui.floatingCheck:setOnCheckedChangeListener(ui.floatCheckListener)
+  end
+  ui.floatModeSpinner:setEnabled(dependentsOn)
+  ui.floatRoundCheck:setEnabled(dependentsOn)
+  ui.floatFrameCheck:setEnabled(dependentsOn)
   
   return ui.advancedPageScroller
   
@@ -689,6 +787,20 @@ function getEditorValues()
   tmp.labelSize = tonumber(ui.labelSizeEdit:getText():toString())
   tmp.height = tonumber(ui.heightEdit:getText():toString())
   tmp.width = tonumber(ui.widthEdit:getText():toString())
+  if ui.floatingCheck ~= nil and ui.floatingCheck:isEnabled() then
+    tmp.floating = ui.floatingCheck:isChecked()
+    local modeIndex = 0
+    if ui.floatModeSpinner ~= nil then
+      modeIndex = tonumber(ui.floatModeSpinner:getSelectedItemPosition()) or 0
+    end
+    if modeIndex == 1 then
+      tmp.floatMode = "keyboard"
+    else
+      tmp.floatMode = "always"
+    end
+    tmp.floatRound = ui.floatRoundCheck ~= nil and ui.floatRoundCheck:isChecked()
+    tmp.floatFrame = ui.floatFrameCheck ~= nil and ui.floatFrameCheck:isChecked()
+  end
   return tmp
 end
 

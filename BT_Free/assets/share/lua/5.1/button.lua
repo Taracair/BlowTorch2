@@ -47,6 +47,15 @@ BUTTONSET_DATA = {
 						accordionTrigger = "tap",
 						accordionHoldMs = 450,
 						accordionChildLayout = "along",
+						-- Floating copy over the game (Phase 0 schema). Same
+						-- inheritance path as accordion: live on BUTTONSET_DATA
+						-- so BUTTON_DATA:new lookups resolve defaults.
+						floating = false,
+						floatMode = "always",
+						floatX = -1,
+						floatY = -1,
+						floatRound = false,
+						floatFrame = false,
 						gridXwidth = 50,
 						gridYwidth = 50			
 			  		}

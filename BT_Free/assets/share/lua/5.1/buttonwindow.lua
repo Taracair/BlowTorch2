@@ -6,6 +6,9 @@ require("serialize")
 require("bit")
 local marshal = require("marshal")
 defaults = nil
+-- When true, loadButtons skips notifyFloatingButtonsChanged so a following
+-- enterManagerMode can hide floaters without a one-frame flash.
+local suppressFloatingNotify = false
 
 local props = require("config")
 
@@ -77,6 +80,9 @@ function loadButtons(args)
 	clampAllButtons()
 	drawButtons()
 	view:invalidate()
+	if not suppressFloatingNotify then
+		notifyFloatingButtonsChanged()
+	end
 
 	debugString(string.format("Button Window loaded button set, %s successfully",lastLoadedSet))
 end
@@ -1163,6 +1169,8 @@ managerBgPaint:setARGB(0xFF,0x00,0x00,0x00)
 drawManagerLayer = true
 function enterManagerMode()
 	manage = true
+	-- Hide floaters immediately so they cannot sit over the edit grid during setup.
+	notifyFloatingButtonsChanged()
 	refreshStatusOffset(true)
 	gridXwidth = defaults.gridXwidth*density
 	gridYwidth = defaults.gridYwidth*density
@@ -1208,6 +1216,7 @@ function exitManagerMode()
 	
 	drawButtons()
 	view:invalidate()
+	notifyFloatingButtonsChanged()
 end
 
 function exitManagerModeNoSave()
@@ -1232,6 +1241,114 @@ function exitManagerModeNoSave()
 	
 	PluginXCallS("loadButtonSet",lastLoadedSet)
 	view:invalidate()
+	-- Do not notify here: in-memory buttons are about to be replaced by the
+	-- async loadButtonSet → loadButtons path, which notifies with fresh data.
+end
+
+-- Tell Java which buttons should float. Called after load/edit/manage transitions.
+-- When manage is true, snapshot.editing=true and buttons={} so the overlay hides.
+function notifyFloatingButtonsChanged()
+	local snapshot = { editing = manage == true, buttons = {} }
+	if not snapshot.editing and buttons ~= nil then
+		for i, b in ipairs(buttons) do
+			local d = b.data
+			if d ~= nil and d.floating == true then
+				local mode = d.floatMode
+				if mode ~= "keyboard" then
+					mode = "always"
+				end
+				table.insert(snapshot.buttons, {
+					index = i,
+					label = d.label,
+					command = d.command,
+					flipLabel = d.flipLabel,
+					flipCommand = d.flipCommand,
+					holdCommand = d.holdCommand,
+					swipeUpCommand = d.swipeUpCommand,
+					swipeDownCommand = d.swipeDownCommand,
+					swipeLeftCommand = d.swipeLeftCommand,
+					swipeRightCommand = d.swipeRightCommand,
+					swipeUpLeftCommand = d.swipeUpLeftCommand,
+					swipeUpRightCommand = d.swipeUpRightCommand,
+					swipeDownLeftCommand = d.swipeDownLeftCommand,
+					swipeDownRightCommand = d.swipeDownRightCommand,
+					showGestureLabel = d.showGestureLabel ~= false,
+					switchTo = d.switchTo,
+					primaryColor = d.primaryColor,
+					selectedColor = d.selectedColor,
+					flipColor = d.flipColor,
+					labelColor = d.labelColor,
+					flipLabelColor = d.flipLabelColor,
+					width = d.width,
+					height = d.height,
+					labelSize = d.labelSize,
+					floating = true,
+					floatMode = mode,
+					floatX = d.floatX,
+					floatY = d.floatY,
+					floatRound = d.floatRound == true,
+					floatFrame = d.floatFrame == true,
+				})
+			end
+		end
+	end
+	local payload = serialize(snapshot)
+	local activity = nil
+	local ok, err = pcall(function()
+		activity = GetActivity()
+	end)
+	if not ok or activity == nil then
+		return
+	end
+	if activity.onFloatingButtonsChanged == nil then
+		return
+	end
+	ok, err = pcall(function()
+		activity:onFloatingButtonsChanged(payload)
+	end)
+	if not ok then
+		debugString("onFloatingButtonsChanged failed: " .. tostring(err))
+	end
+end
+
+-- Java windowCall("button_window", "applyFloatPosition", serialize{index=,floatX=,floatY=})
+-- Mutates in-memory float coords only; Java must call persistFloatingButtons to save.
+function applyFloatPosition(data)
+	if data == nil or data == "" then
+		return
+	end
+	local chunk = loadstring(data)
+	if chunk == nil then
+		return
+	end
+	local ok, pos = pcall(chunk)
+	if not ok or type(pos) ~= "table" then
+		return
+	end
+	local index = tonumber(pos.index)
+	if index == nil or buttons == nil or buttons[index] == nil then
+		return
+	end
+	local d = buttons[index].data
+	if pos.floatX ~= nil then
+		d.floatX = tonumber(pos.floatX) or d.floatX
+	end
+	if pos.floatY ~= nil then
+		d.floatY = tonumber(pos.floatY) or d.floatY
+	end
+end
+
+-- Java windowCall("button_window", "persistFloatingButtons", "") after a drag drop.
+-- Same saveButtons path as exitManagerMode; skips saveSetDefaults (positions only).
+function persistFloatingButtons()
+	if buttons == nil then
+		return
+	end
+	local tmp = {}
+	for i, b in pairs(buttons) do
+		tmp[i] = b.data
+	end
+	PluginXCallS("saveButtons", serialize(tmp))
 end
 
 -- Buttons the layout tools act on: the selection if there is one, otherwise all
@@ -2300,6 +2417,15 @@ function buttonEditorDone(data)
 		
 		tmp.data.name = data.name
 		tmp.data.switchTo = data.target
+
+		tmp.data.floating = data.floating == true
+		local floatMode = data.floatMode
+		if floatMode ~= "keyboard" then
+			floatMode = "always"
+		end
+		tmp.data.floatMode = floatMode
+		tmp.data.floatRound = data.floatRound == true
+		tmp.data.floatFrame = data.floatFrame == true
 		
 		tmp:updateRect(statusoffset)
 		--Note("EDITING SINGLE BUTTON AFTER BUTTON:"..tmp.data.height)
@@ -2356,6 +2482,7 @@ function buttonEditorDone(data)
 	
 	drawButtons()
 	view:invalidate()
+	notifyFloatingButtonsChanged()
 end
 --[[END buttonEditorDone global callback]]
 normalColor = nil
@@ -2436,6 +2563,13 @@ function showEditorDialog()
 		editorValues.labelSize = button.data.labelSize
 		editorValues.x = button.data.x
 		editorValues.y = button.data.y
+		editorValues.floating = button.data.floating == true
+		editorValues.floatMode = button.data.floatMode or "always"
+		if editorValues.floatMode ~= "keyboard" then
+			editorValues.floatMode = "always"
+		end
+		editorValues.floatRound = button.data.floatRound == true
+		editorValues.floatFrame = button.data.floatFrame == true
 		--Note("single editor loading:"..editorValues.x)
 		--Note("single editor loading:"..editorValues.y)
 	else 
@@ -2495,6 +2629,11 @@ function showEditorDialog()
 				end
 			end
 		end
+		-- Float fields are single-button only (like gestures/accordion).
+		editorValues.floating = false
+		editorValues.floatMode = "always"
+		editorValues.floatRound = false
+		editorValues.floatFrame = false
 	end
 	
 	editorValues.defaultPrimaryColor = defaults.primaryColor
@@ -2532,7 +2671,13 @@ end
 
 function loadAndEditSet(data)
 	--Note("Loading and editing: "..data)
-	loadButtons(data)
+	-- Skip the play-mode notify from loadButtons; enterManagerMode hides floaters.
+	suppressFloatingNotify = true
+	local ok, err = pcall(loadButtons, data)
+	suppressFloatingNotify = false
+	if not ok then
+		error(err)
+	end
 	enterManagerMode()
 	showeditormenu = true
 	PushMenuStack("onEditorBackPressed")
