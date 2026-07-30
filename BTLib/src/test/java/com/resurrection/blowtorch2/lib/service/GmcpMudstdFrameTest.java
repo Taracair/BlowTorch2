@@ -47,6 +47,45 @@ public class GmcpMudstdFrameTest {
 		assertFalse(GmcpModuleRegistry.DEFAULT_SUPPORTS.contains("mudstd"));
 	}
 
+	/**
+	 * The player closing a frame. The specification has always had
+	 * {@code reason: "user"} and BlowTorch could never send it, so a server had
+	 * no way to learn the person reading a frame was done with it. `.frame close`
+	 * sends this.
+	 */
+	@Test
+	public void closedByTheUserSaysUser() {
+		assertEquals("mudstd.frame.closed {\"id\": \"map\", \"reason\": \"user\"}",
+				MudstdFrame.closedEvent("map", MudstdFrame.REASON_USER));
+	}
+
+	/** The client's own refusal is still reason "system". The two are different. */
+	@Test
+	public void closedBySystemStaysSystem() {
+		assertEquals("mudstd.frame.closed {\"id\": \"map\", \"reason\": \"system\"}",
+				MudstdFrame.closedEvent("map", MudstdFrame.REASON_SYSTEM));
+	}
+
+	/** Anything that is not "user" is "system" — never a reason of our invention. */
+	@Test
+	public void unknownReasonFallsBackToSystem() {
+		assertTrue(MudstdFrame.closedEvent("map", "bored").endsWith(
+				"\"reason\": \"system\"}"));
+		assertTrue(MudstdFrame.closedEvent("map", null).endsWith(
+				"\"reason\": \"system\"}"));
+	}
+
+	/**
+	 * A server picks the id, so it is not ours to trust. A quote in one used to
+	 * be able to produce a malformed event and leave the server author debugging
+	 * their own parser over our bug.
+	 */
+	@Test
+	public void aUserCloseEscapesTheServersId() {
+		assertEquals("mudstd.frame.closed {\"id\": \"we\\\"ird\", \"reason\": \"user\"}",
+				MudstdFrame.closedEvent("we\"ird", MudstdFrame.REASON_USER));
+	}
+
 	/** Turning it on puts it in Core.Supports.Set under its own spelling. */
 	@Test
 	public void enablingItPutsItInTheSupportsString() {
