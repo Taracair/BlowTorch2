@@ -113,7 +113,7 @@ function makeUI(editorValues,numediting)
     ui.advancedPageScroller:addView(ui.advancedPage)
     local help = fnew(TextView,context)
     help:setTextSize(textSizeSmall)
-    help:setText("Name is for the editor list only. Switch set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Width, height, and position are in dp from the top-left of the button layer.")
+    help:setText("Name is for the editor list only. Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Width, height, and position are in dp from the top-left of the button layer.")
     local pad = math.floor(8 * density)
     help:setPadding(pad, pad, pad, pad)
     help:setLayoutParams(fillparams)
@@ -182,17 +182,19 @@ function makeUI(editorValues,numediting)
   if(ui.buttonTargetSetRow == nil) then
     ui.buttonTargetSetRow = fnew(LinearLayout,context)
     ui.buttonTargetSetRow:setLayoutParams(fillparams)
+    ui.buttonTargetSetRow:setOrientation(LinearLayout.VERTICAL)
     ui.advancedPage:addView(ui.buttonTargetSetRow)
   end
   
-  buttonTargetSetLabelParams = fnew(LinearLayoutParams,LabelWidth,WRAP_CONTENT)
   if(ui.buttonTargetSetLabel == nil) then
     ui.buttonTargetSetLabel = fnew(TextView,context)
-    
-    ui.buttonTargetSetLabel:setLayoutParams(buttonNameLabelParams)
-    ui.buttonTargetSetLabel:setText("Switch set on tap:")
+    local targetLabelParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+    local pad = math.floor(8 * density)
+    ui.buttonTargetSetLabel:setLayoutParams(targetLabelParams)
+    ui.buttonTargetSetLabel:setText("Switch to button set on tap:")
     ui.buttonTargetSetLabel:setTextSize(textSize)
-    ui.buttonTargetSetLabel:setGravity(Gravity.RIGHT)
+    ui.buttonTargetSetLabel:setGravity(Gravity.LEFT)
+    ui.buttonTargetSetLabel:setPadding(pad, math.floor(8 * density), pad, 0)
     ui.buttonTargetSetRow:addView(ui.buttonTargetSetLabel)
   end
   
