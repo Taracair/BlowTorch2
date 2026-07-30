@@ -75,30 +75,70 @@ public final class ChromeController {
 		if (root == null) {
 			return;
 		}
-		final float density = activity.getResources().getDisplayMetrics().density;
-		final int minKeyboardPx = Math.round(120 * density);
 		root.getViewTreeObserver().addOnGlobalLayoutListener(
 				new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
 					@Override
 					public void onGlobalLayout() {
-						int frameLift = estimateImeLiftFromVisibleFrame(0);
-						if (frameLift < minKeyboardPx) {
-							frameLift = 0;
+						int before = imeLiftPx;
+						int after = syncImeLiftFromVisibleFrame();
+						if (after != before) {
+							activity.onFloatingButtonsImeLift(after);
 						}
-						// Only intervene when insets missed an open keyboard, or
-						// the keyboard closed and insets never cleared the lift.
-						boolean openMissed = frameLift > 0 && imeLiftPx == 0;
-						boolean closeMissed = frameLift == 0 && imeLiftPx > 0;
-						if (!openMissed && !closeMissed) {
-							return;
-						}
-						RelativeLayout rl = (RelativeLayout) activity.findViewById(
-								R.id.window_container);
-						applyImeChromeLift(rl, frameLift);
-						imeLiftPx = frameLift;
-						activity.onFloatingButtonsImeLift(frameLift);
 					}
 				});
+	}
+
+	/**
+	 * Re-measure IME coverage from the visible display frame and raise chrome
+	 * lift when the frame sees more keyboard than insets reported. Clears lift
+	 * only when both the frame and IME insets agree the keyboard is gone —
+	 * never zeros a fresh insets lift just because the frame has not shrunk yet.
+	 */
+	int syncImeLiftFromVisibleFrame() {
+		View decor = activity.getWindow() != null
+				? activity.getWindow().getDecorView() : null;
+		if (decor == null) {
+			return imeLiftPx;
+		}
+		float density = activity.getResources().getDisplayMetrics().density;
+		int minKeyboardPx = Math.round(120 * density);
+		int jitterPx = Math.round(8 * density);
+		int navBottom = 0;
+		int imeBottom = 0;
+		WindowInsetsCompat wi =
+				androidx.core.view.ViewCompat.getRootWindowInsets(decor);
+		if (wi != null) {
+			navBottom = wi.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
+			imeBottom = wi.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+		}
+		int frameLift = estimateImeLiftFromVisibleFrame(navBottom);
+		if (frameLift < minKeyboardPx) {
+			frameLift = 0;
+		}
+		int insetLift = Math.max(0, imeBottom - navBottom);
+		if (insetLift < minKeyboardPx) {
+			insetLift = 0;
+		}
+
+		int next = imeLiftPx;
+		if (frameLift > imeLiftPx + jitterPx) {
+			// Insets under-reported; frame sees the real keyboard.
+			next = frameLift;
+		} else if (frameLift > 0 && imeLiftPx == 0) {
+			next = frameLift;
+		} else if (frameLift == 0 && insetLift == 0 && imeLiftPx > 0) {
+			// Both authorities say closed — clear a stuck lift.
+			next = 0;
+		} else if (insetLift > imeLiftPx + jitterPx) {
+			next = insetLift;
+		}
+		if (next == imeLiftPx) {
+			return imeLiftPx;
+		}
+		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
+		applyImeChromeLift(rl, next);
+		imeLiftPx = next;
+		return imeLiftPx;
 	}
 
 	void loadHeightsFromPrefs() {

@@ -53,6 +53,12 @@ public class FloatingButtonController {
 
 		/** Current IME lift in px (0 when keyboard down). */
 		int getImeLiftPx();
+
+		/**
+		 * Re-measure IME coverage from the visible frame when insets under-report.
+		 * Returns the authoritative lift in px.
+		 */
+		int refreshImeLiftPx();
 	}
 
 	private final Host host;
@@ -187,7 +193,9 @@ public class FloatingButtonController {
 
 	/** IME lift changed — Mode A visibility / Y. Mode B untouched. */
 	public void onImeLiftChanged(int liftPx) {
-		lastImeLiftPx = Math.max(0, liftPx);
+		// Trust sync: raises under-reported lifts; clears only when frame and
+		// IME insets both say closed. Do not revive from a stale liftPx.
+		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
 		if (layer == null || editingHidden || !host.isFloatingButtonsEnabled()) {
 			return;
 		}
@@ -258,7 +266,7 @@ public class FloatingButtonController {
 		if (layer == null) {
 			return;
 		}
-		lastImeLiftPx = Math.max(0, host.getImeLiftPx());
+		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
 		clearViews();
 		setLayerVisible(true);
 		for (FloatingButtonModel m : models) {
@@ -298,15 +306,21 @@ public class FloatingButtonController {
 				}
 				float density = v.getResources().getDisplayMetrics().density;
 				int marginPx = Math.round(FloatingLayerGeometry.DEFAULT_MARGIN_DP * density);
-				int resolvedX = FloatingLayerGeometry.resolveX(m.floatX);
-				if (m.floatX == FloatingLayerGeometry.UNPLACED) {
-					resolvedX = marginPx;
+				int resolvedX;
+				if (m.floatX == FloatingLayerGeometry.UNPLACED && m.hasGridOrigin) {
+					resolvedX = FloatingLayerGeometry.gridCenterToLeft(
+							m.gridX, m.widthDp, density);
+				} else if (m.floatX == FloatingLayerGeometry.UNPLACED) {
+					resolvedX = Math.round(FloatingLayerGeometry.DEFAULT_MARGIN_DP * density);
+				} else {
+					resolvedX = m.floatX;
 				}
 				int maxBottom;
 				if (keyboardAboveIme && lastImeLiftPx > 0) {
-					// Layer is not IME-translated. The soft keyboard covers the
+					// Layer is not IME-translated. Soft keyboard covers the
 					// bottom lastImeLiftPx of the container — park Mode A just
-					// above that, and also above the lifted input bar.
+					// above that. Prefer the lifted input-bar top when it is
+					// higher (smaller Y) so we clear both keys and the bar.
 					int imeTop = Math.max(0, layer.getHeight() - lastImeLiftPx);
 					int inputTop = computeInputBarTopInLayer();
 					maxBottom = imeTop;
@@ -318,6 +332,7 @@ public class FloatingButtonController {
 					maxBottom = computeMaxBottom(resolvedX, resolvedX + w);
 				}
 				if (keyboardAboveIme) {
+					// Mode A: horizontal from drag/grid; Y always just above IME.
 					int x = FloatingLayerGeometry.clampX(resolvedX, w, layer.getWidth());
 					int y = FloatingLayerGeometry.clampY(
 							Math.max(0, maxBottom - h - marginPx),
@@ -325,9 +340,14 @@ public class FloatingButtonController {
 					applyLayoutParams(v, x, y, w, h);
 					return;
 				}
-				int resolvedY = FloatingLayerGeometry.resolveY(m.floatY, h, maxBottom);
-				if (m.floatY == FloatingLayerGeometry.UNPLACED) {
+				int resolvedY;
+				if (m.floatY == FloatingLayerGeometry.UNPLACED && m.hasGridOrigin) {
+					resolvedY = FloatingLayerGeometry.gridCenterToTop(
+							m.gridY, m.heightDp, density, m.statusOffsetPx);
+				} else if (m.floatY == FloatingLayerGeometry.UNPLACED) {
 					resolvedY = Math.max(0, maxBottom - h - marginPx);
+				} else {
+					resolvedY = m.floatY;
 				}
 				int x = FloatingLayerGeometry.clampX(resolvedX, w, layer.getWidth());
 				int y = FloatingLayerGeometry.clampY(resolvedY, h, maxBottom);

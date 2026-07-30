@@ -39,6 +39,15 @@ public final class FloatingButtonModel {
 	public final int floatY;
 	public final boolean floatRound;
 	public final boolean floatFrame;
+	/**
+	 * Grid centre from Lua {@code data.x}/{@code data.y} — used only while
+	 * {@code floatX}/{@code floatY} are still {@link FloatingLayerGeometry#UNPLACED}.
+	 */
+	public final float gridX;
+	public final float gridY;
+	/** Same {@code statusoffset} Lua adds in {@code BUTTON:updateRect}. */
+	public final int statusOffsetPx;
+	public final boolean hasGridOrigin;
 	public final float widthDp;
 	public final float heightDp;
 	public final float labelSizeSp;
@@ -71,6 +80,10 @@ public final class FloatingButtonModel {
 		floatY = o.optInt("floatY", FloatingLayerGeometry.UNPLACED);
 		floatRound = o.optBoolean("floatRound", false);
 		floatFrame = o.optBoolean("floatFrame", false);
+		hasGridOrigin = o.has("gridX") && o.has("gridY");
+		gridX = (float) o.optDouble("gridX", 0);
+		gridY = (float) o.optDouble("gridY", 0);
+		statusOffsetPx = o.optInt("statusOffset", 0);
 		widthDp = (float) o.optDouble("width", 80);
 		heightDp = (float) o.optDouble("height", 80);
 		labelSizeSp = (float) o.optDouble("labelSize", 23);

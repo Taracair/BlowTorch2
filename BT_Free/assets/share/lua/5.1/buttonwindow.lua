@@ -1293,6 +1293,11 @@ function notifyFloatingButtonsChanged()
 					o:put("floatMode", mode)
 					o:put("floatX", tonumber(d.floatX) or -1)
 					o:put("floatY", tonumber(d.floatY) or -1)
+					-- Grid centre (Lua data.x/y) so Java can seed unplaced
+					-- floaters at the button that was toggled floating.
+					o:put("gridX", tonumber(d.x) or 0)
+					o:put("gridY", tonumber(d.y) or 0)
+					o:put("statusOffset", tonumber(statusoffset) or 0)
 					o:put("floatRound", d.floatRound == true)
 					o:put("floatFrame", d.floatFrame == true)
 					arr:put(o)

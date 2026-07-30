@@ -11,6 +11,14 @@ import org.junit.Test;
 public class FloatingLayerGeometryTest {
 
 	@Test
+	public void gridCenterMapsLikeButtonUpdateRect() {
+		// data.x=200, width=80dp, density=2 → left = 200 - 80 = 120
+		assertEquals(120, FloatingLayerGeometry.gridCenterToLeft(200f, 80f, 2f));
+		// data.y=300, height=40dp, density=2, statusOffset=50 → top = 300 - 40 + 50
+		assertEquals(310, FloatingLayerGeometry.gridCenterToTop(300f, 40f, 2f, 50));
+	}
+
+	@Test
 	public void unplacedXUsesLeftMargin() {
 		assertEquals(FloatingLayerGeometry.DEFAULT_MARGIN_DP,
 				FloatingLayerGeometry.resolveX(FloatingLayerGeometry.UNPLACED));

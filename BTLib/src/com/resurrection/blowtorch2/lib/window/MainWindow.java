@@ -3941,6 +3941,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				public int getImeLiftPx() {
 					return chrome != null ? chrome.getImeLiftPx() : 0;
 				}
+
+				@Override
+				public int refreshImeLiftPx() {
+					return chrome != null ? chrome.syncImeLiftFromVisibleFrame() : 0;
+				}
 			});
 		}
 		floatingButtons.bringUnderChrome();
