@@ -793,6 +793,38 @@ public class Processor {
 		mModuleRegistry.setServerSupports(tokens);
 		logGmcp("INFO", module + " understood: " + tokens.size()
 				+ " module(s) the server offers — see .gmcp ask");
+		suggestUnaskedModules();
+	}
+
+	/**
+	 * Tell the player once about modules a server offers that we never ask for.
+	 *
+	 * <p>One aggregated line, not one per module: this server offers fifteen and
+	 * six of them are new, and six separate notices on connect would be a wall
+	 * rather than a hint. Same option as the per-packet suggestion
+	 * ("Suggest modules when seen?"), and it never enables anything.
+	 */
+	private void suggestUnaskedModules() {
+		if (!mSuggestGmcpModules || mReportTo == null) {
+			return;
+		}
+		ArrayList<String> unasked = mModuleRegistry.unaskedServerSupports();
+		if (unasked.isEmpty()) {
+			return;
+		}
+		StringBuilder sb = new StringBuilder();
+		sb.append("GMCP: the server offers ").append(unasked.size());
+		sb.append(unasked.size() == 1 ? " module" : " modules");
+		sb.append(" you do not ask for — ");
+		for (int i = 0; i < unasked.size(); i++) {
+			if (i > 0) {
+				sb.append(", ");
+			}
+			sb.append(unasked.get(i));
+		}
+		sb.append("\nOptions → Manage modules… or .gmcp enable <name>");
+		mReportTo.sendMessageDelayed(mReportTo.obtainMessage(
+				Connection.MESSAGE_PROCESSORWARNING, sb.toString()), 1);
 	}
 
 	private void dispatchNativeGmcp(final String module, final JSONObject body) {
