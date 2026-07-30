@@ -202,7 +202,7 @@ public class StellarService extends Service {
 	/** The implementation of the onCreate() Service method. */
 	public final void onCreate() {
 		
-		BlowTorchLogger.ensureLogFile(this.getApplicationContext());
+		BlowTorchLogger.ensureLogFileAsync(this.getApplicationContext());
 		mConnections = new HashMap<String, Connection>();
 		
 		mNotificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);

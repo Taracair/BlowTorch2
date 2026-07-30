@@ -37,21 +37,109 @@ public final class BlowTorchLogger {
 	 */
 	public static File getLogDirectory(Context context) {
 		File shared = SDCardUtils.resolveBlowTorchSubdir(context, SDCardUtils.SUBDIR_LOGS);
+		LogDir cached = sLogDir;
+		if (cached != null && cached.matches(shared)) {
+			return cached.dir;
+		}
+		File resolved;
 		if (shared != null && shared.isDirectory() && shared.canWrite()) {
-			return shared;
+			resolved = shared;
+		} else {
+			File fallback = new File(context.getFilesDir(), "logs");
+			if (!fallback.isDirectory()) {
+				fallback.mkdirs();
+			}
+			resolved = fallback;
 		}
-		File fallback = new File(context.getFilesDir(), "logs");
-		if (!fallback.isDirectory()) {
-			fallback.mkdirs();
-		}
-		return fallback;
+		sLogDir = new LogDir(shared, resolved);
+		return resolved;
 	}
+
+	/**
+	 * The answer above, and the shared directory it was worked out from.
+	 *
+	 * <p>Kept as one object so a reader cannot see a new source with an old
+	 * answer; two separate volatile fields would allow exactly that.
+	 */
+	private static final class LogDir {
+		private final String from;
+		private final File dir;
+
+		LogDir(final File from, final File dir) {
+			this.from = from != null ? from.getAbsolutePath() : null;
+			this.dir = dir;
+		}
+
+		boolean matches(final File candidate) {
+			String path = candidate != null ? candidate.getAbsolutePath() : null;
+			return from == null ? path == null : from.equals(path);
+		}
+	}
+
+	/**
+	 * Cached because the two probes above are shared-storage disk on whatever
+	 * thread is writing a log line, and every writer, reader and rotation goes
+	 * through here. StrictMode on the test build measured 33 stalls and 3.8 s of
+	 * main-thread disk in one session through this method alone, worst single
+	 * hit 514 ms.
+	 *
+	 * <p>Deliberately keyed on the shared directory rather than invalidated by
+	 * hand. The check exists for a real reason -- the shared tree belongs to
+	 * whichever flavour created it, and the test build silently could not write
+	 * into a directory the production build owned, which is how the log stopped
+	 * growing without anyone noticing. A cache that had to be told when that
+	 * changed would reproduce the bug documented on {@code SDCardUtils.sRootCache}:
+	 * statics exist once per process, so clearing this in the UI would leave
+	 * {@code :stellar} -- where connection and settings errors are logged --
+	 * pointing at the old place forever. {@code resolveBlowTorchSubdir} already
+	 * re-derives itself when the storage grant changes, so when the root moves
+	 * the source path changes, this misses, and both processes correct
+	 * themselves without being told.
+	 */
+	private static volatile LogDir sLogDir;
 
 	public static File getLogFile(Context context) {
 		return new File(getLogDirectory(context), LOG_FILE);
 	}
 
-	public static void ensureLogFile(Context context) {
+	/**
+	 * Create or rotate the log file off the calling thread.
+	 *
+	 * <p>For the two startup callers -- {@code Launcher.onCreate} and
+	 * {@code StellarService.onCreate} -- which only want the file to exist and
+	 * do not read anything back. Both were paying the first shared-storage
+	 * resolution of their process on the main thread for that: 22 stalls and
+	 * 2.8 s in one measured session, worst hit 513 ms, and in the service that
+	 * is the thread that carries text to the UI.
+	 *
+	 * <p>Anything that then wants to <em>read</em> the log must keep calling
+	 * {@link #ensureLogFile} instead; this makes no promise about when the file
+	 * appears.
+	 *
+	 * @param context Any context; a null context is ignored.
+	 */
+	public static void ensureLogFileAsync(final Context context) {
+		if (context == null) {
+			return;
+		}
+		final Context app = context.getApplicationContext();
+		Thread thread = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				ensureLogFile(app);
+			}
+		}, "bt-log-init");
+		thread.setDaemon(true);
+		thread.setPriority(Thread.MIN_PRIORITY);
+		thread.start();
+	}
+
+	/**
+	 * Synchronized against {@link #writeLine}, which is what makes the async
+	 * variant above safe: rotation renames the file, and a writer that lost that
+	 * race would append to a file nobody is going to read again.
+	 */
+	public static synchronized void ensureLogFile(Context context) {
 		File dir = getLogDirectory(context);
 		File logFile = new File(dir, LOG_FILE);
 		if (!logFile.exists()) {
