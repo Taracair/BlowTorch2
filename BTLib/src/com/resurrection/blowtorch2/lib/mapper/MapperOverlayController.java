@@ -3123,17 +3123,10 @@ public class MapperOverlayController
 		String best = null;
 		int bestTiles = 0;
 		for (String name : names) {
-			try {
-				MudMap m = MapStore.load(activity, name);
-				if (m == null || m.getTiles() == null) {
-					continue;
-				}
-				int n = m.getTiles().size();
-				if (n > bestTiles) {
-					bestTiles = n;
-					best = name;
-				}
-			} catch (Exception ignored) {
+			int n = MapStore.tileCountOf(activity, name);
+			if (n > bestTiles) {
+				bestTiles = n;
+				best = name;
 			}
 		}
 		return bestTiles > 0 ? best : null;
