@@ -331,6 +331,45 @@ public final class ChromeController {
 		fabStrip.setTranslationY(inputbar.getTranslationY());
 	}
 
+	/**
+	 * Lowest screen y a floating overlay may reach without burying ⋮.
+	 *
+	 * <p>Floating overlays (frame, extra text) clamp their bottom to the top of
+	 * the input bar so the player can still type. The ⋮ strip sits in that gap,
+	 * bottom-end, so an overlay taken all the way down at the right-hand edge
+	 * lands its own drag/resize handle in exactly the ⋮'s 48dp box. Chrome is
+	 * above the overlay, so ⋮ wins the touch and the overlay's handle becomes the
+	 * thing that cannot be grabbed — the mirror image of the reported bug, and
+	 * just as annoying.
+	 *
+	 * <p>So an overlay that reaches across the strip stops above it instead. An
+	 * overlay that does not reach that far is unaffected: most of the screen
+	 * width still goes right down to the input bar.
+	 *
+	 * @param inputBarTop Limit the caller would otherwise use (screen y).
+	 * @param overlayLeft Overlay's left edge, screen pixels.
+	 * @param overlayRight Overlay's right edge, screen pixels.
+	 * @return inputBarTop, or the strip's top when the two would overlap.
+	 */
+	int floatingOverlayBottomLimit(int inputBarTop, int overlayLeft, int overlayRight) {
+		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
+		if (fabStrip == null || fabStrip.getVisibility() != View.VISIBLE
+				|| fabStrip.getWidth() <= 0 || fabStrip.getHeight() <= 0) {
+			return inputBarTop;
+		}
+		int[] loc = new int[2];
+		fabStrip.getLocationOnScreen(loc);
+		int stripLeft = loc[0];
+		int stripRight = loc[0] + fabStrip.getWidth();
+		if (overlayRight <= stripLeft || overlayLeft >= stripRight) {
+			return inputBarTop;
+		}
+		// getLocationOnScreen already includes the IME translationY, so no
+		// separate lift term here — see placeGameplayFabStrip.
+		int stripTop = loc[1];
+		return stripTop < inputBarTop ? stripTop : inputBarTop;
+	}
+
 	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
 	void bindGameplayFabControls() {
 		final View overflowMenu = activity.findViewById(R.id.overflow_menu);

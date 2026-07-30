@@ -50,11 +50,18 @@
             android:src="@drawable/ic_editor_done" />
     </LinearLayout>
 
+    <!--
+      ⋮ keeps a backing plate so it stays findable when a floating overlay is
+      parked in this corner. The strip's 48dp box is unchanged: the plate is a
+      background on the button, not a new wrapper — placeGameplayFabStrip
+      rebuilds these params on every input-bar height change, and
+      ChromeSmokeTest asserts ⋮'s parent is still the strip itself.
+    -->
     <ImageButton
         android:id="@+id/overflow_menu"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:background="@android:color/transparent"
+        android:background="@drawable/gameplay_overflow_bg"
         android:contentDescription="More options"
         android:padding="10dp"
         android:scaleType="centerInside"

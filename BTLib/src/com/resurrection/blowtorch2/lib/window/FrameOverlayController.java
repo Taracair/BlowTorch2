@@ -428,7 +428,7 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 			int w = Math.max((int) (MIN_FLOAT_DP * density), (int) (shape.w * density));
 			int h = Math.max((int) (MIN_FLOAT_DP * density), (int) (shape.h * density));
 			int x = Math.max(0, (int) (shape.x * density));
-			int y = clampFloatTop(Math.max(0, (int) (shape.y * density)), h, screenH);
+			int y = clampFloatTop(Math.max(0, (int) (shape.y * density)), h, screenH, x, x + w);
 			lp = new RelativeLayout.LayoutParams(w, h);
 			lp.leftMargin = x;
 			lp.topMargin = y;
@@ -447,14 +447,27 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 		e.root.requestLayout();
 	}
 
-	/** Keep a floating frame above the input bar, so the player can still type. */
-	private int clampFloatTop(final int top, final int height, final int screenH) {
+	/**
+	 * Keep a floating frame above the input bar, so the player can still type,
+	 * and above the ⋮ strip when it reaches that corner, so neither the frame's
+	 * handles nor ⋮ ends up buried under the other.
+	 *
+	 * <p>{@code left}/{@code right} are the frame's own edges in the container,
+	 * which is match_parent, so they are screen x as well.
+	 */
+	private int clampFloatTop(final int top, final int height, final int screenH,
+			final int left, final int right) {
 		int maxBottom = screenH;
 		View inputbar = findInputBar();
 		if (inputbar != null && inputbar.getHeight() > 0) {
 			int[] loc = new int[2];
 			inputbar.getLocationOnScreen(loc);
 			maxBottom = loc[1];
+		}
+		MainWindow activity = host.getMainWindow();
+		ChromeController chrome = activity != null ? activity.getChromeController() : null;
+		if (chrome != null) {
+			maxBottom = chrome.floatingOverlayBottomLimit(maxBottom, left, right);
 		}
 		int maxTop = Math.max(0, maxBottom - height);
 		return top > maxTop ? maxTop : Math.max(0, top);
