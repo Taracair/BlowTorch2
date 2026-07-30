@@ -762,6 +762,10 @@ public class Processor {
 			mCharLogin = null;
 		}
 		mModuleRegistry.clearSeen();
+		// Frames belong to the connection that opened them. Keeping the ids would
+		// mean .frame list showing frames from a session that is over, and a close
+		// event for a frame the new server never opened.
+		mOpenFrames.clear();
 		mMudProtocols.clearMsdp();
 		mMudProtocols.clearMssp();
 	}
@@ -874,13 +878,21 @@ public class Processor {
 				// player watching the screen should not think a window failed to
 				// appear when in fact none was ever going to.
 				logGmcp("INFO", "frame '" + id + "': " + caveat);
-				noteToWindow("[frame " + id + "] " + caveat);
+				noteToWindow("[frame " + id + "] " + caveat
+						+ "\n[frame " + id + "] .frame close " + id + " to shut it");
 			}
 			// Sizes are what the frame will actually be once it is drawn. Until
 			// there is a window to measure, report the request rather than
-			// invent numbers: sizeValue with sizeUnit "c" is in characters.
-			int cols = "c".equalsIgnoreCase(body.optString("sizeUnit", ""))
-					? body.optInt("sizeValue", 0) : 0;
+			// invent numbers: a width with sizeUnit "c" is in characters.
+			//
+			// Two spellings are read. The package page calls the field sizeValue;
+			// eden-test sends size (seen in logs/gmcp.log, 30 July 08:12). Reading
+			// both costs nothing and means the server author is not debugging a
+			// width of zero that came from a field name.
+			int cols = 0;
+			if ("c".equalsIgnoreCase(body.optString("sizeUnit", ""))) {
+				cols = body.optInt("sizeValue", body.optInt("size", 0));
+			}
 			sendGmcpPacket(MudstdFrame.openedEvent(id, cols, 0, 0, 0));
 		} else if (lowerModule.endsWith(".close")) {
 			if (mOpenFrames.remove(id)) {
@@ -927,6 +939,32 @@ public class Processor {
 	/** Frame ids the server believes are open here. */
 	private final java.util.Set<String> mOpenFrames =
 			new java.util.LinkedHashSet<String>();
+
+	/** Frame ids the server believes are open, in the order they opened. */
+	public final ArrayList<String> getOpenFrames() {
+		return new ArrayList<String>(mOpenFrames);
+	}
+
+	/**
+	 * The player closing a frame, which is what {@code reason: "user"} is for.
+	 *
+	 * <p>The specification has always had it and we never sent it: a server could
+	 * open a frame here and never learn that the person reading it was done with
+	 * it. Nothing draws a frame yet, so the way a player says so is
+	 * {@code .frame close <id>} — but the event on the wire is the same one a
+	 * close button would send, and that is the half the server has to write.
+	 *
+	 * @param id The frame id, exactly as the server spelled it.
+	 * @return true if that frame was open; false leaves the wire silent, because
+	 *         telling a server a frame closed twice is worse than saying nothing.
+	 */
+	public final boolean closeFrameByUser(final String id) {
+		if (id == null || !mOpenFrames.remove(id)) {
+			return false;
+		}
+		sendGmcpPacket(MudstdFrame.closedEvent(id, MudstdFrame.REASON_USER));
+		return true;
+	}
 
 	/** Forward Room.* GMCP to Connection → MapperController. */
 	private void dispatchRoomGmcp(final String module, final JSONObject body) {

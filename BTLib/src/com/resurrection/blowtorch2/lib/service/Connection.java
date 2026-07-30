@@ -43,6 +43,7 @@ import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
 import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
+import com.resurrection.blowtorch2.lib.service.function.FrameCommand;
 import com.resurrection.blowtorch2.lib.service.function.GmcpCommand;
 import com.resurrection.blowtorch2.lib.service.function.McpCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
@@ -488,6 +489,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(searchcmd.commandName, searchcmd);
 		GmcpCommand gmcpcmd = new GmcpCommand();
 		mSpecialCommands.put(gmcpcmd.commandName, gmcpcmd);
+		FrameCommand framecmd = new FrameCommand();
+		mSpecialCommands.put(framecmd.commandName, framecmd);
 		TriggerCommand triggercmd = new TriggerCommand();
 		mSpecialCommands.put(triggercmd.commandName, triggercmd);
 		AliasCommand aliascmd = new AliasCommand();

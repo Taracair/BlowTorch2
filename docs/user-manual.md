@@ -365,6 +365,7 @@ is enabled; `.alias list` shows every alias at once.
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
+    `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
@@ -855,6 +856,31 @@ Helpers:
 .gmcp dump [path]     — dump cached GMCP table
 .gmcp send <payload>  — queue a GMCP packet
 ```
+
+## Frames a server opens (`mudstd.frame`)
+
+Some servers can ask the client to open a window of their own — a stats panel, a
+map image — through the `mudstd.frame` GMCP package. It is **off by default**:
+Options → Manage modules…. Nothing is drawn in a frame yet; a frame's content
+arrives in the game window labelled `[frame <id>]`, and image content is
+reported rather than shown.
+
+What is complete is the conversation. When a server opens a frame, BlowTorch
+answers `frame.opened`; when it asks for something it cannot have, BlowTorch
+answers `frame.closed` with `reason: system` rather than going quiet. And when
+**you** are done with a frame, `.frame close` tells the server so, with
+`reason: user` — the event a close button would send once frames are drawn.
+
+```
+.frame                — what the server has open here
+.frame list           — the same
+.frame close <id>     — close it and tell the server you did
+.frame close all      — close every one
+```
+
+Frame ids are chosen by the server and are case-sensitive; `.frame list` shows
+them exactly. This is **not** `.window`, which is BlowTorch's own extra text
+windows — those are yours, frames are the server's.
 
 ## MCP (short)
 
