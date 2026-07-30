@@ -47,6 +47,60 @@ public final class ChromeController {
 		return imeLiftPx;
 	}
 
+	/**
+	 * Fallback when WindowInsets IME height is missing under adjustNothing:
+	 * compare the decor's visible frame to the root height.
+	 */
+	private int estimateImeLiftFromVisibleFrame(int navBottomPx) {
+		View decor = activity.getWindow() != null
+				? activity.getWindow().getDecorView() : null;
+		if (decor == null) {
+			return 0;
+		}
+		android.graphics.Rect visible = new android.graphics.Rect();
+		decor.getWindowVisibleDisplayFrame(visible);
+		View root = decor.getRootView();
+		if (root == null) {
+			return 0;
+		}
+		int covered = root.getHeight() - visible.bottom;
+		return Math.max(0, covered - Math.max(0, navBottomPx));
+	}
+
+	/**
+	 * Watch layout changes so Mode A floaters still track the keyboard when
+	 * IME insets do not fire (common with adjustNothing).
+	 */
+	void watchImeViaGlobalLayout(final View root) {
+		if (root == null) {
+			return;
+		}
+		final float density = activity.getResources().getDisplayMetrics().density;
+		final int minKeyboardPx = Math.round(120 * density);
+		root.getViewTreeObserver().addOnGlobalLayoutListener(
+				new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+					@Override
+					public void onGlobalLayout() {
+						int frameLift = estimateImeLiftFromVisibleFrame(0);
+						if (frameLift < minKeyboardPx) {
+							frameLift = 0;
+						}
+						// Only intervene when insets missed an open keyboard, or
+						// the keyboard closed and insets never cleared the lift.
+						boolean openMissed = frameLift > 0 && imeLiftPx == 0;
+						boolean closeMissed = frameLift == 0 && imeLiftPx > 0;
+						if (!openMissed && !closeMissed) {
+							return;
+						}
+						RelativeLayout rl = (RelativeLayout) activity.findViewById(
+								R.id.window_container);
+						applyImeChromeLift(rl, frameLift);
+						imeLiftPx = frameLift;
+						activity.onFloatingButtonsImeLift(frameLift);
+					}
+				});
+	}
+
 	void loadHeightsFromPrefs() {
 		SharedPreferences sprefs = activity.getSharedPreferences("STATUS_BAR_HEIGHT", 0);
 		statusBarHeight = sprefs.getInt("STATUS_BAR_HEIGHT",
@@ -61,14 +115,16 @@ public final class ChromeController {
 	WindowInsetsCompat onApplyWindowInsets(View view, WindowInsetsCompat windowInsets) {
 		Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
 		Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
-		// Sides deliberately left at zero. Padding the whole window for the
-		// screen's curve was tried and cost about 47px of game text on each
-		// side — a bad trade for a decoration, since the text was never the
-		// thing being clipped. Only a cutout gets padding, because that is a
-		// hole in the display rather than a soft corner.
 		Insets cutout = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout());
 		view.setPadding(cutout.left, 0, cutout.right, bars.bottom);
 		int lift = Math.max(0, ime.bottom - bars.bottom);
+		// adjustNothing + some IME apps report ime.bottom=0 while the keyboard
+		// still covers the bottom. Visible-display-frame fills that gap so
+		// Mode A floaters can appear above the keys.
+		int frameLift = estimateImeLiftFromVisibleFrame(bars.bottom);
+		if (frameLift > lift) {
+			lift = frameLift;
+		}
 		applyImeChromeLift((RelativeLayout) view, lift);
 		imeLiftPx = lift;
 		activity.onFloatingButtonsImeLift(lift);
@@ -227,22 +283,54 @@ public final class ChromeController {
 		if (inputbar != null) {
 			inputbar.bringToFront();
 		}
+		// Floating copies sit above the input bar (Mode A editing keys share
+		// that band when the keyboard is up) and below ⋮.
+		View floating = findFloatingButtonLayer(rl);
+		if (floating != null) {
+			floating.bringToFront();
+		}
 		View overlay = activity.findViewById(R.id.gameplay_chrome_overlay);
 		if (overlay != null) {
 			overlay.bringToFront();
 		}
 	}
 
+	private static View findFloatingButtonLayer(RelativeLayout rl) {
+		if (rl == null) {
+			return null;
+		}
+		for (int i = 0; i < rl.getChildCount(); i++) {
+			View child = rl.getChildAt(i);
+			if (child != null
+					&& FloatingButtonController.LAYER_TAG.equals(String.valueOf(child.getTag()))) {
+				return child;
+			}
+		}
+		return null;
+	}
+
 	/**
-	 * Raise an overlay (mapper / extra text), then put gameplay chrome above it
-	 * so ⋮ stays tappable. Mirrors MapperOverlayController.bringUnderChrome.
+	 * Raise an overlay (mapper / extra text / floating buttons), then put ⋮
+	 * above it. Floating stays above the input bar so Mode A keys remain
+	 * visible over the keyboard band.
 	 */
 	void bringViewUnderChrome(View overlay) {
+		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
+		View inputbar = findGameplayInputBar(rl);
+		if (inputbar != null) {
+			inputbar.bringToFront();
+		}
 		if (overlay != null) {
 			overlay.bringToFront();
 		}
-		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
-		bringGameplayChromeToFront(rl);
+		View floating = findFloatingButtonLayer(rl);
+		if (floating != null && floating != overlay) {
+			floating.bringToFront();
+		}
+		View chromeOverlay = activity.findViewById(R.id.gameplay_chrome_overlay);
+		if (chromeOverlay != null) {
+			chromeOverlay.bringToFront();
+		}
 	}
 
 	void layoutGameplayChrome(RelativeLayout rl) {
