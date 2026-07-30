@@ -1616,9 +1616,9 @@ function buttonOptions()
   editorOptionsDialog.setGridSnapCallback(function(v)
     gridsnap = v
   end)
-  -- The dialog covers the whole screen, so a tool that quietly changes the grid
-  -- or the button size leaves the user with no way to see it happened short of
-  -- closing and reopening settings. Report the result back instead.
+  -- Live grid feedback: the options panel is a bottom sheet so spacing and opacity
+  -- sliders can be watched on the grid behind it. Report size/grid changes back
+  -- into the dialog when a tool cannot be seen without closing settings.
   -- becameDefault is passed straight through: the dialog shows the size that
   -- was applied either way, but only adopts it as the set default when the
   -- change really was set-wide.

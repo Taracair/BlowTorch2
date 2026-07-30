@@ -4,6 +4,8 @@ import com.resurrection.blowtorch2.lib.R;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Context;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,10 +23,17 @@ import androidx.core.view.WindowInsetsCompat;
 public class LuaDialog extends Dialog {
 
 	private static final String TAG = "LuaDialog";
+
+	/** Edge-to-edge content; opaque window background (existing behaviour). */
+	public static final int LAYOUT_FULLSCREEN = 0;
+	/** Transparent window with a dimmed game view behind; content is a bottom panel. */
+	public static final int LAYOUT_BOTTOM_SHEET = 1;
+
 	private View mView = null;
 	private Context mContext = null;
 	private boolean mTitle;
-	private Drawable mBorder;;
+	private Drawable mBorder;
+	private int mLayoutMode = LAYOUT_FULLSCREEN;
 	
 	public LuaDialog(Context context) {
 		super(context);
@@ -32,11 +41,16 @@ public class LuaDialog extends Dialog {
 	}
 	
 	public LuaDialog(Context context,View v,boolean title,Drawable border) {
+		this(context, v, title, border, LAYOUT_FULLSCREEN);
+	}
+
+	public LuaDialog(Context context, View v, boolean title, Drawable border, int layoutMode) {
 		super(context, R.style.BlowTorch_Dialog_FullScreen);
 		mContext = context;
 		mView = v;
 		mTitle = title;
 		mBorder = border;
+		mLayoutMode = layoutMode;
 	}
 
 	private boolean canShow() {
@@ -67,7 +81,10 @@ public class LuaDialog extends Dialog {
 		if(!mTitle) {
 			this.requestWindowFeature(Window.FEATURE_NO_TITLE);
 		}
-		if(mBorder != null) {
+		final boolean bottomSheet = mLayoutMode == LAYOUT_BOTTOM_SHEET;
+		if (bottomSheet) {
+			this.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+		} else if(mBorder != null) {
 			this.getWindow().setBackgroundDrawable(mBorder);
 		} else {
 			this.getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
@@ -85,6 +102,10 @@ public class LuaDialog extends Dialog {
 			attrs.width = WindowManager.LayoutParams.MATCH_PARENT;
 			attrs.height = WindowManager.LayoutParams.MATCH_PARENT;
 			attrs.gravity = Gravity.FILL;
+			if (bottomSheet) {
+				attrs.dimAmount = 0.10f;
+				window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+			}
 			window.setAttributes(attrs);
 		}
 

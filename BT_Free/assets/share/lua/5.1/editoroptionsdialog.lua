@@ -21,6 +21,8 @@ local Color = _G["Color"]
 --needed for advaced page of the set propertieseditor dialog
 local View = _G["View"]
 local Configuration = _G["Configuration"]
+local Context = _G["Context"]
+local R_drawable = _G["R_drawable"]
 local EditText = _G["EditText"]
 local TYPE_CLASS_NUMBER = _G["TYPE_CLASS_NUMBER"]
 local tostring = _G["tostring"]
@@ -180,6 +182,86 @@ function init(pContext)
   context = pContext
 end
 
+-- Kept out of showDialog so Lua 5.1's 60-upvalue limit is not exceeded.
+local function presentEditorOptionsSheet(scroller, footer)
+  local fillparams = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 1)
+  local wrapparamsNoWeight = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.WRAP_CONTENT, LinearLayoutParams.WRAP_CONTENT)
+
+  local root = luajava.newInstance("android.widget.LinearLayout", context)
+  root:setOrientation(LinearLayout.VERTICAL)
+  root:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.FILL_PARENT))
+
+  local spacer = luajava.newInstance("android.view.View", context)
+  spacer:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, 0, 1))
+  spacer:setClickable(true)
+
+  local panel = luajava.newInstance("android.widget.LinearLayout", context)
+  panel:setOrientation(LinearLayout.VERTICAL)
+  panel:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT))
+  panel:setBackgroundResource(R_drawable.dialog_window_crawler1)
+
+  local header = luajava.newInstance("android.widget.LinearLayout", context)
+  header:setOrientation(LinearLayout.HORIZONTAL)
+  header:setLayoutParams(fillparams)
+  header:setPadding(math.floor(10 * density), math.floor(8 * density),
+      math.floor(10 * density), math.floor(4 * density))
+  header:setGravity(Gravity.CENTER_VERTICAL)
+
+  local headerTitle = luajava.newInstance("android.widget.TextView", context)
+  headerTitle:setText("Button set options")
+  headerTitle:setTextSize(textSize)
+  headerTitle:setLayoutParams(luajava.new(LinearLayoutParams,
+      0, LinearLayoutParams.WRAP_CONTENT, 1))
+
+  local togglePanelButton = luajava.new(Button, context)
+  togglePanelButton:setText("Hide")
+  togglePanelButton:setTextSize(textSizeSmall)
+  togglePanelButton:setLayoutParams(wrapparamsNoWeight)
+
+  local panelExpanded = true
+  local function applyPanelExpanded()
+    if panelExpanded then
+      scroller:setVisibility(View.VISIBLE)
+      togglePanelButton:setText("Hide")
+    else
+      scroller:setVisibility(View.GONE)
+      togglePanelButton:setText("Show")
+    end
+  end
+
+  togglePanelButton:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+    onClick = function()
+      panelExpanded = not panelExpanded
+      applyPanelExpanded()
+    end
+  }))
+  spacer:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+    onClick = function()
+      if panelExpanded then
+        panelExpanded = false
+        applyPanelExpanded()
+      end
+    end
+  }))
+
+  header:addView(headerTitle)
+  header:addView(togglePanelButton)
+  panel:addView(header)
+  panel:addView(scroller)
+  panel:addView(footer)
+  root:addView(spacer)
+  root:addView(panel)
+
+  local LuaDialog = luajava.bindClass("com.resurrection.blowtorch2.lib.window.LuaDialog")
+  dialog = luajava.new(LuaDialog, context, root, false, nil, LuaDialog.LAYOUT_BOTTOM_SHEET)
+  dialog:show()
+end
+
 function showDialog(initialValues)
 
   -- Module state outlives the dialog. Left over from a previous visit to the
@@ -201,21 +283,19 @@ function showDialog(initialValues)
 
   local ll = luajava.newInstance("android.widget.LinearLayout",context)
   ll:setOrientation(1)
-  -- Fill the dialog rather than sitting at a fixed 350dp inside it, which left
-  -- every row hugging the left edge with dead space down the right. The button
-  -- editor already sizes itself this way.
-  local utils = require("buttonutils")
-  local dialogWidth = utils.getDialogDimensions(context)
   local llparams = luajava.new(LinearLayoutParams,
       LinearLayoutParams.FILL_PARENT,LinearLayoutParams.WRAP_CONTENT)
   ll:setLayoutParams(llparams)
   ll:setPadding(math.floor(10*density),0,math.floor(10*density),0)
 
+  local wm = context:getSystemService(Context.WINDOW_SERVICE)
+  local display = wm:getDefaultDisplay()
+  local screenH = display:getHeight()
+  local maxScrollH = math.floor(screenH * 0.48)
+
   local scroller = luajava.new(ScrollView,context)
-  -- Its own params object: sharing one between two views in different parents
-  -- is how the widths ended up disagreeing.
   scroller:setLayoutParams(luajava.new(LinearLayoutParams,
-      dialogWidth,LinearLayoutParams.WRAP_CONTENT,1))
+      LinearLayoutParams.FILL_PARENT, maxScrollH))
   
   local fillparams = luajava.new(LinearLayoutParams,LinearLayoutParams.FILL_PARENT,LinearLayoutParams.WRAP_CONTENT,1)
   local wrapparams = luajava.new(LinearLayoutParams,LinearLayoutParams.WRAP_CONTENT,LinearLayoutParams.WRAP_CONTENT,1)
@@ -538,29 +618,9 @@ function showDialog(initialValues)
   boptCancelButton:setOnClickListener(cancelListener)
   boptHolder:addView(boptCancelButton)
   boptHolder:addView(boptDoneButton)
-  
-  ll:addView(boptHolder)
-  
+
   scroller:addView(ll)
-  --ll:addView(rg)
-  
-  --ll:addView(setSettingsButton)
-  --ll:addView(subrow)
-  --set up the show editor settings button.
-  --Note("builder alert creation")
-  --builder = luajava.newInstance("android.app.AlertDialog$Builder",context)
-  dialog = luajava.newInstance("com.resurrection.blowtorch2.lib.window.LuaDialog",context,scroller,false,nil)
-  dialog:show()
-  --local hiddenview = luajava.new(TextView,view:getContext())
-  --hiddenview:setVisibility(View.GONE)
-  --builder:setCustomTitle(hiddenview)
-  --builder:setTitle("")
-  --builder:setMessage("")
-  --builder:setView(ll)
-  --alert = builder:create()
-  --local titleview = alert:findViewById(android_R_id.title)
-  --titleview:setVisibility(View.GONE)
-  --alert:show()
+  presentEditorOptionsSheet(scroller, boptHolder)
 end
 
 gridSnapCheckChangeListener = luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
