@@ -4604,6 +4604,36 @@ public class MapperController {
 		mAutosaveHandler.postDelayed(mAutosaveRunnable, 2000);
 	}
 
+	/**
+	 * Put the map on disk now, for a teardown that will not come back.
+	 *
+	 * <p>Every move schedules a write 2 seconds out and every further move pushes
+	 * that out again, which is right while playing and wrong at the end: a player
+	 * who walks three rooms and swipes the app away loses all three, because the
+	 * debounce never fired and the queue was never drained. Nothing else in the
+	 * shutdown path touched the mapper.
+	 *
+	 * <p>Synchronous on purpose. The callers are disconnect and task-removal,
+	 * where handing work to a {@code MIN_PRIORITY} daemon and hoping is the whole
+	 * bug. Bounded by the number of maps with unwritten changes, which is one.
+	 */
+	public void flushPendingSaves() {
+		mAutosaveHandler.removeCallbacks(mAutosaveRunnable);
+		MudMap map = mMap;
+		Context ctx = context();
+		if (map != null && ctx != null) {
+			try {
+				// Queue the newest state first, so the drain below picks it up
+				// along with anything an earlier debounce already left waiting.
+				MapStore.saveAsync(ctx, map);
+			} catch (Exception e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"MapperController.flushPendingSaves", e);
+			}
+		}
+		MapStore.flushPendingWrites();
+	}
+
 	private Context context() {
 		if (mConnection == null) {
 			return null;
