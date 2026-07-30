@@ -537,23 +537,31 @@ local DIRECTION_GLYPHS = {
 
 -- What the gesture callout should say right now, or nil for nothing.
 --
--- While aiming a swipe it names that swipe's command. Before any swipe starts it
--- names the hold command, which is the useful moment for hold: the callout is up
--- during the delay before hold fires, so an unwanted one can still be avoided by
--- lifting off.
-local function gestureLabelFor(data, direction)
+-- While aiming a swipe it names that swipe's command. When the finger has slid
+-- off the tile it names the flip command that would fire on release, unless a
+-- swipe in that direction would win instead. Before any swipe starts, and while
+-- still on the tile, it names the hold command.
+local function gestureLabelFor(data, direction, outsideButton)
 	if data == nil then
 		return nil
 	end
 	if direction ~= nil then
 		local cmd = getSwipeCommand(data, direction)
 		if hasButtonCommand(cmd) then
-			return (DIRECTION_GLYPHS[direction] or "") .. "  " .. cmd
+			local glyph = DIRECTION_GLYPHS[direction] or ""
+			if outsideButton and hasButtonCommand(data.flipCommand) then
+				return glyph .. "  " .. cmd .. "  · flip blocked"
+			end
+			return glyph .. "  " .. cmd
 		end
-		return nil
 	end
-	if hasButtonCommand(data.holdCommand) then
-		return "hold  " .. data.holdCommand
+	if outsideButton and hasButtonCommand(data.flipCommand) then
+		return "flip  " .. data.flipCommand
+	end
+	if direction == nil and not outsideButton then
+		if hasButtonCommand(data.holdCommand) then
+			return "hold  " .. data.holdCommand
+		end
 	end
 	return nil
 end
@@ -756,7 +764,7 @@ function normalTouch.onTouch(v,e)
 			normalTouchState = 1
 			-- Show the hold command straight away, while there is still time to
 			-- lift off before it fires.
-			gestureLabelText = gestureLabelFor(b.data, nil)
+			gestureLabelText = gestureLabelFor(b.data, nil, false)
 			if needsFullRedraw or b.isAccordionChild or b.expanded or gestureLabelText ~= nil then
 				drawButtons()
 			end
@@ -824,7 +832,8 @@ function normalTouch.onTouch(v,e)
 			-- changes when the finger crosses a sector edge, not on every move
 			-- event. drawButtons() clears first so the old arrow goes with it,
 			-- then the touched button is drawn on top exactly as before.
-			local labelText = gestureLabelFor(touchedbutton.data, previewDir)
+			local labelText = gestureLabelFor(touchedbutton.data, previewDir,
+					wantState == 2)
 
 			if wantState ~= normalTouchState or previewDir ~= swipePreviewDir
 					or labelText ~= gestureLabelText then
