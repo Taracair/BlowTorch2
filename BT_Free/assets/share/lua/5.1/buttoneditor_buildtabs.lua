@@ -32,7 +32,7 @@ function buildClickTab(host, content, o)
 	o.widgets = o.widgets or {}
 
 	local tab1 = host:newTabSpec("tab_one_btn_tab")
-	local label1 = o.makeTabLabel("Click")
+	local label1 = o.makeTabLabel("Tap")
 
 	local clickPageScroller = luajava.new(ScrollView, o.context)
 	clickPageScroller:setLayoutParams(o.fillparams)
@@ -42,6 +42,19 @@ function buildClickTab(host, content, o)
 	clickPage:setLayoutParams(o.fillparams)
 	clickPage:setId(11)
 	clickPage:setOrientation(LinearLayout.VERTICAL)
+
+	local function addGestureSection(title, explanation)
+		local header = luajava.new(TextView, o.context)
+		header:setText(title .. " — " .. explanation)
+		header:setTextSize(textSize)
+		header:setTextColor(Color:argb(255, 0x88, 0xCC, 0xFF))
+		local pad = math.floor(8 * density)
+		header:setPadding(pad, math.floor(14 * density), pad, math.floor(4 * density))
+		header:setLayoutParams(o.fillparams)
+		clickPage:addView(header)
+	end
+
+	addGestureSection("Tap", "sends when you release on the button")
 
 	local clickLabelRow = luajava.new(LinearLayout, o.context)
 	clickLabelRow:setLayoutParams(o.fillparams)
@@ -93,19 +106,12 @@ function buildClickTab(host, content, o)
 	clickPage:addView(clickLabelRow)
 	clickPage:addView(clickCmdRow)
 
-	o.addHelpText(clickPage, "Tap sends the click command. Flip: drag off the button, then release.")
-
-	local flipHeader = luajava.new(TextView, o.context)
-	flipHeader:setTextSize(textSize)
-	flipHeader:setText("Flip")
-	local flipHeaderPad = math.floor(8 * density)
-	flipHeader:setPadding(flipHeaderPad, math.floor(12 * density), flipHeaderPad, math.floor(2 * density))
-	flipHeader:setLayoutParams(o.fillparams)
-	clickPage:addView(flipHeader)
+	addGestureSection("Flip", "drag off the button, then release (blocked when any swipe is set)")
 
 	local flipSwipeNote = luajava.new(TextView, o.context)
 	flipSwipeNote:setTextSize(textSizeSmall)
-	flipSwipeNote:setText("Flip does not run while this button has any swipe command. Swipe replaces flip.")
+	flipSwipeNote:setText("This button has a swipe command, so flip does not run.")
+	local flipHeaderPad = math.floor(8 * density)
 	flipSwipeNote:setPadding(flipHeaderPad, 0, flipHeaderPad, flipHeaderPad)
 	flipSwipeNote:setLayoutParams(o.fillparams)
 	flipSwipeNote:setVisibility(View.GONE)

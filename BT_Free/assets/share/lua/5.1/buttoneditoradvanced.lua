@@ -113,7 +113,7 @@ function makeUI(editorValues,numediting)
     ui.advancedPageScroller:addView(ui.advancedPage)
     local help = fnew(TextView,context)
     help:setTextSize(textSizeSmall)
-    help:setText("Name labels the button in the editor. Target Set is the button-set name used by switch-to commands. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Width, height, and position are in dp from the top-left of the button layer.")
+    help:setText("Name is for the editor list only. Switch set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Width, height, and position are in dp from the top-left of the button layer.")
     local pad = math.floor(8 * density)
     help:setPadding(pad, pad, pad, pad)
     help:setLayoutParams(fillparams)
@@ -184,18 +184,13 @@ function makeUI(editorValues,numediting)
     ui.buttonTargetSetRow:setLayoutParams(fillparams)
     ui.advancedPage:addView(ui.buttonTargetSetRow)
   end
-  if(numediting > 1) then
-    ui.buttonTargetSetRow:setVisibility(View.GONE)
-  else
-    ui.buttonTargetSetRow:setVisibility(View.VISIBLE)
-  end
   
   buttonTargetSetLabelParams = fnew(LinearLayoutParams,LabelWidth,WRAP_CONTENT)
   if(ui.buttonTargetSetLabel == nil) then
     ui.buttonTargetSetLabel = fnew(TextView,context)
     
     ui.buttonTargetSetLabel:setLayoutParams(buttonNameLabelParams)
-    ui.buttonTargetSetLabel:setText("Target Set:")
+    ui.buttonTargetSetLabel:setText("Switch set on tap:")
     ui.buttonTargetSetLabel:setTextSize(textSize)
     ui.buttonTargetSetLabel:setGravity(Gravity.RIGHT)
     ui.buttonTargetSetRow:addView(ui.buttonTargetSetLabel)
@@ -209,6 +204,22 @@ function makeUI(editorValues,numediting)
     ui.targetEdit:setLines(1)
     ui.targetEdit:setLayoutParams(buttonTargetSetEditParams)
     ui.buttonTargetSetRow:addView(ui.targetEdit)
+  end
+  if ui.buttonTargetSetHint == nil then
+    ui.buttonTargetSetHint = fnew(TextView, context)
+    ui.buttonTargetSetHint:setTextSize(textSizeSmall)
+    ui.buttonTargetSetHint:setText("Optional. Same engine as .loadset, but tap never sends the Tap-tab CMD. Prefer .loadset in CMD for tutorial buttons.")
+    local pad = math.floor(8 * density)
+    ui.buttonTargetSetHint:setPadding(pad, 0, pad, math.floor(6 * density))
+    ui.buttonTargetSetHint:setLayoutParams(fillparams)
+    ui.advancedPage:addView(ui.buttonTargetSetHint)
+  end
+  if(numediting > 1) then
+    ui.buttonTargetSetRow:setVisibility(View.GONE)
+    ui.buttonTargetSetHint:setVisibility(View.GONE)
+  else
+    ui.buttonTargetSetRow:setVisibility(View.VISIBLE)
+    ui.buttonTargetSetHint:setVisibility(View.VISIBLE)
   end
   if(numediting > 1) then
     ui.targetEdit:setEnabled(false)
@@ -751,6 +762,7 @@ colorPickerDoneListener = luajava.createProxy("com.resurrection.blowtorch2.lib.b
 
 showSetEditorControls = function()
   ui.buttonTargetSetRow:setVisibility(View.GONE)
+  ui.buttonTargetSetHint:setVisibility(View.GONE)
   ui.buttonNameRow:setVisibility(View.VISIBLE)
   ui.controlRowTwo:setVisibility(View.GONE)
   ui.labelRowFour:setVisibility(View.GONE)

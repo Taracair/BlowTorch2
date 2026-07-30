@@ -183,11 +183,12 @@ function init(pContext)
 end
 
 -- Kept out of showDialog so Lua 5.1's 60-upvalue limit is not exceeded.
-local function presentEditorOptionsSheet(scroller, footer)
+local function presentEditorOptionsSheet(scroller, footer, screenH)
   local fillparams = luajava.new(LinearLayoutParams,
       LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT, 1)
   local wrapparamsNoWeight = luajava.new(LinearLayoutParams,
       LinearLayoutParams.WRAP_CONTENT, LinearLayoutParams.WRAP_CONTENT)
+  local maxPanelScrollH = math.floor(screenH * 0.48 * 1.37)
 
   local root = luajava.newInstance("android.widget.LinearLayout", context)
   root:setOrientation(LinearLayout.VERTICAL)
@@ -195,67 +196,127 @@ local function presentEditorOptionsSheet(scroller, footer)
       LinearLayoutParams.FILL_PARENT, LinearLayoutParams.FILL_PARENT))
 
   local spacer = luajava.newInstance("android.view.View", context)
-  spacer:setLayoutParams(luajava.new(LinearLayoutParams,
-      LinearLayoutParams.FILL_PARENT, 0, 1))
+  local spacerParams = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, 0, 1)
+  spacer:setLayoutParams(spacerParams)
   spacer:setClickable(true)
 
   local panel = luajava.newInstance("android.widget.LinearLayout", context)
   panel:setOrientation(LinearLayout.VERTICAL)
-  panel:setLayoutParams(luajava.new(LinearLayoutParams,
-      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT))
+  local panelParams = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, LinearLayoutParams.WRAP_CONTENT)
+  panel:setLayoutParams(panelParams)
   panel:setBackgroundResource(R_drawable.dialog_window_crawler1)
 
   local header = luajava.newInstance("android.widget.LinearLayout", context)
-  header:setOrientation(LinearLayout.HORIZONTAL)
+  header:setOrientation(LinearLayout.VERTICAL)
   header:setLayoutParams(fillparams)
   header:setPadding(math.floor(10 * density), math.floor(8 * density),
       math.floor(10 * density), math.floor(4 * density))
-  header:setGravity(Gravity.CENTER_VERTICAL)
 
   local headerTitle = luajava.newInstance("android.widget.TextView", context)
   headerTitle:setText("Button set options")
   headerTitle:setTextSize(textSize)
-  headerTitle:setLayoutParams(luajava.new(LinearLayoutParams,
-      0, LinearLayoutParams.WRAP_CONTENT, 1))
+  headerTitle:setLayoutParams(fillparams)
 
-  local togglePanelButton = luajava.new(Button, context)
-  togglePanelButton:setText("Hide")
-  togglePanelButton:setTextSize(textSizeSmall)
-  togglePanelButton:setLayoutParams(wrapparamsNoWeight)
+  local modeRow = luajava.newInstance("android.widget.LinearLayout", context)
+  modeRow:setOrientation(LinearLayout.HORIZONTAL)
+  modeRow:setLayoutParams(fillparams)
+  modeRow:setGravity(Gravity.CENTER_VERTICAL)
 
-  local panelExpanded = true
-  local function applyPanelExpanded()
-    if panelExpanded then
-      scroller:setVisibility(View.VISIBLE)
-      togglePanelButton:setText("Hide")
-    else
-      scroller:setVisibility(View.GONE)
-      togglePanelButton:setText("Show")
-    end
+  local function makeModeButton(label)
+    local btn = luajava.new(Button, context)
+    btn:setText(label)
+    btn:setTextSize(textSizeSmall)
+    btn:setLayoutParams(luajava.new(LinearLayoutParams,
+        0, LinearLayoutParams.WRAP_CONTENT, 1))
+    modeRow:addView(btn)
+    return btn
   end
 
-  togglePanelButton:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+  local panelModeButton = makeModeButton("Panel")
+  local fullscreenModeButton = makeModeButton("Fullscreen")
+  local hideModeButton = makeModeButton("Hide")
+
+  local panelMode = "panel"
+  local scrollParams = scroller:getLayoutParams()
+  if scrollParams == nil then
+    scrollParams = luajava.new(LinearLayoutParams,
+        LinearLayoutParams.FILL_PARENT, maxPanelScrollH)
+  end
+
+  local function applyPanelMode()
+    if panelMode == "hidden" then
+      scroller:setVisibility(View.GONE)
+      spacer:setVisibility(View.VISIBLE)
+      spacerParams.height = 0
+      spacerParams.weight = 1
+      scrollParams.height = maxPanelScrollH
+      scrollParams.weight = 0
+      panelParams.height = LinearLayoutParams.WRAP_CONTENT
+      panelParams.weight = 0
+    elseif panelMode == "panel" then
+      scroller:setVisibility(View.VISIBLE)
+      spacer:setVisibility(View.VISIBLE)
+      spacerParams.height = 0
+      spacerParams.weight = 1
+      scrollParams.height = maxPanelScrollH
+      scrollParams.weight = 0
+      panelParams.height = LinearLayoutParams.WRAP_CONTENT
+      panelParams.weight = 0
+    else
+      scroller:setVisibility(View.VISIBLE)
+      spacer:setVisibility(View.GONE)
+      spacerParams.height = 0
+      spacerParams.weight = 0
+      scrollParams.height = 0
+      scrollParams.weight = 1
+      panelParams.height = 0
+      panelParams.weight = 1
+    end
+    spacer:setLayoutParams(spacerParams)
+    scroller:setLayoutParams(scrollParams)
+    panel:setLayoutParams(panelParams)
+    panelModeButton:setEnabled(panelMode ~= "panel")
+    fullscreenModeButton:setEnabled(panelMode ~= "fullscreen")
+    hideModeButton:setEnabled(panelMode ~= "hidden")
+  end
+
+  panelModeButton:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
     onClick = function()
-      panelExpanded = not panelExpanded
-      applyPanelExpanded()
+      panelMode = "panel"
+      applyPanelMode()
+    end
+  }))
+  fullscreenModeButton:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+    onClick = function()
+      panelMode = "fullscreen"
+      applyPanelMode()
+    end
+  }))
+  hideModeButton:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+    onClick = function()
+      panelMode = "hidden"
+      applyPanelMode()
     end
   }))
   spacer:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
     onClick = function()
-      if panelExpanded then
-        panelExpanded = false
-        applyPanelExpanded()
+      if panelMode == "panel" then
+        panelMode = "hidden"
+        applyPanelMode()
       end
     end
   }))
 
   header:addView(headerTitle)
-  header:addView(togglePanelButton)
+  header:addView(modeRow)
   panel:addView(header)
   panel:addView(scroller)
   panel:addView(footer)
   root:addView(spacer)
   root:addView(panel)
+  applyPanelMode()
 
   local LuaDialog = luajava.bindClass("com.resurrection.blowtorch2.lib.window.LuaDialog")
   dialog = luajava.new(LuaDialog, context, root, false, nil, LuaDialog.LAYOUT_BOTTOM_SHEET)
@@ -291,7 +352,7 @@ function showDialog(initialValues)
   local wm = context:getSystemService(Context.WINDOW_SERVICE)
   local display = wm:getDefaultDisplay()
   local screenH = display:getHeight()
-  local maxScrollH = math.floor(screenH * 0.48)
+  local maxScrollH = math.floor(screenH * 0.48 * 1.37)
 
   local scroller = luajava.new(ScrollView,context)
   scroller:setLayoutParams(luajava.new(LinearLayoutParams,
@@ -620,7 +681,7 @@ function showDialog(initialValues)
   boptHolder:addView(boptDoneButton)
 
   scroller:addView(ll)
-  presentEditorOptionsSheet(scroller, boptHolder)
+  presentEditorOptionsSheet(scroller, boptHolder, screenH)
 end
 
 gridSnapCheckChangeListener = luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
