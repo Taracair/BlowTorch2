@@ -2170,7 +2170,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 		}
 		mReconnect.clearNetworkWait();
+		// Connect failed without scheduling reconnect — MESSAGE_DISCONNECTED used to
+		// perform this cleanup; DataPumper skips it when MESSAGE_DODIALOG was sent.
+		killNetThreads(true);
+		mIsConnected = false;
 		mService.dispatchDialog(str);
+		doDisconnect(true);
 	}
 
 	/** Sends a string to the main output window.

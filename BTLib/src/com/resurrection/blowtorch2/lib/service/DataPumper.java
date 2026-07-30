@@ -86,6 +86,8 @@ public class DataPumper extends Thread {
 	private boolean mConnected = false;
 	/** Tracker for the intention of closing the socket. */
 	private boolean mClosing = false;
+	/** Init already posted MESSAGE_DODIALOG — skip duplicate MESSAGE_DISCONNECTED. */
+	private boolean mConnectFailureReported = false;
 	
 	/** Generic constructor.
 	 * 
@@ -229,6 +231,7 @@ public class DataPumper extends Thread {
 	 * @param str The message to put in the dialog.
 	 */
 	private void dispatchDialog(final String str) {
+		mConnectFailureReported = true;
 		mReportTo.sendMessage(mReportTo.obtainMessage(Connection.MESSAGE_DODIALOG, str));
 	}
 	
@@ -249,7 +252,9 @@ public class DataPumper extends Thread {
 			// Failed DNS/TCP — exit cleanly. Leaving a Looper here made isAlive()==true
 			// and blocked every later initXfer / MESSAGE_STARTUP until manual reconnect.
 			Log.w("BlowTorch", "DataPumper connect failed for " + mHost + ":" + mPort);
-			if (mReportTo != null) {
+			// init() already posted MESSAGE_DODIALOG for DNS/socket errors; a second
+			// MESSAGE_DISCONNECTED would run doDisconnect(3s) on top of dispatchDialog(20s).
+			if (mReportTo != null && !mConnectFailureReported) {
 				mReportTo.sendEmptyMessage(Connection.MESSAGE_DISCONNECTED);
 			}
 			return;
