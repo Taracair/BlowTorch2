@@ -104,6 +104,12 @@ public class DataPumper extends Thread {
 	 * @param data the bytes to send to the server.
 	 */
 	public final void sendData(final byte[] data) {
+		if (mWriterThread == null || mWriterThread.mOutputHandler == null) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"DataPumper.sendData",
+					new IllegalStateException("output writer not ready"));
+			return;
+		}
 		Message msg = mWriterThread.mOutputHandler.obtainMessage(OutputWriterThread.MESSAGE_SEND, data);
 		mWriterThread.mOutputHandler.sendMessage(msg);
 	}
