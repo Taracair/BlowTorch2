@@ -47,100 +47,6 @@ public final class ChromeController {
 		return imeLiftPx;
 	}
 
-	/**
-	 * Fallback when WindowInsets IME height is missing under adjustNothing:
-	 * compare the decor's visible frame to the root height.
-	 */
-	private int estimateImeLiftFromVisibleFrame(int navBottomPx) {
-		View decor = activity.getWindow() != null
-				? activity.getWindow().getDecorView() : null;
-		if (decor == null) {
-			return 0;
-		}
-		android.graphics.Rect visible = new android.graphics.Rect();
-		decor.getWindowVisibleDisplayFrame(visible);
-		View root = decor.getRootView();
-		if (root == null) {
-			return 0;
-		}
-		int covered = root.getHeight() - visible.bottom;
-		return Math.max(0, covered - Math.max(0, navBottomPx));
-	}
-
-	/**
-	 * Watch layout changes so Mode A floaters still track the keyboard when
-	 * IME insets do not fire (common with adjustNothing).
-	 */
-	void watchImeViaGlobalLayout(final View root) {
-		if (root == null) {
-			return;
-		}
-		root.getViewTreeObserver().addOnGlobalLayoutListener(
-				new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
-					@Override
-					public void onGlobalLayout() {
-						int before = imeLiftPx;
-						int after = syncImeLiftFromVisibleFrame();
-						if (after != before) {
-							activity.onFloatingButtonsImeLift(after);
-						}
-					}
-				});
-	}
-
-	/**
-	 * Re-measure IME coverage from the visible display frame and raise chrome
-	 * lift when the frame sees more keyboard than insets reported. Clears lift
-	 * only when both the frame and IME insets agree the keyboard is gone —
-	 * never zeros a fresh insets lift just because the frame has not shrunk yet.
-	 */
-	int syncImeLiftFromVisibleFrame() {
-		View decor = activity.getWindow() != null
-				? activity.getWindow().getDecorView() : null;
-		if (decor == null) {
-			return imeLiftPx;
-		}
-		float density = activity.getResources().getDisplayMetrics().density;
-		int minKeyboardPx = Math.round(120 * density);
-		int jitterPx = Math.round(8 * density);
-		int navBottom = 0;
-		int imeBottom = 0;
-		WindowInsetsCompat wi =
-				androidx.core.view.ViewCompat.getRootWindowInsets(decor);
-		if (wi != null) {
-			navBottom = wi.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
-			imeBottom = wi.getInsets(WindowInsetsCompat.Type.ime()).bottom;
-		}
-		int frameLift = estimateImeLiftFromVisibleFrame(navBottom);
-		if (frameLift < minKeyboardPx) {
-			frameLift = 0;
-		}
-		int insetLift = Math.max(0, imeBottom - navBottom);
-		if (insetLift < minKeyboardPx) {
-			insetLift = 0;
-		}
-
-		int next = imeLiftPx;
-		if (frameLift > imeLiftPx + jitterPx) {
-			// Insets under-reported; frame sees the real keyboard.
-			next = frameLift;
-		} else if (frameLift > 0 && imeLiftPx == 0) {
-			next = frameLift;
-		} else if (frameLift == 0 && insetLift == 0 && imeLiftPx > 0) {
-			// Both authorities say closed — clear a stuck lift.
-			next = 0;
-		} else if (insetLift > imeLiftPx + jitterPx) {
-			next = insetLift;
-		}
-		if (next == imeLiftPx) {
-			return imeLiftPx;
-		}
-		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
-		applyImeChromeLift(rl, next);
-		imeLiftPx = next;
-		return imeLiftPx;
-	}
-
 	void loadHeightsFromPrefs() {
 		SharedPreferences sprefs = activity.getSharedPreferences("STATUS_BAR_HEIGHT", 0);
 		statusBarHeight = sprefs.getInt("STATUS_BAR_HEIGHT",
@@ -157,14 +63,18 @@ public final class ChromeController {
 		Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
 		Insets cutout = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout());
 		view.setPadding(cutout.left, 0, cutout.right, bars.bottom);
+		// The one authority for how tall the keyboard is.
+		//
+		// This used to be second-guessed by an estimator built on
+		// getWindowVisibleDisplayFrame(). That could never work here: the manifest
+		// says adjustNothing, so the window is never resized when the IME shows
+		// and the visible frame never shrinks — the estimator returned 0 by
+		// construction, and having two authorities for one number meant whichever
+		// spoke last won. IME insets are dispatched regardless of soft input mode
+		// from API 30 on, which is where Mode A works; below that this reads 0 and
+		// keyboard-mode floaters stay hidden, and there is no fallback that works
+		// under adjustNothing.
 		int lift = Math.max(0, ime.bottom - bars.bottom);
-		// adjustNothing + some IME apps report ime.bottom=0 while the keyboard
-		// still covers the bottom. Visible-display-frame fills that gap so
-		// Mode A floaters can appear above the keys.
-		int frameLift = estimateImeLiftFromVisibleFrame(bars.bottom);
-		if (frameLift > lift) {
-			lift = frameLift;
-		}
 		applyImeChromeLift((RelativeLayout) view, lift);
 		imeLiftPx = lift;
 		activity.onFloatingButtonsImeLift(lift);
