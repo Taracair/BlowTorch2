@@ -418,7 +418,7 @@ public class BaseSelectionDialog extends Dialog {
 			if (firstNormal == null) {
 				firstNormal = b;
 			}
-			if (b.imageResource == R.drawable.toolbar_modify_button) {
+			if (mRowTapButtonId != NO_ROW_TAP_BUTTON && b.id == mRowTapButtonId) {
 				modify = b;
 				break;
 			}
@@ -427,6 +427,19 @@ public class BaseSelectionDialog extends Dialog {
 		if (target != null) {
 			mToolbarListener.onButtonPressed(null, row, target.id);
 		}
+	}
+
+	private static final int NO_ROW_TAP_BUTTON = Integer.MIN_VALUE;
+	private int mRowTapButtonId = NO_ROW_TAP_BUTTON;
+
+	/**
+	 * Which toolbar button a row tap invokes. Without this the first NORMAL button wins,
+	 * which is the edit button only by accident of ordering — the timer list puts play
+	 * first, and a row tap there started the timer (and crashed, since a tap passes no
+	 * view). Dialogs whose editor is not the first button declare it here.
+	 */
+	public void setRowTapButtonId(int id) {
+		mRowTapButtonId = id;
 	}
 	
 	public void setNewButtonLabel(String str) {
@@ -1079,8 +1092,14 @@ public class BaseSelectionDialog extends Dialog {
 	}
 
 	public void setItemMiniIcon(int row,int resource) {
+		if (mAdapter == null || row < 0 || row >= mAdapter.getCount()) {
+			return;
+		}
 		ItemEntry entry = mAdapter.getItem(row);
-		
+		if (entry == null) {
+			return;
+		}
+
 		entry.mini_icon = resource;
 		if (mList != null && row >= mList.getFirstVisiblePosition()
 				&& row <= mList.getLastVisiblePosition()) {

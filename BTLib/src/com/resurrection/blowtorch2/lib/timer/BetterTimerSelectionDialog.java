@@ -40,6 +40,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		this.addToolbarButton(R.drawable.ic_row_stop,1);
 		this.addToolbarButton(R.drawable.ic_row_edit,2);
 		this.addToolbarDeleteButton(R.drawable.ic_row_delete,3);
+		// Play is first here, so a row tap would otherwise start the timer instead of
+		// opening its editor.
+		this.setRowTapButtonId(2);
 
 		this.setTitle("TIMERS");
 	}
@@ -101,7 +104,13 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 	@Override
 	public void onButtonPressed(View v, int row, int index) {
 		String key = getItemKey(row);
+		if (key == null) {
+			return;
+		}
 		TimerData d = dataMap.get(key);
+		if (d == null) {
+			return;
+		}
 		String src = getSourcePlugin(key);
 
 		String action = "";
@@ -110,8 +119,10 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		case 0:
 			if(d.isPlaying()) {
 				icon = R.drawable.ic_mini_pause;
-				ImageButton b = (ImageButton)v;
-				b.setImageResource(R.drawable.ic_row_pause);
+				// A row tap reaches here with no view — only the row's own button has one.
+				if (v instanceof ImageButton) {
+					((ImageButton) v).setImageResource(R.drawable.ic_row_pause);
+				}
 				try {
 					if(MAIN_SETTINGS.equals(src)) {
 						service.pauseTimer(d.getName());
@@ -124,8 +135,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 				}
 			} else {
 				icon = R.drawable.ic_mini_play;
-				ImageButton b = (ImageButton)v;
-				b.setImageResource(R.drawable.ic_row_play);
+				if (v instanceof ImageButton) {
+					((ImageButton) v).setImageResource(R.drawable.ic_row_play);
+				}
 
 				try {
 					if(MAIN_SETTINGS.equals(src)) {
@@ -163,7 +175,11 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		}
 		Log.e("Trigger","timer item selected for "+action+": "+d.getName());
 
-		this.setItemMiniIcon(row, icon);
+		// Opening the editor picks no icon; writing 0 there would blank the row's
+		// running/paused/stopped glyph.
+		if (icon != 0) {
+			this.setItemMiniIcon(row, icon);
+		}
 	}
 
 	@Override
@@ -173,7 +189,13 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 	@Override
 	public void onItemDeleted(int row) {
 		String key = getItemKey(row);
+		if (key == null) {
+			return;
+		}
 		TimerData d = dataMap.get(key);
+		if (d == null) {
+			return;
+		}
 		String src = getSourcePlugin(key);
 
 		try {
