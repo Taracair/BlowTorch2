@@ -692,7 +692,7 @@ function makeUI(editorValues,numediting)
     ui.floatHelp = fnew(TextView,context)
     ui.floatHelp:setLayoutParams(fillparams)
     ui.floatHelp:setTextSize(textSizeSmall)
-    ui.floatHelp:setText("Draws a second copy over the game that you can drag. \"Show with keyboard\" hides it until the soft keyboard is up, then parks it just above the keys — for editing keys like .kb stepb / .kb paste (same idea as the keyboard helpers in samples/samsaramoo).")
+    ui.floatHelp:setText("Puts a copy of this button on the screen, over the game.")
     ui.advancedPage:addView(ui.floatHelp)
   end
 
@@ -738,19 +738,18 @@ function makeUI(editorValues,numediting)
     ui.floatModeHelp = fnew(TextView,context)
     ui.floatModeHelp:setLayoutParams(fillparams)
     ui.floatModeHelp:setText(
-        "Always visible: the button stays on screen wherever you put it, on top "
-        .. "of the keyboard when it is up.\n\n"
-        .. "Show with keyboard: a keyboard assistant. It appears only while the "
-        .. "keyboard is out and is hidden the rest of the time -- from the button "
-        .. "grid as well, not just from the floating copy. Good for .kb commands "
-        .. "such as .kb stepb, .kb stepf, .kb stepu, .kb paste and .kb close.\n\n"
-        .. "Drawing on top of the keyboard needs the \"Display over other apps\" "
-        .. "permission -- you will be asked for it the first time. Without it the "
-        .. "button still works, but has to stay clear of the keys instead of "
-        .. "sitting over them.\n\n"
-        .. "On Android 9 and 10 the client cannot always tell whether the "
-        .. "keyboard is open, so \"Show with keyboard\" may not appear at all "
-        .. "there. Android 11 and newer are fine.")
+        "Always visible: the button stays on screen all the time.\n\n"
+        .. "Show with keyboard: the button is there only while the keyboard is "
+        .. "open. The rest of the time it is hidden everywhere, including the "
+        .. "button grid.\n\n"
+        .. "Both need the \"Display over other apps\" permission, and you will "
+        .. "be asked for it the first time. Android does not let an app draw on "
+        .. "top of the keyboard without it. If you say no, the button is still "
+        .. "there but the keyboard covers it, which leaves this option doing "
+        .. "very little -- so it is worth granting.\n\n"
+        .. "On Android 9 and 10 the client often cannot tell whether the "
+        .. "keyboard is open, so \"Show with keyboard\" may never appear there. "
+        .. "Android 11 and newer are fine.")
     ui.floatModeHelp:setTextSize(textSizeSmall)
     ui.floatModeHelp:setTextColor(Color:argb(255, 170, 170, 170))
     ui.advancedPage:addView(ui.floatModeHelp)
