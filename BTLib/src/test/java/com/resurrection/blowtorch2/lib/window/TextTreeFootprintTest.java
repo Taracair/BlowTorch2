@@ -372,27 +372,23 @@ public class TextTreeFootprintTest {
 	}
 
 	/**
-	 * What a window token carries across the binder, and what survives it.
+	 * The caps have to travel with the text, or the trip trims the buffer.
 	 *
-	 * <p>{@code WindowToken.writeToParcel} writes {@code mBuffer.dumpToBytes(true)}
-	 * and the reader does {@code mBuffer = new TextTree()} then
-	 * {@code addBytesImpl(buf)} — a fresh tree, so the <b>default</b> cap of 2000
-	 * applies while the bytes are being read back, before any settings are put on
-	 * it. This reproduces exactly that pair of calls: a buffer configured larger
-	 * than the default does not survive the trip.
+	 * <p>{@code WindowToken.writeToParcel} sends the whole buffer as bytes and the
+	 * reader rebuilds it into a brand new {@code TextTree}. A fresh tree starts at
+	 * the 2000-line default, so before the caps were parcelled alongside the
+	 * bytes, a player who asked for more lost the difference every time a token
+	 * crossed the binder. This reproduces both halves of that pair of calls in the
+	 * order the token does them.
 	 *
-	 * <p>The service-side tree really can hold more than 2000: Options → Text
-	 * Buffer Size reaches it through {@code Window} (case {@code buffer_size}) →
+	 * <p>The service tree does reach these sizes: Options → Text Buffer Size gets
+	 * there through {@code Window} (case {@code buffer_size}) →
 	 * {@code MainWindow.MESSAGE_WINDOWBUFFERMAXCHANGED} →
 	 * {@code Connection.updateWindowBufferMaxValue} →
-	 * {@code WindowToken.setBufferSize}. Which gestures re-parcel a token
-	 * afterwards has not been checked on the device.
-	 *
-	 * <p>The byte count printed here is also the size of the binder transaction
-	 * the token has to fit in.
+	 * {@code WindowToken.setBufferSize}.
 	 */
 	@Test
-	public void theParcelPathRebuildsAtTheDefaultCap() throws Exception {
+	public void theParcelPathKeepsWhatTheCapsAllow() throws Exception {
 		TextTree big = new TextTree();
 		big.setMaxLines(8000);
 		for (int i = 0; i < 8000; i++) {
@@ -402,13 +398,20 @@ public class TextTreeFootprintTest {
 
 		byte[] parcelled = big.dumpToBytes(true);
 		TextTree rebuilt = new TextTree();
+		// Reading constructor: caps first, then the text.
+		rebuilt.setMaxLines(8000);
 		rebuilt.addBytesImpl(parcelled);
 
 		System.out.println(String.format(
 				"parcel path: %d lines in, %d bytes on the wire, %d lines out (cap %d)",
 				8000, parcelled.length, rebuilt.getLines().size(), rebuilt.getMaxLines()));
-		assertEquals("the reader's fresh tree prunes at DEFAULT_BUFFER_SIZE",
-				2000, rebuilt.getLines().size());
+		assertEquals("the cap travelled, so the text did too",
+				8000, rebuilt.getLines().size());
+
+		// Without the caps — the old order — the same bytes lose three quarters.
+		TextTree uncapped = new TextTree();
+		uncapped.addBytesImpl(parcelled);
+		assertEquals(2000, uncapped.getLines().size());
 	}
 
 	/** Below the floor and above the ceiling the setter clamps rather than obeys. */
@@ -417,7 +420,42 @@ public class TextTreeFootprintTest {
 		TextTree tree = new TextTree();
 		tree.setMaxLines(1);
 		assertEquals(100, tree.getMaxLines());
-		tree.setMaxLines(100000);
-		assertEquals(8000, tree.getMaxLines());
+		tree.setMaxLines(1000000);
+		assertEquals(20000, tree.getMaxLines());
+	}
+
+	/**
+	 * The byte budget is what actually bounds the heap: whichever of lines or
+	 * bytes runs out first wins, and a world of long lines runs out of bytes.
+	 */
+	@Test
+	public void theByteBudgetTrimsBeforeTheLineCap() throws Exception {
+		TextTree tree = new TextTree();
+		tree.setMaxLines(20000);
+		tree.setMaxBytes(512 * 1024); // WindowToken.BUFFER_BYTE_BUDGET
+		for (int i = 0; i < 2000; i++) {
+			tree.addBytesImpl(longLine(2000).getBytes("UTF-8"));
+		}
+		assertTrue("long lines must run out of bytes long before 20000 lines",
+				tree.getLines().size() < 400);
+		assertTrue("and stay inside the budget", tree.getTotalBytes() <= 512 * 1024);
+
+		// Ordinary text reaches the line cap first, so the budget never shows.
+		TextTree prose = new TextTree();
+		prose.setMaxLines(2000);
+		prose.setMaxBytes(512 * 1024);
+		for (int i = 0; i < 2500; i++) {
+			prose.addBytesImpl(plainLine(i).getBytes("UTF-8"));
+		}
+		assertEquals(2000, prose.getLines().size());
+	}
+
+	/** One line, however big, is shown rather than pruned into nothing. */
+	@Test
+	public void theBudgetNeverEmptiesTheBuffer() throws Exception {
+		TextTree tree = new TextTree();
+		tree.setMaxBytes(1024);
+		tree.addBytesImpl(longLine(50000).getBytes("UTF-8"));
+		assertEquals(1, tree.getLines().size());
 	}
 }

@@ -99,7 +99,29 @@ public class TextTree {
 	private static LinkedList<Integer> bleedColor = new LinkedList<Integer>();
 	
 	private int MAX_LINES = 2000;
-	private static final int ABSOLUTE_MAX_LINES = 8000;
+	/**
+	 * How many lines the player may ask for.
+	 *
+	 * <p>Raised from 8000 once {@link #maxBytes} existed. A line count on its own
+	 * bounds nothing: measured (TextTreeFootprintTest), a line costs 1.5 KB of
+	 * heap as ordinary prose and 85 KB as a 2000-character unwrapped one, so the
+	 * same 2000-line cap is 3 MB in one world and 163 MB in another. The byte
+	 * budget is what keeps the heap bounded; the line cap is now only the
+	 * player's preference within it.
+	 */
+	private static final int ABSOLUTE_MAX_LINES = 20000;
+
+	/**
+	 * Raw bytes of text to keep, or 0 for no limit. Pruned together with
+	 * {@link #MAX_LINES} — whichever runs out first.
+	 *
+	 * <p>Off by default because not every tree is scrollback: {@code Connection}'s
+	 * {@code mWorking} / {@code mFinished} are parse buffers that are drained
+	 * whole by {@code dumpToBytes(false)}, and dropping their oldest lines would
+	 * lose text that was never displayed. Only window buffers set a budget
+	 * ({@code WindowToken.BUFFER_BYTE_BUDGET}).
+	 */
+	private int maxBytes = 0;
 	
 	private String encoding = "UTF-8";
 	
@@ -794,14 +816,41 @@ public class TextTree {
 	}
 
 	public void prune() {
-		if(mLines.size() > MAX_LINES) {
-			while(mLines.size() > MAX_LINES) {
-				//Log.e("TREE","TRIMMING BUFFER");
-				Line del = mLines.removeLast();
-				brokenLineCount -= (1 + del.breaks);
-				totalbytes -= del.bytes;
-			}
+		while(mLines.size() > MAX_LINES) {
+			//Log.e("TREE","TRIMMING BUFFER");
+			dropOldestLine();
 		}
+		// Never down to nothing: one line stays whatever its size, so a single
+		// enormous line is shown rather than silently swallowed.
+		while(maxBytes > 0 && totalbytes > maxBytes && mLines.size() > 1) {
+			dropOldestLine();
+		}
+	}
+
+	/** mLines is newest-first, so the oldest line is the last one. */
+	private void dropOldestLine() {
+		Line del = mLines.removeLast();
+		brokenLineCount -= (1 + del.breaks);
+		totalbytes -= del.bytes;
+	}
+
+	/**
+	 * Cap the text kept, in raw bytes.
+	 *
+	 * @param bytes budget, or 0 to keep every line the line cap allows.
+	 */
+	public void setMaxBytes(int bytes) {
+		maxBytes = bytes < 0 ? 0 : bytes;
+		prune();
+	}
+
+	public int getMaxBytes() {
+		return maxBytes;
+	}
+
+	/** Raw bytes currently held — what {@link #setMaxBytes} is measured against. */
+	public int getTotalBytes() {
+		return totalbytes;
 	}
 	
 	/*private class AddTextHandler extends Handler {

@@ -38,6 +38,25 @@ public class WindowToken implements Parcelable {
 	/** Default buffer size. */
 	/** Default scrollback lines. Higher = more history in RAM; session .txt log covers longer runs. */
 	public static final int DEFAULT_BUFFER_SIZE = 2000;
+	/**
+	 * How much raw text one window keeps, whatever its line count says.
+	 *
+	 * <p>Two jobs. It bounds the heap — measured (TextTreeFootprintTest), a raw
+	 * byte of MUD text costs 30-45 bytes of ART heap once it is words, colour
+	 * runs and list nodes, so 512 KB is roughly 20 MB per tree, held twice
+	 * because the UI keeps its own copy of what the service has. And it keeps
+	 * the token inside a binder transaction: {@link #writeToParcel} carries the
+	 * whole buffer, and the ~1 MB transaction limit is a hard crash, not a
+	 * truncation.
+	 *
+	 * <p>512 KB is about 6500 lines of ordinary 80-column text, so an ordinary
+	 * world reaches the line cap first and this never bites. A world that sends
+	 * 2000-character map dumps hits it instead — which is the point.
+	 *
+	 * <p><b>The 30-45x figure is a model, not a heap reading.</b> Confirm with
+	 * {@code dumpsys meminfo} on a filled buffer before trusting it.
+	 */
+	public static final int BUFFER_BYTE_BUDGET = 512 * 1024;
 	/** Default top text inset (pixels). */
 	public static final int DEFAULT_TOP_PADDING = 0;
 	/** Default scroll sensitivity: index of "Normal", where text follows the finger 1:1. */
@@ -147,6 +166,7 @@ public class WindowToken implements Parcelable {
 		this.mScriptName = scriptName;
 		this.mPluginName = pluginName;
 		mBuffer = new TextTree();
+		mBuffer.setMaxBytes(BUFFER_BYTE_BUDGET);
 		mLayouts = new HashMap<LayoutGroup.LAYOUT_TYPE, LayoutGroup>(0);
 		
 		initSettings();
@@ -245,10 +265,21 @@ public class WindowToken implements Parcelable {
 			mScriptName = p.readString();
 			mPluginName = p.readString();
 		}
+		final int bufferLines = p.readInt();
+		final int bufferBytes = p.readInt();
 		byte[] buf = p.createByteArray();
 		mBuffer = new TextTree();
 		//type = TYPE.SCRIPT;
-		
+
+		// The caps go on before the text does. This tree is brand new, so without
+		// them it would prune at the 2000-line default while reading the bytes
+		// back, and a player who asked for more would lose the difference every
+		// time a token crossed the binder — before any setting reached it.
+		if (bufferLines > 0) {
+			mBuffer.setMaxLines(bufferLines);
+		}
+		mBuffer.setMaxBytes(bufferBytes);
+
 		try {
 			mBuffer.addBytesImpl(buf);
 		} catch (UnsupportedEncodingException e) {
@@ -373,7 +404,9 @@ public class WindowToken implements Parcelable {
 		
 		IntegerOption bufferSize = new IntegerOption();
 		bufferSize.setTitle("Text Buffer Size");
-		bufferSize.setDescription("Lines kept for on-screen scrollback (100–8000). Prefer session log for longer history.");
+		bufferSize.setDescription("Lines kept for on-screen scrollback (100–20000). "
+				+ "Also capped at about 512 KB of text, so very long lines run out sooner. "
+				+ "Prefer session log for longer history.");
 		bufferSize.setKey("buffer_size");
 		bufferSize.setValue(DEFAULT_BUFFER_SIZE);
 		window.addOption(bufferSize);
@@ -561,21 +594,46 @@ public class WindowToken implements Parcelable {
 			p.writeInt(1);
 			p.writeString(mScriptName);
 			p.writeString(mPluginName);
-			p.writeByteArray(mBuffer.dumpToBytes(true));
 		} else {
 			p.writeInt(0);
 			//Log.e("PARCEL","WINDOWTOKEN("+name+") DUMPING: " + buffer.getLines().size() + " lines.");
-			p.writeByteArray(mBuffer.dumpToBytes(true));
 		}
+		// The caps travel with the text: see the reading constructor.
+		p.writeInt(mBuffer == null ? 0 : mBuffer.getMaxLines());
+		p.writeInt(mBuffer == null ? BUFFER_BYTE_BUDGET : mBuffer.getMaxBytes());
+		p.writeByteArray(bufferForParcel());
 		
 		p.writeParcelable(mSettings, arg1);
 	}
+
+	/**
+	 * The buffer as bytes, cut to something a binder transaction can carry.
+	 *
+	 * <p>A token goes to the UI process through AIDL, and the transaction budget
+	 * there is about a megabyte for everything in flight — going over it is
+	 * {@code TransactionTooLargeException}, which takes the window registration
+	 * down rather than shortening it. {@link #BUFFER_BYTE_BUDGET} normally keeps
+	 * the buffer under that on its own; this is the guard for a tree that has not
+	 * had the budget applied (one restored by {@link #setBuffer}, say), and it
+	 * keeps the newest text, which is the part the player is looking at.
+	 */
+	private byte[] bufferForParcel() {
+		byte[] dump = mBuffer == null ? new byte[0] : mBuffer.dumpToBytes(true);
+		return Connection.trimToNewestLines(dump, BUFFER_BYTE_BUDGET);
+	}
+
 	/** Setter for mBuffer.
 	 * 
 	 * @param buffer The new buffer to use.
 	 */
 	public final void setBuffer(final TextTree buffer) {
 		this.mBuffer = buffer;
+		if (buffer != null) {
+			// A buffer handed in from elsewhere (a settings reload keeps the old
+			// one) is scrollback from this point on, so it lives under the same
+			// budget as one this token made itself.
+			buffer.setMaxBytes(BUFFER_BYTE_BUDGET);
+		}
 	}
 
 	/** Getter for mBuffer.

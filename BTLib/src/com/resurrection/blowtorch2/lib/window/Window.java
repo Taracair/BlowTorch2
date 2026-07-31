@@ -512,6 +512,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		this.mSettings.setListener(this);
 		mBuffer = new TextTree();
 		mHoldBuffer = new TextTree();
+		// The UI keeps its own copy of the service's scrollback, so it needs the
+		// same byte budget — otherwise the cap that bounds one process leaves the
+		// other free to grow.
+		mBuffer.setMaxBytes(WindowToken.BUFFER_BYTE_BUDGET);
+		mHoldBuffer.setMaxBytes(WindowToken.BUFFER_BYTE_BUDGET);
 		mHandler = new Handler() {
 			public void handleMessage(final Message msg) {
 				switch(msg.what) {
@@ -4508,8 +4513,15 @@ end
 				break;
 			case buffer_size:
 				mBuffer.setMaxLines((Integer)o.getValue());
+				mHoldBuffer.setMaxLines(mBuffer.getMaxLines());
+				// setMaxLines clamps. Put the number it settled on back into the
+				// option, so the field shows what the window really keeps rather
+				// than what was typed at it.
+				if (mBuffer.getMaxLines() != ((Integer)o.getValue()).intValue()) {
+					((IntegerOption)o).setValue(Integer.valueOf(mBuffer.getMaxLines()));
+				}
 				Message msg = mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_WINDOWBUFFERMAXCHANGED);
-				msg.arg1 = (Integer)o.getValue();
+				msg.arg1 = mBuffer.getMaxLines();
 				msg.getData().putString("PLUGIN", this.mOwner);
 				msg.getData().putString("WINDOW", mName);
 				mMainWindowHandler.sendMessage(msg);
