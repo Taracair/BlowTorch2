@@ -167,8 +167,14 @@ public class BaseSelectionDialog extends Dialog {
 		final View root = findViewById(R.id.root);
 		if (root != null) {
 			androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+				// The keyboard is part of the bottom inset here: search and the button row are
+				// anchored to the bottom and the list sits above them, so padding root pulls the
+				// whole chain up and shrinks the list instead of pushing results under the IME.
+				// Where the system still resizes the window for us, ime.bottom is 0 and this is
+				// the same padding as before.
 				androidx.core.graphics.Insets sys =
-						insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+						insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()
+								| androidx.core.view.WindowInsetsCompat.Type.ime());
 				view.setPadding(view.getPaddingLeft(), sys.top,
 						view.getPaddingRight(), sys.bottom);
 				return insets;
@@ -228,8 +234,30 @@ public class BaseSelectionDialog extends Dialog {
 						}
 					}
 				});
+				// Search only narrows a list that is already on screen, so the keyboard has
+				// nothing left to do once you press Search or start browsing the results.
+				searchField.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+					@Override
+					public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+						hideSoftInput();
+						return true;
+					}
+				});
 			}
 		}
+
+		mList.setOnScrollListener(new AbsListView.OnScrollListener() {
+			@Override
+			public void onScrollStateChanged(AbsListView view, int scrollState) {
+				if (scrollState == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL) {
+					hideSoftInput();
+				}
+			}
+
+			@Override
+			public void onScroll(AbsListView view, int first, int visible, int total) {
+			}
+		});
 
 		mFilterBar = (LinearLayout) findViewById(R.id.filter_bar);
 		mPluginFilterSpinner = (Spinner) findViewById(R.id.plugin_filter_spinner);
@@ -311,6 +339,22 @@ public class BaseSelectionDialog extends Dialog {
 			}
 		}
 
+	}
+
+	/** Drop the keyboard so the results it was covering become visible. */
+	private void hideSoftInput() {
+		Window window = getWindow();
+		View focus = window != null ? window.getCurrentFocus() : null;
+		if (focus == null) {
+			return;
+		}
+		android.view.inputmethod.InputMethodManager imm =
+				(android.view.inputmethod.InputMethodManager)
+						getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (imm != null) {
+			imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
+		}
+		focus.clearFocus();
 	}
 
 	/** Show "=" options when option items exist; otherwise keep controls hidden. */
