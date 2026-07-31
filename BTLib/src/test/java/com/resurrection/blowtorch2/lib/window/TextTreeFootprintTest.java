@@ -193,7 +193,12 @@ public class TextTreeFootprintTest {
 
 	// ---- text profiles ----------------------------------------------------
 
-	/** Plain 80-column prose: the cheapest line the buffer ever holds. */
+	/**
+	 * 80 columns with a word boundary every six characters. This is not typical
+	 * prose — it is the worst word density a normal-length line can have, and
+	 * word density is what the unit count follows. Real text (the user manual
+	 * profile) sits well under it.
+	 */
 	private static String plainLine(int i) {
 		StringBuilder sb = new StringBuilder(80);
 		sb.append("You are standing in a quiet room. Exit ").append(i % 10);
@@ -308,9 +313,12 @@ public class TextTreeFootprintTest {
 		int absoluteCap = 8000;  // TextTree.ABSOLUTE_MAX_LINES
 
 		List<Footprint> rows = new ArrayList<Footprint>();
-		rows.add(measure("plain 80-col, 2000 lines", fill(defaultCap, PLAIN)));
+		Profile real = manual();
+		String realLabel = real == PLAIN
+				? "REAL TEXT MISSING - plain again" : "real text (user manual)";
+		rows.add(measure("80-col, one word per 6 chars", fill(defaultCap, PLAIN)));
 		rows.add(measure("coloured combat, 2000 lines", fill(defaultCap, COLOURED)));
-		rows.add(measure("user manual text, 2000 lines", fill(defaultCap, manual())));
+		rows.add(measure(realLabel + ", 2000 lines", fill(defaultCap, real)));
 		rows.add(measure("2000-char unwrapped, 2000 lines", fill(defaultCap, LONG)));
 		rows.add(measure("coloured combat, 8000 lines", fill(absoluteCap, COLOURED)));
 
@@ -372,6 +380,13 @@ public class TextTreeFootprintTest {
 	 * applies while the bytes are being read back, before any settings are put on
 	 * it. This reproduces exactly that pair of calls: a buffer configured larger
 	 * than the default does not survive the trip.
+	 *
+	 * <p>The service-side tree really can hold more than 2000: Options → Text
+	 * Buffer Size reaches it through {@code Window} (case {@code buffer_size}) →
+	 * {@code MainWindow.MESSAGE_WINDOWBUFFERMAXCHANGED} →
+	 * {@code Connection.updateWindowBufferMaxValue} →
+	 * {@code WindowToken.setBufferSize}. Which gestures re-parcel a token
+	 * afterwards has not been checked on the device.
 	 *
 	 * <p>The byte count printed here is also the size of the binder transaction
 	 * the token has to fit in.
