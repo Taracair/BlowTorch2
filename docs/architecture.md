@@ -11,6 +11,7 @@ not the day-to-day working rules.
 | **This file** | Architecture: modules, processes, packages, data flow, persistence |
 | [`ORCHESTRATION.md`](ORCHESTRATION.md) | Working agreement: measure on device, traps, what not to “fix” |
 | [`user-manual.md`](user-manual.md) | Player commands and Lua API |
+| [`plugin-authoring.md`](plugin-authoring.md) | Write Lua plugins: API, limits, packaging |
 | [`options-guide.md`](options-guide.md) | Every setting |
 | [`README.md`](../README.md) | Public intro, build commands, privacy |
 

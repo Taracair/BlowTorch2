@@ -8,7 +8,8 @@ uninstallable. This fork brings it back: same client, current Android, storage
 and backups sorted out, and a fair amount added.
 
 **Commands:** [`docs/user-manual.md`](docs/user-manual.md), also in-app under
-**Help** · **Every setting:** [`docs/options-guide.md`](docs/options-guide.md)
+**Help** · **Every setting:** [`docs/options-guide.md`](docs/options-guide.md) ·
+**Write plugins:** [`docs/plugin-authoring.md`](docs/plugin-authoring.md)
 
 ---
 
@@ -203,7 +204,7 @@ Release APKs are unsigned by default — F-Droid and CI sign their own. Output i
 | `BTLib/` | Shared library, where nearly all the code lives |
 | `BT_Free/` | App module, and the Lua plugins under `assets/` |
 | `LuaJIT-2.0.5/` | Native LuaJIT |
-| `docs/` | Guides; architecture in [`architecture.md`](docs/architecture.md); working rules in [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) |
+| `docs/` | Guides; architecture in [`architecture.md`](docs/architecture.md); plugins in [`plugin-authoring.md`](docs/plugin-authoring.md); working rules in [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) |
 | `fastlane/`, `metadata/` | Store and F-Droid text |
 
 F-Droid builds the production flavor only — see

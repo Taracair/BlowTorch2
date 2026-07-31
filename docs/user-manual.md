@@ -997,5 +997,6 @@ session is re-established when the network returns.
 
 ## Related docs
 
+- [`plugin-authoring.md`](plugin-authoring.md) — write Lua plugins (API, limits, packaging)
 - [`options-guide.md`](options-guide.md) — Options / storage layout  
 - [`FDROID_README.md`](FDROID_README.md) — permissions for F-Droid  
