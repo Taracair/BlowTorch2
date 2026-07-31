@@ -7,7 +7,12 @@ import java.util.HashMap;
 import java.util.List;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
@@ -15,6 +20,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.R;
@@ -38,11 +44,56 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		// The only thing this screen has to say beyond the list is "how do I write
 		// one", so the "=" menu carries a single row and promoteHelp() turns the
 		// button into "?" that opens it directly — no menu to open first.
+		//
+		// Both paths report through mOptionItemClickListener, which nothing set
+		// here before: the button drew and did nothing at all.
+		this.setOptionItemClickListener(this);
 		this.addOptionItem(OPTION_AUTHORING_GUIDE_LABEL, true);
 		this.promoteHelp();
 	}
 
 	private static final String OPTION_AUTHORING_GUIDE_LABEL = "How to write a plugin";
+
+	/** Where the full reference lives. Needs `docs/` pushed to `main` to resolve. */
+	private static final String GUIDE_URL =
+			"https://github.com/Taracair/BlowTorch2/blob/main/docs/plugin-authoring.md";
+
+	/**
+	 * Enough to start on the phone, and a way to the rest.
+	 *
+	 * <p>Short on purpose: the full guide is a 650-line reference with tables,
+	 * which is a bad read on a phone screen and a file that would have to be kept
+	 * in step with the markdown by hand. What is here is what a plugin is, where
+	 * the file goes, how to load it, and the one warning that matters.
+	 */
+	private static final String GUIDE_SUMMARY =
+			"A plugin is one XML file with Lua inside, kept in\n"
+			+ "/sdcard/BlowTorch/plugins/.\n\n"
+			+ "Load it with the Load button on this screen: pick the .xml, then "
+			+ "Install. Edit the file on a computer and Load it again to reload — "
+			+ "there is no editor here.\n\n"
+			+ "Each plugin runs its own Lua 5.1 VM in the connection service. It can "
+			+ "own triggers, aliases, timers, options and windows, talk to the MUD "
+			+ "(text, GMCP, MCP), and call other plugins.\n\n"
+			+ "Skeleton:\n\n"
+			+ "<blowtorch xmlversion=\"2\">\n"
+			+ " <plugins>\n"
+			+ "  <plugin name=\"hello\" id=\"90001\">\n"
+			+ "   <script name=\"bootstrap\" execute=\"true\"><![CDATA[\n"
+			+ "     function sayHi(arg) Note(\"hi\\n\") end\n"
+			+ "     RegisterSpecialCommand(\"hello\", \"sayHi\")\n"
+			+ "   ]]></script>\n"
+			+ "  </plugin>\n"
+			+ " </plugins>\n"
+			+ "</blowtorch>\n\n"
+			+ "Then type .hello in the input bar.\n\n"
+			+ "Worth knowing: option and XML values arrive in Lua as strings; there "
+			+ "are 8 extra text window slots; .zip packages are not supported; Lua "
+			+ "errors appear as red text in the game window.\n\n"
+			+ "A plugin is NOT sandboxed. It runs with this app's full privileges — "
+			+ "files, network, everything. Only install plugins you trust.\n\n"
+			+ "The full reference — every Lua function, the XML schema, the process "
+			+ "and threading rules — is on GitHub.";
 
 	/** Rebuild the visible list from {@link IConnectionBinder#getPluginList()} without dismissing. */
 	private void populateFromService() {
@@ -375,8 +426,47 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 	public void onOptionItemClicked(int row) {
 		this.hideOptionsMenu();
 		if (row == 0) {
-			new HelpDialog(getContext(), R.raw.plugin_authoring,
-					"Writing plugins").show();
+			showAuthoringGuide();
+		}
+	}
+
+	/** The summary, with a button out to the full reference. */
+	private void showAuthoringGuide() {
+		AlertDialog dialog = new AlertDialog.Builder(getContext())
+				.setTitle("Writing plugins")
+				.setMessage(GUIDE_SUMMARY)
+				.setPositiveButton("Full guide (GitHub)", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface d, int which) {
+						openGuideInBrowser();
+					}
+				})
+				.setNegativeButton("Close", null)
+				.show();
+		TextView body = (TextView) dialog.findViewById(android.R.id.message);
+		if (body != null) {
+			// The skeleton is indented XML; proportional text turns it into a mess.
+			body.setTypeface(Typeface.MONOSPACE);
+			body.setTextSize(12f);
+			body.setTextIsSelectable(true);
+		}
+	}
+
+	/**
+	 * No browser is a possibility on a stripped device, and an unhandled
+	 * {@link ActivityNotFoundException} here would take the dialog down with it.
+	 */
+	private void openGuideInBrowser() {
+		try {
+			Intent browse = new Intent(Intent.ACTION_VIEW, Uri.parse(GUIDE_URL));
+			browse.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+			getContext().startActivity(browse);
+		} catch (ActivityNotFoundException e) {
+			new AlertDialog.Builder(getContext())
+					.setTitle("No browser")
+					.setMessage("Nothing here opens web links. The guide is at:\n\n" + GUIDE_URL)
+					.setPositiveButton("OK", null)
+					.show();
 		}
 	}
 
