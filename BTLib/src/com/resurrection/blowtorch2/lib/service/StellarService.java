@@ -943,24 +943,27 @@ public class StellarService extends Service {
 		// at nothing — same crash as the one fixed in MESSAGE_NEWCONENCTION — so
 		// the clutch only moves to a connection that is really there. The
 		// notification itself still shows the display below, live or not.
-		if (mConnections.get(tmp[0]) != null) {
-			mConnectionClutch = tmp[0];
-		} else {
-			mConnectionClutch = "";
-			for (String candidate : tmp) {
-				if (mConnections.get(candidate) != null) {
-					mConnectionClutch = candidate;
-					break;
-				}
+		// One display drives both the clutch and the notification, so the bar
+		// cannot name one world while the binder facade serves another. Prefer a
+		// display whose Connection is really there: handing the clutch to one
+		// that is gone points every lookup in ConnectionBinderFacade at null,
+		// which is the crash fixed alongside this in MESSAGE_NEWCONENCTION.
+		String chosen = tmp[0];
+		for (String candidate : tmp) {
+			if (mConnections.get(candidate) != null) {
+				chosen = candidate;
+				break;
 			}
 		}
-		Connection next = mConnections.get(tmp[0]);
+		Connection next = mConnections.get(chosen);
+		mConnectionClutch = next == null ? "" : chosen;
+		mConnectionNotificationIdMap.put(chosen, FOREGROUND_NOTIFICATION_ID);
 		if (next != null) {
-			mConnectionNotificationIdMap.put(tmp[0], FOREGROUND_NOTIFICATION_ID);
 			updateForegroundNotification(next.getDisplay(), buildConnectedStatus(next));
 		} else {
-			mConnectionNotificationIdMap.put(tmp[0], FOREGROUND_NOTIFICATION_ID);
-			updateForegroundNotification(tmp[0],
+			// Nothing in the map is live any more. The notification still names a
+			// display rather than going blank; the clutch names none.
+			updateForegroundNotification(chosen,
 					getString(R.string.notification_status_connected, "?", 0));
 		}
 	}
