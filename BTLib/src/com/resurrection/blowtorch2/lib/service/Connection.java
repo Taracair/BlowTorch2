@@ -961,6 +961,32 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Forget a window whose binder has died.
+	 *
+	 * <p>{@code mWindowCallbackMap} is a snapshot taken from the
+	 * {@link RemoteCallbackList} at registration; it does not prune itself when
+	 * the far side goes away. {@link #notifyMainWindow} always cleared its own
+	 * entry, but every other call into a window binder only logged the
+	 * {@code DeadObjectException} and left the corpse in the map — so each new
+	 * line of game text tried the dead binder again. An overnight session on
+	 * 31 July logged {@code [Connection] DeadObjectException} from 22:20 to
+	 * 01:01 doing exactly that.
+	 *
+	 * <p>Re-registration puts a live binder back (see
+	 * {@code registerWindowCallback}), so dropping it here costs nothing when
+	 * the window comes back.
+	 */
+	private void dropDeadWindowCallback(final String name) {
+		if (name == null) {
+			return;
+		}
+		Log.w("BlowTorch", "Window binder dead; clearing callback for " + name);
+		synchronized (mWindowSynch) {
+			mWindowCallbackMap.remove(name);
+		}
+	}
+
 	/** Work horse method for plugins to invalidate a target window's text.
 	 * 
 	 * @param name Name of the window that should invalidate it's text.
@@ -984,7 +1010,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		
 		TextTree buffer = w.getBuffer();
 
-		callback.resetWithRawDataIncoming(buffer.dumpToBytes(true));
+		try {
+			callback.resetWithRawDataIncoming(buffer.dumpToBytes(true));
+		} catch (android.os.DeadObjectException e) {
+			dropDeadWindowCallback(name);
+		}
 	}
 
 	/** Work horse method for WindowXCallS Lua function.
@@ -999,7 +1029,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		IWindowCallback c = mWindowCallbackMap.get(name);
 
 		if (c != null) {
-			c.xcallS(function, (String) o);
+			try {
+				c.xcallS(function, (String) o);
+			} catch (android.os.DeadObjectException e) {
+				dropDeadWindowCallback(name);
+			}
 		}
 
 	}
@@ -1014,7 +1048,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	protected final void windowXCallB(final String name, final String functions, final byte[] bytes) throws RemoteException {
 		IWindowCallback c = mWindowCallbackMap.get(name);
 		if (c != null) {
-			c.xcallB(functions, bytes);
+			try {
+				c.xcallB(functions, bytes);
+			} catch (android.os.DeadObjectException e) {
+				dropDeadWindowCallback(name);
+			}
 		}
 	}
 	
@@ -1513,7 +1551,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 					IWindowCallback c = mWindowCallbackMap.get(resolved);
 					if (c != null) {
-						c.rawDataIncoming(lol);		
+						try {
+							c.rawDataIncoming(lol);
+						} catch (android.os.DeadObjectException e) {
+							dropDeadWindowCallback(resolved);
+						}		
 					}
 			}
 		}
