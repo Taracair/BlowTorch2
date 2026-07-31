@@ -15,6 +15,16 @@
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+	<!--
+	  Floating buttons only. A view inside our own window cannot be drawn over the
+	  soft keyboard - the window manager stacks the IME above every application
+	  window - so a button that sits on top of the keys has to live in a
+	  TYPE_APPLICATION_OVERLAY window, and that needs this.
+
+	  Asked for at the moment a player turns a button into a floating one, never
+	  at startup, and refusing it costs only the over-the-keyboard placement.
+	-->
+	<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="false" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled" android:usesCleartextTraffic="true">
     	<meta-data android:value="171" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
         <!--
