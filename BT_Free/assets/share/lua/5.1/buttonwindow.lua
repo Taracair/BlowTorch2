@@ -1981,6 +1981,24 @@ dpaint:setPathEffect(dash)
 dpaint:setStrokeWidth(2)
 
 --Style = luajava.bindClass("android.graphics.Paint$Style")
+-- A "show only with keyboard" button is a keyboard assistant, so it has no
+-- business sitting in the grid while there is no keyboard. It disappears from
+-- the grid too, not just from the floating layer -- otherwise the grid copy
+-- stays put and reads as the floating one refusing to hide.
+--
+-- Still drawn while editing: the player has to be able to find it to change it.
+-- "Always visible" floaters are untouched and keep their grid copy.
+function isKeyboardOnlyFloater(b)
+	if manage == true then
+		return false
+	end
+	local d = b ~= nil and b.data or nil
+	if d == nil then
+		return false
+	end
+	return d.floating == true and d.floatMode == "keyboard"
+end
+
 function drawButtons()
 	local canvas = buttonCanvas
 	if canvas == nil then return end
@@ -1999,7 +2017,9 @@ function drawButtons()
 	--for i,b in pairs(buttons) do
 		local b = buttons[i]
 		----Note("DRAWING BUTTON"..i)
-		if(b.selected) then
+		if isKeyboardOnlyFloater(b) then
+			-- skip: lives above the keyboard, or nowhere
+		elseif(b.selected) then
 			b:draw(1,canvas)
 		else
 			b:draw(0,canvas)
@@ -2028,7 +2048,7 @@ function drawButtonsNoSelected()
 	--end
 
 	for i,b in pairs(buttons) do
-		if(b.selected ~= true) then
+		if(b.selected ~= true and not isKeyboardOnlyFloater(b)) then
 			b:draw(0,buttonCanvas)
 		end
 	end
@@ -2160,9 +2180,11 @@ function buttonTouched(x,y)
 	for i=1,#buttons do
 	--for i,b in pairs(buttons) do
 		local b = buttons[i]
-		local z = b.rect
-		if(z:contains(x,y)) then
-			return true,b,i
+		if not isKeyboardOnlyFloater(b) then
+			local z = b.rect
+			if(z:contains(x,y)) then
+				return true,b,i
+			end
 		end
 	end
 	return false
