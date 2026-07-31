@@ -390,10 +390,29 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		return tmp;
 	}
 
+	/**
+	 * The connection the clutch names, or null when it names none.
+	 *
+	 * <p>The size check most methods here start with answers "are there any
+	 * connections", which is not the same question: with two worlds open the map
+	 * is full while the clutch can still miss it — during a switch, or after a
+	 * connection is dropped. A miss used to reach {@code .someMethod()} on null,
+	 * and <b>an exception thrown out of a binder method is re-thrown in the
+	 * calling process</b>, so a null here killed the UI. Ask through this.
+	 */
+	private Connection active() {
+		if (service.mConnections == null || service.mConnectionClutch == null) {
+			return null;
+		}
+		return service.mConnections.get(service.mConnectionClutch);
+	}
+
 	@Override
 	public WindowToken[] getWindowTokens() throws RemoteException {
-		if (service.mConnections == null || service.mConnections.size() == 0) { return null; }
-		return service.mConnections.get(service.mConnectionClutch).getWindows();
+		// Callers already handle null: this returned it whenever no connection
+		// existed at all. MainWindow.findWindowToken is the one that crashed.
+		Connection c = active();
+		return c == null ? null : c.getWindows();
 	}
 
 	@Override

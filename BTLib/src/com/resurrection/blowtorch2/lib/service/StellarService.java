@@ -280,10 +280,26 @@ public class StellarService extends Service {
 				
 				Connection c = mConnections.get(display);
 				if (c == null) {
-					//make new conneciton.
-					mConnectionClutch = display;
+					// Build it, publish it, and only then point the clutch at it.
+					//
+					// The clutch used to move first, which left every
+					// `mConnections.get(mConnectionClutch)` in the binder facade
+					// returning null for as long as `new Connection(...)` took —
+					// and those call methods on the result without checking. A
+					// binder call landing in that window threw NullPointerException
+					// out of the service, and an exception crossing a binder call
+					// kills the *caller*: the UI process died and the player was
+					// dropped back to the launcher with the game still connected.
+					//
+					// It only bites when a second world is opened while the first
+					// is still up. With one connection the map is empty during the
+					// gap, which the facade's size check already handles; with two
+					// the map is non-empty and the lookup misses instead.
+					// Crashed here 31 July 2026, 14:44 (getWindowTokens from
+					// MainWindow.onServiceConnected).
 					c = new Connection(display, host, port, StellarService.this);
-					mConnections.put(mConnectionClutch, c);
+					mConnections.put(display, c);
+					mConnectionClutch = display;
 					c.initWindows();
 				}
 				break;
@@ -922,7 +938,22 @@ public class StellarService extends Service {
 		}
 		String[] tmp = new String[mConnectionNotificationMap.size()];
 		tmp = mConnectionNotificationMap.keySet().toArray(tmp);
-		mConnectionClutch = tmp[0];
+		// The notification map can name a display whose Connection is already
+		// gone. Handing the clutch to one of those points the whole binder facade
+		// at nothing — same crash as the one fixed in MESSAGE_NEWCONENCTION — so
+		// the clutch only moves to a connection that is really there. The
+		// notification itself still shows the display below, live or not.
+		if (mConnections.get(tmp[0]) != null) {
+			mConnectionClutch = tmp[0];
+		} else {
+			mConnectionClutch = "";
+			for (String candidate : tmp) {
+				if (mConnections.get(candidate) != null) {
+					mConnectionClutch = candidate;
+					break;
+				}
+			}
+		}
 		Connection next = mConnections.get(tmp[0]);
 		if (next != null) {
 			mConnectionNotificationIdMap.put(tmp[0], FOREGROUND_NOTIFICATION_ID);
