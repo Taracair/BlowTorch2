@@ -16,6 +16,7 @@ GitHub `docs/` is mostly **player- and packager-facing**. Allowed tracked files:
 
 These are intentional exceptions — not plans or audits:
 
+- `docs/architecture.md` — how the app is built (modules, processes, packages, data flow)
 - `docs/ORCHESTRATION.md` — working agreement for AI and maintainers; read before changing code
 - `docs/canvas-capabilities.md` — capability note for server authors
 

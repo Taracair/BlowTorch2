@@ -77,6 +77,11 @@ paths. That is a decision, not a backlog.
 
 ## Part 2 — How this codebase is actually shaped
 
+For the full module / package / data-flow map, see
+[`architecture.md`](architecture.md) (dated with the architecture snapshot).
+This part keeps the **expensive** facts: process asymmetry, thread ownership,
+settings writers, and traps that reading the code alone will not teach you.
+
 Facts that are costly to rediscover and easy to get confidently wrong.
 
 ### It is two processes

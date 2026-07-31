@@ -203,15 +203,16 @@ Release APKs are unsigned by default — F-Droid and CI sign their own. Output i
 | `BTLib/` | Shared library, where nearly all the code lives |
 | `BT_Free/` | App module, and the Lua plugins under `assets/` |
 | `LuaJIT-2.0.5/` | Native LuaJIT |
-| `docs/` | Guides, plus [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) |
+| `docs/` | Guides; architecture in [`architecture.md`](docs/architecture.md); working rules in [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) |
 | `fastlane/`, `metadata/` | Store and F-Droid text |
 
 F-Droid builds the production flavor only — see
 [`docs/fdroid.md`](docs/fdroid.md).
 
-**If you are about to change something**, read
-[`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) first. It is short, and it will
-save you a wrong guess or two.
+**If you are new to the codebase**, start with
+[`docs/architecture.md`](docs/architecture.md) (how it is built). **If you are
+about to change something**, read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md)
+first — it will save you a wrong guess or two.
 
 ---
 
