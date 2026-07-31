@@ -22,11 +22,29 @@ import android.widget.TextView;
 /**
  * Overflow → Help: nearly full-screen user manual (dot commands).
  * Content from {@code R.raw.user_manual}; keep in sync with docs/user-manual.md.
+ *
+ * <p>Also serves any other shipped plain-text document — the Plugins screen
+ * shows {@code R.raw.plugin_authoring} through the two-argument constructor.
+ * Those raw files are hand-adapted copies of the markdown in {@code docs/};
+ * nothing syncs them, so a change to the markdown means a change here too.
  */
 public class HelpDialog extends Dialog {
 
+	private final int mRawResource;
+	private final String mTitle;
+
 	public HelpDialog(Context context) {
+		this(context, R.raw.user_manual, "Help");
+	}
+
+	/**
+	 * @param rawResource plain-text document in {@code res/raw}
+	 * @param title       header text for this document
+	 */
+	public HelpDialog(Context context, int rawResource, String title) {
 		super(context, R.style.BlowTorch_Dialog_FullScreen);
+		mRawResource = rawResource;
+		mTitle = title;
 	}
 
 	@Override
@@ -55,7 +73,7 @@ public class HelpDialog extends Dialog {
 		header.setPadding(pad, pad, pad, pad / 2);
 
 		TextView title = new TextView(getContext());
-		title.setText("Help");
+		title.setText(mTitle);
 		title.setTextSize(22f);
 		title.setTypeface(Typeface.DEFAULT_BOLD);
 		LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0,
@@ -110,7 +128,7 @@ public class HelpDialog extends Dialog {
 	private String loadManualText() {
 		InputStream in = null;
 		try {
-			in = getContext().getResources().openRawResource(R.raw.user_manual);
+			in = getContext().getResources().openRawResource(mRawResource);
 			BufferedReader reader = new BufferedReader(new InputStreamReader(in, "UTF-8"));
 			StringBuilder sb = new StringBuilder();
 			String line;
@@ -119,7 +137,7 @@ public class HelpDialog extends Dialog {
 			}
 			return sb.toString();
 		} catch (Exception e) {
-			return "User manual could not be loaded.\nSee docs/user-manual.md in the source tree.";
+			return mTitle + " could not be loaded.\nSee docs/ in the source tree.";
 		} finally {
 			if (in != null) {
 				try {

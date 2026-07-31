@@ -32,9 +32,17 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		populateFromService();
 		
 		this.setNewButtonLabel("Load");
-		
+
 		this.setTitle("PLUGINS");
+
+		// The only thing this screen has to say beyond the list is "how do I write
+		// one", so the "=" menu carries a single row and promoteHelp() turns the
+		// button into "?" that opens it directly — no menu to open first.
+		this.addOptionItem(OPTION_AUTHORING_GUIDE_LABEL, true);
+		this.promoteHelp();
 	}
+
+	private static final String OPTION_AUTHORING_GUIDE_LABEL = "How to write a plugin";
 
 	/** Rebuild the visible list from {@link IConnectionBinder#getPluginList()} without dismissing. */
 	private void populateFromService() {
@@ -358,10 +366,18 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 		}
 	}
 
+	/**
+	 * One row: the authoring guide. With {@code promoteHelp()} the "?" button
+	 * reports row 0 without the menu ever being shown, so there is nothing to
+	 * hide in that case — {@link #hideOptionsMenu()} is harmless either way.
+	 */
 	@Override
 	public void onOptionItemClicked(int row) {
-		Log.e("Foo","Option Item " + row + " clicked.");
 		this.hideOptionsMenu();
+		if (row == 0) {
+			new HelpDialog(getContext(), R.raw.plugin_authoring,
+					"Writing plugins").show();
+		}
 	}
 
 	@Override

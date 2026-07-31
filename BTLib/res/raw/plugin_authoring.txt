@@ -1,0 +1,576 @@
+BlowTorch Plugin Authoring Guide
+================================
+
+For developers who want to write Lua plugins. As of 31 July 2026
+(v2.2.0, settings xmlversion="2").
+
+Player-facing commands are in Help (the user manual), not here. The same
+text as this screen lives in docs/plugin-authoring.md in the source tree,
+with architecture notes next to it in docs/architecture.md.
+
+
+1. What a plugin is
+-------------------
+A plugin is:
+
+  1. an XML descriptor
+     (<blowtorch xmlversion="2"> -> <plugins> -> <plugin>), and optionally
+  2. sibling Lua modules / assets next to that XML.
+
+Each plugin gets its own Lua 5.1 VM (LuaJIT) in the service process
+(:stellar). If the plugin declares a <window script="...">, that window
+gets a second Lua VM in the UI process, with a different API (drawing,
+menus, PluginXCallS).
+
+Plugins can own triggers, aliases, timers, scripts, options UI and
+windows. They can talk to the MUD (send text, GMCP, MCP), to other
+plugins, and to their own UI windows.
+
+Built-in plugins shipped with the Free build:
+
+  button_window        On-screen button pad (cannot be deleted/disabled)
+  starter_tutorial     Interactive .tutorial guide (cannot be deleted)
+  connection_settings  Host settings root (not a player plugin)
+
+Their Lua lives under assets/share/lua/5.1/ and is synced into app data
+at startup. Their XML is embedded in the default settings file.
+
+
+2. Trust model and limits
+-------------------------
+
+2.1 Security - not a sandbox
+
+Plugins are trusted code with the app's privileges. There is no Lua
+sandbox, no capability allowlist and no SecurityManager.
+
+  Full Lua stdlib (io, os, package, debug, ...)  yes
+  Arbitrary Java via LuaJava                     yes - no allowlist
+  Android Context global                         yes ("context")
+  Filesystem (Lua io / Java File)                yes (storage perms apply)
+  Network sockets / HTTP                         yes (app has INTERNET)
+  Talk to the MUD                                yes (SendToServer, GMCP, MCP)
+  Other apps' private data                       no (Android UID isolation)
+  Escape a Lua CPU/time quota                    n/a - there is no timeout
+
+Treat every installed plugin as full app code running in :stellar. Only
+install plugins you trust; the plugin folder is not a sandbox.
+
+2.2 Hard limits (enforced)
+
+  Extra text windows (CreateTextWindow)  8 slots; names [a-z0-9_]+, 1-24
+  Reserved window names                  main, mainDisplay, button_window
+  Alias expansion recursion              20 passes
+  Undeletable plugins                    button_window, starter_tutorial,
+                                         connection_settings
+  Disabling button_window                forbidden
+
+2.3 Soft / practical constraints
+
+  - No count cap on plugins, triggers, aliases, timers or script size.
+  - No zip packaging for plugins (zip is only for settings backups). The
+    install UI accepts .xml only, under BlowTorch storage.
+  - External plugins need mounted shared storage; otherwise links fail as
+    "storage not mounted".
+  - Session variables (SetVariable / GetVariable) are session-only - they
+    are not persisted across reconnects.
+  - NewWindow(...) is legacy; size arguments are largely ignored. Prefer
+    XML <window> layouts, or CreateTextWindow for extra panes.
+  - Only window (UI) Lua can add global menu items (PopulateMenu).
+  - No NewAlias / NewTimer in Lua - declare those in XML or edit them in
+    the UI. Lua can EnableAlias, and fully create/delete triggers.
+  - No plugin Send_MSDP - MSDP is Options / .msdp only.
+  - ForgeMap (forgemap) is skipped at load in this build.
+
+2.4 Process and threading (read this)
+
+  UI process        owns windows, overlays and window Lua
+  Service :stellar  owns the connection and plugin Lua
+
+Binder is asymmetric:
+
+  - UI -> service is synchronous. PluginXCallS runs plugin Lua on the
+    calling UI thread. Slow Lua freezes the UI.
+  - Service -> UI is queued. WindowXCallB / WindowXCallS post and return
+    quickly.
+  - SaveSettings posts on the same service handler queue - a heavy save
+    can delay button / window IPC behind it.
+
+Triggers run on the connection thread; plugin timers on a per-plugin
+timer thread. Keep shared mutable state local to one thread.
+
+
+3. How to build and install a plugin
+------------------------------------
+
+3.1 Minimal hello-world
+
+Create /storage/emulated/0/BlowTorch/plugins/hello.xml:
+
+  <?xml version="1.0" encoding="utf-8"?>
+  <blowtorch xmlversion="2">
+    <plugins>
+      <plugin name="hello" id="90001">
+        <author>You</author>
+        <description>Minimal plugin example.</description>
+        <options title="Hello" summary="Demo options">
+          <boolean title="Greet on startup" key="greet"
+                   summary="Print a note on session start">true</boolean>
+        </options>
+        <script name="bootstrap" execute="true"><![CDATA[
+  local greet = true
+
+  function OnOptionChanged(key, value)
+    -- Option values from XML arrive as strings.
+    if key == "greet" then
+      greet = (value == "true" or value == true)
+    end
+  end
+
+  function OnBackgroundStartup()
+    if greet then
+      Note("hello plugin loaded\n")
+    end
+  end
+
+  function sayHi(arg)
+    Note("hi from hello: " .. tostring(arg) .. "\n")
+  end
+
+  RegisterSpecialCommand("hello", "sayHi")
+        ]]></script>
+      </plugin>
+    </plugins>
+  </blowtorch>
+
+In a live session: Plugins -> Load -> pick the file -> Install. Then type
+.hello in the input bar.
+
+The main settings file gains a link, not a copy of the plugin body:
+
+  <link file="plugins/hello.xml"/>
+
+3.2 Directory layout
+
+  Single .xml with inline <script> CDATA      yes - simplest
+  Directory: .xml + sibling .lua (+ assets)   yes - load with dofile
+  .zip plugin package                         no
+  Multiple <plugin> nodes in one XML          yes ("plugin group")
+
+Preferred on-device layout:
+
+  /storage/emulated/0/BlowTorch/plugins/
+    hello.xml
+    hellomodule.lua        (optional)
+
+Install / browse fallbacks if classic storage is unavailable:
+
+  {getExternalFilesDir()}/plugins
+  {getFilesDir()}/plugins
+
+Link resolution order for a stored relative path plugins/foo.xml:
+
+  1. /sdcard/BlowTorch/plugins/foo.xml
+  2. {externalFilesDir}/plugins/foo.xml
+  3. {externalFilesDir}/BlowTorch/plugins/foo.xml
+
+3.3 Loading sibling Lua modules (require caveat)
+
+At construction, package.path includes the plugin directory. During
+bootstrap the path is rewritten to the shared Lua tree only
+({dataDir}/lua/share/5.1/?.lua) - the append of the plugin directory is
+commented out in the parser.
+
+So do not rely on require("hellomodule") for files next to your XML.
+Prefer:
+
+  local dir = GetPluginInstallDirectory()  -- parent of the plugin XML
+  dofile(dir .. "/hellomodule.lua")
+
+Or extend package.path yourself after bootstrap. Built-in modules such as
+serialize, copytable and buttonserver live in the shared path and require
+fine.
+
+GetPluginInstallDirectory() uses the external plugin's XML path; it is
+not meaningful for internal/bundled plugins.
+
+3.4 Bundled vs user-installed
+
+                 Bundled                      User-installed
+  Source         inside default settings XML  external XML + <link file>
+  Location       INTERNAL                     EXTERNAL
+  Delete         refused                      removes link + reloads
+  Disable        starter_tutorial yes,        yes
+                 button_window no
+
+Disable keeps the plugin loaded but skips triggers, aliases and
+callbacks that check isEnabled().
+
+3.5 Testing tips
+
+  1. Iterate external plugins without rebuilding the APK.
+  2. Lua errors show as red text in the game window; the connection
+     stays up.
+  3. Check /sdcard/BlowTorch/logs/blowtorch2.log and logcat.
+  4. The build does not syntax-check Lua. For shipped modules:
+     luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua
+  5. Option and XML values are strings in Lua (1 ~= "1").
+  6. The offline Starter Tutorial row in the server list is useful for
+     client-only tests.
+  7. Failed links appear as missing rows - restore the file, or delete
+     the row.
+
+
+4. Plugin XML reference
+-----------------------
+The root must be the modern format (xmlversion="2"). The legacy <root>
+is probed for migration only; new plugins must use <blowtorch>.
+
+  <blowtorch xmlversion="2">
+    <plugins>
+      <plugin name="..." id="..." enabled="true">
+        <author>...</author>
+        <description>...</description>
+        <version>1.0</version>   <!-- metadata; not read by the parser -->
+        <windows>...</windows>
+        <aliases>...</aliases>
+        <triggers>...</triggers>
+        <timers>...</timers>
+        <options title="..." summary="...">...</options>
+        <script name="bootstrap" execute="true"><![CDATA[ ... ]]></script>
+      </plugin>
+    </plugins>
+  </blowtorch>
+
+4.1 <plugin> attributes
+
+  name      required  identity used everywhere (commands, CallPlugin, UI)
+  id        required  integer; missing or non-numeric fails the parse
+  enabled   optional  "false" loads but disables; default enabled
+
+INTERNAL vs EXTERNAL is not an XML attribute - it depends on how the file
+was loaded (embedded, or via a link).
+
+4.2 <script>
+
+There is no wrapping <scripts> node. Each <script> is a direct child of
+<plugin>.
+
+  name      script id; window script="..." and ExecuteScript use this
+  execute   "true" runs it at load. The name "bootstrap" also forces it
+
+4.3 Triggers, aliases, timers
+
+Alias attributes: pre, post, enabled.
+
+Trigger attributes:
+
+  title                          name (the attribute is not "name")
+  pattern                        match text or regex
+  regexp / interpretLiteral      regex mode (regexp="true" preferred)
+  fireOnce, hidden, enabled      behaviour flags
+  sequence                       order (default 10)
+  group                          group name
+  keepEvaluating                 continue after a match (default true)
+
+Nested responders: <ack>, <toast>, <notification>,
+<script function="...">, <replace>, <color>, <gag>, <setVariable>.
+Common attribute: fireWhen (window open / closed / both / never).
+
+Conditions:
+
+  <conditions op="and|or">
+    <condition type="triggerEnabled|triggerDisabled|variableEquals|
+                     variableExists"
+               key="..." plugin="..." value="..."/>
+  </conditions>
+
+Timer attributes: name, seconds, repeat, playing, ordinal, group. Timers
+can nest the same responder and condition machinery as triggers.
+
+GMCP / MCP triggers: literal patterns starting with %Module.Name (GMCP)
+or @message-name (MCP) route into the plugin's GMCP/MCP callback path,
+and typically call a Lua function through a <script> responder.
+
+4.4 Windows
+
+  <windows>
+    <window name="my_win" id="91001" script="ui_script">
+      <layoutGroup target="normal">
+        <layout orientation="landscape" width="fill_parent"
+                height="200" above="40"/>
+        <layout orientation="portrait" width="fill_parent"
+                height="200" above="40"/>
+      </layoutGroup>
+      <options>
+        <option key="font_size">14</option>
+        <option key="line_extra">2</option>
+      </options>
+    </window>
+  </windows>
+
+  name    window id
+  id      unique integer
+  script  named <script> loaded into window (UI) Lua
+
+Layout attributes include width / height (N, fill_parent, wrap_content),
+above / below / leftOf / rightOf, alignParent*, margins. The
+layoutGroup target is a size bucket: normal, large, xlarge.
+
+Useful window option keys: font_size, line_extra, font_path, buffer_size,
+word_wrap, hyperlinks_enabled, hyperlink_color, hyperlink_mode,
+color_option.
+
+4.5 Options UI
+
+Container attributes: title, summary. Children:
+
+  <boolean key="..." title="..." summary="...">true</boolean>
+  <string> / <integer> / <encoding>   text body is the value
+  <color>                            #AARRGGBB (alpha first)
+  <callback>                         body = Lua function called on tap
+  <list>                             <value> (index), <item> (labels)
+  <file>                             <value>, <path>, <extension>
+
+Options appear under Options -> <title>. Changes call Lua
+OnOptionChanged(key, value) - older Doxygen text says OnOptionsChanged,
+which is wrong. Values arrive as strings.
+
+4.6 Custom XML (OnPrepareXML / OnXmlExport)
+
+For data the stock parser does not know (button_window's <buttonsets>,
+for example) define OnPrepareXML(rootElement) to attach SAX listeners,
+then rewrite the custom nodes in OnXmlExport(XmlSerializer) on save.
+
+
+5. Lifecycle and host callbacks
+-------------------------------
+
+  Parse XML -> new Plugin + initLua (register API)
+            -> run bootstrap / execute="true" scripts
+            -> optional OnPrepareXML + second parse pass
+  loadPlugins -> init timers, build triggers/aliases
+              -> push all options through OnOptionChanged
+  Connection ready -> OnBackgroundStartup()   (before TCP connect)
+  UI attaches windows -> OnCreate / OnDraw / ...
+  Option change -> OnOptionChanged(key, value)
+  Save -> OnXmlExport(out)
+  Shutdown -> window OnDestroy; plugin Lua state dropped
+
+5.1 Service (plugin) callbacks
+
+  bootstrap / execute="true"     during load
+  OnPrepareXML(root)             after bootstrap, if defined
+  OnOptionChanged(key, value)    load dump, and each Options change
+  OnBackgroundStartup()          all plugins loaded, before connect
+  OnXmlExport(serializer)        settings save
+  trigger <script function="fn"> match -> global fn
+  RegisterSpecialCommand(c, fn)  player types .c ...
+
+5.2 Window callbacks
+
+  OnCreate                    window created
+  OnMeasure / OnSizeChanged   layout
+  OnDraw(canvas)              each frame when not scrolling
+  PopulateMenu(menu)          overflow / action menu
+  OnDestroy                   teardown
+
+Drawing belongs in window Lua only. Service-side DrawWindow is disabled.
+
+
+6. Lua API - service (plugin) VM
+--------------------------------
+
+6.1 Globals
+
+  triggers             Java HashMap of this plugin's triggers
+  context              Android Context (service process)
+  connection_display   connection display name
+  connection_host      hostname
+
+6.2 Host / environment
+
+  Note(text)                     client-only note to the main window
+  SendToServer(str)              send as if typed (aliases apply)
+  GetPluginID()                  numeric id from XML
+  GetPluginName()                plugin name
+  GetPluginInstallDirectory()    parent dir of the external plugin XML
+  GetExternalStorageDirectory()  external storage root
+  GetDisplayDensity()            display density
+  GetStatusBarHeight()           UI metric
+  GetActionBarHeight()           UI metric
+  UserPresent()                  is the foreground window showing
+
+6.3 Windows and extra text
+
+  NewWindow(name, x, y, w, h, script)  legacy token create
+  GetWindowTokenByName(name)           raw WindowToken Java object
+  AppendLineToWindow(name, line)       append a Line or a string
+  AppendWindowSettings(name)           nest window options into Options
+  InvalidateWindowText(name)           force a redraw
+  WindowBuffer(name, state)            buffer into a named window
+  WindowXCallS(token, fn, data)        call window Lua with a string
+  WindowXCallB(token, fn, bytes)       same, binary-safe
+  CreateTextWindow(name [, title])     extra-text slot (max 8)
+  DestroyTextWindow(name)              remove a slot
+  ListTextWindows()                    1-based array of slot names
+  ShowTextWindow(name, visible)        show / hide the overlay
+  ClearTextWindow(name)                clear buffer (main -> mainDisplay)
+  NoteToWindow(name, text)             coloured client-only note
+  WindowExists(name)                   slot or token exists
+
+6.4 Settings, scripts, commands
+
+  ExecuteScript(name)                    run a named <script> body
+  GetPluginSettings()                    plugin SettingsGroup object
+  ReloadSettings()                       full settings reload
+  SaveSettings()                         persist settings (queued)
+  RegisterSpecialCommand(short, fnName)  .short -> global Lua function
+
+6.5 Triggers, aliases, variables
+
+  NewTrigger(name, pattern, config, action...)  create trigger
+  DeleteTrigger(name) / DeleteTriggerGroup(n)   remove
+  EnableTrigger(name [, state])                 get/set enabled
+  EnableTriggerGroup(name, state)               group enable
+  EnableAlias(name [, state])                   get/set + rebuild matcher
+  SetVariable(name, value)                      session var for ${name}
+  GetVariable(name)                             read (nil if unset)
+  UnsetVariable(name)                           clear
+
+NewTrigger config table, common keys: regex, group, fireOnce.
+
+Action tables (type is required):
+
+  notification   title, message, soundpath, vibrate, spawnNew
+  toast          message, duration (0 short / 1 long)
+  send           text
+  gag            output, log, retarget
+  replace        text, retarget
+  color          foreground, background (1-256 xterm)
+  script         Lua function name (via an XML responder)
+
+Example:
+
+  NewTrigger("fox_color", "fox", { regex = false },
+    { type = "color", foreground = 36, background = 75 },
+    { type = "send", text = "listen fox" })
+
+6.6 Inspect the player's own sets (read-only)
+
+  GetPlayerTriggers()  name<TAB>pattern<TAB>regex<TAB>enabled<TAB>classes
+  GetPlayerAliases()   pre<TAB>post<TAB>enabled
+  GetPlayerTimers()    name<TAB>seconds<TAB>repeat<TAB>playing
+
+One record per line. These cannot mutate the player's work - that is
+deliberate, and it is what the tutorial uses.
+
+6.7 Interop and protocols
+
+  CallPlugin(plugin, fn, data)   call another plugin's global (one string)
+  PluginSupports(plugin, fn)     true if that global exists
+  Simulate(data)                 inject bytes as server input
+  Send_GMCP_Packet(str)          outbound GMCP
+  Send_MCP_Packet(str)           outbound MCP
+  Get_MCP_Status()               table of the MCP status cache
+
+
+7. Lua API - window (UI) VM
+---------------------------
+Registered on the Window for scripts attached via <window script="...">.
+
+  Note                       echo to main
+  SendToServer               send text
+  PluginXCallS(fn, data)     UI -> owning plugin (SYNC - keep it fast)
+  PluginXCallB(fn, bytes)    binary variant
+  WindowCall(name, fn, arg)  call another window's Lua
+  WindowSupports(name, fn)   probe
+  WindowBroadcast            broadcast to windows
+  AddOptionCallback(fn, title, icon)   overflow menu item
+  ScheduleCallback / CancelCallback    timed UI callbacks
+  GetActivity                host activity Java object
+  PluginInstalled(name)      is that plugin loaded
+  GetOptionValue             read an option
+  CloseOptionsDialog         dismiss options
+  Metrics / paths            GetDisplayDensity, GetStatusBarHeight,
+                             GetActionBarHeight, IsStatusBarHidden,
+                             GetExternalStorageDirectory,
+                             GetPluginInstallDirectory
+
+Global: view = the Android Window view.
+
+
+8. How the pieces talk
+----------------------
+
+  Plugin A Lua (service)  --CallPlugin/PluginSupports-->  Plugin B Lua
+        ^
+        | PluginXCallS / PluginXCallB
+        | (UI -> service, SYNCHRONOUS on the UI thread)
+  Window Lua (UI process)
+        ^
+        | WindowXCallS / WindowXCallB
+        | (service -> UI, queued)
+
+Shared session variables and the special-command namespace are the other
+ways plugins interact.
+
+
+9. Native Lua libraries
+-----------------------
+The language surface is Lua 5.1 (LuaJIT). Packaged native modules on
+package.cpath include lsqlite3, sqlite3, bit, marshal and luabins.
+Shared pure-Lua helpers: serialize, copytable, and the button / tutorial
+modules under assets/share/lua/5.1/.
+
+
+10. Worked examples in the source tree
+--------------------------------------
+starter_tutorial (simple)
+
+  - XML in the default settings: options + bootstrap
+    require("startertutorial").
+  - Module: BT_Free/assets/share/lua/5.1/startertutorial.lua.
+  - Uses RegisterSpecialCommand, Note, GetPlayerTriggers / Aliases /
+    Timers, CallPlugin("button_window", ...) and OnBackgroundStartup.
+
+button_window (full-featured)
+
+  - XML window + options + bootstrap require("buttonserver").
+  - Window script require("buttonwindow").
+  - Custom <buttonsets> via OnPrepareXML / OnXmlExport.
+  - Service <-> UI through WindowXCallB / PluginXCallS.
+  - Special commands .loadset and .clearbuttons.
+
+Study these two before inventing a new IPC pattern. Sample settings and
+plugin material also live under samples/ in the repo.
+
+
+11. Checklist
+-------------
+  1. Write <blowtorch xmlversion="2"><plugins><plugin name="..."
+     id="uniqueInt">.
+  2. Put logic in <script name="bootstrap" execute="true"> and/or a
+     sibling .lua loaded with
+     dofile(GetPluginInstallDirectory() .. "/...").
+  3. Optional: <options>, <triggers>, <aliases>, <timers>, <windows>.
+  4. Implement OnBackgroundStartup / OnOptionChanged as needed.
+  5. Copy to /sdcard/BlowTorch/plugins/....xml.
+  6. In a session: Plugins -> Load -> Install.
+  7. Verify with .yourcommand, Note, logcat and the error log.
+  8. Ship as a single XML or a folder, and document the relative path
+     under BlowTorch/. Tell users: only install plugins they trust.
+
+
+12. Where to read more
+----------------------
+  Help (this app)          player commands, built-in plugin commands
+  docs/plugin-authoring.md the full markdown source of this page
+  docs/options-guide.md    every setting
+  docs/architecture.md     modules, processes, data flow
+  docs/ORCHESTRATION.md    working rules, the PluginXCallS trap
+  docs/FDROID_README.md    trust and permissions wording
+  docs/canvas-capabilities.md  what the text buffer can draw
+
+Not verified on device for this document: end-to-end install of a fresh
+external hello-world. The API surface and limits were read from source.
