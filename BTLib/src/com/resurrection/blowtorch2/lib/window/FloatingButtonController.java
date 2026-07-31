@@ -86,8 +86,16 @@ public class FloatingButtonController {
 	/** Overlay params per view, so add and remove stay symmetric. */
 	private final java.util.HashMap<FloatingButtonView, WindowManager.LayoutParams>
 			overlayParams = new java.util.HashMap<FloatingButtonView, WindowManager.LayoutParams>();
-	/** False while the activity is paused: no windows may be added then. */
-	private boolean resumed;
+	/**
+	 * False only while the activity is paused.
+	 *
+	 * <p>Starts true on purpose. It used to start false and wait for
+	 * {@code onResume}, but the controller is built from
+	 * {@code onServiceConnected}, which runs *after* the first resume — so
+	 * {@code MainWindow.onResume}'s null check skipped it and nothing ever set
+	 * this, leaving rebuildOverlay to return before adding a single window.
+	 */
+	private boolean resumed = true;
 	/** Last payload from Lua, so an IME change can rebuild without asking again. */
 	private final List<FloatingButtonModel> lastModels = new ArrayList<FloatingButtonModel>();
 	/** Asked for the overlay grant once already this activity. */
