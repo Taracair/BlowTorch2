@@ -25,9 +25,6 @@ public final class ChromeController {
 	static final int LEGACY_INPUT_BAR_ID = 10;
 	static final int LEGACY_DIVIDER_ID = 40;
 	static final int LEGACY_TEXT_INPUT_ID = 30;
-	/** Extra gap above the input chrome so ⋮ clears Edit/Send. */
-	private static final float OVERFLOW_LIFT_PHONE_DIP = 20f;
-	private static final float OVERFLOW_LIFT_TABLET_DIP = 24f;
 
 	private final MainWindow activity;
 	private View.OnLayoutChangeListener mInputBarChromeLayoutListener = null;
@@ -322,13 +319,10 @@ public final class ChromeController {
 		if (fabStrip != null) {
 			final View inputbarFinal = inputbar;
 			final int marginFinal = margin;
-			final float liftDip = activity.getResources().getConfiguration().smallestScreenWidthDp >= 600
-					? OVERFLOW_LIFT_TABLET_DIP
-					: OVERFLOW_LIFT_PHONE_DIP;
 			Runnable placeFab = new Runnable() {
 				@Override
 				public void run() {
-					placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
+					placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal);
 				}
 			};
 			inputbar.removeCallbacks(placeFab);
@@ -341,7 +335,7 @@ public final class ChromeController {
 						int oldH = oldBottom - oldTop;
 						int newH = bottom - top;
 						if (oldH != newH) {
-							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal, liftDip);
+							placeGameplayFabStrip(fabStrip, inputbarFinal, marginFinal);
 						}
 					}
 				};
@@ -354,8 +348,17 @@ public final class ChromeController {
 		bringGameplayChromeToFront(rl);
 	}
 
-	/** Anchor ⋮ above the input chrome (never over Edit/Send). */
-	void placeGameplayFabStrip(View fabStrip, View inputbar, int margin, float liftDip) {
+	/**
+	 * Anchor ⋮ above the input chrome (never over Edit/Send).
+	 *
+	 * <p>End and bottom gaps use the same {@code margin} so the corner looks
+	 * even. The strip lives in {@code gameplay_chrome_overlay}, a sibling of
+	 * {@code window_container} that does not share its nav-bar padding — add
+	 * that padding into the bottom inset or ⋮ sits too low by exactly
+	 * {@code bars.bottom}. IME lift stays on translationY via
+	 * {@link #applyImeChromeLift}; do not use window locations here.
+	 */
+	void placeGameplayFabStrip(View fabStrip, View inputbar, int margin) {
 		if (fabStrip == null || inputbar == null) {
 			return;
 		}
@@ -368,14 +371,17 @@ public final class ChromeController {
 			inputbar.post(new Runnable() {
 				@Override
 				public void run() {
-					placeGameplayFabStrip(fabStrip, inputbar, margin, liftDip);
+					placeGameplayFabStrip(fabStrip, inputbar, margin);
 				}
 			});
 			return;
 		}
-		// Layout-only inset above the input bar. IME lift is applied via translationY
-		// synced to the input bar in applyImeChromeLift — do not use window locations here.
-		int bottomInset = inputH + margin + (int) (liftDip * density + 0.5f);
+		int navPad = 0;
+		View container = activity.findViewById(R.id.window_container);
+		if (container != null) {
+			navPad = container.getPaddingBottom();
+		}
+		int bottomInset = inputH + navPad + margin;
 		android.widget.FrameLayout.LayoutParams stripLp =
 				new android.widget.FrameLayout.LayoutParams(
 						LayoutParams.WRAP_CONTENT, (int) (48 * density + 0.5f));
@@ -419,7 +425,7 @@ public final class ChromeController {
 			return inputBarTop;
 		}
 		// getLocationOnScreen already includes the IME translationY, so no
-		// separate lift term here — see placeGameplayFabStrip.
+		// separate IME term here — see placeGameplayFabStrip.
 		int stripTop = loc[1];
 		return stripTop < inputBarTop ? stripTop : inputBarTop;
 	}
