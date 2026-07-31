@@ -4,7 +4,6 @@
 package com.resurrection.blowtorch2.lib.service;
 
 import java.util.HashMap;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import android.text.style.BackgroundColorSpan;
@@ -1832,24 +1831,28 @@ public final class Colorizer {
 		return telOptColorEnd;
 	}
 
-	/** ANSI Color code pattern. */
-	private static final Pattern COLOR_PATTERN = Pattern.compile("\\x1B\\x5B.+?m");
-
-	/** ANSI Color code matcher. */
-	private static final Matcher COLOR_MATCHER = COLOR_PATTERN.matcher("");
+	/**
+	 * CSI sequences ({@code ESC [ … final}) with digit/semicolon params and a
+	 * letter final — the same shape SessionLogger used, covering typical MUD
+	 * SGR/erase/cursor CSI. {@code TextTree} also swallows private sequences
+	 * (e.g. {@code ESC[?25h}) that this pattern leaves alone.
+	 *
+	 * <p>Must not share a static Matcher: concurrent {@code reset}/{@code
+	 * replaceAll} corrupts the result (leftover ESC, or {@code IndexOutOfBoundsException}).
+	 */
+	private static final Pattern COLOR_PATTERN = Pattern.compile("\\u001B\\[[0-9;]*[A-Za-z]");
 
 	/**
-	 * Strip ANSI SGR escape sequences from {@code input}.
+	 * Strip ANSI CSI escape sequences from {@code input}.
 	 *
-	 * @param input text that may contain ESC[…m sequences
+	 * @param input text that may contain ESC[… sequences
 	 * @return input with those sequences removed (empty string if input is null)
 	 */
 	public static String stripAnsiEscapes(final String input) {
 		if (input == null) {
 			return "";
 		}
-		COLOR_MATCHER.reset(input);
-		return COLOR_MATCHER.replaceAll("");
+		return COLOR_PATTERN.matcher(input).replaceAll("");
 	}
 
 }

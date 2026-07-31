@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.service;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -92,6 +93,58 @@ public class ColorizerCharacterizationTest {
 		assertEquals("hello", Colorizer.stripAnsiEscapes("\u001b[1;31mhello\u001b[0m"));
 		assertEquals("", Colorizer.stripAnsiEscapes(null));
 		assertEquals("plain", Colorizer.stripAnsiEscapes("plain"));
+	}
+
+	/** Production leak: CSI reset between {@code [chatnet]} and the body broke {@code \[chatnet\] (.+)}. */
+	@Test
+	public void stripAnsiEscapesChatnetDiaLine() {
+		String raw = "7:32 am [chatnet]\u001b[0m Dia says, \"...huh, also while i'm rambling\"";
+		String plain = Colorizer.stripAnsiEscapes(raw);
+		assertEquals("7:32 am [chatnet] Dia says, \"...huh, also while i'm rambling\"", plain);
+		assertFalse(plain.contains("\u001b"));
+		assertTrue(java.util.regex.Pattern.compile("\\[chatnet\\] (.+)").matcher(plain).find());
+	}
+
+	@Test
+	public void stripAnsiEscapesXterm256WhoLine() {
+		String raw = "$ Dia                  \u001b[38;5;171madmin  !  pvp 52m    Distracted";
+		assertEquals("$ Dia                  admin  !  pvp 52m    Distracted",
+				Colorizer.stripAnsiEscapes(raw));
+	}
+
+	@Test
+	public void stripAnsiEscapesNonSgrCsi() {
+		assertEquals("room", Colorizer.stripAnsiEscapes("\u001b[2J\u001b[Hroom"));
+		assertEquals("x", Colorizer.stripAnsiEscapes("\u001b[1A\u001b[Kx"));
+	}
+
+	@Test
+	public void stripAnsiEscapesConcurrentStress() throws Exception {
+		final int threads = 8;
+		final int iters = 2000;
+		final String sample = "pre\u001b[38;5;171mMID\u001b[0m [chatnet]\u001b[0m Dia\u001b[2J";
+		final String expect = "preMID [chatnet] Dia";
+		final java.util.concurrent.atomic.AtomicInteger failures =
+				new java.util.concurrent.atomic.AtomicInteger();
+		Thread[] ts = new Thread[threads];
+		for (int t = 0; t < threads; t++) {
+			ts[t] = new Thread(new Runnable() {
+				@Override
+				public void run() {
+					for (int i = 0; i < iters; i++) {
+						String out = Colorizer.stripAnsiEscapes(sample);
+						if (!expect.equals(out) || out.indexOf('\u001b') >= 0) {
+							failures.incrementAndGet();
+						}
+					}
+				}
+			});
+			ts[t].start();
+		}
+		for (Thread t : ts) {
+			t.join();
+		}
+		assertEquals(0, failures.get());
 	}
 
 	@Test

@@ -14,7 +14,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -71,8 +70,6 @@ public final class SessionLogger {
 	private static final int QUEUE_LIMIT = 8192;
 	/** How long {@link #endSession} will wait for the tail to reach disk. */
 	private static final long END_SESSION_DRAIN_MS = 400L;
-	private static final Pattern ANSI = Pattern.compile("\\u001B\\[[0-9;]*[A-Za-z]");
-
 	// ---- caller-side state ------------------------------------------------
 
 	private static boolean enabledCached = false;
@@ -319,9 +316,10 @@ public final class SessionLogger {
 		if (context == null || text == null || text.length() == 0 || !isEnabled(context)) {
 			return;
 		}
-		// Stripping ANSI is CPU, not disk, and doing it here keeps the writer
-		// from becoming the bottleneck on a busy world.
-		String plain = ANSI.matcher(text).replaceAll("").replace('\r', '\n');
+		// One strip path with Colorizer — trigger matching and the session log
+		// must see the same plain text (leftover CSI breaks \[chatnet\] (.+) etc.).
+		String plain = com.resurrection.blowtorch2.lib.service.Colorizer
+				.stripAnsiEscapes(text).replace('\r', '\n');
 		ensureIntended(context, profile);
 		enqueue(context, new Op(Op.WRITE, plain, null, false, null));
 	}

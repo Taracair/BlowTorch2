@@ -1984,7 +1984,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 		mWorking.setModCount(0);
 		
-		//strip the color out.
+		// Strip for triggers + session log. Display parsing (TextTree holdover) can
+		// reassemble CSI split across TCP packets; this path cannot — incomplete
+		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
 		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
 		
