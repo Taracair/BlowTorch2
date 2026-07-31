@@ -404,8 +404,9 @@ public class WindowToken implements Parcelable {
 		
 		IntegerOption bufferSize = new IntegerOption();
 		bufferSize.setTitle("Text Buffer Size");
-		bufferSize.setDescription("Lines kept for on-screen scrollback (100–20000). "
-				+ "Also capped at about 512 KB of text, so very long lines run out sooner. "
+		bufferSize.setDescription("Lines kept for on-screen scrollback (100–20000), "
+				+ "and never more than about 512 KB of text — roughly 6500 ordinary lines, "
+				+ "fewer when they are long, more when they are short. "
 				+ "Prefer session log for longer history.");
 		bufferSize.setKey("buffer_size");
 		bufferSize.setValue(DEFAULT_BUFFER_SIZE);
@@ -612,10 +613,17 @@ public class WindowToken implements Parcelable {
 	 * <p>A token goes to the UI process through AIDL, and the transaction budget
 	 * there is about a megabyte for everything in flight — going over it is
 	 * {@code TransactionTooLargeException}, which takes the window registration
-	 * down rather than shortening it. {@link #BUFFER_BYTE_BUDGET} normally keeps
-	 * the buffer under that on its own; this is the guard for a tree that has not
-	 * had the budget applied (one restored by {@link #setBuffer}, say), and it
-	 * keeps the newest text, which is the part the player is looking at.
+	 * down rather than shortening it. {@link #BUFFER_BYTE_BUDGET} keeps the
+	 * buffer near that on its own, but not exactly: the tree counts the bytes of
+	 * its units, while the dump also writes a newline per line, so a tree sitting
+	 * just under budget dumps just over it. This is the guard for that gap, and
+	 * it keeps the newest text, which is the part the player is looking at.
+	 *
+	 * <p>Measured with a probe: the cut always lands just after a newline, so the
+	 * bytes handed on start at a line boundary and no half-finished escape
+	 * sequence survives into the parse. The one exception is a single line longer
+	 * than the whole budget, where there is no newline to cut at — that line
+	 * arrives shortened, which is the intended trade.
 	 */
 	private byte[] bufferForParcel() {
 		byte[] dump = mBuffer == null ? new byte[0] : mBuffer.dumpToBytes(true);
