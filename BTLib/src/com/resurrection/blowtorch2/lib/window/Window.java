@@ -3336,15 +3336,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_ADDTEXT, raw));
 		}
 
-		public boolean isWindowShowing() throws RemoteException {
-			
-			return true;
-		}
-
-		public String getName() throws RemoteException {
-			return Window.this.mName;
-		}
-
 		public void redraw() throws RemoteException {
 			mHandler.sendEmptyMessage(Window.MESSAGE_FLUSHBUFFER);
 		}

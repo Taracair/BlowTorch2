@@ -676,7 +676,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	
 	@Override
 	public void windowShowing(final boolean show) {
-		service.mWindowShowing = show;
+		service.setWindowShowing(show);
 	}
 
 	@Override

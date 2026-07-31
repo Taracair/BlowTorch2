@@ -987,8 +987,121 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/** Guards {@link #mHeldWhileHidden} and {@link #mHeldOverflowed}. Its own lock:
+	 *  the text threads reach it, and mWindowSynch is held across binder calls. */
+	private final Object mHeldSynch = new Object();
+	/** Per window, the text its UI copy has not been given yet. */
+	private final HashMap<String, java.io.ByteArrayOutputStream> mHeldWhileHidden =
+			new HashMap<String, java.io.ByteArrayOutputStream>();
+	/** Windows that went past {@link #MAX_REPLAY_BYTES} and want a whole-buffer reset instead. */
+	private final java.util.HashSet<String> mHeldOverflowed = new java.util.HashSet<String>();
+
+	/** Whether the game window is on screen, from the service's point of view.
+	 *
+	 * <p>Defaults to visible when there is no service — offline and test paths
+	 * construct a Connection without one, and holding their text forever would
+	 * be a silent blank window. */
+	private boolean uiIsVisible() {
+		return mService == null || mService.isWindowConnected();
+	}
+
+	/** Keep text for a window whose UI is not on screen, instead of pushing it.
+	 *
+	 * <p>Both callers write the same bytes into the window's own service-side
+	 * buffer *before* calling here, so nothing is lost by not delivering: this
+	 * only exists so the UI's in-process copy can be caught up on return.
+	 *
+	 * <p>Why hold at all, now that IWindowCallback is oneway and can no longer
+	 * kill a frozen process: a one-way transaction to a frozen process sits in
+	 * that process's async binder buffer, which is roughly half a megabyte and
+	 * shared process-wide. A chatty MUD and a long idle would fill it, and the
+	 * overflow arrives as a plain RemoteException — text dropped, with the UI
+	 * copy silently short of the buffer it is supposed to mirror.
+	 *
+	 * <p>Past {@link #MAX_REPLAY_BYTES} we stop accumulating and mark the window
+	 * for a full reset instead. That bounds what an overnight idle costs in the
+	 * service, and by then almost everything on screen is new text anyway.
+	 *
+	 * @param window Name of the target window.
+	 * @param data The bytes that would have been pushed.
+	 * @return true when the bytes were held and must not be delivered now.
+	 */
+	private boolean holdWhileHidden(final String window, final byte[] data) {
+		if (window == null || data == null || data.length == 0) {
+			return false;
+		}
+		if (uiIsVisible()) {
+			return false;
+		}
+		synchronized (mHeldSynch) {
+			if (mHeldOverflowed.contains(window)) {
+				return true;
+			}
+			java.io.ByteArrayOutputStream held = mHeldWhileHidden.get(window);
+			if (held == null) {
+				held = new java.io.ByteArrayOutputStream();
+				mHeldWhileHidden.put(window, held);
+			}
+			if (held.size() + data.length > MAX_REPLAY_BYTES) {
+				mHeldWhileHidden.remove(window);
+				mHeldOverflowed.add(window);
+				return true;
+			}
+			held.write(data, 0, data.length);
+		}
+		return true;
+	}
+
+	/** Hand every window the text it missed while the game window was off screen.
+	 *
+	 * <p>Called from {@link StellarService#setWindowShowing(boolean)} on the
+	 * hidden-to-showing edge only. Appending what was missed keeps the UI's
+	 * existing scrollback; a window that overflowed gets the whole buffer back
+	 * instead, which is the same state a UI process that had been killed and
+	 * restarted would come up in.
+	 */
+	public final void flushTextHeldWhileHidden() {
+		final HashMap<String, byte[]> pending = new HashMap<String, byte[]>();
+		final java.util.HashSet<String> resets;
+		synchronized (mHeldSynch) {
+			if (mHeldWhileHidden.isEmpty() && mHeldOverflowed.isEmpty()) {
+				return;
+			}
+			for (java.util.Map.Entry<String, java.io.ByteArrayOutputStream> e : mHeldWhileHidden.entrySet()) {
+				pending.put(e.getKey(), e.getValue().toByteArray());
+			}
+			resets = new java.util.HashSet<String>(mHeldOverflowed);
+			mHeldWhileHidden.clear();
+			mHeldOverflowed.clear();
+		}
+		for (String name : resets) {
+			try {
+				doInvalidateWindowText(name);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"Connection.flushTextHeldWhileHidden", e);
+			}
+		}
+		for (java.util.Map.Entry<String, byte[]> e : pending.entrySet()) {
+			IWindowCallback c = mWindowCallbackMap.get(e.getKey());
+			if (c == null) {
+				// The window went away while it was hidden. Its buffer still has
+				// the text, and registering again replays from there.
+				continue;
+			}
+			try {
+				c.rawDataIncoming(e.getValue());
+			} catch (android.os.DeadObjectException dead) {
+				dropDeadWindowCallback(e.getKey());
+			} catch (RemoteException re) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"Connection.flushTextHeldWhileHidden", re);
+			}
+		}
+	}
+
 	/** Work horse method for plugins to invalidate a target window's text.
-	 * 
+	 *
 	 * @param name Name of the window that should invalidate it's text.
 	 * @throws RemoteException Thrown when there is a problem with the aidl bridge.
 	 */
@@ -1007,11 +1120,23 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				w = tmp;
 			}
 		}
-		
+		// A registered callback for a window that is not in mWindows is possible
+		// while the window set is being rebuilt; it used to be an NPE one line
+		// down. Now that flushTextHeldWhileHidden can arrive here with any name,
+		// it is worth not being one.
+		if (w == null || w.getBuffer() == null) {
+			return;
+		}
+
 		TextTree buffer = w.getBuffer();
 
 		try {
-			callback.resetWithRawDataIncoming(buffer.dumpToBytes(true));
+			// Trimmed for the same reason replayBufferToExtraTextWindow trims: a
+			// full buffer can be megabytes, the binder ceiling is about one, and
+			// going over arrives as a plain RemoteException that would leave the
+			// window blank — the opposite of what a reset is for.
+			callback.resetWithRawDataIncoming(
+					trimToNewestLines(buffer.dumpToBytes(true), MAX_REPLAY_BYTES));
 		} catch (android.os.DeadObjectException e) {
 			dropDeadWindowCallback(name);
 		}
@@ -1549,13 +1674,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Connection.lineToWindow", e);
 				}
 
-					IWindowCallback c = mWindowCallbackMap.get(resolved);
-					if (c != null) {
-						try {
-							c.rawDataIncoming(lol);
-						} catch (android.os.DeadObjectException e) {
-							dropDeadWindowCallback(resolved);
-						}		
+					if (!holdWhileHidden(resolved, lol)) {
+						IWindowCallback c = mWindowCallbackMap.get(resolved);
+						if (c != null) {
+							try {
+								c.rawDataIncoming(lol);
+							} catch (android.os.DeadObjectException e) {
+								dropDeadWindowCallback(resolved);
+							}
+						}
 					}
 			}
 		}
@@ -1622,15 +1749,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mWindowCallbacks.finishBroadcast();
 		}
 		Log.e("LOG","REGISTERING " + name);
-		mWindowCallbacks.register(callback);
-		
+		// The name is the cookie. It used to come back from callback.getName(),
+		// a synchronous binder call into the UI process for every registered
+		// window on every register — and a synchronous call is what kills a
+		// frozen UI process. The caller already passed the name in; keeping it
+		// here is what let IWindowCallback become oneway.
+		mWindowCallbacks.register(callback, name);
+
 		int n = mWindowCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			IWindowCallback w = mWindowCallbacks.getBroadcastItem(i);
-			try {
-				mWindowCallbackMap.put(w.getName(), w);
-			} catch (RemoteException e) {
-				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.registerWindowCallback", e);
+			Object cookie = mWindowCallbacks.getBroadcastCookie(i);
+			if (cookie instanceof String) {
+				mWindowCallbackMap.put((String) cookie, w);
 			}
 		}
 		mCallbacksStarted = true;
@@ -1732,25 +1863,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mWindowCallbacks.finishBroadcast();
 			//mCallbacksStarted = false;
 		}
-		try {
-			Log.e("LOG","UNREGISTERING " + callback.getName());
-		} catch (RemoteException e1) {
-			// TODO Auto-generated catch block
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.unregisterWindowCallback", e1);
-		}
 		mWindowCallbacks.unregister(callback);
 
 		mWindowCallbackMap.clear();
 		int n = mWindowCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			IWindowCallback w = mWindowCallbacks.getBroadcastItem(i);
-			try {
-				mWindowCallbackMap.put(w.getName(), w);
-			} catch (RemoteException e) {
-				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("Connection.unregisterWindowCallback", e);
+			Object cookie = mWindowCallbacks.getBroadcastCookie(i);
+			if (cookie instanceof String) {
+				mWindowCallbackMap.put((String) cookie, w);
 			}
 		}
-		
+
 		mCallbacksStarted = true;
 		}
 	}
@@ -2300,6 +2424,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void notifyMainWindow(final byte[] data) {
 
+		if (holdWhileHidden(MAIN_WINDOW, data)) {
+			return;
+		}
 		try {
 
 			IWindowCallback c = mWindowCallbackMap.get(MAIN_WINDOW);

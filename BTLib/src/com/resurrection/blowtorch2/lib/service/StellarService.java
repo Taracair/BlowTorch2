@@ -90,8 +90,13 @@ public class StellarService extends Service {
 			"com.resurrection.blowtorch2.lib.window.MainWindow";
 	/** The tracker variable for monotonically increasing notification ids. */
 	private static int notificationCount = NOTIFICATION_START_VALUE;
-	/** Tracker for if the foreground window is showing or hidden. */
-	boolean mWindowShowing = true;
+	/** Tracker for if the foreground window is showing or hidden.
+	 *
+	 * <p>Read it through {@link #isWindowConnected()} and write it through
+	 * {@link #setWindowShowing(boolean)} — the write side has to notice the
+	 * hidden-to-showing edge so the connections can hand over the text they
+	 * held back while nobody was looking. */
+	private boolean mWindowShowing = true;
 	/** The handler object used to coordinate multi-threaded efforts from the aidl callback onto the main thread. */
 	Handler mHandler = null;
 	/** The WifiLock object. */
@@ -1022,6 +1027,33 @@ public class StellarService extends Service {
 	 */
 	public final boolean isWindowConnected() {
 		return mWindowShowing;
+	}
+
+	/** Record whether the game window is on screen, and catch up if it just came back.
+	 *
+	 * <p>While it is off screen the connections stop pushing text at the UI
+	 * (see {@code Connection.notifyMainWindow}) and hold it in the window
+	 * buffers they own, which is where it belonged anyway. Coming back is the
+	 * only moment anything is owed, so the flush happens here rather than on a
+	 * poll.
+	 *
+	 * <p>Idempotent on purpose: MainWindow says "showing" from both
+	 * onServiceConnected and onResume, and only one of those runs on any given
+	 * return.
+	 *
+	 * @param show Whether the game window is now on screen.
+	 */
+	public final void setWindowShowing(final boolean show) {
+		boolean cameBack = show && !mWindowShowing;
+		mWindowShowing = show;
+		if (!cameBack || mConnections == null) {
+			return;
+		}
+		for (Connection c : mConnections.values()) {
+			if (c != null) {
+				c.flushTextHeldWhileHidden();
+			}
+		}
 	}
 
 	/** The utility method to clear all buttons. I don't think that this is actually used, as this code

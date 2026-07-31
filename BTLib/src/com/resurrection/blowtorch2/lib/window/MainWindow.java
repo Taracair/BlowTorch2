@@ -294,7 +294,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			new java.util.ArrayList<ExtraTextSlot>();
 	private boolean extraTextWindowsEnabled = true;
 	
-	private boolean windowShowing = false;
 	private RelativeLayout mRootView = null;
 	String host;
 	int port;
@@ -405,6 +404,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
 				service.registerCallback(the_callback, host, port, display);
+				// onResume only says "showing" on its already-bound branch, so a
+				// bind — first launch, or coming back after the UI process was
+				// killed — left the service's flag on whatever onPause last set.
+				// It stayed false until the player backgrounded and returned
+				// again. Harmless while nothing read the flag; now that it gates
+				// text delivery, a stuck false is a dead window.
+				service.windowShowing(true);
 				// Bind live mapper engine from the Connection (same process).
 				MapperController live = MapperController.forDisplay(display);
 				if (live != null) {
@@ -3116,10 +3122,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(msg);
 		}
 		
-		public boolean isWindowShowing() {
-			return windowShowing;
-		}
-
 		public void processedDataIncoming(CharSequence seq) throws RemoteException {
 			Message msg = myhandler.obtainMessage(MESSAGE_PROCESSED); 
 			Bundle b = new Bundle();
@@ -3358,18 +3360,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void updateTriggerDebugString(String str) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_TRIGGERSTR,str));
-		}
-
-		public int getPort() throws RemoteException {
-			return MainWindow.this.getConnectionPort();
-		}
-
-		public String getHost() throws RemoteException {
-			return MainWindow.this.getConnectionHost();
-		}
-
-		public String getDisplay() throws RemoteException {
-			return MainWindow.this.getConnectionDisplay();
 		}
 
 		public void switchTo(String connection) throws RemoteException {

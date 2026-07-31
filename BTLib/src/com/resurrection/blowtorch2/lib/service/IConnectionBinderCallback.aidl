@@ -3,13 +3,27 @@
  */
 package com.resurrection.blowtorch2.lib.service;
 
-interface IConnectionBinderCallback {
-	boolean isWindowShowing();
-	void dataIncoming(inout byte[] seq);
+/**
+ * Service -> MainWindow. One-way for the reason spelled out on
+ * {@link IWindowCallback}: a synchronous transaction into the frozen UI
+ * process is a kill, and this interface carries the busiest traffic there is
+ * — mapperUi/frameUi/extraTextUi fire on every room change.
+ *
+ * <p>The `inout byte[]` parameters became `in`: nothing on the far side ever
+ * wrote back into those arrays (every implementation posts the array to a
+ * Handler and returns), but `inout` forces a reply and so cannot be one-way.
+ *
+ * <p>Four methods with return values were removed rather than kept
+ * synchronous — isWindowShowing(), getPort(), getHost() and getDisplay() had
+ * no caller anywhere in the service. The service already knows host, port and
+ * display from the connection it owns, and reads its own mWindowShowing.
+ */
+oneway interface IConnectionBinderCallback {
+	void dataIncoming(in byte[] seq);
 	void processedDataIncoming(CharSequence seq);
 	void htmlDataIncoming(String html);
-	void rawDataIncoming(inout byte[] raw);
-	void rawBufferIncoming(inout byte[] incoming);
+	void rawDataIncoming(in byte[] raw);
+	void rawBufferIncoming(in byte[] incoming);
 	void loadSettings();
 	void displayXMLError(String error);
 	void displaySaveError(String error);
@@ -49,9 +63,6 @@ interface IConnectionBinderCallback {
 	void updateVitals2(int hp,int mp,int maxhp, int maxmana,int enemy);
 	void luaOmg(int stateIndex);
 	void updateTriggerDebugString(String str);
-	int getPort();
-	String getHost();
-	String getDisplay();
 	void switchTo(String connection);
 	void reloadBuffer();
 	void loadWindowSettings();

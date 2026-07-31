@@ -46,9 +46,20 @@ will not recover an `offline` device.
 
 ## The facts that mislead people most
 
-1. **UI → service binder calls are synchronous; service → UI ones are queued.**
-   `WindowXCallB` and `SaveSettings` both post to the same `ConnectionHandler`,
-   so whatever is queued first delays the rest.
+1. **UI → service binder calls are synchronous. Service → UI ones are `oneway`,
+   and must stay that way.** The "queued" half of this used to read as if the
+   service→UI direction were free; what was queued was the `Handler` post on
+   the far side — the binder transaction itself blocked. A synchronous
+   transaction into a *frozen* process is a kill (`am_kill … Sync transaction
+   while frozen`), and the cached-app freezer suspends the UI process about two
+   minutes after it is backgrounded. That is what redrew the screen every time
+   the player came back. `IWindowCallback`, `IConnectionBinderCallback` and
+   `ILauncherCallback` are all `oneway` interfaces now, so a method with a
+   return value or an `out`/`inout` parameter will not compile. Do not "just
+   add a getter" to one of them.
+   Within one direction the ordering point still holds: `WindowXCallB` and
+   `SaveSettings` both post to the same `ConnectionHandler`, so whatever is
+   queued first delays the rest.
 2. **`static` fields exist twice** — once per process. A cache invalidated in
    the UI does nothing for `:stellar`, which is where settings I/O runs.
 3. **`Window.mBuffer` is UI-thread only** (`warnIfNotUiThread` enforces it), but
