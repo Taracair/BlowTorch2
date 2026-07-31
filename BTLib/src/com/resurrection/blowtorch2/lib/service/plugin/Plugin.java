@@ -1115,8 +1115,17 @@ Note("Example text!")
 				if(!d.isRepeat()) {
 					timerTasks.remove(d.getName());
 				} else {
+					// stopTimer and pauseTimer take the entry out of the map from
+					// another thread, and can do it while this firing is between
+					// the settings lookup above and this line. The task is then
+					// already cancelled, so there is no next period to stamp — and
+					// the NPE that used to happen here was thrown on the timer
+					// thread, where nothing catches it: it killed :stellar.
+					// Twice on the production build, 31 July 2026 (11:29, 11:59).
 					CustomTimerTask t = timerTasks.get(name);
-					t.setStartTime(SystemClock.elapsedRealtime());
+					if (t != null) {
+						t.setStartTime(SystemClock.elapsedRealtime());
+					}
 				}
 			}
 			
