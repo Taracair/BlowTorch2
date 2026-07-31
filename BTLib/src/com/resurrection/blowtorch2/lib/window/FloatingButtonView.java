@@ -43,6 +43,16 @@ public class FloatingButtonView extends View {
 		int maxBottomFor(FloatingButtonView view);
 
 		void bringLayerUnderChrome();
+
+		/**
+		 * Put this view at {@code x},{@code y}. The controller decides what that
+		 * means: margins inside the floating layer, or the position of this
+		 * button's own overlay window. The gesture code must not care.
+		 */
+		void moveTo(FloatingButtonView view, int x, int y);
+
+		/** Current {@code {x, y}} of this view in whichever space it lives in. */
+		int[] positionOf(FloatingButtonView view);
 	}
 
 	private FloatingButtonModel model;
@@ -322,15 +332,7 @@ public class FloatingButtonView extends View {
 		int maxBottom = callbacks.maxBottomFor(this);
 		x = FloatingLayerGeometry.clampX(x, getWidth(), callbacks.parentWidth());
 		y = FloatingLayerGeometry.clampY(y, getHeight(), maxBottom);
-		FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) getLayoutParams();
-		if (lp == null) {
-			lp = new FrameLayout.LayoutParams(getWidth(), getHeight());
-		}
-		lp.leftMargin = x;
-		lp.topMargin = y;
-		lp.width = getWidth();
-		lp.height = getHeight();
-		setLayoutParams(lp);
+		callbacks.moveTo(this, x, y);
 		callbacks.onFloatPositionChanged(model.index, x, y);
 		callbacks.bringLayerUnderChrome();
 	}
@@ -355,14 +357,8 @@ public class FloatingButtonView extends View {
 		}
 
 		if (dragging || enteredMoveMode) {
-			int x = getLeft();
-			int y = getTop();
-			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) getLayoutParams();
-			if (lp != null) {
-				x = lp.leftMargin;
-				y = lp.topMargin;
-			}
-			callbacks.onFloatDragFinished(model.index, x, y);
+			int[] at = callbacks.positionOf(this);
+			callbacks.onFloatDragFinished(model.index, at[0], at[1]);
 			resetVisual();
 			dragOriginCaptured = false;
 			return true;

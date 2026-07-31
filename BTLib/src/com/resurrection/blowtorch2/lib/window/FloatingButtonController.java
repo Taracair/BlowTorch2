@@ -7,8 +7,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.WindowManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -23,10 +27,17 @@ import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
  * {@code floatX}/{@code floatY} back on drag drop. Shape mirrors
  * {@link ExtraTextOverlayController}.
  *
- * <p>Layer sits in {@code window_container}, raised under chrome. Mode B never
- * moves with the IME; Mode A sits just above {@code WindowVisibleDisplayFrame}
- * (the uncovered band above the soft keyboard) — not in a system overlay.
- * {@code SYSTEM_ALERT_WINDOW} is not used and would not draw over the IME.
+ * <p><b>Two hosting modes.</b> With {@code SYSTEM_ALERT_WINDOW} granted each
+ * button gets its own {@code TYPE_APPLICATION_OVERLAY} window and therefore
+ * draws <em>over</em> the keyboard, staying wherever it was put. Without the
+ * grant the buttons live in a {@link FloatingLayer} inside
+ * {@code window_container}, which the window manager stacks below the IME — so
+ * there they can only be kept clear of the keys, never on top of them.
+ *
+ * <p>One window per button, not one full-screen window: an overlay window
+ * consumes every touch inside its own bounds, and returning {@code false} from
+ * a view does not pass the event to the window underneath. A full-screen
+ * overlay would eat the keyboard.
  */
 public class FloatingButtonController {
 
@@ -70,6 +81,17 @@ public class FloatingButtonController {
 	private boolean editingHidden;
 	private boolean chromeReclampScheduled;
 	private int lastImeLiftPx;
+	/** True while buttons live in their own overlay windows. */
+	private boolean overlayMode;
+	/** Overlay params per view, so add and remove stay symmetric. */
+	private final java.util.HashMap<FloatingButtonView, WindowManager.LayoutParams>
+			overlayParams = new java.util.HashMap<FloatingButtonView, WindowManager.LayoutParams>();
+	/** False while the activity is paused: no windows may be added then. */
+	private boolean resumed;
+	/** Last payload from Lua, so an IME change can rebuild without asking again. */
+	private final List<FloatingButtonModel> lastModels = new ArrayList<FloatingButtonModel>();
+	/** Asked for the overlay grant once already this activity. */
+	private boolean overlayPromptShown;
 
 	private final FloatingButtonView.Callbacks viewCallbacks = new FloatingButtonView.Callbacks() {
 		@Override
@@ -109,11 +131,60 @@ public class FloatingButtonController {
 
 		@Override
 		public int parentWidth() {
+			if (overlayMode) {
+				return displayWidth();
+			}
 			return layer != null ? layer.getWidth() : 0;
 		}
 
 		@Override
+		public void moveTo(FloatingButtonView view, int x, int y) {
+			WindowManager.LayoutParams p = overlayParams.get(view);
+			if (p != null) {
+				p.x = x;
+				p.y = y;
+				WindowManager wm = windowManager();
+				if (wm != null) {
+					try {
+						wm.updateViewLayout(view, p);
+					} catch (IllegalArgumentException e) {
+						// View already detached; the drop will be discarded.
+					}
+				}
+				return;
+			}
+			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) view.getLayoutParams();
+			if (lp == null) {
+				lp = new FrameLayout.LayoutParams(view.getWidth(), view.getHeight());
+			}
+			lp.leftMargin = x;
+			lp.topMargin = y;
+			lp.width = view.getWidth();
+			lp.height = view.getHeight();
+			view.setLayoutParams(lp);
+		}
+
+		@Override
+		public int[] positionOf(FloatingButtonView view) {
+			WindowManager.LayoutParams p = overlayParams.get(view);
+			if (p != null) {
+				return new int[] { p.x, p.y };
+			}
+			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) view.getLayoutParams();
+			if (lp != null) {
+				return new int[] { lp.leftMargin, lp.topMargin };
+			}
+			return new int[] { view.getLeft(), view.getTop() };
+		}
+
+		@Override
 		public int maxBottomFor(FloatingButtonView view) {
+			if (overlayMode) {
+				// Drawing over the keyboard, so there is nothing to keep clear
+				// of. The display edge is the only limit — this is what stops
+				// the button being shoved upward when the IME opens.
+				return displayHeight();
+			}
 			int left = view.getLeft();
 			int right = left + Math.max(view.getWidth(), 1);
 			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) view.getLayoutParams();
@@ -199,7 +270,16 @@ public class FloatingButtonController {
 		// answered 0 — so the correct height the insets listener had just
 		// measured was discarded on the way in.
 		lastImeLiftPx = Math.max(0, liftPx);
-		if (layer == null || editingHidden || !host.isFloatingButtonsEnabled()) {
+		if (editingHidden || !host.isFloatingButtonsEnabled()) {
+			return;
+		}
+		if (overlayMode) {
+			// Keyboard-mode windows exist only while the keys are up, so the set
+			// of windows changes. Position never does — see rebuildOverlay.
+			rebuild(new ArrayList<FloatingButtonModel>(lastModels));
+			return;
+		}
+		if (layer == null) {
 			return;
 		}
 		boolean imeUp = isSoftKeyboardCoveringLayer();
@@ -242,7 +322,171 @@ public class FloatingButtonController {
 		}
 	}
 
+	/**
+	 * Ask for the overlay grant the first time a floating button actually exists.
+	 *
+	 * <p>Deliberately not at startup: nobody should be asked for "display over
+	 * other apps" before they have shown any interest in the feature. This fires
+	 * when a payload first contains a floating button and the grant is missing —
+	 * which is the moment the player ticked the box in the editor.
+	 *
+	 * <p>Never blocks anything. The button is already saved, and refusing only
+	 * costs the over-the-keyboard placement: the in-window layer still draws it,
+	 * kept clear of the keys instead of on top of them.
+	 */
+	private void maybeAskForOverlayPermission(List<FloatingButtonModel> models) {
+		if (overlayPromptShown || models == null || models.isEmpty() || canOverlay()) {
+			return;
+		}
+		final MainWindow activity = host.getMainWindow();
+		if (activity == null || activity.isFinishing()) {
+			return;
+		}
+		overlayPromptShown = true;
+		try {
+			new android.app.AlertDialog.Builder(activity)
+					.setTitle("Let the button sit on top of the keyboard?")
+					.setMessage("Android only lets an app draw over the keyboard from a "
+							+ "system overlay, which needs the \"Display over other apps\" "
+							+ "permission.\n\nWithout it the floating button still works, "
+							+ "but it has to stay clear of the keys instead of sitting on "
+							+ "top of them.")
+					.setPositiveButton("Open settings", new android.content.DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(android.content.DialogInterface d, int which) {
+							openOverlaySettings(activity);
+						}
+					})
+					.setNegativeButton("Not now", null)
+					.show();
+		} catch (RuntimeException e) {
+			BlowTorchLogger.logMinor(TAG + ".maybeAskForOverlayPermission", e);
+		}
+	}
+
+	private void openOverlaySettings(MainWindow activity) {
+		try {
+			android.content.Intent i = new android.content.Intent(
+					Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+					android.net.Uri.parse("package:" + activity.getPackageName()));
+			activity.startActivity(i);
+		} catch (RuntimeException e) {
+			// Some ROMs hide the per-app screen; the global list is better than
+			// nothing, and a failure here must not take the editor down.
+			try {
+				activity.startActivity(new android.content.Intent(
+						Settings.ACTION_MANAGE_OVERLAY_PERMISSION));
+			} catch (RuntimeException e2) {
+				BlowTorchLogger.logMinor(TAG + ".openOverlaySettings", e2);
+			}
+		}
+	}
+
+	/** True when the player has granted "display over other apps". */
+	private boolean canOverlay() {
+		MainWindow a = host.getMainWindow();
+		return a != null && Settings.canDrawOverlays(a);
+	}
+
+	private WindowManager windowManager() {
+		MainWindow a = host.getMainWindow();
+		return a == null ? null
+				: (WindowManager) a.getSystemService(android.content.Context.WINDOW_SERVICE);
+	}
+
+	private int displayWidth() {
+		MainWindow a = host.getMainWindow();
+		return a == null ? 0 : a.getResources().getDisplayMetrics().widthPixels;
+	}
+
+	private int displayHeight() {
+		MainWindow a = host.getMainWindow();
+		return a == null ? 0 : a.getResources().getDisplayMetrics().heightPixels;
+	}
+
+	/**
+	 * One window per button.
+	 *
+	 * <p>{@code FLAG_NOT_FOCUSABLE} so the keyboard keeps input focus — without
+	 * it the overlay steals it and typing stops. {@code FLAG_NOT_TOUCH_MODAL} so
+	 * everything outside this button's own rectangle still reaches the game and
+	 * the keys.
+	 */
+	private WindowManager.LayoutParams newOverlayParams(int x, int y, int w, int h) {
+		WindowManager.LayoutParams p = new WindowManager.LayoutParams(
+				w > 0 ? w : WindowManager.LayoutParams.WRAP_CONTENT,
+				h > 0 ? h : WindowManager.LayoutParams.WRAP_CONTENT,
+				WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+				WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+						| WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+						| WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+				PixelFormat.TRANSLUCENT);
+		p.gravity = Gravity.TOP | Gravity.START;
+		p.x = x;
+		p.y = y;
+		return p;
+	}
+
+	private void attachOverlayView(FloatingButtonView v, int x, int y, int w, int h) {
+		WindowManager wm = windowManager();
+		if (wm == null || overlayParams.containsKey(v)) {
+			return;
+		}
+		WindowManager.LayoutParams p = newOverlayParams(x, y, w, h);
+		try {
+			wm.addView(v, p);
+			overlayParams.put(v, p);
+		} catch (RuntimeException e) {
+			// Permission revoked between the check and here, or the window
+			// manager refused. Fall back rather than take the process down.
+			BlowTorchLogger.logThrowable(TAG + ".attachOverlayView", e);
+		}
+	}
+
+	private void removeOverlayView(FloatingButtonView v) {
+		WindowManager.LayoutParams p = overlayParams.remove(v);
+		WindowManager wm = windowManager();
+		if (wm == null || p == null) {
+			return;
+		}
+		try {
+			wm.removeViewImmediate(v);
+		} catch (IllegalArgumentException e) {
+			// Already detached. Removing twice is not an error worth a log.
+		}
+	}
+
+	/** Activity resumed: overlay windows may exist again. */
+	public void onResume() {
+		resumed = true;
+		if (!host.isFloatingButtonsEnabled()) {
+			return;
+		}
+		MainWindow mw = host.getMainWindow();
+		if (mw != null) {
+			// Lua re-pushes the current set; rebuild puts the windows back.
+			mw.windowCall("button_window", "notifyFloatingButtonsChanged", "");
+		}
+	}
+
+	/**
+	 * Activity paused: every overlay window comes down.
+	 *
+	 * <p>An overlay floats over other apps and the home screen, so leaving it up
+	 * would follow the player out of the game.
+	 */
+	public void onPause() {
+		resumed = false;
+		clearViews();
+	}
+
 	private void ensureLayer() {
+		overlayMode = canOverlay();
+		if (overlayMode) {
+			// Buttons live in their own windows; no in-app layer is needed.
+			detachLayerView();
+			return;
+		}
 		if (layer != null) {
 			bringUnderChrome();
 			return;
@@ -265,14 +509,23 @@ public class FloatingButtonController {
 	}
 
 	private void rebuild(List<FloatingButtonModel> models) {
+		if (models != lastModels) {
+			lastModels.clear();
+			lastModels.addAll(models);
+		}
+		maybeAskForOverlayPermission(models);
 		ensureLayer();
+		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
+		clearViews();
+		boolean imeUp = isSoftKeyboardCoveringLayer();
+		if (overlayMode) {
+			rebuildOverlay(models, imeUp);
+			return;
+		}
 		if (layer == null) {
 			return;
 		}
-		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
-		clearViews();
 		setLayerVisible(true);
-		boolean imeUp = isSoftKeyboardCoveringLayer();
 		for (FloatingButtonModel m : models) {
 			FloatingButtonView v = new FloatingButtonView(layer.getContext());
 			v.bind(m, viewCallbacks);
@@ -289,6 +542,50 @@ public class FloatingButtonController {
 		}
 		reclampWhenChromeIsMeasured();
 		bringUnderChrome();
+	}
+
+	/**
+	 * One overlay window per button, placed where the player left it.
+	 *
+	 * <p>Nothing here consults the keyboard height for position: the window is
+	 * above the IME, so a button stays put whether the keys are up or down.
+	 * Keyboard mode only decides whether the window exists at all.
+	 */
+	private void rebuildOverlay(List<FloatingButtonModel> models, boolean imeUp) {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || !resumed) {
+			return;
+		}
+		float density = activity.getResources().getDisplayMetrics().density;
+		int margin = Math.round(FloatingLayerGeometry.DEFAULT_MARGIN_DP * density);
+		for (FloatingButtonModel m : models) {
+			if (m.isKeyboardMode() && !imeUp) {
+				// "Show only with keyboard": no window at all right now.
+				continue;
+			}
+			FloatingButtonView v = new FloatingButtonView(activity);
+			v.bind(m, viewCallbacks);
+			v.measure(
+					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+			int w = Math.max(1, v.getMeasuredWidth());
+			int h = Math.max(1, v.getMeasuredHeight());
+			int x = m.floatX == FloatingLayerGeometry.UNPLACED
+					? (m.hasGridOrigin
+							? FloatingLayerGeometry.gridCenterToLeft(m.gridX, m.widthDp, density)
+							: margin)
+					: m.floatX;
+			int y = m.floatY == FloatingLayerGeometry.UNPLACED
+					? (m.hasGridOrigin
+							? FloatingLayerGeometry.gridCenterToTop(
+									m.gridY, m.heightDp, density, m.statusOffsetPx)
+							: Math.max(0, displayHeight() - h - margin))
+					: m.floatY;
+			x = FloatingLayerGeometry.clampX(x, w, displayWidth());
+			y = FloatingLayerGeometry.clampY(y, h, displayHeight());
+			attachOverlayView(v, x, y, w, h);
+			views.add(v);
+		}
 	}
 
 	private void layoutChild(final FloatingButtonView v, final FloatingButtonModel m,
@@ -530,11 +827,25 @@ public class FloatingButtonController {
 
 	private void clearViews() {
 		for (FloatingButtonView v : views) {
-			if (layer != null) {
+			if (overlayParams.containsKey(v)) {
+				removeOverlayView(v);
+			} else if (layer != null) {
 				layer.removeView(v);
 			}
 		}
 		views.clear();
+		overlayParams.clear();
+	}
+
+	/** Take the in-app layer down when the buttons move to overlay windows. */
+	private void detachLayerView() {
+		if (layer == null) {
+			return;
+		}
+		if (layer.getParent() instanceof ViewGroup) {
+			((ViewGroup) layer.getParent()).removeView(layer);
+		}
+		layer = null;
 	}
 
 	private void setLayerVisible(boolean visible) {

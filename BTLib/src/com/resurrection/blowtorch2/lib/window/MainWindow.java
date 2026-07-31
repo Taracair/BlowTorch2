@@ -2728,6 +2728,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void onPause() {
 		//Log.e("WINDOW","onDestroy()");
 		//windowShowing = false;
+		// Before the early return below: an overlay window left up would float
+		// over whatever the player opened next, including other apps.
+		if (floatingButtons != null) {
+			floatingButtons.onPause();
+		}
 		if(service == null) { super.onPause(); return; };
 		clearButtonsOnPause();
 		try {
@@ -2745,6 +2750,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		super.onResume();
 		//Log.e("window","start onResume()");
 		//windowShowing = true;
+		if (floatingButtons != null) {
+			// Re-checks the overlay grant too: it can be revoked while we live.
+			floatingButtons.onResume();
+		}
 		
 		if(!isBound) {
 			saveConnectionExtras(getIntent());
