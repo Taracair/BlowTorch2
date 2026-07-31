@@ -32,6 +32,8 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -69,7 +71,10 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 	
 	private CheckBox repeat;
 	private EditText name;
+	private EditText hours;
+	private EditText minutes;
 	private EditText seconds;
+	private TextView durationSummary;
 	
 	private boolean isEditor = false;
 	
@@ -104,8 +109,11 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		setContentView(R.layout.timer_editor_dialog);
 		
 		name = (EditText)findViewById(R.id.timer_editor_name);
+		hours = (EditText)findViewById(R.id.timer_editor_hours);
+		minutes = (EditText)findViewById(R.id.timer_editor_minutes);
 		seconds = (EditText)findViewById(R.id.timer_editor_seconds);
-		
+		durationSummary = (TextView)findViewById(R.id.timer_editor_duration_summary);
+
 		repeat = (CheckBox)findViewById(R.id.timer_repeat_checkbox);
 		
 
@@ -134,15 +142,105 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		donebutton.setOnClickListener(new TimerEditerDoneListener());
 		
 		
+		setupDurationFields();
+
 		if(isEditor) {
 			name.setText(orig_timer.getName());
-			seconds.setText(orig_timer.getSeconds().toString());
+			Integer stored = orig_timer.getSeconds();
+			setDurationFields(stored != null ? stored.intValue() : 0);
 			repeat.setChecked(orig_timer.isRepeat());
 			donebutton.setText("Done");
 
 		}
+		updateDurationSummary();
 		setupGroupField();
 		EditorDialogChrome.applyNearlyFullScreen(this);
+	}
+
+	/** Wire the h/m/s boxes and the preset row; the running total is echoed under them. */
+	private void setupDurationFields() {
+		TextWatcher echo = new TextWatcher() {
+			public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+			}
+
+			public void onTextChanged(CharSequence s, int a, int b, int c) {
+			}
+
+			public void afterTextChanged(Editable s) {
+				updateDurationSummary();
+			}
+		};
+		if (hours != null) {
+			hours.addTextChangedListener(echo);
+		}
+		if (minutes != null) {
+			minutes.addTextChangedListener(echo);
+		}
+		if (seconds != null) {
+			seconds.addTextChangedListener(echo);
+		}
+
+		LinearLayout presets = (LinearLayout) findViewById(R.id.timer_editor_presets);
+		if (presets == null) {
+			return;
+		}
+		presets.removeAllViews();
+		addPreset(presets, "30s", 30);
+		addPreset(presets, "1m", 60);
+		addPreset(presets, "5m", 5 * 60);
+		addPreset(presets, "15m", 15 * 60);
+		addPreset(presets, "1h", 60 * 60);
+	}
+
+	private void addPreset(LinearLayout row, String label, final int totalSeconds) {
+		Button b = new Button(getContext());
+		b.setText(label);
+		b.setTextSize(12);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		lp.rightMargin = (int) (4 * getContext().getResources().getDisplayMetrics().density);
+		b.setLayoutParams(lp);
+		b.setPadding(0, 0, 0, 0);
+		b.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				setDurationFields(totalSeconds);
+			}
+		});
+		row.addView(b);
+	}
+
+	private void setDurationFields(int totalSeconds) {
+		if (hours != null) {
+			hours.setText(Integer.toString(TimerDuration.hoursOf(totalSeconds)));
+		}
+		if (minutes != null) {
+			minutes.setText(Integer.toString(TimerDuration.minutesOf(totalSeconds)));
+		}
+		if (seconds != null) {
+			seconds.setText(Integer.toString(TimerDuration.secondsOf(totalSeconds)));
+		}
+		updateDurationSummary();
+	}
+
+	/** Total the three boxes. Blank is zero, and 90 in any box just adds — see TimerDuration. */
+	private int readDurationSeconds() {
+		return TimerDuration.toSeconds(
+				TimerDuration.parseField(hours != null ? hours.getText().toString() : null),
+				TimerDuration.parseField(minutes != null ? minutes.getText().toString() : null),
+				TimerDuration.parseField(seconds != null ? seconds.getText().toString() : null));
+	}
+
+	private void updateDurationSummary() {
+		if (durationSummary == null) {
+			return;
+		}
+		int total = readDurationSeconds();
+		if (total <= 0) {
+			durationSummary.setText("");
+		} else {
+			durationSummary.setText("= " + TimerDuration.format(total)
+					+ " (" + total + "s)");
+		}
 	}
 
 	@SuppressWarnings("unchecked")
@@ -256,22 +354,30 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			
 			Validator checker = new Validator();
 			checker.add(name, Validator.VALIDATE_NOT_BLANK, "Timer Name");
-			checker.add(seconds, Validator.VALIDATE_NOT_BLANK|Validator.VALIDATE_NUMBER|Validator.VALIDATE_NUMBER_NOT_ZERO, "Timer duration");
-			
+
 			String result = checker.validate();
 			if(result != null) {
 				checker.showMessage(TimerEditorDialog.this.getContext(), result);
 				return;
 			}
-			
+
+			// The duration is three boxes now, so it is validated as a total: a blank hours
+			// box is not an error, and a timer of 1h 0m 0s must not be rejected for having
+			// a zero in it. Only "adds up to nothing" is wrong.
+			int theSeconds = readDurationSeconds();
+			if(theSeconds <= 0) {
+				checker.showMessage(TimerEditorDialog.this.getContext(),
+						"Timer duration must be more than zero.");
+				return;
+			}
+
 			String theName = name.getText().toString();
-			String theSeconds = seconds.getText().toString();
 			boolean theRepeat = repeat.isChecked();
 				
 			//now we are validated. proceed with save.
 			if(isEditor) {
 				the_timer.setName(theName);
-				the_timer.setSeconds(Integer.parseInt(theSeconds));
+				the_timer.setSeconds(theSeconds);
 				the_timer.setRepeat(theRepeat);
 				the_timer.setGroup(readGroupField());
 
@@ -289,7 +395,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				finish_with.sendMessageDelayed(finish_with.obtainMessage(100, the_timer),10);
 			} else {
 				the_timer.setName(theName);
-				the_timer.setSeconds(Integer.parseInt(theSeconds));
+				the_timer.setSeconds(theSeconds);
 				the_timer.setRepeat(theRepeat);
 				the_timer.setGroup(readGroupField());
 

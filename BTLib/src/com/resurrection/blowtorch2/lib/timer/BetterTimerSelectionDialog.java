@@ -290,9 +290,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 				resource = R.drawable.ic_mini_play;
 				tag = " Running.";
 			} else {
-				if(data.getRemainingTime() != data.getSeconds()) {
+				if(data.getRemainingTime() != seconds(data)) {
 					resource = R.drawable.ic_mini_pause;
-					tag = " Paused, " + data.getRemainingTime() +" seconds remaining.";
+					tag = " Paused, " + TimerDuration.format(data.getRemainingTime()) + " left.";
 				} else {
 					resource = R.drawable.ic_mini_stop;
 					tag = " Stopped.";
@@ -319,6 +319,12 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		return currentGroupFilter.equals(groupKey(data));
 	}
 
+	/** Stored duration; the field is a boxed Integer and old settings can leave it unset. */
+	private static int seconds(TimerData data) {
+		Integer s = data.getSeconds();
+		return s != null ? s.intValue() : 0;
+	}
+
 	private static String groupKey(TimerData data) {
 		if (data == null || data.getGroup() == null) {
 			return TimerData.DEFAULT_GROUP;
@@ -327,7 +333,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 	}
 
 	private static String formatExtra(TimerData data, String statusTag) {
-		String base = data.getSeconds() + " Seconds." + statusTag;
+		String base = "Every " + TimerDuration.format(seconds(data)) + "." + statusTag;
 		String group = data.getGroup();
 		if (group != null && group.length() > 0
 				&& !TimerData.DEFAULT_GROUP.equals(group)) {
