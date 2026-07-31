@@ -65,6 +65,7 @@ local TOPIC_ORDER = {
 	"buttons_swipe",
 	"buttons_hold",
 	"buttons_accordion",
+	"buttons_super",
 	"buttons_sets",
 	"buttons_make",
 	"buttons_edit",
@@ -225,6 +226,27 @@ use. Accordion data is stored with the button set (Lua); use Edit buttons
 to build your own.
 
 Handy when one corner of the screen must hold several macros.]])
+end
+
+TOPICS.buttons_super = function()
+	noteBlock("Buttons — Super-buttons",
+[[A button does not have to stay in the grid. Edit a button, open Others,
+and tick "Float over the game": a copy appears on the screen itself, on
+top of the game and on top of the keyboard. Very long press moves it.
+
+Two modes. "Always visible" keeps it on screen all the time. "Show with
+keyboard" gives you a keyboard assistant -- it exists only while the
+keyboard is open, and is hidden everywhere otherwise, the grid included.
+Put .kb commands on that one (.kb stepb, .kb stepf, .kb stepu, .kb paste,
+.kb close) and you have caret keys, command recall and paste under your
+thumb while typing.
+
+Drawing over the keyboard needs Android's "Display over other apps"
+permission; you are asked the first time. Without it the button is still
+there, but the keyboard covers it.
+
+On Android 9 and 10 "Show with keyboard" may never appear -- the client
+cannot reliably tell the keyboard is open there.]])
 end
 
 TOPICS.buttons_sets = function()
@@ -787,7 +809,7 @@ local function showHelp()
 .tutorial <topic>      open one topic
 
 Topics: welcome, client_commands, buttons_basics, buttons_swipe,
-buttons_hold, buttons_accordion, buttons_sets, buttons_make,
+buttons_hold, buttons_accordion, buttons_super, buttons_sets, buttons_make,
 buttons_edit, movement, aliases, triggers, timers, coloring, keyboard,
 search, wrap, logging_export, overflow_menu, gmcp, mcp, stay_connected,
 disconnect_reconnect, copy_text, options_cleanup, display, plugins,

@@ -703,6 +703,36 @@ The default `button_window` plugin supports more than tap:
 - **Hold** — optional command after press-and-hold.
 - **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hint arrows (uncheck to hide U/D/L/R and Hold markers).
 
+## Super-buttons (buttons on top of the keyboard)
+
+Any button can also be put **on the screen itself**, over the game and over the
+soft keyboard. Edit the button → **Others** → **Float over the game**.
+
+Two modes, in the **When** picker:
+
+- **Always visible** — the button stays on screen wherever you dragged it.
+- **Show with keyboard** — the button exists only while the keyboard is open,
+  and is hidden the rest of the time, including from the button grid. This is
+  the keyboard-assistant mode: pair it with `.kb` commands
+  (`.kb stepb`, `.kb stepf`, `.kb stepu`, `.kb paste`, `.kb close` — see
+  [`.keyboard` / `.kb`](#keyboard--kb)) to get caret keys, command recall and
+  paste next to your thumb while typing.
+
+The button keeps everything it already had — tap, hold, flip, all eight swipe
+directions, colours, size, `switchTo`. It can also be drawn as a circle, with
+an optional outline. **Very long press** picks it up and moves it; where you
+drop it is remembered per world.
+
+**Permission.** Android does not let an app draw on top of the keyboard without
+**"Display over other apps"**. BlowTorch asks the first time you tick the box,
+never at startup, and the button is saved either way. If you refuse, the button
+still exists but the keyboard covers it — which leaves the feature doing very
+little, so it is worth granting.
+
+**Android 9 and 10:** the client often cannot tell whether the keyboard is
+open, so **Show with keyboard** may never appear there. Android 11 and newer
+are fine. **Always visible** works everywhere.
+
 ## Extra text windows
 
 Optional top-drawer or floating panes (chat, tells, combat, …) beside the main game
