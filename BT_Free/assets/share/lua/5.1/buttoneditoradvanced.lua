@@ -734,6 +734,26 @@ function makeUI(editorValues,numediting)
     ui.floatModeSpinner:setPopupBackgroundDrawable(luajava.new(ColorDrawable, Color:argb(255, 0, 0, 0)))
     ui.floatModeSpinner:setBackgroundColor(Color:argb(255, 0, 0, 0))
     ui.floatModeRow:addView(ui.floatModeSpinner)
+
+    ui.floatModeHelp = fnew(TextView,context)
+    ui.floatModeHelp:setLayoutParams(fillparams)
+    ui.floatModeHelp:setText(
+        "Always visible: the button stays on screen wherever you put it, on top "
+        .. "of the keyboard when it is up.\n\n"
+        .. "Show with keyboard: a keyboard assistant. It appears only while the "
+        .. "keyboard is out and is hidden the rest of the time -- from the button "
+        .. "grid as well, not just from the floating copy. Good for .kb commands "
+        .. "such as .kb stepb, .kb stepf, .kb stepu, .kb paste and .kb close.\n\n"
+        .. "Drawing on top of the keyboard needs the \"Display over other apps\" "
+        .. "permission -- you will be asked for it the first time. Without it the "
+        .. "button still works, but has to stay clear of the keys instead of "
+        .. "sitting over them.\n\n"
+        .. "On Android 9 and 10 the client cannot always tell whether the "
+        .. "keyboard is open, so \"Show with keyboard\" may not appear at all "
+        .. "there. Android 11 and newer are fine.")
+    ui.floatModeHelp:setTextSize(textSizeSmall)
+    ui.floatModeHelp:setTextColor(Color:argb(255, 170, 170, 170))
+    ui.advancedPage:addView(ui.floatModeHelp)
   end
   if editorValues.floatMode == "keyboard" then
     ui.floatModeSpinner:setSelection(1)
