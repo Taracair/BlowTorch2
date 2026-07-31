@@ -542,11 +542,56 @@ public class ExtraTextOverlayController {
 			lp.topMargin = y;
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			e.overlayRoot.setLayoutParams(lp);
+			e.overlayRoot.requestLayout();
+			if (e.resizeHandle != null) {
+				e.resizeHandle.bringToFront();
+			}
+			reclampWhenChromeIsMeasured(e);
 		} else {
-			int maxH = (int) (screenH * MAX_DRAWER_SCREEN_FRACTION);
-			int minH = (int) (MIN_DRAWER_DP * density);
-			int heightPx = Math.max(minH,
-					Math.min(maxH, (int) (e.slot.getHeightDp() * density)));
+			applyDrawerHeight(e);
+		}
+	}
+
+	/**
+	 * Drawer height only: reuse existing {@link RelativeLayout.LayoutParams}
+	 * when present so a finger drag does not allocate a new params object per
+	 * MOVE. Rules are set once if this is the first drawer layout.
+	 */
+	private void applyDrawerHeight(OverlayEntry e) {
+		if (e == null || e.overlayRoot == null || e.slot == null) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		float density = activity.getResources().getDisplayMetrics().density;
+		int screenH = activity.getResources().getDisplayMetrics().heightPixels;
+		int maxH = (int) (screenH * MAX_DRAWER_SCREEN_FRACTION);
+		int minH = (int) (MIN_DRAWER_DP * density);
+		int heightPx = Math.max(minH,
+				Math.min(maxH, (int) (e.slot.getHeightDp() * density)));
+		ViewGroup.LayoutParams glp = e.overlayRoot.getLayoutParams();
+		RelativeLayout.LayoutParams lp;
+		if (glp instanceof RelativeLayout.LayoutParams) {
+			lp = (RelativeLayout.LayoutParams) glp;
+			if (lp.height == heightPx
+					&& lp.width == RelativeLayout.LayoutParams.MATCH_PARENT
+					&& lp.leftMargin == 0
+					&& lp.topMargin == 0) {
+				return;
+			}
+			lp.width = RelativeLayout.LayoutParams.MATCH_PARENT;
+			lp.height = heightPx;
+			// Float → drawer reuses this object; clear float X/Y or the strip
+			// stays offset instead of spanning the top edge.
+			lp.leftMargin = 0;
+			lp.topMargin = 0;
+			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+			lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+		} else {
 			lp = new RelativeLayout.LayoutParams(
 					RelativeLayout.LayoutParams.MATCH_PARENT, heightPx);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
@@ -555,12 +600,6 @@ public class ExtraTextOverlayController {
 		}
 		e.overlayRoot.setLayoutParams(lp);
 		e.overlayRoot.requestLayout();
-		if (e.resizeHandle != null && mode == ExtraTextSlot.Mode.FLOAT) {
-			e.resizeHandle.bringToFront();
-		}
-		if (mode == ExtraTextSlot.Mode.FLOAT) {
-			reclampWhenChromeIsMeasured(e);
-		}
 	}
 
 	/**
@@ -765,13 +804,19 @@ public class ExtraTextOverlayController {
 					if (next > maxDp) {
 						next = maxDp;
 					}
+					if (next == e.slot.getHeightDp()) {
+						return true;
+					}
 					e.slot.setHeightDp(next);
-					applyLayout(e);
-					bringUnderChrome(e);
+					// Height-only: skip bringUnderChrome — z-order is unchanged and
+					// bringToFront on every MOVE was redrawing the whole container.
+					applyDrawerHeight(e);
 					return true;
 				}
 				case MotionEvent.ACTION_UP:
 				case MotionEvent.ACTION_CANCEL:
+					applyLayout(e);
+					bringUnderChrome(e);
 					schedulePersist();
 					return true;
 				default:

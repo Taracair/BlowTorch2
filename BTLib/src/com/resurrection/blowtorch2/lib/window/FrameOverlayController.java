@@ -436,19 +436,39 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 			lp.topMargin = y;
 			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
 			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			e.root.setLayoutParams(lp);
+			e.root.requestLayout();
+			reclampWhenChromeIsMeasured(e);
 		} else {
 			int maxH = (int) (screenH * MAX_DRAWER_SCREEN_FRACTION);
 			int minH = (int) (MIN_DRAWER_DP * density);
 			int h = Math.max(minH, Math.min(maxH, (int) (shape.drawerH * density)));
-			lp = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, h);
-			lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
-			lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
-			lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
-		}
-		e.root.setLayoutParams(lp);
-		e.root.requestLayout();
-		if (shape.floating) {
-			reclampWhenChromeIsMeasured(e);
+			ViewGroup.LayoutParams glp = e.root.getLayoutParams();
+			if (glp instanceof RelativeLayout.LayoutParams) {
+				lp = (RelativeLayout.LayoutParams) glp;
+				if (lp.height == h
+						&& lp.width == RelativeLayout.LayoutParams.MATCH_PARENT
+						&& lp.leftMargin == 0
+						&& lp.topMargin == 0) {
+					return;
+				}
+				lp.width = RelativeLayout.LayoutParams.MATCH_PARENT;
+				lp.height = h;
+				// Float → drawer reuses this object; clear float X/Y.
+				lp.leftMargin = 0;
+				lp.topMargin = 0;
+				lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			} else {
+				lp = new RelativeLayout.LayoutParams(
+						RelativeLayout.LayoutParams.MATCH_PARENT, h);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+				lp.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			}
+			e.root.setLayoutParams(lp);
+			e.root.requestLayout();
 		}
 	}
 
@@ -730,12 +750,20 @@ public class FrameOverlayController implements FrameImageStore.Listener {
 						if (next > maxDp) {
 							next = maxDp;
 						}
+						if (next == shape.drawerH) {
+							return true;
+						}
 						shape.drawerH = next;
-						applyAllLayouts();
+						// Shared shape.drawerH — every open frame must track it.
+						// Skip bringUnderChrome (z-order unchanged on height-only).
+						for (Entry other : entries.values()) {
+							applyLayout(other);
+						}
 						return true;
 					}
 					case MotionEvent.ACTION_UP:
 					case MotionEvent.ACTION_CANCEL:
+						applyAllLayouts();
 						schedulePersist();
 						return true;
 					default:

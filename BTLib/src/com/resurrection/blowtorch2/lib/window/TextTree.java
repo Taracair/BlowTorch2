@@ -1572,6 +1572,15 @@ public class TextTree {
 	}
 
 	public void setLineBreakAt(Integer i) {
+		// Same wrap width → updateTree is a pure no-op on content (Line.updateData
+		// recomputes breaks from raw text + breakAt + wordWrap). Skip the O(lines)
+		// walk. Without this, a height-only resize (extra-text / frame top-drawer
+		// drag) rebuilt the whole buffer on every ACTION_MOVE: Window.onSizeChanged
+		// → calculateCharacterFeatures → setLineBreaks(0), and rows come from
+		// width, not height. Same guard pattern as setWordWrap.
+		if (i != null && i.intValue() == breakAt) {
+			return;
+		}
 		breakAt = i;
 		updateTree();
 	}
