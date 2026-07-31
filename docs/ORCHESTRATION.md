@@ -416,10 +416,22 @@ maintainer decides.
 ./gradlew :BTLib:testDebugUnitTest            # JVM tests, no device
 ./gradlew :BT_Free:assembleBtTestDebug        # the flavour actually tested
 luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua # the build does NOT do this
+cp -f BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk \
+  ../BlowTorch2-btTest-debug.apk
 
 ~/Android/Sdk/platform-tools/adb -s <serial> install -r \
   BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
 ```
+
+After a **production release** build (`assembleProductionRelease`), also copy:
+
+```sh
+cp -f BT_Free/build/outputs/apk/production/release/BT_Free-production-release.apk \
+  ../BlowTorch2-production-release.apk
+```
+
+The parent folder (`../` relative to the repo) holds only these two fixed-name
+APKs — refresh them; do not leave older builds there.
 
 **Never `adb uninstall`.** `install -r` re-registers a changed manifest just as
 well and keeps the data.

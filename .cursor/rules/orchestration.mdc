@@ -162,17 +162,31 @@ Fix what has a credible path to a player-visible failure. Deliberately not fixed
 
 **Per step, not per commit.** A step that lands as four related commits needs one build and one install, at the end, before saying it is done — not four. What must never happen is reporting work finished with an APK on the phone that does not contain it. If the last commit of a step changed code, the install has to come after it.
 
-Run everything from **`BlowTorch/`** (where `./gradlew` lives):
+Run from the **repo root** (where `./gradlew` lives). The parent folder (`../`
+relative to the repo) holds two fixed-name APK copies for the maintainer — refresh
+them after every build that produces them:
 
 ```sh
-cd BlowTorch
 ./gradlew :BTLib:testDebugUnitTest            # or --tests for the area touched
 luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua # when Lua changed; build does NOT check syntax
 ./gradlew :BT_Free:assembleBtTestDebug
+cp -f BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk \
+  ../BlowTorch2-btTest-debug.apk
 # resolve serial — see Device lab below; never hardcode an old wifi port
 ~/Android/Sdk/platform-tools/adb -s <serial> install -r \
   BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
 ```
+
+**Production release** (`assembleProductionRelease`, only when the maintainer asks
+to ship): after the build succeeds, also run:
+
+```sh
+cp -f BT_Free/build/outputs/apk/production/release/BT_Free-production-release.apk \
+  ../BlowTorch2-production-release.apk
+```
+
+Only these two files belong in the parent folder. Do not accumulate older builds
+there.
 
 ## Device lab (maintainer's phone)
 
