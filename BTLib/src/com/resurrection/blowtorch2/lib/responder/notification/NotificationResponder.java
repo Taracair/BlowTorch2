@@ -231,7 +231,9 @@ public class NotificationResponder extends TriggerResponder implements Parcelabl
 		sLastThrottleAt = now;
 		
 		int resId = c.getResources().getIdentifier(ConfigurationLoader.getConfigurationValue("notificationIcon", c), "drawable", c.getPackageName());
-		
+		if (resId == 0) {
+			resId = android.R.drawable.stat_notify_chat;
+		}
 
 		NotificationManager NM = (NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
 		NotificationChannels.ensureChannels(c);

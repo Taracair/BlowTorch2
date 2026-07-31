@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar small icon: short tank + one sideways teardrop flame.
+     White-on-transparent; Android tints alpha. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Fuel tank — taller footprint -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16,9.2h4.2c1.27,0 2.3,1.03 2.3,2.3v9c0,1.27 -1.03,2.3 -2.3,2.3H16c-1.27,0 -2.3,-1.03 -2.3,-2.3v-9c0,-1.27 1.03,-2.3 2.3,-2.3z" />
+    <!-- Collar + short spout -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M16.6,6.4h3c0.55,0 1,0.45 1,1v2.4h-5V7.4c0,-0.55 0.45,-1 1,-1z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M13.8,5.8h5.8c0.72,0 1.3,0.58 1.3,1.3v0.6c0,0.72 -0.58,1.3 -1.3,1.3h-5.8c-0.72,0 -1.3,-0.58 -1.3,-1.3v-0.6c0,-0.72 0.58,-1.3 1.3,-1.3z" />
+    <!-- One flame: sideways () — taller so the whole icon reads larger -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M13.8,8.0
+            C13.8,8.0 8.2,2.4 1.8,8.0
+            C8.2,13.6 13.8,8.0 13.8,8.0 Z" />
+</vector>
