@@ -148,6 +148,7 @@ F-Droid updates you already. Test builds never check, whatever the setting says.
 | Internet (+ foreground service) | Yes, for a live session |
 | Notifications (Android 13+) | Useful, for connection state and alerts |
 | All files access | No — only to see `/BlowTorch/` in a file manager |
+| Display over other apps | No — only if you float a button over the soft keyboard |
 
 Two things worth knowing: account notes on launcher rows are stored as plain
 text on the device, so leave them blank if you would rather not keep passwords
