@@ -30,16 +30,45 @@ Work on branch **`staging`**, never `main`.
 
 ## The second attempt is the signal
 
-Fixing the same crash in the same file twice means the first fix was a guess.
-**Stop guessing at the third.** Go and read what the API actually requires —
-the `LayoutParams` type a parent demands, the order a framework calls things
-in, what the docs say the callback may not do — and then write one fix.
+Fixing the same failure in the same place twice means the first fix was a guess.
+**Stop guessing at the third.** Do not open another "maybe this layout /
+estimator / flag" commit. Go and read what the API actually requires — the
+`LayoutParams` type a parent demands, the order a framework calls things in,
+what soft-input mode does to insets, what the window manager stacks above an
+app window, what the docs say the callback may not do — and then write **one**
+informed fix.
 
-Three commits in 45 minutes against `editoroptionsdialog.lua` on 30 July
-(`b99bd711`, `23b03263`, `fb8e9bda`) were three guesses at layout params. None
-of them could be checked before install, because neither `luac5.1 -p` nor the
-Gradle build type-checks a `luajava` call. When a mistake costs a full
-build-install-tap cycle, reading first is the cheap option, not the slow one.
+Two from this repo that burned build-install-tap cycles on successive guesses:
+
+- Three commits in 45 minutes against `editoroptionsdialog.lua` on 30 July
+  (`b99bd711`, `23b03263`, `fb8e9bda`) — layout params. Neither `luac5.1 -p`
+  nor Gradle type-checks a `luajava` call, so reading first is the cheap option.
+- Four commits in a row on Mode A "above the keyboard"
+  (`ad9f250e`, `65aa3d3f`, `8b2acee3`, `1b6c2ebe`) — each another IME-height
+  estimator on `getWindowVisibleDisplayFrame()`. The manifest is
+  `adjustNothing`, so that frame never shrinks and every layer returned 0 by
+  construction. The fifth commit (`15fedc99`) finally read the constraint; a
+  sixth (`7fe6675f`) needed a different window type entirely. Four guesses
+  before the API was checked is exactly this rule failing.
+
+### If the informed fix still fails — stop and ask
+
+Reading the API and still not getting the behaviour the maintainer asked for is
+not a cue for a seventh approach. **Go back to the maintainer.** Check two
+things out loud before writing more code:
+
+1. **Do they want what they said?** The request may be impossible under a hard
+   platform constraint (e.g. app windows cannot draw over `TYPE_INPUT_METHOD`),
+   or it may conflict with another choice already in the app (`adjustNothing`).
+   Say the constraint in plain language and ask whether to change the goal,
+   accept a degraded behaviour, or pick a different approach they approve.
+2. **Is what they said what you understood?** Restate the desired player-visible
+   behaviour in one worked example ("tap the input bar → button sits on the
+   keys / just above them / never moves"). Misread requirements produce the same
+   commit storm as misread APIs.
+
+Do not silently redefine the goal to something easier to implement. The
+maintainer decides.
 
 ## A commit message is a claim, and claims get checked
 

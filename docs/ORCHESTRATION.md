@@ -354,6 +354,42 @@ what they will see. "Unanchored aliases do not substitute captures" is a
 sentence about implementation. "You type `kk goblin` and the game receives
 `kill $1` instead of `kill goblin`" is the same fact, usable.
 
+### 3.15 The second attempt is the signal
+
+Fixing the same failure in the same place twice means the first fix was a
+guess. **Stop guessing at the third.** Do not open another "maybe this layout /
+estimator / flag" commit. Read what the API actually requires — soft-input mode
+vs insets, window-manager stacking, the `LayoutParams` type a parent demands,
+what a callback may not do — and then write **one** informed fix.
+
+Two commit storms in this repo were exactly successive guesses:
+
+- Three commits in 45 minutes against `editoroptionsdialog.lua` on 30 July
+  (`b99bd711`, `23b03263`, `fb8e9bda`) — layout params that neither `luac5.1 -p`
+  nor Gradle can type-check.
+- Four commits in a row on Mode A "above the keyboard"
+  (`ad9f250e`, `65aa3d3f`, `8b2acee3`, `1b6c2ebe`) — each another height
+  estimator on `getWindowVisibleDisplayFrame()`. The activity uses
+  `windowSoftInputMode="adjustNothing"`, so that frame never shrinks and every
+  layer returned 0 by construction. `15fedc99` finally treated IME insets as the
+  only authority; `7fe6675f` needed `TYPE_APPLICATION_OVERLAY` because the
+  window manager stacks the IME above every application window. Four guesses
+  before reading the constraint is this rule failing.
+
+**If the informed fix still fails, stop and ask the maintainer** before a
+seventh approach. Check two things out loud:
+
+1. **Do they want what they said?** The request may be impossible under a hard
+   platform constraint, or it may conflict with another choice already in the
+   app. Say the constraint in plain language; ask whether to change the goal,
+   accept degraded behaviour, or pick an approach they approve.
+2. **Is what they said what you understood?** Restate the desired player-visible
+   behaviour in one worked example. Misread requirements produce the same
+   commit storm as misread APIs.
+
+Do not silently redefine the goal to something easier to implement. The
+maintainer decides.
+
 ---
 
 ## Part 4 — The device lab
@@ -465,6 +501,7 @@ Written down so they are not made again. Each cost real time or real data.
 | Recommended a large change to the alias loop without reading it | Read the code that runs before recommending changes to it |
 | Explained a fix in terms of implementation, twice, and lost the maintainer | Worked example of what they will see |
 | Wrote a plausible mechanism for a measured number without checking it | Record the number; mark the mechanism unverified |
+| Four commits guessing Mode A IME height on `getWindowVisibleDisplayFrame` under `adjustNothing` (always 0); a fifth and sixth finally read the API | Second failed attempt → read the API; if that still fails, ask the maintainer whether the goal is what they want and what you understood |
 
 ---
 
@@ -515,10 +552,15 @@ The maintainer's terms, and they work: **the AI investigates and proposes, the
 maintainer runs it on the phone and decides what ships.** Reports from the
 device are the source of truth over anything derived from reading code.
 
-Two habits carry most of the value:
+Three habits carry most of the value:
 
 - **Ask for a measurement instead of accepting a plausible story.**
 - **Make the assistant say which parts it did not verify.**
+- **After two failed attempts at the same behaviour, demand an API reading —
+  and if that still fails, a restatement of the goal before more code**
+  (Part 3.15). Successive "Mode A above the keyboard" commits were the cost
+  of skipping that.
 
 Most bad AI output here has not been wrong code. It has been a confident
-explanation of a mechanism nobody checked.
+explanation of a mechanism nobody checked, or a third guess at a constraint
+nobody read.
