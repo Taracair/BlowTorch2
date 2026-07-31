@@ -191,17 +191,37 @@ public class StellarService extends Service {
 				.setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
 				.setContentIntent(launcherPendingIntent())
 				.build();
-			startForeground(FOREGROUND_NOTIFICATION_ID, placeholder);
-			mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
-			mHasForegroundNotification = true;
+			try {
+				startForeground(FOREGROUND_NOTIFICATION_ID, placeholder);
+				mForegroundNotificationId = FOREGROUND_NOTIFICATION_ID;
+				mHasForegroundNotification = true;
+			} catch (RuntimeException e) {
+				// A system-initiated restart runs while the app is in the
+				// background, and background FGS starts can be refused. Refused
+				// is survivable — the connect path promotes again at
+				// updateForegroundNotification — but throwing out of
+				// onStartCommand is not.
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.onStartCommand.startForeground", e);
+			}
 		}
 		if (intent == null) {
-			return Service.START_STICKY_COMPATIBILITY;
+			return Service.START_STICKY;
 		}
 		if (ConfigurationLoader.isTestMode(this.getApplicationContext())) {
 			Log.e("BLOWTORCH", "SHOULD SET THE UNCAUGHT EXCEPTION HANDLER HERE.");
 		}
-		return Service.START_STICKY_COMPATIBILITY;
+		// START_STICKY, not START_STICKY_COMPATIBILITY. The compatibility value
+		// restarts the service but never calls onStartCommand again, and every
+		// promotion to foreground service lives in this method or in the connect
+		// path — so a restarted service came back as a plain background service
+		// with no notification and no connection, and onCreate's cancelAll()
+		// cleared the old notification on the way in. Measured 31 July 2026 on
+		// the production build: ServiceRecord alive 4 h 53 min, its process 3
+		// minutes, callStart=false, no isForeground. It had been dying and
+		// coming back as a zombie all day. The null-intent restart this enables
+		// is exactly what the branch above already handles.
+		return Service.START_STICKY;
 	}
 
 	/** The implementation of the onCreate() Service method. */
