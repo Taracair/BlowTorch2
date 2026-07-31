@@ -665,6 +665,7 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 - **Second finger** — tap to open the selection / copy widget.
 - One-finger long-press alone does not open copy.
 - Drag the cursors, then use the widget’s copy control. On-screen buttons may hide while selecting so the widget stays usable.
+- The same two-finger gesture works in **extra text** windows (float/drawer).
 
 ## Font size
 

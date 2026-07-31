@@ -6,13 +6,17 @@
     android:layout_height="wrap_content"
     android:background="#FF1A1A1A"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="true"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <LinearLayout
         android:id="@+id/extra_text_body"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
         <!-- Float only: title / drag. Drawer keeps this GONE. -->
         <LinearLayout
@@ -79,12 +83,15 @@
             android:background="@color/game_chrome_edge"
             android:visibility="gone" />
 
-        <!-- Text Window fills remaining height. -->
+        <!-- Text Window fills remaining height. clipChildren off so the copy
+             widget disc (drawn past the Window edges) is not cropped. -->
         <FrameLayout
             android:id="@+id/extra_text_content"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="1"
+            android:clipChildren="false"
+            android:clipToPadding="false" />
     </LinearLayout>
 
     <!--

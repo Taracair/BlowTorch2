@@ -5318,7 +5318,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (buttons != null) {
 			buttons.setVisibility(View.INVISIBLE);
 		}
-		// Do not bring game window / root chrome to front — that covered the widget.
+		// Extra-text overlays sit in window_container; bring that overlay above
+		// siblings so the copy widget is not under another pane. Do not raise
+		// chrome over the widget (same rule as the main game window).
+		if (windowTag instanceof String && extraTextOverlay != null
+				&& extraTextOverlay.managesWindowName((String) windowTag)) {
+			View overlay = rl.findViewWithTag("extra_text_overlay:" + windowTag);
+			if (overlay != null) {
+				overlay.bringToFront();
+			}
+		}
 	}
 
 	/** Show button_window again after text selection ends. */

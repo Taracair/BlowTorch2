@@ -321,6 +321,17 @@ public class ExtraTextOverlayController {
 			}
 		}
 		win.setLinksEnabled(linksOn);
+		// Same two-finger copy widget as the main game window (defaults true;
+		// keep it on explicitly — overlay parents used to clip the disc away).
+		win.setTextSelectionEnabled(true);
+		if (e.contentHost != null) {
+			e.contentHost.setClipChildren(false);
+			e.contentHost.setClipToPadding(false);
+		}
+		if (e.overlayRoot instanceof android.view.ViewGroup) {
+			((android.view.ViewGroup) e.overlayRoot).setClipChildren(false);
+			((android.view.ViewGroup) e.overlayRoot).setClipToPadding(false);
+		}
 		try {
 			host.registerWindowCallback(token, win);
 		} catch (Exception ex) {
