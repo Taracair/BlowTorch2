@@ -44,6 +44,16 @@ public final class ChromeController {
 					.OVERFLOW_OPACITY_DEFAULT;
 	private boolean overflowShowBackground = true;
 	private boolean overflowShowBorder = true;
+	/**
+	 * Built plate, kept until the appearance options change.
+	 *
+	 * <p>{@link #applyOverflowAppearance()} runs from {@link #updateMenuChrome()},
+	 * which runs from {@link #refresh()}, which runs from
+	 * {@link #onApplyWindowInsets}. IME insets are dispatched repeatedly through
+	 * the keyboard animation, so building the drawable there would allocate three
+	 * objects per frame for a picture that has not changed.
+	 */
+	private android.graphics.drawable.Drawable overflowPlateCache = null;
 
 	ChromeController(MainWindow activity) {
 		this.activity = activity;
@@ -518,6 +528,7 @@ public final class ChromeController {
 		overflowOpacityPct = pct;
 		overflowShowBackground = showBackground;
 		overflowShowBorder = showBorder;
+		overflowPlateCache = null;
 		applyOverflowAppearance();
 	}
 
@@ -539,14 +550,19 @@ public final class ChromeController {
 			overflowMenu.setBackground(null);
 			return;
 		}
-		android.graphics.drawable.StateListDrawable sel =
-				new android.graphics.drawable.StateListDrawable();
-		sel.addState(new int[] { android.R.attr.state_pressed },
-				overflowPlate(0xF0343A42, 0xAA8888CC));
-		sel.addState(new int[0],
-				overflowPlate(0xD216161C,
-						activity.getResources().getColor(R.color.game_chrome_edge)));
-		overflowMenu.setBackground(sel);
+		if (overflowPlateCache == null) {
+			android.graphics.drawable.StateListDrawable sel =
+					new android.graphics.drawable.StateListDrawable();
+			sel.addState(new int[] { android.R.attr.state_pressed },
+					overflowPlate(0xF0343A42, 0xAA8888CC));
+			sel.addState(new int[0],
+					overflowPlate(0xD216161C,
+							activity.getResources().getColor(R.color.game_chrome_edge)));
+			overflowPlateCache = sel;
+		}
+		if (overflowMenu.getBackground() != overflowPlateCache) {
+			overflowMenu.setBackground(overflowPlateCache);
+		}
 	}
 
 	/** One state of the ⋮ backing plate; either half may be switched off. */

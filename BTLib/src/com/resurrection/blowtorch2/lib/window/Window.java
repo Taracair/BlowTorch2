@@ -1945,9 +1945,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// and an extra text overlay turns clipChildren off on every parent up
 			// to its root so the copy widget's disc is not cropped — which made
 			// this one call paint over the float title bar (⋮ handle, title, ✕)
-			// sitting above the text. The rect is the same pixels for a window
-			// whose parent does clip.
-			c.drawRect(0, 0, mWidth, mHeight, b); // full window (incl. top pad) stays black
+			// sitting above the text. For a window whose parent does clip this is
+			// the same pixels drawColor covered.
+			//
+			// getWidth/getHeight rather than mWidth/mHeight: those fields are also
+			// assigned by setDimensions/setWidth, which write the LayoutParams and
+			// return, so between such a call and the next layout pass they hold a
+			// requested size the canvas does not have yet. An undersized rect here
+			// would leave an unpainted band on the main game window.
+			c.drawRect(0, 0, getWidth(), getHeight(), b); // full window (incl. top pad) stays black
 			
 			mClipRect.top = textPadTop();
 			mClipRect.left = 0;
