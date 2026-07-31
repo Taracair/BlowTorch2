@@ -35,6 +35,16 @@ public final class ChromeController {
 	/** Last IME lift applied via translationY (px). 0 when keyboard is down. */
 	private int imeLiftPx = 0;
 
+	/**
+	 * ⋮ appearance, from Options → Miscellaneous. Defaults match the drawable
+	 * this replaces, so a profile that never touches the options looks the same.
+	 */
+	private int overflowOpacityPct =
+			com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin
+					.OVERFLOW_OPACITY_DEFAULT;
+	private boolean overflowShowBackground = true;
+	private boolean overflowShowBorder = true;
+
 	ChromeController(MainWindow activity) {
 		this.activity = activity;
 	}
@@ -139,6 +149,14 @@ public final class ChromeController {
 			View child = rl.getChildAt(i);
 			if (child instanceof com.resurrection.blowtorch2.lib.window.Window) {
 				String tag = String.valueOf(child.getTag());
+				// Options → Window → Bottom padding with keyboard needs to know the
+				// keyboard is up. This is the one authority for that (see
+				// onApplyWindowInsets); text windows are told, button_window is not
+				// — its coordinates are Lua's and must not move.
+				if (!"button_window".equals(tag)) {
+					((com.resurrection.blowtorch2.lib.window.Window) child)
+							.setImeLiftPx(liftPx);
+				}
 				if ("button_window".equals(tag) || keepText) {
 					// Buttons always fixed; game text fixed when Keep text still is on.
 					child.setTranslationY(0f);
@@ -476,6 +494,74 @@ public final class ChromeController {
 		});
 	}
 
+	/**
+	 * Set how the gameplay ⋮ is drawn.
+	 *
+	 * <p>Only the button's own background and alpha change. The strip is left
+	 * alone: {@code ChromeSmokeTest} asserts ⋮'s parent is still the strip
+	 * itself, and {@link #placeGameplayFabStrip} rebuilds the strip's params on
+	 * every input-bar height change.
+	 *
+	 * @param opacityPct   Percent, clamped to the option's floor–100.
+	 * @param showBackground Draw the translucent disc behind the glyph.
+	 * @param showBorder     Draw the thin ring around the disc.
+	 */
+	void setOverflowAppearance(int opacityPct, boolean showBackground, boolean showBorder) {
+		int pct = opacityPct;
+		if (pct < com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin
+				.OVERFLOW_OPACITY_MIN) {
+			pct = com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin
+					.OVERFLOW_OPACITY_MIN;
+		} else if (pct > 100) {
+			pct = 100;
+		}
+		overflowOpacityPct = pct;
+		overflowShowBackground = showBackground;
+		overflowShowBorder = showBorder;
+		applyOverflowAppearance();
+	}
+
+	/**
+	 * Paint the ⋮ from the stored appearance.
+	 *
+	 * <p>Called again from {@link #updateMenuChrome()} because that is what runs
+	 * on every chrome refresh — the plate has to survive one.
+	 */
+	void applyOverflowAppearance() {
+		final View overflowMenu = activity.findViewById(R.id.overflow_menu);
+		if (overflowMenu == null) {
+			return;
+		}
+		overflowMenu.setAlpha(overflowOpacityPct / 100f);
+		if (!overflowShowBackground && !overflowShowBorder) {
+			// Bare glyph: no plate at all, which is the "stop covering my text"
+			// setting. Pressed feedback goes with it — there is nothing to tint.
+			overflowMenu.setBackground(null);
+			return;
+		}
+		android.graphics.drawable.StateListDrawable sel =
+				new android.graphics.drawable.StateListDrawable();
+		sel.addState(new int[] { android.R.attr.state_pressed },
+				overflowPlate(0xF0343A42, 0xAA8888CC));
+		sel.addState(new int[0],
+				overflowPlate(0xD216161C,
+						activity.getResources().getColor(R.color.game_chrome_edge)));
+		overflowMenu.setBackground(sel);
+	}
+
+	/** One state of the ⋮ backing plate; either half may be switched off. */
+	private android.graphics.drawable.GradientDrawable overflowPlate(int solid, int stroke) {
+		android.graphics.drawable.GradientDrawable d =
+				new android.graphics.drawable.GradientDrawable();
+		d.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+		d.setColor(overflowShowBackground ? solid : Color.TRANSPARENT);
+		if (overflowShowBorder) {
+			int w = (int) (activity.getResources().getDisplayMetrics().density + 0.5f);
+			d.setStroke(Math.max(1, w), stroke);
+		}
+		return d;
+	}
+
 	/** Wrench + (during edit) settings/done/cancel sit in one bottom-end strip. */
 	void bindGameplayFabControls() {
 		final View overflowMenu = activity.findViewById(R.id.overflow_menu);
@@ -564,6 +650,7 @@ public final class ChromeController {
 		}
 		if (overflowMenu != null) {
 			overflowMenu.setVisibility(showEditorChrome ? View.GONE : View.VISIBLE);
+			applyOverflowAppearance();
 		}
 		if (editorActions != null) {
 			editorActions.setVisibility(showEditorChrome ? View.VISIBLE : View.GONE);

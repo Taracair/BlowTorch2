@@ -21,7 +21,8 @@ public class SettingsOptionKeyOwnershipTest {
 	public void windowKeysAreNotClaimedByTheConnectionWriter() {
 		// Seen in the log storm, written inside <window> by WindowTokenParser.
 		String[] windowKeys = { "word_wrap", "scroll_sensitivity", "font_size", "buffer_size",
-				"top_padding", "newest_at_top", "ime_keep_text", "hyperlinks_enabled",
+				"top_padding", "bottom_padding", "bottom_padding_keyboard",
+				"newest_at_top", "ime_keep_text", "hyperlinks_enabled",
 				"hyperlink_mode", "hyperlink_color", "color_option", "line_extra", "font_path",
 				"tap_dismiss_keyboard" };
 		for (String key : windowKeys) {

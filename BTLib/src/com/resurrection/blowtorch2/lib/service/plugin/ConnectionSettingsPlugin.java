@@ -638,6 +638,35 @@ public class ConnectionSettingsPlugin extends Plugin {
 		request_storage.setValue("request_storage_access");
 		miscOptions.addOption(request_storage);
 
+		IntegerOption overflow_opacity = new IntegerOption();
+		overflow_opacity.setTitle("Overflow button opacity (%)");
+		overflow_opacity.setDescription("How solid the ⋮ button in the bottom corner is drawn "
+				+ "(" + OVERFLOW_OPACITY_MIN + "–100). Lower it when it sits "
+				+ "over text you want to read. It never goes fully invisible on purpose: the "
+				+ "button keeps its whole tap area whatever it looks like, and an unseen ⋮ is a "
+				+ "corner of the screen that quietly eats taps.");
+		overflow_opacity.setKey("overflow_button_opacity");
+		overflow_opacity.setValue(OVERFLOW_OPACITY_DEFAULT);
+		miscOptions.addOption(overflow_opacity);
+
+		BooleanOption overflow_background = new BooleanOption();
+		overflow_background.setTitle("Overflow button background?");
+		overflow_background.setDescription("Draw the dark disc behind the ⋮. On, it stays "
+				+ "findable over a floating window or the map; off, only the three dots show "
+				+ "and the game text behind them is uncovered.");
+		overflow_background.setKey("overflow_button_background");
+		overflow_background.setValue(true);
+		miscOptions.addOption(overflow_background);
+
+		BooleanOption overflow_border = new BooleanOption();
+		overflow_border.setTitle("Overflow button ring?");
+		overflow_border.setDescription("Draw the thin circle around the ⋮. Independent of the "
+				+ "background, so you can keep an outline with no fill, or a fill with no "
+				+ "outline. Both off leaves the bare glyph.");
+		overflow_border.setKey("overflow_button_border");
+		overflow_border.setValue(true);
+		miscOptions.addOption(overflow_border);
+
 		BooleanOption persistent_connection = new BooleanOption();
 		persistent_connection.setTitle("Persistent Connection?");
 		persistent_connection.setDescription("After brief network loss (VPN/Wi-Fi flaps), keep retrying longer without the disconnect dialog, and wait for connectivity before reconnecting. Cannot keep a dead TCP socket alive — the session is re-established when the network returns.");
@@ -714,6 +743,18 @@ public class ConnectionSettingsPlugin extends Plugin {
 	}
 	
 public final static int DEFAULT_HYPERLINK_COLOR = 0xFF66CCFF;
+
+	/** Default ⋮ opacity percent (fully opaque, as the drawable always was). */
+	public static final int OVERFLOW_OPACITY_DEFAULT = 100;
+	/**
+	 * Floor for ⋮ opacity.
+	 *
+	 * <p>Not zero on purpose. The button keeps its full 48dp touch box however
+	 * faint it is drawn, so an invisible ⋮ would be a corner of the game text
+	 * that swallows taps with nothing on screen to explain it. 15% still leaves
+	 * a smudge you can aim at.
+	 */
+	public static final int OVERFLOW_OPACITY_MIN = 15;
 	
 	private int LineSize = 18;
 	private int LineSpaceExtra = 2;

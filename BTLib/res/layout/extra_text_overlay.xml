@@ -18,7 +18,14 @@
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <!-- Float only: title / drag. Drawer keeps this GONE. -->
+        <!--
+          Float only: title / drag. Drawer keeps this GONE.
+
+          The bar is deliberately a lighter tone than the #FF1A1A1A body. It used
+          to be #FF111111, which on a black pane over black game text read as one
+          unbroken black rectangle: nothing said the top strip was a grab handle
+          or that there was a ✕ in it at all.
+        -->
         <LinearLayout
             android:id="@+id/extra_text_title_bar"
             android:layout_width="match_parent"
@@ -26,7 +33,7 @@
             android:minHeight="36dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:background="#FF111111"
+            android:background="#FF2A2E38"
             android:paddingLeft="4dp"
             android:paddingRight="4dp"
             android:paddingTop="2dp"
@@ -41,7 +48,7 @@
                 android:paddingLeft="4dp"
                 android:paddingRight="6dp"
                 android:text="☰"
-                android:textColor="#9999FF"
+                android:textColor="#BBBBEE"
                 android:textSize="16sp"
                 android:contentDescription="Drag window" />
 

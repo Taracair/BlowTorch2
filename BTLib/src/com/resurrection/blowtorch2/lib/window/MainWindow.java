@@ -2892,6 +2892,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 			MainWindow.this.findViewById(R.id.window_container).requestLayout();
 			chrome.setFullScreen(fullscreen);
+			applyOverflowAppearance(group);
 			refreshGameChrome();
 			final View chromeRootRefresh = findViewById(R.id.window_container);
 			if (chromeRootRefresh != null) {
@@ -3643,6 +3644,37 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		ensureFloatingButtons();
 		raiseFloatingButtons();
 		//Debug.stopMethodTracing();
+	}
+
+	/**
+	 * Push Options → Miscellaneous → Overflow button … onto the ⋮.
+	 *
+	 * <p>Read fresh on every settings apply; missing options mean an older
+	 * profile, which keeps the look the drawable always had.
+	 *
+	 * @param group Program settings.
+	 */
+	private void applyOverflowAppearance(final SettingsGroup group) {
+		if (group == null || chrome == null) {
+			return;
+		}
+		int opacity = com.resurrection.blowtorch2.lib.service.plugin
+				.ConnectionSettingsPlugin.OVERFLOW_OPACITY_DEFAULT;
+		boolean background = true;
+		boolean border = true;
+		BaseOption opacityOpt = (BaseOption) group.findOptionByKey("overflow_button_opacity");
+		if (opacityOpt != null && opacityOpt.getValue() instanceof Integer) {
+			opacity = (Integer) opacityOpt.getValue();
+		}
+		BaseOption bgOpt = (BaseOption) group.findOptionByKey("overflow_button_background");
+		if (bgOpt != null && bgOpt.getValue() instanceof Boolean) {
+			background = (Boolean) bgOpt.getValue();
+		}
+		BaseOption borderOpt = (BaseOption) group.findOptionByKey("overflow_button_border");
+		if (borderOpt != null && borderOpt.getValue() instanceof Boolean) {
+			border = (Boolean) borderOpt.getValue();
+		}
+		chrome.setOverflowAppearance(opacity, background, border);
 	}
 
 	/** Bind mapper UI under window_container (chrome ⋮ stays above). */

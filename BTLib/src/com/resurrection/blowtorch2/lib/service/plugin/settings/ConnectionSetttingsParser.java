@@ -73,6 +73,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		session_log, session_log_directory, default_settings_directory,
 		terminal_width, terminal_height, terminal_size_hint,
 		persistent_connection,
+		overflow_button_opacity, overflow_button_background, overflow_button_border,
 		mapper_enabled, mapper_recording_default, mapper_follow, mapper_float,
 		mapper_opacity, mapper_path_auto_send, mapper_echo_window, mapper_use_gmcp,
 		mapper_gmcp_use_num, mapper_gmcp_use_coords, mapper_gmcp_create_exits,
@@ -642,6 +643,18 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case persistent_connection:
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case overflow_button_opacity:
+						if((Integer)opt.getValue()
+								!= ConnectionSettingsPlugin.OVERFLOW_OPACITY_DEFAULT) {
+							dooutput = true;
+						}
+						break;
+					case overflow_button_background:
+					case overflow_button_border:
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;

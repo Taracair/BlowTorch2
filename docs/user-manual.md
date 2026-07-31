@@ -690,6 +690,15 @@ flipping text).
 notch/camera cutouts (on-screen buttons are unaffected). Try values like
 `40`–`80` on punched-hole phones.
 
+**Options → Window → Bottom padding (px)** does the same at the bottom edge, all
+the time — use it to keep the newest line clear of the input bar or a gesture bar.
+
+**Options → Window → Bottom padding with keyboard (px)** adds further space below
+game text only while the soft keyboard is open. The two are independent: set
+either on its own, or both, in which case they add up while the keyboard is out.
+The gap is measured from the bottom of the text area, which rises with the
+keyboard unless **Keep text still with keyboard?** is on.
+
 **Options → Window → Keep text still with keyboard?** — when on, opening the soft
 keyboard lifts only the input bar; game text stays put (may sit under the IME).
 Works with either text direction. Off = classic lift (text rises with the keyboard).
@@ -745,6 +754,16 @@ or advanced JSON). Modes: **`drawer_top`** (top strip, no title bar — show/hid
 `.window show|hide` or Manage → Show window) or **`float`** (titled, draggable panes).
 Overlay geometry (drawer height ≥ 50dp, float position, **opacity 40–100%**) is owned by
 the UI; buffers are named `WindowToken`s.
+
+A floating pane's chrome is per slot, in **Manage windows… → Edit**:
+
+- **Title bar / drag handle** — the strip across the top, with the ☰ grip and the
+  window's title. This is what you drag the window by. On by default.
+- **Close button ✕** — hides the window; bring it back with `.window show <slot>`
+  or Manage → Show window. On by default.
+
+Turn both off for a bare pane: it can still be resized from the ◢ corner, but it
+cannot be dragged, and only `.window hide` or Options will close it.
 
 **Scroll speed** is per slot, in Manage windows. The default, *Same as main
 window*, follows **Options → Window → Scroll sensitivity**, so that one control

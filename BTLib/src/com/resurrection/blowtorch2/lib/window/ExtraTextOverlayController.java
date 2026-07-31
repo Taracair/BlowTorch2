@@ -388,11 +388,17 @@ public class ExtraTextOverlayController {
 		}
 		boolean floatMode = mode == ExtraTextSlot.Mode.FLOAT;
 		boolean drawer = !floatMode;
+		// Both are per-slot options (Manage windows… → Edit). A player who wants
+		// the plain black pane back turns the bar off and keeps the resize corner.
+		boolean bar = floatMode && e.slot.isShowTitleBar();
+		boolean close = floatMode && e.slot.isShowClose();
 
 		// Drawer: no title / no collapse — show/hide via .window / Options only.
 		// Float: title + drag + muted accent under title.
 		if (e.titleBar != null) {
-			e.titleBar.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			// The ✕ lives in the bar, so asking for the ✕ keeps the bar even when
+			// the bar itself was switched off — otherwise the option does nothing.
+			e.titleBar.setVisibility(bar || close ? View.VISIBLE : View.GONE);
 		}
 		if (e.titleView != null) {
 			String t = e.slot.getTitle();
@@ -400,10 +406,10 @@ public class ExtraTextOverlayController {
 				t = e.slot.getName();
 			}
 			e.titleView.setText(t);
-			e.titleView.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			e.titleView.setVisibility(bar ? View.VISIBLE : View.INVISIBLE);
 		}
 		if (e.dragHandle != null) {
-			e.dragHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			e.dragHandle.setVisibility(bar ? View.VISIBLE : View.GONE);
 		}
 		if (e.collapseBtn != null) {
 			e.collapseBtn.setVisibility(View.GONE);
@@ -412,7 +418,7 @@ public class ExtraTextOverlayController {
 		// or find the slot in Options. Drawers are shown and hidden by their own
 		// chrome, so the control only appears on the floating ones.
 		if (e.closeBtn != null) {
-			e.closeBtn.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			e.closeBtn.setVisibility(close ? View.VISIBLE : View.GONE);
 			final OverlayEntry entry = e;
 			e.closeBtn.setOnClickListener(new View.OnClickListener() {
 				@Override
@@ -427,7 +433,7 @@ public class ExtraTextOverlayController {
 			});
 		}
 		if (e.accentLine != null) {
-			e.accentLine.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			e.accentLine.setVisibility(bar || close ? View.VISIBLE : View.GONE);
 		}
 		if (e.resizeHandle != null) {
 			e.resizeHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);

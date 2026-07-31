@@ -80,6 +80,14 @@ public final class ExtraTextSlot {
 	private boolean visible = true;
 	private boolean collapsed = false;
 	/**
+	 * Floating windows only: show the title bar, which is also the drag handle.
+	 * On by default — a floating pane with no bar is a black rectangle you can
+	 * resize but cannot move, and nothing on it says otherwise.
+	 */
+	private boolean showTitleBar = true;
+	/** Floating windows only: show the ✕ that hides the window. */
+	private boolean showClose = true;
+	/**
 	 * GMCP module names/patterns routed into this slot (case-insensitive).
 	 * Exact match, or prefix with trailing {@code .} / {@code .*}/ {@code *}
 	 * (e.g. {@code Char.Vitals}, {@code Char.}, {@code Comm.*}).
@@ -188,6 +196,22 @@ public final class ExtraTextSlot {
 
 	public void setCollapsed(final boolean collapsed) {
 		this.collapsed = collapsed;
+	}
+
+	public boolean isShowTitleBar() {
+		return showTitleBar;
+	}
+
+	public void setShowTitleBar(final boolean showTitleBar) {
+		this.showTitleBar = showTitleBar;
+	}
+
+	public boolean isShowClose() {
+		return showClose;
+	}
+
+	public void setShowClose(final boolean showClose) {
+		this.showClose = showClose;
 	}
 
 	/** Never null; may be empty. */
@@ -338,6 +362,8 @@ public final class ExtraTextSlot {
 		s.scrollSpeed = this.scrollSpeed;
 		s.visible = this.visible;
 		s.collapsed = this.collapsed;
+		s.showTitleBar = this.showTitleBar;
+		s.showClose = this.showClose;
 		s.gmcpModules.clear();
 		s.gmcpModules.addAll(this.gmcpModules);
 		return s;
@@ -358,6 +384,8 @@ public final class ExtraTextSlot {
 		o.put("scroll_speed", scrollSpeed);
 		o.put("visible", visible);
 		o.put("collapsed", collapsed);
+		o.put("show_title_bar", showTitleBar);
+		o.put("show_close", showClose);
 		if (!gmcpModules.isEmpty()) {
 			org.json.JSONArray arr = new org.json.JSONArray();
 			for (int i = 0; i < gmcpModules.size(); i++) {
@@ -410,6 +438,10 @@ public final class ExtraTextSlot {
 		s.scrollSpeed = clampScrollSpeed(o.optInt("scroll_speed", SCROLL_SPEED_INHERIT));
 		s.visible = o.optBoolean("visible", true);
 		s.collapsed = o.optBoolean("collapsed", false);
+		// Absent in slots written before these existed: default on, so an old
+		// floating window gains its bar and ✕ instead of staying a black box.
+		s.showTitleBar = o.optBoolean("show_title_bar", true);
+		s.showClose = o.optBoolean("show_close", true);
 		s.gmcpModules.clear();
 		org.json.JSONArray gmcp = o.optJSONArray("gmcp");
 		if (gmcp != null) {

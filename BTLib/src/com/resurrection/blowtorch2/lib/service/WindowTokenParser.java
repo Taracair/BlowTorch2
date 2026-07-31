@@ -295,6 +295,23 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case bottom_padding:
+						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_BOTTOM_PADDING) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
+					case bottom_padding_keyboard:
+						if (((Integer) ((IntegerOption) o).getValue())
+								!= WindowToken.DEFAULT_BOTTOM_PADDING_KEYBOARD) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
 					case scroll_sensitivity:
 						if (((Integer) ((ListOption) o).getValue()) != WindowToken.DEFAULT_SCROLL_SENSITIVITY) {
 							out.startTag("", "option");

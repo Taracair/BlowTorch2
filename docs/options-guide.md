@@ -5,11 +5,11 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, **Keep text still with keyboard?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, bare domains like `example.com`), ANSI color; nested **Extra text windows** |
+| **Window** | Per-window text: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, bare domains like `example.com`), ANSI color; nested **Extra text windows** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
-| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import Settings**, **Check for updates?** and **Check for updates now**, persistent connection |
+| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import Settings**, **Check for updates?** and **Check for updates now**, persistent connection, **overflow button appearance** (opacity / background / ring) |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
 ## Extra text windows
@@ -19,7 +19,7 @@ Under **Options → Window → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` or `float`), height, opacity, **scroll speed**, visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
+| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` or `float`), height, opacity, **scroll speed**, **title bar / drag handle** and **close button ✕** (floating only, both on by default), visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
 Slot **name** is the public id shared with gag/replace retarget, Lua
@@ -186,6 +186,12 @@ patterns.
   **F-Droid, turn it off** — F-Droid updates you already. The test flavour never
   checks, whatever this is set to. Failures are silent; "Skip this one"
   suppresses a version you do not want to be reminded about.
+- **Overflow button opacity (%)** / **Overflow button background?** /
+  **Overflow button ring?** — how the gameplay **⋮** in the bottom corner is
+  drawn. Fade it down when it sits over text you want to read, drop the disc to
+  uncover what is behind it, or keep a ring with no fill. Opacity stops at 15%
+  on purpose: the button keeps its whole 48dp tap area however faint it looks,
+  and an invisible ⋮ is a corner of the screen that quietly eats taps.
 - **Persistent Connection?** — ride out brief network loss without the
   disconnect dialog.
 - **Export Settings** / **Import Settings** — moved here from the ⋮ menu. They

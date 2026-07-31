@@ -150,6 +150,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mNewestAtTop = false;
 	/** Extra empty pixels above game text (notch / camera). Buttons unaffected. */
 	private int mTopPadding = 0;
+	/** Extra empty pixels below game text, always. Buttons unaffected. */
+	private int mBottomPadding = 0;
+	/** Further empty pixels below game text while the soft keyboard is up. */
+	private int mBottomPaddingIme = 0;
+	/** Keyboard lift in px, pushed by {@link ChromeController#applyImeChromeLift}. */
+	private int mImeLiftPx = 0;
 	/** Gain applied to finger travel when scrolling. 1.0 means the text tracks the finger. */
 	private float mScrollSensitivity = 1.0f;
 	/**
@@ -627,6 +633,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (topPadding != null) {
 			mTopPadding = Math.max(0, (Integer) topPadding.getValue());
 		}
+		IntegerOption bottomPadding = (IntegerOption) settings.findOptionByKey("bottom_padding");
+		if (bottomPadding != null) {
+			mBottomPadding = Math.max(0, (Integer) bottomPadding.getValue());
+		}
+		IntegerOption bottomPaddingIme =
+				(IntegerOption) settings.findOptionByKey("bottom_padding_keyboard");
+		if (bottomPaddingIme != null) {
+			mBottomPaddingIme = Math.max(0, (Integer) bottomPaddingIme.getValue());
+		}
 		BooleanOption imeKeepText = (BooleanOption) settings.findOptionByKey("ime_keep_text");
 		if (imeKeepText != null) {
 			mImeKeepText = (Boolean) imeKeepText.getValue();
@@ -889,21 +904,108 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return pad + (int) (ch - logicalFromBottom);
 	}
 
-	/** Clamped top inset for game text (pixels). */
-	private int textPadTop() {
+	/**
+	 * Unclamped bottom inset: the player's own padding, the keyboard-only extra
+	 * while the keyboard is up, and any drawer covering this window.
+	 *
+	 * <p>The two player settings add up when the keyboard is out, which is what
+	 * "both at once" in the options means.
+	 */
+	private int rawPadBottom() {
+		int raw = mBottomPadding + Math.max(0, mDrawerInsetBottom);
+		if (mImeLiftPx > 0) {
+			raw += mBottomPaddingIme;
+		}
+		return raw;
+	}
+
+	/**
+	 * Clamped bottom inset for game text (pixels).
+	 *
+	 * <p>Top wins ties: the top pad is the one that clears a camera cutout, so a
+	 * bottom pad big enough to starve the text gives way instead.
+	 */
+	private int textPadBottom() {
+		final int raw = rawPadBottom();
+		if (raw <= 0 || mHeight <= 0) {
+			return 0;
+		}
+		final int minText = Math.max(1, mPrefLineSize);
+		final int maxPad = Math.max(0, mHeight - minText - clampedPadTopRaw());
+		return Math.min(raw, maxPad);
+	}
+
+	/** Top pad clamped against the view alone, before the bottom pad is known. */
+	private int clampedPadTopRaw() {
 		final int raw = mTopPadding + mDrawerInsetTop;
 		if (raw <= 0 || mHeight <= 0) {
 			return 0;
 		}
 		final int minText = Math.max(1, mPrefLineSize);
-		final int maxPad = Math.max(0, mHeight - minText - Math.max(0, mDrawerInsetBottom));
+		return Math.min(raw, Math.max(0, mHeight - minText));
+	}
+
+	/** Clamped top inset for game text (pixels). */
+	private int textPadTop() {
+		final int raw = clampedPadTopRaw();
+		if (raw <= 0) {
+			return 0;
+		}
+		final int minText = Math.max(1, mPrefLineSize);
+		final int maxPad = Math.max(0, mHeight - minText - textPadBottom());
 		return Math.min(raw, maxPad);
 	}
 
 	/** Drawable text area height after top/bottom padding. */
 	private int contentHeight() {
 		return Math.max(Math.max(1, mPrefLineSize),
-				mHeight - textPadTop() - Math.max(0, mDrawerInsetBottom));
+				mHeight - textPadTop() - textPadBottom());
+	}
+
+	/**
+	 * Re-measure the text area after an inset changed, keeping the player's
+	 * place in the scrollback.
+	 *
+	 * <p>{@link #SCROLL_MIN} is derived from {@link #contentHeight()}, so every
+	 * caller that moves an inset has to shift {@link #mScrollback} by the same
+	 * amount or the view jumps. One copy, called from all of them.
+	 */
+	private void reflowForInsetChange() {
+		if (mWidth <= 0 || mHeight <= 0) {
+			return;
+		}
+		calculateCharacterFeatures(mWidth, mHeight);
+		final double slack = 5 * Window.this.getResources().getDisplayMetrics().density;
+		if (mScrollback == SCROLL_MIN) {
+			SCROLL_MIN = contentHeight() - slack;
+			mScrollback = SCROLL_MIN;
+		} else {
+			double oldmin = SCROLL_MIN;
+			SCROLL_MIN = contentHeight() - slack;
+			mScrollback -= oldmin - SCROLL_MIN;
+		}
+	}
+
+	/**
+	 * Tell this window how far the soft keyboard has lifted it, so the
+	 * keyboard-only bottom padding can come and go with the keyboard.
+	 *
+	 * <p>Pushed from {@link ChromeController#applyImeChromeLift}, which already
+	 * owns the one authority for keyboard height — this must not grow a second
+	 * estimator of its own.
+	 */
+	public final void setImeLiftPx(final int liftPx) {
+		final int lift = liftPx < 0 ? 0 : liftPx;
+		if (lift == mImeLiftPx) {
+			return;
+		}
+		final boolean wasUp = mImeLiftPx > 0;
+		mImeLiftPx = lift;
+		if (mBottomPaddingIme <= 0 || wasUp == (lift > 0)) {
+			return;
+		}
+		reflowForInsetChange();
+		invalidate();
 	}
 
 	/**
@@ -918,19 +1020,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		mDrawerInsetTop = t;
 		mDrawerInsetBottom = b;
-		if (mWidth > 0 && mHeight > 0) {
-			calculateCharacterFeatures(mWidth, mHeight);
-			if (mScrollback == SCROLL_MIN) {
-				SCROLL_MIN = contentHeight()
-						- (double) (5 * Window.this.getResources().getDisplayMetrics().density);
-				mScrollback = SCROLL_MIN;
-			} else {
-				double oldmin = SCROLL_MIN;
-				SCROLL_MIN = contentHeight()
-						- (double) (5 * Window.this.getResources().getDisplayMetrics().density);
-				mScrollback -= oldmin - SCROLL_MIN;
-			}
-		}
+		reflowForInsetChange();
 		invalidate();
 		android.content.Context ctx = getContext();
 		if (ctx instanceof MainWindow) {
@@ -1851,12 +1941,18 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			c.save();
 			
 			setBgPaintColor(0xFF0A0A0A);
-			c.drawColor(0xFF0A0A0A); // full window (incl. top pad) stays black
+			// Own bounds only, never drawColor. drawColor fills the whole clip,
+			// and an extra text overlay turns clipChildren off on every parent up
+			// to its root so the copy widget's disc is not cropped — which made
+			// this one call paint over the float title bar (⋮ handle, title, ✕)
+			// sitting above the text. The rect is the same pixels for a window
+			// whose parent does clip.
+			c.drawRect(0, 0, mWidth, mHeight, b); // full window (incl. top pad) stays black
 			
 			mClipRect.top = textPadTop();
 			mClipRect.left = 0;
 			mClipRect.right = mWidth;
-			mClipRect.bottom = Math.max(mClipRect.top + 1, mHeight);
+			mClipRect.bottom = Math.max(mClipRect.top + 1, mHeight - textPadBottom());
 			
 			c.clipRect(mClipRect);
 			
@@ -4466,6 +4562,18 @@ end
 				jumpToZero();
 				this.invalidate();
 				break;
+			case bottom_padding:
+				mBottomPadding = Math.max(0, (Integer) o.getValue());
+				calculateCharacterFeatures(mWidth, mHeight);
+				jumpToZero();
+				this.invalidate();
+				break;
+			case bottom_padding_keyboard:
+				mBottomPaddingIme = Math.max(0, (Integer) o.getValue());
+				calculateCharacterFeatures(mWidth, mHeight);
+				jumpToZero();
+				this.invalidate();
+				break;
 			case ime_keep_text:
 				mImeKeepText = (Boolean) o.getValue();
 				if (mMainWindowHandler != null) {
@@ -4561,6 +4669,8 @@ end
 		word_wrap,
 		newest_at_top,
 		top_padding,
+		bottom_padding,
+		bottom_padding_keyboard,
 		ime_keep_text,
 		scroll_sensitivity,
 		color_option,

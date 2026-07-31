@@ -262,6 +262,26 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "Scroll speed"));
 		form.addView(scrollSpeed);
 
+		// Floating windows only. A drawer has no title bar and is shown or hidden
+		// by its own grab strip, so neither control has anywhere to go on one.
+		final CheckBox showTitleBar = new CheckBox(context);
+		showTitleBar.setText("Title bar / drag handle (floating)");
+		showTitleBar.setChecked(existing == null || existing.isShowTitleBar());
+		form.addView(showTitleBar);
+
+		final CheckBox showClose = new CheckBox(context);
+		showClose.setText("Close button ✕ (floating)");
+		showClose.setChecked(existing == null || existing.isShowClose());
+		form.addView(showClose);
+
+		TextView chromeHint = new TextView(context);
+		chromeHint.setText("Turn both off for a bare pane: it can still be resized from the "
+				+ "bottom-right corner, but it cannot be dragged and only .window hide or "
+				+ "this screen will close it.");
+		chromeHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+		chromeHint.setPadding(0, 0, 0, pad / 2);
+		form.addView(chromeHint);
+
 		final Spinner visible = new Spinner(context);
 		String[] visItems = new String[] { "Visible", "Hidden" };
 		ArrayAdapter<String> visAdapter = new ArrayAdapter<String>(context,
@@ -441,6 +461,8 @@ public final class ExtraTextWindowsDialog {
 					slot.setOpacity(85);
 				}
 				slot.setScrollSpeed(scrollSpeed.getSelectedItemPosition());
+				slot.setShowTitleBar(showTitleBar.isChecked());
+				slot.setShowClose(showClose.isChecked());
 				slot.setVisible(visible.getSelectedItemPosition() == 0);
 				if (gmcpAdvanced.getVisibility() == View.VISIBLE) {
 					slot.setGmcpModulesCsv(gmcpAdvanced.getText() != null

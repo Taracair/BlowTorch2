@@ -59,6 +59,10 @@ public class WindowToken implements Parcelable {
 	public static final int BUFFER_BYTE_BUDGET = 512 * 1024;
 	/** Default top text inset (pixels). */
 	public static final int DEFAULT_TOP_PADDING = 0;
+	/** Default bottom text inset (pixels). */
+	public static final int DEFAULT_BOTTOM_PADDING = 0;
+	/** Default extra bottom text inset while the soft keyboard is up (pixels). */
+	public static final int DEFAULT_BOTTOM_PADDING_KEYBOARD = 0;
 	/** Default scroll sensitivity: index of "Normal", where text follows the finger 1:1. */
 	public static final int DEFAULT_SCROLL_SENSITIVITY = 1;
 	/** Default font path (bundled asset). */
@@ -88,6 +92,10 @@ public class WindowToken implements Parcelable {
 		newest_at_top,
 		/** Top inset for game text (pixels); keeps lines clear of camera cutouts. */
 		top_padding,
+		/** Bottom inset for game text (pixels); always applied. */
+		bottom_padding,
+		/** Further bottom inset while the soft keyboard is up (pixels). */
+		bottom_padding_keyboard,
 		/** Soft keyboard lifts input only; game text stays put. */
 		ime_keep_text,
 		/** How far the text travels per unit of finger travel when scrolling. */
@@ -350,6 +358,26 @@ public class WindowToken implements Parcelable {
 		topPadding.setKey("top_padding");
 		topPadding.setValue(DEFAULT_TOP_PADDING);
 		window.addOption(topPadding);
+
+		IntegerOption bottomPadding = new IntegerOption();
+		bottomPadding.setTitle("Bottom padding (px)");
+		bottomPadding.setDescription("Extra empty space below game text (pixels), always. "
+				+ "Use it to keep the last line clear of the input bar or a gesture bar. "
+				+ "On-screen buttons are unaffected.");
+		bottomPadding.setKey("bottom_padding");
+		bottomPadding.setValue(DEFAULT_BOTTOM_PADDING);
+		window.addOption(bottomPadding);
+
+		IntegerOption bottomPaddingKeyboard = new IntegerOption();
+		bottomPaddingKeyboard.setTitle("Bottom padding with keyboard (px)");
+		bottomPaddingKeyboard.setDescription("Further empty space below game text while the "
+				+ "soft keyboard is open (pixels). Independent of Bottom padding: set either "
+				+ "on its own, or both, in which case they add up while the keyboard is out. "
+				+ "Measured from the bottom of the text area, which rises with the keyboard "
+				+ "unless Keep text still with keyboard? is on.");
+		bottomPaddingKeyboard.setKey("bottom_padding_keyboard");
+		bottomPaddingKeyboard.setValue(DEFAULT_BOTTOM_PADDING_KEYBOARD);
+		window.addOption(bottomPaddingKeyboard);
 
 		BooleanOption imeKeepText = new BooleanOption();
 		imeKeepText.setTitle("Keep text still with keyboard?");
