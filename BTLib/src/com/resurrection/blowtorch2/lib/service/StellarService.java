@@ -95,8 +95,12 @@ public class StellarService extends Service {
 	 * <p>Read it through {@link #isWindowConnected()} and write it through
 	 * {@link #setWindowShowing(boolean)} — the write side has to notice the
 	 * hidden-to-showing edge so the connections can hand over the text they
-	 * held back while nobody was looking. */
-	private boolean mWindowShowing = true;
+	 * held back while nobody was looking.
+	 *
+	 * <p>volatile: written from a binder thread, read from Lua and plugin
+	 * threads. It is a status answer only — the text gate is each Connection's
+	 * own copy, guarded by the lock that guards the held text. */
+	private volatile boolean mWindowShowing = true;
 	/** The handler object used to coordinate multi-threaded efforts from the aidl callback onto the main thread. */
 	Handler mHandler = null;
 	/** The WifiLock object. */
@@ -1064,14 +1068,23 @@ public class StellarService extends Service {
 	 * @param show Whether the game window is now on screen.
 	 */
 	public final void setWindowShowing(final boolean show) {
-		boolean cameBack = show && !mWindowShowing;
 		mWindowShowing = show;
-		if (!cameBack || mConnections == null) {
+		if (mConnections == null) {
 			return;
 		}
+		// Told, not deduced from an edge here. Each connection keeps its own
+		// copy of this under the lock that guards the held text, which is what
+		// lets it clear the flag and hand the text over as one step; an edge
+		// test out here would also lose the transition whenever a connection
+		// arrives between the two calls.
 		for (Connection c : mConnections.values()) {
-			if (c != null) {
+			if (c == null) {
+				continue;
+			}
+			if (show) {
 				c.flushTextHeldWhileHidden();
+			} else {
+				c.holdTextWhileHidden();
 			}
 		}
 	}

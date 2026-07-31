@@ -987,22 +987,42 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	/** Guards {@link #mHeldWhileHidden} and {@link #mHeldOverflowed}. Its own lock:
-	 *  the text threads reach it, and mWindowSynch is held across binder calls. */
+	/** Guards every field below, and the whole of the hand-over in
+	 *  {@link #flushTextHeldWhileHidden()}.
+	 *
+	 *  <p>Its own lock rather than mWindowSynch: the text threads reach it on
+	 *  every line, and mWindowSynch is a coarse lock around the whole callback
+	 *  map. The ordering that exists is mHeldSynch then mWindowSynch — the
+	 *  flush reaches dropDeadWindowCallback — and never the reverse, because
+	 *  holdWhileHidden has released this lock long before notifyMainWindow's
+	 *  catch block takes the other one. */
 	private final Object mHeldSynch = new Object();
+	/** Whether text is being held because the game window is off screen.
+	 *
+	 *  <p>A Connection-local copy of the service's flag rather than a read
+	 *  through mService, so that clearing it and delivering what was held
+	 *  happen inside one critical section. Reading the service's field here
+	 *  instead would leave a window between "now visible" and "held text
+	 *  delivered" in which a dispatch thread pushes a new line straight past
+	 *  the older ones — text out of order on the very resume this exists for.
+	 *
+	 *  <p>False by default, so a Connection built without a service — offline
+	 *  and test paths — never holds anything. */
+	private boolean mHoldingForHiddenUi = false;
 	/** Per window, the text its UI copy has not been given yet. */
 	private final HashMap<String, java.io.ByteArrayOutputStream> mHeldWhileHidden =
 			new HashMap<String, java.io.ByteArrayOutputStream>();
 	/** Windows that went past {@link #MAX_REPLAY_BYTES} and want a whole-buffer reset instead. */
 	private final java.util.HashSet<String> mHeldOverflowed = new java.util.HashSet<String>();
 
-	/** Whether the game window is on screen, from the service's point of view.
+	/** Start holding text: the game window has gone off screen.
 	 *
-	 * <p>Defaults to visible when there is no service — offline and test paths
-	 * construct a Connection without one, and holding their text forever would
-	 * be a silent blank window. */
-	private boolean uiIsVisible() {
-		return mService == null || mService.isWindowConnected();
+	 * <p>Idempotent. Called from {@link StellarService#setWindowShowing(boolean)}.
+	 */
+	public final void holdTextWhileHidden() {
+		synchronized (mHeldSynch) {
+			mHoldingForHiddenUi = true;
+		}
 	}
 
 	/** Keep text for a window whose UI is not on screen, instead of pushing it.
@@ -1030,10 +1050,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (window == null || data == null || data.length == 0) {
 			return false;
 		}
-		if (uiIsVisible()) {
-			return false;
-		}
 		synchronized (mHeldSynch) {
+			if (!mHoldingForHiddenUi) {
+				return false;
+			}
 			if (mHeldOverflowed.contains(window)) {
 				return true;
 			}
@@ -1052,51 +1072,51 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return true;
 	}
 
-	/** Hand every window the text it missed while the game window was off screen.
+	/** Stop holding, and hand every window the text it missed.
 	 *
-	 * <p>Called from {@link StellarService#setWindowShowing(boolean)} on the
-	 * hidden-to-showing edge only. Appending what was missed keeps the UI's
-	 * existing scrollback; a window that overflowed gets the whole buffer back
-	 * instead, which is the same state a UI process that had been killed and
-	 * restarted would come up in.
+	 * <p>Called from {@link StellarService#setWindowShowing(boolean)} when the
+	 * game window comes back. Appending what was missed keeps the UI's existing
+	 * scrollback; a window that overflowed gets the whole buffer back instead,
+	 * which is the state a UI process that had been killed and restarted comes
+	 * up in anyway. Idempotent — MainWindow says "showing" from both
+	 * onServiceConnected and onResume.
+	 *
+	 * <p>Delivery happens with {@link #mHeldSynch} held, and the flag is
+	 * cleared last. A dispatch thread arriving mid-hand-over blocks on the lock
+	 * and is still holding when it gets there, so its line queues behind the
+	 * older ones instead of overtaking them. That is affordable only because
+	 * IWindowCallback is oneway now: these calls no longer wait for the UI
+	 * process, so the lock is held for a queue append and nothing more.
 	 */
 	public final void flushTextHeldWhileHidden() {
-		final HashMap<String, byte[]> pending = new HashMap<String, byte[]>();
-		final java.util.HashSet<String> resets;
 		synchronized (mHeldSynch) {
-			if (mHeldWhileHidden.isEmpty() && mHeldOverflowed.isEmpty()) {
-				return;
+			for (String name : mHeldOverflowed) {
+				try {
+					doInvalidateWindowText(name);
+				} catch (RemoteException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"Connection.flushTextHeldWhileHidden", e);
+				}
 			}
 			for (java.util.Map.Entry<String, java.io.ByteArrayOutputStream> e : mHeldWhileHidden.entrySet()) {
-				pending.put(e.getKey(), e.getValue().toByteArray());
+				IWindowCallback c = mWindowCallbackMap.get(e.getKey());
+				if (c == null) {
+					// The window went away while it was hidden. Its buffer still
+					// has the text, and registering again replays from there.
+					continue;
+				}
+				try {
+					c.rawDataIncoming(e.getValue().toByteArray());
+				} catch (android.os.DeadObjectException dead) {
+					dropDeadWindowCallback(e.getKey());
+				} catch (RemoteException re) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+							"Connection.flushTextHeldWhileHidden", re);
+				}
 			}
-			resets = new java.util.HashSet<String>(mHeldOverflowed);
 			mHeldWhileHidden.clear();
 			mHeldOverflowed.clear();
-		}
-		for (String name : resets) {
-			try {
-				doInvalidateWindowText(name);
-			} catch (RemoteException e) {
-				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
-						"Connection.flushTextHeldWhileHidden", e);
-			}
-		}
-		for (java.util.Map.Entry<String, byte[]> e : pending.entrySet()) {
-			IWindowCallback c = mWindowCallbackMap.get(e.getKey());
-			if (c == null) {
-				// The window went away while it was hidden. Its buffer still has
-				// the text, and registering again replays from there.
-				continue;
-			}
-			try {
-				c.rawDataIncoming(e.getValue());
-			} catch (android.os.DeadObjectException dead) {
-				dropDeadWindowCallback(e.getKey());
-			} catch (RemoteException re) {
-				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
-						"Connection.flushTextHeldWhileHidden", re);
-			}
+			mHoldingForHiddenUi = false;
 		}
 	}
 
