@@ -24,7 +24,7 @@ These are intentional exceptions — not plans or audits:
 ## Never put in `docs/` (and never `git add` them)
 
 - Internal AI / agent plans, pause notes, architecture edit maps
-- Audits, UX reviews, roadmaps, release drafts, follow-up feedback
+- Audits, UX reviews, roadmaps, changelog drafts (`changelog_draft*.md`), follow-up feedback
 - Polish working notes meant for the team only
 - Feature design plans (`*PLAN*`, `*_PLAN.md`, mapper reviews, GMCP manager plans, etc.)
 

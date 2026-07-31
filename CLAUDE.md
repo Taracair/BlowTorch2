@@ -4,7 +4,8 @@
 else in this repo.** It is the full guide: architecture facts that are expensive
 to rediscover, the working method, the device lab, and a catalogue of mistakes
 already made here. Then read [`docs/HANDOFF.md`](docs/HANDOFF.md) for where
-things stand and what to pick up next. This file is only the short version.
+things stand and what to pick up next. Incremental release notes go in
+[`docs/changelog_draft.md`](docs/changelog_draft.md) (gitignored). This file is only the short version.
 
 ## The ten rules
 

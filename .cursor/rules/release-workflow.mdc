@@ -44,6 +44,21 @@ Match the **v2.1.10** scheme (not the raw Gradle output name):
 - Prefer sections like `## Highlights` (and optional Fixes / Docs), same style as v2.1.10.
 - Always pass `-R Taracair/BlowTorch2` to `gh release` (default `gh` remote may be upstream).
 
+## Local APK copies (parent folder)
+
+After each build, refresh the two fixed-name APKs in the parent of this repo
+(`../` relative to `BlowTorch/`):
+
+- `BlowTorch2-btTest-debug.apk` ← `BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk`
+- `BlowTorch2-production-release.apk` ← `BT_Free/build/outputs/apk/production/release/BT_Free-production-release.apk`
+
+Only these two files belong there. Older builds are deleted, not accumulated.
+
+## Changelog draft
+
+Player-facing release notes accumulate in `docs/changelog_draft.md` (gitignored).
+Update it incrementally; copy into the GitHub release body when shipping.
+
 ## Polish UI chat
 
 Talk to the user in Polish for status and release drafts unless they switch language.

@@ -39,7 +39,7 @@ docs/*PLAN*.md
 docs/*AUDIT*.md
 docs/*REVIEW*.md
 docs/GMCP_MODULE_MANAGER_PLAN.md
-docs/RELEASE_DRAFT*.md
+docs/changelog_draft*.md
 docs/backup-encryption-plan.md
 docs/.*.kate-swp
 
@@ -157,9 +157,9 @@ BT_Aard/key/signiture_cert
 **/local.properties
 local.properties
 
-# Internal task notes — not for the public tree
-tasks/
-tasks/**
+# Python bytecode
+**/__pycache__/
+*.pyc
 
 # Local MUD profiles — never commit (device-specific settings)
 samples/*.xml
