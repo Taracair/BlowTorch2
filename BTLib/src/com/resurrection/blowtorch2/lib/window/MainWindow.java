@@ -1373,15 +1373,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//registerReceiver(mReceiver, filter);
 		
 		
-		//give it some time to launch
-		synchronized(this) {
-			try {
-				this.wait(5);
-			} catch (InterruptedException ignored) {
-			}
-		}
-		
-		
 		mInputBarAnimationListener = null;
 		mInputBox.setListener(null);
 		mRootView = (RelativeLayout)this.findViewById(R.id.window_container);
@@ -2955,16 +2946,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (histOpt != null && histOpt.getValue() instanceof Integer) {
 				history.setMax((Integer) histOpt.getValue());
 			}
-			BaseOption sessionLogOpt = (BaseOption) group.findOptionByKey("session_log");
-			if (sessionLogOpt != null && sessionLogOpt.getValue() instanceof Boolean) {
-				com.resurrection.blowtorch2.lib.util.SessionLogger.setEnabled(
-						MainWindow.this, (Boolean) sessionLogOpt.getValue());
-			}
-			BaseOption sessionLogDirOpt = (BaseOption) group.findOptionByKey("session_log_directory");
-			if (sessionLogDirOpt != null && sessionLogDirOpt.getValue() instanceof String) {
-				com.resurrection.blowtorch2.lib.util.SessionLogger.setCustomDirectory(
-						MainWindow.this, (String) sessionLogDirOpt.getValue());
-			}
+			// Session log enable/directory are owned by :stellar
+			// (Connection → ConnectionSessionLog). Do not mirror them into the
+			// UI process's SessionLogger statics — those caches exist twice and
+			// never see each other (audit finding 7).
 			
 			//orientation = (Integer)((BaseOption)group.findOptionByKey("orientation")).getValue();
 			
@@ -4265,7 +4250,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				sb.append(lines[i]);
 			}
 			return sb.toString();
-		} catch (Throwable t) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.getRecentMainBufferText", e);
 			return "";
 		}
 	}

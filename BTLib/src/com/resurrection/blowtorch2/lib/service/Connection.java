@@ -4595,7 +4595,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
 			}
 			mMcpEngine.setUse(on);
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyMcpSettings.use_mcp", e);
 		}
 		try {
 			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_packages");
@@ -4604,7 +4606,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				pkgs = ((StringOption) opt).getValue().toString();
 			}
 			mMcpEngine.setPackagesFromOption(pkgs);
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyMcpSettings.mcp_packages", e);
 		}
 		try {
 			Object opt = mSettings.getSettings().getOptions().findOptionByKey("log_mcp");
@@ -4614,7 +4618,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
 			}
 			mMcpEngine.setLog(on);
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyMcpSettings.log_mcp", e);
 		}
 		try {
 			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_feed");
@@ -4624,7 +4630,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				on = (val instanceof Boolean) && ((Boolean) val).booleanValue();
 			}
 			mMcpEngine.setFeed(on);
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyMcpSettings.mcp_feed", e);
 		}
 		try {
 			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_omit_output");
@@ -4634,7 +4642,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				on = !(val instanceof Boolean) || ((Boolean) val).booleanValue();
 			}
 			mMcpEngine.setOmitFromOutput(on);
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyMcpSettings.mcp_omit_output", e);
 		}
 		try {
 			Object opt = mSettings.getSettings().getOptions().findOptionByKey("mcp_auto_negotiate");
@@ -4644,7 +4654,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				on = !(val instanceof Boolean) || ((Boolean) val).booleanValue();
 			}
 			mMcpEngine.setAutoNegotiate(on);
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyMcpSettings.mcp_auto_negotiate", e);
 		}
 	}
 
@@ -4850,9 +4862,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (h != null && h.getValue() instanceof Integer) {
 				rows = (Integer) h.getValue();
 			}
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyTerminalNaws", e);
 		}
-		// 0 = auto: do not claim a desktop-sized terminal before the UI measures itself.
 		if (cols <= 0 && rows <= 0) {
 			return;
 		}
@@ -4902,7 +4915,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					cfgRows = (Integer) h.getValue();
 				}
 			}
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.applyLiveDisplayDimensions", e);
 		}
 		int useCols = cols;
 		int useRows = rows;
@@ -4915,7 +4930,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					h.setValue(0);
 					mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
 				}
-			} catch (Exception ignored) {
+			} catch (Exception e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"Connection.resetCorruptTerminalHeight", e);
 			}
 			cfgRows = 0;
 		}
@@ -5024,11 +5041,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mService.dispatchToast(
 					"Tip: Terminal Width/Height 0 = match screen (best for ANSI maps).",
 					true);
-		} catch (Exception ignored) {
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.maybeShowTerminalSizeHint", e);
 		}
 	}
-
-	/** Helper enum to map the main settings plugin's settings keys to strings. */
 	private enum KEYS {
 		/** Semicolon processing. */
 		process_semicolon,

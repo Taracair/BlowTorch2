@@ -4,6 +4,7 @@
 package com.resurrection.blowtorch2.lib.service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -106,10 +107,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public boolean isConnected() throws RemoteException {
-		if (service.mConnections.size() < 1) {
+		Connection c = active();
+		if (c == null) {
 			return false;
 		}
-		return service.mConnections.get(service.mConnectionClutch).isConnected();
+		return c.isConnected();
 	}
 
 	@Override
@@ -153,13 +155,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@SuppressWarnings("rawtypes")
 	@Override
 	public List getSystemCommands() throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getSystemCommands();
+		Connection c = active();
+		if (c == null) {
+			return Collections.emptyList();
+		}
+		return c.getSystemCommands();
 	}
 
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getAliases() throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getAliases();
+		Connection c = active();
+		if (c == null) {
+			return new HashMap();
+		}
+		return c.getAliases();
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -202,21 +212,31 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getTriggerData() throws RemoteException {
-		HashMap<String, TriggerData> triggers = service.mConnections.get(service.mConnectionClutch).getTriggers();
-		
-		return triggers;
+		Connection c = active();
+		if (c == null) {
+			return new HashMap();
+		}
+		return c.getTriggers();
 	}
 	
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getPluginTriggerData(final String id) throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getPluginTriggers(id);
+		Connection c = active();
+		if (c == null) {
+			return new HashMap();
+		}
+		return c.getPluginTriggers(id);
 	}
 
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getDirectionData() throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getDirectionData();
+		Connection c = active();
+		if (c == null) {
+			return new HashMap();
+		}
+		return c.getDirectionData();
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -260,12 +280,20 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public TriggerData getTrigger(final String pattern) throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getTrigger(pattern);
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return c.getTrigger(pattern);
 	}
 
 	@Override
 	public boolean isKeepLast() throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).isKeepLast();
+		Connection c = active();
+		if (c == null) {
+			return false;
+		}
+		return c.isKeepLast();
 	}
 
 	@Override
@@ -297,18 +325,30 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getTimers() throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getTimers();
+		Connection c = active();
+		if (c == null) {
+			return new HashMap();
+		}
+		return c.getTimers();
 	}
 	
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getPluginTimers(final String plugin) throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getPluginTimers(plugin);
+		Connection c = active();
+		if (c == null) {
+			return new HashMap();
+		}
+		return c.getPluginTimers(plugin);
 	}
 
 	@Override
 	public TimerData getTimer(final String ordinal) throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getTimer(ordinal);
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return c.getTimer(ordinal);
 	}
 
 	@Override
@@ -406,7 +446,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public String getEncoding() throws RemoteException {
-		return (String) ((EncodingOption) service.mConnections.get(service.mConnectionClutch).getSettings().findOptionByKey("encoding")).getValue();
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return (String) ((EncodingOption) c.getSettings().findOptionByKey("encoding")).getValue();
 	}
 
 	@Override
@@ -416,7 +460,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	
 	@Override
 	public boolean isFullScreen() throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).isFullScren();
+		Connection c = active();
+		if (c == null) {
+			return false;
+		}
+		return c.isFullScren();
 	}
 
 	@Override
@@ -534,7 +582,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public String getScript(final String plugin, final String name)
 			throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getScript(plugin, name);
+		Connection c = active();
+		if (c == null) {
+			return "";
+		}
+		return c.getScript(plugin, name);
 	}
 
 	@Override
@@ -559,6 +611,9 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		
 		Connection c = active();
 		HashMap<String, String> list = new HashMap<String, String>();
+		if (c == null) {
+			return list;
+		}
 		
 		for (Plugin p : c.getPlugins()) {
 			String info = "";
@@ -590,6 +645,9 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	public List getPluginsWithTriggers() {
 		ArrayList<String> list = new ArrayList<String>();
 		Connection c = active();
+		if (c == null) {
+			return list;
+		}
 		for (Plugin p : c.getPlugins()) {
 			if (p.getSettings().getTriggers().size() > 0) {
 				list.add(p.getName());
@@ -621,7 +679,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public TriggerData getPluginTrigger(final String selectedPlugin, final String pattern)
 			throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getPluginTrigger(selectedPlugin, pattern);
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return c.getPluginTrigger(selectedPlugin, pattern);
 	}
 
 	@Override
@@ -647,13 +709,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public AliasData getAlias(final String key) throws RemoteException {
 		
-		return service.mConnections.get(service.mConnectionClutch).getAlias(key);
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return c.getAlias(key);
 	}
 
 	@Override
 	public AliasData getPluginAlias(final String plugin, final String key)
 			throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getPluginAlias(plugin, key);
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return c.getPluginAlias(plugin, key);
 	}
 
 //		@SuppressWarnings("rawtypes")
@@ -665,7 +735,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getPluginAliases(final String currentPlugin) {
-		return service.mConnections.get(service.mConnectionClutch).getPluginAliases(currentPlugin);
+		Connection c = active();
+		if (c == null) {
+			return new HashMap();
+		}
+		return c.getPluginAliases(currentPlugin);
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -721,7 +795,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public TimerData getPluginTimer(final String plugin, final String name) throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getPluginTimer(plugin, name);
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return c.getPluginTimer(plugin, name);
 	}
 
 	@Override
@@ -774,7 +852,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public SettingsGroup getPluginSettings(final String plugin)
 			throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).getPluginSettings(plugin);
+		Connection c = active();
+		if (c == null) {
+			return null;
+		}
+		return c.getPluginSettings(plugin);
 	}
 
 	@Override
@@ -920,12 +1002,20 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public boolean setPluginEnabled(final String plugin, final boolean enabled)
 			throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).setPluginEnabled(plugin, enabled);
+		Connection c = active();
+		if (c == null) {
+			return false;
+		}
+		return c.setPluginEnabled(plugin, enabled);
 	}
 
 	@Override
 	public boolean isPluginEnabled(final String plugin) throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).isPluginEnabled(plugin);
+		Connection c = active();
+		if (c == null) {
+			return false;
+		}
+		return c.isPluginEnabled(plugin);
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -933,6 +1023,9 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	public List getPluginsWithAliases() {
 		ArrayList<String> list = new ArrayList<String>();
 		Connection c = active();
+		if (c == null) {
+			return list;
+		}
 		for (Plugin p : c.getPlugins()) {
 			if (p.getSettings().getAliases().size() > 0) {
 				list.add(p.getName());
@@ -946,6 +1039,9 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	public List getPluginsWithTimers() throws RemoteException {
 		ArrayList<String> list = new ArrayList<String>();
 		Connection c = active();
+		if (c == null) {
+			return list;
+		}
 		for (Plugin p : c.getPlugins()) {
 			if (p.getSettings().getTimers().size() > 0) {
 				list.add(p.getName());
@@ -956,13 +1052,20 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public boolean isLinkLoaded(final String link) throws RemoteException {
-		boolean retval = service.mConnections.get(service.mConnectionClutch).isLinkLoaded(link);
-		return retval;
+		Connection c = active();
+		if (c == null) {
+			return false;
+		}
+		return c.isLinkLoaded(link);
 	}
 
 	@Override
 	public String getPluginPath(final String plugin) throws RemoteException {
-		String path = service.mConnections.get(service.mConnectionClutch).getPluginPath(plugin);
+		Connection c = active();
+		if (c == null) {
+			return "";
+		}
+		String path = c.getPluginPath(plugin);
 		if (path == null) { path = ""; }
 		return path;
 	}
@@ -988,7 +1091,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public boolean isPluginInstalled(final String desired) throws RemoteException {
-		return service.mConnections.get(service.mConnectionClutch).isPluginInstalled(desired);
+		Connection c = active();
+		if (c == null) {
+			return false;
+		}
+		return c.isPluginInstalled(desired);
 	}
 
 	@Override
@@ -1005,7 +1112,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 			throws RemoteException {
 		//service.mConnections.get(service.mConnectionClutch).getPluginOptionValue(plugin,key);
 		
-		return service.mConnections.get(service.mConnectionClutch).getPluginOptionValue(plugin,key);
+		Connection c = active();
+		if (c == null) {
+			return "";
+		}
+		return c.getPluginOptionValue(plugin,key);
 	}
 
 	@Override
