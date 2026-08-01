@@ -145,10 +145,14 @@ public class ScriptResponder extends TriggerResponder {
 				//dispatcher.sendMessage(dispatcher.obtainMessage(Connection.MESSAGE_TRIGGER_LUA_ERROR, str));
 			} else {
 				if(L.getLuaObject(-1).getBoolean() == true) {
+					// "Stop evaluating" is normal use, so this early return ran
+					// often — and it used to skip the pop below, leaking two
+					// slots on the *success* path.
+					L.pop(2);
 					return true;
 				}
 			}
-			
+
 			L.pop(2);
 			//return 2;
 			

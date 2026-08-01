@@ -116,8 +116,11 @@ public class LuaInvocationHandler implements InvocationHandler
 				} else {
 					//success!
 					Log.e("DFG", "success");
-					obj.L.pop(2);
 				}
+				// This is the error handler: it runs when a proxy callback has
+				// already gone wrong. The failure branch popped nothing, so the
+				// path that runs after something broke leaked in turn.
+				obj.L.pop(2);
 				
 			//} else {
 			//	obj.L.pop(2);

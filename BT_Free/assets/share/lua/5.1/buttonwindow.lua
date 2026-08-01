@@ -20,6 +20,27 @@ local function debugString(string)
 	end
 end
 
+-- A bare `loadstring(data)()` is `nil()` when the string does not compile, and
+-- these strings arrive over the binder from :stellar. Guard, say which payload
+-- failed, and leave the previous value alone. Same shape as applyFloatPosition.
+local function loadSerialized(data, what)
+	if(type(data) ~= "string" or data == "") then
+		Note(string.format("\nbutton window: %s is empty; skipped.\n", what))
+		return nil
+	end
+	local chunk = loadstring(data)
+	if(chunk == nil) then
+		Note(string.format("\nbutton window: %s could not be parsed; skipped.\n", what))
+		return nil
+	end
+	local ok, value = pcall(chunk)
+	if(not ok or type(value) ~= "table") then
+		Note(string.format("\nbutton window: %s is not a table; skipped.\n", what))
+		return nil
+	end
+	return value
+end
+
 debugString("Button Window Script Loading...")
 
 density = GetDisplayDensity()
@@ -65,9 +86,16 @@ function loadButtons(args)
 	package.loaded["button"] = nil
 	require("button")
 
-	local tmp = marshal.decode(args)
+	-- marshal is a native library and args comes across the binder, where the
+	-- parcel budget can truncate. Do not assume decode returns a table: an
+	-- unchecked tmp.name here is a red error and no buttons at all.
+	local ok, tmp = pcall(marshal.decode, args)
+	if(not ok or type(tmp) ~= "table" or type(tmp.set) ~= "table") then
+		Note("\nbutton window: the button set could not be decoded; buttons left unchanged.\n")
+		return
+	end
 	lastLoadedSet = tmp.name
-	debugString("Button Window decompressed data, set name: "..lastLoadedSet)
+	debugString("Button Window decompressed data, set name: "..tostring(lastLoadedSet))
 
 	defaults = BUTTONSET_DATA:new(tmp.default)
 
@@ -1577,8 +1605,10 @@ local buttonSetListDialog --need this
 
 function showButtonList(data)
 	--Note(data)
-	setdata = loadstring(data)()
-	
+	local loaded = loadSerialized(data, "the button set list")
+	if(loaded == nil) then return end
+	setdata = loaded
+
 	--launch the new editor
 	
 	--for key,value in pairs(luajava) do
@@ -1597,8 +1627,9 @@ end
 
 function updateButtonListDialog(data)
 	--Note("\nConfirmingDelete")
-	local incoming = loadstring(data)()
-	
+	local incoming = loadSerialized(data, "the updated button set list")
+	if(incoming == nil) then return end
+
 	buttonSetListDialog.updateButtonListDialog(incoming)
 end
 
@@ -2845,8 +2876,11 @@ end
 
 function loadOptions(data)
 	--Note("incoming options wad:"..data)
-	options = loadstring(data)()
-	buttonRoundness = tonumber(options.roundness) * density
+	local loaded = loadSerialized(data, "the button options")
+	if(loaded == nil) then return end
+	options = loaded
+	-- 6 is the default declared in default_settings_*.xml (key "roundess").
+	buttonRoundness = (tonumber(options.roundness) or 6) * density
 	buttonShowHints = options.show_gesture_hints == true
 		or options.show_gesture_hints == "true"
 		or options.show_gesture_hints == "1"
@@ -2870,40 +2904,49 @@ function loadOptions(data)
 	--Note("loaded button options:"..options.auto_edit)
 end
 
+-- buttonserver.lua initialises the haptic options to numbers (0/1/2) and
+-- Plugin.pushOptionsToLua replays persisted values with pushString, so the same
+-- field is a number before the settings push and a string after it. Compare
+-- both forms, the way the show_gesture_hints / show_swipe_preview reads above
+-- already do.
+local function hapticIs(value, n)
+	return value == n or value == tostring(n)
+end
+
 function performHapticPress()
 	--Note("performing haptic press")
-	if(options.haptic_press == "2") then return end
-	
+	if(hapticIs(options.haptic_press, 2)) then return end
+
 	flags = 1
-	if(options.haptic_press == "1") then
+	if(hapticIs(options.haptic_press, 1)) then
 	--Note("overriding system")
 		flags = 3
 	end
-	
+
 	view:performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,flags)
 end
 
 function performHapticFlip()
 	--Note("performing haptic flip")
-	if(options.haptic_flip == "2") then return end
-	
+	if(hapticIs(options.haptic_flip, 2)) then return end
+
 	flags = 1
-	if(options.haptic_flip == "1") then
+	if(hapticIs(options.haptic_flip, 1)) then
 	--Note("overriding system")
 		flags = 3
 	end
-	
+
 	view:performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,flags)
 end
 
 function performHapticEdit()
-	if(options.haptic_edit == "2") then return end
-	
+	if(hapticIs(options.haptic_edit, 2)) then return end
+
 	flags = 1
-	if(options.haptic_edit == "1") then
+	if(hapticIs(options.haptic_edit, 1)) then
 		flags = 3
 	end
-	
+
 	view:performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY,flags)
 end
 
@@ -2952,6 +2995,9 @@ function clearButtons()
 	drawButtons()
 	suppress_editor = true
 	view:invalidate()
+	-- See revertButtons: the layer mirrors `buttons`, so a swap it is not told
+	-- about leaves floaters on screen that no longer belong to the set.
+	notifyFloatingButtonsChanged()
 end
 
 
@@ -2959,8 +3005,19 @@ function emptyButtons()
 	buttons = {}
 	drawButtons()
 	view:invalidate()
+	notifyFloatingButtonsChanged()
 end
 
+-- Every replacement of `buttons` has to tell the floating layer, because the
+-- layer mirrors this table and Java has no other way to know it changed.
+--
+-- This is what made keyboard-mode floaters vanish for good after a trip to
+-- another app: MainWindow.onPause calls clearButtons (buttons becomes the
+-- single BACK button), then onResume asks Lua to re-push the floaters
+-- *before* it calls restoreButtons — so the push described the cleared set,
+-- an empty list, and reverting afterwards said nothing. The floaters stayed
+-- gone until some other path notified, which is why opening the button editor
+-- and closing it brought them back.
 function revertButtons()
 	if(not buttonsCleared) then
 		return
@@ -2970,6 +3027,7 @@ function revertButtons()
 	drawButtons()
 	suppress_editor = false
 	view:invalidate()
+	notifyFloatingButtonsChanged()
 end
 
 function restoreButtons()

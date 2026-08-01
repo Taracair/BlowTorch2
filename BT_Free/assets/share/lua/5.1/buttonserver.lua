@@ -13,6 +13,30 @@ local function debugString(string)
 	end
 end
 
+-- loadstring returns nil plus a message when the string does not compile, so
+-- the bare `loadstring(data)()` this file used to do is `nil()` on a truncated
+-- or half-written blob: "attempt to call a nil value", which the Java pcall
+-- turns into one red line and no buttons at all. Guard instead, name what
+-- failed, and leave the previous value in place so one bad section does not
+-- take the whole load down. Same shape as buttonwindow.applyFloatPosition.
+local function loadSerialized(data, what)
+	if(type(data) ~= "string" or data == "") then
+		Note(string.format("\nbutton server: %s is empty; skipped.\n", what))
+		return nil
+	end
+	local chunk = loadstring(data)
+	if(chunk == nil) then
+		Note(string.format("\nbutton server: %s could not be parsed; skipped.\n", what))
+		return nil
+	end
+	local ok, value = pcall(chunk)
+	if(not ok or type(value) ~= "table") then
+		Note(string.format("\nbutton server: %s is not a table; skipped.\n", what))
+		return nil
+	end
+	return value
+end
+
 debugString("Button Server Loading...")
 
 buttonsets = {} --raw table, holds tables of buttons.
@@ -87,8 +111,9 @@ end
 function saveButtons(arg)
 	--Note("SAVE BUTTONS IMPL")
 	
-	local tmp = loadstring(arg)()
-	
+	local tmp = loadSerialized(arg, "the button set being saved")
+	if(tmp == nil) then return end
+
 	buttonsets[current_set] = tmp
 	--buttonset_defaults[current_set] = tmp.defaults
 	--printTable("arg",arg)
@@ -323,7 +348,9 @@ selected_cb = luajava.createProxy("android.sax.TextElementListener",selectedList
 
 function handleButtonSerializer(body)
 	--Note("doing string serailze for buttons")
-	buttonsets = loadstring(body)()
+	local loaded = loadSerialized(body, "the saved button sets")
+	if(loaded == nil) then return end
+	buttonsets = loaded
 end
 buttonserializer = {}
 buttonserializer["end"] = handleButtonSerializer
@@ -339,7 +366,9 @@ chromegestureserializer_cb = luajava.createProxy("android.sax.TextElementListene
 
 function handleButtonSetSerializer(body)
 	--Note("doing string serailze for buttonsets")
-	buttonset_defaults = loadstring(body)()
+	local loaded = loadSerialized(body, "the saved button set defaults")
+	if(loaded == nil) then return end
+	buttonset_defaults = loaded
 end
 buttonsetserializer = {}
 buttonsetserializer["end"] = handleButtonSetSerializer
@@ -379,8 +408,10 @@ function getButtonSetList(s)
 end
 
 function saveSetDefaults(data)
-	defaults = loadstring(data)()
-	
+	local loaded = loadSerialized(data, "the defaults for set "..tostring(current_set))
+	if(loaded == nil) then return end
+	defaults = loaded
+
 	buttonset_defaults[current_set] = defaults
 	--wow, that was easy.
 	
@@ -936,9 +967,9 @@ function callbackImport()
  checkImport()
 end
 
-function importButtons(data)
-	local data = loadstring(data)()
-end
+-- A second, earlier `importButtons` stood here: a stub that shadowed its own
+-- parameter and discarded the result. Lua takes the last definition, so the
+-- live one is further down. Removed 2 Aug 2026.
 
 --utility functions for the external button window to harvest the internal buttons.
 function checkImport()
@@ -962,7 +993,11 @@ function exportButtons(target)
 end
 
 function importButtons(data)
- local wad = loadstring(data)()
+ local wad = loadSerialized(data, "the imported button data")
+ if(wad == nil) then
+   WindowXCallS(buttonWindowName,"failImport","The imported button data could not be read.")
+   return
+ end
  current_set = wad.selected
  buttonsets = wad.sets
  buttonset_defaults = wad.defaults

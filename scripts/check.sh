@@ -29,6 +29,17 @@ else
   "$LUAC" -p BT_Free/assets/share/lua/5.1/*.lua || fail=1
 fi
 
+# luac -p cannot see this class: inside a bare module(...) an unimported name is
+# nil, not an error, and it only bites on the branch that uses it.
+stage "Lua unbound names in module(...) files"
+PY="$(command -v python3 || command -v python)"
+if [ -z "$PY" ]; then
+  echo "python3 not installed — cannot run the unbound-name check"
+  fail=1
+else
+  "$PY" scripts/lua_unbound.py || fail=1
+fi
+
 stage "Lua tests (BT_Free/src/test/lua)"
 LUA="$(command -v lua5.1 || command -v luajit || command -v lua)"
 if [ -z "$LUA" ]; then

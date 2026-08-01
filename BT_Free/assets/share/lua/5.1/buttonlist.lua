@@ -314,19 +314,11 @@ function showList(unsortedList,lastLoadedSet)
 	dialog:show()
 end
 
-function updateButtonListDialog()
-	list:setAdapter(adapter)
-	dialog:dismiss()
-end
-
-function updateButtonListDialogNoItems()
-	list:setAdapter(adapter)
-	emptyButtons()
-	mSelectorDialog:dismiss()
-end
-
-
-
+-- Two earlier definitions of updateButtonListDialog / updateButtonListDialogNoItems
+-- stood here. Lua takes the *last* definition, so the live ones are the pair
+-- further down this file; these were shadowed and never ran. They also held
+-- two names this module never binds (emptyButtons, mSelectorDialog), which is
+-- the buttoneditor `view` bug sitting in dead code. Removed 2 Aug 2026.
 
 --function buttonListAdapter.
 

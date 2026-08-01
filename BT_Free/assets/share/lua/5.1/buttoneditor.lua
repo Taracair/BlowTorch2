@@ -31,6 +31,10 @@ local table = _G["table"]
 local string = _G["string"]
 local PluginXCallS = _G["PluginXCallS"]
 local buttonEditorDone = _G["buttonEditorDone"]
+-- Base functions are NOT in scope inside a bare module(...). Without this the
+-- guard at showEditorDialog raises "attempt to call a nil value (global
+-- 'error')" instead of the message it was written to produce.
+local error = _G["error"]
 module(...)
 
 local textSizeBig = (18) -- sp value
@@ -403,7 +407,10 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v) 
     local str = Validator:validate()
     if(str ~= nil) then
-    Validator:showMessage(view:getContext(),str)
+    -- `v` is the clicked view. `view` was a buttonwindow.lua global that
+    -- module(...) cut off, so it was nil here and the validation message
+    -- raised instead of showing.
+    Validator:showMessage(v:getContext(),str)
       return
     end
     

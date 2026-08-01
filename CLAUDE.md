@@ -71,8 +71,11 @@ will not recover an `offline` device.
    locks in `TextTree`.
 4. **Extra-text `WindowToken` settings are never persisted** — `ensureSlots()`
    rebuilds those tokens. Durable per-slot state goes in the slot JSON.
-5. **In `buttonwindow.lua`, "nothing selected" is `{}`, not `nil`.** A `== nil`
-   check passes it straight through.
+5. **`buttonwindow.lua` once returned `{}` for "nothing selected", and a `== nil`
+   check passed it through.** Fixed in `6f10eb70`; `layoutTargets()` returns
+   `chosen, true` / `all, false` and callers test `#targets == 0`. Do not
+   reintroduce it — but do not go hunting for it either: two audits have
+   searched and found nothing live.
 6. **Do not move the `MAIN`/`LAUNCHER` intent filter to another component** —
    pinned home screen icons are keyed on the component name.
 7. **The main window's text belongs to the service, not the UI.**

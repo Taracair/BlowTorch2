@@ -71,6 +71,50 @@ final class ConnectionSettingsIO {
 	/** String name of the default output window. */
 	private static final String MAIN_WINDOW = "mainDisplay";
 
+	/** Name the button plugin declares (config.lua), and the key Connection uses. */
+	private static final String BUTTON_WINDOW = "button_window";
+
+	/**
+	 * The button plugin, looked up by name.
+	 *
+	 * <p>Both callers used to say {@code tmpplugs.get(1)}: a list position, with
+	 * no size check and no name check, on a profile import — the one moment the
+	 * player cannot simply retry. Every other lookup in the codebase goes
+	 * through {@code Connection.mPluginMap} by name; that map is not an option
+	 * here, because {@code host.loadPlugins} is what fills it and that runs
+	 * further down these same methods.
+	 *
+	 * <p>Falls back to the old position when no plugin carries the name, so a
+	 * renamed plugin behaves as before rather than worse — but says so in the
+	 * error log, because at that point the import is driving a plugin it did not
+	 * identify.
+	 *
+	 * @param plugs The freshly parsed plugin list.
+	 * @return The button plugin, or null when the list cannot supply one.
+	 */
+	private static Plugin findButtonWindow(final ArrayList<Plugin> plugs) {
+		if (plugs == null) {
+			return null;
+		}
+		for (Plugin p : plugs) {
+			if (p != null && BUTTON_WINDOW.equals(p.getName())) {
+				return p;
+			}
+		}
+		final String detail = "no plugin named " + BUTTON_WINDOW + " in a list of "
+				+ plugs.size();
+		if (plugs.size() > 1) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"ConnectionSettingsIO.findButtonWindow",
+					new IllegalStateException(detail + "; falling back to position 1"));
+			return plugs.get(1);
+		}
+		com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+				"ConnectionSettingsIO.findButtonWindow",
+				new IllegalStateException(detail));
+		return null;
+	}
+
 	private final Pattern xmlExtensionPattern = Pattern.compile("^.+\\.[xX][mM][lL]$");
 	private final Matcher xmlExtensionMatcher = xmlExtensionPattern.matcher("");
 
@@ -562,7 +606,7 @@ final class ConnectionSettingsIO {
 				ConnectionSetttingsParser newsettings = new ConnectionSetttingsParser(null, host.mService.getApplicationContext(), tmpplugs, host.mHandler, host);
 				tmpplugs = newsettings.load(host,dataDir);
 				
-				Plugin buttonwindow = tmpplugs.get(1);
+				Plugin buttonwindow = findButtonWindow(tmpplugs);
 				ConnectionSettingsPlugin root_settings = (ConnectionSettingsPlugin)tmpplugs.get(0);
 				
 				if (path != null) { //import old buttons
@@ -744,11 +788,16 @@ final class ConnectionSettingsIO {
 					if (ret != 0) {
 						host.dispatchLuaError("ERROR IN legacyButtonsImported:"
 								+ (pL.getLuaObject(-1).getString()));
+						pL.pop(1);   // the error object
 					}
 				} else {
-					pL.pop(1);
+					pL.pop(1);       // the value that was not a function
 				}
-				
+				// Unlike the Plugin/Window bridges this site never removed the
+				// debug table, so debug and debug.traceback are both still on
+				// the stack whichever branch ran.
+				pL.pop(2);
+
 				} else {
 					//default settings are being loaded.
 					//run the adjustment for the new buttons
@@ -761,9 +810,12 @@ final class ConnectionSettingsIO {
 						if (ret != 0) {
 							host.dispatchLuaError(pL.getLuaObject(-1).getString());
 						}
+						pL.pop(1);   // the result, or the error object
 					} else {
-						pL.pop(1);
+						pL.pop(1);   // the value that was not a function
 					}
+					// debug and debug.traceback, still on the stack.
+					pL.pop(2);
 				}
 				//s.getSetSettings();
 				
@@ -805,7 +857,13 @@ final class ConnectionSettingsIO {
 				host.loadPlugins(tmpplugs, summary);
 				root_settings.importV1Settings(s);
 				if (!s.isRoundButtons()) {
-					buttonops.setOption("button_roundness", Integer.toString(0));
+					// "roundess" is the key the button plugin declares
+					// (default_settings_*.xml) and dispatches on
+					// (buttonserver.lua optionsTable). The misspelling is
+					// load-bearing: correcting it in the XML would orphan the
+					// stored value in every existing profile. This wrote
+					// "button_roundness", which nothing reads.
+					buttonops.setOption("roundess", Integer.toString(0));
 				} 
 			} else {
 				int version = vpp.getVersionNumber();
@@ -830,7 +888,7 @@ final class ConnectionSettingsIO {
 					tmpplugs = csp.load(host,dataDir);
 					
 					if (path == null) {
-						Plugin buttonwindow = tmpplugs.get(1);
+						Plugin buttonwindow = findButtonWindow(tmpplugs);
 						//LuaState L = buttonwindow.getLuaState();
 						LuaState pL = buttonwindow.getLuaState();
 						pL.getGlobal("debug");
@@ -841,9 +899,12 @@ final class ConnectionSettingsIO {
 							if (ret != 0) {
 								host.dispatchLuaError("ERROR IN DEFAULT BUTTONS:" + (pL.getLuaObject(-1).getString()));
 							}
+							pL.pop(1);   // the result, or the error object
 						} else {
-							pL.pop(1);
+							pL.pop(1);   // the value that was not a function
 						}
+						// debug and debug.traceback, still on the stack.
+						pL.pop(2);
 					}
 					String summary = Colorizer.getWhiteColor() + verb + " settings file.\n";
 					host.loadPlugins(tmpplugs, summary);

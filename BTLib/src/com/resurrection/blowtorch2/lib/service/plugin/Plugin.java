@@ -638,11 +638,13 @@ Note("Example text!")
 			
 			if(ret != 0) {
 				displayLuaError("Error calling function callback:"+settings.getName()+"("+callback+"):"+L.getLuaObject(-1).getString());
-			} else {
-				//Log.e("PLUGIN","Successfuly called plugin function:"+settings.getName()+"("+callback+")");
-				L.pop(2);
 			}
-		
+			// Both branches leave the traceback function plus one result (the
+			// return value, or the error object) on the stack. The error branch
+			// used to pop neither, so every Lua error leaked two slots — a leak
+			// proportional to the error rate, which is why it survived.
+			L.pop(2);
+
 		} else {
 			L.pop(2);
 		}
@@ -663,14 +665,14 @@ Note("Example text!")
 			int ret = L.pcall(1, 1, -3);
 			if(ret != 0) {
 				displayLuaError("PluginXCallS Error:" + L.getLuaObject(-1).getString());
-			} else {
-				//success
-				L.pop(2);
 			}
+			// See execute(): the error branch leaked the error object and the
+			// traceback function.
+			L.pop(2);
 		} else {
 			L.pop(2);
 		}
-		
+
 		checkStack("PluginXCallS");
 	}
 	
@@ -1624,9 +1626,39 @@ Note("Example text!")
 	}
 	
 	private boolean debug = true;
+
+	/** Stack top the first checkStack() saw. A bridge call should return to it. */
+	private int mStackBaseline = -1;
+
+	/**
+	 * Barrier for the leak this method used to pretend to guard: it read
+	 * {@code L.getTop()} into a local and threw it away, so it read as a safety
+	 * net at every call site and was an empty function.
+	 *
+	 * <p>Each bridge entry point pushes and pops symmetrically, so the top after
+	 * one should equal the top after the previous one. Growth means a path left
+	 * something behind. This logs and does not throw: turning a stack leak into
+	 * an exception inside {@code :stellar} would be strictly worse than the leak.
+	 */
 	private void checkStack(String method) {
+		if(L == null) {
+			return;
+		}
 		int top = L.getTop();
-		//Log.e("PLUGIN","checking stack after "+method+" size: "+Integer.toString(top));
+		if(mStackBaseline < 0) {
+			mStackBaseline = top;
+			return;
+		}
+		if(top > mStackBaseline) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Plugin.checkStack",
+					new IllegalStateException("Lua stack grew to " + top
+							+ " (was " + mStackBaseline + ") after " + method
+							+ " in plugin " + getName()));
+			// Re-baseline so one leaking path reports its step, not every call
+			// that follows it.
+			mStackBaseline = top;
+		}
 	}
 
 	public void callFunction(String function) {
@@ -1640,9 +1672,10 @@ Note("Example text!")
 			int retval = L.pcall(0, 1, -2);
 			if(retval != 0) {
 				displayLuaError("Plugin: "+this.getName()+" Script callback("+function+") Error:" + L.getLuaObject(-1).getString());
-			} else {
-				L.pop(2);
 			}
+			// See execute(): the error branch leaked the error object and the
+			// traceback function.
+			L.pop(2);
 		} else {
 			displayLuaError("No function named: "+function+" in plugin: "+this.getName());
 			L.pop(2);
@@ -1699,9 +1732,12 @@ Note("Example text!")
 			int retval = L.pcall(1, 1, -2);
 			if(retval != 0) {
 				displayLuaError("Plugin: "+this.getName()+" Script callback("+function+") Error:" + L.getLuaObject(-1).getString());
-			} else {
-				L.pop(2);
 			}
+			// See execute(): the error branch leaked the error object and the
+			// traceback function. (The error-handler index here is -2, which
+			// with one argument pushed points at the called function rather
+			// than at debug.traceback — reported, not changed in this pass.)
+			L.pop(2);
 		} else {
 			displayLuaError("No function named: "+function+" in plugin: "+this.getName());
 			L.pop(2);

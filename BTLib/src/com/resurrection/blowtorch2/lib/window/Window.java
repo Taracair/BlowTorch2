@@ -720,9 +720,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int ret = mL.pcall(1, 1, TOP_MINUS_THREE);
 			if (ret != 0) {
 				displayLuaError("WindowXCallB calling: " + string + " error:" + mL.getLuaObject(-1).getString());
-			} else {
-				mL.pop(2);
 			}
+			// Both branches leave the traceback function plus one result (the
+			// return value, or the error object). The error branch used to pop
+			// neither, so every Lua error leaked two slots.
+			mL.pop(2);
 		} else {
 			mL.pop(2);
 		}

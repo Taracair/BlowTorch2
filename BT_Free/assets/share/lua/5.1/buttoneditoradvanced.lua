@@ -18,6 +18,8 @@ local tostring = _G["tostring"]
 local Note = _G["Note"]
 local string = _G["string"]
 local tonumber = _G["tonumber"]
+local bit = _G["bit"]
+local pcall = _G["pcall"]
 local CheckBox = luajava.bindClass("android.widget.CheckBox")
 local Spinner = luajava.bindClass("android.widget.Spinner")
 local ArrayAdapter = luajava.bindClass("android.widget.ArrayAdapter")
@@ -135,8 +137,17 @@ function makeUI(editorValues,numediting)
   else
     ui.buttonNameRow:setVisibility(View.VISIBLE)
   end
-  -- Adjust margins for larger screen sizes
-  if(test == Configuration.SCREENLAYOUT_SIZE_XLARGE) then
+  -- Adjust margins for larger screen sizes.
+  -- `test` used to be read here as a bare name. It is a *local* of
+  -- buttonwindow.lua (:2558, the masked screen-layout size) and module(...)
+  -- cut it off, so this read nil and the XLARGE branch could never be taken.
+  -- Compute it from our own context instead. Found by scripts/lua_unbound.py.
+  local screenSize = nil
+  pcall(function()
+    local layout = context:getResources():getConfiguration().screenLayout
+    screenSize = bit.band(layout,Configuration.SCREENLAYOUT_SIZE_MASK)
+  end)
+  if(screenSize == Configuration.SCREENLAYOUT_SIZE_XLARGE) then
     LabelWidth = 100 * density
   else
     LabelWidth = 80 * density
