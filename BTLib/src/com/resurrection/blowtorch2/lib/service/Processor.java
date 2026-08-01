@@ -480,9 +480,11 @@ public class Processor {
 		}
 
 		if (option == TC.ECHO && (action == TC.WILL || action == TC.WONT)) {
-			// Local echo is off exactly while the server says it WILL echo.
+			// Ask the negotiator rather than re-deriving it here: it has already
+			// answered this command, and one source of truth cannot drift from the
+			// other. Local echo is off exactly while the server holds ECHO.
 			mReportTo.sendMessage(mReportTo.obtainMessage(
-					Connection.MESSAGE_LOCALECHO, action == TC.WILL ? 0 : 1, 0));
+					Connection.MESSAGE_LOCALECHO, mOptionHandler.isServerEcho() ? 0 : 1, 0));
 		}
 
 		if (action == TC.WILL && option == TC.CHARSET) {

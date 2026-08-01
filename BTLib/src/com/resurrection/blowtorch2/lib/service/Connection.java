@@ -525,6 +525,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(msspcmd.commandName, msspcmd);
 		ProtocolsCommand msdpcmd = new ProtocolsCommand(true);
 		mSpecialCommands.put(msdpcmd.commandName, msdpcmd);
+		com.resurrection.blowtorch2.lib.service.function.EchoCommand echocmd =
+				new com.resurrection.blowtorch2.lib.service.function.EchoCommand();
+		mSpecialCommands.put(echocmd.commandName, echocmd);
 		MapCommand mapcmd = new MapCommand();
 		mSpecialCommands.put(mapcmd.commandName, mapcmd);
 		WindowCommand windowcmd = new WindowCommand();
@@ -597,7 +600,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 				break;
 			case MESSAGE_LOCALECHO:
-				doSetLocalEcho(msg.arg1 == 1);
+				doSetTelnetEcho(msg.arg1 == 1);
 				break;
 			case MESSAGE_TIMERSTOP:
 			case MESSAGE_TIMERSTART:
@@ -1919,6 +1922,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			replayBufferToWindow(name, callback, true);
 		} else {
 			replayBufferToWindow(name, callback, false);
+		}
+		// Telnet ECHO is service-side state, like the buffer: a window that arrives
+		// after the server took echoing over — UI process killed from recents, or a
+		// window registering after the negotiation — would otherwise show the
+		// password in the clear.
+		if (!mLocalEcho) {
+			try {
+				callback.setLocalEcho(false);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"Connection.registerWindowCallback.setLocalEcho", e);
+			}
 		}
 	}
 
@@ -4726,14 +4741,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final MccpFallbackState mMccp = new MccpFallbackState();
 
 	/** Last local-echo state pushed to the windows, so a reconnect can restore it. */
-	private boolean mLocalEcho = true;
+	private volatile boolean mLocalEcho = true;
 
 	/** Telnet ECHO changed hands: tell every window whether to mask the input bar.
 	 *
 	 * @param enabled true when we echo locally (normal typing), false while the
 	 *        server echoes — on a MUD, a password prompt.
 	 */
-	private void doSetLocalEcho(final boolean enabled) {
+	private void doSetTelnetEcho(final boolean enabled) {
 		mLocalEcho = enabled;
 		for (IWindowCallback w : mWindowCallbackMap.values()) {
 			try {
@@ -4745,10 +4760,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	/** A dropped connection cannot be holding echo; never leave the bar masked. */
+	/** {@code .echo on|off} — manual override for a server that takes telnet ECHO
+	 ** and never hands it back. The next WILL/WONT from the server wins. */
+	public final void setTelnetEchoFromCommand(final boolean enabled) {
+		if (mHandler != null) {
+			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_LOCALECHO, enabled ? 1 : 0, 0));
+		}
+	}
+
+	/** @return true when the input bar shows what is typed. */
+	public final boolean isTelnetEchoLocal() {
+		return mLocalEcho;
+	}
+
+	/** A dropped connection cannot be holding echo; never leave the bar masked.
+	 ** Posted, never called inline: doDisconnect runs on binder threads too, and
+	 ** walking mWindowCallbackMap there races registerWindowCallback — a
+	 ** ConcurrentModificationException thrown inside a synchronous binder
+	 ** transaction kills the UI process. */
 	private void restoreLocalEcho() {
-		if (!mLocalEcho) {
-			doSetLocalEcho(true);
+		if (!mLocalEcho && mHandler != null) {
+			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_LOCALECHO, 1, 0));
 		}
 	}
 
@@ -5377,7 +5409,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 			}
 			if (d.mVisString != null && !d.mVisString.equals("")) {
-				if (mSettings.isLocalEcho()) {
+				// mLocalEcho false means the server took echoing over — a password
+				// prompt. Echoing it here would put the password in the scrollback and
+				// in the session log, which is most of what masking the bar is for.
+				if (mSettings.isLocalEcho() && mLocalEcho) {
 					mWindows.get(0).getBuffer().addBytesImplSimple(d.mVisString.getBytes(mSettings.getEncoding()));
 					sendBytesToWindow(d.mVisString.getBytes(mSettings.getEncoding()));
 				}

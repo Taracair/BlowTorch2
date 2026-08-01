@@ -1159,8 +1159,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//input_box.debug(5);
 					
 					String pdata = mInputBox.getText().toString();
-					history.addCommand(pdata);
-					history.save(MainWindow.this, getConnectionDisplay());
+					// A masked line is a password. The history is written to disk and
+					// comes back on ↑ after a restart, so it must not go in at all.
+					if (!mLocalEchoOff) {
+						history.addCommand(pdata);
+						history.save(MainWindow.this, getConnectionDisplay());
+					}
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
 					String crlf = cr.toString() + lf.toString();
@@ -1206,7 +1210,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//Log.e("WINDOW","Attempting to reset input bar.");
 					
 					//try {
-					if(isKeepLast) {
+					if(isKeepLast && !mLocalEchoOff) {
 						keepLastReplaceLength = mInputBox.getText().length();
 						historyWidgetKept = true;
 						if (keepLastReplaceLength > 0) {
@@ -3075,17 +3079,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// is what actually masks an already-typed line.
 			type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
 					| InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+			mInputBox.setAllowSuggestions(false);
 			mInputBox.setInputType(type);
-			mInputBox.setTransformationMethod(
-					android.text.method.PasswordTransformationMethod.getInstance());
 			mInputBox.setMaxLines(1);
 			mInputBox.setSingleLine(true);
+			// After setSingleLine, which installs SingleLineTransformationMethod and
+			// would otherwise replace this one and un-hide the typed line.
+			mInputBox.setTransformationMethod(
+					android.text.method.PasswordTransformationMethod.getInstance());
 			mInputBox.setHorizontallyScrolling(true);
+			restartInputConnection();
 			scheduleInputActionLayoutRefresh();
 			refreshGameChrome();
 			return;
 		}
 		mInputBox.setTransformationMethod(null);
+		mInputBox.setAllowSuggestions(useSuggestions);
 		if (grow) {
 			type |= InputType.TYPE_TEXT_FLAG_MULTI_LINE;
 			mInputBox.setInputType(type);
@@ -3098,10 +3107,25 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputBox.setSingleLine(true);
 			mInputBox.setHorizontallyScrolling(true);
 		}
+		restartInputConnection();
 		scheduleInputActionLayoutRefresh();
 		refreshGameChrome();
 	}
-	
+
+	/** The IME copies inputType into EditorInfo when the connection is made, so a
+	 * type change with the keyboard already open needs the connection rebuilt. */
+	private void restartInputConnection() {
+		try {
+			InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+			if (imm != null && mInputBox != null) {
+				imm.restartInput(mInputBox);
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.restartInputConnection", e);
+		}
+	}
+
 	private Typeface loadFontFromName(String name) {
 		Typeface font = Typeface.MONOSPACE;
 		//Log.e("WINDOW","FONT SELECTION IS:" + tmpname);
