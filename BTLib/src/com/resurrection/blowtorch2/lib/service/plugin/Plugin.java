@@ -1263,8 +1263,16 @@ Note("Example text!")
 		int seconds = d.getSeconds() == null ? 0 : d.getSeconds().intValue();
 		long delay = TimerSchedule.delayMillis(seconds, d.getRemainingTime());
 		CustomTimerTask task = new CustomTimerTask(d.getName());
-		d.setStartTime(TimerSchedule.startStamp(SystemClock.elapsedRealtime(),
-				seconds, d.getRemainingTime()));
+		// One stamp, written to both. There were two, and they disagreed on a resumed
+		// run: the task stamped itself with "now" while the TimerData was set back by
+		// the part already spent. pauseTimer and updateTimerProgress read the task's,
+		// the .timer info command reads the TimerData's — so resuming a 10 s timer with
+		// 7 s left and pausing 2 s later stored 8 s remaining instead of 5, and repeated
+		// pause/resume ratcheted a timer back up until it could never complete.
+		long stamp = TimerSchedule.startStamp(SystemClock.elapsedRealtime(),
+				seconds, d.getRemainingTime());
+		d.setStartTime(stamp);
+		task.setStartTime(stamp);
 		if (d.isRepeat()) {
 			CONNECTION_TIMER.schedule(task, delay, TimerSchedule.periodMillis(seconds));
 		} else {
