@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+Claude Code sessions start in the **parent** `blowtorch-ressurection/`, which
+imports this file. Started here instead, the memory directory and the permission
+allowlist are missing.
+
 **Read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) before doing anything
 else in this repo.** It is the full guide: architecture facts that are expensive
 to rediscover, the working method, the device lab, and a catalogue of mistakes
