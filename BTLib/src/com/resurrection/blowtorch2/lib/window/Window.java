@@ -107,6 +107,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private static final int MESSAGE_XCALLB = 13;
 	/** Message used from lua I think to reset the window, and add text to it. */
 	private static final int MESSAGE_RESETWITHDATA = 14;
+	/** Server took over echoing (telnet ECHO): hide what is typed. arg1 1 = local echo on. */
+	private static final int MESSAGE_LOCALECHO = 15;
 	/** Scroll repeat rate inital value. */
 	private static final int SCROLL_REPEAT_RATE = 300;
 	/** Lua relative stack location -2. */
@@ -550,6 +552,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					break;
 				case MESSAGE_ENCODINGCHANGED:
 					Window.this.updateEncoding((String) msg.obj);
+					break;
+				case MESSAGE_LOCALECHO:
+					Window.this.onLocalEchoChanged(msg.arg1 == 1);
 					break;
 				case MESSAGE_SETTINGSCHANGED:
 					Window.this.doUpdateSetting(msg.getData().getString("KEY"), msg.getData().getString("VALUE"));
@@ -1052,6 +1057,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 */
 	protected final void updateEncoding(final String value) {
 		mBuffer.setEncoding(value);
+	}
+
+	/** Telnet ECHO changed hands. Only the main window has an input bar to hide,
+	 * so the base class does nothing.
+	 *
+	 * @param enabled true when the client echoes locally (normal typing), false
+	 *        while the server has taken echoing over — a password prompt.
+	 */
+	protected void onLocalEchoChanged(final boolean enabled) {
+		// The input bar belongs to the activity, not to this view.
+		if (mParent != null) {
+			mParent.setLocalEchoOff(!enabled);
+		}
 	}
 
 	/** Implementation of the settings handler routine to handle when settings change. 
@@ -3477,6 +3495,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		
 		public void setEncoding(String value) {
 			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_ENCODINGCHANGED,value));
+		}
+
+		public void setLocalEcho(boolean enabled) {
+			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_LOCALECHO, enabled ? 1 : 0, 0));
 		}
 
 		@Override

@@ -479,6 +479,12 @@ public class Processor {
 			}
 		}
 
+		if (option == TC.ECHO && (action == TC.WILL || action == TC.WONT)) {
+			// Local echo is off exactly while the server says it WILL echo.
+			mReportTo.sendMessage(mReportTo.obtainMessage(
+					Connection.MESSAGE_LOCALECHO, action == TC.WILL ? 0 : 1, 0));
+		}
+
 		if (action == TC.WILL && option == TC.CHARSET) {
 			// Agree to CHARSET and prefer UTF-8, but do NOT send a client REQUEST.
 			// Some MUDs (incl. eden-test) treat an unsolicited REQUEST poorly.

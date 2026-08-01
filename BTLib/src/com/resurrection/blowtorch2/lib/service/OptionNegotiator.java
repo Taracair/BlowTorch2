@@ -69,6 +69,8 @@ public class OptionNegotiator {
 	private boolean mUseMSSP = false;
 	/** When true, answer DO to IAC WILL MCCP2. Cleared for a session after MCCP fails. */
 	private boolean mUseMCCP = true;
+	/** True while the server has taken echoing over (telnet ECHO, option 1). */
+	private boolean mServerEcho = false;
 	/** Encoding selected via CHARSET subnegotiation; consumed by Processor. */
 	private String mPendingCharset = null;
 	
@@ -149,6 +151,13 @@ public class OptionNegotiator {
 	    		case TC.CHARSET:
 	    			response = IAC_DO;
 	    			break;
+	    		case TC.ECHO:
+	    			// RFC 857: the server will echo, so we stop showing what is typed.
+	    			// On a MUD that is the password prompt — eden-test sends it, Achaea
+	    			// does not. Refusing left the password on screen and in the log.
+	    			response = IAC_DO;
+	    			mServerEcho = true;
+	    			break;
 	    		default:
 	    			response = IAC_DONT;
 	    		}
@@ -177,6 +186,9 @@ public class OptionNegotiator {
 	    	
 	    	if (second == IAC_WONT) {
 	    		response = IAC_DONT;
+	    		if (third == TC.ECHO) {
+	    			mServerEcho = false;
+	    		}
 	    	}
 	    	
 	    	if (second == IAC_DONT) {
@@ -567,5 +579,10 @@ public class OptionNegotiator {
 
 	public final boolean isUseMCCP() {
 		return mUseMCCP;
+	}
+
+	/** @return true while the server echoes for us — the input bar should be masked. */
+	public final boolean isServerEcho() {
+		return mServerEcho;
 	}
 }

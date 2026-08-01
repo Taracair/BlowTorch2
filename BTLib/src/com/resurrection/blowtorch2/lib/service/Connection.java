@@ -275,6 +275,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 ** handled an MCCP failure. */
 	public static final int MESSAGE_MCCPFATALERROR = 52;
 
+	/** Sent from the Processor when telnet ECHO changes hands. arg1 1 = local echo on. */
+	public static final int MESSAGE_LOCALECHO = 53;
+
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
 	/** Very large value. */
@@ -592,6 +595,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				if (msg.obj instanceof String) {
 					doUpdateEncoding((String) msg.obj);
 				}
+				break;
+			case MESSAGE_LOCALECHO:
+				doSetLocalEcho(msg.arg1 == 1);
 				break;
 			case MESSAGE_TIMERSTOP:
 			case MESSAGE_TIMERSTART:
@@ -2037,6 +2043,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mHandler == null) {
 			return;
 		}
+		// A dead connection cannot be echoing for us; a masked input bar that never
+		// unmasks would look like a broken keyboard.
+		restoreLocalEcho();
 		if (!override) {
 			int remaining = mReconnect.consumeAttempt(THREE_THOUSAND_MILLIS);
 			if (remaining >= 0) {
@@ -4716,6 +4725,32 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Whether this connection accepts MCCP2, and whether the fallback has fired. */
 	private final MccpFallbackState mMccp = new MccpFallbackState();
 
+	/** Last local-echo state pushed to the windows, so a reconnect can restore it. */
+	private boolean mLocalEcho = true;
+
+	/** Telnet ECHO changed hands: tell every window whether to mask the input bar.
+	 *
+	 * @param enabled true when we echo locally (normal typing), false while the
+	 *        server echoes — on a MUD, a password prompt.
+	 */
+	private void doSetLocalEcho(final boolean enabled) {
+		mLocalEcho = enabled;
+		for (IWindowCallback w : mWindowCallbackMap.values()) {
+			try {
+				w.setLocalEcho(enabled);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"Connection.doSetLocalEcho", e);
+			}
+		}
+	}
+
+	/** A dropped connection cannot be holding echo; never leave the bar masked. */
+	private void restoreLocalEcho() {
+		if (!mLocalEcho) {
+			doSetLocalEcho(true);
+		}
+	}
 
 	/** MCCP decompression died, so everything the server still sends is unreadable.
 	 ** Tell the player, remember not to accept COMPRESS2 again on this connection,

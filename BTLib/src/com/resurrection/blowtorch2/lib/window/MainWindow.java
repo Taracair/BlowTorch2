@@ -3044,6 +3044,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		applyGrowInputBar(mGrowInputBar);
 	}
 
+	/** True while the server echoes for us (telnet ECHO) — the input bar is masked. */
+	private boolean mLocalEchoOff = false;
+
+	@Override
+	public void setLocalEchoOff(final boolean off) {
+		if (off == mLocalEchoOff) {
+			return;
+		}
+		mLocalEchoOff = off;
+		// Reuse the one place that owns the input field's type flags rather than
+		// setting them from two directions.
+		applyGrowInputBar(mGrowInputBar);
+	}
+
 	/** Apply Options → Input → Grow Input Bar? / {@code .wrap} to the input field. */
 	private void applyGrowInputBar(boolean grow) {
 		mGrowInputBar = grow;
@@ -3054,6 +3068,24 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (!useSuggestions) {
 			type |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 		}
+		if (mLocalEchoOff) {
+			// Server said IAC WILL ECHO — it is taking over echoing, which on a MUD
+			// means a password prompt. Hide the characters and keep the keyboard from
+			// learning them. Not TYPE_TEXT_VARIATION_PASSWORD alone: the transformation
+			// is what actually masks an already-typed line.
+			type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+					| InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+			mInputBox.setInputType(type);
+			mInputBox.setTransformationMethod(
+					android.text.method.PasswordTransformationMethod.getInstance());
+			mInputBox.setMaxLines(1);
+			mInputBox.setSingleLine(true);
+			mInputBox.setHorizontallyScrolling(true);
+			scheduleInputActionLayoutRefresh();
+			refreshGameChrome();
+			return;
+		}
+		mInputBox.setTransformationMethod(null);
 		if (grow) {
 			type |= InputType.TYPE_TEXT_FLAG_MULTI_LINE;
 			mInputBox.setInputType(type);

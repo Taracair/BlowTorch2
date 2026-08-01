@@ -37,4 +37,5 @@ oneway interface IWindowCallback {
 	void clearText();
 	void updateSetting(String key,String value);
 	void setEncoding(String value);
+	void setLocalEcho(boolean enabled);
 }

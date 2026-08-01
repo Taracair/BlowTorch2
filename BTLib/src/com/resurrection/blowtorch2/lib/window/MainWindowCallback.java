@@ -15,4 +15,6 @@ public interface MainWindowCallback {
 	void windowCall(String window, String function, String data);
 	void windowBroadcast(String function, String data);
 	String getPluginOption(String plugin, String value) throws RemoteException;
+	/** Telnet ECHO changed hands: true while the server echoes and the input bar must be masked. */
+	void setLocalEchoOff(boolean off);
 }
