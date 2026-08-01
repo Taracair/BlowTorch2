@@ -181,3 +181,6 @@ docs/HANDOFF.md
 
 # Ephemeral agent/session scratch — one-off scripts, dumps, probes (see orchestration.mdc)
 .scratch/
+
+# Local device-lab helper — machine-specific, not part of the app
+scripts/adb-device.sh

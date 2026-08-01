@@ -168,6 +168,10 @@ public class TriggerData implements Parcelable {
 	public static final boolean DEFAULT_KEEPEVAL = true;
 	public TriggerData(Parcel in) {
 		readFromParcel(in);
+		// readFromParcel uses the pattern-then-flag order, so this rebuild used to
+		// be what kept triggers crossing the binder healthy while ones read from
+		// the profile XML were not. setInterpretAsRegex rebuilds now, so this is
+		// belt and braces rather than load-bearing.
 		buildData();
 	}
 	
@@ -276,7 +280,14 @@ public class TriggerData implements Parcelable {
 
 	public void setInterpretAsRegex(boolean interpretAsRegex) {
 		this.interpretAsRegex = interpretAsRegex;
-		//buildData();
+		// Without this the setters were order-dependent, and the two parsers
+		// disagreed on the order: TriggerElementListener sets the flag first,
+		// HyperSAXParser sets the pattern first. On the second path buildData()
+		// ran while interpretAsRegex was still the default false, so it built
+		// Pattern.quote(pattern) and nothing rebuilt it — every regex trigger
+		// loaded from the saved profile matched only its own pattern text
+		// typed out verbatim, and reported groupCount 0 while the flag read true.
+		buildData();
 	}
 
 	public boolean isInterpretAsRegex() {

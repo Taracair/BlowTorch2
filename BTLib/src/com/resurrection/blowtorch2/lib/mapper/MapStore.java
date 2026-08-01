@@ -837,30 +837,79 @@ public final class MapStore {
 		return sb.toString();
 	}
 
+	/**
+	 * Write {@code content} to {@code file} so that a reader ever only sees the
+	 * whole old file or the whole new one.
+	 * <p>
+	 * {@code new FileOutputStream(file)} truncates the target before the first
+	 * byte of the new content is written, so a process death anywhere in between
+	 * — and this process is killed routinely, see the freezer notes in
+	 * ORCHESTRATION — left a half-written or empty map that no longer parses.
+	 * Staging file, then rename. The staging file is a <em>sibling</em> on
+	 * purpose: {@code renameTo} is only atomic within one filesystem, which is
+	 * why {@link com.resurrection.blowtorch2.lib.service.ConnectionSettingsIO}
+	 * needed a copy fallback for a staging file in the cache directory. A
+	 * leftover {@code .tmp} from a kill is invisible to {@code listMaps}, which
+	 * only accepts {@code .json}.
+	 * <p>
+	 * <b>No {@code fsync} here, deliberately.</b> A killed process leaves its
+	 * dirty pages in the page cache and the kernel writes them back, so the
+	 * rename alone closes the window this is about. {@code fsync} would only add
+	 * power-loss and panic protection, and it is the expensive half — a real
+	 * flash flush. Most writes land on the {@code bt-map-save} daemon where that
+	 * would be affordable, but {@code flushPendingWrites} is synchronous by
+	 * design and {@code StellarService.onTaskRemoved} calls it on the service
+	 * main thread, with the system waiting. {@code ConnectionSettingsIO} does
+	 * fsync, and that write is the disconnect stall.
+	 */
 	private static void writeFile(File file, String content) throws IOException {
 		File parent = file.getParentFile();
 		if (parent != null && !parent.exists()) {
 			//noinspection ResultOfMethodCallIgnored
 			parent.mkdirs();
 		}
-		FileOutputStream fos = null;
-		OutputStreamWriter writer = null;
+		if (parent == null) {
+			parent = file.getAbsoluteFile().getParentFile();
+		}
+		// createTempFile rejects a prefix shorter than three characters, and the
+		// path here does not always come from mapFile().
+		String prefix = file.getName();
+		if (prefix.length() < 3) {
+			prefix = "map" + prefix;
+		}
+		File tmp = File.createTempFile(prefix, ".tmp", parent);
+		boolean replaced = false;
 		try {
-			fos = new FileOutputStream(file);
-			writer = new OutputStreamWriter(fos, UTF8);
-			writer.write(content);
-			writer.flush();
+			FileOutputStream fos = null;
+			OutputStreamWriter writer = null;
+			try {
+				fos = new FileOutputStream(tmp);
+				writer = new OutputStreamWriter(fos, UTF8);
+				writer.write(content);
+				writer.flush();
+			} finally {
+				if (writer != null) {
+					try {
+						writer.close();
+					} catch (IOException ignored) {
+					}
+				} else if (fos != null) {
+					try {
+						fos.close();
+					} catch (IOException ignored) {
+					}
+				}
+			}
+			if (!tmp.renameTo(file)) {
+				// Old file left intact on purpose — the caller gets an error and
+				// still has the previous map.
+				throw new IOException("could not replace " + file.getAbsolutePath());
+			}
+			replaced = true;
 		} finally {
-			if (writer != null) {
-				try {
-					writer.close();
-				} catch (IOException ignored) {
-				}
-			} else if (fos != null) {
-				try {
-					fos.close();
-				} catch (IOException ignored) {
-				}
+			if (!replaced) {
+				//noinspection ResultOfMethodCallIgnored
+				tmp.delete();
 			}
 			// Every write in this class lands here. The stat check in readHostHint
 			// would catch this anyway, but not for a rewrite that keeps the length

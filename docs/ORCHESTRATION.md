@@ -403,9 +403,21 @@ maintainer decides.
 
 - **Pixel 9a, GrapheneOS.** `adb` is **not** on PATH:
   `~/Android/Sdk/platform-tools/adb`
-- **The wifi ADB port changes constantly.** It has been 5555, 42135, 41721. When
-  a device shows `offline`, `adb connect` on the old port will not fix it —
-  `adb disconnect`, then ask the maintainer for the current port.
+- **The wifi ADB port changes constantly.** It has been 5555, 42135, 41721,
+  35055. When a device shows `offline`, `adb connect` on the old port will not
+  fix it — `adb disconnect` first. **Do not ask the maintainer for the port;
+  find it.** The phone advertises host and port over mDNS:
+
+  ```sh
+  avahi-browse -rpt _adb-tls-connect._tcp   # =;…;<host>;<address>;<port>;"serial=…"
+  adb mdns services                         # adb's own discovery; often empty
+  ```
+
+  If mDNS is quiet (phone asleep, different subnet), scan for it:
+  `nmap -Pn -T4 --min-rate 2000 --max-retries 1 --open -p 5555,30000-49999 <ip>`
+  — about two seconds over the LAN. `scripts/adb-device.sh` does all of this and
+  prints a ready serial on stdout, so `-s "$(scripts/adb-device.sh)"` just works;
+  it is a local lab tool and is **not** in git, so recreate it if it is missing.
 - **The phone is often on USB and wifi at once**, showing two entries. Every
   `adb` command then needs `-s <serial>`, or it fails with "more than one
   device".

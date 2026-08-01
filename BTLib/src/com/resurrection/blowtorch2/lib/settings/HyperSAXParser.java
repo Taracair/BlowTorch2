@@ -332,7 +332,11 @@ public class HyperSAXParser extends BaseParser {
 				//Log.e("PARSER","PARSING NOTIFICATION ELEMENT");
 				current_trigger.setName(attr.getValue("",ATTR_TRIGGERTITLE));
 				current_trigger.setPattern(attr.getValue("",ATTR_TRIGGERPATTERN));
-				current_trigger.setInterpretAsRegex( attr.getValue("",ATTR_TRIGGERLITERAL).equals("true") ? true : false);
+				// "true".equals rather than the other way round: a profile written
+				// before this attribute existed has no value here, and the old form
+				// NPE'd in the middle of the SAX parse. Missing means false, which
+				// is TriggerData's default and what TriggerElementListener falls to.
+				current_trigger.setInterpretAsRegex("true".equals(attr.getValue("",ATTR_TRIGGERLITERAL)));
 				current_trigger.setFireOnce(attr.getValue("",ATTR_TRIGGERONCE).equals("true") ? true : false);
 				current_trigger.setHidden( (attr.getValue("",ATTR_TRIGGERHIDDEN) == null) ? false : (attr.getValue("",ATTR_TRIGGERHIDDEN)).equals("true") ? true : false);
 				current_trigger.setEnabled( (attr.getValue("",ATTR_TRIGGERENEABLED) == null) ? true : (attr.getValue("",ATTR_TRIGGERENEABLED)).equals("true") ? true : false);

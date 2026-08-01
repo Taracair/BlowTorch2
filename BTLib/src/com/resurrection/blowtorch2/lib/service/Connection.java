@@ -73,6 +73,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
+import com.resurrection.blowtorch2.lib.trigger.TriggerPattern;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlot;
 import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 import com.resurrection.blowtorch2.lib.window.TextTree;
@@ -304,8 +305,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Constant indicating that one or more triggers is invalid and the trigger system should be rebuilt
 	 * on the next pass of dispatch().
+	 *
+	 * Per connection, not per process: there is one Connection per open world,
+	 * and every other piece of trigger state here is an instance field. While
+	 * this was static, world B rebuilding its own triggers cleared the flag world
+	 * A had just set, and A's deferred rebuild was dropped.
 	 */
-	private static boolean triggersDirty = false;
+	private boolean triggersDirty = false;
 	/** This variable is used in conjunction with mWindowCallbackMap to track IWindowCallback aidl connections
 	 * window names.
 	 */
@@ -322,8 +328,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private final StringBuffer mCommandBuilder = new StringBuffer();
 	/** Used by the trigger processor to map line start/end to line number. */
 	private final TreeSet<Range> mLineMap = new TreeSet<Range>(new RangeComparator());
-	/** Used by the trigger building routine to build the new string with great speed. */
-	private final StringBuilder mTriggerBuilder = new StringBuilder();
 
 	/** A utiltiy object to keep track of the order of triggers. */
 	private final SparseArray<TriggerData> mSortedTriggerMap = new SparseArray<TriggerData>(0);
@@ -1532,61 +1536,62 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 	
+	/** Whether a trigger belongs in the combined pattern at all.
+	 *
+	 * A literal trigger whose text starts with "%" or the MCP prefix is a
+	 * command for another subsystem, not something to match against game text.
+	 *
+	 * @param t The trigger to test.
+	 * @return true when it should be added to the alternation.
+	 */
+	private static boolean isMatchableTrigger(final TriggerData t) {
+		if (t == null || !t.isEnabled() || t.getPattern() == null) {
+			return false;
+		}
+		if (!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
+				|| t.getPattern().startsWith(McpEngine.TRIGGER_CHAR))) {
+			return false;
+		}
+		return true;
+	}
+
 	/** Work horse function to rebuild the trigger system.
-	 * 
+	 *
 	 * I think this is called from a number of placed, but it should really be called from dispatch()
 	 * when triggers are dirty.
+	 *
+	 * The joining and the group arithmetic moved to TriggerPattern, which has
+	 * tests, for the same reasons the alias half moved to AliasPattern: the
+	 * alternation is built from the sanitised matcher rather than the raw
+	 * pattern field, so there is one sanitisation point; Pattern.quote replaces
+	 * the hand-built \Q...\E span; and the join is compiled inside a try, since
+	 * this runs out of binder methods that have no catch of their own.
 	 */
 	public final void buildTriggerSystem() {
-		if (mSettings == null) { 
-			return; 
+		if (mSettings == null) {
+			return;
 		}
 		mSortedTriggerMap.clear();
 		mTriggerPluginMap.clear();
-		int currentgroup = 1;
-		mTriggerBuilder.setLength(0);
-		boolean addseparator = false;
+		TriggerPattern combined = new TriggerPattern();
 		ArrayList<TriggerData> tmp = mSettings.getSortedTriggers();
 		if (tmp == null) {
 			mSettings.sortTriggers();
 			tmp = mSettings.getSortedTriggers();
 		}
-		if (tmp != null && tmp.size() > 0) {
+		if (tmp != null) {
 			for (int i = 0; i < tmp.size(); i++) {
 				TriggerData t = tmp.get(i);
-				if (!(!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
-						|| t.getPattern().startsWith(McpEngine.TRIGGER_CHAR)))) {
-					if (t.isEnabled()) {
-						if (!addseparator) {
-							mTriggerBuilder.append("(");
-							if (!t.isInterpretAsRegex()) {
-								mTriggerBuilder.append("\\Q");
-							}
-							mTriggerBuilder.append(t.getPattern());
-							if (!t.isInterpretAsRegex()) {
-								mTriggerBuilder.append("\\E");
-							}
-							mTriggerBuilder.append(")");
-							addseparator = true;
-						} else {
-							mTriggerBuilder.append("|(");
-							if (!t.isInterpretAsRegex()) {
-								mTriggerBuilder.append("\\Q");
-							}
-							mTriggerBuilder.append(t.getPattern());
-							if (!t.isInterpretAsRegex()) {
-								mTriggerBuilder.append("\\E");
-							}
-							mTriggerBuilder.append(")");
-						}
-						mSortedTriggerMap.put(currentgroup, t);
-						mTriggerPluginMap.put(currentgroup, mSettings);
-						currentgroup += t.getMatcher().groupCount() + 1;
+				if (isMatchableTrigger(t)) {
+					int group = combined.add(t);
+					if (group > 0) {
+						mSortedTriggerMap.put(group, t);
+						mTriggerPluginMap.put(group, mSettings);
 					}
 				}
 			}
 		}
-		
+
 		for (Plugin p : mPlugins) {
 			if (p == null || !p.isEnabled()) {
 				continue;
@@ -1596,45 +1601,38 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				p.sortTriggers();
 				tmp = p.getSortedTriggers();
 			}
-			if (tmp != null && tmp.size() > 0) {
+			if (tmp != null) {
 				for (int i = 0; i < tmp.size(); i++) {
 					TriggerData t = tmp.get(i);
-					if (!(!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
-						|| t.getPattern().startsWith(McpEngine.TRIGGER_CHAR)))) {
-						if (t.isEnabled()) {
-							if (i == 0 && !addseparator) {
-								mTriggerBuilder.append("(");
-								if (!t.isInterpretAsRegex()) {
-									mTriggerBuilder.append("\\Q");
-								}
-								mTriggerBuilder.append(t.getPattern());
-								if (!t.isInterpretAsRegex()) {
-									mTriggerBuilder.append("\\E");
-								}
-								mTriggerBuilder.append(")");
-								addseparator = true;
-							} else {
-								mTriggerBuilder.append("|(");
-								if (!t.isInterpretAsRegex()) {
-									mTriggerBuilder.append("\\Q");
-								}
-								mTriggerBuilder.append(t.getPattern());
-								if (!t.isInterpretAsRegex()) {
-									mTriggerBuilder.append("\\E");
-								}
-								mTriggerBuilder.append(")");
-							}
-							mSortedTriggerMap.put(currentgroup, t);
-							mTriggerPluginMap.put(currentgroup, p);
-							currentgroup += t.getMatcher().groupCount() + 1;
+					if (isMatchableTrigger(t)) {
+						int group = combined.add(t);
+						if (group > 0) {
+							mSortedTriggerMap.put(group, t);
+							mTriggerPluginMap.put(group, p);
 						}
 					}
 				}
 			}
-		
+
 		}
-		mMassiveTriggerString = mTriggerBuilder.toString();
-		mMassivePattern = Pattern.compile(mMassiveTriggerString, Pattern.MULTILINE);
+		mMassiveTriggerString = combined.regex();
+		try {
+			mMassivePattern = combined.compile(Pattern.MULTILINE);
+		} catch (java.util.regex.PatternSyntaxException bad) {
+			// Every alternative compiled on its own, so this is the rare join-only
+			// failure -- two triggers declaring the same named group is one. The
+			// maps have to be emptied along with the pattern: leaving them
+			// populated while matching against something else would attribute a
+			// match to a trigger that is not there, which is worse than matching
+			// nothing.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.buildTriggerSystem: combined trigger pattern would not compile,"
+					+ " no trigger will fire until the set changes", bad);
+			mSortedTriggerMap.clear();
+			mTriggerPluginMap.clear();
+			mMassiveTriggerString = "";
+			mMassivePattern = Pattern.compile("");
+		}
 		mMassiveMatcher = mMassivePattern.matcher("");
 		triggersDirty = false;
 		if (mMcpEngine != null) {

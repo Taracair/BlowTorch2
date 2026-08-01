@@ -151,4 +151,164 @@ public class BadPatternGateTest {
 		all.add(alias("bad[set", "boom"));
 		assertTrue(AliasPattern.build(all).isEmpty());
 	}
+
+	private static TriggerData trigger(String pattern, boolean regex) {
+		TriggerData t = new TriggerData();
+		t.setName(pattern);
+		t.setInterpretAsRegex(regex);
+		t.setPattern(pattern);
+		return t;
+	}
+
+	/**
+	 * The order the main profile parser uses. HyperSAXParser sets the pattern and
+	 * then the flag; setInterpretAsRegex did not rebuild, so the matcher was left
+	 * as the literal one built under the default flag. Every regex trigger in a
+	 * saved profile matched only its own pattern text typed out verbatim.
+	 */
+	@Test
+	public void profileParserSetterOrderStillBuildsARegexMatcher() {
+		TriggerData t = new TriggerData();
+		t.setPattern("A (.+) dragon appears");
+		t.setInterpretAsRegex(true);
+		assertEquals("the matcher must be rebuilt under the new flag",
+				1, t.getMatcher().groupCount());
+		assertTrue("a real game line must match",
+				t.getMatcher().reset("A fierce dragon appears").find());
+	}
+
+	/** The same trigger, set the other way round, is indistinguishable. */
+	@Test
+	public void bothSetterOrdersAgree() {
+		TriggerData profileOrder = new TriggerData();
+		profileOrder.setPattern("You gain (\\d+) experience");
+		profileOrder.setInterpretAsRegex(true);
+		TriggerData pluginOrder = trigger("You gain (\\d+) experience", true);
+		assertEquals(pluginOrder.getMatcher().groupCount(),
+				profileOrder.getMatcher().groupCount());
+		assertEquals(pluginOrder.getCompiledPattern().pattern(),
+				profileOrder.getCompiledPattern().pattern());
+	}
+
+	/** Turning the flag back off restores literal matching. */
+	@Test
+	public void clearingTheRegexFlagRebuildsAsLiteral() {
+		TriggerData t = trigger("a.b", true);
+		assertTrue(t.getMatcher().reset("axb").find());
+		t.setInterpretAsRegex(false);
+		assertFalse("a literal trigger must stop matching as a regex",
+				t.getMatcher().reset("axb").find());
+		assertTrue(t.getMatcher().reset("a.b").find());
+	}
+
+	/**
+	 * The combined pattern is where the gate was missing. buildTriggerSystem
+	 * joined the raw pattern field, so a pattern TriggerData had already fallen
+	 * back on reached Pattern.compile unsanitised and took the whole trigger
+	 * system down -- out of a binder method, so it took the UI process with it.
+	 */
+	@Test
+	public void badTriggerDoesNotKillTheCombinedPattern() {
+		TriggerPattern p = new TriggerPattern();
+		assertTrue(p.add(trigger("You see a (dragon", true)) > 0);
+		assertTrue(p.add(trigger("A (.+) dragon appears", true)) > 0);
+		java.util.regex.Matcher m = p.compile(0).matcher("A fierce dragon appears");
+		assertTrue("the good trigger must still fire", m.find());
+		assertEquals("A (.+) dragon appears", p.matchedTrigger(m).getName());
+	}
+
+	/**
+	 * The other way the join used to throw: a literal trigger containing "\E"
+	 * ended the hand-built quoted span early. Pattern.quote handles it, and
+	 * building from the sanitised matcher is what carries that into the join.
+	 */
+	@Test
+	public void literalTriggerContainingQuoteTerminatorSurvivesTheJoin() {
+		TriggerPattern p = new TriggerPattern();
+		assertTrue(p.add(trigger("cost: 5\\E(gold)", false)) > 0);
+		java.util.regex.Matcher m = p.compile(0).matcher("it cost: 5\\E(gold) today");
+		assertTrue(m.find());
+	}
+
+	/**
+	 * The attribution test. A trigger may declare its own groups, so its outer
+	 * group number depends on every trigger before it -- and a trigger whose
+	 * matcher reported a different group count than the text appended (which is
+	 * exactly what the setter-order bug caused) shifted every later trigger.
+	 */
+	@Test
+	public void groupNumberingAttributesMatchesToTheRightTrigger() {
+		TriggerPattern p = new TriggerPattern();
+		p.add(trigger("(\\w+) hits (\\w+) for (\\d+)", true));
+		p.add(trigger("You gain (\\d+) experience", true));
+		p.add(trigger("a.b", false));
+
+		java.util.regex.Matcher m = p.compile(0).matcher("You gain 42 experience");
+		assertTrue(m.find());
+		assertEquals("You gain (\\d+) experience", p.matchedTrigger(m).getName());
+		int index = TriggerPattern.matchedGroup(m);
+		assertEquals("the capture must be reachable at index + 1", "42", m.group(index + 1));
+
+		java.util.regex.Matcher m2 = p.compile(0).matcher("a.b");
+		assertTrue(m2.find());
+		assertEquals("a.b", p.matchedTrigger(m2).getName());
+		assertFalse("a literal trigger must not match as a regex",
+				p.compile(0).matcher("axb").find());
+	}
+
+	/** A profile-order regex trigger has to be attributed correctly too. */
+	@Test
+	public void profileParserOrderTriggerIsAttributedInTheJoin() {
+		TriggerData first = new TriggerData();
+		first.setPattern("(\\w+) tells you '(.+)'");
+		first.setInterpretAsRegex(true);
+		TriggerPattern p = new TriggerPattern();
+		p.add(first);
+		p.add(trigger("You are hungry", false));
+
+		java.util.regex.Matcher m = p.compile(0).matcher("You are hungry");
+		assertTrue(m.find());
+		assertEquals("the second trigger must not be shifted by the first",
+				"You are hungry", p.matchedTrigger(m).getName());
+	}
+
+	/** A disabled or filtered first trigger must not leave a leading "|". */
+	@Test
+	public void aSkippedFirstTriggerLeavesNoEmptyAlternative() {
+		TriggerPattern p = new TriggerPattern();
+		assertEquals("null must be skipped", -1, p.add(null));
+		assertTrue(p.add(trigger("You are hungry", false)) > 0);
+		assertFalse("a leading | matches everywhere and hides every trigger",
+				p.regex().startsWith("|"));
+		java.util.regex.Matcher m = p.compile(0).matcher("You are hungry");
+		assertTrue(m.find());
+		assertNotNull(p.matchedTrigger(m));
+	}
+
+	/** Nothing added means nothing to match, not an explosion. */
+	@Test
+	public void emptyTriggerPatternIsEmpty() {
+		TriggerPattern p = new TriggerPattern();
+		assertTrue(p.isEmpty());
+		assertEquals("", p.regex());
+	}
+
+	/**
+	 * Alternatives that each compile can still throw when joined -- two triggers
+	 * declaring the same named group is the case. compile() does not swallow it,
+	 * because only the caller can keep its group-to-trigger bookkeeping
+	 * consistent with whatever it falls back to.
+	 */
+	@Test
+	public void duplicateNamedGroupsThrowFromTheJoinNotFromAdd() {
+		TriggerPattern p = new TriggerPattern();
+		assertTrue(p.add(trigger("(?<who>\\w+) arrives", true)) > 0);
+		assertTrue(p.add(trigger("(?<who>\\w+) leaves", true)) > 0);
+		try {
+			p.compile(0);
+			org.junit.Assert.fail("the join was expected to throw");
+		} catch (java.util.regex.PatternSyntaxException expected) {
+			assertNotNull(expected.getMessage());
+		}
+	}
 }
