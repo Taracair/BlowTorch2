@@ -1811,6 +1811,31 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		Log.e("LOG","REGISTERING " + name);
 		IWindowCallback previous = mWindowCallbackMap.get(name);
 		replacedDeadOrMissing = !windowCallbackAlive(previous);
+		// Kill-from-recents leaves the old IWindowCallback in RemoteCallbackList.
+		// dirtyExit/cleanupWindows unregisters it; a swipe-kill does not. Rebuilding
+		// the name→callback map from the list then let a later corpse with the same
+		// cookie overwrite the live binder — replay reached the new Window (history
+		// looked fine) but notifyMainWindow kept calling the dead one, so the game
+		// stayed "dead" until the player left via Keep-in-background (which cleans
+		// up) and came back. Cull every dead binder for this name before register.
+		if (previous != null && replacedDeadOrMissing) {
+			mWindowCallbacks.unregister(previous);
+			mWindowCallbackMap.remove(name);
+		}
+		int sweep = mWindowCallbacks.beginBroadcast();
+		java.util.ArrayList<IWindowCallback> corpses =
+				new java.util.ArrayList<IWindowCallback>();
+		for (int i = 0; i < sweep; i++) {
+			Object cookie = mWindowCallbacks.getBroadcastCookie(i);
+			IWindowCallback w = mWindowCallbacks.getBroadcastItem(i);
+			if (name.equals(cookie) && !windowCallbackAlive(w)) {
+				corpses.add(w);
+			}
+		}
+		mWindowCallbacks.finishBroadcast();
+		for (int i = 0; i < corpses.size(); i++) {
+			mWindowCallbacks.unregister(corpses.get(i));
+		}
 		// The name is the cookie. It used to come back from callback.getName(),
 		// a synchronous binder call into the UI process for every registered
 		// window on every register — and a synchronous call is what kills a
@@ -1822,10 +1847,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		for (int i = 0; i < n; i++) {
 			IWindowCallback w = mWindowCallbacks.getBroadcastItem(i);
 			Object cookie = mWindowCallbacks.getBroadcastCookie(i);
-			if (cookie instanceof String) {
+			if (!(cookie instanceof String)) {
+				continue;
+			}
+			// Only live binders into the map — a dead one must not win the put.
+			if (windowCallbackAlive(w)) {
 				mWindowCallbackMap.put((String) cookie, w);
 			}
 		}
+		// This registration always owns its name, even if isBinderAlive races.
+		mWindowCallbackMap.put(name, callback);
 		mCallbacksStarted = true;
 		}
 		// Outside the lock on purpose: resetWithRawDataIncoming posts into the UI
@@ -1947,7 +1978,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		for (int i = 0; i < n; i++) {
 			IWindowCallback w = mWindowCallbacks.getBroadcastItem(i);
 			Object cookie = mWindowCallbacks.getBroadcastCookie(i);
-			if (cookie instanceof String) {
+			// Same rule as registerWindowCallback: a swipe-killed binder still in
+			// the list must not reclaim the map entry for a live window.
+			if (cookie instanceof String && windowCallbackAlive(w)) {
 				mWindowCallbackMap.put((String) cookie, w);
 			}
 		}
