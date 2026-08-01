@@ -388,17 +388,27 @@ public class ExtraTextOverlayController {
 		}
 		boolean floatMode = mode == ExtraTextSlot.Mode.FLOAT;
 		boolean drawer = !floatMode;
-		// Both are per-slot options (Manage windows… → Edit). A player who wants
-		// the plain black pane back turns the bar off and keeps the resize corner.
+		// Both are per-slot options (Manage windows… → Edit).
+		//
+		// "Title bar" is a paint switch, not a layout one: the strip stays where
+		// it is and keeps carrying the drag listeners, it just stops being drawn.
+		// A floating pane you cannot move is worse than an ugly one, and the
+		// maintainer asked for the pre-fix feel — an invisible bar you can still
+		// grab — rather than a pane with no handle at all.
 		boolean bar = floatMode && e.slot.isShowTitleBar();
 		boolean close = floatMode && e.slot.isShowClose();
+		final android.content.res.Resources res = e.overlayRoot != null
+				? e.overlayRoot.getResources() : null;
 
 		// Drawer: no title / no collapse — show/hide via .window / Options only.
 		// Float: title + drag + muted accent under title.
 		if (e.titleBar != null) {
-			// The ✕ lives in the bar, so asking for the ✕ keeps the bar even when
-			// the bar itself was switched off — otherwise the option does nothing.
-			e.titleBar.setVisibility(bar || close ? View.VISIBLE : View.GONE);
+			e.titleBar.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			if (res != null) {
+				e.titleBar.setBackgroundColor(bar
+						? res.getColor(R.color.extra_text_title_bar)
+						: android.graphics.Color.TRANSPARENT);
+			}
 		}
 		if (e.titleView != null) {
 			String t = e.slot.getTitle();
@@ -406,10 +416,22 @@ public class ExtraTextOverlayController {
 				t = e.slot.getName();
 			}
 			e.titleView.setText(t);
-			e.titleView.setVisibility(bar ? View.VISIBLE : View.INVISIBLE);
+			// VISIBLE even when unpainted: an INVISIBLE view takes no touches, and
+			// this one is half the drag strip.
+			e.titleView.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			if (res != null) {
+				e.titleView.setTextColor(bar
+						? res.getColor(R.color.extra_text_title_text)
+						: android.graphics.Color.TRANSPARENT);
+			}
 		}
 		if (e.dragHandle != null) {
-			e.dragHandle.setVisibility(bar ? View.VISIBLE : View.GONE);
+			e.dragHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			if (res != null) {
+				e.dragHandle.setTextColor(bar
+						? res.getColor(R.color.extra_text_grip)
+						: android.graphics.Color.TRANSPARENT);
+			}
 		}
 		if (e.collapseBtn != null) {
 			e.collapseBtn.setVisibility(View.GONE);
@@ -433,7 +455,7 @@ public class ExtraTextOverlayController {
 			});
 		}
 		if (e.accentLine != null) {
-			e.accentLine.setVisibility(bar || close ? View.VISIBLE : View.GONE);
+			e.accentLine.setVisibility(bar ? View.VISIBLE : View.GONE);
 		}
 		if (e.resizeHandle != null) {
 			e.resizeHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);

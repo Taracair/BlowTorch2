@@ -4049,6 +4049,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case persistent_connection:
 				mReconnect.setPersistent((Boolean) o.getValue());
 				break;
+			case overflow_button_opacity:
+			case overflow_button_background:
+			case overflow_button_border:
+				// The ⋮ lives in the UI process; MainWindow.loadSettings reads these
+				// three and hands them to ChromeController. Without this the value
+				// was stored and only picked up on the next profile load, which is
+				// why the options looked as though they needed a restart.
+				mService.doExecuteRequestLoadSettings();
+				break;
 			case check_for_updates:
 				// Write through to the app-wide flag. The option lives in a
 				// connection profile because that is where the Options screen is
@@ -4959,6 +4968,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		auto_reconnect_limit,
 		/** Patient reconnect through brief network loss / VPN flaps. */
 		persistent_connection,
+		/** How solid the gameplay ⋮ is drawn (percent). */
+		overflow_button_opacity,
+		/** Draw the disc behind the gameplay ⋮. */
+		overflow_button_background,
+		/** Draw the ring around the gameplay ⋮. */
+		overflow_button_border,
 		/** Ask GitHub once a day whether a newer release exists (opt-in). */
 		check_for_updates,
 		/** Use GMCP. */

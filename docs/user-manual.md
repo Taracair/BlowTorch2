@@ -757,13 +757,15 @@ the UI; buffers are named `WindowToken`s.
 
 A floating pane's chrome is per slot, in **Manage windows… → Edit**:
 
-- **Title bar / drag handle** — the strip across the top, with the ☰ grip and the
-  window's title. This is what you drag the window by. On by default.
+- **Show title bar** — the strip across the top, with the ☰ grip and the window's
+  title. On by default. Turning it off **hides** it rather than removing it: the
+  strip is still there and still drags the window, it is simply not drawn.
 - **Close button ✕** — hides the window; bring it back with `.window show <slot>`
-  or Manage → Show window. On by default.
+  or Manage → Show window. On by default. Off means gone, not invisible — an
+  unseen ✕ inside the drag strip would close the window every time you missed.
 
-Turn both off for a bare pane: it can still be resized from the ◢ corner, but it
-cannot be dragged, and only `.window hide` or Options will close it.
+Both off gives a bare pane: still draggable by its top strip, still resizable
+from the ◢ corner, and closed only by `.window hide` or Options.
 
 **Scroll speed** is per slot, in Manage windows. The default, *Same as main
 window*, follows **Options → Window → Scroll sensitivity**, so that one control

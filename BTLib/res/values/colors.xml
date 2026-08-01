@@ -6,6 +6,20 @@
     <!-- Softer edge for extra-text drawer/float handles (input-bar family, lower alpha). -->
     <color name="game_chrome_edge">#66444488</color>
     <color name="game_input_highlight">#555555</color>
+    <!--
+      Floating extra-text title bar. Deliberately a lighter tone than the
+      #FF1A1A1A overlay body: at #FF111111 the strip and the pane read as one
+      unbroken black rectangle over black game text, and nothing said the top
+      was a grab handle.
+
+      Named because ExtraTextOverlayController swaps between these and
+      transparent when the per-slot "title bar" option is off — the bar stays
+      where it is and keeps taking drags, it just stops being drawn. Two copies
+      of the same literal would drift.
+    -->
+    <color name="extra_text_title_bar">#FF2A2E38</color>
+    <color name="extra_text_grip">#BBBBEE</color>
+    <color name="extra_text_title_text">#EEEEEE</color>
     <!-- Marching dashed edge around dialogs. Same blue the mapper uses for links and
          labels, so the chrome reads as one family instead of a leftover red. Defined
          once here because three drawables draw this same border.

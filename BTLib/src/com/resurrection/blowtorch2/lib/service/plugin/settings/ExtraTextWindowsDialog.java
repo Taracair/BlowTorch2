@@ -265,7 +265,7 @@ public final class ExtraTextWindowsDialog {
 		// Floating windows only. A drawer has no title bar and is shown or hidden
 		// by its own grab strip, so neither control has anywhere to go on one.
 		final CheckBox showTitleBar = new CheckBox(context);
-		showTitleBar.setText("Title bar / drag handle (floating)");
+		showTitleBar.setText("Show title bar (floating)");
 		showTitleBar.setChecked(existing == null || existing.isShowTitleBar());
 		form.addView(showTitleBar);
 
@@ -275,8 +275,9 @@ public final class ExtraTextWindowsDialog {
 		form.addView(showClose);
 
 		TextView chromeHint = new TextView(context);
-		chromeHint.setText("Turn both off for a bare pane: it can still be resized from the "
-				+ "bottom-right corner, but it cannot be dragged and only .window hide or "
+		chromeHint.setText("Turning the title bar off hides it, it does not remove it: the "
+				+ "strip across the top still drags the window, it is just not drawn. Both "
+				+ "off gives a bare pane you can still move and resize; only .window hide or "
 				+ "this screen will close it.");
 		chromeHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 		chromeHint.setPadding(0, 0, 0, pad / 2);
