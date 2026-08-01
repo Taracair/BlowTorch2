@@ -1715,25 +1715,37 @@ function persistLayoutOption(key, value, asBoolean)
 end
 
 function setLayoutWizardPending(value)
+	-- OnOptionChanged-only: SettingsGroup already holds the value (Options dialog
+	-- or persistLayoutOption). Writing back via updateBoolean re-enters
+	-- Plugin.updateSetting → OnOptionChanged and overflows the Lua stack.
 	local on = (value == true or value == "true" or value == "1")
-	options.layout_wizard_pending = on and "true" or "false"
-	persistLayoutOption("layout_wizard_pending", on, true)
+	local next = on and "true" or "false"
+	if options.layout_wizard_pending == next then
+		return
+	end
+	options.layout_wizard_pending = next
 	if UserPresent() then
 		loadOptions()
 	end
 end
 
 function setLayoutPack(value)
-	options.layout_pack = value ~= nil and tostring(value) or ""
-	persistLayoutOption("layout_pack", options.layout_pack, false)
+	local next = value ~= nil and tostring(value) or ""
+	if options.layout_pack == next then
+		return
+	end
+	options.layout_pack = next
 	if UserPresent() then
 		loadOptions()
 	end
 end
 
 function setLayoutSizePreset(value)
-	options.layout_size_preset = value ~= nil and tostring(value) or ""
-	persistLayoutOption("layout_size_preset", options.layout_size_preset, false)
+	local next = value ~= nil and tostring(value) or ""
+	if options.layout_size_preset == next then
+		return
+	end
+	options.layout_size_preset = next
 	if UserPresent() then
 		loadOptions()
 	end
