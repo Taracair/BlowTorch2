@@ -290,25 +290,8 @@ public class Processor {
 							mHoldover = Arrays.copyOfRange(input, i, input.length);
 							return truncBuffer(buff, count);
 						}
-						// Scan for IAC SE, honoring escaped IAC IAC in the payload.
-						boolean done = false;
-						int j = i + SKIP_BYTES;
-						while (j + 1 < input.length) {
-							if (input[j] == TC.IAC) {
-								if (input[j + 1] == TC.SE) {
-									done = true;
-									break;
-								} else if (input[j + 1] == TC.IAC) {
-									j += 2; // literal 0xFF in SB data
-									continue;
-								}
-								// Unexpected IAC command inside SB — skip the IAC byte.
-								j += 1;
-								continue;
-							}
-							j++;
-						}
-						if (!done) {
+						int j = findSubnegotiationEnd(input, i);
+						if (j < 0) {
 							mHoldover = Arrays.copyOfRange(input, i, input.length);
 							return truncBuffer(buff, count);
 						}
@@ -327,16 +310,10 @@ public class Processor {
 						opbuf.rewind();
 						boolean compress = dispatchSUB(opbuf.array());
 						if (compress) {
-							ByteBuffer b = ByteBuffer.allocate(input.length - (j + 2 - i));
-							for (int z = j + 2; z < input.length; z++) {
-								b.put(input[z]);
-							}
-
-							b.rewind();
 							mReportTo.sendMessageAtFrontOfQueue(mReportTo
 									.obtainMessage(
 											Connection.MESSAGE_STARTCOMPRESS,
-											b.array()));
+											remainderAfterSubnegotiation(input, j)));
 							if (mDebugTelnet) {
 								String message = "\n" + Colorizer.getTeloptStartColor() + "IN:[IAC SB COMPRESS2 IAC SE] -BEGIN COMPRESSION-" + Colorizer.getResetColor() + "\n";
 								mReportTo.sendMessageDelayed(mReportTo.obtainMessage(Connection.MESSAGE_PROCESSORWARNING, message), 1);
@@ -401,6 +378,60 @@ public class Processor {
 		
 		return truncBuffer(buff, count);
 		
+	}
+
+	/** Find the {@code IAC SE} that closes the subnegotiation opened at {@code start}.
+	 *
+	 * <p>Pure so it can be tested with {@link #remainderAfterSubnegotiation}: together
+	 * they decide which bytes reach the MCCP Inflater, and a wrong index there is a
+	 * screenful of binary rather than a wrong character.
+	 *
+	 * @param input The packet being parsed.
+	 * @param start Index of the {@code IAC} of {@code IAC SB}.
+	 * @return Index of the {@code IAC} that opens the closing {@code IAC SE}, or -1
+	 *         when the subnegotiation is not complete in this packet.
+	 */
+	static int findSubnegotiationEnd(final byte[] input, final int start) {
+		int j = start + SKIP_BYTES;
+		while (j + 1 < input.length) {
+			if (input[j] == TC.IAC) {
+				if (input[j + 1] == TC.SE) {
+					return j;
+				} else if (input[j + 1] == TC.IAC) {
+					j += 2; // literal 0xFF in SB data
+					continue;
+				}
+				// Unexpected IAC command inside SB — skip the IAC byte.
+				j += 1;
+				continue;
+			}
+			j++;
+		}
+		return -1;
+	}
+
+	/** Everything after an {@code IAC SE} that ends a subnegotiation.
+	 *
+	 * <p>For MCCP2 this is the first slice of the zlib stream, so it has to be
+	 * byte-exact: the Inflater is fed it verbatim. The old code allocated
+	 * {@code input.length - (j + 2 - i)} while writing {@code input.length - (j + 2)}
+	 * bytes, so {@code b.array()} carried {@code i} trailing zeros — {@code i} being
+	 * the offset of the marker inside the packet. Achaea always sends a short
+	 * {@code IAC WONT …} ahead of {@code IAC SB MCCP2 IAC SE} in the same packet
+	 * (measured: i = 3), so the Inflater hit those zeros as a bogus stored-block
+	 * header and threw on the very first chunk. Servers that put the marker at
+	 * offset 0 had i = 0 and never showed the bug.
+	 *
+	 * @param input The packet being parsed.
+	 * @param j Index of the {@code IAC} that starts the closing {@code IAC SE}.
+	 * @return The bytes following {@code IAC SE}, possibly empty, never null.
+	 */
+	static byte[] remainderAfterSubnegotiation(final byte[] input, final int j) {
+		int start = j + 2;
+		if (start >= input.length) {
+			return new byte[0];
+		}
+		return Arrays.copyOfRange(input, start, input.length);
 	}
 
 	/** Copy the first {@code count} bytes out of {@code buff}. */
@@ -1563,6 +1594,14 @@ public class Processor {
 		if (!value) {
 			mMudProtocols.clearMssp();
 		}
+	}
+
+	public final void setUseMCCP(final boolean value) {
+		mOptionHandler.setUseMCCP(value);
+	}
+
+	public final boolean isUseMCCP() {
+		return mOptionHandler.isUseMCCP();
 	}
 
 	public final MudProtocolData getMudProtocols() {
