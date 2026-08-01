@@ -52,10 +52,18 @@
                 android:textSize="16sp"
                 android:contentDescription="Drag window" />
 
+            <!--
+              match_parent, not wrap_content: this view carries the drag listener,
+              and at wrap_content it left ~8dp of dead strip above and below the
+              text right across the bar. Touches there reach the bar itself, which
+              has no listener, so the window did not move. Visible, you aim around
+              it; with the bar hidden (the per-slot paint switch) you cannot see
+              where to aim at all. gravity keeps the text vertically centred.
+            -->
             <TextView
                 android:id="@+id/extra_text_title"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:ellipsize="end"
                 android:gravity="center_vertical"
