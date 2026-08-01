@@ -76,9 +76,8 @@
   	 	</windows>
   	 	<options title="Button" summary="Haptic feedback, roundess and other button options.">
   	 		<boolean title="Show gesture hints" key="show_gesture_hints" summary="Draw swipe arrows, hold (H), and accordion chevrons on buttons.">true</boolean>
-  	 		<boolean title="Offer button layout wizard" key="layout_wizard_pending" summary="Show the pack and size picker once after connect. Cleared when you finish or skip. Re-enable anytime, or use Overflow → Button layout…">true</boolean>
-  	 		<string title="Last layout pack" key="layout_pack" summary="Remembered pack id from Button layout… (compass, newbie, combat, explorer, social).">compass</string>
-  	 		<string title="Last button size preset" key="layout_size_preset" summary="Remembered size preset: compact, comfortable, large, xl, or fit_square.">comfortable</string>
+  	 		<boolean title="Offer button layout wizard" key="layout_wizard_pending" summary="Show the pack and size picker once after connect. Cleared when you finish or skip. Re-enable anytime, or use Options → Button → Load button set from wizard.">true</boolean>
+  	 		<callback title="Load button set from wizard" key="layout_wizard_open" summary="Pick templates and set names, size, alignment, and colors. Does not remove other button sets.">showLayoutWizardCmd</callback>
   	 		<integer title="Button roundness" key="roundess" summary="Radius of button corners.">6</integer>
   	 		<list title="Haptic feedback on editor launch." key="haptic_edit" summary="Perform haptic feedback when the editor is opened.">
   	 			<value>0</value>

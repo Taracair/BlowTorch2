@@ -916,8 +916,24 @@ local function lookCenter(x, y)
 	}
 end
 
--- Same layout as the fresh-MUD default pad; CLEAR became COMBAT so .loadset
--- combat is one tap away. Clear-all remains on hold/flip of COMBAT.
+-- Accordion helper (Lua-only; HyperSAX drops these fields).
+local function packAccordion(x, y, label, children, opts)
+	opts = opts or {}
+	return {
+		x = x, y = y, label = label, command = opts.command or "", labelSize = opts.labelSize or 11,
+		advanced = opts.advanced,
+		accordionDirection = opts.direction or "up",
+		accordionTrigger = opts.trigger or "tap",
+		accordionAutoClose = true,
+		accordionHoldMs = opts.holdMs or 450,
+		accordionChildLayout = opts.childLayout or "along",
+		accordionChildren = children,
+	}
+end
+
+-- Hub pad: MUD compass + MORE (WHO/EQ/SCAN/HELP) + CBT/EXP/SOC .loadset
+-- placeholders (rewritten to chosen setNames after a multi-install).
+-- Advanced adds NAV accordion and a few extra tiles.
 local PACK_COMPASS_BUTTONS = {
 	compassDir(23,  23,  "NW", "northwest", "nw"),
 	compassDir(68,  23,  "N",  "north",     "n"),
@@ -937,17 +953,33 @@ local PACK_COMPASS_BUTTONS = {
 	compassDir(23,  158, "U",  "up",        "u"),
 	compassDir(68,  158, "D",  "down",      "d"),
 	{ x=113, y=158, label="GET",   command="get all", labelSize=11 },
+	-- Simple keeps WHO as a primary; advanced prefers MORE accordion below.
 	{ x=158, y=158, label="WHO",   command="who", labelSize=11 },
 
-	{ x=23,  y=203, label="EQ",    command="equipment", labelSize=11 },
-	{ x=68,  y=203, label="MAP",   command=".map toggle", flipCommand=".map close",
+	{ x=23,  y=203, label="MAP",   command=".map toggle", flipCommand=".map close",
 	  holdCommand=".map open", labelSize=11 },
-	-- Hold/flip = clear all buttons (was the CLEAR tile).
-	{ x=113, y=203, label="COMBAT", command=".loadset combat",
-	  holdCommand=".clearbuttons", flipCommand=".clearbuttons", labelSize=10 },
+	{ x=68,  y=203, label="CBT",   command=".loadset combat",
+	  holdCommand=".clearbuttons", flipCommand=".clearbuttons", labelSize=11 },
+	{ x=113, y=203, label="EXP",   command=".loadset explorer", labelSize=11 },
+	{ x=158, y=203, label="SOC",   command=".loadset social", labelSize=11 },
+
+	packAccordion(23, 248, "MORE", {
+		{ label = "WHO",  command = "who" },
+		{ label = "EQ",   command = "equipment" },
+		{ label = "SCAN", command = "scan" },
+		{ label = "HELP", command = "help" },
+	}, { command = "", trigger = "tap" }),
+	packAccordion(68, 248, "NAV", {
+		{ label = "ENTER", command = "enter" },
+		{ label = "OUT",   command = "out" },
+		{ label = "UNLK",  command = "unlock" },
+		{ label = "EXA",   command = "examine" },
+	}, { advanced = true, trigger = "tap" }),
+	{ x=113, y=248, label="EQ", command="equipment", labelSize=11, advanced=true },
+	{ x=158, y=248, label="SCAN", command="scan", labelSize=10, advanced=true },
 }
 
--- Smaller first-day pad: four-way compass only, jump back to full compass via DEF.
+-- Smaller first-day pad: four-way + TIP accordion (advanced keeps accordion).
 local PACK_NEWBIE_BUTTONS = {
 	compassDir(23,  23,  "N", "north", "n"),
 	lookCenter(68, 23),
@@ -963,15 +995,11 @@ local PACK_NEWBIE_BUTTONS = {
 
 	{ x=23,  y=158, label="HELP", command="help", labelSize=11 },
 	{ x=68,  y=158, label="DEF",  command=".loadset compass", labelSize=11 },
-	-- Accordion in Lua (not XML): quick social/utility peek for new players.
-	{ x=113, y=158, label="TIP",  command="", labelSize=11,
-	  accordionDirection = "up", accordionTrigger = "tap", accordionAutoClose = true,
-	  accordionHoldMs = 450, accordionChildLayout = "along",
-	  accordionChildren = {
+	packAccordion(113, 158, "TIP", {
 		{ label = "WHO",   command = "who" },
 		{ label = "EXITS", command = "exits" },
 		{ label = "SCAN",  command = "scan" },
-	  } },
+	}, { command = "", trigger = "tap" }),
 }
 
 local PACK_COMBAT_BUTTONS = {
@@ -988,16 +1016,19 @@ local PACK_COMBAT_BUTTONS = {
 	{ x=113, y=113, label="STAND", command="stand", labelSize=10 },
 
 	{ x=23,  y=158, label="BACK",  command=".loadset compass", labelSize=11 },
+	-- Simple strips accordionChildren → tap still casts. Advanced: hold opens CAST.
 	{ x=68,  y=158, label="CAST",  command="cast", labelSize=11,
 	  accordionDirection = "up", accordionTrigger = "hold", accordionAutoClose = true,
 	  accordionHoldMs = 450, accordionChildLayout = "along",
 	  accordionChildren = {
-		{ label = "CON", command = "consider" },
+		{ label = "CON",  command = "consider" },
+		{ label = "KILL", command = "kill" },
+		{ label = "FLEE", command = "flee" },
 	  } },
 	{ x=113, y=158, label="REST",  command="rest", labelSize=11 },
 }
 
--- Wider explore pad: full rose + scan/examine/doors utility column.
+-- Wider explore pad: rose + utilities; advanced DOORS accordion.
 local PACK_EXPLORER_BUTTONS = {
 	compassDir(23,  23,  "NW", "northwest", "nw"),
 	compassDir(68,  23,  "N",  "north",     "n"),
@@ -1019,8 +1050,13 @@ local PACK_EXPLORER_BUTTONS = {
 
 	compassDir(23,  158, "U",  "up",        "u"),
 	compassDir(68,  158, "D",  "down",      "d"),
-	{ x=113, y=158, label="REST",  command="rest", labelSize=11 },
-	{ x=158, y=158, label="INV",   command="inventory", labelSize=11 },
+	{ x=113, y=158, label="INV",   command="inventory", labelSize=11 },
+	packAccordion(158, 158, "DOORS", {
+		{ label = "OPEN",  command = "open" },
+		{ label = "CLOSE", command = "close" },
+		{ label = "UNLK",  command = "unlock" },
+		{ label = "LOCK",  command = "lock" },
+	}, { advanced = true, trigger = "tap" }),
 	{ x=203, y=158, label="BACK",  command=".loadset compass", labelSize=10 },
 }
 
@@ -1040,12 +1076,18 @@ local PACK_SOCIAL_BUTTONS = {
 
 	{ x=23,  y=158, label="BACK",   command=".loadset compass", labelSize=11 },
 	{ x=68,  y=158, label="AFK",    command="afk", labelSize=11 },
-	{ x=113, y=158, label="COMBAT", command=".loadset combat", labelSize=10 },
+	{ x=113, y=158, label="CBT",    command=".loadset combat", labelSize=11 },
+	packAccordion(158, 158, "CHAT", {
+		{ label = "SAY",   command = "say" },
+		{ label = "EMOTE", command = "emote" },
+		{ label = "TELL",  command = "tell" },
+		{ label = "GT",    command = "gt" },
+	}, { advanced = true, trigger = "tap" }),
 }
 
 -- Catalog for the UI picker. Order is the wizard display order.
 local LAYOUT_PACK_LIST = {
-	{ id = "compass",  title = "Compass",  blurb = "Full eight-way pad with look/open/close swipes." },
+	{ id = "compass",  title = "Compass",  blurb = "Eight-way pad, MORE utilities, jumps to combat/explorer/social." },
 	{ id = "newbie",   title = "Newbie",   blurb = "Small four-way pad with help and a tip accordion." },
 	{ id = "combat",   title = "Combat",   blurb = "Kill/flee/consider plus eat, drink, cast." },
 	{ id = "explorer", title = "Explorer", blurb = "Wide rose with scan, doors, and examine." },
@@ -1060,6 +1102,8 @@ local PACK_SOURCES = {
 	social   = PACK_SOCIAL_BUTTONS,
 }
 
+local RESERVED_SET_NAMES = { default = true, tutorial = true }
+
 -- Same host/display globals Plugin.java sets for startertutorial.
 -- installPack refuses offline so it cannot clobber the tutorial pads.
 -- If these globals are absent, UI must still gate the wizard away from offline.
@@ -1073,15 +1117,172 @@ local function isOfflineLayoutSession()
 	return false
 end
 
+local function setNameExists(name)
+	if name == nil or name == "" then return false end
+	local key = string.lower(tostring(name))
+	if RESERVED_SET_NAMES[key] then return true end
+	if buttonsets[name] ~= nil or buttonsets[key] ~= nil then return true end
+	for existing, _ in pairs(buttonsets) do
+		if string.lower(tostring(existing)) == key then
+			return true
+		end
+	end
+	return false
+end
+
+-- Sanitize a base name and find a free set name (avoids default/tutorial + existing).
+function suggestSetName(base)
+	local s = string.lower(tostring(base or ""))
+	s = string.gsub(s, "%s+", "_")
+	s = string.gsub(s, "[^a-z0-9_%-]", "")
+	if s == "" then s = "buttons" end
+	if #s > 24 then s = string.sub(s, 1, 24) end
+	if not setNameExists(s) then
+		return s
+	end
+	local i = 2
+	while i <= 99 do
+		local cand = s .. "_" .. tostring(i)
+		if not setNameExists(cand) then
+			return cand
+		end
+		i = i + 1
+	end
+	return s .. "_" .. tostring(os.time() % 100000)
+end
+
+function getExistingButtonSetNames(args)
+	local list = {}
+	for name, _ in pairs(buttonsets) do
+		list[#list + 1] = tostring(name)
+	end
+	table.sort(list)
+	WindowXCallS(buttonWindowName, "showExistingButtonSetNames", serialize(list))
+end
+
+-- mode=simple: drop advanced=true tiles; hold-trigger accordions (CAST) lose
+-- accordion* fields but keep command as a plain tap; tap-trigger accordions
+-- (MORE/TIP) stay intact. mode=advanced: keep advanced tiles + accordions.
+-- Always drop the advanced marker from saved rows.
+local function filterPackSource(source, mode)
+	local keepAdvanced = (tostring(mode or "simple"):lower() == "advanced")
+	local out = {}
+	for _, src in ipairs(source) do
+		if (not keepAdvanced) and src.advanced then
+			-- skip advanced-only tile
+		else
+			local b = clonePackButton(src)
+			rawset(b, "advanced", nil)
+			if not keepAdvanced then
+				local trigger = string.lower(tostring(src.accordionTrigger or ""))
+				if trigger == "hold" then
+					b.accordionChildren = nil
+					b.accordionDirection = nil
+					b.accordionTrigger = nil
+					b.accordionAutoClose = nil
+					b.accordionHoldMs = nil
+					b.accordionChildLayout = nil
+				end
+			end
+			out[#out + 1] = b
+		end
+	end
+	return out
+end
+
+local DEFAULT_PRIMARY_COLOR = 0x880000FF
+local DEFAULT_SELECTED_COLOR = 0x8800FF00
+
+local function applyPackColors(setName, colors)
+	local defs = buttonset_defaults[setName]
+	if defs == nil then return end
+	colors = type(colors) == "table" and colors or {}
+	local primary = colors.primary
+	if primary == nil then primary = DEFAULT_PRIMARY_COLOR end
+	local selected = colors.selected
+	if selected == nil then selected = DEFAULT_SELECTED_COLOR end
+	defs.primaryColor = tonumber(primary) or primary
+	defs.selectedColor = tonumber(selected) or selected
+end
+
+-- Rewrite .loadset / switchTo that target catalog pack ids installed in this
+-- batch to their chosen setNames. Uninstalled pack targets stay as pack ids.
+local function rewriteLinkTarget(target, packIdToSetName)
+	if target == nil then return nil, false end
+	local name = tostring(target)
+	if name == "" then return "", false end
+	local mapped = packIdToSetName[name]
+	if mapped ~= nil then
+		return mapped, true
+	end
+	return name, false
+end
+
+local function rewriteCommandLinks(cmd, packIdToSetName)
+	if type(cmd) ~= "string" or cmd == "" then return cmd end
+	local packId = string.match(cmd, "^%.loadset%s+([%w_%-]+)%s*$")
+	if packId == nil then return cmd end
+	-- Catalog keys are lowercase; player setNames keep their chosen casing.
+	local newName, changed = rewriteLinkTarget(string.lower(packId), packIdToSetName)
+	if not changed then return cmd end
+	if newName == nil or newName == "" then return "" end
+	return ".loadset " .. newName
+end
+
+local function rewriteButtonCrossLinks(btn, packIdToSetName)
+	if type(btn) ~= "table" then return end
+	local fields = {
+		"command", "flipCommand", "holdCommand",
+		"swipeUpCommand", "swipeDownCommand", "swipeLeftCommand", "swipeRightCommand",
+		"swipeUpLeftCommand", "swipeUpRightCommand",
+		"swipeDownLeftCommand", "swipeDownRightCommand",
+	}
+	for _, f in ipairs(fields) do
+		if btn[f] ~= nil then
+			btn[f] = rewriteCommandLinks(btn[f], packIdToSetName)
+		end
+	end
+	if btn.switchTo ~= nil and tostring(btn.switchTo) ~= "" then
+		local newName, changed = rewriteLinkTarget(btn.switchTo, packIdToSetName)
+		if changed then
+			btn.switchTo = newName or ""
+		end
+	end
+	if type(btn.accordionChildren) == "table" then
+		for _, child in ipairs(btn.accordionChildren) do
+			rewriteButtonCrossLinks(child, packIdToSetName)
+		end
+	end
+end
+
+local function rewriteSetCrossLinks(setName, packIdToSetName)
+	local set = buttonsets[setName]
+	if set == nil then return end
+	for _, btn in pairs(set) do
+		rewriteButtonCrossLinks(btn, packIdToSetName)
+	end
+end
+
 function getLayoutPackList(args)
 	WindowXCallS(buttonWindowName, "showLayoutPackList", serialize(LAYOUT_PACK_LIST))
 end
 
 function getLayoutWizardState(args)
+	local existingNames = {}
+	for name, _ in pairs(buttonsets) do
+		existingNames[#existingNames + 1] = tostring(name)
+	end
+	table.sort(existingNames)
 	local state = {
 		pending = options.layout_wizard_pending,
-		pack = options.layout_pack,
 		size = options.layout_size_preset,
+		align = "right",
+		mode = "simple",
+		colors = {
+			primary = DEFAULT_PRIMARY_COLOR,
+			selected = DEFAULT_SELECTED_COLOR,
+		},
+		existingNames = existingNames,
 	}
 	WindowXCallS(buttonWindowName, "showLayoutWizardState", serialize(state))
 end
@@ -1094,87 +1295,205 @@ function showLayoutWizardCmd(args)
 	WindowXCallS(buttonWindowName, "showLayoutWizard", args ~= nil and tostring(args) or "")
 end
 
--- Rebuild every pack from DP, align each once, load the chosen set, save once.
--- args: pack id, or "packId|sizePreset". Always rebuilds all five so .loadset
--- between packs works after a wizard finish or a later re-install.
-function installPack(args)
-	if isOfflineLayoutSession() then
-		Note("\ninstallPack refused: offline / Starter Tutorial session.\n")
-		return
+-- Install one or more named packs. Never rebuilds/deletes sibling player sets.
+-- args: serialized table (preferred) or legacy "packId|sizePreset" / "packId".
+--
+-- Finish payload:
+--   { installs={{packId,setName,overwrite},...}, loadSet, align, colors, size, mode }
+-- Single-install shortcut also accepted: { packId, setName, overwrite, ... }
+local function normalizeInstallSpec(t)
+	if type(t) ~= "table" then return nil end
+	if type(t.installs) == "table" and #t.installs > 0 then
+		return t
 	end
+	local packId = t.packId or t.pack or t.name
+	if packId == nil or tostring(packId) == "" then
+		return nil
+	end
+	local setName = t.setName or packId
+	-- Old {pack=, size=} and other single-pack shortcuts rebuild that set.
+	local overwrite = t.overwrite
+	if overwrite == nil then
+		overwrite = true
+	end
+	return {
+		installs = {
+			{
+				packId = tostring(packId),
+				setName = tostring(setName),
+				overwrite = overwrite,
+			},
+		},
+		loadSet = t.loadSet or tostring(setName),
+		align = t.align or "right",
+		colors = t.colors,
+		size = t.size or t.sizePreset,
+		mode = t.mode or "simple",
+	}
+end
 
-	local raw = args ~= nil and tostring(args) or ""
+local function parseLegacyInstallArgs(raw)
 	local chosen, sizePreset = raw, ""
 	local pipe = string.find(raw, "|", 1, true)
 	if pipe ~= nil then
 		chosen = string.sub(raw, 1, pipe - 1)
 		sizePreset = string.sub(raw, pipe + 1) or ""
 	end
-	chosen = string.lower((chosen:match("^%s*(.-)%s*$")) or "")
+	chosen = string.lower((string.match(chosen, "^%s*(.-)%s*$")) or "")
 	if PACK_SOURCES[chosen] == nil then
-		Note("\nUnknown layout pack: " .. tostring(args) .. "\n")
-		return
+		return nil
 	end
+	return {
+		installs = {
+			{ packId = chosen, setName = chosen, overwrite = true },
+		},
+		loadSet = chosen,
+		size = sizePreset,
+		align = "right",
+		mode = "simple",
+	}
+end
 
-	for id, source in pairs(PACK_SOURCES) do
-		rebuildPackSet(id, source)
+local function doInstallBatch(t)
+	local align = string.lower(tostring(t.align or "right"))
+	if align ~= "left" and align ~= "center" and align ~= "right" then
+		align = "right"
 	end
+	local mode = string.lower(tostring(t.mode or "simple"))
+	if mode ~= "simple" and mode ~= "advanced" then
+		mode = "simple"
+	end
+	local sizePreset = t.size or t.sizePreset or ""
+	local colors = t.colors
+	local loadSet = t.loadSet ~= nil and tostring(t.loadSet) or ""
 
-	for id,_ in pairs(PACK_SOURCES) do
-		local okAlign, alignErr = pcall(alignButtonSet, id)
-		if not okAlign then
-			Note("\nButton align failed for \"" .. id .. "\": " .. tostring(alignErr) .. "\n")
+	local succeeded = {}
+	local packIdToSetName = {}
+	local skipped = 0
+
+	for _, row in ipairs(t.installs) do
+		if type(row) == "table" then
+			local packId = string.lower(tostring(row.packId or row.pack or ""))
+			local setName = tostring(row.setName or packId or "")
+			setName = string.match(setName, "^%s*(.-)%s*$") or setName
+			local overwrite = (row.overwrite == true or row.overwrite == "true" or row.overwrite == "1")
+			local source = PACK_SOURCES[packId]
+			if source == nil then
+				Note("\nUnknown layout pack: " .. tostring(packId) .. "\n")
+			elseif setName == "" then
+				Note("\nlayout install: empty set name for pack " .. packId .. "\n")
+			elseif RESERVED_SET_NAMES[string.lower(setName)] and not overwrite then
+				Note("\nlayout install: set \"" .. setName
+					.. "\" is reserved (default/tutorial); skipped.\n")
+				skipped = skipped + 1
+			elseif setNameExists(setName) and not overwrite then
+				Note("\nlayout install: set \"" .. setName
+					.. "\" already exists; skipped (overwrite=false).\n")
+				skipped = skipped + 1
+			else
+				local filtered = filterPackSource(source, mode)
+				rebuildPackSet(setName, filtered)
+				applyPackColors(setName, colors)
+				local okAlign, alignErr = pcall(alignButtonSet, setName, align)
+				if not okAlign then
+					Note("\nButton align failed for \"" .. setName .. "\": "
+						.. tostring(alignErr) .. "\n")
+				end
+				succeeded[#succeeded + 1] = { packId = packId, setName = setName }
+				packIdToSetName[packId] = setName
+			end
 		end
 	end
 
-	current_set = chosen
-	pcall(loadButtonSet, chosen)
+	if #succeeded == 0 then
+		Note("\nlayout install: no packs installed"
+			.. (skipped > 0 and (" (" .. tostring(skipped) .. " skipped).") or ".")
+			.. "\n")
+		return false
+	end
 
-	options.layout_pack = chosen
-	persistLayoutOption("layout_pack", chosen, false)
-	if sizePreset ~= nil and sizePreset ~= "" then
+	-- Map .loadset <packId> → chosen setName only for packs installed this batch.
+	if loadSet == "" then
+		loadSet = succeeded[1].setName
+	end
+	for _, row in ipairs(succeeded) do
+		rewriteSetCrossLinks(row.setName, packIdToSetName)
+	end
+
+	if buttonsets[loadSet] == nil then
+		loadSet = succeeded[1].setName
+	end
+
+	current_set = loadSet
+	pcall(loadButtonSet, loadSet)
+
+	-- Wizard memory (internal; not player-typed Options fields).
+	options.layout_pack = succeeded[1].packId
+	persistLayoutOption("layout_pack", options.layout_pack, false)
+	if sizePreset ~= nil and tostring(sizePreset) ~= "" then
 		options.layout_size_preset = tostring(sizePreset)
 		persistLayoutOption("layout_size_preset", sizePreset, false)
 	end
-	-- Wizard finish path clears the first-run flag; menu re-entry may leave it.
-	if options.layout_wizard_pending == true or options.layout_wizard_pending == "true"
-		or options.layout_wizard_pending == "1" then
-		options.layout_wizard_pending = "false"
-		persistLayoutOption("layout_wizard_pending", false, true)
-	end
+	options.layout_wizard_pending = "false"
+	persistLayoutOption("layout_wizard_pending", false, true)
 
 	if SaveSettings ~= nil then
 		pcall(SaveSettings)
 	end
-	-- UI applies the size preset (fitGrid / applyButtonSize live in the window).
-	-- Pass pack|size so the window does not depend on a wizard-only side channel
-	-- or a stale pre-install copy of buttonWindowOptions.
-	local installedPayload = chosen
-	if sizePreset ~= nil and tostring(sizePreset) ~= "" then
-		installedPayload = chosen .. "|" .. tostring(sizePreset)
-	elseif options.layout_size_preset ~= nil and tostring(options.layout_size_preset) ~= "" then
-		installedPayload = chosen .. "|" .. tostring(options.layout_size_preset)
-	end
+
+	-- UI applies size after load (bare size string is enough).
+	local installedPayload = tostring(sizePreset or "")
 	WindowXCallS(buttonWindowName, "onLayoutPackInstalled", installedPayload)
 	pcall(loadOptions)
+	return true
 end
 
--- data: serialized { pack=..., size=..., install_all=true } from the UI.
--- install_all is implied — installPack always rebuilds every pack definition.
-function applyLayoutWizardFinish(data)
-	local t = loadSerialized(data, "layout wizard finish data")
-	if t == nil then return end
-	local pack = t.pack or t.name
-	if pack == nil or tostring(pack) == "" then
-		Note("\nlayout wizard: no pack selected.\n")
+function installPack(args)
+	if isOfflineLayoutSession() then
+		Note("\ninstallPack refused: offline / Starter Tutorial session.\n")
 		return
 	end
-	local size = t.size or t.sizePreset or ""
-	if size ~= nil and tostring(size) ~= "" then
-		installPack(tostring(pack) .. "|" .. tostring(size))
+
+	local t = nil
+	if type(args) == "table" then
+		t = normalizeInstallSpec(args)
 	else
-		installPack(tostring(pack))
+		local raw = args ~= nil and tostring(args) or ""
+		if raw == "" then
+			Note("\ninstallPack: missing args.\n")
+			return
+		end
+		-- Prefer serialized table; fall back to legacy pack|size string.
+		if string.sub(raw, 1, 1) == "{" then
+			t = normalizeInstallSpec(loadSerialized(raw, "installPack args"))
+		else
+			t = parseLegacyInstallArgs(raw)
+		end
 	end
+	if t == nil then
+		Note("\ninstallPack: bad args (need installs[] or packId).\n")
+		return
+	end
+	doInstallBatch(t)
+end
+
+-- data: serialized finish table from the wizard UI.
+function applyLayoutWizardFinish(data)
+	if isOfflineLayoutSession() then
+		Note("\nlayout wizard refused: offline / Starter Tutorial session.\n")
+		return
+	end
+	local t = nil
+	if type(data) == "table" then
+		t = normalizeInstallSpec(data)
+	else
+		t = normalizeInstallSpec(loadSerialized(data, "layout wizard finish data"))
+	end
+	if t == nil then
+		Note("\nlayout wizard: no packs selected.\n")
+		return
+	end
+	doInstallBatch(t)
 end
 
 -- Pull every tile of a set back onto the screen.
@@ -1225,13 +1544,24 @@ function sanitizeButtonSet(setName)
 	return moved
 end
 
--- Scale one set's DP centers by density, then pin upper-center (below the
--- status/action bar — not glued to the top edge). Multiplies in place: callers
--- must rebuild from a canonical DP table first or coordinates compound.
-function alignButtonSet(setName)
+-- Scale one set's DP centers by density, then pin horizontally (left|center|right)
+-- and vertically to the upper third (below the status/action bar). Multiplies in
+-- place: callers must rebuild from a canonical DP table first or coordinates compound.
+-- No 2nd arg → legacy center-ish behaviour (starter/tutorial / density test).
+-- Wizard installs pass "left"|"center"|"right" explicitly (default "right" there).
+function alignButtonSet(setName, align)
 	local set = buttonsets[setName]
 	local defaults = buttonset_defaults[setName]
 	if set == nil then return end
+
+	if align == nil then
+		align = "center"
+	else
+		align = string.lower(tostring(align))
+		if align ~= "left" and align ~= "center" and align ~= "right" then
+			align = "right"
+		end
+	end
 
 	local margin = 10
 	local topPad = 88
@@ -1268,9 +1598,18 @@ function alignButtonSet(setName)
 	end
 
 	local clusterW = right - left
-	local xoffset = ((widthPixels - clusterW) / 2) - left
-	if xoffset < margin * density then
+	local xoffset
+	if align == "left" then
 		xoffset = margin * density - left
+	elseif align == "center" then
+		-- Match pre-wizard centering (clamp away from the left edge).
+		xoffset = ((widthPixels - clusterW) / 2) - left
+		if xoffset < margin * density then
+			xoffset = margin * density - left
+		end
+	else
+		-- right
+		xoffset = (widthPixels - margin * density - clusterW) - left
 	end
 
 	-- Upper third: below action/status bar + topPad, never flush with the top.
@@ -1290,9 +1629,10 @@ function alignButtonSet(setName)
 	end
 end
 
+-- Starter tutorial path: always center default+tutorial (unchanged behaviour).
 function alignDefaultButtons()
-	alignButtonSet("default")
-	alignButtonSet("tutorial")
+	alignButtonSet("default", "center")
+	alignButtonSet("tutorial", "center")
 end
 
 -- Persist into the Java SettingsGroup (what SaveSettings actually writes).
@@ -1301,7 +1641,10 @@ end
 --
 -- Existing profiles loaded before these keys existed have no SettingsGroup
 -- entries; updateBoolean/updateString are silent no-ops then. ensure* adds the
--- missing options once (pending defaults false so upgrades are not nagged).
+-- missing pending option once (defaults false so upgrades are not nagged).
+-- Do not add layout_pack / layout_size_preset StringOptions — those titles
+-- were player-visible Options clutter; size/pack memory persists only when
+-- the keys already exist in the SettingsGroup.
 function ensureLayoutSettingsOptions()
 	if GetPluginSettings == nil then
 		return false
@@ -1323,37 +1666,25 @@ function ensureLayoutSettingsOptions()
 			opt:setKey("layout_wizard_pending")
 			opt:setTitle("Offer button layout wizard")
 			opt:setDescription(
-				"Show the pack and size picker once after connect. Cleared when you finish or skip. Re-enable anytime, or use Overflow → Button layout…")
+				"Show the pack and size picker once after connect. Cleared when you finish or skip. Re-enable anytime, or use Options → Button → Load button set from wizard.")
 			-- Upgrades: never auto-offer; new profiles already have true from XML.
 			opt:setValue(false)
 			settings:addOption(opt)
 		end)
 		if okAdd then added = true end
 	end
-	if missing("layout_pack") then
+	-- Overflow "Button layout…" was removed; inject the Options callback so
+	-- upgraded profiles still have a GUI entry (XML only seeds new profiles).
+	if missing("layout_wizard_open") then
 		local okAdd = pcall(function()
-			local StringOption = luajava.bindClass(
-				"com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption")
-			local opt = luajava.new(StringOption)
-			opt:setKey("layout_pack")
-			opt:setTitle("Last layout pack")
+			local CallbackOption = luajava.bindClass(
+				"com.resurrection.blowtorch2.lib.service.plugin.settings.CallbackOption")
+			local opt = luajava.new(CallbackOption)
+			opt:setKey("layout_wizard_open")
+			opt:setTitle("Load button set from wizard")
 			opt:setDescription(
-				"Remembered pack id from Button layout… (compass, newbie, combat, explorer, social).")
-			opt:setValue(options.layout_pack ~= nil and tostring(options.layout_pack) or "compass")
-			settings:addOption(opt)
-		end)
-		if okAdd then added = true end
-	end
-	if missing("layout_size_preset") then
-		local okAdd = pcall(function()
-			local StringOption = luajava.bindClass(
-				"com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption")
-			local opt = luajava.new(StringOption)
-			opt:setKey("layout_size_preset")
-			opt:setTitle("Last button size preset")
-			opt:setDescription(
-				"Remembered size preset: compact, comfortable, large, xl, or fit_square.")
-			opt:setValue(options.layout_size_preset ~= nil and tostring(options.layout_size_preset) or "comfortable")
+				"Pick templates and set names, size, alignment, and colors. Does not remove other button sets.")
+			opt:setValue("showLayoutWizardCmd")
 			settings:addOption(opt)
 		end)
 		if okAdd then added = true end
@@ -1415,8 +1746,10 @@ function clearLayoutWizardPending(args)
 	end
 end
 
--- First-run / menu entry: refuse offline so the starter pad stays owned by
+-- First-run soft prompt: refuse offline so the starter pad stays owned by
 -- installStarterButtonLayout. Window Lua may not have connection_host.
+-- Soft prompt (Open wizard / Not now) lives in the window; Options callback
+-- and .layoutwizard go straight to showLayoutWizard.
 function offerLayoutWizardIfPending(args)
 	if isOfflineLayoutSession() then
 		return
@@ -1425,7 +1758,7 @@ function offerLayoutWizardIfPending(args)
 	if not (pending == true or pending == "true" or pending == "1") then
 		return
 	end
-	WindowXCallS(buttonWindowName, "showLayoutWizard", "")
+	WindowXCallS(buttonWindowName, "showLayoutWizardOffer", "")
 end
 
 optionsTable = {}
@@ -1441,8 +1774,9 @@ optionsTable.auto_create = setAutoCreate
 optionsTable.show_gesture_hints = setShowGestureHints
 optionsTable.show_swipe_preview = setShowSwipePreview
 optionsTable.chrome_gestures = setChromeGestures
--- Stringly layout-wizard prefs (XML may seed layout_wizard_pending for NEW
--- profiles only; Lua defaults stay false/empty so existing profiles are safe).
+-- layout_wizard_pending is the only player-facing layout Options row (boolean).
+-- layout_pack / layout_size_preset stay registered so SettingsGroup can push
+-- wizard memory into Lua; they are not in default_settings XML as typed fields.
 optionsTable.layout_wizard_pending = setLayoutWizardPending
 optionsTable.layout_pack = setLayoutPack
 optionsTable.layout_size_preset = setLayoutSizePreset

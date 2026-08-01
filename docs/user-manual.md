@@ -715,12 +715,14 @@ Works with either text direction. Off = classic lift (text rises with the keyboa
 
 ## On-screen buttons: swipe + accordion
 
-**Pick a starter pack / size:** **⋮ → Button layout…** (or type `.layoutwizard`).
-Choose a pack (Compass, Newbie, Combat, Explorer, Social) and a size preset
-(Compact / Comfortable / Large / Extra large / Fit to screen). You can reopen
-this anytime to reinstall a pack or rescale. New MUD profiles may offer it once
-after connect; turn **Options → Button → Offer button layout wizard** back on
-to see that prompt again. Offline Starter Tutorial keeps its own teaching pad.
+**Load a button set from the wizard:** **Options → Button → Load button set from wizard**
+(or type `.layoutwizard`). Check one or more packs (Compass, Newbie, Combat,
+Explorer, Social), give each a set name, pick size / alignment / colors, and
+Simple or Advanced. Apply only writes the named sets you checked — other sets
+stay put; same name overwrites after a warning. New MUD profiles may offer a
+soft prompt once after connect; turn **Options → Button → Offer button layout
+wizard** back on to see that prompt again. Offline Starter Tutorial keeps its
+own teaching pad.
 
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.
 
@@ -1025,7 +1027,7 @@ it entirely to remove the plugin.
 
 1. **Map** — open / toggle the built-in Mapper (also `.map open|toggle`)  
 2. **Edit buttons** — enter button layout edit mode  
-3. **Button Sets** / **Button layout…** — switch saved sets, or pick a pack and size preset  
+3. **Button Sets** — switch saved sets (pack/size wizard: **Options → Button → Load button set from wizard**)  
 4. **Crash report** — Show log / Share log  
 5. **About**  
 6. **Help** — This manual  

@@ -1570,13 +1570,12 @@ LAYOUT_SIZE_PRESETS = {
 	fit = "fit_square",
 }
 
--- Set by the wizard Apply path before installPack; consumed in onLayoutPackInstalled.
-wizardPendingSize = nil
-
 local cachedLayoutPacks = nil
 local cachedWizardState = nil
+local cachedExistingSetNames = nil
 local layoutWizardShowRequested = false
 local layoutWizardOffered = false
+local layoutWizardSoftPrompt = nil
 local buttonWindowOptions = nil
 local layoutWizardModule = nil
 
@@ -1592,6 +1591,31 @@ local function ensureLayoutWizardModule()
 	return layoutWizardModule
 end
 
+local function suggestLocalSetName(base, existingNames)
+	local mod = layoutWizardModule
+	if mod ~= nil and type(mod.suggestSetName) == "function" then
+		return mod.suggestSetName(base, existingNames)
+	end
+	local existing = {}
+	if type(existingNames) == "table" then
+		for _, n in pairs(existingNames) do
+			if n ~= nil and tostring(n) ~= "" then
+				existing[string.lower(tostring(n))] = true
+			end
+		end
+	end
+	local root = string.lower(tostring(base or ""):match("^%s*(.-)%s*$") or "")
+	if root == "" then root = "pack" end
+	if not existing[root] then
+		return root
+	end
+	local i = 2
+	while existing[root .. "_" .. tostring(i)] do
+		i = i + 1
+	end
+	return root .. "_" .. tostring(i)
+end
+
 local function tryPresentLayoutWizard()
 	if not layoutWizardShowRequested then
 		return
@@ -1603,11 +1627,29 @@ local function tryPresentLayoutWizard()
 		PluginXCallS("getLayoutPackList", "")
 		return
 	end
+	if cachedExistingSetNames == nil then
+		PluginXCallS("getExistingButtonSetNames", "")
+		return
+	end
 	local state = {}
 	for k, v in pairs(cachedWizardState) do
 		state[k] = v
 	end
 	state.packs = cachedLayoutPacks
+	state.existingNames = cachedExistingSetNames
+	if type(state.suggest) ~= "table" then
+		state.suggest = {}
+	end
+	if type(state.packs) == "table" then
+		for _, p in ipairs(state.packs) do
+			if type(p) == "table" and p.id ~= nil then
+				local id = tostring(p.id)
+				if state.suggest[id] == nil then
+					state.suggest[id] = suggestLocalSetName(id, state.existingNames)
+				end
+			end
+		end
+	end
 	layoutWizardShowRequested = false
 	ensureLayoutWizardModule().showWizard(state)
 end
@@ -1643,8 +1685,10 @@ function applyLayoutSizePreset(preset)
 	return true
 end
 
--- Called after installPack rebuilds and loads the chosen set.
--- args: "pack" or "pack|sizePreset" from the service.
+-- Called after installPack / applyLayoutWizardFinish loads the chosen set.
+-- args: "pack" or "pack|sizePreset" or bare sizePreset from the service.
+-- Also dismisses the wizard dialog — Apply keeps it open until this fires so
+-- a full skip (overwrite=false / reserved) does not look like success.
 function onLayoutPackInstalled(args)
 	local raw = args ~= nil and tostring(args) or ""
 	local packName, sizeFromArgs = raw, ""
@@ -1652,13 +1696,13 @@ function onLayoutPackInstalled(args)
 	if pipe ~= nil then
 		packName = string.sub(raw, 1, pipe - 1)
 		sizeFromArgs = string.sub(raw, pipe + 1) or ""
+	elseif LAYOUT_SIZE_PRESETS[string.lower(raw)] ~= nil then
+		-- Service may send size alone after the new finish payload.
+		sizeFromArgs = raw
+		packName = ""
 	end
 
-	local size = wizardPendingSize
-	wizardPendingSize = nil
-	if size == nil or tostring(size) == "" then
-		size = sizeFromArgs
-	end
+	local size = sizeFromArgs
 	if size == nil or tostring(size) == "" then
 		local opts = buttonWindowOptions or options
 		if opts ~= nil then
@@ -1668,6 +1712,9 @@ function onLayoutPackInstalled(args)
 	if size ~= nil and tostring(size) ~= "" then
 		applyLayoutSizePreset(tostring(size))
 	end
+	pcall(function()
+		ensureLayoutWizardModule().dismissAfterApply()
+	end)
 end
 
 function showLayoutPackList(data)
@@ -1679,25 +1726,60 @@ function showLayoutPackList(data)
 	tryPresentLayoutWizard()
 end
 
+function showExistingButtonSetNames(data)
+	local names = loadSerialized(data, "existing button set names")
+	if names == nil then
+		cachedExistingSetNames = {}
+	else
+		-- Accept either a list {"a","b"} or a map {a=count,...} from getButtonSetList shape.
+		local list = {}
+		local n = #names
+		if n > 0 then
+			for i = 1, n do
+				if names[i] ~= nil and tostring(names[i]) ~= "" then
+					list[#list + 1] = tostring(names[i])
+				end
+			end
+		else
+			for k, _ in pairs(names) do
+				if k ~= nil and tostring(k) ~= "" then
+					list[#list + 1] = tostring(k)
+				end
+			end
+			table.sort(list)
+		end
+		cachedExistingSetNames = list
+	end
+	tryPresentLayoutWizard()
+end
+
 function showLayoutWizardState(data)
 	local state = loadSerialized(data, "the layout wizard state")
 	if state == nil then
 		return
 	end
 	cachedWizardState = state
-	-- Menu / command path sets the request flag; first-run offer does too.
+	if type(state.existingNames) == "table" then
+		cachedExistingSetNames = state.existingNames
+	end
+	-- Options / command path sets the request flag; soft-prompt Open does too.
 	layoutWizardShowRequested = true
 	tryPresentLayoutWizard()
 end
 
 function showLayoutWizard(args)
 	layoutWizardShowRequested = true
+	-- Re-fetch names so collision warnings stay current across re-entry.
+	cachedExistingSetNames = nil
 	if type(args) == "string" and args ~= "" then
 		local state = loadSerialized(args, "layout wizard args")
 		if state ~= nil then
 			cachedWizardState = state
 			if type(state.packs) == "table" then
 				cachedLayoutPacks = state.packs
+			end
+			if type(state.existingNames) == "table" then
+				cachedExistingSetNames = state.existingNames
 			end
 			tryPresentLayoutWizard()
 			return
@@ -1706,7 +1788,46 @@ function showLayoutWizard(args)
 	if cachedLayoutPacks == nil then
 		PluginXCallS("getLayoutPackList", "")
 	end
+	PluginXCallS("getExistingButtonSetNames", "")
 	PluginXCallS("getLayoutWizardState", "")
+end
+
+-- First-run soft prompt before opening the full wizard.
+function showLayoutWizardOffer(args)
+	if mContext == nil then
+		return
+	end
+	if layoutWizardSoftPrompt ~= nil then
+		pcall(function() layoutWizardSoftPrompt:dismiss() end)
+		layoutWizardSoftPrompt = nil
+	end
+	local builder = luajava.newInstance("android.app.AlertDialog$Builder", mContext)
+	builder:setTitle("Button layout")
+	builder:setMessage(
+		"This is the first launch of this MUD — the button layout wizard can help set up your buttons.")
+	builder:setPositiveButton("Open wizard", luajava.createProxy(
+		"android.content.DialogInterface$OnClickListener", {
+		onClick = function(d, which)
+			layoutWizardSoftPrompt = nil
+			showLayoutWizard("")
+		end
+	}))
+	builder:setNegativeButton("Not now", luajava.createProxy(
+		"android.content.DialogInterface$OnClickListener", {
+		onClick = function(d, which)
+			layoutWizardSoftPrompt = nil
+			PluginXCallS("clearLayoutWizardPending", "")
+		end
+	}))
+	builder:setOnCancelListener(luajava.createProxy(
+		"android.content.DialogInterface$OnCancelListener", {
+		onCancel = function(d)
+			layoutWizardSoftPrompt = nil
+			PluginXCallS("clearLayoutWizardPending", "")
+		end
+	}))
+	layoutWizardSoftPrompt = builder:create()
+	layoutWizardSoftPrompt:show()
 end
 
 function maybeOfferLayoutWizard()
@@ -3276,12 +3397,6 @@ function PopulateMenu(menu)
 			--Note("action bar not supported,android version < 3.0")
 		end
 
-		local layoutMenuItem = menu:add(0,402,402,"Button layout…")
-		layoutMenuItem:setOnMenuItemClickListener(layoutWizardMenuClicked_cb)
-		if(not pcall(foo,layoutMenuItem)) then
-			-- action bar not supported
-		end
-		
 	--else
 	--	menu:add(topMenuItem)
 	--end
@@ -3293,14 +3408,6 @@ function buttonsetMenuClicked.onMenuItemClick(item)
 	return true
 end
 buttonsetMenuClicked_cb = luajava.createProxy("android.view.MenuItem$OnMenuItemClickListener",buttonsetMenuClicked)
-
-layoutWizardMenuClicked = {}
-function layoutWizardMenuClicked.onMenuItemClick(item)
-	-- Route through the service so offline / tutorial sessions are refused.
-	PluginXCallS("showLayoutWizardCmd", "")
-	return true
-end
-layoutWizardMenuClicked_cb = luajava.createProxy("android.view.MenuItem$OnMenuItemClickListener",layoutWizardMenuClicked)
 
 -- AddOptionCallback("buttonList", ...) and overflow case 401 call this.
 function buttonList()
