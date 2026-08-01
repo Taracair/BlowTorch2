@@ -126,9 +126,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Sent from the DataPumper when the connection has been lost. */
 	public static final int MESSAGE_DISCONNECTED = 8;
 	
-	/** Sent from the DataPumper indicating a fatal mccp error. */
-	public static final int MESSAGE_MCCPFATALERROR = 9;
-	
 	/** Sent from the foreground window with data to be sent to the server. */
 	public static final int MESSAGE_SENDDATA_BYTES = 9;
 	
@@ -271,7 +268,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Sent from the timer command — arg1 = new duration in seconds. */
 	public static final int MESSAGE_TIMERDURATION = 51;
-	
+
+	/** Sent from the DataPumper when MCCP decompression failed and the stream is lost.
+	 ** Was 9 until 2026-08-01, which collided with MESSAGE_SENDDATA_BYTES: the report
+	 ** landed in sendToServer(null), which null-checks and returns, so nothing ever
+	 ** handled an MCCP failure. */
+	public static final int MESSAGE_MCCPFATALERROR = 52;
+
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
 	/** Very large value. */
@@ -830,6 +833,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_STARTCOMPRESS:
 				mPump.getHandler().sendMessage(mPump.getHandler().obtainMessage(DataPumper.MESSAGE_COMPRESS, msg.obj));
+				break;
+			case MESSAGE_MCCPFATALERROR:
+				handleMccpFailure();
 				break;
 			case MESSAGE_SENDOPTIONDATA:
 				Bundle b = msg.getData();
@@ -2624,6 +2630,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			loadLoginCredentialsIntoProcessor();
 
 			initSettings();
+			// Before mPump.start(), so the profile — and the MCCP session override —
+			// are in the Processor before any IAC WILL can be answered. Ordering was
+			// already safe via handler FIFO (DataPumper posts MESSAGE_CONNECTED before
+			// its read handler exists, and MESSAGE_CONNECTED reaches these flags through
+			// ConnectionGmcp.applyGmcpLogSetting), but that is a long chain to rely on.
+			// Note this is an addition: applyGmcpLogSetting still calls it too, and a
+			// second application is harmless on a Processor built ten lines above.
+			applyMudProtocolFlags();
 			applyTerminalNaws();
 			mExtraText.syncGmcpRoutes();
 			mPump.start();
@@ -4248,6 +4262,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case use_mssp:
 				this.doSetUseMSSP((Boolean) o.getValue());
 				break;
+			case use_mccp:
+				this.doSetUseMCCP((Boolean) o.getValue());
+				break;
 			case session_log:
 				mSessionLog.doSetSessionLog((Boolean) o.getValue());
 				break;
@@ -4416,6 +4433,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private void doSetUseMSSP(final Boolean value) {
 		if (mProcessor != null) {
 			mProcessor.setUseMSSP(value != null && value.booleanValue());
+		}
+	}
+
+	private void doSetUseMCCP(final Boolean value) {
+		boolean on = value != null && value.booleanValue();
+		// initSettings() replays the whole profile through here on every doStartup(),
+		// so a replay must not read as "the player turned compression back on" —
+		// that re-enabled MCCP on the reconnect the failure had just triggered.
+		if (mReplayingSettings.get().booleanValue()) {
+			mMccp.applyProfileValue(on);
+		} else {
+			mMccp.applyPlayerToggle(on);
+		}
+		if (mProcessor != null) {
+			mProcessor.setUseMCCP(mMccp.isEnabled());
 		}
 	}
 
@@ -4664,7 +4696,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	/** Apply optional MTTS/MSDP/MSSP flags from profile (all default off). */
+	/** Apply optional MTTS/MSDP/MSSP/MCCP flags from profile. */
 	void applyMudProtocolFlags() {
 		if (mProcessor == null || mSettings == null) {
 			return;
@@ -4673,8 +4705,48 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mProcessor.setUseMTTS(readBoolOption("use_mtts", true));
 			mProcessor.setUseMSDP(readBoolOption("use_msdp", false));
 			mProcessor.setUseMSSP(readBoolOption("use_mssp", false));
+			// applyProfileValue, not applyPlayerToggle: a load or a settings replay
+			// must not clear a fallback the player never asked to clear.
+			mMccp.applyProfileValue(readBoolOption("use_mccp", true));
+			mProcessor.setUseMCCP(mMccp.isEnabled());
 		} catch (Exception ignored) {
 		}
+	}
+
+	/** Whether this connection accepts MCCP2, and whether the fallback has fired. */
+	private final MccpFallbackState mMccp = new MccpFallbackState();
+
+
+	/** MCCP decompression died, so everything the server still sends is unreadable.
+	 ** Tell the player, remember not to accept COMPRESS2 again on this connection,
+	 ** and reconnect plain. One shot — a second failure reports and stops rather
+	 ** than looping reconnects. */
+	private void handleMccpFailure() {
+		boolean first = mMccp.onFailure();
+		// Both paths: the negotiator must stop honouring COMPRESS2, including the
+		// subnegotiation that actually switches the stream.
+		if (mProcessor != null) {
+			mProcessor.setUseMCCP(false);
+		}
+		if (!first) {
+			sendDataToWindow("\n" + Colorizer.getRedColor()
+					+ "MCCP failed again — compression stays off. Reconnect manually if the session is stuck."
+					+ Colorizer.getWhiteColor() + "\n");
+			return;
+		}
+		Log.w("BlowTorch", "MCCP failed for " + mHost + ":" + mPort
+				+ " — reconnecting with COMPRESS2 refused");
+		sendDataToWindow("\n" + Colorizer.getBrightYellowColor()
+				+ "MCCP compression failed — reconnecting without it."
+				+ Colorizer.getWhiteColor() + "\n");
+		// Directly, not via MESSAGE_RECONNECT: we are already on the handler thread,
+		// and three places call removeMessages(MESSAGE_RECONNECT). A cancelled
+		// reconnect would leave the pump dropping every byte with nothing said.
+		// Drops a queued MESSAGE_RECONNECT. It does not cancel ConnectionReconnect's
+		// own postDelayed watchdog, which posts the message itself — harmless, since
+		// doStartup skips while connected.
+		mHandler.removeMessages(MESSAGE_RECONNECT);
+		doReconnect();
 	}
 
 	private boolean readBoolOption(final String key, final boolean def) {
@@ -5137,6 +5209,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		use_msdp,
 		/** Negotiate MSSP (option 70). */
 		use_mssp,
+		/** Negotiate MCCP2 compression (option 86). */
+		use_mccp,
 		/** Show Regex Warning. */
 		show_regex_warning,
 		/** Append game output to session .txt log. */
@@ -5384,8 +5458,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Starts the recursive settings initialization routine to set all the settings loaded from the serialized settings file. */
 	private void initSettings() {
-		initSetting(mSettings.getSettings().getOptions());
+		// The replay hands every option back to updateSetting() as if the player had
+		// just changed it. Anything that treats "player turned this on" as a decision
+		// — see doSetUseMCCP — has to be able to tell the two apart.
+		mReplayingSettings.set(Boolean.TRUE);
+		try {
+			initSetting(mSettings.getSettings().getOptions());
+		} finally {
+			mReplayingSettings.set(Boolean.FALSE);
+		}
 	}
+
+	/** True while this thread is replaying the profile into updateSetting().
+	 ** Thread-scoped, not an instance flag: doStartup() also runs on binder threads
+	 ** (ConnectionBinderFacade.doReconnect), so an instance flag would misread a
+	 ** genuine player toggle arriving during a replay as part of that replay. */
+	private final ThreadLocal<Boolean> mReplayingSettings = new ThreadLocal<Boolean>() {
+		@Override
+		protected Boolean initialValue() {
+			return Boolean.FALSE;
+		}
+	};
 	
 	/** Recursive settings initializations routine. 
 	 * 

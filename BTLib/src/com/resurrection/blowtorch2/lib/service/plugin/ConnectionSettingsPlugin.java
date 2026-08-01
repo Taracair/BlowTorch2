@@ -368,7 +368,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		SettingsGroup protocolOptions = new SettingsGroup();
 		protocolOptions.setTitle("MUD Protocols");
-		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. All off by default — leave disabled unless your MUD needs them.");
+		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. MTTS and MCCP are on by default; MSDP and MSSP are off — leave those disabled unless your MUD needs them.");
 		protocolOptions.setKey("mud_protocols_group");
 
 		BooleanOption use_mtts = new BooleanOption();
@@ -391,6 +391,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		use_mssp.setKey("use_mssp");
 		use_mssp.setValue(false);
 		protocolOptions.addOption(use_mssp);
+
+		BooleanOption use_mccp = new BooleanOption();
+		use_mccp.setTitle("Use MCCP?");
+		use_mccp.setDescription("MUD Client Compression Protocol v2 (option 86). On by default; saves bandwidth. If decompression fails the client turns it off and reconnects by itself. Reconnect after changing.");
+		use_mccp.setKey("use_mccp");
+		use_mccp.setValue(true);
+		protocolOptions.addOption(use_mccp);
 
 		CallbackOption battery_opt = new CallbackOption();
 		battery_opt.setTitle("Battery optimization…");

@@ -67,6 +67,8 @@ public class OptionNegotiator {
 	private boolean mUseMSDP = false;
 	/** When true, answer DO to IAC WILL MSSP. */
 	private boolean mUseMSSP = false;
+	/** When true, answer DO to IAC WILL MCCP2. Cleared for a session after MCCP fails. */
+	private boolean mUseMCCP = true;
 	/** Encoding selected via CHARSET subnegotiation; consumed by Processor. */
 	private String mPendingCharset = null;
 	
@@ -125,7 +127,7 @@ public class OptionNegotiator {
 	    	if (second == IAC_WILL) {
 	    		switch(third) {
 	    		case COMPRESS2:
-	    			response = IAC_DO;
+	    			response = mUseMCCP ? IAC_DO : IAC_DONT;
 	    			break;
 	    		case SUPPRESS_GOAHEAD:
 	    			response = IAC_DO;
@@ -151,7 +153,7 @@ public class OptionNegotiator {
 	    			response = IAC_DONT;
 	    		}
 	    	}
-	    	
+
 	    	if (second == IAC_DO) {
 	    		switch(third) {
 	    		case COMPRESS2:
@@ -247,6 +249,15 @@ public class OptionNegotiator {
     		//construct special return value to notify handler to switch to compression
     		//Log.e("PROCESSOR","COMPRESS2 ENCOUNTERED");
     		
+    		if (!mUseMCCP) {
+    			// The DONT we sent is advisory; this subnegotiation is what actually
+    			// flips the pump into zlib. A server that sends it anyway — and the one
+    			// we fell back from is by definition misbehaving — would restart the
+    			// compression we just refused, fail again, and leave a live socket
+    			// feeding a dead screen. Refuse here, where the switch happens.
+    			return null;
+    		}
+
     		byte[] compressstart = new byte[1];
     		compressstart[0] = TC.COMPRESS2;
     		return compressstart;
@@ -547,5 +558,14 @@ public class OptionNegotiator {
 
 	public final boolean isUseMSSP() {
 		return mUseMSSP;
+	}
+
+	/** @param useMCCP false answers DONT to IAC WILL MCCP2, keeping the stream plain. */
+	public final void setUseMCCP(final boolean useMCCP) {
+		mUseMCCP = useMCCP;
+	}
+
+	public final boolean isUseMCCP() {
+		return mUseMCCP;
 	}
 }

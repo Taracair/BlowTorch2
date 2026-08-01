@@ -85,6 +85,10 @@ public class DataPumper extends Thread {
 	private boolean mCorrupted = false;
 	/** Tracker for the intention of corrupting the mccp stream. */
 	private boolean mDoCorrupt = false;
+	/** Set once decompression has thrown. Everything the server still sends is
+	 ** compressed, so it must be dropped rather than shown as text — dumping it
+	 ** is what put a screenful of binary in front of the player on Achaea. */
+	private boolean mMccpBroken = false;
 	/** Tracker for if we are connected or not. */
 	private boolean mConnected = false;
 	/** Tracker for the intention of closing the socket. */
@@ -475,10 +479,16 @@ public class DataPumper extends Thread {
 				mConnected = false;
 			}
 			
+			if (mMccpBroken) {
+				// Stream is still zlib on the wire; Connection is tearing us down
+				// for a reconnect without MCCP. Read and drop, never display.
+				return;
+			}
+
 			if (mCompressed) {
 				data = doDecompress(data);
 				if (data == null) { return; }
-			} 
+			}
 			
 			if (mReportTo != null) {
 				Message msg = mReportTo.obtainMessage(Connection.MESSAGE_PROCESS, data); //get a send data message.
@@ -517,12 +527,14 @@ public class DataPumper extends Thread {
 			try {
 				count = mDecompressor.inflate(tmp, 0, tmp.length);
 			} catch (DataFormatException e) {
-				if (mReportTo != null) {
-					mDecompressor = new Inflater(false);
-				}
-				mReportTo.sendEmptyMessage(Connection.MESSAGE_MCCPFATALERROR);
+				Log.w("BlowTorch", "MCCP inflate failed — falling back to plain telnet", e);
+				mDecompressor = new Inflater(false);
 				mCompressed = false;
 				mCorrupted = true;
+				mMccpBroken = true;
+				if (mReportTo != null) {
+					mReportTo.sendEmptyMessage(Connection.MESSAGE_MCCPFATALERROR);
+				}
 				return null;
 			}
 			if (mDecompressor.finished()) {
