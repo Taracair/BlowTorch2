@@ -4337,17 +4337,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.initWindow", e);
 			}
 			tmp.setBufferText(w.isBufferText());
+			// Adopt the parceled buffer *before* registering. registerWindowCallback
+			// may resetWithRawDataIncoming when the previous UI process died; that
+			// call is posted to the Window handler, so landing it on the tree we
+			// already adopted (rather than the empty constructor buffer) avoids a
+			// race where setBuffer later swapped the tree out from under the replay.
+			if(w.getBuffer() != null) {
+				tmp.setBuffer(w.getBuffer());
+			}
 			try {
 				service.registerWindowCallback(w.getDisplayHost(),w.getName(),tmp.getCallback());
 			} catch (RemoteException e) {
 				// TODO Auto-generated catch block
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.initWindow", e);
-			}
-			
-			if(w.getBuffer() != null) {
-				//tmp.addBytes(w.getBuffer().dumpToBytes(false), true);
-				tmp.setBuffer(w.getBuffer());
-			//construct border.
 			}
 			
 			//attempt to construct a good-ly relative layout to hold the window and any children 

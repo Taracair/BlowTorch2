@@ -1094,7 +1094,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void flushTextHeldWhileHidden() {
 		synchronized (mHeldSynch) {
+			// Skip dead binders — a UI process killed from recents leaves corpses
+			// in mWindowCallbackMap, and a oneway call at them is a silent no-op.
+			// Always clear the hold at the end: keeping mHoldingForHiddenUi true
+			// for "undelivered" entries would freeze every live window's updates
+			// until the last missing slot registered. Text for dead windows is
+			// still in the WindowToken buffer; registerWindowCallback replays it.
 			for (String name : mHeldOverflowed) {
+				IWindowCallback c = mWindowCallbackMap.get(name);
+				if (!windowCallbackAlive(c)) {
+					if (c != null) {
+						dropDeadWindowCallback(name);
+					}
+					continue;
+				}
 				try {
 					doInvalidateWindowText(name);
 				} catch (RemoteException e) {
@@ -1104,9 +1117,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			for (java.util.Map.Entry<String, java.io.ByteArrayOutputStream> e : mHeldWhileHidden.entrySet()) {
 				IWindowCallback c = mWindowCallbackMap.get(e.getKey());
-				if (c == null) {
-					// The window went away while it was hidden. Its buffer still
-					// has the text, and registering again replays from there.
+				if (!windowCallbackAlive(c)) {
+					if (c != null) {
+						dropDeadWindowCallback(e.getKey());
+					}
 					continue;
 				}
 				try {
@@ -1121,6 +1135,33 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mHeldWhileHidden.clear();
 			mHeldOverflowed.clear();
 			mHoldingForHiddenUi = false;
+		}
+	}
+
+	/** True when the far side of this binder is still a live process. */
+	private static boolean windowCallbackAlive(final IWindowCallback c) {
+		if (c == null) {
+			return false;
+		}
+		try {
+			android.os.IBinder b = c.asBinder();
+			return b != null && b.isBinderAlive();
+		} catch (RuntimeException e) {
+			return false;
+		}
+	}
+
+	/** Drop any hold queued for {@code name}; the window is about to get a full replay. */
+	private void discardHeldTextForWindow(final String name) {
+		if (name == null) {
+			return;
+		}
+		synchronized (mHeldSynch) {
+			mHeldWhileHidden.remove(name);
+			mHeldOverflowed.remove(name);
+			if (mHeldWhileHidden.isEmpty() && mHeldOverflowed.isEmpty()) {
+				mHoldingForHiddenUi = false;
+			}
 		}
 	}
 
@@ -1761,12 +1802,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param callback The IWindowCallback aidl conenction object associated with the window.
 	 */
 	public final void registerWindowCallback(final String name, final IWindowCallback callback) {
+		final boolean replacedDeadOrMissing;
 		synchronized (mWindowSynch) {
 		Log.e("LOG","REGISTERING WINDOW "+name + " mCallbacksStarte="+mCallbacksStarted);
 		if (mCallbacksStarted) {
 			mWindowCallbacks.finishBroadcast();
 		}
 		Log.e("LOG","REGISTERING " + name);
+		IWindowCallback previous = mWindowCallbackMap.get(name);
+		replacedDeadOrMissing = !windowCallbackAlive(previous);
 		// The name is the cookie. It used to come back from callback.getName(),
 		// a synchronous binder call into the UI process for every registered
 		// window on every register — and a synchronous call is what kills a
@@ -1784,10 +1828,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		mCallbacksStarted = true;
 		}
-		// Outside the lock on purpose: resetWithRawDataIncoming is a synchronous binder
-		// call back into the UI process, and holding mWindowSynch across it would let a
-		// busy UI thread stall every other window's routing.
-		replayBufferToExtraTextWindow(name, callback);
+		// Outside the lock on purpose: resetWithRawDataIncoming posts into the UI
+		// process, and holding mWindowSynch across it would let a busy UI thread
+		// stall every other window's routing.
+		//
+		// Extra-text slots always need a replay (they never parcel a buffer into
+		// initWindow). mainDisplay only needs one when the previous binder is
+		// gone — UI process killed from recents — because a live re-register
+		// already has the in-process tree. resetWithRawDataIncoming replaces,
+		// it does not append, so this cannot stack a second copy of the session.
+		if (replacedDeadOrMissing) {
+			discardHeldTextForWindow(name);
+			replayBufferToWindow(name, callback, true);
+		} else {
+			replayBufferToWindow(name, callback, false);
+		}
 	}
 
 	/** Largest replay we will hand to a single binder transaction.
@@ -1797,26 +1852,30 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * replay exists to prevent. */
 	private static final int MAX_REPLAY_BYTES = 128 * 1024;
 
-	/** Hand a newly attached extra text window the text it missed while it was closed.
+	/** Hand a newly attached window the text in its service-side token buffer.
 	 *
-	 * <p>{@link #lineToWindow} always writes into the WindowToken's buffer and only
-	 * then notifies the callback if one is registered, so a hidden slot has been
-	 * collecting all along. Nothing replayed it, though, and WindowToken does not
-	 * parcel its buffer, so the freshly built Window started empty and only showed
-	 * whatever arrived after it opened. Turning a chat window back on left you looking
-	 * at a blank panel until somebody spoke.
+	 * <p>{@link #lineToWindow} / {@link #dispatch} always write the WindowToken
+	 * buffer first, then notify the callback if one is registered, so a hidden
+	 * or dead UI has been collecting all along. Extra-text slots never got that
+	 * history on open (they do not parcel a buffer into {@code initWindow}).
+	 * {@code mainDisplay} does parcel one, but after a UI process kill the
+	 * hand-over raced {@code windowShowing(true)} ahead of registration and
+	 * left a blank window; replaying here is the barrier that comment on
+	 * {@link #flushTextHeldWhileHidden} already promised.
 	 *
 	 * @param name The window being registered.
 	 * @param callback Its fresh callback.
+	 * @param includeMain When true, also replay {@code mainDisplay}; when false,
+	 *     only extra-text slots (the historical path).
 	 */
-	private void replayBufferToExtraTextWindow(final String name, final IWindowCallback callback) {
+	private void replayBufferToWindow(final String name, final IWindowCallback callback,
+			final boolean includeMain) {
 		if (name == null || callback == null) {
 			return;
 		}
-		// Extra text slots only. mainDisplay's token buffer is filled too, and replaying
-		// that would duplicate the whole session on top of what the main window already
-		// shows, every time it re-registers.
-		if (mExtraText.find(name) == null) {
+		final boolean extra = mExtraText.find(name) != null;
+		final boolean main = includeMain && MAIN_WINDOW.equals(name);
+		if (!extra && !main) {
 			return;
 		}
 		WindowToken token = getWindowByName(name);
@@ -1833,7 +1892,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		try {
 			callback.resetWithRawDataIncoming(history);
 		} catch (RemoteException e) {
-			Log.w("BlowTorch", "Could not replay history to extra text window " + name, e);
+			Log.w("BlowTorch", "Could not replay history to window " + name, e);
 		}
 	}
 

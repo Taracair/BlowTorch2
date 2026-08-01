@@ -3080,6 +3080,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (this.mBuffer != null) {
 			this.mBuffer.setLinkify(linkify);
 		}
+		// Pointer swap only — without a draw kick, a window that already laid
+		// out against the empty constructor tree can stay blank after adopting
+		// a full service-side buffer (UI process restart onto a live connection).
+		drawingIterator = null;
+		invalidate();
 	}
 	
 	public void clearAllText() {
