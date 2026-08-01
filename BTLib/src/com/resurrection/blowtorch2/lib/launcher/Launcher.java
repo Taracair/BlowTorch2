@@ -101,6 +101,7 @@ import com.resurrection.blowtorch2.lib.service.StellarService;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
+import com.resurrection.blowtorch2.lib.util.UpdateChecker;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
 
@@ -137,6 +138,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MENU_RESTORE_SETTINGS_BACKUP = 111;
 	protected static final int MENU_ABOUT = 112;
 	protected static final int MENU_TOGGLE_STARTER_TUTORIAL = 113;
+	protected static final int MENU_CHECK_FOR_UPDATES = 114;
+	protected static final int MENU_CHECK_UPDATES_NOW = 115;
 	
 	private IConnectionBinder service = null;
 	
@@ -523,6 +526,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		SDCardUtils.requestStartupPermissions(this, permissionRoot, RP_STARTUP);
 		buildList();
 		maybeBackupBeforeUpdate();
+		maybeCheckForUpdates();
 		if(!serviceBound) {
 			//String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 			bindService(new Intent(action,null,this, StellarService.class),connectionChecker,Context.BIND_AUTO_CREATE);
@@ -1758,6 +1762,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, "Ask for storage permissions");
 		menu.add(0, MENU_APP_SETTINGS, 0, "App Settings");
+		menu.add(0, MENU_CHECK_FOR_UPDATES, 0, R.string.launcher_menu_check_for_updates)
+				.setCheckable(true);
+		menu.add(0, MENU_CHECK_UPDATES_NOW, 0, R.string.launcher_menu_check_updates_now);
 		menu.add(0, MENU_ABOUT, 0, R.string.launcher_menu_about);
 
 		return true;
@@ -1773,6 +1780,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			} else {
 				toggle.setTitle(R.string.launcher_menu_hide_starter_tutorial);
 			}
+		}
+		MenuItem updates = menu.findItem(MENU_CHECK_FOR_UPDATES);
+		if (updates != null) {
+			updates.setChecked(UpdateChecker.isEnabled(this));
 		}
 		return super.onPrepareOptionsMenu(menu);
 	}
@@ -1912,6 +1923,19 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			intent.setData(Uri.parse("package:" + Launcher.this.getPackageName()));
 			Launcher.this.startActivity(intent);
 			break;
+		case MENU_CHECK_FOR_UPDATES: {
+			boolean on = !UpdateChecker.isEnabled(this);
+			UpdateChecker.setEnabled(this, on);
+			item.setChecked(on);
+			Toast.makeText(this,
+					on ? R.string.launcher_update_check_on
+							: R.string.launcher_update_check_off,
+					Toast.LENGTH_SHORT).show();
+			break;
+		}
+		case MENU_CHECK_UPDATES_NOW:
+			runManualUpdateCheck();
+			break;
 		case MENU_ABOUT:
 			showAboutDialog();
 			break;
@@ -1922,9 +1946,134 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 		return true;
 	}
-	
-	
-    
+
+	/**
+	 * One update check per process, not per Activity instance.
+	 *
+	 * <p>Rotating the launcher destroys and recreates it, and an instance field
+	 * would let that count as a fresh launch. The 24-hour gate inside
+	 * {@link UpdateChecker} would mostly hide it, but "once per launch" should
+	 * mean what it says.
+	 */
+	private static boolean updateCheckStartedThisLaunch = false;
+
+	/**
+	 * Ask GitHub about a newer release when the player opens the launcher.
+	 *
+	 * <p>This is the app starting up, which is the honest place for it: the
+	 * check is a property of the install, and the launcher is the one screen
+	 * every session goes through. It used to hang off a connection profile's
+	 * Miscellaneous options and fire from MainWindow, which meant the setting
+	 * read as per-world and the dialog could land in the middle of a session.
+	 *
+	 * <p>Silent on any failure, at most once a day inside the checker, and
+	 * never at all on the test flavour — see {@code UpdateChecker.checkAsync}.
+	 */
+	private void maybeCheckForUpdates() {
+		if (updateCheckStartedThisLaunch) {
+			return;
+		}
+		if (!UpdateChecker.isEnabled(this)) {
+			return;
+		}
+		updateCheckStartedThisLaunch = true;
+		UpdateChecker.checkAsync(this, false, new UpdateChecker.Listener() {
+			@Override
+			public void onUpdateAvailable(String latestVersion, String releaseUrl) {
+				showUpdateAvailableDialog(latestVersion, releaseUrl);
+			}
+		});
+	}
+
+	/** Tell the player, and say where the file is — GitHub is not obvious. */
+	private void showUpdateAvailableDialog(final String latestVersion,
+			final String releaseUrl) {
+		if (isFinishing()) {
+			return;
+		}
+		String current = UpdateChecker.currentVersion(this);
+		String message = "BlowTorch 2 " + latestVersion + " is out."
+				+ (current != null ? " You have " + current + "." : "")
+				+ "\n\nThe button below opens the release page on GitHub. Scroll down"
+				+ " to \"Assets\", tap the .apk file to download it, then open the"
+				+ " download to install it over this one. Your settings, maps and"
+				+ " button sets are kept."
+				+ "\n\nIf you installed from F-Droid, update there instead.";
+		try {
+			new AlertDialog.Builder(this)
+					.setTitle("New version available")
+					.setMessage(message)
+					.setPositiveButton("Open GitHub", new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							openReleasePage(releaseUrl);
+						}
+					})
+					.setNeutralButton("Skip this one", new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							UpdateChecker.skipVersion(Launcher.this, latestVersion);
+						}
+					})
+					.setNegativeButton("Later", null)
+					.show();
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("Launcher.showUpdateAvailableDialog", e);
+		}
+	}
+
+	/** Ask GitHub now and always say something back — a silent menu item reads as broken. */
+	private void runManualUpdateCheck() {
+		Toast.makeText(this, R.string.launcher_update_checking, Toast.LENGTH_SHORT).show();
+		UpdateChecker.checkNowAsync(this, new UpdateChecker.Result() {
+			@Override
+			public void onNewer(final String latestVersion, final String releaseUrl) {
+				if (isFinishing()) {
+					return;
+				}
+				try {
+					new AlertDialog.Builder(Launcher.this)
+							.setTitle("New version available")
+							.setMessage("BlowTorch 2 " + latestVersion + " is out.\n\n"
+									+ "Open the release page, scroll to \"Assets\", tap the"
+									+ " .apk to download it, then open the download to"
+									+ " install. Settings and maps are kept.")
+							.setPositiveButton("Open GitHub", new DialogInterface.OnClickListener() {
+								@Override
+								public void onClick(DialogInterface d, int w) {
+									openReleasePage(releaseUrl);
+								}
+							})
+							.setNegativeButton("Later", null)
+							.show();
+				} catch (Exception e) {
+					BlowTorchLogger.logMinor("Launcher.runManualUpdateCheck", e);
+				}
+			}
+
+			@Override
+			public void onUpToDate(String currentVersion) {
+				Toast.makeText(Launcher.this, "Up to date (" + currentVersion + ")",
+						Toast.LENGTH_LONG).show();
+			}
+
+			@Override
+			public void onFailed() {
+				Toast.makeText(Launcher.this, R.string.launcher_update_failed,
+						Toast.LENGTH_LONG).show();
+			}
+		});
+	}
+
+	/** Show the URL rather than fail silently when no browser answers the intent. */
+	private void openReleasePage(final String releaseUrl) {
+		try {
+			startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl)));
+		} catch (Exception e) {
+			Toast.makeText(Launcher.this, releaseUrl, Toast.LENGTH_LONG).show();
+		}
+	}
+
 	private class ConnectionAdapter extends ArrayAdapter<MudConnection> {
 		private ArrayList<MudConnection> items;
 		private int textcolor;

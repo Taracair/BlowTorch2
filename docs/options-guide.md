@@ -9,7 +9,7 @@ In-game **Options** dialog groups (Program Settings):
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
-| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import Settings**, **Check for updates?** and **Check for updates now**, persistent connection, **overflow button appearance** (opacity / background / ring) |
+| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
 ## Extra text windows
@@ -177,15 +177,6 @@ patterns.
 
 ## Miscellaneous
 
-- **Check for updates?** — **on by default.** Asks GitHub once a day whether a
-  newer BlowTorch 2 release exists and tells you at startup, with a button to
-  the release page and instructions for downloading the APK there. This is the
-  only connection the app makes to anything other than a MUD you added: a plain
-  read of the public releases page, with nothing about you in the request. Turn
-  it off and the app talks to nothing but your MUDs. If you installed from
-  **F-Droid, turn it off** — F-Droid updates you already. The test flavour never
-  checks, whatever this is set to. Failures are silent; "Skip this one"
-  suppresses a version you do not want to be reminded about.
 - **Overflow button opacity (%)** / **Overflow button background?** /
   **Overflow button ring?** — how the gameplay **⋮** in the bottom corner is
   drawn. Fade it down when it sits over text you want to read, drop the disc to
@@ -215,7 +206,22 @@ Toolbar **⋮** menu (About moved here; bottom **New** only):
 | **Export Server List** | Save launcher connections XML (default dir or SAF **Choose location…**) |
 | **Backup All Settings** | Zip all private session `*.xml` settings (default `…/backups/` or SAF **Choose location…** — preferred way to keep a portable copy) |
 | **Restore Settings Backup** | Restore that zip (or a scanned backup folder) into private files — restart after |
+| **Check for updates** | Checkbox, **on by default**, app-wide. See below |
+| **Check for updates now** | Ask GitHub straight away and say what it found either way |
 | **About** | About dialog |
+
+**Check for updates** — asks GitHub once a day whether a newer BlowTorch 2
+release exists, when you open the launcher, with a button to the release page
+and instructions for downloading the APK there. This is the only connection the
+app makes to anything other than a MUD you added: a plain read of the public
+releases page, with nothing about you in the request. Turn it off and the app
+talks to nothing but your MUDs. If you installed from **F-Droid, turn it off** —
+F-Droid updates you already. The test flavour never checks on its own, whatever
+this is set to; **Check for updates now** works there, since you asked for it.
+Failures are silent; "Skip this one" suppresses a version you do not want to be
+reminded about. The setting used to live in a world's Options → Miscellaneous,
+which made it look per-world; it was always app-wide, and your existing choice
+carried over.
 
 Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recovered/`). Use **Backup All Settings** instead.
 

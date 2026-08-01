@@ -449,55 +449,6 @@ public class OptionsDialog extends Dialog {
 		return null;
 	}
 
-	/** Ask GitHub now and always say something back — a silent button reads as broken. */
-	private void runManualUpdateCheck() {
-		final Activity activity = findHostActivity();
-		if (activity == null) {
-			return;
-		}
-		Toast.makeText(activity, "Checking GitHub…", Toast.LENGTH_SHORT).show();
-		com.resurrection.blowtorch2.lib.util.UpdateChecker.checkNowAsync(activity,
-				new com.resurrection.blowtorch2.lib.util.UpdateChecker.Result() {
-					@Override
-					public void onNewer(final String latestVersion, final String releaseUrl) {
-						new AlertDialog.Builder(activity)
-								.setTitle("New version available")
-								.setMessage("BlowTorch 2 " + latestVersion + " is out.\n\n"
-										+ "Open the release page, scroll to \"Assets\", tap the"
-										+ " .apk to download it, then open the download to"
-										+ " install. Settings and maps are kept.")
-								.setPositiveButton("Open GitHub", new DialogInterface.OnClickListener() {
-									@Override
-									public void onClick(DialogInterface d, int w) {
-										try {
-											activity.startActivity(new Intent(Intent.ACTION_VIEW,
-													android.net.Uri.parse(releaseUrl)));
-										} catch (Exception e) {
-											Toast.makeText(activity, releaseUrl,
-													Toast.LENGTH_LONG).show();
-										}
-									}
-								})
-								.setNegativeButton("Later", null)
-								.show();
-					}
-
-					@Override
-					public void onUpToDate(String currentVersion) {
-						Toast.makeText(activity,
-								"Up to date (" + currentVersion + ")",
-								Toast.LENGTH_LONG).show();
-					}
-
-					@Override
-					public void onFailed() {
-						Toast.makeText(activity,
-								"Could not reach GitHub — check your connection and try again",
-								Toast.LENGTH_LONG).show();
-					}
-				});
-	}
-
 	private class CallbackOptionClickedListener implements View.OnClickListener {
 
 		@Override
@@ -534,10 +485,6 @@ public class OptionsDialog extends Dialog {
 					dismiss();
 					mwi.importSettingsFromOptions();
 				}
-				return;
-			}
-			if ("check_updates_now".equals(key)) {
-				runManualUpdateCheck();
 				return;
 			}
 			if ("battery_optimization".equals(key)) {

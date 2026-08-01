@@ -17,9 +17,9 @@ import java.nio.charset.StandardCharsets;
 /**
  * Asks GitHub whether a newer release exists.
  *
- * <p>Off unless the player turns it on. This is the only thing in the app that
- * contacts anything other than a MUD the player added, and F-Droid installs are
- * updated by F-Droid, so it must never be the default.
+ * <p>This is the only thing in the app that contacts anything other than a MUD
+ * the player added, so the switch for it is one tap away, in the launcher's ⋮
+ * menu — not buried in a world's options, where it used to be.
  *
  * <p>Failure is silence. No network, GitHub down, rate limited, a tag that does
  * not parse — none of that is the player's problem, and a client that nags
@@ -184,9 +184,9 @@ public final class UpdateChecker {
 	 *
 	 * <p>Stored app-wide rather than in a connection profile. Whether this app
 	 * looks for its own updates is a property of the install, not of the MUD you
-	 * happen to have open — as a per-profile setting it would have meant "check
-	 * for updates when connected to Eden but not elsewhere", which is not a
-	 * thing anyone wants.
+	 * happen to have open — as a per-profile setting it meant "check for updates
+	 * when connected to Eden but not elsewhere", which is not a thing anyone
+	 * wants. The toggle is in the launcher's ⋮ menu.
 	 *
 	 * @param context Any context.
 	 * @return true when the automatic check should run. Defaults to on.

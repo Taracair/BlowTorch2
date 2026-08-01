@@ -674,19 +674,10 @@ public class ConnectionSettingsPlugin extends Plugin {
 		persistent_connection.setValue(false);
 		miscOptions.addOption(persistent_connection);
 
-		BooleanOption check_for_updates = new BooleanOption();
-		check_for_updates.setTitle("Check for updates?");
-		check_for_updates.setDescription("Ask GitHub once a day whether a newer BlowTorch 2 release exists, and say so when you start the app. Applies to the whole app, not just this world — setting it here sets it everywhere. This is the only connection BlowTorch makes to anything other than the MUDs you added; turn it off if you would rather it made none, or if you installed from F-Droid, which updates you already. Nothing about you is sent: it is a plain read of the public releases page.");
-		check_for_updates.setKey("check_for_updates");
-		check_for_updates.setValue(true);
-		miscOptions.addOption(check_for_updates);
-
-		CallbackOption check_updates_now = new CallbackOption();
-		check_updates_now.setTitle("Check for updates now");
-		check_updates_now.setDescription("Ask GitHub straight away and say what it found, whether or not anything is newer. Works on test builds too, since you asked for it rather than the app deciding on its own.");
-		check_updates_now.setKey("check_updates_now");
-		check_updates_now.setValue("check_updates_now");
-		miscOptions.addOption(check_updates_now);
+		// The update-check toggle used to live here. It never belonged: this
+		// screen is a connection profile, so "check for updates" read as a
+		// per-world setting when the answer is a property of the install. It is
+		// now in the launcher's overflow menu, next to the check itself.
 
 		sg.addOption(miscOptions);
 		

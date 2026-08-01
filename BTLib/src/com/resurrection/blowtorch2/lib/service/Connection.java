@@ -4058,16 +4058,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				// why the options looked as though they needed a restart.
 				mService.doExecuteRequestLoadSettings();
 				break;
-			case check_for_updates:
-				// Write through to the app-wide flag. The option lives in a
-				// connection profile because that is where the Options screen is
-				// built, but the answer applies to the install, so toggling it
-				// under any world sets it for all of them.
-				if (mService != null) {
-					com.resurrection.blowtorch2.lib.util.UpdateChecker.setEnabled(
-							mService.getApplicationContext(), (Boolean) o.getValue());
-				}
-				break;
 			case cull_extraneous_color:
 				this.doSetCullExtraneousColor((Boolean) o.getValue());
 				break;
@@ -4974,8 +4964,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		overflow_button_background,
 		/** Draw the ring around the gameplay ⋮. */
 		overflow_button_border,
-		/** Ask GitHub once a day whether a newer release exists (opt-in). */
-		check_for_updates,
 		/** Use GMCP. */
 		use_gmcp, 
 		/** GMCP Supports string. */
