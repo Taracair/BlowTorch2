@@ -269,16 +269,21 @@ public final class ExtraTextWindowsDialog {
 		showTitleBar.setChecked(existing == null || existing.isShowTitleBar());
 		form.addView(showTitleBar);
 
+		final CheckBox showResizeHandle = new CheckBox(context);
+		showResizeHandle.setText("Show resize grip ◢ (floating)");
+		showResizeHandle.setChecked(existing == null || existing.isShowResizeHandle());
+		form.addView(showResizeHandle);
+
 		final CheckBox showClose = new CheckBox(context);
 		showClose.setText("Close button ✕ (floating)");
 		showClose.setChecked(existing == null || existing.isShowClose());
 		form.addView(showClose);
 
 		TextView chromeHint = new TextView(context);
-		chromeHint.setText("Turning the title bar off hides it, it does not remove it: the "
-				+ "strip across the top still drags the window, it is just not drawn. Both "
-				+ "off gives a bare pane you can still move and resize; only .window hide or "
-				+ "this screen will close it.");
+		chromeHint.setText("The title bar and the resize grip only stop being drawn: the "
+				+ "strip across the top still drags the window and the bottom-right corner "
+				+ "still resizes it. All three off gives a bare pane you can still move and "
+				+ "resize by feel; only .window hide or this screen will close it.");
 		chromeHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 		chromeHint.setPadding(0, 0, 0, pad / 2);
 		form.addView(chromeHint);
@@ -463,6 +468,7 @@ public final class ExtraTextWindowsDialog {
 				}
 				slot.setScrollSpeed(scrollSpeed.getSelectedItemPosition());
 				slot.setShowTitleBar(showTitleBar.isChecked());
+				slot.setShowResizeHandle(showResizeHandle.isChecked());
 				slot.setShowClose(showClose.isChecked());
 				slot.setVisible(visible.getSelectedItemPosition() == 0);
 				if (gmcpAdvanced.getVisibility() == View.VISIBLE) {

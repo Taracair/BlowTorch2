@@ -88,6 +88,11 @@ public final class ExtraTextSlot {
 	/** Floating windows only: show the ✕ that hides the window. */
 	private boolean showClose = true;
 	/**
+	 * Floating windows only: draw the ◢ resize grip. Like {@link #showTitleBar}
+	 * this only stops it being painted — the corner still resizes.
+	 */
+	private boolean showResizeHandle = true;
+	/**
 	 * GMCP module names/patterns routed into this slot (case-insensitive).
 	 * Exact match, or prefix with trailing {@code .} / {@code .*}/ {@code *}
 	 * (e.g. {@code Char.Vitals}, {@code Char.}, {@code Comm.*}).
@@ -212,6 +217,14 @@ public final class ExtraTextSlot {
 
 	public void setShowClose(final boolean showClose) {
 		this.showClose = showClose;
+	}
+
+	public boolean isShowResizeHandle() {
+		return showResizeHandle;
+	}
+
+	public void setShowResizeHandle(final boolean showResizeHandle) {
+		this.showResizeHandle = showResizeHandle;
 	}
 
 	/** Never null; may be empty. */
@@ -364,6 +377,7 @@ public final class ExtraTextSlot {
 		s.collapsed = this.collapsed;
 		s.showTitleBar = this.showTitleBar;
 		s.showClose = this.showClose;
+		s.showResizeHandle = this.showResizeHandle;
 		s.gmcpModules.clear();
 		s.gmcpModules.addAll(this.gmcpModules);
 		return s;
@@ -386,6 +400,7 @@ public final class ExtraTextSlot {
 		o.put("collapsed", collapsed);
 		o.put("show_title_bar", showTitleBar);
 		o.put("show_close", showClose);
+		o.put("show_resize_handle", showResizeHandle);
 		if (!gmcpModules.isEmpty()) {
 			org.json.JSONArray arr = new org.json.JSONArray();
 			for (int i = 0; i < gmcpModules.size(); i++) {
@@ -442,6 +457,7 @@ public final class ExtraTextSlot {
 		// floating window gains its bar and ✕ instead of staying a black box.
 		s.showTitleBar = o.optBoolean("show_title_bar", true);
 		s.showClose = o.optBoolean("show_close", true);
+		s.showResizeHandle = o.optBoolean("show_resize_handle", true);
 		s.gmcpModules.clear();
 		org.json.JSONArray gmcp = o.optJSONArray("gmcp");
 		if (gmcp != null) {

@@ -19,7 +19,7 @@ Under **Options → Window → Extra text windows**:
 | Option | Notes |
 |--------|--------|
 | **Enable Extra Text Windows?** | Master switch for overlays (slot definitions kept when off) |
-| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` or `float`), height, opacity, **scroll speed**, **show title bar** and **close button ✕** (floating only, both on by default; hiding the bar keeps it draggable), visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
+| **Manage windows…** | List / add / delete / edit name, title, mode (`drawer_top` or `float`), height, opacity, **scroll speed**, **show title bar**, **show resize grip ◢** and **close button ✕** (floating only, all on by default; hiding the bar or the grip keeps the window draggable and resizable), visibility, **GMCP modules** (checkboxes + advanced CSV). Warns if Use GMCP? is off. |
 | **Windows JSON** | Advanced: raw JSON array of slots (prefer Manage windows…) |
 
 Slot **name** is the public id shared with gag/replace retarget, Lua

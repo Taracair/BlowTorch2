@@ -397,6 +397,7 @@ public class ExtraTextOverlayController {
 		// grab — rather than a pane with no handle at all.
 		boolean bar = floatMode && e.slot.isShowTitleBar();
 		boolean close = floatMode && e.slot.isShowClose();
+		boolean grip = floatMode && e.slot.isShowResizeHandle();
 		final android.content.res.Resources res = e.overlayRoot != null
 				? e.overlayRoot.getResources() : null;
 
@@ -458,7 +459,20 @@ public class ExtraTextOverlayController {
 			e.accentLine.setVisibility(bar ? View.VISIBLE : View.GONE);
 		}
 		if (e.resizeHandle != null) {
+			// Paint switch, like the title bar: the 40dp corner keeps resizing
+			// whatever it looks like. GONE would take the only way to resize a
+			// floating pane with it.
 			e.resizeHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);
+			if (res != null && e.resizeHandle instanceof TextView) {
+				((TextView) e.resizeHandle).setTextColor(grip
+						? res.getColor(R.color.extra_text_resize_grip)
+						: android.graphics.Color.TRANSPARENT);
+			}
+			if (res != null) {
+				e.resizeHandle.setBackgroundColor(grip
+						? res.getColor(R.color.extra_text_resize_plate)
+						: android.graphics.Color.TRANSPARENT);
+			}
 			if (floatMode) {
 				e.resizeHandle.bringToFront();
 			}

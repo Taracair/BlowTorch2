@@ -20,6 +20,11 @@
     <color name="extra_text_title_bar">#FF2A2E38</color>
     <color name="extra_text_grip">#BBBBEE</color>
     <color name="extra_text_title_text">#EEEEEE</color>
+    <!-- ◢ resize grip on a floating pane, and its backing plate. Named for the
+         same reason: the controller swaps them for transparent when the per-slot
+         "resize grip" option is off, and the corner keeps resizing regardless. -->
+    <color name="extra_text_resize_grip">#9999FF</color>
+    <color name="extra_text_resize_plate">#66000000</color>
     <!-- Marching dashed edge around dialogs. Same blue the mapper uses for links and
          labels, so the chrome reads as one family instead of a leftover red. Defined
          once here because three drawables draw this same border.

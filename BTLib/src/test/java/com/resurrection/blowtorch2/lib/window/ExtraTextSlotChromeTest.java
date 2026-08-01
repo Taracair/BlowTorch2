@@ -7,8 +7,8 @@ import org.json.JSONObject;
 import org.junit.Test;
 
 /**
- * Title bar and close button are per-slot, and like scroll speed the slot JSON
- * is their only durable home — extra-text WindowTokens are rebuilt by
+ * Title bar, resize grip and close button are per-slot, and like scroll speed
+ * the slot JSON is their only durable home — extra-text WindowTokens are rebuilt by
  * ensureSlots() and never reach settings.getWindows().
  *
  * <p>copy() is covered on purpose: the controller persists
@@ -18,10 +18,11 @@ import org.junit.Test;
 public class ExtraTextSlotChromeTest {
 
 	@Test
-	public void bothOnByDefault() {
+	public void allOnByDefault() {
 		ExtraTextSlot s = new ExtraTextSlot("chat");
 		assertTrue(s.isShowTitleBar());
 		assertTrue(s.isShowClose());
+		assertTrue(s.isShowResizeHandle());
 	}
 
 	@Test
@@ -29,27 +30,32 @@ public class ExtraTextSlotChromeTest {
 		ExtraTextSlot s = new ExtraTextSlot("chat");
 		s.setShowTitleBar(false);
 		s.setShowClose(false);
+		s.setShowResizeHandle(false);
 		ExtraTextSlot back = ExtraTextSlot.fromJson(s.toJson());
 		assertFalse(back.isShowTitleBar());
 		assertFalse(back.isShowClose());
+		assertFalse(back.isShowResizeHandle());
 	}
 
 	@Test
 	public void survivesCopy() {
 		ExtraTextSlot s = new ExtraTextSlot("chat");
 		s.setShowTitleBar(false);
+		s.setShowResizeHandle(false);
 		ExtraTextSlot c = s.copy();
 		assertFalse(c.isShowTitleBar());
+		assertFalse(c.isShowResizeHandle());
 		assertTrue(c.isShowClose());
 	}
 
 	@Test
 	public void slotsWrittenBeforeTheseExistedGetTheChrome() throws Exception {
-		// A float slot saved by an older build has neither key. Defaulting to off
-		// would leave it the black rectangle this was added to fix.
+		// A float slot saved by an older build has none of these keys. Off by
+		// default would leave it the black rectangle this was added to fix.
 		JSONObject legacy = new JSONObject("{\"name\":\"chat\",\"mode\":\"float\"}");
 		ExtraTextSlot s = ExtraTextSlot.fromJson(legacy);
 		assertTrue(s.isShowTitleBar());
 		assertTrue(s.isShowClose());
+		assertTrue(s.isShowResizeHandle());
 	}
 }

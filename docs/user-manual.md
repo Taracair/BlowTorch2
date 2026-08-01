@@ -760,12 +760,15 @@ A floating pane's chrome is per slot, in **Manage windows… → Edit**:
 - **Show title bar** — the strip across the top, with the ☰ grip and the window's
   title. On by default. Turning it off **hides** it rather than removing it: the
   strip is still there and still drags the window, it is simply not drawn.
+- **Show resize grip ◢** — the corner marker at the bottom right. Same idea: off
+  hides the marker, the corner still resizes the window.
 - **Close button ✕** — hides the window; bring it back with `.window show <slot>`
   or Manage → Show window. On by default. Off means gone, not invisible — an
   unseen ✕ inside the drag strip would close the window every time you missed.
 
-Both off gives a bare pane: still draggable by its top strip, still resizable
-from the ◢ corner, and closed only by `.window hide` or Options.
+All three off gives a bare pane with no visible chrome at all: still draggable
+by its top strip and resizable from its bottom-right corner if you know they are
+there, and closed only by `.window hide` or Options.
 
 **Scroll speed** is per slot, in Manage windows. The default, *Same as main
 window*, follows **Options → Window → Scroll sensitivity**, so that one control

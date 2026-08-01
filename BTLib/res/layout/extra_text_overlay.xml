@@ -139,9 +139,9 @@
         android:paddingRight="4dp"
         android:paddingEnd="4dp"
         android:text="◢"
-        android:textColor="#9999FF"
+        android:textColor="@color/extra_text_resize_grip"
         android:textSize="22sp"
-        android:background="#66000000"
+        android:background="@color/extra_text_resize_plate"
         android:visibility="gone"
         android:elevation="4dp"
         android:contentDescription="Resize floating window" />
