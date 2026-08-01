@@ -991,6 +991,36 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Forget every window binder for this connection.
+	 *
+	 * <p>Used when a new UI process attaches to a Connection that outlived the
+	 * previous one (recents swipe). {@code dirtyExit} unregisters each callback
+	 * before finish; a kill does not, and the corpses poison
+	 * {@link #mWindowCallbackMap} on the next register. Clearing here matches
+	 * that clean leave.
+	 */
+	public final void purgeAllWindowCallbacks() {
+		synchronized (mWindowSynch) {
+			if (mCallbacksStarted) {
+				mWindowCallbacks.finishBroadcast();
+			}
+			int n = mWindowCallbacks.beginBroadcast();
+			java.util.ArrayList<IWindowCallback> all =
+					new java.util.ArrayList<IWindowCallback>(n);
+			for (int i = 0; i < n; i++) {
+				all.add(mWindowCallbacks.getBroadcastItem(i));
+			}
+			mWindowCallbacks.finishBroadcast();
+			for (int i = 0; i < all.size(); i++) {
+				mWindowCallbacks.unregister(all.get(i));
+			}
+			mWindowCallbackMap.clear();
+			mCallbacksStarted = false;
+		}
+		Log.i("BlowTorch", "Purged all window callbacks for " + mDisplay);
+	}
+
 	/** Guards every field below, and the whole of the hand-over in
 	 *  {@link #flushTextHeldWhileHidden()}.
 	 *

@@ -404,13 +404,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
 				service.registerCallback(the_callback, host, port, display);
-				// onResume only says "showing" on its already-bound branch, so a
-				// bind — first launch, or coming back after the UI process was
-				// killed — left the service's flag on whatever onPause last set.
-				// It stayed false until the player backgrounded and returned
-				// again. Harmless while nothing read the flag; now that it gates
-				// text delivery, a stuck false is a dead window.
-				service.windowShowing(true);
+				// Do NOT windowShowing(true) here. After a UI process kill the
+				// windows are not registered yet — saying "showing" clears the
+				// hold and pushes lines at a null/dead callback. finishInitializeWindows
+				// says showing once the new Windows own the binders. onResume's
+				// already-bound branch still covers Keep-in-background return.
 				// Bind live mapper engine from the Connection (same process).
 				MapperController live = MapperController.forDisplay(display);
 				if (live != null) {
@@ -3642,6 +3640,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		ensureExtraTextOverlays();
 		ensureFloatingButtons();
 		raiseFloatingButtons();
+		// Windows (and extra-text slots) now have live binders. End the hold that
+		// onPause / a recents kill left behind — not earlier in onServiceConnected,
+		// which raced ahead of registerWindowCallback and dropped the hand-over.
+		try {
+			if (service != null) {
+				service.windowShowing(true);
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.finishInitializeWindows", e);
+		}
 		//Debug.stopMethodTracing();
 	}
 

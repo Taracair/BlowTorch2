@@ -44,6 +44,15 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 				this.setConnectionData(host, port, display);
 			} else {
 				service.mConnectionClutch = display;
+				// UI process came back onto a live Connection (recents kill, or
+				// launcher reopen). The previous IWindowCallbacks are corpses in
+				// RemoteCallbackList — Keep-in-background works because dirtyExit
+				// unregisters them first. Wipe them here so the new Windows own
+				// the map before loadWindowSettings rebuilds them.
+				Connection existing = service.mConnections.get(display);
+				if (existing != null) {
+					existing.purgeAllWindowCallbacks();
+				}
 				c.loadWindowSettings();
 			}
 		}
