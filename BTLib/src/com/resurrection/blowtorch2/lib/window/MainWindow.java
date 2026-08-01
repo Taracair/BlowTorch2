@@ -2725,6 +2725,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//windowShowing = false;
 		// Before the early return below: an overlay window left up would float
 		// over whatever the player opened next, including other apps.
+		//
+		// This order is load-bearing, not incidental. onPause() clears `resumed`,
+		// and clearButtonsOnPause() below now makes Lua notify the floating
+		// layer (see buttonwindow.clearButtons). rebuildOverlay returns early on
+		// !resumed, which is what keeps that notify from putting overlay windows
+		// back up on the way out of the app. Today a second thing also saves it
+		// — revertButtonData carries no `floating` field, so the cleared set
+		// yields an empty model list — but that is a property of the BACK
+		// button, not a guarantee. Do not swap these two.
 		if (floatingButtons != null) {
 			floatingButtons.onPause();
 		}

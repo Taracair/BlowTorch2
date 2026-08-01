@@ -92,7 +92,10 @@ function loadButtons(args)
 	local ok, tmp = pcall(marshal.decode, args)
 	if(not ok or type(tmp) ~= "table" or type(tmp.set) ~= "table") then
 		Note("\nbutton window: the button set could not be decoded; buttons left unchanged.\n")
-		return
+		-- false, not nil: loadAndEditSet must not open the editor on the set
+		-- that is still loaded, because saving from there would write it over
+		-- the set the player actually asked for.
+		return false
 	end
 	lastLoadedSet = tmp.name
 	debugString("Button Window decompressed data, set name: "..tostring(lastLoadedSet))
@@ -113,6 +116,7 @@ function loadButtons(args)
 	end
 
 	debugString(string.format("Button Window loaded button set, %s successfully",lastLoadedSet))
+	return true
 end
 
 function printTable(key,o)
@@ -2727,10 +2731,18 @@ function loadAndEditSet(data)
 	--Note("Loading and editing: "..data)
 	-- Skip the play-mode notify from loadButtons; enterManagerMode hides floaters.
 	suppressFloatingNotify = true
-	local ok, err = pcall(loadButtons, data)
+	local ok, loaded = pcall(loadButtons, data)
 	suppressFloatingNotify = false
 	if not ok then
-		error(err)
+		error(loaded)
+	end
+	if loaded == false then
+		-- The payload did not decode, so `buttons` is still the previously
+		-- loaded set while the server has already moved current_set on. Opening
+		-- the editor here would let a Done write the old set's buttons over the
+		-- set the player asked to edit. loadButtons has already said what
+		-- happened.
+		return
 	end
 	enterManagerMode()
 	showeditormenu = true
@@ -2877,7 +2889,12 @@ end
 function loadOptions(data)
 	--Note("incoming options wad:"..data)
 	local loaded = loadSerialized(data, "the button options")
-	if(loaded == nil) then return end
+	if(loaded == nil) then
+		-- Nothing else in this file initialises `options`, so leaving it nil
+		-- would move the failure to the first performHapticPress.
+		options = options or {}
+		return
+	end
 	options = loaded
 	-- 6 is the default declared in default_settings_*.xml (key "roundess").
 	buttonRoundness = (tonumber(options.roundness) or 6) * density

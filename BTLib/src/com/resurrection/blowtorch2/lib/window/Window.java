@@ -1865,10 +1865,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int tmp = mL.pcall(0, 1, -2);
 			if(tmp != 0) {
 				displayLuaError("Calling OnCreate: "+mL.getLuaObject(-1).getString());
-			} else {
-				//Log.e("LUAWINDOW","OnCreate Success for window ("+this.getName()+")!");
-				mL.pop(2);
 			}
+			//Log.e("LUAWINDOW","OnCreate Success for window ("+this.getName()+")!");
+			// Error branch used to pop neither the error object nor the
+			// traceback function.
+			mL.pop(2);
 		} else {
 			mL.pop(2);
 		}
@@ -2514,9 +2515,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					int ret = mL.pcall(1, 1, TOP_MINUS_THREE);
 					if (ret != 0) {
 						displayLuaError("Error calling OnDraw: " + mL.getLuaObject(-1).toString());
-					} else {
-						mL.pop(2);
 					}
+					// This leaked two slots per erroring frame: a broken OnDraw
+					// climbed the stack at frame rate.
+					mL.pop(2);
 				} else {
 					mHasDrawRoutine = false;
 					mL.pop(2);
@@ -3522,10 +3524,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int ret = mL.pcall(1, 1, -3);
 			if(ret !=0) {
 				displayLuaError("WindowXCallT Error:" + mL.getLuaObject(-1).getString());
-			} else {
-				//success!
-				mL.pop(2);
 			}
+			// Error branch used to pop neither the error object nor the
+			// traceback function.
+			mL.pop(2);
 			
 		} else {
 			mL.pop(2);
@@ -3645,9 +3647,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		int ret = mL.pcall(0, 1, -2);
 		if(ret != 0) {
 			displayLuaError("Error Loading Script: "+mL.getLuaObject(mL.getTop()).getString());
-		} else {
-			mL.pop(2);
 		}
+		// Error branch used to pop neither the error object nor the traceback
+		// function.
+		mL.pop(2);
 
 	}
 	
@@ -4268,9 +4271,10 @@ ScheduleCallback(104,"delayCallback",5000)
 			int ret = mL.pcall(1, 1, -3);
 			if(ret != 0) {
 				displayLuaError("Scheduled callback("+callback+") error:"+mL.getLuaObject(-1).toString());
-			} else {
-				mL.pop(2);
 			}
+			// Same as xcallB: the error branch popped neither the error object
+			// nor the traceback function.
+			mL.pop(2);
 		} else {
 			//error no function.
 			mL.pop(2);
@@ -4292,11 +4296,17 @@ ScheduleCallback(104,"delayCallback",5000)
 			int tmp = mL.pcall(1, 1, -3);
 			if(tmp != 0) {
 				displayLuaError("Error calling window script function "+callback+": "+mL.getLuaObject(-1).getString());
-			} else {
-				mL.pop(1);
 			}
+			// remove(-2) above left the traceback function on the stack, and
+			// pcall leaves one result whichever way it went — so two, not one.
+			// This popped 1 on success and 0 on error, which made it the worst
+			// leak of the set: it grew on the NORMAL path. Everything
+			// MainWindow.windowCall does comes through here — clearButtons on
+			// every pause, restoreButtons on every resume, cancelTouchGesture
+			// on every cancelled touch.
+			mL.pop(2);
 		} else {
-			mL.pop(1);
+			mL.pop(2);
 		}
 	}
 	
@@ -5254,10 +5264,10 @@ end
 			if(ret != 0) {
 				Log.e("WINDOW","LUA ERROR:" + mL.getLuaObject(-1).getString());
 				displayLuaError("Error in OnDestroy: "+mL.getLuaObject(-1).getString());
-			} else {
-				Log.e("window","poping lua stack");
-				mL.pop(2);
 			}
+			// Error branch used to pop neither the error object nor the
+			// traceback function.
+			mL.pop(2);
 		} else {
 			//no method.
 			mL.pop(2);
@@ -5351,12 +5361,18 @@ end
 				if (ret != 0) {
 					displayLuaError("Error in OnMeasure:" + mL.getLuaObject(-1).getString());
 					setMeasuredDimension(1, 1);
-					mL.pop(1);
+					// The error object AND the traceback function. This popped
+					// only the error object, so a scripted window whose
+					// OnMeasure is broken leaked a slot per layout pass.
+					mL.pop(2);
 					return;
 				} else {
 					int retHeight = (int) mL.getLuaObject(-1).getNumber();
 					int retWidth = (int) mL.getLuaObject(TOP_MINUS_TWO).getNumber();
-					mL.pop(2);
+					// Two results plus the traceback function. Popping 2 left
+					// the traceback behind on every measure pass — the success
+					// path, so this grew during ordinary layout.
+					mL.pop(3);
 					setMeasuredDimension(retWidth, retHeight);
 					return;
 				}
@@ -5456,9 +5472,10 @@ end
 			int ret = mL.pcall(4, 1, -6);
 			if(ret != 0) {
 				displayLuaError("Window("+mName+") OnSizeChangedError: " + mL.getLuaObject(-1).getString());
-			} else {
-				mL.pop(2);
 			}
+			// Error branch used to pop neither the error object nor the
+			// traceback function.
+			mL.pop(2);
 		} else {
 			//Log.e("LUAWINDOW","Window("+mName+"): No OnSizeChanged Function Defined.");
 			hasOnSizeChanged = false;

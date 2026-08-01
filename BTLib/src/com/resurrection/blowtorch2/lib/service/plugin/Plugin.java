@@ -1734,9 +1734,15 @@ Note("Example text!")
 				displayLuaError("Plugin: "+this.getName()+" Script callback("+function+") Error:" + L.getLuaObject(-1).getString());
 			}
 			// See execute(): the error branch leaked the error object and the
-			// traceback function. (The error-handler index here is -2, which
-			// with one argument pushed points at the called function rather
-			// than at debug.traceback — reported, not changed in this pass.)
+			// traceback function.
+			//
+			// Reported, not changed in this pass: the error-handler index here
+			// (and in callFunctionResult) is -2, which with one argument pushed
+			// points at the called function rather than at debug.traceback. On
+			// an error Lua then calls the plugin's own function a second time
+			// with the error message as its argument — for a hook with side
+			// effects that is a duplicated action, not just a missing
+			// traceback. Pop counts are unaffected either way.
 			L.pop(2);
 		} else {
 			displayLuaError("No function named: "+function+" in plugin: "+this.getName());
