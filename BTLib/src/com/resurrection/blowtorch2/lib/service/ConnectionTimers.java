@@ -11,6 +11,7 @@ import android.os.SystemClock;
 import com.resurrection.blowtorch2.lib.service.function.SpecialCommand;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
+import com.resurrection.blowtorch2.lib.timer.TimerDuration;
 
 /** Timer CRUD, play/pause/stop, and .timer command action handling for a Connection. */
 final class ConnectionTimers {
@@ -30,6 +31,8 @@ final class ConnectionTimers {
 		INFO,
 		/** Stop action. */
 		STOP,
+		/** Set duration in seconds (from .timer duration). */
+		DURATION,
 		/** No action. */
 		NONE
 	}
@@ -58,9 +61,49 @@ final class ConnectionTimers {
 		case Connection.MESSAGE_TIMERPAUSE:
 			doTimerAction((String) msg.obj, msg.arg2, TIMER_ACTION.PAUSE);
 			break;
+		case Connection.MESSAGE_TIMERDURATION:
+			doTimerDuration((String) msg.obj, msg.arg1, msg.arg2);
+			break;
 		default:
 			break;
 		}
+	}
+
+	/** Sets a timer's stored duration in seconds (stops any active run). */
+	void doTimerDuration(final String name, final int seconds, final int arg2) {
+		Plugin timerHost = findTimerHost(name);
+		boolean silent = arg2 == 0;
+		if (timerHost == null) {
+			host.dispatchNoProcess(SpecialCommand.getErrorMessage("Timer command error",
+					"No timer with name " + name + " found.").getBytes());
+			return;
+		}
+		if (seconds <= 0) {
+			host.dispatchNoProcess(SpecialCommand.getErrorMessage("Timer duration error",
+					"Duration must be more than zero seconds.").getBytes());
+			return;
+		}
+		if (!timerHost.setTimerDuration(name, seconds)) {
+			host.dispatchNoProcess(SpecialCommand.getErrorMessage("Timer command error",
+					"No timer with name " + name + " found.").getBytes());
+			return;
+		}
+		persistTimerSettings();
+		if (!silent) {
+			host.toast("Timer " + name + ": " + TimerDuration.format(seconds));
+		}
+	}
+
+	private Plugin findTimerHost(final String name) {
+		if (host.mSettings.getSettings().getTimers().containsKey(name)) {
+			return host.mSettings;
+		}
+		for (Plugin p : host.mPlugins) {
+			if (p.getSettings().getTimers().containsKey(name)) {
+				return p;
+			}
+		}
+		return null;
 	}
 
 	/** Work horse method for the timer command.
@@ -72,18 +115,9 @@ final class ConnectionTimers {
 	void doTimerAction(final String obj, final int arg2, final TIMER_ACTION action) {
 		//check for valid ordinals.
 		boolean found = false;
-		Plugin timerHost = null;
-		if (host.mSettings.getSettings().getTimers().containsKey(obj)) {
-			timerHost = host.mSettings;
+		Plugin timerHost = findTimerHost(obj);
+		if (timerHost != null) {
 			found = true;
-		} else {
-			//check plugins
-			for (Plugin p : host.mPlugins) {
-				if (p.getSettings().getTimers().containsKey(obj)) {
-					timerHost = p;
-					found = true;
-				}
-			}
 		}
 		boolean silent = false;
 		if (arg2 == 0) {
@@ -194,7 +228,9 @@ final class ConnectionTimers {
 		final TimerData newtimer) {
 		Plugin p = host.mPluginMap.get(plugin);
 		if (p != null) {
+			p.cancelTimerTask(old.getName());
 			p.getSettings().getTimers().remove(old.getName());
+			newtimer.setPlaying(false);
 			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 			p.getSettings().setDirty(true);
 			persistTimerSettings();
@@ -204,7 +240,9 @@ final class ConnectionTimers {
 
 	/** Updates a timer in the main settings plugin. */
 	void updateTimer(final TimerData old, final TimerData newtimer) {
+		host.mSettings.cancelTimerTask(old.getName());
 		host.mSettings.getSettings().getTimers().remove(old.getName());
+		newtimer.setPlaying(false);
 		host.mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 		host.mSettings.getSettings().setDirty(true);
 		persistTimerSettings();

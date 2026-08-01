@@ -150,7 +150,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 					e.printStackTrace();
 				}
 			}
-			d.setPlaying(!d.isPlaying());
+			buildList();
 			action = "play/pause";
 			break;
 		case 1:
@@ -166,6 +166,7 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
+			buildList();
 			break;
 		case 2:
 			action = "mod";
@@ -175,9 +176,8 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 		}
 		Log.e("Trigger","timer item selected for "+action+": "+d.getName());
 
-		// Opening the editor picks no icon; writing 0 there would blank the row's
-		// running/paused/stopped glyph.
-		if (icon != 0) {
+		// Opening the editor picks no icon; buildList() already refreshed play/pause/stop rows.
+		if (icon != 0 && index != 0 && index != 1) {
 			this.setItemMiniIcon(row, icon);
 		}
 	}

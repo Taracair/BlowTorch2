@@ -151,15 +151,29 @@ public class Plugin implements SettingsChangedListener {
 	HashMap<String,Long> timerStartTimes;
 	
 	public void initTimers() {
-		innerHandler = new Handler() { 
-			public void handleMessage(Message msg) {
-				switch(msg.what) {
-				case 100:
-					DoTimerResponders((String)msg.obj);
-					break;
+		// Responders must run on the connection handler thread, not whichever thread
+		// happened to call loadPlugins — same looper as trigger processing.
+		if (mHandler != null) {
+			innerHandler = new Handler(mHandler.getLooper()) {
+				public void handleMessage(Message msg) {
+					switch (msg.what) {
+					case 100:
+						DoTimerResponders((String) msg.obj);
+						break;
+					}
 				}
-			}
-		};
+			};
+		} else {
+			innerHandler = new Handler() {
+				public void handleMessage(Message msg) {
+					switch (msg.what) {
+					case 100:
+						DoTimerResponders((String) msg.obj);
+						break;
+					}
+				}
+			};
+		}
 		timerStartTimes = new HashMap<String,Long>();
 		CONNECTION_TIMER = new Timer("blowtorch_"+this.getName()+"_timer",true);
 		
@@ -1197,47 +1211,78 @@ Note("Example text!")
 	
 	public void startTimer(String key) {
 		TimerData d = getSettings().getTimers().get(key);
-		if(d == null) {
+		if (d == null) {
 			return;
 		}
-		if(timerTasks.containsKey(d.getName())) {
-			//already playing.
+		if (timerTasks.containsKey(d.getName())) {
 			return;
 		}
-		
-		if(d.isPlaying()) {
-			//already playing
-		} else {
-			if(d.getRemainingTime() != d.getSeconds()) {
-				CustomTimerTask task = new CustomTimerTask(d.getName());
-				long startTime = SystemClock.elapsedRealtime() - ((d.getSeconds() - d.getRemainingTime())*1000);
-				if(d.isRepeat()) {
-					d.setStartTime(startTime);
-					CONNECTION_TIMER.schedule(task, d.getRemainingTime()*1000, d.getSeconds()*1000);
-				} else {
-					d.setStartTime(startTime);
-					CONNECTION_TIMER.schedule(task, d.getRemainingTime()*1000);
-				}
-				
-				timerTasks.put(d.getName(), task);
+		if (CONNECTION_TIMER == null) {
+			initTimers();
+		}
+		// playing=true with no task is stale — e.g. the editor saved a copy that still
+		// had playing set after the real task fired or was stopped elsewhere.
+		d.setPlaying(false);
+
+		if (d.getRemainingTime() != d.getSeconds()) {
+			CustomTimerTask task = new CustomTimerTask(d.getName());
+			long startTime = SystemClock.elapsedRealtime()
+					- ((d.getSeconds() - d.getRemainingTime()) * 1000);
+			if (d.isRepeat()) {
+				d.setStartTime(startTime);
+				CONNECTION_TIMER.schedule(task, d.getRemainingTime() * 1000,
+						d.getSeconds() * 1000);
 			} else {
-				CustomTimerTask task = new CustomTimerTask(d.getName());
-				long startTime = SystemClock.elapsedRealtime();
-				if(d.isRepeat()) {
-					d.setStartTime(startTime);
-					CONNECTION_TIMER.schedule(task, d.getSeconds()*1000, d.getSeconds()*1000);
-				} else {
-					d.setStartTime(startTime);
-					CONNECTION_TIMER.schedule(task, d.getSeconds()*1000);
-				}
-				timerTasks.put(d.getName(), task);
+				d.setStartTime(startTime);
+				CONNECTION_TIMER.schedule(task, d.getRemainingTime() * 1000);
 			}
-			
-			d.setPlaying(true);
+
+			timerTasks.put(d.getName(), task);
+		} else {
+			CustomTimerTask task = new CustomTimerTask(d.getName());
+			long startTime = SystemClock.elapsedRealtime();
+			if (d.isRepeat()) {
+				d.setStartTime(startTime);
+				CONNECTION_TIMER.schedule(task, d.getSeconds() * 1000,
+						d.getSeconds() * 1000);
+			} else {
+				d.setStartTime(startTime);
+				CONNECTION_TIMER.schedule(task, d.getSeconds() * 1000);
+			}
+			timerTasks.put(d.getName(), task);
 		}
-		
+
+		d.setPlaying(true);
 	}
 	
+	/** Cancels the scheduler entry only; does not reset remaining time (for edits while paused). */
+	public void cancelTimerTask(final String key) {
+		CustomTimerTask task = timerTasks.get(key);
+		if (task != null) {
+			task.cancel();
+			timerTasks.remove(key);
+		}
+	}
+
+	/**
+	 * Changes the stored duration. Any active run is cancelled; remaining time is
+	 * reset to the new full duration.
+	 *
+	 * @return false when no timer with that name exists.
+	 */
+	public boolean setTimerDuration(String key, int seconds) {
+		TimerData d = getSettings().getTimers().get(key);
+		if (d == null || seconds <= 0) {
+			return false;
+		}
+		cancelTimerTask(key);
+		d.setSeconds(seconds);
+		d.setRemainingTime(seconds);
+		d.setPlaying(false);
+		getSettings().setDirty(true);
+		return true;
+	}
+
 	public void stopTimer(String key) {
 		CustomTimerTask task = timerTasks.get(key);
 		if(task != null) {
@@ -1253,25 +1298,22 @@ Note("Example text!")
 	
 	public void pauseTimer(String key) {
 		CustomTimerTask task = timerTasks.get(key);
-		
-		if(task != null) {
+		TimerData d = getSettings().getTimers().get(key);
+		if (task != null) {
 			task.cancel();
 			timerTasks.remove(key);
-		} else {
-			return;
-		}
-		
-		long taskStartTime = task.getStartTime();
-		
-		TimerData d = getSettings().getTimers().get(key);
-		if(d != null) {
-			//calculate the remaining seconds.
-			long now = SystemClock.elapsedRealtime();
-			int elapsed = d.getSeconds() - (int) Math.floor((now - taskStartTime)/1000);
-			d.setRemainingTime(elapsed);
+			long taskStartTime = task.getStartTime();
+			if (d != null) {
+				long now = SystemClock.elapsedRealtime();
+				int elapsed = d.getSeconds()
+						- (int) Math.floor((now - taskStartTime) / 1000);
+				d.setRemainingTime(elapsed);
+				d.setPlaying(false);
+			}
+		} else if (d != null && d.isPlaying()) {
+			// Stale running flag with no scheduler entry — clear it so play works again.
 			d.setPlaying(false);
 		}
-		
 	}
 	
 	public void resetTimer(String obj) {

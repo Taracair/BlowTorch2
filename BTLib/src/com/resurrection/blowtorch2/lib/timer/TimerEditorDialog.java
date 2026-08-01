@@ -380,6 +380,8 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				the_timer.setSeconds(theSeconds);
 				the_timer.setRepeat(theRepeat);
 				the_timer.setGroup(readGroupField());
+				// Saving must not persist a stale playing flag from when the dialog opened.
+				the_timer.setPlaying(false);
 
 				//responders should be handled already.
 				try {
@@ -398,6 +400,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				the_timer.setSeconds(theSeconds);
 				the_timer.setRepeat(theRepeat);
 				the_timer.setGroup(readGroupField());
+				the_timer.setPlaying(false);
 
 				try {
 					if(plugin.equals(PluginFilterSelectionDialog.MAIN_SETTINGS)) {

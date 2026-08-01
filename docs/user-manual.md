@@ -291,6 +291,7 @@ Control it from the input bar, by name:
 .timer reset heal     back to full duration
 .timer stop heal      stop and reset
 .timer info heal      how long is left
+.timer duration heal 30   change how long it runs (seconds)
 ```
 
 Add `silent` as a last word to suppress the toast: `.timer play heal silent`.
@@ -361,6 +362,7 @@ is enabled; `.alias list` shows every alias at once.
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
+    `.timer duration <name> <seconds> [silent]`   Change stored duration; stops any active run and saves
     `.dobell`                           Fire configured bell reaction
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?

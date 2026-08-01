@@ -15,6 +15,14 @@ public class TimerCommand extends SpecialCommand {
 	private final int mOrdinalGroupIndex = 3;
 	/** Silent marker. */
 	private final int mSilent = 50;
+
+	/** {@code .timer duration <name> <seconds> [silent]} */
+	static final Pattern DURATION_PATTERN = Pattern.compile(
+			"^\\s*duration\\s+(\\S+)\\s+(\\d+)\\s*(\\S*)",
+			Pattern.CASE_INSENSITIVE);
+
+	static final Pattern ACTION_PATTERN = Pattern.compile("^\\s*(\\S+)\\s+(\\S+)\\s*(\\S*)");
+
 	/** Generic constructor. */
 	public TimerCommand() {
 		this.commandName = "timer";
@@ -31,11 +39,34 @@ public class TimerCommand extends SpecialCommand {
 	 * @return whatever this function returns.
 	 */
 	public Object execute(final Object o, final Connection c)  {
-		//example argument " info 0"
-		//regex = "^\s+(\S+)\s+(\d+)";
-		Pattern p = Pattern.compile("^\\s*(\\S+)\\s+(\\S+)\\s*(\\S*)");
-		
-		Matcher m = p.matcher((String) o);
+		String line = (String) o;
+		Matcher duration = DURATION_PATTERN.matcher(line);
+		if (duration.matches()) {
+			String name = duration.group(1);
+			int seconds;
+			try {
+				seconds = Integer.parseInt(duration.group(2));
+			} catch (NumberFormatException e) {
+				c.dispatchNoProcess(getErrorMessage("Timer duration must be a positive number of seconds.",
+						"Example: .timer duration heal 15").getBytes());
+				return null;
+			}
+			if (seconds <= 0) {
+				c.dispatchNoProcess(getErrorMessage("Timer duration must be more than zero.",
+						"Example: .timer duration heal 15").getBytes());
+				return null;
+			}
+			int domsg = mSilent;
+			String tail = duration.group(3);
+			if (tail != null && tail.length() > 0) {
+				domsg = 0;
+			}
+			c.getHandler().sendMessage(c.getHandler().obtainMessage(
+					Connection.MESSAGE_TIMERDURATION, seconds, domsg, name));
+			return null;
+		}
+
+		Matcher m = ACTION_PATTERN.matcher(line);
 		
 		if (m.matches()) {
 			//extract arguments
@@ -47,7 +78,8 @@ public class TimerCommand extends SpecialCommand {
 			}
 			if (!mTimerActions.contains(action)) {
 				//error with bad action.
-				c.dispatchNoProcess(getErrorMessage("Timer action arguemnt " + action + " is invalid.", "Acceptable arguments are \"play\",\"pause\",\"reset\",\"stop\" and \"info\".").getBytes());
+				c.dispatchNoProcess(getErrorMessage("Timer action arguemnt " + action + " is invalid.",
+						"Acceptable arguments are \"play\", \"pause\", \"reset\", \"stop\", \"info\", and \"duration\".").getBytes());
 				return null;
 			}
 			int domsg = mSilent;
@@ -77,8 +109,10 @@ public class TimerCommand extends SpecialCommand {
 				return null;
 			}
 		} else {
-			c.dispatchNoProcess(getErrorMessage("Timer command: \".timer " + (String) o + "\" is invalid.", "Timer function format \".timer action index [silent]\"\n"
-						+ "Where action is \"play\",\"pause\",\"reset\" or \"info\".\nIndex is the timer index displayed in the timer selection list.").getBytes());
+			c.dispatchNoProcess(getErrorMessage("Timer command: \".timer " + line + "\" is invalid.",
+					"Timer function format \".timer action name [silent]\"\n"
+						+ "Where action is \"play\", \"pause\", \"reset\", \"stop\", or \"info\".\n"
+						+ "Or \".timer duration name seconds [silent]\" to change how long a timer runs.").getBytes());
 		}
 		
 		return null;

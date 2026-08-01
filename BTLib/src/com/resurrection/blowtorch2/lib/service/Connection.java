@@ -268,6 +268,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Sent from the timer command. */
 	public static final int MESSAGE_TIMERSTOP = 40;
+
+	/** Sent from the timer command — arg1 = new duration in seconds. */
+	public static final int MESSAGE_TIMERDURATION = 51;
 	
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
@@ -592,6 +595,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_TIMERRESET:
 			case MESSAGE_TIMERINFO:
 			case MESSAGE_TIMERPAUSE:
+			case MESSAGE_TIMERDURATION:
 				mTimers.handleTimerMessage(msg);
 				break;
 			case MESSAGE_CALLPLUGIN:
