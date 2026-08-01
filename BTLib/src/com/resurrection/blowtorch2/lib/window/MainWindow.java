@@ -1953,6 +1953,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 450: // Edit buttons (same as long-press ⋮)
 			windowCall("button_window", "doEdit", "");
 			break;
+		case 402: // Button layout… (Lua PopulateMenu; backup if invoke() did not run)
+			try {
+				if (service != null) {
+					service.pluginXcallS("button_window", "showLayoutWizardCmd", "");
+				}
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"MainWindow.onOptionsItemSelected", e);
+			}
+			break;
 		case 401: // Button Sets (Lua PopulateMenu; backup if invoke() did not run)
 			try {
 				if (service != null) {

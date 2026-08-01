@@ -116,6 +116,7 @@ function loadButtons(args)
 	end
 
 	debugString(string.format("Button Window loaded button set, %s successfully",lastLoadedSet))
+	maybeOfferLayoutWizard()
 	return true
 end
 
@@ -1544,7 +1545,10 @@ function fitGridToScreen(square)
 	if size >= 16 then
 		appliedW, appliedH, becameDefault = applyButtonSize(size, size)
 	else
-		drawManagerGrid()
+		-- Play-mode Fit has no manager canvas; only redraw the grid while editing.
+		if manage == true and managerCanvas ~= nil then
+			drawManagerGrid()
+		end
 		drawButtons()
 		view:invalidate()
 		saveDefaultOptions()
@@ -1554,6 +1558,175 @@ function fitGridToScreen(square)
 		.. math.floor(cellY / density + 0.5) .. "dp"
 		.. (square and " (square)." or " (stretched to the window).") .. "\n")
 	return appliedW, appliedH, becameDefault
+end
+
+-- Named size presets for the layout wizard / menu path.
+LAYOUT_SIZE_PRESETS = {
+	compact = 32,
+	comfortable = 42,
+	large = 56,
+	xl = 72,
+	fit_square = "fit_square",
+	fit = "fit_square",
+}
+
+-- Set by the wizard Apply path before installPack; consumed in onLayoutPackInstalled.
+wizardPendingSize = nil
+
+local cachedLayoutPacks = nil
+local cachedWizardState = nil
+local layoutWizardShowRequested = false
+local layoutWizardOffered = false
+local buttonWindowOptions = nil
+local layoutWizardModule = nil
+
+local function layoutPendingTruthy(v)
+	return v == true or v == "true" or v == "1"
+end
+
+local function ensureLayoutWizardModule()
+	if layoutWizardModule == nil then
+		layoutWizardModule = require("buttonlayoutwizard")
+	end
+	layoutWizardModule.init(mContext)
+	return layoutWizardModule
+end
+
+local function tryPresentLayoutWizard()
+	if not layoutWizardShowRequested then
+		return
+	end
+	if cachedWizardState == nil then
+		return
+	end
+	if cachedLayoutPacks == nil then
+		PluginXCallS("getLayoutPackList", "")
+		return
+	end
+	local state = {}
+	for k, v in pairs(cachedWizardState) do
+		state[k] = v
+	end
+	state.packs = cachedLayoutPacks
+	layoutWizardShowRequested = false
+	ensureLayoutWizardModule().showWizard(state)
+end
+
+function applyLayoutSizePreset(preset)
+	if view == nil or view:getWidth() <= 0 then
+		return false
+	end
+	local p = tostring(preset or "")
+	p = string.lower(p:match("^%s*(.-)%s*$") or p)
+	if p == "fit" then p = "fit_square" end
+	if p == "extra_large" or p == "extralarge" or p == "extra large" then
+		p = "xl"
+	end
+
+	if p == "compact" then
+		applyButtonSize(32, 32)
+	elseif p == "comfortable" then
+		applyButtonSize(42, 42)
+	elseif p == "large" then
+		applyButtonSize(56, 56)
+		tidyButtonLayout(0)
+	elseif p == "xl" then
+		applyButtonSize(72, 72)
+		tidyButtonLayout(0)
+	elseif p == "fit_square" then
+		fitGridToScreen(true)
+		tidyButtonLayout(0)
+	else
+		return false
+	end
+	PluginXCallS("setLayoutSizePreset", p)
+	return true
+end
+
+-- Called after installPack rebuilds and loads the chosen set.
+-- args: "pack" or "pack|sizePreset" from the service.
+function onLayoutPackInstalled(args)
+	local raw = args ~= nil and tostring(args) or ""
+	local packName, sizeFromArgs = raw, ""
+	local pipe = string.find(raw, "|", 1, true)
+	if pipe ~= nil then
+		packName = string.sub(raw, 1, pipe - 1)
+		sizeFromArgs = string.sub(raw, pipe + 1) or ""
+	end
+
+	local size = wizardPendingSize
+	wizardPendingSize = nil
+	if size == nil or tostring(size) == "" then
+		size = sizeFromArgs
+	end
+	if size == nil or tostring(size) == "" then
+		local opts = buttonWindowOptions or options
+		if opts ~= nil then
+			size = opts.layout_size_preset
+		end
+	end
+	if size ~= nil and tostring(size) ~= "" then
+		applyLayoutSizePreset(tostring(size))
+	end
+end
+
+function showLayoutPackList(data)
+	local packs = loadSerialized(data, "the layout pack list")
+	if packs == nil then
+		return
+	end
+	cachedLayoutPacks = packs
+	tryPresentLayoutWizard()
+end
+
+function showLayoutWizardState(data)
+	local state = loadSerialized(data, "the layout wizard state")
+	if state == nil then
+		return
+	end
+	cachedWizardState = state
+	-- Menu / command path sets the request flag; first-run offer does too.
+	layoutWizardShowRequested = true
+	tryPresentLayoutWizard()
+end
+
+function showLayoutWizard(args)
+	layoutWizardShowRequested = true
+	if type(args) == "string" and args ~= "" then
+		local state = loadSerialized(args, "layout wizard args")
+		if state ~= nil then
+			cachedWizardState = state
+			if type(state.packs) == "table" then
+				cachedLayoutPacks = state.packs
+			end
+			tryPresentLayoutWizard()
+			return
+		end
+	end
+	if cachedLayoutPacks == nil then
+		PluginXCallS("getLayoutPackList", "")
+	end
+	PluginXCallS("getLayoutWizardState", "")
+end
+
+function maybeOfferLayoutWizard()
+	local opts = buttonWindowOptions or options
+	if opts == nil then
+		return
+	end
+	if not layoutPendingTruthy(opts.layout_wizard_pending) then
+		return
+	end
+	if layoutWizardOffered then
+		return
+	end
+	if view == nil or view:getWidth() <= 0 then
+		return
+	end
+	-- Latch before the service round-trip so loadButtons/loadOptions/OnSizeChanged
+	-- cannot queue three offers. Cleared only when pending goes false→true again.
+	layoutWizardOffered = true
+	PluginXCallS("offerLayoutWizardIfPending", "")
 end
 
 function drawManagerGrid()
@@ -2297,6 +2470,11 @@ function OnSizeChanged(w,h,oldw,oldh)
 	clampAllButtons(true)
 	drawButtons()
 	draw = true
+
+	-- First real size: offer the layout wizard once if the profile is pending.
+	if oldw == 0 and w > 0 then
+		maybeOfferLayoutWizard()
+	end
 	
 	debugString("Button Window ending View.onSizeChanged()")
 end
@@ -2893,9 +3071,20 @@ function loadOptions(data)
 		-- Nothing else in this file initialises `options`, so leaving it nil
 		-- would move the failure to the first performHapticPress.
 		options = options or {}
+		buttonWindowOptions = options
 		return
 	end
+	local prevPending = false
+	if buttonWindowOptions ~= nil then
+		prevPending = layoutPendingTruthy(buttonWindowOptions.layout_wizard_pending)
+	end
 	options = loaded
+	buttonWindowOptions = loaded
+	-- Options toggled pending off→on → allow another auto-offer this session.
+	-- Do not clear the latch while pending stays true (would re-open the dialog).
+	if layoutPendingTruthy(loaded.layout_wizard_pending) and not prevPending then
+		layoutWizardOffered = false
+	end
 	-- 6 is the default declared in default_settings_*.xml (key "roundess").
 	buttonRoundness = (tonumber(options.roundness) or 6) * density
 	buttonShowHints = options.show_gesture_hints == true
@@ -2918,6 +3107,8 @@ function loadOptions(data)
 	--clearButtons()
 	drawButtons()
 	view:invalidate()
+	-- First-run offer if options arrived after the view already has a size.
+	maybeOfferLayoutWizard()
 	--Note("loaded button options:"..options.auto_edit)
 end
 
@@ -3084,6 +3275,12 @@ function PopulateMenu(menu)
 		if(not pcall(foo,topMenuItem))  then
 			--Note("action bar not supported,android version < 3.0")
 		end
+
+		local layoutMenuItem = menu:add(0,402,402,"Button layout…")
+		layoutMenuItem:setOnMenuItemClickListener(layoutWizardMenuClicked_cb)
+		if(not pcall(foo,layoutMenuItem)) then
+			-- action bar not supported
+		end
 		
 	--else
 	--	menu:add(topMenuItem)
@@ -3096,6 +3293,14 @@ function buttonsetMenuClicked.onMenuItemClick(item)
 	return true
 end
 buttonsetMenuClicked_cb = luajava.createProxy("android.view.MenuItem$OnMenuItemClickListener",buttonsetMenuClicked)
+
+layoutWizardMenuClicked = {}
+function layoutWizardMenuClicked.onMenuItemClick(item)
+	-- Route through the service so offline / tutorial sessions are refused.
+	PluginXCallS("showLayoutWizardCmd", "")
+	return true
+end
+layoutWizardMenuClicked_cb = luajava.createProxy("android.view.MenuItem$OnMenuItemClickListener",layoutWizardMenuClicked)
 
 -- AddOptionCallback("buttonList", ...) and overflow case 401 call this.
 function buttonList()

@@ -3,6 +3,14 @@
 Source of truth for in-app **Help**. Keep this file in sync with
 `BTLib/res/raw/user_manual.txt` (packaged into the Help dialog).
 
+## Before you start
+
+Because BlowTorch has a lot of features and tries to cover what many different
+players need, this guide (and the Starter Tutorial) may occasionally be
+slightly out of date in a few places. When that happens, the app itself — what
+it shows on screen — is the source of truth. Please report mistakes on
+[GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
+
 ## Dot commands
 
 Lines that start with a single `.` are handled by BlowTorch when “process period”
@@ -707,6 +715,13 @@ Works with either text direction. Off = classic lift (text rises with the keyboa
 
 ## On-screen buttons: swipe + accordion
 
+**Pick a starter pack / size:** **⋮ → Button layout…** (or type `.layoutwizard`).
+Choose a pack (Compass, Newbie, Combat, Explorer, Social) and a size preset
+(Compact / Comfortable / Large / Extra large / Fit to screen). You can reopen
+this anytime to reinstall a pack or rescale. New MUD profiles may offer it once
+after connect; turn **Options → Button → Offer button layout wizard** back on
+to see that prompt again. Offline Starter Tutorial keeps its own teaching pad.
+
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.
 
 The default `button_window` plugin supports more than tap:
@@ -1010,9 +1025,10 @@ it entirely to remove the plugin.
 
 1. **Map** — open / toggle the built-in Mapper (also `.map open|toggle`)  
 2. **Edit buttons** — enter button layout edit mode  
-3. **Crash report** — Show log / Share log  
-4. **About**  
-5. **Help** — This manual  
+3. **Button Sets** / **Button layout…** — switch saved sets, or pick a pack and size preset  
+4. **Crash report** — Show log / Share log  
+5. **About**  
+6. **Help** — This manual  
 
 Connection duration appears on the ongoing notification and launcher row.
 
