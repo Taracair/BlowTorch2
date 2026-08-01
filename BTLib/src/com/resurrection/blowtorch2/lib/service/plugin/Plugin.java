@@ -20,6 +20,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import org.keplerproject.luajava.JavaFunction;
 import org.keplerproject.luajava.LuaException;
@@ -62,6 +63,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginSettings;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.timer.TimerParser;
+import com.resurrection.blowtorch2.lib.timer.TimerSchedule;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerParser;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator;
@@ -85,7 +87,17 @@ public class Plugin implements SettingsChangedListener {
 	Pattern alias_replace = Pattern.compile(joined_alias.toString());
 	Matcher alias_replacer = alias_replace.matcher("");
 	String mEncoding = "UTF-8";
-	HashMap<String,CustomTimerTask> timerTasks = new HashMap<String,CustomTimerTask>();
+	/** Live scheduler entries by timer name.
+	 *
+	 * Concurrent, not a HashMap: three threads touch it. CustomTimerTask.run removes
+	 * from the java.util.Timer thread as a one-shot fires, start/stop/pause/cancel run
+	 * on the connection handler, and updateTimerProgress iterates it on a binder thread
+	 * out of getTimers(). The comment in CustomTimerTask.run records an NPE here that
+	 * killed :stellar twice on 31 July 2026; that was guarded at the one site, while the
+	 * map itself stayed unsynchronised and could also throw ConcurrentModificationException.
+	 */
+	final java.util.concurrent.ConcurrentHashMap<String, CustomTimerTask> timerTasks =
+			new java.util.concurrent.ConcurrentHashMap<String, CustomTimerTask>();
 	private boolean enabled = true;
 	private String scriptBlock = "/";
 	//private ArrayList<Integer> optionSkipSaveList = new ArrayList<Integer>();
@@ -970,10 +982,28 @@ Note("Example text!")
 		// The joining and the group arithmetic moved to AliasPattern, which has
 		// tests. It produces the same regex this built by hand, alternative for
 		// alternative.
-		aliasPattern = AliasPattern.build(getSettings().getAliases().values());
+		AliasPattern built = AliasPattern.build(getSettings().getAliases().values());
+		try {
+			alias_replace = Pattern.compile(built.regex());
+		} catch (PatternSyntaxException bad) {
+			// AliasPattern compiles each alias on its own and drops the ones that will
+			// not, so this is the join-only failure: two aliases declaring the same
+			// named group compile separately and throw together. It was the last
+			// unguarded compile reachable from a binder method — setAliasEnabled goes
+			// straight here, and ConnectionBinderFacade has no catch of its own, so a
+			// PatternSyntaxException (an IllegalArgumentException) was parcelled back
+			// and re-thrown in the UI process. Same fix as buildTriggerSystem: fall
+			// back to matching nothing, and drop the group map with it rather than
+			// leave it describing a pattern that was never compiled.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Plugin.buildAliases: combined alias pattern would not compile in '"
+					+ getName() + "', no alias will expand until the set changes", bad);
+			built = AliasPattern.EMPTY;
+			alias_replace = Pattern.compile("");
+		}
+		aliasPattern = built;
 		joined_alias.setLength(0);
-		joined_alias.append(aliasPattern.regex());
-		alias_replace = Pattern.compile(joined_alias.toString());
+		joined_alias.append(built.regex());
 		alias_replacer = alias_replace.matcher("");
 	}
 	
@@ -1224,33 +1254,23 @@ Note("Example text!")
 		// had playing set after the real task fired or was stopped elsewhere.
 		d.setPlaying(false);
 
-		if (d.getRemainingTime() != d.getSeconds()) {
-			CustomTimerTask task = new CustomTimerTask(d.getName());
-			long startTime = SystemClock.elapsedRealtime()
-					- ((d.getSeconds() - d.getRemainingTime()) * 1000);
-			if (d.isRepeat()) {
-				d.setStartTime(startTime);
-				CONNECTION_TIMER.schedule(task, d.getRemainingTime() * 1000,
-						d.getSeconds() * 1000);
-			} else {
-				d.setStartTime(startTime);
-				CONNECTION_TIMER.schedule(task, d.getRemainingTime() * 1000);
-			}
-
-			timerTasks.put(d.getName(), task);
+		// Every number below goes through TimerSchedule, which has tests. The two
+		// branches this replaces — resume a paused run, or start a fresh one — differed
+		// only in which value they multiplied, and both did it in int and unclamped.
+		// A stored remaining time of -3590 (see TimerSchedule) or a duration near
+		// Integer.MAX_VALUE both reached Timer.schedule as a negative delay, which is an
+		// IllegalArgumentException on a synchronous binder thread: it killed the UI.
+		int seconds = d.getSeconds() == null ? 0 : d.getSeconds().intValue();
+		long delay = TimerSchedule.delayMillis(seconds, d.getRemainingTime());
+		CustomTimerTask task = new CustomTimerTask(d.getName());
+		d.setStartTime(TimerSchedule.startStamp(SystemClock.elapsedRealtime(),
+				seconds, d.getRemainingTime()));
+		if (d.isRepeat()) {
+			CONNECTION_TIMER.schedule(task, delay, TimerSchedule.periodMillis(seconds));
 		} else {
-			CustomTimerTask task = new CustomTimerTask(d.getName());
-			long startTime = SystemClock.elapsedRealtime();
-			if (d.isRepeat()) {
-				d.setStartTime(startTime);
-				CONNECTION_TIMER.schedule(task, d.getSeconds() * 1000,
-						d.getSeconds() * 1000);
-			} else {
-				d.setStartTime(startTime);
-				CONNECTION_TIMER.schedule(task, d.getSeconds() * 1000);
-			}
-			timerTasks.put(d.getName(), task);
+			CONNECTION_TIMER.schedule(task, delay);
 		}
+		timerTasks.put(d.getName(), task);
 
 		d.setPlaying(true);
 	}
@@ -1305,9 +1325,13 @@ Note("Example text!")
 			long taskStartTime = task.getStartTime();
 			if (d != null) {
 				long now = SystemClock.elapsedRealtime();
-				int elapsed = d.getSeconds()
-						- (int) Math.floor((now - taskStartTime) / 1000);
-				d.setRemainingTime(elapsed);
+				// Clamped: the start stamp uses elapsedRealtime, which counts through
+				// doze, while java.util.Timer does not fire during it — so a run can
+				// look hours overdue and the old subtraction stored a negative, which
+				// the next play handed to the scheduler.
+				d.setRemainingTime(TimerSchedule.remainingAfterPause(
+						d.getSeconds() == null ? 0 : d.getSeconds().intValue(),
+						now - taskStartTime));
 				d.setPlaying(false);
 			}
 		} else if (d != null && d.isPlaying()) {
@@ -1334,15 +1358,27 @@ Note("Example text!")
 		}
 	}
 	
+	/** Refreshes the remaining time of every running timer, for the list rows.
+	 *
+	 * Reached from getTimers()/getPluginTimers(), i.e. on a binder thread, while the
+	 * scheduler thread removes entries from timerTasks as tasks fire. Iterating the
+	 * entry set of the ConcurrentHashMap rather than looking each key up again removes
+	 * the window where get() returned null and this NPE'd back into the UI process.
+	 */
 	public void updateTimerProgress() {
-		for(String key : timerTasks.keySet()) {
-			CustomTimerTask t = timerTasks.get(key);
-			long taskStart = t.getStartTime();
-			long now = SystemClock.elapsedRealtime();
-			int elapsed = (int) Math.floor((now - taskStart)/1000);
-			TimerData d = getSettings().getTimers().get(key);
-			if(d != null) {
-				d.setRemainingTime(d.getSeconds() - elapsed);
+		long now = SystemClock.elapsedRealtime();
+		for (java.util.Map.Entry<String, CustomTimerTask> e : timerTasks.entrySet()) {
+			CustomTimerTask t = e.getValue();
+			if (t == null) {
+				continue;
+			}
+			TimerData d = getSettings().getTimers().get(e.getKey());
+			if (d != null) {
+				// Clamped for the same reason as pauseTimer: an overdue run must read
+				// as 0 left, not as a negative that the next play would schedule.
+				d.setRemainingTime(TimerSchedule.remainingWhileRunning(
+						d.getSeconds() == null ? 0 : d.getSeconds().intValue(),
+						now - t.getStartTime()));
 			}
 		}
 	}
@@ -1459,63 +1495,17 @@ Note("Example text!")
 		return sortedTriggers;
 	}
 	
-	public void buildTriggerSystem() {
-		//start with the global settings.
-		long start = System.currentTimeMillis();
-		sortedTriggerMap = new HashMap<Integer,TriggerData>();
-		//triggerPluginMap = new HashMap<Integer,Plugin>();
-		int working = 1;
-		triggerBuilder.setLength(0);
-		boolean addseparator = false;
-		ArrayList<TriggerData> tmp = sortedTriggers;
-		if(tmp == null) {
-			sortTriggers();
-			tmp = sortedTriggers;
-			if(tmp == null || tmp.size() == 0) return;
-		}
-		if(tmp != null && tmp.size() > 0) {
-			for(int i=0;i<tmp.size();i++) {
-				TriggerData t = tmp.get(i);
-				if(!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
-						|| t.getPattern().startsWith("@"))) {
-					
-				} else {
-					if(t.isEnabled()) {
-						if(i == 0) {
-							triggerBuilder.append("(");
-							triggerBuilder.append(t.getPattern());
-							triggerBuilder.append(")");
-							addseparator = true;
-						} else {
-							triggerBuilder.append("|(");
-							triggerBuilder.append(t.getPattern());
-							triggerBuilder.append(")");
-						}
-						sortedTriggerMap.put(working, t);
-						//triggerPluginMap.put(working, the_settings);
-						working += t.getMatcher().groupCount()+1;
-					}
-				}
-			}
-		}
-		
-		massiveTriggerString = triggerBuilder.toString();
-		
-		massivePattern = Pattern.compile(massiveTriggerString,Pattern.MULTILINE);
-		//massiveTriggerString = massiveTriggerString.replace("|", "\n");
-		//Log.e("MASSIVE",massiveTriggerString);
-		massiveMatcher = massivePattern.matcher("");
-		
-		long delta = System.currentTimeMillis() - start;
-		//Log.e("TRIGGERS","TIMEPROFILE "+getSettings().getName()+" trigger system took " + delta + " millis to build.");
-	}
-	
-	StringBuilder triggerBuilder = new StringBuilder();
-	String massiveTriggerString = null;
-	Pattern massivePattern = null;
-	Matcher massiveMatcher = null;
-	HashMap<Integer,TriggerData> sortedTriggerMap = null;
-	//HashMap<Integer,Plugin> triggerPluginMap = null;
+	// Plugin.buildTriggerSystem() and the massivePattern/massiveMatcher/
+	// massiveTriggerString/sortedTriggerMap/triggerBuilder fields lived here and were
+	// removed on 2 Aug 2026. They were a fossil copy of the trigger system: a public
+	// method with no caller anywhere in Java or in the Lua assets, whose only consumer
+	// (process2) has been commented out for years. It was worth deleting rather than
+	// leaving, because it still had every defect the 1 Aug audit closed in
+	// Connection.buildTriggerSystem — it joined the raw getPattern() field unguarded,
+	// never quoted a literal trigger at all, and tested "@" instead of
+	// McpEngine.TRIGGER_CHAR. Anyone who wired it up, or who "fixed triggers" by
+	// editing it, would have reintroduced that finding in full. The live one is
+	// Connection.buildTriggerSystem, which builds through TriggerPattern.
 
 /*! \page entry_points
  * \subsection OnOptionsChanged OnOptionsChanged

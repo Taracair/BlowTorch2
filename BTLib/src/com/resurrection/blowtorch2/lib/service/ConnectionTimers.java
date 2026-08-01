@@ -231,6 +231,7 @@ final class ConnectionTimers {
 			p.cancelTimerTask(old.getName());
 			p.getSettings().getTimers().remove(old.getName());
 			newtimer.setPlaying(false);
+			newtimer.setRemainingTime(newtimer.getSeconds());
 			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 			p.getSettings().setDirty(true);
 			persistTimerSettings();
@@ -238,11 +239,20 @@ final class ConnectionTimers {
 		
 	}
 
-	/** Updates a timer in the main settings plugin. */
+	/** Updates a timer in the main settings plugin.
+	 *
+	 * An edit ends the current run — cancelTimerTask and setPlaying(false) already say
+	 * so — and the remaining time has to agree with that, exactly as addTimer sets it.
+	 * While it did not, the editor's new duration was ignored on the next play: the
+	 * timer carried the old remaining time, startTimer saw it differ from the new
+	 * duration and treated it as a resume, so a timer changed from 30 s to 10 s still
+	 * fired after 30. That is the other half of the stuck-timer report of 1 Aug 2026.
+	 */
 	void updateTimer(final TimerData old, final TimerData newtimer) {
 		host.mSettings.cancelTimerTask(old.getName());
 		host.mSettings.getSettings().getTimers().remove(old.getName());
 		newtimer.setPlaying(false);
+		newtimer.setRemainingTime(newtimer.getSeconds());
 		host.mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
 		host.mSettings.getSettings().setDirty(true);
 		persistTimerSettings();

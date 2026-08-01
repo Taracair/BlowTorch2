@@ -411,7 +411,23 @@ public class AliasEditorDialog extends Dialog {
 			checker.showMessage(AliasEditorDialog.this.getContext(), system);
 			return false;
 		}
-		
+
+		// An alias pattern is a regex the player typed, and validateList below joins
+		// every alias into one and compiles it on the UI thread. Unguarded, a mistyped
+		// bracket crashed the app on Done — the same class of defect the 1 Aug audit
+		// closed for triggers, at the alias editor instead. Say which bracket is wrong
+		// rather than let it throw; the trigger editor has said so since :438.
+		try {
+			java.util.regex.Pattern.compile(pre);
+		} catch (java.util.regex.PatternSyntaxException bad) {
+			String desc = bad.getDescription() != null
+					? bad.getDescription() + " (at position " + bad.getIndex() + ")"
+					: bad.getMessage();
+			checker.showMessage(AliasEditorDialog.this.getContext(),
+					"\"" + pre + "\" is not a valid pattern: " + desc);
+			return false;
+		}
+
 		try {
 			Object[] offenders = validateList();
 			if(offenders != null && offenders.length > 0) {
@@ -516,8 +532,21 @@ public class AliasEditorDialog extends Dialog {
 		}
 		
 		regExp = regExp.substring(0,regExp.length()-1);
-		
-		Pattern bigmatch = Pattern.compile(regExp);
+
+		Pattern bigmatch;
+		try {
+			bigmatch = Pattern.compile(regExp);
+		} catch (java.util.regex.PatternSyntaxException bad) {
+			// validatePhaseTwo already rejected the pattern being typed, so getting here
+			// means one of the *saved* aliases will not compile — an imported or
+			// hand-edited profile. The recursion check cannot run, but refusing to save
+			// over it would strand the player with no way out of the editor, and
+			// AliasPattern skips a bad alias at build time anyway.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"AliasEditorDialog.validateList: a saved alias will not compile,"
+					+ " skipping the circular-reference check", bad);
+			return null;
+		}
 		Matcher reMatch = bigmatch.matcher(testVal);
 		
 		StringBuffer replaceHolder = new StringBuffer();

@@ -162,4 +162,27 @@ public class AliasPatternTest {
 		AliasPattern p = AliasPattern.build(list(alias("c", "cast", true)));
 		assertNull(p.matchedAlias(null));
 	}
+
+	/**
+	 * Alternatives that each compile can still throw when joined -- two aliases
+	 * declaring the same named group is the case. build() cannot catch it, because
+	 * it does not compile the join; the caller does. This is why
+	 * {@code Plugin.buildAliases} wraps its {@code Pattern.compile}: that method is
+	 * reached from {@code ConnectionBinderFacade.setAliasEnabled}, a synchronous
+	 * binder call, and the facade has no catch of its own -- so an unguarded throw
+	 * here was re-thrown in the UI process and killed the window.
+	 */
+	@Test
+	public void duplicateNamedGroupsThrowFromTheJoinNotFromBuild() {
+		AliasPattern p = AliasPattern.build(list(
+				alias("(?<what>\\w+) up", "cast", true),
+				alias("(?<what>\\w+) down", "quaff", true)));
+		assertTrue("each alias compiled on its own, so the join is non-empty", !p.isEmpty());
+		try {
+			java.util.regex.Pattern.compile(p.regex());
+			org.junit.Assert.fail("the join was expected to throw");
+		} catch (java.util.regex.PatternSyntaxException expected) {
+			assertTrue(expected.getMessage() != null);
+		}
+	}
 }
