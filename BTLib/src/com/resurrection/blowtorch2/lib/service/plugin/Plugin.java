@@ -1283,6 +1283,20 @@ Note("Example text!")
 		d.setPlaying(true);
 	}
 	
+	/** Whether this timer has a live scheduler entry right now.
+	 *
+	 * The scheduler map, not the playing flag: the flag can be stale, which is the
+	 * whole reason startTimer clears it. Callers that need to put a running timer back
+	 * the way they found it — an edit, a duration change — have to ask this first,
+	 * because cancelling is what tells them apart afterwards.
+	 *
+	 * @param key The timer name.
+	 * @return true when a task is scheduled for it.
+	 */
+	public boolean isTimerRunning(final String key) {
+		return timerTasks.containsKey(key);
+	}
+
 	/** Cancels the scheduler entry only; does not reset remaining time (for edits while paused). */
 	public void cancelTimerTask(final String key) {
 		CustomTimerTask task = timerTasks.get(key);
@@ -1293,8 +1307,12 @@ Note("Example text!")
 	}
 
 	/**
-	 * Changes the stored duration. Any active run is cancelled; remaining time is
-	 * reset to the new full duration.
+	 * Changes the stored duration.
+	 *
+	 * <p>A timer that was running keeps running, on the new length, starting from now.
+	 * Changing how long a timer runs is not a request to stop it — that is what stop
+	 * is for — and the old remaining time cannot be carried over, because it is a
+	 * position inside a run of the <em>old</em> length.
 	 *
 	 * @return false when no timer with that name exists.
 	 */
@@ -1303,11 +1321,15 @@ Note("Example text!")
 		if (d == null || seconds <= 0) {
 			return false;
 		}
+		boolean wasRunning = isTimerRunning(key);
 		cancelTimerTask(key);
 		d.setSeconds(seconds);
 		d.setRemainingTime(seconds);
 		d.setPlaying(false);
 		getSettings().setDirty(true);
+		if (wasRunning) {
+			startTimer(key);
+		}
 		return true;
 	}
 

@@ -228,33 +228,48 @@ final class ConnectionTimers {
 		final TimerData newtimer) {
 		Plugin p = host.mPluginMap.get(plugin);
 		if (p != null) {
-			p.cancelTimerTask(old.getName());
-			p.getSettings().getTimers().remove(old.getName());
-			newtimer.setPlaying(false);
-			newtimer.setRemainingTime(newtimer.getSeconds());
-			p.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
-			p.getSettings().setDirty(true);
-			persistTimerSettings();
+			applyTimerEdit(p, old, newtimer);
 		}
-		
+
 	}
 
-	/** Updates a timer in the main settings plugin.
-	 *
-	 * An edit ends the current run — cancelTimerTask and setPlaying(false) already say
-	 * so — and the remaining time has to agree with that, exactly as addTimer sets it.
-	 * While it did not, the editor's new duration was ignored on the next play: the
-	 * timer carried the old remaining time, startTimer saw it differ from the new
-	 * duration and treated it as a resume, so a timer changed from 30 s to 10 s still
-	 * fired after 30. That is the other half of the stuck-timer report of 1 Aug 2026.
-	 */
+	/** Updates a timer in the main settings plugin. */
 	void updateTimer(final TimerData old, final TimerData newtimer) {
-		host.mSettings.cancelTimerTask(old.getName());
-		host.mSettings.getSettings().getTimers().remove(old.getName());
+		applyTimerEdit(host.mSettings, old, newtimer);
+	}
+
+	/** Replaces a timer with its edited version, in whichever plugin owns it.
+	 *
+	 * Two rules, and they were both got wrong once each:
+	 *
+	 * The remaining time is reset. It is a position inside a run of the <em>old</em>
+	 * length, so against a new length it means nothing — and startTimer reads a
+	 * remaining time that differs from the duration as a run to resume. While it was
+	 * carried over, a timer changed from 30 s to 10 s still fired after 30, which was
+	 * half of the stuck-timer report of 1 Aug 2026.
+	 *
+	 * A timer that was running keeps running, on the new length. Changing how long a
+	 * timer runs is not a request to stop it; stop is for that. Asked before the
+	 * cancel, because cancelling is what makes the two cases indistinguishable
+	 * afterwards — and asked of the scheduler map rather than the playing flag, which
+	 * can be stale.
+	 *
+	 * @param owner The plugin holding the timer.
+	 * @param old The timer as it was, whose name may differ from the new one.
+	 * @param newtimer The edited timer.
+	 */
+	private void applyTimerEdit(final Plugin owner, final TimerData old,
+		final TimerData newtimer) {
+		boolean wasRunning = owner.isTimerRunning(old.getName());
+		owner.cancelTimerTask(old.getName());
+		owner.getSettings().getTimers().remove(old.getName());
 		newtimer.setPlaying(false);
 		newtimer.setRemainingTime(newtimer.getSeconds());
-		host.mSettings.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
-		host.mSettings.getSettings().setDirty(true);
+		owner.getSettings().getTimers().put(newtimer.getName(), newtimer.copy());
+		owner.getSettings().setDirty(true);
+		if (wasRunning) {
+			owner.startTimer(newtimer.getName());
+		}
 		persistTimerSettings();
 	}
 
