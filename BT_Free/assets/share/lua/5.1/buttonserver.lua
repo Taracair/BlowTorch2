@@ -1693,7 +1693,10 @@ function ensureLayoutSettingsOptions()
 end
 
 function persistLayoutOption(key, value, asBoolean)
-	pcall(ensureLayoutSettingsOptions)
+	-- Do NOT call ensureLayoutSettingsOptions here. pushOptionsToLua walks the
+	-- SettingsGroup while firing OnOptionChanged; ensure's addOption during
+	-- that walk caused ConcurrentModificationException and crashed :stellar.
+	-- Injection belongs in buttonLayerReady (after plugins are loaded).
 	pcall(function()
 		if GetPluginSettings == nil then
 			return

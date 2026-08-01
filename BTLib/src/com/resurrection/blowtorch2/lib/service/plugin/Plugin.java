@@ -1580,7 +1580,11 @@ Note("Example text!")
 	}
 	
 	private void dumpOption(SettingsGroup group) {
-		ArrayList<Option> options = group.getOptions();
+		// Snapshot: OnOptionChanged (Lua) may call SettingsGroup.addOption —
+		// e.g. button_window ensureLayoutSettingsOptions injecting a CallbackOption.
+		// Iterating the live ArrayList then throws ConcurrentModificationException
+		// and kills :stellar on every connect.
+		ArrayList<Option> options = new ArrayList<Option>(group.getOptions());
 		if(!this.getSettings().getName().equals("button_window")) {
 			long foo = System.currentTimeMillis();
 		}
@@ -1596,7 +1600,8 @@ Note("Example text!")
 				L.getGlobal("OnOptionChanged");
 				if(L.getLuaObject(-1).isFunction()) {
 					L.pushString(tmp.getKey());
-					L.pushString(tmp.getValue().toString());
+					Object raw = tmp.getValue();
+					L.pushString(raw != null ? raw.toString() : "");
 					int ret = L.pcall(2, 1, -4);
 					if(ret != 0) {
 						displayLuaError("Error in OnOptionChanged:"+L.getLuaObject(-1).getString());
