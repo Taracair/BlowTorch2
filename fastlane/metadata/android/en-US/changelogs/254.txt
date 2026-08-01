@@ -1,0 +1,6 @@
+BlowTorch 2 v2.2.1
+• Timers: hours / minutes / seconds + presets
+• Bottom padding; dimmable overflow ⋮; hide float chrome
+• Plugins: in-app help + authoring guide
+• Background resume, second world, timer tap, search keyboard
+• Extra-window copy/chrome; scrollback size; status-bar icon
