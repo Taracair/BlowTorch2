@@ -82,10 +82,10 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void initXfer() throws RemoteException {
-		Connection active = service.mConnections.get(service.mConnectionClutch);
+		Connection existing = active();
 		// Only skip when the socket is actually up. A zombie Looper after a failed
 		// connect used to make isAlive()==true and block all further startups.
-		if (active != null && active.isConnected()) {
+		if (existing != null && existing.isConnected()) {
 			android.util.Log.i("BlowTorch", "initXfer skipped — already connected");
 			return;
 		}
@@ -95,10 +95,13 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void endXfer() throws RemoteException {
 		//doStartup();
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
 		c.sendDataToWindow("\n" + Colorizer.getRedColor() + "Connection terminated by user." + Colorizer.getWhiteColor() + "\n\n");
 		c.killNetThreads(true);
-		service.mConnections.get(service.mConnectionClutch).doDisconnect(true);
+		c.doDisconnect(true);
 	}
 
 	@Override
@@ -111,14 +114,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void sendData(final byte[] seq) throws RemoteException {
-		Handler handler = service.mConnections.get(service.mConnectionClutch).getHandler();
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		Handler handler = c.getHandler();
+		if (handler == null) {
+			return;
+		}
 		handler.sendMessage(handler.obtainMessage(Connection.MESSAGE_SENDDATA_BYTES, seq));
 	}
 
 	@Override
 	public void saveSettings() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
-		if (c == null && service.mConnections.size() == 1) {
+		Connection c = active();
+		if (c == null && service.mConnections != null && service.mConnections.size() == 1) {
 			c = service.mConnections.values().iterator().next();
 		}
 		if (c == null) {
@@ -155,22 +165,38 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void setAliases(final Map map) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setAliases((HashMap<String, AliasData>) map);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.setAliases((HashMap<String, AliasData>) map);
 	}
 
 	@Override
 	public void loadSettingsFromPath(final String path) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).startLoadSettingsSequence(path);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.startLoadSettingsSequence(path);
 	}
 
 	@Override
 	public void exportSettingsToPath(final String path) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).exportSettings(path);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.exportSettings(path);
 	}
 
 	@Override
 	public void resetSettings() throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).resetSettings();
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.resetSettings();
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -196,24 +222,40 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public void setDirectionData(final Map data) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setDirectionData((HashMap<String, DirectionData>) data);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.setDirectionData((HashMap<String, DirectionData>) data);
 	}
 
 	@Override
 	public void newTrigger(final TriggerData data) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).addTrigger(data);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.addTrigger(data);
 	}
 
 	@Override
 	public void updateTrigger(final TriggerData from, final TriggerData to)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateTrigger(from, to);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateTrigger(from, to);
 		
 	}
 
 	@Override
 	public void deleteTrigger(final String which) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).deleteTrigger(which);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deleteTrigger(which);
 	}
 
 	@Override
@@ -229,7 +271,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void setDisplayDimensions(final int rows, final int cols)
 			throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		if (c == null) {
 			return;
 		}
@@ -242,7 +284,14 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		if (str == null || str.equals("")) {
 			connection = service.mConnectionClutch;
 		}
-		service.mConnections.get(connection).doReconnect();
+		if (connection == null || service.mConnections == null) {
+			return;
+		}
+		Connection c = service.mConnections.get(connection);
+		if (c == null) {
+			return;
+		}
+		c.doReconnect();
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -264,48 +313,84 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void startTimer(final String ordinal) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).playTimer(ordinal);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.playTimer(ordinal);
 	}
 
 	@Override
 	public void pauseTimer(final String ordinal) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).pauseTimer(ordinal);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.pauseTimer(ordinal);
 	}
 
 	@Override
 	public void stopTimer(final String ordinal) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).stopTimer(ordinal);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.stopTimer(ordinal);
 	}
 	
 	@Override
 	public void startPluginTimer(final String plugin, final String ordinal) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).playPluginTimer(plugin, ordinal);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.playPluginTimer(plugin, ordinal);
 	}
 
 	@Override
 	public void pausePluginTimer(final String plugin, final String ordinal) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).pausePluginTimer(plugin, ordinal);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.pausePluginTimer(plugin, ordinal);
 	}
 
 	@Override
 	public void stopPluginTimer(final String plugin, final String ordinal) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).stopPluginTimer(plugin, ordinal);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.stopPluginTimer(plugin, ordinal);
 	}
 
 	@Override
 	public void updateTimer(final TimerData old, final TimerData newtimer)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateTimer(old, newtimer);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateTimer(old, newtimer);
 	}
 
 	@Override
 	public void addTimer(final TimerData newtimer) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).addTimer(newtimer);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.addTimer(newtimer);
 	}
 
 	@Override
 	public void removeTimer(final TimerData deltimer) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).deleteTimer(deltimer.getName());
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deleteTimer(deltimer.getName());
 	}
 
 	@Override
@@ -342,7 +427,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void setTriggerEnabled(final boolean enabled, final String key)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setTriggerEnabled(enabled, key);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.setTriggerEnabled(enabled, key);
 	}
 
 	@Override
@@ -457,14 +546,18 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void pluginXcallS(final String plugin, final String function, final String str)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).pluginXcallS(plugin, function, str);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.pluginXcallS(plugin, function, str);
 	}
 
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getPluginList() throws RemoteException {
 		
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		HashMap<String, String> list = new HashMap<String, String>();
 		
 		for (Plugin p : c.getPlugins()) {
@@ -496,7 +589,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public List getPluginsWithTriggers() {
 		ArrayList<String> list = new ArrayList<String>();
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		for (Plugin p : c.getPlugins()) {
 			if (p.getSettings().getTriggers().size() > 0) {
 				list.add(p.getName());
@@ -508,13 +601,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void newPluginTrigger(final String selectedPlugin, final TriggerData data)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).newPluginTrigger(selectedPlugin, data);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.newPluginTrigger(selectedPlugin, data);
 	}
 
 	@Override
 	public void updatePluginTrigger(final String selectedPlugin,
 			final TriggerData from, final TriggerData to) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updatePluginTrigger(selectedPlugin, from, to);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updatePluginTrigger(selectedPlugin, from, to);
 	}
 
 	@Override
@@ -526,13 +627,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void setPluginTriggerEnabled(final String selectedPlugin,
 			final boolean enabled, final String key) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setPluginTriggerEnabled(selectedPlugin, enabled, key);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.setPluginTriggerEnabled(selectedPlugin, enabled, key);
 	}
 
 	@Override
 	public void deletePluginTrigger(final String selectedPlugin, final String which)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).deletePluginTrigger(selectedPlugin, which);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deletePluginTrigger(selectedPlugin, which);
 	}
 
 	@Override
@@ -563,31 +672,51 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void setPluginAliases(final String plugin, final Map map)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setPluginAliases(plugin, (HashMap<String, AliasData>) map);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.setPluginAliases(plugin, (HashMap<String, AliasData>) map);
 	}
 
 	@Override
 	public void deleteAlias(final String key) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).deleteAlias(key);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deleteAlias(key);
 	}
 
 	@Override
 	public void deletePluginAlias(final String plugin, final String key)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).deletePluginAlias(plugin, key);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deletePluginAlias(plugin, key);
 	}
 
 	@Override
 	public void setAliasEnabled(final boolean enabled, final String key)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setAliasEnabled(enabled, key);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.setAliasEnabled(enabled, key);
 		
 	}
 
 	@Override
 	public void setPluginAliasEnabled(final String plugin, final boolean enabled,
 			final String key) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).setPluginAliasEnabled(plugin, enabled, key);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.setPluginAliasEnabled(plugin, enabled, key);
 	}
 
 	@Override
@@ -597,31 +726,47 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void deleteTimer(final String name) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).deleteTimer(name);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deleteTimer(name);
 	}
 
 	@Override
 	public void deletePluginTimer(final String plugin, final String name)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).deletePluginTimer(plugin, name);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deletePluginTimer(plugin, name);
 	}
 
 	@Override
 	public void updatePluginTimer(final String plugin, final TimerData old,
 			final TimerData newtimer) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updatePluginTimer(plugin, old, newtimer);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updatePluginTimer(plugin, old, newtimer);
 	}
 
 	@Override
 	public void addPluginTimer(final String plugin, final TimerData newtimer)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).addPluginTimer(plugin, newtimer);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.addPluginTimer(plugin, newtimer);
 	}
 
 	@Override
 	public SettingsGroup getSettings() throws RemoteException {
 		if (service.mConnections.size() == 0) { return null; }
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		if (c == null) { return null; }
 		return c.getSettings();
 	}
@@ -635,55 +780,91 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void updateBooleanSetting(final String key, final boolean value)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateBooleanSetting(key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateBooleanSetting(key, value);
 	}
 
 	@Override
 	public void updatePluginBooleanSetting(final String plugin, final String key,
 			final boolean value) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updatePluginBooleanSetting(plugin, key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updatePluginBooleanSetting(plugin, key, value);
 	}
 
 	@Override
 	public void updateIntegerSetting(final String key, final int value)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateIntegerSetting(key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateIntegerSetting(key, value);
 	}
 
 	@Override
 	public void updatePluginIntegerSetting(final String plugin, final String key,
 			final int value) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updatePluginIntegerSetting(plugin, key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updatePluginIntegerSetting(plugin, key, value);
 	}
 
 	@Override
 	public void updateFloatSetting(final String key, final float value)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateFloatSetting(key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateFloatSetting(key, value);
 	}
 
 	@Override
 	public void updatePluginFloatSetting(final String plugin, final String key,
 			final float value) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updatePluginFloatSetting(plugin, key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updatePluginFloatSetting(plugin, key, value);
 	}
 
 	@Override
 	public void updateStringSetting(final String key, final String value)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateStringSetting(key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateStringSetting(key, value);
 	}
 
 	@Override
 	public void updatePluginStringSetting(final String plugin, final String key,
 			final String value) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updatePluginStringSetting(plugin, key, value);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updatePluginStringSetting(plugin, key, value);
 	}
 
 	@Override
 	public void updateWindowBufferMaxValue(final String plugin, final String window,
 			final int amount) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateWindowBufferMaxValue(plugin, window, amount);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateWindowBufferMaxValue(plugin, window, amount);
 	}
 	
 	@Override
@@ -709,19 +890,31 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void dispatchLuaError(final String message) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).dispatchLuaError(message);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.dispatchLuaError(message);
 	}
 	
 	@Override
 	public void addLink(final String path) {
-		service.mConnections.get(service.mConnectionClutch).addLink(path);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.addLink(path);
 	}
 
 	@Override
 	public void deletePlugin(final String plugin) throws RemoteException {
 		// Return value deliberately dropped here: the refusal is reported to the
 		// player by the service, and the AIDL signature is void.
-		service.mConnections.get(service.mConnectionClutch).deletePlugin(plugin);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.deletePlugin(plugin);
 	}
 
 	@Override
@@ -739,7 +932,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public List getPluginsWithAliases() {
 		ArrayList<String> list = new ArrayList<String>();
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		for (Plugin p : c.getPlugins()) {
 			if (p.getSettings().getAliases().size() > 0) {
 				list.add(p.getName());
@@ -752,7 +945,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public List getPluginsWithTimers() throws RemoteException {
 		ArrayList<String> list = new ArrayList<String>();
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		for (Plugin p : c.getPlugins()) {
 			if (p.getSettings().getTimers().size() > 0) {
 				list.add(p.getName());
@@ -776,13 +969,21 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void dispatchLuaText(final String str) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).dispatchLuaText(str);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.dispatchLuaText(str);
 	}
 
 	@Override
 	public void callPluginFunction(final String plugin, final String function)
 			throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).callPluginFunction(plugin, function);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.callPluginFunction(plugin, function);
 	}
 
 	@Override
@@ -792,7 +993,11 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void setShowRegexWarning(boolean state) throws RemoteException {
-		service.mConnections.get(service.mConnectionClutch).updateBooleanSetting("show_regex_warning", state);
+		Connection c = active();
+		if (c == null) {
+			return;
+		}
+		c.updateBooleanSetting("show_regex_warning", state);
 	}
 
 	@Override
@@ -805,20 +1010,20 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public String getGmcpModuleStatus() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.getGmcpModuleStatus() : "off";
 	}
 
 	@Override
 	@SuppressWarnings("rawtypes")
 	public java.util.List getGmcpSeenModules() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.getGmcpSeenModules() : new java.util.ArrayList<String>();
 	}
 
 	@Override
 	public void renegotiateGmcp() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		if (c != null) {
 			c.renegotiateGmcp();
 		}
@@ -826,20 +1031,20 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public String getMcpStatusHint() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.getMcpStatusHint() : "off";
 	}
 
 	@Override
 	@SuppressWarnings("rawtypes")
 	public java.util.List getMcpSeenPackages() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.getMcpSeenPackages() : new java.util.ArrayList<String>();
 	}
 
 	@Override
 	public void renegotiateMcp() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		if (c != null && c.getMcpEngine() != null) {
 			c.getMcpEngine().renegotiate();
 		}
@@ -848,7 +1053,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	@Override
 	public void sendMcpSimpleEditSet(String reference, String type, String content)
 			throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		if (c != null) {
 			c.sendMcpSimpleEditSet(reference, type, content);
 		}
@@ -856,7 +1061,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public String getMapperSnapshotJson() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.getMapperSnapshotJson() : "";
 	}
 
@@ -867,7 +1072,7 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public void requestMapperUiArg(int action, String arg) throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		if (c != null) {
 			c.setMapperUiArg(arg);
 		}
@@ -876,31 +1081,31 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 	@Override
 	public String takeMapperUiArg() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.takeMapperUiArg() : null;
 	}
 
 	@Override
 	public String takeFrameEvents() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.takeFrameEvents() : "[]";
 	}
 
 	@Override
 	public String getOpenFramesJson() throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null ? c.getOpenFramesJson() : "[]";
 	}
 
 	@Override
 	public boolean closeFrameByUser(String id) throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		return c != null && c.closeFrameByUser(id);
 	}
 
 	@Override
 	public void reportFrameSize(String id, int widthPx, int heightPx) throws RemoteException {
-		Connection c = service.mConnections.get(service.mConnectionClutch);
+		Connection c = active();
 		if (c != null) {
 			c.reportFrameSize(id, widthPx, heightPx);
 		}
