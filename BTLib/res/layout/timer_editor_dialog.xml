@@ -252,7 +252,7 @@
   			android:paddingBottom="2dip"
   			android:textColor="#FFDDDDDD"
   			android:textSize="12sp"
-  			android:text="Extra gate when the timer fires — not a substitute for the interval. Checked before responders run."/>
+  			android:text="Extra gate when the timer fires — not a substitute for the interval. Checked before responders run. Variables are session sticky notes (Set Variable / Lua SetVariable); use ${name} in alias or action text."/>
   		<TextView
   			android:id="@+id/timer_conditions_hint"
   			android:layout_width="match_parent"

@@ -318,8 +318,8 @@ Conditions:
 
 ```xml
 <conditions op="and|or">
-  <condition type="triggerEnabled|triggerDisabled|variableEquals|variableExists"
-             key="…" plugin="…" value="…"/>
+  <condition type="triggerEnabled|triggerDisabled|aliasEnabled|aliasDisabled|aliasEquals|variableEquals|variableExists"
+             name="..." plugin="optional" value="for aliasEquals/variableEquals"/>
 </conditions>
 ```
 

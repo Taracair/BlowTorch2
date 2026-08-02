@@ -153,6 +153,25 @@ public class TriggerCommand extends SpecialCommand {
 		echo(c, "Trigger " + formatRef(ref) + ": "
 				+ (ref.data.isEnabled() ? "enabled" : "disabled")
 				+ "  group=" + groupLabel);
+		com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup cond =
+				ref.data.getConditions();
+		if (cond == null || cond.isEmpty()) {
+			echo(c, "  conditions: (none — always runs on match)");
+		} else {
+			echo(c, "  conditions (" + cond.getOp().getXmlValue() + "):");
+			for (com.resurrection.blowtorch2.lib.trigger.condition.ConditionLeaf leaf
+					: cond.getChildren()) {
+				if (leaf == null) {
+					continue;
+				}
+				boolean leafOk = com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator
+						.evaluateLeafForDebug(leaf, c);
+				echo(c, "    [" + (leafOk ? "PASS" : "FAIL") + "] " + leaf.summary());
+			}
+			boolean allOk = com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator
+					.evaluate(cond, c);
+			echo(c, "  gate now: " + (allOk ? "WOULD FIRE" : "BLOCKED"));
+		}
 		return null;
 	}
 

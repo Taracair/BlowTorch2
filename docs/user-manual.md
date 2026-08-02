@@ -134,9 +134,10 @@ triggers): list subtitle `[group]`, sort by group, XML `group` attribute.
 
 Timers also support **Conditions** in the timer editor — an extra gate when
 the timer fires (same AND/OR types as triggers). Empty = always fire
-responders. Types: Trigger enabled/disabled, Variable equals/exists. Set
+responders. Types: Trigger enabled/disabled, Alias enabled/disabled, Variable equals/exists. Set
 vars with the **Set Variable** responder or Lua `SetVariable` /
-`GetVariable` / `UnsetVariable` (session only).
+`GetVariable` / `UnsetVariable` (session only). Use `${name}` in alias or
+action text — variables are not typed into the trigger pattern.
 
 ## Recipes
 
@@ -937,10 +938,11 @@ EnableAlias("kk", true)
 EnableAlias("travel_home", false)
 ```
 
-Triggers and timers go further: both carry **conditions** (trigger enabled,
-trigger disabled, variable equals, variable exists, combined with and/or) that
-decide whether they fire at all, edited in their own editors. Aliases have no
-conditions — use `EnableAlias` for the same effect.
+Triggers and timers go further: both carry **conditions** (trigger/alias on or
+off, alias replacement equals, variable equals/exists, combined with and/or)
+that decide whether they fire at all, edited in their own editors. Aliases
+themselves have no conditions — use `EnableAlias` to turn an alias on or off;
+a trigger condition can *read* that on/off state or the alias **With** text.
 
 ## GMCP (short)
 

@@ -96,25 +96,36 @@ public class ConditionLeaf implements Parcelable {
 	/** Human-readable one-liner for lists. */
 	public String summary() {
 		switch (type) {
-		case TRIGGER_ENABLED:
-			return "Trigger " + qualifiedTriggerName() + " is enabled";
-		case TRIGGER_DISABLED:
-			return "Trigger " + qualifiedTriggerName() + " is disabled";
+		case ALIAS_ENABLED:
+			return "Alias " + qualifiedName() + " is ON";
+		case ALIAS_DISABLED:
+			return "Alias " + qualifiedName() + " is OFF";
+		case ALIAS_EQUALS:
+			return "Alias " + qualifiedName() + " replacement equals " + value;
 		case VARIABLE_EQUALS:
 			return "Variable " + name + " equals " + value;
 		case VARIABLE_EXISTS:
 			return "Variable " + name + " exists";
+		case TRIGGER_ENABLED:
+			return "Trigger " + qualifiedName() + " is ON";
+		case TRIGGER_DISABLED:
+			return "Trigger " + qualifiedName() + " is OFF";
 		default:
 			return type != null ? type.displayLabel() : "";
 		}
 	}
 
 	/** {@code plugin:name} when plugin is set, else {@code name}. */
-	public String qualifiedTriggerName() {
+	public String qualifiedName() {
 		if (plugin != null && plugin.length() > 0) {
 			return plugin + ":" + name;
 		}
 		return name != null ? name : "";
+	}
+
+	/** Same as {@link #qualifiedName()} (older call sites). */
+	public String qualifiedTriggerName() {
+		return qualifiedName();
 	}
 
 	private ConditionLeaf(Parcel in) {

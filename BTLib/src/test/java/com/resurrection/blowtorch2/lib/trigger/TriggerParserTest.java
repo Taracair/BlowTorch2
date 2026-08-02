@@ -57,4 +57,23 @@ public class TriggerParserTest {
 		assertTrue(xml.contains("regexp=\"true\""));
 		assertTrue(xml.contains("</trigger>"));
 	}
+
+	@Test
+	public void saveTriggerToXmlIncludesConditions() throws Exception {
+		TriggerData trigger = new TriggerData();
+		trigger.setName("_pager");
+		trigger.setPattern("From your wristpad");
+		trigger.setSave(true);
+		trigger.getConditions().getChildren().add(
+				new com.resurrection.blowtorch2.lib.trigger.condition.ConditionLeaf(
+						com.resurrection.blowtorch2.lib.trigger.condition.ConditionType.TRIGGER_ENABLED,
+						"_cerb", "", ""));
+		SettingsOptionXmlTest.RecordingXmlSerializer out =
+				new SettingsOptionXmlTest.RecordingXmlSerializer();
+		TriggerParser.saveTriggerToXML(out, trigger);
+		String xml = out.toString();
+		assertTrue(xml.contains("<conditions"));
+		assertTrue(xml.contains("triggerEnabled"));
+		assertTrue(xml.contains("name=\"_cerb\""));
+	}
 }

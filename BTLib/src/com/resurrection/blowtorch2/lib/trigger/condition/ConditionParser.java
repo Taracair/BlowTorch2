@@ -141,6 +141,7 @@ public final class ConditionParser {
 				out.attribute("", BasePluginParser.ATTR_CONDITION_PLUGIN, leaf.getPlugin());
 			}
 			if (leaf.getType() == ConditionType.VARIABLE_EQUALS
+					|| leaf.getType() == ConditionType.ALIAS_EQUALS
 					|| (leaf.getValue() != null && leaf.getValue().length() > 0)) {
 				out.attribute("", BasePluginParser.ATTR_CONDITION_VALUE, leaf.getValue());
 			}

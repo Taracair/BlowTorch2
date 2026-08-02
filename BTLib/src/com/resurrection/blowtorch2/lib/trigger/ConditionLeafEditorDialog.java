@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.TreeSet;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionLeaf;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionType;
@@ -24,9 +25,10 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 /**
- * Edit a single trigger condition leaf.
+ * Edit a single trigger/timer condition leaf.
  */
 public class ConditionLeafEditorDialog extends Dialog {
 
@@ -43,16 +45,18 @@ public class ConditionLeafEditorDialog extends Dialog {
 
 	private Spinner typeSpinner;
 	private Spinner triggerSpinner;
+	private Spinner aliasSpinner;
 	private EditText nameField;
 	private EditText valueField;
-	private TextView triggerLabel;
 	private TextView nameLabel;
-	private TextView valueLabel;
 	private LinearLayout triggerRow;
+	private LinearLayout aliasRow;
 	private LinearLayout nameRow;
 	private LinearLayout valueRow;
+	private TextView variableHint;
 
 	private ArrayList<String> triggerChoices = new ArrayList<String>();
+	private ArrayList<String> aliasChoices = new ArrayList<String>();
 
 	public ConditionLeafEditorDialog(Context context, ConditionLeaf input,
 			IConnectionBinder service, String selectedPlugin, DoneListener listener) {
@@ -107,8 +111,16 @@ public class ConditionLeafEditorDialog extends Dialog {
 		trigAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 		triggerSpinner.setAdapter(trigAdapter);
 		triggerRow = labeled("Trigger", triggerSpinner);
-		triggerLabel = (TextView) triggerRow.getChildAt(0);
 		root.addView(triggerRow);
+
+		aliasSpinner = new Spinner(getContext());
+		loadAliasChoices();
+		ArrayAdapter<String> aliasAdapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_item_dark, aliasChoices);
+		aliasAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		aliasSpinner.setAdapter(aliasAdapter);
+		aliasRow = labeled("Alias", aliasSpinner);
+		root.addView(aliasRow);
 
 		nameField = new EditText(getContext());
 		nameField.setSingleLine(true);
@@ -121,8 +133,17 @@ public class ConditionLeafEditorDialog extends Dialog {
 		valueField.setSingleLine(true);
 		valueField.setHint("expected value");
 		valueRow = labeled("Value", valueField);
-		valueLabel = (TextView) valueRow.getChildAt(0);
 		root.addView(valueRow);
+
+		variableHint = new TextView(getContext());
+		variableHint.setTextColor(0xFFCCCCCC);
+		variableHint.setTextSize(12);
+		variableHint.setPadding(0, 4, 0, 8);
+		variableHint.setText(
+				"Session variables are sticky notes for this connection — not pattern syntax.\n"
+						+ "Set them with the Set Variable action or Lua SetVariable.\n"
+						+ "Read them here, or as ${name} in alias / responder text.");
+		root.addView(variableHint);
 
 		LinearLayout buttons = new LinearLayout(getContext());
 		buttons.setOrientation(LinearLayout.HORIZONTAL);
@@ -159,7 +180,13 @@ public class ConditionLeafEditorDialog extends Dialog {
 		typeSpinner.setSelection(typeIndex, false);
 		nameField.setText(editing.getName());
 		valueField.setText(editing.getValue());
-		selectTriggerChoice(editing.qualifiedTriggerName());
+		ConditionType initial = editing.getType() != null
+				? editing.getType() : ConditionType.TRIGGER_ENABLED;
+		if (initial.isTriggerGate()) {
+			selectChoice(triggerSpinner, triggerChoices, editing.qualifiedName());
+		} else if (initial.isAliasGate()) {
+			selectChoice(aliasSpinner, aliasChoices, editing.qualifiedName());
+		}
 
 		typeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
 			public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -185,14 +212,22 @@ public class ConditionLeafEditorDialog extends Dialog {
 
 	private void updateFieldVisibility() {
 		ConditionType type = ConditionType.values()[typeSpinner.getSelectedItemPosition()];
-		boolean triggerType = type == ConditionType.TRIGGER_ENABLED
-				|| type == ConditionType.TRIGGER_DISABLED;
-		boolean needsValue = type == ConditionType.VARIABLE_EQUALS;
+		boolean triggerType = type.isTriggerGate();
+		boolean aliasType = type.isAliasGate();
+		boolean variableType = type.isVariableGate();
+		boolean needsValue = type.needsExpectedValue();
 		triggerRow.setVisibility(triggerType ? View.VISIBLE : View.GONE);
-		nameRow.setVisibility(triggerType ? View.GONE : View.VISIBLE);
+		aliasRow.setVisibility(aliasType ? View.VISIBLE : View.GONE);
+		nameRow.setVisibility(variableType ? View.VISIBLE : View.GONE);
 		valueRow.setVisibility(needsValue ? View.VISIBLE : View.GONE);
+		variableHint.setVisibility(variableType ? View.VISIBLE : View.GONE);
 		if (nameLabel != null) {
-			nameLabel.setText(triggerType ? "Name" : "Variable");
+			nameLabel.setText("Variable");
+		}
+		if (needsValue && type == ConditionType.ALIAS_EQUALS) {
+			valueField.setHint("alias With / replacement text");
+		} else if (needsValue) {
+			valueField.setHint("expected value");
 		}
 	}
 
@@ -223,7 +258,6 @@ public class ConditionLeafEditorDialog extends Dialog {
 					}
 				}
 			}
-			// Also offer other plugins for cross-deps when editing main.
 			if (selectedPlugin == null
 					|| PluginFilterSelectionDialog.MAIN_SETTINGS.equals(selectedPlugin)) {
 				try {
@@ -250,50 +284,117 @@ public class ConditionLeafEditorDialog extends Dialog {
 				}
 			}
 		} catch (RemoteException e) {
-			// picker optional
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("ConditionLeafEditorDialog.save condition", e);
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"ConditionLeafEditorDialog.load triggers", e);
 		}
 		triggerChoices.addAll(names);
 	}
 
-	private void selectTriggerChoice(String qualified) {
+	@SuppressWarnings("unchecked")
+	private void loadAliasChoices() {
+		aliasChoices.clear();
+		aliasChoices.add("(pick alias)");
+		TreeSet<String> names = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
+		try {
+			HashMap<String, AliasData> map;
+			if (selectedPlugin == null
+					|| PluginFilterSelectionDialog.MAIN_SETTINGS.equals(selectedPlugin)) {
+				map = (HashMap<String, AliasData>) service.getAliases();
+				if (map != null) {
+					for (String n : map.keySet()) {
+						if (n != null && n.length() > 0) {
+							names.add(n);
+						}
+					}
+				}
+			} else {
+				map = (HashMap<String, AliasData>) service.getPluginAliases(selectedPlugin);
+				if (map != null) {
+					for (String n : map.keySet()) {
+						if (n != null && n.length() > 0) {
+							names.add(selectedPlugin + ":" + n);
+						}
+					}
+				}
+			}
+			if (selectedPlugin == null
+					|| PluginFilterSelectionDialog.MAIN_SETTINGS.equals(selectedPlugin)) {
+				try {
+					java.util.List<?> plugins = service.getPluginsWithAliases();
+					if (plugins != null) {
+						for (Object o : plugins) {
+							if (!(o instanceof String)) {
+								continue;
+							}
+							String pname = (String) o;
+							HashMap<String, AliasData> pmap =
+									(HashMap<String, AliasData>) service.getPluginAliases(pname);
+							if (pmap == null) {
+								continue;
+							}
+							for (String n : pmap.keySet()) {
+								if (n != null && n.length() > 0) {
+									names.add(pname + ":" + n);
+								}
+							}
+						}
+					}
+				} catch (RemoteException ignored) {
+				}
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"ConditionLeafEditorDialog.load aliases", e);
+		}
+		aliasChoices.addAll(names);
+	}
+
+	private void selectChoice(Spinner spinner, ArrayList<String> choices, String qualified) {
 		if (qualified == null || qualified.length() == 0) {
-			triggerSpinner.setSelection(0, false);
+			spinner.setSelection(0, false);
 			return;
 		}
-		for (int i = 0; i < triggerChoices.size(); i++) {
-			if (qualified.equals(triggerChoices.get(i))) {
-				triggerSpinner.setSelection(i, false);
+		for (int i = 0; i < choices.size(); i++) {
+			if (qualified.equals(choices.get(i))) {
+				spinner.setSelection(i, false);
 				return;
 			}
 		}
-		// Free-form: put into name field path by appending
-		triggerChoices.add(qualified);
-		ArrayAdapter<String> trigAdapter = new ArrayAdapter<String>(getContext(),
-				R.layout.spinner_item_dark, triggerChoices);
-		trigAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
-		triggerSpinner.setAdapter(trigAdapter);
-		triggerSpinner.setSelection(triggerChoices.size() - 1, false);
+		choices.add(qualified);
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_item_dark, choices);
+		adapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		spinner.setAdapter(adapter);
+		spinner.setSelection(choices.size() - 1, false);
 	}
 
 	private void applyAndFinish() {
 		ConditionType type = ConditionType.values()[typeSpinner.getSelectedItemPosition()];
 		editing.setType(type);
-		if (type == ConditionType.TRIGGER_ENABLED || type == ConditionType.TRIGGER_DISABLED) {
-			int idx = triggerSpinner.getSelectedItemPosition();
-			String choice = idx > 0 && idx < triggerChoices.size() ? triggerChoices.get(idx) : "";
-			if (choice.contains(":")) {
-				int colon = choice.indexOf(':');
-				editing.setPlugin(choice.substring(0, colon));
-				editing.setName(choice.substring(colon + 1));
-			} else {
-				editing.setPlugin("");
-				editing.setName(choice);
+		if (type.isTriggerGate()) {
+			String choice = selectedChoice(triggerSpinner, triggerChoices);
+			if (choice.length() == 0) {
+				toastPickRequired("Pick a trigger for this condition.");
+				return;
 			}
+			applyQualifiedName(choice);
 			editing.setValue("");
+		} else if (type.isAliasGate()) {
+			String choice = selectedChoice(aliasSpinner, aliasChoices);
+			if (choice.length() == 0) {
+				toastPickRequired("Pick an alias for this condition.");
+				return;
+			}
+			applyQualifiedName(choice);
+			editing.setValue(type == ConditionType.ALIAS_EQUALS
+					? valueField.getText().toString() : "");
 		} else {
 			editing.setPlugin("");
 			editing.setName(nameField.getText().toString().trim());
+			if (editing.getName().length() == 0) {
+				toastPickRequired("Enter a variable name.");
+				return;
+			}
 			editing.setValue(type == ConditionType.VARIABLE_EQUALS
 					? valueField.getText().toString() : "");
 		}
@@ -301,5 +402,28 @@ public class ConditionLeafEditorDialog extends Dialog {
 			listener.onConditionDone(editing, isEdit ? original : null);
 		}
 		dismiss();
+	}
+
+	private String selectedChoice(Spinner spinner, ArrayList<String> choices) {
+		int idx = spinner.getSelectedItemPosition();
+		if (idx > 0 && idx < choices.size()) {
+			return choices.get(idx);
+		}
+		return "";
+	}
+
+	private void applyQualifiedName(String choice) {
+		if (choice.contains(":")) {
+			int colon = choice.indexOf(':');
+			editing.setPlugin(choice.substring(0, colon));
+			editing.setName(choice.substring(colon + 1));
+		} else {
+			editing.setPlugin("");
+			editing.setName(choice);
+		}
+	}
+
+	private void toastPickRequired(String message) {
+		Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show();
 	}
 }

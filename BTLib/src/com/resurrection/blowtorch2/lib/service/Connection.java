@@ -1683,7 +1683,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 
 		for (Plugin p : mPlugins) {
-			if (p == null || !p.isEnabled()) {
+			if (p == null || !p.isEnabled() || p == mSettings) {
 				continue;
 			}
 			tmp = p.getSortedTriggers();
@@ -2362,8 +2362,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							gagged = true;
 						}
 						if (t != null && t.isEnabled() && !gagged) {
-							if (!ConditionEvaluator.evaluate(t, Connection.this)) {
-							} else {
+							// Prefer the live map entry so editor/toggle mutations are
+							// what the gate sees even if the matcher still holds an older ref.
+							// Look in the owning plugin (main settings or a real plugin) —
+							// never fall through to getTriggers() alone, or a same-named
+							// main trigger would steal a plugin trigger's conditions.
+							TriggerData gate = t;
+							if (t.getName() != null && p != null && p.getSettings() != null) {
+								TriggerData live = p.getSettings().getTriggers().get(t.getName());
+								if (live != null) {
+									gate = live;
+								}
+							}
+							if (ConditionEvaluator.evaluate(gate, Connection.this)) {
 							mCaptureMap.clear();
 							for (int i = index; i <= (t.getMatcher().groupCount() + index); i++) {
 								

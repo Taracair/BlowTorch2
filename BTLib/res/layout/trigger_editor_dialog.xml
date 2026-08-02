@@ -181,7 +181,7 @@
   			android:paddingBottom="2dip"
   			android:textColor="#FFDDDDDD"
   			android:textSize="12sp"
-  			android:text="Extra gate after the pattern matches — not a substitute for the pattern. Checked before responders run."/>
+  			android:text="Extra gate after the pattern matches. Example: Only if trigger is ON + pick _cerb → responders run only while _cerb is enabled. Only if trigger is OFF does the opposite. Variables are session sticky notes (Set Variable / ${name}), not pattern syntax."/>
   		<TextView
   			android:id="@+id/trigger_conditions_hint"
   			android:layout_width="match_parent"

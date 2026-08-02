@@ -1,11 +1,14 @@
 package com.resurrection.blowtorch2.lib.trigger.condition;
 
 /**
- * Leaf condition kinds for trigger gates (v1).
+ * Leaf condition kinds for trigger/timer gates.
  */
 public enum ConditionType {
 	TRIGGER_ENABLED("triggerEnabled"),
 	TRIGGER_DISABLED("triggerDisabled"),
+	ALIAS_ENABLED("aliasEnabled"),
+	ALIAS_DISABLED("aliasDisabled"),
+	ALIAS_EQUALS("aliasEquals"),
 	VARIABLE_EQUALS("variableEquals"),
 	VARIABLE_EXISTS("variableExists");
 
@@ -34,6 +37,15 @@ public enum ConditionType {
 		if ("triggerDisabled".equalsIgnoreCase(s) || "trigger_disabled".equalsIgnoreCase(s)) {
 			return TRIGGER_DISABLED;
 		}
+		if ("aliasEnabled".equalsIgnoreCase(s) || "alias_enabled".equalsIgnoreCase(s)) {
+			return ALIAS_ENABLED;
+		}
+		if ("aliasDisabled".equalsIgnoreCase(s) || "alias_disabled".equalsIgnoreCase(s)) {
+			return ALIAS_DISABLED;
+		}
+		if ("aliasEquals".equalsIgnoreCase(s) || "alias_equals".equalsIgnoreCase(s)) {
+			return ALIAS_EQUALS;
+		}
 		if ("variableEquals".equalsIgnoreCase(s) || "variable_equals".equalsIgnoreCase(s)) {
 			return VARIABLE_EQUALS;
 		}
@@ -46,9 +58,15 @@ public enum ConditionType {
 	public String displayLabel() {
 		switch (this) {
 		case TRIGGER_ENABLED:
-			return "Trigger enabled";
+			return "Only if trigger is ON";
 		case TRIGGER_DISABLED:
-			return "Trigger disabled";
+			return "Only if trigger is OFF";
+		case ALIAS_ENABLED:
+			return "Only if alias is ON";
+		case ALIAS_DISABLED:
+			return "Only if alias is OFF";
+		case ALIAS_EQUALS:
+			return "Alias replacement equals";
 		case VARIABLE_EQUALS:
 			return "Variable equals";
 		case VARIABLE_EXISTS:
@@ -56,5 +74,25 @@ public enum ConditionType {
 		default:
 			return name();
 		}
+	}
+
+	/** True when this leaf picks a trigger by name (and optional plugin). */
+	public boolean isTriggerGate() {
+		return this == TRIGGER_ENABLED || this == TRIGGER_DISABLED;
+	}
+
+	/** True when this leaf picks an alias by name (and optional plugin). */
+	public boolean isAliasGate() {
+		return this == ALIAS_ENABLED || this == ALIAS_DISABLED || this == ALIAS_EQUALS;
+	}
+
+	/** True when this leaf reads a session variable. */
+	public boolean isVariableGate() {
+		return this == VARIABLE_EQUALS || this == VARIABLE_EXISTS;
+	}
+
+	/** True when the leaf needs a free-text expected value. */
+	public boolean needsExpectedValue() {
+		return this == VARIABLE_EQUALS || this == ALIAS_EQUALS;
 	}
 }

@@ -226,6 +226,12 @@ public class TriggerData implements Parcelable {
 				SetVariableResponder setVar = in.readParcelable(com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder.class.getClassLoader());
 				responders.add(setVar);
 				break;
+			default:
+				// Unknown type must still consume the parcelable written after the
+				// type int, or every field after responders (including conditions)
+				// desynchronises across the binder.
+				in.readParcelable(TriggerResponder.class.getClassLoader());
+				break;
 			}
 		}
 		conditions = in.readParcelable(ConditionGroup.class.getClassLoader());

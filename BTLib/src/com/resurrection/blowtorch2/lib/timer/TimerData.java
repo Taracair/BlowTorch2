@@ -156,6 +156,8 @@ public class TimerData implements Parcelable {
 				responders.add((com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder)in.readParcelable(com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder.class.getClassLoader()));
 				break;
 			default:
+				// Keep parcel alignment for conditions written after responders.
+				in.readParcelable(TriggerResponder.class.getClassLoader());
 				break;
 			}
 		}

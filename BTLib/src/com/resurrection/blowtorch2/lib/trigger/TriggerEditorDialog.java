@@ -473,6 +473,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 					} else {	
 						service.updatePluginTrigger(selectedPlugin,original_trigger,the_trigger);
 					}
+					// Same barrier as TimerEditorDialog: list Done also saves, but
+					// conditions must hit disk as soon as the editor commits so a
+					// :stellar death cannot drop an in-memory-only ConditionGroup.
+					service.saveSettings();
 				} catch (RemoteException e) {
 					throw new RuntimeException(e);
 				}
@@ -488,6 +492,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 					} else {
 						service.newPluginTrigger(selectedPlugin,the_trigger);
 					}
+					service.saveSettings();
 				} catch (RemoteException e) {
 					throw new RuntimeException(e);
 				}
