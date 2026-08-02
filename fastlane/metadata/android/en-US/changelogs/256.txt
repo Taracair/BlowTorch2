@@ -1,0 +1,5 @@
+BlowTorch 2 v2.2.3
+• .editbutton / .sendbutton / .editpanel; Show Edit/Send in Options
+• Hyperlink: Link bare domains? + Extra TLDs; fewer false links
+• Per-alias Local echo (inherit / always show / hide)
+• Button sets no longer jump down; alias editor fits on screen
