@@ -7,11 +7,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.WindowManager;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,15 +36,71 @@ import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
  * {@code window_container}, which the window manager stacks below the IME — so
  * there they can only be kept clear of the keys, never on top of them.
  *
- * <p>One window per button, not one full-screen window: an overlay window
- * consumes every touch inside its own bounds, and returning {@code false} from
- * a view does not pass the event to the window underneath. A full-screen
- * overlay would eat the keyboard.
+ * <p>Overlay mode uses <b>two</b> windows per button, not one full-screen
+ * window: a button-sized touchable window (presses/drags) and a larger
+ * {@code FLAG_NOT_TOUCHABLE} window that only draws the gesture-hint padding.
+ * A single padded touchable window would swallow keyboard taps in that band —
+ * {@code FLAG_NOT_TOUCH_MODAL} only passes touches <em>outside</em> the window
+ * rectangle, and returning {@code false} from a view does not. A full-screen
+ * overlay would eat the keyboard outright.
  */
 public class FloatingButtonController {
 
 	private static final String TAG = "FloatingButtons";
 	static final String LAYER_TAG = "floating_button_layer";
+
+	/**
+	 * Overlay hosting for one button: visual surface (padded, not touchable)
+	 * plus a transparent touch proxy sized to the visible button.
+	 */
+	private static final class OverlayWindows {
+		final FloatingButtonView visual;
+		final OverlayTouchProxy touch;
+		WindowManager.LayoutParams visualParams;
+		WindowManager.LayoutParams touchParams;
+
+		OverlayWindows(FloatingButtonView visual, OverlayTouchProxy touch) {
+			this.visual = visual;
+			this.touch = touch;
+		}
+	}
+
+	/**
+	 * Button-sized transparent window that owns the gesture. Forwards events
+	 * into the padded {@link FloatingButtonView} with a local-coordinate offset
+	 * so {@code containsLocal} still matches the visible tile.
+	 */
+	private static final class OverlayTouchProxy extends View {
+		private FloatingButtonView target;
+		private int offsetX;
+		private int offsetY;
+
+		OverlayTouchProxy(Context context) {
+			super(context);
+			// Pure hit target — the padded FloatingButtonView draws underneath.
+			setWillNotDraw(true);
+		}
+
+		void bind(FloatingButtonView target, int offsetX, int offsetY) {
+			this.target = target;
+			this.offsetX = offsetX;
+			this.offsetY = offsetY;
+		}
+
+		@Override
+		public boolean onTouchEvent(MotionEvent event) {
+			if (target == null) {
+				return false;
+			}
+			MotionEvent shifted = MotionEvent.obtain(event);
+			try {
+				shifted.offsetLocation(offsetX, offsetY);
+				return target.dispatchTouchEvent(shifted);
+			} finally {
+				shifted.recycle();
+			}
+		}
+	}
 
 	public interface Host {
 		MainWindow getMainWindow();
@@ -83,9 +141,9 @@ public class FloatingButtonController {
 	private int lastImeLiftPx;
 	/** True while buttons live in their own overlay windows. */
 	private boolean overlayMode;
-	/** Overlay params per view, so add and remove stay symmetric. */
-	private final java.util.HashMap<FloatingButtonView, WindowManager.LayoutParams>
-			overlayParams = new java.util.HashMap<FloatingButtonView, WindowManager.LayoutParams>();
+	/** Overlay pair per visual view, so add and remove stay symmetric. */
+	private final java.util.HashMap<FloatingButtonView, OverlayWindows> overlays =
+			new java.util.HashMap<FloatingButtonView, OverlayWindows>();
 	/**
 	 * False only while the activity is paused.
 	 *
@@ -151,26 +209,14 @@ public class FloatingButtonController {
 
 		@Override
 		public void moveTo(FloatingButtonView view, int x, int y) {
-			// x,y are the visible button's top-left — the same space as
-			// floatX/Y. This view/window is padded (FloatingButtonView's hint
-			// band), so its own position is offset from the button's by that
-			// padding; only this method (and positionOf) needs to know that.
-			int padLeft = view.hintPadLeftPx();
-			int padTop = view.hintPadTopPx();
-			WindowManager.LayoutParams p = overlayParams.get(view);
-			if (p != null) {
-				p.x = x - padLeft;
-				p.y = y - padTop;
-				WindowManager wm = windowManager();
-				if (wm != null) {
-					try {
-						wm.updateViewLayout(view, p);
-					} catch (IllegalArgumentException e) {
-						// View already detached; the drop will be discarded.
-					}
-				}
+			// x,y are the visible button's top-left — the same space as floatX/Y.
+			OverlayWindows pair = overlays.get(view);
+			if (pair != null) {
+				updateOverlayPairLayout(pair, x, y);
 				return;
 			}
+			int padLeft = view.hintPadLeftPx();
+			int padTop = view.hintPadTopPx();
 			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) view.getLayoutParams();
 			if (lp == null) {
 				lp = new FrameLayout.LayoutParams(view.getWidth(), view.getHeight());
@@ -184,12 +230,13 @@ public class FloatingButtonController {
 
 		@Override
 		public int[] positionOf(FloatingButtonView view) {
+			OverlayWindows pair = overlays.get(view);
+			if (pair != null && pair.touchParams != null) {
+				// Touch window is exactly the visible button — floatX/Y space.
+				return new int[] { pair.touchParams.x, pair.touchParams.y };
+			}
 			int padLeft = view.hintPadLeftPx();
 			int padTop = view.hintPadTopPx();
-			WindowManager.LayoutParams p = overlayParams.get(view);
-			if (p != null) {
-				return new int[] { p.x + padLeft, p.y + padTop };
-			}
 			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) view.getLayoutParams();
 			if (lp != null) {
 				return new int[] { lp.leftMargin + padLeft, lp.topMargin + padTop };
@@ -431,21 +478,28 @@ public class FloatingButtonController {
 	}
 
 	/**
-	 * One window per button.
+	 * Overlay window flags for one surface of a button pair.
 	 *
 	 * <p>{@code FLAG_NOT_FOCUSABLE} so the keyboard keeps input focus — without
-	 * it the overlay steals it and typing stops. {@code FLAG_NOT_TOUCH_MODAL} so
-	 * everything outside this button's own rectangle still reaches the game and
-	 * the keys.
+	 * it the overlay steals it and typing stops. Touchable windows also get
+	 * {@code FLAG_NOT_TOUCH_MODAL} so everything outside that window's rectangle
+	 * still reaches the game and the keys. Hint windows use
+	 * {@code FLAG_NOT_TOUCHABLE} so the padding band never swallows taps.
 	 */
-	private WindowManager.LayoutParams newOverlayParams(int x, int y, int w, int h) {
+	private WindowManager.LayoutParams newOverlayParams(int x, int y, int w, int h,
+			boolean touchable) {
+		int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+				| WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+		if (touchable) {
+			flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+		} else {
+			flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+		}
 		WindowManager.LayoutParams p = new WindowManager.LayoutParams(
 				w > 0 ? w : WindowManager.LayoutParams.WRAP_CONTENT,
 				h > 0 ? h : WindowManager.LayoutParams.WRAP_CONTENT,
 				WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-				WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-						| WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-						| WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+				flags,
 				PixelFormat.TRANSLUCENT);
 		p.gravity = Gravity.TOP | Gravity.START;
 		p.x = x;
@@ -453,32 +507,92 @@ public class FloatingButtonController {
 		return p;
 	}
 
-	private void attachOverlayView(FloatingButtonView v, int x, int y, int w, int h) {
+	/**
+	 * Attach the dual overlay pair for one button.
+	 *
+	 * @param buttonX visible-button top-left X ({@code floatX} space)
+	 * @param buttonY visible-button top-left Y ({@code floatY} space)
+	 * @param buttonW visible button width
+	 * @param buttonH visible button height
+	 * @param visualW padded visual width (button + hint band)
+	 * @param visualH padded visual height
+	 */
+	private void attachOverlayPair(FloatingButtonView v, int buttonX, int buttonY,
+			int buttonW, int buttonH, int visualW, int visualH) {
 		WindowManager wm = windowManager();
-		if (wm == null || overlayParams.containsKey(v)) {
+		if (wm == null || overlays.containsKey(v)) {
 			return;
 		}
-		WindowManager.LayoutParams p = newOverlayParams(x, y, w, h);
+		int padLeft = v.hintPadLeftPx();
+		int padTop = v.hintPadTopPx();
+		OverlayTouchProxy touch = new OverlayTouchProxy(v.getContext());
+		touch.bind(v, padLeft, padTop);
+		WindowManager.LayoutParams visualParams = newOverlayParams(
+				buttonX - padLeft, buttonY - padTop, visualW, visualH, false);
+		WindowManager.LayoutParams touchParams = newOverlayParams(
+				buttonX, buttonY, buttonW, buttonH, true);
+		OverlayWindows pair = new OverlayWindows(v, touch);
+		pair.visualParams = visualParams;
+		pair.touchParams = touchParams;
 		try {
-			wm.addView(v, p);
-			overlayParams.put(v, p);
+			// Visual first (under); touch proxy on top so it owns the gesture.
+			wm.addView(v, visualParams);
+			wm.addView(touch, touchParams);
+			overlays.put(v, pair);
 		} catch (RuntimeException e) {
 			// Permission revoked between the check and here, or the window
-			// manager refused. Fall back rather than take the process down.
-			BlowTorchLogger.logThrowable(TAG + ".attachOverlayView", e);
+			// manager refused. Tear down any half-attached pair.
+			BlowTorchLogger.logThrowable(TAG + ".attachOverlayPair", e);
+			try {
+				wm.removeViewImmediate(touch);
+			} catch (RuntimeException ignored) {
+				// not attached
+			}
+			try {
+				wm.removeViewImmediate(v);
+			} catch (RuntimeException ignored) {
+				// not attached
+			}
 		}
 	}
 
-	private void removeOverlayView(FloatingButtonView v) {
-		WindowManager.LayoutParams p = overlayParams.remove(v);
+	private void updateOverlayPairLayout(OverlayWindows pair, int buttonX, int buttonY) {
+		if (pair.visualParams == null || pair.touchParams == null) {
+			return;
+		}
+		int padLeft = pair.visual.hintPadLeftPx();
+		int padTop = pair.visual.hintPadTopPx();
+		pair.visualParams.x = buttonX - padLeft;
+		pair.visualParams.y = buttonY - padTop;
+		pair.touchParams.x = buttonX;
+		pair.touchParams.y = buttonY;
 		WindowManager wm = windowManager();
-		if (wm == null || p == null) {
+		if (wm == null) {
 			return;
 		}
 		try {
-			wm.removeViewImmediate(v);
+			wm.updateViewLayout(pair.visual, pair.visualParams);
+			wm.updateViewLayout(pair.touch, pair.touchParams);
 		} catch (IllegalArgumentException e) {
-			// Already detached. Removing twice is not an error worth a log.
+			// View already detached; the drop will be discarded.
+		}
+	}
+
+	private void removeOverlayPair(FloatingButtonView v) {
+		OverlayWindows pair = overlays.remove(v);
+		WindowManager wm = windowManager();
+		if (wm == null || pair == null) {
+			return;
+		}
+		try {
+			wm.removeViewImmediate(pair.touch);
+		} catch (IllegalArgumentException e) {
+			// Already detached.
+		}
+		try {
+			wm.removeViewImmediate(pair.visual);
+		} catch (IllegalArgumentException e) {
+			// Already detached.
 		}
 	}
 
@@ -571,11 +685,11 @@ public class FloatingButtonController {
 	}
 
 	/**
-	 * One overlay window per button, placed where the player left it.
+	 * Dual overlay windows per button, placed where the player left it.
 	 *
-	 * <p>Nothing here consults the keyboard height for position: the window is
+	 * <p>Nothing here consults the keyboard height for position: the windows are
 	 * above the IME, so a button stays put whether the keys are up or down.
-	 * Keyboard mode only decides whether the window exists at all.
+	 * Keyboard mode only decides whether the windows exist at all.
 	 */
 	private void rebuildOverlay(List<FloatingButtonModel> models, boolean imeUp) {
 		MainWindow activity = host.getMainWindow();
@@ -594,12 +708,10 @@ public class FloatingButtonController {
 			v.measure(
 					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
 					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-			// w,h (padded) size the window; buttonW/buttonH (visible button
-			// only) are what floatX/Y and clamping are expressed in, so the
-			// button — not the hint band around it — is what stays on screen
-			// and where the player left it.
-			int w = Math.max(1, v.getMeasuredWidth());
-			int h = Math.max(1, v.getMeasuredHeight());
+			// visualW/H (padded) size the hint window; buttonW/H are what
+			// floatX/Y and clamping use, and also size the touchable window.
+			int visualW = Math.max(1, v.getMeasuredWidth());
+			int visualH = Math.max(1, v.getMeasuredHeight());
 			int buttonW = Math.max(1, v.buttonWidthPx());
 			int buttonH = Math.max(1, v.buttonHeightPx());
 			int x = m.floatX == FloatingLayerGeometry.UNPLACED
@@ -615,7 +727,7 @@ public class FloatingButtonController {
 					: m.floatY;
 			x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
 			y = FloatingLayerGeometry.clampY(y, buttonH, displayHeight());
-			attachOverlayView(v, x - v.hintPadLeftPx(), y - v.hintPadTopPx(), w, h);
+			attachOverlayPair(v, x, y, buttonW, buttonH, visualW, visualH);
 			views.add(v);
 		}
 	}
@@ -722,19 +834,17 @@ public class FloatingButtonController {
 
 	/**
 	 * Overlay windows can move (drag) without a fresh Lua push. Before an IME
-	 * rebuild, copy their live {@link WindowManager.LayoutParams} into the
-	 * cache that rebuild reads.
+	 * rebuild, copy their live touch-window position into the cache that rebuild
+	 * reads. The touch window is already in floatX/Y (visible-button) space.
 	 */
 	private void syncLastModelsFromLiveOverlayPositions() {
 		for (FloatingButtonView v : views) {
-			WindowManager.LayoutParams p = overlayParams.get(v);
+			OverlayWindows pair = overlays.get(v);
 			FloatingButtonModel m = v.getModel();
-			if (p == null || m == null) {
+			if (pair == null || pair.touchParams == null || m == null) {
 				continue;
 			}
-			// p.x/p.y are the padded window's position; floatX/Y (like every
-			// other cached position) mean the button's own top-left.
-			rememberFloatPosition(m.index, p.x + v.hintPadLeftPx(), p.y + v.hintPadTopPx());
+			rememberFloatPosition(m.index, pair.touchParams.x, pair.touchParams.y);
 		}
 	}
 
@@ -903,14 +1013,14 @@ public class FloatingButtonController {
 
 	private void clearViews() {
 		for (FloatingButtonView v : views) {
-			if (overlayParams.containsKey(v)) {
-				removeOverlayView(v);
+			if (overlays.containsKey(v)) {
+				removeOverlayPair(v);
 			} else if (layer != null) {
 				layer.removeView(v);
 			}
 		}
 		views.clear();
-		overlayParams.clear();
+		overlays.clear();
 	}
 
 	/** Take the in-app layer down when the buttons move to overlay windows. */

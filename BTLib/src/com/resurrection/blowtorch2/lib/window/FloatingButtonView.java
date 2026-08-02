@@ -46,19 +46,17 @@ public class FloatingButtonView extends View {
 		/**
 		 * Put the visible button's top-left at {@code x},{@code y} — the same
 		 * space as stored {@code floatX}/{@code floatY}. The view itself is
-		 * larger (it has a hint-padding margin, see {@link #hintPadLeftPx()} /
-		 * {@link #hintPadTopPx()}), so the controller is the one that turns this
-		 * into margins inside the floating layer, or the position of this
-		 * button's own overlay window, offsetting by that padding. The gesture
-		 * code must not care.
+		 * larger (hint-padding margin, see {@link #hintPadLeftPx()} /
+		 * {@link #hintPadTopPx()}), so the controller turns this into layer
+		 * margins or the dual overlay pair (touch window at the button;
+		 * visual window offset by that padding). The gesture code must not care.
 		 */
 		void moveTo(FloatingButtonView view, int x, int y);
 
 		/**
 		 * Current {@code {x, y}} of the visible button's top-left, in whichever
-		 * space this view lives in — already converted back from the padded
-		 * view/window position, so it is directly comparable to {@code floatX}/
-		 * {@code floatY} and to the {@code x}/{@code y} passed to {@link #moveTo}.
+		 * space this view lives in — already in {@code floatX}/{@code floatY}
+		 * space (layer: margin + pad; overlay: touch-window x/y).
 		 */
 		int[] positionOf(FloatingButtonView view);
 	}
@@ -67,12 +65,18 @@ public class FloatingButtonView extends View {
 	 * Room reserved outside the visible button for gesture hints, mirroring
 	 * {@code BUTTON:drawGestureIndicators} / {@code drawGestureLabel} on the
 	 * grid — there they draw on a shared full-window canvas that nothing
-	 * clips. A floating button instead gets its own exactly-sized overlay
-	 * window ({@code TYPE_APPLICATION_OVERLAY}), so anything drawn past its
-	 * edges used to be clipped by the window itself, not by this view. The fix
-	 * is to make the view (and, in the controller, the overlay window) bigger
-	 * than the button and draw hints in the margin, not to draw them inside
-	 * the button — that was tried in 97bd47e5 and looked wrong to the player.
+	 * clips. A floating button instead gets its own overlay windows
+	 * ({@code TYPE_APPLICATION_OVERLAY}), so anything drawn past a
+	 * button-sized window used to be clipped. The view is therefore larger
+	 * than the button and draws hints in the margin.
+	 *
+	 * <p>In overlay mode the controller hosts this padded view in a
+	 * {@code FLAG_NOT_TOUCHABLE} window and a separate button-sized touchable
+	 * proxy — a single padded touchable window would swallow keyboard taps in
+	 * the hint band ({@code FLAG_NOT_TOUCH_MODAL} only passes touches outside
+	 * the window rectangle). In the in-app {@link FloatingLayer} the padded
+	 * view is the only child and returning {@code false} from
+	 * {@link #onTouchEvent} lets the layer pass padding taps through.
 	 *
 	 * <p>Left/right are equal on purpose: it keeps every "horizontal centre of
 	 * the button" calculation ({@code getWidth() / 2f}) correct without a
@@ -262,10 +266,9 @@ public class FloatingButtonView extends View {
 			drawPreviewArrow(canvas, previewDir, midX, midY);
 		}
 		// Press callout sits above the button, in the padding band — same
-		// placement as BUTTON:drawGestureLabel on the grid. It used to be drawn
-		// inside the button (97bd47e5) because the overlay window was sized
-		// exactly to the button and clipped anything above y=0; now the window
-		// itself is sized to include this band (FloatingButtonController).
+		// placement as BUTTON:drawGestureLabel on the grid. Overlay hosting
+		// sizes a NOT_TOUCHABLE window to include this band
+		// (FloatingButtonController dual-window).
 		if (callout != null && callout.length() > 0 && hintsOn) {
 			drawCallout(canvas, left, top, right);
 		}
@@ -447,10 +450,9 @@ public class FloatingButtonView extends View {
 
 	private boolean onDown(MotionEvent event) {
 		if (!containsLocal(event.getX(), event.getY())) {
-			// Touch landed in the hint padding band, not the visible button.
-			// Not consuming it lets FLAG_NOT_TOUCH_MODAL pass it to whatever is
-			// underneath (game text, or — in the in-app layer — the keyboard),
-			// exactly as a miss on the old, exactly-button-sized window did.
+			// Hint-padding miss (in-app layer only — overlay delivers events
+			// through a button-sized proxy, so this path is unused there).
+			// Returning false lets the FloatingLayer pass the tap through.
 			return false;
 		}
 		multiTouchCancelled = false;
