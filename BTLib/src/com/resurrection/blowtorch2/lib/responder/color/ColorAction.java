@@ -58,6 +58,30 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		o.writeString(this.getFireType().getString());
 	}
 
+	/**
+	 * Peek whether any non-empty {@link Text} remains after the iterator's
+	 * current position, then rewind so the caller can keep consuming.
+	 */
+	private static boolean hasFollowingText(ListIterator<Unit> it) {
+		int steps = 0;
+		boolean found = false;
+		while (it.hasNext()) {
+			Unit n = it.next();
+			steps++;
+			if (n instanceof Text) {
+				String s = ((Text) n).getString();
+				if (s != null && s.length() > 0) {
+					found = true;
+					break;
+				}
+			}
+		}
+		for (int i = 0; i < steps; i++) {
+			it.previous();
+		}
+		return found;
+	}
+
 	@Override
 	public boolean doResponse(Context c, TextTree tree,int lineNumber,ListIterator<TextTree.Line> iterator,Line line, int pstart, int pend,String matched,
 			Object source, String displayname,String host,int port, int triggernumber,
@@ -134,11 +158,19 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		}
 		newLine.add(line.newText(matched));
 		if(preEmptiveChop) {
-			int length = ((Text)u).getString().length();
-			Text post = line.newText(((Text)u).getString().substring(length-preEmptiveChopAt,length));
-			//insert bleed color to complete the "text color change"
-			newLine.add(bleed);
-			newLine.add(post);
+			// Restore pre-match colour only when text follows the match.
+			// Match-to-end of currently available text (TCP-split lines) must
+			// leave the trigger colour active — re-bleeding timestamp cyan
+			// painted the next fragment (_chatnet "…it off…"). Buffering until
+			// \\n broke line/offset sync with mWorking (glued Alma+Bevany).
+			if(preEmptiveChopAt > 0) {
+				int length = ((Text)u).getString().length();
+				Text post = line.newText(((Text)u).getString().substring(length-preEmptiveChopAt,length));
+				newLine.add(bleed);
+				newLine.add(post);
+			} else if (hasFollowingText(it)) {
+				newLine.add(bleed);
+			}
 		} else {
 			//normal "find and chop" procedure.
 			boolean done = false;
@@ -168,11 +200,11 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 				newLine.add(bleed);
 				
 				newLine.add(post);
-			} else {
-			
+			} else if (hasFollowingText(it)) {
+				// Match ended on a unit boundary with more text after — restore
+				// bleed so trailing units are not left in the trigger colour.
 				newLine.add(bleed);
 			}
-			//newLine.add(post);
 		}
 		
 		//finish out units if there are any.
