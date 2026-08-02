@@ -733,19 +733,28 @@ Packs install complete — there is no Simple/Advanced choice any more; it was
 worth three tiles on Compass and nothing at all on Newbie, and an unwanted tile
 is easier to delete than a missing one is to discover. Apply only writes the
 named sets you checked — other sets stay put; same name overwrites after a
-warning. Set names are folded to
-lowercase and to `a–z 0–9 _ -` when you Apply (spaces become `_`), because the
-name also goes into the `.loadset <name>` cross-links the packs write between
-each other; the wizard tells you the name it will actually use. New MUD profiles may offer a
-soft prompt once after connect; turn **Options → Button → Offer button layout
-wizard** back on to see that prompt again. Offline Starter Tutorial keeps its
-own teaching pad.
+warning.
 
-The pad lands in the lower part of the screen, within thumb reach, and its
-accordion tiles (MORE, NAV, TIP, CAST, DOORS, CHAT) sit on the bottom row and
-open **downward** into the gap beneath it, so they never cover the compass rose
-above them. "Fit to screen" sizes a pack so its columns span the width, capped
-so that opened row still fits.
+Set names are folded to lowercase and to `a–z 0–9 _ -` when you Apply (spaces
+become `_`), because the name also goes into the `.loadset <name>` cross-links
+the packs write between each other; the wizard tells you the name it will
+actually use.
+
+New MUD profiles may offer a soft prompt once after connect; turn
+**Options → Button → Offer button layout wizard** back on to see that prompt
+again. Offline Starter Tutorial keeps its own teaching pad.
+
+The pad lands just under the action bar, high enough that the soft keyboard
+cannot cover it — a pad anchored near the bottom of the screen disappears behind
+the keyboard the moment you type. Its accordion tiles (MORE, NAV, TIP, CAST,
+DOORS, CHAT) sit on the bottom row and open **downward** into the empty game
+area beneath it, so they never cover the compass rose above them.
+
+Named sizes are capped so the whole pad stays above the keyboard: Compass has
+six rows, so **Extra large** comes back a little under 72dp on a tall phone —
+still clearly bigger than Large, and wholly visible, which is the point.
+**Fit to screen** is the exception. It sizes a pack so its columns span the
+width, which for a tall pack means part of it sits below the keyboard line.
 
 **Change the size later:** **Options → Button → Button size** is a dropdown
 (Compact, Comfortable, Large, Extra large, Fit to screen). Picking one resizes

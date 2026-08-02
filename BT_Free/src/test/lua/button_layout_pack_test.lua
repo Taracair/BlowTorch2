@@ -50,7 +50,7 @@ local body = table.concat(lines, "\n", first, stop - 1)
 	.. "\n__TEST_PACK_SOURCES = PACK_SOURCES\n"
 	.. "__TEST_PACK_GEOMETRY = packGeometryFor\n"
 	.. "__TEST_BOTTOM_CHROME = PACK_BOTTOM_CHROME_DP\n"
-	.. "__TEST_THUMB_LIFT = PACK_THUMB_LIFT_DP\n"
+	.. "__TEST_TOP_PAD = PACK_TOP_PAD_DP\n"
 	.. "__TEST_HAS_ACCORDION = packHasAccordion\n"
 
 assert(loadfn(body, "pack-extract"))()
@@ -118,9 +118,13 @@ end
 -- matching the tile positions).
 
 local geometryFor = __TEST_PACK_GEOMETRY
--- Pad bottom lands this far above the screen bottom: input-bar chrome plus the
--- thumb lift, which is also the room a bottom-row accordion opens into.
-local BOTTOM_ALLOWANCE = __TEST_BOTTOM_CHROME + __TEST_THUMB_LIFT
+-- Wizard pads are anchored by their TOP edge, this far under the action bar.
+-- Bottom-anchoring put them behind the soft keyboard on the device.
+local TOP_PAD = __TEST_TOP_PAD
+-- With the keyboard up the visible game area on the maintainer's Pixel 9a ends
+-- about here (measured: 1272px of 2424). A pad at a normal preset has to sit
+-- entirely above it.
+local KEYBOARD_LINE = HEIGHT * 0.525
 local PRESETS = { "compact", "comfortable", "large", "xl", "fit_square" }
 
 print("4. every preset gives a lattice at least as wide as the tile")
@@ -138,7 +142,7 @@ for id, source in pairs(sources) do
 	for _, preset in ipairs(PRESETS) do
 		local size, pitch = geometryFor(source, preset)
 		rebuildPackSet(id, source, pitch, size)
-		alignButtonSet(id, "right", "bottom")
+		alignButtonSet(id, "right", "pack")
 		local half = (size * DENSITY) / 2
 		for _, b in ipairs(buttonsets[id]) do
 			check(b.x - half >= -1 and b.x + half <= WIDTH + 1,
@@ -154,7 +158,7 @@ for id, source in pairs(sources) do
 	for _, preset in ipairs(PRESETS) do
 		local size, pitch = geometryFor(source, preset)
 		rebuildPackSet(id, source, pitch, size)
-		alignButtonSet(id, "right", "bottom")
+		alignButtonSet(id, "right", "pack")
 		local set = buttonsets[id]
 		local side = size * DENSITY
 		local clash = nil
@@ -183,7 +187,7 @@ end
 for _, preset in ipairs(PRESETS) do
 	local size, pitch = geometryFor(sources.compass, preset)
 	rebuildPackSet("compass", sources.compass, pitch, size)
-	alignButtonSet("compass", "right", "bottom")
+	alignButtonSet("compass", "right", "pack")
 	local nw, n, ne = tileByLabel("compass", "NW"), tileByLabel("compass", "N"), tileByLabel("compass", "NE")
 	local w, e = tileByLabel("compass", "W"), tileByLabel("compass", "E")
 	local sw, s, se = tileByLabel("compass", "SW"), tileByLabel("compass", "S"), tileByLabel("compass", "SE")
@@ -200,73 +204,84 @@ for _, preset in ipairs(PRESETS) do
 	end
 end
 
-print("8. bottom anchor puts the pad in thumb reach, top anchor does not")
-local size, pitch = geometryFor(sources.compass, "comfortable")
-rebuildPackSet("compass", sources.compass, pitch, size)
-alignButtonSet("compass", "right", "bottom")
-local lowest = 0
-for _, b in ipairs(buttonsets.compass) do
-	if b.y > lowest then lowest = b.y end
-end
-check(lowest > HEIGHT * 0.6,
-	"bottom-anchored pad reaches past 60% of the screen (got "
-	.. math.floor(lowest / HEIGHT * 100) .. "%)")
-check(lowest <= HEIGHT - BOTTOM_ALLOWANCE * DENSITY + 1,
-	"bottom-anchored pad still clears the input bar")
-
--- alignButtonSet clamps min-top last, so a pad too tall for the screen would
--- silently ride back up while the "past 60%" check above still passed. Assert
--- the bottom edge really lands on the chrome line for every pack and preset.
+print("8. pack anchor sits under the action bar, clear of the soft keyboard")
+-- The regression this replaces: the pad was anchored to the BOTTOM of the
+-- screen, which on the device put it behind the keyboard. Anchor is now the top
+-- edge, PACK_TOP_PAD_DP under the action bar.
 for id, source in pairs(sources) do
 	for _, preset in ipairs(PRESETS) do
 		local ps, pp = geometryFor(source, preset)
 		rebuildPackSet(id, source, pp, ps)
-		alignButtonSet(id, "right", "bottom")
-		local edge = 0
+		alignButtonSet(id, "right", "pack")
+		local topEdge, bottomEdge = math.huge, 0
 		for _, b in ipairs(buttonsets[id]) do
+			local t = b.y - (ps * DENSITY) / 2
 			local e = b.y + (ps * DENSITY) / 2
-			if e > edge then edge = e end
+			if t < topEdge then topEdge = t end
+			if e > bottomEdge then bottomEdge = e end
 		end
-		check(math.abs(edge - (HEIGHT - BOTTOM_ALLOWANCE * DENSITY)) < 1,
-			id .. "/" .. preset .. " bottom edge sits on the chrome line, not clamped up")
+		check(math.abs(topEdge - (ACTIONBAR + TOP_PAD * DENSITY)) < 1,
+			id .. "/" .. preset .. " top edge sits " .. TOP_PAD
+			.. "dp under the action bar (got " .. math.floor(topEdge) .. "px)")
+		-- Named presets must be entirely usable with the keyboard up. Fit to
+		-- screen deliberately grows past that: it is asked to fill the width.
+		if preset ~= "fit_square" then
+			check(bottomEdge <= KEYBOARD_LINE,
+				id .. "/" .. preset .. " whole pad clears the keyboard ("
+				.. math.floor(bottomEdge) .. "px vs line at "
+				.. math.floor(KEYBOARD_LINE) .. "px)")
+		end
+		-- And it must never reach the input bar, keyboard or not.
+		check(bottomEdge <= HEIGHT - __TEST_BOTTOM_CHROME * DENSITY + 1,
+			id .. "/" .. preset .. " pad clears the input bar")
 	end
 end
 
+-- The offline starter/tutorial placement is a separate mode and must not have
+-- moved: alignDefaultButtons shares this function with the teaching pad.
+local size, pitch = geometryFor(sources.compass, "comfortable")
+rebuildPackSet("compass", sources.compass, pitch, size)
+alignButtonSet("compass", "right", "pack")
+local packTop = math.huge
+for _, b in ipairs(buttonsets.compass) do
+	if b.y < packTop then packTop = b.y end
+end
 rebuildPackSet("compass", sources.compass, pitch, size)
 alignButtonSet("compass", "right")
-local topLowest = 0
+local legacyTop = math.huge
 for _, b in ipairs(buttonsets.compass) do
-	if b.y > topLowest then topLowest = b.y end
+	if b.y < legacyTop then legacyTop = b.y end
 end
-check(topLowest < lowest, "default (starter/tutorial) placement stays higher than bottom anchor")
+check(legacyTop > packTop,
+	"legacy (starter/tutorial) placement is still the lower of the two")
 
 print("9. resizing repeatedly does not compound coordinates")
 -- rebuildPackSet always re-derives from the canonical table, so going
 -- comfortable → xl → comfortable must land exactly where comfortable started.
 local s1, p1 = geometryFor(sources.compass, "comfortable")
 rebuildPackSet("compass", sources.compass, p1, s1)
-alignButtonSet("compass", "right", "bottom")
+alignButtonSet("compass", "right", "pack")
 local baseline = {}
 for i, b in ipairs(buttonsets.compass) do baseline[i] = { x = b.x, y = b.y } end
 local s2, p2 = geometryFor(sources.compass, "xl")
 rebuildPackSet("compass", sources.compass, p2, s2)
-alignButtonSet("compass", "right", "bottom")
+alignButtonSet("compass", "right", "pack")
 rebuildPackSet("compass", sources.compass, p1, s1)
-alignButtonSet("compass", "right", "bottom")
+alignButtonSet("compass", "right", "pack")
 for i, b in ipairs(buttonsets.compass) do
 	check(math.abs(b.x - baseline[i].x) < 1 and math.abs(b.y - baseline[i].y) < 1,
 		"round trip through xl returns " .. tostring(b.label) .. " to its place")
 end
 
-print("10. accordions open downward into the gap, not over the pad")
--- Every pack accordion sits on the pack's last row. With the pad anchored near
--- the bottom, the old "up" default unfolded its children straight over the
--- compass rose. Down + horizontal puts one row in the thumb-lift gap instead.
+print("10. accordions open downward, below the pad, clear of the input bar")
+-- Every pack accordion sits on the pack's last row, so "up" (the old default,
+-- stacking children vertically) unfolded straight over the compass rose. Down +
+-- horizontal puts a single row in the empty game area beneath the pad.
 for id, source in pairs(sources) do
 	for _, preset in ipairs(PRESETS) do
 		local size, pitch = geometryFor(source, preset)
 		rebuildPackSet(id, source, pitch, size)
-		alignButtonSet(id, "right", "bottom")
+		alignButtonSet(id, "right", "pack")
 		local set = buttonsets[id]
 		local lowest = 0
 		for _, b in ipairs(set) do
@@ -292,14 +307,27 @@ for id, source in pairs(sources) do
 	end
 end
 
-print("11. packs with an accordion never out-grow the gap it opens into")
+print("11. geometry reserves a row for the accordion to open into")
 for id, source in pairs(sources) do
 	if __TEST_HAS_ACCORDION(source) then
+		local _, rows = nil, 0
+		local ys = {}
+		for _, b in ipairs(source) do
+			if b.y ~= nil and not ys[b.y] then ys[b.y] = true; rows = rows + 1 end
+		end
 		for _, preset in ipairs(PRESETS) do
-			local _, pitch = geometryFor(source, preset)
-			check(pitch <= __TEST_THUMB_LIFT,
-				id .. "/" .. preset .. " pitch " .. pitch
-				.. " must fit the " .. __TEST_THUMB_LIFT .. "dp accordion gap")
+			local ps, pp = geometryFor(source, preset)
+			rebuildPackSet(id, source, pp, ps)
+			alignButtonSet(id, "right", "pack")
+			local bottomEdge = 0
+			for _, b in ipairs(buttonsets[id]) do
+				local e = b.y + (ps * DENSITY) / 2
+				if e > bottomEdge then bottomEdge = e end
+			end
+			-- Pad plus one opened row still above the input bar.
+			check(bottomEdge + pp * DENSITY <= HEIGHT - __TEST_BOTTOM_CHROME * DENSITY + 1,
+				id .. "/" .. preset .. " leaves a row (" .. pp
+				.. "dp) for the accordion above the input bar")
 		end
 	end
 end

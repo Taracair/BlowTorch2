@@ -380,6 +380,45 @@ Options appear under **Options → \<title\>**. Changes call Lua
 **`OnOptionChanged(key, value)`** — older Doxygen text says
 `OnOptionsChanged`; that name is **wrong**. Values arrive as **strings**.
 
+**A saved profile keeps the option shape it was created with.** The `<options>`
+block in your XML seeds a profile once; after that the player's settings file is
+the record. Editing the XML — adding an option, or changing a `<string>` into a
+`<list>` — therefore only ever reaches **new** profiles. Everyone already using
+your plugin keeps the old one.
+
+To change an option's *type* in place, drop the old key and add the new one from
+Lua, through the `SettingsGroup` that `GetPluginSettings()` returns:
+
+```lua
+local settings = GetPluginSettings()
+if not settings:isListOption("my_key") then          -- still the old StringOption
+  -- Carry the value across, or the player is snapped back to the default.
+  local previous = settings:getOptionValue("my_key")
+  settings:removeOptionByKey("my_key")               -- no-op if it was never there
+  local ListOption = luajava.bindClass(
+    "com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption")
+  local opt = luajava.new(ListOption)
+  opt:setKey("my_key"); opt:setTitle("My key")
+  opt:addItem("First"); opt:addItem("Second")
+  opt:setValue(indexFor(previous) or 0)
+  settings:addOption(opt)
+end
+```
+
+Two rules on that pair, both learned the hard way:
+
+- **`isListOption(key)` exists because Lua has no `instanceof`.** LuaJava
+  exposes `bindClass` / `new` / `newInstance` / `array` / `loadLib` /
+  `createProxy` and nothing else, so without it a plugin cannot tell an
+  already-migrated option from the one it replaced — and would drop and rebuild
+  it, losing the player's choice, on every single connect.
+- **`removeOptionByKey(key)` is only safe outside a walk of `getOptions()`.**
+  Run the migration from a ready/startup hook, never from inside
+  `OnOptionChanged` — mutating the option tree while the host is dumping it is a
+  crash on connect. (`Plugin.dumpOption` snapshots the list for exactly this
+  reason.) `button_window` does this in its `buttonLayerReady` path; copy that
+  shape.
+
 ### 4.6 Custom XML (`OnPrepareXML` / `OnXmlExport`)
 
 For data the stock parser does not know (e.g. `button_window`’s
@@ -483,7 +522,7 @@ comment set; this section is the maintained summary.
 | Function | Description |
 |----------|-------------|
 | `ExecuteScript(name)` | Run a named `<script>` body |
-| `GetPluginSettings()` | Plugin `SettingsGroup` Java object |
+| `GetPluginSettings()` | Plugin `SettingsGroup` Java object. Beyond `getOptionValue` / `addOption` it carries **`isListOption(key)`** and **`removeOptionByKey(key)`** — the pair you need to change an option's *type* in a profile that already has it. Read §4.5 before using them: one is only safe outside `OnOptionChanged` |
 | `ReloadSettings()` | Full settings reload |
 | `SaveSettings()` | Persist connection settings (queued) |
 | `RegisterSpecialCommand(shortName, callbackName)` | `.shortName` → global Lua fn |

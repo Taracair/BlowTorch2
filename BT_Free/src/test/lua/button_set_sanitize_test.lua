@@ -39,6 +39,10 @@ local stop = findLine("^function alignDefaultButtons", "alignDefaultButtons")
 -- Stubs for the host side: a 1080x2400 screen at density 2.625, like a Pixel 9a.
 local DENSITY, WIDTH, HEIGHT, ACTIONBAR = 2.625, 1080, 2400, 96
 buttonsets = {}
+-- sanitizeButtonSet reads this for the per-set fallback tile size. It is a
+-- module-level table in buttonserver.lua (never nil there), so the harness has
+-- to provide one too or the extracted body indexes nil.
+buttonset_defaults = {}
 GetDisplayDensity = function() return DENSITY end
 GetActionBarHeight = function() return tostring(ACTIONBAR) end
 context = {
@@ -52,8 +56,27 @@ context = {
 assert(loadstring(table.concat(lines, "\n", first, stop - 1), "sanitize-extract"))()
 assert(type(sanitizeButtonSet) == "function", "extraction failed")
 
-local minX, maxX = 24 * DENSITY, WIDTH - 24 * DENSITY
-local minY, maxY = ACTIONBAR + 8 * DENSITY, HEIGHT - 56 * DENSITY
+-- The bound is half the tile's own size, not a flat inset: a 72dp tile pinned to
+-- a 24dp inset still hangs 12dp off the edge, which is what clipped the right
+-- column at Extra large. So the acceptance window is per button, and it is wider
+-- for a small tile than for a big one — mirror that here rather than hardcoding.
+local DEFAULT_TILE_DP = 42
+
+local function tileSize(b, setName)
+	local defs = buttonset_defaults[setName]
+	local bw = tonumber(b.width) or tonumber(defs and defs.width) or DEFAULT_TILE_DP
+	local bh = tonumber(b.height) or tonumber(defs and defs.height) or DEFAULT_TILE_DP
+	return bw * DENSITY, bh * DENSITY
+end
+
+local function boundsFor(b, setName)
+	local bw, bh = tileSize(b, setName)
+	local minX, maxX = bw / 2, WIDTH - bw / 2
+	local minY, maxY = ACTIONBAR + 8 * DENSITY + bh / 2, HEIGHT - 56 * DENSITY - bh / 2
+	if maxX < minX then maxX = minX end
+	if maxY < minY then maxY = minY end
+	return minX, maxX, minY, maxY
+end
 
 local failures = 0
 local function check(cond, msg)
@@ -63,11 +86,16 @@ local function check(cond, msg)
 	end
 end
 
-local function allReachable(set)
+local function reachable(b, setName)
+	if type(b.x) ~= "number" or type(b.y) ~= "number" then return false end
+	if b.x ~= b.x or b.y ~= b.y then return false end
+	local minX, maxX, minY, maxY = boundsFor(b, setName)
+	return b.x >= minX and b.x <= maxX and b.y >= minY and b.y <= maxY
+end
+
+local function allReachable(set, setName)
 	for _, b in pairs(set) do
-		if type(b.x) ~= "number" or type(b.y) ~= "number" then return false end
-		if b.x ~= b.x or b.y ~= b.y then return false end
-		if b.x < minX or b.x > maxX or b.y < minY or b.y > maxY then return false end
+		if not reachable(b, setName) then return false end
 	end
 	return true
 end
@@ -94,7 +122,7 @@ buttonsets.broken = {
 	{ label = "DEF", x = 81.375, y = -6.1025263724541e+15 },
 }
 check(sanitizeButtonSet("broken") == true, "a broken pad must report that it moved")
-check(allReachable(buttonsets.broken), "every tile must land back on screen")
+check(allReachable(buttonsets.broken, "broken"), "every tile must land back on screen")
 
 print("3. DEF, the way back, must be reachable")
 local def
@@ -102,7 +130,7 @@ for _, b in pairs(buttonsets.broken) do
 	if b.label == "DEF" then def = b end
 end
 check(def ~= nil, "DEF still present")
-check(def.x >= minX and def.x <= maxX and def.y >= minY and def.y <= maxY,
+check(reachable(def, "broken"),
 	"DEF must be tappable, otherwise LOAD cannot be undone")
 
 print("4. nil, NaN and infinities do not slip through")
@@ -113,11 +141,44 @@ buttonsets.nasty = {
 	{ label = "text", x = "notanumber", y = "alsonot" },
 }
 sanitizeButtonSet("nasty")
-check(allReachable(buttonsets.nasty), "no tile may be left unreachable")
+check(allReachable(buttonsets.nasty, "nasty"), "no tile may be left unreachable")
 
 print("5. an unknown set name is a no-op, not an error")
 local ok = pcall(sanitizeButtonSet, "doesnotexist")
 check(ok, "must not raise for a missing set")
+
+print("6. a big tile is bounded by half its own size, not a flat inset")
+-- The Extra large regression: a 72dp tile parked past the right edge used to be
+-- pinned by a 24dp inset on its *centre*, leaving 12dp of it off screen.
+buttonsets.big = {
+	{ label = "INV", width = 72, height = 72, x = 99999, y = 99999 },
+	{ label = "NAV", width = 72, height = 72, x = -99999, y = -99999 },
+}
+check(sanitizeButtonSet("big") == true, "off-screen tiles must report that they moved")
+check(allReachable(buttonsets.big, "big"), "a 72dp tile must sit wholly on screen")
+for _, b in pairs(buttonsets.big) do
+	local half = 72 * DENSITY / 2
+	check(b.x - half >= -0.001 and b.x + half <= WIDTH + 0.001,
+		b.label .. ": no part of the tile may hang off the left or right edge")
+end
+
+print("7. the set's own default size is used when a tile carries none")
+-- A tile with no width of its own falls back to buttonset_defaults[set], and
+-- only then to 42dp. Without this the fallback chain is never exercised.
+buttonset_defaults.sized = { width = 72, height = 72 }
+buttonsets.sized = { { label = "BIG", x = 99999, y = 300 } }
+sanitizeButtonSet("sized")
+local big = buttonsets.sized[1]
+check(math.abs(big.x - (WIDTH - 72 * DENSITY / 2)) < 0.001,
+	"a tile sized by the set default must be clamped by that size, not by 42dp")
+
+print("8. a tile wider than the screen is pinned, not left with maxX < minX")
+buttonsets.huge = { { label = "SLAB", width = 9999, height = 9999, x = 0, y = 0 } }
+local okHuge = pcall(sanitizeButtonSet, "huge")
+check(okHuge, "an absurd tile size must not raise")
+local slab = buttonsets.huge[1]
+check(type(slab.x) == "number" and slab.x == slab.x, "x must still be a real number")
+check(type(slab.y) == "number" and slab.y == slab.y, "y must still be a real number")
 
 print("")
 if failures == 0 then

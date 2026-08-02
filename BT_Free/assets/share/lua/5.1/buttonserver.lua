@@ -851,14 +851,26 @@ local PACK_GAP_DP = PACK_PITCH_DP - PACK_TILE_DP
 local PACK_BOTTOM_CHROME_DP = 96
 local PACK_EDGE_MARGIN_DP = 10
 
--- Extra room under the pad, on top of the chrome: ~250px at 2.625 density, asked
--- for so the pad is not jammed against the input bar. It doubles as the space a
--- bottom-row accordion opens into — every pack's accordion (MORE, NAV, TIP,
--- CAST, DOORS, CHAT) sits on the last row and now expands DOWNWARD, so it lands
--- in this gap instead of covering the compass rose above it. packGeometryFor
--- caps the lattice at this height for packs that have one, so the opened row
--- always fits.
-local PACK_THUMB_LIFT_DP = 95
+-- Where a wizard-installed pad's top edge goes: this far under the action bar.
+--
+-- Anchoring to the bottom of the screen was wrong, and the device said so: with
+-- the soft keyboard up, the visible game area on a Pixel 9a ends around 485dp of
+-- 923dp, so a bottom-anchored pad was almost entirely behind the keyboard. This
+-- is the placement measured off the maintainer's own screenshot (pad top 239px
+-- with a 147px action bar → 35dp), which clears the keyboard with room to spare.
+--
+-- Below the pad there is now the whole game area, which is where every pack's
+-- accordion (MORE, NAV, TIP, CAST, DOORS, CHAT) opens: they sit on the pack's
+-- last row and expand DOWNWARD, so they no longer unfold over the compass rose.
+local PACK_TOP_PAD_DP = 35
+
+-- Fraction of the screen height still visible once the soft keyboard is up.
+-- Measured on the maintainer's Pixel 9a with SwiftKey: the game area ended at
+-- 1272px of 2424. A fraction rather than a dp constant because IMEs scale with
+-- the screen. Named size presets are capped so the whole pad stays above this
+-- line; "Fit to screen" is exempt, since being asked to fill the screen is the
+-- entire point of it.
+local PACK_KEYBOARD_VISIBLE_FRACTION = 0.525
 
 local function packHasAccordion(source)
 	for _, b in ipairs(source) do
@@ -899,17 +911,28 @@ local function packGeometryFor(source, preset)
 	end
 
 	local cols, rows = packExtent(source)
+	-- A bottom-row accordion needs one more row of clear space beneath the pad
+	-- than the pad itself occupies, or its opened row runs into the input bar.
+	local rowsNeeded = rows
+	if packHasAccordion(source) then
+		rowsNeeded = rows + 1
+	end
 	local d = tonumber(GetDisplayDensity()) or 1
-	local availW, availH = 0, 0
+	local availW, availH, keyboardH = 0, 0, 0
 	if context ~= nil then
 		local ok, metrics = pcall(function()
 			return context:getResources():getDisplayMetrics()
 		end)
 		if ok and metrics ~= nil then
-			availW = (tonumber(metrics.widthPixels) or 0) / d - 2 * PACK_EDGE_MARGIN_DP
+			local screenH = (tonumber(metrics.heightPixels) or 0) / d
 			local ab = (tonumber(GetActionBarHeight()) or 0) / d
-			availH = (tonumber(metrics.heightPixels) or 0) / d
-				- ab - PACK_BOTTOM_CHROME_DP - PACK_THUMB_LIFT_DP - PACK_EDGE_MARGIN_DP
+			local padTop = ab + PACK_TOP_PAD_DP
+			availW = (tonumber(metrics.widthPixels) or 0) / d - 2 * PACK_EDGE_MARGIN_DP
+			-- Room for the pad plus its accordion row above the input bar.
+			availH = screenH - padTop - PACK_BOTTOM_CHROME_DP - PACK_EDGE_MARGIN_DP
+			-- Room for the pad alone above the soft keyboard.
+			keyboardH = screenH * PACK_KEYBOARD_VISIBLE_FRACTION
+				- padTop - PACK_EDGE_MARGIN_DP
 		end
 	end
 
@@ -920,12 +943,12 @@ local function packGeometryFor(source, preset)
 		pitch = 1e9 -- fit_square: take the largest pitch the screen allows
 	end
 	if availW > 0 then pitch = math.min(pitch, math.floor(availW / cols)) end
-	if availH > 0 then pitch = math.min(pitch, math.floor(availH / rows)) end
-	-- A pack whose bottom row holds an accordion needs that row to fit in the
-	-- gap under the pad when it opens downward. Only "Fit to screen" ever grows
-	-- past this; the named presets top out at 75.
-	if packHasAccordion(source) then
-		pitch = math.min(pitch, PACK_THUMB_LIFT_DP)
+	if availH > 0 then pitch = math.min(pitch, math.floor(availH / rowsNeeded)) end
+	-- Keep named presets usable while typing. Six rows of 72dp does not fit above
+	-- the keyboard, so compass at Extra large comes back a little smaller — still
+	-- clearly bigger than Large, and wholly visible, which is the point.
+	if want ~= nil and keyboardH > 0 then
+		pitch = math.min(pitch, math.floor(keyboardH / rows))
 	end
 	if pitch > 1e8 then pitch = PACK_PITCH_DP end -- no metrics: canonical size
 	if pitch < 19 then pitch = 19 end             -- 16dp tile floor + gap
@@ -1574,10 +1597,10 @@ local function doInstallBatch(t)
 				local sizeDp, pitchDp = packGeometryFor(filtered, sizePreset)
 				rebuildPackSet(setName, filtered, pitchDp, sizeDp)
 				applyPackColors(setName, colors)
-				-- "bottom": wizard pads sit within thumb reach. The starter and
-				-- tutorial pads keep the old upper-third placement (see
-				-- alignDefaultButtons).
-				local okAlign, alignErr = pcall(alignButtonSet, setName, align, "bottom")
+				-- "pack": top edge just under the action bar, clear of the soft
+				-- keyboard. The starter and tutorial pads keep the old
+				-- upper-third placement (see alignDefaultButtons).
+				local okAlign, alignErr = pcall(alignButtonSet, setName, align, "pack")
 				if not okAlign then
 					Note("\nButton align failed for \"" .. setName .. "\": "
 						.. tostring(alignErr) .. "\n")
@@ -1742,10 +1765,11 @@ end
 -- Wizard installs pass "left"|"center"|"right" explicitly (default "right" there).
 --
 -- vertical: nil/"top" keeps the historic upper-third placement, which the
--- offline starter and tutorial pads rely on (alignDefaultButtons). "bottom"
--- drops the pad to just above the input bar so it is inside thumb reach — that
--- is what wizard installs use. Do not change the default: alignDefaultButtons
--- is the shared caller and the tutorial pad is fenced off.
+-- offline starter and tutorial pads rely on (alignDefaultButtons). "pack" pins
+-- the pad's top edge PACK_TOP_PAD_DP under the action bar, which is where wizard
+-- installs go: high enough that the soft keyboard cannot cover it. Do not change
+-- the default: alignDefaultButtons is the shared caller and the tutorial pad is
+-- fenced off.
 function alignButtonSet(setName, align, vertical)
 	local set = buttonsets[setName]
 	local defaults = buttonset_defaults[setName]
@@ -1810,13 +1834,11 @@ function alignButtonSet(setName, align, vertical)
 	end
 
 	local yoffset
-	if tostring(vertical or "") == "bottom" then
-		-- Thumb reach: sit the pad above the input bar rather than in the upper
-		-- third, where the whole pad needed a stretch to hit — plus the lift, so
-		-- it is not jammed against the bar and a bottom-row accordion has room to
-		-- open downward.
-		yoffset = (heightPixels
-			- ((PACK_BOTTOM_CHROME_DP + PACK_THUMB_LIFT_DP) * density)) - bottom
+	if tostring(vertical or "") == "pack" then
+		-- Wizard packs: top edge PACK_TOP_PAD_DP under the action bar, which is
+		-- above the soft keyboard. Anchoring the bottom instead put the pad
+		-- behind the keyboard on a real phone — see the constant's note.
+		yoffset = ab + (PACK_TOP_PAD_DP * density) - top
 	else
 		-- Upper third: below action/status bar + topPad, never flush with the top.
 		yoffset = ab + (topPad * density) - top

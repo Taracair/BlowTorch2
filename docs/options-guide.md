@@ -12,6 +12,10 @@ In-game **Options** dialog groups (Program Settings):
 | **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
+Plugins add their own pages, which appear only while that plugin is loaded:
+**Button** (`button_window`) and **Starter Tutorial** (`starter_tutorial`) in the
+Free build — both below.
+
 ## Extra text windows
 
 Under **Options → Window → Extra text windows**:
@@ -205,6 +209,34 @@ patterns.
   than things you reach for mid-session; they sit beside the storage settings
   they depend on. **Reset Settings** is here too (throws away this world's
   settings after a confirm).
+
+## Button (plugin `button_window`)
+
+Appears while the button plugin is loaded, which in the Free build is always —
+it cannot be disabled or deleted.
+
+| Option | Default | Notes |
+|--------|---------|--------|
+| **Show gesture hints** | on | Draw swipe arrows, hold (**H**) and accordion chevrons on the tiles. Off is a cleaner pad you have to remember |
+| **Offer button layout wizard** | on | Show the pack/size picker once after connect on a new profile. Cleared when you finish or skip it; turn it back on to see the prompt again |
+| **Load button set from wizard** | — | Opens the wizard right now, at any time. Same as `.layoutwizard`. Writes only the sets you name; removes nothing |
+| **Button size** | Comfortable | Compact / Comfortable / Large / Extra large / **Fit to screen**. Picking one resizes the **current** set immediately, keeping its arrangement — tile size and grid spacing move together, so a compass rose stays a rose. Also becomes the wizard's default |
+| **Layout template** | Compass | Compass / Newbie / Combat / Explorer / Social. Only chooses which pack the wizard offers first — **it installs nothing on its own** |
+| **Button roundness** | 6 | Corner radius of a tile (key is `roundess`, spelled that way on disk) |
+| **Haptic feedback on editor launch / on press / on flip** | — | Three separate dropdowns |
+
+Both dropdowns used to be free-text fields. A profile keeps whatever option
+*type* it was created with, so an older profile is migrated to the dropdown on
+the first connect after upgrading, carrying its previous value across.
+
+## Starter Tutorial (plugin `starter_tutorial`)
+
+| Option | Default | Notes |
+|--------|---------|--------|
+| **Show welcome on connect** | off | Print a short welcome tip when connecting to a normal MUD. The **Starter Tutorial** launcher entry always opens the full guide regardless |
+
+`.tutorial done` clears it too. The plugin can be toggled off in the Plugins
+list but not deleted.
 
 ## Storage
 
