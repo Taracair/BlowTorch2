@@ -510,6 +510,13 @@ public class OptionsDialog extends Dialog {
 				openExtraTextWindowsDialog();
 				return;
 			}
+			// The Lua callback puts its own dialog up on the activity (the button
+			// layout wizard does), so this one has to get out of the way first —
+			// same as the built-in actions above. Dismiss before the call: the
+			// wizard is a service→window round trip and can land either side of it.
+			if ("layout_wizard_open".equals(key)) {
+				dismiss();
+			}
 			try {
 				service.callPluginFunction(selectedPlugin, (String)option.getValue());
 			} catch (RemoteException e) {

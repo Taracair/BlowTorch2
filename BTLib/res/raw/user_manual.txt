@@ -287,9 +287,14 @@ Maps are per world, saved under `/BlowTorch/maps/`.
 Options → Timers → new:
 
     Timer Name       `heal`
-    Timer duration   `15`
+    Every            `0` h `0` m `15` s
     Repeat           on
     Action           **Ack With** → `drink health`
+
+**Every** is three boxes — hours, minutes, seconds — with quick presets
+(`30s`, `1m`, `5m`, `15m`, `1h`) and a running `= 15s` summary under them. The
+boxes are added up rather than range-checked, so `90` in the seconds box is the
+same as `1m 30s`. Timers are still stored as a total number of seconds.
 
 Control it from the input bar, by name:
 
@@ -299,8 +304,12 @@ Control it from the input bar, by name:
 .timer reset heal     back to full duration
 .timer stop heal      stop and reset
 .timer info heal      how long is left
-.timer duration heal 30   change how long it runs (seconds)
+.timer duration heal 30   change how long it runs (whole seconds)
 ```
+
+Changing the duration — from the input bar or in the editor — does **not** stop
+the timer. One that was running keeps running on the new length, starting from
+now; one that was stopped stays stopped. Use `.timer stop` to stop it.
 
 Add `silent` as a last word to suppress the toast: `.timer play heal silent`.
 Useful when a trigger drives the timer and you do not want a popup each time.
@@ -370,7 +379,9 @@ is enabled; `.alias list` shows every alias at once.
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
-    `.timer duration <name> <seconds> [silent]`   Change stored duration; stops any active run and saves
+    `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
+    `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
+    `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. The next change from the server wins
     `.dobell`                           Fire configured bell reaction
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
@@ -717,12 +728,31 @@ Works with either text direction. Off = classic lift (text rises with the keyboa
 
 **Load a button set from the wizard:** **Options → Button → Load button set from wizard**
 (or type `.layoutwizard`). Check one or more packs (Compass, Newbie, Combat,
-Explorer, Social), give each a set name, pick size / alignment / colors, and
-Simple or Advanced. Apply only writes the named sets you checked — other sets
-stay put; same name overwrites after a warning. New MUD profiles may offer a
+Explorer, Social), give each a set name, and pick size / alignment / colors.
+Packs install complete — there is no Simple/Advanced choice any more; it was
+worth three tiles on Compass and nothing at all on Newbie, and an unwanted tile
+is easier to delete than a missing one is to discover. Apply only writes the
+named sets you checked — other sets stay put; same name overwrites after a
+warning. Set names are folded to
+lowercase and to `a–z 0–9 _ -` when you Apply (spaces become `_`), because the
+name also goes into the `.loadset <name>` cross-links the packs write between
+each other; the wizard tells you the name it will actually use. New MUD profiles may offer a
 soft prompt once after connect; turn **Options → Button → Offer button layout
 wizard** back on to see that prompt again. Offline Starter Tutorial keeps its
 own teaching pad.
+
+The pad lands in the lower part of the screen, within thumb reach, and its
+accordion tiles (MORE, NAV, TIP, CAST, DOORS, CHAT) sit on the bottom row and
+open **downward** into the gap beneath it, so they never cover the compass rose
+above them. "Fit to screen" sizes a pack so its columns span the width, capped
+so that opened row still fits.
+
+**Change the size later:** **Options → Button → Button size** is a dropdown
+(Compact, Comfortable, Large, Extra large, Fit to screen). Picking one resizes
+the set on screen straight away, keeping its arrangement — the grid spacing
+moves with the tiles rather than leaving them to overlap, and nothing is
+re-flowed into rows. **Layout template** next to it only chooses which pack the
+wizard offers first; it installs nothing on its own.
 
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.
 
@@ -995,7 +1025,8 @@ displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 Lua: `Send_MCP_Packet(s)`, `Get_MCP_Status()`, literal triggers `@message-name`
 (same idea as GMCP `%module`).
 
-Optional protocols (Options → Service → **MUD Protocols**):
+Optional protocols (Options → Service → **MUD Protocols**). **MTTS and MCCP are
+on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 
 ```
 .mssp   — dump MSSP cache (enable Use MSSP? first, reconnect)
@@ -1004,7 +1035,28 @@ Optional protocols (Options → Service → **MUD Protocols**):
 
 **Use MTTS?** — TTYPE always follows the MUD Terminal Type Standard
 (`BlowTorch` → `ANSI` → `MTTS <bits>`). On = bits **13** (ANSI+UTF-8+256);
-off = bits **1** (ANSI only). Reconnect after changing.
+off = bits **1** (ANSI only).
+
+**Use MCCP?** — MUD Client Compression Protocol v2 (telnet option 86), on by
+default; it saves bandwidth and you should not be able to tell it is there. If
+decompression ever fails, the client says so, turns compression off for that
+connection and reconnects once without it, rather than dumping the compressed
+stream on screen. Turn the option off for a server whose compression
+misbehaves.
+
+## Passwords are hidden while the MUD asks for them
+
+A MUD asks for a password by taking echoing over (telnet ECHO). While a server
+holds it, the input bar masks what you type and the text is kept out of the
+session log; it unmasks when the server hands echoing back, or on a disconnect.
+Not every world uses this — some do, some do not.
+
+If a server takes echoing and never gives it back, `.echo on` unmasks the bar by
+hand (`.echo off` masks it again, `.echo` alone reports the state). The next
+change from the server wins over the command.
+
+This is separate from **Options → Service → Local Echo?**, which decides whether
+your own commands are printed into the game window at all.
 
 ## Plugin commands (when loaded)
 
@@ -1012,6 +1064,7 @@ off = bits **1** (ANSI only). Reconnect after changing.
 
     `.loadset <name>`   Load named button set
     `.clearbuttons`     Clear via button window
+    `.layoutwizard`     Open the button layout wizard (packs, set names, size)
 
 ### `starter_tutorial` (loaded by default)
 
@@ -1020,17 +1073,35 @@ off = bits **1** (ANSI only). Reconnect after changing.
 On the default button set, tap **HELP** to run `.tutorial start`. The launcher
 lists a built-in **Starter Tutorial** row first (offline — no MUD). Disable the
 welcome note on normal MUDs via **Options → Starter Tutorial → Show on connect**,
-or type `.tutorial done`. Toggle `starter_tutorial` off under **Plugins**, or unload
-it entirely to remove the plugin.
+or type `.tutorial done`. You can also toggle `starter_tutorial` off under
+**Plugins**, which keeps it loaded but silent. It ships with the app and
+**cannot be deleted** — like `button_window` and `connection_settings`, the
+Plugins screen refuses to remove it.
 
 ## Session overflow menu
 
-1. **Map** — open / toggle the built-in Mapper (also `.map open|toggle`)  
-2. **Edit buttons** — enter button layout edit mode  
-3. **Button Sets** — switch saved sets (pack/size wizard: **Options → Button → Load button set from wizard**)  
-4. **Crash report** — Show log / Share log  
-5. **About**  
-6. **Help** — This manual  
+In order, as the menu builds them:
+
+1. **Aliases** / **Triggers** / **Timers** / **Options** — the editors. These
+   four may also appear as action-bar icons when there is room; otherwise they
+   live under ⋮.
+2. **Edit buttons** — enter button layout edit mode
+3. **Speedwalk Directions** — the direction letters `.run` uses
+4. **Plugins** — load / enable / remove Lua plugins
+5. **Reconnect** / **Disconnect** — same as `.reconnect` / `.disconnect`
+6. **Quit** — leave the session window
+7. **Search scrollback** — same as `.search`
+8. **Reload Settings** — re-read this world's settings from disk
+9. **Crash report** — Show log / Share log
+10. **About**
+11. **Help** — this manual
+
+`button_window` adds a **Button Sets** entry for switching saved sets (the
+pack/size wizard is **Options → Button → Load button set from wizard**).
+
+**Export Settings**, **Import Settings** and **Reset Settings** are **not** in
+this menu — they live under **Options → Miscellaneous**, beside the storage
+settings they depend on. Storage access is there too.
 
 Connection duration appears on the ongoing notification and launcher row.
 

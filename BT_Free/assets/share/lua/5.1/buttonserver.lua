@@ -575,6 +575,9 @@ function buttonLayerReady()
 	if added and SaveSettings ~= nil then
 		pcall(SaveSettings)
 	end
+	-- Connect-time replay of stored options is over; from here a change to the
+	-- size dropdown is the player picking one, and should resize the set.
+	layoutOptionsPrimed = true
 end
 
 function legacyButtonsImported()
@@ -830,6 +833,106 @@ local PACK_SET_DEFAULTS = {
 	width = 42, height = 42, labelSize = 12, gridXwidth = 45, gridYwidth = 45,
 }
 
+-- The canonical PACK_* tables are laid out on a fixed lattice: centres at
+-- 23, 68, 113, … i.e. PACK_PITCH_DP apart, tile PACK_TILE_DP across, so the gap
+-- between neighbours is PACK_GAP_DP. Every size preset is that same lattice
+-- scaled by pitch/PACK_PITCH_DP, which is why the compass rose survives a
+-- resize: geometry is regenerated from the table, never re-flowed from whatever
+-- is on screen.
+local PACK_PITCH_DP = 45
+local PACK_TILE_DP = 42
+local PACK_GAP_DP = PACK_PITCH_DP - PACK_TILE_DP
+
+-- Bottom chrome the pad must clear: the input bar plus the edit/Send row plus
+-- the gesture bar. Measured at ~82dp on a Pixel 9a (1080x2424 @2.625) with the
+-- input bar showing; 96 leaves a little air. The service cannot see the window's
+-- real height — it only has DisplayMetrics — so this is a constant, and it is
+-- the one number to change if a pad still lands under the input bar.
+local PACK_BOTTOM_CHROME_DP = 96
+local PACK_EDGE_MARGIN_DP = 10
+
+-- Extra room under the pad, on top of the chrome: ~250px at 2.625 density, asked
+-- for so the pad is not jammed against the input bar. It doubles as the space a
+-- bottom-row accordion opens into — every pack's accordion (MORE, NAV, TIP,
+-- CAST, DOORS, CHAT) sits on the last row and now expands DOWNWARD, so it lands
+-- in this gap instead of covering the compass rose above it. packGeometryFor
+-- caps the lattice at this height for packs that have one, so the opened row
+-- always fits.
+local PACK_THUMB_LIFT_DP = 95
+
+local function packHasAccordion(source)
+	for _, b in ipairs(source) do
+		if type(b.accordionChildren) == "table" and #b.accordionChildren > 0 then
+			return true
+		end
+	end
+	return false
+end
+
+-- Distinct lattice columns/rows a pack occupies. Counted from the table rather
+-- than assumed: compass is 4x6, explorer 5x4, and a pack that does not fit at
+-- the asked-for size has to be scaled down, not left to overlap.
+local function packExtent(source)
+	local xs, ys, cols, rows = {}, {}, 0, 0
+	for _, b in ipairs(source) do
+		local x, y = tonumber(b.x), tonumber(b.y)
+		if x ~= nil and not xs[x] then xs[x] = true; cols = cols + 1 end
+		if y ~= nil and not ys[y] then ys[y] = true; rows = rows + 1 end
+	end
+	return math.max(1, cols), math.max(1, rows)
+end
+
+-- Resolve a wizard size preset to an actual tile size and lattice pitch, capped
+-- so the whole pad fits the screen. Uncapped is what produced 72dp tiles on a
+-- 45dp pitch: every tile overlapping its neighbour by 27dp, and the right-hand
+-- column off the edge.
+local function packGeometryFor(source, preset)
+	local p = string.lower(tostring(preset or ""))
+	p = p:match("^%s*(.-)%s*$") or p
+	if p == "fit" then p = "fit_square" end
+	if p == "extra_large" or p == "extralarge" or p == "extra large" then p = "xl" end
+
+	local named = { compact = 32, comfortable = 42, large = 56, xl = 72 }
+	local want = named[p]
+	if want == nil and p ~= "fit_square" then
+		want = PACK_TILE_DP
+	end
+
+	local cols, rows = packExtent(source)
+	local d = tonumber(GetDisplayDensity()) or 1
+	local availW, availH = 0, 0
+	if context ~= nil then
+		local ok, metrics = pcall(function()
+			return context:getResources():getDisplayMetrics()
+		end)
+		if ok and metrics ~= nil then
+			availW = (tonumber(metrics.widthPixels) or 0) / d - 2 * PACK_EDGE_MARGIN_DP
+			local ab = (tonumber(GetActionBarHeight()) or 0) / d
+			availH = (tonumber(metrics.heightPixels) or 0) / d
+				- ab - PACK_BOTTOM_CHROME_DP - PACK_THUMB_LIFT_DP - PACK_EDGE_MARGIN_DP
+		end
+	end
+
+	local pitch
+	if want ~= nil then
+		pitch = want + PACK_GAP_DP
+	else
+		pitch = 1e9 -- fit_square: take the largest pitch the screen allows
+	end
+	if availW > 0 then pitch = math.min(pitch, math.floor(availW / cols)) end
+	if availH > 0 then pitch = math.min(pitch, math.floor(availH / rows)) end
+	-- A pack whose bottom row holds an accordion needs that row to fit in the
+	-- gap under the pad when it opens downward. Only "Fit to screen" ever grows
+	-- past this; the named presets top out at 75.
+	if packHasAccordion(source) then
+		pitch = math.min(pitch, PACK_THUMB_LIFT_DP)
+	end
+	if pitch > 1e8 then pitch = PACK_PITCH_DP end -- no metrics: canonical size
+	if pitch < 19 then pitch = 19 end             -- 16dp tile floor + gap
+
+	return pitch - PACK_GAP_DP, pitch
+end
+
 local function clonePackButton(src)
 	local b = {}
 	for k,v in pairs(src) do
@@ -851,14 +954,38 @@ local function clonePackButton(src)
 	return b
 end
 
-function rebuildPackSet(setName, source)
+-- Rebuild a set from its canonical DP table, optionally at a different tile size.
+--
+-- pitchDp/sizeDp default to the canonical lattice, so old two-argument callers
+-- (and the density test) are unchanged. When they differ, both the centres and
+-- the grid pitch scale together — resizing a pack must never leave 72dp tiles
+-- sitting on a 45dp lattice, which is what made them overlap into a solid slab.
+-- Coordinates are always re-derived from `source`, never from the set already in
+-- `buttonsets`, so repeated resizes cannot compound the way the tutorial pad did.
+function rebuildPackSet(setName, source, pitchDp, sizeDp)
+	local pitch = tonumber(pitchDp) or PACK_PITCH_DP
+	local size = tonumber(sizeDp) or PACK_TILE_DP
+	local scale = pitch / PACK_PITCH_DP
+
 	buttonset_defaults[setName] = buttonset_defaults[setName] or {}
 	for k,v in pairs(PACK_SET_DEFAULTS) do
 		buttonset_defaults[setName][k] = v
 	end
+	buttonset_defaults[setName].width = size
+	buttonset_defaults[setName].height = size
+	buttonset_defaults[setName].gridXwidth = pitch
+	buttonset_defaults[setName].gridYwidth = pitch
+
 	local set = {}
 	for i,src in ipairs(source) do
-		set[i] = clonePackButton(src)
+		local b = clonePackButton(src)
+		b.x = (tonumber(b.x) or 0) * scale
+		b.y = (tonumber(b.y) or 0) * scale
+		-- Per-button size too: alignButtonSet and sanitizeButtonSet both measure
+		-- tiles from b.width/b.height first and only fall back to the defaults.
+		b.width = size
+		b.height = size
+		set[i] = b
 	end
 	buttonsets[setName] = set
 end
@@ -917,16 +1044,23 @@ local function lookCenter(x, y)
 end
 
 -- Accordion helper (Lua-only; HyperSAX drops these fields).
+--
+-- Opens DOWN, in one horizontal row. Every pack accordion sits on the pack's
+-- last row, and the pad is anchored near the bottom of the screen — so "up"
+-- (the old default, stacking children vertically) unfolded straight over the
+-- pad's own tiles, hiding the compass rose behind the thing you just tapped.
+-- Down lands in the PACK_THUMB_LIFT_DP gap under the pad, and "horizontal"
+-- keeps it to a single row so that gap is all it needs.
 local function packAccordion(x, y, label, children, opts)
 	opts = opts or {}
 	return {
 		x = x, y = y, label = label, command = opts.command or "", labelSize = opts.labelSize or 11,
 		advanced = opts.advanced,
-		accordionDirection = opts.direction or "up",
+		accordionDirection = opts.direction or "down",
 		accordionTrigger = opts.trigger or "tap",
 		accordionAutoClose = true,
 		accordionHoldMs = opts.holdMs or 450,
-		accordionChildLayout = opts.childLayout or "along",
+		accordionChildLayout = opts.childLayout or "horizontal",
 		accordionChildren = children,
 	}
 end
@@ -1018,8 +1152,8 @@ local PACK_COMBAT_BUTTONS = {
 	{ x=23,  y=158, label="BACK",  command=".loadset compass", labelSize=11 },
 	-- Simple strips accordionChildren → tap still casts. Advanced: hold opens CAST.
 	{ x=68,  y=158, label="CAST",  command="cast", labelSize=11,
-	  accordionDirection = "up", accordionTrigger = "hold", accordionAutoClose = true,
-	  accordionHoldMs = 450, accordionChildLayout = "along",
+	  accordionDirection = "down", accordionTrigger = "hold", accordionAutoClose = true,
+	  accordionHoldMs = 450, accordionChildLayout = "horizontal",
 	  accordionChildren = {
 		{ label = "CON",  command = "consider" },
 		{ label = "KILL", command = "kill" },
@@ -1094,6 +1228,42 @@ local LAYOUT_PACK_LIST = {
 	{ id = "social",   title = "Social",   blurb = "Who/say/emote/tell with jumps to compass/combat." },
 }
 
+-- Dropdown contents for the two Options rows. Both were free-text fields where
+-- the player had to type "fit_square" or "explorer" exactly right; a ListOption
+-- stores an index, so these tables are the index→id contract and their ORDER IS
+-- THE STORED VALUE. Append only — reordering silently rewrites saved settings.
+LAYOUT_SIZE_ITEMS = { "Compact", "Comfortable", "Large", "Extra large", "Fit to screen" }
+LAYOUT_SIZE_IDS = { "compact", "comfortable", "large", "xl", "fit_square" }
+LAYOUT_PACK_ITEMS = { "Compass", "Newbie", "Combat", "Explorer", "Social" }
+LAYOUT_PACK_IDS = { "compass", "newbie", "combat", "explorer", "social" }
+
+-- ListOption hands OnOptionChanged a 0-based index as a string. Old profiles
+-- still send the id itself until ensureLayoutSettingsOptions has migrated them,
+-- and a legacy .installpack passes an id too, so both spellings must resolve.
+local function idFromListValue(value, ids)
+	if value == nil or type(ids) ~= "table" then return "" end
+	local raw = tostring(value):match("^%s*(.-)%s*$") or ""
+	if raw == "" then return "" end
+	local n = tonumber(raw)
+	if n ~= nil and n == math.floor(n) then
+		return ids[n + 1] or ""
+	end
+	local lower = string.lower(raw)
+	for _, id in ipairs(ids) do
+		if id == lower then return id end
+	end
+	return lower
+end
+
+local function listIndexForId(id, ids)
+	if type(ids) ~= "table" then return nil end
+	local lower = string.lower(tostring(id or ""))
+	for i, candidate in ipairs(ids) do
+		if candidate == lower then return i - 1 end
+	end
+	return nil
+end
+
 local PACK_SOURCES = {
 	compass  = PACK_COMPASS_BUTTONS,
 	newbie   = PACK_NEWBIE_BUTTONS,
@@ -1160,12 +1330,18 @@ function getExistingButtonSetNames(args)
 	WindowXCallS(buttonWindowName, "showExistingButtonSetNames", serialize(list))
 end
 
+-- Packs install complete: the wizard's Simple/Advanced radio is gone (2 Aug).
+-- It was worth 3 tiles on compass, 1 on explorer and social, and *nothing at all*
+-- on newbie — a choice nobody could read off the two words, for tiles that are
+-- easier to delete in the editor than to discover missing. "simple" is still
+-- honoured if an old payload or a .installpack call sends it.
+--
 -- mode=simple: drop advanced=true tiles; hold-trigger accordions (CAST) lose
 -- accordion* fields but keep command as a plain tap; tap-trigger accordions
--- (MORE/TIP) stay intact. mode=advanced: keep advanced tiles + accordions.
+-- (MORE/TIP) stay intact. mode=advanced (the default): keep everything.
 -- Always drop the advanced marker from saved rows.
 local function filterPackSource(source, mode)
-	local keepAdvanced = (tostring(mode or "simple"):lower() == "advanced")
+	local keepAdvanced = (tostring(mode or "advanced"):lower() ~= "simple")
 	local out = {}
 	for _, src in ipairs(source) do
 		if (not keepAdvanced) and src.advanced then
@@ -1277,7 +1453,7 @@ function getLayoutWizardState(args)
 		pending = options.layout_wizard_pending,
 		size = options.layout_size_preset,
 		align = "right",
-		mode = "simple",
+		mode = "advanced",
 		colors = {
 			primary = DEFAULT_PRIMARY_COLOR,
 			selected = DEFAULT_SELECTED_COLOR,
@@ -1328,7 +1504,7 @@ local function normalizeInstallSpec(t)
 		align = t.align or "right",
 		colors = t.colors,
 		size = t.size or t.sizePreset,
-		mode = t.mode or "simple",
+		mode = t.mode or "advanced",
 	}
 end
 
@@ -1350,7 +1526,7 @@ local function parseLegacyInstallArgs(raw)
 		loadSet = chosen,
 		size = sizePreset,
 		align = "right",
-		mode = "simple",
+		mode = "advanced",
 	}
 end
 
@@ -1359,9 +1535,9 @@ local function doInstallBatch(t)
 	if align ~= "left" and align ~= "center" and align ~= "right" then
 		align = "right"
 	end
-	local mode = string.lower(tostring(t.mode or "simple"))
+	local mode = string.lower(tostring(t.mode or "advanced"))
 	if mode ~= "simple" and mode ~= "advanced" then
-		mode = "simple"
+		mode = "advanced"
 	end
 	local sizePreset = t.size or t.sizePreset or ""
 	local colors = t.colors
@@ -1392,9 +1568,16 @@ local function doInstallBatch(t)
 				skipped = skipped + 1
 			else
 				local filtered = filterPackSource(source, mode)
-				rebuildPackSet(setName, filtered)
+				-- Size and lattice are resolved per pack: explorer is five columns
+				-- wide where combat is three, so the largest tile that fits is not
+				-- the same number for both.
+				local sizeDp, pitchDp = packGeometryFor(filtered, sizePreset)
+				rebuildPackSet(setName, filtered, pitchDp, sizeDp)
 				applyPackColors(setName, colors)
-				local okAlign, alignErr = pcall(alignButtonSet, setName, align)
+				-- "bottom": wizard pads sit within thumb reach. The starter and
+				-- tutorial pads keep the old upper-third placement (see
+				-- alignDefaultButtons).
+				local okAlign, alignErr = pcall(alignButtonSet, setName, align, "bottom")
 				if not okAlign then
 					Note("\nButton align failed for \"" .. setName .. "\": "
 						.. tostring(alignErr) .. "\n")
@@ -1429,10 +1612,10 @@ local function doInstallBatch(t)
 
 	-- Wizard memory (internal; not player-typed Options fields).
 	options.layout_pack = succeeded[1].packId
-	persistLayoutOption("layout_pack", options.layout_pack, false)
+	persistLayoutList("layout_pack", options.layout_pack, LAYOUT_PACK_IDS)
 	if sizePreset ~= nil and tostring(sizePreset) ~= "" then
-		options.layout_size_preset = tostring(sizePreset)
-		persistLayoutOption("layout_size_preset", sizePreset, false)
+		options.layout_size_preset = idFromListValue(sizePreset, LAYOUT_SIZE_IDS)
+		persistLayoutList("layout_size_preset", options.layout_size_preset, LAYOUT_SIZE_IDS)
 	end
 	options.layout_wizard_pending = "false"
 	persistLayoutOption("layout_wizard_pending", false, true)
@@ -1517,10 +1700,18 @@ function sanitizeButtonSet(setName)
 	if w <= 0 or h <= 0 then return false end
 	local ab = tonumber(GetActionBarHeight()) or 0
 
-	local minX, maxX = 24 * d, w - 24 * d
-	local minY, maxY = ab + 8 * d, h - 56 * d
+	local defs = buttonset_defaults[setName]
 	local moved = false
 	for i,b in pairs(set) do
+		-- Bounds are per button, from half its own size. A fixed 24dp inset is a
+		-- bound on the *centre*, so a 72dp tile parked at the limit still hung
+		-- 12dp off the right edge — visible as the clipped INV/NAV column at XL.
+		local bw = (tonumber(b.width) or tonumber(defs and defs.width) or 42) * d
+		local bh = (tonumber(b.height) or tonumber(defs and defs.height) or 42) * d
+		local minX, maxX = bw / 2, w - bw / 2
+		local minY, maxY = ab + 8 * d + bh / 2, h - 56 * d - bh / 2
+		if maxX < minX then maxX = minX end
+		if maxY < minY then maxY = minY end
 		local x = tonumber(b.x)
 		local y = tonumber(b.y)
 		-- Compare against the numeric original, not the raw field. Coordinates
@@ -1549,7 +1740,13 @@ end
 -- place: callers must rebuild from a canonical DP table first or coordinates compound.
 -- No 2nd arg → legacy center-ish behaviour (starter/tutorial / density test).
 -- Wizard installs pass "left"|"center"|"right" explicitly (default "right" there).
-function alignButtonSet(setName, align)
+--
+-- vertical: nil/"top" keeps the historic upper-third placement, which the
+-- offline starter and tutorial pads rely on (alignDefaultButtons). "bottom"
+-- drops the pad to just above the input bar so it is inside thumb reach — that
+-- is what wizard installs use. Do not change the default: alignDefaultButtons
+-- is the shared caller and the tutorial pad is fenced off.
+function alignButtonSet(setName, align, vertical)
 	local set = buttonsets[setName]
 	local defaults = buttonset_defaults[setName]
 	if set == nil then return end
@@ -1612,15 +1809,30 @@ function alignButtonSet(setName, align)
 		xoffset = (widthPixels - margin * density - clusterW) - left
 	end
 
-	-- Upper third: below action/status bar + topPad, never flush with the top.
-	local yoffset = ab + (topPad * density) - top
-	if yoffset < ab + (margin * density) then
-		yoffset = ab + (margin * density)
+	local yoffset
+	if tostring(vertical or "") == "bottom" then
+		-- Thumb reach: sit the pad above the input bar rather than in the upper
+		-- third, where the whole pad needed a stretch to hit — plus the lift, so
+		-- it is not jammed against the bar and a bottom-row accordion has room to
+		-- open downward.
+		yoffset = (heightPixels
+			- ((PACK_BOTTOM_CHROME_DP + PACK_THUMB_LIFT_DP) * density)) - bottom
+	else
+		-- Upper third: below action/status bar + topPad, never flush with the top.
+		yoffset = ab + (topPad * density) - top
+		if yoffset < ab + (margin * density) then
+			yoffset = ab + (margin * density)
+		end
 	end
-	-- Keep the whole pad on-screen vertically.
-	local maxBottom = heightPixels - (56 * density)
+	-- Keep the whole pad on-screen vertically. A tall pad (compass at XL is six
+	-- rows) loses the bottom-anchor before it loses its top row.
+	local maxBottom = heightPixels - (PACK_BOTTOM_CHROME_DP * density)
 	if bottom + yoffset > maxBottom then
 		yoffset = maxBottom - bottom
+	end
+	local minTop = ab + (margin * density)
+	if top + yoffset < minTop then
+		yoffset = minTop - top
 	end
 
 	for i,b in pairs(set) do
@@ -1673,6 +1885,67 @@ function ensureLayoutSettingsOptions()
 		end)
 		if okAdd then added = true end
 	end
+	-- layout_pack / layout_size_preset were free-text StringOptions: the player
+	-- was expected to type "fit_square" correctly. They are dropdowns now, but a
+	-- profile keeps the type it was created with, so the old option has to be
+	-- retired before the list can take its key. removeOptionByKey is only safe
+	-- here — buttonLayerReady, outside the OnOptionChanged walk.
+	local function ensureList(key, title, description, items, ids, defaultIndex)
+		-- Everything below runs inside pcall, so a nil items table would come back
+		-- as a plain "false" and the row would stay a text field with nothing in
+		-- any log to say why. Fail loudly enough to be greppable instead.
+		if type(items) ~= "table" or #items == 0 or type(ids) ~= "table" then
+			Note("\nButton layout: dropdown \"" .. tostring(key)
+				.. "\" has no items; left as-is.\n")
+			return false
+		end
+		local alreadyList = false
+		local okIs, isList = pcall(function() return settings:isListOption(key) end)
+		if okIs and isList == true then
+			alreadyList = true
+		end
+		if alreadyList then
+			return false
+		end
+		-- Carry the old free-text value across rather than snapping everyone back
+		-- to the default: a player who had typed "large" keeps Large.
+		local startIndex = defaultIndex
+		local okOld, oldValue = pcall(function() return settings:getOptionValue(key) end)
+		if okOld and oldValue ~= nil then
+			local mapped = listIndexForId(idFromListValue(oldValue, ids), ids)
+			if mapped ~= nil then
+				startIndex = mapped
+			end
+		end
+		-- Retire the StringOption (a no-op on a profile that never had one).
+		pcall(function() settings:removeOptionByKey(key) end)
+		local okAdd = pcall(function()
+			local ListOption = luajava.bindClass(
+				"com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption")
+			local opt = luajava.new(ListOption)
+			opt:setKey(key)
+			opt:setTitle(title)
+			opt:setDescription(description)
+			for _, item in ipairs(items) do
+				opt:addItem(item)
+			end
+			opt:setValue(startIndex)
+			settings:addOption(opt)
+		end)
+		return okAdd
+	end
+
+	if ensureList("layout_size_preset", "Button size",
+		"Size of the tiles in the current button set. Changing this resizes the set on screen and becomes the wizard's default.",
+		LAYOUT_SIZE_ITEMS, LAYOUT_SIZE_IDS, 1) then
+		added = true
+	end
+	if ensureList("layout_pack", "Layout template",
+		"Which template the wizard offers first. Changing it here does not install anything — pick names and press Apply in the wizard.",
+		LAYOUT_PACK_ITEMS, LAYOUT_PACK_IDS, 0) then
+		added = true
+	end
+
 	-- Overflow "Button layout…" was removed; inject the Options callback so
 	-- upgraded profiles still have a GUI entry (XML only seeds new profiles).
 	if missing("layout_wizard_open") then
@@ -1714,6 +1987,30 @@ function persistLayoutOption(key, value, asBoolean)
 	end)
 end
 
+-- layout_pack / layout_size_preset are ListOptions now: they hold an index, so
+-- updateString would write "comfortable" into a field the dialog reads as a
+-- number. Falls back to the string write for a profile not yet migrated.
+function persistLayoutList(key, id, ids)
+	pcall(function()
+		if GetPluginSettings == nil then
+			return
+		end
+		local settings = GetPluginSettings()
+		if settings == nil then
+			return
+		end
+		local index = listIndexForId(id, ids)
+		local isList = false
+		local okIs, res = pcall(function() return settings:isListOption(key) end)
+		if okIs and res == true then isList = true end
+		if isList and index ~= nil then
+			settings:updateInteger(key, index)
+		else
+			settings:updateString(key, id ~= nil and tostring(id) or "")
+		end
+	end)
+end
+
 function setLayoutWizardPending(value)
 	-- OnOptionChanged-only: SettingsGroup already holds the value (Options dialog
 	-- or persistLayoutOption). Writing back via updateBoolean re-enters
@@ -1730,7 +2027,7 @@ function setLayoutWizardPending(value)
 end
 
 function setLayoutPack(value)
-	local next = value ~= nil and tostring(value) or ""
+	local next = idFromListValue(value, LAYOUT_PACK_IDS)
 	if options.layout_pack == next then
 		return
 	end
@@ -1740,14 +2037,26 @@ function setLayoutPack(value)
 	end
 end
 
+-- True once the connect-time push of every stored option has been replayed.
+-- Without it, the size dropdown would "change" from "" to the saved value on
+-- every connect and resize (and re-save) the set each time.
+layoutOptionsPrimed = false
+
 function setLayoutSizePreset(value)
-	local next = value ~= nil and tostring(value) or ""
+	local next = idFromListValue(value, LAYOUT_SIZE_IDS)
 	if options.layout_size_preset == next then
 		return
 	end
+	local wasPrimed = layoutOptionsPrimed
 	options.layout_size_preset = next
 	if UserPresent() then
 		loadOptions()
+	end
+	-- Picking a size in Options resizes the set on screen. The wizard's own
+	-- Apply does not come through here: doInstallBatch sets options first, so
+	-- the echo from persistLayoutOption matches and returns above.
+	if wasPrimed and next ~= "" and not isOfflineLayoutSession() then
+		WindowXCallS(buttonWindowName, "applyLayoutSizePresetCmd", next)
 	end
 end
 
@@ -1766,11 +2075,18 @@ end
 -- Soft prompt (Open wizard / Not now) lives in the window; Options callback
 -- and .layoutwizard go straight to showLayoutWizard.
 function offerLayoutWizardIfPending(args)
+	-- The window latches before this round trip so three near-simultaneous
+	-- triggers (loadButtons / loadOptions / OnSizeChanged) cannot queue three
+	-- dialogs. When the answer is "not now, but maybe later" — the pad is still
+	-- being set up, or the session was offline when the first trigger fired —
+	-- hand the latch back, or a brand new MUD silently never gets the offer.
 	if isOfflineLayoutSession() then
+		WindowXCallS(buttonWindowName, "releaseLayoutWizardOffer", "")
 		return
 	end
 	local pending = options.layout_wizard_pending
 	if not (pending == true or pending == "true" or pending == "1") then
+		-- Genuinely finished or skipped: leave the latch set.
 		return
 	end
 	WindowXCallS(buttonWindowName, "showLayoutWizardOffer", "")

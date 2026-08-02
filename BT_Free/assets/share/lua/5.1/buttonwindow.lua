@@ -1576,6 +1576,9 @@ local cachedExistingSetNames = nil
 local layoutWizardShowRequested = false
 local layoutWizardOffered = false
 local layoutWizardSoftPrompt = nil
+-- The full wizard dialog is up. Kept here, not in the wizard module, because
+-- loadOptions has to know not to fire the first-run soft prompt over it.
+layoutWizardDialogOpen = false
 local buttonWindowOptions = nil
 local layoutWizardModule = nil
 
@@ -1651,7 +1654,79 @@ local function tryPresentLayoutWizard()
 		end
 	end
 	layoutWizardShowRequested = false
+	layoutWizardDialogOpen = true
 	ensureLayoutWizardModule().showWizard(state)
+end
+
+-- The square cell fitGridToScreen(true) is about to pick, in dp, or nil if the
+-- view is not laid out. Needed up front so positions can be rescaled to the new
+-- lattice before the grid itself moves.
+function fitCellForScreen(square)
+	local screenW = view ~= nil and view:getWidth() or 0
+	if screenW <= 0 then
+		return nil
+	end
+	local current = gridXwidth
+	if current == nil or current < 1 then current = 45 * density end
+	local cols = math.max(1, math.floor(screenW / current + 0.5))
+	return math.floor(math.floor(screenW / cols) / density + 0.5)
+end
+
+-- Move every tile so the pad keeps its shape at a new lattice pitch.
+--
+-- Scales each centre's offset from the pad's top-left corner by
+-- newPitch/currentPitch. The factor is read from the *live* pitch against an
+-- absolute target, so the operation is idempotent: applying "large" twice, or
+-- going comfortable → xl → comfortable, lands on the same coordinates. That is
+-- the guard the tutorial pad needed — its DP centres were multiplied by density
+-- on every align until they reached ~1e15.
+function rescaleLayoutToPitch(newPitchDp)
+	local target = tonumber(newPitchDp)
+	if target == nil or target < 8 then
+		return false
+	end
+	local currentDp = tonumber(defaults.gridXwidth)
+	if currentDp == nil or currentDp < 1 then
+		currentDp = (gridXwidth or 45 * density) / density
+	end
+	local factor = target / currentDp
+	if math.abs(factor - 1) < 0.001 then
+		return true
+	end
+	local targets = layoutTargets()
+	if #targets == 0 then
+		return false
+	end
+	local minX, minY = targets[1].data.x, targets[1].data.y
+	for i = 1, #targets do
+		if targets[i].data.x < minX then minX = targets[i].data.x end
+		if targets[i].data.y < minY then minY = targets[i].data.y end
+	end
+	for i = 1, #targets do
+		local b = targets[i]
+		b.data.x = minX + (b.data.x - minX) * factor
+		b.data.y = minY + (b.data.y - minY) * factor
+		b:updateRect(statusoffset)
+	end
+	return true
+end
+
+-- Set the snap lattice, in dp, both directions. Same two assignments the editor's
+-- grid-spacing callbacks make; pulled out so a size change can move the pitch with
+-- the tiles instead of leaving them to overlap. Play mode has no manager canvas.
+function setGridPitch(dp)
+	local v = tonumber(dp)
+	if v == nil or v < 8 then
+		return false
+	end
+	gridXwidth = v * density
+	gridYwidth = v * density
+	defaults.gridXwidth = v
+	defaults.gridYwidth = v
+	if manage == true and managerCanvas ~= nil then
+		drawManagerGrid()
+	end
+	return true
 end
 
 function applyLayoutSizePreset(preset)
@@ -1665,19 +1740,24 @@ function applyLayoutSizePreset(preset)
 		p = "xl"
 	end
 
-	if p == "compact" then
-		applyButtonSize(32, 32)
-	elseif p == "comfortable" then
-		applyButtonSize(42, 42)
-	elseif p == "large" then
-		applyButtonSize(56, 56)
-		tidyButtonLayout(0)
-	elseif p == "xl" then
-		applyButtonSize(72, 72)
-		tidyButtonLayout(0)
+	-- No tidyButtonLayout here. Resizing must not re-flow: tidy sorts the tiles
+	-- into reading order and re-lays them across the screen, which destroys any
+	-- arrangement that means something — a compass rose most of all. Growing the
+	-- tiles without growing the lattice is the other half of the same bug (72dp
+	-- tiles on a 45dp pitch overlap by 27dp), so the pitch moves with the size
+	-- and the tiles move with the pitch.
+	local named = { compact = 32, comfortable = 42, large = 56, xl = 72 }
+	local size = named[p]
+	if size ~= nil then
+		rescaleLayoutToPitch(size + 3)
+		setGridPitch(size + 3)
+		applyButtonSize(size, size)
 	elseif p == "fit_square" then
+		local cell = fitCellForScreen(true)
+		if cell ~= nil then
+			rescaleLayoutToPitch(cell)
+		end
 		fitGridToScreen(true)
-		tidyButtonLayout(0)
 	else
 		return false
 	end
@@ -1685,33 +1765,31 @@ function applyLayoutSizePreset(preset)
 	return true
 end
 
--- Called after installPack / applyLayoutWizardFinish loads the chosen set.
--- args: "pack" or "pack|sizePreset" or bare sizePreset from the service.
--- Also dismisses the wizard dialog — Apply keeps it open until this fires so
--- a full skip (overwrite=false / reserved) does not look like success.
-function onLayoutPackInstalled(args)
-	local raw = args ~= nil and tostring(args) or ""
-	local packName, sizeFromArgs = raw, ""
-	local pipe = string.find(raw, "|", 1, true)
-	if pipe ~= nil then
-		packName = string.sub(raw, 1, pipe - 1)
-		sizeFromArgs = string.sub(raw, pipe + 1) or ""
-	elseif LAYOUT_SIZE_PRESETS[string.lower(raw)] ~= nil then
-		-- Service may send size alone after the new finish payload.
-		sizeFromArgs = raw
-		packName = ""
+-- Options → Button → Button size picked a new entry. The service owns the
+-- stored value; this just applies it to whatever set is on screen, pack or
+-- hand-made, without re-flowing it.
+function applyLayoutSizePresetCmd(args)
+	local preset = args ~= nil and tostring(args) or ""
+	if preset == "" then
+		return
 	end
+	pcall(function() applyLayoutSizePreset(preset) end)
+end
 
-	local size = sizeFromArgs
-	if size == nil or tostring(size) == "" then
-		local opts = buttonWindowOptions or options
-		if opts ~= nil then
-			size = opts.layout_size_preset
-		end
-	end
-	if size ~= nil and tostring(size) ~= "" then
-		applyLayoutSizePreset(tostring(size))
-	end
+-- Called after installPack / applyLayoutWizardFinish loads the chosen set, to
+-- dismiss the wizard: Apply keeps it open until this fires so a full skip
+-- (overwrite=false / reserved) does not look like success.
+--
+-- The size argument is ignored, deliberately. This used to call
+-- applyLayoutSizePreset, which ran tidyButtonLayout — a re-flow of every tile
+-- into reading order across the screen width. It undid the geometry the service
+-- had just built and is what turned the compass rose into
+-- "NW N NE INV / S SE EXITS U": the bearings stopped matching the positions
+-- because the positions had been thrown away. doInstallBatch now rebuilds each
+-- pack from its canonical DP table at the chosen pitch and places it, so by the
+-- time this runs the set on screen is already the right size in the right shape.
+function onLayoutPackInstalled(args)
+	layoutWizardDialogOpen = false
 	pcall(function()
 		ensureLayoutWizardModule().dismissAfterApply()
 	end)
@@ -1828,6 +1906,12 @@ function showLayoutWizardOffer(args)
 	}))
 	layoutWizardSoftPrompt = builder:create()
 	layoutWizardSoftPrompt:show()
+end
+
+-- The service declined to show the offer for a reason that may not hold next
+-- time (offline session). Un-latch so a later trigger can try again.
+function releaseLayoutWizardOffer(args)
+	layoutWizardOffered = false
 end
 
 function maybeOfferLayoutWizard()
@@ -3201,10 +3285,20 @@ function loadOptions(data)
 	end
 	options = loaded
 	buttonWindowOptions = loaded
-	-- Options toggled pending off→on → allow another auto-offer this session.
-	-- Do not clear the latch while pending stays true (would re-open the dialog).
-	if layoutPendingTruthy(loaded.layout_wizard_pending) and not prevPending then
+	-- Any load that says "still pending" re-arms the auto-offer, so a second
+	-- brand new MUD opened in the same session gets the wizard too — the latch
+	-- is a duplicate-dialog guard, not a once-per-app-run switch. Never re-arm
+	-- while a prompt or the wizard itself is on screen, or answering one would
+	-- summon the next.
+	if layoutPendingTruthy(loaded.layout_wizard_pending)
+		and layoutWizardSoftPrompt == nil
+		and not layoutWizardDialogOpen then
 		layoutWizardOffered = false
+	end
+	-- Close / Not now / cancel all clear pending on the service, and that lands
+	-- back here: the wizard is demonstrably gone, so drop the flag.
+	if not layoutPendingTruthy(loaded.layout_wizard_pending) then
+		layoutWizardDialogOpen = false
 	end
 	-- 6 is the default declared in default_settings_*.xml (key "roundess").
 	buttonRoundness = (tonumber(options.roundness) or 6) * density

@@ -89,6 +89,57 @@ public class SettingsGroup extends Option implements Parcelable {
 		updateOptionsMap(option,listener);
 		options.add(option);
 	}
+
+	/**
+	 * Is this key already a dropdown?
+	 *
+	 * The Lua side has no instanceof — luajava exposes bindClass/new/newInstance/
+	 * array/loadLib/createProxy and nothing else — so without this the button
+	 * plugin could not tell an already-migrated ListOption from the StringOption
+	 * it replaced, and would drop and rebuild it (losing the player's choice) on
+	 * every connect.
+	 */
+	public boolean isListOption(String key) {
+		return optionsMap.get(key) instanceof ListOption;
+	}
+
+	/**
+	 * Drop a non-group option from this group and every nested one.
+	 *
+	 * Needed to change an option's *type* in a profile that already has it:
+	 * a saved profile keeps whatever the settings XML said when it was created,
+	 * so editing default_settings only ever reaches new profiles. The button
+	 * plugin uses this to retire the free-text layout_pack / layout_size_preset
+	 * StringOptions in favour of dropdowns.
+	 *
+	 * Only safe outside a walk of {@link #getOptions()} — Plugin.dumpOption
+	 * snapshots the list for exactly this reason. Call it from buttonLayerReady,
+	 * not from OnOptionChanged.
+	 *
+	 * @return true if something was removed.
+	 */
+	public boolean removeOptionByKey(String key) {
+		if(key == null) {
+			return false;
+		}
+		boolean removed = false;
+		for(int i = options.size() - 1; i >= 0; i--) {
+			Option o = options.get(i);
+			if(o instanceof SettingsGroup) {
+				if(((SettingsGroup)o).removeOptionByKey(key)) {
+					removed = true;
+				}
+			} else if(key.equals(o.getKey())) {
+				options.remove(i);
+				removed = true;
+			}
+		}
+		if(removed) {
+			optionsMap.remove(key);
+			listenerMap.remove(key);
+		}
+		return removed;
+	}
 	
 	private void updateOptionsMap(Option option,SettingsChangedListener listener) {
 		switch(option.type) {

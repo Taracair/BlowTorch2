@@ -78,6 +78,22 @@
   	 		<boolean title="Show gesture hints" key="show_gesture_hints" summary="Draw swipe arrows, hold (H), and accordion chevrons on buttons.">true</boolean>
   	 		<boolean title="Offer button layout wizard" key="layout_wizard_pending" summary="Show the pack and size picker once after connect. Cleared when you finish or skip. Re-enable anytime, or use Options → Button → Load button set from wizard.">true</boolean>
   	 		<callback title="Load button set from wizard" key="layout_wizard_open" summary="Pick templates and set names, size, alignment, and colors. Does not remove other button sets.">showLayoutWizardCmd</callback>
+  	 		<list title="Button size" key="layout_size_preset" summary="Size of the tiles in the current button set. Changing this resizes the set on screen and becomes the wizard's default.">
+  	 			<value>1</value>
+  	 			<item>Compact</item>
+  	 			<item>Comfortable</item>
+  	 			<item>Large</item>
+  	 			<item>Extra large</item>
+  	 			<item>Fit to screen</item>
+  	 		</list>
+  	 		<list title="Layout template" key="layout_pack" summary="Which template the wizard offers first. Changing it here does not install anything - pick names and press Apply in the wizard.">
+  	 			<value>0</value>
+  	 			<item>Compass</item>
+  	 			<item>Newbie</item>
+  	 			<item>Combat</item>
+  	 			<item>Explorer</item>
+  	 			<item>Social</item>
+  	 		</list>
   	 		<integer title="Button roundness" key="roundess" summary="Radius of button corners.">6</integer>
   	 		<list title="Haptic feedback on editor launch." key="haptic_edit" summary="Perform haptic feedback when the editor is opened.">
   	 			<value>0</value>

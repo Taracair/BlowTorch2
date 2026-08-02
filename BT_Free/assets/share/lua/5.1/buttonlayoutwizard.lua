@@ -49,12 +49,6 @@ local ALIGN_CHOICES = {
 	{ id = "right",  label = "Right" },
 }
 
-local MODE_CHOICES = {
-	{ id = "simple",   label = "Simple" },
-	{ id = "advanced", label = "Advanced" },
-}
-
-local MODE_RADIO_BASE = 300
 local SIZE_RADIO_BASE = 400
 local ALIGN_RADIO_BASE = 500
 local LOAD_RADIO_BASE = 600
@@ -186,6 +180,22 @@ end
 
 local RESERVED_SET_NAMES = { default = true, tutorial = true }
 
+-- Mirror of buttonserver.suggestSetName's cleanup. The EditText takes anything,
+-- but the name ends up as a buttonsets key AND inside the ".loadset <name>"
+-- cross-links rewriteCommandLinks writes into the pack tiles. Those links are
+-- read back with "^%.loadset%s+([%w_%-]+)%s*$", so a name with a space or
+-- punctuation produces a MORE/jump button that silently loads nothing. Sanitize
+-- at Apply, not per keystroke: rewriting the field under the cursor fights the
+-- player typing.
+local function sanitizeSetName(raw)
+	local s = string.lower(tostring(raw or ""))
+	s = s:match("^%s*(.-)%s*$") or s
+	s = string.gsub(s, "%s+", "_")
+	s = string.gsub(s, "[^a-z0-9_%-]", "")
+	if #s > 24 then s = string.sub(s, 1, 24) end
+	return s
+end
+
 local function nameExists(name, existingSet)
 	if name == nil or tostring(name) == "" then
 		return false
@@ -201,7 +211,7 @@ function suggestSetName(base, existingNames)
 	local existing = existingNameSet(existingNames)
 	existing.default = true
 	existing.tutorial = true
-	local root = string.lower(tostring(base or ""):match("^%s*(.-)%s*$") or "")
+	local root = sanitizeSetName(base)
 	if root == "" then root = "pack" end
 	if not existing[root] then
 		return root
@@ -336,10 +346,11 @@ function showWizard(state)
 	if selectedAlignId ~= "left" and selectedAlignId ~= "center" and selectedAlignId ~= "right" then
 		selectedAlignId = "right"
 	end
-	local selectedModeId = string.lower(tostring(state.mode or "simple"))
-	if selectedModeId ~= "simple" and selectedModeId ~= "advanced" then
-		selectedModeId = "simple"
-	end
+	-- Packs install complete. The Simple/Advanced radio was removed: it changed
+	-- 3 tiles on compass, 1 on explorer and social, and nothing whatsoever on
+	-- newbie, which is not a choice two words can explain. Still sent so an older
+	-- service build reads a mode it understands.
+	local selectedModeId = "advanced"
 
 	local primaryColor = DEFAULT_PRIMARY
 	local selectedColor = DEFAULT_SELECTED
@@ -421,8 +432,26 @@ function showWizard(state)
 		return out
 	end
 
+	local function radioLabel(row)
+		local typed = tostring(row.setName or "")
+		local name = sanitizeSetName(typed)
+		if name == "" then name = tostring(row.packId) end
+		return tostring(row.title or row.packId) .. " → " .. name
+	end
+
 	local function rebuildLoadRadios()
+		-- clearCheck() BEFORE removeAllViews, while the checked child is still
+		-- attached. RadioGroup.check(id) early-returns when id == mCheckedId, and
+		-- removeAllViews does not reset mCheckedId — so re-adding a fresh (and
+		-- therefore unchecked) RadioButton under the id that was checked before
+		-- left the group with nothing visibly selected while selectedLoadKey still
+		-- said otherwise. The listener fires with -1 here; findViewById(-1) is nil,
+		-- so it no-ops and leaves selectedLoadKey alone for the keep test below.
+		loadGroup:clearCheck()
 		loadGroup:removeAllViews()
+		for _, row in ipairs(rows) do
+			row.loadRadio = nil
+		end
 		local checked = currentCheckedRows()
 		if #checked == 0 then
 			selectedLoadKey = nil
@@ -431,13 +460,13 @@ function showWizard(state)
 		local keep = nil
 		for i, row in ipairs(checked) do
 			local rb = luajava.new(RadioButtonCls, context)
-			local name = tostring(row.setName or row.packId)
-			rb:setText(tostring(row.title or row.packId) .. " → " .. name)
+			rb:setText(radioLabel(row))
 			rb:setTextSize(13)
 			local rid = LOAD_RADIO_BASE + i
 			rb:setId(rid)
 			rb:setTag(row.packId)
 			loadGroup:addView(rb, fillParams())
+			row.loadRadio = rb
 			if selectedLoadKey ~= nil and tostring(selectedLoadKey) == tostring(row.packId) then
 				keep = rid
 			end
@@ -450,13 +479,25 @@ function showWizard(state)
 		end
 	end
 
+	-- Warn against the name Apply will actually use, not the raw text: a player
+	-- who types "Compass" must still be told it overwrites the existing
+	-- "compass", and one who types "My Pad" should see it lands as "my_pad".
 	local function updateRowWarning(row)
-		local name = tostring(row.setName or "")
+		local typed = tostring(row.setName or "")
+		local name = sanitizeSetName(typed)
 		local exists = nameExists(name, existingSet)
 		row.collides = exists
 		if row.warnView ~= nil then
+			local msg = ""
+			if name ~= "" and name ~= typed then
+				msg = "Saved as \"" .. name .. "\""
+			end
 			if exists then
-				row.warnView:setText("Set exists — will overwrite if you Apply")
+				if msg ~= "" then msg = msg .. " — " end
+				msg = msg .. "Set exists — will overwrite if you Apply"
+			end
+			if msg ~= "" then
+				row.warnView:setText(msg)
 				row.warnView:setVisibility(View.VISIBLE)
 			else
 				row.warnView:setText("")
@@ -552,8 +593,10 @@ function showWizard(state)
 				text = text:match("^%s*(.-)%s*$") or text
 				row.setName = text
 				updateRowWarning(row)
-				if row.checked then
-					rebuildLoadRadios()
+				-- Only relabel. Rebuilding the group on every keystroke tore down
+				-- and recreated the radios under the cursor for no reason.
+				if row.loadRadio ~= nil then
+					pcall(function() row.loadRadio:setText(radioLabel(row)) end)
 				end
 			end
 		})
@@ -582,40 +625,6 @@ function showWizard(state)
 	})
 	loadGroup:setOnCheckedChangeListener(loadListener)
 	rebuildLoadRadios()
-
-	addSectionHeader(body, "Mode")
-	local modeGroup = luajava.new(RadioGroupCls, context)
-	modeGroup:setOrientation(LinearLayout.VERTICAL)
-	modeGroup:setLayoutParams(fill)
-	local modeCheckId = -1
-	for i, choice in ipairs(MODE_CHOICES) do
-		local rb = luajava.new(RadioButtonCls, context)
-		rb:setText(choice.label)
-		rb:setTextSize(13)
-		local rid = MODE_RADIO_BASE + i
-		rb:setId(rid)
-		rb:setTag(choice.id)
-		modeGroup:addView(rb, fillParams())
-		if choice.id == selectedModeId then
-			modeCheckId = rid
-		end
-	end
-	body:addView(modeGroup)
-	if modeCheckId >= 0 then
-		modeGroup:check(modeCheckId)
-	else
-		modeGroup:check(MODE_RADIO_BASE + 1)
-		selectedModeId = "simple"
-	end
-	modeGroup:setOnCheckedChangeListener(luajava.createProxy(
-		"android.widget.RadioGroup$OnCheckedChangeListener", {
-		onCheckedChanged = function(group, checkedId)
-			local child = group:findViewById(checkedId)
-			if child ~= nil and child:getTag() ~= nil then
-				selectedModeId = tostring(child:getTag())
-			end
-		end
-	}))
 
 	addSectionHeader(body, "Button size")
 	local sizeGroup = luajava.new(RadioGroupCls, context)
@@ -784,7 +793,7 @@ function showWizard(state)
 		local loadSet = nil
 		for _, row in ipairs(rows) do
 			if row.checked then
-				local setName = tostring(row.setName or ""):match("^%s*(.-)%s*$") or ""
+				local setName = sanitizeSetName(row.setName)
 				if setName == "" then
 					setName = tostring(row.packId)
 				end
@@ -812,7 +821,7 @@ function showWizard(state)
 				selected = selectedColor,
 			},
 			size = selectedSizeId or "comfortable",
-			mode = selectedModeId or "simple",
+			mode = selectedModeId,
 		}
 	end
 
