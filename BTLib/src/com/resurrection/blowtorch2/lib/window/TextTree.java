@@ -18,25 +18,14 @@ import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 public class TextTree {
 	
 	/**
-	 * Detect http(s)://, www., and bare hostnames with a common TLD
-	 * (example.com, mud.org/path, …). Case-insensitive; trailing punctuation
-	 * is stripped by {@link #extractUrl(String)} / {@link #normalizeUrl(String)}.
+	 * Default finder string (bare domains on, built-in TLDs only). Prefer
+	 * {@link UrlLinkPatterns#buildFinderString(boolean, String)} when settings matter.
 	 */
 	public static final String urlFinderString =
-			"(?i)\\b("
-					+ "(?:https?://|www\\.)[^\\s<>\"'\\]\\),]+"
-					+ "|"
-					+ "[a-z0-9](?:[a-z0-9\\-]{0,61}[a-z0-9])?"
-					+ "(?:\\.[a-z0-9](?:[a-z0-9\\-]{0,61}[a-z0-9])?)*"
-					+ "\\.(?:com|org|net|edu|gov|io|co|uk|us|de|fr|pl|eu|info|biz|me|tv|"
-					+ "app|dev|xyz|online|site|tech|ai|gg|wiki|blog|cz|sk|nl|se|no|fi|"
-					+ "it|es|ca|au|jp|cn|ru|br|mx|in|kr|tw|hk|sg|id|ph|vn|th|ar|cl|pe|"
-					+ "to|cc|be|at|ch|dk|ie|nz|za)"
-					+ "(?::[0-9]{2,5})?"
-					+ "(?:/[^\\s<>\"'\\]\\),]*)?"
-					+ ")";
-	private static final Pattern URL_PATTERN = Pattern.compile(urlFinderString);
-	private final Matcher urlMatcher = URL_PATTERN.matcher("");
+			UrlLinkPatterns.buildFinderString(true, "");
+
+	private Pattern urlPattern = UrlLinkPatterns.defaultPattern();
+	private Matcher urlMatcher = urlPattern.matcher("");
 
 	/** Strip trailing punctuation often glued to URLs in prose. */
 	public static String trimUrlJunk(final String raw) {
@@ -55,12 +44,17 @@ public class TextTree {
 		return url;
 	}
 
-	/** First URL-like substring in {@code text}, or null. */
+	/** First URL-like substring in {@code text} using the default pattern, or null. */
 	public static String extractUrl(final String text) {
-		if (text == null || text.length() < 4) {
+		return extractUrl(text, UrlLinkPatterns.defaultPattern());
+	}
+
+	/** First URL-like substring in {@code text} using {@code pattern}, or null. */
+	public static String extractUrl(final String text, final Pattern pattern) {
+		if (text == null || text.length() < 4 || pattern == null) {
 			return null;
 		}
-		Matcher m = URL_PATTERN.matcher(text);
+		Matcher m = pattern.matcher(text);
 		if (!m.find()) {
 			return null;
 		}
@@ -81,6 +75,28 @@ public class TextTree {
 			url = "http://" + url;
 		}
 		return url;
+	}
+
+	/**
+	 * Replace the URL finder for this tree (e.g. after hyperlink settings change).
+	 * Does not re-scan existing {@link Text} units — only text added after this
+	 * call uses the new pattern.
+	 */
+	public void setUrlPattern(final Pattern pattern) {
+		if (pattern == null) {
+			return;
+		}
+		this.urlPattern = pattern;
+		this.urlMatcher = pattern.matcher("");
+	}
+
+	/** Apply bare-domain / extras settings via {@link UrlLinkPatterns#build}. */
+	public void setUrlLinkSettings(final boolean bareEnabled, final String extraTldsCsv) {
+		setUrlPattern(UrlLinkPatterns.build(bareEnabled, extraTldsCsv));
+	}
+
+	public Pattern getUrlPattern() {
+		return urlPattern;
 	}
 	
 	public static final int MESSAGE_ADDTEXT = 0;

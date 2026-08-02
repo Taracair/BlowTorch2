@@ -16,6 +16,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.Option;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser.NewItemCallback;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 
 import android.sax.Element;
 import android.util.Log;
@@ -276,6 +277,26 @@ public final class WindowTokenParser {
 							out.attribute("", "key", key.toString());
 							out.text(((Boolean) ((BooleanOption) o).getValue()).toString());
 							out.endTag("", "option");
+						}
+						break;
+					case hyperlink_bare_domains:
+						// Default true; persist only when off.
+						if (!(Boolean) ((BooleanOption) o).getValue()) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text("false");
+							out.endTag("", "option");
+						}
+						break;
+					case hyperlink_extra_tlds:
+						{
+							String extras = (String) ((StringOption) o).getValue();
+							if (extras != null && extras.trim().length() > 0) {
+								out.startTag("", "option");
+								out.attribute("", "key", key.toString());
+								out.text(extras);
+								out.endTag("", "option");
+							}
 						}
 						break;
 					case newest_at_top:

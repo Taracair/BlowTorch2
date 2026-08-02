@@ -25,6 +25,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.FileOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 
 
 import android.app.Activity;
@@ -695,6 +696,29 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		this.setLinkColor((Integer) hyperlinkcolor.getValue());
 		this.setLinkMode((Integer) hlmode.getValue());
 		this.setLinksEnabled((Boolean) hlenabled.getValue());
+		applyUrlLinkSettingsFrom(settings);
+	}
+
+	/** Rebuild the buffer URL finder from hyperlink bare/extras options. */
+	private void applyUrlLinkSettingsFrom(final SettingsGroup settings) {
+		boolean bare = true;
+		String extras = "";
+		if (settings != null) {
+			BooleanOption bareOpt = (BooleanOption) settings.findOptionByKey("hyperlink_bare_domains");
+			if (bareOpt != null && bareOpt.getValue() instanceof Boolean) {
+				bare = (Boolean) bareOpt.getValue();
+			}
+			StringOption extrasOpt = (StringOption) settings.findOptionByKey("hyperlink_extra_tlds");
+			if (extrasOpt != null && extrasOpt.getValue() instanceof String) {
+				extras = (String) extrasOpt.getValue();
+			}
+		}
+		if (mBuffer != null) {
+			mBuffer.setUrlLinkSettings(bare, extras);
+		}
+		if (mHoldBuffer != null) {
+			mHoldBuffer.setUrlLinkSettings(bare, extras);
+		}
 	}
 	
 	/** Resets the buffer with the given argument. 
@@ -3101,6 +3125,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		this.mBuffer = buffer;
 		if (this.mBuffer != null) {
 			this.mBuffer.setLinkify(linkify);
+			// Service-side trees arrive with the default finder; re-apply this
+			// window's bare/extras so Options stick after MainWindow.initWindow
+			// (and Extra text) adopt the shared buffer.
+			applyUrlLinkSettingsFrom(mSettings);
 		}
 		// Pointer swap only — without a draw kick, a window that already laid
 		// out against the empty constructor tree can stay blank after adopting
@@ -4592,6 +4620,10 @@ end
 			case hyperlink_color:
 				this.setLinkColor((Integer)o.getValue());
 				break;
+			case hyperlink_bare_domains:
+			case hyperlink_extra_tlds:
+				applyUrlLinkSettingsFrom(mSettings);
+				break;
 				
 			case word_wrap:
 				this.setWordWrap((Boolean)o.getValue());
@@ -4711,6 +4743,8 @@ end
 		hyperlinks_enabled,
 		hyperlink_mode,
 		hyperlink_color,
+		hyperlink_bare_domains,
+		hyperlink_extra_tlds,
 		word_wrap,
 		newest_at_top,
 		top_padding,

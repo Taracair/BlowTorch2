@@ -165,6 +165,8 @@ The window tag has the following attributes and child nodes:
 				- hyperlinks_enabled, boolean value
 				- hyperlink_color, color value
 				- hyperlink_mode, list value
+				- hyperlink_bare_domains, boolean value
+				- hyperlink_extra_tlds, string value (CSV of extra bare TLDs)
 					- 0, no link decoration
 					- 1, underline links
 					- 2, underline with specified color

@@ -13,6 +13,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.FileOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.service.LayoutGroup.LAYOUT_TYPE;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.window.TextTree;
@@ -86,6 +87,10 @@ public class WindowToken implements Parcelable {
 		hyperlink_mode,
 		/** Color to make hyperlinks. */
 		hyperlink_color,
+		/** Match bare domains (example.com) in addition to http(s)/www. */
+		hyperlink_bare_domains,
+		/** Extra bare-domain TLDs (CSV), e.g. ai,to — short ones are off by default. */
+		hyperlink_extra_tlds,
 		/** Word wrapping on or off. */
 		word_wrap,
 		/** Newest game lines at the top of the window (older below). */
@@ -312,7 +317,7 @@ public class WindowToken implements Parcelable {
 		
 		BooleanOption hyperlinksEnabled = new BooleanOption();
 		hyperlinksEnabled.setTitle("Enable Hyperlinks?");
-		hyperlinksEnabled.setDescription("Make http(s)://, www., and typical domain URLs (example.com) clickable.");
+		hyperlinksEnabled.setDescription("Make http(s)://, www., and (when enabled below) bare domain URLs clickable.");
 		hyperlinksEnabled.setKey("hyperlinks_enabled");
 		hyperlinksEnabled.setValue(true);
 		hyperlinks.addOption(hyperlinksEnabled);
@@ -335,6 +340,20 @@ public class WindowToken implements Parcelable {
 		hyperlinkColor.setKey("hyperlink_color");
 		hyperlinkColor.setValue(Integer.valueOf(DEFAULT_HYPERLINK_COLOR));
 		hyperlinks.addOption(hyperlinkColor);
+
+		BooleanOption hyperlinkBare = new BooleanOption();
+		hyperlinkBare.setTitle("Link bare domains?");
+		hyperlinkBare.setDescription("Also match hostnames like example.com / mud.org without http. Short TLDs (to, ch, ai, …) are off by default to avoid false links in game text.");
+		hyperlinkBare.setKey("hyperlink_bare_domains");
+		hyperlinkBare.setValue(true);
+		hyperlinks.addOption(hyperlinkBare);
+
+		StringOption hyperlinkExtraTlds = new StringOption();
+		hyperlinkExtraTlds.setTitle("Extra TLDs (CSV)");
+		hyperlinkExtraTlds.setDescription("Add bare-domain endings not in the built-in list. Example: ai,to,ch — no dots. Built-in already covers com, org, net, io, …");
+		hyperlinkExtraTlds.setKey("hyperlink_extra_tlds");
+		hyperlinkExtraTlds.setValue("");
+		hyperlinks.addOption(hyperlinkExtraTlds);
 		
 		window.addOption(hyperlinks);
 		

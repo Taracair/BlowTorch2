@@ -361,7 +361,8 @@ Layout attrs include `width` / `height` (`N`, `fill_parent`, `wrap_content`),
 
 Useful window option keys: `font_size`, `line_extra`, `font_path`,
 `buffer_size`, `word_wrap`, `hyperlinks_enabled`, `hyperlink_color`,
-`hyperlink_mode`, `color_option`.
+`hyperlink_mode`, `hyperlink_bare_domains`, `hyperlink_extra_tlds`,
+`color_option`.
 
 ### 4.5 Options UI
 

@@ -10,6 +10,7 @@ import java.util.Set;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.WindowToken;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -311,16 +312,29 @@ public class ExtraTextOverlayController {
 		}
 		// Re-apply after buffer swap so linkify from Window settings sticks.
 		boolean linksOn = true;
+		boolean bare = true;
+		String extras = "";
 		if (token.getSettings() != null) {
 			try {
 				Object o = token.getSettings().findOptionByKey("hyperlinks_enabled");
 				if (o instanceof BooleanOption && ((BooleanOption) o).getValue() instanceof Boolean) {
 					linksOn = ((Boolean) ((BooleanOption) o).getValue()).booleanValue();
 				}
+				Object bareO = token.getSettings().findOptionByKey("hyperlink_bare_domains");
+				if (bareO instanceof BooleanOption && ((BooleanOption) bareO).getValue() instanceof Boolean) {
+					bare = ((Boolean) ((BooleanOption) bareO).getValue()).booleanValue();
+				}
+				Object extrasO = token.getSettings().findOptionByKey("hyperlink_extra_tlds");
+				if (extrasO instanceof StringOption && ((StringOption) extrasO).getValue() instanceof String) {
+					extras = (String) ((StringOption) extrasO).getValue();
+				}
 			} catch (Exception ignored) {
 			}
 		}
 		win.setLinksEnabled(linksOn);
+		if (win.getBuffer() != null) {
+			win.getBuffer().setUrlLinkSettings(bare, extras);
+		}
 		// Same two-finger copy widget as the main game window (defaults true;
 		// keep it on explicitly — overlay parents used to clip the disc away).
 		win.setTextSelectionEnabled(true);
