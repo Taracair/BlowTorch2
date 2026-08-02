@@ -151,10 +151,16 @@ public class FloatingButtonController {
 
 		@Override
 		public void moveTo(FloatingButtonView view, int x, int y) {
+			// x,y are the visible button's top-left — the same space as
+			// floatX/Y. This view/window is padded (FloatingButtonView's hint
+			// band), so its own position is offset from the button's by that
+			// padding; only this method (and positionOf) needs to know that.
+			int padLeft = view.hintPadLeftPx();
+			int padTop = view.hintPadTopPx();
 			WindowManager.LayoutParams p = overlayParams.get(view);
 			if (p != null) {
-				p.x = x;
-				p.y = y;
+				p.x = x - padLeft;
+				p.y = y - padTop;
 				WindowManager wm = windowManager();
 				if (wm != null) {
 					try {
@@ -169,8 +175,8 @@ public class FloatingButtonController {
 			if (lp == null) {
 				lp = new FrameLayout.LayoutParams(view.getWidth(), view.getHeight());
 			}
-			lp.leftMargin = x;
-			lp.topMargin = y;
+			lp.leftMargin = x - padLeft;
+			lp.topMargin = y - padTop;
 			lp.width = view.getWidth();
 			lp.height = view.getHeight();
 			view.setLayoutParams(lp);
@@ -178,15 +184,17 @@ public class FloatingButtonController {
 
 		@Override
 		public int[] positionOf(FloatingButtonView view) {
+			int padLeft = view.hintPadLeftPx();
+			int padTop = view.hintPadTopPx();
 			WindowManager.LayoutParams p = overlayParams.get(view);
 			if (p != null) {
-				return new int[] { p.x, p.y };
+				return new int[] { p.x + padLeft, p.y + padTop };
 			}
 			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) view.getLayoutParams();
 			if (lp != null) {
-				return new int[] { lp.leftMargin, lp.topMargin };
+				return new int[] { lp.leftMargin + padLeft, lp.topMargin + padTop };
 			}
-			return new int[] { view.getLeft(), view.getTop() };
+			return new int[] { view.getLeft() + padLeft, view.getTop() + padTop };
 		}
 
 		@Override
@@ -197,12 +205,14 @@ public class FloatingButtonController {
 				// the button being shoved upward when the IME opens.
 				return displayHeight();
 			}
-			int left = view.getLeft();
-			int right = left + Math.max(view.getWidth(), 1);
+			int padLeft = view.hintPadLeftPx();
+			int buttonWidth = Math.max(view.buttonWidthPx(), 1);
+			int left = view.getLeft() + padLeft;
+			int right = left + buttonWidth;
 			FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) view.getLayoutParams();
 			if (lp != null && lp.leftMargin > 0) {
-				left = lp.leftMargin;
-				right = left + Math.max(view.getWidth(), lp.width > 0 ? lp.width : 1);
+				left = lp.leftMargin + padLeft;
+				right = left + buttonWidth;
 			}
 			FloatingButtonModel m = view.getModel();
 			// Mode A: ceiling is the visible-frame bottom (top of soft keyboard).
@@ -584,8 +594,14 @@ public class FloatingButtonController {
 			v.measure(
 					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
 					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+			// w,h (padded) size the window; buttonW/buttonH (visible button
+			// only) are what floatX/Y and clamping are expressed in, so the
+			// button — not the hint band around it — is what stays on screen
+			// and where the player left it.
 			int w = Math.max(1, v.getMeasuredWidth());
 			int h = Math.max(1, v.getMeasuredHeight());
+			int buttonW = Math.max(1, v.buttonWidthPx());
+			int buttonH = Math.max(1, v.buttonHeightPx());
 			int x = m.floatX == FloatingLayerGeometry.UNPLACED
 					? (m.hasGridOrigin
 							? FloatingLayerGeometry.gridCenterToLeft(m.gridX, m.widthDp, density)
@@ -595,11 +611,11 @@ public class FloatingButtonController {
 					? (m.hasGridOrigin
 							? FloatingLayerGeometry.gridCenterToTop(
 									m.gridY, m.heightDp, density, m.statusOffsetPx)
-							: Math.max(0, displayHeight() - h - margin))
+							: Math.max(0, displayHeight() - buttonH - margin))
 					: m.floatY;
-			x = FloatingLayerGeometry.clampX(x, w, displayWidth());
-			y = FloatingLayerGeometry.clampY(y, h, displayHeight());
-			attachOverlayView(v, x, y, w, h);
+			x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
+			y = FloatingLayerGeometry.clampY(y, buttonH, displayHeight());
+			attachOverlayView(v, x - v.hintPadLeftPx(), y - v.hintPadTopPx(), w, h);
 			views.add(v);
 		}
 	}
@@ -621,6 +637,14 @@ public class FloatingButtonController {
 					w = v.getMeasuredWidth();
 					h = v.getMeasuredHeight();
 				}
+				// w,h (padded) are the FrameLayout child's own size; buttonW/H
+				// (visible button only) are what floatX/Y, clamping and the
+				// FAB/IME keep-out rects are expressed in — same split as the
+				// overlay path in rebuildOverlay.
+				int buttonW = Math.max(v.buttonWidthPx(), 1);
+				int buttonH = Math.max(v.buttonHeightPx(), 1);
+				int padLeft = v.hintPadLeftPx();
+				int padTop = v.hintPadTopPx();
 				float density = v.getResources().getDisplayMetrics().density;
 				int marginPx = Math.round(FloatingLayerGeometry.DEFAULT_MARGIN_DP * density);
 				int resolvedX;
@@ -637,17 +661,17 @@ public class FloatingButtonController {
 					// Park against WindowVisibleDisplayFrame.bottom — the real
 					// top of the soft keyboard on screen — not layerHeight−lift
 					// (that mismatch parked Mode A under the keys).
-					maxBottom = modeACeiling(resolvedX, resolvedX + w, density);
+					maxBottom = modeACeiling(resolvedX, resolvedX + buttonW, density);
 				} else {
-					maxBottom = computeMaxBottom(resolvedX, resolvedX + w);
+					maxBottom = computeMaxBottom(resolvedX, resolvedX + buttonW);
 				}
 				if (keyboardAboveIme) {
 					// Mode A: X from drag/grid; Y just above the keys.
-					int x = FloatingLayerGeometry.clampX(resolvedX, w, layer.getWidth());
+					int x = FloatingLayerGeometry.clampX(resolvedX, buttonW, layer.getWidth());
 					int y = FloatingLayerGeometry.clampY(
-							Math.max(0, maxBottom - h),
-							h, maxBottom);
-					applyLayoutParams(v, x, y, w, h);
+							Math.max(0, maxBottom - buttonH),
+							buttonH, maxBottom);
+					applyLayoutParams(v, x - padLeft, y - padTop, w, h);
 					return;
 				}
 				int resolvedY;
@@ -655,17 +679,21 @@ public class FloatingButtonController {
 					resolvedY = FloatingLayerGeometry.gridCenterToTop(
 							m.gridY, m.heightDp, density, m.statusOffsetPx);
 				} else if (m.floatY == FloatingLayerGeometry.UNPLACED) {
-					resolvedY = Math.max(0, maxBottom - h - marginPx);
+					resolvedY = Math.max(0, maxBottom - buttonH - marginPx);
 				} else {
 					resolvedY = m.floatY;
 				}
-				int x = FloatingLayerGeometry.clampX(resolvedX, w, layer.getWidth());
-				int y = FloatingLayerGeometry.clampY(resolvedY, h, maxBottom);
-				applyLayoutParams(v, x, y, w, h);
+				int x = FloatingLayerGeometry.clampX(resolvedX, buttonW, layer.getWidth());
+				int y = FloatingLayerGeometry.clampY(resolvedY, buttonH, maxBottom);
+				applyLayoutParams(v, x - padLeft, y - padTop, w, h);
 			}
 		});
 	}
 
+	/**
+	 * {@code x,y} is the top-left of the padded view — already offset from the
+	 * button's own top-left by the caller — and {@code w,h} its full padded size.
+	 */
 	private void applyLayoutParams(FloatingButtonView v, int x, int y, int w, int h) {
 		FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) v.getLayoutParams();
 		if (lp == null) {
@@ -704,7 +732,9 @@ public class FloatingButtonController {
 			if (p == null || m == null) {
 				continue;
 			}
-			rememberFloatPosition(m.index, p.x, p.y);
+			// p.x/p.y are the padded window's position; floatX/Y (like every
+			// other cached position) mean the button's own top-left.
+			rememberFloatPosition(m.index, p.x + v.hintPadLeftPx(), p.y + v.hintPadTopPx());
 		}
 	}
 

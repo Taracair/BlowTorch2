@@ -44,15 +44,45 @@ public class FloatingButtonView extends View {
 		void bringLayerUnderChrome();
 
 		/**
-		 * Put this view at {@code x},{@code y}. The controller decides what that
-		 * means: margins inside the floating layer, or the position of this
-		 * button's own overlay window. The gesture code must not care.
+		 * Put the visible button's top-left at {@code x},{@code y} — the same
+		 * space as stored {@code floatX}/{@code floatY}. The view itself is
+		 * larger (it has a hint-padding margin, see {@link #hintPadLeftPx()} /
+		 * {@link #hintPadTopPx()}), so the controller is the one that turns this
+		 * into margins inside the floating layer, or the position of this
+		 * button's own overlay window, offsetting by that padding. The gesture
+		 * code must not care.
 		 */
 		void moveTo(FloatingButtonView view, int x, int y);
 
-		/** Current {@code {x, y}} of this view in whichever space it lives in. */
+		/**
+		 * Current {@code {x, y}} of the visible button's top-left, in whichever
+		 * space this view lives in — already converted back from the padded
+		 * view/window position, so it is directly comparable to {@code floatX}/
+		 * {@code floatY} and to the {@code x}/{@code y} passed to {@link #moveTo}.
+		 */
 		int[] positionOf(FloatingButtonView view);
 	}
+
+	/**
+	 * Room reserved outside the visible button for gesture hints, mirroring
+	 * {@code BUTTON:drawGestureIndicators} / {@code drawGestureLabel} on the
+	 * grid — there they draw on a shared full-window canvas that nothing
+	 * clips. A floating button instead gets its own exactly-sized overlay
+	 * window ({@code TYPE_APPLICATION_OVERLAY}), so anything drawn past its
+	 * edges used to be clipped by the window itself, not by this view. The fix
+	 * is to make the view (and, in the controller, the overlay window) bigger
+	 * than the button and draw hints in the margin, not to draw them inside
+	 * the button — that was tried in 97bd47e5 and looked wrong to the player.
+	 *
+	 * <p>Left/right are equal on purpose: it keeps every "horizontal centre of
+	 * the button" calculation ({@code getWidth() / 2f}) correct without a
+	 * separate button-centre offset. Top is much larger than the sides because
+	 * it also has to fit the press callout box above the button, not just an
+	 * edge letter.
+	 */
+	private static final float HINT_PAD_SIDE_DP = 14f;
+	private static final float HINT_PAD_BOTTOM_DP = 18f;
+	private static final float HINT_PAD_TOP_DP = 44f;
 
 	private FloatingButtonModel model;
 	private Callbacks callbacks;
@@ -87,6 +117,14 @@ public class FloatingButtonView extends View {
 	private float positionSpaceDeltaX;
 	private float positionSpaceDeltaY;
 	private boolean dragOriginCaptured;
+	/** Pixel size of the hint padding band, fixed per view (density only). */
+	private final int padLeftPx;
+	private final int padTopPx;
+	private final int padRightPx;
+	private final int padBottomPx;
+	/** Pixel size of the visible button itself, recomputed on every measure. */
+	private int buttonWidthPx;
+	private int buttonHeightPx;
 
 	private final Runnable enterMoveRunnable = new Runnable() {
 		@Override
@@ -115,8 +153,12 @@ public class FloatingButtonView extends View {
 		calloutText.setColor(0xFFFFFFFF);
 		calloutText.setTextAlign(Paint.Align.CENTER);
 		calloutText.setTextSize(12f * getResources().getDisplayMetrics().scaledDensity);
-		swipeThresholdPx = SuperButtonGestures.SWIPE_THRESHOLD_DP
-				* getResources().getDisplayMetrics().density;
+		float density = getResources().getDisplayMetrics().density;
+		swipeThresholdPx = SuperButtonGestures.SWIPE_THRESHOLD_DP * density;
+		padLeftPx = Math.round(HINT_PAD_SIDE_DP * density);
+		padRightPx = Math.round(HINT_PAD_SIDE_DP * density);
+		padTopPx = Math.round(HINT_PAD_TOP_DP * density);
+		padBottomPx = Math.round(HINT_PAD_BOTTOM_DP * density);
 	}
 
 	void bind(FloatingButtonModel model, Callbacks callbacks) {
@@ -134,9 +176,33 @@ public class FloatingButtonView extends View {
 	@Override
 	protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 		float density = getResources().getDisplayMetrics().density;
-		int w = (int) Math.ceil((model != null ? model.widthDp : 80f) * density);
-		int h = (int) Math.ceil((model != null ? model.heightDp : 80f) * density);
-		setMeasuredDimension(w, h);
+		buttonWidthPx = (int) Math.ceil((model != null ? model.widthDp : 80f) * density);
+		buttonHeightPx = (int) Math.ceil((model != null ? model.heightDp : 80f) * density);
+		// The view is bigger than the button so hints have somewhere to draw
+		// (see HINT_PAD_*); the button itself keeps its configured size.
+		setMeasuredDimension(
+				buttonWidthPx + padLeftPx + padRightPx,
+				buttonHeightPx + padTopPx + padBottomPx);
+	}
+
+	/** Pixel width of the visible button, excluding the hint padding band. */
+	int buttonWidthPx() {
+		return buttonWidthPx;
+	}
+
+	/** Pixel height of the visible button, excluding the hint padding band. */
+	int buttonHeightPx() {
+		return buttonHeightPx;
+	}
+
+	/** Left edge of the visible button within this view, i.e. the hint padding width. */
+	int hintPadLeftPx() {
+		return padLeftPx;
+	}
+
+	/** Top edge of the visible button within this view, i.e. the hint padding height. */
+	int hintPadTopPx() {
+		return padTopPx;
 	}
 
 	@Override
@@ -144,11 +210,17 @@ public class FloatingButtonView extends View {
 		if (model == null) {
 			return;
 		}
+		// The button occupies an inset rect, not the whole view — the margin
+		// around it is the hint padding band (HINT_PAD_*).
+		float left = padLeftPx;
+		float top = padTopPx;
+		float right = left + buttonWidthPx;
+		float bottom = top + buttonHeightPx;
 		int bg = pressed ? model.selectedColor
 				: (flippedVisual ? model.flipColor : model.primaryColor);
 		int fg = flippedVisual ? model.flipLabelColor : model.labelColor;
 		fillPaint.setColor(bg);
-		oval.set(0, 0, getWidth(), getHeight());
+		oval.set(left, top, right, bottom);
 		if (model.floatRound) {
 			canvas.drawOval(oval, fillPaint);
 		} else {
@@ -161,7 +233,7 @@ public class FloatingButtonView extends View {
 			framePaint.setStrokeWidth(Math.max(2f,
 					getResources().getDisplayMetrics().density * 2f));
 			float inset = framePaint.getStrokeWidth() / 2f;
-			RectF frame = new RectF(inset, inset, getWidth() - inset, getHeight() - inset);
+			RectF frame = new RectF(left + inset, top + inset, right - inset, bottom - inset);
 			if (model.floatRound) {
 				canvas.drawOval(frame, framePaint);
 			} else {
@@ -173,85 +245,110 @@ public class FloatingButtonView extends View {
 		if (text == null) {
 			text = "";
 		}
+		float midX = (left + right) / 2f;
+		float midY = (top + bottom) / 2f;
 		textPaint.setColor(fg);
 		textPaint.setTextSize(model.labelSizeSp * getResources().getDisplayMetrics().scaledDensity);
 		Paint.FontMetrics fm = textPaint.getFontMetrics();
-		float textY = getHeight() / 2f - (fm.ascent + fm.descent) / 2f;
-		canvas.drawText(text, getWidth() / 2f, textY, textPaint);
+		float textY = midY - (fm.ascent + fm.descent) / 2f;
+		canvas.drawText(text, midX, textY, textPaint);
 
 		boolean hintsOn = callbacks != null && callbacks.showGestureHints()
 				&& model.showGestureLabel;
 		if (hintsOn) {
-			drawStaticGestureHints(canvas);
+			drawStaticGestureHints(canvas, left, top, right, bottom);
 		}
 		if (previewDir != null) {
-			drawPreviewArrow(canvas, previewDir);
+			drawPreviewArrow(canvas, previewDir, midX, midY);
 		}
-		// Callout stays inside the view: overlay windows are sized to the button,
-		// so drawing above y=0 is clipped (and was invisible on Mode A).
+		// Press callout sits above the button, in the padding band — same
+		// placement as BUTTON:drawGestureLabel on the grid. It used to be drawn
+		// inside the button (97bd47e5) because the overlay window was sized
+		// exactly to the button and clipped anything above y=0; now the window
+		// itself is sized to include this band (FloatingButtonController).
 		if (callout != null && callout.length() > 0 && hintsOn) {
-			float density = getResources().getDisplayMetrics().density;
-			float pad = 4f * density;
-			String label = callout.length() > 28 ? callout.substring(0, 27) + "…" : callout;
-			calloutText.setColor(0xFFFFFFFF);
-			calloutText.setTextAlign(Paint.Align.CENTER);
-			float tw = Math.min(getWidth() - pad, calloutText.measureText(label) + pad * 2f);
-			float th = calloutText.getTextSize() + pad;
-			float left = Math.max(0, (getWidth() - tw) / 2f);
-			float top = pad;
-			canvas.drawRect(left, top, left + tw, top + th, calloutBg);
-			canvas.drawText(label, left + tw / 2f,
-					top + th - pad / 2f - calloutText.descent(), calloutText);
+			drawCallout(canvas, left, top, right);
 		}
+	}
+
+	private void drawCallout(Canvas canvas, float buttonLeft, float buttonTop, float buttonRight) {
+		float density = getResources().getDisplayMetrics().density;
+		float pad = 4f * density;
+		float gap = 6f * density;
+		String label = callout.length() > 28 ? callout.substring(0, 27) + "…" : callout;
+		calloutText.setColor(0xFFFFFFFF);
+		calloutText.setTextAlign(Paint.Align.CENTER);
+		float tw = Math.min(getWidth() - pad, calloutText.measureText(label) + pad * 2f);
+		float th = calloutText.getTextSize() + pad;
+		float midX = (buttonLeft + buttonRight) / 2f;
+		float left = Math.max(0, Math.min(getWidth() - tw, midX - tw / 2f));
+		float bottomEdge = buttonTop - gap;
+		float top = Math.max(0, bottomEdge - th);
+		canvas.drawRect(left, top, left + tw, top + th, calloutBg);
+		canvas.drawText(label, left + tw / 2f,
+				top + th - pad / 2f - calloutText.descent(), calloutText);
 	}
 
 	/**
 	 * Same compass as the grid tile ({@code BUTTON:drawGestureIndicators}): U/D/L/R
-	 * on edge midpoints, small arrows in the corners, Hold in the bottom-right.
+	 * on edge midpoints, small arrows in the corners, Hold in the bottom-right —
+	 * but drawn just <em>outside</em> {@code [left,top,right,bottom]}, in the hint
+	 * padding band, rather than inset inside it. The grid can inset them inside
+	 * the tile because tiles are large; a floating button can be as small as a
+	 * thumb, where an inset hint collides with the button's own label (the
+	 * "only a D shows" symptom this fixes).
 	 */
-	private void drawStaticGestureHints(Canvas canvas) {
+	private void drawStaticGestureHints(Canvas canvas, float left, float top,
+			float right, float bottom) {
 		float density = getResources().getDisplayMetrics().density;
-		float w = getWidth();
-		float h = getHeight();
-		float inset = Math.max(4f * density, Math.min(w, h) * 0.08f);
+		float w = right - left;
+		float h = bottom - top;
+		float gap = Math.max(2f * density, Math.min(w, h) * 0.04f);
 		float arrow = Math.max(6f * density, Math.min(w, h) * 0.12f);
 		int color = 0x96FFFFFF;
 		Paint hint = calloutText;
 		float prevSize = hint.getTextSize();
 		Paint.Align prevAlign = hint.getTextAlign();
 		int prevColor = hint.getColor();
-		hint.setTextAlign(Paint.Align.LEFT);
 		hint.setTextSize(Math.max(7f * density, arrow * 1.35f));
 		hint.setColor(color);
-		float midX = w * 0.5f;
-		float midY = h * 0.5f;
+		float midX = (left + right) * 0.5f;
+		float midY = (top + bottom) * 0.5f;
 		Paint.FontMetrics fm = hint.getFontMetrics();
-		float baseline = -fm.ascent;
+		float vCenterOffset = -(fm.ascent + fm.descent) / 2f;
 
 		if (hasSwipe(SuperButtonGestures.DIR_UP)) {
-			canvas.drawText("U", midX - arrow * 0.4f, inset + arrow * 0.35f + baseline * 0.35f, hint);
+			hint.setTextAlign(Paint.Align.CENTER);
+			canvas.drawText("U", midX, top - gap, hint);
 		}
 		if (hasSwipe(SuperButtonGestures.DIR_DOWN)) {
-			canvas.drawText("D", midX - arrow * 0.4f, h - inset, hint);
+			hint.setTextAlign(Paint.Align.CENTER);
+			canvas.drawText("D", midX, bottom + gap - fm.ascent, hint);
 		}
 		if (hasSwipe(SuperButtonGestures.DIR_LEFT)) {
-			canvas.drawText("L", inset, midY + arrow * 0.35f, hint);
+			hint.setTextAlign(Paint.Align.RIGHT);
+			canvas.drawText("L", left - gap, midY + vCenterOffset, hint);
 		}
 		if (hasSwipe(SuperButtonGestures.DIR_RIGHT)) {
-			canvas.drawText("R", w - inset - arrow * 0.6f, midY + arrow * 0.35f, hint);
+			hint.setTextAlign(Paint.Align.LEFT);
+			canvas.drawText("R", right + gap, midY + vCenterOffset, hint);
 		}
 
-		float corner = inset + arrow * 0.55f;
-		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_LEFT, corner, corner, arrow);
-		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_RIGHT, w - corner, corner, arrow);
-		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_LEFT, corner, h - corner, arrow);
-		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_RIGHT, w - corner, h - corner, arrow);
+		float cornerOffset = gap + arrow * 0.5f;
+		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_LEFT,
+				left - cornerOffset, top - cornerOffset, arrow);
+		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_RIGHT,
+				right + cornerOffset, top - cornerOffset, arrow);
+		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_LEFT,
+				left - cornerOffset, bottom + cornerOffset, arrow);
+		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_RIGHT,
+				right + cornerOffset, bottom + cornerOffset, arrow);
 
 		if (model.holdCommand != null && model.holdCommand.length() > 0) {
 			hint.setColor(0xAAFFFF66);
 			hint.setTextSize(Math.max(7f * density, arrow * 1.2f));
 			hint.setTextAlign(Paint.Align.RIGHT);
-			canvas.drawText("Hold", w - 4f * density, h - 4f * density, hint);
+			canvas.drawText("Hold", right, bottom + gap - fm.ascent, hint);
 		}
 
 		hint.setTextSize(prevSize);
@@ -289,10 +386,10 @@ public class FloatingButtonView extends View {
 		canvas.drawLine(cx - dx * 0.4f, cy - dy * 0.4f, cx + dx, cy + dy, arrowPaint);
 	}
 
-	private void drawPreviewArrow(Canvas canvas, String dir) {
-		float cx = getWidth() / 2f;
-		float cy = getHeight() / 2f;
-		float len = Math.min(getWidth(), getHeight()) * 0.35f;
+	private void drawPreviewArrow(Canvas canvas, String dir, float cx, float cy) {
+		// Sized from the button, not the padded view, so the arrow stays inside
+		// the button like before — only the static hints moved outward.
+		float len = Math.min(buttonWidthPx, buttonHeightPx) * 0.35f;
 		float dx = 0;
 		float dy = 0;
 		if (SuperButtonGestures.DIR_UP.equals(dir) || SuperButtonGestures.DIR_UP_LEFT.equals(dir)
@@ -349,6 +446,13 @@ public class FloatingButtonView extends View {
 	}
 
 	private boolean onDown(MotionEvent event) {
+		if (!containsLocal(event.getX(), event.getY())) {
+			// Touch landed in the hint padding band, not the visible button.
+			// Not consuming it lets FLAG_NOT_TOUCH_MODAL pass it to whatever is
+			// underneath (game text, or — in the in-app layer — the keyboard),
+			// exactly as a miss on the old, exactly-button-sized window did.
+			return false;
+		}
 		multiTouchCancelled = false;
 		enteredMoveMode = false;
 		dragging = false;
@@ -428,8 +532,10 @@ public class FloatingButtonView extends View {
 		int x = Math.round(rawX - dragFingerOffsetX + positionSpaceDeltaX);
 		int y = Math.round(rawY - dragFingerOffsetY + positionSpaceDeltaY);
 		int maxBottom = callbacks.maxBottomFor(this);
-		x = FloatingLayerGeometry.clampX(x, getWidth(), callbacks.parentWidth());
-		y = FloatingLayerGeometry.clampY(y, getHeight(), maxBottom);
+		// Clamp the button itself, not the padded view, so the hint band can
+		// run to (or past) the screen edge without the button stopping short.
+		x = FloatingLayerGeometry.clampX(x, buttonWidthPx, callbacks.parentWidth());
+		y = FloatingLayerGeometry.clampY(y, buttonHeightPx, maxBottom);
 		callbacks.moveTo(this, x, y);
 		callbacks.onFloatPositionChanged(model.index, x, y);
 		callbacks.bringLayerUnderChrome();
@@ -445,8 +551,8 @@ public class FloatingButtonView extends View {
 		float dx = (cancelled ? lastX : event.getRawX()) - downX;
 		float dy = (cancelled ? lastY : event.getRawY()) - downY;
 		boolean outside = !containsLocal(
-				cancelled ? getWidth() / 2f : event.getX(),
-				cancelled ? getHeight() / 2f : event.getY());
+				cancelled ? padLeftPx + buttonWidthPx / 2f : event.getX(),
+				cancelled ? padTopPx + buttonHeightPx / 2f : event.getY());
 
 		if (multiTouchCancelled || cancelled) {
 			resetVisual();
@@ -506,8 +612,10 @@ public class FloatingButtonView extends View {
 		invalidate();
 	}
 
+	/** True when {@code x,y} (view-local) falls inside the visible button, not the hint padding band. */
 	private boolean containsLocal(float x, float y) {
-		return x >= 0 && y >= 0 && x < getWidth() && y < getHeight();
+		return x >= padLeftPx && y >= padTopPx
+				&& x < padLeftPx + buttonWidthPx && y < padTopPx + buttonHeightPx;
 	}
 
 	private String buildCallout(String dir, boolean outside) {
