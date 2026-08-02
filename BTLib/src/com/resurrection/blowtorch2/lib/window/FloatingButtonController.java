@@ -119,6 +119,10 @@ public class FloatingButtonController {
 
 		@Override
 		public void onFloatDragFinished(int index, int x, int y) {
+			// Lua is updated below; keep lastModels in step too. Otherwise the next
+			// IME/chrome rebuild (e.g. .sendbutton toggling the input bar) recreates
+			// overlay windows from the pre-drag snapshot and the button snaps back.
+			rememberFloatPosition(index, x, y);
 			host.persistFloatPosition(index, x, y);
 		}
 
@@ -283,7 +287,11 @@ public class FloatingButtonController {
 		}
 		if (overlayMode) {
 			// Keyboard-mode windows exist only while the keys are up, so the set
-			// of windows changes. Position never does — see rebuildOverlay.
+			// of windows changes. Fold live overlay x/y into lastModels first —
+			// drag updates the WindowManager params (and Lua) but used not to
+			// touch this cache, so a rebuild from the stale snapshot snapped
+			// Mode A back (seen after .sendbutton off → chrome refresh → insets).
+			syncLastModelsFromLiveOverlayPositions();
 			rebuild(new ArrayList<FloatingButtonModel>(lastModels));
 			return;
 		}
@@ -668,6 +676,36 @@ public class FloatingButtonController {
 		lp.leftMargin = x;
 		lp.topMargin = y;
 		v.setLayoutParams(lp);
+	}
+
+	/**
+	 * Write a drag-drop position into {@link #lastModels} so the next overlay
+	 * rebuild does not resurrect the pre-drag coordinates.
+	 */
+	private void rememberFloatPosition(int index, int x, int y) {
+		for (int i = 0; i < lastModels.size(); i++) {
+			FloatingButtonModel m = lastModels.get(i);
+			if (m.index == index) {
+				lastModels.set(i, m.withFloatPosition(x, y));
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Overlay windows can move (drag) without a fresh Lua push. Before an IME
+	 * rebuild, copy their live {@link WindowManager.LayoutParams} into the
+	 * cache that rebuild reads.
+	 */
+	private void syncLastModelsFromLiveOverlayPositions() {
+		for (FloatingButtonView v : views) {
+			WindowManager.LayoutParams p = overlayParams.get(v);
+			FloatingButtonModel m = v.getModel();
+			if (p == null || m == null) {
+				continue;
+			}
+			rememberFloatPosition(m.index, p.x, p.y);
+		}
 	}
 
 	/**

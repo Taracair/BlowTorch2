@@ -94,6 +94,55 @@ public final class FloatingButtonModel {
 		flipLabelColor = (int) o.optLong("flipLabelColor", 0x880000FFL);
 	}
 
+	private FloatingButtonModel(FloatingButtonModel src, int newFloatX, int newFloatY) {
+		index = src.index;
+		label = src.label;
+		command = src.command;
+		flipLabel = src.flipLabel;
+		flipCommand = src.flipCommand;
+		holdCommand = src.holdCommand;
+		switchTo = src.switchTo;
+		swipeUpCommand = src.swipeUpCommand;
+		swipeDownCommand = src.swipeDownCommand;
+		swipeLeftCommand = src.swipeLeftCommand;
+		swipeRightCommand = src.swipeRightCommand;
+		swipeUpLeftCommand = src.swipeUpLeftCommand;
+		swipeUpRightCommand = src.swipeUpRightCommand;
+		swipeDownLeftCommand = src.swipeDownLeftCommand;
+		swipeDownRightCommand = src.swipeDownRightCommand;
+		showGestureLabel = src.showGestureLabel;
+		floatMode = src.floatMode;
+		floatX = newFloatX;
+		floatY = newFloatY;
+		floatRound = src.floatRound;
+		floatFrame = src.floatFrame;
+		hasGridOrigin = src.hasGridOrigin;
+		gridX = src.gridX;
+		gridY = src.gridY;
+		statusOffsetPx = src.statusOffsetPx;
+		widthDp = src.widthDp;
+		heightDp = src.heightDp;
+		labelSizeSp = src.labelSizeSp;
+		primaryColor = src.primaryColor;
+		labelColor = src.labelColor;
+		selectedColor = src.selectedColor;
+		flipColor = src.flipColor;
+		flipLabelColor = src.flipLabelColor;
+	}
+
+	/**
+	 * Same button with a new float position. Used when a drag drop updates the
+	 * live overlay window but the cached Lua snapshot still has the old
+	 * {@code floatX}/{@code floatY} — an IME rebuild from that cache would snap
+	 * the button back.
+	 */
+	FloatingButtonModel withFloatPosition(final int newFloatX, final int newFloatY) {
+		if (newFloatX == floatX && newFloatY == floatY) {
+			return this;
+		}
+		return new FloatingButtonModel(this, newFloatX, newFloatY);
+	}
+
 	public boolean isKeyboardMode() {
 		return MODE_KEYBOARD.equals(floatMode);
 	}
