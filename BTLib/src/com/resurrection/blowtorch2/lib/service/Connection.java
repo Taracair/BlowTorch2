@@ -326,6 +326,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * A had just set, and A's deferred rebuild was dropped.
 	 */
 	private boolean triggersDirty = false;
+
+	/**
+	 * ANSI-stripped text after the last {@code \n} that triggers have not seen
+	 * yet. {@link TriggerLineBuffer} prepends this to the next chunk so a colour
+	 * trigger's {@code (.+)} cannot match a TCP-split half-line and leave the
+	 * bleed colour mid-sentence (seen on samsaramoo {@code _chatnet}).
+	 */
+	private String mTriggerStripHoldover = "";
 	/** This variable is used in conjunction with mWindowCallbackMap to track IWindowCallback aidl connections
 	 * window names.
 	 */
@@ -2170,6 +2178,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		
 		mPump = null;
+		mTriggerStripHoldover = "";
 		clearStartupInProgress();
 		mLastSentNawsCols = -1;
 		mLastSentNawsRows = -1;
@@ -2296,8 +2305,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// Strip for triggers + session log. Display parsing (TextTree holdover) can
 		// reassemble CSI split across TCP packets; this path cannot — incomplete
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
-		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
-		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
+		String strippedChunk = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
+		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, strippedChunk);
+		// Triggers match only complete lines. TextTree already appends a partial
+		// line across reads; matching the same partial against (.+) painted the
+		// bleed colour into the middle of the sentence (chatnet "off…" cyan).
+		TriggerLineBuffer.Slice triggerSlice =
+				TriggerLineBuffer.take(mTriggerStripHoldover, strippedChunk);
+		mTriggerStripHoldover = triggerSlice.holdover;
+		String stripped = triggerSlice.ready;
 		
 		if (triggersDirty) {
 			buildTriggerSystem();
