@@ -1732,9 +1732,14 @@ end
 -- silly — still comes back reachable instead of sitting off the edge where it
 -- cannot be tapped or edited.
 --
--- Deliberately only enforces screen bounds, not a keep-out under the overflow
--- menu: that would quietly move tiles a user placed there on purpose. Starter
--- pads clear the menu through alignDefaultButtons' topPad instead.
+-- Deliberately only enforces screen bounds (half the tile from each edge). Do
+-- not subtract action-bar / status-bar / input-bar chrome here: those are not
+-- screen edges, and inventing a top keep-out of ~status-bar height shoved every
+-- high pad down on every set switch even when tiles were already on screen.
+-- buttonwindow.clampLogicalPosition still applies statusoffset when the set is
+-- drawn. No keep-out under the overflow menu either — that would quietly move
+-- tiles a user placed there on purpose. Starter pads clear the menu through
+-- alignDefaultButtons' topPad instead.
 function sanitizeButtonSet(setName)
 	local set = buttonsets[setName]
 	if set == nil or context == nil then return false end
@@ -1743,7 +1748,6 @@ function sanitizeButtonSet(setName)
 	local w = tonumber(metrics.widthPixels) or 0
 	local h = tonumber(metrics.heightPixels) or 0
 	if w <= 0 or h <= 0 then return false end
-	local ab = safeActionBarHeight(h)
 
 	local defs = buttonset_defaults[setName]
 	local moved = false
@@ -1754,7 +1758,7 @@ function sanitizeButtonSet(setName)
 		local bw = (tonumber(b.width) or tonumber(defs and defs.width) or 42) * d
 		local bh = (tonumber(b.height) or tonumber(defs and defs.height) or 42) * d
 		local minX, maxX = bw / 2, w - bw / 2
-		local minY, maxY = ab + 8 * d + bh / 2, h - 56 * d - bh / 2
+		local minY, maxY = bh / 2, h - bh / 2
 		if maxX < minX then maxX = minX end
 		if maxY < minY then maxY = minY end
 		local x = tonumber(b.x)

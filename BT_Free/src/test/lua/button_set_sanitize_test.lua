@@ -69,10 +69,11 @@ local function tileSize(b, setName)
 	return bw * DENSITY, bh * DENSITY
 end
 
+-- Pure screen bounds: half the tile from each edge. No chrome keep-outs.
 local function boundsFor(b, setName)
 	local bw, bh = tileSize(b, setName)
 	local minX, maxX = bw / 2, WIDTH - bw / 2
-	local minY, maxY = ACTIONBAR + 8 * DENSITY + bh / 2, HEIGHT - 56 * DENSITY - bh / 2
+	local minY, maxY = bh / 2, HEIGHT - bh / 2
 	if maxX < minX then maxX = minX end
 	if maxY < minY then maxY = minY end
 	return minX, maxX, minY, maxY
@@ -113,6 +114,23 @@ check(moved == false, "a pad already on screen must report no change")
 for i, b in ipairs(buttonsets.sane) do
 	check(b.x == before[i].x and b.y == before[i].y,
 		"tile " .. i .. " must not be nudged")
+end
+
+print("1b. a pad under the status bar band is not shoved down")
+-- The old minY was ab + 8dp + halfH (~172 on this harness). Real pads sit
+-- just under the status icons at ~halfH (~55). Switching sets used to push
+-- them down by ~status-bar height even though ~150px of screen was free above.
+local halfH = 42 * DENSITY / 2
+buttonsets.high = {
+	{ label = "TOP", x = 540, y = halfH + 4 },
+	{ label = "MID", x = 540, y = ACTIONBAR },
+}
+local highBefore = {}
+for i, b in ipairs(buttonsets.high) do highBefore[i] = { x = b.x, y = b.y } end
+check(sanitizeButtonSet("high") == false, "high-but-on-screen pads must not report moved")
+for i, b in ipairs(buttonsets.high) do
+	check(b.x == highBefore[i].x and b.y == highBefore[i].y,
+		"high tile " .. b.label .. " must keep its y=" .. highBefore[i].y)
 end
 
 print("2. the real corruption: coordinates around 1e15")
