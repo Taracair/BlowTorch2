@@ -3075,10 +3075,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mLocalEchoOff) {
 			// Server said IAC WILL ECHO — it is taking over echoing, which on a MUD
 			// means a password prompt. Hide the characters and keep the keyboard from
-			// learning them. Not TYPE_TEXT_VARIATION_PASSWORD alone: the transformation
-			// is what actually masks an already-typed line.
-			type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
-					| InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+			// learning them. PasswordTransformationMethod does the masking; we deliberately
+			// do not set TYPE_TEXT_VARIATION_PASSWORD — that advertises a credential field
+			// to Autofill / password managers (Bitwarden). BetterEditText returns
+			// AUTOFILL_TYPE_NONE (Android 14+) and, while suggestions are off here,
+			// IME_FLAG_NO_PERSONALIZED_LEARNING so the keyboard does not store the password.
+			type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 			mInputBox.setAllowSuggestions(false);
 			mInputBox.setInputType(type);
 			mInputBox.setMaxLines(1);

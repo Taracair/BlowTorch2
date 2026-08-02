@@ -43,36 +43,48 @@ public class BetterEditText extends EditText {
 	public BetterEditText(Context context) {
 		super(context);
 	}
+
+	/**
+	 * Always {@link #AUTOFILL_TYPE_NONE}: this widget is only the MUD command line.
+	 * {@code importantForAutofill="no"} alone is not enough on Android 14+ (API 34) —
+	 * the platform still includes such views in FillRequests when they look like
+	 * credentials, and MainWindow briefly uses a password-style mask for telnet ECHO.
+	 */
+	@Override
+	public int getAutofillType() {
+		return AUTOFILL_TYPE_NONE;
+	}
 	
 	public InputConnection onCreateInputConnection(EditorInfo attrs) {
-		attrs.imeOptions = this.getImeOptions();
-		attrs.inputType = this.getInputType();
+		final InputConnection connection;
+		if (useFullScreen) {
+			connection = super.onCreateInputConnection(attrs);
+		} else if (BackSpaceBugFix) {
+			connection = new InputConnectionWrapper(super.onCreateInputConnection(attrs), true);
+		} else {
+			attrs.imeOptions = this.getImeOptions();
+			attrs.inputType = this.getInputType();
+			attrs.actionId = EditorInfo.IME_ACTION_SEND;
+			attrs.privateImeOptions = this.getPrivateImeOptions();
+			attrs.extras = this.getInputExtras(true);
+			attrs.actionLabel = "Send";
+			connection = new EditableInputConnection(this);
+		}
+		// After super (fullscreen / backspace-fix), which rebuilds imeOptions from
+		// getImeOptions() and would drop flags we only wrote into attrs first.
+		applySuggestionPolicy(attrs);
+		return connection;
+	}
+
+	/** Keep Autofill away from VARIATION_PASSWORD, but still stop the IME learning
+	 * typed text when suggestions are off (telnet password mask, or the option). */
+	private void applySuggestionPolicy(EditorInfo attrs) {
 		if (allowSuggestions) {
 			attrs.inputType &= ~InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 		} else {
 			attrs.inputType |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+			attrs.imeOptions |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
 		}
-		attrs.actionId = EditorInfo.IME_ACTION_SEND;
-		attrs.privateImeOptions = this.getPrivateImeOptions();
-		attrs.extras = this.getInputExtras(true);
-		attrs.actionLabel = "Send";
-		
-		if(useFullScreen) {
-			return super.onCreateInputConnection(attrs);
-		} else {
-			if(BackSpaceBugFix) {
-				//Log.e("WINDOW","USING INPUTCONNECTIONWRAPPER");
-				//attrs.imeOptions |= EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_ACTION_SEND | EditorInfo.IME_FLAG_NO_FULLSCREEN;
-				
-				InputConnection tmp = super.onCreateInputConnection(attrs);
-				return new InputConnectionWrapper(tmp,true);
-			} else {
-				//Log.e("WINDOW","USING BASEINPUTCONNECTION");
-				//attrs.imeOptions |= EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_ACTION_SEND | EditorInfo.IME_FLAG_NO_FULLSCREEN;
-				//attrs.inputType = InputType.TYPE_CLASS_TEXT;
-				return new EditableInputConnection(this);
-			}
-		}	
 	}
 	
 	public class EditableInputConnection extends BaseInputConnection {
@@ -267,6 +279,15 @@ public class BetterEditText extends EditText {
 
 	public void setAllowSuggestions(boolean allowSuggestions) {
 		this.allowSuggestions = allowSuggestions;
+		// Persist on the view so super.onCreateInputConnection (Extract UI /
+		// Compatibility) copies IME_FLAG_NO_PERSONALIZED_LEARNING from getImeOptions().
+		int ime = getImeOptions();
+		if (allowSuggestions) {
+			ime &= ~EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+		} else {
+			ime |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+		}
+		setImeOptions(ime);
 	}
 
 	public boolean getAllowSuggestions() {
