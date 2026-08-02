@@ -78,6 +78,16 @@ That updates the **With** field only. Example: alias key `c`, then
 (like `^cast (.+)$`) must be edited in the alias dialog — the `.name …`
 shortcut only works for simple `\w+` keys.
 
+**Local echo (per alias):** the alias editor has a **Local echo** spinner:
+
+- **Use client setting** — follow Options → Service → Local Echo? (default)
+- **Always show** — echo this alias’s expanded text even when Local Echo is off
+- **Always hide** — suppress echo even when Local Echo is on
+
+Telnet password masking still wins: while the server holds ECHO, nothing is
+echoed, including Always show. The typed shortcut is never what appears —
+you see (or hide) the **expanded** command, same as today.
+
 ### Triggers
 
 In the trigger editor:

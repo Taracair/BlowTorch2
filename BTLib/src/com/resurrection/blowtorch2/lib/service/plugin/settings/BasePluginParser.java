@@ -23,6 +23,8 @@ public class BasePluginParser {
 	public static final String TAG_ALIAS = "alias";
 	public static final String ATTR_PRE = "pre";
 	public static final String ATTR_POST = "post";
+	/** Per-alias local-echo override: {@code on} / {@code off}; omit = inherit. */
+	public static final String ATTR_LOCAL_ECHO = "localEcho";
 	
 	public static final String TAG_TRIGGERS = "triggers";
 	public static final String TAG_TRIGGER = "trigger";

@@ -69,6 +69,8 @@ public class BaseParser {
 	static final String TAG_ALIAS = "alias";
 	static final String ATTR_PRE = "pre";
 	static final String ATTR_POST = "post";
+	/** Per-alias local-echo override: {@code on} / {@code off}; omit = inherit. */
+	static final String ATTR_LOCAL_ECHO = "localEcho";
 	
 	static final String TAG_BUTTONSETS = "buttonsets";
 	static final String TAG_BUTTONSET = "buttonset";

@@ -279,12 +279,14 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 		return names;
 	}
 
-	public void newAliasDialogDone(String pre, String post,boolean enabled) {
+	public void newAliasDialogDone(String pre, String post, boolean enabled,
+			AliasLocalEcho localEcho) {
 		try {
 			AliasData newAlias = new AliasData();
 			newAlias.setPost(post);
 			newAlias.setPre(pre);
 			newAlias.setEnabled(enabled);
+			newAlias.setLocalEcho(localEcho);
 			String newKey = newAlias.getPre();
 			if(newKey.startsWith("^")) newKey = newKey.substring(1,newKey.length());
 			if(newKey.endsWith("$")) newKey = newKey.substring(0,newKey.length()-1);
@@ -314,7 +316,8 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	}
 
 	@SuppressWarnings("unchecked")
-	public void editAliasDialogDone(String pre,String post,boolean enabled,int pos,AliasData orig) {
+	public void editAliasDialogDone(String pre, String post, boolean enabled, int pos,
+			AliasData orig, AliasLocalEcho localEcho) {
 		try {
 			String target = getSourcePlugin(getItemKey(pos));
 			HashMap<String, AliasData> map;
@@ -339,6 +342,7 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			newAlias.setPre(pre);
 			newAlias.setPost(post);
 			newAlias.setEnabled(enabled);
+			newAlias.setLocalEcho(localEcho);
 			map.put(newKey, newAlias);
 			if(MAIN_SETTINGS.equals(target)) {
 				service.setAliases(map);

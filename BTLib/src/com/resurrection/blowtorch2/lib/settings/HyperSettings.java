@@ -277,6 +277,10 @@ public class HyperSettings {
 				out.startTag("", BaseParser.TAG_ALIAS);
 				out.attribute("", BaseParser.ATTR_PRE, tmpalias.getPre());
 				out.attribute("", BaseParser.ATTR_POST, tmpalias.getPost());
+				String localEcho = tmpalias.getLocalEcho().toAttribute();
+				if (localEcho != null) {
+					out.attribute("", BaseParser.ATTR_LOCAL_ECHO, localEcho);
+				}
 				out.endTag("", BaseParser.TAG_ALIAS);
 			}
 			

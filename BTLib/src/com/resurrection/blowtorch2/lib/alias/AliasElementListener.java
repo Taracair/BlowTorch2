@@ -21,6 +21,8 @@ public class AliasElementListener implements StartElementListener {
 		current_alias.setPre(a.getValue("",BasePluginParser.ATTR_PRE));
 		current_alias.setPost(a.getValue("",BasePluginParser.ATTR_POST));
 		current_alias.setEnabled((a.getValue("","enabled") == null) ? true : (a.getValue("","enabled").equals("true")) ? true : false);
+		current_alias.setLocalEcho(AliasLocalEcho.fromAttribute(
+				a.getValue("", BasePluginParser.ATTR_LOCAL_ECHO)));
 	
 		String alias_key = current_alias.getPre();
 		if(current_alias.getPre().startsWith("^")) alias_key = alias_key.substring(1, alias_key.length());

@@ -296,7 +296,8 @@ of `<plugin>`.
 
 ### 4.3 Triggers, aliases, timers
 
-**Alias** attrs: `pre`, `post`, `enabled`.
+**Alias** attrs: `pre`, `post`, `enabled`, optional `localEcho` (`on` /
+`off`; omit = follow the connection Local Echo? setting).
 
 **Trigger** attrs:
 
@@ -568,7 +569,7 @@ NewTrigger("fox_color", "fox", { regex = false },
 | Function | Returns (TSV, one record per line) |
 |----------|-------------------------------------|
 | `GetPlayerTriggers()` | `name\tpattern\tregex\tenabled\tResponderClass,…` |
-| `GetPlayerAliases()` | `pre\tpost\tenabled` |
+| `GetPlayerAliases()` | `pre\tpost\tenabled\tlocalEcho` (`inherit`/`on`/`off`) |
 | `GetPlayerTimers()` | `name\tseconds\trepeat\tplaying` |
 
 These cannot mutate the player’s work (by design, for the tutorial).

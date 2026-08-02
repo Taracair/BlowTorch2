@@ -23,10 +23,12 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnFocusChangeListener;
 import android.view.Window;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 
@@ -39,6 +41,13 @@ public class AliasEditorDialog extends Dialog {
 	IConnectionBinder service;
 	List<String> cant_name;
 	private boolean mEnabled = true;
+	private AliasLocalEcho mLocalEcho = AliasLocalEcho.INHERIT;
+
+	private static final String[] LOCAL_ECHO_LABELS = new String[] {
+		"Use client setting",
+		"Always show",
+		"Always hide"
+	};
 	
 	public AliasEditorDialog(Context context,AliasEditorDialogDoneListener useme,IConnectionBinder pService,List<String> invalid_names,String currentPlugin) {
 		super(context, EditorDialogChrome.dialogTheme());
@@ -101,7 +110,8 @@ public class AliasEditorDialog extends Dialog {
 						}
 						
 						boolean checked = ((CheckBox)AliasEditorDialog.this.findViewById(R.id.enabledcheck)).isChecked();
-						reportto.newAliasDialogDone(prefix + pre.getText().toString() + suffix, post.getText().toString(),checked);
+						reportto.newAliasDialogDone(prefix + pre.getText().toString() + suffix,
+								post.getText().toString(), checked, readLocalEchoSpinner());
 						AliasEditorDialog.this.dismiss();
 					}
 				}
@@ -117,9 +127,47 @@ public class AliasEditorDialog extends Dialog {
 		
 		}
 		initMatches();
+		setupLocalEchoSpinner();
 		setupAliasPreview();
 		EditorDialogChrome.applyNearlyFullScreen(this);
 		//load in the array adapter to hook up the list view
+	}
+
+	private void setupLocalEchoSpinner() {
+		Spinner spinner = (Spinner) findViewById(R.id.local_echo_spinner);
+		if (spinner == null) {
+			return;
+		}
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				android.R.layout.simple_spinner_item, LOCAL_ECHO_LABELS);
+		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		spinner.setAdapter(adapter);
+		spinner.setSelection(localEchoToSpinnerIndex(mLocalEcho));
+	}
+
+	private static int localEchoToSpinnerIndex(AliasLocalEcho echo) {
+		if (echo == AliasLocalEcho.FORCE_ON) {
+			return 1;
+		}
+		if (echo == AliasLocalEcho.FORCE_OFF) {
+			return 2;
+		}
+		return 0;
+	}
+
+	private AliasLocalEcho readLocalEchoSpinner() {
+		Spinner spinner = (Spinner) findViewById(R.id.local_echo_spinner);
+		if (spinner == null) {
+			return AliasLocalEcho.INHERIT;
+		}
+		switch (spinner.getSelectedItemPosition()) {
+		case 1:
+			return AliasLocalEcho.FORCE_ON;
+		case 2:
+			return AliasLocalEcho.FORCE_OFF;
+		default:
+			return AliasLocalEcho.INHERIT;
+		}
 	}
 	
 	private void setupAliasPreview() {
@@ -357,7 +405,9 @@ public class AliasEditorDialog extends Dialog {
 					
 					boolean checked = ((CheckBox)AliasEditorDialog.this.findViewById(R.id.enabledcheck)).isChecked();
 					
-					reportto.editAliasDialogDone(prefix + pre.getText().toString() + suffix, post.getText().toString(),checked,old_pos,original_alias);
+					reportto.editAliasDialogDone(prefix + pre.getText().toString() + suffix,
+							post.getText().toString(), checked, old_pos, original_alias,
+							readLocalEchoSpinner());
 					AliasEditorDialog.this.dismiss();
 				}
 			}
@@ -460,6 +510,7 @@ public class AliasEditorDialog extends Dialog {
 		service = pService;
 		cant_name = invalid_names;
 		mEnabled = old_alias.isEnabled();
+		mLocalEcho = old_alias.getLocalEcho();
 		this.currentPlugin = currentPlugin;
 	}
 	

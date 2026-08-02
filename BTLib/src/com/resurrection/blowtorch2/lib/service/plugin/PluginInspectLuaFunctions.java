@@ -97,7 +97,7 @@ class PlayerTriggersFunction extends JavaFunction {
 	}
 }
 
-/** {@code GetPlayerAliases()} → {@code pre<TAB>post<TAB>enabled} per line. */
+/** {@code GetPlayerAliases()} → {@code pre<TAB>post<TAB>enabled<TAB>localEcho} per line. */
 class PlayerAliasesFunction extends JavaFunction {
 	private final Plugin plugin;
 
@@ -118,7 +118,8 @@ class PlayerAliasesFunction extends JavaFunction {
 					}
 					out.append(PluginInspectLuaFunctions.flat(a.getPre())).append('\t')
 							.append(PluginInspectLuaFunctions.flat(a.getPost())).append('\t')
-							.append(a.isEnabled()).append('\n');
+							.append(a.isEnabled()).append('\t')
+							.append(a.getLocalEcho().toInspectToken()).append('\n');
 				}
 			}
 		} catch (Exception e) {

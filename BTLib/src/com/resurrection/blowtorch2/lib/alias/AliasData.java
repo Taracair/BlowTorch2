@@ -9,17 +9,20 @@ public class AliasData implements Parcelable {
 	private String pre;
 	private String post;
 	private boolean enabled;
+	private AliasLocalEcho localEcho = AliasLocalEcho.INHERIT;
 	
 	public AliasData() {
 		pre = "";
 		post = "";
 		enabled = true;
+		localEcho = AliasLocalEcho.INHERIT;
 	}
 	
 	public AliasData(String pPre, String pPost,boolean enabled) {
 		pre = pPre;
 		post = pPost;
 		this.enabled = enabled;
+		this.localEcho = AliasLocalEcho.INHERIT;
 	}
 	
 	public AliasData copy() {
@@ -27,6 +30,7 @@ public class AliasData implements Parcelable {
 		tmp.pre = this.pre;
 		tmp.post = this.post;
 		tmp.enabled = this.enabled;
+		tmp.localEcho = this.localEcho;
 		return tmp;
 	}
 	
@@ -37,6 +41,7 @@ public class AliasData implements Parcelable {
 		if(!t.pre.equals(this.pre)) return false;
 		if(!t.post.equals(this.post)) return false;
 		if(t.enabled != this.enabled) return false;
+		if(t.localEcho != this.localEcho) return false;
 		return true;
 	}
 	
@@ -59,6 +64,13 @@ public class AliasData implements Parcelable {
 		this.pre = p.readString();
 		this.post = p.readString();
 		this.setEnabled((p.readInt() == 0) ? false : true);
+		// Appended field: older parcels without it still unparcel via
+		// dataAvail(); missing → INHERIT (behaviour-preserving).
+		if (p.dataAvail() > 0) {
+			this.localEcho = AliasLocalEcho.fromOrdinalSafe(p.readInt());
+		} else {
+			this.localEcho = AliasLocalEcho.INHERIT;
+		}
 	}
 
 
@@ -75,6 +87,7 @@ public class AliasData implements Parcelable {
 		} else {
 			o.writeInt(0);
 		}
+		o.writeInt(localEcho != null ? localEcho.ordinal() : AliasLocalEcho.INHERIT.ordinal());
 	}
 
 	public String getPre() {
@@ -99,6 +112,14 @@ public class AliasData implements Parcelable {
 
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
+	}
+
+	public AliasLocalEcho getLocalEcho() {
+		return localEcho != null ? localEcho : AliasLocalEcho.INHERIT;
+	}
+
+	public void setLocalEcho(AliasLocalEcho localEcho) {
+		this.localEcho = localEcho != null ? localEcho : AliasLocalEcho.INHERIT;
 	}
 	
 	

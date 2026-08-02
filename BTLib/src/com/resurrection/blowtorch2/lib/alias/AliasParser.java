@@ -32,6 +32,10 @@ public class AliasParser {
 		if(data.isEnabled()) {
 			out.attribute("", "enabled", (data.isEnabled() == true) ? "true" : "false");
 		}
+		String localEcho = data.getLocalEcho().toAttribute();
+		if (localEcho != null) {
+			out.attribute("", BasePluginParser.ATTR_LOCAL_ECHO, localEcho);
+		}
 		out.endTag("", BasePluginParser.TAG_ALIAS);
 	}
 	

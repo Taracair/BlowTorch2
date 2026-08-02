@@ -160,6 +160,28 @@
   					android:textSize="15dip"
   					android:text="Enabled"
   					android:checked="true"/>
+  				<TextView
+  					android:id="@+id/local_echo_label"
+  					android:layout_alignParentLeft="true"
+  					android:layout_alignParentRight="true"
+  					android:layout_below="@id/enabledcheck"
+  					android:layout_marginLeft="30dip"
+  					android:layout_marginRight="30dip"
+  					android:layout_marginTop="8dip"
+  					android:layout_width="wrap_content"
+  					android:layout_height="wrap_content"
+  					android:textStyle="bold"
+  					android:textSize="15dip"
+  					android:text="Local echo"/>
+  				<Spinner
+  					android:id="@+id/local_echo_spinner"
+  					android:layout_alignParentLeft="true"
+  					android:layout_alignParentRight="true"
+  					android:layout_below="@id/local_echo_label"
+  					android:layout_marginLeft="30dip"
+  					android:layout_marginRight="30dip"
+  					android:layout_width="match_parent"
+  					android:layout_height="wrap_content"/>
   			
   		</RelativeLayout>
   </LinearLayout>

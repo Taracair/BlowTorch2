@@ -184,6 +184,8 @@ public class HyperSAXParser extends BaseParser {
 			public void start(Attributes attributes) {
 				current_alias.setPre(attributes.getValue("",ATTR_PRE));
 				current_alias.setPost(attributes.getValue("",ATTR_POST));
+				current_alias.setLocalEcho(com.resurrection.blowtorch2.lib.alias.AliasLocalEcho
+						.fromAttribute(attributes.getValue("", ATTR_LOCAL_ECHO)));
 				String alias_key = attributes.getValue("",ATTR_PRE);
 				if(attributes.getValue("",ATTR_PRE).startsWith("^")) alias_key = alias_key.substring(1, alias_key.length());
 				if(attributes.getValue("",ATTR_PRE).endsWith("$")) alias_key = alias_key.substring(0, alias_key.length()-1);

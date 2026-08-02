@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -79,6 +80,7 @@ import com.resurrection.blowtorch2.lib.window.ExtraTextSlotsStore;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
+import com.resurrection.blowtorch2.lib.alias.AliasLocalEcho;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -2950,7 +2952,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (out.equals(";;")) {
 			Data enter = new Data();
 			enter.mCmdString = ";" + mCRLF;
-			enter.mVisString = ";";
+			// Same inherit path as a plain typed line — respect global local echo.
+			if (AliasLocalEcho.shouldDisplay(mSettings.isLocalEcho(), mLocalEcho,
+					AliasLocalEcho.INHERIT)) {
+				enter.mVisString = ";";
+			} else {
+				enter.mVisString = "";
+			}
 			return enter;
 		}
 		List<String> list = null;
@@ -2964,18 +2972,46 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			list.add(out);
 		}
 		StringBuffer holdover = new StringBuffer();
+		// First-match local-echo policy for reinserted expansion products.
+		// Locals only — not a Connection field — so overlapping sends cannot
+		// leak policy across batches.
+		ArrayDeque<AliasLocalEcho> inheritedEcho = new ArrayDeque<AliasLocalEcho>();
+		// Policy for a ~ holdover chain. ~ segments must still consume their
+		// queued policy or the deque desyncs against later commands.
+		AliasLocalEcho holdoverPolicy = null;
 		
 		ListIterator<String> iterator = list.listIterator();
 		while (iterator.hasNext()) {
 			String cmd = iterator.next();
 			
 			if (cmd.endsWith("~")) {
+				if (!inheritedEcho.isEmpty()) {
+					AliasLocalEcho p = inheritedEcho.removeFirst();
+					if (holdoverPolicy == null) {
+						holdoverPolicy = p;
+					}
+				}
 				holdover.append(cmd.substring(0, cmd.length() - 1) + ";");
 			} else {
 				if (holdover.length() > 0) {
 					cmd = holdover.toString() + cmd;
 					holdover.setLength(0);
 				}
+				boolean hadInherited = !inheritedEcho.isEmpty();
+				boolean fromHoldover = holdoverPolicy != null;
+				AliasLocalEcho segmentPolicy;
+				if (fromHoldover) {
+					// Keep the deque aligned with the finishing segment.
+					if (hadInherited) {
+						inheritedEcho.removeFirst();
+					}
+					segmentPolicy = holdoverPolicy;
+					holdoverPolicy = null;
+				} else {
+					segmentPolicy = hadInherited
+							? inheritedEcho.removeFirst() : AliasLocalEcho.INHERIT;
+				}
+				boolean stickyPolicy = fromHoldover || hadInherited;
 				//2.5 run command through the global lua state
 				Data d = null;
 				
@@ -3000,6 +3036,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					if (d.mCmdString != null && !d.mCmdString.equals("")) {
 						boolean didReplace = false;
 						byte[] tmp = null;
+						AliasLocalEcho matchedPolicy = AliasLocalEcho.INHERIT;
 						for (int i = 0; i < mPlugins.size() + 1; i++) {
 							Plugin p = null;
 							if (i == 0) {
@@ -3016,6 +3053,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								String tmpstr = new String(tmp, mSettings.getEncoding());
 								if (!d.mCmdString.equals(tmpstr)) {
 									//alias replaced, needs to be processed
+									matchedPolicy = p.getLastReplacementLocalEcho();
 									
 									List<String> aliasCommands = null;
 									if (mSettings.isSemiIsNewLine()) {
@@ -3024,8 +3062,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 										aliasCommands = new ArrayList<String>(1);  
 										aliasCommands.add(tmpstr);
 									}
+									// Outer typed match owns echo for the whole
+									// expansion chain; nested reprocess keeps it.
+									AliasLocalEcho forChildren = stickyPolicy
+											? segmentPolicy : matchedPolicy;
 									for (String acmd : aliasCommands) {
 										iterator.add(acmd);
+										inheritedEcho.addLast(forChildren);
 									}
 									if (reprocess) {
 										for (int ax = 0; ax < aliasCommands.size(); ax++) {
@@ -3043,14 +3086,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								if (m) {
 									String srv = new String(tmp, mSettings.getEncoding()) + mCRLF;
 									mDataToServer.append(new String(srv));
-									mDataToWindow.append(new String(tmp, mSettings.getEncoding()) + ";");
+									appendVisIfAllowed(
+											new String(tmp, mSettings.getEncoding()) + ";",
+											segmentPolicy);
 								} else {
 									String srv = new String(tmp, mSettings.getEncoding()) + mCRLF;
 									mDataToServer.append(new String(srv));
 								}
 							} else {
 								mDataToServer.append(d.mCmdString + mCRLF);
-								mDataToWindow.append(d.mCmdString);
+								appendVisIfAllowed(d.mCmdString, segmentPolicy);
 							}
 						}
 							
@@ -3059,7 +3104,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						//dataToServer.append(d.cmdString + crlf);
 					if (d.mVisString != null && !d.mVisString.equals("")) {
 						if (!m) {
-							mDataToWindow.append(d.mVisString + ";");
+							appendVisIfAllowed(d.mVisString + ";", segmentPolicy);
 						}
 					}
 				}
@@ -3072,6 +3117,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		d.mCmdString = mDataToServer.toString();
 		d.mVisString = mDataToWindow.toString();
 		
+		if (d.mVisString.length() == 0) {
+			// Global off + INHERIT (or FORCE_OFF) left nothing to show. Do not
+			// invent a bare CRLF — that would defeat FORCE_ON filtering once the
+			// final gate only enforces telnet ECHO.
+			return d;
+		}
 		if (d.mVisString.endsWith(";")) {
 			d.mVisString = d.mVisString.substring(0, d.mVisString.length() - 1);
 		}
@@ -3079,6 +3130,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			d.mVisString = d.mVisString + mCRLF;
 		}
 		return d;
+	}
+
+	/**
+	 * Append local-echo text when the segment's policy allows it. Telnet ECHO
+	 * masking and the global Local Echo? option are both applied here so a
+	 * FORCE_ON alias can still appear when the global option is off.
+	 */
+	private void appendVisIfAllowed(final String text, final AliasLocalEcho policy) {
+		if (text == null || text.length() == 0) {
+			return;
+		}
+		if (AliasLocalEcho.shouldDisplay(mSettings.isLocalEcho(), mLocalEcho, policy)) {
+			mDataToWindow.append(text);
+		}
 	}
 	
 	/** Semicolon splitting routine that looks for ;; smartly.
@@ -5416,14 +5481,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					if (mPump != null && mPump.isConnected()) {
 						mPump.sendData(mCRLF.getBytes(mSettings.getEncoding()));
 					}
-					d.mVisString = "\n";
+					if (AliasLocalEcho.shouldDisplay(mSettings.isLocalEcho(), mLocalEcho,
+							AliasLocalEcho.INHERIT)) {
+						d.mVisString = "\n";
+					} else {
+						d.mVisString = "";
+					}
 				}
 			}
 			if (d.mVisString != null && !d.mVisString.equals("")) {
-				// mLocalEcho false means the server took echoing over — a password
-				// prompt. Echoing it here would put the password in the scrollback and
-				// in the session log, which is most of what masking the bar is for.
-				if (mSettings.isLocalEcho() && mLocalEcho) {
+				// Per-segment filtering already applied global local_echo and
+				// per-alias FORCE_ON/OFF while building mVisString. Telnet ECHO
+				// (password masking) remains absolute here — FORCE_ON must not
+				// put a password in the scrollback or session log.
+				if (mLocalEcho) {
 					mWindows.get(0).getBuffer().addBytesImplSimple(d.mVisString.getBytes(mSettings.getEncoding()));
 					sendBytesToWindow(d.mVisString.getBytes(mSettings.getEncoding()));
 				}

@@ -41,6 +41,7 @@ import android.util.Log;
 import android.util.Xml;
 
 import com.resurrection.blowtorch2.lib.alias.AliasData;
+import com.resurrection.blowtorch2.lib.alias.AliasLocalEcho;
 import com.resurrection.blowtorch2.lib.alias.AliasParser;
 import com.resurrection.blowtorch2.lib.alias.AliasExpansion;
 import com.resurrection.blowtorch2.lib.alias.AliasPattern;
@@ -965,6 +966,19 @@ Note("Example text!")
 	private AliasPattern aliasPattern = AliasPattern.EMPTY;
 
 	/**
+	 * Local-echo policy of the first alias that matched in the most recent
+	 * {@link #doAliasReplacement} call. {@link AliasLocalEcho#INHERIT} when
+	 * nothing matched or the alias left the policy alone.
+	 */
+	private AliasLocalEcho lastReplacementLocalEcho = AliasLocalEcho.INHERIT;
+
+	/** Policy from the last {@link #doAliasReplacement}; see field comment. */
+	public AliasLocalEcho getLastReplacementLocalEcho() {
+		return lastReplacementLocalEcho != null
+				? lastReplacementLocalEcho : AliasLocalEcho.INHERIT;
+	}
+
+	/**
 	 * Session variables for <code>${name}</code> in alias text, or null when
 	 * there is no connection to ask.
 	 */
@@ -1023,6 +1037,7 @@ Note("Example text!")
 	}
 
 	private byte[] doAliasReplacementImpl(byte[] input,Boolean reprocess) {
+		lastReplacementLocalEcho = AliasLocalEcho.INHERIT;
 		if(joined_alias.length() > 0) {
 
 			//Pattern to_replace = Pattern.compile(joined_alias.toString());
@@ -1038,6 +1053,7 @@ Note("Example text!")
 			
 			boolean found = false;
 			boolean doTail = true;
+			boolean capturedFirstPolicy = false;
 			while(alias_replacer.find()) {
 				found = true;
 				
@@ -1051,6 +1067,12 @@ Note("Example text!")
 					alias_replacer.appendReplacement(replaced, Matcher.quoteReplacement(
 							alias_replacer.group(0)));
 					continue;
+				}
+				// First match on the player's input owns local-echo policy for
+				// this expansion chain (including AliasRecursion hops below).
+				if (!capturedFirstPolicy) {
+					lastReplacementLocalEcho = replace_with.getLocalEcho();
+					capturedFirstPolicy = true;
 				}
 				//AliasData replace_with = getSettings().getAliases().get(alias_replacer.group(0));
 				//do special replace if only ^ is matched.

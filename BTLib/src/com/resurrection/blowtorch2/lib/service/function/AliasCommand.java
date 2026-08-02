@@ -139,6 +139,7 @@ public class AliasCommand extends SpecialCommand {
 		}
 		echo(c, "Alias " + format(ref) + ": "
 				+ (ref.data.isEnabled() ? "enabled" : "disabled")
+				+ "  echo:" + ref.data.getLocalEcho().toInspectToken()
 				+ "  →  " + ref.data.getPost());
 		return null;
 	}
