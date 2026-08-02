@@ -4657,6 +4657,13 @@ end
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_IME_LIFT);
 				}
 				break;
+			case input_bar_show_edit:
+			case input_bar_show_send:
+				// Main-window chrome only; extra-text tokens ignore the layout refresh.
+				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_INPUT_ACTIONS);
+				}
+				break;
 			case scroll_sensitivity:
 				applyScrollSensitivityChoice((Integer) o.getValue());
 				// Overlays set to "same as main window" track this value, and they
@@ -4751,6 +4758,8 @@ end
 		bottom_padding,
 		bottom_padding_keyboard,
 		ime_keep_text,
+		input_bar_show_edit,
+		input_bar_show_send,
 		scroll_sensitivity,
 		color_option,
 		screen_on,

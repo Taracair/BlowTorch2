@@ -58,4 +58,14 @@ public class AliasLocalEchoTest {
 		assertEquals("on", AliasLocalEcho.FORCE_ON.toAttribute());
 		assertEquals("off", AliasLocalEcho.FORCE_OFF.toAttribute());
 	}
+
+	@Test
+	public void aliasUpdateEchoHonorsForceAndInherit() {
+		assertTrue(AliasLocalEcho.shouldEchoAliasUpdate(true, AliasLocalEcho.INHERIT));
+		assertFalse(AliasLocalEcho.shouldEchoAliasUpdate(false, AliasLocalEcho.INHERIT));
+		assertTrue(AliasLocalEcho.shouldEchoAliasUpdate(false, AliasLocalEcho.FORCE_ON));
+		assertFalse(AliasLocalEcho.shouldEchoAliasUpdate(true, AliasLocalEcho.FORCE_OFF));
+		assertTrue(AliasLocalEcho.shouldEchoAliasUpdate(true, null));
+		assertFalse(AliasLocalEcho.shouldEchoAliasUpdate(false, null));
+	}
 }

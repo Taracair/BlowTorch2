@@ -103,6 +103,10 @@ public class WindowToken implements Parcelable {
 		bottom_padding_keyboard,
 		/** Soft keyboard lifts input only; game text stays put. */
 		ime_keep_text,
+		/** Show the Edit button on the input bar (main window chrome). */
+		input_bar_show_edit,
+		/** Show the Send button on the input bar (main window chrome). */
+		input_bar_show_send,
 		/** How far the text travels per unit of finger travel when scrolling. */
 		scroll_sensitivity,
 		/** Color mode (see color debug option). */
@@ -404,6 +408,20 @@ public class WindowToken implements Parcelable {
 		imeKeepText.setKey("ime_keep_text");
 		imeKeepText.setValue(false);
 		window.addOption(imeKeepText);
+
+		BooleanOption showInputEdit = new BooleanOption();
+		showInputEdit.setTitle("Show Edit button?");
+		showInputEdit.setDescription("On-screen Edit button. .editbutton on|off · tools strip: .editpanel on|off");
+		showInputEdit.setKey("input_bar_show_edit");
+		showInputEdit.setValue(true);
+		window.addOption(showInputEdit);
+
+		BooleanOption showInputSend = new BooleanOption();
+		showInputSend.setTitle("Show Send button?");
+		showInputSend.setDescription("On-screen Send button. .sendbutton on|off · or keyboard Send / .kb flush");
+		showInputSend.setKey("input_bar_show_send");
+		showInputSend.setValue(true);
+		window.addOption(showInputSend);
 
 		ListOption scrollSensitivity = new ListOption();
 		scrollSensitivity.setTitle("Scroll sensitivity");

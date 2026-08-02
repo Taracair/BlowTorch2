@@ -81,8 +81,13 @@ shortcut only works for simple `\w+` keys.
 **Local echo (per alias):** the alias editor has a **Local echo** spinner:
 
 - **Use client setting** — follow Options → Service → Local Echo? (default)
-- **Always show** — echo this alias’s expanded text even when Local Echo is off
-- **Always hide** — suppress echo even when Local Echo is on
+- **Always show** — echo this alias’s expanded text even when Local Echo is off;
+  also shows `[name=>…]` when a trigger/command updates the alias via `.name …`
+- **Always hide** — suppress expansion echo and `.name` update echo even when
+  Local Echo / Echo Alias Updates? are on
+
+For **Use client setting**, `.name` update echoes also need **Options → Service →
+Echo Alias Updates?** (default on).
 
 Telnet password masking still wins: while the server holds ECHO, nothing is
 echoed, including Always show. The typed shortcut is never what appears —
@@ -396,6 +401,9 @@ is enabled; `.alias list` shows every alias at once.
     `.dobell`                           Fire configured bell reaction
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
+    `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
+    `.editpanel [on|off]`               Toggle/show/hide the Edit tools strip (Sel/Cut/…)
+    `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Show Send button?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
@@ -690,6 +698,35 @@ letters are Speedwalk *keys*.
 Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
 
 **Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
+
+**Options → Window → Show Edit button?** / **Show Send button?** (both on by default). Dot commands: `.editbutton on|off`, `.sendbutton on|off`, `.editpanel on|off` (tools strip). With Send hidden, use keyboard Send/Enter or `.kb flush`.
+
+### `.editbutton`
+
+```
+.editbutton
+.editbutton on | off
+```
+
+Shows or hides the **Edit** button (same as Options → Window → Show Edit button?). No argument prints status.
+
+### `.editpanel`
+
+```
+.editpanel
+.editpanel on | off
+```
+
+Toggles (or forces) the Edit tools strip above the input row. Same strip as the **Edit** button. No argument toggles.
+
+### `.sendbutton`
+
+```
+.sendbutton
+.sendbutton on | off
+```
+
+Shows or hides the **Send** button (same as Options → Window → Show Send button?). No argument prints status. When off, send with the keyboard Send/Enter key or `.kb flush`.
 
 ## Copy text from the game window
 

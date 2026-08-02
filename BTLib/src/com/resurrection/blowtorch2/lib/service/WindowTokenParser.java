@@ -349,6 +349,16 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case input_bar_show_edit:
+					case input_bar_show_send:
+						// Default true; persist only when off.
+						if (!(Boolean) ((BooleanOption) o).getValue()) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text("false");
+							out.endTag("", "option");
+						}
+						break;
 					case hyperlink_color:
 						if (((Integer) ((ColorOption) o).getValue()) != WindowToken.DEFAULT_HYPERLINK_COLOR) {
 							out.startTag("", "option");

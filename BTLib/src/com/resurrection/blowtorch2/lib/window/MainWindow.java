@@ -259,6 +259,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_EXTRA_TEXT_UI = 924;
 	/** mudstd.frame events are waiting in the service; collect and apply them. */
 	protected static final int MESSAGE_FRAME_UI = 928;
+	/** arg1: 0=toggle, 1=on, 2=off — Edit tools strip above the input row. */
+	protected static final int MESSAGE_INPUT_EDIT_TOOLS = 929;
+	/** Re-layout Edit/Send after Options → Window show/hide prefs change. */
+	public static final int MESSAGE_REFRESH_INPUT_ACTIONS = 930;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -890,6 +894,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					break;
 				}
+				case MESSAGE_REFRESH_INPUT_ACTIONS:
+					scheduleInputActionLayoutRefresh();
+					break;
 				case MESSAGE_REFRESH_EXTRA_TEXT_SCROLL:
 					if (extraTextOverlay != null) {
 						extraTextOverlay.refreshScrollSpeeds();
@@ -1294,6 +1301,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_INPUT_CURSOR_VERTICAL:
 					inputCursorVertical(msg.arg1);
+					break;
+				case MESSAGE_INPUT_EDIT_TOOLS:
+					applyInputEditToolsMessage(msg.arg1);
 					break;
 				case MESSAGE_SCROLLBACK_SEARCH:
 					openScrollbackSearchBar(msg.obj == null ? "" : msg.obj.toString());
@@ -3341,6 +3351,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_CURSOR_VERTICAL, delta, 0));
 		}
 
+		public void inputBarEditTools(int mode) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_EDIT_TOOLS, mode, 0));
+		}
+
 		public void openScrollbackSearch(String query) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SCROLLBACK_SEARCH, query));
 		}
@@ -3703,6 +3717,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 					"MainWindow.finishInitializeWindows", e);
 		}
+		// Window tokens (and Options → Window prefs) are live — re-layout Edit/Send.
+		scheduleInputActionLayoutRefresh();
 		//Debug.stopMethodTracing();
 	}
 
@@ -4652,8 +4668,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_SENDBUTTONDATA, command));
 	}
-	/** True while Edit/Send are stacked vertically. */
-	private boolean mActionsStacked = false;
+
 	/** Side-by-side Edit/Send widths (thumb-friendly); column = sum + gap. */
 	private int mActionEditWidthPx = 0;
 	private int mActionSendWidthPx = 0;
@@ -4736,15 +4751,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			};
 			mInputBox.addTextChangedListener(keepLastTextWatcher);
-			// Defer until after layout so lineCount is accurate at the soft-wrap edge.
-			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
-				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-				@Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-				@Override
-				public void afterTextChanged(android.text.Editable s) {
-					scheduleInputActionLayoutRefresh();
-				}
-			});
 		}
 
 		ensureInputActionColumn();
@@ -4756,18 +4762,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		boolean expanded = getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
 				.getBoolean(KEY_EDIT_EXPANDED, false);
-		applyInputEditExpanded(tools, toggle, expanded);
+		setInputEditToolsExpanded(expanded, false);
 
 		toggle.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				boolean nowExpanded = tools.getVisibility() != View.VISIBLE;
-				applyInputEditExpanded(tools, toggle, nowExpanded);
-				getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
-						.edit()
-						.putBoolean(KEY_EDIT_EXPANDED, nowExpanded)
-						.apply();
-				refreshGameChrome();
+				View t = findViewById(R.id.input_edit_tools);
+				boolean nowExpanded = t == null || t.getVisibility() != View.VISIBLE;
+				setInputEditToolsExpanded(nowExpanded, true);
 			}
 		});
 
@@ -4822,22 +4824,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				inputCursorStep(1);
 			}
 		});
-		if (up != null) {
-			up.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					inputCursorVertical(-1);
-				}
-			});
-		}
-		if (down != null) {
-			down.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					inputCursorVertical(1);
-				}
-			});
-		}
+		up.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				inputCursorVertical(-1);
+			}
+		});
+		down.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				inputCursorVertical(1);
+			}
+		});
 		end.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -4847,38 +4845,39 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		refreshInputActionLayout();
 	}
 
+	private void refreshInputActionLayout() {
+		ensureInputActionColumn();
+	}
+
 	private void scheduleInputActionLayoutRefresh() {
 		if (mInputBox == null) {
+			View actions = findViewById(R.id.input_action_buttons);
+			if (actions != null) {
+				actions.post(new Runnable() {
+					@Override
+					public void run() {
+						ensureInputActionColumn();
+					}
+				});
+			}
 			return;
 		}
 		mInputBox.removeCallbacks(mRefreshInputActionLayoutRunnable);
-		// Double-post: first afterTextChanged, then after the EditText reflows.
 		mInputBox.post(mRefreshInputActionLayoutRunnable);
 	}
 
 	private final Runnable mRefreshInputActionLayoutRunnable = new Runnable() {
 		@Override
 		public void run() {
-			if (mInputBox == null) {
-				return;
-			}
-			mInputBox.post(new Runnable() {
-				@Override
-				public void run() {
-					ensureInputActionColumn();
-				}
-			});
+			ensureInputActionColumn();
 		}
 	};
 
 	/**
-	 * Single-line: Edit | Send side-by-side (thumb-wide targets).
-	 * Multi-line: Edit above Send (bottom-right).
-	 * <p>
-	 * Action column always reserves the side-by-side footprint so stacking never
-	 * changes EditText wrap width (avoids flicker at the 1↔2 line boundary).
-	 * EditText stays {@code WRAP_CONTENT} so the bar can grow up to
-	 * {@link #INPUT_GROW_MAX_LINES} — {@code MATCH_PARENT} capped growth at ~2 button heights.
+	 * Options → Window controls which of Edit / Send appear.
+	 * Both shown: side-by-side. One shown: that button only. Both off: full-width
+	 * input ({@code input_action_buttons} GONE). Visibility is preference-only —
+	 * no multiline auto-hide.
 	 */
 	private void ensureInputActionColumn() {
 		if (!(mInputActionButtons instanceof LinearLayout) || mInputSendButton == null || mInputBox == null) {
@@ -4889,6 +4888,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (edit == null) {
 			return;
 		}
+
+		boolean showEdit = showInputEditButtonPref();
+		boolean showSend = showInputSendButtonPref();
 
 		float density = getResources().getDisplayMetrics().density;
 		int gap = Math.max(1, (int) (2 * density + 0.5f));
@@ -4902,6 +4904,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			ViewGroup.LayoutParams slp0 = mInputSendButton.getLayoutParams();
 			int oldEw = elp0 != null ? elp0.width : ViewGroup.LayoutParams.WRAP_CONTENT;
 			int oldSw = slp0 != null ? slp0.width : ViewGroup.LayoutParams.WRAP_CONTENT;
+			int oldEditVis = edit.getVisibility();
+			int oldSendVis = mInputSendButton.getVisibility();
+			// Measure with VISIBLE so GONE buttons still report a real width.
+			edit.setVisibility(View.VISIBLE);
+			mInputSendButton.setVisibility(View.VISIBLE);
 			if (elp0 != null) {
 				elp0.width = ViewGroup.LayoutParams.WRAP_CONTENT;
 			}
@@ -4918,26 +4925,47 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (slp0 != null) {
 				slp0.width = oldSw;
 			}
+			edit.setVisibility(oldEditVis);
+			mInputSendButton.setVisibility(oldSendVis);
 		}
 		final int editNat = mActionEditWidthPx;
 		final int sendNat = mActionSendWidthPx;
-		final int colW = editNat + gap + sendNat;
-
-		boolean stack = isInputMultiline();
-		int wantedOri = stack ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL;
 
 		boolean changed = false;
-		if (actions.getOrientation() != wantedOri) {
-			actions.setOrientation(wantedOri);
+		if (!showEdit && !showSend) {
+			if (actions.getVisibility() != View.GONE) {
+				actions.setVisibility(View.GONE);
+				changed = true;
+			}
+			edit.setVisibility(View.GONE);
+			mInputSendButton.setVisibility(View.GONE);
+			if (changed) {
+				actions.requestLayout();
+			}
+			RelativeLayout rlGone = (RelativeLayout) findViewById(R.id.window_container);
+			chrome.bringGameplayChromeToFront(rlGone);
+			refreshGameChrome();
+			return;
+		}
+		if (actions.getVisibility() != View.VISIBLE) {
+			actions.setVisibility(View.VISIBLE);
 			changed = true;
 		}
-		if (mActionsStacked != stack) {
-			mActionsStacked = stack;
+
+		final int colW;
+		if (showEdit && showSend) {
+			colW = editNat + gap + sendNat;
+		} else if (showSend) {
+			colW = sendNat;
+		} else {
+			colW = editNat;
+		}
+
+		if (actions.getOrientation() != LinearLayout.HORIZONTAL) {
+			actions.setOrientation(LinearLayout.HORIZONTAL);
 			changed = true;
 		}
-		actions.setGravity(stack
-				? (android.view.Gravity.BOTTOM | android.view.Gravity.END)
-				: (android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.END));
+		actions.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.END);
 
 		ViewGroup.LayoutParams rawAlp = actions.getLayoutParams();
 		if (rawAlp instanceof LinearLayout.LayoutParams) {
@@ -4953,41 +4981,46 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 
-		// Side-by-side: each keeps its own width (never average — that crushed Send).
-		// Stacked: both stretch to the reserved column width.
-		int editW = stack ? colW : editNat;
-		int sendW = stack ? colW : sendNat;
 		// Same height as the single-line input row (textinput minHeight 28dip).
 		int btnH = Math.max(1, (int) (28 * density + 0.5f));
 		LinearLayout.LayoutParams editLp = (edit.getLayoutParams() instanceof LinearLayout.LayoutParams)
 				? (LinearLayout.LayoutParams) edit.getLayoutParams()
-				: new LinearLayout.LayoutParams(editW, btnH);
+				: new LinearLayout.LayoutParams(editNat, btnH);
 		LinearLayout.LayoutParams sendLp = (mInputSendButton.getLayoutParams() instanceof LinearLayout.LayoutParams)
 				? (LinearLayout.LayoutParams) mInputSendButton.getLayoutParams()
-				: new LinearLayout.LayoutParams(sendW, btnH);
-		editLp.width = editW;
-		sendLp.width = sendW;
+				: new LinearLayout.LayoutParams(sendNat, btnH);
+		editLp.width = editNat;
+		sendLp.width = sendNat;
 		editLp.height = btnH;
 		sendLp.height = btnH;
 		editLp.weight = 0f;
 		sendLp.weight = 0f;
-		if (stack) {
-			editLp.setMargins(0, 0, 0, gap);
-			sendLp.setMargins(0, 0, 0, 0);
-		} else {
-			editLp.setMargins(0, 0, gap, 0);
-			sendLp.setMargins(0, 0, 0, 0);
-		}
+		editLp.setMargins(0, 0, showEdit && showSend ? gap : 0, 0);
+		sendLp.setMargins(0, 0, 0, 0);
 		edit.setLayoutParams(editLp);
 		mInputSendButton.setLayoutParams(sendLp);
-		edit.setMinWidth(editW);
-		mInputSendButton.setMinWidth(sendW);
+		edit.setMinWidth(editNat);
+		mInputSendButton.setMinWidth(sendNat);
 		edit.setMaxLines(1);
 		mInputSendButton.setMaxLines(1);
-		edit.setVisibility(View.VISIBLE);
-		mInputSendButton.setVisibility(View.VISIBLE);
+		int editVis = showEdit ? View.VISIBLE : View.GONE;
+		int sendVis = showSend ? View.VISIBLE : View.GONE;
+		if (edit.getVisibility() != editVis) {
+			edit.setVisibility(editVis);
+			changed = true;
+		}
+		if (mInputSendButton.getVisibility() != sendVis) {
+			mInputSendButton.setVisibility(sendVis);
+			changed = true;
+		}
+		if (!showEdit) {
+			View tools = findViewById(R.id.input_edit_tools);
+			if (tools != null && tools.getVisibility() == View.VISIBLE) {
+				setInputEditToolsExpanded(false, true);
+			}
+		}
 
-		// WRAP_CONTENT so soft-wrap can grow the row up to maxLines (not button-stack height).
+		// WRAP_CONTENT so soft-wrap can grow the row up to maxLines.
 		ViewGroup.LayoutParams etLp = mInputBox.getLayoutParams();
 		if (etLp instanceof LinearLayout.LayoutParams) {
 			LinearLayout.LayoutParams elp = (LinearLayout.LayoutParams) etLp;
@@ -5010,36 +5043,73 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 		chrome.bringGameplayChromeToFront(rl);
+		refreshGameChrome();
 	}
 
-	private void refreshInputActionLayout() {
-		ensureInputActionColumn();
+	/**
+	 * Options → Window → Show Edit button? Default on.
+	 * When off, use {@code .editpanel on|off} for the tools strip.
+	 */
+	private boolean showInputEditButtonPref() {
+		return readMainWindowBooleanOption("input_bar_show_edit", true);
 	}
 
-	private boolean isInputMultiline() {
-		if (mInputBox == null) {
-			return false;
-		}
-		// Prefer line count — height alone is noisy during IME / font metrics.
-		try {
-			if (mInputBox.getLineCount() > 1) {
-				return true;
-			}
-		} catch (Exception ignored) {
-		}
-		CharSequence text = mInputBox.getText();
-		if (text != null) {
-			for (int i = 0; i < text.length(); i++) {
-				if (text.charAt(i) == '\n') {
-					return true;
+	/**
+	 * Options → Window → Show Send button? Default on.
+	 * When off, send with IME Send/Enter or {@code .kb flush}.
+	 */
+	private boolean showInputSendButtonPref() {
+		return readMainWindowBooleanOption("input_bar_show_send", true);
+	}
+
+	private boolean readMainWindowBooleanOption(String key, boolean defaultValue) {
+		if (mWindows != null) {
+			for (WindowToken tok : mWindows) {
+				if (tok == null || !"mainDisplay".equals(tok.getName())) {
+					continue;
+				}
+				Object opt = tok.getSettings().findOptionByKey(key);
+				if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+					return (Boolean) ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+							.getValue();
 				}
 			}
 		}
-		return false;
+		return defaultValue;
 	}
 
-	private boolean isInputBarTall() {
-		return isInputMultiline();
+	/** Handler for {@link #MESSAGE_INPUT_EDIT_TOOLS}: arg1 0=toggle, 1=on, 2=off. */
+	private void applyInputEditToolsMessage(int mode) {
+		View tools = findViewById(R.id.input_edit_tools);
+		boolean expanded;
+		if (mode == com.resurrection.blowtorch2.lib.service.StellarService.INPUT_EDIT_TOOLS_ON) {
+			expanded = true;
+		} else if (mode == com.resurrection.blowtorch2.lib.service.StellarService.INPUT_EDIT_TOOLS_OFF) {
+			expanded = false;
+		} else {
+			expanded = tools == null || tools.getVisibility() != View.VISIBLE;
+		}
+		setInputEditToolsExpanded(expanded, true);
+	}
+
+	/**
+	 * Expand or collapse the Edit tools strip (Sel/Cut/… pad above the input row).
+	 * Shared by the Edit button and {@code .editpanel}.
+	 */
+	private void setInputEditToolsExpanded(boolean expanded, boolean persist) {
+		View tools = findViewById(R.id.input_edit_tools);
+		Button toggle = (Button) findViewById(R.id.input_edit_toggle);
+		if (tools == null || toggle == null) {
+			return;
+		}
+		applyInputEditExpanded(tools, toggle, expanded);
+		if (persist) {
+			getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
+					.edit()
+					.putBoolean(KEY_EDIT_EXPANDED, expanded)
+					.apply();
+		}
+		refreshGameChrome();
 	}
 
 	private void applyInputEditExpanded(View tools, Button toggle, boolean expanded) {

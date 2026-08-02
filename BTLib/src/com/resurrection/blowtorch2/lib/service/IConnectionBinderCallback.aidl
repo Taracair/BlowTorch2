@@ -49,6 +49,11 @@ oneway interface IConnectionBinderCallback {
 	void inputBarCursorStep(int delta);
 	/** Move caret by line: negative = up, positive = down. */
 	void inputBarCursorVertical(int delta);
+	/**
+	 * Show/hide/toggle the Edit tools strip above the input row.
+	 * mode: 0=toggle, 1=on, 2=off (see StellarService.INPUT_EDIT_TOOLS_*).
+	 */
+	void inputBarEditTools(int mode);
 	/** Open in-game scrollback search; empty query opens the bar for typing. */
 	void openScrollbackSearch(String query);
 	/** nav: -1 prev, 1 next, 0 close */

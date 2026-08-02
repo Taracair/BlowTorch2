@@ -1238,6 +1238,16 @@ public class StellarService extends Service {
 		broadcastInputBarActionWithArg(8, delta);
 	}
 
+	/** mode: {@link #INPUT_EDIT_TOOLS_TOGGLE}, {@link #INPUT_EDIT_TOOLS_ON}, {@link #INPUT_EDIT_TOOLS_OFF}. */
+	public static final int INPUT_EDIT_TOOLS_TOGGLE = 0;
+	public static final int INPUT_EDIT_TOOLS_ON = 1;
+	public static final int INPUT_EDIT_TOOLS_OFF = 2;
+
+	/** Expand / collapse / toggle the Edit tools strip (same as the Edit button). */
+	public final void doInputBarEditTools(final int mode) {
+		broadcastInputBarActionWithArg(9, mode);
+	}
+
 	public final void doScrollbackSearch(final String query) {
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
@@ -1295,6 +1305,9 @@ public class StellarService extends Service {
 					break;
 				case 8:
 					mCallbacks.getBroadcastItem(i).inputBarCursorVertical(arg);
+					break;
+				case 9:
+					mCallbacks.getBroadcastItem(i).inputBarEditTools(arg);
 					break;
 				default:
 					break;

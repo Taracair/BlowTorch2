@@ -77,6 +77,9 @@ Typed into the input bar like anything else. These are the ones worth knowing:
 | `.gmcp status` | What the world is sending, and which modules you subscribed to. |
 | `.gmcp sniff on` | Show every GMCP packet in the window. Useful when a world's data is not doing what you expect. |
 | `.wrap` | Let the input bar grow to several lines, for long lines and pasted text. |
+| `.editbutton` | Show or hide the Edit button (Options → Window). |
+| `.editpanel` | Toggle the Edit tools strip (Sel/Cut/… pad). |
+| `.sendbutton` | Show or hide the Send button (Options → Window). |
 | `.kb` | Selection, clipboard and cursor keys for the input bar. |
 
 Dot commands are on by default. `..` on its own turns them off and on, and

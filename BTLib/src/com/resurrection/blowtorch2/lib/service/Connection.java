@@ -42,6 +42,9 @@ import com.resurrection.blowtorch2.lib.service.function.AliasCommand;
 import com.resurrection.blowtorch2.lib.service.function.TriggerCommand;
 import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
 import com.resurrection.blowtorch2.lib.service.function.DisconnectCommand;
+import com.resurrection.blowtorch2.lib.service.function.EditButtonCommand;
+import com.resurrection.blowtorch2.lib.service.function.EditPanelCommand;
+import com.resurrection.blowtorch2.lib.service.function.SendButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.FullScreenCommand;
 import com.resurrection.blowtorch2.lib.service.function.FunctionCallbackCommand;
 import com.resurrection.blowtorch2.lib.service.function.FrameCommand;
@@ -495,6 +498,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		ClearButtonCommand cbcmd = new ClearButtonCommand();
 		NoteCommand notecmd = new NoteCommand();
 		WrapCommand wrapcmd = new WrapCommand();
+		EditPanelCommand editpanelcmd = new EditPanelCommand();
+		EditButtonCommand editbtncmd = new EditButtonCommand();
+		SendButtonCommand sendbtncmd = new SendButtonCommand();
 		mSpecialCommands.put(colordebug.commandName, colordebug);
 		mSpecialCommands.put(dirtyexit.commandName, dirtyexit);
 		mSpecialCommands.put(timercmd.commandName, timercmd);
@@ -509,6 +515,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
 		mSpecialCommands.put(notecmd.commandName, notecmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
+		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
+		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
+		mSpecialCommands.put(sendbtncmd.commandName, sendbtncmd);
 		SwitchWindowCommand swdcmd = new SwitchWindowCommand();
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
 		SearchCommand searchcmd = new SearchCommand();
@@ -3104,7 +3113,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 						//dataToServer.append(d.cmdString + crlf);
 					if (d.mVisString != null && !d.mVisString.equals("")) {
 						if (!m) {
-							appendVisIfAllowed(d.mVisString + ";", segmentPolicy);
+							AliasLocalEcho visPolicy = d.mVisEchoPolicy != null
+									? d.mVisEchoPolicy : segmentPolicy;
+							appendVisIfAllowed(d.mVisString + ";", visPolicy);
 						}
 					}
 				}
@@ -3213,10 +3224,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		private String mCmdString;
 		/** The string to echo back to the input window. */
 		private String mVisString;
+		/**
+		 * Optional echo policy for {@link #mVisString} when it is not a normal
+		 * command/alias expansion (e.g. {@code .name} alias-update echo). Null
+		 * → use the segment's inherited policy in {@link #processOutputData}.
+		 */
+		private AliasLocalEcho mVisEchoPolicy;
 		/** Generic constructor. */
 		public Data() {
 			mCmdString = "";
 			mVisString = "";
+			mVisEchoPolicy = null;
 		}
 		/** Cmd string getter. 
 		 * 
@@ -3321,7 +3339,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								mod.setPost(argument);
 								mSettings.getSettings().getAliases().put(alias, mod);
 								data.mCmdString = "";
-								if (mSettings.isEchoAliasUpdates()) {
+								// `.name newtext` updates With; echo is not an alias
+								// expansion. Honor per-alias Local echo (Always show /
+								// Always hide) and Echo Alias Updates? for Inherit.
+								AliasLocalEcho policy = mod.getLocalEcho();
+								data.mVisEchoPolicy = policy;
+								if (AliasLocalEcho.shouldEchoAliasUpdate(
+										mSettings.isEchoAliasUpdates(), policy)) {
 									data.mVisString = "[" + alias + "=>" + argument + "]";
 								} else {
 									data.mVisString = "";

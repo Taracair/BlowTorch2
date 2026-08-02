@@ -39,7 +39,8 @@ public class KeyboardCommand extends SpecialCommand {
 					"  .kb sel / .kb cut — select all / cut\n" +
 					"  .kb start / .kb end — caret to start / end\n" +
 					"  .kb stepf / .kb stepb — caret ±1 character\n" +
-					"  .kb stepu / .kb stepd — previous / next command\n"));			return null;
+					"  .kb stepu / .kb stepd — previous / next command\n"
+					+ "Edit tools strip: .editpanel on|off · Edit button: .editbutton on|off\n"));			return null;
 		}
 
 		Pattern p = Pattern.compile(

@@ -129,7 +129,7 @@ public class AliasEditorDialog extends Dialog {
 		initMatches();
 		setupLocalEchoSpinner();
 		setupAliasPreview();
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		EditorDialogChrome.applyFloatingWrapContentHeight(this);
 		//load in the array adapter to hook up the list view
 	}
 

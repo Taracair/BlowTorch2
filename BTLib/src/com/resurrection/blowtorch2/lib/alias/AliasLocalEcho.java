@@ -17,6 +17,25 @@ public enum AliasLocalEcho {
 	FORCE_OFF;
 
 	/**
+	 * Whether a {@code .name newtext} alias-update should produce local echo text.
+	 * {@link #FORCE_ON}/{@link #FORCE_OFF} override; {@link #INHERIT} follows
+	 * Options → Service → Echo Alias Updates?
+	 */
+	public static boolean shouldEchoAliasUpdate(final boolean echoAliasUpdates,
+			final AliasLocalEcho policy) {
+		AliasLocalEcho p = policy != null ? policy : INHERIT;
+		switch (p) {
+		case FORCE_ON:
+			return true;
+		case FORCE_OFF:
+			return false;
+		case INHERIT:
+		default:
+			return echoAliasUpdates;
+		}
+	}
+
+	/**
 	 * Whether a segment should be appended to the local-echo window text.
 	 *
 	 * @param globalLocalEcho connection {@code local_echo} setting

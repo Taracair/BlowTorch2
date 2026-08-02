@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<RelativeLayout
+<!-- Vertical shell: title → fields → Cancel/Done under content (not pinned to
+     screen bottom). Pair with EditorDialogChrome.applyFloatingWrapContentHeight. -->
+<LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/newaliaslayout"
   android:layout_width="match_parent"
-  android:layout_height="match_parent">
-  
+  android:layout_height="match_parent"
+  android:orientation="vertical">
+
   <TextView
 		android:id="@+id/titlebar"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		android:layout_alignParentTop="true"
 		android:text="NEW ALIAS"
 		android:textColor="#FF333333"
 		android:background="#FF999999"
@@ -18,39 +20,19 @@
 		android:textStyle="bold"
 		android:gravity="center"/>
 
-  <LinearLayout
-  	android:id="@+id/editor_button_bar"
+  <ScrollView
+  	android:id="@+id/alias_editor_scroll"
   	android:layout_width="match_parent"
-  	android:layout_height="wrap_content"
-  	android:layout_alignParentBottom="true"
-  	android:orientation="horizontal"
-  	android:gravity="center">
-	  <Button
-	    android:layout_width="0dip"
-	  	android:layout_height="wrap_content"
-	  	android:layout_weight="1"
-	  	android:id="@+id/new_alias_cancel"
-	  	android:text="Cancel" />
-	  <Button
-	  	android:layout_width="0dip"
-	  	android:layout_height="wrap_content"
-	  	android:layout_weight="1"
-	  	android:text="Done"
-	  	android:id="@+id/new_alias_done_button"/>
-  </LinearLayout>
-  
-  <ScrollView 
-  	android:layout_width="match_parent"
-  	android:layout_height="match_parent"
-  	android:layout_above="@id/editor_button_bar"
-  	android:layout_below="@id/titlebar"
-  	android:fillViewport="true">
+  	android:layout_height="0dip"
+  	android:layout_weight="1"
+  	android:fillViewport="false">
   	<LinearLayout
   		android:layout_width="match_parent"
   		android:layout_height="wrap_content"
   		android:orientation="vertical"
   		android:paddingLeft="8dip"
-  		android:paddingRight="8dip">
+  		android:paddingRight="8dip"
+  		android:paddingBottom="8dip">
   <TableLayout
   	android:layout_width="match_parent"
   	android:layout_height="wrap_content"
@@ -59,7 +41,7 @@
   	android:id="@+id/alias_label">
 
   	<TableRow>
-  		<TextView 
+  		<TextView
   			android:layout_width="wrap_content"
   			android:layout_height="wrap_content"
  			android:text = "Replace:"
@@ -73,10 +55,10 @@
   			android:layout_height="wrap_content"
   			android:fontFamily="monospace"
   			android:hint="Text to replace." />
-  	
+
   	</TableRow>
   	<TableRow>
-  		<TextView 
+  		<TextView
   			android:layout_width="wrap_content"
   			android:layout_height="wrap_content"
  			android:text = "With:"
@@ -92,7 +74,7 @@
   			android:minLines="2"
   			android:maxLines="6"
   			android:hint="Replace with this." />
-  	
+
   	</TableRow>
   	<TableRow>
   		<TextView
@@ -113,49 +95,49 @@
   			android:padding="6dip"
   			android:text="Type a pattern to preview what is sent to the server." />
   	</TableRow>
-  	
+
   </TableLayout>
   <RelativeLayout
   			android:layout_width="match_parent"
   			android:layout_height="wrap_content"
   			android:layout_marginTop="5dip"
   			>
-  			
-  				<CheckBox 
-  					android:id="@+id/carrot" 
-  					android:layout_alignParentLeft="true" 
+
+  				<CheckBox
+  					android:id="@+id/carrot"
+  					android:layout_alignParentLeft="true"
   					android:layout_alignParentRight="true"
-  					android:layout_alignParentTop="true" 
-  					android:layout_marginLeft="30dip" 
-  					android:layout_width="wrap_content" 
-  					android:layout_height="wrap_content" 
+  					android:layout_alignParentTop="true"
+  					android:layout_marginLeft="30dip"
+  					android:layout_width="wrap_content"
+  					android:layout_height="wrap_content"
   					android:textStyle="bold"
   					android:textSize="15dip"
   					android:text="Matches start of Line (^)"
-  					android:layout_marginRight="30dip" 
+  					android:layout_marginRight="30dip"
   					android:checked="false"/>
-  				<CheckBox 
-  					android:id="@+id/dollar" 
-  					android:layout_alignParentLeft="true" 
+  				<CheckBox
+  					android:id="@+id/dollar"
+  					android:layout_alignParentLeft="true"
   					android:layout_alignParentRight="true"
   					android:layout_below="@id/carrot"
-  					android:layout_marginRight="30dip" 
-  					android:layout_marginLeft="30dip" 
-  					android:layout_width="wrap_content" 
-  					android:layout_height="wrap_content" 
+  					android:layout_marginRight="30dip"
+  					android:layout_marginLeft="30dip"
+  					android:layout_width="wrap_content"
+  					android:layout_height="wrap_content"
   					android:textStyle="bold"
   					android:textSize="15dip"
   					android:text="Matches end of line ($)"
   					android:checked="false"/>
   				<CheckBox
-  				  	android:id="@+id/enabledcheck" 
-  					android:layout_alignParentLeft="true" 
+  				  	android:id="@+id/enabledcheck"
+  					android:layout_alignParentLeft="true"
   					android:layout_alignParentRight="true"
   					android:layout_below="@id/dollar"
-  					android:layout_marginRight="30dip" 
-  					android:layout_marginLeft="30dip" 
-  					android:layout_width="wrap_content" 
-  					android:layout_height="wrap_content" 
+  					android:layout_marginRight="30dip"
+  					android:layout_marginLeft="30dip"
+  					android:layout_width="wrap_content"
+  					android:layout_height="wrap_content"
   					android:textStyle="bold"
   					android:textSize="15dip"
   					android:text="Enabled"
@@ -182,10 +164,29 @@
   					android:layout_marginRight="30dip"
   					android:layout_width="match_parent"
   					android:layout_height="wrap_content"/>
-  			
+
   		</RelativeLayout>
   </LinearLayout>
   </ScrollView>
 
-  
-</RelativeLayout>
+  <LinearLayout
+  	android:id="@+id/editor_button_bar"
+  	android:layout_width="match_parent"
+  	android:layout_height="wrap_content"
+  	android:orientation="horizontal"
+  	android:gravity="center">
+	  <Button
+	    android:layout_width="0dip"
+	  	android:layout_height="wrap_content"
+	  	android:layout_weight="1"
+	  	android:id="@+id/new_alias_cancel"
+	  	android:text="Cancel" />
+	  <Button
+	  	android:layout_width="0dip"
+	  	android:layout_height="wrap_content"
+	  	android:layout_weight="1"
+	  	android:text="Done"
+	  	android:id="@+id/new_alias_done_button"/>
+  </LinearLayout>
+
+</LinearLayout>
