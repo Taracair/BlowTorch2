@@ -1,0 +1,6 @@
+BlowTorch 2 v2.2.2
+• Button layout wizard (packs + size presets)
+• .timer duration; Use MCCP?; password masking
+• Achaea / MCCP binary dump fixed; clean reconnect
+• Floating buttons after app switch; blank window after kill
+• Timers, regex triggers, bad patterns, map save, connect crash
