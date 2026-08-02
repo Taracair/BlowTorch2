@@ -12,7 +12,6 @@ import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
-import android.widget.FrameLayout;
 
 import com.resurrection.blowtorch2.lib.window.SuperButtonGestures.BoundSwipes;
 
@@ -84,6 +83,9 @@ public class FloatingButtonView extends View {
 	private BoundSwipes bound;
 	private float dragFingerOffsetX;
 	private float dragFingerOffsetY;
+	/** Maps screen top-left of the view into {@link Callbacks#positionOf} space. */
+	private float positionSpaceDeltaX;
+	private float positionSpaceDeltaY;
 	private boolean dragOriginCaptured;
 
 	private final Runnable enterMoveRunnable = new Runnable() {
@@ -177,21 +179,114 @@ public class FloatingButtonView extends View {
 		float textY = getHeight() / 2f - (fm.ascent + fm.descent) / 2f;
 		canvas.drawText(text, getWidth() / 2f, textY, textPaint);
 
+		boolean hintsOn = callbacks != null && callbacks.showGestureHints()
+				&& model.showGestureLabel;
+		if (hintsOn) {
+			drawStaticGestureHints(canvas);
+		}
 		if (previewDir != null) {
 			drawPreviewArrow(canvas, previewDir);
 		}
-		if (callout != null && callout.length() > 0
-				&& callbacks != null && callbacks.showGestureHints()
-				&& model.showGestureLabel) {
-			float pad = 6f * getResources().getDisplayMetrics().density;
-			float tw = calloutText.measureText(callout) + pad * 2f;
+		// Callout stays inside the view: overlay windows are sized to the button,
+		// so drawing above y=0 is clipped (and was invisible on Mode A).
+		if (callout != null && callout.length() > 0 && hintsOn) {
+			float density = getResources().getDisplayMetrics().density;
+			float pad = 4f * density;
+			String label = callout.length() > 28 ? callout.substring(0, 27) + "…" : callout;
+			calloutText.setColor(0xFFFFFFFF);
+			calloutText.setTextAlign(Paint.Align.CENTER);
+			float tw = Math.min(getWidth() - pad, calloutText.measureText(label) + pad * 2f);
 			float th = calloutText.getTextSize() + pad;
 			float left = Math.max(0, (getWidth() - tw) / 2f);
-			float top = -th - pad;
+			float top = pad;
 			canvas.drawRect(left, top, left + tw, top + th, calloutBg);
-			canvas.drawText(callout, left + tw / 2f,
+			canvas.drawText(label, left + tw / 2f,
 					top + th - pad / 2f - calloutText.descent(), calloutText);
 		}
+	}
+
+	/**
+	 * Same compass as the grid tile ({@code BUTTON:drawGestureIndicators}): U/D/L/R
+	 * on edge midpoints, small arrows in the corners, Hold in the bottom-right.
+	 */
+	private void drawStaticGestureHints(Canvas canvas) {
+		float density = getResources().getDisplayMetrics().density;
+		float w = getWidth();
+		float h = getHeight();
+		float inset = Math.max(4f * density, Math.min(w, h) * 0.08f);
+		float arrow = Math.max(6f * density, Math.min(w, h) * 0.12f);
+		int color = 0x96FFFFFF;
+		Paint hint = calloutText;
+		float prevSize = hint.getTextSize();
+		Paint.Align prevAlign = hint.getTextAlign();
+		int prevColor = hint.getColor();
+		hint.setTextAlign(Paint.Align.LEFT);
+		hint.setTextSize(Math.max(7f * density, arrow * 1.35f));
+		hint.setColor(color);
+		float midX = w * 0.5f;
+		float midY = h * 0.5f;
+		Paint.FontMetrics fm = hint.getFontMetrics();
+		float baseline = -fm.ascent;
+
+		if (hasSwipe(SuperButtonGestures.DIR_UP)) {
+			canvas.drawText("U", midX - arrow * 0.4f, inset + arrow * 0.35f + baseline * 0.35f, hint);
+		}
+		if (hasSwipe(SuperButtonGestures.DIR_DOWN)) {
+			canvas.drawText("D", midX - arrow * 0.4f, h - inset, hint);
+		}
+		if (hasSwipe(SuperButtonGestures.DIR_LEFT)) {
+			canvas.drawText("L", inset, midY + arrow * 0.35f, hint);
+		}
+		if (hasSwipe(SuperButtonGestures.DIR_RIGHT)) {
+			canvas.drawText("R", w - inset - arrow * 0.6f, midY + arrow * 0.35f, hint);
+		}
+
+		float corner = inset + arrow * 0.55f;
+		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_LEFT, corner, corner, arrow);
+		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_RIGHT, w - corner, corner, arrow);
+		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_LEFT, corner, h - corner, arrow);
+		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_RIGHT, w - corner, h - corner, arrow);
+
+		if (model.holdCommand != null && model.holdCommand.length() > 0) {
+			hint.setColor(0xAAFFFF66);
+			hint.setTextSize(Math.max(7f * density, arrow * 1.2f));
+			hint.setTextAlign(Paint.Align.RIGHT);
+			canvas.drawText("Hold", w - 4f * density, h - 4f * density, hint);
+		}
+
+		hint.setTextSize(prevSize);
+		hint.setTextAlign(prevAlign);
+		hint.setColor(prevColor);
+	}
+
+	private boolean hasSwipe(String dir) {
+		return model.commandForDirection(dir) != null;
+	}
+
+	private void drawCornerHint(Canvas canvas, String dir, float cx, float cy, float size) {
+		if (!hasSwipe(dir)) {
+			return;
+		}
+		float dx = 0f;
+		float dy = 0f;
+		if (SuperButtonGestures.DIR_UP_LEFT.equals(dir)
+				|| SuperButtonGestures.DIR_UP_RIGHT.equals(dir)) {
+			dy = -1f;
+		} else {
+			dy = 1f;
+		}
+		if (SuperButtonGestures.DIR_UP_LEFT.equals(dir)
+				|| SuperButtonGestures.DIR_DOWN_LEFT.equals(dir)) {
+			dx = -1f;
+		} else {
+			dx = 1f;
+		}
+		float mag = (float) Math.hypot(dx, dy);
+		dx = dx / mag * size * 0.5f;
+		dy = dy / mag * size * 0.5f;
+		arrowPaint.setColor(0x96FFFFFF);
+		arrowPaint.setStrokeWidth(Math.max(2f, size * 0.18f));
+		canvas.drawLine(cx - dx * 0.4f, cy - dy * 0.4f, cx + dx, cy + dy, arrowPaint);
 	}
 
 	private void drawPreviewArrow(Canvas canvas, String dir) {
@@ -222,6 +317,8 @@ public class FloatingButtonView extends View {
 		}
 		dx = dx / mag * len;
 		dy = dy / mag * len;
+		arrowPaint.setColor(0xFFFFFFFF);
+		arrowPaint.setStrokeWidth(3f);
 		canvas.drawLine(cx, cy, cx + dx, cy + dy, arrowPaint);
 	}
 
@@ -316,19 +413,20 @@ public class FloatingButtonView extends View {
 	}
 
 	private void moveByFinger(float rawX, float rawY) {
-		View parent = (View) getParent();
-		if (parent == null) {
-			return;
-		}
-		int[] parentLoc = new int[2];
-		parent.getLocationOnScreen(parentLoc);
+		// Overlay windows are parented by ViewRootImpl, not a View — casting
+		// getParent() crashed on the first drag move after long-press.
 		if (!dragOriginCaptured) {
-			dragFingerOffsetX = rawX - (parentLoc[0] + getLeft());
-			dragFingerOffsetY = rawY - (parentLoc[1] + getTop());
+			int[] at = callbacks.positionOf(this);
+			int[] loc = new int[2];
+			getLocationOnScreen(loc);
+			dragFingerOffsetX = rawX - loc[0];
+			dragFingerOffsetY = rawY - loc[1];
+			positionSpaceDeltaX = at[0] - loc[0];
+			positionSpaceDeltaY = at[1] - loc[1];
 			dragOriginCaptured = true;
 		}
-		int x = Math.round(rawX - parentLoc[0] - dragFingerOffsetX);
-		int y = Math.round(rawY - parentLoc[1] - dragFingerOffsetY);
+		int x = Math.round(rawX - dragFingerOffsetX + positionSpaceDeltaX);
+		int y = Math.round(rawY - dragFingerOffsetY + positionSpaceDeltaY);
 		int maxBottom = callbacks.maxBottomFor(this);
 		x = FloatingLayerGeometry.clampX(x, getWidth(), callbacks.parentWidth());
 		y = FloatingLayerGeometry.clampY(y, getHeight(), maxBottom);
