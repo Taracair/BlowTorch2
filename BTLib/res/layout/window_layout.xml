@@ -42,6 +42,9 @@
                 android:paddingTop="@dimen/game_input_row_padding_vertical"
                 android:paddingBottom="@dimen/game_input_row_padding_vertical">
 
+            <!-- importantForAutofill="no": a MUD command line is never a credential
+                 field. Without it a password manager offers to fill it — especially
+                 while the server holds telnet ECHO and MainWindow masks the bar. -->
             <com.resurrection.blowtorch2.lib.window.BetterEditText
                 android:id="@+id/textinput"
                 android:layout_width="0dip"
@@ -51,6 +54,7 @@
                 android:background="@drawable/input_bar_bg"
                 android:candidatesTextStyleSpans=""
                 android:editable="true"
+                android:importantForAutofill="no"
                 android:inputType="textMultiLine"
                 android:imeOptions="actionSend"
                 android:isScrollContainer="false"
