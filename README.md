@@ -70,7 +70,7 @@ Typed into the input bar like anything else. These are the ones worth knowing:
 | `.map record` | Draw the map from your movement, for worlds that send no room data. |
 | `.map find <text>` | Find a room by name and highlight it. |
 | `.map goto <room>` | Walk you there along a route the mapper works out. |
-| `.timer 30 quaff health` | Run a command after thirty seconds. Name it and you can pause, reset or stop it later. |
+| `.timer play heal` | Start a named timer. `pause`, `reset`, `stop` and `info` work the same way; `.timer duration heal 30` changes how long it runs without stopping it. Timers themselves are made in the Timers editor. |
 | `.loadset combat` | Switch the on-screen button set. Works from a button, so one tap can change the whole pad. |
 | `.switch <name>` | Jump to another open connection without disconnecting this one. |
 | `.search <text>` | Search the scrollback and jump to the hit. |
@@ -140,8 +140,9 @@ conn.setRequestProperty("User-Agent", "BlowTorch2");
 The whole of it is in
 [`BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java`](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
 — about two hundred lines, worth a read if you would rather verify than take my
-word. Turn it off under **Options → Miscellaneous → Check for updates?** and the
-app talks to nothing but your MUDs. If you installed from F-Droid, turn it off:
+word. Turn it off under the launcher's **⋮ → Check for updates** and the app
+talks to nothing but your MUDs. It is app-wide, not per world — which is why it
+moved out of a world's Options. If you installed from F-Droid, turn it off:
 F-Droid updates you already. Test builds never check, whatever the setting says.
 
 | Permission | Needed to play? |
@@ -158,7 +159,7 @@ only load ones you trust.
 
 **Storage.** Classic assumed it could write anywhere, which newer Android does
 not allow. There is now a `/BlowTorch/` folder (`settings/`, `backups/`,
-`launcher/`, `session_logs/`, `logs/`) if you grant access, and everything still
+`launcher/`, `maps/`, `session_logs/`, `logs/`) if you grant access, and everything still
 works from app storage if you do not, with import and export through the system
 picker. Settings saves are atomic, so a crash mid-write cannot leave you with
 half a profile. Details in [`docs/FDROID_README.md`](docs/FDROID_README.md).
@@ -203,7 +204,8 @@ Release APKs are unsigned by default — F-Droid and CI sign their own. Output i
 |------|------------|
 | `BTLib/` | Shared library, where nearly all the code lives |
 | `BT_Free/` | App module, and the Lua plugins under `assets/` |
-| `LuaJIT-2.0.5/` | Native LuaJIT |
+| `LuaJIT-2.0.5/`, `LuaJIT-2.1/` | Native LuaJIT — 2.0.5 for the 32-bit ABI, 2.1 (GC64) for 64-bit |
+| `scripts/check.sh` | Everything checkable without a device, in one command — the same thing CI runs |
 | `docs/` | Guides; architecture in [`architecture.md`](docs/architecture.md); plugins in [`plugin-authoring.md`](docs/plugin-authoring.md); working rules in [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) |
 | `fastlane/`, `metadata/` | Store and F-Droid text |
 

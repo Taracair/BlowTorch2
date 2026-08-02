@@ -1,6 +1,6 @@
 # How BlowTorch 2 is built
 
-**As of 31 July 2026** · shipped tip **v2.2.0** (`versionCode` 253)
+**As of 2 August 2026** · shipped tip **v2.2.1** (`versionCode` 254)
 
 This is the architecture map for anyone taking on the codebase: human or
 assistant. It describes **how the app is structured**, not how to play it and
@@ -47,7 +47,9 @@ BlowTorch/                    ← git root (open this as the Cursor workspace)
 ├── LuaJIT-2.1/               Native LuaJIT sources (64-bit / GC64 build)
 ├── docs/                     Guides and this architecture note
 ├── samples/                  Sample plugin / settings material
-├── scripts/                  Maintainer helpers (e.g. StrictMode report)
+├── scripts/                  check.sh (the CI entry point), lua_unbound.py,
+│                             strictmode_report.py, strip_forgemap_from_profile.py
+├── .github/workflows/        tests.yml — runs scripts/check.sh
 ├── fastlane/, metadata/      Store / F-Droid text
 ├── build_ndk_libraries.sh    Builds LuaJIT + ndk-build → BTLib/libs/
 └── settings.gradle           Includes :BTLib and :BT_Free only
@@ -84,10 +86,10 @@ staging area for the latest APKs. It is **not** the git root.
 
 | Flavor | Application id | Label | versionName (as of this date) |
 |--------|----------------|-------|-------------------------------|
-| `production` | `com.resurrection.blowtorch2` | BlowTorch 2 | `2.2.0` |
-| `btTest` | `com.resurrection.blowtorch2.test` | BlowTorch 2 Test | `2.2.0-test` |
+| `production` | `com.resurrection.blowtorch2` | BlowTorch 2 | `2.2.1` |
+| `btTest` | `com.resurrection.blowtorch2.test` | BlowTorch 2 Test | `2.2.1-test` |
 
-Both share `versionCode` **253**. Typical variants: `productionDebug`,
+Both share `versionCode` **254**. Typical variants: `productionDebug`,
 `productionRelease`, `btTestDebug`, `btTestRelease`.
 
 - **ABI:** `armeabi-v7a`, `arm64-v8a`
@@ -150,7 +152,7 @@ flowchart LR
   FL --> L --> MW
   MW -->|"bind IConnectionBinder"| SS
   MW -->|"PluginXCallS — synchronous"| C
-  C -->|"WindowXCallB / callbacks — queued"| MW
+  C -->|"WindowXCallB / callbacks — oneway"| MW
   SS --> C
   C --> DP
   C --> PL
@@ -177,11 +179,27 @@ expensive wrong assumption in the project.
 | Direction | Mechanism | Behaviour |
 |-----------|-----------|-----------|
 | **UI → service** | `IConnectionBinder.pluginXcallS` → `Connection.pluginXcallS` → `Plugin.xcallS` | **Synchronous.** Plugin Lua runs on the **calling (often UI) thread**. Slow Lua freezes the UI. |
-| **Service → UI** | `WindowXCallB`, `IConnectionBinderCallback`, `IWindowCallback` | **Queued** onto the connection / UI handlers. Returns quickly. |
+| **Service → UI** | `IWindowCallback`, `IConnectionBinderCallback`, `ILauncherCallback` | **`oneway` interfaces.** The transaction returns immediately and is *not* delivered synchronously into the UI process. |
 
-`SaveSettings` from Lua also posts onto that same handler queue. Whatever sits
-in front of a button-set switch delays it — measured once at ~1.1s because a
-settings save was ahead in the queue.
+**The `oneway` on those three interfaces is a barrier, not a style choice.** An
+earlier version of this file said the service→UI direction was merely "queued",
+which read as if it were free — what was queued was the `Handler` post on the
+far side; the binder transaction itself blocked. The cached-app freezer suspends
+the UI process about two minutes after it is backgrounded, and a *synchronous*
+transaction into a frozen process is a kill
+(`am_kill … Sync transaction while frozen`). That is what redrew the screen
+every time the player came back.
+
+Consequence for anyone editing them: a method on `IWindowCallback`,
+`IConnectionBinderCallback` or `ILauncherCallback` **cannot have a return value
+or an `out`/`inout` parameter** — it will not compile. Do not "just add a
+getter" to one of them; push the value instead, or route the question through
+`IConnectionBinder` (UI → service), which is the direction that may block.
+
+Within one direction the ordering point still holds: `WindowXCallB` and
+`SaveSettings` from Lua both post onto the same `ConnectionHandler`, so whatever
+is queued first delays the rest — measured once at ~1.1s because a settings save
+was ahead of a button-set switch.
 
 **When something is slow, ask which queue it is waiting in before hunting for
 slow code.** Details and history: [`ORCHESTRATION.md`](ORCHESTRATION.md) Part 2.
@@ -190,10 +208,10 @@ slow code.** Details and history: [`ORCHESTRATION.md`](ORCHESTRATION.md) Part 2.
 
 | Interface / type | Role |
 |------------------|------|
-| `IConnectionBinder` | UI ↔ service API (connections, send, settings, aliases/triggers/timers, plugins, GMCP/MCP, mapper, frames) |
-| `IConnectionBinderCallback` | Service → `MainWindow` (incoming paths, dialogs, mapper/extra-text/frame UI hooks, reload buttons, …) |
-| `IWindowCallback` | Per-window: raw buffer updates, `xcallS`/`xcallB`, clear, encoding |
-| `ILauncherCallback` | Launcher notified on disconnect |
+| `IConnectionBinder` | UI ↔ service API (connections, send, settings, aliases/triggers/timers, plugins, GMCP/MCP, mapper, frames). **Not** `oneway` — this is the blocking direction |
+| `IConnectionBinderCallback` | **`oneway`.** Service → `MainWindow` (incoming paths, dialogs, mapper/extra-text/frame UI hooks, reload buttons, …) — the busiest traffic there is |
+| `IWindowCallback` | **`oneway`.** Per-window: raw buffer updates, `xcallS`/`xcallB`, clear, encoding, local-echo masking |
+| `ILauncherCallback` | **`oneway`.** Launcher notified on disconnect |
 | Parcelables | `WindowToken`, `AliasData`, `TriggerData`, `TimerData`, responders, settings options, `SlickButtonData`, … |
 
 Implementation entry: `StellarService.onBind` → `ConnectionBinderFacade` → the
@@ -228,9 +246,10 @@ All under `com.resurrection.blowtorch2.lib`.
 | `Connection` | Central hub (~thousands of lines): handler messages, pipeline, facades |
 | `ConnectionBinderFacade` | AIDL → active `Connection` |
 | `DataPumper` | TCP read/write threads; MCCP inflate |
-| `Processor` | Telnet IAC, option negotiation hooks, GMCP extraction |
+| `Processor` | Telnet IAC, option negotiation hooks, GMCP extraction, MCCP start (`remainderAfterSubnegotiation`) |
+| `MccpFallbackState` | Whether this connection accepts COMPRESS2, and whether the one-shot fallback has fired (survives the settings replay on reconnect) |
 | `Colorizer` | ANSI / xterm colour codes |
-| `OptionNegotiator`, `McpEngine` | Telnet options; MCP |
+| `OptionNegotiator`, `McpEngine` | Telnet options (incl. ECHO / input masking); MCP |
 | `ConnectionSettingsIO` | Load/save profile XML |
 | `ConnectionAliases` / `Triggers` / `Timers` | Feature facades |
 | `ConnectionGmcp`, `ConnectionExtraText`, `ConnectionReconnect`, `ConnectionSessionLog` | Focused helpers |
@@ -265,8 +284,8 @@ All under `com.resurrection.blowtorch2.lib`.
 | Package | Role |
 |---------|------|
 | `alias/` | Aliases + editors + `AliasData` |
-| `trigger/` | Triggers, groups, `condition/` state machine |
-| `timer/` | Named timers |
+| `trigger/` | Triggers, groups, `condition/` state machine, `TriggerPattern` (the gate that keeps a bad player pattern out of `Pattern.compile`) |
+| `timer/` | Named timers; `TimerDuration` (the h/m/s face on a stored second count) and `TimerSchedule` (doze-safe remaining-time arithmetic) |
 | `responder/` | Trigger/timer actions: gag, replace, color, ack, script, toast, notification, setvariable |
 | `button/` | Button set data (`SlickButtonData`) |
 | `speedwalk/` | Speedwalk / direction data |
@@ -424,7 +443,13 @@ Durable writes for anything a player cannot reconstruct belong in
 Known Lua traps (already paid for once):
 
 - Settings XML values arrive as **strings** (`1 ~= "1"`).
-- In `buttonwindow.lua`, “nothing selected” is `{}`, not `nil`.
+- “Nothing selected” used to be `{}` rather than `nil` in `buttonwindow.lua`, and
+  a `== nil` check let it through. Fixed in `6f10eb70`: `layoutTargets()` returns
+  `chosen, true` / `all, false` and callers test `#targets == 0`. Do not
+  reintroduce the shape — but do not go hunting for it either, two audits have
+  searched and found nothing live.
+- Inside a bare `module(...)` file, a name the file never imports is `nil`, not
+  an error. `scripts/lua_unbound.py` is the barrier; see §15.
 - Whitespace nodes in `TextTree` extend `Text`, so `instanceof Text` is broad.
 
 ---
@@ -446,8 +471,11 @@ Per-world overlay visibility and float geometry are **per world**, not global.
 
 ## 12. UI overlays
 
-Hosted from `MainWindow` (under the gameplay chrome so the ⋮ menu stays
-reachable):
+Hosted from `MainWindow`. `gameplay_chrome_overlay` is a **later sibling** of
+`window_container` in `window_layout.xml`, and every overlay below lives inside
+that container — so **⋮ is structurally above all of them**. "The overlay covers
+⋮" is therefore a visibility complaint, never a z-order one. The real hazard is
+the reverse: ⋮ silently takes touches from anything parked under it.
 
 | Controller | Purpose |
 |------------|---------|
@@ -486,13 +514,27 @@ There are no ads, analytics, or accounts.
 
 | Kind | Location | Coverage (illustrative) |
 |------|----------|-------------------------|
-| JVM unit | `BTLib/src/test/java/` | Mapper, TextTree, aliases, GMCP/frames, settings key ownership, responders, Colorizer, UpdateChecker, … |
+| JVM unit | `BTLib/src/test/java/` | Mapper (incl. atomic map write), TextTree + footprint, aliases and alias recursion, trigger pattern gate, GMCP/frames, telnet coverage (NAWS / CHARSET / MSDP / MSSP / ECHO), MCCP start + fallback state, timer schedule / duration, settings key ownership, responders, Colorizer, UpdateChecker, … |
 | Instrumented | `BTLib/src/androidTest/java/` | Timers, anchored aliases, chrome smoke |
-| Lua (host) | `BT_Free/src/test/lua/` | Button editor / floating helpers (not AndroidJUnit) |
+| Lua (host) | `BT_Free/src/test/lua/` | Button editor / floating helpers / layout packs (not AndroidJUnit) |
+
+**Everything that can be checked without a device is one command**, and it is
+the same command CI runs (`.github/workflows/tests.yml` on `main` / `staging`
+and every PR):
 
 ```bash
-./gradlew :BTLib:testDebugUnitTest
+scripts/check.sh          # JVM tests + luac -p + lua_unbound.py + Lua tests
+./gradlew :BTLib:testDebugUnitTest   # the JVM half on its own
 ```
+
+Two of those stages exist because the Gradle build cannot see the problem:
+Gradle compiles **no** Lua at all, and `luac -p` in turn cannot see a name used
+bare inside a `module(...)` file that the file never imports, declares or
+defines — inside a bare `module(...)` that name is `nil`, not an error, and it
+only bites on the branch that uses it. `scripts/lua_unbound.py` is that barrier.
+
+Neither `check.sh` nor CI builds an APK: the prebuilt LuaJIT `.so` files under
+`BTLib/libs` are not in git, so a fresh clone cannot assemble one.
 
 Passing unit tests is necessary and not sufficient — device behaviour is the
 authority for UI, binder timing, and IME.
@@ -530,6 +572,6 @@ F-Droid builds the **production** flavor only — see [`fdroid.md`](fdroid.md).
 
 ---
 
-*Document dated 31 July 2026. When the architecture changes in a load-bearing
+*Document dated 2 August 2026. When the architecture changes in a load-bearing
 way, update this file in the same change set and keep
 [`ORCHESTRATION.md`](ORCHESTRATION.md) honest about measured behaviour.*

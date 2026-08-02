@@ -3,9 +3,10 @@
 A short note for server authors, written because the question keeps coming up:
 *if I send you something richer than text, what can you actually do with it?*
 
-This is about what is possible, not what is finished. Almost nothing here is
-built yet. The point is to say which ideas are cheap, which are expensive, and
-which are genuinely out of reach — so nobody designs against the wrong picture.
+This is about what is possible, not what is finished. Most of it is not built.
+The point is to say which ideas are cheap, which are expensive, and which are
+genuinely out of reach — so nobody designs against the wrong picture. Anything
+that **has** shipped since is marked **Built** below.
 
 ---
 
@@ -60,15 +61,26 @@ is the client's hottest code path; a per-cell image lookup has to be measured
 before anyone calls it free. We have spent real time optimising scrolling and
 would not want to give it back.
 
-**A picture in its own window.** Floating windows already exist in BlowTorch —
-the map and the extra text panes work this way. A frame carrying an image is
-better served by one of these than by trying to squeeze a picture between lines
-of text: no interaction with text layout, no scrolling problems, the player can
-move and resize it. This is where any image a server sends should end up.
+**A picture in its own window — Built.** Floating windows already existed in
+BlowTorch — the map and the extra text panes work this way — and an image frame
+now uses one. Send an image through `mudstd.frame` and the player gets the
+picture in a small window over the game text: dragged by its ☰ handle, resized
+from the ◢ corner, closed with the ×, and long-press its title for a short menu
+(switch to a drawer, change opacity, close). Where the player leaves a frame is
+where the next one opens. This is still the right default for any image a
+server sends.
 
-**A picture between lines of text.** Possible, but the most expensive option
-here, because a line with its own height touches layout and scrolling. Worth
-doing only if a floating window genuinely will not serve.
+**A picture between lines of text — Built, and it was the expensive one.** The
+player can instead choose to have the picture printed into the scrollback where
+it arrived, next to the room description it belongs to, scrolling away with it;
+height is a setting in lines. It cost what this section said it would, because a
+line with its own height touches layout and scrolling.
+
+Both are the player's choice, not the server's: **Options → GMCP → Pictures the
+server sends**. A picture still being fetched says *Loading…* and one that
+failed says why — a blank box is the one thing it will not do. Text frames
+(`frame.terminal`) still arrive as `[frame <id>]` lines in the game window;
+there is no webview, so a webview frame is reported rather than shown.
 
 ## Out of reach
 
@@ -89,10 +101,15 @@ a thing, show it somewhere sensible" fits us well: a tile id, an image, a
 clickable span, a colour for a region. Anything shaped like "put this character
 at this coordinate" does not.
 
-If you are choosing where to start, the two cheapest things that would look
-immediately different are **coloured cell backgrounds** and **server-declared
-clickable spans**. Both stand on code that already runs today, and neither needs
-you to ship a single image.
+If you want to send a **picture**, that path is open now: use `mudstd.frame`, and
+leave it to the player whether it lands in its own window or in the text. See
+the frames section of [`user-manual.md`](user-manual.md) for what the client
+answers back (`frame.opened`, `frame.resized`, `frame.closed` with a reason).
+
+If you are choosing where to start on anything else, the two cheapest things
+that would look immediately different are **coloured cell backgrounds** and
+**server-declared clickable spans**. Both stand on code that already runs today,
+and neither needs you to ship a single image.
 
 And if you want to try something, say so. Most of the cost above is deciding what
 the protocol should look like, not the drawing.

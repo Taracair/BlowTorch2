@@ -619,21 +619,21 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		CallbackOption export_settings = new CallbackOption();
 		export_settings.setTitle("Export Settings");
-		export_settings.setDescription("Write this world's settings to a file you choose. Moved here from the ⋮ menu: it belongs with the storage settings it uses, and it is a setup job rather than something you reach for mid-session.");
+		export_settings.setDescription("Write this world's settings to a file you choose. Sits beside the storage settings it uses; a setup job rather than something you reach for mid-session.");
 		export_settings.setKey("export_settings");
 		export_settings.setValue("export_settings");
 		miscOptions.addOption(export_settings);
 
 		CallbackOption import_settings = new CallbackOption();
 		import_settings.setTitle("Import Settings");
-		import_settings.setDescription("Load settings from a file, replacing this world's. Also moved here from the ⋮ menu.");
+		import_settings.setDescription("Load settings from a file, replacing this world's current settings.");
 		import_settings.setKey("import_settings");
 		import_settings.setValue("import_settings");
 		miscOptions.addOption(import_settings);
 
 		CallbackOption reset_settings = new CallbackOption();
 		reset_settings.setTitle("Reset Settings");
-		reset_settings.setDescription("Throw away this world's settings and start from the defaults — every alias, trigger, timer and button. Asks first. Moved here from the ⋮ menu, where it sat beside Reconnect and Disconnect.");
+		reset_settings.setDescription("Throw away this world's settings and start from the defaults — every alias, trigger, timer and button. Asks first.");
 		reset_settings.setKey("reset_settings");
 		reset_settings.setValue("reset_settings");
 		miscOptions.addOption(reset_settings);

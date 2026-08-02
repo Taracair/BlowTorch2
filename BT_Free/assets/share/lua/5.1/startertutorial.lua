@@ -120,6 +120,12 @@ TOPICS.welcome = function()
 phone. Anything you type starting with a single dot (.) is a client command
 and is not sent to the game unless you escape it with ..
 
+Because the app covers a lot of ground for many different players, this
+tutorial (and the Help / user guide) may occasionally be slightly out of
+date in a few places. When that happens, the app itself — what it shows on
+screen — is the source of truth. Please report mistakes on GitHub:
+  https://github.com/Taracair/BlowTorch2/issues
+
 Try it now:
   • Tap NEXT / PREV / TOPICS on the pad (or type .tutorial next)
   • Tap HELP anytime to restart (.tutorial start)
@@ -151,6 +157,11 @@ Escape / toggle:
 Client-only echo (never sent to the MUD):
   .note <text>
 Try:  .note hello from the tutorial
+
+Two you only need when something goes wrong:
+  .settings          what is on disk; backup / restore the kept copy
+  .echo on|off       unmask the input bar if a MUD took echoing over
+                     at a password prompt and never gave it back
 
 Semicolons: Options → Service → Process Semicolons? (default on) turns ;
 into a newline so look;score sends two lines. Turn it off if your MUD
@@ -266,6 +277,11 @@ Why this matters: one pad for combat, another for shopping, another for
 crafting — flip between them with one tap instead of re-editing.
 
 In edit mode, the gear opens set options (name, size, grid, …). Done saves.
+
+Do not want to build a pad from nothing? Options → Button → Load button
+set from wizard (or .layoutwizard) offers ready-made packs — Compass,
+Newbie, Combat, Explorer, Social — each written to a set name you pick.
+
 Next lesson: make your own .loadset button.]])
 end
 
@@ -409,9 +425,14 @@ end
 
 TOPICS.timers = function()
 	noteBlock("Timers",
-[[Open Timers from the action bar / overflow. Each timer has a name,
-interval (seconds), optional repeat, and responders (same kinds as
-triggers: Ack, Toast, Notification, …).
+[[Open Timers from the action bar / overflow. Each timer has a name, an
+interval, optional repeat, and responders (same kinds as triggers: Ack,
+Toast, Notification, …).
+
+The interval is the "Every:" row — three boxes, hours / minutes /
+seconds — with presets (30s, 1m, 5m, 15m, 1h) and a running summary
+underneath. The boxes are added up, so 90 in the seconds box is the same
+as 1m 30s.
 
 Conditions (in the timer editor):
   • Extra gate when the timer fires — same AND/OR types as triggers.
@@ -423,9 +444,13 @@ Control from the input bar:
   .timer reset <name>
   .timer stop <name>
   .timer info <name>
+  .timer duration <name> <seconds>
 
 Optional third token suppresses toasts (not used with info), e.g.
   .timer play mytick silent
+
+Changing the duration does not stop the timer: one that was running
+keeps running on the new length, one that was stopped stays stopped.
 
 Name matches the timer list (not a numeric index). Useful for ticks,
 cooldowns, or reminder toasts while you play.]])
@@ -573,8 +598,8 @@ TOPICS.logging_export = function()
   Session Log Directory blank = /BlowTorch/session_logs/
   Files: {profile}_{yyyy-MM-dd_HH-mm-ss}.txt
 
-Import / export this session’s settings:
-  Overflow → Export Settings / Import Settings
+Import / export / reset this session’s settings:
+  Options → Miscellaneous → Export / Import / Reset Settings
   Default folder: /BlowTorch/settings/ (or SAF pickers)
 
 Storage access (Android 11+):
@@ -601,11 +626,12 @@ TOPICS.overflow_menu = function()
   Quit                    leave the session window
   Map                     built-in Mapper (also .map open|toggle)
   Search scrollback       same as .search
-  Reload / Reset Settings
-  Export / Import Settings
+  Reload Settings         re-read this world’s settings from disk
   Crash report            Show log / Share log
   About
   Help                    this app’s user manual
+
+Export / Import / Reset Settings live under Options → Miscellaneous.
 
 Action-bar icons may show Aliases / Triggers / Timers / Options when
 there is room; otherwise they live under ⋮.]])
@@ -689,7 +715,8 @@ TOPICS.options_cleanup = function()
   Service   encoding, logging, battery, reconnect, Wi-Fi;
             nested GMCP / MCP / MUD Protocols
   Bell      bell reactions
-  Miscellaneous   storage / import paths
+  Miscellaneous   storage access and paths, Export / Import / Reset
+                  Settings, persistent connection, ⋮ button look
 
 Plugin-specific pages (Button, Starter Tutorial, …) appear when that
 plugin is loaded. Prefer nested Manage modules… / Manage packages…
@@ -732,8 +759,9 @@ To stop this tour’s welcome without removing the plugin:
   or .tutorial done
   or toggle starter_tutorial off in the Plugins list
 
-To remove the tutorial entirely, delete starter_tutorial under Plugins
-(you can Load it again later). Only load plugins you trust.]])
+starter_tutorial ships with the app and cannot be deleted (nor can
+button_window or connection_settings) — turning it off in the Plugins
+list is how you retire it. Only load plugins you trust.]])
 end
 
 TOPICS.finish = function()

@@ -9,7 +9,7 @@ In-game **Options** dialog groups (Program Settings):
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
-| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
+| **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
 
 ## Extra text windows
@@ -36,7 +36,9 @@ not have to reopen the window.
 Inbound packets for those modules appear as `[GMCP] …` in that pane and are
 **not** also echoed into main when **Show GMCP in game window?** is on. Optional
 custom formatting still uses a `%Module` literal trigger + `NoteToWindow`
-(see user-manual). In-band MUD text is separate — gag it if needed.## Shared storage layout (`/BlowTorch/`)
+(see user-manual). In-band MUD text is separate — gag it if needed.
+
+## Shared storage layout (`/BlowTorch/`)
 
 Default for import/export, backups, launcher lists, session logs, maps, and app/GMCP logs is **outside** `Android/data`:
 
@@ -106,17 +108,31 @@ Helpers: `.mcp ask`, `.mcp cord …`, `.mcp ping`, `.mcp client`, `.mcp send`.
 
 ## MUD Protocols (optional)
 
-Separate from GMCP, under **Options → Service → MUD Protocols**. All **off** by
-default — enable only if a MUD needs them, then reconnect:
+Separate from GMCP, under **Options → Service → MUD Protocols**. **MTTS and MCCP
+are on by default; MSDP and MSSP are off** — enable those only if a MUD needs
+them. Reconnect after changing any of these:
 
-| Option | What it does |
-|--------|----------------|
-| **Use MTTS?** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI` → `MTTS <bits>`. On = bits **13** (ANSI+UTF-8+256); off = bits **1** (ANSI only). Reconnect after change. |
-| **Use MSDP?** | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
-| **Use MSSP?** | Server listing/status (option 70); dump with `.mssp` |
+| Option | Default | What it does |
+|--------|---------|----------------|
+| **Use MTTS?** | **on** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI` → `MTTS <bits>`. On = bits **13** (ANSI+UTF-8+256); off = bits **1** (ANSI only) |
+| **Use MSDP?** | off | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
+| **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
+| **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |
 
-When off, BlowTorch answers `DONT` so the server should not send those channels.
-Parse errors never disconnect — the packet is ignored.
+When one is off, BlowTorch answers `DONT` so the server should not send that
+channel. Parse errors never disconnect — the packet is ignored.
+
+## Telnet ECHO and the masked input bar
+
+There is no option for this: a MUD asks for a password by taking echoing over
+(telnet option 1). While the server holds it, the input bar masks what you type
+and the text is kept out of the session log; it unmasks when the server hands
+echoing back, or on a disconnect. `.echo on` / `.echo off` is the manual
+override for a server that takes echo and never returns it, and the next change
+from the server wins over the command.
+
+Not the same as **Options → Service → Local Echo?**, which decides whether your
+own commands are printed into the game window at all.
 
 ## Mapper
 
@@ -185,16 +201,18 @@ patterns.
   and an invisible ⋮ is a corner of the screen that quietly eats taps.
 - **Persistent Connection?** — ride out brief network loss without the
   disconnect dialog.
-- **Export Settings** / **Import Settings** — moved here from the ⋮ menu. They
-  are setup and migration jobs rather than things you reach for mid-session, and
-  they sit beside the storage settings they depend on.
+- **Export Settings** / **Import Settings** — setup and migration jobs rather
+  than things you reach for mid-session; they sit beside the storage settings
+  they depend on. **Reset Settings** is here too (throws away this world's
+  settings after a confirm).
 
 ## Storage
 
 - **Manage Storage Access** grants All files access and creates the `/BlowTorch/` tree.
 - **Default Settings Directory** (Miscellaneous): blank = `/BlowTorch/settings/`.
-- Session overflow **Export Settings** / **Import Settings**: SAF pickers plus default-directory actions.
+- **Export Settings** / **Import Settings** (Miscellaneous): SAF pickers plus default-directory actions.
 - Launcher **Export Server List** / **Backup All Settings** use `/BlowTorch/launcher/` and `/BlowTorch/backups/`, with SAF **Choose location…** as an alternative.
+- `.settings` from the input bar is the no-cable route to the `.bak` copy kept beside this world's settings file in private app storage, refreshed on every save: `.settings` names the file and the date and size of the kept copy, `.settings backup` saves now and refreshes it, `.settings restore` puts it back and reloads. For a copy you can move off the phone, use Export or the launcher's **Backup All Settings** instead.
 
 ## Launcher (server list)
 

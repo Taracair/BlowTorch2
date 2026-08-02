@@ -69,7 +69,8 @@ final class ConnectionTimers {
 		}
 	}
 
-	/** Sets a timer's stored duration in seconds (stops any active run). */
+	/** Sets a timer's stored duration in seconds. A running timer keeps running on the
+	 ** new length, starting from now; see {@link Plugin#setTimerDuration}. */
 	void doTimerDuration(final String name, final int seconds, final int arg2) {
 		Plugin timerHost = findTimerHost(name);
 		boolean silent = arg2 == 0;

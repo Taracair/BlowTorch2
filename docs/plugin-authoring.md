@@ -1,7 +1,7 @@
 # BlowTorch 2 — Plugin authoring guide
 
 **Audience:** developers who want to write Lua plugins for BlowTorch 2.  
-**As of:** 31 July 2026 (v2.2.0 / settings `xmlversion="2"`).
+**As of:** 2 August 2026 (v2.2.1 / settings `xmlversion="2"`).
 
 This is the developer-facing reference for what plugins can do, what they
 cannot, hard limits, security, packaging, and the Lua API. Player-facing
@@ -104,10 +104,18 @@ Binder is **asymmetric**:
 
 - **UI → service is synchronous.** `PluginXCallS` runs plugin Lua on the
   **calling UI thread**. Slow Lua freezes the UI.
-- **Service → UI is queued.** `WindowXCallB` / `WindowXCallS` post and return
-  quickly.
-- `SaveSettings` posts on the **same** service handler queue — a heavy save
-  can delay button / window IPC behind it.
+- **Service → UI is one-way and cannot return anything.** `WindowXCallS` /
+  `WindowXCallB` go over `IWindowCallback`, which is a `oneway` AIDL interface,
+  so they hand the data over and return immediately. There is no result to read
+  and no way to add one — a callback method with a return value or an
+  `out`/`inout` parameter will not compile. If your window has to answer a
+  question, have it call **back** into the plugin with `PluginXCallS`, which is
+  the direction that may block.
+- That `oneway` is a barrier, not a style choice: Android freezes a backgrounded
+  UI process after a couple of minutes, and a *synchronous* transaction into a
+  frozen process kills it (`am_kill … Sync transaction while frozen`).
+- `SaveSettings` posts on the **same** service handler queue as `WindowXCallB` —
+  a heavy save can delay button / window IPC behind it.
 
 Triggers run on the connection thread; plugin timers on a per-plugin timer
 thread. Keep shared mutable state local to one thread.
@@ -547,12 +555,14 @@ Registered on `Window` for scripts attached via `<window script="…">`.
 | `Note` | Echo to main |
 | `SendToServer` | Send text |
 | `PluginXCallS(function, data)` | UI → owning plugin (**sync — keep fast**) |
-| `PluginXCallB(function, bytes)` | Binary variant |
 | `WindowCall(name, fn, arg)` | Call another window’s Lua |
 | `WindowSupports(name, fn)` | Probe |
 | `WindowBroadcast` | Broadcast to windows |
 | `AddOptionCallback(fn, title, icon)` | Overflow menu item |
+| `PushMenuStack` / `PopMenuStack` | Nested menu levels for that item |
 | `ScheduleCallback` / `CancelCallback` | Timed UI callbacks |
+| `Invalidate` | Ask for a redraw (`OnDraw` next frame) |
+| `GetBounds` | The view’s current bounds |
 | `GetActivity` | Host activity Java object |
 | `PluginInstalled(name)` | Plugin loaded? |
 | `GetOptionValue` | Read option |
@@ -560,6 +570,10 @@ Registered on `Window` for scripts attached via `<window script="…">`.
 | Metrics / paths | `GetDisplayDensity`, `GetStatusBarHeight`, `GetActionBarHeight`, `IsStatusBarHidden`, `GetExternalStorageDirectory`, `GetPluginInstallDirectory` |
 
 Global: `view` = the Android `Window` view.
+
+**There is no `PluginXCallB`.** A Doxygen note in `Window.java` still recommends
+it as the faster binary route; it was never registered in the window VM. Use
+`PluginXCallS` with a serialised string.
 
 ---
 
@@ -570,15 +584,15 @@ Global: `view` = the Android `Window` view.
 │ Plugin A Lua        │ ──────────────────────────────► │ Plugin B Lua        │
 │ (service)           │                                 │ (service)           │
 └──────────▲──────────┘                                 └─────────────────────┘
-           │ PluginXCallS / PluginXCallB
-           │ (UI → service, SYNCHRONOUS on UI thread)
+           │ PluginXCallS
+           │ (UI → service, SYNCHRONOUS on UI thread, returns a value)
 ┌──────────┴──────────┐
 │ Window Lua          │
 │ (UI process)        │
 └─────────────────────┘
            ▲
            │ WindowXCallS / WindowXCallB
-           │ (service → UI, queued)
+           │ (service → UI, ONEWAY — fire and forget, no return value)
 ```
 
 Shared session variables and the special-command namespace are other ways
@@ -610,7 +624,9 @@ Language surface is **Lua 5.1** (LuaJIT). Packaged native modules on
 - Window script `require("buttonwindow")`.
 - Custom `<buttonsets>` via `OnPrepareXML` / `OnXmlExport`.
 - Service ↔ UI via `WindowXCallB` / `PluginXCallS`.
-- Special commands `.loadset` / `.clearbuttons`.
+- Special commands `.loadset` / `.clearbuttons` / `.layoutwizard`.
+- The layout wizard (`buttonlayoutwizard.lua`) is a **window**-side dialog driven
+  from a service-side `<callback>` option — a worked example of the round trip.
 
 Study these two before inventing a new IPC pattern.
 
