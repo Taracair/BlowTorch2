@@ -332,6 +332,36 @@ for id, source in pairs(sources) do
 	end
 end
 
+print("12. a poisoned GetActionBarHeight cannot push a pad off the top")
+-- Measured on the device: the launcher wrote TITLE_BAR_HEIGHT as
+-- contentViewTop - statusBarHeight, which under the NoActionBar theme is minus
+-- the status bar height. :stellar read it once at Connection construction and
+-- handed it to Lua as GetActionBarHeight() = -152, so the pack anchor
+-- (ab + 35dp) put the first row 60px above the top of the screen — and
+-- sanitizeButtonSet's bounds were computed from the same number, so nothing
+-- caught it. Whether a profile broke depended on which activity wrote the pref
+-- last. The launcher is fixed; this locks the Lua-side guard.
+local realActionBar = GetActionBarHeight
+for _, poison in ipairs({ "-152", "0", "-1", "99999", "not a number" }) do
+	GetActionBarHeight = function() return poison end
+	for id, source in pairs(sources) do
+		local ps, pp = geometryFor(source, "comfortable")
+		rebuildPackSet(id, source, pp, ps)
+		alignButtonSet(id, "right", "pack")
+		local topEdge = math.huge
+		for _, b in ipairs(buttonsets[id]) do
+			local t = b.y - (ps * DENSITY) / 2
+			if t < topEdge then topEdge = t end
+		end
+		check(topEdge >= -1,
+			"ab=" .. poison .. ": " .. id .. " top row stays on screen (got "
+			.. math.floor(topEdge) .. "px)")
+		check(topEdge < HEIGHT * 0.5,
+			"ab=" .. poison .. ": " .. id .. " pad is not shoved into the lower half")
+	end
+end
+GetActionBarHeight = realActionBar
+
 if failures > 0 then
 	print(failures .. " failure(s)")
 	os.exit(1)

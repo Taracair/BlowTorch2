@@ -872,6 +872,27 @@ local PACK_TOP_PAD_DP = 35
 -- entire point of it.
 local PACK_KEYBOARD_VISIBLE_FRACTION = 0.525
 
+-- GetActionBarHeight(), made safe to anchor against.
+--
+-- It comes from a SharedPreference two activities used to disagree about, read
+-- once when the Connection is constructed: ChromeController wrote the top inset,
+-- the launcher wrote contentViewTop - statusBarHeight, which under a NoActionBar
+-- theme is *minus* the status bar height. A -152 landed a pad's first row above
+-- the top of the screen. The launcher is fixed, but this value crosses a process
+-- boundary and survives in preferences, so refuse anything it cannot sensibly be:
+-- never negative, never more than a quarter of the screen.
+local function safeActionBarHeight(screenHeightPx)
+	local ab = tonumber(GetActionBarHeight()) or 0
+	if ab ~= ab or ab < 0 then
+		return 0
+	end
+	local cap = (tonumber(screenHeightPx) or 0) * 0.25
+	if cap > 0 and ab > cap then
+		return cap
+	end
+	return ab
+end
+
 local function packHasAccordion(source)
 	for _, b in ipairs(source) do
 		if type(b.accordionChildren) == "table" and #b.accordionChildren > 0 then
@@ -924,8 +945,9 @@ local function packGeometryFor(source, preset)
 			return context:getResources():getDisplayMetrics()
 		end)
 		if ok and metrics ~= nil then
-			local screenH = (tonumber(metrics.heightPixels) or 0) / d
-			local ab = (tonumber(GetActionBarHeight()) or 0) / d
+			local screenPx = tonumber(metrics.heightPixels) or 0
+			local screenH = screenPx / d
+			local ab = safeActionBarHeight(screenPx) / d
 			local padTop = ab + PACK_TOP_PAD_DP
 			availW = (tonumber(metrics.widthPixels) or 0) / d - 2 * PACK_EDGE_MARGIN_DP
 			-- Room for the pad plus its accordion row above the input bar.
@@ -1721,7 +1743,7 @@ function sanitizeButtonSet(setName)
 	local w = tonumber(metrics.widthPixels) or 0
 	local h = tonumber(metrics.heightPixels) or 0
 	if w <= 0 or h <= 0 then return false end
-	local ab = tonumber(GetActionBarHeight()) or 0
+	local ab = safeActionBarHeight(h)
 
 	local defs = buttonset_defaults[setName]
 	local moved = false
@@ -1790,8 +1812,9 @@ function alignButtonSet(setName, align, vertical)
 	local metrics = context:getResources():getDisplayMetrics()
 	heightPixels = tonumber(metrics.heightPixels) or 0
 	local widthPixels = tonumber(metrics.widthPixels) or 0
-	-- GetActionBarHeight() returns a string from Java — must tonumber before compares.
-	local ab = tonumber(GetActionBarHeight()) or 0
+	-- GetActionBarHeight() returns a string from Java, and has been seen negative
+	-- (see safeActionBarHeight) — never anchor against it raw.
+	local ab = safeActionBarHeight(heightPixels)
 
 	local right = 0
 	local left = 1000000

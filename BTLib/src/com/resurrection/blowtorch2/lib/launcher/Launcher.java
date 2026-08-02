@@ -748,14 +748,18 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		    Window win = Launcher.this.getWindow();
 		    win.getDecorView().getWindowVisibleDisplayFrame(rect);
 		    int statusBarHeight = rect.top;
-		    int contentViewTop = win.findViewById(Window.ID_ANDROID_CONTENT).getTop();
-		    int titleBarHeight = contentViewTop - statusBarHeight;
-		    //Log.d("ID-ANDROID-CONTENT", "titleBarHeight = " + titleBarHeight );
-		    
-		    //if(Build.VERSION.SDK_INT > Build.VERSION_CODES.HONEYCOMB) {
-		    //	titleBarHeight += statusBarHeight;
-		    //}
-		    
+		    // TITLE_BAR_HEIGHT is the top inset, the same quantity ChromeController
+		    // writes (bars.top). It used to be contentViewTop - statusBarHeight,
+		    // a leftover from when the app had a real title bar. Under the current
+		    // NoActionBar theme ID_ANDROID_CONTENT sits at 0, so that expression
+		    // wrote *minus* the status bar height — and :stellar reads this once at
+		    // Connection construction and hands it to Lua as GetActionBarHeight().
+		    // A negative "action bar" put a freshly installed button pad 60px above
+		    // the top of the screen, with its first row clipped off, and poisoned
+		    // sanitizeButtonSet's own bounds so nothing caught it. Whether it broke
+		    // depended on which activity wrote the pref last before connecting.
+		    int titleBarHeight = statusBarHeight;
+
 		    SharedPreferences pref = Launcher.this.getSharedPreferences("STATUS_BAR_HEIGHT", 0);
 			Editor e = pref.edit();
 			e.putInt("STATUS_BAR_HEIGHT", statusBarHeight);
