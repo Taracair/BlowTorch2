@@ -508,7 +508,16 @@ public class FloatingButtonController {
 		if (touchable) {
 			flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
 		} else {
-			flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+			// The hint window is the button plus a band around it for the gesture
+			// hints, so near an edge it does not fit on the screen -- and the
+			// window manager slides a window that does not fit back inside.
+			// Measured: asked for y=2206 with height 263 on a 2424 screen, got
+			// 2161, so the tile was drawn 45px above its own touch window while
+			// the button beside it, further from the edge, was drawn correctly.
+			// NO_LIMITS lets the band hang off the screen instead of dragging the
+			// button with it. It draws nothing there and takes no touches.
+			flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+					| WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
 		}
 		WindowManager.LayoutParams p = new WindowManager.LayoutParams(
 				w > 0 ? w : WindowManager.LayoutParams.WRAP_CONTENT,
@@ -800,10 +809,18 @@ public class FloatingButtonController {
 						? FloatingLayerGeometry.gridCenterToLeft(m.gridX, m.widthDp, density)
 						: margin)
 				: m.floatX;
+		// No status-bar offset in the seed. Measured on the phone (dumpsys window,
+		// 3 Aug): the dragged button sits at its stored y=2171 and looks right,
+		// the never-dragged one is seeded at 2322 -- 151px lower, and the status
+		// bar on this device is 152px. The offset belongs to the in-app layer,
+		// whose coordinates start under the status bar; an overlay window's y is
+		// the position on the screen, so adding it again drops the button by a
+		// status bar on every rebuild, which is why only that button keeps
+		// wandering off and only it comes back wrong.
 		int y = m.floatY == FloatingLayerGeometry.UNPLACED
 				? (m.hasGridOrigin
 						? FloatingLayerGeometry.gridCenterToTop(
-								m.gridY, m.heightDp, density, m.statusOffsetPx)
+								m.gridY, m.heightDp, density, 0)
 						: Math.max(0, displayHeight() - buttonH - margin))
 				: m.floatY;
 		x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
