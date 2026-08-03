@@ -57,7 +57,9 @@ commit is one rollback point. Probes get their own commit.
 
 **Push `staging` yourself**, without being asked, once the step is committed:
 the maintainer does not use git directly, so an unpushed commit is a copy that
-exists on one laptop only. `main`, tags and releases still need asking.
+exists on one laptop only. Merging `staging` → `main` is yours as well, once
+the maintainer has confirmed the test APK on the phone. Tags, GitHub releases
+and production APKs still need asking.
 
 A commit message is a claim: "nothing reads this", "equivalent to the old path".
 Go and look before writing it down, and say how you know.

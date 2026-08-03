@@ -72,7 +72,11 @@ sentences on why, not a file list.
 The maintainer does not use git directly; an unpushed commit exists on one
 laptop and nowhere else. Pushing `staging` is the backup, not a decision.
 
-What does need asking: `main`, tags, GitHub releases, production APKs. See
+Promoting `staging` → `main` and pushing it is the agent's job too, but only
+after the maintainer has confirmed the **test APK on the phone**. That
+confirmation is the gate, not the branch name.
+
+What still needs asking every time: tags, GitHub releases, production APKs. See
 `.cursor/rules/release-workflow.mdc`.
 
 A commit message is a claim. "Nothing reads this", "equivalent to the old path",

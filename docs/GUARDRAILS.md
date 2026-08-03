@@ -16,7 +16,7 @@ new opportunity for the two copies to disagree.
 | Rule | Enforced by | Behaviour |
 |---|---|---|
 | Never `adb uninstall` | `beforeShellExecution` | Command denied before it runs |
-| No commits on `main` | `beforeShellExecution`, git `pre-commit` | Denied |
+| Commit on `main` is unusual | git `pre-commit` | Prints a notice, does not refuse |
 | No `git reset --hard`, `git clean -f` | `beforeShellExecution` | Denied |
 | No `rm -rf` outside `.scratch/`, `build/`, `/tmp/` | `beforeShellExecution` | Denied |
 | No StrictMode `penaltyDeath` | `beforeShellExecution`, `check.sh` | Denied, and CI fails |
@@ -36,9 +36,19 @@ That is wrong here: the maintainer does not use git directly, so a denied push
 leaves the work on one laptop with no copy anywhere. Committing and pushing
 `staging` is the backup, and the agent does both without being asked.
 
-Releasing is a different thing and still needs asking: `main`, tags, GitHub
-releases, production APKs. That is judgment, not a pattern match, so it lives in
-`.cursor/rules/release-workflow.mdc` and not in a guard.
+**Commits and merges on `main`.** Same reasoning: if promoting `staging` to
+`main` is denied, nothing can ever ship, because there is nobody else at the
+keyboard. `pre-commit` prints a notice when a commit lands on `main` so an
+accident is visible, and then gets out of the way.
+
+What is left is judgment and cannot be a pattern match, so it lives in
+`.cursor/rules/release-workflow.mdc`: promote to `main` only after the
+maintainer has confirmed the **test APK on the phone**, and ask before tags,
+GitHub releases and production APKs.
+
+Both of these were denials in the guard set this project started from. They were
+removed on request, and removing them was right: neither had ever prevented a
+real mistake here, and both blocked the maintainer's actual working method.
 
 ## Layers, and why there are three
 

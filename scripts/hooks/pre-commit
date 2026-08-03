@@ -20,11 +20,15 @@ staged="$(git diff --cached --name-only --diff-filter=ACM)"
 [ -z "$staged" ] && exit 0
 
 # --- branch ----------------------------------------------------------------
+# A notice, not a refusal. Daily work belongs on staging, but the maintainer
+# does not use git directly, so promoting staging to main is the agent's job as
+# well and a hook that refuses it means nothing can ever ship. The remaining
+# rule is judgment, not a branch name: promote only after the test APK has been
+# confirmed on the phone.
 branch="$(git rev-parse --abbrev-ref HEAD)"
 if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
-  say "BLOCKED: committing on '$branch'. Daily work goes on staging."
-  echo "  git switch staging"
-  exit 1
+  say "NOTE: this commit lands on '$branch', not staging. If that was not"
+  echo "deliberate, stop and: git switch staging"
 fi
 
 # --- Lua syntax, which the Gradle build does not check ---------------------

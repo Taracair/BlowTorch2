@@ -9,10 +9,12 @@ Daily work is `staging` and is covered by `orchestration.mdc` and
 `docs/GUARDRAILS.md`. This file is only the part no script does: what a release
 is called and where it goes.
 
-Committing and pushing `staging` is routine and needs no permission. Everything
-on this page does: never create a tag, a GitHub release or a production APK
-until the maintainer asks, and promote `staging` → `main` only after they
-confirm the test APK is good.
+Committing and pushing `staging` is routine and needs no permission. So is the
+`staging` → `main` merge — **but only after the maintainer has confirmed the
+test APK on the phone**. That confirmation is the gate; it is not implied by
+"tests pass" or "installed".
+
+Tags, GitHub releases and production APKs need asking every time.
 
 ## Steps
 

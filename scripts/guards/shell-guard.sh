@@ -60,16 +60,15 @@ fi
 # production APKs. That is judgment, not a pattern match, and it lives in
 # .cursor/rules/release-workflow.mdc.
 
-# --- 3. daily work happens on staging, never on main ------------------------
-if printf '%s' "$flat" | grep -qE '(^|[;&|[:space:]])git([[:space:]]+-[^[:space:]]+)*[[:space:]]+commit([[:space:]]|$)'; then
-  root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  if [ -n "$root" ]; then
-    branch="$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
-    if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
-      deny "BLOCKED: you are on '$branch'. Daily work goes on staging. Run: git switch staging"
-    fi
-  fi
-fi
+# --- 3. commits on main: deliberately NOT blocked ---------------------------
+# Daily work still belongs on `staging`, and the git pre-commit hook says so out
+# loud when a commit lands on `main`. It does not refuse it. The maintainer does
+# not use git directly, so promoting `staging` to `main` is the agent's job too,
+# and a guard that denies it just means nothing can ever ship.
+#
+# The judgment part is unchanged and is not a pattern match: promote only after
+# the maintainer has confirmed the test APK on the phone, and ask before tags,
+# GitHub releases and production APKs (.cursor/rules/release-workflow.mdc).
 
 # --- 4. history rewriting on a repo the maintainer cannot re-derive ---------
 if printf '%s' "$flat" | grep -qE '(^|[;&|[:space:]])git[[:space:]]+reset[[:space:]]+--hard([[:space:]]|$)'; then
