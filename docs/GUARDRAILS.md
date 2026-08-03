@@ -101,6 +101,22 @@ So on Cursor a bad Lua edit is caught at commit time; on Claude Code it would be
 caught in the same turn and fixed immediately. That is a real difference, and the
 only one that argues for switching. It is not urgent.
 
+## Getting past a guard
+
+For the maintainer, on their own machine:
+
+```sh
+BT_GUARD_OFF=1 <command>      # shell rules, as an env var or a command prefix
+git commit --no-verify        # the git hooks
+git config --unset core.hooksPath   # turn the git hooks off entirely
+```
+
+A guard a human cannot get past is a wall, not a barrier. These rules exist to
+stop an agent doing something on autopilot.
+
+An agent using `BT_GUARD_OFF` is working around a fact about this project. If it
+is genuinely necessary, say so out loud in the same message, and say why.
+
 ## Changing a guard
 
 Guards are code and get the same treatment as code: change in its own commit,

@@ -18,6 +18,21 @@ set -uo pipefail
 cmd="${1:-}"
 [ -z "$cmd" ] && exit 0
 
+# Escape hatch for the maintainer. A guard that a human cannot get past is not a
+# barrier, it is a wall: these rules exist to stop an agent doing something on
+# autopilot, not to take the maintainer's own machine away from them.
+#
+#   BT_GUARD_OFF=1 git push
+#
+# Matched both as an environment variable (git hooks, plain shells) and as a
+# prefix inside the command string, because an editor hook is handed the command
+# as text and never runs it. An agent that reaches for this is working around a
+# fact about the project and must say so out loud instead.
+[ "${BT_GUARD_OFF:-}" = "1" ] && exit 0
+case "$cmd" in
+  BT_GUARD_OFF=1*|*"; BT_GUARD_OFF=1 "*) exit 0 ;;
+esac
+
 deny() { printf '%s\n' "$1"; exit 2; }
 
 # Collapse whitespace so "adb    uninstall" and newlines do not slip past.
