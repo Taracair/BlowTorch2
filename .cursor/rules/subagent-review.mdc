@@ -1,70 +1,48 @@
 ---
-description: Verify code changes with subagents (Composer 2.5 / Grok); fix findings before commit
+description: When to spend a subagent on review, and when not to
 alwaysApply: true
 ---
 
-# Subagent verification (mandatory for code)
+# Review
 
-**NON-NEGOTIABLE.** After editing Java/Kotlin, Lua, native, or Gradle build files, you **MUST** launch subagents via the **Task** tool before committing. Self-review in the parent chat is **not** a substitute. Skipping Task = violating project rules.
+Local checks first, always: `scripts/check.sh` (or `--tests` for the area
+touched). Fix failures before anything else. Most findings a reviewer would
+report are already in there and cost no tokens.
 
-Docs-only / `.cursor/rules` edits skip subagents but still get a quick self-check.
+## Default: one reviewer, after the change
 
-**Models:** pass `model: "composer-2.5"` or `model: "cursor-grok-4.5-high"` on every Task call. **Never** `composer-2.5-fast`.
+Launch **one** `bugbot` Task on the uncommitted diff. Model `composer-2.5` or
+`cursor-grok-4.5-high`, never `composer-2.5-fast`. Triage, fix real findings,
+re-run until clean or until you hit something to report. Then commit.
 
-## 1. Local checks first (parent agent)
+Docs and `.cursor/rules` edits: no subagent, self-check only.
 
-Run what applies, fix failures before subagents:
+## Advisors before implementing: rarely
 
-- Java/Kotlin: `./gradlew :BTLib:testDebugUnitTest` (or `--tests` for the area touched)
-- Lua: `luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua`
-- IDE lints on edited files
+Two parallel advisors before writing code, only when **both** hold:
 
-## 2. Standard change — one post-change reviewer
+- the change touches the binder, `static` state, settings serialisation, thread
+  ownership, or the Lua to Java boundary, **and**
+- the code being changed has no test covering the behaviour you are about to
+  alter (check `BTLib/src/test/` first, it is easy to miss)
 
-**Call Task** — launch **one** subagent (`run_in_background: false`) on the diff:
+If there is a test, the test is the advisor, and it is cheaper and more reliable
+than an opinion. Extract, write a test that passes against the old behaviour,
+then change it. That is the evidence rule 5 asks for.
 
-- Prefer **`bugbot`** for bug/regression review (`Diff: uncommitted changes` before commit, or `branch changes` after).
-- Use **`generalPurpose`** when the change is mostly architectural or needs ORCHESTRATION cross-check (prompt: advisor role, cite `docs/ORCHESTRATION.md` traps).
+"Touches 3+ files" is **not** a trigger on this codebase. Five classes are over
+4000 lines, so almost any real change spans subsystems. Using file count as the
+trigger made the expensive path the default path.
 
-**Fix loop:** triage findings → fix real issues in the parent agent → **call Task again** until clean or you hit a blocker you must report (with what you did not verify). Then commit.
+## Give the reviewer a checklist, not the manual
 
-**Order:** local checks → subagent review (fix loop) → commit → **build + install once the step is finished**, before reporting it done (`orchestration.mdc` → Build and deploy). Skipping build/install = violating project rules; doing it four times for one four-commit step is just slow.
+When a reviewer needs project context, point it at `docs/CODEBASE-TRAPS.md`, and
+only at the section for the area in the diff. Do not tell it to read
+`docs/ORCHESTRATION.md`; that is the method, not a checklist, and four subagents
+each pulling the whole thing in is how a small change costs a large session.
 
-## 3. Broad / structural change — advisors before **and** after
+## Reporting
 
-Treat as **broad** when any of:
-
-- God classes or their delegates: `Connection`, `Window`, `MainWindow`, mapper controllers
-- UI ↔ `:stellar` binder, queues, or `static` shared state
-- Settings serialisation, key ownership, persistence (`AtomicFiles`, slot JSON)
-- Thread ownership (`mBuffer`, responders, `onDraw`)
-- Lua ↔ Java boundary or plugin APIs
-- Touches **3+ files** across different subsystems
-
-### Before implementing
-
-**Call Task 2+ times in parallel** (advisor mode — plan only, no code yet):
-
-| Advisor | Type | Focus |
-|---------|------|--------|
-| Architecture | `generalPurpose` | ORCHESTRATION traps, process/thread/binder boundaries, behaviour-preserving argument |
-| Correctness | `generalPurpose` or `bugbot`* | Regressions, symptom-vs-cause, missing tests |
-| Security (if I/O, network, files, Lua load) | `security-review`* | Only when the change touches trust boundaries |
-
-\*`bugbot` / `security-review` before code: use `Diff: natural language` with a short **planned** change description.
-
-Incorporate valid feedback into the plan; say what you rejected and why.
-
-### After implementing
-
-**Call Task 2+ times in parallel** on the real diff:
-
-- **`bugbot`** — bugs and regressions
-- **`generalPurpose`** — architecture / ORCHESTRATION compliance (advisor, not rewriter)
-- **`security-review`** — when security advisor ran pre-change
-
-**Fix loop** as in §2. Only then commit.
-
-## 4. Reporting to the maintainer
-
-End every code task with a **Review** line: which Task subagents ran (type + model), findings fixed vs deferred, **build/install result** (`adb -s <serial> install -r` success or error), and what was **not** verified (device behaviour, full test suite, etc.). Do not claim "works" — only "tests pass" / "review clean" / "APK installed".
+End a code task with: which subagent ran, findings fixed vs deferred, the result
+of `scripts/deploy.sh`, and what you did **not** verify. "Tests pass", "review
+clean", "APK installed". Not "works". Whether it works is decided on the phone.

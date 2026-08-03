@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# Git pre-commit hook. This is the enforcement layer that does not care which
+# editor or which model produced the change.
+#
+# Install once:
+#   git config core.hooksPath scripts/hooks
+#
+# That is version-controlled, unlike .git/hooks, so it survives a fresh clone
+# and can be reviewed in a diff.
+#
+# Deliberately fast: no Gradle here. The full suite is scripts/check.sh and CI.
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+fail=0
+say() { printf '\n%s\n' "$1"; }
+
+staged="$(git diff --cached --name-only --diff-filter=ACM)"
+[ -z "$staged" ] && exit 0
+
+# --- branch ----------------------------------------------------------------
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  say "BLOCKED: committing on '$branch'. Daily work goes on staging."
+  echo "  git switch staging"
+  exit 1
+fi
+
+# --- Lua syntax, which the Gradle build does not check ---------------------
+lua_files="$(printf '%s\n' "$staged" | grep '\.lua$' || true)"
+if [ -n "$lua_files" ]; then
+  # shellcheck disable=SC2086
+  if ! out="$(bash scripts/guards/lua-syntax.sh $lua_files 2>&1)"; then
+    say "Lua syntax:"
+    echo "$out"
+    fail=1
+  fi
+fi
+
+# --- shipped Lua changed, so the unpack counter must move ------------------
+# The app unpacks assets/share/lua to internal storage and compares this
+# counter. Without a bump, install -r ships new Lua that the phone never runs,
+# so the maintainer tests unchanged code and reports "not fixed". Every button
+# editor commit that worked carries this one line.
+shipped_lua="$(printf '%s\n' "$staged" | grep '^BT_Free/assets/share/lua/5\.1/.*\.lua$' || true)"
+if [ -n "$shipped_lua" ]; then
+  if ! git diff --cached -U0 -- BT_Free/AndroidManifest.xml \
+       | grep -E '^\+' | grep -q 'BLOWTORCH_LUA_LIBS_VERSION'; then
+    say "BLOCKED: shipped Lua changed without bumping BLOWTORCH_LUA_LIBS_VERSION."
+    printf '%s\n' "$shipped_lua" | head -5
+    echo
+    echo "The phone keeps running the unpacked copy until that counter moves."
+    echo "Bump android:value in the BLOWTORCH_LUA_LIBS_VERSION meta-data of"
+    echo "BT_Free/AndroidManifest.xml and stage it with this commit."
+    fail=1
+  fi
+fi
+
+# --- docs/ allowlist -------------------------------------------------------
+doc_files="$(printf '%s\n' "$staged" | grep '^docs/' || true)"
+if [ -n "$doc_files" ]; then
+  # shellcheck disable=SC2086
+  if ! out="$(bash scripts/guards/docs-allowlist.sh $doc_files 2>&1)"; then
+    say "docs/ policy:"
+    echo "$out"
+    fail=1
+  fi
+fi
+
+# --- leftover instrumentation ---------------------------------------------
+# Rule 5: probes go in their own commit and come back out. This does not stop
+# a probe commit, it stops a probe riding along inside a real fix.
+probe_hits="$(git diff --cached -U0 -- '*.java' '*.kt' '*.lua' \
+  | grep -E '^\+' | grep -E 'BTPROF|TEMPORARY PROBE' || true)"
+if [ -n "$probe_hits" ]; then
+  msg_file="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
+  if ! grep -qiE 'probe|temporary|instrument' "$msg_file" 2>/dev/null; then
+    say "Instrumentation in a commit that does not look like a probe commit:"
+    printf '%s\n' "$probe_hits" | head -10
+    echo
+    echo "Probes get their own commit (ORCHESTRATION rule 5) so they revert cleanly."
+    echo "Either split the commit, or say 'probe' / 'temporary' in the message."
+    fail=1
+  fi
+fi
+
+# --- StrictMode penaltyDeath on the build the maintainer plays -------------
+if git diff --cached -U0 | grep -E '^\+' | grep -q 'penaltyDeath'; then
+  say "BLOCKED: penaltyDeath. btTest is the flavour being played; penaltyLog only."
+  fail=1
+fi
+
+# --- MAIN / LAUNCHER component ---------------------------------------------
+if printf '%s\n' "$staged" | grep -q 'AndroidManifest.xml'; then
+  if ! bash scripts/guards/launcher-component.sh; then
+    fail=1
+  fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+  printf '\npre-commit FAILED. Fix the above, or commit with --no-verify if you know why.\n'
+  exit 1
+fi
+exit 0

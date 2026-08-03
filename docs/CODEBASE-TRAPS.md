@@ -1,0 +1,244 @@
+# Codebase traps
+
+Facts that cost a physical phone, a logcat and usually two wrong guesses to
+establish. **This is a lookup table, not a rule set.** Read the section for the
+area you are touching. Do not read it end to end and do not load it into a
+session that does not need it.
+
+Five areas where reading the code confidently teaches you something false:
+
+1. [The two processes and the binder](#1-the-two-processes-and-the-binder)
+2. [Static state](#2-static-state)
+3. [Thread ownership](#3-thread-ownership)
+4. [Settings serialisation](#4-settings-serialisation)
+5. [The Lua layer](#5-the-lua-layer)
+
+Then: [where errors go](#where-errors-go), [per world vs app-wide](#per-world-vs-app-wide),
+[mistakes already made](#mistakes-already-made), [questions already answered](#questions-already-answered).
+
+For modules, packages and data flow, see `architecture.md`.
+
+---
+
+## 1. The two processes and the binder
+
+|          | UI process | Service process (`:stellar`) |
+| -------- | ---------- | ---------------------------- |
+| Owns     | `MainWindow`, `Window`, overlays, the button window Lua | `Connection`, `StellarService`, plugins and their Lua |
+| Talks to | the player | the MUD socket |
+
+**The two binder legs are not symmetric. This is the single most misleading
+thing in the project.**
+
+- **UI to service is synchronous.** `PluginXCallS` to `Connection.pluginXcallS`
+  to `Plugin.xcallS` runs the plugin's Lua on the calling thread. Slow Lua there
+  freezes the UI directly.
+- **Service to UI is `oneway`, and must stay that way.** The older note here read
+  as if that direction were free. It is not: what was queued was the `Handler`
+  post on the far side, while the binder transaction itself blocked. A
+  synchronous transaction into a *frozen* process is a kill
+  (`am_kill … Sync transaction while frozen`), and the cached-app freezer
+  suspends the UI process about two minutes after it is backgrounded. That is
+  what redrew the screen every time the player came back.
+
+`IWindowCallback`, `IConnectionBinderCallback` and `ILauncherCallback` are all
+`oneway` now, so a method with a return value or an `out`/`inout` parameter will
+not compile. Do not "just add a getter" to one of them. That compile error is a
+guardrail, not an obstacle.
+
+Within one direction the ordering point still holds: `WindowXCallB` and
+`SaveSettings` both post to the same `ConnectionHandler`, so whatever is queued
+first delays the rest. A button set switch took 1.1s because a settings save was
+in front of it.
+
+**When something is slow, ask which queue it is waiting in before you look for
+slow code.**
+
+The main window's text belongs to the service, not the UI. `MainWindow.initWindow`
+does `tmp.setBuffer(w.getBuffer())`, so the UI `Window` *adopts* the service-side
+`WindowToken` buffer. Anything shown to the player that is not written into that
+buffer disappears the next time the windows are rebuilt, which is what switching
+worlds does. Send text via `Connection.sendBytesToWindow`, which buffers then
+notifies. `notifyMainWindow` is only for callers that already buffered.
+
+`⋮` is structurally above every overlay: `gameplay_chrome_overlay` is a later
+sibling of `window_container` in `window_layout.xml`, and the overlays live
+inside the container. So "the overlay covers ⋮" is a visibility complaint, never
+a z-order one. The real hazard is the reverse: `⋮` silently takes touches from
+anything parked under it.
+
+## 2. Static state
+
+Both processes load the same classes. A `static` field exists **twice**, and the
+two copies never see each other's writes.
+
+This caused a real bug: a cache in `SDCardUtils` was invalidated explicitly from
+the UI, which did nothing for the service, and settings import/export runs in the
+service.
+
+**If you cache something static, make it self-correcting (check a cheap source of
+truth) rather than relying on being told to clear it.**
+
+## 3. Thread ownership
+
+- **`Window.mBuffer` is UI-thread only.** `onDraw` walks the line list three
+  times a frame and only the first walk is guarded, so a mutation from elsewhere
+  is a crash, not a glitch. `Window.warnIfNotUiThread` logs a stack trace naming
+  the culprit, once per window.
+- **`Connection` legitimately mutates its own `TextTree`s off the UI thread.**
+  That is why the barrier lives in `Window`, not `TextTree`. **Do not put locks
+  in `TextTree`.**
+- There is deliberately no lock around the buffer. A lock would pay every frame
+  for a race that does not exist.
+- **Responders run on two different threads**: triggers on the connection
+  thread, timers on a timer thread. Anything they share must be local. One
+  shared `Matcher` and `StringBuffer` used to sit in responder instance fields.
+
+## 4. Settings serialisation
+
+`ConnectionSettingsIO.buildSettingsPage` nests the main window's `SettingsGroup`
+into root options, and `nestExtraTextUnderWindow` nests the extra-text group into
+the window group. Good for the Options menu, confusing for serialisation,
+because both writers walk recursively:
+
+- `WindowTokenParser` owns window keys, writes them inside `<window>`.
+- `ConnectionSetttingsParser` owns connection keys, writes them in `<options>`.
+
+Each reaches keys the other owns. They **skip** foreign keys now
+(`isWindowOptionKey` / `isConnectionOptionKey`, guarded by
+`SettingsOptionKeyOwnershipTest`). They used to throw on every one: about 45
+exceptions and 1.1s per save.
+
+**Not everything with a `SettingsGroup` is persisted.** Extra-text `WindowToken`s
+are rebuilt by `ensureSlots()` and never reach `settings.getWindows()`, so their
+settings are not serialised. Durable per-slot state belongs in the slot JSON
+(`ExtraTextSlot`).
+
+`util/AtomicFiles` is the one place for durable writes. Do not hand-roll a file
+write for anything a player cannot reconstruct.
+
+## 5. The Lua layer
+
+Plugins and the button window are Lua under `BT_Free/assets/share/lua/5.1/`.
+`buttonserver.lua` runs in the service, `buttonwindow.lua` in the UI process.
+
+**The Gradle build checks no Lua at all.** `scripts/check.sh` and the git
+pre-commit hook do. If one of them fails on a file you just wrote, that is the
+build's blind spot being covered, not a false positive.
+
+**Changing a shipped `.lua` means bumping `BLOWTORCH_LUA_LIBS_VERSION`** in
+`BT_Free/AndroidManifest.xml`. The app unpacks `assets/share/lua` to internal
+storage once and compares that counter; without a bump, `install -r` puts the
+new APK on the phone and the phone keeps running **the old scripts**. The
+maintainer then tests unchanged code and reports "not fixed", which has happened
+more than once. Now blocked by the git pre-commit hook. Verify in a built APK:
+
+```sh
+aapt2 dump xmltree --file AndroidManifest.xml <apk> | grep -A2 BLOWTORCH_LUA_LIBS
+```
+
+Traps that have already caused bugs:
+
+- `1 ~= "1"`. Values from the settings XML arrive as strings.
+- **"nothing selected" is spelled `{}`, not `nil`**, in `buttonwindow.lua`. A
+  `== nil` check passes an empty table straight through, which crashed the touch
+  handler on every cancelled gesture. Fixed in `6f10eb70`: `layoutTargets()`
+  returns `chosen, true` / `all, false` and callers test `#targets == 0`. Do not
+  reintroduce it, but do not go hunting for it either. Two audits have searched
+  and found nothing live.
+- `WhiteSpace extends Text` in `TextTree`, so `instanceof Text` catches
+  whitespace too.
+- Neither `luac5.1 -p` nor Gradle type-checks a `luajava` call. Layout params
+  passed that way are unverifiable until the device runs them, which is why three
+  commits went into `editoroptionsdialog.lua` in 45 minutes.
+
+### Alias and trigger substitution
+
+Three separate mechanisms, easy to confuse:
+
+- `$1` in a **trigger** action comes from the MUD's output line.
+- `$1` in an **alias** comes from what the player typed.
+- `${name}` in either comes from a session variable (`SetVariable` / Lua), which
+  is how the two worlds connect.
+
+An alias substitutes differently depending on its anchors. See
+`AliasExpansion.Mode`. That rule was implicit in a branch inside a 150-line
+method for years.
+
+---
+
+## Where errors go
+
+- `BlowTorchLogger.logThrowable` to the error log file the player reads after a
+  crash. For failures a player could hit.
+- `BlowTorchLogger.logMinor` to logcat only. Routine, locally-visible failures.
+- `BlowTorchLogger.logGmcpTrace` to `logs/gmcp.log`, its own file. Protocol
+  chatter must **never** go in the error log; it has been removed from there
+  twice, because it rolls the crash history away.
+
+## Per world vs app-wide
+
+Getting this wrong is a recurring bug shape. Ask "is this about this MUD, or
+about this app?" before choosing where a setting lives.
+
+- **Per world**: maps (`openMapForHost`, keyed on `hostHint`), mapper overlay
+  visibility and float geometry, per-connection settings.
+- **App-wide**: the update check. It lives in `SharedPreferences`, not a
+  connection profile, because whether the app looks for its own updates is a
+  property of the install.
+
+## Evidence has a provenance
+
+**Text pasted from the game window is not a network capture.** A payload pasted
+by hand appeared to show a server sending malformed JSON. A whole fix was built
+on it and a public claim made that GMCP was broken on that world. The live logcat
+showed perfectly well-formed JSON: the mangling happened in the copy.
+
+For what a server really sent, use `logs/gmcp.log` (Options, Service, GMCP, Log
+GMCP?) or logcat. Not a paste, not a screenshot.
+
+**Two apps on the phone look almost identical.** "BlowTorch 2"
+(`com.resurrection.blowtorch2`, production, usually old) and "BlowTorch 2 Test"
+(`com.resurrection.blowtorch2.test`, where every install goes). A crash report
+once described a bug that had already been fixed: it was reproduced on
+production. **Ask which app before investigating any failure report.** The
+version is in ⋮ → About.
+
+---
+
+## Mistakes already made
+
+Each cost real time or real data.
+
+| What happened | What to do instead |
+|---|---|
+| `adb uninstall` to "re-register the manifest", destroyed the maintainer's profiles | `install -r`; it does the same job. Now blocked by `shell-guard.sh` |
+| Moved the `MAIN`/`LAUNCHER` filter to another component, the home screen icon died while the app was installed | Leave the component alone; theme the trampoline with `BlowTorch.Invisible`. Now checked by `launcher-component.sh` |
+| Treated pasted game-window text as proof of what a server sent; built a fix and announced a bug that did not exist | `logs/gmcp.log` or logcat, never a paste |
+| Cached a value in a `static` and invalidated it from one process; the other kept the stale value | Make the cache check a cheap source of truth |
+| Guarded a Lua sentinel with `== nil` when it is `{}`; crashed every cancelled gesture | Test for the fields a real object has |
+| Three wrong fixes to label placement, each tuning the collision search | Two labels were competing for one spot. Find the cause |
+| Recommended a large change to the alias loop without reading it | Read the code that runs before recommending changes to it |
+| Explained a fix in terms of implementation, twice, and lost the maintainer | Worked example of what they will see |
+| Wrote a plausible mechanism for a measured number without checking it | Record the number, mark the mechanism unverified |
+| Four commits guessing Mode A IME height on `getWindowVisibleDisplayFrame` under `adjustNothing` (always 0); a fifth and sixth finally read the API | Second failed attempt means read the API. If that still fails, ask the maintainer whether the goal is what they want and what you understood |
+| Commit message claimed "loadPlugins already rebuilt the trigger tables"; true for the paths that reach `loadPlugins`, not for the two catch branches that fall through | A commit message is a claim. Go and look, and say how you know |
+| Commit message claimed ":stellar reads these once at construction"; those two keys have no live reader at all | Same |
+
+## Questions already answered
+
+Do not re-derive these.
+
+| Question | Answer |
+|---|---|
+| Is the `onDraw` bleed scan a performance problem? | No. 9 lines, 2ms worst case over 300 frames on a real MUD. The 1000-line limit only bites on a buffer with no colour at all |
+| Is `wait(5)` in `Window.onDraw` a real hot spot? | No, dead code from a threading model that no longer exists. Removed |
+| Does reloading `button.lua` per set switch cost much? | No, 1 to 8ms measured |
+| What made button set switching take 1.1s? | A settings save queued ahead of the payload on the same handler, slow because it threw about 45 exceptions |
+| Why did Options, Window do nothing until restart? | `SettingsGroup.recursiveListenerUpdate` cleared the listener map on every descent into a subgroup |
+| Are extra-text `WindowToken` settings persisted? | No. Use the slot JSON |
+| Does the mapper parse GMCP `coord`? | Yes, several shapes, behind `mapper_gmcp_use_coords` (default off) with a Chebyshev ≤1 guard |
+| Are MSSP and MTTS implemented properly? | Yes, both complete. MSSP is one-way by design; MTTS is the full three-reply TTYPE cycle |
+| Was MSDP complete? | No. Transport was correct, but the client could never *ask*. `LIST`/`SEND`/`REPORT`/`UNREPORT`/`RESET` added later |
+| Are the stability bugs from the 2026 AI work? | No. All inherited from 2010 to 2018 |
+| Did that MUD send malformed GMCP? | No. That was a paste artefact |

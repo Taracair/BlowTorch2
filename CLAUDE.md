@@ -1,98 +1,73 @@
 # CLAUDE.md
 
-Claude Code sessions start in the **parent** `blowtorch-ressurection/`, which
-imports this file. Started here instead, the memory directory and the permission
-allowlist are missing.
+Work on branch `staging`. The maintainer decides what ships.
 
-**Read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) before doing anything
-else in this repo.** It is the full guide: architecture facts that are expensive
-to rediscover, the working method, the device lab, and a catalogue of mistakes
-already made here. Then read [`docs/HANDOFF.md`](docs/HANDOFF.md) for where
-things stand and what to pick up next. Incremental release notes go in
-[`docs/changelog_draft.md`](docs/changelog_draft.md) (gitignored). This file is only the short version.
+## Six rules
 
-## The ten rules
+These are the ones that need judgment. Everything else that used to be on this
+list is now enforced by a script, so you do not have to remember it. See
+`docs/GUARDRAILS.md` for what is blocked and where.
 
 1. **Measure before you touch.** Reading this code has produced a confident,
    wrong hypothesis at least six times. The device is the authority.
-2. **Never `adb uninstall`.** Always `install -r`. Uninstalling destroys the
-   maintainer's server list and profiles.
-3. **The maintainer runs the device tests.** Give the exact gesture, what a
-   failure looks like, and the log command. Never say "works" when you mean
-   "compiles".
-4. **Say what you did not verify.** Every time.
-5. **Instrumentation goes in its own commit, comes back out, and leaves its
-   number in a code comment.**
-6. **Do not guess mechanisms.** A measurement is a fact; the explanation is a
-   guess until checked.
-7. **Fix the cause, not the symptom.** Remove the throw rather than quieten the
-   log; a wider `catch` moves the symptom away from the cause.
-8. **"Behaviour-preserving" needs an argument, not an assertion.**
-9. **Prefer barriers to fixes** — the class of bug prevented at the point of
-   cause.
-10. **Stay in scope.** Report what else you find; let the maintainer decide.
+2. **Say what you did not verify.** Every time. Never say "works" when you mean
+   "compiles" or "installed".
+3. **Do not guess mechanisms.** A measurement is a fact; the explanation for it
+   is a guess until checked, and a plausible wrong explanation in a durable
+   place is worse than none.
+4. **Fix the cause, not the symptom.** Remove the throw rather than quieten the
+   log. A wider `catch` moves the symptom away from the cause.
+5. **"Behaviour-preserving" needs an argument, not an assertion.** Show why the
+   output is identical, or extract, test against old behaviour, then delegate.
+6. **The second attempt is the signal.** Fixing the same failure in the same
+   place twice means the first fix was a guess. Stop at the third: read what the
+   API actually requires, then write one informed fix. If that still fails, go
+   back to the maintainer before a seventh approach. Ask two things out loud:
+   do they want what they said, and is what they said what you understood.
 
-Work on branch **`staging`**, never `main`.
-
-## Build and deploy
+## Commands
 
 ```sh
-./gradlew :BTLib:testDebugUnitTest                 # JVM tests, no device needed
-./gradlew :BT_Free:assembleBtTestDebug             # the flavour actually tested
-luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua      # the build does NOT check Lua
-~/Android/Sdk/platform-tools/adb -s <serial> install -r \
-  BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
+scripts/check.sh          # everything checkable without a device; what CI runs
+scripts/deploy.sh         # test, build btTest debug, resolve serial, install -r
+scripts/adb-device.sh     # print a usable serial, nothing else
 ```
 
-`adb` is not on PATH. The phone is often on USB *and* wifi at once, so always
-pass `-s`; the wifi port changes between sessions and `connect` on a stale port
-will not recover an `offline` device.
+Run `scripts/deploy.sh` before reporting a code step done, once per step, after
+its last commit. Report "installed", not "works".
 
-## The facts that mislead people most
+## Where things are
 
-1. **UI → service binder calls are synchronous. Service → UI ones are `oneway`,
-   and must stay that way.** The "queued" half of this used to read as if the
-   service→UI direction were free; what was queued was the `Handler` post on
-   the far side — the binder transaction itself blocked. A synchronous
-   transaction into a *frozen* process is a kill (`am_kill … Sync transaction
-   while frozen`), and the cached-app freezer suspends the UI process about two
-   minutes after it is backgrounded. That is what redrew the screen every time
-   the player came back. `IWindowCallback`, `IConnectionBinderCallback` and
-   `ILauncherCallback` are all `oneway` interfaces now, so a method with a
-   return value or an `out`/`inout` parameter will not compile. Do not "just
-   add a getter" to one of them.
-   Within one direction the ordering point still holds: `WindowXCallB` and
-   `SaveSettings` both post to the same `ConnectionHandler`, so whatever is
-   queued first delays the rest.
-2. **`static` fields exist twice** — once per process. A cache invalidated in
-   the UI does nothing for `:stellar`, which is where settings I/O runs.
-3. **`Window.mBuffer` is UI-thread only** (`warnIfNotUiThread` enforces it), but
-   `Connection` legitimately mutates its own `TextTree`s off it. Do not put
-   locks in `TextTree`.
-4. **Extra-text `WindowToken` settings are never persisted** — `ensureSlots()`
-   rebuilds those tokens. Durable per-slot state goes in the slot JSON.
-5. **`buttonwindow.lua` once returned `{}` for "nothing selected", and a `== nil`
-   check passed it through.** Fixed in `6f10eb70`; `layoutTargets()` returns
-   `chosen, true` / `all, false` and callers test `#targets == 0`. Do not
-   reintroduce it — but do not go hunting for it either: two audits have
-   searched and found nothing live.
-6. **Do not move the `MAIN`/`LAUNCHER` intent filter to another component** —
-   pinned home screen icons are keyed on the component name.
-7. **The main window's text belongs to the service, not the UI.**
-   `MainWindow.initWindow` does `tmp.setBuffer(w.getBuffer())` — the UI `Window`
-   *adopts* the service-side `WindowToken` buffer. Anything shown to the player
-   that is not written into that buffer disappears the next time the windows are
-   rebuilt, which is what switching worlds does. Send text via
-   `Connection.sendBytesToWindow`, which buffers then notifies;
-   `notifyMainWindow` is only for callers that already buffered.
-8. **⋮ is structurally above every overlay.** `gameplay_chrome_overlay` is a
-   later sibling of `window_container` in `window_layout.xml`, and the overlays
-   (frame, mapper, extra text) live inside the container. So "the overlay covers
-   ⋮" is a visibility complaint, never a z-order one — and the real hazard is the
-   reverse: ⋮ silently takes touches from anything parked under it.
+| You need | Read |
+|---|---|
+| Why a change keeps failing in a way that makes no sense | `docs/CODEBASE-TRAPS.md` |
+| The working method behind the six rules | `docs/ORCHESTRATION.md` |
+| What is mechanically blocked and why | `docs/GUARDRAILS.md` |
+| Modules, packages, data flow | `docs/architecture.md` |
+| What already happened and how | `git log`, `git show`, `git blame` |
+| What is still to do | `docs/HANDOFF.md` if it exists locally |
 
-## Evidence
+Read `docs/CODEBASE-TRAPS.md` **before** touching any of: the UI to `:stellar`
+binder, `static` state, settings serialisation, thread ownership, the Lua to
+Java boundary. Those five areas are where reading the code confidently teaches
+you something false. Elsewhere, do not load it.
 
-Text pasted from the game window is **not** a network capture — a paste once
-appeared to show malformed GMCP that the wire never carried. Use
-`logs/gmcp.log` or logcat.
+## Explain in examples
+
+"You type `kk goblin` and the game receives `kill $1` instead of `kill goblin`"
+beats "unanchored aliases do not substitute captures". The maintainer is testing
+on a phone, not reading your diff.
+
+Write to the maintainer in **Polish** — status, questions, release drafts —
+unless they switch language. Code, comments, commit messages and everything in
+`docs/` stay in English.
+
+## Commits
+
+Commit on `staging` after each completed logical step, without being asked. One
+commit is one rollback point. Probes get their own commit. Message is one or two
+sentences on why, not a file list. Do not push.
+
+A commit message is a claim. "Nothing reads this", "equivalent to the old path",
+"X already does this" are assertions about code somewhere else. Go and look
+before writing them down, and say how you know.

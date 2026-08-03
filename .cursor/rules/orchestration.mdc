@@ -1,217 +1,67 @@
 ---
-description: BlowTorch working method — read ORCHESTRATION.md first
+description: BlowTorch working agreement, short version
 alwaysApply: true
 ---
 
-# BlowTorch — working agreement
+# BlowTorch working agreement
 
-**Read [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) before changing code.** This is the short version. If `docs/HANDOFF.md` exists locally (gitignored), read it after ORCHESTRATION for **open backlog only** (see HANDOFF below).
+Work on branch `staging`. The maintainer decides what ships. Full version in
+`CLAUDE.md`; this file exists because Cursor needs the short list unconditionally
+present, not fetched.
 
-## Division of labour
+## Six rules
 
-- AI investigates and proposes; **after every code change, AI builds btTest debug and `install -r`s it on the maintainer's phone**; **maintainer runs device tests and decides what ships**.
-- Never say "works" when you mean "compiles" or "installed".
-- **Say what you did not verify** — every time.
+The rest of what used to be here is enforced by scripts now. `docs/GUARDRAILS.md`
+lists what is blocked and where. If a guard blocks you, it is telling you a fact
+about this project, not being difficult.
 
-## The ten rules
+1. **Measure before you touch.** Reading this code has produced a confident,
+   wrong hypothesis at least six times. The device is the authority.
+2. **Say what you did not verify.** Every time. Never say "works" when you mean
+   "compiles" or "installed".
+3. **Do not guess mechanisms.** A measurement is a fact; the explanation for it
+   is a guess until checked, and a plausible wrong explanation in a durable
+   place is worse than none.
+4. **Fix the cause, not the symptom.** Remove the throw rather than quieten the
+   log. A wider `catch` moves the symptom away from the cause.
+5. **"Behaviour-preserving" needs an argument, not an assertion.** Show why the
+   output is identical, or extract, test against old behaviour, then delegate.
+6. **The second attempt is the signal.** Fixing the same failure in the same
+   place twice means the first fix was a guess. Stop at the third: read what the
+   API actually requires, then write one informed fix. If that still fails, go
+   back to the maintainer before a seventh approach. Ask two things out loud:
+   do they want what they said, and is what they said what you understood.
 
-1. **Measure before you touch.** Reading this code has produced confident, wrong hypotheses repeatedly. The device is the authority.
-2. **Never `adb uninstall`.** Always `install -r`. Uninstalling destroys the maintainer's server list and profiles.
-3. **The maintainer runs the device tests.** Give the exact gesture, what a failure looks like, and the log command. Batch: one build, one round of testing.
-4. **Say what you did not verify.** Every time.
-5. **Instrumentation goes in its own commit, comes back out, and leaves its number in a code comment.** Use `SystemClock.uptimeMillis()`, not `os.clock()`.
-6. **Do not guess mechanisms.** A measurement is a fact; the explanation is a guess until checked.
-7. **Fix the cause, not the symptom.** Remove the throw rather than quieten the log; a wider `catch` moves the symptom away from the cause.
-8. **"Behaviour-preserving" needs an argument, not an assertion.** Show why the output is identical, or extract → test against old behaviour → delegate.
-9. **Prefer barriers to fixes** — the class of bug prevented at the point of cause (`warnIfNotUiThread`, `AtomicFiles`, key-ownership tests, etc.).
-10. **Stay in scope.** Report what else you find; let the maintainer decide.
-
-Work on branch **`staging`**, never `main`.
-
-## The second attempt is the signal
-
-Fixing the same failure in the same place twice means the first fix was a guess.
-**Stop guessing at the third.** Do not open another "maybe this layout /
-estimator / flag" commit. Go and read what the API actually requires — the
-`LayoutParams` type a parent demands, the order a framework calls things in,
-what soft-input mode does to insets, what the window manager stacks above an
-app window, what the docs say the callback may not do — and then write **one**
-informed fix.
-
-Two from this repo that burned build-install-tap cycles on successive guesses:
-
-- Three commits in 45 minutes against `editoroptionsdialog.lua` on 30 July
-  (`b99bd711`, `23b03263`, `fb8e9bda`) — layout params. Neither `luac5.1 -p`
-  nor Gradle type-checks a `luajava` call, so reading first is the cheap option.
-- Four commits in a row on Mode A "above the keyboard"
-  (`ad9f250e`, `65aa3d3f`, `8b2acee3`, `1b6c2ebe`) — each another IME-height
-  estimator on `getWindowVisibleDisplayFrame()`. The manifest is
-  `adjustNothing`, so that frame never shrinks and every layer returned 0 by
-  construction. The fifth commit (`15fedc99`) finally read the constraint; a
-  sixth (`7fe6675f`) needed a different window type entirely. Four guesses
-  before the API was checked is exactly this rule failing.
-
-### If the informed fix still fails — stop and ask
-
-Reading the API and still not getting the behaviour the maintainer asked for is
-not a cue for a seventh approach. **Go back to the maintainer.** Check two
-things out loud before writing more code:
-
-1. **Do they want what they said?** The request may be impossible under a hard
-   platform constraint (e.g. app windows cannot draw over `TYPE_INPUT_METHOD`),
-   or it may conflict with another choice already in the app (`adjustNothing`).
-   Say the constraint in plain language and ask whether to change the goal,
-   accept a degraded behaviour, or pick a different approach they approve.
-2. **Is what they said what you understood?** Restate the desired player-visible
-   behaviour in one worked example ("tap the input bar → button sits on the
-   keys / just above them / never moves"). Misread requirements produce the same
-   commit storm as misread APIs.
-
-Do not silently redefine the goal to something easier to implement. The
-maintainer decides.
-
-## A commit message is a claim, and claims get checked
-
-Rule 8 applies to the message, not just the diff. If it says *"X already does
-this"*, *"nothing reads this"*, or *"equivalent to the old path"*, that is an
-assertion about code somewhere else — **go and look before writing it down**,
-and say in the message how you know.
-
-Two from 30 July that did not survive review:
-
-- *"loadPlugins → buildSettingsPage already rebuilt the trigger tables"* — true
-  for the paths that reach `loadPlugins`; the two catch branches that fall
-  through do not.
-- *":stellar reads these once at Connection construction"* — the two keys in
-  question have no live reader at all; the only reads are commented out.
-
-Neither cost a bug this time. Both cost the next reader the work of finding out.
-
-## Commits (proactive — no need to ask)
-
-The maintainer works only with AI, not by hand-editing code. **Commit on `staging` after each completed logical step** so bad changes are easy to revert. Do not wait to be asked.
-
-**One commit = one rollback point** — a finished fix, a doc update, a tutorial sync, a refactor that compiles. Not every file edit, not every chat message.
-
-- **Separate commits** for unrelated work (e.g. a real fix vs a TEMPORARY probe vs a rules/docs tweak).
-- **Probes** always get their own commit (rule 5 above); revert them cleanly once measured.
-- **Message:** 1–2 sentences on *why*, not a file list. Match existing repo style.
-- **Do not commit:** secrets (`.env`, keys), gitignored plans/audits, or WIP that does not build and was not asked to land half-done.
-- **Do not push** unless the maintainer asks. Local commits on `staging` are the safety net.
-
-If a session ends with uncommitted finished work, commit before stopping.
-
-**Before each code commit:** run local checks and subagent review per `subagent-review.mdc` (fix findings first).
-
-## HANDOFF.md (open backlog only)
-
-`docs/HANDOFF.md` is **gitignored** and local to the maintainer's machine. Read it after ORCHESTRATION when it exists.
-
-**Only what is still to do.** HANDOFF is a forward-looking queue — not a diary.
-
-- **Keep:** release blockers, device tests the maintainer has not run yet, recommended next work, short ephemeral state (branch, version, unpushed count, paths to draft release assets).
-- **Remove when done:** finished backlog items, "CODE DONE / verified" sections, strikethrough history, tables of recent commits. **Do not archive completed work in HANDOFF** — `staging` commits are the record.
-- **When you finish a task:** commit on `staging` first, then **edit HANDOFF in the same session** to delete the completed lines (not strike through).
-
-**Git is how you learn what was done and how.** When a topic depends on a recent change, or you need the implementation approach, read history before guessing:
+## Commands
 
 ```sh
-git log --oneline -20
-git log --oneline -- <path>          # file or directory
-git show <commit>                    # full diff + message
-git blame -L <start>,<end> <file>    # who changed which lines
+scripts/check.sh          # everything checkable without a device; what CI runs
+scripts/deploy.sh         # test, build btTest debug, resolve serial, install -r
 ```
 
-Use HANDOFF for *what's next*; use `git log` / `git show` / `git blame` for *what already happened and how it was built*. Do not duplicate commit messages or verification logs in HANDOFF.
+Run `scripts/deploy.sh` before reporting a code step done, once per step, after
+its last commit. Report "installed", not "works". Do not resolve the adb serial
+by hand and never ask the maintainer for the wifi port; `scripts/adb-device.sh`
+finds it.
 
-## Ephemeral scripts (`.scratch/`)
+## Before you touch these five areas, read docs/CODEBASE-TRAPS.md
 
-Agents **do not reliably clean up** ad-hoc scripts unless told. **Do not** leave one-off `.py` / `.sh` / dumps in the repo root, `docs/`, or random paths.
+UI to `:stellar` binder, `static` state, settings serialisation, thread
+ownership, the Lua to Java boundary. Those are where reading the code
+confidently teaches you something false. Elsewhere, do not load it.
 
-- **One-off / session / probe helpers** → `BlowTorch/.scratch/` (**gitignored**). Name clearly (`measure_foo.sh`, `frameserver.py`).
-- **`scripts/`** → only **durable** repo tools the maintainer will reuse (`strictmode_report.py`, etc.). Do **not** add new files there without being asked; **promote** from `.scratch/` only when the maintainer confirms it should stay.
-- **When the task is done:** delete the `.scratch/` files you created in that task (or the whole folder if empty). Do not accumulate stale scripts across sessions.
-- **If the maintainer says keep it:** promote to `scripts/` and commit, or leave a single file in `.scratch/` with a one-line note in HANDOFF — not both.
+## Commits
 
-App-code probes (log lines, `BTPROF` tags) still follow rule 5 — separate TEMPORARY commit, then revert. That is separate from shell scripts in `.scratch/`.
+Commit on `staging` after each completed logical step, without being asked. One
+commit is one rollback point. Probes get their own commit. Do not push.
 
-## Facts that mislead (do not re-derive)
+A commit message is a claim: "nothing reads this", "equivalent to the old path".
+Go and look before writing it down, and say how you know.
 
-- **UI → service binder calls are synchronous; service → UI ones are queued.** `WindowXCallB` and `SaveSettings` both post to the same `ConnectionHandler` — whatever is queued first delays the rest.
-- **`static` fields exist twice** — once per process (`:stellar` vs UI). A cache invalidated in the UI does nothing for the service, where settings I/O runs.
-- **`Window.mBuffer` is UI-thread only** (`warnIfNotUiThread` enforces it), but `Connection` legitimately mutates its own `TextTree`s off it. Do not put locks in `TextTree`.
-- **Extra-text `WindowToken` settings are never persisted** — `ensureSlots()` rebuilds those tokens. Durable per-slot state goes in the slot JSON.
-- **In `buttonwindow.lua`, "nothing selected" is `{}`, not `nil`.** A `== nil` check passes it straight through.
-- **Do not move the `MAIN`/`LAUNCHER` intent filter** — pinned home screen icons are keyed on the component name.
-- **Main window buffer belongs to the service, not the UI.** Send text via `Connection.sendBytesToWindow`; `notifyMainWindow` is only for callers that already buffered.
-- **Pasted game-window text is not a network capture.** Use `logs/gmcp.log` or logcat for what a server really sent.
+## Explain in examples
 
-## Repair boundary
+"You type `kk goblin` and the game receives `kill $1`" beats "unanchored aliases
+do not substitute captures".
 
-Fix what has a credible path to a player-visible failure. Deliberately not fixed: ~150 `printStackTrace` in dialogs/parsers, empty `RemoteException` catches, hand-rolled file writes outside `util/AtomicFiles`. **Say when you are leaving something.**
-
-## Before you change untestable code
-
-1. Check **`BTLib/src/test/`** before reasoning from source alone.
-2. Extract pure logic → write tests that pass against old behaviour → delegate from the original (Part 3.12 in ORCHESTRATION).
-3. Do not split god classes (`Connection`, `Window`, `MainWindow`, mapper controllers) without tests.
-
-## Build and deploy (mandatory after code changes)
-
-**NON-NEGOTIABLE.** After any change to Java/Kotlin, Lua, native, Gradle, or Android resources, the agent **MUST** build **btTest debug** and **`install -r`** on the maintainer's phone **before reporting the step as done**. Docs-only / `.cursor/rules` edits skip this.
-
-**Per step, not per commit.** A step that lands as four related commits needs one build and one install, at the end, before saying it is done — not four. What must never happen is reporting work finished with an APK on the phone that does not contain it. If the last commit of a step changed code, the install has to come after it.
-
-Run from the **repo root** (where `./gradlew` lives). The parent folder (`../`
-relative to the repo) holds two fixed-name APK copies for the maintainer — refresh
-them after every build that produces them:
-
-```sh
-./gradlew :BTLib:testDebugUnitTest            # or --tests for the area touched
-luac5.1 -p BT_Free/assets/share/lua/5.1/*.lua # when Lua changed; build does NOT check syntax
-./gradlew :BT_Free:assembleBtTestDebug
-cp -f BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk \
-  ../BlowTorch2-btTest-debug.apk
-# resolve serial — see Device lab below; never hardcode an old wifi port
-~/Android/Sdk/platform-tools/adb -s <serial> install -r \
-  BT_Free/build/outputs/apk/btTest/debug/BT_Free-btTest-debug.apk
-```
-
-**Production release** (`assembleProductionRelease`, only when the maintainer asks
-to ship): after the build succeeds, also run:
-
-```sh
-cp -f BT_Free/build/outputs/apk/production/release/BT_Free-production-release.apk \
-  ../BlowTorch2-production-release.apk
-```
-
-Only these two files belong in the parent folder. Do not accumulate older builds
-there.
-
-## Device lab (maintainer's phone)
-
-**Phone:** Pixel 9a, GrapheneOS (`device:tegu`, `model:Pixel_9a`). **LAN IP:** `10.0.0.2`.
-
-`adb` is not on PATH — always `ADB=~/Android/Sdk/platform-tools/adb`.
-
-**Wifi ADB port changes often** (examples: `5555`, `42135`, `41721`, `46133`). The agent **must find the current port itself** — do not ask the maintainer for a port unless every step below failed. **Never cache** `10.0.0.2:<port>` from a previous session; always re-resolve before `install -r`.
-
-### Resolve `<serial>` (agent does this every deploy)
-
-1. `$ADB devices -l` — pick the entry that is `device` (not `offline`) and matches `tegu` / `Pixel_9a`.
-2. **USB + wifi both listed?** Prefer the **USB** serial (alphanumeric, not `IP:port`) when it is `device`. Otherwise use the wifi `10.0.0.2:<port>` line.
-3. **Stale `offline` wifi rows?** `$ADB disconnect` them (all or per `IP:port`) before reconnecting.
-4. **No `device` row for the Pixel?** Discover and connect — in order:
-   - `$ADB mdns services` → connect any `_adb._tcp` endpoint that yields `tegu` in `$ADB devices -l`.
-   - Retry recent ports on the known IP:  
-     `for p in 5555 42135 41721 46133; do $ADB connect 10.0.0.2:$p; done` then `$ADB devices -l`.
-   - If still missing, scan `10.0.0.2` (ports often land in ~35000–50000): connect, check for `tegu.*device`, disconnect failures, continue until found.
-5. **Every** `adb` command needs `-s <serial>` when more than one device could appear.
-
-**Never `adb uninstall`.** Only report "APK installed" after a successful `install -r` on the resolved serial.
-
-The agent does not play-test on the device; the maintainer does. Still report build/install success or the exact failure output.
-
-## Explain to the maintainer in examples
-
-"You type `kk goblin` and the game receives `kill $1`" beats "unanchored aliases do not substitute captures".
+Write to the maintainer in **Polish** unless they switch language. Code,
+comments, commit messages and `docs/` stay in English.

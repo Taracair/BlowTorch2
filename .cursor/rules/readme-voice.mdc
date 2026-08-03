@@ -1,7 +1,6 @@
 ---
 description: Keep README.md author voice; never polish or rewrite it
 globs: README.md
-alwaysApply: true
 ---
 
 # README voice (do not rewrite)
