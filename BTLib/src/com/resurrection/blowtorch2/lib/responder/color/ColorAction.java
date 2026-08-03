@@ -106,8 +106,13 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		
 		int working = 0;
 		
-		Color bleed = tree.getBleedColor();
-		
+		// What to go back to after the match: the colour the server had this line
+		// in. tree.getBleedColor() answers for the point parsing reached, which
+		// on the first line of a chunk is the last line's colour, not this one's.
+		Color bleed = line.getServerColorAtStart() != null
+				? tree.makeRestoreColor(line.getServerColorAtStart())
+				: tree.getBleedColor();
+
 		int splitAt = 0;
 		boolean preEmptiveChop = false;
 		int preEmptiveChopAt = 0;
@@ -158,11 +163,17 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		}
 		newLine.add(line.newText(matched));
 		if(preEmptiveChop) {
-			// Restore pre-match colour only when text follows the match.
-			// Match-to-end of currently available text (TCP-split lines) must
-			// leave the trigger colour active — re-bleeding timestamp cyan
-			// painted the next fragment (_chatnet "…it off…"). Buffering until
-			// \\n broke line/offset sync with mWorking (glued Alma+Bevany).
+			// Restore the pre-match colour where the match ends, when there is
+			// text after it on the line.
+			//
+			// A match that runs to the end of the text that has arrived is the
+			// awkward case. Restoring here painted the rest of the line, which
+			// can come in the next TCP packet, with the colour the line started
+			// in (_chatnet "…it off…"): that half-sentence belongs to the match.
+			// Leaving the colour open and doing nothing else painted every line
+			// under it — a colour code runs until the next one. So leave it
+			// open and mark the line: the colour is closed at the end of the
+			// line it belongs to, wherever that turns out to be.
 			if(preEmptiveChopAt > 0) {
 				int length = ((Text)u).getString().length();
 				Text post = line.newText(((Text)u).getString().substring(length-preEmptiveChopAt,length));
@@ -170,6 +181,8 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 				newLine.add(post);
 			} else if (hasFollowingText(it)) {
 				newLine.add(bleed);
+			} else {
+				line.setTriggerColorOpen(true);
 			}
 		} else {
 			//normal "find and chop" procedure.
@@ -204,6 +217,9 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 				// Match ended on a unit boundary with more text after — restore
 				// bleed so trailing units are not left in the trigger colour.
 				newLine.add(bleed);
+			} else {
+				// Nothing after the match yet. Same case as above.
+				line.setTriggerColorOpen(true);
 			}
 		}
 		

@@ -390,7 +390,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** TextTree instance used for trigger parsing input text. */
 	private TextTree mFinished = null;
-	
+
+	/** Whether a colour trigger's colour is still running, across dispatches. */
+	private final TriggerColorState mTriggerColor = new TriggerColorState();
+
 	/** Mapping of link paths to plugin names. */
 	HashMap<String, ArrayList<String>> mLinkMap = new HashMap<String, ArrayList<String>>();
 
@@ -2506,6 +2509,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		
 		mWorking.empty();
+
+		// A colour trigger whose match reached the end of the text that had
+		// arrived leaves its colour running on purpose, so the rest of the line
+		// keeps it when the next packet brings it. Close it at that line's end —
+		// what goes out below is a byte stream, and a colour code in a stream
+		// runs until the next one.
+		mTriggerColor.closeAtLineEnds(mFinished);
+
 		mFinished.updateMetrics();
 		
 		byte[] proc = mFinished.dumpToBytes(false);

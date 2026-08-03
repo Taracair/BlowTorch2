@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -483,26 +484,34 @@ public class TextTree {
 		}
 		
 		LinkedList<Unit> ldata = null;
+		Line reopened = null;
 		if(appendLast) { //yay appendLast is over. now just look at the last line of the buffer, parse through it and find if the last text in it (not color) was a newline.
 			//if(mLines.size() > 0) {
 				tmp = mLines.remove(0); //dont worry kids, it'll be appended back.
 				totalbytes -= tmp.bytes; //this will be added back too, this is just to avoid memory leaking
 				ldata = tmp.getData();
 				brokenLineCount -= tmp.breaks + 1;
+				reopened = tmp;
 				//Log.e("TREE",">>>>>>>>>>>>>>APPENDING TO: " + deColorLine(tmp));
 			//}
 		} //else {
 			//tmp = new Line();
 		//}
-		
+
 		tmp = new Line();
-		
+		tmp.serverColorAtStart = bleedColor;
+
 		if(ldata != null) {
 			tmp = new Line();
 			tmp.setData(ldata);
+			// Carrying on with a line the last chunk left open: the line object is
+			// new, the line is not, so its start colour and any trigger colour
+			// still running on it come with the data.
+			tmp.serverColorAtStart = reopened.serverColorAtStart;
+			tmp.triggerColorOpen = reopened.triggerColorOpen;
 			//Log.e("TREE","DATA STRIP OUT:" + deColorLine(tmp));
 		}
-		
+
 		ByteBuffer sb = ByteBuffer.allocate(data.length);
 		ByteBuffer cb = ByteBuffer.allocate(data.length);
 		RUN runtype = RUN.NEW;
@@ -700,10 +709,14 @@ public class TextTree {
 				//append the line as we do.
 				NewLine nl = new NewLine();
 				tmp.getData().addLast(nl);
+				// The line is closed here and nowhere else, so this is where the
+				// colour the server is in at its end is known.
+				tmp.serverColorAtEnd = bleedColor;
 				//Log.e("TREE","APPEND DUE TO NEWLINE:"  + deColorLine(tmp));
 				addLine(tmp);
 				linesadded += tmp.breaks + 1;
 				tmp = new Line();
+				tmp.serverColorAtStart = bleedColor;
 				break;
 			default:
 				//put it in the buffer.
@@ -1267,10 +1280,41 @@ public class TextTree {
 			return charsinline;
 		}
 
+		/**
+		 * The colour the server was in when this line started, and when it
+		 * ended -- {@code null} on a line that is still open. Snapshots, taken
+		 * while the bytes are parsed and therefore before any trigger has run,
+		 * so they hold what the server said and never what a trigger painted.
+		 *
+		 * <p>{@code bleedColor} answers the same question for the stream as a
+		 * whole, but only at the point parsing has reached: asking it while
+		 * colouring the first line of a chunk gives the colour of its last one.
+		 */
+		private LinkedList<Integer> serverColorAtStart;
+		private LinkedList<Integer> serverColorAtEnd;
+		/** A colour trigger's colour is still running at the end of this line. */
+		private boolean triggerColorOpen;
+
+		public LinkedList<Integer> getServerColorAtStart() {
+			return serverColorAtStart;
+		}
+
+		public LinkedList<Integer> getServerColorAtEnd() {
+			return serverColorAtEnd;
+		}
+
+		public boolean isTriggerColorOpen() {
+			return triggerColorOpen;
+		}
+
+		public void setTriggerColorOpen(boolean open) {
+			this.triggerColorOpen = open;
+		}
+
 		public LinkedList<Unit> getData() {
 			return mData;
 		}
-		
+
 		public void setData(LinkedList<Unit> l) {
 			mData = l;
 			//need to parse this to make sure we report the correct data.
@@ -1694,8 +1738,62 @@ public class TextTree {
 	}
 
 	public Color getBleedColor() {
+		return makeColor(bleedColor);
+	}
+
+	/**
+	 * The colour to go back to after a trigger's colour, given what the server
+	 * had said. A colour trigger paints a background as well as a foreground, so
+	 * a restore that only names a foreground leaves the trigger's background
+	 * running. When the server's own colour says nothing about the background,
+	 * 49 (default background) is added to say it.
+	 */
+	public Color makeRestoreColor(List<Integer> operations) {
+		boolean background = false;
+		for(int i=0;i<operations.size();i++) {
+			int op = operations.get(i).intValue();
+			// 38/48 introduce an xterm-256 (…;5;n) or truecolor (…;2;r;g;b)
+			// colour: the numbers that follow are its value, not codes of
+			// their own, and skipping them is what keeps a foreground like
+			// 38;5;45 from reading as background 45.
+			if(op == XTERM_FG_INTRO || op == XTERM_BG_INTRO) {
+				if(op == XTERM_BG_INTRO) {
+					background = true;
+				}
+				if(i+1 < operations.size() && operations.get(i+1).intValue() == XTERM_256_MODE) {
+					i += 2;
+				} else if(i+1 < operations.size() && operations.get(i+1).intValue() == TRUECOLOR_MODE) {
+					i += 4;
+				}
+			} else if(op == ZERO_CODE || (op >= BACKGROUND_FIRST && op <= BACKGROUND_DEFAULT)) {
+				// A reset returns the background to default as surely as 49 does.
+				background = true;
+			}
+		}
+		if(background) {
+			return makeColor(operations);
+		}
+		ArrayList<Integer> withDefault = new ArrayList<Integer>(operations);
+		withDefault.add(Integer.valueOf(BACKGROUND_DEFAULT));
+		return makeColor(withDefault);
+	}
+
+	private static final int XTERM_FG_INTRO = 38;
+	private static final int XTERM_BG_INTRO = 48;
+	private static final int XTERM_256_MODE = 5;
+	private static final int TRUECOLOR_MODE = 2;
+	private static final int ZERO_CODE = 0;
+	private static final int BACKGROUND_FIRST = 40;
+	private static final int BACKGROUND_DEFAULT = 49;
+
+	/**
+	 * A colour unit for an operation list, with the escape sequence that writes
+	 * it built as well -- {@code dumpToBytes} sends {@code bin}, so a unit
+	 * without one is a colour that exists in the buffer and never in the stream.
+	 */
+	public Color makeColor(List<Integer> operations) {
 		Color c = new Color();
-		c.setOperations(new ArrayList<Integer>((LinkedList<Integer>)bleedColor.clone()));
+		c.setOperations(new ArrayList<Integer>(operations));
 		StringBuffer b = new StringBuffer();
 		try {
 			b.append(new String(new byte[]{ESC},encoding));
