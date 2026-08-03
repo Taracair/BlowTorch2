@@ -16,7 +16,6 @@ new opportunity for the two copies to disagree.
 | Rule | Enforced by | Behaviour |
 |---|---|---|
 | Never `adb uninstall` | `beforeShellExecution` | Command denied before it runs |
-| Never `git push` | `beforeShellExecution` | Denied; the maintainer pushes |
 | No commits on `main` | `beforeShellExecution`, git `pre-commit` | Denied |
 | No `git reset --hard`, `git clean -f` | `beforeShellExecution` | Denied |
 | No `rm -rf` outside `.scratch/`, `build/`, `/tmp/` | `beforeShellExecution` | Denied |
@@ -28,6 +27,18 @@ new opportunity for the two copies to disagree.
 | Probes do not ride along in a real commit | git `commit-msg` | Commit fails unless the message says probe |
 | No `BTPROF` left in tracked code | `check.sh` | CI fails |
 | The rule list does not drift between files | `check.sh` | CI fails |
+
+## What is deliberately not blocked
+
+**`git push` on `staging`.** The version of these guards this project started
+from denied it, on the theory that the maintainer pushes and the agent does not.
+That is wrong here: the maintainer does not use git directly, so a denied push
+leaves the work on one laptop with no copy anywhere. Committing and pushing
+`staging` is the backup, and the agent does both without being asked.
+
+Releasing is a different thing and still needs asking: `main`, tags, GitHub
+releases, production APKs. That is judgment, not a pattern match, so it lives in
+`.cursor/rules/release-workflow.mdc` and not in a guard.
 
 ## Layers, and why there are three
 

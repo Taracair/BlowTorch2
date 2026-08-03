@@ -66,7 +66,14 @@ unless they switch language. Code, comments, commit messages and everything in
 
 Commit on `staging` after each completed logical step, without being asked. One
 commit is one rollback point. Probes get their own commit. Message is one or two
-sentences on why, not a file list. Do not push.
+sentences on why, not a file list.
+
+**Push `staging` yourself, without being asked**, once the step is committed.
+The maintainer does not use git directly; an unpushed commit exists on one
+laptop and nowhere else. Pushing `staging` is the backup, not a decision.
+
+What does need asking: `main`, tags, GitHub releases, production APKs. See
+`.cursor/rules/release-workflow.mdc`.
 
 A commit message is a claim. "Nothing reads this", "equivalent to the old path",
 "X already does this" are assertions about code somewhere else. Go and look

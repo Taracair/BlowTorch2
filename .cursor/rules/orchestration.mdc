@@ -53,7 +53,11 @@ confidently teaches you something false. Elsewhere, do not load it.
 ## Commits
 
 Commit on `staging` after each completed logical step, without being asked. One
-commit is one rollback point. Probes get their own commit. Do not push.
+commit is one rollback point. Probes get their own commit.
+
+**Push `staging` yourself**, without being asked, once the step is committed:
+the maintainer does not use git directly, so an unpushed commit is a copy that
+exists on one laptop only. `main`, tags and releases still need asking.
 
 A commit message is a claim: "nothing reads this", "equivalent to the old path".
 Go and look before writing it down, and say how you know.

@@ -50,10 +50,15 @@ if printf '%s' "$flat" | grep -qE '(^|[;&|`(]|[[:space:]])([^[:space:]]*/)?(adb|
   deny "BLOCKED: adb uninstall wipes the maintainer's profiles and server list. Use: adb -s <serial> install -r <apk>"
 fi
 
-# --- 2. pushing is the maintainer's decision, never the agent's -------------
-if printf '%s' "$flat" | grep -qE '(^|[;&|[:space:]])git([[:space:]]+-[^[:space:]]+)*[[:space:]]+push([[:space:]]|$)'; then
-  deny "BLOCKED: do not push. Local commits on staging are the safety net; the maintainer pushes and releases."
-fi
+# --- 2. pushing: deliberately NOT blocked -----------------------------------
+# The package this came from denied `git push` on the theory that the maintainer
+# pushes and the agent does not. That is wrong for this project: the maintainer
+# does not use git directly, so a blocked push means work sits only on this
+# laptop with no copy anywhere. The agent commits and pushes `staging`.
+#
+# What still needs asking is releasing: tags, `main`, GitHub releases and
+# production APKs. That is judgment, not a pattern match, and it lives in
+# .cursor/rules/release-workflow.mdc.
 
 # --- 3. daily work happens on staging, never on main ------------------------
 if printf '%s' "$flat" | grep -qE '(^|[;&|[:space:]])git([[:space:]]+-[^[:space:]]+)*[[:space:]]+commit([[:space:]]|$)'; then
