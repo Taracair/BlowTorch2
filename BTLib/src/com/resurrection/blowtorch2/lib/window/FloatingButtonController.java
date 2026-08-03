@@ -141,6 +141,8 @@ public class FloatingButtonController {
 	private int lastImeLiftPx;
 	/** True while buttons live in their own overlay windows. */
 	private boolean overlayMode;
+	/** Keyboard state the attached overlay windows were built for. */
+	private boolean lastOverlayImeUp;
 	/** Overlay pair per visual view, so add and remove stay symmetric. */
 	private final java.util.HashMap<FloatingButtonView, OverlayWindows> overlays =
 			new java.util.HashMap<FloatingButtonView, OverlayWindows>();
@@ -343,13 +345,26 @@ public class FloatingButtonController {
 			return;
 		}
 		if (overlayMode) {
-			// Keyboard-mode windows exist only while the keys are up, so the set
-			// of windows changes. Fold live overlay x/y into lastModels first —
-			// drag updates the WindowManager params (and Lua) but used not to
-			// touch this cache, so a rebuild from the stale snapshot snapped
-			// Mode A back (seen after .sendbutton off → chrome refresh → insets).
+			// Overlay windows are above the keyboard, so their position does not
+			// depend on it (see rebuildOverlay). The only thing the keyboard
+			// decides is whether the keyboard-mode windows exist at all — so add
+			// or remove those and leave every other window where it is.
+			//
+			// Rebuilding the lot here took every button's window down and put it
+			// back on each inset event, and showing the keyboard sends more than
+			// one: that is the double blink the maintainer sees when the keys
+			// slide out, and each teardown is a window in which a button can come
+			// back somewhere else or not at all.
+			boolean imeUp = isSoftKeyboardCoveringLayer();
+			if (imeUp == lastOverlayImeUp) {
+				return;
+			}
+			lastOverlayImeUp = imeUp;
+			// Live overlay x/y into the cache first — drag updates the
+			// WindowManager params (and Lua) but not this snapshot, so anything
+			// built from it would snap a dragged button back.
 			syncLastModelsFromLiveOverlayPositions();
-			rebuild(new ArrayList<FloatingButtonModel>(lastModels));
+			updateKeyboardModeOverlays(imeUp);
 			return;
 		}
 		if (layer == null) {
@@ -504,6 +519,19 @@ public class FloatingButtonController {
 		p.gravity = Gravity.TOP | Gravity.START;
 		p.x = x;
 		p.y = y;
+		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+			// Fit nothing: p.y is then the position on the screen, full stop.
+			//
+			// By default the window manager insets an overlay window by the
+			// status and navigation bars, so p.y is measured inside that safe
+			// area while getLocationOnScreen -- which is what the drag works in
+			// -- is measured from the top of the screen. The two agree only
+			// while the bars are exactly as they were when the button was
+			// dropped, and coming back from the background is precisely when
+			// that changes: the button reappears a status bar lower.
+			// FLAG_LAYOUT_IN_SCREEN used to say this; since API 30 this does.
+			p.setFitInsetsTypes(0);
+		}
 		return p;
 	}
 
@@ -656,6 +684,12 @@ public class FloatingButtonController {
 		maybeAskForOverlayPermission(models);
 		ensureLayer();
 		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
+		if (overlayMode && (host.getMainWindow() == null || !resumed)) {
+			// rebuildOverlay would refuse to put the windows back, and taking
+			// them down anyway leaves no buttons at all until Lua happens to
+			// push again -- the "they blink and then they are gone" case.
+			return;
+		}
 		clearViews();
 		boolean imeUp = isSoftKeyboardCoveringLayer();
 		if (overlayMode) {
@@ -692,44 +726,90 @@ public class FloatingButtonController {
 	 * Keyboard mode only decides whether the windows exist at all.
 	 */
 	private void rebuildOverlay(List<FloatingButtonModel> models, boolean imeUp) {
-		MainWindow activity = host.getMainWindow();
-		if (activity == null || !resumed) {
+		if (host.getMainWindow() == null || !resumed) {
 			return;
 		}
-		float density = activity.getResources().getDisplayMetrics().density;
-		int margin = Math.round(FloatingLayerGeometry.DEFAULT_MARGIN_DP * density);
+		lastOverlayImeUp = imeUp;
 		for (FloatingButtonModel m : models) {
 			if (m.isKeyboardMode() && !imeUp) {
 				// "Show only with keyboard": no window at all right now.
 				continue;
 			}
-			FloatingButtonView v = new FloatingButtonView(activity);
-			v.bind(m, viewCallbacks);
-			v.measure(
-					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-					View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-			// visualW/H (padded) size the hint window; buttonW/H are what
-			// floatX/Y and clamping use, and also size the touchable window.
-			int visualW = Math.max(1, v.getMeasuredWidth());
-			int visualH = Math.max(1, v.getMeasuredHeight());
-			int buttonW = Math.max(1, v.buttonWidthPx());
-			int buttonH = Math.max(1, v.buttonHeightPx());
-			int x = m.floatX == FloatingLayerGeometry.UNPLACED
-					? (m.hasGridOrigin
-							? FloatingLayerGeometry.gridCenterToLeft(m.gridX, m.widthDp, density)
-							: margin)
-					: m.floatX;
-			int y = m.floatY == FloatingLayerGeometry.UNPLACED
-					? (m.hasGridOrigin
-							? FloatingLayerGeometry.gridCenterToTop(
-									m.gridY, m.heightDp, density, m.statusOffsetPx)
-							: Math.max(0, displayHeight() - buttonH - margin))
-					: m.floatY;
-			x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
-			y = FloatingLayerGeometry.clampY(y, buttonH, displayHeight());
-			attachOverlayPair(v, x, y, buttonW, buttonH, visualW, visualH);
-			views.add(v);
+			attachOverlayFor(m);
 		}
+	}
+
+	/**
+	 * Add or remove only the windows the keyboard decides about, leaving every
+	 * other button's window untouched — an attached window that is not moving is
+	 * the one thing that cannot blink.
+	 */
+	private void updateKeyboardModeOverlays(boolean imeUp) {
+		if (host.getMainWindow() == null || !resumed) {
+			return;
+		}
+		for (int i = views.size() - 1; i >= 0; i--) {
+			FloatingButtonView v = views.get(i);
+			FloatingButtonModel m = v.getModel();
+			if (m != null && m.isKeyboardMode() && !imeUp) {
+				removeOverlayPair(v);
+				views.remove(i);
+			}
+		}
+		if (!imeUp) {
+			return;
+		}
+		for (FloatingButtonModel m : lastModels) {
+			if (m.isKeyboardMode() && findViewFor(m.index) == null) {
+				attachOverlayFor(m);
+			}
+		}
+	}
+
+	private FloatingButtonView findViewFor(int index) {
+		for (FloatingButtonView v : views) {
+			FloatingButtonModel m = v.getModel();
+			if (m != null && m.index == index) {
+				return v;
+			}
+		}
+		return null;
+	}
+
+	/** One button's pair of overlay windows, placed where the player left it. */
+	private void attachOverlayFor(FloatingButtonModel m) {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		float density = activity.getResources().getDisplayMetrics().density;
+		int margin = Math.round(FloatingLayerGeometry.DEFAULT_MARGIN_DP * density);
+		FloatingButtonView v = new FloatingButtonView(activity);
+		v.bind(m, viewCallbacks);
+		v.measure(
+				View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+				View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+		// visualW/H (padded) size the hint window; buttonW/H are what
+		// floatX/Y and clamping use, and also size the touchable window.
+		int visualW = Math.max(1, v.getMeasuredWidth());
+		int visualH = Math.max(1, v.getMeasuredHeight());
+		int buttonW = Math.max(1, v.buttonWidthPx());
+		int buttonH = Math.max(1, v.buttonHeightPx());
+		int x = m.floatX == FloatingLayerGeometry.UNPLACED
+				? (m.hasGridOrigin
+						? FloatingLayerGeometry.gridCenterToLeft(m.gridX, m.widthDp, density)
+						: margin)
+				: m.floatX;
+		int y = m.floatY == FloatingLayerGeometry.UNPLACED
+				? (m.hasGridOrigin
+						? FloatingLayerGeometry.gridCenterToTop(
+								m.gridY, m.heightDp, density, m.statusOffsetPx)
+						: Math.max(0, displayHeight() - buttonH - margin))
+				: m.floatY;
+		x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
+		y = FloatingLayerGeometry.clampY(y, buttonH, displayHeight());
+		attachOverlayPair(v, x, y, buttonW, buttonH, visualW, visualH);
+		views.add(v);
 	}
 
 	private void layoutChild(final FloatingButtonView v, final FloatingButtonModel m,
@@ -876,10 +956,18 @@ public class FloatingButtonController {
 	 * <p>A floor of 120dp so a stray small inset is not mistaken for a keyboard.
 	 */
 	private boolean isSoftKeyboardCoveringLayer() {
-		if (layer == null) {
-			return lastImeLiftPx > 0;
+		float density;
+		if (layer != null) {
+			density = layer.getResources().getDisplayMetrics().density;
+		} else {
+			// Overlay mode has no layer. It used to answer "any inset at all" here,
+			// so a stray small one read as a keyboard and toggled the windows.
+			MainWindow activity = host.getMainWindow();
+			if (activity == null) {
+				return lastImeLiftPx > 0;
+			}
+			density = activity.getResources().getDisplayMetrics().density;
 		}
-		float density = layer.getResources().getDisplayMetrics().density;
 		return lastImeLiftPx >= Math.round(120 * density);
 	}
 
