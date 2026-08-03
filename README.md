@@ -32,8 +32,9 @@ Triggers can also colour a line, gag it, replace text in it, fire a
 notification, raise a toast, set a variable, send commands, or push output into
 a separate window — several at once, in order.
 
-**On-screen buttons that hold more than one command.** Swipe a button up, down,
-left or right for four more bindings. Hold for another. Accordion buttons expand
+**On-screen buttons that hold more than one command.** Tap for one command;
+swipe in any of eight directions (up, down, left, right, and the four corners)
+for eight more; hold for a tenth. Accordion buttons expand
 into a cluster of related ones. Buttons come in sets you can switch between, and
 a button can switch the set itself — so a movement pad becomes a combat pad on
 one tap. Optional on-screen hints show what a tile is bound to.
@@ -72,7 +73,7 @@ Typed into the input bar like anything else. These are the ones worth knowing:
 | `.map goto <room>` | Walk you there along a route the mapper works out. |
 | `.timer play heal` | Start a named timer. `pause`, `reset`, `stop` and `info` work the same way; `.timer duration heal 30` changes how long it runs without stopping it. Timers themselves are made in the Timers editor. |
 | `.loadset combat` | Switch the on-screen button set. Works from a button, so one tap can change the whole pad. |
-| `.switch <name>` | Jump to another open connection without disconnecting this one. |
+| `.switch <name>` | Jump to another open connection without disconnecting this one. Bare `.switch` lists open display names; a typo is refused (it used to blank the screen). |
 | `.search <text>` | Search the scrollback and jump to the hit. |
 | `.gmcp status` | What the world is sending, and which modules you subscribed to. |
 | `.gmcp sniff on` | Show every GMCP packet in the window. Useful when a world's data is not doing what you expect. |

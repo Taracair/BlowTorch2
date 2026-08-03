@@ -803,15 +803,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					myhandler.sendEmptyMessageDelayed(MESSAGE_CONNECT_WHEN_READY, 200);
 					break;
 				case MESSAGE_SWITCH:
-					//mConnection.
-					MainWindow.this.unbindService(mConnection);
-					
-					//MainWindow.this.bin
-					String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", MainWindow.this);
-					MainWindow.this.saveConnectionExtras(MainWindow.this.getIntent());
-					MainWindow.this.bindService(new Intent(serviceBindAction, null, MainWindow.this.getApplicationContext(), StellarService.class),mConnection, 0);
-					//MainWindow.this.bindService(n, conn, flags)
-					
+					// Service clutch moved (e.g. .switch). Keep the Activity
+					// Intent/prefs on the same display — do not unbind/rebind.
+					// The old rebind left DISPLAY on the launch world, so the
+					// next onResume switched the clutch back after screen-off.
+					if (msg.obj instanceof String) {
+						MainWindow.this.rememberForegroundConnection((String) msg.obj);
+					}
 					break;
 				case MESSAGE_TRIGGERSTR:
 					
@@ -2792,19 +2790,29 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				// TODO Auto-generated catch block
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onResume", e1);
 			}
-			Intent i = this.getIntent();
-			String display = getConnectionDisplay();
-			
 			try {
-				if(service != null && display != null) {
-				if(!service.getConnectedTo().equals(display)) {
-					Log.e("LOG","ATTEMPTING TO SWITCH TO: " + display);
-					//this.cleanupWindows();
-					service.switchTo(display);
-				}
+				if (service != null) {
+					String connected = service.getConnectedTo();
+					String display = getConnectionDisplay();
+					if (connected != null && !connected.isEmpty()) {
+						// Clutch is authoritative while the service is up.
+						// Never switchTo(display) here — that undid .switch after
+						// screen-off when the launch Intent still named the first
+						// world. If they differ (session closed in background,
+						// etc.), rebuild onto the clutch.
+						if (!connected.equals(display)) {
+							Log.i("BlowTorch", "onResume: rebuild onto clutch "
+									+ connected + " (Intent was " + display + ")");
+							service.switchTo(connected);
+						}
+					} else if (display != null && !display.isEmpty()
+							&& service.isConnectedTo(display)) {
+						Log.i("BlowTorch", "onResume: clutch empty, switchTo "
+								+ display);
+						service.switchTo(display);
+					}
 				}
 			} catch (RemoteException e) {
-				// TODO Auto-generated catch block
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onResume", e);
 			}
 			
@@ -4533,6 +4541,39 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			edit.putString("CONNECT_PORT", port);
 		}
 		edit.apply();
+	}
+
+	/**
+	 * Keep Activity Intent + CONNECT_TO prefs on the service clutch after
+	 * {@code .switch} / notification / resume. {@link #getConnectionDisplay()}
+	 * prefers Intent extras, so prefs alone are not enough.
+	 */
+	private void rememberForegroundConnection(String display) {
+		if (display == null || display.isEmpty()) {
+			return;
+		}
+		SharedPreferences prefs = getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE);
+		// Prefer host/port only when prefs already name this same display
+		// (StellarService.persistForegroundConnection writes them together).
+		String host = null;
+		String port = null;
+		if (display.equals(prefs.getString("CONNECT_TO", null))) {
+			host = prefs.getString("CONNECT_HOST", null);
+			port = prefs.getString("CONNECT_PORT", null);
+		}
+		if (host == null || host.isEmpty()) {
+			host = getConnectionHost();
+		}
+		if (port == null || port.isEmpty()) {
+			port = Integer.toString(getConnectionPort());
+		}
+		Intent base = getIntent();
+		Intent next = base != null ? new Intent(base) : new Intent();
+		next.putExtra("DISPLAY", display);
+		next.putExtra("HOST", host);
+		next.putExtra("PORT", port);
+		setIntent(next);
+		saveConnectionExtras(next);
 	}
 
 	private String getConnectionDisplay() {

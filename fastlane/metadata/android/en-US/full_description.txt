@@ -2,14 +2,14 @@ BlowTorch 2 is a fork of the classic BlowTorch MUD client for Android.
 
 Connect to text games (MUDs), keep button panels on screen, and use triggers, aliases, timers, speedwalks, and Lua plugins. ANSI colors, GMCP, and background connections are supported.
 
-This fork is aimed at current Android: builds that install, storage/backups that work again, a clearer input bar, session logs, and a few extras (swipe/hold/accordion buttons, .search, .wrap, GMCP helpers).
+This fork is aimed at current Android: builds that install, storage/backups that work again, a clearer input bar, session logs, and a few extras (eight-way swipe/hold/accordion buttons, .search, .wrap, GMCP helpers).
 
 Also:
 • Separate production package so a test build can sit beside a stable install
 • Import/export and zip backup/restore (/BlowTorch/ folder or system file pickers)
 • Session log to file, connection time on the notification
 • Growable input bar (.wrap), in-app Help and crash/log report
-• Four-way swipe / hold / accordion buttons; Edit buttons from the overflow menu
+• Eight-way swipe / hold / accordion buttons; Edit buttons from the overflow menu
 
 No ads, no analytics, no BlowTorch cloud account. Connects only to hosts you add. “All files access” is optional — only so settings/backups/logs can live in a normal /BlowTorch/ folder. You can refuse it and still play. Details: https://github.com/Taracair/BlowTorch2/blob/main/docs/FDROID_README.md
 

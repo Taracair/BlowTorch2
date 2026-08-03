@@ -107,9 +107,10 @@ In the trigger editor:
 - **Conditions** → extra gate after the pattern matches — not a substitute
   for the pattern. Optional AND/OR list checked before responders. Empty =
   always fire. Types: Trigger enabled/disabled (pick another trigger;
-  `plugin:name` ok), Variable equals/exists. Set vars with the **Set
-  Variable** responder or Lua `SetVariable` / `GetVariable` /
-  `UnsetVariable` (session only, not persisted).
+  `plugin:name` ok), Alias enabled/disabled, Alias replacement equals,
+  Variable equals/exists. Set vars with the **Set Variable** responder or
+  Lua `SetVariable` / `GetVariable` / `UnsetVariable` (session only, not
+  persisted).
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification, Set Variable text, and similar actions.
@@ -149,10 +150,11 @@ triggers): list subtitle `[group]`, sort by group, XML `group` attribute.
 
 Timers also support **Conditions** in the timer editor — an extra gate when
 the timer fires (same AND/OR types as triggers). Empty = always fire
-responders. Types: Trigger enabled/disabled, Alias enabled/disabled, Variable equals/exists. Set
-vars with the **Set Variable** responder or Lua `SetVariable` /
-`GetVariable` / `UnsetVariable` (session only). Use `${name}` in alias or
-action text — variables are not typed into the trigger pattern.
+responders. Types: Trigger enabled/disabled, Alias enabled/disabled, Alias
+replacement equals, Variable equals/exists. Set vars with the **Set
+Variable** responder or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
+(session only). Use `${name}` in alias or action text — variables are not
+typed into the trigger pattern.
 
 ## Recipes
 
@@ -240,13 +242,14 @@ Put that in a trigger's Script action. From the input bar the same thing is
 `.alias off travel_home` and `.alias on kk`; `.alias list` shows every alias and
 whether it is on.
 
-### 6. One button, five commands
+### 6. One button, ten commands
 
 Edit buttons (⋮ → Edit buttons), then edit a tile:
 
 - **Command** — plain tap
-- **Swipe up/down/left/right** — four more
-- **Hold** — a sixth
+- **Swipe** — eight directions: up, down, left, right, and the four corners
+  (↖ ↗ ↙ ↘); each can run a different command
+- **Hold** — press-and-hold (~0.45 s)
 
 Set **Switch to named button set** on a tile and tapping it swaps the whole pad
 — a movement pad that becomes a combat pad. Same as `.loadset combat`.
@@ -267,8 +270,10 @@ Options → Window → Extra text windows → **Manage windows…** → add a sl
 `chat`. Then either:
 
 - **GMCP**: tick the modules to route into it, e.g. `Comm.*`.
-- **Triggers**: on a trigger, use the **Ack**/note action targeted at the
-  window, or Lua `NoteToWindow("chat", "$1")`.
+- **Triggers**: on a matching trigger, add a **Gag** or **Replace** action and
+  set **retarget** to `chat`. The line leaves the main window and appears in
+  the slot; **Replace** lets you rewrite it first (`$1` works). Lua
+  `NoteToWindow("chat", "…")` adds client-only text without touching MUD output.
 
 Each slot keeps its own scrollback while closed and shows what it missed when
 you open it.
@@ -278,8 +283,10 @@ you open it.
 On a trigger:
 
 - **Color** action — recolour the matching line.
-- **Gag** action — hide it entirely.
-- **Replace** action — swap text in it, `$1` works here too.
+- **Gag** action — hide it entirely (optional **retarget** sends the line to
+  an extra text window instead of discarding it).
+- **Replace** action — swap text in it, `$1` works here too (also has
+  **retarget**).
 
 Several actions on one trigger run in order, so you can gag a line *and* print
 your own version of it.
@@ -361,9 +368,12 @@ and on the one that spots it dying:
 SetVariable("fighting", "0")
 ```
 
-A trigger cannot type `.timer play heal` for you — dot commands are read from
-the input bar, not from trigger output — so drive timers with a variable and a
-condition (recipe 12), or with `EnableTriggerGroup` for whole sets.
+Dot commands ride the same outbound path as typing, so **Ack With**
+`.timer play heal` (or Script `SendToServer(".timer play heal")`) *can* start
+a timer from a trigger. Prefer a variable + timer **Conditions** (recipe 12)
+when you want the timer always armed and gated; use Ack / `SendToServer` when
+you truly want play/stop. Keep process-period on (default), or a leading `.`
+goes to the MUD.
 
 ### 14. One-shot reminder
 
@@ -415,7 +425,7 @@ is enabled; `.alias list` shows every alias at once.
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
     `.clearbuttons`                     Clear on-screen buttons (`button_window` may re-register)
-    `.switch <connection>`              Switch foreground UI to another open connection by display name
+    `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback search; see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
     `.window …`                         Extra text windows (list/show/hide/clear/create/destroy); see below
@@ -475,7 +485,7 @@ stays under the ⋮ chrome so overflow remains reachable.
     **Level nest**   A floor anchored on a door/stairs tile (not one global stack)
 
 Maps are JSON files under `/BlowTorch/maps/` (autosave ~2s after changes; **Save**
-in **More** or `.map export` / `.map save` forces a write). With a path,
+in **Map** or `.map export` / `.map save` forces a write). With a path,
 `.map export|save <path>` writes JSON there (absolute or BlowTorch-relative).
 `.map import <path|name>` loads JSON from an absolute/BlowTorch-relative path
 or a maps-dir name, then copies it into `/BlowTorch/maps/`.
@@ -531,7 +541,7 @@ operation, like Maps and Save.
 **Draw** (Edit): grid on; tap empty cell to place; long-press empty = place + Here.
 **Link mode** (Edit): tap FROM then TO, then pick a Moves verb (or unlink).
 **Layout**: **spread** spaces tiles for arrows + labels; **packed** is compact
-(arrows only, thinner heads). **Opacity…** (More): pick a percent — 100% is fully opaque.
+(arrows only, thinner heads). **Opacity…** (View): pick a percent — 100% is fully opaque.
 
 While **Record**ing, outbound exits store your typed command; the reverse edge is
 guessed. Walking back the same path overwrites that guess with your return
@@ -620,7 +630,7 @@ Print the summary with `.map dirs`.
     `.map undo`                                                             Undo last graph change
     `.map dirs`                                                             Movement lexicon / grid offsets
     `.map maps` / `.map load <name>` / `.map new <name>`                    List / open / create (new name must be unique)
-    `.map deletemap <name>`                                                 Delete a saved map file (UI: **More → Maps** → long-press)
+    `.map deletemap <name>`                                                 Delete a saved map file (UI: **Map → Maps** → long-press)
     `.map portal|linkmap <cmd> map <name> [from <id>]`                      Portal exit to another map file
     `.map levelink <cmd> new|to <levelId>|independent <name> [from <id>]`   Floor link (↑/↓ / existing / independent)
     `.map level rename [<id|name>] <newName>`                               Rename a floor
@@ -649,7 +659,7 @@ Print the summary with `.map dirs`.
 **Options → Mapper:** enable module, float/fullscreen default, opacity,
 recording defaults, follow, path auto-send, Use GMCP Room,
 **Configure Room Sync…** (room number / absolute coords / create exits),
-auto reverse links, legacy toolbar CSV (UI uses **Nav/Floors/Edit/More** chips),
+auto reverse links, legacy toolbar CSV (UI uses **Nav/Floors/Edit/Map/View** chips),
 **Capture Title Regex** / **Capture Exits Regex** (keys
 `mapper_capture_title_regex` / `mapper_capture_exits_regex`; used by
 `.map capture`).
@@ -667,11 +677,11 @@ and/or `.map capture`.
 
 ### Typical workflows (mini-tutorial)
 
-1. **Record while exploring:** `.map new mymap` → open map → **Edit** mode → **Nav → Record** → walk → Record off → **More → Save**.
+1. **Record while exploring:** `.map new mymap` → open map → **Edit** mode → **Nav → Record** → walk → Record off → **Map → Save**.
 2. **Draw by hand:** **Edit** mode → **Edit → Draw** → tap empty cells → **Link mode** → **Set Here** on your room.
 3. **Floors:** long-press a tile → **Add level…** → Floor ↑/↓ (new or existing) / Independent floor / Another map….
 4. **Jump maps:** after linking, tap **○** on the tile (or walk the portal command with Follow on).
-5. **Fix layout:** long-press-drag a tile. Use **Layout → spread** to see arrow labels.
+5. **Fix layout:** long-press-drag a tile. Use **Edit → Spacing** (spread) to see arrow labels.
 
 ### `.run` defaults
 
@@ -815,9 +825,11 @@ wizard offers first; it installs nothing on its own.
 
 The default `button_window` plugin supports more than tap:
 
-- **Swipe up / down / left / right** — each direction can run a different command (edit button → Swipe). Overrides classic Flip. Drag roughly a finger-width off the tile.
+- **Swipe** — eight directions (up, down, left, right, and the four corners);
+  each can run a different command (edit button → Swipe). Overrides classic Flip.
+  Drag roughly a finger-width off the tile.
 - **Hold** — optional command after press-and-hold.
-- **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hint arrows (uncheck to hide U/D/L/R and Hold markers).
+- **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
 
 ## Super-buttons (buttons on top of the keyboard)
 
@@ -836,8 +848,9 @@ Two modes, in the **When** picker:
 
 The button keeps everything it already had — tap, hold, flip, all eight swipe
 directions, colours, size, `switchTo`. It can also be drawn as a circle, with
-an optional outline. **Very long press** picks it up and moves it; where you
-drop it is remembered per world.
+an optional outline. **Very long press (~2 s)** picks it up and moves it; a
+normal hold (~0.45 s) still runs the Hold command. Where you drop it is
+remembered per world.
 
 **Permission.** Android does not let an app draw on top of the keyboard without
 **"Display over other apps"**. BlowTorch asks the first time you tick the box,
@@ -1138,24 +1151,22 @@ Plugins screen refuses to remove it.
 
 ## Session overflow menu
 
-In order, as the menu builds them:
+In order, as the menu builds them (all under ⋮):
 
-1. **Aliases** / **Triggers** / **Timers** / **Options** — the editors. These
-   four may also appear as action-bar icons when there is room; otherwise they
-   live under ⋮.
-2. **Edit buttons** — enter button layout edit mode
-3. **Speedwalk Directions** — the direction letters `.run` uses
-4. **Plugins** — load / enable / remove Lua plugins
-5. **Reconnect** / **Disconnect** — same as `.reconnect` / `.disconnect`
-6. **Quit** — leave the session window
-7. **Search scrollback** — same as `.search`
-8. **Reload Settings** — re-read this world's settings from disk
-9. **Crash report** — Show log / Share log
-10. **About**
-11. **Help** — this manual
-
-`button_window` adds a **Button Sets** entry for switching saved sets (the
-pack/size wizard is **Options → Button → Load button set from wizard**).
+1. **Aliases** / **Triggers** / **Timers** / **Options** — the editors
+2. **Button Sets** — switch saved sets (`button_window`; the pack/size wizard
+   is **Options → Button → Load button set from wizard**)
+3. **Edit buttons** — enter button layout edit mode
+4. **Speedwalk Directions** — the direction letters `.run` uses
+5. **Map** — open the built-in mapper (same as `.map open`)
+6. **Plugins** — load / enable / remove Lua plugins
+7. **Reconnect** / **Disconnect** — same as `.reconnect` / `.disconnect`
+8. **Quit** — leave the session window
+9. **Search scrollback** — same as `.search`
+10. **Reload Settings** — re-read this world's settings from disk
+11. **Crash report** — Show log / Share log
+12. **About**
+13. **Help** — this manual
 
 **Export Settings**, **Import Settings** and **Reset Settings** are **not** in
 this menu — they live under **Options → Miscellaneous**, beside the storage

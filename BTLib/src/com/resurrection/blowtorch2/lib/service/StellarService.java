@@ -959,6 +959,7 @@ public class StellarService extends Service {
 		mConnectionClutch = next == null ? "" : chosen;
 		mConnectionNotificationIdMap.put(chosen, FOREGROUND_NOTIFICATION_ID);
 		if (next != null) {
+			persistForegroundConnection(next);
 			updateForegroundNotification(next.getDisplay(), buildConnectedStatus(next));
 		} else {
 			// Nothing in the map is live any more. The notification still names a
@@ -1000,15 +1001,62 @@ public class StellarService extends Service {
 		mConnectionClutch = connection;
 	}
 
+	/** Display name of the foreground connection, or empty if none. */
+	public final String getClutch() {
+		return mConnectionClutch == null ? "" : mConnectionClutch;
+	}
+
+	/** True when {@code display} names a connection currently in the map. */
+	public final boolean hasOpenConnection(final String display) {
+		return display != null && display.length() > 0
+				&& mConnections != null
+				&& mConnections.containsKey(display);
+	}
+
+	/**
+	 * Display names of every open connection (unsorted copy).
+	 * Used by {@code .switch} help / error text.
+	 */
+	public final java.util.List<String> getOpenConnectionDisplays() {
+		java.util.ArrayList<String> out = new java.util.ArrayList<String>();
+		if (mConnections != null) {
+			out.addAll(mConnections.keySet());
+		}
+		return out;
+	}
+
 	/** Utility method to switch the active connection. 
 	 * 
 	 * @param display The display name of the connection to switch to.
 	 */
 	public final void switchTo(final String display) {
+		// Barrier: never point the clutch at a missing session. Bare `.switch`
+		// / a typo used to setClutch("") or setClutch("bogus") and then rebuild
+		// the UI against a null Connection — black screen, no error.
+		if (!hasOpenConnection(display)) {
+			return;
+		}
+		Connection target = mConnections.get(display);
+		// Persist before moving the clutch so a concurrent onResume cannot
+		// pair the new DISPLAY with the previous world's host/port.
+		persistForegroundConnection(target);
 		setClutch(display);
+		// Rebuild the FGS PendingIntent with the new DISPLAY — otherwise a tap
+		// on the ongoing notification still carries the pre-switch world into
+		// onNewIntent until the next 30s duration refresh.
+		if (target.isConnected()) {
+			updateForegroundNotification(display, buildConnectedStatus(target));
+		} else {
+			updateForegroundNotification(display,
+					getString(R.string.notification_status_connected,
+							target.getHost(), target.getPort()));
+		}
 		int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
+				// Tell the Activity to align Intent/prefs with the clutch
+				// before rebuilding windows against it.
+				mCallbacks.getBroadcastItem(i).switchTo(display);
 				mCallbacks.getBroadcastItem(i).markWindowsDirty();
 				mCallbacks.getBroadcastItem(i).loadWindowSettings();
 				mCallbacks.getBroadcastItem(i).loadSettings();
@@ -1018,6 +1066,26 @@ public class StellarService extends Service {
 			}
 		}
 		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Write the active session into app prefs so Activity restore / onResume
+	 * can find it even when the launch Intent is still the first world.
+	 */
+	private void persistForegroundConnection(final Connection target) {
+		if (target == null) {
+			return;
+		}
+		android.content.SharedPreferences.Editor edit =
+				getSharedPreferences("CONNECT_TO", MODE_PRIVATE).edit();
+		edit.putString("CONNECT_TO", target.getDisplay());
+		String host = target.getHost();
+		if (host != null) {
+			edit.putString("CONNECT_HOST", host);
+		}
+		edit.putString("CONNECT_PORT", Integer.toString(target.getPort()));
+		// commit(): UI callback reads these prefs immediately; apply() can race.
+		edit.commit();
 	}
 	
 	/** Generic method to make the currently active connection reload its windows. */
