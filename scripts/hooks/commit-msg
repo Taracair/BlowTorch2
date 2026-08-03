@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Git commit-msg hook. Runs after the message exists, which is the whole point:
+# git runs pre-commit BEFORE writing COMMIT_EDITMSG, so a check there reads the
+# PREVIOUS commit's message. Measured, not assumed: a pre-commit hook that cats
+# COMMIT_EDITMSG prints the message of the commit before it.
+#
+# Installed with the rest by:
+#   git config core.hooksPath scripts/hooks
+#
+# $1 is the file holding the message about to be used.
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+msg_file="${1:-}"
+[ -f "$msg_file" ] || exit 0
+
+# Rule 5: probes go in their own commit and come back out. This does not stop a
+# probe commit, it stops a probe riding along inside a real fix.
+probe_hits="$(git diff --cached -U0 -- '*.java' '*.kt' '*.lua' \
+  | grep -E '^\+' | grep -E 'BTPROF|TEMPORARY PROBE' || true)"
+[ -z "$probe_hits" ] && exit 0
+
+if grep -qiE 'probe|temporary|instrument' "$msg_file"; then
+  exit 0
+fi
+
+printf '\nInstrumentation in a commit that does not look like a probe commit:\n'
+printf '%s\n' "$probe_hits" | head -10
+cat <<'EOF'
+
+Probes get their own commit (ORCHESTRATION rule 5) so they revert cleanly.
+Either split the commit, or say "probe" / "temporary" in the message.
+EOF
+exit 1

@@ -68,22 +68,10 @@ if [ -n "$doc_files" ]; then
   fi
 fi
 
-# --- leftover instrumentation ---------------------------------------------
-# Rule 5: probes go in their own commit and come back out. This does not stop
-# a probe commit, it stops a probe riding along inside a real fix.
-probe_hits="$(git diff --cached -U0 -- '*.java' '*.kt' '*.lua' \
-  | grep -E '^\+' | grep -E 'BTPROF|TEMPORARY PROBE' || true)"
-if [ -n "$probe_hits" ]; then
-  msg_file="$(git rev-parse --git-dir)/COMMIT_EDITMSG"
-  if ! grep -qiE 'probe|temporary|instrument' "$msg_file" 2>/dev/null; then
-    say "Instrumentation in a commit that does not look like a probe commit:"
-    printf '%s\n' "$probe_hits" | head -10
-    echo
-    echo "Probes get their own commit (ORCHESTRATION rule 5) so they revert cleanly."
-    echo "Either split the commit, or say 'probe' / 'temporary' in the message."
-    fail=1
-  fi
-fi
+# Leftover instrumentation is checked in scripts/hooks/commit-msg, not here:
+# pre-commit runs before the message exists, so reading COMMIT_EDITMSG at this
+# point gets the previous commit's text and the "say probe in the message"
+# escape hatch never fires.
 
 # --- StrictMode penaltyDeath on the build the maintainer plays -------------
 if git diff --cached -U0 | grep -E '^\+' | grep -q 'penaltyDeath'; then

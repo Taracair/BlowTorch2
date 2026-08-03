@@ -25,7 +25,7 @@ new opportunity for the two copies to disagree.
 | Shipped Lua changed without a `BLOWTORCH_LUA_LIBS_VERSION` bump | git `pre-commit` | Commit fails |
 | Only allowlisted files in `docs/` | git `pre-commit`, `check.sh` | Commit and CI fail |
 | `MAIN`/`LAUNCHER` component does not move | git `pre-commit`, `check.sh` | Commit and CI fail |
-| Probes do not ride along in a real commit | git `pre-commit` | Commit fails unless the message says probe |
+| Probes do not ride along in a real commit | git `commit-msg` | Commit fails unless the message says probe |
 | No `BTPROF` left in tracked code | `check.sh` | CI fails |
 | The rule list does not drift between files | `check.sh` | CI fails |
 
@@ -66,7 +66,8 @@ scripts/guards/          rules, one file each, exit-code based
   docs-allowlist.sh      what may live in docs/
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
 scripts/hooks/
-  pre-commit             git hook
+  pre-commit             git hook: branch, Lua, docs, Lua libs version, manifest
+  commit-msg             git hook: the probe check, which needs the real message
   claude-bash-guard.sh   Claude Code adapter, unused on Cursor
   claude-edit-guard.sh   Claude Code adapter, unused on Cursor
 .cursor/hooks/
