@@ -369,6 +369,39 @@ Things worth knowing when the pattern gets ambitious:
   mark it; the press uses the last box drawn there. Two Tappable Word actions
   on *one* trigger are merged instead (see above).
 
+### 9c. Tap a name to retarget every button
+
+A command sent by a tappable word takes **the same road as a line you type**:
+aliases expand, `.` commands run, `;` splits into several commands. So a tap can
+change what your buttons do.
+
+**Set up once.** Options → Aliases → new:
+
+    Replace   `tgt`
+    With      `nothing`
+
+**The tappable trigger.** Options → Triggers → new (Literal? off):
+
+    Pattern        (\w+) is standing here
+    Action         Tappable Word
+    Tappable part  1
+    Command        .tgt $1
+
+`.name text` is the built-in "change this alias" command, so tapping a monster's
+name rewrites the alias `tgt` to that name — nothing is sent to the game.
+
+**Your buttons.** Give them `kill tgt`, `look tgt`, `throw dagger at tgt`. A
+word alias expands anywhere in the line, so every one of them follows whatever
+you last tapped.
+
+Variables do the same job with `${target}` instead: use a **Set Variable**
+action on the trigger and write `kill ${target}` in the alias. The alias route
+is the one a tap can change on its own, without a second trigger.
+
+**Careful:** because a tapped command goes through alias expansion, an alias
+whose name is an ordinary word ("sword", "north") will also rewrite what a tap
+sends. Name aliases you use this way so they cannot collide — `tgt`, `_it`.
+
 ### 10. Start mapping
 
 1. Open the map: ⋮ → **Map**, or `.map open`
