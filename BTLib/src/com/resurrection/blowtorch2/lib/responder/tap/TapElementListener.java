@@ -4,9 +4,16 @@ import org.xml.sax.Attributes;
 
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 
-import android.sax.TextElementListener;
+import android.sax.StartElementListener;
 
-public class TapElementListener implements TextElementListener {
+/**
+ * Reads the tap action's own attributes. Deliberately a start listener and not
+ * a text listener: {@code android.sax.Element.getChild} refuses to add a child
+ * to an element that has an end-text listener ("This element already has an end
+ * text element listener. It cannot have children."), and {@code <tap>} needs
+ * children for its second and further commands. The tag never had a body.
+ */
+public class TapElementListener implements StartElementListener {
 
 	TriggerData current_trigger = null;
 
@@ -39,8 +46,5 @@ public class TapElementListener implements TextElementListener {
 			}
 		}
 		current_trigger.getResponders().add(tmp.copy());
-	}
-
-	public void end(String body) {
 	}
 }

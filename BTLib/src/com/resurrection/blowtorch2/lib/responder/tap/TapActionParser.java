@@ -13,7 +13,9 @@ public final class TapActionParser {
 
 	public static void registerListeners(Element root, TriggerData current_trigger) {
 		Element tap = root.getChild(BasePluginParser.TAG_TAPACTION);
-		tap.setTextElementListener(new TapElementListener(current_trigger));
+		// A start listener, not a text one: an element with an end-text listener
+		// cannot be given children, and the extra commands are children.
+		tap.setStartElementListener(new TapElementListener(current_trigger));
 		// Second and further commands arrive as children, after the action itself
 		// has been added by the listener above; TapCommandElementListener appends
 		// to it. A file written before the menu existed simply has no children.
