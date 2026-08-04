@@ -1772,11 +1772,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					// it was there first and opening a browser is the more
 					// destructive surprise to get wrong.
 					if (mTouchInLink < 0) {
-						// The box already carries the finished command: each rule
-						// has its own, so it cannot be rebuilt from one setting.
-						String cmd = tapBoxes.get(mTouchInTapWord).getData();
-						mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
-								MainWindow.MESSAGE_TAPWORDCOMMAND, cmd));
+						// The box already carries the finished commands: each rule
+						// has its own, so they cannot be rebuilt from one setting.
+						String[] cmds = mTouchInTapWord < tapCommands.size()
+								? tapCommands.get(mTouchInTapWord)
+								: new String[] { tapBoxes.get(mTouchInTapWord).getData() };
+						if (cmds.length > 1) {
+							// More than one: ask, anchored on the word that was hit
+							// so the menu points at what it is about.
+							Rect box = tapBoxes.get(mTouchInTapWord).getBox();
+							mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+									MainWindow.MESSAGE_TAPWORDMENU,
+									box.centerX(), box.top,
+									cmds));
+						} else {
+							mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+									MainWindow.MESSAGE_TAPWORDCOMMAND, cmds[0]));
+						}
 						mTouchInTapWord = -1;
 						mTouchInLink = -1;
 						return true;
@@ -2245,6 +2257,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (!scrollingGesture) {
 				linkBoxes.clear();
 				tapBoxes.clear();
+				tapCommands.clear();
 			}
 			
 			while (!stop && screenIt.hasPrevious()) {
@@ -3191,6 +3204,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Same shape as {@link #linkBoxes}, and in the same (raw touch) space. */
 	private final ArrayList<LinkBox> tapBoxes = new ArrayList<LinkBox>();
+	/**
+	 * What each box in {@link #tapBoxes} would send, {@code $word} already
+	 * filled in, one array per box and in the same order. Kept beside the boxes
+	 * rather than as an index into {@link #mTapRules}: the boxes are rebuilt on
+	 * every draw while a trigger edit can replace the rule list in between, and
+	 * an index would then point at a different rule or past the end.
+	 */
+	private final ArrayList<String[]> tapCommands = new ArrayList<String[]>();
 	private int mTouchInTapWord = -1;
 	private final Paint mTapUnderlinePaint = new Paint();
 	private final Paint mTapTextPaint = new Paint();
@@ -3202,17 +3223,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 */
 	public static final class TapRule {
 		public final java.util.regex.Pattern pattern;
-		public final String command;
+		/** One entry sends straight away; more than one opens a menu. */
+		public final String[] commands;
 		public final boolean underline;
 		public final boolean bold;
 		public final boolean frame;
 		public final boolean recolor;
 		public final int color;
 
-		public TapRule(java.util.regex.Pattern pattern, String command, boolean underline,
+		public TapRule(java.util.regex.Pattern pattern, String[] commands, boolean underline,
 				boolean bold, boolean frame, boolean recolor, int color) {
 			this.pattern = pattern;
-			this.command = command;
+			this.commands = commands != null && commands.length > 0
+					? commands : new String[] { "look $word" };
 			this.underline = underline;
 			this.bold = bold;
 			this.frame = frame;
@@ -3254,8 +3277,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					break;
 				}
 				String hit = s.substring(m.start(), m.end());
-				drawTapHit(c, x, y, p, s, m.start(), m.end(), scrollingGesture,
-						rule.command.replace("$word", hit),
+				String[] filled = new String[rule.commands.length];
+				for (int i = 0; i < filled.length; i++) {
+					filled[i] = rule.commands[i].replace("$word", hit);
+				}
+				drawTapHit(c, x, y, p, s, m.start(), m.end(), scrollingGesture, filled,
 						rule.underline, rule.bold, rule.frame, rule.recolor, rule.color);
 			}
 		}
@@ -3264,7 +3290,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Mark one run of characters as tappable and remember where it was drawn. */
 	private void drawTapHit(final Canvas c, final float x, final float y, final Paint p,
 			final String source, final int start, final int end, final boolean scrollingGesture,
-			final String command, final boolean underline, final boolean bold,
+			final String[] commands, final boolean underline, final boolean bold,
 			final boolean frame, final boolean recolor, final int color) {
 		float left = x + cellWidth(start);
 		float right = left + cellWidth(end - start);
@@ -3317,9 +3343,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// LinkBox's constructor drops its first argument (the assignment is
 			// commented out) and links fill the data in later via setData. That
 			// is why $word came out empty before: getData() was null.
-			LinkBox box = new LinkBox(command, r);
-			box.setData(command);
+			LinkBox box = new LinkBox(commands[0], r);
+			box.setData(commands[0]);
 			tapBoxes.add(box);
+			tapCommands.add(commands);
 		}
 	}
 

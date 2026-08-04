@@ -78,6 +78,8 @@ public class BasePluginParser {
 	
 	public static final String TAG_COLORACTION = "color";
 	public static final String TAG_TAPACTION = "tap";
+	/** Extra commands on a tap action; the first one stays in the attribute. */
+	public static final String TAG_TAPCOMMAND = "tapcommand";
 	
 	public static final String TAG_GAGACTION = "gag";
 	public static final String ATTR_GAGLOG = "fromLog";

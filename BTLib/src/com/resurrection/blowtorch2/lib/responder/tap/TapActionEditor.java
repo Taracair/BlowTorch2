@@ -25,7 +25,10 @@ public class TapActionEditor extends Dialog {
 	private final TriggerResponder original;
 	private final TriggerResponderEditorDoneListener finishWith;
 
-	private EditText commandBox;
+	/** One row per command; the first one is what a plain tap sends. */
+	private final java.util.ArrayList<EditText> commandBoxes =
+			new java.util.ArrayList<EditText>();
+	private LinearLayout commandRows;
 	private CheckBox underlineBox;
 	private CheckBox boldBox;
 	private CheckBox frameBox;
@@ -55,14 +58,23 @@ public class TapActionEditor extends Dialog {
 		TextView help = new TextView(c);
 		help.setText("What the trigger matches becomes tappable. Tapping it sends the "
 				+ "command below, with " + TapAction.WORD_TOKEN + " replaced by the text "
-				+ "that was tapped.");
+				+ "that was tapped. Add more commands and a tap asks which one you "
+				+ "meant instead of sending straight away — the first one stays on top "
+				+ "of that menu.");
 		root.addView(help);
 
-		commandBox = new EditText(c);
-		commandBox.setSingleLine(true);
-		commandBox.setInputType(InputType.TYPE_CLASS_TEXT);
-		commandBox.setHint("look " + TapAction.WORD_TOKEN);
-		root.addView(commandBox);
+		commandRows = new LinearLayout(c);
+		commandRows.setOrientation(LinearLayout.VERTICAL);
+		root.addView(commandRows);
+
+		Button addCommand = new Button(c);
+		addCommand.setText("Add another command");
+		addCommand.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				addCommandRow("");
+			}
+		});
+		root.addView(addCommand);
 
 		underlineBox = addCheck(c, root, "Underline");
 		boldBox = addCheck(c, root, "Bold");
@@ -80,7 +92,9 @@ public class TapActionEditor extends Dialog {
 		root.addView(colorBox);
 
 		TapAction start = original instanceof TapAction ? (TapAction) original : new TapAction();
-		commandBox.setText(start.getCommand());
+		for (String cmd : start.getCommands()) {
+			addCommandRow(cmd);
+		}
 		underlineBox.setChecked(start.isUnderline());
 		boldBox.setChecked(start.isBold());
 		frameBox.setChecked(start.isFrame());
@@ -115,6 +129,39 @@ public class TapActionEditor extends Dialog {
 		setContentView(scroll);
 	}
 
+	/**
+	 * One command line with an X beside it. The X removes the row rather than
+	 * blanking it, and the last remaining row keeps its X — clearing every
+	 * command is caught in {@link #finish()}, which falls back to the default.
+	 */
+	private void addCommandRow(final String text) {
+		final Context c = getContext();
+		final LinearLayout row = new LinearLayout(c);
+		row.setOrientation(LinearLayout.HORIZONTAL);
+
+		final EditText box = new EditText(c);
+		box.setSingleLine(true);
+		box.setInputType(InputType.TYPE_CLASS_TEXT);
+		box.setHint(TapAction.DEFAULT_COMMAND);
+		box.setText(text);
+		row.addView(box, new LinearLayout.LayoutParams(0,
+				ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+		Button remove = new Button(c);
+		remove.setText("X");
+		remove.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				commandBoxes.remove(box);
+				commandRows.removeView(row);
+			}
+		});
+		row.addView(remove, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+		commandBoxes.add(box);
+		commandRows.addView(row);
+	}
+
 	private static CheckBox addCheck(Context c, LinearLayout parent, String label) {
 		CheckBox box = new CheckBox(c);
 		box.setText(label);
@@ -124,8 +171,13 @@ public class TapActionEditor extends Dialog {
 
 	private void finish() {
 		TapAction action = new TapAction();
-		String cmd = commandBox.getText().toString().trim();
-		action.setCommand(cmd.length() > 0 ? cmd : "look " + TapAction.WORD_TOKEN);
+		java.util.ArrayList<String> cmds = new java.util.ArrayList<String>();
+		for (EditText box : commandBoxes) {
+			cmds.add(box.getText().toString().trim());
+		}
+		// Blank rows and an empty list are handled there: the action never ends
+		// up with nothing to send.
+		action.setCommands(cmds);
 		action.setUnderline(underlineBox.isChecked());
 		action.setBold(boldBox.isChecked());
 		action.setFrame(frameBox.isChecked());

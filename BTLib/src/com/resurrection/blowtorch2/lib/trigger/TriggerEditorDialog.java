@@ -550,7 +550,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			} else if(responder.getType() == RESPONDER_TYPE.GAG) {
 				label.setText("Gag");
 			} else if(responder.getType() == RESPONDER_TYPE.TAP) {
-				label.setText("Tappable: " + ((TapAction)responder).getCommand());
+				{
+					TapAction tap = (TapAction) responder;
+					int extra = tap.getCommands().size() - 1;
+					label.setText("Tappable: " + tap.getCommand()
+							+ (extra > 0 ? " (+" + extra + " in a menu)" : ""));
+				}
 			} else if(responder.getType() == RESPONDER_TYPE.COLOR) {
 				label.setText("Color: " + Integer.toString(((ColorAction)responder).getColor()));
 			} else if(responder.getType() == RESPONDER_TYPE.SET_VARIABLE) {

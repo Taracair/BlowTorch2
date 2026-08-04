@@ -205,6 +205,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public final static int MESSAGE_TAPWORDCOMMAND = 8887;
 	/** Re-read tappable-word rules from the trigger list. */
 	public final static int MESSAGE_REFRESHTAPRULES = 8888;
+	/**
+	 * A tappable word with more than one command was tapped: obj is the String[]
+	 * of commands, arg1/arg2 are the centre and top of the word in the game
+	 * window, so the menu can point at it.
+	 */
+	public final static int MESSAGE_TAPWORDMENU = 8889;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
 	/** MCP displayurl — open Intent.ACTION_VIEW with obj as URL string. */
 	private static final int MESSAGE_MCP_LAUNCHURL = 8862;
@@ -1273,6 +1279,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 								"MainWindow.tapWordCommand", e);
 					}
 					break;
+				case MESSAGE_TAPWORDMENU:
+					showTapWordMenu((String[]) msg.obj, msg.arg1, msg.arg2);
+					break;
 				case MESSAGE_SENDDATAOUT:
 					try {
 						service.sendData((byte[])msg.obj);
@@ -1845,6 +1854,63 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (imm != null) {
 				imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
 			}
+		}
+	}
+
+	/**
+	 * The word that was tapped carries more than one command, so ask which one.
+	 * Same ListPopupWindow and same themed background as the gameplay ⋮ menu —
+	 * a second kind of in-game menu would look like a different app.
+	 *
+	 * @param commands what to offer, $word already filled in.
+	 * @param wordCenterX centre of the tapped word inside the game window.
+	 * @param wordTop top of the tapped word inside the game window.
+	 */
+	void showTapWordMenu(final String[] commands, final int wordCenterX, final int wordTop) {
+		if (commands == null || commands.length == 0) {
+			return;
+		}
+		try {
+			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+			View gameWindow = rl != null ? rl.findViewWithTag("mainDisplay") : null;
+			View anchor = gameWindow != null ? gameWindow : rl;
+			if (anchor == null) {
+				return;
+			}
+			Context themed = new ContextThemeWrapper(this, R.style.BlowTorch_Game_PopupMenu);
+			final float density = getResources().getDisplayMetrics().density;
+			final androidx.appcompat.widget.ListPopupWindow popup =
+					new androidx.appcompat.widget.ListPopupWindow(themed);
+			popup.setAnchorView(anchor);
+			popup.setModal(true);
+			popup.setAdapter(new ArrayAdapter<String>(
+					themed, android.R.layout.simple_list_item_1, commands));
+			popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
+					themed, R.drawable.dialog_window_crawler1));
+			int width = Math.min(getResources().getDisplayMetrics().widthPixels,
+					(int) (280 * density));
+			popup.setContentWidth(width);
+			// The anchor is the whole game window, so the offsets carry the word
+			// position. Keep the menu on screen: it hangs below the word unless
+			// there is no room, and never starts left of the window edge.
+			int maxX = Math.max(0, anchor.getWidth() - width);
+			popup.setHorizontalOffset(Math.max(0, Math.min(wordCenterX - width / 2, maxX)));
+			popup.setVerticalOffset(wordTop - anchor.getHeight() + (int) (4 * density));
+			popup.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
+				@Override
+				public void onItemClick(android.widget.AdapterView<?> parent, View view,
+						int position, long id) {
+					popup.dismiss();
+					if (position >= 0 && position < commands.length) {
+						myhandler.sendMessage(myhandler.obtainMessage(
+								MESSAGE_TAPWORDCOMMAND, commands[position]));
+					}
+				}
+			});
+			popup.show();
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.showTapWordMenu", e);
 		}
 	}
 
@@ -5626,7 +5692,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							continue;
 						}
 						rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
-								p, tap.getCommand(), tap.isUnderline(), tap.isBold(),
+								p, tap.getCommands().toArray(new String[0]),
+							tap.isUnderline(), tap.isBold(),
 								tap.isFrame(), tap.isRecolor(), tap.getColor()));
 					}
 				}

@@ -38,7 +38,15 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	/** Placeholder replaced with the text that was tapped. */
 	public static final String WORD_TOKEN = "$word";
 
-	private String command = "look " + WORD_TOKEN;
+	public static final String DEFAULT_COMMAND = "look " + WORD_TOKEN;
+
+	/**
+	 * What a tap can send. One entry is the ordinary case and stays a plain tap
+	 * that fires straight away; more than one turns the tap into a menu, which
+	 * is why this is a list and not a second optional field. Never empty — an
+	 * empty list would mean a word that lights up and then does nothing.
+	 */
+	private java.util.ArrayList<String> commands = new java.util.ArrayList<String>();
 	private boolean underline = true;
 	private boolean bold;
 	private boolean frame;
@@ -47,11 +55,13 @@ public class TapAction extends TriggerResponder implements Parcelable {
 
 	public TapAction() {
 		super(RESPONDER_TYPE.TAP);
+		commands.add(DEFAULT_COMMAND);
 		this.setFireType(FIRE_WHEN.WINDOW_BOTH);
 	}
 
 	public TapAction(RESPONDER_TYPE pType) {
 		super(pType);
+		commands.add(DEFAULT_COMMAND);
 		this.setFireType(FIRE_WHEN.WINDOW_BOTH);
 	}
 
@@ -69,7 +79,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	@Override
 	public TriggerResponder copy() {
 		TapAction tmp = new TapAction(RESPONDER_TYPE.TAP);
-		tmp.command = this.command;
+		tmp.commands = new java.util.ArrayList<String>(this.commands);
 		tmp.underline = this.underline;
 		tmp.bold = this.bold;
 		tmp.frame = this.frame;
@@ -87,7 +97,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 			return false;
 		}
 		TapAction b = (TapAction) o;
-		if (!this.command.equals(b.command)) {
+		if (!this.commands.equals(b.commands)) {
 			return false;
 		}
 		if (this.underline != b.underline) {
@@ -113,7 +123,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	}
 
 	public void writeToParcel(Parcel o, int flags) {
-		o.writeString(command);
+		o.writeStringList(commands);
 		o.writeInt(underline ? 1 : 0);
 		o.writeInt(bold ? 1 : 0);
 		o.writeInt(frame ? 1 : 0);
@@ -128,7 +138,8 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	}
 
 	private void readFromParcel(Parcel in) {
-		command = in.readString();
+		java.util.ArrayList<String> read = in.createStringArrayList();
+		setCommands(read);
 		underline = in.readInt() != 0;
 		bold = in.readInt() != 0;
 		frame = in.readInt() != 0;
@@ -163,12 +174,53 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		TapActionParser.saveTapActionToXML(out, this);
 	}
 
+	/** The command a plain tap sends: the first one on the list. */
 	public String getCommand() {
-		return command;
+		return commands.get(0);
 	}
 
+	/** Replaces the whole list with a single command. */
 	public void setCommand(String command) {
-		this.command = command != null ? command : "";
+		commands.clear();
+		commands.add(command != null && command.trim().length() > 0
+				? command : DEFAULT_COMMAND);
+	}
+
+	/** Every command, in menu order. The first one is the default. */
+	public java.util.List<String> getCommands() {
+		return java.util.Collections.unmodifiableList(commands);
+	}
+
+	/**
+	 * Replaces the list, dropping blanks. An empty or null list falls back to
+	 * the default command rather than leaving a word that lights up and does
+	 * nothing when it is tapped.
+	 */
+	public void setCommands(java.util.List<String> newCommands) {
+		java.util.ArrayList<String> kept = new java.util.ArrayList<String>();
+		if (newCommands != null) {
+			for (String c : newCommands) {
+				if (c != null && c.trim().length() > 0) {
+					kept.add(c.trim());
+				}
+			}
+		}
+		if (kept.isEmpty()) {
+			kept.add(DEFAULT_COMMAND);
+		}
+		commands = kept;
+	}
+
+	/** Appends one command; blanks are ignored. */
+	public void addCommand(String command) {
+		if (command != null && command.trim().length() > 0) {
+			commands.add(command.trim());
+		}
+	}
+
+	/** True when a tap has to ask which command the player meant. */
+	public boolean hasMenu() {
+		return commands.size() > 1;
 	}
 
 	public boolean isUnderline() {
