@@ -40,6 +40,25 @@ public final class FloatingLayerGeometry {
 	}
 
 	/**
+	 * Floating-layer left edge → grid centre X. The inverse of
+	 * {@link #gridCenterToLeft}, so a button dropped by a finger can move the
+	 * grid button it is a copy of instead of drifting away from it.
+	 */
+	public static float leftToGridCenter(final int left, final float widthDp,
+			final float density) {
+		return left + (widthDp * density / 2f);
+	}
+
+	/**
+	 * Floating-layer top edge → grid centre Y. The inverse of
+	 * {@link #gridCenterToTop}, status bar offset included.
+	 */
+	public static float topToGridCenter(final int top, final float heightDp,
+			final float density, final int statusOffsetPx) {
+		return top + (heightDp * density / 2f) - statusOffsetPx;
+	}
+
+	/**
 	 * Resolve a stored X: unplaced becomes a left margin; otherwise the value
 	 * as stored (caller still clamps). Prefer {@link #gridCenterToLeft} when
 	 * the button still lives at its grid origin.

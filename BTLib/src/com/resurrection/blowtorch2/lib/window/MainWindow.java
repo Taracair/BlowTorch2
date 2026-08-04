@@ -4048,14 +4048,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 
 				@Override
-				public void persistFloatPosition(int buttonIndex, int floatX, int floatY) {
+				public void persistFloatPosition(int buttonIndex, int floatX, int floatY,
+						int gridX, int gridY) {
 					// Write the pair for the orientation the drag happened in, so
 					// the other one keeps whatever the player set there.
 					boolean land = getResources().getConfiguration().orientation
 							== android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 					String payload = "return {index=" + buttonIndex
 							+ (land ? ",floatXLand=" : ",floatX=") + floatX
-							+ (land ? ",floatYLand=" : ",floatY=") + floatY + "}";
+							+ (land ? ",floatYLand=" : ",floatY=") + floatY
+							// The same drop as a grid position, so the button on the
+							// grid follows its floating copy. Absent in landscape.
+							+ (gridX != Integer.MIN_VALUE ? ",gridX=" + gridX : "")
+							+ (gridY != Integer.MIN_VALUE ? ",gridY=" + gridY : "")
+							+ "}";
 					windowCall("button_window", "applyFloatPosition", payload);
 					windowCall("button_window", "persistFloatingButtons", "");
 				}

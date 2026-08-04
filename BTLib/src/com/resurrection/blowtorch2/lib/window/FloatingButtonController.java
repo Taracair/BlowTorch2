@@ -111,8 +111,16 @@ public class FloatingButtonController {
 
 		void loadButtonSet(String name);
 
-		/** Apply floatX/Y in UI Lua then persist via saveButtons. */
-		void persistFloatPosition(int buttonIndex, int floatX, int floatY);
+		/**
+		 * Apply floatX/Y in UI Lua then persist via saveButtons.
+		 *
+		 * @param gridX grid centre the drop corresponds to, so the grid button
+		 *        moves with its floating copy instead of drifting away from it;
+		 *        {@link Integer#MIN_VALUE} when the grid must not be touched
+		 *        (a landscape drag — the grid has one position, and it is the
+		 *        portrait one).
+		 */
+		void persistFloatPosition(int buttonIndex, int floatX, int floatY, int gridX, int gridY);
 
 		boolean isFloatingButtonsEnabled();
 
@@ -183,7 +191,20 @@ public class FloatingButtonController {
 			// IME/chrome rebuild (e.g. .sendbutton toggling the input bar) recreates
 			// overlay windows from the pre-drag snapshot and the button snaps back.
 			rememberFloatPosition(index, x, y);
-			host.persistFloatPosition(index, x, y);
+			int gridX = Integer.MIN_VALUE;
+			int gridY = Integer.MIN_VALUE;
+			FloatingButtonModel dropped = findModel(index);
+			if (dropped != null && !isLandscape() && layer != null) {
+				// Same position, expressed the way the grid stores it. Portrait
+				// only: the grid keeps a single pair and it is the portrait one,
+				// so a landscape drag would move the button in portrait too.
+				float density = layer.getResources().getDisplayMetrics().density;
+				gridX = Math.round(FloatingLayerGeometry.leftToGridCenter(
+						x, dropped.widthDp, density));
+				gridY = Math.round(FloatingLayerGeometry.topToGridCenter(
+						y, dropped.heightDp, density, dropped.statusOffsetPx));
+			}
+			host.persistFloatPosition(index, x, y, gridX, gridY);
 		}
 
 		@Override
@@ -971,6 +992,16 @@ public class FloatingButtonController {
 	 */
 	private void rememberFloatPosition(int index, int x, int y) {
 		rememberFloatPosition(index, x, y, false);
+	}
+
+	/** The cached snapshot for a Lua button index, or null when it is gone. */
+	private FloatingButtonModel findModel(int index) {
+		for (int i = 0; i < lastModels.size(); i++) {
+			if (lastModels.get(i).index == index) {
+				return lastModels.get(i);
+			}
+		}
+		return null;
 	}
 
 	/**

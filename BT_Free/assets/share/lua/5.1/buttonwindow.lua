@@ -300,6 +300,7 @@ function exitMoveMode()
 			b.data.x = b.data.x + dx
 			b.data.y = b.data.y + dy
 			b.data.x, b.data.y = clampLogicalPosition(b.data.x, b.data.y, b)
+			clearFloatPlacement(b)
 			b.selected = false
 			updateSelected(b,false)
 			b:updateRect(statusoffset)
@@ -1356,6 +1357,22 @@ function notifyFloatingButtonsChanged()
 	end)
 end
 
+-- A button has one position, and the player can set it in two places: on the
+-- grid, or by dragging the floating copy after a 2 s hold. These two keep them
+-- the same number. Moving it on the grid drops the dragged position, so the
+-- floating copy is seeded from the grid again; dragging the floating copy
+-- writes the grid position back (portrait only -- the grid stores one pair and
+-- it is the portrait one).
+function clearFloatPlacement(b)
+	if b == nil or b.data == nil then
+		return
+	end
+	b.data.floatX = -1
+	b.data.floatY = -1
+	b.data.floatXLand = -1
+	b.data.floatYLand = -1
+end
+
 -- Java windowCall("button_window", "applyFloatPosition", serialize{index=,floatX=,floatY=})
 -- Mutates in-memory float coords only; Java must call persistFloatingButtons to save.
 function applyFloatPosition(data)
@@ -1387,6 +1404,16 @@ function applyFloatPosition(data)
 	end
 	if pos.floatYLand ~= nil then
 		d.floatYLand = tonumber(pos.floatYLand) or d.floatYLand
+	end
+	-- Java sends the same drop as a grid centre in portrait, so the button on
+	-- the grid ends up where its floating copy was left.
+	if pos.gridX ~= nil and pos.gridY ~= nil then
+		local gx = tonumber(pos.gridX)
+		local gy = tonumber(pos.gridY)
+		if gx ~= nil and gy ~= nil then
+			d.x, d.y = clampLogicalPosition(gx, gy, buttons[index])
+			buttons[index]:updateRect(statusoffset)
+		end
 	end
 end
 
@@ -1518,6 +1545,7 @@ function tidyButtonLayout(columns)
 		local halfH = ((tonumber(b.data.height) or 42) * density) / 2
 		b.data.x = col * stepX + halfW
 		b.data.y = statusoffset + row * stepY + halfH
+		clearFloatPlacement(b)
 		b:updateRect(statusoffset)
 	end
 	drawButtons()
@@ -1724,6 +1752,7 @@ function rescaleLayoutToPitch(newPitchDp)
 		local b = targets[i]
 		b.data.x = minX + (b.data.x - minX) * factor
 		b.data.y = minY + (b.data.y - minY) * factor
+		clearFloatPlacement(b)
 		b:updateRect(statusoffset)
 	end
 	return true
@@ -2836,6 +2865,11 @@ function buttonEditorDone(data)
 		--printTable("button",tmp)
 		
 		
+		if tonumber(data.xCoord) ~= tonumber(tmp.data.x)
+				or tonumber(data.yCoord) ~= tonumber(tmp.data.y) then
+			-- Typed a new position in the editor: that is the position now.
+			clearFloatPlacement(tmp)
+		end
 		tmp.data.x = data.xCoord
 		tmp.data.y = data.yCoord
 		tmp.data.height = data.height
