@@ -396,6 +396,19 @@ function buildTabs(host, content, o)
 	if(o.numediting > 1) then
 		accordionDirSpinner:setEnabled(false)
 	end
+	-- A super button has no accordion: the fan is drawn on the button grid and
+	-- the children only live while the parent is open, neither of which a
+	-- floating window over the game can do. Saving strips it anyway
+	-- (enforceNoAccordionOnSuperButton) — this is so the player is told here
+	-- instead of finding out afterwards.
+	if editorValues ~= nil and editorValues.floating == true then
+		accordionDirSpinner:setEnabled(false)
+		o.addHelpText(accordionPage,
+			"This is a super button, so it cannot have an accordion: the "
+			.. "sub-buttons are drawn on the button grid and only exist while "
+			.. "the parent is open. Untick 'Float over the game' on the "
+			.. "Advanced tab to use one.")
+	end
 	dirRow:addView(dirLabel)
 	dirRow:addView(accordionDirSpinner)
 	accordionPage:addView(dirRow)

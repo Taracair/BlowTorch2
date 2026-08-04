@@ -105,8 +105,21 @@ function loadButtons(args)
 	BUTTON_DATA.__index = defaults
 	buttons = {}
 	local set = tmp.set
+	local strippedAccordions = 0
 	for i=1,#set do
 		buttons[i] = BUTTON:new(set[i],density)
+		-- A profile written before this rule, or imported from someone else,
+		-- can carry both. Fix it on the way in rather than drawing a button
+		-- that cannot do what its own settings say.
+		if enforceNoAccordionOnSuperButton(buttons[i]) then
+			strippedAccordions = strippedAccordions + 1
+		end
+	end
+	if strippedAccordions > 0 then
+		Note("BlowTorch: " .. strippedAccordions
+			.. " super button(s) had an accordion, which cannot work from the"
+			.. " floating layer. The accordion was removed; the buttons still"
+			.. " float. Untick 'Super button' to use an accordion instead.")
 	end
 	clampAllButtons()
 	drawButtons()
@@ -1435,6 +1448,31 @@ end
 -- floating copy is seeded from the grid again; dragging the floating copy
 -- writes the grid position back (portrait only -- the grid stores one pair and
 -- it is the portrait one).
+-- The two cannot both be on. A super button is a copy in its own window over
+-- the game (or over the keyboard); an accordion is a fan of buttons drawn on
+-- the button grid and its children only exist while the parent is expanded.
+-- There is no way to show that in the floating window, so the copy would be a
+-- button that does nothing -- and the player, who ticked both, would have no
+-- way of knowing why. Enforced on the data, not in the dialog: the editor is
+-- not the only thing that writes a button (import, plugins, older profiles).
+--
+-- Being a super button wins, because it is the thing the player can see is on.
+-- Returns true when something was taken away, so the caller can say so.
+function enforceNoAccordionOnSuperButton(b)
+	if b == nil or b.data == nil or b.data.floating ~= true then
+		return false
+	end
+	local d = b.data
+	local had = (d.accordionDirection ~= nil and d.accordionDirection ~= "")
+			or (d.accordionChildren ~= nil and #d.accordionChildren > 0)
+	if not had then
+		return false
+	end
+	d.accordionDirection = ""
+	d.accordionChildren = {}
+	return true
+end
+
 -- Only ever *shift* the floating position, never recompute it from the grid.
 -- The grid and the floating layer do not share an origin (status bar, chrome,
 -- and in overlay mode the position is on the screen), and every absolute
@@ -3008,6 +3046,12 @@ function buttonEditorDone(data)
 		tmp.data.floatMode = floatMode
 		tmp.data.floatRound = data.floatRound == true
 		tmp.data.floatFrame = data.floatFrame == true
+		if enforceNoAccordionOnSuperButton(tmp) then
+			Note("BlowTorch: an accordion cannot work from a super button —"
+				.. " it is drawn on the button grid and its children only exist"
+				.. " while it is open. The accordion was removed. Untick"
+				.. " 'Super button' if you want the accordion instead.")
+		end
 		
 		refreshRect(tmp)
 		--Note("EDITING SINGLE BUTTON AFTER BUTTON:"..tmp.data.height)
