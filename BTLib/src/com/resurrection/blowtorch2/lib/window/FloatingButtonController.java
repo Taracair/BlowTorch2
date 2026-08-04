@@ -114,16 +114,12 @@ public class FloatingButtonController {
 		/**
 		 * Apply floatX/Y in UI Lua then persist via saveButtons.
 		 *
-		 * @param gridDx how far the drag moved the button, to be added to its
-		 *        position on the grid so the two stay together. A <em>delta</em>
-		 *        and not a position on purpose: the grid and the floating layer
-		 *        do not share an origin (status bar, chrome), and every attempt
-		 *        to convert between them absolutely has put the button a status
-		 *        bar away from where it belonged. Zero means "leave the grid
-		 *        alone" — a landscape drag, or the first drag of a button that
-		 *        had no floating position yet.
+		 * @param gridX centre of the button where the drag left it, in the
+		 *        coordinates the grid uses — measured to be the same screen
+		 *        coordinates, so no status-bar term belongs here.
+		 *        {@link Integer#MIN_VALUE} leaves the grid alone (landscape).
 		 */
-		void persistFloatPosition(int buttonIndex, int floatX, int floatY, int gridDx, int gridDy);
+		void persistFloatPosition(int buttonIndex, int floatX, int floatY, int gridX, int gridY);
 
 		boolean isFloatingButtonsEnabled();
 
@@ -193,21 +189,19 @@ public class FloatingButtonController {
 			// Lua is updated below; keep lastModels in step too. Otherwise the next
 			// IME/chrome rebuild (e.g. .sendbutton toggling the input bar) recreates
 			// overlay windows from the pre-drag snapshot and the button snaps back.
-			// How far this drag actually moved the button, measured against the
-			// position it was sitting at. Portrait only: the grid keeps one
-			// pair and it is the portrait one, so a landscape drag would move
-			// the button in portrait too.
-			int gridDx = 0;
-			int gridDy = 0;
-			FloatingButtonModel before = findModel(index);
-			if (before != null && !isLandscape()
-					&& before.floatX != FloatingLayerGeometry.UNPLACED
-					&& before.floatY != FloatingLayerGeometry.UNPLACED) {
-				gridDx = x - before.floatX;
-				gridDy = y - before.floatY;
+			// Where the finger left it, as the grid stores it: the centre of the
+			// button. Portrait only -- the grid keeps one position and it is the
+			// portrait one. Without this the drag would be undone by the next
+			// rebuild, which places the button from the grid.
+			int gridX = Integer.MIN_VALUE;
+			int gridY = Integer.MIN_VALUE;
+			FloatingButtonView dragged = findViewFor(index);
+			if (dragged != null && !isLandscape()) {
+				gridX = x + Math.max(dragged.buttonWidthPx(), 1) / 2;
+				gridY = y + Math.max(dragged.buttonHeightPx(), 1) / 2;
 			}
 			rememberFloatPosition(index, x, y);
-			host.persistFloatPosition(index, x, y, gridDx, gridDy);
+			host.persistFloatPosition(index, x, y, gridX, gridY);
 		}
 
 		@Override
@@ -877,11 +871,24 @@ public class FloatingButtonController {
 		int visualH = Math.max(1, v.getMeasuredHeight());
 		int buttonW = Math.max(1, v.buttonWidthPx());
 		int buttonH = Math.max(1, v.buttonHeightPx());
-		int x = m.floatX == FloatingLayerGeometry.UNPLACED
-				? (m.hasGridOrigin
-						? FloatingLayerGeometry.gridCenterToLeft(m.gridX, m.widthDp, density)
-						: margin)
-				: m.floatX;
+		// The grid is the position, in portrait. Measured 4 Aug on the phone: a
+		// button at grid x=645.75, y=2044.875 has its centre at screen (644,
+		// 2045) -- the grid's numbers are already screen coordinates here, which
+		// is why no status-bar offset belongs in this conversion. So the copy is
+		// placed from the grid centre and the two cannot drift apart; a drag
+		// writes the grid back (see onFloatDragFinished), which is the only
+		// other thing that may move it.
+		//
+		// Landscape keeps its own stored pair: the grid has one position and it
+		// is the portrait one.
+		boolean useGrid = !isLandscape() && m.hasGridOrigin;
+		int x = useGrid
+				? Math.round(m.gridX) - buttonW / 2
+				: (m.floatX == FloatingLayerGeometry.UNPLACED
+						? (m.hasGridOrigin
+								? FloatingLayerGeometry.gridCenterToLeft(m.gridX, m.widthDp, density)
+								: margin)
+						: m.floatX);
 		// No status-bar offset in the seed. Measured on the phone (dumpsys window,
 		// 3 Aug): the dragged button sits at its stored y=2171 and looks right,
 		// the never-dragged one is seeded at 2322 -- 151px lower, and the status
@@ -894,9 +901,11 @@ public class FloatingButtonController {
 		// its grid twin sits. Measured 4 Aug: the grid origin for these is
 		// y=967, which drops an unplaced button into the middle of the game
 		// text -- the "one of them ran off to the top" report.
-		int y = m.floatY == FloatingLayerGeometry.UNPLACED
-				? Math.max(0, displayHeight() - buttonH - margin)
-				: m.floatY;
+		int y = useGrid
+				? Math.round(m.gridY) - buttonH / 2
+				: (m.floatY == FloatingLayerGeometry.UNPLACED
+						? Math.max(0, displayHeight() - buttonH - margin)
+						: m.floatY);
 		x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
 		y = FloatingLayerGeometry.clampY(y, buttonH, displayHeight());
 		attachOverlayPair(v, x, y, buttonW, buttonH, visualW, visualH);

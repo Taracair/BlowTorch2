@@ -1422,13 +1422,14 @@ function applyFloatPosition(data)
 	if pos.floatYLand ~= nil then
 		d.floatYLand = tonumber(pos.floatYLand) or d.floatYLand
 	end
-	-- Java sends how far the finger moved the floating copy, in portrait, and
-	-- the button on the grid moves by the same amount. A delta, not a position:
-	-- see shiftFloatPlacement for why nothing absolute crosses between them.
-	local dx = tonumber(pos.gridDx) or 0
-	local dy = tonumber(pos.gridDy) or 0
-	if dx ~= 0 or dy ~= 0 then
-		d.x, d.y = clampLogicalPosition(d.x + dx, d.y + dy, buttons[index])
+	-- Java sends where the finger left the floating copy, as a grid centre, in
+	-- portrait. The button on the grid goes there: the two are one position and
+	-- the floating copy is rebuilt from the grid, so without this the drag would
+	-- be undone the next time the overlay is rebuilt.
+	local gx = tonumber(pos.gridX)
+	local gy = tonumber(pos.gridY)
+	if gx ~= nil and gy ~= nil then
+		d.x, d.y = clampLogicalPosition(gx, gy, buttons[index])
 		buttons[index]:updateRect(statusoffset)
 	end
 end
