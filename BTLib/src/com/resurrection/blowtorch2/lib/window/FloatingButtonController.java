@@ -886,6 +886,12 @@ public class FloatingButtonController {
 				: m.floatY;
 		x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
 		y = FloatingLayerGeometry.clampY(y, buttonH, displayHeight());
+		// BTPROF: does the clamp see the display the button is actually on? A
+		// stored y of 2171 must land on screen on a 1080-tall landscape display.
+		android.util.Log.i("BTPROF", "attach idx=" + m.index
+				+ " placed=(" + x + "," + y + ")"
+				+ " display=" + displayWidth() + "x" + displayHeight()
+				+ " buttonH=" + buttonH);
 		attachOverlayPair(v, x, y, buttonW, buttonH, visualW, visualH);
 		views.add(v);
 	}
@@ -981,9 +987,32 @@ public class FloatingButtonController {
 	 * rebuild does not resurrect the pre-drag coordinates.
 	 */
 	private void rememberFloatPosition(int index, int x, int y) {
+		rememberFloatPosition(index, x, y, false);
+	}
+
+	/**
+	 * @param onlyIfPlaced true when the position was read off a live window
+	 *        rather than dropped by a finger. A window whose pair is still
+	 *        {@link FloatingLayerGeometry#UNPLACED} is sitting on a seed, not on
+	 *        anything the player chose, and writing that seed in would be a lie
+	 *        about where they put it.
+	 *
+	 *        <p>Measured 4 Aug: this is how the two orientations kept sharing a
+	 *        position. Turning the phone left the landscape pair unplaced, the
+	 *        overlay window kept showing the portrait coordinates, and the next
+	 *        IME event copied those coordinates into the landscape pair — so
+	 *        landscape "followed" portrait one keyboard tap later, and a stored
+	 *        y of 2171 then put the button below a 1080-tall landscape screen,
+	 *        which is why it could not be found there at all.
+	 */
+	private void rememberFloatPosition(int index, int x, int y, boolean onlyIfPlaced) {
 		for (int i = 0; i < lastModels.size(); i++) {
 			FloatingButtonModel m = lastModels.get(i);
 			if (m.index == index) {
+				if (onlyIfPlaced
+						&& m.forOrientation(isLandscape()).floatX == FloatingLayerGeometry.UNPLACED) {
+					return;
+				}
 				// Resolve the orientation now instead of trusting the flag the
 				// snapshot was built with. A cached model can predate the turn
 				// (nothing forces a fresh Lua push on a rotation), and a stale
@@ -1007,7 +1036,7 @@ public class FloatingButtonController {
 			if (pair == null || pair.touchParams == null || m == null) {
 				continue;
 			}
-			rememberFloatPosition(m.index, pair.touchParams.x, pair.touchParams.y);
+			rememberFloatPosition(m.index, pair.touchParams.x, pair.touchParams.y, true);
 		}
 	}
 
