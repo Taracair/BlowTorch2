@@ -289,6 +289,9 @@ public class FloatingButtonController {
 	private boolean isLandscape() {
 		MainWindow mw = host.getMainWindow();
 		if (mw == null) {
+			// BTPROF: a null activity answering "portrait" would silently pick
+			// the wrong pair. Worth knowing whether it ever happens here.
+			android.util.Log.i("BTPROF", "isLandscape: no activity, defaulting portrait");
 			return false;
 		}
 		return mw.getResources().getConfiguration().orientation
@@ -734,6 +737,15 @@ public class FloatingButtonController {
 			if (m.landscape != land) {
 				models.set(i, m.forOrientation(land));
 			}
+			// BTPROF: which pair each button is placed from, and whether that
+			// pair is unplaced (which means it gets seeded from the grid).
+			FloatingButtonModel r = models.get(i);
+			android.util.Log.i("BTPROF", "rebuild idx=" + r.index
+					+ " land=" + land
+					+ " use=(" + r.floatX + "," + r.floatY + ")"
+					+ " landPair=(" + r.getFloatXLandscape() + "," + r.getFloatYLandscape() + ")"
+					+ " grid=(" + r.gridX + "," + r.gridY + ")"
+					+ " mode=" + r.floatMode);
 		}
 		if (models != lastModels) {
 			lastModels.clear();
