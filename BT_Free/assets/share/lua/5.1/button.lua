@@ -137,10 +137,19 @@ function BUTTON:new(data,density)
 end
 
 function BUTTON:updateRect(statusoffset)
-	local left = self.data.x - (self.data.width/2)*self.density
-	local right = self.data.x + (self.data.width/2)*self.density
-	local top = self.data.y - (self.data.height/2)*self.density + statusoffset
-	local bottom = self.data.y + (self.data.height/2)*self.density + statusoffset
+	self:updateRectAt(self.data.x, self.data.y, statusoffset)
+end
+
+-- Draw the button at x,y without touching data.x/data.y. Turning the phone
+-- makes some buttons fall outside the narrower screen, and the old code fixed
+-- that by writing the clamped position back -- which then came home with you
+-- when you turned back, so one trip to landscape rearranged portrait for good.
+-- Clamping is a drawing concern; only a finger may move a button for keeps.
+function BUTTON:updateRectAt(x, y, statusoffset)
+	local left = x - (self.data.width/2)*self.density
+	local right = x + (self.data.width/2)*self.density
+	local top = y - (self.data.height/2)*self.density + statusoffset
+	local bottom = y + (self.data.height/2)*self.density + statusoffset
 	local tmp = self.rect
 
 	tmp:set(left,top,right,bottom)

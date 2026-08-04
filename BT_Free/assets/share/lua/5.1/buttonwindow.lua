@@ -1128,17 +1128,21 @@ end
 -- when statusoffset may have moved under all of them (onSizeChanged), but not
 -- on the load path, where BUTTON:new has just built each rect from the same
 -- position and offset -- rebuilding all of them there was pure duplicate work.
-function clampAllButtons(forceRect)
+-- persist: write the clamped position back into the button data. Only a
+-- deliberate layout action passes true. A rotation must not: landscape is
+-- narrower and shorter, so clamping there used to overwrite the stored
+-- position and portrait came back rearranged.
+function clampAllButtons(forceRect, persist)
 	for i = 1, #buttons do
 		local b = buttons[i]
 		local ox, oy = b.data.x, b.data.y
 		local nx, ny = clampLogicalPosition(ox, oy, b)
 		local moved = nx ~= ox or ny ~= oy
-		if moved then
+		if moved and persist == true then
 			b.data.x, b.data.y = nx, ny
 		end
 		if moved or forceRect then
-			b:updateRect(statusoffset)
+			b:updateRectAt(nx, ny, statusoffset)
 		end
 	end
 end
