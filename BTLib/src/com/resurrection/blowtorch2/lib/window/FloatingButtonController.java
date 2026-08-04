@@ -289,9 +289,6 @@ public class FloatingButtonController {
 	private boolean isLandscape() {
 		MainWindow mw = host.getMainWindow();
 		if (mw == null) {
-			// BTPROF: a null activity answering "portrait" would silently pick
-			// the wrong pair. Worth knowing whether it ever happens here.
-			android.util.Log.i("BTPROF", "isLandscape: no activity, defaulting portrait");
 			return false;
 		}
 		return mw.getResources().getConfiguration().orientation
@@ -737,15 +734,6 @@ public class FloatingButtonController {
 			if (m.landscape != land) {
 				models.set(i, m.forOrientation(land));
 			}
-			// BTPROF: which pair each button is placed from, and whether that
-			// pair is unplaced (which means it gets seeded from the grid).
-			FloatingButtonModel r = models.get(i);
-			android.util.Log.i("BTPROF", "rebuild idx=" + r.index
-					+ " land=" + land
-					+ " use=(" + r.floatX + "," + r.floatY + ")"
-					+ " landPair=(" + r.getFloatXLandscape() + "," + r.getFloatYLandscape() + ")"
-					+ " grid=(" + r.gridX + "," + r.gridY + ")"
-					+ " mode=" + r.floatMode);
 		}
 		if (models != lastModels) {
 			lastModels.clear();
@@ -878,20 +866,15 @@ public class FloatingButtonController {
 		// the position on the screen, so adding it again drops the button by a
 		// status bar on every rebuild, which is why only that button keeps
 		// wandering off and only it comes back wrong.
+		// A button nobody has placed yet goes to the bottom edge, not to where
+		// its grid twin sits. Measured 4 Aug: the grid origin for these is
+		// y=967, which drops an unplaced button into the middle of the game
+		// text -- the "one of them ran off to the top" report.
 		int y = m.floatY == FloatingLayerGeometry.UNPLACED
-				? (m.hasGridOrigin
-						? FloatingLayerGeometry.gridCenterToTop(
-								m.gridY, m.heightDp, density, 0)
-						: Math.max(0, displayHeight() - buttonH - margin))
+				? Math.max(0, displayHeight() - buttonH - margin)
 				: m.floatY;
 		x = FloatingLayerGeometry.clampX(x, buttonW, displayWidth());
 		y = FloatingLayerGeometry.clampY(y, buttonH, displayHeight());
-		// BTPROF: does the clamp see the display the button is actually on? A
-		// stored y of 2171 must land on screen on a 1080-tall landscape display.
-		android.util.Log.i("BTPROF", "attach idx=" + m.index
-				+ " placed=(" + x + "," + y + ")"
-				+ " display=" + displayWidth() + "x" + displayHeight()
-				+ " buttonH=" + buttonH);
 		attachOverlayPair(v, x, y, buttonW, buttonH, visualW, visualH);
 		views.add(v);
 	}

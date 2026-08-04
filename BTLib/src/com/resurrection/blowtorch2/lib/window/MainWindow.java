@@ -3981,9 +3981,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					String payload = "return {index=" + buttonIndex
 							+ (land ? ",floatXLand=" : ",floatX=") + floatX
 							+ (land ? ",floatYLand=" : ",floatY=") + floatY + "}";
-					// BTPROF: which pair a drop actually writes.
-					android.util.Log.i("BTPROF", "persistFloatPosition land=" + land
-							+ " payload=" + payload);
 					windowCall("button_window", "applyFloatPosition", payload);
 					windowCall("button_window", "persistFloatingButtons", "");
 				}
