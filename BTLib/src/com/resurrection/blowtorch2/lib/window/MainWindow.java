@@ -201,6 +201,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private int mRebindAttempts = 0;
 	private boolean mPendingInitialConnect = false;
 	public final static int MESSAGE_LAUNCHURL = 886;
+	/** A tappable word was tapped; obj is the command to send. */
+	public final static int MESSAGE_TAPWORDCOMMAND = 8887;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
 	/** MCP displayurl — open Intent.ACTION_VIEW with obj as URL string. */
 	private static final int MESSAGE_MCP_LAUNCHURL = 8862;
@@ -1252,6 +1254,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_BUFFINC:
 					
 					//screen2.addBytes((byte[])msg.obj,true);
+					break;
+				case MESSAGE_TAPWORDCOMMAND:
+					// Same road as a typed line: CRLF and out through the
+					// service, so aliases and logging behave the same way.
+					try {
+						String tapCmd = (String) msg.obj;
+						if (tapCmd != null && tapCmd.length() > 0 && service != null) {
+							service.sendData((tapCmd + "\r\n").getBytes(service.getEncoding()));
+						}
+					} catch (Exception e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+								"MainWindow.tapWordCommand", e);
+					}
 					break;
 				case MESSAGE_SENDDATAOUT:
 					try {

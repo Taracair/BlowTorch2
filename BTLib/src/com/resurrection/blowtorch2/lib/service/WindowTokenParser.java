@@ -308,6 +308,25 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case tappable_words:
+					case tappable_word_command:
+						// Free text: persist whenever it is not empty.
+						if (((String) ((StringOption) o).getValue()).length() > 0) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text((String) ((StringOption) o).getValue());
+							out.endTag("", "option");
+						}
+						break;
+					case text_canvas_width:
+						// 100 = screen width = off; only a widened canvas is stored.
+						if (((Integer) ((IntegerOption) o).getValue()) != 100) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
 					case top_padding:
 						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_TOP_PADDING) {
 							out.startTag("", "option");

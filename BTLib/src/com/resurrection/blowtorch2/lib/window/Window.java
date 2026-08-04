@@ -626,6 +626,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		ColorOption hyperlinkcolor = (ColorOption) settings.findOptionByKey("hyperlink_color");
 		
 		BooleanOption wordwrap = (BooleanOption) settings.findOptionByKey("word_wrap");
+		IntegerOption canvasWidth = (IntegerOption) settings.findOptionByKey("text_canvas_width");
+		if (canvasWidth != null) {
+			mCanvasWidthFactor = Math.max(1.0f,
+					Math.min(2.0f, ((Integer) canvasWidth.getValue()).intValue() / 100f));
+		}
+		StringOption tapWords = (StringOption) settings.findOptionByKey("tappable_words");
+		if (tapWords != null) {
+			setTappableWords((String) tapWords.getValue());
+		}
+		StringOption tapCmd = (StringOption) settings.findOptionByKey("tappable_word_command");
+		if (tapCmd != null) {
+			setTapCommand((String) tapCmd.getValue());
+		}
 		BooleanOption hlenabled = (BooleanOption) settings.findOptionByKey("hyperlinks_enabled");
 		BooleanOption tapDismiss = (BooleanOption) settings.findOptionByKey("tap_dismiss_keyboard");
 		if (tapDismiss != null) {
@@ -1132,6 +1145,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mCalculatedRowsInWindow < 1) {
 			mCalculatedRowsInWindow = 1;
 		}
+		// Columns the buffer wraps at. Deliberately NOT mCalculatedRowsInWindow:
+		// getCalculatedColumns() hands that field to MainWindow.reportLiveNawsToService,
+		// so widening it would tell the MUD "my terminal is 180 columns" while the
+		// screen still shows 90 — the server would then wrap for a width the player
+		// cannot see. The physical value stays the truth we send; only wrapping and
+		// drawing use the wider canvas.
+		mWrapColumns = (int) (mCalculatedRowsInWindow * mCanvasWidthFactor);
+		if (mWrapColumns < mCalculatedRowsInWindow) {
+			mWrapColumns = mCalculatedRowsInWindow;
+		}
 		if (mCalculatedLinesInWindow < 1) {
 			mCalculatedLinesInWindow = 1;
 		}
@@ -1144,6 +1167,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (automaticBreaks) {
 			this.setLineBreaks(0);
 		}
+		clampScrollX();
 		
 		if (mBuffer.getBrokenLineCount() == 0) {
 			jumpToZero();
@@ -1631,14 +1655,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 				// Only hit-test links when idle — boxes are stale during drag/fling.
 				mTouchInLink = -1;
+				mTouchInTapWord = -1;
 				if (Math.abs(mFlingVelocity) <= FLING_STOP_VELOCITY) {
 					for (int tmpCount = 0; tmpCount < linkBoxes.size(); tmpCount++) {
 						if (linkBoxes.get(tmpCount).getBox().contains(start_x.intValue(), mStartY.intValue())) {
 							mTouchInLink = tmpCount;
 						}
 					}
+					for (int tmpCount = 0; tmpCount < tapBoxes.size(); tmpCount++) {
+						if (tapBoxes.get(tmpCount).getBox().contains(start_x.intValue(), mStartY.intValue())) {
+							mTouchInTapWord = tmpCount;
+						}
+					}
 				}
 				
+				mDragAxis = DRAG_UNDECIDED;
+				mMoveLastX = Float.valueOf(x);
 				mTouchDownLine = touchYToBufferLine(y);
 				mTouchDownColumn = mOneCharWidth > 0
 						? (int) Math.floor(x / (float) mOneCharWidth) : 0;
@@ -1652,6 +1684,34 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 			}
 			
+			if (action == MotionEvent.ACTION_MOVE && maxScrollX() > 0f
+					&& mDragAxis == DRAG_UNDECIDED
+					&& mStartY != null && start_x != null) {
+				// Decide the axis once per gesture and keep it. Re-deciding per
+				// event let a sideways drag also feed the vertical block below,
+				// which moves mScrollback — the buffer would creep while the
+				// player scrolls across.
+				float dx = t.getX(index) - start_x;
+				float dy = t.getY(index) - mStartY;
+				float slop = 8f * mDensity;
+				if (Math.abs(dx) >= slop || Math.abs(dy) >= slop) {
+					mDragAxis = Math.abs(dx) > Math.abs(dy) ? DRAG_HORIZONTAL : DRAG_VERTICAL;
+				}
+			}
+
+			if (action == MotionEvent.ACTION_MOVE && mDragAxis == DRAG_HORIZONTAL) {
+				// Drag the canvas with the finger: moving left shows what is
+				// further right, so the offset grows as x falls.
+				float nowX = t.getX(index);
+				if (mMoveLastX != null) {
+					scrollHorizontallyBy(mMoveLastX.floatValue() - nowX);
+				}
+				mMoveLastX = Float.valueOf(nowX);
+				mFlingVelocity = 0.0f;
+				mTouchInLink = -1;
+				return true;
+			}
+
 			if (action == MotionEvent.ACTION_MOVE) {
 				float nowY = t.getY(index);
 				long nowtime = t.getEventTime();
@@ -1696,6 +1756,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		        pointer = -1;
 		        mFingerDown = false;
 		        finger_down_to_up = true;
+		        boolean wasHorizontal = mDragAxis == DRAG_HORIZONTAL;
+		        mDragAxis = DRAG_UNDECIDED;
+		        mMoveLastX = null;
+		        if (wasHorizontal) {
+		        	// Sideways drags end here: no fling, no tap, no keyboard dismiss.
+		        	this.invalidate();
+		        	return true;
+		        }
 
 				float upX = t.getX(index);
 				float upY = t.getY(index);
@@ -1704,6 +1772,22 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						&& Math.abs(upY - mStartY) < tapSlop
 						&& Math.abs(upX - start_x) < tapSlop;
 		         
+				if (mTouchInTapWord > -1 && smallMove
+						&& mTouchInTapWord < tapBoxes.size()) {
+					// A listed word was tapped. A link on the same spot wins —
+					// it was there first and opening a browser is the more
+					// destructive surprise to get wrong.
+					if (mTouchInLink < 0) {
+						String word = tapBoxes.get(mTouchInTapWord).getData();
+						String cmd = mTapCommand.replace("$word", word == null ? "" : word);
+						mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+								MainWindow.MESSAGE_TAPWORDCOMMAND, cmd));
+						mTouchInTapWord = -1;
+						mTouchInLink = -1;
+						return true;
+					}
+				}
+				mTouchInTapWord = -1;
 				if (mTouchInLink > -1 && smallMove) {
 					mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_LAUNCHURL, linkBoxes.get(mTouchInLink).getData()));
 			        mTouchInLink = -1;
@@ -2013,7 +2097,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			p.setTextSize(mPrefFontSize);
 			p.setColor(0xFFFFFFFF);
 			
-			float x = 0;
+			// Sideways scroll is applied at the row origin rather than with
+			// canvas.translate on purpose: link boxes are built from this same x
+			// while drawing, so they stay in the space raw touch coordinates are
+			// in and hit testing needs no compensation.
+			float x = -mScrollX;
 			float y = 0;
 			final int ch = contentHeight();
 			if (mPrefLineSize * mCalculatedLinesInWindow < ch) {
@@ -2161,6 +2249,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mCurrentLink.setLength(0);
 			if (!scrollingGesture) {
 				linkBoxes.clear();
+				tapBoxes.clear();
 			}
 			
 			while (!stop && screenIt.hasPrevious()) {
@@ -2296,6 +2385,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 						}
 						
+						markTappableWords(c, text, x, y, p, scrollingGesture);
+
 						if (text.isLink() || doingLink) {
 							if (u instanceof TextTree.WhiteSpace) {
 								//DO LINK BOX.
@@ -2493,7 +2584,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						y = y + mPrefLineSize;
 						
 						
-						x = 0;
+						x = -mScrollX;
 						drawnlines++;
 						workingcol = 0;
 						if (drawnlines > mCalculatedLinesInWindow + extraLines) {
@@ -2506,7 +2597,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				if (!finishedWithNewLine) {
 					y = y + mPrefLineSize;
-					x = 0;
+					x = -mScrollX;
 					drawnlines++;
 					workingcol = 0;
 				}
@@ -3079,12 +3170,182 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	}
 	
 	
+	/**
+	 * How much wider than the screen the text canvas is (1.0 = as now). The
+	 * player scrolls the overflow into view sideways; see {@link #mScrollX}.
+	 */
+	private float mCanvasWidthFactor = 1.0f;
+	/** Columns the buffer wraps at — the canvas, not the screen (and not NAWS). */
+	private int mWrapColumns = 0;
+	/** Pixels of canvas hidden off the left edge. 0 = ordinary behaviour. */
+	private float mScrollX = 0f;
+	/** Axis this drag was locked to; nothing until the finger has committed. */
+	private int mDragAxis = DRAG_UNDECIDED;
+	/** Last X seen during a horizontal drag. */
+	private Float mMoveLastX = null;
+	private static final int DRAG_UNDECIDED = 0;
+	private static final int DRAG_VERTICAL = 1;
+	private static final int DRAG_HORIZONTAL = 2;
+
+	/**
+	 * Words the player listed as tappable, lower-cased. Empty = feature off,
+	 * and then {@link #markTappableWords} returns before touching anything.
+	 */
+	private java.util.HashSet<String> mTappableWords = new java.util.HashSet<String>();
+	/** What a tap sends; {@code $word} is replaced with the word that was hit. */
+	private String mTapCommand = "look $word";
+	/** Same shape as {@link #linkBoxes}, and in the same (raw touch) space. */
+	private final ArrayList<LinkBox> tapBoxes = new ArrayList<LinkBox>();
+	private int mTouchInTapWord = -1;
+	private final Paint mTapUnderlinePaint = new Paint();
+
+	/** Options → Window → Tappable words. Comma separated, case-insensitive. */
+	public void setTappableWords(final String csv) {
+		java.util.HashSet<String> words = new java.util.HashSet<String>();
+		if (csv != null) {
+			String[] parts = csv.split(",");
+			for (int i = 0; i < parts.length; i++) {
+				String w = parts[i].trim().toLowerCase();
+				if (w.length() > 0) {
+					words.add(w);
+				}
+			}
+		}
+		mTappableWords = words;
+		this.invalidate();
+	}
+
+	public void setTapCommand(final String cmd) {
+		mTapCommand = cmd != null && cmd.length() > 0 ? cmd : "look $word";
+	}
+
+	/** A word is only tappable whole — "cock" must not light up inside "peacock". */
+	private static boolean isWordChar(final char ch) {
+		return Character.isLetterOrDigit(ch) || ch == '\'' || ch == '-';
+	}
+
+	/**
+	 * Underline every listed word in this text unit and remember where it was
+	 * drawn, so a tap can find it. Runs inside onDraw, so it stays a single
+	 * scan of the unit with a hash lookup per word — no regex, no allocation
+	 * when the feature is off.
+	 */
+	private void markTappableWords(final Canvas c, final TextTree.Text text,
+			final float x, final float y, final Paint p, final boolean scrollingGesture) {
+		if (mTappableWords.isEmpty() || text == null) {
+			return;
+		}
+		String s = text.getString();
+		if (s == null || s.length() == 0) {
+			return;
+		}
+		int i = 0;
+		final int len = s.length();
+		while (i < len) {
+			if (!isWordChar(s.charAt(i))) {
+				i++;
+				continue;
+			}
+			int start = i;
+			while (i < len && isWordChar(s.charAt(i))) {
+				i++;
+			}
+			String word = s.substring(start, i);
+			if (!mTappableWords.contains(word.toLowerCase())) {
+				continue;
+			}
+			float left = x + cellWidth(start);
+			float right = left + cellWidth(i - start);
+			float bottom = cellBottom(y);
+			// Discreet: a hairline under the word, in the text's own colour.
+			mTapUnderlinePaint.setColor(p.getColor());
+			mTapUnderlinePaint.setAlpha(150);
+			c.drawRect(left, bottom - Math.max(2f, mDensity * 1.5f), right, bottom - 1f,
+					mTapUnderlinePaint);
+
+			Rect r = new Rect();
+			r.left = (int) left;
+			r.right = (int) right;
+			r.top = (int) cellTop(y);
+			r.bottom = (int) bottom;
+			int heightDips = (int) ((r.bottom - r.top) / mDensity);
+			if (heightDips < mLinkBoxHeightMinimum) {
+				int extra = (int) (((mLinkBoxHeightMinimum - heightDips) / 2) * mDensity);
+				if (extra > 0) {
+					r.top -= extra;
+					r.bottom += extra;
+				}
+			}
+			if (!scrollingGesture) {
+				tapBoxes.add(new LinkBox(word, r));
+			}
+		}
+	}
+
+	/** Widest the canvas gets, in pixels. */
+	private float canvasWidthPx() {
+		return mWrapColumns > 0 ? mWrapColumns * (float) mOneCharWidth : 0f;
+	}
+
+	/**
+	 * Furthest left the canvas can be pushed. Zero when the canvas is no wider
+	 * than the window — which is the factor-1.0 default, so the sideways gesture
+	 * is inert for anyone who leaves the option alone.
+	 */
+	private float maxScrollX() {
+		float over = canvasWidthPx() - mWidth;
+		return over > 0f ? over : 0f;
+	}
+
+	private void clampScrollX() {
+		float max = maxScrollX();
+		if (mScrollX > max) {
+			mScrollX = max;
+		}
+		if (mScrollX < 0f) {
+			mScrollX = 0f;
+		}
+	}
+
+	/** Move the canvas sideways by {@code dx} pixels. True if it actually moved. */
+	public boolean scrollHorizontallyBy(final float dx) {
+		float before = mScrollX;
+		mScrollX = mScrollX + dx;
+		clampScrollX();
+		if (mScrollX != before) {
+			this.invalidate();
+			return true;
+		}
+		return false;
+	}
+
+	public void setCanvasWidthFactor(final float factor) {
+		float f = factor;
+		if (f < 1.0f) {
+			f = 1.0f;
+		}
+		if (f > 2.0f) {
+			f = 2.0f;
+		}
+		if (f == mCanvasWidthFactor) {
+			return;
+		}
+		mCanvasWidthFactor = f;
+		mScrollX = 0f;
+		calculateCharacterFeatures(mWidth, mHeight);
+		this.invalidate();
+	}
+
+	public float getCanvasWidthFactor() {
+		return mCanvasWidthFactor;
+	}
+
 	boolean automaticBreaks = true;
 	public void setLineBreaks(Integer i) {
-		
+
 			if(i == 0) {
-				if(mCalculatedRowsInWindow != 0) {
-					mBuffer.setLineBreakAt(mCalculatedRowsInWindow);
+				if(mWrapColumns != 0) {
+					mBuffer.setLineBreakAt(mWrapColumns);
 				} else {
 					mBuffer.setLineBreakAt(80);
 				}
@@ -4628,6 +4889,16 @@ end
 			case word_wrap:
 				this.setWordWrap((Boolean)o.getValue());
 				break;
+			case tappable_words:
+				setTappableWords((String) o.getValue());
+				break;
+			case tappable_word_command:
+				setTapCommand((String) o.getValue());
+				break;
+			case text_canvas_width:
+				// Stored as percent so it can be an IntegerOption like the rest.
+				setCanvasWidthFactor(((Integer) o.getValue()).intValue() / 100f);
+				break;
 			case newest_at_top:
 				mNewestAtTop = (Boolean) o.getValue();
 				jumpToZero();
@@ -4753,6 +5024,9 @@ end
 		hyperlink_bare_domains,
 		hyperlink_extra_tlds,
 		word_wrap,
+		text_canvas_width,
+		tappable_words,
+		tappable_word_command,
 		newest_at_top,
 		top_padding,
 		bottom_padding,

@@ -93,6 +93,12 @@ public class WindowToken implements Parcelable {
 		hyperlink_extra_tlds,
 		/** Word wrapping on or off. */
 		word_wrap,
+		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
+		text_canvas_width,
+		/** Comma-separated words that can be tapped in the game text. */
+		tappable_words,
+		/** What tapping one of them sends; $word is the word that was tapped. */
+		tappable_word_command,
 		/** Newest game lines at the top of the window (older below). */
 		newest_at_top,
 		/** Top inset for game text (pixels); keeps lines clear of camera cutouts. */
@@ -367,6 +373,27 @@ public class WindowToken implements Parcelable {
 		wordWrap.setKey("word_wrap");
 		wordWrap.setValue(true);
 		window.addOption(wordWrap);
+
+		IntegerOption canvasWidth = new IntegerOption();
+		canvasWidth.setTitle("Text width (% of screen)");
+		canvasWidth.setDescription("Give the text more room than the screen has, then drag it sideways with one finger to read the rest. 100 = off (text fits the screen, as before), 200 = twice the screen. Lets you use a bigger font without lines breaking, and keeps ASCII maps in one piece.");
+		canvasWidth.setKey("text_canvas_width");
+		canvasWidth.setValue(100);
+		window.addOption(canvasWidth);
+
+		StringOption tappableWords = new StringOption();
+		tappableWords.setTitle("Tappable words");
+		tappableWords.setDescription("Words in the game text you can tap to act on, comma separated. Example: yeti,crate,chicken — tapping \"yeti\" then sends the command below. Case does not matter; only whole words match, so \"cock\" does not light up inside \"peacock\". Empty = off.");
+		tappableWords.setKey("tappable_words");
+		tappableWords.setValue("");
+		window.addOption(tappableWords);
+
+		StringOption tappableCommand = new StringOption();
+		tappableCommand.setTitle("Tapped word sends");
+		tappableCommand.setDescription("What a tap sends to the game. $word is replaced with the word that was tapped, so \"look $word\" on the word \"yeti\" sends \"look yeti\".");
+		tappableCommand.setKey("tappable_word_command");
+		tappableCommand.setValue("look $word");
+		window.addOption(tappableCommand);
 
 		BooleanOption newestAtTop = new BooleanOption();
 		newestAtTop.setTitle("Newest text at top?");
