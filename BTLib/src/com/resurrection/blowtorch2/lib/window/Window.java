@@ -1800,8 +1800,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					// it was there first and opening a browser is the more
 					// destructive surprise to get wrong.
 					if (mTouchInLink < 0) {
-						String word = tapBoxes.get(mTouchInTapWord).getData();
-						String cmd = mTapCommand.replace("$word", word == null ? "" : word);
+						// The box already carries the finished command: each rule
+						// has its own, so it cannot be rebuilt from one setting.
+						String cmd = tapBoxes.get(mTouchInTapWord).getData();
 						mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
 								MainWindow.MESSAGE_TAPWORDCOMMAND, cmd));
 						mTouchInTapWord = -1;
@@ -3260,6 +3261,40 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		this.invalidate();
 	}
 
+	/**
+	 * One trigger carrying a TapAction: what to look for, what to send, and how
+	 * to mark it. The pattern is matched here, while drawing, because the mark
+	 * cannot cross the binder — see {@code TapAction}.
+	 */
+	public static final class TapRule {
+		public final java.util.regex.Pattern pattern;
+		public final String command;
+		public final boolean underline;
+		public final boolean bold;
+		public final boolean frame;
+		public final boolean recolor;
+		public final int color;
+
+		public TapRule(java.util.regex.Pattern pattern, String command, boolean underline,
+				boolean bold, boolean frame, boolean recolor, int color) {
+			this.pattern = pattern;
+			this.command = command;
+			this.underline = underline;
+			this.bold = bold;
+			this.frame = frame;
+			this.recolor = recolor;
+			this.color = color;
+		}
+	}
+
+	private java.util.List<TapRule> mTapRules = new ArrayList<TapRule>();
+
+	/** Replaces the rule set; called when triggers are loaded or edited. */
+	public void setTapRules(final java.util.List<TapRule> rules) {
+		mTapRules = rules != null ? rules : new ArrayList<TapRule>();
+		this.invalidate();
+	}
+
 	/** Options → Window → Tappable words. Comma separated, case-insensitive. */
 	public void setTappableWords(final String csv) {
 		java.util.HashSet<String> words = new java.util.HashSet<String>();
@@ -3293,11 +3328,31 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 */
 	private void markTappableWords(final Canvas c, final TextTree.Text text,
 			final float x, final float y, final Paint p, final boolean scrollingGesture) {
-		if (mTappableWords.isEmpty() || text == null) {
+		if (text == null) {
 			return;
 		}
 		String s = text.getString();
 		if (s == null || s.length() == 0) {
+			return;
+		}
+		// Trigger-driven rules first: those are the configured ones.
+		for (int r = 0; r < mTapRules.size(); r++) {
+			TapRule rule = mTapRules.get(r);
+			if (rule.pattern == null) {
+				continue;
+			}
+			java.util.regex.Matcher m = rule.pattern.matcher(s);
+			while (m.find()) {
+				if (m.end() == m.start()) {
+					break;
+				}
+				String hit = s.substring(m.start(), m.end());
+				drawTapHit(c, x, y, p, s, m.start(), m.end(), scrollingGesture,
+						rule.command.replace("$word", hit),
+						rule.underline, rule.bold, rule.frame, rule.recolor, rule.color);
+			}
+		}
+		if (mTappableWords.isEmpty()) {
 			return;
 		}
 		int i = 0;
@@ -3315,62 +3370,75 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (!mTappableWords.contains(word.toLowerCase())) {
 				continue;
 			}
-			float left = x + cellWidth(start);
-			float right = left + cellWidth(i - start);
-			float bottom = cellBottom(y);
-			float top = cellTop(y);
+			drawTapHit(c, x, y, p, s, start, i, scrollingGesture,
+					mTapCommand.replace("$word", word),
+					mTapUnderline, mTapBold, mTapFrame, mTapRecolor, mTapColor);
+		}
+	}
 
-			if (mTapFrame) {
-				// Subtle box so the word reads as something you can press.
-				mTapUnderlinePaint.setStyle(Paint.Style.STROKE);
-				mTapUnderlinePaint.setStrokeWidth(Math.max(1f, mDensity));
-				mTapUnderlinePaint.setColor(mTapRecolor ? mTapColor : p.getColor());
-				mTapUnderlinePaint.setAlpha(110);
-				float inset = mDensity;
-				c.drawRect(left - inset, top + inset, right + inset, bottom - inset,
-						mTapUnderlinePaint);
-				mTapUnderlinePaint.setStyle(Paint.Style.FILL);
-			}
-			if (mTapUnderline) {
-				mTapUnderlinePaint.setColor(mTapRecolor ? mTapColor : p.getColor());
-				mTapUnderlinePaint.setAlpha(150);
-				c.drawRect(left, bottom - Math.max(2f, mDensity * 1.5f), right, bottom - 1f,
-						mTapUnderlinePaint);
-			}
-			if (mTapRecolor || mTapBold) {
-				// Redraw the word over the glyphs already on the canvas. Same
-				// grid routine as the original draw, so a bold face cannot widen
-				// the word and push the rest of the line out of its cells.
-				mTapTextPaint.setTextSize(p.getTextSize());
-				mTapTextPaint.setAntiAlias(true);
-				mTapTextPaint.setColor(mTapRecolor ? mTapColor : p.getColor());
-				mTapTextPaint.setTypeface(mTapBold
-						? Typeface.create(mPrefFont, Typeface.BOLD) : mPrefFont);
-				mTapTextPaint.setFakeBoldText(mTapBold);
-				drawTextOnGrid(c, word, left, y, mTapTextPaint);
-			}
+	/**
+	 * Mark one run of characters as tappable and remember where it was drawn.
+	 * Shared by the trigger rules and by the plain word list so both look and
+	 * behave identically.
+	 */
+	private void drawTapHit(final Canvas c, final float x, final float y, final Paint p,
+			final String source, final int start, final int end, final boolean scrollingGesture,
+			final String command, final boolean underline, final boolean bold,
+			final boolean frame, final boolean recolor, final int color) {
+		float left = x + cellWidth(start);
+		float right = left + cellWidth(end - start);
+		float bottom = cellBottom(y);
+		float top = cellTop(y);
 
-			Rect r = new Rect();
-			r.left = (int) left;
-			r.right = (int) right;
-			r.top = (int) cellTop(y);
-			r.bottom = (int) bottom;
-			int heightDips = (int) ((r.bottom - r.top) / mDensity);
-			if (heightDips < mLinkBoxHeightMinimum) {
-				int extra = (int) (((mLinkBoxHeightMinimum - heightDips) / 2) * mDensity);
-				if (extra > 0) {
-					r.top -= extra;
-					r.bottom += extra;
-				}
+		if (frame) {
+			// Subtle box so the word reads as something you can press.
+			mTapUnderlinePaint.setStyle(Paint.Style.STROKE);
+			mTapUnderlinePaint.setStrokeWidth(Math.max(1f, mDensity));
+			mTapUnderlinePaint.setColor(recolor ? color : p.getColor());
+			mTapUnderlinePaint.setAlpha(110);
+			float inset = mDensity;
+			c.drawRect(left - inset, top + inset, right + inset, bottom - inset,
+					mTapUnderlinePaint);
+			mTapUnderlinePaint.setStyle(Paint.Style.FILL);
+		}
+		if (underline) {
+			mTapUnderlinePaint.setColor(recolor ? color : p.getColor());
+			mTapUnderlinePaint.setAlpha(150);
+			c.drawRect(left, bottom - Math.max(2f, mDensity * 1.5f), right, bottom - 1f,
+					mTapUnderlinePaint);
+		}
+		if (recolor || bold) {
+			// Redraw over the glyphs already on the canvas. Same grid routine as
+			// the original draw, so a bold face cannot widen the word and push
+			// the rest of the line out of its cells.
+			mTapTextPaint.setTextSize(p.getTextSize());
+			mTapTextPaint.setAntiAlias(true);
+			mTapTextPaint.setColor(recolor ? color : p.getColor());
+			mTapTextPaint.setTypeface(bold ? Typeface.create(mPrefFont, Typeface.BOLD) : mPrefFont);
+			mTapTextPaint.setFakeBoldText(bold);
+			drawTextOnGrid(c, source.substring(start, end), left, y, mTapTextPaint);
+		}
+
+		Rect r = new Rect();
+		r.left = (int) left;
+		r.right = (int) right;
+		r.top = (int) top;
+		r.bottom = (int) bottom;
+		int heightDips = (int) ((r.bottom - r.top) / mDensity);
+		if (heightDips < mLinkBoxHeightMinimum) {
+			int extra = (int) (((mLinkBoxHeightMinimum - heightDips) / 2) * mDensity);
+			if (extra > 0) {
+				r.top -= extra;
+				r.bottom += extra;
 			}
-			if (!scrollingGesture) {
-				// LinkBox's constructor drops its first argument (the assignment
-				// is commented out) and links fill the data in later via
-				// setData. That is why $word came out empty: getData() was null.
-				LinkBox box = new LinkBox(word, r);
-				box.setData(word);
-				tapBoxes.add(box);
-			}
+		}
+		if (!scrollingGesture) {
+			// LinkBox's constructor drops its first argument (the assignment is
+			// commented out) and links fill the data in later via setData. That
+			// is why $word came out empty before: getData() was null.
+			LinkBox box = new LinkBox(command, r);
+			box.setData(command);
+			tapBoxes.add(box);
 		}
 	}
 

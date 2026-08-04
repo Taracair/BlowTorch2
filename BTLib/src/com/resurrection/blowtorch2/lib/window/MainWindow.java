@@ -203,6 +203,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public final static int MESSAGE_LAUNCHURL = 886;
 	/** A tappable word was tapped; obj is the command to send. */
 	public final static int MESSAGE_TAPWORDCOMMAND = 8887;
+	/** Re-read tappable-word rules from the trigger list. */
+	public final static int MESSAGE_REFRESHTAPRULES = 8888;
 	protected static final int MESSAGE_CLEARALLBUTTONS = 887;
 	/** MCP displayurl — open Intent.ACTION_VIEW with obj as URL string. */
 	private static final int MESSAGE_MCP_LAUNCHURL = 8862;
@@ -870,6 +872,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_RENAWS:
 					reportLiveNawsToService();
+					break;
+				case MESSAGE_REFRESHTAPRULES:
+					refreshTapRules();
 					break;
 				case MESSAGE_CONNECT_WHEN_READY:
 					tryConnectAfterNaws();
@@ -2798,7 +2803,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// Re-checks the overlay grant too: it can be revoked while we live.
 			floatingButtons.onResume();
 		}
-		
+		// Coming back from the trigger editor lands here, so this is where a
+		// newly added or edited tappable rule is picked up.
+		myhandler.removeMessages(MESSAGE_REFRESHTAPRULES);
+		myhandler.sendEmptyMessageDelayed(MESSAGE_REFRESHTAPRULES, 250);
+
 		if(!isBound) {
 			saveConnectionExtras(getIntent());
 			String serviceBindAction = ConfigurationLoader.getConfigurationValue("serviceBindAction", this);
@@ -5566,6 +5575,67 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void refreshGameChrome() {
 		chrome.refresh();
+	}
+
+	/**
+	 * Collect every enabled trigger carrying a TapAction and hand the rules to
+	 * the game window, which matches them while it draws.
+	 *
+	 * <p>The rule travels rather than the mark: a "this is tappable" flag has no
+	 * byte to ride on through the binder the way an ANSI colour does, so the
+	 * window has to do the matching on its own side. Cheap enough — this reads
+	 * the trigger list once, not once per line.
+	 */
+	public void refreshTapRules() {
+		if (service == null) {
+			return;
+		}
+		try {
+			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+			if (rl == null) {
+				return;
+			}
+			com.resurrection.blowtorch2.lib.window.Window main =
+					(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
+			if (main == null) {
+				return;
+			}
+			java.util.List<com.resurrection.blowtorch2.lib.window.Window.TapRule> rules =
+					new java.util.ArrayList<com.resurrection.blowtorch2.lib.window.Window.TapRule>();
+			java.util.Map<String, com.resurrection.blowtorch2.lib.trigger.TriggerData> map =
+					(java.util.Map<String, com.resurrection.blowtorch2.lib.trigger.TriggerData>)
+							service.getTriggerData();
+			if (map != null) {
+				for (com.resurrection.blowtorch2.lib.trigger.TriggerData t : map.values()) {
+					if (t == null || !t.isEnabled() || t.getResponders() == null) {
+						continue;
+					}
+					for (com.resurrection.blowtorch2.lib.responder.TriggerResponder r
+							: t.getResponders()) {
+						if (!(r instanceof com.resurrection.blowtorch2.lib.responder.tap.TapAction)) {
+							continue;
+						}
+						com.resurrection.blowtorch2.lib.responder.tap.TapAction tap =
+								(com.resurrection.blowtorch2.lib.responder.tap.TapAction) r;
+						java.util.regex.Pattern p;
+						try {
+							p = java.util.regex.Pattern.compile(t.getPattern());
+						} catch (Exception bad) {
+							// A pattern the player is still typing must not take
+							// the window down; skip it until it compiles.
+							continue;
+						}
+						rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
+								p, tap.getCommand(), tap.isUnderline(), tap.isBold(),
+								tap.isFrame(), tap.isRecolor(), tap.getColor()));
+					}
+				}
+			}
+			main.setTapRules(rules);
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.refreshTapRules", e);
+		}
 	}
 
 	/** Tell the connection the real mainDisplay cell grid for NAWS. */

@@ -77,6 +77,7 @@ public class BasePluginParser {
 	public static final String ATTR_DESTINATION = "dest";
 	
 	public static final String TAG_COLORACTION = "color";
+	public static final String TAG_TAPACTION = "tap";
 	
 	public static final String TAG_GAGACTION = "gag";
 	public static final String ATTR_GAGLOG = "fromLog";

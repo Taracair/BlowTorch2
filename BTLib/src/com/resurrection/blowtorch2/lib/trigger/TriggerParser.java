@@ -9,6 +9,7 @@ import org.xmlpull.v1.XmlSerializer;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponderParser;
 import com.resurrection.blowtorch2.lib.responder.color.ColorActionParser;
+import com.resurrection.blowtorch2.lib.responder.tap.TapActionParser;
 import com.resurrection.blowtorch2.lib.responder.gag.GagActionParser;
 import com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderParser;
 import com.resurrection.blowtorch2.lib.responder.replace.ReplaceParser;
@@ -39,6 +40,7 @@ public final class TriggerParser {
 		ScriptResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
 		ReplaceParser.registerListeners(trigger, current_trigger);
 		ColorActionParser.registerListeners(trigger, current_trigger);
+		TapActionParser.registerListeners(trigger, current_trigger);
 		GagActionParser.registerListeners(trigger, current_trigger);
 		SetVariableResponderParser.registerListeners(trigger, current_trigger, current_timer, current_trigger);
 		

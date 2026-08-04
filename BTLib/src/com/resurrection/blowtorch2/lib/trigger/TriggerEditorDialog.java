@@ -51,6 +51,8 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponder.RESPONDER_TYPE
 import com.resurrection.blowtorch2.lib.responder.ack.*;
 import com.resurrection.blowtorch2.lib.responder.color.ColorAction;
 import com.resurrection.blowtorch2.lib.responder.color.ColorActionEditor;
+import com.resurrection.blowtorch2.lib.responder.tap.TapAction;
+import com.resurrection.blowtorch2.lib.responder.tap.TapActionEditor;
 import com.resurrection.blowtorch2.lib.responder.gag.GagAction;
 import com.resurrection.blowtorch2.lib.responder.gag.GagActionEditorDialog;
 import com.resurrection.blowtorch2.lib.responder.notification.*;
@@ -547,6 +549,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				label.setText("Replace: " + ((ReplaceResponder)responder).getWith());
 			} else if(responder.getType() == RESPONDER_TYPE.GAG) {
 				label.setText("Gag");
+			} else if(responder.getType() == RESPONDER_TYPE.TAP) {
+				label.setText("Tappable: " + ((TapAction)responder).getCommand());
 			} else if(responder.getType() == RESPONDER_TYPE.COLOR) {
 				label.setText("Color: " + Integer.toString(((ColorAction)responder).getColor()));
 			} else if(responder.getType() == RESPONDER_TYPE.SET_VARIABLE) {
@@ -671,6 +675,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				new SetVariableResponderEditor(TriggerEditorDialog.this.getContext(),
 						(SetVariableResponder) responder.copy(), TriggerEditorDialog.this).show();
 				break;
+			case TAP:
+				new TapActionEditor(TriggerEditorDialog.this.getContext(),
+						(TapAction) responder.copy(), TriggerEditorDialog.this).show();
+				break;
 			default:
 				break;
 			}
@@ -759,7 +767,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 		public void onClick(View v) {
 			//give out a list of options
-			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable"};
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable","Tappable Word"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -909,6 +917,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			break;
 		case 7:
 			new SetVariableResponderEditor(TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
+			break;
+		case 8:
+			new TapActionEditor(TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
 			break;
 		default:
 			break;
