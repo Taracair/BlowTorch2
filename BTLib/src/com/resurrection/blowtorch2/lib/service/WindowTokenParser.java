@@ -308,6 +308,32 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case tappable_word_underline:
+						// Default true: persist only when switched off.
+						if (!(Boolean) ((BooleanOption) o).getValue()) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text("false");
+							out.endTag("", "option");
+						}
+						break;
+					case tappable_word_bold:
+					case tappable_word_frame:
+					case tappable_word_recolor:
+						// Default false: persist only when switched on.
+						if ((Boolean) ((BooleanOption) o).getValue()) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text("true");
+							out.endTag("", "option");
+						}
+						break;
+					case tappable_word_color:
+						out.startTag("", "option");
+						out.attribute("", "key", key.toString());
+						out.text(((Integer) ((ColorOption) o).getValue()).toString());
+						out.endTag("", "option");
+						break;
 					case tappable_words:
 					case tappable_word_command:
 						// Free text: persist whenever it is not empty.

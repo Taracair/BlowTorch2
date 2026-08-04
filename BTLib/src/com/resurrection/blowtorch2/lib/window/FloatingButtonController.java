@@ -723,6 +723,18 @@ public class FloatingButtonController {
 	}
 
 	private void rebuild(List<FloatingButtonModel> models) {
+		// Every rebuild resolves the orientation itself. onOrientationChanged is
+		// not the only way a turn can reach here (a Lua push, an IME rebuild and
+		// a resume all land in rebuild too), and a snapshot that still says
+		// "portrait" after the device turned would place the button from the
+		// wrong stored pair.
+		boolean land = isLandscape();
+		for (int i = 0; i < models.size(); i++) {
+			FloatingButtonModel m = models.get(i);
+			if (m.landscape != land) {
+				models.set(i, m.forOrientation(land));
+			}
+		}
 		if (models != lastModels) {
 			lastModels.clear();
 			lastModels.addAll(models);
@@ -960,7 +972,12 @@ public class FloatingButtonController {
 		for (int i = 0; i < lastModels.size(); i++) {
 			FloatingButtonModel m = lastModels.get(i);
 			if (m.index == index) {
-				lastModels.set(i, m.withFloatPosition(x, y));
+				// Resolve the orientation now instead of trusting the flag the
+				// snapshot was built with. A cached model can predate the turn
+				// (nothing forces a fresh Lua push on a rotation), and a stale
+				// flag meant a drag in landscape wrote the portrait pair — the
+				// exact symptom of the two layouts still being shared.
+				lastModels.set(i, m.forOrientation(isLandscape()).withFloatPosition(x, y));
 				return;
 			}
 		}

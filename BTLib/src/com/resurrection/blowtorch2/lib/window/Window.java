@@ -639,6 +639,26 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (tapCmd != null) {
 			setTapCommand((String) tapCmd.getValue());
 		}
+		BooleanOption tapUl = (BooleanOption) settings.findOptionByKey("tappable_word_underline");
+		if (tapUl != null) {
+			mTapUnderline = (Boolean) tapUl.getValue();
+		}
+		BooleanOption tapBd = (BooleanOption) settings.findOptionByKey("tappable_word_bold");
+		if (tapBd != null) {
+			mTapBold = (Boolean) tapBd.getValue();
+		}
+		BooleanOption tapFr = (BooleanOption) settings.findOptionByKey("tappable_word_frame");
+		if (tapFr != null) {
+			mTapFrame = (Boolean) tapFr.getValue();
+		}
+		BooleanOption tapRc = (BooleanOption) settings.findOptionByKey("tappable_word_recolor");
+		if (tapRc != null) {
+			mTapRecolor = (Boolean) tapRc.getValue();
+		}
+		ColorOption tapCol = (ColorOption) settings.findOptionByKey("tappable_word_color");
+		if (tapCol != null) {
+			mTapColor = (Integer) tapCol.getValue();
+		}
 		BooleanOption hlenabled = (BooleanOption) settings.findOptionByKey("hyperlinks_enabled");
 		BooleanOption tapDismiss = (BooleanOption) settings.findOptionByKey("tap_dismiss_keyboard");
 		if (tapDismiss != null) {
@@ -1671,6 +1691,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 				mDragAxis = DRAG_UNDECIDED;
 				mMoveLastX = Float.valueOf(x);
+				mDownX = Float.valueOf(x);
 				mTouchDownLine = touchYToBufferLine(y);
 				mTouchDownColumn = mOneCharWidth > 0
 						? (int) Math.floor(x / (float) mOneCharWidth) : 0;
@@ -1686,13 +1707,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			if (action == MotionEvent.ACTION_MOVE && maxScrollX() > 0f
 					&& mDragAxis == DRAG_UNDECIDED
-					&& mStartY != null && start_x != null) {
+					&& mStartY != null && mDownX != null) {
 				// Decide the axis once per gesture and keep it. Re-deciding per
 				// event let a sideways drag also feed the vertical block below,
 				// which moves mScrollback — the buffer would creep while the
 				// player scrolls across.
-				float dx = t.getX(index) - start_x;
-				float dy = t.getY(index) - mStartY;
+				float dx = t.getX(index) - mDownX.floatValue();
+				float dy = t.getY(index) - mStartY.floatValue();
 				float slop = 8f * mDensity;
 				if (Math.abs(dx) >= slop || Math.abs(dy) >= slop) {
 					mDragAxis = Math.abs(dx) > Math.abs(dy) ? DRAG_HORIZONTAL : DRAG_VERTICAL;
@@ -1759,6 +1780,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		        boolean wasHorizontal = mDragAxis == DRAG_HORIZONTAL;
 		        mDragAxis = DRAG_UNDECIDED;
 		        mMoveLastX = null;
+		        mDownX = null;
 		        if (wasHorizontal) {
 		        	// Sideways drags end here: no fling, no tap, no keyboard dismiss.
 		        	this.invalidate();
@@ -2385,8 +2407,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 						}
 						
-						markTappableWords(c, text, x, y, p, scrollingGesture);
-
 						if (text.isLink() || doingLink) {
 							if (u instanceof TextTree.WhiteSpace) {
 								//DO LINK BOX.
@@ -2490,6 +2510,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								
 							}
 							workingcol += text.charcount;
+							markTappableWords(c, text, x, y, linkColor, scrollingGesture);
 							x += drawTextOnGrid(c, text.getString(), x, y, linkColor);
 							if (l == mSearchHighlightLine) {
 								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
@@ -2513,6 +2534,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								
 							}
 							workingcol += text.charcount;
+							markTappableWords(c, text, x, y, p, scrollingGesture);
 							x += drawTextOnGrid(c, text.getString(), x, y, p);
 							if (l == mSearchHighlightLine) {
 								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
@@ -3183,6 +3205,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mDragAxis = DRAG_UNDECIDED;
 	/** Last X seen during a horizontal drag. */
 	private Float mMoveLastX = null;
+	/**
+	 * X where the finger went down. Not start_x: that one is overwritten near
+	 * the top of onTouchEvent on every event, including MOVE, so the sideways
+	 * distance measured against it was always about one pixel and the axis
+	 * lock could only ever come out vertical.
+	 */
+	private Float mDownX = null;
 	private static final int DRAG_UNDECIDED = 0;
 	private static final int DRAG_VERTICAL = 1;
 	private static final int DRAG_HORIZONTAL = 2;
@@ -3198,6 +3227,38 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private final ArrayList<LinkBox> tapBoxes = new ArrayList<LinkBox>();
 	private int mTouchInTapWord = -1;
 	private final Paint mTapUnderlinePaint = new Paint();
+	private final Paint mTapTextPaint = new Paint();
+	/** How a tappable word is marked. Any combination, all of them optional. */
+	private boolean mTapUnderline = true;
+	private boolean mTapBold = false;
+	private boolean mTapFrame = false;
+	private boolean mTapRecolor = false;
+	private int mTapColor = 0xFF66CCFF;
+
+	public void setTapUnderline(final boolean on) {
+		mTapUnderline = on;
+		this.invalidate();
+	}
+
+	public void setTapBold(final boolean on) {
+		mTapBold = on;
+		this.invalidate();
+	}
+
+	public void setTapFrame(final boolean on) {
+		mTapFrame = on;
+		this.invalidate();
+	}
+
+	public void setTapRecolor(final boolean on) {
+		mTapRecolor = on;
+		this.invalidate();
+	}
+
+	public void setTapColor(final int color) {
+		mTapColor = color;
+		this.invalidate();
+	}
 
 	/** Options → Window → Tappable words. Comma separated, case-insensitive. */
 	public void setTappableWords(final String csv) {
@@ -3257,11 +3318,37 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			float left = x + cellWidth(start);
 			float right = left + cellWidth(i - start);
 			float bottom = cellBottom(y);
-			// Discreet: a hairline under the word, in the text's own colour.
-			mTapUnderlinePaint.setColor(p.getColor());
-			mTapUnderlinePaint.setAlpha(150);
-			c.drawRect(left, bottom - Math.max(2f, mDensity * 1.5f), right, bottom - 1f,
-					mTapUnderlinePaint);
+			float top = cellTop(y);
+
+			if (mTapFrame) {
+				// Subtle box so the word reads as something you can press.
+				mTapUnderlinePaint.setStyle(Paint.Style.STROKE);
+				mTapUnderlinePaint.setStrokeWidth(Math.max(1f, mDensity));
+				mTapUnderlinePaint.setColor(mTapRecolor ? mTapColor : p.getColor());
+				mTapUnderlinePaint.setAlpha(110);
+				float inset = mDensity;
+				c.drawRect(left - inset, top + inset, right + inset, bottom - inset,
+						mTapUnderlinePaint);
+				mTapUnderlinePaint.setStyle(Paint.Style.FILL);
+			}
+			if (mTapUnderline) {
+				mTapUnderlinePaint.setColor(mTapRecolor ? mTapColor : p.getColor());
+				mTapUnderlinePaint.setAlpha(150);
+				c.drawRect(left, bottom - Math.max(2f, mDensity * 1.5f), right, bottom - 1f,
+						mTapUnderlinePaint);
+			}
+			if (mTapRecolor || mTapBold) {
+				// Redraw the word over the glyphs already on the canvas. Same
+				// grid routine as the original draw, so a bold face cannot widen
+				// the word and push the rest of the line out of its cells.
+				mTapTextPaint.setTextSize(p.getTextSize());
+				mTapTextPaint.setAntiAlias(true);
+				mTapTextPaint.setColor(mTapRecolor ? mTapColor : p.getColor());
+				mTapTextPaint.setTypeface(mTapBold
+						? Typeface.create(mPrefFont, Typeface.BOLD) : mPrefFont);
+				mTapTextPaint.setFakeBoldText(mTapBold);
+				drawTextOnGrid(c, word, left, y, mTapTextPaint);
+			}
 
 			Rect r = new Rect();
 			r.left = (int) left;
@@ -3277,7 +3364,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 			}
 			if (!scrollingGesture) {
-				tapBoxes.add(new LinkBox(word, r));
+				// LinkBox's constructor drops its first argument (the assignment
+				// is commented out) and links fill the data in later via
+				// setData. That is why $word came out empty: getData() was null.
+				LinkBox box = new LinkBox(word, r);
+				box.setData(word);
+				tapBoxes.add(box);
 			}
 		}
 	}
@@ -4895,6 +4987,21 @@ end
 			case tappable_word_command:
 				setTapCommand((String) o.getValue());
 				break;
+			case tappable_word_underline:
+				setTapUnderline((Boolean) o.getValue());
+				break;
+			case tappable_word_bold:
+				setTapBold((Boolean) o.getValue());
+				break;
+			case tappable_word_frame:
+				setTapFrame((Boolean) o.getValue());
+				break;
+			case tappable_word_recolor:
+				setTapRecolor((Boolean) o.getValue());
+				break;
+			case tappable_word_color:
+				setTapColor((Integer) o.getValue());
+				break;
 			case text_canvas_width:
 				// Stored as percent so it can be an IntegerOption like the rest.
 				setCanvasWidthFactor(((Integer) o.getValue()).intValue() / 100f);
@@ -5027,6 +5134,11 @@ end
 		text_canvas_width,
 		tappable_words,
 		tappable_word_command,
+		tappable_word_underline,
+		tappable_word_bold,
+		tappable_word_frame,
+		tappable_word_recolor,
+		tappable_word_color,
 		newest_at_top,
 		top_padding,
 		bottom_padding,
