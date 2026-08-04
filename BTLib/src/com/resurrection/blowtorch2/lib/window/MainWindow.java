@@ -1883,12 +1883,42 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					new androidx.appcompat.widget.ListPopupWindow(themed);
 			popup.setAnchorView(anchor);
 			popup.setModal(true);
+			// What each row shows. A command can be as long as the player likes
+			// ("put all artifacts in 2.trail;…"), and a menu that grows to fit
+			// one of those covers the text it is about — so a long one is cut
+			// and ends in (...). The command that is sent is never the cut one.
+			final String[] shown = new String[commands.length];
+			for (int i = 0; i < commands.length; i++) {
+				shown[i] = shortenForMenu(commands[i]);
+			}
 			popup.setAdapter(new ArrayAdapter<String>(
-					themed, android.R.layout.simple_list_item_1, commands));
+					themed, android.R.layout.simple_list_item_1, shown) {
+				@Override
+				public View getView(int position, View convertView, android.view.ViewGroup parent) {
+					View row = super.getView(position, convertView, parent);
+					if (row instanceof android.widget.TextView) {
+						android.widget.TextView label = (android.widget.TextView) row;
+						// One line, cut with an ellipsis if the row is still too
+						// narrow: belt and braces over shortenForMenu, which
+						// cannot know the font.
+						label.setSingleLine(true);
+						label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+						label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f);
+						int padX = Math.round(12 * density);
+						int padY = Math.round(8 * density);
+						label.setPadding(padX, padY, padX, padY);
+						label.setMinimumHeight(Math.round(40 * density));
+					}
+					return row;
+				}
+			});
 			popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
 					themed, R.drawable.dialog_window_crawler1));
-			int width = Math.min(getResources().getDisplayMetrics().widthPixels,
-					(int) (280 * density));
+			// Deliberately narrower than the ⋮ menu: this one points at a word in
+			// the middle of the text and has to leave that word readable.
+			int width = Math.min(
+					Math.round(getResources().getDisplayMetrics().widthPixels * 0.6f),
+					(int) (200 * density));
 			popup.setContentWidth(width);
 			// The anchor is the whole game window, so the offsets carry the word
 			// position. Keep the menu on screen: it hangs below the word unless
@@ -1912,6 +1942,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
 					"MainWindow.showTapWordMenu", e);
 		}
+	}
+
+	/** Longest command text a menu row shows before it is cut. */
+	static final int TAP_MENU_MAX_CHARS = 24;
+
+	/**
+	 * Menu label for a command: the whole thing when it is short, otherwise the
+	 * front of it and {@code (...)}. Only what is displayed — the command sent
+	 * is always the full one.
+	 */
+	static String shortenForMenu(final String command) {
+		if (command == null) {
+			return "";
+		}
+		String s = command.trim();
+		if (s.length() <= TAP_MENU_MAX_CHARS) {
+			return s;
+		}
+		// Cut on a space when there is one close to the limit, so the row ends
+		// on a word rather than mid-word.
+		int cut = TAP_MENU_MAX_CHARS;
+		int space = s.lastIndexOf(' ', TAP_MENU_MAX_CHARS);
+		if (space >= TAP_MENU_MAX_CHARS / 2) {
+			cut = space;
+		}
+		return s.substring(0, cut).trim() + "(...)";
 	}
 
 	private void showGameplayOptionsMenuNow(final View anchor) {

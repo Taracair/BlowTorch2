@@ -214,9 +214,12 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	 * is one tappable thing that offers both commands — which is what two
 	 * actions on one trigger can only have been meant to say.
 	 *
-	 * <p>Marks are OR-ed: a mark asked for by either action is drawn. Commands
-	 * keep their order, first action first, and duplicates are dropped so the
-	 * menu does not offer the same command twice.
+	 * <p>The look comes from the <b>first</b> action alone. OR-ing the marks
+	 * read as a bug from the chair: with "frame" ticked on the first action and
+	 * a forgotten second action still carrying the default underline, the word
+	 * came out underlined and nothing in the editor said why. Commands keep
+	 * their order, first action first, and duplicates are dropped so the menu
+	 * does not offer the same command twice.
 	 *
 	 * @return null when the list holds no tap action.
 	 */
@@ -229,26 +232,27 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		}
 		TapAction merged = new TapAction();
 		java.util.ArrayList<String> all = new java.util.ArrayList<String>();
-		boolean underline = false;
-		boolean bold = false;
-		boolean frame = false;
+		TapAction look = null;
 		for (TapAction a : actions) {
 			if (a == null) {
 				continue;
+			}
+			if (look == null) {
+				look = a;
 			}
 			for (String cmd : a.getCommands()) {
 				if (!all.contains(cmd)) {
 					all.add(cmd);
 				}
 			}
-			underline = underline || a.isUnderline();
-			bold = bold || a.isBold();
-			frame = frame || a.isFrame();
+		}
+		if (look == null) {
+			return null;
 		}
 		merged.setCommands(all);
-		merged.setUnderline(underline);
-		merged.setBold(bold);
-		merged.setFrame(frame);
+		merged.setUnderline(look.isUnderline());
+		merged.setBold(look.isBold());
+		merged.setFrame(look.isFrame());
 		return merged;
 	}
 

@@ -89,9 +89,10 @@ public class TapActionCommandsTest {
 	}
 
 	/**
-	 * Two tappable actions on one trigger: one word, both commands, and any
-	 * mark either of them asked for. Two rules would draw the marks twice and
-	 * leave two hit boxes on the same word.
+	 * Two tappable actions on one trigger: one word, both commands, and the
+	 * look of the first one. Two rules would draw the marks twice and leave two
+	 * hit boxes on the same word; OR-ing the marks meant a forgotten second
+	 * action underlined a word the player had asked to have framed.
 	 */
 	@Test
 	public void twoActionsOnOneTriggerBecomeOne() {
@@ -109,9 +110,10 @@ public class TapActionCommandsTest {
 
 		TapAction merged = TapAction.merge(Arrays.asList(first, second));
 		assertEquals(Arrays.asList("kill $word", "skin $word"), merged.getCommands());
+		// The first action asked for underline only, so that is the whole look.
 		assertTrue(merged.isUnderline());
-		assertTrue(merged.isBold());
-		assertTrue(merged.isFrame());
+		assertFalse(merged.isBold());
+		assertFalse(merged.isFrame());
 	}
 
 	@Test
