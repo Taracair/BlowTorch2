@@ -3333,11 +3333,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		StringBuilder plain = mLineTextScratch;
 		plain.setLength(0);
-		java.util.Iterator<TextTree.Unit> it = line.getIterator();
-		while (it.hasNext()) {
-			TextTree.Unit u = it.next();
-			if (u instanceof TextTree.Text) {
-				String piece = ((TextTree.Text) u).getString();
+		// Line.getIterator() hands out the line's ONE shared iterator, not a new
+		// one: walking that here left it at the end and the drawing loop, which
+		// asks for the same object straight afterwards, drew no units at all —
+		// a connected session with an empty screen. Walk the list itself.
+		java.util.LinkedList<TextTree.Unit> units = line.getData();
+		if (units == null) {
+			return;
+		}
+		// A fresh iterator, not get(i): this is a LinkedList and indexed access
+		// would walk it again for every unit.
+		for (TextTree.Unit unit : units) {
+			if (unit instanceof TextTree.Text) {
+				String piece = ((TextTree.Text) unit).getString();
 				if (piece != null) {
 					plain.append(piece);
 				}
