@@ -61,11 +61,20 @@ public final class FloatingButtonModel {
 	public final boolean floatRound;
 	public final boolean floatFrame;
 	/**
-	 * Grid centre from Lua {@code data.x}/{@code data.y} — used only while
-	 * {@code floatX}/{@code floatY} are still {@link FloatingLayerGeometry#UNPLACED}.
+	 * Grid centre for {@link #landscape} — where the button sits on the button
+	 * grid, and in portrait the position the floating copy is placed from.
 	 */
 	public final float gridX;
 	public final float gridY;
+	private final float gridXPortrait;
+	private final float gridYPortrait;
+	/**
+	 * Landscape grid pair, or {@link Float#NaN} when the player has not moved
+	 * this button in landscape — landscape then shows the portrait layout, the
+	 * state every profile written before this starts in.
+	 */
+	private final float gridXLandscape;
+	private final float gridYLandscape;
 	/** Same {@code statusoffset} Lua adds in {@code BUTTON:updateRect}. */
 	public final int statusOffsetPx;
 	public final boolean hasGridOrigin;
@@ -111,8 +120,12 @@ public final class FloatingButtonModel {
 		floatRound = o.optBoolean("floatRound", false);
 		floatFrame = o.optBoolean("floatFrame", false);
 		hasGridOrigin = o.has("gridX") && o.has("gridY");
-		gridX = (float) o.optDouble("gridX", 0);
-		gridY = (float) o.optDouble("gridY", 0);
+		gridXPortrait = (float) o.optDouble("gridX", 0);
+		gridYPortrait = (float) o.optDouble("gridY", 0);
+		gridXLandscape = (float) o.optDouble("gridXLand", Double.NaN);
+		gridYLandscape = (float) o.optDouble("gridYLand", Double.NaN);
+		gridX = resolveGridX(forLandscape);
+		gridY = resolveGridY(forLandscape);
 		statusOffsetPx = o.optInt("statusOffset", 0);
 		widthDp = (float) o.optDouble("width", 80);
 		heightDp = (float) o.optDouble("height", 80);
@@ -160,8 +173,12 @@ public final class FloatingButtonModel {
 		floatRound = src.floatRound;
 		floatFrame = src.floatFrame;
 		hasGridOrigin = src.hasGridOrigin;
-		gridX = src.gridX;
-		gridY = src.gridY;
+		gridXPortrait = src.gridXPortrait;
+		gridYPortrait = src.gridYPortrait;
+		gridXLandscape = src.gridXLandscape;
+		gridYLandscape = src.gridYLandscape;
+		gridX = resolveGridX(forLandscape);
+		gridY = resolveGridY(forLandscape);
 		statusOffsetPx = src.statusOffsetPx;
 		widthDp = src.widthDp;
 		heightDp = src.heightDp;
@@ -184,6 +201,19 @@ public final class FloatingButtonModel {
 			return this;
 		}
 		return new FloatingButtonModel(this, newFloatX, newFloatY, landscape);
+	}
+
+	private float resolveGridX(final boolean forLandscape) {
+		return forLandscape && !Float.isNaN(gridXLandscape) ? gridXLandscape : gridXPortrait;
+	}
+
+	private float resolveGridY(final boolean forLandscape) {
+		return forLandscape && !Float.isNaN(gridYLandscape) ? gridYLandscape : gridYPortrait;
+	}
+
+	/** True when the grid has a position of its own for this orientation. */
+	public boolean hasOwnLandscapeGrid() {
+		return !Float.isNaN(gridXLandscape) && !Float.isNaN(gridYLandscape);
 	}
 
 	/** Sentinel for "keep the stored position" in the copy constructor. */

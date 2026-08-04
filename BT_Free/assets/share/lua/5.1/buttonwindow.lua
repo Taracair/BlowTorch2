@@ -297,14 +297,13 @@ function exitMoveMode()
 	for i,b in pairs(buttons) do
 		if(b.selected == true) then
 			local r = b.rect
-			b.data.x = b.data.x + dx
-			b.data.y = b.data.y + dy
-			local beforeX, beforeY = b.data.x, b.data.y
-			b.data.x, b.data.y = clampLogicalPosition(b.data.x, b.data.y, b)
-			shiftFloatPlacement(b, b.data.x - beforeX + dx, b.data.y - beforeY + dy)
+			local beforeX, beforeY = posX(b.data), posY(b.data)
+			local movedX, movedY = clampLogicalPosition(beforeX + dx, beforeY + dy, b)
+			setPos(b, movedX, movedY)
+			shiftFloatPlacement(b, movedX - beforeX, movedY - beforeY)
 			b.selected = false
 			updateSelected(b,false)
-			b:updateRect(statusoffset)
+			refreshRect(b)
 		end
 	end
 	drawButtons()
@@ -1126,6 +1125,66 @@ function clampLogicalPosition(x, y, b)
 	return x, y
 end
 
+-- Landscape may have a layout of its own. Until the player moves a button while
+-- the phone is on its side, xLand/yLand are nil and landscape simply shows the
+-- portrait layout -- which is the state every existing profile is in. The first
+-- deliberate move in landscape writes the landscape pair, and from then on the
+-- two orientations are independent. Nothing writes a pair because the phone was
+-- turned: clamping for a narrower screen is a drawing concern (clampAllButtons
+-- persists only when a layout action asked it to).
+function isLandscapeNow()
+	if view == nil then
+		return false
+	end
+	local w, h = view:getWidth(), view:getHeight()
+	if w <= 0 or h <= 0 then
+		return false
+	end
+	return w > h
+end
+
+-- Position to draw a button at, in the orientation we are in now.
+function posX(d)
+	if d == nil then
+		return 0
+	end
+	if isLandscapeNow() and tonumber(d.xLand) ~= nil then
+		return d.xLand
+	end
+	return d.x
+end
+
+function posY(d)
+	if d == nil then
+		return 0
+	end
+	if isLandscapeNow() and tonumber(d.yLand) ~= nil then
+		return d.yLand
+	end
+	return d.y
+end
+
+-- Write a position the player chose into the pair for this orientation.
+function setPos(b, x, y)
+	if b == nil or b.data == nil then
+		return
+	end
+	if isLandscapeNow() then
+		b.data.xLand = x
+		b.data.yLand = y
+	else
+		b.data.x = x
+		b.data.y = y
+	end
+end
+
+-- Draw a button where this orientation says it belongs.
+function refreshRect(b)
+	if b ~= nil and b.data ~= nil then
+		b:updateRectAt(posX(b.data), posY(b.data), statusoffset)
+	end
+end
+
 -- forceRect: rebuild every rect even where the clamp changed nothing. Needed
 -- when statusoffset may have moved under all of them (onSizeChanged), but not
 -- on the load path, where BUTTON:new has just built each rect from the same
@@ -1137,11 +1196,11 @@ end
 function clampAllButtons(forceRect, persist)
 	for i = 1, #buttons do
 		local b = buttons[i]
-		local ox, oy = b.data.x, b.data.y
+		local ox, oy = posX(b.data), posY(b.data)
 		local nx, ny = clampLogicalPosition(ox, oy, b)
 		local moved = nx ~= ox or ny ~= oy
 		if moved and persist == true then
-			b.data.x, b.data.y = nx, ny
+			setPos(b, nx, ny)
 		end
 		if moved or forceRect then
 			b:updateRectAt(nx, ny, statusoffset)
@@ -1159,7 +1218,7 @@ function refreshStatusOffset(relayoutButtons)
 	end
 	if relayoutButtons ~= false then
 		for i = 1, #buttons do
-			buttons[i]:updateRect(statusoffset)
+			refreshRect(buttons[i])
 		end
 	end
 	statusHidden = hiddenNow
@@ -1298,7 +1357,13 @@ function notifyFloatingButtonsChanged()
 		if not editing and buttons ~= nil then
 			for i, b in ipairs(buttons) do
 				local d = b.data
-				if d ~= nil and d.floating == true then
+				-- Point B: an accordion never leaves the grid. Its children only
+				-- exist while the parent is expanded, and the parent's press
+				-- opens a fan of buttons drawn on the button window — neither
+				-- can happen in a floating window over the keyboard, so a
+				-- floating copy of either would be a button that does nothing.
+				local accordionish = hasAccordionConfig(d) or b.isAccordionChild == true
+				if d ~= nil and d.floating == true and not accordionish then
 					local mode = d.floatMode
 					if mode ~= "keyboard" then
 						mode = "always"
@@ -1343,6 +1408,12 @@ function notifyFloatingButtonsChanged()
 					-- floaters at the button that was toggled floating.
 					o:put("gridX", tonumber(d.x) or 0)
 					o:put("gridY", tonumber(d.y) or 0)
+					-- Landscape grid pair, when the player has made one. Absent
+					-- means landscape still shows the portrait layout.
+					if tonumber(d.xLand) ~= nil and tonumber(d.yLand) ~= nil then
+						o:put("gridXLand", tonumber(d.xLand))
+						o:put("gridYLand", tonumber(d.yLand))
+					end
 					o:put("statusOffset", tonumber(statusoffset) or 0)
 					o:put("floatRound", d.floatRound == true)
 					o:put("floatFrame", d.floatFrame == true)
@@ -1429,8 +1500,9 @@ function applyFloatPosition(data)
 	local gx = tonumber(pos.gridX)
 	local gy = tonumber(pos.gridY)
 	if gx ~= nil and gy ~= nil then
-		d.x, d.y = clampLogicalPosition(gx, gy, buttons[index])
-		buttons[index]:updateRect(statusoffset)
+		local cx, cy = clampLogicalPosition(gx, gy, buttons[index])
+		setPos(buttons[index], cx, cy)
+		refreshRect(buttons[index])
 	end
 end
 
@@ -1483,7 +1555,7 @@ function applyButtonSize(w, h)
 	for i = 1, #targets do
 		targets[i].data.width = newW
 		targets[i].data.height = newH
-		targets[i]:updateRect(statusoffset)
+		refreshRect(targets[i])
 	end
 	if not hadSelection then
 		-- Nothing selected means this was a set-wide change, so it becomes the
@@ -1527,10 +1599,10 @@ function tidyButtonLayout(columns)
 	end
 	rowTolerance = rowTolerance * 0.6
 	table.sort(targets, function(a, b)
-		if math.abs(a.data.y - b.data.y) > rowTolerance then
-			return a.data.y < b.data.y
+		if math.abs(posY(a.data) - posY(b.data)) > rowTolerance then
+			return posY(a.data) < posY(b.data)
 		end
-		return a.data.x < b.data.x
+		return posX(a.data) < posX(b.data)
 	end)
 
 	local stepX = gridXwidth
@@ -1560,11 +1632,10 @@ function tidyButtonLayout(columns)
 		local row = originRow + math.floor((i - 1) / cols)
 		local halfW = ((tonumber(b.data.width) or 42) * density) / 2
 		local halfH = ((tonumber(b.data.height) or 42) * density) / 2
-		local beforeX, beforeY = b.data.x, b.data.y
-		b.data.x = col * stepX + halfW
-		b.data.y = statusoffset + row * stepY + halfH
-		shiftFloatPlacement(b, b.data.x - beforeX, b.data.y - beforeY)
-		b:updateRect(statusoffset)
+		local beforeX, beforeY = posX(b.data), posY(b.data)
+		setPos(b, col * stepX + halfW, statusoffset + row * stepY + halfH)
+		shiftFloatPlacement(b, posX(b.data) - beforeX, posY(b.data) - beforeY)
+		refreshRect(b)
 	end
 	drawButtons()
 	view:invalidate()
@@ -1768,11 +1839,10 @@ function rescaleLayoutToPitch(newPitchDp)
 	end
 	for i = 1, #targets do
 		local b = targets[i]
-		local beforeX, beforeY = b.data.x, b.data.y
-		b.data.x = minX + (b.data.x - minX) * factor
-		b.data.y = minY + (b.data.y - minY) * factor
-		shiftFloatPlacement(b, b.data.x - beforeX, b.data.y - beforeY)
-		b:updateRect(statusoffset)
+		local beforeX, beforeY = posX(b.data), posY(b.data)
+		setPos(b, minX + (beforeX - minX) * factor, minY + (beforeY - minY) * factor)
+		shiftFloatPlacement(b, posX(b.data) - beforeX, posY(b.data) - beforeY)
+		refreshRect(b)
 	end
 	return true
 end
@@ -2202,7 +2272,7 @@ function buttonOptions()
     
     for i=1,#buttons do
       local b = buttons[i]
-      b:updateRect(statusoffset)     
+      refreshRect(b)     
     end
     
     --call redraw buttons to get any new colors in there.
@@ -2341,8 +2411,8 @@ local function accordionChildCoords(parent, index, childW, childH)
 	local dir = parent.data.accordionDirection
 	local layout = parent.data.accordionChildLayout or "along"
 	local gap = 3 * density
-	local px = parent.data.x
-	local py = parent.data.y
+	local px = posX(parent.data)
+	local py = posY(parent.data)
 	local parentHalfW = (parent.data.width / 2) * density
 	local parentHalfH = (parent.data.height / 2) * density
 	local childHalfW = (childW / 2) * density
@@ -2636,7 +2706,7 @@ function addButton(pX,pY)
 	--newb.rect = luajava.newInstance("android.graphics.RectF")
 	--newb.paintOpts = luajava.new(PaintClass,paint)
 	--newb.selected = false
-	newb:updateRect(statusoffset)
+	newrefreshRect(b)
 	table.insert(buttons,newb)
 	return newb
 end
@@ -2885,12 +2955,12 @@ function buttonEditorDone(data)
 		
 		
 		-- Typed a new position in the editor: the floating copy moves by the
-		-- same amount, so the two do not drift apart.
+		-- same amount, so the two do not drift apart, and the pair written is
+		-- the one for the orientation the phone is in.
 		shiftFloatPlacement(tmp,
-			(tonumber(data.xCoord) or 0) - (tonumber(tmp.data.x) or 0),
-			(tonumber(data.yCoord) or 0) - (tonumber(tmp.data.y) or 0))
-		tmp.data.x = data.xCoord
-		tmp.data.y = data.yCoord
+			(tonumber(data.xCoord) or 0) - (tonumber(posX(tmp.data)) or 0),
+			(tonumber(data.yCoord) or 0) - (tonumber(posY(tmp.data)) or 0))
+		setPos(tmp, data.xCoord, data.yCoord)
 		tmp.data.height = data.height
 		tmp.data.width = data.width
 		tmp.data.labelSize = data.labelSize
@@ -2939,7 +3009,7 @@ function buttonEditorDone(data)
 		tmp.data.floatRound = data.floatRound == true
 		tmp.data.floatFrame = data.floatFrame == true
 		
-		tmp:updateRect(statusoffset)
+		refreshRect(tmp)
 		--Note("EDITING SINGLE BUTTON AFTER BUTTON:"..tmp.data.height)
 		--printTable("edited",tmp)
 		
@@ -2955,12 +3025,14 @@ function buttonEditorDone(data)
 					b.data.height = data.height
 				end
 				
+				-- Multi-edit: coordinates go to the pair for this orientation,
+				-- same as every other deliberate move.
 				if(data.xCoord ~= nil and data.xCoord ~= editorValues.x) then
-					b.data.x = data.xCoord
+					setPos(b, data.xCoord, posY(b.data))
 				end
 				
 				if(data.yCoord ~= nil and data.yCoord ~= editorValues.y) then
-					b.data.y = data.yCoord
+					setPos(b, posX(b.data), data.yCoord)
 				end
 				
 				if(data.labelSize ~= nil and data.labelSize ~= editorValues.labelSize) then
@@ -2987,7 +3059,7 @@ function buttonEditorDone(data)
 					b.data.flipLabelColor = resolveButtonColor(data.flipLabelColor, defaults.flipLabelColor)
 				end
 				
-				b:updateRect(statusoffset)
+				refreshRect(b)
 			end
 		end
 	end
@@ -3073,8 +3145,10 @@ function showEditorDialog()
 		editorValues.width = button.data.width
 		
 		editorValues.labelSize = button.data.labelSize
-		editorValues.x = button.data.x
-		editorValues.y = button.data.y
+		-- The editor shows and edits the position for the orientation you are
+		-- holding the phone in.
+		editorValues.x = posX(button.data)
+		editorValues.y = posY(button.data)
 		editorValues.floating = button.data.floating == true
 		editorValues.floatMode = button.data.floatMode or "always"
 		if editorValues.floatMode ~= "keyboard" then
@@ -3129,14 +3203,14 @@ function showEditorDialog()
 				end
 				
 				if(editorValues.x == nil) then
-					editorValues.x = tonumber(b.data.x)
-				elseif(editorValues.x ~= tonumber(b.data.x)) then
+					editorValues.x = tonumber(posX(b.data))
+				elseif(editorValues.x ~= tonumber(posX(b.data))) then
 					editorValues.x = "MULTI"
 				end
 				
 				if(editorValues.y == nil) then
-					editorValues.y = tonumber(b.data.y)
-				elseif(editorValues.y ~= tonumber(b.data.y)) then
+					editorValues.y = tonumber(posY(b.data))
+				elseif(editorValues.y ~= tonumber(posY(b.data))) then
 					editorValues.y = "MULTI"
 				end
 			end

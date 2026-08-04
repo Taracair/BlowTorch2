@@ -196,7 +196,11 @@ public class FloatingButtonController {
 			int gridX = Integer.MIN_VALUE;
 			int gridY = Integer.MIN_VALUE;
 			FloatingButtonView dragged = findViewFor(index);
-			if (dragged != null && !isLandscape()) {
+			FloatingButtonModel model = dragged != null ? dragged.getModel() : null;
+			// In landscape only once the grid has a landscape layout of its own,
+			// otherwise a drag here would move the button in portrait as well.
+			if (dragged != null
+					&& (!isLandscape() || (model != null && model.hasOwnLandscapeGrid()))) {
 				gridX = x + Math.max(dragged.buttonWidthPx(), 1) / 2;
 				gridY = y + Math.max(dragged.buttonHeightPx(), 1) / 2;
 			}
@@ -879,9 +883,11 @@ public class FloatingButtonController {
 		// writes the grid back (see onFloatDragFinished), which is the only
 		// other thing that may move it.
 		//
-		// Landscape keeps its own stored pair: the grid has one position and it
-		// is the portrait one.
-		boolean useGrid = !isLandscape() && m.hasGridOrigin;
+		// Landscape uses the grid too once the player has laid buttons out
+		// there; until then the grid holds one position, the portrait one, and
+		// the landscape floating pair is what the player set on this side.
+		boolean useGrid = m.hasGridOrigin
+				&& (!isLandscape() || m.hasOwnLandscapeGrid());
 		int x = useGrid
 				? Math.round(m.gridX) - buttonW / 2
 				: (m.floatX == FloatingLayerGeometry.UNPLACED
