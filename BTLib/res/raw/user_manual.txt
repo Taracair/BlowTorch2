@@ -315,6 +315,60 @@ what lights up, and tapping it sends a command.
 The word stays tappable for as long as the line is in the buffer, not just at
 the moment the trigger fired, and scrolling back does not change that.
 
+**Worked examples.** Literal? is **off** in all of them (these are regexes).
+
+    Pattern        You see (.+) lying here
+    Tappable part  1
+    Command        get $1
+        "You see a rusty sword lying here" — only "a rusty sword" lights up,
+        pressing it sends `get a rusty sword`.
+
+    Pattern        (\w+) drops (\w+)
+    Tappable part  2
+    Commands       get $2
+                   kill $1
+        "Goblin drops sword" — "sword" lights up; a press offers both
+        `get sword` and `kill Goblin`, because the command may use any part of
+        the match, not only the part that was pressed.
+
+    Pattern        (\w+) the (\w+) is standing here
+    Tappable part  0
+    Commands       kill $1
+                   look $word
+                   consider $1
+        Whole match lights up; the menu offers three things to do with it.
+
+    Pattern        \b(\d+) (?:gold|credits)\b
+    Tappable part  1
+    Command        get $1 gold
+        Digits only are pressable; the currency word is context.
+
+    Pattern        \[(\w+)\] (\w+):
+    Tappable part  2
+    Commands       tell $2
+                   ignore $2
+        A chat line "[ooc] Fred:" — press the speaker's name to reply.
+
+Things worth knowing when the pattern gets ambitious:
+
+- **A match may cross a colour change.** Matching runs on the whole line, so a
+  phrase the MUD colours halfway through still matches; each coloured piece is
+  marked in its own colour and pressing either piece does the same thing.
+- **Several matches on one line** are each pressable — "You see a sword, a
+  shield and a lamp lying here" with pattern `a (\w+)` gives three separate
+  words. At most 16 matches per coloured run are marked, so a pattern that
+  matches almost everything cannot cover the screen in boxes.
+- **A group the pattern does not have** substitutes as empty, not as a literal
+  `$7`.
+- **Literal? on** matches the pattern as plain text, exactly as it does for
+  firing the trigger — `[ 9 | -4 | 1 ]` is those characters, not a regex
+  character class.
+- **Conditions and groups work as usual**: a tappable trigger that is disabled,
+  or whose condition is false, marks nothing.
+- **Overlapping triggers**: two different triggers matching the same word each
+  mark it; the press uses the last box drawn there. Two Tappable Word actions
+  on *one* trigger are merged instead (see above).
+
 ### 10. Start mapping
 
 1. Open the map: ⋮ → **Map**, or `.map open`

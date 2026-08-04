@@ -74,6 +74,7 @@ local TOPIC_ORDER = {
 	"triggers",
 	"timers",
 	"coloring",
+	"tappable",
 	"keyboard",
 	"search",
 	"mapper",
@@ -467,6 +468,34 @@ TOPICS.coloring = function()
 
 Window options also control word wrap, hyperlinks, and font size under
 Options → Window. Trigger Color responders can tint matched lines.]])
+end
+
+TOPICS.tappable = function()
+	noteBlock("Tappable words — press what the game printed",
+[[A trigger can make what it matched pressable in the game text. Options →
+Triggers → your trigger → add action → Tappable Word.
+
+  Pattern        You see (.+) lying here
+  Tappable part  1
+  Command        get $1
+
+Tappable part 0 lights up the whole match; 1 to 9 lights up only that
+bracket. A pattern usually needs the rest of the line to recognise it, and
+you rarely want the whole sentence pressable.
+
+In the command:
+  $word   the text that was pressed
+  $0      the whole match
+  $1..$9  the bracketed parts of the pattern
+
+Add a second command and pressing the word opens a small menu at it instead
+of sending straight away - the first command stays on top of the menu.
+
+Underline, Bold and Frame mark the word; use any of them or none. Color is
+not here on purpose: put a Color action on the same trigger.
+
+The word stays pressable while the line is in the buffer, so scrolling back
+and pressing something from ten lines ago works.]])
 end
 
 TOPICS.keyboard = function()
