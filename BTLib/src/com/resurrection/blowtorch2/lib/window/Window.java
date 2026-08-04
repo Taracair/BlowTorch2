@@ -3202,6 +3202,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private static final int DRAG_VERTICAL = 1;
 	private static final int DRAG_HORIZONTAL = 2;
 
+	/** Most matches one rule may mark inside one unit of text — see markTappableWords. */
+	private static final int MAX_TAP_HITS_PER_UNIT = 16;
 	/** Same shape as {@link #linkBoxes}, and in the same (raw touch) space. */
 	private final ArrayList<LinkBox> tapBoxes = new ArrayList<LinkBox>();
 	/**
@@ -3268,8 +3270,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				continue;
 			}
 			java.util.regex.Matcher m = rule.pattern.matcher(s);
+			int hits = 0;
 			while (m.find()) {
 				if (m.end() == m.start()) {
+					break;
+				}
+				// This runs inside onDraw for every unit of text on screen, and
+				// the pattern is whatever the player typed. One that matches
+				// almost anything (".", "\\s*") would otherwise put a box, a
+				// Rect and a String[] on every character of every line, every
+				// frame. Marking the first few is still a usable answer.
+				if (++hits > MAX_TAP_HITS_PER_UNIT) {
 					break;
 				}
 				String hit = s.substring(m.start(), m.end());

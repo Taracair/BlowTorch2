@@ -5798,12 +5798,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					com.resurrection.blowtorch2.lib.responder.tap.TapAction tap =
 							com.resurrection.blowtorch2.lib.responder.tap.TapAction.merge(taps);
 					if (tap != null) {
-						java.util.regex.Pattern p;
-						try {
-							p = java.util.regex.Pattern.compile(t.getPattern());
-						} catch (Exception bad) {
-							// A pattern the player is still typing must not take
-							// the window down; skip it until it compiles.
+						// The trigger's own compiled pattern, not a fresh compile of
+						// the raw text. TriggerData.buildData already quotes a literal
+						// trigger and falls back to literal on a bad regex; compiling
+						// the raw text here made a literal trigger behave as a regex,
+						// so a pattern like "[ 9 | -4 | 1 ]" -- a real one in this
+						// profile -- would have been a character class marking single
+						// characters all over the screen.
+						java.util.regex.Pattern p = t.getCompiledPattern();
+						if (p == null) {
 							continue;
 						}
 						rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
