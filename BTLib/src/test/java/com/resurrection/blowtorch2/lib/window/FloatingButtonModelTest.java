@@ -54,4 +54,60 @@ public class FloatingButtonModelTest {
 		FloatingButtonModel original = new FloatingButtonModel(o);
 		assertSame(original, original.withFloatPosition(10, 20));
 	}
+
+	/** The defect: one stored pair, so a portrait drag followed the turn. */
+	@Test
+	public void eachOrientationReadsItsOwnStoredPosition() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 1);
+		o.put("floatX", 10);
+		o.put("floatY", 20);
+		o.put("floatXLand", 700);
+		o.put("floatYLand", 300);
+
+		FloatingButtonModel portrait = new FloatingButtonModel(o, false);
+		assertEquals(10, portrait.floatX);
+		assertEquals(20, portrait.floatY);
+
+		FloatingButtonModel land = portrait.forOrientation(true);
+		assertEquals(700, land.floatX);
+		assertEquals(300, land.floatY);
+		// ...and back, without a fresh push from Lua.
+		assertEquals(10, land.forOrientation(false).floatX);
+	}
+
+	/** An existing profile has no landscape pair: unplaced, so it is seeded. */
+	@Test
+	public void aProfileWithoutALandscapePairKeepsItsPortraitOne() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 1);
+		o.put("floatX", 10);
+		o.put("floatY", 20);
+
+		FloatingButtonModel portrait = new FloatingButtonModel(o, false);
+		assertEquals(10, portrait.floatX);
+		assertEquals(FloatingLayerGeometry.UNPLACED, portrait.forOrientation(true).floatX);
+	}
+
+	/** A drag writes one pair. The other orientation must not move with it. */
+	@Test
+	public void aDragOnlyWritesTheOrientationItHappenedIn() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 1);
+		o.put("floatX", 10);
+		o.put("floatY", 20);
+		o.put("floatXLand", 700);
+		o.put("floatYLand", 300);
+
+		FloatingButtonModel draggedInPortrait =
+				new FloatingButtonModel(o, false).withFloatPosition(55, 66);
+		assertEquals(55, draggedInPortrait.floatX);
+		assertEquals(700, draggedInPortrait.getFloatXLandscape());
+		assertEquals(300, draggedInPortrait.getFloatYLandscape());
+
+		FloatingButtonModel draggedInLandscape =
+				new FloatingButtonModel(o, true).withFloatPosition(800, 400);
+		assertEquals(800, draggedInLandscape.floatX);
+		assertEquals(10, draggedInLandscape.forOrientation(false).floatX);
+	}
 }

@@ -1326,6 +1326,13 @@ function notifyFloatingButtonsChanged()
 					o:put("floatMode", mode)
 					o:put("floatX", tonumber(d.floatX) or -1)
 					o:put("floatY", tonumber(d.floatY) or -1)
+					-- Landscape gets its own pair: the activity keeps itself
+					-- across a turn, so nothing re-lays the buttons out and one
+					-- stored pair made a button dragged in portrait follow the
+					-- portrait coordinates. Missing = -1 = never placed, which
+					-- is what a new floating button already means.
+					o:put("floatXLand", tonumber(d.floatXLand) or -1)
+					o:put("floatYLand", tonumber(d.floatYLand) or -1)
 					-- Grid centre (Lua data.x/y) so Java can seed unplaced
 					-- floaters at the button that was toggled floating.
 					o:put("gridX", tonumber(d.x) or 0)
@@ -1369,6 +1376,13 @@ function applyFloatPosition(data)
 	end
 	if pos.floatY ~= nil then
 		d.floatY = tonumber(pos.floatY) or d.floatY
+	end
+	-- Java sends the Land pair instead when the drag happened in landscape.
+	if pos.floatXLand ~= nil then
+		d.floatXLand = tonumber(pos.floatXLand) or d.floatXLand
+	end
+	if pos.floatYLand ~= nil then
+		d.floatYLand = tonumber(pos.floatYLand) or d.floatYLand
 	end
 end
 

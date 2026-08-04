@@ -31,6 +31,8 @@ local original = {
 	floatMode = "keyboard",
 	floatX = 120.5,
 	floatY = 340,
+	floatXLand = 700,
+	floatYLand = 300,
 	floatRound = true,
 	floatFrame = false,
 	label = "KB←",
@@ -48,6 +50,8 @@ check(restored.floating == true, "floating")
 check(restored.floatMode == "keyboard", "floatMode")
 check(restored.floatX == 120.5, "floatX")
 check(restored.floatY == 340, "floatY")
+check(restored.floatXLand == 700, "floatXLand")
+check(restored.floatYLand == 300, "floatYLand")
 check(restored.floatRound == true, "floatRound")
 check(restored.floatFrame == false, "floatFrame")
 check(restored.label == "KB←", "label")
@@ -60,6 +64,14 @@ local posRestored = assert(loadstring(posDump))()
 check(posRestored.index == 3, "index")
 check(posRestored.floatX == 10, "floatX from apply payload")
 check(posRestored.floatY == 20, "floatY from apply payload")
+
+-- A drag in landscape sends the Land pair instead, so the portrait one is
+-- left alone by applyFloatPosition.
+local landPos = { index = 3, floatXLand = 800, floatYLand = 400 }
+local landRestored = assert(loadstring(serialize(landPos)))()
+check(landRestored.floatXLand == 800, "floatXLand from apply payload")
+check(landRestored.floatYLand == 400, "floatYLand from apply payload")
+check(landRestored.floatX == nil, "landscape payload leaves floatX unset")
 
 print("3. notify snapshot with editing flag round-trips")
 local snapshot = {

@@ -54,6 +54,11 @@ BUTTONSET_DATA = {
 						floatMode = "always",
 						floatX = -1,
 						floatY = -1,
+						-- Landscape keeps its own pair; -1 = never placed there,
+						-- so an existing profile seeds landscape from the grid
+						-- and keeps the portrait position it already had.
+						floatXLand = -1,
+						floatYLand = -1,
 						floatRound = false,
 						floatFrame = false,
 						gridXwidth = 50,

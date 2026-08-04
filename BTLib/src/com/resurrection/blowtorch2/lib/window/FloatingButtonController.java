@@ -285,6 +285,43 @@ public class FloatingButtonController {
 		this.uiHandler = h != null ? h : new Handler(Looper.getMainLooper());
 	}
 
+	/** Which of the two stored position pairs is live right now. */
+	private boolean isLandscape() {
+		MainWindow mw = host.getMainWindow();
+		if (mw == null) {
+			return false;
+		}
+		return mw.getResources().getConfiguration().orientation
+				== android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+	}
+
+	/**
+	 * The device turned. The activity survives a turn
+	 * ({@code configChanges="orientation"}), so nothing else re-places the
+	 * buttons — read the other stored pair and rebuild from it.
+	 *
+	 * <p>Both pairs travel on every snapshot, so this needs no round trip to
+	 * Lua: a push would be a synchronous binder call (~280ms) on the UI thread
+	 * during a turn, which is exactly what the drag path already avoids.
+	 */
+	public void onOrientationChanged() {
+		if (editingHidden || !host.isFloatingButtonsEnabled()) {
+			return;
+		}
+		boolean land = isLandscape();
+		if (lastModels == null || lastModels.isEmpty()) {
+			return;
+		}
+		if (lastModels.get(0).landscape == land) {
+			return;
+		}
+		List<FloatingButtonModel> turned = new ArrayList<FloatingButtonModel>(lastModels.size());
+		for (FloatingButtonModel m : lastModels) {
+			turned.add(m.forOrientation(land));
+		}
+		rebuild(turned);
+	}
+
 	/**
 	 * JSON payload from Lua: {@code {editing:bool, buttons:[...]}}.
 	 * Called on the UI thread from {@link MainWindow#onFloatingButtonsChanged}.
@@ -312,7 +349,7 @@ public class FloatingButtonController {
 					if (o == null) {
 						continue;
 					}
-					models.add(new FloatingButtonModel(o));
+					models.add(new FloatingButtonModel(o, isLandscape()));
 				}
 			}
 			rebuild(models);

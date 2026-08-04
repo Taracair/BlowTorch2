@@ -2425,11 +2425,24 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			break;
 		}
-		
+
 		refreshGameChrome();
-		
+		// Floating buttons keep one stored position per orientation. Post it
+		// rather than doing it here: the branches above can ask for the other
+		// orientation outright (the "force landscape" profile option), and the
+		// window has not been re-measured yet at this point either.
+		if (floatingButtons != null) {
+			myhandler.postDelayed(new Runnable() {
+				public void run() {
+					if (floatingButtons != null) {
+						floatingButtons.onOrientationChanged();
+					}
+				}
+			}, 120);
+		}
+
 	}
-	
+
 	private void ClearKeyboard() {
 		//EditText input_box = (EditText)findViewById(R.id.textinput);
 		mInputBox.setText("");
@@ -3946,9 +3959,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 				@Override
 				public void persistFloatPosition(int buttonIndex, int floatX, int floatY) {
+					// Write the pair for the orientation the drag happened in, so
+					// the other one keeps whatever the player set there.
+					boolean land = getResources().getConfiguration().orientation
+							== android.content.res.Configuration.ORIENTATION_LANDSCAPE;
 					String payload = "return {index=" + buttonIndex
-							+ ",floatX=" + floatX
-							+ ",floatY=" + floatY + "}";
+							+ (land ? ",floatXLand=" : ",floatX=") + floatX
+							+ (land ? ",floatYLand=" : ",floatY=") + floatY + "}";
 					windowCall("button_window", "applyFloatPosition", payload);
 					windowCall("button_window", "persistFloatingButtons", "");
 				}
