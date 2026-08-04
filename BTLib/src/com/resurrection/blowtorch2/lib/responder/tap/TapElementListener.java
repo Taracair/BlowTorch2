@@ -35,6 +35,13 @@ public class TapElementListener implements StartElementListener {
 		if (a.getValue("", "frame") != null) {
 			tmp.setFrame(Boolean.parseBoolean(a.getValue("", "frame")));
 		}
+		if (a.getValue("", "group") != null) {
+			try {
+				tmp.setGroup(Integer.parseInt(a.getValue("", "group")));
+			} catch (NumberFormatException e) {
+				// Whole match, the default, rather than dropping the trigger.
+			}
+		}
 		// "recolor" and "color" were written by an earlier build. Colouring a
 		// word is a colour trigger's job, so they are read by nobody now —
 		// unknown attributes are simply ignored here.

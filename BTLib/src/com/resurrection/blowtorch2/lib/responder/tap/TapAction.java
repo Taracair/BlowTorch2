@@ -50,6 +50,13 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	private boolean underline = true;
 	private boolean bold;
 	private boolean frame;
+	/**
+	 * Which part of the match is the tappable one: 0 for the whole match, 1-9
+	 * for that capture group. A trigger usually needs context to recognise the
+	 * line — "You see (.+) lying here" — while only the thing in the brackets
+	 * should light up and be pressable.
+	 */
+	private int group;
 
 	public TapAction() {
 		super(RESPONDER_TYPE.TAP);
@@ -81,6 +88,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		tmp.underline = this.underline;
 		tmp.bold = this.bold;
 		tmp.frame = this.frame;
+		tmp.group = this.group;
 		tmp.setFireType(this.getFireType());
 		return tmp;
 	}
@@ -105,6 +113,9 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		if (this.frame != b.frame) {
 			return false;
 		}
+		if (this.group != b.group) {
+			return false;
+		}
 		return this.getFireType() == b.getFireType();
 	}
 
@@ -117,6 +128,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		o.writeInt(underline ? 1 : 0);
 		o.writeInt(bold ? 1 : 0);
 		o.writeInt(frame ? 1 : 0);
+		o.writeInt(group);
 		o.writeString(this.getFireType().getString());
 	}
 
@@ -131,6 +143,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		underline = in.readInt() != 0;
 		bold = in.readInt() != 0;
 		frame = in.readInt() != 0;
+		group = in.readInt();
 
 		String fireType = in.readString();
 		if (FIRE_WINDOW_OPEN.equals(fireType)) {
@@ -253,6 +266,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		merged.setUnderline(look.isUnderline());
 		merged.setBold(look.isBold());
 		merged.setFrame(look.isFrame());
+		merged.setGroup(look.getGroup());
 		return merged;
 	}
 
@@ -283,6 +297,15 @@ public class TapAction extends TriggerResponder implements Parcelable {
 
 	public void setFrame(boolean frame) {
 		this.frame = frame;
+	}
+
+	/** 0 = the whole match is tappable; 1-9 = that capture group is. */
+	public int getGroup() {
+		return group;
+	}
+
+	public void setGroup(int group) {
+		this.group = Math.max(0, Math.min(9, group));
 	}
 
 }

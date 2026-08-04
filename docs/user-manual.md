@@ -291,6 +291,30 @@ On a trigger:
 Several actions on one trigger run in order, so you can gag a line *and* print
 your own version of it.
 
+### 9b. Make a word in the game text tappable
+
+On a trigger, add the **Tappable Word** action. The trigger's pattern decides
+what lights up, and tapping it sends a command.
+
+- **Tappable part** — `0` marks the whole match. `1`–`9` marks only that
+  bracketed part of the pattern, which is what you usually want: the pattern
+  needs the rest of the line to recognise it. Pattern
+  `You see (.+) lying here` with `1` lights up just the thing on the floor.
+- **In the command**: `$word` is the text that was tapped, `$0` the whole
+  match, `$1`–`$9` the bracketed parts. Pattern `(\w+) drops (\w+)` with
+  `get $2` picks up what was dropped.
+- **More than one command** — press *Add another command* and a tap opens a
+  small menu at the word instead of sending straight away. The first command
+  stays at the top of it. Long commands are shortened in the menu with `(...)`;
+  the whole command is still what gets sent.
+- **Underline / Bold / Frame** — any combination, or none. Colour is not here:
+  put a **Color** action on the same trigger.
+- Two Tappable Word actions on one trigger behave as one word that offers both
+  sets of commands, and the look comes from the first of them.
+
+The word stays tappable for as long as the line is in the buffer, not just at
+the moment the trigger fired, and scrolling back does not change that.
+
 ### 10. Start mapping
 
 1. Open the map: ⋮ → **Map**, or `.map open`

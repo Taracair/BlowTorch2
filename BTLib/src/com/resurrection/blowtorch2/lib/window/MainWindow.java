@@ -5812,7 +5812,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
 								p, tap.getCommands().toArray(new String[0]),
 								tap.isUnderline(), tap.isBold(),
-								tap.isFrame()));
+								tap.isFrame(), tap.getGroup()));
 					}
 				}
 			}

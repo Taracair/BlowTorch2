@@ -2279,7 +2279,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					x = (float) ((mWidth / 2.0) - (amount / 2.0));
 				}
 				unitIterator = l.getIterator();
-				
+				// Whole-line matching, before the coloured runs are drawn.
+				findTapHitsForLine(l);
+
 				int linemode = 0;
 				if (startline2 == endline && startline2 == workingline) {
 					linemode = 1;
@@ -2496,7 +2498,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								
 							}
 							workingcol += text.charcount;
-							markTappableWords(c, text, x, y, linkColor, scrollingGesture);
+							markTappableWords(c, text, x, y, linkColor, scrollingGesture, workingcol);
 							x += drawTextOnGrid(c, text.getString(), x, y, linkColor);
 							if (l == mSearchHighlightLine) {
 								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
@@ -2520,7 +2522,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								
 							}
 							workingcol += text.charcount;
-							markTappableWords(c, text, x, y, p, scrollingGesture);
+							markTappableWords(c, text, x, y, p, scrollingGesture, workingcol);
 							x += drawTextOnGrid(c, text.getString(), x, y, p);
 							if (l == mSearchHighlightLine) {
 								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
@@ -3230,17 +3232,52 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		public final boolean underline;
 		public final boolean bold;
 		public final boolean frame;
+		/** 0 = the whole match is tappable, 1-9 = that capture group. */
+		public final int group;
 
 		public TapRule(java.util.regex.Pattern pattern, String[] commands, boolean underline,
-				boolean bold, boolean frame) {
+				boolean bold, boolean frame, int group) {
 			this.pattern = pattern;
 			this.commands = commands != null && commands.length > 0
 					? commands : new String[] { "look $word" };
 			this.underline = underline;
 			this.bold = bold;
 			this.frame = frame;
+			this.group = group;
 		}
 	}
+
+	/**
+	 * One match on the line being drawn: the columns it covers and the commands
+	 * a tap on it sends, {@code $word} and the groups already filled in.
+	 *
+	 * <p>Matching happens once per line, not once per coloured run, so a match
+	 * that crosses a colour change still counts — the trigger that made the rule
+	 * sees the whole line too, and the two disagreeing was visible as "the
+	 * trigger fired but nothing lit up". The marks are still drawn run by run,
+	 * each in its own colour, so a two-colour phrase stays two colours.
+	 */
+	private static final class TapHit {
+		final int startCol;
+		final int endCol;
+		final String[] commands;
+		final boolean underline;
+		final boolean bold;
+		final boolean frame;
+
+		TapHit(int startCol, int endCol, String[] commands,
+				boolean underline, boolean bold, boolean frame) {
+			this.startCol = startCol;
+			this.endCol = endCol;
+			this.commands = commands;
+			this.underline = underline;
+			this.bold = bold;
+			this.frame = frame;
+		}
+	}
+
+	/** Hits on the line currently being drawn, in line columns. */
+	private final ArrayList<TapHit> mLineTapHits = new ArrayList<TapHit>();
 
 	private java.util.List<TapRule> mTapRules = new ArrayList<TapRule>();
 
@@ -3256,14 +3293,60 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * — no matcher, no allocation — for a world with no tap triggers.
 	 */
 	private void markTappableWords(final Canvas c, final TextTree.Text text,
-			final float x, final float y, final Paint p, final boolean scrollingGesture) {
-		if (text == null) {
+			final float x, final float y, final Paint p, final boolean scrollingGesture,
+			final int unitStartCol) {
+		if (text == null || mLineTapHits.isEmpty()) {
 			return;
 		}
 		String s = text.getString();
 		if (s == null || s.length() == 0) {
 			return;
 		}
+		final int unitEndCol = unitStartCol + s.length();
+		for (int i = 0; i < mLineTapHits.size(); i++) {
+			TapHit hit = mLineTapHits.get(i);
+			// The part of this match that falls inside this coloured run. A
+			// match spanning two runs is drawn as two pieces and leaves two hit
+			// boxes, both carrying the same commands, so a tap on either half
+			// does the same thing.
+			int from = Math.max(hit.startCol, unitStartCol);
+			int to = Math.min(hit.endCol, unitEndCol);
+            if (from >= to) {
+				continue;
+			}
+			drawTapHit(c, x, y, p, s, from - unitStartCol, to - unitStartCol,
+					scrollingGesture, hit.commands,
+					hit.underline, hit.bold, hit.frame);
+		}
+	}
+
+	/**
+	 * Find every tappable match on one line, before its runs are drawn.
+	 *
+	 * <p>Costs nothing at all when no trigger carries a tap action: the rule
+	 * list is empty and this returns before touching the line.
+	 */
+	private void findTapHitsForLine(final TextTree.Line line) {
+		mLineTapHits.clear();
+		if (mTapRules.isEmpty() || line == null) {
+			return;
+		}
+		StringBuilder plain = mLineTextScratch;
+		plain.setLength(0);
+		java.util.Iterator<TextTree.Unit> it = line.getIterator();
+		while (it.hasNext()) {
+			TextTree.Unit u = it.next();
+			if (u instanceof TextTree.Text) {
+				String piece = ((TextTree.Text) u).getString();
+				if (piece != null) {
+					plain.append(piece);
+				}
+			}
+		}
+		if (plain.length() == 0) {
+			return;
+		}
+		String s = plain.toString();
 		for (int r = 0; r < mTapRules.size(); r++) {
 			TapRule rule = mTapRules.get(r);
 			if (rule.pattern == null) {
@@ -3275,23 +3358,80 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (m.end() == m.start()) {
 					break;
 				}
-				// This runs inside onDraw for every unit of text on screen, and
-				// the pattern is whatever the player typed. One that matches
-				// almost anything (".", "\\s*") would otherwise put a box, a
-				// Rect and a String[] on every character of every line, every
-				// frame. Marking the first few is still a usable answer.
+				// The pattern is whatever the player typed, and this runs for
+				// every line on screen. One that matches almost anything (".",
+				// "\\s*") would otherwise put a box, a Rect and a String[] on
+				// every character of every line. Marking the first few is still
+				// a usable answer.
 				if (++hits > MAX_TAP_HITS_PER_UNIT) {
 					break;
 				}
-				String hit = s.substring(m.start(), m.end());
+				int start = m.start();
+				int end = m.end();
+				if (rule.group > 0 && rule.group <= m.groupCount()
+						&& m.start(rule.group) >= 0) {
+					// Only the chosen group lights up; the rest of the match was
+					// there to recognise the line.
+					start = m.start(rule.group);
+					end = m.end(rule.group);
+					if (start >= end) {
+						continue;
+					}
+				}
+				String tapped = s.substring(start, end);
 				String[] filled = new String[rule.commands.length];
 				for (int i = 0; i < filled.length; i++) {
-					filled[i] = rule.commands[i].replace("$word", hit);
+					filled[i] = fillTapCommand(rule.commands[i], tapped, m);
 				}
-				drawTapHit(c, x, y, p, s, m.start(), m.end(), scrollingGesture, filled,
-						rule.underline, rule.bold, rule.frame);
+				mLineTapHits.add(new TapHit(start, end, filled,
+						rule.underline, rule.bold, rule.frame));
 			}
 		}
+	}
+
+	/** Scratch for {@link #findTapHitsForLine}; onDraw allocates nothing new. */
+	private final StringBuilder mLineTextScratch = new StringBuilder();
+
+	/**
+	 * Fill a command in: {@code $word} is the text that will be tappable,
+	 * {@code $0} the whole match, {@code $1}…{@code $9} its capture groups. A
+	 * group the pattern does not have becomes empty rather than staying as the
+	 * literal {@code $7} — the game should not be sent a dollar sign because a
+	 * bracket was removed from the pattern.
+	 */
+	static String fillTapCommand(final String command, final String tapped,
+			final java.util.regex.Matcher m) {
+		if (command == null || command.indexOf('$') < 0) {
+			return command != null ? command : "";
+		}
+		StringBuilder out = new StringBuilder(command.length() + 16);
+		for (int i = 0; i < command.length(); i++) {
+			char ch = command.charAt(i);
+			if (ch != '$' || i + 1 >= command.length()) {
+				out.append(ch);
+				continue;
+			}
+			if (command.startsWith("$word", i)) {
+				out.append(tapped);
+				i += "$word".length() - 1;
+				continue;
+			}
+			char next = command.charAt(i + 1);
+			if (next >= '0' && next <= '9') {
+				int g = next - '0';
+				String value = null;
+				if (g == 0) {
+					value = m.group();
+				} else if (g <= m.groupCount()) {
+					value = m.group(g);
+				}
+				out.append(value != null ? value : "");
+				i++;
+				continue;
+			}
+			out.append(ch);
+		}
+		return out.toString();
 	}
 
 	/** Mark one run of characters as tappable and remember where it was drawn. */

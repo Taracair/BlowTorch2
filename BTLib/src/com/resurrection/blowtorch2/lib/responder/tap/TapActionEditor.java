@@ -32,6 +32,7 @@ public class TapActionEditor extends Dialog {
 	private CheckBox underlineBox;
 	private CheckBox boldBox;
 	private CheckBox frameBox;
+	private EditText groupBox;
 
 	public TapActionEditor(Context context, TriggerResponder original,
 			TriggerResponderEditorDoneListener listener) {
@@ -54,11 +55,12 @@ public class TapActionEditor extends Dialog {
 		root.setPadding(pad, pad, pad, pad);
 
 		TextView help = new TextView(c);
-		help.setText("What the trigger matches becomes tappable. Tapping it sends the "
-				+ "command below, with " + TapAction.WORD_TOKEN + " replaced by the text "
-				+ "that was tapped. Add more commands and a tap asks which one you "
-				+ "meant instead of sending straight away — the first one stays on top "
-				+ "of that menu.");
+		help.setText("What the trigger matches becomes tappable, and tapping it sends the "
+				+ "command below. " + TapAction.WORD_TOKEN + " is the text that was "
+				+ "tapped, $0 the whole match, $1 to $9 the bracketed parts of the "
+				+ "pattern. Add more commands and a tap asks which one you meant "
+				+ "instead of sending straight away — the first one stays on top of "
+				+ "that menu.");
 		root.addView(help);
 
 		commandRows = new LinearLayout(c);
@@ -74,6 +76,22 @@ public class TapActionEditor extends Dialog {
 		});
 		root.addView(addCommand);
 
+		TextView groupLabel = new TextView(c);
+		groupLabel.setText("Tappable part: 0 = the whole match, 1-9 = that bracket");
+		root.addView(groupLabel);
+
+		groupBox = new EditText(c);
+		groupBox.setSingleLine(true);
+		groupBox.setInputType(InputType.TYPE_CLASS_NUMBER);
+		groupBox.setHint("0");
+		root.addView(groupBox);
+
+		TextView groupHelp = new TextView(c);
+		groupHelp.setText("Example: pattern  You see (.+) lying here  with 1 here lights up "
+				+ "just the thing on the floor, not the whole sentence, and \"get $1\" "
+				+ "picks it up.");
+		root.addView(groupHelp);
+
 		underlineBox = addCheck(c, root, "Underline");
 		boldBox = addCheck(c, root, "Bold");
 		frameBox = addCheck(c, root, "Frame around the word");
@@ -88,6 +106,7 @@ public class TapActionEditor extends Dialog {
 		underlineBox.setChecked(start.isUnderline());
 		boldBox.setChecked(start.isBold());
 		frameBox.setChecked(start.isFrame());
+		groupBox.setText(Integer.toString(start.getGroup()));
 
 		LinearLayout buttons = new LinearLayout(c);
 		buttons.setOrientation(LinearLayout.HORIZONTAL);
@@ -150,6 +169,18 @@ public class TapActionEditor extends Dialog {
 		commandRows.addView(row);
 	}
 
+	/** Anything that is not 0-9 means the whole match, which is the default. */
+	static int parseGroup(String text) {
+		if (text == null) {
+			return 0;
+		}
+		String t = text.trim();
+		if (t.length() != 1 || t.charAt(0) < '0' || t.charAt(0) > '9') {
+			return 0;
+		}
+		return t.charAt(0) - '0';
+	}
+
 	private static CheckBox addCheck(Context c, LinearLayout parent, String label) {
 		CheckBox box = new CheckBox(c);
 		box.setText(label);
@@ -169,6 +200,7 @@ public class TapActionEditor extends Dialog {
 		action.setUnderline(underlineBox.isChecked());
 		action.setBold(boldBox.isChecked());
 		action.setFrame(frameBox.isChecked());
+		action.setGroup(parseGroup(groupBox.getText().toString()));
 
 		if (original != null) {
 			finishWith.editTriggerResponder(action, original);
