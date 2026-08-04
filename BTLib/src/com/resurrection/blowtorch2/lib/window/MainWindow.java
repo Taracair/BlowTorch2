@@ -2180,6 +2180,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 //			//break;
 		case 200:
 			BetterTriggerSelectionDialog btsd = new BetterTriggerSelectionDialog(this,service,mShowRegexWarning);
+			// The trigger list is a Dialog on this activity, so closing it does not
+			// resume anything — and the resume was the only place tap rules were
+			// re-read. That is why a tappable word added in the editor did nothing
+			// until the app was left and reopened.
+			btsd.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+				@Override
+				public void onDismiss(android.content.DialogInterface dialog) {
+					scheduleTapRulesRefresh();
+				}
+			});
 			btsd.show();
 			break;
 		default:
@@ -2869,10 +2879,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// Re-checks the overlay grant too: it can be revoked while we live.
 			floatingButtons.onResume();
 		}
-		// Coming back from the trigger editor lands here, so this is where a
-		// newly added or edited tappable rule is picked up.
-		myhandler.removeMessages(MESSAGE_REFRESHTAPRULES);
-		myhandler.sendEmptyMessageDelayed(MESSAGE_REFRESHTAPRULES, 250);
+		// Coming back from another app or from the options screen lands here.
+		// Editing a trigger does not — see scheduleTapRulesRefresh.
+		scheduleTapRulesRefresh();
 
 		if(!isBound) {
 			saveConnectionExtras(getIntent());
@@ -5658,18 +5667,53 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * window has to do the matching on its own side. Cheap enough — this reads
 	 * the trigger list once, not once per line.
 	 */
+	/**
+	 * Re-read tappable-word rules soon, coalescing repeats.
+	 *
+	 * <p>Delayed because the caller is usually a dialog that has just handed an
+	 * edited trigger to the service over the binder, and the rules have to be
+	 * read back after the service has it.
+	 */
+	public void scheduleTapRulesRefresh() {
+		tapRulesRetries = 0;
+		myhandler.removeMessages(MESSAGE_REFRESHTAPRULES);
+		myhandler.sendEmptyMessageDelayed(MESSAGE_REFRESHTAPRULES, 250);
+	}
+
+	/**
+	 * Attempts left while the pieces are not there yet. On a cold start the
+	 * resume happens long before the service is bound and the game window is
+	 * built, and the old code simply returned — so the rules were never read at
+	 * all until something resumed the activity a second time.
+	 */
+	private int tapRulesRetries;
+	private static final int TAP_RULES_MAX_RETRIES = 20;
+
+	private boolean retryTapRulesLater() {
+		if (tapRulesRetries >= TAP_RULES_MAX_RETRIES) {
+			return false;
+		}
+		tapRulesRetries++;
+		myhandler.removeMessages(MESSAGE_REFRESHTAPRULES);
+		myhandler.sendEmptyMessageDelayed(MESSAGE_REFRESHTAPRULES, 500);
+		return true;
+	}
+
 	public void refreshTapRules() {
 		if (service == null) {
+			retryTapRulesLater();
 			return;
 		}
 		try {
 			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 			if (rl == null) {
+				retryTapRulesLater();
 				return;
 			}
 			com.resurrection.blowtorch2.lib.window.Window main =
 					(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
 			if (main == null) {
+				retryTapRulesLater();
 				return;
 			}
 			java.util.List<com.resurrection.blowtorch2.lib.window.Window.TapRule> rules =
