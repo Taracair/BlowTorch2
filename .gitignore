@@ -184,3 +184,7 @@ docs/HANDOFF.md
 
 # Local device-lab helper — machine-specific, not part of the app
 scripts/adb-device.sh
+
+# Local design notes for the maintainer — not part of the public tree yet
+docs/analiza-poziomy-canvas.md
+docs/tappable-words-pytania.md
