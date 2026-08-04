@@ -60,6 +60,9 @@ fi
 stage "Launcher component is where pinned icons expect it"
 bash scripts/guards/launcher-component.sh || fail=1
 
+stage "No glued-together Lua names"
+bash scripts/guards/lua-glued-names.sh || fail=1
+
 stage "Every responder type survives the binder"
 bash scripts/guards/responder-parcel-cases.sh || fail=1
 
