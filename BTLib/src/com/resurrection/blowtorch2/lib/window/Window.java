@@ -2179,6 +2179,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int startline = bundle.getStartLine();
 			int workingline = startline;
 			int workingcol = 0;
+			// Column within the whole logical line, for tappable matching only.
+			// workingcol cannot serve: it resets on every soft wrap (case BREAK),
+			// while a match is found against the line as one string, so on every
+			// wrapped row the two would disagree and the marks would land on the
+			// wrong characters or nowhere. Counted in the same units as that
+			// string (UTF-16 chars), reset only where the line's hits are found.
+			int tapCol = 0;
 			
 			//TODO: STEP 3
 			//find bleed.
@@ -2281,6 +2288,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				unitIterator = l.getIterator();
 				// Whole-line matching, before the coloured runs are drawn.
 				findTapHitsForLine(l);
+				tapCol = 0;
 
 				int linemode = 0;
 				if (startline2 == endline && startline2 == workingline) {
@@ -2497,8 +2505,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								}
 								
 							}
+							markTappableWords(c, text, x, y, linkColor, scrollingGesture, tapCol);
+							tapCol += text.getString() != null ? text.getString().length() : 0;
 							workingcol += text.charcount;
-							markTappableWords(c, text, x, y, linkColor, scrollingGesture, workingcol);
 							x += drawTextOnGrid(c, text.getString(), x, y, linkColor);
 							if (l == mSearchHighlightLine) {
 								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
@@ -2521,8 +2530,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								}
 								
 							}
+							markTappableWords(c, text, x, y, p, scrollingGesture, tapCol);
+							tapCol += text.getString() != null ? text.getString().length() : 0;
 							workingcol += text.charcount;
-							markTappableWords(c, text, x, y, p, scrollingGesture, workingcol);
 							x += drawTextOnGrid(c, text.getString(), x, y, p);
 							if (l == mSearchHighlightLine) {
 								drawSearchMatchText(c, text.getString(), x - cellWidth(text), y, searchPlainPos);
@@ -3204,8 +3214,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private static final int DRAG_VERTICAL = 1;
 	private static final int DRAG_HORIZONTAL = 2;
 
-	/** Most matches one rule may mark inside one unit of text — see markTappableWords. */
-	private static final int MAX_TAP_HITS_PER_UNIT = 16;
+	/** Most matches one rule may mark on one line — see findTapHitsForLine. */
+	private static final int MAX_TAP_HITS_PER_LINE = 16;
 	/** Same shape as {@link #linkBoxes}, and in the same (raw touch) space. */
 	private final ArrayList<LinkBox> tapBoxes = new ArrayList<LinkBox>();
 	/**
@@ -3354,7 +3364,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (plain.length() == 0) {
 			return;
 		}
-		String s = plain.toString();
+		// Matcher takes a CharSequence, so the builder is matched as it stands:
+		// this runs per line per frame and a String copy of every line on screen
+		// is not something onDraw should be doing.
+		CharSequence s = plain;
 		for (int r = 0; r < mTapRules.size(); r++) {
 			TapRule rule = mTapRules.get(r);
 			if (rule.pattern == null) {
@@ -3371,7 +3384,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				// "\\s*") would otherwise put a box, a Rect and a String[] on
 				// every character of every line. Marking the first few is still
 				// a usable answer.
-				if (++hits > MAX_TAP_HITS_PER_UNIT) {
+				if (++hits > MAX_TAP_HITS_PER_LINE) {
 					break;
 				}
 				int start = m.start();
@@ -3386,7 +3399,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						continue;
 					}
 				}
-				String tapped = s.substring(start, end);
+				String tapped = s.subSequence(start, end).toString();
 				String[] filled = new String[rule.commands.length];
 				for (int i = 0; i < filled.length; i++) {
 					filled[i] = fillTapCommand(rule.commands[i], tapped, m);
