@@ -521,6 +521,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
 		mSpecialCommands.put(sendbtncmd.commandName, sendbtncmd);
+		com.resurrection.blowtorch2.lib.service.function.FontCommand fontcmd =
+				new com.resurrection.blowtorch2.lib.service.function.FontCommand();
+		mSpecialCommands.put(fontcmd.commandName, fontcmd);
+		com.resurrection.blowtorch2.lib.service.function.CanvasWidthCommand widthcmd =
+				new com.resurrection.blowtorch2.lib.service.function.CanvasWidthCommand();
+		mSpecialCommands.put(widthcmd.commandName, widthcmd);
 		SwitchWindowCommand swdcmd = new SwitchWindowCommand();
 		mSpecialCommands.put(swdcmd.commandName, swdcmd);
 		SearchCommand searchcmd = new SearchCommand();
@@ -4094,8 +4100,62 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Reads an integer option off the main game window, or {@code fallback} when
+	 * there is no window yet or the key is not an integer option.
+	 */
+	public final int getMainWindowIntegerOption(final String key, final int fallback) {
+		try {
+			if (mWindows == null || mWindows.isEmpty() || mWindows.get(0) == null
+					|| mWindows.get(0).getSettings() == null) {
+				return fallback;
+			}
+			Object opt = mWindows.get(0).getSettings().findOptionByKey(key);
+			if (opt instanceof IntegerOption) {
+				return (Integer) ((IntegerOption) opt).getValue();
+			}
+		} catch (Exception e) {
+			Log.w("BlowTorch", "getMainWindowIntegerOption " + key, e);
+		}
+		return fallback;
+	}
+
+	/**
+	 * Sets an integer option on the main game window and makes it take effect at
+	 * once: the window's own settings, the UI over the callback, and a save.
+	 * Window options do not live in the connection settings plugin, so
+	 * {@link #updateIntegerSetting} alone changes nothing the player can see —
+	 * this is the path clampExcessiveFontSizeFromBadFit already uses.
+	 *
+	 * @return false when there is no window to change yet.
+	 */
+	public final boolean updateMainWindowIntegerOption(final String key, final int value) {
+		try {
+			if (mWindows == null || mWindows.isEmpty() || mWindows.get(0) == null
+					|| mWindows.get(0).getSettings() == null) {
+				return false;
+			}
+			WindowToken main = mWindows.get(0);
+			String text = Integer.toString(value);
+			main.getSettings().setOption(key, text);
+			if ("font_size".equals(key) && mSettings != null) {
+				// The colouriser wraps at this size; leaving it stale breaks wrapping.
+				mSettings.setLineSize(value);
+			}
+			IWindowCallback cb = mWindowCallbackMap.get(main.getName());
+			if (cb != null) {
+				cb.updateSetting(key, text);
+			}
+			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+			return true;
+		} catch (Exception e) {
+			Log.w("BlowTorch", "updateMainWindowIntegerOption " + key, e);
+			return false;
+		}
+	}
+
 	/** Updates a boolean setting in the main settings plugin.
-	 * 
+	 *
 	 * @param key id of the setting to affect.
 	 * @param value new value for setting <b>key</b>
 	 */

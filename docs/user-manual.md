@@ -414,6 +414,8 @@ is enabled; `.alias list` shows every alias at once.
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
     `.editpanel [on|off]`               Toggle/show/hide the Edit tools strip (Sel/Cut/…)
     `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Show Send button?
+    `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–48. Also Options → Window → Font size
+    `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
