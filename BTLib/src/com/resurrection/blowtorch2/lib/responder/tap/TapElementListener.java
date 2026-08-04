@@ -35,16 +35,9 @@ public class TapElementListener implements StartElementListener {
 		if (a.getValue("", "frame") != null) {
 			tmp.setFrame(Boolean.parseBoolean(a.getValue("", "frame")));
 		}
-		if (a.getValue("", "recolor") != null) {
-			tmp.setRecolor(Boolean.parseBoolean(a.getValue("", "recolor")));
-		}
-		if (a.getValue("", "color") != null) {
-			try {
-				tmp.setColor(Integer.parseInt(a.getValue("", "color")));
-			} catch (NumberFormatException e) {
-				// Leave the default rather than dropping the whole trigger.
-			}
-		}
+		// "recolor" and "color" were written by an earlier build. Colouring a
+		// word is a colour trigger's job, so they are read by nobody now —
+		// unknown attributes are simply ignored here.
 		current_trigger.getResponders().add(tmp.copy());
 	}
 }

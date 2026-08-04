@@ -50,8 +50,6 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	private boolean underline = true;
 	private boolean bold;
 	private boolean frame;
-	private boolean recolor;
-	private int color = 0xFF66CCFF;
 
 	public TapAction() {
 		super(RESPONDER_TYPE.TAP);
@@ -83,8 +81,6 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		tmp.underline = this.underline;
 		tmp.bold = this.bold;
 		tmp.frame = this.frame;
-		tmp.recolor = this.recolor;
-		tmp.color = this.color;
 		tmp.setFireType(this.getFireType());
 		return tmp;
 	}
@@ -109,12 +105,6 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		if (this.frame != b.frame) {
 			return false;
 		}
-		if (this.recolor != b.recolor) {
-			return false;
-		}
-		if (this.color != b.color) {
-			return false;
-		}
 		return this.getFireType() == b.getFireType();
 	}
 
@@ -127,8 +117,6 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		o.writeInt(underline ? 1 : 0);
 		o.writeInt(bold ? 1 : 0);
 		o.writeInt(frame ? 1 : 0);
-		o.writeInt(recolor ? 1 : 0);
-		o.writeInt(color);
 		o.writeString(this.getFireType().getString());
 	}
 
@@ -143,8 +131,6 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		underline = in.readInt() != 0;
 		bold = in.readInt() != 0;
 		frame = in.readInt() != 0;
-		recolor = in.readInt() != 0;
-		color = in.readInt();
 
 		String fireType = in.readString();
 		if (FIRE_WINDOW_OPEN.equals(fireType)) {
@@ -247,19 +233,4 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		this.frame = frame;
 	}
 
-	public boolean isRecolor() {
-		return recolor;
-	}
-
-	public void setRecolor(boolean recolor) {
-		this.recolor = recolor;
-	}
-
-	public int getColor() {
-		return color;
-	}
-
-	public void setColor(int color) {
-		this.color = color;
-	}
 }

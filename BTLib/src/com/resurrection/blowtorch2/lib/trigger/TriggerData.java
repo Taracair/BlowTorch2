@@ -222,6 +222,11 @@ public class TriggerData implements Parcelable {
 				ColorAction color = in.readParcelable(com.resurrection.blowtorch2.lib.responder.color.ColorAction.class.getClassLoader());
 				responders.add(color);
 				break;
+			case TriggerResponder.RESPONDER_TYPE_TAP:
+				com.resurrection.blowtorch2.lib.responder.tap.TapAction tap =
+						in.readParcelable(com.resurrection.blowtorch2.lib.responder.tap.TapAction.class.getClassLoader());
+				responders.add(tap);
+				break;
 			case TriggerResponder.RESPONDER_TYPE_SET_VARIABLE:
 				SetVariableResponder setVar = in.readParcelable(com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder.class.getClassLoader());
 				responders.add(setVar);

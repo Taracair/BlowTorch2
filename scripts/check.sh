@@ -60,6 +60,9 @@ fi
 stage "Launcher component is where pinned icons expect it"
 bash scripts/guards/launcher-component.sh || fail=1
 
+stage "Every responder type survives the binder"
+bash scripts/guards/responder-parcel-cases.sh || fail=1
+
 stage "docs/ contains only allowlisted files"
 tracked_docs="$(git ls-files 'docs/*' || true)"
 if [ -n "$tracked_docs" ]; then

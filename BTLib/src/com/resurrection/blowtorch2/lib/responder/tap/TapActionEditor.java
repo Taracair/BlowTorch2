@@ -18,7 +18,7 @@ import com.resurrection.blowtorch2.lib.responder.TriggerResponderEditorDoneListe
 
 /**
  * Editor for {@link TapAction}. Built in code rather than from a layout so it
- * stays one file — it is a command box, four switches and a colour.
+ * stays one file — it is a list of commands and three switches.
  */
 public class TapActionEditor extends Dialog {
 
@@ -32,8 +32,6 @@ public class TapActionEditor extends Dialog {
 	private CheckBox underlineBox;
 	private CheckBox boldBox;
 	private CheckBox frameBox;
-	private CheckBox recolorBox;
-	private EditText colorBox;
 
 	public TapActionEditor(Context context, TriggerResponder original,
 			TriggerResponderEditorDoneListener listener) {
@@ -79,17 +77,9 @@ public class TapActionEditor extends Dialog {
 		underlineBox = addCheck(c, root, "Underline");
 		boldBox = addCheck(c, root, "Bold");
 		frameBox = addCheck(c, root, "Frame around the word");
-		recolorBox = addCheck(c, root, "Use own colour");
-
-		TextView colorLabel = new TextView(c);
-		colorLabel.setText("Colour (#RRGGBB)");
-		root.addView(colorLabel);
-
-		colorBox = new EditText(c);
-		colorBox.setSingleLine(true);
-		colorBox.setInputType(InputType.TYPE_CLASS_TEXT);
-		colorBox.setHint("#66CCFF");
-		root.addView(colorBox);
+		// No colour here on purpose: a Colour action on the same trigger already
+		// paints what the pattern matched, and two ways to colour one word is
+		// one too many. The marks below use the colour the text already has.
 
 		TapAction start = original instanceof TapAction ? (TapAction) original : new TapAction();
 		for (String cmd : start.getCommands()) {
@@ -98,8 +88,6 @@ public class TapActionEditor extends Dialog {
 		underlineBox.setChecked(start.isUnderline());
 		boldBox.setChecked(start.isBold());
 		frameBox.setChecked(start.isFrame());
-		recolorBox.setChecked(start.isRecolor());
-		colorBox.setText(String.format("#%06X", 0xFFFFFF & start.getColor()));
 
 		LinearLayout buttons = new LinearLayout(c);
 		buttons.setOrientation(LinearLayout.HORIZONTAL);
@@ -181,8 +169,6 @@ public class TapActionEditor extends Dialog {
 		action.setUnderline(underlineBox.isChecked());
 		action.setBold(boldBox.isChecked());
 		action.setFrame(frameBox.isChecked());
-		action.setRecolor(recolorBox.isChecked());
-		action.setColor(parseColor(colorBox.getText().toString(), 0xFF66CCFF));
 
 		if (original != null) {
 			finishWith.editTriggerResponder(action, original);
@@ -192,22 +178,4 @@ public class TapActionEditor extends Dialog {
 		this.dismiss();
 	}
 
-	/** Accepts #RRGGBB or RRGGBB; anything else keeps the default. */
-	static int parseColor(String text, int fallback) {
-		if (text == null) {
-			return fallback;
-		}
-		String s = text.trim();
-		if (s.startsWith("#")) {
-			s = s.substring(1);
-		}
-		if (s.length() != 6) {
-			return fallback;
-		}
-		try {
-			return 0xFF000000 | Integer.parseInt(s, 16);
-		} catch (NumberFormatException e) {
-			return fallback;
-		}
-	}
 }

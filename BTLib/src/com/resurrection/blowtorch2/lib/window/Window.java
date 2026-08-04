@@ -3228,19 +3228,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		public final boolean underline;
 		public final boolean bold;
 		public final boolean frame;
-		public final boolean recolor;
-		public final int color;
 
 		public TapRule(java.util.regex.Pattern pattern, String[] commands, boolean underline,
-				boolean bold, boolean frame, boolean recolor, int color) {
+				boolean bold, boolean frame) {
 			this.pattern = pattern;
 			this.commands = commands != null && commands.length > 0
 					? commands : new String[] { "look $word" };
 			this.underline = underline;
 			this.bold = bold;
 			this.frame = frame;
-			this.recolor = recolor;
-			this.color = color;
 		}
 	}
 
@@ -3282,7 +3278,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					filled[i] = rule.commands[i].replace("$word", hit);
 				}
 				drawTapHit(c, x, y, p, s, m.start(), m.end(), scrollingGesture, filled,
-						rule.underline, rule.bold, rule.frame, rule.recolor, rule.color);
+						rule.underline, rule.bold, rule.frame);
 			}
 		}
 	}
@@ -3291,7 +3287,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void drawTapHit(final Canvas c, final float x, final float y, final Paint p,
 			final String source, final int start, final int end, final boolean scrollingGesture,
 			final String[] commands, final boolean underline, final boolean bold,
-			final boolean frame, final boolean recolor, final int color) {
+			final boolean frame) {
 		float left = x + cellWidth(start);
 		float right = left + cellWidth(end - start);
 		float bottom = cellBottom(y);
@@ -3301,7 +3297,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// Subtle box so the word reads as something you can press.
 			mTapUnderlinePaint.setStyle(Paint.Style.STROKE);
 			mTapUnderlinePaint.setStrokeWidth(Math.max(1f, mDensity));
-			mTapUnderlinePaint.setColor(recolor ? color : p.getColor());
+			mTapUnderlinePaint.setColor(p.getColor());
 			mTapUnderlinePaint.setAlpha(110);
 			float inset = mDensity;
 			c.drawRect(left - inset, top + inset, right + inset, bottom - inset,
@@ -3309,18 +3305,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mTapUnderlinePaint.setStyle(Paint.Style.FILL);
 		}
 		if (underline) {
-			mTapUnderlinePaint.setColor(recolor ? color : p.getColor());
+			mTapUnderlinePaint.setColor(p.getColor());
 			mTapUnderlinePaint.setAlpha(150);
 			c.drawRect(left, bottom - Math.max(2f, mDensity * 1.5f), right, bottom - 1f,
 					mTapUnderlinePaint);
 		}
-		if (recolor || bold) {
+		if (bold) {
 			// Redraw over the glyphs already on the canvas. Same grid routine as
 			// the original draw, so a bold face cannot widen the word and push
-			// the rest of the line out of its cells.
+			// the rest of the line out of its cells. The colour is the one the
+			// text already has — colouring a word is a colour trigger's job.
 			mTapTextPaint.setTextSize(p.getTextSize());
 			mTapTextPaint.setAntiAlias(true);
-			mTapTextPaint.setColor(recolor ? color : p.getColor());
+			mTapTextPaint.setColor(p.getColor());
 			mTapTextPaint.setTypeface(bold ? Typeface.create(mPrefFont, Typeface.BOLD) : mPrefFont);
 			mTapTextPaint.setFakeBoldText(bold);
 			drawTextOnGrid(c, source.substring(start, end), left, y, mTapTextPaint);

@@ -32,8 +32,6 @@ public final class TapActionParser {
 		out.attribute("", "underline", Boolean.toString(r.isUnderline()));
 		out.attribute("", "bold", Boolean.toString(r.isBold()));
 		out.attribute("", "frame", Boolean.toString(r.isFrame()));
-		out.attribute("", "recolor", Boolean.toString(r.isRecolor()));
-		out.attribute("", "color", Integer.toString(r.getColor()));
 		java.util.List<String> all = r.getCommands();
 		for (int i = 1; i < all.size(); i++) {
 			out.startTag("", BasePluginParser.TAG_TAPCOMMAND);
