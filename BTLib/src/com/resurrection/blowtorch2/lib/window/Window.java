@@ -1595,7 +1595,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					float y0 = t.getY(idx0);
 					selLine = touchYToBufferLine(y0);
 					selCol = mOneCharWidth > 0
-							? (int) Math.floor(x0 / (float) mOneCharWidth) : 0;
+							? (int) Math.floor((x0 + mScrollX) / (float) mOneCharWidth) : 0;
 				}
 			} catch (Exception ignored) {
 			}
@@ -1611,7 +1611,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (idx1 >= 0) {
 					selLine2 = touchYToBufferLine(t.getY(idx1));
 					selCol2 = mOneCharWidth > 0
-							? (int) Math.floor(t.getX(idx1) / (float) mOneCharWidth) : 0;
+							? (int) Math.floor((t.getX(idx1) + mScrollX) / (float) mOneCharWidth) : 0;
 					haveSecond = true;
 				}
 			} catch (Exception ignored) {
@@ -3405,6 +3405,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mScrollX = mScrollX + dx;
 		clampScrollX();
 		if (mScrollX != before) {
+			// The copy widget is anchored to a column, so it has to travel with
+			// the canvas rather than stay where it was opened.
+			if (theSelection != null && selectedSelector != null) {
+				moveWidgetToSelector(selectedSelector);
+			}
 			this.invalidate();
 			return true;
 		}
@@ -5669,7 +5674,10 @@ end
 			mScrollback -= ((mScrollback-SCROLL_MIN) - part2);
 		}
 		
-		int endx = (int) ((selectedSelector.column * mOneCharWidth) + (0.5*mOneCharWidth));
+		// The column is a position on the canvas; the widget is drawn on screen.
+		// Without the offset it stayed where it was created while the text moved
+		// out from under it.
+		int endx = (int) ((selectedSelector.column * mOneCharWidth) + (0.5*mOneCharWidth) - mScrollX);
 		int endy = bufferLineToScreenY(selectedSelector.line, (float) (0.5 * mSelectionIndicatorFontSize));
 		//widgetX = endx;
 		//widgetY = endy;
