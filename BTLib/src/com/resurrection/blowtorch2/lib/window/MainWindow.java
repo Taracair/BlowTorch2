@@ -4058,7 +4058,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 				@Override
 				public void persistFloatPosition(int buttonIndex, int floatX, int floatY,
-						int gridX, int gridY) {
+						int gridDx, int gridDy) {
 					// Write the pair for the orientation the drag happened in, so
 					// the other one keeps whatever the player set there.
 					boolean land = getResources().getConfiguration().orientation
@@ -4066,10 +4066,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					String payload = "return {index=" + buttonIndex
 							+ (land ? ",floatXLand=" : ",floatX=") + floatX
 							+ (land ? ",floatYLand=" : ",floatY=") + floatY
-							// The same drop as a grid position, so the button on the
-							// grid follows its floating copy. Absent in landscape.
-							+ (gridX != Integer.MIN_VALUE ? ",gridX=" + gridX : "")
-							+ (gridY != Integer.MIN_VALUE ? ",gridY=" + gridY : "")
+							// How far the finger moved it, so the grid button moves by
+							// the same amount. Nothing crosses between the two
+							// coordinate spaces, so nothing can be off by a status bar.
+							+ ((gridDx != 0 || gridDy != 0)
+									? ",gridDx=" + gridDx + ",gridDy=" + gridDy : "")
 							+ "}";
 					windowCall("button_window", "applyFloatPosition", payload);
 					windowCall("button_window", "persistFloatingButtons", "");

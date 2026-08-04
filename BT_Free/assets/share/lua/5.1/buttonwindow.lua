@@ -299,8 +299,9 @@ function exitMoveMode()
 			local r = b.rect
 			b.data.x = b.data.x + dx
 			b.data.y = b.data.y + dy
+			local beforeX, beforeY = b.data.x, b.data.y
 			b.data.x, b.data.y = clampLogicalPosition(b.data.x, b.data.y, b)
-			clearFloatPlacement(b)
+			shiftFloatPlacement(b, b.data.x - beforeX + dx, b.data.y - beforeY + dy)
 			b.selected = false
 			updateSelected(b,false)
 			b:updateRect(statusoffset)
@@ -1363,14 +1364,30 @@ end
 -- floating copy is seeded from the grid again; dragging the floating copy
 -- writes the grid position back (portrait only -- the grid stores one pair and
 -- it is the portrait one).
-function clearFloatPlacement(b)
-	if b == nil or b.data == nil then
+-- Only ever *shift* the floating position, never recompute it from the grid.
+-- The grid and the floating layer do not share an origin (status bar, chrome,
+-- and in overlay mode the position is on the screen), and every absolute
+-- conversion so far has left the button a status bar away from where it
+-- belonged. A delta is the same number in both spaces.
+-- -1 means "never placed"; that stays -1, so such a button keeps being seeded
+-- the way it is seeded today.
+function shiftFloatPlacement(b, dx, dy)
+	if b == nil or b.data == nil or (dx == 0 and dy == 0) then
 		return
 	end
-	b.data.floatX = -1
-	b.data.floatY = -1
-	b.data.floatXLand = -1
-	b.data.floatYLand = -1
+	local d = b.data
+	if (tonumber(d.floatX) or -1) ~= -1 then
+		d.floatX = d.floatX + dx
+	end
+	if (tonumber(d.floatY) or -1) ~= -1 then
+		d.floatY = d.floatY + dy
+	end
+	if (tonumber(d.floatXLand) or -1) ~= -1 then
+		d.floatXLand = d.floatXLand + dx
+	end
+	if (tonumber(d.floatYLand) or -1) ~= -1 then
+		d.floatYLand = d.floatYLand + dy
+	end
 end
 
 -- Java windowCall("button_window", "applyFloatPosition", serialize{index=,floatX=,floatY=})
@@ -1405,15 +1422,14 @@ function applyFloatPosition(data)
 	if pos.floatYLand ~= nil then
 		d.floatYLand = tonumber(pos.floatYLand) or d.floatYLand
 	end
-	-- Java sends the same drop as a grid centre in portrait, so the button on
-	-- the grid ends up where its floating copy was left.
-	if pos.gridX ~= nil and pos.gridY ~= nil then
-		local gx = tonumber(pos.gridX)
-		local gy = tonumber(pos.gridY)
-		if gx ~= nil and gy ~= nil then
-			d.x, d.y = clampLogicalPosition(gx, gy, buttons[index])
-			buttons[index]:updateRect(statusoffset)
-		end
+	-- Java sends how far the finger moved the floating copy, in portrait, and
+	-- the button on the grid moves by the same amount. A delta, not a position:
+	-- see shiftFloatPlacement for why nothing absolute crosses between them.
+	local dx = tonumber(pos.gridDx) or 0
+	local dy = tonumber(pos.gridDy) or 0
+	if dx ~= 0 or dy ~= 0 then
+		d.x, d.y = clampLogicalPosition(d.x + dx, d.y + dy, buttons[index])
+		buttons[index]:updateRect(statusoffset)
 	end
 end
 
@@ -1543,9 +1559,10 @@ function tidyButtonLayout(columns)
 		local row = originRow + math.floor((i - 1) / cols)
 		local halfW = ((tonumber(b.data.width) or 42) * density) / 2
 		local halfH = ((tonumber(b.data.height) or 42) * density) / 2
+		local beforeX, beforeY = b.data.x, b.data.y
 		b.data.x = col * stepX + halfW
 		b.data.y = statusoffset + row * stepY + halfH
-		clearFloatPlacement(b)
+		shiftFloatPlacement(b, b.data.x - beforeX, b.data.y - beforeY)
 		b:updateRect(statusoffset)
 	end
 	drawButtons()
@@ -1750,9 +1767,10 @@ function rescaleLayoutToPitch(newPitchDp)
 	end
 	for i = 1, #targets do
 		local b = targets[i]
+		local beforeX, beforeY = b.data.x, b.data.y
 		b.data.x = minX + (b.data.x - minX) * factor
 		b.data.y = minY + (b.data.y - minY) * factor
-		clearFloatPlacement(b)
+		shiftFloatPlacement(b, b.data.x - beforeX, b.data.y - beforeY)
 		b:updateRect(statusoffset)
 	end
 	return true
@@ -2865,11 +2883,11 @@ function buttonEditorDone(data)
 		--printTable("button",tmp)
 		
 		
-		if tonumber(data.xCoord) ~= tonumber(tmp.data.x)
-				or tonumber(data.yCoord) ~= tonumber(tmp.data.y) then
-			-- Typed a new position in the editor: that is the position now.
-			clearFloatPlacement(tmp)
-		end
+		-- Typed a new position in the editor: the floating copy moves by the
+		-- same amount, so the two do not drift apart.
+		shiftFloatPlacement(tmp,
+			(tonumber(data.xCoord) or 0) - (tonumber(tmp.data.x) or 0),
+			(tonumber(data.yCoord) or 0) - (tonumber(tmp.data.y) or 0))
 		tmp.data.x = data.xCoord
 		tmp.data.y = data.yCoord
 		tmp.data.height = data.height

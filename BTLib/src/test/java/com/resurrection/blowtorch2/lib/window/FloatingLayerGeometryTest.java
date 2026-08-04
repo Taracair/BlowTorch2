@@ -67,37 +67,4 @@ public class FloatingLayerGeometryTest {
 				FloatingLayerGeometry.place(-50, 900, 120, 96, 1080, 800));
 	}
 
-	/**
-	 * The grid seeds the floating copy and a drop of the floating copy moves the
-	 * grid button. If the two conversions are not exact inverses, a button
-	 * dragged and left alone creeps a little further every time the position is
-	 * round-tripped.
-	 */
-	@Test
-	public void gridAndFloatingCoordinatesAreExactInverses() {
-		float density = 2.75f;
-		float widthDp = 42f;
-		float heightDp = 42f;
-		int statusOffset = 152;
-		float gridX = 331f;
-		float gridY = 1904f;
-
-		int left = FloatingLayerGeometry.gridCenterToLeft(gridX, widthDp, density);
-		int top = FloatingLayerGeometry.gridCenterToTop(gridY, heightDp, density, statusOffset);
-
-		assertEquals(gridX,
-				FloatingLayerGeometry.leftToGridCenter(left, widthDp, density), 0.51f);
-		assertEquals(gridY,
-				FloatingLayerGeometry.topToGridCenter(top, heightDp, density, statusOffset), 0.51f);
-	}
-
-	/** The status bar offset belongs to the floating side only, in both directions. */
-	@Test
-	public void theStatusOffsetIsAddedOnceAndTakenBackOnce() {
-		float density = 1f;
-		int top = FloatingLayerGeometry.gridCenterToTop(500f, 100f, density, 152);
-		assertEquals(500 - 50 + 152, top);
-		assertEquals(500f,
-				FloatingLayerGeometry.topToGridCenter(top, 100f, density, 152), 0.01f);
-	}
 }

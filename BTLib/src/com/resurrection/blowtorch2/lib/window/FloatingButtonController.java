@@ -114,13 +114,16 @@ public class FloatingButtonController {
 		/**
 		 * Apply floatX/Y in UI Lua then persist via saveButtons.
 		 *
-		 * @param gridX grid centre the drop corresponds to, so the grid button
-		 *        moves with its floating copy instead of drifting away from it;
-		 *        {@link Integer#MIN_VALUE} when the grid must not be touched
-		 *        (a landscape drag — the grid has one position, and it is the
-		 *        portrait one).
+		 * @param gridDx how far the drag moved the button, to be added to its
+		 *        position on the grid so the two stay together. A <em>delta</em>
+		 *        and not a position on purpose: the grid and the floating layer
+		 *        do not share an origin (status bar, chrome), and every attempt
+		 *        to convert between them absolutely has put the button a status
+		 *        bar away from where it belonged. Zero means "leave the grid
+		 *        alone" — a landscape drag, or the first drag of a button that
+		 *        had no floating position yet.
 		 */
-		void persistFloatPosition(int buttonIndex, int floatX, int floatY, int gridX, int gridY);
+		void persistFloatPosition(int buttonIndex, int floatX, int floatY, int gridDx, int gridDy);
 
 		boolean isFloatingButtonsEnabled();
 
@@ -190,21 +193,21 @@ public class FloatingButtonController {
 			// Lua is updated below; keep lastModels in step too. Otherwise the next
 			// IME/chrome rebuild (e.g. .sendbutton toggling the input bar) recreates
 			// overlay windows from the pre-drag snapshot and the button snaps back.
-			rememberFloatPosition(index, x, y);
-			int gridX = Integer.MIN_VALUE;
-			int gridY = Integer.MIN_VALUE;
-			FloatingButtonModel dropped = findModel(index);
-			if (dropped != null && !isLandscape() && layer != null) {
-				// Same position, expressed the way the grid stores it. Portrait
-				// only: the grid keeps a single pair and it is the portrait one,
-				// so a landscape drag would move the button in portrait too.
-				float density = layer.getResources().getDisplayMetrics().density;
-				gridX = Math.round(FloatingLayerGeometry.leftToGridCenter(
-						x, dropped.widthDp, density));
-				gridY = Math.round(FloatingLayerGeometry.topToGridCenter(
-						y, dropped.heightDp, density, dropped.statusOffsetPx));
+			// How far this drag actually moved the button, measured against the
+			// position it was sitting at. Portrait only: the grid keeps one
+			// pair and it is the portrait one, so a landscape drag would move
+			// the button in portrait too.
+			int gridDx = 0;
+			int gridDy = 0;
+			FloatingButtonModel before = findModel(index);
+			if (before != null && !isLandscape()
+					&& before.floatX != FloatingLayerGeometry.UNPLACED
+					&& before.floatY != FloatingLayerGeometry.UNPLACED) {
+				gridDx = x - before.floatX;
+				gridDy = y - before.floatY;
 			}
-			host.persistFloatPosition(index, x, y, gridX, gridY);
+			rememberFloatPosition(index, x, y);
+			host.persistFloatPosition(index, x, y, gridDx, gridDy);
 		}
 
 		@Override
