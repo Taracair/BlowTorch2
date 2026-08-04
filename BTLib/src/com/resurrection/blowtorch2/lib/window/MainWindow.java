@@ -5749,6 +5749,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			}
 			main.setTapRules(rules);
+			android.util.Log.i("BTPROF", "tapRules triggers=" + (map == null ? -1 : map.size())
+					+ " rules=" + rules.size() + " retries=" + tapRulesRetries);
 		} catch (Exception e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
 					"MainWindow.refreshTapRules", e);

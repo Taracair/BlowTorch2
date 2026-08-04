@@ -3245,6 +3245,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Replaces the rule set; called when triggers are loaded or edited. */
 	public void setTapRules(final java.util.List<TapRule> rules) {
 		mTapRules = rules != null ? rules : new ArrayList<TapRule>();
+		android.util.Log.i("BTPROF", "window " + mName + " got tap rules: " + mTapRules.size());
 		this.invalidate();
 	}
 
