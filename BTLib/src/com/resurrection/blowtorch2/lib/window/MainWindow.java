@@ -5726,13 +5726,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (t == null || !t.isEnabled() || t.getResponders() == null) {
 						continue;
 					}
+					// One rule per trigger, not per action. Nothing stops a player
+					// adding two tappable actions to one trigger, and that would mark
+					// the same word twice and stack two hit boxes on it, so which
+					// command a tap sent would depend on which box was found last.
+					java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapAction> taps =
+							new java.util.ArrayList<com.resurrection.blowtorch2.lib.responder.tap.TapAction>();
 					for (com.resurrection.blowtorch2.lib.responder.TriggerResponder r
 							: t.getResponders()) {
-						if (!(r instanceof com.resurrection.blowtorch2.lib.responder.tap.TapAction)) {
-							continue;
+						if (r instanceof com.resurrection.blowtorch2.lib.responder.tap.TapAction) {
+							taps.add((com.resurrection.blowtorch2.lib.responder.tap.TapAction) r);
 						}
-						com.resurrection.blowtorch2.lib.responder.tap.TapAction tap =
-								(com.resurrection.blowtorch2.lib.responder.tap.TapAction) r;
+					}
+					com.resurrection.blowtorch2.lib.responder.tap.TapAction tap =
+							com.resurrection.blowtorch2.lib.responder.tap.TapAction.merge(taps);
+					if (tap != null) {
 						java.util.regex.Pattern p;
 						try {
 							p = java.util.regex.Pattern.compile(t.getPattern());
@@ -5743,7 +5751,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 						rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
 								p, tap.getCommands().toArray(new String[0]),
-							tap.isUnderline(), tap.isBold(),
+								tap.isUnderline(), tap.isBold(),
 								tap.isFrame()));
 					}
 				}

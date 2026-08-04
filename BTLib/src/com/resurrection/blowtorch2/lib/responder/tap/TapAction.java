@@ -204,6 +204,54 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		}
 	}
 
+	/**
+	 * One action out of every tap action on the same trigger.
+	 *
+	 * <p>Nothing stops a player adding two "Tappable Word" actions to one
+	 * trigger, and without this that means two rules over the same word: the
+	 * marks are drawn twice, two hit boxes sit on top of each other, and which
+	 * command a tap sends depends on which box is found last. Merged, the word
+	 * is one tappable thing that offers both commands — which is what two
+	 * actions on one trigger can only have been meant to say.
+	 *
+	 * <p>Marks are OR-ed: a mark asked for by either action is drawn. Commands
+	 * keep their order, first action first, and duplicates are dropped so the
+	 * menu does not offer the same command twice.
+	 *
+	 * @return null when the list holds no tap action.
+	 */
+	public static TapAction merge(java.util.List<TapAction> actions) {
+		if (actions == null || actions.isEmpty()) {
+			return null;
+		}
+		if (actions.size() == 1) {
+			return actions.get(0);
+		}
+		TapAction merged = new TapAction();
+		java.util.ArrayList<String> all = new java.util.ArrayList<String>();
+		boolean underline = false;
+		boolean bold = false;
+		boolean frame = false;
+		for (TapAction a : actions) {
+			if (a == null) {
+				continue;
+			}
+			for (String cmd : a.getCommands()) {
+				if (!all.contains(cmd)) {
+					all.add(cmd);
+				}
+			}
+			underline = underline || a.isUnderline();
+			bold = bold || a.isBold();
+			frame = frame || a.isFrame();
+		}
+		merged.setCommands(all);
+		merged.setUnderline(underline);
+		merged.setBold(bold);
+		merged.setFrame(frame);
+		return merged;
+	}
+
 	/** True when a tap has to ask which command the player meant. */
 	public boolean hasMenu() {
 		return commands.size() > 1;

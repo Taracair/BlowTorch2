@@ -2,6 +2,8 @@ package com.resurrection.blowtorch2.lib.responder.tap;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -84,5 +86,40 @@ public class TapActionCommandsTest {
 
 		b.addCommand("get $word");
 		assertFalse(a.equals(b));
+	}
+
+	/**
+	 * Two tappable actions on one trigger: one word, both commands, and any
+	 * mark either of them asked for. Two rules would draw the marks twice and
+	 * leave two hit boxes on the same word.
+	 */
+	@Test
+	public void twoActionsOnOneTriggerBecomeOne() {
+		TapAction first = new TapAction();
+		first.setCommand("kill $word");
+		first.setUnderline(true);
+		first.setBold(false);
+		first.setFrame(false);
+
+		TapAction second = new TapAction();
+		second.setCommands(Arrays.asList("skin $word", "kill $word"));
+		second.setUnderline(false);
+		second.setBold(true);
+		second.setFrame(true);
+
+		TapAction merged = TapAction.merge(Arrays.asList(first, second));
+		assertEquals(Arrays.asList("kill $word", "skin $word"), merged.getCommands());
+		assertTrue(merged.isUnderline());
+		assertTrue(merged.isBold());
+		assertTrue(merged.isFrame());
+	}
+
+	@Test
+	public void mergingOneActionKeepsItAsItIs() {
+		TapAction only = new TapAction();
+		only.setCommand("get $word");
+		assertSame(only, TapAction.merge(Arrays.asList(only)));
+		assertNull(TapAction.merge(new ArrayList<TapAction>()));
+		assertNull(TapAction.merge(null));
 	}
 }
