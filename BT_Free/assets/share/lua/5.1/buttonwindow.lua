@@ -2706,7 +2706,7 @@ function addButton(pX,pY)
 	--newb.rect = luajava.newInstance("android.graphics.RectF")
 	--newb.paintOpts = luajava.new(PaintClass,paint)
 	--newb.selected = false
-	newrefreshRect(b)
+	refreshRect(newb)
 	table.insert(buttons,newb)
 	return newb
 end
