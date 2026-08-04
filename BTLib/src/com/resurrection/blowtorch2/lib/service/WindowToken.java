@@ -95,16 +95,6 @@ public class WindowToken implements Parcelable {
 		word_wrap,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
-		/** Comma-separated words that can be tapped in the game text. */
-		tappable_words,
-		/** What tapping one of them sends; $word is the word that was tapped. */
-		tappable_word_command,
-		/** Marking for tappable words — any combination of the four. */
-		tappable_word_underline,
-		tappable_word_bold,
-		tappable_word_frame,
-		tappable_word_recolor,
-		tappable_word_color,
 		/** Newest game lines at the top of the window (older below). */
 		newest_at_top,
 		/** Top inset for game text (pixels); keeps lines clear of camera cutouts. */
@@ -387,55 +377,12 @@ public class WindowToken implements Parcelable {
 		canvasWidth.setValue(100);
 		window.addOption(canvasWidth);
 
-		StringOption tappableWords = new StringOption();
-		tappableWords.setTitle("Tappable words");
-		tappableWords.setDescription("Words in the game text you can tap to act on, comma separated. Example: yeti,crate,chicken — tapping \"yeti\" then sends the command below. Case does not matter; only whole words match, so \"cock\" does not light up inside \"peacock\". Empty = off.");
-		tappableWords.setKey("tappable_words");
-		tappableWords.setValue("");
-		window.addOption(tappableWords);
-
-		StringOption tappableCommand = new StringOption();
-		tappableCommand.setTitle("Tapped word sends");
-		tappableCommand.setDescription("What a tap sends to the game. $word is replaced with the word that was tapped, so \"look $word\" on the word \"yeti\" sends \"look yeti\".");
-		tappableCommand.setKey("tappable_word_command");
-		tappableCommand.setValue("look $word");
-		window.addOption(tappableCommand);
-
-		BooleanOption tapUnderline = new BooleanOption();
-		tapUnderline.setTitle("Tappable: underline");
-		tapUnderline.setDescription("Draw a thin line under a tappable word.");
-		tapUnderline.setKey("tappable_word_underline");
-		tapUnderline.setValue(true);
-		window.addOption(tapUnderline);
-
-		BooleanOption tapBold = new BooleanOption();
-		tapBold.setTitle("Tappable: bold");
-		tapBold.setDescription("Draw tappable words in a heavier face. Letters stay on the same grid, so nothing shifts sideways.");
-		tapBold.setKey("tappable_word_bold");
-		tapBold.setValue(false);
-		window.addOption(tapBold);
-
-		BooleanOption tapFrame = new BooleanOption();
-		tapFrame.setTitle("Tappable: frame");
-		tapFrame.setDescription("Draw a faint box around a tappable word so it reads like something you can press.");
-		tapFrame.setKey("tappable_word_frame");
-		tapFrame.setValue(false);
-		window.addOption(tapFrame);
-
-		BooleanOption tapRecolor = new BooleanOption();
-		tapRecolor.setTitle("Tappable: use own colour");
-		tapRecolor.setDescription("Paint tappable words in the colour below instead of the colour the game sent.");
-		tapRecolor.setKey("tappable_word_recolor");
-		tapRecolor.setValue(false);
-		window.addOption(tapRecolor);
-
-		ColorOption tapColor = new ColorOption();
-		tapColor.setTitle("Tappable: colour");
-		tapColor.setDescription("The colour used when \"use own colour\" is on.");
-		tapColor.setKey("tappable_word_color");
-		tapColor.setValue(0xFF66CCFF);
-		window.addOption(tapColor);
-
+		// Tappable words used to live here as a world-wide word list. They are a
+		// trigger action now (responder/tap): the trigger pattern decides what is
+		// tappable, so the words follow the same groups, conditions and enable
+		// switch as everything else the player configures per line. Old worlds may
+		// still carry the tappable_* keys in their XML; nothing registers them any
+		// more, and the loader drops keys it does not know.
 		BooleanOption newestAtTop = new BooleanOption();
 		newestAtTop.setTitle("Newest text at top?");
 		newestAtTop.setDescription("Put fresh game output at the top (older lines below). Handy with buttons along the bottom. Warning: reverses line order, so built-in MUD maps and ASCII art/graphics will appear upside down — leave off for those games.");

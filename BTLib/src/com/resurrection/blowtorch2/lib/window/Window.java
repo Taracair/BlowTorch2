@@ -631,34 +631,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mCanvasWidthFactor = Math.max(1.0f,
 					Math.min(2.0f, ((Integer) canvasWidth.getValue()).intValue() / 100f));
 		}
-		StringOption tapWords = (StringOption) settings.findOptionByKey("tappable_words");
-		if (tapWords != null) {
-			setTappableWords((String) tapWords.getValue());
-		}
-		StringOption tapCmd = (StringOption) settings.findOptionByKey("tappable_word_command");
-		if (tapCmd != null) {
-			setTapCommand((String) tapCmd.getValue());
-		}
-		BooleanOption tapUl = (BooleanOption) settings.findOptionByKey("tappable_word_underline");
-		if (tapUl != null) {
-			mTapUnderline = (Boolean) tapUl.getValue();
-		}
-		BooleanOption tapBd = (BooleanOption) settings.findOptionByKey("tappable_word_bold");
-		if (tapBd != null) {
-			mTapBold = (Boolean) tapBd.getValue();
-		}
-		BooleanOption tapFr = (BooleanOption) settings.findOptionByKey("tappable_word_frame");
-		if (tapFr != null) {
-			mTapFrame = (Boolean) tapFr.getValue();
-		}
-		BooleanOption tapRc = (BooleanOption) settings.findOptionByKey("tappable_word_recolor");
-		if (tapRc != null) {
-			mTapRecolor = (Boolean) tapRc.getValue();
-		}
-		ColorOption tapCol = (ColorOption) settings.findOptionByKey("tappable_word_color");
-		if (tapCol != null) {
-			mTapColor = (Integer) tapCol.getValue();
-		}
 		BooleanOption hlenabled = (BooleanOption) settings.findOptionByKey("hyperlinks_enabled");
 		BooleanOption tapDismiss = (BooleanOption) settings.findOptionByKey("tap_dismiss_keyboard");
 		if (tapDismiss != null) {
@@ -3217,49 +3189,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private static final int DRAG_VERTICAL = 1;
 	private static final int DRAG_HORIZONTAL = 2;
 
-	/**
-	 * Words the player listed as tappable, lower-cased. Empty = feature off,
-	 * and then {@link #markTappableWords} returns before touching anything.
-	 */
-	private java.util.HashSet<String> mTappableWords = new java.util.HashSet<String>();
-	/** What a tap sends; {@code $word} is replaced with the word that was hit. */
-	private String mTapCommand = "look $word";
 	/** Same shape as {@link #linkBoxes}, and in the same (raw touch) space. */
 	private final ArrayList<LinkBox> tapBoxes = new ArrayList<LinkBox>();
 	private int mTouchInTapWord = -1;
 	private final Paint mTapUnderlinePaint = new Paint();
 	private final Paint mTapTextPaint = new Paint();
-	/** How a tappable word is marked. Any combination, all of them optional. */
-	private boolean mTapUnderline = true;
-	private boolean mTapBold = false;
-	private boolean mTapFrame = false;
-	private boolean mTapRecolor = false;
-	private int mTapColor = 0xFF66CCFF;
-
-	public void setTapUnderline(final boolean on) {
-		mTapUnderline = on;
-		this.invalidate();
-	}
-
-	public void setTapBold(final boolean on) {
-		mTapBold = on;
-		this.invalidate();
-	}
-
-	public void setTapFrame(final boolean on) {
-		mTapFrame = on;
-		this.invalidate();
-	}
-
-	public void setTapRecolor(final boolean on) {
-		mTapRecolor = on;
-		this.invalidate();
-	}
-
-	public void setTapColor(final int color) {
-		mTapColor = color;
-		this.invalidate();
-	}
 
 	/**
 	 * One trigger carrying a TapAction: what to look for, what to send, and how
@@ -3295,36 +3229,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		this.invalidate();
 	}
 
-	/** Options → Window → Tappable words. Comma separated, case-insensitive. */
-	public void setTappableWords(final String csv) {
-		java.util.HashSet<String> words = new java.util.HashSet<String>();
-		if (csv != null) {
-			String[] parts = csv.split(",");
-			for (int i = 0; i < parts.length; i++) {
-				String w = parts[i].trim().toLowerCase();
-				if (w.length() > 0) {
-					words.add(w);
-				}
-			}
-		}
-		mTappableWords = words;
-		this.invalidate();
-	}
-
-	public void setTapCommand(final String cmd) {
-		mTapCommand = cmd != null && cmd.length() > 0 ? cmd : "look $word";
-	}
-
-	/** A word is only tappable whole — "cock" must not light up inside "peacock". */
-	private static boolean isWordChar(final char ch) {
-		return Character.isLetterOrDigit(ch) || ch == '\'' || ch == '-';
-	}
-
 	/**
-	 * Underline every listed word in this text unit and remember where it was
-	 * drawn, so a tap can find it. Runs inside onDraw, so it stays a single
-	 * scan of the unit with a hash lookup per word — no regex, no allocation
-	 * when the feature is off.
+	 * Mark every trigger-matched run in this text unit and remember where it was
+	 * drawn, so a tap can find it. Runs inside onDraw, so it does nothing at all
+	 * — no matcher, no allocation — for a world with no tap triggers.
 	 */
 	private void markTappableWords(final Canvas c, final TextTree.Text text,
 			final float x, final float y, final Paint p, final boolean scrollingGesture) {
@@ -3335,7 +3243,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (s == null || s.length() == 0) {
 			return;
 		}
-		// Trigger-driven rules first: those are the configured ones.
 		for (int r = 0; r < mTapRules.size(); r++) {
 			TapRule rule = mTapRules.get(r);
 			if (rule.pattern == null) {
@@ -3352,35 +3259,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						rule.underline, rule.bold, rule.frame, rule.recolor, rule.color);
 			}
 		}
-		if (mTappableWords.isEmpty()) {
-			return;
-		}
-		int i = 0;
-		final int len = s.length();
-		while (i < len) {
-			if (!isWordChar(s.charAt(i))) {
-				i++;
-				continue;
-			}
-			int start = i;
-			while (i < len && isWordChar(s.charAt(i))) {
-				i++;
-			}
-			String word = s.substring(start, i);
-			if (!mTappableWords.contains(word.toLowerCase())) {
-				continue;
-			}
-			drawTapHit(c, x, y, p, s, start, i, scrollingGesture,
-					mTapCommand.replace("$word", word),
-					mTapUnderline, mTapBold, mTapFrame, mTapRecolor, mTapColor);
-		}
 	}
 
-	/**
-	 * Mark one run of characters as tappable and remember where it was drawn.
-	 * Shared by the trigger rules and by the plain word list so both look and
-	 * behave identically.
-	 */
+	/** Mark one run of characters as tappable and remember where it was drawn. */
 	private void drawTapHit(final Canvas c, final float x, final float y, final Paint p,
 			final String source, final int start, final int end, final boolean scrollingGesture,
 			final String command, final boolean underline, final boolean bold,
@@ -5054,27 +4935,6 @@ end
 			case word_wrap:
 				this.setWordWrap((Boolean)o.getValue());
 				break;
-			case tappable_words:
-				setTappableWords((String) o.getValue());
-				break;
-			case tappable_word_command:
-				setTapCommand((String) o.getValue());
-				break;
-			case tappable_word_underline:
-				setTapUnderline((Boolean) o.getValue());
-				break;
-			case tappable_word_bold:
-				setTapBold((Boolean) o.getValue());
-				break;
-			case tappable_word_frame:
-				setTapFrame((Boolean) o.getValue());
-				break;
-			case tappable_word_recolor:
-				setTapRecolor((Boolean) o.getValue());
-				break;
-			case tappable_word_color:
-				setTapColor((Integer) o.getValue());
-				break;
 			case text_canvas_width:
 				// Stored as percent so it can be an IntegerOption like the rest.
 				setCanvasWidthFactor(((Integer) o.getValue()).intValue() / 100f);
@@ -5205,13 +5065,6 @@ end
 		hyperlink_extra_tlds,
 		word_wrap,
 		text_canvas_width,
-		tappable_words,
-		tappable_word_command,
-		tappable_word_underline,
-		tappable_word_bold,
-		tappable_word_frame,
-		tappable_word_recolor,
-		tappable_word_color,
 		newest_at_top,
 		top_padding,
 		bottom_padding,
