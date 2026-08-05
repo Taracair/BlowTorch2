@@ -375,9 +375,9 @@ Example idea: when the game says you are hungry, Ack sends "eat bread".
 Another: gag spammy combat lines; Color important tells; Toast a warning.
 
 Open: ⋮ → Triggers → add. Keep Literal on until you need regex. Captures
-in regex mode become $1, $2 in Ack / Replace / Toast text. The ? button
-beside Done explains the pattern box, and the preview under the box says
-what your pattern will really do before you save it.
+in regex mode become $1, $2 in Ack / Replace / Toast text. The More
+button beside Done explains the pattern box, and the preview under the
+box says what your pattern will really do before you save it.
 
 Using an alias as the pattern: type an alias's NAME on its own and the
 trigger watches for that alias's TEXT instead. With an alias spares that
@@ -471,7 +471,12 @@ Changing the duration does not stop the timer: one that was running
 keeps running on the new length, one that was stopped stays stopped.
 
 Name matches the timer list (not a numeric index). Useful for ticks,
-cooldowns, or reminder toasts while you play.]])
+cooldowns, or reminder toasts while you play.
+
+The More button beside Done in the timer editor says all of this on the
+phone, including that Conditions are checked when the timer fires and not
+while it counts, and that Group is for finding timers in the list — there
+is no .timer group command.]])
 end
 
 TOPICS.coloring = function()

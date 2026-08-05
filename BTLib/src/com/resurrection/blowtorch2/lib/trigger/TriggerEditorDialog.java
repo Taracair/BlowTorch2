@@ -220,7 +220,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		literal.setOnCheckedChangeListener(new LiteralCheckChangedListener());
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
 		setupTriggerPreview(title, pattern, literal);
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		// Same shell as the alias editor: the height wraps the form, so
+		// Cancel/More/Done sit under the fields instead of at the bottom of a
+		// dialog that was 94% of the screen whatever it had in it.
+		EditorDialogChrome.applyFloatingWrapContentHeight(this);
 	}
 
 	/** Suggest existing group names; autocomplete + dropdown spinner of known groups. */
@@ -402,7 +405,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	/** Alias names to bodies, read once when the editor opens; null until then. */
 	private HashMap<String, String> aliasNames;
 
-	/** The ? beside Done: what the pattern box does, in the words of the box. */
+	/** The More button beside Done: what the pattern box does. */
 	private void showPatternHelp() {
 		TextView body = new TextView(getContext());
 		final float d = getContext().getResources().getDisplayMetrics().density;

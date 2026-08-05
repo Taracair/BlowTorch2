@@ -174,7 +174,8 @@ A **disabled** alias still gives its text: disabling stops it expanding what you
 name is replaced. Turn **Literal?** off and write `^name$` and it is a pattern of
 its own again.
 
-The **?** button beside Done in the trigger editor says all of this on the phone.
+The **More** button beside Done in the trigger editor says all of this on the
+phone. The timer editor has one too, for what a timer is and how to drive it.
 
 **Trying a trigger without the game:** `.note some text` prints a line into the
 game window and sends nothing to the server, so a colour, a gag or a tappable

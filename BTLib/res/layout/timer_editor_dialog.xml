@@ -1,18 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<RelativeLayout
+<!-- Vertical shell: title -> fields -> Cancel/More/Done directly under the
+     content, not pinned to the bottom of a 94%-tall dialog. Pair with
+     EditorDialogChrome.applyFloatingWrapContentHeight. The alias editor has
+     been this shape for a while; these two were still a RelativeLayout with
+     the buttons alignParentBottom, so a short timer left a band of empty
+     dialog and the buttons sat down by the navigation bar. -->
+<LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/newtriggerlayout"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:layout_marginLeft="4dip"
-  android:layout_marginRight="4dip">
-  
+  android:layout_marginRight="4dip"
+  android:orientation="vertical">
+
   <TextView
 		android:id="@+id/titlebar"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		android:layout_alignParentTop="true"
 		android:text="TIMER EDITOR"
 		android:textColor="#FF333333"
 		android:background="#FF999999"
@@ -20,32 +26,10 @@
 		android:textStyle="bold"
 		android:gravity="center"/>
 
-  <LinearLayout
-  	android:id="@+id/editor_button_bar"
-  	android:layout_width="match_parent"
-  	android:layout_height="wrap_content"
-  	android:layout_alignParentBottom="true"
-  	android:orientation="horizontal"
-  	android:gravity="center">
-	  <Button
-	    android:layout_width="0dip"
-	  	android:layout_height="wrap_content"
-	  	android:layout_weight="1"
-	  	android:id="@+id/timer_editor_cancel"
-	  	android:text="Cancel" />
-	  <Button
-	  	android:layout_width="0dip"
-	  	android:layout_height="wrap_content"
-	  	android:layout_weight="1"
-	  	android:text="Done"
-	  	android:id="@+id/timer_editor_done_button"/>
-  </LinearLayout>
-  
   <ScrollView
   	android:layout_width="match_parent"
-  	android:layout_height="match_parent"
-  	android:layout_above="@id/editor_button_bar"
-  	android:layout_below="@id/titlebar"
+  	android:layout_height="0dip"
+  	android:layout_weight="1"
   	android:fillViewport="true"
   	android:id="@+id/timer_editor_scroll_container">
   	<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
@@ -329,5 +313,45 @@
   	
   </ScrollView>
 
-  
-</RelativeLayout>
+  <!-- Cancel, More, Done. "More" rather than "?": it is the word the alias and
+       trigger lists already use for the same kind of button, and a lone
+       question mark told nobody what it did. -->
+  <LinearLayout
+  	android:id="@+id/editor_button_bar"
+  	android:layout_width="match_parent"
+  	android:layout_height="wrap_content"
+  	android:orientation="horizontal"
+  	android:gravity="center"
+  	android:paddingLeft="6dip"
+  	android:paddingRight="6dip"
+  	android:paddingTop="6dip"
+  	android:paddingBottom="6dip">
+	  <Button
+	    android:layout_width="0dip"
+	  	android:layout_height="wrap_content"
+	  	android:layout_weight="1"
+	  	android:minHeight="44dip"
+	  	android:id="@+id/timer_editor_cancel"
+	  	android:text="Cancel" />
+	  <Button
+	  	android:id="@+id/timer_editor_help_button"
+	  	android:layout_width="wrap_content"
+	  	android:layout_height="wrap_content"
+	  	android:minHeight="44dip"
+	  	android:minWidth="72dip"
+	  	android:layout_marginLeft="6dip"
+	  	android:background="@drawable/editor_more_button_bg"
+	  	android:textColor="#FFC7CDD4"
+	  	android:textSize="14dip"
+	  	android:text="More" />
+	  <Button
+	  	android:layout_width="0dip"
+	  	android:layout_height="wrap_content"
+	  	android:layout_weight="1"
+	  	android:minHeight="44dip"
+	  	android:layout_marginLeft="6dip"
+	  	android:text="Done"
+	  	android:id="@+id/timer_editor_done_button"/>
+  </LinearLayout>
+
+</LinearLayout>

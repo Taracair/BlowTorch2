@@ -140,6 +140,15 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		
 		Button donebutton = (Button)findViewById(R.id.timer_editor_done_button);
 		donebutton.setOnClickListener(new TimerEditerDoneListener());
+
+		Button morebutton = (Button)findViewById(R.id.timer_editor_help_button);
+		if (morebutton != null) {
+			morebutton.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					showTimerHelp();
+				}
+			});
+		}
 		
 		
 		setupDurationFields();
@@ -154,8 +163,71 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		}
 		updateDurationSummary();
 		setupGroupField();
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		// Same shell as the alias and trigger editors: the height wraps the form,
+		// so Cancel/More/Done sit under the fields instead of at the bottom of a
+		// dialog that was 94% of the screen whatever it had in it.
+		EditorDialogChrome.applyFloatingWrapContentHeight(this);
 	}
+
+	/** The More button: what a timer is and what the fields do. */
+	private void showTimerHelp() {
+		TextView body = new TextView(getContext());
+		final float d = getContext().getResources().getDisplayMetrics().density;
+		int pad = Math.round(16 * d);
+		body.setPadding(pad, pad, pad, pad);
+		body.setTextIsSelectable(true);
+		body.setText(TIMER_HELP_TEXT);
+
+		android.widget.ScrollView scroll = new android.widget.ScrollView(getContext());
+		scroll.addView(body);
+
+		new android.app.AlertDialog.Builder(getContext())
+				.setTitle("Timers")
+				.setView(scroll)
+				.setPositiveButton("Close", null)
+				.show();
+	}
+
+	static final String TIMER_HELP_TEXT =
+			"A timer waits, then runs its actions. Nothing has to happen in the game "
+			+ "for it to fire -- that is what makes it different from a trigger.\n\n"
+			+ "EVERY\n"
+			+ "Hours, minutes and seconds are added up, not range-checked, so 90 in "
+			+ "the seconds box is the same as 1m 30s. The line underneath shows the "
+			+ "total that will actually be used. The presets fill the boxes for you.\n\n"
+			+ "REPEAT\n"
+			+ "Off: it fires once and stops. On: it starts again as soon as it fires. "
+			+ "A repeating 1-second timer sends its command every second, so watch "
+			+ "what the actions do.\n\n"
+			+ "ACTIONS\n"
+			+ "The same list as a trigger: Ack sends a command, Toast and Notification "
+			+ "put something on the phone, Set Variable stores a session value. There "
+			+ "is no matched line here, so there is no $1 to use.\n\n"
+			+ "CONDITIONS\n"
+			+ "Checked when the timer fires, not while it counts down. A timer whose "
+			+ "condition is false at that moment does nothing and, if it repeats, goes "
+			+ "round again. It is a gate, not a pause. Example: Variable equals "
+			+ "fighting = 1, set from your combat triggers, and a healing timer that "
+			+ "runs all the time but only acts in a fight.\n\n"
+			+ "FROM THE INPUT BAR, BY NAME\n"
+			+ "    .timer play <name>       start it\n"
+			+ "    .timer pause <name>      hold it where it is\n"
+			+ "    .timer reset <name>      back to full duration\n"
+			+ "    .timer stop <name>       stop and reset\n"
+			+ "    .timer info <name>       how long is left\n"
+			+ "    .timer duration <name> <seconds>\n"
+			+ "Add silent as a last word to suppress the toast: .timer play heal "
+			+ "silent. Useful when a trigger drives the timer.\n\n"
+			+ "Changing the duration does not stop the timer: one that was running "
+			+ "keeps running on the new length, from now.\n\n"
+			+ "GROUP\n"
+			+ "A label like combat. The Timers list shows it, sorts by it, and filters "
+			+ "on it. It is for finding timers, not for switching them: there is no "
+			+ ".timer group command.\n\n"
+			+ "WHILE THE PHONE SLEEPS\n"
+			+ "Timers run in the connection\'s own process, so they keep counting while "
+			+ "the game window is in the background. Android can still delay a long "
+			+ "one on a sleeping phone; a timer is not an alarm clock.";
 
 	/** Wire the h/m/s boxes and the preset row; the running total is echoed under them. */
 	private void setupDurationFields() {
