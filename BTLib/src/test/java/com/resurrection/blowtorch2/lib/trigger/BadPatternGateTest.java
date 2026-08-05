@@ -295,20 +295,48 @@ public class BadPatternGateTest {
 
 	/**
 	 * Alternatives that each compile can still throw when joined -- two triggers
-	 * declaring the same named group is the case. compile() does not swallow it,
-	 * because only the caller can keep its group-to-trigger bookkeeping
-	 * consistent with whatever it falls back to.
+	 * declaring the same named group is the case, and buildTriggerSystem is
+	 * reachable from a binder, so that throw killed the UI process. The second
+	 * one is refused at add(), before it is appended, which is the only point
+	 * where the group-to-trigger map can be kept describing what was built.
 	 */
 	@Test
-	public void duplicateNamedGroupsThrowFromTheJoinNotFromAdd() {
+	public void aSecondTriggerReusingANamedGroupIsSkippedNotThrown() {
 		TriggerPattern p = new TriggerPattern();
 		assertTrue(p.add(trigger("(?<who>\\w+) arrives", true)) > 0);
-		assertTrue(p.add(trigger("(?<who>\\w+) leaves", true)) > 0);
-		try {
-			p.compile(0);
-			org.junit.Assert.fail("the join was expected to throw");
-		} catch (java.util.regex.PatternSyntaxException expected) {
-			assertNotNull(expected.getMessage());
-		}
+		assertEquals("the duplicate must be skipped, not appended",
+				-1, p.add(trigger("(?<who>\\w+) leaves", true)));
+		java.util.regex.Matcher m = p.compile(0).matcher("Taracair arrives");
+		assertTrue("the first trigger must still fire", m.find());
+		assertEquals("(?<who>\\w+) arrives", p.matchedTrigger(m).getName());
+	}
+
+	/** Different names are fine; only a collision is refused. */
+	@Test
+	public void distinctNamedGroupsBothSurviveTheJoin() {
+		TriggerPattern p = new TriggerPattern();
+		assertTrue(p.add(trigger("(?<who>\\w+) arrives", true)) > 0);
+		assertTrue(p.add(trigger("(?<leaver>\\w+) leaves", true)) > 0);
+		java.util.regex.Matcher m = p.compile(0).matcher("Taracair leaves");
+		assertTrue(m.find());
+		assertEquals("(?<leaver>\\w+) leaves", p.matchedTrigger(m).getName());
+		assertEquals("Taracair", m.group("leaver"));
+	}
+
+	/**
+	 * A skipped duplicate must not move the numbering: the trigger after it is
+	 * attributed by group number, and a gap there points at the wrong trigger.
+	 */
+	@Test
+	public void skippingADuplicateDoesNotShiftLaterTriggers() {
+		TriggerPattern p = new TriggerPattern();
+		p.add(trigger("(?<who>\\w+) arrives", true));
+		p.add(trigger("(?<who>\\w+) leaves", true));
+		p.add(trigger("You gain (\\d+) experience", true));
+		java.util.regex.Matcher m = p.compile(0).matcher("You gain 42 experience");
+		assertTrue(m.find());
+		assertEquals("You gain (\\d+) experience", p.matchedTrigger(m).getName());
+		int index = TriggerPattern.matchedGroup(m);
+		assertEquals("42", m.group(index + 1));
 	}
 }

@@ -48,6 +48,11 @@ public final class TriggerPattern {
 	private final StringBuilder joined = new StringBuilder();
 	private final Map<Integer, TriggerData> groupToTrigger = new HashMap<Integer, TriggerData>();
 	private int currentGroup = 1;
+	private final java.util.Set<String> namedGroups = new java.util.HashSet<String>();
+
+	/** A named capture group's declaration, e.g. the {@code word} of {@code (?&lt;word&gt;\w+)}. */
+	private static final Pattern NAMED_GROUP =
+			Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
 
 	/**
 	 * Append one trigger as the next alternative.
@@ -69,6 +74,24 @@ public final class TriggerPattern {
 			return -1;
 		}
 		String one = "(" + sanitised.pattern() + ")";
+		// Two triggers may each declare a named group of the same name. Both
+		// compile alone; the join throws "Named capture group <name> is already
+		// defined", out of buildTriggerSystem, which is reachable from the
+		// binder -- the same shape of crash the per-alternative compile below
+		// was guarded against. Refuse the second one here rather than guarding
+		// compile(): the caller's group-to-owner map has to describe the
+		// pattern that was actually built, and only refusing before the append
+		// keeps that true.
+		java.util.List<String> declared = namesIn(one);
+		for (int i = 0; i < declared.size(); i++) {
+			if (namedGroups.contains(declared.get(i))) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"TriggerPattern.add: skipping trigger '" + t.getName()
+						+ "' -- named group '" + declared.get(i)
+						+ "' is already used by another trigger", null);
+				return -1;
+			}
+		}
 		int groups;
 		try {
 			// Advance past this alternative's own groups, not just by one.
@@ -86,10 +109,32 @@ public final class TriggerPattern {
 			joined.append("|");
 		}
 		joined.append(one);
+		namedGroups.addAll(declared);
 		int assigned = currentGroup;
 		groupToTrigger.put(Integer.valueOf(assigned), t);
 		currentGroup += groups;
 		return assigned;
+	}
+
+	/**
+	 * Every named capture group an alternative declares.
+	 *
+	 * <p>Read off the source rather than from the compiled pattern because
+	 * {@code java.util.regex} exposes no way to enumerate a pattern's group
+	 * names. A name inside a character class or after a backslash is not a
+	 * declaration, but neither is legal Java regex syntax at these positions,
+	 * so the pattern would not have compiled and never reaches here.
+	 *
+	 * @param source One alternative's regex source.
+	 * @return The names, in the order declared; empty when there are none.
+	 */
+	private static java.util.List<String> namesIn(final String source) {
+		java.util.List<String> names = new java.util.ArrayList<String>();
+		Matcher m = NAMED_GROUP.matcher(source);
+		while (m.find()) {
+			names.add(m.group(1));
+		}
+		return names;
 	}
 
 	/** @return The combined regex source, or empty when nothing was added. */

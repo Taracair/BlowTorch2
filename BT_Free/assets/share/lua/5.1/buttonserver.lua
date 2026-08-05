@@ -1766,18 +1766,22 @@ function sanitizeButtonSet(setName)
 	local h = tonumber(metrics.heightPixels) or 0
 	if w <= 0 or h <= 0 then return false end
 
-	-- Each orientation is clamped against its own screen, and never against the
-	-- one the phone happens to be held in. buttonwindow gives a button an
-	-- optional landscape pair (xLand/yLand, commit "Landscape gets its own
-	-- button layout"); x/y is the portrait pair. This function used to clamp
-	-- x/y against getDisplayMetrics() as-is, so loading a set while the phone
-	-- was on its side measured the portrait layout against a landscape screen
-	-- and dragged the portrait buttons up -- which is what the maintainer saw
-	-- after editing the landscape grid. Deriving both screens from the same
-	-- metrics also means it no longer matters whether the service's resources
-	-- have rotated yet.
-	local portraitW, portraitH = math.min(w, h), math.max(w, h)
-	local landW, landH = math.max(w, h), math.min(w, h)
+	-- Clamp the pair that belongs to the screen we are actually measuring, and
+	-- only that one. buttonwindow gives a button an optional landscape pair
+	-- (xLand/yLand, commit "Landscape gets its own button layout"); x/y is the
+	-- portrait pair. This function used to clamp x/y whichever way the phone
+	-- was held, so loading a set while it was on its side measured the portrait
+	-- layout against a landscape screen and dragged the portrait buttons up --
+	-- the "moved them back into view" the maintainer saw after editing the
+	-- landscape grid.
+	--
+	-- The other orientation is left alone rather than clamped against a guessed
+	-- screen: swapping w and h is not the other orientation's metrics, because
+	-- the system bars are inset differently there, and a guess here writes to
+	-- settings. Nothing is stranded by that -- buttonwindow's clampAllButtons
+	-- pulls every tile onto whatever screen is in front of the player before it
+	-- is drawn; it simply does not persist what it did.
+	local sideways = w > h
 
 	local defs = buttonset_defaults[setName]
 	local moved = false
@@ -1785,31 +1789,45 @@ function sanitizeButtonSet(setName)
 		local bw = (tonumber(b.width) or tonumber(defs and defs.width) or 42) * d
 		local bh = (tonumber(b.height) or tonumber(defs and defs.height) or 42) * d
 
-		-- Compare against the numeric original, not the raw field. Coordinates
-		-- come back from the settings XML as strings, and in Lua 1 ~= "1", so
-		-- comparing to b.x reported every button as moved on the first load
-		-- after a profile read — a settings write and a Note() in the game
-		-- window every time, for buttons that were never off screen.
-		local x, y = clampToScreen(tonumber(b.x), tonumber(b.y), bw, bh, portraitW, portraitH)
-		if x ~= tonumber(b.x) or y ~= tonumber(b.y) then
-			moved = true
-		end
-		-- Still normalise the stored value to a number either way.
-		b.x = x
-		b.y = y
+		if sideways then
+			-- Normalise the portrait pair even though this orientation must not
+			-- move it: coordinates come back from the settings XML as strings,
+			-- and buttonwindow compares them with numbers when it sorts and
+			-- clamps. Only a value that is not a coordinate at all is replaced,
+			-- and with the same minimum the clamp would have picked.
+			b.x = tonumber(b.x)
+			b.y = tonumber(b.y)
+			if b.x == nil or b.x ~= b.x then b.x = bw / 2 end
+			if b.y == nil or b.y ~= b.y then b.y = bh / 2 end
 
-		-- The landscape pair only exists once the player has moved this button
-		-- while the phone was on its side. Absent means landscape draws the
-		-- portrait layout, and writing one here would invent a landscape layout
-		-- nobody asked for — so a missing pair stays missing.
-		local lx, ly = tonumber(b.xLand), tonumber(b.yLand)
-		if lx ~= nil and ly ~= nil then
-			local nx, ny = clampToScreen(lx, ly, bw, bh, landW, landH)
-			if nx ~= lx or ny ~= ly then
+			-- The landscape pair only exists once the player has moved this
+			-- button while the phone was on its side. Absent means landscape
+			-- draws the portrait layout, and writing one here would invent a
+			-- landscape layout nobody asked for — so a missing pair stays
+			-- missing, and the portrait pair is not touched from here.
+			local lx, ly = tonumber(b.xLand), tonumber(b.yLand)
+			if lx ~= nil and ly ~= nil then
+				local nx, ny = clampToScreen(lx, ly, bw, bh, w, h)
+				if nx ~= lx or ny ~= ly then
+					moved = true
+				end
+				b.xLand = nx
+				b.yLand = ny
+			end
+		else
+			-- Compare against the numeric original, not the raw field.
+			-- Coordinates come back from the settings XML as strings, and in
+			-- Lua 1 ~= "1", so comparing to b.x reported every button as moved
+			-- on the first load after a profile read — a settings write and a
+			-- Note() in the game window every time, for buttons that were
+			-- never off screen.
+			local x, y = clampToScreen(tonumber(b.x), tonumber(b.y), bw, bh, w, h)
+			if x ~= tonumber(b.x) or y ~= tonumber(b.y) then
 				moved = true
 			end
-			b.xLand = nx
-			b.yLand = ny
+			-- Still normalise the stored value to a number either way.
+			b.x = x
+			b.y = y
 		end
 	end
 	return moved

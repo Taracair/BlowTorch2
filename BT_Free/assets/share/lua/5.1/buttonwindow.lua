@@ -1304,7 +1304,11 @@ function enterManagerMode()
 end
 
 function exitManagerMode()
-	if(drawManagerLayer ~= nil) then
+	-- The layer, not the flag: drawManagerLayer is a boolean and is never nil,
+	-- so this tested nothing and recycled a layer that OnDestroy had already
+	-- set to nil -- reloading settings while editing, then leaving edit mode,
+	-- called a method on nil.
+	if(managerLayer ~= nil) then
 		managerCanvas = nil
 		managerLayer:recycle()
 		managerLayer = nil
@@ -1331,7 +1335,11 @@ function exitManagerMode()
 end
 
 function exitManagerModeNoSave()
-	if(drawManagerLayer ~= nil) then
+	-- The layer, not the flag: drawManagerLayer is a boolean and is never nil,
+	-- so this tested nothing and recycled a layer that OnDestroy had already
+	-- set to nil -- reloading settings while editing, then leaving edit mode,
+	-- called a method on nil.
+	if(managerLayer ~= nil) then
 		managerCanvas = nil
 		managerLayer:recycle()
 		managerLayer = nil
