@@ -43,7 +43,9 @@ Package id for the store: **`com.resurrection.blowtorch2`** (flavor `production`
 - **License:** MIT (original Offset Null + this fork).
 - **No proprietary deps** in the production Gradle graph.
 - **Permissions / privacy / All files access:** see **[`FDROID_README.md`](FDROID_README.md)** — please read that before flagging storage permissions. Summary: All files access is optional UX for a shared `/BlowTorch/` tree; the client can play without it.
-- **scandelete** removes `BTLib/key` (local debug keystore used only for developer installs) and optional unused `LuaJIT-2.1` tree.
+- **scandelete** removes `BTLib/key` (local debug keystore used only for developer installs).
+- **LuaJIT 2.1** is not in the repo. It has no upstream release, so the recipe supplies it as a srclib pinned to a commit and hands the path to `build_ndk_libraries.sh` in `LUAJIT_21_DIR`; the script then fetches nothing. The same commit is pinned inside the script for developer builds, so both produce the same interpreter. See `MaintainerNotes` in the recipe — the srclib still has to be added to fdroiddata.
+- **No prebuilt binaries** in the tree from 2.2.5 on: the five archived `BT_Free/release/v1.*/BlowTorch.apk` and four `LuaJIT-2.0.5/src/libluajit-*.so` were deleted. Nothing linked the `.so` — `BTLib/jni/luajava/Android.mk` links `libluajit-$(TARGET_ARCH_ABI).a`, which the build script produces. Older tags still contain them, but F-Droid builds one tag.
 - Submit the **`production`** flavor only (do not enable `btTest` in the recipe).
 - Fastlane text is read from the tagged commit under `fastlane/metadata/android/`.
 

@@ -29,6 +29,16 @@ NDKAPI=24
 LUAJIT_205="LuaJIT-2.0.5"
 LUAJIT_21="LuaJIT-2.1"
 
+# LuaJIT 2.1 has no releases; upstream ships it as a moving branch. Pin the exact
+# commit so two builds of the same tag link the same interpreter — "branch v2.1"
+# would give whatever HEAD happened to be that day. This is the commit the 2.2.4
+# release was built from.
+#
+# Bumping it: change the SHA, run this script, and test on a device. Nothing
+# reads the SHA at runtime.
+LUAJIT_21_COMMIT="${LUAJIT_21_COMMIT:-3c4f9fe2052b8d08a917ac0d5f38563f0297b5a3}"
+LUAJIT_21_URL="${LUAJIT_21_URL:-https://github.com/LuaJIT/LuaJIT.git}"
+
 # Detect host platform
 case "$(uname -s)" in
     Linux*)  NDKHOST="linux-x86_64" ;;
@@ -43,9 +53,32 @@ if [ ! -d "$TOOLCHAIN" ]; then
     exit 1
 fi
 
-if [ ! -d "$LUAJIT_21" ]; then
-    echo "Cloning LuaJIT 2.1 (required for arm64-v8a)..."
-    git clone --depth 1 --branch v2.1 https://github.com/LuaJIT/LuaJIT.git "$LUAJIT_21"
+# An offline build (F-Droid buildserver, air-gapped CI) can hand us a tree that
+# is already there — a srclib checkout, a submodule, an unpacked tarball — by
+# pointing LUAJIT_21_DIR at it. Nothing is fetched in that case.
+if [ -n "${LUAJIT_21_DIR:-}" ]; then
+    if [ ! -d "$LUAJIT_21_DIR" ]; then
+        echo "ERROR: LUAJIT_21_DIR=$LUAJIT_21_DIR does not exist." >&2
+        exit 1
+    fi
+    if [ ! -e "$LUAJIT_21" ]; then
+        ln -s "$LUAJIT_21_DIR" "$LUAJIT_21"
+    fi
+    echo "Using supplied LuaJIT 2.1 tree: $LUAJIT_21_DIR"
+elif [ ! -d "$LUAJIT_21" ]; then
+    echo "Fetching LuaJIT 2.1 at $LUAJIT_21_COMMIT (required for arm64-v8a)..."
+    git init -q "$LUAJIT_21"
+    git -C "$LUAJIT_21" remote add origin "$LUAJIT_21_URL"
+    git -C "$LUAJIT_21" fetch -q --depth 1 origin "$LUAJIT_21_COMMIT"
+    git -C "$LUAJIT_21" checkout -q FETCH_HEAD
+else
+    # Already on disk. Say so if it is not the pinned commit rather than
+    # silently building something else; the tree is the developer's, not ours.
+    have="$(git -C "$LUAJIT_21" rev-parse HEAD 2>/dev/null || echo unknown)"
+    if [ "$have" != "$LUAJIT_21_COMMIT" ]; then
+        echo "WARNING: $LUAJIT_21 is at $have, pinned commit is $LUAJIT_21_COMMIT." >&2
+        echo "         Building it anyway. Delete the folder to get the pinned one." >&2
+    fi
 fi
 
 echo "**********************************************"

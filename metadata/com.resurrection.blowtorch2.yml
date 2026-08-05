@@ -17,6 +17,24 @@ RepoType: git
 Repo: https://github.com/Taracair/BlowTorch2.git
 
 Builds:
+  - versionName: '2.2.4'
+    versionCode: 257
+    commit: v2.2.4
+    subdir: BT_Free
+    sudo:
+      - apt-get update || apt-get update
+      - apt-get install -y openjdk-17-jdk-headless gcc make
+      - update-alternatives --auto java || true
+    gradle:
+      - production
+    ndk: r26b
+    srclibs:
+      - LuaJIT@3c4f9fe2052b8d08a917ac0d5f38563f0297b5a3
+    prebuild: sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
+    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ LUAJIT_21_DIR=$$LuaJIT$$ && cd .. && ./build_ndk_libraries.sh
+    scandelete:
+      - BTLib/key
+
   - versionName: '2.1.5'
     versionCode: 229
     commit: v2.1.5
@@ -60,8 +78,21 @@ MaintainerNotes: |
   This is optional for playing; see docs/FDROID_README.md for the full
   permission justification aimed at reviewers and users.
 
+  LuaJIT 2.1 (needed for arm64-v8a; 2.0.5 does not support it) has no upstream
+  release, only a moving v2.1 branch, so it is not vendored here. From 2.2.4 the
+  recipe passes a srclib checkout to the build script as LUAJIT_21_DIR and the
+  script fetches nothing. That srclib does not exist in fdroiddata yet and has
+  to be added alongside this recipe:
+
+    srclibs/LuaJIT.yml
+      RepoType: git
+      Repo: https://github.com/LuaJIT/LuaJIT.git
+
+  Without LUAJIT_21_DIR the script falls back to fetching the same pinned commit
+  itself, which is what a developer laptop does.
+
 ArchivePolicy: 2 versions
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: '2.1.5'
-CurrentVersionCode: 229
+CurrentVersion: '2.2.4'
+CurrentVersionCode: 257
