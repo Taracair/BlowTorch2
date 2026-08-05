@@ -49,6 +49,14 @@ lob = {}
 
 function loadButtonSet(args)
 
+	-- args reaches here from .loadset, from a button's "Switch to button set",
+	-- and from current_set at connect. A nil got as far as the concatenation
+	-- below and raised there, which reads as a Lua error rather than as "that
+	-- set does not exist".
+	if args == nil then
+		Note("\nNo button set was named, so nothing was loaded.\n")
+		return
+	end
 
 	debugString("Button Server sending button set, "..args)
 
@@ -56,7 +64,13 @@ function loadButtonSet(args)
 	lob.set = buttonsets[args]
 
 	if(lob.set == nil) then
-		debugString("Button Set "..tostring(args).." is nil, skip load")
+		-- Said out loud, not through debugString: debugInfo is false in every
+		-- shipped build, so a set name that does not exist produced no buttons
+		-- and no message at all -- including at connect, where the name comes
+		-- from the profile rather than from anything the player typed.
+		Note("\nButton set \"" .. tostring(args) .. "\" does not exist, so the"
+			.. " buttons on screen are unchanged. Options -> Button sets lists"
+			.. " the ones this profile has.\n")
 		return
 	end
 
@@ -103,7 +117,16 @@ RegisterSpecialCommand("clearbuttons","clearButtons")
 -- Always-reachable layout wizard from the input bar (UI owns the dialog).
 RegisterSpecialCommand("layoutwizard","showLayoutWizardCmd")
 
-current_set = DEFAULT
+-- "default" is the set every profile starts with. This used to read
+-- `current_set = DEFAULT`, and DEFAULT is not defined anywhere in the Lua tree,
+-- so it was `current_set = nil` until the profile's <selected> element was
+-- parsed. Anything that saved before that point wrote its buttons under a set
+-- with no name; a live profile here has exactly that -- a nameless set holding
+-- two buttons called "newb0" that nothing can reach.
+--
+-- scripts/lua_unbound.py did not catch it: that guard reads module(...) files,
+-- and this one is a plain script.
+current_set = "default"
 
 function clearButtons()
 	--all that needs to be done is call into the window to kick the process off
