@@ -35,6 +35,11 @@ local bgGrey = Color:argb(255,0x99,0x99,0x99)
 
 local ui = {}
 
+-- Told when 'Float over the game' is ticked or unticked, so tabs built by
+-- another module can follow. Re-registered by buttoneditor.lua on every open:
+-- ui.floatCheckListener is built once and outlives the dialog it came from.
+local floatingChangedCallback = nil
+
 local selectedColorField
 
 local defaultColors = {}
@@ -91,6 +96,10 @@ local function safeAddView(parent, child)
     oldParent:removeView(child)
   end
   parent:addView(child)
+end
+
+function setFloatingChangedCallback(c)
+  floatingChangedCallback = c
 end
 
 function init(pContext)
@@ -835,6 +844,13 @@ function makeUI(editorValues,numediting)
         ui.floatModeSpinner:setEnabled(on)
         ui.floatShapeSpinner:setEnabled(on)
         ui.floatOutlineCheck:setEnabled(on)
+        -- The Accordion tab has to grey out with this tick, not on the next
+        -- time the editor is opened: a super button's accordion is thrown away
+        -- on save, and a player who typed sub-buttons first would lose them
+        -- with nothing on screen having said so.
+        if floatingChangedCallback ~= nil then
+          floatingChangedCallback(on)
+        end
       end
     })
     ui.floatingCheck:setOnCheckedChangeListener(ui.floatCheckListener)

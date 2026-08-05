@@ -393,22 +393,32 @@ function buildTabs(host, content, o)
 	elseif currentDir == "right" then accordionDirSpinner:setSelection(3)
 	elseif currentDir == "left" then accordionDirSpinner:setSelection(4)
 	else accordionDirSpinner:setSelection(0) end
-	if(o.numediting > 1) then
-		accordionDirSpinner:setEnabled(false)
-	end
 	-- A super button has no accordion: the fan is drawn on the button grid and
 	-- the children only live while the parent is open, neither of which a
 	-- floating window over the game can do. Saving strips it anyway
 	-- (enforceNoAccordionOnSuperButton) — this is so the player is told here
-	-- instead of finding out afterwards.
-	if editorValues ~= nil and editorValues.floating == true then
-		accordionDirSpinner:setEnabled(false)
-		o.addHelpText(accordionPage,
-			"This is a super button, so it cannot have an accordion: the "
-			.. "sub-buttons are drawn on the button grid and only exist while "
-			.. "the parent is open. Untick 'Float over the game' on the "
-			.. "Advanced tab to use one.")
-	end
+	-- instead of finding out afterwards. Every field on this tab is greyed out,
+	-- not only the direction: typing a sub-button command that is thrown away on
+	-- Done is exactly the surprise this is here to prevent.
+	--
+	-- The note sits at the top of the tab so it is the first thing read. It is
+	-- built once and shown or hidden, because the ticking of 'Float over the
+	-- game' on the Others tab drives this live and re-adding it on each change
+	-- would stack copies.
+	local accordionSuperNote = luajava.new(TextView, o.context)
+	accordionSuperNote:setTextSize(o.textSizeSmall)
+	accordionSuperNote:setText(
+		"This is a super button, so it cannot have an accordion: the "
+		.. "sub-buttons are drawn on the button grid and only exist while "
+		.. "the parent is open. Untick 'Float over the game' on the "
+		.. "Others tab to use one.")
+	local notePad = math.floor(8 * density)
+	accordionSuperNote:setPadding(notePad, notePad, notePad, notePad)
+	accordionSuperNote:setLayoutParams(o.fillparams)
+	accordionSuperNote:setVisibility(View.GONE)
+	accordionPage:addView(accordionSuperNote)
+	o.widgets.accordionSuperNote = accordionSuperNote
+
 	dirRow:addView(dirLabel)
 	dirRow:addView(accordionDirSpinner)
 	accordionPage:addView(dirRow)
@@ -433,9 +443,6 @@ function buildTabs(host, content, o)
 	if currentLayout == "vertical" then accordionLayoutSpinner:setSelection(1)
 	elseif currentLayout == "horizontal" then accordionLayoutSpinner:setSelection(2)
 	else accordionLayoutSpinner:setSelection(0) end
-	if(o.numediting > 1) then
-		accordionLayoutSpinner:setEnabled(false)
-	end
 	layoutRow:addView(layoutLabel)
 	layoutRow:addView(accordionLayoutSpinner)
 	accordionPage:addView(layoutRow)
@@ -460,9 +467,6 @@ function buildTabs(host, content, o)
 	if currentTrigger == "hold" then accordionTriggerSpinner:setSelection(1)
 	elseif currentTrigger == "swipe" then accordionTriggerSpinner:setSelection(2)
 	else accordionTriggerSpinner:setSelection(0) end
-	if(o.numediting > 1) then
-		accordionTriggerSpinner:setEnabled(false)
-	end
 	triggerRow:addView(triggerLabel)
 	triggerRow:addView(accordionTriggerSpinner)
 	accordionPage:addView(triggerRow)
@@ -486,9 +490,6 @@ function buildTabs(host, content, o)
 	else
 		accordionHoldMsEdit:setText(tostring(math.floor(holdMs)))
 	end
-	if(o.numediting > 1) then
-		accordionHoldMsEdit:setEnabled(false)
-	end
 	holdMsRow:addView(holdMsLabel)
 	holdMsRow:addView(accordionHoldMsEdit)
 	accordionPage:addView(holdMsRow)
@@ -500,9 +501,6 @@ function buildTabs(host, content, o)
 		accordionAutoCloseCheck:setChecked(false)
 	else
 		accordionAutoCloseCheck:setChecked(true)
-	end
-	if(o.numediting > 1) then
-		accordionAutoCloseCheck:setEnabled(false)
 	end
 	accordionPage:addView(accordionAutoCloseCheck)
 	
@@ -520,9 +518,6 @@ function buildTabs(host, content, o)
 		local labelEdit = luajava.new(EditText,o.context)
 		labelEdit:setText(child.label or "")
 		labelEdit:setLayoutParams(o.clickLabelEditParams)
-		if(o.numediting > 1) then
-			labelEdit:setEnabled(false)
-		end
 		childLabelRow:addView(childTitle)
 		childLabelRow:addView(labelEdit)
 		accordionPage:addView(childLabelRow)
@@ -537,9 +532,6 @@ function buildTabs(host, content, o)
 		cmdEdit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
 		cmdEdit:setMaxLines(3)
 		cmdEdit:setLayoutParams(o.clickLabelEditParams)
-		if(o.numediting > 1) then
-			cmdEdit:setEnabled(false)
-		end
 		childCmdRow:addView(cmdTitle)
 		childCmdRow:addView(cmdEdit)
 		accordionPage:addView(childCmdRow)
@@ -547,6 +539,32 @@ function buildTabs(host, content, o)
 		o.widgets.accordionChildCmdEdits[i] = cmdEdit
 	end
 	
+	-- One place decides whether this tab can be typed into, because two things
+	-- close it: editing several buttons at once (an accordion is per button),
+	-- and the button being a super button. The second can be switched on and off
+	-- on the Others tab while this tab is open, so this is a function rather
+	-- than a run of setEnabled calls at build time.
+	o.updateAccordionEnabled = function(isFloating)
+		local on = (o.numediting <= 1) and (isFloating ~= true)
+		accordionDirSpinner:setEnabled(on)
+		accordionLayoutSpinner:setEnabled(on)
+		accordionTriggerSpinner:setEnabled(on)
+		accordionHoldMsEdit:setEnabled(on)
+		accordionAutoCloseCheck:setEnabled(on)
+		for i = 1, 5 do
+			o.widgets.accordionChildLabelEdits[i]:setEnabled(on)
+			o.widgets.accordionChildCmdEdits[i]:setEnabled(on)
+		end
+		-- Only the super-button case gets the note. Editing several buttons at
+		-- once already greys the whole editor and says so in its title.
+		if isFloating == true and o.numediting <= 1 then
+			accordionSuperNote:setVisibility(View.VISIBLE)
+		else
+			accordionSuperNote:setVisibility(View.GONE)
+		end
+	end
+	o.updateAccordionEnabled(editorValues ~= nil and editorValues.floating == true)
+
 	accordionPageScroller:addView(accordionPage)
 	content:addView(accordionPageScroller)
 	tabAccordion:setIndicator(labelAccordion)

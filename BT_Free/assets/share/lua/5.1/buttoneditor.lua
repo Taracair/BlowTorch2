@@ -327,6 +327,14 @@ function showEditorDialog(editorValues,numediting)
 	--tmpview3:setLayoutParams(params);	
 	advancedEditor = require("buttoneditoradvanced")
 	advancedEditor.init(context)
+	-- Registered before makeUI: makeUI ticks the box to match the button, which
+	-- fires the listener, and the listener kept from the previous dialog would
+	-- otherwise reach into that dialog's dead widgets.
+	advancedEditor.setFloatingChangedCallback(function(isFloating)
+		if tabState.updateAccordionEnabled ~= nil then
+			tabState.updateAccordionEnabled(isFloating)
+		end
+	end)
 	local scrollerpage = advancedEditor.makeUI(editorValues,numediting)
 	local parent = scrollerpage:getParent()
 	if(parent ~= nil) then

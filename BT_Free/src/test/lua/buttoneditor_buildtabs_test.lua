@@ -94,6 +94,7 @@ local function mockView()
 	function v:setChecked(c) self._checked = c end
 	function v:getParent() return nil end
 	function v:setEnabled(e) self._enabled = e end
+	function v:isEnabled() return self._enabled end
 	return v
 end
 
@@ -232,7 +233,67 @@ check(o.widgets.swipeUpLeftCmdEdit ~= nil, "diagonal swipe edit missing")
 check(o.carriedDiagonalSwipes ~= nil, "carriedDiagonalSwipes must be set")
 check(o.carriedDiagonalSwipes.swipeUpLeftCommand == "ne", "diagonal values must be carried")
 
-print("4. simulated host:addTab accepts all built tab specs")
+print("4. the Accordion tab greys out for a super button, live")
+-- A super button's accordion is stripped on save, so every field on the tab has
+-- to be dead while 'Float over the game' is ticked -- not only the direction
+-- spinner, and without waiting for the editor to be reopened.
+check(type(o.updateAccordionEnabled) == "function",
+	"buildTabs must publish o.updateAccordionEnabled")
+
+local function accordionWidgets()
+	local list = {
+		o.widgets.accordionDirSpinner,
+		o.widgets.accordionLayoutSpinner,
+		o.widgets.accordionTriggerSpinner,
+		o.widgets.accordionHoldMsEdit,
+		o.widgets.accordionAutoCloseCheck,
+	}
+	for i = 1, 5 do
+		list[#list + 1] = o.widgets.accordionChildLabelEdits[i]
+		list[#list + 1] = o.widgets.accordionChildCmdEdits[i]
+	end
+	return list
+end
+
+for _, w in ipairs(accordionWidgets()) do
+	check(w ~= nil, "accordion widget missing from tabState.widgets")
+end
+check(o.widgets.accordionSuperNote ~= nil, "super-button note missing")
+
+-- Built with floating unset, so the tab starts usable and the note is hidden.
+for _, w in ipairs(accordionWidgets()) do
+	check(w._enabled == true, "accordion field should start enabled")
+end
+check(o.widgets.accordionSuperNote._visibility == _G.View.GONE,
+	"super-button note should start hidden")
+
+o.updateAccordionEnabled(true)
+for _, w in ipairs(accordionWidgets()) do
+	check(w._enabled == false, "accordion field must be disabled for a super button")
+end
+check(o.widgets.accordionSuperNote._visibility == _G.View.VISIBLE,
+	"super-button note must be shown when floating")
+
+o.updateAccordionEnabled(false)
+for _, w in ipairs(accordionWidgets()) do
+	check(w._enabled == true, "unticking float must give the accordion fields back")
+end
+check(o.widgets.accordionSuperNote._visibility == _G.View.GONE,
+	"super-button note must be hidden again")
+
+-- Editing several buttons at once closes the tab too, and keeps it closed even
+-- when the button is not floating.
+o.numediting = 3
+o.updateAccordionEnabled(false)
+for _, w in ipairs(accordionWidgets()) do
+	check(w._enabled == false, "accordion field must stay disabled for a multi-button edit")
+end
+check(o.widgets.accordionSuperNote._visibility == _G.View.GONE,
+	"multi-button edit is not a super button, so no super-button note")
+o.numediting = 1
+o.updateAccordionEnabled(false)
+
+print("5. simulated host:addTab accepts all built tab specs")
 local added = {}
 local function addTab(spec)
 	check(spec ~= nil, "addTab received nil TabSpec")
