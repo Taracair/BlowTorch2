@@ -18,8 +18,10 @@ local density = _G["density"]
 local PluginXCallS = _G["PluginXCallS"]
 local drawButtons = _G["drawButtons"]
 local view = _G["view"]
-local buttonShowHints = _G["buttonShowHints"]
-local buttonShowSwipePreview = _G["buttonShowSwipePreview"]
+-- module(...) below swaps the environment, so a bare assignment here writes into
+-- the module table and button.lua's drawing code (which reads the real globals)
+-- never sees it. Keep the table itself and assign through it.
+local globals = _G
 local pairs = _G["pairs"]
 local tostring = _G["tostring"]
 local math = _G["math"]
@@ -226,7 +228,7 @@ function buildTabs(host, content, o)
 	showHintsCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
 		onCheckedChanged = function(v, isChecked)
 			-- PluginXCallS only accepts one data arg; update window draw state immediately.
-			buttonShowHints = isChecked and true or false
+			globals.buttonShowHints = isChecked and true or false
 			if drawButtons ~= nil then
 				drawButtons()
 			end
@@ -245,7 +247,7 @@ function buildTabs(host, content, o)
 	swipePreviewCb:setChecked(previewOn)
 	swipePreviewCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
 		onCheckedChanged = function(v, isChecked)
-			buttonShowSwipePreview = isChecked and true or false
+			globals.buttonShowSwipePreview = isChecked and true or false
 			PluginXCallS("setShowSwipePreview", isChecked and "true" or "false")
 		end
 	}))

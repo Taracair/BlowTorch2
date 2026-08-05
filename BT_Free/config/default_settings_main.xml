@@ -76,6 +76,7 @@
   	 	</windows>
   	 	<options title="Button" summary="Haptic feedback, roundess and other button options.">
   	 		<boolean title="Show gesture hints" key="show_gesture_hints" summary="Draw swipe arrows, hold (H), and accordion chevrons on buttons.">true</boolean>
+  	 		<boolean title="Show swipe direction arrow" key="show_swipe_preview" summary="Draw the arrow across a button while you drag it. The command callout above the button shows either way.">true</boolean>
   	 		<boolean title="Offer button layout wizard" key="layout_wizard_pending" summary="Show the pack and size picker once after connect. Cleared when you finish or skip. Re-enable anytime, or use Options → Button → Load button set from wizard.">true</boolean>
   	 		<callback title="Load button set from wizard" key="layout_wizard_open" summary="Pick templates and set names, size, alignment, and colors. Does not remove other button sets.">showLayoutWizardCmd</callback>
   	 		<list title="Button size" key="layout_size_preset" summary="Size of the tiles in the current button set. Changing this resizes the set on screen and becomes the wizard's default.">

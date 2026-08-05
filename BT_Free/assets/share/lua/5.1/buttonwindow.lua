@@ -3895,11 +3895,13 @@ function loadOptions(data)
 	end
 	-- 6 is the default declared in default_settings_*.xml (key "roundess").
 	buttonRoundness = (tonumber(options.roundness) or 6) * density
-	buttonShowHints = options.show_gesture_hints == true
+	-- nil counts as on, the same way buttonOptions reads it for the checkbox:
+	-- settings saved before this option existed should still get the badges
+	-- rather than silently starting switched off.
+	buttonShowHints = options.show_gesture_hints == nil
+		or options.show_gesture_hints == true
 		or options.show_gesture_hints == "true"
 		or options.show_gesture_hints == "1"
-	-- nil counts as on: settings saved before this option existed should still
-	-- get the arrow rather than silently starting switched off.
 	-- The plugin's Lua runs in this process, so hand the bindings straight to the
 	-- chrome listeners instead of routing them back out through the service.
 	pcall(function()

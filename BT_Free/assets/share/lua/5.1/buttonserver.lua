@@ -672,6 +672,10 @@ function setShowGestureHints(value)
 	options.show_gesture_hints = on and "true" or "false"
 	-- Always push to the window so badge/arrow drawing updates immediately.
 	loadOptions()
+	-- The button editor's checkbox calls this setter and nothing else, so the
+	-- choice used to live in this table only: on the next launch the stored
+	-- option still said true and every button came back covered in badges.
+	persistToggleOption("show_gesture_hints", on)
 end
 
 -- Gesture bindings for the input bar and the Edit / Send / overflow buttons.
@@ -692,6 +696,9 @@ function setShowSwipePreview(value)
 	local on = (value == true or value == "true" or value == "1")
 	options.show_swipe_preview = on and "true" or "false"
 	loadOptions()
+	-- Same story as show_gesture_hints. The option row itself is injected by
+	-- ensureLayoutSettingsOptions, because this key was never in the settings XML.
+	persistToggleOption("show_swipe_preview", on)
 end
 
 
@@ -2008,6 +2015,24 @@ function ensureLayoutSettingsOptions()
 		end)
 		if okAdd then added = true end
 	end
+	-- show_swipe_preview was only ever a Lua variable: it is in no settings XML,
+	-- so there was nowhere for the editor's checkbox to write it and it reset to
+	-- on at every launch. Injecting the row gives it a home and puts it next to
+	-- Show gesture hints in Options.
+	if missing("show_swipe_preview") then
+		local okAdd = pcall(function()
+			local BooleanOption = luajava.bindClass(
+				"com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption")
+			local opt = luajava.new(BooleanOption)
+			opt:setKey("show_swipe_preview")
+			opt:setTitle("Show swipe direction arrow")
+			opt:setDescription(
+				"Draw the arrow across a button while you drag it. The command callout above the button shows either way.")
+			opt:setValue(true)
+			settings:addOption(opt)
+		end)
+		if okAdd then added = true end
+	end
 	-- layout_pack / layout_size_preset were free-text StringOptions: the player
 	-- was expected to type "fit_square" correctly. They are dropdowns now, but a
 	-- profile keeps the type it was created with, so the old option has to be
@@ -2108,6 +2133,44 @@ function persistLayoutOption(key, value, asBoolean)
 			settings:updateString(key, value ~= nil and tostring(value) or "")
 		end
 	end)
+end
+
+-- Write a boolean the player flipped in the button editor back to the settings
+-- store, so it survives a restart the way the Options dialog's own checkboxes do.
+--
+-- Two things this must not do, both of which cost real money on a phone:
+--   * loop. SettingsGroup.updateBoolean notifies the listener, which is
+--     Plugin.updateSetting -> OnOptionChanged -> this same setter. Writing only
+--     when the stored value really differs stops that after one round trip.
+--   * save on the connect-time replay. pushOptionsToLua walks every stored
+--     option and calls the setters with values that are already stored; the
+--     same difference check makes those a no-op, and SaveSettings is a
+--     synchronous write of the whole settings wad.
+--
+-- A key the profile does not have (an option added by a newer build, before
+-- ensureLayoutSettingsOptions has injected it) simply is not written: getOptionValue
+-- returns nil and updateBoolean would silently do nothing anyway.
+function persistToggleOption(key, on)
+	local stored = nil
+	pcall(function()
+		if GetPluginSettings == nil then
+			return
+		end
+		local settings = GetPluginSettings()
+		if settings ~= nil then
+			stored = settings:getOptionValue(key)
+		end
+	end)
+	if stored == nil then
+		return
+	end
+	if (tostring(stored) == "true") == on then
+		return
+	end
+	persistLayoutOption(key, on, true)
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
 end
 
 -- layout_pack / layout_size_preset are ListOptions now: they hold an index, so
