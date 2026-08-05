@@ -49,6 +49,14 @@ for _, line in ipairs(editorLines) do
 end
 check(sawTabStateAdd, "expected host:addTab(tabs.*) calls in buttoneditor.lua")
 
+-- Editing several buttons at once registers one tab (Others), so tab index 3 no
+-- longer exists on that path: the old jump to it would land on nothing.
+for _, line in ipairs(editorLines) do
+	if line:match("setCurrentTab%(3%)") then
+		check(false, "setCurrentTab(3) cannot survive a one-tab multi-button edit: " .. line)
+	end
+end
+
 print("2. buttoneditor_buildtabs.lua must publish tab specs on tabState")
 local sawClickTab = false
 local sawSwipeTab = false
@@ -259,6 +267,13 @@ for _, w in ipairs(accordionWidgets()) do
 	check(w ~= nil, "accordion widget missing from tabState.widgets")
 end
 check(o.widgets.accordionSuperNote ~= nil, "super-button note missing")
+
+-- The three pages are hidden rather than skipped for a multi-button edit: Done
+-- reads every field on the way out, so the widgets have to exist. buttoneditor
+-- needs a handle on each scroller to hide it.
+check(o.widgets.clickPageScroller ~= nil, "click page scroller must be published")
+check(o.widgets.swipePageScroller ~= nil, "swipe page scroller must be published")
+check(o.widgets.accordionPageScroller ~= nil, "accordion page scroller must be published")
 
 -- Built with floating unset, so the tab starts usable and the note is hidden.
 for _, w in ipairs(accordionWidgets()) do

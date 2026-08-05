@@ -165,6 +165,7 @@ function buildClickTab(host, content, o)
 
 	clickPageScroller:addView(clickPage)
 	content:addView(clickPageScroller)
+	o.widgets.clickPageScroller = clickPageScroller
 	tab1:setIndicator(label1)
 	tab1:setContent(1)
 	o.tabs = o.tabs or {}
@@ -358,6 +359,7 @@ function buildTabs(host, content, o)
 	
 	swipePageScroller:addView(swipePage)
 	content:addView(swipePageScroller)
+	o.widgets.swipePageScroller = swipePageScroller
 	tabSwipe:setIndicator(labelSwipe)
 	tabSwipe:setContent(3)
 	
@@ -567,6 +569,7 @@ function buildTabs(host, content, o)
 
 	accordionPageScroller:addView(accordionPage)
 	content:addView(accordionPageScroller)
+	o.widgets.accordionPageScroller = accordionPageScroller
 	tabAccordion:setIndicator(labelAccordion)
 	tabAccordion:setContent(4)
 

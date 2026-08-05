@@ -125,13 +125,29 @@ function makeUI(editorValues,numediting)
     ui.advancedPage = fnew(LinearLayout,context)
     ui.advancedPage:setOrientation(LinearLayout.VERTICAL)
     ui.advancedPageScroller:addView(ui.advancedPage)
-    local help = fnew(TextView,context)
-    help:setTextSize(textSizeSmall)
-    help:setText("Name is for the editor list only. Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Width, height, and position are in dp from the top-left of the button layer.")
+    -- Kept on ui: the text differs between editing one button and editing
+    -- several, and half of what it describes (Name, Switch to button set) is
+    -- hidden in the second case. A paragraph explaining two invisible fields is
+    -- worse than no paragraph.
+    ui.advancedHelp = fnew(TextView,context)
+    ui.advancedHelp:setTextSize(textSizeSmall)
     local pad = math.floor(8 * density)
-    help:setPadding(pad, pad, pad, pad)
-    help:setLayoutParams(fillparams)
-    ui.advancedPage:addView(help)
+    ui.advancedHelp:setPadding(pad, pad, pad, pad)
+    ui.advancedHelp:setLayoutParams(fillparams)
+    ui.advancedPage:addView(ui.advancedHelp)
+  end
+
+  if(numediting > 1) then
+    ui.advancedHelp:setText("Editing " .. numediting .. " buttons at once. What you"
+      .. " change here goes to all " .. numediting .. ": size, position, label"
+      .. " size and the five colours. A label, a command, a gesture, an"
+      .. " accordion or a super button belongs to one button, so those are not"
+      .. " here -- tap a single button for them.\n\nPosition sets every"
+      .. " selected button to the same X or the same Y, which stacks them on top"
+      .. " of one another. To put them on a line and keep them apart, leave X"
+      .. " and Y empty and use Line up in the editor settings instead.")
+  else
+    ui.advancedHelp:setText("Name is for the editor list only. Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Width, height, and position are in dp from the top-left of the button layer.")
   end
   
   --ui.buttonNameRow
@@ -834,7 +850,21 @@ function makeUI(editorValues,numediting)
     ui.advancedPage:addView(ui.floatOutlineHelp)
   end
 
+  -- A floating copy is one button's, so the whole section goes away for a
+  -- multi-button edit rather than sitting there greyed. Both branches set the
+  -- visibility: ui outlives the dialog, so a section hidden for a multi-edit
+  -- and never shown again would be missing from the next single-button edit.
   local floatEnabled = (numediting == 1)
+  local floatVis = floatEnabled and View.VISIBLE or View.GONE
+  local floatSection = {
+    ui.floatSectionLabel, ui.floatHelp, ui.floatingCheck, ui.floatModeRow,
+    ui.floatModeHelp, ui.floatShapeRow, ui.floatOutlineCheck, ui.floatOutlineHelp,
+  }
+  for i = 1, #floatSection do
+    if floatSection[i] ~= nil then
+      floatSection[i]:setVisibility(floatVis)
+    end
+  end
   ui.floatingCheck:setEnabled(floatEnabled)
   local dependentsOn = floatEnabled and (editorValues.floating == true)
   if ui.floatCheckListener == nil then

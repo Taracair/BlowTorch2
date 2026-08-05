@@ -207,7 +207,14 @@ function showEditorDialog(editorValues,numediting)
 	
 	title:setLayoutParams(titletextParams)
 	title:setTextSize(textSizeBig)
-	title:setText("EDIT BUTTON")
+	-- The count, because a multi-button edit looked exactly like a single one
+	-- and the obvious question was which button it was editing. The answer is
+	-- none of them on their own: it edits what they have in common.
+	if numediting > 1 then
+		title:setText("EDIT " .. numediting .. " BUTTONS")
+	else
+		title:setText("EDIT BUTTON")
+	end
 	title:setGravity(GRAVITY_CENTER)
 	title:setTextColor(Color:argb(255,0x33,0x33,0x33))
 	title:setBackgroundColor(bgGrey)
@@ -260,7 +267,13 @@ function showEditorDialog(editorValues,numediting)
 
 	local tabWidgetParams = luajava.new(LinearLayoutParams, FILL_PARENT, tabMinHeight)
 	widget:setLayoutParams(tabWidgetParams)
-	widget:setWeightSum(4)
+	-- Editing several buttons at once registers one tab, not four; the weight
+	-- sum has to follow or the single tab renders a quarter of the way across.
+	if numediting > 1 then
+		widget:setWeightSum(1)
+	else
+		widget:setWeightSum(4)
+	end
 	
 	local content = luajava.new(FrameLayout,context)
 	content:setId(android_R_id.tabcontent)
@@ -382,16 +395,38 @@ function showEditorDialog(editorValues,numediting)
 	if tabs == nil or tabs.click == nil or tabs.swipe == nil or tabs.accordion == nil then
 		error("button editor: tab specs were not built in buttoneditor_buildtabs")
 	end
-	host:addTab(tabs.click)
-	host:addTab(tabs.swipe)
-	host:addTab(tabs.accordion)
+	-- Editing several buttons at once, Tap, Swipe and Accord. had every field
+	-- greyed out: three tabs of dead boxes, and no word about which button was
+	-- being edited. A label, a command, a gesture and an accordion each belong
+	-- to one button, so for a multi-button edit those tabs are not registered at
+	-- all and only Others -- the one that does something -- is left.
+	--
+	-- The pages behind them are still built and still hold their widgets: Done
+	-- reads every field on the way out, and a page that was never built would
+	-- take the dialog down with it. They are hidden here instead, after setup
+	-- and after the tabs are registered, because TabHost only manages the
+	-- visibility of content it knows about and would otherwise leave them
+	-- stacked over the Others page.
+	local multi = numediting > 1
+	if not multi then
+		host:addTab(tabs.click)
+		host:addTab(tabs.swipe)
+		host:addTab(tabs.accordion)
+	end
 	host:addTab(tabOthers)
-	
-	
-	if(numediting > 1) then
-		host:setCurrentTab(3)
-	else
-		host:setCurrentTab(0)
+	host:setCurrentTab(0)
+
+	if multi then
+		local hidden = {
+			tabState.widgets.clickPageScroller,
+			tabState.widgets.swipePageScroller,
+			tabState.widgets.accordionPageScroller,
+		}
+		for i = 1, #hidden do
+			if hidden[i] ~= nil then
+				hidden[i]:setVisibility(View.GONE)
+			end
+		end
 	end
 	
 	
