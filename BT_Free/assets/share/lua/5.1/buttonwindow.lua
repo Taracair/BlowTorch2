@@ -1207,18 +1207,28 @@ end
 -- narrower and shorter, so clamping there used to overwrite the stored
 -- position and portrait came back rearranged.
 function clampAllButtons(forceRect, persist)
+	local movedCount = 0
 	for i = 1, #buttons do
 		local b = buttons[i]
 		local ox, oy = posX(b.data), posY(b.data)
 		local nx, ny = clampLogicalPosition(ox, oy, b)
 		local moved = nx ~= ox or ny ~= oy
-		if moved and persist == true then
-			setPos(b, nx, ny)
+		if moved then
+			movedCount = movedCount + 1
+			if persist == true then
+				-- setPos writes the pair for the orientation we are in, so in
+				-- landscape this is where a button that has only ever had a
+				-- portrait position gains a landscape one. That is the point:
+				-- the player asked for it by opening the editor here.
+				setPos(b, nx, ny)
+				shiftFloatPlacement(b, nx - ox, ny - oy)
+			end
 		end
 		if moved or forceRect then
 			b:updateRectAt(nx, ny, statusoffset)
 		end
 	end
+	return movedCount
 end
 
 function refreshStatusOffset(relayoutButtons)
@@ -1299,6 +1309,23 @@ function enterManagerMode()
 	--touchedbutton = nil
 		--paint:setShadowLayer(1,0,0,Color.WHITE)
 	view:setOnTouchListener(managerTouch_cb)
+
+	-- Opening the editor is a deliberate act in the orientation the phone is in,
+	-- so this is the one place a clamp may be kept. A pad inherited from
+	-- portrait does not fit a landscape screen: without this its lowest rows sat
+	-- off the bottom, were dragged back onto the grid on screen every frame, and
+	-- forgot it the moment the set was reloaded, because nothing was allowed to
+	-- write a position the player had not chosen. Here they did choose: they
+	-- opened the editor here. Only this orientation's pair is written -- setPos
+	-- writes xLand/yLand in landscape -- so the portrait layout is untouched.
+	local pulledBack = clampAllButtons(false, true)
+	if pulledBack > 0 then
+		local where = isLandscapeNow() and "landscape" or "portrait"
+		Note("\n" .. pulledBack .. " button(s) were off the " .. where
+			.. " screen and have been moved into view. This is the " .. where
+			.. " layout only; the other orientation is unchanged.\n")
+	end
+
 	drawButtons()
 	view:invalidate()
 end

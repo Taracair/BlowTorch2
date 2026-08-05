@@ -89,12 +89,66 @@ public class TriggerData implements Parcelable {
 
 	private String patternError;
 
+	/**
+	 * The pattern with every {@code $alias{name}} it could resolve pasted in,
+	 * or null when nothing has resolved it.
+	 *
+	 * <p>Kept beside {@code pattern} rather than replacing it, because the
+	 * player's text is what the editor shows and what the profile stores. This
+	 * is the compiled-against form and lives only in the process that built it:
+	 * it is not parcelled, so the editor always receives the reference as
+	 * written.
+	 */
+	private String resolvedPattern;
+
+	/**
+	 * Paste in the aliases this trigger's pattern names.
+	 *
+	 * <p>Called by {@code Connection.buildTriggerSystem} for every trigger each
+	 * time the system is rebuilt, which is also what happens when an alias is
+	 * added, edited or removed -- so a trigger follows the alias it names.
+	 *
+	 * @param bodies Alias name to body, from
+	 *     {@link TriggerAliasReference#bodies}. Null clears any resolution.
+	 * @return true when the compiled pattern changed, so a caller rebuilding a
+	 *     larger structure knows it has to.
+	 */
+	public boolean resolveAliases(final java.util.Map<String, String> bodies) {
+		String next = bodies == null ? null : TriggerAliasReference.resolve(pattern, bodies);
+		if (next != null && next.equals(pattern)) {
+			// resolve() hands back the same text when it changed nothing, and a
+			// null resolvedPattern is what "compile the pattern itself" means.
+			next = null;
+		}
+		if (next == null ? resolvedPattern == null : next.equals(resolvedPattern)) {
+			return false;
+		}
+		resolvedPattern = next;
+		buildData();
+		return true;
+	}
+
+	/**
+	 * The text this trigger actually matches against.
+	 *
+	 * @return The resolved pattern when an alias was pasted in, otherwise the
+	 *     pattern as the player wrote it.
+	 */
+	public String getEffectivePattern() {
+		return resolvedPattern != null ? resolvedPattern : pattern;
+	}
+
 	private void buildData() {
 		//if(p == null || p.equals("")) return;
 		patternError = null;
+		// The resolved form when an alias was pasted in; the player's text
+		// otherwise. Everything below compiles against this, and nothing below
+		// may write it back -- getPattern() has to keep returning what the
+		// player typed or the profile would be saved with the alias expanded.
+		final String source = getEffectivePattern();
 		if (this.interpretAsRegex) {
 			try {
-				this.p = Pattern.compile(pattern);
+				this.p = Pattern.compile(source);
 			} catch (java.util.regex.PatternSyntaxException bad) {
 				// A player's regex is untrusted input, and this runs in two
 				// places that must not die on it: the trigger editor, on the UI
@@ -109,13 +163,13 @@ public class TriggerData implements Parcelable {
 				// Fall back to matching the text literally. It is what the player
 				// typed, so it stays predictable, and a trigger that quietly
 				// matches nothing is harder to notice than one that misbehaves.
-				this.p = Pattern.compile(Pattern.quote(pattern));
+				this.p = Pattern.compile(Pattern.quote(source));
 			}
 		} else {
 			// Pattern.quote rather than hand-built \Q...\E: a literal trigger
 			// containing "\E" ended the quoted span early and left the rest of
 			// the text to be read as a regex, which threw on the next bracket.
-			this.p = Pattern.compile(Pattern.quote(pattern));
+			this.p = Pattern.compile(Pattern.quote(source));
 		}
 		this.m = p.matcher("");
 	}
@@ -282,6 +336,9 @@ public class TriggerData implements Parcelable {
 
 	public void setPattern(String pattern) {
 		this.pattern = pattern;
+		// A resolution belongs to the text it was made from. buildTriggerSystem
+		// makes a new one; until then this trigger matches what it now says.
+		this.resolvedPattern = null;
 		buildData();
 	}
 

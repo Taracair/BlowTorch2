@@ -8,7 +8,17 @@ import java.util.HashMap;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 
-/** Alias CRUD, enable/disable, and keyboard alias replacement for a Connection. */
+/**
+ * Alias CRUD, enable/disable, and keyboard alias replacement for a Connection.
+ *
+ * <p>Every method that changes what an alias <em>says</em> also rebuilds the
+ * trigger system, because a trigger pattern may name an alias -- the
+ * {@code $alias&#123;name&#125;} form, resolved in
+ * {@link Connection#buildTriggerSystem()}. Without that a trigger went on
+ * matching the alias's old text until something else happened to rebuild, and
+ * "I edited the alias and the trigger did not change" is the kind of bug that
+ * gets blamed on the trigger.
+ */
 final class ConnectionAliases {
 
 	private final Connection host;
@@ -21,6 +31,7 @@ final class ConnectionAliases {
 	void setAliases(final HashMap<String, AliasData> map) {
 		host.mSettings.getSettings().setAliases(map);
 		host.mSettings.buildAliases();
+		host.buildTriggerSystem();
 	}
 
 	/** Replace the whole alias map of a target plugin. */
@@ -30,6 +41,7 @@ final class ConnectionAliases {
 			p.getSettings().setAliases(map);
 			p.getSettings().setDirty(true);
 			p.buildAliases();
+			host.buildTriggerSystem();
 		}
 	}
 
@@ -50,6 +62,7 @@ final class ConnectionAliases {
 	/** Remove one alias from the main settings plugin. */
 	void deleteAlias(final String key) {
 		host.mSettings.getSettings().getAliases().remove(key);
+		host.buildTriggerSystem();
 	}
 
 	/** Remove one alias from a target plugin. */
@@ -57,6 +70,7 @@ final class ConnectionAliases {
 		Plugin p = host.mPluginMap.get(plugin);
 		if (p != null) {
 			p.getSettings().getAliases().remove(key);
+			host.buildTriggerSystem();
 		}
 	}
 

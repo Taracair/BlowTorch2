@@ -1684,6 +1684,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSortedTriggerMap.clear();
 		mTriggerPluginMap.clear();
 		TriggerPattern combined = new TriggerPattern();
+		// A trigger may name an alias in its pattern -- $alias{name} -- and this
+		// is where the alias's text is pasted in. Here rather than in the
+		// parser, because a trigger has to follow the alias it names: every
+		// alias edit already rebuilds the trigger system through
+		// ConnectionAliases, so the next line of game text is matched against
+		// the alias as it is now.
+		//
+		// One table for everyone, and it is the player's. A plugin's trigger
+		// writing $alias{x} therefore resolves against the player's aliases,
+		// not the plugin's own -- which is the way round that cannot surprise
+		// the player: the alternative lets a plugin decide what a name means
+		// without the player being able to see it in their own alias list.
+		java.util.Map<String, String> aliasBodies =
+				com.resurrection.blowtorch2.lib.trigger.TriggerAliasReference.bodies(getAliases());
 		ArrayList<TriggerData> tmp = mSettings.getSortedTriggers();
 		if (tmp == null) {
 			mSettings.sortTriggers();
@@ -1692,6 +1706,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (tmp != null) {
 			for (int i = 0; i < tmp.size(); i++) {
 				TriggerData t = tmp.get(i);
+				t.resolveAliases(aliasBodies);
 				if (isMatchableTrigger(t)) {
 					int group = combined.add(t);
 					if (group > 0) {
@@ -1714,6 +1729,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			if (tmp != null) {
 				for (int i = 0; i < tmp.size(); i++) {
 					TriggerData t = tmp.get(i);
+					t.resolveAliases(aliasBodies);
 					if (isMatchableTrigger(t)) {
 						int group = combined.add(t);
 						if (group > 0) {

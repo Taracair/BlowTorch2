@@ -131,6 +131,40 @@ a second trigger, under **Conditions**, Add → Trigger enabled → pick
 `combat_mode`. Responders on the second trigger run only while `combat_mode`
 is enabled (`.trigger on combat_mode`).
 
+**Naming an alias in the pattern — `$alias{name}`:** write `$alias{spares}` and
+the alias's text is pasted into the pattern before it is compiled, so one alias
+can be the single place a word is written down and every trigger that names it
+follows when you edit it. Editing the alias updates the triggers immediately.
+
+    Alias   spares → circuit
+    Pattern `You see a $alias{spares} here\.`
+    Matches `You see a circuit here.`
+
+The braces are required, so `$1` is still a capture and never a reference. It
+works in both modes: in regex mode the alias's text is pasted in as regex, in
+Literal mode as plain text. The preview under the pattern box shows what was
+read and what the trigger ends up watching for.
+
+Four references are refused, and a refused one is left in the pattern exactly
+as you wrote it — so the trigger visibly does not fire, rather than quietly
+watching for something else. The preview says which and why:
+
+- no alias of that name;
+- the alias is several commands (`sip health;stand`);
+- the alias uses `$1`-style captures from what you type (`get $1 from bag`) —
+  a trigger has nothing to fill those from;
+- the alias names another alias — one level only, so a pair naming each other
+  cannot loop.
+
+A **disabled** alias still provides its text: disabling stops it expanding what
+you *type*, and a trigger is only borrowing the words.
+
+The plain name on its own does nothing — a pattern of `spares` waits for the
+game to print the letters `spares`. Aliases expand what you type; triggers match
+what the game sends; `$alias{…}` is the only bridge between them. (The other
+direction has always worked: a tapped word runs its command as a typed line, so
+an alias name *is* a valid tap command — see recipe 9c.)
+
 **GMCP note:** a **literal** trigger whose pattern starts with `%` (default
 GMCP character) is a GMCP hook (`%module.path`), not a line wildcard. See
 GMCP below.
