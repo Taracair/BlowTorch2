@@ -219,6 +219,17 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		return c.getTriggers();
 	}
 	
+	@Override
+	public java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData>
+			getTapRules() throws RemoteException {
+		Connection c = active();
+		if (c == null) {
+			return new java.util.ArrayList<
+					com.resurrection.blowtorch2.lib.responder.tap.TapRuleData>();
+		}
+		return c.getTapRules();
+	}
+
 	@SuppressWarnings("rawtypes")
 	@Override
 	public Map getPluginTriggerData(final String id) throws RemoteException {

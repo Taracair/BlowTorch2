@@ -12,6 +12,7 @@ import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.responder.notification.NotificationResponder;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
 import com.resurrection.blowtorch2.lib.responder.toast.ToastResponder;
+import com.resurrection.blowtorch2.lib.responder.tap.TapRuleData;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.timer.TimerProgress;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
@@ -58,6 +59,12 @@ interface IConnectionBinder {
 	void resetSettings();
 	// ---- triggers ----
 	Map getTriggerData();
+	/**
+	 * The tappable-word rules only — a few short rows instead of the whole
+	 * trigger map. The window asks for this while the player is playing, so it
+	 * must not carry responders and conditions across.
+	 */
+	List<TapRuleData> getTapRules();
 	Map getDirectionData();
 	Map getPluginTriggerData(String id);
 	void setDirectionData(in Map data);

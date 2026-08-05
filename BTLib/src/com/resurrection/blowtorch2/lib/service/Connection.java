@@ -1764,7 +1764,130 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mMcpEngine != null) {
 			loadMcpTriggers();
 		}
+		rebuildTapRules();
+	}
+
+	/**
+	 * The tappable-word rules as the window will use them, rebuilt with the
+	 * trigger system and kept here.
+	 *
+	 * <p>Built in the service rather than in the activity because the activity
+	 * building them meant dragging every trigger, responder and condition
+	 * across the binder — on the UI thread, while the player was playing.
+	 */
+	private volatile java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData>
+			mTapRules =
+			new java.util.ArrayList<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData>();
+
+	/** False until the first rebuild; see {@link #getTapRules}. */
+	private volatile boolean tapRulesBuilt;
+
+	/**
+	 * What the window is holding, read on a binder thread.
+	 *
+	 * <p>Volatile rather than locked: this hands back a list the service thread
+	 * has finished with and then replaces wholesale, never one it edits in
+	 * place, so the reader either sees the old complete list or the new one.
+	 *
+	 * <p>The build on the first call is for the cold start. The window asks as
+	 * soon as it is up, which can be before the first line of game text has
+	 * made the trigger system rebuild, and without this it would be told there
+	 * are no tappable words and would believe it until the next trigger edit.
+	 */
+	public java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData>
+			getTapRules() {
+		if (!tapRulesBuilt) {
+			try {
+				mTapRules = buildTapRules();
+				tapRulesBuilt = true;
+			} catch (Exception e) {
+				// The trigger map belongs to the service thread; the worst case
+				// here is catching it mid-edit. Answering with what we have is
+				// right — the rebuild that edit ends with pushes the real list.
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"Connection.getTapRules", e);
+			}
+		}
+		return mTapRules;
+	}
+
+	/**
+	 * Work out the tap rules again and tell the window only if they changed.
+	 *
+	 * <p>The gate is the point. {@code buildTriggerSystem} runs from inside
+	 * dispatch — a trigger that enables or disables another trigger rebuilds
+	 * the system on the line that fired it — so during a fight this can run
+	 * several times a second. Almost none of those rebuilds change which words
+	 * are tappable, and an unchanged list means nothing crosses the binder and
+	 * the window recompiles nothing.
+	 */
+	private void rebuildTapRules() {
+		java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData> next =
+				buildTapRules();
+		boolean same = tapRulesBuilt && next.equals(mTapRules);
+		mTapRules = next;
+		tapRulesBuilt = true;
+		if (same) {
+			return;
+		}
 		notifyTapRulesChanged();
+	}
+
+	/**
+	 * One rule per enabled trigger carrying a tap action.
+	 *
+	 * <p>One per trigger, not per action: nothing stops a player putting two
+	 * tappable actions on one trigger, and that would mark the same word twice
+	 * and stack two hit boxes on it, so which command a tap sent would depend
+	 * on which box was found last. {@code TapAction.merge} folds them into one.
+	 */
+	private java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData>
+			buildTapRules() {
+		java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData> out =
+				new java.util.ArrayList<
+						com.resurrection.blowtorch2.lib.responder.tap.TapRuleData>();
+		java.util.HashMap<String, TriggerData> triggers = getTriggers();
+		if (triggers == null) {
+			return out;
+		}
+		for (TriggerData t : triggers.values()) {
+			if (t == null || !t.isEnabled() || t.getResponders() == null) {
+				continue;
+			}
+			java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapAction> taps = null;
+			for (com.resurrection.blowtorch2.lib.responder.TriggerResponder r
+					: t.getResponders()) {
+				if (r instanceof com.resurrection.blowtorch2.lib.responder.tap.TapAction) {
+					if (taps == null) {
+						taps = new java.util.ArrayList<
+								com.resurrection.blowtorch2.lib.responder.tap.TapAction>();
+					}
+					taps.add((com.resurrection.blowtorch2.lib.responder.tap.TapAction) r);
+				}
+			}
+			if (taps == null) {
+				continue;
+			}
+			com.resurrection.blowtorch2.lib.responder.tap.TapAction tap =
+					com.resurrection.blowtorch2.lib.responder.tap.TapAction.merge(taps);
+			if (tap == null) {
+				continue;
+			}
+			// The trigger's own compiled pattern, not a fresh compile of the raw
+			// text: buildData already quotes a literal trigger and has already
+			// pasted in any alias the pattern names. Compiling the raw text made
+			// a literal trigger behave as a regex, so a pattern like
+			// "[ 9 | -4 | 1 ]" — a real one in this profile — was a character
+			// class marking single characters all over the screen.
+			java.util.regex.Pattern p = t.getCompiledPattern();
+			if (p == null) {
+				continue;
+			}
+			out.add(new com.resurrection.blowtorch2.lib.responder.tap.TapRuleData(
+					p.pattern(), tap.getCommands().toArray(new String[0]),
+					tap.isUnderline(), tap.isBold(), tap.isFrame(), tap.getGroup()));
+		}
+		return out;
 	}
 
 	/**

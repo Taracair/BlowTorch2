@@ -3286,14 +3286,66 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 	}
 
+	/** Shared empty result, so a line with no hits costs no allocation. */
+	private static final ArrayList<TapHit> NO_TAP_HITS = new ArrayList<TapHit>();
+
 	/** Hits on the line currently being drawn, in line columns. */
-	private final ArrayList<TapHit> mLineTapHits = new ArrayList<TapHit>();
+	private ArrayList<TapHit> mLineTapHits = NO_TAP_HITS;
+
+	/**
+	 * What was found on one line and what it was found from.
+	 *
+	 * <p>Generation, character count and unit count are the whole invalidation
+	 * test. Text arriving mid-line does not mutate a line: a chunk that carries
+	 * on an unfinished line builds a <em>new</em> Line object from the old one's
+	 * data, so it is a different key and misses the cache on its own. What is
+	 * left to catch is a line rewritten in place — a replace responder — and
+	 * that changes the character count, or the unit count when the replacement
+	 * happens to be the same length.
+	 *
+	 * <p>Rewrapping calls updateData and only adds or removes Break units, which
+	 * this does not match against and which do not count as characters, so the
+	 * hits stay right across a rotation.
+	 */
+	private static final class CachedTapHits {
+		final int generation;
+		final int charcount;
+		final int units;
+		final ArrayList<TapHit> hits;
+
+		CachedTapHits(int generation, int charcount, int units, ArrayList<TapHit> hits) {
+			this.generation = generation;
+			this.charcount = charcount;
+			this.units = units;
+			this.hits = hits;
+		}
+	}
+
+	/**
+	 * Tap hits already worked out, per line.
+	 *
+	 * <p>Weak on purpose: the key is a line of the buffer, and lines are dropped
+	 * from the buffer as it scrolls past its limit. A strong map would hold
+	 * every line ever drawn alive for the life of the activity.
+	 *
+	 * <p>{@code TextTree.Line} does not override {@code equals}/{@code hashCode},
+	 * so this is identity-keyed, which is what is wanted: two different lines
+	 * with the same text are still two entries.
+	 */
+	private final java.util.WeakHashMap<TextTree.Line, CachedTapHits> mTapHitCache =
+			new java.util.WeakHashMap<TextTree.Line, CachedTapHits>();
+
+	/** Bumped by {@link #setTapRules}; every cached line is stale at once. */
+	private int mTapRulesGeneration;
 
 	private java.util.List<TapRule> mTapRules = new ArrayList<TapRule>();
 
 	/** Replaces the rule set; called when triggers are loaded or edited. */
 	public void setTapRules(final java.util.List<TapRule> rules) {
 		mTapRules = rules != null ? rules : new ArrayList<TapRule>();
+		mTapRulesGeneration++;
+		mTapHitCache.clear();
+		mLineTapHits = NO_TAP_HITS;
 		this.invalidate();
 	}
 
@@ -3337,10 +3389,34 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * list is empty and this returns before touching the line.
 	 */
 	private void findTapHitsForLine(final TextTree.Line line) {
-		mLineTapHits.clear();
+		mLineTapHits = NO_TAP_HITS;
 		if (mTapRules.isEmpty() || line == null) {
 			return;
 		}
+		// The player's own regexes, matched against every line on screen. Doing
+		// that once per frame is what a fling costs: sixty passes a second over
+		// the same forty unchanged lines. The line is the unit of work, so the
+		// answer is remembered per line and the fling reads it back.
+		java.util.LinkedList<TextTree.Unit> data = line.getData();
+		final int units = data != null ? data.size() : 0;
+		CachedTapHits cached = mTapHitCache.get(line);
+		if (cached != null && cached.generation == mTapRulesGeneration
+				&& cached.charcount == line.charcount && cached.units == units) {
+			mLineTapHits = cached.hits;
+			return;
+		}
+		ArrayList<TapHit> found = computeTapHitsForLine(line);
+		mTapHitCache.put(line,
+				new CachedTapHits(mTapRulesGeneration, line.charcount, units, found));
+		mLineTapHits = found;
+	}
+
+	/**
+	 * The matching itself. Returns the shared empty list when nothing matched,
+	 * which is the usual answer, so most lines cost no allocation at all.
+	 */
+	private ArrayList<TapHit> computeTapHitsForLine(final TextTree.Line line) {
+		ArrayList<TapHit> out = null;
 		StringBuilder plain = mLineTextScratch;
 		plain.setLength(0);
 		// Line.getIterator() hands out the line's ONE shared iterator, not a new
@@ -3349,7 +3425,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// a connected session with an empty screen. Walk the list itself.
 		java.util.LinkedList<TextTree.Unit> units = line.getData();
 		if (units == null) {
-			return;
+			return NO_TAP_HITS;
 		}
 		// A fresh iterator, not get(i): this is a LinkedList and indexed access
 		// would walk it again for every unit.
@@ -3362,7 +3438,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 		}
 		if (plain.length() == 0) {
-			return;
+			return NO_TAP_HITS;
 		}
 		// Matcher takes a CharSequence, so the builder is matched as it stands:
 		// this runs per line per frame and a String copy of every line on screen
@@ -3404,10 +3480,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				for (int i = 0; i < filled.length; i++) {
 					filled[i] = fillTapCommand(rule.commands[i], tapped, m);
 				}
-				mLineTapHits.add(new TapHit(start, end, filled,
+				if (out == null) {
+					out = new ArrayList<TapHit>(4);
+				}
+				out.add(new TapHit(start, end, filled,
 						rule.underline, rule.bold, rule.frame));
 			}
 		}
+		return out != null ? out : NO_TAP_HITS;
 	}
 
 	/** Scratch for {@link #findTapHitsForLine}; onDraw allocates nothing new. */

@@ -5761,71 +5761,107 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return true;
 	}
 
+	/**
+	 * True while a background read of the rules is out.
+	 *
+	 * <p>Only touched on the UI thread — set before the thread starts, cleared
+	 * when its result is posted back — so a burst of notifications costs one
+	 * read rather than one thread each.
+	 */
+	private boolean tapRulesFetchInFlight;
+
+	/**
+	 * Read the tap rules from the service and hand them to the game window.
+	 *
+	 * <p>The read happens on a background thread. This used to be a synchronous
+	 * {@code getTriggerData()} on the UI thread, which was tolerable when only
+	 * an editor did it once, and stopped being tolerable when a trigger rebuild
+	 * started asking for it: the service's own thread may be busy with a packet
+	 * for tens of milliseconds, and the caller of a synchronous binder call
+	 * waits for it — here, the thread that draws the game.
+	 *
+	 * <p>The patterns are compiled on that background thread too, and only the
+	 * finished rule list comes back to the UI thread.
+	 */
 	public void refreshTapRules() {
 		if (service == null) {
 			retryTapRulesLater();
 			return;
 		}
-		try {
-			RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
-			if (rl == null) {
-				retryTapRulesLater();
-				return;
-			}
-			com.resurrection.blowtorch2.lib.window.Window main =
-					(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
-			if (main == null) {
-				retryTapRulesLater();
-				return;
-			}
-			java.util.List<com.resurrection.blowtorch2.lib.window.Window.TapRule> rules =
-					new java.util.ArrayList<com.resurrection.blowtorch2.lib.window.Window.TapRule>();
-			java.util.Map<String, com.resurrection.blowtorch2.lib.trigger.TriggerData> map =
-					(java.util.Map<String, com.resurrection.blowtorch2.lib.trigger.TriggerData>)
-							service.getTriggerData();
-			if (map != null) {
-				for (com.resurrection.blowtorch2.lib.trigger.TriggerData t : map.values()) {
-					if (t == null || !t.isEnabled() || t.getResponders() == null) {
-						continue;
-					}
-					// One rule per trigger, not per action. Nothing stops a player
-					// adding two tappable actions to one trigger, and that would mark
-					// the same word twice and stack two hit boxes on it, so which
-					// command a tap sent would depend on which box was found last.
-					java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapAction> taps =
-							new java.util.ArrayList<com.resurrection.blowtorch2.lib.responder.tap.TapAction>();
-					for (com.resurrection.blowtorch2.lib.responder.TriggerResponder r
-							: t.getResponders()) {
-						if (r instanceof com.resurrection.blowtorch2.lib.responder.tap.TapAction) {
-							taps.add((com.resurrection.blowtorch2.lib.responder.tap.TapAction) r);
-						}
-					}
-					com.resurrection.blowtorch2.lib.responder.tap.TapAction tap =
-							com.resurrection.blowtorch2.lib.responder.tap.TapAction.merge(taps);
-					if (tap != null) {
-						// The trigger's own compiled pattern, not a fresh compile of
-						// the raw text. TriggerData.buildData already quotes a literal
-						// trigger and falls back to literal on a bad regex; compiling
-						// the raw text here made a literal trigger behave as a regex,
-						// so a pattern like "[ 9 | -4 | 1 ]" -- a real one in this
-						// profile -- would have been a character class marking single
-						// characters all over the screen.
-						java.util.regex.Pattern p = t.getCompiledPattern();
-						if (p == null) {
-							continue;
-						}
-						rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
-								p, tap.getCommands().toArray(new String[0]),
-								tap.isUnderline(), tap.isBold(),
-								tap.isFrame(), tap.getGroup()));
-					}
-				}
-			}
-			main.setTapRules(rules);
-		} catch (Exception e) {
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
-					"MainWindow.refreshTapRules", e);
+		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+		if (rl == null) {
+			retryTapRulesLater();
+			return;
 		}
+		final com.resurrection.blowtorch2.lib.window.Window main =
+				(com.resurrection.blowtorch2.lib.window.Window) rl.findViewWithTag("mainDisplay");
+		if (main == null) {
+			retryTapRulesLater();
+			return;
+		}
+		if (tapRulesFetchInFlight) {
+			// A read is already on its way and it will see the current state of
+			// the service. Asking again would only queue a second binder call.
+			return;
+		}
+		final com.resurrection.blowtorch2.lib.service.IConnectionBinder binder = service;
+		tapRulesFetchInFlight = true;
+		new Thread(new Runnable() {
+			public void run() {
+				java.util.List<com.resurrection.blowtorch2.lib.window.Window.TapRule> rules =
+						new java.util.ArrayList<
+								com.resurrection.blowtorch2.lib.window.Window.TapRule>();
+				try {
+					java.util.List<com.resurrection.blowtorch2.lib.responder.tap.TapRuleData> raw =
+							binder.getTapRules();
+					if (raw != null) {
+						for (com.resurrection.blowtorch2.lib.responder.tap.TapRuleData r : raw) {
+							if (r == null || r.getPattern() == null
+									|| r.getPattern().length() == 0) {
+								continue;
+							}
+							java.util.regex.Pattern p;
+							try {
+								// Already the compiled form of the trigger — quoted
+								// for a literal, alias resolved — so no flags and no
+								// quoting here. A throw would mean the service and
+								// this process disagree about regex, so skip the one
+								// rule rather than lose the rest.
+								p = java.util.regex.Pattern.compile(r.getPattern());
+							} catch (Exception bad) {
+								com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+										"MainWindow.refreshTapRules: rule pattern would not"
+										+ " compile", bad);
+								continue;
+							}
+							rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
+									p, r.getCommands(), r.isUnderline(), r.isBold(),
+									r.isFrame(), r.getGroup()));
+						}
+					}
+				} catch (Exception e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"MainWindow.refreshTapRules", e);
+					// Nothing read, so nothing to say. Leaving the window's current
+					// rules alone beats replacing them with an empty list, which
+					// would silently unmark every tappable word on screen.
+					myhandler.post(new Runnable() {
+						public void run() {
+							tapRulesFetchInFlight = false;
+						}
+					});
+					return;
+				}
+				final java.util.List<com.resurrection.blowtorch2.lib.window.Window.TapRule> done =
+						rules;
+				myhandler.post(new Runnable() {
+					public void run() {
+						tapRulesFetchInFlight = false;
+						main.setTapRules(done);
+					}
+				});
+			}
+		}, "tap-rules").start();
 	}
 
 	/** Tell the connection the real mainDisplay cell grid for NAWS. */
