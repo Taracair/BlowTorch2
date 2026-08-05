@@ -2015,24 +2015,34 @@ function ensureLayoutSettingsOptions()
 		end)
 		if okAdd then added = true end
 	end
-	-- show_swipe_preview was only ever a Lua variable: it is in no settings XML,
-	-- so there was nowhere for the editor's checkbox to write it and it reset to
-	-- on at every launch. Injecting the row gives it a home and puts it next to
-	-- Show gesture hints in Options.
-	if missing("show_swipe_preview") then
+	-- A profile only ever gets the rows that default_settings declared on the day
+	-- it was created, so an option added later exists for new profiles and for
+	-- nobody else. Measured on the maintainer's phone: samsaramoo.xml (the profile
+	-- he plays) has no show_gesture_hints at all, while eden.xml — made later —
+	-- does. Without the row there is nowhere for the editor's checkbox to write,
+	-- and the setting came back on at every launch. show_swipe_preview was worse:
+	-- it was in no settings XML at all, so no profile had it.
+	local function ensureBoolean(key, title, description, default)
+		if not missing(key) then
+			return
+		end
 		local okAdd = pcall(function()
 			local BooleanOption = luajava.bindClass(
 				"com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption")
 			local opt = luajava.new(BooleanOption)
-			opt:setKey("show_swipe_preview")
-			opt:setTitle("Show swipe direction arrow")
-			opt:setDescription(
-				"Draw the arrow across a button while you drag it. The command callout above the button shows either way.")
-			opt:setValue(true)
+			opt:setKey(key)
+			opt:setTitle(title)
+			opt:setDescription(description)
+			opt:setValue(default)
 			settings:addOption(opt)
 		end)
 		if okAdd then added = true end
 	end
+	ensureBoolean("show_gesture_hints", "Show gesture hints",
+		"Draw swipe arrows, hold (H), and accordion chevrons on buttons.", true)
+	ensureBoolean("show_swipe_preview", "Show swipe direction arrow",
+		"Draw the arrow across a button while you drag it. The command callout above the button shows either way.",
+		true)
 	-- layout_pack / layout_size_preset were free-text StringOptions: the player
 	-- was expected to type "fit_square" correctly. They are dropdowns now, but a
 	-- profile keeps the type it was created with, so the old option has to be
