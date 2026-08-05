@@ -54,6 +54,10 @@ public final class TriggerPattern {
 	private static final Pattern NAMED_GROUP =
 			Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
 
+	/** A {@code \Q...\E} span, where every character is data. Unterminated runs to the end. */
+	private static final Pattern QUOTED_SPAN =
+			Pattern.compile("\\\\Q.*?(?:\\\\E|\\z)", Pattern.DOTALL);
+
 	/**
 	 * Append one trigger as the next alternative.
 	 *
@@ -121,16 +125,18 @@ public final class TriggerPattern {
 	 *
 	 * <p>Read off the source rather than from the compiled pattern because
 	 * {@code java.util.regex} exposes no way to enumerate a pattern's group
-	 * names. A name inside a character class or after a backslash is not a
-	 * declaration, but neither is legal Java regex syntax at these positions,
-	 * so the pattern would not have compiled and never reaches here.
+	 * names. Quoted spans are dropped first: a literal trigger reaches here as
+	 * {@code Pattern.quote} produced it, so a player watching for the text
+	 * {@code (?<who>x)} arrives as {@code \Q(?<who>x)\E} and declares nothing.
+	 * Without that, one literal trigger would take the name away from a real
+	 * regex trigger that wanted it.
 	 *
 	 * @param source One alternative's regex source.
 	 * @return The names, in the order declared; empty when there are none.
 	 */
 	private static java.util.List<String> namesIn(final String source) {
 		java.util.List<String> names = new java.util.ArrayList<String>();
-		Matcher m = NAMED_GROUP.matcher(source);
+		Matcher m = NAMED_GROUP.matcher(QUOTED_SPAN.matcher(source).replaceAll(""));
 		while (m.find()) {
 			names.add(m.group(1));
 		}

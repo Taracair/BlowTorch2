@@ -1778,9 +1778,11 @@ function sanitizeButtonSet(setName)
 	-- The other orientation is left alone rather than clamped against a guessed
 	-- screen: swapping w and h is not the other orientation's metrics, because
 	-- the system bars are inset differently there, and a guess here writes to
-	-- settings. Nothing is stranded by that -- buttonwindow's clampAllButtons
-	-- pulls every tile onto whatever screen is in front of the player before it
-	-- is drawn; it simply does not persist what it did.
+	-- settings. Nothing is stranded by that. buttonwindow's loadButtons calls
+	-- clampAllButtons with persist unset, and so does onSizeChanged, so a
+	-- button with no landscape pair of its own is still pulled onto the screen
+	-- in front of the player both when the set is loaded and when the phone is
+	-- turned -- it is simply not written back.
 	local sideways = w > h
 
 	local defs = buttonset_defaults[setName]

@@ -324,6 +324,22 @@ public class BadPatternGateTest {
 	}
 
 	/**
+	 * A literal trigger whose text happens to look like a named group declares
+	 * nothing -- it arrives quoted -- and must not take the name away from a
+	 * regex trigger that really wants it.
+	 */
+	@Test
+	public void aLiteralTriggerDoesNotClaimANamedGroup() {
+		TriggerPattern p = new TriggerPattern();
+		assertTrue(p.add(trigger("(?<who>x) is printed", false)) > 0);
+		assertTrue("the regex trigger must still be accepted",
+				p.add(trigger("(?<who>\\w+) arrives", true)) > 0);
+		java.util.regex.Matcher m = p.compile(0).matcher("Taracair arrives");
+		assertTrue(m.find());
+		assertEquals("Taracair", m.group("who"));
+	}
+
+	/**
 	 * A skipped duplicate must not move the numbering: the trigger after it is
 	 * attributed by group number, and a gap there points at the wrong trigger.
 	 */
