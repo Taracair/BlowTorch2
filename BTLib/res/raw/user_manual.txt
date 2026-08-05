@@ -149,6 +149,12 @@ in as regex, in Literal mode as plain text. The braces are required in the
 second form, so `$1` is still a capture and never an alias. The preview under
 the pattern box always names the alias it found and the text it will watch for.
 
+**Changing the alias updates the triggers straight away** — whether you edit it
+in the Aliases dialog or set its text from the input bar with `.name newtext`.
+Nothing has to be reopened and no new line has to arrive: the lines already on
+screen are re-marked, so a tappable word loses its frame on the old text and
+gains it on the new one where it stands.
+
 **Four aliases cannot be used.** The pattern is then left exactly as you wrote
 it, so the trigger visibly does not fire rather than quietly watching for
 something else. The preview says which of the four it was:
@@ -169,6 +175,10 @@ name is replaced. Turn **Literal?** off and write `^name$` and it is a pattern o
 its own again.
 
 The **?** button beside Done in the trigger editor says all of this on the phone.
+
+**Trying a trigger without the game:** `.note some text` prints a line into the
+game window and sends nothing to the server, so a colour, a gag or a tappable
+word can be checked on a line you wrote yourself.
 
 **GMCP note:** a **literal** trigger whose pattern starts with `%` (default
 GMCP character) is a GMCP hook (`%module.path`), not a line wildcard. See
