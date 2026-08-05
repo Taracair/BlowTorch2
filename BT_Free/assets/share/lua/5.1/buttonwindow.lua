@@ -1656,10 +1656,14 @@ function tidyButtonLayout(columns)
 
 	-- Start at the grid cell nearest the current top-left of the group, so the
 	-- pad stays roughly where it was instead of jumping to the corner.
-	local minX, minY = targets[1].data.x, targets[1].data.y
+	-- Through posX/posY: the sort just above already reads the orientation in
+	-- force, and setPos below writes it, so taking the origin from the portrait
+	-- pair put a landscape tidy-up's origin somewhere the buttons are not.
+	local minX, minY = posX(targets[1].data), posY(targets[1].data)
 	for i = 1, #targets do
-		if targets[i].data.x < minX then minX = targets[i].data.x end
-		if targets[i].data.y < minY then minY = targets[i].data.y end
+		local tx, ty = posX(targets[i].data), posY(targets[i].data)
+		if tx < minX then minX = tx end
+		if ty < minY then minY = ty end
 	end
 	local originCol = math.max(0, math.floor((minX - stepX * 0.5) / stepX + 0.5))
 	local originRow = math.max(0, math.floor((minY - statusoffset - stepY * 0.5) / stepY + 0.5))
@@ -1870,10 +1874,12 @@ function rescaleLayoutToPitch(newPitchDp)
 	if #targets == 0 then
 		return false
 	end
-	local minX, minY = targets[1].data.x, targets[1].data.y
+	-- Same anchor the scale is applied to, in the orientation setPos writes.
+	local minX, minY = posX(targets[1].data), posY(targets[1].data)
 	for i = 1, #targets do
-		if targets[i].data.x < minX then minX = targets[i].data.x end
-		if targets[i].data.y < minY then minY = targets[i].data.y end
+		local tx, ty = posX(targets[i].data), posY(targets[i].data)
+		if tx < minX then minX = tx end
+		if ty < minY then minY = ty end
 	end
 	for i = 1, #targets do
 		local b = targets[i]
@@ -2838,10 +2844,24 @@ function OnSizeChanged(w,h,oldw,oldh)
 	
 	selectedLayer = Bitmap:createBitmap(view:getWidth(),view:getHeight(),BitmapConfig.ARGB_8888)
 	selectedCanvas = luajava.newInstance("android.graphics.Canvas",selectedLayer)
-	--managerLayer = Bitmap.create(w,h,BitmapConfig.ARGB_8888)
-	
 
-	
+	-- The edit grid is a bitmap too, and it was the one layer this function did
+	-- not rebuild. Turning the phone while editing left the portrait-sized
+	-- manager layer being drawn at 0,0 over a landscape canvas: the edit grid
+	-- covered the left part of the screen and game text showed through the rest.
+	if manage and drawManagerLayer then
+		if managerLayer ~= nil then
+			managerCanvas = nil
+			managerLayer:recycle()
+			managerLayer = nil
+		end
+		managerLayer = Bitmap:createBitmap(view:getWidth(),view:getHeight(),BitmapConfig.ARGB_8888)
+		managerCanvas = luajava.newInstance("android.graphics.Canvas",managerLayer)
+		gridXwidth = defaults.gridXwidth*density
+		gridYwidth = defaults.gridYwidth*density
+		drawManagerGrid()
+	end
+
 	positionRevertButton(w, h)
 
 	-- The view just changed size, so statusoffset may have moved under every

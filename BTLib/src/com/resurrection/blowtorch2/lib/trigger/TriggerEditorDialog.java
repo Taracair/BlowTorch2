@@ -308,6 +308,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			return;
 		}
 		pattern.setTypeface(Typeface.MONOSPACE);
+		loadAliasNames();
 		TextWatcher watcher = new TextWatcher() {
 			public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 			public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -329,7 +330,129 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		String name = title.getText().toString().trim();
 		String mode = literal.isChecked() ? "literal text" : "regular expression";
 		String header = name.length() > 0 ? ("Trigger «" + name + "» watches server output for:\n") : "Watches server output for:\n";
-		preview.setText(header + "«" + patternText + "»\n(mode: " + mode + ")");
+		StringBuilder out = new StringBuilder();
+		out.append(header).append("«").append(patternText).append("»\n(mode: ").append(mode).append(")");
+		out.append(patternStatus(patternText, literal.isChecked()));
+		preview.setText(out.toString());
+	}
+
+	/**
+	 * What the pattern field is actually going to do, in the editor, before the
+	 * trigger is saved.
+	 *
+	 * <p>Two things were invisible until now and both cost a session to find out
+	 * the hard way. A regex that does not compile is not rejected -- {@code
+	 * TriggerData.buildData} falls back to matching the text literally, on
+	 * purpose -- so a mistyped bracket produced a trigger that simply never
+	 * fired, with the reason recorded in {@code getPatternError()} and shown
+	 * nowhere. And a pattern that is the name of an alias does nothing either:
+	 * an alias expands what the *player types*, a trigger matches what the
+	 * *game sends*, and there is no path from one to the other. Say both here.
+	 *
+	 * @param patternText The raw contents of the pattern field.
+	 * @param isLiteral Whether the literal-text checkbox is ticked.
+	 * @return Lines to append to the preview, each starting with a newline.
+	 */
+	private String patternStatus(final String patternText, final boolean isLiteral) {
+		StringBuilder out = new StringBuilder();
+		if (!isLiteral) {
+			try {
+				Pattern p = Pattern.compile(patternText);
+				int groups = p.matcher("").groupCount();
+				if (groups > 0) {
+					out.append("\nCompiles. ").append(groups).append(" capture group(s): $1");
+					if (groups > 1) {
+						out.append("..$").append(groups);
+					}
+					out.append(" in the responses.");
+				} else {
+					out.append("\nCompiles. No capture groups, so there is no $1.");
+				}
+			} catch (PatternSyntaxException bad) {
+				String why = bad.getDescription() != null
+						? bad.getDescription() + " (at position " + bad.getIndex() + ")"
+						: bad.getMessage();
+				out.append("\n⚠ Not a valid regular expression: ").append(why)
+					.append("\nIt will be matched as literal text instead, so it will")
+					.append(" only fire on a line containing exactly «")
+					.append(patternText).append("».");
+			}
+		}
+		String aliasBody = aliasPostFor(patternText.trim());
+		if (aliasBody != null) {
+			out.append("\n⚠ «").append(patternText.trim())
+				.append("» is the name of an alias (it types: ").append(aliasBody).append(").")
+				.append("\nA trigger does not read aliases: aliases expand what you type,")
+				.append(" a trigger matches what the game sends. This trigger will wait for")
+				.append(" the game to print the text «").append(patternText.trim())
+				.append("». Put the game's own text here instead — an alias belongs in a")
+				.append(" tap or send response, where it is a typed line.");
+		}
+		return out.toString();
+	}
+
+	/** Alias names to bodies, read once when the editor opens; null until then. */
+	private HashMap<String, String> aliasNames;
+
+	/**
+	 * Snapshot the alias names so the preview can name one without a binder
+	 * round trip per keystroke.
+	 *
+	 * <p>Once, at open: the whole map crosses the binder, and the preview runs
+	 * on every character typed into the pattern field. A dead binder leaves an
+	 * empty map, which costs the hint and nothing else.
+	 */
+	@SuppressWarnings("unchecked")
+	private void loadAliasNames() {
+		aliasNames = new HashMap<String, String>();
+		if (service == null) {
+			return;
+		}
+		try {
+			java.util.Map<String, com.resurrection.blowtorch2.lib.alias.AliasData> aliases =
+					(java.util.Map<String, com.resurrection.blowtorch2.lib.alias.AliasData>) service.getAliases();
+			if (aliases == null) {
+				return;
+			}
+			for (java.util.Map.Entry<String, com.resurrection.blowtorch2.lib.alias.AliasData> e
+					: aliases.entrySet()) {
+				com.resurrection.blowtorch2.lib.alias.AliasData a = e.getValue();
+				if (a == null) {
+					continue;
+				}
+				String pre = a.getPre() != null ? a.getPre() : e.getKey();
+				if (pre == null) {
+					continue;
+				}
+				// An alias that anchors is stored with its "^", and the player
+				// writing the bare name in the pattern field means the same one.
+				if (pre.startsWith("^")) {
+					pre = pre.substring(1);
+				}
+				if (pre.endsWith("$")) {
+					pre = pre.substring(0, pre.length() - 1);
+				}
+				aliasNames.put(pre, a.getPost() != null ? a.getPost() : "");
+			}
+		} catch (RemoteException dead) {
+			// No hint; the editor still edits.
+		} catch (RuntimeException dead) {
+			// A binder can throw anything the service threw, and a missing hint
+			// is never worth taking the editor down for.
+		}
+	}
+
+	/**
+	 * The command an alias of this name expands to, for the warning above.
+	 *
+	 * @param candidate Trimmed contents of the pattern field.
+	 * @return The alias body, or null when no alias has that name.
+	 */
+	private String aliasPostFor(final String candidate) {
+		if (candidate == null || candidate.length() == 0 || aliasNames == null) {
+			return null;
+		}
+		return aliasNames.get(candidate);
 	}
 	
 	

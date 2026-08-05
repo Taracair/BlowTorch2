@@ -137,7 +137,14 @@ function BUTTON:new(data,density)
 end
 
 function BUTTON:updateRect(statusoffset)
-	self:updateRectAt(self.data.x, self.data.y, statusoffset)
+	-- posX/posY live in buttonwindow and pick the pair for the orientation the
+	-- phone is in; they are absent in the plain-button unit context, where the
+	-- portrait pair is the only one there is.
+	if posX ~= nil and posY ~= nil then
+		self:updateRectAt(posX(self.data), posY(self.data), statusoffset)
+	else
+		self:updateRectAt(self.data.x, self.data.y, statusoffset)
+	end
 end
 
 -- Draw the button at x,y without touching data.x/data.y. Turning the phone
@@ -487,8 +494,15 @@ function BUTTON:draw(state,canvas)
 		end
 		
 	end
-	local tX = self.data.x - (p:measureText(label)/2)
-	local tY = self.data.y + (p:getTextSize()/2) + statusoffset
+	-- Centre the label on the rect, not on data.x/data.y. The rect is built by
+	-- updateRectAt from whichever position this orientation is in force (see
+	-- buttonwindow.posX), and it already carries statusoffset. Reading the
+	-- portrait pair here meant that in landscape -- and for the whole of a move
+	-- in the manager -- the tile moved and its label stayed behind.
+	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
+	local cy = (rectTop(rect) + rectBottom(rect)) * 0.5
+	local tX = cx - (p:measureText(label)/2)
+	local tY = cy + (p:getTextSize()/2)
 	p:setTypeface(DEFAULT_BOLD_TYPEFACE)
 	canvas:drawText(label,tX,tY,p)
 	-- nil defaults to on; only explicit false/"false"/0 hides U/D/L/R, Hold, accordion badges.

@@ -33,7 +33,9 @@ local function findLine(pattern, what)
 	error("could not locate " .. what .. " in " .. SRC)
 end
 
-local first = findLine("^function sanitizeButtonSet", "sanitizeButtonSet")
+-- Start at the clamp helper, not at sanitizeButtonSet: the function calls it,
+-- and extracting from the function alone left it calling a nil global.
+local first = findLine("^local function clampToScreen", "clampToScreen")
 local stop = findLine("^function alignDefaultButtons", "alignDefaultButtons")
 
 -- Stubs for the host side: a 1080x2400 screen at density 2.625, like a Pixel 9a.
@@ -197,6 +199,48 @@ check(okHuge, "an absurd tile size must not raise")
 local slab = buttonsets.huge[1]
 check(type(slab.x) == "number" and slab.x == slab.x, "x must still be a real number")
 check(type(slab.y) == "number" and slab.y == slab.y, "y must still be a real number")
+
+print("9. the portrait pair is never measured against the landscape screen")
+-- The bug the maintainer hit: editing the button grid in landscape loaded the
+-- set while the metrics reported 2400x1080, so every portrait y below 1080 was
+-- fine and everything above it was dragged up. Portrait coordinates belong to
+-- the portrait screen whichever way the phone is being held, so the same set
+-- must come out identical from both.
+local function portraitPad()
+	return {
+		{ label = "TOP", x = 540, y = 200 },
+		{ label = "LOW", x = 540, y = 2200 },
+	}
+end
+buttonsets.rot = portraitPad()
+sanitizeButtonSet("rot")
+local uprightX, uprightY = buttonsets.rot[2].x, buttonsets.rot[2].y
+WIDTH, HEIGHT = 2400, 1080
+buttonsets.rot = portraitPad()
+local movedSide = sanitizeButtonSet("rot")
+check(movedSide == false, "a portrait pad must not report a move just because the phone turned")
+check(buttonsets.rot[2].x == uprightX and buttonsets.rot[2].y == uprightY,
+	"the low tile must keep its portrait y (" .. uprightY .. "), not be pulled onto a landscape screen")
+
+print("10. the landscape pair is clamped, and only where one exists")
+-- A landscape pair off the side of the landscape screen is pulled back; a
+-- button that has never been moved in landscape must not gain one, because an
+-- absent pair is what makes landscape draw the portrait layout.
+buttonsets.land = {
+	{ label = "FAR", x = 540, y = 300, xLand = 9000, yLand = 5000 },
+	{ label = "NONE", x = 540, y = 300 },
+}
+local movedLand = sanitizeButtonSet("land")
+check(movedLand == true, "an off-screen landscape pair must be reported as moved")
+local far = buttonsets.land[1]
+check(math.abs(far.xLand - (2400 - 42 * DENSITY / 2)) < 0.001,
+	"xLand must be clamped to the landscape width, got " .. tostring(far.xLand))
+check(math.abs(far.yLand - (1080 - 42 * DENSITY / 2)) < 0.001,
+	"yLand must be clamped to the landscape height, got " .. tostring(far.yLand))
+check(far.x == 540 and far.y == 300, "clamping the landscape pair must not touch the portrait pair")
+check(buttonsets.land[2].xLand == nil and buttonsets.land[2].yLand == nil,
+	"a button with no landscape pair must not be given one")
+WIDTH, HEIGHT = 1080, 2400
 
 print("")
 if failures == 0 then

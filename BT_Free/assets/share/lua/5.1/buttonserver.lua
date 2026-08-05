@@ -1740,6 +1740,23 @@ end
 -- drawn. No keep-out under the overflow menu either — that would quietly move
 -- tiles a user placed there on purpose. Starter pads clear the menu through
 -- alignDefaultButtons' topPad instead.
+-- One centre, one screen. Bounds are per button, from half its own size: a
+-- fixed 24dp inset is a bound on the *centre*, so a 72dp tile parked at the
+-- limit still hung 12dp off the right edge — visible as the clipped INV/NAV
+-- column at XL. nil and NaN both fail these comparisons, so both land on the
+-- minimum rather than propagating.
+local function clampToScreen(x, y, bw, bh, screenW, screenH)
+	local minX, maxX = bw / 2, screenW - bw / 2
+	local minY, maxY = bh / 2, screenH - bh / 2
+	if maxX < minX then maxX = minX end
+	if maxY < minY then maxY = minY end
+	if x == nil or x ~= x or x < minX then x = minX end
+	if x > maxX then x = maxX end
+	if y == nil or y ~= y or y < minY then y = minY end
+	if y > maxY then y = maxY end
+	return x, y
+end
+
 function sanitizeButtonSet(setName)
 	local set = buttonsets[setName]
 	if set == nil or context == nil then return false end
@@ -1749,37 +1766,51 @@ function sanitizeButtonSet(setName)
 	local h = tonumber(metrics.heightPixels) or 0
 	if w <= 0 or h <= 0 then return false end
 
+	-- Each orientation is clamped against its own screen, and never against the
+	-- one the phone happens to be held in. buttonwindow gives a button an
+	-- optional landscape pair (xLand/yLand, commit "Landscape gets its own
+	-- button layout"); x/y is the portrait pair. This function used to clamp
+	-- x/y against getDisplayMetrics() as-is, so loading a set while the phone
+	-- was on its side measured the portrait layout against a landscape screen
+	-- and dragged the portrait buttons up -- which is what the maintainer saw
+	-- after editing the landscape grid. Deriving both screens from the same
+	-- metrics also means it no longer matters whether the service's resources
+	-- have rotated yet.
+	local portraitW, portraitH = math.min(w, h), math.max(w, h)
+	local landW, landH = math.max(w, h), math.min(w, h)
+
 	local defs = buttonset_defaults[setName]
 	local moved = false
 	for i,b in pairs(set) do
-		-- Bounds are per button, from half its own size. A fixed 24dp inset is a
-		-- bound on the *centre*, so a 72dp tile parked at the limit still hung
-		-- 12dp off the right edge — visible as the clipped INV/NAV column at XL.
 		local bw = (tonumber(b.width) or tonumber(defs and defs.width) or 42) * d
 		local bh = (tonumber(b.height) or tonumber(defs and defs.height) or 42) * d
-		local minX, maxX = bw / 2, w - bw / 2
-		local minY, maxY = bh / 2, h - bh / 2
-		if maxX < minX then maxX = minX end
-		if maxY < minY then maxY = minY end
-		local x = tonumber(b.x)
-		local y = tonumber(b.y)
+
 		-- Compare against the numeric original, not the raw field. Coordinates
 		-- come back from the settings XML as strings, and in Lua 1 ~= "1", so
 		-- comparing to b.x reported every button as moved on the first load
 		-- after a profile read — a settings write and a Note() in the game
 		-- window every time, for buttons that were never off screen.
-		local ox, oy = x, y
-		-- nil and NaN both fail these comparisons, so both land on the minimum.
-		if x == nil or x ~= x or x < minX then x = minX end
-		if x > maxX then x = maxX end
-		if y == nil or y ~= y or y < minY then y = minY end
-		if y > maxY then y = maxY end
-		if x ~= ox or y ~= oy then
+		local x, y = clampToScreen(tonumber(b.x), tonumber(b.y), bw, bh, portraitW, portraitH)
+		if x ~= tonumber(b.x) or y ~= tonumber(b.y) then
 			moved = true
 		end
 		-- Still normalise the stored value to a number either way.
 		b.x = x
 		b.y = y
+
+		-- The landscape pair only exists once the player has moved this button
+		-- while the phone was on its side. Absent means landscape draws the
+		-- portrait layout, and writing one here would invent a landscape layout
+		-- nobody asked for — so a missing pair stays missing.
+		local lx, ly = tonumber(b.xLand), tonumber(b.yLand)
+		if lx ~= nil and ly ~= nil then
+			local nx, ny = clampToScreen(lx, ly, bw, bh, landW, landH)
+			if nx ~= lx or ny ~= ly then
+				moved = true
+			end
+			b.xLand = nx
+			b.yLand = ny
+		end
 	end
 	return moved
 end
