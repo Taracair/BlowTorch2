@@ -185,6 +185,11 @@ docs/HANDOFF.md
 # Local device-lab helper — machine-specific, not part of the app
 scripts/adb-device.sh
 
+# Demo recordings — may show MUD/session content; sources live in tools/media-studio/
+docs/media/*
+!docs/media/.gitkeep
+!docs/media/README.md
+
 # Local design notes for the maintainer — not part of the public tree yet
 docs/analiza-poziomy-canvas.md
 docs/tappable-words-pytania.md
