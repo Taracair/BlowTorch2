@@ -68,6 +68,22 @@ public class OptionsDialog extends Dialog {
 	String[] mEncodings = null;
 	//FragmentManager mFragementManager;
 	
+	/**
+	 * Settings the button editor owns, hidden from this dialog.
+	 *
+	 * <p>Both are global switches with a checkbox in the editor's Swipe tab,
+	 * which is where you can see what they do. They still need a row in the
+	 * profile — that row <em>is</em> where the value is stored, and without it
+	 * the editor's checkbox has nowhere to write and resets on every launch —
+	 * so the row stays and only the duplicate switch here goes away.
+	 *
+	 * <p>Per-button settings are a different thing and are not listed here:
+	 * neither of these has a per-button override.
+	 */
+	private static final java.util.HashSet<String> EDITOR_OWNED_KEYS =
+			new java.util.HashSet<String>(java.util.Arrays.asList(
+					"show_gesture_hints", "show_swipe_preview"));
+
 	HashMap<Integer,String> pluginSettingsMap = new HashMap<Integer,String>();
 	boolean toggle = true;
 	
@@ -237,20 +253,49 @@ public class OptionsDialog extends Dialog {
 	class OptionsAdapter extends BaseAdapter {
 
 		SettingsGroup group;
-		
+
+		/**
+		 * The rows actually shown, and for each one its index in the group.
+		 *
+		 * <p>The index has to be carried: pluginSettingsMap keys the plugin name
+		 * by position in the group, so a hidden row above a plugin's group would
+		 * otherwise open that group as the wrong plugin.
+		 */
+		private final ArrayList<Option> visible = new ArrayList<Option>();
+		private final ArrayList<Integer> sourceIndex = new ArrayList<Integer>();
+
 		public OptionsAdapter(SettingsGroup sg) {
 			this.group = sg;
+			ArrayList<Option> all = sg.getOptions();
+			for(int i = 0;i < all.size();i++) {
+				Option o = all.get(i);
+				if(o == null) {
+					continue;
+				}
+				if(o.getKey() != null && EDITOR_OWNED_KEYS.contains(o.getKey())) {
+					continue;
+				}
+				visible.add(o);
+				sourceIndex.add(Integer.valueOf(i));
+			}
 		}
-		
+
+		/** Index in the group of the row drawn at this adapter position. */
+		int sourcePosition(int position) {
+			if(position < 0 || position >= sourceIndex.size()) {
+				return position;
+			}
+			return sourceIndex.get(position).intValue();
+		}
+
 		@Override
 		public int getCount() {
-			// TODO Auto-generated method stub
-			return group.getOptions().size();
+			return visible.size();
 		}
 
 		@Override
 		public Object getItem(int position) {
-			return group.getOptions().get(position);
+			return visible.get(position);
 		}
 
 		@Override
@@ -310,7 +355,7 @@ public class OptionsDialog extends Dialog {
 				break;
 			case GROUP:
 				v.setTag(o);
-				v.setOnClickListener(new GroupClickedListener(position));
+				v.setOnClickListener(new GroupClickedListener(sourcePosition(position)));
 				break;
 			case LIST:
 				//set up list dialog clicker.
