@@ -1,0 +1,6 @@
+This commit also added scripts/demo-record.sh, the laptop-side screen-recording
+helper, which has nothing to do with the editor undo/redo arrows in the subject
+line. The script is not part of the app and is not in any shipped APK; only this
+commit message is wrong. History was left intact deliberately: d26d23a1 is an
+ancestor of tag v2.2.4 and of origin/main, and rewriting it would move the tag
+the published release asset was built from.
