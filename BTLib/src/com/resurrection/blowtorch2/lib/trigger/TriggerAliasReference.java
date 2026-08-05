@@ -10,7 +10,8 @@ import java.util.regex.Pattern;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
 
 /**
- * An alias named inside a trigger's pattern: the {@code $alias{name}} form.
+ * An alias named in a trigger's pattern, so the trigger watches for the alias's
+ * text instead of its name.
  *
  * <p>An alias and a trigger face opposite ways. An alias expands a line the
  * player <em>types</em>; a trigger matches a line the game <em>sends</em>. So
@@ -21,11 +22,26 @@ import com.resurrection.blowtorch2.lib.alias.AliasData;
  * text, once, when the trigger system is built. Nothing about the alias's own
  * behaviour comes along.
  *
- * <p>The reference is explicit rather than "a pattern that happens to be an
- * alias name". A profile here has aliases called {@code Ch}, {@code c0rpse} and
- * {@code 4cont}; making a bare name expand would silently change what an
- * existing trigger of that pattern watches for, and would make it impossible to
- * write a trigger on that literal text at all.
+ * <p>There are two ways to name one, and the plain one is the one to reach for:
+ *
+ * <ul>
+ * <li><b>The whole pattern is the alias's name.</b> Type {@code _tappable1} in
+ *     the pattern box and the trigger watches for {@code circuit}. This is what
+ *     the maintainer tried before there was anything to make it work, and
+ *     asking a player to write punctuation for it was rejected as too
+ *     technical.
+ * <li><b>{@code $alias&#123;name&#125;} inside a longer pattern</b>, where the
+ *     alias is one word of it: {@code You see a $alias&#123;spares&#125; here}.
+ *     There is nothing else the whole-pattern form could do here.
+ * </ul>
+ *
+ * <p>The first form does mean a trigger whose pattern is exactly an alias's
+ * name can no longer watch for that text literally, and that a new alias can
+ * change what an existing trigger watches for. Across the seven profiles on the
+ * maintainer's phone -- 143 aliases against 214 triggers -- exactly one pattern
+ * is an alias name, and it is {@code _tappable1}, the one this was asked for.
+ * The escape, when it is needed, is that the whole pattern has to be
+ * <em>exactly</em> the name: in regex mode {@code ^Ch$} names no alias.
  *
  * <p>Three kinds of reference are refused, and a refused reference is left in
  * the pattern exactly as written -- the same choice
@@ -53,9 +69,33 @@ public final class TriggerAliasReference {
 	private TriggerAliasReference() {
 	}
 
-	/** @return true when {@code pattern} names at least one alias. */
+	/** @return true when {@code pattern} contains a {@code $alias&#123;…&#125;}. */
 	public static boolean isReferencedIn(final String pattern) {
 		return pattern != null && REFERENCE.matcher(pattern).find();
+	}
+
+	/**
+	 * The alias a whole pattern names, or null.
+	 *
+	 * <p>Exact match on the trimmed pattern. Anything else -- a name with a
+	 * word beside it, an anchor around it -- is a pattern of its own and is
+	 * left alone, which is also the way out for a player who wants the literal
+	 * text of a name.
+	 *
+	 * @param pattern The trigger's pattern as the player wrote it.
+	 * @param bodies Name to body, from {@link #bodies}.
+	 * @return The name, whether or not its body can be used; null when the
+	 *     pattern is not a name at all.
+	 */
+	public static String wholePatternAlias(final String pattern, final Map<String, String> bodies) {
+		if (pattern == null || bodies == null) {
+			return null;
+		}
+		String name = pattern.trim();
+		if (name.length() == 0) {
+			return null;
+		}
+		return bodies.containsKey(name) ? name : null;
 	}
 
 	/**
@@ -116,6 +156,14 @@ public final class TriggerAliasReference {
 		if (pattern == null || pattern.length() == 0) {
 			return pattern;
 		}
+		String whole = wholePatternAlias(pattern, bodies);
+		if (whole != null) {
+			String body = usableBody(whole, bodies);
+			// A refused body leaves the pattern as the name, which is what it
+			// was: the trigger then watches for those letters, and the editor
+			// says why it could not do better.
+			return body != null ? body : pattern;
+		}
 		Matcher m = REFERENCE.matcher(pattern);
 		if (!m.find()) {
 			return pattern;
@@ -150,6 +198,12 @@ public final class TriggerAliasReference {
 		if (pattern == null) {
 			return out;
 		}
+		String whole = wholePatternAlias(pattern, bodies);
+		if (whole != null) {
+			out.add(describe(whole, bodies.get(whole), "the pattern stays the name «"
+					+ whole + "», which is text the game is unlikely to print"));
+			return out;
+		}
 		Matcher m = REFERENCE.matcher(pattern);
 		while (m.find()) {
 			String name = m.group(1);
@@ -157,23 +211,43 @@ public final class TriggerAliasReference {
 			if (raw == null) {
 				out.add("No alias called «" + name + "», so $alias{" + name
 						+ "} is left as written and this trigger will not fire.");
-			} else if (raw.indexOf(';') >= 0) {
-				out.add("Alias «" + name + "» is several commands (" + raw
-						+ "), which is not one piece of text the game can print."
-						+ " $alias{" + name + "} is left as written.");
-			} else if (TYPED_CAPTURE.matcher(raw).find()) {
-				out.add("Alias «" + name + "» uses $1-style captures from what you type ("
-						+ raw + "), which a trigger has nothing to fill from."
-						+ " $alias{" + name + "} is left as written.");
-			} else if (isReferencedIn(raw)) {
-				out.add("Alias «" + name + "» names another alias (" + raw
-						+ "), which is one level too deep. $alias{" + name
-						+ "} is left as written.");
 			} else {
-				out.add("Reads alias «" + name + "» → watches for: " + raw);
+				out.add(describe(name, raw, "$alias{" + name + "} is left as written"));
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * One line for the editor about one alias: what it gives the trigger, or
+	 * which of the four refusals applies and what happens instead.
+	 *
+	 * @param name The alias's name.
+	 * @param body Its text. Never null here.
+	 * @param consequence What the pattern does when the body is refused,
+	 *     phrased for the form the player used.
+	 * @return The line to show.
+	 */
+	private static String describe(final String name, final String body, final String consequence) {
+		if (body == null || body.length() == 0) {
+			return "Alias «" + name + "» has no text, so " + consequence + ".";
+		}
+		if (body.indexOf(';') >= 0) {
+			return "Alias «" + name + "» is several commands (" + body
+					+ "), which is not one piece of text the game can print, so "
+					+ consequence + ".";
+		}
+		if (TYPED_CAPTURE.matcher(body).find()) {
+			return "Alias «" + name + "» uses $1-style captures from what you type ("
+					+ body + "), which a trigger has nothing to fill from, so "
+					+ consequence + ".";
+		}
+		if (isReferencedIn(body)) {
+			return "Alias «" + name + "» names another alias (" + body
+					+ "), which is one level too deep, so " + consequence + ".";
+		}
+		return "Found alias «" + name + "»: watching for its text «" + body
+				+ "» instead of the name.";
 	}
 
 	/**

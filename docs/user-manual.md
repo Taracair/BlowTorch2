@@ -131,39 +131,44 @@ a second trigger, under **Conditions**, Add → Trigger enabled → pick
 `combat_mode`. Responders on the second trigger run only while `combat_mode`
 is enabled (`.trigger on combat_mode`).
 
-**Naming an alias in the pattern — `$alias{name}`:** write `$alias{spares}` and
-the alias's text is pasted into the pattern before it is compiled, so one alias
-can be the single place a word is written down and every trigger that names it
-follows when you edit it. Editing the alias updates the triggers immediately.
+**Using an alias in the pattern.** Type an alias's **name on its own** in the
+pattern box and the trigger watches for that alias's *text* instead of the name.
+Edit the alias later and every trigger using it follows at once.
 
-    Alias   spares → circuit
-    Pattern `You see a $alias{spares} here\.`
+    Alias   _tappable1 → circuit
+    Pattern `_tappable1`
+    Matches the word `circuit` in the game text
+
+To use one **inside a longer pattern**, write `$alias{name}`:
+
+    Pattern `You see a $alias{_tappable1} here\.`
     Matches `You see a circuit here.`
 
-The braces are required, so `$1` is still a capture and never a reference. It
-works in both modes: in regex mode the alias's text is pasted in as regex, in
-Literal mode as plain text. The preview under the pattern box shows what was
-read and what the trigger ends up watching for.
+Both work in Literal and regex mode — in regex mode the alias's text is pasted
+in as regex, in Literal mode as plain text. The braces are required in the
+second form, so `$1` is still a capture and never an alias. The preview under
+the pattern box always names the alias it found and the text it will watch for.
 
-Four references are refused, and a refused one is left in the pattern exactly
-as you wrote it — so the trigger visibly does not fire, rather than quietly
-watching for something else. The preview says which and why:
+**Four aliases cannot be used.** The pattern is then left exactly as you wrote
+it, so the trigger visibly does not fire rather than quietly watching for
+something else. The preview says which of the four it was:
 
-- no alias of that name;
-- the alias is several commands (`sip health;stand`);
-- the alias uses `$1`-style captures from what you type (`get $1 from bag`) —
-  a trigger has nothing to fill those from;
-- the alias names another alias — one level only, so a pair naming each other
-  cannot loop.
+1. **No alias of that name.**
+2. **The alias is several commands** — `sip health;stand`. That is not one
+   piece of text the game can print.
+3. **The alias uses `$1`-style captures from what you type** — `get $1 from
+   bag`. A trigger has nothing to fill those from.
+4. **The alias names another alias.** One level only, so a pair of aliases
+   naming each other cannot loop.
 
-A **disabled** alias still provides its text: disabling stops it expanding what
-you *type*, and a trigger is only borrowing the words.
+A **disabled** alias still gives its text: disabling stops it expanding what you
+*type*, and the trigger is only borrowing the words.
 
-The plain name on its own does nothing — a pattern of `spares` waits for the
-game to print the letters `spares`. Aliases expand what you type; triggers match
-what the game sends; `$alias{…}` is the only bridge between them. (The other
-direction has always worked: a tapped word runs its command as a typed line, so
-an alias name *is* a valid tap command — see recipe 9c.)
+**If you want the name itself as text:** only a pattern that is *exactly* the
+name is replaced. Turn **Literal?** off and write `^name$` and it is a pattern of
+its own again.
+
+The **?** button beside Done in the trigger editor says all of this on the phone.
 
 **GMCP note:** a **literal** trigger whose pattern starts with `%` (default
 GMCP character) is a GMCP hook (`%module.path`), not a line wildcard. See

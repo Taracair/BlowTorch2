@@ -138,6 +138,15 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		Button donelistener = (Button)findViewById(R.id.trigger_editor_done_button);
 		donelistener.setOnClickListener(new TriggerEditorDoneListener());
 		
+		Button helpButton = (Button)findViewById(R.id.trigger_editor_help_button);
+		if (helpButton != null) {
+			helpButton.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					showPatternHelp();
+				}
+			});
+		}
+
 		Button cancel = (Button)findViewById(R.id.new_trigger_cancel);
 		cancel.setOnClickListener(new View.OnClickListener() {
 			
@@ -345,12 +354,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	 * TriggerData.buildData} falls back to matching the text literally, on
 	 * purpose -- so a mistyped bracket produced a trigger that simply never
 	 * fired, with the reason recorded in {@code getPatternError()} and shown
-	 * nowhere. An alias named with {@code $alias&#123;name&#125;} is pasted in
-	 * before the pattern is compiled, and what it pastes is worth seeing here
-	 * rather than after the next line of game text fails to fire. And a pattern
-	 * that is <em>bare</em> alias name does nothing at all: an alias expands
-	 * what the player types, a trigger matches what the game sends, and only
-	 * the explicit form bridges them.
+	 * nowhere. An alias's text is pasted in before the pattern is compiled --
+	 * whether the whole pattern is the alias's name or it was named inside a
+	 * longer one -- and a pattern that quietly stopped meaning what it says is
+	 * exactly the thing that has to be said out loud, here, while it can still
+	 * be changed. And an alias whose text cannot stand in a pattern is refused
+	 * rather than pasted, which is only fair to say too.
 	 *
 	 * @param patternText The raw contents of the pattern field.
 	 * @param isLiteral Whether the literal-text checkbox is ticked.
@@ -387,20 +396,66 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 					.append(" only fire on a line containing exactly that text.");
 			}
 		}
-		String bare = patternText.trim();
-		String aliasBody = aliasNames == null ? null : aliasNames.get(bare);
-		if (aliasBody != null && !TriggerAliasReference.isReferencedIn(patternText)) {
-			out.append("\n\u26a0 «").append(bare)
-				.append("» is the name of an alias (it types: ").append(aliasBody).append("),")
-				.append(" but on its own it is just text: a trigger matches what the game")
-				.append(" sends, and an alias expands what you type. Write $alias{")
-				.append(bare).append("} to watch for the alias's text instead.");
-		}
 		return out.toString();
 	}
 
 	/** Alias names to bodies, read once when the editor opens; null until then. */
 	private HashMap<String, String> aliasNames;
+
+	/** The ? beside Done: what the pattern box does, in the words of the box. */
+	private void showPatternHelp() {
+		TextView body = new TextView(getContext());
+		final float d = getContext().getResources().getDisplayMetrics().density;
+		int pad = Math.round(16 * d);
+		body.setPadding(pad, pad, pad, pad);
+		body.setTextIsSelectable(true);
+		body.setText(PATTERN_HELP_TEXT);
+
+		ScrollView scroll = new ScrollView(getContext());
+		scroll.addView(body);
+
+		new AlertDialog.Builder(getContext())
+				.setTitle("The pattern")
+				.setView(scroll)
+				.setPositiveButton("Close", null)
+				.show();
+	}
+
+	static final String PATTERN_HELP_TEXT =
+			"The pattern is the text you are waiting for the GAME to print. It is not "
+			+ "something you type.\n\n"
+			+ "LITERAL? ON\n"
+			+ "The pattern is plain text and matches exactly those characters.\n\n"
+			+ "LITERAL? OFF\n"
+			+ "The pattern is a regular expression. Brackets capture: (\\w+) hits you "
+			+ "puts the name in $1, which you can use in the responses. If it does not "
+			+ "compile it is matched as plain text instead, and the preview under the "
+			+ "box says what was wrong.\n\n"
+			+ "USING AN ALIAS\n"
+			+ "Type an alias's name on its own and the trigger watches for that alias's "
+			+ "text instead of the name. So with an alias _tappable1 that types "
+			+ "circuit, a pattern of _tappable1 watches for the word circuit. Edit the "
+			+ "alias later and every trigger using it follows.\n\n"
+			+ "To use one inside a longer pattern, write $alias{name}:\n"
+			+ "    You see a $alias{_tappable1} here\\.\n\n"
+			+ "The preview under the box always names the alias it found and the text "
+			+ "it will watch for.\n\n"
+			+ "FOUR ALIASES CANNOT BE USED\n"
+			+ "The pattern is then left exactly as you wrote it, so the trigger "
+			+ "visibly does not fire rather than quietly watching for something else. "
+			+ "The preview says which of these it was:\n"
+			+ "1. There is no alias of that name.\n"
+			+ "2. The alias is several commands, like sip health;stand. That is not one "
+			+ "piece of text the game can print.\n"
+			+ "3. The alias uses $1-style captures from what you type, like "
+			+ "get $1 from bag. A trigger has nothing to fill those from.\n"
+			+ "4. The alias names another alias. One level only, so a pair of aliases "
+			+ "naming each other cannot loop.\n\n"
+			+ "A disabled alias still gives its text: disabling stops it expanding what "
+			+ "you type, and the trigger is only borrowing the words.\n\n"
+			+ "IF YOU REALLY WANT THE NAME AS TEXT\n"
+			+ "Only a pattern that is exactly the name is replaced. Turn Literal? off "
+			+ "and write ^name$ and it is a pattern of its own again.";
 
 	/**
 	 * Snapshot the alias names so the preview can resolve $alias{...} without a

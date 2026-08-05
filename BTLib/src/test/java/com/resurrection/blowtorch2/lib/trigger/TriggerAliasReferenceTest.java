@@ -133,6 +133,70 @@ public class TriggerAliasReferenceTest {
 				TriggerAliasReference.bodies(aliases)));
 	}
 
+	/** The plain form: the whole pattern is the alias's name. */
+	@Test
+	public void aWholePatternThatIsAnAliasNameBecomesItsText() {
+		assertEquals("circuit",
+				TriggerAliasReference.resolve("_tappable1", bodies("_tappable1", "circuit")));
+	}
+
+	/** Surrounding space is the player's, not a different pattern. */
+	@Test
+	public void aWholePatternIsTrimmedBeforeItIsLookedUp() {
+		assertEquals("circuit",
+				TriggerAliasReference.resolve("  _tappable1 ", bodies("_tappable1", "circuit")));
+	}
+
+	/**
+	 * Only the whole pattern. A name with anything else around it is a pattern
+	 * of its own -- which is also how a player writes a trigger on the literal
+	 * text of a name.
+	 */
+	@Test
+	public void anAliasNameWithAnythingAroundItIsNotReplaced() {
+		Map<String, String> b = bodies("Ch", "Corpnet history");
+		assertSame("^Ch$", TriggerAliasReference.resolve("^Ch$", b));
+		assertSame("Ch arrives", TriggerAliasReference.resolve("Ch arrives", b));
+	}
+
+	/** A refused body leaves the name as the pattern, not an empty one. */
+	@Test
+	public void aWholePatternNamingARefusedAliasKeepsTheName() {
+		String input = "_climb";
+		assertSame(input, TriggerAliasReference.resolve(input, bodies("_climb", "N;s;Get cig")));
+	}
+
+	/** The editor has to be able to say "found alias X, watching for Y". */
+	@Test
+	public void explainNamesTheAliasFoundInAWholePattern() {
+		List<String> out = TriggerAliasReference.explain("_tappable1",
+				bodies("_tappable1", "circuit"));
+		assertEquals(1, out.size());
+		assertTrue(out.get(0), out.get(0).contains("_tappable1"));
+		assertTrue(out.get(0), out.get(0).contains("circuit"));
+	}
+
+	/** And why it could not, for the whole-pattern form too. */
+	@Test
+	public void explainSaysWhyAWholePatternAliasWasRefused() {
+		List<String> out = TriggerAliasReference.explain("gfbb",
+				bodies("gfbb", "get $1 $2 from 1cont"));
+		assertEquals(1, out.size());
+		assertTrue(out.get(0), out.get(0).contains("captures"));
+	}
+
+	/** The case that started all of this, end to end through a trigger. */
+	@Test
+	public void theBarePatternTheMaintainerTypedNowWatchesForTheAliasText() {
+		TriggerData t = new TriggerData();
+		t.setPattern("_tappable1");
+		t.setInterpretAsRegex(false);
+		assertTrue(t.resolveAliases(bodies("_tappable1", "circuit")));
+		assertTrue(t.getMatcher().reset("You see a circuit here.").find());
+		assertEquals("_tappable1", t.getPattern());
+		assertEquals("circuit", t.getEffectivePattern());
+	}
+
 	@Test
 	public void explainNamesWhatWasReadAndWhatItWatchesFor() {
 		List<String> out = TriggerAliasReference.explain("$alias{_tappable1}",
