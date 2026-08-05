@@ -181,10 +181,24 @@
 	  	android:layout_weight="1"
 	  	android:id="@+id/new_alias_cancel"
 	  	android:text="Cancel" />
+	  <!-- Cancel, ?, Done: the same three the trigger and timer editors have. -->
+	  <Button
+	  	android:id="@+id/alias_editor_help_button"
+	  	android:layout_width="wrap_content"
+	  	android:layout_height="wrap_content"
+	  	android:minHeight="44dip"
+	  	android:minWidth="52dip"
+	  	android:layout_marginLeft="6dip"
+	  	android:background="@drawable/editor_more_button_bg"
+	  	android:textColor="#FFC7CDD4"
+	  	android:textSize="16dip"
+	  	android:textStyle="bold"
+	  	android:text="?" />
 	  <Button
 	  	android:layout_width="0dip"
 	  	android:layout_height="wrap_content"
 	  	android:layout_weight="1"
+	  	android:layout_marginLeft="6dip"
 	  	android:text="Done"
 	  	android:id="@+id/new_alias_done_button"/>
   </LinearLayout>

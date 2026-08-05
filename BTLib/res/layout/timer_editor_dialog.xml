@@ -313,9 +313,8 @@
   	
   </ScrollView>
 
-  <!-- Cancel, More, Done. "More" rather than "?": it is the word the alias and
-       trigger lists already use for the same kind of button, and a lone
-       question mark told nobody what it did. -->
+  <!-- Cancel, ?, Done. The ? is help; the lists' "More" is their actions
+       overflow, which is a different thing wearing a similar button. -->
   <LinearLayout
   	android:id="@+id/editor_button_bar"
   	android:layout_width="match_parent"
@@ -338,12 +337,13 @@
 	  	android:layout_width="wrap_content"
 	  	android:layout_height="wrap_content"
 	  	android:minHeight="44dip"
-	  	android:minWidth="72dip"
+	  	android:minWidth="52dip"
 	  	android:layout_marginLeft="6dip"
 	  	android:background="@drawable/editor_more_button_bg"
 	  	android:textColor="#FFC7CDD4"
-	  	android:textSize="14dip"
-	  	android:text="More" />
+	  	android:textSize="16dip"
+	  	android:textStyle="bold"
+	  	android:text="?" />
 	  <Button
 	  	android:layout_width="0dip"
 	  	android:layout_height="wrap_content"

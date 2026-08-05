@@ -23,6 +23,18 @@ import android.widget.LinearLayout;
 
 public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog implements BaseSelectionDialog.UtilityToolbarListener {
 
+	/** The ? beside New / More / Done; see {@link com.resurrection.blowtorch2.lib.window.EditorHelp}. */
+	@Override
+	protected String getHelpTitle() {
+		return "Timers";
+	}
+
+	@Override
+	protected String getHelpBody() {
+		return com.resurrection.blowtorch2.lib.window.EditorHelp.TIMERS;
+	}
+
+
 	HashMap<String,TimerData> dataMap;
 	String[] sortedKeys;
 

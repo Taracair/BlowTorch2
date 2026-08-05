@@ -25,6 +25,18 @@ import com.resurrection.blowtorch2.lib.window.BaseSelectionDialog;
 
 public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog implements BaseSelectionDialog.UtilityToolbarListener,AliasEditorDialogDoneListener {
 
+	/** The ? beside New / More / Done; see {@link com.resurrection.blowtorch2.lib.window.EditorHelp}. */
+	@Override
+	protected String getHelpTitle() {
+		return "Aliases";
+	}
+
+	@Override
+	protected String getHelpBody() {
+		return com.resurrection.blowtorch2.lib.window.EditorHelp.ALIASES;
+	}
+
+
 	HashMap<String,AliasData> dataMap;
 	String[] sortedKeys;
 

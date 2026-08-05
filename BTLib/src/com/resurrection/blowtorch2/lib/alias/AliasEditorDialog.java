@@ -129,6 +129,16 @@ public class AliasEditorDialog extends Dialog {
 		initMatches();
 		setupLocalEchoSpinner();
 		setupAliasPreview();
+		Button helpButton = (Button)findViewById(R.id.alias_editor_help_button);
+		if (helpButton != null) {
+			helpButton.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					com.resurrection.blowtorch2.lib.window.EditorHelp.show(
+							getContext(), "Aliases",
+							com.resurrection.blowtorch2.lib.window.EditorHelp.ALIASES);
+				}
+			});
+		}
 		EditorDialogChrome.applyFloatingWrapContentHeight(this);
 		//load in the array adapter to hook up the list view
 	}

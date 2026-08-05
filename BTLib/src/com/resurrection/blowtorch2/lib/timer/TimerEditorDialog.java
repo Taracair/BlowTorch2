@@ -169,23 +169,10 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		EditorDialogChrome.applyFloatingWrapContentHeight(this);
 	}
 
-	/** The More button: what a timer is and what the fields do. */
+	/** The ? beside Done: what a timer is and what the fields do. */
 	private void showTimerHelp() {
-		TextView body = new TextView(getContext());
-		final float d = getContext().getResources().getDisplayMetrics().density;
-		int pad = Math.round(16 * d);
-		body.setPadding(pad, pad, pad, pad);
-		body.setTextIsSelectable(true);
-		body.setText(TIMER_HELP_TEXT);
-
-		android.widget.ScrollView scroll = new android.widget.ScrollView(getContext());
-		scroll.addView(body);
-
-		new android.app.AlertDialog.Builder(getContext())
-				.setTitle("Timers")
-				.setView(scroll)
-				.setPositiveButton("Close", null)
-				.show();
+		com.resurrection.blowtorch2.lib.window.EditorHelp.show(
+				getContext(), "Timers", TIMER_HELP_TEXT);
 	}
 
 	static final String TIMER_HELP_TEXT =

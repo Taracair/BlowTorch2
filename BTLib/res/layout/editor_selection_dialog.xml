@@ -57,6 +57,24 @@
 			android:visibility="gone"
 			android:text="Refresh"/>
 
+		<!-- Help, not overflow: More is the actions menu, ? is "what is this
+		     list for". The three lists look alike and the difference between an
+		     alias, a trigger and a timer is which way it faces, which nothing
+		     else on the screen says. -->
+		<Button
+			android:id="@+id/helpbutton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:minWidth="52dip"
+			android:layout_marginLeft="6dip"
+			android:background="@drawable/editor_more_button_bg"
+			android:textColor="#FFC7CDD4"
+			android:text="?"
+			android:textSize="16dip"
+			android:textStyle="bold"
+			android:visibility="gone" />
+
 		<Button
 			android:id="@+id/optionsbutton"
 			android:layout_width="wrap_content"

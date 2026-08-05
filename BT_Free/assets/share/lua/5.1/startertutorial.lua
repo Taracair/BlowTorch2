@@ -360,7 +360,10 @@ Patterns with spaces or ^…$ regex must be edited in the Aliases dialog.
 
 Aliases are for shortcuts you type. Triggers (next) react to game text —
 but a trigger can borrow an alias's text as its pattern, so one alias can
-be the single place a word is written down. See Triggers.]])
+be the single place a word is written down. See Triggers.
+
+The ? button on the Aliases list, and beside Done in the alias editor,
+explains the fields and the ^ / $ checkboxes with examples.]])
 end
 
 TOPICS.triggers = function()
@@ -375,9 +378,10 @@ Example idea: when the game says you are hungry, Ack sends "eat bread".
 Another: gag spammy combat lines; Color important tells; Toast a warning.
 
 Open: ⋮ → Triggers → add. Keep Literal on until you need regex. Captures
-in regex mode become $1, $2 in Ack / Replace / Toast text. The More
-button beside Done explains the pattern box, and the preview under the
-box says what your pattern will really do before you save it.
+in regex mode become $1, $2 in Ack / Replace / Toast text. The ? button
+beside Done explains the pattern box, and the preview under the box says
+what your pattern will really do before you save it. The ? on the
+Triggers list itself explains what a trigger is, with examples.
 
 Using an alias as the pattern: type an alias's NAME on its own and the
 trigger watches for that alias's TEXT instead. With an alias spares that
@@ -473,10 +477,11 @@ keeps running on the new length, one that was stopped stays stopped.
 Name matches the timer list (not a numeric index). Useful for ticks,
 cooldowns, or reminder toasts while you play.
 
-The More button beside Done in the timer editor says all of this on the
+The ? button beside Done in the timer editor says all of this on the
 phone, including that Conditions are checked when the timer fires and not
 while it counts, and that Group is for finding timers in the list — there
-is no .timer group command.]])
+is no .timer group command. The ? on the Timers list explains what a
+timer is and how it differs from a trigger.]])
 end
 
 TOPICS.coloring = function()

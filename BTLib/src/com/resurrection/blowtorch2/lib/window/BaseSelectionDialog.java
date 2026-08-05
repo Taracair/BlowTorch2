@@ -52,6 +52,7 @@ public class BaseSelectionDialog extends Dialog {
 	private boolean mOptionsListToggle;
 	private ArrayAdapter<ItemEntry> mAdapter;
 	protected Button mOptionsButton;
+	protected Button mHelpButton;
 	
 	private int mLastSelectedIndex = -1;
 	/** Key of the row most recently confirmed for deletion (set before adapter remove). */
@@ -329,6 +330,9 @@ public class BaseSelectionDialog extends Dialog {
 		mOptionsList =(ListView) this.findViewById(R.id.optionslist);
 		mOptionsButton = (Button)this.findViewById(R.id.optionsbutton);
 		wireOptionsMenu();
+
+		mHelpButton = (Button)this.findViewById(R.id.helpbutton);
+		wireHelpButton();
 
 		mTitlebar = (TextView) this.findViewById(R.id.titlebar);
 
@@ -1210,6 +1214,43 @@ public class BaseSelectionDialog extends Dialog {
 		mToolbarButtons.clear();
 	}
 	
+	/**
+	 * What the {@code ?} shows on this list.
+	 *
+	 * <p>Null, the default, hides the button: a list with nothing to explain
+	 * should not offer to explain it. Subclasses that do override both this and
+	 * {@link #getHelpTitle()}.
+	 *
+	 * @return The help text, or null.
+	 */
+	protected String getHelpBody() {
+		return null;
+	}
+
+	/** @return The heading over {@link #getHelpBody()}. */
+	protected String getHelpTitle() {
+		return null;
+	}
+
+	/** Show the ? only where there is something behind it. */
+	private void wireHelpButton() {
+		if (mHelpButton == null) {
+			return;
+		}
+		final String body = getHelpBody();
+		if (body == null || body.length() == 0) {
+			mHelpButton.setVisibility(View.GONE);
+			return;
+		}
+		final String title = getHelpTitle() != null ? getHelpTitle() : "Help";
+		mHelpButton.setVisibility(View.VISIBLE);
+		mHelpButton.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				EditorHelp.show(BaseSelectionDialog.this.getContext(), title, body);
+			}
+		});
+	}
+
 	protected void promoteHelp() {
 		//promotes the help button to the filter selection dialog.
 		mPromoteHelp = true;

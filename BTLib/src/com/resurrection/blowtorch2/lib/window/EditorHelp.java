@@ -1,0 +1,168 @@
+package com.resurrection.blowtorch2.lib.window;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.widget.ScrollView;
+import android.widget.TextView;
+
+/**
+ * The {@code ?} beside the buttons: what this list is for, in the words the
+ * manual uses.
+ *
+ * <p>Three of the things a player has to keep apart are told apart by which
+ * way they face, and nothing on the screen says so. An <em>alias</em> rewrites
+ * a line you type before it leaves the phone. A <em>trigger</em> matches a line
+ * the game sent. A <em>timer</em> waits and then acts, with nothing having
+ * happened at all. The three lists look alike, so the difference has to be
+ * written down where the lists are.
+ *
+ * <p>These texts are the Aliases / Triggers / Timers sections of
+ * {@code docs/user-manual.md} boiled down to what fits on a phone, with the
+ * same examples, so a player who reads one and then the other is not told two
+ * different things. When one changes, change the other: the manual is the long
+ * form and this is the reminder.
+ */
+public final class EditorHelp {
+
+	private EditorHelp() {
+	}
+
+	/**
+	 * Show one of these texts, or an editor's own, in a scrollable box.
+	 *
+	 * @param context Dialog context.
+	 * @param title Heading, e.g. "Triggers".
+	 * @param body The text.
+	 */
+	public static void show(final Context context, final String title, final String body) {
+		if (context == null) {
+			return;
+		}
+		TextView view = new TextView(context);
+		final float d = context.getResources().getDisplayMetrics().density;
+		int pad = Math.round(16 * d);
+		view.setPadding(pad, pad, pad, pad);
+		view.setTextIsSelectable(true);
+		view.setText(body);
+
+		ScrollView scroll = new ScrollView(context);
+		scroll.addView(view);
+
+		new AlertDialog.Builder(context)
+				.setTitle(title)
+				.setView(scroll)
+				.setPositiveButton("Close", null)
+				.show();
+	}
+
+	public static final String ALIASES =
+			"An alias rewrites what YOU type, before it leaves the phone. It never "
+			+ "sees anything the game says -- that is a trigger.\n\n"
+			+ "THE TWO FIELDS\n"
+			+ "Replace: what you type. With: what is sent instead.\n\n"
+			+ "    Replace  k\n"
+			+ "    With     kill\n"
+			+ "    You type: k goblin   Sent: kill goblin\n\n"
+			+ "START AND END OF LINE\n"
+			+ "The two checkboxes add ^ and $ to the pattern, and they change how the "
+			+ "captures work:\n"
+			+ "  neither: the pattern is matched as a word anywhere in the line\n"
+			+ "  both:    $1 is the first (…) group of your pattern\n"
+			+ "    Replace  ^cast (.+)$    With  c $1\n"
+			+ "    You type: cast fireball   Sent: c fireball\n"
+			+ "  only ^:  the line is split on spaces -- $0 is the first word, $1 the "
+			+ "next, and so on\n\n"
+			+ "CHANGING ONE WHILE YOU PLAY\n"
+			+ "For a simple name (letters, digits, _) type the name with a dot and the "
+			+ "new text:\n"
+			+ "    .k kill                 sets alias k to send kill\n"
+			+ "A pattern with spaces or ^…$ has to be edited here instead.\n\n"
+			+ "LOCAL ECHO\n"
+			+ "Whether the expanded line is shown back to you. Use client setting "
+			+ "follows Options; Always show and Always hide override it for this one "
+			+ "alias. A password prompt still hides everything, whatever this says.\n\n"
+			+ "ENABLED\n"
+			+ "An alias switched off stops rewriting what you type. A trigger whose "
+			+ "pattern borrows this alias's text still works -- it is only borrowing "
+			+ "the words.\n\n"
+			+ "A trigger can use an alias's text as its pattern, so one alias is the "
+			+ "single place a word is written down. See the ? in the trigger editor.";
+
+	public static final String TRIGGERS =
+			"A trigger matches a line the GAME sent, and runs its actions. It never "
+			+ "sees what you type -- that is an alias.\n\n"
+			+ "PATTERN\n"
+			+ "Literal? on: plain text, matched exactly. Off: a regular expression, "
+			+ "where (…) captures become $1, $2 in the actions.\n\n"
+			+ "    Pattern  You hit (.+) for (\\d+)\n"
+			+ "    Ack      emote crushed $1 ($2 dmg)\n\n"
+			+ "    Pattern  A (.+) appears\n"
+			+ "    Ack      kill $1\n\n"
+			+ "The preview under the pattern box says what your pattern will really "
+			+ "do, and the ? in the trigger editor explains the box in full -- "
+			+ "including using an alias's text as the pattern.\n\n"
+			+ "ACTIONS\n"
+			+ "    Ack             send a command back to the game\n"
+			+ "    Replace / Gag   change or hide the line\n"
+			+ "    Color           tint the matching text\n"
+			+ "    Tappable Word   make the match pressable\n"
+			+ "    Toast / Notification   tell the phone\n"
+			+ "    Set Variable    remember something for later\n\n"
+			+ "CONDITIONS\n"
+			+ "An extra gate after the pattern matches, not a replacement for it. "
+			+ "Empty means always fire. Example: Only if trigger is ON, pointed at a "
+			+ "trigger called combat_mode, so a set of triggers turns on and off "
+			+ "together.\n\n"
+			+ "GROUP\n"
+			+ "A label like combat. The list shows and sorts by it, and\n"
+			+ "    .trigger group off combat\n"
+			+ "moves the whole set at once. One trigger at a time:\n"
+			+ "    .trigger on|off|toggle <name>\n\n"
+			+ "FIRE ONCE\n"
+			+ "Fires the first time and then stays quiet until the trigger is enabled "
+			+ "again.\n\n"
+			+ "TRYING ONE WITHOUT THE GAME\n"
+			+ "    .note some text\n"
+			+ "prints a line into the window and sends nothing to the server, so a "
+			+ "colour or a tappable word can be checked on a line you wrote.";
+
+	public static final String TIMERS =
+			"A timer waits, then runs its actions. Nothing has to happen in the game "
+			+ "and nothing has to be typed -- that is what makes it neither a trigger "
+			+ "nor an alias.\n\n"
+			+ "EVERY\n"
+			+ "Hours, minutes and seconds are added up rather than range-checked, so "
+			+ "90 in the seconds box is the same as 1m 30s. The line underneath shows "
+			+ "the total that will be used.\n\n"
+			+ "    Timer   heal\n"
+			+ "    Every   0h 0m 15s, Repeat on\n"
+			+ "    Ack     drink health\n\n"
+			+ "REPEAT\n"
+			+ "Off: fires once and stops. On: starts again the moment it fires. A "
+			+ "repeating 1-second timer sends its command every second.\n\n"
+			+ "ACTIONS\n"
+			+ "The same list as a trigger, minus the ones that need a matched line: "
+			+ "there is no $1 here, because nothing was matched.\n\n"
+			+ "CONDITIONS\n"
+			+ "Checked when the timer fires, not while it counts down. A timer whose "
+			+ "condition is false does nothing that time round and, if it repeats, "
+			+ "comes back. It is a gate, not a pause. Leave a healing timer running "
+			+ "for good and gate it on a variable your combat triggers set.\n\n"
+			+ "FROM THE INPUT BAR, BY NAME\n"
+			+ "    .timer play heal        start it\n"
+			+ "    .timer pause heal       hold it where it is\n"
+			+ "    .timer reset heal       back to full duration\n"
+			+ "    .timer stop heal        stop and reset\n"
+			+ "    .timer info heal        how long is left\n"
+			+ "    .timer duration heal 30 change how long it runs\n"
+			+ "Add silent as a last word to suppress the toast.\n\n"
+			+ "Changing the duration does not stop the timer: one that was running "
+			+ "keeps running on the new length, from now.\n\n"
+			+ "GROUP\n"
+			+ "A label the list shows, sorts and filters by. For timers it is for "
+			+ "finding them -- there is no .timer group command, unlike triggers.\n\n"
+			+ "WHILE THE PHONE SLEEPS\n"
+			+ "Timers keep counting in the connection's own process while the game "
+			+ "window is in the background. Android can still delay a long one on a "
+			+ "sleeping phone; a timer is not an alarm clock.";
+}

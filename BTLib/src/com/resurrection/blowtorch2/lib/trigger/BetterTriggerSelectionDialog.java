@@ -27,6 +27,18 @@ import com.resurrection.blowtorch2.lib.window.BaseSelectionDialog;
 
 public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog implements BaseSelectionDialog.UtilityToolbarListener {
 
+	/** The ? beside New / More / Done; see {@link com.resurrection.blowtorch2.lib.window.EditorHelp}. */
+	@Override
+	protected String getHelpTitle() {
+		return "Triggers";
+	}
+
+	@Override
+	protected String getHelpBody() {
+		return com.resurrection.blowtorch2.lib.window.EditorHelp.TRIGGERS;
+	}
+
+
 	HashMap<String,TriggerData> dataMap;
 	String[] sortedKeys;
 	private boolean mShowWarning = true;

@@ -405,23 +405,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	/** Alias names to bodies, read once when the editor opens; null until then. */
 	private HashMap<String, String> aliasNames;
 
-	/** The More button beside Done: what the pattern box does. */
+	/** The ? beside Done: what the pattern box does, in the words of the box. */
 	private void showPatternHelp() {
-		TextView body = new TextView(getContext());
-		final float d = getContext().getResources().getDisplayMetrics().density;
-		int pad = Math.round(16 * d);
-		body.setPadding(pad, pad, pad, pad);
-		body.setTextIsSelectable(true);
-		body.setText(PATTERN_HELP_TEXT);
-
-		ScrollView scroll = new ScrollView(getContext());
-		scroll.addView(body);
-
-		new AlertDialog.Builder(getContext())
-				.setTitle("The pattern")
-				.setView(scroll)
-				.setPositiveButton("Close", null)
-				.show();
+		com.resurrection.blowtorch2.lib.window.EditorHelp.show(
+				getContext(), "The pattern", PATTERN_HELP_TEXT);
 	}
 
 	static final String PATTERN_HELP_TEXT =
