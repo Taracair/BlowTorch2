@@ -1622,10 +1622,16 @@ UNDO_LIMIT = 20
 
 local function snapshotLayout()
 	local copytable = require("copytable")
-	local snap = { buttons = {}, defaults = {} }
+	local snap = { buttons = {}, selected = {}, defaults = {} }
 	for i = 1, #buttons do
 		if buttons[i] ~= nil then
 			snap.buttons[#snap.buttons + 1] = copytable.deep(buttons[i].data)
+			-- The selection is part of the state, not decoration: the layout
+			-- tools act on it, so an undo that dropped it would leave the next
+			-- Line up quietly acting on every button instead of the three the
+			-- player had picked. It lives on the button object, not in its data,
+			-- so the deep copy above does not carry it.
+			snap.selected[#snap.buttons] = buttons[i].selected == true
 		end
 	end
 	snap.defaults.width = defaults.width
@@ -1655,8 +1661,15 @@ local function restoreLayout(snap)
 	-- which is exactly what undo, redo, undo does.
 	for i = 1, #snap.buttons do
 		buttons[i] = BUTTON:new(copytable.deep(snap.buttons[i]), density)
+		buttons[i].selected = snap.selected[i] == true
 		refreshRect(buttons[i])
 	end
+	-- These are the buttons that were just thrown away. Leaving the touch
+	-- handler holding one of them means the next finger-up reads a selected flag
+	-- from an object no longer on screen.
+	touchedbutton = {}
+	fingerdown = false
+	selectedtouchstart = false
 
 	if manage and managerCanvas ~= nil then
 		drawManagerGrid()
@@ -2624,6 +2637,9 @@ function buttonOptions()
     pushUndo()
     tidyButtonLayout(columns)
     reportEditorState()
+  end)
+  editorOptionsDialog.setBeginGridChangeCallback(function()
+    pushUndo()
   end)
   editorOptionsDialog.setAlignSelectionCallback(function(axis)
     pushUndo()

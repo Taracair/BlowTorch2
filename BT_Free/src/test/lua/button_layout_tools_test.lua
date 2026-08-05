@@ -215,6 +215,18 @@ editorMenuUndo()
 check(buttons[1].data.x == 100 and buttons[2].data.x == 200,
 	"the same snapshot must restore a second time, not hand out a reference")
 
+print("5b. undo keeps the selection, because the tools act on it")
+buttons = { newButton(10, 10), newButton(20, 20), newButton(30, 30) }
+buttons[1].selected = true
+buttons[3].selected = true
+clearUndoHistory()
+pushUndo()
+buttons[1].data.x = 77
+editorMenuUndo()
+check(buttons[1].selected == true and buttons[3].selected == true,
+	"the two selected buttons must still be selected after an undo")
+check(buttons[2].selected == false, "the unselected one must stay unselected")
+
 print("6. undo survives a delete, and only remembers the last twenty steps")
 buttons = { newButton(10, 10), newButton(20, 20), newButton(30, 30) }
 clearUndoHistory()

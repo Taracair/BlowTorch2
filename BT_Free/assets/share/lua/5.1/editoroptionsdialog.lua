@@ -72,6 +72,10 @@ setShowSwipePreviewCallback = function(c) setShowSwipePreview = c end
 setApplySizeCallback = function(c) applySize = c end
 setTidyLayoutCallback = function(c) tidyLayout = c end
 setAlignSelectionCallback = function(c) alignSelection = c end
+-- Called once at the start of a grid-spacing change rather than on every step
+-- of it: the sliders fire per pixel dragged, and one undo step per pixel would
+-- fill the history with a single drag.
+setBeginGridChangeCallback = function(c) beginGridChange = c end
 setSpreadSelectionCallback = function(c) spreadSelection = c end
 setChromeGesturesCallback = function(c) setChromeGestures = c end
 setFitGridCallback = function(c) fitGrid = c end
@@ -878,6 +882,7 @@ commitGridFields = function()
   if gridXField == nil or gridYField == nil then
     return
   end
+  if beginGridChange ~= nil then beginGridChange() end
   gridX = commitAxis(gridXField, gridX, xSeekBar, setGridXSpacing)
   gridY = commitAxis(gridYField, gridY, ySeekBar, setGridYSpacing)
 end
@@ -1017,6 +1022,9 @@ tidyLayoutListener = luajava.createProxy("android.view.View$OnClickListener",{
 })
 
 gridXSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekBarChangeListener",{
+  onStartTrackingTouch = function(v)
+    if beginGridChange ~= nil then beginGridChange() end
+  end,
   onProgressChanged = function(v,progress,state)
     if suppressGridSync then
       return
@@ -1030,6 +1038,9 @@ gridXSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekB
 })
 
 gridYSeekBarChangeListener = luajava.createProxy("android.widget.SeekBar$OnSeekBarChangeListener",{
+  onStartTrackingTouch = function(v)
+    if beginGridChange ~= nil then beginGridChange() end
+  end,
   onProgressChanged = function(v,progress,state)
     if suppressGridSync then
       return
