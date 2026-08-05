@@ -37,13 +37,16 @@ cd "$ROOT"
 LUAJIT_205="$ROOT/LuaJIT-2.0.5"
 LUAJIT_21="$ROOT/LuaJIT-2.1"
 
-# LuaJIT 2.1 has no releases; upstream ships it as a moving branch. Pin the exact
-# commit so two builds of the same tag link the same interpreter — "branch v2.1"
-# would give whatever HEAD happened to be that day. This is the commit the 2.2.4
-# release was built from.
+# LuaJIT 2.1 has no releases; upstream ships it as a moving branch, so
+# "clone --branch v2.1" gave whatever HEAD was that day and nothing recorded
+# which. The sources are vendored in LuaJIT-2.1/ instead, exactly like 2.0.5, so
+# a checkout of any tag builds the same interpreter offline and a source-only
+# distributor (F-Droid) needs no external checkout.
 #
-# Bumping it: change the SHA, run this script, and test on a device. Nothing
-# reads the SHA at runtime.
+# The commit they came from is below, for provenance and for the fetch fallback
+# that runs only if the folder is missing. Updating LuaJIT means replacing the
+# folder from that upstream commit and testing on a device; nothing reads the
+# SHA at runtime.
 LUAJIT_21_COMMIT="${LUAJIT_21_COMMIT:-3c4f9fe2052b8d08a917ac0d5f38563f0297b5a3}"
 LUAJIT_21_URL="${LUAJIT_21_URL:-https://github.com/LuaJIT/LuaJIT.git}"
 
@@ -79,13 +82,14 @@ elif [ ! -d "$LUAJIT_21" ]; then
     git -C "$LUAJIT_21" remote add origin "$LUAJIT_21_URL"
     git -C "$LUAJIT_21" fetch -q --depth 1 origin "$LUAJIT_21_COMMIT"
     git -C "$LUAJIT_21" checkout -q FETCH_HEAD
-else
-    # Already on disk. Say so if it is not the pinned commit rather than
-    # silently building something else; the tree is the developer's, not ours.
+elif [ -d "$LUAJIT_21/.git" ]; then
+    # Somebody's own checkout rather than the vendored sources. Say so if it is a
+    # different commit instead of silently building something else; the tree is
+    # theirs, not ours. The vendored copy has no .git and is not checked here.
     have="$(git -C "$LUAJIT_21" rev-parse HEAD 2>/dev/null || echo unknown)"
     if [ "$have" != "$LUAJIT_21_COMMIT" ]; then
-        echo "WARNING: $LUAJIT_21 is at $have, pinned commit is $LUAJIT_21_COMMIT." >&2
-        echo "         Building it anyway. Delete the folder to get the pinned one." >&2
+        echo "WARNING: $LUAJIT_21 is a git checkout at $have, not the vendored" >&2
+        echo "         sources built from $LUAJIT_21_COMMIT. Building it anyway." >&2
     fi
 fi
 

@@ -23,12 +23,18 @@ minilua
 local.properties
 .idea
 .gradle
-LuaJIT-2.1/
-# Keep sources; ignore NDK/LuaJIT build leftovers under LuaJIT-2.0.5
+# Keep sources; ignore NDK/LuaJIT build leftovers under both LuaJIT trees
 LuaJIT-2.0.5/src/libluajit.so
 LuaJIT-2.0.5/src/luajit
 LuaJIT-2.0.5/src/host/buildvm
 LuaJIT-2.0.5/src/host/minilua
+LuaJIT-2.1/src/libluajit.so
+LuaJIT-2.1/src/luajit
+LuaJIT-2.1/src/host/buildvm
+LuaJIT-2.1/src/host/minilua
+LuaJIT-2.1/src/jit/vmdef.lua
+*.o
+*.a
 
 # Personal / internal notes — not for the public repo
 docs/FDROID_APPLY.md

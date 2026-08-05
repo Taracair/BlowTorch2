@@ -28,10 +28,8 @@ Builds:
     gradle:
       - production
     ndk: r26b
-    srclibs:
-      - LuaJIT@3c4f9fe2052b8d08a917ac0d5f38563f0297b5a3
     prebuild: sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
-    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ LUAJIT_21_DIR=$$LuaJIT$$ && cd .. && ./build_ndk_libraries.sh
+    build: export NDK_HOME=$$NDK$$ ANDROID_HOME=$$SDK$$ && cd .. && ./build_ndk_libraries.sh
     scandelete:
       - BTLib/key
 
@@ -79,17 +77,10 @@ MaintainerNotes: |
   permission justification aimed at reviewers and users.
 
   LuaJIT 2.1 (needed for arm64-v8a; 2.0.5 does not support it) has no upstream
-  release, only a moving v2.1 branch, so it is not vendored here. From 2.2.4 the
-  recipe passes a srclib checkout to the build script as LUAJIT_21_DIR and the
-  script fetches nothing. That srclib does not exist in fdroiddata yet and has
-  to be added alongside this recipe:
-
-    srclibs/LuaJIT.yml
-      RepoType: git
-      Repo: https://github.com/LuaJIT/LuaJIT.git
-
-  Without LUAJIT_21_DIR the script falls back to fetching the same pinned commit
-  itself, which is what a developer laptop does.
+  release, only a moving branch, so its sources are vendored in LuaJIT-2.1/ next
+  to the LuaJIT-2.0.5/ tree that was always there. No srclib and no network: the
+  build script compiles both from the checkout. Provenance is the commit named
+  at the top of build_ndk_libraries.sh; LuaJIT is MIT, COPYRIGHT included.
 
 ArchivePolicy: 2 versions
 AutoUpdateMode: Version

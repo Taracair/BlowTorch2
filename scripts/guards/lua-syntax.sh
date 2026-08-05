@@ -25,6 +25,11 @@ fi
 fail=0
 for f in "${targets[@]}"; do
   case "$f" in
+    # Upstream LuaJIT's own tooling (src/jit/*.lua). It is written in LuaJIT's
+    # dialect — hex float literals, goto — which luac5.1 rejects, it is not
+    # ours to fix, and it is not packaged into the APK. Only the Lua under
+    # BT_Free/assets ships.
+    LuaJIT-*/*) continue ;;
     *.lua) ;;
     *) continue ;;
   esac
