@@ -74,7 +74,8 @@ function refreshEditorUndoChrome() end
 -- update they call after every move.
 BUTTON = {}
 function BUTTON:new(data, dens)
-	local o = { data = data, density = dens, rectAt = nil }
+	-- selected = false, as the real BUTTON:new sets it.
+	local o = { data = data, density = dens, rectAt = nil, selected = false }
 	setmetatable(o, self)
 	self.__index = self
 	return o
@@ -244,6 +245,28 @@ for i = 1, 25 do
 end
 check(#undoStack == UNDO_LIMIT, "the stack is capped at " .. UNDO_LIMIT
 	.. ", got " .. #undoStack)
+
+print("6b. deleting the selection keeps the survivors, in order and in place")
+local delFirst = findLine("^function deleteSelectedButtons", "deleteSelectedButtons")
+local delStop = findLine("^arrangeListener = {}", "arrangeListener")
+assert(loadstring(table.concat(lines, "\n", delFirst, delStop - 1), "delete"))()
+assert(type(deleteSelectedButtons) == "function", "delete extraction failed")
+
+buttons = { newButton(10, 10), newButton(20, 20), newButton(30, 30), newButton(40, 40) }
+local sameTable = buttons
+buttons[2].selected = true
+buttons[4].selected = true
+clearUndoHistory()
+deleteSelectedButtons()
+check(#buttons == 2, "two of four survive, got " .. #buttons)
+check(buttons[1].data.x == 10 and buttons[2].data.x == 30,
+	"the survivors keep the order they were in")
+check(buttons == sameTable,
+	"the table itself must survive: other modules hold a reference to it")
+editorMenuUndo()
+check(#buttons == 4, "undo brings the deleted buttons back, got " .. #buttons)
+check(buttons[2].data.x == 20 and buttons[4].data.x == 40,
+	"and brings them back where they were")
 
 print("7. a new change drops the redo branch")
 buttons = { newButton(10, 10) }

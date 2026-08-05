@@ -2985,23 +2985,79 @@ Array:set(editorItems,0,"Move")
 Array:set(editorItems,1,"Edit")
 Array:set(editorItems,2,"Delete")
 
+-- With more than one button selected there is a fourth thing worth doing, and
+-- it is the reason the selection was made in the first place: arranging them.
+-- The same tools live in the editor settings sheet, which is where you go to
+-- work on the whole set; this is the short way round when the buttons are
+-- already picked and under your finger.
+editorItemsMulti = Array:newInstance(StringClass,4)
+Array:set(editorItemsMulti,0,"Move")
+Array:set(editorItemsMulti,1,"Edit")
+Array:set(editorItemsMulti,2,"Arrange...")
+Array:set(editorItemsMulti,3,"Delete")
+
+arrangeItems = Array:newInstance(StringClass,5)
+Array:set(arrangeItems,0,"Line up  |   (one column)")
+Array:set(arrangeItems,1,"Line up  --  (one row)")
+Array:set(arrangeItems,2,"Spread into a column")
+Array:set(arrangeItems,3,"Spread into a row")
+Array:set(arrangeItems,4,"Spread into a block")
+
+function deleteSelectedButtons()
+	pushUndo()
+	local newbuttons = {}
+	while(table.getn(buttons) > 0) do
+		b = table.remove(buttons)
+		-- not b.selected, rather than == false: a button whose flag was never
+		-- set is not a selected button, and the old test dropped it.
+		if(not b.selected) then
+			table.insert(newbuttons,b)
+		else
+			b = nil
+		end
+	end
+	-- In place: other modules hold a reference to this table, so handing them a
+	-- different one leaves them looking at the buttons that were just deleted.
+	for i = #buttons, 1, -1 do
+		buttons[i] = nil
+	end
+	for i = #newbuttons, 1, -1 do
+		buttons[#buttons + 1] = newbuttons[i]
+	end
+	drawButtons()
+	view:invalidate()
+end
+
+arrangeListener = {}
+function arrangeListener.onClick(dialog,which)
+	pushUndo()
+	if(which == 0) then
+		alignSelectedButtons("x")
+	elseif(which == 1) then
+		alignSelectedButtons("y")
+	elseif(which == 2) then
+		spreadSelectedButtons("column")
+	elseif(which == 3) then
+		spreadSelectedButtons("row")
+	elseif(which == 4) then
+		spreadSelectedButtons("grid")
+	end
+end
+arrangeListener_cb = luajava.createProxy("android.content.DialogInterface$OnClickListener",arrangeListener)
+
+function showArrangeSelection(count)
+	local build = luajava.newInstance("android.app.AlertDialog$Builder",view:getContext())
+	build:setItems(arrangeItems,arrangeListener_cb)
+	build:setTitle("Arrange " .. count .. " buttons")
+	arrangeAlert = build:create()
+	arrangeAlert:show()
+end
+
 editorListener = {}
 function editorListener.onClick(dialog,which)
 	--Note("Editor: "..Array:get(editorItems,which).." selected.")
-	local newbuttons = {}
 	if(which == 2) then
-		pushUndo()
-		while(table.getn(buttons) > 0) do 
-			b = table.remove(buttons)
-			if(b.selected == false) then
-				table.insert(newbuttons,b)
-			else
-				b = nil
-			end
-		end
-		buttons=newbuttons
-		drawButtons()
-		view:invalidate()
+		deleteSelectedButtons()
 	end
 	if(which == 0) then
 		enterMoveMode()
@@ -3011,6 +3067,23 @@ function editorListener.onClick(dialog,which)
 	end
 end
 editorListener_cb = luajava.createProxy("android.content.DialogInterface$OnClickListener",editorListener)
+
+-- Its own listener rather than index arithmetic on the one above: Arrange sits
+-- in the middle of the list, so sharing a listener would mean every entry after
+-- it meaning two different things depending on how many buttons are selected.
+editorListenerMulti = {}
+function editorListenerMulti.onClick(dialog,which)
+	if(which == 0) then
+		enterMoveMode()
+	elseif(which == 1) then
+		showEditorDialog()
+	elseif(which == 2) then
+		showArrangeSelection(numediting)
+	elseif(which == 3) then
+		deleteSelectedButtons()
+	end
+end
+editorListenerMulti_cb = luajava.createProxy("android.content.DialogInterface$OnClickListener",editorListenerMulti)
 numediting = 0
 lastselectedinex = -1
 function showEditorSelection()
@@ -3023,9 +3096,14 @@ function showEditorSelection()
 	end
 	numediting = count
 	local build = luajava.newInstance("android.app.AlertDialog$Builder",view:getContext())
-	
-	build:setItems(editorItems,editorListener_cb)
-	build:setTitle(count.." buttons selected.")
+
+	if count > 1 then
+		build:setItems(editorItemsMulti,editorListenerMulti_cb)
+		build:setTitle(count.." buttons selected.")
+	else
+		build:setItems(editorItems,editorListener_cb)
+		build:setTitle("1 button selected.")
+	end
 	alert = build:create()
 	alert:show()
 
