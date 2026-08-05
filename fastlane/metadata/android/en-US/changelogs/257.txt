@@ -1,0 +1,5 @@
+BlowTorch 2 v2.2.4
+• .font / .width from the input bar or a button; tappable words; alias text in trigger patterns
+• Landscape button layout; editor undo/redo, line-up and Arrange
+• Swipe badge toggles in the editor; ? help on aliases/triggers/timers
+• Black window / add-button crash / .switch / overlay and colour-trigger fixes
