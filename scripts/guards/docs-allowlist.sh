@@ -23,6 +23,8 @@ allowed=(
   "docs/CODEBASE-TRAPS.md"
   "docs/GUARDRAILS.md"
   "docs/canvas-capabilities.md"
+  "docs/media/README.md"
+  "docs/media/.gitkeep"
 )
 
 bad=0
