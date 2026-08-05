@@ -1764,6 +1764,35 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mMcpEngine != null) {
 			loadMcpTriggers();
 		}
+		notifyTapRulesChanged();
+	}
+
+	/**
+	 * Tell the UI its tappable-word rules are stale.
+	 *
+	 * <p>Here, at the end of the rebuild, because this is the one place every
+	 * cause passes through: a trigger edited, a trigger enabled, an alias whose
+	 * text a trigger's pattern names edited in the dialog or set with
+	 * {@code .name newtext} from the input bar. Hooking the causes one at a
+	 * time is how the input-bar one was missed -- the frame appeared for the
+	 * alias's old text and nothing said why.
+	 *
+	 * <p>The activity coalesces these, so a burst during a profile load costs
+	 * one read of the rules, not one per call.
+	 */
+	private void notifyTapRulesChanged() {
+		IWindowCallback w = mWindowCallbackMap.get(MAIN_WINDOW);
+		if (w == null) {
+			return;
+		}
+		try {
+			w.tapRulesChanged();
+		} catch (RemoteException e) {
+			// oneway, so this is a dead window rather than a failed call. The
+			// rules are re-read when the activity resumes anyway.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.notifyTapRulesChanged", e);
+		}
 	}
 	
 	/** end of the line of the DrawWindow function. I don't think this is used.
@@ -3371,6 +3400,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 								AliasData mod = mSettings.getSettings().getAliases().remove(alias);
 								mod.setPost(argument);
 								mSettings.getSettings().getAliases().put(alias, mod);
+								// A trigger's pattern may be this alias's name, so
+								// its text has just changed what that trigger
+								// watches for. The dialog path rebuilds through
+								// ConnectionAliases; this one is the input bar and
+								// went nowhere near it.
+								buildTriggerSystem();
 								data.mCmdString = "";
 								// `.name newtext` updates With; echo is not an alias
 								// expansion. Honor per-alias Local echo (Always show /

@@ -38,4 +38,14 @@ oneway interface IWindowCallback {
 	void updateSetting(String key,String value);
 	void setEncoding(String value);
 	void setLocalEcho(boolean enabled);
+	/**
+	 * The tappable-word rules are out of date: read them again.
+	 *
+	 * The frame around a tappable word is drawn in the UI process, from its own
+	 * copy of the triggers. Anything that changes what a trigger matches --
+	 * including editing an alias a trigger's pattern names, from the editor or
+	 * from `.name newtext` in the input bar -- happens over here, and the UI
+	 * had no way of hearing about it.
+	 */
+	void tapRulesChanged();
 }

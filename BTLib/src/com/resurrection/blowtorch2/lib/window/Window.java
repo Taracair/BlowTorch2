@@ -4032,6 +4032,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mHandler.sendMessage(mHandler.obtainMessage(MESSAGE_LOCALECHO, enabled ? 1 : 0, 0));
 		}
 
+		public void tapRulesChanged() {
+			// Straight to the activity: it owns the rules and coalesces the
+			// refreshes, and this window has nothing to do with them.
+			Handler h = mMainWindowHandler;
+			if (h != null) {
+				h.removeMessages(MainWindow.MESSAGE_REFRESHTAPRULES);
+				h.sendEmptyMessageDelayed(MainWindow.MESSAGE_REFRESHTAPRULES, 250);
+			}
+		}
+
 		@Override
 		public void xcallB(String function, byte[] raw) throws RemoteException {
 			Message m = mHandler.obtainMessage(MESSAGE_XCALLB,raw);
