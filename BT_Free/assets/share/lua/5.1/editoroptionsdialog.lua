@@ -71,6 +71,8 @@ setShowGestureHintsCallback = function(c) setShowGestureHints = c end
 setShowSwipePreviewCallback = function(c) setShowSwipePreview = c end
 setApplySizeCallback = function(c) applySize = c end
 setTidyLayoutCallback = function(c) tidyLayout = c end
+setAlignSelectionCallback = function(c) alignSelection = c end
+setSpreadSelectionCallback = function(c) spreadSelection = c end
 setChromeGesturesCallback = function(c) setChromeGestures = c end
 setFitGridCallback = function(c) fitGrid = c end
 --end callback handling variables
@@ -96,6 +98,11 @@ local showGestureHintsCheckChangeListener
 local showSwipePreviewCheckChangeListener
 local applySizeListener
 local tidyLayoutListener
+-- alignVerticalListener, alignHorizontalListener, spreadColumnListener,
+-- spreadRowListener, spreadGridListener and the two callbacks they call are
+-- deliberately module names rather than file locals: showDialog is at Lua 5.1's
+-- 60-upvalue ceiling and seven more locals put it over, which luac reports as a
+-- syntax error in a file that reads perfectly well.
 local doneListener
 local cancelListener
 local setDefaultsEditorListener
@@ -634,6 +641,35 @@ function showDialog(initialValues)
   sizeRow:addView(applySizeButton)
   ll:addView(sizeRow)
 
+  -- Line up and spread. Both act on the selection; with nothing selected they
+  -- take every button, same as the tools above. A small button factory rather
+  -- than five near-identical blocks -- these rows are three buttons wide and a
+  -- copy each would be the whole section.
+  local function addToolButton(row, text, listener)
+    local b = luajava.new(Button, context)
+    b:setText(text)
+    b:setTextSize(textSizeSmall)
+    b:setLayoutParams(luajava.new(LinearLayoutParams, 0, WRAP_CONTENT, 1))
+    b:setOnClickListener(listener)
+    row:addView(b)
+    return b
+  end
+
+  local alignRow = luajava.newInstance("android.widget.LinearLayout", context)
+  alignRow:setLayoutParams(fillparams)
+  addToolButton(alignRow, "Line up  |", alignVerticalListener)
+  addToolButton(alignRow, "Line up  --", alignHorizontalListener)
+  ll:addView(alignRow)
+  addHint("Puts the selected buttons on one line without moving them along it, so the arrangement you have keeps its shape. The button furthest left (or highest) stays where it is and the rest come to it.")
+
+  local spreadRow = luajava.newInstance("android.widget.LinearLayout", context)
+  spreadRow:setLayoutParams(fillparams)
+  addToolButton(spreadRow, "Column", spreadColumnListener)
+  addToolButton(spreadRow, "Row", spreadRowListener)
+  addToolButton(spreadRow, "Block", spreadGridListener)
+  ll:addView(spreadRow)
+  addHint("Spreads the selected buttons out on the grid: one under another, one beside another, or a square-ish block. Reading order is kept, spacing comes from the grid above, and the result is pulled back on screen if it would run off the edge.")
+
   local tidyRow = luajava.newInstance("android.widget.LinearLayout", context)
   tidyRow:setLayoutParams(fillparams)
   local tidyColsEdit = addNumberField(tidyRow, "Columns:", 0, 54)
@@ -936,6 +972,36 @@ function refreshValues(values)
     end
   end
 end
+
+alignVerticalListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if alignSelection ~= nil then alignSelection("x") end
+  end
+})
+
+alignHorizontalListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if alignSelection ~= nil then alignSelection("y") end
+  end
+})
+
+spreadColumnListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if spreadSelection ~= nil then spreadSelection("column") end
+  end
+})
+
+spreadRowListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if spreadSelection ~= nil then spreadSelection("row") end
+  end
+})
+
+spreadGridListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if spreadSelection ~= nil then spreadSelection("grid") end
+  end
+})
 
 tidyLayoutListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v)

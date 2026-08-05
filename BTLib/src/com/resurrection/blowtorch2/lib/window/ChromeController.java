@@ -597,6 +597,24 @@ public final class ChromeController {
 				}
 			});
 		}
+		View undo = activity.findViewById(R.id.editor_undo);
+		if (undo != null) {
+			undo.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					activity.windowCall("button_window", "editorMenuUndo", "");
+				}
+			});
+		}
+		View redo = activity.findViewById(R.id.editor_redo);
+		if (redo != null) {
+			redo.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					activity.windowCall("button_window", "editorMenuRedo", "");
+				}
+			});
+		}
 		View settings = activity.findViewById(R.id.editor_settings);
 		if (settings != null) {
 			settings.setOnClickListener(new View.OnClickListener() {

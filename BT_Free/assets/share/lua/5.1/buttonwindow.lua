@@ -300,6 +300,9 @@ function enterMoveMode()
 end
 
 function exitMoveMode()
+	-- Before anything is written: the drag only accumulated totalDelta, so the
+	-- buttons still hold the positions they had when the finger went down.
+	pushUndo()
 	moveCanvas = nil
 	moveBitmap = nil
 	local dx = totalDelta.x
@@ -436,6 +439,7 @@ function managerTouch.onTouch(v,e)
 			return true
 		end
 		if(manage and not fingerdown and not buttoncleared) then
+			pushUndo()
 			local modx = (math.floor(x/gridXwidth)*gridXwidth)+(gridXwidth/2)
 			local mody = (math.floor(y/gridYwidth)*gridYwidth)+(gridYwidth/2)
 			local butt = addButton(modx,mody-statusoffset)
@@ -1290,6 +1294,10 @@ managerBgPaint:setARGB(0xFF,0x00,0x00,0x00)
 drawManagerLayer = true
 function enterManagerMode()
 	manage = true
+	-- A fresh history per editing session. Undo is in memory only, so a stack
+	-- kept from the last time the editor was open would be offering to restore
+	-- a set that may not even be loaded any more.
+	clearUndoHistory()
 	-- Hide floaters immediately so they cannot sit over the edit grid during setup.
 	notifyFloatingButtonsChanged()
 	refreshStatusOffset(true)
@@ -1342,6 +1350,7 @@ function exitManagerMode()
 	end
 	view:setOnTouchListener(normalTouch_cb)
 	manage = false
+	clearUndoHistory()
 	refreshStatusOffset(true)
 	
 	local parent = view:getParent()
@@ -1373,6 +1382,7 @@ function exitManagerModeNoSave()
 	end
 	view:setOnTouchListener(normalTouch_cb)
 	manage = false
+	clearUndoHistory()
 	refreshStatusOffset(true)
 	
 	local parent = view:getParent()
@@ -1592,6 +1602,144 @@ function persistFloatingButtons()
 	PluginXCallS("saveButtons", serialize(tmp))
 end
 
+-- Undo and redo for the button editor.
+--
+-- Whole-layout snapshots, not per-tool inverses: every tool here ends the same
+-- way (write b.data, refreshRect, drawButtons, invalidate), so one restore path
+-- covers a drag, a delete, a tidy-up and a grid refit alike, and a tool added
+-- later gets undo by calling pushUndo before it touches anything.
+--
+-- A snapshot is the raw data table of every button plus the set defaults the
+-- layout tools write (size and grid spacing). It is not the button objects:
+-- those carry a Paint and a RectF, and are rebuilt through BUTTON:new on the
+-- way back in, which is the same path loadButtons uses.
+--
+-- In memory only, and only while the editor is open. Nothing is saved per step;
+-- Done still writes the set, Cancel still reloads it.
+undoStack = {}
+redoStack = {}
+UNDO_LIMIT = 20
+
+local function snapshotLayout()
+	local copytable = require("copytable")
+	local snap = { buttons = {}, defaults = {} }
+	for i = 1, #buttons do
+		if buttons[i] ~= nil then
+			snap.buttons[#snap.buttons + 1] = copytable.deep(buttons[i].data)
+		end
+	end
+	snap.defaults.width = defaults.width
+	snap.defaults.height = defaults.height
+	snap.defaults.gridXwidth = defaults.gridXwidth
+	snap.defaults.gridYwidth = defaults.gridYwidth
+	return snap
+end
+
+local function restoreLayout(snap)
+	local copytable = require("copytable")
+	-- Fields, not the table: BUTTON_DATA.__index points at this very table, so
+	-- swapping it for another one would cut every button off from its defaults.
+	defaults.width = snap.defaults.width
+	defaults.height = snap.defaults.height
+	defaults.gridXwidth = snap.defaults.gridXwidth
+	defaults.gridYwidth = snap.defaults.gridYwidth
+	gridXwidth = defaults.gridXwidth * density
+	gridYwidth = defaults.gridYwidth * density
+
+	-- In place. Other modules took a reference to this table when they loaded,
+	-- so a fresh one here would leave them looking at the old buttons.
+	for i = #buttons, 1, -1 do
+		buttons[i] = nil
+	end
+	-- Copied again on the way out, so the same snapshot can be restored twice --
+	-- which is exactly what undo, redo, undo does.
+	for i = 1, #snap.buttons do
+		buttons[i] = BUTTON:new(copytable.deep(snap.buttons[i]), density)
+		refreshRect(buttons[i])
+	end
+
+	if manage and managerCanvas ~= nil then
+		drawManagerGrid()
+	end
+	drawButtons()
+	view:invalidate()
+	refreshEditorUndoChrome()
+end
+
+-- Called by a tool before it changes anything. The redo branch is dropped: once
+-- a new change is made, what was undone is no longer on the way forward.
+function pushUndo()
+	if not manage then
+		return
+	end
+	undoStack[#undoStack + 1] = snapshotLayout()
+	if #undoStack > UNDO_LIMIT then
+		table.remove(undoStack, 1)
+	end
+	redoStack = {}
+	refreshEditorUndoChrome()
+end
+
+function clearUndoHistory()
+	undoStack = {}
+	redoStack = {}
+	refreshEditorUndoChrome()
+end
+
+function editorMenuUndo()
+	if #undoStack == 0 then
+		Note("\nNothing to undo.\n")
+		return
+	end
+	local snap = table.remove(undoStack)
+	redoStack[#redoStack + 1] = snapshotLayout()
+	if #redoStack > UNDO_LIMIT then
+		table.remove(redoStack, 1)
+	end
+	restoreLayout(snap)
+end
+
+function editorMenuRedo()
+	if #redoStack == 0 then
+		Note("\nNothing to redo.\n")
+		return
+	end
+	local snap = table.remove(redoStack)
+	undoStack[#undoStack + 1] = snapshotLayout()
+	if #undoStack > UNDO_LIMIT then
+		table.remove(undoStack, 1)
+	end
+	restoreLayout(snap)
+end
+
+-- Grey the two arrows on the editor strip when there is nothing behind them.
+-- This plugin's Lua runs in the UI process, so it reaches the views directly
+-- rather than going back out through the service.
+function refreshEditorUndoChrome()
+	pcall(function()
+		local root = view:getRootView()
+		if root == nil then
+			return
+		end
+		local res = view:getContext():getResources()
+		local pkg = view:getContext():getPackageName()
+		local pairsOfIds = {
+			{ name = "editor_undo", live = #undoStack > 0 },
+			{ name = "editor_redo", live = #redoStack > 0 },
+		}
+		for i = 1, #pairsOfIds do
+			local id = res:getIdentifier(pairsOfIds[i].name, "id", pkg)
+			if id ~= 0 then
+				local v = root:findViewById(id)
+				if v ~= nil then
+					v:setEnabled(pairsOfIds[i].live)
+					v:setAlpha(pairsOfIds[i].live and 1.0 or 0.35)
+				end
+			end
+		end
+	end)
+end
+
 -- Buttons the layout tools act on: the selection if there is one, otherwise all
 -- of them. Selecting nothing and pressing Apply meaning "everything" is the
 -- behaviour people expect, and it saves a select-all step.
@@ -1703,6 +1851,19 @@ function tidyButtonLayout(columns)
 	local originCol = math.max(0, math.floor((minX - stepX * 0.5) / stepX + 0.5))
 	local originRow = math.max(0, math.floor((minY - statusoffset - stepY * 0.5) / stepY + 0.5))
 
+	-- Pull the origin back until the whole block fits on screen. Without this a
+	-- group already low on the screen was laid out downwards from where it sat
+	-- and its last rows went off the bottom edge: not visible, not reachable,
+	-- and only rescued the next time the editor was opened. Pulling the origin
+	-- back moves the block as a block; the clamp below is the backstop for a
+	-- block that cannot fit whatever the origin is.
+	local rows = math.ceil(#targets / cols)
+	local screenH = view:getHeight() - statusoffset
+	local maxCol = math.max(0, math.floor(screenW / stepX) - cols)
+	local maxRow = math.max(0, math.floor(screenH / stepY) - rows)
+	if originCol > maxCol then originCol = maxCol end
+	if originRow > maxRow then originRow = maxRow end
+
 	for i = 1, #targets do
 		local b = targets[i]
 		local col = originCol + ((i - 1) % cols)
@@ -1710,7 +1871,9 @@ function tidyButtonLayout(columns)
 		local halfW = ((tonumber(b.data.width) or 42) * density) / 2
 		local halfH = ((tonumber(b.data.height) or 42) * density) / 2
 		local beforeX, beforeY = posX(b.data), posY(b.data)
-		setPos(b, col * stepX + halfW, statusoffset + row * stepY + halfH)
+		local cx, cy = clampLogicalPosition(col * stepX + halfW,
+			statusoffset + row * stepY + halfH, b)
+		setPos(b, cx, cy)
 		shiftFloatPlacement(b, posX(b.data) - beforeX, posY(b.data) - beforeY)
 		refreshRect(b)
 	end
@@ -1719,6 +1882,77 @@ function tidyButtonLayout(columns)
 	saveDefaultOptions()
 	Note("\nArranged " .. #targets .. (hadSelection and " selected" or "")
 		.. " button(s) into " .. cols .. " column(s) on the grid.\n")
+end
+
+-- Put the targets on one line, without re-flowing them.
+--
+-- axis "x": one vertical line, every button on the same X. axis "y": one
+-- horizontal line, same Y. The anchor is whichever target is furthest that way
+-- already -- leftmost for x, topmost for y -- so one button of the group never
+-- moves and it is obvious from looking at it which one that was. An average
+-- would move all of them and leave nothing to check the result against.
+--
+-- Positions are centres, so buttons of different sizes line up through their
+-- middles rather than by an edge. Order is untouched: this is the tool for when
+-- the arrangement is right and only the wobble is wrong, which is what a tidy-up
+-- cannot do without re-flowing.
+function alignSelectedButtons(axis)
+	local targets, hadSelection = layoutTargets()
+	if #targets < 2 then
+		Note("\nSelect two or more buttons to line them up.\n")
+		return
+	end
+	local vertical = tostring(axis or "x") ~= "y"
+
+	local anchor = nil
+	for i = 1, #targets do
+		local v = vertical and posX(targets[i].data) or posY(targets[i].data)
+		if anchor == nil or v < anchor then anchor = v end
+	end
+
+	for i = 1, #targets do
+		local b = targets[i]
+		local beforeX, beforeY = posX(b.data), posY(b.data)
+		local wantX = vertical and anchor or beforeX
+		local wantY = vertical and beforeY or anchor
+		local cx, cy = clampLogicalPosition(wantX, wantY, b)
+		setPos(b, cx, cy)
+		shiftFloatPlacement(b, cx - beforeX, cy - beforeY)
+		refreshRect(b)
+	end
+	drawButtons()
+	view:invalidate()
+	saveDefaultOptions()
+	Note("\nLined up " .. #targets .. (hadSelection and " selected" or "")
+		.. " button(s) on one " .. (vertical and "vertical" or "horizontal")
+		.. " line.\n")
+end
+
+-- Spread the targets into a column, a row or a block, on the grid.
+--
+-- All three are tidyButtonLayout with a column count: it already sorts by
+-- reading order, anchors to the drawn grid lines and keeps the block on screen.
+-- The only thing decided here is the count, because "one column" and "as square
+-- as it goes" are the two shapes people actually ask for and neither is
+-- obvious from a number box.
+function spreadSelectedButtons(shape)
+	local targets = layoutTargets()
+	local n = #targets
+	if n < 2 then
+		Note("\nSelect two or more buttons to spread them out.\n")
+		return
+	end
+	local s = tostring(shape or "grid")
+	local cols
+	if s == "column" then
+		cols = 1
+	elseif s == "row" then
+		cols = n
+	else
+		-- Square-ish: the block is as wide as it is tall, give or take a row.
+		cols = math.ceil(math.sqrt(n))
+	end
+	tidyButtonLayout(cols)
 end
 
 -- Pick a grid that tiles the screen width exactly.
@@ -1961,6 +2195,7 @@ function applyLayoutSizePreset(preset)
 	-- tiles without growing the lattice is the other half of the same bug (72dp
 	-- tiles on a 45dp pitch overlap by 27dp), so the pitch moves with the size
 	-- and the tiles move with the pitch.
+	pushUndo()
 	local named = { compact = 32, comfortable = 42, large = 56, xl = 72 }
 	local size = named[p]
 	if size ~= nil then
@@ -2381,14 +2616,25 @@ function buttonOptions()
   -- Layout tools. Each acts on the selection when there is one, otherwise on
   -- every button, which is what "apply to all" means with nothing selected.
   editorOptionsDialog.setApplySizeCallback(function(w, h)
+    pushUndo()
     local aw, ah, becameDefault = applyButtonSize(w, h)
     reportEditorState(aw, ah, becameDefault)
   end)
   editorOptionsDialog.setTidyLayoutCallback(function(columns)
+    pushUndo()
     tidyButtonLayout(columns)
     reportEditorState()
   end)
+  editorOptionsDialog.setAlignSelectionCallback(function(axis)
+    pushUndo()
+    alignSelectedButtons(axis)
+  end)
+  editorOptionsDialog.setSpreadSelectionCallback(function(shape)
+    pushUndo()
+    spreadSelectedButtons(shape)
+  end)
   editorOptionsDialog.setFitGridCallback(function(square)
+    pushUndo()
     local aw, ah, becameDefault = fitGridToScreen(square)
     reportEditorState(aw, ah, becameDefault)
   end)
@@ -2728,6 +2974,7 @@ function editorListener.onClick(dialog,which)
 	--Note("Editor: "..Array:get(editorItems,which).." selected.")
 	local newbuttons = {}
 	if(which == 2) then
+		pushUndo()
 		while(table.getn(buttons) > 0) do 
 			b = table.remove(buttons)
 			if(b.selected == false) then
@@ -2898,6 +3145,14 @@ function OnSizeChanged(w,h,oldw,oldh)
 	end
 
 	positionRevertButton(w, h)
+
+	-- Turning the phone drops the history. A snapshot taken in portrait carries
+	-- portrait positions, and restoring it here would write them into the
+	-- landscape pair -- a layout the player never chose, which is the one thing
+	-- the orientation pairs exist to prevent.
+	if manage and (w > h) ~= (oldw > oldh) then
+		clearUndoHistory()
+	end
 
 	-- The view just changed size, so statusoffset may have moved under every
 	-- button; none of these rects can be trusted.

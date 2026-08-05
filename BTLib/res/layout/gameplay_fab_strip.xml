@@ -19,6 +19,35 @@
         android:orientation="horizontal"
         android:visibility="gone">
 
+        <!--
+          Undo/redo come first, so the two destructive-looking icons (cancel,
+          done) stay where the thumb already knows them. Both start disabled:
+          buttonwindow.lua greys them from the size of its own history.
+        -->
+        <ImageButton
+            android:id="@+id/editor_undo"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="0.35"
+            android:background="@android:color/transparent"
+            android:contentDescription="Undo layout change"
+            android:enabled="false"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_editor_undo" />
+
+        <ImageButton
+            android:id="@+id/editor_redo"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="0.35"
+            android:background="@android:color/transparent"
+            android:contentDescription="Redo layout change"
+            android:enabled="false"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_editor_redo" />
+
         <ImageButton
             android:id="@+id/editor_settings"
             android:layout_width="48dp"
