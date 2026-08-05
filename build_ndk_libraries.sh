@@ -26,8 +26,16 @@ fi
 echo "Using NDK: $NDK"
 
 NDKAPI=24
-LUAJIT_205="LuaJIT-2.0.5"
-LUAJIT_21="LuaJIT-2.1"
+
+# Absolute, because a LuaJIT tree can live outside this repo (see LUAJIT_21_DIR):
+# once the build has cd'd into it, a relative "../BTLib" is resolved by cp and
+# make against that tree's parent, not against the repo, and the static libs land
+# somewhere else entirely.
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
+
+LUAJIT_205="$ROOT/LuaJIT-2.0.5"
+LUAJIT_21="$ROOT/LuaJIT-2.1"
 
 # LuaJIT 2.1 has no releases; upstream ships it as a moving branch. Pin the exact
 # commit so two builds of the same tag link the same interpreter — "branch v2.1"
@@ -61,10 +69,10 @@ if [ -n "${LUAJIT_21_DIR:-}" ]; then
         echo "ERROR: LUAJIT_21_DIR=$LUAJIT_21_DIR does not exist." >&2
         exit 1
     fi
-    if [ ! -e "$LUAJIT_21" ]; then
-        ln -s "$LUAJIT_21_DIR" "$LUAJIT_21"
-    fi
-    echo "Using supplied LuaJIT 2.1 tree: $LUAJIT_21_DIR"
+    # Used where it stands. Symlinking it into the repo would put a "..", and so
+    # the built libraries, on the wrong side of the link.
+    LUAJIT_21="$(cd "$LUAJIT_21_DIR" && pwd)"
+    echo "Using supplied LuaJIT 2.1 tree: $LUAJIT_21"
 elif [ ! -d "$LUAJIT_21" ]; then
     echo "Fetching LuaJIT 2.1 at $LUAJIT_21_COMMIT (required for arm64-v8a)..."
     git init -q "$LUAJIT_21"
@@ -87,15 +95,15 @@ echo "**********************************************"
 
 cd "$LUAJIT_205"
 make clean || true
-cd ..
+cd "$ROOT"
 
 if [ -d "$LUAJIT_21" ]; then
     cd "$LUAJIT_21"
     make clean || true
-    cd ..
+    cd "$ROOT"
 fi
 
-cd BTLib
+cd "$ROOT/BTLib"
 "$NDK/ndk-build" clean || true
 
 rm -f ./jni/luajava/luaconf.h
@@ -105,7 +113,7 @@ rm -f ./jni/luajava/lua.h
 rm -f ./jni/luajava/lauxlib.h
 rm -f ./jni/luajava/libluajit-*.a
 rm -f ./jni/luajava/libluajit-*.so
-cd ..
+cd "$ROOT"
 
 echo "**********************************************"
 echo "*************  STARTING BUILD ****************"
@@ -132,33 +140,33 @@ build_luajit() {
         TARGET_STRIP="$TOOLCHAIN/bin/llvm-strip" \
         TARGET_SYS=Linux \
         TARGET_FLAGS="$TARGET_FLAGS"
-    cp src/libluajit.a "../BTLib/jni/luajava/libluajit-${ABI}.a"
-    cd ..
+    cp src/libluajit.a "$ROOT/BTLib/jni/luajava/libluajit-${ABI}.a"
+    cd "$ROOT"
 }
 
 SYSROOT_FLAGS="--sysroot $TOOLCHAIN/sysroot -D__ANDROID_API__=${NDKAPI}"
 
 # LuaJIT 2.0.5: stable 32-bit ARM build used historically by BlowTorch.
-build_luajit "LuaJIT-2.0.5" armeabi-v7a "gcc -m32" "armv7a-linux-androideabi" \
+build_luajit "$LUAJIT_205" armeabi-v7a "gcc -m32" "armv7a-linux-androideabi" \
     "$SYSROOT_FLAGS -march=armv7-a -mfloat-abi=softfp"
 
 # LuaJIT 2.1: required for arm64-v8a (not supported in 2.0.5).
-build_luajit "LuaJIT-2.1" arm64-v8a "gcc" "aarch64-linux-android" \
+build_luajit "$LUAJIT_21" arm64-v8a "gcc" "aarch64-linux-android" \
     "$SYSROOT_FLAGS -DLUAJIT_ENABLE_GC64=1"
 
 echo ""
 echo "Copying LuaJIT headers to BTLib/jni/luajava/ (from 2.0.5 for luajava compat)"
-cp LuaJIT-2.0.5/src/lauxlib.h BTLib/jni/luajava/
-cp LuaJIT-2.0.5/src/lua.h BTLib/jni/luajava/
-cp LuaJIT-2.0.5/src/luaconf.h BTLib/jni/luajava/
-cp LuaJIT-2.0.5/src/luajit.h BTLib/jni/luajava/
-cp LuaJIT-2.0.5/src/lualib.h BTLib/jni/luajava/
+cp "$LUAJIT_205/src/lauxlib.h" BTLib/jni/luajava/
+cp "$LUAJIT_205/src/lua.h" BTLib/jni/luajava/
+cp "$LUAJIT_205/src/luaconf.h" BTLib/jni/luajava/
+cp "$LUAJIT_205/src/luajit.h" BTLib/jni/luajava/
+cp "$LUAJIT_205/src/lualib.h" BTLib/jni/luajava/
 
 echo "************************************************"
 echo "********** STARTING ANDROID NDK BUILD **********"
 echo "************************************************"
 
-cd BTLib
+cd "$ROOT/BTLib"
 "$NDK/ndk-build" NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./jni/Android.mk NDK_APPLICATION_MK=./jni/Application.mk
 
 echo ""
