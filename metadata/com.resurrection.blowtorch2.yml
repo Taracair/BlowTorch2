@@ -82,6 +82,10 @@ MaintainerNotes: |
   build script compiles both from the checkout. Provenance is the commit named
   at the top of build_ndk_libraries.sh; LuaJIT is MIT, COPYRIGHT included.
 
+  The 2.2.4 Builds entry below predates that: tag v2.2.4 still contains five
+  archived APKs, four prebuilt .so and the fetch. Repoint commit: at the first
+  tag that carries the vendored sources before submitting anything.
+
 ArchivePolicy: 2 versions
 AutoUpdateMode: Version
 UpdateCheckMode: Tags

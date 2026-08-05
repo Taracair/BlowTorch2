@@ -33,8 +33,14 @@ LuaJIT-2.1/src/luajit
 LuaJIT-2.1/src/host/buildvm
 LuaJIT-2.1/src/host/minilua
 LuaJIT-2.1/src/jit/vmdef.lua
-*.o
-*.a
+# Object files from those two trees, and the static libs the build drops into
+# BTLib. Scoped on purpose: a repo-wide *.o / *.a would silently swallow any
+# future source file that happens to end that way.
+LuaJIT-2.0.5/src/**/*.o
+LuaJIT-2.1/src/**/*.o
+LuaJIT-2.0.5/src/**/*.a
+LuaJIT-2.1/src/**/*.a
+BTLib/jni/luajava/libluajit-*.a
 
 # Personal / internal notes — not for the public repo
 docs/FDROID_APPLY.md
