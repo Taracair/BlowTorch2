@@ -25,6 +25,8 @@ new opportunity for the two copies to disagree.
 | Only allowlisted files in `docs/` | git `pre-commit`, `check.sh` | Commit and CI fail |
 | `MAIN`/`LAUNCHER` component does not move | git `pre-commit`, `check.sh` | Commit and CI fail |
 | Probes do not ride along in a real commit | git `commit-msg` | Commit fails unless the message says probe |
+| A responder type with no case in `TriggerData` | `check.sh` | CI fails |
+| `TriggerData`'s parcel written and read out of step | `check.sh` | CI fails |
 | No `BTPROF` left in tracked code | `check.sh` | CI fails |
 | The rule list does not drift between files | `check.sh` | CI fails |
 

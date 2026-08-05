@@ -2147,6 +2147,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 100:
 			BetterAliasSelectionDialog d = new BetterAliasSelectionDialog(this,service);
 			d.setTitle("Edit Aliases:");
+			// A trigger pattern may be an alias's name, so editing an alias
+			// changes what a tappable word looks for. The service rebuilds its
+			// trigger system on every alias change; this is the other half, and
+			// like the trigger list this is a Dialog, so closing it resumes
+			// nothing and nothing else would re-read the rules.
+			d.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
+				@Override
+				public void onDismiss(android.content.DialogInterface dialog) {
+					scheduleTapRulesRefresh();
+				}
+			});
 			d.show();
 			break;
 //		case 102:

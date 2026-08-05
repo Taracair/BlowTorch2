@@ -63,6 +63,7 @@ public class TriggerData implements Parcelable {
 		TriggerData tmp = new TriggerData();
 		tmp.name = this.name;
 		tmp.pattern = this.pattern;
+		tmp.resolvedPattern = this.resolvedPattern;
 		tmp.interpretAsRegex = this.interpretAsRegex;
 		tmp.fireOnce = this.fireOnce;
 		tmp.hidden = this.hidden;
@@ -94,10 +95,12 @@ public class TriggerData implements Parcelable {
 	 * or null when nothing has resolved it.
 	 *
 	 * <p>Kept beside {@code pattern} rather than replacing it, because the
-	 * player's text is what the editor shows and what the profile stores. This
-	 * is the compiled-against form and lives only in the process that built it:
-	 * it is not parcelled, so the editor always receives the reference as
-	 * written.
+	 * player's text is what the editor shows and what the profile stores, and
+	 * what {@link #setPattern} clears this against. It does cross the binder:
+	 * the UI process builds the tappable-word rules from
+	 * {@link #getCompiledPattern()} of a trigger it was handed, and while this
+	 * stayed behind in the service that pattern was the alias's name -- the
+	 * word never lit up.
 	 */
 	private String resolvedPattern;
 
@@ -232,6 +235,9 @@ public class TriggerData implements Parcelable {
 	public void readFromParcel(Parcel in) {
 		setName(in.readString());
 		setPattern(in.readString());
+		// After setPattern, which clears it: a resolution belongs to the text it
+		// was made from, and here that text has just arrived with it.
+		this.resolvedPattern = in.readString();
 		setResponders(new ArrayList<TriggerResponder>());
 		setInterpretAsRegex( (in.readInt() == 1) ? true : false);
 		setFireOnce ((in.readInt() == 1) ? true : false);
@@ -307,6 +313,12 @@ public class TriggerData implements Parcelable {
 	public void writeToParcel(Parcel out, int arg1) {
 		out.writeString(name);
 		out.writeString(pattern);
+		// The resolved form travels too. The UI process builds the tappable-word
+		// rules from getCompiledPattern() on a trigger it received over the
+		// binder, and without this it compiled the alias's *name* -- the word
+		// never lit up and could not be pressed. getPattern() is still the raw
+		// text, which is what the editor shows and what is written back.
+		out.writeString(resolvedPattern);
 		out.writeInt( interpretAsRegex ? 1 : 0);
 		out.writeInt(fireOnce ? 1 : 0);
 		out.writeInt(hidden ? 1 : 0);
