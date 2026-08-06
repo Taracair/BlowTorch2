@@ -27,7 +27,7 @@ public class KeyboardCommand extends SpecialCommand {
 		
 		if(failed) {
 			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",".kb options [message]\n" +
-					"Text ops: add, popup, flush, close, clear\n" +
+					"Text ops: insert, add, popup, flush, close, clear\n" +
 					"Edit ops: sel | selectall, cut, copy, paste\n" +
 					"Cursor: start | cursorstart, end | cursorend,\n" +
 					"        stepf | stepr (right), stepb | stepl (left),\n" +
@@ -35,6 +35,7 @@ public class KeyboardCommand extends SpecialCommand {
 					"Examples:\n" +
 					"  .kb popup reply   — set text and show IME\n" +
 					"  .kb add foo       — append without popup\n" +
+					"  .kb insert troll  — drop a word in at the caret, spaced\n" +
 					"  .kb flush         — send current input\n" +
 					"  .kb sel / .kb cut — select all / cut\n" +
 					"  .kb start / .kb end — caret to start / end\n" +
@@ -44,7 +45,7 @@ public class KeyboardCommand extends SpecialCommand {
 		}
 
 		Pattern p = Pattern.compile(
-				"^\\s*(add|popup|flush|close|clear|selectall|sel|copy|cut|paste|"
+				"^\\s*(insert|add|popup|flush|close|clear|selectall|sel|copy|cut|paste|"
 				+ "cursorstart|start|cursorend|end|"
 				+ "stepf|stepr|stepb|stepl|stepu|stepd)"
 				+ "{0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$",
@@ -85,7 +86,14 @@ public class KeyboardCommand extends SpecialCommand {
 		
 		if(operation1 != null && !operation1.equals("")) {
 			String op = operation1.toLowerCase();
-			if(op.equals("flush")) {
+			if(op.equals("insert")) {
+				// Deliberately not through doKeyboardAliasReplace: insert puts
+				// the literal word in the bar. Expanding it would mean tapping
+				// the word "north" inserted whatever an alias named north
+				// expands to, which is not what the player pointed at.
+				c.getService().doInputBarInsertWord(text == null ? "" : text.trim());
+				return null;
+			} else if(op.equals("flush")) {
 				doflush = true;
 			} else if(op.equals("clear")) {
 				doclear = true;

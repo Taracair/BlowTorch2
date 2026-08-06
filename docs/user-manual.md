@@ -388,6 +388,14 @@ what lights up, and tapping it sends a command.
   small menu at the word instead of sending straight away. The first command
   stays at the top of it. Long commands are shortened in the menu with `(...)`;
   the whole command is still what gets sent.
+- **Put the word in the input bar instead of sending it** — the button of that
+  name adds the command `.kb insert $word`. Tapping the word then types it into
+  the input bar at the cursor, correctly spaced, and sends nothing. Type `k`,
+  tap the mob's name, and the bar reads `k grizzled ` waiting for Send. Two taps
+  build one command: `k` + *grizzled* + *troll* gives `k grizzled troll `. This
+  is the fastest way to name something the game just mentioned without spelling
+  it out on a phone keyboard. Add it next to real commands and a tap offers
+  both.
 - **Underline / Bold / Frame** — any combination, or none. Colour is not here:
   put a **Color** action on the same trigger.
 - Two Tappable Word actions on one trigger behave as one word that offers both
@@ -888,6 +896,7 @@ letters are Speedwalk *keys*.
 ### `.keyboard` / `.kb`
 
     *(no args)*                Print help
+    `insert <text>`            Drop text into the input bar at the cursor, spaced
     `add` / `popup` + text     Set or append input; `popup` also shows the IME
     `flush`                    Send current input
     `close` / `clear`          Hide IME / clear text
@@ -900,6 +909,12 @@ letters are Speedwalk *keys*.
     `stepu` / `stepd`          Command history (↑ older / ↓ newer), like keyboard arrows; within multiline text, move one line first
 
 Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
+
+**`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
+puts it where the cursor is and works out the spaces, so the bar never ends up
+reading `ktroll`. `insert` also does not expand aliases — the text goes in
+literally, which is what you want when the text is a name you pointed at. Its
+main use is a tappable word bound to `.kb insert $word`; see below.
 
 **Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
 

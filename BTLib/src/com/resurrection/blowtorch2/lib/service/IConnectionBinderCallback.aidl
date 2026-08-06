@@ -39,6 +39,13 @@ oneway interface IConnectionBinderCallback {
 	void doVisualBell();
 	void setScreenMode(boolean fullscreen);
 	void showKeyBoard(String txt,boolean popup,boolean add,boolean flush,boolean clear,boolean close);
+	/**
+	 * Drop one word into the input bar at the caret, spacing it against what is
+	 * already there. Separate from showKeyBoard(add) because only the UI process
+	 * can see the current text, and that is what decides whether a space is
+	 * needed.
+	 */
+	void inputBarInsertWord(String word);
 	void inputBarSelectAll();
 	void inputBarCopy();
 	void inputBarPaste();

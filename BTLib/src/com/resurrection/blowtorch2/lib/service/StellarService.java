@@ -1274,6 +1274,25 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 	
+	/**
+	 * Put a word into the input bar without sending anything. The spacing is
+	 * decided on the far side, where the current text lives.
+	 *
+	 * @param word The text to insert.
+	 */
+	public final void doInputBarInsertWord(final String word) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).inputBarInsertWord(word);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doInputBarInsertWord", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	public final void doInputBarSelectAll() {
 		broadcastInputBarAction(1);
 	}

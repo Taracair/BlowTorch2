@@ -273,6 +273,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_EDIT_TOOLS = 929;
 	/** Re-layout Edit/Send after Options → Window show/hide prefs change. */
 	public static final int MESSAGE_REFRESH_INPUT_ACTIONS = 930;
+	/** obj: the word to drop into the input bar at the caret. */
+	protected static final int MESSAGE_INPUT_INSERT_WORD = 931;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -1304,6 +1306,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 						}
 					}
+					break;
+				case MESSAGE_INPUT_INSERT_WORD:
+					inputInsertWord((String) msg.obj);
 					break;
 				case MESSAGE_INPUT_SELECT_ALL:
 					inputSelectAll();
@@ -2339,6 +2344,27 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return handled;
 	}
 	
+	/**
+	 * Drop a word into the input bar at the caret and send nothing. This is what
+	 * a tappable word bound to {@code .kb insert $word} ends up doing, so the
+	 * player can build a command out of names the game just printed instead of
+	 * spelling them out on a phone keyboard.
+	 *
+	 * @param word The text to insert.
+	 */
+	private void inputInsertWord(final String word) {
+		if (mInputBox == null) {
+			return;
+		}
+		String current = mInputBox.getText() == null
+				? "" : mInputBox.getText().toString();
+		InputWordInsert.Result r = InputWordInsert.apply(current,
+				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd(), word);
+		mInputBox.setText(r.text());
+		mInputBox.setSelection(Math.min(r.caret(), mInputBox.getText().length()));
+		mInputBox.requestFocus();
+	}
+
 	private void inputSelectAll() {
 		if (mInputBox == null) {
 			return;
@@ -3500,6 +3526,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_KEYBOARD,p,a,txt));
 		}
 		
+		public void inputBarInsertWord(String word) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_INSERT_WORD, word));
+		}
+
 		public void inputBarSelectAll() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_INPUT_SELECT_ALL);
 		}

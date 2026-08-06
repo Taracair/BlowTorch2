@@ -76,6 +76,19 @@ public class TapActionEditor extends Dialog {
 		});
 		root.addView(addCommand);
 
+		// The insert binding by name. It is only a command like any other, but
+		// nobody guesses ".kb insert $word" from a blank box, and it is the one
+		// binding that makes tappable words useful before you have decided what
+		// the word should do.
+		Button addInsert = new Button(c);
+		addInsert.setText("Add: put the word in the input bar");
+		addInsert.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				addCommandRow(TapAction.INSERT_COMMAND);
+			}
+		});
+		root.addView(addInsert);
+
 		TextView groupLabel = new TextView(c);
 		groupLabel.setText("Tappable part: 0 = the whole match, 1-9 = that bracket");
 		root.addView(groupLabel);
@@ -248,6 +261,16 @@ public class TapActionEditor extends Dialog {
 			+ "   Part:     2\n"
 			+ "   Commands: tell $2\n"
 			+ "             ignore $2\n\n"
+			+ "PUT THE WORD IN THE INPUT BAR INSTEAD OF SENDING IT\n"
+			+ "   Command:  .kb insert $word\n"
+			+ "   The word lands in the input bar at the cursor, spaced against "
+			+ "what is already there, and nothing goes to the game. Type \"k\", "
+			+ "press the mob's name, and the bar reads \"k grizzled \" ready for "
+			+ "Send. This is the button above the Tappable part box.\n"
+			+ "   Two presses build one command: \"k\" + grizzled + troll gives "
+			+ "\"k grizzled troll \".\n"
+			+ "   Put it beside real commands and the press offers both, e.g. "
+			+ "\"kill $word\" and \".kb insert $word\".\n\n"
 			+ "GOOD TO KNOW\n"
 			+ "- More than one command turns a press into a small menu at the word; "
 			+ "one command sends straight away. The first command is on top of the "
