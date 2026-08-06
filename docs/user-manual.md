@@ -547,6 +547,56 @@ is the one a tap can change on its own, without a second trigger.
 whose name is an ordinary word ("sword", "north") will also rewrite what a tap
 sends. Name aliases you use this way so they cannot collide — `tgt`, `_it`.
 
+### 9d. One trigger that reads several lines
+
+Write `\n` in the pattern where the line break is. Literal? is **off** for all
+of these.
+
+**Hide a whole block.** An advert, a banner, an ASCII box — one trigger instead
+of one per line, and no leftover fragments.
+
+    Pattern   ^\+-+\+$\n^\| (.+) \|$\n^\+-+\+$
+    Action    Gag
+        Removes all three lines. $1 is the text that was inside the box, so a
+        Toast or Set Variable on the same trigger can still use it.
+
+**Take two facts from two lines at once.**
+
+    Pattern   You see (.+) here\.\nIt looks (\w+)
+    Action    Ack   get $1
+        "You see a rusty sword here." / "It looks battered" — $1 is the sword,
+        $2 is "battered", and both arrive in one firing. No variable, no second
+        trigger waiting for the line after.
+
+**A two-line event.**
+
+    Pattern   You hit (\w+) for \d+\.\n\1 collapses
+    Action    Ack   loot corpse
+        `\1` refers back to the first capture, so this only fires when the thing
+        that collapsed is the thing you hit — not when someone else's kill
+        happens to print underneath yours.
+
+**A row under the right heading.**
+
+    Pattern   ^Name +Price$\n^(\w+) +(\d+)$
+    Action    Set Variable
+        Only matches a row that comes directly under that heading, so you pick
+        up the table you meant and not a similar-looking line elsewhere.
+
+**Send a block to another window.**
+
+    Pattern   ^\[quest\] (.+)$\n^  (.+)$
+    Action    Gag, Send to window: quests
+        Both lines leave the main window together and arrive in the quest
+        window in the order they were sent.
+
+**The two rules.** `.` never crosses a line break — `.+` stops at the end of its
+line, which is what keeps a greedy pattern from swallowing the screen, and why
+every break has to be written out. `^` and `$` bind to each line rather than to
+the block, which is what makes the box example above readable.
+
+**Colour** still marks only the first line of a match.
+
 ### 10. Start mapping
 
 1. Open the map: ⋮ → **Map**, or `.map open`
