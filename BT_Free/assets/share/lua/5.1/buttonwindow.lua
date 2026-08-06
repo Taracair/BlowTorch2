@@ -3072,34 +3072,67 @@ function copySelectedButtons()
 		.. " in another set to paste.\n")
 end
 
+--- Whatever coerceToText handed back, as a Lua string.
+---
+--- LuaJava converts a Java String to a Lua string on the way out, and a Lua
+--- string has no toString method — calling it crashed the editor on the first
+--- long press. A CharSequence that is not a String still arrives as an object
+--- and does need the call, so both have to be handled.
+local function asLuaString(value)
+	if value == nil then
+		return nil
+	end
+	if type(value) == "string" then
+		return value
+	end
+	local ok, converted = pcall(function() return value:toString() end)
+	if ok and type(converted) == "string" then
+		return converted
+	end
+	return nil
+end
+
 --- The buttons on the clipboard, or nil when it holds something else.
+---
+--- Every step is inside a pcall: this runs from the touch handler on a long
+--- press, so anything unexpected in the clipboard would take the whole button
+--- editor down with it rather than simply meaning "nothing to paste".
 local function buttonsOnClipboard()
-	local cm = clipboardManager()
-	if cm == nil or not cm:hasPrimaryClip() then
+	local ok, result = pcall(function()
+		local cm = clipboardManager()
+		if cm == nil then
+			return nil
+		end
+		local clip = cm:getPrimaryClip()
+		if clip == nil or clip:getItemCount() < 1 then
+			return nil
+		end
+		local item = clip:getItemAt(0)
+		if item == nil then
+			return nil
+		end
+		local text = asLuaString(item:coerceToText(view:getContext()))
+		if text == nil then
+			return nil
+		end
+		-- Plain prefix compare, not a pattern. BLOWTORCH-BUTTONS-1 contains
+		-- hyphens, and a hyphen is a lazy quantifier in a Lua pattern, so
+		-- matching it as one silently found nothing — paste would never have
+		-- recognised its own clipboard even once the crash was fixed.
+		local head = BUTTON_CLIP_MARKER .. "\n"
+		if text:sub(1, #head) ~= head then
+			return nil
+		end
+		local loaded = loadSerialized(text:sub(#head + 1), "the copied buttons")
+		if type(loaded) ~= "table" or #loaded == 0 then
+			return nil
+		end
+		return loaded
+	end)
+	if not ok then
 		return nil
 	end
-	local clip = cm:getPrimaryClip()
-	if clip == nil or clip:getItemCount() < 1 then
-		return nil
-	end
-	local item = clip:getItemAt(0)
-	if item == nil then
-		return nil
-	end
-	local text = item:coerceToText(view:getContext())
-	if text == nil then
-		return nil
-	end
-	text = text:toString()
-	local body = text:match("^" .. BUTTON_CLIP_MARKER .. "\n(.*)$")
-	if body == nil then
-		return nil
-	end
-	local loaded = loadSerialized(body, "the copied buttons")
-	if type(loaded) ~= "table" or #loaded == 0 then
-		return nil
-	end
-	return loaded
+	return result
 end
 
 --- True when a long press would have something to paste.
