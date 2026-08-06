@@ -38,6 +38,7 @@ import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
 import com.resurrection.blowtorch2.lib.service.function.NoteCommand;
+import com.resurrection.blowtorch2.lib.service.function.ProbeCommand;
 import com.resurrection.blowtorch2.lib.service.function.AliasCommand;
 import com.resurrection.blowtorch2.lib.service.function.TriggerCommand;
 import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
@@ -363,6 +364,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private Pattern mMassivePattern = null;
 	/** The amalgamated trigger string matcher object. */
 	private Matcher mMassiveMatcher = null;
+	/**
+	 * Null unless the player ran {@code .probe lines on}. Null-checked rather
+	 * than flagged so that the ordinary path costs one reference comparison per
+	 * chunk and nothing else.
+	 */
+	private ChunkStats mChunkStats = null;
+	/** Kept across an off/on so a reading is not lost by pausing the probe. */
+	private ChunkStats mChunkStatsHeld = null;
 	/** The main looper handler for this "foreground" thread, although I'm not sure
 	 *  if service processes get "foreground threads". */
 	Handler mHandler = null;
@@ -517,6 +526,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(lbcmd.commandName, lbcmd);
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
 		mSpecialCommands.put(notecmd.commandName, notecmd);
+		ProbeCommand probecmd = new ProbeCommand();
+		mSpecialCommands.put(probecmd.commandName, probecmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
@@ -2475,6 +2486,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
 		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
+		// Measured here rather than anywhere else on purpose: this is the exact
+		// string the combined trigger pattern is matched against, so it is the
+		// only place that can answer whether a pattern could span lines.
+		if (mChunkStats != null) {
+			mChunkStats.record(stripped);
+		}
 		
 		if (triggersDirty) {
 			buildTriggerSystem();
@@ -2737,6 +2754,46 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @param message The string to send.
 	 */
+	/**
+	 * Turn the chunk probe on or off. Turning it off keeps what was measured,
+	 * so a reading survives being paused mid-session.
+	 *
+	 * @param on True to measure.
+	 */
+	public final void setChunkProbe(final boolean on) {
+		if (on) {
+			if (mChunkStatsHeld == null) {
+				mChunkStatsHeld = new ChunkStats();
+			}
+			mChunkStats = mChunkStatsHeld;
+		} else {
+			mChunkStats = null;
+		}
+	}
+
+	/** Clear the reading, whether the probe is running or not. */
+	public final void resetChunkProbe() {
+		if (mChunkStatsHeld != null) {
+			mChunkStatsHeld.reset();
+		}
+	}
+
+	/**
+	 * The probe's reading as text for the game window.
+	 *
+	 * @return The report, or an invitation to turn it on.
+	 */
+	public final String chunkProbeReport() {
+		if (mChunkStatsHeld == null) {
+			return "\nChunk probe has not been run. Start it with .probe lines on\n";
+		}
+		String body = mChunkStatsHeld.report();
+		if (mChunkStats == null) {
+			body = body + "(probe is currently off — .probe lines on to resume)\n";
+		}
+		return body;
+	}
+
 	public final void sendDataToWindow(final String message) {
 		
 		try {

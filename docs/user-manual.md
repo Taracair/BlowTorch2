@@ -606,6 +606,7 @@ is enabled; `.alias list` shows every alias at once.
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
     `.closewindow`                      Dirty-exit the game window
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
+    `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
@@ -659,6 +660,44 @@ main + plugin counts. Empty group name matches the default group (exact
 string match, same as Lua `EnableTriggerGroup`). Group commands apply to
 **main + all plugins**. `.trigger all` affects main only; use
 `.trigger plugin <plugin> all on|off` for one plugin.
+
+### `.probe lines`
+
+```
+.probe lines on
+.probe lines off
+.probe report        (or plain .probe)
+.probe reset
+```
+
+Answers one question about the world you are on: **do several lines of game text
+arrive together, or cut up?**
+
+Text does not arrive one line at a time. It arrives in whatever pieces the
+network hands over, and a trigger sees a whole piece at once. That is why a
+pattern can only ever match across several lines if those lines came in the same
+piece. This tells you whether they do.
+
+Turn it on, play normally for a few minutes — walk around, fight something, read
+a long room description — then `.probe report`. It costs nothing while it is off,
+and next to nothing while it is on: it counts, it does not store your text.
+
+The reading looks like this:
+
+    Chunks seen:        412
+    Complete lines:     1180
+    Lines per chunk:    1: 190  2: 96  3-5: 88  6-10: 30  11+: 8
+    Longest run:        14 lines in one chunk
+    Ended mid-line:     171 of 412 (41%)
+
+**Reading it.** A high *ended mid-line* percentage, or a *longest run* of only
+one or two, means lines usually arrive separately on this world — so a pattern
+spanning several lines would miss often. Plenty of chunks in the 3-5 and 6-10
+buckets means blocks of text do arrive whole.
+
+Nothing in the client uses this yet. It exists so that a decision about
+multi-line triggers rests on a measurement from a real session rather than on a
+guess about how the network behaves.
 
 ### `.search` forms
 
