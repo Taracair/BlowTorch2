@@ -1111,6 +1111,16 @@ The default `button_window` plugin supports more than tap:
 - **Hold** — optional command after press-and-hold.
 - **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
 
+### Copying a button set
+
+The button sets list gives each set four icons: load, edit, **copy**, delete.
+Copy duplicates the set — every button and the set's own defaults — as
+`<name> copy`, saved straight away, and the new set appears in the list without
+closing it. Copy it again and you get `<name> copy 2`.
+
+Useful for trying a rearrangement without losing the pad you already trust:
+copy, edit the copy, and switch between them with `.loadset`.
+
 ## Super-buttons (buttons on top of the keyboard)
 
 Any button can also be put **on the screen itself**, over the game and over the

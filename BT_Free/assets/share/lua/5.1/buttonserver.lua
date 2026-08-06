@@ -151,6 +151,85 @@ function makeNewButtonSet(name)
 	loadAndEditSet(name)
 end
 
+--- A name like "main" that no set is using yet: "main copy", then "main copy 2".
+local function freeSetName(base)
+	local candidate = base .. " copy"
+	if buttonsets[candidate] == nil then
+		return candidate
+	end
+	-- Bounded rather than while true: a corrupt table that somehow answers to
+	-- every name must not spin the service thread.
+	for n = 2, 99 do
+		candidate = base .. " copy " .. n
+		if buttonsets[candidate] == nil then
+			return candidate
+		end
+	end
+	return nil
+end
+
+--- Copy a table of button data, one level of nesting deep.
+---
+--- Deep enough for what a button holds: the values are scalars apart from
+--- accordionChildren, which is a list of scalars. A shallow copy would leave the
+--- two sets sharing that list, so editing the copy's accordion would silently
+--- edit the original's.
+---
+--- rawget/pairs on purpose: only a button's **own** values are copied, and
+--- inherited ones must stay inherited. Copying the resolved values instead would
+--- freeze the factory defaults into the new set — the same trap that made button
+--- sizes revert (see dropRedundantOwnValues in buttonwindow.lua).
+local function copyButtonData(src)
+	local out = {}
+	for k, v in pairs(src) do
+		if type(v) == "table" then
+			local inner = {}
+			for ik, iv in pairs(v) do
+				inner[ik] = iv
+			end
+			out[k] = inner
+		else
+			out[k] = v
+		end
+	end
+	return out
+end
+
+--- Duplicate a whole button set, buttons and set defaults, under a new name.
+function copyButtonSet(name)
+	local source = buttonsets[name]
+	if source == nil then
+		Note("\nNo button set called " .. tostring(name) .. ".\n")
+		return
+	end
+	local target = freeSetName(name)
+	if target == nil then
+		Note("\nToo many copies of " .. tostring(name) .. " already.\n")
+		return
+	end
+
+	local copiedButtons = {}
+	for i = 1, #source do
+		if source[i] ~= nil then
+			copiedButtons[#copiedButtons + 1] = copyButtonData(source[i])
+		end
+	end
+	buttonsets[target] = copiedButtons
+
+	local sourceDefaults = buttonset_defaults[name]
+	buttonset_defaults[target] = sourceDefaults ~= nil
+			and copyButtonData(sourceDefaults) or {}
+
+	Note("\nCopied " .. name .. " to \"" .. target .. "\" ("
+		.. #copiedButtons .. " button(s)).\n")
+	-- Save immediately: a copy that only exists in memory is lost to the next
+	-- restart, and the player has no way to tell the difference until then.
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+	getButtonSetList()
+end
+
 function deleteButtonSet(name)
 	local nextset = nil
 	if(name == current_set) then

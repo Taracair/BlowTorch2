@@ -49,6 +49,7 @@ local context = nil
 local rowModifyListener = nil
 local rowLoadListener = nil
 local rowDeleteListener = nil
+local rowCopyListener = nil
 local makeRowButton = nil
 local newButtonListener = nil
 local newSetDoneListener = nil
@@ -133,6 +134,18 @@ rowLoadListener = luajava.createProxy("android.view.View$OnClickListener",{
   end
 })
 
+rowCopyListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    local entry = entryFor(v)
+    if entry == nil then
+      return
+    end
+    -- The service names the copy, saves it and sends a fresh list back, so the
+    -- dialog stays open and the new row simply appears.
+    PluginXCallS("copyButtonSet",entry.name)
+  end
+})
+
 rowDeleteListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v)
     local index = rowIndexOf(v)
@@ -183,6 +196,7 @@ adapter = luajava.createProxy("android.widget.ListAdapter",{
 		-- button carries its own row index, so no selection has to be remembered.
 		holder:addView(makeRowButton(R_drawable.ic_row_load, rowLoadListener, pos))
 		holder:addView(makeRowButton(R_drawable.ic_row_edit, rowModifyListener, pos))
+		holder:addView(makeRowButton(R_drawable.ic_row_copy, rowCopyListener, pos))
 		holder:addView(makeRowButton(R_drawable.ic_row_delete, rowDeleteListener, pos))
 		
 		item = sortedList[tonumber(pos)+1]
