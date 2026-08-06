@@ -186,6 +186,30 @@ Examples (Literal off):
         Action text: `kill $1`
         Meaning: Auto-target the thing that appeared
 
+**Patterns across several lines.** A trigger can match a block, not just one
+line. Write `\n` where the line break is:
+
+    Pattern        You see (.+) here\.\nIt looks (\w+)
+    Meaning        thing → $1, condition → $2, from two different lines
+
+Two rules worth knowing:
+
+- **`.` never crosses a line break.** `.+` stops at the end of its line, so a
+  block pattern has to say `\n` for every break it spans. This is what keeps a
+  greedy pattern from swallowing your whole screen.
+- **`^` and `$` bind to each line**, not to the block, which is the readable way
+  to write one:
+
+      ^\+-+\+$\n^\| (.+) \|$\n^\+-+\+$
+      matches a three-line box and captures what is inside it
+
+A **Gag** on a multi-line pattern removes the whole block, not just its first
+line — one trigger to hide a five-line advert. With **Send to window** set, the
+whole block is forwarded there, in the order it arrived.
+
+Colour still marks the first line of a match; colouring a whole block is not
+done yet.
+
 **Sample — fire only if another trigger is enabled:** create trigger
 `combat_mode` (any pattern; leave it disabled until you want the mode on). On
 a second trigger, under **Conditions**, Add → Trigger enabled → pick

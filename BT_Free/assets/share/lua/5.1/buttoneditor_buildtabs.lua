@@ -228,7 +228,7 @@ function buildTabs(host, content, o)
 	-- anywhere, and with it on this decides for this tile.
 	o.widgets.gestureHintsCb = luajava.new(CheckBox,o.context)
 	local gestureHintsCb = o.widgets.gestureHintsCb
-	gestureHintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges (this button only)")
+	gestureHintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges")
 	gestureHintsCb:setChecked(editorValues.showGestureHintsButton ~= false)
 	if o.numediting > 1 then
 		gestureHintsCb:setEnabled(false)
@@ -332,7 +332,7 @@ function buildTabs(host, content, o)
 	local gestureLabelCb = o.widgets.gestureLabelCb
 	-- "this button" spelled out, because the two switches that used to sit
 	-- beside it looked identical and were profile-wide.
-	gestureLabelCb:setText("Name the command above this button while gesturing (this button only)")
+	gestureLabelCb:setText("Name the command above this button while gesturing")
 	gestureLabelCb:setChecked(editorValues.showGestureLabel ~= false)
 	if o.numediting > 1 then
 		gestureLabelCb:setEnabled(false)

@@ -69,24 +69,38 @@ public class GagAction extends TriggerResponder implements Parcelable {
 				//Log.e("GAG","PREVIOUS INDEX:" + iterator.previousIndex());
 				prevloc = lineit.previousIndex();
 			}
-			//if(tree.getLines().size() == 0) {
-			//	return false;
-			//}
-			//if(tree.getLines().size()-1 <= lineNumber) {
-				tree.getLines().remove(lineNumber);
-			//} else {
-				//tree.updateMetrics();
-			//	return false; //not really sure why that is happening.
-			//}
-				//Log.e("GAG","GAGGING("+lineNumber+"): " + TextTree.deColorLine(line));
-			
+			// A pattern may now span several lines, so a gag takes the whole
+			// block rather than the line the match started on. Removing one of
+			// three left the other two on screen, which is the same shape of
+			// wrongness as the half-line the holdover fixed.
+			//
+			// Lines are newest-first, and the match starts on its oldest line —
+			// the highest index — so the span runs downwards from lineNumber.
+			// Removing in that order keeps the lower indices valid, because a
+			// removal only shifts what is above it.
+			int span = linesSpanned(matched);
+			java.util.List<Line> taken = new java.util.ArrayList<Line>(span);
+			for(int i = 0; i < span; i++) {
+				int at = lineNumber - i;
+				if(at < 0 || at >= tree.getLines().size()) {
+					break;
+				}
+				taken.add(tree.getLines().remove(at));
+			}
+			if(taken.isEmpty()) {
+				return false;
+			}
+
 			if(retarget != null) {
-				Message msg = dispatcher.obtainMessage(Connection.MESSAGE_LINETOWINDOW,line);
-				Bundle b = msg.getData();
-				//Log.e("GAG","SENDING DATA TO ("+retarget+"): " + TextTree.deColorLine(line));
-				b.putString("TARGET", retarget);
-				msg.setData(b);
-				dispatcher.sendMessage(msg);
+				// Oldest first, so the block reads in the other window the way it
+				// was sent rather than upside down.
+				for(int i = taken.size() - 1; i >= 0; i--) {
+					Message msg = dispatcher.obtainMessage(Connection.MESSAGE_LINETOWINDOW,taken.get(i));
+					Bundle b = msg.getData();
+					b.putString("TARGET", retarget);
+					msg.setData(b);
+					dispatcher.sendMessage(msg);
+				}
 			} else {
 				//Log.e("GAG","NOT RETARGETING TO: " + retarget);
 			}
@@ -103,6 +117,29 @@ public class GagAction extends TriggerResponder implements Parcelable {
 			
 			//return false;
 			
+	}
+
+	/**
+	 * How many lines a match covers.
+	 *
+	 * <p>One more than the newlines inside it: a single-line match has none and
+	 * covers one line, which is what every gag written before patterns could
+	 * span lines still does.
+	 *
+	 * @param matched the text the trigger matched.
+	 * @return at least 1.
+	 */
+	static int linesSpanned(final String matched) {
+		if (matched == null) {
+			return 1;
+		}
+		int lines = 1;
+		for (int i = 0; i < matched.length(); i++) {
+			if (matched.charAt(i) == '\n') {
+				lines++;
+			}
+		}
+		return lines;
 	}
 
 	@Override
