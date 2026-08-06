@@ -426,6 +426,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Port indication for this connection. */
 	private int mPort;
+	/**
+	 * TLS for this world. Fixed for the life of the Connection: it identifies
+	 * the endpoint, so a reconnect must use the same answer the player chose
+	 * rather than quietly falling back to plain text.
+	 */
+	private boolean mUseTls = false;
 	
 	/** Synchronization target to manage window loading/unloading. */
 	private Object mWindowSynch = new Object();
@@ -495,7 +501,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	* @param port The port number.
 	* @param service Parent that initated this connection.
 	*/
-	public Connection(final String display, final String host, final int port, final StellarService service) {
+	public Connection(final String display, final String host, final int port,
+			final boolean useTls, final StellarService service) {
 		
 		ColorDebugCommand colordebug = new ColorDebugCommand();
 		DirtyExitCommand dirtyexit = new DirtyExitCommand();
@@ -569,6 +576,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		this.mDisplay = display;
 		this.mHost = host;
 		this.mPort = port;
+		this.mUseTls = useTls;
 		this.mService = service;
 
 		mMapper = new MapperController(this);
@@ -2911,7 +2919,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mService.updateForegroundNotification(mDisplay,
 					mService.getString(com.resurrection.blowtorch2.lib.R.string.notification_status_connecting, mHost, mPort));
 			
-			mPump = new DataPumper(mHost, mPort, mHandler);
+			mPump = new DataPumper(mHost, mPort, mUseTls, mHandler);
 			
 			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 			mProcessor.setDisplayName(mDisplay);
@@ -6697,6 +6705,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @return the host name this connection uses.
 	 */
+	/**
+	 * Whether this connection is (or will be) encrypted.
+	 *
+	 * <p>Exists so that every Intent carrying HOST can carry this beside it.
+	 * With two worlds open, one TLS and one plain, an Intent that named the
+	 * host but left this to a stored preference would hand the second world the
+	 * first world's answer.
+	 *
+	 * @return True when the socket uses TLS.
+	 */
+	public final boolean isUseTls() {
+		return mUseTls;
+	}
+
 	public final String getHost() {
 		return mHost;
 	}

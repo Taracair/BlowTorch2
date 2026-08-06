@@ -277,6 +277,7 @@ public class StellarService extends Service {
 				String display = b.getString("DISPLAY");
 				String host = b.getString("HOST");
 				int port = b.getInt("PORT");
+				boolean useTls = b.getBoolean("TLS", false);
 				
 				Connection c = mConnections.get(display);
 				if (c == null) {
@@ -297,7 +298,7 @@ public class StellarService extends Service {
 					// the map is non-empty and the lookup misses instead.
 					// Crashed here 31 July 2026, 14:44 (getWindowTokens from
 					// MainWindow.onServiceConnected).
-					c = new Connection(display, host, port, StellarService.this);
+					c = new Connection(display, host, port, useTls, StellarService.this);
 					mConnections.put(display, c);
 					mConnectionClutch = display;
 					c.initWindows();
@@ -570,6 +571,26 @@ public class StellarService extends Service {
 	}
 	
 	/** The implementation of the bell vibrator. Connections will call this. */
+	/**
+	 * The TLS answer for a world, for Intents built from a display name alone.
+	 *
+	 * <p>Every Intent that names HOST must name this too. MainWindow falls back
+	 * to a stored preference when an Intent is silent, and with two worlds open
+	 * that preference belongs to whichever was opened last — so a notification
+	 * for the plain world could otherwise hand it the encrypted world's answer.
+	 *
+	 * @param display The connection's display name.
+	 * @return True when that connection uses TLS; false when it is unknown,
+	 *         which matches what a world with no setting has always done.
+	 */
+	private boolean tlsFor(final String display) {
+		if (display == null || mConnections == null) {
+			return false;
+		}
+		Connection c = mConnections.get(display);
+		return c != null && c.isUseTls();
+	}
+
 	public final void doVibrateBell() {
 		Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         vibrator.vibrate(SHORT_DURATION);
@@ -599,6 +620,7 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("DISPLAY", display);
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
+		notificationIntent.putExtra("TLS", tlsFor(display));
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 	
 		PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, activityPendingIntentFlags());
@@ -753,6 +775,7 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("DISPLAY", display);
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
+		notificationIntent.putExtra("TLS", tlsFor(display));
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		int id = getNotificationId();
 		PendingIntent contentIntent = PendingIntent.getActivity(this, id, notificationIntent, activityPendingIntentFlags());
@@ -816,6 +839,7 @@ public class StellarService extends Service {
 			notificationIntent.putExtra("DISPLAY", active.getDisplay());
 			notificationIntent.putExtra("HOST", active.getHost());
 			notificationIntent.putExtra("PORT", Integer.toString(active.getPort()));
+			notificationIntent.putExtra("TLS", active.isUseTls());
 		}
 		notificationIntent.setPackage(getPackageName());
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);

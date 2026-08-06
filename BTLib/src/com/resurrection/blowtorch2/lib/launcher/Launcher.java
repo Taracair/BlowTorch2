@@ -1549,6 +1549,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     	the_intent.putExtra("DISPLAY",launch.getDisplayName());
     	the_intent.putExtra("HOST", launch.getHostName());
     	the_intent.putExtra("PORT", launch.getPortString());
+    	// The launcher row is where TLS is decided and stored, so this Intent is
+    	// the one authoritative carrier of it. Everything downstream either
+    	// forwards it or falls back to the CONNECT_TO prefs written from here.
+    	the_intent.putExtra("TLS", launch.isUseTls());
     	
     	//write out the intent to the service so it can do some lookup work in advance of the connection, such as loading the settings wad
     	//SharedPreferences prefs = Launcher.this.getSharedPreferences("SERVICE_INFO",0);

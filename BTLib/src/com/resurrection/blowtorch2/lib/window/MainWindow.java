@@ -419,7 +419,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String display = MainWindow.this.getConnectionDisplay();
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
-				service.registerCallback(the_callback, host, port, display);
+				service.registerCallback(the_callback, host, port,
+						MainWindow.this.getConnectionTls(), display);
 				// Do NOT windowShowing(true) here. After a UI process kill the
 				// windows are not registered yet — saying "showing" clears the
 				// hold and pushes lines at a null/dead callback. finishInitializeWindows
@@ -1407,7 +1408,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			startAction.putExtra("DISPLAY", getConnectionDisplay());
 			startAction.putExtra("PORT", Integer.toString(getConnectionPort()));
 			startAction.putExtra("HOST", getConnectionHost());
-			
+			startAction.putExtra("TLS", getConnectionTls());
+
 			androidx.core.content.ContextCompat.startForegroundService(this, startAction);
 		}
 		
@@ -2880,6 +2882,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			intent.putExtra("DISPLAY", getConnectionDisplay());
 			intent.putExtra("HOST", getConnectionHost());
 			intent.putExtra("PORT", Integer.toString(getConnectionPort()));
+			intent.putExtra("TLS", getConnectionTls());
 			androidx.core.content.ContextCompat.startForegroundService(this, intent);
 		}
 		//Log.e("window","ending onStart");
@@ -4754,6 +4757,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (port != null) {
 			edit.putString("CONNECT_PORT", port);
 		}
+		// Only when the Intent carries it. Writing false for an Intent that
+		// simply has no opinion would turn TLS off for a world that had it on,
+		// which is the silent downgrade this whole path is written to avoid.
+		if (intent.hasExtra("TLS")) {
+			edit.putBoolean("CONNECT_TLS", intent.getBooleanExtra("TLS", false));
+		}
 		edit.apply();
 	}
 
@@ -4781,11 +4790,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (port == null || port.isEmpty()) {
 			port = Integer.toString(getConnectionPort());
 		}
+		// TLS is resolved from the same source as host and port above, so a
+		// switch cannot pair one world's host with another world's answer here.
+		boolean tls;
+		if (display.equals(prefs.getString("CONNECT_TO", null))) {
+			tls = prefs.getBoolean("CONNECT_TLS", false);
+		} else {
+			tls = getConnectionTls();
+		}
 		Intent base = getIntent();
 		Intent next = base != null ? new Intent(base) : new Intent();
 		next.putExtra("DISPLAY", display);
 		next.putExtra("HOST", host);
 		next.putExtra("PORT", port);
+		next.putExtra("TLS", tls);
 		setIntent(next);
 		saveConnectionExtras(next);
 	}
@@ -4842,6 +4860,34 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 		return 23;
+	}
+
+	/**
+	 * Whether this world connects over TLS, resolved the same way as host and
+	 * port: Intent first, then the CONNECT_TO prefs that survive a process
+	 * death. It has to follow exactly the same road as those two — a resume
+	 * that recovered the host but forgot this would reconnect in plain text
+	 * without saying so.
+	 *
+	 * @return True to use TLS.
+	 */
+	private boolean getConnectionTls() {
+		Intent intent = getIntent();
+		if (intent != null && intent.hasExtra("TLS")) {
+			return intent.getBooleanExtra("TLS", false);
+		}
+		// The stored answer belongs to whichever world was opened last, so it is
+		// only usable when this is that same world. An Intent naming world B
+		// while the preferences still describe world A must not inherit A's
+		// answer — that is how a plain world would try TLS, or worse, an
+		// encrypted one quietly go in the clear.
+		SharedPreferences prefs = getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE);
+		String wanted = intent != null ? intent.getStringExtra("DISPLAY") : null;
+		String stored = prefs.getString("CONNECT_TO", null);
+		if (wanted != null && stored != null && !wanted.equals(stored)) {
+			return false;
+		}
+		return prefs.getBoolean("CONNECT_TLS", false);
 	}
 
 	private void assignLegacyChromeIds() {

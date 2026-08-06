@@ -26,6 +26,8 @@
     <string name="launcher_menu_export_server_list">Export Server List</string>
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
+    <string name="launcher_tls_label">Use TLS (encrypted)</string>
+    <string name="launcher_tls_hint">Only if this world offers a TLS port — usually a different port number from the plain one. A self-signed certificate is refused and the connection will say so.</string>
     <string name="launcher_account_section">Account (optional)</string>
     <string name="launcher_account_plaintext_warn">If this MUD supports GMCP Char.Login, the primary login and password below can be used for automatic login. Extra account slots are notes only. Saved as plain text on this device — leave blank if you do not want passwords stored here.</string>
     <string name="launcher_extra_accounts_hint">Tap a slot to edit. Delete removes it.</string>

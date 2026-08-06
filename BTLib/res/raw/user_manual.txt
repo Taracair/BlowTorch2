@@ -11,6 +11,34 @@ slightly out of date in a few places. When that happens, the app itself — what
 it shows on screen — is the source of truth. Please report mistakes on
 [GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
 
+## Encrypted connections (TLS)
+
+**Use TLS (encrypted)** is a checkbox on each world, in the same editor as its
+host and port (add or edit a world from the launcher).
+
+Turn it on only when the world offers a TLS port. That is usually a *different
+port number* from the plain one — a world might take plain connections on 4000
+and TLS on 4443 — so turning the checkbox on without changing the port normally
+just fails.
+
+When it connects, the game window says what you got:
+
+    TLS: TLSv1.3, cipher TLS_AES_128_GCM_SHA256
+
+If that line is not there, the connection is not encrypted. That is the way to
+check, rather than trusting the checkbox.
+
+**Self-signed certificates are refused.** Some MUDs use them. The connection
+fails with a message saying so rather than connecting anyway, because a
+certificate nobody can vouch for gives you the padlock without the protection.
+If a world only offers a self-signed certificate, leave TLS off for it — you are
+no worse off than before, and the client is not pretending otherwise.
+
+The certificate's host name is checked too, so a valid certificate for some
+other site will not be accepted for this one.
+
+Compression (MCCP) works normally with TLS on: encryption sits underneath it.
+
 ## Dot commands
 
 Lines that start with a single `.` are handled by BlowTorch when “process period”

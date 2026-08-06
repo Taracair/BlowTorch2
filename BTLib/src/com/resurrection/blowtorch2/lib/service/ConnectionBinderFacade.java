@@ -36,13 +36,14 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 
 
 	@Override
-	public void registerCallback(final IConnectionBinderCallback c, final String host, final int port, final String display)
+	public void registerCallback(final IConnectionBinderCallback c, final String host, final int port,
+			final boolean useTls, final String display)
 			throws RemoteException {
 		if (c != null) {
 			service.mCallbacks.register(c);
 
 			if (!service.mConnections.containsKey(display)) {
-				this.setConnectionData(host, port, display);
+				this.setConnectionData(host, port, useTls, display);
 			} else {
 				service.mConnectionClutch = display;
 				// UI process came back onto a live Connection (recents kill, or
@@ -140,13 +141,15 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	}
 
 	@Override
-	public void setConnectionData(final String host, final int port, final String display)
+	public void setConnectionData(final String host, final int port, final boolean useTls,
+			final String display)
 			throws RemoteException {
 		Message msg = service.mHandler.obtainMessage(StellarService.MESSAGE_NEWCONENCTION);
 		Bundle b = msg.getData();
 		b.putString("DISPLAY", display);
 		b.putString("HOST", host);
 		b.putInt("PORT", port);
+		b.putBoolean("TLS", useTls);
 		msg.setData(b);
 		service.mHandler.sendMessage(msg);
 		

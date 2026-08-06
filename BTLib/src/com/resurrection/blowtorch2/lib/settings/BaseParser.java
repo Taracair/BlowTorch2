@@ -153,6 +153,8 @@ public class BaseParser {
 	public static final String ATTR_DATEPLAYED = "lastPlayed";
 	public static final String ATTR_DESCRIPTION = "description";
 	public static final String ATTR_OFFLINE = "offline";
+	/** Connect this world over TLS. Absent means no, as it did before it existed. */
+	public static final String ATTR_TLS = "tls";
 	public static final String TAG_ACCOUNT = "account";
 	public static final String ATTR_ACCOUNT_LABEL = "label";
 	public static final String ATTR_ACCOUNT_LOGIN = "login";
