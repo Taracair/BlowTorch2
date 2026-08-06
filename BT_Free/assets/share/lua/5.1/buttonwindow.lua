@@ -323,7 +323,6 @@ function exitMoveMode()
 		end
 	end
 	drawButtons()
-	btprofReportHints("enterManagerMode")
 	view:setOnTouchListener(managerTouch_cb)
 	
 	view:invalidate()
@@ -4130,6 +4129,9 @@ function loadOptions(data)
 		or options.show_swipe_preview == "1"
 	Note("\nBTPROF loadOptions: raw=" .. tostring(options.show_gesture_hints)
 		.. " buttonShowHints=" .. tostring(buttonShowHints) .. "\n")
+	-- Fresh batch of draw readings after every options push, so a toggle is
+	-- followed by what the drawing code actually decided.
+	BTPROF_DRAW_BUDGET = 4
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()

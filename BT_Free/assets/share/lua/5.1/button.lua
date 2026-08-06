@@ -516,6 +516,15 @@ function BUTTON:draw(state,canvas)
 			and buttonShowHints ~= "1" then
 		showHints = false
 	end
+	-- BTPROF: what the drawing code decided, for the buttons that would carry a
+	-- badge at all. Budget is refilled by loadOptions so each toggle reports.
+	if (BTPROF_DRAW_BUDGET or 0) > 0 and hasAccordionConfig(self.data) then
+		BTPROF_DRAW_BUDGET = BTPROF_DRAW_BUDGET - 1
+		Note("\nBTPROF draw '" .. tostring(self.data.label) .. "': showHints="
+			.. tostring(showHints) .. " flag=" .. tostring(buttonShowHints)
+			.. " (" .. type(buttonShowHints) .. ") child="
+			.. tostring(self.isAccordionChild) .. "\n")
+	end
 	if showHints and not self.isAccordionChild then
 		self:drawGestureIndicators(canvas, p)
 		if hasAccordionConfig(self.data) then
