@@ -409,6 +409,10 @@ newButtonListener = luajava.createProxy("android.view.View$OnClickListener",{
     
     newSetEdit = luajava.new(EditText,context)
     newSetEdit:setHint("New Button Set Name")
+    -- Was added with no layout params at all, so it wrapped to the width of the
+    -- hint inside a dialog that filled the screen.
+    newSetEdit:setLayoutParams(fillparams)
+    newSetEdit:setSingleLine(true)
     
     local done = luajava.new(Button,context)
     done:setText("Done")
@@ -426,7 +430,11 @@ newButtonListener = luajava.createProxy("android.view.View$OnClickListener",{
     linear:addView(newSetEdit)
     linear:addView(buttonholder)
     
-    newButtonSetDialog = luajava.newInstance("com.resurrection.blowtorch2.lib.window.LuaDialog",context,linear,false,nil)
+    -- Compact: this asks for one name. Without the mode LuaDialog forces the
+    -- content to MATCH_PARENT and the window to fill the screen, whatever the
+    -- layout params above say.
+    local LuaDialogClass = luajava.bindClass("com.resurrection.blowtorch2.lib.window.LuaDialog")
+    newButtonSetDialog = luajava.new(LuaDialogClass,context,linear,false,nil,LuaDialogClass.LAYOUT_COMPACT)
     newButtonSetDialog:show()
   end
 })

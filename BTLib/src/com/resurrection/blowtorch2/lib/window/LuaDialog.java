@@ -29,6 +29,12 @@ public class LuaDialog extends Dialog {
 	public static final int LAYOUT_FULLSCREEN = 0;
 	/** Transparent window with a dimmed game view behind; content is a bottom panel. */
 	public static final int LAYOUT_BOTTOM_SHEET = 1;
+	/**
+	 * Only as large as its content, centred. For the dialogs that ask one
+	 * question — a name, a confirmation — which otherwise inherit the fullscreen
+	 * sizing below and take the whole screen to hold one text field.
+	 */
+	public static final int LAYOUT_COMPACT = 2;
 
 	private View mView = null;
 	private Context mContext = null;
@@ -108,11 +114,18 @@ public class LuaDialog extends Dialog {
 			if (bottomSheet) {
 				WindowCompat.setDecorFitsSystemWindows(window, false);
 			}
-			window.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+			final boolean compact = mLayoutMode == LAYOUT_COMPACT;
+			int wantWidth = compact
+					? WindowManager.LayoutParams.WRAP_CONTENT
+					: WindowManager.LayoutParams.MATCH_PARENT;
+			int wantHeight = compact
+					? WindowManager.LayoutParams.WRAP_CONTENT
+					: WindowManager.LayoutParams.MATCH_PARENT;
+			window.setLayout(wantWidth, wantHeight);
 			WindowManager.LayoutParams attrs = window.getAttributes();
-			attrs.width = WindowManager.LayoutParams.MATCH_PARENT;
-			attrs.height = WindowManager.LayoutParams.MATCH_PARENT;
-			attrs.gravity = Gravity.FILL;
+			attrs.width = wantWidth;
+			attrs.height = wantHeight;
+			attrs.gravity = compact ? Gravity.CENTER : Gravity.FILL;
 			if (bottomSheet) {
 				attrs.dimAmount = 0.10f;
 				window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -121,8 +134,17 @@ public class LuaDialog extends Dialog {
 		}
 
 		// Force full-bleed content even when inflate kept tablet fixed sizes.
+		// A compact dialog is the exception and keeps whatever size its content
+		// asked for: overriding it here is what made every one-question dialog
+		// fill the screen no matter what its Lua layout params said.
 		ViewGroup.LayoutParams contentLp = mView.getLayoutParams();
-		if (contentLp == null) {
+		if (mLayoutMode == LAYOUT_COMPACT) {
+			if (contentLp == null) {
+				contentLp = new ViewGroup.LayoutParams(
+						ViewGroup.LayoutParams.WRAP_CONTENT,
+						ViewGroup.LayoutParams.WRAP_CONTENT);
+			}
+		} else if (contentLp == null) {
 			contentLp = new ViewGroup.LayoutParams(
 					ViewGroup.LayoutParams.MATCH_PARENT,
 					ViewGroup.LayoutParams.MATCH_PARENT);
@@ -137,8 +159,11 @@ public class LuaDialog extends Dialog {
 			// Edge-to-edge bottom sheet: pad content clear of system bars.
 			// Opaque fullscreen sheet: window already fits system bars — do not
 			// also pad, or large empty bands appear inside the dashed frame.
-			boolean padForSystemBars = mLayoutMode != LAYOUT_BOTTOM_SHEET
-					|| mPresentationOverGrid;
+			// A compact dialog is centred and only as tall as its content, so it
+			// is nowhere near a system bar. Padding it by the bar insets would
+			// just grow it — the very thing this mode exists to stop.
+			boolean padForSystemBars = mLayoutMode != LAYOUT_COMPACT
+					&& (mLayoutMode != LAYOUT_BOTTOM_SHEET || mPresentationOverGrid);
 			int top = padForSystemBars ? sys.top : 0;
 			int bottom = padForSystemBars ? sys.bottom : 0;
 			view.setPadding(view.getPaddingLeft(), top,

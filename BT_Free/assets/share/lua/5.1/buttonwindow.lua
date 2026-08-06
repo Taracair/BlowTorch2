@@ -2004,14 +2004,20 @@ function fitGridToScreen(square)
 	if size >= 16 then
 		appliedW, appliedH, becameDefault = applyButtonSize(size, size)
 	else
-		-- Play-mode Fit has no manager canvas; only redraw the grid while editing.
-		if manage == true and managerCanvas ~= nil then
-			drawManagerGrid()
-		end
 		drawButtons()
-		view:invalidate()
 		saveDefaultOptions()
 	end
+	-- The grid lines live on the manager canvas, and nothing above touches it:
+	-- applyButtonSize redraws the buttons only. So the common path moved the
+	-- buttons to the new cells while the cells themselves stayed drawn at the
+	-- old spacing until the editor was closed and reopened. The grid-spacing
+	-- sliders next door have always redrawn both, and now so does Fit.
+	--
+	-- Play-mode Fit has no manager canvas, hence the guard.
+	if manage == true and managerCanvas ~= nil then
+		drawManagerGrid()
+	end
+	view:invalidate()
 	Note("\nGrid set to " .. cols .. " columns of "
 		.. math.floor(cellX / density + 0.5) .. "x"
 		.. math.floor(cellY / density + 0.5) .. "dp"
