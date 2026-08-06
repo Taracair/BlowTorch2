@@ -55,6 +55,7 @@ local applySize
 local tidyLayout
 local setChromeGestures
 local fitGrid
+local pasteButtons
 local editorDone
 local editorCancel
 setEditorDoneCallback = function(c) editorDone = c end
@@ -79,6 +80,7 @@ setBeginGridChangeCallback = function(c) beginGridChange = c end
 setSpreadSelectionCallback = function(c) spreadSelection = c end
 setChromeGesturesCallback = function(c) setChromeGestures = c end
 setFitGridCallback = function(c) fitGrid = c end
+setPasteButtonsCallback = function(c) pasteButtons = c end
 --end callback handling variables
 
 --local vairables to keep track of widget values
@@ -148,6 +150,7 @@ local chromeBaseline
 local chromeFields
 local fitSquareListener
 local fitStretchListener
+local pasteButtonsListener
 local gridXField
 local gridYField
 local sizeWidthField
@@ -647,6 +650,16 @@ function showDialog(initialValues)
   sizeRow:addView(applySizeButton)
   ll:addView(sizeRow)
 
+  -- Paste has a visible home as well as the gesture. A long press announces
+  -- itself to nobody, so a player who never reads the manual would never learn
+  -- the feature exists.
+  local pasteButton = luajava.new(Button, context)
+  pasteButton:setText("Paste copied buttons (long press on the grid works too)")
+  pasteButton:setTextSize(textSizeSmall)
+  pasteButton:setLayoutParams(fillparams)
+  pasteButton:setOnClickListener(pasteButtonsListener)
+  ll:addView(pasteButton)
+
   -- Line up and spread. Both act on the selection; with nothing selected they
   -- take every button, same as the tools above. A small button factory rather
   -- than five near-identical blocks -- these rows are three buttons wide and a
@@ -821,6 +834,12 @@ applySizeListener = luajava.createProxy("android.view.View$OnClickListener",{
       return
     end
     applySize(w, h)
+  end
+})
+
+pasteButtonsListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    if pasteButtons ~= nil then pasteButtons() end
   end
 })
 

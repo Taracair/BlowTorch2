@@ -1111,6 +1111,25 @@ The default `button_window` plugin supports more than tap:
 - **Hold** — optional command after press-and-hold.
 - **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
 
+### Copying buttons between sets
+
+Select the buttons you want (tap one, or tap several), tap one of them to open
+the menu, and choose **Copy**. They go to the system clipboard.
+
+To paste, either:
+
+- **long press an empty grid cell** in any set — the buttons land with the block's
+  top-left at that cell, keeping the shape they were copied in; or
+- open the editor settings sheet and press **Paste copied buttons**, which drops
+  them in the middle of the grid.
+
+A short tap on empty grid still makes a new button, exactly as before — only a
+long press pastes, and only when something has been copied.
+
+The copy carries each button's *own* settings and leaves inherited ones
+inherited, so buttons pasted into a set with different defaults take on that
+set's look rather than dragging the old set's factory values with them.
+
 ### Copying a button set
 
 The button sets list gives each set four icons: load, edit, **copy**, delete.

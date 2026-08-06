@@ -439,9 +439,18 @@ function managerTouch.onTouch(v,e)
 			return true
 		end
 		if(manage and not fingerdown and not buttoncleared) then
-			pushUndo()
 			local modx = (math.floor(x/gridXwidth)*gridXwidth)+(gridXwidth/2)
 			local mody = (math.floor(y/gridYwidth)*gridYwidth)+(gridYwidth/2)
+			-- Held long enough, with something copied? Paste instead of
+			-- creating. Taken from the event rather than a stopwatch field, so
+			-- there is no state to get out of step, and a short tap reaches the
+			-- create path exactly as before.
+			local held = e:getEventTime() - e:getDownTime()
+			if held >= BUTTON_PASTE_LONG_PRESS_MS and hasButtonsToPaste() then
+				pasteButtons(modx,mody-statusoffset)
+				return true
+			end
+			pushUndo()
 			local butt = addButton(modx,mody-statusoffset)
 			butt:draw(0,buttonCanvas)
 			view:invalidate()
@@ -2654,6 +2663,13 @@ function buttonOptions()
     pushUndo()
     spreadSelectedButtons(shape)
   end)
+  editorOptionsDialog.setPasteButtonsCallback(function()
+    -- Into the middle of the grid: the sheet covers the buttons, so there is no
+    -- cell under a finger to aim at the way the long press has.
+    local cx = (view:getWidth() / 2)
+    local cy = ((view:getHeight() - statusoffset) / 2)
+    pasteButtons(cx, cy)
+  end)
   editorOptionsDialog.setFitGridCallback(function(square)
     pushUndo()
     local aw, ah, becameDefault = fitGridToScreen(square)
@@ -2985,21 +3001,23 @@ dragcurrent.y = -1
 String = luajava.newInstance("java.lang.String")
 StringClass = String:getClass()
 
-editorItems = Array:newInstance(StringClass,3)
+editorItems = Array:newInstance(StringClass,4)
 Array:set(editorItems,0,"Move")
 Array:set(editorItems,1,"Edit")
-Array:set(editorItems,2,"Delete")
+Array:set(editorItems,2,"Copy")
+Array:set(editorItems,3,"Delete")
 
 -- With more than one button selected there is a fourth thing worth doing, and
 -- it is the reason the selection was made in the first place: arranging them.
 -- The same tools live in the editor settings sheet, which is where you go to
 -- work on the whole set; this is the short way round when the buttons are
 -- already picked and under your finger.
-editorItemsMulti = Array:newInstance(StringClass,4)
+editorItemsMulti = Array:newInstance(StringClass,5)
 Array:set(editorItemsMulti,0,"Move")
 Array:set(editorItemsMulti,1,"Edit")
 Array:set(editorItemsMulti,2,"Arrange...")
-Array:set(editorItemsMulti,3,"Delete")
+Array:set(editorItemsMulti,3,"Copy")
+Array:set(editorItemsMulti,4,"Delete")
 
 arrangeItems = Array:newInstance(StringClass,5)
 Array:set(arrangeItems,0,"Line up  |   (one column)")
@@ -3007,6 +3025,155 @@ Array:set(arrangeItems,1,"Line up  --  (one row)")
 Array:set(arrangeItems,2,"Spread into a column")
 Array:set(arrangeItems,3,"Spread into a row")
 Array:set(arrangeItems,4,"Spread into a block")
+
+-- Marks our own clipboard content, so pasting from a shopping list does not
+-- silently produce nothing while looking like it worked.
+BUTTON_CLIP_MARKER = "BLOWTORCH-BUTTONS-1"
+
+-- How long a press on empty grid has to last to mean paste rather than "make a
+-- button here". Android's own long-press threshold, so it feels like every
+-- other long press on the phone.
+BUTTON_PASTE_LONG_PRESS_MS = 500
+
+local function clipboardManager()
+	if view == nil then
+		return nil
+	end
+	return view:getContext():getSystemService(Context.CLIPBOARD_SERVICE)
+end
+
+--- Put the selected buttons on the system clipboard.
+---
+--- Own values only — `serialize` walks with pairs, so inherited defaults stay
+--- inherited. Copying the resolved values instead would freeze this set's
+--- factory defaults into whatever set the buttons are pasted into, the same
+--- trap that made button sizes revert.
+function copySelectedButtons()
+	local payload = {}
+	for i = 1, #buttons do
+		local b = buttons[i]
+		if b ~= nil and b.selected then
+			payload[#payload + 1] = b.data
+		end
+	end
+	if #payload == 0 then
+		Note("\nNothing selected to copy.\n")
+		return
+	end
+	local cm = clipboardManager()
+	if cm == nil then
+		Note("\nNo clipboard available.\n")
+		return
+	end
+	local ClipData = luajava.bindClass("android.content.ClipData")
+	local text = BUTTON_CLIP_MARKER .. "\n" .. serialize(payload)
+	cm:setPrimaryClip(ClipData:newPlainText("BlowTorch buttons", text))
+	Note("\nCopied " .. #payload .. " button(s). Long press an empty grid cell"
+		.. " in another set to paste.\n")
+end
+
+--- The buttons on the clipboard, or nil when it holds something else.
+local function buttonsOnClipboard()
+	local cm = clipboardManager()
+	if cm == nil or not cm:hasPrimaryClip() then
+		return nil
+	end
+	local clip = cm:getPrimaryClip()
+	if clip == nil or clip:getItemCount() < 1 then
+		return nil
+	end
+	local item = clip:getItemAt(0)
+	if item == nil then
+		return nil
+	end
+	local text = item:coerceToText(view:getContext())
+	if text == nil then
+		return nil
+	end
+	text = text:toString()
+	local body = text:match("^" .. BUTTON_CLIP_MARKER .. "\n(.*)$")
+	if body == nil then
+		return nil
+	end
+	local loaded = loadSerialized(body, "the copied buttons")
+	if type(loaded) ~= "table" or #loaded == 0 then
+		return nil
+	end
+	return loaded
+end
+
+--- True when a long press would have something to paste.
+function hasButtonsToPaste()
+	return buttonsOnClipboard() ~= nil
+end
+
+--- Paste the clipboard's buttons, the block's top-left landing on (pX, pY).
+---
+--- Relative positions are kept, so a pasted cluster arrives in the shape it was
+--- copied in rather than as a stack in one cell.
+function pasteButtons(pX, pY)
+	local payload = buttonsOnClipboard()
+	if payload == nil then
+		Note("\nNothing on the clipboard to paste. Select buttons and use Copy"
+			.. " first.\n")
+		return false
+	end
+
+	local minX, minY = nil, nil
+	for i = 1, #payload do
+		local d = payload[i]
+		if d ~= nil and d.x ~= nil and d.y ~= nil then
+			if minX == nil or d.x < minX then minX = d.x end
+			if minY == nil or d.y < minY then minY = d.y end
+		end
+	end
+	if minX == nil then
+		return false
+	end
+
+	pushUndo()
+	for i = 1, #buttons do
+		if buttons[i] ~= nil and buttons[i].selected then
+			buttons[i].selected = false
+			updateSelected(buttons[i], false)
+		end
+	end
+
+	local added = 0
+	for i = 1, #payload do
+		local d = payload[i]
+		if d ~= nil and d.x ~= nil and d.y ~= nil then
+			local copy = {}
+			for k, v in pairs(d) do
+				if type(v) == "table" then
+					local inner = {}
+					for ik, iv in pairs(v) do
+						inner[ik] = iv
+					end
+					copy[k] = inner
+				else
+					copy[k] = v
+				end
+			end
+			copy.x = pX + (d.x - minX)
+			copy.y = pY + (d.y - minY)
+			local newb = BUTTON:new(copy, density)
+			newb.data.x, newb.data.y =
+				clampLogicalPosition(newb.data.x, newb.data.y, newb)
+			refreshRect(newb)
+			table.insert(buttons, newb)
+			newb.selected = true
+			updateSelected(newb, true)
+			added = added + 1
+		end
+	end
+
+	drawButtons()
+	view:invalidate()
+	saveDefaultOptions()
+	Note("\nPasted " .. added .. " button(s).\n")
+	return true
+end
 
 function deleteSelectedButtons()
 	pushUndo()
@@ -3060,15 +3227,15 @@ end
 
 editorListener = {}
 function editorListener.onClick(dialog,which)
-	--Note("Editor: "..Array:get(editorItems,which).." selected.")
-	if(which == 2) then
-		deleteSelectedButtons()
-	end
+	-- Index order must match editorItems above: Move, Edit, Copy, Delete.
 	if(which == 0) then
 		enterMoveMode()
-	end
-	if(which == 1) then
+	elseif(which == 1) then
 		showEditorDialog()
+	elseif(which == 2) then
+		copySelectedButtons()
+	elseif(which == 3) then
+		deleteSelectedButtons()
 	end
 end
 editorListener_cb = luajava.createProxy("android.content.DialogInterface$OnClickListener",editorListener)
@@ -3085,6 +3252,8 @@ function editorListenerMulti.onClick(dialog,which)
 	elseif(which == 2) then
 		showArrangeSelection(numediting)
 	elseif(which == 3) then
+		copySelectedButtons()
+	elseif(which == 4) then
 		deleteSelectedButtons()
 	end
 end
