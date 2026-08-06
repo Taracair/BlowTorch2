@@ -323,6 +323,7 @@ function exitMoveMode()
 		end
 	end
 	drawButtons()
+	btprofReportHints("enterManagerMode")
 	view:setOnTouchListener(managerTouch_cb)
 	
 	view:invalidate()
@@ -3293,6 +3294,13 @@ end
 editorListenerMulti_cb = luajava.createProxy("android.content.DialogInterface$OnClickListener",editorListenerMulti)
 numediting = 0
 lastselectedinex = -1
+function btprofReportHints(where)
+	Note("\nBTPROF " .. where .. ": buttonShowHints=" .. tostring(buttonShowHints)
+		.. " type=" .. type(buttonShowHints)
+		.. " optRaw=" .. tostring(options ~= nil and options.show_gesture_hints or "no-options")
+		.. "\n")
+end
+
 function showEditorSelection()
 	local count = 0
 	for i,b in ipairs(buttons) do
@@ -4120,6 +4128,8 @@ function loadOptions(data)
 		or options.show_swipe_preview == true
 		or options.show_swipe_preview == "true"
 		or options.show_swipe_preview == "1"
+	Note("\nBTPROF loadOptions: raw=" .. tostring(options.show_gesture_hints)
+		.. " buttonShowHints=" .. tostring(buttonShowHints) .. "\n")
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()
