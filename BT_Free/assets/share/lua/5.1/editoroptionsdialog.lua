@@ -638,7 +638,9 @@ function showDialog(initialValues)
   local sizeWEdit = addNumberField(sizeRow, "Size  W:", initialValues.width or 42, 54)
   local sizeHEdit = addNumberField(sizeRow, "H:", initialValues.height or 42, 54)
   local applySizeButton = luajava.new(Button, context)
-  applySizeButton:setText("Apply size")
+  -- "Apply size" read as if it applied the size field to new buttons, which is
+  -- what the field beside it does. This one resizes what is already there.
+  applySizeButton:setText("Resize now")
   applySizeButton:setTextSize(textSizeSmall)
   applySizeButton:setLayoutParams(fillparams)
   applySizeButton:setOnClickListener(applySizeListener)

@@ -1775,6 +1775,43 @@ local function layoutTargets()
 	return all, false
 end
 
+-- Fields a button may hold its own copy of, and otherwise inherits.
+DROPPABLE_OWN_FIELDS = {
+	"width", "height", "labelSize",
+	"primaryColor", "flipColor", "selectedColor",
+	"labelColor", "flipLabelColor",
+}
+
+--- Drop a button's own values that it would inherit unchanged anyway.
+---
+--- Called on Done, to keep a set from storing a copy of the default on every
+--- button. The subtlety, and a bug that lived here: dropping an own value makes
+--- the button inherit **BUTTONSET_DATA**, because `BUTTON_DATA.__index` is the
+--- global prototype. Nothing links a button to its own set's `defaults` table.
+---
+--- So an own value may only be dropped when the set default and the prototype
+--- agree. Otherwise the button springs back to the factory value instead of the
+--- set's — "44x44 keeps reverting to 48x48 in set main, but is fine in Default",
+--- 48 being BUTTONSET_DATA.width. The revert happened on Done, one step after
+--- Apply size had visibly worked, which is what made it look random.
+---
+--- A set whose default already is the factory value clears exactly as before,
+--- and that is where the saving always came from.
+function dropRedundantOwnValues(b, setDefaults)
+	if b == nil or b.data == nil or setDefaults == nil then
+		return
+	end
+	for i = 1, #DROPPABLE_OWN_FIELDS do
+		local field = DROPPABLE_OWN_FIELDS[i]
+		local own = tonumber(rawget(b.data, field))
+		local fromSet = tonumber(setDefaults[field])
+		local fromPrototype = tonumber(BUTTONSET_DATA[field])
+		if own ~= nil and own == fromSet and fromSet == fromPrototype then
+			rawset(b.data, field, nil)
+		end
+	end
+end
+
 -- Give every target the same width and height, in dp.
 function applyButtonSize(w, h)
 	local targets, hadSelection = layoutTargets()
@@ -2545,45 +2582,7 @@ function buttonOptions()
       --local meta = getmetatable(data)
       --local index = meta.__index
       
-      local compare = function(x,c,z)
-        return tonumber(rawget(x,c)) == tonumber(z)
-      end
-      
-      if(compare(data,"width",defaults.width)) then
-        --Note("\n\nSPECIAL WIDTH CLEAR\n\n")
-        rawset(b.data,"width",nil)
-      end
-      
-      if(compare(data,"height",defaults.height)) then
-        --Note("\n\nSPECIAL LABEL CLEAR\n\n")
-        rawset(b.data,"height",nil)
-      end
-      
-      if(compare(data,"labelSize",defaults.labelSize)) then
-        rawset(b.data,"labelSize",nil)
-      end
-      --counter = counter + 1
-      if(compare(data,"primaryColor",defaults.primaryColor)) then
-        rawset(b.data,"primaryColor",nil)
-      end
-      
-      if(compare(data,"flipColor",defaults.flipColor)) then
-        rawset(b.data,"flipColor",nil)
-      end
-      
-      if(compare(data,"selectedColor",defaults.selectedColor)) then
-        rawset(b.data,"selectedColor",nil)
-      end
-      
-      if(compare(data,"labelColor",defaults.labelColor)) then
-        rawset(b.data,"labelColor",nil)
-      end
-      
-      if(compare(data,"flipLabelColor",defaults.flipLabelColor)) then
-        rawset(b.data,"flipLabelColor",nil)
-      end
-      
-     
+      dropRedundantOwnValues(b, defaults)
     end
     
     -- The defaults editor names its colours differently from the set data, and
