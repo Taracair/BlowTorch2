@@ -220,38 +220,20 @@ function buildTabs(host, content, o)
 		spinner:setBackgroundColor(Color:argb(255, 0, 0, 0))
 	end
 
-	local showHintsCb = luajava.new(CheckBox,o.context)
-	showHintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges on buttons")
-	local hintsOn = editorValues.showGestureHints
-	if hintsOn == nil then hintsOn = true end
-	showHintsCb:setChecked(hintsOn)
-	showHintsCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
-		onCheckedChanged = function(v, isChecked)
-			-- PluginXCallS only accepts one data arg; update window draw state immediately.
-			globals.buttonShowHints = isChecked and true or false
-			if drawButtons ~= nil then
-				drawButtons()
-			end
-			if view ~= nil then
-				view:invalidate()
-			end
-			PluginXCallS("setShowGestureHints", isChecked and "true" or "false")
-		end
-	}))
-	swipePage:addView(showHintsCb)
-
-	local swipePreviewCb = luajava.new(CheckBox,o.context)
-	swipePreviewCb:setText("Show swipe direction arrow while dragging (command callouts always show)")
-	local previewOn = editorValues.showSwipePreview
-	if previewOn == nil then previewOn = true end
-	swipePreviewCb:setChecked(previewOn)
-	swipePreviewCb:setOnCheckedChangeListener(luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
-		onCheckedChanged = function(v, isChecked)
-			globals.buttonShowSwipePreview = isChecked and true or false
-			PluginXCallS("setShowSwipePreview", isChecked and "true" or "false")
-		end
-	}))
-	swipePage:addView(swipePreviewCb)
+	-- Per button, not profile-wide. It used to be the profile switch shown here,
+	-- which is why turning it off on one button turned it off on all of them
+	-- while the switch below it changed only one — three switches side by side
+	-- with two of them secretly global. The profile switch is still in the
+	-- editor settings sheet and still wins: with it off nothing is drawn
+	-- anywhere, and with it on this decides for this tile.
+	o.widgets.gestureHintsCb = luajava.new(CheckBox,o.context)
+	local gestureHintsCb = o.widgets.gestureHintsCb
+	gestureHintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges (this button only)")
+	gestureHintsCb:setChecked(editorValues.showGestureHintsButton ~= false)
+	if o.numediting > 1 then
+		gestureHintsCb:setEnabled(false)
+	end
+	swipePage:addView(gestureHintsCb)
 
 	o.addHelpText(swipePage, "Swipe commands override Flip when set. Drag ~24dp in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at ~0.45s. To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).")
 	
@@ -304,6 +286,7 @@ function buildTabs(host, content, o)
 	o.widgets.swipeRightCmdEdit = addSwipeRow(swipePage, "→  Right:", editorValues.swipeRightCommand)
 
 	o.gestureLabelCarried = editorValues.showGestureLabel ~= false
+	o.gestureHintsCarried = editorValues.showGestureHintsButton ~= false
 
 	o.carriedDiagonalSwipes = {
 		swipeUpLeftCommand = editorValues.swipeUpLeftCommand or "",
@@ -347,7 +330,9 @@ function buildTabs(host, content, o)
 	o.addHelpText(diagonalBox, "A corner with no command falls back to the nearest straight swipe, so adding these never changes how the straight ones behave.")
 	o.widgets.gestureLabelCb = luajava.new(CheckBox,o.context)
 	local gestureLabelCb = o.widgets.gestureLabelCb
-	gestureLabelCb:setText("Name the command above this button while gesturing")
+	-- "this button" spelled out, because the two switches that used to sit
+	-- beside it looked identical and were profile-wide.
+	gestureLabelCb:setText("Name the command above this button while gesturing (this button only)")
 	gestureLabelCb:setChecked(editorValues.showGestureLabel ~= false)
 	if o.numediting > 1 then
 		gestureLabelCb:setEnabled(false)

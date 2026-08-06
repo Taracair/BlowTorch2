@@ -391,6 +391,7 @@ function button.start(a)
 	tmp.swipeDownLeftCommand = a:getValue("","swipeDownLeftCommand") or ""
 	tmp.swipeDownRightCommand = a:getValue("","swipeDownRightCommand") or ""
 	tmp.showGestureLabel = a:getValue("","showGestureLabel") ~= "false"
+	tmp.showGestureHints = a:getValue("","showGestureHints") ~= "false"
 	tmp.switchTo = a:getValue("","switchTo") or ""
 	tmp.name = a:getValue("","name")
 	tmp.height = a:getValue("","height")

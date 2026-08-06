@@ -522,14 +522,17 @@ function showDialog(initialValues)
 
   local hintsCb = luajava.newInstance("android.widget.CheckBox",context)
   hintsCb:setChecked(showGestureHints)
-  hintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges on buttons")
+  -- Master switch. Off hides them everywhere; on lets each button decide, in the
+  -- button's own editor. Saying so here is what stops the two reading as the
+  -- same switch that will not remember anything.
+  hintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges — all buttons (each button can still opt out)")
   hintsCb:setTextSize(textSizeSmall)
   hintsCb:setOnCheckedChangeListener(showGestureHintsCheckChangeListener)
   hintsCb:setLayoutParams(fillparams)
 
   local swipePreviewCb = luajava.newInstance("android.widget.CheckBox",context)
   swipePreviewCb:setChecked(showSwipePreview)
-  swipePreviewCb:setText("Show swipe direction arrow while dragging (command callouts always show)")
+  swipePreviewCb:setText("Show swipe direction arrow while dragging — all buttons (command callouts always show)")
   swipePreviewCb:setTextSize(textSizeSmall)
   swipePreviewCb:setOnCheckedChangeListener(showSwipePreviewCheckChangeListener)
   swipePreviewCb:setLayoutParams(fillparams)

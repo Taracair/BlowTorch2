@@ -1451,6 +1451,7 @@ function notifyFloatingButtonsChanged()
 					o:put("swipeDownLeftCommand", tostring(d.swipeDownLeftCommand or ""))
 					o:put("swipeDownRightCommand", tostring(d.swipeDownRightCommand or ""))
 					o:put("showGestureLabel", d.showGestureLabel ~= false)
+					o:put("showGestureHints", d.showGestureHints ~= false)
 					o:put("switchTo", tostring(d.switchTo or ""))
 					o:put("primaryColor", tonumber(d.primaryColor) or 0)
 					o:put("selectedColor", tonumber(d.selectedColor) or 0)
@@ -3293,13 +3294,6 @@ end
 editorListenerMulti_cb = luajava.createProxy("android.content.DialogInterface$OnClickListener",editorListenerMulti)
 numediting = 0
 lastselectedinex = -1
-function btprofReportHints(where)
-	Note("\nBTPROF " .. where .. ": buttonShowHints=" .. tostring(buttonShowHints)
-		.. " type=" .. type(buttonShowHints)
-		.. " optRaw=" .. tostring(options ~= nil and options.show_gesture_hints or "no-options")
-		.. "\n")
-end
-
 function showEditorSelection()
 	local count = 0
 	for i,b in ipairs(buttons) do
@@ -3641,7 +3635,8 @@ function buttonEditorDone(data)
 		tmp.data.swipeDownLeftCommand = data.swipeDownLeftCommand or ""
 		tmp.data.swipeDownRightCommand = data.swipeDownRightCommand or ""
 		tmp.data.showGestureLabel = data.showGestureLabel ~= false
-		
+		tmp.data.showGestureHints = data.showGestureHints ~= false
+
 		tmp.data.accordionDirection = data.accordionDirection or ""
 		tmp.data.accordionChildren = data.accordionChildren or {}
 		tmp.data.accordionTrigger = data.accordionTrigger or "tap"
@@ -3785,6 +3780,10 @@ function showEditorDialog()
 		editorValues.swipeDownLeftCommand = button.data.swipeDownLeftCommand or ""
 		editorValues.swipeDownRightCommand = button.data.swipeDownRightCommand or ""
 		editorValues.showGestureLabel = button.data.showGestureLabel ~= false
+		-- Named apart from editorValues.showGestureHints, which is the
+		-- profile-wide switch the editor settings sheet reads. Same words on
+		-- screen, different scope, so they must not share a key.
+		editorValues.showGestureHintsButton = button.data.showGestureHints ~= false
 		editorValues.accordionDirection = button.data.accordionDirection or ""
 		editorValues.accordionChildren = button.data.accordionChildren or {}
 		editorValues.accordionTrigger = button.data.accordionTrigger or "tap"
@@ -4127,11 +4126,6 @@ function loadOptions(data)
 		or options.show_swipe_preview == true
 		or options.show_swipe_preview == "true"
 		or options.show_swipe_preview == "1"
-	Note("\nBTPROF loadOptions: raw=" .. tostring(options.show_gesture_hints)
-		.. " buttonShowHints=" .. tostring(buttonShowHints) .. "\n")
-	-- Fresh batch of draw readings after every options push, so a toggle is
-	-- followed by what the drawing code actually decided.
-	BTPROF_DRAW_BUDGET = 4
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()
