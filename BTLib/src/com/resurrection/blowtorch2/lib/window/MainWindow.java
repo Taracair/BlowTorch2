@@ -1233,7 +1233,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//try {
 					if(isKeepLast && !mLocalEchoOff) {
 						keepLastReplaceLength = mInputBox.getText().length();
-						historyWidgetKept = true;
+						// Only when the bar really is holding a kept command.
+						// This flag makes the next ↑ skip one entry, on the
+						// grounds that the first one back is already on screen.
+						// Claiming it for an empty bar therefore skips a command
+						// that was never shown — and nothing cleared it in that
+						// case, because the watcher below only clears while
+						// keepLastReplaceLength > 0. That is the "sometimes it
+						// jumps two commands back" report.
+						historyWidgetKept = keepLastReplaceLength > 0;
 						if (keepLastReplaceLength > 0) {
 							mInputBox.post(new Runnable() {
 								@Override
@@ -2476,12 +2484,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (older) {
 			cmd = history.getNext();
 			if (isKeepLast && historyWidgetKept) {
+				// The bar already shows the newest entry, so step past it.
 				cmd = history.getNext();
-				historyWidgetKept = false;
 			}
 		} else {
 			cmd = history.getPrev();
 		}
+		// Either direction leaves the bar showing a history entry rather than
+		// the kept command, so the skip above must not apply again. Only the
+		// ↑ branch used to clear this, which meant ↓ then ↑ skipped an entry.
+		historyWidgetKept = false;
 		if (cmd == null) {
 			cmd = "";
 		}

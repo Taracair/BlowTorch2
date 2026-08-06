@@ -2799,6 +2799,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mChunkStats == null) {
 			body = body + "(probe is currently off — .probe lines on to resume)\n";
 		}
+		// Also into the session log. A measurement that can only be read off the
+		// screen cannot leave the phone, and the whole point of this one is to
+		// be carried back to whoever is deciding what to build. The session log
+		// is a file the player already knows how to export.
+		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, body);
 		return body;
 	}
 
