@@ -76,10 +76,8 @@ public class TapActionEditor extends Dialog {
 		});
 		root.addView(addCommand);
 
-		// The insert binding by name. It is only a command like any other, but
-		// nobody guesses ".kb insert $word" from a blank box, and it is the one
-		// binding that makes tappable words useful before you have decided what
-		// the word should do.
+		// Only a command like any other; it is here because nobody guesses
+		// ".kb insert $word" from a blank box.
 		Button addInsert = new Button(c);
 		addInsert.setText("Add: put the word in the input bar");
 		addInsert.setOnClickListener(new View.OnClickListener() {

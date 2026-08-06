@@ -69,10 +69,16 @@ public final class InputWordInsert {
 		}
 		out.append(insert);
 		int caret = out.length();
-		// A trailing space only when something follows and does not bring its
-		// own. At the end of the line the space is added anyway, because the
-		// next tap or keystroke almost always wants it and a stray trailing
-		// space is stripped before the command is sent.
+		// A trailing space unless what follows already brings one. At the end of
+		// the line it is added anyway, so a second tap chains without the player
+		// reaching for the space bar -- which is the whole saving on a phone.
+		//
+		// That space is sent: Connection.processOutputData appends the command
+		// verbatim (mDataToServer.append(d.mCmdString + mCRLF)) and nothing on
+		// that path trims it. Checked, not assumed. "kill troll " is fine on
+		// every world I know of, and the player can see and delete it; trimming
+		// the outgoing line globally to tidy this up would change what every
+		// other command sends, which is far too wide a fix for a cosmetic edge.
 		if (after.length() == 0 || !startsWithSpace(after)) {
 			out.append(' ');
 			caret = out.length();

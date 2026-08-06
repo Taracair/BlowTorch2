@@ -40,13 +40,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 
 	public static final String DEFAULT_COMMAND = "look " + WORD_TOKEN;
 
-	/**
-	 * Tap the word and it lands in the input bar instead of going to the game.
-	 * Nothing special is needed to make this work — a tap travels the same road
-	 * as a typed line, so a dot command in the box is a dot command — but it is
-	 * the one binding most worth offering by name, because typing a mob's name
-	 * on a phone is the slow part of playing on one.
-	 */
+	/** Tap the word into the input bar instead of sending it. */
 	public static final String INSERT_COMMAND = ".kb insert " + WORD_TOKEN;
 
 	/**

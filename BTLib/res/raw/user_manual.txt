@@ -35,12 +35,16 @@ times:
     #3 kick troll       kicks three times
     #4 get all from bag
 
-It works anywhere a command does — typed, on a button, inside an alias, and in
-each segment of a `;` list, so `stand;#3 kick troll;sit` is stand, three kicks,
-sit.
+It works wherever a line is sent — typed, on a button, and in each segment of a
+`;` list, so `stand;#3 kick troll;sit` is stand, three kicks, sit.
 
 The multiplier counts **what you typed**, not what it expanded into. With an
 alias `kk` → `kill $1`, typing `#3 kk troll` sends `kill troll` three times.
+
+**It does not work inside an alias's replacement text.** An alias whose text is
+`#3 kick troll` sends that line to the game as it stands. The multiplier is read
+once, on the line you send, before aliases are expanded — so put the `#` in
+front of the alias (`#3 kk troll`), not inside it.
 
 **No pause between them.** All the copies go out at once, exactly as if you had
 typed `north;north;north;north;north`. This is not a way to pace commands — for
