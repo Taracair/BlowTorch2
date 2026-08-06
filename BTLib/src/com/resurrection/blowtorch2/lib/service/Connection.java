@@ -283,6 +283,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Sent from the Processor when telnet ECHO changes hands. arg1 1 = local echo on. */
 	public static final int MESSAGE_LOCALECHO = 53;
+	/**
+	 * The half-line held by {@link #mLineHoldover} has waited long enough and
+	 * goes out as it stands. This is what makes a prompt appear: nothing ever
+	 * completes one, so only the timer releases it.
+	 */
+	public static final int MESSAGE_FLUSH_LINE_HOLDOVER = 54;
 
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
@@ -372,6 +378,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private ChunkStats mChunkStats = null;
 	/** Kept across an off/on so a reading is not lost by pausing the probe. */
 	private ChunkStats mChunkStatsHeld = null;
+	/**
+	 * The half-line at the end of a chunk waits here for the rest of itself, so
+	 * that triggers, gags and the display only ever see finished lines.
+	 */
+	private final IncomingLineHoldover mLineHoldover = new IncomingLineHoldover();
 	/** The main looper handler for this "foreground" thread, although I'm not sure
 	 *  if service processes get "foreground threads". */
 	Handler mHandler = null;
@@ -640,6 +651,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case MESSAGE_LOCALECHO:
 				doSetTelnetEcho(msg.arg1 == 1);
+				break;
+			case MESSAGE_FLUSH_LINE_HOLDOVER:
+				try {
+					flushLineHoldover();
+				} catch (UnsupportedEncodingException bad) {
+					// The profile's encoding is unusable; dropping the fragment
+					// is better than losing the handler to it.
+					mLineHoldover.clear();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"Connection.flushLineHoldover", bad);
+				}
 				break;
 			case MESSAGE_TIMERSTOP:
 			case MESSAGE_TIMERSTART:
@@ -2307,6 +2329,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		Log.w("BlowTorch", "killNetThreads(noreconnect=" + noreconnect + ")", new RuntimeException("killNetThreads caller"));
+		// Show the half-line the connection died holding rather than swallowing
+		// it — the last thing a server says before dropping you is often the
+		// reason it dropped you, and it frequently has no newline after it.
+		mHandler.removeMessages(MESSAGE_FLUSH_LINE_HOLDOVER);
+		if (mLineHoldover.hasHeld()) {
+			try {
+				flushLineHoldover();
+			} catch (UnsupportedEncodingException bad) {
+				mLineHoldover.clear();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"Connection.killNetThreads: holdover flush", bad);
+			}
+		}
 		markConnectionEnded();
 		if (noreconnect) {
 			mReconnect.clearNetworkWait();
@@ -2473,7 +2508,56 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				return;
 			}
 		}
-		
+
+		// Whole lines only from here down. Roughly one chunk in ten ends in the
+		// middle of a line (measured: 11 of 105 on samsaramoo), and everything
+		// below this point assumes the line it is looking at is finished — a gag
+		// deletes a matched line out of mWorking before it is ever drawn, so a
+		// pattern matching half a line took the head off screen and left the
+		// tail to arrive alone in the next chunk.
+		byte[] ready = mLineHoldover.accept(raw);
+		if (mLineHoldover.hasHeld()) {
+			armLineHoldoverFlush();
+		} else {
+			mHandler.removeMessages(MESSAGE_FLUSH_LINE_HOLDOVER);
+		}
+		if (ready.length == 0) {
+			return;
+		}
+		dispatchWholeLines(ready);
+	}
+
+	/**
+	 * Release the half-line that has been waiting, because nothing came to
+	 * finish it. Overwhelmingly this is a prompt.
+	 */
+	private void flushLineHoldover() throws UnsupportedEncodingException {
+		byte[] held = mLineHoldover.flush();
+		if (held.length > 0) {
+			dispatchWholeLines(held);
+		}
+	}
+
+	/**
+	 * Restart the clock on the held fragment. Removing first matters: each new
+	 * chunk that leaves something held should get the full wait, or a steady
+	 * trickle of packets would flush a fragment mid-line anyway.
+	 */
+	private void armLineHoldoverFlush() {
+		mHandler.removeMessages(MESSAGE_FLUSH_LINE_HOLDOVER);
+		mHandler.sendEmptyMessageDelayed(MESSAGE_FLUSH_LINE_HOLDOVER,
+				IncomingLineHoldover.DEFAULT_FLUSH_MS);
+	}
+
+	/**
+	 * Everything that was {@code dispatch} below the telnet layer, now reached
+	 * both by an arriving chunk and by the holdover timer.
+	 *
+	 * @param raw complete lines, or a fragment the timer gave up on.
+	 * @throws UnsupportedEncodingException from the settings encoding.
+	 */
+	private void dispatchWholeLines(final byte[] raw)
+			throws UnsupportedEncodingException {
 		TextTree buffer = null;
 		for (WindowToken w : mWindows) {
 			if (w.getName().equals(MAIN_WINDOW)) {
