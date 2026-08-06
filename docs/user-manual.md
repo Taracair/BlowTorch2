@@ -39,6 +39,54 @@ other site will not be accepted for this one.
 
 Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
+## Word completion (`.complete on`)
+
+    .complete on | off | (no argument = say which)
+
+Type two letters of something the game has just said and it appears on a strip
+above the input bar. Tap it and it goes in, correctly spaced.
+
+    The game says:  A grizzled cave troll lumbers in.
+    You type:       k gri
+    The strip:      grizzled
+    Tap it:         k grizzled
+
+**Why not just the keyboard.** Gboard completes from an English dictionary and
+from what you have typed before, and it cannot see the screen. The words that
+are slow to type in a MUD are exactly the ones it will never learn — a mob
+called *grizzled*, a player called *Tonkatsu*, an item called *gnarled oaken
+staff* — and it will happily correct them into something else. Type `grizz` and
+it offers *grid*, *grim*, *grip*.
+
+This completes only from what the world actually sent, newest first, because the
+thing that just walked in is nearly always the thing you are about to hit.
+
+Words shorter than four letters are ignored, and so are pure numbers; you need
+to have typed at least two letters before anything is offered. About five
+hundred words are remembered, oldest dropped first. Off by default, and while
+off the text is not sent to the completer at all, so it costs nothing.
+
+## Prompt on its own bar (`.prompt on`)
+
+    .prompt on | off | (no argument = say which)
+
+Puts the world's prompt on a thin bar just above the input line, and stops it
+repeating down the screen. On a phone, a prompt printed on every line is eating
+a large share of what you can see.
+
+    [HP 450/500 EN 300/300] >     ← pinned here, always current
+    ─────────────────────────
+    (your input bar)
+
+**How it knows which line is the prompt** — no pattern, no guessing at its
+shape. A prompt is a line the world never finishes: no newline follows it, which
+is why your cursor sits on it. The client already holds an unfinished line back
+so that a trigger cannot cut one in half, so it knows exactly which line that is.
+Where a world marks its prompts with `IAC GA`, the bar updates the instant the
+prompt arrives.
+
+Off by default, because it changes where text appears.
+
 ## Dot commands
 
 Lines that start with a single `.` are handled by BlowTorch when “process period”

@@ -30,6 +30,10 @@
             <!-- Inside inputbar so windows laid out above the divider clear the search UI. -->
             <include layout="@layout/scrollback_search_bar" />
 
+            <include layout="@layout/input_prompt_bar" />
+
+            <include layout="@layout/input_word_suggestions" />
+
             <include layout="@layout/input_edit_tools" />
 
             <LinearLayout

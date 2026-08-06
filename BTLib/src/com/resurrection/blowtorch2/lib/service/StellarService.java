@@ -1317,6 +1317,42 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	/**
+	 * Hand incoming text to the UI's word completer.
+	 *
+	 * @param text the stripped incoming chunk.
+	 */
+	public final void doVocabularyText(final String text) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).vocabularyText(text);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doVocabularyText", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Put the world's prompt on the prompt bar.
+	 *
+	 * @param text the prompt, ANSI already stripped.
+	 */
+	public final void doPromptLine(final String text) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).promptLine(text);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doPromptLine", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	public final void doInputBarSelectAll() {
 		broadcastInputBarAction(1);
 	}

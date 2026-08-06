@@ -275,6 +275,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public static final int MESSAGE_REFRESH_INPUT_ACTIONS = 930;
 	/** obj: the word to drop into the input bar at the caret. */
 	protected static final int MESSAGE_INPUT_INSERT_WORD = 931;
+	/** obj: incoming text, for the word completer's vocabulary. */
+	protected static final int MESSAGE_VOCABULARY_TEXT = 932;
+	/** obj: the world's prompt for the prompt bar; empty hides it. */
+	protected static final int MESSAGE_PROMPT_LINE = 933;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -1319,6 +1323,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_INPUT_INSERT_WORD:
 					inputInsertWord((String) msg.obj);
 					break;
+				case MESSAGE_VOCABULARY_TEXT:
+					mWordSuggestions.learn((String) msg.obj);
+					mWordSuggestionsOn = true;
+					refreshWordSuggestions();
+					break;
+				case MESSAGE_PROMPT_LINE:
+					showPromptBar((String) msg.obj);
+					break;
 				case MESSAGE_INPUT_SELECT_ALL:
 					inputSelectAll();
 					break;
@@ -2354,6 +2366,96 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return handled;
 	}
 	
+	/** Words the game has used, for completion. Empty until .complete on. */
+	private final WordSuggestions mWordSuggestions = new WordSuggestions();
+	/** True once the service has started feeding the completer. */
+	private boolean mWordSuggestionsOn = false;
+	/** How many completions fit on the strip without it becoming a wall. */
+	private static final int MAX_WORD_SUGGESTIONS = 6;
+
+	/**
+	 * Rebuild the completion strip for whatever is half-typed in the input bar.
+	 *
+	 * <p>Cheap enough to run on every keystroke: a prefix scan over a bounded
+	 * map, and at most six small Buttons. The strip hides itself when there is
+	 * nothing to offer, so it costs no height the rest of the time.
+	 */
+	private void refreshWordSuggestions() {
+		android.widget.HorizontalScrollView strip =
+				(android.widget.HorizontalScrollView) findViewById(R.id.input_word_suggestions);
+		LinearLayout row = (LinearLayout) findViewById(R.id.input_word_suggestions_row);
+		if (strip == null || row == null) {
+			return;
+		}
+		if (!mWordSuggestionsOn || mInputBox == null) {
+			strip.setVisibility(View.GONE);
+			return;
+		}
+		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		int caret = Math.max(mInputBox.getSelectionStart(), 0);
+		String prefix = WordSuggestions.wordBefore(text, caret);
+		java.util.List<String> words =
+				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
+		row.removeAllViews();
+		if (words.isEmpty()) {
+			strip.setVisibility(View.GONE);
+			return;
+		}
+		for (int i = 0; i < words.size(); i++) {
+			final String word = words.get(i);
+			Button chip = new Button(this);
+			chip.setText(word);
+			chip.setTextSize(13);
+			chip.setAllCaps(false);
+			chip.setPadding(18, 4, 18, 4);
+			chip.setMinWidth(0);
+			chip.setMinimumWidth(0);
+			chip.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					acceptWordSuggestion(word);
+				}
+			});
+			row.addView(chip);
+		}
+		strip.setVisibility(View.VISIBLE);
+		strip.scrollTo(0, 0);
+	}
+
+	/** Put the chosen completion in place of what was half-typed. */
+	private void acceptWordSuggestion(final String word) {
+		if (mInputBox == null) {
+			return;
+		}
+		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		int caret = Math.max(mInputBox.getSelectionStart(), 0);
+		WordSuggestions.Completion c = WordSuggestions.complete(text, caret, word);
+		mInputBox.setText(c.text());
+		mInputBox.setSelection(Math.min(c.caret(), mInputBox.getText().length()));
+		mInputBox.requestFocus();
+		refreshWordSuggestions();
+	}
+
+	/**
+	 * Show the world's prompt above the input bar, or hide the bar when the
+	 * prompt is empty (which is what .prompt off sends).
+	 *
+	 * @param text the prompt.
+	 */
+	private void showPromptBar(final String text) {
+		TextView bar = (TextView) findViewById(R.id.input_prompt_bar);
+		if (bar == null) {
+			return;
+		}
+		if (text == null || text.length() == 0) {
+			bar.setVisibility(View.GONE);
+			bar.setText("");
+			return;
+		}
+		bar.setText(text);
+		bar.setVisibility(View.VISIBLE);
+	}
+
 	/**
 	 * Drop a word into the input bar at the caret and send nothing. This is what
 	 * a tappable word bound to {@code .kb insert $word} ends up doing, so the
@@ -3543,6 +3645,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		public void inputBarInsertWord(String word) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_INSERT_WORD, word));
+		}
+
+		public void vocabularyText(String text) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_TEXT, text));
+		}
+
+		public void promptLine(String text) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PROMPT_LINE, text));
 		}
 
 		public void inputBarSelectAll() throws RemoteException {
@@ -5064,6 +5174,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			};
 			mInputBox.addTextChangedListener(keepLastTextWatcher);
+			// Its own watcher rather than a branch inside the one above: that one
+			// is the Keep Last selection dance and has a suppress flag it must
+			// honour, and completion has nothing to do with any of it.
+			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
+				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+				@Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+				@Override
+				public void afterTextChanged(android.text.Editable s) {
+					if (mWordSuggestionsOn) {
+						refreshWordSuggestions();
+					}
+				}
+			});
 		}
 
 		ensureInputActionColumn();

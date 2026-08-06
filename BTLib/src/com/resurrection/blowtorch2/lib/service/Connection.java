@@ -383,6 +383,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * that triggers, gags and the display only ever see finished lines.
 	 */
 	private final IncomingLineHoldover mLineHoldover = new IncomingLineHoldover();
+	/** {@code .prompt on}: the unfinished last line goes to its own bar. */
+	private boolean mPromptBar = false;
+	/** {@code .complete on}: incoming text feeds the UI's word completer. */
+	private boolean mWordComplete = false;
 	/** The main looper handler for this "foreground" thread, although I'm not sure
 	 *  if service processes get "foreground threads". */
 	Handler mHandler = null;
@@ -546,6 +550,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(notecmd.commandName, notecmd);
 		ProbeCommand probecmd = new ProbeCommand();
 		mSpecialCommands.put(probecmd.commandName, probecmd);
+		com.resurrection.blowtorch2.lib.service.function.PromptBarCommand promptcmd =
+				new com.resurrection.blowtorch2.lib.service.function.PromptBarCommand();
+		mSpecialCommands.put(promptcmd.commandName, promptcmd);
+		com.resurrection.blowtorch2.lib.service.function.CompleteCommand completecmd =
+				new com.resurrection.blowtorch2.lib.service.function.CompleteCommand();
+		mSpecialCommands.put(completecmd.commandName, completecmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
@@ -2533,9 +2543,43 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void flushLineHoldover() throws UnsupportedEncodingException {
 		byte[] held = mLineHoldover.flush();
-		if (held.length > 0) {
-			dispatchWholeLines(held);
+		if (held.length == 0) {
+			return;
 		}
+		// Whatever comes out here is, by construction, a line the world never
+		// finished — which on a MUD means the prompt. That is why the prompt bar
+		// can exist at all: the holdover already knows which line it is, without
+		// any guessing at its shape.
+		if (mPromptBar) {
+			String text = Colorizer.stripAnsiEscapes(
+					new String(held, mSettings.getEncoding())).trim();
+			if (text.length() > 0) {
+				mService.doPromptLine(text);
+				return;
+			}
+		}
+		dispatchWholeLines(held);
+	}
+
+	/** {@code .prompt on|off}: prompt to its own bar instead of the game window. */
+	public final void setPromptBar(final boolean on) {
+		mPromptBar = on;
+		if (!on) {
+			mService.doPromptLine("");
+		}
+	}
+
+	public final boolean isPromptBar() {
+		return mPromptBar;
+	}
+
+	/** {@code .complete on|off}: feed the UI's word completer. */
+	public final void setWordComplete(final boolean on) {
+		mWordComplete = on;
+	}
+
+	public final boolean isWordComplete() {
+		return mWordComplete;
 	}
 
 	/**
@@ -2583,6 +2627,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// only place that can answer whether a pattern could span lines.
 		if (mChunkStats != null) {
 			mChunkStats.record(stripped);
+		}
+		// Only while the completer is on, so a player not using it pays no
+		// binder traffic at all.
+		if (mWordComplete) {
+			mService.doVocabularyText(stripped);
 		}
 		
 		if (triggersDirty) {

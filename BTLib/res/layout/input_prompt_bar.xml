@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The world's prompt, pinned above the input bar instead of repeating down
+     the screen. Hidden until .prompt on, and empty until a prompt arrives. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/input_prompt_bar"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:singleLine="true"
+    android:ellipsize="start"
+    android:textSize="13sp"
+    android:textColor="#FFD0D0D0"
+    android:background="#FF101010"
+    android:paddingLeft="6dip"
+    android:paddingRight="6dip"
+    android:paddingTop="3dip"
+    android:paddingBottom="3dip" />

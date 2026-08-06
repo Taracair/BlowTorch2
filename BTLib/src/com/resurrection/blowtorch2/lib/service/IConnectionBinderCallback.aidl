@@ -46,6 +46,19 @@ oneway interface IConnectionBinderCallback {
 	 * needed.
 	 */
 	void inputBarInsertWord(String word);
+	/**
+	 * Incoming text, for the word completer's vocabulary only. Sent solely while
+	 * completion is switched on, so a player not using it pays nothing: the main
+	 * window's text does not travel this way, it lives in the buffer the UI
+	 * adopts.
+	 */
+	void vocabularyText(String text);
+	/**
+	 * The world's prompt — the line the holdover released because nothing ever
+	 * finishes it. Sent instead of drawing it in the game window while the
+	 * prompt bar is on.
+	 */
+	void promptLine(String text);
 	void inputBarSelectAll();
 	void inputBarCopy();
 	void inputBarPaste();
