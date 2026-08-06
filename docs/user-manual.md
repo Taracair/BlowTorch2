@@ -26,6 +26,35 @@ loaded.
 Registrations live in `Connection` (built-ins) and Lua
 `RegisterSpecialCommand(...)` (plugins).
 
+## Repeating a command (`#5 north`)
+
+A line that starts with `#` and a number sends the rest of the line that many
+times:
+
+    #5 north            walks five rooms north
+    #3 kick troll       kicks three times
+    #4 get all from bag
+
+It works anywhere a command does — typed, on a button, inside an alias, and in
+each segment of a `;` list, so `stand;#3 kick troll;sit` is stand, three kicks,
+sit.
+
+The multiplier counts **what you typed**, not what it expanded into. With an
+alias `kk` → `kill $1`, typing `#3 kk troll` sends `kill troll` three times.
+
+**No pause between them.** All the copies go out at once, exactly as if you had
+typed `north;north;north;north;north`. This is not a way to pace commands — for
+that, use a timer.
+
+**Limit: 1 to 100.** Anything outside that is refused and the line is left
+exactly as you typed it, with a red note saying so. `#500 north` is nearly
+always a slip, and a world may read the flood as an attack.
+
+**Worlds that use `#` themselves.** Two hashes send one literal hash and skip
+the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
+as `#5 north`. A `#` that is not a number followed by a space is never touched,
+so `#help` and `say cost is #3 gold` go out unchanged.
+
 ## Aliases and triggers (patterns / `$1`)
 
 BlowTorch does not use TinTin-style `%1` wildcards. Patterns are **regular

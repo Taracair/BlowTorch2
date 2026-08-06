@@ -3165,6 +3165,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			list = new ArrayList<String>();
 			list.add(out);
 		}
+		// #5 north -> five segments, before alias replacement so the multiplier
+		// counts what the player typed rather than what it expanded into.
+		CommandRepeat.Result repeated = CommandRepeat.expand(list);
+		list = repeated.segments();
+		if (repeated.warning() != null) {
+			sendDataToWindow("\n" + Colorizer.getRedColor() + repeated.warning()
+					+ Colorizer.getWhiteColor());
+		}
 		StringBuffer holdover = new StringBuffer();
 		// First-match local-echo policy for reinserted expansion products.
 		// Locals only — not a Connection field — so overlapping sends cannot
