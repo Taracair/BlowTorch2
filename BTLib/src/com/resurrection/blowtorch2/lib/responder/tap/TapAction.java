@@ -40,9 +40,6 @@ public class TapAction extends TriggerResponder implements Parcelable {
 
 	public static final String DEFAULT_COMMAND = "look " + WORD_TOKEN;
 
-	/** Tap the word into the input bar instead of sending it. */
-	public static final String INSERT_COMMAND = ".kb insert " + WORD_TOKEN;
-
 	/**
 	 * What a tap can send. One entry is the ordinary case and stays a plain tap
 	 * that fires straight away; more than one turns the tap into a menu, which

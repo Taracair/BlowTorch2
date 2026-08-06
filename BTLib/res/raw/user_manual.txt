@@ -392,14 +392,14 @@ what lights up, and tapping it sends a command.
   small menu at the word instead of sending straight away. The first command
   stays at the top of it. Long commands are shortened in the menu with `(...)`;
   the whole command is still what gets sent.
-- **Put the word in the input bar instead of sending it** — the button of that
-  name adds the command `.kb insert $word`. Tapping the word then types it into
-  the input bar at the cursor, correctly spaced, and sends nothing. Type `k`,
-  tap the mob's name, and the bar reads `k grizzled ` waiting for Send. Two taps
+- **Put the word in the input bar instead of sending it** — type the command
+  `.kb insert $word` into a command box. Tapping the word then types it into the
+  input bar at the cursor, correctly spaced, and sends nothing. Type `k`, tap
+  the mob's name, and the bar reads `k grizzled ` waiting for Send. Two taps
   build one command: `k` + *grizzled* + *troll* gives `k grizzled troll `. This
   is the fastest way to name something the game just mentioned without spelling
-  it out on a phone keyboard. Add it next to real commands and a tap offers
-  both.
+  it out on a phone keyboard. Put it beside a real command and a tap offers
+  both — e.g. `kill $word` and `.kb insert $word`.
 - **Underline / Bold / Frame** — any combination, or none. Colour is not here:
   put a **Color** action on the same trigger.
 - Two Tappable Word actions on one trigger behave as one word that offers both
