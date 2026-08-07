@@ -54,7 +54,12 @@ above the input bar. Tap it and it goes in, correctly spaced.
 **Taking one without tapping it.** Each chip is numbered, and `.complete 3`
 takes the third. That is there so a super button over the keyboard can hold
 `.complete 1`, `.complete 2` and so on — you pick a suggestion without your
-thumb ever leaving the keys. Out of range does nothing, because the strip
+thumb ever leaving the keys. Aliases and triggers can use it the same way.
+
+Note that **typing `.complete 3` into the input bar cannot work**, and this is
+not a fault: the bar holds the half-typed command the strip is completing, so
+typing anything else into it replaces what you were completing and the strip
+empties. Put it on a button. Out of range does nothing, because the strip
 changes as you type and inserting the wrong word is worse than inserting none.
 
 **Why not just the keyboard.** Gboard completes from an English dictionary and

@@ -474,6 +474,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 						// Never persisted before: the key was simply missing from this
 						// enum, so the writer skipped it as a foreign key and the size
 						// went back to 75 on every restart.
+						// 75 is the option's default, set in ConnectionSettingsPlugin.
 						if((Integer)opt.getValue() != 75) {
 							dooutput = true;
 						}
