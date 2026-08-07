@@ -76,6 +76,7 @@ local TOPIC_ORDER = {
 	"coloring",
 	"tappable",
 	"keyboard",
+	"completion",
 	"search",
 	"mapper",
 	"wrap",
@@ -134,7 +135,7 @@ Try it now:
 
 This tour is hands-on: you will build a .loadset button, learn triggers for
 beginners, and poke swipe / hold / accordion demos. Lessons also cover
-aliases, timers, colors, keyboard, search, mapper, wrap, logging, ⋮ menu,
+aliases, timers, colors, keyboard, completion, search, mapper, wrap, logging, ⋮ menu,
 GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
 Type:  .tutorial next
@@ -539,6 +540,41 @@ TOPICS.keyboard = function()
 
 Edit on the input bar expands Sel/Cut/Copy/Paste and a compact arrow pad.
 Up/down recall command history.]])
+end
+
+TOPICS.completion = function()
+	noteBlock("Word completion and the prompt — .complete / .prompt",
+[[The soft keyboard never learns a mob called grizzled or a player called
+Tonkatsu, and corrects them into English. Word completion offers back what the
+world actually said. All of it is off until you ask, under Options → Input or
+on .complete:
+
+  .complete on|off        offer words the game just used
+  .complete lines N       how far back counts as recent (lines, default 300;
+                          0 = the whole session)
+  .complete 1 .. 6        take that chip — for a super button, not the bar:
+                          typing into the bar empties the strip
+  .complete loose on|off  forgive typos once the exact spelling finds nothing
+                          (grzld finds grizzled)
+  .complete ghost on|off  draw the rest of the word after the cursor, dimmed;
+                          drawn only, never sent
+  .complete overlay on|off  chips over the game text so nothing jumps
+  .complete opacity N     how solid the floating chips are (10-100)
+
+    The game says:  A grizzled cave troll lumbers in.
+    You type:       k gri
+    The strip:      1 grizzled     ← tap it, or .complete 1 from a button
+
+The prompt bar is separate:
+
+  .prompt on|off          put the world's never-finished line (your HP/EN
+                          prompt) on its own bar above the input, instead of
+                          repeating down the screen
+  .prompt                 also reports "prompts seen: N" — zero means this
+                          world sends no prompt, which many MOOs do not
+
+Vocabulary is forgotten when you connect, so one world's names never show up in
+another.]])
 end
 
 TOPICS.search = function()

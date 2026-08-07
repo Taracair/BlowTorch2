@@ -292,6 +292,46 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`
 - **Show Send button?** — `.sendbutton on|off` · or keyboard Send / `.kb flush`
 
+## Word completion
+
+Completes mob / player / item words the world just used, which the soft keyboard
+never learns. All of it is off by default and lives under **Options → Input**;
+each has a dot form on `.complete`.
+
+- **Complete words the game used** — `.complete on|off`. While off, incoming text
+  is not even sent to the completer, so it costs nothing.
+- **Completion memory (lines)** — `.complete lines N`. Freshness is the last `N`
+  lines the world sent (default 300), not a word count; `0` keeps the whole
+  session. "Recent" then means on screen what it means to the completer.
+- **`.complete 1` … `.complete 6`** picks that chip. Meant for a super button /
+  alias / trigger, not the input bar: typing into the bar replaces the word being
+  completed, so the strip empties. Chips are numbered to match.
+- **Forgive typos in suggestions** — `.complete loose on|off`. Only after an exact
+  prefix finds nothing: letters in order with gaps, `grzld` → `grizzled`. First
+  letter must match, four-letter minimum.
+- **Show the rest of the word as you type** — `.complete ghost on|off`. Draws the
+  top suggestion's remainder after the cursor, dimmed, with a micro `1`. Drawn
+  only, never inserted, so what you send is exactly what you typed.
+- **Suggestions float over the game** — `.complete overlay on|off`. The strip
+  below the game window takes height, so the text jumps when a suggestion appears;
+  floating over the game text costs the layout nothing and nothing moves.
+- **Suggestion chip opacity (%)** — `.complete opacity N` (10–100). Fades the chip
+  backing of the floating chips only; the words stay fully readable.
+- The learned vocabulary is dropped on connect, so one world's names are never
+  offered in another. Note: while two worlds are open at once the completer,
+  prompt bar and vocabulary reset currently reach every window — see
+  `docs/HANDOFF.md`.
+
+## Prompt bar
+
+- **Prompt on its own bar** — `.prompt on|off`, **Options → Input**, off by
+  default. A MUD prompt is the line the world never finishes (your HP/EN line,
+  resent after every command); on, it sits in one fixed place above the input bar
+  instead of repeating down the game window.
+- `.prompt` with no argument also reports **prompts seen: N** for this connection.
+  Zero after a while means the world sends no prompt (many MOOs do not) — the bar
+  showing nothing is then correct, not broken.
+
 ## Notification responders
 
 Trigger/timer notification responders can use the system default sound, five
