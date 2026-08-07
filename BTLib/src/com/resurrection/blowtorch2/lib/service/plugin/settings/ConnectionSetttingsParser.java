@@ -55,6 +55,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		input_history_size,
 		word_complete,
 		word_complete_lines,
+		word_complete_overlay,
+		word_complete_opacity,
 		prompt_bar,
 		grow_input_bar,
 		compatibility_mode,
@@ -487,6 +489,17 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case word_complete_lines:
 						if((Integer)opt.getValue()
 								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_overlay:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_opacity:
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY) {
 							dooutput = true;
 						}
 						break;

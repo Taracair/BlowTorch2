@@ -156,6 +156,21 @@ public class ConnectionSettingsPlugin extends Plugin {
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
 		input.addOption(word_complete_lines);
 
+		BooleanOption word_complete_overlay = new BooleanOption();
+		word_complete_overlay.setTitle("Suggestions float over the game");
+		word_complete_overlay.setDescription("Draw the suggestion chips on top of the game text instead of in a strip below it. The strip takes height while it is showing, so the game window shrinks and the text jumps every time a suggestion appears; floating costs the layout nothing and nothing moves. Toggle with .complete overlay on/off.");
+		word_complete_overlay.setKey("word_complete_overlay");
+		word_complete_overlay.setValue(false);
+		input.addOption(word_complete_overlay);
+
+		IntegerOption word_complete_opacity = new IntegerOption();
+		word_complete_opacity.setTitle("Suggestion chip opacity (%)");
+		word_complete_opacity.setDescription("How solid the chips are, 10-100. Lower lets more game text through behind them; the words themselves stay fully readable at every setting. Mainly for the floating chips. Set with .complete opacity N.");
+		word_complete_opacity.setKey("word_complete_opacity");
+		word_complete_opacity.setValue(
+				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY);
+		input.addOption(word_complete_opacity);
+
 		BooleanOption prompt_bar = new BooleanOption();
 		prompt_bar.setTitle("Prompt on its own bar");
 		prompt_bar.setDescription("A MUD prompt is the line the world never finishes — your health and mana line, resent after every command. On, it sits in one fixed place above the input bar instead of repeating down the game window. Worlds that send no prompt show nothing; .prompt says how many have been seen. Toggle with .prompt on/off.");

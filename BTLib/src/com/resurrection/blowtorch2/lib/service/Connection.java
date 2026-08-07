@@ -4775,8 +4775,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				this.doSetWordComplete((Boolean) o.getValue());
 				break;
 			case word_complete_lines:
-				// MainWindow.loadSettings is what reaches WordSuggestions; ask the UI
-				// to re-read rather than adding a binder call for one integer.
+			case word_complete_overlay:
+			case word_complete_opacity:
+				// MainWindow.loadSettings is what reaches WordSuggestions and the
+				// strip; ask the UI to re-read rather than adding a binder call per
+				// setting. All three are the UI's business only.
 				mService.doExecuteRequestLoadSettings();
 				break;
 			case prompt_bar:
@@ -5872,6 +5875,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete,
 		/** How many recent lines the completer counts as fresh. */
 		word_complete_lines,
+		/** Chips over the game text rather than in a strip below it. */
+		word_complete_overlay,
+		/** How solid those chips are. */
+		word_complete_opacity,
 		/** Prompt on its own bar above the input line. */
 		prompt_bar,
 		/** Grow input bar with multiline text. */

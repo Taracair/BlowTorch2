@@ -24,6 +24,8 @@ public class CompleteCommand extends SpecialCommand {
 
 	public static final String OPTION_KEY = "word_complete";
 	public static final String LINES_KEY = "word_complete_lines";
+	public static final String OVERLAY_KEY = "word_complete_overlay";
+	public static final String OPACITY_KEY = "word_complete_opacity";
 
 	/** Kept where the completer keeps it, so the two cannot drift apart. */
 	public static final int MAX_LINES = WordSuggestions.MAX_LINES;
@@ -52,6 +54,12 @@ public class CompleteCommand extends SpecialCommand {
 		if (arg.startsWith("lines")) {
 			return setLines(arg.substring("lines".length()).trim(), c);
 		}
+		if (arg.startsWith("overlay")) {
+			return setOverlay(arg.substring("overlay".length()).trim(), c);
+		}
+		if (arg.startsWith("opacity")) {
+			return setOpacity(arg.substring("opacity".length()).trim(), c);
+		}
 		// A bare number picks that chip. Before the usage message, and after
 		// "lines", so ".complete lines 50" is never read as ".complete 50".
 		if (arg.length() > 0 && isDigits(arg)) {
@@ -74,7 +82,9 @@ public class CompleteCommand extends SpecialCommand {
 			c.sendDataToWindow("\nWord completion is "
 					+ (isOn(c) ? "on" : "off")
 					+ ", remembering the last " + describeLines(lines(c))
-					+ ".\nUse .complete on|off, .complete lines N\n");
+					+ ".\nChips " + (overlayOn(c) ? "float over the game text at "
+						+ opacity(c) + "% solid" : "sit in a strip below it")
+					+ ".\nUse .complete on|off, lines N, overlay on|off, opacity N\n");
 			return null;
 		}
 		c.sendDataToWindow(getErrorMessage("Word completion usage:",
@@ -82,6 +92,8 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".complete off     — stop\n"
 				+ ".complete lines N — how far back counts as recent (0 = all session)\n"
 				+ ".complete 1..6    — take that suggestion off the strip\n"
+				+ ".complete overlay on|off — chips over the game text, nothing moves\n"
+				+ ".complete opacity N      — how solid those chips are\n"
 				+ ".complete         — say which it is\n\n"
 				+ "This completes mob names, player names and item words the\n"
 				+ "keyboard will never know, and would rather correct into\n"
@@ -116,6 +128,77 @@ public class CompleteCommand extends SpecialCommand {
 				+ "Completion now remembers the last " + describeLines(n) + "."
 				+ Colorizer.getWhiteColor() + "\n");
 		return null;
+	}
+
+	private Object setOverlay(String arg, Connection c) {
+		boolean current = overlayOn(c);
+		if (arg.length() == 0) {
+			c.sendDataToWindow("\nSuggestions are "
+					+ (current ? "floating over the game text" : "in a strip below it")
+					+ ".\nUse .complete overlay on|off\n");
+			return null;
+		}
+		if (!arg.equals("on") && !arg.equals("off")) {
+			c.sendDataToWindow(getErrorMessage("Word completion usage:",
+					".complete overlay on|off\n\n"
+					+ "On draws the chips over the game text. The strip below takes\n"
+					+ "height while it shows, so the game window shrinks and the text\n"
+					+ "jumps every time a suggestion appears; floating does not.\n"));
+			return null;
+		}
+		boolean on = arg.equals("on");
+		c.updateBooleanSetting(OVERLAY_KEY, on);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ (on
+					? "Suggestions now float over the game text; nothing moves when"
+						+ " they appear."
+					: "Suggestions back in a strip below the game window.")
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
+	private Object setOpacity(String arg, Connection c) {
+		if (arg.length() == 0) {
+			c.sendDataToWindow("\nSuggestion chips are " + opacity(c)
+					+ "% solid.\nUse .complete opacity N ("
+					+ WordSuggestions.MIN_OPACITY + "-100)\n");
+			return null;
+		}
+		int n;
+		try {
+			n = Integer.parseInt(arg.split("\\s+")[0]);
+		} catch (NumberFormatException e) {
+			n = -1;
+		}
+		if (n < WordSuggestions.MIN_OPACITY || n > 100) {
+			c.sendDataToWindow(getErrorMessage("Word completion usage:",
+					".complete opacity N — a number from "
+					+ WordSuggestions.MIN_OPACITY + " to 100.\n"
+					+ "Lower lets more game text through behind the chips. The words\n"
+					+ "themselves stay fully readable at every setting.\n"));
+			return null;
+		}
+		c.updateIntegerSetting(OPACITY_KEY, n);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ "Suggestion chips now " + n + "% solid."
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
+	private static boolean overlayOn(Connection c) {
+		BaseOption o = findOption(c, OVERLAY_KEY);
+		if (o instanceof BooleanOption && o.getValue() instanceof Boolean) {
+			return ((Boolean) o.getValue()).booleanValue();
+		}
+		return false;
+	}
+
+	private static int opacity(Connection c) {
+		BaseOption o = findOption(c, OPACITY_KEY);
+		if (o instanceof IntegerOption && o.getValue() instanceof Integer) {
+			return ((Integer) o.getValue()).intValue();
+		}
+		return WordSuggestions.DEFAULT_OPACITY;
 	}
 
 	private static boolean isDigits(String s) {

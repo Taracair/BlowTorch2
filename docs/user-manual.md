@@ -41,7 +41,8 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
 ## Word completion (`.complete on`)
 
-    .complete on | off | lines N | 1..6 | (no argument = say which)
+    .complete on | off | lines N | 1..6
+    .complete overlay on | off | opacity N
 
 Type two letters of something the game has just said and it appears on a strip
 above the input bar. Tap it and it goes in, correctly spaced.
@@ -81,6 +82,18 @@ narrows it to roughly a screenful; `.complete lines 0` keeps everything the
 session said. Counting words instead would mean a quiet hour of a few lines kept
 names from hours ago alive, while one wide room description threw out everything
 you were just looking at.
+
+**Stopping the game text from jumping.** By default the chips sit in a strip
+below the game window, and that strip takes height while it is showing — so the
+window shrinks a little every time a suggestion appears and grows back when it
+goes, and the text hops with it. `.complete overlay on` draws the same chips
+*over* the game text instead, resting on the top edge of the input bar. They
+cost the layout nothing, so nothing moves.
+
+`.complete opacity 40` makes them see-through enough to read the line behind
+them. Only the backing fades — the words stay fully readable at every setting,
+because a suggestion you have to squint at is worse than none. Anything from 10
+to 100.
 
 Off by default, and while off the text is not sent to the completer at all, so it
 costs nothing. Both settings are also under **Options → Input**, and both are

@@ -63,6 +63,16 @@ public final class WordSuggestions {
 	public static final int MAX_ON_STRIP = 6;
 
 	/**
+	 * How solid the chips are, as a percentage, when they are drawn over the game
+	 * text. Only the backing fades — the words themselves stay fully opaque at
+	 * every setting, because a suggestion you cannot read is worse than none.
+	 */
+	public static final int DEFAULT_OPACITY = 75;
+
+	/** Below this the chips stop being findable at all. */
+	public static final int MIN_OPACITY = 10;
+
+	/**
 	 * Shorter than this is not worth completing — you have typed most of it by
 	 * the time the suggestion appears, and short words are the common ones that
 	 * would crowd out the useful proper nouns.

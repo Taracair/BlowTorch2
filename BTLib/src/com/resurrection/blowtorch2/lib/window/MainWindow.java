@@ -2390,6 +2390,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 */
 	private final java.util.List<String> mWordSuggestionList =
 			new java.util.ArrayList<String>();
+	/** Draw the chips over the game text instead of inside the input chrome. */
+	private boolean mWordSuggestionsOverlay = false;
+	/** How solid the chips are, 10–100 percent. */
+	private int mWordSuggestionsOpacity = WordSuggestions.DEFAULT_OPACITY;
+	/** Set once the overlay copy is following the input bar's top edge. */
+	private boolean mWordSuggestionsOverlayTracked = false;
 
 	/**
 	 * Rebuild the completion strip for whatever is half-typed in the input bar.
@@ -2399,11 +2405,29 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * nothing to offer, so it costs no height the rest of the time.
 	 */
 	private void refreshWordSuggestions() {
-		android.widget.HorizontalScrollView strip =
+		// Both exist in the layout; the player's choice decides which one is used
+		// and the other stays gone. Two views rather than one that is re-parented:
+		// moving a view between an in-layout parent and the overlay mid-session is
+		// the kind of thing that works until the first configuration change.
+		android.widget.HorizontalScrollView inline =
 				(android.widget.HorizontalScrollView) findViewById(R.id.input_word_suggestions);
-		LinearLayout row = (LinearLayout) findViewById(R.id.input_word_suggestions_row);
+		android.widget.HorizontalScrollView floating =
+				(android.widget.HorizontalScrollView) findViewById(R.id.input_word_suggestions_float);
+		android.widget.HorizontalScrollView strip =
+				mWordSuggestionsOverlay ? floating : inline;
+		LinearLayout row = (LinearLayout) findViewById(mWordSuggestionsOverlay
+				? R.id.input_word_suggestions_float_row
+				: R.id.input_word_suggestions_row);
+		android.widget.HorizontalScrollView unused =
+				mWordSuggestionsOverlay ? inline : floating;
+		if (unused != null) {
+			unused.setVisibility(View.GONE);
+		}
 		if (strip == null || row == null) {
 			return;
+		}
+		if (mWordSuggestionsOverlay) {
+			trackInputBarForOverlay();
 		}
 		if (!mWordSuggestionsOn || mInputBox == null) {
 			strip.setVisibility(View.GONE);
@@ -2430,6 +2454,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			chip.setPadding(18, 4, 18, 4);
 			chip.setMinWidth(0);
 			chip.setMinimumWidth(0);
+			applyChipOpacity(chip);
 			chip.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
@@ -2438,8 +2463,94 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			});
 			row.addView(chip);
 		}
+		applyStripOpacity(strip);
 		strip.setVisibility(View.VISIBLE);
 		strip.scrollTo(0, 0);
+	}
+
+	/**
+	 * Keep the floating strip sitting on the input bar's top edge.
+	 *
+	 * <p>The input bar is not a fixed height — it grows with a multi-line
+	 * command, and the Edit tools row appears and disappears underneath it — so
+	 * a margin measured once is wrong within a minute of play. Attached once and
+	 * left attached: it is a layout listener on a view that is laid out anyway,
+	 * and detaching it would mean deciding when, which is the bug.
+	 */
+	private void trackInputBarForOverlay() {
+		if (mWordSuggestionsOverlayTracked) {
+			return;
+		}
+		final View bar = findViewById(R.id.inputbar);
+		final View floating = findViewById(R.id.input_word_suggestions_float);
+		if (bar == null || floating == null) {
+			return;
+		}
+		mWordSuggestionsOverlayTracked = true;
+		bar.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+			@Override
+			public void onLayoutChange(View v, int l, int t, int r, int b,
+					int ol, int ot, int or, int ob) {
+				positionWordSuggestionOverlay();
+			}
+		});
+		positionWordSuggestionOverlay();
+	}
+
+	/** Bottom margin = the input bar's height, so the chips rest on top of it. */
+	private void positionWordSuggestionOverlay() {
+		View bar = findViewById(R.id.inputbar);
+		View floating = findViewById(R.id.input_word_suggestions_float);
+		if (bar == null || floating == null) {
+			return;
+		}
+		ViewGroup.LayoutParams lp = floating.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		if (flp.bottomMargin == bar.getHeight()) {
+			return;
+		}
+		flp.bottomMargin = bar.getHeight();
+		floating.setLayoutParams(flp);
+	}
+
+	/**
+	 * Make the strip's own backing as see-through as the player asked.
+	 *
+	 * <p>Background only, never {@link View#setAlpha}: fading the whole view
+	 * fades the words too, and a suggestion you cannot read over the game text
+	 * is worse than no suggestion. The text stays fully opaque at every setting.
+	 */
+	private void applyStripOpacity(final View strip) {
+		applyChipOpacity(strip);
+	}
+
+	private void applyChipOpacity(final View view) {
+		android.graphics.drawable.Drawable bg = view.getBackground();
+		if (bg == null) {
+			return;
+		}
+		// mutate(), or every Button sharing the cached default background would be
+		// dimmed with it — including Send, which is in the same activity.
+		android.graphics.drawable.Drawable own = bg.mutate();
+		own.setAlpha(opacityToAlpha());
+		if (own != bg) {
+			view.setBackground(own);
+		}
+	}
+
+	private int opacityToAlpha() {
+		int pct = mWordSuggestionsOpacity;
+		if (pct < WordSuggestions.MIN_OPACITY) {
+			pct = WordSuggestions.MIN_OPACITY;
+		}
+		if (pct > 100) {
+			pct = 100;
+		}
+		return pct * 255 / 100;
 	}
 
 	/**
@@ -3370,6 +3481,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					lines = WordSuggestions.MAX_LINES;
 				}
 				mWordSuggestions.setMaxLines(lines);
+			}
+			BaseOption overlayOpt =
+					(BaseOption) group.findOptionByKey("word_complete_overlay");
+			mWordSuggestionsOverlay = overlayOpt != null
+					&& overlayOpt.getValue() instanceof Boolean
+					&& (Boolean) overlayOpt.getValue();
+			BaseOption opacityOpt =
+					(BaseOption) group.findOptionByKey("word_complete_opacity");
+			if (opacityOpt != null && opacityOpt.getValue() instanceof Integer) {
+				mWordSuggestionsOpacity = (Integer) opacityOpt.getValue();
 			}
 			refreshWordSuggestions();
 

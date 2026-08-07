@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The same chips as input_word_suggestions.xml, drawn *over* the game text
+     instead of inside the input chrome. The in-layout strip takes height while
+     it is visible, so the game window shrinks and the text jumps every time a
+     suggestion appears or goes away. This copy lives in gameplay_chrome_overlay
+     and is positioned by MainWindow against the input bar's top edge, so it
+     costs the layout nothing and nothing moves.
+
+     Width is wrap_content, not match_parent: an empty strip that spans the
+     screen would swallow taps meant for the game text behind it. -->
+<HorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/input_word_suggestions_float"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom|left"
+    android:visibility="gone"
+    android:scrollbars="none"
+    android:fillViewport="false"
+    android:background="#FF141414">
+
+    <LinearLayout
+        android:id="@+id/input_word_suggestions_float_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingLeft="4dip"
+        android:paddingRight="4dip"
+        android:paddingTop="2dip"
+        android:paddingBottom="2dip" />
+
+</HorizontalScrollView>
