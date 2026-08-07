@@ -88,6 +88,68 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void aWordOlderThanTheWindowIsGone() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(3);
+		w.learn("grizzled\n");
+		w.learn("filler\nfiller\nfiller\n");
+		assertTrue("three lines have gone by", w.suggest("griz", 5).isEmpty());
+	}
+
+	@Test
+	public void aWordSeenAgainInsideTheWindowSurvives() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(3);
+		w.learn("grizzled\n");
+		w.learn("filler\n");
+		// Said again, so its stamp moves forward with it.
+		w.learn("grizzled\n");
+		w.learn("filler\nfiller\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("griz", 5));
+	}
+
+	@Test
+	public void theWindowCountsLinesNotWords() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(2);
+		w.learn("grizzled\n");
+		// One very wide line. Under a word count this would evict grizzled;
+		// under a line window it is one line and does not.
+		w.learn("alpha bravo charlie delta echo foxtrot golf hotel india\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("griz", 5));
+	}
+
+	@Test
+	public void wordsOnTheUnfinishedLineAreAlreadyAvailable() {
+		// The prompt, and any line the world has not terminated yet.
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("griz", 5));
+		assertEquals(0, w.linesSeen());
+	}
+
+	@Test
+	public void aZeroWindowKeepsEverythingTheSessionSaid() {
+		WordSuggestions w = new WordSuggestions();
+		w.setMaxLines(0);
+		w.learn("grizzled\n");
+		for (int i = 0; i < 500; i++) {
+			w.learn("filler\n");
+		}
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("griz", 5));
+	}
+
+	@Test
+	public void shrinkingTheWindowAppliesAtOnce() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("grizzled\n");
+		w.learn("filler\nfiller\nfiller\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("griz", 5));
+		w.setMaxLines(2);
+		assertTrue("the player narrowed it while playing", w.suggest("griz", 5).isEmpty());
+	}
+
+	@Test
 	public void maxLimitsWhatComesBack() {
 		WordSuggestions w = new WordSuggestions();
 		w.learn("troll1x trollax trollbx trollcx\n");

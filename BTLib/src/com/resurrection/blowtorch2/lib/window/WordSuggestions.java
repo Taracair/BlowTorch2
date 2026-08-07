@@ -23,11 +23,29 @@ import java.util.Map;
  * <p>Newest first, deliberately: the thing that just arrived is nearly always
  * the thing you are about to name. A bounded store, because this lives in the UI
  * process for the length of a session.
+ *
+ * <p><b>What "recent" counts in.</b> Lines, not words. A word count is a poor
+ * proxy: a quiet hour of a few lines keeps names from hours ago alive, while one
+ * noisy room description evicts everything you were just looking at. The window
+ * is the last {@link #DEFAULT_MAX_LINES} lines the world sent, so "recent" means
+ * the same thing here as it does on screen. The word cap below is only a memory
+ * backstop for a world that sends very wide lines.
  */
 public final class WordSuggestions {
 
-	/** How many distinct words to remember. Oldest fall out first. */
-	public static final int DEFAULT_MAX_WORDS = 500;
+	/**
+	 * Hard cap on distinct words, as a memory backstop only — the line window is
+	 * the rule. Set high enough that a normal 300 lines (roughly 800–1500
+	 * distinct words past {@link #MIN_WORD_LENGTH}) never reaches it, or the cap
+	 * would silently become the real rule again.
+	 */
+	public static final int DEFAULT_MAX_WORDS = 4000;
+
+	/**
+	 * How many of the world's most recent lines count as "fresh". Player-settable;
+	 * see {@link #setMaxLines}.
+	 */
+	public static final int DEFAULT_MAX_LINES = 300;
 
 	/**
 	 * Shorter than this is not worth completing — you have typed most of it by
@@ -39,15 +57,43 @@ public final class WordSuggestions {
 	/** Below this many typed characters, everything matches and nothing helps. */
 	public static final int MIN_PREFIX_LENGTH = 2;
 
+	/** A word as it was spelled, and the line it was last seen on. */
+	private static final class Seen {
+		private final String spelling;
+		private final int line;
+
+		Seen(final String spelling, final int line) {
+			this.spelling = spelling;
+			this.line = line;
+		}
+	}
+
 	/**
 	 * Insertion-ordered, so iterating backwards gives newest first. Keyed by the
 	 * lower-cased word, valued by the spelling as it appeared — a player is
 	 * "Tonkatsu" and the completion should say so.
+	 *
+	 * <p>Insertion order is also line order: a word re-seen is removed and put
+	 * back, so its stamp only ever moves forward. That is what lets the window be
+	 * trimmed from the front instead of scanned.
 	 */
-	private final LinkedHashMap<String, String> words =
-			new LinkedHashMap<String, String>();
+	private final LinkedHashMap<String, Seen> words =
+			new LinkedHashMap<String, Seen>();
 
 	private final int maxWords;
+
+	/** Lines the world has sent this session; the clock the window measures. */
+	private int linesSeen = 0;
+
+	private int maxLines = DEFAULT_MAX_LINES;
+
+	/**
+	 * The newest line that actually contained a word, which is what the window is
+	 * measured back from. Not {@link #linesSeen}: a world that sends blank lines,
+	 * or a chunk that ends in a newline, would otherwise push vocabulary out of
+	 * the window without having said anything.
+	 */
+	private int lastWordLine = 0;
 
 	public WordSuggestions() {
 		this(DEFAULT_MAX_WORDS);
@@ -58,9 +104,31 @@ public final class WordSuggestions {
 	}
 
 	/**
-	 * Take the words out of a line the game sent.
+	 * How many recent lines count as fresh.
 	 *
-	 * @param text any incoming text; null and empty are ignored.
+	 * @param lines the window; zero or less turns the window off, leaving only
+	 *        the word cap — for a player who wants everything the session said.
+	 */
+	public void setMaxLines(final int lines) {
+		this.maxLines = lines;
+		prune();
+	}
+
+	public int getMaxLines() {
+		return maxLines;
+	}
+
+	/** How many lines the world has sent since this completer started. */
+	public int linesSeen() {
+		return linesSeen;
+	}
+
+	/**
+	 * Take the words out of text the game sent.
+	 *
+	 * @param text any incoming text; null and empty are ignored. May be several
+	 *        lines — this arrives as whole TCP chunks, not a line at a time — so
+	 *        the newlines inside it are what advances the window.
 	 */
 	public void learn(final String text) {
 		if (text == null || text.length() == 0) {
@@ -68,13 +136,38 @@ public final class WordSuggestions {
 		}
 		int start = -1;
 		for (int i = 0; i <= text.length(); i++) {
-			boolean part = i < text.length() && isWordChar(text.charAt(i));
+			char c = i < text.length() ? text.charAt(i) : '\n';
+			boolean part = i < text.length() && isWordChar(c);
 			if (part && start < 0) {
 				start = i;
 			} else if (!part && start >= 0) {
 				addWord(text.substring(start, i));
 				start = -1;
 			}
+			// After the word closes: a word ending at the newline still belongs
+			// to the line it ended.
+			if (i < text.length() && c == '\n') {
+				linesSeen++;
+			}
+		}
+		prune();
+	}
+
+	/** Drop what has fallen out of the window, then out of the word cap. */
+	private void prune() {
+		java.util.Iterator<Map.Entry<String, Seen>> it = words.entrySet().iterator();
+		if (maxLines > 0) {
+			while (it.hasNext()) {
+				if (it.next().getValue().line > lastWordLine - maxLines) {
+					break;
+				}
+				it.remove();
+			}
+		}
+		while (words.size() > maxWords) {
+			java.util.Iterator<String> keys = words.keySet().iterator();
+			keys.next();
+			keys.remove();
 		}
 	}
 
@@ -100,14 +193,11 @@ public final class WordSuggestions {
 		}
 		String key = raw.toLowerCase(Locale.US);
 		// Remove before put so a word seen again moves to the newest end rather
-		// than keeping its original position.
+		// than keeping its original position. It also gets today's line stamp, so
+		// a name the world keeps repeating never falls out of the window.
 		words.remove(key);
-		words.put(key, raw);
-		if (words.size() > maxWords) {
-			java.util.Iterator<String> it = words.keySet().iterator();
-			it.next();
-			it.remove();
-		}
+		words.put(key, new Seen(raw, linesSeen));
+		lastWordLine = linesSeen;
 	}
 
 	/**
@@ -124,14 +214,19 @@ public final class WordSuggestions {
 			return out;
 		}
 		String needle = prefix.toLowerCase(Locale.US);
-		List<Map.Entry<String, String>> all =
-				new ArrayList<Map.Entry<String, String>>(words.entrySet());
-		for (int i = all.size() - 1; i >= 0 && out.size() < max; i--) {
-			Map.Entry<String, String> e = all.get(i);
+		// Forward once collecting only matches, rather than copying the whole
+		// store to walk it backwards. This runs on every keystroke, and a line
+		// window holds several times what the old 500-word cap did, so the cost
+		// has to follow the number of matches and not the size of the vocabulary.
+		List<String> matches = new ArrayList<String>();
+		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			// Not the word you have already finished typing.
-			if (e.getKey().startsWith(needle) && e.getKey().length() > needle.length()) {
-				out.add(e.getValue());
+			if (e.getKey().length() > needle.length() && e.getKey().startsWith(needle)) {
+				matches.add(e.getValue().spelling);
 			}
+		}
+		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
+			out.add(matches.get(i));
 		}
 		return out;
 	}
@@ -139,6 +234,8 @@ public final class WordSuggestions {
 	/** Everything learned so far is dropped — a new world, a new vocabulary. */
 	public void clear() {
 		words.clear();
+		linesSeen = 0;
+		lastWordLine = 0;
 	}
 
 	public int size() {
