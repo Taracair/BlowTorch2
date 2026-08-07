@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rename. Letters rather than a pencil, so it is not read as the edit action
+     that already sits next to it in the same row. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp"
+    android:height="22dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFAAB2BC">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2.5,4v3h5v12h3V7h5V4H2.5zM21.5,9h-9v3h3v7h3v-7h3V9z" />
+</vector>

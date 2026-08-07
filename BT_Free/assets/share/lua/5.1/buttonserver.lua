@@ -1551,10 +1551,18 @@ end
 
 local function rewriteCommandLinks(cmd, packIdToSetName)
 	if type(cmd) ~= "string" or cmd == "" then return cmd end
-	local packId = string.match(cmd, "^%.loadset%s+([%w_%-]+)%s*$")
-	if packId == nil then return cmd end
-	-- Catalog keys are lowercase; player setNames keep their chosen casing.
-	local newName, changed = rewriteLinkTarget(string.lower(packId), packIdToSetName)
+	-- Any target, not just [%w_%-]+. Pack ids never contain a space, so for the
+	-- catalog caller this captures exactly what it captured before and the map
+	-- lookup below still decides; what it adds is renaming a set the player
+	-- named "main copy", whose .loadset the old pattern could not even see.
+	local target = string.match(cmd, "^%.loadset%s+(.-)%s*$")
+	if target == nil or target == "" then return cmd end
+	-- Catalog keys are lowercase; player setNames keep their chosen casing, and
+	-- a rename map carries both spellings for exactly this reason.
+	local newName, changed = rewriteLinkTarget(target, packIdToSetName)
+	if not changed then
+		newName, changed = rewriteLinkTarget(string.lower(target), packIdToSetName)
+	end
 	if not changed then return cmd end
 	if newName == nil or newName == "" then return "" end
 	return ".loadset " .. newName
@@ -1592,6 +1600,79 @@ local function rewriteSetCrossLinks(setName, packIdToSetName)
 	for _, btn in pairs(set) do
 		rewriteButtonCrossLinks(btn, packIdToSetName)
 	end
+end
+
+--- Rename a button set, and take every link to it along.
+---
+--- A set is addressed by its name and by nothing else: `.loadset combat`, a
+--- button's switchTo, a button whose command is `.loadset combat`. Moving the
+--- table to a new key and stopping there would leave all of those pointing at a
+--- set that no longer exists — every one of them silently dead, with no error
+--- and nothing on screen to say why. So the rename rewrites the links in the
+--- same pass, reusing the cross-link rewriter the layout catalog already uses.
+---
+--- Chrome gestures are the one place not rewritten: they are kept as one opaque
+--- serialised blob, and editing a name inside it by string surgery is how you
+--- corrupt it. If the old name appears there, the player is told to change that
+--- one by hand rather than left to find out.
+---
+--- @param data the old name, a newline, the new name. Two lines rather than a
+---        serialised table because the list dialog that sends it has no
+---        serialiser in its environment, and a set name cannot contain a
+---        newline — it is one line of an EditText.
+function renameButtonSet(data)
+	local text = data ~= nil and tostring(data) or ""
+	local from, to = string.match(text, "^(.-)\n(.*)$")
+	if from == nil then
+		Note("\nRename needs an old name and a new one.\n")
+		return
+	end
+	to = string.match(to, "^%s*(.-)%s*$") or ""
+
+	if buttonsets[from] == nil then
+		Note("\nNo button set called " .. from .. ".\n")
+		return
+	end
+	if to == "" then
+		Note("\nA button set needs a name.\n")
+		return
+	end
+	if to == from then
+		return
+	end
+	if buttonsets[to] ~= nil then
+		Note("\nThere is already a button set called \"" .. to .. "\".\n")
+		return
+	end
+
+	buttonsets[to] = buttonsets[from]
+	buttonsets[from] = nil
+	buttonset_defaults[to] = buttonset_defaults[from]
+	buttonset_defaults[from] = nil
+
+	-- Both spellings: a command may say .loadset Combat where the set is
+	-- "combat", and rewriteCommandLinks tries the raw target then the lowered one.
+	local renameMap = { [from] = to, [string.lower(from)] = to }
+	for setName, _ in pairs(buttonsets) do
+		rewriteSetCrossLinks(setName, renameMap)
+	end
+
+	if current_set == from then current_set = to end
+	if working_set == from then working_set = to end
+
+	Note("\nRenamed button set \"" .. from .. "\" to \"" .. to .. "\".\n")
+	local gestures = options.chrome_gestures
+	if type(gestures) == "string" and string.find(gestures, from, 1, true) ~= nil then
+		Note("A chrome gesture still mentions \"" .. from
+			.. "\" — change that one by hand in Options.\n")
+	end
+
+	-- Saved at once: a rename that lives only in memory is lost at the next
+	-- restart, and the links have already been rewritten to match it.
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+	getButtonSetList()
 end
 
 function getLayoutPackList(args)
