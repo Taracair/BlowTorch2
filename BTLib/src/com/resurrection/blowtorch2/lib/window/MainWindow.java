@@ -5792,6 +5792,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox = (BetterEditText) v;
 		mInputBox.setId(ChromeController.LEGACY_TEXT_INPUT_ID);
 		bindGhostTap();
+		// loadSettings can arrive before this runs, and refreshWordSuggestions
+		// gives up with the panel hidden while mInputBox is null. Nothing else
+		// asks again until the first keystroke — so a bar told to stay put would
+		// not be there until you typed something, which is the one thing it is
+		// for. Posted, so it happens after this view has been laid out.
+		mInputBox.post(new Runnable() {
+			@Override
+			public void run() {
+				refreshWordSuggestions();
+			}
+		});
 
 		View inputBar = findViewById(R.id.inputbar);
 		mOriginalInputBarLayoutParams = new RelativeLayout.LayoutParams(inputBar.getLayoutParams());
