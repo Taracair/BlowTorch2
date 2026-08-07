@@ -27,6 +27,7 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String OVERLAY_KEY = "word_complete_overlay";
 	public static final String LOOSE_KEY = "word_complete_loose";
 	public static final String GHOST_KEY = "word_complete_ghost";
+	public static final String PERSIST_KEY = "word_complete_persist";
 	public static final String OPACITY_KEY = "word_complete_opacity";
 
 	/** Kept where the completer keeps it, so the two cannot drift apart. */
@@ -68,6 +69,15 @@ public class CompleteCommand extends SpecialCommand {
 						+ " It is drawn only — what you send is what you typed.",
 					"No suggestion drawn after the cursor.");
 		}
+		if (arg.startsWith("persist")) {
+			return setFlag(arg.substring("persist".length()).trim(), c, PERSIST_KEY,
+					"The suggestion bar stays put now, empty or not, so the words"
+						+ " stop moving. Empty it shows only its grip — tap that to"
+						+ " collapse it, or .complete persist off to have it hide"
+						+ " itself again.",
+					"The suggestion bar hides itself when there is nothing to"
+						+ " suggest.");
+		}
 		if (arg.startsWith("overlay")) {
 			return setOverlay(arg.substring("overlay".length()).trim(), c);
 		}
@@ -100,7 +110,8 @@ public class CompleteCommand extends SpecialCommand {
 						+ opacity(c) + "% solid" : "sit in a strip below it")
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
-					+ ".\nUse .complete on|off, lines N, loose/ghost/overlay on|off,"
+					+ ", bar " + (flagOn(c, PERSIST_KEY) ? "always up" : "only when it has something")
+					+ ".\nUse .complete on|off, lines N, loose/ghost/overlay/persist on|off,"
 					+ " opacity N\n");
 			return null;
 		}
@@ -112,6 +123,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".complete loose on|off   — grzld finds grizzled\n"
 				+ ".complete ghost on|off   — draw the rest of the word after the cursor\n"
 				+ ".complete overlay on|off — chips over the game text (on by default)\n"
+				+ ".complete persist on|off — keep the bar up even when it is empty\n"
 				+ ".complete opacity N      — how solid those chips are\n"
 				+ ".complete         — say which it is\n\n"
 				+ "This completes mob names, player names and item words the\n"

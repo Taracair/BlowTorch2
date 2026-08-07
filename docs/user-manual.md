@@ -129,9 +129,30 @@ every time a suggestion appears and grows back when it goes, and the text hops
 with it — which is why floating is the default. The strip is still there for
 anyone who would rather have the chips out of the way of the game text.
 
-Either way the chips no longer blink on and off as you type: an empty panel
-waits a moment before it goes, because typing walks through prefixes that match
-nothing on the way to one that does.
+**A bar that stays put.** `.complete persist on` leaves the floating bar up even
+when there is nothing to suggest. The chips stop appearing and disappearing
+under your thumb, because the bar itself stops moving — the suggestions simply
+change inside a thing that is always in the same place.
+
+Empty, it shows only its grip: the six dots at its left end.
+
+- **Tap the grip** to collapse the bar to just that grip, and tap again to open
+  it. Useful when a line of the game is underneath it.
+- **Long press the grip and drag** to put the bar somewhere else entirely. It
+  stays where you drop it, remembered **per world and per screen rotation** —
+  a place that suits a portrait phone is off the side of a landscape one. Drop
+  it back near the input bar and it forgets the placement and goes back to
+  following the bar, which is how you undo this without an option.
+- To get rid of an empty bar altogether, `.complete persist off` — then it hides
+  itself whenever it has nothing to say, as it does by default.
+
+The grip is the handle for both gestures on purpose. The chips themselves scroll
+sideways, and a long press inside something that scrolls fights the scrolling
+for every touch.
+
+Without `persist`, the chips no longer blink either: an empty panel waits a
+moment before it goes, because typing walks through prefixes that match nothing
+on the way to one that does.
 
 `.complete opacity 40` makes them see-through enough to read the line behind
 them. Only the backing fades — the words stay fully readable at every setting,

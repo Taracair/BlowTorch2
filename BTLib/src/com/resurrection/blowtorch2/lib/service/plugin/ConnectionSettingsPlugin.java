@@ -141,12 +141,24 @@ public class ConnectionSettingsPlugin extends Plugin {
 		compatilibility_mode.setValue(false);
 		input.addOption(compatilibility_mode);
 
+		// Seven keys about one feature made Input a wall to scroll through, so
+		// they live in their own section. Safe because SettingsGroup's
+		// updateOptionsMap recurses into child GROUPs and flattens their keys
+		// into the parent's map — findOptionByKey is a flat lookup and does not
+		// recurse, so MainWindow's group.findOptionByKey("word_complete_*")
+		// still resolves. What that costs is an ordering rule: every option must
+		// be added to this group BEFORE the group is added to input, or its key
+		// never reaches input's map and the option silently stops being read.
+		SettingsGroup suggestions = new SettingsGroup();
+		suggestions.setTitle("Suggestions");
+		suggestions.setDescription("Completing words the game has just used, and where those suggestions are shown.");
+
 		BooleanOption word_complete = new BooleanOption();
 		word_complete.setTitle("Complete words the game used");
 		word_complete.setDescription("Type two letters of a mob, player or item name the world just said and it appears above the input bar; tap to use it. The keyboard cannot know these names and tends to correct them into English. Toggle with .complete on/off.");
 		word_complete.setKey("word_complete");
 		word_complete.setValue(false);
-		input.addOption(word_complete);
+		suggestions.addOption(word_complete);
 
 		IntegerOption word_complete_lines = new IntegerOption();
 		word_complete_lines.setTitle("Completion memory (lines)");
@@ -154,21 +166,21 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_lines.setKey("word_complete_lines");
 		word_complete_lines.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
-		input.addOption(word_complete_lines);
+		suggestions.addOption(word_complete_lines);
 
 		BooleanOption word_complete_loose = new BooleanOption();
 		word_complete_loose.setTitle("Forgive typos in suggestions");
 		word_complete_loose.setDescription("When the exact spelling finds nothing, match words whose letters you typed in order with gaps: grzld finds grizzled. Only runs after an exact match found nothing, so accurate typing is never given a different answer. Toggle with .complete loose on/off.");
 		word_complete_loose.setKey("word_complete_loose");
 		word_complete_loose.setValue(false);
-		input.addOption(word_complete_loose);
+		suggestions.addOption(word_complete_loose);
 
 		BooleanOption word_complete_ghost = new BooleanOption();
 		word_complete_ghost.setTitle("Show the rest of the word as you type");
 		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dimmed type, with a small 1 marking it as the first suggestion. Tap the ghost to take it. A word that continues what you typed shows only its missing letters; a forgiven typo shows the whole word behind an arrow, because its letters change rather than grow. It is only drawn, never put in the input bar, so what you send is always exactly what you typed. Toggle with .complete ghost on/off.");
 		word_complete_ghost.setKey("word_complete_ghost");
 		word_complete_ghost.setValue(false);
-		input.addOption(word_complete_ghost);
+		suggestions.addOption(word_complete_ghost);
 
 		BooleanOption word_complete_overlay = new BooleanOption();
 		word_complete_overlay.setTitle("Suggestions float over the game");
@@ -181,7 +193,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 		// Change this and ConnectionSetttingsParser's comparison together, or the
 		// parser quietly stops saving the value the player chose.
 		word_complete_overlay.setValue(true);
-		input.addOption(word_complete_overlay);
+		suggestions.addOption(word_complete_overlay);
+
+		BooleanOption word_complete_persist = new BooleanOption();
+		word_complete_persist.setTitle("Keep the suggestion bar in place");
+		word_complete_persist.setDescription("Leave the floating suggestion bar up even when there is nothing to suggest, instead of letting it come and go as you type. The words stop moving because the bar stops moving. When it is empty it shows only its grip; tap that grip to collapse it, or turn this off with .complete persist off to have it hide itself again. Floating chips only.");
+		word_complete_persist.setKey("word_complete_persist");
+		word_complete_persist.setValue(false);
+		suggestions.addOption(word_complete_persist);
 
 		IntegerOption word_complete_opacity = new IntegerOption();
 		word_complete_opacity.setTitle("Suggestion chip opacity (%)");
@@ -189,7 +208,10 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_opacity.setKey("word_complete_opacity");
 		word_complete_opacity.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY);
-		input.addOption(word_complete_opacity);
+		suggestions.addOption(word_complete_opacity);
+
+		// After every addOption above, never before one of them.
+		input.addOption(suggestions);
 
 		BooleanOption prompt_bar = new BooleanOption();
 		prompt_bar.setTitle("Prompt on its own bar");

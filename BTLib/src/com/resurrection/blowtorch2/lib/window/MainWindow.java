@@ -2411,17 +2411,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// and the other stays gone. Two views rather than one that is re-parented:
 		// moving a view between an in-layout parent and the overlay mid-session is
 		// the kind of thing that works until the first configuration change.
-		android.widget.HorizontalScrollView inline =
-				(android.widget.HorizontalScrollView) findViewById(R.id.input_word_suggestions);
-		android.widget.HorizontalScrollView floating =
-				(android.widget.HorizontalScrollView) findViewById(R.id.input_word_suggestions_float);
-		android.widget.HorizontalScrollView strip =
-				mWordSuggestionsOverlay ? floating : inline;
+		View inline = findViewById(R.id.input_word_suggestions);
+		View floating = findViewById(R.id.input_word_suggestions_float);
+		View strip = mWordSuggestionsOverlay ? floating : inline;
 		LinearLayout row = (LinearLayout) findViewById(mWordSuggestionsOverlay
 				? R.id.input_word_suggestions_float_row
 				: R.id.input_word_suggestions_row);
-		android.widget.HorizontalScrollView unused =
-				mWordSuggestionsOverlay ? inline : floating;
+		View unused = mWordSuggestionsOverlay ? inline : floating;
 		if (unused != null) {
 			unused.setVisibility(View.GONE);
 		}
@@ -2430,6 +2426,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if (mWordSuggestionsOverlay) {
 			trackInputBarForOverlay();
+			bindSuggestionGrip();
 		}
 		if (!mWordSuggestionsOn || mInputBox == null) {
 			// Clear the list before hiding: a pending delayed hide re-reads it to
@@ -2442,21 +2439,31 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
 		String prefix = WordSuggestions.wordBefore(text, caret);
-		java.util.List<String> words =
-				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
+		java.util.List<String> words = mWordSuggestionsCollapsed
+				? java.util.Collections.<String>emptyList()
+				: mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
 		mWordSuggestionList.clear();
 		mWordSuggestionList.addAll(words);
 		updateGhostCompletion(prefix, words);
 		if (words.isEmpty()) {
+			// Persistent: the panel is a fixed thing you can aim at, not something
+			// that appears under your thumb. Empty it still shows its grip, which
+			// is why the grip is drawn as an object and not as a decoration.
+			if (mWordSuggestionsPersist && mWordSuggestionsOverlay) {
+				cancelWordSuggestionHide();
+				hideAllChips(row);
+				applyStripOpacity(strip);
+				strip.setVisibility(View.VISIBLE);
+				return;
+			}
 			hideWordSuggestionsSoon(strip, row);
 			return;
 		}
 		cancelWordSuggestionHide();
 		for (int i = 0; i < words.size(); i++) {
 			final String word = words.get(i);
-			Button chip = chipAt(row, i);
+			TextView chip = chipAt(row, i);
 			chip.setText(numberedChipLabel(i + 1, word));
-			applyChipOpacity(chip);
 			chip.setTag(word);
 			chip.setVisibility(View.VISIBLE);
 		}
@@ -2468,7 +2475,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		applyStripOpacity(strip);
 		strip.setVisibility(View.VISIBLE);
-		strip.scrollTo(0, 0);
+		View scroller = findViewById(R.id.input_word_suggestions_float_scroll);
+		if (mWordSuggestionsOverlay && scroller != null) {
+			scroller.scrollTo(0, 0);
+		} else if (!mWordSuggestionsOverlay) {
+			strip.scrollTo(0, 0);
+		}
+	}
+
+	private void hideAllChips(final LinearLayout row) {
+		for (int i = 0; i < row.getChildCount(); i++) {
+			row.getChildAt(i).setVisibility(View.GONE);
+		}
 	}
 
 	/**
@@ -2478,16 +2496,28 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * closing over it, so the listener survives the chip being reused for a
 	 * different word — which is the whole point of keeping it.
 	 */
-	private Button chipAt(final LinearLayout row, final int i) {
+	private TextView chipAt(final LinearLayout row, final int i) {
 		if (i < row.getChildCount()) {
-			return (Button) row.getChildAt(i);
+			return (TextView) row.getChildAt(i);
 		}
-		Button chip = new Button(this);
+		float d = getResources().getDisplayMetrics().density;
+		// A TextView, not a Button. Button carries a minimum touch size and an
+		// inset background of its own, which is why the strip was taller than the
+		// words in it and the chips sat far apart. The row is still finger-sized
+		// because the panel sits on the input bar, not in the middle of the text.
+		TextView chip = new TextView(this);
 		chip.setTextSize(13);
-		chip.setAllCaps(false);
-		chip.setPadding(18, 4, 18, 4);
-		chip.setMinWidth(0);
-		chip.setMinimumWidth(0);
+		chip.setTextColor(0xFFE6EAEE);
+		chip.setSingleLine(true);
+		chip.setBackgroundResource(R.drawable.suggestion_chip_bg);
+		chip.setPadding((int) (10 * d), (int) (5 * d), (int) (10 * d), (int) (5 * d));
+		chip.setClickable(true);
+		chip.setFocusable(false);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		lp.leftMargin = (int) (3 * d);
+		chip.setLayoutParams(lp);
 		chip.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
@@ -2499,6 +2529,216 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		});
 		row.addView(chip);
 		return chip;
+	}
+
+	/** Panel collapsed to its grip by a tap on that grip. */
+	private boolean mWordSuggestionsCollapsed = false;
+	/** Keep the panel up even with nothing to suggest. */
+	private boolean mWordSuggestionsPersist = false;
+	/** Set once the grip has its gesture handling. */
+	private boolean mSuggestionGripBound = false;
+
+	/**
+	 * The panel's one handle: tap collapses it, a long press picks it up.
+	 *
+	 * <p>On the grip and not on the panel, because the panel is a scrolling
+	 * container and a long press inside one fights the scroller for every touch
+	 * — the same reason a gesture on a word in the game text is a bad idea. The
+	 * grip is a sibling of the scroll view, so the two never see the same event.
+	 *
+	 * <p>Collapsed the panel keeps its grip and loses its chips, so the thing you
+	 * tapped is still under your thumb to tap again. That is also what makes the
+	 * persistent-and-empty panel look deliberate rather than like a smudge.
+	 */
+	private void bindSuggestionGrip() {
+		if (mSuggestionGripBound) {
+			return;
+		}
+		final View grip = findViewById(R.id.input_word_suggestions_grip);
+		final View panel = findViewById(R.id.input_word_suggestions_float);
+		if (grip == null || panel == null) {
+			return;
+		}
+		mSuggestionGripBound = true;
+		grip.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				mWordSuggestionsCollapsed = !mWordSuggestionsCollapsed;
+				refreshWordSuggestions();
+			}
+		});
+		grip.setOnLongClickListener(new View.OnLongClickListener() {
+			@Override
+			public boolean onLongClick(View v) {
+				return beginSuggestionPanelDrag(panel);
+			}
+		});
+		grip.setOnTouchListener(new View.OnTouchListener() {
+			@Override
+			public boolean onTouch(View v, MotionEvent e) {
+				switch (e.getActionMasked()) {
+				case MotionEvent.ACTION_DOWN:
+					mGripDownRawX = e.getRawX();
+					mGripDownRawY = e.getRawY();
+					// Not consumed: the tap and the long press are what decide
+					// what this gesture is, and they need to see it.
+					return false;
+				case MotionEvent.ACTION_MOVE:
+					if (!mSuggestionDragging) {
+						return false;
+					}
+					moveSuggestionPanelTo(panel,
+							e.getRawX() - mGripDownRawX, e.getRawY() - mGripDownRawY);
+					return true;
+				case MotionEvent.ACTION_UP:
+				case MotionEvent.ACTION_CANCEL:
+					if (!mSuggestionDragging) {
+						return false;
+					}
+					endSuggestionPanelDrag(panel);
+					return true;
+				default:
+					return false;
+				}
+			}
+		});
+	}
+
+	/** Where the finger went down on the grip, in screen coordinates. */
+	private float mGripDownRawX = 0f;
+	private float mGripDownRawY = 0f;
+	/** Panel margins when the drag started, which the drag is a delta on. */
+	private int mDragStartLeft = 0;
+	private int mDragStartBottom = 0;
+	private boolean mSuggestionDragging = false;
+	/** True once the player has put the panel somewhere of their own. */
+	private boolean mSuggestionPanelPlaced = false;
+	private int mSuggestionPanelLeft = 0;
+	private int mSuggestionPanelBottom = 0;
+	/** Drop this close to where it started and it goes back to following the bar. */
+	private static final int SUGGESTION_SNAP_BACK_DIP = 28;
+
+	private static final String PREFS_SUGGESTION_PANEL = "SUGGESTION_PANEL_POS";
+
+	private boolean beginSuggestionPanelDrag(final View panel) {
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return false;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		mDragStartLeft = flp.leftMargin;
+		mDragStartBottom = flp.bottomMargin;
+		mSuggestionDragging = true;
+		// Say it has been picked up: a panel that only moves once you have
+		// already dragged it leaves you guessing whether the press worked.
+		panel.performHapticFeedback(
+				android.view.HapticFeedbackConstants.LONG_PRESS);
+		panel.setAlpha(0.85f);
+		return true;
+	}
+
+	/**
+	 * Move the panel by the drag so far.
+	 *
+	 * <p>A delta on the margins it started with, deliberately — the panel also
+	 * carries a {@code translationY} for the keyboard lift, and working in
+	 * deltas means the panel follows the finger whether the keyboard is up or
+	 * down, and keeps following the bar afterwards.
+	 */
+	private void moveSuggestionPanelTo(final View panel, final float dx, final float dy) {
+		ViewGroup parent = (ViewGroup) panel.getParent();
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (parent == null || !(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		int left = mDragStartLeft + (int) dx;
+		// The margin is from the bottom, so up the screen is a bigger margin.
+		int bottom = mDragStartBottom - (int) dy;
+		int maxLeft = Math.max(0, parent.getWidth() - panel.getWidth());
+		int maxBottom = Math.max(0, parent.getHeight() - panel.getHeight());
+		flp.leftMargin = Math.max(0, Math.min(left, maxLeft));
+		flp.bottomMargin = Math.max(0, Math.min(bottom, maxBottom));
+		panel.setLayoutParams(flp);
+	}
+
+	private void endSuggestionPanelDrag(final View panel) {
+		mSuggestionDragging = false;
+		panel.setAlpha(1f);
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		float d = getResources().getDisplayMetrics().density;
+		int snap = (int) (SUGGESTION_SNAP_BACK_DIP * d);
+		// Dropped back roughly where it lives by default: forget the placement
+		// rather than store one that is almost the default. Without this there
+		// is no way back to "follows the input bar" except an option.
+		if (flp.leftMargin <= snap
+				&& Math.abs(flp.bottomMargin - defaultSuggestionBottomMargin()) <= snap) {
+			mSuggestionPanelPlaced = false;
+			saveSuggestionPanelPosition();
+			positionWordSuggestionOverlay();
+			return;
+		}
+		mSuggestionPanelPlaced = true;
+		mSuggestionPanelLeft = flp.leftMargin;
+		mSuggestionPanelBottom = flp.bottomMargin;
+		saveSuggestionPanelPosition();
+	}
+
+	/**
+	 * Where the panel sits when it has not been placed: on the input bar's top
+	 * edge, plus the navigation bar the overlay does not have padded away.
+	 */
+	private int defaultSuggestionBottomMargin() {
+		View bar = findInputBar();
+		int navPad = 0;
+		View container = findViewById(R.id.window_container);
+		if (container != null) {
+			navPad = container.getPaddingBottom();
+		}
+		return (bar == null ? 0 : bar.getHeight()) + navPad;
+	}
+
+	/**
+	 * Per world and per orientation.
+	 *
+	 * <p>Per world because that is what was asked for, and per orientation
+	 * because a position chosen in portrait is off the screen in landscape —
+	 * the mistake button coordinates already made once, which is why they grew
+	 * xLand/yLand.
+	 */
+	private String suggestionPanelKey() {
+		boolean land = getResources().getConfiguration().orientation
+				== Configuration.ORIENTATION_LANDSCAPE;
+		return getConnectionDisplay() + "|" + (land ? "land" : "port");
+	}
+
+	private void saveSuggestionPanelPosition() {
+		SharedPreferences.Editor e =
+				getSharedPreferences(PREFS_SUGGESTION_PANEL, Context.MODE_PRIVATE).edit();
+		String key = suggestionPanelKey();
+		if (!mSuggestionPanelPlaced) {
+			e.remove(key + "|left").remove(key + "|bottom");
+		} else {
+			e.putInt(key + "|left", mSuggestionPanelLeft);
+			e.putInt(key + "|bottom", mSuggestionPanelBottom);
+		}
+		e.apply();
+	}
+
+	private void loadSuggestionPanelPosition() {
+		SharedPreferences p =
+				getSharedPreferences(PREFS_SUGGESTION_PANEL, Context.MODE_PRIVATE);
+		String key = suggestionPanelKey();
+		mSuggestionPanelLeft = p.getInt(key + "|left", -1);
+		mSuggestionPanelBottom = p.getInt(key + "|bottom", -1);
+		mSuggestionPanelPlaced = mSuggestionPanelLeft >= 0 && mSuggestionPanelBottom >= 0;
 	}
 
 	/**
@@ -2646,6 +2886,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		mWordSuggestionsOverlayTracked = true;
+		loadSuggestionPanelPosition();
 		bar.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
 			@Override
 			public void onLayoutChange(View v, int l, int t, int r, int b,
@@ -2682,16 +2923,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
 			return;
 		}
-		int navPad = 0;
-		View container = findViewById(R.id.window_container);
-		if (container != null) {
-			navPad = container.getPaddingBottom();
+		if (mSuggestionDragging) {
+			// The finger is the authority while it is down.
+			return;
 		}
-		int wanted = bar.getHeight() + navPad;
 		android.widget.FrameLayout.LayoutParams flp =
 				(android.widget.FrameLayout.LayoutParams) lp;
-		if (flp.bottomMargin != wanted) {
-			flp.bottomMargin = wanted;
+		int wantedBottom = mSuggestionPanelPlaced
+				? mSuggestionPanelBottom : defaultSuggestionBottomMargin();
+		int wantedLeft = mSuggestionPanelPlaced ? mSuggestionPanelLeft : 0;
+		if (flp.bottomMargin != wantedBottom || flp.leftMargin != wantedLeft) {
+			flp.bottomMargin = wantedBottom;
+			flp.leftMargin = wantedLeft;
 			floating.setLayoutParams(flp);
 		}
 		// Whatever lift the bar is under right now. The layout listener also fires
@@ -3021,7 +3264,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void onConfigurationChanged(Configuration newconfig) {
 		//Log.e("WINDOW","CONFIGURATION CHANGING");
 		super.onConfigurationChanged(newconfig);
-		
+
+		// The suggestion panel's placement is stored per orientation. Re-read it
+		// here rather than carrying the portrait one into landscape, where it can
+		// be off the side of the screen.
+		loadSuggestionPanelPosition();
+		positionWordSuggestionOverlay();
+
 		if(service == null) {
 			super.onConfigurationChanged(newconfig);
 			return;
@@ -3688,6 +3937,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					(BaseOption) group.findOptionByKey("word_complete_opacity");
 			if (opacityOpt != null && opacityOpt.getValue() instanceof Integer) {
 				mWordSuggestionsOpacity = (Integer) opacityOpt.getValue();
+			}
+			BaseOption persistOpt =
+					(BaseOption) group.findOptionByKey("word_complete_persist");
+			mWordSuggestionsPersist = persistOpt != null
+					&& persistOpt.getValue() instanceof Boolean
+					&& (Boolean) persistOpt.getValue();
+			// Turning the bar off is also the way out of a collapsed one, so a
+			// player cannot end up with a grip and no way to read what it hides.
+			if (!mWordSuggestionsPersist) {
+				mWordSuggestionsCollapsed = false;
 			}
 			refreshWordSuggestions();
 

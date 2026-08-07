@@ -4777,6 +4777,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_lines:
 			case word_complete_loose:
 			case word_complete_ghost:
+			case word_complete_persist:
 			case word_complete_overlay:
 			case word_complete_opacity:
 				// MainWindow.loadSettings is what reaches WordSuggestions and the
@@ -5881,6 +5882,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_loose,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
+		/** Keep the floating suggestion bar up even when it is empty. */
+		word_complete_persist,
 		/** Chips over the game text rather than in a strip below it. */
 		word_complete_overlay,
 		/** How solid those chips are. */

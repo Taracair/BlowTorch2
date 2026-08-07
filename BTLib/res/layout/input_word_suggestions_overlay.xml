@@ -7,25 +7,51 @@
      costs the layout nothing and nothing moves.
 
      Width is wrap_content, not match_parent: an empty strip that spans the
-     screen would swallow taps meant for the game text behind it. -->
-<HorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+     screen would swallow taps meant for the game text behind it.
+
+     The grip is the panel's one handle — tap to collapse, long press to drag —
+     and it is also what a persistent panel shows when there is nothing to
+     suggest, so an empty bar reads as an object rather than a smudge. It is a
+     sibling of the scroll view, not inside it: a long press on a scrolling
+     container fights the scroller for every touch. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/input_word_suggestions_float"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_gravity="bottom|left"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
     android:visibility="gone"
-    android:scrollbars="none"
-    android:fillViewport="false"
-    android:background="#FF141414">
+    android:background="@drawable/suggestion_panel_bg">
 
-    <LinearLayout
-        android:id="@+id/input_word_suggestions_float_row"
+    <ImageView
+        android:id="@+id/input_word_suggestions_grip"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingLeft="4dip"
+        android:paddingLeft="6dip"
         android:paddingRight="4dip"
-        android:paddingTop="2dip"
-        android:paddingBottom="2dip" />
+        android:paddingTop="4dip"
+        android:paddingBottom="4dip"
+        android:src="@drawable/ic_suggestion_grip"
+        android:contentDescription="Move or collapse the suggestion bar" />
 
-</HorizontalScrollView>
+    <HorizontalScrollView
+        android:id="@+id/input_word_suggestions_float_scroll"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:fillViewport="false">
+
+        <LinearLayout
+            android:id="@+id/input_word_suggestions_float_row"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingLeft="2dip"
+            android:paddingRight="4dip"
+            android:paddingTop="2dip"
+            android:paddingBottom="2dip" />
+
+    </HorizontalScrollView>
+
+</LinearLayout>

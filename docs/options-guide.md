@@ -298,6 +298,9 @@ Completes mob / player / item words the world just used, which the soft keyboard
 never learns. All of it is off by default and lives under **Options → Input**;
 each has a dot form on `.complete`.
 
+All of these live under **Options → Input → Suggestions** — one feature with
+seven switches was making the Input page a wall.
+
 - **Complete words the game used** — `.complete on|off`. While off, incoming text
   is not even sent to the completer, so it costs nothing.
 - **Completion memory (lines)** — `.complete lines N`. Freshness is the last `N`
@@ -326,6 +329,13 @@ each has a dot form on `.complete`.
   nothing moves. Turn it off to get the in-layout strip back. Either way the
   panel now waits a moment before hiding, rather than blinking off on the first
   prefix that matches nothing.
+- **Keep the suggestion bar in place** — `.complete persist on|off`. Leaves the
+  floating bar up even with nothing to suggest, so the chips change inside
+  something that does not move instead of appearing under your thumb. Empty it
+  shows only its grip: **tap the grip** to collapse, **long press and drag** it
+  to move the bar (remembered per world and per rotation; drop it back near the
+  input bar to go back to following it). `.complete persist off` gets rid of an
+  empty bar.
 - **Suggestion chip opacity (%)** — `.complete opacity N` (10–100). Fades the chip
   backing of the floating chips only; the words stay fully readable.
 - The learned vocabulary is dropped on connect, so one world's names are never
