@@ -205,10 +205,14 @@ public final class ChromeController {
 		// need the same lift. Without it they stayed at the bottom of an
 		// unresized window and the keyboard covered them, which is what the
 		// chips "falling under the keyboard" was.
+		// Unless the player has dragged it somewhere: then the margin it was
+		// given is the position they chose, and adding the lift on top would
+		// move it out from under them every time the keyboard opened. See
+		// MainWindow.positionWordSuggestionOverlay.
 		View floatingChips = activity.findViewById(R.id.input_word_suggestions_float);
 		if (floatingChips != null) {
-			floatingChips.setTranslationY(
-					inputbar != null ? inputbar.getTranslationY() : ty);
+			floatingChips.setTranslationY(activity.isSuggestionPanelPlaced()
+					? 0f : (inputbar != null ? inputbar.getTranslationY() : ty));
 		}
 	}
 

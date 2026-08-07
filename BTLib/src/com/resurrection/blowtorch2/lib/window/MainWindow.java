@@ -2455,12 +2455,24 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
 		String prefix = WordSuggestions.wordBefore(text, caret);
-		java.util.List<String> words = mWordSuggestionsCollapsed
-				? java.util.Collections.<String>emptyList()
-				: mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
+		java.util.List<String> words =
+				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
 		mWordSuggestionList.clear();
 		mWordSuggestionList.addAll(words);
 		updateGhostCompletion(prefix, words);
+		// Collapsed is about the chips, not about completion. The suggestions are
+		// still worked out — the ghost still draws, .complete N still picks — and
+		// the panel stays up showing only the grip that folded it, so there is
+		// something left to tap to unfold. Pretending there were no suggestions
+		// instead would take the panel away with the grip inside it, and nothing
+		// short of reopening Options would bring it back.
+		if (mWordSuggestionsCollapsed && mWordSuggestionsOverlay) {
+			cancelWordSuggestionHide();
+			hideAllChips(row);
+			applyStripOpacity(strip);
+			strip.setVisibility(View.VISIBLE);
+			return;
+		}
 		if (words.isEmpty()) {
 			// Persistent: the panel is a fixed thing you can aim at, not something
 			// that appears under your thumb. Empty it still shows its grip, which
@@ -2636,6 +2648,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private static final String PREFS_SUGGESTION_PANEL = "SUGGESTION_PANEL_POS";
 
+	/** Has the player dragged the suggestion panel to a place of their own? */
+	boolean isSuggestionPanelPlaced() {
+		return mSuggestionPanelPlaced;
+	}
+
 	private boolean beginSuggestionPanelDrag(final View panel) {
 		ViewGroup.LayoutParams lp = panel.getLayoutParams();
 		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
@@ -2691,11 +2708,27 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				(android.widget.FrameLayout.LayoutParams) lp;
 		float d = getResources().getDisplayMetrics().density;
 		int snap = (int) (SUGGESTION_SNAP_BACK_DIP * d);
+
+		// Absorb the keyboard lift into the margin before storing anything.
+		// While the panel was following the bar it carried translationY = -lift,
+		// so what the player sees is margin + lift. Storing the bare margin and
+		// then dropping the translation — which a placed panel does not take —
+		// would move the panel down by the height of the keyboard at the moment
+		// they let go. Adding the lift in makes the stored number the position
+		// they actually chose.
+		int lift = Math.round(-panel.getTranslationY());
+		if (lift != 0) {
+			flp.bottomMargin += lift;
+			panel.setTranslationY(0f);
+		}
+
 		// Dropped back roughly where it lives by default: forget the placement
 		// rather than store one that is almost the default. Without this there
-		// is no way back to "follows the input bar" except an option.
+		// is no way back to "follows the input bar" except an option. The bar's
+		// own position is lifted too, so compare against where it is now.
 		if (flp.leftMargin <= snap
-				&& Math.abs(flp.bottomMargin - defaultSuggestionBottomMargin()) <= snap) {
+				&& Math.abs(flp.bottomMargin - (defaultSuggestionBottomMargin() + lift))
+						<= snap) {
 			mSuggestionPanelPlaced = false;
 			saveSuggestionPanelPosition();
 			positionWordSuggestionOverlay();
@@ -2704,6 +2737,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mSuggestionPanelPlaced = true;
 		mSuggestionPanelLeft = flp.leftMargin;
 		mSuggestionPanelBottom = flp.bottomMargin;
+		panel.setLayoutParams(flp);
 		saveSuggestionPanelPosition();
 	}
 
@@ -2953,10 +2987,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			flp.leftMargin = wantedLeft;
 			floating.setLayoutParams(flp);
 		}
-		// Whatever lift the bar is under right now. The layout listener also fires
-		// while the keyboard is up, and a chip panel left at translation 0 would
-		// drop back under the keyboard until the next inset dispatch.
-		floating.setTranslationY(bar.getTranslationY());
+		// A panel that follows the input bar follows it under the keyboard too:
+		// the layout listener fires while the keyboard is up, and one left at
+		// translation 0 would drop back under it until the next inset dispatch.
+		//
+		// A *placed* panel does not take the lift at all. The drag stores a
+		// margin, and the visible position of a lifted panel is margin + lift —
+		// so a panel dropped while the keyboard was up would fall by the height
+		// of the keyboard the moment it closed. The player picked a spot on the
+		// screen; it stays there, and if the keyboard covers it they can pick
+		// another. Predictable beats clever.
+		floating.setTranslationY(mSuggestionPanelPlaced ? 0f : bar.getTranslationY());
 	}
 
 	/**
