@@ -156,6 +156,20 @@ public class ConnectionSettingsPlugin extends Plugin {
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
 		input.addOption(word_complete_lines);
 
+		BooleanOption word_complete_loose = new BooleanOption();
+		word_complete_loose.setTitle("Forgive typos in suggestions");
+		word_complete_loose.setDescription("When the exact spelling finds nothing, match words whose letters you typed in order with gaps: grzld finds grizzled. Only runs after an exact match found nothing, so accurate typing is never given a different answer. Toggle with .complete loose on/off.");
+		word_complete_loose.setKey("word_complete_loose");
+		word_complete_loose.setValue(false);
+		input.addOption(word_complete_loose);
+
+		BooleanOption word_complete_ghost = new BooleanOption();
+		word_complete_ghost.setTitle("Show the rest of the word as you type");
+		word_complete_ghost.setDescription("Draw the top suggestion's remaining letters after the cursor in dimmed type, with a small 1 marking it as the first suggestion. It is only drawn, never put in the input bar, so what you send is always exactly what you typed. Toggle with .complete ghost on/off.");
+		word_complete_ghost.setKey("word_complete_ghost");
+		word_complete_ghost.setValue(false);
+		input.addOption(word_complete_ghost);
+
 		BooleanOption word_complete_overlay = new BooleanOption();
 		word_complete_overlay.setTitle("Suggestions float over the game");
 		word_complete_overlay.setDescription("Draw the suggestion chips on top of the game text instead of in a strip below it. The strip takes height while it is showing, so the game window shrinks and the text jumps every time a suggestion appears; floating costs the layout nothing and nothing moves. Toggle with .complete overlay on/off.");

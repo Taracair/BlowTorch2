@@ -25,6 +25,8 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String OPTION_KEY = "word_complete";
 	public static final String LINES_KEY = "word_complete_lines";
 	public static final String OVERLAY_KEY = "word_complete_overlay";
+	public static final String LOOSE_KEY = "word_complete_loose";
+	public static final String GHOST_KEY = "word_complete_ghost";
 	public static final String OPACITY_KEY = "word_complete_opacity";
 
 	/** Kept where the completer keeps it, so the two cannot drift apart. */
@@ -53,6 +55,18 @@ public class CompleteCommand extends SpecialCommand {
 		}
 		if (arg.startsWith("lines")) {
 			return setLines(arg.substring("lines".length()).trim(), c);
+		}
+		if (arg.startsWith("loose")) {
+			return setFlag(arg.substring("loose".length()).trim(), c, LOOSE_KEY,
+					"Typos forgiven: grzld now finds grizzled when the exact"
+						+ " spelling finds nothing.",
+					"Exact spelling only.");
+		}
+		if (arg.startsWith("ghost")) {
+			return setFlag(arg.substring("ghost".length()).trim(), c, GHOST_KEY,
+					"The rest of the top suggestion is now drawn after the cursor."
+						+ " It is drawn only — what you send is what you typed.",
+					"No suggestion drawn after the cursor.");
 		}
 		if (arg.startsWith("overlay")) {
 			return setOverlay(arg.substring("overlay".length()).trim(), c);
@@ -84,7 +98,10 @@ public class CompleteCommand extends SpecialCommand {
 					+ ", remembering the last " + describeLines(lines(c))
 					+ ".\nChips " + (overlayOn(c) ? "float over the game text at "
 						+ opacity(c) + "% solid" : "sit in a strip below it")
-					+ ".\nUse .complete on|off, lines N, overlay on|off, opacity N\n");
+					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
+					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
+					+ ".\nUse .complete on|off, lines N, loose/ghost/overlay on|off,"
+					+ " opacity N\n");
 			return null;
 		}
 		c.sendDataToWindow(getErrorMessage("Word completion usage:",
@@ -92,6 +109,8 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".complete off     — stop\n"
 				+ ".complete lines N — how far back counts as recent (0 = all session)\n"
 				+ ".complete 1..6    — take that suggestion off the strip\n"
+				+ ".complete loose on|off   — grzld finds grizzled\n"
+				+ ".complete ghost on|off   — draw the rest of the word after the cursor\n"
 				+ ".complete overlay on|off — chips over the game text, nothing moves\n"
 				+ ".complete opacity N      — how solid those chips are\n"
 				+ ".complete         — say which it is\n\n"
@@ -183,6 +202,33 @@ public class CompleteCommand extends SpecialCommand {
 				+ "Suggestion chips now " + n + "% solid."
 				+ Colorizer.getWhiteColor() + "\n");
 		return null;
+	}
+
+	/** on|off for one of the plain switches, with its own two sentences. */
+	private Object setFlag(String arg, Connection c, String key,
+			String onText, String offText) {
+		if (arg.length() == 0) {
+			c.sendDataToWindow("\n" + (flagOn(c, key) ? onText : offText) + "\n");
+			return null;
+		}
+		if (!arg.equals("on") && !arg.equals("off")) {
+			c.sendDataToWindow(getErrorMessage("Word completion usage:",
+					"Use on or off.\n"));
+			return null;
+		}
+		boolean on = arg.equals("on");
+		c.updateBooleanSetting(key, on);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ (on ? onText : offText) + Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
+	private static boolean flagOn(Connection c, String key) {
+		BaseOption o = findOption(c, key);
+		if (o instanceof BooleanOption && o.getValue() instanceof Boolean) {
+			return ((Boolean) o.getValue()).booleanValue();
+		}
+		return false;
 	}
 
 	private static boolean overlayOn(Connection c) {

@@ -88,6 +88,42 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void aMistypedWordStillFindsItself() {
+		WordSuggestions w = new WordSuggestions();
+		w.setLooseMatching(true);
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("grzld", 5));
+	}
+
+	@Test
+	public void looseMatchingIsOffUntilAskedFor() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertTrue(w.suggest("grzld", 5).isEmpty());
+	}
+
+	@Test
+	public void anExactPrefixIsNeverDisplacedByALooseMatch() {
+		WordSuggestions w = new WordSuggestions();
+		w.setLooseMatching(true);
+		// "grim" is an exact prefix of grimoire; it is also a subsequence of
+		// "granite-marked". The accurate typist must not see the second one.
+		w.learn("grimoire granite-marked\n");
+		assertEquals(java.util.Arrays.asList("grimoire"), w.suggest("grim", 5));
+	}
+
+	@Test
+	public void aLooseMatchNeedsTheFirstLetterAndSomeLength() {
+		WordSuggestions w = new WordSuggestions();
+		w.setLooseMatching(true);
+		w.learn("grizzled\n");
+		assertTrue("wrong first letter is not a typo, it is a different word",
+				w.suggest("rzld", 5).isEmpty());
+		assertTrue("three letters match half the vocabulary",
+				w.suggest("gzl", 5).isEmpty());
+	}
+
+	@Test
 	public void aWordOlderThanTheWindowIsGone() {
 		WordSuggestions w = new WordSuggestions();
 		w.setMaxLines(3);

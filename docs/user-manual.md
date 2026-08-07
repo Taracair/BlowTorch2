@@ -43,6 +43,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
     .complete on | off | lines N | 1..6
     .complete overlay on | off | opacity N
+    .complete loose on | off | ghost on | off
 
 Type two letters of something the game has just said and it appears on a strip
 above the input bar. Tap it and it goes in, correctly spaced.
@@ -82,6 +83,28 @@ narrows it to roughly a screenful; `.complete lines 0` keeps everything the
 session said. Counting words instead would mean a quiet hour of a few lines kept
 names from hours ago alive, while one wide room description threw out everything
 you were just looking at.
+
+**When you mistype it.** `.complete loose on` adds a second pass: if the exact
+spelling finds nothing, a word whose letters you typed *in order, with gaps* is
+offered instead. `grzld` finds `grizzled`. It only ever runs after an exact
+match found nothing, so typing accurately never gets you a different answer than
+before. The first letter still has to be right, and you need at least four
+letters — below that almost every word in the room matches.
+
+**The rest of the word, as you type.** `.complete ghost on` draws the top
+suggestion's remaining letters after the cursor in dimmed type, with a small `1`
+marking it as the first suggestion — the same 1 that `.complete 1` takes.
+
+    You type:   k gri
+    You see:    k gri[zzled]¹    ← the bracketed part is dimmed, and not there
+
+That last part is literal: the ghost is **drawn, never put in the input bar**.
+What you send is always exactly what you typed, so there is nothing to strip off
+and nothing that can go out by accident. It follows that the ghost takes part in
+no measurement either — one wider than the line is simply not drawn rather than
+wrapped, and the input bar grows with what you actually type, as it always has.
+The ghost is only shown when the suggestion *continues* what you typed, so a
+loose match gets a chip and no ghost: its letters would have to change, not grow.
 
 **Stopping the game text from jumping.** By default the chips sit in a strip
 below the game window, and that strip takes height while it is showing — so the

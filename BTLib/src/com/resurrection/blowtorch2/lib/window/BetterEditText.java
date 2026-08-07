@@ -294,6 +294,88 @@ public class BetterEditText extends EditText {
 		return allowSuggestions;
 	}
 	
+	/** The rest of the suggested word, drawn after the caret. Never in the text. */
+	private String ghostText = null;
+	/** Which suggestion the ghost is, so {@code .complete N} matches what you see. */
+	private int ghostNumber = 0;
+	private android.text.TextPaint ghostPaint = null;
+
+	/**
+	 * Show the rest of a suggested word after the caret, in dimmed type.
+	 *
+	 * <p><b>Drawn, never inserted.</b> Putting the ghost in the Editable with a
+	 * span would mean every TextWatcher on this field sees it — including the
+	 * Keep Last one — {@code wordBefore} would start completing the ghost itself,
+	 * and one missed strip on send would put a word the player never typed on the
+	 * wire. Drawing it keeps the text exactly what was typed, so there is nothing
+	 * to strip and nothing to get wrong.
+	 *
+	 * <p>The cost: it takes part in no measurement. A ghost wider than the line
+	 * is not drawn rather than wrapped, because wrapping it would mean making it
+	 * real. The bar still grows with what you actually type.
+	 *
+	 * @param rest what would be appended; null or empty clears the ghost.
+	 * @param number which suggestion this is, counting from 1; 0 draws no marker.
+	 */
+	public void setGhostCompletion(String rest, int number) {
+		String next = rest == null || rest.length() == 0 ? null : rest;
+		if (next == null ? ghostText == null : next.equals(ghostText)) {
+			if (number == ghostNumber) {
+				return;
+			}
+		}
+		ghostText = next;
+		ghostNumber = number;
+		invalidate();
+	}
+
+	public String getGhostCompletion() {
+		return ghostText;
+	}
+
+	@Override
+	protected void onDraw(android.graphics.Canvas canvas) {
+		super.onDraw(canvas);
+		if (ghostText == null) {
+			return;
+		}
+		android.text.Layout layout = getLayout();
+		if (layout == null || getText() == null) {
+			return;
+		}
+		int at = getSelectionStart();
+		// Only at the very end. Mid-line the ghost would sit on top of the text
+		// that follows it, which reads as corruption rather than a suggestion.
+		if (at < 0 || at != getText().length() || at != getSelectionEnd()) {
+			return;
+		}
+		if (ghostPaint == null) {
+			ghostPaint = new android.text.TextPaint();
+		}
+		ghostPaint.set(getPaint());
+		ghostPaint.setColor((getCurrentTextColor() & 0x00FFFFFF) | 0x70000000);
+		int line = layout.getLineForOffset(at);
+		float x = layout.getPrimaryHorizontal(at);
+		float ghostWidth = ghostPaint.measureText(ghostText);
+		float room = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight() - x;
+		if (ghostWidth > room) {
+			return;
+		}
+		canvas.save();
+		canvas.translate(getTotalPaddingLeft(), getTotalPaddingTop());
+		float baseline = layout.getLineBaseline(line);
+		canvas.drawText(ghostText, x, baseline, ghostPaint);
+		if (ghostNumber > 0) {
+			// A micro digit above the ghost, so you can see which suggestion it is
+			// and reach it with .complete N without looking down at the strip.
+			android.text.TextPaint mark = new android.text.TextPaint(ghostPaint);
+			mark.setTextSize(ghostPaint.getTextSize() * 0.55f);
+			canvas.drawText(String.valueOf(ghostNumber), x + ghostWidth + 2,
+					baseline - ghostPaint.getTextSize() * 0.45f, mark);
+		}
+		canvas.restore();
+	}
+
 	@Override
 	protected void onAnimationEnd() {
 		Log.e("BET","IN THE ANIMATION END LISTENER");

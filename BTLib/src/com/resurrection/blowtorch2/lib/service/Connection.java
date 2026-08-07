@@ -4775,6 +4775,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				this.doSetWordComplete((Boolean) o.getValue());
 				break;
 			case word_complete_lines:
+			case word_complete_loose:
+			case word_complete_ghost:
 			case word_complete_overlay:
 			case word_complete_opacity:
 				// MainWindow.loadSettings is what reaches WordSuggestions and the
@@ -5875,6 +5877,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete,
 		/** How many recent lines the completer counts as fresh. */
 		word_complete_lines,
+		/** Forgive typos when the exact prefix finds nothing. */
+		word_complete_loose,
+		/** Draw the rest of the top suggestion after the caret. */
+		word_complete_ghost,
 		/** Chips over the game text rather than in a strip below it. */
 		word_complete_overlay,
 		/** How solid those chips are. */

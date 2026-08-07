@@ -73,6 +73,13 @@ public final class WordSuggestions {
 	public static final int MIN_OPACITY = 10;
 
 	/**
+	 * Below this a loose match is noise: two or three letters are a subsequence
+	 * of half the vocabulary, and the strip fills with words sharing nothing with
+	 * what you meant.
+	 */
+	public static final int MIN_LOOSE_PREFIX_LENGTH = 4;
+
+	/**
 	 * Shorter than this is not worth completing — you have typed most of it by
 	 * the time the suggestion appears, and short words are the common ones that
 	 * would crowd out the useful proper nouns.
@@ -120,6 +127,9 @@ public final class WordSuggestions {
 	 */
 	private int lastWordLine = 0;
 
+	/** Fall back to a letters-in-order match when the exact prefix finds nothing. */
+	private boolean looseMatching = false;
+
 	public WordSuggestions() {
 		this(DEFAULT_MAX_WORDS);
 	}
@@ -141,6 +151,23 @@ public final class WordSuggestions {
 
 	public int getMaxLines() {
 		return maxLines;
+	}
+
+	/**
+	 * Whether a mistyped or shortened word still finds its completion.
+	 *
+	 * <p>Off by default. It only ever runs when the exact prefix found nothing,
+	 * so a player who types accurately never sees a different answer than before
+	 * — but a player who does not gets {@code grzld} → {@code grizzled}.
+	 *
+	 * @param on true to allow the fallback.
+	 */
+	public void setLooseMatching(final boolean on) {
+		this.looseMatching = on;
+	}
+
+	public boolean isLooseMatching() {
+		return looseMatching;
 	}
 
 	/** How many lines the world has sent since this completer started. */
@@ -253,7 +280,53 @@ public final class WordSuggestions {
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
 			out.add(matches.get(i));
 		}
+		if (out.isEmpty() && looseMatching
+				&& needle.length() >= MIN_LOOSE_PREFIX_LENGTH) {
+			suggestLoosely(needle, max, out);
+		}
 		return out;
+	}
+
+	/**
+	 * Second pass for a word that was typed wrong: every letter of what you typed
+	 * appears in the word, in that order, gaps allowed. {@code grzld} finds
+	 * {@code grizzled}.
+	 *
+	 * <p>Only reached when the exact prefix found nothing, so it can never
+	 * displace a correct answer — the accurate typist's strip is unchanged.
+	 *
+	 * <p>The first letter must still match. Without that anchor the match is too
+	 * loose to be useful: dropping it makes {@code rzld} find every word with
+	 * those letters anywhere, and the one you meant is not near the front.
+	 */
+	private void suggestLoosely(final String needle, final int max,
+			final List<String> out) {
+		List<String> matches = new ArrayList<String>();
+		for (Map.Entry<String, Seen> e : words.entrySet()) {
+			if (isSubsequence(needle, e.getKey())) {
+				matches.add(e.getValue().spelling);
+			}
+		}
+		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
+			out.add(matches.get(i));
+		}
+	}
+
+	/** Do the letters of {@code needle} appear in {@code word}, in order? */
+	private static boolean isSubsequence(final String needle, final String word) {
+		if (word.length() <= needle.length()) {
+			return false;
+		}
+		if (word.charAt(0) != needle.charAt(0)) {
+			return false;
+		}
+		int at = 0;
+		for (int i = 0; i < word.length() && at < needle.length(); i++) {
+			if (word.charAt(i) == needle.charAt(at)) {
+				at++;
+			}
+		}
+		return at == needle.length();
 	}
 
 	/** Everything learned so far is dropped — a new world, a new vocabulary. */

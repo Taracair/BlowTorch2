@@ -2396,6 +2396,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private int mWordSuggestionsOpacity = WordSuggestions.DEFAULT_OPACITY;
 	/** Set once the overlay copy is following the input bar's top edge. */
 	private boolean mWordSuggestionsOverlayTracked = false;
+	/** Draw the top suggestion after the caret in dimmed type. */
+	private boolean mWordSuggestionsGhost = false;
 
 	/**
 	 * Rebuild the completion strip for whatever is half-typed in the input bar.
@@ -2441,6 +2443,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		row.removeAllViews();
 		mWordSuggestionList.clear();
 		mWordSuggestionList.addAll(words);
+		updateGhostCompletion(prefix, words);
 		if (words.isEmpty()) {
 			strip.setVisibility(View.GONE);
 			return;
@@ -2466,6 +2469,36 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		applyStripOpacity(strip);
 		strip.setVisibility(View.VISIBLE);
 		strip.scrollTo(0, 0);
+	}
+
+	/**
+	 * Put the rest of the top suggestion after the caret, in dimmed type.
+	 *
+	 * <p>Only when the suggestion actually continues what was typed. A loose
+	 * match ({@code grzld} → {@code grizzled}) has no "rest" to append — the
+	 * letters would have to change, not grow — so it gets a chip and no ghost.
+	 *
+	 * @param prefix what the player has typed of this word.
+	 * @param words the suggestions, best first.
+	 */
+	private void updateGhostCompletion(final String prefix,
+			final java.util.List<String> words) {
+		if (mInputBox == null) {
+			return;
+		}
+		if (!mWordSuggestionsGhost || words.isEmpty() || prefix == null
+				|| prefix.length() == 0) {
+			mInputBox.setGhostCompletion(null, 0);
+			return;
+		}
+		String top = words.get(0);
+		if (top.length() <= prefix.length()
+				|| !top.toLowerCase(java.util.Locale.US)
+						.startsWith(prefix.toLowerCase(java.util.Locale.US))) {
+			mInputBox.setGhostCompletion(null, 0);
+			return;
+		}
+		mInputBox.setGhostCompletion(top.substring(prefix.length()), 1);
 	}
 
 	/**
@@ -2543,6 +2576,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private int opacityToAlpha() {
+		// Only the floating chips. In the strip below the game window there is
+		// nothing behind them worth seeing — just the input chrome — and fading
+		// them there is a change nobody asked for.
+		if (!mWordSuggestionsOverlay) {
+			return 255;
+		}
 		int pct = mWordSuggestionsOpacity;
 		if (pct < WordSuggestions.MIN_OPACITY) {
 			pct = WordSuggestions.MIN_OPACITY;
@@ -3482,6 +3521,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 				mWordSuggestions.setMaxLines(lines);
 			}
+			BaseOption ghostOpt = (BaseOption) group.findOptionByKey("word_complete_ghost");
+			mWordSuggestionsGhost = ghostOpt != null
+					&& ghostOpt.getValue() instanceof Boolean
+					&& (Boolean) ghostOpt.getValue();
+			BaseOption looseOpt = (BaseOption) group.findOptionByKey("word_complete_loose");
+			mWordSuggestions.setLooseMatching(looseOpt != null
+					&& looseOpt.getValue() instanceof Boolean
+					&& (Boolean) looseOpt.getValue());
 			BaseOption overlayOpt =
 					(BaseOption) group.findOptionByKey("word_complete_overlay");
 			mWordSuggestionsOverlay = overlayOpt != null
