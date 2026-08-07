@@ -41,7 +41,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
 ## Word completion (`.complete on`)
 
-    .complete on | off | lines N | (no argument = say which)
+    .complete on | off | lines N | 1..6 | (no argument = say which)
 
 Type two letters of something the game has just said and it appears on a strip
 above the input bar. Tap it and it goes in, correctly spaced.
@@ -50,6 +50,12 @@ above the input bar. Tap it and it goes in, correctly spaced.
     You type:       k gri
     The strip:      grizzled
     Tap it:         k grizzled
+
+**Taking one without tapping it.** Each chip is numbered, and `.complete 3`
+takes the third. That is there so a super button over the keyboard can hold
+`.complete 1`, `.complete 2` and so on — you pick a suggestion without your
+thumb ever leaving the keys. Out of range does nothing, because the strip
+changes as you type and inserting the wrong word is worse than inserting none.
 
 **Why not just the keyboard.** Gboard completes from an English dictionary and
 from what you have typed before, and it cannot see the screen. The words that
@@ -73,7 +79,8 @@ you were just looking at.
 
 Off by default, and while off the text is not sent to the completer at all, so it
 costs nothing. Both settings are also under **Options → Input**, and both are
-saved with the profile.
+saved with the profile. The vocabulary is forgotten when you connect, so one
+world's mob names are never offered in another.
 
 ## Prompt on its own bar (`.prompt on`)
 

@@ -2601,6 +2601,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	}
 
 	/**
+	 * Take the n-th completion off the strip — {@code .complete 3}.
+	 *
+	 * <p>One-way into the UI, which is the only side that knows what is currently
+	 * offered. Out of range does nothing there rather than reporting back: the
+	 * caller is usually a super button pressed while looking at the strip.
+	 *
+	 * @param index counting from 1.
+	 */
+	public final void pickCompletion(final int index) {
+		mService.doPickCompletion(index);
+	}
+
+	/**
 	 * Restart the clock on the held fragment. Removing first matters: each new
 	 * chunk that leaves something held should get the full wait, or a steady
 	 * trickle of packets would flush a fragment mid-line anyway.
@@ -5240,6 +5253,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void applyInputAssistSettings() {
 		mWordComplete = readBooleanOption("word_complete", false);
+		// The vocabulary lives in the UI process for the life of that process, so
+		// without this a second world is offered the first one's mob names.
+		mService.doVocabularyReset();
 		// Through the setter, not the field: setPromptBar(false) is what tells the
 		// UI to clear the bar. Assigning raw would leave a prompt from the previous
 		// connection pinned there with nothing left to clear it.

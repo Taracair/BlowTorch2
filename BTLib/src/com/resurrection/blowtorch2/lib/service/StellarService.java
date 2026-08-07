@@ -1335,6 +1335,38 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	/** Tell the UI to forget the vocabulary it has learned. */
+	public final void doVocabularyReset() {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).vocabularyReset();
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doVocabularyReset", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Take the n-th completion off the strip.
+	 *
+	 * @param index counting from 1, as the strip labels them.
+	 */
+	public final void doPickCompletion(final int index) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).pickCompletion(index);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doPickCompletion", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	/**
 	 * Put the world's prompt on the prompt bar.
 	 *

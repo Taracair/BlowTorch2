@@ -279,6 +279,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_VOCABULARY_TEXT = 932;
 	/** obj: the world's prompt for the prompt bar; empty hides it. */
 	protected static final int MESSAGE_PROMPT_LINE = 933;
+	protected static final int MESSAGE_VOCABULARY_RESET = 934;
+	protected static final int MESSAGE_PICK_COMPLETION = 935;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -1331,6 +1333,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					mWordSuggestionsOn = true;
 					refreshWordSuggestions();
 					break;
+				case MESSAGE_VOCABULARY_RESET:
+					mWordSuggestions.clear();
+					refreshWordSuggestions();
+					break;
+				case MESSAGE_PICK_COMPLETION:
+					pickWordSuggestion(msg.arg1);
+					break;
 				case MESSAGE_PROMPT_LINE:
 					showPromptBar((String) msg.obj);
 					break;
@@ -2374,9 +2383,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/** True once the service has started feeding the completer. */
 	private boolean mWordSuggestionsOn = false;
 	/** How many completions fit on the strip without it becoming a wall. */
-	private static final int MAX_WORD_SUGGESTIONS = 6;
-	/** Upper bound for the freshness window; matches CompleteCommand.MAX_LINES. */
-	private static final int MAX_WORD_SUGGESTION_LINES = 5000;
+	private static final int MAX_WORD_SUGGESTIONS = WordSuggestions.MAX_ON_STRIP;
+	/**
+	 * What the strip is offering right now, in the order it shows them, so
+	 * {@code .complete 3} means the same thing as tapping the third chip.
+	 */
+	private final java.util.List<String> mWordSuggestionList =
+			new java.util.ArrayList<String>();
 
 	/**
 	 * Rebuild the completion strip for whatever is half-typed in the input bar.
@@ -2402,6 +2415,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		java.util.List<String> words =
 				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
 		row.removeAllViews();
+		mWordSuggestionList.clear();
+		mWordSuggestionList.addAll(words);
 		if (words.isEmpty()) {
 			strip.setVisibility(View.GONE);
 			return;
@@ -2409,7 +2424,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		for (int i = 0; i < words.size(); i++) {
 			final String word = words.get(i);
 			Button chip = new Button(this);
-			chip.setText(word);
+			chip.setText(numberedChipLabel(i + 1, word));
 			chip.setTextSize(13);
 			chip.setAllCaps(false);
 			chip.setPadding(18, 4, 18, 4);
@@ -2425,6 +2440,43 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		strip.setVisibility(View.VISIBLE);
 		strip.scrollTo(0, 0);
+	}
+
+	/**
+	 * The chip's label: a small dim number, then the word.
+	 *
+	 * <p>The number is what makes {@code .complete 3} usable — and with it, a
+	 * super button over the keyboard, which is the only way to take a completion
+	 * without moving your thumb off the keys. Drawn smaller and dimmer than the
+	 * word so it reads as a label on the chip rather than part of the word.
+	 *
+	 * @param n which chip this is, counting from 1.
+	 * @param word the completion itself.
+	 * @return the styled label.
+	 */
+	private CharSequence numberedChipLabel(final int n, final String word) {
+		String label = n + " " + word;
+		android.text.SpannableString out = new android.text.SpannableString(label);
+		int end = String.valueOf(n).length();
+		out.setSpan(new android.text.style.RelativeSizeSpan(0.7f), 0, end,
+				android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		out.setSpan(new android.text.style.ForegroundColorSpan(0xFF888888), 0, end,
+				android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		return out;
+	}
+
+	/**
+	 * Take the n-th completion currently on the strip — {@code .complete 3}.
+	 *
+	 * @param index counting from 1, as the chips are labelled. Out of range does
+	 *        nothing: the strip may have changed between reading it and pressing
+	 *        the button, and inserting the wrong word is worse than inserting none.
+	 */
+	private void pickWordSuggestion(final int index) {
+		if (index < 1 || index > mWordSuggestionList.size()) {
+			return;
+		}
+		acceptWordSuggestion(mWordSuggestionList.get(index - 1));
 	}
 
 	/** Put the chosen completion in place of what was half-typed. */
@@ -3314,8 +3366,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				if (lines < 0) {
 					lines = 0;
 				}
-				if (lines > MAX_WORD_SUGGESTION_LINES) {
-					lines = MAX_WORD_SUGGESTION_LINES;
+				if (lines > WordSuggestions.MAX_LINES) {
+					lines = WordSuggestions.MAX_LINES;
 				}
 				mWordSuggestions.setMaxLines(lines);
 			}
@@ -3681,6 +3733,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void vocabularyText(String text) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_TEXT, text));
+		}
+
+		public void vocabularyReset() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_VOCABULARY_RESET);
+		}
+
+		public void pickCompletion(int index) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PICK_COMPLETION, index, 0));
 		}
 
 		public void promptLine(String text) throws RemoteException {

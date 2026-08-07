@@ -54,6 +54,18 @@ oneway interface IConnectionBinderCallback {
 	 */
 	void vocabularyText(String text);
 	/**
+	 * Forget every word learned so far. Sent when a connection starts, because
+	 * the vocabulary lives in the UI process for the life of that process and
+	 * would otherwise offer the last world's mob names in the next one.
+	 */
+	void vocabularyReset();
+	/**
+	 * Take the n-th completion currently on the strip, counting from 1 — what
+	 * {@code .complete 3} does. Sent rather than answered, so a super button over
+	 * the keyboard can pick one without the finger ever reaching the strip.
+	 */
+	void pickCompletion(int index);
+	/**
 	 * The world's prompt — the line the holdover released because nothing ever
 	 * finishes it. Sent instead of drawing it in the game window while the
 	 * prompt bar is on.

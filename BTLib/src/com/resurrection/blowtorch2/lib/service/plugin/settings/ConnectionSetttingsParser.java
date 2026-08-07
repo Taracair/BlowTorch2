@@ -52,6 +52,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		use_suggestions,
 		floating_buttons_enabled,
 		keep_last,
+		input_history_size,
 		word_complete,
 		word_complete_lines,
 		prompt_bar,
@@ -469,13 +470,22 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
+					case input_history_size:
+						// Never persisted before: the key was simply missing from this
+						// enum, so the writer skipped it as a foreign key and the size
+						// went back to 75 on every restart.
+						if((Integer)opt.getValue() != 75) {
+							dooutput = true;
+						}
+						break;
 					case word_complete:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;
 					case word_complete_lines:
-						if((Integer)opt.getValue() != 300) {
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES) {
 							dooutput = true;
 						}
 						break;

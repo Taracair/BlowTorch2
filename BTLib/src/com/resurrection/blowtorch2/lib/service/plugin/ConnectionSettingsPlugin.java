@@ -152,7 +152,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_lines.setTitle("Completion memory (lines)");
 		word_complete_lines.setDescription("How many of the world's most recent lines count as fresh, 0–5000. Lower means only what is still on screen; 0 means the whole session. Only matters with completion on.");
 		word_complete_lines.setKey("word_complete_lines");
-		word_complete_lines.setValue(300);
+		word_complete_lines.setValue(
+				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
 		input.addOption(word_complete_lines);
 
 		BooleanOption prompt_bar = new BooleanOption();

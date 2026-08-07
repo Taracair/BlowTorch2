@@ -44,8 +44,23 @@ public final class WordSuggestions {
 	/**
 	 * How many of the world's most recent lines count as "fresh". Player-settable;
 	 * see {@link #setMaxLines}.
+	 *
+	 * <p>The one place this number is written down. The option default, the
+	 * "unchanged, do not persist" comparison in the settings parser and the
+	 * completer itself all read it from here: if they disagree the parser quietly
+	 * stops saving the value the player chose, and nothing fails loudly.
 	 */
 	public static final int DEFAULT_MAX_LINES = 300;
+
+	/** Above this a window is no longer a window. The one place this is written. */
+	public static final int MAX_LINES = 5000;
+
+	/**
+	 * How many suggestions fit on the strip without it becoming a wall — and so
+	 * how high {@code .complete N} goes. Written here rather than in the two
+	 * processes that need it, which would drift.
+	 */
+	public static final int MAX_ON_STRIP = 6;
 
 	/**
 	 * Shorter than this is not worth completing — you have typed most of it by

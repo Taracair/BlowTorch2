@@ -7,6 +7,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
+import com.resurrection.blowtorch2.lib.window.WordSuggestions;
 
 /**
  * {@code .complete on|off|lines N} — suggest words the game has just used while
@@ -24,8 +25,11 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String OPTION_KEY = "word_complete";
 	public static final String LINES_KEY = "word_complete_lines";
 
-	/** Above this a window is no longer a window; below zero is meaningless. */
-	public static final int MAX_LINES = 5000;
+	/** Kept where the completer keeps it, so the two cannot drift apart. */
+	public static final int MAX_LINES = WordSuggestions.MAX_LINES;
+
+	/** How many chips the strip shows, so how high {@code .complete N} goes. */
+	public static final int MAX_PICK = WordSuggestions.MAX_ON_STRIP;
 
 	public CompleteCommand() {
 		this.commandName = "complete";
@@ -48,6 +52,24 @@ public class CompleteCommand extends SpecialCommand {
 		if (arg.startsWith("lines")) {
 			return setLines(arg.substring("lines".length()).trim(), c);
 		}
+		// A bare number picks that chip. Before the usage message, and after
+		// "lines", so ".complete lines 50" is never read as ".complete 50".
+		if (arg.length() > 0 && isDigits(arg)) {
+			int pick;
+			try {
+				pick = Integer.parseInt(arg);
+			} catch (NumberFormatException e) {
+				pick = 0;
+			}
+			if (pick >= 1 && pick <= MAX_PICK) {
+				c.pickCompletion(pick);
+				return null;
+			}
+			c.sendDataToWindow(getErrorMessage("Word completion usage:",
+					"The strip shows at most " + MAX_PICK + " suggestions, so"
+					+ " .complete 1 to .complete " + MAX_PICK + ".\n"));
+			return null;
+		}
 		if (arg.length() == 0 || arg.equals("status")) {
 			c.sendDataToWindow("\nWord completion is "
 					+ (isOn(c) ? "on" : "off")
@@ -59,6 +81,7 @@ public class CompleteCommand extends SpecialCommand {
 				".complete on      — suggest words the game just used\n"
 				+ ".complete off     — stop\n"
 				+ ".complete lines N — how far back counts as recent (0 = all session)\n"
+				+ ".complete 1..6    — take that suggestion off the strip\n"
 				+ ".complete         — say which it is\n\n"
 				+ "This completes mob names, player names and item words the\n"
 				+ "keyboard will never know, and would rather correct into\n"
@@ -93,6 +116,15 @@ public class CompleteCommand extends SpecialCommand {
 				+ "Completion now remembers the last " + describeLines(n) + "."
 				+ Colorizer.getWhiteColor() + "\n");
 		return null;
+	}
+
+	private static boolean isDigits(String s) {
+		for (int i = 0; i < s.length(); i++) {
+			if (!Character.isDigit(s.charAt(i))) {
+				return false;
+			}
+		}
+		return s.length() > 0;
 	}
 
 	private static String describeLines(int n) {
