@@ -2469,6 +2469,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mWordSuggestionsCollapsed && mWordSuggestionsOverlay) {
 			cancelWordSuggestionHide();
 			hideAllChips(row);
+			// Collapsed is meant to be small: the grip and nothing else. That is
+			// the difference between "folded away" and "empty but still here".
+			strip.setMinimumWidth(0);
 			applyStripOpacity(strip);
 			strip.setVisibility(View.VISIBLE);
 			return;
@@ -2480,6 +2483,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (mWordSuggestionsPersist && mWordSuggestionsOverlay) {
 				cancelWordSuggestionHide();
 				hideAllChips(row);
+				// Width matters here. The panel is wrap_content, so an empty one
+				// shrinks to its grip — a thumbnail-sized dark blob that reads as
+				// "the bar is gone", which is exactly what it was asked not to
+				// do. Held at a bar's width it stays a bar you can aim at.
+				strip.setMinimumWidth(persistentBarMinWidth());
 				applyStripOpacity(strip);
 				strip.setVisibility(View.VISIBLE);
 				return;
@@ -2488,6 +2496,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		cancelWordSuggestionHide();
+		// With chips in it the panel sizes itself; a minimum from the empty
+		// state left behind would pad the last chip out to nothing.
+		strip.setMinimumWidth(0);
 		for (int i = 0; i < words.size(); i++) {
 			final String word = words.get(i);
 			TextView chip = chipAt(row, i);
@@ -2509,6 +2520,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		} else if (!mWordSuggestionsOverlay) {
 			strip.scrollTo(0, 0);
 		}
+	}
+
+	/**
+	 * How wide an empty persistent bar stays: half the screen, and never so wide
+	 * that it covers the game text it floats over.
+	 */
+	private int persistentBarMinWidth() {
+		int screen = getResources().getDisplayMetrics().widthPixels;
+		float d = getResources().getDisplayMetrics().density;
+		return Math.min(screen / 2, (int) (220 * d));
 	}
 
 	private void hideAllChips(final LinearLayout row) {
@@ -2588,19 +2609,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		mSuggestionGripBound = true;
-		grip.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				mWordSuggestionsCollapsed = !mWordSuggestionsCollapsed;
-				refreshWordSuggestions();
-			}
-		});
-		grip.setOnLongClickListener(new View.OnLongClickListener() {
-			@Override
-			public boolean onLongClick(View v) {
-				return beginSuggestionPanelDrag(panel);
-			}
-		});
+		final int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
 		grip.setOnTouchListener(new View.OnTouchListener() {
 			@Override
 			public boolean onTouch(View v, MotionEvent e) {
@@ -2608,22 +2617,42 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MotionEvent.ACTION_DOWN:
 					mGripDownRawX = e.getRawX();
 					mGripDownRawY = e.getRawY();
-					// Not consumed: the tap and the long press are what decide
-					// what this gesture is, and they need to see it.
-					return false;
-				case MotionEvent.ACTION_MOVE:
-					if (!mSuggestionDragging) {
-						return false;
-					}
-					moveSuggestionPanelTo(panel,
-							e.getRawX() - mGripDownRawX, e.getRawY() - mGripDownRawY);
+					mGripMoved = false;
+					// Consumed, so this view keeps the rest of the gesture.
 					return true;
-				case MotionEvent.ACTION_UP:
-				case MotionEvent.ACTION_CANCEL:
+				case MotionEvent.ACTION_MOVE: {
+					float dx = e.getRawX() - mGripDownRawX;
+					float dy = e.getRawY() - mGripDownRawY;
 					if (!mSuggestionDragging) {
-						return false;
+						// Straight into the drag once the finger has actually
+						// moved. Holding first was the wrong price for a thing
+						// whose whole purpose is to be moved — you grab the
+						// grip and it comes with you. The tap still exists
+						// because a gesture that never passed the slop is a tap.
+						if (Math.abs(dx) < slop && Math.abs(dy) < slop) {
+							return true;
+						}
+						mGripMoved = true;
+						if (!beginSuggestionPanelDrag(panel)) {
+							return true;
+						}
 					}
-					endSuggestionPanelDrag(panel);
+					moveSuggestionPanelTo(panel, dx, dy);
+					return true;
+				}
+				case MotionEvent.ACTION_UP:
+					if (mSuggestionDragging) {
+						endSuggestionPanelDrag(panel);
+					} else if (!mGripMoved) {
+						v.playSoundEffect(android.view.SoundEffectConstants.CLICK);
+						mWordSuggestionsCollapsed = !mWordSuggestionsCollapsed;
+						refreshWordSuggestions();
+					}
+					return true;
+				case MotionEvent.ACTION_CANCEL:
+					if (mSuggestionDragging) {
+						endSuggestionPanelDrag(panel);
+					}
 					return true;
 				default:
 					return false;
@@ -2631,6 +2660,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		});
 	}
+
+	/** Did this touch on the grip travel far enough to be a drag rather than a tap? */
+	private boolean mGripMoved = false;
 
 	/** Where the finger went down on the grip, in screen coordinates. */
 	private float mGripDownRawX = 0f;
