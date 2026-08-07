@@ -3,8 +3,8 @@
 <RelativeLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/newspeaklayout"
-  android:layout_width="300dip"
-  android:layout_height="230dip">
+  android:layout_width="320dip"
+  android:layout_height="300dip">
 
   <TextView
 		android:id="@+id/titlebar"
@@ -36,6 +36,7 @@
   	android:layout_alignParentBottom="true"/>
 
   <LinearLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_above="@id/responder_speak_done_button" android:layout_below="@id/titlebar">
+
   <TableLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:shrinkColumns="0" android:stretchColumns="1">
   	<TableRow>
   		<TextView android:text="Say:"/>
@@ -43,19 +44,42 @@
   	</TableRow>
   </TableLayout>
 
+  <!-- Test is a button and not something that happens when the dialog closes.
+       Speaking on save meant a line was read out whenever the editor was shut,
+       including by someone else closing it. You decide when the phone talks. -->
+  <LinearLayout
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:orientation="horizontal">
+
+    <Button
+    	android:id="@+id/responder_speak_test"
+    	android:layout_width="0dip"
+    	android:layout_weight="1"
+    	android:layout_height="wrap_content"
+    	android:text="▶ Say it now" />
+
+    <Button
+    	android:id="@+id/responder_speak_help"
+    	android:layout_width="52dip"
+    	android:layout_height="wrap_content"
+    	android:text="?" />
+  </LinearLayout>
+
   <CheckBox
   	android:id="@+id/responder_speak_interrupt"
   	android:layout_width="fill_parent"
   	android:layout_height="wrap_content"
-  	android:text="Cut off whatever is being said" />
+  	android:text="Say this at once, cutting off the previous line" />
 
   <TextView
+  	android:id="@+id/responder_speak_status"
   	android:layout_width="fill_parent"
   	android:layout_height="wrap_content"
   	android:layout_marginLeft="6dip"
   	android:layout_marginRight="6dip"
   	android:textSize="12dip"
-  	android:text="Uses the phone's own voice. $1, $word and variables are filled in from the match. Leave the box off and lines queue up; turn it on for a warning that is only true right now." />
+  	android:text="$1, $word and variables are filled in from the match." />
   </LinearLayout>
 
 </RelativeLayout>

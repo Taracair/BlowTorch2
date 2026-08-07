@@ -515,6 +515,8 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				label.setText("Notification: " + ((NotificationResponder)responder).getTitle());
 			} else if(responder.getType() == RESPONDER_TYPE.TOAST) {
 				label.setText("Toast Message: " + ((ToastResponder)responder).getMessage());
+			} else if(responder.getType() == RESPONDER_TYPE.SPEAK) {
+				label.setText("Speak: " + ((com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder).getMessage());
 			} else if(responder.getType() == RESPONDER_TYPE.ACK){
 				label.setText("Ack With: " + ((AckResponder)responder).getAckWith());
 			} else if(responder.getType() == RESPONDER_TYPE.SET_VARIABLE) {
@@ -627,7 +629,9 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 
 		public void onClick(View v) {
 			//give out a list of options
-			CharSequence[] items = {"Notification","Toast Message","Ack With","Set Variable"};
+			// Appended: this dialog dispatches on the index, so inserting would
+			// silently rebind everything after it.
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Set Variable","Speak Out Loud"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TimerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -656,6 +660,10 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		case 3:
 			new SetVariableResponderEditor(TimerEditorDialog.this.getContext(), null, TimerEditorDialog.this).show();
 			break;
+		case 4:
+			new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderEditor(
+					TimerEditorDialog.this.getContext(), null, TimerEditorDialog.this).show();
+			break;
 		default:
 			break;
 		}
@@ -681,6 +689,12 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			case TOAST:
 				ToastResponderEditor tedit = new ToastResponderEditor(TimerEditorDialog.this.getContext(),(ToastResponder)responder.copy(),TimerEditorDialog.this);
 				tedit.show();
+				break;
+			case SPEAK:
+				new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderEditor(
+						TimerEditorDialog.this.getContext(),
+						(com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder.copy(),
+						TimerEditorDialog.this).show();
 				break;
 			case ACK:
 				AckResponderEditor aedit = new AckResponderEditor(TimerEditorDialog.this.getContext(),(AckResponder)responder.copy(),TimerEditorDialog.this);

@@ -47,6 +47,24 @@ public final class TimerResponderListeners {
 			}
 		});
 
+		// Timers read their own XML, through this class rather than through
+		// TriggerParser — so a responder type added for triggers is written to
+		// the file by a timer and then dropped on the way back in unless it is
+		// listed here too. scripts/check.sh does not cover this path; it guards
+		// the parcel, which is a different road.
+		timer.getChild(BasePluginParser.TAG_SPEAKRESPONDER).setStartElementListener(new StartElementListener() {
+			@Override
+			public void start(Attributes a) {
+				com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder r =
+						new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder();
+				r.setMessage(a.getValue("", BasePluginParser.ATTR_SPEAKMESSAGE));
+				r.setInterrupt(Boolean.parseBoolean(
+						a.getValue("", BasePluginParser.ATTR_SPEAKINTERRUPT)));
+				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
+				currentTimer.getResponders().add(r.copy());
+			}
+		});
+
 		timer.getChild(BasePluginParser.TAG_NOTIFICATIONRESPONDER).setStartElementListener(new StartElementListener() {
 			@Override
 			public void start(Attributes a) {
