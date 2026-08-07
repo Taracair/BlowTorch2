@@ -167,6 +167,29 @@ method for years.
 
 ---
 
+## The chrome overlay does not move with the keyboard
+
+`MainWindow` is declared `android:windowSoftInputMode="adjustNothing"`. Nothing
+is ever resized or panned when the IME appears. The input bar and the game text
+rise because `ChromeController.applyImeChromeLift` sets `translationY` on them,
+and it does that to the children of `window_container` — which is **not** where
+`gameplay_chrome_overlay` lives.
+
+So anything you add to that overlay is wrong in two ways by default:
+
+- **It stays under the keyboard.** It must be given the same `translationY` as
+  the input bar, in `applyImeChromeLift`, the way the FAB strip and the
+  completion chips are. There is no inset or padding that will do this for you.
+- **It sits a navigation bar too low.** The overlay reaches the bottom of the
+  screen; `window_container` is padded up by `bars.bottom`. A bottom margin
+  measured from a view inside `window_container` must add
+  `window_container.getPaddingBottom()`. `placeGameplayFabStrip` is the worked
+  example.
+
+Both were found the same way twice: the symptom looks like a margin bug and
+reads as one in the code, and the cause is that the overlay is a sibling of the
+thing being measured, not a parent of it.
+
 ## Where errors go
 
 - `BlowTorchLogger.logThrowable` to the error log file the player reads after a
