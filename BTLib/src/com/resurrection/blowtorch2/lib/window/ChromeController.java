@@ -200,6 +200,16 @@ public final class ChromeController {
 		if (fabStrip != null) {
 			fabStrip.setTranslationY(inputbar != null ? inputbar.getTranslationY() : ty);
 		}
+		// The floating completion chips are the FAB strip's neighbour in that
+		// same overlay, and they rest on the input bar the same way — so they
+		// need the same lift. Without it they stayed at the bottom of an
+		// unresized window and the keyboard covered them, which is what the
+		// chips "falling under the keyboard" was.
+		View floatingChips = activity.findViewById(R.id.input_word_suggestions_float);
+		if (floatingChips != null) {
+			floatingChips.setTranslationY(
+					inputbar != null ? inputbar.getTranslationY() : ty);
+		}
 	}
 
 	/**

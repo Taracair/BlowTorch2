@@ -2641,7 +2641,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		positionWordSuggestionOverlay();
 	}
 
-	/** Bottom margin = the input bar's height, so the chips rest on top of it. */
+	/**
+	 * Rest the chips on the input bar's top edge.
+	 *
+	 * <p>The margin is the bar's height <b>plus the navigation bar</b>. The chips
+	 * live in {@code gameplay_chrome_overlay}, which reaches the bottom of the
+	 * screen; the input bar lives in {@code window_container}, which is padded up
+	 * by the system bar inset. Measuring only the bar's height put the chips that
+	 * inset too low, so they sat across the bottom of the input bar instead of on
+	 * top of it. The FAB strip in the same overlay has always done this — see
+	 * {@code ChromeController.placeGameplayFabStrip}, which is where the padding
+	 * is read from.
+	 *
+	 * <p>The keyboard is a translation, not a margin: under {@code adjustNothing}
+	 * nothing is resized, and {@code applyImeChromeLift} moves the bar, the FAB
+	 * strip and these chips together.
+	 */
 	private void positionWordSuggestionOverlay() {
 		View bar = findViewById(R.id.inputbar);
 		View floating = findViewById(R.id.input_word_suggestions_float);
@@ -2652,13 +2667,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
 			return;
 		}
+		int navPad = 0;
+		View container = findViewById(R.id.window_container);
+		if (container != null) {
+			navPad = container.getPaddingBottom();
+		}
+		int wanted = bar.getHeight() + navPad;
 		android.widget.FrameLayout.LayoutParams flp =
 				(android.widget.FrameLayout.LayoutParams) lp;
-		if (flp.bottomMargin == bar.getHeight()) {
-			return;
+		if (flp.bottomMargin != wanted) {
+			flp.bottomMargin = wanted;
+			floating.setLayoutParams(flp);
 		}
-		flp.bottomMargin = bar.getHeight();
-		floating.setLayoutParams(flp);
+		// Whatever lift the bar is under right now. The layout listener also fires
+		// while the keyboard is up, and a chip panel left at translation 0 would
+		// drop back under the keyboard until the next inset dispatch.
+		floating.setTranslationY(bar.getTranslationY());
 	}
 
 	/**
