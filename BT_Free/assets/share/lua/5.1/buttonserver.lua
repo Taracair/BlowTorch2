@@ -1611,10 +1611,11 @@ end
 --- and nothing on screen to say why. So the rename rewrites the links in the
 --- same pass, reusing the cross-link rewriter the layout catalog already uses.
 ---
---- Chrome gestures are the one place not rewritten: they are kept as one opaque
---- serialised blob, and editing a name inside it by string surgery is how you
---- corrupt it. If the old name appears there, the player is told to change that
---- one by hand rather than left to find out.
+--- What it does **not** reach: chrome gestures, which are kept as one opaque
+--- serialised blob that string surgery would corrupt, and triggers, aliases and
+--- timers, whose commands are Java-side profile data this plugin cannot see. A
+--- `.loadset` in any of those still points at the old name afterwards, so the
+--- player is told to check them rather than left to find a dead alias later.
 ---
 --- @param data the old name, a newline, the new name. Two lines rather than a
 ---        serialised table because the list dialog that sends it has no
@@ -1661,11 +1662,10 @@ function renameButtonSet(data)
 	if working_set == from then working_set = to end
 
 	Note("\nRenamed button set \"" .. from .. "\" to \"" .. to .. "\".\n")
-	local gestures = options.chrome_gestures
-	if type(gestures) == "string" and string.find(gestures, from, 1, true) ~= nil then
-		Note("A chrome gesture still mentions \"" .. from
-			.. "\" — change that one by hand in Options.\n")
-	end
+	Note("Buttons that loaded it now load \"" .. to .. "\". A trigger, alias,"
+		.. " timer or chrome gesture that says \".loadset " .. from
+		.. "\" still says it — those are not button data and have to be"
+		.. " changed by hand.\n")
 
 	-- Saved at once: a rename that lives only in memory is lost at the next
 	-- restart, and the links have already been rewritten to match it.
