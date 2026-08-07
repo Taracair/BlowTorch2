@@ -317,6 +317,10 @@ public class StellarService extends Service {
 	/** Implementation of the Service.onDestroy() method. */
 	public final void onDestroy() {
 		doShutdown();
+		// TextToSpeech is a bound service of its own, opened lazily the first
+		// time a trigger speaks. Leaving it bound as this process goes away is
+		// a leak the system notices.
+		com.resurrection.blowtorch2.lib.util.SpeechEngine.release();
 		super.onDestroy();
 	}
 

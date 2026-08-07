@@ -65,6 +65,9 @@ public class BasePluginParser {
 	public static final String TAG_TOASTRESPONDER = "toast";
 	public static final String ATTR_TOASTDELAY = "delay";
 	public static final String ATTR_TOASTMESSAGE = "message";
+	public static final String TAG_SPEAKRESPONDER = "speak";
+	public static final String ATTR_SPEAKMESSAGE = "message";
+	public static final String ATTR_SPEAKINTERRUPT = "interrupt";
 	
 	public static final String TAG_ACKRESPONDER = "ack";
 	public static final String ATTR_ACKWITH = "with";

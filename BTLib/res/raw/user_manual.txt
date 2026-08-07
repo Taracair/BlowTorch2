@@ -326,7 +326,34 @@ In the trigger editor:
   persisted).
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
-Replace, Toast, Notification, Set Variable text, and similar actions.
+Replace, Toast, Notification, Speak, Set Variable text, and similar actions.
+
+### Speak Out Loud
+
+The **Speak Out Loud** action says the message with the phone's own voice — for
+the line you must not miss while you are looking at something else. A tell, a
+warning, a health threshold.
+
+    `(\w+) tells you`
+        Action: Speak Out Loud, say: `$1 is talking to you`
+
+It uses the speech engine your phone already has, so it adds nothing to the size
+of the app and uses whatever voice and language the system is set to. Phones
+with no engine installed simply stay quiet.
+
+**Cut off whatever is being said** decides what happens in a busy fight. Off,
+lines queue up and are read in order; on, this one stops the last one and is
+read now. Use it for anything that is only true at this moment — "you are
+bleeding" said fifteen seconds late is worse than not said.
+
+Either way the speech never runs far behind the screen. At most a few lines wait
+their turn; past that the backlog is dropped and the newest line is read
+instead, because speech describing a fight that has already ended helps nobody.
+The same line repeated within a second and a half is only said once.
+
+It speaks whether or not the game window is in front, which is the point of an
+alert. When you save the action it also says the message once, so you find out
+there and then whether this phone has a voice.
 
 Examples (Literal off):
 

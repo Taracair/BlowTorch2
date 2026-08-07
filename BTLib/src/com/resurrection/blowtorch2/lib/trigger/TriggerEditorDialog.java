@@ -688,6 +688,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				label.setText("Notification: " + ((NotificationResponder)responder).getTitle());
 			} else if(responder.getType() == RESPONDER_TYPE.TOAST) {
 				label.setText("Toast Message: " + ((ToastResponder)responder).getMessage());
+			} else if(responder.getType() == RESPONDER_TYPE.SPEAK) {
+				label.setText("Speak: " + ((com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder).getMessage());
 			} else if(responder.getType() == RESPONDER_TYPE.ACK){
 				label.setText("Ack With: " + ((AckResponder)responder).getAckWith());
 			} else if(responder.getType() == RESPONDER_TYPE.SCRIPT) {
@@ -802,6 +804,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			case TOAST:
 				ToastResponderEditor tedit = new ToastResponderEditor(TriggerEditorDialog.this.getContext(),(ToastResponder)responder.copy(),TriggerEditorDialog.this);
 				tedit.show();
+				break;
+			case SPEAK:
+				new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderEditor(
+						TriggerEditorDialog.this.getContext(),
+						(com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder.copy(),
+						TriggerEditorDialog.this).show();
 				break;
 			case ACK:
 				AckResponderEditor aedit = new AckResponderEditor(TriggerEditorDialog.this.getContext(),(AckResponder)responder.copy(),TriggerEditorDialog.this);
@@ -919,7 +927,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 		public void onClick(View v) {
 			//give out a list of options
-			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable","Tappable Word"};
+			// Appended. The dialog dispatches on the index, so inserting rather
+			// than appending would silently rebind every entry after it.
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable","Tappable Word","Speak Out Loud"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -1072,6 +1082,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			break;
 		case 8:
 			new TapActionEditor(TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
+			break;
+		case 9:
+			new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderEditor(
+					TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
 			break;
 		default:
 			break;

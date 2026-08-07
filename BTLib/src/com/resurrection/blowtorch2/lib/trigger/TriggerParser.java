@@ -36,6 +36,7 @@ public final class TriggerParser {
 		ConditionParser.registerListeners(trigger, current_trigger);
 		AckResponderParser.registerListeners(trigger, current_trigger, current_timer, current_trigger);
 		ToastResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
+		com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
 		NotificationResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
 		ScriptResponderParser.registerListeners(trigger, current_trigger, current_trigger, current_timer);
 		ReplaceParser.registerListeners(trigger, current_trigger);

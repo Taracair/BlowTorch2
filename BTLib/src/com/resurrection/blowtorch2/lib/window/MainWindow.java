@@ -3625,7 +3625,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 	}
 	public void onDestroy() {
-		
+
+		// The trigger action speaks in :stellar, but the responder editor's
+		// preview speaks here, which opens a second engine in this process.
+		// Give it back with the window.
+		com.resurrection.blowtorch2.lib.util.SpeechEngine.release();
+
 		if(isBound) {
 			
 			try {

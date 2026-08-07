@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/newspeaklayout"
+  android:layout_width="300dip"
+  android:layout_height="230dip">
+
+  <TextView
+		android:id="@+id/titlebar"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_alignParentTop="true"
+		android:text="SPEAK RESPONDER"
+		android:textColor="#FF333333"
+		android:background="#FF999999"
+		android:textSize="15dip"
+		android:textStyle="bold"
+		android:gravity="center"/>
+
+    <Button
+    	android:layout_width="80dip"
+  		android:layout_height="wrap_content"
+  		android:id="@+id/responder_speak_cancel"
+  		android:layout_alignParentBottom="true"
+  		android:layout_alignParentLeft="true"
+  		android:text="Cancel" />
+
+  <Button
+  	android:layout_width="200dip"
+  	android:layout_height="wrap_content"
+  	android:text="Done"
+  	android:id="@+id/responder_speak_done_button"
+  	android:layout_toRightOf="@id/responder_speak_cancel"
+  	android:layout_alignParentRight="true"
+  	android:layout_alignParentBottom="true"/>
+
+  <LinearLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_above="@id/responder_speak_done_button" android:layout_below="@id/titlebar">
+  <TableLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:shrinkColumns="0" android:stretchColumns="1">
+  	<TableRow>
+  		<TextView android:text="Say:"/>
+  		<EditText android:id="@+id/responder_speak_message"/>
+  	</TableRow>
+  </TableLayout>
+
+  <CheckBox
+  	android:id="@+id/responder_speak_interrupt"
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:text="Cut off whatever is being said" />
+
+  <TextView
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:layout_marginLeft="6dip"
+  	android:layout_marginRight="6dip"
+  	android:textSize="12dip"
+  	android:text="Uses the phone's own voice. $1, $word and variables are filled in from the match. Leave the box off and lines queue up; turn it on for a warning that is only true right now." />
+  </LinearLayout>
+
+</RelativeLayout>
