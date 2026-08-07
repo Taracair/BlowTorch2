@@ -1942,23 +1942,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// cannot know the font.
 						label.setSingleLine(true);
 						label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-						label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f);
-						int padX = Math.round(12 * density);
-						int padY = Math.round(8 * density);
+						label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f);
+						int padX = Math.round(10 * density);
+						int padY = Math.round(4 * density);
 						label.setPadding(padX, padY, padX, padY);
-						label.setMinimumHeight(Math.round(40 * density));
+						label.setMinimumHeight(Math.round(TAP_MENU_ROW_DIP * density));
 					}
 					return row;
 				}
 			});
+			// The same rounded plate the suggestion bar uses. This menu lands in
+			// the middle of moving text, and a square panel there reads as the
+			// display having broken rather than as something being offered.
 			popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
-					themed, R.drawable.dialog_window_crawler1));
+					themed, R.drawable.suggestion_panel_bg));
+			popup.setAnimationStyle(android.R.style.Animation_Dialog);
 			// Deliberately narrower than the ⋮ menu: this one points at a word in
 			// the middle of the text and has to leave that word readable.
 			int width = Math.min(
-					Math.round(getResources().getDisplayMetrics().widthPixels * 0.6f),
-					(int) (200 * density));
+					Math.round(getResources().getDisplayMetrics().widthPixels * 0.5f),
+					(int) (168 * density));
 			popup.setContentWidth(width);
+			// A word can carry a lot of commands, and a menu as tall as the screen
+			// buries the text it is about. Past this it scrolls instead of growing.
+			if (commands.length > TAP_MENU_MAX_ROWS) {
+				popup.setHeight(Math.round(
+						(TAP_MENU_MAX_ROWS + 0.5f) * TAP_MENU_ROW_DIP * density));
+			}
 			// The anchor is the whole game window, so the offsets carry the word
 			// position. Keep the menu on screen: it hangs below the word unless
 			// there is no room, and never starts left of the window edge.
@@ -1984,7 +1994,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/** Longest command text a menu row shows before it is cut. */
-	static final int TAP_MENU_MAX_CHARS = 24;
+	static final int TAP_MENU_MAX_CHARS = 18;
+
+	/** Row height. Small, because this menu covers the text it is about. */
+	static final int TAP_MENU_ROW_DIP = 30;
+
+	/** Past this the menu scrolls rather than growing over the game. */
+	static final int TAP_MENU_MAX_ROWS = 6;
 
 	/**
 	 * Menu label for a command: the whole thing when it is short, otherwise the
