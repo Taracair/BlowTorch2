@@ -2443,6 +2443,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mWordSuggestionsOverlay) {
 			trackInputBarForOverlay();
 			bindSuggestionGrip();
+		} else {
+			// The in-layout strip takes height, so the only way to stop the game
+			// window jumping is for that height never to change. Held at one row
+			// whether or not there is anything in it — the chips are shorter than
+			// this, so the strip is this tall always and nothing above it moves.
+			strip.setMinimumHeight(mWordSuggestionsPersist
+					? persistentBarMinHeight() : 0);
 		}
 		if (!mWordSuggestionsOn || mInputBox == null) {
 			// Clear the list before hiding: a pending delayed hide re-reads it to
@@ -2480,14 +2487,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// Persistent: the panel is a fixed thing you can aim at, not something
 			// that appears under your thumb. Empty it still shows its grip, which
 			// is why the grip is drawn as an object and not as a decoration.
-			if (mWordSuggestionsPersist && mWordSuggestionsOverlay) {
+			if (mWordSuggestionsPersist) {
 				cancelWordSuggestionHide();
 				hideAllChips(row);
-				// Width matters here. The panel is wrap_content, so an empty one
-				// shrinks to its grip — a thumbnail-sized dark blob that reads as
-				// "the bar is gone", which is exactly what it was asked not to
-				// do. Held at a bar's width it stays a bar you can aim at.
-				strip.setMinimumWidth(persistentBarMinWidth());
+				// Floating: the panel is wrap_content, so an empty one shrinks to
+				// its grip — a thumbnail-sized dark blob that reads as "the bar is
+				// gone", which is the one thing this option exists to prevent.
+				// Held at a bar's width it stays something you can aim at.
+				//
+				// In-layout: the width is already match_parent and it is the
+				// *height* that has to hold, which it does from the minimum set
+				// above. Either way the bar stays put.
+				if (mWordSuggestionsOverlay) {
+					strip.setMinimumWidth(persistentBarMinWidth());
+				}
 				applyStripOpacity(strip);
 				strip.setVisibility(View.VISIBLE);
 				return;
@@ -2497,8 +2510,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		cancelWordSuggestionHide();
 		// With chips in it the panel sizes itself; a minimum from the empty
-		// state left behind would pad the last chip out to nothing.
-		strip.setMinimumWidth(0);
+		// state left behind would pad the last chip out to nothing. Height is
+		// not touched: for the in-layout strip that minimum is what keeps the
+		// game window still, and it has to hold whether the strip is full or not.
+		if (mWordSuggestionsOverlay) {
+			strip.setMinimumWidth(0);
+		}
 		for (int i = 0; i < words.size(); i++) {
 			final String word = words.get(i);
 			TextView chip = chipAt(row, i);
@@ -2530,6 +2547,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		int screen = getResources().getDisplayMetrics().widthPixels;
 		float d = getResources().getDisplayMetrics().density;
 		return Math.min(screen / 2, (int) (220 * d));
+	}
+
+	/**
+	 * One row of chips, which is the height the in-layout strip holds while it
+	 * is persistent. A little more than a chip needs, so a chip never grows it.
+	 */
+	private int persistentBarMinHeight() {
+		return (int) (34 * getResources().getDisplayMetrics().density);
 	}
 
 	private void hideAllChips(final LinearLayout row) {

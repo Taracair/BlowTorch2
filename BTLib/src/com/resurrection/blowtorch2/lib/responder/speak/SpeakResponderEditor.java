@@ -148,18 +148,43 @@ public class SpeakResponderEditor extends Dialog {
 		b.create().show();
 	}
 
+	/**
+	 * Open the text-to-speech screen, or the nearest thing this ROM has.
+	 *
+	 * <p>The direct action is not part of the public SDK and not every build
+	 * carries it under that name — GrapheneOS, LineageOS and the vendor skins
+	 * all move this screen about. So: the direct one, then accessibility (where
+	 * it usually lives), then Settings itself. Only if all three are refused is
+	 * the player told where to look by hand, which is the last resort and not
+	 * the first answer.
+	 */
 	private void openSystemTtsSettings() {
-		try {
-			Intent i = new Intent("com.android.settings.TTS_SETTINGS");
-			i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-			getContext().startActivity(i);
-		} catch (ActivityNotFoundException e) {
-			// Not every build has that screen under that name. Say where to look
-			// rather than failing silently.
-			Toast.makeText(getContext(),
-					"Open Android Settings → Accessibility (or Language) →"
-					+ " Text-to-speech output.", Toast.LENGTH_LONG).show();
+		String[] actions = {
+			"com.android.settings.TTS_SETTINGS",
+			android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS,
+			android.provider.Settings.ACTION_SETTINGS,
+		};
+		for (String action : actions) {
+			try {
+				Intent i = new Intent(action);
+				i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+				getContext().startActivity(i);
+				if (!action.equals(actions[0])) {
+					Toast.makeText(getContext(),
+							"Look for Text-to-speech output — usually under"
+							+ " Accessibility or Language & input.",
+							Toast.LENGTH_LONG).show();
+				}
+				return;
+			} catch (ActivityNotFoundException e) {
+				// Try the next one.
+			} catch (SecurityException e) {
+				// Some ROMs guard the direct screen. Same answer: try the next.
+			}
 		}
+		Toast.makeText(getContext(),
+				"Open Android Settings → Accessibility (or Language) →"
+				+ " Text-to-speech output.", Toast.LENGTH_LONG).show();
 	}
 
 	private class DoneListener implements View.OnClickListener {
