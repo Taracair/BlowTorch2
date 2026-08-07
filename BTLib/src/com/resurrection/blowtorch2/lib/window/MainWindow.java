@@ -2621,11 +2621,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * left attached: it is a layout listener on a view that is laid out anyway,
 	 * and detaching it would mean deciding when, which is the bug.
 	 */
+	/**
+	 * The input bar, whichever id it is answering to right now.
+	 *
+	 * <p>Setup calls {@code inputBar.setId(ChromeController.LEGACY_INPUT_BAR_ID)}
+	 * so that profiles saying {@code above="10"} keep working. After that,
+	 * {@code findViewById(R.id.inputbar)} returns null — which is why
+	 * {@link ChromeController#findGameplayInputBar} exists, and why anything that
+	 * looks the bar up by its layout id alone silently does nothing. That is what
+	 * the completion chips did: the margin was not wrong, it was never applied.
+	 */
+	private View findInputBar() {
+		View bar = findViewById(ChromeController.LEGACY_INPUT_BAR_ID);
+		return bar != null ? bar : findViewById(R.id.inputbar);
+	}
+
 	private void trackInputBarForOverlay() {
 		if (mWordSuggestionsOverlayTracked) {
 			return;
 		}
-		final View bar = findViewById(R.id.inputbar);
+		final View bar = findInputBar();
 		final View floating = findViewById(R.id.input_word_suggestions_float);
 		if (bar == null || floating == null) {
 			return;
@@ -2658,7 +2673,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * strip and these chips together.
 	 */
 	private void positionWordSuggestionOverlay() {
-		View bar = findViewById(R.id.inputbar);
+		View bar = findInputBar();
 		View floating = findViewById(R.id.input_word_suggestions_float);
 		if (bar == null || floating == null) {
 			return;
