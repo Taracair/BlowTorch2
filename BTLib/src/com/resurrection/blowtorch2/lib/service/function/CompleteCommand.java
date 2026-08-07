@@ -10,7 +10,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
 import com.resurrection.blowtorch2.lib.window.WordSuggestions;
 
 /**
- * {@code .complete on|off|lines N} — suggest words the game has just used while
+ * {@code .suggest on|off|lines N} — suggest words the game has just used while
  * you type.
  *
  * <p>Off by default, and while off the incoming text is not sent to the UI for
@@ -33,8 +33,16 @@ public class CompleteCommand extends SpecialCommand {
 	/** Kept where the completer keeps it, so the two cannot drift apart. */
 	public static final int MAX_LINES = WordSuggestions.MAX_LINES;
 
-	/** How many chips the strip shows, so how high {@code .complete N} goes. */
+	/** How many chips the bar shows, so how high {@code .suggest N} goes. */
 	public static final int MAX_PICK = WordSuggestions.MAX_ON_STRIP;
+
+	/**
+	 * What the command is called now. {@code .complete} still works and always
+	 * will — it is in old profiles, old buttons and old notes — but "suggestions"
+	 * is the word for what this does, and the messages use it.
+	 */
+	public static final String ALIAS_NAME = "suggest";
+	public static final String LONG_ALIAS_NAME = "suggestions";
 
 	public CompleteCommand() {
 		this.commandName = "complete";
@@ -48,9 +56,9 @@ public class CompleteCommand extends SpecialCommand {
 			c.updateBooleanSetting(OPTION_KEY, on);
 			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
 					+ (on
-						? "Word completion on. Type two letters of something the game"
+						? "Suggestions on. Type two letters of something the game"
 							+ " said and it appears above the input bar; tap to use it."
-						: "Word completion off.")
+						: "Suggestions off.")
 					+ Colorizer.getWhiteColor() + "\n");
 			return null;
 		}
@@ -73,7 +81,7 @@ public class CompleteCommand extends SpecialCommand {
 			return setFlag(arg.substring("persist".length()).trim(), c, PERSIST_KEY,
 					"The suggestion bar stays put now, empty or not, so the words"
 						+ " stop moving. Empty it shows only its grip — tap that to"
-						+ " collapse it, or .complete persist off to have it hide"
+						+ " collapse it, or .suggest persist off to have it hide"
 						+ " itself again.",
 					"The suggestion bar hides itself when there is nothing to"
 						+ " suggest.");
@@ -97,13 +105,13 @@ public class CompleteCommand extends SpecialCommand {
 				c.pickCompletion(pick);
 				return null;
 			}
-			c.sendDataToWindow(getErrorMessage("Word completion usage:",
-					"The strip shows at most " + MAX_PICK + " suggestions, so"
-					+ " .complete 1 to .complete " + MAX_PICK + ".\n"));
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
+					"The bar shows at most " + MAX_PICK + " suggestions, so"
+					+ " .suggest 1 to .suggest " + MAX_PICK + ".\n"));
 			return null;
 		}
 		if (arg.length() == 0 || arg.equals("status")) {
-			c.sendDataToWindow("\nWord completion is "
+			c.sendDataToWindow("\nSuggestions are "
 					+ (isOn(c) ? "on" : "off")
 					+ ", remembering the last " + describeLines(lines(c))
 					+ ".\nChips " + (overlayOn(c) ? "float over the game text at "
@@ -111,32 +119,33 @@ public class CompleteCommand extends SpecialCommand {
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ ", bar " + (flagOn(c, PERSIST_KEY) ? "always up" : "only when it has something")
-					+ ".\nUse .complete on|off, lines N, loose/ghost/overlay/persist on|off,"
+					+ ".\nUse .suggest on|off, lines N, loose/ghost/overlay/persist on|off,"
 					+ " opacity N\n");
 			return null;
 		}
-		c.sendDataToWindow(getErrorMessage("Word completion usage:",
-				".complete on      — suggest words the game just used\n"
-				+ ".complete off     — stop\n"
-				+ ".complete lines N — how far back counts as recent (0 = all session)\n"
-				+ ".complete 1.." + MAX_PICK + "    — take that suggestion off the strip\n"
-				+ ".complete loose on|off   — grzld finds grizzled\n"
-				+ ".complete ghost on|off   — draw the rest of the word after the cursor\n"
-				+ ".complete overlay on|off — chips over the game text (on by default)\n"
-				+ ".complete persist on|off — keep the bar up even when it is empty\n"
-				+ ".complete opacity N      — how solid those chips are\n"
-				+ ".complete         — say which it is\n\n"
+		c.sendDataToWindow(getErrorMessage("Suggestions usage:",
+				".suggest on       — suggest words the game just used\n"
+				+ ".suggest off      — stop\n"
+				+ ".suggest lines N  — how far back counts as recent (0 = all session)\n"
+				+ ".suggest 1.." + MAX_PICK + "     — take that suggestion off the bar\n"
+				+ ".suggest loose on|off    — grzld finds grizzled\n"
+				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
+				+ ".suggest overlay on|off  — chips over the game text (on by default)\n"
+				+ ".suggest persist on|off  — keep the bar up even when it is empty\n"
+				+ ".suggest opacity N       — how solid those chips are\n"
+				+ ".suggest          — say which it is\n\n"
+				+ "(.complete still works, and means the same thing.)\n\n"
 				+ "This completes mob names, player names and item words the\n"
 				+ "keyboard will never know, and would rather correct into\n"
 				+ "English. Type \"k gri\" after a grizzled cave troll walks in.\n\n"
-				+ "Also under Options → Input.\n"));
+				+ "Also under Options → Input → Suggestions.\n"));
 		return null;
 	}
 
 	private Object setLines(String arg, Connection c) {
 		if (arg.length() == 0) {
-			c.sendDataToWindow("\nCompletion remembers the last "
-					+ describeLines(lines(c)) + ".\nUse .complete lines N (0-"
+			c.sendDataToWindow("\nSuggestions remember the last "
+					+ describeLines(lines(c)) + ".\nUse .suggest lines N (0-"
 					+ MAX_LINES + ", 0 = the whole session)\n");
 			return null;
 		}
@@ -144,19 +153,19 @@ public class CompleteCommand extends SpecialCommand {
 		try {
 			n = Integer.parseInt(arg.split("\\s+")[0]);
 		} catch (NumberFormatException e) {
-			c.sendDataToWindow(getErrorMessage("Word completion usage:",
-					".complete lines N — a number from 0 to " + MAX_LINES + ".\n"
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
+					".suggest lines N — a number from 0 to " + MAX_LINES + ".\n"
 					+ "0 means keep everything this session said.\n"));
 			return null;
 		}
 		if (n < 0 || n > MAX_LINES) {
-			c.sendDataToWindow(getErrorMessage("Word completion usage:",
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
 					"Lines must be between 0 and " + MAX_LINES + ".\n"));
 			return null;
 		}
 		c.updateIntegerSetting(LINES_KEY, n);
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
-				+ "Completion now remembers the last " + describeLines(n) + "."
+				+ "Suggestions now remember the last " + describeLines(n) + "."
 				+ Colorizer.getWhiteColor() + "\n");
 		return null;
 	}
@@ -166,12 +175,12 @@ public class CompleteCommand extends SpecialCommand {
 		if (arg.length() == 0) {
 			c.sendDataToWindow("\nSuggestions are "
 					+ (current ? "floating over the game text" : "in a strip below it")
-					+ ".\nUse .complete overlay on|off\n");
+					+ ".\nUse .suggest overlay on|off\n");
 			return null;
 		}
 		if (!arg.equals("on") && !arg.equals("off")) {
-			c.sendDataToWindow(getErrorMessage("Word completion usage:",
-					".complete overlay on|off\n\n"
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
+					".suggest overlay on|off\n\n"
 					+ "On draws the chips over the game text. The strip below takes\n"
 					+ "height while it shows, so the game window shrinks and the text\n"
 					+ "jumps every time a suggestion appears; floating does not.\n"));
@@ -191,7 +200,7 @@ public class CompleteCommand extends SpecialCommand {
 	private Object setOpacity(String arg, Connection c) {
 		if (arg.length() == 0) {
 			c.sendDataToWindow("\nSuggestion chips are " + opacity(c)
-					+ "% solid.\nUse .complete opacity N ("
+					+ "% solid.\nUse .suggest opacity N ("
 					+ WordSuggestions.MIN_OPACITY + "-100)\n");
 			return null;
 		}
@@ -202,8 +211,8 @@ public class CompleteCommand extends SpecialCommand {
 			n = -1;
 		}
 		if (n < WordSuggestions.MIN_OPACITY || n > 100) {
-			c.sendDataToWindow(getErrorMessage("Word completion usage:",
-					".complete opacity N — a number from "
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
+					".suggest opacity N — a number from "
 					+ WordSuggestions.MIN_OPACITY + " to 100.\n"
 					+ "Lower lets more game text through behind the chips. The words\n"
 					+ "themselves stay fully readable at every setting.\n"));
@@ -224,7 +233,7 @@ public class CompleteCommand extends SpecialCommand {
 			return null;
 		}
 		if (!arg.equals("on") && !arg.equals("off")) {
-			c.sendDataToWindow(getErrorMessage("Word completion usage:",
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
 					"Use on or off.\n"));
 			return null;
 		}

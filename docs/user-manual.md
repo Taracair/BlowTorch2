@@ -39,11 +39,13 @@ other site will not be accepted for this one.
 
 Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
-## Word completion (`.complete on`)
+## Suggestions (`.suggest on`)
 
-    .complete on | off | lines N | 1..8
-    .complete overlay on | off | opacity N
-    .complete loose on | off | ghost on | off
+    .suggest on | off | lines N | 1..8
+    .suggest overlay on | off | opacity N | persist on | off
+    .suggest loose on | off | ghost on | off
+
+(`.complete` is the same command under its old name and still works.)
 
 Type two letters of something the game has just said and it appears on a strip
 above the input bar. Tap it and it goes in, correctly spaced.
@@ -53,12 +55,12 @@ above the input bar. Tap it and it goes in, correctly spaced.
     The strip:      grizzled
     Tap it:         k grizzled
 
-**Taking one without tapping it.** Each chip is numbered, and `.complete 3`
+**Taking one without tapping it.** Each chip is numbered, and `.suggest 3`
 takes the third. That is there so a super button over the keyboard can hold
-`.complete 1`, `.complete 2` and so on — you pick a suggestion without your
+`.suggest 1`, `.suggest 2` and so on — you pick a suggestion without your
 thumb ever leaving the keys. Aliases and triggers can use it the same way.
 
-Note that **typing `.complete 3` into the input bar cannot work**, and this is
+Note that **typing `.suggest 3` into the input bar cannot work**, and this is
 not a fault: the bar holds the half-typed command the strip is completing, so
 typing anything else into it replaces what you were completing and the strip
 empties. Put it on a button. Out of range does nothing, because the strip
@@ -78,28 +80,28 @@ Words shorter than four letters are ignored, and so are pure numbers; you need
 to have typed at least two letters before anything is offered.
 
 **How far back counts as recent** is measured in lines, not words — the last 300
-by default, so "recent" means here what it means on screen. `.complete lines 80`
-narrows it to roughly a screenful; `.complete lines 0` keeps everything the
+by default, so "recent" means here what it means on screen. `.suggest lines 80`
+narrows it to roughly a screenful; `.suggest lines 0` keeps everything the
 session said. Counting words instead would mean a quiet hour of a few lines kept
 names from hours ago alive, while one wide room description threw out everything
 you were just looking at.
 
-**When you mistype it.** `.complete loose on` adds a second pass: if the exact
+**When you mistype it.** `.suggest loose on` adds a second pass: if the exact
 spelling finds nothing, a word whose letters you typed *in order, with gaps* is
 offered instead. `grzld` finds `grizzled`. It only ever runs after an exact
 match found nothing, so typing accurately never gets you a different answer than
 before. The first letter still has to be right, and you need at least four
 letters — below that almost every word in the room matches.
 
-**The rest of the word, as you type.** `.complete ghost on` draws the top
+**The rest of the word, as you type.** `.suggest ghost on` draws the top
 suggestion's remaining letters after the cursor in dimmed type, with a small `1`
-marking it as the first suggestion — the same 1 that `.complete 1` takes.
+marking it as the first suggestion — the same 1 that `.suggest 1` takes.
 
     You type:   k gri
     You see:    k gri[zzled]¹    ← the bracketed part is dimmed, and not there
 
 **Tap the ghost to take it.** It is a target, not only a hint — the same result
-as tapping the first chip or sending `.complete 1`, without moving your thumb
+as tapping the first chip or sending `.suggest 1`, without moving your thumb
 off the line you are typing.
 
 That "not there" is literal: the ghost is **drawn, never put in the input bar**.
@@ -123,13 +125,13 @@ type, as it always has.
 the top edge of the input bar. They cost the layout nothing, so nothing moves
 when they appear or go.
 
-`.complete overlay off` puts them back in a strip below the game window instead.
+`.suggest overlay off` puts them back in a strip below the game window instead.
 That strip takes height while it is showing, so the window shrinks a little
 every time a suggestion appears and grows back when it goes, and the text hops
 with it — which is why floating is the default. The strip is still there for
 anyone who would rather have the chips out of the way of the game text.
 
-**A bar that stays put.** `.complete persist on` leaves the floating bar up even
+**A bar that stays put.** `.suggest persist on` leaves the floating bar up even
 when there is nothing to suggest. The chips stop appearing and disappearing
 under your thumb, because the bar itself stops moving — the suggestions simply
 change inside a thing that is always in the same place.
@@ -144,7 +146,7 @@ Empty, it shows only its grip: the six dots at its left end.
   a place that suits a portrait phone is off the side of a landscape one. Drop
   it back near the input bar and it forgets the placement and goes back to
   following the bar, which is how you undo this without an option.
-- To get rid of an empty bar altogether, `.complete persist off` — then it hides
+- To get rid of an empty bar altogether, `.suggest persist off` — then it hides
   itself whenever it has nothing to say, as it does by default.
 
 The grip is the handle for both gestures on purpose. The chips themselves scroll
@@ -155,7 +157,7 @@ Without `persist`, the chips no longer blink either: an empty panel waits a
 moment before it goes, because typing walks through prefixes that match nothing
 on the way to one that does.
 
-`.complete opacity 40` makes them see-through enough to read the line behind
+`.suggest opacity 40` makes them see-through enough to read the line behind
 them. Only the backing fades — the words stay fully readable at every setting,
 because a suggestion you have to squint at is worse than none. Anything from 10
 to 100.

@@ -559,6 +559,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.CompleteCommand completecmd =
 				new com.resurrection.blowtorch2.lib.service.function.CompleteCommand();
 		mSpecialCommands.put(completecmd.commandName, completecmd);
+		// The same command under the word that describes it. ".complete" stays
+		// registered because it is in profiles, buttons and notes already, and
+		// breaking those to rename a command would be a poor trade.
+		mSpecialCommands.put(
+				com.resurrection.blowtorch2.lib.service.function.CompleteCommand.ALIAS_NAME,
+				completecmd);
+		mSpecialCommands.put(
+				com.resurrection.blowtorch2.lib.service.function.CompleteCommand.LONG_ALIAS_NAME,
+				completecmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);

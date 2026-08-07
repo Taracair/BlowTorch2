@@ -154,15 +154,15 @@ public class ConnectionSettingsPlugin extends Plugin {
 		suggestions.setDescription("Completing words the game has just used, and where those suggestions are shown.");
 
 		BooleanOption word_complete = new BooleanOption();
-		word_complete.setTitle("Complete words the game used");
-		word_complete.setDescription("Type two letters of a mob, player or item name the world just said and it appears above the input bar; tap to use it. The keyboard cannot know these names and tends to correct them into English. Toggle with .complete on/off.");
+		word_complete.setTitle("Suggest words the game used");
+		word_complete.setDescription("Type two letters of a mob, player or item name the world just said and it appears above the input bar; tap to use it. The keyboard cannot know these names and tends to correct them into English. Toggle with .suggest on/off.");
 		word_complete.setKey("word_complete");
 		word_complete.setValue(false);
 		suggestions.addOption(word_complete);
 
 		IntegerOption word_complete_lines = new IntegerOption();
-		word_complete_lines.setTitle("Completion memory (lines)");
-		word_complete_lines.setDescription("How many of the world's most recent lines count as fresh, 0–5000. Lower means only what is still on screen; 0 means the whole session. Only matters with completion on.");
+		word_complete_lines.setTitle("Suggestion memory (lines)");
+		word_complete_lines.setDescription("How many of the world's most recent lines count as fresh, 0–5000. Lower means only what is still on screen; 0 means the whole session. Only matters with suggestions on. Set with .suggest lines N.");
 		word_complete_lines.setKey("word_complete_lines");
 		word_complete_lines.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
@@ -170,21 +170,21 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_loose = new BooleanOption();
 		word_complete_loose.setTitle("Forgive typos in suggestions");
-		word_complete_loose.setDescription("When the exact spelling finds nothing, match words whose letters you typed in order with gaps: grzld finds grizzled. Only runs after an exact match found nothing, so accurate typing is never given a different answer. Toggle with .complete loose on/off.");
+		word_complete_loose.setDescription("When the exact spelling finds nothing, match words whose letters you typed in order with gaps: grzld finds grizzled. Only runs after an exact match found nothing, so accurate typing is never given a different answer. Toggle with .suggest loose on/off.");
 		word_complete_loose.setKey("word_complete_loose");
 		word_complete_loose.setValue(false);
 		suggestions.addOption(word_complete_loose);
 
 		BooleanOption word_complete_ghost = new BooleanOption();
 		word_complete_ghost.setTitle("Show the rest of the word as you type");
-		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dimmed type, with a small 1 marking it as the first suggestion. Tap the ghost to take it. A word that continues what you typed shows only its missing letters; a forgiven typo shows the whole word behind an arrow, because its letters change rather than grow. It is only drawn, never put in the input bar, so what you send is always exactly what you typed. Toggle with .complete ghost on/off.");
+		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dimmed type, with a small 1 marking it as the first suggestion. Tap the ghost to take it. A word that continues what you typed shows only its missing letters; a forgiven typo shows the whole word behind an arrow, because its letters change rather than grow. It is only drawn, never put in the input bar, so what you send is always exactly what you typed. Toggle with .suggest ghost on/off.");
 		word_complete_ghost.setKey("word_complete_ghost");
 		word_complete_ghost.setValue(false);
 		suggestions.addOption(word_complete_ghost);
 
 		BooleanOption word_complete_overlay = new BooleanOption();
-		word_complete_overlay.setTitle("Suggestions float over the game");
-		word_complete_overlay.setDescription("Draw the suggestion chips on top of the game text instead of in a strip below it. The strip takes height while it is showing, so the game window shrinks and the text jumps every time a suggestion appears; floating costs the layout nothing and nothing moves. Toggle with .complete overlay on/off.");
+		word_complete_overlay.setTitle("Float suggestions over the game");
+		word_complete_overlay.setDescription("Where the suggestions appear — these are the two places, and only one is ever used. ON: floating on top of the game text, resting on the input bar, with a grip you can drag to move it or tap to fold it away. OFF: a strip in the layout below the game window; that strip takes height, so the game window shrinks and the text jumps every time a suggestion comes or goes, unless you also turn on \"Keep the suggestion bar in place\" below. Switching this hides the other one at once. Toggle with .suggest overlay on/off.");
 		word_complete_overlay.setKey("word_complete_overlay");
 		// On by default. The strip below the game window takes height while it
 		// shows, so the text jumps under the thumb on every letter — the reason
@@ -197,14 +197,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_persist = new BooleanOption();
 		word_complete_persist.setTitle("Keep the suggestion bar in place");
-		word_complete_persist.setDescription("Leave the floating suggestion bar up even when there is nothing to suggest, instead of letting it come and go as you type. The words stop moving because the bar stops moving. When it is empty it shows only its grip; tap that grip to collapse it, or turn this off with .complete persist off to have it hide itself again. Floating chips only.");
+		word_complete_persist.setDescription("Leave the suggestion bar up even when there is nothing to suggest, instead of letting it come and go as you type. Works in both places. In the strip below the game window this is the one that matters: the strip holds a fixed height, so the game text stops jumping up and down as you type. Floating, it holds a bar's width, showing its grip when empty. Turn it off with .suggest persist off and the bar hides itself again whenever it is empty.");
 		word_complete_persist.setKey("word_complete_persist");
 		word_complete_persist.setValue(false);
 		suggestions.addOption(word_complete_persist);
 
 		IntegerOption word_complete_opacity = new IntegerOption();
 		word_complete_opacity.setTitle("Suggestion chip opacity (%)");
-		word_complete_opacity.setDescription("How solid the chips are, 10-100. Lower lets more game text through behind them; the words themselves stay fully readable at every setting. Mainly for the floating chips. Set with .complete opacity N.");
+		word_complete_opacity.setDescription("How solid the chips are, 10-100. Lower lets more game text through behind them; the words themselves stay fully readable at every setting. Mainly for the floating chips. Set with .suggest opacity N.");
 		word_complete_opacity.setKey("word_complete_opacity");
 		word_complete_opacity.setValue(
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY);
