@@ -5240,7 +5240,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void applyInputAssistSettings() {
 		mWordComplete = readBooleanOption("word_complete", false);
-		mPromptBar = readBooleanOption("prompt_bar", false);
+		// Through the setter, not the field: setPromptBar(false) is what tells the
+		// UI to clear the bar. Assigning raw would leave a prompt from the previous
+		// connection pinned there with nothing left to clear it.
+		setPromptBar(readBooleanOption("prompt_bar", false));
 		// Per connection: "has this world ever sent a prompt" is a question about
 		// this session, and a stale count from the last one would answer it wrong.
 		mPromptsSeen = 0;
