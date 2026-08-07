@@ -2375,6 +2375,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mWordSuggestionsOn = false;
 	/** How many completions fit on the strip without it becoming a wall. */
 	private static final int MAX_WORD_SUGGESTIONS = 6;
+	/** Upper bound for the freshness window; matches CompleteCommand.MAX_LINES. */
+	private static final int MAX_WORD_SUGGESTION_LINES = 5000;
 
 	/**
 	 * Rebuild the completion strip for whatever is half-typed in the input bar.
@@ -3291,6 +3293,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (floatingButtons != null) {
 				floatingButtons.onMasterSwitchChanged(floatingButtonsEnabled);
 			}
+
+			// The completer lives here, in the UI process, so the option has to be
+			// read here too. Off drops the vocabulary rather than leaving stale
+			// names on the strip until something else happens to refresh it.
+			BaseOption completeOpt = (BaseOption) group.findOptionByKey("word_complete");
+			boolean completeOn = completeOpt != null
+					&& completeOpt.getValue() instanceof Boolean
+					&& (Boolean) completeOpt.getValue();
+			if (!completeOn && mWordSuggestionsOn) {
+				mWordSuggestions.clear();
+			}
+			mWordSuggestionsOn = completeOn;
+			BaseOption completeLinesOpt =
+					(BaseOption) group.findOptionByKey("word_complete_lines");
+			if (completeLinesOpt != null && completeLinesOpt.getValue() instanceof Integer) {
+				int lines = (Integer) completeLinesOpt.getValue();
+				// Clamped here: nothing between the Options dialog and this
+				// enforces the range in the description.
+				if (lines < 0) {
+					lines = 0;
+				}
+				if (lines > MAX_WORD_SUGGESTION_LINES) {
+					lines = MAX_WORD_SUGGESTION_LINES;
+				}
+				mWordSuggestions.setMaxLines(lines);
+			}
+			refreshWordSuggestions();
 
 			BaseOption histOpt = (BaseOption) group.findOptionByKey("input_history_size");
 			if (histOpt != null && histOpt.getValue() instanceof Integer) {

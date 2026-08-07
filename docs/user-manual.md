@@ -41,7 +41,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
 ## Word completion (`.complete on`)
 
-    .complete on | off | (no argument = say which)
+    .complete on | off | lines N | (no argument = say which)
 
 Type two letters of something the game has just said and it appears on a strip
 above the input bar. Tap it and it goes in, correctly spaced.
@@ -62,13 +62,22 @@ This completes only from what the world actually sent, newest first, because the
 thing that just walked in is nearly always the thing you are about to hit.
 
 Words shorter than four letters are ignored, and so are pure numbers; you need
-to have typed at least two letters before anything is offered. About five
-hundred words are remembered, oldest dropped first. Off by default, and while
-off the text is not sent to the completer at all, so it costs nothing.
+to have typed at least two letters before anything is offered.
+
+**How far back counts as recent** is measured in lines, not words — the last 300
+by default, so "recent" means here what it means on screen. `.complete lines 80`
+narrows it to roughly a screenful; `.complete lines 0` keeps everything the
+session said. Counting words instead would mean a quiet hour of a few lines kept
+names from hours ago alive, while one wide room description threw out everything
+you were just looking at.
+
+Off by default, and while off the text is not sent to the completer at all, so it
+costs nothing. Both settings are also under **Options → Input**, and both are
+saved with the profile.
 
 ## Prompt on its own bar (`.prompt on`)
 
-    .prompt on | off | (no argument = say which)
+    .prompt on | off | (no argument = say which, and how many were seen)
 
 Puts the world's prompt on a thin bar just above the input line, and stops it
 repeating down the screen. On a phone, a prompt printed on every line is eating
@@ -85,7 +94,13 @@ so that a trigger cannot cut one in half, so it knows exactly which line that is
 Where a world marks its prompts with `IAC GA`, the bar updates the instant the
 prompt arrives.
 
-Off by default, because it changes where text appears.
+**If the bar stays empty**, `.prompt` on its own prints "prompts seen: N". Zero
+after a while of play is the answer, not a fault: that world sends no prompt.
+Many MOOs do not, and nothing can be pinned that was never sent. The count is
+kept whether the bar is on or off, and starts again each time you connect.
+
+Off by default, because it changes where text appears. Also under **Options →
+Input**, and saved with the profile.
 
 ## Dot commands
 

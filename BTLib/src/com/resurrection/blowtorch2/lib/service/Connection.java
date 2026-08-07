@@ -387,6 +387,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private boolean mPromptBar = false;
 	/** {@code .complete on}: incoming text feeds the UI's word completer. */
 	private boolean mWordComplete = false;
+
+	/** Unfinished lines flushed this connection; see {@link #getPromptsSeen()}. */
+	private int mPromptsSeen = 0;
 	/** The main looper handler for this "foreground" thread, although I'm not sure
 	 *  if service processes get "foreground threads". */
 	Handler mHandler = null;
@@ -705,6 +708,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
 				mSessionLog.onConnected();
+				applyInputAssistSettings();
 				if (mProcessor != null) {
 					mProcessor.setLogProfile(mDisplay);
 					mGmcp.applyGmcpLogSetting();
@@ -2550,13 +2554,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// finished — which on a MUD means the prompt. That is why the prompt bar
 		// can exist at all: the holdover already knows which line it is, without
 		// any guessing at its shape.
-		if (mPromptBar) {
-			String text = Colorizer.stripAnsiEscapes(
-					new String(held, mSettings.getEncoding())).trim();
-			if (text.length() > 0) {
-				mService.doPromptLine(text);
-				return;
-			}
+		String text = Colorizer.stripAnsiEscapes(
+				new String(held, mSettings.getEncoding())).trim();
+		// Counted whether or not the bar is on: the question this answers is
+		// "does this world send a prompt at all", and a player asks it precisely
+		// because the bar showed them nothing. Whitespace-only flushes do not
+		// count, or a world that dribbles blank lines would look talkative.
+		if (text.length() > 0) {
+			mPromptsSeen++;
+		}
+		if (mPromptBar && text.length() > 0) {
+			mService.doPromptLine(text);
+			return;
 		}
 		dispatchWholeLines(held);
 	}
@@ -2571,6 +2580,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	public final boolean isPromptBar() {
 		return mPromptBar;
+	}
+
+	/**
+	 * How many unfinished lines this connection has flushed — prompts, near
+	 * enough. Zero after a while of play means the world sends none, which is the
+	 * only honest answer to "the prompt bar shows nothing".
+	 */
+	public final int getPromptsSeen() {
+		return mPromptsSeen;
 	}
 
 	/** {@code .complete on|off}: feed the UI's word completer. */
@@ -4740,6 +4758,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case keep_last:
 				this.doSetKeepLast((Boolean) o.getValue());
 				break;
+			case word_complete:
+				this.doSetWordComplete((Boolean) o.getValue());
+				break;
+			case word_complete_lines:
+				// MainWindow.loadSettings is what reaches WordSuggestions; ask the UI
+				// to re-read rather than adding a binder call for one integer.
+				mService.doExecuteRequestLoadSettings();
+				break;
+			case prompt_bar:
+				this.doSetPromptBar((Boolean) o.getValue());
+				break;
 			case grow_input_bar:
 				this.doSetGrowInputBar((Boolean) o.getValue());
 				break;
@@ -5201,6 +5230,39 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mMcpEngine.statusReport();
 	}
 
+	/**
+	 * Seed the two input-assist flags from the saved profile.
+	 *
+	 * <p>They are plain fields read on every incoming chunk, so they cannot be
+	 * looked up in the option tree each time. Without this they stayed false until
+	 * the player toggled something — a setting that saves, restores and then does
+	 * nothing until touched.
+	 */
+	private void applyInputAssistSettings() {
+		mWordComplete = readBooleanOption("word_complete", false);
+		mPromptBar = readBooleanOption("prompt_bar", false);
+		// Per connection: "has this world ever sent a prompt" is a question about
+		// this session, and a stale count from the last one would answer it wrong.
+		mPromptsSeen = 0;
+	}
+
+	/** A boolean from the connection's own options, or {@code fallback}. */
+	private boolean readBooleanOption(final String key, final boolean fallback) {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey(key);
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				if (val instanceof Boolean) {
+					return ((Boolean) val).booleanValue();
+				}
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.readBooleanOption", e);
+		}
+		return fallback;
+	}
+
 	private void applyMcpSettings() {
 		ensureMcpEngine();
 		try {
@@ -5465,6 +5527,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void doSetLocalEcho(final Boolean value) {
 		mSettings.setLocalEcho(value);
+	}
+
+	/** Word completion on or off.
+	 *
+	 * <p>The UI holds the vocabulary, so it has to be told: off should take the
+	 * strip away and drop what was learned, not leave stale names sitting there
+	 * until something else happens to refresh it.
+	 *
+	 * @param value New value to use.
+	 */
+	private void doSetWordComplete(final Boolean value) {
+		mWordComplete = value != null && value.booleanValue();
+		mService.doExecuteRequestLoadSettings();
+	}
+
+	/** Prompt bar on or off.
+	 *
+	 * @param value New value to use.
+	 */
+	private void doSetPromptBar(final Boolean value) {
+		setPromptBar(value != null && value.booleanValue());
 	}
 
 	/** Impelemntation of the keep last settings handler.
@@ -5766,6 +5849,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		floating_buttons_enabled,
 		/** Keep last entered. */
 		keep_last,
+		/** Complete words the world just used. */
+		word_complete,
+		/** How many recent lines the completer counts as fresh. */
+		word_complete_lines,
+		/** Prompt on its own bar above the input line. */
+		prompt_bar,
 		/** Grow input bar with multiline text. */
 		grow_input_bar,
 		/** Input compatibility mode. */

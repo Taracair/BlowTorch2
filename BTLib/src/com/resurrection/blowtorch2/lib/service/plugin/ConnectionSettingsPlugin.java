@@ -141,6 +141,27 @@ public class ConnectionSettingsPlugin extends Plugin {
 		compatilibility_mode.setValue(false);
 		input.addOption(compatilibility_mode);
 
+		BooleanOption word_complete = new BooleanOption();
+		word_complete.setTitle("Complete words the game used");
+		word_complete.setDescription("Type two letters of a mob, player or item name the world just said and it appears above the input bar; tap to use it. The keyboard cannot know these names and tends to correct them into English. Toggle with .complete on/off.");
+		word_complete.setKey("word_complete");
+		word_complete.setValue(false);
+		input.addOption(word_complete);
+
+		IntegerOption word_complete_lines = new IntegerOption();
+		word_complete_lines.setTitle("Completion memory (lines)");
+		word_complete_lines.setDescription("How many of the world's most recent lines count as fresh, 0–5000. Lower means only what is still on screen; 0 means the whole session. Only matters with completion on.");
+		word_complete_lines.setKey("word_complete_lines");
+		word_complete_lines.setValue(300);
+		input.addOption(word_complete_lines);
+
+		BooleanOption prompt_bar = new BooleanOption();
+		prompt_bar.setTitle("Prompt on its own bar");
+		prompt_bar.setDescription("A MUD prompt is the line the world never finishes — your health and mana line, resent after every command. On, it sits in one fixed place above the input bar instead of repeating down the game window. Worlds that send no prompt show nothing; .prompt says how many have been seen. Toggle with .prompt on/off.");
+		prompt_bar.setKey("prompt_bar");
+		prompt_bar.setValue(false);
+		input.addOption(prompt_bar);
+
 		IntegerOption input_history = new IntegerOption();
 		input_history.setTitle("Input History Size");
 		input_history.setDescription("How many previous commands to keep (per profile, 10–100).");

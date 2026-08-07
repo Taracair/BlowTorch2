@@ -52,6 +52,9 @@ public class ConnectionSetttingsParser extends PluginParser {
 		use_suggestions,
 		floating_buttons_enabled,
 		keep_last,
+		word_complete,
+		word_complete_lines,
+		prompt_bar,
 		grow_input_bar,
 		compatibility_mode,
 		local_echo,
@@ -462,6 +465,21 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case keep_last:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_lines:
+						if((Integer)opt.getValue() != 300) {
+							dooutput = true;
+						}
+						break;
+					case prompt_bar:
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
