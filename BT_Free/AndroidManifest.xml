@@ -25,6 +25,21 @@
 	  at startup, and refusing it costs only the over-the-keyboard placement.
 	-->
 	<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+	<!--
+	  Package visibility, needed since Android 11. Without this the speech engine
+	  is invisible to us and TextToSpeech init returns ERROR with nothing but an
+	  "AppsFilter ... BLOCKED" line in logcat to say why. Measured on the
+	  maintainer's phone: the engine (app.grapheneos.speechservices) was
+	  installed and set as the default, and we still could not bind it.
+
+	  It grants nothing beyond being able to see engines that answer the standard
+	  TTS intent, which is exactly what the Speak trigger action needs.
+	-->
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.TTS_SERVICE" />
+		</intent>
+	</queries>
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="false" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled" android:usesCleartextTraffic="true">
     	<meta-data android:value="219" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
         <!--

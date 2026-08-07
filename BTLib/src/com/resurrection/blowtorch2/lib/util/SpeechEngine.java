@@ -62,6 +62,8 @@ public final class SpeechEngine {
 	private String lastText = null;
 	private long lastTextAt = 0;
 	private int utteranceSeq = 0;
+	/** Why it is not speaking, in words a player can act on. */
+	private String problem = null;
 
 	private SpeechEngine(final Context context) {
 		final Context app = context.getApplicationContext();
@@ -76,6 +78,7 @@ public final class SpeechEngine {
 			// A phone with no speech engine at all is a supported phone. It just
 			// cannot do this, and must not be a crash on the service thread.
 			failed = true;
+			problem = "This phone has no speech engine that BlowTorch can reach.";
 			BlowTorchLogger.logMinor("SpeechEngine.init", t);
 		}
 	}
@@ -96,22 +99,72 @@ public final class SpeechEngine {
 		if (status != TextToSpeech.SUCCESS) {
 			failed = true;
 			waitingForInit.clear();
+			problem = "No speech engine answered. Install one (Google Speech"
+					+ " Services, or your phone's own) and pick it in Android"
+					+ " Settings under Accessibility or Language.";
 			BlowTorchLogger.logMinor("SpeechEngine",
 					new IllegalStateException("TextToSpeech init failed: " + status));
 			return;
 		}
-		try {
-			tts.setLanguage(Locale.getDefault());
-		} catch (Throwable t) {
-			// Keep the engine: the default voice still speaks, and refusing to
-			// speak at all because a locale was not matched helps nobody.
-			BlowTorchLogger.logMinor("SpeechEngine.setLanguage", t);
-		}
+		chooseVoice();
 		attachProgressListener();
 		ready = true;
 		while (!waitingForInit.isEmpty()) {
 			handToEngine(waitingForInit.poll(), false);
 		}
+	}
+
+	/**
+	 * Speak in the phone's language if the engine has it, English if not.
+	 *
+	 * <p>{@code setLanguage} answers with a status rather than throwing, and a
+	 * missing voice is the ordinary case — a Polish phone with an engine that
+	 * only shipped English. Ignoring that answer is a silent nothing: the engine
+	 * is up, {@code speak} returns success, and no sound is ever made.
+	 */
+	private void chooseVoice() {
+		try {
+			int r = tts.setLanguage(Locale.getDefault());
+			if (r != TextToSpeech.LANG_MISSING_DATA
+					&& r != TextToSpeech.LANG_NOT_SUPPORTED) {
+				return;
+			}
+			int fallback = tts.setLanguage(Locale.ENGLISH);
+			if (fallback == TextToSpeech.LANG_MISSING_DATA
+					|| fallback == TextToSpeech.LANG_NOT_SUPPORTED) {
+				problem = "The speech engine has no voice installed. Open its"
+						+ " settings in Android (Accessibility or Language →"
+						+ " Text-to-speech) and download a voice.";
+				return;
+			}
+			problem = "No " + Locale.getDefault().getDisplayLanguage()
+					+ " voice is installed, so English is being used. Download"
+					+ " one in Android's text-to-speech settings to change that.";
+		} catch (Throwable t) {
+			// Keep the engine: the default voice may still speak, and refusing
+			// to speak at all because a locale was not matched helps nobody.
+			BlowTorchLogger.logMinor("SpeechEngine.setLanguage", t);
+		}
+	}
+
+	/**
+	 * What is wrong, or null when nothing is.
+	 *
+	 * <p>Read by the Speak action's editor so the answer is where the player is
+	 * looking, rather than in a log file they have no reason to open.
+	 */
+	public synchronized String getProblem() {
+		return problem;
+	}
+
+	/** True once the engine is up and has been given a voice. */
+	public synchronized boolean isReady() {
+		return ready && !failed;
+	}
+
+	/** Still connecting: neither ready nor known to have failed. */
+	public synchronized boolean isStarting() {
+		return !ready && !failed;
 	}
 
 	private void attachProgressListener() {
