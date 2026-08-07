@@ -138,7 +138,8 @@ Empty, it shows only its grip: the six dots at its left end.
 
 - **Tap the grip** to collapse the bar to just that grip, and tap again to open
   it. Useful when a line of the game is underneath it.
-- **Long press the grip and drag** to put the bar somewhere else entirely. It
+- **Drag the grip** to put the bar somewhere else entirely. No holding first —
+  take hold of the dots and the bar comes with your finger. It
   stays where you drop it, remembered **per world and per screen rotation** —
   a place that suits a portrait phone is off the side of a landscape one. Drop
   it back near the input bar and it forgets the placement and goes back to
@@ -341,10 +342,19 @@ It uses the speech engine your phone already has, so it adds nothing to the size
 of the app and uses whatever voice and language the system is set to. Phones
 with no engine installed simply stay quiet.
 
-**Cut off whatever is being said** decides what happens in a busy fight. Off,
-lines queue up and are read in order; on, this one stops the last one and is
-read now. Use it for anything that is only true at this moment — "you are
-bleeding" said fifteen seconds late is worse than not said.
+**Say this at once, cutting off the previous line** decides what happens when
+two things want to be said in the same second. Off, they queue and are read in
+order — right for a tell, which is still worth hearing a moment later. On, this
+one stops whatever is mid-sentence and is read straight away — right for
+anything that is only true *now*. "You are bleeding" read out fifteen seconds
+late, after four misses have been announced, is worse than not read at all.
+
+**▶ Say it now** reads the message aloud there and then, so you can hear it
+before you rely on it. Nothing is spoken when you press Done — the phone talking
+by itself because someone closed a dialog is not a thing anyone wants in public.
+
+**?** explains what to check when it stays silent, and opens Android's own
+text-to-speech settings, where voices are installed.
 
 Either way the speech never runs far behind the screen. At most a few lines wait
 their turn; past that the backlog is dropped and the newest line is read
@@ -352,8 +362,10 @@ instead, because speech describing a fight that has already ended helps nobody.
 The same line repeated within a second and a half is only said once.
 
 It speaks whether or not the game window is in front, which is the point of an
-alert. When you save the action it also says the message once, so you find out
-there and then whether this phone has a voice.
+alert.
+
+Timers have the same action, so a timer can say "potion ready" instead of only
+printing it.
 
 Examples (Literal off):
 

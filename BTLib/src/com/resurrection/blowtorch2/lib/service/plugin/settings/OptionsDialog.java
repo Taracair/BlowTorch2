@@ -1451,13 +1451,19 @@ public class OptionsDialog extends Dialog {
 			//TranslateAnimation inAnim = new TranslateAnimation(amount,0,0,0);
 			TranslateAnimation outAnim = new TranslateAnimation(Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,-1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
 			TranslateAnimation inAnim  = new TranslateAnimation(Animation.RELATIVE_TO_SELF,1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
-			outAnim.setDuration(500);
-			inAnim.setDuration(500);
+			outAnim.setDuration(PAGE_SLIDE_MS);
+			inAnim.setDuration(PAGE_SLIDE_MS);
 			f.setInAnimation(inAnim);
 			f.setOutAnimation(outAnim);
-			
-			
-			
+
+			// Draw each page into a texture for the length of the slide. A
+			// TranslateAnimation redraws what it moves on every frame, and what
+			// is moving here is a ListView whose rows build a CheckBox or a
+			// swatch as they bind — so the deeper pages, which have more rows,
+			// stutter while the top level does not. Cached, the slide is one
+			// texture moving.
+			liftPagesForSlide(f, newContent, inAnim);
+
 			f.showNext();
 		}
 		
@@ -1603,7 +1609,8 @@ public class OptionsDialog extends Dialog {
 			//TranslateAnimation inAnim = new TranslateAnimation(amount,0,0,0);
 			TranslateAnimation outAnim = new TranslateAnimation(Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,-1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
 			TranslateAnimation inAnim  = new TranslateAnimation(Animation.RELATIVE_TO_SELF,1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
-			
+			liftPagesForSlide(f, null, inAnim);
+
 			outAnim.setAnimationListener(new AnimationListener() {
 
 				@Override
@@ -1625,8 +1632,8 @@ public class OptionsDialog extends Dialog {
 				}
 				
 			});
-			outAnim.setDuration(500);
-			inAnim.setDuration(500);
+			outAnim.setDuration(PAGE_SLIDE_MS);
+			inAnim.setDuration(PAGE_SLIDE_MS);
 			f.setInAnimation(inAnim);
 			f.setOutAnimation(outAnim);
 			
@@ -1634,6 +1641,53 @@ public class OptionsDialog extends Dialog {
 		}
 	}
 	
+	/**
+	 * How long a page takes to slide in or out.
+	 *
+	 * <p>Was half a second. That is long enough to notice as slowness on its own,
+	 * and every frame of it is a frame that can be dropped.
+	 */
+	private static final int PAGE_SLIDE_MS = 200;
+
+	/**
+	 * Put the flipper's pages in hardware layers for the length of one slide.
+	 *
+	 * @param f the flipper.
+	 * @param incoming the page sliding in, when it is not a child yet.
+	 * @param inAnim the animation to hang the "put them back" on. Both pages are
+	 *        restored together: leaving a ListView in a layer costs memory and
+	 *        stops it redrawing when its rows change.
+	 */
+	private void liftPagesForSlide(final ViewFlipper f, final View incoming,
+			Animation inAnim) {
+		final java.util.ArrayList<View> lifted = new java.util.ArrayList<View>(2);
+		for (int i = 0; i < f.getChildCount(); i++) {
+			lifted.add(f.getChildAt(i));
+		}
+		if (incoming != null && !lifted.contains(incoming)) {
+			lifted.add(incoming);
+		}
+		for (View v : lifted) {
+			v.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+		}
+		inAnim.setAnimationListener(new AnimationListener() {
+			@Override
+			public void onAnimationEnd(Animation animation) {
+				for (View v : lifted) {
+					v.setLayerType(View.LAYER_TYPE_NONE, null);
+				}
+			}
+
+			@Override
+			public void onAnimationRepeat(Animation animation) {
+			}
+
+			@Override
+			public void onAnimationStart(Animation animation) {
+			}
+		});
+	}
+
 	private class BackPressedListener implements View.OnClickListener {
 
 		@Override
