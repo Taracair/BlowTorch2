@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="launcher_btn_new">New MUD</string>
+    <string name="launcher_menu_welcome">What is switched off</string>
     <string name="first_run_title">Most of this is switched off</string>
     <string name="first_run_message">BlowTorch has a lot in it — triggers, aliases, timers, a mapper, button pads, Lua plugins, word completion, protocol support most clients do not have.\n\nAll of that at once would be a wall, so nearly everything starts off. You get a plain terminal that works, and you turn things on one at a time as you find you want them.\n\nThe places to look are Options (the ⋮ menu once you are connected) and the user guide. Nothing you enable is permanent — every switch has an off.</string>
     <string name="first_run_guide">Open the guide</string>

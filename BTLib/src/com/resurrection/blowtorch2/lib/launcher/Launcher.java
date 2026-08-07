@@ -140,6 +140,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MENU_TOGGLE_STARTER_TUTORIAL = 113;
 	protected static final int MENU_CHECK_FOR_UPDATES = 114;
 	protected static final int MENU_CHECK_UPDATES_NOW = 115;
+	protected static final int MENU_WELCOME_NOTICE = 116;
 	
 	private IConnectionBinder service = null;
 	
@@ -1862,6 +1863,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		menu.add(0, MENU_CHECK_FOR_UPDATES, 0, R.string.launcher_menu_check_for_updates)
 				.setCheckable(true);
 		menu.add(0, MENU_CHECK_UPDATES_NOW, 0, R.string.launcher_menu_check_updates_now);
+		menu.add(0, MENU_WELCOME_NOTICE, 0, R.string.launcher_menu_welcome);
 		menu.add(0, MENU_ABOUT, 0, R.string.launcher_menu_about);
 
 		return true;
@@ -2033,6 +2035,14 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		case MENU_CHECK_UPDATES_NOW:
 			runManualUpdateCheck();
 			break;
+		case MENU_WELCOME_NOTICE:
+			// Deliberately ignores the one-shot flag: this is the player asking
+			// for it. It is also the only way to see the notice on a device the
+			// app was installed over rather than onto, which is every test build.
+			showFirstRunNotice(
+					getSharedPreferences(PREFS_FIRST_RUN, Context.MODE_PRIVATE));
+			break;
+
 		case MENU_ABOUT:
 			showAboutDialog();
 			break;
