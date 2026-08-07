@@ -525,6 +525,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		SDCardUtils.requestStartupPermissions(this, permissionRoot, RP_STARTUP);
 		buildList();
+		maybeShowFirstRunNotice();
 		maybeBackupBeforeUpdate();
 		maybeCheckForUpdates();
 		if(!serviceBound) {
@@ -1299,6 +1300,94 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 
 	/** Optional safety copy when the installed versionName changes (skip first install). */
+	/** One-shot flag for the welcome notice, kept out of the profile XML. */
+	private static final String PREFS_FIRST_RUN = "BT_FIRST_RUN_NOTICE";
+	private static final String KEY_FIRST_RUN_SHOWN = "shown";
+
+	/**
+	 * Say once, on a first install, that nearly everything is off on purpose.
+	 *
+	 * <p>The client has more in it than a first screen can suggest, and a new
+	 * player meeting all of it at once reads that as clutter rather than as
+	 * choice. This is the one place that says out loud that the emptiness is
+	 * deliberate and where the switches are.
+	 *
+	 * <p><b>Only on a real first install.</b> Someone who has been playing for a
+	 * year does not need to be told how the app they already configured works,
+	 * and an upgrade must not nag. The package's own install and update stamps
+	 * settle that exactly: they are equal until the app has been updated at
+	 * least once. A count of configured worlds would not — the launcher ships
+	 * with the Starter Tutorial in the list, so a fresh install has one already.
+	 */
+	private void maybeShowFirstRunNotice() {
+		final SharedPreferences prefs =
+				getSharedPreferences(PREFS_FIRST_RUN, Context.MODE_PRIVATE);
+		if (prefs.getBoolean(KEY_FIRST_RUN_SHOWN, false)) {
+			return;
+		}
+		if (isFirstInstall()) {
+			showFirstRunNotice(prefs);
+			return;
+		}
+		// An upgrade. Write the flag anyway, so this check is asked once and
+		// never again rather than on every launch for the rest of the install.
+		markFirstRunNoticeShown(prefs);
+	}
+
+	/** True until this package has been updated over itself at least once. */
+	private boolean isFirstInstall() {
+		try {
+			android.content.pm.PackageInfo info =
+					getPackageManager().getPackageInfo(getPackageName(), 0);
+			return info.lastUpdateTime <= info.firstInstallTime;
+		} catch (NameNotFoundException e) {
+			// Cannot tell. Staying quiet is the safe way to be wrong: a missed
+			// notice costs a new player one paragraph, a wrong one interrupts
+			// somebody who has used this for years.
+			return false;
+		}
+	}
+
+	private void showFirstRunNotice(final SharedPreferences prefs) {
+		AlertDialog dialog = new AlertDialog.Builder(Launcher.this)
+				.setTitle(R.string.first_run_title)
+				.setMessage(R.string.first_run_message)
+				.setCancelable(true)
+				.create();
+		dialog.setButton(AlertDialog.BUTTON_POSITIVE,
+				getString(R.string.first_run_guide),
+				new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface d, int which) {
+						markFirstRunNoticeShown(prefs);
+						new com.resurrection.blowtorch2.lib.window.HelpDialog(
+								Launcher.this).show();
+					}
+				});
+		dialog.setButton(AlertDialog.BUTTON_NEGATIVE,
+				getString(R.string.first_run_dismiss),
+				new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface d, int which) {
+						markFirstRunNoticeShown(prefs);
+					}
+				});
+		// Backing out counts as having seen it too. The alternative is a notice
+		// that comes back until it is dismissed the one approved way, which is
+		// the behaviour people mean when they call a dialog nagging.
+		dialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+			@Override
+			public void onCancel(DialogInterface d) {
+				markFirstRunNoticeShown(prefs);
+			}
+		});
+		dialog.show();
+	}
+
+	private void markFirstRunNoticeShown(final SharedPreferences prefs) {
+		prefs.edit().putBoolean(KEY_FIRST_RUN_SHOWN, true).commit();
+	}
+
 	private void maybeBackupBeforeUpdate() {
 		SharedPreferences prefs = getSharedPreferences("BT_UPDATE_BACKUP", Context.MODE_PRIVATE);
 		String last = prefs.getString("last_version", "");
