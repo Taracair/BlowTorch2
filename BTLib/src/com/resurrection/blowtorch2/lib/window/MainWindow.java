@@ -346,6 +346,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private String keepLastPendingReplace = null;
 	/** True while this watcher is the one editing the text. */
 	private boolean keepLastSuppress = false;
+	/** Was the kept line still selected when this edit started? Read in
+	 * beforeTextChanged, where the selection is the one from before the edit. */
+	private boolean keepLastWasSelected = false;
 	Boolean settingsLoaded = false; //synchronize or try to mitigate failures of writing button data, or failures to read data
 	/** Whether the service binding is currently up.
 	 *
@@ -5126,7 +5129,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		if (mInputBox != null) {
 			keepLastTextWatcher = new android.text.TextWatcher() {
-				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+				@Override
+				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+					if (keepLastSuppress || mInputBox == null) {
+						return;
+					}
+					// The selection here is still the pre-edit one, which is the only
+					// place it can be read: by onTextChanged the IME has already moved
+					// the cursor. The branch below means "the IME appended instead of
+					// replacing the selection", so it needs to know there *was* a
+					// selection. Tapping the word to deselect leaves start == end, and
+					// then a space is an ordinary keystroke at the end, not a replace.
+					keepLastWasSelected = mInputBox.getSelectionStart() == 0
+							&& mInputBox.getSelectionEnd() == keepLastReplaceLength
+							&& keepLastReplaceLength > 0;
+				}
 				@Override
 				public void onTextChanged(CharSequence s, int start, int before, int count) {
 					if (keepLastSuppress) {
@@ -5136,7 +5153,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						return;
 					}
 					int oldLen = s.length() - count + before;
-					if (before == 0 && start == oldLen && oldLen == keepLastReplaceLength) {
+					if (keepLastWasSelected && before == 0 && start == oldLen && oldLen == keepLastReplaceLength) {
 						// IME appended at the end instead of replacing the selection.
 						// Note it here, apply it in afterTextChanged: this callback
 						// runs while TextView is still walking its watcher list, and
@@ -5146,10 +5163,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						historyWidgetKept = false;
 						return;
 					}
-					if (before > 0 || start < keepLastReplaceLength) {
-						keepLastReplaceLength = 0;
-						historyWidgetKept = false;
-					}
+					// Anything else is the player editing the line by hand: either
+					// inside it, or at the end after deselecting it. Nothing left to
+					// replace, so drop the trap and the "↑ skips one" flag with it.
+					keepLastReplaceLength = 0;
+					historyWidgetKept = false;
 				}
 				@Override
 				public void afterTextChanged(android.text.Editable s) {
