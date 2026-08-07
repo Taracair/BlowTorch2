@@ -165,7 +165,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_ghost = new BooleanOption();
 		word_complete_ghost.setTitle("Show the rest of the word as you type");
-		word_complete_ghost.setDescription("Draw the top suggestion's remaining letters after the cursor in dimmed type, with a small 1 marking it as the first suggestion. It is only drawn, never put in the input bar, so what you send is always exactly what you typed. Toggle with .complete ghost on/off.");
+		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dimmed type, with a small 1 marking it as the first suggestion. Tap the ghost to take it. A word that continues what you typed shows only its missing letters; a forgiven typo shows the whole word behind an arrow, because its letters change rather than grow. It is only drawn, never put in the input bar, so what you send is always exactly what you typed. Toggle with .complete ghost on/off.");
 		word_complete_ghost.setKey("word_complete_ghost");
 		word_complete_ghost.setValue(false);
 		input.addOption(word_complete_ghost);

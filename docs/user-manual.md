@@ -41,7 +41,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
 ## Word completion (`.complete on`)
 
-    .complete on | off | lines N | 1..6
+    .complete on | off | lines N | 1..8
     .complete overlay on | off | opacity N
     .complete loose on | off | ghost on | off
 
@@ -98,13 +98,26 @@ marking it as the first suggestion — the same 1 that `.complete 1` takes.
     You type:   k gri
     You see:    k gri[zzled]¹    ← the bracketed part is dimmed, and not there
 
-That last part is literal: the ghost is **drawn, never put in the input bar**.
+**Tap the ghost to take it.** It is a target, not only a hint — the same result
+as tapping the first chip or sending `.complete 1`, without moving your thumb
+off the line you are typing.
+
+That "not there" is literal: the ghost is **drawn, never put in the input bar**.
 What you send is always exactly what you typed, so there is nothing to strip off
-and nothing that can go out by accident. It follows that the ghost takes part in
-no measurement either — one wider than the line is simply not drawn rather than
-wrapped, and the input bar grows with what you actually type, as it always has.
-The ghost is only shown when the suggestion *continues* what you typed, so a
-loose match gets a chip and no ghost: its letters would have to change, not grow.
+and nothing that can go out by accident.
+
+A forgiven typo gets a ghost too, in the other shape. Its letters have to
+change rather than grow, so the whole word is shown behind an arrow, and tapping
+it replaces what you typed:
+
+    You type:   k grzld
+    You see:    k grzld[ → grizzled]¹
+
+Because the ghost is drawn, it takes part in no measurement — it never makes the
+input bar taller or wider. When it does not fit the rest of the line it carries
+on at the start of the next line, if the bar already has one; when there is no
+next line it is cut short with `…`. The bar still grows with what you actually
+type, as it always has.
 
 **Stopping the game text from jumping.** By default the chips sit in a strip
 below the game window, and that strip takes height while it is showing — so the

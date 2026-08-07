@@ -14,6 +14,7 @@ import android.text.style.SuggestionSpan;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.CompletionInfo;
@@ -294,14 +295,43 @@ public class BetterEditText extends EditText {
 		return allowSuggestions;
 	}
 	
-	/** The rest of the suggested word, drawn after the caret. Never in the text. */
+	/** What is drawn after the caret. Never in the text. */
 	private String ghostText = null;
+	/** The whole word a tap on the ghost would put in the bar. */
+	private String ghostWord = null;
 	/** Which suggestion the ghost is, so {@code .complete N} matches what you see. */
 	private int ghostNumber = 0;
 	private android.text.TextPaint ghostPaint = null;
 
+	/** Told when the player taps the ghost itself. */
+	public interface GhostTapListener {
+		/** @param word the completion the ghost was standing for. */
+		void onGhostTapped(String word);
+	}
+
+	private GhostTapListener ghostTapListener = null;
+
 	/**
-	 * Show the rest of a suggested word after the caret, in dimmed type.
+	 * Where the ghost was last drawn, in this view's coordinates, so a tap can be
+	 * matched against what the player can actually see. Two, because a ghost that
+	 * does not fit the line is continued on the next one.
+	 */
+	private final android.graphics.RectF[] ghostRects = {
+		new android.graphics.RectF(), new android.graphics.RectF()
+	};
+	private int ghostRectCount = 0;
+	/** A touch that went down on the ghost, waiting to see if it is a tap. */
+	private boolean ghostTouchDown = false;
+
+	/** Widened so a thumb can hit a line of monospace type. */
+	private static final float GHOST_TOUCH_SLOP_DIP = 8f;
+
+	public void setGhostTapListener(final GhostTapListener listener) {
+		this.ghostTapListener = listener;
+	}
+
+	/**
+	 * Show a suggestion after the caret, in dimmed type.
 	 *
 	 * <p><b>Drawn, never inserted.</b> Putting the ghost in the Editable with a
 	 * span would mean every TextWatcher on this field sees it — including the
@@ -310,22 +340,34 @@ public class BetterEditText extends EditText {
 	 * wire. Drawing it keeps the text exactly what was typed, so there is nothing
 	 * to strip and nothing to get wrong.
 	 *
-	 * <p>The cost: it takes part in no measurement. A ghost wider than the line
-	 * is not drawn rather than wrapped, because wrapping it would mean making it
-	 * real. The bar still grows with what you actually type.
+	 * <p>The cost is still that it takes part in no measurement: the ghost never
+	 * makes the bar taller or wider. What it does now, rather than give up, is
+	 * use the room that is there — the rest of the line, then the next line if
+	 * the view already has one, and failing both an ellipsis. Something dimmed is
+	 * always visible, which is what makes it tappable.
 	 *
-	 * @param rest what would be appended; null or empty clears the ghost.
+	 * @param drawn what to show after the caret; null or empty clears the ghost.
+	 * @param word the whole completion a tap should insert. When the suggestion
+	 *        continues what was typed this is {@code typed + drawn}; for a
+	 *        forgiven typo the letters differ, which is exactly why the tap
+	 *        carries the word instead of re-deriving it from what is on screen.
 	 * @param number which suggestion this is, counting from 1; 0 draws no marker.
 	 */
-	public void setGhostCompletion(String rest, int number) {
-		String next = rest == null || rest.length() == 0 ? null : rest;
-		if (next == null ? ghostText == null : next.equals(ghostText)) {
-			if (number == ghostNumber) {
-				return;
-			}
+	public void setGhostCompletion(String drawn, String word, int number) {
+		String next = drawn == null || drawn.length() == 0 ? null : drawn;
+		boolean same = (next == null ? ghostText == null : next.equals(ghostText))
+				&& (word == null ? ghostWord == null : word.equals(ghostWord))
+				&& number == ghostNumber;
+		if (same) {
+			return;
 		}
 		ghostText = next;
+		ghostWord = word;
 		ghostNumber = number;
+		if (next == null) {
+			ghostRectCount = 0;
+			ghostTouchDown = false;
+		}
 		invalidate();
 	}
 
@@ -333,9 +375,15 @@ public class BetterEditText extends EditText {
 		return ghostText;
 	}
 
+	/** The word a tap on the ghost would insert; null when there is no ghost. */
+	public String getGhostWord() {
+		return ghostWord;
+	}
+
 	@Override
 	protected void onDraw(android.graphics.Canvas canvas) {
 		super.onDraw(canvas);
+		ghostRectCount = 0;
 		if (ghostText == null) {
 			return;
 		}
@@ -356,24 +404,144 @@ public class BetterEditText extends EditText {
 		ghostPaint.setColor((getCurrentTextColor() & 0x00FFFFFF) | 0x70000000);
 		int line = layout.getLineForOffset(at);
 		float x = layout.getPrimaryHorizontal(at);
+		float lineWidth = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
+		float room = lineWidth - x;
 		float ghostWidth = ghostPaint.measureText(ghostText);
-		float room = getWidth() - getTotalPaddingLeft() - getTotalPaddingRight() - x;
-		if (ghostWidth > room) {
-			return;
-		}
+
+		// The content origin. The scroll offsets matter once the bar has more
+		// lines than it is tall: TextView scrolls its own layout, and a ghost
+		// drawn without them lands under the visible text or off the view.
+		final float originX = getTotalPaddingLeft() - getScrollX();
+		final float originY = getTotalPaddingTop() - getScrollY();
 		canvas.save();
-		canvas.translate(getTotalPaddingLeft(), getTotalPaddingTop());
+		canvas.translate(originX, originY);
 		float baseline = layout.getLineBaseline(line);
-		canvas.drawText(ghostText, x, baseline, ghostPaint);
+		float top = layout.getLineTop(line);
+		float bottom = layout.getLineBottom(line);
+		float lineHeight = bottom - top;
+		float endX;
+		float endBaseline;
+
+		if (ghostWidth <= room) {
+			canvas.drawText(ghostText, x, baseline, ghostPaint);
+			addGhostRect(originX + x, originY + top, originX + x + ghostWidth,
+					originY + bottom);
+			endX = x + ghostWidth;
+			endBaseline = baseline;
+		} else {
+			int fits = ghostPaint.breakText(ghostText, true, room, null);
+			// A next line to continue on only exists if the view is already tall
+			// enough for one. The ghost never adds height — that would mean
+			// putting it in the text, which is the path this deliberately avoids.
+			boolean hasNextLine =
+					bottom + lineHeight <= layout.getHeight()
+					|| bottom + lineHeight <= getHeight() - getTotalPaddingTop()
+							- getTotalPaddingBottom();
+			if (fits > 0 && hasNextLine) {
+				String head = ghostText.substring(0, fits);
+				String tail = ghostText.substring(fits);
+				canvas.drawText(head, x, baseline, ghostPaint);
+				addGhostRect(originX + x, originY + top,
+						originX + x + ghostPaint.measureText(head), originY + bottom);
+				int tailFits = ghostPaint.breakText(tail, true, lineWidth, null);
+				if (tailFits < tail.length()) {
+					tail = tailFits > 0 ? tail.substring(0, tailFits - 1) + "…" : "…";
+				}
+				float tailWidth = ghostPaint.measureText(tail);
+				canvas.drawText(tail, 0, baseline + lineHeight, ghostPaint);
+				addGhostRect(originX, originY + bottom, originX + tailWidth,
+						originY + bottom + lineHeight);
+				endX = tailWidth;
+				endBaseline = baseline + lineHeight;
+			} else {
+				// No second line to use: show as much as the line holds and mark
+				// it cut. Silently drawing nothing was the old behaviour, and it
+				// read as "the ghost is broken".
+				String cut = fits > 1 ? ghostText.substring(0, fits - 1) + "…" : "…";
+				float cutWidth = ghostPaint.measureText(cut);
+				canvas.drawText(cut, x, baseline, ghostPaint);
+				addGhostRect(originX + x, originY + top, originX + x + cutWidth,
+						originY + bottom);
+				endX = x + cutWidth;
+				endBaseline = baseline;
+			}
+		}
+
 		if (ghostNumber > 0) {
 			// A micro digit above the ghost, so you can see which suggestion it is
 			// and reach it with .complete N without looking down at the strip.
 			android.text.TextPaint mark = new android.text.TextPaint(ghostPaint);
 			mark.setTextSize(ghostPaint.getTextSize() * 0.55f);
-			canvas.drawText(String.valueOf(ghostNumber), x + ghostWidth + 2,
-					baseline - ghostPaint.getTextSize() * 0.45f, mark);
+			canvas.drawText(String.valueOf(ghostNumber), endX + 2,
+					endBaseline - ghostPaint.getTextSize() * 0.45f, mark);
 		}
 		canvas.restore();
+	}
+
+	private void addGhostRect(final float left, final float top, final float right,
+			final float bottom) {
+		if (ghostRectCount >= ghostRects.length || right <= left) {
+			return;
+		}
+		float pad = GHOST_TOUCH_SLOP_DIP * getResources().getDisplayMetrics().density;
+		// Vertical slop only. Widening sideways would swallow taps meant for the
+		// text that ends where the ghost begins.
+		ghostRects[ghostRectCount].set(left, top - pad / 2f, right, bottom + pad / 2f);
+		ghostRectCount++;
+	}
+
+	/**
+	 * A tap on the ghost takes it.
+	 *
+	 * <p>Handled here rather than by a listener on the field, because only this
+	 * view knows where the ghost ended up — it is drawn, so there is no span to
+	 * hit-test. The down event is consumed when it lands on the ghost, which also
+	 * keeps the caret from moving out from under the suggestion before the tap
+	 * finishes.
+	 */
+	@Override
+	public boolean onTouchEvent(MotionEvent event) {
+		if (ghostText != null && ghostWord != null && ghostTapListener != null) {
+			switch (event.getActionMasked()) {
+			case MotionEvent.ACTION_DOWN:
+				if (hitsGhost(event.getX(), event.getY())) {
+					ghostTouchDown = true;
+					return true;
+				}
+				break;
+			case MotionEvent.ACTION_UP:
+				if (ghostTouchDown) {
+					ghostTouchDown = false;
+					String word = ghostWord;
+					if (hitsGhost(event.getX(), event.getY())) {
+						ghostTapListener.onGhostTapped(word);
+					}
+					return true;
+				}
+				break;
+			case MotionEvent.ACTION_CANCEL:
+				if (ghostTouchDown) {
+					ghostTouchDown = false;
+					return true;
+				}
+				break;
+			default:
+				if (ghostTouchDown) {
+					return true;
+				}
+				break;
+			}
+		}
+		return super.onTouchEvent(event);
+	}
+
+	private boolean hitsGhost(final float x, final float y) {
+		for (int i = 0; i < ghostRectCount; i++) {
+			if (ghostRects[i].contains(x, y)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override

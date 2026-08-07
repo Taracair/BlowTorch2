@@ -108,7 +108,7 @@ public class CompleteCommand extends SpecialCommand {
 				".complete on      — suggest words the game just used\n"
 				+ ".complete off     — stop\n"
 				+ ".complete lines N — how far back counts as recent (0 = all session)\n"
-				+ ".complete 1..6    — take that suggestion off the strip\n"
+				+ ".complete 1.." + MAX_PICK + "    — take that suggestion off the strip\n"
 				+ ".complete loose on|off   — grzld finds grizzled\n"
 				+ ".complete ghost on|off   — draw the rest of the word after the cursor\n"
 				+ ".complete overlay on|off — chips over the game text, nothing moves\n"

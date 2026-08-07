@@ -2472,11 +2472,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Put the rest of the top suggestion after the caret, in dimmed type.
+	 * Marks a ghost that is a correction rather than a continuation, so a
+	 * forgiven typo does not read as letters you are about to have appended.
+	 */
+	private static final String GHOST_CORRECTION_MARK = " → ";
+
+	/**
+	 * Put the top suggestion after the caret, in dimmed type.
 	 *
-	 * <p>Only when the suggestion actually continues what was typed. A loose
-	 * match ({@code grzld} → {@code grizzled}) has no "rest" to append — the
-	 * letters would have to change, not grow — so it gets a chip and no ghost.
+	 * <p>Two shapes, because there are two kinds of suggestion. When the word
+	 * continues what was typed, the ghost is just the rest of it: {@code gri}
+	 * with {@code grizzled} behind it. When the typo forgiver found it, the
+	 * letters have to change rather than grow, so the ghost shows the whole
+	 * word behind an arrow — {@code grzld → grizzled}. Both are tapped the same
+	 * way and both replace the half-typed word, because
+	 * {@link #acceptWordSuggestion} goes through
+	 * {@link WordSuggestions#complete}, which replaces rather than appends.
 	 *
 	 * @param prefix what the player has typed of this word.
 	 * @param words the suggestions, best first.
@@ -2488,17 +2499,36 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		if (!mWordSuggestionsGhost || words.isEmpty() || prefix == null
 				|| prefix.length() == 0) {
-			mInputBox.setGhostCompletion(null, 0);
+			mInputBox.setGhostCompletion(null, null, 0);
 			return;
 		}
 		String top = words.get(0);
-		if (top.length() <= prefix.length()
-				|| !top.toLowerCase(java.util.Locale.US)
-						.startsWith(prefix.toLowerCase(java.util.Locale.US))) {
-			mInputBox.setGhostCompletion(null, 0);
+		boolean continues = top.length() > prefix.length()
+				&& top.toLowerCase(java.util.Locale.US)
+						.startsWith(prefix.toLowerCase(java.util.Locale.US));
+		if (continues) {
+			mInputBox.setGhostCompletion(top.substring(prefix.length()), top, 1);
 			return;
 		}
-		mInputBox.setGhostCompletion(top.substring(prefix.length()), 1);
+		if (top.equalsIgnoreCase(prefix)) {
+			// Already typed in full. Nothing to show and nothing to take.
+			mInputBox.setGhostCompletion(null, null, 0);
+			return;
+		}
+		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top, top, 1);
+	}
+
+	/** Taking the ghost is taking the first suggestion — the same word. */
+	private void bindGhostTap() {
+		if (mInputBox == null) {
+			return;
+		}
+		mInputBox.setGhostTapListener(new BetterEditText.GhostTapListener() {
+			@Override
+			public void onGhostTapped(final String word) {
+				acceptWordSuggestion(word);
+			}
+		});
 	}
 
 	/**
@@ -5288,6 +5318,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		View v = findViewById(R.id.textinput);
 		mInputBox = (BetterEditText) v;
 		mInputBox.setId(ChromeController.LEGACY_TEXT_INPUT_ID);
+		bindGhostTap();
 
 		View inputBar = findViewById(R.id.inputbar);
 		mOriginalInputBarLayoutParams = new RelativeLayout.LayoutParams(inputBar.getLayoutParams());

@@ -59,8 +59,13 @@ public final class WordSuggestions {
 	 * How many suggestions fit on the strip without it becoming a wall — and so
 	 * how high {@code .complete N} goes. Written here rather than in the two
 	 * processes that need it, which would drift.
+	 *
+	 * <p>The strip scrolls sideways, so this is not a "what fits" number: it is
+	 * how many are worth reading before the list stops being a shortcut. Anything
+	 * that prints the range must read it from here — {@code .complete 1..N} in
+	 * the command's own help was written out by hand once and went stale.
 	 */
-	public static final int MAX_ON_STRIP = 6;
+	public static final int MAX_ON_STRIP = 8;
 
 	/**
 	 * How solid the chips are, as a percentage, when they are drawn over the game

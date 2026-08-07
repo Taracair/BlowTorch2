@@ -303,15 +303,23 @@ each has a dot form on `.complete`.
 - **Completion memory (lines)** — `.complete lines N`. Freshness is the last `N`
   lines the world sent (default 300), not a word count; `0` keeps the whole
   session. "Recent" then means on screen what it means to the completer.
-- **`.complete 1` … `.complete 6`** picks that chip. Meant for a super button /
+- **`.complete 1` … `.complete 8`** picks that chip. Meant for a super button /
   alias / trigger, not the input bar: typing into the bar replaces the word being
   completed, so the strip empties. Chips are numbered to match.
 - **Forgive typos in suggestions** — `.complete loose on|off`. Only after an exact
   prefix finds nothing: letters in order with gaps, `grzld` → `grizzled`. First
   letter must match, four-letter minimum.
 - **Show the rest of the word as you type** — `.complete ghost on|off`. Draws the
-  top suggestion's remainder after the cursor, dimmed, with a micro `1`. Drawn
-  only, never inserted, so what you send is exactly what you typed.
+  top suggestion after the cursor, dimmed, with a micro `1`. **Tap it to take
+  it** — the ghost is a target, not just a hint. Drawn only, never inserted, so
+  what you send is exactly what you typed.
+  - A continuation shows only the missing letters: `gri` with `zzled` behind it.
+  - A forgiven typo shows the whole word behind an arrow, because the letters
+    have to change rather than grow: `grzld → grizzled`. Tapping replaces what
+    you typed.
+  - The ghost never makes the bar taller. If it does not fit the rest of the
+    line it continues on the next line when the bar already has one, and is cut
+    with `…` when it does not.
 - **Suggestions float over the game** — `.complete overlay on|off`. The strip
   below the game window takes height, so the text jumps when a suggestion appears;
   floating over the game text costs the layout nothing and nothing moves.
