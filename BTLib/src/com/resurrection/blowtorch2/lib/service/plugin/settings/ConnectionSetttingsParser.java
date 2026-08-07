@@ -505,7 +505,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case word_complete_overlay:
-						if((Boolean)opt.getValue() != false) {
+						// Default is true; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}
 						break;

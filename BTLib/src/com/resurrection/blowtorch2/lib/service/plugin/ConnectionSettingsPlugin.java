@@ -174,7 +174,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_overlay.setTitle("Suggestions float over the game");
 		word_complete_overlay.setDescription("Draw the suggestion chips on top of the game text instead of in a strip below it. The strip takes height while it is showing, so the game window shrinks and the text jumps every time a suggestion appears; floating costs the layout nothing and nothing moves. Toggle with .complete overlay on/off.");
 		word_complete_overlay.setKey("word_complete_overlay");
-		word_complete_overlay.setValue(false);
+		// On by default. The strip below the game window takes height while it
+		// shows, so the text jumps under the thumb on every letter — the reason
+		// this option exists at all. The strip stays available for anyone who
+		// prefers it; the default is just no longer the one that moves the game.
+		// Change this and ConnectionSetttingsParser's comparison together, or the
+		// parser quietly stops saving the value the player chose.
+		word_complete_overlay.setValue(true);
 		input.addOption(word_complete_overlay);
 
 		IntegerOption word_complete_opacity = new IntegerOption();

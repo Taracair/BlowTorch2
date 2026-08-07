@@ -320,9 +320,12 @@ each has a dot form on `.complete`.
   - The ghost never makes the bar taller. If it does not fit the rest of the
     line it continues on the next line when the bar already has one, and is cut
     with `…` when it does not.
-- **Suggestions float over the game** — `.complete overlay on|off`. The strip
-  below the game window takes height, so the text jumps when a suggestion appears;
-  floating over the game text costs the layout nothing and nothing moves.
+- **Suggestions float over the game** — `.complete overlay on|off`. **On by
+  default.** The strip below the game window takes height, so the text jumps when
+  a suggestion appears; floating over the game text costs the layout nothing and
+  nothing moves. Turn it off to get the in-layout strip back. Either way the
+  panel now waits a moment before hiding, rather than blinking off on the first
+  prefix that matches nothing.
 - **Suggestion chip opacity (%)** — `.complete opacity N` (10–100). Fades the chip
   backing of the floating chips only; the words stay fully readable.
 - The learned vocabulary is dropped on connect, so one world's names are never

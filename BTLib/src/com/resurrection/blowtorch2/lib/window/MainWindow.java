@@ -2391,7 +2391,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private final java.util.List<String> mWordSuggestionList =
 			new java.util.ArrayList<String>();
 	/** Draw the chips over the game text instead of inside the input chrome. */
-	private boolean mWordSuggestionsOverlay = false;
+	private boolean mWordSuggestionsOverlay = true;
 	/** How solid the chips are, 10–100 percent. */
 	private int mWordSuggestionsOpacity = WordSuggestions.DEFAULT_OPACITY;
 	/** Set once the overlay copy is following the input bar's top edge. */
@@ -2432,6 +2432,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			trackInputBarForOverlay();
 		}
 		if (!mWordSuggestionsOn || mInputBox == null) {
+			// Clear the list before hiding: a pending delayed hide re-reads it to
+			// decide whether the panel is still wanted.
+			mWordSuggestionList.clear();
+			cancelWordSuggestionHide();
 			strip.setVisibility(View.GONE);
 			return;
 		}
@@ -2440,35 +2444,112 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String prefix = WordSuggestions.wordBefore(text, caret);
 		java.util.List<String> words =
 				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
-		row.removeAllViews();
 		mWordSuggestionList.clear();
 		mWordSuggestionList.addAll(words);
 		updateGhostCompletion(prefix, words);
 		if (words.isEmpty()) {
-			strip.setVisibility(View.GONE);
+			hideWordSuggestionsSoon(strip, row);
 			return;
 		}
+		cancelWordSuggestionHide();
 		for (int i = 0; i < words.size(); i++) {
 			final String word = words.get(i);
-			Button chip = new Button(this);
+			Button chip = chipAt(row, i);
 			chip.setText(numberedChipLabel(i + 1, word));
-			chip.setTextSize(13);
-			chip.setAllCaps(false);
-			chip.setPadding(18, 4, 18, 4);
-			chip.setMinWidth(0);
-			chip.setMinimumWidth(0);
 			applyChipOpacity(chip);
-			chip.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					acceptWordSuggestion(word);
-				}
-			});
-			row.addView(chip);
+			chip.setTag(word);
+			chip.setVisibility(View.VISIBLE);
+		}
+		// Spare chips are hidden, not removed: the next keystroke almost always
+		// wants them back, and removing and re-inflating on every letter is what
+		// made the strip flicker.
+		for (int i = words.size(); i < row.getChildCount(); i++) {
+			row.getChildAt(i).setVisibility(View.GONE);
 		}
 		applyStripOpacity(strip);
 		strip.setVisibility(View.VISIBLE);
 		strip.scrollTo(0, 0);
+	}
+
+	/**
+	 * The i-th chip, made once and kept.
+	 *
+	 * <p>The click listener reads the word off the view's tag rather than
+	 * closing over it, so the listener survives the chip being reused for a
+	 * different word — which is the whole point of keeping it.
+	 */
+	private Button chipAt(final LinearLayout row, final int i) {
+		if (i < row.getChildCount()) {
+			return (Button) row.getChildAt(i);
+		}
+		Button chip = new Button(this);
+		chip.setTextSize(13);
+		chip.setAllCaps(false);
+		chip.setPadding(18, 4, 18, 4);
+		chip.setMinWidth(0);
+		chip.setMinimumWidth(0);
+		chip.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Object word = v.getTag();
+				if (word instanceof String) {
+					acceptWordSuggestion((String) word);
+				}
+			}
+		});
+		row.addView(chip);
+		return chip;
+	}
+
+	/**
+	 * How long an empty strip stays up before it goes.
+	 *
+	 * <p>Typing walks through prefixes that match nothing on the way to one that
+	 * does — {@code gri} matches, {@code griz} may not until the next letter.
+	 * Hiding on the first empty result means the panel blinks on and off under
+	 * the thumb, which is what made it unbearable. Long enough to ride out a
+	 * keystroke, short enough that a panel over the game text does not linger.
+	 */
+	private static final long WORD_SUGGESTION_HIDE_DELAY_MS = 400;
+
+	private Runnable mWordSuggestionHide = null;
+
+	private void hideWordSuggestionsSoon(final View strip, final LinearLayout row) {
+		if (strip.getVisibility() != View.VISIBLE) {
+			return;
+		}
+		if (mWordSuggestionHide != null) {
+			return;
+		}
+		mWordSuggestionHide = new Runnable() {
+			@Override
+			public void run() {
+				mWordSuggestionHide = null;
+				// Re-check: the delay is long enough for the player to have typed
+				// a letter that matches again.
+				if (!mWordSuggestionList.isEmpty()) {
+					return;
+				}
+				strip.setVisibility(View.GONE);
+				for (int i = 0; i < row.getChildCount(); i++) {
+					row.getChildAt(i).setVisibility(View.GONE);
+				}
+			}
+		};
+		strip.postDelayed(mWordSuggestionHide, WORD_SUGGESTION_HIDE_DELAY_MS);
+	}
+
+	private void cancelWordSuggestionHide() {
+		if (mWordSuggestionHide == null) {
+			return;
+		}
+		View strip = findViewById(mWordSuggestionsOverlay
+				? R.id.input_word_suggestions_float
+				: R.id.input_word_suggestions);
+		if (strip != null) {
+			strip.removeCallbacks(mWordSuggestionHide);
+		}
+		mWordSuggestionHide = null;
 	}
 
 	/**

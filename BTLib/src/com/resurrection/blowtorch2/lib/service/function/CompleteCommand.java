@@ -111,7 +111,7 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".complete 1.." + MAX_PICK + "    — take that suggestion off the strip\n"
 				+ ".complete loose on|off   — grzld finds grizzled\n"
 				+ ".complete ghost on|off   — draw the rest of the word after the cursor\n"
-				+ ".complete overlay on|off — chips over the game text, nothing moves\n"
+				+ ".complete overlay on|off — chips over the game text (on by default)\n"
 				+ ".complete opacity N      — how solid those chips are\n"
 				+ ".complete         — say which it is\n\n"
 				+ "This completes mob names, player names and item words the\n"

@@ -119,12 +119,19 @@ on at the start of the next line, if the bar already has one; when there is no
 next line it is cut short with `…`. The bar still grows with what you actually
 type, as it always has.
 
-**Stopping the game text from jumping.** By default the chips sit in a strip
-below the game window, and that strip takes height while it is showing — so the
-window shrinks a little every time a suggestion appears and grows back when it
-goes, and the text hops with it. `.complete overlay on` draws the same chips
-*over* the game text instead, resting on the top edge of the input bar. They
-cost the layout nothing, so nothing moves.
+**Where the chips sit.** By default they float *over* the game text, resting on
+the top edge of the input bar. They cost the layout nothing, so nothing moves
+when they appear or go.
+
+`.complete overlay off` puts them back in a strip below the game window instead.
+That strip takes height while it is showing, so the window shrinks a little
+every time a suggestion appears and grows back when it goes, and the text hops
+with it — which is why floating is the default. The strip is still there for
+anyone who would rather have the chips out of the way of the game text.
+
+Either way the chips no longer blink on and off as you type: an empty panel
+waits a moment before it goes, because typing walks through prefixes that match
+nothing on the way to one that does.
 
 `.complete opacity 40` makes them see-through enough to read the line behind
 them. Only the backing fades — the words stay fully readable at every setting,
