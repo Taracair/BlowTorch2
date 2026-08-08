@@ -496,14 +496,63 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
-	public void aNewWorldForgetsThePairingsToo() {
+	public void forgettingOnPurposeTakesThePairingsToo() {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
 		w.setPairRanking(true);
 		w.learnCommand("kill troll");
-		w.clear();
+		w.clearCommandKnowledge();
 		w.learn("a troll waits\na trophy hangs here\n");
 		assertEquals("trophy", w.suggest("tro", 5, false, "kill").get(0));
+	}
+
+	@Test
+	public void whatWasLearnedSurvivesBeingWrittenOutAndReadBack() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learnCommand("kill troll");
+		w.learnCommand("kill troll");
+		w.learnCommand("wear trophy");
+		String stored = w.exportCommandKnowledge();
+
+		WordSuggestions back = new WordSuggestions();
+		back.setRankByPosition(true);
+		back.setPairRanking(true);
+		back.importCommandKnowledge(stored);
+		back.learn("a troll waits\na trophy hangs here\n");
+		// The counts came back too, not just the names: kill leads with troll.
+		assertEquals("troll", back.suggest("tro", 5, false, "kill").get(0));
+		assertEquals("trophy", back.suggest("tro", 5, false, "wear").get(0));
+	}
+
+	@Test
+	public void aDamagedStoreCostsThePairingsAndNothingElse() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		// Half a file, a hand edit, somebody else's format. None of it may throw.
+		w.importCommandKnowledge("<commandknowledge>\n  <verb w=\"kil");
+		w.importCommandKnowledge("nonsense");
+		w.importCommandKnowledge("");
+		w.importCommandKnowledge(null);
+		w.learn("a troll waits\n");
+		assertTrue(w.suggest("tro", 5, false, "kill").contains("troll"));
+	}
+
+	@Test
+	public void aWordWithPunctuationInItSurvivesTheRoundTrip() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learnCommand("kill mage's-familiar");
+		WordSuggestions back = new WordSuggestions();
+		back.setRankByPosition(true);
+		back.setPairRanking(true);
+		back.importCommandKnowledge(w.exportCommandKnowledge());
+		back.learn("the mage's-familiar waits\na mageburner here\n");
+		assertEquals("mage's-familiar",
+				back.suggest("mage", 5, false, "kill").get(0));
 	}
 
 	@Test
@@ -584,10 +633,23 @@ public class WordSuggestionsTest {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
 		w.learnCommand("kill troll");
-		w.clear();
+		w.clearCommandKnowledge();
 		w.learn("You kill the troll.\nYou kindle a torch.\n");
 		// Nothing known about commands here, so newest-first stands.
 		assertEquals("kindle", w.suggest("ki", 5, true).get(0));
+	}
+
+	@Test
+	public void connectingAgainKeepsWhatYourCommandsTaught() {
+		// clear() is the per-connect reset, and it must no longer take the
+		// pairings with it: they are kept per world in a file, and wiping them
+		// on every connect is what stopped C3 ever reaching "played a while".
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learnCommand("kill troll");
+		w.clear();
+		w.learn("You kill the troll.\nYou kindle a torch.\n");
+		assertEquals("kill", w.suggest("ki", 5, true).get(0));
 	}
 
 	@Test

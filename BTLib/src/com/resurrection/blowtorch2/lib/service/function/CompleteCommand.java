@@ -98,6 +98,12 @@ public class CompleteCommand extends SpecialCommand {
 					"The suggestion bar hides itself when there is nothing to"
 						+ " suggest.");
 		}
+		if (arg.equals("learned") || arg.equals("bag")) {
+			return showLearned(c);
+		}
+		if (arg.equals("clear") || arg.equals("forget")) {
+			return forgetLearned(c);
+		}
 		if (arg.startsWith("pairs")) {
 			return setFlag(arg.substring("pairs".length()).trim(), c, PAIRS_KEY,
 					"After a command word, what you have aimed that command at before"
@@ -169,7 +175,8 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/ghost/persist/rank/pairs on|off, opacity N\n");
+					+ " phrases/loose/ghost/persist/rank/pairs on|off, opacity N,"
+					+ " learned, clear\n");
 			return null;
 		}
 		c.sendDataToWindow(getErrorMessage("Suggestions usage:",
@@ -302,6 +309,44 @@ public class CompleteCommand extends SpecialCommand {
 	}
 
 	/** on|off for one of the plain switches, with its own two sentences. */
+	/**
+	 * Print what this world's commands have taught.
+	 *
+	 * <p>Read from the file the UI process keeps rather than asked of it across
+	 * the binder: the knowledge is already written out every ten seconds and at
+	 * every pause, both processes see the same settings folder, and a report is
+	 * not worth a new round trip on a path that has to stay quiet.
+	 */
+	private Object showLearned(Connection c) {
+		com.resurrection.blowtorch2.lib.window.WordSuggestions w =
+				new com.resurrection.blowtorch2.lib.window.WordSuggestions();
+		com.resurrection.blowtorch2.lib.window.CommandKnowledgeStore.load(
+				c.getServiceContext(), c.getDisplayName(), w);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ "What your commands have taught on this world"
+				+ Colorizer.getWhiteColor() + "\n"
+				+ w.describeLearned(12, 6)
+				+ "(" + w.describeCommandKnowledge() + ")\n"
+				+ "Kept per world, and it travels with the world when you export it."
+				+ " .suggest clear throws it away.\n");
+		return null;
+	}
+
+	/** Throw away the vocabulary and the learned pairings, on disk as well. */
+	private Object forgetLearned(Connection c) {
+		// The file first, then the reset: the UI reloads this world's pairings
+		// when it takes a vocabulary reset, so a file still there would come
+		// straight back in.
+		com.resurrection.blowtorch2.lib.window.CommandKnowledgeStore.erase(
+				c.getServiceContext(), c.getDisplayName());
+		c.resetVocabulary();
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ "Forgotten: the words this session had picked up, and everything"
+				+ " your commands had taught on this world."
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
 	private Object setFlag(String arg, Connection c, String key,
 			String onText, String offText) {
 		if (arg.length() == 0) {

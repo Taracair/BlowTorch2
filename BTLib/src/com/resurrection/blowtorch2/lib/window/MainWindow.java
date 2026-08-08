@@ -1199,6 +1199,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// nothing to what can be completed, only to what is known
 						// about where a word belongs in a line.
 						mWordSuggestions.learnCommand(pdata);
+						mCommandKnowledgeDirty = true;
+						maybeSaveCommandKnowledge();
 					}
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
@@ -1346,7 +1348,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					refreshWordSuggestions();
 					break;
 				case MESSAGE_VOCABULARY_RESET:
+					// The session vocabulary goes; what this world's own commands
+					// taught comes back from its file. That split is the whole
+					// point: the reset exists so one world's mob names do not
+					// reach another, and a per-world file provides that scoping
+					// without throwing the pairings away every time you connect.
 					mWordSuggestions.clear();
+					CommandKnowledgeStore.load(MainWindow.this,
+							getConnectionDisplay(), mWordSuggestions);
 					refreshWordSuggestions();
 					break;
 				case MESSAGE_PICK_COMPLETION:
@@ -3154,6 +3163,48 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return count > 1 ? " +" + (count - 1) : "";
 	}
 
+	/**
+	 * Whether anything has been learned since the last write.
+	 *
+	 * <p>Saved when the window goes away rather than on every command: this is
+	 * a file write, the input path is the one place that must stay quick, and
+	 * losing the last few commands of a session that was killed outright is a
+	 * far smaller loss than a stutter on every line sent.
+	 */
+	private boolean mCommandKnowledgeDirty = false;
+
+	/** No more often than this while playing. */
+	private static final long COMMAND_KNOWLEDGE_SAVE_GAP_MS = 10000;
+
+	private long mCommandKnowledgeSavedAt = 0;
+
+	/**
+	 * Write occasionally while playing, not on every command.
+	 *
+	 * <p>{@code .suggest learned} reads the file rather than asking this process
+	 * across the binder, so the file has to be roughly current or the report
+	 * would show nothing until the window was next paused. Ten seconds keeps it
+	 * honest at a cost of one small write per ten seconds of active typing.
+	 */
+	private void maybeSaveCommandKnowledge() {
+		long now = android.os.SystemClock.elapsedRealtime();
+		if (mCommandKnowledgeSavedAt != 0
+				&& now - mCommandKnowledgeSavedAt < COMMAND_KNOWLEDGE_SAVE_GAP_MS) {
+			return;
+		}
+		mCommandKnowledgeSavedAt = now;
+		saveCommandKnowledge();
+	}
+
+	/** Write this world's pairings out, if there is anything new in them. */
+	private void saveCommandKnowledge() {
+		if (!mCommandKnowledgeDirty) {
+			return;
+		}
+		mCommandKnowledgeDirty = false;
+		CommandKnowledgeStore.save(this, getConnectionDisplay(), mWordSuggestions);
+	}
+
 	/** What the service was last told about the input bar being in use. */
 	private boolean mTypingReported = false;
 	/** When that was said, so a stale "still typing" can be said again. */
@@ -4090,6 +4141,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (floatingButtons != null) {
 			floatingButtons.onPause();
 		}
+		// Before the early return: a pause with no service is still a pause, and
+		// this is the last reliable moment to write what the session taught.
+		saveCommandKnowledge();
 		if(service == null) { super.onPause(); return; };
 		cancelTouchOnPause();
 		try {

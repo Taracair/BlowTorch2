@@ -827,14 +827,184 @@ public final class WordSuggestions {
 		return at == needle.length();
 	}
 
-	/** Everything learned so far is dropped — a new world, a new vocabulary. */
-	public void clear() {
-		words.clear();
-		// The player's command habits are per world too: the verbs one MUD takes
-		// are not the verbs the next one takes.
+	/**
+	 * Forget what the player's own commands taught.
+	 *
+	 * <p>Separate from {@link #clear} because it has a separate lifetime: the
+	 * vocabulary is this session on this world, and this is every session on it.
+	 */
+	public void clearCommandKnowledge() {
 		verbs.clear();
 		objects.clear();
 		verbObjects.clear();
+	}
+
+	/**
+	 * What the player's commands have taught, as an XML body.
+	 *
+	 * <p>Stored in the app's settings folder, which the world backup already
+	 * zips by extension — so this rides along with an exported world instead of
+	 * needing an export of its own.
+	 *
+	 * @return the body; empty when there is nothing worth writing.
+	 */
+	public String exportCommandKnowledge() {
+		if (verbs.isEmpty() && objects.isEmpty() && verbObjects.isEmpty()) {
+			return "";
+		}
+		StringBuilder out = new StringBuilder();
+		out.append("<commandknowledge>\n");
+		for (String v : verbs) {
+			out.append("  <verb w=\"").append(escape(v)).append("\"/>\n");
+		}
+		for (String o : objects) {
+			out.append("  <target w=\"").append(escape(o)).append("\"/>\n");
+		}
+		for (Map.Entry<String, LinkedHashMap<String, Integer>> e : verbObjects.entrySet()) {
+			for (Map.Entry<String, Integer> t : e.getValue().entrySet()) {
+				out.append("  <pair v=\"").append(escape(e.getKey()))
+					.append("\" t=\"").append(escape(t.getKey()))
+					.append("\" n=\"").append(t.getValue()).append("\"/>\n");
+			}
+		}
+		out.append("</commandknowledge>\n");
+		return out.toString();
+	}
+
+	/**
+	 * Read back what {@link #exportCommandKnowledge} wrote.
+	 *
+	 * <p>Deliberately forgiving. This file can be hand-edited, can arrive inside
+	 * somebody else's exported world, and can be half-written if the phone died
+	 * mid-save. A row it cannot read is skipped rather than thrown: a damaged
+	 * file costs the pairings, not the ability to play.
+	 *
+	 * @param body what was stored; replaces whatever is held.
+	 */
+	public void importCommandKnowledge(final String body) {
+		clearCommandKnowledge();
+		if (body == null || body.length() == 0) {
+			return;
+		}
+		java.util.regex.Matcher m = KNOWLEDGE_ROW.matcher(body);
+		while (m.find()) {
+			String kind = m.group(1);
+			if ("verb".equals(kind)) {
+				remember(verbs, unescape(m.group(2)));
+			} else if ("target".equals(kind)) {
+				remember(objects, unescape(m.group(2)));
+			} else {
+				String verb = unescape(m.group(3));
+				String target = unescape(m.group(4));
+				int n;
+				try {
+					n = Integer.parseInt(m.group(5));
+				} catch (NumberFormatException e) {
+					n = 1;
+				}
+				// Replayed rather than assigned, so one path builds the counts and
+				// the caps apply to a restored file exactly as they do to play.
+				if (n > MAX_OBJECTS_PER_VERB) {
+					n = MAX_OBJECTS_PER_VERB;
+				}
+				for (int i = 0; i < n; i++) {
+					rememberPair(verb, target);
+				}
+			}
+		}
+	}
+
+	/** One row of the stored knowledge: a verb, a target, or a pairing. */
+	private static final java.util.regex.Pattern KNOWLEDGE_ROW =
+			java.util.regex.Pattern.compile(
+				"<(verb|target) w=\"([^\"]*)\"/>"
+				+ "|<pair v=\"([^\"]*)\" t=\"([^\"]*)\" n=\"(\\d+)\"/>");
+
+	private static String escape(final String in) {
+		return in == null ? "" : in.replace("&", "&amp;").replace("\"", "&quot;")
+				.replace("<", "&lt;").replace(">", "&gt;");
+	}
+
+	private static String unescape(final String in) {
+		return in == null ? "" : in.replace("&quot;", "\"").replace("&lt;", "<")
+				.replace("&gt;", ">").replace("&amp;", "&");
+	}
+
+	/** A one-line summary of what has been learned from the player's commands. */
+	public String describeCommandKnowledge() {
+		return verbs.size() + " verbs, " + objects.size() + " targets, "
+				+ verbObjects.size() + " verbs with pairings";
+	}
+
+	/**
+	 * What the player's commands have taught, in words, newest verb first.
+	 *
+	 * <p>Read-only: a report about the store must not disturb it, the same rule
+	 * {@code CommandKeeper.peekNewest} had to learn. Capped in both directions,
+	 * because this is printed into the game window and a hundred verbs would
+	 * scroll away the thing that was being read.
+	 *
+	 * @param maxVerbs how many verbs to describe.
+	 * @param maxObjects how many targets to name per verb.
+	 * @return one line per verb, or a sentence saying there is nothing yet.
+	 */
+	public String describeLearned(final int maxVerbs, final int maxObjects) {
+		if (verbObjects.isEmpty()) {
+			return verbs.isEmpty()
+					? "Nothing learned from your commands yet."
+					: verbs.size() + " command words so far, but nothing has been"
+						+ " aimed at anything yet.";
+		}
+		List<String> verbList = new ArrayList<String>(verbObjects.keySet());
+		StringBuilder out = new StringBuilder();
+		int shown = 0;
+		for (int i = verbList.size() - 1; i >= 0 && shown < maxVerbs; i--, shown++) {
+			String verb = verbList.get(i);
+			LinkedHashMap<String, Integer> seen = verbObjects.get(verb);
+			if (seen == null || seen.isEmpty()) {
+				continue;
+			}
+			List<String> targets = new ArrayList<String>(seen.keySet());
+			// Most-used first, which is the order the ranking itself uses.
+			final LinkedHashMap<String, Integer> counts = seen;
+			java.util.Collections.sort(targets, new java.util.Comparator<String>() {
+				@Override
+				public int compare(String a, String b) {
+					int ca = counts.get(a) == null ? 0 : counts.get(a).intValue();
+					int cb = counts.get(b) == null ? 0 : counts.get(b).intValue();
+					return cb - ca;
+				}
+			});
+			out.append(verb).append(": ");
+			for (int j = 0; j < targets.size() && j < maxObjects; j++) {
+				if (j > 0) {
+					out.append(", ");
+				}
+				out.append(targets.get(j)).append(" (")
+					.append(counts.get(targets.get(j))).append(")");
+			}
+			if (targets.size() > maxObjects) {
+				out.append(", and ").append(targets.size() - maxObjects).append(" more");
+			}
+			out.append("\n");
+		}
+		if (verbList.size() > shown) {
+			out.append("and ").append(verbList.size() - shown)
+				.append(" more command words.\n");
+		}
+		return out.toString();
+	}
+
+	/**
+	 * Everything learned so far is dropped — a new world, a new vocabulary.
+	 *
+	 * <p>The session vocabulary only. What the player's own commands taught is
+	 * kept per world in a file now, so wiping it here would throw away on every
+	 * connect the very thing that is supposed to build up across them. Use
+	 * {@link #clearCommandKnowledge} for that, deliberately.
+	 */
+	public void clear() {
+		words.clear();
 		linesSeen = 0;
 		lastWordLine = 0;
 		pending = "";

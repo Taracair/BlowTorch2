@@ -4513,6 +4513,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @return the display name for this connection.
 	 */
+	/** The service's context, for the few things that need one out here. */
+	public final android.content.Context getServiceContext() {
+		return mService == null ? null : mService.getApplicationContext();
+	}
+
+	/**
+	 * Drop the completer's vocabulary and reload what this world has taught.
+	 *
+	 * <p>The same message the connect path sends. Exposed so {@code .suggest
+	 * clear} can empty the bag without knowing how the UI is reached.
+	 */
+	public final void resetVocabulary() {
+		mService.doVocabularyReset();
+	}
+
 	public final String getDisplayName() {
 		return mDisplay;
 	}

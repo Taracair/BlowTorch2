@@ -149,6 +149,19 @@ means three more are waiting. They are on the bar, and `.suggest 2`,
 `.suggest 3` and so on take them without looking. If you are using the ghost
 with `.suggest where off`, that mark is the only sign the rest exist.
 
+    .suggest learned    what your commands have taught on this world
+    .suggest clear      throw all of it away, including the file
+
+**It is kept per world, and it travels with the world.** Each MUD has its own
+bag, because `kill` means something different on each of them. The bag lives in
+the app's settings folder, which is what a world backup already carries — so
+exporting a world takes its learned pairings with it, and importing one brings
+them back. There is nothing separate to remember to export.
+
+It is small: a few kilobytes for ordinary play, and it cannot grow past about a
+hundred even if you try. The app itself does not get any bigger — this is data
+on the phone, not something shipped inside it.
+
 **When you mistype it.** `.suggest loose on` adds a second pass: if the exact
 spelling finds nothing, a word whose letters you typed *in order, with gaps* is
 offered instead. `grzld` finds `grizzled`. It only ever runs after an exact
