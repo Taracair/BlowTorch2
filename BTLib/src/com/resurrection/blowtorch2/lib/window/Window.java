@@ -4761,9 +4761,6 @@ activity = GetActivity()
 		@Override
 		public int execute() throws LuaException {
 			// TODO Auto-generated method stub
-			android.util.Log.i("BTPROF", "luaGetStatusBarHeight="
-					+ (int) Window.this.mParent.getStatusBarHeight()
-					+ " hidden=" + Window.this.mParent.isStatusBarHidden());
 			L.pushString(Integer.toString((int)Window.this.mParent.getStatusBarHeight()));
 			return 1;
 		}

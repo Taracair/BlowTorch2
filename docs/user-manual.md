@@ -988,7 +988,7 @@ is enabled; `.alias list` shows every alias at once.
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
-    `.clearbuttons`                     Clear on-screen buttons (`button_window` may re-register)
+    `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback search; see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
@@ -1772,8 +1772,16 @@ your own commands are printed into the game window at all.
 ### `button_window` (default Free build)
 
     `.loadset <name>`   Load named button set
-    `.clearbuttons`     Clear via button window
+    `.clearbuttons`     Hide every button for a clear view of the game
     `.layoutwizard`     Open the button layout wizard (packs, set names, size)
+
+**Getting the buttons back after `.clearbuttons`.** One button labelled **BACK**
+is left behind — press it and the whole set returns. So does pressing anywhere a
+button used to be: while the set is hidden, any press restores it rather than
+sending a command, so a stray tap cannot fire something you did not mean. The
+set also comes back by itself when you switch to another world or reopen the
+app; nothing is lost either way, and the layout editor is off while the buttons
+are hidden.
 
 ### `starter_tutorial` (loaded by default)
 

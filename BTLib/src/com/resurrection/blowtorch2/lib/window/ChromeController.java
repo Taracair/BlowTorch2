@@ -139,11 +139,6 @@ public final class ChromeController {
 		// keyboard-mode floaters stay hidden, and there is no fallback that works
 		// under adjustNothing.
 		int lift = Math.max(0, ime.bottom - bars.bottom);
-		android.util.Log.i("BTPROF", "insets lift=" + lift
-				+ " imeBottom=" + ime.bottom + " barsBottom=" + bars.bottom
-				+ " barsTop=" + bars.top + " wasLift=" + imeLiftPx
-				+ " wasBarsTop=" + statusBarHeight
-				+ " fullScreen=" + isFullScreen);
 		scheduleInsetApply((RelativeLayout) view, lift, statusBarInsetToTrust(bars.top));
 		return windowInsets;
 	}
@@ -215,7 +210,6 @@ public final class ChromeController {
 	}
 
 	private void applyInsets(RelativeLayout view, int lift, int barsTop) {
-		android.util.Log.i("BTPROF", "insetsApply lift=" + lift + " barsTop=" + barsTop);
 		applyImeChromeLift(view, lift);
 		imeLiftPx = lift;
 		activity.onFloatingButtonsImeLift(lift);
