@@ -48,9 +48,14 @@ public final class DeviceStateWatcher {
 	 * than a deliberate cover. Told apart by time, not by how hard the gesture
 	 * was done — the one distinction a proximity sensor can make reliably.
 	 */
-	private static final long WAVE_MAX_MILLIS = 900L;
 	/** How long a hand must stay put before it is a cover. */
 	private static final long COVER_MILLIS = 1000L;
+	/**
+	 * Anything shorter than a cover is a wave. Deliberately the same number:
+	 * with a gap between the two, a hand held for exactly that long would be
+	 * neither, and the gesture would fail intermittently for no visible reason.
+	 */
+	private static final long WAVE_MAX_MILLIS = COVER_MILLIS;
 	/**
 	 * How hard a shake has to be, in m/s2.
 	 *
@@ -70,6 +75,7 @@ public final class DeviceStateWatcher {
 	private Sensor proximity;
 	private Sensor motion;
 	private boolean motionHasGravity;
+	private boolean proximitySeeded;
 	private long coveredSince;
 	private long lastShakeAt;
 	private Runnable pendingCover;
@@ -127,7 +133,20 @@ public final class DeviceStateWatcher {
 			}
 			boolean covered = DeviceState.isCovered(event.values[0],
 					proximity.getMaximumRange());
-			if (state.setCovered(covered)) {
+			boolean changed = state.setCovered(covered);
+			if (!proximitySeeded) {
+				// Proximity is on-change: registering delivers the current value
+				// straight away, and that first reading is not a gesture. A phone
+				// lying face down or sitting in a pocket when the sensor is picked
+				// up would otherwise "cover" a second later and send whatever the
+				// player bound to it, with nobody having moved a hand.
+				proximitySeeded = true;
+				if (changed) {
+					push();
+				}
+				return;
+			}
+			if (changed) {
 				push();
 				onCoverChanged(covered);
 			}
@@ -234,6 +253,7 @@ public final class DeviceStateWatcher {
 		if (proximity == null) {
 			return;
 		}
+		proximitySeeded = false;
 		try {
 			sensorRegistered = m.registerListener(proximityListener, proximity,
 					SensorManager.SENSOR_DELAY_NORMAL, handler);
@@ -293,6 +313,7 @@ public final class DeviceStateWatcher {
 			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterProximity", e);
 		}
 		sensorRegistered = false;
+		proximitySeeded = false;
 		if (pendingCover != null) {
 			handler.removeCallbacks(pendingCover);
 			pendingCover = null;
