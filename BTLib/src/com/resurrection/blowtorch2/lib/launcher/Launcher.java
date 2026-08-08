@@ -581,7 +581,70 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		super.onWindowFocusChanged(hasFocus);
 		if (hasFocus) {
 			styleLauncherActionButton((Button) findViewById(R.id.new_connection));
+			warmChromeInsetPrefs();
 		}
+	}
+
+	/**
+	 * The top inset, which is what {@code :stellar} is told the action bar is.
+	 *
+	 * <p>Only meaningful once the window has been laid out, which is why the
+	 * warm write below hangs off focus rather than off {@code onCreate}.
+	 */
+	private int measureStatusBarHeight() {
+		Rect rect = new Rect();
+		getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
+		return rect.top;
+	}
+
+	/**
+	 * Get the inset preferences written and the preferences file loaded before
+	 * a world is tapped, so tapping one is not the thing that pays for it.
+	 *
+	 * <p>Off the main thread because at this point nothing is waiting: the
+	 * launcher has just been drawn and the earliest a world can be tapped is a
+	 * human reaction away. If a very fast tap does beat this, the tap path still
+	 * writes the values itself — it just does so synchronously, exactly as it
+	 * always did.
+	 */
+	private void warmChromeInsetPrefs() {
+		final int statusBarHeight = measureStatusBarHeight();
+		if (statusBarHeight <= 0) {
+			// Not laid out yet, or a genuinely edge-to-edge window. Writing a 0
+			// would hand :stellar the same nonsense the old negative value did.
+			return;
+		}
+		Thread t = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				writeChromeInsetPrefs(statusBarHeight);
+			}
+		}, "bt-inset-prefs");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/**
+	 * Write the inset preferences, unless they already say this.
+	 *
+	 * <p>Still {@code commit()} and not {@code apply()}: {@code :stellar} reads
+	 * these once, at Connection construction, and a queued write that has not
+	 * landed by then is a button pad laid out against a stale inset. What
+	 * changed is when the commit happens, not whether it is durable.
+	 *
+	 * @param statusBarHeight the top inset, in pixels.
+	 */
+	private void writeChromeInsetPrefs(final int statusBarHeight) {
+		SharedPreferences pref = getSharedPreferences("STATUS_BAR_HEIGHT", 0);
+		if (pref.getInt("STATUS_BAR_HEIGHT", Integer.MIN_VALUE) == statusBarHeight
+				&& pref.getInt("TITLE_BAR_HEIGHT", Integer.MIN_VALUE) == statusBarHeight) {
+			return;
+		}
+		Editor e = pref.edit();
+		e.putInt("STATUS_BAR_HEIGHT", statusBarHeight);
+		// TITLE_BAR_HEIGHT is the same quantity; see the note on the tap path.
+		e.putInt("TITLE_BAR_HEIGHT", statusBarHeight);
+		e.commit();
 	}
   
 	
@@ -746,10 +809,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 				long arg3) {
 			
-			Rect rect = new Rect();
-		    Window win = Launcher.this.getWindow();
-		    win.getDecorView().getWindowVisibleDisplayFrame(rect);
-		    int statusBarHeight = rect.top;
+			// Measured 8 August: this used to be three disk operations on the tap
+		    // itself — opening the preferences file, waiting for it to load, and
+		    // the commit — 42-45 ms each, about 130 ms between the finger and
+		    // anything happening. The values do not depend on which world was
+		    // tapped, so they are written when the launcher takes focus (see
+		    // warmChromeInsetPrefs) and this is a no-op unless they changed.
+		    int statusBarHeight = measureStatusBarHeight();
 		    // TITLE_BAR_HEIGHT is the top inset, the same quantity ChromeController
 		    // writes (bars.top). It used to be contentViewTop - statusBarHeight,
 		    // a leftover from when the app had a real title bar. Under the current
@@ -760,15 +826,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		    // the top of the screen, with its first row clipped off, and poisoned
 		    // sanitizeButtonSet's own bounds so nothing caught it. Whether it broke
 		    // depended on which activity wrote the pref last before connecting.
-		    int titleBarHeight = statusBarHeight;
+		    writeChromeInsetPrefs(statusBarHeight);
 
-		    SharedPreferences pref = Launcher.this.getSharedPreferences("STATUS_BAR_HEIGHT", 0);
-			Editor e = pref.edit();
-			e.putInt("STATUS_BAR_HEIGHT", statusBarHeight);
-			e.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
-		    // commit (not apply): :stellar reads these once at Connection construction.
-		    e.commit();
-			
+
 			MudConnection muc = apdapter.getItem(arg2);		
 			
 			Time the_time = new Time();
