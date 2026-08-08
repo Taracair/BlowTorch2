@@ -150,6 +150,16 @@ public class FloatingButtonController {
 	private boolean overlayMode;
 	/** Keyboard state the attached overlay windows were built for. */
 	private boolean lastOverlayImeUp;
+	/**
+	 * True between a resume and the first insets that follow it.
+	 *
+	 * <p>While set, nothing here believes it knows whether the keyboard is up:
+	 * the only reading available is the one from before the app was paused. The
+	 * answer taken in the meantime is "down", because that is the one that shows
+	 * nothing — a keyboard-mode button that appears half a second late is
+	 * invisible, and one that appears and is taken away is the bug.
+	 */
+	private boolean imeStateUnknown;
 	/** Overlay pair per visual view, so add and remove stay symmetric. */
 	private final java.util.HashMap<FloatingButtonView, OverlayWindows> overlays =
 			new java.util.HashMap<FloatingButtonView, OverlayWindows>();
@@ -400,6 +410,8 @@ public class FloatingButtonController {
 		// answered 0 — so the correct height the insets listener had just
 		// measured was discarded on the way in.
 		lastImeLiftPx = Math.max(0, liftPx);
+		// A real measurement has arrived; the state is no longer a guess.
+		imeStateUnknown = false;
 		if (editingHidden || !host.isFloatingButtonsEnabled()) {
 			return;
 		}
@@ -726,6 +738,16 @@ public class FloatingButtonController {
 	 */
 	public void onResume() {
 		resumed = true;
+		// Whatever the keyboard was doing before the trip to another app says
+		// nothing about what it is doing now, and the reading this class has is
+		// exactly that stale number: isSoftKeyboardCoveringLayer answers from
+		// lastImeLiftPx, which no one updates while paused. Measured: a pause
+		// with the keys out leaves it at 907 px, so a resume with the keys *down*
+		// reads "keyboard up", puts the keyboard-mode windows on screen and takes
+		// them off again when the real insets arrive. Treat it as unknown until
+		// they do.
+		imeStateUnknown = true;
+		cancelPendingKeyboardHide();
 	}
 
 	/**
@@ -1182,6 +1204,12 @@ public class FloatingButtonController {
 	 * <p>A floor of 120dp so a stray small inset is not mistaken for a keyboard.
 	 */
 	private boolean isSoftKeyboardCoveringLayer() {
+		if (imeStateUnknown) {
+			// Between a resume and its first insets. The only number available is
+			// the one from before the pause, and it is wrong often enough to be
+			// the cause of a visible bug — see onResume.
+			return false;
+		}
 		float density;
 		if (layer != null) {
 			density = layer.getResources().getDisplayMetrics().density;
