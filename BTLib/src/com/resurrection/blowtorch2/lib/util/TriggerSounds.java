@@ -176,6 +176,33 @@ public final class TriggerSounds {
 		}
 	}
 
+	/**
+	 * Drop a sample that turned out not to be playable.
+	 *
+	 * <p>Called from the load callback, which already holds the lock.
+	 *
+	 * @param sampleId the id SoundPool handed back and then failed to fill.
+	 */
+	private static void forgetSample(final int sampleId) {
+		String path = null;
+		for (java.util.Map.Entry<String, Integer> e : sLoaded.entrySet()) {
+			if (e.getValue() != null && e.getValue().intValue() == sampleId) {
+				path = e.getKey();
+				break;
+			}
+		}
+		if (path == null) {
+			return;
+		}
+		sLoaded.remove(path);
+		sFailed.put(path, Boolean.TRUE);
+		BlowTorchLogger.logThrowable("TriggerSounds",
+				new java.io.IOException(path
+					+ " — a trigger's sound could not be decoded. If it is your own"
+					+ " file, it may be damaged or in a format this phone does not"
+					+ " read; pick another in the trigger's Sound action."));
+	}
+
 	private static float clamp(final float v) {
 		if (v < 0f) {
 			return 0f;
@@ -251,7 +278,16 @@ public final class TriggerSounds {
 				synchronized (TriggerSounds.class) {
 					Long asked = sPending.remove(Integer.valueOf(sampleId));
 					Float vol = sPendingVolume.remove(Integer.valueOf(sampleId));
-					if (status != 0 || asked == null) {
+					if (status != 0) {
+						// Decoding failed — a file SoundPool took the name of and
+						// then could not read. The id has to come back out of the
+						// cache, or every later firing plays a sample that is not
+						// there, silently, for the life of the process, with
+						// nothing anywhere saying why.
+						forgetSample(sampleId);
+						return;
+					}
+					if (asked == null) {
 						return;
 					}
 					if (SystemClock.elapsedRealtime() - asked.longValue()
