@@ -112,11 +112,11 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void onDonePressed(View v) {
-		try {
-			service.saveSettings();
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
+		// Off the UI thread: the aliases are already in the service — each editor
+		// pushed its own through updateAlias before this dialog was returned to —
+		// so this only asks for the file to be written, and waiting 300 ms for a
+		// disk write is what made Done feel stuck.
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 	}
 
 	@Override

@@ -5346,7 +5346,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					try {
 						service.updateStringSetting(ExtraTextSlotsStore.SETTING_KEY, json);
-						service.saveSettings();
+						// The slots are in the service after the call above; the
+						// file write need not finish before this returns.
+						com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 					} catch (RemoteException e) {
 						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 					}

@@ -449,7 +449,9 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 					} else {
 						service.updatePluginTimer(plugin, orig_timer, the_timer);
 					}
-					service.saveSettings();
+					// Off the UI thread: updateTimer above is synchronous, so the
+					// service already holds what this write puts down.
+					com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 				} catch (RemoteException e) {
 					e.printStackTrace();
 				}
@@ -467,7 +469,8 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 					} else {
 						service.addPluginTimer(plugin,the_timer);
 					}
-					service.saveSettings();
+					// As above: the new timer is in the service already.
+					com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 				} catch (RemoteException e) {
 					e.printStackTrace();
 				}

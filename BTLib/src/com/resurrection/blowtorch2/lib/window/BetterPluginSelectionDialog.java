@@ -410,11 +410,8 @@ public class BetterPluginSelectionDialog extends StandardSelectionDialog impleme
 
 	@Override
 	public void onDonePressed(View v) {
-		try {
-			service.saveSettings();
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
+		// Off the UI thread; the plugin list is already in the service.
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 	}
 
 	/**
