@@ -175,9 +175,7 @@ public final class TriggerSounds {
 	 * anything, which is worse than no advice.
 	 */
 	private static void warnIfInaudible(final Context context) {
-		warnIfStreamSilent(context, androidStream(), streamName(),
-				"A trigger played a sound", ". Turn it up, or change the stream"
-					+ " with .sound stream");
+		warnIfStreamSilent(context, androidStream(), streamName(), "Sound not heard", "");
 	}
 
 	/**
@@ -225,8 +223,12 @@ public final class TriggerSounds {
 				return;
 			}
 			sLastWarned = now;
+			// Short on purpose. A toast is a strip of screen, not a paragraph:
+			// the first wording ran off the end of it and the part naming the
+			// fix was the part that got cut. Name the volume, name the command,
+			// stop. The explanation lives in .sound and in the manual.
 			android.widget.Toast.makeText(context.getApplicationContext(),
-					what + ", but the " + name + " volume is off" + advice,
+					what + ": " + name + " volume is off",
 					android.widget.Toast.LENGTH_LONG).show();
 		} catch (Exception e) {
 			BlowTorchLogger.logMinor("TriggerSounds.warnIfStreamSilent", e);

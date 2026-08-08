@@ -316,7 +316,7 @@ public final class SpeechEngine {
 		// message, not two.
 		TriggerSounds.warnIfStreamSilent(appContext,
 				android.media.AudioManager.STREAM_MUSIC, "media",
-				"A trigger spoke", ". Turn it up to hear it.");
+				"Speech not heard", "");
 	}
 
 	private void handToEngine(final String say, final boolean interrupt) {
