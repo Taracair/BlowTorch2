@@ -827,6 +827,71 @@ public final class WordSuggestions {
 		return at == needle.length();
 	}
 
+	/** A one-line summary of what has been learned from the player's commands. */
+	public String describeCommandKnowledge() {
+		return verbs.size() + " verbs, " + objects.size() + " targets, "
+				+ verbObjects.size() + " verbs with pairings";
+	}
+
+	/**
+	 * What the player's commands have taught, in words, newest verb first.
+	 *
+	 * <p>Read-only: a report about the store must not disturb it, the same rule
+	 * {@code CommandKeeper.peekNewest} had to learn. Capped in both directions,
+	 * because this is printed into the game window and a hundred verbs would
+	 * scroll away the thing that was being read.
+	 *
+	 * @param maxVerbs how many verbs to describe.
+	 * @param maxObjects how many targets to name per verb.
+	 * @return one line per verb, or a sentence saying there is nothing yet.
+	 */
+	public String describeLearned(final int maxVerbs, final int maxObjects) {
+		if (verbObjects.isEmpty()) {
+			return verbs.isEmpty()
+					? "Nothing learned from your commands yet."
+					: verbs.size() + " command words so far, but nothing has been"
+						+ " aimed at anything yet.";
+		}
+		List<String> verbList = new ArrayList<String>(verbObjects.keySet());
+		StringBuilder out = new StringBuilder();
+		int shown = 0;
+		for (int i = verbList.size() - 1; i >= 0 && shown < maxVerbs; i--, shown++) {
+			String verb = verbList.get(i);
+			LinkedHashMap<String, Integer> seen = verbObjects.get(verb);
+			if (seen == null || seen.isEmpty()) {
+				continue;
+			}
+			List<String> targets = new ArrayList<String>(seen.keySet());
+			// Most-used first, which is the order the ranking itself uses.
+			final LinkedHashMap<String, Integer> counts = seen;
+			java.util.Collections.sort(targets, new java.util.Comparator<String>() {
+				@Override
+				public int compare(String a, String b) {
+					int ca = counts.get(a) == null ? 0 : counts.get(a).intValue();
+					int cb = counts.get(b) == null ? 0 : counts.get(b).intValue();
+					return cb - ca;
+				}
+			});
+			out.append(verb).append(": ");
+			for (int j = 0; j < targets.size() && j < maxObjects; j++) {
+				if (j > 0) {
+					out.append(", ");
+				}
+				out.append(targets.get(j)).append(" (")
+					.append(counts.get(targets.get(j))).append(")");
+			}
+			if (targets.size() > maxObjects) {
+				out.append(", and ").append(targets.size() - maxObjects).append(" more");
+			}
+			out.append("\n");
+		}
+		if (verbList.size() > shown) {
+			out.append("and ").append(verbList.size() - shown)
+				.append(" more command words.\n");
+		}
+		return out.toString();
+	}
+
 	/** Everything learned so far is dropped — a new world, a new vocabulary. */
 	public void clear() {
 		words.clear();

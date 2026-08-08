@@ -1199,6 +1199,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// nothing to what can be completed, only to what is known
 						// about where a word belongs in a line.
 						mWordSuggestions.learnCommand(pdata);
+						android.util.Log.e("BTPROF", "[learnCommand] sent=" + pdata
+								+ " localEchoOff=" + mLocalEchoOff
+								+ " verbs=" + mWordSuggestions.describeCommandKnowledge());
 					}
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
@@ -2641,8 +2644,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
 		String prefix = WordSuggestions.wordBefore(text, caret);
 		boolean atStart = isAtLineStart(text, caret, prefix);
+		String btprofVerb = atStart ? null : leadingVerb(text);
 		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS,
-				atStart, atStart ? null : leadingVerb(text)));
+				atStart, btprofVerb));
+		if (prefix != null && prefix.length() >= WordSuggestions.MIN_PREFIX_LENGTH) {
+			android.util.Log.e("BTPROF", "[suggest] prefix=" + prefix
+					+ " atLineStart=" + atStart + " verb=" + btprofVerb
+					+ " rank=" + mWordSuggestions.isRankByPosition()
+					+ " pairs=" + mWordSuggestions.isPairRanking()
+					+ " vocab=" + mWordSuggestions.size()
+					+ " out=" + mWordSuggestionList);
+		}
 		updateGhostCompletion(prefix, mWordSuggestionList);
 		return mWordSuggestionList;
 	}
