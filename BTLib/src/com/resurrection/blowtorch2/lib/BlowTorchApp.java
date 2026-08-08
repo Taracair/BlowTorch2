@@ -18,14 +18,10 @@ public class BlowTorchApp extends Application {
 
 	@Override
 	public void onCreate() {
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("app.onCreate enter");
 		super.onCreate();
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("app.super");
 		BlowTorchLogger.attach(this);
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("app.logger attach");
 		recordUncaughtExceptions();
 		enableStrictModeOnTestBuilds();
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("app.onCreate leave");
 	}
 
 	/**

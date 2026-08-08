@@ -172,15 +172,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 	
 	public void onCreate(Bundle icicle) {
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.enter");
 		super.onCreate(icicle);
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.super");
 		BlowTorchLogger.ensureLogFileAsync(this);
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.logfile");
 		fixClassLoaderIssue();
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.classloader");
 		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.lua libs");
 		//Log.e("LAUNCHER","Launched from package: " + this.getPackageName());
 		//determine launch mode
 		//Intent intent = this.getIntent();
@@ -269,9 +264,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			}
 		};
 		
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.handler");
 		setContentView(R.layout.new_launcher_layout);
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.setContentView");
 		androidx.appcompat.widget.Toolbar myToolbar = (androidx.appcompat.widget.Toolbar) findViewById(R.id.my_toolbar);
 		setSupportActionBar(myToolbar);
 		// The header below carries the name; without this the toolbar shows the
@@ -322,7 +315,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		
 		
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.chrome+insets");
 		launcher_settings = new LauncherSettings();
 		connections = new ArrayList<MudConnection>();
 		
@@ -339,8 +331,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		lv.setEmptyView(findViewById(R.id.launcher_empty));
 		
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.listview setup");
-		try {
+		try { 
 			FileInputStream fos = this.openFileInput("blowtorch_launcher_list.xml");
 			fos.close();
 			LauncherSAXParser parser = new LauncherSAXParser("blowtorch_launcher_list.xml",this);
@@ -408,20 +399,17 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			throw new RuntimeException(e);
 		}
 
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.load list xml");
 		int discovered = ProfileDiscovery.mergeDiscoveredProfiles(this, launcher_settings);
 		if (discovered > 0) {
 			launcherSaveEnabled = true;
 			saveXML();
 			Toast.makeText(this, getString(R.string.profiles_discovered, discovered), Toast.LENGTH_LONG).show();
 		}
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.profile discovery");
 
 		if (BuiltinTutorial.ensureIn(launcher_settings)) {
 			launcherSaveEnabled = true;
 			saveXML();
 		}
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.tutorial entry");
 		
 		//by here we should have a completly populated list and settings
 		//check version code.
@@ -514,7 +502,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		
 		//getConnectionsFromDisk();
 		
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.version check");
 		Button newbutton = (Button)findViewById(R.id.new_connection);
 		styleLauncherActionButton(newbutton);
 		newbutton.setOnClickListener(new newClickedListener());
@@ -538,27 +525,15 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			permissionRoot = tableContainer;
 		}
 		SDCardUtils.requestStartupPermissions(this, permissionRoot, RP_STARTUP);
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.permissions");
 		buildList();
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.buildList");
 		maybeShowFirstRunNotice();
 		maybeBackupBeforeUpdate();
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.backup before update");
 		maybeCheckForUpdates();
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.update check");
 		if(!serviceBound) {
 			//String action = ConfigurationLoader.getConfigurationValue("serviceBindAction",Launcher.this);
 			bindService(new Intent(action,null,this, StellarService.class),connectionChecker,Context.BIND_AUTO_CREATE);
 		}
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.leave");
-		// The first frame is what the 1.5 s is measured to, so ask the view
-		// hierarchy itself rather than reading Choreographer out of logcat.
-		getWindow().getDecorView().post(new Runnable() {
-			@Override
-			public void run() {
-				com.resurrection.blowtorch2.lib.util.StartupProbe.mark("launcher.first post");
-			}
-		});
+		
 	}
 	
 	private static void fixClassLoaderIssue()

@@ -230,7 +230,7 @@ public class StellarService extends Service {
 
 	/** The implementation of the onCreate() Service method. */
 	public final void onCreate() {
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.enter");
+		
 		BlowTorchLogger.ensureLogFileAsync(this.getApplicationContext());
 		mConnections = new HashMap<String, Connection>();
 		
@@ -239,11 +239,9 @@ public class StellarService extends Service {
 		
 		SharedPreferences prefs = this.getSharedPreferences("SERVICE_INFO", 0);
 		
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.notifications+prefs");
 		LuaLibraryHelper.ensureCurrentVersion(this);
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.lua libs");
 		mHandler = new Handler(new ServiceHandler());
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.leave");
+
 	}
 	
 	/** There are a few things that are needed to be handled on the main thread and the aidl bridge makes
@@ -1804,13 +1802,6 @@ public class StellarService extends Service {
 
 	/** Ask the foreground activity to re-read connection options (e.g. floating buttons). */
 	public final void doExecuteRequestLoadSettings() {
-		StackTraceElement[] who = new Throwable().getStackTrace();
-		StringBuilder from = new StringBuilder("askLoadSettings from");
-		for (int f = 1; f < who.length && f <= 3; f++) {
-			from.append(' ').append(who[f].getMethodName())
-					.append(':').append(who[f].getLineNumber());
-		}
-		com.resurrection.blowtorch2.lib.util.StartupProbe.mark(from.toString());
 		int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
