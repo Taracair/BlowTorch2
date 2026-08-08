@@ -114,9 +114,13 @@ thing you point commands at. With it on, `ki` at the start of a line offers
 `kill` above `kindle` if `kill` is what you type commands with, and the same
 `ki` after `kill ` puts the things you have aimed at first.
 
-It only ever **reorders**. Every suggestion you get with this off you still get
-with it on — it may be one chip further along, never gone. It also knows
-nothing on a world you have just started, and fills up as you play; and what
+It only ever **reorders** — nothing is thrown out of the candidates. There is
+one place that still costs you something, and it is worth knowing: the bar
+holds eight chips. When more than eight words match what you have typed,
+changing the order changes *which* eight you see, so a word that was on the bar
+can be pushed off the end of it. One more letter narrows the matches and it is
+back. It also knows nothing on a world you have just started, and fills up as
+you play; and what
 you type after `say`, `tell`, `chat` and the like is left out of it, or a
 sentence of chat would teach the app that `should` and `think` are things in
 the room.

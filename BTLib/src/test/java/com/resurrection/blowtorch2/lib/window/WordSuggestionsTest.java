@@ -403,6 +403,27 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void aFullStripIsTheOnePlaceRankingCanCostYouASuggestion() {
+		// The known limit, written down rather than discovered. Nothing is
+		// filtered out of the candidates — but the strip holds a fixed number of
+		// chips, so when there are more matches than chips, lifting some means
+		// the ones at the back fall off the end of what is shown. Another letter
+		// narrows the matches and they come back.
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("kill kindle kitten kite\n");
+		w.learnCommand("kill things");
+		// Two chips, four matches: "kill" is the oldest word, so without ranking
+		// it is not among the two shown at all.
+		assertFalse(w.suggest("ki", 2).contains("kill"));
+		List<String> ranked = w.suggest("ki", 2, true);
+		assertEquals("kill", ranked.get(0));
+		assertEquals(2, ranked.size());
+		// Ask for the whole pool and everything is still there.
+		assertTrue(w.suggest("ki", 10, true).containsAll(w.suggest("ki", 10)));
+	}
+
+	@Test
 	public void whatFollowsSayIsProseAndNotATarget() {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
