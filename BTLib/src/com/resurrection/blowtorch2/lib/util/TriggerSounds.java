@@ -110,6 +110,8 @@ public final class TriggerSounds {
 			sLoaded.put(soundPath, id);
 			sPending.put(id, Long.valueOf(now));
 			sPendingVolume.put(id, Float.valueOf(clamp(volume)));
+			btprof(context, "first load path=" + soundPath + " id=" + id
+					+ " (waiting for decode)");
 		}
 		if (rateKey != null) {
 			sLastPlayed.put(rateKey, Long.valueOf(now));
@@ -121,8 +123,30 @@ public final class TriggerSounds {
 			return true;
 		}
 		float v = clamp(volume);
-		sPool.play(id.intValue(), v, v, 1, 0, 1.0f);
+		int stream = sPool.play(id.intValue(), v, v, 1, 0, 1.0f);
+		btprof(context, "play cached path=" + soundPath + " id=" + id
+				+ " vol=" + v + " streamId=" + stream);
 		return true;
+	}
+
+	/** PROBE (revert me): what actually happens on the way to a noise. */
+	private static void btprof(final Context context, final String what) {
+		String vols = "";
+		try {
+			android.media.AudioManager am = (android.media.AudioManager)
+					context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+			if (am != null) {
+				vols = " notifVol=" + am.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
+						+ "/" + am.getStreamMaxVolume(AudioManager.STREAM_NOTIFICATION)
+						+ " musicVol=" + am.getStreamVolume(AudioManager.STREAM_MUSIC)
+						+ "/" + am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+						+ " ringerMode=" + am.getRingerMode();
+			}
+		} catch (Exception e) {
+			vols = " (volumes unreadable)";
+		}
+		android.util.Log.e("BTPROF", "[TriggerSounds] " + what + vols
+				+ " proc=" + android.os.Process.myPid());
 	}
 
 	/**
@@ -278,6 +302,8 @@ public final class TriggerSounds {
 				synchronized (TriggerSounds.class) {
 					Long asked = sPending.remove(Integer.valueOf(sampleId));
 					Float vol = sPendingVolume.remove(Integer.valueOf(sampleId));
+					android.util.Log.e("BTPROF", "[TriggerSounds] onLoadComplete id="
+						+ sampleId + " status=" + status + " wanted=" + (asked != null));
 					if (status != 0) {
 						// Decoding failed — a file SoundPool took the name of and
 						// then could not read. The id has to come back out of the
@@ -296,7 +322,9 @@ public final class TriggerSounds {
 						return;
 					}
 					float v = vol == null ? 1f : vol.floatValue();
-					pool.play(sampleId, v, v, 1, 0, 1.0f);
+					int stream = pool.play(sampleId, v, v, 1, 0, 1.0f);
+					android.util.Log.e("BTPROF", "[TriggerSounds] deferred play id="
+							+ sampleId + " vol=" + v + " streamId=" + stream + " status=" + status);
 				}
 			}
 		});
