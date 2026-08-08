@@ -692,17 +692,24 @@ public class FloatingButtonController {
 		}
 	}
 
-	/** Activity resumed: overlay windows may exist again. */
+	/**
+	 * Activity resumed: overlay windows may exist again.
+	 *
+	 * <p>Marks the layer resumed and asks for nothing. It used to request a push
+	 * here, and that was the blink: at this point in {@code MainWindow.onResume}
+	 * the button set has not been reverted yet, so Lua's {@code buttons} is still
+	 * the cleared one — a single BACK button with no {@code floating} field — and
+	 * the push it answered with was an empty list. Every floating button came
+	 * down, and {@code restoreButtons} put them all back a moment later.
+	 *
+	 * <p>{@code buttonwindow.restoreButtons} now notifies on both its paths, so
+	 * there is exactly one push per resume and it carries the real set. Setting
+	 * {@code resumed} before that call still matters — {@code rebuild} and
+	 * {@code rebuildOverlay} both refuse to place windows while it is false — so
+	 * this must keep running before {@code restoreButtonsOnResume}.
+	 */
 	public void onResume() {
 		resumed = true;
-		if (!host.isFloatingButtonsEnabled()) {
-			return;
-		}
-		MainWindow mw = host.getMainWindow();
-		if (mw != null) {
-			// Lua re-pushes the current set; rebuild puts the windows back.
-			mw.windowCall("button_window", "notifyFloatingButtonsChanged", "");
-		}
 	}
 
 	/**

@@ -4261,12 +4261,25 @@ function revertButtons()
 	notifyFloatingButtonsChanged()
 end
 
+-- One notify per resume, on both paths, and this is the only one that should
+-- happen. MainWindow.onResume used to make the floating layer ask for a push
+-- before this ran, and at that moment `buttons` is still the cleared set — one
+-- BACK button carrying no `floating` field — so the push described an empty
+-- list. Every floating button came down and went straight back up when the
+-- revert below notified a second time. That was the blink on coming back from
+-- another app. The layer no longer asks; it only marks itself resumed, and this
+-- is where the set it should mirror is finally correct.
+--
+-- The else branch notifies too. It is reached when onPause never cleared (it
+-- returns early with no service), and without a notify the floating buttons
+-- would stay down: the layer drops its views on pause whatever happens here.
 function restoreButtons()
 	if(buttonsCleared) then
 		revertButtons()
 	else
 		drawButtons()
 		view:invalidate()
+		notifyFloatingButtonsChanged()
 	end
 end
 

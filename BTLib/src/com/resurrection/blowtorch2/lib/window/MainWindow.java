@@ -3914,8 +3914,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//windowShowing = true;
 		if (floatingButtons != null) {
 			// Re-checks the overlay grant too: it can be revoked while we live.
+			// Only marks itself resumed; the one push comes from the restore
+			// below, once the button set is the real one again. Must stay above
+			// it — the layer refuses to place windows while it thinks it is
+			// paused.
 			floatingButtons.onResume();
 		}
+		// Put the button set back before anything else can ask Lua what it is.
+		// Not under the service check it used to sit beneath: windowCall looks
+		// the window up in windowMap and calls straight into it (see windowCall
+		// at the bottom of this file), so it never touches the binder and a null
+		// service says nothing about whether it can run. Under that check, a
+		// resume that arrived before the service was bound left the floating
+		// buttons down — the layer drops its views on pause either way.
+		restoreButtonsOnResume();
 		// Coming back from another app or from the options screen lands here.
 		// Editing a trigger does not — see scheduleTapRulesRefresh.
 		scheduleTapRulesRefresh();
@@ -3933,7 +3945,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			try {
 				if(service != null) {
 					service.windowShowing(true);
-					restoreButtonsOnResume();
 				}
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
