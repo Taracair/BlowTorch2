@@ -463,7 +463,12 @@ public class BetterEditText extends EditText {
 		// shrink again the moment a command is sent. The count is worked out
 		// here rather than while drawing, because making room is a layout and a
 		// layout must not happen inside onDraw.
-		applyGhostRowPadding(rowsNeeded());
+		int need = rowsNeeded();
+		android.util.Log.e("BTPROF", "[ghost] setExtras n=" + now
+				+ " maxRows=" + ghostMaxRows + " rowsNeeded=" + need
+				+ " wouldDraw=" + ghostWouldDraw() + " width=" + ghostRowWidth()
+				+ " estEnd=" + estimateGhostEndX());
+		applyGhostRowPadding(need);
 		invalidate();
 	}
 
@@ -655,6 +660,9 @@ public class BetterEditText extends EditText {
 			}
 		}
 
+		android.util.Log.e("BTPROF", "[ghost] onDraw extras="
+				+ (ghostExtras == null ? -1 : ghostExtras.length)
+				+ " maxRows=" + ghostMaxRows);
 		float extrasEndX = endX;
 		float extrasBaseline = endBaseline;
 		if (ghostExtras != null && ghostExtras.length > 0 && ghostMaxRows > 0) {
@@ -668,6 +676,10 @@ public class BetterEditText extends EditText {
 			// reason one routine does both.
 			int rows = packGhostExtras(canvas, lineWidth, endX, below, endBaseline,
 					ghostPaint.getFontSpacing(), originX, originY);
+			android.util.Log.e("BTPROF", "[ghost] drew rows=" + rows
+					+ " hidden=" + ghostHiddenCount + " endX=" + endX
+					+ " lineWidth=" + lineWidth + " lastX=" + ghostLastDrawnX
+					+ " padBottom=" + getPaddingBottom() + " h=" + getHeight());
 			if (ghostLastDrawnX >= 0) {
 				extrasEndX = ghostLastDrawnX;
 				extrasBaseline = ghostLastDrawnBaseline;

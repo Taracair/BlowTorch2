@@ -251,10 +251,29 @@ public class CompleteCommand extends SpecialCommand {
 	private Object setWhere(String arg, Connection c) {
 		if (arg.length() == 0) {
 			c.sendDataToWindow("\nThe suggestion bar is " + describeWhere(where(c))
-					+ ".\nUse .suggest where floating|bar|off\n");
+					+ ".\nUse .suggest where floating|bar|off, or"
+					+ " .suggest where next to step through them.\n");
 			return null;
 		}
 		int picked;
+		// One press that goes round the three. On a button this is the whole
+		// point: floating for a fight, the strip while reading, nothing at all
+		// when the ghost is doing the work — without three buttons for it.
+		if (arg.equals("next") || arg.equals("cycle") || arg.equals("toggle")) {
+			int now = where(c);
+			if (now == WordSuggestions.WHERE_FLOATING) {
+				picked = WordSuggestions.WHERE_BAR;
+			} else if (now == WordSuggestions.WHERE_BAR) {
+				picked = WordSuggestions.WHERE_NONE;
+			} else {
+				picked = WordSuggestions.WHERE_FLOATING;
+			}
+			c.updateIntegerSetting(WHERE_KEY, picked);
+			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+					+ "Suggestion bar: " + describeWhere(picked)
+					+ Colorizer.getWhiteColor() + "\n");
+			return null;
+		}
 		if (arg.equals("floating") || arg.equals("float") || arg.equals("over")) {
 			picked = WordSuggestions.WHERE_FLOATING;
 		} else if (arg.equals("bar") || arg.equals("strip") || arg.equals("below")) {
@@ -269,7 +288,8 @@ public class CompleteCommand extends SpecialCommand {
 					+ "           so the text jumps unless .suggest persist on\n"
 					+ "off      — no bar at all. Suggestions still work: the ghost\n"
 					+ "           still draws and .suggest 1.." + MAX_PICK
-						+ " still picks.\n"));
+						+ " still picks.\n"
+					+ "next     — step round the three; good on a button\n"));
 			return null;
 		}
 		c.updateIntegerSetting(WHERE_KEY, picked);

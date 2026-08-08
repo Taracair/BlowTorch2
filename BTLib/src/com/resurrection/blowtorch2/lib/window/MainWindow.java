@@ -3203,6 +3203,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @param at which of them the inline ghost has.
 	 */
 	private void showGhostExtras(final java.util.List<String> words, final int at) {
+		android.util.Log.e("BTPROF", "[ghost] showExtras words=" + words.size()
+				+ " at=" + at + " ghostLines=" + mGhostLines
+				+ " ghostOn=" + mWordSuggestionsGhost
+				+ " box=" + (mInputBox == null ? "null" : "ok"));
 		if (mInputBox == null) {
 			return;
 		}

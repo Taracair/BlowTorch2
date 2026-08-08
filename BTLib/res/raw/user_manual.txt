@@ -228,6 +228,10 @@ thing — picking one place puts the other away.
   it — which is why floating is the default, and why `persist` below matters
   most here. The strip is still there for anyone who would rather have the chips
   out of the way of the game text.
+`.suggest where next` steps round the three in order, which is the one to put
+on a button: floating for a fight, the strip while you are reading, nothing at
+all when the ghost is doing the work — without spending three buttons on it.
+
 - `.suggest where off` shows no bar at all. **The suggestions still work**: the
   ghost still draws after the cursor and `.suggest 1`..`8` still picks, so
   `ghost on` with `where off` is completion with nothing on screen but the
