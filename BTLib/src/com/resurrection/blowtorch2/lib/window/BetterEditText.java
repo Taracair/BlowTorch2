@@ -336,8 +336,17 @@ public class BetterEditText extends EditText {
 	/** Set once a hold has fired, so the release is not also read as a tap. */
 	private boolean ghostHeld = false;
 
-	/** Most suggestions the bar will grow to carry under the typed line. */
-	public static final int MAX_GHOST_EXTRAS = 5;
+	/** Most rows the bar will grow by to carry suggestions under the typed line. */
+	public static final int MAX_GHOST_ROWS = 5;
+
+	/**
+	 * Most suggestions those rows can hold between them.
+	 *
+	 * <p>More than the rows, because they are packed side by side: a row of
+	 * short words holds several. Matched to how many the completer offers, so
+	 * the field is never the thing that drops one.
+	 */
+	public static final int MAX_GHOST_EXTRAS = WordSuggestions.MAX_ON_STRIP;
 
 	/** Extra suggestions drawn on their own lines below, newest option first. */
 	private String[] ghostExtras = null;
@@ -351,8 +360,11 @@ public class BetterEditText extends EditText {
 	/** The bottom padding this field had before any room was reserved. */
 	private int ghostBasePaddingBottom = -1;
 
-	/** Rows of room held under the text, whether or not they are filled. */
-	private int ghostReservedLines = 0;
+	/** Most rows the bar may grow to; 0 turns the listing off. */
+	private int ghostMaxRows = 0;
+
+	/** Rows the bar is currently tall enough for. */
+	private int ghostRowsShown = -1;
 
 	/** Posted on the way down, run if the finger stays put long enough. */
 	private Runnable ghostHoldRunnable = null;
@@ -426,41 +438,95 @@ public class BetterEditText extends EditText {
 	 * @param words what each line inserts; same length as {@code lines}.
 	 */
 	public void setGhostExtras(final String[] lines, final String[] words) {
-		int now = lines == null ? 0 : Math.min(lines.length, ghostReservedLines);
+		int now = lines == null ? 0 : Math.min(lines.length, MAX_GHOST_EXTRAS);
 		ghostExtras = now == 0 ? null : java.util.Arrays.copyOf(lines, now);
 		ghostExtraWords = now == 0 ? null : java.util.Arrays.copyOf(words, now);
-		// Deliberately no layout change here. This is called on every keystroke
-		// and the number of suggestions moves constantly as the prefix narrows —
-		// resizing the field each time would relayout the input chrome under the
-		// thumb, which is the fault this project has already paid for twice.
-		// The room is reserved once, by setGhostReservedLines.
+		// The bar takes exactly the rows this many suggestions need at this
+		// width, and gives them back when they go — which is what makes it
+		// shrink again the moment a command is sent. The count is worked out
+		// here rather than while drawing, because making room is a layout and a
+		// layout must not happen inside onDraw.
+		applyGhostRowPadding(rowsNeeded());
 		invalidate();
 	}
 
 	/**
-	 * Hold room under the text for this many suggestion rows, always.
+	 * Most rows of suggestions the bar may grow to, on top of the typed line.
 	 *
-	 * <p>Constant height rather than height that follows how many suggestions
-	 * there happen to be: the bar keeps its size while you type, so the game
-	 * text above it does not jump on every letter. The same reasoning the
-	 * persistent chip bar already uses.
-	 *
-	 * <p>Called when the setting is read, not while typing.
-	 *
-	 * @param rows how many rows to keep room for; 0 gives the room back.
+	 * @param rows the ceiling; 0 turns the listing off.
 	 */
-	public void setGhostReservedLines(final int rows) {
-		int want = rows < 0 ? 0 : Math.min(rows, MAX_GHOST_EXTRAS);
-		if (want == ghostReservedLines && ghostBasePaddingBottom >= 0) {
+	public void setGhostMaxRows(final int rows) {
+		int want = rows < 0 ? 0 : Math.min(rows, MAX_GHOST_ROWS);
+		if (want == ghostMaxRows) {
 			return;
 		}
-		ghostReservedLines = want;
+		ghostMaxRows = want;
+		applyGhostRowPadding(rowsNeeded());
+		invalidate();
+	}
+
+	/** Width one row of suggestions has to lay out in. */
+	private float ghostRowWidth() {
+		return getWidth() - getTotalPaddingLeft() - getTotalPaddingRight();
+	}
+
+	/** The gap between two suggestions sitting side by side. */
+	private float ghostGap() {
+		return getPaint().measureText("  ");
+	}
+
+	/**
+	 * How many rows the current suggestions need, packed side by side.
+	 *
+	 * <p>Side by side rather than one per line, because most of them are one
+	 * short word and a line each would take the screen for nothing. It also
+	 * means the row count changes far less often than the number of suggestions
+	 * does, and the row count is what costs a layout.
+	 */
+	private int rowsNeeded() {
+		if (ghostExtras == null || ghostExtras.length == 0 || ghostMaxRows <= 0) {
+			return 0;
+		}
+		float avail = ghostRowWidth();
+		if (avail <= 0) {
+			// Not laid out yet. One row is the honest guess and it is corrected
+			// the next time anything changes.
+			return 1;
+		}
+		android.text.TextPaint p = getPaint();
+		float gap = ghostGap();
+		int rows = 1;
+		float used = 0;
+		for (int i = 0; i < ghostExtras.length; i++) {
+			if (ghostExtras[i] == null) {
+				continue;
+			}
+			float w = p.measureText(ghostExtras[i]);
+			if (used > 0 && used + gap + w > avail) {
+				rows++;
+				if (rows > ghostMaxRows) {
+					return ghostMaxRows;
+				}
+				used = w;
+			} else {
+				used = used > 0 ? used + gap + w : w;
+			}
+		}
+		return Math.min(rows, ghostMaxRows);
+	}
+
+	/** Make the bar exactly tall enough for {@code rows} of suggestions. */
+	private void applyGhostRowPadding(final int rows) {
 		if (ghostBasePaddingBottom < 0) {
 			ghostBasePaddingBottom = getPaddingBottom();
 		}
+		if (rows == ghostRowsShown) {
+			return;
+		}
+		ghostRowsShown = rows;
 		int lineHeight = Math.round(getPaint().getFontSpacing());
 		setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(),
-				ghostBasePaddingBottom + want * lineHeight);
+				ghostBasePaddingBottom + rows * lineHeight);
 	}
 
 	/** The word a tap on the ghost would insert; null when there is no ghost. */
@@ -681,25 +747,43 @@ public class BetterEditText extends EditText {
 		for (int i = 0; i < ghostExtraRects.length; i++) {
 			ghostExtraRects[i] = null;
 		}
-		if (ghostExtras == null || ghostExtras.length == 0) {
+		if (ghostExtras == null || ghostExtras.length == 0 || ghostMaxRows <= 0) {
 			return;
 		}
 		float lineHeight = ghostPaint.getFontSpacing();
 		float below = layout.getLineBottom(layout.getLineCount() - 1);
-		for (int i = 0; i < ghostExtras.length; i++) {
-			String row = ghostExtras[i];
-			if (row == null) {
+		float gap = ghostGap();
+		int row = 0;
+		float x = 0;
+		for (int i = 0; i < ghostExtras.length && i < ghostExtraRects.length; i++) {
+			String item = ghostExtras[i];
+			if (item == null) {
 				continue;
 			}
-			int fits = ghostPaint.breakText(row, true, lineWidth, null);
-			if (fits < row.length()) {
-				row = fits > 1 ? row.substring(0, fits - 1) + "…" : "…";
+			float w = ghostPaint.measureText(item);
+			if (x > 0 && x + gap + w > lineWidth) {
+				row++;
+				if (row >= ghostMaxRows) {
+					// No more room. Stopping is better than drawing over the
+					// game text below, and the ones shown are the best ones.
+					return;
+				}
+				x = 0;
+			} else if (x > 0) {
+				x += gap;
 			}
-			float top = below + i * lineHeight;
-			canvas.drawText(row, 0, top + lineHeight - ghostPaint.descent(), ghostPaint);
-			float w = ghostPaint.measureText(row);
-			ghostExtraRects[i] = new android.graphics.RectF(originX, originY + top,
-					originX + w, originY + top + lineHeight);
+			if (w > lineWidth) {
+				// One suggestion wider than the whole bar. Cut it rather than
+				// let it run off the edge.
+				int fits = ghostPaint.breakText(item, true, lineWidth, null);
+				item = fits > 1 ? item.substring(0, fits - 1) + "…" : "…";
+				w = ghostPaint.measureText(item);
+			}
+			float top = below + row * lineHeight;
+			canvas.drawText(item, x, top + lineHeight - ghostPaint.descent(), ghostPaint);
+			ghostExtraRects[i] = new android.graphics.RectF(originX + x, originY + top,
+					originX + x + w, originY + top + lineHeight);
+			x += w;
 		}
 	}
 

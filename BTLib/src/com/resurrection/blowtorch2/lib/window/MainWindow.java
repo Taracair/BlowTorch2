@@ -3203,10 +3203,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputBox.setGhostExtras(null, null);
 			return;
 		}
-		int room = Math.min(mGhostLines - 1, BetterEditText.MAX_GHOST_EXTRAS);
-		java.util.List<String> rows = new java.util.ArrayList<String>(room);
-		java.util.List<String> picks = new java.util.ArrayList<String>(room);
-		for (int i = 0; i < words.size() && rows.size() < room; i++) {
+		// Everything the strip would hold. The field packs them side by side and
+		// stops when it runs out of rows, so the limit is width and the row
+		// ceiling, not a count decided here.
+		java.util.List<String> rows = new java.util.ArrayList<String>(words.size());
+		java.util.List<String> picks = new java.util.ArrayList<String>(words.size());
+		for (int i = 0; i < words.size(); i++) {
 			if (i == at) {
 				continue;
 			}
@@ -4525,14 +4527,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (ghostLines < 1) {
 				ghostLines = 1;
 			}
-			if (ghostLines > BetterEditText.MAX_GHOST_EXTRAS + 1) {
-				ghostLines = BetterEditText.MAX_GHOST_EXTRAS + 1;
+			if (ghostLines > BetterEditText.MAX_GHOST_ROWS + 1) {
+				ghostLines = BetterEditText.MAX_GHOST_ROWS + 1;
 			}
 			mGhostLines = ghostLines;
 			if (mInputBox != null) {
-				// The room is taken here, once, and kept — not sized to however
-				// many suggestions exist at this instant.
-				mInputBox.setGhostReservedLines(
+				// A ceiling, not a reservation: the bar takes the rows the
+				// suggestions actually need and gives them back when they go.
+				mInputBox.setGhostMaxRows(
 						mWordSuggestionsGhost ? mGhostLines - 1 : 0);
 			}
 			BaseOption looseOpt = (BaseOption) group.findOptionByKey("word_complete_loose");

@@ -390,9 +390,10 @@ public class CompleteCommand extends SpecialCommand {
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
 				+ (n == 1
 					? "The ghost is one word after the cursor again."
-					: "The input bar now grows to show " + n + " suggestions: the first"
-						+ " after the cursor and the rest listed under it, numbered and"
-						+ " tappable. Needs .suggest ghost on.")
+					: "The input bar may now grow by up to " + (n - 1) + " row"
+						+ (n == 2 ? "" : "s") + " to list the other suggestions under"
+						+ " what you are typing, side by side and each tappable. It"
+						+ " takes only the rows it needs. Needs .suggest ghost on.")
 				+ Colorizer.getWhiteColor() + "\n");
 		return null;
 	}

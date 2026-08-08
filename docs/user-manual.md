@@ -147,13 +147,17 @@ The ghost is **one** suggestion — it is text drawn after the cursor, so it
 cannot be a list. When there are others it ends with how many: `grizzled +3`
 means three more are waiting.
 
-**Or let it show several at once.** `.suggest ghostlines 4` grows the input bar
-downwards and lists the rest under what you are typing — numbered the same way
-`.suggest 2` numbers them, and each one tappable. 1 to 6; `1` is the plain
-single-word ghost it has always been. It costs screen, which is the whole
-trade, and it is why it starts at 1.
+**Or let it show several at once.** `.suggest ghostlines 4` lets the input bar
+grow downwards and puts the rest under what you are typing — numbered the same
+way `.suggest 2` numbers them, and each one tappable.
 
     .suggest ghostlines N     (1 to 6, 1 is the plain ghost)
+
+They sit **side by side**, not one per line, so a row of short words holds
+several and a line each is not spent on nothing. The number you set is the most
+**rows** the bar may take, not how many suggestions it shows: it uses only the
+rows it needs, and gives them straight back — send the line and the bar is its
+normal size again before you have finished pressing.
 
 **Hold the ghost to step to the next one.** Tap takes it, hold moves on, and it
 wraps round to the start. While you are stepping the mark changes to your place

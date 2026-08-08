@@ -194,7 +194,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		IntegerOption word_complete_ghost_lines = new IntegerOption();
 		word_complete_ghost_lines.setTitle("Suggestions under the line");
-		word_complete_ghost_lines.setDescription("How many suggestions the ghost shows, 1 to 6. At 1 it is the single word drawn after the cursor, as before. Above that the input bar grows downwards and lists the rest under what you are typing, each one numbered and tappable. Costs screen — worth it if you work without the bar of chips. Needs the ghost to be on. .suggest ghostlines N");
+		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it is just the single word drawn after the cursor, as before. Above that the rest are listed under what you are typing, side by side rather than one per line, each numbered and tappable. It takes only the rows it needs and gives them back the moment they are not needed. Needs the ghost to be on. .suggest ghostlines N");
 		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
 		word_complete_ghost_lines.setValue(1);
 		suggestions.addOption(word_complete_ghost_lines);
