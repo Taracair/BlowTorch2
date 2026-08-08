@@ -144,8 +144,26 @@ public final class ChromeController {
 				+ " barsTop=" + bars.top + " wasLift=" + imeLiftPx
 				+ " wasBarsTop=" + statusBarHeight
 				+ " fullScreen=" + isFullScreen);
-		scheduleInsetApply((RelativeLayout) view, lift, bars.top);
+		scheduleInsetApply((RelativeLayout) view, lift, statusBarInsetToTrust(bars.top));
 		return windowInsets;
+	}
+
+	/**
+	 * What the status bar is really taking from the top.
+	 *
+	 * <p>In fullscreen the answer is none, whatever the inset says. The bar is
+	 * hidden by the app's own choice, so a height arriving for it is the system
+	 * showing it over the game for a moment — the recents gesture does exactly
+	 * that. Measured: four trips to recents, four times a 152 px status bar
+	 * inset arriving in the last second before onPause, and 0 at every other
+	 * moment. Believed, it moved every button down by that much just as the
+	 * screen was being captured for the recents thumbnail.
+	 *
+	 * <p>Not fullscreen: the bar genuinely occupies that space and the inset is
+	 * the truth, so it is passed through untouched.
+	 */
+	private int statusBarInsetToTrust(int barsTop) {
+		return isFullScreen ? 0 : barsTop;
 	}
 
 	/**
