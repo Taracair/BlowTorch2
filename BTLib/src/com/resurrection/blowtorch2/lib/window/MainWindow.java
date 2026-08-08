@@ -1336,11 +1336,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					inputInsertWord((String) msg.obj);
 					break;
 				case MESSAGE_VOCABULARY_TEXT:
+					long btprofVocabStart = android.os.SystemClock.uptimeMillis();
 					mWordSuggestions.learn((String) msg.obj);
+					int btprofVocabLen = msg.obj == null ? 0 : ((String) msg.obj).length();
+					if (btprofVocabLen > 2048) {
+						android.util.Log.e("BTPROF", "vocabulary seed: " + btprofVocabLen
+								+ " chars, learn took "
+								+ (android.os.SystemClock.uptimeMillis() - btprofVocabStart)
+								+ " ms, words=" + mWordSuggestions.size());
+					}
 					mWordSuggestionsOn = true;
 					refreshWordSuggestions();
 					break;
 				case MESSAGE_VOCABULARY_RESET:
+					android.util.Log.e("BTPROF",
+							"vocabulary reset, words was=" + mWordSuggestions.size());
 					mWordSuggestions.clear();
 					refreshWordSuggestions();
 					break;
