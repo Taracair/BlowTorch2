@@ -230,7 +230,7 @@ public class StellarService extends Service {
 
 	/** The implementation of the onCreate() Service method. */
 	public final void onCreate() {
-		
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.enter");
 		BlowTorchLogger.ensureLogFileAsync(this.getApplicationContext());
 		mConnections = new HashMap<String, Connection>();
 		
@@ -239,9 +239,11 @@ public class StellarService extends Service {
 		
 		SharedPreferences prefs = this.getSharedPreferences("SERVICE_INFO", 0);
 		
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.notifications+prefs");
 		LuaLibraryHelper.ensureCurrentVersion(this);
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.lua libs");
 		mHandler = new Handler(new ServiceHandler());
-
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("stellar.leave");
 	}
 	
 	/** There are a few things that are needed to be handled on the main thread and the aidl bridge makes

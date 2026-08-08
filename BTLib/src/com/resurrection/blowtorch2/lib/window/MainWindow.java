@@ -500,7 +500,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void onCreate(Bundle icicle) {
 		//Log.e("Window","start onCreate");
 		//Debug.startMethodTracing("window");
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.enter");
 		super.onCreate(icicle);
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.super");
 		windowMap = new HashMap<String,com.resurrection.blowtorch2.lib.window.Window>(0);
 		chrome = new ChromeController(this);
 		settingsTransfer = new MainWindowSettingsTransfer(this);
@@ -514,9 +516,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		chrome.loadHeightsFromPrefs();
 		setContentView(R.layout.window_layout);
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.setContentView");
 		assignLegacyChromeIds();
 		saveConnectionExtras(getIntent());
 		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.lua libs");
 		getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -553,8 +557,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		});
 
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.chrome");
 		history = new CommandKeeper(75);
 		history.load(this, getConnectionDisplay());
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.history load");
 
 
 
@@ -1319,7 +1325,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_CHANGEBUTTONSET:
 					if (msg.obj != null && service != null) {
 						try {
+							com.resurrection.blowtorch2.lib.util.StartupProbe.mark("loadButtonSet call");
 							service.pluginXcallS("button_window", "loadButtonSet", (String) msg.obj);
+							com.resurrection.blowtorch2.lib.util.StartupProbe.mark("loadButtonSet returned");
 						} catch (RemoteException e) {
 							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 						}
@@ -1507,6 +1515,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//parent.setContentInsetsAbsolute(0,0);
 
 		//Log.e("Window","End on create");
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.leave");
+		getWindow().getDecorView().post(new Runnable() {
+			@Override
+			public void run() {
+				com.resurrection.blowtorch2.lib.util.StartupProbe.mark("window.first post");
+			}
+		});
 	}
 	
 	View.OnTouchListener mEditBoxTouchListener = new View.OnTouchListener() {
