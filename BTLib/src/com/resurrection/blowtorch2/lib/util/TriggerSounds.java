@@ -75,6 +75,9 @@ public final class TriggerSounds {
 	 */
 	public static synchronized boolean play(final Context context, final String soundPath,
 			final float volume, final String rateKey, final int minGapMs) {
+		android.util.Log.e("BTPROF", "[TriggerSounds] play() entered path=" + soundPath
+				+ " vol=" + volume + " gap=" + minGapMs + " key=" + rateKey
+				+ " ctx=" + (context == null ? "null" : "ok"));
 		if (context == null || soundPath == null || soundPath.length() == 0) {
 			return false;
 		}

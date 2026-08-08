@@ -3445,6 +3445,38 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
+	 * Is the kept command still the thing the input bar is showing?
+	 *
+	 * <p>Keep Last leaves the command you just sent in the bar, selected. The
+	 * first ↑ therefore has to step <em>past</em> it, or it hands you back the
+	 * line already in front of you.
+	 *
+	 * <p>Asked of the text rather than answered from a flag. The flag was the
+	 * bug, twice: it said "the bar holds the kept command" and stayed saying it
+	 * after the player cleared the bar, because the watcher that clears it only
+	 * runs when characters are <em>inserted</em> ({@code count > 0}) and deleting
+	 * inserts nothing. You send {@code list jewelry}, delete it, press ↑, and get
+	 * the command before it. The text either is that command or it is not, and
+	 * that is not a thing to track.
+	 *
+	 * <p>The flag still gates it, and has to: after one ↑ the bar also shows the
+	 * newest command, and stepping past it again would skip an entry every time.
+	 * The flag is what separates "Keep Last put it there" from "browsing did".
+	 *
+	 * @return true only when Keep Last put the newest command in the bar and it
+	 *         is still there, unedited.
+	 */
+	private boolean keptCommandIsStillOnScreen() {
+		if (!historyWidgetKept || mInputBox == null || history == null) {
+			return false;
+		}
+		CharSequence shown = mInputBox.getText();
+		String newest = history.peekNewest();
+		return newest != null && newest.length() > 0
+				&& newest.contentEquals(shown == null ? "" : shown);
+	}
+
+	/**
 	 * Browse sent-command history like hardware DPAD up/down.
 	 * @param older true = older command (↑ / stepu), false = newer / clear (↓ / stepd)
 	 */
@@ -3456,7 +3488,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String cmd;
 		if (older) {
 			cmd = history.getNext();
-			if (isKeepLast && historyWidgetKept) {
+			if (isKeepLast && keptCommandIsStillOnScreen()) {
 				// The bar already shows the newest entry, so step past it.
 				cmd = history.getNext();
 			}
