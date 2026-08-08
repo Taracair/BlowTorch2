@@ -58,6 +58,29 @@ public final class NotificationSounds {
 		return path;
 	}
 
+	/**
+	 * The raw resource behind a {@code bundled:} path.
+	 *
+	 * <p>For callers that want the resource itself rather than a Uri — SoundPool
+	 * loads a resId directly and does not need one built.
+	 *
+	 * @param soundPath a stored sound path.
+	 * @return the resource id, or 0 when this is not a bundled sound or names one
+	 *         that no longer exists.
+	 */
+	public static int bundledResId(String soundPath) {
+		String key = bundledKey(soundPath);
+		if (key == null) {
+			return 0;
+		}
+		for (SoundPreset p : BUNDLED) {
+			if (p.key.equals(key)) {
+				return p.rawResId;
+			}
+		}
+		return 0;
+	}
+
 	/** Resolve stored soundPath to a playable Uri, or null for system default. */
 	public static Uri resolveUri(Context context, String soundPath) {
 		if (soundPath == null || soundPath.isEmpty()) {

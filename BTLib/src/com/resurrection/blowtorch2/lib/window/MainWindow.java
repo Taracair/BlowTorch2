@@ -3822,6 +3822,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor.REQUEST_PICK_SOUND) {
+			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+				// Hold the read permission past this activity: the responder keeps
+				// the URI and plays it later, in the other process.
+				try {
+					getContentResolver().takePersistableUriPermission(data.getData(),
+							Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				} catch (SecurityException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"MainWindow.onActivityResult", e);
+				}
+				com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor.onSoundPicked(data.getData());
+			}
+			return;
+		}
 		if (requestCode == com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.REQUEST_PICK_SOUND) {
 			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
 				com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.onSoundPicked(data.getData());

@@ -132,6 +132,10 @@ public class TimerData implements Parcelable {
 				responders.add((TriggerResponder) in.readParcelable(
 						com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder.class.getClassLoader()));
 				break;
+			case TriggerResponder.RESPONDER_TYPE_SOUND:
+				responders.add((TriggerResponder) in.readParcelable(
+						com.resurrection.blowtorch2.lib.responder.sound.SoundResponder.class.getClassLoader()));
+				break;
 			case TriggerResponder.RESPONDER_TYPE_TOAST:
 				ToastResponder toasty = in.readParcelable(ToastResponder.class.getClassLoader());
 				responders.add(toasty);

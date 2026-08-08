@@ -29,6 +29,7 @@ public abstract class TriggerResponder implements Parcelable {
 	public static final int RESPONDER_TYPE_SET_VARIABLE = 108;
 	public static final int RESPONDER_TYPE_TAP = 109;
 	public static final int RESPONDER_TYPE_SPEAK = 110;
+	public static final int RESPONDER_TYPE_SOUND = 111;
 	
 	public enum RESPONDER_TYPE {
 		NOTIFICATION(RESPONDER_TYPE_NOTIFICATION),
@@ -40,7 +41,8 @@ public abstract class TriggerResponder implements Parcelable {
 		GAG(RESPONDER_TYPE_GAG),
 		SET_VARIABLE(RESPONDER_TYPE_SET_VARIABLE),
 		TAP(RESPONDER_TYPE_TAP),
-		SPEAK(RESPONDER_TYPE_SPEAK);
+		SPEAK(RESPONDER_TYPE_SPEAK),
+		SOUND(RESPONDER_TYPE_SOUND);
 		private int value;
 		
 		private RESPONDER_TYPE(int i) {

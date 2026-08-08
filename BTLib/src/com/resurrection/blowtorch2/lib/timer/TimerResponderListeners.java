@@ -65,6 +65,23 @@ public final class TimerResponderListeners {
 			}
 		});
 
+		timer.getChild(BasePluginParser.TAG_SOUNDRESPONDER).setStartElementListener(new StartElementListener() {
+			@Override
+			public void start(Attributes a) {
+				com.resurrection.blowtorch2.lib.responder.sound.SoundResponder r =
+						new com.resurrection.blowtorch2.lib.responder.sound.SoundResponder();
+				r.setSoundPath(a.getValue("", BasePluginParser.ATTR_SOUNDPATH));
+				r.setMinGapMs(intOr(a.getValue("", BasePluginParser.ATTR_SOUNDGAP),
+						com.resurrection.blowtorch2.lib.responder.sound.SoundResponder
+							.DEFAULT_MIN_GAP_MS));
+				r.setVolumePercent(intOr(a.getValue("", BasePluginParser.ATTR_SOUNDVOLUME),
+						com.resurrection.blowtorch2.lib.responder.sound.SoundResponder
+							.DEFAULT_VOLUME_PERCENT));
+				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
+				currentTimer.getResponders().add(r.copy());
+			}
+		});
+
 		timer.getChild(BasePluginParser.TAG_NOTIFICATIONRESPONDER).setStartElementListener(new StartElementListener() {
 			@Override
 			public void start(Attributes a) {
@@ -143,6 +160,18 @@ public final class TimerResponderListeners {
 			}
 		});
 
+	}
+
+	/** A number from the file, or the default when it is missing or nonsense. */
+	private static int intOr(final String raw, final int fallback) {
+		if (raw == null || raw.length() == 0) {
+			return fallback;
+		}
+		try {
+			return Integer.parseInt(raw.trim());
+		} catch (NumberFormatException e) {
+			return fallback;
+		}
 	}
 
 	private static FIRE_WHEN parseFireType(String fireType) {

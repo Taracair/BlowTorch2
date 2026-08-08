@@ -551,7 +551,44 @@ typed into the trigger pattern.
 
 ### Making a trigger make a noise
 
-Two ways, and they answer different questions.
+Three ways, and they answer different questions.
+
+**Play a sound.** Give the trigger a **Play a Sound** action and it plays a
+short sound file. In a fight this is the one you want: a ping is over in a fifth
+of a second where a spoken sentence takes two, and a MUD can print six lines a
+second. Each trigger carries its **own** sound, so a tell and a critical hit do
+not have to sound alike.
+
+    Pattern:  ^\w+ tells you
+    Action:   Play a Sound → Soft chime
+
+Where the sound comes from, in the order the picker offers them:
+
+- **The five sounds that ship with BlowTorch.** These can never go missing and
+  need no permissions. Start here.
+- **Your own files, from `/BlowTorch/sounds` on the phone's shared storage.**
+  Drop `.wav`, `.ogg`, `.mp3` or `.m4a` files in that folder and they appear in
+  the list. The folder is created the first time you open the picker.
+- **Anything else on the phone,** through *Pick from storage*.
+
+**Keep your own sounds in that folder and leave them there.** A sound of yours is
+remembered by *where it is* — the app does not copy it inside itself, so it stays
+your file and costs the app nothing to carry. The price is that moving or
+deleting it makes the trigger go quiet. That case is not passed over in silence:
+the action's editor shows **MISSING** next to the name and says where the file
+should be, and the error log records it once. The fix is on the same screen —
+put the file back, or open the action and pick another sound.
+
+Two numbers on that editor:
+
+- **Volume %** — how loud, 0 to 100. It plays on the notification stream, so a
+  phone on silent stays silent.
+- **Gap (ms)** — the shortest time between two of *this* trigger's sounds,
+  250 ms by default. It stops a trigger that matches every line from turning
+  into a buzz. `0` turns it off. Each trigger counts its own gap, so one noisy
+  trigger never silences another.
+
+Timers can play a sound too — same action, same editor.
 
 **Speak it.** Give the trigger a **Speak** action and it says the line out loud.
 Good for something you need the words of — a tell, a name, a number. It runs in
@@ -574,10 +611,11 @@ it now says so and names the three switches, instead of leaving you guessing
 whether the trigger fired. Only **Vibrate** is on by default, and a phone in
 silent mode will not buzz.
 
-What the bell cannot do yet: it is **one reaction for the whole profile**, so
-every trigger that rings it sounds the same, and it plays the system
-notification sound rather than a sound file of your choosing. A per-trigger
-sound is a separate feature and is not built.
+What the bell cannot do: it is **one reaction for the whole profile**, so every
+trigger that rings it sounds the same, and it plays the system notification
+sound rather than a file of your choosing. That is what **Play a Sound** above
+is for; the bell is still the quickest way to get a buzz out of a trigger
+without choosing anything.
 
 ## Recipes
 

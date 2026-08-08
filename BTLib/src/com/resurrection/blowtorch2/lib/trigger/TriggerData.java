@@ -261,6 +261,12 @@ public class TriggerData implements Parcelable {
 
 				responders.add(speak);
 				break;
+			case TriggerResponder.RESPONDER_TYPE_SOUND:
+				com.resurrection.blowtorch2.lib.responder.sound.SoundResponder sound =
+						in.readParcelable(com.resurrection.blowtorch2.lib.responder.sound.SoundResponder.class.getClassLoader());
+
+				responders.add(sound);
+				break;
 			case TriggerResponder.RESPONDER_TYPE_TOAST:
 				ToastResponder toasty = in.readParcelable(com.resurrection.blowtorch2.lib.responder.toast.ToastResponder.class.getClassLoader());
 
