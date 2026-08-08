@@ -13,9 +13,12 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 
 /**
  * Keeps {@link DeviceState} up to date and pushes it into the worlds that asked
@@ -138,6 +141,7 @@ public final class DeviceStateWatcher {
 				// waiting for the phone to be plugged in.
 				context.registerReceiver(receiver, filter);
 				receiverRegistered = true;
+				seedFromSystem();
 			} catch (Exception e) {
 				BlowTorchLogger.logMinor("DeviceStateWatcher.registerReceiver", e);
 			}
@@ -162,6 +166,49 @@ public final class DeviceStateWatcher {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Ask the system for what it will not tell us until it changes.
+	 *
+	 * <p>{@code ACTION_BATTERY_CHANGED} is sticky, so charge arrives the moment
+	 * we register. Screen and headphones are not: without this, both would stay
+	 * unset until the player next locked the phone or plugged something in — and
+	 * "unset" means "this phone cannot tell", which would be a lie.
+	 */
+	private void seedFromSystem() {
+		try {
+			Object power = context.getSystemService(Context.POWER_SERVICE);
+			if (power instanceof PowerManager) {
+				state.setScreenOn(((PowerManager) power).isInteractive());
+			}
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.seedScreen", e);
+		}
+		try {
+			Object audio = context.getSystemService(Context.AUDIO_SERVICE);
+			if (audio instanceof AudioManager) {
+				boolean plugged = false;
+				AudioDeviceInfo[] outputs =
+						((AudioManager) audio).getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+				if (outputs != null) {
+					for (AudioDeviceInfo info : outputs) {
+						int type = info.getType();
+						if (type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+								|| type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+								|| type == AudioDeviceInfo.TYPE_USB_HEADSET) {
+							plugged = true;
+							break;
+						}
+					}
+				}
+				state.setHeadphones(plugged);
+			}
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.seedHeadphones", e);
+		}
+		// Proximity has no equivalent: it is on-change and reports as soon as it
+		// is registered, so device.covered fills itself in.
 	}
 
 	/** Release everything. Safe to call when nothing is registered. */
