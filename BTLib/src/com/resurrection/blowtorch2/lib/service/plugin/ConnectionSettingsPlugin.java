@@ -285,6 +285,25 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		sg.addOption(input);
 
+		// The phone itself, as something triggers can read. Its own group
+		// because it is not an input setting and not a display one, and because
+		// this is where anything else sensor-shaped will go.
+		SettingsGroup device = new SettingsGroup();
+		device.setTitle("Device");
+		device.setDescription("What the phone knows about itself, and what the game may do with it.");
+
+		BooleanOption device_state_variables = new BooleanOption();
+		device_state_variables.setTitle("Device state as variables");
+		device_state_variables.setDescription("Keep device.headphones, device.charging, device.battery, device.screen and device.covered up to date as session variables, so a trigger or timer can be gated on them in its Conditions tab and Lua can read them with GetVariable. A name this phone cannot know is left unset, and a condition testing it is false rather than true. Nothing is registered while this is off. Off by default. .probe sensors state shows the current values");
+		device_state_variables.setKey("device_state_variables");
+		// Off by default: the app did nothing of the sort before this existed.
+		// Change this and ConnectionSetttingsParser's comparison together, or
+		// the parser quietly stops saving the value the player chose.
+		device_state_variables.setValue(false);
+		device.addOption(device_state_variables);
+
+		sg.addOption(device);
+
 		
 		
 		SettingsGroup servOptions = new SettingsGroup();

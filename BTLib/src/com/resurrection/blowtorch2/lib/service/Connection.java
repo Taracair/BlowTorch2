@@ -1458,6 +1458,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSettings = (ConnectionSettingsPlugin) tmpPlugs.get(0);
 		mSettings.sortTriggers();
 		mSettings.initTimers();
+		// Entering a world the service is still connected to sends no
+		// MESSAGE_CONNECTED, so anything hung off the connect path would work
+		// only the first time. Settings are loaded on every way in, so this is
+		// the honest hook.
+		if (mService != null) {
+			mService.refreshDeviceState();
+		}
 		for (WindowToken tmpw : mSettings.getSettings().getWindows().values()) {
 			tmpw.setDisplayHost(mDisplay);
 		}
@@ -4043,6 +4050,34 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mTriggers.getTriggers();
 	}
 
+	/**
+	 * Whether this world wants the phone's own state as {@code device.*}
+	 * session variables. Off by default; nothing is registered while it is off.
+	 */
+	public final boolean isDeviceStateVariables() {
+		try {
+			Object opt = mSettings.getSettings().getOptions()
+					.findOptionByKey("device_state_variables");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+						.getValue();
+				return (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+		} catch (Exception ignored) {
+			// A world whose settings are half-loaded simply does not want it yet.
+		}
+		return false;
+	}
+
+	/** The device.* reading, for {@code .probe sensors state}. */
+	public final String deviceStateReport() {
+		if (!isDeviceStateVariables()) {
+			return "\nDevice state is off for this world. Settings → Device →\n"
+					+ "\"Device state as variables\". Nothing is registered while it is off.\n";
+		}
+		return mService.deviceStateReport();
+	}
+
 	public final SessionVariableStore getSessionVariables() {
 		return mSessionVariables;
 	}
@@ -4873,6 +4908,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case word_complete:
 				this.doSetWordComplete((Boolean) o.getValue());
+				break;
+			case device_state_variables:
+				// Applied here rather than asked of the UI: the watcher and the
+				// session variables both live in this process, and the whole
+				// point of the measurement on 8 Aug was that they can.
+				mService.refreshDeviceState();
 				break;
 			case speak_quiet_typing:
 				// The engine lives in this process, so this one is applied here
@@ -6043,6 +6084,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_phrases,
 		/** Put the plain word before the whole name built on it. */
 		word_complete_short_first,
+		/** Keep device.* session variables up to date from the phone itself. */
+		device_state_variables,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
 		/** How many suggestions the ghost lists, growing the bar to fit them. */

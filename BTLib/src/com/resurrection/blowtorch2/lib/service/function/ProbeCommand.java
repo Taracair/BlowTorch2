@@ -34,6 +34,10 @@ public class ProbeCommand extends SpecialCommand {
 				c.sendDataToWindow(SensorProbe.inventory(c.getContext()));
 				return null;
 			}
+			if (rest.equals("state")) {
+				c.sendDataToWindow(c.deviceStateReport());
+				return null;
+			}
 			if (rest.startsWith("shake") || rest.startsWith("motion")) {
 				String tail = rest.startsWith("shake")
 						? rest.substring("shake".length()).trim()
@@ -53,6 +57,7 @@ public class ProbeCommand extends SpecialCommand {
 			}
 			c.sendDataToWindow(getErrorMessage("Probe usage",
 					".probe sensors          — what this device has\n"
+					+ ".probe sensors state    — the device.* variables right now\n"
 					+ ".probe sensors shake 10 — sample movement for 10 seconds"));
 			return null;
 		}

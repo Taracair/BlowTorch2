@@ -1154,7 +1154,7 @@ is enabled; `.alias list` shows every alias at once.
     `.closewindow`                      Dirty-exit the game window
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
-    `.probe sensors [shake [seconds]]`  What sensors this phone has, and what they deliver; see below. Nothing runs until you ask
+    `.probe sensors [state|shake [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
@@ -1290,8 +1290,31 @@ you are on your way to the shop.
 *Registration refused* or *samples: NONE* is not a failure of the probe — it is
 the answer, and a more important one than the threshold.
 
-Both forms cost nothing until you type them. The sensor is released when the run
-ends.
+`.probe sensors state` shows the `device.*` values as they are right now:
+
+    device.headphones = no
+    device.charging = yes
+    device.battery = 74
+    device.screen = on
+    device.covered = no
+
+These are ordinary session variables, set only while **Settings → Device →
+"Device state as variables"** is on for this world. Use them in a trigger's or
+timer's Conditions tab (`variableEquals`, e.g. `device.covered` equals `yes`), or
+read them from Lua with `GetVariable("device.charging")`.
+
+A name missing from that list is something this phone cannot tell — a device
+with no proximity sensor never sets `device.covered` — and a condition testing a
+name that is not set is **false**, not true. That is deliberate: a profile you
+share with someone whose phone lacks the sensor goes quiet rather than firing at
+the wrong moment.
+
+Nothing is registered while the setting is off, and turning it off releases the
+proximity sensor immediately. The other four values come from broadcasts the
+system sends anyway.
+
+All of these cost nothing until you type them. The sensor is released when the
+run ends.
 
 ### `.search` forms
 

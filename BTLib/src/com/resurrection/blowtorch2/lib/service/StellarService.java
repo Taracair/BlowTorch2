@@ -328,8 +328,62 @@ public class StellarService extends Service {
 		}
 	}
 	
+	/**
+	 * Watches the phone itself for the worlds that asked for it. One per
+	 * process, because the phone is one phone however many worlds are open;
+	 * created on first use and holding nothing while every world has the
+	 * setting off.
+	 */
+	private com.resurrection.blowtorch2.lib.service.sensor.DeviceStateWatcher mDeviceState;
+
+	/**
+	 * Start or stop watching the device, to match what the open worlds want.
+	 *
+	 * <p>Called when a world's settings are loaded and when the setting itself
+	 * changes, so turning it off releases the proximity sensor there and then.
+	 */
+	public final synchronized void refreshDeviceState() {
+		if (mDeviceState == null) {
+			mDeviceState = new com.resurrection.blowtorch2.lib.service.sensor.DeviceStateWatcher(
+					getApplicationContext(),
+					new com.resurrection.blowtorch2.lib.service.sensor.DeviceStateWatcher.Audience() {
+						@Override
+						public Iterable<Connection> listeners() {
+							java.util.ArrayList<Connection> wanting =
+									new java.util.ArrayList<Connection>();
+							if (mConnections != null) {
+								for (Connection c : mConnections.values()) {
+									if (c != null && c.isDeviceStateVariables()) {
+										wanting.add(c);
+									}
+								}
+							}
+							return wanting;
+						}
+					});
+		}
+		mDeviceState.refresh();
+		// A world that has just loaded its settings has an empty variable store,
+		// and the phone did not change state to mark the occasion. Without this
+		// push, device.* would be right only after the next time something was
+		// plugged in.
+		mDeviceState.push();
+	}
+
+	/** The reading behind {@code .probe sensors state}, or a hint when off. */
+	public final synchronized String deviceStateReport() {
+		if (mDeviceState == null) {
+			return "\nDevice state is not being watched. Turn on \"Device state as\n"
+					+ "variables\" in Settings for this world.\n";
+		}
+		return mDeviceState.report();
+	}
+
 	/** Implementation of the Service.onDestroy() method. */
 	public final void onDestroy() {
+		if (mDeviceState != null) {
+			mDeviceState.stopWatching();
+		}
 		doShutdown();
 		// TextToSpeech is a bound service of its own, opened lazily the first
 		// time a trigger speaks. Leaving it bound as this process goes away is
