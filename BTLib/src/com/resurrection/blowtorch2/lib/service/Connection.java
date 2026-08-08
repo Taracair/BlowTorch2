@@ -2233,12 +2233,70 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (history == null || history.length == 0) {
 			return;
 		}
+		// Before the replay is trimmed: the vocabulary wants the same text and its
+		// own, smaller budget.
+		if (main) {
+			seedVocabularyFromHistory(history);
+		}
 		history = trimToNewestLines(history, MAX_REPLAY_BYTES);
 		try {
 			callback.resetWithRawDataIncoming(history);
 		} catch (RemoteException e) {
 			Log.w("BlowTorch", "Could not replay history to window " + name, e);
 		}
+	}
+
+	/** Largest vocabulary seed we will send after a UI process death.
+	 *
+	 * <p>Much smaller than {@link #MAX_REPLAY_BYTES} because this is not history the
+	 * player reads, it is words the completer offers, and {@code WordSuggestions}
+	 * prunes to its own line window the moment it has learned them. Sending more
+	 * than that window holds is work on the UI thread whose result is thrown away.
+	 * At the default 300-line window this is roughly twice what survives. */
+	private static final int MAX_VOCABULARY_SEED_BYTES = 48 * 1024;
+
+	/** Teach the completer the text that was already on screen.
+	 *
+	 * <p>The vocabulary lives in the UI process, so a UI process death empties it,
+	 * and nothing refills it: the window adopts a parceled {@code TextTree}, while
+	 * {@link WordSuggestions#learn} is fed only by freshly arriving packets in
+	 * {@link #addBytes}. Kill the app, re-enter a world that happens to be quiet,
+	 * and the game text is right there on screen with not one word of it offered
+	 * back — until the world says something new. On a busy MUD the first line
+	 * hides it, which is why this went unnoticed.
+	 *
+	 * <p>Only on the path that already knows the UI died, so a window re-attaching
+	 * with its vocabulary intact does not learn the same session twice.
+	 *
+	 * @param history The untrimmed buffer dump, oldest byte first.
+	 */
+	private void seedVocabularyFromHistory(final byte[] history) {
+		// Same gate as the live path in addBytes: a player with the completer off
+		// pays no binder traffic for it.
+		if (!mWordComplete || history == null || history.length == 0) {
+			return;
+		}
+		byte[] recent = trimToNewestLines(history, MAX_VOCABULARY_SEED_BYTES);
+		String text;
+		try {
+			text = Colorizer.stripAnsiEscapes(new String(recent, mSettings.getEncoding()));
+		} catch (java.io.UnsupportedEncodingException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"Connection.seedVocabularyFromHistory", e);
+			return;
+		}
+		if (text.length() == 0) {
+			return;
+		}
+		// The dump ends wherever the world stopped talking, which is usually a
+		// prompt with no newline. learn() would hold that tail in `pending` and
+		// glue it to the front of the first live packet, teaching a word nobody
+		// wrote, and would let a phrase run from the last seeded word into it.
+		// A closing newline is what ends both.
+		if (text.charAt(text.length() - 1) != '\n') {
+			text = text + "\n";
+		}
+		mService.doVocabularyText(text);
 	}
 
 	/** Cut a dump down to its newest bytes without starting mid-line.

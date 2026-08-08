@@ -354,4 +354,35 @@ public class WordSuggestionsTest {
 		w.learn("grizzled\n");
 		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("gri", 5));
 	}
+
+	@Test
+	public void aSeedThatDoesNotEndInANewlineGluesItselfToWhatComesNext() {
+		// Why Connection.seedVocabularyFromHistory terminates its seed. The
+		// buffer dump handed over after a UI process death stops wherever the
+		// world stopped talking, which is a prompt with no newline. Learned as
+		// it stands, the tail waits in `pending` for a continuation that is not
+		// coming from the same sentence at all.
+		WordSuggestions glued = new WordSuggestions();
+		glued.learn("You see a grizzled cave troll.\n> hp:100 man");
+		glued.learn("ticore roars.\n");
+		// "manticore" is what the two halves spell together. Nobody wrote it.
+		assertEquals(java.util.Arrays.asList("manticore"), glued.suggest("mant", 5));
+
+		WordSuggestions ended = new WordSuggestions();
+		ended.learn("You see a grizzled cave troll.\n> hp:100 man\n");
+		ended.learn("ticore roars.\n");
+		assertTrue(ended.suggest("mant", 5).isEmpty());
+	}
+
+	@Test
+	public void aSeedDoesNotStartAPhraseIntoTheFirstLiveLine() {
+		// Same reason, for phrases: the last word of the seeded screen must not
+		// become the head of a phrase that runs into the next thing the world
+		// says minutes later.
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("a grizzled cave troll\n");
+		w.learn("lumbers northward\n");
+		assertEquals(java.util.Arrays.asList("troll"), w.suggest("trol", 5));
+	}
 }
