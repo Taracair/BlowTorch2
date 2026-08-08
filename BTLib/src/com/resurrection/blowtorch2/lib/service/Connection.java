@@ -571,6 +571,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.SoundCommand soundcmd =
 				new com.resurrection.blowtorch2.lib.service.function.SoundCommand();
 		mSpecialCommands.put(soundcmd.commandName, soundcmd);
+		com.resurrection.blowtorch2.lib.service.function.SensorCommand sensorcmd =
+				new com.resurrection.blowtorch2.lib.service.function.SensorCommand();
+		mSpecialCommands.put(sensorcmd.commandName, sensorcmd);
+		mSpecialCommands.put(
+				com.resurrection.blowtorch2.lib.service.function.SensorCommand.ALIAS_NAME,
+				sensorcmd);
 		com.resurrection.blowtorch2.lib.service.function.HelpCommand helpcmd =
 				new com.resurrection.blowtorch2.lib.service.function.HelpCommand();
 		mSpecialCommands.put(helpcmd.commandName, helpcmd);
@@ -1743,6 +1749,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		if (!t.isInterpretAsRegex() && (t.getPattern().startsWith("%")
 				|| t.getPattern().startsWith(McpEngine.TRIGGER_CHAR))) {
+			return false;
+		}
+		// A device gesture is a trigger whose source is the phone, not the game.
+		// Same shape as the two above, and deliberately narrow: only a reserved
+		// prefix followed by a gesture this build knows is taken out, so a
+		// literal trigger watching for "!!!" keeps matching text.
+		if (com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.isGesturePattern(
+				t.getPattern(), !t.isInterpretAsRegex())) {
 			return false;
 		}
 		return true;
@@ -4067,6 +4081,166 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			// A world whose settings are half-loaded simply does not want it yet.
 		}
 		return false;
+	}
+
+	/**
+	 * Run every trigger set up for this device gesture.
+	 *
+	 * <p>Called by the gesture detectors and by {@code .sensor fire}. A gesture
+	 * has no text and no capture groups, so this uses the calling convention
+	 * timers already use — no buffer, no line, nothing matched — and its own
+	 * capture map rather than the one the text path clears per match.
+	 *
+	 * <p>Safe to call from any thread: the work is posted to the connection's
+	 * own handler, which is the thread that owns the trigger system and the
+	 * text buffer.
+	 *
+	 * @param gestureId a gesture name from {@code GestureCatalog}.
+	 */
+	public final void fireDeviceGesture(final String gestureId) {
+		final com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
+		if (g == null || mHandler == null) {
+			return;
+		}
+		mHandler.post(new Runnable() {
+			@Override
+			public void run() {
+				runDeviceGesture(g.getPattern());
+			}
+		});
+	}
+
+	/** How many triggers answered, for the report {@code .sensor fire} prints. */
+	private int runDeviceGesture(final String pattern) {
+		int fired = 0;
+		if (mSettings == null) {
+			return 0;
+		}
+		fired += runGestureIn(mSettings, pattern);
+		for (Plugin p : mPlugins) {
+			if (p != null && p.isEnabled() && p != mSettings) {
+				fired += runGestureIn(p, pattern);
+			}
+		}
+		return fired;
+	}
+
+	private int runGestureIn(final Plugin owner, final String pattern) {
+		int fired = 0;
+		HashMap<String, TriggerData> triggers = owner.getSettings().getTriggers();
+		if (triggers == null) {
+			return 0;
+		}
+		// A copy: a script responder may add or remove a trigger while this runs,
+		// and the text path has been bitten by exactly that before.
+		ArrayList<TriggerData> matching = new ArrayList<TriggerData>();
+		for (TriggerData t : triggers.values()) {
+			if (t != null && t.isEnabled() && !t.isInterpretAsRegex()
+					&& pattern.equals(t.getPattern())) {
+				matching.add(t);
+			}
+		}
+		for (TriggerData t : matching) {
+			if (t.isFireOnce() && t.isFired()) {
+				continue;
+			}
+			if (!ConditionEvaluator.evaluate(t, this)) {
+				continue;
+			}
+			if (t.isFireOnce()) {
+				t.setFired(true);
+			}
+			fired++;
+			HashMap<String, String> captures = new HashMap<String, String>();
+			for (TriggerResponder responder : t.getResponders()) {
+				try {
+					responder.doResponse(mService.getApplicationContext(), null, 0, null,
+							null, 0, 0, "", t, mDisplay, mHost, mPort,
+							StellarService.getNotificationId(), mService.isWindowConnected(),
+							mHandler, captures, owner.getLuaState(), t.getName(),
+							mSettings.getEncoding());
+				} catch (Exception e) {
+					String rname = responder != null
+							? responder.getClass().getSimpleName() : "?";
+					reportRuntimeError("gesture \"" + t.getName() + "\" / " + rname, e);
+				}
+			}
+		}
+		return fired;
+	}
+
+	/**
+	 * Fire a gesture now and say what answered, for {@code .sensor fire}.
+	 *
+	 * <p>The reply matters as much as the firing: "nothing is set up for this"
+	 * and "it fired and did nothing visible" look identical from the outside,
+	 * and the first is the far more common mistake.
+	 */
+	public final String fireDeviceGestureAndReport(final String gestureId) {
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
+		if (g == null) {
+			return "\nThere is no gesture called \"" + gestureId + "\". Try .sensor.\n";
+		}
+		int fired = runDeviceGesture(g.getPattern());
+		if (fired == 0) {
+			return "\nNothing is set up for " + g.getId() + ". Give it something to do"
+					+ " with\n.sensor " + g.getId() + " <command>, or in the Triggers"
+					+ " editor.\n";
+		}
+		return "\nFired " + g.getId() + ": " + fired
+				+ (fired == 1 ? " trigger answered." : " triggers answered.") + "\n";
+	}
+
+	/**
+	 * Gesture names this world has at least one enabled trigger for.
+	 *
+	 * <p>The watcher registers a sensor only when something is waiting for it, so
+	 * this is what decides whether the proximity sensor is listening at all.
+	 */
+	public final java.util.Set<String> enabledGestureIds() {
+		java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<String>();
+		if (mSettings == null) {
+			return ids;
+		}
+		collectGestureIds(mSettings, ids);
+		for (Plugin p : mPlugins) {
+			if (p != null && p.isEnabled() && p != mSettings) {
+				collectGestureIds(p, ids);
+			}
+		}
+		return ids;
+	}
+
+	private void collectGestureIds(final Plugin owner, final java.util.Set<String> into) {
+		HashMap<String, TriggerData> triggers = owner.getSettings().getTriggers();
+		if (triggers == null) {
+			return;
+		}
+		for (TriggerData t : triggers.values()) {
+			if (t == null || !t.isEnabled()) {
+				continue;
+			}
+			com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+					com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.fromPattern(
+							t.getPattern(), !t.isInterpretAsRegex());
+			if (g != null) {
+				into.add(g.getId());
+			}
+		}
+	}
+
+	/**
+	 * Tell the watcher to pick up or release sensors after a gesture changed.
+	 *
+	 * <p>Adding the first gesture trigger is what makes the sensor worth
+	 * listening to; removing the last one is what makes it waste.
+	 */
+	public final void refreshDeviceGestures() {
+		if (mService != null) {
+			mService.refreshDeviceState();
+		}
 	}
 
 	/** The device.* reading, for {@code .probe sensors state}. */

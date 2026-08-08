@@ -89,6 +89,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("probe", "Triggers and scripts",
 				"measure how the world splits its text across packets; "
 				+ ".probe sensors for what this phone can feel");
+		cmd("sensor", "Triggers and scripts",
+				"gestures this phone can feel, and what they do; also .gesture");
 		cmd("colordebug", "Triggers and scripts", "show the colour codes in a line");
 
 		cmd("gmcp", "The world and its protocols", "what the world is sending over GMCP");

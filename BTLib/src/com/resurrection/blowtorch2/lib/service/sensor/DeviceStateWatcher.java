@@ -43,15 +43,44 @@ public final class DeviceStateWatcher {
 	private final DeviceState state = new DeviceState();
 	private final Handler handler = new Handler(Looper.getMainLooper());
 
+	/**
+	 * How long a hand may sit over the screen and still count as a wave rather
+	 * than a deliberate cover. Told apart by time, not by how hard the gesture
+	 * was done — the one distinction a proximity sensor can make reliably.
+	 */
+	private static final long WAVE_MAX_MILLIS = 900L;
+	/** How long a hand must stay put before it is a cover. */
+	private static final long COVER_MILLIS = 1000L;
+	/**
+	 * How hard a shake has to be, in m/s2.
+	 *
+	 * <p><b>Provisional.</b> Measured on one phone on 8 Aug 2026 — a shake
+	 * peaked at 27.7 and the quiet baseline at 10.4 — but both runs were
+	 * simulated at a desk, and a real walk with the phone in a pocket has never
+	 * been measured. Calibration per device is the step that replaces this.
+	 */
+	private static final float SHAKE_THRESHOLD = 15.0f;
+	/** Without a dead time one shake of the wrist fires four times. */
+	private static final long SHAKE_DEAD_MILLIS = 500L;
+
 	private boolean receiverRegistered;
 	private boolean sensorRegistered;
+	private boolean motionRegistered;
 	private SensorManager sensorManager;
 	private Sensor proximity;
+	private Sensor motion;
+	private boolean motionHasGravity;
+	private long coveredSince;
+	private long lastShakeAt;
+	private Runnable pendingCover;
 
-	/** The connections to push into; supplied by the service, never held. */
+	/** The connections to serve; supplied by the service, never held. */
 	public interface Audience {
-		/** Live connections that have asked for device state, possibly empty. */
+		/** Live connections that asked for device.* variables, possibly empty. */
 		Iterable<Connection> listeners();
+
+		/** Live connections with at least one enabled gesture trigger. */
+		Iterable<Connection> gestureListeners();
 	}
 
 	private final Audience audience;
@@ -96,9 +125,11 @@ public final class DeviceStateWatcher {
 					|| proximity == null) {
 				return;
 			}
-			if (state.setCovered(DeviceState.isCovered(event.values[0],
-					proximity.getMaximumRange()))) {
+			boolean covered = DeviceState.isCovered(event.values[0],
+					proximity.getMaximumRange());
+			if (state.setCovered(covered)) {
 				push();
+				onCoverChanged(covered);
 			}
 		}
 
@@ -114,21 +145,50 @@ public final class DeviceStateWatcher {
 	 * the option off releases the sensor without the player restarting anything.
 	 */
 	public synchronized void refresh() {
-		boolean wanted = false;
+		boolean wantsState = false;
 		for (Connection c : audience.listeners()) {
 			if (c != null) {
-				wanted = true;
+				wantsState = true;
 				break;
 			}
 		}
-		if (wanted) {
-			startWatching();
+		// Which sensors any world is actually waiting on. A gesture nobody has a
+		// trigger for costs nothing, which is the whole reason to ask.
+		java.util.Set<String> providers = new java.util.LinkedHashSet<String>();
+		for (Connection c : audience.gestureListeners()) {
+			if (c == null) {
+				continue;
+			}
+			for (String id : c.enabledGestureIds()) {
+				GestureCatalog.Gesture g = GestureCatalog.byId(id);
+				if (g != null) {
+					providers.addAll(g.getProviders());
+				}
+			}
+		}
+		boolean wantsProximity = wantsState
+				|| providers.contains(GestureCatalog.BY_PROXIMITY);
+		boolean wantsMotion = providers.contains(GestureCatalog.BY_LINEAR_ACCELERATION)
+				|| providers.contains(GestureCatalog.BY_ACCELEROMETER);
+
+		if (wantsState) {
+			startBroadcasts();
 		} else {
-			stopWatching();
+			stopBroadcasts();
+		}
+		if (wantsProximity) {
+			startProximity();
+		} else {
+			stopProximity();
+		}
+		if (wantsMotion) {
+			startMotion();
+		} else {
+			stopMotion();
 		}
 	}
 
-	private void startWatching() {
+	private void startBroadcasts() {
 		if (!receiverRegistered) {
 			try {
 				IntentFilter filter = new IntentFilter();
@@ -146,24 +206,187 @@ public final class DeviceStateWatcher {
 				BlowTorchLogger.logMinor("DeviceStateWatcher.registerReceiver", e);
 			}
 		}
-		if (!sensorRegistered) {
-			if (sensorManager == null) {
-				Object service = context.getSystemService(Context.SENSOR_SERVICE);
-				sensorManager = (service instanceof SensorManager)
-						? (SensorManager) service : null;
+	}
+
+	private SensorManager manager() {
+		if (sensorManager == null) {
+			Object service = context.getSystemService(Context.SENSOR_SERVICE);
+			sensorManager = (service instanceof SensorManager)
+					? (SensorManager) service : null;
+		}
+		return sensorManager;
+	}
+
+	private void startProximity() {
+		if (sensorRegistered) {
+			return;
+		}
+		SensorManager m = manager();
+		if (m == null) {
+			return;
+		}
+		if (proximity == null) {
+			proximity = m.getDefaultSensor(Sensor.TYPE_PROXIMITY);
+		}
+		// No proximity sensor is a normal answer, not a failure: device.covered
+		// stays absent, a condition testing it reads false, and the wave gesture
+		// is reported as unavailable rather than silently never firing.
+		if (proximity == null) {
+			return;
+		}
+		try {
+			sensorRegistered = m.registerListener(proximityListener, proximity,
+					SensorManager.SENSOR_DELAY_NORMAL, handler);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.registerProximity", e);
+		}
+	}
+
+	private void startMotion() {
+		if (motionRegistered) {
+			return;
+		}
+		SensorManager m = manager();
+		if (m == null) {
+			return;
+		}
+		if (motion == null) {
+			motion = m.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+			motionHasGravity = false;
+			if (motion == null) {
+				motion = m.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+				motionHasGravity = true;
 			}
-			if (sensorManager != null && proximity == null) {
-				proximity = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
-			}
-			// No proximity sensor is a normal answer, not a failure: device.covered
-			// stays absent and a condition testing it reads false.
-			if (sensorManager != null && proximity != null) {
-				try {
-					sensorRegistered = sensorManager.registerListener(proximityListener,
-							proximity, SensorManager.SENSOR_DELAY_NORMAL, handler);
-				} catch (Exception e) {
-					BlowTorchLogger.logMinor("DeviceStateWatcher.registerListener", e);
+		}
+		if (motion == null) {
+			return;
+		}
+		try {
+			// GAME rather than NORMAL: a shake lasts a fraction of a second and
+			// NORMAL can sample slowly enough to miss the peak entirely.
+			motionRegistered = m.registerListener(motionListener, motion,
+					SensorManager.SENSOR_DELAY_GAME, handler);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.registerMotion", e);
+		}
+	}
+
+	private void stopBroadcasts() {
+		if (!receiverRegistered) {
+			return;
+		}
+		try {
+			context.unregisterReceiver(receiver);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterReceiver", e);
+		}
+		receiverRegistered = false;
+	}
+
+	private void stopProximity() {
+		if (!sensorRegistered || sensorManager == null) {
+			return;
+		}
+		try {
+			sensorManager.unregisterListener(proximityListener);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterProximity", e);
+		}
+		sensorRegistered = false;
+		if (pendingCover != null) {
+			handler.removeCallbacks(pendingCover);
+			pendingCover = null;
+		}
+		coveredSince = 0L;
+	}
+
+	private void stopMotion() {
+		if (!motionRegistered || sensorManager == null) {
+			return;
+		}
+		try {
+			sensorManager.unregisterListener(motionListener);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterMotion", e);
+		}
+		motionRegistered = false;
+	}
+
+	/**
+	 * A hand arrived over the screen, or left it.
+	 *
+	 * <p>Two gestures come out of one sensor, and they are told apart by how
+	 * long the hand stayed: gone again quickly is a wave, still there after a
+	 * second is a cover. Doing it by time rather than by distance is what makes
+	 * the pair safe — a proximity sensor reports "near" and "far" and little
+	 * else, so there is no second reading to get wrong.
+	 */
+	private void onCoverChanged(final boolean covered) {
+		if (covered) {
+			coveredSince = android.os.SystemClock.elapsedRealtime();
+			pendingCover = new Runnable() {
+				@Override
+				public void run() {
+					// Still covered when this arrives: a deliberate hold.
+					pendingCover = null;
+					fire("cover");
 				}
+			};
+			handler.postDelayed(pendingCover, COVER_MILLIS);
+			return;
+		}
+		if (pendingCover != null) {
+			handler.removeCallbacks(pendingCover);
+			pendingCover = null;
+		}
+		long held = android.os.SystemClock.elapsedRealtime() - coveredSince;
+		if (coveredSince > 0L && held <= WAVE_MAX_MILLIS) {
+			fire("wave");
+		}
+		coveredSince = 0L;
+	}
+
+	private final SensorEventListener motionListener = new SensorEventListener() {
+		@Override
+		public void onSensorChanged(final SensorEvent event) {
+			if (event == null || event.values == null || event.values.length < 3) {
+				return;
+			}
+			double magnitude;
+			if (motionHasGravity) {
+				magnitude = MotionStats.gravityRemoved(event.values[0], event.values[1],
+						event.values[2], SensorManager.GRAVITY_EARTH);
+			} else {
+				magnitude = Math.sqrt((event.values[0] * event.values[0])
+						+ (event.values[1] * event.values[1])
+						+ (event.values[2] * event.values[2]));
+			}
+			if (magnitude < SHAKE_THRESHOLD) {
+				return;
+			}
+			long now = android.os.SystemClock.elapsedRealtime();
+			if (now - lastShakeAt < SHAKE_DEAD_MILLIS) {
+				return;
+			}
+			lastShakeAt = now;
+			fire("shake");
+		}
+
+		@Override
+		public void onAccuracyChanged(final Sensor sensor, final int accuracy) {
+		}
+	};
+
+	/**
+	 * Hand the gesture to every world waiting for it.
+	 *
+	 * <p>{@code fireDeviceGesture} posts onto the connection's own handler, so
+	 * nothing here touches the trigger system from a sensor callback.
+	 */
+	private void fire(final String gestureId) {
+		for (Connection c : audience.gestureListeners()) {
+			if (c != null) {
+				c.fireDeviceGesture(gestureId);
 			}
 		}
 	}
@@ -213,22 +436,9 @@ public final class DeviceStateWatcher {
 
 	/** Release everything. Safe to call when nothing is registered. */
 	public synchronized void stopWatching() {
-		if (receiverRegistered) {
-			try {
-				context.unregisterReceiver(receiver);
-			} catch (Exception e) {
-				BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterReceiver", e);
-			}
-			receiverRegistered = false;
-		}
-		if (sensorRegistered && sensorManager != null) {
-			try {
-				sensorManager.unregisterListener(proximityListener);
-			} catch (Exception e) {
-				BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterListener", e);
-			}
-			sensorRegistered = false;
-		}
+		stopBroadcasts();
+		stopProximity();
+		stopMotion();
 	}
 
 	/** Write everything known into every connection that wants it. */

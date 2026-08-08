@@ -360,6 +360,24 @@ public class StellarService extends Service {
 							}
 							return wanting;
 						}
+
+						@Override
+						public Iterable<Connection> gestureListeners() {
+							// Every live world, whatever the device.* setting says:
+							// a gesture trigger is a thing the player made on
+							// purpose, and it should not need a second switch
+							// somewhere else to work.
+							java.util.ArrayList<Connection> live =
+									new java.util.ArrayList<Connection>();
+							if (mConnections != null) {
+								for (Connection c : mConnections.values()) {
+									if (c != null) {
+										live.add(c);
+									}
+								}
+							}
+							return live;
+						}
 					});
 		}
 		mDeviceState.refresh();
