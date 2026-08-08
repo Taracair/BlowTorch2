@@ -3980,6 +3980,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private int orientation;
 	private Boolean mShowRegexWarning;
 	private void loadSettings() {
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("ui.loadSettings enter");
 		//TODO: NEW LOAD SETTINGS PLACE
 		//if(!isResumed || !screen2.loaded()) {
 		if(!isResumed) {
@@ -4001,7 +4002,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			//screen2.setLinksEnabled(service.isHyperLinkEnabled());
 			//if(!service.isConnected()) { return; }
 			SettingsGroup group = service.getSettings();
-			
+			com.resurrection.blowtorch2.lib.util.StartupProbe.mark("ui.getSettings parcel");
+
 			if(group == null) return; //haven't fully loaded yet.
 			if(group.getOptions().size() == 0) return;
 			boolean fullscreen = (Boolean)((BaseOption)group.findOptionByKey("fullscreen")).getValue();
@@ -4195,7 +4197,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		} catch (RemoteException e1) {
 			throw new RuntimeException(e1);
 		}
-		
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("ui.loadSettings leave");
+
 		//initiailizeWindows();
 		//int i = R.id.textinput;
 	}

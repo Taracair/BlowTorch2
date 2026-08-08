@@ -1804,6 +1804,13 @@ public class StellarService extends Service {
 
 	/** Ask the foreground activity to re-read connection options (e.g. floating buttons). */
 	public final void doExecuteRequestLoadSettings() {
+		StackTraceElement[] who = new Throwable().getStackTrace();
+		StringBuilder from = new StringBuilder("askLoadSettings from");
+		for (int f = 1; f < who.length && f <= 3; f++) {
+			from.append(' ').append(who[f].getMethodName())
+					.append(':').append(who[f].getLineNumber());
+		}
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark(from.toString());
 		int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
