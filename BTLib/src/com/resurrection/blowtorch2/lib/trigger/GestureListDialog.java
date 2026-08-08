@@ -123,7 +123,9 @@ public class GestureListDialog extends Dialog {
 		buttons.setOrientation(LinearLayout.HORIZONTAL);
 		Button edit = new Button(getContext());
 		edit.setText(bound == null || bound.isEmpty() ? "Set up" : "Edit");
-		edit.setEnabled(r.isAvailable() || bound != null);
+		// Deliberately not disabled when the sensor is missing: profiles are
+		// shared, and one built here should be buildable for a phone that does
+		// have the sensor. The row above already says it will not fire on this one.
 		edit.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
@@ -147,7 +149,9 @@ public class GestureListDialog extends Dialog {
 					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 							"GestureListDialog.test", e);
 				}
-				dismiss();
+				// Left open on purpose. Closing this would leave the Options
+				// dialog on top of the reply, and a test whose answer you cannot
+				// see reads as a test that did nothing.
 			}
 		});
 		buttons.addView(test);

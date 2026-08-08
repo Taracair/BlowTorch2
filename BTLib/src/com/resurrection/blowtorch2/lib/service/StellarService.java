@@ -434,6 +434,10 @@ public class StellarService extends Service {
 	 */
 	@Override
 	public void onTaskRemoved(final Intent rootIntent) {
+		// The window went with the task. Saying so here matters for the gesture
+		// gate: onPause does not always arrive when a task is swiped away, and a
+		// stale "showing" would let a shake in a pocket through.
+		setWindowShowing(false);
 		if (mConnections != null) {
 			for (Connection c : mConnections.values()) {
 				if (c != null) {

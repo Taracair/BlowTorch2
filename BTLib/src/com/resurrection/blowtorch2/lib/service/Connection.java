@@ -4276,14 +4276,31 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.BY_SYSTEM)) {
 			return true;
 		}
-		if (!flagOption("gesture_background", false) && mService != null
-				&& !mService.isWindowConnected()) {
+		if (!flagOption("gesture_background", false) && !isUiInFront()) {
 			return false;
 		}
 		if (!flagOption("gesture_screen_off", false) && !isScreenInteractive()) {
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * Whether there is a game window in front of the player right now.
+	 *
+	 * <p>Two things have to agree, and that is deliberate. The service's flag is
+	 * told to it by {@code MainWindow.onResume}/{@code onPause}, which is exact
+	 * while the UI is alive and stale the moment it is not: it starts life
+	 * {@code true}, and a UI process that dies without pausing — which this
+	 * project has watched happen — leaves it saying "showing" for ever. A
+	 * registered window callback is a fact rather than a remembered assertion, so
+	 * a gesture is only treated as foreground when both hold.
+	 */
+	private boolean isUiInFront() {
+		if (mService == null || !mService.isWindowConnected()) {
+			return false;
+		}
+		return mWindowCallbackMap != null && !mWindowCallbackMap.isEmpty();
 	}
 
 	/** Ask the system, rather than trusting a broadcast we may have missed. */
