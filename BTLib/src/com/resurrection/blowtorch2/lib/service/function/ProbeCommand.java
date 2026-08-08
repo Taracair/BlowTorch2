@@ -38,6 +38,21 @@ public class ProbeCommand extends SpecialCommand {
 				c.sendDataToWindow(c.deviceStateReport());
 				return null;
 			}
+			if (rest.startsWith("light")) {
+				String tail = rest.substring("light".length()).trim();
+				int seconds = 10;
+				if (tail.length() > 0) {
+					try {
+						seconds = Integer.parseInt(tail);
+					} catch (NumberFormatException bad) {
+						c.sendDataToWindow(getErrorMessage("Probe usage",
+								"\"" + tail + "\" is not a number of seconds."));
+						return null;
+					}
+				}
+				c.sendDataToWindow(SensorProbe.startLightRun(c, seconds));
+				return null;
+			}
 			if (rest.startsWith("shake") || rest.startsWith("motion")) {
 				String tail = rest.startsWith("shake")
 						? rest.substring("shake".length()).trim()
@@ -58,7 +73,8 @@ public class ProbeCommand extends SpecialCommand {
 			c.sendDataToWindow(getErrorMessage("Probe usage",
 					".probe sensors          — what this device has\n"
 					+ ".probe sensors state    — the device.* variables right now\n"
-					+ ".probe sensors shake 10 — sample movement for 10 seconds"));
+					+ ".probe sensors shake 10 — sample movement for 10 seconds\n"
+					+ ".probe sensors light 10 — how bright it is here, in lux"));
 			return null;
 		}
 
@@ -101,7 +117,8 @@ public class ProbeCommand extends SpecialCommand {
 				+ "This answers one question: can a trigger pattern span several\n"
 				+ "lines on this world, or do the lines arrive too cut up for that?\n\n"
 				+ ".probe sensors          — what sensors this phone has\n"
-				+ ".probe sensors shake 10 — sample movement for 10 seconds\n\n"
+				+ ".probe sensors shake 10 — sample movement for 10 seconds\n"
+				+ ".probe sensors light 10 — how bright the room is, in lux\n\n"
 				+ "Those two answer a different question: which gestures this\n"
 				+ "device could support, and how hard a shake has to be here.\n"));
 		return null;
