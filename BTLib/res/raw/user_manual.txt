@@ -45,7 +45,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
     .suggest where floating | bar | off
     .suggest opacity N | persist on | off
     .suggest loose on | off | ghost on | off
-    .suggest rank on | off
+    .suggest rank on | off | pairs on | off
 
 (`.complete` is the same command under its old name and still works.)
 
@@ -128,6 +128,20 @@ the room.
 Nothing you type is ever offered back as a suggestion — only what the *world*
 said is. Typing a name the world never used does not make it completable. And a
 line the world has masked, such as a password, is left out of this entirely.
+
+**What you usually do with that command.** `.suggest pairs on` — **off by
+default**, and it needs `rank` above to be on as well. Ranking knows that after
+a command word you are naming a *thing*; this knows *which* thing. If you have
+killed the troll a dozen times and worn the trophy, then `kill tro` offers
+`troll` first and `wear tro` offers `trophy` first — same letters, different
+answer, because they are different questions.
+
+It is a count of what you have aimed each command at, kept per world, a few
+kilobytes. No grammar and no dictionary: it is a record of how *you* play, not a
+claim about English. So it knows nothing on a world you have just started, it
+fills up as you play, and it will be wrong the first time you do something new —
+which is why it has its own switch. Like `rank`, it only reorders; a word it has
+never seen with this command still follows, it does not vanish.
 
 **When you mistype it.** `.suggest loose on` adds a second pass: if the exact
 spelling finds nothing, a word whose letters you typed *in order, with gaps* is

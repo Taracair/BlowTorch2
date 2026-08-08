@@ -2608,8 +2608,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
 		String prefix = WordSuggestions.wordBefore(text, caret);
+		boolean atStart = isAtLineStart(text, caret, prefix);
 		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS,
-				isAtLineStart(text, caret, prefix)));
+				atStart, atStart ? null : leadingVerb(text)));
 		updateGhostCompletion(prefix, mWordSuggestionList);
 		return mWordSuggestionList;
 	}
@@ -2627,6 +2628,42 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @param prefix the partial word ending at the caret.
 	 * @return true when nothing but blanks precedes that word.
 	 */
+	/**
+	 * The command word already on the line, if there is one.
+	 *
+	 * <p>What the pairing is looked up by: {@code kill } offers what has been
+	 * killed before. Read off the text every time rather than remembered, because
+	 * the player can edit the front of the line after typing the back of it.
+	 *
+	 * @param text the whole input line.
+	 * @return the first word, lower-cased and stripped of punctuation, or null
+	 *         when the line has not got one yet.
+	 */
+	private static String leadingVerb(final String text) {
+		if (text == null) {
+			return null;
+		}
+		int i = 0;
+		while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+			i++;
+		}
+		StringBuilder b = new StringBuilder();
+		while (i < text.length() && !Character.isWhitespace(text.charAt(i))) {
+			char c = text.charAt(i);
+			if (Character.isLetterOrDigit(c) || c == '\'' || c == '-') {
+				b.append(c);
+			}
+			i++;
+		}
+		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(0))) {
+			b.deleteCharAt(0);
+		}
+		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(b.length() - 1))) {
+			b.deleteCharAt(b.length() - 1);
+		}
+		return b.length() == 0 ? null : b.toString().toLowerCase(java.util.Locale.US);
+	}
+
 	private static boolean isAtLineStart(final String text, final int caret,
 			final String prefix) {
 		if (text == null || prefix == null) {
@@ -4268,6 +4305,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setRankByPosition(rankOpt != null
 					&& rankOpt.getValue() instanceof Boolean
 					&& (Boolean) rankOpt.getValue());
+			BaseOption pairsOpt = (BaseOption) group.findOptionByKey("word_complete_pairs");
+			mWordSuggestions.setPairRanking(pairsOpt != null
+					&& pairsOpt.getValue() instanceof Boolean
+					&& (Boolean) pairsOpt.getValue());
 			BaseOption phrasesOpt = (BaseOption) group.findOptionByKey("word_complete_phrases");
 			mWordSuggestions.setPhrases(phrasesOpt != null
 					&& phrasesOpt.getValue() instanceof Boolean

@@ -217,6 +217,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_rank.setValue(false);
 		suggestions.addOption(word_complete_rank);
 
+		BooleanOption word_complete_pairs = new BooleanOption();
+		word_complete_pairs.setTitle("Learn what goes with what");
+		word_complete_pairs.setDescription("After a command word, offer what you have aimed that command at before: kill offers what you have killed, wear what you have worn. Needs Order by place in the line to be on, and knows nothing until you have played a while. It only changes the order. Off by default. .suggest pairs on/off");
+		word_complete_pairs.setKey("word_complete_pairs");
+		word_complete_pairs.setValue(false);
+		suggestions.addOption(word_complete_pairs);
+
 		BooleanOption word_complete_persist = new BooleanOption();
 		word_complete_persist.setTitle("Keep the bar in place");
 		word_complete_persist.setDescription("Leave the bar up even with nothing to suggest, instead of it coming and going as you type. Below the game this is the one that matters: it holds its height, so the game text stops jumping. Floating, it holds a bar's width and shows its grip. .suggest persist on/off");

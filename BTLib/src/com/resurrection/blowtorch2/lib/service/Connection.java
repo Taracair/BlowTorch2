@@ -4859,6 +4859,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_ghost:
 			case word_complete_persist:
 			case word_complete_rank:
+			case word_complete_pairs:
 			case word_complete_where:
 			case word_complete_opacity:
 				// MainWindow.loadSettings is what reaches WordSuggestions and the
@@ -5968,6 +5969,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_persist,
 		/** Let the caret's place in the line reorder the suggestions. */
 		word_complete_rank,
+		/** Let what usually follows a verb lead, after that verb. */
+		word_complete_pairs,
 		/** Where the chips go: floating, in a strip below the game, or nowhere. */
 		word_complete_where,
 		/** Triggers that speak keep quiet while a command is being composed. */

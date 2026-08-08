@@ -403,6 +403,89 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void pairingIsOffUntilAskedFor() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("a troll waits\na trophy hangs here\n");
+		w.learnCommand("kill troll");
+		w.learnCommand("wear trophy");
+		// Ranking alone knows both are things, and stops there.
+		assertEquals(w.suggest("tro", 5, false), w.suggest("tro", 5, false, "kill"));
+	}
+
+	@Test
+	public void afterAVerbWhatYouUsuallyAimItAtComesFirst() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("a troll waits\na trophy hangs here\n");
+		w.learnCommand("kill troll");
+		w.learnCommand("wear trophy");
+		// "trophy" is the newer word, so it leads without the pairing.
+		assertEquals("trophy", w.suggest("tro", 5).get(0));
+		assertEquals("troll", w.suggest("tro", 5, false, "kill").get(0));
+		assertEquals("trophy", w.suggest("tro", 5, false, "wear").get(0));
+	}
+
+	@Test
+	public void theThingYouDoMostOftenWithAVerbLeads() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("a troll waits\na trophy hangs here\n");
+		w.learnCommand("kill trophy");
+		w.learnCommand("kill troll");
+		w.learnCommand("kill troll");
+		assertEquals("troll", w.suggest("tro", 5, false, "kill").get(0));
+	}
+
+	@Test
+	public void aVerbNeverUsedFallsBackToPlainRanking() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("a troll waits\na trophy hangs here\n");
+		w.learnCommand("kill troll");
+		// Nothing known about "poke", so this is the C2 answer, not an empty one.
+		assertEquals(w.suggest("tro", 5, false), w.suggest("tro", 5, false, "poke"));
+		assertTrue(w.suggest("tro", 5, false, "poke").contains("troll"));
+	}
+
+	@Test
+	public void pairingNeverRemovesAnything() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("troll trophy trowel\n");
+		w.learnCommand("kill troll");
+		assertEquals(new java.util.HashSet<String>(w.suggest("tro", 10)),
+				new java.util.HashSet<String>(w.suggest("tro", 10, false, "kill")));
+	}
+
+	@Test
+	public void pairingHasNothingToSayAtTheStartOfALine() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("You kill the troll.\nYou kindle a torch.\n");
+		w.learnCommand("kill troll");
+		// First word of the line: there is no verb yet to pair against, so this
+		// is the verb ranking and nothing else.
+		assertEquals("kill", w.suggest("ki", 5, true, null).get(0));
+	}
+
+	@Test
+	public void aNewWorldForgetsThePairingsToo() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learnCommand("kill troll");
+		w.clear();
+		w.learn("a troll waits\na trophy hangs here\n");
+		assertEquals("trophy", w.suggest("tro", 5, false, "kill").get(0));
+	}
+
+	@Test
 	public void aFullStripIsTheOnePlaceRankingCanCostYouASuggestion() {
 		// The known limit, written down rather than discovered. Nothing is
 		// filtered out of the candidates — but the strip holds a fixed number of

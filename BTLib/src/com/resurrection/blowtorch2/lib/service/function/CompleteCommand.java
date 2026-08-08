@@ -31,6 +31,7 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String GHOST_KEY = "word_complete_ghost";
 	public static final String PERSIST_KEY = "word_complete_persist";
 	public static final String RANK_KEY = "word_complete_rank";
+	public static final String PAIRS_KEY = "word_complete_pairs";
 	public static final String OPACITY_KEY = "word_complete_opacity";
 
 	/** Kept where the completer keeps it, so the two cannot drift apart. */
@@ -97,6 +98,14 @@ public class CompleteCommand extends SpecialCommand {
 					"The suggestion bar hides itself when there is nothing to"
 						+ " suggest.");
 		}
+		if (arg.startsWith("pairs")) {
+			return setFlag(arg.substring("pairs".length()).trim(), c, PAIRS_KEY,
+					"After a command word, what you have aimed that command at before"
+						+ " comes first: kill offers what you have killed, wear what you"
+						+ " have worn. Needs .suggest rank on as well. It knows nothing"
+						+ " until you have played a while, and it only changes the order.",
+					"Suggestions no longer take account of which command you are typing.");
+		}
 		if (arg.startsWith("rank")) {
 			return setFlag(arg.substring("rank".length()).trim(), c, RANK_KEY,
 					"Suggestions are now ordered by where you are in the line: the"
@@ -157,8 +166,10 @@ public class CompleteCommand extends SpecialCommand {
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ ".\nOrder is " + (flagOn(c, RANK_KEY)
 						? "by where you are in the line" : "newest first")
+					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
+						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/ghost/persist/rank on|off, opacity N\n");
+					+ " phrases/loose/ghost/persist/rank/pairs on|off, opacity N\n");
 			return null;
 		}
 		c.sendDataToWindow(getErrorMessage("Suggestions usage:",

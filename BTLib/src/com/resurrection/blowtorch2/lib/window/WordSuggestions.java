@@ -194,6 +194,29 @@ public final class WordSuggestions {
 	/** Words the player has typed after the command word. */
 	private final LinkedHashSet<String> objects = new LinkedHashSet<String>();
 
+	/** How many verbs keep a list of what the player aims them at. */
+	public static final int MAX_VERBS_PAIRED = 100;
+
+	/** How many different targets are remembered per verb. */
+	public static final int MAX_OBJECTS_PER_VERB = 40;
+
+	/**
+	 * For each verb, what the player has aimed it at, and how often.
+	 *
+	 * <p>{@code kill} goes with the thing you later {@code flee} from;
+	 * {@code wear} with the thing you {@code remove}. A count of what has
+	 * followed what is a few kilobytes and needs no grammar — it is a record of
+	 * how this player plays this world, not a claim about English.
+	 *
+	 * <p>Insertion-ordered at both levels so the oldest falls out of the front
+	 * when a cap is reached, the same rule the vocabulary uses.
+	 */
+	private final LinkedHashMap<String, LinkedHashMap<String, Integer>> verbObjects =
+			new LinkedHashMap<String, LinkedHashMap<String, Integer>>();
+
+	/** Whether what usually follows this verb is allowed to lead. */
+	private boolean pairRanking = false;
+
 	/** Whether where the caret sits is allowed to reorder the suggestions. */
 	private boolean rankByPosition = false;
 
@@ -376,6 +399,7 @@ public final class WordSuggestions {
 				// shorter than it, and dropping "say" would let a line of chat
 				// through as if it named things.
 				remember(objects, key);
+				rememberPair(verb, key);
 			}
 		}
 	}
@@ -400,6 +424,59 @@ public final class WordSuggestions {
 			return null;
 		}
 		return b.toString().toLowerCase(Locale.US);
+	}
+
+	/**
+	 * Note that this verb was aimed at this word.
+	 *
+	 * @param verb the command word, already lower-cased.
+	 * @param object what followed it.
+	 */
+	private void rememberPair(final String verb, final String object) {
+		if (verb == null || object == null || verb.equals(object)) {
+			return;
+		}
+		LinkedHashMap<String, Integer> seen = verbObjects.remove(verb);
+		if (seen == null) {
+			seen = new LinkedHashMap<String, Integer>();
+		}
+		Integer count = seen.remove(object);
+		seen.put(object, Integer.valueOf(count == null ? 1 : count.intValue() + 1));
+		while (seen.size() > MAX_OBJECTS_PER_VERB) {
+			java.util.Iterator<String> it = seen.keySet().iterator();
+			it.next();
+			it.remove();
+		}
+		// Removed and re-put at both levels, so a verb still in use never falls
+		// out of the front while one abandoned months ago sits there.
+		verbObjects.put(verb, seen);
+		while (verbObjects.size() > MAX_VERBS_PAIRED) {
+			java.util.Iterator<String> it = verbObjects.keySet().iterator();
+			it.next();
+			it.remove();
+		}
+	}
+
+	/**
+	 * Whether what usually follows a verb is offered first after that verb.
+	 *
+	 * <p>Off by default and separate from {@link #setRankByPosition}, which it
+	 * needs to be on to do anything. Ranking by position says "after a command
+	 * word, things come first"; this says which things — {@code kill } offers
+	 * what you have killed before, ahead of what you have merely worn.
+	 *
+	 * <p>More opinionated than ranking by position, which is why it is its own
+	 * switch: it is a record of how you have played, and it will be wrong the
+	 * first time you do something new. Like ranking, it only ever reorders.
+	 *
+	 * @param on true to let the pairing lead.
+	 */
+	public void setPairRanking(final boolean on) {
+		this.pairRanking = on;
+	}
+
+	public boolean isPairRanking() {
+		return pairRanking;
 	}
 
 	/** Put a word at the newest end of a bounded set. */
@@ -544,6 +621,23 @@ public final class WordSuggestions {
 	 */
 	public List<String> suggest(final String prefix, final int max,
 			final boolean atLineStart) {
+		return suggest(prefix, max, atLineStart, null);
+	}
+
+	/**
+	 * Completions for what is being typed, best first.
+	 *
+	 * @param prefix the partial word.
+	 * @param max how many to return.
+	 * @param atLineStart true when nothing precedes the partial word on the line.
+	 * @param leadingVerb the first word already on the line, lower-cased, or null
+	 *        when there is none. Used only by {@link #setPairRanking}, to put
+	 *        what usually follows <em>this</em> command ahead of what merely
+	 *        follows commands in general.
+	 * @return never null, possibly empty.
+	 */
+	public List<String> suggest(final String prefix, final int max,
+			final boolean atLineStart, final String leadingVerb) {
 		List<String> out = new ArrayList<String>();
 		if (prefix == null || prefix.length() < MIN_PREFIX_LENGTH || max <= 0) {
 			return out;
@@ -560,7 +654,7 @@ public final class WordSuggestions {
 				matches.add(e.getKey());
 			}
 		}
-		rankByPosition(matches, atLineStart);
+		rankByPosition(matches, atLineStart, leadingVerb);
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
 			String key = matches.get(i);
 			if (phrases) {
@@ -603,30 +697,54 @@ public final class WordSuggestions {
 	 * @param matches candidate keys, oldest first; reordered in place.
 	 * @param atLineStart true when the caret is on the first word of the line.
 	 */
-	private void rankByPosition(final List<String> matches, final boolean atLineStart) {
+	private void rankByPosition(final List<String> matches, final boolean atLineStart,
+			final String leadingVerb) {
 		if (!rankByPosition || matches.size() < 2) {
 			return;
 		}
 		java.util.Set<String> favoured = atLineStart ? verbs : objects;
-		if (favoured.isEmpty()) {
+		// What this particular command has been aimed at before. Only after the
+		// command word: at the start of a line there is no verb to pair with yet.
+		final java.util.Map<String, Integer> paired =
+				(!atLineStart && pairRanking && leadingVerb != null)
+					? verbObjects.get(leadingVerb) : null;
+		if (favoured.isEmpty() && (paired == null || paired.isEmpty())) {
 			return;
 		}
 		List<String> rest = new ArrayList<String>(matches.size());
 		List<String> lifted = new ArrayList<String>(matches.size());
+		List<String> withThisVerb = new ArrayList<String>(matches.size());
 		for (int i = 0; i < matches.size(); i++) {
 			String key = matches.get(i);
-			if (favoured.contains(key)) {
+			if (paired != null && paired.containsKey(key)) {
+				withThisVerb.add(key);
+			} else if (favoured.contains(key)) {
 				lifted.add(key);
 			} else {
 				rest.add(key);
 			}
 		}
-		if (lifted.isEmpty()) {
+		if (lifted.isEmpty() && withThisVerb.isEmpty()) {
 			return;
+		}
+		if (withThisVerb.size() > 1) {
+			// Read back to front, so the most-used pairing has to end up last.
+			// A stable sort, so two things done equally often keep the order they
+			// already had, which is newest-said-first.
+			final java.util.Map<String, Integer> counts = paired;
+			java.util.Collections.sort(withThisVerb, new java.util.Comparator<String>() {
+				@Override
+				public int compare(String a, String b) {
+					int ca = counts.get(a) == null ? 0 : counts.get(a).intValue();
+					int cb = counts.get(b) == null ? 0 : counts.get(b).intValue();
+					return ca - cb;
+				}
+			});
 		}
 		matches.clear();
 		matches.addAll(rest);
 		matches.addAll(lifted);
+		matches.addAll(withThisVerb);
 	}
 
 	/**
@@ -708,6 +826,7 @@ public final class WordSuggestions {
 		// are not the verbs the next one takes.
 		verbs.clear();
 		objects.clear();
+		verbObjects.clear();
 		linesSeen = 0;
 		lastWordLine = 0;
 		pending = "";
