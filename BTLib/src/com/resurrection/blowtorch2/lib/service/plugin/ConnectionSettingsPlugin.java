@@ -220,13 +220,15 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption speak_quiet_typing = new BooleanOption();
 		speak_quiet_typing.setTitle("Quiet while you type");
-		speak_quiet_typing.setDescription("Triggers that speak stay silent from the first letter of a command until you send it. Speech over a half-typed line is what makes people turn speaking off for good. Off, they speak whenever they fire.");
+		speak_quiet_typing.setDescription("Triggers that speak drop anything they would have said between the first letter of a command and sending it. Speech already under way is not cut short. Off — the default — they speak whenever they fire. Worth turning on if you write long lines while a chatty trigger reads the screen at you; leave it off if speech is an alert, because you type most in a fight and that is when it would go quiet.");
 		speak_quiet_typing.setKey("speak_quiet_typing");
-		// On by default, and off is a real answer — a player watching the screen
-		// while typing may want the alert precisely then. Change this and
+		// Off by default: speaking whenever a trigger fires is what the app did
+		// before this existed, and a player who never opens this option must get
+		// that. On it silences alerts during exactly the busiest moments, which
+		// is not a thing to hand anybody without their asking. Change this and
 		// ConnectionSetttingsParser's comparison together, or the parser quietly
 		// stops saving the value the player chose.
-		speak_quiet_typing.setValue(true);
+		speak_quiet_typing.setValue(false);
 		input.addOption(speak_quiet_typing);
 
 		BooleanOption prompt_bar = new BooleanOption();

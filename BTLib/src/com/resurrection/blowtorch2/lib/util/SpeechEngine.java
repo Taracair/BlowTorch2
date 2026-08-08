@@ -62,11 +62,15 @@ public final class SpeechEngine {
 
 	/**
 	 * Whether typing silences speech at all — the player's choice, from
-	 * Options → Input → Speech. On by default: speech over a half-typed command
-	 * is the thing that makes people turn the feature off for good. Off is a
-	 * real answer too, which is why it is a switch and not a rule.
+	 * Options → Input.
+	 *
+	 * <p>Off, matching the option's own default. Speaking whenever a trigger
+	 * fires is what this app has always done, so that is what a player who never
+	 * opens the option gets. On, the quiet falls over the busiest moments — you
+	 * type most in a fight — and an alert that goes silent exactly then is a
+	 * worse failure than one that talks too much, so it is opted into.
 	 */
-	private static volatile boolean quietWhileTyping = true;
+	private static volatile boolean quietWhileTyping = false;
 
 	/** @param quiet true to stay silent while a command is being composed. */
 	public static void setQuietWhileTyping(final boolean quiet) {

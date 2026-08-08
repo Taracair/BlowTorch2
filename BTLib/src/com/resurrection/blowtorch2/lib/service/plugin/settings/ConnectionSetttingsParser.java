@@ -544,8 +544,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case speak_quiet_typing:
-						// Default is true; see ConnectionSettingsPlugin.
-						if((Boolean)opt.getValue() != true) {
+						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;

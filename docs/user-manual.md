@@ -377,6 +377,16 @@ The same line repeated within a second and a half is only said once.
 It speaks whether or not the game window is in front, which is the point of an
 alert.
 
+**Quiet while you type** (Options → Input) is **off** by default. Turn it on and
+a speaking trigger drops anything it would have said between the first letter of
+a command and sending it — dropped, not held back, because a backlog let loose
+the moment you press Send would read you a fight that has already moved on. It
+does **not** cut short a line that is already being spoken, so a sentence that
+started before you touched the keyboard finishes. Worth it if you write long
+tells while a chatty trigger reads the screen at you. Leave it off if your
+speaking triggers are alerts: you type most in a fight, and that is the moment
+this makes the phone go quiet.
+
 Timers have the same action, so a timer can say "potion ready" instead of only
 printing it.
 
