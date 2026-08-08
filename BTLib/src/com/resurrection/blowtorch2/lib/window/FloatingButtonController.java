@@ -415,15 +415,31 @@ public class FloatingButtonController {
 			// slide out, and each teardown is a window in which a button can come
 			// back somewhere else or not at all.
 			boolean imeUp = isSoftKeyboardCoveringLayer();
-			if (imeUp == lastOverlayImeUp) {
+			if (imeUp) {
+				// Going up is safe to do at once: it only adds windows, and a
+				// pending "take them away" is now wrong.
+				cancelPendingKeyboardHide();
+				if (imeUp == lastOverlayImeUp) {
+					return;
+				}
+				lastOverlayImeUp = true;
+				syncLastModelsFromLiveOverlayPositions();
+				updateKeyboardModeOverlays(true);
 				return;
 			}
-			lastOverlayImeUp = imeUp;
-			// Live overlay x/y into the cache first — drag updates the
-			// WindowManager params (and Lua) but not this snapshot, so anything
-			// built from it would snap a dragged button back.
-			syncLastModelsFromLiveOverlayPositions();
-			updateKeyboardModeOverlays(imeUp);
+			if (!lastOverlayImeUp) {
+				return;
+			}
+			// Going down waits, because coming back from another app produces a
+			// keyboard-down inset that is not true. Measured on the device, one
+			// resume with the keys out: the rebuild reads the keyboard as up and
+			// places both windows, then 90 ms later the insets say ime=0 and the
+			// windows are taken away, and 150 ms after that they say ime=970 and
+			// the windows go back. That pair is the blink. Nothing here can tell
+			// the false report from a real one at the instant it arrives — only
+			// the fact that it is immediately contradicted — so the destructive
+			// half of the answer is the one that waits.
+			scheduleKeyboardHide();
 			return;
 		}
 		if (layer == null) {
@@ -848,6 +864,46 @@ public class FloatingButtonController {
 	 * other button's window untouched — an attached window that is not moving is
 	 * the one thing that cannot blink.
 	 */
+	/**
+	 * How long a "the keyboard is gone" inset has to survive before the
+	 * keyboard-mode windows are taken down.
+	 *
+	 * <p>Measured: the false one on a resume is contradicted 150 ms later. This
+	 * is comfortably past that and still under the time it takes to notice a
+	 * button that has outstayed the keys by a moment.
+	 */
+	private static final long KEYBOARD_HIDE_SETTLE_MS = 350;
+
+	/** Pending take-the-keyboard-buttons-down, or null when nothing is waiting. */
+	private Runnable pendingKeyboardHide = null;
+
+	private void cancelPendingKeyboardHide() {
+		if (pendingKeyboardHide != null) {
+			uiHandler.removeCallbacks(pendingKeyboardHide);
+			pendingKeyboardHide = null;
+		}
+	}
+
+	private void scheduleKeyboardHide() {
+		if (pendingKeyboardHide != null) {
+			return;
+		}
+		pendingKeyboardHide = new Runnable() {
+			public void run() {
+				pendingKeyboardHide = null;
+				// Ask again rather than trusting the event that got us here: by
+				// now the keyboard may be back, and that is the whole point.
+				if (isSoftKeyboardCoveringLayer() || !lastOverlayImeUp) {
+					return;
+				}
+				lastOverlayImeUp = false;
+				syncLastModelsFromLiveOverlayPositions();
+				updateKeyboardModeOverlays(false);
+			}
+		};
+		uiHandler.postDelayed(pendingKeyboardHide, KEYBOARD_HIDE_SETTLE_MS);
+	}
+
 	private void updateKeyboardModeOverlays(boolean imeUp) {
 		android.util.Log.i("BTPROF", "kbOverlays imeUp=" + imeUp
 				+ " views=" + views.size() + " resumed=" + resumed);
