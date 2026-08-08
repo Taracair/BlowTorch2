@@ -517,6 +517,11 @@ a second.
     Pattern:  ^\w+ tells you
     Action:   Script → .dobell
 
+If nothing happens, type `.dobell` by hand: with every bell reaction turned off
+it now says so and names the three switches, instead of leaving you guessing
+whether the trigger fired. Only **Vibrate** is on by default, and a phone in
+silent mode will not buzz.
+
 What the bell cannot do yet: it is **one reaction for the whole profile**, so
 every trigger that rings it sounds the same, and it plays the system
 notification sound rather than a sound file of your choosing. A per-trigger
