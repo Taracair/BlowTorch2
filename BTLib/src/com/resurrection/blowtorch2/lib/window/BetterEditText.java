@@ -307,6 +307,16 @@ public class BetterEditText extends EditText {
 	public interface GhostTapListener {
 		/** @param word the completion the ghost was standing for. */
 		void onGhostTapped(String word);
+
+		/**
+		 * Hold the ghost to see the next suggestion instead.
+		 *
+		 * <p>The ghost can only ever show one, and without a bar of chips the
+		 * others are unreachable: {@code .suggest 2} cannot be typed into the
+		 * input bar, it can only be put on a button. A player who works from the
+		 * ghost alone had one suggestion and no way to the rest.
+		 */
+		void onGhostHeld();
 	}
 
 	private GhostTapListener ghostTapListener = null;
@@ -322,6 +332,30 @@ public class BetterEditText extends EditText {
 	private int ghostRectCount = 0;
 	/** A touch that went down on the ghost, waiting to see if it is a tap. */
 	private boolean ghostTouchDown = false;
+
+	/** Set once a hold has fired, so the release is not also read as a tap. */
+	private boolean ghostHeld = false;
+
+	/** Most suggestions the bar will grow to carry under the typed line. */
+	public static final int MAX_GHOST_EXTRAS = 5;
+
+	/** Extra suggestions drawn on their own lines below, newest option first. */
+	private String[] ghostExtras = null;
+
+	/** What each of those lines inserts when tapped. */
+	private String[] ghostExtraWords = null;
+
+	private final android.graphics.RectF[] ghostExtraRects =
+			new android.graphics.RectF[MAX_GHOST_EXTRAS];
+
+	/** The bottom padding this field had before any room was reserved. */
+	private int ghostBasePaddingBottom = -1;
+
+	/** Rows of room held under the text, whether or not they are filled. */
+	private int ghostReservedLines = 0;
+
+	/** Posted on the way down, run if the finger stays put long enough. */
+	private Runnable ghostHoldRunnable = null;
 
 	/** Widened so a thumb can hit a line of monospace type. */
 	private static final float GHOST_TOUCH_SLOP_DIP = 8f;
@@ -373,6 +407,60 @@ public class BetterEditText extends EditText {
 
 	public String getGhostCompletion() {
 		return ghostText;
+	}
+
+	/**
+	 * Suggestions to show under the line being typed, growing the bar for them.
+	 *
+	 * <p>The inline ghost is one word by construction. This is the other answer
+	 * to that, for a player who works without a bar of chips: the field gets
+	 * taller and the rest are listed under what they are typing, each one
+	 * tappable. It costs screen — that is the trade, and it is why this is off
+	 * unless asked for.
+	 *
+	 * <p>Room is made with bottom padding rather than by putting the words into
+	 * the text. Text is what gets sent; a suggestion must never be able to
+	 * become part of the command by an oversight somewhere else.
+	 *
+	 * @param lines what to draw, or null for none.
+	 * @param words what each line inserts; same length as {@code lines}.
+	 */
+	public void setGhostExtras(final String[] lines, final String[] words) {
+		int now = lines == null ? 0 : Math.min(lines.length, ghostReservedLines);
+		ghostExtras = now == 0 ? null : java.util.Arrays.copyOf(lines, now);
+		ghostExtraWords = now == 0 ? null : java.util.Arrays.copyOf(words, now);
+		// Deliberately no layout change here. This is called on every keystroke
+		// and the number of suggestions moves constantly as the prefix narrows —
+		// resizing the field each time would relayout the input chrome under the
+		// thumb, which is the fault this project has already paid for twice.
+		// The room is reserved once, by setGhostReservedLines.
+		invalidate();
+	}
+
+	/**
+	 * Hold room under the text for this many suggestion rows, always.
+	 *
+	 * <p>Constant height rather than height that follows how many suggestions
+	 * there happen to be: the bar keeps its size while you type, so the game
+	 * text above it does not jump on every letter. The same reasoning the
+	 * persistent chip bar already uses.
+	 *
+	 * <p>Called when the setting is read, not while typing.
+	 *
+	 * @param rows how many rows to keep room for; 0 gives the room back.
+	 */
+	public void setGhostReservedLines(final int rows) {
+		int want = rows < 0 ? 0 : Math.min(rows, MAX_GHOST_EXTRAS);
+		if (want == ghostReservedLines && ghostBasePaddingBottom >= 0) {
+			return;
+		}
+		ghostReservedLines = want;
+		if (ghostBasePaddingBottom < 0) {
+			ghostBasePaddingBottom = getPaddingBottom();
+		}
+		int lineHeight = Math.round(getPaint().getFontSpacing());
+		setPadding(getPaddingLeft(), getPaddingTop(), getPaddingRight(),
+				ghostBasePaddingBottom + want * lineHeight);
 	}
 
 	/** The word a tap on the ghost would insert; null when there is no ghost. */
@@ -467,6 +555,8 @@ public class BetterEditText extends EditText {
 			}
 		}
 
+		drawGhostExtras(canvas, layout, originX, originY, lineWidth);
+
 		if (ghostNumber > 0) {
 			// A micro digit above the ghost, so you can see which suggestion it is
 			// and reach it with .complete N without looking down at the strip.
@@ -506,22 +596,38 @@ public class BetterEditText extends EditText {
 			case MotionEvent.ACTION_DOWN:
 				if (hitsGhost(event.getX(), event.getY())) {
 					ghostTouchDown = true;
+					startGhostHold();
 					return true;
 				}
 				break;
 			case MotionEvent.ACTION_UP:
 				if (ghostTouchDown) {
 					ghostTouchDown = false;
-					String word = ghostWord;
-					if (hitsGhost(event.getX(), event.getY())) {
+					cancelGhostHold();
+					String word = ghostWordAt(event.getX(), event.getY());
+					// A release after a hold is the end of the hold, not a tap.
+					// Without this, holding to see the next suggestion would then
+					// insert it as well, which is the opposite of looking.
+					if (!ghostHeld && word != null) {
 						ghostTapListener.onGhostTapped(word);
 					}
+					ghostHeld = false;
+					return true;
+				}
+				break;
+			case MotionEvent.ACTION_MOVE:
+				if (ghostTouchDown && !hitsGhost(event.getX(), event.getY())) {
+					// Wandered off it. Still ours until the finger lifts, but no
+					// longer a hold on the thing it went down on.
+					cancelGhostHold();
 					return true;
 				}
 				break;
 			case MotionEvent.ACTION_CANCEL:
 				if (ghostTouchDown) {
 					ghostTouchDown = false;
+					cancelGhostHold();
+					ghostHeld = false;
 					return true;
 				}
 				break;
@@ -535,13 +641,101 @@ public class BetterEditText extends EditText {
 		return super.onTouchEvent(event);
 	}
 
-	private boolean hitsGhost(final float x, final float y) {
+	/** Start counting towards a hold on the ghost. */
+	private void startGhostHold() {
+		cancelGhostHold();
+		ghostHeld = false;
+		ghostHoldRunnable = new Runnable() {
+			@Override
+			public void run() {
+				ghostHoldRunnable = null;
+				if (!ghostTouchDown || ghostTapListener == null) {
+					return;
+				}
+				ghostHeld = true;
+				performHapticFeedback(
+						android.view.HapticFeedbackConstants.LONG_PRESS);
+				ghostTapListener.onGhostHeld();
+			}
+		};
+		postDelayed(ghostHoldRunnable,
+				android.view.ViewConfiguration.getLongPressTimeout());
+	}
+
+	private void cancelGhostHold() {
+		if (ghostHoldRunnable != null) {
+			removeCallbacks(ghostHoldRunnable);
+			ghostHoldRunnable = null;
+		}
+	}
+
+	/**
+	 * List the other suggestions under the line, in the room the padding made.
+	 *
+	 * <p>Drawn from the bottom of the text layout down, so they follow the typed
+	 * line however many lines it has grown to.
+	 */
+	private void drawGhostExtras(final android.graphics.Canvas canvas,
+			final android.text.Layout layout, final float originX, final float originY,
+			final float lineWidth) {
+		for (int i = 0; i < ghostExtraRects.length; i++) {
+			ghostExtraRects[i] = null;
+		}
+		if (ghostExtras == null || ghostExtras.length == 0) {
+			return;
+		}
+		float lineHeight = ghostPaint.getFontSpacing();
+		float below = layout.getLineBottom(layout.getLineCount() - 1);
+		for (int i = 0; i < ghostExtras.length; i++) {
+			String row = ghostExtras[i];
+			if (row == null) {
+				continue;
+			}
+			int fits = ghostPaint.breakText(row, true, lineWidth, null);
+			if (fits < row.length()) {
+				row = fits > 1 ? row.substring(0, fits - 1) + "…" : "…";
+			}
+			float top = below + i * lineHeight;
+			canvas.drawText(row, 0, top + lineHeight - ghostPaint.descent(), ghostPaint);
+			float w = ghostPaint.measureText(row);
+			ghostExtraRects[i] = new android.graphics.RectF(originX, originY + top,
+					originX + w, originY + top + lineHeight);
+		}
+	}
+
+	/**
+	 * What a touch landed on: -1 nothing, 0 the inline ghost, 1+i an extra line.
+	 */
+	private int ghostHitIndex(final float x, final float y) {
 		for (int i = 0; i < ghostRectCount; i++) {
 			if (ghostRects[i].contains(x, y)) {
-				return true;
+				return 0;
 			}
 		}
-		return false;
+		for (int i = 0; i < ghostExtraRects.length; i++) {
+			if (ghostExtraRects[i] != null && ghostExtraRects[i].contains(x, y)) {
+				return 1 + i;
+			}
+		}
+		return -1;
+	}
+
+	private boolean hitsGhost(final float x, final float y) {
+		return ghostHitIndex(x, y) >= 0;
+	}
+
+	/** The word the touch at this point would insert, or null. */
+	private String ghostWordAt(final float x, final float y) {
+		int hit = ghostHitIndex(x, y);
+		if (hit < 0) {
+			return null;
+		}
+		if (hit == 0) {
+			return ghostWord;
+		}
+		int i = hit - 1;
+		return ghostExtraWords != null && i < ghostExtraWords.length
+				? ghostExtraWords[i] : null;
 	}
 
 	@Override

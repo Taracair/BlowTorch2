@@ -192,6 +192,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_ghost.setValue(false);
 		suggestions.addOption(word_complete_ghost);
 
+		IntegerOption word_complete_ghost_lines = new IntegerOption();
+		word_complete_ghost_lines.setTitle("Suggestions under the line");
+		word_complete_ghost_lines.setDescription("How many suggestions the ghost shows, 1 to 6. At 1 it is the single word drawn after the cursor, as before. Above that the input bar grows downwards and lists the rest under what you are typing, each one numbered and tappable. Costs screen — worth it if you work without the bar of chips. Needs the ghost to be on. .suggest ghostlines N");
+		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
+		word_complete_ghost_lines.setValue(1);
+		suggestions.addOption(word_complete_ghost_lines);
+
 		ListOption word_complete_where = new ListOption();
 		word_complete_where.setTitle("Bar of suggestions");
 		word_complete_where.setDescription("One place, so picking one puts the other away. Floating: over the game text, on the input bar, with a grip to drag or fold it. Below the game: a strip in the layout, which takes height, so the text jumps unless you also keep it in place. Nowhere: no bar at all — the ghost above still works. .suggest where floating|bar|off");

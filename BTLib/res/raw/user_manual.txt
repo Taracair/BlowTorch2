@@ -145,9 +145,23 @@ never seen with this command still follows, it does not vanish.
 
 The ghost is **one** suggestion — it is text drawn after the cursor, so it
 cannot be a list. When there are others it ends with how many: `grizzled +3`
-means three more are waiting. They are on the bar, and `.suggest 2`,
-`.suggest 3` and so on take them without looking. If you are using the ghost
-with `.suggest where off`, that mark is the only sign the rest exist.
+means three more are waiting.
+
+**Or let it show several at once.** `.suggest ghostlines 4` grows the input bar
+downwards and lists the rest under what you are typing — numbered the same way
+`.suggest 2` numbers them, and each one tappable. 1 to 6; `1` is the plain
+single-word ghost it has always been. It costs screen, which is the whole
+trade, and it is why it starts at 1.
+
+    .suggest ghostlines N     (1 to 6, 1 is the plain ghost)
+
+**Hold the ghost to step to the next one.** Tap takes it, hold moves on, and it
+wraps round to the start. While you are stepping the mark changes to your place
+in the list — `2/6`, `3/6` — because once you are walking, the question is
+whether you have gone past the one you wanted. This is how you reach the rest
+of the list with `.suggest where off`: `.suggest 2` cannot be typed into the
+input bar, only put on a button, so without the bar of chips the ghost is the
+only way through them.
 
     .suggest learned    what your commands have taught on this world
     .suggest clear      throw all of it away, including the file

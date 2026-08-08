@@ -29,6 +29,9 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String LOOSE_KEY = "word_complete_loose";
 	public static final String PHRASES_KEY = "word_complete_phrases";
 	public static final String GHOST_KEY = "word_complete_ghost";
+	public static final String GHOST_LINES_KEY = "word_complete_ghost_lines";
+	/** Ghost rows the input bar will grow to carry, plus the inline one. */
+	public static final int MAX_GHOST_LINES = 6;
 	public static final String PERSIST_KEY = "word_complete_persist";
 	public static final String RANK_KEY = "word_complete_rank";
 	public static final String PAIRS_KEY = "word_complete_pairs";
@@ -83,10 +86,17 @@ public class CompleteCommand extends SpecialCommand {
 						+ " the end of a line.",
 					"Single words only.");
 		}
+		// Before "ghost", or ".suggest ghostlines 3" is read as ".suggest ghost".
+		if (arg.startsWith("ghostlines")) {
+			return setGhostLines(arg.substring("ghostlines".length()).trim(), c);
+		}
 		if (arg.startsWith("ghost")) {
 			return setFlag(arg.substring("ghost".length()).trim(), c, GHOST_KEY,
 					"The rest of the top suggestion is now drawn after the cursor."
-						+ " It is drawn only — what you send is what you typed.",
+						+ " It is drawn only — what you send is what you typed."
+						+ " Tap it to take it, hold it to step to the next"
+						+ " suggestion; a +N or a 2/6 on the end says how many"
+						+ " there are and where you are among them.",
 					"No suggestion drawn after the cursor.");
 		}
 		if (arg.startsWith("persist")) {
@@ -170,12 +180,15 @@ public class CompleteCommand extends SpecialCommand {
 					+ ".\nWhole names " + (flagOn(c, PHRASES_KEY) ? "offered" : "not offered")
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
+					+ (flagOn(c, GHOST_KEY) && ghostLines(c) > 1
+						? " showing " + ghostLines(c) + " under the line" : "")
 					+ ".\nOrder is " + (flagOn(c, RANK_KEY)
 						? "by where you are in the line" : "newest first")
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/ghost/persist/rank/pairs on|off, opacity N,"
+					+ " phrases/loose/ghost/persist/rank/pairs on|off,"
+					+ " ghostlines N, opacity N,"
 					+ " learned, clear\n");
 			return null;
 		}
@@ -357,6 +370,33 @@ public class CompleteCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object setGhostLines(String arg, Connection c) {
+		int n;
+		try {
+			n = Integer.parseInt(arg);
+		} catch (NumberFormatException e) {
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
+					".suggest ghostlines N — a number from 1 to " + MAX_GHOST_LINES
+					+ ". 1 is the single word after the cursor.\n"));
+			return null;
+		}
+		if (n < 1) {
+			n = 1;
+		}
+		if (n > MAX_GHOST_LINES) {
+			n = MAX_GHOST_LINES;
+		}
+		c.updateIntegerSetting(GHOST_LINES_KEY, n);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ (n == 1
+					? "The ghost is one word after the cursor again."
+					: "The input bar now grows to show " + n + " suggestions: the first"
+						+ " after the cursor and the rest listed under it, numbered and"
+						+ " tappable. Needs .suggest ghost on.")
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
 	private Object setFlag(String arg, Connection c, String key,
 			String onText, String offText) {
 		if (arg.length() == 0) {
@@ -389,6 +429,14 @@ public class CompleteCommand extends SpecialCommand {
 			return ((Integer) o.getValue()).intValue();
 		}
 		return WordSuggestions.DEFAULT_WHERE;
+	}
+
+	private static int ghostLines(Connection c) {
+		BaseOption o = findOption(c, GHOST_LINES_KEY);
+		if (o instanceof IntegerOption && o.getValue() instanceof Integer) {
+			return ((Integer) o.getValue()).intValue();
+		}
+		return 1;
 	}
 
 	private static int opacity(Connection c) {
