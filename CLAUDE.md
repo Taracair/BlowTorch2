@@ -72,9 +72,10 @@ sentences on why, not a file list.
 The maintainer does not use git directly; an unpushed commit exists on one
 laptop and nowhere else. Pushing `staging` is the backup, not a decision.
 
-Promoting `staging` → `main` and pushing it is the agent's job too, but only
-after the maintainer has confirmed the **test APK on the phone**. That
-confirmation is the gate, not the branch name.
+`main` is the release branch and is only touched when the maintainer says a
+release is being cut. A confirmed test APK means the work is good, not that it
+ships — keep working on `staging` and do not offer the merge. When a release is
+asked for, doing the `staging` → `main` merge is the agent's job.
 
 What still needs asking every time: tags, GitHub releases, production APKs. See
 `.cursor/rules/release-workflow.mdc`.
