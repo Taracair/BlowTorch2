@@ -148,13 +148,19 @@ public final class DeviceStateWatcher {
 						intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1),
 						intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1));
 			} else if (Intent.ACTION_SCREEN_ON.equals(action)) {
+				// Only on a real change, like the two above. Registration seeds
+				// the screen state from PowerManager, so a broadcast arriving
+				// straight after for the state we already recorded would
+				// otherwise announce a gesture nobody made.
 				changed = state.setScreenOn(true);
-				// Not sticky, and never delivered for a state we were already in,
-				// so there is nothing to suppress here.
-				fire("screenon");
+				if (changed) {
+					fire("screenon");
+				}
 			} else if (Intent.ACTION_SCREEN_OFF.equals(action)) {
 				changed = state.setScreenOn(false);
-				fire("screenoff");
+				if (changed) {
+					fire("screenoff");
+				}
 			}
 			if (changed) {
 				push();
