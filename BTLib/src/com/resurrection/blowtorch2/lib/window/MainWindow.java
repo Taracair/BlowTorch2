@@ -2386,9 +2386,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		windowCall("button_window", "restoreButtons", "");
 	}
 	
-	private void clearButtonsOnPause() {
+	/**
+	 * Drop a half-finished touch on the way out. Nothing else.
+	 *
+	 * <p>This used to call {@code clearButtons} too, and that is where the stray
+	 * BACK button came from. {@code clearButtons} is the player's
+	 * {@code .clearbuttons} feature: it swaps the whole set for a single BACK
+	 * button, sets {@code buttonsCleared}, and while that flag is up a press on
+	 * <em>any</em> button restores the set instead of sending its command and the
+	 * long-press editor is suppressed. Borrowing it to mean "we are leaving" left
+	 * the window holding that one-button set for the whole time the app was away
+	 * — so any frame drawn before {@code restoreButtons} runs on the way back
+	 * shows a lone BACK button from no preset the player recognises.
+	 *
+	 * <p>Nothing needed it. The overlay windows come down in
+	 * {@code FloatingButtonController.onPause}, which is what keeps them from
+	 * floating over the next app, and {@code restoreButtons} already handles
+	 * arriving on a set that was never cleared.
+	 */
+	private void cancelTouchOnPause() {
 		windowCall("button_window", "cancelTouchGesture", "");
-		windowCall("button_window", "clearButtons", "");
 	}
 
 	@Override
@@ -3885,19 +3902,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// Before the early return below: an overlay window left up would float
 		// over whatever the player opened next, including other apps.
 		//
-		// This order is load-bearing, not incidental. onPause() clears `resumed`,
-		// and clearButtonsOnPause() below now makes Lua notify the floating
-		// layer (see buttonwindow.clearButtons). rebuildOverlay returns early on
-		// !resumed, which is what keeps that notify from putting overlay windows
-		// back up on the way out of the app. Today a second thing also saves it
-		// — revertButtonData carries no `floating` field, so the cleared set
-		// yields an empty model list — but that is a property of the BACK
-		// button, not a guarantee. Do not swap these two.
+		// This used to be an ordering constraint: clearButtonsOnPause made Lua
+		// notify the floating layer, and that notify had to land after `resumed`
+		// was already false or rebuildOverlay would put the windows back up on
+		// the way out. The pause no longer clears the button set, so there is no
+		// notify here at all and nothing to sequence — but taking the overlay
+		// windows down first is still the thing that keeps them from floating
+		// over whatever the player opens next.
 		if (floatingButtons != null) {
 			floatingButtons.onPause();
 		}
 		if(service == null) { super.onPause(); return; };
-		clearButtonsOnPause();
+		cancelTouchOnPause();
 		try {
 			service.windowShowing(false);
 		} catch (RemoteException e) {
