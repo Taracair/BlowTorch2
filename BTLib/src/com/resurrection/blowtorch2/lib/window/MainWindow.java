@@ -1238,7 +1238,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_RESETINPUTWINDOW:
 					//Log.e("WINDOW","Attempting to reset input bar.");
-					
+
+					// The command is gone, so composing is over. Said here and not
+					// left to the text watcher because Keep Last does not clear the
+					// bar — it selects what was sent — so the text never changes and
+					// no watcher runs. Without this the bar stays "in use" for the
+					// rest of the session.
+					reportTypingState(false);
+
 					//try {
 					if(isKeepLast && !mLocalEchoOff) {
 						keepLastReplaceLength = mInputBox.getText().length();
@@ -3000,6 +3007,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** What the service was last told about the input bar being in use. */
 	private boolean mTypingReported = false;
+	/** When that was said, so a stale "still typing" can be said again. */
+	private long mTypingReportedAt = 0;
 
 	/**
 	 * Tell {@code :stellar} whether a command is being composed, so a trigger
@@ -3013,10 +3022,28 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @param typing true when the input bar has something in it.
 	 */
 	private void reportTypingState(final boolean typing) {
-		if (typing == mTypingReported || service == null) {
+		if (service == null) {
 			return;
 		}
+		final long now = android.os.SystemClock.elapsedRealtime();
+		if (typing == mTypingReported) {
+			// Same answer as last time is normally not worth a call. The one
+			// exception is "still typing": the engine drops its own flag once
+			// TYPING_QUIET_TIMEOUT_MS has passed and tells nobody, so a long
+			// command would silence speech for thirty seconds and then let it
+			// through for good. Refreshing at half the timeout keeps the flag
+			// alive at a cost of one oneway call per fifteen seconds of
+			// continuous composing — not one per letter, which is what the
+			// original guard was for.
+			if (!typing
+					|| now - mTypingReportedAt
+							< com.resurrection.blowtorch2.lib.util.SpeechEngine
+									.TYPING_QUIET_TIMEOUT_MS / 2) {
+				return;
+			}
+		}
 		mTypingReported = typing;
+		mTypingReportedAt = now;
 		try {
 			service.setPlayerTyping(typing);
 		} catch (RemoteException e) {
