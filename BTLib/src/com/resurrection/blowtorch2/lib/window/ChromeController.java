@@ -94,7 +94,9 @@ public final class ChromeController {
 		int lift = Math.max(0, ime.bottom - bars.bottom);
 		android.util.Log.i("BTPROF", "insets lift=" + lift
 				+ " imeBottom=" + ime.bottom + " barsBottom=" + bars.bottom
-				+ " barsTop=" + bars.top + " wasLift=" + imeLiftPx);
+				+ " barsTop=" + bars.top + " wasLift=" + imeLiftPx
+				+ " wasBarsTop=" + statusBarHeight
+				+ " fullScreen=" + isFullScreen);
 		applyImeChromeLift((RelativeLayout) view, lift);
 		imeLiftPx = lift;
 		activity.onFloatingButtonsImeLift(lift);
