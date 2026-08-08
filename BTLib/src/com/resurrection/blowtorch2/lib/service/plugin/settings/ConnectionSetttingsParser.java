@@ -58,7 +58,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_loose,
 		word_complete_ghost,
 		word_complete_persist,
-		word_complete_overlay,
+		word_complete_where,
 		word_complete_opacity,
 		prompt_bar,
 		grow_input_bar,
@@ -94,6 +94,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 		extra_text_windows_enabled, extra_text_windows
 	}
 	
+	/**
+	 * The boolean this replaced: on meant floating, off meant the strip below
+	 * the game window. Read from old profiles, never written again.
+	 */
+	public static final String LEGACY_OVERLAY_KEY = "word_complete_overlay";
+
 	ConnectionSettingsPlugin settings = null;
 	public ConnectionSetttingsParser(String location, Context context,
 			ArrayList<Plugin> plugins, Handler serviceHandler,Connection parent) {
@@ -217,9 +223,25 @@ public class ConnectionSetttingsParser extends PluginParser {
 
 			@Override
 			public void end(String body) {
-				if(current_key != null) {
-					settings.getSettings().getOptions().setOption(current_key, body);
+				if(current_key == null) {
+					return;
 				}
+				// Profiles written before the bar became a three-way choice say
+				// word_complete_overlay=true|false. setOption looks the key up in
+				// the options map and drops what it does not find, so without this
+				// the player's choice would silently become the default — and
+				// handing "false" straight to the list option is worse: ListOption
+				// keeps its current value when the text is not a number, so a
+				// player who chose the strip would end up floating.
+				if(LEGACY_OVERLAY_KEY.equals(current_key)) {
+					settings.getSettings().getOptions().setOption(
+							OPTION_KEY.word_complete_where.name(),
+							Integer.toString("false".equalsIgnoreCase(body.trim())
+									? com.resurrection.blowtorch2.lib.window.WordSuggestions.WHERE_BAR
+									: com.resurrection.blowtorch2.lib.window.WordSuggestions.WHERE_FLOATING));
+					return;
+				}
+				settings.getSettings().getOptions().setOption(current_key, body);
 			}
 			
 		});
@@ -510,9 +532,13 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
-					case word_complete_overlay:
-						// Default is true; see ConnectionSettingsPlugin.
-						if((Boolean)opt.getValue() != true) {
+					case word_complete_where:
+						// A list, so an Integer index. Default is floating; see
+						// ConnectionSettingsPlugin. Miss this case and the key is
+						// dropped as foreign and never written — which is what
+						// input_history_size above did.
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_WHERE) {
 							dooutput = true;
 						}
 						break;

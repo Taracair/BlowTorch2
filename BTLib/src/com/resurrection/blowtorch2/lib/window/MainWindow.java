@@ -2406,7 +2406,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 */
 	private final java.util.List<String> mWordSuggestionList =
 			new java.util.ArrayList<String>();
-	/** Draw the chips over the game text instead of inside the input chrome. */
+	/**
+	 * Where the chips go: {@link WordSuggestions#WHERE_FLOATING},
+	 * {@code WHERE_BAR} or {@code WHERE_NONE}.
+	 */
+	private int mWordSuggestionsWhere = WordSuggestions.DEFAULT_WHERE;
+	/**
+	 * Draw the chips over the game text instead of inside the input chrome.
+	 *
+	 * <p>Derived from {@link #mWordSuggestionsWhere} rather than read from its
+	 * own setting: everything that picks between the two views asks this, and
+	 * with no bar at all nothing gets that far — {@link #refreshWordSuggestions}
+	 * returns first.
+	 */
 	private boolean mWordSuggestionsOverlay = true;
 	/** How solid the chips are, 10–100 percent. */
 	private int mWordSuggestionsOpacity = WordSuggestions.DEFAULT_OPACITY;
@@ -2429,6 +2441,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// the kind of thing that works until the first configuration change.
 		View inline = findViewById(R.id.input_word_suggestions);
 		View floating = findViewById(R.id.input_word_suggestions_float);
+		if (mWordSuggestionsWhere == WordSuggestions.WHERE_NONE) {
+			// No bar in either place. The suggestions themselves are still worked
+			// out, because they are what the ghost draws and what .suggest N picks
+			// — the bar is one way of showing them, not the feature. This is the
+			// whole reason the work below the early return had to move into
+			// recomputeSuggestions: hiding the bar here used to mean skipping it.
+			cancelWordSuggestionHide();
+			if (inline != null) {
+				inline.setVisibility(View.GONE);
+			}
+			if (floating != null) {
+				floating.setVisibility(View.GONE);
+			}
+			recomputeSuggestions();
+			return;
+		}
 		View strip = mWordSuggestionsOverlay ? floating : inline;
 		LinearLayout row = (LinearLayout) findViewById(mWordSuggestionsOverlay
 				? R.id.input_word_suggestions_float_row
@@ -2451,22 +2479,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			strip.setMinimumHeight(mWordSuggestionsPersist
 					? persistentBarMinHeight() : 0);
 		}
+		// Clears the list before anything hides: a pending delayed hide re-reads
+		// it to decide whether the panel is still wanted.
+		java.util.List<String> words = recomputeSuggestions();
 		if (!mWordSuggestionsOn || mInputBox == null) {
-			// Clear the list before hiding: a pending delayed hide re-reads it to
-			// decide whether the panel is still wanted.
-			mWordSuggestionList.clear();
 			cancelWordSuggestionHide();
 			strip.setVisibility(View.GONE);
 			return;
 		}
-		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
-		int caret = Math.max(mInputBox.getSelectionStart(), 0);
-		String prefix = WordSuggestions.wordBefore(text, caret);
-		java.util.List<String> words =
-				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS);
-		mWordSuggestionList.clear();
-		mWordSuggestionList.addAll(words);
-		updateGhostCompletion(prefix, words);
 		// Collapsed is about the chips, not about completion. The suggestions are
 		// still worked out — the ghost still draws, .complete N still picks — and
 		// the panel stays up showing only the grip that folded it, so there is
@@ -2537,6 +2557,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		} else if (!mWordSuggestionsOverlay) {
 			strip.scrollTo(0, 0);
 		}
+	}
+
+	/**
+	 * Work out what is suggested for the half-typed word, and draw the ghost.
+	 *
+	 * <p>Separate from the bar because it has to happen whether or not there is
+	 * a bar: {@link #mWordSuggestionList} is what {@code .suggest 3} picks from,
+	 * and the ghost is a suggestion shown without one. With the completer off
+	 * the ghost is cleared rather than left behind, which is what turning it off
+	 * has to mean.
+	 *
+	 * @return the suggestions, best first — the live list, not a copy.
+	 */
+	private java.util.List<String> recomputeSuggestions() {
+		mWordSuggestionList.clear();
+		if (!mWordSuggestionsOn || mInputBox == null) {
+			updateGhostCompletion(null, mWordSuggestionList);
+			return mWordSuggestionList;
+		}
+		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		int caret = Math.max(mInputBox.getSelectionStart(), 0);
+		String prefix = WordSuggestions.wordBefore(text, caret);
+		mWordSuggestionList.addAll(
+				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS));
+		updateGhostCompletion(prefix, mWordSuggestionList);
+		return mWordSuggestionList;
 	}
 
 	/**
@@ -2890,11 +2936,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mWordSuggestionHide == null) {
 			return;
 		}
-		View strip = findViewById(mWordSuggestionsOverlay
-				? R.id.input_word_suggestions_float
-				: R.id.input_word_suggestions);
-		if (strip != null) {
-			strip.removeCallbacks(mWordSuggestionHide);
+		// Both, not the one in use: the hide was posted on whichever view was
+		// showing when it was scheduled, and the player may have changed where the
+		// bar lives since. Removing a callback from a view that never had it does
+		// nothing.
+		View floating = findViewById(R.id.input_word_suggestions_float);
+		View inline = findViewById(R.id.input_word_suggestions);
+		if (floating != null) {
+			floating.removeCallbacks(mWordSuggestionHide);
+		}
+		if (inline != null) {
+			inline.removeCallbacks(mWordSuggestionHide);
 		}
 		mWordSuggestionHide = null;
 	}
@@ -4047,11 +4099,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setLooseMatching(looseOpt != null
 					&& looseOpt.getValue() instanceof Boolean
 					&& (Boolean) looseOpt.getValue());
-			BaseOption overlayOpt =
-					(BaseOption) group.findOptionByKey("word_complete_overlay");
-			mWordSuggestionsOverlay = overlayOpt != null
-					&& overlayOpt.getValue() instanceof Boolean
-					&& (Boolean) overlayOpt.getValue();
+			BaseOption whereOpt =
+					(BaseOption) group.findOptionByKey("word_complete_where");
+			mWordSuggestionsWhere = whereOpt != null
+					&& whereOpt.getValue() instanceof Integer
+					? (Integer) whereOpt.getValue() : WordSuggestions.DEFAULT_WHERE;
+			if (mWordSuggestionsWhere < WordSuggestions.WHERE_FLOATING
+					|| mWordSuggestionsWhere > WordSuggestions.WHERE_NONE) {
+				mWordSuggestionsWhere = WordSuggestions.DEFAULT_WHERE;
+			}
+			mWordSuggestionsOverlay =
+					mWordSuggestionsWhere == WordSuggestions.WHERE_FLOATING;
+			// A folded bar is a floating-bar state. Leaving it set while the bar
+			// is elsewhere or gone means the grip comes back folded when the
+			// player floats it again, with nothing having been tapped.
+			if (!mWordSuggestionsOverlay) {
+				mWordSuggestionsCollapsed = false;
+			}
 			BaseOption opacityOpt =
 					(BaseOption) group.findOptionByKey("word_complete_opacity");
 			if (opacityOpt != null && opacityOpt.getValue() instanceof Integer) {

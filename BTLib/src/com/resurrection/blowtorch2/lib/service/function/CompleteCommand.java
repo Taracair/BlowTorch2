@@ -7,6 +7,7 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.IntegerOption;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.ListOption;
 import com.resurrection.blowtorch2.lib.window.WordSuggestions;
 
 /**
@@ -24,7 +25,7 @@ public class CompleteCommand extends SpecialCommand {
 
 	public static final String OPTION_KEY = "word_complete";
 	public static final String LINES_KEY = "word_complete_lines";
-	public static final String OVERLAY_KEY = "word_complete_overlay";
+	public static final String WHERE_KEY = "word_complete_where";
 	public static final String LOOSE_KEY = "word_complete_loose";
 	public static final String GHOST_KEY = "word_complete_ghost";
 	public static final String PERSIST_KEY = "word_complete_persist";
@@ -86,8 +87,19 @@ public class CompleteCommand extends SpecialCommand {
 					"The suggestion bar hides itself when there is nothing to"
 						+ " suggest.");
 		}
+		if (arg.startsWith("where")) {
+			return setWhere(arg.substring("where".length()).trim(), c);
+		}
+		// The verb this replaced. Still registered, and always will be: it is in
+		// profiles, buttons and notes. on means floating, off means the strip.
 		if (arg.startsWith("overlay")) {
-			return setOverlay(arg.substring("overlay".length()).trim(), c);
+			String rest = arg.substring("overlay".length()).trim();
+			if (rest.equals("on")) {
+				rest = "floating";
+			} else if (rest.equals("off")) {
+				rest = "bar";
+			}
+			return setWhere(rest, c);
 		}
 		if (arg.startsWith("opacity")) {
 			return setOpacity(arg.substring("opacity".length()).trim(), c);
@@ -114,13 +126,16 @@ public class CompleteCommand extends SpecialCommand {
 			c.sendDataToWindow("\nSuggestions are "
 					+ (isOn(c) ? "on" : "off")
 					+ ", remembering the last " + describeLines(lines(c))
-					+ ".\nChips " + (overlayOn(c) ? "float over the game text at "
-						+ opacity(c) + "% solid" : "sit in a strip below it")
+					+ ".\nThe bar is " + describeWhere(where(c))
+					+ (where(c) == WordSuggestions.WHERE_FLOATING
+						? ", at " + opacity(c) + "% solid" : "")
+					+ (where(c) == WordSuggestions.WHERE_NONE ? ""
+						: ", " + (flagOn(c, PERSIST_KEY)
+							? "always up" : "up only when it has something"))
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
-					+ ", bar " + (flagOn(c, PERSIST_KEY) ? "always up" : "only when it has something")
-					+ ".\nUse .suggest on|off, lines N, loose/ghost/overlay/persist on|off,"
-					+ " opacity N\n");
+					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
+					+ " loose/ghost/persist on|off, opacity N\n");
 			return null;
 		}
 		c.sendDataToWindow(getErrorMessage("Suggestions usage:",
@@ -130,7 +145,8 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest 1.." + MAX_PICK + "     — take that suggestion off the bar\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
-				+ ".suggest overlay on|off  — chips over the game text (on by default)\n"
+				+ ".suggest where floating|bar|off — where the bar of chips goes,\n"
+				+ "                           or off for none; the ghost still works\n"
 				+ ".suggest persist on|off  — keep the bar up even when it is empty\n"
 				+ ".suggest opacity N       — how solid those chips are\n"
 				+ ".suggest          — say which it is\n\n"
@@ -170,31 +186,55 @@ public class CompleteCommand extends SpecialCommand {
 		return null;
 	}
 
-	private Object setOverlay(String arg, Connection c) {
-		boolean current = overlayOn(c);
+	/**
+	 * Where the bar of chips goes, or that there is none.
+	 *
+	 * <p>One setting with three values rather than two switches: "no bar, but
+	 * floating" is not a thing, and two switches can say it.
+	 */
+	private Object setWhere(String arg, Connection c) {
 		if (arg.length() == 0) {
-			c.sendDataToWindow("\nSuggestions are "
-					+ (current ? "floating over the game text" : "in a strip below it")
-					+ ".\nUse .suggest overlay on|off\n");
+			c.sendDataToWindow("\nThe suggestion bar is " + describeWhere(where(c))
+					+ ".\nUse .suggest where floating|bar|off\n");
 			return null;
 		}
-		if (!arg.equals("on") && !arg.equals("off")) {
+		int picked;
+		if (arg.equals("floating") || arg.equals("float") || arg.equals("over")) {
+			picked = WordSuggestions.WHERE_FLOATING;
+		} else if (arg.equals("bar") || arg.equals("strip") || arg.equals("below")) {
+			picked = WordSuggestions.WHERE_BAR;
+		} else if (arg.equals("off") || arg.equals("none") || arg.equals("nowhere")) {
+			picked = WordSuggestions.WHERE_NONE;
+		} else {
 			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
-					".suggest overlay on|off\n\n"
-					+ "On draws the chips over the game text. The strip below takes\n"
-					+ "height while it shows, so the game window shrinks and the text\n"
-					+ "jumps every time a suggestion appears; floating does not.\n"));
+					".suggest where floating|bar|off\n\n"
+					+ "floating — chips over the game text, on the input bar\n"
+					+ "bar      — a strip below the game window; it takes height,\n"
+					+ "           so the text jumps unless .suggest persist on\n"
+					+ "off      — no bar at all. Suggestions still work: the ghost\n"
+					+ "           still draws and .suggest 1.." + MAX_PICK
+						+ " still picks.\n"));
 			return null;
 		}
-		boolean on = arg.equals("on");
-		c.updateBooleanSetting(OVERLAY_KEY, on);
+		c.updateIntegerSetting(WHERE_KEY, picked);
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
-				+ (on
-					? "Suggestions now float over the game text; nothing moves when"
-						+ " they appear."
-					: "Suggestions back in a strip below the game window.")
+				+ "The suggestion bar is now " + describeWhere(picked) + "."
+				+ (picked == WordSuggestions.WHERE_NONE
+					? " The ghost after the cursor is unaffected — .suggest ghost on"
+						+ " if you want it."
+					: "")
 				+ Colorizer.getWhiteColor() + "\n");
 		return null;
+	}
+
+	private static String describeWhere(int where) {
+		if (where == WordSuggestions.WHERE_BAR) {
+			return "a strip below the game window";
+		}
+		if (where == WordSuggestions.WHERE_NONE) {
+			return "off — no bar anywhere";
+		}
+		return "floating over the game text";
 	}
 
 	private Object setOpacity(String arg, Connection c) {
@@ -252,12 +292,12 @@ public class CompleteCommand extends SpecialCommand {
 		return false;
 	}
 
-	private static boolean overlayOn(Connection c) {
-		BaseOption o = findOption(c, OVERLAY_KEY);
-		if (o instanceof BooleanOption && o.getValue() instanceof Boolean) {
-			return ((Boolean) o.getValue()).booleanValue();
+	private static int where(Connection c) {
+		BaseOption o = findOption(c, WHERE_KEY);
+		if (o instanceof ListOption && o.getValue() instanceof Integer) {
+			return ((Integer) o.getValue()).intValue();
 		}
-		return false;
+		return WordSuggestions.DEFAULT_WHERE;
 	}
 
 	private static int opacity(Connection c) {

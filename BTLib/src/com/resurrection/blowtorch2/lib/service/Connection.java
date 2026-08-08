@@ -4787,7 +4787,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_loose:
 			case word_complete_ghost:
 			case word_complete_persist:
-			case word_complete_overlay:
+			case word_complete_where:
 			case word_complete_opacity:
 				// MainWindow.loadSettings is what reaches WordSuggestions and the
 				// strip; ask the UI to re-read rather than adding a binder call per
@@ -5893,8 +5893,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_ghost,
 		/** Keep the floating suggestion bar up even when it is empty. */
 		word_complete_persist,
-		/** Chips over the game text rather than in a strip below it. */
-		word_complete_overlay,
+		/** Where the chips go: floating, in a strip below the game, or nowhere. */
+		word_complete_where,
 		/** How solid those chips are. */
 		word_complete_opacity,
 		/** Prompt on its own bar above the input line. */

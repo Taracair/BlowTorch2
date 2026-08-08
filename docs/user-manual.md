@@ -42,7 +42,8 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 ## Suggestions (`.suggest on`)
 
     .suggest on | off | lines N | 1..8
-    .suggest overlay on | off | opacity N | persist on | off
+    .suggest where floating | bar | off
+    .suggest opacity N | persist on | off
     .suggest loose on | off | ghost on | off
 
 (`.complete` is the same command under its old name and still works.)
@@ -121,15 +122,25 @@ on at the start of the next line, if the bar already has one; when there is no
 next line it is cut short with `…`. The bar still grows with what you actually
 type, as it always has.
 
-**Where the chips sit.** By default they float *over* the game text, resting on
-the top edge of the input bar. They cost the layout nothing, so nothing moves
-when they appear or go.
+**Where the chips sit.** One setting, `.suggest where`, with three answers. It
+is one setting and not two switches because "no bar, but floating" is not a
+thing — picking one place puts the other away.
 
-`.suggest overlay off` puts them back in a strip below the game window instead.
-That strip takes height while it is showing, so the window shrinks a little
-every time a suggestion appears and grows back when it goes, and the text hops
-with it — which is why floating is the default. The strip is still there for
-anyone who would rather have the chips out of the way of the game text.
+- `.suggest where floating` (the default) floats them *over* the game text,
+  resting on the top edge of the input bar. They cost the layout nothing, so
+  nothing moves when they appear or go.
+- `.suggest where bar` puts them in a strip below the game window instead. That
+  strip takes height while it is showing, so the window shrinks a little every
+  time a suggestion appears and grows back when it goes, and the text hops with
+  it — which is why floating is the default, and why `persist` below matters
+  most here. The strip is still there for anyone who would rather have the chips
+  out of the way of the game text.
+- `.suggest where off` shows no bar at all. **The suggestions still work**: the
+  ghost still draws after the cursor and `.suggest 1`..`8` still picks, so
+  `ghost on` with `where off` is completion with nothing on screen but the
+  dimmed word you are typing.
+
+(`.suggest overlay on|off` is the old name for the first two and still works.)
 
 **A bar that stays put.** `.suggest persist on` leaves the floating bar up even
 when there is nothing to suggest. The chips stop appearing and disappearing

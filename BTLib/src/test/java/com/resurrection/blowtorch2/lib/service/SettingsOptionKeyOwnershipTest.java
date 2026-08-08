@@ -54,6 +54,20 @@ public class SettingsOptionKeyOwnershipTest {
 		}
 	}
 
+	/**
+	 * The suggestion bar's place is written by the connection writer, and the
+	 * boolean it replaced is not written at all any more. A key missing from
+	 * OPTION_KEY is skipped as foreign and silently never saved — which is what
+	 * input_history_size did for years.
+	 */
+	@Test
+	public void theSuggestionBarPlaceIsWrittenAndTheOldSwitchIsNot() {
+		assertTrue(ConnectionSetttingsParser.isConnectionOptionKey("word_complete_where"));
+		assertFalse("the old boolean is read from old profiles, never written back",
+				ConnectionSetttingsParser.isConnectionOptionKey(
+						ConnectionSetttingsParser.LEGACY_OVERLAY_KEY));
+	}
+
 	@Test
 	public void unknownKeysAreSkippedRatherThanThrown() {
 		assertFalse(WindowTokenParser.isWindowOptionKey("not_a_real_key"));

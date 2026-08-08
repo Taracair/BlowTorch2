@@ -78,6 +78,33 @@ public final class WordSuggestions {
 	public static final int MIN_OPACITY = 10;
 
 	/**
+	 * Where the chips are drawn: floating over the game text, resting on the
+	 * input bar.
+	 *
+	 * <p>One place, three values, rather than two switches. Two booleans could
+	 * say "no bar but float it", which is not a thing, and the player had to work
+	 * out that one of them silently turned the other off. The order matters: this
+	 * is the index into the option's item list, so items are added in this order
+	 * and nothing is inserted in the middle.
+	 */
+	public static final int WHERE_FLOATING = 0;
+
+	/** In a strip in the layout, below the game window. */
+	public static final int WHERE_BAR = 1;
+
+	/**
+	 * Nowhere. Suggestions are still worked out — the ghost still draws and
+	 * {@code .suggest N} still picks — there is simply no bar of chips.
+	 */
+	public static final int WHERE_NONE = 2;
+
+	/**
+	 * Floating, because the strip below the game window takes height while it
+	 * shows: the game text jumps under the thumb on every letter.
+	 */
+	public static final int DEFAULT_WHERE = WHERE_FLOATING;
+
+	/**
 	 * Below this a loose match is noise: two or three letters are a subsequence
 	 * of half the vocabulary, and the strip fills with words sharing nothing with
 	 * what you meant.
