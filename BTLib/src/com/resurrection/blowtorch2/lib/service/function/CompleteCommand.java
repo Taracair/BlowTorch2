@@ -28,7 +28,10 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String WHERE_KEY = "word_complete_where";
 	public static final String LOOSE_KEY = "word_complete_loose";
 	public static final String PHRASES_KEY = "word_complete_phrases";
+	/** Plain word before the whole name built on it — reached by .suggest plain. */
 	public static final String SHORT_FIRST_KEY = "word_complete_short_first";
+	/** Shorter completions before longer ones — reached by .suggest short. */
+	public static final String SHORTER_KEY = "word_complete_shorter_first";
 	public static final String GHOST_KEY = "word_complete_ghost";
 	public static final String GHOST_LINES_KEY = "word_complete_ghost_lines";
 	/** Ghost rows the input bar will grow to carry, plus the inline one. */
@@ -89,7 +92,20 @@ public class CompleteCommand extends SpecialCommand {
 		}
 		// Before "ghost", or ".suggest ghostlines 3" is read as ".suggest ghost".
 		if (arg.startsWith("short")) {
-			return setFlag(arg.substring("short".length()).trim(), c, SHORT_FIRST_KEY,
+			return setFlag(arg.substring("short".length()).trim(), c, SHORTER_KEY,
+					"Shorter suggestions now come first: cr offers crate before"
+						+ " crime-and-punishment, whatever the world said last. Order by"
+						+ " place in the line still decides which group leads; this"
+						+ " decides the order inside it.",
+					"Newest first again.");
+		}
+		// This is what .suggest short used to do, and it is a different thing:
+		// one word against the whole name built on that same word, nothing else.
+		// The name moved on 9 Aug because "short" reads as "shorter first" and
+		// was reported as broken for not being it. The option key did not move,
+		// so nobody's saved choice changed meaning.
+		if (arg.startsWith("plain")) {
+			return setFlag(arg.substring("plain".length()).trim(), c, SHORT_FIRST_KEY,
 					"The plain word now comes before the whole name built on it: expl"
 						+ " offers explosive, then explosive crates. Only those two swap"
 						+ " places; nothing else moves. Needs .suggest phrases on to mean"
@@ -188,6 +204,8 @@ public class CompleteCommand extends SpecialCommand {
 					+ ".\nWhole names " + (flagOn(c, PHRASES_KEY) ? "offered" : "not offered")
 					+ (flagOn(c, PHRASES_KEY) && flagOn(c, SHORT_FIRST_KEY)
 						? ", after the plain word" : "")
+					+ ".\nShorter suggestions " + (flagOn(c, SHORTER_KEY)
+						? "first" : "not lifted")
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ (flagOn(c, GHOST_KEY) && ghostLines(c) > 1
@@ -197,7 +215,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/ghost/persist/rank/pairs/short on|off,"
+					+ " phrases/loose/ghost/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, opacity N,"
 					+ " learned, clear\n");
 			return null;

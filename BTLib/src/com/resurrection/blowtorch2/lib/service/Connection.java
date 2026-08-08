@@ -4925,6 +4925,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_loose:
 			case word_complete_phrases:
 			case word_complete_short_first:
+			case word_complete_shorter_first:
 			case word_complete_ghost:
 			case word_complete_ghost_lines:
 			case word_complete_persist:
@@ -6084,6 +6085,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_phrases,
 		/** Put the plain word before the whole name built on it. */
 		word_complete_short_first,
+		/** Order every suggestion by length rather than by what was said last. */
+		word_complete_shorter_first,
 		/** Keep device.* session variables up to date from the phone itself. */
 		device_state_variables,
 		/** Draw the rest of the top suggestion after the caret. */

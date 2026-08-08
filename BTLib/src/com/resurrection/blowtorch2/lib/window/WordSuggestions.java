@@ -264,6 +264,7 @@ public final class WordSuggestions {
 	 * loose-matching pass, which builds no phrases.
 	 */
 	private boolean shortestFirst = false;
+	private boolean shorterFirst = false;
 
 	/**
 	 * The tail of the last chunk when it stopped in the middle of a word.
@@ -368,6 +369,33 @@ public final class WordSuggestions {
 
 	public boolean isShortestFirst() {
 		return shortestFirst;
+	}
+
+	/**
+	 * Whether the shorter completion comes before the longer one.
+	 *
+	 * <p>Not to be confused with {@link #setShortestFirst}, which only ever
+	 * swaps a word against the whole name built on that same word. This one
+	 * orders <em>every</em> candidate against every other: type {@code cr} and
+	 * "crate" leads "crime-and-punishment", whatever the world said last.
+	 *
+	 * <p>Reported on 8 Aug 2026 as the thing the old option was expected to do
+	 * from its name. Without it the order is newest-first, which is right when
+	 * the world has just named the thing you mean and wrong when it has just
+	 * printed a list of message boards.
+	 *
+	 * <p>It only ever reorders — nothing is dropped, and with
+	 * {@link #setRankByPosition} on, that grouping still decides which group
+	 * leads; this decides the order inside each group.
+	 *
+	 * @param on true to put shorter completions first.
+	 */
+	public void setShorterFirst(final boolean on) {
+		this.shorterFirst = on;
+	}
+
+	public boolean isShorterFirst() {
+		return shorterFirst;
 	}
 
 	/**
@@ -689,6 +717,20 @@ public final class WordSuggestions {
 				matches.add(e.getKey());
 			}
 		}
+		// Longest first here, because the loop below reads the list backwards:
+		// the last element is the first suggestion. A stable sort, so words of
+		// the same length keep the newest-first order they arrived in.
+		if (shorterFirst && matches.size() > 1) {
+			java.util.Collections.sort(matches, new java.util.Comparator<String>() {
+				@Override
+				public int compare(final String a, final String b) {
+					return b.length() - a.length();
+				}
+			});
+		}
+		// After the length sort, not before: this partitions while keeping the
+		// order inside each part, so position decides which group leads and
+		// length decides the order within it. Both options keep doing something.
 		rankByPosition(matches, atLineStart, leadingVerb);
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
 			String key = matches.get(i);

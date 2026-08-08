@@ -727,4 +727,56 @@ public class WordSuggestionsTest {
 		w.learn("lumbers northward\n");
 		assertEquals(java.util.Arrays.asList("troll"), w.suggest("trol", 5));
 	}
+
+	@Test
+	public void shorterFirstAnswersTheCaseItIsNamedFor() {
+		// Reported 8 Aug: typing "look cr" offered crime-and-punishment first,
+		// because that is what the world said most recently. With shorter first
+		// on, the four-letter word the player almost certainly meant leads.
+		WordSuggestions w = new WordSuggestions();
+		w.learn("three ammunition crates\n");
+		w.learn("a crate of Mingus Dew\n");
+		w.learn("*crime-and-punishment (#170917)\n");
+		assertEquals(java.util.Arrays.asList(
+				"crime-and-punishment", "crate", "crates"), w.suggest("cr", 5));
+		w.setShorterFirst(true);
+		assertEquals(java.util.Arrays.asList(
+				"crate", "crates", "crime-and-punishment"), w.suggest("cr", 5));
+	}
+
+	@Test
+	public void equalLengthsKeepTheirRecencyOrder() {
+		// Sorting by length must not throw away the ordering it does not decide,
+		// or a player would see two same-length words swap for no reason.
+		WordSuggestions w = new WordSuggestions();
+		w.learn("crate\n");
+		w.learn("crabs\n");
+		w.setShorterFirst(true);
+		assertEquals(java.util.Arrays.asList("crabs", "crate"), w.suggest("cra", 5));
+	}
+
+	@Test
+	public void placeInTheLineGroupsAndLengthOrdersInsideTheGroup() {
+		// Both options on: rank still decides which group leads, shorter first
+		// decides the order inside each group. Neither option is made pointless
+		// by the other, and nothing is dropped either way.
+		WordSuggestions w = new WordSuggestions();
+		w.learn("crumbling crate crates crime-and-punishment\n");
+		w.setRankByPosition(true);
+		w.setShorterFirst(true);
+		w.learnCommand("crumbling\n");
+		List<String> atStart = w.suggest("cr", 5, true, null);
+		assertEquals("a word used as a command leads at the start of a line",
+				"crumbling", atStart.get(0));
+		assertEquals("shorter first inside the rest", "crate", atStart.get(1));
+		List<String> midLine = w.suggest("cr", 5, false, null);
+		assertEquals("shorter first once the grouping does not apply",
+				"crate", midLine.get(0));
+	}
+
+	@Test
+	public void shorterFirstIsOffUntilAskedFor() {
+		WordSuggestions w = new WordSuggestions();
+		assertFalse(w.isShorterFirst());
+	}
 }

@@ -108,17 +108,56 @@ If a name shows up somewhere else, the phrase follows it: after
 offering `gnarled iron gate`.
 
 **Which of the two comes first.** By default the whole name: it is the slow part
-to type, and the plain word is one tap below it. `.suggest short on` swaps them,
+to type, and the plain word is one tap below it. `.suggest plain on` swaps them,
 so `expl` offers `explosive` and then `explosive crates`. Four letters typed is
 not yet a request for the long form, and if you work from the ghost — which
 shows one suggestion — the short one is more often the one you meant.
 
 It moves a word against **its own** name and nothing else: two different words
-keep their order, newest first, as everywhere else here. It does nothing at all
-with whole names off, and nothing to the typo pass, which offers single words
-only. One thing it does change beyond order: the bar holds eight, and a word
-with a name takes two of those places, so with more matches than chips a
-different one can be the one that does not fit.
+keep their order, newest first. It does nothing at all with whole names off, and
+nothing to the typo pass, which offers single words only. One thing it does
+change beyond order: the bar holds eight, and a word with a name takes two of
+those places, so with more matches than chips a different one can be the one
+that does not fit.
+
+> **This used to be `.suggest short`.** It was renamed on 9 August 2026 because
+> the name promised something else — "short" reads as "shorter words first", and
+> that is now what `.suggest short` does. Nothing about your settings changed:
+> whatever you had chosen is still chosen, it simply answers to `.suggest plain`
+> now. If you have `.suggest short` in a button or a note, it now turns on the
+> option described next.
+
+### Shorter suggestions first
+
+```
+.suggest short on
+.suggest short off
+```
+
+**Off by default.** On, every suggestion is ordered by **length, shortest
+first**, instead of by what the world said most recently.
+
+The case it exists for: the world prints a list of message boards, one of them
+called `*crime-and-punishment`. You type `look cr` and want `crate` — but
+`crime-and-punishment` was said three seconds ago, so newest-first puts it in
+front. With this on you get `crate`, `crates`, `crime-and-punishment`, in that
+order.
+
+It is worth knowing which of the two settings you actually want:
+
+| | What it orders |
+|---|---|
+| `.suggest short` | **Every** suggestion against every other, by length |
+| `.suggest plain` | One word against **the whole name built on that same word** |
+
+They are independent and can both be on. Two suggestions of the same length keep
+their newest-first order, and nothing is ever dropped — a word you could reach
+before you turned this on is still reachable, just somewhere else in the list.
+
+**With `.suggest rank on` as well**, place in the line still decides which group
+of words leads — the things you use as commands at the start of a line, the
+things you point commands at after one — and length decides the order *inside*
+each group. Neither setting makes the other pointless.
 
 **Ordered by where you are in the line.** `.suggest rank on` — **off by
 default** — uses one thing the app already knows for free: the first word of
@@ -1177,7 +1216,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
-    `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` `on|off`, `ghostlines N`, `opacity N`, `learned`, `clear`. See the Suggestions section
+    `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N`, `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)

@@ -194,10 +194,21 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption word_complete_short_first = new BooleanOption();
 		word_complete_short_first.setTitle("Plain word before the whole name");
-		word_complete_short_first.setDescription("With whole names on, offer explosive before explosive crates instead of the other way round. Four letters typed is not yet a request for the long form. Only ever changes a word against its own name — nothing else moves. Does nothing with whole names off. Off by default. .suggest short on/off");
+		word_complete_short_first.setDescription("With whole names on, offer explosive before explosive crates instead of the other way round. Four letters typed is not yet a request for the long form. Only ever changes a word against its own name — it does not order one word against another, which is what \"Shorter suggestions first\" does. Does nothing with whole names off. Off by default. .suggest plain on/off");
 		word_complete_short_first.setKey("word_complete_short_first");
 		word_complete_short_first.setValue(false);
 		suggestions.addOption(word_complete_short_first);
+
+		BooleanOption word_complete_shorter_first = new BooleanOption();
+		word_complete_shorter_first.setTitle("Shorter suggestions first");
+		word_complete_shorter_first.setDescription("Order every suggestion by length, shortest first, instead of by what the world said most recently. Type cr and you get crate before crime-and-punishment. \"Order by place in the line\" still decides which group of words leads; this decides the order inside each group, and nothing is ever dropped. Off by default. .suggest short on/off");
+		word_complete_shorter_first.setKey("word_complete_shorter_first");
+		// Off by default: newest-first is what the app has always done, and a
+		// player who never opens this must keep it. Change this and
+		// ConnectionSetttingsParser's comparison together, or the parser quietly
+		// stops saving the value the player chose.
+		word_complete_shorter_first.setValue(false);
+		suggestions.addOption(word_complete_shorter_first);
 
 		IntegerOption word_complete_ghost_lines = new IntegerOption();
 		word_complete_ghost_lines.setTitle("Suggestions under the line");

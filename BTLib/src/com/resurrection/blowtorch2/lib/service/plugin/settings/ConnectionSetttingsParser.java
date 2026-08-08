@@ -58,6 +58,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_loose,
 		word_complete_phrases,
 		word_complete_short_first,
+		word_complete_shorter_first,
 		device_state_variables,
 		word_complete_ghost,
 		word_complete_ghost_lines,
@@ -539,6 +540,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case word_complete_short_first:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_shorter_first:
+						// Default is false; see ConnectionSettingsPlugin.
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
