@@ -1838,6 +1838,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 
 		}
+		// Every path that changes a trigger comes through here — the editor over
+		// the binder, .sensor, .trigger, and the Lua NewTrigger/DeleteTrigger/
+		// EnableTrigger functions. So this is where a gesture starts or stops
+		// being listened for, rather than in whichever of those paths someone
+		// remembered to touch.
+		refreshDeviceGestures();
 		mMassiveTriggerString = combined.regex();
 		try {
 			mMassivePattern = combined.compile(Pattern.MULTILINE);
@@ -4178,6 +4184,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * and the first is the far more common mistake.
 	 */
 	public final String fireDeviceGestureAndReport(final String gestureId) {
+		// Runs the responders on the calling thread rather than posting, so it
+		// can count them for the reply. Safe because the only caller is a dot
+		// command, and processCommand is reached from sendToServer, which runs
+		// only from the MESSAGE_SENDDATA_* cases of this connection's handler —
+		// the same looper the posting path targets.
 		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
 				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
 		if (g == null) {
@@ -4239,7 +4250,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	public final void refreshDeviceGestures() {
 		if (mService != null) {
-			mService.refreshDeviceState();
+			mService.refreshDeviceSensors();
 		}
 	}
 

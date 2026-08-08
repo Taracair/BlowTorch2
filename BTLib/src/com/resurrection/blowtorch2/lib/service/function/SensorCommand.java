@@ -138,10 +138,9 @@ public class SensorCommand extends SpecialCommand {
 		} else {
 			c.updateTrigger(existing, target);
 		}
+		// No refresh call here: addTrigger and updateTrigger both rebuild the
+		// trigger system, and that is where the sensor is picked up.
 		c.saveMainSettings();
-		// A gesture nobody had a trigger for was not being listened for. Now
-		// there is one, so the sensor has to be picked up.
-		c.refreshDeviceGestures();
 
 		StringBuilder out = new StringBuilder();
 		out.append('\n').append(Colorizer.getBrightCyanColor());
@@ -167,7 +166,6 @@ public class SensorCommand extends SpecialCommand {
 		updated.setEnabled(on);
 		c.updateTrigger(existing, updated);
 		c.saveMainSettings();
-		c.refreshDeviceGestures();
 		c.sendDataToWindow("\n" + g.getId() + " is " + (on ? "on" : "off") + ".\n");
 		return null;
 	}

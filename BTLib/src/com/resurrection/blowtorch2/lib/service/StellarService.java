@@ -342,6 +342,24 @@ public class StellarService extends Service {
 	 * <p>Called when a world's settings are loaded and when the setting itself
 	 * changes, so turning it off releases the proximity sensor there and then.
 	 */
+	/**
+	 * Pick up or release sensors to match what the worlds now want, without
+	 * pushing state.
+	 *
+	 * <p>Called from {@code buildTriggerSystem}, which is the one place every
+	 * way of adding, editing, deleting or toggling a trigger goes through — the
+	 * editor, {@code .sensor}, {@code .trigger} and the Lua functions alike. A
+	 * gesture built in the editor has to start listening when Done is tapped,
+	 * not at the next settings load.
+	 */
+	public final synchronized void refreshDeviceSensors() {
+		if (mDeviceState == null) {
+			refreshDeviceState();
+			return;
+		}
+		mDeviceState.refresh();
+	}
+
 	public final synchronized void refreshDeviceState() {
 		if (mDeviceState == null) {
 			mDeviceState = new com.resurrection.blowtorch2.lib.service.sensor.DeviceStateWatcher(

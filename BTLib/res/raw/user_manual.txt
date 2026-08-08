@@ -1194,6 +1194,7 @@ is enabled; `.alias list` shows every alias at once.
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
     `.probe sensors [state|shake [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
+    `.sensor …` / `.gesture …`          Gestures this phone can feel and what they do: `caps`, `<gesture> <command>`, `<gesture> on|off`, `fire <gesture>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
@@ -1354,6 +1355,61 @@ system sends anyway.
 
 All of these cost nothing until you type them. The sensor is released when the
 run ends.
+
+### Gestures — `.sensor`
+
+```
+.sensor                  what this phone can feel, and what is set up
+.sensor caps             which sensor provides each gesture here
+.sensor wave look        make a gesture send a command
+.sensor wave             what that gesture does now
+.sensor wave on|off      without deleting it
+.sensor fire wave        do it now, without moving the phone
+```
+
+Your phone can feel things a desktop MUD client never will. A gesture is one of
+those things happening — you waved a hand over the screen, you shook the phone —
+and BlowTorch treats it exactly like a line of text arriving from the game.
+
+**That is the important part: a gesture is an ordinary trigger.** So it can do
+anything a trigger can do — send a command, run a Lua script, speak out loud,
+play a sound, show a notification, ring the bell, set a variable, turn another
+trigger on or off — and any action added to the app later will work with it too.
+`.sensor wave flee` is the quick way to set the common case; open the same thing
+in the Triggers editor to give it a script, a sound, or a condition.
+
+The gestures:
+
+| | What you do | Measured with |
+|---|---|---|
+| `wave` | Pass a hand over the top of the screen and away | Proximity, or the light sensor if there is none |
+| `cover` | Cover the top of the screen and hold it there a second | Proximity |
+| `shake` | Shake the phone, as you would to flee a fight | Linear acceleration, or the accelerometer |
+
+**Phones differ, so ask yours.** `.sensor caps` says which sensor provides each
+gesture *on this device*, whether it is a fallback rather than the first choice,
+and whether it keeps working with the screen off. A gesture your phone has no
+sensor for is listed as unavailable with the reason — it is never offered as if
+it worked.
+
+`wave` and `cover` come from the same sensor and are told apart by **how long
+your hand stays**: gone again quickly is a wave, still there after a second is a
+cover. Time is the one distinction a proximity sensor can make reliably, which
+is why there is no "hard wave" and "soft wave".
+
+**`.sensor fire wave` runs the gesture without moving the phone.** Use it to
+check what you set up, and to test a profile on a phone that lacks the sensor —
+the gesture still works from a button or another trigger even where the hardware
+does not exist.
+
+**A warning about names.** Commands are looked up *after* your own aliases, so an
+alias called `sensor` would hide this command completely and say nothing about
+it. If `.sensor` ever stops responding, check your alias list first.
+
+Shaking needs a threshold, and how hard a shake is differs between phones and
+between people. The current one is a starting value measured on one device; if
+`shake` fires when you walk, or never fires at all, `.probe sensors shake 10`
+will tell you what your phone actually reports.
 
 ### `.search` forms
 
