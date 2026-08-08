@@ -106,7 +106,12 @@ public final class SensorProbe {
 		if (duration > MAX_SECONDS) {
 			duration = MAX_SECONDS;
 		}
-		final SensorManager manager = managerFrom(connection.getContext());
+		final Context context = contextOf(connection);
+		if (context == null) {
+			return "\nThe connection has no context to ask. This is a client bug,\n"
+					+ "not a fact about your phone.\n";
+		}
+		final SensorManager manager = managerFrom(context);
 		if (manager == null) {
 			return "\nNo SensorManager on this device.\n";
 		}
@@ -182,9 +187,17 @@ public final class SensorProbe {
 			return "\nThe sensor refused registration in this process. The run will\n"
 					+ "report in " + reportedSeconds + " s and that answer is the point.\n";
 		}
+		// Most linear-acceleration sensors are not wake-up sensors: let the
+		// screen go off mid-run and delivery stops, the report says "samples:
+		// NONE", and that reads as "the service process cannot receive sensor
+		// events" — which would be the wrong answer to the biggest question
+		// this probe exists to settle.
 		return "\nMotion probe running for " + reportedSeconds + " s on "
 				+ chosen.getName() + ".\nShake the phone the way you would in a fight — "
-				+ "or walk with it, for the\nbaseline run. The reading prints here when it ends.\n";
+				+ "or walk with it, for the\nbaseline run. "
+				+ (chosen.isWakeUpSensor() ? "" : "KEEP THE SCREEN ON: this sensor stops\n"
+					+ "delivering when the display sleeps, and the run would read as empty.\n")
+				+ "The reading prints here when it ends.\n";
 	}
 
 	/**
@@ -260,6 +273,20 @@ public final class SensorProbe {
 			return "step counter";
 		default:
 			return "type " + type;
+		}
+	}
+
+	/**
+	 * The service context, or null. Separate from {@link #managerFrom} so that
+	 * "no context" and "no SensorManager" cannot print the same message: the
+	 * first is our bug, the second is a fact about the device.
+	 */
+	private static Context contextOf(final Connection connection) {
+		try {
+			return connection.getContext();
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("SensorProbe.contextOf", e);
+			return null;
 		}
 	}
 

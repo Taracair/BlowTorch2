@@ -224,6 +224,8 @@ public final class MotionStats {
 		}
 		out.append("\nRun this once shaking and once walking. A usable threshold is\n");
 		out.append("the lowest one that counts your shakes and counts the walk as 0.\n");
+		out.append("A single shake held longer than the dead time counts more than\n");
+		out.append("once here — and a real detector would fire more than once too.\n");
 		return out.toString();
 	}
 }
