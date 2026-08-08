@@ -3879,6 +3879,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	public void onPause() {
+		android.util.Log.i("BTPROF", "mainWindow onPause");
 		//Log.e("WINDOW","onDestroy()");
 		//windowShowing = false;
 		// Before the early return below: an overlay window left up would float
@@ -3910,6 +3911,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	public void onResume() {
 		super.onResume();
+		android.util.Log.i("BTPROF", "mainWindow onResume isBound=" + isBound);
 		//Log.e("window","start onResume()");
 		//windowShowing = true;
 		if (floatingButtons != null) {

@@ -752,6 +752,13 @@ public class FloatingButtonController {
 	}
 
 	private void rebuild(List<FloatingButtonModel> models) {
+		android.util.Log.i("BTPROF", "floatRebuild models="
+				+ (models == null ? -1 : models.size())
+				+ " resumed=" + resumed
+				+ " overlay=" + overlayMode
+				+ " views=" + views.size()
+				+ " from=" + android.util.Log.getStackTraceString(
+						new Throwable("who")).replace('\n', '|'));
 		// Every rebuild resolves the orientation itself. onOrientationChanged is
 		// not the only way a turn can reach here (a Lua push, an IME rebuild and
 		// a resume all land in rebuild too), and a snapshot that still says
