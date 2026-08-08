@@ -45,6 +45,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
     .suggest where floating | bar | off
     .suggest opacity N | persist on | off
     .suggest loose on | off | ghost on | off
+    .suggest rank on | off
 
 (`.complete` is the same command under its old name and still works.)
 
@@ -105,6 +106,24 @@ break a phrase rather than being skipped: `a sword of power` offers `sword`, not
 If a name shows up somewhere else, the phrase follows it: after
 `a gnarled iron gate`, `gnar` stops offering `gnarled oaken staff` and starts
 offering `gnarled iron gate`.
+
+**Ordered by where you are in the line.** `.suggest rank on` — **off by
+default** — uses one thing the app already knows for free: the first word of
+every command you send *is* a verb this world takes, and what follows it is a
+thing you point commands at. With it on, `ki` at the start of a line offers
+`kill` above `kindle` if `kill` is what you type commands with, and the same
+`ki` after `kill ` puts the things you have aimed at first.
+
+It only ever **reorders**. Every suggestion you get with this off you still get
+with it on — it may be one chip further along, never gone. It also knows
+nothing on a world you have just started, and fills up as you play; and what
+you type after `say`, `tell`, `chat` and the like is left out of it, or a
+sentence of chat would teach the app that `should` and `think` are things in
+the room.
+
+Nothing you type is ever offered back as a suggestion — only what the *world*
+said is. Typing a name the world never used does not make it completable. And a
+line the world has masked, such as a password, is left out of this entirely.
 
 **When you mistype it.** `.suggest loose on` adds a second pass: if the exact
 spelling finds nothing, a word whose letters you typed *in order, with gaps* is

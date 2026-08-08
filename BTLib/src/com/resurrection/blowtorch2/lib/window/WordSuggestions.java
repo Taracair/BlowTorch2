@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.window;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -171,6 +172,46 @@ public final class WordSuggestions {
 	private final LinkedHashMap<String, Seen> words =
 			new LinkedHashMap<String, Seen>();
 
+	/**
+	 * How many command words of each kind are remembered.
+	 *
+	 * <p>Bounded like everything else here. These are words the player types, not
+	 * words the world sends, so the store fills far more slowly than
+	 * {@link #words} and this is generous.
+	 */
+	public static final int MAX_ROLE_WORDS = 500;
+
+	/**
+	 * Words the player has started a command with.
+	 *
+	 * <p>Free knowledge: the first word of a command a player sent <em>is</em> a
+	 * verb this world understands, so nothing has to be taught or shipped.
+	 * Insertion-ordered and re-inserted on every sighting, same as {@link #words},
+	 * so the oldest falls out of the front when the cap is reached.
+	 */
+	private final LinkedHashSet<String> verbs = new LinkedHashSet<String>();
+
+	/** Words the player has typed after the command word. */
+	private final LinkedHashSet<String> objects = new LinkedHashSet<String>();
+
+	/** Whether where the caret sits is allowed to reorder the suggestions. */
+	private boolean rankByPosition = false;
+
+	/**
+	 * Commands whose remainder is prose, not a thing in the room.
+	 *
+	 * <p>Without this the object store fills with ordinary English within a few
+	 * minutes of a chatty world — {@code say i think we should go north} would
+	 * teach "think", "should" and "north" as things you point commands at, and
+	 * the ranking would then push them above the mob you are fighting.
+	 */
+	private static final java.util.Set<String> SPEECH_VERBS =
+			new java.util.HashSet<String>(java.util.Arrays.asList(
+					"say", "sayto", "tell", "whisper", "emote", "emo", "pmote",
+					"chat", "gossip", "shout", "yell", "ooc", "reply", "page",
+					"group", "gt", "gtell", "clan", "guild", "newbie", "answer",
+					"note", "board", "describe", "title"));
+
 	private final int maxWords;
 
 	/** Lines the world has sent this session; the clock the window measures. */
@@ -269,6 +310,109 @@ public final class WordSuggestions {
 
 	public boolean isPhrases() {
 		return phrases;
+	}
+
+	/**
+	 * Whether the caret's place in the line may reorder the suggestions.
+	 *
+	 * <p>Off by default, and it is an option rather than a rule because it is the
+	 * kind of help that is wrong some of the time: at the start of a line it
+	 * lifts words the player has used as commands, everywhere else it lifts words
+	 * they have used as things. A world where that guess does not hold, or a
+	 * player who has learned where their suggestions sit, is better off without
+	 * it.
+	 *
+	 * <p>It only ever <em>reorders</em>. Every suggestion reachable with this off
+	 * is reachable with it on, so turning it on cannot hide an answer — it can
+	 * only move it.
+	 *
+	 * @param on true to rank by position.
+	 */
+	public void setRankByPosition(final boolean on) {
+		this.rankByPosition = on;
+	}
+
+	public boolean isRankByPosition() {
+		return rankByPosition;
+	}
+
+	/**
+	 * Take note of a command the player sent.
+	 *
+	 * <p>Kept apart from {@link #learn}: this never adds a word to what gets
+	 * suggested, only to what is known about where words belong. A player typing
+	 * a name the world never used should not make that name completable — the
+	 * whole point is completing what the <em>world</em> said.
+	 *
+	 * <p>Recorded whatever {@link #setRankByPosition} says, so switching the
+	 * option on works on the next keystroke instead of after a session of
+	 * relearning. It is one short line per command sent.
+	 *
+	 * @param line the command as the player typed it. Callers must not pass a
+	 *        masked line: a password's first word would become a verb.
+	 */
+	public void learnCommand(final String line) {
+		if (line == null) {
+			return;
+		}
+		String[] parts = line.trim().split("\\s+");
+		String verb = null;
+		for (int i = 0; i < parts.length; i++) {
+			String key = commandWord(parts[i]);
+			if (key == null) {
+				continue;
+			}
+			if (verb == null) {
+				verb = key;
+				remember(verbs, key);
+				if (SPEECH_VERBS.contains(key)) {
+					// The rest of this line is prose.
+					return;
+				}
+			} else if (key.length() >= MIN_WORD_LENGTH) {
+				// Object side only: a word shorter than that is never stored in
+				// the vocabulary either, so it could not be lifted by anything.
+				// The verb side has no such floor — say, get, put and eat are all
+				// shorter than it, and dropping "say" would let a line of chat
+				// through as if it named things.
+				remember(objects, key);
+			}
+		}
+	}
+
+	/** A command token reduced to the word inside it, or null if there is none. */
+	private static String commandWord(final String raw) {
+		StringBuilder b = new StringBuilder(raw.length());
+		for (int i = 0; i < raw.length(); i++) {
+			if (isWordChar(raw.charAt(i))) {
+				b.append(raw.charAt(i));
+			}
+		}
+		// A leading ' is the say alias on most worlds and a trailing - is a dash
+		// left by punctuation; neither is part of the word.
+		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(0))) {
+			b.deleteCharAt(0);
+		}
+		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(b.length() - 1))) {
+			b.deleteCharAt(b.length() - 1);
+		}
+		if (b.length() == 0) {
+			return null;
+		}
+		return b.toString().toLowerCase(Locale.US);
+	}
+
+	/** Put a word at the newest end of a bounded set. */
+	private static void remember(final LinkedHashSet<String> set, final String key) {
+		// Remove first, so a word used again moves to the end rather than keeping
+		// the position where it would fall out of the front soonest.
+		set.remove(key);
+		set.add(key);
+		while (set.size() > MAX_ROLE_WORDS) {
+			java.util.Iterator<String> it = set.iterator();
+			it.next();
+			it.remove();
+		}
 	}
 
 	/** How many lines the world has sent since this completer started. */
@@ -385,6 +529,21 @@ public final class WordSuggestions {
 	 * @return never null, possibly empty.
 	 */
 	public List<String> suggest(final String prefix, final int max) {
+		return suggest(prefix, max, false);
+	}
+
+	/**
+	 * Completions for what is being typed, best first.
+	 *
+	 * @param prefix the partial word.
+	 * @param max how many to return.
+	 * @param atLineStart true when nothing precedes the partial word on the input
+	 *        line, so the player is typing a command rather than its target.
+	 *        Ignored unless {@link #setRankByPosition} is on.
+	 * @return never null, possibly empty.
+	 */
+	public List<String> suggest(final String prefix, final int max,
+			final boolean atLineStart) {
 		List<String> out = new ArrayList<String>();
 		if (prefix == null || prefix.length() < MIN_PREFIX_LENGTH || max <= 0) {
 			return out;
@@ -401,6 +560,7 @@ public final class WordSuggestions {
 				matches.add(e.getKey());
 			}
 		}
+		rankByPosition(matches, atLineStart);
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
 			String key = matches.get(i);
 			if (phrases) {
@@ -424,6 +584,49 @@ public final class WordSuggestions {
 			suggestLoosely(needle, max, out);
 		}
 		return out;
+	}
+
+	/**
+	 * Move the words that fit this place in the line to the front of the answer.
+	 *
+	 * <p>{@code matches} is oldest-first and read backwards, so "to the front of
+	 * the answer" means "to the end of this list". The two groups keep their own
+	 * order inside themselves, which is what makes this a reordering and not a
+	 * different result: with the option off, or with nothing yet known about the
+	 * player's commands, the list comes out exactly as it went in.
+	 *
+	 * <p>Nothing is dropped. A word the player has never used as a command still
+	 * follows the ones they have — further down the strip, not gone. That is the
+	 * whole contract: a suggestion that was reachable yesterday is reachable
+	 * today.
+	 *
+	 * @param matches candidate keys, oldest first; reordered in place.
+	 * @param atLineStart true when the caret is on the first word of the line.
+	 */
+	private void rankByPosition(final List<String> matches, final boolean atLineStart) {
+		if (!rankByPosition || matches.size() < 2) {
+			return;
+		}
+		java.util.Set<String> favoured = atLineStart ? verbs : objects;
+		if (favoured.isEmpty()) {
+			return;
+		}
+		List<String> rest = new ArrayList<String>(matches.size());
+		List<String> lifted = new ArrayList<String>(matches.size());
+		for (int i = 0; i < matches.size(); i++) {
+			String key = matches.get(i);
+			if (favoured.contains(key)) {
+				lifted.add(key);
+			} else {
+				rest.add(key);
+			}
+		}
+		if (lifted.isEmpty()) {
+			return;
+		}
+		matches.clear();
+		matches.addAll(rest);
+		matches.addAll(lifted);
 	}
 
 	/**
@@ -501,6 +704,10 @@ public final class WordSuggestions {
 	/** Everything learned so far is dropped — a new world, a new vocabulary. */
 	public void clear() {
 		words.clear();
+		// The player's command habits are per world too: the verbs one MUD takes
+		// are not the verbs the next one takes.
+		verbs.clear();
+		objects.clear();
 		linesSeen = 0;
 		lastWordLine = 0;
 		pending = "";

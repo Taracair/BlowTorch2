@@ -1194,6 +1194,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (!mLocalEchoOff) {
 						history.addCommand(pdata);
 						history.save(MainWindow.this, getConnectionDisplay());
+						// Same gate, same reason: the first word of a masked line
+						// would become a verb on the suggestion strip. This adds
+						// nothing to what can be completed, only to what is known
+						// about where a word belongs in a line.
+						mWordSuggestions.learnCommand(pdata);
 					}
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
@@ -2603,10 +2608,37 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
 		String prefix = WordSuggestions.wordBefore(text, caret);
-		mWordSuggestionList.addAll(
-				mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS));
+		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS,
+				isAtLineStart(text, caret, prefix)));
 		updateGhostCompletion(prefix, mWordSuggestionList);
 		return mWordSuggestionList;
+	}
+
+	/**
+	 * Is the word being typed the first one on the line?
+	 *
+	 * <p>Which is to say: is the player naming a command, or naming what it acts
+	 * on. Read off the text rather than the caret alone, because the caret can be
+	 * put back into the first word of a line that already has more after it —
+	 * that word is still the command.
+	 *
+	 * @param text the whole input line.
+	 * @param caret where the cursor is.
+	 * @param prefix the partial word ending at the caret.
+	 * @return true when nothing but blanks precedes that word.
+	 */
+	private static boolean isAtLineStart(final String text, final int caret,
+			final String prefix) {
+		if (text == null || prefix == null) {
+			return true;
+		}
+		int start = Math.min(caret, text.length()) - prefix.length();
+		for (int i = 0; i < start && i < text.length(); i++) {
+			if (!Character.isWhitespace(text.charAt(i))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -4185,6 +4217,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setLooseMatching(looseOpt != null
 					&& looseOpt.getValue() instanceof Boolean
 					&& (Boolean) looseOpt.getValue());
+			BaseOption rankOpt = (BaseOption) group.findOptionByKey("word_complete_rank");
+			mWordSuggestions.setRankByPosition(rankOpt != null
+					&& rankOpt.getValue() instanceof Boolean
+					&& (Boolean) rankOpt.getValue());
 			BaseOption phrasesOpt = (BaseOption) group.findOptionByKey("word_complete_phrases");
 			mWordSuggestions.setPhrases(phrasesOpt != null
 					&& phrasesOpt.getValue() instanceof Boolean

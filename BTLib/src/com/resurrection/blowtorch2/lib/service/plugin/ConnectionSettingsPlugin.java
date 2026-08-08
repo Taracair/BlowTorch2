@@ -210,6 +210,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_WHERE);
 		suggestions.addOption(word_complete_where);
 
+		BooleanOption word_complete_rank = new BooleanOption();
+		word_complete_rank.setTitle("Order by place in the line");
+		word_complete_rank.setDescription("At the start of a line, lift the words you have used as commands; after it, lift the words you have used as targets. Learned from what you type, so it knows nothing on a world you have just started. It only changes the order — every suggestion you get today you still get. Off by default. .suggest rank on/off");
+		word_complete_rank.setKey("word_complete_rank");
+		word_complete_rank.setValue(false);
+		suggestions.addOption(word_complete_rank);
+
 		BooleanOption word_complete_persist = new BooleanOption();
 		word_complete_persist.setTitle("Keep the bar in place");
 		word_complete_persist.setDescription("Leave the bar up even with nothing to suggest, instead of it coming and going as you type. Below the game this is the one that matters: it holds its height, so the game text stops jumping. Floating, it holds a bar's width and shows its grip. .suggest persist on/off");

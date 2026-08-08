@@ -4858,11 +4858,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_phrases:
 			case word_complete_ghost:
 			case word_complete_persist:
+			case word_complete_rank:
 			case word_complete_where:
 			case word_complete_opacity:
 				// MainWindow.loadSettings is what reaches WordSuggestions and the
 				// strip; ask the UI to re-read rather than adding a binder call per
-				// setting. All three are the UI's business only.
+				// setting. Every one of these is the UI's business only.
 				mService.doExecuteRequestLoadSettings();
 				break;
 			case prompt_bar:
@@ -5965,6 +5966,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_ghost,
 		/** Keep the floating suggestion bar up even when it is empty. */
 		word_complete_persist,
+		/** Let the caret's place in the line reorder the suggestions. */
+		word_complete_rank,
 		/** Where the chips go: floating, in a strip below the game, or nowhere. */
 		word_complete_where,
 		/** Triggers that speak keep quiet while a command is being composed. */

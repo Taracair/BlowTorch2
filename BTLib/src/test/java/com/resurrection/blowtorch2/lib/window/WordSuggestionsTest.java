@@ -356,6 +356,116 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void rankingIsOffUntilAskedFor() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("kill the grizzled troll\n");
+		w.learnCommand("kill troll");
+		// Same answer at both ends of the line: the option is what changes it.
+		assertEquals(w.suggest("k", 5), w.suggest("k", 5, true));
+	}
+
+	@Test
+	public void atTheStartOfALineAWordUsedAsACommandComesFirst() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		// The world said both. "kindle" is newer, so it leads without ranking.
+		w.learn("You kill the troll.\nYou kindle a torch.\n");
+		assertEquals("kindle", w.suggest("ki", 5).get(0));
+		// The player has only ever typed "kill" as a command.
+		w.learnCommand("kill troll");
+		assertEquals("kill", w.suggest("ki", 5, true).get(0));
+	}
+
+	@Test
+	public void awayFromTheStartAWordUsedAsATargetComesFirst() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("A troll waits.\nA trophy hangs here.\n");
+		assertEquals("trophy", w.suggest("tro", 5).get(0));
+		w.learnCommand("kill troll");
+		// Mid-line the player is naming a thing, and "troll" is the word they
+		// name things with.
+		assertEquals("troll", w.suggest("tro", 5, false).get(0));
+	}
+
+	@Test
+	public void rankingMovesSuggestionsAndNeverRemovesThem() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("kill kindle kitten kite\n");
+		w.learnCommand("kill things");
+		List<String> plain = w.suggest("ki", 10);
+		List<String> ranked = w.suggest("ki", 10, true);
+		assertEquals("kill", ranked.get(0));
+		// Same set, different order — that is the whole contract.
+		assertEquals(new java.util.HashSet<String>(plain),
+				new java.util.HashSet<String>(ranked));
+	}
+
+	@Test
+	public void whatFollowsSayIsProseAndNotATarget() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("A troll waits.\nA trophy hangs here.\n");
+		// Chat fills the object store with ordinary English if it is let through.
+		w.learnCommand("say we should kill the troll");
+		assertEquals("trophy", w.suggest("tro", 5, false).get(0));
+	}
+
+	@Test
+	public void aSpeechVerbIsStillAVerb() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("tell them.\nYou teleport away.\n");
+		assertEquals("teleport", w.suggest("te", 5).get(0));
+		w.learnCommand("tell bob meet me at the gate");
+		// Cutting the line short at a speech verb must not cost the verb itself.
+		assertEquals("tell", w.suggest("te", 5, true).get(0));
+	}
+
+	@Test
+	public void aVerbShorterThanTheVocabularyKeepsIsStillRecognisedAsSpeech() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("A troll waits.\nA trophy hangs here.\n");
+		// "say" is three letters, below what the vocabulary stores. If the
+		// command side applied that same floor it would miss the speech verb
+		// and learn the whole sentence as things.
+		w.learnCommand("say we should kill the troll");
+		assertEquals("trophy", w.suggest("tro", 5, false).get(0));
+	}
+
+	@Test
+	public void aCommandTeachesNothingToCompleteWith() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		// Only the world's words are offered back. Typing a name the world never
+		// used must not make it completable.
+		w.learnCommand("kill grizzled");
+		assertTrue(w.suggest("gri", 5, false).isEmpty());
+	}
+
+	@Test
+	public void punctuationAroundACommandWordIsNotPartOfIt() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learn("You kill the troll.\nYou kindle a torch.\n");
+		w.learnCommand("kill, troll!");
+		assertEquals("kill", w.suggest("ki", 5, true).get(0));
+	}
+
+	@Test
+	public void aNewWorldForgetsHowThisOneWasPlayed() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.learnCommand("kill troll");
+		w.clear();
+		w.learn("You kill the troll.\nYou kindle a torch.\n");
+		// Nothing known about commands here, so newest-first stands.
+		assertEquals("kindle", w.suggest("ki", 5, true).get(0));
+	}
+
+	@Test
 	public void aSeedThatDoesNotEndInANewlineGluesItselfToWhatComesNext() {
 		// Why Connection.seedVocabularyFromHistory terminates its seed. The
 		// buffer dump handed over after a UI process death stops wherever the
