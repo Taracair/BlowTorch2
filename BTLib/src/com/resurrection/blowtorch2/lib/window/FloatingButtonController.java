@@ -752,13 +752,23 @@ public class FloatingButtonController {
 	}
 
 	private void rebuild(List<FloatingButtonModel> models) {
+		int kbModels = 0;
+		if (models != null) {
+			for (FloatingButtonModel m : models) {
+				if (m != null && m.isKeyboardMode()) {
+					kbModels++;
+				}
+			}
+		}
 		android.util.Log.i("BTPROF", "floatRebuild models="
 				+ (models == null ? -1 : models.size())
+				+ " keyboardMode=" + kbModels
+				+ " imeUp=" + isSoftKeyboardCoveringLayer()
+				+ " lastImeUp=" + lastOverlayImeUp
+				+ " liftPx=" + host.refreshImeLiftPx()
 				+ " resumed=" + resumed
 				+ " overlay=" + overlayMode
-				+ " views=" + views.size()
-				+ " from=" + android.util.Log.getStackTraceString(
-						new Throwable("who")).replace('\n', '|'));
+				+ " views=" + views.size());
 		// Every rebuild resolves the orientation itself. onOrientationChanged is
 		// not the only way a turn can reach here (a Lua push, an IME rebuild and
 		// a resume all land in rebuild too), and a snapshot that still says
@@ -839,6 +849,8 @@ public class FloatingButtonController {
 	 * the one thing that cannot blink.
 	 */
 	private void updateKeyboardModeOverlays(boolean imeUp) {
+		android.util.Log.i("BTPROF", "kbOverlays imeUp=" + imeUp
+				+ " views=" + views.size() + " resumed=" + resumed);
 		if (host.getMainWindow() == null || !resumed) {
 			return;
 		}

@@ -92,6 +92,9 @@ public final class ChromeController {
 		// keyboard-mode floaters stay hidden, and there is no fallback that works
 		// under adjustNothing.
 		int lift = Math.max(0, ime.bottom - bars.bottom);
+		android.util.Log.i("BTPROF", "insets lift=" + lift
+				+ " imeBottom=" + ime.bottom + " barsBottom=" + bars.bottom
+				+ " barsTop=" + bars.top + " wasLift=" + imeLiftPx);
 		applyImeChromeLift((RelativeLayout) view, lift);
 		imeLiftPx = lift;
 		activity.onFloatingButtonsImeLift(lift);
