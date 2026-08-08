@@ -148,22 +148,33 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 			}
 		}
 		TriggerSounds.play(c, soundPath, volumePercent / 100f,
-				rateKey(displayname, triggernumber), minGapMs);
+				rateKey(displayname, name), minGapMs);
 		return false;
 	}
 
 	/**
 	 * What the gap is counted against.
 	 *
-	 * <p>The trigger, not the sound: two triggers sharing one file should not
-	 * silence each other, and the same trigger in two worlds is two alerts.
+	 * <p>The trigger by name, and the world it is in: two triggers sharing one
+	 * sound file must not silence each other, and the same trigger on two worlds
+	 * is two separate alerts.
+	 *
+	 * <p>It used to be keyed on the {@code triggernumber} the responder is
+	 * handed, which reads like an identity and is not one:
+	 * {@code StellarService.getNotificationId()} increments on every call, so
+	 * every firing got a key of its own and the gap never suppressed anything.
+	 * A trigger fires once per <em>match</em>, not once per line — three
+	 * FlugHammers in one inventory listing played the sound three times on top of
+	 * itself. The name is stable, so the gap now does what its description always
+	 * claimed.
 	 *
 	 * @param displayname the world.
-	 * @param triggernumber which trigger fired.
+	 * @param name the trigger's own name.
 	 * @return a key for {@link TriggerSounds}.
 	 */
-	static String rateKey(final String displayname, final int triggernumber) {
-		return (displayname == null ? "" : displayname) + "|" + triggernumber;
+	static String rateKey(final String displayname, final String name) {
+		return (displayname == null ? "" : displayname)
+				+ "|" + (name == null ? "" : name);
 	}
 
 	public static Parcelable.Creator<SoundResponder> CREATOR =
