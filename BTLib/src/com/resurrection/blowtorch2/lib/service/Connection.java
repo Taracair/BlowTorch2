@@ -4254,6 +4254,66 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Whether a gesture may fire into this world right now.
+	 *
+	 * <p>Reported on 9 Aug: a shake sent its command with the screen off and with
+	 * the app swiped into Recents — a phone knocked about in a pocket talking to
+	 * the game. Movement is what needs the gate; the system events do not have it
+	 * at all, because hushing speech when the headphones come out is a thing that
+	 * has to work precisely when nobody is looking at the screen.
+	 *
+	 * @param gestureId the gesture about to fire.
+	 * @return true when it should be allowed through.
+	 */
+	public final boolean allowsGestureNow(final String gestureId) {
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
+		if (g == null) {
+			return false;
+		}
+		if (g.getProviders().contains(
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.BY_SYSTEM)) {
+			return true;
+		}
+		if (!flagOption("gesture_background", false) && mService != null
+				&& !mService.isWindowConnected()) {
+			return false;
+		}
+		if (!flagOption("gesture_screen_off", false) && !isScreenInteractive()) {
+			return false;
+		}
+		return true;
+	}
+
+	/** Ask the system, rather than trusting a broadcast we may have missed. */
+	private boolean isScreenInteractive() {
+		try {
+			Object power = getContext().getSystemService(Context.POWER_SERVICE);
+			if (power instanceof android.os.PowerManager) {
+				return ((android.os.PowerManager) power).isInteractive();
+			}
+		} catch (Exception ignored) {
+			// Cannot tell: treat the phone as awake rather than silently
+			// swallowing every gesture the player set up.
+		}
+		return true;
+	}
+
+	/** One boolean option by key, with a default when the settings are not up yet. */
+	private boolean flagOption(final String key, final boolean fallback) {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey(key);
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+						.getValue();
+				return (val instanceof Boolean) ? ((Boolean) val).booleanValue() : fallback;
+			}
+		} catch (Exception ignored) {
+		}
+		return fallback;
+	}
+
 	/** The device.* reading, for {@code .probe sensors state}. */
 	public final String deviceStateReport() {
 		if (!isDeviceStateVariables()) {
@@ -5093,6 +5153,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case word_complete:
 				this.doSetWordComplete((Boolean) o.getValue());
+				break;
+			case gesture_screen_off:
+			case gesture_background:
+				// Read at the moment a gesture fires, so there is nothing to
+				// apply here — but the watcher may need to pick a sensor up or
+				// let it go, and that is decided by what is enabled, not by this.
 				break;
 			case device_state_variables:
 				// Applied here rather than asked of the UI: the watcher and the
@@ -6274,6 +6340,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_shorter_first,
 		/** Keep device.* session variables up to date from the phone itself. */
 		device_state_variables,
+		/** Let movement gestures fire while the display is asleep. */
+		gesture_screen_off,
+		/** Let movement gestures fire while the app is in the background. */
+		gesture_background,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
 		/** How many suggestions the ghost lists, growing the bar to fit them. */

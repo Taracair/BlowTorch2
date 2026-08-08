@@ -532,6 +532,13 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
+			if ("device_gestures".equals(key)) {
+				MainWindow mwg = findMainWindowHost();
+				if (mwg != null) {
+					mwg.openGestureListFromOptions();
+				}
+				return;
+			}
 			if ("battery_optimization".equals(key)) {
 				Activity activity = findHostActivity();
 				if (activity != null) {

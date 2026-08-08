@@ -119,6 +119,24 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 	}
 
+	/**
+	 * Open a brand new trigger already set to a device gesture.
+	 *
+	 * <p>For the Gestures screen, where the player picked "put the phone face
+	 * down" and should not then have to find that same choice again in a
+	 * dropdown. Call before {@code show()}; ignored when editing an existing
+	 * trigger, which already knows what it fires on.
+	 */
+	public void presetGesture(final com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture gesture) {
+		if (gesture == null || isEditor) {
+			return;
+		}
+		the_trigger.setName(gesture.getId());
+		the_trigger.setPattern(gesture.getPattern());
+		the_trigger.setInterpretAsRegex(false);
+		the_trigger.setEnabled(true);
+	}
+
 	public void onCreate(Bundle b) {
 		this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
 		this.getWindow().setBackgroundDrawableResource(com.resurrection.blowtorch2.lib.R.drawable.dialog_window_crawler1);

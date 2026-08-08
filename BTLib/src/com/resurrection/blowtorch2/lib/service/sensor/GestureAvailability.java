@@ -83,8 +83,13 @@ public final class GestureAvailability {
 				out.append(" (fallback)");
 			}
 			if (!isWakeUp()) {
-				out.append(", needs the screen on");
+				out.append(", may stop while the display sleeps");
 			}
+			// Deliberately not "needs the screen on": that was written as a
+			// hardware claim and it is not one. This phone kept delivering linear
+			// acceleration with the screen off, and shakes fired from a pocket.
+			// Whether a gesture is allowed then is a setting, not a sensor fact —
+			// Options → Device.
 			return out.toString();
 		}
 	}
@@ -121,8 +126,7 @@ public final class GestureAvailability {
 		}
 		int index = 0;
 		for (String provider : gesture.getProviders()) {
-			int type = sensorTypeFor(provider);
-			Sensor sensor = type == 0 ? null : manager.getDefaultSensor(type);
+			Sensor sensor = sensorFor(manager, provider);
 			if (sensor != null) {
 				return new Resolution(gesture, provider, sensor, index > 0);
 			}
@@ -153,7 +157,73 @@ public final class GestureAvailability {
 		if (GestureCatalog.BY_GRAVITY.equals(provider)) {
 			return Sensor.TYPE_GRAVITY;
 		}
+		if (GestureCatalog.BY_SIGNIFICANT_MOTION.equals(provider)) {
+			return Sensor.TYPE_SIGNIFICANT_MOTION;
+		}
+		if (GestureCatalog.BY_STATIONARY.equals(provider)) {
+			return TYPE_STATIONARY_DETECT;
+		}
+		if (GestureCatalog.BY_PICKUP_SENSOR.equals(provider)) {
+			return TYPE_PICK_UP_GESTURE;
+		}
 		return 0;
+	}
+
+	/**
+	 * Standard since API 24, but no public constant on every build we compile
+	 * against, so the number is written out with the name it belongs to.
+	 */
+	public static final int TYPE_STATIONARY_DETECT = 29;
+	/**
+	 * The lift-to-wake sensor. Not public API — hidden in AOSP — so it is
+	 * matched by its string type first and only then by this number, or a
+	 * vendor sensor that happens to use 25 for something else would be picked up
+	 * and asked to report a gesture it knows nothing about.
+	 */
+	public static final int TYPE_PICK_UP_GESTURE = 25;
+
+	/** String types, which vendors get right more often than the numbers. */
+	private static final String STRING_TYPE_PICK_UP = "android.sensor.pick_up_gesture";
+	private static final String STRING_TYPE_STATIONARY = "android.sensor.stationary_detect";
+	private static final String STRING_TYPE_STATIONARY_GOOGLE =
+			"com.google.sensor.stationary_detect";
+
+	/**
+	 * Find a sensor by what it says it is, before trusting a type number.
+	 *
+	 * <p>For the one-shot sensors this matters: their numbers are either hidden
+	 * API or in the vendor range, where two manufacturers can and do use the
+	 * same value for different hardware.
+	 */
+	private static Sensor byStringType(final SensorManager manager,
+			final String... stringTypes) {
+		java.util.List<Sensor> all = manager.getSensorList(Sensor.TYPE_ALL);
+		if (all == null) {
+			return null;
+		}
+		for (String wanted : stringTypes) {
+			for (Sensor s : all) {
+				if (wanted.equals(s.getStringType())) {
+					return s;
+				}
+			}
+		}
+		return null;
+	}
+
+	/** The sensor a provider resolves to on this device, or null. */
+	private static Sensor sensorFor(final SensorManager manager, final String provider) {
+		if (GestureCatalog.BY_PICKUP_SENSOR.equals(provider)) {
+			Sensor byName = byStringType(manager, STRING_TYPE_PICK_UP);
+			return byName != null ? byName : manager.getDefaultSensor(TYPE_PICK_UP_GESTURE);
+		}
+		if (GestureCatalog.BY_STATIONARY.equals(provider)) {
+			Sensor byName = byStringType(manager, STRING_TYPE_STATIONARY,
+					STRING_TYPE_STATIONARY_GOOGLE);
+			return byName != null ? byName : manager.getDefaultSensor(TYPE_STATIONARY_DETECT);
+		}
+		int type = sensorTypeFor(provider);
+		return type == 0 ? null : manager.getDefaultSensor(type);
 	}
 
 	/** The whole picture, as {@code .sensor caps} prints it. */

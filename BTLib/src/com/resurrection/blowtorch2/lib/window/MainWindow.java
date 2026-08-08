@@ -2156,6 +2156,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	@SuppressWarnings("unchecked")
+	/**
+	 * The Gestures screen, opened from Options → Device.
+	 *
+	 * <p>Gestures are stored as triggers, which is right for the engine and no
+	 * help at all for finding one afterwards. This is where a player goes to see
+	 * what their phone can feel and what each thing does.
+	 */
+	public void openGestureListFromOptions() {
+		if (service == null) {
+			return;
+		}
+		new com.resurrection.blowtorch2.lib.trigger.GestureListDialog(
+				this, service, mShowRegexWarning).show();
+	}
+
 	public boolean onOptionsItemSelected(MenuItem item) {
 //		if(item.getItemId() >= 1000) {
 //			//script callback

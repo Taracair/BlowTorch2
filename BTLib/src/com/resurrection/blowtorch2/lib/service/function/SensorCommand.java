@@ -101,6 +101,16 @@ public class SensorCommand extends SpecialCommand {
 	 * has already had to apologise for once.
 	 */
 	private Object setCommand(final Connection c, final Gesture g, final String command) {
+		// More than one trigger can answer the same gesture, and all of them run.
+		// Guessing which one the player meant would edit something they cannot
+		// see from the input bar, so this stops and points at the screen that
+		// shows all of them.
+		if (countTriggers(c, g) > 1) {
+			c.sendDataToWindow("\n" + countTriggers(c, g) + " triggers answer "
+					+ g.getId() + ", and all of them run. Which one did you mean?\n"
+					+ "Open Options \u2192 Device \u2192 Gestures to see them.\n");
+			return null;
+		}
 		TriggerData existing = findTrigger(c, g);
 		boolean created = false;
 		TriggerData target;
@@ -181,6 +191,11 @@ public class SensorCommand extends SpecialCommand {
 				.append(" <command>\n");
 			return out.toString();
 		}
+		int count = countTriggers(c, g);
+		if (count > 1) {
+			out.append("  ").append(count).append(" triggers answer this, and all of")
+				.append(" them run.\n  Options \u2192 Device \u2192 Gestures shows them.\n");
+		}
 		out.append("  ").append(t.isEnabled() ? "on" : "off").append(", ")
 			.append(describeActions(t)).append('\n');
 		return out.toString();
@@ -202,8 +217,9 @@ public class SensorCommand extends SpecialCommand {
 		out.append("\n.sensor wave look     point a gesture at a command\n");
 		out.append(".sensor fire wave     try it without moving the phone\n");
 		out.append(".sensor caps          which sensor does what on this phone\n");
-		out.append("\nA gesture is an ordinary trigger: open it in the Triggers editor\n");
-		out.append("to add a script, a sound, speech or a condition.\n");
+		out.append("\nA gesture is an ordinary trigger, so it can also run a script,\n");
+		out.append("play a sound, speak, or anything else a trigger does. The whole\n");
+		out.append("list with a screen of its own is in Options \u2192 Device \u2192 Gestures.\n");
 		return out.toString();
 	}
 
@@ -237,6 +253,22 @@ public class SensorCommand extends SpecialCommand {
 				.append(others == 1 ? " other action" : " other actions");
 		}
 		return out.toString();
+	}
+
+	/** How many triggers answer this gesture. More than one is allowed. */
+	private int countTriggers(final Connection c, final Gesture g) {
+		HashMap<String, TriggerData> triggers = c.getTriggers();
+		if (triggers == null) {
+			return 0;
+		}
+		int found = 0;
+		for (TriggerData t : triggers.values()) {
+			if (t != null && !t.isInterpretAsRegex()
+					&& g.getPattern().equals(t.getPattern())) {
+				found++;
+			}
+		}
+		return found;
 	}
 
 	/** The main-settings trigger for this gesture, or null. */

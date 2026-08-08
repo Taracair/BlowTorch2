@@ -85,6 +85,86 @@ public final class SensorProbe {
 	}
 
 	/**
+	 * Watch the light sensor and report what this room actually reads.
+	 *
+	 * <p>"Dark" and "bright" are the two words a player wants, and the lux
+	 * numbers behind them cannot be written from a desk: sensors differ, and so
+	 * do rooms. Run this in the dark, under a lamp and outdoors, and the three
+	 * readings are what a threshold should be built from.
+	 *
+	 * @return the message to print now.
+	 */
+	public static String startLightRun(final Connection connection, final int seconds) {
+		if (connection == null) {
+			return "";
+		}
+		int duration = Math.max(MIN_SECONDS, Math.min(MAX_SECONDS, seconds));
+		final Context context = contextOf(connection);
+		if (context == null) {
+			return "\nThe connection has no context to ask.\n";
+		}
+		final SensorManager manager = managerFrom(context);
+		if (manager == null) {
+			return "\nNo SensorManager on this device.\n";
+		}
+		final Sensor light = manager.getDefaultSensor(Sensor.TYPE_LIGHT);
+		if (light == null) {
+			return "\nThis phone reports no light sensor, so nothing can be built\n"
+					+ "on how bright the room is.\n";
+		}
+		if (!RUNNING.compareAndSet(false, true)) {
+			return "\nA sensor probe is already running. Wait for it to report.\n";
+		}
+		final MotionStats stats = new MotionStats();
+		stats.describeSource(light.getName() + " (light, lux)", light.isWakeUpSensor());
+		final WeakReference<Connection> weak = new WeakReference<Connection>(connection);
+		final HandlerThread thread = new HandlerThread("bt-light-probe");
+		thread.start();
+		final Handler own = new Handler(thread.getLooper());
+		final SensorEventListener listener = new SensorEventListener() {
+			@Override
+			public void onSensorChanged(final SensorEvent event) {
+				if (event == null || event.values == null || event.values.length < 1) {
+					return;
+				}
+				stats.record(event.timestamp, event.values[0]);
+			}
+
+			@Override
+			public void onAccuracyChanged(final Sensor sensor, final int accuracy) {
+			}
+		};
+		final boolean registered = manager.registerListener(listener, light,
+				SensorManager.SENSOR_DELAY_NORMAL, own);
+		final int reported = duration;
+		own.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					manager.unregisterListener(listener);
+				} catch (Exception e) {
+					BlowTorchLogger.logMinor("SensorProbe.unregisterLight", e);
+				}
+				StringBuilder body = new StringBuilder();
+				body.append(header(registered, reported));
+				body.append("\n--- light probe ---\n");
+				body.append("The numbers below are lux, not m/s2: the arithmetic is\n");
+				body.append("shared with the shake probe, so read peak and median and\n");
+				body.append("ignore the gesture rows.\n");
+				body.append(stats.report());
+				body.append("\nRun this three times: in the dark, under a lamp, and\n");
+				body.append("outdoors. Those medians are what \"dark\" and \"bright\"\n");
+				body.append("should mean on this phone.\n");
+				deliver(weak, body.toString());
+				RUNNING.set(false);
+				thread.quitSafely();
+			}
+		}, reported * 1000L);
+		return "\nLight probe running for " + reported + " s on " + light.getName()
+				+ ".\nLeave the phone where the light is what you want measured.\n";
+	}
+
+	/**
 	 * Register a motion sensor for a few seconds and report what arrived.
 	 *
 	 * <p>Returns immediately; the report is printed when the run ends. Sampling

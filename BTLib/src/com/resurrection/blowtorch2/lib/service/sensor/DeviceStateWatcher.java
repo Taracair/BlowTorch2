@@ -101,6 +101,9 @@ public final class DeviceStateWatcher {
 	 * The same hole the first proximity reading had.
 	 */
 	private final java.util.HashSet<String> seededActions = new java.util.HashSet<String>();
+	/** Pick-up, significant motion and stationary: armed one at a time, re-armed
+	 * after each firing. Kept apart because their API is not the streaming one. */
+	private OneShotGestures oneShot;
 	private long coveredSince;
 	private long lastShakeAt;
 	private Runnable pendingCover;
@@ -260,6 +263,15 @@ public final class DeviceStateWatcher {
 		} else {
 			stopFacing();
 		}
+		if (oneShot == null) {
+			oneShot = new OneShotGestures(context, new OneShotGestures.Sink() {
+				@Override
+				public void onGesture(final String gestureId) {
+					fire(gestureId);
+				}
+			});
+		}
+		oneShot.setWanted(wanted);
 	}
 
 	private void startBroadcasts() {
@@ -565,7 +577,9 @@ public final class DeviceStateWatcher {
 	 */
 	private void fire(final String gestureId) {
 		for (Connection c : audience.gestureListeners()) {
-			if (c != null) {
+			// Each world answers for itself: the gate is a per-world setting, and
+			// two worlds may disagree about whether a shake in a pocket counts.
+			if (c != null && c.allowsGestureNow(gestureId)) {
 				c.fireDeviceGesture(gestureId);
 			}
 		}
@@ -620,6 +634,9 @@ public final class DeviceStateWatcher {
 		stopProximity();
 		stopMotion();
 		stopFacing();
+		if (oneShot != null) {
+			oneShot.stopAll();
+		}
 	}
 
 	/** Write everything known into every connection that wants it. */

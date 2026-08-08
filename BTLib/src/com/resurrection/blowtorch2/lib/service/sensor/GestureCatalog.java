@@ -47,6 +47,10 @@ public final class GestureCatalog {
 	 * makes them the portable half of this feature.
 	 */
 	public static final String BY_SYSTEM = "system";
+	/** One-shot hardware gestures: they fire once and must be re-armed. */
+	public static final String BY_PICKUP_SENSOR = "pickup-sensor";
+	public static final String BY_SIGNIFICANT_MOTION = "significant-motion";
+	public static final String BY_STATIONARY = "stationary";
 
 	/** One gesture: what the player picks, and how it might be measured. */
 	public static final class Gesture {
@@ -118,6 +122,19 @@ public final class GestureCatalog {
 				"Shake the phone the way you would to get out of a fight. Needs the"
 					+ " screen on, and a threshold that suits how you shake.",
 				BY_LINEAR_ACCELERATION, BY_ACCELEROMETER));
+		all.add(new Gesture("pickup", "Pick the phone up",
+				"Lift the phone off the table. Done by a sensor built for exactly"
+					+ " this, so it costs almost nothing and works with the screen"
+					+ " off — but not every phone has one.",
+				BY_PICKUP_SENSOR));
+		all.add(new Gesture("moving", "Start moving about",
+				"You got up and walked off with the phone. Fires once when real"
+					+ " movement begins, not while you fidget.",
+				BY_SIGNIFICANT_MOTION));
+		all.add(new Gesture("still", "The phone goes still",
+				"It has been lying untouched for a while. The quiet opposite of"
+					+ " picking it up.",
+				BY_STATIONARY));
 		// The system events. No sensor, no battery cost, and — unlike everything
 		// above — no phone anywhere is missing them, so a profile built on these
 		// works for whoever it is sent to.

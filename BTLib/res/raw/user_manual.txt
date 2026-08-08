@@ -1389,6 +1389,9 @@ The gestures:
 | `shake` | Shake the phone, as you would to flee a fight | Linear acceleration, or the accelerometer |
 | `headphonesout` / `headphonesin` | Unplug or plug in the headphones | The system tells us |
 | `powerout` / `powerin` | Unplug or plug in the charger | The system tells us |
+| `pickup` | Lift the phone off the table | A sensor built for exactly that, where the phone has one |
+| `moving` | You got up and walked off with it | Significant motion |
+| `still` | It has been lying untouched a while | Stationary detect |
 | `screenoff` / `screenon` | The screen locks, or comes back | The system tells us |
 
 The last six need **no sensor at all** — the system announces them to every app.
@@ -1418,6 +1421,38 @@ check what you set up, and to test a profile on a phone that lacks the sensor �
 the gesture still works from a button or another trigger even where the hardware
 does not exist.
 
+### Where to find them: Options → Device → Gestures
+
+`.sensor facedown afk` is the quick way, but you should not have to remember
+that you typed it. **Options → Device → Gestures** is a screen listing every
+gesture, which sensor does it on this phone, and what it currently does, with
+*Set up* / *Edit* and *Test* beside each one. Editing opens the ordinary trigger
+editor, because that is where scripts, sounds, speech and conditions live.
+
+**More than one thing can hang off one gesture.** If you bind `facedown` to
+`afk` and then build a second trigger that also fires on face down — to hush the
+speech, say — **both run**. That is deliberate. The Gestures screen says how many
+answer each gesture, and `.sensor facedown <command>` refuses to guess which one
+you meant when there is more than one, pointing you at the screen instead.
+
+### When gestures are allowed to fire
+
+Two settings in **Options → Device**, both **off by default**:
+
+- **Movement gestures with the screen off** — off means a shake, a wave or the
+  phone going face down does nothing while the display is asleep. A phone jolted
+  about in a pocket cannot send commands to the game.
+- **Movement gestures while the app is in the background** — off means the same
+  while another app is on top or BlowTorch is in Recents.
+
+**Read this bit twice: a gesture is not aimed at one world.** It fires in
+**every world you have open**, including ones connected in the background. With
+two MUDs connected, one shake sends the command twice — once to each.
+
+Both settings cover **movement** gestures only. The headphone, charger and screen
+events keep working regardless, and that is on purpose: hushing speech when the
+jack comes out has to work precisely when you are not looking at the screen.
+
 **A warning about names.** Commands are looked up *after* your own aliases, so an
 alias called `sensor` would hide this command completely and say nothing about
 it. If `.sensor` ever stops responding, check your alias list first.
@@ -1425,7 +1460,10 @@ it. If `.sensor` ever stops responding, check your alias list first.
 Shaking needs a threshold, and how hard a shake is differs between phones and
 between people. The current one is a starting value measured on one device; if
 `shake` fires when you walk, or never fires at all, `.probe sensors shake 10`
-will tell you what your phone actually reports.
+will tell you what your phone actually reports. `.probe sensors light 10` does
+the same for how bright the room is, in lux — run it in the dark, under a lamp
+and outdoors, and the three readings are what "dark" and "bright" should mean
+on your phone.
 
 ### `.search` forms
 
