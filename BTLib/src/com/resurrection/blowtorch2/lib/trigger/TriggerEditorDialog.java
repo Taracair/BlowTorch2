@@ -220,10 +220,104 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		literal.setOnCheckedChangeListener(new LiteralCheckChangedListener());
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
 		setupTriggerPreview(title, pattern, literal);
+		setupSourcePicker(pattern, literal, title);
 		// Same shell as the alias editor: the height wraps the form, so
 		// Cancel/More/Done sit under the fields instead of at the bottom of a
 		// dialog that was 94% of the screen whatever it had in it.
 		EditorDialogChrome.applyFloatingWrapContentHeight(this);
+	}
+
+	/**
+	 * What this trigger fires on: a line from the world, or something the phone
+	 * itself felt.
+	 *
+	 * <p>A device gesture is stored as a pattern like {@code !wave}, but nobody
+	 * should ever have to know that, and nobody should be able to break it by
+	 * editing the field by hand — one stray keystroke and Done would turn the
+	 * gesture into a trigger watching the game for the literal text "!wave",
+	 * silently and for ever. So picking a gesture fills the pattern in and locks
+	 * the field; picking "a line from the world" hands it back.
+	 *
+	 * <p>Gestures this phone has no sensor for are listed and marked rather than
+	 * hidden: a profile is a thing people share, and one built for a phone with a
+	 * proximity sensor should be readable on a phone without one.
+	 */
+	private void setupSourcePicker(final EditText pattern, final CheckBox literal,
+			final EditText title) {
+		final Spinner source = (Spinner) findViewById(R.id.trigger_editor_source_spinner);
+		if (source == null) {
+			return;
+		}
+		final java.util.List<com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture>
+				gestures = com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.all();
+		final java.util.List<String> labels = new java.util.ArrayList<String>();
+		labels.add("A line from the world");
+		for (com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g : gestures) {
+			com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.Resolution r =
+					com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.resolve(
+							getContext(), g);
+			labels.add(g.getLabel() + (r.isAvailable() ? "" : "  (not on this phone)"));
+		}
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				android.R.layout.simple_spinner_item, labels);
+		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		source.setAdapter(adapter);
+
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture current =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.fromPattern(
+						the_trigger.getPattern(), !the_trigger.isInterpretAsRegex());
+		int selected = 0;
+		if (current != null) {
+			for (int i = 0; i < gestures.size(); i++) {
+				if (gestures.get(i).getId().equals(current.getId())) {
+					selected = i + 1;
+					break;
+				}
+			}
+		}
+		source.setSelection(selected);
+		applySourceLock(pattern, literal, selected > 0);
+
+		source.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(AdapterView<?> parent, View view, int position,
+					long id) {
+				if (position == 0) {
+					// Leaving a gesture: the pattern field still holds "!wave",
+					// which is not something the player typed and not something
+					// they want to watch the game for.
+					if (com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
+							.isGesturePattern(pattern.getText().toString(),
+									literal.isChecked())) {
+						pattern.setText("");
+					}
+					applySourceLock(pattern, literal, false);
+					return;
+				}
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+						gestures.get(position - 1);
+				pattern.setText(g.getPattern());
+				// A gesture is matched by name, never as a regular expression.
+				literal.setChecked(true);
+				if (title.getText().toString().trim().length() == 0) {
+					title.setText(g.getId());
+				}
+				applySourceLock(pattern, literal, true);
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
+	}
+
+	/** Lock or release the two fields a gesture owns. */
+	private void applySourceLock(final EditText pattern, final CheckBox literal,
+			final boolean isGesture) {
+		pattern.setEnabled(!isGesture);
+		pattern.setFocusable(!isGesture);
+		pattern.setFocusableInTouchMode(!isGesture);
+		literal.setEnabled(!isGesture);
 	}
 
 	/** Suggest existing group names; autocomplete + dropdown spinner of known groups. */
@@ -335,6 +429,17 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	
 	private void updateTriggerPreview(EditText title, EditText pattern, CheckBox literal, TextView preview) {
 		String patternText = pattern.getText().toString();
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture gesture =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.fromPattern(
+						patternText, literal.isChecked());
+		if (gesture != null) {
+			com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.Resolution r =
+					com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.resolve(
+							getContext(), gesture);
+			preview.setText(gesture.getHelp() + "\n\nOn this phone: " + r.describe()
+					+ "\nTry it without moving the phone: .sensor fire " + gesture.getId());
+			return;
+		}
 		if (patternText.trim().length() == 0) {
 			preview.setText("Enter a pattern to preview what the trigger watches for.");
 			return;
