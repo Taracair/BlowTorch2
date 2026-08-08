@@ -87,7 +87,8 @@ public class HelpCommand extends SpecialCommand {
 				"which volume a trigger's sound uses, and warning when it is off");
 		cmd("dobell", "Triggers and scripts", "fire the bell reaction now");
 		cmd("probe", "Triggers and scripts",
-				"measure how the world splits its text across packets");
+				"measure how the world splits its text across packets; "
+				+ ".probe sensors for what this phone can feel");
 		cmd("colordebug", "Triggers and scripts", "show the colour codes in a line");
 
 		cmd("gmcp", "The world and its protocols", "what the world is sending over GMCP");

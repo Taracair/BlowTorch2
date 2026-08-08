@@ -1154,6 +1154,7 @@ is enabled; `.alias list` shows every alias at once.
     `.closewindow`                      Dirty-exit the game window
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
+    `.probe sensors [shake [seconds]]`  What sensors this phone has, and what they deliver; see below. Nothing runs until you ask
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
@@ -1249,6 +1250,48 @@ buckets means blocks of text do arrive whole.
 Nothing in the client uses this yet. It exists so that a decision about
 multi-line triggers rests on a measurement from a real session rather than on a
 guess about how the network behaves.
+
+### `.probe sensors`
+
+```
+.probe sensors
+.probe sensors shake [seconds]
+```
+
+Answers two questions about **your phone**, which no amount of reading the app
+can answer: which sensors it actually has, and what they deliver.
+
+`.probe sensors` lists every sensor the device reports — name, power draw,
+range, whether it can wake the phone — and then says which of the ones a gesture
+would need are present or missing. Sensor hardware differs enormously between
+models; plenty of recent phones report no separate proximity sensor at all, so
+"wave your hand over the screen" is a gesture some phones simply cannot offer.
+
+`.probe sensors shake` registers a motion sensor for ten seconds (or the number
+of seconds you give, 3 to 60) and reports what arrived:
+
+    registration  : accepted in the service process (:stellar)
+    samples       : 487 in 9.9 s
+    measured rate : 49 Hz
+    largest gap   : 41.2 ms
+    peak          : 27.4 m/s2
+
+    Gestures a detector would have fired (500 ms dead time):
+      above  12.0 m/s2 : 3
+      above  20.0 m/s2 : 3
+      above  25.0 m/s2 : 1
+
+**Reading it.** Run it once while shaking the phone the way you would in a
+fight, and once while walking with it in your hand. A usable threshold is the
+lowest one that counts your shakes and counts the walk as zero. If the walking
+run fires anything, a shake gesture at that threshold would send commands while
+you are on your way to the shop.
+
+*Registration refused* or *samples: NONE* is not a failure of the probe — it is
+the answer, and a more important one than the threshold.
+
+Both forms cost nothing until you type them. The sensor is released when the run
+ends.
 
 ### `.search` forms
 
