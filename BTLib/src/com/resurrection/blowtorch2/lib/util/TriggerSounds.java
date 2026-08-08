@@ -175,7 +175,34 @@ public final class TriggerSounds {
 	 * anything, which is worse than no advice.
 	 */
 	private static void warnIfInaudible(final Context context) {
-		if (!sWarnWhenSilent) {
+		warnIfStreamSilent(context, androidStream(), streamName(),
+				"A trigger played a sound", ". Turn it up, or change the stream"
+					+ " with .sound stream");
+	}
+
+	/**
+	 * Say so, at most once every {@link #WARN_GAP_MS}, when a trigger made a
+	 * noise into a volume that is turned off.
+	 *
+	 * <p>Shared with the speech action rather than written twice. Both fail the
+	 * same silent way — the trigger fires, the code plays or speaks, nothing
+	 * comes out — and a player with one of each would otherwise get two toasts
+	 * with two different wordings on two independent timers.
+	 *
+	 * <p>Asks about the stream actually in use. Warning about the ringer while
+	 * playing on media would be advice that fixes nothing, which is worse than
+	 * no advice.
+	 *
+	 * @param context any context.
+	 * @param androidStream the {@code AudioManager.STREAM_*} being played into.
+	 * @param name what to call it to the player.
+	 * @param what did the talking, for the first half of the sentence.
+	 * @param advice what to do about it, for the last half.
+	 */
+	public static synchronized void warnIfStreamSilent(final Context context,
+			final int androidStream, final String name, final String what,
+			final String advice) {
+		if (!sWarnWhenSilent || context == null) {
 			return;
 		}
 		long now = SystemClock.elapsedRealtime();
@@ -188,10 +215,10 @@ public final class TriggerSounds {
 			if (am == null) {
 				return;
 			}
-			boolean silent = am.getStreamVolume(androidStream()) == 0;
-			if (!silent && sStream == STREAM_NOTIFICATION) {
-				// The notification stream is silenced by the ringer switch as
-				// well as by its own slider, and the slider still reads non-zero.
+			boolean silent = am.getStreamVolume(androidStream) == 0;
+			if (!silent && androidStream == AudioManager.STREAM_NOTIFICATION) {
+				// This one is silenced by the ringer switch as well as by its own
+				// slider, and the slider still reads non-zero when it is.
 				silent = am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
 			}
 			if (!silent) {
@@ -199,11 +226,10 @@ public final class TriggerSounds {
 			}
 			sLastWarned = now;
 			android.widget.Toast.makeText(context.getApplicationContext(),
-					"A trigger played a sound, but the " + streamName()
-					+ " volume is off — turn it up, or change the stream with"
-					+ " .sound stream", android.widget.Toast.LENGTH_LONG).show();
+					what + ", but the " + name + " volume is off" + advice,
+					android.widget.Toast.LENGTH_LONG).show();
 		} catch (Exception e) {
-			BlowTorchLogger.logMinor("TriggerSounds.warnIfInaudible", e);
+			BlowTorchLogger.logMinor("TriggerSounds.warnIfStreamSilent", e);
 		}
 	}
 

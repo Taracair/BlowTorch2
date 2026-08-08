@@ -124,8 +124,17 @@ public final class SpeechEngine {
 	/** Why it is not speaking, in words a player can act on. */
 	private String problem = null;
 
+	/**
+	 * Kept so the engine can say when nobody can hear it.
+	 *
+	 * <p>The application context, so holding it leaks nothing — this is a
+	 * process-lifetime singleton already.
+	 */
+	private final Context appContext;
+
 	private SpeechEngine(final Context context) {
 		final Context app = context.getApplicationContext();
+		this.appContext = app;
 		try {
 			tts = new TextToSpeech(app, new TextToSpeech.OnInitListener() {
 				@Override
@@ -300,6 +309,14 @@ public final class SpeechEngine {
 			return;
 		}
 		handToEngine(say, interrupt);
+		// Speech goes out on the media stream, so it has exactly the failure the
+		// sound action has: the engine is up, speak() succeeds, the volume is at
+		// zero and nothing is said. Same warning, same thirty-second limiter —
+		// a player with a speaking trigger and a sounding trigger gets one
+		// message, not two.
+		TriggerSounds.warnIfStreamSilent(appContext,
+				android.media.AudioManager.STREAM_MUSIC, "media",
+				"A trigger spoke", ". Turn it up to hear it.");
 	}
 
 	private void handToEngine(final String say, final boolean interrupt) {

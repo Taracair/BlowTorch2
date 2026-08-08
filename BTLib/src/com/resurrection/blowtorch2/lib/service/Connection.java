@@ -571,6 +571,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.SoundCommand soundcmd =
 				new com.resurrection.blowtorch2.lib.service.function.SoundCommand();
 		mSpecialCommands.put(soundcmd.commandName, soundcmd);
+		com.resurrection.blowtorch2.lib.service.function.HelpCommand helpcmd =
+				new com.resurrection.blowtorch2.lib.service.function.HelpCommand();
+		mSpecialCommands.put(helpcmd.commandName, helpcmd);
+		mSpecialCommands.put(
+				com.resurrection.blowtorch2.lib.service.function.HelpCommand.ALIAS_NAME,
+				helpcmd);
 		com.resurrection.blowtorch2.lib.service.function.TapMenuCommand tapmenucmd =
 				new com.resurrection.blowtorch2.lib.service.function.TapMenuCommand();
 		mSpecialCommands.put(tapmenucmd.commandName, tapmenucmd);

@@ -767,6 +767,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 		miscOptions.addOption(request_storage);
 
 		IntegerOption overflow_opacity = new IntegerOption();
+		IntegerOption tap_menu_opacity = new IntegerOption();
+		tap_menu_opacity.setTitle("Tapped-word menu opacity (%)");
+		tap_menu_opacity.setDescription("How solid the little menu is that opens when you tap a word with more than one action, 20-100. It opens on top of the text it is about, so lower lets more of the game through behind it. Only the backing fades — the commands stay fully readable either way. .tapmenu opacity N");
+		tap_menu_opacity.setKey("tap_menu_opacity");
+		tap_menu_opacity.setValue(
+				com.resurrection.blowtorch2.lib.window.MainWindow.DEFAULT_TAP_MENU_OPACITY);
+		miscOptions.addOption(tap_menu_opacity);
+
 		overflow_opacity.setTitle("Overflow button opacity (%)");
 		overflow_opacity.setDescription("How solid the ⋮ button in the bottom corner is drawn "
 				+ "(" + OVERFLOW_OPACITY_MIN + "–100). Lower it when it sits "
@@ -820,14 +828,6 @@ public class ConnectionSettingsPlugin extends Plugin {
 		bell_vibrate.setValue(true);
 		bellOptions.addOption(bell_vibrate);
 		
-		IntegerOption tap_menu_opacity = new IntegerOption();
-		tap_menu_opacity.setTitle("Tapped-word menu opacity (%)");
-		tap_menu_opacity.setDescription("How solid the little menu is that opens when you tap a word with more than one action, 20-100. It opens on top of the text it is about, so lower lets more of the game through behind it. Only the backing fades — the commands stay fully readable either way. .tapmenu opacity N");
-		tap_menu_opacity.setKey("tap_menu_opacity");
-		tap_menu_opacity.setValue(
-				com.resurrection.blowtorch2.lib.window.MainWindow.DEFAULT_TAP_MENU_OPACITY);
-		bellOptions.addOption(tap_menu_opacity);
-
 		ListOption trigger_sound_stream = new ListOption();
 		trigger_sound_stream.setTitle("Trigger sounds play on");
 		trigger_sound_stream.setDescription("Which volume a trigger's Play a Sound action uses. Media is the phone's game and video volume — the one the side buttons reach for — and is the default because the notification volume follows the ringer, so a silenced ringer silences your triggers. Alarm is the loudest and usually survives Do Not Disturb. .sound stream media|notification|alarm");

@@ -563,6 +563,17 @@ Variable** responder or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
 (session only). Use `${name}` in alias or action text — variables are not
 typed into the trigger pattern.
 
+### Finding a command without leaving the game
+
+    .help            every dot command, one line each
+    .help sound      only the ones whose name contains "sound"
+    .commands        the same thing
+
+Grouped by what they are for, printed into the game window. The list is built
+from the commands the app actually has, not from a list written by hand, so a
+command added later cannot go missing from its own help. Type any command on
+its own to see what arguments it takes.
+
 ### The menu a tapped word opens
 
 Tap a word that has more than one action and a short menu opens right next to
