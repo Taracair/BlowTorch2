@@ -45,7 +45,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
     .suggest where floating | bar | off
     .suggest opacity N | persist on | off
     .suggest loose on | off | ghost on | off
-    .suggest rank on | off | pairs on | off
+    .suggest rank on | off | pairs on | off | short on | off
 
 (`.complete` is the same command under its old name and still works.)
 
@@ -106,6 +106,19 @@ break a phrase rather than being skipped: `a sword of power` offers `sword`, not
 If a name shows up somewhere else, the phrase follows it: after
 `a gnarled iron gate`, `gnar` stops offering `gnarled oaken staff` and starts
 offering `gnarled iron gate`.
+
+**Which of the two comes first.** By default the whole name: it is the slow part
+to type, and the plain word is one tap below it. `.suggest short on` swaps them,
+so `expl` offers `explosive` and then `explosive crates`. Four letters typed is
+not yet a request for the long form, and if you work from the ghost — which
+shows one suggestion — the short one is more often the one you meant.
+
+It moves a word against **its own** name and nothing else: two different words
+keep their order, newest first, as everywhere else here. It does nothing at all
+with whole names off, and nothing to the typo pass, which offers single words
+only. One thing it does change beyond order: the bar holds eight, and a word
+with a name takes two of those places, so with more matches than chips a
+different one can be the one that does not fit.
 
 **Ordered by where you are in the line.** `.suggest rank on` — **off by
 default** — uses one thing the app already knows for free: the first word of

@@ -4883,6 +4883,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_lines:
 			case word_complete_loose:
 			case word_complete_phrases:
+			case word_complete_short_first:
 			case word_complete_ghost:
 			case word_complete_ghost_lines:
 			case word_complete_persist:
@@ -6040,6 +6041,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Forgive typos when the exact prefix finds nothing. */
 		word_complete_loose,
 		word_complete_phrases,
+		/** Put the plain word before the whole name built on it. */
+		word_complete_short_first,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
 		/** How many suggestions the ghost lists, growing the bar to fit them. */

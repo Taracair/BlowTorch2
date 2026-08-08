@@ -192,6 +192,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_ghost.setValue(false);
 		suggestions.addOption(word_complete_ghost);
 
+		BooleanOption word_complete_short_first = new BooleanOption();
+		word_complete_short_first.setTitle("Plain word before the whole name");
+		word_complete_short_first.setDescription("With whole names on, offer explosive before explosive crates instead of the other way round. Four letters typed is not yet a request for the long form. Only ever changes a word against its own name — nothing else moves. Does nothing with whole names off. Off by default. .suggest short on/off");
+		word_complete_short_first.setKey("word_complete_short_first");
+		word_complete_short_first.setValue(false);
+		suggestions.addOption(word_complete_short_first);
+
 		IntegerOption word_complete_ghost_lines = new IntegerOption();
 		word_complete_ghost_lines.setTitle("Suggestions under the line");
 		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it is just the single word drawn after the cursor, as before. Above that the rest are listed under what you are typing, side by side rather than one per line, each numbered and tappable. It takes only the rows it needs and gives them back the moment they are not needed. Needs the ghost to be on. .suggest ghostlines N");

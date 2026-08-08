@@ -28,6 +28,7 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String WHERE_KEY = "word_complete_where";
 	public static final String LOOSE_KEY = "word_complete_loose";
 	public static final String PHRASES_KEY = "word_complete_phrases";
+	public static final String SHORT_FIRST_KEY = "word_complete_short_first";
 	public static final String GHOST_KEY = "word_complete_ghost";
 	public static final String GHOST_LINES_KEY = "word_complete_ghost_lines";
 	/** Ghost rows the input bar will grow to carry, plus the inline one. */
@@ -87,6 +88,14 @@ public class CompleteCommand extends SpecialCommand {
 					"Single words only.");
 		}
 		// Before "ghost", or ".suggest ghostlines 3" is read as ".suggest ghost".
+		if (arg.startsWith("short")) {
+			return setFlag(arg.substring("short".length()).trim(), c, SHORT_FIRST_KEY,
+					"The plain word now comes before the whole name built on it: expl"
+						+ " offers explosive, then explosive crates. Only those two swap"
+						+ " places; nothing else moves. Needs .suggest phrases on to mean"
+						+ " anything.",
+					"Whole names come first again.");
+		}
 		if (arg.startsWith("ghostlines")) {
 			return setGhostLines(arg.substring("ghostlines".length()).trim(), c);
 		}
@@ -177,6 +186,8 @@ public class CompleteCommand extends SpecialCommand {
 						: ", " + (flagOn(c, PERSIST_KEY)
 							? "always up" : "up only when it has something"))
 					+ ".\nWhole names " + (flagOn(c, PHRASES_KEY) ? "offered" : "not offered")
+					+ (flagOn(c, PHRASES_KEY) && flagOn(c, SHORT_FIRST_KEY)
+						? ", after the plain word" : "")
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ (flagOn(c, GHOST_KEY) && ghostLines(c) > 1
@@ -186,7 +197,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " phrases/loose/ghost/persist/rank/pairs on|off,"
+					+ " phrases/loose/ghost/persist/rank/pairs/short on|off,"
 					+ " ghostlines N, opacity N,"
 					+ " learned, clear\n");
 			return null;

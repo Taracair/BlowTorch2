@@ -4555,6 +4555,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setPairRanking(pairsOpt != null
 					&& pairsOpt.getValue() instanceof Boolean
 					&& (Boolean) pairsOpt.getValue());
+			BaseOption shortOpt =
+					(BaseOption) group.findOptionByKey("word_complete_short_first");
+			mWordSuggestions.setShortestFirst(shortOpt != null
+					&& shortOpt.getValue() instanceof Boolean
+					&& (Boolean) shortOpt.getValue());
 			BaseOption phrasesOpt = (BaseOption) group.findOptionByKey("word_complete_phrases");
 			mWordSuggestions.setPhrases(phrasesOpt != null
 					&& phrasesOpt.getValue() instanceof Boolean

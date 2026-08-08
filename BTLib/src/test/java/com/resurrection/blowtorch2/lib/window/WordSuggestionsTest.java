@@ -274,6 +274,51 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void shortestFirstPutsTheWordBeforeItsOwnPhrase() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("explosive crates\n");
+		assertEquals(java.util.Arrays.asList("explosive crates", "explosive"),
+				w.suggest("expl", 5));
+		w.setShortestFirst(true);
+		assertEquals(java.util.Arrays.asList("explosive", "explosive crates"),
+				w.suggest("expl", 5));
+	}
+
+	@Test
+	public void shortestFirstDoesNothingWithoutPhrases() {
+		WordSuggestions w = new WordSuggestions();
+		w.setShortestFirst(true);
+		w.learn("explosive crates\n");
+		assertEquals(java.util.Arrays.asList("explosive"), w.suggest("expl", 5));
+	}
+
+	@Test
+	public void shortestFirstLeavesTheOrderBetweenDifferentWordsAlone() {
+		// It reorders a word against its own phrase and nothing else. Newest
+		// first is what everything here depends on and it stays.
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.setShortestFirst(true);
+		w.learn("explosive crates\n");
+		w.learn("exploding barrel\n");
+		assertEquals("exploding", w.suggest("explo", 5).get(0));
+	}
+
+	@Test
+	public void withMoreMatchesThanChipsTheOrderDecidesWhatSurvives() {
+		// The strip is finite and each word with a phrase takes two of its
+		// places, so this changes which ones are visible — not just their order.
+		// Written down rather than discovered, the way the ranking limit was.
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("explosive crates\n");
+		assertEquals(java.util.Arrays.asList("explosive crates"), w.suggest("expl", 1));
+		w.setShortestFirst(true);
+		assertEquals(java.util.Arrays.asList("explosive"), w.suggest("expl", 1));
+	}
+
+	@Test
 	public void aPhraseNeverRunsPastTheEndOfALine() {
 		WordSuggestions w = new WordSuggestions();
 		w.setPhrases(true);

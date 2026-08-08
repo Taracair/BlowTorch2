@@ -257,6 +257,15 @@ public final class WordSuggestions {
 	private boolean phrases = false;
 
 	/**
+	 * Whether the plain word comes before the phrase built on it.
+	 *
+	 * <p>Only ever changes the order of a word against its own phrase, so with
+	 * {@link #setPhrases} off it does nothing at all — and it never touches the
+	 * loose-matching pass, which builds no phrases.
+	 */
+	private boolean shortestFirst = false;
+
+	/**
 	 * The tail of the last chunk when it stopped in the middle of a word.
 	 *
 	 * <p>Text arrives here as whole TCP chunks, so a word can be cut in half by
@@ -333,6 +342,32 @@ public final class WordSuggestions {
 
 	public boolean isPhrases() {
 		return phrases;
+	}
+
+	/**
+	 * Whether a word comes before the phrase built on it.
+	 *
+	 * <p>Off by default, which is the order phrases shipped with: the whole name
+	 * first, because typing "grizzled cave troll" on a phone is what that
+	 * feature exists to save.
+	 *
+	 * <p>On, {@code expl} offers "explosive" and then "explosive crates". Four
+	 * letters typed is not yet a request for the long form, and a player working
+	 * from the ghost — which shows one suggestion — sees the short one, which is
+	 * more often the one meant.
+	 *
+	 * <p>Does nothing with phrases off: there is no second form to order
+	 * against. Does nothing to the loose-matching pass either, which offers
+	 * whole words only.
+	 *
+	 * @param on true to put the word first.
+	 */
+	public void setShortestFirst(final boolean on) {
+		this.shortestFirst = on;
+	}
+
+	public boolean isShortestFirst() {
+		return shortestFirst;
 	}
 
 	/**
@@ -657,20 +692,21 @@ public final class WordSuggestions {
 		rankByPosition(matches, atLineStart, leadingVerb);
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
 			String key = matches.get(i);
-			if (phrases) {
-				String phrase = phraseFrom(key);
-				// Above its own single word: the phrase is the part that is slow
-				// to type, and the word is one tap further down if that is all
-				// that was wanted.
-				if (phrase != null && out.size() < max) {
-					out.add(phrase);
-				}
+			String phrase = phrases ? phraseFrom(key) : null;
+			Seen s = words.get(key);
+			String word = s == null ? null : s.spelling;
+			// Which of the two forms of one word leads. The phrase first by
+			// default: it is the part that is slow to type, and the plain word
+			// is one tap further down. Shortest first is the other reading, and
+			// it is the right one for a player who has typed four letters and
+			// said nothing yet about wanting the whole name.
+			String first = shortestFirst ? word : phrase;
+			String second = shortestFirst ? phrase : word;
+			if (first != null && out.size() < max) {
+				out.add(first);
 			}
-			if (out.size() < max) {
-				Seen s = words.get(key);
-				if (s != null) {
-					out.add(s.spelling);
-				}
+			if (second != null && out.size() < max) {
+				out.add(second);
 			}
 		}
 		if (out.isEmpty() && looseMatching
