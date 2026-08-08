@@ -55,12 +55,23 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 	/** 0..100. */
 	private int volumePercent;
 
+	/**
+	 * Whether this action may say so when the volume is off.
+	 *
+	 * <p>On by default: the failure it reports has no other symptom, and a
+	 * player who has not met it does not know to look. Per action rather than
+	 * only global, because one trigger firing into a deliberately muted phone
+	 * should not have to cost the warning everywhere else.
+	 */
+	private boolean warnWhenSilent;
+
 	public SoundResponder() {
 		super(RESPONDER_TYPE.SOUND);
 		this.setFireType(FIRE_WHEN.WINDOW_BOTH);
 		soundPath = "";
 		minGapMs = DEFAULT_MIN_GAP_MS;
 		volumePercent = DEFAULT_VOLUME_PERCENT;
+		warnWhenSilent = true;
 	}
 
 	public SoundResponder(RESPONDER_TYPE pType) {
@@ -72,6 +83,7 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 		tmp.soundPath = this.soundPath;
 		tmp.minGapMs = this.minGapMs;
 		tmp.volumePercent = this.volumePercent;
+		tmp.warnWhenSilent = this.warnWhenSilent;
 		tmp.setFireType(this.getFireType());
 		return tmp;
 	}
@@ -91,6 +103,9 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 		if (test.volumePercent != this.volumePercent) {
 			return false;
 		}
+		if (test.warnWhenSilent != this.warnWhenSilent) {
+			return false;
+		}
 		// String content, not identity — see the note in SpeakResponder.
 		if (test.soundPath == null ? this.soundPath != null
 				: !test.soundPath.equals(this.soundPath)) {
@@ -106,7 +121,8 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 	public int hashCode() {
 		int h = soundPath == null ? 0 : soundPath.hashCode();
 		h = 31 * h + minGapMs;
-		return 31 * h + volumePercent;
+		h = 31 * h + volumePercent;
+		return 31 * h + (warnWhenSilent ? 1 : 0);
 	}
 
 	public SoundResponder(Parcel in) {
@@ -118,6 +134,10 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 		setSoundPath(in.readString());
 		setMinGapMs(in.readInt());
 		setVolumePercent(in.readInt());
+		// Written after the three that came before it, and read in the same
+		// order. An older parcel does not exist — responders cross the binder
+		// whole, never partially — but the order is still the contract.
+		setWarnWhenSilent(in.readInt() != 0);
 		String fireType = in.readString();
 		if (TriggerResponder.FIRE_WINDOW_OPEN.equals(fireType)) {
 			setFireType(FIRE_WHEN.WINDOW_OPEN);
@@ -148,7 +168,7 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 			}
 		}
 		TriggerSounds.play(c, soundPath, volumePercent / 100f,
-				rateKey(displayname, name), minGapMs);
+				rateKey(displayname, name), minGapMs, warnWhenSilent);
 		return false;
 	}
 
@@ -197,6 +217,7 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 		out.writeString(soundPath);
 		out.writeInt(minGapMs);
 		out.writeInt(volumePercent);
+		out.writeInt(warnWhenSilent ? 1 : 0);
 		out.writeString(this.getFireType().getString());
 	}
 
@@ -228,6 +249,14 @@ public class SoundResponder extends TriggerResponder implements Parcelable {
 
 	public int getVolumePercent() {
 		return volumePercent;
+	}
+
+	public void setWarnWhenSilent(boolean warnWhenSilent) {
+		this.warnWhenSilent = warnWhenSilent;
+	}
+
+	public boolean getWarnWhenSilent() {
+		return warnWhenSilent;
 	}
 
 	@Override

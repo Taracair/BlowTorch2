@@ -29,6 +29,10 @@ public class SoundElementListener implements StartElementListener {
 				SoundResponder.DEFAULT_MIN_GAP_MS));
 		r.setVolumePercent(intOr(attributes.getValue("", BasePluginParser.ATTR_SOUNDVOLUME),
 				SoundResponder.DEFAULT_VOLUME_PERCENT));
+		// Absent in a profile written before this existed, and absent means on —
+		// which is the default the action ships with.
+		String warn = attributes.getValue("", BasePluginParser.ATTR_SOUNDWARN);
+		r.setWarnWhenSilent(warn == null || !warn.equalsIgnoreCase("false"));
 		String fireType = attributes.getValue("", BasePluginParser.ATTR_FIRETYPE);
 		if (fireType == null) {
 			fireType = "";

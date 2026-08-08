@@ -60,6 +60,8 @@ public final class TimerResponderListeners {
 				r.setMessage(a.getValue("", BasePluginParser.ATTR_SPEAKMESSAGE));
 				r.setInterrupt(Boolean.parseBoolean(
 						a.getValue("", BasePluginParser.ATTR_SPEAKINTERRUPT)));
+				String speakWarn = a.getValue("", BasePluginParser.ATTR_SOUNDWARN);
+				r.setWarnWhenSilent(speakWarn == null || !speakWarn.equalsIgnoreCase("false"));
 				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
 				currentTimer.getResponders().add(r.copy());
 			}
@@ -77,6 +79,8 @@ public final class TimerResponderListeners {
 				r.setVolumePercent(intOr(a.getValue("", BasePluginParser.ATTR_SOUNDVOLUME),
 						com.resurrection.blowtorch2.lib.responder.sound.SoundResponder
 							.DEFAULT_VOLUME_PERCENT));
+				String warn = a.getValue("", BasePluginParser.ATTR_SOUNDWARN);
+				r.setWarnWhenSilent(warn == null || !warn.equalsIgnoreCase("false"));
 				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
 				currentTimer.getResponders().add(r.copy());
 			}

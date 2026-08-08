@@ -4,7 +4,7 @@
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/newsoundlayout"
   android:layout_width="320dip"
-  android:layout_height="340dip">
+  android:layout_height="380dip">
 
   <TextView
 		android:id="@+id/titlebar"
@@ -72,6 +72,12 @@
   		<EditText android:id="@+id/responder_sound_gap" android:inputType="number"/>
   	</TableRow>
   </TableLayout>
+
+  <CheckBox
+  	android:id="@+id/responder_sound_warn"
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:text="Warn me if the volume is off" />
 
   <TextView
   	android:id="@+id/responder_sound_status"

@@ -280,6 +280,20 @@ public final class SpeechEngine {
 	 *        For a warning that is only true right now.
 	 */
 	public synchronized void speak(final String text, final boolean interrupt) {
+		speak(text, interrupt, true);
+	}
+
+	/**
+	 * Say something.
+	 *
+	 * @param text what to say.
+	 * @param interrupt cut off whatever is being said.
+	 * @param warnWhenSilent whether this caller wants to be told when the media
+	 *        volume is off. Per action, so one trigger can be told to keep quiet
+	 *        about it without silencing the warning everywhere.
+	 */
+	public synchronized void speak(final String text, final boolean interrupt,
+			final boolean warnWhenSilent) {
 		if (failed || tts == null || text == null) {
 			return;
 		}
@@ -314,9 +328,11 @@ public final class SpeechEngine {
 		// zero and nothing is said. Same warning, same thirty-second limiter —
 		// a player with a speaking trigger and a sounding trigger gets one
 		// message, not two.
-		TriggerSounds.warnIfStreamSilent(appContext,
-				android.media.AudioManager.STREAM_MUSIC, "media",
-				"Speech not heard", "");
+		if (warnWhenSilent) {
+			TriggerSounds.warnIfStreamSilent(appContext,
+					android.media.AudioManager.STREAM_MUSIC, "media",
+					"Speech not heard", "");
+		}
 	}
 
 	private void handToEngine(final String say, final boolean interrupt) {

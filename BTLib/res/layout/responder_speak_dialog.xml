@@ -4,7 +4,7 @@
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/newspeaklayout"
   android:layout_width="320dip"
-  android:layout_height="300dip">
+  android:layout_height="340dip">
 
   <TextView
 		android:id="@+id/titlebar"
@@ -71,6 +71,12 @@
   	android:layout_width="fill_parent"
   	android:layout_height="wrap_content"
   	android:text="Say this at once, cutting off the previous line" />
+
+  <CheckBox
+  	android:id="@+id/responder_speak_warn"
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:text="Warn me if the volume is off" />
 
   <TextView
   	android:id="@+id/responder_speak_status"

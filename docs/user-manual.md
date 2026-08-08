@@ -639,8 +639,13 @@ sounds to follow the ringer switch along with everything else.
 
 And because a volume turned to zero has no symptom at all — the trigger fires,
 the sound plays, nothing comes out — the app says so: a short message, at most
-one every thirty seconds, naming the volume to turn up. `.sound warn off` if you
-would rather it did not.
+one every thirty seconds, naming the volume to turn up.
+
+Two ways to switch that off. **Per action**, with the *Warn me if the volume is
+off* box in the Sound and Speak editors — on by default, so a trigger you have
+deliberately pointed at a muted phone can stop nagging while every other one
+still tells you. And **globally**, `.sound warn off`. The thirty-second limit is
+shared, so ten alerting triggers still produce one message, not ten.
 
 Two numbers on that editor:
 

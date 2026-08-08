@@ -27,6 +27,8 @@ public class SoundResponderParser {
 				Integer.toString(r.getMinGapMs()));
 		out.attribute("", BasePluginParser.ATTR_SOUNDVOLUME,
 				Integer.toString(r.getVolumePercent()));
+		out.attribute("", BasePluginParser.ATTR_SOUNDWARN,
+				Boolean.toString(r.getWarnWhenSilent()));
 		out.attribute("", BasePluginParser.ATTR_FIRETYPE, r.getFireType().getString());
 		out.endTag("", BasePluginParser.TAG_SOUNDRESPONDER);
 	}

@@ -25,6 +25,8 @@ public class SpeakResponderParser {
 		out.attribute("", BasePluginParser.ATTR_SPEAKMESSAGE, r.getMessage());
 		out.attribute("", BasePluginParser.ATTR_SPEAKINTERRUPT,
 				Boolean.toString(r.getInterrupt()));
+		out.attribute("", BasePluginParser.ATTR_SOUNDWARN,
+				Boolean.toString(r.getWarnWhenSilent()));
 		out.attribute("", BasePluginParser.ATTR_FIRETYPE, r.getFireType().getString());
 		out.endTag("", BasePluginParser.TAG_SPEAKRESPONDER);
 	}

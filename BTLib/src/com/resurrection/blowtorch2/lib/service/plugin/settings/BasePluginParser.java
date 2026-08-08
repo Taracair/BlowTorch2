@@ -74,6 +74,7 @@ public class BasePluginParser {
 	// form, and it is inside a different tag, so there is nothing to collide.
 	public static final String ATTR_SOUNDGAP = "minGapMs";
 	public static final String ATTR_SOUNDVOLUME = "volumePercent";
+	public static final String ATTR_SOUNDWARN = "warnWhenSilent";
 	
 	public static final String TAG_ACKRESPONDER = "ack";
 	public static final String ATTR_ACKWITH = "with";

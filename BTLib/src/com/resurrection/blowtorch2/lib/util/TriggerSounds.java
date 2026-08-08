@@ -250,6 +250,25 @@ public final class TriggerSounds {
 	 */
 	public static synchronized boolean play(final Context context, final String soundPath,
 			final float volume, final String rateKey, final int minGapMs) {
+		return play(context, soundPath, volume, rateKey, minGapMs, true);
+	}
+
+	/**
+	 * Play a sound, unless this key made a noise too recently.
+	 *
+	 * @param context any context; the application context is what is kept.
+	 * @param soundPath as stored by the responder.
+	 * @param volume 0..1.
+	 * @param rateKey what the gap is counted against.
+	 * @param minGapMs shortest gap between two firings of that key.
+	 * @param warnIfSilent whether this caller wants to be told when the volume is
+	 *        off. Per responder, so one noisy trigger can be told to keep its
+	 *        opinions to itself without silencing the warning everywhere.
+	 * @return true if a sound was started or queued.
+	 */
+	public static synchronized boolean play(final Context context, final String soundPath,
+			final float volume, final String rateKey, final int minGapMs,
+			final boolean warnIfSilent) {
 		if (context == null || soundPath == null || soundPath.length() == 0) {
 			return false;
 		}
@@ -297,7 +316,9 @@ public final class TriggerSounds {
 		}
 		float v = clamp(volume);
 		sPool.play(id.intValue(), v, v, 1, 0, 1.0f);
-		warnIfInaudible(context);
+		if (warnIfSilent) {
+			warnIfInaudible(context);
+		}
 		return true;
 	}
 

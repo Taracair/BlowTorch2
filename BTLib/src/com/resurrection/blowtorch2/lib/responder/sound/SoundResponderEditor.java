@@ -104,6 +104,9 @@ public class SoundResponderEditor extends Dialog {
 		EditText gap = (EditText) findViewById(R.id.responder_sound_gap);
 		volume.setText(Integer.toString(the_responder.getVolumePercent()));
 		gap.setText(Integer.toString(the_responder.getMinGapMs()));
+		android.widget.CheckBox warn =
+				(android.widget.CheckBox) findViewById(R.id.responder_sound_warn);
+		warn.setChecked(the_responder.getWarnWhenSilent());
 
 		refreshSoundButton();
 
@@ -381,6 +384,9 @@ public class SoundResponderEditor extends Dialog {
 				return;
 			}
 			EditText gap = (EditText) findViewById(R.id.responder_sound_gap);
+			android.widget.CheckBox warn =
+					(android.widget.CheckBox) findViewById(R.id.responder_sound_warn);
+			the_responder.setWarnWhenSilent(warn == null || warn.isChecked());
 			the_responder.setVolumePercent(readVolume());
 			the_responder.setMinGapMs(intOr(gap == null || gap.getText() == null
 					? null : gap.getText().toString(),

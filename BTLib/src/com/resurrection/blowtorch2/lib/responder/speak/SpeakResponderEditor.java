@@ -51,6 +51,8 @@ public class SpeakResponderEditor extends Dialog {
 		CheckBox interrupt = (CheckBox) findViewById(R.id.responder_speak_interrupt);
 		message.setText(the_responder.getMessage());
 		interrupt.setChecked(the_responder.getInterrupt());
+		CheckBox warn = (CheckBox) findViewById(R.id.responder_speak_warn);
+		warn.setChecked(the_responder.getWarnWhenSilent());
 
 		// Start the engine now rather than on the first test, so that by the time
 		// the player presses the button it has either come up or failed, and the
@@ -206,6 +208,9 @@ public class SpeakResponderEditor extends Dialog {
 
 			the_responder.setMessage(message.getText().toString());
 			the_responder.setInterrupt(interrupt.isChecked());
+			CheckBox warn = (CheckBox) SpeakResponderEditor.this
+					.findViewById(R.id.responder_speak_warn);
+			the_responder.setWarnWhenSilent(warn == null || warn.isChecked());
 
 			// Nothing is spoken here. Saving used to say the message, which meant
 			// closing the editor read a line out loud in whatever room you were

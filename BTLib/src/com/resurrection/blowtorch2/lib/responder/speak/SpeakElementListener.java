@@ -27,6 +27,8 @@ public class SpeakElementListener implements StartElementListener {
 		r.setMessage(attributes.getValue("", BasePluginParser.ATTR_SPEAKMESSAGE));
 		r.setInterrupt(Boolean.parseBoolean(
 				attributes.getValue("", BasePluginParser.ATTR_SPEAKINTERRUPT)));
+		String warn = attributes.getValue("", BasePluginParser.ATTR_SOUNDWARN);
+		r.setWarnWhenSilent(warn == null || !warn.equalsIgnoreCase("false"));
 		String fireType = attributes.getValue("", BasePluginParser.ATTR_FIRETYPE);
 		if (fireType == null) {
 			fireType = "";

@@ -37,11 +37,21 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 	/** Cut off whatever is being said and say this instead. */
 	private boolean interrupt;
 
+	/**
+	 * Whether this action may say so when the media volume is off.
+	 *
+	 * <p>On by default, and the same field the sound action carries, so turning
+	 * the warning off on one kind of alerting trigger and not the other is not a
+	 * thing a player can accidentally do.
+	 */
+	private boolean warnWhenSilent;
+
 	public SpeakResponder() {
 		super(RESPONDER_TYPE.SPEAK);
 		this.setFireType(FIRE_WHEN.WINDOW_BOTH);
 		message = "";
 		interrupt = false;
+		warnWhenSilent = true;
 	}
 
 	public SpeakResponder(RESPONDER_TYPE pType) {
@@ -52,6 +62,7 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 		SpeakResponder tmp = new SpeakResponder();
 		tmp.message = this.message;
 		tmp.interrupt = this.interrupt;
+		tmp.warnWhenSilent = this.warnWhenSilent;
 		tmp.setFireType(this.getFireType());
 		return tmp;
 	}
@@ -66,6 +77,9 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 		}
 		SpeakResponder test = (SpeakResponder) o;
 		if (test.interrupt != this.interrupt) {
+			return false;
+		}
+		if (test.warnWhenSilent != this.warnWhenSilent) {
 			return false;
 		}
 		// String content, not identity. The toast responder next door compares
@@ -84,7 +98,8 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 	@Override
 	public int hashCode() {
 		int h = message == null ? 0 : message.hashCode();
-		return 31 * h + (interrupt ? 1 : 0);
+		h = 31 * h + (interrupt ? 1 : 0);
+		return 31 * h + (warnWhenSilent ? 1 : 0);
 	}
 
 	public SpeakResponder(Parcel in) {
@@ -95,6 +110,7 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 	private void readFromParcel(Parcel in) {
 		setMessage(in.readString());
 		setInterrupt(in.readInt() != 0);
+		setWarnWhenSilent(in.readInt() != 0);
 		String fireType = in.readString();
 		if (TriggerResponder.FIRE_WINDOW_OPEN.equals(fireType)) {
 			setFireType(FIRE_WHEN.WINDOW_OPEN);
@@ -125,7 +141,7 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 			}
 		}
 		String translated = translate(message, captureMap);
-		SpeechEngine.get(c).speak(translated, interrupt);
+		SpeechEngine.get(c).speak(translated, interrupt, warnWhenSilent);
 		return false;
 	}
 
@@ -148,6 +164,7 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 	public void writeToParcel(Parcel out, int flags) {
 		out.writeString(message);
 		out.writeInt(interrupt ? 1 : 0);
+		out.writeInt(warnWhenSilent ? 1 : 0);
 		out.writeString(this.getFireType().getString());
 	}
 
@@ -165,6 +182,14 @@ public class SpeakResponder extends TriggerResponder implements Parcelable {
 
 	public boolean getInterrupt() {
 		return interrupt;
+	}
+
+	public void setWarnWhenSilent(boolean warnWhenSilent) {
+		this.warnWhenSilent = warnWhenSilent;
+	}
+
+	public boolean getWarnWhenSilent() {
+		return warnWhenSilent;
 	}
 
 	@Override
