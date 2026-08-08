@@ -3168,7 +3168,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		int at = mGhostIndex >= 0 && mGhostIndex < words.size() ? mGhostIndex : 0;
 		String top = words.get(at);
-		String more = moreMark(words.size(), at);
+		// With the others listed beside the ghost, the field counts what did not
+		// fit and says so itself — a "+2" written here as well would be counting
+		// words the player can already see. Only when nothing is listed does the
+		// mark have anything to tell.
+		String more = mGhostLines > 1 ? "" : moreMark(words.size(), at);
 		boolean continues = top.length() > prefix.length()
 				&& top.toLowerCase(java.util.Locale.US)
 						.startsWith(prefix.toLowerCase(java.util.Locale.US));
@@ -3243,6 +3247,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (count < 2) {
 			return "";
 		}
+		// Only reached with the listing off; with it on the field counts what it
+		// could not fit, which is a different and smaller number.
 		// While the player is stepping through, the mark says where they are
 		// rather than how many are left — "2/6" answers "have I gone past the
 		// one I wanted", which "+4" does not.

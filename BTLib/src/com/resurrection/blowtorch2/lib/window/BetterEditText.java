@@ -366,6 +366,13 @@ public class BetterEditText extends EditText {
 	/** Rows the bar is currently tall enough for. */
 	private int ghostRowsShown = -1;
 
+	/** Suggestions there was no room to show, counted for the +N mark. */
+	private int ghostHiddenCount = 0;
+
+	/** Right edge and baseline of the last suggestion drawn; -1 when none was. */
+	private float ghostLastDrawnX = -1;
+	private float ghostLastDrawnBaseline = 0;
+
 	/** Posted on the way down, run if the finger stays put long enough. */
 	private Runnable ghostHoldRunnable = null;
 
@@ -419,6 +426,16 @@ public class BetterEditText extends EditText {
 
 	public String getGhostCompletion() {
 		return ghostText;
+	}
+
+	@Override
+	protected void onSelectionChanged(final int start, final int end) {
+		super.onSelectionChanged(start, end);
+		// Moving the caret off the end takes the ghost away, and the rows held
+		// for its suggestions have to go with it. Nothing else asks again.
+		if (ghostMaxRows > 0) {
+			applyGhostRowPadding(rowsNeeded());
+		}
 	}
 
 	/**
@@ -476,43 +493,60 @@ public class BetterEditText extends EditText {
 	}
 
 	/**
-	 * How many rows the current suggestions need, packed side by side.
+	 * How many rows below the typed line the suggestions need.
 	 *
-	 * <p>Side by side rather than one per line, because most of them are one
-	 * short word and a line each would take the screen for nothing. It also
-	 * means the row count changes far less often than the number of suggestions
-	 * does, and the row count is what costs a layout.
+	 * <p>Worked out by the same routine that draws them, so the height the bar
+	 * takes and the words it shows can never disagree. Not done while drawing:
+	 * making room is a layout.
 	 */
 	private int rowsNeeded() {
-		if (ghostExtras == null || ghostExtras.length == 0 || ghostMaxRows <= 0) {
+		if (ghostExtras == null || ghostExtras.length == 0 || ghostMaxRows <= 0
+				|| !ghostWouldDraw()) {
 			return 0;
 		}
 		float avail = ghostRowWidth();
 		if (avail <= 0) {
-			// Not laid out yet. One row is the honest guess and it is corrected
-			// the next time anything changes.
+			// Not laid out yet. One row is the honest guess, corrected the next
+			// time anything changes.
 			return 1;
 		}
-		android.text.TextPaint p = getPaint();
-		float gap = ghostGap();
-		int rows = 1;
-		float used = 0;
-		for (int i = 0; i < ghostExtras.length; i++) {
-			if (ghostExtras[i] == null) {
-				continue;
-			}
-			float w = p.measureText(ghostExtras[i]);
-			if (used > 0 && used + gap + w > avail) {
-				rows++;
-				if (rows > ghostMaxRows) {
-					return ghostMaxRows;
-				}
-				used = w;
-			} else {
-				used = used > 0 ? used + gap + w : w;
-			}
+		return packGhostExtras(null, avail, estimateGhostEndX(), 0f, 0f, 0f, 0f, 0f);
+	}
+
+	/**
+	 * Would the ghost be drawn at all right now?
+	 *
+	 * <p>Room must not be held for something that is not going to appear. The
+	 * ghost is drawn only with the caret at the very end of the text — put it
+	 * back into the middle of the line and the ghost goes, so the rows have to
+	 * go with it or the bar stays tall around nothing.
+	 */
+	private boolean ghostWouldDraw() {
+		if (ghostText == null || getText() == null) {
+			return false;
 		}
-		return Math.min(rows, ghostMaxRows);
+		int at = getSelectionStart();
+		return at >= 0 && at == getText().length() && at == getSelectionEnd();
+	}
+
+	/**
+	 * Where the inline ghost is likely to end, without waiting for a draw.
+	 *
+	 * <p>The suggestions carry on from there rather than starting on a fresh
+	 * line, so how much room the first of them has depends on it — and that
+	 * decides how tall the bar must be, which is a layout and cannot wait for
+	 * drawing. Measured from the text rather than remembered from the last
+	 * frame, which would size the bar for the line before this one.
+	 */
+	private float estimateGhostEndX() {
+		CharSequence text = getText();
+		String line = text == null ? "" : text.toString();
+		int nl = line.lastIndexOf('\n');
+		if (nl >= 0) {
+			line = line.substring(nl + 1);
+		}
+		return getPaint().measureText(line)
+				+ (ghostText == null ? 0 : getPaint().measureText(ghostText));
 	}
 
 	/** Make the bar exactly tall enough for {@code rows} of suggestions. */
@@ -621,7 +655,39 @@ public class BetterEditText extends EditText {
 			}
 		}
 
-		drawGhostExtras(canvas, layout, originX, originY, lineWidth);
+		float extrasEndX = endX;
+		float extrasBaseline = endBaseline;
+		if (ghostExtras != null && ghostExtras.length > 0 && ghostMaxRows > 0) {
+			for (int i = 0; i < ghostExtraRects.length; i++) {
+				ghostExtraRects[i] = null;
+			}
+			float below = layout.getLineBottom(layout.getLineCount() - 1);
+			// The ghost's end, with no gap added here: the packer puts the gap in
+			// itself. Measuring with one value and drawing with another is how
+			// the bar ends up a row short of what it shows, which is the whole
+			// reason one routine does both.
+			int rows = packGhostExtras(canvas, lineWidth, endX, below, endBaseline,
+					ghostPaint.getFontSpacing(), originX, originY);
+			if (ghostLastDrawnX >= 0) {
+				extrasEndX = ghostLastDrawnX;
+				extrasBaseline = ghostLastDrawnBaseline;
+			}
+		} else {
+			ghostHiddenCount = 0;
+		}
+
+		// The count of what is not on screen, drawn where the last of them ended.
+		// Only ever the ones you cannot see: writing "+2" beside two visible
+		// words is telling the player something they can already count.
+		if (ghostHiddenCount > 0) {
+			String mark = " +" + ghostHiddenCount;
+			android.text.TextPaint dim = new android.text.TextPaint(ghostPaint);
+			dim.setTextSize(ghostPaint.getTextSize() * 0.8f);
+			// After the last one actually drawn, on that one's line. Pinned to
+			// the ghost's line instead, it landed on top of the typed text
+			// whenever anything had wrapped.
+			canvas.drawText(mark, extrasEndX, extrasBaseline, dim);
+		}
 
 		if (ghostNumber > 0) {
 			// A micro digit above the ghost, so you can see which suggestion it is
@@ -736,55 +802,94 @@ public class BetterEditText extends EditText {
 	}
 
 	/**
-	 * List the other suggestions under the line, in the room the padding made.
+	 * Lay the other suggestions out, and draw them when there is a canvas.
 	 *
-	 * <p>Drawn from the bottom of the text layout down, so they follow the typed
-	 * line however many lines it has grown to.
+	 * <p>One routine for both jobs on purpose: measuring in one place and
+	 * drawing in another is how a bar ends up a row short of what it shows.
+	 *
+	 * <p>They carry on from where the inline ghost ended rather than starting
+	 * underneath it. The rest of that line is the cheapest space on the screen,
+	 * and beginning below it spent a whole row on white space.
+	 *
+	 * @param canvas null to measure only.
+	 * @param avail width of a full row.
+	 * @param startX where the first one begins, past the ghost.
+	 * @param below top of the first row under the text block.
+	 * @param ghostBaseline baseline of the line the ghost is on.
+	 * @param lineHeight one line of ghost type.
+	 * @param originX left of the content, for hit rectangles.
+	 * @param originY top of the content, for hit rectangles.
+	 * @return rows used <em>below</em> the typed line.
 	 */
-	private void drawGhostExtras(final android.graphics.Canvas canvas,
-			final android.text.Layout layout, final float originX, final float originY,
-			final float lineWidth) {
-		for (int i = 0; i < ghostExtraRects.length; i++) {
-			ghostExtraRects[i] = null;
+	private int packGhostExtras(final android.graphics.Canvas canvas, final float avail,
+			final float startX, final float below, final float ghostBaseline,
+			final float lineHeight, final float originX, final float originY) {
+		final float originYUsed = originY;
+		ghostHiddenCount = 0;
+		if (canvas != null) {
+			ghostLastDrawnX = -1;
 		}
-		if (ghostExtras == null || ghostExtras.length == 0 || ghostMaxRows <= 0) {
-			return;
-		}
-		float lineHeight = ghostPaint.getFontSpacing();
-		float below = layout.getLineBottom(layout.getLineCount() - 1);
-		float gap = ghostGap();
+		android.text.TextPaint p = canvas != null && ghostPaint != null
+				? ghostPaint : getPaint();
+		float gap = p.measureText("  ");
 		int row = 0;
-		float x = 0;
-		for (int i = 0; i < ghostExtras.length && i < ghostExtraRects.length; i++) {
+		float x = startX;
+		for (int i = 0; i < ghostExtras.length; i++) {
 			String item = ghostExtras[i];
 			if (item == null) {
 				continue;
 			}
-			float w = ghostPaint.measureText(item);
-			if (x > 0 && x + gap + w > lineWidth) {
-				row++;
-				if (row >= ghostMaxRows) {
-					// No more room. Stopping is better than drawing over the
-					// game text below, and the ones shown are the best ones.
-					return;
+			float w = p.measureText(item);
+			float lead = x > 0 ? gap : 0;
+			if (x + lead + w > avail) {
+				if (row + 1 > ghostMaxRows) {
+					// Out of rows. What is left is counted, not dropped in
+					// silence — that count is the only thing telling the player
+					// there is more.
+					ghostHiddenCount = countRemaining(i);
+					break;
 				}
+				row++;
 				x = 0;
-			} else if (x > 0) {
-				x += gap;
+				lead = 0;
+				if (w > avail) {
+					// Wider than the whole bar. Cut it rather than run off.
+					int fits = p.breakText(item, true, avail, null);
+					item = fits > 1 ? item.substring(0, fits - 1) + "…" : "…";
+					w = p.measureText(item);
+				}
 			}
-			if (w > lineWidth) {
-				// One suggestion wider than the whole bar. Cut it rather than
-				// let it run off the edge.
-				int fits = ghostPaint.breakText(item, true, lineWidth, null);
-				item = fits > 1 ? item.substring(0, fits - 1) + "…" : "…";
-				w = ghostPaint.measureText(item);
+			if (canvas != null) {
+				float itemX = x + lead;
+				float top = row == 0
+						? ghostBaseline - lineHeight + p.descent()
+						: below + (row - 1) * lineHeight;
+				float baseline = row == 0
+						? ghostBaseline
+						: top + lineHeight - p.descent();
+				canvas.drawText(item, itemX, baseline, p);
+				ghostLastDrawnX = itemX + w;
+				ghostLastDrawnBaseline = baseline;
+				if (i < ghostExtraRects.length) {
+					ghostExtraRects[i] = new android.graphics.RectF(
+							originX + itemX, originYUsed + top,
+							originX + itemX + w, originYUsed + top + lineHeight);
+				}
 			}
-			float top = below + row * lineHeight;
-			canvas.drawText(item, x, top + lineHeight - ghostPaint.descent(), ghostPaint);
-			ghostExtraRects[i] = new android.graphics.RectF(originX + x, originY + top,
-					originX + x + w, originY + top + lineHeight);
-			x += w;
+			x += lead + w;
 		}
+		return row;
+	}
+
+	/** How many suggestions from this one onwards were not shown. */
+	private int countRemaining(final int from) {
+		int n = 0;
+		for (int i = from; i < ghostExtras.length; i++) {
+			if (ghostExtras[i] != null) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	/**
