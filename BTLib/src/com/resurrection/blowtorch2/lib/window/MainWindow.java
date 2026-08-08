@@ -4854,12 +4854,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			String dataDir = ai.dataDir;
 
+			com.resurrection.blowtorch2.lib.util.StartupProbe.mark("connect.finishInit enter");
 			try {
 				refreshExtraTextSlotsFromSettings(service.getSettings());
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.finishInitializeWindows", e);
 			}
-		
+			com.resurrection.blowtorch2.lib.util.StartupProbe.mark("connect.getSettings+slots");
+
 			//initialize windows.
 			for(Object x : mWindows) {
 				WindowToken w = null;
@@ -4872,11 +4874,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					MAIN_WINDOW_ID = w.getId();
 				}
 				initWindow(w,dataDir);
-				
-				
+				com.resurrection.blowtorch2.lib.util.StartupProbe.mark(
+						"connect.initWindow " + w.getName());
+
 			}
 			RelativeLayout rl = (RelativeLayout)this.findViewById(R.id.window_container);
-			
+
 			for(Object x : mWindows) {
 				WindowToken w = null;
 				if(x instanceof WindowToken) {
@@ -4888,6 +4891,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				com.resurrection.blowtorch2.lib.window.Window v = (com.resurrection.blowtorch2.lib.window.Window)rl.findViewWithTag(w.getName());
 				if(v != null) {
 					v.runScriptOnCreate();
+					com.resurrection.blowtorch2.lib.util.StartupProbe.mark(
+							"connect.onCreate lua " + w.getName());
 				} else {
 					Log.e("WARNING","Could not load window: "+w.getName());
 				}
@@ -4905,10 +4910,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 			chrome.layoutGameplayChrome((RelativeLayout) findViewById(R.id.window_container));
 		chrome.updateMenuChrome();
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("connect.chrome");
 		ensureMapperOverlay();
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("connect.mapper overlay");
 		ensureExtraTextOverlays();
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("connect.extra text");
 		ensureFloatingButtons();
 		raiseFloatingButtons();
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("connect.floating buttons");
 		// Windows (and extra-text slots) now have live binders. End the hold that
 		// onPause / a recents kill left behind — not earlier in onServiceConnected,
 		// which raced ahead of registerWindowCallback and dropped the hand-over.
@@ -4922,6 +4931,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		// Window tokens (and Options → Window prefs) are live — re-layout Edit/Send.
 		scheduleInputActionLayoutRefresh();
+		com.resurrection.blowtorch2.lib.util.StartupProbe.mark("connect.finishInit leave");
 		//Debug.stopMethodTracing();
 	}
 
