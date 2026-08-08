@@ -4783,6 +4783,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete:
 				this.doSetWordComplete((Boolean) o.getValue());
 				break;
+			case speak_quiet_typing:
+				// The engine lives in this process, so this one is applied here
+				// rather than asked of the UI.
+				com.resurrection.blowtorch2.lib.util.SpeechEngine.setQuietWhileTyping(
+						(Boolean) o.getValue());
+				break;
 			case word_complete_lines:
 			case word_complete_loose:
 			case word_complete_ghost:
@@ -5895,6 +5901,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_persist,
 		/** Where the chips go: floating, in a strip below the game, or nowhere. */
 		word_complete_where,
+		/** Triggers that speak keep quiet while a command is being composed. */
+		speak_quiet_typing,
 		/** How solid those chips are. */
 		word_complete_opacity,
 		/** Prompt on its own bar above the input line. */

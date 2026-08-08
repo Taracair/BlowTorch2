@@ -985,6 +985,14 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 	}
 
 	@Override
+	public void setPlayerTyping(final boolean typing) {
+		// Straight to the engine's static state: no connection is needed to know
+		// that a command is being composed, and this arrives while the player is
+		// typing, which is exactly when nothing should be doing work.
+		com.resurrection.blowtorch2.lib.util.SpeechEngine.setPlayerTyping(typing);
+	}
+
+	@Override
 	public void dispatchLuaError(final String message) throws RemoteException {
 		Connection c = active();
 		if (c == null) {

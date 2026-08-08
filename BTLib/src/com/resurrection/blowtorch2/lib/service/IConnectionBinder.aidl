@@ -146,6 +146,9 @@ interface IConnectionBinder {
 	void updateWindowBufferMaxValue(String plugin,String window,int amount);
 	void closeConnection(String display);
 	void windowShowing(boolean show);
+	// oneway: sent as the input bar fills and empties, and the UI must never
+	// wait on :stellar for something that only silences an alert.
+	oneway void setPlayerTyping(boolean typing);
 	void dispatchLuaError(String message);
 	void addLink(String path);
 	void deletePlugin(String plugin);

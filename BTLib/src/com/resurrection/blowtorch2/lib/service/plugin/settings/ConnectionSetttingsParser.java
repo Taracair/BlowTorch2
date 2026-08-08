@@ -60,6 +60,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_persist,
 		word_complete_where,
 		word_complete_opacity,
+		speak_quiet_typing,
 		prompt_bar,
 		grow_input_bar,
 		compatibility_mode,
@@ -542,7 +543,13 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
-					case word_complete_opacity:
+					case speak_quiet_typing:
+						// Default is true; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+				case word_complete_opacity:
 						if((Integer)opt.getValue()
 								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY) {
 							dooutput = true;

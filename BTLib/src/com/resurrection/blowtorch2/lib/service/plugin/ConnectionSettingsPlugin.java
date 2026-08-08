@@ -218,6 +218,17 @@ public class ConnectionSettingsPlugin extends Plugin {
 		// After every addOption above, never before one of them.
 		input.addOption(suggestions);
 
+		BooleanOption speak_quiet_typing = new BooleanOption();
+		speak_quiet_typing.setTitle("Quiet while you type");
+		speak_quiet_typing.setDescription("Triggers that speak stay silent from the first letter of a command until you send it. Speech over a half-typed line is what makes people turn speaking off for good. Off, they speak whenever they fire.");
+		speak_quiet_typing.setKey("speak_quiet_typing");
+		// On by default, and off is a real answer — a player watching the screen
+		// while typing may want the alert precisely then. Change this and
+		// ConnectionSetttingsParser's comparison together, or the parser quietly
+		// stops saving the value the player chose.
+		speak_quiet_typing.setValue(true);
+		input.addOption(speak_quiet_typing);
+
 		BooleanOption prompt_bar = new BooleanOption();
 		prompt_bar.setTitle("Prompt on its own bar");
 		prompt_bar.setDescription("A MUD prompt is the line the world never finishes — your health and mana line, resent after every command. On, it sits in one fixed place above the input bar instead of repeating down the game window. Worlds that send no prompt show nothing; .prompt says how many have been seen. Toggle with .prompt on/off.");

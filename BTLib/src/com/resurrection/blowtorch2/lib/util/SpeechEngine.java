@@ -50,6 +50,61 @@ public final class SpeechEngine {
 	 */
 	public static final long REPEAT_GUARD_MS = 1500;
 
+	/**
+	 * How long after the last sign of typing speech stays quiet.
+	 *
+	 * <p>A safety net, not the mechanism: the input bar says when it is empty
+	 * again, and this only matters if that message never arrives — the UI
+	 * process being killed mid-command, say. Without it a player could be left
+	 * with an alert that has silently stopped working and no way to guess why.
+	 */
+	public static final long TYPING_QUIET_TIMEOUT_MS = 30000;
+
+	/**
+	 * Whether typing silences speech at all — the player's choice, from
+	 * Options → Input → Speech. On by default: speech over a half-typed command
+	 * is the thing that makes people turn the feature off for good. Off is a
+	 * real answer too, which is why it is a switch and not a rule.
+	 */
+	private static volatile boolean quietWhileTyping = true;
+
+	/** @param quiet true to stay silent while a command is being composed. */
+	public static void setQuietWhileTyping(final boolean quiet) {
+		quietWhileTyping = quiet;
+	}
+
+	/** Set while there is half a command in the input bar. */
+	private static volatile boolean playerTyping = false;
+	private static volatile long playerTypingAt = 0;
+
+	/**
+	 * The input bar has something in it, or has just been emptied.
+	 *
+	 * <p>Static because the caller is a binder thread in {@code :stellar} and the
+	 * engine may not have been made yet — the first thing a player does after
+	 * connecting is often type, and building a speech engine to record that
+	 * would be absurd.
+	 *
+	 * @param typing true while a command is being composed.
+	 */
+	public static void setPlayerTyping(final boolean typing) {
+		playerTyping = typing;
+		playerTypingAt = android.os.SystemClock.elapsedRealtime();
+	}
+
+	/** True while a command is being composed and the timeout has not lapsed. */
+	private static boolean isPlayerTyping() {
+		if (!playerTyping) {
+			return false;
+		}
+		if (android.os.SystemClock.elapsedRealtime() - playerTypingAt
+				> TYPING_QUIET_TIMEOUT_MS) {
+			playerTyping = false;
+			return false;
+		}
+		return true;
+	}
+
 	private static SpeechEngine instance = null;
 
 	private TextToSpeech tts = null;
@@ -213,6 +268,12 @@ public final class SpeechEngine {
 	 */
 	public synchronized void speak(final String text, final boolean interrupt) {
 		if (failed || tts == null || text == null) {
+			return;
+		}
+		if (quietWhileTyping && isPlayerTyping()) {
+			// Dropped, not queued. Held back, it would all arrive at once the
+			// moment the command is sent, which is worse than not hearing it:
+			// the player would be read a fight that has already moved on.
 			return;
 		}
 		String say = text.trim();

@@ -2998,6 +2998,35 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top, top, 1);
 	}
 
+	/** What the service was last told about the input bar being in use. */
+	private boolean mTypingReported = false;
+
+	/**
+	 * Tell {@code :stellar} whether a command is being composed, so a trigger
+	 * that speaks can keep quiet over it.
+	 *
+	 * <p>On the transitions only — empty to non-empty and back — not on every
+	 * keystroke: this crosses the binder, and a call per letter during a fight is
+	 * exactly the kind of traffic this project has spent the week removing. The
+	 * call is {@code oneway}, so the keystroke never waits for the service.
+	 *
+	 * @param typing true when the input bar has something in it.
+	 */
+	private void reportTypingState(final boolean typing) {
+		if (typing == mTypingReported || service == null) {
+			return;
+		}
+		mTypingReported = typing;
+		try {
+			service.setPlayerTyping(typing);
+		} catch (RemoteException e) {
+			// Only speech goes quiet if this is lost, and the engine gives up on
+			// being quiet by itself after a timeout.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.reportTypingState", e);
+		}
+	}
+
 	/** Taking the ghost is taking the first suggestion — the same word. */
 	private void bindGhostTap() {
 		if (mInputBox == null) {
@@ -6063,6 +6092,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
 				@Override
 				public void afterTextChanged(android.text.Editable s) {
+					reportTypingState(s != null && s.length() > 0);
 					if (mWordSuggestionsOn) {
 						refreshWordSuggestions();
 					}
