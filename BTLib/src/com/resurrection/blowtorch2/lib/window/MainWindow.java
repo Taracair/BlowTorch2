@@ -3912,6 +3912,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void onResume() {
 		super.onResume();
 		android.util.Log.i("BTPROF", "mainWindow onResume isBound=" + isBound);
+		// The insets that follow a resume are the ones that get retracted, so
+		// tell the chrome to let them settle before it moves anything.
+		chrome.onResume();
 		//Log.e("window","start onResume()");
 		//windowShowing = true;
 		if (floatingButtons != null) {
