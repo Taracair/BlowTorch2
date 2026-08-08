@@ -30,15 +30,18 @@ public class TapRuleData implements Parcelable {
 
 	private final String pattern;
 	private final String[] commands;
+	private final boolean tapSendsFirst;
 	private final boolean underline;
 	private final boolean bold;
 	private final boolean frame;
 	private final int group;
 
-	public TapRuleData(final String pattern, final String[] commands, final boolean underline,
+	public TapRuleData(final String pattern, final String[] commands,
+			final boolean tapSendsFirst, final boolean underline,
 			final boolean bold, final boolean frame, final int group) {
 		this.pattern = pattern != null ? pattern : "";
 		this.commands = commands != null ? commands : new String[0];
+		this.tapSendsFirst = tapSendsFirst;
 		this.underline = underline;
 		this.bold = bold;
 		this.frame = frame;
@@ -49,6 +52,7 @@ public class TapRuleData implements Parcelable {
 		pattern = in.readString();
 		String[] read = in.createStringArray();
 		commands = read != null ? read : new String[0];
+		tapSendsFirst = in.readInt() != 0;
 		underline = in.readInt() != 0;
 		bold = in.readInt() != 0;
 		frame = in.readInt() != 0;
@@ -61,6 +65,10 @@ public class TapRuleData implements Parcelable {
 
 	public String[] getCommands() {
 		return commands;
+	}
+
+	public boolean isTapSendsFirst() {
+		return tapSendsFirst;
 	}
 
 	public boolean isUnderline() {
@@ -96,7 +104,11 @@ public class TapRuleData implements Parcelable {
 			return false;
 		}
 		TapRuleData other = (TapRuleData) o;
-		return underline == other.underline && bold == other.bold && frame == other.frame
+		// tapSendsFirst is part of this on purpose: it is the only difference
+		// between two otherwise identical rules, and if it were left out,
+		// ticking the box in the editor would never reach the window.
+		return tapSendsFirst == other.tapSendsFirst && underline == other.underline
+				&& bold == other.bold && frame == other.frame
 				&& group == other.group && pattern.equals(other.pattern)
 				&& java.util.Arrays.equals(commands, other.commands);
 	}
@@ -105,6 +117,7 @@ public class TapRuleData implements Parcelable {
 	public int hashCode() {
 		int h = pattern.hashCode();
 		h = 31 * h + java.util.Arrays.hashCode(commands);
+		h = 31 * h + (tapSendsFirst ? 8 : 0);
 		h = 31 * h + (underline ? 1 : 0);
 		h = 31 * h + (bold ? 2 : 0);
 		h = 31 * h + (frame ? 4 : 0);
@@ -118,6 +131,7 @@ public class TapRuleData implements Parcelable {
 	public void writeToParcel(final Parcel out, final int flags) {
 		out.writeString(pattern);
 		out.writeStringArray(commands);
+		out.writeInt(tapSendsFirst ? 1 : 0);
 		out.writeInt(underline ? 1 : 0);
 		out.writeInt(bold ? 1 : 0);
 		out.writeInt(frame ? 1 : 0);

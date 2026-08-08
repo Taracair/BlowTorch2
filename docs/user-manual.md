@@ -686,10 +686,21 @@ what lights up, and tapping it sends a command.
   is the fastest way to name something the game just mentioned without spelling
   it out on a phone keyboard. Put it beside a real command and a tap offers
   both — e.g. `kill $word` and `.kb insert $word`.
+- **Tap sends the first command, hold to choose** — off by default, and set per
+  action, not once for the whole world. Off, a tap on a word with several
+  commands opens the list, which is what the app has always done. On, a tap
+  sends the first command straight to the game and *holding* the word opens the
+  list instead. Worth turning on for `kill $word` on a mob you fight all day —
+  one touch instead of two. Leave it off wherever sending the wrong thing would
+  cost you something, because a tap then goes to the game with nothing in
+  between. Holding still works on a word with several commands whether this is
+  on or not, so the list is never out of reach; sliding your finger off the word
+  cancels the hold and scrolls the text as usual.
 - **Underline / Bold / Frame** — any combination, or none. Colour is not here:
   put a **Color** action on the same trigger.
 - Two Tappable Word actions on one trigger behave as one word that offers both
-  sets of commands, and the look comes from the first of them.
+  sets of commands, and the look comes from the first of them — including
+  whether a tap sends.
 
 The word stays tappable for as long as the line is in the buffer, not just at
 the moment the trigger fired, and scrolling back does not change that.

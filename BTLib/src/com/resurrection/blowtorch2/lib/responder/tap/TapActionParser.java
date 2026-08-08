@@ -29,6 +29,11 @@ public final class TapActionParser {
 		// The first command stays where it always was, so a trigger with one
 		// command reads back the same in any version of the app.
 		out.attribute("", "command", r.getCommand());
+		// Only when on. Off is what an older file means by saying nothing, so
+		// writing it would add an attribute to every trigger for no gain.
+		if (r.isTapSendsFirst()) {
+			out.attribute("", "tapsends", "true");
+		}
 		out.attribute("", "underline", Boolean.toString(r.isUnderline()));
 		out.attribute("", "bold", Boolean.toString(r.isBold()));
 		out.attribute("", "frame", Boolean.toString(r.isFrame()));

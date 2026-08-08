@@ -1949,7 +1949,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			out.add(new com.resurrection.blowtorch2.lib.responder.tap.TapRuleData(
 					p.pattern(), tap.getCommands().toArray(new String[0]),
-					tap.isUnderline(), tap.isBold(), tap.isFrame(), tap.getGroup()));
+					tap.isTapSendsFirst(), tap.isUnderline(), tap.isBold(),
+					tap.isFrame(), tap.getGroup()));
 		}
 		return out;
 	}
