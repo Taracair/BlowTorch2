@@ -2648,19 +2648,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
-	 * Is the word being typed the first one on the line?
-	 *
-	 * <p>Which is to say: is the player naming a command, or naming what it acts
-	 * on. Read off the text rather than the caret alone, because the caret can be
-	 * put back into the first word of a line that already has more after it —
-	 * that word is still the command.
-	 *
-	 * @param text the whole input line.
-	 * @param caret where the cursor is.
-	 * @param prefix the partial word ending at the caret.
-	 * @return true when nothing but blanks precedes that word.
-	 */
-	/**
 	 * The command word already on the line, if there is one.
 	 *
 	 * <p>What the pairing is looked up by: {@code kill } offers what has been
@@ -2696,6 +2683,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return b.length() == 0 ? null : b.toString().toLowerCase(java.util.Locale.US);
 	}
 
+	/**
+	 * Is the word being typed the first one on the line?
+	 *
+	 * <p>Which is to say: is the player naming a command, or naming what it acts
+	 * on. Read off the text rather than the caret alone, because the caret can be
+	 * put back into the first word of a line that already has more after it —
+	 * that word is still the command.
+	 *
+	 * @param text the whole input line.
+	 * @param caret where the cursor is.
+	 * @param prefix the partial word ending at the caret.
+	 * @return true when nothing but blanks precedes that word.
+	 */
 	static boolean isAtLineStart(final String text, final int caret,
 			final String prefix) {
 		if (text == null || prefix == null) {
@@ -3119,11 +3119,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		String top = words.get(0);
+		String more = moreMark(words.size());
 		boolean continues = top.length() > prefix.length()
 				&& top.toLowerCase(java.util.Locale.US)
 						.startsWith(prefix.toLowerCase(java.util.Locale.US));
 		if (continues) {
-			mInputBox.setGhostCompletion(top.substring(prefix.length()), top, 1);
+			mInputBox.setGhostCompletion(top.substring(prefix.length()) + more, top, 1);
 			return;
 		}
 		if (top.equalsIgnoreCase(prefix)) {
@@ -3131,7 +3132,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputBox.setGhostCompletion(null, null, 0);
 			return;
 		}
-		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top, top, 1);
+		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top + more, top, 1);
+	}
+
+	/**
+	 * "and this many others", for the end of the ghost.
+	 *
+	 * <p>The ghost is text drawn after the cursor, so it can only ever be one
+	 * suggestion — and a player using the ghost without a bar therefore sees one
+	 * word and concludes that one word is all there is. That happened. The mark
+	 * says the others exist and are one {@code .suggest 2} away; the bar is
+	 * where they can be read.
+	 *
+	 * <p>Only the mark is added. What a tap on the ghost inserts is the word
+	 * itself, which is passed separately.
+	 *
+	 * @param count how many suggestions there are in total.
+	 * @return the marker, or "" when the top one is the only one.
+	 */
+	static String moreMark(final int count) {
+		return count > 1 ? " +" + (count - 1) : "";
 	}
 
 	/** What the service was last told about the input bar being in use. */

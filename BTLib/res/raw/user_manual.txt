@@ -143,6 +143,12 @@ fills up as you play, and it will be wrong the first time you do something new â
 which is why it has its own switch. Like `rank`, it only reorders; a word it has
 never seen with this command still follows, it does not vanish.
 
+The ghost is **one** suggestion â€” it is text drawn after the cursor, so it
+cannot be a list. When there are others it ends with how many: `grizzled +3`
+means three more are waiting. They are on the bar, and `.suggest 2`,
+`.suggest 3` and so on take them without looking. If you are using the ghost
+with `.suggest where off`, that mark is the only sign the rest exist.
+
 **When you mistype it.** `.suggest loose on` adds a second pass: if the exact
 spelling finds nothing, a word whose letters you typed *in order, with gaps* is
 offered instead. `grzld` finds `grizzled`. It only ever runs after an exact
