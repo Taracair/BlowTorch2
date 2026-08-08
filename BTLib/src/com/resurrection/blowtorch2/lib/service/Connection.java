@@ -571,6 +571,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.SoundCommand soundcmd =
 				new com.resurrection.blowtorch2.lib.service.function.SoundCommand();
 		mSpecialCommands.put(soundcmd.commandName, soundcmd);
+		com.resurrection.blowtorch2.lib.service.function.TapMenuCommand tapmenucmd =
+				new com.resurrection.blowtorch2.lib.service.function.TapMenuCommand();
+		mSpecialCommands.put(tapmenucmd.commandName, tapmenucmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
@@ -4918,6 +4921,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case bell_vibrate:
 				this.doSetBellVibrate((Boolean) o.getValue());
 				break;
+			case tap_menu_opacity:
+				// Drawn by the UI process and nowhere else.
+				mService.doExecuteRequestLoadSettings();
+				break;
 			case trigger_sound_stream:
 			case trigger_sound_warn_silent:
 				// Trigger sounds are played in whichever process the responder runs
@@ -6023,6 +6030,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		trigger_sound_stream,
 		/** Warn when that stream is turned all the way down. */
 		trigger_sound_warn_silent,
+		/** How solid the menu a tapped word opens is. */
+		tap_menu_opacity,
 		/** Where the chips go: floating, in a strip below the game, or nowhere. */
 		word_complete_where,
 		/** Triggers that speak keep quiet while a command is being composed. */

@@ -79,6 +79,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		bell_vibrate,
 		trigger_sound_stream,
 		trigger_sound_warn_silent,
+		tap_menu_opacity,
 		bell_notification,
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
 		frame_image_placement, frame_image_lines,
@@ -737,6 +738,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case trigger_sound_warn_silent:
 						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case tap_menu_opacity:
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.MainWindow.DEFAULT_TAP_MENU_OPACITY) {
 							dooutput = true;
 						}
 						break;

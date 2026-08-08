@@ -563,6 +563,19 @@ Variable** responder or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
 (session only). Use `${name}` in alias or action text — variables are not
 typed into the trigger pattern.
 
+### The menu a tapped word opens
+
+Tap a word that has more than one action and a short menu opens right next to
+your finger, over the game text. Because it sits on top of the thing it is
+about, it can be made see-through:
+
+    .tapmenu opacity N     (20 to 100)
+    .tapmenu               (what it is set to now)
+
+Only the backing fades. The commands stay fully readable at every setting —
+same rule as the suggestion chips, because a menu you cannot read is worse than
+one that covers something. Also in Options → Bell.
+
 ### Making a trigger make a noise
 
 Three ways, and they answer different questions.

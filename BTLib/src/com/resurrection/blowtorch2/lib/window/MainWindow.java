@@ -1917,6 +1917,28 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @param wordCenterX centre of the tapped word inside the game window.
 	 * @param wordTop top of the tapped word inside the game window.
 	 */
+	/**
+	 * How solid the tap menu's backing is, as a percentage.
+	 *
+	 * <p>The menu opens on top of the text it is about. Only the plate fades —
+	 * the commands stay fully readable at every setting, the same rule the
+	 * suggestion chips follow, because a menu you cannot read is worse than one
+	 * that covers something.
+	 */
+	public static final int DEFAULT_TAP_MENU_OPACITY = 100;
+
+	/** Below this the menu stops being findable against moving text. */
+	public static final int MIN_TAP_MENU_OPACITY = 20;
+
+	private int mTapMenuOpacity = DEFAULT_TAP_MENU_OPACITY;
+
+	public static int clampOpacity(final int value) {
+		if (value < MIN_TAP_MENU_OPACITY) {
+			return MIN_TAP_MENU_OPACITY;
+		}
+		return value > 100 ? 100 : value;
+	}
+
 	void showTapWordMenu(final String[] commands, final int wordCenterX, final int wordTop) {
 		if (commands == null || commands.length == 0) {
 			return;
@@ -1966,8 +1988,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// The same rounded plate the suggestion bar uses. This menu lands in
 			// the middle of moving text, and a square panel there reads as the
 			// display having broken rather than as something being offered.
-			popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
-					themed, R.drawable.suggestion_panel_bg));
+			android.graphics.drawable.Drawable plate =
+					androidx.core.content.ContextCompat.getDrawable(
+						themed, R.drawable.suggestion_panel_bg);
+			if (plate != null && mTapMenuOpacity < 100) {
+				// A new copy: drawables from a resource share their constant state,
+				// so setting alpha on the one handed back would fade the suggestion
+				// bar's plate as well, everywhere, for the rest of the session.
+				plate = plate.getConstantState() == null
+						? plate : plate.getConstantState().newDrawable().mutate();
+				plate.setAlpha(Math.round(255f * mTapMenuOpacity / 100f));
+			}
+			popup.setBackgroundDrawable(plate);
 			popup.setAnimationStyle(android.R.style.Animation_Dialog);
 			// Deliberately narrower than the ⋮ menu: this one points at a word in
 			// the middle of the text and has to leave that word readable.
@@ -4318,6 +4350,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			com.resurrection.blowtorch2.lib.util.TriggerSounds.setWarnWhenSilent(
 					soundWarnOpt == null || !(soundWarnOpt.getValue() instanceof Boolean)
 						|| (Boolean) soundWarnOpt.getValue());
+			BaseOption tapMenuOpacityOpt =
+					(BaseOption) group.findOptionByKey("tap_menu_opacity");
+			mTapMenuOpacity = tapMenuOpacityOpt != null
+					&& tapMenuOpacityOpt.getValue() instanceof Integer
+						? clampOpacity((Integer) tapMenuOpacityOpt.getValue())
+						: DEFAULT_TAP_MENU_OPACITY;
 			BaseOption pairsOpt = (BaseOption) group.findOptionByKey("word_complete_pairs");
 			mWordSuggestions.setPairRanking(pairsOpt != null
 					&& pairsOpt.getValue() instanceof Boolean
