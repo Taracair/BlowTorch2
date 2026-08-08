@@ -568,6 +568,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(
 				com.resurrection.blowtorch2.lib.service.function.CompleteCommand.LONG_ALIAS_NAME,
 				completecmd);
+		com.resurrection.blowtorch2.lib.service.function.SoundCommand soundcmd =
+				new com.resurrection.blowtorch2.lib.service.function.SoundCommand();
+		mSpecialCommands.put(soundcmd.commandName, soundcmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
@@ -4915,6 +4918,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case bell_vibrate:
 				this.doSetBellVibrate((Boolean) o.getValue());
 				break;
+			case trigger_sound_stream:
+			case trigger_sound_warn_silent:
+				// Trigger sounds are played in whichever process the responder runs
+				// in, so both have to be told. This process applies it directly;
+				// the UI re-reads for its own copy, which is what the editor's
+				// test button uses.
+				applyTriggerSoundSettings();
+				mService.doExecuteRequestLoadSettings();
+				break;
 			case bell_notification:
 				this.doSetBellNotify((Boolean) o.getValue());
 				break;
@@ -5339,8 +5351,22 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * the player toggled something — a setting that saves, restores and then does
 	 * nothing until touched.
 	 */
+	/** Push the trigger-sound settings into this process's player.
+	 *
+	 * <p>{@link com.resurrection.blowtorch2.lib.util.TriggerSounds} is per process
+	 * and the responder runs here, so reading the option in the UI alone would
+	 * leave every live trigger on the default. */
+	private void applyTriggerSoundSettings() {
+		com.resurrection.blowtorch2.lib.util.TriggerSounds.setStream(
+				readIntOption("trigger_sound_stream",
+					com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM));
+		com.resurrection.blowtorch2.lib.util.TriggerSounds.setWarnWhenSilent(
+				readBooleanOption("trigger_sound_warn_silent", true));
+	}
+
 	private void applyInputAssistSettings() {
 		mWordComplete = readBooleanOption("word_complete", false);
+		applyTriggerSoundSettings();
 		// The vocabulary lives in the UI process for the life of that process, so
 		// without this a second world is offered the first one's mob names.
 		mService.doVocabularyReset();
@@ -5366,6 +5392,28 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		} catch (Exception e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
 					"Connection.readBooleanOption", e);
+		}
+		return fallback;
+	}
+
+	/** An integer or list index from the connection's own options.
+	 *
+	 * @param key The option key.
+	 * @param fallback What to use when it is missing or is not a number.
+	 * @return The stored value, or {@code fallback}.
+	 */
+	private int readIntOption(final String key, final int fallback) {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey(key);
+			if (opt instanceof BaseOption) {
+				Object val = ((BaseOption) opt).getValue();
+				if (val instanceof Integer) {
+					return ((Integer) val).intValue();
+				}
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.readIntOption", e);
 		}
 		return fallback;
 	}
@@ -5971,6 +6019,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_rank,
 		/** Let what usually follows a verb lead, after that verb. */
 		word_complete_pairs,
+		/** Which audio stream a trigger's sound action plays on. */
+		trigger_sound_stream,
+		/** Warn when that stream is turned all the way down. */
+		trigger_sound_warn_silent,
 		/** Where the chips go: floating, in a strip below the game, or nowhere. */
 		word_complete_where,
 		/** Triggers that speak keep quiet while a command is being composed. */

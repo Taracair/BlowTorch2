@@ -4305,6 +4305,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setRankByPosition(rankOpt != null
 					&& rankOpt.getValue() instanceof Boolean
 					&& (Boolean) rankOpt.getValue());
+			// Read here as well as in :stellar: TriggerSounds is per process and the
+			// editor's test button plays from this one.
+			BaseOption soundStreamOpt =
+					(BaseOption) group.findOptionByKey("trigger_sound_stream");
+			com.resurrection.blowtorch2.lib.util.TriggerSounds.setStream(
+					soundStreamOpt != null && soundStreamOpt.getValue() instanceof Integer
+						? (Integer) soundStreamOpt.getValue()
+						: com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM);
+			BaseOption soundWarnOpt =
+					(BaseOption) group.findOptionByKey("trigger_sound_warn_silent");
+			com.resurrection.blowtorch2.lib.util.TriggerSounds.setWarnWhenSilent(
+					soundWarnOpt == null || !(soundWarnOpt.getValue() instanceof Boolean)
+						|| (Boolean) soundWarnOpt.getValue());
 			BaseOption pairsOpt = (BaseOption) group.findOptionByKey("word_complete_pairs");
 			mWordSuggestions.setPairRanking(pairsOpt != null
 					&& pairsOpt.getValue() instanceof Boolean

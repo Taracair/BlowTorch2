@@ -820,6 +820,26 @@ public class ConnectionSettingsPlugin extends Plugin {
 		bell_vibrate.setValue(true);
 		bellOptions.addOption(bell_vibrate);
 		
+		ListOption trigger_sound_stream = new ListOption();
+		trigger_sound_stream.setTitle("Trigger sounds play on");
+		trigger_sound_stream.setDescription("Which volume a trigger's Play a Sound action uses. Media is the phone's game and video volume — the one the side buttons reach for — and is the default because the notification volume follows the ringer, so a silenced ringer silences your triggers. Alarm is the loudest and usually survives Do Not Disturb. .sound stream media|notification|alarm");
+		trigger_sound_stream.setKey("trigger_sound_stream");
+		// Added in this order: the values are indices into this list and they are
+		// what lands in the profile. Nothing may be inserted in the middle.
+		trigger_sound_stream.addItem("Media volume");
+		trigger_sound_stream.addItem("Notification volume");
+		trigger_sound_stream.addItem("Alarm volume");
+		trigger_sound_stream.setValue(
+				com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM);
+		bellOptions.addOption(trigger_sound_stream);
+
+		BooleanOption trigger_sound_warn = new BooleanOption();
+		trigger_sound_warn.setTitle("Say when a sound cannot be heard");
+		trigger_sound_warn.setDescription("Show a short message when a trigger plays a sound while that volume is turned all the way down. Without it the failure has no symptom at all: the trigger fires, the sound plays, and nothing comes out. At most one message every thirty seconds. .sound warn on|off");
+		trigger_sound_warn.setKey("trigger_sound_warn_silent");
+		trigger_sound_warn.setValue(true);
+		bellOptions.addOption(trigger_sound_warn);
+
 		BooleanOption bell_notification = new BooleanOption();
 		bell_notification.setTitle("Generate Notification?");
 		bell_notification.setDescription("Spawns a new notification when bell is recieved.");

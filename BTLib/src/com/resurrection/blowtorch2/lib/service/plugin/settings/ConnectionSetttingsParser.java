@@ -77,6 +77,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		cull_extraneous_color,
 		debug_telnet,
 		bell_vibrate,
+		trigger_sound_stream,
+		trigger_sound_warn_silent,
 		bell_notification,
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
 		frame_image_placement, frame_image_lines,
@@ -721,6 +723,19 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case bell_vibrate:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case trigger_sound_stream:
+						// A list, so an Integer index. Miss this case and the key is
+						// dropped as foreign and the player's choice never written.
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM) {
+							dooutput = true;
+						}
+						break;
+					case trigger_sound_warn_silent:
 						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
 						}

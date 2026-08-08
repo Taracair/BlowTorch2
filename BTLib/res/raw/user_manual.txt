@@ -593,6 +593,25 @@ the action's editor shows **MISSING** next to the name and says where the file
 should be, and the error log records it once. The fix is on the same screen —
 put the file back, or open the action and pick another sound.
 
+**Which volume it uses.** By default the **media** volume — the game-and-video
+one your phone's side buttons reach for. That is a decision with a story: the
+first build played on the *notification* volume, which follows the ringer, so a
+silenced phone meant silent triggers and no clue why. Nobody turns their ringer
+on for a game.
+
+    .sound stream media | notification | alarm
+    .sound warn on | off
+    .sound                       (what it is set to now)
+
+`alarm` is the loudest and usually gets through Do Not Disturb — for the one
+trigger you must not miss. `notification` is still there if you want trigger
+sounds to follow the ringer switch along with everything else.
+
+And because a volume turned to zero has no symptom at all — the trigger fires,
+the sound plays, nothing comes out — the app says so: a short message, at most
+one every thirty seconds, naming the volume to turn up. `.sound warn off` if you
+would rather it did not.
+
 Two numbers on that editor:
 
 - **Volume %** — how loud, 0 to 100. It plays on the notification stream, so a

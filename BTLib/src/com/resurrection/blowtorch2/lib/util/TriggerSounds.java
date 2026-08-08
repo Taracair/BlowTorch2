@@ -31,6 +31,40 @@ public final class TriggerSounds {
 	private static final int MAX_STREAMS = 4;
 
 	/**
+	 * The media stream — the one a game belongs on.
+	 *
+	 * <p>The default, and the reason is a measurement: the first build played on
+	 * the notification stream and the maintainer heard nothing at all, because a
+	 * muted ringer mutes it. Nobody turns their ringer on for a game. This is the
+	 * volume the phone's side buttons reach for while an app is in front of you.
+	 *
+	 * <p>These are indexes into the option's item list, so items are added in
+	 * this order and nothing is inserted in the middle.
+	 */
+	public static final int STREAM_MEDIA = 0;
+
+	/** The notification stream: follows the ringer and is silenced with it. */
+	public static final int STREAM_NOTIFICATION = 1;
+
+	/**
+	 * The alarm stream. Loudest and hardest to silence by accident — Do Not
+	 * Disturb usually lets it through — for the one trigger that must never be
+	 * missed.
+	 */
+	public static final int STREAM_ALARM = 2;
+
+	public static final int DEFAULT_STREAM = STREAM_MEDIA;
+
+	/** How often at most the "you cannot hear this" toast may appear. */
+	private static final long WARN_GAP_MS = 30000;
+
+	private static int sStream = DEFAULT_STREAM;
+
+	private static boolean sWarnWhenSilent = true;
+
+	private static long sLastWarned = 0;
+
+	/**
 	 * How long a sound asked for before it finished loading is still wanted.
 	 *
 	 * <p>Loading is asynchronous, so the very first firing of a sound would be
@@ -58,6 +92,119 @@ public final class TriggerSounds {
 	private static final HashMap<String, Boolean> sFailed = new HashMap<String, Boolean>();
 
 	private TriggerSounds() {
+	}
+
+	/**
+	 * Which stream trigger sounds play on.
+	 *
+	 * <p>Changing it rebuilds the pool, because {@link SoundPool} fixes its audio
+	 * attributes at construction and there is no setter. Everything the old pool
+	 * handed out goes with it: a sample id belongs to the pool that issued it, so
+	 * keeping the cache across a rebuild would play ids into a released pool and
+	 * do it silently.
+	 *
+	 * @param stream one of {@link #STREAM_MEDIA}, {@link #STREAM_NOTIFICATION},
+	 *        {@link #STREAM_ALARM}. Anything else is treated as the default.
+	 */
+	public static synchronized void setStream(final int stream) {
+		int wanted = (stream == STREAM_NOTIFICATION || stream == STREAM_ALARM)
+				? stream : DEFAULT_STREAM;
+		if (wanted == sStream && sPool != null) {
+			return;
+		}
+		sStream = wanted;
+		if (sPool != null) {
+			try {
+				sPool.release();
+			} catch (Exception e) {
+				BlowTorchLogger.logMinor("TriggerSounds.setStream", e);
+			}
+			sPool = null;
+		}
+		// Every id in here was issued by the pool just released.
+		sLoaded.clear();
+		sPending.clear();
+		sPendingVolume.clear();
+		sFailed.clear();
+	}
+
+	public static synchronized int getStream() {
+		return sStream;
+	}
+
+	/**
+	 * Whether to say so when the chosen stream is turned all the way down.
+	 *
+	 * <p>The failure this exists for has no other symptom: the trigger fires,
+	 * the code plays, and nothing comes out. It cost a session to work out once
+	 * already.
+	 *
+	 * @param on true to warn.
+	 */
+	public static synchronized void setWarnWhenSilent(final boolean on) {
+		sWarnWhenSilent = on;
+	}
+
+	/** The Android stream constant behind the current setting. */
+	private static int androidStream() {
+		if (sStream == STREAM_NOTIFICATION) {
+			return AudioManager.STREAM_NOTIFICATION;
+		}
+		if (sStream == STREAM_ALARM) {
+			return AudioManager.STREAM_ALARM;
+		}
+		return AudioManager.STREAM_MUSIC;
+	}
+
+	/** What to call it when telling the player which volume to turn up. */
+	private static String streamName() {
+		if (sStream == STREAM_NOTIFICATION) {
+			return "notification";
+		}
+		if (sStream == STREAM_ALARM) {
+			return "alarm";
+		}
+		return "media";
+	}
+
+	/**
+	 * Say so, at most every {@link #WARN_GAP_MS}, when nothing can be heard.
+	 *
+	 * <p>Asks about the stream actually in use rather than the ringer. Warning
+	 * about the ringer while playing on media would be advice that does not fix
+	 * anything, which is worse than no advice.
+	 */
+	private static void warnIfInaudible(final Context context) {
+		if (!sWarnWhenSilent) {
+			return;
+		}
+		long now = SystemClock.elapsedRealtime();
+		if (sLastWarned != 0 && now - sLastWarned < WARN_GAP_MS) {
+			return;
+		}
+		try {
+			AudioManager am = (AudioManager) context.getApplicationContext()
+					.getSystemService(Context.AUDIO_SERVICE);
+			if (am == null) {
+				return;
+			}
+			boolean silent = am.getStreamVolume(androidStream()) == 0;
+			if (!silent && sStream == STREAM_NOTIFICATION) {
+				// The notification stream is silenced by the ringer switch as
+				// well as by its own slider, and the slider still reads non-zero.
+				silent = am.getRingerMode() != AudioManager.RINGER_MODE_NORMAL;
+			}
+			if (!silent) {
+				return;
+			}
+			sLastWarned = now;
+			android.widget.Toast.makeText(context.getApplicationContext(),
+					"A trigger played a sound, but the " + streamName()
+					+ " volume is off — turn it up, or change the stream with"
+					+ " .sound stream", android.widget.Toast.LENGTH_LONG).show();
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("TriggerSounds.warnIfInaudible", e);
+		}
 	}
 
 	/**
@@ -122,6 +269,7 @@ public final class TriggerSounds {
 		}
 		float v = clamp(volume);
 		sPool.play(id.intValue(), v, v, 1, 0, 1.0f);
+		warnIfInaudible(context);
 		return true;
 	}
 
@@ -261,8 +409,16 @@ public final class TriggerSounds {
 			return;
 		}
 		if (android.os.Build.VERSION.SDK_INT >= 21) {
+			int usage;
+			if (sStream == STREAM_NOTIFICATION) {
+				usage = android.media.AudioAttributes.USAGE_NOTIFICATION;
+			} else if (sStream == STREAM_ALARM) {
+				usage = android.media.AudioAttributes.USAGE_ALARM;
+			} else {
+				usage = android.media.AudioAttributes.USAGE_MEDIA;
+			}
 			android.media.AudioAttributes attrs = new android.media.AudioAttributes.Builder()
-					.setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+					.setUsage(usage)
 					.setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
 					.build();
 			sPool = new SoundPool.Builder()
@@ -270,7 +426,7 @@ public final class TriggerSounds {
 					.setAudioAttributes(attrs)
 					.build();
 		} else {
-			sPool = new SoundPool(MAX_STREAMS, AudioManager.STREAM_NOTIFICATION, 0);
+			sPool = new SoundPool(MAX_STREAMS, androidStream(), 0);
 		}
 		sPool.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
 			@Override
