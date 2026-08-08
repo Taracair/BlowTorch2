@@ -1198,6 +1198,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// would become a verb on the suggestion strip. This adds
 						// nothing to what can be completed, only to what is known
 						// about where a word belongs in a line.
+						// Before learning, not after: reading the file replaces
+						// what is held, so a load that ran second would drop the
+						// command that had just been typed into it.
+						loadCommandKnowledge();
 						mWordSuggestions.learnCommand(pdata);
 						mCommandKnowledgeDirty = true;
 						maybeSaveCommandKnowledge();
@@ -1354,8 +1358,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					// reach another, and a per-world file provides that scoping
 					// without throwing the pairings away every time you connect.
 					mWordSuggestions.clear();
-					CommandKnowledgeStore.load(MainWindow.this,
-							getConnectionDisplay(), mWordSuggestions);
+					loadCommandKnowledge();
 					refreshWordSuggestions();
 					break;
 				case MESSAGE_PICK_COMPLETION:
@@ -3279,9 +3282,39 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		saveCommandKnowledge();
 	}
 
+	/**
+	 * Whether this world's file has been read into the completer yet.
+	 *
+	 * <p>Nothing is written before it has been. The connect-time reset is not
+	 * the only way into a session — re-entering a world the service is still
+	 * connected to sends no reset at all — and without this the first command
+	 * typed after such a start would write an empty bag over a full file and
+	 * destroy exactly what the file was for. That is how the feature failed its
+	 * first real test.
+	 */
+	private boolean mCommandKnowledgeLoaded = false;
+
+	/** Read this world's pairings in, once per world. */
+	private void loadCommandKnowledge() {
+		String world = getConnectionDisplay();
+		if (world == null || world.length() == 0) {
+			return;
+		}
+		if (mCommandKnowledgeLoaded && world.equals(mCommandKnowledgeWorld)) {
+			return;
+		}
+		CommandKnowledgeStore.load(this, world, mWordSuggestions);
+		mCommandKnowledgeWorld = world;
+		mCommandKnowledgeLoaded = true;
+		mCommandKnowledgeDirty = false;
+	}
+
+	/** Which world the loaded pairings belong to. */
+	private String mCommandKnowledgeWorld = null;
+
 	/** Write this world's pairings out, if there is anything new in them. */
 	private void saveCommandKnowledge() {
-		if (!mCommandKnowledgeDirty) {
+		if (!mCommandKnowledgeDirty || !mCommandKnowledgeLoaded) {
 			return;
 		}
 		mCommandKnowledgeDirty = false;
@@ -6356,6 +6389,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox = (BetterEditText) v;
 		mInputBox.setId(ChromeController.LEGACY_TEXT_INPUT_ID);
 		bindGhostTap();
+		// The same reason the post below exists, and the same trap: loadSettings
+		// can arrive before this field is built, and it hands its answer to the
+		// field. Nothing asked again afterwards, so a bar told it could grow was
+		// told while there was nothing to tell — and the ghost went on showing
+		// one suggestion whatever the setting said. Re-applied here, where the
+		// field finally exists.
+		mInputBox.setGhostMaxRows(mWordSuggestionsGhost ? mGhostLines - 1 : 0);
 		// loadSettings can arrive before this runs, and refreshWordSuggestions
 		// gives up with the panel hidden while mInputBox is null. Nothing else
 		// asks again until the first keystroke — so a bar told to stay put would
@@ -6364,6 +6404,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox.post(new Runnable() {
 			@Override
 			public void run() {
+				// By now the world this window belongs to is settled, which is
+				// what the file is named after. Re-entering a world the service
+				// is still connected to sends no vocabulary reset at all, so
+				// this is the only load that happens on that path.
+				loadCommandKnowledge();
 				refreshWordSuggestions();
 			}
 		});
