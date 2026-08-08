@@ -2671,7 +2671,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @return the first word, lower-cased and stripped of punctuation, or null
 	 *         when the line has not got one yet.
 	 */
-	private static String leadingVerb(final String text) {
+	static String leadingVerb(final String text) {
 		if (text == null) {
 			return null;
 		}
@@ -2696,18 +2696,29 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return b.length() == 0 ? null : b.toString().toLowerCase(java.util.Locale.US);
 	}
 
-	private static boolean isAtLineStart(final String text, final int caret,
+	static boolean isAtLineStart(final String text, final int caret,
 			final String prefix) {
 		if (text == null || prefix == null) {
 			return true;
 		}
 		int start = Math.min(caret, text.length()) - prefix.length();
 		for (int i = 0; i < start && i < text.length(); i++) {
-			if (!Character.isWhitespace(text.charAt(i))) {
+			char c = text.charAt(i);
+			// Blanks, and the punctuation a line can open with. A dot command and
+			// the ' say alias are the two the player meets daily, and counting
+			// their leading mark as "a word has already gone by" made the first
+			// word of every .command look like a target — with the half-typed
+			// word itself handed to the pairing as the verb it follows.
+			if (!Character.isWhitespace(c) && !isLineOpener(c)) {
 				return false;
 			}
 		}
 		return true;
+	}
+
+	/** Punctuation that can open a line without being a word of it. */
+	private static boolean isLineOpener(final char c) {
+		return c == '.' || c == '\'' || c == '"' || c == '#' || c == '/';
 	}
 
 	/**
