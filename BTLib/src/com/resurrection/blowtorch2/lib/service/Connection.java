@@ -2252,8 +2252,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * player reads, it is words the completer offers, and {@code WordSuggestions}
 	 * prunes to its own line window the moment it has learned them. Sending more
 	 * than that window holds is work on the UI thread whose result is thrown away.
-	 * At the default 300-line window this is roughly twice what survives. */
-	private static final int MAX_VOCABULARY_SEED_BYTES = 48 * 1024;
+	 *
+	 * <p>Sized to the default 300-line window at a typical MUD line length. A
+	 * probe on 08.08 measured a 3553-character seed costing 5 ms in {@code learn}
+	 * on the main thread; this cap is where that stays in the tens of
+	 * milliseconds rather than growing with however long the session ran. The
+	 * cost at the cap itself was not measured. */
+	private static final int MAX_VOCABULARY_SEED_BYTES = 24 * 1024;
 
 	/** Teach the completer the text that was already on screen.
 	 *
