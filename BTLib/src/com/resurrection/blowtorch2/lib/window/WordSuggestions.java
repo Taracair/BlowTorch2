@@ -708,7 +708,9 @@ public final class WordSuggestions {
 		final java.util.Map<String, Integer> paired =
 				(!atLineStart && pairRanking && leadingVerb != null)
 					? verbObjects.get(leadingVerb) : null;
-		if (favoured.isEmpty() && (paired == null || paired.isEmpty())) {
+		if (favoured.isEmpty()) {
+			// Nothing is a known target yet, and the pairing cannot lift what the
+			// object store does not hold, so there is nothing to reorder either way.
 			return;
 		}
 		List<String> rest = new ArrayList<String>(matches.size());
@@ -716,7 +718,13 @@ public final class WordSuggestions {
 		List<String> withThisVerb = new ArrayList<String>(matches.size());
 		for (int i = 0; i < matches.size(); i++) {
 			String key = matches.get(i);
-			if (paired != null && paired.containsKey(key)) {
+			// The pairing lifts only what the object store still counts as a
+			// target. The two are written together, but they are not the same
+			// size — the pair maps hold up to MAX_VERBS_PAIRED * MAX_OBJECTS_PER_VERB
+			// between them, several times MAX_ROLE_WORDS — so without this gate a
+			// word long since evicted from `objects` would be lifted past
+			// everything by a store that outlived the one meant to bound it.
+			if (paired != null && paired.containsKey(key) && favoured.contains(key)) {
 				withThisVerb.add(key);
 			} else if (favoured.contains(key)) {
 				lifted.add(key);

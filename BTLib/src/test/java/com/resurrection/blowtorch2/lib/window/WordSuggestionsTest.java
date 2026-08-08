@@ -452,6 +452,27 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void aPairingCannotOutliveTheTargetStoreThatBoundsIt() {
+		// The pair maps hold several times what the object store does
+		// (MAX_VERBS_PAIRED * MAX_OBJECTS_PER_VERB against MAX_ROLE_WORDS), so a
+		// word can fall out of `objects` while a verb's pairing still names it.
+		// Lifting it then would put a word the app no longer counts as a target
+		// at the very front, by way of a store that outlived its own gate.
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("a troll waits\na trophy hangs here\n");
+		w.learnCommand("kill troll");
+		assertEquals("troll", w.suggest("tro", 5, false, "kill").get(0));
+		// Push "troll" out of the object store, leaving the kill→troll pairing.
+		for (int i = 0; i < WordSuggestions.MAX_ROLE_WORDS + 5; i++) {
+			w.learnCommand("wear filler" + i);
+		}
+		// Back to the plain answer: newest word first, pairing silent.
+		assertEquals("trophy", w.suggest("tro", 5, false, "kill").get(0));
+	}
+
+	@Test
 	public void pairingNeverRemovesAnything() {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);
