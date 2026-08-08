@@ -159,13 +159,7 @@ several and a line each is not spent on nothing. The number you set is the most
 rows it needs, and gives them straight back — send the line and the bar is its
 normal size again before you have finished pressing.
 
-**Hold the ghost to step to the next one.** Tap takes it, hold moves on, and it
-wraps round to the start. While you are stepping the mark changes to your place
-in the list — `2/6`, `3/6` — because once you are walking, the question is
-whether you have gone past the one you wanted. This is how you reach the rest
-of the list with `.suggest where off`: `.suggest 2` cannot be typed into the
-input bar, only put on a button, so without the bar of chips the ghost is the
-only way through them.
+Tap any of them to take it, or use `.suggest 1` to `.suggest 8` from a button.
 
     .suggest learned    what your commands have taught on this world
     .suggest clear      throw all of it away, including the file

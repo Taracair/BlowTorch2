@@ -50,21 +50,10 @@ public class InputLinePositionTest {
 		// The ghost is one word by nature. A player who uses it without a bar
 		// sees one word and concludes that is all there is — which is exactly
 		// what happened, and why this mark exists.
-		assertEquals("", MainWindow.moreMark(0, 0));
-		assertEquals("", MainWindow.moreMark(1, 0));
-		assertEquals(" +1", MainWindow.moreMark(2, 0));
-		assertEquals(" +7", MainWindow.moreMark(8, 0));
-	}
-
-	@Test
-	public void steppingThroughTheGhostSaysWhereYouAre() {
-		// Holding the ghost walks the list. "+4" would not answer the question
-		// that matters once you are walking, which is whether you have gone past
-		// the one you wanted.
-		assertEquals(" 2/6", MainWindow.moreMark(6, 1));
-		assertEquals(" 6/6", MainWindow.moreMark(6, 5));
-		// Back at the top it is a count again.
-		assertEquals(" +5", MainWindow.moreMark(6, 0));
+		assertEquals("", MainWindow.moreMark(0));
+		assertEquals("", MainWindow.moreMark(1));
+		assertEquals(" +1", MainWindow.moreMark(2));
+		assertEquals(" +7", MainWindow.moreMark(8));
 	}
 
 	@Test

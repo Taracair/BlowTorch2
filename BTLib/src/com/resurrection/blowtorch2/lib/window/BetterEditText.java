@@ -307,16 +307,6 @@ public class BetterEditText extends EditText {
 	public interface GhostTapListener {
 		/** @param word the completion the ghost was standing for. */
 		void onGhostTapped(String word);
-
-		/**
-		 * Hold the ghost to see the next suggestion instead.
-		 *
-		 * <p>The ghost can only ever show one, and without a bar of chips the
-		 * others are unreachable: {@code .suggest 2} cannot be typed into the
-		 * input bar, it can only be put on a button. A player who works from the
-		 * ghost alone had one suggestion and no way to the rest.
-		 */
-		void onGhostHeld();
 	}
 
 	private GhostTapListener ghostTapListener = null;
@@ -332,9 +322,6 @@ public class BetterEditText extends EditText {
 	private int ghostRectCount = 0;
 	/** A touch that went down on the ghost, waiting to see if it is a tap. */
 	private boolean ghostTouchDown = false;
-
-	/** Set once a hold has fired, so the release is not also read as a tap. */
-	private boolean ghostHeld = false;
 
 	/** Most rows the bar will grow by to carry suggestions under the typed line. */
 	public static final int MAX_GHOST_ROWS = 5;
@@ -463,12 +450,7 @@ public class BetterEditText extends EditText {
 		// shrink again the moment a command is sent. The count is worked out
 		// here rather than while drawing, because making room is a layout and a
 		// layout must not happen inside onDraw.
-		int need = rowsNeeded();
-		android.util.Log.e("BTPROF", "[ghost] setExtras n=" + now
-				+ " maxRows=" + ghostMaxRows + " rowsNeeded=" + need
-				+ " wouldDraw=" + ghostWouldDraw() + " width=" + ghostRowWidth()
-				+ " estEnd=" + estimateGhostEndX());
-		applyGhostRowPadding(need);
+		applyGhostRowPadding(rowsNeeded());
 		invalidate();
 	}
 
@@ -660,9 +642,6 @@ public class BetterEditText extends EditText {
 			}
 		}
 
-		android.util.Log.e("BTPROF", "[ghost] onDraw extras="
-				+ (ghostExtras == null ? -1 : ghostExtras.length)
-				+ " maxRows=" + ghostMaxRows);
 		float extrasEndX = endX;
 		float extrasBaseline = endBaseline;
 		if (ghostExtras != null && ghostExtras.length > 0 && ghostMaxRows > 0) {
@@ -676,10 +655,6 @@ public class BetterEditText extends EditText {
 			// reason one routine does both.
 			int rows = packGhostExtras(canvas, lineWidth, endX, below, endBaseline,
 					ghostPaint.getFontSpacing(), originX, originY);
-			android.util.Log.e("BTPROF", "[ghost] drew rows=" + rows
-					+ " hidden=" + ghostHiddenCount + " endX=" + endX
-					+ " lineWidth=" + lineWidth + " lastX=" + ghostLastDrawnX
-					+ " padBottom=" + getPaddingBottom() + " h=" + getHeight());
 			if (ghostLastDrawnX >= 0) {
 				extrasEndX = ghostLastDrawnX;
 				extrasBaseline = ghostLastDrawnBaseline;
@@ -740,38 +715,22 @@ public class BetterEditText extends EditText {
 			case MotionEvent.ACTION_DOWN:
 				if (hitsGhost(event.getX(), event.getY())) {
 					ghostTouchDown = true;
-					startGhostHold();
 					return true;
 				}
 				break;
 			case MotionEvent.ACTION_UP:
 				if (ghostTouchDown) {
 					ghostTouchDown = false;
-					cancelGhostHold();
 					String word = ghostWordAt(event.getX(), event.getY());
-					// A release after a hold is the end of the hold, not a tap.
-					// Without this, holding to see the next suggestion would then
-					// insert it as well, which is the opposite of looking.
-					if (!ghostHeld && word != null) {
+					if (word != null) {
 						ghostTapListener.onGhostTapped(word);
 					}
-					ghostHeld = false;
-					return true;
-				}
-				break;
-			case MotionEvent.ACTION_MOVE:
-				if (ghostTouchDown && !hitsGhost(event.getX(), event.getY())) {
-					// Wandered off it. Still ours until the finger lifts, but no
-					// longer a hold on the thing it went down on.
-					cancelGhostHold();
 					return true;
 				}
 				break;
 			case MotionEvent.ACTION_CANCEL:
 				if (ghostTouchDown) {
 					ghostTouchDown = false;
-					cancelGhostHold();
-					ghostHeld = false;
 					return true;
 				}
 				break;
@@ -783,34 +742,6 @@ public class BetterEditText extends EditText {
 			}
 		}
 		return super.onTouchEvent(event);
-	}
-
-	/** Start counting towards a hold on the ghost. */
-	private void startGhostHold() {
-		cancelGhostHold();
-		ghostHeld = false;
-		ghostHoldRunnable = new Runnable() {
-			@Override
-			public void run() {
-				ghostHoldRunnable = null;
-				if (!ghostTouchDown || ghostTapListener == null) {
-					return;
-				}
-				ghostHeld = true;
-				performHapticFeedback(
-						android.view.HapticFeedbackConstants.LONG_PRESS);
-				ghostTapListener.onGhostHeld();
-			}
-		};
-		postDelayed(ghostHoldRunnable,
-				android.view.ViewConfiguration.getLongPressTimeout());
-	}
-
-	private void cancelGhostHold() {
-		if (ghostHoldRunnable != null) {
-			removeCallbacks(ghostHoldRunnable);
-			ghostHoldRunnable = null;
-		}
 	}
 
 	/**

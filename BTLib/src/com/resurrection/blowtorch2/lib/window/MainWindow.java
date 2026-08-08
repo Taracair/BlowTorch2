@@ -2655,26 +2655,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		boolean atStart = isAtLineStart(text, caret, prefix);
 		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS,
 				atStart, atStart ? null : leadingVerb(text)));
-		// The list decides where the ghost may point. Anything that changes it —
-		// another letter typed, a new line from the world — puts the ghost back
-		// on the best one, because a position held over from a different list
-		// points at a word the player never saw offered.
-		//
-		// Checked by the prefix, the size and the head rather than by comparing
-		// the whole list: this runs on every keystroke, and copying a list to
-		// compare against next time would allocate on the one path that has to
-		// stay quiet. A change that keeps all three is a change that leaves the
-		// ghost pointing somewhere still sensible.
-		String head = mWordSuggestionList.isEmpty() ? null : mWordSuggestionList.get(0);
-		if (mGhostIndex != 0
-				&& (mWordSuggestionList.size() != mGhostListSize
-					|| (head == null ? mGhostListHead != null : !head.equals(mGhostListHead))
-					|| (prefix == null ? mGhostPrefix != null : !prefix.equals(mGhostPrefix)))) {
-			mGhostIndex = 0;
-		}
-		mGhostListSize = mWordSuggestionList.size();
-		mGhostListHead = head;
-		mGhostPrefix = prefix;
 		updateGhostCompletion(prefix, mWordSuggestionList);
 		return mWordSuggestionList;
 	}
@@ -3129,11 +3109,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 */
 	private int mGhostLines = 1;
 
-	/** What the ghost's position was chosen against, cheaply enough to re-check. */
-	private int mGhostListSize = 0;
-	private String mGhostListHead = null;
-	private String mGhostPrefix = null;
-
 	/**
 	 * Marks a ghost that is a correction rather than a continuation, so a
 	 * forgiven typo does not read as letters you are about to have appended.
@@ -3166,13 +3141,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputBox.setGhostExtras(null, null);
 			return;
 		}
-		int at = mGhostIndex >= 0 && mGhostIndex < words.size() ? mGhostIndex : 0;
+		final int at = 0;
 		String top = words.get(at);
 		// With the others listed beside the ghost, the field counts what did not
 		// fit and says so itself — a "+2" written here as well would be counting
 		// words the player can already see. Only when nothing is listed does the
 		// mark have anything to tell.
-		String more = mGhostLines > 1 ? "" : moreMark(words.size(), at);
+		String more = mGhostLines > 1 ? "" : moreMark(words.size());
 		boolean continues = top.length() > prefix.length()
 				&& top.toLowerCase(java.util.Locale.US)
 						.startsWith(prefix.toLowerCase(java.util.Locale.US));
@@ -3203,10 +3178,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @param at which of them the inline ghost has.
 	 */
 	private void showGhostExtras(final java.util.List<String> words, final int at) {
-		android.util.Log.e("BTPROF", "[ghost] showExtras words=" + words.size()
-				+ " at=" + at + " ghostLines=" + mGhostLines
-				+ " ghostOn=" + mWordSuggestionsGhost
-				+ " box=" + (mInputBox == null ? "null" : "ok"));
 		if (mInputBox == null) {
 			return;
 		}
@@ -3247,16 +3218,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @param count how many suggestions there are in total.
 	 * @return the marker, or "" when the top one is the only one.
 	 */
-	static String moreMark(final int count, final int at) {
-		if (count < 2) {
-			return "";
-		}
+	static String moreMark(final int count) {
 		// Only reached with the listing off; with it on the field counts what it
 		// could not fit, which is a different and smaller number.
-		// While the player is stepping through, the mark says where they are
-		// rather than how many are left — "2/6" answers "have I gone past the
-		// one I wanted", which "+4" does not.
-		return at > 0 ? " " + (at + 1) + "/" + count : " +" + (count - 1);
+		return count > 1 ? " +" + (count - 1) : "";
 	}
 
 	/**
@@ -3380,15 +3345,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
-	/**
-	 * Which suggestion the ghost is standing for.
-	 *
-	 * <p>Zero until the player holds it. Reset whenever the list changes, so a
-	 * position chosen against one set of words is never carried onto another —
-	 * that would silently offer suggestion three of a list you have not seen.
-	 */
-	private int mGhostIndex = 0;
-
 	/** Taking the ghost is taking the suggestion it is standing for. */
 	private void bindGhostTap() {
 		if (mInputBox == null) {
@@ -3400,18 +3356,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				acceptWordSuggestion(word);
 			}
 
-			@Override
-			public void onGhostHeld() {
-				// The ghost shows one word. Held, it moves to the next, and
-				// wraps — which is the only way to the rest of the list for a
-				// player with no bar of chips, since .suggest N cannot be typed
-				// into the input bar.
-				if (mWordSuggestionList.size() < 2) {
-					return;
-				}
-				mGhostIndex = (mGhostIndex + 1) % mWordSuggestionList.size();
-				refreshWordSuggestions();
-			}
 		});
 	}
 

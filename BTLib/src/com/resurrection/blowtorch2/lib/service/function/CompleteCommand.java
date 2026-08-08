@@ -94,9 +94,8 @@ public class CompleteCommand extends SpecialCommand {
 			return setFlag(arg.substring("ghost".length()).trim(), c, GHOST_KEY,
 					"The rest of the top suggestion is now drawn after the cursor."
 						+ " It is drawn only — what you send is what you typed."
-						+ " Tap it to take it, hold it to step to the next"
-						+ " suggestion; a +N or a 2/6 on the end says how many"
-						+ " there are and where you are among them.",
+						+ " Tap it to take it. With .suggest ghostlines above 1 the"
+						+ " others are listed beside it, each one tappable too.",
 					"No suggestion drawn after the cursor.");
 		}
 		if (arg.startsWith("persist")) {
