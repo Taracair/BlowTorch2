@@ -74,6 +74,17 @@ public class StellarService extends Service {
 	/** How often to refresh connection-duration on the foreground notification. */
 	private static final int DURATION_REFRESH_MS = 30000;
 	private static final int MESSAGE_REFRESH_DURATION = 100;
+	/** Coalesced "the foreground activity should re-read its options". */
+	private static final int MESSAGE_ASK_LOADSETTINGS = 101;
+	/**
+	 * How long a re-read request waits for the ones behind it.
+	 *
+	 * <p>Short enough that a setting the player just changed still applies while
+	 * their finger is on the screen, long enough to swallow a burst: the bursts
+	 * measured were a key every few milliseconds, all inside 2 s of each other
+	 * only because each broadcast was being paid for in full.
+	 */
+	private static final int ASK_LOADSETTINGS_COALESCE_MS = 60;
 	/** The starting value for the notification id counter. */
 	private static final int NOTIFICATION_START_VALUE = 100;
 	/** Jedyne ID powiadomienia foreground (ongoing). */
@@ -268,6 +279,9 @@ public class StellarService extends Service {
 						active.getHandler().sendEmptyMessage(Connection.MESSAGE_STARTUP);
 					}
 				}
+				break;
+			case MESSAGE_ASK_LOADSETTINGS:
+				doBroadcastLoadSettings();
 				break;
 			case MESSAGE_REFRESH_DURATION:
 				refreshConnectedNotificationDuration();
@@ -1800,8 +1814,44 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
-	/** Ask the foreground activity to re-read connection options (e.g. floating buttons). */
+	/**
+	 * Ask the foreground activity to re-read connection options (e.g. floating
+	 * buttons), coalescing the requests that arrive together.
+	 *
+	 * <p><b>Measured, 8 August, entering a world on the phone.</b> Loading a
+	 * profile ends in {@code Connection.initSetting}, which walks the whole
+	 * settings tree and calls {@code updateSetting} for every key; twelve of
+	 * those keys ask for this broadcast. The UI answered each one by calling
+	 * {@code getSettings} and applying everything again — {@code setupEditor},
+	 * {@code imm.restartInput}, the suggestion bar, the extra-text overlays.
+	 * Twelve passes at ~160 ms each: <b>1.9 s of solid main-thread work</b> right
+	 * after the game window appeared, logged as {@code Skipped 192 frames}.
+	 *
+	 * <p>The parcel was never the problem — {@code getSettings} measured 7-11 ms.
+	 * Applying the same settings twelve times was.
+	 *
+	 * <p><b>Why coalescing cannot lose a change, which is the question worth
+	 * asking:</b> this carries no payload. It says "re-read", and the reader
+	 * reads the whole tree from the service's live state. Twelve of them and one
+	 * of them therefore end in the same place, as long as the one lands after the
+	 * last change — which a delayed message on this handler does, because every
+	 * {@code updateSetting} has already written its value into that state before
+	 * asking. What a player can notice is a setting applying up to
+	 * {@link #ASK_LOADSETTINGS_COALESCE_MS} later than it used to.
+	 */
 	public final void doExecuteRequestLoadSettings() {
+		if (mHandler == null) {
+			// Before onCreate finished. Nothing has registered a callback yet
+			// either, so the broadcast below would reach nobody.
+			return;
+		}
+		mHandler.removeMessages(MESSAGE_ASK_LOADSETTINGS);
+		mHandler.sendEmptyMessageDelayed(MESSAGE_ASK_LOADSETTINGS,
+				ASK_LOADSETTINGS_COALESCE_MS);
+	}
+
+	/** The broadcast itself, once the burst has stopped arriving. */
+	private void doBroadcastLoadSettings() {
 		int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
