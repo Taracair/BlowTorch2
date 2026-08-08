@@ -87,6 +87,25 @@ session said. Counting words instead would mean a quiet hour of a few lines kept
 names from hours ago alive, while one wide room description threw out everything
 you were just looking at.
 
+**Whole names, not just the first word.** `.suggest phrases on` — **off by
+default** — offers the words that followed as well. After
+
+    A grizzled cave troll lumbers in.
+
+typing `gri` offers `grizzled cave troll` first and plain `grizzled` right under
+it, so a three-word mob is one tap instead of three. Take whichever you meant.
+
+Three words at most, and never past the end of a line. There is nothing here
+that knows where a name stops and the sentence carries on — that would need a
+dictionary of English grammar, which is tens of megabytes for a language MUDs
+barely speak — so the cap is what keeps `lumbers` out of the name. Short words
+break a phrase rather than being skipped: `a sword of power` offers `sword`, not
+`sword power`, because the world never said that.
+
+If a name shows up somewhere else, the phrase follows it: after
+`a gnarled iron gate`, `gnar` stops offering `gnarled oaken staff` and starts
+offering `gnarled iron gate`.
+
 **When you mistype it.** `.suggest loose on` adds a second pass: if the exact
 spelling finds nothing, a word whose letters you typed *in order, with gaps* is
 offered instead. `grzld` finds `grizzled`. It only ever runs after an exact

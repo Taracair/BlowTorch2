@@ -27,6 +27,7 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String LINES_KEY = "word_complete_lines";
 	public static final String WHERE_KEY = "word_complete_where";
 	public static final String LOOSE_KEY = "word_complete_loose";
+	public static final String PHRASES_KEY = "word_complete_phrases";
 	public static final String GHOST_KEY = "word_complete_ghost";
 	public static final String PERSIST_KEY = "word_complete_persist";
 	public static final String OPACITY_KEY = "word_complete_opacity";
@@ -71,6 +72,14 @@ public class CompleteCommand extends SpecialCommand {
 					"Typos forgiven: grzld now finds grizzled when the exact"
 						+ " spelling finds nothing.",
 					"Exact spelling only.");
+		}
+		if (arg.startsWith("phrases")) {
+			return setFlag(arg.substring("phrases".length()).trim(), c, PHRASES_KEY,
+					"Whole names offered: after a grizzled cave troll walks in, gri"
+						+ " now offers \"grizzled cave troll\" first and plain"
+						+ " \"grizzled\" under it. Up to three words, and never past"
+						+ " the end of a line.",
+					"Single words only.");
 		}
 		if (arg.startsWith("ghost")) {
 			return setFlag(arg.substring("ghost".length()).trim(), c, GHOST_KEY,
@@ -132,10 +141,11 @@ public class CompleteCommand extends SpecialCommand {
 					+ (where(c) == WordSuggestions.WHERE_NONE ? ""
 						: ", " + (flagOn(c, PERSIST_KEY)
 							? "always up" : "up only when it has something"))
+					+ ".\nWhole names " + (flagOn(c, PHRASES_KEY) ? "offered" : "not offered")
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
-					+ " loose/ghost/persist on|off, opacity N\n");
+					+ " phrases/loose/ghost/persist on|off, opacity N\n");
 			return null;
 		}
 		c.sendDataToWindow(getErrorMessage("Suggestions usage:",
@@ -143,6 +153,8 @@ public class CompleteCommand extends SpecialCommand {
 				+ ".suggest off      — stop\n"
 				+ ".suggest lines N  — how far back counts as recent (0 = all session)\n"
 				+ ".suggest 1.." + MAX_PICK + "     — take that suggestion off the bar\n"
+				+ ".suggest phrases on|off  — offer whole names: gri gives\n"
+				+ "                           \"grizzled cave troll\", not just \"grizzled\"\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
 				+ ".suggest where floating|bar|off — where the bar of chips goes,\n"

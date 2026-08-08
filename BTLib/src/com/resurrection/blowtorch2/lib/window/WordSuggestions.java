@@ -121,10 +121,37 @@ public final class WordSuggestions {
 	/** Below this many typed characters, everything matches and nothing helps. */
 	public static final int MIN_PREFIX_LENGTH = 2;
 
-	/** A word as it was spelled, and the line it was last seen on. */
+	/**
+	 * Most words a phrase may run to, the first one included.
+	 *
+	 * <p>Three, because that is what a MUD name costs — "grizzled cave troll",
+	 * "gnarled oaken staff". Four starts swallowing the verb after the name, and
+	 * there is nothing here that knows where a name ends: that would be grammar,
+	 * and a part-of-speech tagger was weighed and rejected as tens of megabytes
+	 * of English a MUD does not speak.
+	 */
+	public static final int PHRASE_MAX_WORDS = 3;
+
+	/**
+	 * A partial word held back across a chunk boundary can only be a word.
+	 * Past this it is a wall of letters — a banner, an ASCII map row — and
+	 * holding it would keep swallowing the chunk after it.
+	 */
+	private static final int MAX_PENDING_LENGTH = 64;
+
+	/** A word as it was spelled, the line it was last seen on, and what followed. */
 	private static final class Seen {
 		private final String spelling;
 		private final int line;
+		/**
+		 * The key of the word that last came immediately after this one, or null.
+		 *
+		 * <p>Mutable, unlike the rest: the successor is only known once the next
+		 * word arrives, which is after this entry exists. Re-seeing a word makes a
+		 * fresh entry, so a name that moves to a new neighbour forgets the old one
+		 * rather than keeping both.
+		 */
+		private String next;
 
 		Seen(final String spelling, final int line) {
 			this.spelling = spelling;
@@ -161,6 +188,29 @@ public final class WordSuggestions {
 
 	/** Fall back to a letters-in-order match when the exact prefix finds nothing. */
 	private boolean looseMatching = false;
+
+	/** Offer the words that followed, not only the word itself. */
+	private boolean phrases = false;
+
+	/**
+	 * The tail of the last chunk when it stopped in the middle of a word.
+	 *
+	 * <p>Text arrives here as whole TCP chunks, so a word can be cut in half by
+	 * the network: {@code "a griz"} then {@code "zled troll"}. Learned as they
+	 * fall, that teaches "griz" and drops "zled" for being short — a word the
+	 * world never said, offered back to the player. Held instead and glued to
+	 * the front of the next chunk.
+	 */
+	private String pending = "";
+
+	/**
+	 * The word a phrase would continue from, or null when it may not continue.
+	 *
+	 * <p>Cleared at a line end and at every word that is not stored — a short
+	 * one, a number. Without that, "a sword of power" would join "sword" to
+	 * "power" across the dropped "of" and offer a thing that was never written.
+	 */
+	private String lastKey = null;
 
 	public WordSuggestions() {
 		this(DEFAULT_MAX_WORDS);
@@ -202,6 +252,25 @@ public final class WordSuggestions {
 		return looseMatching;
 	}
 
+	/**
+	 * Whether a match also offers the words that followed it.
+	 *
+	 * <p>Off by default: with it on the top suggestion for a prefix changes from
+	 * a word to a phrase, and that is the sort of change a player has to ask for.
+	 * On, {@code gri} offers "grizzled cave troll" above "grizzled" — the phrase
+	 * first, because typing the rest of a mob's name on a phone is the thing this
+	 * exists to save, and the plain word stays right underneath it.
+	 *
+	 * @param on true to offer phrases.
+	 */
+	public void setPhrases(final boolean on) {
+		this.phrases = on;
+	}
+
+	public boolean isPhrases() {
+		return phrases;
+	}
+
 	/** How many lines the world has sent since this completer started. */
 	public int linesSeen() {
 		return linesSeen;
@@ -218,20 +287,30 @@ public final class WordSuggestions {
 		if (text == null || text.length() == 0) {
 			return;
 		}
+		String work = pending.length() > 0 ? pending + text : text;
+		pending = "";
 		int start = -1;
-		for (int i = 0; i <= text.length(); i++) {
-			char c = i < text.length() ? text.charAt(i) : '\n';
-			boolean part = i < text.length() && isWordChar(c);
+		for (int i = 0; i <= work.length(); i++) {
+			char c = i < work.length() ? work.charAt(i) : '\n';
+			boolean part = i < work.length() && isWordChar(c);
 			if (part && start < 0) {
 				start = i;
 			} else if (!part && start >= 0) {
-				addWord(text.substring(start, i));
+				if (i == work.length() && work.length() - start <= MAX_PENDING_LENGTH) {
+					// The chunk stopped in the middle of a word. Whatever the rest
+					// of it is, it is in the next packet.
+					pending = work.substring(start);
+				} else {
+					lastKey = addWord(work.substring(start, i));
+				}
 				start = -1;
 			}
 			// After the word closes: a word ending at the newline still belongs
 			// to the line it ended.
-			if (i < text.length() && c == '\n') {
+			if (i < work.length() && c == '\n') {
 				linesSeen++;
+				// A phrase never runs past the end of a line.
+				lastKey = null;
 			}
 		}
 		prune();
@@ -259,9 +338,15 @@ public final class WordSuggestions {
 		return Character.isLetterOrDigit(c) || c == '\'' || c == '-';
 	}
 
-	private void addWord(final String raw) {
+	/**
+	 * Store one word.
+	 *
+	 * @return its key, or null when it was not worth storing — which is also the
+	 *         signal that a phrase may not run through this position.
+	 */
+	private String addWord(final String raw) {
 		if (raw.length() < MIN_WORD_LENGTH) {
-			return;
+			return null;
 		}
 		// All-digits is a number, not a name: "1234" completes nothing useful
 		// and pushes real words out of a bounded store.
@@ -273,7 +358,7 @@ public final class WordSuggestions {
 			}
 		}
 		if (!anyLetter) {
-			return;
+			return null;
 		}
 		String key = raw.toLowerCase(Locale.US);
 		// Remove before put so a word seen again moves to the newest end rather
@@ -281,7 +366,14 @@ public final class WordSuggestions {
 		// a name the world keeps repeating never falls out of the window.
 		words.remove(key);
 		words.put(key, new Seen(raw, linesSeen));
+		if (lastKey != null && !lastKey.equals(key)) {
+			Seen before = words.get(lastKey);
+			if (before != null) {
+				before.next = key;
+			}
+		}
 		lastWordLine = linesSeen;
+		return key;
 	}
 
 	/**
@@ -306,11 +398,26 @@ public final class WordSuggestions {
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
 			// Not the word you have already finished typing.
 			if (e.getKey().length() > needle.length() && e.getKey().startsWith(needle)) {
-				matches.add(e.getValue().spelling);
+				matches.add(e.getKey());
 			}
 		}
 		for (int i = matches.size() - 1; i >= 0 && out.size() < max; i--) {
-			out.add(matches.get(i));
+			String key = matches.get(i);
+			if (phrases) {
+				String phrase = phraseFrom(key);
+				// Above its own single word: the phrase is the part that is slow
+				// to type, and the word is one tap further down if that is all
+				// that was wanted.
+				if (phrase != null && out.size() < max) {
+					out.add(phrase);
+				}
+			}
+			if (out.size() < max) {
+				Seen s = words.get(key);
+				if (s != null) {
+					out.add(s.spelling);
+				}
+			}
 		}
 		if (out.isEmpty() && looseMatching
 				&& needle.length() >= MIN_LOOSE_PREFIX_LENGTH) {
@@ -344,6 +451,36 @@ public final class WordSuggestions {
 		}
 	}
 
+	/**
+	 * The word and what followed it, up to {@link #PHRASE_MAX_WORDS}.
+	 *
+	 * <p>Stops early at a word that has fallen out of the window, so a phrase can
+	 * never name something the player can no longer see, and at a word already in
+	 * this phrase — "sword sword" repeated would otherwise chase its own tail.
+	 *
+	 * @return the phrase, or null when nothing followed and it would only be the
+	 *         word again.
+	 */
+	private String phraseFrom(final String key) {
+		StringBuilder out = new StringBuilder();
+		java.util.HashSet<String> used = new java.util.HashSet<String>();
+		String at = key;
+		int count = 0;
+		while (at != null && count < PHRASE_MAX_WORDS && used.add(at)) {
+			Seen s = words.get(at);
+			if (s == null) {
+				break;
+			}
+			if (count > 0) {
+				out.append(' ');
+			}
+			out.append(s.spelling);
+			at = s.next;
+			count++;
+		}
+		return count >= 2 ? out.toString() : null;
+	}
+
 	/** Do the letters of {@code needle} appear in {@code word}, in order? */
 	private static boolean isSubsequence(final String needle, final String word) {
 		if (word.length() <= needle.length()) {
@@ -366,6 +503,8 @@ public final class WordSuggestions {
 		words.clear();
 		linesSeen = 0;
 		lastWordLine = 0;
+		pending = "";
+		lastKey = null;
 	}
 
 	public int size() {

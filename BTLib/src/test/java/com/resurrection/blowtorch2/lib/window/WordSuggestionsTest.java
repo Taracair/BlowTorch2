@@ -1,6 +1,7 @@
 package com.resurrection.blowtorch2.lib.window;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
@@ -248,5 +249,109 @@ public class WordSuggestionsTest {
 	public void anOutOfRangeCaretIsClamped() {
 		assertEquals("kill ", WordSuggestions.complete("k", 99, "kill").text());
 		assertEquals("kill k", WordSuggestions.complete("k", -1, "kill").text());
+	}
+
+	// --- Phrases (C1). Off by default, so every test above still describes
+	// --- exactly what a player who has not asked for this gets.
+
+	@Test
+	public void phrasesAreOffUntilAskedFor() {
+		WordSuggestions w = new WordSuggestions();
+		assertFalse(w.isPhrases());
+		w.learn("A grizzled cave troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("gri", 5));
+	}
+
+	@Test
+	public void aPhraseOffersTheWholeNameAndThenTheWordAlone() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("A grizzled cave troll lumbers in.\n");
+		// The phrase first: that is the part which is slow to type on a phone.
+		// Capped at three words, so the verb after the name is not swallowed.
+		assertEquals(java.util.Arrays.asList("grizzled cave troll", "grizzled"),
+				w.suggest("gri", 5));
+	}
+
+	@Test
+	public void aPhraseNeverRunsPastTheEndOfALine() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("gnarled oaken\nstaff of power\n");
+		assertEquals(java.util.Arrays.asList("gnarled oaken", "gnarled"),
+				w.suggest("gnar", 5));
+	}
+
+	@Test
+	public void aDroppedShortWordBreaksThePhraseRatherThanBeingSkipped() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		// "of" is below MIN_WORD_LENGTH and is not stored. Joining across it
+		// would offer "sword power", which the world never said.
+		w.learn("a sword of power\n");
+		assertEquals(java.util.Arrays.asList("sword"), w.suggest("swo", 5));
+	}
+
+	@Test
+	public void aWordCutInHalfByThePacketBoundaryIsStillLearnedWhole() {
+		WordSuggestions w = new WordSuggestions();
+		// Text arrives as TCP chunks, so this is one line split in two.
+		w.learn("A griz");
+		w.learn("zled cave troll lumbers in.\n");
+		// Not "griz", which is what learning each chunk on its own would teach.
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("gri", 5));
+	}
+
+	@Test
+	public void aPhraseSurvivesThePacketBoundaryToo() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("A grizzled ca");
+		w.learn("ve troll lumbers in.\n");
+		assertEquals(java.util.Arrays.asList("grizzled cave troll", "grizzled"),
+				w.suggest("gri", 5));
+	}
+
+	@Test
+	public void aWordSeenAgainElsewhereTakesItsNewNeighbour() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("gnarled oaken staff\n");
+		w.learn("gnarled iron gate\n");
+		assertEquals(java.util.Arrays.asList("gnarled iron gate", "gnarled"),
+				w.suggest("gnar", 5));
+	}
+
+	@Test
+	public void aWordSeenAgainForgetsWhatUsedToFollowIt() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		// "mirror" is seen twice on this line and the second sighting is the
+		// end of it, so nothing follows it any more. The old successor is not
+		// kept: it would offer "mirror image" for a mirror that is now on its
+		// own, and it is also what would let a phrase loop back into itself.
+		w.learn("mirror image mirror\n");
+		assertEquals(java.util.Arrays.asList("mirror"), w.suggest("mirr", 5));
+		// Say it again with something after it and the phrase comes back.
+		w.learn("mirror shield\n");
+		assertEquals("mirror shield", w.suggest("mirr", 5).get(0));
+	}
+
+	@Test
+	public void thePhraseIsWhatGoesIntoTheInputBar() {
+		// complete() takes whatever was picked, so a phrase lands as one piece.
+		WordSuggestions.Completion c =
+				WordSuggestions.complete("k gri", 5, "grizzled cave troll");
+		assertEquals("k grizzled cave troll ", c.text());
+	}
+
+	@Test
+	public void clearingForgetsThePhrasesToo() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("grizzled cave troll\n");
+		w.clear();
+		w.learn("grizzled\n");
+		assertEquals(java.util.Arrays.asList("grizzled"), w.suggest("gri", 5));
 	}
 }

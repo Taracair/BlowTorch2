@@ -4185,6 +4185,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mWordSuggestions.setLooseMatching(looseOpt != null
 					&& looseOpt.getValue() instanceof Boolean
 					&& (Boolean) looseOpt.getValue());
+			BaseOption phrasesOpt = (BaseOption) group.findOptionByKey("word_complete_phrases");
+			mWordSuggestions.setPhrases(phrasesOpt != null
+					&& phrasesOpt.getValue() instanceof Boolean
+					&& (Boolean) phrasesOpt.getValue());
 			BaseOption whereOpt =
 					(BaseOption) group.findOptionByKey("word_complete_where");
 			mWordSuggestionsWhere = whereOpt != null

@@ -175,6 +175,16 @@ public class ConnectionSettingsPlugin extends Plugin {
 		word_complete_loose.setValue(false);
 		suggestions.addOption(word_complete_loose);
 
+		BooleanOption word_complete_phrases = new BooleanOption();
+		word_complete_phrases.setTitle("Offer whole names");
+		word_complete_phrases.setDescription("Offer the words that followed too, up to three: after a grizzled cave troll walks in, typing gri offers \"grizzled cave troll\" above plain \"grizzled\". Off, you get single words only, which is what this has always done. .suggest phrases on/off");
+		word_complete_phrases.setKey("word_complete_phrases");
+		// Off by default: on, the top suggestion for a prefix stops being a word
+		// and becomes a phrase, and the ghost draws it. Change this and the
+		// comparison in ConnectionSetttingsParser together.
+		word_complete_phrases.setValue(false);
+		suggestions.addOption(word_complete_phrases);
+
 		BooleanOption word_complete_ghost = new BooleanOption();
 		word_complete_ghost.setTitle("Ghost after the cursor");
 		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. .suggest ghost on/off");

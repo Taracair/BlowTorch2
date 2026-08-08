@@ -56,6 +56,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete,
 		word_complete_lines,
 		word_complete_loose,
+		word_complete_phrases,
 		word_complete_ghost,
 		word_complete_persist,
 		word_complete_where,
@@ -519,6 +520,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case word_complete_loose:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_phrases:
+						// Default is false; see ConnectionSettingsPlugin.
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}

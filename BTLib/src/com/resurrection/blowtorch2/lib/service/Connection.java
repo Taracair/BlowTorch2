@@ -4792,6 +4792,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case word_complete_lines:
 			case word_complete_loose:
+			case word_complete_phrases:
 			case word_complete_ghost:
 			case word_complete_persist:
 			case word_complete_where:
@@ -5896,6 +5897,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_lines,
 		/** Forgive typos when the exact prefix finds nothing. */
 		word_complete_loose,
+		word_complete_phrases,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
 		/** Keep the floating suggestion bar up even when it is empty. */
