@@ -1160,6 +1160,9 @@ is enabled; `.alias list` shows every alias at once.
     `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
     `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. The next change from the server wins
+    `.help [word]` / `.commands`        Every dot command, one line each, grouped by what it is for. With a word, only the ones whose name contains it. Built from the commands the app actually has, so nothing can go missing from it
+    `.sound …`                          Which volume a trigger's Play a Sound action uses (`stream media|notification|alarm`), and whether to say so when that volume is off (`warn on|off`). No argument prints the current setting
+    `.tapmenu opacity <20-100>`         How solid the little menu a tapped word opens is. Only the backing fades; the commands stay readable. Also Options → Miscellaneous
     `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. This is how a trigger makes a noise; see "Making a trigger make a noise"
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
@@ -1173,6 +1176,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
+    `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` `on|off`, `ghostlines N`, `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
