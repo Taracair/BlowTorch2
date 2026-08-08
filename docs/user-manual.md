@@ -497,6 +497,31 @@ Variable** responder or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
 (session only). Use `${name}` in alias or action text — variables are not
 typed into the trigger pattern.
 
+### Making a trigger make a noise
+
+Two ways, and they answer different questions.
+
+**Speak it.** Give the trigger a **Speak** action and it says the line out loud.
+Good for something you need the words of — a tell, a name, a number. It runs in
+the connection service, so it is heard with the game in the background and the
+screen off. Speech is queued three deep and the newest wins, so a fight does not
+put you a minute behind; and it stays quiet from the first letter of a command
+until you send it, unless you turn that off in Options → Input.
+
+**Ring the bell.** Give the trigger a **Script** action of `.dobell` and it fires
+the bell reaction — whichever of vibrate, notification and the on-screen bell are
+turned on in **Options → Bell**. Better than speech in combat for one reason:
+a buzz is over in a moment and a sentence is not, and a MUD can print six lines
+a second.
+
+    Pattern:  ^\w+ tells you
+    Action:   Script → .dobell
+
+What the bell cannot do yet: it is **one reaction for the whole profile**, so
+every trigger that rings it sounds the same, and it plays the system
+notification sound rather than a sound file of your choosing. A per-trigger
+sound is a separate feature and is not built.
+
 ## Recipes
 
 Worked examples. Each one is a complete thing you can build; the field names
@@ -919,7 +944,7 @@ is enabled; `.alias list` shows every alias at once.
     `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
     `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. The next change from the server wins
-    `.dobell`                           Fire configured bell reaction
+    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. This is how a trigger makes a noise; see "Making a trigger make a noise"
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
