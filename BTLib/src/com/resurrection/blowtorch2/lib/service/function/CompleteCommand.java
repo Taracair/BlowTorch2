@@ -318,6 +318,16 @@ public class CompleteCommand extends SpecialCommand {
 	 * not worth a new round trip on a path that has to stay quiet.
 	 */
 	private Object showLearned(Connection c) {
+		if (c == null || c.getServiceContext() == null) {
+			// Said out loud rather than reported as an empty bag. "Nothing
+			// learned" and "could not look" read identically to a player and
+			// mean opposite things.
+			if (c != null) {
+				c.sendDataToWindow("\nCould not read what this world has taught"
+						+ " — the service is not up.\n");
+			}
+			return null;
+		}
 		com.resurrection.blowtorch2.lib.window.WordSuggestions w =
 				new com.resurrection.blowtorch2.lib.window.WordSuggestions();
 		com.resurrection.blowtorch2.lib.window.CommandKnowledgeStore.load(

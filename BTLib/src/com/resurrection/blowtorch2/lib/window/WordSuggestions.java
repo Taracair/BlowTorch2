@@ -736,7 +736,11 @@ public final class WordSuggestions {
 			return;
 		}
 		if (withThisVerb.size() > 1) {
-			// Read back to front, so the most-used pairing has to end up last.
+			// Read back to front, so the most-used pairing has to end up last:
+			// ascending here means most-used first in the answer. The opposite of
+			// the comparator in describeLearned, which sorts for a person reading
+			// a list top-down and therefore puts most-used first directly. Both
+			// are right; neither is a copy of the other to be "corrected".
 			// A stable sort, so two things done equally often keep the order they
 			// already had, which is newest-said-first.
 			final java.util.Map<String, Integer> counts = paired;
@@ -965,7 +969,9 @@ public final class WordSuggestions {
 				continue;
 			}
 			List<String> targets = new ArrayList<String>(seen.keySet());
-			// Most-used first, which is the order the ranking itself uses.
+			// Most-used first, read top-down by a person. rankByPosition sorts the
+			// same map the other way round because its list is read back to front
+			// — see the note there before changing either.
 			final LinkedHashMap<String, Integer> counts = seen;
 			java.util.Collections.sort(targets, new java.util.Comparator<String>() {
 				@Override
