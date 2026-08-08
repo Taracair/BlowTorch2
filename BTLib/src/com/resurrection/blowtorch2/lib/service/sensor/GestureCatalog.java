@@ -40,6 +40,13 @@ public final class GestureCatalog {
 	public static final String BY_LIGHT = "light";
 	public static final String BY_LINEAR_ACCELERATION = "linear";
 	public static final String BY_ACCELEROMETER = "accelerometer";
+	public static final String BY_GRAVITY = "gravity";
+	/**
+	 * Not a sensor at all: something the system announces to every app, like a
+	 * headphone jack or a charger. These work on every phone ever made, which
+	 * makes them the portable half of this feature.
+	 */
+	public static final String BY_SYSTEM = "system";
 
 	/** One gesture: what the player picks, and how it might be measured. */
 	public static final class Gesture {
@@ -99,10 +106,37 @@ public final class GestureCatalog {
 					+ " different gesture from a wave, told apart by time rather"
 					+ " than by how hard you did it.",
 				BY_PROXIMITY));
+		all.add(new Gesture("facedown", "Put the phone face down",
+				"Lay the phone screen-down on a table. The classic \"I am stepping"
+					+ " away\" — send afk, hush the speech, stop the timers.",
+				BY_GRAVITY, BY_ACCELEROMETER));
+		all.add(new Gesture("faceup", "Turn the phone face up again",
+				"The other half of face down: you picked it back up and turned it"
+					+ " over. Send afk off, start talking again.",
+				BY_GRAVITY, BY_ACCELEROMETER));
 		all.add(new Gesture("shake", "Shake the phone",
 				"Shake the phone the way you would to get out of a fight. Needs the"
 					+ " screen on, and a threshold that suits how you shake.",
 				BY_LINEAR_ACCELERATION, BY_ACCELEROMETER));
+		// The system events. No sensor, no battery cost, and — unlike everything
+		// above — no phone anywhere is missing them, so a profile built on these
+		// works for whoever it is sent to.
+		all.add(new Gesture("headphonesout", "Unplug the headphones",
+				"The jack came out. Hush anything that speaks, before the room"
+					+ " hears your MUD.",
+				BY_SYSTEM));
+		all.add(new Gesture("headphonesin", "Plug the headphones in",
+				"Sound is private again.", BY_SYSTEM));
+		all.add(new Gesture("powerin", "Plug the charger in",
+				"Settling in for a long session.", BY_SYSTEM));
+		all.add(new Gesture("powerout", "Unplug the charger",
+				"Off the charger and on the clock.", BY_SYSTEM));
+		all.add(new Gesture("screenoff", "The screen goes off",
+				"The phone locked or timed out. You are not reading the game any"
+					+ " more, whatever the connection thinks.",
+				BY_SYSTEM));
+		all.add(new Gesture("screenon", "The screen comes back",
+				"You are looking at it again.", BY_SYSTEM));
 		ALL = Collections.unmodifiableList(all);
 	}
 

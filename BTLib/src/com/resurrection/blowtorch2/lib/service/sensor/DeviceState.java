@@ -29,6 +29,11 @@ public final class DeviceState {
 	public static final String KEY_BATTERY = "device.battery";
 	public static final String KEY_SCREEN = "device.screen";
 	public static final String KEY_COVERED = "device.covered";
+	public static final String KEY_FACING = "device.facing";
+
+	public static final String UNKNOWN = "unknown";
+	public static final String UP = "up";
+	public static final String DOWN = "down";
 
 	public static final String YES = "yes";
 	public static final String NO = "no";
@@ -66,6 +71,11 @@ public final class DeviceState {
 
 	public boolean setCovered(final boolean covered) {
 		return put(KEY_COVERED, covered ? YES : NO);
+	}
+
+	/** Which way up the phone is lying, when it is lying flat enough to tell. */
+	public boolean setFacing(final String facing) {
+		return put(KEY_FACING, facing);
 	}
 
 	/** Battery as a whole percent. Out-of-range readings are ignored. */

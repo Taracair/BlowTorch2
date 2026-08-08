@@ -75,4 +75,27 @@ public class GestureCatalogTest {
 				GestureCatalog.BY_PROXIMITY, GestureCatalog.BY_LIGHT),
 				GestureCatalog.byId("wave").getProviders());
 	}
+
+	@Test
+	public void theSystemEventsNeedNoSensorAtAll() {
+		// The portable half: a profile built on these works on any phone, which
+		// is not true of anything measured by hardware.
+		for (String id : new String[] {"headphonesout", "headphonesin", "powerin",
+				"powerout", "screenon", "screenoff"}) {
+			GestureCatalog.Gesture g = GestureCatalog.byId(id);
+			assertNotNull(id, g);
+			assertTrue(id + " should be a system event",
+					g.getProviders().contains(GestureCatalog.BY_SYSTEM));
+		}
+	}
+
+	@Test
+	public void faceDownAndFaceUpAreTwoGesturesNotOneToggle() {
+		// Separate on purpose: "I put the phone down" and "I picked it up" want
+		// different commands, and a single gesture would make the player write a
+		// script to tell them apart.
+		assertNotNull(GestureCatalog.byId("facedown"));
+		assertNotNull(GestureCatalog.byId("faceup"));
+		assertEquals("!facedown", GestureCatalog.byId("facedown").getPattern());
+	}
 }

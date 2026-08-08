@@ -1384,7 +1384,23 @@ The gestures:
 |---|---|---|
 | `wave` | Pass a hand over the top of the screen and away | Proximity, or the light sensor if there is none |
 | `cover` | Cover the top of the screen and hold it there a second | Proximity |
+| `facedown` | Lay the phone screen-down on a table | Gravity, or the accelerometer |
+| `faceup` | Turn it back over | Gravity, or the accelerometer |
 | `shake` | Shake the phone, as you would to flee a fight | Linear acceleration, or the accelerometer |
+| `headphonesout` / `headphonesin` | Unplug or plug in the headphones | The system tells us |
+| `powerout` / `powerin` | Unplug or plug in the charger | The system tells us |
+| `screenoff` / `screenon` | The screen locks, or comes back | The system tells us |
+
+The last six need **no sensor at all** — the system announces them to every app.
+They work on every phone, so a profile built on those is one you can hand to
+anyone. `headphonesout` in particular is worth setting up before you play in
+public: bind it to a script that turns speech off, and an unplugged jack stops
+the room hearing your MUD.
+
+`facedown` is the "I am stepping away" gesture: bind it to `afk` and bind
+`faceup` to `afk off`. It waits for the phone to settle before it fires, so
+turning the phone over does not trip it on the way. A phone in your hand or in a
+pocket is neither face up nor face down, and neither gesture fires there.
 
 **Phones differ, so ask yours.** `.sensor caps` says which sensor provides each
 gesture *on this device*, whether it is a fallback rather than the first choice,

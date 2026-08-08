@@ -45,7 +45,7 @@ public final class GestureAvailability {
 
 		/** True when some sensor on this device can provide the gesture. */
 		public boolean isAvailable() {
-			return sensor != null;
+			return sensor != null || GestureCatalog.BY_SYSTEM.equals(provider);
 		}
 
 		/** True when the first choice was missing and a second one is doing it. */
@@ -64,11 +64,15 @@ public final class GestureAvailability {
 
 		/** Whether events keep coming with the display asleep. */
 		public boolean isWakeUp() {
-			return sensor != null && sensor.isWakeUpSensor();
+			return GestureCatalog.BY_SYSTEM.equals(provider)
+					|| (sensor != null && sensor.isWakeUpSensor());
 		}
 
 		/** One line for the player: what happens, and why if it does not. */
 		public String describe() {
+			if (GestureCatalog.BY_SYSTEM.equals(provider)) {
+				return "a system event — works on every phone";
+			}
 			if (sensor == null) {
 				return "not available — this phone has no "
 						+ describeProviders(gesture) + " sensor";
@@ -104,7 +108,15 @@ public final class GestureAvailability {
 	}
 
 	private static Resolution resolve(final SensorManager manager, final Gesture gesture) {
-		if (manager == null || gesture == null) {
+		if (gesture == null) {
+			return new Resolution(null, null, null, false);
+		}
+		// A system event needs no hardware, so there is nothing to resolve and
+		// nothing that can be missing.
+		if (gesture.getProviders().contains(GestureCatalog.BY_SYSTEM)) {
+			return new Resolution(gesture, GestureCatalog.BY_SYSTEM, null, false);
+		}
+		if (manager == null) {
 			return new Resolution(gesture, null, null, false);
 		}
 		int index = 0;
@@ -138,6 +150,9 @@ public final class GestureAvailability {
 		if (GestureCatalog.BY_ACCELEROMETER.equals(provider)) {
 			return Sensor.TYPE_ACCELEROMETER;
 		}
+		if (GestureCatalog.BY_GRAVITY.equals(provider)) {
+			return Sensor.TYPE_GRAVITY;
+		}
 		return 0;
 	}
 
@@ -148,7 +163,7 @@ public final class GestureAvailability {
 		out.append("\n--- gestures on this phone ---\n");
 		for (Map.Entry<String, Resolution> e : resolved.entrySet()) {
 			Resolution r = e.getValue();
-			out.append(String.format(Locale.US, "  %-6s %-9s %s%n",
+			out.append(String.format(Locale.US, "  %-14s %-9s %s%n",
 					e.getKey(), r.isAvailable() ? "OK" : "MISSING", r.describe()));
 		}
 		out.append("\nA gesture is set up like any other trigger: give it actions and\n");

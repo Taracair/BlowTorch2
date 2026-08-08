@@ -67,6 +67,19 @@ public final class DeviceStateWatcher {
 	private static final float SHAKE_THRESHOLD = 15.0f;
 	/** Without a dead time one shake of the wrist fires four times. */
 	private static final long SHAKE_DEAD_MILLIS = 500L;
+	/**
+	 * How much of gravity has to be along the screen's axis before the phone
+	 * counts as lying flat, in m/s2 out of about 9.8. Two thresholds rather than
+	 * one: a phone standing on edge, or being carried, is neither face up nor
+	 * face down, and should not flip between the two as it wobbles.
+	 */
+	private static final float FLAT_ENOUGH = 8.0f;
+	/**
+	 * How long it has to stay that way. Turning a phone over passes through
+	 * every angle on the way, and without this the trip would fire on the way
+	 * down as well as at the end of it.
+	 */
+	private static final long FACING_SETTLE_MILLIS = 400L;
 
 	private boolean receiverRegistered;
 	private boolean sensorRegistered;
@@ -76,6 +89,18 @@ public final class DeviceStateWatcher {
 	private Sensor motion;
 	private boolean motionHasGravity;
 	private boolean proximitySeeded;
+	private boolean facingRegistered;
+	private Sensor facingSensor;
+	private String facing = DeviceState.UNKNOWN;
+	private String facingCandidate = DeviceState.UNKNOWN;
+	private long facingCandidateSince;
+	/**
+	 * Broadcasts already seen once. The interesting ones are sticky: registering
+	 * delivers the current charge and jack state at once, and treating that as a
+	 * change would fire "the charger was plugged in" every time the app starts.
+	 * The same hole the first proximity reading had.
+	 */
+	private final java.util.HashSet<String> seededActions = new java.util.HashSet<String>();
 	private long coveredSince;
 	private long lastShakeAt;
 	private Runnable pendingCover;
@@ -104,19 +129,32 @@ public final class DeviceStateWatcher {
 			}
 			boolean changed = false;
 			String action = intent.getAction();
+			boolean firstOfItsKind = seededActions.add(action);
 			if (Intent.ACTION_HEADSET_PLUG.equals(action)) {
-				changed = state.setHeadphones(intent.getIntExtra("state", 0) == 1);
+				boolean plugged = intent.getIntExtra("state", 0) == 1;
+				changed = state.setHeadphones(plugged);
+				if (changed && !firstOfItsKind) {
+					fire(plugged ? "headphonesin" : "headphonesout");
+				}
 			} else if (Intent.ACTION_BATTERY_CHANGED.equals(action)) {
 				int status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
-				changed = state.setCharging(status == BatteryManager.BATTERY_STATUS_CHARGING
-						|| status == BatteryManager.BATTERY_STATUS_FULL);
+				boolean charging = status == BatteryManager.BATTERY_STATUS_CHARGING
+						|| status == BatteryManager.BATTERY_STATUS_FULL;
+				changed = state.setCharging(charging);
+				if (changed && !firstOfItsKind) {
+					fire(charging ? "powerin" : "powerout");
+				}
 				changed |= state.setBatteryPercent(
 						intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1),
 						intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1));
 			} else if (Intent.ACTION_SCREEN_ON.equals(action)) {
 				changed = state.setScreenOn(true);
+				// Not sticky, and never delivered for a state we were already in,
+				// so there is nothing to suppress here.
+				fire("screenon");
 			} else if (Intent.ACTION_SCREEN_OFF.equals(action)) {
 				changed = state.setScreenOn(false);
+				fire("screenoff");
 			}
 			if (changed) {
 				push();
@@ -171,24 +209,30 @@ public final class DeviceStateWatcher {
 				break;
 			}
 		}
-		// Which sensors any world is actually waiting on. A gesture nobody has a
-		// trigger for costs nothing, which is the whole reason to ask.
-		java.util.Set<String> providers = new java.util.LinkedHashSet<String>();
+		// Which gestures any world is actually waiting on. Asked per gesture and
+		// not per provider name: shake falls back from linear acceleration to the
+		// raw accelerometer, and reading that fallback as "someone wants the
+		// facing sensor" would listen to the wrong thing on a phone that has no
+		// linear acceleration sensor.
+		java.util.Set<String> wanted = new java.util.LinkedHashSet<String>();
 		for (Connection c : audience.gestureListeners()) {
-			if (c == null) {
-				continue;
-			}
-			for (String id : c.enabledGestureIds()) {
-				GestureCatalog.Gesture g = GestureCatalog.byId(id);
-				if (g != null) {
-					providers.addAll(g.getProviders());
-				}
+			if (c != null) {
+				wanted.addAll(c.enabledGestureIds());
 			}
 		}
 		boolean wantsProximity = wantsState
-				|| providers.contains(GestureCatalog.BY_PROXIMITY);
-		boolean wantsMotion = providers.contains(GestureCatalog.BY_LINEAR_ACCELERATION)
-				|| providers.contains(GestureCatalog.BY_ACCELEROMETER);
+				|| wanted.contains("wave") || wanted.contains("cover");
+		boolean wantsMotion = wanted.contains("shake");
+		boolean wantsFacing = wanted.contains("facedown") || wanted.contains("faceup");
+		// The system events ride on the broadcast receiver, which is otherwise
+		// registered only for the device.* variables.
+		for (String id : wanted) {
+			GestureCatalog.Gesture g = GestureCatalog.byId(id);
+			if (g != null && g.getProviders().contains(GestureCatalog.BY_SYSTEM)) {
+				wantsState = true;
+				break;
+			}
+		}
 
 		if (wantsState) {
 			startBroadcasts();
@@ -204,6 +248,11 @@ public final class DeviceStateWatcher {
 			startMotion();
 		} else {
 			stopMotion();
+		}
+		if (wantsFacing) {
+			startFacing();
+		} else {
+			stopFacing();
 		}
 	}
 
@@ -291,6 +340,51 @@ public final class DeviceStateWatcher {
 		}
 	}
 
+	private void startFacing() {
+		if (facingRegistered) {
+			return;
+		}
+		SensorManager m = manager();
+		if (m == null) {
+			return;
+		}
+		if (facingSensor == null) {
+			facingSensor = m.getDefaultSensor(Sensor.TYPE_GRAVITY);
+			if (facingSensor == null) {
+				// The raw accelerometer reads gravity too when the phone is
+				// still, which is exactly when this gesture is asked about.
+				facingSensor = m.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+			}
+		}
+		if (facingSensor == null) {
+			return;
+		}
+		facing = DeviceState.UNKNOWN;
+		facingCandidate = DeviceState.UNKNOWN;
+		try {
+			// NORMAL, not GAME: putting a phone down is not a fast event, and
+			// this one may stay registered for hours.
+			facingRegistered = m.registerListener(facingListener, facingSensor,
+					SensorManager.SENSOR_DELAY_NORMAL, handler);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.registerFacing", e);
+		}
+	}
+
+	private void stopFacing() {
+		if (!facingRegistered || sensorManager == null) {
+			return;
+		}
+		try {
+			sensorManager.unregisterListener(facingListener);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterFacing", e);
+		}
+		facingRegistered = false;
+		facing = DeviceState.UNKNOWN;
+		facingCandidate = DeviceState.UNKNOWN;
+	}
+
 	private void stopBroadcasts() {
 		if (!receiverRegistered) {
 			return;
@@ -301,6 +395,7 @@ public final class DeviceStateWatcher {
 			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterReceiver", e);
 		}
 		receiverRegistered = false;
+		seededActions.clear();
 	}
 
 	private void stopProximity() {
@@ -399,6 +494,64 @@ public final class DeviceStateWatcher {
 	};
 
 	/**
+	 * Which way up the phone is now, from gravity along the screen's axis.
+	 *
+	 * <p>Face up is about +9.8 on Z, face down about -9.8, and everything in
+	 * between — held in a hand, standing in a dock, carried in a pocket — is
+	 * neither. Reporting "neither" rather than guessing is what keeps a phone
+	 * being walked with from flipping between the two gestures all the way to
+	 * the shop.
+	 */
+	private final SensorEventListener facingListener = new SensorEventListener() {
+		@Override
+		public void onSensorChanged(final SensorEvent event) {
+			if (event == null || event.values == null || event.values.length < 3) {
+				return;
+			}
+			float z = event.values[2];
+			String now;
+			if (z >= FLAT_ENOUGH) {
+				now = DeviceState.UP;
+			} else if (z <= -FLAT_ENOUGH) {
+				now = DeviceState.DOWN;
+			} else {
+				now = DeviceState.UNKNOWN;
+			}
+			long elapsed = android.os.SystemClock.elapsedRealtime();
+			if (!now.equals(facingCandidate)) {
+				facingCandidate = now;
+				facingCandidateSince = elapsed;
+				return;
+			}
+			if (now.equals(facing)
+					|| (elapsed - facingCandidateSince) < FACING_SETTLE_MILLIS) {
+				return;
+			}
+			String previous = facing;
+			facing = now;
+			if (state.setFacing(facing)) {
+				push();
+			}
+			// The first reading after registration settles into up or down and
+			// is not a gesture: the phone was already lying there. Only a real
+			// change of side counts, which is why this needs the previous value
+			// and not just the new one.
+			if (DeviceState.UNKNOWN.equals(previous)) {
+				return;
+			}
+			if (DeviceState.DOWN.equals(facing)) {
+				fire("facedown");
+			} else if (DeviceState.UP.equals(facing)) {
+				fire("faceup");
+			}
+		}
+
+		@Override
+		public void onAccuracyChanged(final Sensor sensor, final int accuracy) {
+		}
+	};
+
+	/**
 	 * Hand the gesture to every world waiting for it.
 	 *
 	 * <p>{@code fireDeviceGesture} posts onto the connection's own handler, so
@@ -460,6 +613,7 @@ public final class DeviceStateWatcher {
 		stopBroadcasts();
 		stopProximity();
 		stopMotion();
+		stopFacing();
 	}
 
 	/** Write everything known into every connection that wants it. */
