@@ -71,22 +71,25 @@ Typed into the input bar like anything else. These are the ones worth knowing:
 
 | Command | What it does |
 |---------|--------------|
-| `.run 3n2ew` | Speedwalk. Walks three north, two east, one west, pausing between steps. |
-| `.map open` | Show or hide the map overlay. |
-| `.map record` | Draw the map from your movement, for worlds that send no room data. |
-| `.map find <text>` | Find a room by name and highlight it. |
-| `.map goto <room>` | Walk you there along a route the mapper works out. |
-| `.timer play heal` | Start a named timer. `pause`, `reset`, `stop` and `info` work the same way; `.timer duration heal 30` changes how long it runs without stopping it. Timers themselves are made in the Timers editor. |
-| `.loadset combat` | Switch the on-screen button set. Works from a button, so one tap can change the whole pad. |
-| `.switch <name>` | Jump to another open connection without disconnecting this one. Bare `.switch` lists open display names; a typo is refused (it used to blank the screen). |
-| `.search <text>` | Search the scrollback and jump to the hit. |
-| `.gmcp status` | What the world is sending, and which modules you subscribed to. |
-| `.gmcp sniff on` | Show every GMCP packet in the window. Useful when a world's data is not doing what you expect. |
-| `.wrap` | Let the input bar grow to several lines, for long lines and pasted text. |
+| `.help` | Lists every dot command in this session. `.help suggest` filters. |
+| `.suggest on` | Word chips from recent game text. `.suggest where off` hides the bar; ghost + `.suggest 1`..`8` still work. |
+| `.prompt on` | Pins the world's unfinished prompt above the input. |
+| `.loadset combat` | Switch the on-screen button set (also from a button). |
+| `.clearbuttons` | Hide the button pad until the next `.loadset` (leaves a BACK tile). |
+| `.switch <name>` | Jump to another open connection. Bare `.switch` lists names. |
+| `.search <text>` | Search scrollback and jump to the hit. |
+| `.font +2` / `.width toggle` | Font size and text canvas width without opening Options. |
+| `.trigger group off combat` | Disable a whole trigger group (e.g. leave combat scripts). |
+| `.alias toggle kk` | Turn one alias on or off. |
+| `.timer play heal` | Start a named timer (`pause` / `reset` / `stop` / `info` too). |
+| `.run 3n2ew` | Speedwalk with pauses between steps. |
+| `.map open` | Show or hide the map. `.map goto <room>` walks a route. |
+| `.reconnect` | Drop and open the connection again. |
+| `#5 north` | Send the rest of the line five times (`##5 north` = literal `#`). |
+| `.kb insert troll` | Put text at the cursor (no send). Useful from a tappable as `.kb insert $word`. |
 | `.editbutton` | Show or hide the Edit button (Options → Window). |
 | `.editpanel` | Toggle the Edit tools strip (Sel/Cut/… pad). |
 | `.sendbutton` | Show or hide the Send button (Options → Window). |
-| `.kb` | Selection, clipboard and cursor keys for the input bar. |
 
 Dot commands are on by default. `..` on its own turns them off and on, and
 prefixing a line with `..` sends a literal leading `.` to the game, for worlds
