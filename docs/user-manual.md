@@ -42,12 +42,14 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 ## Suggestions (`.suggest on`)
 
     .suggest on | off | lines N | 1..8
-    .suggest where floating | bar | off
+    .suggest where floating | bar | off | next
     .suggest opacity N | persist on | off
-    .suggest loose on | off | ghost on | off
-    .suggest rank on | off | pairs on | off | short on | off
+    .suggest phrases on | off | plain on | off | short on | off
+    .suggest loose on | off | ghost on | off | ghostlines N
+    .suggest rank on | off | pairs on | off
+    .suggest learned | clear
 
-(`.complete` is the same command under its old name and still works.)
+(`.complete` and `.suggestions` are the same command under older names and still work.)
 
 Type two letters of something the game has just said and it appears on a strip
 above the input bar. Tap it and it goes in, correctly spaced.
@@ -179,7 +181,8 @@ the room.
 
 Nothing you type is ever offered back as a suggestion — only what the *world*
 said is. Typing a name the world never used does not make it completable. And a
-line the world has masked, such as a password, is left out of this entirely.
+line typed while the input bar is masked (telnet ECHO off), such as a password,
+is not learned for ranking or pairings.
 
 **What you usually do with that command.** `.suggest pairs on` — **off by
 default**, and it needs `rank` above to be on as well. Ranking knows that after
@@ -352,10 +355,13 @@ so that a trigger cannot cut one in half, so it knows exactly which line that is
 Where a world marks its prompts with `IAC GA`, the bar updates the instant the
 prompt arrives.
 
-**If the bar stays empty**, `.prompt` on its own prints "prompts seen: N". Zero
-after a while of play is the answer, not a fault: that world sends no prompt.
-Many MOOs do not, and nothing can be pinned that was never sent. The count is
-kept whether the bar is on or off, and starts again each time you connect.
+**If the bar stays empty**, `.prompt` on its own prints `Prompts seen: N`. At
+zero it adds: *this world has not sent one yet. Some worlds never do.* Many MOOs
+do not, and nothing can be pinned that was never sent. The count is kept
+whether the bar is on or off, and starts again each time you connect.
+
+The bar shows the world's text after ANSI codes are stripped and the ends are
+trimmed — not the raw bytes.
 
 Off by default, because it changes where text appears. Also under **Options →
 Input**, and saved with the profile.
@@ -369,8 +375,9 @@ running a client command (e.g. `..look` sends `.look`).
 
 Aliases that share a simple name with a command win when you type `.name newtext`
 (that changes the alias’s replacement text). Plugins may register additional
-commands via `RegisterSpecialCommand`; those appear only while the plugin is
-loaded.
+commands via `RegisterSpecialCommand` when they initialise; disabling a plugin
+leaves the command recognised but it does nothing until the plugin is enabled
+again.
 
 Registrations live in `Connection` (built-ins) and Lua
 `RegisterSpecialCommand(...)` (plugins).
@@ -670,8 +677,9 @@ typed into the trigger pattern.
 
 Grouped by what they are for, printed into the game window. The list is built
 from the commands the app actually has, not from a list written by hand, so a
-command added later cannot go missing from its own help. Type any command on
-its own to see what arguments it takes.
+command added later cannot go missing from its own help. Many commands print
+usage when typed with no arguments (e.g. `.sound`, `.trigger`); others act
+immediately (e.g. `.disconnect`).
 
 ### The menu a tapped word opens
 
@@ -684,7 +692,7 @@ about, it can be made see-through:
 
 Only the backing fades. The commands stay fully readable at every setting —
 same rule as the suggestion chips, because a menu you cannot read is worse than
-one that covers something. Also in Options → Bell.
+one that covers something. Also in **Options → Miscellaneous → Tapped-word menu opacity (%)**.
 
 ### Making a trigger make a noise
 
@@ -742,8 +750,10 @@ shared, so ten alerting triggers still produce one message, not ten.
 
 Two numbers on that editor:
 
-- **Volume %** — how loud, 0 to 100. It plays on the notification stream, so a
-  phone on silent stays silent.
+- **Volume %** — how loud, 0 to 100, on whichever stream **Trigger sounds play
+  on** is set to (Options → Bell, default **media**). A phone on silent still
+  silences **notification**-stream triggers; **media** and **alarm** follow
+  their own volume sliders.
 - **Gap (ms)** — the shortest time between two of *this* trigger's sounds,
   250 ms by default. It stops a trigger that matches every line from turning
   into a buzz. `0` turns it off. Each trigger counts its own gap, so one noisy
@@ -755,17 +765,18 @@ Timers can play a sound too — same action, same editor.
 Good for something you need the words of — a tell, a name, a number. It runs in
 the connection service, so it is heard with the game in the background and the
 screen off. Speech is queued three deep and the newest wins, so a fight does not
-put you a minute behind; and it stays quiet from the first letter of a command
-until you send it, unless you turn that off in Options → Input.
+put you a minute behind. **Quiet while you type** (Options → Input, **off** by
+default) drops new speech while you are composing a command; turn it **on** if
+chatty triggers should not talk over your typing.
 
-**Ring the bell.** Give the trigger a **Script** action of `.dobell` and it fires
-the bell reaction — whichever of vibrate, notification and the on-screen bell are
-turned on in **Options → Bell**. Better than speech in combat for one reason:
-a buzz is over in a moment and a sentence is not, and a MUD can print six lines
-a second.
+**Ring the bell.** Give the trigger an **Ack With** action of `.dobell` and it
+fires the bell reaction — whichever of vibrate, notification and the on-screen
+bell are turned on in **Options → Bell**. Better than speech in combat for one
+reason: a buzz is over in a moment and a sentence is not, and a MUD can print
+six lines a second.
 
     Pattern:  ^\w+ tells you
-    Action:   Script → .dobell
+    Action:   Ack With → .dobell
 
 If nothing happens, type `.dobell` by hand: with every bell reaction turned off
 it now says so and names the three switches, instead of leaving you guessing
@@ -873,14 +884,18 @@ retarget every button** below) or you want a tap to pick the target yourself.
 **Want:** healing triggers that only run while you are fighting.
 
 1. Give each combat trigger the same **Group**, e.g. `combat`.
-2. Make one trigger that spots the fight starting. Its action is **Script**:
-   ```lua
-   EnableTriggerGroup("combat", true)
+2. Make one trigger that spots the fight starting. Its action is **Ack With**
+   (a leading `/` runs inline Lua):
    ```
-3. Another spots it ending: `EnableTriggerGroup("combat", false)`.
+   /EnableTriggerGroup("combat", true)
+   ```
+3. Another spots it ending: **Ack With** `/EnableTriggerGroup("combat", false)`.
 
 Turn the whole group on or off by hand any time with
-`.trigger group on combat` / `.trigger group off combat`.
+`.trigger group on combat` / `.trigger group off combat` — that reaches main
+settings and every plugin. Lua `EnableTriggerGroup` only toggles triggers in
+the **plugin that runs it**; the **Script** action field is a Lua function
+name, not inline code.
 
 ### 4. A trigger that only fires under a condition
 
@@ -899,14 +914,16 @@ in combat".
 
 Aliases have no conditions, but they can be switched:
 
-```lua
-EnableAlias("travel_home", false)
-EnableAlias("kk", true)
+```
+/EnableAlias("travel_home", false)
+/EnableAlias("kk", true)
 ```
 
-Put that in a trigger's Script action. From the input bar the same thing is
-`.alias off travel_home` and `.alias on kk`; `.alias list` shows every alias and
-whether it is on.
+Put those in a trigger's **Ack With** action (leading `/` = inline Lua).
+`EnableAlias` in Lua only toggles aliases in **that plugin**; for aliases in
+the main profile use **Ack With** `.alias off travel_home` / `.alias on kk`, or
+type the same from the input bar. `.alias list` shows every alias and whether
+it is on.
 
 ### 6. One button, ten commands
 
@@ -954,8 +971,11 @@ On a trigger:
 - **Replace** action — swap text in it, `$1` works here too (also has
   **retarget**).
 
-Several actions on one trigger run in order, so you can gag a line *and* print
-your own version of it.
+Several actions on one trigger run in order. **Replace** alone rewrites the
+line in place. **Gag** removes it from the main window — use **retarget** on
+the gag if you want the original in an extra window. Gag followed by Replace
+does not show a rewritten line in the main window, because the gag already
+removed it.
 
 ### 9b. Make a word in the game text tappable
 
@@ -1202,24 +1222,16 @@ end up with a timer that was left paused.
 
 **Want:** the timer runs only while a specific enemy is up.
 
-On the trigger that spots the enemy appearing, add a **Script** action:
-
-```lua
-SetVariable("fighting", "1")
-```
-
-and on the one that spots it dying:
-
-```lua
-SetVariable("fighting", "0")
-```
+On the trigger that spots the enemy appearing, add a **Set Variable** action:
+`fighting` = `1`. On the one that spots it dying: `fighting` = `0`.
 
 Dot commands ride the same outbound path as typing, so **Ack With**
-`.timer play heal` (or Script `SendToServer(".timer play heal")`) *can* start
-a timer from a trigger. Prefer a variable + timer **Conditions** (recipe 12)
-when you want the timer always armed and gated; use Ack / `SendToServer` when
-you truly want play/stop. Keep process-period on (default), or a leading `.`
-goes to the MUD.
+`.timer play heal` (or **Ack With** `/SendToServer(".timer play heal")`) *can*
+start a timer from a trigger. Prefer a variable + timer **Conditions** (recipe
+12) when you want the timer always armed and gated; use Ack when you truly want
+play/stop. Keep process-period on (default), or a leading `.` goes to the MUD.
+The **Script** action field is a Lua function name, not inline code or dot
+commands.
 
 ### 14. One-shot reminder
 
@@ -1249,7 +1261,7 @@ is enabled; `.alias list` shows every alias at once.
     `.closewindow`                      Dirty-exit the game window
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
-    `.probe sensors [state|shake [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
+    `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
     `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
@@ -1352,6 +1364,8 @@ guess about how the network behaves.
 ```
 .probe sensors
 .probe sensors shake [seconds]
+.probe sensors light [seconds]
+.probe sensors state
 ```
 
 Answers two questions about **your phone**, which no amount of reading the app
@@ -1393,8 +1407,10 @@ the answer, and a more important one than the threshold.
     device.battery = 74
     device.screen = on
     device.covered = no
+    device.facing = up
+    device.light = bright
 
-These are ordinary session variables, set only while **Settings → Device →
+These are ordinary session variables, set only while **Options → Device →
 "Device state as variables"** is on for this world. Use them in a trigger's or
 timer's Conditions tab (`variableEquals`, e.g. `device.covered` equals `yes`), or
 read them from Lua with `GetVariable("device.charging")`.
@@ -1496,9 +1512,10 @@ bell/notification actions; "Screen is on" on the quiet on-screen ones.
 **5. A panic button you do not have to find.** `.sensor cover flee` — hand over
 the top of the screen, one-handed.
 
-**6. Nothing fires from inside a pocket.** Movement sensors are held back while
-the screen is off. For belt and braces, add condition "Nothing is over the
-screen" on anything that sends a command.
+**6. Nothing fires from inside a pocket.** Hardware readings (shake, wave,
+cover, light, pickup, …) are held back while the screen is off unless you turn
+on **Movement sensors with the screen off**. For belt and braces, add condition
+"Nothing is over the screen" on anything that sends a command.
 
 **7. The long session at a desk.** Condition "Phone is charging" on noisier
 alerts.
@@ -1528,8 +1545,8 @@ are text compared exactly — "battery below 30" needs Lua.
 
 `.sensor facedown afk` is the quick way, but you should not have to remember it.
 **Options → Device → Sensors** lists every reading, which hardware provides it
-on this phone, and what triggers answer it, with *Set up* / *Edit* and *Test*.
-Editing opens the ordinary trigger editor.
+on this phone, and what triggers answer it. Tap a row to set up or edit; each
+row has a **Test** button.
 
 **More than one trigger can answer the same reading.** If `facedown` sends `afk`
 and a second trigger also fires on face down, **both run**. The Sensors screen
@@ -1540,8 +1557,8 @@ which one you meant when there is more than one.
 
 Two settings in **Options → Device**, both **off by default**:
 
-- **Movement sensors with the screen off** — shake, wave and face-down do
-  nothing while the display is asleep.
+- **Movement sensors with the screen off** — shake, wave, cover, light, and the
+  other hardware readings do nothing while the display is asleep.
 - **Movement sensors while the app is in the background** — the same while
   another app is on top or BlowTorch is in Recents.
 
@@ -1549,9 +1566,9 @@ Two settings in **Options → Device**, both **off by default**:
 have open**, including background connections. With two MUDs connected, one
 shake sends twice.
 
-Both settings cover **movement** readings only. Headphone, charger and screen
-readings keep working regardless — hushing speech when the jack comes out has to
-work with the screen off.
+Both settings cover **hardware** readings only — everything except headphone,
+charger and screen events (those are system broadcasts and keep working). Hushing
+speech when the jack comes out has to work with the screen off.
 
 **A warning about names.** Commands are looked up *after* your aliases, so an
 alias called `sensor` hides this command completely. If `.sensor` stops
@@ -1640,8 +1657,8 @@ in **Map** or `.map export` / `.map save` forces a write). With a path,
 or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 
 Title bar shows a breadcrumb when you are on a nested floor, e.g.
-`map · L-1 ← Hallway` (map name · level · door you entered from). **[REC]** means
-recording is on. The title has **Browse | Edit** and **Float | Full** segments
+`[Edit] mymap · LCellar ← Hallway [REC]` (`[Browse]` or `[Edit]`, map name,
+level, door you entered from; `[REC]` when recording is on). The title has **Browse | Edit** and **Float | Full** segments
 (**Browse** / **Float** default). **Browse** is view/navigate only — no
 recording, Draw, Links, or tile edits. **Edit** is required to record, create
 nests, use **Draw** / **Links**, and delete levels. Long-press the title opens
@@ -1700,15 +1717,18 @@ command (e.g. guessed `s` → your `go south`). Specials (`out`/`enter`) with
 **Follow** (without Record) advances Here along known exits so the map camera
 tracks you.
 
-Long-press a tile: **Path to here** (toast only) or **Go there** (toast + send
-commands so the character walks). Find dialog **Go** does the same.
+Long-press a tile: **Path to here** (sticky status + dialog: Copy / Go / OK) or
+**Go there** (status + send commands so the character walks). **Path to** and
+**Go there** need a selected tile (tap one first). Find dialog **Go** does the
+same.
 Long-press a tile and drag to move it on the grid (release without moving opens the
 tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
 current.
 
 Exits with a known destination draw as **arrows** between tiles. In **spread**
 layout, walk-word labels sit on the shaft; in **packed**, only the shaft + heads
-(including diagonals). If more than two commands share an edge in spread mode,
+(including diagonals) — and **Arrow labels** in View only apply in **spread**.
+If more than two commands share an edge in spread mode,
 the label shows `cmd1 · cmd2 +N` — tap it for the full list.
 
 Badge glyphs on a tile:
@@ -1786,7 +1806,7 @@ Print the summary with `.map dirs`.
     `.map opacity [40-100]`                                                 Overlay opacity
     `.map export` / `.map save`                                             Save now (`/BlowTorch/maps/`)
     `.map export|save <path>`                                               Write JSON to that path
-    `.map import <path|name>`                                               Import JSON (path or maps-dir name); copy into maps
+    `.map import <path|name>`                                               Import JSON (Edit mode; path or maps-dir name); copy into maps
     `.map zoom in|out|reset`                                                Zoom the open map UI
     `.map zoom <factor>`                                                    Zoom by scale factor (map UI must be open)
     `.map add [x y] [title] [here]`                                         Place a tile (optional title; `here` sets current)
@@ -1819,8 +1839,9 @@ modules…), `Room.Info` builds the map as you walk:
 - **coords** / **coord** `{x,y,z}` → place on the grid (z → floor)
 - **exits** `{n:123,…}` → create/link neighbors (destination stubs by vnum)
 
-Does not delete exits absent from GMCP. Does **not** parse ASCII maps from
-game text — that is Capture regex / Record / Draw. Without GMCP (typical on
+Does not delete verified or hand-edited exits absent from GMCP; it may remove
+**guessed** exits that contradict the current Room exits list. Does **not** parse
+ASCII maps from game text — that is Capture regex / Record / Draw. Without GMCP (typical on
 many MOOs), use **Rec** while walking, **Edit** for **Draw** / **Links**,
 and/or `.map capture`.
 
@@ -1828,7 +1849,8 @@ and/or `.map capture`.
 
 1. **Record while exploring:** `.map new mymap` → open map → **Edit** mode → **Nav → Record** → walk → Record off → **Map → Save**.
 2. **Draw by hand:** **Edit** mode → **Edit → Draw** → tap empty cells → **Link mode** → **Set Here** on your room.
-3. **Floors:** long-press a tile → **Add level…** → Floor ↑/↓ (new or existing) / Independent floor / Another map….
+3. **Floors:** **Edit** mode → long-press a tile → **Add level…** → Floor ↑/↓
+   (new or existing) / Independent floor / Another map….
 4. **Jump maps:** after linking, tap **○** on the tile (or walk the portal command with Follow on).
 5. **Fix layout:** long-press-drag a tile. Use **Edit → Spacing** (spread) to see arrow labels.
 
@@ -1897,14 +1919,16 @@ Shows or hides the **Send** button (same as Options → Window → Show Send but
 ## Copy text from the game window
 
 - **First finger** — touch where selection should start (marks the start).
-- **Second finger** — tap to open the selection / copy widget.
+- **Second finger** — while holding the first, touch with a second finger to
+  open the selection / copy widget (if the second touch is elsewhere, the range
+  between the two fingers is selected immediately).
 - One-finger long-press alone does not open copy.
 - Drag the cursors, then use the widget’s copy control. On-screen buttons may hide while selecting so the widget stays usable.
 - The same two-finger gesture works in **extra text** windows (float/drawer).
 
 ## Font size
 
-New profiles start around font size **20** (readable on phones). Change under
+New profiles start at font size **20** (readable on phones). Change under
 Options → Window → Font Size.
 
 ## Newest text at top
@@ -1960,8 +1984,9 @@ again. Offline Starter Tutorial keeps its own teaching pad.
 
 The pad lands just under the action bar, high enough that the soft keyboard
 cannot cover it — a pad anchored near the bottom of the screen disappears behind
-the keyboard the moment you type. Its accordion tiles (MORE, NAV, TIP, CAST,
-DOORS, CHAT) sit on the bottom row and open **downward** into the empty game
+the keyboard the moment you type. Accordion parents in the wizard packs use
+labels like **MORE**, **NAV**, **TIP**, **CAST**, **DOORS**, and **CHAT** — each
+pack puts its own on its bottom row, opening **downward** into the empty game
 area beneath it, so they never cover the compass rose above them.
 
 Named sizes are capped so the whole pad stays above the keyboard: Compass has
@@ -1983,7 +2008,7 @@ The default `button_window` plugin supports more than tap:
 
 - **Swipe** — eight directions (up, down, left, right, and the four corners);
   each can run a different command (edit button → Swipe). Overrides classic Flip.
-  Drag roughly a finger-width off the tile.
+  Drag about **24dp** off the tile (~a finger-width on most phones).
 - **Hold** — optional command after press-and-hold.
 - **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
 
@@ -2035,13 +2060,15 @@ The button keeps everything it already had — tap, hold, flip, all eight swipe
 directions, colours, size, `switchTo`. It can also be drawn as a circle, with
 an optional outline. **Very long press (~2 s)** picks it up and moves it; a
 normal hold (~0.45 s) still runs the Hold command. Where you drop it is
-remembered per world.
+remembered per world. Accordion children cannot be saved on a super-button —
+use a normal tile if you need an accordion.
 
 **Permission.** Android does not let an app draw on top of the keyboard without
-**"Display over other apps"**. BlowTorch asks the first time you tick the box,
-never at startup, and the button is saved either way. If you refuse, the button
-still exists but the keyboard covers it — which leaves the feature doing very
-little, so it is worth granting.
+**"Display over other apps"**. BlowTorch asks when you first save a super-button
+and the floating layer rebuilds without that permission — not at startup, and
+not merely from ticking the box if you have not saved yet. The button is saved
+either way. If you refuse, the button still exists but the keyboard covers it —
+which leaves the feature doing very little, so it is worth granting.
 
 **Android 9 and 10:** the client often cannot tell whether the keyboard is
 open, so **Show with keyboard** may never appear there. Android 11 and newer
@@ -2079,8 +2106,11 @@ window*, follows **Options → Window → Scroll sensitivity**, so that one cont
 still steers every extra window at once and a slot only breaks away when you
 set it to a specific speed. Changes apply straight away, with the window open.
 
-A slot keeps collecting text while it is closed, and shows what it missed when
-you open it again — up to the most recent 128 KB.
+A slot keeps collecting text while it is hidden (`.window hide` / ✕ on a float).
+The UI buffer holds up to about **512 KB** per slot; when you show it again you
+normally see what accumulated. A separate **128 KB** replay cap applies only
+when the window process re-registers after a UI restart — then only the newest
+128 KB of held history is replayed.
 
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
 like `Comm.*`). Routes need **Options → Service → GMCP → Use GMCP?** on.
@@ -2179,8 +2209,10 @@ Variables are per session and are not saved.
 `EnableAlias(name)` returns whether an alias is live; `EnableAlias(name, true|false)`
 turns it on or off. A disabled alias stops matching immediately.
 
-Call it from a trigger's script action and aliases become mode-dependent — a
-combat trigger can enable the combat aliases and switch off the travel ones:
+In Lua, `EnableAlias` only toggles aliases in **the plugin that runs the
+script**. For aliases in the main profile, use `.alias on|off <name>` — from the
+input bar or an **Ack With** action (e.g. `.alias on kk`). Example for a
+**plugin** alias set:
 
 ```lua
 EnableAlias("kk", true)
@@ -2190,8 +2222,9 @@ EnableAlias("travel_home", false)
 Triggers and timers go further: both carry **conditions** (trigger/alias on or
 off, alias replacement equals, variable equals/exists, combined with and/or)
 that decide whether they fire at all, edited in their own editors. Aliases
-themselves have no conditions — use `EnableAlias` to turn an alias on or off;
-a trigger condition can *read* that on/off state or the alias **With** text.
+themselves have no conditions — use `EnableAlias` or `.alias` to turn an alias
+on or off; a trigger condition can *read* that on/off state or the alias
+**With** text.
 
 ## GMCP (short)
 
@@ -2213,7 +2246,7 @@ Helpers:
 .gmcp renegotiate     — re-send Hello + Supports.Set
 .gmcp status          — flags
 .gmcp sniff [on|off]  — log handshake/packets to logs/gmcp.log
-.gmcp sniff tail [N]  — last N GMCP lines in-game (0–100, default 40)
+.gmcp sniff tail [N]  — last N lines from gmcp.log in-game (0–100, default 40)
 .gmcp feed [on|off]   — live IN/OUT GMCP in the mud window
 .gmcp version         — client hello / syntax notes
 .gmcp supports […]   — show or set supports modules
@@ -2327,10 +2360,10 @@ your own commands are printed into the game window at all.
     `.layoutwizard`     Open the button layout wizard (packs, set names, size)
 
 **Getting the buttons back after `.clearbuttons`.** One button labelled **BACK**
-is left behind — press it and the whole set returns. So does pressing anywhere a
-button used to be: while the set is hidden, any press restores it rather than
-sending a command, so a stray tap cannot fire something you did not mean. The
-set also comes back by itself when you switch to another world or reopen the
+is left behind — tap it and the whole set returns. While the set is hidden, a
+tap on **BACK** (or any visible button) restores the set instead of sending
+that button's command, so a stray tap cannot fire something you did not mean.
+The set also comes back by itself when you switch to another world or reopen the
 app; nothing is lost either way, and the layout editor is off while the buttons
 are hidden.
 
@@ -2340,9 +2373,10 @@ are hidden.
 
 On the default button set, tap **HELP** to run `.tutorial start`. The launcher
 lists a built-in **Starter Tutorial** row first (offline — no MUD). Disable the
-welcome note on normal MUDs via **Options → Starter Tutorial → Show on connect**,
-or type `.tutorial done`. You can also toggle `starter_tutorial` off under
-**Plugins**, which keeps it loaded but silent. It ships with the app and
+welcome note on normal MUDs via **Options → Starter Tutorial → Show welcome on
+connect**, or type `.tutorial done`. You can also toggle `starter_tutorial` off
+under **Plugins** — it stays loaded, but `.tutorial` commands stop until you
+re-enable it (and welcome-on-connect stops too). It ships with the app and
 **cannot be deleted** — like `button_window` and `connection_settings`, the
 Plugins screen refuses to remove it.
 
@@ -2350,9 +2384,9 @@ Plugins screen refuses to remove it.
 
 In order, as the menu builds them (all under ⋮):
 
-1. **Aliases** / **Triggers** / **Timers** / **Options** — the editors
-2. **Button Sets** — switch saved sets (`button_window`; the pack/size wizard
+1. **Button Sets** — switch saved sets (`button_window`; the pack/size wizard
    is **Options → Button → Load button set from wizard**)
+2. **Aliases** / **Triggers** / **Timers** / **Options** — the editors
 3. **Edit buttons** — enter button layout edit mode
 4. **Speedwalk Directions** — the direction letters `.run` uses
 5. **Map** — open the built-in mapper (same as `.map open`)
