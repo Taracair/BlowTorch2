@@ -89,6 +89,19 @@ public final class DeviceStateWatcher {
 	private Sensor motion;
 	private boolean motionHasGravity;
 	private boolean proximitySeeded;
+	/**
+	 * How long a light level has to hold before it counts. A hand passing over
+	 * the phone, or a car headlight, is not "you walked into a dark room".
+	 */
+	private static final long LIGHT_SETTLE_MILLIS = 1500L;
+
+	private boolean lightRegistered;
+	private Sensor lightSensor;
+	private float darkBelow = GestureTuning.DEFAULT_DARK_BELOW;
+	private float brightAbove = GestureTuning.DEFAULT_BRIGHT_ABOVE;
+	private String light = DeviceState.UNKNOWN;
+	private String lightCandidate = DeviceState.UNKNOWN;
+	private long lightCandidateSince;
 	private boolean facingRegistered;
 	private Sensor facingSensor;
 	private String facing = DeviceState.UNKNOWN;
@@ -237,6 +250,8 @@ public final class DeviceStateWatcher {
 				|| wanted.contains("wave") || wanted.contains("cover");
 		boolean wantsMotion = wanted.contains("shake");
 		boolean wantsFacing = wanted.contains("facedown") || wanted.contains("faceup");
+		boolean wantsLight = wantsState
+				|| wanted.contains("gotdark") || wanted.contains("gotbright");
 		// The system events ride on the broadcast receiver, which is otherwise
 		// registered only for the device.* variables.
 		for (String id : wanted) {
@@ -277,6 +292,11 @@ public final class DeviceStateWatcher {
 			startFacing();
 		} else {
 			stopFacing();
+		}
+		if (wantsLight) {
+			startLight();
+		} else {
+			stopLight();
 		}
 		if (oneShot == null) {
 			oneShot = new OneShotGestures(context, new OneShotGestures.Sink() {
@@ -419,6 +439,48 @@ public final class DeviceStateWatcher {
 		facingRegistered = false;
 		facing = DeviceState.UNKNOWN;
 		facingCandidate = DeviceState.UNKNOWN;
+	}
+
+	private void startLight() {
+		if (lightRegistered) {
+			return;
+		}
+		SensorManager m = manager();
+		if (m == null) {
+			return;
+		}
+		if (lightSensor == null) {
+			lightSensor = m.getDefaultSensor(Sensor.TYPE_LIGHT);
+		}
+		if (lightSensor == null) {
+			return;
+		}
+		// Read here, so a calibration takes hold as soon as the sensor is next
+		// picked up rather than at the next restart.
+		darkBelow = GestureTuning.darkBelow(context);
+		brightAbove = GestureTuning.brightAbove(context);
+		light = DeviceState.UNKNOWN;
+		lightCandidate = DeviceState.UNKNOWN;
+		try {
+			lightRegistered = m.registerListener(lightListener, lightSensor,
+					SensorManager.SENSOR_DELAY_NORMAL, handler);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.registerLight", e);
+		}
+	}
+
+	private void stopLight() {
+		if (!lightRegistered || sensorManager == null) {
+			return;
+		}
+		try {
+			sensorManager.unregisterListener(lightListener);
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterLight", e);
+		}
+		lightRegistered = false;
+		light = DeviceState.UNKNOWN;
+		lightCandidate = DeviceState.UNKNOWN;
 	}
 
 	private void stopBroadcasts() {
@@ -588,6 +650,54 @@ public final class DeviceStateWatcher {
 	};
 
 	/**
+	 * How light it is, settled.
+	 *
+	 * <p>The light sensor is on-change and can report a single value and then
+	 * stay quiet for minutes, so this holds a candidate rather than a stream and
+	 * accepts it once it has survived {@link #LIGHT_SETTLE_MILLIS}. The three
+	 * words come from two thresholds with a band between them, so a room sitting
+	 * on the line does not flap.
+	 */
+	private final SensorEventListener lightListener = new SensorEventListener() {
+		@Override
+		public void onSensorChanged(final SensorEvent event) {
+			if (event == null || event.values == null || event.values.length < 1) {
+				return;
+			}
+			String now = DeviceState.classifyLight(event.values[0], darkBelow, brightAbove);
+			long elapsed = android.os.SystemClock.elapsedRealtime();
+			if (!now.equals(lightCandidate)) {
+				lightCandidate = now;
+				lightCandidateSince = elapsed;
+				return;
+			}
+			if (now.equals(light)
+					|| (elapsed - lightCandidateSince) < LIGHT_SETTLE_MILLIS) {
+				return;
+			}
+			String previous = light;
+			light = now;
+			if (state.setLight(light)) {
+				push();
+			}
+			// The first settled reading is where the phone already was, not a
+			// change anybody made.
+			if (DeviceState.UNKNOWN.equals(previous)) {
+				return;
+			}
+			if (DeviceState.DARK.equals(light)) {
+				fire("gotdark");
+			} else if (DeviceState.BRIGHT.equals(light)) {
+				fire("gotbright");
+			}
+		}
+
+		@Override
+		public void onAccuracyChanged(final Sensor sensor, final int accuracy) {
+		}
+	};
+
+	/**
 	 * Hand the gesture to every world waiting for it.
 	 *
 	 * <p>{@code fireDeviceGesture} posts onto the connection's own handler, so
@@ -652,6 +762,7 @@ public final class DeviceStateWatcher {
 		stopProximity();
 		stopMotion();
 		stopFacing();
+		stopLight();
 		if (oneShot != null) {
 			oneShot.stopAll();
 		}

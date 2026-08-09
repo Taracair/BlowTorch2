@@ -135,6 +135,13 @@ public final class GestureCatalog {
 				"It has been lying untouched for a while. The quiet opposite of"
 					+ " picking it up.",
 				BY_STATIONARY));
+		all.add(new Gesture("gotdark", "It gets dark around you",
+				"You walked into an unlit room, or the lights went out. Needs a light"
+					+ " sensor, and what counts as dark is yours to calibrate.",
+				BY_LIGHT));
+		all.add(new Gesture("gotbright", "It gets bright around you",
+				"You stepped outside, or someone turned the lights on.",
+				BY_LIGHT));
 		// The system events. No sensor, no battery cost, and — unlike everything
 		// above — no phone anywhere is missing them, so a profile built on these
 		// works for whoever it is sent to.

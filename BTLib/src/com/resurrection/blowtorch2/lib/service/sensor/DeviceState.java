@@ -30,10 +30,15 @@ public final class DeviceState {
 	public static final String KEY_SCREEN = "device.screen";
 	public static final String KEY_COVERED = "device.covered";
 	public static final String KEY_FACING = "device.facing";
+	public static final String KEY_LIGHT = "device.light";
 
 	public static final String UNKNOWN = "unknown";
 	public static final String UP = "up";
 	public static final String DOWN = "down";
+
+	public static final String DARK = "dark";
+	public static final String DIM = "dim";
+	public static final String BRIGHT = "bright";
 
 	public static final String YES = "yes";
 	public static final String NO = "no";
@@ -76,6 +81,34 @@ public final class DeviceState {
 	/** Which way up the phone is lying, when it is lying flat enough to tell. */
 	public boolean setFacing(final String facing) {
 		return put(KEY_FACING, facing);
+	}
+
+	/** How light it is around the phone, in the three words a player would use. */
+	public boolean setLight(final String level) {
+		return put(KEY_LIGHT, level);
+	}
+
+	/**
+	 * Which of the three words a reading falls into.
+	 *
+	 * <p>Two thresholds and not one, so there is a band in the middle that is
+	 * neither: a room hovering on a single line would otherwise flip between dark
+	 * and bright as a cloud went past, and every trigger gated on it would fire
+	 * again and again.
+	 *
+	 * @param lux the sensor's reading.
+	 * @param darkBelow at or under this it is dark.
+	 * @param brightAbove at or over this it is bright.
+	 */
+	public static String classifyLight(final float lux, final float darkBelow,
+			final float brightAbove) {
+		if (lux <= darkBelow) {
+			return DARK;
+		}
+		if (lux >= brightAbove) {
+			return BRIGHT;
+		}
+		return DIM;
 	}
 
 	/** Battery as a whole percent. Out-of-range readings are ignored. */
@@ -126,6 +159,7 @@ public final class DeviceState {
 		{KEY_CHARGING, "yes | no", "the charger"},
 		{KEY_BATTERY, "0 to 100", "charge, as text holding a number"},
 		{KEY_COVERED, "yes | no", "something over the proximity sensor"},
+		{KEY_LIGHT, "dark | dim | bright", "how light the room is"},
 	};
 
 	/**

@@ -89,4 +89,26 @@ public class DeviceStateTest {
 		assertTrue(report.contains("not set"));
 		assertTrue(report.contains("device.screen"));
 	}
+
+	@Test
+	public void lightHasABandInTheMiddleSoARoomOnTheLineCannotFlap() {
+		// One threshold would make a room sitting on it alternate between dark
+		// and bright as a cloud went past, firing every trigger gated on it each
+		// time. Two thresholds leave a middle that is neither.
+		assertEquals(DeviceState.DARK, DeviceState.classifyLight(0f, 40f, 900f));
+		assertEquals(DeviceState.DARK, DeviceState.classifyLight(40f, 40f, 900f));
+		assertEquals(DeviceState.DIM, DeviceState.classifyLight(41f, 40f, 900f));
+		assertEquals(DeviceState.DIM, DeviceState.classifyLight(300f, 40f, 900f));
+		assertEquals(DeviceState.BRIGHT, DeviceState.classifyLight(900f, 40f, 900f));
+		assertEquals(DeviceState.BRIGHT, DeviceState.classifyLight(20000f, 40f, 900f));
+	}
+
+	@Test
+	public void lightIsListedInTheCatalogueLikeTheRest() {
+		DeviceState s = new DeviceState();
+		assertTrue(s.report().contains("device.light"));
+		assertTrue(s.report().contains("dark | dim | bright"));
+		s.setLight(DeviceState.DARK);
+		assertEquals("dark", s.get(DeviceState.KEY_LIGHT));
+	}
 }

@@ -71,13 +71,35 @@ public class SensorCommand extends SpecialCommand {
 		}
 		if (head.equals("threshold") || head.equals("calibrate")) {
 			String[] bits = rest.split("\\s+");
+			if (bits.length >= 3 && bits[0].equalsIgnoreCase("light")) {
+				try {
+					com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+							.setLightThresholds(c.getContext(), Float.parseFloat(bits[1]),
+									Float.parseFloat(bits[2]));
+					c.refreshDeviceGestures();
+					c.sendDataToWindow("\nDark is now at or under " + bits[1]
+							+ " lux, bright at or over " + bits[2] + ".\n"
+							+ "Kept with this phone, not with the world profile.\n");
+				} catch (NumberFormatException bad) {
+					c.sendDataToWindow(getErrorMessage("Sensor usage",
+							"Two numbers are needed: .sensor threshold light 40 900"));
+				}
+				return null;
+			}
 			if (bits.length < 2 || !bits[0].equalsIgnoreCase("shake")) {
-				c.sendDataToWindow("\nOnly the shake gesture has a threshold, and it is"
-						+ " easier to measure than\nto guess: Options \u2192 Device"
-						+ " \u2192 Calibrate shake.\nBy hand: .sensor threshold shake 14.5"
+				c.sendDataToWindow("\nTwo things have thresholds, and both are easier to"
+						+ " measure than to guess:\nOptions \u2192 Device \u2192"
+						+ " Calibrate shake, and Calibrate light.\nBy hand:"
+						+ " .sensor threshold shake 14.5  |  .sensor threshold light 40 900"
 						+ "\nNow: " + String.format(Locale.US, "%.1f",
 							com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
-								.shakeThreshold(c.getContext())) + " m/s2\n");
+								.shakeThreshold(c.getContext())) + " m/s2, dark under "
+						+ String.format(Locale.US, "%.0f",
+							com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+								.darkBelow(c.getContext())) + " lux, bright over "
+						+ String.format(Locale.US, "%.0f",
+							com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+								.brightAbove(c.getContext())) + " lux\n");
 				return null;
 			}
 			try {

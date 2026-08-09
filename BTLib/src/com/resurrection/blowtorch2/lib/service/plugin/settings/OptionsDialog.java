@@ -532,6 +532,13 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
+			if ("calibrate_light".equals(key)) {
+				MainWindow mwl = findMainWindowHost();
+				if (mwl != null) {
+					mwl.openLightCalibrationFromOptions();
+				}
+				return;
+			}
 			if ("calibrate_shake".equals(key)) {
 				MainWindow mwc = findMainWindowHost();
 				if (mwc != null) {

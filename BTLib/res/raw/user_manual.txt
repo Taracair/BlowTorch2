@@ -1392,6 +1392,8 @@ The gestures:
 | `pickup` | Lift the phone off the table | A sensor built for exactly that, where the phone has one |
 | `moving` | You got up and walked off with it | Significant motion |
 | `still` | It has been lying untouched a while | Stationary detect |
+| `gotdark` | It gets dark around you | The light sensor |
+| `gotbright` | It gets bright around you | The light sensor |
 | `screenoff` / `screenon` | The screen locks, or comes back | The system tells us |
 
 The last six need **no sensor at all** — the system announces them to every app.
@@ -1517,6 +1519,31 @@ jack comes out has to work precisely when you are not looking at the screen.
 **A warning about names.** Commands are looked up *after* your own aliases, so an
 alias called `sensor` would hide this command completely and say nothing about
 it. If `.sensor` ever stops responding, check your alias list first.
+
+### Calibrating light
+
+**Options → Device → Calibrate light.** Stand somewhere as dark as the dark you
+care about and tap; stand somewhere bright and tap again. That is the whole
+screen.
+
+It has to be done rather than shipped, because lux readings are not comparable
+between phones — the sensor sits under different glass — and not between rooms
+either. On one Pixel 9a an unlit room read 0 and an ordinary lit room 150 to 350.
+Your "dark" might be a hallway light at night.
+
+The two thresholds are placed a quarter and three quarters of the way between
+your readings, so there is a **band in the middle that is neither dark nor
+bright**. That band is the point: with a single line, a room sitting on it would
+flip back and forth as a cloud went past, and every trigger gated on it would
+fire each time.
+
+The light sensor reports **only when the light changes**, so a still number on
+that screen is normal and not a fault. What it measures stays with this phone and
+is never exported with a profile. By hand: `.sensor threshold light 40 900`.
+
+Useful with it: `gotdark` bound to a command for walking into an unlit place, or
+the condition "It is dark around the phone" on a Speak action so the game only
+reads aloud at night. `device.light` holds `dark`, `dim` or `bright`.
 
 ### Calibrating the shake
 

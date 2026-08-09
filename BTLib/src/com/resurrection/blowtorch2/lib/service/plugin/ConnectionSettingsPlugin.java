@@ -325,6 +325,12 @@ public class ConnectionSettingsPlugin extends Plugin {
 		calibrate_shake.setKey("calibrate_shake");
 		device.addOption(calibrate_shake);
 
+		CallbackOption calibrate_light = new CallbackOption();
+		calibrate_light.setTitle("Calibrate light\u2026");
+		calibrate_light.setDescription("Teach the app what dark and bright mean where you play. Stand somewhere dark and tap, somewhere bright and tap again. Lux readings are not comparable between phones or between rooms, so this is the only way \"it is dark around the phone\" can mean your dark. Kept with this phone, never exported with a profile.");
+		calibrate_light.setKey("calibrate_light");
+		device.addOption(calibrate_light);
+
 		BooleanOption gesture_screen_off = new BooleanOption();
 		gesture_screen_off.setTitle("Movement gestures with the screen off");
 		gesture_screen_off.setDescription("Off by default, and off means a shake, a wave or the phone going face down does nothing while the display is asleep — so a phone jolted about in a pocket or a bag cannot send commands to the game. Turn it on if you want to shake your way out of a fight without waking the phone first. IMPORTANT: a gesture is not aimed at one world. It fires in EVERY world you have open, including ones running in the background, so with two MUDs connected one shake sends the command twice. The headphone, charger and screen events are not affected by this setting — muting speech when the jack comes out has to work with the screen off, which is the whole point of it.");

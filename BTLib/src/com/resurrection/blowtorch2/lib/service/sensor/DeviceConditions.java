@@ -86,6 +86,10 @@ public final class DeviceConditions {
 				"a proximity sensor — .sensor caps says if this one has it"));
 		all.add(new Choice("Nothing is over the screen", DeviceState.KEY_COVERED,
 				DeviceState.NO, "a proximity sensor"));
+		all.add(new Choice("It is dark around the phone", DeviceState.KEY_LIGHT,
+				DeviceState.DARK, "a light sensor, and calibrating what dark means"));
+		all.add(new Choice("It is bright around the phone", DeviceState.KEY_LIGHT,
+				DeviceState.BRIGHT, "a light sensor, and calibrating what bright means"));
 		ALL = Collections.unmodifiableList(all);
 	}
 
