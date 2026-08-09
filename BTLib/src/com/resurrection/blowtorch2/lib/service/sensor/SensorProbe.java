@@ -147,14 +147,7 @@ public final class SensorProbe {
 				}
 				StringBuilder body = new StringBuilder();
 				body.append(header(registered, reported));
-				body.append("\n--- light probe ---\n");
-				body.append("The numbers below are lux, not m/s2: the arithmetic is\n");
-				body.append("shared with the shake probe, so read peak and median and\n");
-				body.append("ignore the gesture rows.\n");
-				body.append(stats.report());
-				body.append("\nRun this three times: in the dark, under a lamp, and\n");
-				body.append("outdoors. Those medians are what \"dark\" and \"bright\"\n");
-				body.append("should mean on this phone.\n");
+				body.append(lightReport(stats));
 				deliver(weak, body.toString());
 				RUNNING.set(false);
 				thread.quitSafely();
@@ -162,6 +155,37 @@ public final class SensorProbe {
 		}, reported * 1000L);
 		return "\nLight probe running for " + reported + " s on " + light.getName()
 				+ ".\nLeave the phone where the light is what you want measured.\n";
+	}
+
+	/**
+	 * The light reading, in its own words.
+	 *
+	 * <p>Not {@code MotionStats.report()}: the light sensor is on-change, so a
+	 * still phone in steady light reports once and then says nothing for the rest
+	 * of the run. Printed through the motion report that looks alarming — "0 Hz",
+	 * "largest gap 9188 ms", rows about gestures per m/s² — when it is in fact the
+	 * sensor working exactly as designed. Few readings is the normal case here, so
+	 * the report says so.
+	 */
+	private static String lightReport(final MotionStats stats) {
+		StringBuilder out = new StringBuilder();
+		out.append("\n--- light probe ---\n");
+		if (stats.getSampleCount() == 0) {
+			out.append("Nothing arrived. The light sensor reports only when the light\n");
+			out.append("changes, so try again while moving the phone between a lit and\n");
+			out.append("a shaded place.\n");
+			return out.toString();
+		}
+		out.append(String.format(Locale.US, "readings      : %d%n", stats.getSampleCount()));
+		out.append(String.format(Locale.US, "darkest       : %.0f lux%n", stats.percentile(0.0)));
+		out.append(String.format(Locale.US, "typical       : %.0f lux%n", stats.percentile(0.5)));
+		out.append(String.format(Locale.US, "brightest     : %.0f lux%n", stats.peak()));
+		out.append("\nA handful of readings is normal: this sensor speaks only when\n");
+		out.append("the light changes, not on a schedule.\n");
+		out.append("\nFor a sense of scale, measured on one phone: a dark room reads 0,\n");
+		out.append("an ordinary lit room 150-350. Daylight outdoors is far higher.\n");
+		out.append("Run this where you actually play to learn what your rooms read.\n");
+		return out.toString();
 	}
 
 	/**
