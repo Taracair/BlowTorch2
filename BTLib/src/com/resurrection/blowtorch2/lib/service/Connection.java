@@ -3478,8 +3478,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mDataToServer.setLength(0);
 		mDataToWindow.setLength(0);
 		String out = data;
-		if (out.endsWith("\n")) {
+		// Two characters were taken off for a one-character newline. Everything
+		// in the app sends "\r\n", so it was right by accident and wrong for
+		// anything that sends a bare "\n" — which ate the last character of the
+		// command instead: ".sensor fire facedown" arrived as "facedow", and a
+		// calibration of 14.5 was stored as 14.
+		if (out.endsWith("\r\n")) {
 			out = out.substring(0, out.length() - 2);
+		} else if (out.endsWith("\n") || out.endsWith("\r")) {
+			out = out.substring(0, out.length() - 1);
 		}
 		
 		if (out.equals("")) {

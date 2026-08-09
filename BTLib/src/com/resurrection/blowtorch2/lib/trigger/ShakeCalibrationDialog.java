@@ -311,7 +311,7 @@ public class ShakeCalibrationDialog extends Dialog {
 		}
 		try {
 			String command = String.format(java.util.Locale.US,
-					".sensor threshold shake %.1f\n", suggestion);
+					".sensor threshold shake %.1f\r\n", suggestion);
 			service.sendData(command.getBytes("UTF-8"));
 		} catch (Exception e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(

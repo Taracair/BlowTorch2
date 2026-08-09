@@ -314,7 +314,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		device.addOption(device_state_variables);
 
 		CallbackOption device_gestures = new CallbackOption();
-		device_gestures.setTitle("Gestures\u2026");
+		device_gestures.setTitle("Sensors and gestures\u2026");
 		device_gestures.setDescription("What your phone can feel — waving a hand over the screen, putting it face down, shaking it, the headphones coming out — and what each one should do. Tap to see the list, which says which ones this phone has the hardware for.");
 		device_gestures.setKey("device_gestures");
 		device.addOption(device_gestures);

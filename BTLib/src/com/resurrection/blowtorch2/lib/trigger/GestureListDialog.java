@@ -57,7 +57,7 @@ public class GestureListDialog extends Dialog {
 	@Override
 	protected void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setTitle("Gestures");
+		setTitle("Sensors and gestures");
 		ScrollView scroll = new ScrollView(getContext());
 		rows = new LinearLayout(getContext());
 		rows.setOrientation(LinearLayout.VERTICAL);
@@ -144,7 +144,7 @@ public class GestureListDialog extends Dialog {
 					// The same path .sensor fire uses: it proves the actions, not
 					// the sensor, and the reply in the game window says which of
 					// the two it proved.
-					service.sendData((".sensor fire " + g.getId() + "\n").getBytes("UTF-8"));
+					service.sendData((".sensor fire " + g.getId() + "\r\n").getBytes("UTF-8"));
 				} catch (Exception e) {
 					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 							"GestureListDialog.test", e);
