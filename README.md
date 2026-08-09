@@ -104,9 +104,10 @@ in-app under **Help**.
 ## Credit
 
 BlowTorch is Daniel Block and Offset Null Entertainment, LLC (2010–2018). The
-MUD core, the Lua plugin system, triggers, buttons — all theirs. This fork
-exists so that work keeps running on phones people actually own. Same MIT
-license, see [`LICENSE`](LICENSE).
+MUD core, the Lua plugin system, triggers, buttons — all theirs. This fork is
+the natural inheritance of that work — my personal gratitude for what they
+built, and a slightly desperate attempt to keep it running on newer Android
+phones. Same MIT license, see [`LICENSE`](LICENSE).
 
 Huge thanks to Daniel and Offset Null for building this and releasing it under
 MIT. Without that work there would be nothing to keep alive. I am grateful they
