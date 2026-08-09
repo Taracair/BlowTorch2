@@ -210,6 +210,10 @@ public final class DeviceStateWatcher {
 	 * <p>Called whenever a connection's settings are read or change, so turning
 	 * the option off releases the sensor without the player restarting anything.
 	 */
+	/** What the last refresh decided, so an unchanged one costs almost nothing. */
+	private java.util.Set<String> lastWanted;
+	private boolean lastWantedState;
+
 	public synchronized void refresh() {
 		boolean wantsState = false;
 		for (Connection c : audience.listeners()) {
@@ -242,6 +246,17 @@ public final class DeviceStateWatcher {
 				break;
 			}
 		}
+
+		// buildTriggerSystem calls this, and that can run several times a second
+		// while a profile enables and disables triggers — see docs/HANDOFF.md on
+		// what else rides that path. Nothing below changes unless the answer
+		// changed, so leave immediately when it did not.
+		if (lastWanted != null && lastWantedState == wantsState
+				&& lastWanted.equals(wanted)) {
+			return;
+		}
+		lastWanted = new java.util.LinkedHashSet<String>(wanted);
+		lastWantedState = wantsState;
 
 		if (wantsState) {
 			startBroadcasts();
