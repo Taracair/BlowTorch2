@@ -1,11 +1,16 @@
 # BlowTorch 2
 
-A MUD client for Android that still works on a modern phone.
+**Work in progress.** The whole project is still WIP — I do not promise that
+everything works perfectly, though I am trying hard. A lot of features and code
+have been fixed and put through extensive testing, but a stray bug may still
+lurk somewhere. If you hit one, reporting it is the most valuable thing you
+can do for me as a player.
 
 BlowTorch was a genuinely good Android MUD client. Then it stopped being
 updated in 2018, Android moved on without it, and it quietly became
-uninstallable. This fork brings it back: same client, current Android, storage
-and backups sorted out, and a fair amount added.
+uninstallable. This fork brings it back: same client, but with many new
+features. The [user guide](docs/user-manual.md) is strongly recommended if you
+want to understand them.
 
 **Commands:** [`docs/user-manual.md`](docs/user-manual.md), also in-app under
 **Help** · **Every setting:** [`docs/options-guide.md`](docs/options-guide.md) ·
@@ -109,7 +114,9 @@ made it, and that they left it where someone else could pick it up.
 ## How this is made
 
 One person, and a lot of AI. I use an LLM to write most of the code and docs. I
-test on a real phone, I decide what ships, and I read the bug reports.
+test on a real phone, I decide what ships, and I read the bug reports. 
+I definitely listen to your feedback too. 
+After all, the client is here for you, not only me.
 
 The process is written down rather than implied.
 [`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) is the working agreement:
