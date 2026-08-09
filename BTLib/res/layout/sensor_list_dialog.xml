@@ -3,25 +3,26 @@
 <!--
   Options → Device → Sensors.
 
-  Same chrome as the Alias / Trigger / Timer chooser: title strip, list, button
-  bar pinned to the bottom. Close used to be the last child of the scrolling
-  list, sixteen readings down.
+  Same shell as editor_selection_dialog: full-screen, title strip at the top,
+  button bar pinned to the bottom, the list filling what is left. It was a
+  floating 96%-by-94% dialog, which is where the empty band above the title came
+  from.
 
-  The one line under the title is all the standing explanation there is. What a
-  reading means belongs on its own row, and how sensor triggers behave in other
-  worlds belongs in Options → Device where those switches are.
+  No standing paragraph over the list. What the screen is for is behind the ?,
+  the way it is on the Alias / Trigger / Timer lists, and what each reading means
+  is on its own row.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
 	android:id="@+id/root"
 	android:layout_width="match_parent"
 	android:layout_height="match_parent"
-	android:orientation="vertical"
 	android:background="#FF16181C" >
 
 	<TextView
 		android:id="@+id/titlebar"
-		android:layout_width="match_parent"
+		android:layout_width="fill_parent"
 		android:layout_height="42dip"
+		android:layout_alignParentTop="true"
 		android:text="SENSORS"
 		android:textColor="#FFF2F4F6"
 		android:background="#FF1E2126"
@@ -29,47 +30,54 @@
 		android:textStyle="bold"
 		android:gravity="center"/>
 
-	<TextView
-		android:id="@+id/intro"
-		android:layout_width="match_parent"
+	<LinearLayout
+		android:id="@+id/button_row"
+		android:layout_width="fill_parent"
 		android:layout_height="wrap_content"
-		android:paddingLeft="12dip"
-		android:paddingRight="12dip"
-		android:paddingTop="8dip"
-		android:paddingBottom="8dip"
-		android:textColor="#FF9AA3AD"
-		android:textSize="12dip"
-		android:text="Tap a reading to give it a trigger: it can send a command, run a script, speak, or check a condition first."/>
+		android:layout_alignParentBottom="true"
+		android:orientation="horizontal"
+		android:background="#FF1E2126"
+		android:paddingLeft="6dip"
+		android:paddingRight="6dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="6dip">
+
+		<Button
+			android:id="@+id/helpbutton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:minWidth="52dip"
+			android:background="@drawable/editor_more_button_bg"
+			android:textColor="#FFC7CDD4"
+			android:text="?"
+			android:textSize="16dip"
+			android:textStyle="bold"/>
+
+		<Button
+			android:id="@+id/close"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:layout_marginLeft="6dip"
+			android:text="Close"/>
+	</LinearLayout>
 
 	<ScrollView
 		android:id="@+id/scroll"
 		android:layout_width="match_parent"
-		android:layout_height="0dip"
-		android:layout_weight="1"
+		android:layout_height="fill_parent"
+		android:layout_below="@id/titlebar"
+		android:layout_above="@id/button_row"
 		android:scrollbarStyle="outsideOverlay">
 
 		<LinearLayout
 			android:id="@+id/rows"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
-			android:paddingBottom="8dip"
+			android:paddingBottom="10dip"
 			android:orientation="vertical"/>
 	</ScrollView>
 
-	<LinearLayout
-		android:id="@+id/button_row"
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:orientation="horizontal"
-		android:background="#FF1E2126"
-		android:padding="6dip">
-
-		<Button
-			android:id="@+id/close"
-			android:layout_width="match_parent"
-			android:layout_height="wrap_content"
-			android:minHeight="44dip"
-			android:text="Close"/>
-	</LinearLayout>
-
-</LinearLayout>
+</RelativeLayout>

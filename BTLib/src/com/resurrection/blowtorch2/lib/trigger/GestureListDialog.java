@@ -8,7 +8,8 @@ import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
-import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
+import com.resurrection.blowtorch2.lib.window.EditorHelp;
+import com.resurrection.blowtorch2.lib.window.MainWindow;
 import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
 import com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability;
 import com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog;
@@ -20,10 +21,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -49,6 +53,12 @@ import android.widget.TextView;
  * state. The resolved sensor's model name is not on the row — it answers a
  * question nobody asked while scrolling, and {@code .sensor caps} still prints
  * it for the one person who wants it.
+ *
+ * <p>The chrome is the Alias / Trigger / Timer chooser's, down to the row
+ * selector and the play / pencil icons, because this is another list of things
+ * that fire and it should not be a screen of its own invention. What the list
+ * is for lives behind the {@code ?} in the button bar, which is where those
+ * three keep it.
  */
 public class GestureListDialog extends Dialog {
 
@@ -63,6 +73,42 @@ public class GestureListDialog extends Dialog {
 	private static final int TEXT_SECONDARY = 0xFF9AA3AD;
 	private static final int TEXT_CONFIGURED = 0xFF8FC9A0;
 
+	/**
+	 * Behind the {@code ?}. Everything the screen used to say in a paragraph
+	 * above the list, plus the two things that surprise people, said once here
+	 * instead of on every row.
+	 */
+	private static final String HELP =
+			"Every reading this phone can deliver, and what each one drives.\n\n"
+			+ "SETTING ONE UP\n"
+			+ "Tap a row. It opens the ordinary trigger editor with the reading "
+			+ "already chosen, so a sensor can do anything a trigger can: send a "
+			+ "command, run a script, speak, play a sound, set a variable, or gate "
+			+ "itself on a condition first.\n\n"
+			+ "    Put the phone face down  ->  Ack  afk\n"
+			+ "    Turn it face up again    ->  Ack  afk off\n\n"
+			+ "THE ICONS\n"
+			+ "The pencil opens the editor, same as tapping the row. Play fires the "
+			+ "reading here and now, without moving the phone, which proves the "
+			+ "actions rather than the sensor -- the reply in the game window says "
+			+ "which of the two it proved. It is dim until something answers the "
+			+ "reading. The same thing from the input bar is\n"
+			+ "    .sensor fire facedown\n\n"
+			+ "NOT AVAILABLE ON THIS PHONE\n"
+			+ "Sensor hardware differs between handsets, so readings this one cannot "
+			+ "provide are folded away at the bottom. They are still tappable: a "
+			+ "profile you export is played on somebody else's phone, which may well "
+			+ "have the sensor. Which chip provides which reading here is\n"
+			+ "    .sensor caps\n\n"
+			+ "TWO THINGS TO KNOW\n"
+			+ "A sensor trigger is not aimed at one world. It fires in every world "
+			+ "you have open, so with two MUDs connected one shake sends its command "
+			+ "twice.\n\n"
+			+ "Movement readings are held back while the screen is off or another app "
+			+ "is on top, so a phone in a pocket cannot send commands. Both switches "
+			+ "are in Options -> Device, next to Calibrate shake and Calibrate light. "
+			+ "Headphone, charger and screen readings are not affected by either.";
+
 	private final IConnectionBinder service;
 	private final boolean showRegexWarning;
 	private LinearLayout rows;
@@ -71,7 +117,7 @@ public class GestureListDialog extends Dialog {
 
 	public GestureListDialog(final Context context, final IConnectionBinder service,
 			final boolean showRegexWarning) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, R.style.BlowTorch_Dialog_FullScreen);
 		this.service = service;
 		this.showRegexWarning = showRegexWarning;
 	}
@@ -80,8 +126,15 @@ public class GestureListDialog extends Dialog {
 	protected void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		getWindow().requestFeature(Window.FEATURE_NO_TITLE);
+		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		if (getContext() instanceof MainWindow
+				&& ((MainWindow) getContext()).isStatusBarHidden()) {
+			getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		}
 		setContentView(R.layout.sensor_list_dialog);
-		EditorDialogChrome.applyNearlyFullScreen(this);
+		fillTheScreen();
+
 		rows = (LinearLayout) findViewById(R.id.rows);
 		Button close = (Button) findViewById(R.id.close);
 		close.setOnClickListener(new View.OnClickListener() {
@@ -90,7 +143,51 @@ public class GestureListDialog extends Dialog {
 				dismiss();
 			}
 		});
+		Button help = (Button) findViewById(R.id.helpbutton);
+		help.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(final View v) {
+				EditorHelp.show(getContext(), "Sensors", HELP);
+			}
+		});
 		build();
+	}
+
+	/**
+	 * Edge to edge, with the title strip below the status bar and the buttons
+	 * above the navigation bar.
+	 *
+	 * <p>The same two steps {@code BaseSelectionDialog} takes, and for the same
+	 * reason: the theme alone leaves the window its default size, and padding
+	 * the root rather than the list keeps the title and the buttons out of the
+	 * system bars while the list still scrolls the full height between them.
+	 */
+	private void fillTheScreen() {
+		Window window = getWindow();
+		if (window == null) {
+			return;
+		}
+		window.setLayout(WindowManager.LayoutParams.MATCH_PARENT,
+				WindowManager.LayoutParams.MATCH_PARENT);
+		WindowManager.LayoutParams attrs = window.getAttributes();
+		attrs.width = WindowManager.LayoutParams.MATCH_PARENT;
+		attrs.height = WindowManager.LayoutParams.MATCH_PARENT;
+		attrs.gravity = Gravity.FILL;
+		window.setAttributes(attrs);
+
+		final View root = findViewById(R.id.root);
+		if (root == null) {
+			return;
+		}
+		androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root,
+				(view, insets) -> {
+					androidx.core.graphics.Insets bars = insets.getInsets(
+							androidx.core.view.WindowInsetsCompat.Type.systemBars());
+					view.setPadding(view.getPaddingLeft(), bars.top,
+							view.getPaddingRight(), bars.bottom);
+					return insets;
+				});
+		androidx.core.view.ViewCompat.requestApplyInsets(root);
 	}
 
 	/** Rebuilt rather than patched, so it cannot drift from the settings. */
@@ -168,17 +265,20 @@ public class GestureListDialog extends Dialog {
 		// Deliberately still tappable when the sensor is missing: profiles are
 		// shared, and one built here should be buildable for a phone that does
 		// have the sensor. The row already says it will not fire on this one.
-		row.findViewById(R.id.row).setOnClickListener(new View.OnClickListener() {
+		View.OnClickListener openEditor = new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
 				openEditor(g, bound);
 			}
-		});
+		};
+		row.findViewById(R.id.row).setOnClickListener(openEditor);
+		row.findViewById(R.id.edit).setOnClickListener(openEditor);
 
-		Button test = (Button) row.findViewById(R.id.test);
-		// Nothing to prove until something answers the reading, and a disabled
-		// button on fifteen rows is fifteen dead controls to read past.
-		test.setVisibility(configured ? View.VISIBLE : View.GONE);
+		ImageButton test = (ImageButton) row.findViewById(R.id.test);
+		// Dimmed rather than hidden where nothing answers the reading yet: a
+		// control that is missing from most rows reads as a control that is not
+		// there at all, and the question "where is Test" is the one this list
+		// got asked.
 		test.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
@@ -196,6 +296,14 @@ public class GestureListDialog extends Dialog {
 				// see reads as a test that did nothing.
 			}
 		});
+		// Clickable as well as enabled, and in that order. A disabled view that
+		// is still clickable swallows the touch instead of passing it to the row
+		// underneath, so the dim icon would have been a dead patch over the one
+		// tap the row is for; and setOnClickListener turns clickable back on, so
+		// this cannot move above it.
+		test.setEnabled(configured);
+		test.setClickable(configured);
+		test.setAlpha(configured ? 1f : 0.3f);
 
 		rows.addView(row);
 	}
