@@ -119,6 +119,24 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 	}
 
+	/**
+	 * Open a brand new trigger already set to a device gesture.
+	 *
+	 * <p>For the Sensors screen, where the player picked "put the phone face
+	 * down" and should not then have to find that same choice again in a
+	 * dropdown. Call before {@code show()}; ignored when editing an existing
+	 * trigger, which already knows what it fires on.
+	 */
+	public void presetGesture(final com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture gesture) {
+		if (gesture == null || isEditor) {
+			return;
+		}
+		the_trigger.setName(gesture.getId());
+		the_trigger.setPattern(gesture.getPattern());
+		the_trigger.setInterpretAsRegex(false);
+		the_trigger.setEnabled(true);
+	}
+
 	public void onCreate(Bundle b) {
 		this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
 		this.getWindow().setBackgroundDrawableResource(com.resurrection.blowtorch2.lib.R.drawable.dialog_window_crawler1);
@@ -220,10 +238,104 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		literal.setOnCheckedChangeListener(new LiteralCheckChangedListener());
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
 		setupTriggerPreview(title, pattern, literal);
+		setupSourcePicker(pattern, literal, title);
 		// Same shell as the alias editor: the height wraps the form, so
 		// Cancel/More/Done sit under the fields instead of at the bottom of a
 		// dialog that was 94% of the screen whatever it had in it.
 		EditorDialogChrome.applyFloatingWrapContentHeight(this);
+	}
+
+	/**
+	 * What this trigger fires on: a line from the world, or something the phone
+	 * itself felt.
+	 *
+	 * <p>A device gesture is stored as a pattern like {@code !wave}, but nobody
+	 * should ever have to know that, and nobody should be able to break it by
+	 * editing the field by hand — one stray keystroke and Done would turn the
+	 * gesture into a trigger watching the game for the literal text "!wave",
+	 * silently and for ever. So picking a gesture fills the pattern in and locks
+	 * the field; picking "a line from the world" hands it back.
+	 *
+	 * <p>Gestures this phone has no sensor for are listed and marked rather than
+	 * hidden: a profile is a thing people share, and one built for a phone with a
+	 * proximity sensor should be readable on a phone without one.
+	 */
+	private void setupSourcePicker(final EditText pattern, final CheckBox literal,
+			final EditText title) {
+		final Spinner source = (Spinner) findViewById(R.id.trigger_editor_source_spinner);
+		if (source == null) {
+			return;
+		}
+		final java.util.List<com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture>
+				gestures = com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.all();
+		final java.util.List<String> labels = new java.util.ArrayList<String>();
+		labels.add("A line from the world");
+		for (com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g : gestures) {
+			com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.Resolution r =
+					com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.resolve(
+							getContext(), g);
+			labels.add(g.getLabel() + (r.isAvailable() ? "" : "  (not on this phone)"));
+		}
+		ArrayAdapter<String> adapter = new ArrayAdapter<String>(getContext(),
+				android.R.layout.simple_spinner_item, labels);
+		adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+		source.setAdapter(adapter);
+
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture current =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.fromPattern(
+						the_trigger.getPattern(), !the_trigger.isInterpretAsRegex());
+		int selected = 0;
+		if (current != null) {
+			for (int i = 0; i < gestures.size(); i++) {
+				if (gestures.get(i).getId().equals(current.getId())) {
+					selected = i + 1;
+					break;
+				}
+			}
+		}
+		source.setSelection(selected);
+		applySourceLock(pattern, literal, selected > 0);
+
+		source.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(AdapterView<?> parent, View view, int position,
+					long id) {
+				if (position == 0) {
+					// Leaving a gesture: the pattern field still holds "!wave",
+					// which is not something the player typed and not something
+					// they want to watch the game for.
+					if (com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
+							.isGesturePattern(pattern.getText().toString(),
+									literal.isChecked())) {
+						pattern.setText("");
+					}
+					applySourceLock(pattern, literal, false);
+					return;
+				}
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+						gestures.get(position - 1);
+				pattern.setText(g.getPattern());
+				// A gesture is matched by name, never as a regular expression.
+				literal.setChecked(true);
+				if (title.getText().toString().trim().length() == 0) {
+					title.setText(g.getId());
+				}
+				applySourceLock(pattern, literal, true);
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
+	}
+
+	/** Lock or release the two fields a gesture owns. */
+	private void applySourceLock(final EditText pattern, final CheckBox literal,
+			final boolean isGesture) {
+		pattern.setEnabled(!isGesture);
+		pattern.setFocusable(!isGesture);
+		pattern.setFocusableInTouchMode(!isGesture);
+		literal.setEnabled(!isGesture);
 	}
 
 	/** Suggest existing group names; autocomplete + dropdown spinner of known groups. */
@@ -335,6 +447,17 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	
 	private void updateTriggerPreview(EditText title, EditText pattern, CheckBox literal, TextView preview) {
 		String patternText = pattern.getText().toString();
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture gesture =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.fromPattern(
+						patternText, literal.isChecked());
+		if (gesture != null) {
+			com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.Resolution r =
+					com.resurrection.blowtorch2.lib.service.sensor.GestureAvailability.resolve(
+							getContext(), gesture);
+			preview.setText(gesture.getHelp() + "\n\nOn this phone: " + r.describe()
+					+ "\nTry it without moving the phone: .sensor fire " + gesture.getId());
+			return;
+		}
 		if (patternText.trim().length() == 0) {
 			preview.setText("Enter a pattern to preview what the trigger watches for.");
 			return;
@@ -608,6 +731,32 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				}
 			}
 			
+			// A sensor reading arrives here with its pattern already filled in,
+			// so Done is valid the moment the editor opens and one tap saves a
+			// trigger with nothing in it. It then shows up on the Sensors list
+			// as set up, which is the opposite of true. A text trigger cannot
+			// reach this state — its pattern starts blank and the check above
+			// stops it — so the guard is only for the readings.
+			if (the_trigger.getResponders().isEmpty()
+					&& com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
+							.isGesturePattern(pattern.getText().toString(),
+									literal.isChecked())) {
+				AlertDialog.Builder builder =
+						new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
+				builder.setTitle("Nothing to do yet");
+				builder.setMessage("This reading has no actions, so firing it would do"
+						+ " nothing. Add one under Actions — Ack sends a command to the"
+						+ " game — or Cancel to leave the reading unset.");
+				builder.setPositiveButton("Back to the editor",
+						new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface d, int which) {
+								d.dismiss();
+							}
+						});
+				builder.create().show();
+				return;
+			}
+
 			if(isEditor) {
 				//do editor type action
 				the_trigger.setName(title.getText().toString());
@@ -622,10 +771,14 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 					} else {	
 						service.updatePluginTrigger(selectedPlugin,original_trigger,the_trigger);
 					}
-					// Same barrier as TimerEditorDialog: list Done also saves, but
-					// conditions must hit disk as soon as the editor commits so a
-					// :stellar death cannot drop an in-memory-only ConditionGroup.
-					service.saveSettings();
+					// Same barrier as TimerEditorDialog: the list's Done saves too,
+					// but conditions must reach disk as soon as the editor commits
+					// so a :stellar death cannot drop an in-memory-only
+					// ConditionGroup. Still asked for here, just not waited for:
+					// updateTrigger above is synchronous, so the service already
+					// holds everything this write puts down. Measured at 329 ms on
+					// the UI thread, 7 August.
+					com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 				} catch (RemoteException e) {
 					throw new RuntimeException(e);
 				}
@@ -641,7 +794,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 					} else {
 						service.newPluginTrigger(selectedPlugin,the_trigger);
 					}
-					service.saveSettings();
+					// As above: the new trigger is in the service already.
+					com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 				} catch (RemoteException e) {
 					throw new RuntimeException(e);
 				}
@@ -688,6 +842,11 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				label.setText("Notification: " + ((NotificationResponder)responder).getTitle());
 			} else if(responder.getType() == RESPONDER_TYPE.TOAST) {
 				label.setText("Toast Message: " + ((ToastResponder)responder).getMessage());
+			} else if(responder.getType() == RESPONDER_TYPE.SOUND) {
+				label.setText("Sound: " + com.resurrection.blowtorch2.lib.util.NotificationSounds.displayLabel(
+						((com.resurrection.blowtorch2.lib.responder.sound.SoundResponder)responder).getSoundPath()));
+			} else if(responder.getType() == RESPONDER_TYPE.SPEAK) {
+				label.setText("Speak: " + ((com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder).getMessage());
 			} else if(responder.getType() == RESPONDER_TYPE.ACK){
 				label.setText("Ack With: " + ((AckResponder)responder).getAckWith());
 			} else if(responder.getType() == RESPONDER_TYPE.SCRIPT) {
@@ -802,6 +961,18 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			case TOAST:
 				ToastResponderEditor tedit = new ToastResponderEditor(TriggerEditorDialog.this.getContext(),(ToastResponder)responder.copy(),TriggerEditorDialog.this);
 				tedit.show();
+				break;
+			case SPEAK:
+				new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderEditor(
+						TriggerEditorDialog.this.getContext(),
+						(com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder.copy(),
+						TriggerEditorDialog.this).show();
+				break;
+			case SOUND:
+				new com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor(
+						TriggerEditorDialog.this.getContext(),
+						(com.resurrection.blowtorch2.lib.responder.sound.SoundResponder)responder.copy(),
+						TriggerEditorDialog.this).show();
 				break;
 			case ACK:
 				AckResponderEditor aedit = new AckResponderEditor(TriggerEditorDialog.this.getContext(),(AckResponder)responder.copy(),TriggerEditorDialog.this);
@@ -919,7 +1090,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 		public void onClick(View v) {
 			//give out a list of options
-			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable","Tappable Word"};
+			// Appended. The dialog dispatches on the index, so inserting rather
+			// than appending would silently rebind every entry after it.
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable","Tappable Word","Speak Out Loud","Play a Sound"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -1072,6 +1245,14 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			break;
 		case 8:
 			new TapActionEditor(TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
+			break;
+		case 9:
+			new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponderEditor(
+					TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
+			break;
+		case 10:
+			new com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor(
+					TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
 			break;
 		default:
 			break;

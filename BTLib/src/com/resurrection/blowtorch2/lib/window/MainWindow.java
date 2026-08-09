@@ -273,6 +273,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_EDIT_TOOLS = 929;
 	/** Re-layout Edit/Send after Options → Window show/hide prefs change. */
 	public static final int MESSAGE_REFRESH_INPUT_ACTIONS = 930;
+	/** obj: the word to drop into the input bar at the caret. */
+	protected static final int MESSAGE_INPUT_INSERT_WORD = 931;
+	/** obj: incoming text, for the word completer's vocabulary. */
+	protected static final int MESSAGE_VOCABULARY_TEXT = 932;
+	/** obj: the world's prompt for the prompt bar; empty hides it. */
+	protected static final int MESSAGE_PROMPT_LINE = 933;
+	protected static final int MESSAGE_VOCABULARY_RESET = 934;
+	protected static final int MESSAGE_PICK_COMPLETION = 935;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -340,6 +348,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private String keepLastPendingReplace = null;
 	/** True while this watcher is the one editing the text. */
 	private boolean keepLastSuppress = false;
+	/** Was the kept line still selected when this edit started? Read in
+	 * beforeTextChanged, where the selection is the one from before the edit. */
+	private boolean keepLastWasSelected = false;
 	Boolean settingsLoaded = false; //synchronize or try to mitigate failures of writing button data, or failures to read data
 	/** Whether the service binding is currently up.
 	 *
@@ -417,7 +428,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				String display = MainWindow.this.getConnectionDisplay();
 				String host = MainWindow.this.getConnectionHost();
 				int port = MainWindow.this.getConnectionPort();
-				service.registerCallback(the_callback, host, port, display);
+				service.registerCallback(the_callback, host, port,
+						MainWindow.this.getConnectionTls(), display);
 				// Do NOT windowShowing(true) here. After a UI process kill the
 				// windows are not registered yet — saying "showing" clears the
 				// hold and pushes lines at a null/dead callback. finishInitializeWindows
@@ -1182,6 +1194,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (!mLocalEchoOff) {
 						history.addCommand(pdata);
 						history.save(MainWindow.this, getConnectionDisplay());
+						// Same gate, same reason: the first word of a masked line
+						// would become a verb on the suggestion strip. This adds
+						// nothing to what can be completed, only to what is known
+						// about where a word belongs in a line.
+						// Before learning, not after: reading the file replaces
+						// what is held, so a load that ran second would drop the
+						// command that had just been typed into it.
+						loadCommandKnowledge();
+						mWordSuggestions.learnCommand(pdata);
+						mCommandKnowledgeDirty = true;
+						maybeSaveCommandKnowledge();
 					}
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
@@ -1226,11 +1249,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_RESETINPUTWINDOW:
 					//Log.e("WINDOW","Attempting to reset input bar.");
-					
+
+					// The command is gone, so composing is over. Said here and not
+					// left to the text watcher because Keep Last does not clear the
+					// bar — it selects what was sent — so the text never changes and
+					// no watcher runs. Without this the bar stays "in use" for the
+					// rest of the session.
+					reportTypingState(false);
+
 					//try {
 					if(isKeepLast && !mLocalEchoOff) {
 						keepLastReplaceLength = mInputBox.getText().length();
-						historyWidgetKept = true;
+						// Only when the bar really is holding a kept command.
+						// This flag makes the next ↑ skip one entry, on the
+						// grounds that the first one back is already on screen.
+						// Claiming it for an empty bar therefore skips a command
+						// that was never shown — and nothing cleared it in that
+						// case, because the watcher below only clears while
+						// keepLastReplaceLength > 0. That is the "sometimes it
+						// jumps two commands back" report.
+						historyWidgetKept = keepLastReplaceLength > 0;
 						if (keepLastReplaceLength > 0) {
 							mInputBox.post(new Runnable() {
 								@Override
@@ -1304,6 +1342,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onCreate", e);
 						}
 					}
+					break;
+				case MESSAGE_INPUT_INSERT_WORD:
+					inputInsertWord((String) msg.obj);
+					break;
+				case MESSAGE_VOCABULARY_TEXT:
+					mWordSuggestions.learn((String) msg.obj);
+					mWordSuggestionsOn = true;
+					refreshWordSuggestions();
+					break;
+				case MESSAGE_VOCABULARY_RESET:
+					// The session vocabulary goes; what this world's own commands
+					// taught comes back from its file. That split is the whole
+					// point: the reset exists so one world's mob names do not
+					// reach another, and a per-world file provides that scoping
+					// without throwing the pairings away every time you connect.
+					mWordSuggestions.clear();
+					loadCommandKnowledge();
+					refreshWordSuggestions();
+					break;
+				case MESSAGE_PICK_COMPLETION:
+					pickWordSuggestion(msg.arg1);
+					break;
+				case MESSAGE_PROMPT_LINE:
+					showPromptBar((String) msg.obj);
 					break;
 				case MESSAGE_INPUT_SELECT_ALL:
 					inputSelectAll();
@@ -1402,7 +1464,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			startAction.putExtra("DISPLAY", getConnectionDisplay());
 			startAction.putExtra("PORT", Integer.toString(getConnectionPort()));
 			startAction.putExtra("HOST", getConnectionHost());
-			
+			startAction.putExtra("TLS", getConnectionTls());
+
 			androidx.core.content.ContextCompat.startForegroundService(this, startAction);
 		}
 		
@@ -1866,6 +1929,28 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * @param wordCenterX centre of the tapped word inside the game window.
 	 * @param wordTop top of the tapped word inside the game window.
 	 */
+	/**
+	 * How solid the tap menu's backing is, as a percentage.
+	 *
+	 * <p>The menu opens on top of the text it is about. Only the plate fades —
+	 * the commands stay fully readable at every setting, the same rule the
+	 * suggestion chips follow, because a menu you cannot read is worse than one
+	 * that covers something.
+	 */
+	public static final int DEFAULT_TAP_MENU_OPACITY = 100;
+
+	/** Below this the menu stops being findable against moving text. */
+	public static final int MIN_TAP_MENU_OPACITY = 20;
+
+	private int mTapMenuOpacity = DEFAULT_TAP_MENU_OPACITY;
+
+	public static int clampOpacity(final int value) {
+		if (value < MIN_TAP_MENU_OPACITY) {
+			return MIN_TAP_MENU_OPACITY;
+		}
+		return value > 100 ? 100 : value;
+	}
+
 	void showTapWordMenu(final String[] commands, final int wordCenterX, final int wordTop) {
 		if (commands == null || commands.length == 0) {
 			return;
@@ -1903,23 +1988,43 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// cannot know the font.
 						label.setSingleLine(true);
 						label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-						label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 15f);
-						int padX = Math.round(12 * density);
-						int padY = Math.round(8 * density);
+						label.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f);
+						int padX = Math.round(10 * density);
+						int padY = Math.round(4 * density);
 						label.setPadding(padX, padY, padX, padY);
-						label.setMinimumHeight(Math.round(40 * density));
+						label.setMinimumHeight(Math.round(TAP_MENU_ROW_DIP * density));
 					}
 					return row;
 				}
 			});
-			popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
-					themed, R.drawable.dialog_window_crawler1));
+			// The same rounded plate the suggestion bar uses. This menu lands in
+			// the middle of moving text, and a square panel there reads as the
+			// display having broken rather than as something being offered.
+			android.graphics.drawable.Drawable plate =
+					androidx.core.content.ContextCompat.getDrawable(
+						themed, R.drawable.suggestion_panel_bg);
+			if (plate != null && mTapMenuOpacity < 100) {
+				// A new copy: drawables from a resource share their constant state,
+				// so setting alpha on the one handed back would fade the suggestion
+				// bar's plate as well, everywhere, for the rest of the session.
+				plate = plate.getConstantState() == null
+						? plate : plate.getConstantState().newDrawable().mutate();
+				plate.setAlpha(Math.round(255f * mTapMenuOpacity / 100f));
+			}
+			popup.setBackgroundDrawable(plate);
+			popup.setAnimationStyle(android.R.style.Animation_Dialog);
 			// Deliberately narrower than the ⋮ menu: this one points at a word in
 			// the middle of the text and has to leave that word readable.
 			int width = Math.min(
-					Math.round(getResources().getDisplayMetrics().widthPixels * 0.6f),
-					(int) (200 * density));
+					Math.round(getResources().getDisplayMetrics().widthPixels * 0.5f),
+					(int) (168 * density));
 			popup.setContentWidth(width);
+			// A word can carry a lot of commands, and a menu as tall as the screen
+			// buries the text it is about. Past this it scrolls instead of growing.
+			if (commands.length > TAP_MENU_MAX_ROWS) {
+				popup.setHeight(Math.round(
+						(TAP_MENU_MAX_ROWS + 0.5f) * TAP_MENU_ROW_DIP * density));
+			}
 			// The anchor is the whole game window, so the offsets carry the word
 			// position. Keep the menu on screen: it hangs below the word unless
 			// there is no room, and never starts left of the window edge.
@@ -1945,7 +2050,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/** Longest command text a menu row shows before it is cut. */
-	static final int TAP_MENU_MAX_CHARS = 24;
+	static final int TAP_MENU_MAX_CHARS = 18;
+
+	/** Row height. Small, because this menu covers the text it is about. */
+	static final int TAP_MENU_ROW_DIP = 30;
+
+	/** Past this the menu scrolls rather than growing over the game. */
+	static final int TAP_MENU_MAX_ROWS = 6;
 
 	/**
 	 * Menu label for a command: the whole thing when it is short, otherwise the
@@ -2045,6 +2156,39 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	@SuppressWarnings("unchecked")
+	/**
+	 * The Sensors screen, opened from Options → Device.
+	 *
+	 * <p>Gestures are stored as triggers, which is right for the engine and no
+	 * help at all for finding one afterwards. This is where a player goes to see
+	 * what their phone can feel and what each thing does.
+	 */
+	/** The light calibration screen, opened from Options → Device. */
+	public void openLightCalibrationFromOptions() {
+		if (service == null) {
+			return;
+		}
+		new com.resurrection.blowtorch2.lib.trigger.LightCalibrationDialog(
+				this, service).show();
+	}
+
+	/** The shake calibration screen, opened from Options → Device. */
+	public void openShakeCalibrationFromOptions() {
+		if (service == null) {
+			return;
+		}
+		new com.resurrection.blowtorch2.lib.trigger.ShakeCalibrationDialog(
+				this, service).show();
+	}
+
+	public void openGestureListFromOptions() {
+		if (service == null) {
+			return;
+		}
+		new com.resurrection.blowtorch2.lib.trigger.GestureListDialog(
+				this, service, mShowRegexWarning).show();
+	}
+
 	public boolean onOptionsItemSelected(MenuItem item) {
 //		if(item.getItemId() >= 1000) {
 //			//script callback
@@ -2324,9 +2468,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		windowCall("button_window", "restoreButtons", "");
 	}
 	
-	private void clearButtonsOnPause() {
+	/**
+	 * Drop a half-finished touch on the way out. Nothing else.
+	 *
+	 * <p>This used to call {@code clearButtons} too, and that is where the stray
+	 * BACK button came from. {@code clearButtons} is the player's
+	 * {@code .clearbuttons} feature: it swaps the whole set for a single BACK
+	 * button, sets {@code buttonsCleared}, and while that flag is up a press on
+	 * <em>any</em> button restores the set instead of sending its command and the
+	 * long-press editor is suppressed. Borrowing it to mean "we are leaving" left
+	 * the window holding that one-button set for the whole time the app was away
+	 * — so any frame drawn before {@code restoreButtons} runs on the way back
+	 * shows a lone BACK button from no preset the player recognises.
+	 *
+	 * <p>Nothing needed it. The overlay windows come down in
+	 * {@code FloatingButtonController.onPause}, which is what keeps them from
+	 * floating over the next app, and {@code restoreButtons} already handles
+	 * arriving on a set that was never cleared.
+	 */
+	private void cancelTouchOnPause() {
 		windowCall("button_window", "cancelTouchGesture", "");
-		windowCall("button_window", "clearButtons", "");
 	}
 
 	@Override
@@ -2339,6 +2500,1130 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return handled;
 	}
 	
+	/** Words the game has used, for completion. Empty until .complete on. */
+	private final WordSuggestions mWordSuggestions = new WordSuggestions();
+	/** True once the service has started feeding the completer. */
+	private boolean mWordSuggestionsOn = false;
+	/** How many completions fit on the strip without it becoming a wall. */
+	private static final int MAX_WORD_SUGGESTIONS = WordSuggestions.MAX_ON_STRIP;
+	/**
+	 * What the strip is offering right now, in the order it shows them, so
+	 * {@code .complete 3} means the same thing as tapping the third chip.
+	 */
+	private final java.util.List<String> mWordSuggestionList =
+			new java.util.ArrayList<String>();
+	/**
+	 * Where the chips go: {@link WordSuggestions#WHERE_FLOATING},
+	 * {@code WHERE_BAR} or {@code WHERE_NONE}.
+	 */
+	private int mWordSuggestionsWhere = WordSuggestions.DEFAULT_WHERE;
+	/**
+	 * Draw the chips over the game text instead of inside the input chrome.
+	 *
+	 * <p>Derived from {@link #mWordSuggestionsWhere} rather than read from its
+	 * own setting: everything that picks between the two views asks this, and
+	 * with no bar at all nothing gets that far — {@link #refreshWordSuggestions}
+	 * returns first.
+	 */
+	private boolean mWordSuggestionsOverlay = true;
+	/** How solid the chips are, 10–100 percent. */
+	private int mWordSuggestionsOpacity = WordSuggestions.DEFAULT_OPACITY;
+	/** Set once the overlay copy is following the input bar's top edge. */
+	private boolean mWordSuggestionsOverlayTracked = false;
+	/** Draw the top suggestion after the caret in dimmed type. */
+	private boolean mWordSuggestionsGhost = false;
+
+	/**
+	 * Rebuild the completion strip for whatever is half-typed in the input bar.
+	 *
+	 * <p>Cheap enough to run on every keystroke: a prefix scan over a bounded
+	 * map, and at most six small Buttons. The strip hides itself when there is
+	 * nothing to offer, so it costs no height the rest of the time.
+	 */
+	private void refreshWordSuggestions() {
+		// Both exist in the layout; the player's choice decides which one is used
+		// and the other stays gone. Two views rather than one that is re-parented:
+		// moving a view between an in-layout parent and the overlay mid-session is
+		// the kind of thing that works until the first configuration change.
+		View inline = findViewById(R.id.input_word_suggestions);
+		View floating = findViewById(R.id.input_word_suggestions_float);
+		if (mWordSuggestionsWhere == WordSuggestions.WHERE_NONE) {
+			// No bar in either place. The suggestions themselves are still worked
+			// out, because they are what the ghost draws and what .suggest N picks
+			// — the bar is one way of showing them, not the feature. This is the
+			// whole reason the work below the early return had to move into
+			// recomputeSuggestions: hiding the bar here used to mean skipping it.
+			cancelWordSuggestionHide();
+			if (inline != null) {
+				inline.setVisibility(View.GONE);
+			}
+			if (floating != null) {
+				floating.setVisibility(View.GONE);
+			}
+			recomputeSuggestions();
+			return;
+		}
+		View strip = mWordSuggestionsOverlay ? floating : inline;
+		LinearLayout row = (LinearLayout) findViewById(mWordSuggestionsOverlay
+				? R.id.input_word_suggestions_float_row
+				: R.id.input_word_suggestions_row);
+		View unused = mWordSuggestionsOverlay ? inline : floating;
+		if (unused != null) {
+			unused.setVisibility(View.GONE);
+		}
+		if (strip == null || row == null) {
+			return;
+		}
+		if (mWordSuggestionsOverlay) {
+			trackInputBarForOverlay();
+			bindSuggestionGrip();
+		} else {
+			// The in-layout strip takes height, so the only way to stop the game
+			// window jumping is for that height never to change. Held at one row
+			// whether or not there is anything in it — the chips are shorter than
+			// this, so the strip is this tall always and nothing above it moves.
+			strip.setMinimumHeight(mWordSuggestionsPersist
+					? persistentBarMinHeight() : 0);
+		}
+		// Clears the list before anything hides: a pending delayed hide re-reads
+		// it to decide whether the panel is still wanted.
+		java.util.List<String> words = recomputeSuggestions();
+		if (!mWordSuggestionsOn || mInputBox == null) {
+			cancelWordSuggestionHide();
+			strip.setVisibility(View.GONE);
+			return;
+		}
+		// Collapsed is about the chips, not about completion. The suggestions are
+		// still worked out — the ghost still draws, .complete N still picks — and
+		// the panel stays up showing only the grip that folded it, so there is
+		// something left to tap to unfold. Pretending there were no suggestions
+		// instead would take the panel away with the grip inside it, and nothing
+		// short of reopening Options would bring it back.
+		if (mWordSuggestionsCollapsed && mWordSuggestionsOverlay) {
+			cancelWordSuggestionHide();
+			hideAllChips(row);
+			// Collapsed is meant to be small: the grip and nothing else. That is
+			// the difference between "folded away" and "empty but still here".
+			strip.setMinimumWidth(0);
+			applyStripOpacity(strip);
+			strip.setVisibility(View.VISIBLE);
+			return;
+		}
+		if (words.isEmpty()) {
+			// Persistent: the panel is a fixed thing you can aim at, not something
+			// that appears under your thumb. Empty it still shows its grip, which
+			// is why the grip is drawn as an object and not as a decoration.
+			if (mWordSuggestionsPersist) {
+				cancelWordSuggestionHide();
+				hideAllChips(row);
+				// Floating: the panel is wrap_content, so an empty one shrinks to
+				// its grip — a thumbnail-sized dark blob that reads as "the bar is
+				// gone", which is the one thing this option exists to prevent.
+				// Held at a bar's width it stays something you can aim at.
+				//
+				// In-layout: the width is already match_parent and it is the
+				// *height* that has to hold, which it does from the minimum set
+				// above. Either way the bar stays put.
+				if (mWordSuggestionsOverlay) {
+					strip.setMinimumWidth(persistentBarMinWidth());
+				}
+				applyStripOpacity(strip);
+				strip.setVisibility(View.VISIBLE);
+				return;
+			}
+			hideWordSuggestionsSoon(strip, row);
+			return;
+		}
+		cancelWordSuggestionHide();
+		// With chips in it the panel sizes itself; a minimum from the empty
+		// state left behind would pad the last chip out to nothing. Height is
+		// not touched: for the in-layout strip that minimum is what keeps the
+		// game window still, and it has to hold whether the strip is full or not.
+		if (mWordSuggestionsOverlay) {
+			strip.setMinimumWidth(0);
+		}
+		for (int i = 0; i < words.size(); i++) {
+			final String word = words.get(i);
+			TextView chip = chipAt(row, i);
+			chip.setText(numberedChipLabel(i + 1, word));
+			chip.setTag(word);
+			chip.setVisibility(View.VISIBLE);
+		}
+		// Spare chips are hidden, not removed: the next keystroke almost always
+		// wants them back, and removing and re-inflating on every letter is what
+		// made the strip flicker.
+		for (int i = words.size(); i < row.getChildCount(); i++) {
+			row.getChildAt(i).setVisibility(View.GONE);
+		}
+		applyStripOpacity(strip);
+		strip.setVisibility(View.VISIBLE);
+		View scroller = findViewById(R.id.input_word_suggestions_float_scroll);
+		if (mWordSuggestionsOverlay && scroller != null) {
+			scroller.scrollTo(0, 0);
+		} else if (!mWordSuggestionsOverlay) {
+			strip.scrollTo(0, 0);
+		}
+	}
+
+	/**
+	 * Work out what is suggested for the half-typed word, and draw the ghost.
+	 *
+	 * <p>Separate from the bar because it has to happen whether or not there is
+	 * a bar: {@link #mWordSuggestionList} is what {@code .suggest 3} picks from,
+	 * and the ghost is a suggestion shown without one. With the completer off
+	 * the ghost is cleared rather than left behind, which is what turning it off
+	 * has to mean.
+	 *
+	 * @return the suggestions, best first — the live list, not a copy.
+	 */
+	private java.util.List<String> recomputeSuggestions() {
+		mWordSuggestionList.clear();
+		if (!mWordSuggestionsOn || mInputBox == null) {
+			updateGhostCompletion(null, mWordSuggestionList);
+			return mWordSuggestionList;
+		}
+		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		int caret = Math.max(mInputBox.getSelectionStart(), 0);
+		String prefix = WordSuggestions.wordBefore(text, caret);
+		boolean atStart = isAtLineStart(text, caret, prefix);
+		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS,
+				atStart, atStart ? null : leadingVerb(text)));
+		updateGhostCompletion(prefix, mWordSuggestionList);
+		return mWordSuggestionList;
+	}
+
+	/**
+	 * The command word already on the line, if there is one.
+	 *
+	 * <p>What the pairing is looked up by: {@code kill } offers what has been
+	 * killed before. Read off the text every time rather than remembered, because
+	 * the player can edit the front of the line after typing the back of it.
+	 *
+	 * @param text the whole input line.
+	 * @return the first word, lower-cased and stripped of punctuation, or null
+	 *         when the line has not got one yet.
+	 */
+	static String leadingVerb(final String text) {
+		if (text == null) {
+			return null;
+		}
+		int i = 0;
+		while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+			i++;
+		}
+		StringBuilder b = new StringBuilder();
+		while (i < text.length() && !Character.isWhitespace(text.charAt(i))) {
+			char c = text.charAt(i);
+			if (Character.isLetterOrDigit(c) || c == '\'' || c == '-') {
+				b.append(c);
+			}
+			i++;
+		}
+		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(0))) {
+			b.deleteCharAt(0);
+		}
+		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(b.length() - 1))) {
+			b.deleteCharAt(b.length() - 1);
+		}
+		return b.length() == 0 ? null : b.toString().toLowerCase(java.util.Locale.US);
+	}
+
+	/**
+	 * Is the word being typed the first one on the line?
+	 *
+	 * <p>Which is to say: is the player naming a command, or naming what it acts
+	 * on. Read off the text rather than the caret alone, because the caret can be
+	 * put back into the first word of a line that already has more after it —
+	 * that word is still the command.
+	 *
+	 * @param text the whole input line.
+	 * @param caret where the cursor is.
+	 * @param prefix the partial word ending at the caret.
+	 * @return true when nothing but blanks precedes that word.
+	 */
+	static boolean isAtLineStart(final String text, final int caret,
+			final String prefix) {
+		if (text == null || prefix == null) {
+			return true;
+		}
+		int start = Math.min(caret, text.length()) - prefix.length();
+		for (int i = 0; i < start && i < text.length(); i++) {
+			char c = text.charAt(i);
+			// Blanks, and the punctuation a line can open with. A dot command and
+			// the ' say alias are the two the player meets daily, and counting
+			// their leading mark as "a word has already gone by" made the first
+			// word of every .command look like a target — with the half-typed
+			// word itself handed to the pairing as the verb it follows.
+			if (!Character.isWhitespace(c) && !isLineOpener(c)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/** Punctuation that can open a line without being a word of it. */
+	private static boolean isLineOpener(final char c) {
+		return c == '.' || c == '\'' || c == '"' || c == '#' || c == '/';
+	}
+
+	/**
+	 * How wide an empty persistent bar stays: half the screen, and never so wide
+	 * that it covers the game text it floats over.
+	 */
+	private int persistentBarMinWidth() {
+		int screen = getResources().getDisplayMetrics().widthPixels;
+		float d = getResources().getDisplayMetrics().density;
+		return Math.min(screen / 2, (int) (220 * d));
+	}
+
+	/**
+	 * One row of chips, which is the height the in-layout strip holds while it
+	 * is persistent. A little more than a chip needs, so a chip never grows it.
+	 */
+	private int persistentBarMinHeight() {
+		return (int) (34 * getResources().getDisplayMetrics().density);
+	}
+
+	private void hideAllChips(final LinearLayout row) {
+		for (int i = 0; i < row.getChildCount(); i++) {
+			row.getChildAt(i).setVisibility(View.GONE);
+		}
+	}
+
+	/**
+	 * The i-th chip, made once and kept.
+	 *
+	 * <p>The click listener reads the word off the view's tag rather than
+	 * closing over it, so the listener survives the chip being reused for a
+	 * different word — which is the whole point of keeping it.
+	 */
+	private TextView chipAt(final LinearLayout row, final int i) {
+		if (i < row.getChildCount()) {
+			return (TextView) row.getChildAt(i);
+		}
+		float d = getResources().getDisplayMetrics().density;
+		// A TextView, not a Button. Button carries a minimum touch size and an
+		// inset background of its own, which is why the strip was taller than the
+		// words in it and the chips sat far apart. The row is still finger-sized
+		// because the panel sits on the input bar, not in the middle of the text.
+		TextView chip = new TextView(this);
+		chip.setTextSize(13);
+		chip.setTextColor(0xFFE6EAEE);
+		chip.setSingleLine(true);
+		chip.setBackgroundResource(R.drawable.suggestion_chip_bg);
+		chip.setPadding((int) (10 * d), (int) (5 * d), (int) (10 * d), (int) (5 * d));
+		chip.setClickable(true);
+		chip.setFocusable(false);
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		lp.leftMargin = (int) (3 * d);
+		chip.setLayoutParams(lp);
+		chip.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				Object word = v.getTag();
+				if (word instanceof String) {
+					acceptWordSuggestion((String) word);
+				}
+			}
+		});
+		row.addView(chip);
+		return chip;
+	}
+
+	/** Panel collapsed to its grip by a tap on that grip. */
+	private boolean mWordSuggestionsCollapsed = false;
+	/** Keep the panel up even with nothing to suggest. */
+	private boolean mWordSuggestionsPersist = false;
+	/** Set once the grip has its gesture handling. */
+	private boolean mSuggestionGripBound = false;
+
+	/**
+	 * The panel's one handle: tap collapses it, a long press picks it up.
+	 *
+	 * <p>On the grip and not on the panel, because the panel is a scrolling
+	 * container and a long press inside one fights the scroller for every touch
+	 * — the same reason a gesture on a word in the game text is a bad idea. The
+	 * grip is a sibling of the scroll view, so the two never see the same event.
+	 *
+	 * <p>Collapsed the panel keeps its grip and loses its chips, so the thing you
+	 * tapped is still under your thumb to tap again. That is also what makes the
+	 * persistent-and-empty panel look deliberate rather than like a smudge.
+	 */
+	private void bindSuggestionGrip() {
+		if (mSuggestionGripBound) {
+			return;
+		}
+		final View grip = findViewById(R.id.input_word_suggestions_grip);
+		final View panel = findViewById(R.id.input_word_suggestions_float);
+		if (grip == null || panel == null) {
+			return;
+		}
+		mSuggestionGripBound = true;
+		final int slop = android.view.ViewConfiguration.get(this).getScaledTouchSlop();
+		grip.setOnTouchListener(new View.OnTouchListener() {
+			@Override
+			public boolean onTouch(View v, MotionEvent e) {
+				switch (e.getActionMasked()) {
+				case MotionEvent.ACTION_DOWN:
+					mGripDownRawX = e.getRawX();
+					mGripDownRawY = e.getRawY();
+					mGripMoved = false;
+					// Consumed, so this view keeps the rest of the gesture.
+					return true;
+				case MotionEvent.ACTION_MOVE: {
+					float dx = e.getRawX() - mGripDownRawX;
+					float dy = e.getRawY() - mGripDownRawY;
+					if (!mSuggestionDragging) {
+						// Straight into the drag once the finger has actually
+						// moved. Holding first was the wrong price for a thing
+						// whose whole purpose is to be moved — you grab the
+						// grip and it comes with you. The tap still exists
+						// because a gesture that never passed the slop is a tap.
+						if (Math.abs(dx) < slop && Math.abs(dy) < slop) {
+							return true;
+						}
+						mGripMoved = true;
+						if (!beginSuggestionPanelDrag(panel)) {
+							return true;
+						}
+					}
+					moveSuggestionPanelTo(panel, dx, dy);
+					return true;
+				}
+				case MotionEvent.ACTION_UP:
+					if (mSuggestionDragging) {
+						endSuggestionPanelDrag(panel);
+					} else if (!mGripMoved) {
+						v.playSoundEffect(android.view.SoundEffectConstants.CLICK);
+						mWordSuggestionsCollapsed = !mWordSuggestionsCollapsed;
+						refreshWordSuggestions();
+					}
+					return true;
+				case MotionEvent.ACTION_CANCEL:
+					if (mSuggestionDragging) {
+						endSuggestionPanelDrag(panel);
+					}
+					return true;
+				default:
+					return false;
+				}
+			}
+		});
+	}
+
+	/** Did this touch on the grip travel far enough to be a drag rather than a tap? */
+	private boolean mGripMoved = false;
+
+	/** Where the finger went down on the grip, in screen coordinates. */
+	private float mGripDownRawX = 0f;
+	private float mGripDownRawY = 0f;
+	/** Panel margins when the drag started, which the drag is a delta on. */
+	private int mDragStartLeft = 0;
+	private int mDragStartBottom = 0;
+	private boolean mSuggestionDragging = false;
+	/** True once the player has put the panel somewhere of their own. */
+	private boolean mSuggestionPanelPlaced = false;
+	private int mSuggestionPanelLeft = 0;
+	private int mSuggestionPanelBottom = 0;
+	/** Drop this close to where it started and it goes back to following the bar. */
+	private static final int SUGGESTION_SNAP_BACK_DIP = 28;
+
+	private static final String PREFS_SUGGESTION_PANEL = "SUGGESTION_PANEL_POS";
+
+	/** Has the player dragged the suggestion panel to a place of their own? */
+	boolean isSuggestionPanelPlaced() {
+		return mSuggestionPanelPlaced;
+	}
+
+	private boolean beginSuggestionPanelDrag(final View panel) {
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return false;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		mDragStartLeft = flp.leftMargin;
+		mDragStartBottom = flp.bottomMargin;
+		mSuggestionDragging = true;
+		// Say it has been picked up: a panel that only moves once you have
+		// already dragged it leaves you guessing whether the press worked.
+		panel.performHapticFeedback(
+				android.view.HapticFeedbackConstants.LONG_PRESS);
+		panel.setAlpha(0.85f);
+		return true;
+	}
+
+	/**
+	 * Move the panel by the drag so far.
+	 *
+	 * <p>A delta on the margins it started with, deliberately — the panel also
+	 * carries a {@code translationY} for the keyboard lift, and working in
+	 * deltas means the panel follows the finger whether the keyboard is up or
+	 * down, and keeps following the bar afterwards.
+	 */
+	private void moveSuggestionPanelTo(final View panel, final float dx, final float dy) {
+		ViewGroup parent = (ViewGroup) panel.getParent();
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (parent == null || !(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		int left = mDragStartLeft + (int) dx;
+		// The margin is from the bottom, so up the screen is a bigger margin.
+		int bottom = mDragStartBottom - (int) dy;
+		int maxLeft = Math.max(0, parent.getWidth() - panel.getWidth());
+		int maxBottom = Math.max(0, parent.getHeight() - panel.getHeight());
+		flp.leftMargin = Math.max(0, Math.min(left, maxLeft));
+		flp.bottomMargin = Math.max(0, Math.min(bottom, maxBottom));
+		panel.setLayoutParams(flp);
+	}
+
+	private void endSuggestionPanelDrag(final View panel) {
+		mSuggestionDragging = false;
+		panel.setAlpha(1f);
+		ViewGroup.LayoutParams lp = panel.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		float d = getResources().getDisplayMetrics().density;
+		int snap = (int) (SUGGESTION_SNAP_BACK_DIP * d);
+
+		// Absorb the keyboard lift into the margin before storing anything.
+		// While the panel was following the bar it carried translationY = -lift,
+		// so what the player sees is margin + lift. Storing the bare margin and
+		// then dropping the translation — which a placed panel does not take —
+		// would move the panel down by the height of the keyboard at the moment
+		// they let go. Adding the lift in makes the stored number the position
+		// they actually chose.
+		int lift = Math.round(-panel.getTranslationY());
+		if (lift != 0) {
+			flp.bottomMargin += lift;
+			panel.setTranslationY(0f);
+		}
+
+		// Dropped back roughly where it lives by default: forget the placement
+		// rather than store one that is almost the default. Without this there
+		// is no way back to "follows the input bar" except an option. The bar's
+		// own position is lifted too, so compare against where it is now.
+		if (flp.leftMargin <= snap
+				&& Math.abs(flp.bottomMargin - (defaultSuggestionBottomMargin() + lift))
+						<= snap) {
+			mSuggestionPanelPlaced = false;
+			saveSuggestionPanelPosition();
+			positionWordSuggestionOverlay();
+			return;
+		}
+		mSuggestionPanelPlaced = true;
+		mSuggestionPanelLeft = flp.leftMargin;
+		mSuggestionPanelBottom = flp.bottomMargin;
+		panel.setLayoutParams(flp);
+		saveSuggestionPanelPosition();
+	}
+
+	/**
+	 * Where the panel sits when it has not been placed: on the input bar's top
+	 * edge, plus the navigation bar the overlay does not have padded away.
+	 */
+	private int defaultSuggestionBottomMargin() {
+		View bar = findInputBar();
+		int navPad = 0;
+		View container = findViewById(R.id.window_container);
+		if (container != null) {
+			navPad = container.getPaddingBottom();
+		}
+		return (bar == null ? 0 : bar.getHeight()) + navPad;
+	}
+
+	/**
+	 * Per world and per orientation.
+	 *
+	 * <p>Per world because that is what was asked for, and per orientation
+	 * because a position chosen in portrait is off the screen in landscape —
+	 * the mistake button coordinates already made once, which is why they grew
+	 * xLand/yLand.
+	 */
+	private String suggestionPanelKey() {
+		boolean land = getResources().getConfiguration().orientation
+				== Configuration.ORIENTATION_LANDSCAPE;
+		return getConnectionDisplay() + "|" + (land ? "land" : "port");
+	}
+
+	private void saveSuggestionPanelPosition() {
+		SharedPreferences.Editor e =
+				getSharedPreferences(PREFS_SUGGESTION_PANEL, Context.MODE_PRIVATE).edit();
+		String key = suggestionPanelKey();
+		if (!mSuggestionPanelPlaced) {
+			e.remove(key + "|left").remove(key + "|bottom");
+		} else {
+			e.putInt(key + "|left", mSuggestionPanelLeft);
+			e.putInt(key + "|bottom", mSuggestionPanelBottom);
+		}
+		e.apply();
+	}
+
+	private void loadSuggestionPanelPosition() {
+		SharedPreferences p =
+				getSharedPreferences(PREFS_SUGGESTION_PANEL, Context.MODE_PRIVATE);
+		String key = suggestionPanelKey();
+		mSuggestionPanelLeft = p.getInt(key + "|left", -1);
+		mSuggestionPanelBottom = p.getInt(key + "|bottom", -1);
+		mSuggestionPanelPlaced = mSuggestionPanelLeft >= 0 && mSuggestionPanelBottom >= 0;
+	}
+
+	/**
+	 * How long an empty strip stays up before it goes.
+	 *
+	 * <p>Typing walks through prefixes that match nothing on the way to one that
+	 * does — {@code gri} matches, {@code griz} may not until the next letter.
+	 * Hiding on the first empty result means the panel blinks on and off under
+	 * the thumb, which is what made it unbearable. Long enough to ride out a
+	 * keystroke, short enough that a panel over the game text does not linger.
+	 */
+	private static final long WORD_SUGGESTION_HIDE_DELAY_MS = 400;
+
+	private Runnable mWordSuggestionHide = null;
+
+	private void hideWordSuggestionsSoon(final View strip, final LinearLayout row) {
+		if (strip.getVisibility() != View.VISIBLE) {
+			return;
+		}
+		if (mWordSuggestionHide != null) {
+			return;
+		}
+		mWordSuggestionHide = new Runnable() {
+			@Override
+			public void run() {
+				mWordSuggestionHide = null;
+				// Re-check: the delay is long enough for the player to have typed
+				// a letter that matches again.
+				if (!mWordSuggestionList.isEmpty()) {
+					return;
+				}
+				strip.setVisibility(View.GONE);
+				for (int i = 0; i < row.getChildCount(); i++) {
+					row.getChildAt(i).setVisibility(View.GONE);
+				}
+			}
+		};
+		strip.postDelayed(mWordSuggestionHide, WORD_SUGGESTION_HIDE_DELAY_MS);
+	}
+
+	private void cancelWordSuggestionHide() {
+		if (mWordSuggestionHide == null) {
+			return;
+		}
+		// Both, not the one in use: the hide was posted on whichever view was
+		// showing when it was scheduled, and the player may have changed where the
+		// bar lives since. Removing a callback from a view that never had it does
+		// nothing.
+		View floating = findViewById(R.id.input_word_suggestions_float);
+		View inline = findViewById(R.id.input_word_suggestions);
+		if (floating != null) {
+			floating.removeCallbacks(mWordSuggestionHide);
+		}
+		if (inline != null) {
+			inline.removeCallbacks(mWordSuggestionHide);
+		}
+		mWordSuggestionHide = null;
+	}
+
+	/**
+	 * How many suggestions the ghost lists under the typed line.
+	 *
+	 * <p>One means the inline ghost alone, which is what it has always been.
+	 * More grows the input bar downwards and lists the rest there — screen
+	 * traded for not having to hold and step, and for a player working without
+	 * a bar of chips that is often a good trade.
+	 */
+	private int mGhostLines = 1;
+
+	/**
+	 * Marks a ghost that is a correction rather than a continuation, so a
+	 * forgiven typo does not read as letters you are about to have appended.
+	 */
+	private static final String GHOST_CORRECTION_MARK = " → ";
+
+	/**
+	 * Put the top suggestion after the caret, in dimmed type.
+	 *
+	 * <p>Two shapes, because there are two kinds of suggestion. When the word
+	 * continues what was typed, the ghost is just the rest of it: {@code gri}
+	 * with {@code grizzled} behind it. When the typo forgiver found it, the
+	 * letters have to change rather than grow, so the ghost shows the whole
+	 * word behind an arrow — {@code grzld → grizzled}. Both are tapped the same
+	 * way and both replace the half-typed word, because
+	 * {@link #acceptWordSuggestion} goes through
+	 * {@link WordSuggestions#complete}, which replaces rather than appends.
+	 *
+	 * @param prefix what the player has typed of this word.
+	 * @param words the suggestions, best first.
+	 */
+	private void updateGhostCompletion(final String prefix,
+			final java.util.List<String> words) {
+		if (mInputBox == null) {
+			return;
+		}
+		if (!mWordSuggestionsGhost || words.isEmpty() || prefix == null
+				|| prefix.length() == 0) {
+			mInputBox.setGhostCompletion(null, null, 0);
+			mInputBox.setGhostExtras(null, null);
+			return;
+		}
+		final int at = 0;
+		String top = words.get(at);
+		// With the others listed beside the ghost, the field counts what did not
+		// fit and says so itself — a "+2" written here as well would be counting
+		// words the player can already see. Only when nothing is listed does the
+		// mark have anything to tell.
+		String more = mGhostLines > 1 ? "" : moreMark(words.size());
+		boolean continues = top.length() > prefix.length()
+				&& top.toLowerCase(java.util.Locale.US)
+						.startsWith(prefix.toLowerCase(java.util.Locale.US));
+		if (continues) {
+			mInputBox.setGhostCompletion(top.substring(prefix.length()) + more, top,
+					at + 1);
+			showGhostExtras(words, at);
+			return;
+		}
+		if (top.equalsIgnoreCase(prefix)) {
+			// Already typed in full. Nothing to show and nothing to take.
+			mInputBox.setGhostCompletion(null, null, 0);
+			mInputBox.setGhostExtras(null, null);
+			return;
+		}
+		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top + more, top, at + 1);
+		showGhostExtras(words, at);
+		return;
+	}
+
+	/**
+	 * List the suggestions the inline ghost is not showing, under the line.
+	 *
+	 * <p>Skips the one the ghost already stands for, so the same word is never
+	 * offered twice in one glance.
+	 *
+	 * @param words all the suggestions.
+	 * @param at which of them the inline ghost has.
+	 */
+	private void showGhostExtras(final java.util.List<String> words, final int at) {
+		if (mInputBox == null) {
+			return;
+		}
+		if (mGhostLines <= 1 || words.size() < 2) {
+			mInputBox.setGhostExtras(null, null);
+			return;
+		}
+		// Everything the strip would hold. The field packs them side by side and
+		// stops when it runs out of rows, so the limit is width and the row
+		// ceiling, not a count decided here.
+		java.util.List<String> rows = new java.util.ArrayList<String>(words.size());
+		java.util.List<String> picks = new java.util.ArrayList<String>(words.size());
+		for (int i = 0; i < words.size(); i++) {
+			if (i == at) {
+				continue;
+			}
+			// Numbered the way .suggest numbers them, so what is on screen and
+			// the command that takes one without looking agree.
+			rows.add((i + 1) + " " + words.get(i));
+			picks.add(words.get(i));
+		}
+		mInputBox.setGhostExtras(rows.toArray(new String[rows.size()]),
+				picks.toArray(new String[picks.size()]));
+	}
+
+	/**
+	 * "and this many others", for the end of the ghost.
+	 *
+	 * <p>The ghost is text drawn after the cursor, so it can only ever be one
+	 * suggestion — and a player using the ghost without a bar therefore sees one
+	 * word and concludes that one word is all there is. That happened. The mark
+	 * says the others exist and are one {@code .suggest 2} away; the bar is
+	 * where they can be read.
+	 *
+	 * <p>Only the mark is added. What a tap on the ghost inserts is the word
+	 * itself, which is passed separately.
+	 *
+	 * @param count how many suggestions there are in total.
+	 * @return the marker, or "" when the top one is the only one.
+	 */
+	static String moreMark(final int count) {
+		// Only reached with the listing off; with it on the field counts what it
+		// could not fit, which is a different and smaller number.
+		return count > 1 ? " +" + (count - 1) : "";
+	}
+
+	/**
+	 * Whether anything has been learned since the last write.
+	 *
+	 * <p>Saved when the window goes away rather than on every command: this is
+	 * a file write, the input path is the one place that must stay quick, and
+	 * losing the last few commands of a session that was killed outright is a
+	 * far smaller loss than a stutter on every line sent.
+	 */
+	private boolean mCommandKnowledgeDirty = false;
+
+	/** No more often than this while playing. */
+	private static final long COMMAND_KNOWLEDGE_SAVE_GAP_MS = 10000;
+
+	private long mCommandKnowledgeSavedAt = 0;
+
+	/**
+	 * Write occasionally while playing, not on every command.
+	 *
+	 * <p>{@code .suggest learned} reads the file rather than asking this process
+	 * across the binder, so the file has to be roughly current or the report
+	 * would show nothing until the window was next paused. Ten seconds keeps it
+	 * honest at a cost of one small write per ten seconds of active typing.
+	 */
+	private void maybeSaveCommandKnowledge() {
+		long now = android.os.SystemClock.elapsedRealtime();
+		if (mCommandKnowledgeSavedAt != 0
+				&& now - mCommandKnowledgeSavedAt < COMMAND_KNOWLEDGE_SAVE_GAP_MS) {
+			return;
+		}
+		mCommandKnowledgeSavedAt = now;
+		saveCommandKnowledge();
+	}
+
+	/**
+	 * Whether this world's file has been read into the completer yet.
+	 *
+	 * <p>Nothing is written before it has been. The connect-time reset is not
+	 * the only way into a session — re-entering a world the service is still
+	 * connected to sends no reset at all — and without this the first command
+	 * typed after such a start would write an empty bag over a full file and
+	 * destroy exactly what the file was for. That is how the feature failed its
+	 * first real test.
+	 */
+	private boolean mCommandKnowledgeLoaded = false;
+
+	/** Read this world's pairings in, once per world. */
+	private void loadCommandKnowledge() {
+		String world = getConnectionDisplay();
+		if (world == null || world.length() == 0) {
+			return;
+		}
+		if (mCommandKnowledgeLoaded && world.equals(mCommandKnowledgeWorld)) {
+			return;
+		}
+		CommandKnowledgeStore.load(this, world, mWordSuggestions);
+		mCommandKnowledgeWorld = world;
+		mCommandKnowledgeLoaded = true;
+		mCommandKnowledgeDirty = false;
+	}
+
+	/** Which world the loaded pairings belong to. */
+	private String mCommandKnowledgeWorld = null;
+
+	/** Write this world's pairings out, if there is anything new in them. */
+	private void saveCommandKnowledge() {
+		if (!mCommandKnowledgeDirty || !mCommandKnowledgeLoaded) {
+			return;
+		}
+		mCommandKnowledgeDirty = false;
+		CommandKnowledgeStore.save(this, getConnectionDisplay(), mWordSuggestions);
+	}
+
+	/** What the service was last told about the input bar being in use. */
+	private boolean mTypingReported = false;
+	/** When that was said, so a stale "still typing" can be said again. */
+	private long mTypingReportedAt = 0;
+
+	/**
+	 * Tell {@code :stellar} whether a command is being composed, so a trigger
+	 * that speaks can keep quiet over it.
+	 *
+	 * <p>On the transitions only — empty to non-empty and back — not on every
+	 * keystroke: this crosses the binder, and a call per letter during a fight is
+	 * exactly the kind of traffic this project has spent the week removing. The
+	 * call is {@code oneway}, so the keystroke never waits for the service.
+	 *
+	 * @param typing true when the input bar has something in it.
+	 */
+	private void reportTypingState(final boolean typing) {
+		if (service == null) {
+			return;
+		}
+		final long now = android.os.SystemClock.elapsedRealtime();
+		if (typing == mTypingReported) {
+			// Same answer as last time is normally not worth a call. The one
+			// exception is "still typing": the engine drops its own flag once
+			// TYPING_QUIET_TIMEOUT_MS has passed and tells nobody, so a long
+			// command would silence speech for thirty seconds and then let it
+			// through for good. Refreshing at half the timeout keeps the flag
+			// alive at a cost of one oneway call per fifteen seconds of
+			// continuous composing — not one per letter, which is what the
+			// original guard was for.
+			if (!typing
+					|| now - mTypingReportedAt
+							< com.resurrection.blowtorch2.lib.util.SpeechEngine
+									.TYPING_QUIET_TIMEOUT_MS / 2) {
+				return;
+			}
+		}
+		mTypingReported = typing;
+		mTypingReportedAt = now;
+		try {
+			service.setPlayerTyping(typing);
+		} catch (RemoteException e) {
+			// Only speech goes quiet if this is lost, and the engine gives up on
+			// being quiet by itself after a timeout.
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"MainWindow.reportTypingState", e);
+		}
+	}
+
+	/** Taking the ghost is taking the suggestion it is standing for. */
+	private void bindGhostTap() {
+		if (mInputBox == null) {
+			return;
+		}
+		mInputBox.setGhostTapListener(new BetterEditText.GhostTapListener() {
+			@Override
+			public void onGhostTapped(final String word) {
+				acceptWordSuggestion(word);
+			}
+
+		});
+	}
+
+	/**
+	 * Keep the floating strip sitting on the input bar's top edge.
+	 *
+	 * <p>The input bar is not a fixed height — it grows with a multi-line
+	 * command, and the Edit tools row appears and disappears underneath it — so
+	 * a margin measured once is wrong within a minute of play. Attached once and
+	 * left attached: it is a layout listener on a view that is laid out anyway,
+	 * and detaching it would mean deciding when, which is the bug.
+	 */
+	/**
+	 * The input bar, whichever id it is answering to right now.
+	 *
+	 * <p>Setup calls {@code inputBar.setId(ChromeController.LEGACY_INPUT_BAR_ID)}
+	 * so that profiles saying {@code above="10"} keep working. After that,
+	 * {@code findViewById(R.id.inputbar)} returns null — which is why
+	 * {@link ChromeController#findGameplayInputBar} exists, and why anything that
+	 * looks the bar up by its layout id alone silently does nothing. That is what
+	 * the completion chips did: the margin was not wrong, it was never applied.
+	 */
+	private View findInputBar() {
+		View bar = findViewById(ChromeController.LEGACY_INPUT_BAR_ID);
+		return bar != null ? bar : findViewById(R.id.inputbar);
+	}
+
+	private void trackInputBarForOverlay() {
+		if (mWordSuggestionsOverlayTracked) {
+			return;
+		}
+		final View bar = findInputBar();
+		final View floating = findViewById(R.id.input_word_suggestions_float);
+		if (bar == null || floating == null) {
+			return;
+		}
+		mWordSuggestionsOverlayTracked = true;
+		loadSuggestionPanelPosition();
+		bar.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+			@Override
+			public void onLayoutChange(View v, int l, int t, int r, int b,
+					int ol, int ot, int or, int ob) {
+				positionWordSuggestionOverlay();
+			}
+		});
+		positionWordSuggestionOverlay();
+	}
+
+	/**
+	 * Rest the chips on the input bar's top edge.
+	 *
+	 * <p>The margin is the bar's height <b>plus the navigation bar</b>. The chips
+	 * live in {@code gameplay_chrome_overlay}, which reaches the bottom of the
+	 * screen; the input bar lives in {@code window_container}, which is padded up
+	 * by the system bar inset. Measuring only the bar's height put the chips that
+	 * inset too low, so they sat across the bottom of the input bar instead of on
+	 * top of it. The FAB strip in the same overlay has always done this — see
+	 * {@code ChromeController.placeGameplayFabStrip}, which is where the padding
+	 * is read from.
+	 *
+	 * <p>The keyboard is a translation, not a margin: under {@code adjustNothing}
+	 * nothing is resized, and {@code applyImeChromeLift} moves the bar, the FAB
+	 * strip and these chips together.
+	 */
+	private void positionWordSuggestionOverlay() {
+		View bar = findInputBar();
+		View floating = findViewById(R.id.input_word_suggestions_float);
+		if (bar == null || floating == null) {
+			return;
+		}
+		ViewGroup.LayoutParams lp = floating.getLayoutParams();
+		if (!(lp instanceof android.widget.FrameLayout.LayoutParams)) {
+			return;
+		}
+		if (mSuggestionDragging) {
+			// The finger is the authority while it is down.
+			return;
+		}
+		android.widget.FrameLayout.LayoutParams flp =
+				(android.widget.FrameLayout.LayoutParams) lp;
+		int wantedBottom = mSuggestionPanelPlaced
+				? mSuggestionPanelBottom : defaultSuggestionBottomMargin();
+		int wantedLeft = mSuggestionPanelPlaced ? mSuggestionPanelLeft : 0;
+		if (flp.bottomMargin != wantedBottom || flp.leftMargin != wantedLeft) {
+			flp.bottomMargin = wantedBottom;
+			flp.leftMargin = wantedLeft;
+			floating.setLayoutParams(flp);
+		}
+		// A panel that follows the input bar follows it under the keyboard too:
+		// the layout listener fires while the keyboard is up, and one left at
+		// translation 0 would drop back under it until the next inset dispatch.
+		//
+		// A *placed* panel does not take the lift at all. The drag stores a
+		// margin, and the visible position of a lifted panel is margin + lift —
+		// so a panel dropped while the keyboard was up would fall by the height
+		// of the keyboard the moment it closed. The player picked a spot on the
+		// screen; it stays there, and if the keyboard covers it they can pick
+		// another. Predictable beats clever.
+		floating.setTranslationY(mSuggestionPanelPlaced ? 0f : bar.getTranslationY());
+	}
+
+	/**
+	 * Make the strip's own backing as see-through as the player asked.
+	 *
+	 * <p>Background only, never {@link View#setAlpha}: fading the whole view
+	 * fades the words too, and a suggestion you cannot read over the game text
+	 * is worse than no suggestion. The text stays fully opaque at every setting.
+	 */
+	private void applyStripOpacity(final View strip) {
+		applyChipOpacity(strip);
+	}
+
+	private void applyChipOpacity(final View view) {
+		android.graphics.drawable.Drawable bg = view.getBackground();
+		if (bg == null) {
+			return;
+		}
+		// mutate(), or every Button sharing the cached default background would be
+		// dimmed with it — including Send, which is in the same activity.
+		android.graphics.drawable.Drawable own = bg.mutate();
+		own.setAlpha(opacityToAlpha());
+		if (own != bg) {
+			view.setBackground(own);
+		}
+	}
+
+	private int opacityToAlpha() {
+		// Only the floating chips. In the strip below the game window there is
+		// nothing behind them worth seeing — just the input chrome — and fading
+		// them there is a change nobody asked for.
+		if (!mWordSuggestionsOverlay) {
+			return 255;
+		}
+		int pct = mWordSuggestionsOpacity;
+		if (pct < WordSuggestions.MIN_OPACITY) {
+			pct = WordSuggestions.MIN_OPACITY;
+		}
+		if (pct > 100) {
+			pct = 100;
+		}
+		return pct * 255 / 100;
+	}
+
+	/**
+	 * The chip's label: a small dim number, then the word.
+	 *
+	 * <p>The number is what makes {@code .complete 3} usable — and with it, a
+	 * super button over the keyboard, which is the only way to take a completion
+	 * without moving your thumb off the keys. Drawn smaller and dimmer than the
+	 * word so it reads as a label on the chip rather than part of the word.
+	 *
+	 * @param n which chip this is, counting from 1.
+	 * @param word the completion itself.
+	 * @return the styled label.
+	 */
+	private CharSequence numberedChipLabel(final int n, final String word) {
+		String label = n + " " + word;
+		android.text.SpannableString out = new android.text.SpannableString(label);
+		int end = String.valueOf(n).length();
+		out.setSpan(new android.text.style.RelativeSizeSpan(0.7f), 0, end,
+				android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		out.setSpan(new android.text.style.ForegroundColorSpan(0xFF888888), 0, end,
+				android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+		return out;
+	}
+
+	/**
+	 * Take the n-th completion currently on the strip — {@code .complete 3}.
+	 *
+	 * @param index counting from 1, as the chips are labelled. Out of range does
+	 *        nothing: the strip may have changed between reading it and pressing
+	 *        the button, and inserting the wrong word is worse than inserting none.
+	 */
+	private void pickWordSuggestion(final int index) {
+		if (index < 1 || index > mWordSuggestionList.size()) {
+			return;
+		}
+		acceptWordSuggestion(mWordSuggestionList.get(index - 1));
+	}
+
+	/** Put the chosen completion in place of what was half-typed. */
+	private void acceptWordSuggestion(final String word) {
+		if (mInputBox == null) {
+			return;
+		}
+		String text = mInputBox.getText() == null ? "" : mInputBox.getText().toString();
+		int caret = Math.max(mInputBox.getSelectionStart(), 0);
+		WordSuggestions.Completion c = WordSuggestions.complete(text, caret, word);
+		mInputBox.setText(c.text());
+		mInputBox.setSelection(Math.min(c.caret(), mInputBox.getText().length()));
+		mInputBox.requestFocus();
+		refreshWordSuggestions();
+	}
+
+	/**
+	 * Show the world's prompt above the input bar, or hide the bar when the
+	 * prompt is empty (which is what .prompt off sends).
+	 *
+	 * @param text the prompt.
+	 */
+	private void showPromptBar(final String text) {
+		TextView bar = (TextView) findViewById(R.id.input_prompt_bar);
+		if (bar == null) {
+			return;
+		}
+		if (text == null || text.length() == 0) {
+			bar.setVisibility(View.GONE);
+			bar.setText("");
+			return;
+		}
+		bar.setText(text);
+		bar.setVisibility(View.VISIBLE);
+	}
+
+	/**
+	 * Drop a word into the input bar at the caret and send nothing. This is what
+	 * a tappable word bound to {@code .kb insert $word} ends up doing, so the
+	 * player can build a command out of names the game just printed instead of
+	 * spelling them out on a phone keyboard.
+	 *
+	 * @param word The text to insert.
+	 */
+	private void inputInsertWord(final String word) {
+		if (mInputBox == null) {
+			return;
+		}
+		String current = mInputBox.getText() == null
+				? "" : mInputBox.getText().toString();
+		InputWordInsert.Result r = InputWordInsert.apply(current,
+				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd(), word);
+		mInputBox.setText(r.text());
+		mInputBox.setSelection(Math.min(r.caret(), mInputBox.getText().length()));
+		mInputBox.requestFocus();
+	}
+
 	private void inputSelectAll() {
 		if (mInputBox == null) {
 			return;
@@ -2436,6 +3721,38 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/**
+	 * Is the kept command still the thing the input bar is showing?
+	 *
+	 * <p>Keep Last leaves the command you just sent in the bar, selected. The
+	 * first ↑ therefore has to step <em>past</em> it, or it hands you back the
+	 * line already in front of you.
+	 *
+	 * <p>Asked of the text rather than answered from a flag. The flag was the
+	 * bug, twice: it said "the bar holds the kept command" and stayed saying it
+	 * after the player cleared the bar, because the watcher that clears it only
+	 * runs when characters are <em>inserted</em> ({@code count > 0}) and deleting
+	 * inserts nothing. You send {@code list jewelry}, delete it, press ↑, and get
+	 * the command before it. The text either is that command or it is not, and
+	 * that is not a thing to track.
+	 *
+	 * <p>The flag still gates it, and has to: after one ↑ the bar also shows the
+	 * newest command, and stepping past it again would skip an entry every time.
+	 * The flag is what separates "Keep Last put it there" from "browsing did".
+	 *
+	 * @return true only when Keep Last put the newest command in the bar and it
+	 *         is still there, unedited.
+	 */
+	private boolean keptCommandIsStillOnScreen() {
+		if (!historyWidgetKept || mInputBox == null || history == null) {
+			return false;
+		}
+		CharSequence shown = mInputBox.getText();
+		String newest = history.peekNewest();
+		return newest != null && newest.length() > 0
+				&& newest.contentEquals(shown == null ? "" : shown);
+	}
+
+	/**
 	 * Browse sent-command history like hardware DPAD up/down.
 	 * @param older true = older command (↑ / stepu), false = newer / clear (↓ / stepd)
 	 */
@@ -2447,13 +3764,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		String cmd;
 		if (older) {
 			cmd = history.getNext();
-			if (isKeepLast && historyWidgetKept) {
+			if (isKeepLast && keptCommandIsStillOnScreen()) {
+				// The bar already shows the newest entry, so step past it.
 				cmd = history.getNext();
-				historyWidgetKept = false;
 			}
 		} else {
 			cmd = history.getPrev();
 		}
+		// Either direction leaves the bar showing a history entry rather than
+		// the kept command, so the skip above must not apply again. Only the
+		// ↑ branch used to clear this, which meant ↓ then ↑ skipped an entry.
+		historyWidgetKept = false;
 		if (cmd == null) {
 			cmd = "";
 		}
@@ -2522,7 +3843,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void onConfigurationChanged(Configuration newconfig) {
 		//Log.e("WINDOW","CONFIGURATION CHANGING");
 		super.onConfigurationChanged(newconfig);
-		
+
+		// The suggestion panel's placement is stored per orientation. Re-read it
+		// here rather than carrying the portrait one into landscape, where it can
+		// be off the side of the screen.
+		loadSuggestionPanelPosition();
+		positionWordSuggestionOverlay();
+
 		if(service == null) {
 			super.onConfigurationChanged(newconfig);
 			return;
@@ -2803,6 +4130,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	public void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
+		if (requestCode == com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor.REQUEST_PICK_SOUND) {
+			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+				// Hold the read permission past this activity: the responder keeps
+				// the URI and plays it later, in the other process.
+				try {
+					getContentResolver().takePersistableUriPermission(data.getData(),
+							Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				} catch (SecurityException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"MainWindow.onActivityResult", e);
+				}
+				com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor.onSoundPicked(data.getData());
+			}
+			return;
+		}
 		if (requestCode == com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.REQUEST_PICK_SOUND) {
 			if (resultCode == RESULT_OK && data != null && data.getData() != null) {
 				com.resurrection.blowtorch2.lib.responder.notification.NotificationResponderEditor.onSoundPicked(data.getData());
@@ -2854,13 +4196,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			intent.putExtra("DISPLAY", getConnectionDisplay());
 			intent.putExtra("HOST", getConnectionHost());
 			intent.putExtra("PORT", Integer.toString(getConnectionPort()));
+			intent.putExtra("TLS", getConnectionTls());
 			androidx.core.content.ContextCompat.startForegroundService(this, intent);
 		}
 		//Log.e("window","ending onStart");
 		
 	}
 	public void onDestroy() {
-		
+
+		// The trigger action speaks in :stellar, but the responder editor's
+		// preview speaks here, which opens a second engine in this process.
+		// Give it back with the window.
+		com.resurrection.blowtorch2.lib.util.SpeechEngine.release();
+
 		if(isBound) {
 			
 			try {
@@ -2908,19 +4256,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// Before the early return below: an overlay window left up would float
 		// over whatever the player opened next, including other apps.
 		//
-		// This order is load-bearing, not incidental. onPause() clears `resumed`,
-		// and clearButtonsOnPause() below now makes Lua notify the floating
-		// layer (see buttonwindow.clearButtons). rebuildOverlay returns early on
-		// !resumed, which is what keeps that notify from putting overlay windows
-		// back up on the way out of the app. Today a second thing also saves it
-		// — revertButtonData carries no `floating` field, so the cleared set
-		// yields an empty model list — but that is a property of the BACK
-		// button, not a guarantee. Do not swap these two.
+		// This used to be an ordering constraint: clearButtonsOnPause made Lua
+		// notify the floating layer, and that notify had to land after `resumed`
+		// was already false or rebuildOverlay would put the windows back up on
+		// the way out. The pause no longer clears the button set, so there is no
+		// notify here at all and nothing to sequence — but taking the overlay
+		// windows down first is still the thing that keeps them from floating
+		// over whatever the player opens next.
 		if (floatingButtons != null) {
 			floatingButtons.onPause();
 		}
+		// Before the early return: a pause with no service is still a pause, and
+		// this is the last reliable moment to write what the session taught.
+		saveCommandKnowledge();
 		if(service == null) { super.onPause(); return; };
-		clearButtonsOnPause();
+		cancelTouchOnPause();
 		try {
 			service.windowShowing(false);
 		} catch (RemoteException e) {
@@ -2934,12 +4284,27 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	public void onResume() {
 		super.onResume();
+		// The insets that follow a resume are the ones that get retracted, so
+		// tell the chrome to let them settle before it moves anything.
+		chrome.onResume();
 		//Log.e("window","start onResume()");
 		//windowShowing = true;
 		if (floatingButtons != null) {
 			// Re-checks the overlay grant too: it can be revoked while we live.
+			// Only marks itself resumed; the one push comes from the restore
+			// below, once the button set is the real one again. Must stay above
+			// it — the layer refuses to place windows while it thinks it is
+			// paused.
 			floatingButtons.onResume();
 		}
+		// Put the button set back before anything else can ask Lua what it is.
+		// Not under the service check it used to sit beneath: windowCall looks
+		// the window up in windowMap and calls straight into it (see windowCall
+		// at the bottom of this file), so it never touches the binder and a null
+		// service says nothing about whether it can run. Under that check, a
+		// resume that arrived before the service was bound left the floating
+		// buttons down — the layer drops its views on pause either way.
+		restoreButtonsOnResume();
 		// Coming back from another app or from the options screen lands here.
 		// Editing a trigger does not — see scheduleTapRulesRefresh.
 		scheduleTapRulesRefresh();
@@ -2957,7 +4322,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			try {
 				if(service != null) {
 					service.windowShowing(true);
-					restoreButtonsOnResume();
 				}
 			} catch (RemoteException e1) {
 				// TODO Auto-generated catch block
@@ -3145,6 +4509,132 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (floatingButtons != null) {
 				floatingButtons.onMasterSwitchChanged(floatingButtonsEnabled);
 			}
+
+			// The completer lives here, in the UI process, so the option has to be
+			// read here too. Off drops the vocabulary rather than leaving stale
+			// names on the strip until something else happens to refresh it.
+			BaseOption completeOpt = (BaseOption) group.findOptionByKey("word_complete");
+			boolean completeOn = completeOpt != null
+					&& completeOpt.getValue() instanceof Boolean
+					&& (Boolean) completeOpt.getValue();
+			if (!completeOn && mWordSuggestionsOn) {
+				mWordSuggestions.clear();
+			}
+			mWordSuggestionsOn = completeOn;
+			BaseOption completeLinesOpt =
+					(BaseOption) group.findOptionByKey("word_complete_lines");
+			if (completeLinesOpt != null && completeLinesOpt.getValue() instanceof Integer) {
+				int lines = (Integer) completeLinesOpt.getValue();
+				// Clamped here: nothing between the Options dialog and this
+				// enforces the range in the description.
+				if (lines < 0) {
+					lines = 0;
+				}
+				if (lines > WordSuggestions.MAX_LINES) {
+					lines = WordSuggestions.MAX_LINES;
+				}
+				mWordSuggestions.setMaxLines(lines);
+			}
+			BaseOption ghostOpt = (BaseOption) group.findOptionByKey("word_complete_ghost");
+			mWordSuggestionsGhost = ghostOpt != null
+					&& ghostOpt.getValue() instanceof Boolean
+					&& (Boolean) ghostOpt.getValue();
+			BaseOption ghostLinesOpt =
+					(BaseOption) group.findOptionByKey("word_complete_ghost_lines");
+			int ghostLines = ghostLinesOpt != null
+					&& ghostLinesOpt.getValue() instanceof Integer
+						? (Integer) ghostLinesOpt.getValue() : 1;
+			if (ghostLines < 1) {
+				ghostLines = 1;
+			}
+			if (ghostLines > BetterEditText.MAX_GHOST_ROWS + 1) {
+				ghostLines = BetterEditText.MAX_GHOST_ROWS + 1;
+			}
+			mGhostLines = ghostLines;
+			if (mInputBox != null) {
+				// A ceiling, not a reservation: the bar takes the rows the
+				// suggestions actually need and gives them back when they go.
+				mInputBox.setGhostMaxRows(
+						mWordSuggestionsGhost ? mGhostLines - 1 : 0);
+			}
+			BaseOption looseOpt = (BaseOption) group.findOptionByKey("word_complete_loose");
+			mWordSuggestions.setLooseMatching(looseOpt != null
+					&& looseOpt.getValue() instanceof Boolean
+					&& (Boolean) looseOpt.getValue());
+			BaseOption rankOpt = (BaseOption) group.findOptionByKey("word_complete_rank");
+			mWordSuggestions.setRankByPosition(rankOpt != null
+					&& rankOpt.getValue() instanceof Boolean
+					&& (Boolean) rankOpt.getValue());
+			// Read here as well as in :stellar: TriggerSounds is per process and the
+			// editor's test button plays from this one.
+			BaseOption soundStreamOpt =
+					(BaseOption) group.findOptionByKey("trigger_sound_stream");
+			com.resurrection.blowtorch2.lib.util.TriggerSounds.setStream(
+					soundStreamOpt != null && soundStreamOpt.getValue() instanceof Integer
+						? (Integer) soundStreamOpt.getValue()
+						: com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM);
+			BaseOption soundWarnOpt =
+					(BaseOption) group.findOptionByKey("trigger_sound_warn_silent");
+			com.resurrection.blowtorch2.lib.util.TriggerSounds.setWarnWhenSilent(
+					soundWarnOpt == null || !(soundWarnOpt.getValue() instanceof Boolean)
+						|| (Boolean) soundWarnOpt.getValue());
+			BaseOption tapMenuOpacityOpt =
+					(BaseOption) group.findOptionByKey("tap_menu_opacity");
+			mTapMenuOpacity = tapMenuOpacityOpt != null
+					&& tapMenuOpacityOpt.getValue() instanceof Integer
+						? clampOpacity((Integer) tapMenuOpacityOpt.getValue())
+						: DEFAULT_TAP_MENU_OPACITY;
+			BaseOption pairsOpt = (BaseOption) group.findOptionByKey("word_complete_pairs");
+			mWordSuggestions.setPairRanking(pairsOpt != null
+					&& pairsOpt.getValue() instanceof Boolean
+					&& (Boolean) pairsOpt.getValue());
+			BaseOption shortOpt =
+					(BaseOption) group.findOptionByKey("word_complete_short_first");
+			mWordSuggestions.setShortestFirst(shortOpt != null
+					&& shortOpt.getValue() instanceof Boolean
+					&& (Boolean) shortOpt.getValue());
+			BaseOption shorterOpt =
+					(BaseOption) group.findOptionByKey("word_complete_shorter_first");
+			mWordSuggestions.setShorterFirst(shorterOpt != null
+					&& shorterOpt.getValue() instanceof Boolean
+					&& (Boolean) shorterOpt.getValue());
+			BaseOption phrasesOpt = (BaseOption) group.findOptionByKey("word_complete_phrases");
+			mWordSuggestions.setPhrases(phrasesOpt != null
+					&& phrasesOpt.getValue() instanceof Boolean
+					&& (Boolean) phrasesOpt.getValue());
+			BaseOption whereOpt =
+					(BaseOption) group.findOptionByKey("word_complete_where");
+			mWordSuggestionsWhere = whereOpt != null
+					&& whereOpt.getValue() instanceof Integer
+					? (Integer) whereOpt.getValue() : WordSuggestions.DEFAULT_WHERE;
+			if (mWordSuggestionsWhere < WordSuggestions.WHERE_FLOATING
+					|| mWordSuggestionsWhere > WordSuggestions.WHERE_NONE) {
+				mWordSuggestionsWhere = WordSuggestions.DEFAULT_WHERE;
+			}
+			mWordSuggestionsOverlay =
+					mWordSuggestionsWhere == WordSuggestions.WHERE_FLOATING;
+			// A folded bar is a floating-bar state. Leaving it set while the bar
+			// is elsewhere or gone means the grip comes back folded when the
+			// player floats it again, with nothing having been tapped.
+			if (!mWordSuggestionsOverlay) {
+				mWordSuggestionsCollapsed = false;
+			}
+			BaseOption opacityOpt =
+					(BaseOption) group.findOptionByKey("word_complete_opacity");
+			if (opacityOpt != null && opacityOpt.getValue() instanceof Integer) {
+				mWordSuggestionsOpacity = (Integer) opacityOpt.getValue();
+			}
+			BaseOption persistOpt =
+					(BaseOption) group.findOptionByKey("word_complete_persist");
+			mWordSuggestionsPersist = persistOpt != null
+					&& persistOpt.getValue() instanceof Boolean
+					&& (Boolean) persistOpt.getValue();
+			// Turning the bar off is also the way out of a collapsed one, so a
+			// player cannot end up with a grip and no way to read what it hides.
+			if (!mWordSuggestionsPersist) {
+				mWordSuggestionsCollapsed = false;
+			}
+			refreshWordSuggestions();
 
 			BaseOption histOpt = (BaseOption) group.findOptionByKey("input_history_size");
 			if (histOpt != null && histOpt.getValue() instanceof Integer) {
@@ -3500,6 +4990,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_KEYBOARD,p,a,txt));
 		}
 		
+		public void inputBarInsertWord(String word) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_INSERT_WORD, word));
+		}
+
+		public void vocabularyText(String text) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_TEXT, text));
+		}
+
+		public void vocabularyReset() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_VOCABULARY_RESET);
+		}
+
+		public void pickCompletion(int index) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PICK_COMPLETION, index, 0));
+		}
+
+		public void promptLine(String text) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PROMPT_LINE, text));
+		}
+
 		public void inputBarSelectAll() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_INPUT_SELECT_ALL);
 		}
@@ -4339,7 +5849,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					try {
 						service.updateStringSetting(ExtraTextSlotsStore.SETTING_KEY, json);
-						service.saveSettings();
+						// The slots are in the service after the call above; the
+						// file write need not finish before this returns.
+						com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 					} catch (RemoteException e) {
 						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 					}
@@ -4724,6 +6236,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (port != null) {
 			edit.putString("CONNECT_PORT", port);
 		}
+		// Only when the Intent carries it. Writing false for an Intent that
+		// simply has no opinion would turn TLS off for a world that had it on,
+		// which is the silent downgrade this whole path is written to avoid.
+		if (intent.hasExtra("TLS")) {
+			edit.putBoolean("CONNECT_TLS", intent.getBooleanExtra("TLS", false));
+		}
 		edit.apply();
 	}
 
@@ -4751,11 +6269,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (port == null || port.isEmpty()) {
 			port = Integer.toString(getConnectionPort());
 		}
+		// TLS is resolved from the same source as host and port above, so a
+		// switch cannot pair one world's host with another world's answer here.
+		boolean tls;
+		if (display.equals(prefs.getString("CONNECT_TO", null))) {
+			tls = prefs.getBoolean("CONNECT_TLS", false);
+		} else {
+			tls = getConnectionTls();
+		}
 		Intent base = getIntent();
 		Intent next = base != null ? new Intent(base) : new Intent();
 		next.putExtra("DISPLAY", display);
 		next.putExtra("HOST", host);
 		next.putExtra("PORT", port);
+		next.putExtra("TLS", tls);
 		setIntent(next);
 		saveConnectionExtras(next);
 	}
@@ -4814,6 +6341,34 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return 23;
 	}
 
+	/**
+	 * Whether this world connects over TLS, resolved the same way as host and
+	 * port: Intent first, then the CONNECT_TO prefs that survive a process
+	 * death. It has to follow exactly the same road as those two — a resume
+	 * that recovered the host but forgot this would reconnect in plain text
+	 * without saying so.
+	 *
+	 * @return True to use TLS.
+	 */
+	private boolean getConnectionTls() {
+		Intent intent = getIntent();
+		if (intent != null && intent.hasExtra("TLS")) {
+			return intent.getBooleanExtra("TLS", false);
+		}
+		// The stored answer belongs to whichever world was opened last, so it is
+		// only usable when this is that same world. An Intent naming world B
+		// while the preferences still describe world A must not inherit A's
+		// answer — that is how a plain world would try TLS, or worse, an
+		// encrypted one quietly go in the clear.
+		SharedPreferences prefs = getSharedPreferences("CONNECT_TO", Context.MODE_PRIVATE);
+		String wanted = intent != null ? intent.getStringExtra("DISPLAY") : null;
+		String stored = prefs.getString("CONNECT_TO", null);
+		if (wanted != null && stored != null && !wanted.equals(stored)) {
+			return false;
+		}
+		return prefs.getBoolean("CONNECT_TLS", false);
+	}
+
 	private void assignLegacyChromeIds() {
 		View divider = findViewById(R.id.divider);
 		if (divider != null) {
@@ -4830,6 +6385,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		View v = findViewById(R.id.textinput);
 		mInputBox = (BetterEditText) v;
 		mInputBox.setId(ChromeController.LEGACY_TEXT_INPUT_ID);
+		bindGhostTap();
+		// The same reason the post below exists, and the same trap: loadSettings
+		// can arrive before this field is built, and it hands its answer to the
+		// field. Nothing asked again afterwards, so a bar told it could grow was
+		// told while there was nothing to tell — and the ghost went on showing
+		// one suggestion whatever the setting said. Re-applied here, where the
+		// field finally exists.
+		mInputBox.setGhostMaxRows(mWordSuggestionsGhost ? mGhostLines - 1 : 0);
+		// loadSettings can arrive before this runs, and refreshWordSuggestions
+		// gives up with the panel hidden while mInputBox is null. Nothing else
+		// asks again until the first keystroke — so a bar told to stay put would
+		// not be there until you typed something, which is the one thing it is
+		// for. Posted, so it happens after this view has been laid out.
+		mInputBox.post(new Runnable() {
+			@Override
+			public void run() {
+				// By now the world this window belongs to is settled, which is
+				// what the file is named after. Re-entering a world the service
+				// is still connected to sends no vocabulary reset at all, so
+				// this is the only load that happens on that path.
+				loadCommandKnowledge();
+				refreshWordSuggestions();
+			}
+		});
 
 		View inputBar = findViewById(R.id.inputbar);
 		mOriginalInputBarLayoutParams = new RelativeLayout.LayoutParams(inputBar.getLayoutParams());
@@ -4928,7 +6507,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		if (mInputBox != null) {
 			keepLastTextWatcher = new android.text.TextWatcher() {
-				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+				@Override
+				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+					if (keepLastSuppress || mInputBox == null) {
+						return;
+					}
+					// The selection here is still the pre-edit one, which is the only
+					// place it can be read: by onTextChanged the IME has already moved
+					// the cursor. The branch below means "the IME appended instead of
+					// replacing the selection", so it needs to know there *was* a
+					// selection. Tapping the word to deselect leaves start == end, and
+					// then a space is an ordinary keystroke at the end, not a replace.
+					keepLastWasSelected = mInputBox.getSelectionStart() == 0
+							&& mInputBox.getSelectionEnd() == keepLastReplaceLength
+							&& keepLastReplaceLength > 0;
+				}
 				@Override
 				public void onTextChanged(CharSequence s, int start, int before, int count) {
 					if (keepLastSuppress) {
@@ -4938,7 +6531,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						return;
 					}
 					int oldLen = s.length() - count + before;
-					if (before == 0 && start == oldLen && oldLen == keepLastReplaceLength) {
+					if (keepLastWasSelected && before == 0 && start == oldLen && oldLen == keepLastReplaceLength) {
 						// IME appended at the end instead of replacing the selection.
 						// Note it here, apply it in afterTextChanged: this callback
 						// runs while TextView is still walking its watcher list, and
@@ -4948,10 +6541,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						historyWidgetKept = false;
 						return;
 					}
-					if (before > 0 || start < keepLastReplaceLength) {
-						keepLastReplaceLength = 0;
-						historyWidgetKept = false;
-					}
+					// Anything else is the player editing the line by hand: either
+					// inside it, or at the end after deselecting it. Nothing left to
+					// replace, so drop the trap and the "↑ skips one" flag with it.
+					keepLastReplaceLength = 0;
+					historyWidgetKept = false;
 				}
 				@Override
 				public void afterTextChanged(android.text.Editable s) {
@@ -4976,6 +6570,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			};
 			mInputBox.addTextChangedListener(keepLastTextWatcher);
+			// Its own watcher rather than a branch inside the one above: that one
+			// is the Keep Last selection dance and has a suppress flag it must
+			// honour, and completion has nothing to do with any of it.
+			mInputBox.addTextChangedListener(new android.text.TextWatcher() {
+				@Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+				@Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
+				@Override
+				public void afterTextChanged(android.text.Editable s) {
+					reportTypingState(s != null && s.length() > 0);
+					if (mWordSuggestionsOn) {
+						refreshWordSuggestions();
+					}
+				}
+			});
 		}
 
 		ensureInputActionColumn();
@@ -5835,7 +7443,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 								continue;
 							}
 							rules.add(new com.resurrection.blowtorch2.lib.window.Window.TapRule(
-									p, r.getCommands(), r.isUnderline(), r.isBold(),
+									p, r.getCommands(), r.isTapSendsFirst(),
+									r.isUnderline(), r.isBold(),
 									r.isFrame(), r.getGroup()));
 						}
 					}

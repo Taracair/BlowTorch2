@@ -195,6 +195,33 @@ patterns.
   also appears when you are connected if BlowTorch is still battery-optimized.
 - Connection duration is shown on the ongoing notification and launcher rows.
 
+## Device (the phone's own sensors)
+
+Not the same thing as button gestures: swipes, holds and chrome bindings live in
+the **button editor**. This group is about hardware readings — proximity,
+motion, light, charger, headphones, screen — offered to triggers, conditions and
+timers.
+
+| Option | Default | Notes |
+|--------|---------|--------|
+| **Device state as variables** | off | Keep `device.facing`, `device.screen`, `device.headphones`, `device.charging`, `device.battery`, `device.covered`, `device.light` up to date as session variables. With it off nothing is registered and a condition testing one is *false*, never true |
+| **Sensors…** | — | The list screen, built like the Alias / Trigger / Timer chooser: readings grouped under *A hand over the screen*, *Movement*, *Light* and *Headphones, charger and screen*, each row one line of what it is or what already answers it. Tapping a row opens the trigger editor; **Test** opens a live probe. Readings this handset cannot provide fold away under *Not available on this phone*, still tappable, because a profile is shared with people whose phones do have them. The `?` in the button bar is what the screen is for; which chip provides a reading is `.sensor caps`, not the row |
+| **Test** (on a row) | — | Watches the sensor while you do the gesture and says whether the phone saw it — the question `.sensor fire` cannot answer. Runs in the UI process and releases every listener when it closes. Near/far, which way up, the one-shot sensors and the system events get a verdict from the same shared code the real detector uses; **shake** and the two **light** readings show the raw number instead, because their thresholds are calibrated and kept by the service process. Where a reading has an enabled trigger the probe also offers **Run the actions**, which is `.sensor fire` |
+| **Calibrate shake…** | — | Two measurements (shaking, then walking) and it picks a threshold between them; refuses when they overlap. Kept with the phone, never exported |
+| **Calibrate light…** | — | Tap once somewhere dark and once somewhere bright. Lux is not comparable between phones or rooms, so this is the only way "dark" can mean yours |
+| **Movement sensors with the screen off** | off | Off means shake / wave / face-down do nothing while the display sleeps, so a pocket cannot fire them |
+| **Movement sensors while the app is in the background** | off | The same while another app is on top or BlowTorch is in Recents |
+
+Both movement switches cover **movement** readings only. Headphone, charger and
+screen readings keep working regardless — muting speech when the jack comes out
+has to work precisely when you are not looking at the screen.
+
+A sensor trigger is **not aimed at one world**: it fires in every world you have
+open, so with two MUDs connected one shake sends its command twice.
+
+From the input bar the same ground is `.sensor` (`caps`, `<reading> <command>`,
+`fire <reading>`, `watch on|off`, `threshold …`) and `.probe sensors`.
+
 ## Miscellaneous
 
 - **Overflow button opacity (%)** / **Overflow button background?** /
@@ -291,6 +318,67 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Edit / Send:** side-by-side when both are shown (Options → Window → Show Edit/Send button?).
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`
 - **Show Send button?** — `.sendbutton on|off` · or keyboard Send / `.kb flush`
+
+## Word completion
+
+Completes mob / player / item words the world just used, which the soft keyboard
+never learns. All of it is off by default and lives under **Options → Input**;
+each has a dot form on `.suggest`.
+
+All of these live under **Options → Input → Suggestions** — one feature with
+seven switches was making the Input page a wall.
+
+- **Complete words the game used** — `.suggest on|off`. While off, incoming text
+  is not even sent to the completer, so it costs nothing.
+- **Completion memory (lines)** — `.suggest lines N`. Freshness is the last `N`
+  lines the world sent (default 300), not a word count; `0` keeps the whole
+  session. "Recent" then means on screen what it means to the completer.
+- **`.suggest 1` … `.suggest 8`** picks that chip. Meant for a super button /
+  alias / trigger, not the input bar: typing into the bar replaces the word being
+  completed, so the strip empties. Chips are numbered to match.
+- **Forgive typos in suggestions** — `.suggest loose on|off`. Only after an exact
+  prefix finds nothing: letters in order with gaps, `grzld` → `grizzled`. First
+  letter must match, four-letter minimum.
+- **Show the rest of the word as you type** — `.suggest ghost on|off`. Draws the
+  top suggestion after the cursor, dimmed, with a micro `1`. **Tap it to take
+  it** — the ghost is a target, not just a hint. Drawn only, never inserted, so
+  what you send is exactly what you typed.
+  - A continuation shows only the missing letters: `gri` with `zzled` behind it.
+  - A forgiven typo shows the whole word behind an arrow, because the letters
+    have to change rather than grow: `grzld → grizzled`. Tapping replaces what
+    you typed.
+  - The ghost never makes the bar taller. If it does not fit the rest of the
+    line it continues on the next line when the bar already has one, and is cut
+    with `…` when it does not.
+- **Suggestions float over the game** — `.suggest overlay on|off`. **On by
+  default.** The strip below the game window takes height, so the text jumps when
+  a suggestion appears; floating over the game text costs the layout nothing and
+  nothing moves. Turn it off to get the in-layout strip back. Either way the
+  panel now waits a moment before hiding, rather than blinking off on the first
+  prefix that matches nothing.
+- **Keep the suggestion bar in place** — `.suggest persist on|off`. Leaves the
+  floating bar up even with nothing to suggest, so the chips change inside
+  something that does not move instead of appearing under your thumb. Empty it
+  shows only its grip: **tap the grip** to collapse, **long press and drag** it
+  to move the bar (remembered per world and per rotation; drop it back near the
+  input bar to go back to following it). `.suggest persist off` gets rid of an
+  empty bar.
+- **Suggestion chip opacity (%)** — `.suggest opacity N` (10–100). Fades the chip
+  backing of the floating chips only; the words stay fully readable.
+- The learned vocabulary is dropped on connect, so one world's names are never
+  offered in another. Note: while two worlds are open at once the completer,
+  prompt bar and vocabulary reset currently reach every window — see
+  `docs/HANDOFF.md`.
+
+## Prompt bar
+
+- **Prompt on its own bar** — `.prompt on|off`, **Options → Input**, off by
+  default. A MUD prompt is the line the world never finishes (your HP/EN line,
+  resent after every command); on, it sits in one fixed place above the input bar
+  instead of repeating down the game window.
+- `.prompt` with no argument also reports **prompts seen: N** for this connection.
+  Zero after a while means the world sends no prompt (many MOOs do not) — the bar
+  showing nothing is then correct, not broken.
 
 ## Notification responders
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A chip, not a Button. The platform Button brings a large minimum size and
+     an inset nine-patch, which is why the strip was taller than it needed to be
+     and the words sat far apart. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF3A4450" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF262B31" />
+            <corners android:radius="8dp" />
+            <stroke android:width="1dp" android:color="#22FFFFFF" />
+        </shape>
+    </item>
+</selector>

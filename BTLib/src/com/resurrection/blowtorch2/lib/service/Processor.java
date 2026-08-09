@@ -342,6 +342,20 @@ public class Processor {
 						i++;
 						break;
 					case TC.GOAHEAD:
+						// GA marks the end of a prompt, and a prompt is the one
+						// line that never gets a newline. Connection holds an
+						// unfinished trailing line back so that a gag cannot cut
+						// a line in half; without this the prompt would sit there
+						// until the 150 ms timer let it go. The message lands
+						// behind the chunk being processed, so the prompt bytes
+						// are already held by the time it is read.
+						//
+						// Worlds that do not send GA lose nothing: the timer is
+						// still what releases their prompts.
+						mReportTo.sendEmptyMessage(
+								Connection.MESSAGE_FLUSH_LINE_HOLDOVER);
+						i++;
+						break;
 					case TC.IP:
 						// TODO: REAL IP HANDLING HERE, I THINK THIS INVOLVES
 						// SETTING THE CURSOR BACK TO A PLACE OR SOMETHING

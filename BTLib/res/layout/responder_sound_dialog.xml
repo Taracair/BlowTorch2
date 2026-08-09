@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<RelativeLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/newsoundlayout"
+  android:layout_width="320dip"
+  android:layout_height="380dip">
+
+  <TextView
+		android:id="@+id/titlebar"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_alignParentTop="true"
+		android:text="SOUND RESPONDER"
+		android:textColor="#FF333333"
+		android:background="#FF999999"
+		android:textSize="15dip"
+		android:textStyle="bold"
+		android:gravity="center"/>
+
+    <Button
+    	android:layout_width="80dip"
+  		android:layout_height="wrap_content"
+  		android:id="@+id/responder_sound_cancel"
+  		android:layout_alignParentBottom="true"
+  		android:layout_alignParentLeft="true"
+  		android:text="Cancel" />
+
+  <Button
+  	android:layout_width="200dip"
+  	android:layout_height="wrap_content"
+  	android:text="Done"
+  	android:id="@+id/responder_sound_done_button"
+  	android:layout_toRightOf="@id/responder_sound_cancel"
+  	android:layout_alignParentRight="true"
+  	android:layout_alignParentBottom="true"/>
+
+  <LinearLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_above="@id/responder_sound_done_button" android:layout_below="@id/titlebar">
+
+  <Button
+  	android:id="@+id/responder_sound_pick"
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:text="Sound: (none chosen)" />
+
+  <LinearLayout
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:orientation="horizontal">
+
+    <Button
+    	android:id="@+id/responder_sound_test"
+    	android:layout_width="0dip"
+    	android:layout_weight="1"
+    	android:layout_height="wrap_content"
+    	android:text="▶ Play it now" />
+
+    <Button
+    	android:id="@+id/responder_sound_help"
+    	android:layout_width="52dip"
+    	android:layout_height="wrap_content"
+    	android:text="?" />
+  </LinearLayout>
+
+  <TableLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:shrinkColumns="0" android:stretchColumns="1">
+  	<TableRow>
+  		<TextView android:text="Volume %:"/>
+  		<EditText android:id="@+id/responder_sound_volume" android:inputType="number"/>
+  	</TableRow>
+  	<TableRow>
+  		<TextView android:text="Gap (ms):"/>
+  		<EditText android:id="@+id/responder_sound_gap" android:inputType="number"/>
+  	</TableRow>
+  </TableLayout>
+
+  <CheckBox
+  	android:id="@+id/responder_sound_warn"
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:text="Warn me if the volume is off" />
+
+  <TextView
+  	android:id="@+id/responder_sound_status"
+  	android:layout_width="fill_parent"
+  	android:layout_height="wrap_content"
+  	android:layout_marginLeft="6dip"
+  	android:layout_marginRight="6dip"
+  	android:textSize="12dip"
+  	android:text="Gap is the shortest time between two of this trigger's sounds." />
+  </LinearLayout>
+
+</RelativeLayout>

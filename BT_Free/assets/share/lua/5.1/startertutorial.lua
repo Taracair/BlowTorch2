@@ -73,9 +73,11 @@ local TOPIC_ORDER = {
 	"aliases",
 	"triggers",
 	"timers",
+	"sensors",
 	"coloring",
 	"tappable",
 	"keyboard",
+	"completion",
 	"search",
 	"mapper",
 	"wrap",
@@ -134,8 +136,8 @@ Try it now:
 
 This tour is hands-on: you will build a .loadset button, learn triggers for
 beginners, and poke swipe / hold / accordion demos. Lessons also cover
-aliases, timers, colors, keyboard, search, mapper, wrap, logging, ⋮ menu,
-GMCP/MCP, reconnect, copy, Options, display, and plugins.
+aliases, timers, sensors, colors, keyboard, completion, search, mapper, wrap,
+logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
 Type:  .tutorial next
 Or:    .tutorial topics
@@ -484,6 +486,60 @@ is no .timer group command. The ? on the Timers list explains what a
 timer is and how it differs from a trigger.]])
 end
 
+TOPICS.sensors = function()
+	noteBlock("Sensors — the phone as a trigger source",
+[[Not the button gestures. Swipes and holds on a tile are set in the button
+editor. This lesson is the phone's own hardware: proximity, motion, light,
+the charger, the headphone jack, the screen.
+
+Each reading is an ordinary trigger, so everything a trigger already does
+works with it — send a command, run a script, speak, play a sound, ring the
+bell, set a variable, or gate itself on a condition.
+
+Ask your phone what it has first; models differ a lot:
+  .sensor            what is set up here
+  .sensor caps       which hardware provides each reading on this phone
+
+Point one at a command:
+  .sensor facedown afk
+  .sensor faceup afk off
+  .sensor cover flee
+
+Try it without moving the phone (this works offline, here, now):
+  .sensor fire facedown
+
+That runs whatever you set up; it does not prove your phone can see the
+gesture. For that, Options -> Device -> Sensors... and Test on the row: it
+watches the sensor while you do it and tells you whether the phone noticed.
+Worth doing before you build anything on a reading, because sensor hardware
+differs by model.
+
+Readings: wave, cover, facedown, faceup, shake, pickup, moving, still,
+gotdark, gotbright, headphonesout, headphonesin, powerin, powerout,
+screenoff, screenon. The last six need no sensor chip — Android tells every
+app — so a profile built on those works on any phone.
+
+Often better than a reading of its own: use the phone as a CONDITION.
+On any trigger or timer, Conditions → The phone gives you "Headphones are
+plugged in", "Screen is off", "Phone is charging" without typing a variable
+name. A Speak action gated on headphones never reads your tells out loud on
+the bus.
+
+Behind that picker are session variables you can also read from Lua:
+  .sensor watch on         keep device.* up to date
+  .sensor state            show them now
+  GetVariable("device.charging")
+
+Everything here is off until you ask for it, and movement readings are held
+back while the screen is off or the app is in the background — a phone in a
+pocket cannot send commands. Both switches sit in Options → Device, next to
+Calibrate shake and Calibrate light. The Sensors… row in that same group is
+the list of readings, not the switches.
+
+One thing to know: a sensor trigger is not aimed at one world. It fires in
+every world you have open, so with two MUDs connected one shake sends twice.]])
+end
+
 TOPICS.coloring = function()
 	noteBlock("Coloring — .colordebug",
 [[ANSI colors from the MUD are drawn in the game window. To debug them:
@@ -539,6 +595,50 @@ TOPICS.keyboard = function()
 
 Edit on the input bar expands Sel/Cut/Copy/Paste and a compact arrow pad.
 Up/down recall command history.]])
+end
+
+TOPICS.completion = function()
+	noteBlock("Suggestions and the prompt — .suggest / .prompt",
+[[The soft keyboard never learns a mob called grizzled or a player called
+Tonkatsu, and corrects them into English. Suggestions offer back what the world
+actually said. All of it is off until you ask, under Options → Input or on
+.suggest (.complete still works and means the same thing):
+
+  .suggest on|off         offer words the game just used
+  .suggest lines N        how far back counts as recent (lines, default 300;
+                          0 = the whole session)
+  .suggest 1 .. 8         take that chip — for a super button, not the bar:
+                          typing into the bar empties the strip
+  .suggest loose on|off   forgive typos once the exact spelling finds nothing
+                          (grzld finds grizzled)
+  .suggest phrases on|off offer whole names, not only the one word
+  .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
+                          drawn only, never sent
+  .suggest ghostlines N   up to N dimmed completions at once (1-6)
+  .suggest where floating|bar|off   where the chips go. off still leaves the
+                          ghost and .suggest 1..8 working, with no bar at all
+  .suggest persist on|off keep the bar up even when it has nothing to say
+  .suggest opacity N      how solid the floating chips are (10-100)
+
+    The game says:  A grizzled cave troll lumbers in.
+    You type:       k gri
+    The strip:      1 grizzled     ← tap it, or .suggest 1 from a button
+
+The prompt bar is separate. A prompt is the short status line most MUDs print
+after every command — [HP 450/500 EN 300/300] > and the like. It repeats down
+the whole screen, which on a phone costs you half of what you can see.
+
+  .prompt on|off          pin that line in one place above the input instead,
+                          rewritten each time a new one arrives
+  .prompt                 also reports "prompts seen: N" — zero means this
+                          world sends no prompt, which many MOOs do not
+
+The bar shows the world's own text and nothing more: it does not read the
+numbers and draws no health bar. A bar that fills and empties is a trigger with
+a capture, or GMCP.
+
+Vocabulary is forgotten when you connect, so one world's names never show up in
+another.]])
 end
 
 TOPICS.search = function()

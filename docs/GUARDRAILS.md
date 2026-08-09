@@ -28,7 +28,17 @@ new opportunity for the two copies to disagree.
 | A responder type with no case in `TriggerData` | `check.sh` | CI fails |
 | `TriggerData`'s parcel written and read out of step | `check.sh` | CI fails |
 | No `BTPROF` left in tracked code | `check.sh` | CI fails |
+| arm64 `.so` in `BTLib/libs` aligned below 16 KB | `check.sh` | CI fails |
 | The rule list does not drift between files | `check.sh` | CI fails |
+
+The 16 KB check earns its place by having caught a real one on the day it was
+written. `BTLib/libs` is not in git and is built by a script nobody remembers to
+re-run, so a test APK went out carrying libraries left over from an older NDK,
+aligned to 4 KB, which Android 15+ refuses. Nothing in the Gradle build noticed.
+It checks `arm64-v8a` only: 16 KB pages are a 64-bit feature, and a recent NDK
+correctly leaves `armeabi-v7a` at 4 KB. It skips, rather than fails, when the
+libraries have not been built or no `llvm-objdump` is on the machine — a fresh
+clone must still go green.
 
 ## What is deliberately not blocked
 

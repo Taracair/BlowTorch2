@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="launcher_btn_new">New MUD</string>
+    <string name="launcher_menu_welcome">Welcoming message</string>
+    <string name="first_run_title">Welcoming message</string>
+    <string name="first_run_message">Hi! Thanks for installing my app.\n\nAt first the client may seem overwhelming — there is a lot in here: triggers, aliases, timers, a mapper, button pads, Lua plugins, word completion, protocol support most clients do not have. All of it at once would be a wall, so nearly everything starts switched off. You get a plain terminal that works, and you turn things on one at a time as you find you want them.\n\nThat feeling changes with time. Have a look at the user guide and at the interactive Starter Tutorial in your world list — between them they cover everything here, and nothing you switch on is permanent: every switch has an off.\n\nHave fun!\n\nTaracair</string>
+    <string name="first_run_guide">Open the guide</string>
+    <string name="first_run_dismiss">Don\'t show again</string>
     <string name="launcher_btn_guide">User guide</string>
     <string name="about_project_page">Project page on GitHub</string>
     <string name="password_show">👁</string>
@@ -26,6 +31,8 @@
     <string name="launcher_menu_export_server_list">Export Server List</string>
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
+    <string name="launcher_tls_label">Use TLS (encrypted)</string>
+    <string name="launcher_tls_hint">Only if this world offers a TLS port — usually a different port number from the plain one. A self-signed certificate is refused and the connection will say so.</string>
     <string name="launcher_account_section">Account (optional)</string>
     <string name="launcher_account_plaintext_warn">If this MUD supports GMCP Char.Login, the primary login and password below can be used for automatic login. Extra account slots are notes only. Saved as plain text on this device — leave blank if you do not want passwords stored here.</string>
     <string name="launcher_extra_accounts_hint">Tap a slot to edit. Delete removes it.</string>

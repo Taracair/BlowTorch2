@@ -1631,6 +1631,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			}
 			
 			synchronized (mToken) {
+			if (action == MotionEvent.ACTION_CANCEL
+					|| action == MotionEvent.ACTION_POINTER_DOWN) {
+				// Nothing here handles either of these, so ACTION_UP may never
+				// arrive: a parent taking the gesture over, or a second finger
+				// starting a pinch. A hold left pending would then open a menu
+				// over a gesture the player had already turned into something
+				// else.
+				cancelTapLongPress();
+				mTapLongPressFired = false;
+			}
 			if (action == MotionEvent.ACTION_DOWN) {
 				pointer = pointerId;
 				start_x = Float.valueOf(t.getX(index));
@@ -1661,6 +1671,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					}
 				}
 				
+				scheduleTapLongPress();
+
 				mDragAxis = DRAG_UNDECIDED;
 				mMoveLastX = Float.valueOf(x);
 				mDownX = Float.valueOf(x);
@@ -1677,6 +1689,31 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 			}
 			
+			if (action == MotionEvent.ACTION_MOVE && mTapLongPress != null
+					&& mStartY != null && mDownX != null) {
+				// Past the same 8 dp the axis lock uses: this is a scroll, not a
+				// hold. Cancelling here and not only in the axis block, because
+				// that block is skipped entirely when the canvas is no wider than
+				// the window — the ordinary 100% case, where the only gesture is
+				// the vertical scroll and it must cancel a hold just the same.
+				float heldDx = t.getX(index) - mDownX.floatValue();
+				float heldDy = t.getY(index) - mStartY.floatValue();
+				float holdSlop = 8f * mDensity;
+				if (Math.abs(heldDx) > holdSlop || Math.abs(heldDy) > holdSlop) {
+					cancelTapLongPress();
+				}
+			}
+
+			if (action == MotionEvent.ACTION_MOVE && mTapLongPressFired) {
+				// The hold has already opened the menu, and the menu is anchored
+				// where the word was when the finger went down. Letting the rest
+				// of this method run would scroll the text out from under it —
+				// the list would stay put pointing at whatever slid into that
+				// spot. The gesture belongs to the menu now; swallow the rest of
+				// it and wait for the finger to come up.
+				return true;
+			}
+
 			if (action == MotionEvent.ACTION_MOVE && maxScrollX() > 0f
 					&& mDragAxis == DRAG_UNDECIDED
 					&& mStartY != null && mDownX != null) {
@@ -1766,6 +1803,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						&& Math.abs(upY - mStartY) < tapSlop
 						&& Math.abs(upX - start_x) < tapSlop;
 		         
+				cancelTapLongPress();
+				if (mTapLongPressFired) {
+					// The hold already opened the menu. Sending on the way up as
+					// well would both ask and act on the same gesture.
+					mTapLongPressFired = false;
+					mTouchInTapWord = -1;
+					mTouchInLink = -1;
+					return true;
+				}
+
 				if (mTouchInTapWord > -1 && smallMove
 						&& mTouchInTapWord < tapBoxes.size()) {
 					// A listed word was tapped. A link on the same spot wins —
@@ -1774,18 +1821,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					if (mTouchInLink < 0) {
 						// The box already carries the finished commands: each rule
 						// has its own, so they cannot be rebuilt from one setting.
-						String[] cmds = mTouchInTapWord < tapCommands.size()
-								? tapCommands.get(mTouchInTapWord)
-								: new String[] { tapBoxes.get(mTouchInTapWord).getData() };
-						if (cmds.length > 1) {
-							// More than one: ask, anchored on the word that was hit
-							// so the menu points at what it is about.
-							Rect box = tapBoxes.get(mTouchInTapWord).getBox();
-							mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
-									MainWindow.MESSAGE_TAPWORDMENU,
-									box.centerX(), box.top,
-									cmds));
+						boolean sendsFirst = false;
+						String[] cmds;
+						if (mTouchInTapWord < tapCommands.size()) {
+							TapTarget target = tapCommands.get(mTouchInTapWord);
+							cmds = target.commands;
+							sendsFirst = target.tapSendsFirst;
 						} else {
+							cmds = new String[] { tapBoxes.get(mTouchInTapWord).getData() };
+						}
+						if (cmds.length > 1 && !sendsFirst) {
+							// More than one and the action has not been told to
+							// pick: ask, anchored on the word that was hit so the
+							// menu points at what it is about.
+							openTapWordMenu(cmds, tapBoxes.get(mTouchInTapWord).getBox());
+						} else {
+							// One command, or the action says a tap sends the first
+							// one and leaves the rest to a hold.
 							mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
 									MainWindow.MESSAGE_TAPWORDCOMMAND, cmds[0]));
 						}
@@ -3218,15 +3270,41 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private static final int MAX_TAP_HITS_PER_LINE = 16;
 	/** Same shape as {@link #linkBoxes}, and in the same (raw touch) space. */
 	private final ArrayList<LinkBox> tapBoxes = new ArrayList<LinkBox>();
+	/** What a tap on one box does: what it may send, and whether it asks. */
+	private static final class TapTarget {
+		final String[] commands;
+		final boolean tapSendsFirst;
+
+		TapTarget(String[] commands, boolean tapSendsFirst) {
+			this.commands = commands;
+			this.tapSendsFirst = tapSendsFirst;
+		}
+	}
+
 	/**
 	 * What each box in {@link #tapBoxes} would send, {@code $word} already
-	 * filled in, one array per box and in the same order. Kept beside the boxes
+	 * filled in, one entry per box and in the same order. Kept beside the boxes
 	 * rather than as an index into {@link #mTapRules}: the boxes are rebuilt on
 	 * every draw while a trigger edit can replace the rule list in between, and
 	 * an index would then point at a different rule or past the end.
 	 */
-	private final ArrayList<String[]> tapCommands = new ArrayList<String[]>();
+	private final ArrayList<TapTarget> tapCommands = new ArrayList<TapTarget>();
 	private int mTouchInTapWord = -1;
+	/**
+	 * Pending "the finger has been on this word long enough" for the box under
+	 * it, or null when nothing is waiting.
+	 *
+	 * <p>This class handles touch by hand — there is no GestureDetector here and
+	 * adding one would have to take over the vertical scroll, the fling and the
+	 * sideways drag as well. A posted runnable is the small version: it only
+	 * knows about tap words, and everything else on the touch path is untouched.
+	 */
+	private Runnable mTapLongPress = null;
+	/**
+	 * Set once the menu has been opened by holding, so the finger coming back up
+	 * does not then also send a command.
+	 */
+	private boolean mTapLongPressFired = false;
 	private final Paint mTapUnderlinePaint = new Paint();
 	private final Paint mTapTextPaint = new Paint();
 
@@ -3239,17 +3317,21 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		public final java.util.regex.Pattern pattern;
 		/** One entry sends straight away; more than one opens a menu. */
 		public final String[] commands;
+		/** With several commands, whether a tap sends the first one. */
+		public final boolean tapSendsFirst;
 		public final boolean underline;
 		public final boolean bold;
 		public final boolean frame;
 		/** 0 = the whole match is tappable, 1-9 = that capture group. */
 		public final int group;
 
-		public TapRule(java.util.regex.Pattern pattern, String[] commands, boolean underline,
+		public TapRule(java.util.regex.Pattern pattern, String[] commands,
+				boolean tapSendsFirst, boolean underline,
 				boolean bold, boolean frame, int group) {
 			this.pattern = pattern;
 			this.commands = commands != null && commands.length > 0
 					? commands : new String[] { "look $word" };
+			this.tapSendsFirst = tapSendsFirst;
 			this.underline = underline;
 			this.bold = bold;
 			this.frame = frame;
@@ -3271,15 +3353,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final int startCol;
 		final int endCol;
 		final String[] commands;
+		final boolean tapSendsFirst;
 		final boolean underline;
 		final boolean bold;
 		final boolean frame;
 
-		TapHit(int startCol, int endCol, String[] commands,
+		TapHit(int startCol, int endCol, String[] commands, boolean tapSendsFirst,
 				boolean underline, boolean bold, boolean frame) {
 			this.startCol = startCol;
 			this.endCol = endCol;
 			this.commands = commands;
+			this.tapSendsFirst = tapSendsFirst;
 			this.underline = underline;
 			this.bold = bold;
 			this.frame = frame;
@@ -3377,7 +3461,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				continue;
 			}
 			drawTapHit(c, x, y, p, s, from - unitStartCol, to - unitStartCol,
-					scrollingGesture, hit.commands,
+					scrollingGesture, hit.commands, hit.tapSendsFirst,
 					hit.underline, hit.bold, hit.frame);
 		}
 	}
@@ -3483,7 +3567,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (out == null) {
 					out = new ArrayList<TapHit>(4);
 				}
-				out.add(new TapHit(start, end, filled,
+				out.add(new TapHit(start, end, filled, rule.tapSendsFirst,
 						rule.underline, rule.bold, rule.frame));
 			}
 		}
@@ -3538,7 +3622,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** Mark one run of characters as tappable and remember where it was drawn. */
 	private void drawTapHit(final Canvas c, final float x, final float y, final Paint p,
 			final String source, final int start, final int end, final boolean scrollingGesture,
-			final String[] commands, final boolean underline, final boolean bold,
+			final String[] commands, final boolean tapSendsFirst,
+			final boolean underline, final boolean bold,
 			final boolean frame) {
 		float left = x + cellWidth(start);
 		float right = left + cellWidth(end - start);
@@ -3595,7 +3680,66 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			LinkBox box = new LinkBox(commands[0], r);
 			box.setData(commands[0]);
 			tapBoxes.add(box);
-			tapCommands.add(commands);
+			tapCommands.add(new TapTarget(commands, tapSendsFirst));
+		}
+	}
+
+	/**
+	 * Ask which command the player meant, anchored on the word that was hit.
+	 *
+	 * @param cmds the finished commands, {@code $word} already filled in.
+	 * @param box where the word was, in the same space the boxes are built in.
+	 */
+	private void openTapWordMenu(final String[] cmds, final Rect box) {
+		if (cmds == null || cmds.length == 0 || box == null) {
+			return;
+		}
+		mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+				MainWindow.MESSAGE_TAPWORDMENU, box.centerX(), box.top, cmds));
+	}
+
+	/**
+	 * Start the clock on a hold, when there is something for a hold to do.
+	 *
+	 * <p>Only for a word with more than one command: on a word with one there is
+	 * no list to open, and posting anyway would mean every touch on the game
+	 * text carried a timer for nothing.
+	 *
+	 * <p>The commands and the anchor are taken <b>now</b>, not looked up when the
+	 * hold expires. The boxes are rebuilt on every draw and the game keeps
+	 * writing while a finger rests on the screen, so by then the same index can
+	 * be a different word — the menu would offer commands for something the
+	 * player never touched.
+	 */
+	private void scheduleTapLongPress() {
+		cancelTapLongPress();
+		mTapLongPressFired = false;
+		if (mTouchInTapWord < 0 || mTouchInTapWord >= tapCommands.size()
+				|| mTouchInTapWord >= tapBoxes.size()) {
+			return;
+		}
+		final String[] cmds = tapCommands.get(mTouchInTapWord).commands;
+		if (cmds.length <= 1) {
+			return;
+		}
+		final Rect box = new Rect(tapBoxes.get(mTouchInTapWord).getBox());
+		mTapLongPress = new Runnable() {
+			public void run() {
+				mTapLongPress = null;
+				// The finger is still down and has not travelled — the scroll and
+				// the sideways drag both cancel this before they start moving.
+				mTapLongPressFired = true;
+				openTapWordMenu(cmds, box);
+			}
+		};
+		postDelayed(mTapLongPress, android.view.ViewConfiguration.getLongPressTimeout());
+	}
+
+	/** The gesture turned into something else, or ended. Drop the pending hold. */
+	private void cancelTapLongPress() {
+		if (mTapLongPress != null) {
+			removeCallbacks(mTapLongPress);
+			mTapLongPress = null;
 		}
 	}
 

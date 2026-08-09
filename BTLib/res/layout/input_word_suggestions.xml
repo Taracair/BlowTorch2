@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Words the game just used, offered while typing. Hidden until there is
+     something to offer, so it costs no height in the ordinary case. -->
+<HorizontalScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/input_word_suggestions"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:visibility="gone"
+    android:scrollbars="none"
+    android:fillViewport="false"
+    android:background="#FF141414">
+
+    <LinearLayout
+        android:id="@+id/input_word_suggestions_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingLeft="4dip"
+        android:paddingRight="4dip"
+        android:paddingTop="2dip"
+        android:paddingBottom="2dip" />
+
+</HorizontalScrollView>

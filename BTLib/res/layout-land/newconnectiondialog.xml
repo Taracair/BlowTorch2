@@ -88,6 +88,27 @@
   	</TableRow>
 
   	<TableRow>
+  		<CheckBox
+  			android:id="@+id/tlsinput"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_span="2"
+  			android:paddingTop="6dip"
+  			android:text="@string/launcher_tls_label"
+  			android:textSize="14sp"/>
+  	</TableRow>
+  	<TableRow>
+  		<TextView
+  			android:id="@+id/tlshint"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_span="2"
+  			android:paddingBottom="6dip"
+  			android:text="@string/launcher_tls_hint"
+  			android:textSize="12sp"
+  			android:textColor="#FF664400"/>
+  	</TableRow>
+  	<TableRow>
   		<TextView
   			android:id="@+id/account_section_label"
   			android:layout_width="match_parent"

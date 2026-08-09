@@ -12,6 +12,12 @@ public class MudConnection {
 	private String description = "";
 	/** When true (or host is offline), opening skips TCP connect. */
 	private boolean offline = false;
+	/**
+	 * Connect over TLS. Per world, because it is a property of the port: a MUD
+	 * that offers both usually puts them on different ones, and the same host
+	 * can therefore be two entries with different answers here.
+	 */
+	private boolean useTls = false;
 	private boolean connected = false;
 	/** Account slots (login/password/mail); primary used for GMCP Char.Login. */
 	private ArrayList<ServerAccount> accounts = new ArrayList<ServerAccount>();
@@ -25,6 +31,7 @@ public class MudConnection {
 		tmp.lastPlayed = this.lastPlayed;
 		tmp.description = this.description;
 		tmp.offline = this.offline;
+		tmp.useTls = this.useTls;
 		tmp.accounts = new ArrayList<ServerAccount>();
 		if (this.accounts != null) {
 			for (ServerAccount account : this.accounts) {
@@ -116,6 +123,15 @@ public class MudConnection {
 
 	public boolean isOffline() {
 		return offline || BuiltinTutorial.isTutorialHost(hostname);
+	}
+
+	public void setUseTls(boolean useTls) {
+		this.useTls = useTls;
+	}
+
+	/** An offline world connects to nothing, so TLS never applies to one. */
+	public boolean isUseTls() {
+		return useTls && !isOffline();
 	}
 
 	public void setConnected(boolean connected) {

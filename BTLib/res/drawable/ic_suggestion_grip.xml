@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The suggestion panel's handle. Dots rather than an arrow: an arrow promises
+     a direction, and this one thing is tapped to collapse and dragged to move.
+     It is also what an empty persistent panel shows, so it has to look like a
+     deliberate object rather than a stray mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="14dp"
+    android:height="24dp"
+    android:viewportWidth="14"
+    android:viewportHeight="24"
+    android:tint="#FF8A939C">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,5m-1.6,0a1.6,1.6 0,1 0,3.2 0a1.6,1.6 0,1 0,-3.2 0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,5m-1.6,0a1.6,1.6 0,1 0,3.2 0a1.6,1.6 0,1 0,-3.2 0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,12m-1.6,0a1.6,1.6 0,1 0,3.2 0a1.6,1.6 0,1 0,-3.2 0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,12m-1.6,0a1.6,1.6 0,1 0,3.2 0a1.6,1.6 0,1 0,-3.2 0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,19m-1.6,0a1.6,1.6 0,1 0,3.2 0a1.6,1.6 0,1 0,-3.2 0" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M10,19m-1.6,0a1.6,1.6 0,1 0,3.2 0a1.6,1.6 0,1 0,-3.2 0" />
+</vector>

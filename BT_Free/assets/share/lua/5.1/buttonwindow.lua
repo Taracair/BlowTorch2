@@ -439,9 +439,18 @@ function managerTouch.onTouch(v,e)
 			return true
 		end
 		if(manage and not fingerdown and not buttoncleared) then
-			pushUndo()
 			local modx = (math.floor(x/gridXwidth)*gridXwidth)+(gridXwidth/2)
 			local mody = (math.floor(y/gridYwidth)*gridYwidth)+(gridYwidth/2)
+			-- Held long enough, with something copied? Paste instead of
+			-- creating. Taken from the event rather than a stopwatch field, so
+			-- there is no state to get out of step, and a short tap reaches the
+			-- create path exactly as before.
+			local held = e:getEventTime() - e:getDownTime()
+			if held >= BUTTON_PASTE_LONG_PRESS_MS and hasButtonsToPaste() then
+				pasteButtons(modx,mody-statusoffset)
+				return true
+			end
+			pushUndo()
 			local butt = addButton(modx,mody-statusoffset)
 			butt:draw(0,buttonCanvas)
 			view:invalidate()
@@ -1442,6 +1451,7 @@ function notifyFloatingButtonsChanged()
 					o:put("swipeDownLeftCommand", tostring(d.swipeDownLeftCommand or ""))
 					o:put("swipeDownRightCommand", tostring(d.swipeDownRightCommand or ""))
 					o:put("showGestureLabel", d.showGestureLabel ~= false)
+					o:put("showGestureHints", d.showGestureHints ~= false)
 					o:put("switchTo", tostring(d.switchTo or ""))
 					o:put("primaryColor", tonumber(d.primaryColor) or 0)
 					o:put("selectedColor", tonumber(d.selectedColor) or 0)
@@ -1775,6 +1785,43 @@ local function layoutTargets()
 	return all, false
 end
 
+-- Fields a button may hold its own copy of, and otherwise inherits.
+DROPPABLE_OWN_FIELDS = {
+	"width", "height", "labelSize",
+	"primaryColor", "flipColor", "selectedColor",
+	"labelColor", "flipLabelColor",
+}
+
+--- Drop a button's own values that it would inherit unchanged anyway.
+---
+--- Called on Done, to keep a set from storing a copy of the default on every
+--- button. The subtlety, and a bug that lived here: dropping an own value makes
+--- the button inherit **BUTTONSET_DATA**, because `BUTTON_DATA.__index` is the
+--- global prototype. Nothing links a button to its own set's `defaults` table.
+---
+--- So an own value may only be dropped when the set default and the prototype
+--- agree. Otherwise the button springs back to the factory value instead of the
+--- set's — "44x44 keeps reverting to 48x48 in set main, but is fine in Default",
+--- 48 being BUTTONSET_DATA.width. The revert happened on Done, one step after
+--- Apply size had visibly worked, which is what made it look random.
+---
+--- A set whose default already is the factory value clears exactly as before,
+--- and that is where the saving always came from.
+function dropRedundantOwnValues(b, setDefaults)
+	if b == nil or b.data == nil or setDefaults == nil then
+		return
+	end
+	for i = 1, #DROPPABLE_OWN_FIELDS do
+		local field = DROPPABLE_OWN_FIELDS[i]
+		local own = tonumber(rawget(b.data, field))
+		local fromSet = tonumber(setDefaults[field])
+		local fromPrototype = tonumber(BUTTONSET_DATA[field])
+		if own ~= nil and own == fromSet and fromSet == fromPrototype then
+			rawset(b.data, field, nil)
+		end
+	end
+end
+
 -- Give every target the same width and height, in dp.
 function applyButtonSize(w, h)
 	local targets, hadSelection = layoutTargets()
@@ -2004,14 +2051,20 @@ function fitGridToScreen(square)
 	if size >= 16 then
 		appliedW, appliedH, becameDefault = applyButtonSize(size, size)
 	else
-		-- Play-mode Fit has no manager canvas; only redraw the grid while editing.
-		if manage == true and managerCanvas ~= nil then
-			drawManagerGrid()
-		end
 		drawButtons()
-		view:invalidate()
 		saveDefaultOptions()
 	end
+	-- The grid lines live on the manager canvas, and nothing above touches it:
+	-- applyButtonSize redraws the buttons only. So the common path moved the
+	-- buttons to the new cells while the cells themselves stayed drawn at the
+	-- old spacing until the editor was closed and reopened. The grid-spacing
+	-- sliders next door have always redrawn both, and now so does Fit.
+	--
+	-- Play-mode Fit has no manager canvas, hence the guard.
+	if manage == true and managerCanvas ~= nil then
+		drawManagerGrid()
+	end
+	view:invalidate()
 	Note("\nGrid set to " .. cols .. " columns of "
 		.. math.floor(cellX / density + 0.5) .. "x"
 		.. math.floor(cellY / density + 0.5) .. "dp"
@@ -2539,45 +2592,7 @@ function buttonOptions()
       --local meta = getmetatable(data)
       --local index = meta.__index
       
-      local compare = function(x,c,z)
-        return tonumber(rawget(x,c)) == tonumber(z)
-      end
-      
-      if(compare(data,"width",defaults.width)) then
-        --Note("\n\nSPECIAL WIDTH CLEAR\n\n")
-        rawset(b.data,"width",nil)
-      end
-      
-      if(compare(data,"height",defaults.height)) then
-        --Note("\n\nSPECIAL LABEL CLEAR\n\n")
-        rawset(b.data,"height",nil)
-      end
-      
-      if(compare(data,"labelSize",defaults.labelSize)) then
-        rawset(b.data,"labelSize",nil)
-      end
-      --counter = counter + 1
-      if(compare(data,"primaryColor",defaults.primaryColor)) then
-        rawset(b.data,"primaryColor",nil)
-      end
-      
-      if(compare(data,"flipColor",defaults.flipColor)) then
-        rawset(b.data,"flipColor",nil)
-      end
-      
-      if(compare(data,"selectedColor",defaults.selectedColor)) then
-        rawset(b.data,"selectedColor",nil)
-      end
-      
-      if(compare(data,"labelColor",defaults.labelColor)) then
-        rawset(b.data,"labelColor",nil)
-      end
-      
-      if(compare(data,"flipLabelColor",defaults.flipLabelColor)) then
-        rawset(b.data,"flipLabelColor",nil)
-      end
-      
-     
+      dropRedundantOwnValues(b, defaults)
     end
     
     -- The defaults editor names its colours differently from the set data, and
@@ -2648,6 +2663,13 @@ function buttonOptions()
   editorOptionsDialog.setSpreadSelectionCallback(function(shape)
     pushUndo()
     spreadSelectedButtons(shape)
+  end)
+  editorOptionsDialog.setPasteButtonsCallback(function()
+    -- Into the middle of the grid: the sheet covers the buttons, so there is no
+    -- cell under a finger to aim at the way the long press has.
+    local cx = (view:getWidth() / 2)
+    local cy = ((view:getHeight() - statusoffset) / 2)
+    pasteButtons(cx, cy)
   end)
   editorOptionsDialog.setFitGridCallback(function(square)
     pushUndo()
@@ -2980,21 +3002,23 @@ dragcurrent.y = -1
 String = luajava.newInstance("java.lang.String")
 StringClass = String:getClass()
 
-editorItems = Array:newInstance(StringClass,3)
+editorItems = Array:newInstance(StringClass,4)
 Array:set(editorItems,0,"Move")
 Array:set(editorItems,1,"Edit")
-Array:set(editorItems,2,"Delete")
+Array:set(editorItems,2,"Copy")
+Array:set(editorItems,3,"Delete")
 
 -- With more than one button selected there is a fourth thing worth doing, and
 -- it is the reason the selection was made in the first place: arranging them.
 -- The same tools live in the editor settings sheet, which is where you go to
 -- work on the whole set; this is the short way round when the buttons are
 -- already picked and under your finger.
-editorItemsMulti = Array:newInstance(StringClass,4)
+editorItemsMulti = Array:newInstance(StringClass,5)
 Array:set(editorItemsMulti,0,"Move")
 Array:set(editorItemsMulti,1,"Edit")
 Array:set(editorItemsMulti,2,"Arrange...")
-Array:set(editorItemsMulti,3,"Delete")
+Array:set(editorItemsMulti,3,"Copy")
+Array:set(editorItemsMulti,4,"Delete")
 
 arrangeItems = Array:newInstance(StringClass,5)
 Array:set(arrangeItems,0,"Line up  |   (one column)")
@@ -3002,6 +3026,188 @@ Array:set(arrangeItems,1,"Line up  --  (one row)")
 Array:set(arrangeItems,2,"Spread into a column")
 Array:set(arrangeItems,3,"Spread into a row")
 Array:set(arrangeItems,4,"Spread into a block")
+
+-- Marks our own clipboard content, so pasting from a shopping list does not
+-- silently produce nothing while looking like it worked.
+BUTTON_CLIP_MARKER = "BLOWTORCH-BUTTONS-1"
+
+-- How long a press on empty grid has to last to mean paste rather than "make a
+-- button here". Android's own long-press threshold, so it feels like every
+-- other long press on the phone.
+BUTTON_PASTE_LONG_PRESS_MS = 500
+
+local function clipboardManager()
+	if view == nil then
+		return nil
+	end
+	return view:getContext():getSystemService(Context.CLIPBOARD_SERVICE)
+end
+
+--- Put the selected buttons on the system clipboard.
+---
+--- Own values only — `serialize` walks with pairs, so inherited defaults stay
+--- inherited. Copying the resolved values instead would freeze this set's
+--- factory defaults into whatever set the buttons are pasted into, the same
+--- trap that made button sizes revert.
+function copySelectedButtons()
+	local payload = {}
+	for i = 1, #buttons do
+		local b = buttons[i]
+		if b ~= nil and b.selected then
+			payload[#payload + 1] = b.data
+		end
+	end
+	if #payload == 0 then
+		Note("\nNothing selected to copy.\n")
+		return
+	end
+	local cm = clipboardManager()
+	if cm == nil then
+		Note("\nNo clipboard available.\n")
+		return
+	end
+	local ClipData = luajava.bindClass("android.content.ClipData")
+	local text = BUTTON_CLIP_MARKER .. "\n" .. serialize(payload)
+	cm:setPrimaryClip(ClipData:newPlainText("BlowTorch buttons", text))
+	Note("\nCopied " .. #payload .. " button(s). Long press an empty grid cell"
+		.. " in another set to paste.\n")
+end
+
+--- Whatever coerceToText handed back, as a Lua string.
+---
+--- LuaJava converts a Java String to a Lua string on the way out, and a Lua
+--- string has no toString method — calling it crashed the editor on the first
+--- long press. A CharSequence that is not a String still arrives as an object
+--- and does need the call, so both have to be handled.
+local function asLuaString(value)
+	if value == nil then
+		return nil
+	end
+	if type(value) == "string" then
+		return value
+	end
+	local ok, converted = pcall(function() return value:toString() end)
+	if ok and type(converted) == "string" then
+		return converted
+	end
+	return nil
+end
+
+--- The buttons on the clipboard, or nil when it holds something else.
+---
+--- Every step is inside a pcall: this runs from the touch handler on a long
+--- press, so anything unexpected in the clipboard would take the whole button
+--- editor down with it rather than simply meaning "nothing to paste".
+local function buttonsOnClipboard()
+	local ok, result = pcall(function()
+		local cm = clipboardManager()
+		if cm == nil then
+			return nil
+		end
+		local clip = cm:getPrimaryClip()
+		if clip == nil or clip:getItemCount() < 1 then
+			return nil
+		end
+		local item = clip:getItemAt(0)
+		if item == nil then
+			return nil
+		end
+		local text = asLuaString(item:coerceToText(view:getContext()))
+		if text == nil then
+			return nil
+		end
+		-- Plain prefix compare, not a pattern. BLOWTORCH-BUTTONS-1 contains
+		-- hyphens, and a hyphen is a lazy quantifier in a Lua pattern, so
+		-- matching it as one silently found nothing — paste would never have
+		-- recognised its own clipboard even once the crash was fixed.
+		local head = BUTTON_CLIP_MARKER .. "\n"
+		if text:sub(1, #head) ~= head then
+			return nil
+		end
+		local loaded = loadSerialized(text:sub(#head + 1), "the copied buttons")
+		if type(loaded) ~= "table" or #loaded == 0 then
+			return nil
+		end
+		return loaded
+	end)
+	if not ok then
+		return nil
+	end
+	return result
+end
+
+--- True when a long press would have something to paste.
+function hasButtonsToPaste()
+	return buttonsOnClipboard() ~= nil
+end
+
+--- Paste the clipboard's buttons, the block's top-left landing on (pX, pY).
+---
+--- Relative positions are kept, so a pasted cluster arrives in the shape it was
+--- copied in rather than as a stack in one cell.
+function pasteButtons(pX, pY)
+	local payload = buttonsOnClipboard()
+	if payload == nil then
+		Note("\nNothing on the clipboard to paste. Select buttons and use Copy"
+			.. " first.\n")
+		return false
+	end
+
+	local minX, minY = nil, nil
+	for i = 1, #payload do
+		local d = payload[i]
+		if d ~= nil and d.x ~= nil and d.y ~= nil then
+			if minX == nil or d.x < minX then minX = d.x end
+			if minY == nil or d.y < minY then minY = d.y end
+		end
+	end
+	if minX == nil then
+		return false
+	end
+
+	pushUndo()
+	for i = 1, #buttons do
+		if buttons[i] ~= nil and buttons[i].selected then
+			buttons[i].selected = false
+			updateSelected(buttons[i], false)
+		end
+	end
+
+	local added = 0
+	for i = 1, #payload do
+		local d = payload[i]
+		if d ~= nil and d.x ~= nil and d.y ~= nil then
+			local copy = {}
+			for k, v in pairs(d) do
+				if type(v) == "table" then
+					local inner = {}
+					for ik, iv in pairs(v) do
+						inner[ik] = iv
+					end
+					copy[k] = inner
+				else
+					copy[k] = v
+				end
+			end
+			copy.x = pX + (d.x - minX)
+			copy.y = pY + (d.y - minY)
+			local newb = BUTTON:new(copy, density)
+			newb.data.x, newb.data.y =
+				clampLogicalPosition(newb.data.x, newb.data.y, newb)
+			refreshRect(newb)
+			table.insert(buttons, newb)
+			newb.selected = true
+			updateSelected(newb, true)
+			added = added + 1
+		end
+	end
+
+	drawButtons()
+	view:invalidate()
+	saveDefaultOptions()
+	Note("\nPasted " .. added .. " button(s).\n")
+	return true
+end
 
 function deleteSelectedButtons()
 	pushUndo()
@@ -3055,15 +3261,15 @@ end
 
 editorListener = {}
 function editorListener.onClick(dialog,which)
-	--Note("Editor: "..Array:get(editorItems,which).." selected.")
-	if(which == 2) then
-		deleteSelectedButtons()
-	end
+	-- Index order must match editorItems above: Move, Edit, Copy, Delete.
 	if(which == 0) then
 		enterMoveMode()
-	end
-	if(which == 1) then
+	elseif(which == 1) then
 		showEditorDialog()
+	elseif(which == 2) then
+		copySelectedButtons()
+	elseif(which == 3) then
+		deleteSelectedButtons()
 	end
 end
 editorListener_cb = luajava.createProxy("android.content.DialogInterface$OnClickListener",editorListener)
@@ -3080,6 +3286,8 @@ function editorListenerMulti.onClick(dialog,which)
 	elseif(which == 2) then
 		showArrangeSelection(numediting)
 	elseif(which == 3) then
+		copySelectedButtons()
+	elseif(which == 4) then
 		deleteSelectedButtons()
 	end
 end
@@ -3427,7 +3635,8 @@ function buttonEditorDone(data)
 		tmp.data.swipeDownLeftCommand = data.swipeDownLeftCommand or ""
 		tmp.data.swipeDownRightCommand = data.swipeDownRightCommand or ""
 		tmp.data.showGestureLabel = data.showGestureLabel ~= false
-		
+		tmp.data.showGestureHints = data.showGestureHints ~= false
+
 		tmp.data.accordionDirection = data.accordionDirection or ""
 		tmp.data.accordionChildren = data.accordionChildren or {}
 		tmp.data.accordionTrigger = data.accordionTrigger or "tap"
@@ -3571,6 +3780,10 @@ function showEditorDialog()
 		editorValues.swipeDownLeftCommand = button.data.swipeDownLeftCommand or ""
 		editorValues.swipeDownRightCommand = button.data.swipeDownRightCommand or ""
 		editorValues.showGestureLabel = button.data.showGestureLabel ~= false
+		-- Named apart from editorValues.showGestureHints, which is the
+		-- profile-wide switch the editor settings sheet reads. Same words on
+		-- screen, different scope, so they must not share a key.
+		editorValues.showGestureHintsButton = button.data.showGestureHints ~= false
 		editorValues.accordionDirection = button.data.accordionDirection or ""
 		editorValues.accordionChildren = button.data.accordionChildren or {}
 		editorValues.accordionTrigger = button.data.accordionTrigger or "tap"
@@ -4048,12 +4261,25 @@ function revertButtons()
 	notifyFloatingButtonsChanged()
 end
 
+-- One notify per resume, on both paths, and this is the only one that should
+-- happen. MainWindow.onResume used to make the floating layer ask for a push
+-- before this ran, and at that moment `buttons` is still the cleared set — one
+-- BACK button carrying no `floating` field — so the push described an empty
+-- list. Every floating button came down and went straight back up when the
+-- revert below notified a second time. That was the blink on coming back from
+-- another app. The layer no longer asks; it only marks itself resumed, and this
+-- is where the set it should mirror is finally correct.
+--
+-- The else branch notifies too. It is reached when onPause never cleared (it
+-- returns early with no service), and without a notify the floating buttons
+-- would stay down: the layer drops its views on pause whatever happens here.
 function restoreButtons()
 	if(buttonsCleared) then
 		revertButtons()
 	else
 		drawButtons()
 		view:invalidate()
+		notifyFloatingButtonsChanged()
 	end
 end
 

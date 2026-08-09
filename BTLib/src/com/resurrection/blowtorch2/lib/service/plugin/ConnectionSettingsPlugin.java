@@ -141,6 +141,152 @@ public class ConnectionSettingsPlugin extends Plugin {
 		compatilibility_mode.setValue(false);
 		input.addOption(compatilibility_mode);
 
+		// Seven keys about one feature made Input a wall to scroll through, so
+		// they live in their own section. Safe because SettingsGroup's
+		// updateOptionsMap recurses into child GROUPs and flattens their keys
+		// into the parent's map — findOptionByKey is a flat lookup and does not
+		// recurse, so MainWindow's group.findOptionByKey("word_complete_*")
+		// still resolves. What that costs is an ordering rule: every option must
+		// be added to this group BEFORE the group is added to input, or its key
+		// never reaches input's map and the option silently stops being read.
+		SettingsGroup suggestions = new SettingsGroup();
+		suggestions.setTitle("Suggestions");
+		suggestions.setDescription("Completing words the game has just used, and where those suggestions are shown.");
+
+		BooleanOption word_complete = new BooleanOption();
+		word_complete.setTitle("Suggest game words");
+		word_complete.setDescription("Type two letters of a name the world just used and it appears; tap to take it. The keyboard cannot know these names and corrects them into English. Master switch: off, nothing below does anything. .suggest on/off");
+		word_complete.setKey("word_complete");
+		word_complete.setValue(false);
+		suggestions.addOption(word_complete);
+
+		IntegerOption word_complete_lines = new IntegerOption();
+		word_complete_lines.setTitle("Remember (lines)");
+		word_complete_lines.setDescription("How many recent lines count as fresh, 0–5000. Lower means roughly what is still on screen; 0 means the whole session. .suggest lines N");
+		word_complete_lines.setKey("word_complete_lines");
+		word_complete_lines.setValue(
+				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES);
+		suggestions.addOption(word_complete_lines);
+
+		BooleanOption word_complete_loose = new BooleanOption();
+		word_complete_loose.setTitle("Forgive typos");
+		word_complete_loose.setDescription("When the exact spelling finds nothing, take your letters in order with gaps: grzld finds grizzled. Only after an exact match found nothing, so typing accurately never gets a different answer. .suggest loose on/off");
+		word_complete_loose.setKey("word_complete_loose");
+		word_complete_loose.setValue(false);
+		suggestions.addOption(word_complete_loose);
+
+		BooleanOption word_complete_phrases = new BooleanOption();
+		word_complete_phrases.setTitle("Offer whole names");
+		word_complete_phrases.setDescription("Offer the words that followed too, up to three: after a grizzled cave troll walks in, typing gri offers \"grizzled cave troll\" above plain \"grizzled\". Off, you get single words only, which is what this has always done. .suggest phrases on/off");
+		word_complete_phrases.setKey("word_complete_phrases");
+		// Off by default: on, the top suggestion for a prefix stops being a word
+		// and becomes a phrase, and the ghost draws it. Change this and the
+		// comparison in ConnectionSetttingsParser together.
+		word_complete_phrases.setValue(false);
+		suggestions.addOption(word_complete_phrases);
+
+		BooleanOption word_complete_ghost = new BooleanOption();
+		word_complete_ghost.setTitle("Ghost after the cursor");
+		word_complete_ghost.setDescription("Draw the top suggestion after the cursor in dim type; tap it to take it. Works on its own — with the bar set to Nowhere, this is all you get. Drawn only: you always send exactly what you typed. .suggest ghost on/off");
+		word_complete_ghost.setKey("word_complete_ghost");
+		word_complete_ghost.setValue(false);
+		suggestions.addOption(word_complete_ghost);
+
+		BooleanOption word_complete_short_first = new BooleanOption();
+		word_complete_short_first.setTitle("Plain word before the whole name");
+		word_complete_short_first.setDescription("With whole names on, offer explosive before explosive crates instead of the other way round. Four letters typed is not yet a request for the long form. Only ever changes a word against its own name — it does not order one word against another, which is what \"Shorter suggestions first\" does. Does nothing with whole names off. Off by default. .suggest plain on/off");
+		word_complete_short_first.setKey("word_complete_short_first");
+		word_complete_short_first.setValue(false);
+		suggestions.addOption(word_complete_short_first);
+
+		BooleanOption word_complete_shorter_first = new BooleanOption();
+		word_complete_shorter_first.setTitle("Shorter suggestions first");
+		word_complete_shorter_first.setDescription("Order every suggestion by length, shortest first, instead of by what the world said most recently. Type cr and you get crate before crime-and-punishment. \"Order by place in the line\" still decides which group of words leads; this decides the order inside each group, and nothing is ever dropped. Off by default. .suggest short on/off");
+		word_complete_shorter_first.setKey("word_complete_shorter_first");
+		// Off by default: newest-first is what the app has always done, and a
+		// player who never opens this must keep it. Change this and
+		// ConnectionSetttingsParser's comparison together, or the parser quietly
+		// stops saving the value the player chose.
+		word_complete_shorter_first.setValue(false);
+		suggestions.addOption(word_complete_shorter_first);
+
+		IntegerOption word_complete_ghost_lines = new IntegerOption();
+		word_complete_ghost_lines.setTitle("Suggestions under the line");
+		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it is just the single word drawn after the cursor, as before. Above that the rest are listed under what you are typing, side by side rather than one per line, each numbered and tappable. It takes only the rows it needs and gives them back the moment they are not needed. Needs the ghost to be on. .suggest ghostlines N");
+		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
+		word_complete_ghost_lines.setValue(1);
+		suggestions.addOption(word_complete_ghost_lines);
+
+		ListOption word_complete_where = new ListOption();
+		word_complete_where.setTitle("Bar of suggestions");
+		word_complete_where.setDescription("One place, so picking one puts the other away. Floating: over the game text, on the input bar, with a grip to drag or fold it. Below the game: a strip in the layout, which takes height, so the text jumps unless you also keep it in place. Nowhere: no bar at all — the ghost above still works. .suggest where floating|bar|off");
+		word_complete_where.setKey("word_complete_where");
+		// Added in this order: the values are indices into this list, and they are
+		// what lands in the profile. Anything inserted in the middle renames every
+		// saved choice after it.
+		word_complete_where.addItem("Floating over the game");
+		word_complete_where.addItem("Below the game window");
+		word_complete_where.addItem("Nowhere (ghost only)");
+		// Floating by default. The strip below the game window takes height while
+		// it shows, so the text jumps under the thumb on every letter. Change this
+		// and ConnectionSetttingsParser's comparison together, or the parser
+		// quietly stops saving the value the player chose.
+		word_complete_where.setValue(
+				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_WHERE);
+		suggestions.addOption(word_complete_where);
+
+		BooleanOption word_complete_rank = new BooleanOption();
+		word_complete_rank.setTitle("Order by place in the line");
+		word_complete_rank.setDescription("At the start of a line, lift the words you have used as commands; after it, lift the words you have used as targets. Learned from what you type, so it knows nothing on a world you have just started. It only changes the order — every suggestion you get today you still get. Off by default. .suggest rank on/off");
+		word_complete_rank.setKey("word_complete_rank");
+		word_complete_rank.setValue(false);
+		suggestions.addOption(word_complete_rank);
+
+		BooleanOption word_complete_pairs = new BooleanOption();
+		word_complete_pairs.setTitle("Learn what goes with what");
+		word_complete_pairs.setDescription("After a command word, offer what you have aimed that command at before: kill offers what you have killed, wear what you have worn. Needs Order by place in the line to be on, and knows nothing until you have played a while. It only changes the order. Off by default. .suggest pairs on/off");
+		word_complete_pairs.setKey("word_complete_pairs");
+		word_complete_pairs.setValue(false);
+		suggestions.addOption(word_complete_pairs);
+
+		BooleanOption word_complete_persist = new BooleanOption();
+		word_complete_persist.setTitle("Keep the bar in place");
+		word_complete_persist.setDescription("Leave the bar up even with nothing to suggest, instead of it coming and going as you type. Below the game this is the one that matters: it holds its height, so the game text stops jumping. Floating, it holds a bar's width and shows its grip. .suggest persist on/off");
+		word_complete_persist.setKey("word_complete_persist");
+		word_complete_persist.setValue(false);
+		suggestions.addOption(word_complete_persist);
+
+		IntegerOption word_complete_opacity = new IntegerOption();
+		word_complete_opacity.setTitle("Chip opacity (%)");
+		word_complete_opacity.setDescription("How solid the chips are, 10-100. Lower lets more game text through behind them; the words stay fully readable either way. Floating chips only. .suggest opacity N");
+		word_complete_opacity.setKey("word_complete_opacity");
+		word_complete_opacity.setValue(
+				com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY);
+		suggestions.addOption(word_complete_opacity);
+
+		// After every addOption above, never before one of them.
+		input.addOption(suggestions);
+
+		BooleanOption speak_quiet_typing = new BooleanOption();
+		speak_quiet_typing.setTitle("Quiet while you type");
+		speak_quiet_typing.setDescription("Triggers that speak drop anything they would have said between the first letter of a command and sending it. Speech already under way is not cut short. Off — the default — they speak whenever they fire. Worth turning on if you write long lines while a chatty trigger reads the screen at you; leave it off if speech is an alert, because you type most in a fight and that is when it would go quiet.");
+		speak_quiet_typing.setKey("speak_quiet_typing");
+		// Off by default: speaking whenever a trigger fires is what the app did
+		// before this existed, and a player who never opens this option must get
+		// that. On it silences alerts during exactly the busiest moments, which
+		// is not a thing to hand anybody without their asking. Change this and
+		// ConnectionSetttingsParser's comparison together, or the parser quietly
+		// stops saving the value the player chose.
+		speak_quiet_typing.setValue(false);
+		input.addOption(speak_quiet_typing);
+
+		BooleanOption prompt_bar = new BooleanOption();
+		prompt_bar.setTitle("Prompt on its own bar");
+		prompt_bar.setDescription("A MUD prompt is the line the world never finishes — your health and mana line, resent after every command. On, it sits in one fixed place above the input bar instead of repeating down the game window. Worlds that send no prompt show nothing; .prompt says how many have been seen. Toggle with .prompt on/off.");
+		prompt_bar.setKey("prompt_bar");
+		prompt_bar.setValue(false);
+		input.addOption(prompt_bar);
+
 		IntegerOption input_history = new IntegerOption();
 		input_history.setTitle("Input History Size");
 		input_history.setDescription("How many previous commands to keep (per profile, 10–100).");
@@ -149,6 +295,57 @@ public class ConnectionSettingsPlugin extends Plugin {
 		input.addOption(input_history);
 		
 		sg.addOption(input);
+
+		// The phone itself, as something triggers can read. Its own group
+		// because it is not an input setting and not a display one, and because
+		// this is where anything else sensor-shaped will go.
+		SettingsGroup device = new SettingsGroup();
+		device.setTitle("Device");
+		device.setDescription("What the phone knows about itself, and what the game may do with it.");
+
+		BooleanOption device_state_variables = new BooleanOption();
+		device_state_variables.setTitle("Device state as variables");
+		device_state_variables.setDescription("Keep device.headphones, device.charging, device.battery, device.screen and device.covered up to date as session variables, so a trigger or timer can be gated on them in its Conditions tab and Lua can read them with GetVariable. A name this phone cannot know is left unset, and a condition testing it is false rather than true. Off by default, and nothing is registered while it is off. .probe sensors state shows the current values");
+		device_state_variables.setKey("device_state_variables");
+		// Off by default: the app did nothing of the sort before this existed.
+		// Change this and ConnectionSetttingsParser's comparison together, or
+		// the parser quietly stops saving the value the player chose.
+		device_state_variables.setValue(false);
+		device.addOption(device_state_variables);
+
+		CallbackOption device_sensors = new CallbackOption();
+		device_sensors.setTitle("Sensors\u2026");
+		device_sensors.setDescription("The readings this phone can deliver — a hand over the screen, movement, light, headphones, charger, screen — and what each one currently drives. Tap a reading in the list to give it a trigger.");
+		device_sensors.setKey("device_sensors");
+		device.addOption(device_sensors);
+
+		CallbackOption calibrate_shake = new CallbackOption();
+		calibrate_shake.setTitle("Calibrate shake\u2026");
+		calibrate_shake.setDescription("Two short measurements, one shaking and one walking about with the phone, and it picks a threshold that catches the first without catching the second. Replaces the value the app ships, which was measured on one device. Stays with this phone and never travels in an exported profile.");
+		calibrate_shake.setKey("calibrate_shake");
+		device.addOption(calibrate_shake);
+
+		CallbackOption calibrate_light = new CallbackOption();
+		calibrate_light.setTitle("Calibrate light\u2026");
+		calibrate_light.setDescription("Tap once somewhere dark and once somewhere bright. Lux readings are not comparable between phones or between rooms, so this is the only way \"it is dark around the phone\" can mean your dark. Stays with this phone, never exported with a profile.");
+		calibrate_light.setKey("calibrate_light");
+		device.addOption(calibrate_light);
+
+		BooleanOption sensor_screen_off = new BooleanOption();
+		sensor_screen_off.setTitle("Movement sensors with the screen off");
+		sensor_screen_off.setDescription("Off by default: a shake, a wave over the screen or the phone going face down does nothing while the display is asleep, so a phone jolted about in a pocket or a bag cannot fire a trigger. Turn it on to allow those readings with the screen off. Headphone, charger and screen readings are not affected — muting speech when the jack comes out has to work with the screen off. Note that a sensor trigger fires in every world you have open, so with two MUDs connected one shake sends the command twice.");
+		sensor_screen_off.setKey("sensor_screen_off");
+		sensor_screen_off.setValue(false);
+		device.addOption(sensor_screen_off);
+
+		BooleanOption sensor_background = new BooleanOption();
+		sensor_background.setTitle("Movement sensors while the app is in the background");
+		sensor_background.setDescription("Off by default: with BlowTorch in Recents or another app on top, a shake or a wave is more likely you using your phone than playing. Turn it on to keep movement readings live behind another app. Movement readings only — headphone, charger and screen readings keep working either way — and, as above, one of them reaches every open world.");
+		sensor_background.setKey("sensor_background");
+		sensor_background.setValue(false);
+		device.addOption(sensor_background);
+
+		sg.addOption(device);
 
 		
 		
@@ -646,6 +843,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 		miscOptions.addOption(request_storage);
 
 		IntegerOption overflow_opacity = new IntegerOption();
+		IntegerOption tap_menu_opacity = new IntegerOption();
+		tap_menu_opacity.setTitle("Tapped-word menu opacity (%)");
+		tap_menu_opacity.setDescription("How solid the little menu is that opens when you tap a word with more than one action, 20-100. It opens on top of the text it is about, so lower lets more of the game through behind it. Only the backing fades — the commands stay fully readable either way. .tapmenu opacity N");
+		tap_menu_opacity.setKey("tap_menu_opacity");
+		tap_menu_opacity.setValue(
+				com.resurrection.blowtorch2.lib.window.MainWindow.DEFAULT_TAP_MENU_OPACITY);
+		miscOptions.addOption(tap_menu_opacity);
+
 		overflow_opacity.setTitle("Overflow button opacity (%)");
 		overflow_opacity.setDescription("How solid the ⋮ button in the bottom corner is drawn "
 				+ "(" + OVERFLOW_OPACITY_MIN + "–100). Lower it when it sits "
@@ -699,6 +904,26 @@ public class ConnectionSettingsPlugin extends Plugin {
 		bell_vibrate.setValue(true);
 		bellOptions.addOption(bell_vibrate);
 		
+		ListOption trigger_sound_stream = new ListOption();
+		trigger_sound_stream.setTitle("Trigger sounds play on");
+		trigger_sound_stream.setDescription("Which volume a trigger's Play a Sound action uses. Media is the phone's game and video volume — the one the side buttons reach for — and is the default because the notification volume follows the ringer, so a silenced ringer silences your triggers. Alarm is the loudest and usually survives Do Not Disturb. .sound stream media|notification|alarm");
+		trigger_sound_stream.setKey("trigger_sound_stream");
+		// Added in this order: the values are indices into this list and they are
+		// what lands in the profile. Nothing may be inserted in the middle.
+		trigger_sound_stream.addItem("Media volume");
+		trigger_sound_stream.addItem("Notification volume");
+		trigger_sound_stream.addItem("Alarm volume");
+		trigger_sound_stream.setValue(
+				com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM);
+		bellOptions.addOption(trigger_sound_stream);
+
+		BooleanOption trigger_sound_warn = new BooleanOption();
+		trigger_sound_warn.setTitle("Say when a sound cannot be heard");
+		trigger_sound_warn.setDescription("Show a short message when a trigger plays a sound while that volume is turned all the way down. Without it the failure has no symptom at all: the trigger fires, the sound plays, and nothing comes out. At most one message every thirty seconds. .sound warn on|off");
+		trigger_sound_warn.setKey("trigger_sound_warn_silent");
+		trigger_sound_warn.setValue(true);
+		bellOptions.addOption(trigger_sound_warn);
+
 		BooleanOption bell_notification = new BooleanOption();
 		bell_notification.setTitle("Generate Notification?");
 		bell_notification.setDescription("Spawns a new notification when bell is recieved.");

@@ -38,6 +38,7 @@ import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
 import com.resurrection.blowtorch2.lib.service.function.NoteCommand;
+import com.resurrection.blowtorch2.lib.service.function.ProbeCommand;
 import com.resurrection.blowtorch2.lib.service.function.AliasCommand;
 import com.resurrection.blowtorch2.lib.service.function.TriggerCommand;
 import com.resurrection.blowtorch2.lib.service.function.DirtyExitCommand;
@@ -282,6 +283,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/** Sent from the Processor when telnet ECHO changes hands. arg1 1 = local echo on. */
 	public static final int MESSAGE_LOCALECHO = 53;
+	/**
+	 * The half-line held by {@link #mLineHoldover} has waited long enough and
+	 * goes out as it stands. This is what makes a prompt appear: nothing ever
+	 * completes one, so only the timer releases it.
+	 */
+	public static final int MESSAGE_FLUSH_LINE_HOLDOVER = 54;
 
 	/** Toast message offset from the top of the screen. */
 	private static final double TOAST_MESSAGE_TOP_OFFSET = 50.0;
@@ -363,6 +370,26 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	private Pattern mMassivePattern = null;
 	/** The amalgamated trigger string matcher object. */
 	private Matcher mMassiveMatcher = null;
+	/**
+	 * Null unless the player ran {@code .probe lines on}. Null-checked rather
+	 * than flagged so that the ordinary path costs one reference comparison per
+	 * chunk and nothing else.
+	 */
+	private ChunkStats mChunkStats = null;
+	/** Kept across an off/on so a reading is not lost by pausing the probe. */
+	private ChunkStats mChunkStatsHeld = null;
+	/**
+	 * The half-line at the end of a chunk waits here for the rest of itself, so
+	 * that triggers, gags and the display only ever see finished lines.
+	 */
+	private final IncomingLineHoldover mLineHoldover = new IncomingLineHoldover();
+	/** {@code .prompt on}: the unfinished last line goes to its own bar. */
+	private boolean mPromptBar = false;
+	/** {@code .complete on}: incoming text feeds the UI's word completer. */
+	private boolean mWordComplete = false;
+
+	/** Unfinished lines flushed this connection; see {@link #getPromptsSeen()}. */
+	private int mPromptsSeen = 0;
 	/** The main looper handler for this "foreground" thread, although I'm not sure
 	 *  if service processes get "foreground threads". */
 	Handler mHandler = null;
@@ -417,6 +444,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	
 	/** Port indication for this connection. */
 	private int mPort;
+	/**
+	 * TLS for this world. Fixed for the life of the Connection: it identifies
+	 * the endpoint, so a reconnect must use the same answer the player chose
+	 * rather than quietly falling back to plain text.
+	 */
+	private boolean mUseTls = false;
 	
 	/** Synchronization target to manage window loading/unloading. */
 	private Object mWindowSynch = new Object();
@@ -486,7 +519,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	* @param port The port number.
 	* @param service Parent that initated this connection.
 	*/
-	public Connection(final String display, final String host, final int port, final StellarService service) {
+	public Connection(final String display, final String host, final int port,
+			final boolean useTls, final StellarService service) {
 		
 		ColorDebugCommand colordebug = new ColorDebugCommand();
 		DirtyExitCommand dirtyexit = new DirtyExitCommand();
@@ -517,6 +551,38 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(lbcmd.commandName, lbcmd);
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
 		mSpecialCommands.put(notecmd.commandName, notecmd);
+		ProbeCommand probecmd = new ProbeCommand();
+		mSpecialCommands.put(probecmd.commandName, probecmd);
+		com.resurrection.blowtorch2.lib.service.function.PromptBarCommand promptcmd =
+				new com.resurrection.blowtorch2.lib.service.function.PromptBarCommand();
+		mSpecialCommands.put(promptcmd.commandName, promptcmd);
+		com.resurrection.blowtorch2.lib.service.function.CompleteCommand completecmd =
+				new com.resurrection.blowtorch2.lib.service.function.CompleteCommand();
+		mSpecialCommands.put(completecmd.commandName, completecmd);
+		// The same command under the word that describes it. ".complete" stays
+		// registered because it is in profiles, buttons and notes already, and
+		// breaking those to rename a command would be a poor trade.
+		mSpecialCommands.put(
+				com.resurrection.blowtorch2.lib.service.function.CompleteCommand.ALIAS_NAME,
+				completecmd);
+		mSpecialCommands.put(
+				com.resurrection.blowtorch2.lib.service.function.CompleteCommand.LONG_ALIAS_NAME,
+				completecmd);
+		com.resurrection.blowtorch2.lib.service.function.SoundCommand soundcmd =
+				new com.resurrection.blowtorch2.lib.service.function.SoundCommand();
+		mSpecialCommands.put(soundcmd.commandName, soundcmd);
+		com.resurrection.blowtorch2.lib.service.function.SensorCommand sensorcmd =
+				new com.resurrection.blowtorch2.lib.service.function.SensorCommand();
+		mSpecialCommands.put(sensorcmd.commandName, sensorcmd);
+		com.resurrection.blowtorch2.lib.service.function.HelpCommand helpcmd =
+				new com.resurrection.blowtorch2.lib.service.function.HelpCommand();
+		mSpecialCommands.put(helpcmd.commandName, helpcmd);
+		mSpecialCommands.put(
+				com.resurrection.blowtorch2.lib.service.function.HelpCommand.ALIAS_NAME,
+				helpcmd);
+		com.resurrection.blowtorch2.lib.service.function.TapMenuCommand tapmenucmd =
+				new com.resurrection.blowtorch2.lib.service.function.TapMenuCommand();
+		mSpecialCommands.put(tapmenucmd.commandName, tapmenucmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
@@ -558,6 +624,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		this.mDisplay = display;
 		this.mHost = host;
 		this.mPort = port;
+		this.mUseTls = useTls;
 		this.mService = service;
 
 		mMapper = new MapperController(this);
@@ -622,6 +689,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_LOCALECHO:
 				doSetTelnetEcho(msg.arg1 == 1);
 				break;
+			case MESSAGE_FLUSH_LINE_HOLDOVER:
+				try {
+					flushLineHoldover();
+				} catch (UnsupportedEncodingException bad) {
+					// The profile's encoding is unusable; dropping the fragment
+					// is better than losing the handler to it.
+					mLineHoldover.clear();
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"Connection.flushLineHoldover", bad);
+				}
+				break;
 			case MESSAGE_TIMERSTOP:
 			case MESSAGE_TIMERSTART:
 			case MESSAGE_TIMERRESET:
@@ -654,6 +732,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				mIsConnected = true;
 				mConnectedAtElapsed = SystemClock.elapsedRealtime();
 				mSessionLog.onConnected();
+				applyInputAssistSettings();
 				if (mProcessor != null) {
 					mProcessor.setLogProfile(mDisplay);
 					mGmcp.applyGmcpLogSetting();
@@ -1382,6 +1461,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSettings = (ConnectionSettingsPlugin) tmpPlugs.get(0);
 		mSettings.sortTriggers();
 		mSettings.initTimers();
+		// Entering a world the service is still connected to sends no
+		// MESSAGE_CONNECTED, so anything hung off the connect path would work
+		// only the first time. Settings are loaded on every way in, so this is
+		// the honest hook.
+		if (mService != null) {
+			mService.refreshDeviceState();
+		}
 		for (WindowToken tmpw : mSettings.getSettings().getWindows().values()) {
 			tmpw.setDisplayHost(mDisplay);
 		}
@@ -1662,6 +1748,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				|| t.getPattern().startsWith(McpEngine.TRIGGER_CHAR))) {
 			return false;
 		}
+		// A device gesture is a trigger whose source is the phone, not the game.
+		// Same shape as the two above, and deliberately narrow: only a reserved
+		// prefix followed by a gesture this build knows is taken out, so a
+		// literal trigger watching for "!!!" keeps matching text.
+		if (com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.isGesturePattern(
+				t.getPattern(), !t.isInterpretAsRegex())) {
+			return false;
+		}
 		return true;
 	}
 
@@ -1741,6 +1835,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 
 		}
+		// Every path that changes a trigger comes through here — the editor over
+		// the binder, .sensor, .trigger, and the Lua NewTrigger/DeleteTrigger/
+		// EnableTrigger functions. So this is where a gesture starts or stops
+		// being listened for, rather than in whichever of those paths someone
+		// remembered to touch.
+		refreshDeviceGestures();
 		mMassiveTriggerString = combined.regex();
 		try {
 			mMassivePattern = combined.compile(Pattern.MULTILINE);
@@ -1885,7 +1985,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 			out.add(new com.resurrection.blowtorch2.lib.responder.tap.TapRuleData(
 					p.pattern(), tap.getCommands().toArray(new String[0]),
-					tap.isUnderline(), tap.isBold(), tap.isFrame(), tap.getGroup()));
+					tap.isTapSendsFirst(), tap.isUnderline(), tap.isBold(),
+					tap.isFrame(), tap.getGroup()));
 		}
 		return out;
 	}
@@ -2168,12 +2269,75 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (history == null || history.length == 0) {
 			return;
 		}
+		// Before the replay is trimmed: the vocabulary wants the same text and its
+		// own, smaller budget.
+		if (main) {
+			seedVocabularyFromHistory(history);
+		}
 		history = trimToNewestLines(history, MAX_REPLAY_BYTES);
 		try {
 			callback.resetWithRawDataIncoming(history);
 		} catch (RemoteException e) {
 			Log.w("BlowTorch", "Could not replay history to window " + name, e);
 		}
+	}
+
+	/** Largest vocabulary seed we will send after a UI process death.
+	 *
+	 * <p>Much smaller than {@link #MAX_REPLAY_BYTES} because this is not history the
+	 * player reads, it is words the completer offers, and {@code WordSuggestions}
+	 * prunes to its own line window the moment it has learned them. Sending more
+	 * than that window holds is work on the UI thread whose result is thrown away.
+	 *
+	 * <p>Sized to the default 300-line window at a typical MUD line length. A
+	 * probe on 08.08 measured a 3553-character seed costing 5 ms in {@code learn}
+	 * on the main thread; this cap is where that stays in the tens of
+	 * milliseconds rather than growing with however long the session ran. The
+	 * cost at the cap itself was not measured. */
+	private static final int MAX_VOCABULARY_SEED_BYTES = 24 * 1024;
+
+	/** Teach the completer the text that was already on screen.
+	 *
+	 * <p>The vocabulary lives in the UI process, so a UI process death empties it,
+	 * and nothing refills it: the window adopts a parceled {@code TextTree}, while
+	 * {@link WordSuggestions#learn} is fed only by freshly arriving packets in
+	 * {@link #addBytes}. Kill the app, re-enter a world that happens to be quiet,
+	 * and the game text is right there on screen with not one word of it offered
+	 * back — until the world says something new. On a busy MUD the first line
+	 * hides it, which is why this went unnoticed.
+	 *
+	 * <p>Only on the path that already knows the UI died, so a window re-attaching
+	 * with its vocabulary intact does not learn the same session twice.
+	 *
+	 * @param history The untrimmed buffer dump, oldest byte first.
+	 */
+	private void seedVocabularyFromHistory(final byte[] history) {
+		// Same gate as the live path in addBytes: a player with the completer off
+		// pays no binder traffic for it.
+		if (!mWordComplete || history == null || history.length == 0) {
+			return;
+		}
+		byte[] recent = trimToNewestLines(history, MAX_VOCABULARY_SEED_BYTES);
+		String text;
+		try {
+			text = Colorizer.stripAnsiEscapes(new String(recent, mSettings.getEncoding()));
+		} catch (java.io.UnsupportedEncodingException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"Connection.seedVocabularyFromHistory", e);
+			return;
+		}
+		if (text.length() == 0) {
+			return;
+		}
+		// The dump ends wherever the world stopped talking, which is usually a
+		// prompt with no newline. learn() would hold that tail in `pending` and
+		// glue it to the front of the first live packet, teaching a word nobody
+		// wrote, and would let a phrase run from the last seeded word into it.
+		// A closing newline is what ends both.
+		if (text.charAt(text.length() - 1) != '\n') {
+			text = text + "\n";
+		}
+		mService.doVocabularyText(text);
 	}
 
 	/** Cut a dump down to its newest bytes without starting mid-line.
@@ -2288,6 +2452,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return;
 		}
 		Log.w("BlowTorch", "killNetThreads(noreconnect=" + noreconnect + ")", new RuntimeException("killNetThreads caller"));
+		// Show the half-line the connection died holding rather than swallowing
+		// it — the last thing a server says before dropping you is often the
+		// reason it dropped you, and it frequently has no newline after it.
+		mHandler.removeMessages(MESSAGE_FLUSH_LINE_HOLDOVER);
+		if (mLineHoldover.hasHeld()) {
+			try {
+				flushLineHoldover();
+			} catch (UnsupportedEncodingException bad) {
+				mLineHoldover.clear();
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"Connection.killNetThreads: holdover flush", bad);
+			}
+		}
 		markConnectionEnded();
 		if (noreconnect) {
 			mReconnect.clearNetworkWait();
@@ -2454,7 +2631,117 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				return;
 			}
 		}
-		
+
+		// Whole lines only from here down. Roughly one chunk in ten ends in the
+		// middle of a line (measured: 11 of 105 on samsaramoo), and everything
+		// below this point assumes the line it is looking at is finished — a gag
+		// deletes a matched line out of mWorking before it is ever drawn, so a
+		// pattern matching half a line took the head off screen and left the
+		// tail to arrive alone in the next chunk.
+		byte[] ready = mLineHoldover.accept(raw);
+		if (mLineHoldover.hasHeld()) {
+			armLineHoldoverFlush();
+		} else {
+			mHandler.removeMessages(MESSAGE_FLUSH_LINE_HOLDOVER);
+		}
+		if (ready.length == 0) {
+			return;
+		}
+		dispatchWholeLines(ready);
+	}
+
+	/**
+	 * Release the half-line that has been waiting, because nothing came to
+	 * finish it. Overwhelmingly this is a prompt.
+	 */
+	private void flushLineHoldover() throws UnsupportedEncodingException {
+		byte[] held = mLineHoldover.flush();
+		if (held.length == 0) {
+			return;
+		}
+		// Whatever comes out here is, by construction, a line the world never
+		// finished — which on a MUD means the prompt. That is why the prompt bar
+		// can exist at all: the holdover already knows which line it is, without
+		// any guessing at its shape.
+		String text = Colorizer.stripAnsiEscapes(
+				new String(held, mSettings.getEncoding())).trim();
+		// Counted whether or not the bar is on: the question this answers is
+		// "does this world send a prompt at all", and a player asks it precisely
+		// because the bar showed them nothing. Whitespace-only flushes do not
+		// count, or a world that dribbles blank lines would look talkative.
+		if (text.length() > 0) {
+			mPromptsSeen++;
+		}
+		if (mPromptBar && text.length() > 0) {
+			mService.doPromptLine(text);
+			return;
+		}
+		dispatchWholeLines(held);
+	}
+
+	/** {@code .prompt on|off}: prompt to its own bar instead of the game window. */
+	public final void setPromptBar(final boolean on) {
+		mPromptBar = on;
+		if (!on) {
+			mService.doPromptLine("");
+		}
+	}
+
+	public final boolean isPromptBar() {
+		return mPromptBar;
+	}
+
+	/**
+	 * How many unfinished lines this connection has flushed — prompts, near
+	 * enough. Zero after a while of play means the world sends none, which is the
+	 * only honest answer to "the prompt bar shows nothing".
+	 */
+	public final int getPromptsSeen() {
+		return mPromptsSeen;
+	}
+
+	/** {@code .complete on|off}: feed the UI's word completer. */
+	public final void setWordComplete(final boolean on) {
+		mWordComplete = on;
+	}
+
+	public final boolean isWordComplete() {
+		return mWordComplete;
+	}
+
+	/**
+	 * Take the n-th completion off the strip — {@code .complete 3}.
+	 *
+	 * <p>One-way into the UI, which is the only side that knows what is currently
+	 * offered. Out of range does nothing there rather than reporting back: the
+	 * caller is usually a super button pressed while looking at the strip.
+	 *
+	 * @param index counting from 1.
+	 */
+	public final void pickCompletion(final int index) {
+		mService.doPickCompletion(index);
+	}
+
+	/**
+	 * Restart the clock on the held fragment. Removing first matters: each new
+	 * chunk that leaves something held should get the full wait, or a steady
+	 * trickle of packets would flush a fragment mid-line anyway.
+	 */
+	private void armLineHoldoverFlush() {
+		mHandler.removeMessages(MESSAGE_FLUSH_LINE_HOLDOVER);
+		mHandler.sendEmptyMessageDelayed(MESSAGE_FLUSH_LINE_HOLDOVER,
+				IncomingLineHoldover.DEFAULT_FLUSH_MS);
+	}
+
+	/**
+	 * Everything that was {@code dispatch} below the telnet layer, now reached
+	 * both by an arriving chunk and by the holdover timer.
+	 *
+	 * @param raw complete lines, or a fragment the timer gave up on.
+	 * @throws UnsupportedEncodingException from the settings encoding.
+	 */
+	private void dispatchWholeLines(final byte[] raw)
+			throws UnsupportedEncodingException {
 		TextTree buffer = null;
 		for (WindowToken w : mWindows) {
 			if (w.getName().equals(MAIN_WINDOW)) {
@@ -2475,6 +2762,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// ESC[… at a chunk boundary can still break a pattern until the next packet.
 		String stripped = Colorizer.stripAnsiEscapes(new String(raw, mSettings.getEncoding()));
 		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, stripped);
+		// Measured here rather than anywhere else on purpose: this is the exact
+		// string the combined trigger pattern is matched against, so it is the
+		// only place that can answer whether a pattern could span lines.
+		if (mChunkStats != null) {
+			mChunkStats.record(stripped);
+		}
+		// Only while the completer is on, so a player not using it pays no
+		// binder traffic at all.
+		if (mWordComplete) {
+			mService.doVocabularyText(stripped);
+		}
 		
 		if (triggersDirty) {
 			buildTriggerSystem();
@@ -2737,6 +3035,51 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @param message The string to send.
 	 */
+	/**
+	 * Turn the chunk probe on or off. Turning it off keeps what was measured,
+	 * so a reading survives being paused mid-session.
+	 *
+	 * @param on True to measure.
+	 */
+	public final void setChunkProbe(final boolean on) {
+		if (on) {
+			if (mChunkStatsHeld == null) {
+				mChunkStatsHeld = new ChunkStats();
+			}
+			mChunkStats = mChunkStatsHeld;
+		} else {
+			mChunkStats = null;
+		}
+	}
+
+	/** Clear the reading, whether the probe is running or not. */
+	public final void resetChunkProbe() {
+		if (mChunkStatsHeld != null) {
+			mChunkStatsHeld.reset();
+		}
+	}
+
+	/**
+	 * The probe's reading as text for the game window.
+	 *
+	 * @return The report, or an invitation to turn it on.
+	 */
+	public final String chunkProbeReport() {
+		if (mChunkStatsHeld == null) {
+			return "\nChunk probe has not been run. Start it with .probe lines on\n";
+		}
+		String body = mChunkStatsHeld.report();
+		if (mChunkStats == null) {
+			body = body + "(probe is currently off — .probe lines on to resume)\n";
+		}
+		// Also into the session log. A measurement that can only be read off the
+		// screen cannot leave the phone, and the whole point of this one is to
+		// be carried back to whoever is deciding what to build. The session log
+		// is a file the player already knows how to export.
+		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, body);
+		return body;
+	}
+
 	public final void sendDataToWindow(final String message) {
 		
 		try {
@@ -2854,7 +3197,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mService.updateForegroundNotification(mDisplay,
 					mService.getString(com.resurrection.blowtorch2.lib.R.string.notification_status_connecting, mHost, mPort));
 			
-			mPump = new DataPumper(mHost, mPort, mHandler);
+			mPump = new DataPumper(mHost, mPort, mUseTls, mHandler);
 			
 			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 			mProcessor.setDisplayName(mDisplay);
@@ -3132,8 +3475,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mDataToServer.setLength(0);
 		mDataToWindow.setLength(0);
 		String out = data;
-		if (out.endsWith("\n")) {
+		// Two characters were taken off for a one-character newline. Everything
+		// in the app sends "\r\n", so it was right by accident and wrong for
+		// anything that sends a bare "\n" — which ate the last character of the
+		// command instead: ".sensor fire facedown" arrived as "facedow", and a
+		// calibration of 14.5 was stored as 14.
+		if (out.endsWith("\r\n")) {
 			out = out.substring(0, out.length() - 2);
+		} else if (out.endsWith("\n") || out.endsWith("\r")) {
+			out = out.substring(0, out.length() - 1);
 		}
 		
 		if (out.equals("")) {
@@ -3164,6 +3514,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		} else {
 			list = new ArrayList<String>();
 			list.add(out);
+		}
+		// #5 north -> five segments, before alias replacement so the multiplier
+		// counts what the player typed rather than what it expanded into.
+		CommandRepeat.Result repeated = CommandRepeat.expand(list);
+		list = repeated.segments();
+		if (repeated.warning() != null) {
+			sendDataToWindow("\n" + Colorizer.getRedColor() + repeated.warning()
+					+ Colorizer.getWhiteColor());
 		}
 		StringBuffer holdover = new StringBuffer();
 		// First-match local-echo policy for reinserted expansion products.
@@ -3716,6 +4074,309 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mTriggers.getTriggers();
 	}
 
+	/**
+	 * Whether this world wants the phone's own state as {@code device.*}
+	 * session variables. Off by default; nothing is registered while it is off.
+	 */
+	public final boolean isDeviceStateVariables() {
+		try {
+			Object opt = mSettings.getSettings().getOptions()
+					.findOptionByKey("device_state_variables");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+						.getValue();
+				return (val instanceof Boolean) && ((Boolean) val).booleanValue();
+			}
+		} catch (Exception ignored) {
+			// A world whose settings are half-loaded simply does not want it yet.
+		}
+		return false;
+	}
+
+	/**
+	 * Run every trigger set up for this device gesture.
+	 *
+	 * <p>Called by the gesture detectors and by {@code .sensor fire}. A gesture
+	 * has no text and no capture groups, so this uses the calling convention
+	 * timers already use — no buffer, no line, nothing matched — and its own
+	 * capture map rather than the one the text path clears per match.
+	 *
+	 * <p>Safe to call from any thread: the work is posted to the connection's
+	 * own handler, which is the thread that owns the trigger system and the
+	 * text buffer.
+	 *
+	 * @param gestureId a gesture name from {@code GestureCatalog}.
+	 */
+	public final void fireDeviceGesture(final String gestureId) {
+		final com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
+		if (g == null || mHandler == null) {
+			return;
+		}
+		mHandler.post(new Runnable() {
+			@Override
+			public void run() {
+				runDeviceGesture(g.getPattern());
+			}
+		});
+	}
+
+	/** How many triggers answered, for the report {@code .sensor fire} prints. */
+	private int runDeviceGesture(final String pattern) {
+		int fired = 0;
+		if (mSettings == null) {
+			return 0;
+		}
+		fired += runGestureIn(mSettings, pattern);
+		for (Plugin p : mPlugins) {
+			if (p != null && p.isEnabled() && p != mSettings) {
+				fired += runGestureIn(p, pattern);
+			}
+		}
+		return fired;
+	}
+
+	private int runGestureIn(final Plugin owner, final String pattern) {
+		int fired = 0;
+		HashMap<String, TriggerData> triggers = owner.getSettings().getTriggers();
+		if (triggers == null) {
+			return 0;
+		}
+		// A copy: a script responder may add or remove a trigger while this runs,
+		// and the text path has been bitten by exactly that before.
+		ArrayList<TriggerData> matching = new ArrayList<TriggerData>();
+		for (TriggerData t : triggers.values()) {
+			if (t != null && t.isEnabled() && !t.isInterpretAsRegex()
+					&& pattern.equals(t.getPattern())) {
+				matching.add(t);
+			}
+		}
+		for (TriggerData t : matching) {
+			if (t.isFireOnce() && t.isFired()) {
+				continue;
+			}
+			if (!ConditionEvaluator.evaluate(t, this)) {
+				continue;
+			}
+			if (t.isFireOnce()) {
+				t.setFired(true);
+			}
+			fired++;
+			HashMap<String, String> captures = new HashMap<String, String>();
+			for (TriggerResponder responder : t.getResponders()) {
+				try {
+					responder.doResponse(mService.getApplicationContext(), null, 0, null,
+							null, 0, 0, "", t, mDisplay, mHost, mPort,
+							StellarService.getNotificationId(), mService.isWindowConnected(),
+							mHandler, captures, owner.getLuaState(), t.getName(),
+							mSettings.getEncoding());
+				} catch (Exception e) {
+					String rname = responder != null
+							? responder.getClass().getSimpleName() : "?";
+					reportRuntimeError("sensor \"" + t.getName() + "\" / " + rname, e);
+				}
+			}
+		}
+		return fired;
+	}
+
+	/**
+	 * Fire a gesture now and say what answered, for {@code .sensor fire}.
+	 *
+	 * <p>The reply matters as much as the firing: "nothing is set up for this"
+	 * and "it fired and did nothing visible" look identical from the outside,
+	 * and the first is the far more common mistake.
+	 */
+	public final String fireDeviceGestureAndReport(final String gestureId) {
+		// Runs the responders on the calling thread rather than posting, so it
+		// can count them for the reply. Safe because the only caller is a dot
+		// command, and processCommand is reached from sendToServer, which runs
+		// only from the MESSAGE_SENDDATA_* cases of this connection's handler —
+		// the same looper the posting path targets.
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
+		if (g == null) {
+			return "\nThere is no sensor reading called \"" + gestureId + "\". Try .sensor.\n";
+		}
+		int fired = runDeviceGesture(g.getPattern());
+		if (fired == 0) {
+			return "\nNothing is set up for " + g.getId() + ". Give it something to do"
+					+ " with\n.sensor " + g.getId() + " <command>, or in the Triggers"
+					+ " editor.\n";
+		}
+		return "\nFired " + g.getId() + ": " + fired
+				+ (fired == 1 ? " trigger answered." : " triggers answered.") + "\n";
+	}
+
+	/**
+	 * Gesture names this world has at least one enabled trigger for.
+	 *
+	 * <p>The watcher registers a sensor only when something is waiting for it, so
+	 * this is what decides whether the proximity sensor is listening at all.
+	 */
+	public final java.util.Set<String> enabledGestureIds() {
+		java.util.LinkedHashSet<String> ids = new java.util.LinkedHashSet<String>();
+		if (mSettings == null) {
+			return ids;
+		}
+		collectGestureIds(mSettings, ids);
+		for (Plugin p : mPlugins) {
+			if (p != null && p.isEnabled() && p != mSettings) {
+				collectGestureIds(p, ids);
+			}
+		}
+		return ids;
+	}
+
+	private void collectGestureIds(final Plugin owner, final java.util.Set<String> into) {
+		HashMap<String, TriggerData> triggers = owner.getSettings().getTriggers();
+		if (triggers == null) {
+			return;
+		}
+		for (TriggerData t : triggers.values()) {
+			if (t == null || !t.isEnabled()) {
+				continue;
+			}
+			com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+					com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.fromPattern(
+							t.getPattern(), !t.isInterpretAsRegex());
+			if (g != null) {
+				into.add(g.getId());
+			}
+		}
+	}
+
+	/**
+	 * Tell the watcher to pick up or release sensors after a gesture changed.
+	 *
+	 * <p>Adding the first gesture trigger is what makes the sensor worth
+	 * listening to; removing the last one is what makes it waste.
+	 */
+	public final void refreshDeviceGestures() {
+		if (mService != null) {
+			mService.refreshDeviceSensors();
+		}
+	}
+
+	/**
+	 * Whether a gesture may fire into this world right now.
+	 *
+	 * <p>Reported on 9 Aug: a shake sent its command with the screen off and with
+	 * the app swiped into Recents — a phone knocked about in a pocket talking to
+	 * the game. Movement is what needs the gate; the system events do not have it
+	 * at all, because hushing speech when the headphones come out is a thing that
+	 * has to work precisely when nobody is looking at the screen.
+	 *
+	 * @param gestureId the gesture about to fire.
+	 * @return true when it should be allowed through.
+	 */
+	public final boolean allowsGestureNow(final String gestureId) {
+		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
+		if (g == null) {
+			return false;
+		}
+		if (g.getProviders().contains(
+				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.BY_SYSTEM)) {
+			return true;
+		}
+		if (!flagOption("sensor_background", false) && !isUiInFront()) {
+			return false;
+		}
+		if (!flagOption("sensor_screen_off", false) && !isScreenInteractive()) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Whether there is a game window in front of the player right now.
+	 *
+	 * <p>Two things have to agree, and that is deliberate. The service's flag is
+	 * told to it by {@code MainWindow.onResume}/{@code onPause}, which is exact
+	 * while the UI is alive and stale the moment it is not: it starts life
+	 * {@code true}, and a UI process that dies without pausing — which this
+	 * project has watched happen — leaves it saying "showing" for ever. A
+	 * registered window callback is a fact rather than a remembered assertion, so
+	 * a gesture is only treated as foreground when both hold.
+	 */
+	private boolean isUiInFront() {
+		if (mService == null || !mService.isWindowConnected()) {
+			return false;
+		}
+		return mWindowCallbackMap != null && !mWindowCallbackMap.isEmpty();
+	}
+
+	/** Ask the system, rather than trusting a broadcast we may have missed. */
+	private boolean isScreenInteractive() {
+		try {
+			Object power = getContext().getSystemService(Context.POWER_SERVICE);
+			if (power instanceof android.os.PowerManager) {
+				return ((android.os.PowerManager) power).isInteractive();
+			}
+		} catch (Exception ignored) {
+			// Cannot tell: treat the phone as awake rather than silently
+			// swallowing every gesture the player set up.
+		}
+		return true;
+	}
+
+	/** One boolean option by key, with a default when the settings are not up yet. */
+	private boolean flagOption(final String key, final boolean fallback) {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey(key);
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+				Object val = ((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+						.getValue();
+				return (val instanceof Boolean) ? ((Boolean) val).booleanValue() : fallback;
+			}
+		} catch (Exception ignored) {
+		}
+		return fallback;
+	}
+
+	/**
+	 * Turn the device.* variables on or off from the input bar.
+	 *
+	 * <p>The setting is what makes a condition on the phone mean anything, and a
+	 * player who has just picked "phone is face down" in the condition editor
+	 * should not have to hunt through Options to make it true.
+	 */
+	public final void setDeviceStateVariables(final boolean on) {
+		try {
+			Object opt = mSettings.getSettings().getOptions()
+					.findOptionByKey("device_state_variables");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+				((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+						.setValue(Boolean.valueOf(on));
+				saveMainSettings();
+				refreshDeviceGestures();
+				if (mService != null) {
+					mService.refreshDeviceState();
+				}
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.setDeviceStateVariables", e);
+		}
+	}
+
+	/** Put a freshly calibrated threshold to work; see the watcher's retune. */
+	public final void retuneDeviceSensors() {
+		if (mService != null) {
+			mService.retuneDeviceSensors();
+		}
+	}
+
+	/** The device.* reading, for {@code .probe sensors state}. */
+	public final String deviceStateReport() {
+		if (!isDeviceStateVariables()) {
+			return "\nDevice state is off for this world. Settings → Device →\n"
+					+ "\"Device state as variables\". Nothing is registered while it is off.\n";
+		}
+		return mService.deviceStateReport();
+	}
+
 	public final SessionVariableStore getSessionVariables() {
 		return mSessionVariables;
 	}
@@ -4186,6 +4847,21 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @return the display name for this connection.
 	 */
+	/** The service's context, for the few things that need one out here. */
+	public final android.content.Context getServiceContext() {
+		return mService == null ? null : mService.getApplicationContext();
+	}
+
+	/**
+	 * Drop the completer's vocabulary and reload what this world has taught.
+	 *
+	 * <p>The same message the connect path sends. Exposed so {@code .suggest
+	 * clear} can empty the bag without knowing how the UI is reached.
+	 */
+	public final void resetVocabulary() {
+		mService.doVocabularyReset();
+	}
+
 	public final String getDisplayName() {
 		return mDisplay;
 	}
@@ -4529,6 +5205,47 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case keep_last:
 				this.doSetKeepLast((Boolean) o.getValue());
 				break;
+			case word_complete:
+				this.doSetWordComplete((Boolean) o.getValue());
+				break;
+			case sensor_screen_off:
+			case sensor_background:
+				// Read at the moment a reading fires, so there is nothing to
+				// apply here — but the watcher may need to pick a sensor up or
+				// let it go, and that is decided by what is enabled, not by this.
+				break;
+			case device_state_variables:
+				// Applied here rather than asked of the UI: the watcher and the
+				// session variables both live in this process, and the whole
+				// point of the measurement on 8 Aug was that they can.
+				mService.refreshDeviceState();
+				break;
+			case speak_quiet_typing:
+				// The engine lives in this process, so this one is applied here
+				// rather than asked of the UI.
+				com.resurrection.blowtorch2.lib.util.SpeechEngine.setQuietWhileTyping(
+						(Boolean) o.getValue());
+				break;
+			case word_complete_lines:
+			case word_complete_loose:
+			case word_complete_phrases:
+			case word_complete_short_first:
+			case word_complete_shorter_first:
+			case word_complete_ghost:
+			case word_complete_ghost_lines:
+			case word_complete_persist:
+			case word_complete_rank:
+			case word_complete_pairs:
+			case word_complete_where:
+			case word_complete_opacity:
+				// MainWindow.loadSettings is what reaches WordSuggestions and the
+				// strip; ask the UI to re-read rather than adding a binder call per
+				// setting. Every one of these is the UI's business only.
+				mService.doExecuteRequestLoadSettings();
+				break;
+			case prompt_bar:
+				this.doSetPromptBar((Boolean) o.getValue());
+				break;
 			case grow_input_bar:
 				this.doSetGrowInputBar((Boolean) o.getValue());
 				break;
@@ -4573,6 +5290,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				break;
 			case bell_vibrate:
 				this.doSetBellVibrate((Boolean) o.getValue());
+				break;
+			case tap_menu_opacity:
+				// Drawn by the UI process and nowhere else.
+				mService.doExecuteRequestLoadSettings();
+				break;
+			case trigger_sound_stream:
+			case trigger_sound_warn_silent:
+				// Trigger sounds are played in whichever process the responder runs
+				// in, so both have to be told. This process applies it directly;
+				// the UI re-reads for its own copy, which is what the editor's
+				// test button uses.
+				applyTriggerSoundSettings();
+				mService.doExecuteRequestLoadSettings();
 				break;
 			case bell_notification:
 				this.doSetBellNotify((Boolean) o.getValue());
@@ -4990,6 +5720,81 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return mMcpEngine.statusReport();
 	}
 
+	/**
+	 * Seed the two input-assist flags from the saved profile.
+	 *
+	 * <p>They are plain fields read on every incoming chunk, so they cannot be
+	 * looked up in the option tree each time. Without this they stayed false until
+	 * the player toggled something — a setting that saves, restores and then does
+	 * nothing until touched.
+	 */
+	/** Push the trigger-sound settings into this process's player.
+	 *
+	 * <p>{@link com.resurrection.blowtorch2.lib.util.TriggerSounds} is per process
+	 * and the responder runs here, so reading the option in the UI alone would
+	 * leave every live trigger on the default. */
+	private void applyTriggerSoundSettings() {
+		com.resurrection.blowtorch2.lib.util.TriggerSounds.setStream(
+				readIntOption("trigger_sound_stream",
+					com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM));
+		com.resurrection.blowtorch2.lib.util.TriggerSounds.setWarnWhenSilent(
+				readBooleanOption("trigger_sound_warn_silent", true));
+	}
+
+	private void applyInputAssistSettings() {
+		mWordComplete = readBooleanOption("word_complete", false);
+		applyTriggerSoundSettings();
+		// The vocabulary lives in the UI process for the life of that process, so
+		// without this a second world is offered the first one's mob names.
+		mService.doVocabularyReset();
+		// Through the setter, not the field: setPromptBar(false) is what tells the
+		// UI to clear the bar. Assigning raw would leave a prompt from the previous
+		// connection pinned there with nothing left to clear it.
+		setPromptBar(readBooleanOption("prompt_bar", false));
+		// Per connection: "has this world ever sent a prompt" is a question about
+		// this session, and a stale count from the last one would answer it wrong.
+		mPromptsSeen = 0;
+	}
+
+	/** A boolean from the connection's own options, or {@code fallback}. */
+	private boolean readBooleanOption(final String key, final boolean fallback) {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey(key);
+			if (opt instanceof BooleanOption) {
+				Object val = ((BooleanOption) opt).getValue();
+				if (val instanceof Boolean) {
+					return ((Boolean) val).booleanValue();
+				}
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.readBooleanOption", e);
+		}
+		return fallback;
+	}
+
+	/** An integer or list index from the connection's own options.
+	 *
+	 * @param key The option key.
+	 * @param fallback What to use when it is missing or is not a number.
+	 * @return The stored value, or {@code fallback}.
+	 */
+	private int readIntOption(final String key, final int fallback) {
+		try {
+			Object opt = mSettings.getSettings().getOptions().findOptionByKey(key);
+			if (opt instanceof BaseOption) {
+				Object val = ((BaseOption) opt).getValue();
+				if (val instanceof Integer) {
+					return ((Integer) val).intValue();
+				}
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.readIntOption", e);
+		}
+		return fallback;
+	}
+
 	private void applyMcpSettings() {
 		ensureMcpEngine();
 		try {
@@ -5254,6 +6059,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void doSetLocalEcho(final Boolean value) {
 		mSettings.setLocalEcho(value);
+	}
+
+	/** Word completion on or off.
+	 *
+	 * <p>The UI holds the vocabulary, so it has to be told: off should take the
+	 * strip away and drop what was learned, not leave stale names sitting there
+	 * until something else happens to refresh it.
+	 *
+	 * @param value New value to use.
+	 */
+	private void doSetWordComplete(final Boolean value) {
+		mWordComplete = value != null && value.booleanValue();
+		mService.doExecuteRequestLoadSettings();
+	}
+
+	/** Prompt bar on or off.
+	 *
+	 * @param value New value to use.
+	 */
+	private void doSetPromptBar(final Boolean value) {
+		setPromptBar(value != null && value.booleanValue());
 	}
 
 	/** Impelemntation of the keep last settings handler.
@@ -5555,6 +6381,47 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		floating_buttons_enabled,
 		/** Keep last entered. */
 		keep_last,
+		/** Complete words the world just used. */
+		word_complete,
+		/** How many recent lines the completer counts as fresh. */
+		word_complete_lines,
+		/** Forgive typos when the exact prefix finds nothing. */
+		word_complete_loose,
+		word_complete_phrases,
+		/** Put the plain word before the whole name built on it. */
+		word_complete_short_first,
+		/** Order every suggestion by length rather than by what was said last. */
+		word_complete_shorter_first,
+		/** Keep device.* session variables up to date from the phone itself. */
+		device_state_variables,
+		/** Let movement readings fire while the display is asleep. */
+		sensor_screen_off,
+		/** Let movement readings fire while the app is in the background. */
+		sensor_background,
+		/** Draw the rest of the top suggestion after the caret. */
+		word_complete_ghost,
+		/** How many suggestions the ghost lists, growing the bar to fit them. */
+		word_complete_ghost_lines,
+		/** Keep the floating suggestion bar up even when it is empty. */
+		word_complete_persist,
+		/** Let the caret's place in the line reorder the suggestions. */
+		word_complete_rank,
+		/** Let what usually follows a verb lead, after that verb. */
+		word_complete_pairs,
+		/** Which audio stream a trigger's sound action plays on. */
+		trigger_sound_stream,
+		/** Warn when that stream is turned all the way down. */
+		trigger_sound_warn_silent,
+		/** How solid the menu a tapped word opens is. */
+		tap_menu_opacity,
+		/** Where the chips go: floating, in a strip below the game, or nowhere. */
+		word_complete_where,
+		/** Triggers that speak keep quiet while a command is being composed. */
+		speak_quiet_typing,
+		/** How solid those chips are. */
+		word_complete_opacity,
+		/** Prompt on its own bar above the input line. */
+		prompt_bar,
 		/** Grow input bar with multiline text. */
 		grow_input_bar,
 		/** Input compatibility mode. */
@@ -6632,6 +7499,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * 
 	 * @return the host name this connection uses.
 	 */
+	/**
+	 * Whether this connection is (or will be) encrypted.
+	 *
+	 * <p>Exists so that every Intent carrying HOST can carry this beside it.
+	 * With two worlds open, one TLS and one plain, an Intent that named the
+	 * host but left this to a stored preference would hand the second world the
+	 * first world's answer.
+	 *
+	 * @return True when the socket uses TLS.
+	 */
+	public final boolean isUseTls() {
+		return mUseTls;
+	}
+
 	public final String getHost() {
 		return mHost;
 	}

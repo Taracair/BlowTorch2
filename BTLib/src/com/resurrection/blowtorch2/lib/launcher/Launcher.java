@@ -140,6 +140,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	protected static final int MENU_TOGGLE_STARTER_TUTORIAL = 113;
 	protected static final int MENU_CHECK_FOR_UPDATES = 114;
 	protected static final int MENU_CHECK_UPDATES_NOW = 115;
+	protected static final int MENU_WELCOME_NOTICE = 116;
 	
 	private IConnectionBinder service = null;
 	
@@ -525,6 +526,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		SDCardUtils.requestStartupPermissions(this, permissionRoot, RP_STARTUP);
 		buildList();
+		maybeShowFirstRunNotice();
 		maybeBackupBeforeUpdate();
 		maybeCheckForUpdates();
 		if(!serviceBound) {
@@ -579,7 +581,70 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		super.onWindowFocusChanged(hasFocus);
 		if (hasFocus) {
 			styleLauncherActionButton((Button) findViewById(R.id.new_connection));
+			warmChromeInsetPrefs();
 		}
+	}
+
+	/**
+	 * The top inset, which is what {@code :stellar} is told the action bar is.
+	 *
+	 * <p>Only meaningful once the window has been laid out, which is why the
+	 * warm write below hangs off focus rather than off {@code onCreate}.
+	 */
+	private int measureStatusBarHeight() {
+		Rect rect = new Rect();
+		getWindow().getDecorView().getWindowVisibleDisplayFrame(rect);
+		return rect.top;
+	}
+
+	/**
+	 * Get the inset preferences written and the preferences file loaded before
+	 * a world is tapped, so tapping one is not the thing that pays for it.
+	 *
+	 * <p>Off the main thread because at this point nothing is waiting: the
+	 * launcher has just been drawn and the earliest a world can be tapped is a
+	 * human reaction away. If a very fast tap does beat this, the tap path still
+	 * writes the values itself — it just does so synchronously, exactly as it
+	 * always did.
+	 */
+	private void warmChromeInsetPrefs() {
+		final int statusBarHeight = measureStatusBarHeight();
+		if (statusBarHeight <= 0) {
+			// Not laid out yet, or a genuinely edge-to-edge window. Writing a 0
+			// would hand :stellar the same nonsense the old negative value did.
+			return;
+		}
+		Thread t = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				writeChromeInsetPrefs(statusBarHeight);
+			}
+		}, "bt-inset-prefs");
+		t.setDaemon(true);
+		t.start();
+	}
+
+	/**
+	 * Write the inset preferences, unless they already say this.
+	 *
+	 * <p>Still {@code commit()} and not {@code apply()}: {@code :stellar} reads
+	 * these once, at Connection construction, and a queued write that has not
+	 * landed by then is a button pad laid out against a stale inset. What
+	 * changed is when the commit happens, not whether it is durable.
+	 *
+	 * @param statusBarHeight the top inset, in pixels.
+	 */
+	private void writeChromeInsetPrefs(final int statusBarHeight) {
+		SharedPreferences pref = getSharedPreferences("STATUS_BAR_HEIGHT", 0);
+		if (pref.getInt("STATUS_BAR_HEIGHT", Integer.MIN_VALUE) == statusBarHeight
+				&& pref.getInt("TITLE_BAR_HEIGHT", Integer.MIN_VALUE) == statusBarHeight) {
+			return;
+		}
+		Editor e = pref.edit();
+		e.putInt("STATUS_BAR_HEIGHT", statusBarHeight);
+		// TITLE_BAR_HEIGHT is the same quantity; see the note on the tap path.
+		e.putInt("TITLE_BAR_HEIGHT", statusBarHeight);
+		e.commit();
 	}
   
 	
@@ -744,10 +809,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 				long arg3) {
 			
-			Rect rect = new Rect();
-		    Window win = Launcher.this.getWindow();
-		    win.getDecorView().getWindowVisibleDisplayFrame(rect);
-		    int statusBarHeight = rect.top;
+			// Measured 8 August: this used to be three disk operations on the tap
+		    // itself — opening the preferences file, waiting for it to load, and
+		    // the commit — 42-45 ms each, about 130 ms between the finger and
+		    // anything happening. The values do not depend on which world was
+		    // tapped, so they are written when the launcher takes focus (see
+		    // warmChromeInsetPrefs) and this is a no-op unless they changed.
+		    int statusBarHeight = measureStatusBarHeight();
 		    // TITLE_BAR_HEIGHT is the top inset, the same quantity ChromeController
 		    // writes (bars.top). It used to be contentViewTop - statusBarHeight,
 		    // a leftover from when the app had a real title bar. Under the current
@@ -758,15 +826,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		    // the top of the screen, with its first row clipped off, and poisoned
 		    // sanitizeButtonSet's own bounds so nothing caught it. Whether it broke
 		    // depended on which activity wrote the pref last before connecting.
-		    int titleBarHeight = statusBarHeight;
+		    writeChromeInsetPrefs(statusBarHeight);
 
-		    SharedPreferences pref = Launcher.this.getSharedPreferences("STATUS_BAR_HEIGHT", 0);
-			Editor e = pref.edit();
-			e.putInt("STATUS_BAR_HEIGHT", statusBarHeight);
-			e.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
-		    // commit (not apply): :stellar reads these once at Connection construction.
-		    e.commit();
-			
+
 			MudConnection muc = apdapter.getItem(arg2);		
 			
 			Time the_time = new Time();
@@ -1299,6 +1361,94 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	}
 
 	/** Optional safety copy when the installed versionName changes (skip first install). */
+	/** One-shot flag for the welcome notice, kept out of the profile XML. */
+	private static final String PREFS_FIRST_RUN = "BT_FIRST_RUN_NOTICE";
+	private static final String KEY_FIRST_RUN_SHOWN = "shown";
+
+	/**
+	 * Say once, on a first install, that nearly everything is off on purpose.
+	 *
+	 * <p>The client has more in it than a first screen can suggest, and a new
+	 * player meeting all of it at once reads that as clutter rather than as
+	 * choice. This is the one place that says out loud that the emptiness is
+	 * deliberate and where the switches are.
+	 *
+	 * <p><b>Only on a real first install.</b> Someone who has been playing for a
+	 * year does not need to be told how the app they already configured works,
+	 * and an upgrade must not nag. The package's own install and update stamps
+	 * settle that exactly: they are equal until the app has been updated at
+	 * least once. A count of configured worlds would not — the launcher ships
+	 * with the Starter Tutorial in the list, so a fresh install has one already.
+	 */
+	private void maybeShowFirstRunNotice() {
+		final SharedPreferences prefs =
+				getSharedPreferences(PREFS_FIRST_RUN, Context.MODE_PRIVATE);
+		if (prefs.getBoolean(KEY_FIRST_RUN_SHOWN, false)) {
+			return;
+		}
+		if (isFirstInstall()) {
+			showFirstRunNotice(prefs);
+			return;
+		}
+		// An upgrade. Write the flag anyway, so this check is asked once and
+		// never again rather than on every launch for the rest of the install.
+		markFirstRunNoticeShown(prefs);
+	}
+
+	/** True until this package has been updated over itself at least once. */
+	private boolean isFirstInstall() {
+		try {
+			android.content.pm.PackageInfo info =
+					getPackageManager().getPackageInfo(getPackageName(), 0);
+			return info.lastUpdateTime <= info.firstInstallTime;
+		} catch (NameNotFoundException e) {
+			// Cannot tell. Staying quiet is the safe way to be wrong: a missed
+			// notice costs a new player one paragraph, a wrong one interrupts
+			// somebody who has used this for years.
+			return false;
+		}
+	}
+
+	private void showFirstRunNotice(final SharedPreferences prefs) {
+		AlertDialog dialog = new AlertDialog.Builder(Launcher.this)
+				.setTitle(R.string.first_run_title)
+				.setMessage(R.string.first_run_message)
+				.setCancelable(true)
+				.create();
+		dialog.setButton(AlertDialog.BUTTON_POSITIVE,
+				getString(R.string.first_run_guide),
+				new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface d, int which) {
+						markFirstRunNoticeShown(prefs);
+						new com.resurrection.blowtorch2.lib.window.HelpDialog(
+								Launcher.this).show();
+					}
+				});
+		dialog.setButton(AlertDialog.BUTTON_NEGATIVE,
+				getString(R.string.first_run_dismiss),
+				new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface d, int which) {
+						markFirstRunNoticeShown(prefs);
+					}
+				});
+		// Backing out counts as having seen it too. The alternative is a notice
+		// that comes back until it is dismissed the one approved way, which is
+		// the behaviour people mean when they call a dialog nagging.
+		dialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+			@Override
+			public void onCancel(DialogInterface d) {
+				markFirstRunNoticeShown(prefs);
+			}
+		});
+		dialog.show();
+	}
+
+	private void markFirstRunNoticeShown(final SharedPreferences prefs) {
+		prefs.edit().putBoolean(KEY_FIRST_RUN_SHOWN, true).commit();
+	}
+
 	private void maybeBackupBeforeUpdate() {
 		SharedPreferences prefs = getSharedPreferences("BT_UPDATE_BACKUP", Context.MODE_PRIVATE);
 		String last = prefs.getString("last_version", "");
@@ -1549,6 +1699,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     	the_intent.putExtra("DISPLAY",launch.getDisplayName());
     	the_intent.putExtra("HOST", launch.getHostName());
     	the_intent.putExtra("PORT", launch.getPortString());
+    	// The launcher row is where TLS is decided and stored, so this Intent is
+    	// the one authoritative carrier of it. Everything downstream either
+    	// forwards it or falls back to the CONNECT_TO prefs written from here.
+    	the_intent.putExtra("TLS", launch.isUseTls());
     	
     	//write out the intent to the service so it can do some lookup work in advance of the connection, such as loading the settings wad
     	//SharedPreferences prefs = Launcher.this.getSharedPreferences("SERVICE_INFO",0);
@@ -1769,6 +1923,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		menu.add(0, MENU_CHECK_FOR_UPDATES, 0, R.string.launcher_menu_check_for_updates)
 				.setCheckable(true);
 		menu.add(0, MENU_CHECK_UPDATES_NOW, 0, R.string.launcher_menu_check_updates_now);
+		menu.add(0, MENU_WELCOME_NOTICE, 0, R.string.launcher_menu_welcome);
 		menu.add(0, MENU_ABOUT, 0, R.string.launcher_menu_about);
 
 		return true;
@@ -1940,6 +2095,14 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		case MENU_CHECK_UPDATES_NOW:
 			runManualUpdateCheck();
 			break;
+		case MENU_WELCOME_NOTICE:
+			// Deliberately ignores the one-shot flag: this is the player asking
+			// for it. It is also the only way to see the notice on a device the
+			// app was installed over rather than onto, which is every test build.
+			showFirstRunNotice(
+					getSharedPreferences(PREFS_FIRST_RUN, Context.MODE_PRIVATE));
+			break;
+
 		case MENU_ABOUT:
 			showAboutDialog();
 			break;

@@ -39,6 +39,38 @@ oneway interface IConnectionBinderCallback {
 	void doVisualBell();
 	void setScreenMode(boolean fullscreen);
 	void showKeyBoard(String txt,boolean popup,boolean add,boolean flush,boolean clear,boolean close);
+	/**
+	 * Drop one word into the input bar at the caret, spacing it against what is
+	 * already there. Separate from showKeyBoard(add) because only the UI process
+	 * can see the current text, and that is what decides whether a space is
+	 * needed.
+	 */
+	void inputBarInsertWord(String word);
+	/**
+	 * Incoming text, for the word completer's vocabulary only. Sent solely while
+	 * completion is switched on, so a player not using it pays nothing: the main
+	 * window's text does not travel this way, it lives in the buffer the UI
+	 * adopts.
+	 */
+	void vocabularyText(String text);
+	/**
+	 * Forget every word learned so far. Sent when a connection starts, because
+	 * the vocabulary lives in the UI process for the life of that process and
+	 * would otherwise offer the last world's mob names in the next one.
+	 */
+	void vocabularyReset();
+	/**
+	 * Take the n-th completion currently on the strip, counting from 1 — what
+	 * {@code .complete 3} does. Sent rather than answered, so a super button over
+	 * the keyboard can pick one without the finger ever reaching the strip.
+	 */
+	void pickCompletion(int index);
+	/**
+	 * The world's prompt — the line the holdover released because nothing ever
+	 * finishes it. Sent instead of drawing it in the game window while the
+	 * prompt bar is on.
+	 */
+	void promptLine(String text);
 	void inputBarSelectAll();
 	void inputBarCopy();
 	void inputBarPaste();

@@ -231,11 +231,9 @@ public class BetterTimerSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@Override
 	public void onDonePressed(View v) {
-		try {
-			service.saveSettings();
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
+		// Off the UI thread. The timers are already in the service: the editor
+		// pushed each one through updateTimer before this list was shown again.
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 	}
 
 	@Override

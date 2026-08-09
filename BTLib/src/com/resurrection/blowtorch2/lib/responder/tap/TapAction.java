@@ -47,6 +47,19 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	 * empty list would mean a word that lights up and then does nothing.
 	 */
 	private java.util.ArrayList<String> commands = new java.util.ArrayList<String>();
+	/**
+	 * With several commands, whether a tap sends the first one instead of asking.
+	 *
+	 * <p>Per action rather than one setting for the whole world, because the
+	 * answer is a property of the words: "kill $word" wants to go the moment it
+	 * is touched, and something that drops your armour wants to be asked about
+	 * every time. One switch could only ever be wrong for half the triggers.
+	 *
+	 * <p>Off by default — that is what the app already does, and turning it on
+	 * means a tap starts sending to the game without asking, which is the
+	 * player's decision to make and not ours.
+	 */
+	private boolean tapSendsFirst;
 	private boolean underline = true;
 	private boolean bold;
 	private boolean frame;
@@ -85,6 +98,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	public TriggerResponder copy() {
 		TapAction tmp = new TapAction(RESPONDER_TYPE.TAP);
 		tmp.commands = new java.util.ArrayList<String>(this.commands);
+		tmp.tapSendsFirst = this.tapSendsFirst;
 		tmp.underline = this.underline;
 		tmp.bold = this.bold;
 		tmp.frame = this.frame;
@@ -102,6 +116,9 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		}
 		TapAction b = (TapAction) o;
 		if (!this.commands.equals(b.commands)) {
+			return false;
+		}
+		if (this.tapSendsFirst != b.tapSendsFirst) {
 			return false;
 		}
 		if (this.underline != b.underline) {
@@ -125,6 +142,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 
 	public void writeToParcel(Parcel o, int flags) {
 		o.writeStringList(commands);
+		o.writeInt(tapSendsFirst ? 1 : 0);
 		o.writeInt(underline ? 1 : 0);
 		o.writeInt(bold ? 1 : 0);
 		o.writeInt(frame ? 1 : 0);
@@ -140,6 +158,7 @@ public class TapAction extends TriggerResponder implements Parcelable {
 	private void readFromParcel(Parcel in) {
 		java.util.ArrayList<String> read = in.createStringArrayList();
 		setCommands(read);
+		tapSendsFirst = in.readInt() != 0;
 		underline = in.readInt() != 0;
 		bold = in.readInt() != 0;
 		frame = in.readInt() != 0;
@@ -263,6 +282,10 @@ public class TapAction extends TriggerResponder implements Parcelable {
 			return null;
 		}
 		merged.setCommands(all);
+		// From the first action, for the same reason the marks are: OR-ing it
+		// would let a forgotten second action decide that a tap now sends to the
+		// game, which is the one thing here that must not happen by accident.
+		merged.setTapSendsFirst(look.isTapSendsFirst());
 		merged.setUnderline(look.isUnderline());
 		merged.setBold(look.isBold());
 		merged.setFrame(look.isFrame());
@@ -270,9 +293,23 @@ public class TapAction extends TriggerResponder implements Parcelable {
 		return merged;
 	}
 
-	/** True when a tap has to ask which command the player meant. */
+	/**
+	 * True when there is a choice to offer at all — what long press opens.
+	 *
+	 * <p>Not the same question as "does a tap open it": with
+	 * {@link #isTapSendsFirst()} on, a tap sends and only long press asks.
+	 */
 	public boolean hasMenu() {
 		return commands.size() > 1;
+	}
+
+	/** True when a tap sends the first command instead of opening the menu. */
+	public boolean isTapSendsFirst() {
+		return tapSendsFirst;
+	}
+
+	public void setTapSendsFirst(boolean tapSendsFirst) {
+		this.tapSendsFirst = tapSendsFirst;
 	}
 
 	public boolean isUnderline() {

@@ -75,6 +75,53 @@ public final class ChromeController {
 	 * Insets body for the Activity-registered listener. Nav-bar padding only —
 	 * do not pad for IME (that resizes Lua button_window). Lift via translation.
 	 */
+	/**
+	 * How long a new keyboard height or status-bar height has to stand before
+	 * anything is moved for it.
+	 *
+	 * <p>Measured on the device. Coming back from another app, the system sends
+	 * this in the space of 150 ms:
+	 *
+	 * <pre>
+	 *   +90 ms   ime=0,   status bar present   (neither is true)
+	 *   +150 ms  ime=970, status bar gone      (both are)
+	 * </pre>
+	 *
+	 * <p>The first of those was believed at once, and everything downstream made
+	 * the full move and made it back: the game window dropped to the bottom and
+	 * rose again, the button grid slid down by the status-bar height and back,
+	 * and the floating buttons came down and went up. Three visible faults, one
+	 * event that was retracted before anyone could read it.
+	 *
+	 * <p>Short enough to sit inside the keyboard's own slide — the keys take
+	 * about a quarter of a second to arrive, so the lift still lands while they
+	 * are moving and nothing looks late.
+	 */
+	private static final long INSET_SETTLE_MS = 180;
+
+	/**
+	 * How long after a resume the insets are treated as untrustworthy.
+	 *
+	 * <p>The retraction measured on the device lands 150 ms in. This leaves room
+	 * for a slower phone and still closes well before anyone has typed anything.
+	 */
+	private static final long RESUME_SETTLE_WINDOW_MS = 700;
+
+	/** When the activity last came back, for {@link #RESUME_SETTLE_WINDOW_MS}. */
+	private long resumedAt = Long.MIN_VALUE / 2;
+
+	/** MainWindow.onResume: the next few inset events are the unreliable ones. */
+	void onResume() {
+		resumedAt = android.os.SystemClock.elapsedRealtime();
+	}
+
+	private final android.os.Handler insetHandler =
+			new android.os.Handler(android.os.Looper.getMainLooper());
+	private Runnable pendingInsetApply = null;
+	/** Newest reading, applied once it has stood for {@link #INSET_SETTLE_MS}. */
+	private int pendingLift;
+	private int pendingBarsTop;
+
 	WindowInsetsCompat onApplyWindowInsets(View view, WindowInsetsCompat windowInsets) {
 		Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
 		Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
@@ -92,18 +139,88 @@ public final class ChromeController {
 		// keyboard-mode floaters stay hidden, and there is no fallback that works
 		// under adjustNothing.
 		int lift = Math.max(0, ime.bottom - bars.bottom);
-		applyImeChromeLift((RelativeLayout) view, lift);
+		scheduleInsetApply((RelativeLayout) view, lift, statusBarInsetToTrust(bars.top));
+		return windowInsets;
+	}
+
+	/**
+	 * What the status bar is really taking from the top.
+	 *
+	 * <p>In fullscreen the answer is none, whatever the inset says. The bar is
+	 * hidden by the app's own choice, so a height arriving for it is the system
+	 * showing it over the game for a moment — the recents gesture does exactly
+	 * that. Measured: four trips to recents, four times a 152 px status bar
+	 * inset arriving in the last second before onPause, and 0 at every other
+	 * moment. Believed, it moved every button down by that much just as the
+	 * screen was being captured for the recents thumbnail.
+	 *
+	 * <p>Not fullscreen: the bar genuinely occupies that space and the inset is
+	 * the truth, so it is passed through untouched.
+	 */
+	private int statusBarInsetToTrust(int barsTop) {
+		return isFullScreen ? 0 : barsTop;
+	}
+
+	/**
+	 * Take the newest reading and act on it only once it has stood still.
+	 *
+	 * <p>Nothing here can tell a retracted event from a real one when it arrives
+	 * — the only thing that marks it is being contradicted a moment later. So
+	 * every change waits, and a burst collapses to whatever it ended on. The
+	 * resume pair {@code 907 -> 0 -> 907} therefore ends where it started and
+	 * moves nothing at all, which is the correct answer and also the cheap one.
+	 *
+	 * <p>Deliberately at this level and not in the three places downstream. The
+	 * game window's lift, the button grid's status offset and the floating
+	 * buttons all read what this writes, and patching them one at a time is what
+	 * turned one fault into three attempts.
+	 */
+	private void scheduleInsetApply(final RelativeLayout view, final int lift, final int barsTop) {
+		if (android.os.SystemClock.elapsedRealtime() - resumedAt > RESUME_SETTLE_WINDOW_MS) {
+			// Ordinary running. Apply at once, exactly as before: the keyboard
+			// dispatches insets repeatedly as it slides, and the game window is
+			// supposed to travel with it. Delaying these would turn a slide into
+			// two jumps, which is a worse fault than the one being fixed and it
+			// would happen every time anybody typed.
+			applyInsets(view, lift, barsTop);
+			return;
+		}
+		pendingLift = lift;
+		pendingBarsTop = barsTop;
+		if (lift == imeLiftPx && barsTop == statusBarHeight) {
+			// Already where this says it should be. Drop any pending change with
+			// it: that is the retraction arriving, and applying the value in
+			// between is exactly the flicker.
+			if (pendingInsetApply != null) {
+				insetHandler.removeCallbacks(pendingInsetApply);
+				pendingInsetApply = null;
+			}
+			return;
+		}
+		if (pendingInsetApply != null) {
+			return;
+		}
+		pendingInsetApply = new Runnable() {
+			public void run() {
+				pendingInsetApply = null;
+				applyInsets(view, pendingLift, pendingBarsTop);
+			}
+		};
+		insetHandler.postDelayed(pendingInsetApply, INSET_SETTLE_MS);
+	}
+
+	private void applyInsets(RelativeLayout view, int lift, int barsTop) {
+		applyImeChromeLift(view, lift);
 		imeLiftPx = lift;
 		activity.onFloatingButtonsImeLift(lift);
-		statusBarHeight = bars.top;
-		titleBarHeight = bars.top;
+		statusBarHeight = barsTop;
+		titleBarHeight = barsTop;
 		SharedPreferences.Editor insetEditor =
 				activity.getSharedPreferences("STATUS_BAR_HEIGHT", 0).edit();
 		insetEditor.putInt("TITLE_BAR_HEIGHT", titleBarHeight);
-		insetEditor.putInt("STATUS_BAR_HEIGHT", bars.top);
+		insetEditor.putInt("STATUS_BAR_HEIGHT", barsTop);
 		insetEditor.apply();
 		refresh();
-		return windowInsets;
 	}
 
 	double getStatusBarHeight() {
@@ -199,6 +316,20 @@ public final class ChromeController {
 		View fabStrip = activity.findViewById(R.id.gameplay_fab_strip);
 		if (fabStrip != null) {
 			fabStrip.setTranslationY(inputbar != null ? inputbar.getTranslationY() : ty);
+		}
+		// The floating completion chips are the FAB strip's neighbour in that
+		// same overlay, and they rest on the input bar the same way — so they
+		// need the same lift. Without it they stayed at the bottom of an
+		// unresized window and the keyboard covered them, which is what the
+		// chips "falling under the keyboard" was.
+		// Unless the player has dragged it somewhere: then the margin it was
+		// given is the position they chose, and adding the lift on top would
+		// move it out from under them every time the keyboard opened. See
+		// MainWindow.positionWordSuggestionOverlay.
+		View floatingChips = activity.findViewById(R.id.input_word_suggestions_float);
+		if (floatingChips != null) {
+			floatingChips.setTranslationY(activity.isSuggestionPanelPlaced()
+					? 0f : (inputbar != null ? inputbar.getTranslationY() : ty));
 		}
 	}
 

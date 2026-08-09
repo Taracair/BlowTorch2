@@ -320,7 +320,8 @@ public class GmcpCommand extends SpecialCommand {
 	}
 
 	private Object doSniffTail(Connection c, int lines) {
-		java.io.File logFile = BlowTorchLogger.getLogFile(c.getContext());
+		java.io.File logFile = c.getContext() != null
+				? BlowTorchLogger.getGmcpLogFile(c.getContext()) : null;
 		StringBuilder out = new StringBuilder();
 		out.append("\n").append(Colorizer.getWhiteColor());
 		out.append("GMCP sniff tail (").append(lines).append(" lines)");
@@ -334,7 +335,12 @@ public class GmcpCommand extends SpecialCommand {
 			return null;
 		}
 		if (logFile == null || !logFile.isFile()) {
-			out.append(Colorizer.getRedColor()).append("(log file missing)\n");
+			out.append(Colorizer.getRedColor());
+			if (boolOpt(c, OPT_LOG, false)) {
+				out.append("(gmcp.log not written yet — connect and play until the first packet arrives)\n");
+			} else {
+				out.append("(gmcp.log missing — run .gmcp sniff on and play until packets arrive)\n");
+			}
 			c.sendDataToWindow(out.toString());
 			return null;
 		}
@@ -345,12 +351,9 @@ public class GmcpCommand extends SpecialCommand {
 					new java.io.FileInputStream(logFile), "UTF-8"));
 			String line;
 			while ((line = reader.readLine()) != null) {
-				String lower = line.toLowerCase(Locale.US);
-				if (lower.contains("gmcp") || lower.contains("[gmcp]")) {
-					gmcpLines.add(line);
-					if (gmcpLines.size() > 500) {
-						gmcpLines.remove(0);
-					}
+				gmcpLines.add(line);
+				if (gmcpLines.size() > 500) {
+					gmcpLines.remove(0);
 				}
 			}
 		} catch (Exception e) {
@@ -367,7 +370,7 @@ public class GmcpCommand extends SpecialCommand {
 			}
 		}
 		if (gmcpLines.isEmpty()) {
-			out.append("(no GMCP lines in log yet — enable sniff, use GMCP, play until packets arrive)\n");
+			out.append("(gmcp.log is empty — run .gmcp sniff on, connect, play until packets arrive)\n");
 			c.sendDataToWindow(out.toString());
 			return null;
 		}
@@ -379,15 +382,12 @@ public class GmcpCommand extends SpecialCommand {
 		return null;
 	}
 
-	/** Where sniff lines land (always error log; session log when enabled). */
+	/** Where sniff lines land ({@code gmcp.log}; session log when enabled). */
 	private static String sniffLogLocations(Connection c) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("Writes to app error log");
+		sb.append("Writes to logs/gmcp.log");
 		if (c != null && c.getContext() != null) {
-			BlowTorchLogger.ensureLogFile(c.getContext());
-			sb.append(":\n  ").append(BlowTorchLogger.getLogFile(c.getContext()).getAbsolutePath());
-		} else {
-			sb.append(" (files/logs/blowtorch2.log)");
+			sb.append(":\n  ").append(BlowTorchLogger.getGmcpLogFile(c.getContext()).getAbsolutePath());
 		}
 		sb.append("\n");
 		sb.append("Also appended to the session log when Options → Service → Log Session to File? is on");
@@ -401,7 +401,7 @@ public class GmcpCommand extends SpecialCommand {
 		} else {
 			sb.append(" (currently off).");
 		}
-		sb.append("\nView via Overflow → Crash report → Show log.\n");
+		sb.append("\nView in-game: .gmcp sniff tail [N]\n");
 		return sb.toString();
 	}
 
@@ -567,8 +567,8 @@ public class GmcpCommand extends SpecialCommand {
 				+ "  .gmcp enable|disable  — toggle modules (+ live Add/Remove)\n"
 				+ "  .gmcp renegotiate     — re-send Hello + Supports.Set\n"
 				+ "  .gmcp status          — current flags\n"
-				+ "  .gmcp sniff [on|off]  — log handshake/packets to app error log\n"
-				+ "  .gmcp sniff tail [N]  — show last N GMCP log lines in-game (0–100, default 40)\n"
+				+ "  .gmcp sniff [on|off]  — log handshake/packets to logs/gmcp.log\n"
+				+ "  .gmcp sniff tail [N]  — last N lines from gmcp.log in-game (0–100, default 40)\n"
 				+ "  .gmcp feed [on|off]   — live IN/OUT GMCP lines in the mud window\n"
 				+ "  .gmcp version         — client hello / syntax notes\n"
 				+ "  .gmcp supports […]    — show or set supports modules\n"

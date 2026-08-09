@@ -171,11 +171,9 @@ public class BetterTriggerSelectionDialog extends PluginFilterSelectionDialog im
 
 	@Override
 	public void onDonePressed(View v) {
-		try {
-			service.saveSettings();
-		} catch (RemoteException e) {
-			e.printStackTrace();
-		}
+		// Off the UI thread. The triggers are already in the service: the editor
+		// pushed each one through updateTrigger, and its own Done saved as well.
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 	}
 
 	@Override

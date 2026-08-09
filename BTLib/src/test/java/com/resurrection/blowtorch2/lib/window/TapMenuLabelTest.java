@@ -30,7 +30,7 @@ public class TapMenuLabelTest {
 	/** Cut on a word when one is near the limit, not in the middle of it. */
 	@Test
 	public void theCutPrefersAWordBoundary() {
-		assertEquals("kill the enormous yeti(...)",
+		assertEquals("kill the enormous(...)",
 				MainWindow.shortenForMenu("kill the enormous yeti of the north"));
 	}
 

@@ -52,6 +52,25 @@ public class ConnectionSetttingsParser extends PluginParser {
 		use_suggestions,
 		floating_buttons_enabled,
 		keep_last,
+		input_history_size,
+		word_complete,
+		word_complete_lines,
+		word_complete_loose,
+		word_complete_phrases,
+		word_complete_short_first,
+		word_complete_shorter_first,
+		device_state_variables,
+		sensor_screen_off,
+		sensor_background,
+		word_complete_ghost,
+		word_complete_ghost_lines,
+		word_complete_persist,
+		word_complete_rank,
+		word_complete_pairs,
+		word_complete_where,
+		word_complete_opacity,
+		speak_quiet_typing,
+		prompt_bar,
 		grow_input_bar,
 		compatibility_mode,
 		local_echo,
@@ -64,6 +83,9 @@ public class ConnectionSetttingsParser extends PluginParser {
 		cull_extraneous_color,
 		debug_telnet,
 		bell_vibrate,
+		trigger_sound_stream,
+		trigger_sound_warn_silent,
+		tap_menu_opacity,
 		bell_notification,
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
 		frame_image_placement, frame_image_lines,
@@ -85,6 +107,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 		extra_text_windows_enabled, extra_text_windows
 	}
 	
+	/**
+	 * The boolean this replaced: on meant floating, off meant the strip below
+	 * the game window. Read from old profiles, never written again.
+	 */
+	public static final String LEGACY_OVERLAY_KEY = "word_complete_overlay";
+
 	ConnectionSettingsPlugin settings = null;
 	public ConnectionSetttingsParser(String location, Context context,
 			ArrayList<Plugin> plugins, Handler serviceHandler,Connection parent) {
@@ -208,9 +236,25 @@ public class ConnectionSetttingsParser extends PluginParser {
 
 			@Override
 			public void end(String body) {
-				if(current_key != null) {
-					settings.getSettings().getOptions().setOption(current_key, body);
+				if(current_key == null) {
+					return;
 				}
+				// Profiles written before the bar became a three-way choice say
+				// word_complete_overlay=true|false. setOption looks the key up in
+				// the options map and drops what it does not find, so without this
+				// the player's choice would silently become the default — and
+				// handing "false" straight to the list option is worse: ListOption
+				// keeps its current value when the text is not a number, so a
+				// player who chose the strip would end up floating.
+				if(LEGACY_OVERLAY_KEY.equals(current_key)) {
+					settings.getSettings().getOptions().setOption(
+							OPTION_KEY.word_complete_where.name(),
+							Integer.toString("false".equalsIgnoreCase(body.trim())
+									? com.resurrection.blowtorch2.lib.window.WordSuggestions.WHERE_BAR
+									: com.resurrection.blowtorch2.lib.window.WordSuggestions.WHERE_FLOATING));
+					return;
+				}
+				settings.getSettings().getOptions().setOption(current_key, body);
 			}
 			
 		});
@@ -466,6 +510,113 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
+					case input_history_size:
+						// Never persisted before: the key was simply missing from this
+						// enum, so the writer skipped it as a foreign key and the size
+						// went back to 75 on every restart.
+						// 75 is the option's default, set in ConnectionSettingsPlugin.
+						if((Integer)opt.getValue() != 75) {
+							dooutput = true;
+						}
+						break;
+					case word_complete:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_lines:
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_MAX_LINES) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_loose:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_phrases:
+						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_short_first:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_shorter_first:
+						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case device_state_variables:
+						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case sensor_screen_off:
+					case sensor_background:
+						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_ghost:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_ghost_lines:
+						if((Integer)opt.getValue() != 1) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_persist:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_rank:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_pairs:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_where:
+						// A list, so an Integer index. Default is floating; see
+						// ConnectionSettingsPlugin. Miss this case and the key is
+						// dropped as foreign and never written — which is what
+						// input_history_size above did.
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_WHERE) {
+							dooutput = true;
+						}
+						break;
+					case speak_quiet_typing:
+						// Default is false; see ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+				case word_complete_opacity:
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.WordSuggestions.DEFAULT_OPACITY) {
+							dooutput = true;
+						}
+						break;
+					case prompt_bar:
+						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
 					case grow_input_bar:
 						if((Boolean)opt.getValue() != true) {
 							dooutput = true;
@@ -609,6 +760,25 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case bell_vibrate:
 						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case trigger_sound_stream:
+						// A list, so an Integer index. Miss this case and the key is
+						// dropped as foreign and the player's choice never written.
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.util.TriggerSounds.DEFAULT_STREAM) {
+							dooutput = true;
+						}
+						break;
+					case trigger_sound_warn_silent:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case tap_menu_opacity:
+						if((Integer)opt.getValue()
+								!= com.resurrection.blowtorch2.lib.window.MainWindow.DEFAULT_TAP_MENU_OPACITY) {
 							dooutput = true;
 						}
 						break;

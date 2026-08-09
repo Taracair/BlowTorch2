@@ -65,6 +65,16 @@ public class BasePluginParser {
 	public static final String TAG_TOASTRESPONDER = "toast";
 	public static final String ATTR_TOASTDELAY = "delay";
 	public static final String ATTR_TOASTMESSAGE = "message";
+	public static final String TAG_SPEAKRESPONDER = "speak";
+	public static final String ATTR_SPEAKMESSAGE = "message";
+	public static final String ATTR_SPEAKINTERRUPT = "interrupt";
+	public static final String TAG_SOUNDRESPONDER = "sound";
+	// soundPath is deliberately the same attribute name the notification
+	// responder already uses (ATTR_SOUNDPATH above) — same meaning, same stored
+	// form, and it is inside a different tag, so there is nothing to collide.
+	public static final String ATTR_SOUNDGAP = "minGapMs";
+	public static final String ATTR_SOUNDVOLUME = "volumePercent";
+	public static final String ATTR_SOUNDWARN = "warnWhenSilent";
 	
 	public static final String TAG_ACKRESPONDER = "ack";
 	public static final String ATTR_ACKWITH = "with";

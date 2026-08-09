@@ -57,6 +57,9 @@ public class LauncherSAXParser extends BaseParser {
 						|| "1".equals(offlineAttr)
 						|| BuiltinTutorial.isTutorialHost(current_item.getHostName());
 				current_item.setOffline(offline);
+				String tlsAttr = a.getValue("", BaseParser.ATTR_TLS);
+				current_item.setUseTls("true".equalsIgnoreCase(tlsAttr)
+						|| "1".equals(tlsAttr));
 			}
 
 		});

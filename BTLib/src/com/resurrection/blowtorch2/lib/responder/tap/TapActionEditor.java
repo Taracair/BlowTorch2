@@ -29,6 +29,7 @@ public class TapActionEditor extends Dialog {
 	private final java.util.ArrayList<EditText> commandBoxes =
 			new java.util.ArrayList<EditText>();
 	private LinearLayout commandRows;
+	private CheckBox tapSendsBox;
 	private CheckBox underlineBox;
 	private CheckBox boldBox;
 	private CheckBox frameBox;
@@ -60,7 +61,8 @@ public class TapActionEditor extends Dialog {
 				+ "tapped, $0 the whole match, $1 to $9 the bracketed parts of the "
 				+ "pattern. Add more commands and a tap asks which one you meant "
 				+ "instead of sending straight away — the first one stays on top of "
-				+ "that menu.");
+				+ "that menu, and the box below turns the question round: a tap "
+				+ "sends it and holding the word asks.");
 		root.addView(help);
 
 		commandRows = new LinearLayout(c);
@@ -75,6 +77,14 @@ public class TapActionEditor extends Dialog {
 			}
 		});
 		root.addView(addCommand);
+
+		tapSendsBox = addCheck(c, root, "Tap sends the first command, hold to choose");
+		TextView tapSendsHelp = new TextView(c);
+		tapSendsHelp.setText("Off, a tap on a word with several commands opens the list. "
+				+ "On, a tap sends the first one straight to the game and holding the "
+				+ "word opens the list instead. Worth it for \"kill $word\"; leave it off "
+				+ "where sending the wrong thing would cost you something.");
+		root.addView(tapSendsHelp);
 
 		TextView groupLabel = new TextView(c);
 		groupLabel.setText("Tappable part: 0 = the whole match, 1-9 = that bracket");
@@ -103,6 +113,7 @@ public class TapActionEditor extends Dialog {
 		for (String cmd : start.getCommands()) {
 			addCommandRow(cmd);
 		}
+		tapSendsBox.setChecked(start.isTapSendsFirst());
 		underlineBox.setChecked(start.isUnderline());
 		boldBox.setChecked(start.isBold());
 		frameBox.setChecked(start.isFrame());
@@ -248,6 +259,16 @@ public class TapActionEditor extends Dialog {
 			+ "   Part:     2\n"
 			+ "   Commands: tell $2\n"
 			+ "             ignore $2\n\n"
+			+ "PUT THE WORD IN THE INPUT BAR INSTEAD OF SENDING IT\n"
+			+ "   Command:  .kb insert $word\n"
+			+ "   Type that into a command box above. The word lands in the input "
+			+ "bar at the cursor, spaced against what is already there, and "
+			+ "nothing goes to the game. Type \"k\", press the mob's name, and "
+			+ "the bar reads \"k grizzled \" ready for Send.\n"
+			+ "   Two presses build one command: \"k\" + grizzled + troll gives "
+			+ "\"k grizzled troll \".\n"
+			+ "   Put it beside real commands and the press offers both, e.g. "
+			+ "\"kill $word\" and \".kb insert $word\".\n\n"
 			+ "GOOD TO KNOW\n"
 			+ "- More than one command turns a press into a small menu at the word; "
 			+ "one command sends straight away. The first command is on top of the "
@@ -292,6 +313,7 @@ public class TapActionEditor extends Dialog {
 		// Blank rows and an empty list are handled there: the action never ends
 		// up with nothing to send.
 		action.setCommands(cmds);
+		action.setTapSendsFirst(tapSendsBox.isChecked());
 		action.setUnderline(underlineBox.isChecked());
 		action.setBold(boldBox.isChecked());
 		action.setFrame(frameBox.isChecked());

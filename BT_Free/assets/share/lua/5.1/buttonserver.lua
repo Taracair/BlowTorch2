@@ -151,6 +151,85 @@ function makeNewButtonSet(name)
 	loadAndEditSet(name)
 end
 
+--- A name like "main" that no set is using yet: "main copy", then "main copy 2".
+local function freeSetName(base)
+	local candidate = base .. " copy"
+	if buttonsets[candidate] == nil then
+		return candidate
+	end
+	-- Bounded rather than while true: a corrupt table that somehow answers to
+	-- every name must not spin the service thread.
+	for n = 2, 99 do
+		candidate = base .. " copy " .. n
+		if buttonsets[candidate] == nil then
+			return candidate
+		end
+	end
+	return nil
+end
+
+--- Copy a table of button data, one level of nesting deep.
+---
+--- Deep enough for what a button holds: the values are scalars apart from
+--- accordionChildren, which is a list of scalars. A shallow copy would leave the
+--- two sets sharing that list, so editing the copy's accordion would silently
+--- edit the original's.
+---
+--- rawget/pairs on purpose: only a button's **own** values are copied, and
+--- inherited ones must stay inherited. Copying the resolved values instead would
+--- freeze the factory defaults into the new set — the same trap that made button
+--- sizes revert (see dropRedundantOwnValues in buttonwindow.lua).
+local function copyButtonData(src)
+	local out = {}
+	for k, v in pairs(src) do
+		if type(v) == "table" then
+			local inner = {}
+			for ik, iv in pairs(v) do
+				inner[ik] = iv
+			end
+			out[k] = inner
+		else
+			out[k] = v
+		end
+	end
+	return out
+end
+
+--- Duplicate a whole button set, buttons and set defaults, under a new name.
+function copyButtonSet(name)
+	local source = buttonsets[name]
+	if source == nil then
+		Note("\nNo button set called " .. tostring(name) .. ".\n")
+		return
+	end
+	local target = freeSetName(name)
+	if target == nil then
+		Note("\nToo many copies of " .. tostring(name) .. " already.\n")
+		return
+	end
+
+	local copiedButtons = {}
+	for i = 1, #source do
+		if source[i] ~= nil then
+			copiedButtons[#copiedButtons + 1] = copyButtonData(source[i])
+		end
+	end
+	buttonsets[target] = copiedButtons
+
+	local sourceDefaults = buttonset_defaults[name]
+	buttonset_defaults[target] = sourceDefaults ~= nil
+			and copyButtonData(sourceDefaults) or {}
+
+	Note("\nCopied " .. name .. " to \"" .. target .. "\" ("
+		.. #copiedButtons .. " button(s)).\n")
+	-- Save immediately: a copy that only exists in memory is lost to the next
+	-- restart, and the player has no way to tell the difference until then.
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+	getButtonSetList()
+end
+
 function deleteButtonSet(name)
 	local nextset = nil
 	if(name == current_set) then
@@ -312,6 +391,7 @@ function button.start(a)
 	tmp.swipeDownLeftCommand = a:getValue("","swipeDownLeftCommand") or ""
 	tmp.swipeDownRightCommand = a:getValue("","swipeDownRightCommand") or ""
 	tmp.showGestureLabel = a:getValue("","showGestureLabel") ~= "false"
+	tmp.showGestureHints = a:getValue("","showGestureHints") ~= "false"
 	tmp.switchTo = a:getValue("","switchTo") or ""
 	tmp.name = a:getValue("","name")
 	tmp.height = a:getValue("","height")
@@ -1471,10 +1551,18 @@ end
 
 local function rewriteCommandLinks(cmd, packIdToSetName)
 	if type(cmd) ~= "string" or cmd == "" then return cmd end
-	local packId = string.match(cmd, "^%.loadset%s+([%w_%-]+)%s*$")
-	if packId == nil then return cmd end
-	-- Catalog keys are lowercase; player setNames keep their chosen casing.
-	local newName, changed = rewriteLinkTarget(string.lower(packId), packIdToSetName)
+	-- Any target, not just [%w_%-]+. Pack ids never contain a space, so for the
+	-- catalog caller this captures exactly what it captured before and the map
+	-- lookup below still decides; what it adds is renaming a set the player
+	-- named "main copy", whose .loadset the old pattern could not even see.
+	local target = string.match(cmd, "^%.loadset%s+(.-)%s*$")
+	if target == nil or target == "" then return cmd end
+	-- Catalog keys are lowercase; player setNames keep their chosen casing, and
+	-- a rename map carries both spellings for exactly this reason.
+	local newName, changed = rewriteLinkTarget(target, packIdToSetName)
+	if not changed then
+		newName, changed = rewriteLinkTarget(string.lower(target), packIdToSetName)
+	end
 	if not changed then return cmd end
 	if newName == nil or newName == "" then return "" end
 	return ".loadset " .. newName
@@ -1512,6 +1600,79 @@ local function rewriteSetCrossLinks(setName, packIdToSetName)
 	for _, btn in pairs(set) do
 		rewriteButtonCrossLinks(btn, packIdToSetName)
 	end
+end
+
+--- Rename a button set, and take every link to it along.
+---
+--- A set is addressed by its name and by nothing else: `.loadset combat`, a
+--- button's switchTo, a button whose command is `.loadset combat`. Moving the
+--- table to a new key and stopping there would leave all of those pointing at a
+--- set that no longer exists — every one of them silently dead, with no error
+--- and nothing on screen to say why. So the rename rewrites the links in the
+--- same pass, reusing the cross-link rewriter the layout catalog already uses.
+---
+--- What it does **not** reach: chrome gestures, which are kept as one opaque
+--- serialised blob that string surgery would corrupt, and triggers, aliases and
+--- timers, whose commands are Java-side profile data this plugin cannot see. A
+--- `.loadset` in any of those still points at the old name afterwards, so the
+--- player is told to check them rather than left to find a dead alias later.
+---
+--- @param data the old name, a newline, the new name. Two lines rather than a
+---        serialised table because the list dialog that sends it has no
+---        serialiser in its environment, and a set name cannot contain a
+---        newline — it is one line of an EditText.
+function renameButtonSet(data)
+	local text = data ~= nil and tostring(data) or ""
+	local from, to = string.match(text, "^(.-)\n(.*)$")
+	if from == nil then
+		Note("\nRename needs an old name and a new one.\n")
+		return
+	end
+	to = string.match(to, "^%s*(.-)%s*$") or ""
+
+	if buttonsets[from] == nil then
+		Note("\nNo button set called " .. from .. ".\n")
+		return
+	end
+	if to == "" then
+		Note("\nA button set needs a name.\n")
+		return
+	end
+	if to == from then
+		return
+	end
+	if buttonsets[to] ~= nil then
+		Note("\nThere is already a button set called \"" .. to .. "\".\n")
+		return
+	end
+
+	buttonsets[to] = buttonsets[from]
+	buttonsets[from] = nil
+	buttonset_defaults[to] = buttonset_defaults[from]
+	buttonset_defaults[from] = nil
+
+	-- Both spellings: a command may say .loadset Combat where the set is
+	-- "combat", and rewriteCommandLinks tries the raw target then the lowered one.
+	local renameMap = { [from] = to, [string.lower(from)] = to }
+	for setName, _ in pairs(buttonsets) do
+		rewriteSetCrossLinks(setName, renameMap)
+	end
+
+	if current_set == from then current_set = to end
+	if working_set == from then working_set = to end
+
+	Note("\nRenamed button set \"" .. from .. "\" to \"" .. to .. "\".\n")
+	Note("Buttons that loaded it now load \"" .. to .. "\". A trigger, alias,"
+		.. " timer or chrome gesture that says \".loadset " .. from
+		.. "\" still says it — those are not button data and have to be"
+		.. " changed by hand.\n")
+
+	-- Saved at once: a rename that lives only in memory is lost at the next
+	-- restart, and the links have already been rewritten to match it.
+	if SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+	getButtonSetList()
 end
 
 function getLayoutPackList(args)

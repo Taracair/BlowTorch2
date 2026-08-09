@@ -77,6 +77,18 @@
   			</TableRow>
   			<TableRow>
   				<TextView
+  					android:text="Fires on:"
+  					android:paddingLeft="10dip"/>
+  				<Spinner
+  					android:id="@+id/trigger_editor_source_spinner"
+  					android:layout_marginRight="10dip"
+  					android:layout_width="0dip"
+  					android:layout_weight="1"
+  					android:minHeight="40dip"
+  					android:popupBackground="#FF000000"/>
+  			</TableRow>
+  			<TableRow>
+  				<TextView
   					android:text="Pattern:"
   					android:paddingLeft="10dip"/>
   				<EditText

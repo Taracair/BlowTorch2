@@ -26,6 +26,9 @@ public class TapElementListener implements StartElementListener {
 		if (a.getValue("", "command") != null) {
 			tmp.setCommand(a.getValue("", "command"));
 		}
+		if (a.getValue("", "tapsends") != null) {
+			tmp.setTapSendsFirst(Boolean.parseBoolean(a.getValue("", "tapsends")));
+		}
 		if (a.getValue("", "underline") != null) {
 			tmp.setUnderline(Boolean.parseBoolean(a.getValue("", "underline")));
 		}

@@ -11,6 +11,361 @@ slightly out of date in a few places. When that happens, the app itself — what
 it shows on screen — is the source of truth. Please report mistakes on
 [GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
 
+## Encrypted connections (TLS)
+
+**Use TLS (encrypted)** is a checkbox on each world, in the same editor as its
+host and port (add or edit a world from the launcher).
+
+Turn it on only when the world offers a TLS port. That is usually a *different
+port number* from the plain one — a world might take plain connections on 4000
+and TLS on 4443 — so turning the checkbox on without changing the port normally
+just fails.
+
+When it connects, the game window says what you got:
+
+    TLS: TLSv1.3, cipher TLS_AES_128_GCM_SHA256
+
+If that line is not there, the connection is not encrypted. That is the way to
+check, rather than trusting the checkbox.
+
+**Self-signed certificates are refused.** Some MUDs use them. The connection
+fails with a message saying so rather than connecting anyway, because a
+certificate nobody can vouch for gives you the padlock without the protection.
+If a world only offers a self-signed certificate, leave TLS off for it — you are
+no worse off than before, and the client is not pretending otherwise.
+
+The certificate's host name is checked too, so a valid certificate for some
+other site will not be accepted for this one.
+
+Compression (MCCP) works normally with TLS on: encryption sits underneath it.
+
+## Suggestions (`.suggest on`)
+
+    .suggest on | off | lines N | 1..8
+    .suggest where floating | bar | off | next
+    .suggest opacity N | persist on | off
+    .suggest phrases on | off | plain on | off | short on | off
+    .suggest loose on | off | ghost on | off | ghostlines N
+    .suggest rank on | off | pairs on | off
+    .suggest learned | clear
+
+(`.complete` and `.suggestions` are the same command under older names and still work.)
+
+Type two letters of something the game has just said and it appears on a strip
+above the input bar. Tap it and it goes in, correctly spaced.
+
+    The game says:  A grizzled cave troll lumbers in.
+    You type:       k gri
+    The strip:      grizzled
+    Tap it:         k grizzled
+
+**Taking one without tapping it.** Each chip is numbered, and `.suggest 3`
+takes the third. That is there so a super button over the keyboard can hold
+`.suggest 1`, `.suggest 2` and so on — you pick a suggestion without your
+thumb ever leaving the keys. Aliases and triggers can use it the same way.
+
+Note that **typing `.suggest 3` into the input bar cannot work**, and this is
+not a fault: the bar holds the half-typed command the strip is completing, so
+typing anything else into it replaces what you were completing and the strip
+empties. Put it on a button. Out of range does nothing, because the strip
+changes as you type and inserting the wrong word is worse than inserting none.
+
+**Why not just the keyboard.** Gboard completes from an English dictionary and
+from what you have typed before, and it cannot see the screen. The words that
+are slow to type in a MUD are exactly the ones it will never learn — a mob
+called *grizzled*, a player called *Tonkatsu*, an item called *gnarled oaken
+staff* — and it will happily correct them into something else. Type `grizz` and
+it offers *grid*, *grim*, *grip*.
+
+This completes only from what the world actually sent, newest first, because the
+thing that just walked in is nearly always the thing you are about to hit.
+
+Words shorter than four letters are ignored, and so are pure numbers; you need
+to have typed at least two letters before anything is offered.
+
+**How far back counts as recent** is measured in lines, not words — the last 300
+by default, so "recent" means here what it means on screen. `.suggest lines 80`
+narrows it to roughly a screenful; `.suggest lines 0` keeps everything the
+session said. Counting words instead would mean a quiet hour of a few lines kept
+names from hours ago alive, while one wide room description threw out everything
+you were just looking at.
+
+**Whole names, not just the first word.** `.suggest phrases on` — **off by
+default** — offers the words that followed as well. After
+
+    A grizzled cave troll lumbers in.
+
+typing `gri` offers `grizzled cave troll` first and plain `grizzled` right under
+it, so a three-word mob is one tap instead of three. Take whichever you meant.
+
+Three words at most, and never past the end of a line. There is nothing here
+that knows where a name stops and the sentence carries on — that would need a
+dictionary of English grammar, which is tens of megabytes for a language MUDs
+barely speak — so the cap is what keeps `lumbers` out of the name. Short words
+break a phrase rather than being skipped: `a sword of power` offers `sword`, not
+`sword power`, because the world never said that.
+
+If a name shows up somewhere else, the phrase follows it: after
+`a gnarled iron gate`, `gnar` stops offering `gnarled oaken staff` and starts
+offering `gnarled iron gate`.
+
+**Which of the two comes first.** By default the whole name: it is the slow part
+to type, and the plain word is one tap below it. `.suggest plain on` swaps them,
+so `expl` offers `explosive` and then `explosive crates`. Four letters typed is
+not yet a request for the long form, and if you work from the ghost — which
+shows one suggestion — the short one is more often the one you meant.
+
+It moves a word against **its own** name and nothing else: two different words
+keep their order, newest first. It does nothing at all with whole names off, and
+nothing to the typo pass, which offers single words only. One thing it does
+change beyond order: the bar holds eight, and a word with a name takes two of
+those places, so with more matches than chips a different one can be the one
+that does not fit.
+
+> **This used to be `.suggest short`.** It was renamed on 9 August 2026 because
+> the name promised something else — "short" reads as "shorter words first", and
+> that is now what `.suggest short` does. Nothing about your settings changed:
+> whatever you had chosen is still chosen, it simply answers to `.suggest plain`
+> now. If you have `.suggest short` in a button or a note, it now turns on the
+> option described next.
+
+### Shorter suggestions first
+
+```
+.suggest short on
+.suggest short off
+```
+
+**Off by default.** On, every suggestion is ordered by **length, shortest
+first**, instead of by what the world said most recently.
+
+The case it exists for: the world prints a list of message boards, one of them
+called `*crime-and-punishment`. You type `look cr` and want `crate` — but
+`crime-and-punishment` was said three seconds ago, so newest-first puts it in
+front. With this on you get `crate`, `crates`, `crime-and-punishment`, in that
+order.
+
+It is worth knowing which of the two settings you actually want:
+
+| | What it orders |
+|---|---|
+| `.suggest short` | **Every** suggestion against every other, by length |
+| `.suggest plain` | One word against **the whole name built on that same word** |
+
+They are independent and can both be on. Two suggestions of the same length keep
+their newest-first order, and nothing is ever dropped — a word you could reach
+before you turned this on is still reachable, just somewhere else in the list.
+
+**With `.suggest rank on` as well**, place in the line still decides which group
+of words leads — the things you use as commands at the start of a line, the
+things you point commands at after one — and length decides the order *inside*
+each group. Neither setting makes the other pointless.
+
+**Ordered by where you are in the line.** `.suggest rank on` — **off by
+default** — uses one thing the app already knows for free: the first word of
+every command you send *is* a verb this world takes, and what follows it is a
+thing you point commands at. With it on, `ki` at the start of a line offers
+`kill` above `kindle` if `kill` is what you type commands with, and the same
+`ki` after `kill ` puts the things you have aimed at first.
+
+It only ever **reorders** — nothing is thrown out of the candidates. There is
+one place that still costs you something, and it is worth knowing: the bar
+holds eight chips. When more than eight words match what you have typed,
+changing the order changes *which* eight you see, so a word that was on the bar
+can be pushed off the end of it. One more letter narrows the matches and it is
+back. It also knows nothing on a world you have just started, and fills up as
+you play; and what
+you type after `say`, `tell`, `chat` and the like is left out of it, or a
+sentence of chat would teach the app that `should` and `think` are things in
+the room.
+
+Nothing you type is ever offered back as a suggestion — only what the *world*
+said is. Typing a name the world never used does not make it completable. And a
+line typed while the input bar is masked (telnet ECHO off), such as a password,
+is not learned for ranking or pairings.
+
+**What you usually do with that command.** `.suggest pairs on` — **off by
+default**, and it needs `rank` above to be on as well. Ranking knows that after
+a command word you are naming a *thing*; this knows *which* thing. If you have
+killed the troll a dozen times and worn the trophy, then `kill tro` offers
+`troll` first and `wear tro` offers `trophy` first — same letters, different
+answer, because they are different questions.
+
+It is a count of what you have aimed each command at, kept per world, a few
+kilobytes. No grammar and no dictionary: it is a record of how *you* play, not a
+claim about English. So it knows nothing on a world you have just started, it
+fills up as you play, and it will be wrong the first time you do something new —
+which is why it has its own switch. Like `rank`, it only reorders; a word it has
+never seen with this command still follows, it does not vanish.
+
+The ghost is **one** suggestion — it is text drawn after the cursor, so it
+cannot be a list. When there are others it ends with how many: `grizzled +3`
+means three more are waiting.
+
+**Or let it show several at once.** `.suggest ghostlines 4` lets the input bar
+grow downwards and puts the rest under what you are typing — numbered the same
+way `.suggest 2` numbers them, and each one tappable.
+
+    .suggest ghostlines N     (1 to 6, 1 is the plain ghost)
+
+They sit **side by side**, not one per line, so a row of short words holds
+several and a line each is not spent on nothing. The number you set is the most
+**rows** the bar may take, not how many suggestions it shows: it uses only the
+rows it needs, and gives them straight back — send the line and the bar is its
+normal size again before you have finished pressing.
+
+Tap any of them to take it, or use `.suggest 1` to `.suggest 8` from a button.
+
+    .suggest learned    what your commands have taught on this world
+    .suggest clear      throw all of it away, including the file
+
+**It is kept per world, and it travels with the world.** Each MUD has its own
+bag, because `kill` means something different on each of them. The bag lives in
+the app's settings folder, which is what a world backup already carries — so
+exporting a world takes its learned pairings with it, and importing one brings
+them back. There is nothing separate to remember to export.
+
+It is small: a few kilobytes for ordinary play, and it cannot grow past about a
+hundred even if you try. The app itself does not get any bigger — this is data
+on the phone, not something shipped inside it.
+
+**When you mistype it.** `.suggest loose on` adds a second pass: if the exact
+spelling finds nothing, a word whose letters you typed *in order, with gaps* is
+offered instead. `grzld` finds `grizzled`. It only ever runs after an exact
+match found nothing, so typing accurately never gets you a different answer than
+before. The first letter still has to be right, and you need at least four
+letters — below that almost every word in the room matches.
+
+**The rest of the word, as you type.** `.suggest ghost on` draws the top
+suggestion's remaining letters after the cursor in dimmed type, with a small `1`
+marking it as the first suggestion — the same 1 that `.suggest 1` takes.
+
+    You type:   k gri
+    You see:    k gri[zzled]¹    ← the bracketed part is dimmed, and not there
+
+**Tap the ghost to take it.** It is a target, not only a hint — the same result
+as tapping the first chip or sending `.suggest 1`, without moving your thumb
+off the line you are typing.
+
+That "not there" is literal: the ghost is **drawn, never put in the input bar**.
+What you send is always exactly what you typed, so there is nothing to strip off
+and nothing that can go out by accident.
+
+A forgiven typo gets a ghost too, in the other shape. Its letters have to
+change rather than grow, so the whole word is shown behind an arrow, and tapping
+it replaces what you typed:
+
+    You type:   k grzld
+    You see:    k grzld[ → grizzled]¹
+
+Because the ghost is drawn, it takes part in no measurement — it never makes the
+input bar taller or wider. When it does not fit the rest of the line it carries
+on at the start of the next line, if the bar already has one; when there is no
+next line it is cut short with `…`. The bar still grows with what you actually
+type, as it always has.
+
+**Where the chips sit.** One setting, `.suggest where`, with three answers. It
+is one setting and not two switches because "no bar, but floating" is not a
+thing — picking one place puts the other away.
+
+- `.suggest where floating` (the default) floats them *over* the game text,
+  resting on the top edge of the input bar. They cost the layout nothing, so
+  nothing moves when they appear or go.
+- `.suggest where bar` puts them in a strip below the game window instead. That
+  strip takes height while it is showing, so the window shrinks a little every
+  time a suggestion appears and grows back when it goes, and the text hops with
+  it — which is why floating is the default, and why `persist` below matters
+  most here. The strip is still there for anyone who would rather have the chips
+  out of the way of the game text.
+`.suggest where next` steps round the three in order, which is the one to put
+on a button: floating for a fight, the strip while you are reading, nothing at
+all when the ghost is doing the work — without spending three buttons on it.
+
+- `.suggest where off` shows no bar at all. **The suggestions still work**: the
+  ghost still draws after the cursor and `.suggest 1`..`8` still picks, so
+  `ghost on` with `where off` is completion with nothing on screen but the
+  dimmed word you are typing.
+
+(`.suggest overlay on|off` is the old name for the first two and still works.)
+
+**A bar that stays put.** `.suggest persist on` leaves the floating bar up even
+when there is nothing to suggest. The chips stop appearing and disappearing
+under your thumb, because the bar itself stops moving — the suggestions simply
+change inside a thing that is always in the same place.
+
+Empty, it shows only its grip: the six dots at its left end.
+
+- **Tap the grip** to collapse the bar to just that grip, and tap again to open
+  it. Useful when a line of the game is underneath it.
+- **Drag the grip** to put the bar somewhere else entirely. No holding first —
+  take hold of the dots and the bar comes with your finger. It
+  stays where you drop it, remembered **per world and per screen rotation** —
+  a place that suits a portrait phone is off the side of a landscape one. Drop
+  it back near the input bar and it forgets the placement and goes back to
+  following the bar, which is how you undo this without an option.
+- To get rid of an empty bar altogether, `.suggest persist off` — then it hides
+  itself whenever it has nothing to say, as it does by default.
+
+The grip is the handle for both gestures on purpose. The chips themselves scroll
+sideways, and a long press inside something that scrolls fights the scrolling
+for every touch.
+
+Without `persist`, the chips no longer blink either: an empty panel waits a
+moment before it goes, because typing walks through prefixes that match nothing
+on the way to one that does.
+
+`.suggest opacity 40` makes them see-through enough to read the line behind
+them. Only the backing fades — the words stay fully readable at every setting,
+because a suggestion you have to squint at is worse than none. Anything from 10
+to 100.
+
+Off by default, and while off the text is not sent to the completer at all, so it
+costs nothing. Both settings are also under **Options → Input**, and both are
+saved with the profile. The vocabulary is forgotten when you connect, so one
+world's mob names are never offered in another.
+
+## Prompt on its own bar (`.prompt on`)
+
+    .prompt on | off | (no argument = say which, and how many were seen)
+
+**What a prompt is.** It is the short status line most MUDs print after every
+command to tell you where you stand — commonly your health and energy, often
+your enemy's, sometimes the room exits. `[HP 450/500 EN 300/300] >` is a prompt.
+The world sends it again after every single thing you do, so on a desktop it
+scrolls harmlessly up the screen, and on a phone it is half of what you can see.
+
+**What this setting does.** It takes that line out of the flowing text and pins
+it in one fixed place just above where you type, rewriting it in place each time
+a new one arrives.
+
+    [HP 450/500 EN 300/300] >     ← pinned here, always current
+    ─────────────────────────
+    (your input bar)
+
+**What it does not do.** It is not a health bar. BlowTorch does not read the
+numbers, does not know which of them is health, and draws no graphics — it shows
+the world's own line of text, exactly as the world wrote it, in one useful place.
+If you want a coloured bar that fills and empties, that is a trigger with a
+capture (or GMCP on worlds that send it), not this.
+
+**How it knows which line is the prompt** — no pattern, no guessing at its
+shape. A prompt is a line the world never finishes: no newline follows it, which
+is why your cursor sits on it. The client already holds an unfinished line back
+so that a trigger cannot cut one in half, so it knows exactly which line that is.
+Where a world marks its prompts with `IAC GA`, the bar updates the instant the
+prompt arrives.
+
+**If the bar stays empty**, `.prompt` on its own prints `Prompts seen: N`. At
+zero it adds: *this world has not sent one yet. Some worlds never do.* Many MOOs
+do not, and nothing can be pinned that was never sent. The count is kept
+whether the bar is on or off, and starts again each time you connect.
+
+The bar shows the world's text after ANSI codes are stripped and the ends are
+trimmed — not the raw bytes.
+
+Off by default, because it changes where text appears. Also under **Options →
+Input**, and saved with the profile.
+
 ## Dot commands
 
 Lines that start with a single `.` are handled by BlowTorch when “process period”
@@ -20,11 +375,45 @@ running a client command (e.g. `..look` sends `.look`).
 
 Aliases that share a simple name with a command win when you type `.name newtext`
 (that changes the alias’s replacement text). Plugins may register additional
-commands via `RegisterSpecialCommand`; those appear only while the plugin is
-loaded.
+commands via `RegisterSpecialCommand` when they initialise; disabling a plugin
+leaves the command recognised but it does nothing until the plugin is enabled
+again.
 
 Registrations live in `Connection` (built-ins) and Lua
 `RegisterSpecialCommand(...)` (plugins).
+
+## Repeating a command (`#5 north`)
+
+A line that starts with `#` and a number sends the rest of the line that many
+times:
+
+    #5 north            walks five rooms north
+    #3 kick troll       kicks three times
+    #4 get all from bag
+
+It works wherever a line is sent — typed, on a button, and in each segment of a
+`;` list, so `stand;#3 kick troll;sit` is stand, three kicks, sit.
+
+The multiplier counts **what you typed**, not what it expanded into. With an
+alias `kk` → `kill $1`, typing `#3 kk troll` sends `kill troll` three times.
+
+**It does not work inside an alias's replacement text.** An alias whose text is
+`#3 kick troll` sends that line to the game as it stands. The multiplier is read
+once, on the line you send, before aliases are expanded — so put the `#` in
+front of the alias (`#3 kk troll`), not inside it.
+
+**No pause between them.** All the copies go out at once, exactly as if you had
+typed `north;north;north;north;north`. This is not a way to pace commands — for
+that, use a timer.
+
+**Limit: 1 to 100.** Anything outside that is refused and the line is left
+exactly as you typed it, with a red note saying so. `#500 north` is nearly
+always a slip, and a world may read the flood as an attack.
+
+**Worlds that use `#` themselves.** Two hashes send one literal hash and skip
+the repeat, the same way `..` sends a literal dot: `##5 north` reaches the game
+as `#5 north`. A `#` that is not a number followed by a space is never touched,
+so `#help` and `say cost is #3 gold` go out unchanged.
 
 ## Aliases and triggers (patterns / `$1`)
 
@@ -113,7 +502,55 @@ In the trigger editor:
   persisted).
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
-Replace, Toast, Notification, Set Variable text, and similar actions.
+Replace, Toast, Notification, Speak, Set Variable text, and similar actions.
+
+### Speak Out Loud
+
+The **Speak Out Loud** action says the message with the phone's own voice — for
+the line you must not miss while you are looking at something else. A tell, a
+warning, a health threshold.
+
+    `(\w+) tells you`
+        Action: Speak Out Loud, say: `$1 is talking to you`
+
+It uses the speech engine your phone already has, so it adds nothing to the size
+of the app and uses whatever voice and language the system is set to. Phones
+with no engine installed simply stay quiet.
+
+**Say this at once, cutting off the previous line** decides what happens when
+two things want to be said in the same second. Off, they queue and are read in
+order — right for a tell, which is still worth hearing a moment later. On, this
+one stops whatever is mid-sentence and is read straight away — right for
+anything that is only true *now*. "You are bleeding" read out fifteen seconds
+late, after four misses have been announced, is worse than not read at all.
+
+**▶ Say it now** reads the message aloud there and then, so you can hear it
+before you rely on it. Nothing is spoken when you press Done — the phone talking
+by itself because someone closed a dialog is not a thing anyone wants in public.
+
+**?** explains what to check when it stays silent, and opens Android's own
+text-to-speech settings, where voices are installed.
+
+Either way the speech never runs far behind the screen. At most a few lines wait
+their turn; past that the backlog is dropped and the newest line is read
+instead, because speech describing a fight that has already ended helps nobody.
+The same line repeated within a second and a half is only said once.
+
+It speaks whether or not the game window is in front, which is the point of an
+alert.
+
+**Quiet while you type** (Options → Input) is **off** by default. Turn it on and
+a speaking trigger drops anything it would have said between the first letter of
+a command and sending it — dropped, not held back, because a backlog let loose
+the moment you press Send would read you a fight that has already moved on. It
+does **not** cut short a line that is already being spoken, so a sentence that
+started before you touched the keyboard finishes. Worth it if you write long
+tells while a chatty trigger reads the screen at you. Leave it off if your
+speaking triggers are alerts: you type most in a fight, and that is the moment
+this makes the phone go quiet.
+
+Timers have the same action, so a timer can say "potion ready" instead of only
+printing it.
 
 Examples (Literal off):
 
@@ -124,6 +561,30 @@ Examples (Literal off):
     `A (.+) appears`
         Action text: `kill $1`
         Meaning: Auto-target the thing that appeared
+
+**Patterns across several lines.** A trigger can match a block, not just one
+line. Write `\n` where the line break is:
+
+    Pattern        You see (.+) here\.\nIt looks (\w+)
+    Meaning        thing → $1, condition → $2, from two different lines
+
+Two rules worth knowing:
+
+- **`.` never crosses a line break.** `.+` stops at the end of its line, so a
+  block pattern has to say `\n` for every break it spans. This is what keeps a
+  greedy pattern from swallowing your whole screen.
+- **`^` and `$` bind to each line**, not to the block, which is the readable way
+  to write one:
+
+      ^\+-+\+$\n^\| (.+) \|$\n^\+-+\+$
+      matches a three-line box and captures what is inside it
+
+A **Gag** on a multi-line pattern removes the whole block, not just its first
+line — one trigger to hide a five-line advert. With **Send to window** set, the
+whole block is forwarded there, in the order it arrived.
+
+Colour still marks the first line of a match; colouring a whole block is not
+done yet.
 
 **Sample — fire only if another trigger is enabled:** create trigger
 `combat_mode` (any pattern; leave it disabled until you want the mode on). On
@@ -208,6 +669,126 @@ Variable** responder or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
 (session only). Use `${name}` in alias or action text — variables are not
 typed into the trigger pattern.
 
+### Finding a command without leaving the game
+
+    .help            every dot command, one line each
+    .help sound      only the ones whose name contains "sound"
+    .commands        the same thing
+
+Grouped by what they are for, printed into the game window. The list is built
+from the commands the app actually has, not from a list written by hand, so a
+command added later cannot go missing from its own help. Many commands print
+usage when typed with no arguments (e.g. `.sound`, `.trigger`); others act
+immediately (e.g. `.disconnect`).
+
+### The menu a tapped word opens
+
+Tap a word that has more than one action and a short menu opens right next to
+your finger, over the game text. Because it sits on top of the thing it is
+about, it can be made see-through:
+
+    .tapmenu opacity N     (20 to 100)
+    .tapmenu               (what it is set to now)
+
+Only the backing fades. The commands stay fully readable at every setting —
+same rule as the suggestion chips, because a menu you cannot read is worse than
+one that covers something. Also in **Options → Miscellaneous → Tapped-word menu opacity (%)**.
+
+### Making a trigger make a noise
+
+Three ways, and they answer different questions.
+
+**Play a sound.** Give the trigger a **Play a Sound** action and it plays a
+short sound file. In a fight this is the one you want: a ping is over in a fifth
+of a second where a spoken sentence takes two, and a MUD can print six lines a
+second. Each trigger carries its **own** sound, so a tell and a critical hit do
+not have to sound alike.
+
+    Pattern:  ^\w+ tells you
+    Action:   Play a Sound → Soft chime
+
+Where the sound comes from, in the order the picker offers them:
+
+- **The five sounds that ship with BlowTorch.** These can never go missing and
+  need no permissions. Start here.
+- **Your own files, from `/BlowTorch/sounds` on the phone's shared storage.**
+  Drop `.wav`, `.ogg`, `.mp3` or `.m4a` files in that folder and they appear in
+  the list. The folder is created the first time you open the picker.
+- **Anything else on the phone,** through *Pick from storage*.
+
+**Keep your own sounds in that folder and leave them there.** A sound of yours is
+remembered by *where it is* — the app does not copy it inside itself, so it stays
+your file and costs the app nothing to carry. The price is that moving or
+deleting it makes the trigger go quiet. That case is not passed over in silence:
+the action's editor shows **MISSING** next to the name and says where the file
+should be, and the error log records it once. The fix is on the same screen —
+put the file back, or open the action and pick another sound.
+
+**Which volume it uses.** By default the **media** volume — the game-and-video
+one your phone's side buttons reach for. That is a decision with a story: the
+first build played on the *notification* volume, which follows the ringer, so a
+silenced phone meant silent triggers and no clue why. Nobody turns their ringer
+on for a game.
+
+    .sound stream media | notification | alarm
+    .sound warn on | off
+    .sound                       (what it is set to now)
+
+`alarm` is the loudest and usually gets through Do Not Disturb — for the one
+trigger you must not miss. `notification` is still there if you want trigger
+sounds to follow the ringer switch along with everything else.
+
+And because a volume turned to zero has no symptom at all — the trigger fires,
+the sound plays, nothing comes out — the app says so: a short message, at most
+one every thirty seconds, naming the volume to turn up.
+
+Two ways to switch that off. **Per action**, with the *Warn me if the volume is
+off* box in the Sound and Speak editors — on by default, so a trigger you have
+deliberately pointed at a muted phone can stop nagging while every other one
+still tells you. And **globally**, `.sound warn off`. The thirty-second limit is
+shared, so ten alerting triggers still produce one message, not ten.
+
+Two numbers on that editor:
+
+- **Volume %** — how loud, 0 to 100, on whichever stream **Trigger sounds play
+  on** is set to (Options → Bell, default **media**). A phone on silent still
+  silences **notification**-stream triggers; **media** and **alarm** follow
+  their own volume sliders.
+- **Gap (ms)** — the shortest time between two of *this* trigger's sounds,
+  250 ms by default. It stops a trigger that matches every line from turning
+  into a buzz. `0` turns it off. Each trigger counts its own gap, so one noisy
+  trigger never silences another.
+
+Timers can play a sound too — same action, same editor.
+
+**Speak it.** Give the trigger a **Speak** action and it says the line out loud.
+Good for something you need the words of — a tell, a name, a number. It runs in
+the connection service, so it is heard with the game in the background and the
+screen off. Speech is queued three deep and the newest wins, so a fight does not
+put you a minute behind. **Quiet while you type** (Options → Input, **off** by
+default) drops new speech while you are composing a command; turn it **on** if
+chatty triggers should not talk over your typing.
+
+**Ring the bell.** Give the trigger an **Ack With** action of `.dobell` and it
+fires the bell reaction — whichever of vibrate, notification and the on-screen
+bell are turned on in **Options → Bell**. Better than speech in combat for one
+reason: a buzz is over in a moment and a sentence is not, and a MUD can print
+six lines a second.
+
+    Pattern:  ^\w+ tells you
+    Action:   Ack With → .dobell
+
+If nothing happens, type `.dobell` by hand: with every bell reaction turned off
+it now says so and names the three switches, instead of leaving you guessing
+whether the trigger fired. Only **Vibrate** is on by default, and a phone in
+silent mode will not buzz.
+
+What the bell cannot do: it is **one reaction for the whole profile**, so every
+trigger that rings it sounds the same, and it plays the system notification
+sound rather than a file of your choosing. That is what **Play a Sound** above
+is for; the bell is still the quickest way to get a buzz out of a trigger
+without choosing anything.
+
 ## Recipes
 
 Worked examples. Each one is a complete thing you can build; the field names
@@ -231,7 +812,12 @@ would be sent literally.
 **Want:** the game names a target; you attack it without retyping the name.
 
 This is the one thing aliases cannot do alone: an alias only sees what *you*
-type. A trigger sees what the *game* prints. A session variable joins them.
+type. A trigger sees what the *game* prints. Two common ways to join them:
+a **session variable**, or **rewriting an alias's With text** with
+`.name newtext` (see **Changing an alias from the input bar** under
+**Aliases** above).
+
+#### Route A — session variable (automatic)
 
 **Trigger** — Options → Triggers → new:
 
@@ -250,23 +836,66 @@ Braces are required: `${target}` is a variable, `$1` is a capture. An unset
 variable is left written as `${target}` rather than vanishing, so you can see
 what went wrong.
 
+The variable **name** is yours (`target`, `mob`, `test1` — whatever you like).
+In alias text you read it as `${name}`. Only letters, digits, and `_` work
+inside the braces: `${my_target}` yes, `${my-target}` or `${foo.bar}` no. (Names
+with a dot, such as `device.battery`, are built-in session variables for
+conditions and Lua — not for `${…}` in aliases.)
+
+#### Route B — rewrite the alias (`.att kill recliner`)
+
+Same room line, but instead of a variable you keep a plain alias and change
+what it expands to.
+
+**Alias** — Options → Aliases → new:
+
+    Replace   `att`
+    With      `nothing`
+
+`nothing` is only a placeholder until something sets a real command.
+
+**Trigger** — Options → Triggers → new (same pattern as above):
+
+    Pattern        `A plush suede (\w+) sits against the wall\.`
+    Literal?       **off**
+    Action         **Tappable Word**
+    Tappable part  `1`
+    Command        `.att kill $word`
+
+Tap `recliner` in the game text. The client runs `.att kill recliner` locally —
+the same shortcut as typing it yourself. For a simple word alias named `att`,
+`.att …` updates **With** only; nothing is sent to the game. Then type `att`
+and the client sends `kill recliner`.
+
+You can skip the tap and type `.att kill recliner` by hand after you read the
+line. The `.name newtext` shortcut only works for simple `\w+` alias keys (no
+spaces, no regex in the key).
+
 **Tip while building one of these:** add a second action to the trigger,
 **Ack** with `.note got target=$1`. That prints a line only you can see, so you
 know whether the trigger fired before you start blaming the alias.
+
+Route A remembers the target as soon as the line appears. Route B fits when you
+already use a word alias on buttons (`kill tgt` — see **9c. Tap a name to
+retarget every button** below) or you want a tap to pick the target yourself.
 
 ### 3. Combat mode: a set of triggers that arm and disarm together
 
 **Want:** healing triggers that only run while you are fighting.
 
 1. Give each combat trigger the same **Group**, e.g. `combat`.
-2. Make one trigger that spots the fight starting. Its action is **Script**:
-   ```lua
-   EnableTriggerGroup("combat", true)
+2. Make one trigger that spots the fight starting. Its action is **Ack With**
+   (a leading `/` runs inline Lua):
    ```
-3. Another spots it ending: `EnableTriggerGroup("combat", false)`.
+   /EnableTriggerGroup("combat", true)
+   ```
+3. Another spots it ending: **Ack With** `/EnableTriggerGroup("combat", false)`.
 
 Turn the whole group on or off by hand any time with
-`.trigger group on combat` / `.trigger group off combat`.
+`.trigger group on combat` / `.trigger group off combat` — that reaches main
+settings and every plugin. Lua `EnableTriggerGroup` only toggles triggers in
+the **plugin that runs it**; the **Script** action field is a Lua function
+name, not inline code.
 
 ### 4. A trigger that only fires under a condition
 
@@ -285,14 +914,16 @@ in combat".
 
 Aliases have no conditions, but they can be switched:
 
-```lua
-EnableAlias("travel_home", false)
-EnableAlias("kk", true)
+```
+/EnableAlias("travel_home", false)
+/EnableAlias("kk", true)
 ```
 
-Put that in a trigger's Script action. From the input bar the same thing is
-`.alias off travel_home` and `.alias on kk`; `.alias list` shows every alias and
-whether it is on.
+Put those in a trigger's **Ack With** action (leading `/` = inline Lua).
+`EnableAlias` in Lua only toggles aliases in **that plugin**; for aliases in
+the main profile use **Ack With** `.alias off travel_home` / `.alias on kk`, or
+type the same from the input bar. `.alias list` shows every alias and whether
+it is on.
 
 ### 6. One button, ten commands
 
@@ -340,8 +971,11 @@ On a trigger:
 - **Replace** action — swap text in it, `$1` works here too (also has
   **retarget**).
 
-Several actions on one trigger run in order, so you can gag a line *and* print
-your own version of it.
+Several actions on one trigger run in order. **Replace** alone rewrites the
+line in place. **Gag** removes it from the main window — use **retarget** on
+the gag if you want the original in an extra window. Gag followed by Replace
+does not show a rewritten line in the main window, because the gag already
+removed it.
 
 ### 9b. Make a word in the game text tappable
 
@@ -359,10 +993,29 @@ what lights up, and tapping it sends a command.
   small menu at the word instead of sending straight away. The first command
   stays at the top of it. Long commands are shortened in the menu with `(...)`;
   the whole command is still what gets sent.
+- **Put the word in the input bar instead of sending it** — type the command
+  `.kb insert $word` into a command box. Tapping the word then types it into the
+  input bar at the cursor, correctly spaced, and sends nothing. Type `k`, tap
+  the mob's name, and the bar reads `k grizzled ` waiting for Send. Two taps
+  build one command: `k` + *grizzled* + *troll* gives `k grizzled troll `. This
+  is the fastest way to name something the game just mentioned without spelling
+  it out on a phone keyboard. Put it beside a real command and a tap offers
+  both — e.g. `kill $word` and `.kb insert $word`.
+- **Tap sends the first command, hold to choose** — off by default, and set per
+  action, not once for the whole world. Off, a tap on a word with several
+  commands opens the list, which is what the app has always done. On, a tap
+  sends the first command straight to the game and *holding* the word opens the
+  list instead. Worth turning on for `kill $word` on a mob you fight all day —
+  one touch instead of two. Leave it off wherever sending the wrong thing would
+  cost you something, because a tap then goes to the game with nothing in
+  between. Holding still works on a word with several commands whether this is
+  on or not, so the list is never out of reach; sliding your finger off the word
+  cancels the hold and scrolls the text as usual.
 - **Underline / Bold / Frame** — any combination, or none. Colour is not here:
   put a **Color** action on the same trigger.
 - Two Tappable Word actions on one trigger behave as one word that offers both
-  sets of commands, and the look comes from the first of them.
+  sets of commands, and the look comes from the first of them — including
+  whether a tap sends.
 
 The word stays tappable for as long as the line is in the buffer, not just at
 the moment the trigger fired, and scrolling back does not change that.
@@ -454,6 +1107,56 @@ is the one a tap can change on its own, without a second trigger.
 whose name is an ordinary word ("sword", "north") will also rewrite what a tap
 sends. Name aliases you use this way so they cannot collide — `tgt`, `_it`.
 
+### 9d. One trigger that reads several lines
+
+Write `\n` in the pattern where the line break is. Literal? is **off** for all
+of these.
+
+**Hide a whole block.** An advert, a banner, an ASCII box — one trigger instead
+of one per line, and no leftover fragments.
+
+    Pattern   ^\+-+\+$\n^\| (.+) \|$\n^\+-+\+$
+    Action    Gag
+        Removes all three lines. $1 is the text that was inside the box, so a
+        Toast or Set Variable on the same trigger can still use it.
+
+**Take two facts from two lines at once.**
+
+    Pattern   You see (.+) here\.\nIt looks (\w+)
+    Action    Ack   get $1
+        "You see a rusty sword here." / "It looks battered" — $1 is the sword,
+        $2 is "battered", and both arrive in one firing. No variable, no second
+        trigger waiting for the line after.
+
+**A two-line event.**
+
+    Pattern   You hit (\w+) for \d+\.\n\1 collapses
+    Action    Ack   loot corpse
+        `\1` refers back to the first capture, so this only fires when the thing
+        that collapsed is the thing you hit — not when someone else's kill
+        happens to print underneath yours.
+
+**A row under the right heading.**
+
+    Pattern   ^Name +Price$\n^(\w+) +(\d+)$
+    Action    Set Variable
+        Only matches a row that comes directly under that heading, so you pick
+        up the table you meant and not a similar-looking line elsewhere.
+
+**Send a block to another window.**
+
+    Pattern   ^\[quest\] (.+)$\n^  (.+)$
+    Action    Gag, Send to window: quests
+        Both lines leave the main window together and arrive in the quest
+        window in the order they were sent.
+
+**The two rules.** `.` never crosses a line break — `.+` stops at the end of its
+line, which is what keeps a greedy pattern from swallowing the screen, and why
+every break has to be written out. `^` and `$` bind to each line rather than to
+the block, which is what makes the box example above readable.
+
+**Colour** still marks only the first line of a match.
+
 ### 10. Start mapping
 
 1. Open the map: ⋮ → **Map**, or `.map open`
@@ -519,24 +1222,16 @@ end up with a timer that was left paused.
 
 **Want:** the timer runs only while a specific enemy is up.
 
-On the trigger that spots the enemy appearing, add a **Script** action:
-
-```lua
-SetVariable("fighting", "1")
-```
-
-and on the one that spots it dying:
-
-```lua
-SetVariable("fighting", "0")
-```
+On the trigger that spots the enemy appearing, add a **Set Variable** action:
+`fighting` = `1`. On the one that spots it dying: `fighting` = `0`.
 
 Dot commands ride the same outbound path as typing, so **Ack With**
-`.timer play heal` (or Script `SendToServer(".timer play heal")`) *can* start
-a timer from a trigger. Prefer a variable + timer **Conditions** (recipe 12)
-when you want the timer always armed and gated; use Ack / `SendToServer` when
-you truly want play/stop. Keep process-period on (default), or a leading `.`
-goes to the MUD.
+`.timer play heal` (or **Ack With** `/SendToServer(".timer play heal")`) *can*
+start a timer from a trigger. Prefer a variable + timer **Conditions** (recipe
+12) when you want the timer always armed and gated; use Ack when you truly want
+play/stop. Keep process-period on (default), or a leading `.` goes to the MUD.
+The **Script** action field is a Lua function name, not inline code or dot
+commands.
 
 ### 14. One-shot reminder
 
@@ -565,13 +1260,19 @@ is enabled; `.alias list` shows every alias at once.
     `.colordebug <0|1|2|3>`             ANSI color debug: `0` normal; `1` color on + codes; `2` color off + codes; `3` color off, no codes
     `.closewindow`                      Dirty-exit the game window
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
+    `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
+    `.probe sensors [state|shake|light [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
+    `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
     `.timer duration <name> <seconds> [silent]`   Change stored duration and save. A running timer keeps running on the new length, from now
     `.settings …`                       Settings file housekeeping. No argument (or `status`) names this world's settings file and the date/size of the `.bak` copy kept beside it; `backup` saves now and refreshes that copy; `restore` puts it back and reloads. For a copy you can move off the phone use Export / **Backup All Settings** instead
     `.echo [on|off]`                    Show or hide what you type when the server has taken telnet ECHO (a password prompt). No argument prints the current state. The next change from the server wins
-    `.dobell`                           Fire configured bell reaction
+    `.help [word]` / `.commands`        Every dot command, one line each, grouped by what it is for. With a word, only the ones whose name contains it. Built from the commands the app actually has, so nothing can go missing from it
+    `.sound …`                          Which volume a trigger's Play a Sound action uses (`stream media|notification|alarm`), and whether to say so when that volume is off (`warn on|off`). No argument prints the current setting
+    `.tapmenu opacity <20-100>`         How solid the little menu a tapped word opens is. Only the backing fades; the commands stay readable. Also Options → Miscellaneous
+    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. This is how a trigger makes a noise; see "Making a trigger make a noise"
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
@@ -584,12 +1285,13 @@ is enabled; `.alias list` shows every alias at once.
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
+    `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N`, `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
-    `.clearbuttons`                     Clear on-screen buttons (`button_window` may re-register)
+    `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback search; see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
@@ -618,6 +1320,305 @@ main + plugin counts. Empty group name matches the default group (exact
 string match, same as Lua `EnableTriggerGroup`). Group commands apply to
 **main + all plugins**. `.trigger all` affects main only; use
 `.trigger plugin <plugin> all on|off` for one plugin.
+
+### `.probe lines`
+
+```
+.probe lines on
+.probe lines off
+.probe report        (or plain .probe)
+.probe reset
+```
+
+Answers one question about the world you are on: **do several lines of game text
+arrive together, or cut up?**
+
+Text does not arrive one line at a time. It arrives in whatever pieces the
+network hands over, and a trigger sees a whole piece at once. That is why a
+pattern can only ever match across several lines if those lines came in the same
+piece. This tells you whether they do.
+
+Turn it on, play normally for a few minutes — walk around, fight something, read
+a long room description — then `.probe report`. It costs nothing while it is off,
+and next to nothing while it is on: it counts, it does not store your text.
+
+The reading looks like this:
+
+    Chunks seen:        412
+    Complete lines:     1180
+    Lines per chunk:    1: 190  2: 96  3-5: 88  6-10: 30  11+: 8
+    Longest run:        14 lines in one chunk
+    Ended mid-line:     171 of 412 (41%)
+
+**Reading it.** A high *ended mid-line* percentage, or a *longest run* of only
+one or two, means lines usually arrive separately on this world — so a pattern
+spanning several lines would miss often. Plenty of chunks in the 3-5 and 6-10
+buckets means blocks of text do arrive whole.
+
+Nothing in the client uses this yet. It exists so that a decision about
+multi-line triggers rests on a measurement from a real session rather than on a
+guess about how the network behaves.
+
+### `.probe sensors`
+
+```
+.probe sensors
+.probe sensors shake [seconds]
+.probe sensors light [seconds]
+.probe sensors state
+```
+
+Answers two questions about **your phone**, which no amount of reading the app
+can answer: which sensors it actually has, and what they deliver.
+
+`.probe sensors` lists every sensor the device reports — name, power draw,
+range, whether it can wake the phone — and then says which of the ones a sensor
+reading would need are present or missing. Sensor hardware differs enormously between
+models; plenty of recent phones report no separate proximity sensor at all, so
+"wave over the screen" is a reading some phones simply cannot offer.
+
+`.probe sensors shake` registers a motion sensor for ten seconds (or the number
+of seconds you give, 3 to 60) and reports what arrived:
+
+    registration  : accepted in the service process (:stellar)
+    samples       : 487 in 9.9 s
+    measured rate : 49 Hz
+    largest gap   : 41.2 ms
+    peak          : 27.4 m/s2
+
+    Readings a detector would have crossed (500 ms dead time):
+      above  12.0 m/s2 : 3
+      above  20.0 m/s2 : 3
+      above  25.0 m/s2 : 1
+
+**Reading it.** Run it once while shaking the phone the way you would in a
+fight, and once while walking with it in your hand. A usable threshold is the
+lowest one that counts your shakes and counts the walk as zero. If the walking
+run fires anything, a shake trigger at that threshold would fire while you are on
+your way to the shop.
+
+*Registration refused* or *samples: NONE* is not a failure of the probe — it is
+the answer, and a more important one than the threshold.
+
+`.probe sensors state` shows the `device.*` values as they are right now:
+
+    device.headphones = no
+    device.charging = yes
+    device.battery = 74
+    device.screen = on
+    device.covered = no
+    device.facing = up
+    device.light = bright
+
+These are ordinary session variables, set only while **Options → Device →
+"Device state as variables"** is on for this world. Use them in a trigger's or
+timer's Conditions tab (`variableEquals`, e.g. `device.covered` equals `yes`), or
+read them from Lua with `GetVariable("device.charging")`.
+
+A name missing from that list is something this phone cannot tell — a device
+with no proximity sensor never sets `device.covered` — and a condition testing a
+name that is not set is **false**, not true. That is deliberate: a profile you
+share with someone whose phone lacks the sensor goes quiet rather than firing at
+the wrong moment.
+
+Nothing is registered while the setting is off, and turning it off releases the
+proximity sensor immediately. The other four values come from broadcasts the
+system sends anyway.
+
+All of these cost nothing until you type them. The sensor is released when the
+run ends.
+
+### Sensors — `.sensor`
+
+```
+.sensor                  what this phone can measure, and what is set up
+.sensor caps             which hardware provides each reading here
+.sensor wave look        make a reading send a command
+.sensor wave             what that reading does now
+.sensor wave on|off      without deleting it
+.sensor fire wave        try it now, without moving the phone
+```
+
+Your phone has hardware a desktop MUD client never will — proximity, motion,
+light, charging, headphones. BlowTorch turns each **reading** from that
+hardware into an ordinary trigger, so anything a trigger already does — send a
+command, run Lua, speak, play a sound, ring the bell, set a variable, gate on a
+condition, start or stop a timer — works with it too.
+
+**Not button gestures.** Swipes and holds on the input bar, Send button and
+chrome are configured in the **button editor** (gesture hints on tiles, Hold
+command, chrome bindings). This section is only about the phone's own sensors.
+
+`.sensor wave flee` is the quick way to set the common case; open the same thing
+in the Triggers editor (source picker: *Wave a hand over the screen*, and so on)
+to add a script, a sound, or a condition.
+
+The readings (each has a short name for `.sensor` and triggers):
+
+| Name | What the hardware sees | Measured with |
+|---|---|---|
+| `wave` | Hand passes over the top of the screen and away | Proximity, or light if there is none |
+| `cover` | Hand covers the top of the screen for a moment | Proximity |
+| `facedown` | Phone laid screen-down | Gravity, or accelerometer |
+| `faceup` | Phone turned back over | Gravity, or accelerometer |
+| `shake` | Phone shaken hard | Linear acceleration, or accelerometer |
+| `headphonesout` / `headphonesin` | Headphones unplugged or plugged | System broadcast |
+| `powerout` / `powerin` | Charger unplugged or plugged | System broadcast |
+| `pickup` | Phone lifted off the table | Pick-up sensor, where present |
+| `moving` | Real movement begins | Significant motion |
+| `still` | Untouched for a while | Stationary detect |
+| `gotdark` / `gotbright` | Room gets dark or bright | Light sensor |
+| `screenoff` / `screenon` | Screen locks or comes back | System broadcast |
+
+The last block needs **no extra sensor chip** — Android tells every app. A
+profile built on `headphonesout`, `powerin` and `screenon` works on any phone.
+`headphonesout` in particular is worth setting up before you play in public.
+
+`facedown` is the classic "stepping away" reading: bind it to `afk` and `faceup`
+to `afk off`. It waits for the phone to settle. A phone in your hand or pocket
+is neither face up nor face down, so neither fires there.
+
+**Phones differ, so ask yours.** `.sensor caps` says which chip provides each
+reading *on this device*, whether it is a fallback, and whether it works with the
+screen off. A reading your phone cannot measure is listed as unavailable with the
+reason — never offered as if it worked.
+
+`wave` and `cover` share proximity and are told apart by **how long your hand
+stays**: a quick pass is a wave, held a second is a cover.
+
+**`.sensor fire wave` runs the trigger without moving the phone.** Use it to
+check what you set up, or to test a profile on hardware you do not have — the
+trigger still works from a button even where the sensor is missing.
+
+### What these are actually for
+
+The useful cases are nothing like "shake your phone at the game." Every one is
+something that goes wrong while playing on a phone in public, and most are two
+taps. `.sensor examples` prints this list into the game window.
+
+**1. Your MUD stops shouting in public.** Bind `headphonesout` to a script that
+turns speech off when the jack catches on a bag strap.
+
+**2. Speech that only ever happens in your ears.** Not a sensor trigger — a
+*condition*. On any trigger that speaks, add Conditions → *The phone* →
+"Headphones are plugged in".
+
+**3. Someone talks to you and you put the phone down.** `.sensor facedown afk`
+and `.sensor faceup afk off`.
+
+**4. Alerts that know whether you are looking.** Condition "Screen is off" on
+bell/notification actions; "Screen is on" on the quiet on-screen ones.
+
+**5. A panic button you do not have to find.** `.sensor cover flee` — hand over
+the top of the screen, one-handed.
+
+**6. Nothing fires from inside a pocket.** Hardware readings (shake, wave,
+cover, light, pickup, …) are held back while the screen is off unless you turn
+on **Movement sensors with the screen off**. For belt and braces, add condition
+"Nothing is over the screen" on anything that sends a command.
+
+**7. The long session at a desk.** Condition "Phone is charging" on noisier
+alerts.
+
+### Gating a trigger on the phone
+
+Any trigger or timer can be gated on what the phone is doing — often more useful
+than a sensor trigger at all. Conditions → **The phone** fills in
+"Phone is face down", "Headphones are plugged in", "Phone is charging" without
+typing variable names.
+
+Behind the picker these are session variables (`device.*`). `.sensor state`
+lists every name, what it can hold, and whether this phone can tell:
+
+    device.facing      up | down | unknown   = up
+    device.screen      on | off              = on
+    device.headphones  yes | no              = no
+    device.charging    yes | no              = yes
+    device.battery     0 to 100              = 74
+    device.covered     yes | no              (not set — no proximity sensor)
+
+**Only while Options → Device → "Device state as variables" is on** (or after
+`.sensor watch on`). With it off, conditions on `device.*` are *false*. Values
+are text compared exactly — "battery below 30" needs Lua.
+
+### Where to find them: Options → Device → Sensors
+
+`.sensor facedown afk` is the quick way, but you should not have to remember it.
+**Options → Device → Sensors** lists every reading, which hardware provides it
+on this phone, and what triggers answer it. Tap a row to set up or edit; each
+row has a **Test** button.
+
+**More than one trigger can answer the same reading.** If `facedown` sends `afk`
+and a second trigger also fires on face down, **both run**. The Sensors screen
+says how many answer each reading; `.sensor facedown <command>` refuses to guess
+which one you meant when there is more than one.
+
+### When sensor triggers are allowed to fire
+
+Two settings in **Options → Device**, both **off by default**:
+
+- **Movement sensors with the screen off** — shake, wave, cover, light, and the
+  other hardware readings do nothing while the display is asleep.
+- **Movement sensors while the app is in the background** — the same while
+  another app is on top or BlowTorch is in Recents.
+
+**A sensor trigger is not aimed at one world.** It fires in **every world you
+have open**, including background connections. With two MUDs connected, one
+shake sends twice.
+
+Both settings cover **hardware** readings only — everything except headphone,
+charger and screen events (those are system broadcasts and keep working). Hushing
+speech when the jack comes out has to work with the screen off.
+
+**A warning about names.** Commands are looked up *after* your aliases, so an
+alias called `sensor` hides this command completely. If `.sensor` stops
+responding, check your alias list first.
+
+### Calibrating light
+
+**Options → Device → Calibrate light.** Stand somewhere as dark as the dark you
+care about and tap; stand somewhere bright and tap again. That is the whole
+screen.
+
+It has to be done rather than shipped, because lux readings are not comparable
+between phones — the sensor sits under different glass — and not between rooms
+either. On one Pixel 9a an unlit room read 0 and an ordinary lit room 150 to 350.
+Your "dark" might be a hallway light at night.
+
+The two thresholds are placed a quarter and three quarters of the way between
+your readings, so there is a **band in the middle that is neither dark nor
+bright**. That band is the point: with a single line, a room sitting on it would
+flip back and forth as a cloud went past, and every trigger gated on it would
+fire each time.
+
+The light sensor reports **only when the light changes**, so a still number on
+that screen is normal and not a fault. What it measures stays with this phone and
+is never exported with a profile. By hand: `.sensor threshold light 40 900`.
+
+Useful with it: `gotdark` bound to a command for walking into an unlit place, or
+the condition "It is dark around the phone" on a Speak action so the game only
+reads aloud at night. `device.light` holds `dark`, `dim` or `bright`.
+
+### Calibrating the shake
+
+**Options → Device → Calibrate shake.** Two short measurements: six seconds
+shaking the phone the way you would to flee a fight, then ten seconds walking
+about with it. The app picks a threshold under the first and over the second, and
+**refuses** when the two overlap — because a threshold that catches your shake and
+your walk is one that sends commands to the game from your pocket. If it refuses,
+shake harder or use `wave` instead, which has no such problem.
+
+What it measures stays with **this phone**. It is not written into the world
+profile, so exporting your settings for a friend does not hand them a threshold
+measured on your arm. By hand: `.sensor threshold shake 14.5`.
+
+Shaking needs a threshold, and how hard a shake is differs between phones and
+between people. The current one is a starting value measured on one device; if
+`shake` fires when you walk, or never fires at all, `.probe sensors shake 10`
+will tell you what your phone actually reports. `.probe sensors light 10` does
+the same for how bright the room is, in lux — run it in the dark, under a lamp
+and outdoors, and the three readings are what "dark" and "bright" should mean
+on your phone.
 
 ### `.search` forms
 
@@ -656,8 +1657,8 @@ in **Map** or `.map export` / `.map save` forces a write). With a path,
 or a maps-dir name, then copies it into `/BlowTorch/maps/`.
 
 Title bar shows a breadcrumb when you are on a nested floor, e.g.
-`map · L-1 ← Hallway` (map name · level · door you entered from). **[REC]** means
-recording is on. The title has **Browse | Edit** and **Float | Full** segments
+`[Edit] mymap · LCellar ← Hallway [REC]` (`[Browse]` or `[Edit]`, map name,
+level, door you entered from; `[REC]` when recording is on). The title has **Browse | Edit** and **Float | Full** segments
 (**Browse** / **Float** default). **Browse** is view/navigate only — no
 recording, Draw, Links, or tile edits. **Edit** is required to record, create
 nests, use **Draw** / **Links**, and delete levels. Long-press the title opens
@@ -716,15 +1717,18 @@ command (e.g. guessed `s` → your `go south`). Specials (`out`/`enter`) with
 **Follow** (without Record) advances Here along known exits so the map camera
 tracks you.
 
-Long-press a tile: **Path to here** (toast only) or **Go there** (toast + send
-commands so the character walks). Find dialog **Go** does the same.
+Long-press a tile: **Path to here** (sticky status + dialog: Copy / Go / OK) or
+**Go there** (status + send commands so the character walks). **Path to** and
+**Go there** need a selected tile (tap one first). Find dialog **Go** does the
+same.
 Long-press a tile and drag to move it on the grid (release without moving opens the
 tile menu). **Double-tap** a tile = **Set as Here**. Double-tap empty map = center on
 current.
 
 Exits with a known destination draw as **arrows** between tiles. In **spread**
 layout, walk-word labels sit on the shaft; in **packed**, only the shaft + heads
-(including diagonals). If more than two commands share an edge in spread mode,
+(including diagonals) — and **Arrow labels** in View only apply in **spread**.
+If more than two commands share an edge in spread mode,
 the label shows `cmd1 · cmd2 +N` — tap it for the full list.
 
 Badge glyphs on a tile:
@@ -802,7 +1806,7 @@ Print the summary with `.map dirs`.
     `.map opacity [40-100]`                                                 Overlay opacity
     `.map export` / `.map save`                                             Save now (`/BlowTorch/maps/`)
     `.map export|save <path>`                                               Write JSON to that path
-    `.map import <path|name>`                                               Import JSON (path or maps-dir name); copy into maps
+    `.map import <path|name>`                                               Import JSON (Edit mode; path or maps-dir name); copy into maps
     `.map zoom in|out|reset`                                                Zoom the open map UI
     `.map zoom <factor>`                                                    Zoom by scale factor (map UI must be open)
     `.map add [x y] [title] [here]`                                         Place a tile (optional title; `here` sets current)
@@ -835,8 +1839,9 @@ modules…), `Room.Info` builds the map as you walk:
 - **coords** / **coord** `{x,y,z}` → place on the grid (z → floor)
 - **exits** `{n:123,…}` → create/link neighbors (destination stubs by vnum)
 
-Does not delete exits absent from GMCP. Does **not** parse ASCII maps from
-game text — that is Capture regex / Record / Draw. Without GMCP (typical on
+Does not delete verified or hand-edited exits absent from GMCP; it may remove
+**guessed** exits that contradict the current Room exits list. Does **not** parse
+ASCII maps from game text — that is Capture regex / Record / Draw. Without GMCP (typical on
 many MOOs), use **Rec** while walking, **Edit** for **Draw** / **Links**,
 and/or `.map capture`.
 
@@ -844,7 +1849,8 @@ and/or `.map capture`.
 
 1. **Record while exploring:** `.map new mymap` → open map → **Edit** mode → **Nav → Record** → walk → Record off → **Map → Save**.
 2. **Draw by hand:** **Edit** mode → **Edit → Draw** → tap empty cells → **Link mode** → **Set Here** on your room.
-3. **Floors:** long-press a tile → **Add level…** → Floor ↑/↓ (new or existing) / Independent floor / Another map….
+3. **Floors:** **Edit** mode → long-press a tile → **Add level…** → Floor ↑/↓
+   (new or existing) / Independent floor / Another map….
 4. **Jump maps:** after linking, tap **○** on the tile (or walk the portal command with Follow on).
 5. **Fix layout:** long-press-drag a tile. Use **Edit → Spacing** (spread) to see arrow labels.
 
@@ -859,6 +1865,7 @@ letters are Speedwalk *keys*.
 ### `.keyboard` / `.kb`
 
     *(no args)*                Print help
+    `insert <text>`            Drop text into the input bar at the cursor, spaced
     `add` / `popup` + text     Set or append input; `popup` also shows the IME
     `flush`                    Send current input
     `close` / `clear`          Hide IME / clear text
@@ -871,6 +1878,12 @@ letters are Speedwalk *keys*.
     `stepu` / `stepd`          Command history (↑ older / ↓ newer), like keyboard arrows; within multiline text, move one line first
 
 Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
+
+**`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
+puts it where the cursor is and works out the spaces, so the bar never ends up
+reading `ktroll`. `insert` also does not expand aliases — the text goes in
+literally, which is what you want when the text is a name you pointed at. Its
+main use is a tappable word bound to `.kb insert $word`; see below.
 
 **Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
 
@@ -906,14 +1919,16 @@ Shows or hides the **Send** button (same as Options → Window → Show Send but
 ## Copy text from the game window
 
 - **First finger** — touch where selection should start (marks the start).
-- **Second finger** — tap to open the selection / copy widget.
+- **Second finger** — while holding the first, touch with a second finger to
+  open the selection / copy widget (if the second touch is elsewhere, the range
+  between the two fingers is selected immediately).
 - One-finger long-press alone does not open copy.
 - Drag the cursors, then use the widget’s copy control. On-screen buttons may hide while selecting so the widget stays usable.
 - The same two-finger gesture works in **extra text** windows (float/drawer).
 
 ## Font size
 
-New profiles start around font size **20** (readable on phones). Change under
+New profiles start at font size **20** (readable on phones). Change under
 Options → Window → Font Size.
 
 ## Newest text at top
@@ -969,8 +1984,9 @@ again. Offline Starter Tutorial keeps its own teaching pad.
 
 The pad lands just under the action bar, high enough that the soft keyboard
 cannot cover it — a pad anchored near the bottom of the screen disappears behind
-the keyboard the moment you type. Its accordion tiles (MORE, NAV, TIP, CAST,
-DOORS, CHAT) sit on the bottom row and open **downward** into the empty game
+the keyboard the moment you type. Accordion parents in the wizard packs use
+labels like **MORE**, **NAV**, **TIP**, **CAST**, **DOORS**, and **CHAT** — each
+pack puts its own on its bottom row, opening **downward** into the empty game
 area beneath it, so they never cover the compass rose above them.
 
 Named sizes are capped so the whole pad stays above the keyboard: Compass has
@@ -992,9 +2008,38 @@ The default `button_window` plugin supports more than tap:
 
 - **Swipe** — eight directions (up, down, left, right, and the four corners);
   each can run a different command (edit button → Swipe). Overrides classic Flip.
-  Drag roughly a finger-width off the tile.
+  Drag about **24dp** off the tile (~a finger-width on most phones).
 - **Hold** — optional command after press-and-hold.
 - **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
+
+### Copying buttons between sets
+
+Select the buttons you want (tap one, or tap several), tap one of them to open
+the menu, and choose **Copy**. They go to the system clipboard.
+
+To paste, either:
+
+- **long press an empty grid cell** in any set — the buttons land with the block's
+  top-left at that cell, keeping the shape they were copied in; or
+- open the editor settings sheet and press **Paste copied buttons**, which drops
+  them in the middle of the grid.
+
+A short tap on empty grid still makes a new button, exactly as before — only a
+long press pastes, and only when something has been copied.
+
+The copy carries each button's *own* settings and leaves inherited ones
+inherited, so buttons pasted into a set with different defaults take on that
+set's look rather than dragging the old set's factory values with them.
+
+### Copying a button set
+
+The button sets list gives each set four icons: load, edit, **copy**, delete.
+Copy duplicates the set — every button and the set's own defaults — as
+`<name> copy`, saved straight away, and the new set appears in the list without
+closing it. Copy it again and you get `<name> copy 2`.
+
+Useful for trying a rearrangement without losing the pad you already trust:
+copy, edit the copy, and switch between them with `.loadset`.
 
 ## Super-buttons (buttons on top of the keyboard)
 
@@ -1015,13 +2060,15 @@ The button keeps everything it already had — tap, hold, flip, all eight swipe
 directions, colours, size, `switchTo`. It can also be drawn as a circle, with
 an optional outline. **Very long press (~2 s)** picks it up and moves it; a
 normal hold (~0.45 s) still runs the Hold command. Where you drop it is
-remembered per world.
+remembered per world. Accordion children cannot be saved on a super-button —
+use a normal tile if you need an accordion.
 
 **Permission.** Android does not let an app draw on top of the keyboard without
-**"Display over other apps"**. BlowTorch asks the first time you tick the box,
-never at startup, and the button is saved either way. If you refuse, the button
-still exists but the keyboard covers it — which leaves the feature doing very
-little, so it is worth granting.
+**"Display over other apps"**. BlowTorch asks when you first save a super-button
+and the floating layer rebuilds without that permission — not at startup, and
+not merely from ticking the box if you have not saved yet. The button is saved
+either way. If you refuse, the button still exists but the keyboard covers it —
+which leaves the feature doing very little, so it is worth granting.
 
 **Android 9 and 10:** the client often cannot tell whether the keyboard is
 open, so **Show with keyboard** may never appear there. Android 11 and newer
@@ -1059,8 +2106,11 @@ window*, follows **Options → Window → Scroll sensitivity**, so that one cont
 still steers every extra window at once and a slot only breaks away when you
 set it to a specific speed. Changes apply straight away, with the window open.
 
-A slot keeps collecting text while it is closed, and shows what it missed when
-you open it again — up to the most recent 128 KB.
+A slot keeps collecting text while it is hidden (`.window hide` / ✕ on a float).
+The UI buffer holds up to about **512 KB** per slot; when you show it again you
+normally see what accumulated. A separate **128 KB** replay cap applies only
+when the window process re-registers after a UI restart — then only the newest
+128 KB of held history is replayed.
 
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
 like `Comm.*`). Routes need **Options → Service → GMCP → Use GMCP?** on.
@@ -1148,6 +2198,10 @@ captures, and a bare `$` in text is left alone. An **unset** variable is left
 written as-is rather than becoming empty — sending `kill` with no target is
 worse than sending something visibly wrong.
 
+The name inside `${…}` may contain only letters, digits, and `_`. Spaces,
+hyphens, and dots are not substituted in alias text (use conditions or Lua for
+names like `device.battery`).
+
 Variables are per session and are not saved.
 
 ### Switching alias sets by mode
@@ -1155,8 +2209,10 @@ Variables are per session and are not saved.
 `EnableAlias(name)` returns whether an alias is live; `EnableAlias(name, true|false)`
 turns it on or off. A disabled alias stops matching immediately.
 
-Call it from a trigger's script action and aliases become mode-dependent — a
-combat trigger can enable the combat aliases and switch off the travel ones:
+In Lua, `EnableAlias` only toggles aliases in **the plugin that runs the
+script**. For aliases in the main profile, use `.alias on|off <name>` — from the
+input bar or an **Ack With** action (e.g. `.alias on kk`). Example for a
+**plugin** alias set:
 
 ```lua
 EnableAlias("kk", true)
@@ -1166,8 +2222,9 @@ EnableAlias("travel_home", false)
 Triggers and timers go further: both carry **conditions** (trigger/alias on or
 off, alias replacement equals, variable equals/exists, combined with and/or)
 that decide whether they fire at all, edited in their own editors. Aliases
-themselves have no conditions — use `EnableAlias` to turn an alias on or off;
-a trigger condition can *read* that on/off state or the alias **With** text.
+themselves have no conditions — use `EnableAlias` or `.alias` to turn an alias
+on or off; a trigger condition can *read* that on/off state or the alias
+**With** text.
 
 ## GMCP (short)
 
@@ -1189,7 +2246,7 @@ Helpers:
 .gmcp renegotiate     — re-send Hello + Supports.Set
 .gmcp status          — flags
 .gmcp sniff [on|off]  — log handshake/packets to logs/gmcp.log
-.gmcp sniff tail [N]  — last N GMCP lines in-game (0–100, default 40)
+.gmcp sniff tail [N]  — last N lines from gmcp.log in-game (0–100, default 40)
 .gmcp feed [on|off]   — live IN/OUT GMCP in the mud window
 .gmcp version         — client hello / syntax notes
 .gmcp supports […]   — show or set supports modules
@@ -1299,8 +2356,16 @@ your own commands are printed into the game window at all.
 ### `button_window` (default Free build)
 
     `.loadset <name>`   Load named button set
-    `.clearbuttons`     Clear via button window
+    `.clearbuttons`     Hide every button for a clear view of the game
     `.layoutwizard`     Open the button layout wizard (packs, set names, size)
+
+**Getting the buttons back after `.clearbuttons`.** One button labelled **BACK**
+is left behind — tap it and the whole set returns. While the set is hidden, a
+tap on **BACK** (or any visible button) restores the set instead of sending
+that button's command, so a stray tap cannot fire something you did not mean.
+The set also comes back by itself when you switch to another world or reopen the
+app; nothing is lost either way, and the layout editor is off while the buttons
+are hidden.
 
 ### `starter_tutorial` (loaded by default)
 
@@ -1308,9 +2373,10 @@ your own commands are printed into the game window at all.
 
 On the default button set, tap **HELP** to run `.tutorial start`. The launcher
 lists a built-in **Starter Tutorial** row first (offline — no MUD). Disable the
-welcome note on normal MUDs via **Options → Starter Tutorial → Show on connect**,
-or type `.tutorial done`. You can also toggle `starter_tutorial` off under
-**Plugins**, which keeps it loaded but silent. It ships with the app and
+welcome note on normal MUDs via **Options → Starter Tutorial → Show welcome on
+connect**, or type `.tutorial done`. You can also toggle `starter_tutorial` off
+under **Plugins** — it stays loaded, but `.tutorial` commands stop until you
+re-enable it (and welcome-on-connect stops too). It ships with the app and
 **cannot be deleted** — like `button_window` and `connection_settings`, the
 Plugins screen refuses to remove it.
 
@@ -1318,9 +2384,9 @@ Plugins screen refuses to remove it.
 
 In order, as the menu builds them (all under ⋮):
 
-1. **Aliases** / **Triggers** / **Timers** / **Options** — the editors
-2. **Button Sets** — switch saved sets (`button_window`; the pack/size wizard
+1. **Button Sets** — switch saved sets (`button_window`; the pack/size wizard
    is **Options → Button → Load button set from wizard**)
+2. **Aliases** / **Triggers** / **Timers** / **Options** — the editors
 3. **Edit buttons** — enter button layout edit mode
 4. **Speedwalk Directions** — the direction letters `.run` uses
 5. **Map** — open the built-in mapper (same as `.map open`)

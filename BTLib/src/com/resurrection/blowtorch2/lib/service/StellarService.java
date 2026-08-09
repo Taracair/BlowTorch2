@@ -74,6 +74,17 @@ public class StellarService extends Service {
 	/** How often to refresh connection-duration on the foreground notification. */
 	private static final int DURATION_REFRESH_MS = 30000;
 	private static final int MESSAGE_REFRESH_DURATION = 100;
+	/** Coalesced "the foreground activity should re-read its options". */
+	private static final int MESSAGE_ASK_LOADSETTINGS = 101;
+	/**
+	 * How long a re-read request waits for the ones behind it.
+	 *
+	 * <p>Short enough that a setting the player just changed still applies while
+	 * their finger is on the screen, long enough to swallow a burst: the bursts
+	 * measured were a key every few milliseconds, all inside 2 s of each other
+	 * only because each broadcast was being paid for in full.
+	 */
+	private static final int ASK_LOADSETTINGS_COALESCE_MS = 60;
 	/** The starting value for the notification id counter. */
 	private static final int NOTIFICATION_START_VALUE = 100;
 	/** Jedyne ID powiadomienia foreground (ongoing). */
@@ -269,6 +280,9 @@ public class StellarService extends Service {
 					}
 				}
 				break;
+			case MESSAGE_ASK_LOADSETTINGS:
+				doBroadcastLoadSettings();
+				break;
 			case MESSAGE_REFRESH_DURATION:
 				refreshConnectedNotificationDuration();
 				break;
@@ -277,6 +291,7 @@ public class StellarService extends Service {
 				String display = b.getString("DISPLAY");
 				String host = b.getString("HOST");
 				int port = b.getInt("PORT");
+				boolean useTls = b.getBoolean("TLS", false);
 				
 				Connection c = mConnections.get(display);
 				if (c == null) {
@@ -297,7 +312,7 @@ public class StellarService extends Service {
 					// the map is non-empty and the lookup misses instead.
 					// Crashed here 31 July 2026, 14:44 (getWindowTokens from
 					// MainWindow.onServiceConnected).
-					c = new Connection(display, host, port, StellarService.this);
+					c = new Connection(display, host, port, useTls, StellarService.this);
 					mConnections.put(display, c);
 					mConnectionClutch = display;
 					c.initWindows();
@@ -313,9 +328,110 @@ public class StellarService extends Service {
 		}
 	}
 	
+	/**
+	 * Watches the phone itself for the worlds that asked for it. One per
+	 * process, because the phone is one phone however many worlds are open;
+	 * created on first use and holding nothing while every world has the
+	 * setting off.
+	 */
+	private com.resurrection.blowtorch2.lib.service.sensor.DeviceStateWatcher mDeviceState;
+
+	/**
+	 * Start or stop watching the device, to match what the open worlds want.
+	 *
+	 * <p>Called when a world's settings are loaded and when the setting itself
+	 * changes, so turning it off releases the proximity sensor there and then.
+	 */
+	/**
+	 * Pick up or release sensors to match what the worlds now want, without
+	 * pushing state.
+	 *
+	 * <p>Called from {@code buildTriggerSystem}, which is the one place every
+	 * way of adding, editing, deleting or toggling a trigger goes through — the
+	 * editor, {@code .sensor}, {@code .trigger} and the Lua functions alike. A
+	 * gesture built in the editor has to start listening when Done is tapped,
+	 * not at the next settings load.
+	 */
+	public final synchronized void refreshDeviceSensors() {
+		if (mDeviceState == null) {
+			refreshDeviceState();
+			return;
+		}
+		mDeviceState.refresh();
+	}
+
+	public final synchronized void refreshDeviceState() {
+		if (mDeviceState == null) {
+			mDeviceState = new com.resurrection.blowtorch2.lib.service.sensor.DeviceStateWatcher(
+					getApplicationContext(),
+					new com.resurrection.blowtorch2.lib.service.sensor.DeviceStateWatcher.Audience() {
+						@Override
+						public Iterable<Connection> listeners() {
+							java.util.ArrayList<Connection> wanting =
+									new java.util.ArrayList<Connection>();
+							if (mConnections != null) {
+								for (Connection c : mConnections.values()) {
+									if (c != null && c.isDeviceStateVariables()) {
+										wanting.add(c);
+									}
+								}
+							}
+							return wanting;
+						}
+
+						@Override
+						public Iterable<Connection> gestureListeners() {
+							// Every live world, whatever the device.* setting says:
+							// a gesture trigger is a thing the player made on
+							// purpose, and it should not need a second switch
+							// somewhere else to work.
+							java.util.ArrayList<Connection> live =
+									new java.util.ArrayList<Connection>();
+							if (mConnections != null) {
+								for (Connection c : mConnections.values()) {
+									if (c != null) {
+										live.add(c);
+									}
+								}
+							}
+							return live;
+						}
+					});
+		}
+		mDeviceState.refresh();
+		// A world that has just loaded its settings has an empty variable store,
+		// and the phone did not change state to mark the occasion. Without this
+		// push, device.* would be right only after the next time something was
+		// plugged in.
+		mDeviceState.push();
+	}
+
+	/** Put a freshly calibrated threshold to work without waiting for anything. */
+	public final synchronized void retuneDeviceSensors() {
+		if (mDeviceState != null) {
+			mDeviceState.retune();
+		}
+	}
+
+	/** The reading behind {@code .probe sensors state}, or a hint when off. */
+	public final synchronized String deviceStateReport() {
+		if (mDeviceState == null) {
+			return "\nDevice state is not being watched. Turn on \"Device state as\n"
+					+ "variables\" in Settings for this world.\n";
+		}
+		return mDeviceState.report();
+	}
+
 	/** Implementation of the Service.onDestroy() method. */
 	public final void onDestroy() {
+		if (mDeviceState != null) {
+			mDeviceState.stopWatching();
+		}
 		doShutdown();
+		// TextToSpeech is a bound service of its own, opened lazily the first
+		// time a trigger speaks. Leaving it bound as this process goes away is
+		// a leak the system notices.
+		com.resurrection.blowtorch2.lib.util.SpeechEngine.release();
 		super.onDestroy();
 	}
 
@@ -325,6 +441,10 @@ public class StellarService extends Service {
 	 */
 	@Override
 	public void onTaskRemoved(final Intent rootIntent) {
+		// The window went with the task. Saying so here matters for the gesture
+		// gate: onPause does not always arrive when a task is swiped away, and a
+		// stale "showing" would let a shake in a pocket through.
+		setWindowShowing(false);
 		if (mConnections != null) {
 			for (Connection c : mConnections.values()) {
 				if (c != null) {
@@ -570,6 +690,26 @@ public class StellarService extends Service {
 	}
 	
 	/** The implementation of the bell vibrator. Connections will call this. */
+	/**
+	 * The TLS answer for a world, for Intents built from a display name alone.
+	 *
+	 * <p>Every Intent that names HOST must name this too. MainWindow falls back
+	 * to a stored preference when an Intent is silent, and with two worlds open
+	 * that preference belongs to whichever was opened last — so a notification
+	 * for the plain world could otherwise hand it the encrypted world's answer.
+	 *
+	 * @param display The connection's display name.
+	 * @return True when that connection uses TLS; false when it is unknown,
+	 *         which matches what a world with no setting has always done.
+	 */
+	private boolean tlsFor(final String display) {
+		if (display == null || mConnections == null) {
+			return false;
+		}
+		Connection c = mConnections.get(display);
+		return c != null && c.isUseTls();
+	}
+
 	public final void doVibrateBell() {
 		Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         vibrator.vibrate(SHORT_DURATION);
@@ -599,6 +739,7 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("DISPLAY", display);
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
+		notificationIntent.putExtra("TLS", tlsFor(display));
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 	
 		PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, activityPendingIntentFlags());
@@ -753,6 +894,7 @@ public class StellarService extends Service {
 		notificationIntent.putExtra("DISPLAY", display);
 		notificationIntent.putExtra("HOST", host);
 		notificationIntent.putExtra("PORT", Integer.toString(port));
+		notificationIntent.putExtra("TLS", tlsFor(display));
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 		int id = getNotificationId();
 		PendingIntent contentIntent = PendingIntent.getActivity(this, id, notificationIntent, activityPendingIntentFlags());
@@ -816,6 +958,7 @@ public class StellarService extends Service {
 			notificationIntent.putExtra("DISPLAY", active.getDisplay());
 			notificationIntent.putExtra("HOST", active.getHost());
 			notificationIntent.putExtra("PORT", Integer.toString(active.getPort()));
+			notificationIntent.putExtra("TLS", active.isUseTls());
 		}
 		notificationIntent.setPackage(getPackageName());
 		notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -1274,6 +1417,93 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 	
+	/**
+	 * Put a word into the input bar without sending anything. The spacing is
+	 * decided on the far side, where the current text lives.
+	 *
+	 * @param word The text to insert.
+	 */
+	public final void doInputBarInsertWord(final String word) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).inputBarInsertWord(word);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doInputBarInsertWord", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Hand incoming text to the UI's word completer.
+	 *
+	 * @param text the stripped incoming chunk.
+	 */
+	public final void doVocabularyText(final String text) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).vocabularyText(text);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doVocabularyText", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/** Tell the UI to forget the vocabulary it has learned. */
+	public final void doVocabularyReset() {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).vocabularyReset();
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doVocabularyReset", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Take the n-th completion off the strip.
+	 *
+	 * @param index counting from 1, as the strip labels them.
+	 */
+	public final void doPickCompletion(final int index) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).pickCompletion(index);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doPickCompletion", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Put the world's prompt on the prompt bar.
+	 *
+	 * @param text the prompt, ANSI already stripped.
+	 */
+	public final void doPromptLine(final String text) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).promptLine(text);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doPromptLine", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	public final void doInputBarSelectAll() {
 		broadcastInputBarAction(1);
 	}
@@ -1685,8 +1915,44 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
-	/** Ask the foreground activity to re-read connection options (e.g. floating buttons). */
+	/**
+	 * Ask the foreground activity to re-read connection options (e.g. floating
+	 * buttons), coalescing the requests that arrive together.
+	 *
+	 * <p><b>Measured, 8 August, entering a world on the phone.</b> Loading a
+	 * profile ends in {@code Connection.initSetting}, which walks the whole
+	 * settings tree and calls {@code updateSetting} for every key; twelve of
+	 * those keys ask for this broadcast. The UI answered each one by calling
+	 * {@code getSettings} and applying everything again — {@code setupEditor},
+	 * {@code imm.restartInput}, the suggestion bar, the extra-text overlays.
+	 * Twelve passes at ~160 ms each: <b>1.9 s of solid main-thread work</b> right
+	 * after the game window appeared, logged as {@code Skipped 192 frames}.
+	 *
+	 * <p>The parcel was never the problem — {@code getSettings} measured 7-11 ms.
+	 * Applying the same settings twelve times was.
+	 *
+	 * <p><b>Why coalescing cannot lose a change, which is the question worth
+	 * asking:</b> this carries no payload. It says "re-read", and the reader
+	 * reads the whole tree from the service's live state. Twelve of them and one
+	 * of them therefore end in the same place, as long as the one lands after the
+	 * last change — which a delayed message on this handler does, because every
+	 * {@code updateSetting} has already written its value into that state before
+	 * asking. What a player can notice is a setting applying up to
+	 * {@link #ASK_LOADSETTINGS_COALESCE_MS} later than it used to.
+	 */
 	public final void doExecuteRequestLoadSettings() {
+		if (mHandler == null) {
+			// Before onCreate finished. Nothing has registered a callback yet
+			// either, so the broadcast below would reach nobody.
+			return;
+		}
+		mHandler.removeMessages(MESSAGE_ASK_LOADSETTINGS);
+		mHandler.sendEmptyMessageDelayed(MESSAGE_ASK_LOADSETTINGS,
+				ASK_LOADSETTINGS_COALESCE_MS);
+	}
+
+	/** The broadcast itself, once the burst has stopped arriving. */
+	private void doBroadcastLoadSettings() {
 		int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {

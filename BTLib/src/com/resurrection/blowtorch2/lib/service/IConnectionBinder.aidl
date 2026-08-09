@@ -30,7 +30,7 @@ interface IConnectionBinder {
 	// ---- session / connection lifecycle ----
 	List getConnections();
 	void switchTo(String display);
-	void registerCallback(IConnectionBinderCallback c,String host,int port,String display);
+	void registerCallback(IConnectionBinderCallback c,String host,int port,boolean useTls,String display);
 	void unregisterCallback(IConnectionBinderCallback c);
 	void registerLauncherCallback(ILauncherCallback launcher);
 	void unregisterLauncherCallback(ILauncherCallback launcher);
@@ -41,7 +41,14 @@ interface IConnectionBinder {
 	boolean isConnectedTo(String display);
 	void sendData(in byte[] seq);
 	void saveSettings();
-	void setConnectionData(String host,int port,String display);
+	/**
+	 * useTls travels with host and port because it is part of which endpoint
+	 * this is, not a preference applied afterwards: the service builds the
+	 * socket and has no other way to learn it. A world reconnecting without it
+	 * would silently drop to plain text, which is why it is a parameter here
+	 * rather than something looked up later.
+	 */
+	void setConnectionData(String host,int port,boolean useTls,String display);
 	List getSystemCommands();
 	// ---- aliases ----
 	AliasData getAlias(String key);
@@ -139,6 +146,9 @@ interface IConnectionBinder {
 	void updateWindowBufferMaxValue(String plugin,String window,int amount);
 	void closeConnection(String display);
 	void windowShowing(boolean show);
+	// oneway: sent as the input bar fills and empties, and the UI must never
+	// wait on :stellar for something that only silences an alert.
+	oneway void setPlayerTyping(boolean typing);
 	void dispatchLuaError(String message);
 	void addLink(String path);
 	void deletePlugin(String plugin);

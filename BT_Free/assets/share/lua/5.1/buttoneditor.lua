@@ -76,6 +76,9 @@ local swipeDownRightCmdEdit
 -- several buttons at once) and would otherwise read back as unchecked.
 gestureLabelCb = nil
 gestureLabelCarried = true
+-- Same reasoning, same pair, for the per-button "show hints on this button".
+gestureHintsCb = nil
+gestureHintsCarried = true
 -- Values as they were when the dialog opened. Used when the matching field is
 -- disabled (editing several buttons at once), so saving does not blank out
 -- diagonal commands the fields were never allowed to show.
@@ -321,6 +324,7 @@ function showEditorDialog(editorValues,numediting)
 	swipeDownLeftCmdEdit = w.swipeDownLeftCmdEdit
 	swipeDownRightCmdEdit = w.swipeDownRightCmdEdit
 	gestureLabelCb = w.gestureLabelCb
+	gestureHintsCb = w.gestureHintsCb
 	accordionDirSpinner = w.accordionDirSpinner
 	accordionLayoutSpinner = w.accordionLayoutSpinner
 	accordionTriggerSpinner = w.accordionTriggerSpinner
@@ -329,6 +333,7 @@ function showEditorDialog(editorValues,numediting)
 	accordionChildLabelEdits = w.accordionChildLabelEdits
 	accordionChildCmdEdits = w.accordionChildCmdEdits
 	if tabState.gestureLabelCarried ~= nil then gestureLabelCarried = tabState.gestureLabelCarried end
+	if tabState.gestureHintsCarried ~= nil then gestureHintsCarried = tabState.gestureHintsCarried end
 	if tabState.carriedDiagonalSwipes ~= nil then carriedDiagonalSwipes = tabState.carriedDiagonalSwipes end
 
 	local tabOthers = host:newTabSpec("tab_others_btn_tab")
@@ -491,6 +496,11 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       d.showGestureLabel = gestureLabelCb:isChecked()
     else
       d.showGestureLabel = gestureLabelCarried
+    end
+    if gestureHintsCb ~= nil and gestureHintsCb:isEnabled() then
+      d.showGestureHints = gestureHintsCb:isChecked()
+    else
+      d.showGestureHints = gestureHintsCarried
     end
 
     local tmp = advancedEditor.getEditorValues()

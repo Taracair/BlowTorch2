@@ -163,6 +163,25 @@ F-Droid updates you already. Test builds never check, whatever the setting says.
 | All files access | No — only to see `/BlowTorch/` in a file manager |
 | Display over other apps | No — only if you float a button over the soft keyboard |
 
+**Speaking out loud.** A trigger or a timer can read a line aloud (the **Speak
+Out Loud** action). That is not a permission — it uses the phone's own speech
+engine, so BlowTorch carries no voices and gains no ability to listen to
+anything. What it does need is one line in the manifest declaring that it wants
+to talk to a speech engine at all:
+
+```xml
+<queries>
+    <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
+</queries>
+```
+
+Since Android 11 an app cannot even see a package it has not declared an
+interest in, so without that the engine is invisible and speech fails with
+nothing in the log but a line from the package manager. It grants no access to
+your data and none to the microphone — this is output only. If nothing is
+spoken, the **?** button in the Speak action's editor walks through what to
+check and opens Android's own text-to-speech settings, where voices live.
+
 Two things worth knowing: account notes on launcher rows are stored as plain
 text on the device, so leave them blank if you would rather not keep passwords
 there; and Lua plugins run with the app's privileges, exactly as in classic, so

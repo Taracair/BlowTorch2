@@ -115,12 +115,8 @@ public class BetterSpeedWalkConfigurationDialog extends StandardSelectionDialog 
 
 	@Override
 	public void onDonePressed(View v) {
-		try {
-			service.saveSettings();
-		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		// Off the UI thread; saveList() has already handed the directions over.
+		com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 	}
 
 	@Override

@@ -47,6 +47,45 @@ public final class TimerResponderListeners {
 			}
 		});
 
+		// Timers read their own XML, through this class rather than through
+		// TriggerParser — so a responder type added for triggers is written to
+		// the file by a timer and then dropped on the way back in unless it is
+		// listed here too. scripts/check.sh does not cover this path; it guards
+		// the parcel, which is a different road.
+		timer.getChild(BasePluginParser.TAG_SPEAKRESPONDER).setStartElementListener(new StartElementListener() {
+			@Override
+			public void start(Attributes a) {
+				com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder r =
+						new com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder();
+				r.setMessage(a.getValue("", BasePluginParser.ATTR_SPEAKMESSAGE));
+				r.setInterrupt(Boolean.parseBoolean(
+						a.getValue("", BasePluginParser.ATTR_SPEAKINTERRUPT)));
+				String speakWarn = a.getValue("", BasePluginParser.ATTR_SOUNDWARN);
+				r.setWarnWhenSilent(speakWarn == null || !speakWarn.equalsIgnoreCase("false"));
+				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
+				currentTimer.getResponders().add(r.copy());
+			}
+		});
+
+		timer.getChild(BasePluginParser.TAG_SOUNDRESPONDER).setStartElementListener(new StartElementListener() {
+			@Override
+			public void start(Attributes a) {
+				com.resurrection.blowtorch2.lib.responder.sound.SoundResponder r =
+						new com.resurrection.blowtorch2.lib.responder.sound.SoundResponder();
+				r.setSoundPath(a.getValue("", BasePluginParser.ATTR_SOUNDPATH));
+				r.setMinGapMs(intOr(a.getValue("", BasePluginParser.ATTR_SOUNDGAP),
+						com.resurrection.blowtorch2.lib.responder.sound.SoundResponder
+							.DEFAULT_MIN_GAP_MS));
+				r.setVolumePercent(intOr(a.getValue("", BasePluginParser.ATTR_SOUNDVOLUME),
+						com.resurrection.blowtorch2.lib.responder.sound.SoundResponder
+							.DEFAULT_VOLUME_PERCENT));
+				String warn = a.getValue("", BasePluginParser.ATTR_SOUNDWARN);
+				r.setWarnWhenSilent(warn == null || !warn.equalsIgnoreCase("false"));
+				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
+				currentTimer.getResponders().add(r.copy());
+			}
+		});
+
 		timer.getChild(BasePluginParser.TAG_NOTIFICATIONRESPONDER).setStartElementListener(new StartElementListener() {
 			@Override
 			public void start(Attributes a) {
@@ -125,6 +164,18 @@ public final class TimerResponderListeners {
 			}
 		});
 
+	}
+
+	/** A number from the file, or the default when it is missing or nonsense. */
+	private static int intOr(final String raw, final int fallback) {
+		if (raw == null || raw.length() == 0) {
+			return fallback;
+		}
+		try {
+			return Integer.parseInt(raw.trim());
+		} catch (NumberFormatException e) {
+			return fallback;
+		}
 	}
 
 	private static FIRE_WHEN parseFireType(String fireType) {

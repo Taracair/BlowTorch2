@@ -41,6 +41,9 @@ public class LauncherSettings {
 				if (item.isOffline()) {
 					out.attribute("", BaseParser.ATTR_OFFLINE, "true");
 				}
+				if (item.isUseTls()) {
+					out.attribute("", BaseParser.ATTR_TLS, "true");
+				}
 				if (item.getAccounts() != null) {
 					for (ServerAccount account : item.getAccounts()) {
 						if (account == null || account.isEmpty()) {

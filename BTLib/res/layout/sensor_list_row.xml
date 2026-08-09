@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  One reading in the Sensors list.
+
+  Built like editor_selection_list_row: name on top, one line under it, the
+  control centred on the right, the same colours and the same row selector.
+
+  One control, and it says Test on it. A play glyph on its own was not read as
+  a Test button, and the pencil beside it only did what tapping the row already
+  does. The left edge lights up where something answers the reading, which is
+  the one thing this list is scanned for.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:orientation="vertical">
+
+	<RelativeLayout
+		android:id="@+id/row"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:minHeight="52dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="6dip"
+		android:paddingRight="6dip"
+		android:background="@drawable/editor_row_selector">
+
+		<View
+			android:id="@+id/accent"
+			android:layout_width="3dip"
+			android:layout_height="match_parent"
+			android:layout_alignParentLeft="true"
+			android:layout_alignParentTop="true"
+			android:layout_alignParentBottom="true"
+			android:background="#00000000"/>
+
+		<LinearLayout
+			android:id="@+id/toolbarholder"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_alignParentTop="true"
+			android:layout_alignParentBottom="true"
+			android:layout_alignParentRight="true"
+			android:gravity="center_vertical|right"
+			android:orientation="horizontal"
+			android:paddingLeft="6dip">
+
+			<Button
+				android:id="@+id/test"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:minWidth="72dip"
+				android:minHeight="40dip"
+				android:paddingLeft="10dip"
+				android:paddingRight="10dip"
+				android:drawableLeft="@drawable/ic_row_play"
+				android:drawablePadding="2dip"
+				android:background="@drawable/editor_more_button_bg"
+				android:textColor="#FFC7CDD4"
+				android:textSize="13dip"
+				android:textAllCaps="false"
+				android:focusable="false"
+				android:focusableInTouchMode="false"
+				android:text="Test"/>
+		</LinearLayout>
+
+		<TextView
+			android:id="@+id/label"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_alignParentTop="true"
+			android:layout_toRightOf="@id/accent"
+			android:layout_toLeftOf="@id/toolbarholder"
+			android:layout_marginLeft="10dip"
+			android:focusable="false"
+			android:focusableInTouchMode="false"
+			android:textColor="#FFF2F4F6"
+			android:textSize="16dip"
+			android:textStyle="bold"
+			android:lines="1"
+			android:ellipsize="end"
+			android:text="Shake the phone"/>
+
+		<TextView
+			android:id="@+id/status"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_below="@id/label"
+			android:layout_toRightOf="@id/accent"
+			android:layout_toLeftOf="@id/toolbarholder"
+			android:layout_marginLeft="10dip"
+			android:paddingTop="1dip"
+			android:paddingRight="6dip"
+			android:focusable="false"
+			android:focusableInTouchMode="false"
+			android:textColor="#FF9AA3AD"
+			android:textSize="12dip"
+			android:maxLines="2"
+			android:ellipsize="end"
+			android:text="Not set up"/>
+	</RelativeLayout>
+
+	<View
+		android:layout_width="match_parent"
+		android:layout_height="1dip"
+		android:background="#FF23262B"/>
+</LinearLayout>

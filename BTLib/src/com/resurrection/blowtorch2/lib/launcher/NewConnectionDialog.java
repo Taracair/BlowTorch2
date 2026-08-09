@@ -88,6 +88,12 @@ public class NewConnectionDialog extends Dialog {
 			host_input.setText(m_host);
 			port_input.setText(Integer.toString(m_port));
 
+			android.widget.CheckBox tls_input =
+					(android.widget.CheckBox) findViewById(R.id.tlsinput);
+			if (tls_input != null && m_prev != null) {
+				tls_input.setChecked(m_prev.isUseTls());
+			}
+
 			ArrayList<ServerAccount> existing = m_prev.getAccounts();
 			if (existing != null && !existing.isEmpty()) {
 				ServerAccount primary = existing.get(0);
@@ -385,11 +391,16 @@ public class NewConnectionDialog extends Dialog {
 				return;
 			}
 
+			android.widget.CheckBox tls =
+					(android.widget.CheckBox) findViewById(R.id.tlsinput);
+			boolean useTls = tls != null && tls.isChecked();
+
 			if(isEditor) {
 				MudConnection m = m_prev.copy();
 				m.setDisplayName(disp.getText().toString());
 				m.setHostName(host.getText().toString());
 				m.setPortString(port.getText().toString());
+				m.setUseTls(useTls);
 				applyAccounts(m);
 
 				reportto.modify(m_prev,m);
@@ -398,6 +409,7 @@ public class NewConnectionDialog extends Dialog {
 				m.setDisplayName(disp.getText().toString());
 				m.setHostName(host.getText().toString());
 				m.setPortString(port.getText().toString());
+				m.setUseTls(useTls);
 				applyAccounts(m);
 				reportto.ready(m);
 			}

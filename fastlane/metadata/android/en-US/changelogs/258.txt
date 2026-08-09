@@ -1,0 +1,4 @@
+BlowTorch 2 v2.3.0
+• Suggestions (.suggest), prompt bar (.prompt), sensors (.sensor), sounds/TTS
+• TLS; #N repeat; multi-line triggers; button copy/paste/rename; .kb insert
+• Resume jump / Keep Last / gag tail / enter-world stutter / button editor fixes

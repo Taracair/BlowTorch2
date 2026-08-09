@@ -21,6 +21,12 @@ import java.nio.ByteBuffer;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
+import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -81,6 +87,8 @@ public class DataPumper extends Thread {
 	private int mPort;
 	/** Holder for the actual socket used to communicate with. */
 	private Socket mSocket = null;
+	/** Connect over TLS. Set once at construction from the world's setting. */
+	private boolean mUseTls = false;
 	/** Tracker for MCCP Corruption. */
 	private boolean mCorrupted = false;
 	/** Tracker for the intention of corrupting the mccp stream. */
@@ -100,11 +108,14 @@ public class DataPumper extends Thread {
 	 * 
 	 * @param host Host name for the connection.
 	 * @param port Port number to use.
+	 * @param useTls True to put TLS on the socket before anything reads it.
 	 * @param useme Handler to report to when interesting things happen.
 	 */
-	public DataPumper(final String host, final int port, final Handler useme) {
+	public DataPumper(final String host, final int port, final boolean useTls,
+			final Handler useme) {
 		this.mHost = host;
 		this.mPort = port;
+		this.mUseTls = useTls;
 		mReportTo = useme;
 	}
 	
@@ -217,6 +228,22 @@ public class DataPumper extends Thread {
 			mSocket.setKeepAlive(true);
 			mSocket.setSoTimeout(0);
 			mSocket.connect(adr, SOCKET_TIMEOUT);
+			if (mUseTls) {
+				// Wrap the socket that is already connected rather than asking
+				// the factory to dial: this keeps SOCKET_TIMEOUT governing the
+				// TCP connect, which createSocket(host, port) would not.
+				//
+				// TLS goes on here, under everything else. MCCP inflates bytes
+				// this class reads out of the socket's stream further down, so
+				// the layering the protocols need — socket, then TLS, then
+				// decompression — falls out of doing this before mReader is
+				// built, and nothing in the MCCP path has to know.
+				Socket secured = startTls(mSocket);
+				if (secured == null) {
+					return;
+				}
+				mSocket = secured;
+			}
 			sendWarning(Colorizer.getBrightCyanColor() + "Connected to: " + Colorizer.getBrightYellowColor() + mHost + Colorizer.getBrightCyanColor() + "!" + Colorizer.getWhiteColor() + "\n");
 			
 			mSocket.setSendBufferSize(SOCKET_BUFFER_SIZE);
@@ -239,6 +266,72 @@ public class DataPumper extends Thread {
 		}
 	}
 	
+	/**
+	 * Put TLS on an already-connected socket, or explain why not.
+	 *
+	 * <p><b>Certificates are checked, including the host name.</b> A plain
+	 * {@code SSLSocket} on Android validates the chain but <i>not</i> that the
+	 * certificate belongs to the host you dialled — without the endpoint
+	 * identification algorithm below, anyone holding any valid certificate can
+	 * sit in the middle and the connection still looks encrypted. That would be
+	 * decoration rather than security, so it is switched on explicitly.
+	 *
+	 * <p>Self-signed certificates are therefore refused, which some MUDs use.
+	 * That is the deliberate first version: refusing is honest and the failure
+	 * says what happened. Accepting them safely needs a remembered fingerprint
+	 * and a dialog, and that is a bigger thing than a checkbox.
+	 *
+	 * @param plain the connected TCP socket to wrap.
+	 * @return the TLS socket, or null when the handshake failed — in which case
+	 *         the player has already been told and the caller must give up.
+	 */
+	private Socket startTls(final Socket plain) {
+		try {
+			SSLSocketFactory factory = (SSLSocketFactory) SSLSocketFactory.getDefault();
+			// autoClose true: closing the TLS socket must close the TCP one under
+			// it, or killNetThreads leaves the connection half-shut.
+			SSLSocket tls = (SSLSocket) factory.createSocket(plain, mHost, mPort, true);
+			SSLParameters params = tls.getSSLParameters();
+			params.setEndpointIdentificationAlgorithm("HTTPS");
+			tls.setSSLParameters(params);
+			tls.setUseClientMode(true);
+			tls.startHandshake();
+			SSLSession session = tls.getSession();
+			sendWarning(Colorizer.getBrightCyanColor() + "TLS: "
+					+ Colorizer.getBrightYellowColor() + session.getProtocol()
+					+ Colorizer.getBrightCyanColor() + ", cipher "
+					+ Colorizer.getBrightYellowColor() + session.getCipherSuite()
+					+ Colorizer.getWhiteColor() + "\n");
+			return tls;
+		} catch (SSLHandshakeException e) {
+			// The common one, and the one worth explaining: an expired,
+			// self-signed or wrong-host certificate all land here, and "I/O
+			// error" would send the player looking at their network.
+			closeQuietly(plain);
+			dispatchDialog("TLS failed: the server's certificate was not accepted.\n\n"
+					+ e.getMessage()
+					+ "\n\nA self-signed certificate will always fail here. If the"
+					+ " world does not offer a real certificate, turn TLS off for"
+					+ " it — the port is probably a plain one.");
+			return null;
+		} catch (IOException e) {
+			closeQuietly(plain);
+			dispatchDialog("TLS failed: " + e.getMessage());
+			return null;
+		}
+	}
+
+	/** Closing a socket we are already abandoning must not mask the real error. */
+	private void closeQuietly(final Socket s) {
+		try {
+			if (s != null) {
+				s.close();
+			}
+		} catch (IOException ignored) {
+			// Nothing useful to do: the caller is reporting a worse failure.
+		}
+	}
+
 	/** Quick little helper method to send off the error dialog.
 	 * 
 	 * @param str The message to put in the dialog.

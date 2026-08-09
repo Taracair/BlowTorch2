@@ -39,6 +39,13 @@ BUTTONSET_DATA = {
 						swipeDownLeftCommand = "",
 						swipeDownRightCommand = "",
 						showGestureLabel = true,
+						-- Per button, on top of the profile-wide switch: the
+						-- global one is a master off, this picks which buttons
+						-- carry swipe letters, corner arrows, Hold and accordion
+						-- badges while it is on. Lives on BUTTONSET_DATA so a
+						-- button that has never been asked inherits "yes", which
+						-- is how every profile behaved before it existed.
+						showGestureHints = true,
 						name = "",
 						switchTo = "",
 						accordionDirection = "",
@@ -514,6 +521,12 @@ function BUTTON:draw(state,canvas)
 			and buttonShowHints ~= true
 			and buttonShowHints ~= "true"
 			and buttonShowHints ~= "1" then
+		showHints = false
+	end
+	-- The profile-wide switch is a master: with it off nothing is drawn anywhere.
+	-- With it on, each button decides for itself, so a pad can carry hints on the
+	-- tiles that need them and stay clean everywhere else.
+	if showHints and self.data.showGestureHints == false then
 		showHints = false
 	end
 	if showHints and not self.isAccordionChild then

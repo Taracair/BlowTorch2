@@ -62,6 +62,23 @@ public class CommandKeeper {
 		
 	}
 	
+	/**
+	 * The newest command, without moving where browsing is up to.
+	 *
+	 * <p>For asking "is this what the input bar is showing?" — a question about
+	 * the text on screen, which must not itself count as a step through the
+	 * history. {@link #getNext} and {@link #getPrev} both move {@code selected}
+	 * and would answer it by changing it.
+	 *
+	 * @return the last command sent, or "" when nothing has been sent yet.
+	 */
+	public String peekNewest() {
+		if (commands.size() == 0) {
+			return "";
+		}
+		return commands.getFirst();
+	}
+
 	public String getNext() {
 		
 		if (commands.size() == 0) {

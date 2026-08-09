@@ -49,6 +49,13 @@ local context = nil
 local rowModifyListener = nil
 local rowLoadListener = nil
 local rowDeleteListener = nil
+local rowCopyListener = nil
+local rowRenameListener = nil
+local renameDoneListener = nil
+local renameCancelListener = nil
+local renameEdit = nil
+local renameDialog = nil
+local renameFrom = nil
 local makeRowButton = nil
 local newButtonListener = nil
 local newSetDoneListener = nil
@@ -133,6 +140,91 @@ rowLoadListener = luajava.createProxy("android.view.View$OnClickListener",{
   end
 })
 
+rowCopyListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    local entry = entryFor(v)
+    if entry == nil then
+      return
+    end
+    -- The service names the copy, saves it and sends a fresh list back, so the
+    -- dialog stays open and the new row simply appears.
+    PluginXCallS("copyButtonSet",entry.name)
+  end
+})
+
+-- Rename asks in the same little dialog the "new set" button uses, prefilled
+-- with the name you are changing. The service does the work: moving the table
+-- is the easy half, and rewriting every .loadset and switchTo that pointed at
+-- the old name is the half that has to happen in the same place.
+rowRenameListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    local entry = entryFor(v)
+    if entry == nil then
+      return
+    end
+    renameFrom = entry.name
+    local ctx = v:getContext()
+    -- Same shape as the "new set" dialog below: a fixed-width column, with the
+    -- field and the two buttons sharing the width by weight.
+    local llparams = luajava.new(LinearLayoutParams,350*density,LinearLayoutParams.WRAP_CONTENT)
+    local fillparams = luajava.new(LinearLayoutParams,LinearLayoutParams.FILL_PARENT,LinearLayoutParams.WRAP_CONTENT,1)
+
+    local linear = luajava.new(LinearLayout,ctx)
+    linear:setOrientation(LinearLayout.VERTICAL)
+    linear:setLayoutParams(llparams)
+
+    renameEdit = luajava.new(EditText,ctx)
+    renameEdit:setHint("Button Set Name")
+    renameEdit:setText(entry.name)
+    renameEdit:setLayoutParams(fillparams)
+    renameEdit:setSingleLine(true)
+
+    local buttonholder = luajava.new(LinearLayout,ctx)
+    buttonholder:setOrientation(LinearLayout.HORIZONTAL)
+    buttonholder:setLayoutParams(llparams)
+
+    local cancel = luajava.new(Button,ctx)
+    cancel:setText("Cancel")
+    cancel:setLayoutParams(fillparams)
+    cancel:setOnClickListener(renameCancelListener)
+
+    local done = luajava.new(Button,ctx)
+    done:setText("Rename")
+    done:setLayoutParams(fillparams)
+    done:setOnClickListener(renameDoneListener)
+
+    buttonholder:addView(cancel)
+    buttonholder:addView(done)
+    linear:addView(renameEdit)
+    linear:addView(buttonholder)
+
+    local LuaDialogClass = luajava.bindClass("com.resurrection.blowtorch2.lib.window.LuaDialog")
+    renameDialog = luajava.new(LuaDialogClass,ctx,linear,false,nil,LuaDialogClass.LAYOUT_COMPACT)
+    renameDialog:show()
+  end
+})
+
+renameDoneListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    renameDialog:dismiss()
+    local text = renameEdit:getText():toString()
+    if renameFrom == nil or text == nil or text == "" or text == renameFrom then
+      return
+    end
+    -- Old name, newline, new name. A set name is one line of an EditText, so
+    -- the newline cannot appear inside either half.
+    PluginXCallS("renameButtonSet",renameFrom .. "\n" .. text)
+    renameFrom = nil
+  end
+})
+
+renameCancelListener = luajava.createProxy("android.view.View$OnClickListener",{
+  onClick = function(v)
+    renameDialog:dismiss()
+    renameFrom = nil
+  end
+})
+
 rowDeleteListener = luajava.createProxy("android.view.View$OnClickListener",{
   onClick = function(v)
     local index = rowIndexOf(v)
@@ -183,6 +275,8 @@ adapter = luajava.createProxy("android.widget.ListAdapter",{
 		-- button carries its own row index, so no selection has to be remembered.
 		holder:addView(makeRowButton(R_drawable.ic_row_load, rowLoadListener, pos))
 		holder:addView(makeRowButton(R_drawable.ic_row_edit, rowModifyListener, pos))
+		holder:addView(makeRowButton(R_drawable.ic_row_rename, rowRenameListener, pos))
+		holder:addView(makeRowButton(R_drawable.ic_row_copy, rowCopyListener, pos))
 		holder:addView(makeRowButton(R_drawable.ic_row_delete, rowDeleteListener, pos))
 		
 		item = sortedList[tonumber(pos)+1]
@@ -409,6 +503,10 @@ newButtonListener = luajava.createProxy("android.view.View$OnClickListener",{
     
     newSetEdit = luajava.new(EditText,context)
     newSetEdit:setHint("New Button Set Name")
+    -- Was added with no layout params at all, so it wrapped to the width of the
+    -- hint inside a dialog that filled the screen.
+    newSetEdit:setLayoutParams(fillparams)
+    newSetEdit:setSingleLine(true)
     
     local done = luajava.new(Button,context)
     done:setText("Done")
@@ -426,7 +524,11 @@ newButtonListener = luajava.createProxy("android.view.View$OnClickListener",{
     linear:addView(newSetEdit)
     linear:addView(buttonholder)
     
-    newButtonSetDialog = luajava.newInstance("com.resurrection.blowtorch2.lib.window.LuaDialog",context,linear,false,nil)
+    -- Compact: this asks for one name. Without the mode LuaDialog forces the
+    -- content to MATCH_PARENT and the window to fill the screen, whatever the
+    -- layout params above say.
+    local LuaDialogClass = luajava.bindClass("com.resurrection.blowtorch2.lib.window.LuaDialog")
+    newButtonSetDialog = luajava.new(LuaDialogClass,context,linear,false,nil,LuaDialogClass.LAYOUT_COMPACT)
     newButtonSetDialog:show()
   end
 })

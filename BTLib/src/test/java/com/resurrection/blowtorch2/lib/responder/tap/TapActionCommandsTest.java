@@ -124,4 +124,60 @@ public class TapActionCommandsTest {
 		assertNull(TapAction.merge(new ArrayList<TapAction>()));
 		assertNull(TapAction.merge(null));
 	}
+
+	@Test
+	public void tapSendsFirstIsOffUntilTheActionAsksForIt() {
+		// Off is the behaviour every existing trigger already has, and a file
+		// written before this existed has no attribute to say otherwise.
+		assertFalse(new TapAction().isTapSendsFirst());
+	}
+
+	@Test
+	public void tapSendsFirstDoesNotChangeWhetherThereIsAMenuToOpen() {
+		// hasMenu answers "is there a choice", not "does a tap open it" — with
+		// this on, the same choice is what a hold opens.
+		TapAction a = new TapAction();
+		a.setCommands(Arrays.asList("kill $word", "skin $word"));
+		a.setTapSendsFirst(true);
+		assertTrue(a.hasMenu());
+		assertEquals("kill $word", a.getCommand());
+
+		TapAction one = new TapAction();
+		one.setCommand("kill $word");
+		one.setTapSendsFirst(true);
+		assertFalse(one.hasMenu());
+	}
+
+	@Test
+	public void copyAndEqualsCarryTapSendsFirst() {
+		// The editor compares a copy with the original to decide whether
+		// anything changed; leaving this out of equals would make ticking the
+		// box look like no edit at all.
+		TapAction a = new TapAction();
+		a.setCommands(Arrays.asList("kill $word", "skin $word"));
+		a.setTapSendsFirst(true);
+
+		TapAction same = (TapAction) a.copy();
+		assertTrue(same.isTapSendsFirst());
+		assertTrue(a.equals(same));
+
+		same.setTapSendsFirst(false);
+		assertFalse(a.equals(same));
+	}
+
+	@Test
+	public void mergedActionTakesTapSendsFirstFromTheFirstActionOnly() {
+		// Same rule as the marks: a forgotten second action must not be able to
+		// decide that a tap now sends to the game.
+		TapAction first = new TapAction();
+		first.setCommand("kill $word");
+		first.setTapSendsFirst(false);
+
+		TapAction second = new TapAction();
+		second.setCommand("skin $word");
+		second.setTapSendsFirst(true);
+
+		assertFalse(TapAction.merge(Arrays.asList(first, second)).isTapSendsFirst());
+		assertTrue(TapAction.merge(Arrays.asList(second, first)).isTapSendsFirst());
+	}
 }

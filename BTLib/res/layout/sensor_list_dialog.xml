@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Options → Device → Sensors.
+
+  Same shell as editor_selection_dialog: full-screen, title strip at the top,
+  button bar pinned to the bottom, the list filling what is left. It was a
+  floating 96%-by-94% dialog, which is where the empty band above the title came
+  from.
+
+  No standing paragraph over the list. What the screen is for is behind the ?,
+  the way it is on the Alias / Trigger / Timer lists, and what each reading means
+  is on its own row.
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/root"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:background="#FF16181C" >
+
+	<TextView
+		android:id="@+id/titlebar"
+		android:layout_width="fill_parent"
+		android:layout_height="42dip"
+		android:layout_alignParentTop="true"
+		android:text="SENSORS"
+		android:textColor="#FFF2F4F6"
+		android:background="#FF1E2126"
+		android:textSize="14dip"
+		android:textStyle="bold"
+		android:gravity="center"/>
+
+	<LinearLayout
+		android:id="@+id/button_row"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_alignParentBottom="true"
+		android:orientation="horizontal"
+		android:background="#FF1E2126"
+		android:paddingLeft="6dip"
+		android:paddingRight="6dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="6dip">
+
+		<Button
+			android:id="@+id/helpbutton"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:minWidth="52dip"
+			android:background="@drawable/editor_more_button_bg"
+			android:textColor="#FFC7CDD4"
+			android:text="?"
+			android:textSize="16dip"
+			android:textStyle="bold"/>
+
+		<Button
+			android:id="@+id/close"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:layout_marginLeft="6dip"
+			android:text="Close"/>
+	</LinearLayout>
+
+	<ScrollView
+		android:id="@+id/scroll"
+		android:layout_width="match_parent"
+		android:layout_height="fill_parent"
+		android:layout_below="@id/titlebar"
+		android:layout_above="@id/button_row"
+		android:scrollbarStyle="outsideOverlay">
+
+		<LinearLayout
+			android:id="@+id/rows"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:paddingBottom="10dip"
+			android:orientation="vertical"/>
+	</ScrollView>
+
+</RelativeLayout>

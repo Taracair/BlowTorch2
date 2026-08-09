@@ -69,6 +69,9 @@ bash scripts/guards/responder-parcel-cases.sh || fail=1
 stage "A trigger's parcel is written and read in step"
 bash scripts/guards/trigger-parcel-symmetry.sh || fail=1
 
+stage "Native libraries are aligned for 16 KB pages"
+bash scripts/guards/native-16kb.sh || fail=1
+
 stage "docs/ contains only allowlisted files"
 tracked_docs="$(git ls-files 'docs/*' || true)"
 if [ -n "$tracked_docs" ]; then

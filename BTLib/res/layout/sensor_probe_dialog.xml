@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Test on a row of the Sensors list: does this phone see the thing at all.
+
+  Floating rather than full-screen, and short: it is a thing you open, wave at,
+  and close. The live reading is the biggest text on it because that is the
+  whole answer — a number that moves when you move means the sensor works, and
+  a number that never moves means it does not, whatever the settings say.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/root"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical"
+	android:background="#FF16181C" >
+
+	<TextView
+		android:id="@+id/titlebar"
+		android:layout_width="match_parent"
+		android:layout_height="42dip"
+		android:text="TEST A READING"
+		android:textColor="#FFF2F4F6"
+		android:background="#FF1E2126"
+		android:textSize="14dip"
+		android:textStyle="bold"
+		android:gravity="center"/>
+
+	<ScrollView
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:scrollbarStyle="outsideOverlay">
+
+		<LinearLayout
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:orientation="vertical"
+			android:padding="14dip">
+
+			<TextView
+				android:id="@+id/instruction"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:textColor="#FFF2F4F6"
+				android:textSize="15dip"
+				android:text="Do it now."/>
+
+			<TextView
+				android:id="@+id/reading"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:paddingTop="12dip"
+				android:paddingBottom="2dip"
+				android:textColor="#FF66CCFF"
+				android:textSize="26dip"
+				android:text="\u2014"/>
+
+			<TextView
+				android:id="@+id/verdict"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:minHeight="40dip"
+				android:paddingTop="4dip"
+				android:textColor="#FF9AA3AD"
+				android:textSize="13dip"
+				android:text="Waiting."/>
+
+			<TextView
+				android:id="@+id/caveat"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:paddingTop="10dip"
+				android:textColor="#FF7A828C"
+				android:textSize="11dip"
+				android:text=""/>
+		</LinearLayout>
+	</ScrollView>
+
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:orientation="horizontal"
+		android:background="#FF1E2126"
+		android:padding="6dip">
+
+		<Button
+			android:id="@+id/fire"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:background="@drawable/editor_more_button_bg"
+			android:textColor="#FFC7CDD4"
+			android:textSize="13dip"
+			android:textAllCaps="false"
+			android:text="Run the actions"/>
+
+		<Button
+			android:id="@+id/close"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:layout_marginLeft="6dip"
+			android:text="Close"/>
+	</LinearLayout>
+
+</LinearLayout>
