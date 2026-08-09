@@ -4364,6 +4364,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/** Put a freshly calibrated threshold to work; see the watcher's retune. */
+	public final void retuneDeviceSensors() {
+		if (mService != null) {
+			mService.retuneDeviceSensors();
+		}
+	}
+
 	/** The device.* reading, for {@code .probe sensors state}. */
 	public final String deviceStateReport() {
 		if (!isDeviceStateVariables()) {

@@ -76,7 +76,10 @@ public class SensorCommand extends SpecialCommand {
 					com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
 							.setLightThresholds(c.getContext(), Float.parseFloat(bits[1]),
 									Float.parseFloat(bits[2]));
-					c.refreshDeviceGestures();
+					// Not refreshDeviceGestures: nothing about which gestures are
+					// wanted has changed, so that call returns early and the new
+					// number would sit in storage unused.
+					c.retuneDeviceSensors();
 					c.sendDataToWindow("\nDark is now at or under " + bits[1]
 							+ " lux, bright at or over " + bits[2] + ".\n"
 							+ "Kept with this phone, not with the world profile.\n");
@@ -107,7 +110,7 @@ public class SensorCommand extends SpecialCommand {
 						.setShakeThreshold(c.getContext(), Float.parseFloat(bits[1]));
 				// Registration reads the value, so bounce the sensor rather than
 				// leaving the old number live until something else happens.
-				c.refreshDeviceGestures();
+				c.retuneDeviceSensors();
 				c.sendDataToWindow(String.format(Locale.US,
 						"\nShake threshold is now %.1f m/s2 on this phone.\n"
 						+ "It stays with the phone, not with the world profile.\n", stored));

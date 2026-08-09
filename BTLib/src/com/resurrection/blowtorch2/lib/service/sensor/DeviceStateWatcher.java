@@ -756,6 +756,29 @@ public final class DeviceStateWatcher {
 		// is registered, so device.covered fills itself in.
 	}
 
+	/**
+	 * Re-read the calibrated thresholds and put them to work now.
+	 *
+	 * <p>The thresholds are read inside {@code startMotion} and {@code startLight},
+	 * and {@link #refresh()} returns early when the set of wanted gestures has not
+	 * changed — which it has not after a calibration. So calibrating would say
+	 * "saved", store the number, and leave the detector running on the old one
+	 * until something unrelated happened to change what was wanted. The sensor is
+	 * dropped and picked up again instead, which is the only thing that re-reads.
+	 */
+	public synchronized void retune() {
+		boolean hadMotion = motionRegistered;
+		boolean hadLight = lightRegistered;
+		if (hadMotion) {
+			stopMotion();
+			startMotion();
+		}
+		if (hadLight) {
+			stopLight();
+			startLight();
+		}
+	}
+
 	/** Release everything. Safe to call when nothing is registered. */
 	public synchronized void stopWatching() {
 		stopBroadcasts();

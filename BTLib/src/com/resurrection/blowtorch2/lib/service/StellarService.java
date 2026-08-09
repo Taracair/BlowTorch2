@@ -406,6 +406,13 @@ public class StellarService extends Service {
 		mDeviceState.push();
 	}
 
+	/** Put a freshly calibrated threshold to work without waiting for anything. */
+	public final synchronized void retuneDeviceSensors() {
+		if (mDeviceState != null) {
+			mDeviceState.retune();
+		}
+	}
+
 	/** The reading behind {@code .probe sensors state}, or a hint when off. */
 	public final synchronized String deviceStateReport() {
 		if (mDeviceState == null) {
