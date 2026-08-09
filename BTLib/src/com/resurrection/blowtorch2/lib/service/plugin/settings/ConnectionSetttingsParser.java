@@ -60,8 +60,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		word_complete_short_first,
 		word_complete_shorter_first,
 		device_state_variables,
-		gesture_screen_off,
-		gesture_background,
+		sensor_screen_off,
+		sensor_background,
 		word_complete_ghost,
 		word_complete_ghost_lines,
 		word_complete_persist,
@@ -558,8 +558,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 							dooutput = true;
 						}
 						break;
-					case gesture_screen_off:
-					case gesture_background:
+					case sensor_screen_off:
+					case sensor_background:
 						// Default is false; see ConnectionSettingsPlugin.
 						if((Boolean)opt.getValue() != false) {
 							dooutput = true;

@@ -591,35 +591,44 @@ Up/down recall command history.]])
 end
 
 TOPICS.completion = function()
-	noteBlock("Word completion and the prompt — .complete / .prompt",
+	noteBlock("Suggestions and the prompt — .suggest / .prompt",
 [[The soft keyboard never learns a mob called grizzled or a player called
-Tonkatsu, and corrects them into English. Word completion offers back what the
-world actually said. All of it is off until you ask, under Options → Input or
-on .complete:
+Tonkatsu, and corrects them into English. Suggestions offer back what the world
+actually said. All of it is off until you ask, under Options → Input or on
+.suggest (.complete still works and means the same thing):
 
-  .complete on|off        offer words the game just used
-  .complete lines N       how far back counts as recent (lines, default 300;
+  .suggest on|off         offer words the game just used
+  .suggest lines N        how far back counts as recent (lines, default 300;
                           0 = the whole session)
-  .complete 1 .. 6        take that chip — for a super button, not the bar:
+  .suggest 1 .. 8         take that chip — for a super button, not the bar:
                           typing into the bar empties the strip
-  .complete loose on|off  forgive typos once the exact spelling finds nothing
+  .suggest loose on|off   forgive typos once the exact spelling finds nothing
                           (grzld finds grizzled)
-  .complete ghost on|off  draw the rest of the word after the cursor, dimmed;
+  .suggest phrases on|off offer whole names, not only the one word
+  .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
                           drawn only, never sent
-  .complete overlay on|off  chips over the game text so nothing jumps
-  .complete opacity N     how solid the floating chips are (10-100)
+  .suggest ghostlines N   up to N dimmed completions at once (1-6)
+  .suggest where floating|bar|off   where the chips go. off still leaves the
+                          ghost and .suggest 1..8 working, with no bar at all
+  .suggest persist on|off keep the bar up even when it has nothing to say
+  .suggest opacity N      how solid the floating chips are (10-100)
 
     The game says:  A grizzled cave troll lumbers in.
     You type:       k gri
-    The strip:      1 grizzled     ← tap it, or .complete 1 from a button
+    The strip:      1 grizzled     ← tap it, or .suggest 1 from a button
 
-The prompt bar is separate:
+The prompt bar is separate. A prompt is the short status line most MUDs print
+after every command — [HP 450/500 EN 300/300] > and the like. It repeats down
+the whole screen, which on a phone costs you half of what you can see.
 
-  .prompt on|off          put the world's never-finished line (your HP/EN
-                          prompt) on its own bar above the input, instead of
-                          repeating down the screen
+  .prompt on|off          pin that line in one place above the input instead,
+                          rewritten each time a new one arrives
   .prompt                 also reports "prompts seen: N" — zero means this
                           world sends no prompt, which many MOOs do not
+
+The bar shows the world's own text and nothing more: it does not read the
+numbers and draws no health bar. A bar that fills and empties is a trigger with
+a capture, or GMCP.
 
 Vocabulary is forgotten when you connect, so one world's names never show up in
 another.]])

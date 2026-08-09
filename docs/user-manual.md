@@ -325,13 +325,25 @@ world's mob names are never offered in another.
 
     .prompt on | off | (no argument = say which, and how many were seen)
 
-Puts the world's prompt on a thin bar just above the input line, and stops it
-repeating down the screen. On a phone, a prompt printed on every line is eating
-a large share of what you can see.
+**What a prompt is.** It is the short status line most MUDs print after every
+command to tell you where you stand — commonly your health and energy, often
+your enemy's, sometimes the room exits. `[HP 450/500 EN 300/300] >` is a prompt.
+The world sends it again after every single thing you do, so on a desktop it
+scrolls harmlessly up the screen, and on a phone it is half of what you can see.
+
+**What this setting does.** It takes that line out of the flowing text and pins
+it in one fixed place just above where you type, rewriting it in place each time
+a new one arrives.
 
     [HP 450/500 EN 300/300] >     ← pinned here, always current
     ─────────────────────────
     (your input bar)
+
+**What it does not do.** It is not a health bar. BlowTorch does not read the
+numbers, does not know which of them is health, and draws no graphics — it shows
+the world's own line of text, exactly as the world wrote it, in one useful place.
+If you want a coloured bar that fills and empties, that is a trigger with a
+capture (or GMCP on worlds that send it), not this.
 
 **How it knows which line is the prompt** — no pattern, no guessing at its
 shape. A prompt is a line the world never finishes: no newline follows it, which

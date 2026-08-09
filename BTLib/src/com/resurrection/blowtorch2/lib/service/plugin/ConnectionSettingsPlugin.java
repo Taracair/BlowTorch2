@@ -313,11 +313,11 @@ public class ConnectionSettingsPlugin extends Plugin {
 		device_state_variables.setValue(false);
 		device.addOption(device_state_variables);
 
-		CallbackOption device_gestures = new CallbackOption();
-		device_gestures.setTitle("Sensors\u2026");
-		device_gestures.setDescription("What this phone can measure — proximity, motion, light, charging, headphones and the rest — and which triggers or timers should react. Tap for the list: which hardware is present on this phone, what each reading can drive, and *Set up* / *Test*.");
-		device_gestures.setKey("device_gestures");
-		device.addOption(device_gestures);
+		CallbackOption device_sensors = new CallbackOption();
+		device_sensors.setTitle("Sensors\u2026");
+		device_sensors.setDescription("What this phone can measure — proximity, motion, light, charging, headphones and the rest — and which triggers or timers should react. Tap for the list: which hardware is present on this phone, what each reading can drive, and *Set up* / *Test*.");
+		device_sensors.setKey("device_sensors");
+		device.addOption(device_sensors);
 
 		CallbackOption calibrate_shake = new CallbackOption();
 		calibrate_shake.setTitle("Calibrate shake\u2026");
@@ -331,19 +331,19 @@ public class ConnectionSettingsPlugin extends Plugin {
 		calibrate_light.setKey("calibrate_light");
 		device.addOption(calibrate_light);
 
-		BooleanOption gesture_screen_off = new BooleanOption();
-		gesture_screen_off.setTitle("Movement sensors with the screen off");
-		gesture_screen_off.setDescription("Off by default, and off means a shake, a wave over the screen or the phone going face down does nothing while the display is asleep — so a phone jolted about in a pocket or a bag cannot fire sensor triggers. Turn it on if you want those readings while the screen is off. IMPORTANT: a sensor trigger is not aimed at one world. It fires in EVERY world you have open, including ones running in the background, so with two MUDs connected one shake sends the command twice. Headphone, charger and screen readings are not affected by this setting — muting speech when the jack comes out has to work with the screen off, which is the whole point of it.");
-		gesture_screen_off.setKey("gesture_screen_off");
-		gesture_screen_off.setValue(false);
-		device.addOption(gesture_screen_off);
+		BooleanOption sensor_screen_off = new BooleanOption();
+		sensor_screen_off.setTitle("Movement sensors with the screen off");
+		sensor_screen_off.setDescription("Off by default, and off means a shake, a wave over the screen or the phone going face down does nothing while the display is asleep — so a phone jolted about in a pocket or a bag cannot fire sensor triggers. Turn it on if you want those readings while the screen is off. IMPORTANT: a sensor trigger is not aimed at one world. It fires in EVERY world you have open, including ones running in the background, so with two MUDs connected one shake sends the command twice. Headphone, charger and screen readings are not affected by this setting — muting speech when the jack comes out has to work with the screen off, which is the whole point of it.");
+		sensor_screen_off.setKey("sensor_screen_off");
+		sensor_screen_off.setValue(false);
+		device.addOption(sensor_screen_off);
 
-		BooleanOption gesture_background = new BooleanOption();
-		gesture_background.setTitle("Movement sensors while the app is in the background");
-		gesture_background.setDescription("Off by default: with BlowTorch swiped away into Recents or another app on top, a shake or a wave is almost certainly you doing something else with your phone, not playing. Turn it on to keep movement sensor triggers live while you use another app. As above, this covers movement sensors only — headphone, charger and screen readings keep working — and a sensor trigger reaches every open world, not only the one you were last looking at.");
-		gesture_background.setKey("gesture_background");
-		gesture_background.setValue(false);
-		device.addOption(gesture_background);
+		BooleanOption sensor_background = new BooleanOption();
+		sensor_background.setTitle("Movement sensors while the app is in the background");
+		sensor_background.setDescription("Off by default: with BlowTorch swiped away into Recents or another app on top, a shake or a wave is almost certainly you doing something else with your phone, not playing. Turn it on to keep movement sensor triggers live while you use another app. As above, this covers movement sensors only — headphone, charger and screen readings keep working — and a sensor trigger reaches every open world, not only the one you were last looking at.");
+		sensor_background.setKey("sensor_background");
+		sensor_background.setValue(false);
+		device.addOption(sensor_background);
 
 		sg.addOption(device);
 

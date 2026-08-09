@@ -4280,10 +4280,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.BY_SYSTEM)) {
 			return true;
 		}
-		if (!flagOption("gesture_background", false) && !isUiInFront()) {
+		if (!flagOption("sensor_background", false) && !isUiInFront()) {
 			return false;
 		}
-		if (!flagOption("gesture_screen_off", false) && !isScreenInteractive()) {
+		if (!flagOption("sensor_screen_off", false) && !isScreenInteractive()) {
 			return false;
 		}
 		return true;
@@ -5208,9 +5208,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete:
 				this.doSetWordComplete((Boolean) o.getValue());
 				break;
-			case gesture_screen_off:
-			case gesture_background:
-				// Read at the moment a gesture fires, so there is nothing to
+			case sensor_screen_off:
+			case sensor_background:
+				// Read at the moment a reading fires, so there is nothing to
 				// apply here — but the watcher may need to pick a sensor up or
 				// let it go, and that is decided by what is enabled, not by this.
 				break;
@@ -6394,10 +6394,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_shorter_first,
 		/** Keep device.* session variables up to date from the phone itself. */
 		device_state_variables,
-		/** Let movement gestures fire while the display is asleep. */
-		gesture_screen_off,
-		/** Let movement gestures fire while the app is in the background. */
-		gesture_background,
+		/** Let movement readings fire while the display is asleep. */
+		sensor_screen_off,
+		/** Let movement readings fire while the app is in the background. */
+		sensor_background,
 		/** Draw the rest of the top suggestion after the caret. */
 		word_complete_ghost,
 		/** How many suggestions the ghost lists, growing the bar to fit them. */

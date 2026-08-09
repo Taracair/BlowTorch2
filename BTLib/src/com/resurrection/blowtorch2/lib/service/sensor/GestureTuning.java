@@ -8,10 +8,14 @@ import android.content.SharedPreferences;
  *
  * <p><b>Kept out of the world profile on purpose.</b> Profiles are exported and
  * swapped between players — the pair store already rides along with a world — so
- * a threshold measured on one device travelling to another would mean a gesture
+ * a threshold measured on one device travelling to another would mean a reading
  * that never fires, or one that fires in a pocket. Calibration belongs to the
  * device. What a profile carries is "this trigger answers to a shake", never
  * "at 14.2 m/s²".
+ *
+ * <p>The preference file is still called {@code bt_gesture_tuning}. It is
+ * private to the app, never exported and never shown, so renaming it would buy
+ * nothing and would throw away a calibration the player measured by hand.
  *
  * <p>Written and read in the service process, which is where the detector runs,
  * so there is no cross-process preference sharing to get wrong.

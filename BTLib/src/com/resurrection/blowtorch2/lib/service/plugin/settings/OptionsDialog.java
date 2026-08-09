@@ -546,7 +546,7 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
-			if ("device_gestures".equals(key)) {
+			if ("device_sensors".equals(key)) {
 				MainWindow mwg = findMainWindowHost();
 				if (mwg != null) {
 					mwg.openGestureListFromOptions();
