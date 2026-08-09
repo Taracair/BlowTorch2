@@ -111,6 +111,37 @@ public final class DeviceState {
 		return DIM;
 	}
 
+	/**
+	 * How much of gravity has to lie along the screen's axis before the phone
+	 * counts as flat, in m/s² out of about 9.8.
+	 *
+	 * <p>Two thresholds out of one number rather than a single dividing line: a
+	 * phone standing on edge, in a hand or in a pocket is neither face up nor
+	 * face down, and a single line would have it flipping between the two all
+	 * the way to the shop.
+	 */
+	public static final float FLAT_ENOUGH = 8.0f;
+
+	/**
+	 * Which way up the phone is, from gravity along the screen's axis.
+	 *
+	 * <p>Here rather than in the watcher because the Sensors probe classifies
+	 * the same reading in the UI process, and two copies of this number would
+	 * eventually disagree about what "face down" means.
+	 *
+	 * @param z gravity on the screen's axis: about +9.8 face up, -9.8 face down.
+	 * @return {@link #UP}, {@link #DOWN} or {@link #UNKNOWN}.
+	 */
+	public static String classifyFacing(final float z) {
+		if (z >= FLAT_ENOUGH) {
+			return UP;
+		}
+		if (z <= -FLAT_ENOUGH) {
+			return DOWN;
+		}
+		return UNKNOWN;
+	}
+
 	/** Battery as a whole percent. Out-of-range readings are ignored. */
 	public boolean setBatteryPercent(final int level, final int scale) {
 		if (scale <= 0 || level < 0) {

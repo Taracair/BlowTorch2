@@ -508,6 +508,12 @@ Point one at a command:
 Try it without moving the phone (this works offline, here, now):
   .sensor fire facedown
 
+That runs whatever you set up; it does not prove your phone can see the
+gesture. For that, Options -> Device -> Sensors... and Test on the row: it
+watches the sensor while you do it and tells you whether the phone noticed.
+Worth doing before you build anything on a reading, because sensor hardware
+differs by model.
+
 Readings: wave, cover, facedown, faceup, shake, pickup, moving, still,
 gotdark, gotbright, headphonesout, headphonesin, powerin, powerout,
 screenoff, screenon. The last six need no sensor chip — Android tells every

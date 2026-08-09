@@ -44,19 +44,6 @@ public final class DeviceStateWatcher {
 	private final Handler handler = new Handler(Looper.getMainLooper());
 
 	/**
-	 * How long a hand may sit over the screen and still count as a wave rather
-	 * than a deliberate cover. Told apart by time, not by how hard the gesture
-	 * was done — the one distinction a proximity sensor can make reliably.
-	 */
-	/** How long a hand must stay put before it is a cover. */
-	private static final long COVER_MILLIS = 1000L;
-	/**
-	 * Anything shorter than a cover is a wave. Deliberately the same number:
-	 * with a gap between the two, a hand held for exactly that long would be
-	 * neither, and the gesture would fail intermittently for no visible reason.
-	 */
-	private static final long WAVE_MAX_MILLIS = COVER_MILLIS;
-	/**
 	 * How hard a shake has to be, in m/s2.
 	 *
 	 * <p><b>Provisional.</b> Measured on one phone on 8 Aug 2026 — a shake
@@ -67,19 +54,6 @@ public final class DeviceStateWatcher {
 	private float shakeThreshold = GestureTuning.DEFAULT_SHAKE;
 	/** Without a dead time one shake of the wrist fires four times. */
 	private static final long SHAKE_DEAD_MILLIS = 500L;
-	/**
-	 * How much of gravity has to be along the screen's axis before the phone
-	 * counts as lying flat, in m/s2 out of about 9.8. Two thresholds rather than
-	 * one: a phone standing on edge, or being carried, is neither face up nor
-	 * face down, and should not flip between the two as it wobbles.
-	 */
-	private static final float FLAT_ENOUGH = 8.0f;
-	/**
-	 * How long it has to stay that way. Turning a phone over passes through
-	 * every angle on the way, and without this the trip would fire on the way
-	 * down as well as at the end of it.
-	 */
-	private static final long FACING_SETTLE_MILLIS = 400L;
 
 	private boolean receiverRegistered;
 	private boolean sensorRegistered;
@@ -104,9 +78,12 @@ public final class DeviceStateWatcher {
 	private long lightCandidateSince;
 	private boolean facingRegistered;
 	private Sensor facingSensor;
-	private String facing = DeviceState.UNKNOWN;
-	private String facingCandidate = DeviceState.UNKNOWN;
-	private long facingCandidateSince;
+	/**
+	 * Rebuilt whenever the sensor is picked up: a detector carried across a
+	 * release and a re-registration would remember which way up the phone was
+	 * minutes ago, and announce a turn nobody made.
+	 */
+	private FacingDetector facingDetector = new FacingDetector();
 	/**
 	 * Broadcasts already seen once. The interesting ones are sticky: registering
 	 * delivers the current charge and jack state at once, and treating that as a
@@ -415,8 +392,7 @@ public final class DeviceStateWatcher {
 		if (facingSensor == null) {
 			return;
 		}
-		facing = DeviceState.UNKNOWN;
-		facingCandidate = DeviceState.UNKNOWN;
+		facingDetector = new FacingDetector();
 		try {
 			// NORMAL, not GAME: putting a phone down is not a fast event, and
 			// this one may stay registered for hours.
@@ -437,8 +413,7 @@ public final class DeviceStateWatcher {
 			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterFacing", e);
 		}
 		facingRegistered = false;
-		facing = DeviceState.UNKNOWN;
-		facingCandidate = DeviceState.UNKNOWN;
+		facingDetector = new FacingDetector();
 	}
 
 	private void startLight() {
@@ -546,7 +521,7 @@ public final class DeviceStateWatcher {
 					fire("cover");
 				}
 			};
-			handler.postDelayed(pendingCover, COVER_MILLIS);
+			handler.postDelayed(pendingCover, GestureTiming.COVER_MILLIS);
 			return;
 		}
 		if (pendingCover != null) {
@@ -554,7 +529,7 @@ public final class DeviceStateWatcher {
 			pendingCover = null;
 		}
 		long held = android.os.SystemClock.elapsedRealtime() - coveredSince;
-		if (coveredSince > 0L && held <= WAVE_MAX_MILLIS) {
+		if (coveredSince > 0L && GestureTiming.classifyRelease(held) != null) {
 			fire("wave");
 		}
 		coveredSince = 0L;
@@ -606,41 +581,16 @@ public final class DeviceStateWatcher {
 			if (event == null || event.values == null || event.values.length < 3) {
 				return;
 			}
-			float z = event.values[2];
-			String now;
-			if (z >= FLAT_ENOUGH) {
-				now = DeviceState.UP;
-			} else if (z <= -FLAT_ENOUGH) {
-				now = DeviceState.DOWN;
-			} else {
-				now = DeviceState.UNKNOWN;
-			}
-			long elapsed = android.os.SystemClock.elapsedRealtime();
-			if (!now.equals(facingCandidate)) {
-				facingCandidate = now;
-				facingCandidateSince = elapsed;
+			if (!facingDetector.accept(event.values[2],
+					android.os.SystemClock.elapsedRealtime())) {
 				return;
 			}
-			if (now.equals(facing)
-					|| (elapsed - facingCandidateSince) < FACING_SETTLE_MILLIS) {
-				return;
-			}
-			String previous = facing;
-			facing = now;
-			if (state.setFacing(facing)) {
+			if (state.setFacing(facingDetector.getFacing())) {
 				push();
 			}
-			// The first reading after registration settles into up or down and
-			// is not a gesture: the phone was already lying there. Only a real
-			// change of side counts, which is why this needs the previous value
-			// and not just the new one.
-			if (DeviceState.UNKNOWN.equals(previous)) {
-				return;
-			}
-			if (DeviceState.DOWN.equals(facing)) {
-				fire("facedown");
-			} else if (DeviceState.UP.equals(facing)) {
-				fire("faceup");
+			String gesture = facingDetector.getGesture();
+			if (gesture != null) {
+				fire(gesture);
 			}
 		}
 

@@ -25,6 +25,21 @@ public class DeviceStateTest {
 	}
 
 	@Test
+	public void aPhoneThatIsNotLyingFlatIsNeitherWayUp() {
+		// The band in the middle is the point. A phone in a hand or a pocket
+		// passes through every angle, and a single dividing line would have it
+		// firing face down and face up alternately all the way to the shop.
+		assertEquals(DeviceState.UP, DeviceState.classifyFacing(9.8f));
+		assertEquals(DeviceState.DOWN, DeviceState.classifyFacing(-9.8f));
+		assertEquals(DeviceState.UNKNOWN, DeviceState.classifyFacing(0f));
+		assertEquals(DeviceState.UNKNOWN, DeviceState.classifyFacing(7.9f));
+		assertEquals(DeviceState.UNKNOWN, DeviceState.classifyFacing(-7.9f));
+		// The boundary belongs to flat, both ways round.
+		assertEquals(DeviceState.UP, DeviceState.classifyFacing(DeviceState.FLAT_ENOUGH));
+		assertEquals(DeviceState.DOWN, DeviceState.classifyFacing(-DeviceState.FLAT_ENOUGH));
+	}
+
+	@Test
 	public void onlyAChangeReportsAChange() {
 		// Every battery broadcast would otherwise push the whole map into every
 		// live world, several times a minute, for nothing.

@@ -87,10 +87,14 @@ public class GestureListDialog extends Dialog {
 			+ "    Put the phone face down  ->  Ack  afk\n"
 			+ "    Turn it face up again    ->  Ack  afk off\n\n"
 			+ "TEST\n"
-			+ "Fires the reading here and now, without moving the phone, so the "
-			+ "actions run and you can see whether they were what you meant. It is "
-			+ "not a test of the sensor itself: it proves what is set up, not that "
-			+ "the phone can see you wave. The same thing from the input bar is\n"
+			+ "Watches the sensor while you do the gesture, and says whether the "
+			+ "phone saw it. Works on every reading, including ones with nothing "
+			+ "set up yet -- \"can this phone see me wave\" is worth knowing before "
+			+ "you build anything on it.\n\n"
+			+ "Where something is set up, the same screen has a button that runs "
+			+ "the actions without moving the phone. That answers the other "
+			+ "question: not whether the phone sees you, but whether what you set "
+			+ "up is what you meant. From the input bar that one is\n"
 			+ "    .sensor fire facedown\n\n"
 			+ "NOT AVAILABLE ON THIS PHONE\n"
 			+ "Sensor hardware differs between handsets, so readings this one cannot "
@@ -274,7 +278,7 @@ public class GestureListDialog extends Dialog {
 		test.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
-				fire(g);
+				probe(g);
 			}
 		});
 
@@ -282,57 +286,29 @@ public class GestureListDialog extends Dialog {
 	}
 
 	/**
-	 * Fire a reading from the list, and say here what happened.
+	 * Watch the sensor live, so the player can see whether the phone sees them.
 	 *
-	 * <p>The reply {@code .sensor fire} prints goes to the game window, which is
-	 * under this dialog <em>and</em> under Options. Pressing Test therefore
-	 * looked like a button that did nothing, whatever it had done. So the
-	 * answer is a toast, over the dialog the player is looking at.
+	 * <p>Test used to mean "run the actions", which is a different question and
+	 * not the one being asked here: on a reading with nothing set up it did
+	 * nothing at all, and even when it worked, the reply went to the game window
+	 * under this dialog and under Options, so it looked like a dead button.
 	 *
-	 * <p>What the toast can honestly say is what the UI already knows: whether
-	 * any trigger answers this reading, and whether it is switched on. Whether
-	 * the actions then worked is the game window's business, and the count is
-	 * counted in the service, on the connection's own thread.
-	 *
-	 * <p>Asked again here rather than trusting what the list was built from.
-	 * {@code sendData} returns quietly when the binder has no active connection
-	 * — during a world switch, or after this one was dropped — and the same
-	 * miss makes the trigger data come back empty, so reading it now is what
-	 * stops Test claiming it fired something into a connection that is gone.
+	 * <p>Running the actions is still worth doing and lives inside the probe,
+	 * where the reply lands over the screen being looked at. The button is only
+	 * offered where something is enabled to run, which is asked here rather than
+	 * trusted from when the list was built — a world switch or a dropped
+	 * connection between the two would otherwise offer a button that quietly
+	 * does nothing.
 	 */
-	private void fire(final Gesture g) {
-		List<TriggerData> bound = readTriggers().get(g.getId());
-		if (bound == null || bound.isEmpty()) {
-			say("Nothing answers " + g.getLabel().toLowerCase(java.util.Locale.US)
-					+ " yet. Tap the row to give it something to do.");
-			return;
+	private void probe(final Gesture g) {
+		List<TriggerData> live = readTriggers().get(g.getId());
+		boolean canRun = false;
+		if (live != null) {
+			for (TriggerData t : live) {
+				canRun = canRun || t.isEnabled();
+			}
 		}
-		boolean anyEnabled = false;
-		for (TriggerData t : bound) {
-			anyEnabled = anyEnabled || t.isEnabled();
-		}
-		if (!anyEnabled) {
-			say("That reading is turned off, so firing it does nothing.");
-			return;
-		}
-		try {
-			// The same path .sensor fire uses, which runs the actions on the
-			// connection's own thread rather than on this one.
-			service.sendData((".sensor fire " + g.getId() + "\r\n").getBytes("UTF-8"));
-		} catch (Exception e) {
-			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
-					"GestureListDialog.test", e);
-			say("Could not reach the connection to fire that.");
-			return;
-		}
-		say("Fired " + g.getId() + ". What it does shows in the game window.");
-		// Left open on purpose. Closing this would leave the Options dialog on
-		// top of the reply anyway.
-	}
-
-	private void say(final String text) {
-		android.widget.Toast.makeText(getContext(), text,
-				android.widget.Toast.LENGTH_SHORT).show();
+		new SensorProbeDialog(getContext(), g, service, canRun).show();
 	}
 
 	/** The row's one line of state: why it cannot fire, what it does, or what it is. */
