@@ -65,6 +65,10 @@ public class SensorCommand extends SpecialCommand {
 			c.sendDataToWindow(usage());
 			return null;
 		}
+		if (head.equals("examples") || head.equals("why")) {
+			c.sendDataToWindow(examples());
+			return null;
+		}
 		if (head.equals("threshold") || head.equals("calibrate")) {
 			String[] bits = rest.split("\\s+");
 			if (bits.length < 2 || !bits[0].equalsIgnoreCase("shake")) {
@@ -333,6 +337,45 @@ public class SensorCommand extends SpecialCommand {
 		return null;
 	}
 
+	/**
+	 * What this is actually for.
+	 *
+	 * <p>Written because the feature is easy to laugh at — "so you walk around
+	 * shaking your phone" — and the useful cases are nothing like that. Every one
+	 * of these is a thing that goes wrong while playing a MUD on a phone in
+	 * public, and every one is two taps to set up.
+	 */
+	private String examples() {
+		StringBuilder out = new StringBuilder();
+		out.append("\n--- what these are actually for ---\n\n");
+		out.append("1. Your MUD stops shouting in public.\n");
+		out.append("   Gesture: headphones unplugged \u2192 run a script that turns\n");
+		out.append("   speech off. The jack catches on a bag strap on the bus and the\n");
+		out.append("   whole carriage does not hear your combat log.\n\n");
+		out.append("2. Speech that only ever happens in your ears.\n");
+		out.append("   Not a gesture — a condition. On any trigger that speaks, add\n");
+		out.append("   Conditions \u2192 The phone \u2192 \"Headphones are plugged in\".\n");
+		out.append("   Now it is silent when they are not, without you remembering.\n\n");
+		out.append("3. Someone talks to you and you put the phone down.\n");
+		out.append("   .sensor facedown afk  and  .sensor faceup afk off\n");
+		out.append("   You go AFK in the game by doing the thing you were doing anyway.\n\n");
+		out.append("4. Alerts that know whether you are looking.\n");
+		out.append("   Put \"Screen is off\" as a condition on your bell or notification\n");
+		out.append("   action, and \"Screen is on\" on the quiet on-screen one. The same\n");
+		out.append("   event reaches you the right way in both cases.\n\n");
+		out.append("5. A panic button you do not have to find.\n");
+		out.append("   .sensor cover flee   \u2014 hold a hand over the top of the screen.\n");
+		out.append("   Quiet, one-handed, and it works without looking at the phone.\n\n");
+		out.append("6. Nothing fires from inside a pocket.\n");
+		out.append("   Options \u2192 Device keeps movement gestures off while the screen\n");
+		out.append("   is off. For belt and braces, add the condition \"Nothing is over\n");
+		out.append("   the screen\" to anything that sends a command.\n\n");
+		out.append("7. The long session at a desk.\n");
+		out.append("   Condition \"Phone is charging\" on your noisier alerts: they only\n");
+		out.append("   speak up when you are plugged in and settled, not on the walk home.\n");
+		return out.toString();
+	}
+
 	private String usage() {
 		StringBuilder out = new StringBuilder();
 		out.append("\n.sensor                 what this phone can feel\n");
@@ -341,6 +384,9 @@ public class SensorCommand extends SpecialCommand {
 		out.append(".sensor wave            what that gesture does now\n");
 		out.append(".sensor wave on|off     without deleting it\n");
 		out.append(".sensor fire wave       do it now, without moving the phone\n");
+		out.append(".sensor examples        what people actually use these for\n");
+		out.append(".sensor watch on|off    keep device.* up to date for conditions\n");
+		out.append(".sensor threshold shake 14.5   how hard a shake has to be here\n");
 		out.append("\nGestures: ");
 		boolean first = true;
 		for (Gesture g : GestureCatalog.all()) {

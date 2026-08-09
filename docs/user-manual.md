@@ -1421,6 +1421,67 @@ check what you set up, and to test a profile on a phone that lacks the sensor �
 the gesture still works from a button or another trigger even where the hardware
 does not exist.
 
+### What these are actually for
+
+The feature is easy to laugh at — "so you walk around shaking your phone at the
+game" — and the useful cases are nothing like that. Every one of these is
+something that goes wrong while playing a MUD on a phone in public, and every one
+is two taps. `.sensor examples` prints this list into the game window.
+
+**1. Your MUD stops shouting in public.** Bind `headphonesout` to a script that
+turns speech off. The jack catches on a bag strap on the bus, and the whole
+carriage does not hear your combat log.
+
+**2. Speech that only ever happens in your ears.** Not a gesture — a *condition*.
+On any trigger with a Speak action, open Conditions → *The phone* → "Headphones
+are plugged in". It is silent when they are not, without you having to remember.
+
+**3. Someone talks to you and you put the phone down.** `.sensor facedown afk`
+and `.sensor faceup afk off`. You go AFK by doing the thing you were doing
+anyway, and come back the same way.
+
+**4. Alerts that know whether you are looking.** Put "Screen is off" as a
+condition on the notification or bell action, and "Screen is on" on the quiet
+on-screen one. The same event reaches you the right way in both cases, instead of
+buzzing at you while you stare at it.
+
+**5. A panic button you do not have to find.** `.sensor cover flee` — hold a hand
+over the top of the screen. Quiet, one-handed, no hunting for a button while
+something is eating you.
+
+**6. Nothing fires from inside a pocket.** Movement gestures are already held
+back while the screen is off. For belt and braces, add the condition "Nothing is
+over the screen" to anything that sends a command.
+
+**7. The long session at a desk.** Condition "Phone is charging" on your noisier
+alerts, so they speak up when you are plugged in and settled and stay quiet on
+the walk home.
+
+### Gating a trigger on the phone
+
+Any trigger or timer can be gated on what the phone is doing, and this is often
+more useful than a gesture. Open the Conditions section of a trigger, add one,
+and the **The phone** picker at the top of that screen fills it in for you —
+"Phone is face down", "Headphones are plugged in", "Phone is charging". You never
+have to type a variable name.
+
+Behind the picker these are ordinary session variables, so a Lua script can read
+the same values with `GetVariable("device.charging")`. `.sensor state` lists every
+name, what it can hold, and whether this phone can tell:
+
+    device.facing      up | down | unknown   = up
+    device.screen      on | off              = on
+    device.headphones  yes | no              = no
+    device.charging    yes | no              = yes
+    device.battery     0 to 100              = 74
+    device.covered     yes | no              (not set — no proximity sensor)
+
+Two things worth knowing. **They are only kept up to date while Options → Device
+→ "Device state as variables" is on** (or after `.sensor watch on`) — with it off
+nothing sets them, and a condition on one is *false*, so the trigger simply never
+fires. And **every value is text**, compared exactly: `device.battery` equals `74`
+works, but "below 30" needs a Lua script, because a condition has no less-than.
+
 ### Where to find them: Options → Device → Gestures
 
 `.sensor facedown afk` is the quick way, but you should not have to remember
@@ -1456,6 +1517,19 @@ jack comes out has to work precisely when you are not looking at the screen.
 **A warning about names.** Commands are looked up *after* your own aliases, so an
 alias called `sensor` would hide this command completely and say nothing about
 it. If `.sensor` ever stops responding, check your alias list first.
+
+### Calibrating the shake
+
+**Options → Device → Calibrate shake.** Two short measurements: six seconds
+shaking the phone the way you would to flee a fight, then ten seconds walking
+about with it. The app picks a threshold under the first and over the second, and
+**refuses** when the two overlap — because a threshold that catches your shake and
+your walk is one that sends commands to the game from your pocket. If it refuses,
+shake harder or use `wave` instead, which has no such problem.
+
+What it measures stays with **this phone**. It is not written into the world
+profile, so exporting your settings for a friend does not hand them a threshold
+measured on your arm. By hand: `.sensor threshold shake 14.5`.
 
 Shaking needs a threshold, and how hard a shake is differs between phones and
 between people. The current one is a starting value measured on one device; if
