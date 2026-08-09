@@ -73,6 +73,7 @@ local TOPIC_ORDER = {
 	"aliases",
 	"triggers",
 	"timers",
+	"sensors",
 	"coloring",
 	"tappable",
 	"keyboard",
@@ -135,8 +136,8 @@ Try it now:
 
 This tour is hands-on: you will build a .loadset button, learn triggers for
 beginners, and poke swipe / hold / accordion demos. Lessons also cover
-aliases, timers, colors, keyboard, completion, search, mapper, wrap, logging, ⋮ menu,
-GMCP/MCP, reconnect, copy, Options, display, and plugins.
+aliases, timers, sensors, colors, keyboard, completion, search, mapper, wrap,
+logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
 Type:  .tutorial next
 Or:    .tutorial topics
@@ -483,6 +484,53 @@ phone, including that Conditions are checked when the timer fires and not
 while it counts, and that Group is for finding timers in the list — there
 is no .timer group command. The ? on the Timers list explains what a
 timer is and how it differs from a trigger.]])
+end
+
+TOPICS.sensors = function()
+	noteBlock("Sensors — the phone as a trigger source",
+[[Not the button gestures. Swipes and holds on a tile are set in the button
+editor. This lesson is the phone's own hardware: proximity, motion, light,
+the charger, the headphone jack, the screen.
+
+Each reading is an ordinary trigger, so everything a trigger already does
+works with it — send a command, run a script, speak, play a sound, ring the
+bell, set a variable, or gate itself on a condition.
+
+Ask your phone what it has first; models differ a lot:
+  .sensor            what is set up here
+  .sensor caps       which hardware provides each reading on this phone
+
+Point one at a command:
+  .sensor facedown afk
+  .sensor faceup afk off
+  .sensor cover flee
+
+Try it without moving the phone (this works offline, here, now):
+  .sensor fire facedown
+
+Readings: wave, cover, facedown, faceup, shake, pickup, moving, still,
+gotdark, gotbright, headphonesout, headphonesin, powerin, powerout,
+screenoff, screenon. The last six need no sensor chip — Android tells every
+app — so a profile built on those works on any phone.
+
+Often better than a reading of its own: use the phone as a CONDITION.
+On any trigger or timer, Conditions → The phone gives you "Headphones are
+plugged in", "Screen is off", "Phone is charging" without typing a variable
+name. A Speak action gated on headphones never reads your tells out loud on
+the bus.
+
+Behind that picker are session variables you can also read from Lua:
+  .sensor watch on         keep device.* up to date
+  .sensor state            show them now
+  GetVariable("device.charging")
+
+Everything here is off until you ask for it, and movement readings are held
+back while the screen is off or the app is in the background — a phone in a
+pocket cannot send commands. Both switches, plus Calibrate shake and
+Calibrate light, are in Options → Device → Sensors.
+
+One thing to know: a sensor trigger is not aimed at one world. It fires in
+every world you have open, so with two MUDs connected one shake sends twice.]])
 end
 
 TOPICS.coloring = function()

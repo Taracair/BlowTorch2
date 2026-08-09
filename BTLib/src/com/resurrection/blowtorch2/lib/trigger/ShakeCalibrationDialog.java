@@ -153,7 +153,7 @@ public class ShakeCalibrationDialog extends Dialog {
 		case READY:
 			if (sensor == null) {
 				instruction.setText("This phone has no motion sensor, so there is"
-						+ " nothing to calibrate. The shake gesture cannot work here.");
+						+ " nothing to calibrate. The shake reading cannot work here.");
 				action.setEnabled(false);
 				return;
 			}
@@ -293,7 +293,7 @@ public class ShakeCalibrationDialog extends Dialog {
 					"Your shake peaked at %.1f and carrying the phone peaked at %.1f."
 					+ " They are too close to tell apart: a threshold that catches the"
 					+ " shake would also fire while you walk. Shake harder, or use a"
-					+ " different gesture — waving a hand over the screen has no such"
+					+ " different reading — waving a hand over the screen has no such"
 					+ " problem.", shakePeak, walkPeak));
 			action.setEnabled(false);
 			return;

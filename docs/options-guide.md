@@ -195,6 +195,32 @@ patterns.
   also appears when you are connected if BlowTorch is still battery-optimized.
 - Connection duration is shown on the ongoing notification and launcher rows.
 
+## Device (the phone's own sensors)
+
+Not the same thing as button gestures: swipes, holds and chrome bindings live in
+the **button editor**. This group is about hardware readings — proximity,
+motion, light, charger, headphones, screen — offered to triggers, conditions and
+timers.
+
+| Option | Default | Notes |
+|--------|---------|--------|
+| **Device state as variables** | off | Keep `device.facing`, `device.screen`, `device.headphones`, `device.charging`, `device.battery`, `device.covered`, `device.light` up to date as session variables. With it off nothing is registered and a condition testing one is *false*, never true |
+| **Sensors…** | — | The list screen: every reading, which hardware provides it on this phone, what answers it, with *Set up* / *Edit* and *Test*. Editing opens the ordinary trigger editor |
+| **Calibrate shake…** | — | Two measurements (shaking, then walking) and it picks a threshold between them; refuses when they overlap. Kept with the phone, never exported |
+| **Calibrate light…** | — | Tap once somewhere dark and once somewhere bright. Lux is not comparable between phones or rooms, so this is the only way "dark" can mean yours |
+| **Movement sensors with the screen off** | off | Off means shake / wave / face-down do nothing while the display sleeps, so a pocket cannot fire them |
+| **Movement sensors while the app is in the background** | off | The same while another app is on top or BlowTorch is in Recents |
+
+Both movement switches cover **movement** readings only. Headphone, charger and
+screen readings keep working regardless — muting speech when the jack comes out
+has to work precisely when you are not looking at the screen.
+
+A sensor trigger is **not aimed at one world**: it fires in every world you have
+open, so with two MUDs connected one shake sends its command twice.
+
+From the input bar the same ground is `.sensor` (`caps`, `<reading> <command>`,
+`fire <reading>`, `watch on|off`, `threshold …`) and `.probe sensors`.
+
 ## Miscellaneous
 
 - **Overflow button opacity (%)** / **Overflow button background?** /

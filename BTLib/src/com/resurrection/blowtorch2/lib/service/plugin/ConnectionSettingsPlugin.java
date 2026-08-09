@@ -314,8 +314,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		device.addOption(device_state_variables);
 
 		CallbackOption device_gestures = new CallbackOption();
-		device_gestures.setTitle("Sensors and gestures\u2026");
-		device_gestures.setDescription("What your phone can feel — waving a hand over the screen, putting it face down, shaking it, the headphones coming out — and what each one should do. Tap to see the list, which says which ones this phone has the hardware for.");
+		device_gestures.setTitle("Sensors\u2026");
+		device_gestures.setDescription("What this phone can measure — proximity, motion, light, charging, headphones and the rest — and which triggers or timers should react. Tap for the list: which hardware is present on this phone, what each reading can drive, and *Set up* / *Test*.");
 		device_gestures.setKey("device_gestures");
 		device.addOption(device_gestures);
 
@@ -332,15 +332,15 @@ public class ConnectionSettingsPlugin extends Plugin {
 		device.addOption(calibrate_light);
 
 		BooleanOption gesture_screen_off = new BooleanOption();
-		gesture_screen_off.setTitle("Movement gestures with the screen off");
-		gesture_screen_off.setDescription("Off by default, and off means a shake, a wave or the phone going face down does nothing while the display is asleep — so a phone jolted about in a pocket or a bag cannot send commands to the game. Turn it on if you want to shake your way out of a fight without waking the phone first. IMPORTANT: a gesture is not aimed at one world. It fires in EVERY world you have open, including ones running in the background, so with two MUDs connected one shake sends the command twice. The headphone, charger and screen events are not affected by this setting — muting speech when the jack comes out has to work with the screen off, which is the whole point of it.");
+		gesture_screen_off.setTitle("Movement sensors with the screen off");
+		gesture_screen_off.setDescription("Off by default, and off means a shake, a wave over the screen or the phone going face down does nothing while the display is asleep — so a phone jolted about in a pocket or a bag cannot fire sensor triggers. Turn it on if you want those readings while the screen is off. IMPORTANT: a sensor trigger is not aimed at one world. It fires in EVERY world you have open, including ones running in the background, so with two MUDs connected one shake sends the command twice. Headphone, charger and screen readings are not affected by this setting — muting speech when the jack comes out has to work with the screen off, which is the whole point of it.");
 		gesture_screen_off.setKey("gesture_screen_off");
 		gesture_screen_off.setValue(false);
 		device.addOption(gesture_screen_off);
 
 		BooleanOption gesture_background = new BooleanOption();
-		gesture_background.setTitle("Movement gestures while the app is in the background");
-		gesture_background.setDescription("Off by default: with BlowTorch swiped away into Recents or another app on top, a shake or a wave is almost certainly you doing something else with your phone, not playing. Turn it on to keep gestures live while you use another app. As above, this covers movement gestures only — the headphone, charger and screen events keep working — and a gesture reaches every open world, not only the one you were last looking at.");
+		gesture_background.setTitle("Movement sensors while the app is in the background");
+		gesture_background.setDescription("Off by default: with BlowTorch swiped away into Recents or another app on top, a shake or a wave is almost certainly you doing something else with your phone, not playing. Turn it on to keep movement sensor triggers live while you use another app. As above, this covers movement sensors only — headphone, charger and screen readings keep working — and a sensor trigger reaches every open world, not only the one you were last looking at.");
 		gesture_background.setKey("gesture_background");
 		gesture_background.setValue(false);
 		device.addOption(gesture_background);

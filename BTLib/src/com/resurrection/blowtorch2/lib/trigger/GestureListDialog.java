@@ -27,13 +27,13 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
- * Every gesture this phone can feel, and what each one does — one screen.
+ * Every sensor reading this phone can deliver, and what each one drives.
  *
- * <p><b>Why this exists.</b> A gesture is stored as a trigger, which is right
- * for the engine and wrong for finding it: a player who set one up with
- * {@code .sensor facedown afk} had nowhere to look for it afterwards except a
+ * <p><b>Why this exists.</b> A sensor trigger is stored as an ordinary trigger,
+ * which is right for the engine and wrong for finding it afterwards: a player
+ * who set one up with {@code .sensor facedown afk} had nowhere to look except a
  * list of dozens of triggers watching for game text. This is the place to look.
- * Options → Device → Gestures opens it.
+ * Options → Device → Sensors opens it.
  *
  * <p>It also answers what happens when a gesture has <em>more</em> than one
  * thing hanging off it. Every trigger with that gesture's pattern fires, so this
@@ -57,7 +57,7 @@ public class GestureListDialog extends Dialog {
 	@Override
 	protected void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setTitle("Sensors and gestures");
+		setTitle("Sensors");
 		ScrollView scroll = new ScrollView(getContext());
 		rows = new LinearLayout(getContext());
 		rows.setOrientation(LinearLayout.VERTICAL);
@@ -73,11 +73,12 @@ public class GestureListDialog extends Dialog {
 	private void build() {
 		rows.removeAllViews();
 		TextView intro = new TextView(getContext());
-		intro.setText("Your phone can feel these. Tap one to say what it should do — "
-				+ "it opens the ordinary trigger editor, so a gesture can send a "
-				+ "command, run a script, speak, or anything else a trigger does.\n\n"
-				+ "A gesture fires in every world you have open, not only this one. "
-				+ "Movement gestures are held back while the screen is off or the app "
+		intro.setText("What this phone can measure, and which triggers answer each reading. "
+				+ "Tap one to set it up — it opens the ordinary trigger editor, so a sensor "
+				+ "can send a command, run a script, speak, gate on a condition, or anything "
+				+ "else a trigger does.\n\n"
+				+ "A sensor trigger fires in every world you have open, not only this one. "
+				+ "Movement readings are held back while the screen is off or the app "
 				+ "is in the background unless you allow them in Options → Device.");
 		intro.setTextColor(Color.LTGRAY);
 		intro.setTextSize(13f);
@@ -170,7 +171,7 @@ public class GestureListDialog extends Dialog {
 		}
 		if (bound.size() > 1) {
 			// Not an error, and worth saying plainly: all of them run.
-			out.append(bound.size()).append(" triggers answer this gesture, and all")
+			out.append(bound.size()).append(" triggers answer this reading, and all")
 				.append(" of them run. Edit opens the first.\n");
 		}
 		TriggerData first = bound.get(0);

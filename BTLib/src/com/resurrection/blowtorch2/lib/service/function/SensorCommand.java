@@ -14,23 +14,27 @@ import com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 
 /**
- * {@code .sensor} — what the phone can feel, and what it should do about it.
+ * {@code .sensor} — what hardware this phone has, and what to do with its readings.
  *
  * <pre>
- * .sensor                    what this phone can do and what is set up
- * .sensor caps               which sensor provides each gesture here
- * .sensor wave look          make a gesture send a command
- * .sensor wave               what that gesture does now
+ * .sensor                    what is set up on this phone
+ * .sensor caps               which sensor provides each reading here
+ * .sensor wave look          make a reading send a command
+ * .sensor wave               what that reading does now
  * .sensor wave on|off
- * .sensor fire wave          do it now, without moving the phone
+ * .sensor fire wave          try it now, without moving the phone
  * </pre>
  *
+ * <p><b>Not button gestures.</b> Swipes and holds on the input bar and chrome
+ * are configured in the button editor. This command is about the phone's own
+ * hardware — proximity, motion, light, charging, headphones — as triggers,
+ * conditions and timers already understand them.
+ *
  * <p><b>Why {@code .sensor wave look} looks like an alias.</b> Setting an alias
- * is {@code .name text} and has been for years; a gesture is the same kind of
- * thing — a name with something it does — so it is set the same way, from the
- * input bar, without opening an editor. What it writes is an ordinary trigger,
- * so anything the editor can add later (a script, a sound, speech, a condition)
- * sits alongside the command rather than replacing this.
+ * is {@code .name text} and has been for years; pointing a sensor reading at a
+ * command is the same kind of thing, so it is set the same way from the input
+ * bar. What it writes is an ordinary trigger, so scripts, sounds, speech and
+ * conditions sit alongside the command.
  *
  * <p><b>The trap this inherits.</b> {@code Connection.processCommand} looks up
  * the player's aliases <em>before</em> the built-in commands, so an alias named
@@ -42,9 +46,6 @@ public class SensorCommand extends SpecialCommand {
 	public SensorCommand() {
 		this.commandName = "sensor";
 	}
-
-	/** Same command under the word half the world would reach for. */
-	public static final String ALIAS_NAME = "gesture";
 
 	@Override
 	public Object execute(Object o, Connection c) {
@@ -139,7 +140,7 @@ public class SensorCommand extends SpecialCommand {
 		if (head.equals("fire") || head.equals("test")) {
 			if (rest.length() == 0) {
 				c.sendDataToWindow(getErrorMessage("Sensor usage",
-						"Which gesture? .sensor fire wave"));
+						"Which reading? .sensor fire wave"));
 				return null;
 			}
 			c.sendDataToWindow(c.fireDeviceGestureAndReport(
@@ -150,7 +151,7 @@ public class SensorCommand extends SpecialCommand {
 		Gesture g = GestureCatalog.byId(head);
 		if (g == null) {
 			c.sendDataToWindow(getErrorMessage("Sensor usage",
-					"There is no gesture called \"" + head + "\".\n" + usage()));
+					"There is no sensor reading called \"" + head + "\".\n" + usage()));
 			return null;
 		}
 		if (rest.length() == 0) {
@@ -179,7 +180,7 @@ public class SensorCommand extends SpecialCommand {
 		if (countTriggers(c, g) > 1) {
 			c.sendDataToWindow("\n" + countTriggers(c, g) + " triggers answer "
 					+ g.getId() + ", and all of them run. Which one did you mean?\n"
-					+ "Open Options \u2192 Device \u2192 Gestures to see them.\n");
+					+ "Open Options \u2192 Device \u2192 Sensors to see them.\n");
 			return null;
 		}
 		TriggerData existing = findTrigger(c, g);
@@ -265,7 +266,7 @@ public class SensorCommand extends SpecialCommand {
 		int count = countTriggers(c, g);
 		if (count > 1) {
 			out.append("  ").append(count).append(" triggers answer this, and all of")
-				.append(" them run.\n  Options \u2192 Device \u2192 Gestures shows them.\n");
+				.append(" them run.\n  Options \u2192 Device \u2192 Sensors shows them.\n");
 		}
 		out.append("  ").append(t.isEnabled() ? "on" : "off").append(", ")
 			.append(describeActions(t)).append('\n');
@@ -274,7 +275,7 @@ public class SensorCommand extends SpecialCommand {
 
 	private String overview(final Connection c) {
 		StringBuilder out = new StringBuilder();
-		out.append("\n--- gestures ---\n");
+		out.append("\n--- sensors on this phone ---\n");
 		for (Gesture g : GestureCatalog.all()) {
 			GestureAvailability.Resolution r =
 					GestureAvailability.resolve(c.getContext(), g);
@@ -285,12 +286,12 @@ public class SensorCommand extends SpecialCommand {
 							: (t.isEnabled() ? "on" : "off")) : "unavailable",
 					t != null ? describeActions(t) : g.getLabel().toLowerCase(Locale.US)));
 		}
-		out.append("\n.sensor wave look     point a gesture at a command\n");
+		out.append("\n.sensor wave look     point a reading at a command\n");
 		out.append(".sensor fire wave     try it without moving the phone\n");
-		out.append(".sensor caps          which sensor does what on this phone\n");
-		out.append("\nA gesture is an ordinary trigger, so it can also run a script,\n");
-		out.append("play a sound, speak, or anything else a trigger does. The whole\n");
-		out.append("list with a screen of its own is in Options \u2192 Device \u2192 Gestures.\n");
+		out.append(".sensor caps          which hardware does what on this phone\n");
+		out.append("\nEach reading is an ordinary trigger, so it can also run a script,\n");
+		out.append("play a sound, speak, or gate on a condition. The whole list with\n");
+		out.append("a screen of its own is in Options \u2192 Device \u2192 Sensors.\n");
 		return out.toString();
 	}
 
@@ -374,11 +375,11 @@ public class SensorCommand extends SpecialCommand {
 		StringBuilder out = new StringBuilder();
 		out.append("\n--- what these are actually for ---\n\n");
 		out.append("1. Your MUD stops shouting in public.\n");
-		out.append("   Gesture: headphones unplugged \u2192 run a script that turns\n");
+		out.append("   Reading: headphones unplugged \u2192 run a script that turns\n");
 		out.append("   speech off. The jack catches on a bag strap on the bus and the\n");
 		out.append("   whole carriage does not hear your combat log.\n\n");
 		out.append("2. Speech that only ever happens in your ears.\n");
-		out.append("   Not a gesture — a condition. On any trigger that speaks, add\n");
+		out.append("   Not a sensor trigger — a condition. On any trigger that speaks, add\n");
 		out.append("   Conditions \u2192 The phone \u2192 \"Headphones are plugged in\".\n");
 		out.append("   Now it is silent when they are not, without you remembering.\n\n");
 		out.append("3. Someone talks to you and you put the phone down.\n");
@@ -392,7 +393,7 @@ public class SensorCommand extends SpecialCommand {
 		out.append("   .sensor cover flee   \u2014 hold a hand over the top of the screen.\n");
 		out.append("   Quiet, one-handed, and it works without looking at the phone.\n\n");
 		out.append("6. Nothing fires from inside a pocket.\n");
-		out.append("   Options \u2192 Device keeps movement gestures off while the screen\n");
+		out.append("   Options \u2192 Device keeps movement sensors off while the screen\n");
 		out.append("   is off. For belt and braces, add the condition \"Nothing is over\n");
 		out.append("   the screen\" to anything that sends a command.\n\n");
 		out.append("7. The long session at a desk.\n");
@@ -403,16 +404,16 @@ public class SensorCommand extends SpecialCommand {
 
 	private String usage() {
 		StringBuilder out = new StringBuilder();
-		out.append("\n.sensor                 what this phone can feel\n");
-		out.append(".sensor caps            which sensor provides each gesture\n");
-		out.append(".sensor wave look       make a gesture send a command\n");
-		out.append(".sensor wave            what that gesture does now\n");
+		out.append("\n.sensor                 what this phone can measure\n");
+		out.append(".sensor caps            which sensor provides each reading\n");
+		out.append(".sensor wave look       make a reading send a command\n");
+		out.append(".sensor wave            what that reading does now\n");
 		out.append(".sensor wave on|off     without deleting it\n");
-		out.append(".sensor fire wave       do it now, without moving the phone\n");
+		out.append(".sensor fire wave       try it now, without moving the phone\n");
 		out.append(".sensor examples        what people actually use these for\n");
 		out.append(".sensor watch on|off    keep device.* up to date for conditions\n");
 		out.append(".sensor threshold shake 14.5   how hard a shake has to be here\n");
-		out.append("\nGestures: ");
+		out.append("\nReadings: ");
 		boolean first = true;
 		for (Gesture g : GestureCatalog.all()) {
 			if (!first) {

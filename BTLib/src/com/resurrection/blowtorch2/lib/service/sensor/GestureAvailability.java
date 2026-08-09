@@ -230,16 +230,17 @@ public final class GestureAvailability {
 	public static String report(final Context context) {
 		Map<String, Resolution> resolved = resolveAll(context);
 		StringBuilder out = new StringBuilder();
-		out.append("\n--- gestures on this phone ---\n");
+		out.append("\n--- sensor readings on this phone ---\n");
 		for (Map.Entry<String, Resolution> e : resolved.entrySet()) {
 			Resolution r = e.getValue();
 			out.append(String.format(Locale.US, "  %-14s %-9s %s%n",
 					e.getKey(), r.isAvailable() ? "OK" : "MISSING", r.describe()));
 		}
-		out.append("\nA gesture is set up like any other trigger: give it actions and\n");
-		out.append("it can send a command, run a script, speak, play a sound — the same\n");
-		out.append("list a trigger on game text has. Use .sensor wave <command> for the\n");
-		out.append("quick way, or the Triggers editor for anything more.\n");
+		out.append("\nEach reading is set up like any other trigger: give it actions and\n");
+		out.append("it can send a command, run a script, speak, play a sound, or gate on\n");
+		out.append("a condition. Use .sensor wave <command> for the quick way, or the\n");
+		out.append("Triggers editor for anything more. Options \u2192 Device \u2192 Sensors\n");
+		out.append("lists them all.\n");
 		return out.toString();
 	}
 

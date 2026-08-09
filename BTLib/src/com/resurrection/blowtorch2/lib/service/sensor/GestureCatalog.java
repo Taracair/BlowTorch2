@@ -107,7 +107,7 @@ public final class GestureCatalog {
 				BY_PROXIMITY, BY_LIGHT));
 		all.add(new Gesture("cover", "Hold a hand over the screen",
 				"Cover the top of the screen and keep it there for a moment. A"
-					+ " different gesture from a wave, told apart by time rather"
+					+ " different reading from a wave, told apart by time rather"
 					+ " than by how hard you did it.",
 				BY_PROXIMITY));
 		all.add(new Gesture("facedown", "Put the phone face down",

@@ -574,9 +574,6 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.SensorCommand sensorcmd =
 				new com.resurrection.blowtorch2.lib.service.function.SensorCommand();
 		mSpecialCommands.put(sensorcmd.commandName, sensorcmd);
-		mSpecialCommands.put(
-				com.resurrection.blowtorch2.lib.service.function.SensorCommand.ALIAS_NAME,
-				sensorcmd);
 		com.resurrection.blowtorch2.lib.service.function.HelpCommand helpcmd =
 				new com.resurrection.blowtorch2.lib.service.function.HelpCommand();
 		mSpecialCommands.put(helpcmd.commandName, helpcmd);
@@ -4176,7 +4173,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				} catch (Exception e) {
 					String rname = responder != null
 							? responder.getClass().getSimpleName() : "?";
-					reportRuntimeError("gesture \"" + t.getName() + "\" / " + rname, e);
+					reportRuntimeError("sensor \"" + t.getName() + "\" / " + rname, e);
 				}
 			}
 		}
@@ -4199,7 +4196,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture g =
 				com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.byId(gestureId);
 		if (g == null) {
-			return "\nThere is no gesture called \"" + gestureId + "\". Try .sensor.\n";
+			return "\nThere is no sensor reading called \"" + gestureId + "\". Try .sensor.\n";
 		}
 		int fired = runDeviceGesture(g.getPattern());
 		if (fired == 0) {

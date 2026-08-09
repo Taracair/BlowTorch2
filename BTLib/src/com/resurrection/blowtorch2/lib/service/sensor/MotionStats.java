@@ -216,7 +216,7 @@ public final class MotionStats {
 		out.append(String.format(Locale.US, "peak          : %.1f m/s2%n", peak()));
 		out.append(String.format(Locale.US, "median / p95  : %.1f / %.1f m/s2%n",
 				percentile(0.5), percentile(0.95)));
-		out.append("\nGestures a detector would have fired (500 ms dead time):\n");
+		out.append("\nReadings a detector would have crossed (500 ms dead time):\n");
 		for (int i = 0; i < CANDIDATE_THRESHOLDS.length; i++) {
 			double threshold = CANDIDATE_THRESHOLDS[i];
 			out.append(String.format(Locale.US, "  above %5.1f m/s2 : %d%n",

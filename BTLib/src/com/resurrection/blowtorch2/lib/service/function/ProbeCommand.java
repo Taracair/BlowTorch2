@@ -119,8 +119,8 @@ public class ProbeCommand extends SpecialCommand {
 				+ ".probe sensors          — what sensors this phone has\n"
 				+ ".probe sensors shake 10 — sample movement for 10 seconds\n"
 				+ ".probe sensors light 10 — how bright the room is, in lux\n\n"
-				+ "Those two answer a different question: which gestures this\n"
-				+ "device could support, and how hard a shake has to be here.\n"));
+				+ "Those two answer a different question: which sensor readings\n"
+				+ "this device could support, and how hard a shake has to be here.\n"));
 		return null;
 	}
 }

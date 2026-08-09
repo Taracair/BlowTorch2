@@ -2157,7 +2157,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	@SuppressWarnings("unchecked")
 	/**
-	 * The Gestures screen, opened from Options → Device.
+	 * The Sensors screen, opened from Options → Device.
 	 *
 	 * <p>Gestures are stored as triggers, which is right for the engine and no
 	 * help at all for finding one afterwards. This is where a player goes to see

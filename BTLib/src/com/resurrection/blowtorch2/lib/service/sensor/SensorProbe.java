@@ -51,7 +51,7 @@ public final class SensorProbe {
 	public static String inventory(final Context context) {
 		SensorManager manager = managerFrom(context);
 		if (manager == null) {
-			return "\nNo SensorManager on this device. Nothing gesture-shaped can be built.\n";
+			return "\nNo SensorManager on this device. No sensor reading can be built.\n";
 		}
 		List<Sensor> all = manager.getSensorList(Sensor.TYPE_ALL);
 		StringBuilder out = new StringBuilder();
@@ -78,7 +78,7 @@ public final class SensorProbe {
 		out.append(present(manager, Sensor.TYPE_LIGHT, "wave fallback, dark room"));
 		out.append(present(manager, Sensor.TYPE_SIGNIFICANT_MOTION, "picked the phone up"));
 		out.append(present(manager, Sensor.TYPE_STEP_COUNTER, "walking (needs a permission)"));
-		out.append("\nA gesture whose sensors are all missing cannot be offered on this\n");
+		out.append("\nA reading whose sensors are all missing cannot be offered on this\n");
 		out.append("device, and the settings screen has to say so rather than go quiet.\n");
 		out.append("Presence is not delivery: .probe sensors shake measures that.\n");
 		return out.toString();
@@ -227,7 +227,7 @@ public final class SensorProbe {
 		}
 		if (chosen == null) {
 			return "\nThis device reports neither linear acceleration nor an\n"
-					+ "accelerometer. No shake gesture is possible here.\n";
+					+ "accelerometer. The shake reading is not possible here.\n";
 		}
 		if (!RUNNING.compareAndSet(false, true)) {
 			return "\nA motion probe is already running. Wait for it to report.\n";

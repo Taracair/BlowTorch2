@@ -1194,7 +1194,7 @@ is enabled; `.alias list` shows every alias at once.
     `.note <text>`                      Client-only echo to the game window; never sent to the MUD. Useful for button tips and debugging
     `.probe lines on|off|report|reset`  Measure how the game's text is cut up on the way in; see below. Off by default, costs nothing when off
     `.probe sensors [state|shake [seconds]]`  What sensors this phone has, what they deliver, and the current `device.*` values; see below
-    `.sensor …` / `.gesture …`          Gestures this phone can feel and what they do: `caps`, `<gesture> <command>`, `<gesture> on|off`, `fire <gesture>`; see below
+    `.sensor …`                          What this phone can measure and what triggers do with it: `caps`, `<reading> <command>`, `<reading> on|off`, `fire <reading>`; see below
     `.trigger …`                        Enable/disable triggers (`on`/`off`/`toggle`/`status`/`group`/`all`/`plugin`; main + plugins); see below
     `.alias …`                          Enable/disable aliases (`list`/`status`/`on`/`off`/`toggle`/`all`); see below
     `.timer <action> <name> [silent]`   Timer control: `play`, `pause`, `reset`, `stop`, `info`. Optional third token suppresses toasts (not `info`)
@@ -1302,10 +1302,10 @@ Answers two questions about **your phone**, which no amount of reading the app
 can answer: which sensors it actually has, and what they deliver.
 
 `.probe sensors` lists every sensor the device reports — name, power draw,
-range, whether it can wake the phone — and then says which of the ones a gesture
-would need are present or missing. Sensor hardware differs enormously between
+range, whether it can wake the phone — and then says which of the ones a sensor
+reading would need are present or missing. Sensor hardware differs enormously between
 models; plenty of recent phones report no separate proximity sensor at all, so
-"wave your hand over the screen" is a gesture some phones simply cannot offer.
+"wave over the screen" is a reading some phones simply cannot offer.
 
 `.probe sensors shake` registers a motion sensor for ten seconds (or the number
 of seconds you give, 3 to 60) and reports what arrived:
@@ -1316,7 +1316,7 @@ of seconds you give, 3 to 60) and reports what arrived:
     largest gap   : 41.2 ms
     peak          : 27.4 m/s2
 
-    Gestures a detector would have fired (500 ms dead time):
+    Readings a detector would have crossed (500 ms dead time):
       above  12.0 m/s2 : 3
       above  20.0 m/s2 : 3
       above  25.0 m/s2 : 1
@@ -1324,8 +1324,8 @@ of seconds you give, 3 to 60) and reports what arrived:
 **Reading it.** Run it once while shaking the phone the way you would in a
 fight, and once while walking with it in your hand. A usable threshold is the
 lowest one that counts your shakes and counts the walk as zero. If the walking
-run fires anything, a shake gesture at that threshold would send commands while
-you are on your way to the shop.
+run fires anything, a shake trigger at that threshold would fire while you are on
+your way to the shop.
 
 *Registration refused* or *samples: NONE* is not a failure of the probe — it is
 the answer, and a more important one than the threshold.
@@ -1356,120 +1356,106 @@ system sends anyway.
 All of these cost nothing until you type them. The sensor is released when the
 run ends.
 
-### Gestures — `.sensor`
+### Sensors — `.sensor`
 
 ```
-.sensor                  what this phone can feel, and what is set up
-.sensor caps             which sensor provides each gesture here
-.sensor wave look        make a gesture send a command
-.sensor wave             what that gesture does now
+.sensor                  what this phone can measure, and what is set up
+.sensor caps             which hardware provides each reading here
+.sensor wave look        make a reading send a command
+.sensor wave             what that reading does now
 .sensor wave on|off      without deleting it
-.sensor fire wave        do it now, without moving the phone
+.sensor fire wave        try it now, without moving the phone
 ```
 
-Your phone can feel things a desktop MUD client never will. A gesture is one of
-those things happening — you waved a hand over the screen, you shook the phone —
-and BlowTorch treats it exactly like a line of text arriving from the game.
+Your phone has hardware a desktop MUD client never will — proximity, motion,
+light, charging, headphones. BlowTorch turns each **reading** from that
+hardware into an ordinary trigger, so anything a trigger already does — send a
+command, run Lua, speak, play a sound, ring the bell, set a variable, gate on a
+condition, start or stop a timer — works with it too.
 
-**That is the important part: a gesture is an ordinary trigger.** So it can do
-anything a trigger can do — send a command, run a Lua script, speak out loud,
-play a sound, show a notification, ring the bell, set a variable, turn another
-trigger on or off — and any action added to the app later will work with it too.
+**Not button gestures.** Swipes and holds on the input bar, Send button and
+chrome are configured in the **button editor** (gesture hints on tiles, Hold
+command, chrome bindings). This section is only about the phone's own sensors.
+
 `.sensor wave flee` is the quick way to set the common case; open the same thing
-in the Triggers editor to give it a script, a sound, or a condition.
+in the Triggers editor (source picker: *Wave a hand over the screen*, and so on)
+to add a script, a sound, or a condition.
 
-The gestures:
+The readings (each has a short name for `.sensor` and triggers):
 
-| | What you do | Measured with |
+| Name | What the hardware sees | Measured with |
 |---|---|---|
-| `wave` | Pass a hand over the top of the screen and away | Proximity, or the light sensor if there is none |
-| `cover` | Cover the top of the screen and hold it there a second | Proximity |
-| `facedown` | Lay the phone screen-down on a table | Gravity, or the accelerometer |
-| `faceup` | Turn it back over | Gravity, or the accelerometer |
-| `shake` | Shake the phone, as you would to flee a fight | Linear acceleration, or the accelerometer |
-| `headphonesout` / `headphonesin` | Unplug or plug in the headphones | The system tells us |
-| `powerout` / `powerin` | Unplug or plug in the charger | The system tells us |
-| `pickup` | Lift the phone off the table | A sensor built for exactly that, where the phone has one |
-| `moving` | You got up and walked off with it | Significant motion |
-| `still` | It has been lying untouched a while | Stationary detect |
-| `gotdark` | It gets dark around you | The light sensor |
-| `gotbright` | It gets bright around you | The light sensor |
-| `screenoff` / `screenon` | The screen locks, or comes back | The system tells us |
+| `wave` | Hand passes over the top of the screen and away | Proximity, or light if there is none |
+| `cover` | Hand covers the top of the screen for a moment | Proximity |
+| `facedown` | Phone laid screen-down | Gravity, or accelerometer |
+| `faceup` | Phone turned back over | Gravity, or accelerometer |
+| `shake` | Phone shaken hard | Linear acceleration, or accelerometer |
+| `headphonesout` / `headphonesin` | Headphones unplugged or plugged | System broadcast |
+| `powerout` / `powerin` | Charger unplugged or plugged | System broadcast |
+| `pickup` | Phone lifted off the table | Pick-up sensor, where present |
+| `moving` | Real movement begins | Significant motion |
+| `still` | Untouched for a while | Stationary detect |
+| `gotdark` / `gotbright` | Room gets dark or bright | Light sensor |
+| `screenoff` / `screenon` | Screen locks or comes back | System broadcast |
 
-The last six need **no sensor at all** — the system announces them to every app.
-They work on every phone, so a profile built on those is one you can hand to
-anyone. `headphonesout` in particular is worth setting up before you play in
-public: bind it to a script that turns speech off, and an unplugged jack stops
-the room hearing your MUD.
+The last block needs **no extra sensor chip** — Android tells every app. A
+profile built on `headphonesout`, `powerin` and `screenon` works on any phone.
+`headphonesout` in particular is worth setting up before you play in public.
 
-`facedown` is the "I am stepping away" gesture: bind it to `afk` and bind
-`faceup` to `afk off`. It waits for the phone to settle before it fires, so
-turning the phone over does not trip it on the way. A phone in your hand or in a
-pocket is neither face up nor face down, and neither gesture fires there.
+`facedown` is the classic "stepping away" reading: bind it to `afk` and `faceup`
+to `afk off`. It waits for the phone to settle. A phone in your hand or pocket
+is neither face up nor face down, so neither fires there.
 
-**Phones differ, so ask yours.** `.sensor caps` says which sensor provides each
-gesture *on this device*, whether it is a fallback rather than the first choice,
-and whether it keeps working with the screen off. A gesture your phone has no
-sensor for is listed as unavailable with the reason — it is never offered as if
-it worked.
+**Phones differ, so ask yours.** `.sensor caps` says which chip provides each
+reading *on this device*, whether it is a fallback, and whether it works with the
+screen off. A reading your phone cannot measure is listed as unavailable with the
+reason — never offered as if it worked.
 
-`wave` and `cover` come from the same sensor and are told apart by **how long
-your hand stays**: gone again quickly is a wave, still there after a second is a
-cover. Time is the one distinction a proximity sensor can make reliably, which
-is why there is no "hard wave" and "soft wave".
+`wave` and `cover` share proximity and are told apart by **how long your hand
+stays**: a quick pass is a wave, held a second is a cover.
 
-**`.sensor fire wave` runs the gesture without moving the phone.** Use it to
-check what you set up, and to test a profile on a phone that lacks the sensor —
-the gesture still works from a button or another trigger even where the hardware
-does not exist.
+**`.sensor fire wave` runs the trigger without moving the phone.** Use it to
+check what you set up, or to test a profile on hardware you do not have — the
+trigger still works from a button even where the sensor is missing.
 
 ### What these are actually for
 
-The feature is easy to laugh at — "so you walk around shaking your phone at the
-game" — and the useful cases are nothing like that. Every one of these is
-something that goes wrong while playing a MUD on a phone in public, and every one
-is two taps. `.sensor examples` prints this list into the game window.
+The useful cases are nothing like "shake your phone at the game." Every one is
+something that goes wrong while playing on a phone in public, and most are two
+taps. `.sensor examples` prints this list into the game window.
 
 **1. Your MUD stops shouting in public.** Bind `headphonesout` to a script that
-turns speech off. The jack catches on a bag strap on the bus, and the whole
-carriage does not hear your combat log.
+turns speech off when the jack catches on a bag strap.
 
-**2. Speech that only ever happens in your ears.** Not a gesture — a *condition*.
-On any trigger with a Speak action, open Conditions → *The phone* → "Headphones
-are plugged in". It is silent when they are not, without you having to remember.
+**2. Speech that only ever happens in your ears.** Not a sensor trigger — a
+*condition*. On any trigger that speaks, add Conditions → *The phone* →
+"Headphones are plugged in".
 
 **3. Someone talks to you and you put the phone down.** `.sensor facedown afk`
-and `.sensor faceup afk off`. You go AFK by doing the thing you were doing
-anyway, and come back the same way.
+and `.sensor faceup afk off`.
 
-**4. Alerts that know whether you are looking.** Put "Screen is off" as a
-condition on the notification or bell action, and "Screen is on" on the quiet
-on-screen one. The same event reaches you the right way in both cases, instead of
-buzzing at you while you stare at it.
+**4. Alerts that know whether you are looking.** Condition "Screen is off" on
+bell/notification actions; "Screen is on" on the quiet on-screen ones.
 
-**5. A panic button you do not have to find.** `.sensor cover flee` — hold a hand
-over the top of the screen. Quiet, one-handed, no hunting for a button while
-something is eating you.
+**5. A panic button you do not have to find.** `.sensor cover flee` — hand over
+the top of the screen, one-handed.
 
-**6. Nothing fires from inside a pocket.** Movement gestures are already held
-back while the screen is off. For belt and braces, add the condition "Nothing is
-over the screen" to anything that sends a command.
+**6. Nothing fires from inside a pocket.** Movement sensors are held back while
+the screen is off. For belt and braces, add condition "Nothing is over the
+screen" on anything that sends a command.
 
-**7. The long session at a desk.** Condition "Phone is charging" on your noisier
-alerts, so they speak up when you are plugged in and settled and stay quiet on
-the walk home.
+**7. The long session at a desk.** Condition "Phone is charging" on noisier
+alerts.
 
 ### Gating a trigger on the phone
 
-Any trigger or timer can be gated on what the phone is doing, and this is often
-more useful than a gesture. Open the Conditions section of a trigger, add one,
-and the **The phone** picker at the top of that screen fills it in for you —
-"Phone is face down", "Headphones are plugged in", "Phone is charging". You never
-have to type a variable name.
+Any trigger or timer can be gated on what the phone is doing — often more useful
+than a sensor trigger at all. Conditions → **The phone** fills in
+"Phone is face down", "Headphones are plugged in", "Phone is charging" without
+typing variable names.
 
-Behind the picker these are ordinary session variables, so a Lua script can read
-the same values with `GetVariable("device.charging")`. `.sensor state` lists every
-name, what it can hold, and whether this phone can tell:
+Behind the picker these are session variables (`device.*`). `.sensor state`
+lists every name, what it can hold, and whether this phone can tell:
 
     device.facing      up | down | unknown   = up
     device.screen      on | off              = on
@@ -1478,47 +1464,42 @@ name, what it can hold, and whether this phone can tell:
     device.battery     0 to 100              = 74
     device.covered     yes | no              (not set — no proximity sensor)
 
-Two things worth knowing. **They are only kept up to date while Options → Device
-→ "Device state as variables" is on** (or after `.sensor watch on`) — with it off
-nothing sets them, and a condition on one is *false*, so the trigger simply never
-fires. And **every value is text**, compared exactly: `device.battery` equals `74`
-works, but "below 30" needs a Lua script, because a condition has no less-than.
+**Only while Options → Device → "Device state as variables" is on** (or after
+`.sensor watch on`). With it off, conditions on `device.*` are *false*. Values
+are text compared exactly — "battery below 30" needs Lua.
 
-### Where to find them: Options → Device → Gestures
+### Where to find them: Options → Device → Sensors
 
-`.sensor facedown afk` is the quick way, but you should not have to remember
-that you typed it. **Options → Device → Gestures** is a screen listing every
-gesture, which sensor does it on this phone, and what it currently does, with
-*Set up* / *Edit* and *Test* beside each one. Editing opens the ordinary trigger
-editor, because that is where scripts, sounds, speech and conditions live.
+`.sensor facedown afk` is the quick way, but you should not have to remember it.
+**Options → Device → Sensors** lists every reading, which hardware provides it
+on this phone, and what triggers answer it, with *Set up* / *Edit* and *Test*.
+Editing opens the ordinary trigger editor.
 
-**More than one thing can hang off one gesture.** If you bind `facedown` to
-`afk` and then build a second trigger that also fires on face down — to hush the
-speech, say — **both run**. That is deliberate. The Gestures screen says how many
-answer each gesture, and `.sensor facedown <command>` refuses to guess which one
-you meant when there is more than one, pointing you at the screen instead.
+**More than one trigger can answer the same reading.** If `facedown` sends `afk`
+and a second trigger also fires on face down, **both run**. The Sensors screen
+says how many answer each reading; `.sensor facedown <command>` refuses to guess
+which one you meant when there is more than one.
 
-### When gestures are allowed to fire
+### When sensor triggers are allowed to fire
 
 Two settings in **Options → Device**, both **off by default**:
 
-- **Movement gestures with the screen off** — off means a shake, a wave or the
-  phone going face down does nothing while the display is asleep. A phone jolted
-  about in a pocket cannot send commands to the game.
-- **Movement gestures while the app is in the background** — off means the same
-  while another app is on top or BlowTorch is in Recents.
+- **Movement sensors with the screen off** — shake, wave and face-down do
+  nothing while the display is asleep.
+- **Movement sensors while the app is in the background** — the same while
+  another app is on top or BlowTorch is in Recents.
 
-**Read this bit twice: a gesture is not aimed at one world.** It fires in
-**every world you have open**, including ones connected in the background. With
-two MUDs connected, one shake sends the command twice — once to each.
+**A sensor trigger is not aimed at one world.** It fires in **every world you
+have open**, including background connections. With two MUDs connected, one
+shake sends twice.
 
-Both settings cover **movement** gestures only. The headphone, charger and screen
-events keep working regardless, and that is on purpose: hushing speech when the
-jack comes out has to work precisely when you are not looking at the screen.
+Both settings cover **movement** readings only. Headphone, charger and screen
+readings keep working regardless — hushing speech when the jack comes out has to
+work with the screen off.
 
-**A warning about names.** Commands are looked up *after* your own aliases, so an
-alias called `sensor` would hide this command completely and say nothing about
-it. If `.sensor` ever stops responding, check your alias list first.
+**A warning about names.** Commands are looked up *after* your aliases, so an
+alias called `sensor` hides this command completely. If `.sensor` stops
+responding, check your alias list first.
 
 ### Calibrating light
 

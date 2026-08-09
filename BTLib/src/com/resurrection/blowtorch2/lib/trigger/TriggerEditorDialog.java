@@ -122,7 +122,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	/**
 	 * Open a brand new trigger already set to a device gesture.
 	 *
-	 * <p>For the Gestures screen, where the player picked "put the phone face
+	 * <p>For the Sensors screen, where the player picked "put the phone face
 	 * down" and should not then have to find that same choice again in a
 	 * dropdown. Call before {@code show()}; ignored when editing an existing
 	 * trigger, which already knows what it fires on.
