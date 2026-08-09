@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  One reading in the Sensors list.
+
+  Two lines, like the trigger chooser's rows: what the reading is, and one line
+  of state under it — what it means while nothing is set up, what it does once
+  something is. The old row printed the help text, the resolved sensor's model
+  name and the trigger's state as three stacked paragraphs, sixteen times.
+
+  The left edge lights up only when something answers the reading, so "what have
+  I actually set up here" is one glance down the list rather than a read.
+
+  Test is on the row instead of a second full-width button because it is only
+  useful once a trigger exists; the row itself is the way in to the editor.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:orientation="vertical">
+
+	<RelativeLayout
+		android:id="@+id/row"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:minHeight="56dip"
+		android:paddingTop="8dip"
+		android:paddingBottom="8dip"
+		android:paddingRight="8dip"
+		android:background="@drawable/editor_row_selector">
+
+		<View
+			android:id="@+id/accent"
+			android:layout_width="3dip"
+			android:layout_height="match_parent"
+			android:layout_alignParentLeft="true"
+			android:layout_alignParentTop="true"
+			android:layout_alignParentBottom="true"
+			android:background="#00000000"/>
+
+		<Button
+			android:id="@+id/test"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_alignParentRight="true"
+			android:layout_centerVertical="true"
+			android:minWidth="64dip"
+			android:minHeight="40dip"
+			android:paddingLeft="10dip"
+			android:paddingRight="10dip"
+			android:background="@drawable/editor_more_button_bg"
+			android:textColor="#FFC7CDD4"
+			android:textSize="13dip"
+			android:textAllCaps="false"
+			android:text="Test"/>
+
+		<TextView
+			android:id="@+id/label"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_alignParentTop="true"
+			android:layout_toRightOf="@id/accent"
+			android:layout_toLeftOf="@id/test"
+			android:layout_marginLeft="9dip"
+			android:layout_marginRight="8dip"
+			android:textColor="#FFF2F4F6"
+			android:textSize="16dip"
+			android:lines="1"
+			android:ellipsize="end"
+			android:text="Shake the phone"/>
+
+		<TextView
+			android:id="@+id/status"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_below="@id/label"
+			android:layout_toRightOf="@id/accent"
+			android:layout_toLeftOf="@id/test"
+			android:layout_marginLeft="9dip"
+			android:layout_marginRight="8dip"
+			android:paddingTop="2dip"
+			android:textColor="#FF9AA3AD"
+			android:textSize="12dip"
+			android:maxLines="2"
+			android:ellipsize="end"
+			android:text="Not set up"/>
+	</RelativeLayout>
+
+	<View
+		android:layout_width="match_parent"
+		android:layout_height="1dip"
+		android:background="#FF23262B"/>
+</LinearLayout>

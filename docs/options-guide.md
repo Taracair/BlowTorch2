@@ -205,7 +205,7 @@ timers.
 | Option | Default | Notes |
 |--------|---------|--------|
 | **Device state as variables** | off | Keep `device.facing`, `device.screen`, `device.headphones`, `device.charging`, `device.battery`, `device.covered`, `device.light` up to date as session variables. With it off nothing is registered and a condition testing one is *false*, never true |
-| **Sensors…** | — | The list screen: every reading, which hardware provides it on this phone, what answers it, with *Set up* / *Edit* and *Test*. Editing opens the ordinary trigger editor |
+| **Sensors…** | — | The list screen: readings grouped under *A hand over the screen*, *Movement*, *Light* and *Headphones, charger and screen*, each with one line saying what it is or what already answers it. Tap a row to open the ordinary trigger editor; *Test* appears once something answers it. Readings this handset cannot provide fold away under *Not available on this phone*, still tappable, because a profile is shared with people whose phones do have them. Which chip provides a reading is in `.sensor caps`, not on the row |
 | **Calibrate shake…** | — | Two measurements (shaking, then walking) and it picks a threshold between them; refuses when they overlap. Kept with the phone, never exported |
 | **Calibrate light…** | — | Tap once somewhere dark and once somewhere bright. Lux is not comparable between phones or rooms, so this is the only way "dark" can mean yours |
 | **Movement sensors with the screen off** | off | Off means shake / wave / face-down do nothing while the display sleeps, so a pocket cannot fire them |

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  A heading in the Sensors list. Four of them turn sixteen readings into four
+  short groups; the fifth, "Not available on this phone", is tappable and folds
+  the rows this handset cannot provide out of the way.
+-->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/section"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:minHeight="34dip"
+	android:gravity="center_vertical"
+	android:paddingLeft="12dip"
+	android:paddingRight="12dip"
+	android:paddingTop="10dip"
+	android:paddingBottom="4dip"
+	android:textColor="#FF8FA6C8"
+	android:textSize="12dip"
+	android:textStyle="bold"
+	android:text="Movement"/>

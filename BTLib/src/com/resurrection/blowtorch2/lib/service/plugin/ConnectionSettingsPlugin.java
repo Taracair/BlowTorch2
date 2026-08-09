@@ -305,7 +305,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption device_state_variables = new BooleanOption();
 		device_state_variables.setTitle("Device state as variables");
-		device_state_variables.setDescription("Keep device.headphones, device.charging, device.battery, device.screen and device.covered up to date as session variables, so a trigger or timer can be gated on them in its Conditions tab and Lua can read them with GetVariable. A name this phone cannot know is left unset, and a condition testing it is false rather than true. Nothing is registered while this is off. Off by default. .probe sensors state shows the current values");
+		device_state_variables.setDescription("Keep device.headphones, device.charging, device.battery, device.screen and device.covered up to date as session variables, so a trigger or timer can be gated on them in its Conditions tab and Lua can read them with GetVariable. A name this phone cannot know is left unset, and a condition testing it is false rather than true. Off by default, and nothing is registered while it is off. .probe sensors state shows the current values");
 		device_state_variables.setKey("device_state_variables");
 		// Off by default: the app did nothing of the sort before this existed.
 		// Change this and ConnectionSetttingsParser's comparison together, or
@@ -315,32 +315,32 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		CallbackOption device_sensors = new CallbackOption();
 		device_sensors.setTitle("Sensors\u2026");
-		device_sensors.setDescription("What this phone can measure — proximity, motion, light, charging, headphones and the rest — and which triggers or timers should react. Tap for the list: which hardware is present on this phone, what each reading can drive, and *Set up* / *Test*.");
+		device_sensors.setDescription("The readings this phone can deliver — a hand over the screen, movement, light, headphones, charger, screen — and what each one currently drives. Tap a reading in the list to give it a trigger.");
 		device_sensors.setKey("device_sensors");
 		device.addOption(device_sensors);
 
 		CallbackOption calibrate_shake = new CallbackOption();
 		calibrate_shake.setTitle("Calibrate shake\u2026");
-		calibrate_shake.setDescription("Teach the app how hard you shake this phone. Two short measurements — one shaking, one walking about with it — and it picks a threshold that catches the first without catching the second. The app ships a starting value measured on one device; this replaces it with yours. The result stays with this phone and never travels in an exported profile.");
+		calibrate_shake.setDescription("Two short measurements, one shaking and one walking about with the phone, and it picks a threshold that catches the first without catching the second. Replaces the value the app ships, which was measured on one device. Stays with this phone and never travels in an exported profile.");
 		calibrate_shake.setKey("calibrate_shake");
 		device.addOption(calibrate_shake);
 
 		CallbackOption calibrate_light = new CallbackOption();
 		calibrate_light.setTitle("Calibrate light\u2026");
-		calibrate_light.setDescription("Teach the app what dark and bright mean where you play. Stand somewhere dark and tap, somewhere bright and tap again. Lux readings are not comparable between phones or between rooms, so this is the only way \"it is dark around the phone\" can mean your dark. Kept with this phone, never exported with a profile.");
+		calibrate_light.setDescription("Tap once somewhere dark and once somewhere bright. Lux readings are not comparable between phones or between rooms, so this is the only way \"it is dark around the phone\" can mean your dark. Stays with this phone, never exported with a profile.");
 		calibrate_light.setKey("calibrate_light");
 		device.addOption(calibrate_light);
 
 		BooleanOption sensor_screen_off = new BooleanOption();
 		sensor_screen_off.setTitle("Movement sensors with the screen off");
-		sensor_screen_off.setDescription("Off by default, and off means a shake, a wave over the screen or the phone going face down does nothing while the display is asleep — so a phone jolted about in a pocket or a bag cannot fire sensor triggers. Turn it on if you want those readings while the screen is off. IMPORTANT: a sensor trigger is not aimed at one world. It fires in EVERY world you have open, including ones running in the background, so with two MUDs connected one shake sends the command twice. Headphone, charger and screen readings are not affected by this setting — muting speech when the jack comes out has to work with the screen off, which is the whole point of it.");
+		sensor_screen_off.setDescription("Off by default: a shake, a wave over the screen or the phone going face down does nothing while the display is asleep, so a phone jolted about in a pocket or a bag cannot fire a trigger. Turn it on to allow those readings with the screen off. Headphone, charger and screen readings are not affected — muting speech when the jack comes out has to work with the screen off. Note that a sensor trigger fires in every world you have open, so with two MUDs connected one shake sends the command twice.");
 		sensor_screen_off.setKey("sensor_screen_off");
 		sensor_screen_off.setValue(false);
 		device.addOption(sensor_screen_off);
 
 		BooleanOption sensor_background = new BooleanOption();
 		sensor_background.setTitle("Movement sensors while the app is in the background");
-		sensor_background.setDescription("Off by default: with BlowTorch swiped away into Recents or another app on top, a shake or a wave is almost certainly you doing something else with your phone, not playing. Turn it on to keep movement sensor triggers live while you use another app. As above, this covers movement sensors only — headphone, charger and screen readings keep working — and a sensor trigger reaches every open world, not only the one you were last looking at.");
+		sensor_background.setDescription("Off by default: with BlowTorch in Recents or another app on top, a shake or a wave is more likely you using your phone than playing. Turn it on to keep movement readings live behind another app. Movement readings only — headphone, charger and screen readings keep working either way — and, as above, one of them reaches every open world.");
 		sensor_background.setKey("sensor_background");
 		sensor_background.setValue(false);
 		device.addOption(sensor_background);

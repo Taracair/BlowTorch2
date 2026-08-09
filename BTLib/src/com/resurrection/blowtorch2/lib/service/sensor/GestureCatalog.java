@@ -52,16 +52,28 @@ public final class GestureCatalog {
 	public static final String BY_SIGNIFICANT_MOTION = "significant-motion";
 	public static final String BY_STATIONARY = "stationary";
 
+	/**
+	 * Headings the list screen groups by, in the order they are shown. A player
+	 * looking for "the one where I put the phone down" scans four headings, not
+	 * sixteen rows.
+	 */
+	public static final String GROUP_HAND = "A hand over the screen";
+	public static final String GROUP_MOVEMENT = "Movement";
+	public static final String GROUP_LIGHT = "Light";
+	public static final String GROUP_SYSTEM = "Headphones, charger and screen";
+
 	/** One gesture: what the player picks, and how it might be measured. */
 	public static final class Gesture {
 		private final String id;
+		private final String group;
 		private final String label;
 		private final String help;
 		private final List<String> providers;
 
-		Gesture(final String id, final String label, final String help,
+		Gesture(final String id, final String group, final String label, final String help,
 				final String... providers) {
 			this.id = id;
+			this.group = group;
 			this.label = label;
 			this.help = help;
 			List<String> p = new ArrayList<String>();
@@ -69,6 +81,11 @@ public final class GestureCatalog {
 				p.add(providers[i]);
 			}
 			this.providers = Collections.unmodifiableList(p);
+		}
+
+		/** The heading this gesture is listed under. */
+		public String getGroup() {
+			return group;
 		}
 
 		/** Stable name, used in the trigger pattern and in {@code .sensor}. */
@@ -100,67 +117,60 @@ public final class GestureCatalog {
 	private static final List<Gesture> ALL;
 
 	static {
+		// One line each, and each one says when the reading fires. What a player
+		// might use it for is their business: the list has sixteen of these and
+		// a suggested use on every row is sixteen paragraphs to scroll past.
 		List<Gesture> all = new ArrayList<Gesture>();
-		all.add(new Gesture("wave", "Wave a hand over the screen",
-				"Pass your hand over the top of the screen and away again. Quiet,"
-					+ " one-handed, and it works with the screen off.",
+		all.add(new Gesture("wave", GROUP_HAND, "Wave a hand over the screen",
+				"A hand passes over the top of the screen and away again.",
 				BY_PROXIMITY, BY_LIGHT));
-		all.add(new Gesture("cover", "Hold a hand over the screen",
-				"Cover the top of the screen and keep it there for a moment. A"
-					+ " different reading from a wave, told apart by time rather"
-					+ " than by how hard you did it.",
+		all.add(new Gesture("cover", GROUP_HAND, "Hold a hand over the screen",
+				"A hand stays over the top of the screen for a moment. Told apart"
+					+ " from a wave by how long it lasts.",
 				BY_PROXIMITY));
-		all.add(new Gesture("facedown", "Put the phone face down",
-				"Lay the phone screen-down on a table. The classic \"I am stepping"
-					+ " away\" — send afk, hush the speech, stop the timers.",
+		all.add(new Gesture("facedown", GROUP_MOVEMENT, "Put the phone face down",
+				"The phone is laid screen-down on a flat surface.",
 				BY_GRAVITY, BY_ACCELEROMETER));
-		all.add(new Gesture("faceup", "Turn the phone face up again",
-				"The other half of face down: you picked it back up and turned it"
-					+ " over. Send afk off, start talking again.",
+		all.add(new Gesture("faceup", GROUP_MOVEMENT, "Turn the phone face up again",
+				"The phone is turned screen-up after lying face down.",
 				BY_GRAVITY, BY_ACCELEROMETER));
-		all.add(new Gesture("shake", "Shake the phone",
-				"Shake the phone the way you would to get out of a fight. Needs the"
-					+ " screen on, and a threshold that suits how you shake.",
+		all.add(new Gesture("shake", GROUP_MOVEMENT, "Shake the phone",
+				"The phone is shaken. How hard that has to be is set by Calibrate"
+					+ " shake, in Options \u2192 Device.",
 				BY_LINEAR_ACCELERATION, BY_ACCELEROMETER));
-		all.add(new Gesture("pickup", "Pick the phone up",
-				"Lift the phone off the table. Done by a sensor built for exactly"
-					+ " this, so it costs almost nothing and works with the screen"
-					+ " off — but not every phone has one.",
+		all.add(new Gesture("pickup", GROUP_MOVEMENT, "Pick the phone up",
+				"The phone is lifted off a surface.",
 				BY_PICKUP_SENSOR));
-		all.add(new Gesture("moving", "Start moving about",
-				"You got up and walked off with the phone. Fires once when real"
-					+ " movement begins, not while you fidget.",
+		all.add(new Gesture("moving", GROUP_MOVEMENT, "Start moving about",
+				"You walk off with the phone. Fires once when movement begins, not"
+					+ " while you fidget.",
 				BY_SIGNIFICANT_MOTION));
-		all.add(new Gesture("still", "The phone goes still",
-				"It has been lying untouched for a while. The quiet opposite of"
-					+ " picking it up.",
+		all.add(new Gesture("still", GROUP_MOVEMENT, "The phone goes still",
+				"The phone has lain untouched for a while.",
 				BY_STATIONARY));
-		all.add(new Gesture("gotdark", "It gets dark around you",
-				"You walked into an unlit room, or the lights went out. Needs a light"
-					+ " sensor, and what counts as dark is yours to calibrate.",
+		all.add(new Gesture("gotdark", GROUP_LIGHT, "It gets dark around you",
+				"The light around the phone drops. What counts as dark is set by"
+					+ " Calibrate light, in Options \u2192 Device.",
 				BY_LIGHT));
-		all.add(new Gesture("gotbright", "It gets bright around you",
-				"You stepped outside, or someone turned the lights on.",
+		all.add(new Gesture("gotbright", GROUP_LIGHT, "It gets bright around you",
+				"The light around the phone rises.",
 				BY_LIGHT));
 		// The system events. No sensor, no battery cost, and — unlike everything
 		// above — no phone anywhere is missing them, so a profile built on these
 		// works for whoever it is sent to.
-		all.add(new Gesture("headphonesout", "Unplug the headphones",
-				"The jack came out. Hush anything that speaks, before the room"
-					+ " hears your MUD.",
+		all.add(new Gesture("headphonesout", GROUP_SYSTEM, "Unplug the headphones",
+				"The headphone jack comes out.", BY_SYSTEM));
+		all.add(new Gesture("headphonesin", GROUP_SYSTEM, "Plug the headphones in",
+				"Headphones are plugged in.", BY_SYSTEM));
+		all.add(new Gesture("powerin", GROUP_SYSTEM, "Plug the charger in",
+				"The charger is plugged in.", BY_SYSTEM));
+		all.add(new Gesture("powerout", GROUP_SYSTEM, "Unplug the charger",
+				"The charger is unplugged.", BY_SYSTEM));
+		all.add(new Gesture("screenoff", GROUP_SYSTEM, "The screen goes off",
+				"The screen turns off, whether you locked it or it timed out.",
 				BY_SYSTEM));
-		all.add(new Gesture("headphonesin", "Plug the headphones in",
-				"Sound is private again.", BY_SYSTEM));
-		all.add(new Gesture("powerin", "Plug the charger in",
-				"Settling in for a long session.", BY_SYSTEM));
-		all.add(new Gesture("powerout", "Unplug the charger",
-				"Off the charger and on the clock.", BY_SYSTEM));
-		all.add(new Gesture("screenoff", "The screen goes off",
-				"The phone locked or timed out. You are not reading the game any"
-					+ " more, whatever the connection thinks.",
-				BY_SYSTEM));
-		all.add(new Gesture("screenon", "The screen comes back",
-				"You are looking at it again.", BY_SYSTEM));
+		all.add(new Gesture("screenon", GROUP_SYSTEM, "The screen comes back",
+				"The screen turns on.", BY_SYSTEM));
 		ALL = Collections.unmodifiableList(all);
 	}
 

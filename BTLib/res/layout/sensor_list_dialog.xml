@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Options → Device → Sensors.
+
+  Same chrome as the Alias / Trigger / Timer chooser: title strip, list, button
+  bar pinned to the bottom. Close used to be the last child of the scrolling
+  list, sixteen readings down.
+
+  The one line under the title is all the standing explanation there is. What a
+  reading means belongs on its own row, and how sensor triggers behave in other
+  worlds belongs in Options → Device where those switches are.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/root"
+	android:layout_width="match_parent"
+	android:layout_height="match_parent"
+	android:orientation="vertical"
+	android:background="#FF16181C" >
+
+	<TextView
+		android:id="@+id/titlebar"
+		android:layout_width="match_parent"
+		android:layout_height="42dip"
+		android:text="SENSORS"
+		android:textColor="#FFF2F4F6"
+		android:background="#FF1E2126"
+		android:textSize="14dip"
+		android:textStyle="bold"
+		android:gravity="center"/>
+
+	<TextView
+		android:id="@+id/intro"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:paddingLeft="12dip"
+		android:paddingRight="12dip"
+		android:paddingTop="8dip"
+		android:paddingBottom="8dip"
+		android:textColor="#FF9AA3AD"
+		android:textSize="12dip"
+		android:text="Tap a reading to give it a trigger: it can send a command, run a script, speak, or check a condition first."/>
+
+	<ScrollView
+		android:id="@+id/scroll"
+		android:layout_width="match_parent"
+		android:layout_height="0dip"
+		android:layout_weight="1"
+		android:scrollbarStyle="outsideOverlay">
+
+		<LinearLayout
+			android:id="@+id/rows"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:paddingBottom="8dip"
+			android:orientation="vertical"/>
+	</ScrollView>
+
+	<LinearLayout
+		android:id="@+id/button_row"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:orientation="horizontal"
+		android:background="#FF1E2126"
+		android:padding="6dip">
+
+		<Button
+			android:id="@+id/close"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:text="Close"/>
+	</LinearLayout>
+
+</LinearLayout>

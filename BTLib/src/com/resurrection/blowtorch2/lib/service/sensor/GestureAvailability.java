@@ -68,6 +68,19 @@ public final class GestureAvailability {
 					|| (sensor != null && sensor.isWakeUpSensor());
 		}
 
+		/**
+		 * Why this phone cannot provide the reading, or null when it can.
+		 *
+		 * <p>Short and in the player's words, because it is what a greyed row in
+		 * the list says. The part number is in {@link #describe()}.
+		 */
+		public String missingReason() {
+			if (isAvailable()) {
+				return null;
+			}
+			return "This phone has no " + describeProviders(gesture) + " sensor.";
+		}
+
 		/** One line for the player: what happens, and why if it does not. */
 		public String describe() {
 			if (GestureCatalog.BY_SYSTEM.equals(provider)) {
@@ -244,18 +257,51 @@ public final class GestureAvailability {
 		return out.toString();
 	}
 
+	/**
+	 * The kinds of sensor a gesture could use, named as a person would.
+	 *
+	 * <p>The catalogue's provider names are part numbers by another route:
+	 * "linear or accelerometer" tells a player nothing they can act on, and both
+	 * of those are one thing — a motion sensor — as far as buying or not having
+	 * one goes. Repeats collapse for that reason.
+	 */
 	private static String describeProviders(final Gesture gesture) {
 		if (gesture == null) {
 			return "suitable";
 		}
-		StringBuilder out = new StringBuilder();
+		java.util.List<String> named = new java.util.ArrayList<String>();
 		for (String p : gesture.getProviders()) {
+			String human = humanProvider(p);
+			if (!named.contains(human)) {
+				named.add(human);
+			}
+		}
+		StringBuilder out = new StringBuilder();
+		for (String human : named) {
 			if (out.length() > 0) {
 				out.append(" or ");
 			}
-			out.append(p);
+			out.append(human);
 		}
 		return out.toString();
+	}
+
+	private static String humanProvider(final String provider) {
+		if (GestureCatalog.BY_LINEAR_ACCELERATION.equals(provider)
+				|| GestureCatalog.BY_ACCELEROMETER.equals(provider)
+				|| GestureCatalog.BY_GRAVITY.equals(provider)) {
+			return "motion";
+		}
+		if (GestureCatalog.BY_PICKUP_SENSOR.equals(provider)) {
+			return "lift-to-wake";
+		}
+		if (GestureCatalog.BY_SIGNIFICANT_MOTION.equals(provider)) {
+			return "significant motion";
+		}
+		if (GestureCatalog.BY_STATIONARY.equals(provider)) {
+			return "stationary detection";
+		}
+		return provider;
 	}
 
 	private static SensorManager managerFrom(final Context context) {

@@ -62,6 +62,37 @@ public class GestureCatalogTest {
 	}
 
 	@Test
+	public void everyGestureHasAHeadingAndOneLineOfHelp() {
+		// The list screen prints the heading whenever it changes and the help as
+		// the row's second line, so a null or an empty one is a blank in the UI,
+		// and a paragraph is a row three times the height of its neighbours.
+		for (GestureCatalog.Gesture g : GestureCatalog.all()) {
+			assertNotNull(g.getId(), g.getGroup());
+			assertFalse("needs a heading: " + g.getId(), g.getGroup().isEmpty());
+			assertFalse("needs help text: " + g.getId(), g.getHelp().isEmpty());
+			assertTrue("help should be one line: " + g.getId(),
+					g.getHelp().length() <= 120);
+		}
+	}
+
+	@Test
+	public void gesturesInTheSameGroupAreListedTogether() {
+		// The screen emits a heading whenever the group changes as it walks the
+		// catalogue, so a gesture out of place would print its heading twice.
+		java.util.List<String> seen = new java.util.ArrayList<String>();
+		String current = null;
+		for (GestureCatalog.Gesture g : GestureCatalog.all()) {
+			if (g.getGroup().equals(current)) {
+				continue;
+			}
+			assertFalse("group listed in two places: " + g.getGroup(),
+					seen.contains(g.getGroup()));
+			seen.add(g.getGroup());
+			current = g.getGroup();
+		}
+	}
+
+	@Test
 	public void namesAreCaseInsensitiveBecausePlayersTypeThem() {
 		assertNotNull(GestureCatalog.byId("WAVE"));
 		assertNotNull(GestureCatalog.byId("  Shake "));
