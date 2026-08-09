@@ -731,6 +731,32 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 				}
 			}
 			
+			// A sensor reading arrives here with its pattern already filled in,
+			// so Done is valid the moment the editor opens and one tap saves a
+			// trigger with nothing in it. It then shows up on the Sensors list
+			// as set up, which is the opposite of true. A text trigger cannot
+			// reach this state — its pattern starts blank and the check above
+			// stops it — so the guard is only for the readings.
+			if (the_trigger.getResponders().isEmpty()
+					&& com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog
+							.isGesturePattern(pattern.getText().toString(),
+									literal.isChecked())) {
+				AlertDialog.Builder builder =
+						new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
+				builder.setTitle("Nothing to do yet");
+				builder.setMessage("This reading has no actions, so firing it would do"
+						+ " nothing. Add one under Actions — Ack sends a command to the"
+						+ " game — or Cancel to leave the reading unset.");
+				builder.setPositiveButton("Back to the editor",
+						new DialogInterface.OnClickListener() {
+							public void onClick(DialogInterface d, int which) {
+								d.dismiss();
+							}
+						});
+				builder.create().show();
+				return;
+			}
+
 			if(isEditor) {
 				//do editor type action
 				the_trigger.setName(title.getText().toString());

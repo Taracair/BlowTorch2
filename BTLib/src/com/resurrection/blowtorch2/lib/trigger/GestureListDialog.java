@@ -27,7 +27,6 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -87,12 +86,11 @@ public class GestureListDialog extends Dialog {
 			+ "itself on a condition first.\n\n"
 			+ "    Put the phone face down  ->  Ack  afk\n"
 			+ "    Turn it face up again    ->  Ack  afk off\n\n"
-			+ "THE ICONS\n"
-			+ "The pencil opens the editor, same as tapping the row. Play fires the "
-			+ "reading here and now, without moving the phone, which proves the "
-			+ "actions rather than the sensor -- the reply in the game window says "
-			+ "which of the two it proved. It is dim until something answers the "
-			+ "reading. The same thing from the input bar is\n"
+			+ "TEST\n"
+			+ "Fires the reading here and now, without moving the phone, so the "
+			+ "actions run and you can see whether they were what you meant. It is "
+			+ "not a test of the sensor itself: it proves what is set up, not that "
+			+ "the phone can see you wave. The same thing from the input bar is\n"
 			+ "    .sensor fire facedown\n\n"
 			+ "NOT AVAILABLE ON THIS PHONE\n"
 			+ "Sensor hardware differs between handsets, so readings this one cannot "
@@ -265,47 +263,76 @@ public class GestureListDialog extends Dialog {
 		// Deliberately still tappable when the sensor is missing: profiles are
 		// shared, and one built here should be buildable for a phone that does
 		// have the sensor. The row already says it will not fire on this one.
-		View.OnClickListener openEditor = new View.OnClickListener() {
+		row.findViewById(R.id.row).setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
 				openEditor(g, bound);
 			}
-		};
-		row.findViewById(R.id.row).setOnClickListener(openEditor);
-		row.findViewById(R.id.edit).setOnClickListener(openEditor);
+		});
 
-		ImageButton test = (ImageButton) row.findViewById(R.id.test);
-		// Dimmed rather than hidden where nothing answers the reading yet: a
-		// control that is missing from most rows reads as a control that is not
-		// there at all, and the question "where is Test" is the one this list
-		// got asked.
+		Button test = (Button) row.findViewById(R.id.test);
 		test.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
-				try {
-					// The same path .sensor fire uses: it proves the actions, not
-					// the sensor, and the reply in the game window says which of
-					// the two it proved.
-					service.sendData((".sensor fire " + g.getId() + "\r\n").getBytes("UTF-8"));
-				} catch (Exception e) {
-					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
-							"GestureListDialog.test", e);
-				}
-				// Left open on purpose. Closing this would leave the Options
-				// dialog on top of the reply, and a test whose answer you cannot
-				// see reads as a test that did nothing.
+				fire(g);
 			}
 		});
-		// Clickable as well as enabled, and in that order. A disabled view that
-		// is still clickable swallows the touch instead of passing it to the row
-		// underneath, so the dim icon would have been a dead patch over the one
-		// tap the row is for; and setOnClickListener turns clickable back on, so
-		// this cannot move above it.
-		test.setEnabled(configured);
-		test.setClickable(configured);
-		test.setAlpha(configured ? 1f : 0.3f);
 
 		rows.addView(row);
+	}
+
+	/**
+	 * Fire a reading from the list, and say here what happened.
+	 *
+	 * <p>The reply {@code .sensor fire} prints goes to the game window, which is
+	 * under this dialog <em>and</em> under Options. Pressing Test therefore
+	 * looked like a button that did nothing, whatever it had done. So the
+	 * answer is a toast, over the dialog the player is looking at.
+	 *
+	 * <p>What the toast can honestly say is what the UI already knows: whether
+	 * any trigger answers this reading, and whether it is switched on. Whether
+	 * the actions then worked is the game window's business, and the count is
+	 * counted in the service, on the connection's own thread.
+	 *
+	 * <p>Asked again here rather than trusting what the list was built from.
+	 * {@code sendData} returns quietly when the binder has no active connection
+	 * — during a world switch, or after this one was dropped — and the same
+	 * miss makes the trigger data come back empty, so reading it now is what
+	 * stops Test claiming it fired something into a connection that is gone.
+	 */
+	private void fire(final Gesture g) {
+		List<TriggerData> bound = readTriggers().get(g.getId());
+		if (bound == null || bound.isEmpty()) {
+			say("Nothing answers " + g.getLabel().toLowerCase(java.util.Locale.US)
+					+ " yet. Tap the row to give it something to do.");
+			return;
+		}
+		boolean anyEnabled = false;
+		for (TriggerData t : bound) {
+			anyEnabled = anyEnabled || t.isEnabled();
+		}
+		if (!anyEnabled) {
+			say("That reading is turned off, so firing it does nothing.");
+			return;
+		}
+		try {
+			// The same path .sensor fire uses, which runs the actions on the
+			// connection's own thread rather than on this one.
+			service.sendData((".sensor fire " + g.getId() + "\r\n").getBytes("UTF-8"));
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"GestureListDialog.test", e);
+			say("Could not reach the connection to fire that.");
+			return;
+		}
+		say("Fired " + g.getId() + ". What it does shows in the game window.");
+		// Left open on purpose. Closing this would leave the Options dialog on
+		// top of the reply anyway.
+	}
+
+	private void say(final String text) {
+		android.widget.Toast.makeText(getContext(), text,
+				android.widget.Toast.LENGTH_SHORT).show();
 	}
 
 	/** The row's one line of state: why it cannot fire, what it does, or what it is. */

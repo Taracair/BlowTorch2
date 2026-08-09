@@ -3,15 +3,13 @@
 <!--
   One reading in the Sensors list.
 
-  Built like editor_selection_list_row: name on top, one line under it, action
-  icons centred on the right, the same colours and the same row selector. Play
-  is Test and the pencil is the trigger editor, so they read the same here as
-  they do on the Alias / Trigger / Timer lists.
+  Built like editor_selection_list_row: name on top, one line under it, the
+  control centred on the right, the same colours and the same row selector.
 
-  Both icons stay on every row and Test simply dims where there is nothing to
-  fire — the button vanishing on fifteen of sixteen rows read as a missing
-  feature. The left edge lights up only where something answers the reading,
-  which is the one thing this list is scanned for.
+  One control, and it says Test on it. A play glyph on its own was not read as
+  a Test button, and the pencil beside it only did what tapping the row already
+  does. The left edge lights up where something answers the reading, which is
+  the one thing this list is scanned for.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 	android:layout_width="match_parent"
@@ -48,27 +46,23 @@
 			android:orientation="horizontal"
 			android:paddingLeft="6dip">
 
-			<ImageButton
+			<Button
 				android:id="@+id/test"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
-				android:padding="6dip"
-				android:background="@android:color/transparent"
+				android:minWidth="72dip"
+				android:minHeight="40dip"
+				android:paddingLeft="10dip"
+				android:paddingRight="10dip"
+				android:drawableLeft="@drawable/ic_row_play"
+				android:drawablePadding="2dip"
+				android:background="@drawable/editor_more_button_bg"
+				android:textColor="#FFC7CDD4"
+				android:textSize="13dip"
+				android:textAllCaps="false"
 				android:focusable="false"
 				android:focusableInTouchMode="false"
-				android:contentDescription="Test"
-				android:src="@drawable/ic_row_play"/>
-
-			<ImageButton
-				android:id="@+id/edit"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:padding="6dip"
-				android:background="@android:color/transparent"
-				android:focusable="false"
-				android:focusableInTouchMode="false"
-				android:contentDescription="Set up"
-				android:src="@drawable/ic_row_edit"/>
+				android:text="Test"/>
 		</LinearLayout>
 
 		<TextView
