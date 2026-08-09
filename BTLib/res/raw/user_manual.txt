@@ -801,7 +801,12 @@ would be sent literally.
 **Want:** the game names a target; you attack it without retyping the name.
 
 This is the one thing aliases cannot do alone: an alias only sees what *you*
-type. A trigger sees what the *game* prints. A session variable joins them.
+type. A trigger sees what the *game* prints. Two common ways to join them:
+a **session variable**, or **rewriting an alias's With text** with
+`.name newtext` (see **Changing an alias from the input bar** under
+**Aliases** above).
+
+#### Route A — session variable (automatic)
 
 **Trigger** — Options → Triggers → new:
 
@@ -820,9 +825,48 @@ Braces are required: `${target}` is a variable, `$1` is a capture. An unset
 variable is left written as `${target}` rather than vanishing, so you can see
 what went wrong.
 
+The variable **name** is yours (`target`, `mob`, `test1` — whatever you like).
+In alias text you read it as `${name}`. Only letters, digits, and `_` work
+inside the braces: `${my_target}` yes, `${my-target}` or `${foo.bar}` no. (Names
+with a dot, such as `device.battery`, are built-in session variables for
+conditions and Lua — not for `${…}` in aliases.)
+
+#### Route B — rewrite the alias (`.att kill recliner`)
+
+Same room line, but instead of a variable you keep a plain alias and change
+what it expands to.
+
+**Alias** — Options → Aliases → new:
+
+    Replace   `att`
+    With      `nothing`
+
+`nothing` is only a placeholder until something sets a real command.
+
+**Trigger** — Options → Triggers → new (same pattern as above):
+
+    Pattern        `A plush suede (\w+) sits against the wall\.`
+    Literal?       **off**
+    Action         **Tappable Word**
+    Tappable part  `1`
+    Command        `.att kill $word`
+
+Tap `recliner` in the game text. The client runs `.att kill recliner` locally —
+the same shortcut as typing it yourself. For a simple word alias named `att`,
+`.att …` updates **With** only; nothing is sent to the game. Then type `att`
+and the client sends `kill recliner`.
+
+You can skip the tap and type `.att kill recliner` by hand after you read the
+line. The `.name newtext` shortcut only works for simple `\w+` alias keys (no
+spaces, no regex in the key).
+
 **Tip while building one of these:** add a second action to the trigger,
 **Ack** with `.note got target=$1`. That prints a line only you can see, so you
 know whether the trigger fired before you start blaming the alias.
+
+Route A remembers the target as soon as the line appears. Route B fits when you
+already use a word alias on buttons (`kill tgt` — see **9c. Tap a name to
+retarget every button** below) or you want a tap to pick the target yourself.
 
 ### 3. Combat mode: a set of triggers that arm and disarm together
 
@@ -2123,6 +2167,10 @@ Braces are required, so `${name}` never collides with the numeric `$1`
 captures, and a bare `$` in text is left alone. An **unset** variable is left
 written as-is rather than becoming empty — sending `kill` with no target is
 worse than sending something visibly wrong.
+
+The name inside `${…}` may contain only letters, digits, and `_`. Spaces,
+hyphens, and dots are not substituted in alias text (use conditions or Lua for
+names like `device.battery`).
 
 Variables are per session and are not saved.
 
