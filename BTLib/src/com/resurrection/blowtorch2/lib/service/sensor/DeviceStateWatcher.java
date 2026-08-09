@@ -64,7 +64,7 @@ public final class DeviceStateWatcher {
 	 * simulated at a desk, and a real walk with the phone in a pocket has never
 	 * been measured. Calibration per device is the step that replaces this.
 	 */
-	private static final float SHAKE_THRESHOLD = 15.0f;
+	private float shakeThreshold = GestureTuning.DEFAULT_SHAKE;
 	/** Without a dead time one shake of the wrist fires four times. */
 	private static final long SHAKE_DEAD_MILLIS = 500L;
 	/**
@@ -348,6 +348,9 @@ public final class DeviceStateWatcher {
 		if (motion == null) {
 			return;
 		}
+		// Read at registration, so a calibration takes effect the moment the
+		// gesture is next picked up rather than at the next restart.
+		shakeThreshold = GestureTuning.shakeThreshold(context);
 		try {
 			// GAME rather than NORMAL: a shake lasts a fraction of a second and
 			// NORMAL can sample slowly enough to miss the peak entirely.
@@ -495,7 +498,7 @@ public final class DeviceStateWatcher {
 						+ (event.values[1] * event.values[1])
 						+ (event.values[2] * event.values[2]));
 			}
-			if (magnitude < SHAKE_THRESHOLD) {
+			if (magnitude < shakeThreshold) {
 				return;
 			}
 			long now = android.os.SystemClock.elapsedRealtime();

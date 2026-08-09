@@ -319,6 +319,12 @@ public class ConnectionSettingsPlugin extends Plugin {
 		device_gestures.setKey("device_gestures");
 		device.addOption(device_gestures);
 
+		CallbackOption calibrate_shake = new CallbackOption();
+		calibrate_shake.setTitle("Calibrate shake\u2026");
+		calibrate_shake.setDescription("Teach the app how hard you shake this phone. Two short measurements — one shaking, one walking about with it — and it picks a threshold that catches the first without catching the second. The app ships a starting value measured on one device; this replaces it with yours. The result stays with this phone and never travels in an exported profile.");
+		calibrate_shake.setKey("calibrate_shake");
+		device.addOption(calibrate_shake);
+
 		BooleanOption gesture_screen_off = new BooleanOption();
 		gesture_screen_off.setTitle("Movement gestures with the screen off");
 		gesture_screen_off.setDescription("Off by default, and off means a shake, a wave or the phone going face down does nothing while the display is asleep — so a phone jolted about in a pocket or a bag cannot send commands to the game. Turn it on if you want to shake your way out of a fight without waking the phone first. IMPORTANT: a gesture is not aimed at one world. It fires in EVERY world you have open, including ones running in the background, so with two MUDs connected one shake sends the command twice. The headphone, charger and screen events are not affected by this setting — muting speech when the jack comes out has to work with the screen off, which is the whole point of it.");

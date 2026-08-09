@@ -118,21 +118,47 @@ public final class DeviceState {
 		return values.isEmpty();
 	}
 
-	/** The reading as {@code .probe sensors state} prints it. */
+	/** Every name, what it can hold, and what it holds now. */
+	private static final String[][] CATALOGUE = {
+		{KEY_FACING, "up | down | unknown", "which way up it is lying"},
+		{KEY_SCREEN, "on | off", "the display"},
+		{KEY_HEADPHONES, "yes | no", "the headphone jack"},
+		{KEY_CHARGING, "yes | no", "the charger"},
+		{KEY_BATTERY, "0 to 100", "charge, as text holding a number"},
+		{KEY_COVERED, "yes | no", "something over the proximity sensor"},
+	};
+
+	/**
+	 * The reading as {@code .sensor state} prints it.
+	 *
+	 * <p>Every name is listed whether it is set or not, with what it can hold.
+	 * A name that is missing from a bare list of current values is the single
+	 * most confusing thing here — it means "this phone cannot tell", and a
+	 * condition on it is false — so the list is the catalogue, not the contents.
+	 */
 	public String report() {
 		StringBuilder out = new StringBuilder();
-		out.append("\n--- device state ---\n");
+		out.append("\n--- what the phone knows ---\n");
+		for (int i = 0; i < CATALOGUE.length; i++) {
+			String key = CATALOGUE[i][0];
+			String held = values.get(key);
+			out.append(String.format(java.util.Locale.US, "  %-18s %-16s %s%n",
+					key, CATALOGUE[i][1],
+					held == null ? "(not set — " + CATALOGUE[i][2] + ")" : "= " + held));
+		}
 		if (values.isEmpty()) {
-			out.append("Nothing is being watched. Turn on \"Device state as variables\"\n");
-			out.append("in Settings, or nothing here will ever be set.\n");
+			out.append("\nNothing is being watched, so none of these are set.\n");
+			out.append("Turn it on with .sensor watch on, or Options \u2192 Device \u2192\n");
+			out.append("\"Device state as variables\".\n");
 			return out.toString();
 		}
-		for (Map.Entry<String, String> e : values.entrySet()) {
-			out.append("  ").append(e.getKey()).append(" = ").append(e.getValue()).append('\n');
-		}
-		out.append("\nA name missing from this list is a thing this phone cannot tell,\n");
-		out.append("and a condition testing it is false — not true. Use these in a\n");
-		out.append("trigger's Conditions tab, or from Lua with GetVariable.\n");
+		out.append("\nEvery value is text, including the battery — conditions compare it\n");
+		out.append("exactly. \"device.battery equals 74\" works; \"below 30\" needs a Lua\n");
+		out.append("script, because there is no less-than in a condition.\n");
+		out.append("\nUse them in a trigger's or timer's Conditions tab: the type is\n");
+		out.append("\"Variable equals\", and the picker at the top of that screen fills\n");
+		out.append("both fields for you. A name shown as not set means this phone cannot\n");
+		out.append("tell, and a condition on it is false rather than true.\n");
 		return out.toString();
 	}
 }

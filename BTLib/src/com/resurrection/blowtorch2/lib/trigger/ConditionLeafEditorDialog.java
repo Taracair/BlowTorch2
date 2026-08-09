@@ -41,6 +41,10 @@ public class ConditionLeafEditorDialog extends Dialog {
 	private final boolean isEdit;
 	private final DoneListener listener;
 	private final IConnectionBinder service;
+	private Spinner phoneSpinner;
+	private View phoneRow;
+	private TextView phoneNeeds;
+	private final ArrayList<String> phoneChoices = new ArrayList<String>();
 	private final String selectedPlugin;
 
 	private Spinner typeSpinner;
@@ -122,6 +126,29 @@ public class ConditionLeafEditorDialog extends Dialog {
 		aliasRow = labeled("Alias", aliasSpinner);
 		root.addView(aliasRow);
 
+		// The phone, in words. Everything below this still works — a variable is
+		// a variable — but nobody should have to know that "face down" is spelled
+		// device.facing = down before they can gate a trigger on it.
+		phoneSpinner = new Spinner(getContext());
+		phoneChoices.clear();
+		phoneChoices.add("(type a variable below)");
+		for (com.resurrection.blowtorch2.lib.service.sensor.DeviceConditions.Choice ch
+				: com.resurrection.blowtorch2.lib.service.sensor.DeviceConditions.all()) {
+			phoneChoices.add(ch.getLabel());
+		}
+		ArrayAdapter<String> phoneAdapter = new ArrayAdapter<String>(getContext(),
+				R.layout.spinner_item_dark, phoneChoices);
+		phoneAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
+		phoneSpinner.setAdapter(phoneAdapter);
+		phoneRow = labeled("The phone", phoneSpinner);
+		root.addView(phoneRow);
+
+		phoneNeeds = new TextView(getContext());
+		phoneNeeds.setTextColor(0xFFCCCCCC);
+		phoneNeeds.setTextSize(12);
+		phoneNeeds.setPadding(0, 0, 0, 6);
+		root.addView(phoneNeeds);
+
 		nameField = new EditText(getContext());
 		nameField.setSingleLine(true);
 		nameField.setHint("variable name");
@@ -167,6 +194,36 @@ public class ConditionLeafEditorDialog extends Dialog {
 				LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 		root.addView(buttons);
 
+		phoneSpinner.setOnItemSelectedListener(
+				new android.widget.AdapterView.OnItemSelectedListener() {
+					@Override
+					public void onItemSelected(android.widget.AdapterView<?> parent,
+							View view, int position, long id) {
+						if (position == 0) {
+							phoneNeeds.setText(
+									com.resurrection.blowtorch2.lib.service.sensor
+										.DeviceConditions.NEEDS_WATCHING);
+							return;
+						}
+						com.resurrection.blowtorch2.lib.service.sensor.DeviceConditions.Choice ch =
+								com.resurrection.blowtorch2.lib.service.sensor.DeviceConditions
+									.all().get(position - 1);
+						nameField.setText(ch.getVariable());
+						valueField.setText(ch.getValue());
+						// The type has to be "variable equals" for this to mean
+						// anything, and picking from this list is a clear enough
+						// statement of intent to set it rather than complain.
+						selectType(ConditionType.VARIABLE_EQUALS);
+						phoneNeeds.setText("Needs: " + ch.getNeeds() + "\n\n"
+								+ com.resurrection.blowtorch2.lib.service.sensor
+									.DeviceConditions.NEEDS_WATCHING);
+					}
+
+					@Override
+					public void onNothingSelected(android.widget.AdapterView<?> parent) {
+					}
+				});
+
 		setContentView(root);
 
 		int typeIndex = 0;
@@ -180,6 +237,19 @@ public class ConditionLeafEditorDialog extends Dialog {
 		typeSpinner.setSelection(typeIndex, false);
 		nameField.setText(editing.getName());
 		valueField.setText(editing.getValue());
+		// Reopening a condition that came from the list shows it selected there,
+		// rather than as two fields the player has to recognise.
+		com.resurrection.blowtorch2.lib.service.sensor.DeviceConditions.Choice existing =
+				com.resurrection.blowtorch2.lib.service.sensor.DeviceConditions.match(
+						editing.getName(), editing.getValue());
+		if (existing != null) {
+			phoneSpinner.setSelection(
+					com.resurrection.blowtorch2.lib.service.sensor.DeviceConditions
+						.all().indexOf(existing) + 1);
+		} else {
+			phoneNeeds.setText(com.resurrection.blowtorch2.lib.service.sensor
+					.DeviceConditions.NEEDS_WATCHING);
+		}
 		ConditionType initial = editing.getType() != null
 				? editing.getType() : ConditionType.TRIGGER_ENABLED;
 		if (initial.isTriggerGate()) {
@@ -210,6 +280,19 @@ public class ConditionLeafEditorDialog extends Dialog {
 		return row;
 	}
 
+	/** Move the type spinner, which moves the visible fields with it. */
+	private void selectType(final ConditionType wanted) {
+		ConditionType[] types = ConditionType.values();
+		for (int i = 0; i < types.length; i++) {
+			if (types[i] == wanted) {
+				if (typeSpinner.getSelectedItemPosition() != i) {
+					typeSpinner.setSelection(i);
+				}
+				return;
+			}
+		}
+	}
+
 	private void updateFieldVisibility() {
 		ConditionType type = ConditionType.values()[typeSpinner.getSelectedItemPosition()];
 		boolean triggerType = type.isTriggerGate();
@@ -219,6 +302,10 @@ public class ConditionLeafEditorDialog extends Dialog {
 		triggerRow.setVisibility(triggerType ? View.VISIBLE : View.GONE);
 		aliasRow.setVisibility(aliasType ? View.VISIBLE : View.GONE);
 		nameRow.setVisibility(variableType ? View.VISIBLE : View.GONE);
+		if (phoneRow != null) {
+			phoneRow.setVisibility(variableType ? View.VISIBLE : View.GONE);
+			phoneNeeds.setVisibility(variableType ? View.VISIBLE : View.GONE);
+		}
 		valueRow.setVisibility(needsValue ? View.VISIBLE : View.GONE);
 		variableHint.setVisibility(variableType ? View.VISIBLE : View.GONE);
 		if (nameLabel != null) {

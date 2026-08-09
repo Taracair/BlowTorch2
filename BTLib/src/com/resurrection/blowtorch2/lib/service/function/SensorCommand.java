@@ -65,6 +65,48 @@ public class SensorCommand extends SpecialCommand {
 			c.sendDataToWindow(usage());
 			return null;
 		}
+		if (head.equals("threshold") || head.equals("calibrate")) {
+			String[] bits = rest.split("\\s+");
+			if (bits.length < 2 || !bits[0].equalsIgnoreCase("shake")) {
+				c.sendDataToWindow("\nOnly the shake gesture has a threshold, and it is"
+						+ " easier to measure than\nto guess: Options \u2192 Device"
+						+ " \u2192 Calibrate shake.\nBy hand: .sensor threshold shake 14.5"
+						+ "\nNow: " + String.format(Locale.US, "%.1f",
+							com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+								.shakeThreshold(c.getContext())) + " m/s2\n");
+				return null;
+			}
+			try {
+				float stored = com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+						.setShakeThreshold(c.getContext(), Float.parseFloat(bits[1]));
+				// Registration reads the value, so bounce the sensor rather than
+				// leaving the old number live until something else happens.
+				c.refreshDeviceGestures();
+				c.sendDataToWindow(String.format(Locale.US,
+						"\nShake threshold is now %.1f m/s2 on this phone.\n"
+						+ "It stays with the phone, not with the world profile.\n", stored));
+			} catch (NumberFormatException bad) {
+				c.sendDataToWindow(getErrorMessage("Sensor usage",
+						"\"" + bits[1] + "\" is not a number."));
+			}
+			return null;
+		}
+		if (head.equals("watch") || head.equals("state")) {
+			if (rest.equalsIgnoreCase("on") || rest.equalsIgnoreCase("off")) {
+				boolean on = rest.equalsIgnoreCase("on");
+				c.setDeviceStateVariables(on);
+				c.sendDataToWindow("\nDevice state variables are " + (on ? "on" : "off")
+						+ ".\n" + (on ? "device.facing, device.screen,"
+							+ " device.headphones, device.charging, device.battery and"
+							+ " device.covered\nare now kept up to date. .sensor state"
+							+ " shows them.\n"
+							: "Conditions testing device.* are now false, so triggers"
+							+ " gated on the phone\nwill not fire.\n"));
+				return null;
+			}
+			c.sendDataToWindow(c.deviceStateReport());
+			return null;
+		}
 		if (head.equals("fire") || head.equals("test")) {
 			if (rest.length() == 0) {
 				c.sendDataToWindow(getErrorMessage("Sensor usage",

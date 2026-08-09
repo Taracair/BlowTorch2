@@ -65,12 +65,28 @@ public class DeviceStateTest {
 		assertEquals("off", s.get(DeviceState.KEY_SCREEN));
 		assertEquals("no", s.get(DeviceState.KEY_HEADPHONES));
 		String report = s.report();
-		assertTrue(report.contains("device.screen = off"));
-		assertTrue(report.contains("device.headphones = no"));
+		assertTrue(report.contains("= off"));
+		assertTrue(report.contains("= no"));
 	}
 
 	@Test
 	public void anEmptyStateSaysHowToTurnItOn() {
 		assertTrue(new DeviceState().report().contains("Nothing is being watched"));
+	}
+
+	@Test
+	public void theReportListsEveryNameEvenTheOnesNotSet() {
+		// A bare list of current values is the most confusing thing here: a name
+		// that is missing means "this phone cannot tell", and a condition on it
+		// is false. So the report is the catalogue, with what each can hold.
+		DeviceState s = new DeviceState();
+		s.setScreenOn(true);
+		String report = s.report();
+		assertTrue(report.contains("device.facing"));
+		assertTrue(report.contains("up | down | unknown"));
+		assertTrue(report.contains("device.battery"));
+		assertTrue(report.contains("0 to 100"));
+		assertTrue(report.contains("not set"));
+		assertTrue(report.contains("device.screen"));
 	}
 }

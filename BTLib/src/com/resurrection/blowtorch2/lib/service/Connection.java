@@ -4331,6 +4331,32 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		return fallback;
 	}
 
+	/**
+	 * Turn the device.* variables on or off from the input bar.
+	 *
+	 * <p>The setting is what makes a condition on the phone mean anything, and a
+	 * player who has just picked "phone is face down" in the condition editor
+	 * should not have to hunt through Options to make it true.
+	 */
+	public final void setDeviceStateVariables(final boolean on) {
+		try {
+			Object opt = mSettings.getSettings().getOptions()
+					.findOptionByKey("device_state_variables");
+			if (opt instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) {
+				((com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption) opt)
+						.setValue(Boolean.valueOf(on));
+				saveMainSettings();
+				refreshDeviceGestures();
+				if (mService != null) {
+					mService.refreshDeviceState();
+				}
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Connection.setDeviceStateVariables", e);
+		}
+	}
+
 	/** The device.* reading, for {@code .probe sensors state}. */
 	public final String deviceStateReport() {
 		if (!isDeviceStateVariables()) {

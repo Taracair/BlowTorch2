@@ -2163,6 +2163,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * help at all for finding one afterwards. This is where a player goes to see
 	 * what their phone can feel and what each thing does.
 	 */
+	/** The shake calibration screen, opened from Options → Device. */
+	public void openShakeCalibrationFromOptions() {
+		if (service == null) {
+			return;
+		}
+		new com.resurrection.blowtorch2.lib.trigger.ShakeCalibrationDialog(
+				this, service).show();
+	}
+
 	public void openGestureListFromOptions() {
 		if (service == null) {
 			return;

@@ -532,6 +532,13 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
+			if ("calibrate_shake".equals(key)) {
+				MainWindow mwc = findMainWindowHost();
+				if (mwc != null) {
+					mwc.openShakeCalibrationFromOptions();
+				}
+				return;
+			}
 			if ("device_gestures".equals(key)) {
 				MainWindow mwg = findMainWindowHost();
 				if (mwg != null) {
