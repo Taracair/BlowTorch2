@@ -3,7 +3,7 @@
     <string name="launcher_btn_new">New MUD</string>
     <string name="launcher_menu_welcome">Welcoming message</string>
     <string name="first_run_title">Welcoming message</string>
-    <string name="first_run_message">Hi! Thanks for installing my app.\n\nAt first the client may seem overwhelming — there is a lot in here: triggers, aliases, timers, a mapper, button pads, Lua plugins, word completion, protocol support most clients do not have. All of it at once would be a wall, so nearly everything starts switched off. You get a plain terminal that works, and you turn things on one at a time as you find you want them.\n\nThat feeling changes with time. Have a look at the user guide and at the interactive Starter Tutorial in your world list — between them they cover everything here, and nothing you switch on is permanent: every switch has an off.\n\nHave fun!\n\nTaracair</string>
+    <string name="first_run_message">Hi! Thanks for installing my app.\n\nAt first the client may seem overwhelming — there is a lot in here: triggers, aliases, timers, a mapper, button pads, Lua plugins, word completion, protocol support. All of it at once would be a wall, so nearly everything starts switched off. You get a plain terminal that works, and you turn things on one at a time as you find you want them.\n\nThat feeling changes with time. Have a look at the user guide and at the interactive Starter Tutorial in your world list — between them they cover everything here, and nothing you switch on is permanent: every switch has an off.\n\nHave fun!\n\nTaracair</string>
     <string name="first_run_guide">Open the guide</string>
     <string name="first_run_dismiss">Don\'t show again</string>
     <string name="launcher_btn_guide">User guide</string>
