@@ -526,8 +526,9 @@ Behind that picker are session variables you can also read from Lua:
 
 Everything here is off until you ask for it, and movement readings are held
 back while the screen is off or the app is in the background — a phone in a
-pocket cannot send commands. Both switches, plus Calibrate shake and
-Calibrate light, are in Options → Device → Sensors.
+pocket cannot send commands. Both switches sit in Options → Device, next to
+Calibrate shake and Calibrate light. The Sensors… row in that same group is
+the list of readings, not the switches.
 
 One thing to know: a sensor trigger is not aimed at one world. It fires in
 every world you have open, so with two MUDs connected one shake sends twice.]])
