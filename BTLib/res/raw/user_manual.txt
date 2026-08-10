@@ -1865,7 +1865,7 @@ letters are Speedwalk *keys*.
 ### `.keyboard` / `.kb`
 
     *(no args)*                Print help
-    `insert <text>`            Drop text into the input bar at the cursor, spaced
+    `insert <text>`            Drop text at the cursor (spaces around words, not punctuation)
     `add` / `popup` + text     Set or append input; `popup` also shows the IME
     `flush`                    Send current input
     `close` / `clear`          Hide IME / clear text
@@ -1880,10 +1880,11 @@ letters are Speedwalk *keys*.
 Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb stepf`, `.kb stepb`.
 
 **`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
-puts it where the cursor is and works out the spaces, so the bar never ends up
-reading `ktroll`. `insert` also does not expand aliases — the text goes in
-literally, which is what you want when the text is a name you pointed at. Its
-main use is a tappable word bound to `.kb insert $word`; see below.
+puts it where the cursor is and works out the spaces (words get spaces;
+punctuation attaches), so the bar never ends up reading `ktroll` or `slowo ,`.
+`insert` also does not expand aliases — the text goes in literally, which is
+what you want when the text is a name you pointed at. Its main use is a
+tappable word bound to `.kb insert $word`; see below.
 
 **Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
 
@@ -2010,7 +2011,7 @@ The default `button_window` plugin supports more than tap:
   each can run a different command (edit button → Swipe). Overrides classic Flip.
   Drag about **24dp** off the tile (~a finger-width on most phones).
 - **Hold** — optional command after press-and-hold.
-- **Accordion** — up to five child buttons expand from a parent (direction + tap/hold/swipe trigger). Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
+- **Accordion** — up to twenty child buttons expand from a parent (direction + tap/hold/swipe trigger). In **Edit buttons → Accord.** each child is a compact row you can insert above/below or left/right (following the expand layout), move, or delete; empty rows are dropped on Done. The gesture that opens the accordion cannot also send its own command — that field stays filled but locked on the Tap / Swipe tabs. Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
 
 ### Copying buttons between sets
 

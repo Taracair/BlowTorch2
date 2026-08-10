@@ -89,4 +89,115 @@ public class InputWordInsertTest {
 		InputWordInsert.Result r = InputWordInsert.apply("kill rat", 8, 5, "troll");
 		assertEquals("kill troll ", r.text());
 	}
+
+	@Test
+	public void aCommaAttachesToThePrecedingWord() {
+		// The report: "slowo" + ".kb insert ," must not become "slowo , ".
+		InputWordInsert.Result r = at("slowo", 5, ",");
+		assertEquals("slowo, ", r.text());
+		assertEquals("slowo, ".length(), r.caret());
+	}
+
+	@Test
+	public void closingPunctuationAttachesWithoutALeadingSpace() {
+		assertEquals("end. ", at("end", 3, ".").text());
+		assertEquals("end! ", at("end", 3, "!").text());
+		assertEquals("end? ", at("end", 3, "?").text());
+		assertEquals("end; ", at("end", 3, ";").text());
+		assertEquals("end: ", at("end", 3, ":").text());
+		assertEquals("end) ", at("end", 3, ")").text());
+		assertEquals("end] ", at("end", 3, "]").text());
+		assertEquals("end} ", at("end", 3, "}").text());
+		assertEquals("end` ", at("end", 3, "`").text());
+		assertEquals("end\u00BB ", at("end", 3, "\u00BB").text());
+		assertEquals("end\u201D ", at("end", 3, "\u201D").text());
+		assertEquals("end\u2019 ", at("end", 3, "\u2019").text());
+		assertEquals("end\u2026 ", at("end", 3, "\u2026").text());
+		// ASCII quotes are also openers when trailing, so a quote-only insert
+		// gets neither space: end" rather than end"  or end ".
+		assertEquals("end'", at("end", 3, "'").text());
+		assertEquals("end\"", at("end", 3, "\"").text());
+	}
+
+	@Test
+	public void anOpenerLeavesNoTrailingSpaceForTheNextTap() {
+		InputWordInsert.Result open = at("say", 3, "(");
+		assertEquals("say (", open.text());
+		assertEquals("say (".length(), open.caret());
+		InputWordInsert.Result word = at(open.text(), open.caret(), "hello");
+		assertEquals("say (hello ", word.text());
+	}
+
+	@Test
+	public void openingCharactersSuppressTheTrailingSpace() {
+		assertEquals("say (", at("say", 3, "(").text());
+		assertEquals("say [", at("say", 3, "[").text());
+		assertEquals("say {", at("say", 3, "{").text());
+		assertEquals("say \u00AB", at("say", 3, "\u00AB").text());
+		assertEquals("say \u201C", at("say", 3, "\u201C").text());
+		assertEquals("say \u2018", at("say", 3, "\u2018").text());
+		// ASCII quotes also attach as closers, so no leading space either.
+		assertEquals("say'", at("say", 3, "'").text());
+		assertEquals("say\"", at("say", 3, "\"").text());
+	}
+
+	@Test
+	public void prefixSigilsAlsoSuppressTheTrailingSpace() {
+		// @ # $ introduce the next token the way ( does; include them so
+		// "@" + tap name builds "@name" without a backspace.
+		assertEquals("tell @", at("tell", 4, "@").text());
+		assertEquals("chan #", at("chan", 4, "#").text());
+		assertEquals("var $", at("var", 3, "$").text());
+		InputWordInsert.Result atSign = at("tell", 4, "@");
+		assertEquals("tell @bob ",
+				at(atSign.text(), atSign.caret(), "bob").text());
+	}
+
+	@Test
+	public void slashAndPercentKeepTheirSpaces() {
+		// Both read as separator and unit far more often than as prefix, and
+		// the same code serves tapping words in the game text: welding two
+		// deliberately tapped words together is worse than one stray space.
+		assertEquals("go / ", at("go", 2, "/").text());
+		InputWordInsert.Result slash = at("go", 2, "/");
+		assertEquals("go / north ",
+				at(slash.text(), slash.caret(), "north").text());
+		assertEquals("say %clan ", at("say", 3, "%clan").text());
+	}
+
+	@Test
+	public void textAfterAnOpenerInTheBarGetsNoLeadingSpace() {
+		assertEquals("(foo ", at("(", 1, "foo").text());
+		assertEquals("[foo ", at("[", 1, "foo").text());
+		assertEquals("{foo ", at("{", 1, "foo").text());
+		assertEquals("\u00ABfoo ", at("\u00AB", 1, "foo").text());
+		assertEquals("\u201Cfoo ", at("\u201C", 1, "foo").text());
+		assertEquals("\u2018foo ", at("\u2018", 1, "foo").text());
+		assertEquals("'foo ", at("'", 1, "foo").text());
+		assertEquals("\"foo ", at("\"", 1, "foo").text());
+		assertEquals("@bob ", at("@", 1, "bob").text());
+	}
+
+	@Test
+	public void aWordStartingWithPunctuationStillGetsATrailingSpace() {
+		assertEquals("slowo, ", at("slowo", 5, ",").text());
+		// Leading comma attaches; the rest of the insert is ordinary text.
+		assertEquals("kill,please ", at("kill", 4, ",please").text());
+	}
+
+	@Test
+	public void selectionReplacementStillSpacesOrdinaryWords() {
+		InputWordInsert.Result r = InputWordInsert.apply("kill rat", 5, 8, "troll");
+		assertEquals("kill troll ", r.text());
+	}
+
+	@Test
+	public void selectionReplacementAttachesClosingPunctuation() {
+		// Selection starts at "rat", so the space after "kill" stays in before.
+		InputWordInsert.Result r = InputWordInsert.apply("kill rat", 5, 8, ",");
+		assertEquals("kill , ", r.text());
+		// Include that space in the selection to attach the comma to the word.
+		assertEquals("kill, ",
+				InputWordInsert.apply("kill rat", 4, 8, ",").text());
+	}
 }

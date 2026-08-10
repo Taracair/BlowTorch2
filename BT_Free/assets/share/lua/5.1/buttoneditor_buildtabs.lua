@@ -5,6 +5,7 @@ local Gravity = _G["Gravity"]
 local LinearLayoutParams = _G["LinearLayoutParams"]
 local TextView = _G["TextView"]
 local EditText = _G["EditText"]
+local Button = _G["Button"]
 local Spinner = _G["Spinner"]
 local CheckBox = _G["CheckBox"]
 local ArrayAdapter = _G["ArrayAdapter"]
@@ -23,9 +24,64 @@ local view = _G["view"]
 -- never sees it. Keep the table itself and assign through it.
 local globals = _G
 local pairs = _G["pairs"]
+local ipairs = _G["ipairs"]
 local tostring = _G["tostring"]
+local tonumber = _G["tonumber"]
 local math = _G["math"]
+local table = _G["table"]
+local string = _G["string"]
 module(...)
+
+-- Editor cap. Runtime may raise its own draw limit separately; the editor is
+-- the place that must stop the player at twenty with a visible sentence.
+local MAX_ACCORDION_CHILDREN = 20
+
+-- Mirror buttonwindow.accordionStackVertical: column vs row decides the words
+-- on insert/move/add controls (Above/Below vs Left/Right).
+local function accordionStackVertical(dir, layout)
+	if layout == "vertical" then
+		return true
+	end
+	if layout == "horizontal" then
+		return false
+	end
+	return dir ~= "right" and dir ~= "left"
+end
+
+-- before/after = per-row insert labels; addWord = suffix on the end affordance.
+local function accordionDirectionWords(dir, layout)
+	if accordionStackVertical(dir, layout) then
+		local addWord = "below"
+		if dir == "up" then
+			addWord = "above"
+		end
+		return { before = "Above", after = "Below", addWord = addWord }
+	end
+	local addWord = "right"
+	if dir == "left" then
+		addWord = "left"
+	end
+	return { before = "Left", after = "Right", addWord = addWord }
+end
+
+local function editTextString(edit)
+	if edit == nil then
+		return ""
+	end
+	local t = edit:getText()
+	if t == nil then
+		return ""
+	end
+	local s = t:toString()
+	if s == nil then
+		return ""
+	end
+	return s
+end
+
+local function childRowHasContent(label, command)
+	return (label ~= nil and label ~= "") or (command ~= nil and command ~= "")
+end
 
 function buildClickTab(host, content, o)
 	local editorValues = o.editorValues
@@ -108,6 +164,17 @@ function buildClickTab(host, content, o)
 	clickPage:addView(clickLabelRow)
 	clickPage:addView(clickCmdRow)
 
+	-- Accordion trigger exclusivity: shown when Open with = Tap and the accordion
+	-- is configured. Same pattern as flipSwipeNote below.
+	local accordionTapLockNote = luajava.new(TextView, o.context)
+	accordionTapLockNote:setTextSize(textSizeSmall)
+	accordionTapLockNote:setText("Tap opens the accordion — this command is kept but does not fire.")
+	local tapLockPad = math.floor(8 * density)
+	accordionTapLockNote:setPadding(tapLockPad, 0, tapLockPad, tapLockPad)
+	accordionTapLockNote:setLayoutParams(o.fillparams)
+	accordionTapLockNote:setVisibility(View.GONE)
+	clickPage:addView(accordionTapLockNote)
+
 	addGestureSection("Flip", "drag off the button, then release (blocked when any swipe is set)")
 
 	local flipSwipeNote = luajava.new(TextView, o.context)
@@ -178,6 +245,7 @@ function buildClickTab(host, content, o)
 	o.widgets.flipLabelEdit = flipLabelEdit
 	o.widgets.flipCmdEdit = flipCmdEdit
 	o.widgets.flipSwipeNote = flipSwipeNote
+	o.widgets.accordionTapLockNote = accordionTapLockNote
 end
 
 function buildTabs(host, content, o)
@@ -278,12 +346,46 @@ function buildTabs(host, content, o)
 	end
 
 	o.widgets.holdCmdEdit = addGestureRow(swipePage, "Hold:", editorValues.holdCommand)
+	local accordionHoldLockNote = luajava.new(TextView, o.context)
+	accordionHoldLockNote:setTextSize(textSizeSmall)
+	accordionHoldLockNote:setText("Hold opens the accordion — this command is kept but does not fire.")
+	local holdLockPad = math.floor(8 * density)
+	accordionHoldLockNote:setPadding(holdLockPad, 0, holdLockPad, holdLockPad)
+	accordionHoldLockNote:setLayoutParams(o.fillparams)
+	accordionHoldLockNote:setVisibility(View.GONE)
+	swipePage:addView(accordionHoldLockNote)
+	o.widgets.accordionHoldLockNote = accordionHoldLockNote
 
 	addSectionHeader(swipePage, "Straight swipes")
 	o.widgets.swipeUpCmdEdit = addSwipeRow(swipePage, "↑  Up:", editorValues.swipeUpCommand)
 	o.widgets.swipeDownCmdEdit = addSwipeRow(swipePage, "↓  Down:", editorValues.swipeDownCommand)
 	o.widgets.swipeLeftCmdEdit = addSwipeRow(swipePage, "←  Left:", editorValues.swipeLeftCommand)
 	o.widgets.swipeRightCmdEdit = addSwipeRow(swipePage, "→  Right:", editorValues.swipeRightCommand)
+
+	local function makeSwipeLockNote(msg)
+		local note = luajava.new(TextView, o.context)
+		note:setTextSize(textSizeSmall)
+		note:setText(msg)
+		note:setPadding(holdLockPad, 0, holdLockPad, holdLockPad)
+		note:setLayoutParams(o.fillparams)
+		note:setVisibility(View.GONE)
+		return note
+	end
+	-- One note per expand direction, inserted after all four rows; visibility
+	-- follows the Accordion Expand spinner. Kept as siblings of the edits so
+	-- Done / Flip logic never has to hunt through the page.
+	o.widgets.accordionSwipeLockNoteUp = makeSwipeLockNote(
+		"Up swipe opens the accordion — this command is kept but does not fire.")
+	o.widgets.accordionSwipeLockNoteDown = makeSwipeLockNote(
+		"Down swipe opens the accordion — this command is kept but does not fire.")
+	o.widgets.accordionSwipeLockNoteLeft = makeSwipeLockNote(
+		"Left swipe opens the accordion — this command is kept but does not fire.")
+	o.widgets.accordionSwipeLockNoteRight = makeSwipeLockNote(
+		"Right swipe opens the accordion — this command is kept but does not fire.")
+	swipePage:addView(o.widgets.accordionSwipeLockNoteUp)
+	swipePage:addView(o.widgets.accordionSwipeLockNoteDown)
+	swipePage:addView(o.widgets.accordionSwipeLockNoteLeft)
+	swipePage:addView(o.widgets.accordionSwipeLockNoteRight)
 
 	o.gestureLabelCarried = editorValues.showGestureLabel ~= false
 	o.gestureHintsCarried = editorValues.showGestureHintsButton ~= false
@@ -368,7 +470,7 @@ function buildTabs(host, content, o)
 	accordionPage:setId(44)
 	accordionPage:setOrientation(LinearLayout.VERTICAL)
 	
-	o.addHelpText(accordionPage, "Up to 5 sub-buttons expand from the parent. Badges on the button: T/H/S = tap/hold/swipe open.")
+	o.addHelpText(accordionPage, "Up to 20 sub-buttons expand from the parent. Order in the list is the order they fan out — first row nearest the parent. A run too long for the screen wraps to the next column or row, and any that still do not fit are left out with a message. Badges on the button: T/H/S = tap/hold/swipe open.")
 	
 	local dirRow = luajava.new(LinearLayout,o.context)
 	dirRow:setLayoutParams(o.fillparams)
@@ -469,7 +571,7 @@ function buildTabs(host, content, o)
 	triggerRow:addView(accordionTriggerSpinner)
 	accordionPage:addView(triggerRow)
 	
-	o.addHelpText(accordionPage, "Tap = open on press, close on second press. Hold = open after hold delay (ms). Swipe = drag in expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right.")
+	o.addHelpText(accordionPage, "Tap = open on press, close on second press. Hold = open after hold delay (ms). Swipe = drag in expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right. The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs.")
 	
 	local holdMsRow = luajava.new(LinearLayout,o.context)
 	holdMsRow:setLayoutParams(o.fillparams)
@@ -502,60 +604,598 @@ function buildTabs(host, content, o)
 		accordionAutoCloseCheck:setChecked(true)
 	end
 	accordionPage:addView(accordionAutoCloseCheck)
-	
+
+	-- Dynamic sub-button list. Rebuild this container only — never the whole tab.
+	local childrenContainer = luajava.new(LinearLayout, o.context)
+	childrenContainer:setLayoutParams(o.fillparams)
+	childrenContainer:setOrientation(LinearLayout.VERTICAL)
+	accordionPage:addView(childrenContainer)
+	o.widgets.accordionChildrenContainer = childrenContainer
+
+	local childrenDraft = {}
+	local seedChildren = editorValues.accordionChildren or {}
+	for i = 1, #seedChildren do
+		local c = seedChildren[i] or {}
+		childrenDraft[i] = { label = c.label or "", command = c.command or "" }
+	end
+
 	o.widgets.accordionChildLabelEdits = {}
 	o.widgets.accordionChildCmdEdits = {}
-	local children = editorValues.accordionChildren or {}
-	for i = 1, 5 do
-		local child = children[i] or {}
-		local childLabelRow = luajava.new(LinearLayout,o.context)
-		childLabelRow:setLayoutParams(o.fillparams)
-		local childTitle = luajava.new(TextView,o.context)
-		childTitle:setText("Sub "..i.." label:")
-		childTitle:setTextSize(textSize)
-		childTitle:setGravity(Gravity.RIGHT)
-		childTitle:setLayoutParams(luajava.new(LinearLayoutParams,accordionLabelWidth,WRAP_CONTENT))
-		local labelEdit = luajava.new(EditText,o.context)
-		labelEdit:setText(child.label or "")
-		labelEdit:setLayoutParams(o.clickLabelEditParams)
-		childLabelRow:addView(childTitle)
-		childLabelRow:addView(labelEdit)
-		accordionPage:addView(childLabelRow)
-		local childCmdRow = luajava.new(LinearLayout,o.context)
-		childCmdRow:setLayoutParams(o.fillparams)
-		local cmdTitle = luajava.new(TextView,o.context)
-		cmdTitle:setText("Sub "..i.." cmd:")
-		cmdTitle:setTextSize(textSize)
-		cmdTitle:setGravity(Gravity.RIGHT)
-		cmdTitle:setLayoutParams(luajava.new(LinearLayoutParams,accordionLabelWidth,WRAP_CONTENT))
-		local cmdEdit = luajava.new(EditText,o.context)
-		cmdEdit:setText(child.command or "")
-		cmdEdit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
-		cmdEdit:setMaxLines(3)
-		cmdEdit:setLayoutParams(o.clickLabelEditParams)
-		childCmdRow:addView(cmdTitle)
-		childCmdRow:addView(cmdEdit)
-		accordionPage:addView(childCmdRow)
-		o.widgets.accordionChildLabelEdits[i] = labelEdit
-		o.widgets.accordionChildCmdEdits[i] = cmdEdit
+	o.widgets.accordionChildRowControls = {}
+	o.widgets.accordionAddButton = nil
+	o.widgets.accordionAddHint = nil
+	o.widgets.accordionLimitNote = nil
+	-- Prefer a table the host already wired (buttoneditor points its Flip-gate
+	-- global at this before buildTabs). Replacing it here would leave Flip
+	-- reading an empty set while swipe fields are already disabled.
+	o.accordionLockedSwipeEdits = o.accordionLockedSwipeEdits or {}
+
+	local accordionFieldsEnabled = true
+	-- AdapterView.selectionChanged posts onItemSelected when mInLayout /
+	-- mBlockLayoutRequests (AbsSpinner.setSelectionInt blocks layout requests
+	-- then lays out; setSelection(int) requestLayout's). The first delivery
+	-- after setOnItemSelectedListener is that init selection, not a user tap.
+	-- A synchronous suppress flag cleared at end of build does not cover a
+	-- posted SelectionNotifier. Ignore the first callback per spinner instead.
+	local dirSpinnerSeenSelection = false
+	local layoutSpinnerSeenSelection = false
+	local triggerSpinnerSeenSelection = false
+
+	local function selectedDirKey()
+		local idx = tonumber(accordionDirSpinner:getSelectedItemPosition()) or 0
+		local map = { "", "down", "up", "right", "left" }
+		return map[idx + 1] or ""
 	end
-	
+
+	local function selectedLayoutKey()
+		local idx = tonumber(accordionLayoutSpinner:getSelectedItemPosition()) or 0
+		local map = { "along", "vertical", "horizontal" }
+		return map[idx + 1] or "along"
+	end
+
+	local function selectedTriggerKey()
+		local idx = tonumber(accordionTriggerSpinner:getSelectedItemPosition()) or 0
+		local map = { "tap", "hold", "swipe" }
+		return map[idx + 1] or "tap"
+	end
+
+	local function syncDraftFromEdits()
+		local labels = o.widgets.accordionChildLabelEdits
+		local cmds = o.widgets.accordionChildCmdEdits
+		local n = math.max(#labels, #childrenDraft)
+		for i = 1, n do
+			if labels[i] ~= nil and cmds[i] ~= nil then
+				childrenDraft[i] = {
+					label = editTextString(labels[i]),
+					command = editTextString(cmds[i]),
+				}
+			end
+		end
+	end
+
+	local function draftHasAnyContent()
+		for i = 1, #childrenDraft do
+			local c = childrenDraft[i]
+			if c ~= nil and childRowHasContent(c.label, c.command) then
+				return true
+			end
+		end
+		-- Also check live edits (draft may lag mid-keystroke before sync).
+		local labels = o.widgets.accordionChildLabelEdits
+		local cmds = o.widgets.accordionChildCmdEdits
+		for i = 1, #labels do
+			if childRowHasContent(editTextString(labels[i]), editTextString(cmds[i])) then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function lastDraftFilled()
+		local n = #childrenDraft
+		if n == 0 then
+			return true
+		end
+		local c = childrenDraft[n]
+		if c == nil then
+			return false
+		end
+		if childRowHasContent(c.label, c.command) then
+			return true
+		end
+		local labels = o.widgets.accordionChildLabelEdits
+		local cmds = o.widgets.accordionChildCmdEdits
+		if labels[n] ~= nil and cmds[n] ~= nil then
+			return childRowHasContent(editTextString(labels[n]), editTextString(cmds[n]))
+		end
+		return false
+	end
+
+	o.accordionStackVertical = accordionStackVertical
+	o.accordionDirectionWords = accordionDirectionWords
+	o.accordionMaxChildren = MAX_ACCORDION_CHILDREN
+
+	o.currentAccordionDirectionWords = function()
+		return accordionDirectionWords(selectedDirKey(), selectedLayoutKey())
+	end
+
+	-- Harvest for Done: drop empty rows, keep display order, cap at 20.
+	o.harvestAccordionChildren = function()
+		syncDraftFromEdits()
+		local out = {}
+		for i = 1, #childrenDraft do
+			local c = childrenDraft[i]
+			if c ~= nil and childRowHasContent(c.label, c.command) then
+				out[#out + 1] = { label = c.label or "", command = c.command or "" }
+			end
+			if #out >= MAX_ACCORDION_CHILDREN then
+				break
+			end
+		end
+		return out
+	end
+
+	local rebuildAccordionChildRows
+
+	local function makeSmallButton(label)
+		local b = luajava.new(Button, o.context)
+		b:setText(label)
+		b:setTextSize(textSizeSmall)
+		b:setLayoutParams(luajava.new(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT))
+		b:setMinWidth(0)
+		b:setMinimumWidth(0)
+		b:setMinHeight(math.floor(32 * density))
+		b:setPadding(math.floor(6 * density), 0, math.floor(6 * density), 0)
+		return b
+	end
+
+	local childTextWatcher = luajava.createProxy("android.text.TextWatcher", {
+		afterTextChanged = function(s)
+			syncDraftFromEdits()
+			if o.updateAccordionAddGate ~= nil then
+				o.updateAccordionAddGate()
+			end
+			if o.updateAccordionGestureLocks ~= nil then
+				o.updateAccordionGestureLocks()
+			end
+		end,
+		beforeTextChanged = function(s, start, count, after) end,
+		onTextChanged = function(s, start, before, count) end,
+	})
+
+	o.updateAccordionAddGate = function()
+		syncDraftFromEdits()
+		local addBtn = o.widgets.accordionAddButton
+		local hint = o.widgets.accordionAddHint
+		local limit = o.widgets.accordionLimitNote
+		local n = #childrenDraft
+		if limit ~= nil then
+			if n >= MAX_ACCORDION_CHILDREN then
+				limit:setVisibility(View.VISIBLE)
+			else
+				limit:setVisibility(View.GONE)
+			end
+		end
+		if addBtn == nil then
+			return
+		end
+		if n >= MAX_ACCORDION_CHILDREN then
+			addBtn:setVisibility(View.GONE)
+			if hint ~= nil then
+				hint:setVisibility(View.GONE)
+			end
+			return
+		end
+		addBtn:setVisibility(View.VISIBLE)
+		-- Disabled with a hint (not hidden): an absent Add control looks like a
+		-- bug when the list is short; a greyed button with one line says why.
+		local allow = accordionFieldsEnabled and lastDraftFilled()
+		addBtn:setEnabled(allow)
+		if hint ~= nil then
+			if allow or not accordionFieldsEnabled then
+				hint:setVisibility(View.GONE)
+			else
+				hint:setText("Fill in the last sub-button before adding another.")
+				hint:setVisibility(View.VISIBLE)
+			end
+		end
+	end
+
+	o.updateAccordionGestureLocks = function()
+		o.accordionLockedSwipeEdits = o.accordionLockedSwipeEdits or {}
+		for k in pairs(o.accordionLockedSwipeEdits) do
+			o.accordionLockedSwipeEdits[k] = nil
+		end
+		if o.numediting > 1 then
+			return
+		end
+		-- Super-button: accordion will not save, so do not lock gesture commands.
+		local floating = o._accordionFloating == true
+		local dir = selectedDirKey()
+		local trigger = selectedTriggerKey()
+		syncDraftFromEdits()
+		local configured = (not floating) and dir ~= "" and draftHasAnyContent()
+		local lockTap = configured and trigger == "tap"
+		local lockHold = configured and trigger == "hold"
+		local lockSwipeDir = nil
+		if configured and trigger == "swipe" then
+			lockSwipeDir = dir
+		end
+
+		local function setLock(edit, note, locked)
+			if edit == nil then
+				return
+			end
+			edit:setEnabled(not locked)
+			if note ~= nil then
+				if locked then
+					note:setVisibility(View.VISIBLE)
+				else
+					note:setVisibility(View.GONE)
+				end
+			end
+		end
+
+		setLock(o.widgets.clickCmdEdit, o.widgets.accordionTapLockNote, lockTap)
+		setLock(o.widgets.holdCmdEdit, o.widgets.accordionHoldLockNote, lockHold)
+
+		local swipeMap = {
+			up = { edit = o.widgets.swipeUpCmdEdit, note = o.widgets.accordionSwipeLockNoteUp },
+			down = { edit = o.widgets.swipeDownCmdEdit, note = o.widgets.accordionSwipeLockNoteDown },
+			left = { edit = o.widgets.swipeLeftCmdEdit, note = o.widgets.accordionSwipeLockNoteLeft },
+			right = { edit = o.widgets.swipeRightCmdEdit, note = o.widgets.accordionSwipeLockNoteRight },
+		}
+		for key, pair in pairs(swipeMap) do
+			local locked = lockSwipeDir == key
+			setLock(pair.edit, pair.note, locked)
+			if locked and pair.edit ~= nil then
+				o.accordionLockedSwipeEdits[pair.edit] = true
+			end
+		end
+		-- Flip gate reads swipe text via trimSwipeCmdText; tell it to refresh so
+		-- locking a filled swipe field does not re-enable Flip.
+		if o.updateFlipForSwipes ~= nil then
+			o.updateFlipForSwipes()
+		end
+	end
+
+	local function applyRowControlEnabled()
+		local controls = o.widgets.accordionChildRowControls or {}
+		local n = #controls
+		local atCap = n >= MAX_ACCORDION_CHILDREN
+		for i = 1, n do
+			local row = controls[i]
+			if row ~= nil then
+				-- order: insertBefore, insertAfter, moveBefore, moveAfter, delete
+				for j, btn in ipairs(row) do
+					if btn ~= nil then
+						local on = accordionFieldsEnabled
+						if j == 3 and i <= 1 then
+							on = false
+						elseif j == 4 and i >= n then
+							on = false
+						elseif (j == 1 or j == 2) and atCap then
+							on = false
+						end
+						btn:setEnabled(on)
+					end
+				end
+			end
+		end
+		if o.widgets.accordionAddButton ~= nil then
+			o.updateAccordionAddGate()
+		end
+	end
+
+	rebuildAccordionChildRows = function()
+		-- Callers that must keep mid-edit text sync first. Syncing here would
+		-- overwrite insert/delete/reorder that already mutated childrenDraft
+		-- while the old EditTexts still hold the previous order.
+		childrenContainer:removeAllViews()
+		o.widgets.accordionChildLabelEdits = {}
+		o.widgets.accordionChildCmdEdits = {}
+		o.widgets.accordionChildRowControls = {}
+		o.widgets.accordionAddButton = nil
+		o.widgets.accordionAddHint = nil
+		o.widgets.accordionLimitNote = nil
+
+		local words = accordionDirectionWords(selectedDirKey(), selectedLayoutKey())
+		local labelWeight = luajava.new(LinearLayoutParams, 0, WRAP_CONTENT, 1)
+		local cmdWeight = luajava.new(LinearLayoutParams, 0, WRAP_CONTENT, 1)
+		local indexWidth = math.floor(28 * density)
+
+		for i = 1, #childrenDraft do
+			local child = childrenDraft[i] or { label = "", command = "" }
+			local block = luajava.new(LinearLayout, o.context)
+			block:setLayoutParams(o.fillparams)
+			block:setOrientation(LinearLayout.VERTICAL)
+			local pad = math.floor(4 * density)
+			block:setPadding(0, pad, 0, pad)
+
+			local fields = luajava.new(LinearLayout, o.context)
+			fields:setLayoutParams(o.fillparams)
+			fields:setOrientation(LinearLayout.HORIZONTAL)
+
+			local indexTv = luajava.new(TextView, o.context)
+			indexTv:setText(tostring(i))
+			indexTv:setTextSize(textSize)
+			indexTv:setGravity(Gravity.CENTER)
+			indexTv:setLayoutParams(luajava.new(LinearLayoutParams, indexWidth, WRAP_CONTENT))
+			fields:addView(indexTv)
+
+			local labelEdit = luajava.new(EditText, o.context)
+			labelEdit:setHint("Label")
+			labelEdit:setText(child.label or "")
+			labelEdit:setTextSize(textSize)
+			labelEdit:setLines(1)
+			labelEdit:setLayoutParams(labelWeight)
+			labelEdit:setEnabled(accordionFieldsEnabled)
+			labelEdit:addTextChangedListener(childTextWatcher)
+			fields:addView(labelEdit)
+
+			local cmdEdit = luajava.new(EditText, o.context)
+			cmdEdit:setHint("Command")
+			cmdEdit:setText(child.command or "")
+			cmdEdit:setTextSize(textSize)
+			cmdEdit:setInputType(TYPE_TEXT_FLAG_MULTI_LINE)
+			cmdEdit:setMaxLines(2)
+			cmdEdit:setLayoutParams(cmdWeight)
+			cmdEdit:setEnabled(accordionFieldsEnabled)
+			cmdEdit:addTextChangedListener(childTextWatcher)
+			fields:addView(cmdEdit)
+			block:addView(fields)
+
+			local controls = luajava.new(LinearLayout, o.context)
+			controls:setLayoutParams(o.fillparams)
+			controls:setOrientation(LinearLayout.HORIZONTAL)
+
+			local insertBefore = makeSmallButton("+" .. words.before)
+			local insertAfter = makeSmallButton("+" .. words.after)
+			local moveBefore = makeSmallButton(words.before)
+			local moveAfter = makeSmallButton(words.after)
+			local deleteBtn = makeSmallButton("Del")
+			controls:addView(insertBefore)
+			controls:addView(insertAfter)
+			controls:addView(moveBefore)
+			controls:addView(moveAfter)
+			controls:addView(deleteBtn)
+			block:addView(controls)
+			childrenContainer:addView(block)
+
+			o.widgets.accordionChildLabelEdits[i] = labelEdit
+			o.widgets.accordionChildCmdEdits[i] = cmdEdit
+			o.widgets.accordionChildRowControls[i] = {
+				insertBefore, insertAfter, moveBefore, moveAfter, deleteBtn,
+			}
+
+			local index = i
+			insertBefore:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+				onClick = function(v)
+					if not accordionFieldsEnabled then return end
+					if #childrenDraft >= MAX_ACCORDION_CHILDREN then return end
+					syncDraftFromEdits()
+					table.insert(childrenDraft, index, { label = "", command = "" })
+					rebuildAccordionChildRows()
+					if o.updateAccordionGestureLocks ~= nil then
+						o.updateAccordionGestureLocks()
+					end
+				end
+			}))
+			insertAfter:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+				onClick = function(v)
+					if not accordionFieldsEnabled then return end
+					if #childrenDraft >= MAX_ACCORDION_CHILDREN then return end
+					syncDraftFromEdits()
+					table.insert(childrenDraft, index + 1, { label = "", command = "" })
+					rebuildAccordionChildRows()
+					if o.updateAccordionGestureLocks ~= nil then
+						o.updateAccordionGestureLocks()
+					end
+				end
+			}))
+			moveBefore:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+				onClick = function(v)
+					if not accordionFieldsEnabled then return end
+					if index <= 1 then return end
+					syncDraftFromEdits()
+					childrenDraft[index], childrenDraft[index - 1] =
+						childrenDraft[index - 1], childrenDraft[index]
+					rebuildAccordionChildRows()
+				end
+			}))
+			moveAfter:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+				onClick = function(v)
+					if not accordionFieldsEnabled then return end
+					if index >= #childrenDraft then return end
+					syncDraftFromEdits()
+					childrenDraft[index], childrenDraft[index + 1] =
+						childrenDraft[index + 1], childrenDraft[index]
+					rebuildAccordionChildRows()
+				end
+			}))
+			deleteBtn:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+				onClick = function(v)
+					if not accordionFieldsEnabled then return end
+					syncDraftFromEdits()
+					table.remove(childrenDraft, index)
+					rebuildAccordionChildRows()
+					if o.updateAccordionGestureLocks ~= nil then
+						o.updateAccordionGestureLocks()
+					end
+				end
+			}))
+
+			-- Disable move at the ends so the player is not tapping a no-op.
+			if index <= 1 then
+				moveBefore:setEnabled(false)
+			end
+			if index >= #childrenDraft then
+				moveAfter:setEnabled(false)
+			end
+			if not accordionFieldsEnabled then
+				insertBefore:setEnabled(false)
+				insertAfter:setEnabled(false)
+				moveBefore:setEnabled(false)
+				moveAfter:setEnabled(false)
+				deleteBtn:setEnabled(false)
+			elseif #childrenDraft >= MAX_ACCORDION_CHILDREN then
+				insertBefore:setEnabled(false)
+				insertAfter:setEnabled(false)
+			end
+		end
+
+		local footer = luajava.new(LinearLayout, o.context)
+		footer:setLayoutParams(o.fillparams)
+		footer:setOrientation(LinearLayout.VERTICAL)
+		local footPad = math.floor(8 * density)
+		footer:setPadding(0, footPad, 0, footPad)
+
+		local limitNote = luajava.new(TextView, o.context)
+		limitNote:setTextSize(textSizeSmall)
+		limitNote:setText("20 sub-buttons is the limit.")
+		limitNote:setPadding(footPad, 0, footPad, footPad)
+		limitNote:setLayoutParams(o.fillparams)
+		limitNote:setVisibility(View.GONE)
+		footer:addView(limitNote)
+		o.widgets.accordionLimitNote = limitNote
+
+		local addBtn = luajava.new(Button, o.context)
+		addBtn:setText("+ Add sub-button " .. words.addWord)
+		addBtn:setTextSize(textSize)
+		addBtn:setLayoutParams(o.fillparams)
+		addBtn:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+			onClick = function(v)
+				if not accordionFieldsEnabled then return end
+				syncDraftFromEdits()
+				if #childrenDraft >= MAX_ACCORDION_CHILDREN then
+					return
+				end
+				if not lastDraftFilled() then
+					return
+				end
+				childrenDraft[#childrenDraft + 1] = { label = "", command = "" }
+				rebuildAccordionChildRows()
+				if o.updateAccordionGestureLocks ~= nil then
+					o.updateAccordionGestureLocks()
+				end
+			end
+		}))
+		footer:addView(addBtn)
+		o.widgets.accordionAddButton = addBtn
+
+		local addHint = luajava.new(TextView, o.context)
+		addHint:setTextSize(textSizeSmall)
+		addHint:setText("Fill in the last sub-button before adding another.")
+		addHint:setPadding(footPad, 0, footPad, 0)
+		addHint:setLayoutParams(o.fillparams)
+		addHint:setVisibility(View.GONE)
+		footer:addView(addHint)
+		o.widgets.accordionAddHint = addHint
+
+		childrenContainer:addView(footer)
+		o.updateAccordionAddGate()
+	end
+
+	o.rebuildAccordionChildRows = rebuildAccordionChildRows
+
+	-- Direction / layout only change control captions (Above/Below vs Left/Right).
+	-- Rebuilding every EditText for that would drop focus and dismiss the IME —
+	-- including when AdapterView posts a spurious init onItemSelected after open.
+	local function updateAccordionControlCaptions()
+		local words = accordionDirectionWords(selectedDirKey(), selectedLayoutKey())
+		local controls = o.widgets.accordionChildRowControls or {}
+		for i = 1, #controls do
+			local row = controls[i]
+			if row ~= nil then
+				if row[1] ~= nil then row[1]:setText("+" .. words.before) end
+				if row[2] ~= nil then row[2]:setText("+" .. words.after) end
+				if row[3] ~= nil then row[3]:setText(words.before) end
+				if row[4] ~= nil then row[4]:setText(words.after) end
+			end
+		end
+		if o.widgets.accordionAddButton ~= nil then
+			o.widgets.accordionAddButton:setText("+ Add sub-button " .. words.addWord)
+		end
+	end
+	o.updateAccordionControlCaptions = updateAccordionControlCaptions
+
+	-- Test / host helpers that mutate the draft without going through clicks.
+	o.accordionInsertChild = function(atIndex, label, command)
+		syncDraftFromEdits()
+		if #childrenDraft >= MAX_ACCORDION_CHILDREN then
+			return false
+		end
+		local i = atIndex or (#childrenDraft + 1)
+		if i < 1 then i = 1 end
+		if i > #childrenDraft + 1 then i = #childrenDraft + 1 end
+		table.insert(childrenDraft, i, { label = label or "", command = command or "" })
+		rebuildAccordionChildRows()
+		return true
+	end
+	o.accordionDeleteChild = function(index)
+		syncDraftFromEdits()
+		if index < 1 or index > #childrenDraft then
+			return false
+		end
+		table.remove(childrenDraft, index)
+		rebuildAccordionChildRows()
+		return true
+	end
+	o.accordionMoveChild = function(index, delta)
+		syncDraftFromEdits()
+		local j = index + (delta or 0)
+		if index < 1 or index > #childrenDraft or j < 1 or j > #childrenDraft then
+			return false
+		end
+		childrenDraft[index], childrenDraft[j] = childrenDraft[j], childrenDraft[index]
+		rebuildAccordionChildRows()
+		return true
+	end
+	o.accordionChildDraftCount = function()
+		syncDraftFromEdits()
+		return #childrenDraft
+	end
+	o.accordionCanAdd = function()
+		syncDraftFromEdits()
+		return #childrenDraft < MAX_ACCORDION_CHILDREN and lastDraftFilled()
+	end
+	o.accordionSetChildText = function(index, label, command)
+		syncDraftFromEdits()
+		if index < 1 or index > #childrenDraft then
+			return false
+		end
+		childrenDraft[index] = { label = label or "", command = command or "" }
+		local le = o.widgets.accordionChildLabelEdits[index]
+		local ce = o.widgets.accordionChildCmdEdits[index]
+		if le ~= nil then le:setText(label or "") end
+		if ce ~= nil then ce:setText(command or "") end
+		syncDraftFromEdits()
+		o.updateAccordionAddGate()
+		o.updateAccordionGestureLocks()
+		return true
+	end
+
 	-- One place decides whether this tab can be typed into, because two things
 	-- close it: editing several buttons at once (an accordion is per button),
 	-- and the button being a super button. The second can be switched on and off
 	-- on the Others tab while this tab is open, so this is a function rather
 	-- than a run of setEnabled calls at build time.
 	o.updateAccordionEnabled = function(isFloating)
+		o._accordionFloating = (isFloating == true)
 		local on = (o.numediting <= 1) and (isFloating ~= true)
+		accordionFieldsEnabled = on
 		accordionDirSpinner:setEnabled(on)
 		accordionLayoutSpinner:setEnabled(on)
 		accordionTriggerSpinner:setEnabled(on)
 		accordionHoldMsEdit:setEnabled(on)
 		accordionAutoCloseCheck:setEnabled(on)
-		for i = 1, 5 do
-			o.widgets.accordionChildLabelEdits[i]:setEnabled(on)
-			o.widgets.accordionChildCmdEdits[i]:setEnabled(on)
+		local labels = o.widgets.accordionChildLabelEdits or {}
+		local cmds = o.widgets.accordionChildCmdEdits or {}
+		for i = 1, #labels do
+			if labels[i] ~= nil then labels[i]:setEnabled(on) end
+			if cmds[i] ~= nil then cmds[i]:setEnabled(on) end
 		end
+		applyRowControlEnabled()
 		-- Only the super-button case gets the note. Editing several buttons at
 		-- once already greys the whole editor and says so in its title.
 		if isFloating == true and o.numediting <= 1 then
@@ -563,7 +1203,46 @@ function buildTabs(host, content, o)
 		else
 			accordionSuperNote:setVisibility(View.GONE)
 		end
+		o.updateAccordionGestureLocks()
 	end
+
+	accordionDirSpinner:setOnItemSelectedListener(luajava.createProxy(
+		"android.widget.AdapterView$OnItemSelectedListener", {
+		onItemSelected = function(parent, view, position, id)
+			if not dirSpinnerSeenSelection then
+				dirSpinnerSeenSelection = true
+				return
+			end
+			updateAccordionControlCaptions()
+			o.updateAccordionGestureLocks()
+		end,
+		onNothingSelected = function(parent) end,
+	}))
+	accordionLayoutSpinner:setOnItemSelectedListener(luajava.createProxy(
+		"android.widget.AdapterView$OnItemSelectedListener", {
+		onItemSelected = function(parent, view, position, id)
+			if not layoutSpinnerSeenSelection then
+				layoutSpinnerSeenSelection = true
+				return
+			end
+			updateAccordionControlCaptions()
+			o.updateAccordionGestureLocks()
+		end,
+		onNothingSelected = function(parent) end,
+	}))
+	accordionTriggerSpinner:setOnItemSelectedListener(luajava.createProxy(
+		"android.widget.AdapterView$OnItemSelectedListener", {
+		onItemSelected = function(parent, view, position, id)
+			if not triggerSpinnerSeenSelection then
+				triggerSpinnerSeenSelection = true
+				return
+			end
+			o.updateAccordionGestureLocks()
+		end,
+		onNothingSelected = function(parent) end,
+	}))
+
+	rebuildAccordionChildRows()
 	o.updateAccordionEnabled(editorValues ~= nil and editorValues.floating == true)
 
 	accordionPageScroller:addView(accordionPage)

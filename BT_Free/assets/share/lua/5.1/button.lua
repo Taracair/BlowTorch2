@@ -343,20 +343,31 @@ function BUTTON:drawGestureIndicators(canvas, paint)
 	local midY = (top + bottom) * 0.5
 
 	paint:setTextSize(math.max(7 * self.density, arrow * 1.35))
+	local accTrigger = hasAccordionConfig(self.data) and getAccordionTrigger(self.data) or nil
+	local accDir = accTrigger ~= nil and self.data.accordionDirection or nil
 	for _, hint in ipairs(STRAIGHT_HINTS) do
 		if hasGestureCommand(self.data, hint.field) then
-			local hx, hy
-			if hint.edge == "top" then
-				hx, hy = midX - arrow * 0.4, top + inset + arrow * 0.35
-			elseif hint.edge == "bottom" then
-				hx, hy = midX - arrow * 0.4, bottom - inset + arrow * 0.15
-			elseif hint.edge == "left" then
-				hx, hy = left + inset, midY + arrow * 0.35
-			else
-				hx, hy = right - inset - arrow * 0.6, midY + arrow * 0.35
+			-- Swipe-trigger accordion owns that one direction; the letter would
+			-- claim a command release will not send.
+			local owned = accTrigger == "swipe" and (
+				(hint.field == "swipeUpCommand" and accDir == "up")
+				or (hint.field == "swipeDownCommand" and accDir == "down")
+				or (hint.field == "swipeLeftCommand" and accDir == "left")
+				or (hint.field == "swipeRightCommand" and accDir == "right"))
+			if not owned then
+				local hx, hy
+				if hint.edge == "top" then
+					hx, hy = midX - arrow * 0.4, top + inset + arrow * 0.35
+				elseif hint.edge == "bottom" then
+					hx, hy = midX - arrow * 0.4, bottom - inset + arrow * 0.15
+				elseif hint.edge == "left" then
+					hx, hy = left + inset, midY + arrow * 0.35
+				else
+					hx, hy = right - inset - arrow * 0.6, midY + arrow * 0.35
+				end
+				paint:setColor(color)
+				canvas:drawText(hint.text, hx, hy, paint)
 			end
-			paint:setColor(color)
-			canvas:drawText(hint.text, hx, hy, paint)
 		end
 	end
 
@@ -371,7 +382,8 @@ function BUTTON:drawGestureIndicators(canvas, paint)
 		end
 	end
 
-	if hasGestureCommand(self.data, "holdCommand") then
+	if hasGestureCommand(self.data, "holdCommand")
+			and not (accTrigger == "hold") then
 		paint:setColor(Color:argb(170, 0xFF, 0xFF, 0x66))
 		paint:setTextSize(math.max(7 * self.density, arrow * 1.2))
 		canvas:drawText("Hold", right - 16 * self.density, bottom - 4 * self.density, paint)

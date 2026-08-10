@@ -601,12 +601,74 @@ local DIRECTION_GLYPHS = {
 	upleft = "↖", upright = "↗", downleft = "↙", downright = "↘",
 }
 
+local function hasAccordionConfig(data)
+	if data == nil or data.accordionDirection == nil or data.accordionDirection == "" then
+		return false
+	end
+	return data.accordionChildren ~= nil and #data.accordionChildren > 0
+end
+
+local function getAccordionTrigger(data)
+	local trigger = data.accordionTrigger
+	if trigger == nil or trigger == "" then
+		return "tap"
+	end
+	return trigger
+end
+
+-- Accordion trigger exclusivity: whichever gesture opens the accordion never
+-- fires that same gesture's normal button command. Pure predicates so tests can
+-- lock the contract without driving the touch handler.
+--
+--   tap trigger  → tap toggles; hold/swipe commands still fire
+--   hold trigger → hold toggles; tap/swipe commands still fire
+--   swipe trigger→ swipe in accordionDirection toggles; that one swipe command
+--                  is suppressed; other directions, tap and hold still fire
+function accordionOwnsTap(trigger)
+	return trigger == "tap"
+end
+
+function accordionOwnsHold(trigger)
+	return trigger == "hold"
+end
+
+function accordionOwnsSwipeDirection(trigger, accordionDirection, swipe4)
+	return trigger == "swipe"
+		and swipe4 ~= nil
+		and accordionDirection ~= nil
+		and swipe4 == accordionDirection
+end
+
+-- Finger-up on an accordion parent after the swipe branch has run.
+-- swipeHandled means a swipe command fired or a swipe-trigger accordion toggled.
+-- Returns "toggle" | "tap_command" | "flip_command" | "none".
+--
+-- Tap-trigger exclusivity: command and flipCommand must not fire. A release
+-- inside the tile toggles even when the finger drifted past the swipe
+-- threshold without resolving to a bound swipe command.
+function accordionParentFingerUpAction(trigger, insideButton, swipeDir, swipeHandled)
+	if swipeHandled then
+		return "none"
+	end
+	if accordionOwnsTap(trigger) then
+		if insideButton then
+			return "toggle"
+		end
+		return "none"
+	end
+	if insideButton then
+		return "tap_command"
+	end
+	return "flip_command"
+end
+
 -- What the gesture callout should say right now, or nil for nothing.
 --
 -- While aiming a swipe it names that swipe's command. When the finger has slid
 -- off the tile it names the flip command that would fire on release, unless a
 -- swipe in that direction would win instead. Before any swipe starts, and while
--- still on the tile, it names the hold command.
+-- still on the tile, it names the hold command — unless hold is owned by an
+-- accordion, in which case there is no hold command to advertise.
 local function gestureLabelFor(data, direction, outsideButton)
 	if data == nil then
 		return nil
@@ -622,6 +684,9 @@ local function gestureLabelFor(data, direction, outsideButton)
 		return data.flipCommand
 	end
 	if direction == nil and not outsideButton then
+		if hasAccordionConfig(data) and accordionOwnsHold(getAccordionTrigger(data)) then
+			return nil
+		end
 		if hasButtonCommand(data.holdCommand) then
 			return "hold  " .. data.holdCommand
 		end
@@ -633,11 +698,18 @@ local function resolveSwipeDirection(data, dx, dy, threshold)
 	if classifySwipe(dx, dy, threshold) == nil then
 		return nil
 	end
+	local straight = classifySwipe(dx, dy, threshold)
+	-- Accordion swipe trigger eats the 4-way direction; preview must not promise
+	-- a command that release will not send.
+	if hasAccordionConfig(data)
+			and accordionOwnsSwipeDirection(getAccordionTrigger(data),
+				data.accordionDirection, straight) then
+		return nil
+	end
 	local diagonal = classifySwipe8(dx, dy, threshold)
 	if hasButtonCommand(getSwipeCommand(data, diagonal)) then
 		return diagonal
 	end
-	local straight = classifySwipe(dx, dy, threshold)
 	if hasButtonCommand(getSwipeCommand(data, straight)) then
 		return straight
 	end
@@ -646,21 +718,6 @@ end
 
 local function hasButtonSwitch(data)
 	return data ~= nil and data.switchTo ~= nil and data.switchTo ~= ""
-end
-
-local function hasAccordionConfig(data)
-	if data == nil or data.accordionDirection == nil or data.accordionDirection == "" then
-		return false
-	end
-	return data.accordionChildren ~= nil and #data.accordionChildren > 0
-end
-
-local function getAccordionTrigger(data)
-	local trigger = data.accordionTrigger
-	if trigger == nil or trigger == "" then
-		return "tap"
-	end
-	return trigger
 end
 
 local function getAccordionHoldMs(data)
@@ -798,23 +855,23 @@ function normalTouch.onTouch(v,e)
 		accordionHoldFired = false
 		ret,b,index = buttonTouched(x,y)
 		if(ret) then
-			local needsFullRedraw = false
+			-- Tap-trigger accordions open on ACTION_UP once the gesture has
+			-- resolved to a plain tap. Expanding on DOWN made a swipe or hold
+			-- leave the accordion open (report: sub-buttons expanding on swipe).
+			-- Cancel paths never open anything they would have to roll back.
 			if hasAccordionConfig(b.data) and not b.isAccordionChild then
 				accordionWasExpandedAtDown = b.expanded
-				if getAccordionTrigger(b.data) == "tap" and not b.expanded then
-					expandAccordion(b, true)
-					needsFullRedraw = true
-				end
 			end
 			if not b.isAccordionChild then
 				-- Editor is opened only via long-press on the wrench icon.
-				local skipHoldForTapExpand = hasAccordionConfig(b.data)
-					and getAccordionTrigger(b.data) == "tap"
-					and not accordionWasExpandedAtDown
-				if not skipHoldForTapExpand and hasButtonCommand(b.data.holdCommand) then
+				local accTrigger = hasAccordionConfig(b.data)
+					and getAccordionTrigger(b.data) or nil
+				-- Hold command and hold-trigger accordion are mutually exclusive.
+				if hasButtonCommand(b.data.holdCommand)
+						and not (accTrigger and accordionOwnsHold(accTrigger)) then
 					ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
 				end
-				if hasAccordionConfig(b.data) and getAccordionTrigger(b.data) == "hold" then
+				if accTrigger and accordionOwnsHold(accTrigger) then
 					ScheduleCallback(ACCORDION_HOLD_CALLBACK_ID,"doAccordionHold", getAccordionHoldMs(b.data))
 				end
 			end
@@ -828,7 +885,7 @@ function normalTouch.onTouch(v,e)
 			-- Show the hold command straight away, while there is still time to
 			-- lift off before it fires.
 			gestureLabelText = gestureLabelFor(b.data, nil, false)
-			if needsFullRedraw or b.isAccordionChild or b.expanded or gestureLabelText ~= nil then
+			if b.isAccordionChild or b.expanded or gestureLabelText ~= nil then
 				drawButtons()
 			end
 			b:draw(normalTouchState,buttonCanvas)
@@ -953,8 +1010,10 @@ function normalTouch.onTouch(v,e)
 			local sent = false
 			if swipeDir ~= nil then
 				if hasAccordionConfig(touchedbutton.data)
-					and getAccordionTrigger(touchedbutton.data) == "swipe"
-					and swipeDir == touchedbutton.data.accordionDirection then
+					and accordionOwnsSwipeDirection(
+						getAccordionTrigger(touchedbutton.data),
+						touchedbutton.data.accordionDirection,
+						swipeDir) then
 					-- Accordion still matches on the 4-way direction only.
 					toggleAccordion(touchedbutton)
 					sent = true
@@ -974,11 +1033,22 @@ function normalTouch.onTouch(v,e)
 				elseif isAccordionCloseHit(touchedbutton, x, y) then
 					collapseAccordion(touchedbutton)
 					sent = true
-				elseif hasAccordionConfig(touchedbutton.data) and r:contains(x,y) and swipeDir == nil then
-					if getAccordionTrigger(touchedbutton.data) == "tap" and accordionWasExpandedAtDown then
-						collapseAccordion(touchedbutton)
+				elseif hasAccordionConfig(touchedbutton.data) then
+					local trigger = getAccordionTrigger(touchedbutton.data)
+					local inside = r:contains(x, y)
+					local action = accordionParentFingerUpAction(trigger, inside, swipeDir, false)
+					if action == "toggle" then
+						if accordionWasExpandedAtDown then
+							collapseAccordion(touchedbutton)
+						else
+							expandAccordion(touchedbutton)
+						end
+						sent = true
+					elseif action == "tap_command" then
+						sent = dispatchButtonAction(touchedbutton.data.command)
+					elseif action == "flip_command" then
+						sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 					end
-					sent = getAccordionTrigger(touchedbutton.data) == "tap"
 				elseif(r:contains(x,y)) then
 					sent = dispatchButtonAction(touchedbutton.data.command)
 				else
@@ -1303,6 +1373,9 @@ managerBgPaint:setARGB(0xFF,0x00,0x00,0x00)
 drawManagerLayer = true
 function enterManagerMode()
 	manage = true
+	-- Open fans leave overlay children in buttonTouched / drawButtons that are
+	-- not in `buttons`; the edit grid would show phantoms over the real tiles.
+	collapseAllAccordions(true)
 	-- A fresh history per editing session. Undo is in memory only, so a stack
 	-- kept from the last time the editor was open would be offering to restore
 	-- a set that may not even be loaded any more.
@@ -2758,7 +2831,7 @@ dash = luajava.newInstance("android.graphics.DashPathEffect",farray,Float:floatV
 Style = luajava.bindClass("android.graphics.Paint$Style")
 dpaint:setStyle(Style.STROKE)
 
-MAX_ACCORDION_CHILDREN = 5
+MAX_ACCORDION_CHILDREN = 20
 
 local function accordionStackVertical(dir, layout)
 	if layout == "vertical" then
@@ -2770,50 +2843,285 @@ local function accordionStackVertical(dir, layout)
 	return dir ~= "right" and dir ~= "left"
 end
 
-local function accordionChildCoords(parent, index, childW, childH)
-	local dir = parent.data.accordionDirection
-	local layout = parent.data.accordionChildLayout or "along"
+local function clampAccordionChildCentre(x, y, childHalfW, childHalfH, viewW, viewH, statusOffset)
+	statusOffset = statusOffset or 0
+	if viewW ~= nil and viewW > 0 then
+		local minX = childHalfW
+		local maxX = viewW - childHalfW
+		if minX > maxX then
+			x = viewW * 0.5
+		else
+			x = math.max(minX, math.min(maxX, x))
+		end
+	end
+	if viewH ~= nil and viewH > 0 then
+		-- Rect Y is centre + statusOffset; keep the drawn tile inside the view.
+		local minY = childHalfH - statusOffset
+		local maxY = viewH - childHalfH - statusOffset
+		if minY > maxY then
+			y = (viewH * 0.5) - statusOffset
+		else
+			y = math.max(minY, math.min(maxY, y))
+		end
+	end
+	return x, y
+end
+
+local function accordionChildCentreFits(x, y, childHalfW, childHalfH, viewW, viewH, statusOffset)
+	if viewW == nil or viewW <= 0 or viewH == nil or viewH <= 0 then
+		return true
+	end
+	local cx, cy = clampAccordionChildCentre(x, y, childHalfW, childHalfH, viewW, viewH, statusOffset)
+	return math.abs(cx - x) < 0.51 and math.abs(cy - y) < 0.51
+end
+
+-- Pixel centres for accordion children (same space as button data.x/y).
+--
+-- Children run from the parent in `dir`. When the next tile would leave the
+-- view, the run wraps into the next lane on the cross axis. Index 1 is nearest
+-- the parent. Pure so layout can be tested without a View.
+--
+-- Invariant: if the view can host even one child tile, at least the first
+-- child is placed (the first slot is pulled onto screen when the preferred
+-- direction has no room). Further children are dropped only when every
+-- remaining slot would share a centre or leave the view — never by stacking.
+--
+-- Lane order: fill the parent's column/row first, then keep going on the side
+-- with more room until that side is exhausted, then the other side. Alternating
+-- left/right contradicted the editor's "order they fan out" help text.
+--
+-- Fan layouts (horizontal under up/down, vertical beside left/right) pack as
+-- many as will fit on the first run before wrapping; centring is clamped so it
+-- cannot push the start off-screen and force a premature wrap.
+function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
+		dir, layout, count, childW, childH, density, viewW, viewH, statusOffset)
+	local centres = {}
+	if count == nil or count <= 0 then
+		return centres
+	end
+	density = density or 1
+	statusOffset = statusOffset or 0
+	viewW = viewW or 0
+	viewH = viewH or 0
+	layout = layout or "along"
+	dir = dir or "down"
+
 	local gap = 3 * density
-	local px = posX(parent.data)
-	local py = posY(parent.data)
-	local parentHalfW = (parent.data.width / 2) * density
-	local parentHalfH = (parent.data.height / 2) * density
+	local parentHalfW = (parentW / 2) * density
+	local parentHalfH = (parentH / 2) * density
 	local childHalfW = (childW / 2) * density
 	local childHalfH = (childH / 2) * density
 	local childStepV = childH * density + gap
 	local childStepH = childW * density + gap
 	local stackV = accordionStackVertical(dir, layout)
-	local count = math.min(#parent.data.accordionChildren, MAX_ACCORDION_CHILDREN)
-	local alongStep = stackV and childStepV or childStepH
-	local alongOffset = (index - 1) * alongStep
-	local crossOffset = 0
-	if not stackV and (dir == "down" or dir == "up") then
-		crossOffset = (index - 1) * childStepH - (count - 1) * childStepH * 0.5
-	elseif stackV and (dir == "left" or dir == "right") then
-		crossOffset = (index - 1) * childStepV - (count - 1) * childStepV * 0.5
-	end
+
+	local alongX, alongY, crossX, crossY = 0, 0, 0, 0
+	local originX, originY = parentX, parentY
+
 	if dir == "down" then
 		if stackV then
-			return px, py + parentHalfH + gap + childHalfH + alongOffset
+			alongX, alongY = 0, childStepV
+			crossX, crossY = childStepH, 0
+			originX = parentX
+			originY = parentY + parentHalfH + gap + childHalfH
+		else
+			alongX, alongY = childStepH, 0
+			crossX, crossY = 0, childStepV
+			originY = parentY + parentHalfH + gap + childHalfH
+			originX = parentX
 		end
-		return px + crossOffset, py + parentHalfH + gap + childHalfH
 	elseif dir == "up" then
 		if stackV then
-			return px, py - parentHalfH - gap - childHalfH - alongOffset
+			alongX, alongY = 0, -childStepV
+			crossX, crossY = childStepH, 0
+			originX = parentX
+			originY = parentY - parentHalfH - gap - childHalfH
+		else
+			alongX, alongY = childStepH, 0
+			crossX, crossY = 0, -childStepV
+			originY = parentY - parentHalfH - gap - childHalfH
+			originX = parentX
 		end
-		return px + crossOffset, py - parentHalfH - gap - childHalfH
 	elseif dir == "right" then
 		if stackV then
-			return px + parentHalfW + gap + childHalfW, py + crossOffset
+			alongX, alongY = 0, childStepV
+			crossX, crossY = childStepH, 0
+			originX = parentX + parentHalfW + gap + childHalfW
+			originY = parentY
+		else
+			alongX, alongY = childStepH, 0
+			crossX, crossY = 0, childStepV
+			originX = parentX + parentHalfW + gap + childHalfW
+			originY = parentY
 		end
-		return px + parentHalfW + gap + childHalfW + alongOffset, py
 	elseif dir == "left" then
 		if stackV then
-			return px - parentHalfW - gap - childHalfW, py + crossOffset
+			alongX, alongY = 0, childStepV
+			crossX, crossY = -childStepH, 0
+			originX = parentX - parentHalfW - gap - childHalfW
+			originY = parentY
+		else
+			alongX, alongY = -childStepH, 0
+			crossX, crossY = 0, childStepV
+			originX = parentX - parentHalfW - gap - childHalfW
+			originY = parentY
 		end
-		return px - parentHalfW - gap - childHalfW - alongOffset, py
+	else
+		alongX, alongY = 0, childStepV
+		crossX, crossY = childStepH, 0
+		originX = parentX
+		originY = parentY + parentHalfH + gap + childHalfH
 	end
-	return px, py
+
+	local function fits(x, y)
+		return accordionChildCentreFits(x, y, childHalfW, childHalfH, viewW, viewH, statusOffset)
+	end
+
+	-- Pull the first slot onto the screen when the preferred direction has no
+	-- room (e.g. expand-down parent at the bottom edge). Without this every
+	-- cross-axis lane shares the blocked Y and the overlay is empty.
+	if viewW > 0 and viewH > 0 and not fits(originX, originY) then
+		originX, originY = clampAccordionChildCentre(
+			originX, originY, childHalfW, childHalfH, viewW, viewH, statusOffset)
+	end
+	-- Tile larger than the view: clamp still yields a centre, but fits may
+	-- disagree on pathological sizes. Bail rather than invent overlapping tiles.
+	if viewW > 0 and viewH > 0 and not fits(originX, originY) then
+		return centres
+	end
+
+	local centreAlong = (not stackV and (dir == "down" or dir == "up"))
+		or (stackV and (dir == "left" or dir == "right"))
+
+	-- Side with more free room; fill that way completely before the other.
+	local crossSign = 1
+	if viewW > 0 and viewH > 0 then
+		local function room(sx, sy)
+			local n = 0
+			for k = 1, count do
+				if fits(originX + k * sx, originY + k * sy) then
+					n = n + 1
+				else
+					break
+				end
+			end
+			return n
+		end
+		local posRoom = room(crossX, crossY)
+		local negRoom = room(-crossX, -crossY)
+		if negRoom > posRoom then
+			crossSign = -1
+		end
+	end
+
+	local function placeLane(startX, startY, maxN)
+		local placed = 0
+		for along = 0, maxN - 1 do
+			if #centres >= count then
+				return placed
+			end
+			local x = startX + along * alongX
+			local y = startY + along * alongY
+			if fits(x, y) then
+				centres[#centres + 1] = { x = x, y = y }
+				placed = placed + 1
+			else
+				break
+			end
+		end
+		return placed
+	end
+
+	if centreAlong then
+		-- Pack the longest on-screen first run, start clamped so centring
+		-- cannot shove slots off the near edge and force a wrap.
+		local alongStep = math.sqrt(alongX * alongX + alongY * alongY)
+		if alongStep < 1 then
+			alongStep = childStepH
+		end
+		local nFirst = 1
+		for n = count, 1, -1 do
+			local idealX = parentX - (n - 1) * alongX * 0.5
+			local idealY = originY - (n - 1) * alongY * 0.5
+			-- For horizontal under up/down, along is X; keep Y at originY.
+			if math.abs(alongY) < 0.01 then
+				idealY = originY
+				idealX = parentX - (n - 1) * alongX * 0.5
+			elseif math.abs(alongX) < 0.01 then
+				idealX = originX
+				idealY = parentY - (n - 1) * alongY * 0.5
+			end
+			local startX, startY = idealX, idealY
+			if viewW > 0 and viewH > 0 then
+				-- Clamp the whole run into the view by shifting start.
+				local endX = startX + (n - 1) * alongX
+				local endY = startY + (n - 1) * alongY
+				if math.abs(alongY) < 0.01 then
+					local minStart = childHalfW
+					local maxStart = viewW - childHalfW - (n - 1) * math.abs(alongX)
+					if maxStart < minStart then
+						-- cannot fit n on this axis
+						startX = nil
+					else
+						startX = math.max(minStart, math.min(maxStart, startX))
+						startY = originY
+						if not fits(startX, startY) then
+							startX, startY = clampAccordionChildCentre(
+								startX, startY, childHalfW, childHalfH, viewW, viewH, statusOffset)
+						end
+					end
+				elseif math.abs(alongX) < 0.01 then
+					local minStart = childHalfH - statusOffset
+					local maxStart = viewH - childHalfH - statusOffset - (n - 1) * math.abs(alongY)
+					if maxStart < minStart then
+						startY = nil
+					else
+						startY = math.max(minStart, math.min(maxStart, startY))
+						startX = originX
+						if not fits(startX, startY) then
+							startX, startY = clampAccordionChildCentre(
+								startX, startY, childHalfW, childHalfH, viewW, viewH, statusOffset)
+						end
+					end
+				end
+			end
+			if startX ~= nil and startY ~= nil then
+				local ok = true
+				for i = 0, n - 1 do
+					if not fits(startX + i * alongX, startY + i * alongY) then
+						ok = false
+						break
+					end
+				end
+				if ok then
+					nFirst = n
+					originX, originY = startX, startY
+					break
+				end
+			end
+		end
+		placeLane(originX, originY, nFirst)
+	else
+		placeLane(originX, originY, count)
+	end
+
+	-- Further lanes: preferred cross side first, then the opposite.
+	local function fillSide(sign)
+		local lane = 1
+		while #centres < count do
+			local lx = originX + lane * sign * crossX
+			local ly = originY + lane * sign * crossY
+			local placed = placeLane(lx, ly, count)
+			if placed == 0 then
+				break
+			end
+			lane = lane + 1
+		end
+	end
+	fillSide(crossSign)
+	fillSide(-crossSign)
+
+	return centres
 end
 
 function collapseAccordion(parent, skipRedraw)
@@ -2845,12 +3153,26 @@ function buildAccordionOverlay(parent)
 	local childW = parent.data.width
 	local childH = parent.data.height
 	local count = math.min(#parent.data.accordionChildren, MAX_ACCORDION_CHILDREN)
-	for i = 1, count do
+	local centres = computeAccordionChildCentres(
+		posX(parent.data), posY(parent.data),
+		parent.data.width, parent.data.height,
+		parent.data.accordionDirection, parent.data.accordionChildLayout or "along",
+		count, childW, childH, density,
+		width or 0, height or 0, statusoffset or 0)
+	local shown = #centres
+	if shown < count then
+		-- Once per expand: sub-buttons the player configured but the screen
+		-- cannot host without stacking (which would mis-route taps).
+		Note("BlowTorch: accordion shows " .. shown .. " of " .. count
+			.. " sub-buttons — not enough room on screen for the rest."
+			.. " Move the parent or use fewer children.\n")
+	end
+	for i = 1, shown do
 		local child = parent.data.accordionChildren[i]
-		local cx, cy = accordionChildCoords(parent, i, childW, childH)
+		local c = centres[i]
 		local childData = {
-			x = cx,
-			y = cy,
+			x = c.x,
+			y = c.y,
 			width = childW,
 			height = childH,
 			label = child.label or ("+" .. i),
@@ -3638,7 +3960,15 @@ function buttonEditorDone(data)
 		tmp.data.showGestureHints = data.showGestureHints ~= false
 
 		tmp.data.accordionDirection = data.accordionDirection or ""
-		tmp.data.accordionChildren = data.accordionChildren or {}
+		local kids = data.accordionChildren or {}
+		if type(kids) == "table" and #kids > MAX_ACCORDION_CHILDREN then
+			local trimmed = {}
+			for i = 1, MAX_ACCORDION_CHILDREN do
+				trimmed[i] = kids[i]
+			end
+			kids = trimmed
+		end
+		tmp.data.accordionChildren = kids
 		tmp.data.accordionTrigger = data.accordionTrigger or "tap"
 		tmp.data.accordionHoldMs = tonumber(data.accordionHoldMs) or 450
 		tmp.data.accordionChildLayout = data.accordionChildLayout or "along"

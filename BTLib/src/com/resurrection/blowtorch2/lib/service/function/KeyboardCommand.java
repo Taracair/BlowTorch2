@@ -35,7 +35,7 @@ public class KeyboardCommand extends SpecialCommand {
 					"Examples:\n" +
 					"  .kb popup reply   — set text and show IME\n" +
 					"  .kb add foo       — append without popup\n" +
-					"  .kb insert troll  — drop a word in at the caret, spaced\n" +
+					"  .kb insert troll  — drop a word at the caret (spaces around words, not punctuation)\n" +
 					"  .kb flush         — send current input\n" +
 					"  .kb sel / .kb cut — select all / cut\n" +
 					"  .kb start / .kb end — caret to start / end\n" +

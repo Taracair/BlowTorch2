@@ -12,6 +12,11 @@ package com.resurrection.blowtorch2.lib.window;
  * after the word ready for the next thing they type. Typing {@code k}, tapping
  * <i>grizzled</i> and tapping <i>troll</i> has to produce {@code k grizzled
  * troll} and not {@code kgrizzledtroll} or {@code k  grizzled  troll}.
+ *
+ * <p>Punctuation is the exception. Closers and sentence marks attach to the
+ * preceding word ({@code slowo} + {@code ,} → {@code slowo, }), and openers /
+ * prefix sigils leave the next tap glued on ({@code (} + {@code foo} →
+ * {@code (foo}).
  */
 public final class InputWordInsert {
 
@@ -64,14 +69,16 @@ public final class InputWordInsert {
 		String after = existing.substring(end);
 
 		StringBuilder out = new StringBuilder(before);
-		if (before.length() > 0 && !endsWithSpace(before)) {
+		if (needsLeadingSpace(before, insert)) {
 			out.append(' ');
 		}
 		out.append(insert);
 		int caret = out.length();
-		// A trailing space unless what follows already brings one. At the end of
-		// the line it is added anyway, so a second tap chains without the player
-		// reaching for the space bar -- which is the whole saving on a phone.
+		// A trailing space unless what follows already brings one, or the
+		// insert itself is an opener / prefix that wants the next token glued
+		// on. At the end of the line the space is added for ordinary words, so
+		// a second tap chains without the player reaching for the space bar --
+		// which is the whole saving on a phone.
 		//
 		// That space is sent: Connection.processOutputData appends the command
 		// verbatim (mDataToServer.append(d.mCmdString + mCRLF)) and nothing on
@@ -79,12 +86,119 @@ public final class InputWordInsert {
 		// every world I know of, and the player can see and delete it; trimming
 		// the outgoing line globally to tidy this up would change what every
 		// other command sends, which is far too wide a fix for a cosmetic edge.
-		if (after.length() == 0 || !startsWithSpace(after)) {
+		if (needsTrailingSpace(insert, after)) {
 			out.append(' ');
 			caret = out.length();
 		}
 		out.append(after);
 		return new Result(out.toString(), caret);
+	}
+
+	/**
+	 * Space before the insert unless it is empty, already spaced, starts with a
+	 * closer / sentence mark, or sits right after an opener / quote.
+	 */
+	private static boolean needsLeadingSpace(final String before,
+			final String insert) {
+		if (before.length() == 0 || endsWithSpace(before)) {
+			return false;
+		}
+		if (attachesToPrevious(insert.charAt(0))) {
+			return false;
+		}
+		if (opensNext(before.charAt(before.length() - 1))) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Space after the insert unless what follows already has one, or the insert
+	 * ends with something that expects the next token glued on.
+	 */
+	private static boolean needsTrailingSpace(final String insert,
+			final String after) {
+		if (after.length() > 0 && startsWithSpace(after)) {
+			return false;
+		}
+		if (expectsNextGlued(insert.charAt(insert.length() - 1))) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Characters that stick to the word before them: no leading space.
+	 * Includes ASCII quotes (ambiguous open/close) on the leading side so
+	 * {@code don't} + {@code '} still attaches, and typographic closers.
+	 */
+	private static boolean attachesToPrevious(final char c) {
+		switch (c) {
+		case ',':
+		case '.':
+		case ';':
+		case ':':
+		case '!':
+		case '?':
+		case ')':
+		case ']':
+		case '}':
+		case '\'':
+		case '"':
+		case '`':
+		case '\u00BB': // »
+		case '\u201D': // ”
+		case '\u2019': // ’
+		case '\u2026': // …
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	/**
+	 * Character before the caret that makes the next insert attach with no
+	 * leading space: openers, quotes, and the same prefix sigils as
+	 * {@link #expectsNextGlued}. Needed so {@code @} + tap {@code bob} builds
+	 * {@code @bob} after the first insert left the caret on {@code @}.
+	 */
+	private static boolean opensNext(final char c) {
+		return expectsNextGlued(c);
+	}
+
+	/**
+	 * No trailing space: the insert ends with an opener / quote, or with a
+	 * prefix sigil. {@code @ # $} are included because in MUD input they
+	 * introduce the next token the same way {@code (} does ({@code @} + tap
+	 * name → {@code @name}); a trailing space would force a backspace before
+	 * the second tap. {@code /} and {@code %} are deliberately left out: in
+	 * game text they read as separator and unit far more often than as prefix
+	 * ({@code n/s}, {@code 1/2}, {@code 50%}), and this same path serves
+	 * tapping words, where a missing space silently welds two tapped words
+	 * into one. A space that should not be there is visible and one backspace
+	 * away; a space that should be there and is not costs a retyped command.
+	 * ASCII {@code '} / {@code "} are ambiguous open/close —
+	 * ending with one suppresses the trailing space (opener reading); starting
+	 * with one suppresses the leading space (closer reading). A quote-only
+	 * insert after a word therefore becomes {@code word"} with neither space.
+	 */
+	private static boolean expectsNextGlued(final char c) {
+		switch (c) {
+		case '(':
+		case '[':
+		case '{':
+		case '\'':
+		case '"':
+		case '\u00AB': // «
+		case '\u201C': // “
+		case '\u2018': // ‘
+		case '@':
+		case '#':
+		case '$':
+			return true;
+		default:
+			return false;
+		}
 	}
 
 	private static boolean endsWithSpace(final String s) {

@@ -43,6 +43,33 @@ public class LuaDialog extends Dialog {
 	private int mLayoutMode = LAYOUT_FULLSCREEN;
 	/** Bottom-sheet only: true = see grid above panel; false = opaque fullscreen frame. */
 	private boolean mPresentationOverGrid = false;
+	/**
+	 * Opt-in: react to the soft keyboard so focused fields in scrollable dialog
+	 * content stay visible. Off by default — every Lua dialog hosts through this
+	 * class, and bottom-sheet / compact modes must not inherit a resize path.
+	 *
+	 * <p>What this actually does (LAYOUT_FULLSCREEN — the button editor):
+	 * <ul>
+	 *   <li>{@code SOFT_INPUT_ADJUST_RESIZE} on the dialog window. This is the
+	 *       real path on minSdk 28 through targetSdk 36. It is deprecated at 30
+	 *       but only <em>ignored</em> when the window has
+	 *       {@code setDecorFitsSystemWindows(false)}; this class calls that only
+	 *       for {@link #LAYOUT_BOTTOM_SHEET}, never for fullscreen, so resize
+	 *       still applies here.
+	 *   <li>Skip {@code FLAG_FULLSCREEN} when the status bar is hidden. That flag
+	 *       suppresses soft-input resize. Side effect: for a player who hides the
+	 *       status bar, the editor opens with the status bar showing. A covered
+	 *       field is worse than a visible status bar; stated so it is not found
+	 *       by the maintainer on the phone.
+	 *   <li>Also {@code Math.max} the content bottom padding with
+	 *       {@link WindowInsetsCompat.Type#ime()}. With decor-fits true and
+	 *       ADJUST_RESIZE active the window shrinks out from under the keyboard,
+	 *       so {@code ime().bottom} is expected to read 0 and this branch is a
+	 *       no-op — belt-and-braces whose inset was never measured on a device.
+	 *       Do not treat the comment as evidence that the inset does work.
+	 * </ul>
+	 */
+	private boolean mAdjustForIme = false;
 	
 	public LuaDialog(Context context) {
 		super(context);
@@ -101,7 +128,12 @@ public class LuaDialog extends Dialog {
 		}
 		
 		MainWindow w = (MainWindow)mContext;
-		if(w.isStatusBarHidden()) {
+		// FLAG_FULLSCREEN suppresses soft-input resize. When the caller opted into
+		// IME adjustment, skip it so ADJUST_RESIZE can shrink the window. Trade:
+		// a player who hides the status bar in the game will see the status bar
+		// while this dialog is open. System-bar clearance still comes from the
+		// insets listener below.
+		if (w.isStatusBarHidden() && !mAdjustForIme) {
 			this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		}
 		
@@ -129,6 +161,13 @@ public class LuaDialog extends Dialog {
 			if (bottomSheet) {
 				attrs.dimAmount = 0.10f;
 				window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+			}
+			if (mAdjustForIme) {
+				// Primary path on 28–36 for LAYOUT_FULLSCREEN (see mAdjustForIme).
+				// Compact/bottom-sheet callers should leave mAdjustForIme false.
+				window.setSoftInputMode(
+						WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+								| WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 			}
 			window.setAttributes(attrs);
 		}
@@ -166,11 +205,30 @@ public class LuaDialog extends Dialog {
 					&& (mLayoutMode != LAYOUT_BOTTOM_SHEET || mPresentationOverGrid);
 			int top = padForSystemBars ? sys.top : 0;
 			int bottom = padForSystemBars ? sys.bottom : 0;
+			// Belt-and-braces only: with decor-fits + ADJUST_RESIZE the window
+			// already shrinks, so ime().bottom is expected to be 0 here. Never
+			// measured on a device — do not cite this as a working IME height.
+			if (mAdjustForIme) {
+				Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+				bottom = Math.max(bottom, ime.bottom);
+			}
 			view.setPadding(view.getPaddingLeft(), top,
 					view.getPaddingRight(), bottom);
 			return insets;
 		});
 		ViewCompat.requestApplyInsets(mView);
+	}
+
+	/**
+	 * Opt into soft-keyboard avoidance for this dialog only. Must be called
+	 * before {@link #show()} so {@link #onCreate} can set soft-input mode and
+	 * skip {@code FLAG_FULLSCREEN} (which also means the status bar may show
+	 * even when the game hides it — see {@link #mAdjustForIme}). Leave off for
+	 * bottom-sheet and compact dialogs — those modes were sized without an IME
+	 * path.
+	 */
+	public void setAdjustForIme(boolean adjustForIme) {
+		mAdjustForIme = adjustForIme;
 	}
 
 	/**

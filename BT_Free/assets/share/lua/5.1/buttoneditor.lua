@@ -90,6 +90,10 @@ local accordionHoldMsEdit
 local accordionAutoCloseCheck
 local accordionChildLabelEdits = {}
 local accordionChildCmdEdits = {}
+-- Globals on purpose: showEditorDialog is already at Lua 5.1's 60-upvalue
+-- ceiling (see gestureLabelCb). These two would push Done/show over the limit.
+accordionLockedSwipeEdits = {}
+harvestAccordionChildren = nil
 
 --the rest are harvested from the advanced page editor
 local advancedEditor -- the shared advanced page editor loaded from module
@@ -99,7 +103,15 @@ local swipeCmdEditsForFlip = {}
 local flipGateNumEditing = 1
 
 local function trimSwipeCmdText(edit)
-	if edit == nil or not edit:isEnabled() then
+	if edit == nil then
+		return ""
+	end
+	-- Disabled fields normally read as empty so a multi-button edit does not
+	-- make Flip think a swipe is set. Accordion-locked swipe fields keep their
+	-- text on screen and must still block Flip — otherwise locking Down would
+	-- re-enable Flip while the Down command is still there.
+	local locked = accordionLockedSwipeEdits ~= nil and accordionLockedSwipeEdits[edit]
+	if not edit:isEnabled() and not locked then
 		return ""
 	end
 	local t = edit:getText():toString()
@@ -303,6 +315,11 @@ function showEditorDialog(editorValues,numediting)
 		updateFlipForSwipes = updateFlipForSwipes,
 		widgets = {},
 	}
+	-- Wire the lock table BEFORE buildTabs. buildTabs disables swipe fields and
+	-- marks them here, then calls updateFlipForSwipes; trimSwipeCmdText must
+	-- already see that same table or Flip stays editable on first open.
+	tabState.accordionLockedSwipeEdits = {}
+	accordionLockedSwipeEdits = tabState.accordionLockedSwipeEdits
 	buildtabs.buildClickTab(host, content, tabState)
 	editorClickLabelEditParams = tabState.clickLabelEditParams
 	local w = tabState.widgets
@@ -332,9 +349,17 @@ function showEditorDialog(editorValues,numediting)
 	accordionAutoCloseCheck = w.accordionAutoCloseCheck
 	accordionChildLabelEdits = w.accordionChildLabelEdits
 	accordionChildCmdEdits = w.accordionChildCmdEdits
+	-- Keep pointing at the table buildTabs mutated (do not replace it).
+	if tabState.accordionLockedSwipeEdits ~= nil then
+		accordionLockedSwipeEdits = tabState.accordionLockedSwipeEdits
+	end
+	harvestAccordionChildren = tabState.harvestAccordionChildren
 	if tabState.gestureLabelCarried ~= nil then gestureLabelCarried = tabState.gestureLabelCarried end
 	if tabState.gestureHintsCarried ~= nil then gestureHintsCarried = tabState.gestureHintsCarried end
 	if tabState.carriedDiagonalSwipes ~= nil then carriedDiagonalSwipes = tabState.carriedDiagonalSwipes end
+	-- Re-apply after wiring: belt-and-braces if a future build path locks after
+	-- the in-build updateFlipForSwipes call.
+	updateFlipForSwipes()
 
 	local tabOthers = host:newTabSpec("tab_others_btn_tab")
 	local labelOthers = makeTabLabel("Others")
@@ -442,6 +467,9 @@ function showEditorDialog(editorValues,numediting)
 	--end
 	
 	editorDialog = luajava.newInstance("com.resurrection.blowtorch2.lib.window.LuaDialog",context,top,false,nil)
+	-- Opt-in before show(): onCreate reads this to set ADJUST_RESIZE and pad for
+	-- IME insets. Default stays off for every other LuaDialog host.
+	editorDialog:setAdjustForIme(true)
 	editorDialog:show()
 	context = nil
 end
@@ -465,19 +493,33 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
     --gather up editor data to pass back into the main button window callback
     local d = {}
 
+    -- Accordion-locked gesture fields are disabled but must keep their text:
+    -- unticking the accordion should bring the command back. Read getText even
+    -- when disabled (unlike trimSwipeCmdText, which is Flip-only).
+    local function fieldText(edit)
+      if edit == nil then
+        return ""
+      end
+      local t = edit:getText()
+      if t == nil then
+        return ""
+      end
+      return t:toString() or ""
+    end
+
   
     d.label = clickLabelEdit:getText():toString()
     --label = labeltmp:toString()
-    d.cmd = clickCmdEdit:getText():toString()
+    d.cmd = fieldText(clickCmdEdit)
     --cmd = cmdtmp:toString()
     d.flipLabel = flipLabelEdit:getText():toString()
     --fliplabel = fliplabeltmp:toString()
     d.flipCmd = flipCmdEdit:getText():toString()
-    d.holdCommand = holdCmdEdit:getText():toString()
-    d.swipeUpCommand = swipeUpCmdEdit:getText():toString()
-    d.swipeDownCommand = swipeDownCmdEdit:getText():toString()
-    d.swipeLeftCommand = swipeLeftCmdEdit:getText():toString()
-    d.swipeRightCommand = swipeRightCmdEdit:getText():toString()
+    d.holdCommand = fieldText(holdCmdEdit)
+    d.swipeUpCommand = fieldText(swipeUpCmdEdit)
+    d.swipeDownCommand = fieldText(swipeDownCmdEdit)
+    d.swipeLeftCommand = fieldText(swipeLeftCmdEdit)
+    d.swipeRightCommand = fieldText(swipeRightCmdEdit)
 
     -- Gesture fields are disabled when several buttons are edited at once, and a
     -- disabled field reads back empty. Fall back to what the button had on open
@@ -523,15 +565,23 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       d.accordionTrigger = triggerMap[triggerIndex + 1] or "tap"
       d.accordionHoldMs = tonumber(accordionHoldMsEdit:getText():toString()) or 450
       d.accordionAutoClose = accordionAutoCloseCheck:isChecked()
-      d.accordionChildren = {}
-      for i = 1, 5 do
-        local labelEdit = accordionChildLabelEdits[i]
-        local cmdEdit = accordionChildCmdEdits[i]
-        if labelEdit ~= nil and cmdEdit ~= nil then
-          local label = labelEdit:getText():toString()
-          local cmd = cmdEdit:getText():toString()
-          if label ~= "" or cmd ~= "" then
-            table.insert(d.accordionChildren, {label = label, command = cmd})
+      if harvestAccordionChildren ~= nil then
+        d.accordionChildren = harvestAccordionChildren()
+      else
+        d.accordionChildren = {}
+        local n = 0
+        if accordionChildLabelEdits ~= nil then
+          n = #accordionChildLabelEdits
+        end
+        for i = 1, n do
+          local labelEdit = accordionChildLabelEdits[i]
+          local cmdEdit = accordionChildCmdEdits[i]
+          if labelEdit ~= nil and cmdEdit ~= nil then
+            local label = labelEdit:getText():toString()
+            local cmd = cmdEdit:getText():toString()
+            if label ~= "" or cmd ~= "" then
+              table.insert(d.accordionChildren, {label = label, command = cmd})
+            end
           end
         end
       end

@@ -232,8 +232,14 @@ TOPICS.buttons_accordion = function()
 SCORE / TIP) so they stay clear of the compass and HELP row above. TIP
 re-opens this lesson via .tutorial.
 
-An accordion parent expands up to five child buttons (label + command)
-in a chosen direction. Trigger can be tap, hold, or swipe.
+An accordion parent expands up to twenty child buttons (label + command)
+in a chosen direction. In Edit buttons → Accord., add them one by one
+(+ Add sub-button below/above/left/right follows the expand layout),
+reorder with the row controls, and drop empties on Done. Trigger can be
+tap, hold, or swipe.
+
+The gesture that opens the accordion cannot also send its own command —
+that field stays filled but locked on the Tap / Swipe tabs.
 
 Editor badges: T = tap, H = hold, S = swipe. Children can auto-close after
 use. Accordion data is stored with the button set (Lua); use Edit buttons
