@@ -46,17 +46,6 @@ public class InputLinePositionTest {
 	}
 
 	@Test
-	public void theGhostSaysHowManyOtherSuggestionsThereAre() {
-		// The ghost is one word by nature. A player who uses it without a bar
-		// sees one word and concludes that is all there is — which is exactly
-		// what happened, and why this mark exists.
-		assertEquals("", MainWindow.moreMark(0));
-		assertEquals("", MainWindow.moreMark(1));
-		assertEquals(" +1", MainWindow.moreMark(2));
-		assertEquals(" +7", MainWindow.moreMark(8));
-	}
-
-	@Test
 	public void anEmptyLineHasNoVerb() {
 		assertEquals(null, MainWindow.leadingVerb(""));
 		assertEquals(null, MainWindow.leadingVerb("   "));

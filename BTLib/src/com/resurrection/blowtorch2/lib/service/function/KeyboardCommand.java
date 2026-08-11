@@ -27,7 +27,7 @@ public class KeyboardCommand extends SpecialCommand {
 		
 		if(failed) {
 			c.sendDataToWindow(getErrorMessage("Keyboard (kb) special command usage:",".kb options [message]\n" +
-					"Text ops: insert, add, popup, flush, close, clear\n" +
+					"Text ops: insert, insertliteral, insertword, add, popup, flush, close, clear\n" +
 					"Edit ops: sel | selectall, cut, copy, paste\n" +
 					"Cursor: start | cursorstart, end | cursorend,\n" +
 					"        stepf | stepr (right), stepb | stepl (left),\n" +
@@ -35,7 +35,9 @@ public class KeyboardCommand extends SpecialCommand {
 					"Examples:\n" +
 					"  .kb popup reply   — set text and show IME\n" +
 					"  .kb add foo       — append without popup\n" +
-					"  .kb insert troll  — drop a word at the caret (spaces around words, not punctuation)\n" +
+					"  .kb insert troll  — drop at the caret, spaced like a tap ($word)\n" +
+					"  .kb insertliteral troll — same text exactly as typed\n" +
+					"  .kb insertword troll — same as insert\n" +
 					"  .kb flush         — send current input\n" +
 					"  .kb sel / .kb cut — select all / cut\n" +
 					"  .kb start / .kb end — caret to start / end\n" +
@@ -45,7 +47,7 @@ public class KeyboardCommand extends SpecialCommand {
 		}
 
 		Pattern p = Pattern.compile(
-				"^\\s*(insert|add|popup|flush|close|clear|selectall|sel|copy|cut|paste|"
+				"^\\s*(insertliteral|insertword|insert|add|popup|flush|close|clear|selectall|sel|copy|cut|paste|"
 				+ "cursorstart|start|cursorend|end|"
 				+ "stepf|stepr|stepb|stepl|stepu|stepd)"
 				+ "{0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$",
@@ -86,11 +88,12 @@ public class KeyboardCommand extends SpecialCommand {
 		
 		if(operation1 != null && !operation1.equals("")) {
 			String op = operation1.toLowerCase();
-			if(op.equals("insert")) {
-				// Deliberately not through doKeyboardAliasReplace: insert puts
-				// the literal word in the bar. Expanding it would mean tapping
-				// the word "north" inserted whatever an alias named north
-				// expands to, which is not what the player pointed at.
+			if(op.equals("insertliteral")) {
+				c.getService().doInputBarInsertLiteral(text == null ? "" : text);
+				return null;
+			} else if(op.equals("insert") || op.equals("insertword")) {
+				// TapActionEditor seeds ".kb insert $word"; spacing rules live in
+				// InputWordInsert.apply. insertliteral is the no-spacing escape.
 				c.getService().doInputBarInsertWord(text == null ? "" : text.trim());
 				return null;
 			} else if(op.equals("flush")) {

@@ -95,6 +95,23 @@ public final class InputWordInsert {
 	}
 
 	/**
+	 * Put text at the caret exactly as given — no trim, no automatic spaces.
+	 * This is what {@code .kb insertliteral} does; {@link #apply} is what
+	 * {@code .kb insert} and tapping a word use.
+	 */
+	public static Result applyLiteral(final String current, final int selStart,
+			final int selEnd, final String text) {
+		String existing = current == null ? "" : current;
+		if (text == null) {
+			return new Result(existing, clamp(selEnd, existing.length()));
+		}
+		int start = clamp(Math.min(selStart, selEnd), existing.length());
+		int end = clamp(Math.max(selStart, selEnd), existing.length());
+		String out = existing.substring(0, start) + text + existing.substring(end);
+		return new Result(out, start + text.length());
+	}
+
+	/**
 	 * Space before the insert unless it is empty, already spaced, starts with a
 	 * closer / sentence mark, or sits right after an opener / quote.
 	 */

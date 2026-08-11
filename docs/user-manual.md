@@ -41,7 +41,7 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
 
 ## Suggestions (`.suggest on`)
 
-    .suggest on | off | lines N | 1..8
+    .suggest on | off | lines N | 1..8 | show N
     .suggest where floating | bar | off | next
     .suggest opacity N | persist on | off
     .suggest phrases on | off | plain on | off | short on | off
@@ -198,21 +198,30 @@ fills up as you play, and it will be wrong the first time you do something new �
 which is why it has its own switch. Like `rank`, it only reorders; a word it has
 never seen with this command still follows, it does not vanish.
 
-The ghost is **one** suggestion — it is text drawn after the cursor, so it
-cannot be a list. When there are others it ends with how many: `grizzled +3`
-means three more are waiting.
+The ghost proper is **one** suggestion — it is text drawn after the cursor. The
+others are listed beside it, on the rest of the line you are typing on, each
+numbered the same way `.suggest 2` numbers them and each one tappable. When some
+did not fit, the end of the row says how many: `+3` means three more are
+waiting.
 
-**Or let it show several at once.** `.suggest ghostlines 4` lets the input bar
-grow downwards and puts the rest under what you are typing — numbered the same
-way `.suggest 2` numbers them, and each one tappable.
+**Give it more room and it will use it.** `.suggest ghostlines 4` lets the input
+bar grow downwards as well, and the list carries on under what you are typing.
 
-    .suggest ghostlines N     (1 to 6, 1 is the plain ghost)
+    .suggest ghostlines N     (1 to 6, 1 grows by nothing)
 
 They sit **side by side**, not one per line, so a row of short words holds
 several and a line each is not spent on nothing. The number you set is the most
-**rows** the bar may take, not how many suggestions it shows: it uses only the
-rows it needs, and gives them straight back — send the line and the bar is its
-normal size again before you have finished pressing.
+**extra rows** the bar may take, not how many suggestions it shows: at 1 it
+takes none and fills the current line only, above that it uses only the rows it
+needs and gives them straight back — send the line and the bar is its normal
+size again before you have finished pressing.
+
+**How many there are at all** is a different setting:
+
+    .suggest show N           (1 to 8)
+
+That is the one to turn down if eight is too many to read; `ghostlines` only
+decides how much room they may occupy.
 
 Tap any of them to take it, or use `.suggest 1` to `.suggest 8` from a button.
 
@@ -1285,7 +1294,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
-    `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N`, `opacity N`, `learned`, `clear`. See the Suggestions section
+    `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
@@ -1866,6 +1875,8 @@ letters are Speedwalk *keys*.
 
     *(no args)*                Print help
     `insert <text>`            Drop text at the cursor (spaces around words, not punctuation)
+    `insertword <text>`        The same thing under its older name
+    `insertliteral <text>`     Drop text at the cursor exactly as given, no spacing at all
     `add` / `popup` + text     Set or append input; `popup` also shows the IME
     `flush`                    Send current input
     `close` / `clear`          Hide IME / clear text
@@ -1882,9 +1893,13 @@ Examples: `.kb popup reply`, `.kb sel`, `.kb cut`, `.kb start`, `.kb end`, `.kb 
 **`insert` vs `add`.** `add` glues text onto the end exactly as given; `insert`
 puts it where the cursor is and works out the spaces (words get spaces;
 punctuation attaches), so the bar never ends up reading `ktroll` or `slowo ,`.
-`insert` also does not expand aliases — the text goes in literally, which is
+`insert` also does not expand aliases — the text goes in as typed, which is
 what you want when the text is a name you pointed at. Its main use is a
 tappable word bound to `.kb insert $word`; see below.
+
+**`insertliteral`** is `insert` with the spacing rules switched off: what you
+give it lands at the cursor character for character, which is the one to use
+when you need a leading space or want two things run together on purpose.
 
 **Edit** on the input bar expands Sel/Cut/Copy/Paste plus a compact **← ↑ ↓ →** pad (hidden again with **Hide**). ↑/↓ recall previous commands (same as keyboard up/down); ←/→ move the caret.
 

@@ -143,6 +143,14 @@ public final class FloatingButtonModel {
 	 */
 	private FloatingButtonModel(FloatingButtonModel src, int newFloatX, int newFloatY,
 			boolean forLandscape) {
+		this(src, newFloatX, newFloatY, forLandscape, Float.NaN, Float.NaN);
+	}
+
+	/**
+	 * @param newGridX new grid centre, or {@link Float#NaN} to keep the existing one
+	 */
+	private FloatingButtonModel(FloatingButtonModel src, int newFloatX, int newFloatY,
+			boolean forLandscape, float newGridX, float newGridY) {
 		index = src.index;
 		label = src.label;
 		command = src.command;
@@ -173,10 +181,22 @@ public final class FloatingButtonModel {
 		floatRound = src.floatRound;
 		floatFrame = src.floatFrame;
 		hasGridOrigin = src.hasGridOrigin;
-		gridXPortrait = src.gridXPortrait;
-		gridYPortrait = src.gridYPortrait;
-		gridXLandscape = src.gridXLandscape;
-		gridYLandscape = src.gridYLandscape;
+		if (forLandscape && !Float.isNaN(newGridX)) {
+			gridXLandscape = newGridX;
+			gridYLandscape = newGridY;
+			gridXPortrait = src.gridXPortrait;
+			gridYPortrait = src.gridYPortrait;
+		} else if (!forLandscape && !Float.isNaN(newGridX)) {
+			gridXPortrait = newGridX;
+			gridYPortrait = newGridY;
+			gridXLandscape = src.gridXLandscape;
+			gridYLandscape = src.gridYLandscape;
+		} else {
+			gridXPortrait = src.gridXPortrait;
+			gridYPortrait = src.gridYPortrait;
+			gridXLandscape = src.gridXLandscape;
+			gridYLandscape = src.gridYLandscape;
+		}
 		gridX = resolveGridX(forLandscape);
 		gridY = resolveGridY(forLandscape);
 		statusOffsetPx = src.statusOffsetPx;
@@ -201,6 +221,18 @@ public final class FloatingButtonModel {
 			return this;
 		}
 		return new FloatingButtonModel(this, newFloatX, newFloatY, landscape);
+	}
+
+	/**
+	 * Same button with a new grid centre. A drag updates the grid in Lua but
+	 * {@link #attachOverlayFor} reads the grid from this cache, so without this
+	 * the next keyboard-mode re-attach snaps back to the pre-drag tile.
+	 */
+	FloatingButtonModel withGridPosition(final float newGridX, final float newGridY) {
+		if (newGridX == gridX && newGridY == gridY) {
+			return this;
+		}
+		return new FloatingButtonModel(this, KEEP, KEEP, landscape, newGridX, newGridY);
 	}
 
 	private float resolveGridX(final boolean forLandscape) {

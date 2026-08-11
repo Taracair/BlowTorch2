@@ -200,4 +200,18 @@ public class InputWordInsertTest {
 		assertEquals("kill, ",
 				InputWordInsert.apply("kill rat", 4, 8, ",").text());
 	}
+
+	@Test
+	public void literalInsertDoesNotAddSpaces() {
+		InputWordInsert.Result r = InputWordInsert.applyLiteral("Munch egg", 9, 9, "s");
+		assertEquals("Munch eggs", r.text());
+		assertEquals(10, r.caret());
+	}
+
+	@Test
+	public void literalInsertAtStart() {
+		InputWordInsert.Result r = InputWordInsert.applyLiteral("", 0, 0, "look");
+		assertEquals("look", r.text());
+		assertEquals(4, r.caret());
+	}
 }

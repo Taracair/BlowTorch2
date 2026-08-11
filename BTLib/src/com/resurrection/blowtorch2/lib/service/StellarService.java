@@ -1436,6 +1436,20 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	/** Put text into the input bar at the caret with no automatic spacing. */
+	public final void doInputBarInsertLiteral(final String text) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).inputBarInsertLiteral(text);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doInputBarInsertLiteral", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	/**
 	 * Hand incoming text to the UI's word completer.
 	 *

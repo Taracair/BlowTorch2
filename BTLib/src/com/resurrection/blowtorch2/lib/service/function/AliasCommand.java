@@ -67,7 +67,7 @@ public class AliasCommand extends SpecialCommand {
 		if (sub.equals("toggle")) {
 			return doNamed(c, rest, false, true);
 		}
-		if (sub.equals("status")) {
+		if (sub.equals("status") || sub.equals("state")) {
 			return doStatus(c, rest);
 		}
 		if (sub.equals("list")) {
@@ -157,9 +157,7 @@ public class AliasCommand extends SpecialCommand {
 		} else {
 			sb.append("Aliases (main):");
 			for (Map.Entry<String, AliasData> e : sorted.entrySet()) {
-				AliasData a = e.getValue();
-				sb.append("\n  ").append(a != null && a.isEnabled() ? "[on ] " : "[off] ")
-						.append(e.getKey());
+				appendAliasLine(sb, e.getKey(), e.getValue(), null);
 			}
 		}
 		for (Plugin p : c.getPlugins()) {
@@ -169,13 +167,24 @@ public class AliasCommand extends SpecialCommand {
 			}
 			sb.append("\nAliases (").append(p.getName()).append("):");
 			for (Map.Entry<String, AliasData> e : new TreeMap<String, AliasData>(map).entrySet()) {
-				AliasData a = e.getValue();
-				sb.append("\n  ").append(a != null && a.isEnabled() ? "[on ] " : "[off] ")
-						.append(p.getName()).append(":").append(e.getKey());
+				appendAliasLine(sb, e.getKey(), e.getValue(), p.getName());
 			}
 		}
 		echo(c, sb.toString());
 		return null;
+	}
+
+	private static void appendAliasLine(StringBuilder sb, String key, AliasData a,
+			String plugin) {
+		sb.append("\n  ").append(a != null && a.isEnabled() ? "[on ] " : "[off] ");
+		if (plugin != null) {
+			sb.append(plugin).append(':');
+		}
+		sb.append(key);
+		if (a != null) {
+			sb.append("  echo:").append(a.getLocalEcho().toInspectToken())
+					.append("  →  ").append(a.getPost());
+		}
 	}
 
 	private Object doAll(Connection c, String rest) {
@@ -267,7 +276,7 @@ public class AliasCommand extends SpecialCommand {
 	private String helpText() {
 		return "\nAlias commands:\n"
 				+ "  .alias list                    all aliases and their state\n"
-				+ "  .alias status [name]           counts, or one alias\n"
+				+ "  .alias status|state [name]      counts, or one alias\n"
 				+ "  .alias on|off|toggle <name>    turn one on or off\n"
 				+ "  .alias all on|off              every alias in main settings\n"
 				+ "Use plugin:name when the same name exists in more than one plugin.\n"

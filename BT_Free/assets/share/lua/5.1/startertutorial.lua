@@ -620,7 +620,10 @@ actually said. All of it is off until you ask, under Options → Input or on
   .suggest phrases on|off offer whole names, not only the one word
   .suggest ghost on|off   draw the rest of the word after the cursor, dimmed;
                           drawn only, never sent
-  .suggest ghostlines N   up to N dimmed completions at once (1-6)
+  .suggest show N         at most N suggestions total (bar + ghost), 1-8
+  .suggest ghostlines N   extra rows the field may grow by (1-6). At 1 the
+                          others still fill the rest of the line you are on;
+                          not the same as show — does not cap how many offered
   .suggest where floating|bar|off   where the chips go. off still leaves the
                           ghost and .suggest 1..8 working, with no bar at all
   .suggest persist on|off keep the bar up even when it has nothing to say

@@ -46,6 +46,8 @@ oneway interface IConnectionBinderCallback {
 	 * needed.
 	 */
 	void inputBarInsertWord(String word);
+	/** Drop text at the caret exactly as given — no automatic spacing. */
+	void inputBarInsertLiteral(String text);
 	/**
 	 * Incoming text, for the word completer's vocabulary only. Sent solely while
 	 * completion is switched on, so a player not using it pays nothing: the main

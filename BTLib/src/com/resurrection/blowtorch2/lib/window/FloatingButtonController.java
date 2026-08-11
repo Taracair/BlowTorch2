@@ -11,6 +11,7 @@ import android.content.Context;
 import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -47,6 +48,7 @@ import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 public class FloatingButtonController {
 
 	private static final String TAG = "FloatingButtons";
+	private static final String PROBE_R2 = "BT_PROBE_R2";
 	static final String LAYER_TAG = "floating_button_layer";
 
 	/**
@@ -204,7 +206,7 @@ public class FloatingButtonController {
 				gridX = x + Math.max(dragged.buttonWidthPx(), 1) / 2;
 				gridY = y + Math.max(dragged.buttonHeightPx(), 1) / 2;
 			}
-			rememberFloatPosition(index, x, y);
+			rememberFloatPosition(index, x, y, gridX, gridY);
 			host.persistFloatPosition(index, x, y, gridX, gridY);
 		}
 
@@ -720,6 +722,7 @@ public class FloatingButtonController {
 	 */
 	public void onPause() {
 		resumed = false;
+		logProbeR2("onPause");
 		clearViews();
 	}
 
@@ -1016,7 +1019,15 @@ public class FloatingButtonController {
 	 * rebuild does not resurrect the pre-drag coordinates.
 	 */
 	private void rememberFloatPosition(int index, int x, int y) {
-		rememberFloatPosition(index, x, y, false);
+		rememberFloatPosition(index, x, y, Integer.MIN_VALUE, Integer.MIN_VALUE);
+	}
+
+	private void rememberFloatPosition(int index, int x, int y, int gridX, int gridY) {
+		rememberFloatPosition(index, x, y, gridX, gridY, false);
+	}
+
+	private void rememberFloatPosition(int index, int x, int y, boolean onlyIfPlaced) {
+		rememberFloatPosition(index, x, y, Integer.MIN_VALUE, Integer.MIN_VALUE, onlyIfPlaced);
 	}
 
 	/** The cached snapshot for a Lua button index, or null when it is gone. */
@@ -1044,7 +1055,8 @@ public class FloatingButtonController {
 	 *        y of 2171 then put the button below a 1080-tall landscape screen,
 	 *        which is why it could not be found there at all.
 	 */
-	private void rememberFloatPosition(int index, int x, int y, boolean onlyIfPlaced) {
+	private void rememberFloatPosition(int index, int x, int y, int gridX, int gridY,
+			boolean onlyIfPlaced) {
 		for (int i = 0; i < lastModels.size(); i++) {
 			FloatingButtonModel m = lastModels.get(i);
 			if (m.index == index) {
@@ -1057,7 +1069,12 @@ public class FloatingButtonController {
 				// (nothing forces a fresh Lua push on a rotation), and a stale
 				// flag meant a drag in landscape wrote the portrait pair — the
 				// exact symptom of the two layouts still being shared.
-				lastModels.set(i, m.forOrientation(isLandscape()).withFloatPosition(x, y));
+				FloatingButtonModel next = m.forOrientation(isLandscape())
+						.withFloatPosition(x, y);
+				if (gridX != Integer.MIN_VALUE && gridY != Integer.MIN_VALUE) {
+					next = next.withGridPosition(gridX, gridY);
+				}
+				lastModels.set(i, next);
 				return;
 			}
 		}
@@ -1248,6 +1265,20 @@ public class FloatingButtonController {
 				}
 			}
 		});
+	}
+
+	private void logProbeR2(final String where) {
+		StringBuilder sb = new StringBuilder(where);
+		sb.append(" overlay=").append(overlayMode);
+		sb.append(" views=").append(views.size());
+		sb.append(" models=").append(lastModels.size());
+		for (FloatingButtonModel m : lastModels) {
+			if (m.switchTo != null && m.switchTo.length() > 0) {
+				sb.append(" [").append(m.index).append(':').append(m.label)
+						.append("->").append(m.switchTo).append(']');
+			}
+		}
+		Log.i(PROBE_R2, sb.toString());
 	}
 
 	private void clearViews() {

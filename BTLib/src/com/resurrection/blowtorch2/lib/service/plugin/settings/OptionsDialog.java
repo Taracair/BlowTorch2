@@ -53,6 +53,10 @@ import android.widget.RelativeLayout.LayoutParams;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+
 public class OptionsDialog extends Dialog {
 
 	BackPressedListener backListener = null;
@@ -136,10 +140,24 @@ public class OptionsDialog extends Dialog {
 
 	@Override
 	public void show() {
-		super.show();
 		Window window = getWindow();
+		final boolean hideBars = shouldHideSystemBars();
+		if (window != null && hideBars) {
+			// The flash the maintainer kept seeing is this window taking focus
+			// with the bars in their default state, one frame before anything
+			// here has asked for them to go. A window that cannot take focus
+			// cannot bring the status bar back with it, so it is shown that way
+			// and made focusable again once the bars have been told.
+			window.setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+					WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+		}
+		super.show();
 		if (window == null) {
 			return;
+		}
+		if (hideBars) {
+			hideSystemBars(window);
+			window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
 		}
 		window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 		int screenWidth = getContext().getResources().getDisplayMetrics().widthPixels;
@@ -148,6 +166,44 @@ public class OptionsDialog extends Dialog {
 		params.width = Math.min(screenWidth, (int) (screenWidth * 0.88f));
 		params.height = WindowManager.LayoutParams.MATCH_PARENT;
 		window.setAttributes(params);
+	}
+
+	/** Is the game hiding the status bar, so this dialog has to as well? */
+	private boolean shouldHideSystemBars() {
+		return getContext() instanceof MainWindow
+				&& ((MainWindow) getContext()).isStatusBarHidden();
+	}
+
+	/** Match HelpDialog when the status bar is hidden. */
+	private void applyFullscreenIfNeeded() {
+		Window win = getWindow();
+		if (win == null || !shouldHideSystemBars()) {
+			return;
+		}
+		win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+				WindowManager.LayoutParams.FLAG_FULLSCREEN);
+	}
+
+	/**
+	 * Ask for the status bar to stay away over this dialog.
+	 *
+	 * <p>{@code FLAG_FULLSCREEN} is what the other dialogs use and what this
+	 * one had, and it is deprecated: this app targets SDK 36, where the way to
+	 * say it is the insets controller. The flag is left in place for the older
+	 * phones this still runs on, and this is the one that is expected to do the
+	 * work on a current one. Called after {@code super.show()} so that
+	 * {@code onCreate}'s {@code requestFeature} is not preceded by anything
+	 * that installs the decor.
+	 */
+	private void hideSystemBars(final Window win) {
+		WindowInsetsControllerCompat insets =
+				WindowCompat.getInsetsController(win, win.getDecorView());
+		if (insets == null) {
+			return;
+		}
+		insets.setSystemBarsBehavior(
+				WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+		insets.hide(WindowInsetsCompat.Type.statusBars());
 	}
 
 	public void onCreate(Bundle b) {
@@ -185,6 +241,7 @@ public class OptionsDialog extends Dialog {
 		donebutton.setVisibility(View.GONE);*/
 		
 		this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
+		applyFullscreenIfNeeded();
 		
 		backListener = new BackPressedListener();
 		

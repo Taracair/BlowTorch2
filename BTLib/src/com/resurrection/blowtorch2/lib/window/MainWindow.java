@@ -275,6 +275,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public static final int MESSAGE_REFRESH_INPUT_ACTIONS = 930;
 	/** obj: the word to drop into the input bar at the caret. */
 	protected static final int MESSAGE_INPUT_INSERT_WORD = 931;
+	/** obj: text to drop at the caret with no automatic spacing. */
+	protected static final int MESSAGE_INPUT_INSERT_LITERAL = 936;
 	/** obj: incoming text, for the word completer's vocabulary. */
 	protected static final int MESSAGE_VOCABULARY_TEXT = 932;
 	/** obj: the world's prompt for the prompt bar; empty hides it. */
@@ -1345,6 +1347,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_INPUT_INSERT_WORD:
 					inputInsertWord((String) msg.obj);
+					break;
+				case MESSAGE_INPUT_INSERT_LITERAL:
+					inputInsertLiteral((String) msg.obj);
 					break;
 				case MESSAGE_VOCABULARY_TEXT:
 					mWordSuggestions.learn((String) msg.obj);
@@ -2506,6 +2511,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mWordSuggestionsOn = false;
 	/** How many completions fit on the strip without it becoming a wall. */
 	private static final int MAX_WORD_SUGGESTIONS = WordSuggestions.MAX_ON_STRIP;
+	private int mWordSuggestionShow = MAX_WORD_SUGGESTIONS;
 	/**
 	 * What the strip is offering right now, in the order it shows them, so
 	 * {@code .complete 3} means the same thing as tapping the third chip.
@@ -2686,7 +2692,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		int caret = Math.max(mInputBox.getSelectionStart(), 0);
 		String prefix = WordSuggestions.wordBefore(text, caret);
 		boolean atStart = isAtLineStart(text, caret, prefix);
-		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, MAX_WORD_SUGGESTIONS,
+		mWordSuggestionList.addAll(mWordSuggestions.suggest(prefix, mWordSuggestionShow,
 				atStart, atStart ? null : leadingVerb(text)));
 		updateGhostCompletion(prefix, mWordSuggestionList);
 		return mWordSuggestionList;
@@ -3171,16 +3177,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (!mWordSuggestionsGhost || words.isEmpty() || prefix == null
 				|| prefix.length() == 0) {
 			mInputBox.setGhostCompletion(null, null, 0);
-			mInputBox.setGhostExtras(null, null);
+			mInputBox.setGhostExtras(null, null, null);
 			return;
 		}
 		final int at = 0;
 		String top = words.get(at);
-		// With the others listed beside the ghost, the field counts what did not
-		// fit and says so itself — a "+2" written here as well would be counting
-		// words the player can already see. Only when nothing is listed does the
-		// mark have anything to tell.
-		String more = mGhostLines > 1 ? "" : moreMark(words.size());
+		// The field counts what did not fit and draws that count after the last
+		// suggestion it managed to show. A "+2" written here as well would be
+		// counting words the player can already read on the line.
+		String more = "";
 		boolean continues = top.length() > prefix.length()
 				&& top.toLowerCase(java.util.Locale.US)
 						.startsWith(prefix.toLowerCase(java.util.Locale.US));
@@ -3193,7 +3198,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (top.equalsIgnoreCase(prefix)) {
 			// Already typed in full. Nothing to show and nothing to take.
 			mInputBox.setGhostCompletion(null, null, 0);
-			mInputBox.setGhostExtras(null, null);
+			mInputBox.setGhostExtras(null, null, null);
 			return;
 		}
 		mInputBox.setGhostCompletion(GHOST_CORRECTION_MARK + top + more, top, at + 1);
@@ -3214,47 +3219,36 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return;
 		}
-		if (mGhostLines <= 1 || words.size() < 2) {
-			mInputBox.setGhostExtras(null, null);
+		if (!mWordSuggestionsGhost || words.size() < 2) {
+			mInputBox.setGhostExtras(null, null, null);
 			return;
 		}
+		// Not gated on mGhostLines any more. At 1 the field takes no extra
+		// height, but the rest of the typed line is already there and was being
+		// left blank next to a "+4" telling the player about words that would
+		// have fitted on it.
 		// Everything the strip would hold. The field packs them side by side and
 		// stops when it runs out of rows, so the limit is width and the row
 		// ceiling, not a count decided here.
 		java.util.List<String> rows = new java.util.ArrayList<String>(words.size());
 		java.util.List<String> picks = new java.util.ArrayList<String>(words.size());
+		java.util.List<Integer> nums = new java.util.ArrayList<Integer>(words.size());
 		for (int i = 0; i < words.size(); i++) {
 			if (i == at) {
 				continue;
 			}
 			// Numbered the way .suggest numbers them, so what is on screen and
 			// the command that takes one without looking agree.
-			rows.add((i + 1) + " " + words.get(i));
+			rows.add(words.get(i));
 			picks.add(words.get(i));
+			nums.add(i + 1);
+		}
+		int[] numbered = new int[nums.size()];
+		for (int i = 0; i < nums.size(); i++) {
+			numbered[i] = nums.get(i);
 		}
 		mInputBox.setGhostExtras(rows.toArray(new String[rows.size()]),
-				picks.toArray(new String[picks.size()]));
-	}
-
-	/**
-	 * "and this many others", for the end of the ghost.
-	 *
-	 * <p>The ghost is text drawn after the cursor, so it can only ever be one
-	 * suggestion — and a player using the ghost without a bar therefore sees one
-	 * word and concludes that one word is all there is. That happened. The mark
-	 * says the others exist and are one {@code .suggest 2} away; the bar is
-	 * where they can be read.
-	 *
-	 * <p>Only the mark is added. What a tap on the ghost inserts is the word
-	 * itself, which is passed separately.
-	 *
-	 * @param count how many suggestions there are in total.
-	 * @return the marker, or "" when the top one is the only one.
-	 */
-	static String moreMark(final int count) {
-		// Only reached with the listing off; with it on the field counts what it
-		// could not fit, which is a different and smaller number.
-		return count > 1 ? " +" + (count - 1) : "";
+				picks.toArray(new String[picks.size()]), numbered);
 	}
 
 	/**
@@ -3619,6 +3613,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				? "" : mInputBox.getText().toString();
 		InputWordInsert.Result r = InputWordInsert.apply(current,
 				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd(), word);
+		mInputBox.setText(r.text());
+		mInputBox.setSelection(Math.min(r.caret(), mInputBox.getText().length()));
+		mInputBox.requestFocus();
+	}
+
+	private void inputInsertLiteral(final String text) {
+		if (mInputBox == null) {
+			return;
+		}
+		String current = mInputBox.getText() == null
+				? "" : mInputBox.getText().toString();
+		InputWordInsert.Result r = InputWordInsert.applyLiteral(current,
+				mInputBox.getSelectionStart(), mInputBox.getSelectionEnd(), text);
 		mInputBox.setText(r.text());
 		mInputBox.setSelection(Math.min(r.caret(), mInputBox.getText().length()));
 		mInputBox.requestFocus();
@@ -4250,6 +4257,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		super.onStop();
 	}
 	
+	@Override
+	public void onUserLeaveHint() {
+		super.onUserLeaveHint();
+		// Unconditional: the first version only logged when the controller
+		// existed, so a run that produced no line said nothing about whether
+		// this callback had even fired. Temporary probe.
+		android.util.Log.i("BT_PROBE_R2",
+				"onUserLeaveHint floating=" + (floatingButtons != null));
+	}
+
 	public void onPause() {
 		//Log.e("WINDOW","onDestroy()");
 		//windowShowing = false;
@@ -4263,6 +4280,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// notify here at all and nothing to sequence — but taking the overlay
 		// windows down first is still the thing that keeps them from floating
 		// over whatever the player opens next.
+		android.util.Log.i("BT_PROBE_R2",
+				"onPause floating=" + (floatingButtons != null));
 		if (floatingButtons != null) {
 			floatingButtons.onPause();
 		}
@@ -4551,6 +4570,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				ghostLines = BetterEditText.MAX_GHOST_ROWS + 1;
 			}
 			mGhostLines = ghostLines;
+			BaseOption showOpt = (BaseOption) group.findOptionByKey(
+					com.resurrection.blowtorch2.lib.service.function.CompleteCommand.SHOW_KEY);
+			int show = showOpt != null && showOpt.getValue() instanceof Integer
+					? (Integer) showOpt.getValue() : MAX_WORD_SUGGESTIONS;
+			if (show < 1) {
+				show = 1;
+			}
+			if (show > MAX_WORD_SUGGESTIONS) {
+				show = MAX_WORD_SUGGESTIONS;
+			}
+			mWordSuggestionShow = show;
 			if (mInputBox != null) {
 				// A ceiling, not a reservation: the bar takes the rows the
 				// suggestions actually need and gives them back when they go.
@@ -4992,6 +5022,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		public void inputBarInsertWord(String word) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_INSERT_WORD, word));
+		}
+
+		public void inputBarInsertLiteral(String text) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_INSERT_LITERAL, text));
 		}
 
 		public void vocabularyText(String text) throws RemoteException {
@@ -5570,12 +5604,45 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
+				logFloatingPushProbe(json);
 				ensureFloatingButtons();
 				if (floatingButtons != null) {
 					floatingButtons.onButtonsChanged(json);
 				}
 			}
 		});
+	}
+
+	/**
+	 * R1 probe: what the Lua push actually said about the badges.
+	 *
+	 * <p>The payload is {@code {editing:bool, buttons:[…]}}, and each button
+	 * carries {@code showGestureHints}. The first version of this probe read
+	 * the payload as a bare array, so it reported zero buttons for every push
+	 * and measured nothing. Temporary; comes out with the fix.
+	 */
+	private static void logFloatingPushProbe(final String json) {
+		if (json == null) {
+			android.util.Log.i("BT_PROBE_R1", "push json=null");
+			return;
+		}
+		try {
+			org.json.JSONObject root = new org.json.JSONObject(json);
+			org.json.JSONArray arr = root.optJSONArray("buttons");
+			int n = arr == null ? 0 : arr.length();
+			int hints = 0;
+			for (int i = 0; i < n; i++) {
+				org.json.JSONObject o = arr.optJSONObject(i);
+				if (o != null && o.optBoolean("showGestureHints", true)) {
+					hints++;
+				}
+			}
+			android.util.Log.i("BT_PROBE_R1", "push editing="
+					+ root.optBoolean("editing", false) + " buttons=" + n
+					+ " withHints=" + hints + " len=" + json.length());
+		} catch (org.json.JSONException e) {
+			android.util.Log.i("BT_PROBE_R1", "push unparsed len=" + json.length());
+		}
 	}
 
 	/** Chrome IME lift — Mode A floaters sit above the keyboard; Mode B stay put. */
@@ -5619,6 +5686,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (name == null || name.length() == 0 || service == null) {
 						return;
 					}
+					android.util.Log.i("BT_PROBE_R2",
+							"loadButtonSet name=" + name);
 					try {
 						service.pluginXcallS("button_window", "loadButtonSet", name);
 					} catch (RemoteException e) {

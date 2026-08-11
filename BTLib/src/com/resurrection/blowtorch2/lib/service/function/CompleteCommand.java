@@ -34,6 +34,8 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String SHORTER_KEY = "word_complete_shorter_first";
 	public static final String GHOST_KEY = "word_complete_ghost";
 	public static final String GHOST_LINES_KEY = "word_complete_ghost_lines";
+	/** How many suggestions the bar and ghost may show at once. */
+	public static final String SHOW_KEY = "word_complete_show";
 	/** Ghost rows the input bar will grow to carry, plus the inline one. */
 	public static final int MAX_GHOST_LINES = 6;
 	public static final String PERSIST_KEY = "word_complete_persist";
@@ -75,6 +77,9 @@ public class CompleteCommand extends SpecialCommand {
 		}
 		if (arg.startsWith("lines")) {
 			return setLines(arg.substring("lines".length()).trim(), c);
+		}
+		if (arg.startsWith("show")) {
+			return setShow(arg.substring("show".length()).trim(), c);
 		}
 		if (arg.startsWith("loose")) {
 			return setFlag(arg.substring("loose".length()).trim(), c, LOOSE_KEY,
@@ -182,13 +187,14 @@ public class CompleteCommand extends SpecialCommand {
 			} catch (NumberFormatException e) {
 				pick = 0;
 			}
-			if (pick >= 1 && pick <= MAX_PICK) {
+			int maxPick = showCount(c);
+			if (pick >= 1 && pick <= maxPick) {
 				c.pickCompletion(pick);
 				return null;
 			}
 			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
-					"The bar shows at most " + MAX_PICK + " suggestions, so"
-					+ " .suggest 1 to .suggest " + MAX_PICK + ".\n"));
+					"Showing at most " + maxPick + " suggestions, so"
+					+ " .suggest 1 to .suggest " + maxPick + ".\n"));
 			return null;
 		}
 		if (arg.length() == 0 || arg.equals("status")) {
@@ -208,15 +214,21 @@ public class CompleteCommand extends SpecialCommand {
 						? "first" : "not lifted")
 					+ ".\nTypos " + (flagOn(c, LOOSE_KEY) ? "forgiven" : "not forgiven")
 					+ ", ghost " + (flagOn(c, GHOST_KEY) ? "on" : "off")
-					+ (flagOn(c, GHOST_KEY) && ghostLines(c) > 1
-						? " showing " + ghostLines(c) + " under the line" : "")
-					+ ".\nOrder is " + (flagOn(c, RANK_KEY)
+					+ (!flagOn(c, GHOST_KEY) ? ""
+						: ghostLines(c) > 1
+							? ", listing the others on the rest of the line and up to "
+								+ (ghostLines(c) - 1) + " row"
+								+ (ghostLines(c) == 2 ? "" : "s") + " under it"
+							: ", listing the others on the rest of the line")
+					+ ".\nShowing at most " + showCount(c) + " suggestions"
+					+ " (bar, ghost, and .suggest N — use .suggest show N)."
+					+ "\nOrder is " + (flagOn(c, RANK_KEY)
 						? "by where you are in the line" : "newest first")
 					+ (flagOn(c, RANK_KEY) && flagOn(c, PAIRS_KEY)
 						? ", and by what you usually do with that command" : "")
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
 					+ " phrases/loose/ghost/persist/rank/pairs/short/plain on|off,"
-					+ " ghostlines N, opacity N,"
+					+ " ghostlines N, show N, opacity N,"
 					+ " learned, clear\n");
 			return null;
 		}
@@ -229,6 +241,10 @@ public class CompleteCommand extends SpecialCommand {
 				+ "                           \"grizzled cave troll\", not just \"grizzled\"\n"
 				+ ".suggest loose on|off    — grzld finds grizzled\n"
 				+ ".suggest ghost on|off    — draw the rest of the word after the cursor\n"
+				+ ".suggest show N          — at most N suggestions (bar + ghost), 1-8\n"
+				+ ".suggest ghostlines N    — extra rows the field may grow by, 1-6.\n"
+				+ "                           At 1 the others still fill the rest of\n"
+				+ "                           the line. It is not the count — that is show\n"
 				+ ".suggest where floating|bar|off — where the bar of chips goes,\n"
 				+ "                           or off for none; the ghost still works\n"
 				+ ".suggest persist on|off  — keep the bar up even when it is empty\n"
@@ -418,6 +434,33 @@ public class CompleteCommand extends SpecialCommand {
 		return null;
 	}
 
+	private Object setShow(String arg, Connection c) {
+		if (arg.length() == 0) {
+			c.sendDataToWindow("\nShowing at most " + showCount(c)
+					+ " suggestions at once.\n");
+			return null;
+		}
+		int n;
+		try {
+			n = Integer.parseInt(arg);
+		} catch (NumberFormatException e) {
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:",
+					".suggest show N — a number from 1 to " + MAX_PICK + ".\n"));
+			return null;
+		}
+		if (n < 1) {
+			n = 1;
+		}
+		if (n > MAX_PICK) {
+			n = MAX_PICK;
+		}
+		c.updateIntegerSetting(SHOW_KEY, n);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ "At most " + n + " suggestions on the bar and in the ghost."
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
 	private Object setGhostLines(String arg, Connection c) {
 		int n;
 		try {
@@ -437,7 +480,9 @@ public class CompleteCommand extends SpecialCommand {
 		c.updateIntegerSetting(GHOST_LINES_KEY, n);
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
 				+ (n == 1
-					? "The ghost is one word after the cursor again."
+					? "The input bar keeps its height: the other suggestions"
+						+ " fill what is left of the line you are typing on, and"
+						+ " a +N at the end counts any that did not fit."
 					: "The input bar may now grow by up to " + (n - 1) + " row"
 						+ (n == 2 ? "" : "s") + " to list the other suggestions under"
 						+ " what you are typing, side by side and each tappable. It"
@@ -486,6 +531,17 @@ public class CompleteCommand extends SpecialCommand {
 			return ((Integer) o.getValue()).intValue();
 		}
 		return 1;
+	}
+
+	private static int showCount(Connection c) {
+		BaseOption o = findOption(c, SHOW_KEY);
+		if (o instanceof IntegerOption && o.getValue() instanceof Integer) {
+			int n = ((Integer) o.getValue()).intValue();
+			if (n >= 1 && n <= MAX_PICK) {
+				return n;
+			}
+		}
+		return MAX_PICK;
 	}
 
 	private static int opacity(Connection c) {

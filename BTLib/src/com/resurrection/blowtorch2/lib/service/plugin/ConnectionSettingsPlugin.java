@@ -212,10 +212,17 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		IntegerOption word_complete_ghost_lines = new IntegerOption();
 		word_complete_ghost_lines.setTitle("Suggestions under the line");
-		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it is just the single word drawn after the cursor, as before. Above that the rest are listed under what you are typing, side by side rather than one per line, each numbered and tappable. It takes only the rows it needs and gives them back the moment they are not needed. Needs the ghost to be on. .suggest ghostlines N");
+		word_complete_ghost_lines.setDescription("How many rows the input bar may grow by to show the other suggestions, 1 to 6. At 1 it grows by nothing, and the others fill what is left of the line you are typing on, each numbered and tappable, with a +N counting any that did not fit. Above that they carry on under the line as well. It takes only the rows it needs and gives them back the moment they are not needed. This is not how many are offered — that is \"Suggestions shown at once\". Needs the ghost to be on. .suggest ghostlines N");
 		word_complete_ghost_lines.setKey("word_complete_ghost_lines");
 		word_complete_ghost_lines.setValue(1);
 		suggestions.addOption(word_complete_ghost_lines);
+
+		IntegerOption word_complete_show = new IntegerOption();
+		word_complete_show.setTitle("Suggestions shown at once");
+		word_complete_show.setDescription("How many suggestions the bar and ghost may offer at once, 1 to 8. The rest are still found — they just do not appear until a higher one is taken or the word changes. .suggest show N");
+		word_complete_show.setKey("word_complete_show");
+		word_complete_show.setValue(8);
+		suggestions.addOption(word_complete_show);
 
 		ListOption word_complete_where = new ListOption();
 		word_complete_where.setTitle("Bar of suggestions");

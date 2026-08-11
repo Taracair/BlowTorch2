@@ -71,10 +71,11 @@ public class HelpCommand extends SpecialCommand {
 		cmd("keyboard", "Input and suggestions",
 				"send a key, or step through command history (.kb for short)");
 		cmd("complete", "Input and suggestions",
-				"the older name for .suggest; still works");
+				"same as .suggest (older name); also .suggestions");
 		cmd("suggest", "Input and suggestions",
-				"suggest words the game just used, and everything about that bar");
-		cmd("suggestions", "Input and suggestions", "the same command, spelled out");
+				"words the game just used; also .suggestions and .complete");
+		cmd("suggestions", "Input and suggestions",
+				"same as .suggest (alias); also .complete");
 		cmd("prompt", "Input and suggestions", "pin the world's prompt above the input bar");
 		cmd("editpanel", "Input and suggestions", "show or hide the editing strip");
 		cmd("editbutton", "Input and suggestions", "show or hide the Edit button");
@@ -159,7 +160,323 @@ public class HelpCommand extends SpecialCommand {
 			out.append("\nMost take their own arguments — type the command on its"
 					+ " own to see them. The manual has the long version.\n");
 		}
+		String sub = subcommandHelp(filter);
+		if (sub != null) {
+			out.append(sub);
+		}
 		c.sendDataToWindow(out.toString());
+		return null;
+	}
+
+	/** When the filter names one command family, list its subcommands. */
+	private static String subcommandHelp(final String filter) {
+		if (filter == null || filter.length() == 0) {
+			return null;
+		}
+		if (filter.equals("help") || filter.equals("commands")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .help:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .help              — every command, one line each\n"
+					+ "  .help <word>       — only names containing that word\n"
+					+ "  .commands          — same command (alias)\n";
+		}
+		if (filter.equals("echo")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .echo:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .echo              — say whether the input bar is masked\n"
+					+ "  .echo on|off       — show or hide what you type (telnet ECHO)\n";
+		}
+		if (filter.equals("run")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .run:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .run <directions>  — speedwalk, e.g. 3n2e or 3ds,open door,3w\n"
+					+ "  (ordinals are configurable; type .run alone for the map)\n";
+		}
+		if (filter.equals("disconnect")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .disconnect:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .disconnect        — close this connection (no arguments)\n";
+		}
+		if (filter.equals("reconnect")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .reconnect:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .reconnect         — close and open again (no arguments)\n";
+		}
+		if (filter.equals("switch")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .switch:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .switch            — list open sessions\n"
+					+ "  .switch <name>     — foreground that already-open connection\n";
+		}
+		if (filter.equals("note")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .note:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .note <text>       — print locally; never sent to the world\n";
+		}
+		if (filter.equals("width")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .width:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .width             — say the current percent\n"
+					+ "  .width <N> | +N | -N\n"
+					+ "  .width toggle | off\n";
+		}
+		if (filter.equals("wrap")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .wrap:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .wrap              — say whether the input bar may grow\n"
+					+ "  .wrap on|off\n";
+		}
+		if (filter.equals("togglefullscreen")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor()
+					+ "Children of .togglefullscreen:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .togglefullscreen  — flip fullscreen (no arguments)\n";
+		}
+		if (filter.equals("closewindow")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .closewindow:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .closewindow       — leave the game window (no arguments)\n";
+		}
+		if (filter.equals("editpanel")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .editpanel:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .editpanel         — toggle the Edit tools strip\n"
+					+ "  .editpanel on|off\n";
+		}
+		if (filter.equals("editbutton")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .editbutton:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .editbutton        — say whether the Edit button is shown\n"
+					+ "  .editbutton on|off\n";
+		}
+		if (filter.equals("sendbutton")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .sendbutton:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .sendbutton        — say whether the Send button is shown\n"
+					+ "  .sendbutton on|off\n";
+		}
+		if (filter.equals("dobell")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .dobell:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .dobell            — fire the bell reaction now (no arguments)\n";
+		}
+		if (filter.equals("colordebug")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .colordebug:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .colordebug 0      — normal colour processing\n"
+					+ "  .colordebug 1      — colour on, codes shown\n"
+					+ "  .colordebug 2      — colour off, codes shown\n"
+					+ "  .colordebug 3      — colour off, codes hidden\n";
+		}
+		if (filter.equals("clearbuttons")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .clearbuttons:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .clearbuttons      — clear all buttons (no arguments)\n";
+		}
+		if (filter.equals("suggest") || filter.equals("suggestions")
+				|| filter.equals("complete") || filter.equals("suggestion")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor()
+					+ "Children of .suggest (.suggestions, .complete):"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .suggest on|off\n"
+					+ "  .suggest lines N\n"
+					+ "  .suggest show N\n"
+					+ "  .suggest where floating|bar|off|next\n"
+					+ "  .suggest ghost on|off\n"
+					+ "  .suggest ghostlines N   (rows in the field, not how many offered)\n"
+					+ "  .suggest opacity N\n"
+					+ "  .suggest persist on|off\n"
+					+ "  .suggest phrases|plain|short|loose on|off\n"
+					+ "  .suggest rank|pairs on|off\n"
+					+ "  .suggest learned | clear\n"
+					+ "  .suggest 1.." + CompleteCommand.MAX_PICK + "\n"
+					+ "  .suggest status\n";
+		}
+		if (filter.equals("alias")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .alias:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .alias list\n"
+					+ "  .alias status|state [name]\n"
+					+ "  .alias on|off|toggle <name|plugin:name>\n"
+					+ "  .alias all on|off\n";
+		}
+		if (filter.equals("kb") || filter.equals("keyboard")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .kb:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .kb insert <text>      — at caret, spaced like a tap ($word)\n"
+					+ "  .kb insertliteral <text> — at caret, exactly as typed\n"
+					+ "  .kb insertword <text>  — same as insert\n"
+					+ "  .kb add|popup|flush|clear|close\n"
+					+ "  .kb sel|copy|cut|paste\n"
+					+ "  .kb start|end|stepf|stepb|stepu|stepd\n";
+		}
+		if (filter.equals("trigger")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .trigger:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .trigger on|off|toggle <name|plugin:name>\n"
+					+ "  .trigger status [name]\n"
+					+ "  .trigger group on|off|toggle <group>\n"
+					+ "  .trigger all on|off\n"
+					+ "  .trigger plugin <plugin> all on|off\n";
+		}
+		if (filter.equals("timer")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .timer:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .timer play|pause|reset|stop|info <name> [silent]\n"
+					+ "  .timer duration <name> <seconds> [silent]\n";
+		}
+		if (filter.equals("map")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .map:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .map open|close|toggle | record|rec on|off|toggle\n"
+					+ "  .map follow on|off|toggle | level list|prev|next|set …\n"
+					+ "  .map find|search|path|goto|go <query>\n"
+					+ "  .map title|note|locktitle|lockposition|relayout|tidy …\n"
+					+ "  (type .map alone for the full list)\n";
+		}
+		if (filter.equals("gmcp")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .gmcp:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .gmcp ask|handshake | modules | enable|disable\n"
+					+ "  .gmcp renegotiate | status | sniff [on|off|tail N]\n"
+					+ "  .gmcp feed [on|off] | version | supports | dump | send\n";
+		}
+		if (filter.equals("mcp")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .mcp:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .mcp ask|status|packages|vitals|cords\n"
+					+ "  .mcp enable|disable <pkg…> | renegotiate\n"
+					+ "  .mcp sniff|feed|dump|send|ping|client\n"
+					+ "  .mcp cord open|close|send …\n";
+		}
+		if (filter.equals("window")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .window:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .window list\n"
+					+ "  .window show|hide|clear <slot>\n"
+					+ "  .window create <slot> [title…]\n"
+					+ "  .window destroy <slot>\n"
+					+ "  .window opacity <slot> [40-100]\n";
+		}
+		if (filter.equals("frame")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .frame:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .frame list\n"
+					+ "  .frame close <id>|all\n"
+					+ "  .frame reopen|open <id>\n";
+		}
+		if (filter.equals("probe")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .probe:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .probe lines on|off | report | reset\n"
+					+ "  .probe sensors | sensors state\n"
+					+ "  .probe sensors shake|light [seconds]\n";
+		}
+		if (filter.equals("sensor")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .sensor:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .sensor | .sensor list — what is set up\n"
+					+ "  .sensor caps — which hardware provides each reading\n"
+					+ "  .sensor <gesture> <command> — wire a reading to a command\n"
+					+ "  .sensor <gesture> on|off | fire <gesture>\n"
+					+ "  .sensor threshold shake|light … | help | examples\n";
+		}
+		if (filter.equals("sound")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .sound:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .sound stream media|notification|alarm\n"
+					+ "  .sound warn on|off\n"
+					+ "  .sound status\n";
+		}
+		if (filter.equals("prompt")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .prompt:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .prompt on|off     — pin the prompt above the input bar\n"
+					+ "  .prompt | status   — say which it is, and prompts seen\n";
+		}
+		if (filter.equals("tapmenu")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .tapmenu:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .tapmenu opacity N — how solid (20-100)\n"
+					+ "  .tapmenu | status  — what it is set to now\n";
+		}
+		if (filter.equals("font")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .font:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .font              — say the current size\n"
+					+ "  .font +N | -N | <size> | default\n";
+		}
+		if (filter.equals("settings")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .settings:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .settings | status — what is on disk, and the kept copy\n"
+					+ "  .settings backup   — save now and refresh the kept copy\n"
+					+ "  .settings restore  — put the kept copy back and reload\n";
+		}
+		if (filter.equals("msdp")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .msdp:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .msdp              — dump the MSDP variable cache\n"
+					+ "  .msdp list [COMMANDS]\n"
+					+ "  .msdp send|report|unreport <var>\n"
+					+ "  .msdp reset <group>\n";
+		}
+		if (filter.equals("mssp")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .mssp:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .mssp              — dump the MSSP server status cache\n"
+					+ "  (MSSP is one-way; no send/report subcommands)\n";
+		}
+		if (filter.equals("loadset")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .loadset:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .loadset <name>    — argument is a button-set name\n";
+		}
+		if (filter.equals("search")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .search:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .search <text> | 'multi word' | \"…\"\n"
+					+ "  .search next|n | prev|previous|p\n"
+					+ "  .search close|hide|clear\n";
+		}
 		return null;
 	}
 

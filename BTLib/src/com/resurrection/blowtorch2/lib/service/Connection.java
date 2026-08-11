@@ -5233,6 +5233,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case word_complete_shorter_first:
 			case word_complete_ghost:
 			case word_complete_ghost_lines:
+			case word_complete_show:
 			case word_complete_persist:
 			case word_complete_rank:
 			case word_complete_pairs:
@@ -6402,6 +6403,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		word_complete_ghost,
 		/** How many suggestions the ghost lists, growing the bar to fit them. */
 		word_complete_ghost_lines,
+		/** How many suggestions the completer offers at once. */
+		word_complete_show,
 		/** Keep the floating suggestion bar up even when it is empty. */
 		word_complete_persist,
 		/** Let the caret's place in the line reorder the suggestions. */

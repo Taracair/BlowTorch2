@@ -64,6 +64,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		sensor_background,
 		word_complete_ghost,
 		word_complete_ghost_lines,
+		word_complete_show,
 		word_complete_persist,
 		word_complete_rank,
 		word_complete_pairs,
@@ -572,6 +573,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case word_complete_ghost_lines:
 						if((Integer)opt.getValue() != 1) {
+							dooutput = true;
+						}
+						break;
+					case word_complete_show:
+						if((Integer)opt.getValue() != 8) {
 							dooutput = true;
 						}
 						break;

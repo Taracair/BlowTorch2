@@ -341,13 +341,24 @@ public class BetterEditText extends EditText {
 	/** What each of those lines inserts when tapped. */
 	private String[] ghostExtraWords = null;
 
+	/** Which suggestion each extra is, counting from 1; same styling as ghostNumber. */
+	private int[] ghostExtraNumbers = null;
+
 	private final android.graphics.RectF[] ghostExtraRects =
 			new android.graphics.RectF[MAX_GHOST_EXTRAS];
 
 	/** The bottom padding this field had before any room was reserved. */
 	private int ghostBasePaddingBottom = -1;
 
-	/** Most rows the bar may grow to; 0 turns the listing off. */
+	/**
+	 * Most rows the bar may <em>grow</em> by for the listing.
+	 *
+	 * <p>Zero does not turn the listing off; it means the listing may not take
+	 * any height. The rest of the typed line is free space either way, so at
+	 * zero the suggestions fill what is left of it and the count says how many
+	 * did not fit. That is what {@code .suggest ghostlines 1} now gets: one
+	 * line, as full as it goes.
+	 */
 	private int ghostMaxRows = 0;
 
 	/** Rows the bar is currently tall enough for. */
@@ -440,11 +451,15 @@ public class BetterEditText extends EditText {
 	 *
 	 * @param lines what to draw, or null for none.
 	 * @param words what each line inserts; same length as {@code lines}.
+	 * @param numbers which suggestion each line is, counting from 1; may be null.
 	 */
-	public void setGhostExtras(final String[] lines, final String[] words) {
+	public void setGhostExtras(final String[] lines, final String[] words,
+			final int[] numbers) {
 		int now = lines == null ? 0 : Math.min(lines.length, MAX_GHOST_EXTRAS);
 		ghostExtras = now == 0 ? null : java.util.Arrays.copyOf(lines, now);
 		ghostExtraWords = now == 0 ? null : java.util.Arrays.copyOf(words, now);
+		ghostExtraNumbers = now == 0 || numbers == null
+				? null : java.util.Arrays.copyOf(numbers, now);
 		// The bar takes exactly the rows this many suggestions need at this
 		// width, and gives them back when they go — which is what makes it
 		// shrink again the moment a command is sent. The count is worked out
@@ -455,9 +470,10 @@ public class BetterEditText extends EditText {
 	}
 
 	/**
-	 * Most rows of suggestions the bar may grow to, on top of the typed line.
+	 * Most rows of suggestions the bar may grow by, on top of the typed line.
 	 *
-	 * @param rows the ceiling; 0 turns the listing off.
+	 * @param rows the ceiling; 0 keeps the listing to the rest of the typed
+	 *        line. What turns it off is having no extras to show.
 	 */
 	public void setGhostMaxRows(final int rows) {
 		int want = rows < 0 ? 0 : Math.min(rows, MAX_GHOST_ROWS);
@@ -487,15 +503,19 @@ public class BetterEditText extends EditText {
 	 * making room is a layout.
 	 */
 	private int rowsNeeded() {
-		if (ghostExtras == null || ghostExtras.length == 0 || ghostMaxRows <= 0
-				|| !ghostWouldDraw()) {
+		if (ghostExtras == null || ghostExtras.length == 0 || !ghostWouldDraw()) {
 			return 0;
 		}
+		// Not gated on ghostMaxRows: at 0 the packer fills the rest of the typed
+		// line and stops, so this returns 0 and the bar keeps its height.
 		float avail = ghostRowWidth();
 		if (avail <= 0) {
 			// Not laid out yet. One row is the honest guess, corrected the next
-			// time anything changes.
-			return 1;
+			// time anything changes — but only where a row is allowed at all.
+			// At a ceiling of zero the answer is known without measuring, and
+			// guessing 1 here grew the bar in the one mode that must never grow
+			// it, with nothing to take the row back until the next refresh.
+			return ghostMaxRows > 0 ? 1 : 0;
 		}
 		return packGhostExtras(null, avail, estimateGhostEndX(), 0f, 0f, 0f, 0f, 0f);
 	}
@@ -644,7 +664,7 @@ public class BetterEditText extends EditText {
 
 		float extrasEndX = endX;
 		float extrasBaseline = endBaseline;
-		if (ghostExtras != null && ghostExtras.length > 0 && ghostMaxRows > 0) {
+		if (ghostExtras != null && ghostExtras.length > 0) {
 			for (int i = 0; i < ghostExtraRects.length; i++) {
 				ghostExtraRects[i] = null;
 			}
@@ -677,14 +697,26 @@ public class BetterEditText extends EditText {
 		}
 
 		if (ghostNumber > 0) {
-			// A micro digit above the ghost, so you can see which suggestion it is
-			// and reach it with .complete N without looking down at the strip.
-			android.text.TextPaint mark = new android.text.TextPaint(ghostPaint);
-			mark.setTextSize(ghostPaint.getTextSize() * 0.55f);
-			canvas.drawText(String.valueOf(ghostNumber), endX + 2,
-					endBaseline - ghostPaint.getTextSize() * 0.45f, mark);
+			drawGhostIndex(canvas, ghostPaint, String.valueOf(ghostNumber),
+					endX + 2, endBaseline);
 		}
 		canvas.restore();
+	}
+
+	/** A micro digit above the baseline, matching the inline ghost marker. */
+	private void drawGhostIndex(final android.graphics.Canvas canvas,
+			final android.text.TextPaint base, final String digit, final float x,
+			final float baseline) {
+		android.text.TextPaint mark = new android.text.TextPaint(base);
+		mark.setTextSize(base.getTextSize() * 0.55f);
+		canvas.drawText(digit, x, baseline - base.getTextSize() * 0.45f, mark);
+	}
+
+	/** Width of one index digit at the size {@link #drawGhostIndex} uses. */
+	private float ghostIndexWidth(final android.text.TextPaint base, final int number) {
+		android.text.TextPaint mark = new android.text.TextPaint(base);
+		mark.setTextSize(base.getTextSize() * 0.55f);
+		return mark.measureText(String.valueOf(number)) + 2f;
 	}
 
 	private void addGhostRect(final float left, final float top, final float right,
@@ -782,7 +814,10 @@ public class BetterEditText extends EditText {
 			if (item == null) {
 				continue;
 			}
-			float w = p.measureText(item);
+			int number = ghostExtraNumbers != null && i < ghostExtraNumbers.length
+					? ghostExtraNumbers[i] : 0;
+			float indexW = number > 0 ? ghostIndexWidth(p, number) : 0f;
+			float w = indexW + p.measureText(item);
 			float lead = x > 0 ? gap : 0;
 			if (x + lead + w > avail) {
 				if (row + 1 > ghostMaxRows) {
@@ -797,9 +832,9 @@ public class BetterEditText extends EditText {
 				lead = 0;
 				if (w > avail) {
 					// Wider than the whole bar. Cut it rather than run off.
-					int fits = p.breakText(item, true, avail, null);
+					int fits = p.breakText(item, true, avail - indexW, null);
 					item = fits > 1 ? item.substring(0, fits - 1) + "…" : "…";
-					w = p.measureText(item);
+					w = indexW + p.measureText(item);
 				}
 			}
 			if (canvas != null) {
@@ -810,13 +845,17 @@ public class BetterEditText extends EditText {
 				float baseline = row == 0
 						? ghostBaseline
 						: top + lineHeight - p.descent();
+				if (number > 0) {
+					drawGhostIndex(canvas, p, String.valueOf(number), itemX, baseline);
+					itemX += indexW;
+				}
 				canvas.drawText(item, itemX, baseline, p);
-				ghostLastDrawnX = itemX + w;
+				ghostLastDrawnX = itemX + p.measureText(item);
 				ghostLastDrawnBaseline = baseline;
 				if (i < ghostExtraRects.length) {
 					ghostExtraRects[i] = new android.graphics.RectF(
-							originX + itemX, originYUsed + top,
-							originX + itemX + w, originYUsed + top + lineHeight);
+							originX + x + lead, originYUsed + top,
+							originX + x + lead + w, originYUsed + top + lineHeight);
 				}
 			}
 			x += lead + w;
