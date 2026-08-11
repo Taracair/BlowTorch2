@@ -129,8 +129,50 @@ function loadButtons(args)
 	end
 
 	debugString(string.format("Button Window loaded button set, %s successfully",lastLoadedSet))
+	probeR4("loadButtons")
 	maybeOfferLayoutWizard()
 	return true
+end
+
+-- R4 probe: what the pad is holding, and how big the layer under it is.
+--
+-- The ghost button is reported on the pad, not among the floating windows, so
+-- this asks the two questions that tell those apart: does a button from the
+-- previous set survive in the Lua table (stale data), or is the table right
+-- while the bitmap under it is a different size from the view (stale pixels).
+-- Everything goes through the activity with colon syntax; a static Log.i
+-- reached from Lua is what raised "Not a valid OO function call" before.
+-- Temporary, comes out with the fix.
+function probeR4(where)
+	pcall(function()
+		local activity = GetActivity()
+		if activity == nil or activity.probeButtonPad == nil then
+			return
+		end
+		local parts = {}
+		for i = 1, #buttons do
+			local d = buttons[i].data
+			if d ~= nil then
+				local cmd = tostring(d.command or "")
+				if #cmd > 20 then
+					cmd = string.sub(cmd, 1, 20)
+				end
+				parts[#parts + 1] = tostring(d.label or "?") .. "=" .. cmd
+			end
+		end
+		local bw, bh = -1, -1
+		if buttonLayer ~= nil then
+			bw = buttonLayer:getWidth()
+			bh = buttonLayer:getHeight()
+		end
+		activity:probeButtonPad(tostring(where)
+			.. " set=" .. tostring(lastLoadedSet)
+			.. " n=" .. tostring(#buttons)
+			.. " view=" .. tostring(view:getWidth()) .. "x" .. tostring(view:getHeight())
+			.. " bmp=" .. tostring(bw) .. "x" .. tostring(bh)
+			.. " draw=" .. tostring(draw)
+			.. " [" .. table.concat(parts, " ") .. "]")
+	end)
 end
 
 function printTable(key,o)
