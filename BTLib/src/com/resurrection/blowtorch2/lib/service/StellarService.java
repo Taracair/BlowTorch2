@@ -1467,13 +1467,17 @@ public class StellarService extends Service {
 	/**
 	 * Hand incoming text to the UI's word completer.
 	 *
+	 * @param display which connection produced this text.
 	 * @param text the stripped incoming chunk.
 	 */
-	public final void doVocabularyText(final String text) {
+	public final void doVocabularyText(final String display, final String text) {
+		if (!isForegroundConnection(display)) {
+			return;
+		}
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
-				mCallbacks.getBroadcastItem(i).vocabularyText(text);
+				mCallbacks.getBroadcastItem(i).vocabularyText(display, text);
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 						"StellarService.doVocabularyText", e);
@@ -1482,12 +1486,19 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
-	/** Tell the UI to forget the vocabulary it has learned. */
-	public final void doVocabularyReset() {
+	/**
+	 * Tell the UI to forget the vocabulary it has learned for this world.
+	 *
+	 * @param display which connection is resetting.
+	 */
+	public final void doVocabularyReset(final String display) {
+		if (!isForegroundConnection(display)) {
+			return;
+		}
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
-				mCallbacks.getBroadcastItem(i).vocabularyReset();
+				mCallbacks.getBroadcastItem(i).vocabularyReset(display);
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 						"StellarService.doVocabularyReset", e);
@@ -1499,13 +1510,17 @@ public class StellarService extends Service {
 	/**
 	 * Take the n-th completion off the strip.
 	 *
+	 * @param display which connection asked.
 	 * @param index counting from 1, as the strip labels them.
 	 */
-	public final void doPickCompletion(final int index) {
+	public final void doPickCompletion(final String display, final int index) {
+		if (!isForegroundConnection(display)) {
+			return;
+		}
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
-				mCallbacks.getBroadcastItem(i).pickCompletion(index);
+				mCallbacks.getBroadcastItem(i).pickCompletion(display, index);
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 						"StellarService.doPickCompletion", e);
@@ -1517,19 +1532,34 @@ public class StellarService extends Service {
 	/**
 	 * Put the world's prompt on the prompt bar.
 	 *
+	 * @param display which connection produced the prompt.
 	 * @param text the prompt, ANSI already stripped.
 	 */
-	public final void doPromptLine(final String text) {
+	public final void doPromptLine(final String display, final String text) {
+		if (!isForegroundConnection(display)) {
+			return;
+		}
 		final int n = mCallbacks.beginBroadcast();
 		for (int i = 0; i < n; i++) {
 			try {
-				mCallbacks.getBroadcastItem(i).promptLine(text);
+				mCallbacks.getBroadcastItem(i).promptLine(display, text);
 			} catch (RemoteException e) {
 				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
 						"StellarService.doPromptLine", e);
 			}
 		}
 		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Drop binder traffic from a background world for the completer / prompt
+	 * family. Correctness still lives in the UI filter — the clutch moves
+	 * before the UI has applied {@code MESSAGE_SWITCH} — so this is an
+	 * optimisation, not the guard.
+	 */
+	private boolean isForegroundConnection(final String display) {
+		return display != null && display.length() > 0
+				&& display.equals(mConnectionClutch);
 	}
 
 	public final void doInputBarSelectAll() {

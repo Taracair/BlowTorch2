@@ -59,26 +59,37 @@ oneway interface IConnectionBinderCallback {
 	 * completion is switched on, so a player not using it pays nothing: the main
 	 * window's text does not travel this way, it lives in the buffer the UI
 	 * adopts.
+	 *
+	 * @param display which connection produced this text — the UI ignores traffic
+	 *        that is not the world it is currently showing.
 	 */
-	void vocabularyText(String text);
+	void vocabularyText(String display, String text);
 	/**
 	 * Forget every word learned so far. Sent when a connection starts, because
 	 * the vocabulary lives in the UI process for the life of that process and
 	 * would otherwise offer the last world's mob names in the next one.
+	 *
+	 * @param display which connection is resetting — ignored when it is not the
+	 *        world on screen, so connecting a second world cannot wipe the first.
 	 */
-	void vocabularyReset();
+	void vocabularyReset(String display);
 	/**
 	 * Take the n-th completion currently on the strip, counting from 1 — what
 	 * {@code .complete 3} does. Sent rather than answered, so a super button over
 	 * the keyboard can pick one without the finger ever reaching the strip.
+	 *
+	 * @param display which connection asked — only the foreground world's pick
+	 *        reaches the strip.
 	 */
-	void pickCompletion(int index);
+	void pickCompletion(String display, int index);
 	/**
 	 * The world's prompt — the line the holdover released because nothing ever
 	 * finishes it. Sent instead of drawing it in the game window while the
 	 * prompt bar is on.
+	 *
+	 * @param display which connection produced the prompt.
 	 */
-	void promptLine(String text);
+	void promptLine(String display, String text);
 	void inputBarSelectAll();
 	void inputBarCopy();
 	void inputBarPaste();

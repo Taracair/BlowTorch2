@@ -834,7 +834,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					// The old rebind left DISPLAY on the launch world, so the
 					// next onResume switched the clutch back after screen-off.
 					if (msg.obj instanceof String) {
-						MainWindow.this.rememberForegroundConnection((String) msg.obj);
+						String next = (String) msg.obj;
+						// Foreign vocabularyReset is ignored after the display
+						// filter, so the switch itself must save what we are
+						// leaving, clear the session bag, and load what the
+						// world we are entering has taught. Without this, A's
+						// mob names stay on B's strip until something else
+						// resets. The prompt bar goes blank until the new world
+						// next flushes a holdover — honest, and there is no
+						// "resend current prompt" path in the service.
+						saveCommandKnowledge();
+						MainWindow.this.rememberForegroundConnection(next);
+						mWordSuggestions.clear();
+						loadCommandKnowledge();
+						refreshWordSuggestions();
+						showPromptBar("");
 					}
 					break;
 				case MESSAGE_TRIGGERSTR:
@@ -1357,9 +1371,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					openOptionsDialog();
 					break;
 				case MESSAGE_VOCABULARY_TEXT:
-					mWordSuggestions.learn((String) msg.obj);
-					mWordSuggestionsOn = true;
-					refreshWordSuggestions();
+					if (msg.obj instanceof DisplayedString) {
+						DisplayedString scoped = (DisplayedString) msg.obj;
+						if (isForegroundDisplay(scoped.display)) {
+							mWordSuggestions.learn(scoped.value);
+							mWordSuggestionsOn = true;
+							refreshWordSuggestions();
+						}
+					}
 					break;
 				case MESSAGE_VOCABULARY_RESET:
 					// The session vocabulary goes; what this world's own commands
@@ -1367,15 +1386,26 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					// point: the reset exists so one world's mob names do not
 					// reach another, and a per-world file provides that scoping
 					// without throwing the pairings away every time you connect.
-					mWordSuggestions.clear();
-					loadCommandKnowledge();
-					refreshWordSuggestions();
+					if (msg.obj instanceof String
+							&& isForegroundDisplay((String) msg.obj)) {
+						mWordSuggestions.clear();
+						loadCommandKnowledge();
+						refreshWordSuggestions();
+					}
 					break;
 				case MESSAGE_PICK_COMPLETION:
-					pickWordSuggestion(msg.arg1);
+					if (msg.obj instanceof String
+							&& isForegroundDisplay((String) msg.obj)) {
+						pickWordSuggestion(msg.arg1);
+					}
 					break;
 				case MESSAGE_PROMPT_LINE:
-					showPromptBar((String) msg.obj);
+					if (msg.obj instanceof DisplayedString) {
+						DisplayedString scoped = (DisplayedString) msg.obj;
+						if (isForegroundDisplay(scoped.display)) {
+							showPromptBar(scoped.value);
+						}
+					}
 					break;
 				case MESSAGE_INPUT_SELECT_ALL:
 					inputSelectAll();
@@ -5042,20 +5072,24 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendEmptyMessage(MESSAGE_OPEN_OPTIONS);
 		}
 
-		public void vocabularyText(String text) throws RemoteException {
-			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_TEXT, text));
+		public void vocabularyText(String display, String text) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_TEXT,
+					new DisplayedString(display, text)));
 		}
 
-		public void vocabularyReset() throws RemoteException {
-			myhandler.sendEmptyMessage(MESSAGE_VOCABULARY_RESET);
+		public void vocabularyReset(String display) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_RESET,
+					display));
 		}
 
-		public void pickCompletion(int index) throws RemoteException {
-			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PICK_COMPLETION, index, 0));
+		public void pickCompletion(String display, int index) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PICK_COMPLETION,
+					index, 0, display));
 		}
 
-		public void promptLine(String text) throws RemoteException {
-			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PROMPT_LINE, text));
+		public void promptLine(String display, String text) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_PROMPT_LINE,
+					new DisplayedString(display, text)));
 		}
 
 		public void inputBarSelectAll() throws RemoteException {
@@ -6349,6 +6383,35 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return saved;
 		}
 		return "Connection";
+	}
+
+	/**
+	 * Whether {@code display} is the world this Activity is currently showing.
+	 *
+	 * <p>Read only on the UI handler thread — that is where
+	 * {@link #getConnectionDisplay()} is authoritative after
+	 * {@link #rememberForegroundConnection}. Completer and prompt traffic from
+	 * any other world is dropped here; the service-side clutch gate is only an
+	 * optimisation on the way in.
+	 */
+	private boolean isForegroundDisplay(final String display) {
+		return display != null && display.length() > 0
+				&& display.equals(getConnectionDisplay());
+	}
+
+	/**
+	 * Binder payload that carries which world produced a string, so the UI can
+	 * ignore foreign vocabulary and prompt traffic on the same handler queue as
+	 * {@code MESSAGE_SWITCH}.
+	 */
+	private static final class DisplayedString {
+		final String display;
+		final String value;
+
+		DisplayedString(final String display, final String value) {
+			this.display = display;
+			this.value = value;
+		}
 	}
 
 	private String getConnectionHost() {

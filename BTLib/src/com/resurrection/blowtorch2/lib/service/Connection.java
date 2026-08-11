@@ -2340,7 +2340,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (text.charAt(text.length() - 1) != '\n') {
 			text = text + "\n";
 		}
-		mService.doVocabularyText(text);
+		mService.doVocabularyText(mDisplay, text);
 	}
 
 	/** Cut a dump down to its newest bytes without starting mid-line.
@@ -2676,7 +2676,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mPromptsSeen++;
 		}
 		if (mPromptBar && text.length() > 0) {
-			mService.doPromptLine(text);
+			mService.doPromptLine(mDisplay, text);
 			return;
 		}
 		dispatchWholeLines(held);
@@ -2686,7 +2686,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public final void setPromptBar(final boolean on) {
 		mPromptBar = on;
 		if (!on) {
-			mService.doPromptLine("");
+			mService.doPromptLine(mDisplay, "");
 		}
 	}
 
@@ -2722,7 +2722,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * @param index counting from 1.
 	 */
 	public final void pickCompletion(final int index) {
-		mService.doPickCompletion(index);
+		mService.doPickCompletion(mDisplay, index);
 	}
 
 	/**
@@ -2774,7 +2774,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// Only while the completer is on, so a player not using it pays no
 		// binder traffic at all.
 		if (mWordComplete) {
-			mService.doVocabularyText(stripped);
+			mService.doVocabularyText(mDisplay, stripped);
 		}
 		
 		if (triggersDirty) {
@@ -4862,7 +4862,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * clear} can empty the bag without knowing how the UI is reached.
 	 */
 	public final void resetVocabulary() {
-		mService.doVocabularyReset();
+		mService.doVocabularyReset(mDisplay);
 	}
 
 	public final String getDisplayName() {
@@ -5750,7 +5750,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		applyTriggerSoundSettings();
 		// The vocabulary lives in the UI process for the life of that process, so
 		// without this a second world is offered the first one's mob names.
-		mService.doVocabularyReset();
+		mService.doVocabularyReset(mDisplay);
 		// Through the setter, not the field: setPromptBar(false) is what tells the
 		// UI to clear the bar. Assigning raw would leave a prompt from the previous
 		// connection pinned there with nothing left to clear it.
