@@ -153,7 +153,15 @@ function probeR4(where)
 		for i = 1, #buttons do
 			local d = buttons[i].data
 			if d ~= nil then
-				local cmd = tostring(d.command or "")
+				-- A "switch to button set" button has no command, so the first
+				-- version of this printed it as an empty string — and those are
+				-- exactly the buttons the report is about.
+				local cmd
+				if d.switchTo ~= nil and tostring(d.switchTo) ~= "" then
+					cmd = "->" .. tostring(d.switchTo)
+				else
+					cmd = tostring(d.command or "")
+				end
 				if #cmd > 20 then
 					cmd = string.sub(cmd, 1, 20)
 				end
