@@ -200,8 +200,17 @@ function probeR4(where)
 			touched = tostring(touchedbutton.data.label or "?")
 					.. (found and ":inSet" or ":STALE")
 		end
+		local rawHints = "nil"
+		if options ~= nil and options.show_gesture_hints ~= nil then
+			rawHints = tostring(options.show_gesture_hints)
+					.. "/" .. type(options.show_gesture_hints)
+		end
 		activity:probeButtonPad(tostring(where)
 			.. " touched=" .. touched
+			-- The badges: what was decided, and the raw value it was decided
+			-- from. The shape of that value is the whole question.
+			.. " hints=" .. tostring(buttonShowHints)
+			.. " rawHints=" .. rawHints
 			.. " set=" .. tostring(lastLoadedSet)
 			.. " n=" .. tostring(#buttons)
 			.. " view=" .. tostring(view:getWidth()) .. "x" .. tostring(view:getHeight())
@@ -4486,6 +4495,21 @@ function saveDefaultOptions()
 	drawButtons()
 end
 
+-- A switch that is on unless it says otherwise, read the way the rest of the
+-- code reads it.
+--
+-- The same value reaches Lua in three shapes: a string from the settings XML,
+-- a boolean from the Lua setters, and a number from a couple of initialisers —
+-- `1 ~= "1"` is a documented trap in this project. button.lua's draw path and
+-- the editor checkbox both spell the test "off only when it explicitly says
+-- off". loadOptions spelled it the other way round, listing the four forms
+-- that mean on and treating everything else as off, so any shape those four
+-- missed silently turned the badges off instead of leaving them alone.
+local function optionOnUnlessSaidOtherwise(value)
+	return not (value == false or value == "false"
+		or value == 0 or value == "0")
+end
+
 function loadOptions(data)
 	--Note("incoming options wad:"..data)
 	local loaded = loadSerialized(data, "the button options")
@@ -4522,10 +4546,7 @@ function loadOptions(data)
 	-- nil counts as on, the same way buttonOptions reads it for the checkbox:
 	-- settings saved before this option existed should still get the badges
 	-- rather than silently starting switched off.
-	buttonShowHints = options.show_gesture_hints == nil
-		or options.show_gesture_hints == true
-		or options.show_gesture_hints == "true"
-		or options.show_gesture_hints == "1"
+	buttonShowHints = optionOnUnlessSaidOtherwise(options.show_gesture_hints)
 	-- The plugin's Lua runs in this process, so hand the bindings straight to the
 	-- chrome listeners instead of routing them back out through the service.
 	pcall(function()
@@ -4533,10 +4554,7 @@ function loadOptions(data)
 			luajava.bindClass("com.resurrection.blowtorch2.lib.window.ChromeGestures")
 		ChromeGesturesClass:publish(options.chrome_gestures or "")
 	end)
-	buttonShowSwipePreview = options.show_swipe_preview == nil
-		or options.show_swipe_preview == true
-		or options.show_swipe_preview == "true"
-		or options.show_swipe_preview == "1"
+	buttonShowSwipePreview = optionOnUnlessSaidOtherwise(options.show_swipe_preview)
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()

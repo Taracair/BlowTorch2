@@ -4296,11 +4296,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		super.onUserLeaveHint();
 		// The moment Recents starts, which is the moment the ghost appears.
 		windowCall("button_window", "probeR4", "atUserLeave");
-		// Unconditional: the first version only logged when the controller
-		// existed, so a run that produced no line said nothing about whether
-		// this callback had even fired. Temporary probe.
-		android.util.Log.i("BT_PROBE_R2",
-				"onUserLeaveHint floating=" + (floatingButtons != null));
 	}
 
 	public void onPause() {
@@ -4316,8 +4311,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		// notify here at all and nothing to sequence — but taking the overlay
 		// windows down first is still the thing that keeps them from floating
 		// over whatever the player opens next.
-		android.util.Log.i("BT_PROBE_R2",
-				"onPause floating=" + (floatingButtons != null));
 		if (floatingButtons != null) {
 			floatingButtons.onPause();
 		}
@@ -5644,45 +5637,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				logFloatingPushProbe(json);
 				ensureFloatingButtons();
 				if (floatingButtons != null) {
 					floatingButtons.onButtonsChanged(json);
 				}
 			}
 		});
-	}
-
-	/**
-	 * R1 probe: what the Lua push actually said about the badges.
-	 *
-	 * <p>The payload is {@code {editing:bool, buttons:[…]}}, and each button
-	 * carries {@code showGestureHints}. The first version of this probe read
-	 * the payload as a bare array, so it reported zero buttons for every push
-	 * and measured nothing. Temporary; comes out with the fix.
-	 */
-	private static void logFloatingPushProbe(final String json) {
-		if (json == null) {
-			android.util.Log.i("BT_PROBE_R1", "push json=null");
-			return;
-		}
-		try {
-			org.json.JSONObject root = new org.json.JSONObject(json);
-			org.json.JSONArray arr = root.optJSONArray("buttons");
-			int n = arr == null ? 0 : arr.length();
-			int hints = 0;
-			for (int i = 0; i < n; i++) {
-				org.json.JSONObject o = arr.optJSONObject(i);
-				if (o != null && o.optBoolean("showGestureHints", true)) {
-					hints++;
-				}
-			}
-			android.util.Log.i("BT_PROBE_R1", "push editing="
-					+ root.optBoolean("editing", false) + " buttons=" + n
-					+ " withHints=" + hints + " len=" + json.length());
-		} catch (org.json.JSONException e) {
-			android.util.Log.i("BT_PROBE_R1", "push unparsed len=" + json.length());
-		}
 	}
 
 	/** Chrome IME lift — Mode A floaters sit above the keyboard; Mode B stay put. */
@@ -5726,8 +5686,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (name == null || name.length() == 0 || service == null) {
 						return;
 					}
-					android.util.Log.i("BT_PROBE_R2",
-							"loadButtonSet name=" + name);
 					try {
 						service.pluginXcallS("button_window", "loadButtonSet", name);
 					} catch (RemoteException e) {

@@ -142,7 +142,6 @@ public class OptionsDialog extends Dialog {
 	public void show() {
 		Window window = getWindow();
 		final boolean hideBars = shouldHideSystemBars();
-		logProbeR3("beforeShow");
 		if (window != null && hideBars) {
 			// The flash the maintainer kept seeing is this window taking focus
 			// with the bars in their default state, one frame before anything
@@ -160,7 +159,6 @@ public class OptionsDialog extends Dialog {
 			hideSystemBars(window);
 			window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
 		}
-		logProbeR3("afterShow");
 		window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 		int screenWidth = getContext().getResources().getDisplayMetrics().widthPixels;
 		WindowManager.LayoutParams params = window.getAttributes();
@@ -195,51 +193,6 @@ public class OptionsDialog extends Dialog {
 		}
 		win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 				WindowManager.LayoutParams.FLAG_FULLSCREEN);
-	}
-
-	/**
-	 * R3 probe: what the status bar is actually doing while Options opens.
-	 *
-	 * <p>Two fixes for the flash have missed, so this stops guessing and asks
-	 * the three questions the guesses assumed answers to: does this dialog
-	 * believe it should hide the bar at all, does the flag it copies from the
-	 * game window actually exist there, and is the bar reported visible to this
-	 * window at each step. Temporary; comes out with the fix.
-	 */
-	private void logProbeR3(final String where) {
-		StringBuilder sb = new StringBuilder(where);
-		sb.append(" shouldHide=").append(shouldHideSystemBars());
-		MainWindow host = findMainWindowHost();
-		sb.append(" host=").append(host != null);
-		if (host != null) {
-			Window game = host.getWindow();
-			sb.append(" gameFullscreenFlag=").append(game != null
-					&& (game.getAttributes().flags
-							& WindowManager.LayoutParams.FLAG_FULLSCREEN) != 0);
-		}
-		Window win = getWindow();
-		if (win != null) {
-			int flags = win.getAttributes().flags;
-			sb.append(" dialogFullscreenFlag=")
-					.append((flags & WindowManager.LayoutParams.FLAG_FULLSCREEN) != 0);
-			sb.append(" notFocusable=")
-					.append((flags & WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) != 0);
-			View decor = win.peekDecorView();
-			sb.append(" decor=").append(decor != null);
-			if (decor != null) {
-				WindowInsetsCompat in =
-						androidx.core.view.ViewCompat.getRootWindowInsets(decor);
-				sb.append(" statusVisible=").append(in == null ? "?"
-						: String.valueOf(in.isVisible(WindowInsetsCompat.Type.statusBars())));
-			}
-		}
-		android.util.Log.i("BT_PROBE_R3", sb.toString());
-	}
-
-	@Override
-	public void onAttachedToWindow() {
-		super.onAttachedToWindow();
-		logProbeR3("onAttachedToWindow");
 	}
 
 	/**
