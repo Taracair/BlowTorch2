@@ -525,7 +525,7 @@ function showDialog(initialValues)
   -- Master switch. Off hides them everywhere; on lets each button decide, in the
   -- button's own editor. Saying so here is what stops the two reading as the
   -- same switch that will not remember anything.
-  hintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges — all buttons (each button can still opt out)")
+  hintsCb:setText("Show swipe letters, corner arrows, hold and accordion badges — all buttons (each button can still opt out)")
   hintsCb:setTextSize(textSizeSmall)
   hintsCb:setOnCheckedChangeListener(showGestureHintsCheckChangeListener)
   hintsCb:setLayoutParams(fillparams)

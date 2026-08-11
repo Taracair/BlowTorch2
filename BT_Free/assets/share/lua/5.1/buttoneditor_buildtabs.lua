@@ -296,7 +296,7 @@ function buildTabs(host, content, o)
 	-- anywhere, and with it on this decides for this tile.
 	o.widgets.gestureHintsCb = luajava.new(CheckBox,o.context)
 	local gestureHintsCb = o.widgets.gestureHintsCb
-	gestureHintsCb:setText("Show swipe letters, corner arrows, Hold and accordion badges")
+	gestureHintsCb:setText("Show swipe letters, corner arrows, hold and accordion badges")
 	gestureHintsCb:setChecked(editorValues.showGestureHintsButton ~= false)
 	if o.numediting > 1 then
 		gestureHintsCb:setEnabled(false)

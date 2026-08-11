@@ -244,7 +244,7 @@ it cannot be disabled or deleted.
 
 | Option | Default | Notes |
 |--------|---------|--------|
-| **Show gesture hints** | on | Draw swipe arrows, hold (**H**) and accordion chevrons on the tiles. Off is a cleaner pad you have to remember |
+| **Show gesture hints** | on | Draw swipe arrows, hold (**H**) and accordion chevrons on the tiles. Off is a cleaner pad you have to remember. The same switch is in Edit mode under the gear, as **Markings on buttons**, which is where to look on a profile too old to have this row. It is the master: with it off nothing is drawn anywhere, and with it on each button may still opt out in its own Swipe tab |
 | **Offer button layout wizard** | on | Show the pack/size picker once after connect on a new profile. Cleared when you finish or skip it; turn it back on to see the prompt again |
 | **Load button set from wizard** | — | Opens the wizard right now, at any time. Same as `.layoutwizard`. Writes only the sets you name; removes nothing |
 | **Button size** | Comfortable | Compact / Comfortable / Large / Extra large / **Fit to screen**. Picking one resizes the **current** set immediately, keeping its arrangement — tile size and grid spacing move together, so a compass rose stays a rose. Also becomes the wizard's default |

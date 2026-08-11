@@ -210,9 +210,17 @@ direction, so a button that only uses ↑ ↓ ← → still behaves exactly as i
 always did — you do not have to aim more carefully than before.
 
 Swipe overrides the older Flip action when a swipe command is set. In Edit
-mode, open a button and fill the Swipe fields. Optional gesture-hint arrows
-draw on the tile (Options → Button → Show gesture hints): letters on the
-edges for straight swipes, small arrows in the corners for diagonals.]])
+mode, open a button and fill the Swipe fields. Optional markings draw on the
+tile: letters on the edges for straight swipes, small arrows in the corners
+for diagonals, H for hold, a chevron for an accordion.
+
+Two switches decide whether they are drawn, and the first one wins:
+
+  all buttons   Edit mode → the gear button → Markings on buttons
+  this button   the button's own Swipe tab, same wording
+
+With the all-buttons switch off nothing is drawn anywhere, however the
+individual buttons are set. With it on, each button may still opt out.]])
 end
 
 TOPICS.buttons_hold = function()
