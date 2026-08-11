@@ -121,6 +121,16 @@ function loadButtons(args)
 			.. " floating layer. The accordion was removed; the buttons still"
 			.. " float. Untick 'Super button' to use an accordion instead.")
 	end
+	-- The buttons the touch handler was holding have just been thrown away.
+	-- The undo path clears this for exactly this reason and said so; loading a
+	-- set did not. The finger that pressed the button which ran .loadset is
+	-- still down when the new set arrives, so touchedbutton is left pointing at
+	-- a tile from the old set -- and resetTouchedButtonVisual's fast path
+	-- repaints whatever it is holding. One tile, the last one pressed, drawn on
+	-- top of the set that replaced it.
+	touchedbutton = {}
+	fingerdown = false
+	selectedtouchstart = false
 	clampAllButtons()
 	drawButtons()
 	view:invalidate()
@@ -173,7 +183,25 @@ function probeR4(where)
 			bw = buttonLayer:getWidth()
 			bh = buttonLayer:getHeight()
 		end
+		-- The one the touch handler is still holding, and whether it belongs to
+		-- the set now on screen. STALE here is the ghost: a tile from the set
+		-- before this one, which resetTouchedButtonVisual would repaint over
+		-- the current pad. It should now be impossible; if it ever prints, the
+		-- explanation was incomplete and some other path leaves the reference.
+		local touched = "none"
+		if touchedbutton ~= nil and touchedbutton.data ~= nil then
+			local found = false
+			for i = 1, #buttons do
+				if buttons[i] == touchedbutton then
+					found = true
+					break
+				end
+			end
+			touched = tostring(touchedbutton.data.label or "?")
+					.. (found and ":inSet" or ":STALE")
+		end
 		activity:probeButtonPad(tostring(where)
+			.. " touched=" .. touched
 			.. " set=" .. tostring(lastLoadedSet)
 			.. " n=" .. tostring(#buttons)
 			.. " view=" .. tostring(view:getWidth()) .. "x" .. tostring(view:getHeight())
@@ -872,6 +900,9 @@ local function cancelActiveTouchGesture()
 	shortHoldFired = false
 	accordionHoldFired = false
 	-- Always clear visuals — fingerdown may already be false when the system steals the gesture.
+	-- Before the repaint, because the repaint is the thing under suspicion:
+	-- Recents steals the gesture with a CANCEL, and this is the path that runs.
+	probeR4("touchCancel")
 	resetTouchedButtonVisual()
 	fingerdown = false
 	selectedtouchstart = false
