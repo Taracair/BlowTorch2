@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.util.SessionLogger;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
@@ -497,8 +498,21 @@ public class Processor {
 			// Ask the negotiator rather than re-deriving it here: it has already
 			// answered this command, and one source of truth cannot drift from the
 			// other. Local echo is off exactly while the server holds ECHO.
-			mReportTo.sendMessage(mReportTo.obtainMessage(
-					Connection.MESSAGE_LOCALECHO, mOptionHandler.isServerEcho() ? 0 : 1, 0));
+			//
+			// Run the UI update now when we are already on the Connection looper.
+			// rawProcess is called from that handler's dispatch(), and a normal
+			// sendMessage would sit *behind* the current turn — so the prompt
+			// text from this same packet reached the input bar before the mask
+			// flipped. On eden-test that meant: nickname still dotted (WONT
+			// arrived after "What is your name?"), password still clear (WILL
+			// arrived after the password prompt). Measured 11 Aug 2026.
+			Message echoMsg = mReportTo.obtainMessage(
+					Connection.MESSAGE_LOCALECHO, mOptionHandler.isServerEcho() ? 0 : 1, 0);
+			if (Looper.myLooper() == mReportTo.getLooper()) {
+				mReportTo.dispatchMessage(echoMsg);
+			} else {
+				mReportTo.sendMessage(echoMsg);
+			}
 		}
 
 		if (action == TC.WILL && option == TC.CHARSET) {

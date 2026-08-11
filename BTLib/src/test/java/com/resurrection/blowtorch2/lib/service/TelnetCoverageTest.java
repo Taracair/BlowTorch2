@@ -132,9 +132,13 @@ public class TelnetCoverageTest {
 
 	@Test
 	public void echo_serverTakingOverIsAccepted_andReleasedAgain() {
-		// Measured 1 Aug 2026: eden-test.rpgframework.de:4000 sends IAC WILL ECHO,
-		// then IAC WONT ECHO once we answer. Achaea never uses it. Until now the
-		// option fell into the default DONT branch, so a password stayed on screen.
+		// Measured 1 Aug 2026 / re-checked 11 Aug 2026 on eden-test.rpgframework.de:4000:
+		// WILL ECHO at connect (held through terminal probing), WONT ECHO in the
+		// same packet as "What is your name?", WILL ECHO again with the password
+		// prompt. Achaea never uses it. The negotiator must accept WILL; the UI
+		// must apply that state *during* rawProcess, not via a queued handler
+		// message behind the current dispatch — otherwise the prompt text lands
+		// before the mask flips (nickname still dotted, password still clear).
 		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
 		assertFalse(neg.isServerEcho());
 
