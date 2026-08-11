@@ -1436,6 +1436,20 @@ public class StellarService extends Service {
 		mCallbacks.finishBroadcast();
 	}
 
+	/** Ask the UI to open the Options screen. */
+	public final void doOpenOptions() {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).openOptions();
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doOpenOptions", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
 	/** Put text into the input bar at the caret with no automatic spacing. */
 	public final void doInputBarInsertLiteral(final String text) {
 		final int n = mCallbacks.beginBroadcast();

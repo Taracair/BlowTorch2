@@ -50,13 +50,16 @@ public class HelpCommand extends SpecialCommand {
 
 	static {
 		cmd("help", "Other", "this list; .help word shows only matching commands");
-		cmd("echo", "Playing", "print a line locally, without sending it");
+		cmd("echo", "Playing", "show or hide what you type when the server has "
+				+ "masked it");
 		cmd("run", "Playing", "walk a speedwalk string, like 4n2e");
 		cmd("disconnect", "Playing", "close the connection");
 		cmd("reconnect", "Playing", "close it and open it again");
 		cmd("switch", "Playing", "change to another world");
-		cmd("settings", "Playing", "open the options screen");
-		cmd("note", "Playing", "keep a note against this world");
+		cmd("options", "Playing", "open the Options screen, as the menu does");
+		cmd("settings", "Playing", "back up the settings file, or put the kept "
+				+ "copy back");
+		cmd("note", "Playing", "print a line in the window, without sending it");
 
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
@@ -438,6 +441,13 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .font              — say the current size\n"
 					+ "  .font +N | -N | <size> | default\n";
+		}
+		if (filter.equals("options")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .options:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .options           — none; it opens the Options screen\n"
+					+ "  The settings file itself is .settings\n";
 		}
 		if (filter.equals("settings")) {
 			return "\n"

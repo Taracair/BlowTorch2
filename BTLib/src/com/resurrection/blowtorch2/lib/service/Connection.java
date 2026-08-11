@@ -62,6 +62,7 @@ import com.resurrection.blowtorch2.lib.service.function.SpeedwalkCommand;
 import com.resurrection.blowtorch2.lib.service.function.SwitchWindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
 import com.resurrection.blowtorch2.lib.service.function.SettingsCommand;
+import com.resurrection.blowtorch2.lib.service.function.OptionsCommand;
 import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
@@ -620,6 +621,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(windowcmd.commandName, windowcmd);
 		SettingsCommand settingscmd = new SettingsCommand();
 		mSpecialCommands.put(settingscmd.commandName, settingscmd);
+		OptionsCommand optionscmd = new OptionsCommand();
+		mSpecialCommands.put(optionscmd.commandName, optionscmd);
 		
 		this.mDisplay = display;
 		this.mHost = host;

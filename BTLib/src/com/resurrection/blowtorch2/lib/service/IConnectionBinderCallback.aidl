@@ -49,6 +49,12 @@ oneway interface IConnectionBinderCallback {
 	/** Drop text at the caret exactly as given — no automatic spacing. */
 	void inputBarInsertLiteral(String text);
 	/**
+	 * Open the Options screen. The dialog belongs to the UI process, so the
+	 * service can only ask; a UI that is not there simply does not answer,
+	 * which is the same as the ⋮ menu not being reachable.
+	 */
+	void openOptions();
+	/**
 	 * Incoming text, for the word completer's vocabulary only. Sent solely while
 	 * completion is switched on, so a player not using it pays nothing: the main
 	 * window's text does not travel this way, it lives in the buffer the UI

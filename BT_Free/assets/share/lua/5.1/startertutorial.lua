@@ -161,6 +161,10 @@ Client-only echo (never sent to the MUD):
   .note <text>
 Try:  .note hello from the tutorial
 
+Settings without reaching for the menu:
+  .options           open the Options screen, same as the ⋮ menu.
+                     Handy on a button when the menu is out of reach
+
 Two you only need when something goes wrong:
   .settings          what is on disk; backup / restore the kept copy
   .echo on|off       unmask the input bar if a MUD took echoing over

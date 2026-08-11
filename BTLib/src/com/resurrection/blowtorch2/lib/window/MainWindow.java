@@ -277,6 +277,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_INPUT_INSERT_WORD = 931;
 	/** obj: text to drop at the caret with no automatic spacing. */
 	protected static final int MESSAGE_INPUT_INSERT_LITERAL = 936;
+	/** Open the Options screen; sent by {@code .options}. */
+	protected static final int MESSAGE_OPEN_OPTIONS = 937;
 	/** obj: incoming text, for the word completer's vocabulary. */
 	protected static final int MESSAGE_VOCABULARY_TEXT = 932;
 	/** obj: the world's prompt for the prompt bar; empty hides it. */
@@ -1351,6 +1353,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_INPUT_INSERT_LITERAL:
 					inputInsertLiteral((String) msg.obj);
 					break;
+				case MESSAGE_OPEN_OPTIONS:
+					openOptionsDialog();
+					break;
 				case MESSAGE_VOCABULARY_TEXT:
 					mWordSuggestions.learn((String) msg.obj);
 					mWordSuggestionsOn = true;
@@ -1887,6 +1892,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
+	/**
+	 * Open the Options screen.
+	 *
+	 * <p>Shared by the ⋮ menu and by {@code .options}, so a button bound to the
+	 * command lands on the same dialog the menu opens rather than a second one
+	 * built beside it. A dialog already on screen is left alone: two stacked
+	 * Options windows both write to the same settings, and dismissing the top
+	 * one would reveal a stale copy of what the player has just changed.
+	 */
+	void openOptionsDialog() {
+		if (optdialog != null && optdialog.isShowing()) {
+			return;
+		}
+		optdialog = new OptionsDialog(this, service, "main");
+		optdialog.show();
+	}
+
 	void showGameplayOptionsMenu(final View anchor) {
 		// Editing uses the FAB strip (settings / done / cancel); ⋮ is hidden then.
 		if (menuStack.size() > 0) {
@@ -2331,8 +2353,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			
 			//give up the list to the dialog.
 			int size = sg.getOptions().size();*/
-			optdialog = new OptionsDialog(this,service,"main");
-			optdialog.show();
+			openOptionsDialog();
 			//OptionsDialogFragment odf = new OptionsDialogFragment(service,"main",getFragmentManager());
 			//odf.show(getFragmentManager(), "dialog");
 			
@@ -5026,6 +5047,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void inputBarInsertLiteral(String text) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_INSERT_LITERAL, text));
+		}
+
+		public void openOptions() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_OPEN_OPTIONS);
 		}
 
 		public void vocabularyText(String text) throws RemoteException {
