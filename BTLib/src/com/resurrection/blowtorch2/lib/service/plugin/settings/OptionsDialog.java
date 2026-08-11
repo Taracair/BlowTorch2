@@ -170,10 +170,21 @@ public class OptionsDialog extends Dialog {
 		window.setAttributes(params);
 	}
 
-	/** Is the game hiding the status bar, so this dialog has to as well? */
+	/**
+	 * Is the game hiding the status bar, so this dialog has to as well?
+	 *
+	 * <p>Through {@link #findMainWindowHost()}, not {@code getContext()}. This
+	 * dialog is built with a theme, so {@code Dialog} wraps the activity in a
+	 * {@code ContextThemeWrapper} and {@code getContext() instanceof MainWindow}
+	 * is false every single time. It was written that way, which made this
+	 * method a constant false and every fix hung off it dead code — measured,
+	 * not reasoned: the R3 probe printed {@code shouldHide=false} with the game
+	 * in fullscreen, and printed no {@code gameFullscreenFlag} at all because
+	 * that branch never ran either.
+	 */
 	private boolean shouldHideSystemBars() {
-		return getContext() instanceof MainWindow
-				&& ((MainWindow) getContext()).isStatusBarHidden();
+		MainWindow game = findMainWindowHost();
+		return game != null && game.isStatusBarHidden();
 	}
 
 	/** Match HelpDialog when the status bar is hidden. */
@@ -198,8 +209,10 @@ public class OptionsDialog extends Dialog {
 	private void logProbeR3(final String where) {
 		StringBuilder sb = new StringBuilder(where);
 		sb.append(" shouldHide=").append(shouldHideSystemBars());
-		if (getContext() instanceof MainWindow) {
-			Window game = ((MainWindow) getContext()).getWindow();
+		MainWindow host = findMainWindowHost();
+		sb.append(" host=").append(host != null);
+		if (host != null) {
+			Window game = host.getWindow();
 			sb.append(" gameFullscreenFlag=").append(game != null
 					&& (game.getAttributes().flags
 							& WindowManager.LayoutParams.FLAG_FULLSCREEN) != 0);

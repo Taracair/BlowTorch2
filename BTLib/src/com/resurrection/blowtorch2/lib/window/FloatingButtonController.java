@@ -377,6 +377,7 @@ public class FloatingButtonController {
 				}
 			}
 			rebuild(models);
+			logProbeR2("afterPush");
 		} catch (JSONException e) {
 			BlowTorchLogger.logMinor(TAG + ".onButtonsChanged", e);
 		}
@@ -1267,18 +1268,48 @@ public class FloatingButtonController {
 		});
 	}
 
+	/**
+	 * R2 probe: which floating buttons this controller is holding, by name.
+	 *
+	 * <p>The first version printed only models with a {@code switchTo}, which
+	 * is the wrong question: a button that changes the set usually carries the
+	 * command {@code .loadset <name>} instead, and those were invisible to the
+	 * probe. Every model and every attached view is named now, so a leftover
+	 * button from the previous set can be told apart from one the system is
+	 * painting from its own task snapshot. Temporary.
+	 */
 	private void logProbeR2(final String where) {
 		StringBuilder sb = new StringBuilder(where);
 		sb.append(" overlay=").append(overlayMode);
+		sb.append(" resumed=").append(resumed);
 		sb.append(" views=").append(views.size());
 		sb.append(" models=").append(lastModels.size());
 		for (FloatingButtonModel m : lastModels) {
-			if (m.switchTo != null && m.switchTo.length() > 0) {
-				sb.append(" [").append(m.index).append(':').append(m.label)
-						.append("->").append(m.switchTo).append(']');
-			}
+			sb.append(" m[").append(describeModel(m)).append(']');
+		}
+		for (FloatingButtonView v : views) {
+			sb.append(" v[").append(describeModel(v.getModel()))
+					.append(" attached=").append(v.isAttachedToWindow())
+					.append(']');
 		}
 		Log.i(PROBE_R2, sb.toString());
+	}
+
+	/** index, label and what it does, short enough for one log line. */
+	private static String describeModel(final FloatingButtonModel m) {
+		if (m == null) {
+			return "null";
+		}
+		String what = m.switchTo != null && m.switchTo.length() > 0
+				? "->" + m.switchTo
+				: (m.command == null ? "" : m.command);
+		if (what.length() > 24) {
+			what = what.substring(0, 24);
+		}
+		// Keyboard mode is worth a character here: a "show only with the
+		// keyboard" button legitimately has a model and no window, which looks
+		// exactly like a button that failed to attach.
+		return m.index + ":" + m.label + (m.isKeyboardMode() ? " kb " : " ") + what;
 	}
 
 	private void clearViews() {
