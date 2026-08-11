@@ -4278,25 +4278,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		super.onStop();
 	}
 	
-	/**
-	 * R4 probe: the button window Lua reports what its pad is holding.
-	 *
-	 * <p>Called from Lua with colon syntax on the activity, the way
-	 * {@code onFloatingButtonsChanged} is. Logging from Lua directly is what
-	 * raised "Not a valid OO function call" the last time, because a static
-	 * {@code Log.i} reached through a bound class wants the receiver as the
-	 * first argument. Temporary.
-	 */
-	public void probeButtonPad(final String note) {
-		android.util.Log.i("BT_PROBE_R4", note == null ? "null" : note);
-	}
-
-	@Override
-	public void onUserLeaveHint() {
-		super.onUserLeaveHint();
-		// The moment Recents starts, which is the moment the ghost appears.
-		windowCall("button_window", "probeR4", "atUserLeave");
-	}
 
 	public void onPause() {
 		//Log.e("WINDOW","onDestroy()");

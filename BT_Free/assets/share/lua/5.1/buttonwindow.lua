@@ -80,11 +80,46 @@ DisplayMetrics = view:getContext():getResources():getDisplayMetrics()
 
 suppress_editor = false
 
+-- A switch that is on unless it says otherwise, read the way the rest of the
+-- code reads it.
+--
+-- The same value reaches Lua in three shapes: a string from the settings XML,
+-- a boolean from the Lua setters, and a number from a couple of initialisers —
+-- `1 ~= "1"` is a documented trap in this project. button.lua's draw path and
+-- the editor checkbox both spell the test "off only when it explicitly says
+-- off". loadOptions spelled it the other way round, listing the four forms
+-- that mean on and treating everything else as off, so any shape those four
+-- missed silently turned the badges off instead of leaving them alone.
+local function optionOnUnlessSaidOtherwise(value)
+	return not (value == false or value == "false"
+		or value == 0 or value == "0")
+end
+
+-- Put the drawing options back into the globals button.lua declares.
+--
+-- Measured, not guessed: the R4 probe printed hints=true immediately after a
+-- set load while the stored option said "false", and hints=false a moment
+-- later. loadButtons reloads button.lua, and loading it re-runs its
+-- declarations — buttonShowHints, buttonShowSwipePreview and buttonRoundness
+-- all snap back to the file's own defaults, discarding what the options said.
+-- Whichever of loadButtons and loadOptions ran last decided how the pad looked,
+-- so the badges came and went with no setting having changed. This is the one
+-- place that owns those three, and both callers use it.
+function applyButtonDrawOptions()
+	local o = options or {}
+	-- 6 is the default declared in default_settings_*.xml (key "roundess").
+	buttonRoundness = (tonumber(o.roundness) or 6) * (density or 1)
+	buttonShowHints = optionOnUnlessSaidOtherwise(o.show_gesture_hints)
+	buttonShowSwipePreview = optionOnUnlessSaidOtherwise(o.show_swipe_preview)
+end
+
 function loadButtons(args)
 
 	debugString("Button Window loading buttons...")
 	package.loaded["button"] = nil
 	require("button")
+	-- The reload above has just reset them to button.lua's defaults.
+	applyButtonDrawOptions()
 
 	-- marshal is a native library and args comes across the binder, where the
 	-- parcel budget can truncate. Do not assume decode returns a table: an
@@ -139,85 +174,8 @@ function loadButtons(args)
 	end
 
 	debugString(string.format("Button Window loaded button set, %s successfully",lastLoadedSet))
-	probeR4("loadButtons")
 	maybeOfferLayoutWizard()
 	return true
-end
-
--- R4 probe: what the pad is holding, and how big the layer under it is.
---
--- The ghost button is reported on the pad, not among the floating windows, so
--- this asks the two questions that tell those apart: does a button from the
--- previous set survive in the Lua table (stale data), or is the table right
--- while the bitmap under it is a different size from the view (stale pixels).
--- Everything goes through the activity with colon syntax; a static Log.i
--- reached from Lua is what raised "Not a valid OO function call" before.
--- Temporary, comes out with the fix.
-function probeR4(where)
-	pcall(function()
-		local activity = GetActivity()
-		if activity == nil or activity.probeButtonPad == nil then
-			return
-		end
-		local parts = {}
-		for i = 1, #buttons do
-			local d = buttons[i].data
-			if d ~= nil then
-				-- A "switch to button set" button has no command, so the first
-				-- version of this printed it as an empty string — and those are
-				-- exactly the buttons the report is about.
-				local cmd
-				if d.switchTo ~= nil and tostring(d.switchTo) ~= "" then
-					cmd = "->" .. tostring(d.switchTo)
-				else
-					cmd = tostring(d.command or "")
-				end
-				if #cmd > 20 then
-					cmd = string.sub(cmd, 1, 20)
-				end
-				parts[#parts + 1] = tostring(d.label or "?") .. "=" .. cmd
-			end
-		end
-		local bw, bh = -1, -1
-		if buttonLayer ~= nil then
-			bw = buttonLayer:getWidth()
-			bh = buttonLayer:getHeight()
-		end
-		-- The one the touch handler is still holding, and whether it belongs to
-		-- the set now on screen. STALE here is the ghost: a tile from the set
-		-- before this one, which resetTouchedButtonVisual would repaint over
-		-- the current pad. It should now be impossible; if it ever prints, the
-		-- explanation was incomplete and some other path leaves the reference.
-		local touched = "none"
-		if touchedbutton ~= nil and touchedbutton.data ~= nil then
-			local found = false
-			for i = 1, #buttons do
-				if buttons[i] == touchedbutton then
-					found = true
-					break
-				end
-			end
-			touched = tostring(touchedbutton.data.label or "?")
-					.. (found and ":inSet" or ":STALE")
-		end
-		local rawHints = "nil"
-		if options ~= nil and options.show_gesture_hints ~= nil then
-			rawHints = tostring(options.show_gesture_hints)
-					.. "/" .. type(options.show_gesture_hints)
-		end
-		activity:probeButtonPad(tostring(where)
-			.. " touched=" .. touched
-			-- The badges: what was decided, and the raw value it was decided
-			-- from. The shape of that value is the whole question.
-			.. " hints=" .. tostring(buttonShowHints)
-			.. " rawHints=" .. rawHints
-			.. " set=" .. tostring(lastLoadedSet)
-			.. " n=" .. tostring(#buttons)
-			.. " view=" .. tostring(view:getWidth()) .. "x" .. tostring(view:getHeight())
-			.. " bmp=" .. tostring(bw) .. "x" .. tostring(bh)
-			.. " draw=" .. tostring(draw)
-			.. " [" .. table.concat(parts, " ") .. "]")
-	end)
 end
 
 function printTable(key,o)
@@ -909,9 +867,6 @@ local function cancelActiveTouchGesture()
 	shortHoldFired = false
 	accordionHoldFired = false
 	-- Always clear visuals — fingerdown may already be false when the system steals the gesture.
-	-- Before the repaint, because the repaint is the thing under suspicion:
-	-- Recents steals the gesture with a CANCEL, and this is the path that runs.
-	probeR4("touchCancel")
 	resetTouchedButtonVisual()
 	fingerdown = false
 	selectedtouchstart = false
@@ -4495,21 +4450,6 @@ function saveDefaultOptions()
 	drawButtons()
 end
 
--- A switch that is on unless it says otherwise, read the way the rest of the
--- code reads it.
---
--- The same value reaches Lua in three shapes: a string from the settings XML,
--- a boolean from the Lua setters, and a number from a couple of initialisers —
--- `1 ~= "1"` is a documented trap in this project. button.lua's draw path and
--- the editor checkbox both spell the test "off only when it explicitly says
--- off". loadOptions spelled it the other way round, listing the four forms
--- that mean on and treating everything else as off, so any shape those four
--- missed silently turned the badges off instead of leaving them alone.
-local function optionOnUnlessSaidOtherwise(value)
-	return not (value == false or value == "false"
-		or value == 0 or value == "0")
-end
-
 function loadOptions(data)
 	--Note("incoming options wad:"..data)
 	local loaded = loadSerialized(data, "the button options")
@@ -4541,12 +4481,8 @@ function loadOptions(data)
 	if not layoutPendingTruthy(loaded.layout_wizard_pending) then
 		layoutWizardDialogOpen = false
 	end
-	-- 6 is the default declared in default_settings_*.xml (key "roundess").
-	buttonRoundness = (tonumber(options.roundness) or 6) * density
-	-- nil counts as on, the same way buttonOptions reads it for the checkbox:
-	-- settings saved before this option existed should still get the badges
-	-- rather than silently starting switched off.
-	buttonShowHints = optionOnUnlessSaidOtherwise(options.show_gesture_hints)
+	-- Roundness and the two badge switches, in the one place that owns them.
+	applyButtonDrawOptions()
 	-- The plugin's Lua runs in this process, so hand the bindings straight to the
 	-- chrome listeners instead of routing them back out through the service.
 	pcall(function()
@@ -4554,7 +4490,6 @@ function loadOptions(data)
 			luajava.bindClass("com.resurrection.blowtorch2.lib.window.ChromeGestures")
 		ChromeGesturesClass:publish(options.chrome_gestures or "")
 	end)
-	buttonShowSwipePreview = optionOnUnlessSaidOtherwise(options.show_swipe_preview)
 	--Note("options loaded, roundess="..buttonRoundness)
 	--clearButtons()
 	drawButtons()

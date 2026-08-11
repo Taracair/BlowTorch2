@@ -41,7 +41,7 @@
 		</intent>
 	</queries>
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="false" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled" android:usesCleartextTraffic="true">
-    	<meta-data android:value="234" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
+    	<meta-data android:value="235" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
         <!--
           FreeLauncher stays the home screen entry so a pinned icon keeps
           resolving to the same component; changing it made the pinned shortcut
