@@ -423,7 +423,10 @@ public class CompleteCommand extends SpecialCommand {
 	private Object forgetLearned(Connection c) {
 		// The file first, then the reset: the UI reloads this world's pairings
 		// when it takes a vocabulary reset, so a file still there would come
-		// straight back in.
+		// straight back in. The UI also erases on the input path for the same
+		// command, because that path runs first and a dirty save between the
+		// two would otherwise resurrect the bag; this side stays for buttons
+		// and any route that never went through that input handler.
 		com.resurrection.blowtorch2.lib.window.CommandKnowledgeStore.erase(
 				c.getServiceContext(), c.getDisplayName());
 		c.resetVocabulary();

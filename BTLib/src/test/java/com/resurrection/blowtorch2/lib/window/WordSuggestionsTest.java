@@ -552,6 +552,18 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void aDotCommandIsNotLearnedAsAVerb() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learnCommand(".suggest clear");
+		w.learnCommand(".suggest learned");
+		w.learn("a troll waits\n");
+		assertTrue(w.describeLearned(12, 6).startsWith("Nothing learned"));
+		assertEquals("troll", w.suggest("tro", 5, false, "kill").get(0));
+	}
+
+	@Test
 	public void whatWasLearnedSurvivesBeingWrittenOutAndReadBack() {
 		WordSuggestions w = new WordSuggestions();
 		w.setRankByPosition(true);

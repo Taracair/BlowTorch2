@@ -441,7 +441,14 @@ public final class WordSuggestions {
 		if (line == null) {
 			return;
 		}
-		String[] parts = line.trim().split("\\s+");
+		String trimmed = line.trim();
+		// Local BlowTorch commands are not verbs this world takes. Learning
+		// ".suggest clear" would teach suggest→clear, and a dirty save of that
+		// bag after a forget could put the file back before the reset landed.
+		if (trimmed.startsWith(".")) {
+			return;
+		}
+		String[] parts = trimmed.split("\\s+");
 		String verb = null;
 		for (int i = 0; i < parts.length; i++) {
 			String key = commandWord(parts[i]);

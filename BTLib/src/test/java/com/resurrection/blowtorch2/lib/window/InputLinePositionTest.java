@@ -51,4 +51,21 @@ public class InputLinePositionTest {
 		assertEquals(null, MainWindow.leadingVerb("   "));
 		assertEquals(null, MainWindow.leadingVerb("..."));
 	}
+
+	@Test
+	public void suggestClearIsRecognisedUnderEveryNameItAnswersTo() {
+		assertTrue(MainWindow.isSuggestForgetCommand(".suggest clear"));
+		assertTrue(MainWindow.isSuggestForgetCommand("  .Suggest  Forget  "));
+		assertTrue(MainWindow.isSuggestForgetCommand(".complete clear"));
+		assertTrue(MainWindow.isSuggestForgetCommand(".suggestions forget"));
+	}
+
+	@Test
+	public void otherSuggestLinesAreNotAForget() {
+		assertFalse(MainWindow.isSuggestForgetCommand(".suggest learned"));
+		assertFalse(MainWindow.isSuggestForgetCommand(".suggest on"));
+		assertFalse(MainWindow.isSuggestForgetCommand(".suggest clear now"));
+		assertFalse(MainWindow.isSuggestForgetCommand("suggest clear"));
+		assertFalse(MainWindow.isSuggestForgetCommand("kill troll"));
+	}
 }

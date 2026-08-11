@@ -1216,13 +1216,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// would become a verb on the suggestion strip. This adds
 						// nothing to what can be completed, only to what is known
 						// about where a word belongs in a line.
-						// Before learning, not after: reading the file replaces
-						// what is held, so a load that ran second would drop the
-						// command that had just been typed into it.
-						loadCommandKnowledge();
-						mWordSuggestions.learnCommand(pdata);
-						mCommandKnowledgeDirty = true;
-						maybeSaveCommandKnowledge();
+						// Forget on this side first: the service erase+reset is
+						// oneway and lands later, and without emptying here a
+						// dirty save on the next line would resurrect the file
+						// .suggest clear had just removed.
+						if (isSuggestForgetCommand(pdata)) {
+							forgetCommandKnowledgeHere();
+						} else if (!pdata.trim().startsWith(".")) {
+							// Before learning, not after: reading the file replaces
+							// what is held, so a load that ran second would drop the
+							// command that had just been typed into it.
+							// Dot commands (.suggest, .alias, …) are not game verbs.
+							loadCommandKnowledge();
+							mWordSuggestions.learnCommand(pdata);
+							mCommandKnowledgeDirty = true;
+							maybeSaveCommandKnowledge();
+						}
 					}
 					Character cr = new Character((char)13);
 					Character lf = new Character((char)10);
@@ -1386,10 +1395,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					// point: the reset exists so one world's mob names do not
 					// reach another, and a per-world file provides that scoping
 					// without throwing the pairings away every time you connect.
+					// Always re-read the file: .suggest clear erases it first, and
+					// an early return here would keep the old bag in memory so the
+					// next dirty save (including .suggest learned) wrote it back.
 					if (msg.obj instanceof String
 							&& isForegroundDisplay((String) msg.obj)) {
 						mWordSuggestions.clear();
-						loadCommandKnowledge();
+						reloadCommandKnowledge();
 						refreshWordSuggestions();
 					}
 					break;
@@ -3360,6 +3372,65 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mCommandKnowledgeWorld = world;
 		mCommandKnowledgeLoaded = true;
 		mCommandKnowledgeDirty = false;
+	}
+
+	/**
+	 * Re-read this world's pairings from disk, even if they are already loaded.
+	 *
+	 * <p>Used when the service says the vocabulary reset: connect and world
+	 * switch need the file for the world now on screen, and {@code .suggest
+	 * clear} needs an empty bag after that file has been erased. The ordinary
+	 * load path must not re-read on every command — that would drop pairings
+	 * learned since the last save — so the skip lives there, not here.
+	 */
+	private void reloadCommandKnowledge() {
+		mCommandKnowledgeLoaded = false;
+		mCommandKnowledgeWorld = null;
+		loadCommandKnowledge();
+	}
+
+	/**
+	 * Empty the learned bag on this process and remove its file, before the
+	 * service's matching erase has round-tripped.
+	 *
+	 * <p>The input path runs before {@code CompleteCommand.forgetLearned}, and
+	 * a dirty save between the two would write the old bag back over a deleted
+	 * file. Doing the same erase here closes that window.
+	 */
+	private void forgetCommandKnowledgeHere() {
+		String world = getConnectionDisplay();
+		CommandKnowledgeStore.erase(this, world);
+		mWordSuggestions.clearCommandKnowledge();
+		mWordSuggestions.clear();
+		mCommandKnowledgeDirty = false;
+		mCommandKnowledgeLoaded = true;
+		mCommandKnowledgeWorld = world;
+		refreshWordSuggestions();
+	}
+
+	/**
+	 * Whether this line is {@code .suggest clear} (or an older name for it).
+	 *
+	 * <p>Matched on the UI so the bag can be emptied before the service command
+	 * runs. The aliases are the ones {@code CompleteCommand} still accepts.
+	 */
+	static boolean isSuggestForgetCommand(final String line) {
+		if (line == null) {
+			return false;
+		}
+		String t = line.trim().toLowerCase(java.util.Locale.US);
+		if (!t.startsWith(".")) {
+			return false;
+		}
+		String[] parts = t.substring(1).trim().split("\\s+");
+		if (parts.length != 2) {
+			return false;
+		}
+		if (!parts[0].equals("suggest") && !parts[0].equals("complete")
+				&& !parts[0].equals("suggestions")) {
+			return false;
+		}
+		return parts[1].equals("clear") || parts[1].equals("forget");
 	}
 
 	/** Which world the loaded pairings belong to. */
