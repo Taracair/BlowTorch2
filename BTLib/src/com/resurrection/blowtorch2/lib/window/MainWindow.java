@@ -4879,6 +4879,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		mLocalEchoOff = off;
+		if (off && mInputBox != null) {
+			// Keep Last leaves the nickname in the bar after Enter. WILL ECHO
+			// for the password then masks that leftover as dots — not selected
+			// any more (setSingleLine / restartInput drop the Keep Last
+			// selection, cursor at end), so the player has to wipe it by hand.
+			// Measured on older eden 12 Aug 2026.
+			keepLastReplaceLength = 0;
+			historyWidgetKept = false;
+			keepLastPendingReplace = null;
+			keepLastSuppress = true;
+			try {
+				mInputBox.setText("");
+			} finally {
+				keepLastSuppress = false;
+			}
+		}
 		// Reuse the one place that owns the input field's type flags rather than
 		// setting them from two directions.
 		applyGrowInputBar(mGrowInputBar);
