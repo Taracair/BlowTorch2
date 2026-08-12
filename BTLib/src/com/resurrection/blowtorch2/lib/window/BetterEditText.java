@@ -84,10 +84,11 @@ public class BetterEditText extends EditText {
 	}
 
 	/**
-	 * Soft-keyboard Enter under MULTI_LINE arrives as {@code commitText("\n")} and
-	 * never fires {@code IME_ACTION_SEND}. Turn that into Send. Hardware Enter is
-	 * handled in {@code MainWindow}'s OnKeyListener only — intercepting
-	 * {@code sendKeyEvent} here as well double-fired the same key (Bugbot).
+	 * Soft-keyboard Enter under a multi-line-looking field may arrive as
+	 * {@code commitText("\n")}, {@code setComposingText("\n")}, or
+	 * {@code sendKeyEvent(ENTER)} — never {@code IME_ACTION_SEND}. All of those
+	 * become Send. Duplicate paths (IC + OnKeyListener) are collapsed by
+	 * {@link MainWindow}'s process-input debounce.
 	 */
 	private InputConnection wrapEnterSends(final InputConnection base) {
 		if (base == null) {
@@ -102,7 +103,34 @@ public class BetterEditText extends EditText {
 				}
 				return super.commitText(text, newCursorPosition);
 			}
+
+			@Override
+			public boolean setComposingText(CharSequence text, int newCursorPosition) {
+				if (isSoftEnterNewline(text)) {
+					BetterEditText.this.onEditorAction(EditorInfo.IME_ACTION_SEND);
+					return true;
+				}
+				return super.setComposingText(text, newCursorPosition);
+			}
+
+			@Override
+			public boolean sendKeyEvent(KeyEvent event) {
+				if (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+					if (event.isShiftPressed() && isMultiLineVisually()) {
+						return super.sendKeyEvent(event);
+					}
+					if (event.getAction() == KeyEvent.ACTION_DOWN) {
+						BetterEditText.this.onEditorAction(EditorInfo.IME_ACTION_SEND);
+					}
+					return true;
+				}
+				return super.sendKeyEvent(event);
+			}
 		};
+	}
+
+	private boolean isMultiLineVisually() {
+		return getMaxLines() > 1 || !isSingleLine();
 	}
 
 	/** Soft IMEs insert a lone newline for Enter instead of an editor action. */

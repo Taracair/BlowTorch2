@@ -1216,6 +1216,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					loadSettings();
 					break;
 				case MESSAGE_PROCESSINPUTWINDOW:
+					// Enter can hit OnKeyListener and InputConnection together;
+					// without this the MUD gets the line twice (Bugbot).
+					final long now = android.os.SystemClock.uptimeMillis();
+					if (now - mLastProcessInputUptime < PROCESS_INPUT_DEBOUNCE_MS) {
+						break;
+					}
+					mLastProcessInputUptime = now;
 
 					//input_box.debug(5);
 					
@@ -5032,7 +5039,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mInputBox.setNoPersonalizedLearning(false);
 		mInputBox.setAllowSuggestions(useSuggestions);
 		if (grow) {
-			type |= InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+			// Do not set TYPE_TEXT_FLAG_MULTI_LINE. That flag tells SwiftKey/Gboard to
+			// insert a newline on Enter instead of IME_ACTION_SEND — Darkwind's
+			// `[ Paging … <enter> … ]` then waits forever while GMCP keeps flowing.
+			// setSingleLine(false) + maxLines still shows pasted multi-line blocks.
 			mInputBox.setInputType(type);
 			mInputBox.setSingleLine(false);
 			mInputBox.setMaxLines(INPUT_GROW_MAX_LINES);
@@ -6745,6 +6755,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private boolean mGrowInputBar = true;
 	/** Options → Input → Lowercase start of sent commands. Softens IME + wire. */
 	private boolean mLowercaseCommandStart = false;
+	/** Collapse Enter from both the IME connection and OnKeyListener. */
+	private long mLastProcessInputUptime = 0;
+	private static final long PROCESS_INPUT_DEBOUNCE_MS = 120;
 	private ViewGroup mInputActionButtons = null;
 	private Button mInputSendButton = null;
 
