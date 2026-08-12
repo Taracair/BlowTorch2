@@ -552,7 +552,7 @@ public class GmcpCommand extends SpecialCommand {
 		return "\n" + Colorizer.getWhiteColor()
 				+ "GMCP (Generic Mud Communication Protocol) is an out-of-band telnet channel\n"
 				+ "(option 201) for structured JSON-ish updates (vitals, room, media, login).\n"
-				+ "On by default for new profiles. Servers differ — sniff if something looks off.\n\n"
+				+ "Enable under Options → Service → GMCP. Servers differ — sniff if something looks off.\n\n"
 				+ shortUsage()
 				+ "Options → Service → GMCP: Use GMCP?, Manage modules…, Log GMCP?\n"
 				+ "Native: Char.Login uses launcher account login/password; Client.Media plays sound/music.\n"

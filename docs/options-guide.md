@@ -64,8 +64,8 @@ On Android 11+ this needs **All files access** once: **Options → Miscellaneous
 
 ## GMCP
 
-GMCP is an optional structured out-of-band channel (telnet option 201). **Use GMCP?**
-is on by default for new profiles. Use **Manage modules…** to pick what goes in
+GMCP is an optional structured out-of-band channel (telnet option 201). Enable
+**Use GMCP?** under Options → Service → GMCP Options. Use **Manage modules…** to pick what goes in
 `Core.Supports.Set` (built-in, seen this session, catalog). Nothing auto-enables
 from traffic. **Supports String (advanced)** is the raw list if you prefer editing
 it by hand. **Log GMCP?** writes the handshake and every packet to

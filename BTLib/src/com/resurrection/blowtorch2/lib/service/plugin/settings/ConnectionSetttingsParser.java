@@ -308,6 +308,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		
 		try {
 			result = super.load();
+			migrateLegacyUseGmcp();
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -323,6 +324,26 @@ public class ConnectionSetttingsParser extends PluginParser {
 		//plugins.addAll(result);
 		
 		return result;
+	}
+
+	/**
+	 * Before the default flipped to off, {@code use_gmcp=true} was omitted from
+	 * saves. A saved profile with no key therefore meant "on". Built-in defaults
+	 * ({@code path == null}) keep the new plugin default (off).
+	 */
+	private void migrateLegacyUseGmcp() throws IOException {
+		if (path == null || settings == null) {
+			return;
+		}
+		byte[] bytes = snapshotDocumentBytes();
+		if (bytes == null || bytes.length == 0) {
+			return;
+		}
+		String doc = new String(bytes, "UTF-8");
+		if (doc.contains("key=\"use_gmcp\"") || doc.contains("key='use_gmcp'")) {
+			return;
+		}
+		settings.getSettings().getOptions().setOption("use_gmcp", "true");
 	}
 	
 	public static String outputXML(ConnectionSettingsPlugin p,ArrayList<Plugin> plugins) throws IllegalArgumentException, IllegalStateException, IOException {
@@ -675,10 +696,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case use_gmcp:
-						// Default is true; persist explicit false so disable sticks.
-						if((Boolean)opt.getValue() != true) {
-							dooutput = true;
-						}
+						// Always persist. Default flipped to false for new profiles;
+						// a missing key on load still means the old implicit-on (see
+						// migrateLegacyUseGmcp). If we only wrote non-defaults, a
+						// fresh world that saved "off" would look like a legacy
+						// profile on the next load and GMCP would turn itself on.
+						dooutput = true;
 						break;
 					case gmcp_supports:
 						if(!((String)opt.getValue()).equals("\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"")) {

@@ -469,9 +469,9 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption use_gmcp = new BooleanOption();
 		use_gmcp.setTitle("Use GMCP?");
-		use_gmcp.setDescription("Enable or disable GMCP (out-of-band telnet channel for structured game data). On by default for new profiles.");
+		use_gmcp.setDescription("Enable or disable GMCP (out-of-band telnet channel for structured game data).");
 		use_gmcp.setKey("use_gmcp");
-		use_gmcp.setValue(true);
+		use_gmcp.setValue(false);
 		gmcpOptions.addOption(use_gmcp);
 
 		CallbackOption manage_gmcp = new CallbackOption();
