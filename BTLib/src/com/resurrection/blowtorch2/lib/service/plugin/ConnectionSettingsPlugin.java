@@ -108,7 +108,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption use_suggestions = new BooleanOption();
 		use_suggestions.setTitle("Keyboard word suggestions");
-		use_suggestions.setDescription("Ask the soft keyboard to show autocomplete and spelling suggestions in the input field. Off is usually better for MUD commands. SwiftKey, Gboard, and similar keyboards may still show their own prediction row — that is controlled by the keyboard app, not BlowTorch.");
+		use_suggestions.setDescription("Ask the soft keyboard to show autocomplete and spelling suggestions in the input field. Off is usually better for MUD commands. SwiftKey, Gboard, and similar keyboards may still show their own prediction row — that is controlled by the keyboard app, not BlowTorch. Incognito / private keyboard chrome is only used while a password prompt is masked (telnet ECHO), not when this is off.");
 		use_suggestions.setKey("use_suggestions");
 		use_suggestions.setValue(false);
 		input.addOption(use_suggestions);
@@ -133,6 +133,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 		grow_input_bar.setKey("grow_input_bar");
 		grow_input_bar.setValue(true);
 		input.addOption(grow_input_bar);
+
+		BooleanOption lowercase_command_start = new BooleanOption();
+		lowercase_command_start.setTitle("Lowercase start of sent commands");
+		lowercase_command_start.setDescription(
+				"For case-sensitive worlds: softens the keyboard's auto-capitalisation and lowercases only the first letter of each command you send (Look → look). Mid-line text is unchanged (say Hello stays say Hello). Passwords are never rewritten. Off by default.");
+		lowercase_command_start.setKey("lowercase_command_start");
+		lowercase_command_start.setValue(false);
+		input.addOption(lowercase_command_start);
 		
 		BooleanOption compatilibility_mode = new BooleanOption();
 		compatilibility_mode.setTitle("Standard keyboard input (IME fix)");

@@ -3538,6 +3538,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		ListIterator<String> iterator = list.listIterator();
 		while (iterator.hasNext()) {
 			String cmd = iterator.next();
+			// Case-sensitive worlds: Look → look. Skip while telnet ECHO holds the
+			// password mask so a capital in a password is not rewritten.
+			cmd = CommandCase.softenForSend(cmd,
+					readBoolOption("lowercase_command_start", false), mLocalEcho);
 			
 			if (cmd.endsWith("~")) {
 				if (!inheritedEcho.isEmpty()) {
@@ -5253,6 +5257,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case grow_input_bar:
 				this.doSetGrowInputBar((Boolean) o.getValue());
 				break;
+			case lowercase_command_start:
+				// Wire transform reads the option tree; IME half reloads Input flags.
+				mService.doExecuteRequestLoadSettings();
+				break;
 			case compatibility_mode:
 				mService.doExecuteCompatibilityMode((Boolean) o.getValue());
 				break;
@@ -6430,6 +6438,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		prompt_bar,
 		/** Grow input bar with multiline text. */
 		grow_input_bar,
+		/** Soften first letter of sent commands for case-sensitive MUDs. */
+		lowercase_command_start,
 		/** Input compatibility mode. */
 		compatibility_mode,
 		/** Local echo. */

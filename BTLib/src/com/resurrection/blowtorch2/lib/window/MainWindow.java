@@ -4659,6 +4659,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (growOpt != null && growOpt.getValue() instanceof Boolean) {
 				mGrowInputBar = (Boolean) growOpt.getValue();
 			}
+			BaseOption lowerOpt = (BaseOption) group.findOptionByKey("lowercase_command_start");
+			if (lowerOpt != null && lowerOpt.getValue() instanceof Boolean) {
+				mLowercaseCommandStart = (Boolean) lowerOpt.getValue();
+			} else {
+				mLowercaseCommandStart = false;
+			}
 			setupEditor(useExtractUI,sugtmp);
 			fullscreenEditor = useExtractUI;
 			useSuggestions = sugtmp;
@@ -4951,7 +4957,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mInputBox == null) {
 			return;
 		}
-		int type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE;
+		// LONG_MESSAGE makes SwiftKey/Gboard auto-capitalize like SMS. Drop it when
+		// the player asked to soften command starts on a case-sensitive world.
+		final boolean softenCaps = mLowercaseCommandStart && !mLocalEchoOff;
+		int type = InputType.TYPE_CLASS_TEXT;
+		if (!softenCaps) {
+			type |= InputType.TYPE_TEXT_VARIATION_LONG_MESSAGE;
+		}
 		if (!useSuggestions) {
 			type |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 		}
@@ -4961,10 +4973,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// learning them. PasswordTransformationMethod does the masking; we deliberately
 			// do not set TYPE_TEXT_VARIATION_PASSWORD — that advertises a credential field
 			// to Autofill / password managers (Bitwarden). BetterEditText returns
-			// AUTOFILL_TYPE_NONE (Android 14+) and, while suggestions are off here,
-			// IME_FLAG_NO_PERSONALIZED_LEARNING so the keyboard does not store the password.
+			// AUTOFILL_TYPE_NONE (Android 14+) and IME_FLAG_NO_PERSONALIZED_LEARNING so
+			// SwiftKey Incognito / Gboard private mode only while the password is held.
 			type = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 			mInputBox.setAllowSuggestions(false);
+			mInputBox.setNoPersonalizedLearning(true);
 			mInputBox.setInputType(type);
 			mInputBox.setMaxLines(1);
 			mInputBox.setSingleLine(true);
@@ -4979,6 +4992,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		mInputBox.setTransformationMethod(null);
+		mInputBox.setNoPersonalizedLearning(false);
 		mInputBox.setAllowSuggestions(useSuggestions);
 		if (grow) {
 			type |= InputType.TYPE_TEXT_FLAG_MULTI_LINE;
@@ -6692,6 +6706,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int INPUT_GROW_MAX_LINES = 7;
 	/** When true, input bar grows with multiline text (default / .wrap on). */
 	private boolean mGrowInputBar = true;
+	/** Options → Input → Lowercase start of sent commands. Softens IME + wire. */
+	private boolean mLowercaseCommandStart = false;
 	private ViewGroup mInputActionButtons = null;
 	private Button mInputSendButton = null;
 

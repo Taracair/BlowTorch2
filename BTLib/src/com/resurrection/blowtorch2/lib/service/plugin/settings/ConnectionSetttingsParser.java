@@ -73,6 +73,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		speak_quiet_typing,
 		prompt_bar,
 		grow_input_bar,
+		lowercase_command_start,
 		compatibility_mode,
 		local_echo,
 		process_system_commands,
@@ -625,6 +626,11 @@ public class ConnectionSetttingsParser extends PluginParser {
 						break;
 					case grow_input_bar:
 						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case lowercase_command_start:
+						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;

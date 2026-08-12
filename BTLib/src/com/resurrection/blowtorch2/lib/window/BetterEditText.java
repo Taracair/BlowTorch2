@@ -32,6 +32,8 @@ public class BetterEditText extends EditText {
 	private Boolean useFullScreen = false;
 	private Boolean BackSpaceBugFix = false;
 	private boolean allowSuggestions = false;
+	/** True only while telnet ECHO masks the bar — SwiftKey Incognito / Gboard private. */
+	private boolean noPersonalizedLearning = false;
 	
 	public BetterEditText(Context context, AttributeSet attrs, int defStyle) {
 		super(context, attrs, defStyle);
@@ -77,14 +79,23 @@ public class BetterEditText extends EditText {
 		return connection;
 	}
 
-	/** Keep Autofill away from VARIATION_PASSWORD, but still stop the IME learning
-	 * typed text when suggestions are off (telnet password mask, or the option). */
+	/**
+	 * Suggestions and password-sensitivity are separate. {@code NO_SUGGESTIONS} is
+	 * the Options toggle; {@code IME_FLAG_NO_PERSONALIZED_LEARNING} is only for
+	 * telnet ECHO (password). Tying the learning flag to suggestions-off made
+	 * SwiftKey stay in Incognito for the whole session — same chrome as a
+	 * password field, even with letters visible and {@code .echo} normal.
+	 */
 	private void applySuggestionPolicy(EditorInfo attrs) {
 		if (allowSuggestions) {
 			attrs.inputType &= ~InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
 		} else {
 			attrs.inputType |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+		}
+		if (noPersonalizedLearning) {
 			attrs.imeOptions |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+		} else {
+			attrs.imeOptions &= ~EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
 		}
 	}
 	
@@ -280,19 +291,31 @@ public class BetterEditText extends EditText {
 
 	public void setAllowSuggestions(boolean allowSuggestions) {
 		this.allowSuggestions = allowSuggestions;
-		// Persist on the view so super.onCreateInputConnection (Extract UI /
-		// Compatibility) copies IME_FLAG_NO_PERSONALIZED_LEARNING from getImeOptions().
-		int ime = getImeOptions();
-		if (allowSuggestions) {
-			ime &= ~EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
-		} else {
-			ime |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
-		}
-		setImeOptions(ime);
 	}
 
 	public boolean getAllowSuggestions() {
 		return allowSuggestions;
+	}
+
+	/**
+	 * Ask the IME not to learn what is typed. Only for the password mask
+	 * ({@code MainWindow} while telnet ECHO is held). Persisted on
+	 * {@link #getImeOptions()} so Extract UI / Compatibility
+	 * {@code super.onCreateInputConnection} keeps the flag.
+	 */
+	public void setNoPersonalizedLearning(boolean noPersonalizedLearning) {
+		this.noPersonalizedLearning = noPersonalizedLearning;
+		int ime = getImeOptions();
+		if (noPersonalizedLearning) {
+			ime |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+		} else {
+			ime &= ~EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+		}
+		setImeOptions(ime);
+	}
+
+	public boolean getNoPersonalizedLearning() {
+		return noPersonalizedLearning;
 	}
 	
 	/** What is drawn after the caret. Never in the text. */
