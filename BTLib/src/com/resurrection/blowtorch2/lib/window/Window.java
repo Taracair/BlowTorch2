@@ -140,6 +140,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private long mProfScanNanos = 0;
 	private long mProfBleedNanos = 0;
 	private long mProfDrawNanos = 0;
+	// Nested inside draw (not disjoint): text/rect/tap/mark; remainder is
+	// draw - text - rect - tap - mark.
+	private long mProfTextNanos = 0;
+	private long mProfRectNanos = 0;
 	private long mProfTapNanos = 0;
 	private long mProfMarkNanos = 0;
 	private long mProfGapNanos = 0;
@@ -150,6 +154,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mProfTapCacheHits = 0;
 	private int mProfTapCacheMisses = 0;
 	private int mProfScrollingFrames = 0;
+	private int mProfUnits = 0;
+	private int mProfChars = 0;
+	private int mProfRows = 0;
+	private int mProfLines = 0;
+	private int mProfDtCalls = 0;
+	private int mProfClips = 0;
+	private int mProfWidthCalls = 0;
+	private int mProfSpaceSkips = 0;
+	private int mProfFastRuns = 0;
 	/** End of the previous onDraw; gap = time outside onDraw. 0 until first frame. */
 	private long mProfPrevFrameEnd = 0;
 	// This frame's own numbers, so the worst frame in the window can be reported
@@ -158,6 +171,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private long mFrameScanNanos = 0;
 	private long mFrameBleedNanos = 0;
 	private long mFrameDrawNanos = 0;
+	private long mFrameTextNanos = 0;
+	private long mFrameRectNanos = 0;
 	private long mFrameTapNanos = 0;
 	private long mFrameMarkNanos = 0;
 	private long mFrameGapNanos = 0;
@@ -167,15 +182,28 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mFrameTapCacheHits = 0;
 	private int mFrameTapCacheMisses = 0;
 	private boolean mFrameScrolling = false;
+	private int mFrameUnits = 0;
+	private int mFrameChars = 0;
+	private int mFrameRows = 0;
+	private int mFrameLines = 0;
+	private int mFrameDtCalls = 0;
+	private int mFrameClips = 0;
+	private int mFrameWidthCalls = 0;
+	private int mFrameSpaceSkips = 0;
+	private int mFrameFastRuns = 0;
 	// Snapshot of the worst frame seen since the last dump.
 	private long mProfWorstFrameNanos = 0;
 	private long mProfWorstScanNanos = 0;
 	private long mProfWorstBleedNanos = 0;
 	private long mProfWorstDrawNanos = 0;
+	private long mProfWorstTextNanos = 0;
+	private long mProfWorstRectNanos = 0;
 	private long mProfWorstTapNanos = 0;
 	private long mProfWorstMarkNanos = 0;
 	private long mProfWorstGapNanos = 0;
 	private int mProfWorstRetries = 0;
+	/** Scratch for dump-only ASCII advance probe; never touches mGridWidths. */
+	private float[] mProfAdvScratch = new float[96];
 
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
@@ -1324,9 +1352,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	private float drawTextOnGrid(final Canvas c, final String s, final float x, final float y,
 			final Paint paint) {
+		// BTPROF: time every caller (body, link, bold tap redraw, search) once here.
+		final long profTextStart = System.nanoTime();
 		if (s == null || s.length() == 0) {
+			mFrameTextNanos += System.nanoTime() - profTextStart;
 			return 0f;
 		}
+		mFrameChars += s.length();
 		final float baseline = screenBaselineY(y);
 		final float cell = mOneCharWidth;
 
@@ -1338,6 +1370,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final int spaceLen = s.length();
 		if (isAllSpaces(s, spaceLen)
 				&& !paint.isUnderlineText() && !paint.isStrikeThruText()) {
+			mFrameSpaceSkips++;
+			mFrameTextNanos += System.nanoTime() - profTextStart;
 			return cell * spaceLen;
 		}
 
@@ -1347,7 +1381,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		// already shown lands one glyph per cell. Nothing to measure and nothing to
 		// clip: draw the whole unit in one call.
 		if (mGridAsciiUniform && isPlainAscii(s, s.length())) {
+			mFrameFastRuns++;
+			mFrameDtCalls++;
 			c.drawText(s, 0, s.length(), x, baseline, paint);
+			mFrameTextNanos += System.nanoTime() - profTextStart;
 			return cell * s.length();
 		}
 
@@ -1363,6 +1400,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mGridWidths.length < len) {
 			mGridWidths = new float[len];
 		}
+		mFrameWidthCalls++;
 		paint.getTextWidths(s, mGridWidths);
 
 		// Draw a run in one call only when the font's own advance matches the cell
@@ -1398,19 +1436,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 			} else {
 				if (runStart >= 0) {
+					mFrameDtCalls++;
 					c.drawText(s, runStart, i, runX, baseline, paint);
 					runStart = -1;
 				}
 				if (fitsCell) {
 					// Fits its cell, so no clip is needed; just place it.
+					mFrameDtCalls++;
 					c.drawText(s, i, i + charCount, cursor, baseline, paint);
 				} else {
+					mFrameClips++;
 					c.save();
 					if (isBlock) {
 						c.clipRect(cursor, lineTop, cursor + cell, lineBot);
 						drawBlockElement(c, cp, cursor, lineTop, lineBot, cell, paint);
 					} else {
 						c.clipRect(cursor, textTop, cursor + cell, textBot);
+						mFrameDtCalls++;
 						c.drawText(s, i, i + charCount, cursor, baseline, paint);
 					}
 					c.restore();
@@ -1420,8 +1462,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			i += charCount;
 		}
 		if (runStart >= 0) {
+			mFrameDtCalls++;
 			c.drawText(s, runStart, len, runX, baseline, paint);
 		}
+		mFrameTextNanos += System.nanoTime() - profTextStart;
 		return cursor - x;
 	}
 
@@ -2125,6 +2169,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFrameScanNanos = 0;
 		mFrameBleedNanos = 0;
 		mFrameDrawNanos = 0;
+		mFrameTextNanos = 0;
+		mFrameRectNanos = 0;
 		mFrameTapNanos = 0;
 		mFrameMarkNanos = 0;
 		mFrameGapNanos = mProfPrevFrameEnd == 0 ? 0 : (profFrameStart - mProfPrevFrameEnd);
@@ -2134,6 +2180,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mFrameTapCacheHits = 0;
 		mFrameTapCacheMisses = 0;
 		mFrameScrolling = false;
+		mFrameUnits = 0;
+		mFrameChars = 0;
+		mFrameRows = 0;
+		mFrameLines = 0;
+		mFrameDtCalls = 0;
+		mFrameClips = 0;
+		mFrameWidthCalls = 0;
+		mFrameSpaceSkips = 0;
+		mFrameFastRuns = 0;
 		mSelectionCanvasSaved = false;
 		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
 			mSelectionIndicatorBitmap.eraseColor(0x00000000);
@@ -2397,6 +2452,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			final long profDrawStart = System.nanoTime();
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
+				mFrameLines++;
 				int searchPlainPos = 0;
 
 				// A picture the server sent, drawn over this line and the blank
@@ -2442,6 +2498,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					case WHITESPACE:
 					case TEXT:
 						TextTree.Text text = (TextTree.Text) u;
+						mFrameUnits++;
 						boolean doIndicator = false;
 						int indicatorlineoffset = 0;
 						if (selectedSelector != null && selectedSelector.line == workingline) {
@@ -2451,6 +2508,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							indicatorlineoffset = selectedSelector.line - workingline;
 						}
 						
+						// BTPROF rect: selection (linemode), ANSI background, search-match
+						// rects — the canvas rect work before mark/drawTextOnGrid.
+						final long profRectStart = System.nanoTime();
 						if (theSelection  != null) {
 							switch(linemode) {
 							case 1:
@@ -2530,6 +2590,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								}
 							}
 						}
+						mFrameRectNanos += System.nanoTime() - profRectStart;
 						
 						if (text.isLink() || doingLink) {
 							if (u instanceof TextTree.WhiteSpace) {
@@ -2753,6 +2814,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				workingcol = 0;
 				l.resetIterator();
 			}
+			mFrameRows = drawnlines;
 			mFrameDrawNanos += System.nanoTime() - profDrawStart;
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
@@ -2822,6 +2884,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfScanNanos += mFrameScanNanos;
 		mProfBleedNanos += mFrameBleedNanos;
 		mProfDrawNanos += mFrameDrawNanos;
+		mProfTextNanos += mFrameTextNanos;
+		mProfRectNanos += mFrameRectNanos;
 		mProfTapNanos += mFrameTapNanos;
 		mProfMarkNanos += mFrameMarkNanos;
 		mProfGapNanos += mFrameGapNanos;
@@ -2830,6 +2894,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfBleedLines += mFrameBleedLines;
 		mProfTapCacheHits += mFrameTapCacheHits;
 		mProfTapCacheMisses += mFrameTapCacheMisses;
+		mProfUnits += mFrameUnits;
+		mProfChars += mFrameChars;
+		mProfRows += mFrameRows;
+		mProfLines += mFrameLines;
+		mProfDtCalls += mFrameDtCalls;
+		mProfClips += mFrameClips;
+		mProfWidthCalls += mFrameWidthCalls;
+		mProfSpaceSkips += mFrameSpaceSkips;
+		mProfFastRuns += mFrameFastRuns;
 		if (mFrameScrolling) {
 			mProfScrollingFrames++;
 		}
@@ -2841,6 +2914,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			mProfWorstScanNanos = mFrameScanNanos;
 			mProfWorstBleedNanos = mFrameBleedNanos;
 			mProfWorstDrawNanos = mFrameDrawNanos;
+			mProfWorstTextNanos = mFrameTextNanos;
+			mProfWorstRectNanos = mFrameRectNanos;
 			mProfWorstTapNanos = mFrameTapNanos;
 			mProfWorstMarkNanos = mFrameMarkNanos;
 			mProfWorstGapNanos = mFrameGapNanos;
@@ -2857,6 +2932,29 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if ("mainDisplay".equals(mName)) {
 			final long wall = System.nanoTime() - mProfWindowStart;
 			final int frames = mProfFrames;
+			// Dump-only grid facts: do not touch mGridWidths / ensureGridCache.
+			featurePaint.setTypeface(mPrefFont);
+			featurePaint.setTextSize(mPrefFontSize);
+			final int probeLen = ASCII_PROBE.length();
+			if (mProfAdvScratch.length < probeLen) {
+				mProfAdvScratch = new float[probeLen];
+			}
+			featurePaint.getTextWidths(ASCII_PROBE, mProfAdvScratch);
+			float advMin = mProfAdvScratch[0];
+			float advMax = mProfAdvScratch[0];
+			boolean advSame = true;
+			for (int i = 1; i < probeLen; i++) {
+				final float w = mProfAdvScratch[i];
+				if (w < advMin) {
+					advMin = w;
+				}
+				if (w > advMax) {
+					advMax = w;
+				}
+				if (Math.abs(w - mProfAdvScratch[0]) >= 0.01f) {
+					advSame = false;
+				}
+			}
 			Log.e(PROF_TAG, "win=" + System.identityHashCode(this)
 					+ " name=" + mName
 					+ " frames=" + frames
@@ -2867,6 +2965,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					+ " scan=" + (mProfScanNanos / frames / 1000) + "us"
 					+ " bleed=" + (mProfBleedNanos / frames / 1000) + "us"
 					+ " draw=" + (mProfDrawNanos / frames / 1000) + "us"
+					+ " text=" + (mProfTextNanos / frames / 1000) + "us"
+					+ " rect=" + (mProfRectNanos / frames / 1000) + "us"
 					+ " tap=" + (mProfTapNanos / frames / 1000) + "us"
 					+ " mark=" + (mProfMarkNanos / frames / 1000) + "us"
 					+ " | WORST frame=" + (mProfWorstFrameNanos / 1000) + "us"
@@ -2874,6 +2974,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					+ " scan=" + (mProfWorstScanNanos / 1000) + "us"
 					+ " bleed=" + (mProfWorstBleedNanos / 1000) + "us"
 					+ " draw=" + (mProfWorstDrawNanos / 1000) + "us"
+					+ " text=" + (mProfWorstTextNanos / 1000) + "us"
+					+ " rect=" + (mProfWorstRectNanos / 1000) + "us"
 					+ " tap=" + (mProfWorstTapNanos / 1000) + "us"
 					+ " mark=" + (mProfWorstMarkNanos / 1000) + "us"
 					+ " | tapHit=" + mProfTapCacheHits
@@ -2887,13 +2989,30 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					+ " rules=" + mTapRules.size()
 					+ " canvasW=" + mCanvasWidthFactor
 					+ " sel=" + (theSelection != null ? "Y" : "N")
-					+ " scrollingFrames=" + mProfScrollingFrames);
+					+ " scrollingFrames=" + mProfScrollingFrames
+					+ " | units/f=" + (mProfUnits / frames)
+					+ " chars/f=" + (mProfChars / frames)
+					+ " rows/f=" + (mProfRows / frames)
+					+ " lines/f=" + (mProfLines / frames)
+					+ " dtCalls/f=" + (mProfDtCalls / frames)
+					+ " clips/f=" + (mProfClips / frames)
+					+ " widthCalls/f=" + (mProfWidthCalls / frames)
+					+ " spaceSkips/f=" + (mProfSpaceSkips / frames)
+					+ " fastRuns/f=" + (mProfFastRuns / frames)
+					+ " | gridUniform=" + (mGridAsciiUniform ? "Y" : "N")
+					+ " cell=" + mOneCharWidth
+					+ " fontSize=" + mPrefFontSize
+					+ " advMin=" + String.format(java.util.Locale.US, "%.2f", advMin)
+					+ " advMax=" + String.format(java.util.Locale.US, "%.2f", advMax)
+					+ " advSame=" + (advSame ? "Y" : "N"));
 		}
 		mProfFrames = 0;
 		mProfWindowStart = 0;
 		mProfScanNanos = 0;
 		mProfBleedNanos = 0;
 		mProfDrawNanos = 0;
+		mProfTextNanos = 0;
+		mProfRectNanos = 0;
 		mProfTapNanos = 0;
 		mProfMarkNanos = 0;
 		mProfGapNanos = 0;
@@ -2902,6 +3021,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfWorstScanNanos = 0;
 		mProfWorstBleedNanos = 0;
 		mProfWorstDrawNanos = 0;
+		mProfWorstTextNanos = 0;
+		mProfWorstRectNanos = 0;
 		mProfWorstTapNanos = 0;
 		mProfWorstMarkNanos = 0;
 		mProfWorstGapNanos = 0;
@@ -2912,6 +3033,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mProfTapCacheHits = 0;
 		mProfTapCacheMisses = 0;
 		mProfScrollingFrames = 0;
+		mProfUnits = 0;
+		mProfChars = 0;
+		mProfRows = 0;
+		mProfLines = 0;
+		mProfDtCalls = 0;
+		mProfClips = 0;
+		mProfWidthCalls = 0;
+		mProfSpaceSkips = 0;
+		mProfFastRuns = 0;
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
