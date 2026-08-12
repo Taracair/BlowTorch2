@@ -5011,12 +5011,68 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
+	/**
+	 * Reads a boolean option off the main game window, or {@code fallback} when
+	 * there is no window yet or the key is not a boolean option.
+	 */
+	public final boolean getMainWindowBooleanOption(final String key, final boolean fallback) {
+		try {
+			if (mWindows == null || mWindows.isEmpty() || mWindows.get(0) == null
+					|| mWindows.get(0).getSettings() == null) {
+				return fallback;
+			}
+			Object opt = mWindows.get(0).getSettings().findOptionByKey(key);
+			if (opt instanceof BooleanOption) {
+				return ((Boolean) ((BooleanOption) opt).getValue()).booleanValue();
+			}
+		} catch (Exception e) {
+			Log.w("BlowTorch", "getMainWindowBooleanOption " + key, e);
+		}
+		return fallback;
+	}
+
+	/**
+	 * Sets a boolean option on the main game window and makes it take effect at
+	 * once: the window's own settings, the UI over the callback, and a save.
+	 * Same reason as {@link #updateMainWindowIntegerOption}: window options do
+	 * not live in the connection settings plugin.
+	 *
+	 * @return false when there is no window to change yet.
+	 */
+	public final boolean updateMainWindowBooleanOption(final String key, final boolean value) {
+		try {
+			if (mWindows == null || mWindows.isEmpty() || mWindows.get(0) == null
+					|| mWindows.get(0).getSettings() == null) {
+				return false;
+			}
+			WindowToken main = mWindows.get(0);
+			String text = Boolean.toString(value);
+			main.getSettings().setOption(key, text);
+			IWindowCallback cb = mWindowCallbackMap.get(main.getName());
+			if (cb != null) {
+				cb.updateSetting(key, text);
+			}
+			mHandler.obtainMessage(MESSAGE_SAVESETTINGS, "").sendToTarget();
+			return true;
+		} catch (Exception e) {
+			Log.w("BlowTorch", "updateMainWindowBooleanOption " + key, e);
+			return false;
+		}
+	}
+
 	/** Updates a boolean setting in the main settings plugin.
 	 *
 	 * @param key id of the setting to affect.
 	 * @param value new value for setting <b>key</b>
 	 */
 	public final void updateBooleanSetting(final String key, final boolean value) {
+		// Options → Window nests WindowToken keys under the connection tree for
+		// the menu only. Writing them through the connection plugin leaves the
+		// profile's <window> section stale (.editbutton looked app-wide).
+		if (WindowTokenParser.isWindowOptionKey(key)) {
+			updateMainWindowBooleanOption(key, value);
+			return;
+		}
 		mSettings.updateBooleanSetting(key, value);
 		// SettingsGroup only notifies Lua OnOptionChanged; also run Connection KEYS handlers
 		// (keep_last, grow_input_bar, log_gmcp, …) so the UI/service actually apply the change.

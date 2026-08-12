@@ -2,12 +2,11 @@ package com.resurrection.blowtorch2.lib.service.function;
 
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.Connection;
-import com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption;
-import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 
 /**
  * Show/hide the input-bar Edit button: {@code .editbutton [on|off]}.
  * Same preference as Options → Window → Show Edit button?
+ * Per-world ({@code WindowToken}), not app-wide.
  */
 public class EditButtonCommand extends SpecialCommand {
 
@@ -19,14 +18,7 @@ public class EditButtonCommand extends SpecialCommand {
 
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim();
-		BooleanOption opt = findOption(c);
-		if (opt == null) {
-			c.sendDataToWindow(getErrorMessage("Editbutton command error",
-					"Show Edit button option is not available yet."));
-			return null;
-		}
-
-		boolean current = ((Boolean) opt.getValue()).booleanValue();
+		boolean current = c.getMainWindowBooleanOption(OPTION_KEY, true);
 		if (arg.length() == 0) {
 			String state = current ? "on" : "off";
 			c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
@@ -51,20 +43,13 @@ public class EditButtonCommand extends SpecialCommand {
 			return null;
 		}
 
-		c.updateBooleanSetting(OPTION_KEY, desired.booleanValue());
-		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
-				+ "Edit button " + (desired.booleanValue() ? "on" : "off") + ".\n");
-		return null;
-	}
-
-	private static BooleanOption findOption(Connection c) {
-		if (c == null || c.getSettings() == null) {
+		if (!c.updateMainWindowBooleanOption(OPTION_KEY, desired.booleanValue())) {
+			c.sendDataToWindow(getErrorMessage("Editbutton command error",
+					"There is no game window to change yet."));
 			return null;
 		}
-		BaseOption o = (BaseOption) c.getSettings().findOptionByKey(OPTION_KEY);
-		if (o instanceof BooleanOption) {
-			return (BooleanOption) o;
-		}
+		c.sendDataToWindow("\n" + Colorizer.getWhiteColor()
+				+ "Edit button " + (desired.booleanValue() ? "on" : "off") + ".\n");
 		return null;
 	}
 
