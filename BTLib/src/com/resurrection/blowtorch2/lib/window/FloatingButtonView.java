@@ -228,7 +228,8 @@ public class FloatingButtonView extends View {
 		if (model.floatRound) {
 			canvas.drawOval(oval, fillPaint);
 		} else {
-			canvas.drawRect(oval, fillPaint);
+			float rx = resolveCornerRadiusPx(model);
+			canvas.drawRoundRect(oval, rx, rx, fillPaint);
 		}
 		// Border (player colour) wins over floatFrame (auto-contrast). Drawing
 		// both stacked a second outline on MED/SUT-style floaters.
@@ -245,7 +246,8 @@ public class FloatingButtonView extends View {
 			if (model.floatRound) {
 				canvas.drawOval(frame, framePaint);
 			} else {
-				canvas.drawRect(frame, framePaint);
+				float rx = resolveCornerRadiusPx(model);
+				canvas.drawRoundRect(frame, rx, rx, framePaint);
 			}
 		}
 		String text = flippedVisual && model.flipLabel != null && model.flipLabel.length() > 0
@@ -681,5 +683,16 @@ public class FloatingButtonView extends View {
 			return 0xE0FFFFFF;
 		}
 		return 0xE0000000;
+	}
+
+	/**
+	 * {@code cornerRadiusPx < 0} means "not sent" (old payloads) → factory 6dp.
+	 * Explicit {@code 0} stays sharp, matching grid {@code buttonRoundness == 0}.
+	 */
+	private float resolveCornerRadiusPx(FloatingButtonModel model) {
+		if (model.cornerRadiusPx < 0f) {
+			return getResources().getDisplayMetrics().density * 6f;
+		}
+		return model.cornerRadiusPx;
 	}
 }

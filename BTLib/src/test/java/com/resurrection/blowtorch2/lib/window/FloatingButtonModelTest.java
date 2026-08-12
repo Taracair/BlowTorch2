@@ -64,15 +64,18 @@ public class FloatingButtonModelTest {
 		o.put("border", true);
 		o.put("borderColor", 0xE0FF00FFL);
 		o.put("floatFrame", true);
+		o.put("cornerRadiusPx", 24.5);
 		FloatingButtonModel original = new FloatingButtonModel(o);
 		assertTrue(original.border);
 		assertEquals(0xE0FF00FF, original.borderColor);
 		assertTrue(original.floatFrame);
+		assertEquals(24.5f, original.cornerRadiusPx, 0.01f);
 
 		FloatingButtonModel moved = original.withFloatPosition(40, 50);
 		assertTrue(moved.border);
 		assertEquals(0xE0FF00FF, moved.borderColor);
 		assertTrue(moved.floatFrame);
+		assertEquals(24.5f, moved.cornerRadiusPx, 0.01f);
 	}
 
 	/** The defect: one stored pair, so a portrait drag followed the turn. */

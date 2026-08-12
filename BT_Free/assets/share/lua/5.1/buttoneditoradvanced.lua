@@ -877,7 +877,9 @@ function makeUI(editorValues,numediting)
     ui.floatModeHelp = fnew(TextView,context)
     ui.floatModeHelp:setLayoutParams(fillparams)
     ui.floatModeHelp:setText(
-        "Always visible: the button stays on screen all the time.\n\n"
+        "Always visible: the button stays on screen all the time. In play "
+        .. "mode only the floating copy is drawn — the grid tile is hidden so "
+        .. "the two do not stack and look smudged.\n\n"
         .. "Show with keyboard: the button is there only while the keyboard is "
         .. "open. The rest of the time it is hidden everywhere, including the "
         .. "button grid.\n\n"

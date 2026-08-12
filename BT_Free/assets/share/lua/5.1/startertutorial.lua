@@ -270,9 +270,11 @@ TOPICS.buttons_super = function()
 and tick "Float over the game": a copy appears on the screen itself, on
 top of the game and on top of the keyboard. Very long press moves it.
 
-Two modes. "Always visible" keeps it on screen all the time. "Show with
-keyboard" gives you a keyboard assistant -- it exists only while the
-keyboard is open, and is hidden everywhere otherwise, the grid included.
+Two modes. "Always visible" keeps it on screen all the time — in play
+mode only the floating copy is drawn, so it does not stack on the grid
+tile and look smudged. "Show with keyboard" gives you a keyboard
+assistant -- it exists only while the keyboard is open, and is hidden
+everywhere otherwise, the grid included.
 Put .kb commands on that one (.kb stepb, .kb stepf, .kb stepu, .kb paste,
 .kb close) and you have caret keys, command recall and paste under your
 thumb while typing.

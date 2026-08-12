@@ -1608,6 +1608,8 @@ function notifyFloatingButtonsChanged()
 					-- which is the legacy auto-contrast outline.
 					o:put("border", d.border == true)
 					o:put("borderColor", tonumber(d.borderColor) or 0)
+					-- Same px radius the grid uses (options.roundness * density).
+					o:put("cornerRadiusPx", tonumber(buttonRoundness) or 0)
 					arr:put(o)
 				end
 			end
@@ -3280,14 +3282,17 @@ dpaint:setPathEffect(dash)
 dpaint:setStrokeWidth(2)
 
 --Style = luajava.bindClass("android.graphics.Paint$Style")
--- A "show only with keyboard" button is a keyboard assistant, so it has no
--- business sitting in the grid while there is no keyboard. It disappears from
--- the grid too, not just from the floating layer -- otherwise the grid copy
--- stays put and reads as the floating one refusing to hide.
+-- A floating button already has a live copy on the floating layer. Drawing it
+-- again on the grid (Always visible used to) stacked two translucent fills and
+-- labels at the same centre — MED/SUT looked smudged. Keyboard mode already
+-- hid the grid tile for that reason ("reads as the floating one refusing to
+-- hide"); Always visible now matches.
 --
--- Still drawn while editing: the player has to be able to find it to change it.
--- "Always visible" floaters are untouched and keep their grid copy.
-function isKeyboardOnlyFloater(b)
+-- Still drawn while editing: the player has to find it on the pad. When the
+-- Options master switch turns floating copies off, the grid tile stays hidden
+-- too in play (same as keyboard-mode floaters today) until the switch is back
+-- on or Float is unticked.
+function isPlayModeFloaterHiddenFromGrid(b)
 	if manage == true then
 		return false
 	end
@@ -3295,7 +3300,12 @@ function isKeyboardOnlyFloater(b)
 	if d == nil then
 		return false
 	end
-	return d.floating == true and d.floatMode == "keyboard"
+	return d.floating == true
+end
+
+-- Kept name for older call sites / mental model; same predicate.
+function isKeyboardOnlyFloater(b)
+	return isPlayModeFloaterHiddenFromGrid(b)
 end
 
 function drawButtons()
@@ -3317,8 +3327,8 @@ function drawButtons()
 	-- buried. Pass two matches buttonTouched (overlays first).
 	for i=1,#buttons do
 		local b = buttons[i]
-		if isKeyboardOnlyFloater(b) then
-			-- skip: lives above the keyboard, or nowhere
+		if isPlayModeFloaterHiddenFromGrid(b) then
+			-- skip: floating layer owns the chrome in play mode
 		elseif(b.selected) then
 			b:draw(1,canvas)
 		else
@@ -3348,7 +3358,7 @@ function drawButtonsNoSelected()
 	--end
 
 	for i,b in pairs(buttons) do
-		if(b.selected ~= true and not isKeyboardOnlyFloater(b)) then
+		if(b.selected ~= true and not isPlayModeFloaterHiddenFromGrid(b)) then
 			b:draw(0,buttonCanvas)
 		end
 	end
@@ -3754,7 +3764,7 @@ function buttonTouched(x,y)
 	for i=1,#buttons do
 	--for i,b in pairs(buttons) do
 		local b = buttons[i]
-		if not isKeyboardOnlyFloater(b) then
+		if not isPlayModeFloaterHiddenFromGrid(b) then
 			local z = b.rect
 			if(z:contains(x,y)) then
 				return true,b,i
@@ -4539,6 +4549,9 @@ function loadOptions(data)
 	end
 	-- Roundness and the two badge switches, in the one place that owns them.
 	applyButtonDrawOptions()
+	-- Floaters carry cornerRadiusPx from this value; without a re-push they
+	-- keep the old radius until the next load/edit notify.
+	notifyFloatingButtonsChanged()
 	-- The plugin's Lua runs in this process, so hand the bindings straight to the
 	-- chrome listeners instead of routing them back out through the service.
 	pcall(function()

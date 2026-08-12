@@ -69,6 +69,13 @@ public final class FloatingButtonModel {
 	public final boolean border;
 	public final int borderColor;
 	/**
+	 * Corner radius for square floaters ({@code !floatRound}), in px — same as
+	 * Lua {@code buttonRoundness} so the floating copy matches the grid tile.
+	 * Ignored when {@link #floatRound} is true (full oval). {@code < 0} means
+	 * the payload omitted it (use factory 6dp); explicit {@code 0} is sharp.
+	 */
+	public final float cornerRadiusPx;
+	/**
 	 * Grid centre for {@link #landscape} — where the button sits on the button
 	 * grid, and in portrait the position the floating copy is placed from.
 	 */
@@ -129,6 +136,7 @@ public final class FloatingButtonModel {
 		floatFrame = o.optBoolean("floatFrame", false);
 		border = o.optBoolean("border", false);
 		borderColor = (int) o.optLong("borderColor", 0xE0FFFFFFL);
+		cornerRadiusPx = (float) o.optDouble("cornerRadiusPx", -1);
 		hasGridOrigin = o.has("gridX") && o.has("gridY");
 		gridXPortrait = (float) o.optDouble("gridX", 0);
 		gridYPortrait = (float) o.optDouble("gridY", 0);
@@ -192,6 +200,7 @@ public final class FloatingButtonModel {
 		floatFrame = src.floatFrame;
 		border = src.border;
 		borderColor = src.borderColor;
+		cornerRadiusPx = src.cornerRadiusPx;
 		hasGridOrigin = src.hasGridOrigin;
 		if (forLandscape && !Float.isNaN(newGridX)) {
 			gridXLandscape = newGridX;
