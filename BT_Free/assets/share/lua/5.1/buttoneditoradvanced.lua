@@ -521,29 +521,38 @@ function makeUI(editorValues,numediting)
     ui.borderCheck:setLayoutParams(fillparams)
     ui.borderCheck:setText("Draw border")
     ui.borderCheck:setTextSize(textSize)
+    local borderCheckPad = math.floor(4 * density)
+    ui.borderCheck:setPadding(borderCheckPad, borderCheckPad, borderCheckPad, 0)
     ui.advancedPage:addView(ui.borderCheck)
   end
   ui.borderCheck:setChecked(editorValues.border == true)
 
+  -- Same visual language as the COLORS swatches above: square centred, caption
+  -- under it. The old "Colour:" + fixed-width right-aligned label jammed the
+  -- swatch against the colon with no gap.
   if(ui.borderColorRow == nil) then
     ui.borderColorRow = fnew(LinearLayout,context)
-    ui.borderColorRow:setLayoutParams(fillparams)
-    ui.borderColorRow:setGravity(Gravity.CENTER_VERTICAL)
+    local borderColorRowParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+    borderColorRowParams:setMargins(0, math.floor(6 * density), 0, math.floor(2 * density))
+    ui.borderColorRow:setLayoutParams(borderColorRowParams)
+    ui.borderColorRow:setOrientation(LinearLayout.VERTICAL)
+    ui.borderColorRow:setGravity(GRAVITY_CENTER)
     ui.advancedPage:addView(ui.borderColorRow)
-
-    ui.borderColorLabel = fnew(TextView,context)
-    local borderColorLabelParams = fnew(LinearLayoutParams,80*density,WRAP_CONTENT)
-    ui.borderColorLabel:setLayoutParams(borderColorLabelParams)
-    ui.borderColorLabel:setText("Colour:")
-    ui.borderColorLabel:setTextSize(textSize)
-    ui.borderColorLabel:setGravity(Gravity.RIGHT)
-    ui.borderColorRow:addView(ui.borderColorLabel)
 
     ui.borderColorPicker = fnew(View,context)
     ui.borderColorPicker:setLayoutParams(touchparams)
     ui.borderColorPicker:setTag("border")
     bindColorSwatch(ui.borderColorPicker)
     ui.borderColorRow:addView(ui.borderColorPicker)
+
+    ui.borderColorLabel = fnew(TextView,context)
+    local borderColorLabelParams = fnew(LinearLayoutParams,WRAP_CONTENT,WRAP_CONTENT)
+    borderColorLabelParams:setMargins(0, math.floor(4 * density), 0, 0)
+    ui.borderColorLabel:setLayoutParams(borderColorLabelParams)
+    ui.borderColorLabel:setText("Colour")
+    ui.borderColorLabel:setTextSize(textSizeSmall)
+    ui.borderColorLabel:setGravity(GRAVITY_CENTER)
+    ui.borderColorRow:addView(ui.borderColorLabel)
   end
   ui.borderColor = editorValues.borderColor or defaultColors.border
   ui.borderColorPicker:setBackgroundColor(ui.borderColor)
@@ -551,6 +560,8 @@ function makeUI(editorValues,numediting)
   if(ui.borderHelp == nil) then
     ui.borderHelp = fnew(TextView,context)
     ui.borderHelp:setLayoutParams(fillparams)
+    local borderHelpPad = math.floor(8 * density)
+    ui.borderHelp:setPadding(borderHelpPad, 0, borderHelpPad, math.floor(4 * density))
     ui.borderHelp:setTextSize(textSizeSmall)
     ui.borderHelp:setText("Thin stroke on the grid button. Useful for accordion children that overlap neighbours. Tap the swatch to pick a colour, long-press for the set default. Accordion sub-buttons reuse the parent's border.")
     ui.borderHelp:setTextColor(Color:argb(255, 170, 170, 170))
@@ -566,6 +577,13 @@ function makeUI(editorValues,numediting)
         ui.borderColorPicker:setAlpha(1.0)
       else
         ui.borderColorPicker:setAlpha(0.4)
+      end
+    end
+    if ui.borderColorLabel ~= nil then
+      if on then
+        ui.borderColorLabel:setAlpha(1.0)
+      else
+        ui.borderColorLabel:setAlpha(0.4)
       end
     end
   end
