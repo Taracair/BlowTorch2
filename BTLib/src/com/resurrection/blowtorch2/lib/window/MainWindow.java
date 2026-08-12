@@ -1630,25 +1630,21 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		boolean useStandard = mCompatibilityMode || isKeepLast;
 		mInputBox.setBackSpaceBugFix(useStandard);
-		InputMethodManager imm = (InputMethodManager) mInputBox.getContext()
-				.getSystemService(Context.INPUT_METHOD_SERVICE);
-		if (imm != null) {
-			imm.restartInput(mInputBox);
-		}
+		// Through restartInputConnection so a live password mask is re-asserted
+		// after the IME rebuild (Keep Last uses the BackSpaceBugFix path).
+		restartInputConnection();
 	}
 
 	protected void setUseFullscreenEditor(boolean value) {
 		fullscreenEditor = value;
 		setupEditor(fullscreenEditor,useSuggestions);
-		InputMethodManager imm = (InputMethodManager) mInputBox.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-		imm.restartInput(mInputBox);
+		restartInputConnection();
 	}
 
 	protected void setUseSuggestions(boolean value) {
 		useSuggestions = value;
 		setupEditor(fullscreenEditor,useSuggestions);
-		InputMethodManager imm = (InputMethodManager) mInputBox.getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-		imm.restartInput(mInputBox);
+		restartInputConnection();
 	}
 
 	protected void setKeepScreenOn(boolean value) {
@@ -4875,15 +4871,23 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	@Override
 	public void setLocalEchoOff(final boolean off) {
-		if (off == mLocalEchoOff) {
+		final boolean wasOff = mLocalEchoOff;
+		if (off == wasOff) {
+			// Keep Last's BackSpaceBugFix restartInput can drop the password
+			// transform while this flag stays true. Only re-assert the
+			// transformation — do not run setSingleLine/restartInput again
+			// (that would briefly expose characters already typed).
+			if (off && mInputBox != null) {
+				mInputBox.setTransformationMethod(
+						android.text.method.PasswordTransformationMethod.getInstance());
+			}
 			return;
 		}
 		mLocalEchoOff = off;
 		if (off && mInputBox != null) {
 			// Keep Last leaves the nickname in the bar after Enter. WILL ECHO
-			// for the password then masks that leftover as dots — not selected
-			// any more (setSingleLine / restartInput drop the Keep Last
-			// selection, cursor at end), so the player has to wipe it by hand.
+			// for the password then masks that leftover as dots — selection is
+			// already gone (cursor at end), so the player has to wipe it by hand.
 			// Measured on older eden 12 Aug 2026.
 			keepLastReplaceLength = 0;
 			historyWidgetKept = false;
@@ -4959,6 +4963,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
 			if (imm != null && mInputBox != null) {
 				imm.restartInput(mInputBox);
+				// We deliberately avoid TYPE_TEXT_VARIATION_PASSWORD (Autofill).
+				// Keep Last forces BackSpaceBugFix, whose onCreateInputConnection
+				// goes through TextView.super and replaces our PasswordTransformation
+				// with SingleLineTransformationMethod — password visible again.
+				// Re-assert after every restart while telnet ECHO is held.
+				if (mLocalEchoOff) {
+					mInputBox.setTransformationMethod(
+							android.text.method.PasswordTransformationMethod.getInstance());
+				}
 			}
 		} catch (Exception e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
