@@ -128,6 +128,55 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** How far above the screen to look for the colour still in effect. */
 	private static final int BLEED_SEARCH_MAX_LINES = 1000;
 
+	// --- Temporary scroll profiling (PROBE — revert me). -------------------
+	// Rebuild of the July BTPROF harness: sum per frame, dump every
+	// PROF_FRAMES_PER_DUMP so logging does not distort the budget. Instance
+	// fields only — two processes load these classes. Pull all of this out
+	// once the fling A/B (tap rules on vs off) has numbers.
+	private static final String PROF_TAG = "BTPROF";
+	private static final int PROF_FRAMES_PER_DUMP = 60;
+	private int mProfFrames = 0;
+	private long mProfWindowStart = 0;
+	private long mProfScanNanos = 0;
+	private long mProfBleedNanos = 0;
+	private long mProfDrawNanos = 0;
+	private long mProfTapNanos = 0;
+	private long mProfMarkNanos = 0;
+	private long mProfGapNanos = 0;
+	private long mProfFrameNanos = 0;
+	private int mProfRetries = 0;
+	private int mProfBleedLines = 0;
+	private int mProfScanLines = 0;
+	private int mProfTapCacheHits = 0;
+	private int mProfTapCacheMisses = 0;
+	private int mProfScrollingFrames = 0;
+	/** End of the previous onDraw; gap = time outside onDraw. 0 until first frame. */
+	private long mProfPrevFrameEnd = 0;
+	// This frame's own numbers, so the worst frame in the window can be reported
+	// whole. Jank lives in the tail; an average over sixty frames buries a single
+	// 100ms stall and would point at whichever span is merely steady and large.
+	private long mFrameScanNanos = 0;
+	private long mFrameBleedNanos = 0;
+	private long mFrameDrawNanos = 0;
+	private long mFrameTapNanos = 0;
+	private long mFrameMarkNanos = 0;
+	private long mFrameGapNanos = 0;
+	private int mFrameRetries = 0;
+	private int mFrameScanLines = 0;
+	private int mFrameBleedLines = 0;
+	private int mFrameTapCacheHits = 0;
+	private int mFrameTapCacheMisses = 0;
+	private boolean mFrameScrolling = false;
+	// Snapshot of the worst frame seen since the last dump.
+	private long mProfWorstFrameNanos = 0;
+	private long mProfWorstScanNanos = 0;
+	private long mProfWorstBleedNanos = 0;
+	private long mProfWorstDrawNanos = 0;
+	private long mProfWorstTapNanos = 0;
+	private long mProfWorstMarkNanos = 0;
+	private long mProfWorstGapNanos = 0;
+	private int mProfWorstRetries = 0;
+
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
 	/** The bitmap that holds the "return to the bottom of the buffer" button graphic. */
@@ -2071,6 +2120,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	@Override
 	public final void onDraw(final Canvas c) {
+		// Temporary scroll profiling — revert with the PROF_ fields above.
+		final long profFrameStart = System.nanoTime();
+		mFrameScanNanos = 0;
+		mFrameBleedNanos = 0;
+		mFrameDrawNanos = 0;
+		mFrameTapNanos = 0;
+		mFrameMarkNanos = 0;
+		mFrameGapNanos = mProfPrevFrameEnd == 0 ? 0 : (profFrameStart - mProfPrevFrameEnd);
+		mFrameRetries = 0;
+		mFrameScanLines = 0;
+		mFrameBleedLines = 0;
+		mFrameTapCacheHits = 0;
+		mFrameTapCacheMisses = 0;
+		mFrameScrolling = false;
 		mSelectionCanvasSaved = false;
 		if (selectedSelector != null && mSelectionIndicatorCanvas != null) {
 			mSelectionIndicatorBitmap.eraseColor(0x00000000);
@@ -2207,6 +2270,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			int maxTries = 3;
 			int tries = 0;
 
+			final long profScanStart = System.nanoTime();
 			while (!gotIt && tries < maxTries) {
 				try {
 					tries = tries + 1;
@@ -2217,8 +2281,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					Log.e("BlowTorch", "buffer changed under onDraw, try " + tries, e);
 				}
 			}
+			mFrameScanNanos += System.nanoTime() - profScanStart;
+			mFrameRetries += tries - 1;
 			if (!gotIt) {
 				releaseSelectionCanvas();
+				profEndFrame(profFrameStart);
 				this.invalidate();
 				return;
 			}
@@ -2226,7 +2293,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			y = bundle.getOffset();
 
 			int extraLines = bundle.getExtraLines();
-			if (screenIt == null) { releaseSelectionCanvas(); return;}
+			if (screenIt == null) {
+				releaseSelectionCanvas();
+				profEndFrame(profFrameStart);
+				return;
+			}
 			
 			int startline = bundle.getStartLine();
 			int workingline = startline;
@@ -2243,6 +2314,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//find bleed.
 			boolean bleeding = false;
 			int back = 0;
+			final long profBleedStart = System.nanoTime();
 			// Bounded on purpose. This searches back for the colour still in effect at
 			// the top of the screen, and stops at the first one it finds. With no
 			// colour to find it used to walk to the end of the scrollback and back
@@ -2295,6 +2367,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			//TODO: STEP 4
 			//advance the iterator back the number of units it took to find a bleed.
 			//second real expensive move. In the case of a no color text buffer, it would walk from scroll to end and back every time. USE COLOR 
+			mFrameBleedLines += back;
 			while (back > 0) {
 				screenIt.previous();
 				back--;
@@ -2303,11 +2376,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (screenIt.hasNext()) {
 				screenIt.next(); // the bleed/back stuff seems to be messing with my calculation
 			}
+			mFrameBleedNanos += System.nanoTime() - profBleedStart;
 			//TODO: STEP 5
 			//draw the text, from top to bottom.	
 			
 			boolean scrollingGesture = mFingerDown
 					|| Math.abs(mFlingVelocity) > FLING_STOP_VELOCITY;
+			mFrameScrolling = scrollingGesture;
 
 			int drawnlines = 0;
 			boolean doingLink = false;
@@ -2319,6 +2394,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				tapCommands.clear();
 			}
 			
+			final long profDrawStart = System.nanoTime();
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
 				int searchPlainPos = 0;
@@ -2677,6 +2753,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				workingcol = 0;
 				l.resetIterator();
 			}
+			mFrameDrawNanos += System.nanoTime() - profDrawStart;
 			if (!scrollingGesture || theSelection != null) {
 				showScroller(c);
 			}
@@ -2732,6 +2809,109 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 
 		c.restore();
+		profEndFrame(profFrameStart);
+	}
+
+	/**
+	 * Close out one profiled frame, and every PROF_FRAMES_PER_DUMP frames log
+	 * the totals for mainDisplay. Temporary — goes away with the PROF_ fields.
+	 */
+	private void profEndFrame(final long pFrameStart) {
+		final long frame = System.nanoTime() - pFrameStart;
+		mProfFrameNanos += frame;
+		mProfScanNanos += mFrameScanNanos;
+		mProfBleedNanos += mFrameBleedNanos;
+		mProfDrawNanos += mFrameDrawNanos;
+		mProfTapNanos += mFrameTapNanos;
+		mProfMarkNanos += mFrameMarkNanos;
+		mProfGapNanos += mFrameGapNanos;
+		mProfRetries += mFrameRetries;
+		mProfScanLines += mFrameScanLines;
+		mProfBleedLines += mFrameBleedLines;
+		mProfTapCacheHits += mFrameTapCacheHits;
+		mProfTapCacheMisses += mFrameTapCacheMisses;
+		if (mFrameScrolling) {
+			mProfScrollingFrames++;
+		}
+		if (mFrameRetries > mProfWorstRetries) {
+			mProfWorstRetries = mFrameRetries;
+		}
+		if (frame > mProfWorstFrameNanos) {
+			mProfWorstFrameNanos = frame;
+			mProfWorstScanNanos = mFrameScanNanos;
+			mProfWorstBleedNanos = mFrameBleedNanos;
+			mProfWorstDrawNanos = mFrameDrawNanos;
+			mProfWorstTapNanos = mFrameTapNanos;
+			mProfWorstMarkNanos = mFrameMarkNanos;
+			mProfWorstGapNanos = mFrameGapNanos;
+		}
+		mProfFrames++;
+		if (mProfWindowStart == 0) {
+			mProfWindowStart = pFrameStart;
+		}
+		mProfPrevFrameEnd = System.nanoTime();
+		if (mProfFrames < PROF_FRAMES_PER_DUMP) {
+			return;
+		}
+		// Pad / extra-text windows share this class; keep logcat to the game window.
+		if ("mainDisplay".equals(mName)) {
+			final long wall = System.nanoTime() - mProfWindowStart;
+			final int frames = mProfFrames;
+			Log.e(PROF_TAG, "win=" + System.identityHashCode(this)
+					+ " name=" + mName
+					+ " frames=" + frames
+					+ " wall=" + (wall / 1000000) + "ms"
+					+ " fps=" + (wall > 0 ? (frames * 1000000000L / wall) : 0)
+					+ " | AVG frame=" + (mProfFrameNanos / frames / 1000) + "us"
+					+ " gap=" + (mProfGapNanos / frames / 1000) + "us"
+					+ " scan=" + (mProfScanNanos / frames / 1000) + "us"
+					+ " bleed=" + (mProfBleedNanos / frames / 1000) + "us"
+					+ " draw=" + (mProfDrawNanos / frames / 1000) + "us"
+					+ " tap=" + (mProfTapNanos / frames / 1000) + "us"
+					+ " mark=" + (mProfMarkNanos / frames / 1000) + "us"
+					+ " | WORST frame=" + (mProfWorstFrameNanos / 1000) + "us"
+					+ " gap=" + (mProfWorstGapNanos / 1000) + "us"
+					+ " scan=" + (mProfWorstScanNanos / 1000) + "us"
+					+ " bleed=" + (mProfWorstBleedNanos / 1000) + "us"
+					+ " draw=" + (mProfWorstDrawNanos / 1000) + "us"
+					+ " tap=" + (mProfWorstTapNanos / 1000) + "us"
+					+ " mark=" + (mProfWorstMarkNanos / 1000) + "us"
+					+ " | tapHit=" + mProfTapCacheHits
+					+ " tapMiss=" + mProfTapCacheMisses
+					+ " retries=" + mProfRetries
+					+ " worstRetries=" + mProfWorstRetries
+					+ " | scanLines/f=" + (mProfScanLines / frames)
+					+ " bleedLines/f=" + (mProfBleedLines / frames)
+					+ " | scrollback=" + mScrollback.intValue()
+					+ " buffer=" + mBuffer.getBrokenLineCount()
+					+ " rules=" + mTapRules.size()
+					+ " canvasW=" + mCanvasWidthFactor
+					+ " sel=" + (theSelection != null ? "Y" : "N")
+					+ " scrollingFrames=" + mProfScrollingFrames);
+		}
+		mProfFrames = 0;
+		mProfWindowStart = 0;
+		mProfScanNanos = 0;
+		mProfBleedNanos = 0;
+		mProfDrawNanos = 0;
+		mProfTapNanos = 0;
+		mProfMarkNanos = 0;
+		mProfGapNanos = 0;
+		mProfFrameNanos = 0;
+		mProfWorstFrameNanos = 0;
+		mProfWorstScanNanos = 0;
+		mProfWorstBleedNanos = 0;
+		mProfWorstDrawNanos = 0;
+		mProfWorstTapNanos = 0;
+		mProfWorstMarkNanos = 0;
+		mProfWorstGapNanos = 0;
+		mProfRetries = 0;
+		mProfWorstRetries = 0;
+		mProfScanLines = 0;
+		mProfBleedLines = 0;
+		mProfTapCacheHits = 0;
+		mProfTapCacheMisses = 0;
+		mProfScrollingFrames = 0;
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
@@ -3441,11 +3621,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void markTappableWords(final Canvas c, final TextTree.Text text,
 			final float x, final float y, final Paint p, final boolean scrollingGesture,
 			final int unitStartCol) {
+		final long profMarkStart = System.nanoTime();
 		if (text == null || mLineTapHits.isEmpty()) {
+			mFrameMarkNanos += System.nanoTime() - profMarkStart;
 			return;
 		}
 		String s = text.getString();
 		if (s == null || s.length() == 0) {
+			mFrameMarkNanos += System.nanoTime() - profMarkStart;
 			return;
 		}
 		final int unitEndCol = unitStartCol + s.length();
@@ -3464,6 +3647,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					scrollingGesture, hit.commands, hit.tapSendsFirst,
 					hit.underline, hit.bold, hit.frame);
 		}
+		mFrameMarkNanos += System.nanoTime() - profMarkStart;
 	}
 
 	/**
@@ -3473,8 +3657,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * list is empty and this returns before touching the line.
 	 */
 	private void findTapHitsForLine(final TextTree.Line line) {
+		final long profTapStart = System.nanoTime();
 		mLineTapHits = NO_TAP_HITS;
 		if (mTapRules.isEmpty() || line == null) {
+			mFrameTapNanos += System.nanoTime() - profTapStart;
 			return;
 		}
 		// The player's own regexes, matched against every line on screen. Doing
@@ -3486,13 +3672,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		CachedTapHits cached = mTapHitCache.get(line);
 		if (cached != null && cached.generation == mTapRulesGeneration
 				&& cached.charcount == line.charcount && cached.units == units) {
+			mFrameTapCacheHits++;
 			mLineTapHits = cached.hits;
+			mFrameTapNanos += System.nanoTime() - profTapStart;
 			return;
 		}
+		mFrameTapCacheMisses++;
 		ArrayList<TapHit> found = computeTapHitsForLine(line);
 		mTapHitCache.put(line,
 				new CachedTapHits(mTapRulesGeneration, line.charcount, units, found));
 		mLineTapHits = found;
+		mFrameTapNanos += System.nanoTime() - profTapStart;
 	}
 
 	/**
@@ -4196,11 +4386,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				if (l.breaks > 0) {
 					startline += l.breaks;
 				}
+				mFrameScanLines += lines;
 				return new IteratorBundle(drawingIterator, -1 * offset, extra, startline);
 			}
 			startline += 1 + l.getBreaks();
 		}
 
+		mFrameScanLines += lines;
 		return new IteratorBundle(drawingIterator, pLineSize, 0, startline);
 	}
 
