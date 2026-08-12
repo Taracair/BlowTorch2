@@ -137,7 +137,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		BooleanOption lowercase_command_start = new BooleanOption();
 		lowercase_command_start.setTitle("Lowercase start of sent commands");
 		lowercase_command_start.setDescription(
-				"For case-sensitive worlds: softens the keyboard's auto-capitalisation and lowercases only the first letter of each command you send (Look → look). Mid-line text is unchanged (say Hello stays say Hello). Passwords are never rewritten. Off by default.");
+				"For case-sensitive worlds: softens the keyboard's auto-capitalisation and lowercases only the first letter of each command you send (Look → look). Mid-line text is unchanged (say Hello stays say Hello). Prefix with \\ to keep a capital once (\\Look → Look). Passwords are never rewritten. Off by default.");
 		lowercase_command_start.setKey("lowercase_command_start");
 		lowercase_command_start.setValue(false);
 		input.addOption(lowercase_command_start);

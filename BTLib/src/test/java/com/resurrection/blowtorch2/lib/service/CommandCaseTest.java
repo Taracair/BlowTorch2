@@ -39,4 +39,11 @@ public class CommandCaseTest {
 		assertEquals("look", CommandCase.softenForSend("Look", true, true));
 		assertEquals("north", CommandCase.softenForSend("North", true, true));
 	}
+
+	@Test
+	public void leadingBackslashKeepsTheCapital() {
+		assertEquals("Look", CommandCase.softenForSend("\\Look", true, true));
+		assertEquals("\\Look", CommandCase.softenForSend("\\Look", false, true));
+		assertEquals("\\", CommandCase.softenForSend("\\", true, true));
+	}
 }

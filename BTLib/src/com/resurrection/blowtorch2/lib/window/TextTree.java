@@ -344,6 +344,8 @@ public class TextTree {
 	
 	private final byte TAB = (byte)0x09;
 	private final static byte ESC = (byte)0x1B;
+	/** Abort a runaway OSC/DCS that never sees BEL/ST (broken hyperlink closers). */
+	private static final int MAX_OSC_PAYLOAD_BYTES = 4096;
 	private final static byte BRACKET = (byte)0x5B;
 	private final byte NEWLINE = (byte)0x0A;
 	//private final byte CARRIAGE = (byte)0x0D;
@@ -646,6 +648,36 @@ public class TextTree {
 							done = true;
 							payloadEnd = j;
 							i = j + 1;
+							break;
+						}
+						// Darkwind (and some other MUDs) close OSC 8 hyperlinks as
+						// ESC ]8;;…ESC ]8;;) — a second ESC ] with no BEL/ST. Without
+						// this, the open sequence never ends and every later byte is
+						// held as OSC holdover: the screen freezes after the first
+						// link while GMCP and the session log keep going. Measured
+						// on newbiehist 12 Aug 2026.
+						if(data[j] == ESC && (j + 1) < data.length) {
+							byte next = data[j + 1];
+							if(next == (byte)0x5D || next == (byte)0x50
+									|| next == (byte)0x5F || next == (byte)0x5E) {
+								done = true;
+								payloadEnd = j;
+								i = j - 1; // re-process this ESC as a new sequence
+								break;
+							}
+						}
+						// A bare newline inside OSC is not legal for OSC 8; abort so
+						// a missing terminator cannot swallow the rest of the session.
+						if(data[j] == NEWLINE) {
+							done = true;
+							payloadEnd = j;
+							i = j - 1;
+							break;
+						}
+						if((j - oscPayloadStart) >= MAX_OSC_PAYLOAD_BYTES) {
+							done = true;
+							payloadEnd = j;
+							i = j - 1;
 							break;
 						}
 					}

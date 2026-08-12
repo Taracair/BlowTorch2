@@ -33,14 +33,20 @@ public final class CommandCase {
 	/**
 	 * Soften when the option is on and the password mask is not held.
 	 *
+	 * <p>Leading {@code \} is a one-shot bypass: {@code \Look} sends {@code Look}
+	 * with the capital kept. The backslash is stripped and never reaches the MUD.
+	 *
 	 * @param segment outbound piece
 	 * @param enabled Options → Input → Lowercase start of sent commands
 	 * @param telnetLocalEcho true while the input bar shows typed text
 	 */
 	public static String softenForSend(final String segment, final boolean enabled,
 			final boolean telnetLocalEcho) {
-		if (!enabled || !telnetLocalEcho) {
+		if (!enabled || !telnetLocalEcho || segment == null || segment.isEmpty()) {
 			return segment;
+		}
+		if (segment.charAt(0) == '\\' && segment.length() > 1) {
+			return segment.substring(1);
 		}
 		return softenFirstLetter(segment);
 	}

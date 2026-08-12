@@ -898,7 +898,7 @@ TOPICS.options_cleanup = function()
   Display   orientation, fullscreen, NAWS, keep screen on
   Window    font, buffer, word wrap, hyperlinks, ANSI
   Input     history, keep last, Grow Input Bar (.wrap),
-            lowercase start of sent commands
+            lowercase start of sent commands (\\Look keeps capital)
   Service   encoding, logging, battery, reconnect, Wi-Fi;
             nested GMCP / MCP / MUD Protocols
   Bell      bell reactions
