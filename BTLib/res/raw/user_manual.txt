@@ -375,6 +375,19 @@ trimmed — not the raw bytes.
 Off by default, because it changes where text appears. Also under **Options →
 Input**, and saved with the profile.
 
+## Lowercase start of sent commands
+
+Phone keyboards auto-capitalise the first letter of a “message” field. On a
+case-sensitive MUD that treats `Look` as unknown while `look` works, turn on
+**Options → Input → Lowercase start of sent commands**. BlowTorch then softens
+only the first letter of each command you send (`Look` → `look`). Mid-line
+capitals stay put (`say Hello` stays `say Hello`). Off by default; passwords
+are never rewritten.
+
+**One-shot capital.** Prefix with a backslash to keep the capital once: `\Look`
+sends `Look`. The `\` is stripped and never reaches the MUD. With the option
+off, `\Look` is sent as typed (backslash included).
+
 ## Dot commands
 
 Lines that start with a single `.` are handled by BlowTorch when “process period”
