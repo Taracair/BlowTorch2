@@ -55,6 +55,26 @@ public class FloatingButtonModelTest {
 		assertSame(original, original.withFloatPosition(10, 20));
 	}
 
+	@Test
+	public void borderFieldsSurviveParseAndDragCopy() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 2);
+		o.put("floatX", 10);
+		o.put("floatY", 20);
+		o.put("border", true);
+		o.put("borderColor", 0xE0FF00FFL);
+		o.put("floatFrame", true);
+		FloatingButtonModel original = new FloatingButtonModel(o);
+		assertTrue(original.border);
+		assertEquals(0xE0FF00FF, original.borderColor);
+		assertTrue(original.floatFrame);
+
+		FloatingButtonModel moved = original.withFloatPosition(40, 50);
+		assertTrue(moved.border);
+		assertEquals(0xE0FF00FF, moved.borderColor);
+		assertTrue(moved.floatFrame);
+	}
+
 	/** The defect: one stored pair, so a portrait drag followed the turn. */
 	@Test
 	public void eachOrientationReadsItsOwnStoredPosition() throws Exception {

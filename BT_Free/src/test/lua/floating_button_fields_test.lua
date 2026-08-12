@@ -35,6 +35,8 @@ local original = {
 	floatYLand = 300,
 	floatRound = true,
 	floatFrame = false,
+	border = true,
+	borderColor = 0xE0FF00FF,
 	label = "KB←",
 	command = ".kb stepb",
 	width = 48,
@@ -54,6 +56,8 @@ check(restored.floatXLand == 700, "floatXLand")
 check(restored.floatYLand == 300, "floatYLand")
 check(restored.floatRound == true, "floatRound")
 check(restored.floatFrame == false, "floatFrame")
+check(restored.border == true, "border")
+check(restored.borderColor == 0xE0FF00FF, "borderColor")
 check(restored.label == "KB←", "label")
 check(restored.command == ".kb stepb", "command")
 

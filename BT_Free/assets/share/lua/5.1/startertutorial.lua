@@ -281,6 +281,9 @@ Drawing over the keyboard needs Android's "Display over other apps"
 permission; you are asked the first time. Without it the button is still
 there, but the keyboard covers it.
 
+Others → Border strokes the floating copy too (Square/Round shape). Thin
+outline is a separate auto-contrast frame used when Border is off.
+
 On Android 9 and 10 "Show with keyboard" may never appear -- the client
 cannot reliably tell the keyboard is open there.]])
 end

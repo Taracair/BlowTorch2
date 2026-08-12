@@ -230,9 +230,13 @@ public class FloatingButtonView extends View {
 		} else {
 			canvas.drawRect(oval, fillPaint);
 		}
-		if (model.floatFrame) {
-			// High-contrast outline so the floater stays readable over game text.
-			int outline = contrastingOutline(fg, bg);
+		// Border (player colour) wins over floatFrame (auto-contrast). Drawing
+		// both stacked a second outline on MED/SUT-style floaters.
+		boolean strokeChrome = model.border || model.floatFrame;
+		if (strokeChrome) {
+			int outline = model.border
+					? model.borderColor
+					: contrastingOutline(fg, bg);
 			framePaint.setColor(outline);
 			framePaint.setStrokeWidth(Math.max(2f,
 					getResources().getDisplayMetrics().density * 2f));

@@ -1603,6 +1603,11 @@ function notifyFloatingButtonsChanged()
 					o:put("statusOffset", tonumber(statusoffset) or 0)
 					o:put("floatRound", d.floatRound == true)
 					o:put("floatFrame", d.floatFrame == true)
+					-- Player-chosen grid border also paints on the floating
+					-- copy (shape follows floatRound). Separates from floatFrame,
+					-- which is the legacy auto-contrast outline.
+					o:put("border", d.border == true)
+					o:put("borderColor", tonumber(d.borderColor) or 0)
 					arr:put(o)
 				end
 			end

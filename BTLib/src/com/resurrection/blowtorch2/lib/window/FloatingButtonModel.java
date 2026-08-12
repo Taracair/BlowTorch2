@@ -61,6 +61,14 @@ public final class FloatingButtonModel {
 	public final boolean floatRound;
 	public final boolean floatFrame;
 	/**
+	 * Player-chosen stroke from Others → Border. Drawn on the floating copy in
+	 * the floater's shape ({@link #floatRound}). Distinct from
+	 * {@link #floatFrame}, which keeps the auto-contrast outline when Border is
+	 * off.
+	 */
+	public final boolean border;
+	public final int borderColor;
+	/**
 	 * Grid centre for {@link #landscape} — where the button sits on the button
 	 * grid, and in portrait the position the floating copy is placed from.
 	 */
@@ -119,6 +127,8 @@ public final class FloatingButtonModel {
 		floatY = forLandscape ? floatYLandscape : floatYPortrait;
 		floatRound = o.optBoolean("floatRound", false);
 		floatFrame = o.optBoolean("floatFrame", false);
+		border = o.optBoolean("border", false);
+		borderColor = (int) o.optLong("borderColor", 0xE0FFFFFFL);
 		hasGridOrigin = o.has("gridX") && o.has("gridY");
 		gridXPortrait = (float) o.optDouble("gridX", 0);
 		gridYPortrait = (float) o.optDouble("gridY", 0);
@@ -180,6 +190,8 @@ public final class FloatingButtonModel {
 		floatY = forLandscape ? floatYLandscape : floatYPortrait;
 		floatRound = src.floatRound;
 		floatFrame = src.floatFrame;
+		border = src.border;
+		borderColor = src.borderColor;
 		hasGridOrigin = src.hasGridOrigin;
 		if (forLandscape && !Float.isNaN(newGridX)) {
 			gridXLandscape = newGridX;

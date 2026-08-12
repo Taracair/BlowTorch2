@@ -563,7 +563,7 @@ function makeUI(editorValues,numediting)
     local borderHelpPad = math.floor(8 * density)
     ui.borderHelp:setPadding(borderHelpPad, 0, borderHelpPad, math.floor(4 * density))
     ui.borderHelp:setTextSize(textSizeSmall)
-    ui.borderHelp:setText("Thin stroke on the grid button. Useful for accordion children that overlap neighbours. Tap the swatch to pick a colour, long-press for the set default. Accordion sub-buttons reuse the parent's border.")
+    ui.borderHelp:setText("Thin stroke on the grid button, and on a super button's floating copy (following Square/Round). Useful for accordion children that overlap neighbours. Tap the swatch to pick a colour, long-press for the set default. Accordion sub-buttons reuse the parent's border. \"Thin outline\" below is a separate auto-contrast frame used only when Border is off.")
     ui.borderHelp:setTextColor(Color:argb(255, 170, 170, 170))
     ui.advancedPage:addView(ui.borderHelp)
   end

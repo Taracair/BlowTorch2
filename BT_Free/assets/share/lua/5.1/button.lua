@@ -560,9 +560,15 @@ function BUTTON:draw(state,canvas)
 
 	-- Stroke after fill/label/hints so the frame sits on top. Same rect/inset as
 	-- the fill for this state. Restore FILL: paintOpts is shared across draws.
+	--
+	-- Always-visible super buttons keep a grid copy under the floating view. If
+	-- both draw a border, the player sees a square grid stroke leaking around a
+	-- round floater (MED/SUT on samsaramoo main). In play mode the floater owns
+	-- the chrome; manage still strokes the grid tile so editing matches.
 	if self.data.border == true then
+		local floatingOwnsChrome = self.data.floating == true and manage ~= true
 		local borderColor = self.data.borderColor
-		if borderColor ~= nil then
+		if not floatingOwnsChrome and borderColor ~= nil then
 			local previousStyle = p:getStyle()
 			local previousWidth = p:getStrokeWidth()
 			local stroke = math.max(1.5 * self.density, 2)
