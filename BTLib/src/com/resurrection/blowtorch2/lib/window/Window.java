@@ -2594,21 +2594,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 						break;
 					case COLOR:
-						mXterm256Color = false;
-						mXterm256FGStart = false;
-						mXterm256BGStart = false;
-						mTrueColorCollect = false;
-						mTrueColorCount = 0;
-						for (int i = 0; i < ((TextTree.Color) u).getOperations().size(); i++) {
-							updateColorRegisters(((TextTree.Color) u).getOperations().get(i));
-						}
-						
-						if (mColorDebugMode == 2 || mColorDebugMode == 3) {
-							p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37,false));
-							setBgPaintColor(0xFF000000 | Colorizer.getColorValue(0, 40,false));
-						} else {
-							applyAnsiPaints(p, b);
-						}
+						applyColorUnit((TextTree.Color) u, p, b);
 						if (mColorDebugMode == 1 || mColorDebugMode == 2) {
 							String str = "";
 							try {
@@ -4074,18 +4060,101 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return type;
 	}
 
+	/**
+	 * Fingerprint of the ANSI registers that feed {@link #updateColorRegisters}.
+	 * Mid-sequence flags (FG/BG start, truecolor collect) are reset at the top of
+	 * every colour unit before its ops run, so they are not part of "before".
+	 */
+	private int ansiRegisterFingerprint() {
+		int h = mSelectedColor != null ? mSelectedColor.intValue() : 0;
+		h = 31 * h + (mSelectedBackground != null ? mSelectedBackground.intValue() : 0);
+		h = 31 * h + (mSelectedBright != null ? mSelectedBright.intValue() : 0);
+		h = 31 * h + (mXterm256FG ? 1 : 0) + (mXterm256BG ? 2 : 0)
+				+ (mTrueColorFG ? 4 : 0) + (mTrueColorBG ? 8 : 0);
+		return h;
+	}
+
+	/**
+	 * Run one colour unit: replay its SGR ops into the registers and paint, or
+	 * reuse the memo on the unit when the before-state matches. Measured 12 Aug
+	 * 2026: dense combat spent ~10 ms/frame here re-parsing the same ~2500 units
+	 * every fling frame; the memo makes steady scrolling revisit cached results.
+	 */
+	private void applyColorUnit(final TextTree.Color cu, final Paint textPaint,
+			final Paint bgPaint) {
+		mXterm256Color = false;
+		mXterm256FGStart = false;
+		mXterm256BGStart = false;
+		mTrueColorCollect = false;
+		mTrueColorCount = 0;
+
+		final int beforeFp = ansiRegisterFingerprint();
+		if (mColorDebugMode == 0 && cu.drawCacheValid && cu.drawCacheBeforeFp == beforeFp) {
+			if (textPaint.getColor() != cu.drawCacheFg) {
+				textPaint.setColor(cu.drawCacheFg);
+			}
+			if (bgPaint.getColor() != cu.drawCacheBg) {
+				bgPaint.setColor(cu.drawCacheBg);
+			}
+			if (bgPaint == b) {
+				mBgPaintColor = cu.drawCacheBg;
+			}
+			mSelectedColor = cu.drawCacheSelectedColor;
+			mSelectedBackground = cu.drawCacheSelectedBackground;
+			mSelectedBright = cu.drawCacheSelectedBright;
+			mXterm256FG = cu.drawCacheXterm256FG;
+			mXterm256BG = cu.drawCacheXterm256BG;
+			mTrueColorFG = cu.drawCacheTrueColorFG;
+			mTrueColorBG = cu.drawCacheTrueColorBG;
+			return;
+		}
+
+		final java.util.ArrayList<Integer> ops = cu.getOperations();
+		if (ops != null) {
+			for (int i = 0, n = ops.size(); i < n; i++) {
+				updateColorRegisters(ops.get(i));
+			}
+		}
+
+		if (mColorDebugMode == 2 || mColorDebugMode == 3) {
+			textPaint.setColor(0xFF000000 | Colorizer.getColorValue(0, 37, false));
+			setBgPaintColor(0xFF000000 | Colorizer.getColorValue(0, 40, false));
+			return;
+		}
+
+		applyAnsiPaints(textPaint, bgPaint);
+
+		cu.drawCacheBeforeFp = beforeFp;
+		cu.drawCacheFg = textPaint.getColor();
+		cu.drawCacheBg = bgPaint == b ? mBgPaintColor : bgPaint.getColor();
+		cu.drawCacheSelectedColor = mSelectedColor;
+		cu.drawCacheSelectedBackground = mSelectedBackground;
+		cu.drawCacheSelectedBright = mSelectedBright;
+		cu.drawCacheXterm256FG = mXterm256FG;
+		cu.drawCacheXterm256BG = mXterm256BG;
+		cu.drawCacheTrueColorFG = mTrueColorFG;
+		cu.drawCacheTrueColorBG = mTrueColorBG;
+		cu.drawCacheValid = true;
+	}
+
 	/** Apply current FG/BG registers to text and background paints. */
 	private void applyAnsiPaints(final Paint textPaint, final Paint bgPaint) {
+		final int fg;
 		if (mTrueColorFG) {
-			textPaint.setColor(0xFF000000 | (mSelectedColor.intValue() & 0xFFFFFF));
+			fg = 0xFF000000 | (mSelectedColor.intValue() & 0xFFFFFF);
 		} else {
-			textPaint.setColor(0xFF000000 | Colorizer.getColorValue(
-					mSelectedBright, mSelectedColor, mXterm256FG));
+			fg = 0xFF000000 | Colorizer.getColorValue(
+					mSelectedBright, mSelectedColor, mXterm256FG);
+		}
+		if (textPaint.getColor() != fg) {
+			textPaint.setColor(fg);
 		}
 		final int bg = mTrueColorBG
 				? (0xFF000000 | (mSelectedBackground.intValue() & 0xFFFFFF))
 				: (0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground, mXterm256BG));
-		bgPaint.setColor(bg);
+		if (bgPaint.getColor() != bg) {
+			bgPaint.setColor(bg);
+		}
 		if (bgPaint == b) {
 			mBgPaintColor = bg;
 		}

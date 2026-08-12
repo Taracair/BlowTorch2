@@ -1497,6 +1497,26 @@ public class TextTree {
 		//protected String data;
 		ArrayList<Integer> operations;
 		//ListIterator<Integer> it;
+
+		/**
+		 * Draw-path memo of the ANSI register machine. A fling re-visits the same
+		 * Color units sixty times a second; without this each visit re-parses the
+		 * ops and calls Paint.setColor. Keyed on the register fingerprint
+		 * <em>before</em> the unit — the result depends on prior state, so a
+		 * cache that ignored it would paint the wrong colour after a scroll that
+		 * changed the bleed.
+		 */
+		boolean drawCacheValid;
+		int drawCacheBeforeFp;
+		int drawCacheFg;
+		int drawCacheBg;
+		Integer drawCacheSelectedColor;
+		Integer drawCacheSelectedBackground;
+		Integer drawCacheSelectedBright;
+		boolean drawCacheXterm256FG;
+		boolean drawCacheXterm256BG;
+		boolean drawCacheTrueColorFG;
+		boolean drawCacheTrueColorBG;
 		
 		public Color() {
 			//data = "[0m";
@@ -1508,6 +1528,7 @@ public class TextTree {
 		
 		public void setOperations(ArrayList<Integer> ops) {
 			this.operations = ops;
+			drawCacheValid = false;
 		}
 		//public Color(String input) {
 			//data = input;
