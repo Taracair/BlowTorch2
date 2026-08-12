@@ -257,6 +257,10 @@ Editor badges: T = tap, H = hold, S = swipe. Children can auto-close after
 use. Accordion data is stored with the button set (Lua); use Edit buttons
 to build your own.
 
+Expanded children draw on top of neighbouring grid buttons. To make the
+fan stand out, open the parent in Others and turn on Border with a colour
+— children reuse that border.
+
 Handy when one corner of the screen must hold several macros.]])
 end
 

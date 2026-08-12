@@ -69,6 +69,12 @@ local function applyDefaultColor(field)
     ui.flipLabelColorPicker:setBackgroundColor(color)
     ui.flipLabelColorPicker:invalidate()
     ui.flipLabelColor = color
+  elseif field == "border" then
+    ui.borderColor = color
+    if ui.borderColorPicker ~= nil then
+      ui.borderColorPicker:setBackgroundColor(color)
+      ui.borderColorPicker:invalidate()
+    end
   end
 end
 
@@ -114,6 +120,7 @@ function makeUI(editorValues,numediting)
   defaultColors.flip = editorValues.defaultFlipColor or Color:argb(0x88,0xFF,0x00,0x00)
   defaultColors.label = editorValues.defaultLabelColor or Color:argb(0xAA,0xAA,0xAA,0xAA)
   defaultColors.flipLabel = editorValues.defaultFlipLabelColor or Color:argb(0x88,0x00,0x00,0xFF)
+  defaultColors.border = editorValues.defaultBorderColor or Color:argb(0xE0, 0xFF, 0xFF, 0xFF)
   --local context = view:getContext()
   local LabelWidth = nil -- margin size for different screen layouts
   if(ui.advancedPageScroller == nil) then
@@ -140,14 +147,14 @@ function makeUI(editorValues,numediting)
   if(numediting > 1) then
     ui.advancedHelp:setText("Editing " .. numediting .. " buttons at once. What you"
       .. " change here goes to all " .. numediting .. ": size, position, label"
-      .. " size and the five colours. A label, a command, a gesture, an"
+      .. " size, the five colours, and the border. A label, a command, a gesture, an"
       .. " accordion or a super button belongs to one button, so those are not"
       .. " here -- tap a single button for them.\n\nPosition sets every"
       .. " selected button to the same X or the same Y, which stacks them on top"
       .. " of one another. To put them on a line and keep them apart, leave X"
       .. " and Y empty and use Line up in the editor settings instead.")
   else
-    ui.advancedHelp:setText("Name is for the editor list only. Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Width, height, and position are in dp from the top-left of the button layer.")
+    ui.advancedHelp:setText("Name is for the editor list only. Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Border draws a thin stroke on the grid tile (accordion children inherit the parent's). Width, height, and position are in dp from the top-left of the button layer.")
   end
   
   --ui.buttonNameRow
@@ -493,6 +500,84 @@ function makeUI(editorValues,numediting)
     ui.invisLabel:setVisibility(View.INVISIBLE)
     ui.labelRowTwo:addView(ui.invisLabel)
   end
+
+  -- Grid-tile border (all buttons, including accordion parents). Separate from
+  -- the floating "Thin outline" below: that one is floatFrame on the Java layer.
+  if(ui.borderSectionLabel == nil) then
+    ui.borderSectionLabel = fnew(TextView,context)
+    local borderSectionParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+    borderSectionParams:setMargins(0,10,0,10)
+    ui.borderSectionLabel:setLayoutParams(borderSectionParams)
+    ui.borderSectionLabel:setTextSize(textSize)
+    ui.borderSectionLabel:setText("BORDER")
+    ui.borderSectionLabel:setGravity(GRAVITY_CENTER)
+    ui.borderSectionLabel:setTextColor(Color:argb(255,0x33,0x33,0x33))
+    ui.borderSectionLabel:setBackgroundColor(bgGrey)
+    ui.advancedPage:addView(ui.borderSectionLabel)
+  end
+
+  if(ui.borderCheck == nil) then
+    ui.borderCheck = fnew(CheckBox,context)
+    ui.borderCheck:setLayoutParams(fillparams)
+    ui.borderCheck:setText("Draw border")
+    ui.borderCheck:setTextSize(textSize)
+    ui.advancedPage:addView(ui.borderCheck)
+  end
+  ui.borderCheck:setChecked(editorValues.border == true)
+
+  if(ui.borderColorRow == nil) then
+    ui.borderColorRow = fnew(LinearLayout,context)
+    ui.borderColorRow:setLayoutParams(fillparams)
+    ui.borderColorRow:setGravity(Gravity.CENTER_VERTICAL)
+    ui.advancedPage:addView(ui.borderColorRow)
+
+    ui.borderColorLabel = fnew(TextView,context)
+    local borderColorLabelParams = fnew(LinearLayoutParams,80*density,WRAP_CONTENT)
+    ui.borderColorLabel:setLayoutParams(borderColorLabelParams)
+    ui.borderColorLabel:setText("Colour:")
+    ui.borderColorLabel:setTextSize(textSize)
+    ui.borderColorLabel:setGravity(Gravity.RIGHT)
+    ui.borderColorRow:addView(ui.borderColorLabel)
+
+    ui.borderColorPicker = fnew(View,context)
+    ui.borderColorPicker:setLayoutParams(touchparams)
+    ui.borderColorPicker:setTag("border")
+    bindColorSwatch(ui.borderColorPicker)
+    ui.borderColorRow:addView(ui.borderColorPicker)
+  end
+  ui.borderColor = editorValues.borderColor or defaultColors.border
+  ui.borderColorPicker:setBackgroundColor(ui.borderColor)
+
+  if(ui.borderHelp == nil) then
+    ui.borderHelp = fnew(TextView,context)
+    ui.borderHelp:setLayoutParams(fillparams)
+    ui.borderHelp:setTextSize(textSizeSmall)
+    ui.borderHelp:setText("Thin stroke on the grid button. Useful for accordion children that overlap neighbours. Tap the swatch to pick a colour, long-press for the set default. Accordion sub-buttons reuse the parent's border.")
+    ui.borderHelp:setTextColor(Color:argb(255, 170, 170, 170))
+    ui.advancedPage:addView(ui.borderHelp)
+  end
+
+  local function syncBorderSwatchEnabled()
+    local on = ui.borderCheck ~= nil and ui.borderCheck:isChecked()
+    if ui.borderColorPicker ~= nil then
+      ui.borderColorPicker:setEnabled(on)
+      -- Dim when off so it is obvious the colour only applies with the tick.
+      if on then
+        ui.borderColorPicker:setAlpha(1.0)
+      else
+        ui.borderColorPicker:setAlpha(0.4)
+      end
+    end
+  end
+  if ui.borderCheckListener == nil then
+    ui.borderCheckListener = luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
+      onCheckedChanged = function(buttonView, isChecked)
+        syncBorderSwatchEnabled()
+      end
+    })
+    ui.borderCheck:setOnCheckedChangeListener(ui.borderCheckListener)
+  end
+  syncBorderSwatchEnabled()
   
   if(ui.typeInLabel == nil) then
     ui.typeInLabel = fnew(TextView,context)
@@ -904,6 +989,8 @@ function getEditorValues()
   tmp.pressedColor = ui.pressedColor
   tmp.normalLabelColor = ui.normalLabelColor
   tmp.flipLabelColor = ui.flipLabelColor
+  tmp.border = ui.borderCheck ~= nil and ui.borderCheck:isChecked()
+  tmp.borderColor = ui.borderColor
   tmp.labelSize = tonumber(ui.labelSizeEdit:getText():toString())
   tmp.height = tonumber(ui.heightEdit:getText():toString())
   tmp.width = tonumber(ui.widthEdit:getText():toString())
@@ -959,6 +1046,8 @@ swatchClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       color = ui.normalLabelColor
     elseif(selectedColorField == "flipLabel") then
       color = ui.flipLabelColor
+    elseif(selectedColorField == "border") then
+      color = ui.borderColor
     end
     colorpickerdialog = luajava.newInstance("com.resurrection.blowtorch2.lib.button.ColorPickerDialog",context,colorPickerDoneListener,color)
     colorpickerdialog:show()
@@ -994,6 +1083,12 @@ colorPickerDoneListener = luajava.createProxy("com.resurrection.blowtorch2.lib.b
       ui.flipLabelColorPicker:setBackgroundColor(color)
       ui.flipLabelColorPicker:invalidate()
       ui.flipLabelColor = color
+    elseif(selectedColorField == "border") then
+      ui.borderColor = color
+      if ui.borderColorPicker ~= nil then
+        ui.borderColorPicker:setBackgroundColor(color)
+        ui.borderColorPicker:invalidate()
+      end
     end
   end
 })

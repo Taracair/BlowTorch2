@@ -1908,6 +1908,7 @@ DROPPABLE_OWN_FIELDS = {
 	"width", "height", "labelSize",
 	"primaryColor", "flipColor", "selectedColor",
 	"labelColor", "flipLabelColor",
+	"borderColor",
 }
 
 --- Drop a button's own values that it would inherit unchanged anyway.
@@ -2662,6 +2663,8 @@ function buttonOptions()
   editorValues.flipColor = defaults.flipColor
   editorValues.labelColor = defaults.labelColor
   editorValues.flipLabelColor = defaults.flipLabelColor
+  editorValues.border = defaults.border == true
+  editorValues.borderColor = defaults.borderColor
   editorValues.switchTo = ""
   editorValues.height = defaults.height
   editorValues.width = defaults.width
@@ -2729,6 +2732,14 @@ function buttonOptions()
     defaults.labelColor = tmp.normalLabelColor or tmp.labelColor or defaults.labelColor
     defaults.flipLabelColor = tmp.flipLabelColor or defaults.flipLabelColor
     defaults.labelSize = tmp.labelSize or defaults.labelSize
+    -- Border lives on the same advanced page the defaults editor reuses; without
+    -- this, ticking Draw border there was discarded on Done.
+    if tmp.border ~= nil then
+      defaults.border = tmp.border == true
+    end
+    if tmp.borderColor ~= nil then
+      defaults.borderColor = tmp.borderColor
+    end
     
     for i=1,#buttons do
       local b = buttons[i]
@@ -3225,7 +3236,11 @@ function buildAccordionOverlay(parent)
 			primaryColor = parent.data.primaryColor,
 			selectedColor = parent.data.selectedColor,
 			labelColor = parent.data.labelColor,
-			labelSize = parent.data.labelSize
+			labelSize = parent.data.labelSize,
+			-- Same chrome as the parent so an expanded fan stays readable when
+			-- it overlaps neighbours (border is the usual way to mark them).
+			border = parent.data.border == true,
+			borderColor = parent.data.borderColor,
 		}
 		local btn = BUTTON:new(childData, density)
 		btn.isAccordionChild = true
@@ -3291,11 +3306,12 @@ function drawButtons()
 	--if(manage) then
 	--	canvas:drawBitmap(managerBitmap,0,0,nil)
 	--end
-	--local counter = 0
+	-- Permanent tiles first, then every open accordion fan. Drawing overlays
+	-- inline after each parent let a later neighbour paint over the children
+	-- while hit-testing still preferred the fan — taps worked, paint looked
+	-- buried. Pass two matches buttonTouched (overlays first).
 	for i=1,#buttons do
-	--for i,b in pairs(buttons) do
 		local b = buttons[i]
-		----Note("DRAWING BUTTON"..i)
 		if isKeyboardOnlyFloater(b) then
 			-- skip: lives above the keyboard, or nowhere
 		elseif(b.selected) then
@@ -3303,15 +3319,15 @@ function drawButtons()
 		else
 			b:draw(0,canvas)
 		end
+	end
+	for i=1,#buttons do
+		local b = buttons[i]
 		if b.expanded and b.accordionOverlay ~= nil then
 			for j = 1, #b.accordionOverlay do
-				local child = b.accordionOverlay[j]
-				child:draw(0, canvas)
+				b.accordionOverlay[j]:draw(0, canvas)
 			end
 		end
-		--counter = counter + 1
 	end
-	--Note("DRAWING "..counter.." BUTTONS")
 end
 
 function drawButtonsNoSelected()
@@ -3329,6 +3345,15 @@ function drawButtonsNoSelected()
 	for i,b in pairs(buttons) do
 		if(b.selected ~= true and not isKeyboardOnlyFloater(b)) then
 			b:draw(0,buttonCanvas)
+		end
+	end
+	-- Same second pass as drawButtons: an open fan must stay above tiles when
+	-- this path redraws during manage/drag.
+	for i,b in pairs(buttons) do
+		if b.expanded and b.accordionOverlay ~= nil then
+			for j = 1, #b.accordionOverlay do
+				b.accordionOverlay[j]:draw(0, buttonCanvas)
+			end
 		end
 	end
 end
@@ -3987,6 +4012,8 @@ function buttonEditorDone(data)
 		tmp.data.selectedColor = resolveButtonColor(data.pressedColor, defaults.selectedColor)
 		tmp.data.labelColor = resolveButtonColor(data.normalLabelColor, defaults.labelColor)
 		tmp.data.flipLabelColor = resolveButtonColor(data.flipLabelColor, defaults.flipLabelColor)
+		tmp.data.border = data.border == true
+		tmp.data.borderColor = resolveButtonColor(data.borderColor, defaults.borderColor)
 		
 		tmp.data.command = data.cmd
 		tmp.data.label = data.label
@@ -4090,6 +4117,14 @@ function buttonEditorDone(data)
 				if(data.flipLabelColor ~= editorValues.flipLabelColor) then
 					b.data.flipLabelColor = resolveButtonColor(data.flipLabelColor, defaults.flipLabelColor)
 				end
+
+				if data.border ~= nil and data.border ~= editorValues.border then
+					b.data.border = data.border == true
+				end
+
+				if data.borderColor ~= nil and data.borderColor ~= editorValues.borderColor then
+					b.data.borderColor = resolveButtonColor(data.borderColor, defaults.borderColor)
+				end
 				
 				refreshRect(b)
 			end
@@ -4192,6 +4227,8 @@ function showEditorDialog()
 		end
 		editorValues.floatRound = button.data.floatRound == true
 		editorValues.floatFrame = button.data.floatFrame == true
+		editorValues.border = button.data.border == true
+		editorValues.borderColor = button.data.borderColor
 		--Note("single editor loading:"..editorValues.x)
 		--Note("single editor loading:"..editorValues.y)
 	else 
@@ -4216,6 +4253,16 @@ function showEditorDialog()
 				
 				if(editorValues.flipLabelColor ~= b.data.flipLabelColor) then
 					editorValues.flipLabelColor = b.data.flipLabelColor
+				end
+
+				local bBorder = b.data.border == true
+				if editorValues.border == nil then
+					editorValues.border = bBorder
+				elseif editorValues.border ~= bBorder then
+					editorValues.border = bBorder
+				end
+				if editorValues.borderColor ~= b.data.borderColor then
+					editorValues.borderColor = b.data.borderColor
 				end
 				
 				if(editorValues.labelSize == nil) then
@@ -4256,6 +4303,9 @@ function showEditorDialog()
 		editorValues.floatMode = "always"
 		editorValues.floatRound = false
 		editorValues.floatFrame = false
+		if editorValues.border == nil then
+			editorValues.border = false
+		end
 	end
 	
 	editorValues.defaultPrimaryColor = defaults.primaryColor
@@ -4263,6 +4313,7 @@ function showEditorDialog()
 	editorValues.defaultFlipColor = defaults.flipColor
 	editorValues.defaultLabelColor = defaults.labelColor
 	editorValues.defaultFlipLabelColor = defaults.flipLabelColor
+	editorValues.defaultBorderColor = defaults.borderColor
 	editorValues.showGestureHints = buttonShowHints ~= false and buttonShowHints ~= "false"
 		and buttonShowHints ~= 0 and buttonShowHints ~= "0"
 	editorValues.showSwipePreview = buttonShowSwipePreview ~= false

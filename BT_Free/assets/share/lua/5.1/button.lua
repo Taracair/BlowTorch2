@@ -68,6 +68,10 @@ BUTTONSET_DATA = {
 						floatYLand = -1,
 						floatRound = false,
 						floatFrame = false,
+						-- Grid chrome: thin stroke around the tile. Separate from
+						-- floatFrame (floating layer only, auto-contrast colour).
+						border = false,
+						borderColor = Color:argb(0xE0, 0xFF, 0xFF, 0xFF),
 						gridXwidth = 50,
 						gridYwidth = 50			
 			  		}
@@ -551,6 +555,27 @@ function BUTTON:draw(state,canvas)
 			p:setColor(Color:argb(200, 0xFF, 0x66, 0x66))
 			p:setTextSize(math.max(9 * self.density, indicatorSize(rect, self.density) * 1.5))
 			canvas:drawText("x", rectLeft(rect) + 8 * self.density, rectTop(rect) + 11 * self.density, p)
+		end
+	end
+
+	-- Stroke after fill/label/hints so the frame sits on top. Same rect/inset as
+	-- the fill for this state. Restore FILL: paintOpts is shared across draws.
+	if self.data.border == true then
+		local borderColor = self.data.borderColor
+		if borderColor ~= nil then
+			local previousStyle = p:getStyle()
+			local previousWidth = p:getStrokeWidth()
+			local stroke = math.max(1.5 * self.density, 2)
+			local frameRect = rect
+			if usestate == 1 or usestate == 2 then
+				frameRect = self.inset
+			end
+			p:setStyle(PaintStyle.STROKE)
+			p:setStrokeWidth(stroke)
+			p:setColor(borderColor)
+			canvas:drawRoundRect(frameRect, buttonRoundness, buttonRoundness, p)
+			p:setStrokeWidth(previousWidth)
+			p:setStyle(previousStyle)
 		end
 	end
 end
