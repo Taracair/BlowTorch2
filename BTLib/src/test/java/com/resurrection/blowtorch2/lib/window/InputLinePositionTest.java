@@ -68,4 +68,20 @@ public class InputLinePositionTest {
 		assertFalse(MainWindow.isSuggestForgetCommand("suggest clear"));
 		assertFalse(MainWindow.isSuggestForgetCommand("kill troll"));
 	}
+
+	@Test
+	public void keyboardFlushIsRecognisedUnderBothNames() {
+		assertTrue(MainWindow.isKeyboardFlushCommand(".kb flush"));
+		assertTrue(MainWindow.isKeyboardFlushCommand("  .Keyboard  Flush  "));
+		assertTrue(MainWindow.isKeyboardFlushCommand(".keyboard flush"));
+	}
+
+	@Test
+	public void otherKeyboardLinesAreNotAFlush() {
+		assertFalse(MainWindow.isKeyboardFlushCommand(".kb clear"));
+		assertFalse(MainWindow.isKeyboardFlushCommand(".kb flush now"));
+		assertFalse(MainWindow.isKeyboardFlushCommand(".kb"));
+		assertFalse(MainWindow.isKeyboardFlushCommand("kb flush"));
+		assertFalse(MainWindow.isKeyboardFlushCommand("kill troll"));
+	}
 }

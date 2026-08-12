@@ -1203,7 +1203,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					loadSettings();
 					break;
 				case MESSAGE_PROCESSINPUTWINDOW:
-					
+
 					//input_box.debug(5);
 					
 					String pdata = mInputBox.getText().toString();
@@ -1303,8 +1303,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 									if (mInputBox == null || keepLastReplaceLength <= 0) {
 										return;
 									}
+									// ClearKeyboard / echo-off / a later reset can
+									// empty the bar before this runs. Measured crash
+									// 12 Aug 2026: setSelection(0, 9) on length 0
+									// after typing .kb flush with Keep Last on.
+									int len = mInputBox.getText().length();
+									if (len <= 0) {
+										keepLastReplaceLength = 0;
+										historyWidgetKept = false;
+										return;
+									}
+									int end = Math.min(keepLastReplaceLength, len);
+									keepLastReplaceLength = end;
 									mInputBox.requestFocus();
-									mInputBox.setSelection(0, keepLastReplaceLength);
+									mInputBox.setSelection(0, end);
 								}
 							});
 						}
@@ -3429,6 +3441,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		return parts[1].equals("clear") || parts[1].equals("forget");
 	}
 
+	/**
+	 * Whether this line is only {@code .kb flush} / {@code .keyboard flush}.
+	 *
+	 * <p>Typing that in the input bar and pressing Enter both submits the special
+	 * command and (via Keep Last) leaves the same text for the command's own
+	 * flush callback to send again. Matched here so the UI can swallow that
+	 * nested process once.
+	 */
+	static boolean isKeyboardFlushCommand(final String line) {
+		if (line == null) {
+			return false;
+		}
+		String t = line.trim().toLowerCase(java.util.Locale.US);
+		if (!t.startsWith(".")) {
+			return false;
+		}
+		String[] parts = t.substring(1).trim().split("\\s+");
+		if (parts.length != 2) {
+			return false;
+		}
+		if (!parts[0].equals("kb") && !parts[0].equals("keyboard")) {
+			return false;
+		}
+		return parts[1].equals("flush");
+	}
+
 	/** Which world the loaded pairings belong to. */
 	private String mCommandKnowledgeWorld = null;
 
@@ -4054,6 +4092,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	private void ClearKeyboard() {
 		//EditText input_box = (EditText)findViewById(R.id.textinput);
+		keepLastReplaceLength = 0;
+		historyWidgetKept = false;
+		keepLastPendingReplace = null;
 		mInputBox.setText("");
 	}
 	
@@ -5142,7 +5183,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void showKeyBoard(String txt,boolean popup,boolean add,boolean flush,boolean clear,boolean close) throws RemoteException {
 			if(flush) {
-				myhandler.sendEmptyMessage(MESSAGE_PROCESSINPUTWINDOW);
+				// Must read the bar on the UI thread. If Enter just submitted
+				// ".kb flush", Keep Last (without the force-clear below) would
+				// still be holding that text when this callback arrives — and
+				// processing it again loops until setSelection hits length 0
+				// (crash 12 Aug 2026). Button-sourced .kb flush leaves game text
+				// in the bar, so this check does not fire for that path.
+				myhandler.post(new Runnable() {
+					@Override
+					public void run() {
+						if (mInputBox != null
+								&& isKeyboardFlushCommand(mInputBox.getText().toString())) {
+							return;
+						}
+						myhandler.sendEmptyMessage(MESSAGE_PROCESSINPUTWINDOW);
+					}
+				});
 				return;
 			}
 			
