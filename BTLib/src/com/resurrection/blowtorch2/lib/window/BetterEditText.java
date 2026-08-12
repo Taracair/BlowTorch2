@@ -76,7 +76,47 @@ public class BetterEditText extends EditText {
 		// After super (fullscreen / backspace-fix), which rebuilds imeOptions from
 		// getImeOptions() and would drop flags we only wrote into attrs first.
 		applySuggestionPolicy(attrs);
-		return connection;
+		// Grow Input Bar sets MULTI_LINE so the field can show pasted blocks. Soft
+		// IMEs then treat Enter as "insert newline" and never fire IME_ACTION_SEND —
+		// measured on Darkwind: newbiehist opens `[ Paging … <enter> … ]`, Enter
+		// grows the bar, the server waits forever while GMCP keeps ticking.
+		return wrapEnterSends(connection);
+	}
+
+	/**
+	 * Soft-keyboard Enter under MULTI_LINE arrives as {@code commitText("\n")} and
+	 * never fires {@code IME_ACTION_SEND}. Turn that into Send. Hardware Enter is
+	 * handled in {@code MainWindow}'s OnKeyListener only — intercepting
+	 * {@code sendKeyEvent} here as well double-fired the same key (Bugbot).
+	 */
+	private InputConnection wrapEnterSends(final InputConnection base) {
+		if (base == null) {
+			return null;
+		}
+		return new InputConnectionWrapper(base, true) {
+			@Override
+			public boolean commitText(CharSequence text, int newCursorPosition) {
+				if (isSoftEnterNewline(text)) {
+					BetterEditText.this.onEditorAction(EditorInfo.IME_ACTION_SEND);
+					return true;
+				}
+				return super.commitText(text, newCursorPosition);
+			}
+		};
+	}
+
+	/** Soft IMEs insert a lone newline for Enter instead of an editor action. */
+	static boolean isSoftEnterNewline(final CharSequence text) {
+		if (text == null || text.length() == 0) {
+			return false;
+		}
+		for (int i = 0; i < text.length(); i++) {
+			final char c = text.charAt(i);
+			if (c != '\n' && c != '\r') {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -246,6 +286,12 @@ public class BetterEditText extends EditText {
 	    public boolean commitText(CharSequence text, int newCursorPosition) {
 	        if (mTextView == null) {
 	            return super.commitText(text, newCursorPosition);
+	        }
+	        // wrapEnterSends usually catches this first; keep the rule here too
+	        // if a path reaches EditableInputConnection without that wrapper.
+	        if (isSoftEnterNewline(text)) {
+	        	mTextView.onEditorAction(EditorInfo.IME_ACTION_SEND);
+	        	return true;
 	        }
 	        if (text instanceof Spanned) {
 	            //Spanned spanned = ((Spanned) text);

@@ -129,7 +129,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption grow_input_bar = new BooleanOption();
 		grow_input_bar.setTitle("Grow Input Bar?");
-		grow_input_bar.setDescription("When on, the input bar grows with multiline text. When off, input stays a single non-growing line. Toggle with .wrap on/off.");
+		grow_input_bar.setDescription("When on, the input bar grows with multiline text (paste a block, or Shift+Enter on a hardware keyboard). Enter always sends the line — soft keyboards otherwise insert a newline and never reach the MUD, which breaks pagers that wait for Enter. When off, input stays a single non-growing line. Toggle with .wrap on/off.");
 		grow_input_bar.setKey("grow_input_bar");
 		grow_input_bar.setValue(true);
 		input.addOption(grow_input_bar);

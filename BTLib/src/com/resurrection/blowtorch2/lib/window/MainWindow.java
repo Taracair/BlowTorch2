@@ -640,6 +640,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				} else if(event.getKeyCode() == KeyEvent.KEYCODE_DPAD_DOWN && event.getAction() == KeyEvent.ACTION_UP) {
 					applyInputHistoryStep(false);
 					return true;
+				} else if(event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+						&& event.getAction() == KeyEvent.ACTION_UP) {
+					// Hardware Enter: same as Send. Shift+Enter keeps newline when
+					// Grow Input Bar made the field multi-line.
+					if (event.isShiftPressed() && mGrowInputBar) {
+						return false;
+					}
+					myhandler.sendEmptyMessage(MainWindow.MESSAGE_PROCESSINPUTWINDOW);
+					return true;
+				} else if(event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+						&& event.getAction() == KeyEvent.ACTION_DOWN
+						&& !(event.isShiftPressed() && mGrowInputBar)) {
+					return true;
 				} else if(event.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER && event.getAction() == KeyEvent.ACTION_UP) {
 					myhandler.sendEmptyMessage(MainWindow.MESSAGE_PROCESSINPUTWINDOW);
 					return true;
@@ -1207,6 +1220,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					//input_box.debug(5);
 					
 					String pdata = mInputBox.getText().toString();
+					// Soft Enter under MULTI_LINE can leave only \n in the bar.
+					// Pagers (Darkwind `[ Paging … <enter> … ]`) need a bare CRLF;
+					// a lone space must still go out — that is also a page key.
+					if (isNewlineOnlyCommand(pdata)) {
+						pdata = "";
+					}
 					// A masked line is a password. The history is written to disk and
 					// comes back on ↑ after a restart, so it must not go in at all.
 					if (!mLocalEchoOff) {
@@ -3439,6 +3458,24 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return false;
 		}
 		return parts[1].equals("clear") || parts[1].equals("forget");
+	}
+
+	/**
+	 * Soft Enter under MULTI_LINE can leave only CR/LF in the bar. Those must
+	 * go out as a bare CRLF (pagers, empty prompt) — not as extra newlines on
+	 * the wire. A space is a real pager key and must not match.
+	 */
+	static boolean isNewlineOnlyCommand(final String line) {
+		if (line == null || line.isEmpty()) {
+			return true;
+		}
+		for (int i = 0; i < line.length(); i++) {
+			final char c = line.charAt(i);
+			if (c != '\n' && c != '\r') {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**
