@@ -123,6 +123,9 @@
 		<item name="colorAccent">@color/chrome_accent</item>
 	</style>
 
+	<!-- Parent required: AAPT treats BlowTorch.Chrome.Title as a child of this. -->
+	<style name="BlowTorch.Chrome" />
+
 	<!-- 42dip ALL-CAPS title used by Sensors / alias-trigger-timer lists. -->
 	<style name="BlowTorch.Chrome.Title">
 		<item name="android:layout_width">match_parent</item>
