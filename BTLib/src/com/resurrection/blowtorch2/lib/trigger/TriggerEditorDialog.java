@@ -3,6 +3,7 @@ package com.resurrection.blowtorch2.lib.trigger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -807,8 +808,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		}
 		actionList.removeAllViews();
 		LayoutInflater inflater = LayoutInflater.from(getContext());
-		for (TriggerResponder responder : the_trigger.getResponders()) {
-			final int position = the_trigger.getResponders().indexOf(responder);
+		List<TriggerResponder> responders = the_trigger.getResponders();
+		for (int position = 0; position < responders.size(); position++) {
+			TriggerResponder responder = responders.get(position);
 			View row = inflater.inflate(R.layout.editor_action_row, actionList, false);
 			TextView type = (TextView) row.findViewById(R.id.action_row_type);
 			TextView summary = (TextView) row.findViewById(R.id.action_row_summary);

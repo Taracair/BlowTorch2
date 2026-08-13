@@ -25,6 +25,18 @@ public class TriggerEditorActionRowTest {
 	}
 
 	@Test
+	public void duplicateEmptyAcksAreEqualSoIndexOfCannotKeyRows() {
+		AckResponder first = new AckResponder();
+		AckResponder second = new AckResponder();
+		java.util.ArrayList<com.resurrection.blowtorch2.lib.responder.TriggerResponder> list =
+				new java.util.ArrayList<com.resurrection.blowtorch2.lib.responder.TriggerResponder>();
+		list.add(first);
+		list.add(second);
+		assertEquals(0, list.indexOf(second));
+		assertEquals(1, list.lastIndexOf(second));
+	}
+
+	@Test
 	public void gagHasTypeAndNoSummary() {
 		GagAction gag = new GagAction();
 		assertEquals("Gag", TriggerEditorDialog.actionTypeLabel(gag));
