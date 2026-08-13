@@ -36,6 +36,36 @@ module(...)
 -- the place that must stop the player at twenty with a visible sentence.
 local MAX_ACCORDION_CHILDREN = 20
 
+local SECTION_TEXT = Color:argb(255, 0x9F, 0xB6, 0xD8)
+local SECTION_FILL = Color:argb(255, 0x1B, 0x1F, 0x25)
+local DESC_TEXT = Color:argb(255, 0x9A, 0xA3, 0xAD)
+
+local function addSectionBar(parent, text, o)
+	local header = luajava.new(TextView, o.context)
+	header:setText(text)
+	header:setTextSize(12)
+	header:setTextColor(SECTION_TEXT)
+	header:setBackgroundColor(SECTION_FILL)
+	local pad = math.floor(10 * density)
+	header:setPadding(pad, math.floor(8 * density), pad, math.floor(8 * density))
+	header:setMinHeight(math.floor(34 * density))
+	header:setGravity(Gravity.CENTER_VERTICAL)
+	header:setLayoutParams(o.fillparams)
+	parent:addView(header)
+end
+
+local function addOneLiner(parent, text, o)
+	local help = luajava.new(TextView, o.context)
+	help:setText(text)
+	help:setTextSize(o.textSizeSmall)
+	help:setTextColor(DESC_TEXT)
+	help:setMaxLines(2)
+	local pad = math.floor(8 * density)
+	help:setPadding(pad, math.floor(4 * density), pad, math.floor(4 * density))
+	help:setLayoutParams(o.fillparams)
+	parent:addView(help)
+end
+
 -- Mirror buttonwindow.accordionStackVertical: column vs row decides the words
 -- on insert/move/add controls (Above/Below vs Left/Right).
 local function accordionStackVertical(dir, layout)
@@ -102,17 +132,11 @@ function buildClickTab(host, content, o)
 	clickPage:setOrientation(LinearLayout.VERTICAL)
 
 	local function addGestureSection(title, explanation)
-		local header = luajava.new(TextView, o.context)
-		header:setText(title .. " — " .. explanation)
-		header:setTextSize(textSize)
-		header:setTextColor(Color:argb(255, 0xFF, 0xFF, 0xFF))
-		local pad = math.floor(8 * density)
-		header:setPadding(pad, math.floor(14 * density), pad, math.floor(4 * density))
-		header:setLayoutParams(o.fillparams)
-		clickPage:addView(header)
+		addSectionBar(clickPage, title, o)
+		addOneLiner(clickPage, explanation, o)
 	end
 
-	addGestureSection("Tap", "sends when you release on the button")
+	addGestureSection("TAP", "sends when you release")
 
 	local clickLabelRow = luajava.new(LinearLayout, o.context)
 	clickLabelRow:setLayoutParams(o.fillparams)
@@ -175,7 +199,7 @@ function buildClickTab(host, content, o)
 	accordionTapLockNote:setVisibility(View.GONE)
 	clickPage:addView(accordionTapLockNote)
 
-	addGestureSection("Flip", "drag off the button, then release (blocked when any swipe is set)")
+	addGestureSection("FLIP", "drag off, then release")
 
 	local flipSwipeNote = luajava.new(TextView, o.context)
 	flipSwipeNote:setTextSize(textSizeSmall)
@@ -303,8 +327,6 @@ function buildTabs(host, content, o)
 	end
 	swipePage:addView(gestureHintsCb)
 
-	o.addHelpText(swipePage, "Swipe commands override Flip when set. Drag ~24dp in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at ~0.45s. To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).")
-	
 	local function addGestureRow(parent, labelText, initialValue)
 		local row = luajava.new(LinearLayout,o.context)
 		row:setLayoutParams(o.fillparams)
@@ -332,13 +354,7 @@ function buildTabs(host, content, o)
 	end
 	
 	local function addSectionHeader(parent, text)
-		local header = luajava.new(TextView, o.context)
-		header:setTextSize(textSize)
-		header:setText(text)
-		local pad = math.floor(8 * density)
-		header:setPadding(pad, math.floor(12 * density), pad, math.floor(2 * density))
-		header:setLayoutParams(o.fillparams)
-		parent:addView(header)
+		addSectionBar(parent, text, o)
 	end
 
 	local function addSwipeRow(parent, labelText, initialValue)
@@ -356,7 +372,7 @@ function buildTabs(host, content, o)
 	swipePage:addView(accordionHoldLockNote)
 	o.widgets.accordionHoldLockNote = accordionHoldLockNote
 
-	addSectionHeader(swipePage, "Straight swipes")
+	addSectionHeader(swipePage, "STRAIGHT SWIPES")
 	o.widgets.swipeUpCmdEdit = addSwipeRow(swipePage, "↑  Up:", editorValues.swipeUpCommand)
 	o.widgets.swipeDownCmdEdit = addSwipeRow(swipePage, "↓  Down:", editorValues.swipeDownCommand)
 	o.widgets.swipeLeftCmdEdit = addSwipeRow(swipePage, "←  Left:", editorValues.swipeLeftCommand)
@@ -429,7 +445,6 @@ function buildTabs(host, content, o)
 		diagonalBox:setVisibility(View.GONE)
 	end
 
-	o.addHelpText(diagonalBox, "A corner with no command falls back to the nearest straight swipe, so adding these never changes how the straight ones behave.")
 	o.widgets.gestureLabelCb = luajava.new(CheckBox,o.context)
 	local gestureLabelCb = o.widgets.gestureLabelCb
 	-- "this button" spelled out, because the two switches that used to sit
@@ -469,8 +484,6 @@ function buildTabs(host, content, o)
 	accordionPage:setLayoutParams(o.fillparams)
 	accordionPage:setId(44)
 	accordionPage:setOrientation(LinearLayout.VERTICAL)
-	
-	o.addHelpText(accordionPage, "Up to 20 sub-buttons expand from the parent. Order in the list is the order they fan out — first row nearest the parent. A run too long for the screen wraps to the next column or row, and any that still do not fit are left out with a message. Badges on the button: T/H/S = tap/hold/swipe open.")
 	
 	local dirRow = luajava.new(LinearLayout,o.context)
 	dirRow:setLayoutParams(o.fillparams)
@@ -571,8 +584,6 @@ function buildTabs(host, content, o)
 	triggerRow:addView(accordionTriggerSpinner)
 	accordionPage:addView(triggerRow)
 	
-	o.addHelpText(accordionPage, "Tap = open on press, close on second press. Hold = open after hold delay (ms). Swipe = drag in expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right. The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs.")
-	
 	local holdMsRow = luajava.new(LinearLayout,o.context)
 	holdMsRow:setLayoutParams(o.fillparams)
 	local holdMsLabel = luajava.new(TextView,o.context)
@@ -594,6 +605,13 @@ function buildTabs(host, content, o)
 	holdMsRow:addView(holdMsLabel)
 	holdMsRow:addView(accordionHoldMsEdit)
 	accordionPage:addView(holdMsRow)
+	o.widgets.accordionHoldMsRow = holdMsRow
+	-- Hold delay is only meaningful when Open with = Hold. Still saved.
+	if currentTrigger == "hold" then
+		holdMsRow:setVisibility(View.VISIBLE)
+	else
+		holdMsRow:setVisibility(View.GONE)
+	end
 	
 	o.widgets.accordionAutoCloseCheck = luajava.new(CheckBox,o.context)
 	local accordionAutoCloseCheck = o.widgets.accordionAutoCloseCheck
@@ -805,6 +823,14 @@ function buildTabs(host, content, o)
 		o.accordionLockedSwipeEdits = o.accordionLockedSwipeEdits or {}
 		for k in pairs(o.accordionLockedSwipeEdits) do
 			o.accordionLockedSwipeEdits[k] = nil
+		end
+		local holdRow = o.widgets.accordionHoldMsRow
+		if holdRow ~= nil then
+			if selectedTriggerKey() == "hold" then
+				holdRow:setVisibility(View.VISIBLE)
+			else
+				holdRow:setVisibility(View.GONE)
+			end
 		end
 		if o.numediting > 1 then
 			return

@@ -32,8 +32,16 @@ print("1. editoroptionsdialog uses a bottom sheet root")
 local lua = table.concat(readLines(SRC), "\n")
 check(lua:match("LAYOUT_BOTTOM_SHEET") ~= nil,
 	"expected LuaDialog.LAYOUT_BOTTOM_SHEET in editoroptionsdialog.lua")
-check(lua:match("Button set options") ~= nil,
+check(lua:match("BUTTON SET OPTIONS") ~= nil,
 	"expected bottom-sheet header title")
+check(lua:match("Arrange…") ~= nil or lua:match("Arrange%.%.%.") ~= nil,
+	"Arrange tools must sit behind a disclosure row")
+check(lua:match("Extra gestures") ~= nil,
+	"chrome gesture fields must sit behind Extra gestures")
+check(lua:match("Fit Square") ~= nil,
+	"Fit Square should be on the first paint")
+check(not lua:match("Automatic arrange"),
+	"Arrange tools must not be a standing first-paint section")
 check(lua:match("Panel") ~= nil and lua:match("Fullscreen") ~= nil and lua:match("Hide") ~= nil,
 	"expected Panel / Fullscreen / Hide mode controls")
 check(not lua:match("togglePanelButton"),

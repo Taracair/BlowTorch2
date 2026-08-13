@@ -33,14 +33,15 @@ local serialize = _G["serialize"]
 -- module(...) sandboxes globals, so anything used here has to be pulled in.
 local table = _G["table"]
 local ipairs = _G["ipairs"]
+local pcall = _G["pcall"]
 module(...)
 
 local context
 
 --text size values (REFACTOR!)
 local textSizeBig = (18) -- sp value
-local textSize = (14)  
-local textSizeSmall = (10) 
+local textSize = (14)
+local textSizeSmall = (10)
 
 --callbacks to be set from the parent window (the main button manager/editor)
 local setGridSnap
@@ -197,6 +198,65 @@ function init(pContext)
 end
 
 -- Kept out of showDialog so Lua 5.1's 60-upvalue limit is not exceeded.
+local HELP_GEAR = "GRID AND FIT\n"
+  .. "Spacing is in dp, 8 to 160. Drag for a rough size or type an exact one — the two stay in step. Opacity is the edit-grid overlay, not the buttons.\n\n"
+  .. "Fit Square keeps buttons square and leaves spare width at the right. Fill window uses the whole screen, so cells stop being square. Both resize the buttons to match.\n\n"
+  .. "INTERSECT / CONTAINS\n"
+  .. "How a drag rectangle decides what it picks up. Intersect takes every button the rectangle touches, even a corner. Contains takes only the buttons that fit inside it whole.\n\n"
+  .. "ARRANGE\n"
+  .. "Applies to the selected buttons, or to every button when nothing is selected.\n\n"
+  .. "Resize now changes buttons that already exist. Set defaults is what a newly added button starts at — they are not the same thing.\n\n"
+  .. "Line up | / -- puts the selected buttons on one line without moving them along it. The furthest left (or highest) stays put and the rest come to it.\n\n"
+  .. "Column / Row / Block spreads them on the grid. Reading order is kept, spacing comes from the grid above, and the result is pulled back on screen if it would run off.\n\n"
+  .. "Line up on grid: Columns 0 picks a square-ish shape. Buttons keep their reading order and top-left corner.\n\n"
+  .. "Paste puts copied buttons down. A long press on the grid does the same.\n\n"
+  .. "MARKINGS\n"
+  .. "The two checkboxes are for every button. Each button can still opt out on its own Swipe tab. With badges off, nothing is drawn anywhere.\n\n"
+  .. "EXTRA GESTURES\n"
+  .. "Swipe or hold Edit, Send and Overflow. Taps keep working. Done saves them even if you never opened this row."
+
+local function showChromeHelp(ctx, title, body)
+  if ctx == nil then
+    return
+  end
+  local shown = pcall(function()
+    local EditorHelp = luajava.bindClass("com.resurrection.blowtorch2.lib.window.EditorHelp")
+    EditorHelp:show(ctx, title, body)
+  end)
+  if shown then
+    return
+  end
+  local tv = luajava.newInstance("android.widget.TextView", ctx)
+  local pad = math.floor(16 * density)
+  tv:setPadding(pad, pad, pad, pad)
+  tv:setText(body)
+  local scroll = luajava.new(ScrollView, ctx)
+  scroll:addView(tv)
+  local builder = luajava.newInstance("android.app.AlertDialog$Builder", ctx)
+  builder:setTitle(title)
+  builder:setView(scroll)
+  builder:setPositiveButton("Close", nil)
+  builder:show()
+end
+
+local function styleHelpChip(btn)
+  btn:setText("?")
+  btn:setTextSize(16)
+  btn:setTextColor(Color:argb(255, 0xC7, 0xCD, 0xD4))
+  local ok = pcall(function()
+    btn:setBackgroundResource(R_drawable.editor_more_button_bg)
+  end)
+  if not ok then
+    btn:setBackgroundColor(Color:argb(255, 0x27, 0x2B, 0x31))
+  end
+  btn:setMinWidth(math.floor(52 * density))
+  btn:setMinHeight(math.floor(44 * density))
+  pcall(function()
+    local Typeface = luajava.bindClass("android.graphics.Typeface")
+    btn:setTypeface(Typeface.DEFAULT_BOLD)
+  end)
+end
+
 local function presentEditorOptionsSheet(scroller, footer, screenH)
   -- Header/footer must stay weight 0. Weight 1 on them (via shared fillparams)
   -- made fullscreen share leftover height equally with the scroller, so the
@@ -227,18 +287,28 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
   local header = luajava.newInstance("android.widget.LinearLayout", context)
   header:setOrientation(LinearLayout.VERTICAL)
   header:setLayoutParams(chromeParams)
-  header:setPadding(math.floor(10 * density), math.floor(8 * density),
-      math.floor(10 * density), math.floor(4 * density))
+  header:setPadding(0, 0, 0, 0)
 
   local headerTitle = luajava.newInstance("android.widget.TextView", context)
-  headerTitle:setText("Button set options")
-  headerTitle:setTextSize(textSize)
-  headerTitle:setLayoutParams(rowParams)
+  headerTitle:setText("BUTTON SET OPTIONS")
+  headerTitle:setTextSize(14)
+  headerTitle:setTextColor(Color:argb(255, 0xF2, 0xF4, 0xF6))
+  headerTitle:setBackgroundColor(Color:argb(255, 0x1E, 0x21, 0x26))
+  headerTitle:setGravity(Gravity.CENTER)
+  headerTitle:setMinHeight(math.floor(42 * density + 0.5))
+  headerTitle:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.FILL_PARENT, math.floor(42 * density + 0.5)))
+  pcall(function()
+    local Typeface = luajava.bindClass("android.graphics.Typeface")
+    headerTitle:setTypeface(Typeface.DEFAULT_BOLD)
+  end)
 
   local modeRow = luajava.newInstance("android.widget.LinearLayout", context)
   modeRow:setOrientation(LinearLayout.HORIZONTAL)
   modeRow:setLayoutParams(rowParams)
   modeRow:setGravity(Gravity.CENTER_VERTICAL)
+  modeRow:setPadding(math.floor(10 * density), math.floor(4 * density),
+      math.floor(10 * density), math.floor(4 * density))
 
   local function makeModeButton(label)
     local btn = luajava.new(Button, context)
@@ -375,6 +445,16 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
 
   header:addView(headerTitle)
   header:addView(modeRow)
+  local helpChip = luajava.new(Button, context)
+  helpChip:setLayoutParams(luajava.new(LinearLayoutParams,
+      LinearLayoutParams.WRAP_CONTENT, LinearLayoutParams.WRAP_CONTENT))
+  styleHelpChip(helpChip)
+  helpChip:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+    onClick = function(v)
+      showChromeHelp(v:getContext(), "Button set options", HELP_GEAR)
+    end
+  }))
+  footer:addView(helpChip, 0)
   footer:setLayoutParams(chromeParams)
   panel:addView(header)
   panel:addView(scroller)
@@ -517,7 +597,7 @@ function showDialog(initialValues)
   
   local setSettingsButton = luajava.new(Button,context)
   setSettingsButton:setLayoutParams(fillparams)
-  setSettingsButton:setText("Edit set defaults…")
+  setSettingsButton:setText("Set defaults…")
   setSettingsButton:setOnClickListener(setDefaultsEditorListener)
 
   local hintsCb = luajava.newInstance("android.widget.CheckBox",context)
@@ -525,14 +605,14 @@ function showDialog(initialValues)
   -- Master switch. Off hides them everywhere; on lets each button decide, in the
   -- button's own editor. Saying so here is what stops the two reading as the
   -- same switch that will not remember anything.
-  hintsCb:setText("Show swipe letters, corner arrows, hold and accordion badges — all buttons (each button can still opt out)")
+  hintsCb:setText("Swipe letters, arrows, hold and accordion badges")
   hintsCb:setTextSize(textSizeSmall)
   hintsCb:setOnCheckedChangeListener(showGestureHintsCheckChangeListener)
   hintsCb:setLayoutParams(fillparams)
 
   local swipePreviewCb = luajava.newInstance("android.widget.CheckBox",context)
   swipePreviewCb:setChecked(showSwipePreview)
-  swipePreviewCb:setText("Show swipe direction arrow while dragging — all buttons (command callouts always show)")
+  swipePreviewCb:setText("Swipe direction arrow while dragging")
   swipePreviewCb:setTextSize(textSizeSmall)
   swipePreviewCb:setOnCheckedChangeListener(showSwipePreviewCheckChangeListener)
   swipePreviewCb:setLayoutParams(fillparams)
@@ -542,22 +622,49 @@ function showDialog(initialValues)
   local function addSectionHeader(text)
     local header = luajava.newInstance("android.widget.TextView", context)
     header:setText(text)
-    header:setTextSize(textSize)
-    header:setTextColor(Color:argb(255, 0x88, 0xCC, 0xFF))
-    header:setPadding(math.floor(6 * density), math.floor(14 * density),
-        math.floor(6 * density), math.floor(4 * density))
+    header:setTextSize(12)
+    header:setTextColor(Color:argb(255, 0x9F, 0xB6, 0xD8))
+    header:setBackgroundColor(Color:argb(255, 0x1B, 0x1F, 0x25))
+    header:setPadding(math.floor(10 * density), math.floor(8 * density),
+        math.floor(10 * density), math.floor(8 * density))
     header:setLayoutParams(fillparams)
     ll:addView(header)
   end
 
-  local function addHint(text)
+  local function addHintTo(parent, text)
     local hint = luajava.newInstance("android.widget.TextView", context)
     hint:setText(text)
     hint:setTextSize(textSizeSmall)
+    hint:setTextColor(Color:argb(255, 0x9A, 0xA3, 0xAD))
+    hint:setMaxLines(2)
     hint:setPadding(math.floor(6 * density), 0, math.floor(6 * density),
         math.floor(4 * density))
     hint:setLayoutParams(fillparams)
-    ll:addView(hint)
+    parent:addView(hint)
+  end
+
+  local function addHint(text)
+    addHintTo(ll, text)
+  end
+
+  -- Local, not a file upvalue: showDialog is already at the 60-upvalue ceiling.
+  local function makeDisclosureRow(label, content)
+    local btn = luajava.new(Button, context)
+    btn:setText(label)
+    btn:setTextSize(textSize)
+    btn:setLayoutParams(fillparams)
+    content:setVisibility(8)
+    btn:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+      onClick = function(v)
+        if content:getVisibility() == 0 then
+          content:setVisibility(8)
+        else
+          content:setVisibility(0)
+        end
+      end
+    }))
+    ll:addView(btn)
+    ll:addView(content)
   end
 
   local function addNumberField(row, labelText, value, widthDp)
@@ -611,62 +718,29 @@ function showDialog(initialValues)
   ll:addView(cb)
   gridXField = addSliderRow(xSeekBarLabel, xSeekBar, gridX)
   gridYField = addSliderRow(ySeekBarLabel, ySeekBar, gridY)
-  addHint("Spacing in dp, between " .. GRID_MIN .. " and " .. GRID_MAX .. ". Drag for a rough size or type an exact one — the two stay in step.")
   ll:addView(opacitySeekBarLabel)
   ll:addView(opacitySeekBar)
 
   local fitRow = luajava.newInstance("android.widget.LinearLayout", context)
   fitRow:setLayoutParams(fillparams)
   local fitSquare = luajava.new(Button, context)
-  fitSquare:setText("Fit — square")
+  fitSquare:setText("Fit Square")
   fitSquare:setTextSize(textSizeSmall)
   fitSquare:setLayoutParams(fillparams)
   fitSquare:setOnClickListener(fitSquareListener)
   local fitStretch = luajava.new(Button, context)
-  fitStretch:setText("Fit — fill window")
+  fitStretch:setText("Fill window")
   fitStretch:setTextSize(textSizeSmall)
   fitStretch:setLayoutParams(fillparams)
   fitStretch:setOnClickListener(fitStretchListener)
   fitRow:addView(fitSquare)
   fitRow:addView(fitStretch)
   ll:addView(fitRow)
-  addHint("Square keeps buttons square and leaves any spare width at the right edge. Fill window uses the whole screen, so cells stop being square. Both resize the buttons to match, and the boxes above follow.")
+  addHint("Square keeps cells square. Fill uses the whole screen.")
 
   ll:addView(selectionTextLabel)
   ll:addView(rg)
-  addHint("How a drag rectangle decides what it picks up. Intersect takes every button the rectangle touches, even a corner. Contains takes only the buttons that fit inside it whole.")
 
-  addSectionHeader("Automatic arrange buttons")
-  addHint("Applies to the selected buttons, or to every button when nothing is selected.")
-
-  local sizeRow = luajava.newInstance("android.widget.LinearLayout", context)
-  sizeRow:setLayoutParams(fillparams)
-  local sizeWEdit = addNumberField(sizeRow, "Size  W:", initialValues.width or 42, 54)
-  local sizeHEdit = addNumberField(sizeRow, "H:", initialValues.height or 42, 54)
-  local applySizeButton = luajava.new(Button, context)
-  -- "Apply size" read as if it applied the size field to new buttons, which is
-  -- what the field beside it does. This one resizes what is already there.
-  applySizeButton:setText("Resize now")
-  applySizeButton:setTextSize(textSizeSmall)
-  applySizeButton:setLayoutParams(fillparams)
-  applySizeButton:setOnClickListener(applySizeListener)
-  sizeRow:addView(applySizeButton)
-  ll:addView(sizeRow)
-
-  -- Paste has a visible home as well as the gesture. A long press announces
-  -- itself to nobody, so a player who never reads the manual would never learn
-  -- the feature exists.
-  local pasteButton = luajava.new(Button, context)
-  pasteButton:setText("Paste copied buttons (long press on the grid works too)")
-  pasteButton:setTextSize(textSizeSmall)
-  pasteButton:setLayoutParams(fillparams)
-  pasteButton:setOnClickListener(pasteButtonsListener)
-  ll:addView(pasteButton)
-
-  -- Line up and spread. Both act on the selection; with nothing selected they
-  -- take every button, same as the tools above. A small button factory rather
-  -- than five near-identical blocks -- these rows are three buttons wide and a
-  -- copy each would be the whole section.
   local function addToolButton(row, text, listener)
     local b = luajava.new(Button, context)
     b:setText(text)
@@ -677,20 +751,35 @@ function showDialog(initialValues)
     return b
   end
 
+  local arrangeBox = luajava.newInstance("android.widget.LinearLayout", context)
+  arrangeBox:setLayoutParams(fillparams)
+  arrangeBox:setOrientation(1)
+  addHintTo(arrangeBox, "Applies to the selection, or to every button when none is selected.")
+
+  local sizeRow = luajava.newInstance("android.widget.LinearLayout", context)
+  sizeRow:setLayoutParams(fillparams)
+  local sizeWEdit = addNumberField(sizeRow, "Size  W:", initialValues.width or 42, 54)
+  local sizeHEdit = addNumberField(sizeRow, "H:", initialValues.height or 42, 54)
+  local applySizeButton = luajava.new(Button, context)
+  applySizeButton:setText("Resize")
+  applySizeButton:setTextSize(textSizeSmall)
+  applySizeButton:setLayoutParams(fillparams)
+  applySizeButton:setOnClickListener(applySizeListener)
+  sizeRow:addView(applySizeButton)
+  arrangeBox:addView(sizeRow)
+
   local alignRow = luajava.newInstance("android.widget.LinearLayout", context)
   alignRow:setLayoutParams(fillparams)
   addToolButton(alignRow, "Line up  |", alignVerticalListener)
   addToolButton(alignRow, "Line up  --", alignHorizontalListener)
-  ll:addView(alignRow)
-  addHint("Puts the selected buttons on one line without moving them along it, so the arrangement you have keeps its shape. The button furthest left (or highest) stays where it is and the rest come to it.")
+  arrangeBox:addView(alignRow)
 
   local spreadRow = luajava.newInstance("android.widget.LinearLayout", context)
   spreadRow:setLayoutParams(fillparams)
   addToolButton(spreadRow, "Column", spreadColumnListener)
   addToolButton(spreadRow, "Row", spreadRowListener)
   addToolButton(spreadRow, "Block", spreadGridListener)
-  ll:addView(spreadRow)
-  addHint("Spreads the selected buttons out on the grid: one under another, one beside another, or a square-ish block. Reading order is kept, spacing comes from the grid above, and the result is pulled back on screen if it would run off the edge.")
+  arrangeBox:addView(spreadRow)
 
   local tidyRow = luajava.newInstance("android.widget.LinearLayout", context)
   tidyRow:setLayoutParams(fillparams)
@@ -701,27 +790,32 @@ function showDialog(initialValues)
   tidyButton:setLayoutParams(fillparams)
   tidyButton:setOnClickListener(tidyLayoutListener)
   tidyRow:addView(tidyButton)
-  ll:addView(tidyRow)
-  addHint("Columns 0 picks a square-ish shape. Buttons keep their reading order and top-left corner; spacing comes from the grid above.")
+  arrangeBox:addView(tidyRow)
 
-  -- The listeners live at module scope and cannot see these fields, so hand the
-  -- widgets over for them to read on click.
+  local pasteButton = luajava.new(Button, context)
+  pasteButton:setText("Paste")
+  pasteButton:setTextSize(textSizeSmall)
+  pasteButton:setLayoutParams(fillparams)
+  pasteButton:setOnClickListener(pasteButtonsListener)
+  arrangeBox:addView(pasteButton)
+
   sizeWidthField = sizeWEdit
   sizeHeightField = sizeHEdit
   tidyColumnsField = tidyColsEdit
+  makeDisclosureRow("Arrange…", arrangeBox)
 
-  addSectionHeader("Markings on buttons")
-  ll:addView(hintsCb)
-  ll:addView(swipePreviewCb)
+  local markingsBox = luajava.newInstance("android.widget.LinearLayout", context)
+  markingsBox:setLayoutParams(fillparams)
+  markingsBox:setOrientation(1)
+  markingsBox:addView(hintsCb)
+  markingsBox:addView(swipePreviewCb)
+  makeDisclosureRow("Markings", markingsBox)
 
-  -- Not the same ground as the tools above, though it is easy to read it that
-  -- way: those change the buttons that exist, this sets what a set starts from.
-  addSectionHeader("Set defaults")
-  addHint("Colours, label size and the size a newly added button starts at. Apply size above changes buttons you already have; this decides what the next one looks like.")
   ll:addView(setSettingsButton)
 
-  addSectionHeader("Additional gestures")
-  addHint("Swipe or hold these buttons. Taps keep working; these only fire on a gesture. Dot commands suit this well. Done saves them.")
+  local extraBox = luajava.newInstance("android.widget.LinearLayout", context)
+  extraBox:setLayoutParams(fillparams)
+  extraBox:setOrientation(1)
 
   chromeFields = {}
   local chromeStored = parseChromeGestures(initialValues.chromeGestures)
@@ -743,7 +837,7 @@ function showDialog(initialValues)
     groupLabel:setTextSize(textSizeSmall)
     groupLabel:setPadding(math.floor(6 * density), math.floor(8 * density), 0, 0)
     groupLabel:setLayoutParams(fillparams)
-    ll:addView(groupLabel)
+    extraBox:addView(groupLabel)
     local rows = chromeGestureRows
     for r = 1, #rows do
       local row = luajava.newInstance("android.widget.LinearLayout", context)
@@ -752,22 +846,23 @@ function showDialog(initialValues)
           chromeStored[group.key .. "." .. rows[r].g])
       chromeFields[#chromeFields + 1] =
           { key = group.key .. "." .. rows[r].g, edit = edit }
-      ll:addView(row)
+      extraBox:addView(row)
     end
     if group.hold then
       local row = luajava.newInstance("android.widget.LinearLayout", context)
       row:setLayoutParams(fillparams)
       local edit = addChromeField(row, "hold", chromeStored[group.key .. ".hold"])
       chromeFields[#chromeFields + 1] = { key = group.key .. ".hold", edit = edit }
-      ll:addView(row)
+      extraBox:addView(row)
     else
       local note = luajava.newInstance("android.widget.TextView", context)
       note:setText("   hold stays as Edit buttons")
       note:setTextSize(textSizeSmall)
       note:setLayoutParams(fillparams)
-      ll:addView(note)
+      extraBox:addView(note)
     end
   end
+  makeDisclosureRow("Extra gestures…", extraBox)
 
   -- "Save additional gestures" is gone: Done saves them now. A second save
   -- button next to a Done that saved everything else was a trap -- typing a

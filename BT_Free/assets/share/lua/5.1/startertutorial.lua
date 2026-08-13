@@ -216,7 +216,7 @@ for diagonals, H for hold, a chevron for an accordion.
 
 Two switches decide whether they are drawn, and the first one wins:
 
-  all buttons   Edit mode → the gear button → Markings on buttons
+  all buttons   Edit mode → the gear → Markings
   this button   the button's own Swipe tab, same wording
 
 With the all-buttons switch off nothing is drawn anywhere, however the
@@ -267,8 +267,9 @@ end
 TOPICS.buttons_super = function()
 	noteBlock("Buttons — Super-buttons",
 [[A button does not have to stay in the grid. Edit a button, open Others,
-and tick "Float over the game": a copy appears on the screen itself, on
-top of the game and on top of the keyboard. Very long press moves it.
+and tick "Float over the game": When, Shape and Thin outline appear once
+it is ticked. A copy appears on the screen itself, on top of the game
+and on top of the keyboard. Very long press moves it.
 
 Two modes. "Always visible" keeps it on screen all the time — in play
 mode only the floating copy is drawn, so it does not stack on the grid
@@ -306,7 +307,9 @@ Try now:
 Why this matters: one pad for combat, another for shopping, another for
 crafting — flip between them with one tap instead of re-editing.
 
-In edit mode, the gear opens set options (name, size, grid, …). Done saves.
+In edit mode, the gear opens set options. First you get the grid, snap
+and Fit. Arrange, markings, set defaults and extra gestures open from
+rows below. Done saves.
 
 Do not want to build a pad from nothing? Options → Button → Load button
 set from wizard (or .layoutwizard) offers ready-made packs — Compass,

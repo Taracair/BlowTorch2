@@ -254,7 +254,7 @@ _G.luajava = {
 	createProxy = function() return {} end,
 }
 _G.ScrollView = "ScrollView"
-_G.Gravity = { RIGHT = 3 }
+	_G.Gravity = { RIGHT = 3, CENTER = 17, CENTER_VERTICAL = 16 }
 _G.TextView = "TextView"
 _G.EditText = "EditText"
 _G.Spinner = "Spinner"

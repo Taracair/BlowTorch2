@@ -31,7 +31,9 @@ local fillparams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT,1)
 local textSizeBig = (18)
 local textSize = (14)
 local textSizeSmall = (10)
-local bgGrey = Color:argb(255,0x99,0x99,0x99)
+local SECTION_TEXT = Color:argb(255, 0x9F, 0xB6, 0xD8)
+local SECTION_FILL = Color:argb(255, 0x1B, 0x1F, 0x25)
+local DESC_TEXT = Color:argb(255, 0x9A, 0xA3, 0xAD)
 
 local ui = {}
 
@@ -83,6 +85,43 @@ local function bindColorSwatch(view)
   view:setOnLongClickListener(swatchLongClickListener)
 end
 
+local function styleSectionBar(tv, caption)
+  tv:setText(caption)
+  tv:setTextSize(12)
+  tv:setTextColor(SECTION_TEXT)
+  tv:setBackgroundColor(SECTION_FILL)
+  tv:setGravity(Gravity.CENTER_VERTICAL)
+  local pad = math.floor(10 * density)
+  tv:setPadding(pad, math.floor(8 * density), pad, math.floor(8 * density))
+  tv:setMinHeight(math.floor(34 * density))
+end
+
+local function hideEssay(view)
+  if view ~= nil then
+    view:setVisibility(View.GONE)
+  end
+end
+
+-- When/Shape/Thin outline stay saved; they are only on screen while floating.
+applyFloatRowFold = function()
+  local enabled = ui.floatingCheck ~= nil and ui.floatingCheck:isEnabled()
+  local on = enabled and ui.floatingCheck:isChecked()
+  local vis = View.GONE
+  if on then
+    vis = View.VISIBLE
+  end
+  if ui.floatModeRow ~= nil then ui.floatModeRow:setVisibility(vis) end
+  if ui.floatShapeRow ~= nil then ui.floatShapeRow:setVisibility(vis) end
+  if ui.floatOutlineCheck ~= nil then
+    ui.floatOutlineCheck:setVisibility(vis)
+    ui.floatOutlineCheck:setEnabled(on)
+  end
+  if ui.floatModeSpinner ~= nil then ui.floatModeSpinner:setEnabled(on) end
+  if ui.floatShapeSpinner ~= nil then ui.floatShapeSpinner:setEnabled(on) end
+  hideEssay(ui.floatModeHelp)
+  hideEssay(ui.floatOutlineHelp)
+end
+
 showSetEditorControls = nil
 showButtonEditorControls = nil
 
@@ -132,29 +171,27 @@ function makeUI(editorValues,numediting)
     ui.advancedPage = fnew(LinearLayout,context)
     ui.advancedPage:setOrientation(LinearLayout.VERTICAL)
     ui.advancedPageScroller:addView(ui.advancedPage)
-    -- Kept on ui: the text differs between editing one button and editing
-    -- several, and half of what it describes (Name, Switch to button set) is
-    -- hidden in the second case. A paragraph explaining two invisible fields is
-    -- worse than no paragraph.
-    ui.advancedHelp = fnew(TextView,context)
-    ui.advancedHelp:setTextSize(textSizeSmall)
-    local pad = math.floor(8 * density)
-    ui.advancedHelp:setPadding(pad, pad, pad, pad)
-    ui.advancedHelp:setLayoutParams(fillparams)
-    ui.advancedPage:addView(ui.advancedHelp)
   end
 
-  if(numediting > 1) then
-    ui.advancedHelp:setText("Editing " .. numediting .. " buttons at once. What you"
-      .. " change here goes to all " .. numediting .. ": size, position, label"
-      .. " size, the five colours, and the border. A label, a command, a gesture, an"
-      .. " accordion or a super button belongs to one button, so those are not"
-      .. " here -- tap a single button for them.\n\nPosition sets every"
-      .. " selected button to the same X or the same Y, which stacks them on top"
-      .. " of one another. To put them on a line and keep them apart, leave X"
-      .. " and Y empty and use Line up in the editor settings instead.")
+  -- Essays belong behind ?. Keep at most a one-liner on the canvas.
+  hideEssay(ui.advancedHelp)
+  if ui.othersOneLiner == nil then
+    ui.othersOneLiner = fnew(TextView, context)
+    ui.othersOneLiner:setTextSize(textSizeSmall)
+    ui.othersOneLiner:setTextColor(DESC_TEXT)
+    ui.othersOneLiner:setMaxLines(2)
+    local pad = math.floor(8 * density)
+    ui.othersOneLiner:setPadding(pad, math.floor(4 * density), pad, math.floor(4 * density))
+    ui.othersOneLiner:setLayoutParams(fillparams)
+    ui.advancedPage:addView(ui.othersOneLiner)
+  end
+  if numediting > 1 then
+    ui.othersOneLiner:setText("Changes go to all " .. numediting
+      .. " buttons. Tap one button for label, command, gestures.")
+    ui.othersOneLiner:setVisibility(View.VISIBLE)
   else
-    ui.advancedHelp:setText("Name is for the editor list only. Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command. Colors cover normal, pressed, and flip states plus their label colors — tap a swatch to change, long-press to reset to the set default. Border draws a thin stroke on the grid tile (accordion children inherit the parent's). Width, height, and position are in dp from the top-left of the button layer.")
+    ui.othersOneLiner:setText("Name is for the editor list. Switch-to-set on tap does not send CMD.")
+    ui.othersOneLiner:setVisibility(View.VISIBLE)
   end
   
   --ui.buttonNameRow
@@ -253,21 +290,13 @@ function makeUI(editorValues,numediting)
     ui.targetEdit:setLayoutParams(buttonTargetSetEditParams)
     ui.buttonTargetSetRow:addView(ui.targetEdit)
   end
-  if ui.buttonTargetSetHint == nil then
-    ui.buttonTargetSetHint = fnew(TextView, context)
-    ui.buttonTargetSetHint:setTextSize(textSizeSmall)
-    ui.buttonTargetSetHint:setText("Optional. Same engine as .loadset, but tap never sends the Tap-tab CMD. Prefer .loadset in CMD for tutorial buttons.")
-    local pad = math.floor(8 * density)
-    ui.buttonTargetSetHint:setPadding(pad, 0, pad, math.floor(6 * density))
-    ui.buttonTargetSetHint:setLayoutParams(fillparams)
-    ui.advancedPage:addView(ui.buttonTargetSetHint)
+  if ui.buttonTargetSetHint ~= nil then
+    ui.buttonTargetSetHint:setVisibility(View.GONE)
   end
   if(numediting > 1) then
     ui.buttonTargetSetRow:setVisibility(View.GONE)
-    ui.buttonTargetSetHint:setVisibility(View.GONE)
   else
     ui.buttonTargetSetRow:setVisibility(View.VISIBLE)
-    ui.buttonTargetSetHint:setVisibility(View.VISIBLE)
   end
   if(numediting > 1) then
     ui.targetEdit:setEnabled(false)
@@ -287,13 +316,9 @@ function makeUI(editorValues,numediting)
     ui.colortopLabel = fnew(TextView,context)
     colortopLabelParams:setMargins(0,10,0,10)
     ui.colortopLabel:setLayoutParams(colortopLabelParams)
-    ui.colortopLabel:setTextSize(textSize)
-    ui.colortopLabel:setText("COLORS — tap swatch to pick, long-press for set default")
-    ui.colortopLabel:setGravity(GRAVITY_CENTER)
-    ui.colortopLabel:setTextColor(Color:argb(255,0x33,0x33,0x33))
-    ui.colortopLabel:setBackgroundColor(bgGrey)
     ui.advancedPage:addView(ui.colortopLabel)
   end
+  styleSectionBar(ui.colortopLabel, "COLORS")
   
   if(ui.colorRowOne == nil) then
     ui.colorRowOne = fnew(LinearLayout,context)
@@ -508,13 +533,9 @@ function makeUI(editorValues,numediting)
     local borderSectionParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
     borderSectionParams:setMargins(0,10,0,10)
     ui.borderSectionLabel:setLayoutParams(borderSectionParams)
-    ui.borderSectionLabel:setTextSize(textSize)
-    ui.borderSectionLabel:setText("BORDER")
-    ui.borderSectionLabel:setGravity(GRAVITY_CENTER)
-    ui.borderSectionLabel:setTextColor(Color:argb(255,0x33,0x33,0x33))
-    ui.borderSectionLabel:setBackgroundColor(bgGrey)
     ui.advancedPage:addView(ui.borderSectionLabel)
   end
+  styleSectionBar(ui.borderSectionLabel, "BORDER")
 
   if(ui.borderCheck == nil) then
     ui.borderCheck = fnew(CheckBox,context)
@@ -557,16 +578,7 @@ function makeUI(editorValues,numediting)
   ui.borderColor = editorValues.borderColor or defaultColors.border
   ui.borderColorPicker:setBackgroundColor(ui.borderColor)
 
-  if(ui.borderHelp == nil) then
-    ui.borderHelp = fnew(TextView,context)
-    ui.borderHelp:setLayoutParams(fillparams)
-    local borderHelpPad = math.floor(8 * density)
-    ui.borderHelp:setPadding(borderHelpPad, 0, borderHelpPad, math.floor(4 * density))
-    ui.borderHelp:setTextSize(textSizeSmall)
-    ui.borderHelp:setText("Thin stroke on the grid button, and on a super button's floating copy (following Square/Round). Useful for accordion children that overlap neighbours. Tap the swatch to pick a colour, long-press for the set default. Accordion sub-buttons reuse the parent's border. \"Thin outline\" below is a separate auto-contrast frame used only when Border is off.")
-    ui.borderHelp:setTextColor(Color:argb(255, 170, 170, 170))
-    ui.advancedPage:addView(ui.borderHelp)
-  end
+  hideEssay(ui.borderHelp)
 
   local function syncBorderSwatchEnabled()
     local on = ui.borderCheck ~= nil and ui.borderCheck:isChecked()
@@ -602,13 +614,9 @@ function makeUI(editorValues,numediting)
     typeInLabelParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
     typeInLabelParams:setMargins(0,10,0,10)
     ui.typeInLabel:setLayoutParams(typeInLabelParams)
-    ui.typeInLabel:setTextSize(textSize)
-    ui.typeInLabel:setText("SIZE & POSITION (dp)")
-    ui.typeInLabel:setGravity(GRAVITY_CENTER)
-    ui.typeInLabel:setTextColor(Color:argb(255,0x33,0x33,0x33))
-    ui.typeInLabel:setBackgroundColor(bgGrey)
     ui.advancedPage:addView(ui.typeInLabel)
   end
+  styleSectionBar(ui.typeInLabel, "SIZE & POSITION")
   
   if(ui.controlRowOne == nil) then
     ui.controlRowOne = fnew(LinearLayout,context)
@@ -819,18 +827,16 @@ function makeUI(editorValues,numediting)
     local floatSectionParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
     floatSectionParams:setMargins(0,10,0,10)
     ui.floatSectionLabel:setLayoutParams(floatSectionParams)
-    ui.floatSectionLabel:setTextSize(textSize)
-    ui.floatSectionLabel:setText("FLOATING")
-    ui.floatSectionLabel:setGravity(GRAVITY_CENTER)
-    ui.floatSectionLabel:setTextColor(Color:argb(255,0x33,0x33,0x33))
-    ui.floatSectionLabel:setBackgroundColor(bgGrey)
     ui.advancedPage:addView(ui.floatSectionLabel)
   end
+  styleSectionBar(ui.floatSectionLabel, "FLOATING")
 
   if(ui.floatHelp == nil) then
     ui.floatHelp = fnew(TextView,context)
     ui.floatHelp:setLayoutParams(fillparams)
     ui.floatHelp:setTextSize(textSizeSmall)
+    ui.floatHelp:setTextColor(DESC_TEXT)
+    ui.floatHelp:setMaxLines(2)
     ui.floatHelp:setText("Puts a copy of this button on the screen, over the game.")
     ui.advancedPage:addView(ui.floatHelp)
   end
@@ -873,28 +879,8 @@ function makeUI(editorValues,numediting)
     ui.floatModeSpinner:setPopupBackgroundDrawable(luajava.new(ColorDrawable, Color:argb(255, 0, 0, 0)))
     ui.floatModeSpinner:setBackgroundColor(Color:argb(255, 0, 0, 0))
     ui.floatModeRow:addView(ui.floatModeSpinner)
-
-    ui.floatModeHelp = fnew(TextView,context)
-    ui.floatModeHelp:setLayoutParams(fillparams)
-    ui.floatModeHelp:setText(
-        "Always visible: the button stays on screen all the time. In play "
-        .. "mode only the floating copy is drawn — the grid tile is hidden so "
-        .. "the two do not stack and look smudged.\n\n"
-        .. "Show with keyboard: the button is there only while the keyboard is "
-        .. "open. The rest of the time it is hidden everywhere, including the "
-        .. "button grid.\n\n"
-        .. "Both need the \"Display over other apps\" permission, and you will "
-        .. "be asked for it the first time. Android does not let an app draw on "
-        .. "top of the keyboard without it. If you say no, the button is still "
-        .. "there but the keyboard covers it, which leaves this option doing "
-        .. "very little -- so it is worth granting.\n\n"
-        .. "On Android 9 and 10 the client often cannot tell whether the "
-        .. "keyboard is open, so \"Show with keyboard\" may never appear there. "
-        .. "Android 11 and newer are fine.")
-    ui.floatModeHelp:setTextSize(textSizeSmall)
-    ui.floatModeHelp:setTextColor(Color:argb(255, 170, 170, 170))
-    ui.advancedPage:addView(ui.floatModeHelp)
   end
+  hideEssay(ui.floatModeHelp)
   if editorValues.floatMode == "keyboard" then
     ui.floatModeSpinner:setSelection(1)
   else
@@ -946,14 +932,7 @@ function makeUI(editorValues,numediting)
     ui.advancedPage:addView(ui.floatOutlineCheck)
   end
   ui.floatOutlineCheck:setChecked(editorValues.floatFrame == true)
-
-  if(ui.floatOutlineHelp == nil) then
-    ui.floatOutlineHelp = fnew(TextView,context)
-    ui.floatOutlineHelp:setLayoutParams(fillparams)
-    ui.floatOutlineHelp:setTextSize(textSizeSmall)
-    ui.floatOutlineHelp:setText("Optional 1–2 dp border so the floating copy stays readable over game text. Works with square or round.")
-    ui.advancedPage:addView(ui.floatOutlineHelp)
-  end
+  hideEssay(ui.floatOutlineHelp)
 
   -- A floating copy is one button's, so the whole section goes away for a
   -- multi-button edit rather than sitting there greyed. Both branches set the
@@ -961,24 +940,20 @@ function makeUI(editorValues,numediting)
   -- and never shown again would be missing from the next single-button edit.
   local floatEnabled = (numediting == 1)
   local floatVis = floatEnabled and View.VISIBLE or View.GONE
-  local floatSection = {
-    ui.floatSectionLabel, ui.floatHelp, ui.floatingCheck, ui.floatModeRow,
-    ui.floatModeHelp, ui.floatShapeRow, ui.floatOutlineCheck, ui.floatOutlineHelp,
+  local floatAlways = {
+    ui.floatSectionLabel, ui.floatHelp, ui.floatingCheck,
   }
-  for i = 1, #floatSection do
-    if floatSection[i] ~= nil then
-      floatSection[i]:setVisibility(floatVis)
+  for i = 1, #floatAlways do
+    if floatAlways[i] ~= nil then
+      floatAlways[i]:setVisibility(floatVis)
     end
   end
   ui.floatingCheck:setEnabled(floatEnabled)
-  local dependentsOn = floatEnabled and (editorValues.floating == true)
   if ui.floatCheckListener == nil then
     ui.floatCheckListener = luajava.createProxy("android.widget.CompoundButton$OnCheckedChangeListener",{
       onCheckedChanged = function(buttonView, isChecked)
+        applyFloatRowFold()
         local on = ui.floatingCheck:isEnabled() and isChecked
-        ui.floatModeSpinner:setEnabled(on)
-        ui.floatShapeSpinner:setEnabled(on)
-        ui.floatOutlineCheck:setEnabled(on)
         -- The Accordion tab has to grey out with this tick, not on the next
         -- time the editor is opened: a super button's accordion is thrown away
         -- on save, and a player who typed sub-buttons first would lose them
@@ -990,9 +965,12 @@ function makeUI(editorValues,numediting)
     })
     ui.floatingCheck:setOnCheckedChangeListener(ui.floatCheckListener)
   end
-  ui.floatModeSpinner:setEnabled(dependentsOn)
-  ui.floatShapeSpinner:setEnabled(dependentsOn)
-  ui.floatOutlineCheck:setEnabled(dependentsOn)
+  applyFloatRowFold()
+  if not floatEnabled then
+    if ui.floatModeRow ~= nil then ui.floatModeRow:setVisibility(View.GONE) end
+    if ui.floatShapeRow ~= nil then ui.floatShapeRow:setVisibility(View.GONE) end
+    if ui.floatOutlineCheck ~= nil then ui.floatOutlineCheck:setVisibility(View.GONE) end
+  end
   
   return ui.advancedPageScroller
   
@@ -1115,7 +1093,8 @@ colorPickerDoneListener = luajava.createProxy("com.resurrection.blowtorch2.lib.b
 
 showSetEditorControls = function()
   ui.buttonTargetSetRow:setVisibility(View.GONE)
-  ui.buttonTargetSetHint:setVisibility(View.GONE)
+  hideEssay(ui.buttonTargetSetHint)
+  hideEssay(ui.othersOneLiner)
   ui.buttonNameRow:setVisibility(View.VISIBLE)
   ui.controlRowTwo:setVisibility(View.GONE)
   ui.labelRowFour:setVisibility(View.GONE)
@@ -1126,5 +1105,9 @@ showButtonEditorControls = function()
   ui.labelRowFour:setVisibility(View.VISIBLE)
   ui.buttonNameRow:setVisibility(View.VISIBLE)
   ui.buttonTargetSetRow:setVisibility(View.VISIBLE)
+  hideEssay(ui.buttonTargetSetHint)
+  if ui.othersOneLiner ~= nil then
+    ui.othersOneLiner:setVisibility(View.VISIBLE)
+  end
 end
 

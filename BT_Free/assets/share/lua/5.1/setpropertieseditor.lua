@@ -27,10 +27,8 @@ local tonumber = _G["tonumber"]
 local Validator_Not_Blank = _G["Validator_Not_Blank"]
 module(...)
 
-local textSizeBig = (18) -- sp value
-local textSize = (14)  
-local textSizeSmall = (10) 
-local bgGrey = Color:argb(255,0x99,0x99,0x99) -- background color
+local textSize = (14)
+local textSizeSmall = (10)
 
 local context
 local advancedEditor
@@ -72,15 +70,20 @@ function showDialog(editorValues)
   top:setLayoutParams(topparams)
   top:setOrientation(LinearLayout.VERTICAL)
   local titletext = luajava.new(TextView,context)
-  local titletextParams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+  local titletextParams = luajava.new(LinearLayoutParams,FILL_PARENT,math.floor(42 * density + 0.5))
   --titletextParams:addRule(RelativeLayout.ALIGN_PARENT_TOP)
   
   titletext:setLayoutParams(titletextParams)
-  titletext:setTextSize(textSize * 2)
+  titletext:setTextSize(textSize)
   titletext:setText("DEFAULTS EDITOR")
   titletext:setGravity(GRAVITY_CENTER)
-  titletext:setTextColor(Color:argb(255,0x33,0x33,0x33))
-  titletext:setBackgroundColor(bgGrey)
+  titletext:setTextColor(Color:argb(255, 0xF2, 0xF4, 0xF6))
+  titletext:setBackgroundColor(Color:argb(255, 0x1E, 0x21, 0x26))
+  titletext:setMinHeight(math.floor(42 * density + 0.5))
+  do
+    local Typeface = luajava.bindClass("android.graphics.Typeface")
+    titletext:setTypeface(Typeface.DEFAULT_BOLD)
+  end
   --titleText:setTextColor()
   titletext:setId(1)
   top:addView(titletext)

@@ -35,12 +35,15 @@ local buttonEditorDone = _G["buttonEditorDone"]
 -- guard at showEditorDialog raises "attempt to call a nil value (global
 -- 'error')" instead of the message it was written to produce.
 local error = _G["error"]
+local pcall = _G["pcall"]
 module(...)
 
-local textSizeBig = (18) -- sp value
-local textSize = (14)  
-local textSizeSmall = (10) 
-local bgGrey = Color:argb(255,0x99,0x99,0x99) -- background color
+local textSize = (14)
+local textSizeSmall = (10)
+-- Sensors / alias-list chrome. Title bar is 42dip ALL CAPS, not leftover grey.
+local chromeDescText = Color:argb(255, 0x9A, 0xA3, 0xAD)
+local chromeChipText = Color:argb(255, 0xC7, 0xCD, 0xD4)
+local chromeChipBg = Color:argb(255, 0x27, 0x2B, 0x31)
 local tabMinHeight = math.floor(32 * density + 0.5)
 local tabTextSize = 13
 
@@ -173,11 +176,119 @@ local editorClickLabelEditParams = nil
 local function addHelpText(parent, text)
 	local help = luajava.new(TextView, context)
 	help:setTextSize(textSizeSmall)
+	help:setTextColor(chromeDescText)
 	help:setText(text)
+	help:setMaxLines(2)
 	local pad = math.floor(8 * density)
-	help:setPadding(pad, pad, pad, pad)
+	help:setPadding(pad, math.floor(4 * density), pad, math.floor(4 * density))
 	help:setLayoutParams(editorFillparams)
 	parent:addView(help)
+end
+
+-- Essays live behind ?. One body per tab. State warnings stay on the canvas.
+-- Module members, not locals: a nested handler that closed over locals would
+-- force those names through showEditorDialog's upvalue list (already 59/60).
+HELP_TAP = "TAP\n"
+	.. "Sends the command when you release on the button. The Label is what the tile shows.\n\n"
+	.. "FLIP\n"
+	.. "Drag off the button, then release, to send the flip command and show the flip label.\n\n"
+	.. "Flip is blocked while any swipe command is set — that warning stays on the Tap tab.\n\n"
+	.. "If an accordion opens on tap, the tap command is kept but does not fire. That warning stays on the tab too."
+
+HELP_SWIPE = "Swipe commands override Flip when set. Drag about a finger-width (~24dp) in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at about 0.45s.\n\n"
+	.. "To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).\n\n"
+	.. "A corner with no command falls back to the nearest straight swipe, so adding diagonals never changes how the straight ones behave.\n\n"
+	.. "The two checkboxes are for this button. The profile switch in set options still wins: with badges off, nothing is drawn anywhere."
+
+HELP_ACCORDION = "Up to 20 sub-buttons expand from the parent. Order in the list is the order they fan out — first row nearest the parent. A run too long for the screen wraps to the next column or row, and any that still do not fit are left out with a message. Badges on the button: T/H/S = tap/hold/swipe open.\n\n"
+	.. "Tap = open on press, close on second press. Hold = open after the hold delay; Hold ms is on the tab only when Open with is Hold. Swipe = drag in the expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right.\n\n"
+	.. "The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs, with a warning on the canvas.\n\n"
+	.. "A super button (Float over the game) cannot have an accordion: the sub-buttons are drawn on the button grid and only exist while the parent is open. That warning stays on this tab."
+
+HELP_OTHERS = "Name is for the editor list only.\n\n"
+	.. "Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command.\n\n"
+	.. "Colors: tap a swatch to change, long-press to reset to the set default.\n\n"
+	.. "Border draws a thin stroke on the grid tile (accordion children inherit the parent's). Thin outline under Floating is a separate auto-contrast frame used only when Border is off.\n\n"
+	.. "Width, height and position are in dp from the top-left of the button layer.\n\n"
+	.. "FLOATING\n"
+	.. "Tick Float over the game to put a copy of this button on the screen, over the game. When, Shape and Thin outline appear once it is ticked.\n\n"
+	.. "Always visible: the button stays on screen. In play mode only the floating copy is drawn, so it does not stack on the grid tile.\n\n"
+	.. "Show with keyboard: the button is there only while the keyboard is open, and is hidden everywhere otherwise, the grid included.\n\n"
+	.. "Both need Display over other apps. On Android 9 and 10, Show with keyboard may never appear.\n\n"
+	.. "Editing several buttons at once: size, position, colours and border go to all of them. A label, command, gesture, accordion or super button belongs to one button — tap a single button for those. Setting the same X or Y stacks them; to line them up, leave X and Y empty and use Arrange in set options."
+
+showChromeHelp = function(ctx, title, body)
+	if ctx == nil then
+		return
+	end
+	local shown = pcall(function()
+		local EditorHelp = luajava.bindClass("com.resurrection.blowtorch2.lib.window.EditorHelp")
+		EditorHelp:show(ctx, title, body)
+	end)
+	if shown then
+		return
+	end
+	local tv = luajava.new(TextView, ctx)
+	local pad = math.floor(16 * density)
+	tv:setPadding(pad, pad, pad, pad)
+	tv:setText(body)
+	local scroll = luajava.new(ScrollView, ctx)
+	scroll:addView(tv)
+	local builder = luajava.newInstance("android.app.AlertDialog$Builder", ctx)
+	builder:setTitle(title)
+	builder:setView(scroll)
+	builder:setPositiveButton("Close", nil)
+	builder:show()
+end
+
+styleHelpChip = function(btn)
+	btn:setText("?")
+	btn:setTextSize(16)
+	btn:setTextColor(chromeChipText)
+	local ok = pcall(function()
+		btn:setBackgroundResource(R_drawable.editor_more_button_bg)
+	end)
+	if not ok then
+		btn:setBackgroundColor(chromeChipBg)
+	end
+	btn:setMinWidth(math.floor(52 * density))
+	btn:setMinHeight(math.floor(44 * density))
+	pcall(function()
+		local Typeface = luajava.bindClass("android.graphics.Typeface")
+		btn:setTypeface(Typeface.DEFAULT_BOLD)
+	end)
+end
+
+-- GETGLOBAL from showEditorDialog: must not be a file local.
+addEditorFooterHelp = function(finishHolder, host, numediting)
+	local help = luajava.new(Button, context)
+	local helpParams = luajava.new(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)
+	help:setLayoutParams(helpParams)
+	styleHelpChip(help)
+	help:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
+		onClick = function(v)
+			local tab = 0
+			if host ~= nil then
+				tab = host:getCurrentTab() or 0
+			end
+			local helpTitle = "Others"
+			local body = HELP_OTHERS
+			if not (numediting > 1) then
+				if tab == 0 then
+					helpTitle = "Tap"
+					body = HELP_TAP
+				elseif tab == 1 then
+					helpTitle = "Swipe"
+					body = HELP_SWIPE
+				elseif tab == 2 then
+					helpTitle = "Accord."
+					body = HELP_ACCORDION
+				end
+			end
+			showChromeHelp(v:getContext(), helpTitle, body)
+		end
+	}))
+	finishHolder:addView(help, 0)
 end
 
 local function makeTabLabel(text)
@@ -217,11 +328,9 @@ function showEditorDialog(editorValues,numediting)
 	
 	local title = luajava.new(TextView,context)
 	top:setOrientation(LinearLayout.VERTICAL)
-	local titletextParams = luajava.new(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
-	
-	
+	local titletextParams = luajava.new(LinearLayoutParams,FILL_PARENT,math.floor(42 * density + 0.5))
 	title:setLayoutParams(titletextParams)
-	title:setTextSize(textSizeBig)
+	title:setTextSize(textSize)
 	-- The count, because a multi-button edit looked exactly like a single one
 	-- and the obvious question was which button it was editing. The answer is
 	-- none of them on their own: it edits what they have in common.
@@ -231,8 +340,12 @@ function showEditorDialog(editorValues,numediting)
 		title:setText("EDIT BUTTON")
 	end
 	title:setGravity(GRAVITY_CENTER)
-	title:setTextColor(Color:argb(255,0x33,0x33,0x33))
-	title:setBackgroundColor(bgGrey)
+	title:setTextColor(Color:argb(255, 0xF2, 0xF4, 0xF6))
+	title:setBackgroundColor(Color:argb(255, 0x1E, 0x21, 0x26))
+	do
+		local Typeface = luajava.bindClass("android.graphics.Typeface")
+		title:setTypeface(Typeface.DEFAULT_BOLD)
+	end
 	title:setId(1)
 	top:addView(title)
 
@@ -458,8 +571,9 @@ function showEditorDialog(editorValues,numediting)
 			end
 		end
 	end
-	
-	
+
+	addEditorFooterHelp(finishHolder, host, numediting)
+
 	--dialogView = top
 	--else
 		--set up the dialog
