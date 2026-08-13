@@ -35,6 +35,7 @@ import android.os.RemoteException;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.widget.AdapterView;
@@ -46,17 +47,14 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
-import android.widget.RelativeLayout.LayoutParams;
 
 public class TimerEditorDialog extends Dialog implements DialogInterface.OnClickListener,TriggerResponderEditorDoneListener {
 
-	private TableRow legend;
-	private TableLayout responderTable;
+	private LinearLayout actionList;
 	private TableLayout conditionsTable;
 	
 	private TimerData the_timer;
@@ -65,9 +63,6 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 	private IConnectionBinder service;
 	
 	private Handler finish_with;
-	
-	HashMap<Integer,Integer> checkopens;
-	HashMap<Integer,Integer> checkclosed;
 	
 	private CheckBox repeat;
 	private EditText name;
@@ -81,7 +76,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 	String plugin = PluginFilterSelectionDialog.MAIN_SETTINGS;
 	
 	public TimerEditorDialog(Context c,String plugin,TimerData input,IConnectionBinder pService,Handler reportto) {
-		super(c, EditorDialogChrome.dialogTheme());
+		super(c, EditorDialogChrome.fullScreenTheme());
 		service = pService;
 		finish_with = reportto;
 		
@@ -94,10 +89,6 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		}
 		
 		this.plugin = plugin;
-		
-		checkopens = new HashMap<Integer,Integer>();
-		checkclosed = new HashMap<Integer,Integer>();
-		
 	}
 	
 	public void onCreate(Bundle b) {
@@ -117,8 +108,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		repeat = (CheckBox)findViewById(R.id.timer_repeat_checkbox);
 		
 
-		legend= (TableRow)findViewById(R.id.timer_notification_legend);
-		responderTable = (TableLayout)findViewById(R.id.timer_notification_table);
+		actionList = (LinearLayout)findViewById(R.id.timer_action_list);
 		
 		Button newresponder = (Button)findViewById(R.id.timer_new_notification);
 		newresponder.setOnClickListener(new NewResponderListener());
@@ -163,16 +153,13 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		}
 		updateDurationSummary();
 		setupGroupField();
-		// Same shell as the alias and trigger editors: the height wraps the form,
-		// so Cancel/More/Done sit under the fields instead of at the bottom of a
-		// dialog that was 94% of the screen whatever it had in it.
-		EditorDialogChrome.applyFloatingWrapContentHeight(this);
+		EditorDialogChrome.applyFullScreen(this);
 	}
 
 	/** The ? beside Done: what a timer is and what the fields do. */
 	private void showTimerHelp() {
 		com.resurrection.blowtorch2.lib.window.EditorHelp.show(
-				getContext(), "Timers", TIMER_HELP_TEXT);
+				getContext(), "Timer editor", TIMER_HELP_TEXT);
 	}
 
 	static final String TIMER_HELP_TEXT =
@@ -191,11 +178,13 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			+ "put something on the phone, Set Variable stores a session value. There "
 			+ "is no matched line here, so there is no $1 to use.\n\n"
 			+ "CONDITIONS\n"
-			+ "Checked when the timer fires, not while it counts down. A timer whose "
-			+ "condition is false at that moment does nothing and, if it repeats, goes "
-			+ "round again. It is a gate, not a pause. Example: Variable equals "
-			+ "fighting = 1, set from your combat triggers, and a healing timer that "
-			+ "runs all the time but only acts in a fight.\n\n"
+			+ "Checked when the timer fires, not while it counts down — not a substitute "
+			+ "for the interval. A timer whose condition is false at that moment does "
+			+ "nothing and, if it repeats, goes round again. It is a gate, not a pause. "
+			+ "Example: Variable equals fighting = 1, set from your combat triggers, "
+			+ "and a healing timer that runs all the time but only acts in a fight. "
+			+ "Variables are session sticky notes (Set Variable / Lua SetVariable); "
+			+ "use ${name} in alias or action text.\n\n"
 			+ "FROM THE INPUT BAR, BY NAME\n"
 			+ "    .timer play <name>       start it\n"
 			+ "    .timer pause <name>      hold it where it is\n"
@@ -483,127 +472,53 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		
 	};
 	
+	/**
+	 * Sensors-style rows. Fire-when stays on the row (Open / Closed) because
+	 * none of the responder editors expose Window Open / Window Closed.
+	 */
 	private void refreshResponderTable() {
-		
-		legend.setVisibility(View.GONE);
-		
-		TableRow newbutton = (TableRow)findViewById(R.id.timer_new_responder_row);
-		//responderTable.removeView(newbutton);
-		responderTable.removeViews(1, responderTable.getChildCount()-1);
-		
-		//RelativeLayout p = (RelativeLayout)findViewById(R.id.newtriggerlayout);
-		LayoutParams params = new LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,RelativeLayout.LayoutParams.WRAP_CONTENT);
-		int margin =  (int) (0*this.getContext().getResources().getDisplayMetrics().density);
-		params.rightMargin = margin;
-		params.leftMargin =  margin;
-		params.topMargin =  margin;
-		params.bottomMargin = margin;
-		
-		int checkboxnumber = 123456; //generate semi unique id's each time we generate this table. we need to do this because the check changed listeners are freaking. out.
-		
-		checkopens.clear();
-		checkclosed.clear();
-		int count = 0;
-		//boolean legendAdded = false;
-		for(TriggerResponder responder : the_timer.getResponders()) {
-			//if(!legendAdded) {
-			//	responderTable.addView(legend);
-			//	legendAdded = true;
-			//}
-			TableRow row = new TableRow(this.getContext());
-			
-			TextView label = new TextView(this.getContext());
-			label.setOnClickListener(new EditResponderListener(the_timer.getResponders().indexOf(responder)));
-			if(responder.getType() == RESPONDER_TYPE.NOTIFICATION) {
-				label.setText("Notification: " + ((NotificationResponder)responder).getTitle());
-			} else if(responder.getType() == RESPONDER_TYPE.TOAST) {
-				label.setText("Toast Message: " + ((ToastResponder)responder).getMessage());
-			} else if(responder.getType() == RESPONDER_TYPE.SOUND) {
-				label.setText("Sound: " + com.resurrection.blowtorch2.lib.util.NotificationSounds.displayLabel(
-						((com.resurrection.blowtorch2.lib.responder.sound.SoundResponder)responder).getSoundPath()));
-			} else if(responder.getType() == RESPONDER_TYPE.SPEAK) {
-				label.setText("Speak: " + ((com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder).getMessage());
-			} else if(responder.getType() == RESPONDER_TYPE.ACK){
-				label.setText("Ack With: " + ((AckResponder)responder).getAckWith());
-			} else if(responder.getType() == RESPONDER_TYPE.SET_VARIABLE) {
-				SetVariableResponder sv = (SetVariableResponder) responder;
-				label.setText("SetVariable: " + sv.getVariableName() + "=" + sv.getVariableValue());
-			}
-			label.setGravity(Gravity.CENTER);
-			label.setSingleLine(true);
-			
-			TableRow.LayoutParams labelLp = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f);
-			label.setLayoutParams(labelLp);
-			LinearLayout l1 = new LinearLayout(this.getContext());
-			l1.setGravity(Gravity.CENTER);
-			LinearLayout l2 = new LinearLayout(this.getContext());
-			l2.setGravity(Gravity.CENTER);
-			CheckBox windowOpen = new CheckBox(this.getContext()); windowOpen.setGravity(Gravity.CENTER_HORIZONTAL|Gravity.CENTER_VERTICAL); windowOpen.setId(checkboxnumber);
-			checkopens.put(the_timer.getResponders().indexOf(responder), checkboxnumber);
-			checkboxnumber++;
-			
-			CheckBox windowClose = new CheckBox(this.getContext()); windowClose.setGravity(Gravity.CENTER_HORIZONTAL|Gravity.CENTER_VERTICAL); windowClose.setId(checkboxnumber);
-			checkclosed.put(the_timer.getResponders().indexOf(responder),checkboxnumber);
-			checkboxnumber++;
+		if (actionList == null) {
+			actionList = (LinearLayout) findViewById(R.id.timer_action_list);
+		}
+		if (actionList == null) {
+			return;
+		}
+		actionList.removeAllViews();
+		LayoutInflater inflater = LayoutInflater.from(getContext());
+		for (TriggerResponder responder : the_timer.getResponders()) {
+			final int position = the_timer.getResponders().indexOf(responder);
+			View row = inflater.inflate(R.layout.editor_action_row, actionList, false);
+			TextView type = (TextView) row.findViewById(R.id.action_row_type);
+			TextView summary = (TextView) row.findViewById(R.id.action_row_summary);
+			CheckBox windowOpen = (CheckBox) row.findViewById(R.id.action_row_open);
+			CheckBox windowClosed = (CheckBox) row.findViewById(R.id.action_row_closed);
+			ImageButton delete = (ImageButton) row.findViewById(R.id.action_row_delete);
+			View body = row.findViewById(R.id.action_row_body);
 
-			
-			windowOpen.setOnCheckedChangeListener(new WindowOpenCheckChangeListener(the_timer.getResponders().indexOf(responder)));
-			windowClose.setOnCheckedChangeListener(new WindowClosedCheckChangeListener(the_timer.getResponders().indexOf(responder)));
-			
-			int deleteSize = (int) (36 * this.getContext().getResources().getDisplayMetrics().density);
-			LinearLayout deleteHolder = new LinearLayout(this.getContext());
-			deleteHolder.setGravity(Gravity.CENTER);
-			ImageButton delete = new ImageButton(this.getContext());
-			delete.setBackgroundColor(0);
-			delete.setImageResource(android.R.drawable.ic_menu_delete);
-			delete.setPadding(0, 0, 0, 0);
-			delete.setLayoutParams(new LinearLayout.LayoutParams(deleteSize, deleteSize));
-			delete.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
-			delete.setOnClickListener(new DeleteResponderListener(the_timer.getResponders().indexOf(responder)));
-			deleteHolder.addView(delete);
-			
-			windowOpen.setGravity(Gravity.CENTER); windowOpen.setText("");
-			windowClose.setGravity(Gravity.CENTER); windowClose.setText("");
-			
-			l1.addView(windowOpen);
-			l2.addView(windowClose);
-			
-			TableRow.LayoutParams fixedLp = new TableRow.LayoutParams(
-					TableRow.LayoutParams.WRAP_CONTENT, TableRow.LayoutParams.WRAP_CONTENT);
-			l1.setLayoutParams(fixedLp);
-			l2.setLayoutParams(fixedLp);
-			deleteHolder.setLayoutParams(fixedLp);
-			
-			row.addView(label); row.addView(l1); row.addView(l2); row.addView(deleteHolder);
-			responderTable.addView(row);
-			
-			
-			if(responder.getFireType() == FIRE_WHEN.WINDOW_OPEN || responder.getFireType()==FIRE_WHEN.WINDOW_BOTH) {
-				windowOpen.setChecked(true);
-				//windowOpen.setText("OC");
+			type.setText(com.resurrection.blowtorch2.lib.trigger.TriggerEditorDialog.actionTypeLabel(responder));
+			String line = com.resurrection.blowtorch2.lib.trigger.TriggerEditorDialog.actionSummary(responder);
+			if (line.length() == 0) {
+				summary.setVisibility(View.GONE);
 			} else {
-				windowOpen.setChecked(false);
-				//windowOpen.setText("OU");
+				summary.setText(line);
 			}
-			
-			if(responder.getFireType() == FIRE_WHEN.WINDOW_CLOSED || responder.getFireType() == FIRE_WHEN.WINDOW_BOTH) {
-				windowClose.setChecked(true);
-				//windowClose.setText("CC");
-			} else {
-				windowClose.setChecked(false);
-				//windowClose.setText("CU");
-			}
-			
-			count++;
+
+			EditResponderListener edit = new EditResponderListener(position);
+			body.setOnClickListener(edit);
+			type.setOnClickListener(edit);
+			summary.setOnClickListener(edit);
+			delete.setOnClickListener(new DeleteResponderListener(position));
+
+			windowOpen.setOnCheckedChangeListener(new WindowOpenCheckChangeListener(position));
+			windowClosed.setOnCheckedChangeListener(new WindowClosedCheckChangeListener(position));
+			FIRE_WHEN fire = responder.getFireType();
+			windowOpen.setChecked(fire == FIRE_WHEN.WINDOW_OPEN || fire == FIRE_WHEN.WINDOW_BOTH);
+			windowClosed.setChecked(fire == FIRE_WHEN.WINDOW_CLOSED || fire == FIRE_WHEN.WINDOW_BOTH);
+
+			actionList.addView(row);
 		}
-		if(count > 0) {
-			
-			legend.setVisibility(View.VISIBLE);
-		}
-		
-		responderTable.addView(newbutton);
 	}
-	
+
 	private class DeleteResponderListener implements View.OnClickListener,DialogInterface.OnClickListener {
 
 		int position;

@@ -1,9 +1,20 @@
 package com.resurrection.blowtorch2.lib.window;
 
-import android.app.AlertDialog;
+import com.resurrection.blowtorch2.lib.R;
+
+import android.app.Dialog;
 import android.content.Context;
+import android.graphics.Typeface;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import androidx.core.content.ContextCompat;
 
 /**
  * The {@code ?} beside the buttons: what this list is for, in the words the
@@ -38,21 +49,72 @@ public final class EditorHelp {
 		if (context == null) {
 			return;
 		}
-		TextView view = new TextView(context);
-		final float d = context.getResources().getDisplayMetrics().density;
-		int pad = Math.round(16 * d);
-		view.setPadding(pad, pad, pad, pad);
-		view.setTextIsSelectable(true);
-		view.setText(body);
+		final Dialog dialog = new Dialog(context, EditorDialogChrome.dialogTheme());
+		dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		Window window = dialog.getWindow();
+		if (window != null) {
+			window.setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+		}
+
+		float density = context.getResources().getDisplayMetrics().density;
+		int titleHeight = Math.round(42 * density);
+		int barPad = Math.round(6 * density);
+		int bodyPad = Math.round(16 * density);
+		int minButton = Math.round(44 * density);
+
+		LinearLayout shell = new LinearLayout(context);
+		shell.setOrientation(LinearLayout.VERTICAL);
+		shell.setBackgroundColor(ContextCompat.getColor(context, R.color.chrome_body));
+
+		TextView titleView = new TextView(context);
+		titleView.setText(title);
+		titleView.setAllCaps(true);
+		titleView.setTextColor(ContextCompat.getColor(context, R.color.chrome_title_text));
+		titleView.setBackgroundColor(ContextCompat.getColor(context, R.color.chrome_title_bar));
+		titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+		titleView.setTypeface(Typeface.DEFAULT_BOLD);
+		titleView.setGravity(Gravity.CENTER);
+		shell.addView(titleView, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, titleHeight));
+
+		TextView bodyView = new TextView(context);
+		bodyView.setPadding(bodyPad, bodyPad, bodyPad, bodyPad);
+		bodyView.setTextIsSelectable(true);
+		bodyView.setText(body);
+		bodyView.setTextColor(ContextCompat.getColor(context, R.color.chrome_title_text));
+		bodyView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
 
 		ScrollView scroll = new ScrollView(context);
-		scroll.addView(view);
+		scroll.addView(bodyView);
+		LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+		shell.addView(scroll, scrollLp);
 
-		new AlertDialog.Builder(context)
-				.setTitle(title)
-				.setView(scroll)
-				.setPositiveButton("Close", null)
-				.show();
+		LinearLayout footer = new LinearLayout(context);
+		footer.setOrientation(LinearLayout.HORIZONTAL);
+		footer.setGravity(Gravity.CENTER);
+		footer.setPadding(barPad, barPad, barPad, barPad);
+		footer.setBackgroundColor(ContextCompat.getColor(context, R.color.chrome_title_bar));
+
+		Button close = new Button(context);
+		close.setText("Close");
+		close.setMinHeight(minButton);
+		close.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				dialog.dismiss();
+			}
+		});
+		footer.addView(close, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+		shell.addView(footer, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+		dialog.setContentView(shell, new ViewGroup.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+		dialog.setCanceledOnTouchOutside(true);
+		EditorDialogChrome.applyFloatingWrapContentHeight(dialog);
+		dialog.show();
 	}
 
 	public static final String ALIASES =
@@ -139,6 +201,18 @@ public final class EditorHelp {
 			+ "    .note some text\n"
 			+ "prints a line into the window and sends nothing to the server, so a "
 			+ "colour or a tappable word can be checked on a line you wrote.";
+
+	/**
+	 * The CONDITIONS essay that used to sit on the trigger editor canvas.
+	 * The editor {@code ?} appends this after the pattern help.
+	 */
+	public static final String TRIGGER_EDITOR_CONDITIONS =
+			"CONDITIONS\n"
+			+ "An extra gate after the pattern matches, not a replacement for it. "
+			+ "Empty means always fire. Example: Only if trigger is ON + pick _cerb "
+			+ "→ responders run only while _cerb is enabled. Only if trigger is OFF "
+			+ "does the opposite. Variables are session sticky notes (Set Variable / "
+			+ "${name}), not pattern syntax.";
 
 	public static final String TIMERS =
 			"A timer waits, then runs its actions. Nothing has to happen in the game "

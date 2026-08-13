@@ -1,30 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Vertical shell: title -> fields -> Cancel/More/Done directly under the
-     content, not pinned to the bottom of a 94%-tall dialog. Pair with
-     EditorDialogChrome.applyFloatingWrapContentHeight. The alias editor has
-     been this shape for a while; these two were still a RelativeLayout with
-     the buttons alignParentBottom, so a short trigger left a band of empty
-     dialog and the buttons sat down by the navigation bar. -->
+<!-- Opaque full-screen Family A shell (same as the TRIGGERS list). Pair with
+     EditorDialogChrome.fullScreenTheme + applyFullScreen. -->
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/newtriggerlayout"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
-  android:layout_marginLeft="4dip"
-  android:layout_marginRight="4dip"
+  android:background="@color/chrome_body"
   android:orientation="vertical">
 
   <TextView
 		android:id="@+id/titlebar"
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:text="TRIGGER EDITOR"
-		android:textColor="#FF333333"
-		android:background="#FF999999"
-		android:textSize="15dip"
-		android:textStyle="bold"
-		android:gravity="center"/>
+		style="@style/BlowTorch.Chrome.Title"
+		android:text="TRIGGER EDITOR"/>
 
   <ScrollView
   	android:layout_width="match_parent"
@@ -112,32 +101,37 @@
   					android:layout_marginRight="10dip"
   					android:layout_width="0dip"
   					android:layout_weight="1"
-  					android:textColor="#FFE8E8E8"
+  					android:textColor="@color/chrome_title_text"
   					android:textSize="13sp"
   					android:fontFamily="monospace"
-  					android:background="#FF1A1A1A"
+  					android:background="@color/chrome_preview"
   					android:padding="6dip"
   					android:text="Enter a pattern to preview what the trigger watches for."/>
   			</TableRow>
   		</TableLayout>
-  		<TableLayout android:layout_width="match_parent" android:layout_height="wrap_content">
-  			<TableRow android:layout_marginLeft="5dip" android:layout_marginRight="5dip" android:gravity="center">
-  				<LinearLayout android:gravity="center" android:background="@drawable/movemethod_frame" android:layout_width="wrap_content">
-  					<CheckBox
-  						android:id="@+id/trigger_literal_checkbox"
-  						android:text="Literal?"
-  						android:textSize="13sp"
-  						android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-  				</LinearLayout>
-  				<LinearLayout android:gravity="center" android:background="@drawable/movemethod_frame" android:layout_width="wrap_content">
-  				  	<CheckBox
-  						android:id="@+id/trigger_once_checkbox"
-  						android:text="Fire Once?"
-  						android:textSize="13sp"
-  						android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-  				</LinearLayout>
-			</TableRow>
-  		</TableLayout>
+  		<LinearLayout
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:layout_marginTop="4dip"
+  			android:layout_marginBottom="4dip"
+  			android:gravity="center"
+  			android:orientation="horizontal">
+  			<CheckBox
+  				android:id="@+id/trigger_literal_checkbox"
+  				android:text="Literal?"
+  				android:textSize="13sp"
+  				android:layout_width="wrap_content"
+  				android:layout_height="wrap_content"
+  				android:layout_marginRight="16dip"/>
+  			<CheckBox
+  				android:id="@+id/trigger_once_checkbox"
+  				android:text="Fire Once?"
+  				android:textSize="13sp"
+  				android:layout_width="wrap_content"
+  				android:layout_height="wrap_content"/>
+  		</LinearLayout>
     		<LinearLayout
   			android:id="@+id/trigger_conditions_header"
   			android:layout_width="match_parent"
@@ -147,17 +141,21 @@
   			android:layout_marginTop="8dip"
   			android:orientation="horizontal"
   			android:gravity="center_vertical"
-  			android:background="#FF999999"
-  			android:paddingLeft="6dip"
+  			android:minHeight="34dip"
+  			android:background="@drawable/sensor_section_bg"
+  			android:paddingLeft="10dip"
   			android:paddingRight="4dip">
   			<TextView
   				android:layout_width="0dip"
   				android:layout_height="wrap_content"
   				android:layout_weight="1"
-  				android:text="CONDITIONS (advanced)"
+  				android:text="CONDITIONS"
   				android:gravity="center_vertical"
   				android:textStyle="bold"
-  				android:textColor="#FF111111"/>
+  				android:textAllCaps="true"
+  				android:textSize="12dip"
+  				android:letterSpacing="0.06"
+  				android:textColor="@color/chrome_section_text"/>
   			<Spinner
   				android:id="@+id/trigger_conditions_op"
   				android:layout_width="wrap_content"
@@ -166,19 +164,6 @@
   				android:popupBackground="#FF000000"/>
   		</LinearLayout>
   		<TextView
-  			android:id="@+id/trigger_conditions_note"
-  			android:layout_width="match_parent"
-  			android:layout_height="wrap_content"
-  			android:layout_marginLeft="10dip"
-  			android:layout_marginRight="10dip"
-  			android:paddingLeft="6dip"
-  			android:paddingRight="6dip"
-  			android:paddingTop="6dip"
-  			android:paddingBottom="2dip"
-  			android:textColor="#FFDDDDDD"
-  			android:textSize="12sp"
-  			android:text="Extra gate after the pattern matches. Example: Only if trigger is ON + pick _cerb → responders run only while _cerb is enabled. Only if trigger is OFF does the opposite. Variables are session sticky notes (Set Variable / ${name}), not pattern syntax."/>
-  		<TextView
   			android:id="@+id/trigger_conditions_hint"
   			android:layout_width="match_parent"
   			android:layout_height="wrap_content"
@@ -186,8 +171,9 @@
   			android:layout_marginRight="10dip"
   			android:paddingLeft="6dip"
   			android:paddingRight="6dip"
+  			android:paddingTop="6dip"
   			android:paddingBottom="6dip"
-  			android:textColor="#FFCCCCCC"
+  			android:textColor="@color/chrome_description"
   			android:textSize="12sp"
   			android:text="No conditions — always runs when the pattern matches."/>
   		<TableLayout
@@ -197,8 +183,7 @@
   			android:layout_marginLeft="10dip"
   			android:layout_marginRight="10dip"
   			android:stretchColumns="0"
-  			android:shrinkColumns="0"
-  			android:background="@drawable/movemethod_frame"/>
+  			android:shrinkColumns="0"/>
   		<Button
   			android:id="@+id/trigger_new_condition"
   			android:layout_width="match_parent"
@@ -208,60 +193,47 @@
   			android:layout_marginBottom="8dip"
   			android:text="Add Condition"/>
 		<TextView android:layout_width="match_parent"
-  					android:layout_height="wrap_content"
-  					android:text="EXECUTE ACTIONS"
-  					android:layout_marginLeft="10dip"
-  					android:layout_marginRight="10dip"
-  					android:background="#FF999999"
-  					android:gravity="center"
-  					android:textStyle="bold"
-  					android:textColor="#FF111111"/>
-  		<TableLayout
-  			android:id="@+id/trigger_notification_table"
+					android:layout_height="wrap_content"
+					android:minHeight="34dip"
+					android:gravity="center_vertical"
+					android:paddingLeft="10dip"
+					android:paddingRight="10dip"
+					android:text="EXECUTE ACTIONS"
+					android:layout_marginLeft="10dip"
+					android:layout_marginRight="10dip"
+					android:background="@drawable/sensor_section_bg"
+					android:textAllCaps="true"
+					android:textSize="12dip"
+					android:letterSpacing="0.06"
+					android:textStyle="bold"
+					android:textColor="@color/chrome_section_text"/>
+  		<LinearLayout
+  			android:id="@+id/trigger_action_list"
   			android:layout_width="match_parent"
   			android:layout_height="wrap_content"
   			android:layout_marginLeft="10dip"
   			android:layout_marginRight="10dip"
-  			android:stretchColumns="0"
-  			android:shrinkColumns="0"
-  			android:background="@drawable/movemethod_frame">
-  			<TableRow android:id="@+id/trigger_notification_legend">
-  				<TextView
-  					android:text="TYPE"
-  					android:gravity="center"
-  					/>
-  				<TextView
-  					android:text="Window\nOpen"
-  					android:gravity="center"
-  					android:layout_marginRight="3dip" android:layout_marginLeft="3dip"/>
-  				<TextView
-  					android:text="Window\nClosed"
-  					android:gravity="center"
-  					android:layout_marginRight="3dip" android:layout_marginLeft="3dip"/>
-  				<TextView
-  					android:text="Del"
-  					android:id="@+id/trigger_nabmylayoutparams"
-  					android:gravity="center"
-  					android:layout_marginRight="1dip" android:layout_marginLeft="1dip"/>
-  			</TableRow>
-  			<TableRow android:id="@+id/trigger_new_responder_row">
-  				<Button android:id="@+id/trigger_new_notification" android:text="New Action" android:paddingLeft="10dip" android:paddingRight="10dip"/>
-  				<TextView android:text=""/>
-  				<TextView android:text=""/>
-  			</TableRow>
-  		</TableLayout>
+  			android:orientation="vertical"/>
+  		<Button
+  			android:id="@+id/trigger_new_notification"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:layout_marginTop="4dip"
+  			android:layout_marginBottom="8dip"
+  			android:text="New Action"/>
   	</LinearLayout>
   	
   </ScrollView>
 
-  <!-- Cancel, ?, Done. The ? is help; the lists' "More" is their actions
-       overflow, which is a different thing wearing a similar button. -->
   <LinearLayout
   	android:id="@+id/editor_button_bar"
   	android:layout_width="match_parent"
   	android:layout_height="wrap_content"
   	android:orientation="horizontal"
   	android:gravity="center"
+  	android:background="@color/chrome_title_bar"
   	android:paddingLeft="6dip"
   	android:paddingRight="6dip"
   	android:paddingTop="6dip"
@@ -281,7 +253,7 @@
 	  	android:minWidth="52dip"
 	  	android:layout_marginLeft="6dip"
 	  	android:background="@drawable/editor_more_button_bg"
-	  	android:textColor="#FFC7CDD4"
+	  	android:textColor="@color/chrome_chip_text"
 	  	android:textSize="16dip"
 	  	android:textStyle="bold"
 	  	android:text="?" />

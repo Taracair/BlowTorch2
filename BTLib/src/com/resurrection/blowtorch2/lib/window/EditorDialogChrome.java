@@ -4,6 +4,7 @@ import com.resurrection.blowtorch2.lib.R;
 
 import android.app.Dialog;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
@@ -14,8 +15,14 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
 /**
- * Shared chrome for Alias / Trigger / Timer editors: nearly full-screen while
- * keeping a floating dialog theme (dimmed backdrop visible around the edges).
+ * Shared chrome for Alias / Trigger / Timer editors and the Sensor Test card.
+ *
+ * <p>Family A editors (alias / trigger / timer) are opaque full-screen, same
+ * shell as the TRIGGERS list: {@link #fullScreenTheme()} plus
+ * {@link #applyFullScreen(Dialog)} after {@link Dialog#setContentView}.
+ *
+ * <p>Short floating cards (Sensor Test, {@link EditorHelp}) keep
+ * {@link #dialogTheme()} and {@link #applyFloatingWrapContentHeight(Dialog)}.
  */
 public final class EditorDialogChrome {
 
@@ -28,6 +35,42 @@ public final class EditorDialogChrome {
 	/** Theme for editors that should float over a dimmed game window. */
 	public static int dialogTheme() {
 		return R.style.BlowTorch_Dialog;
+	}
+
+	/**
+	 * Theme for Alias / Trigger / Timer editors: opaque full-screen Family A,
+	 * {@code windowIsFloating=false}, same shell as the TRIGGERS list.
+	 */
+	public static int fullScreenTheme() {
+		return R.style.BlowTorch_Dialog_FullScreen;
+	}
+
+	/**
+	 * Stretch the dialog to MATCH_PARENT on both axes so the list underneath
+	 * is fully covered. Call after {@link Dialog#setContentView}.
+	 */
+	public static void applyFullScreen(Dialog dialog) {
+		if (dialog == null) {
+			return;
+		}
+		Window window = dialog.getWindow();
+		if (window == null) {
+			return;
+		}
+		Context host = unwrap(dialog.getContext());
+		if (host instanceof MainWindow && ((MainWindow) host).isStatusBarHidden()) {
+			window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+					WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		}
+		window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
+				ViewGroup.LayoutParams.MATCH_PARENT);
+		WindowManager.LayoutParams attrs = window.getAttributes();
+		attrs.width = ViewGroup.LayoutParams.MATCH_PARENT;
+		attrs.height = ViewGroup.LayoutParams.MATCH_PARENT;
+		attrs.gravity = Gravity.FILL;
+		window.setAttributes(attrs);
+		stretchContentToFill(dialog, window);
+		applySystemBarInsets(dialog);
 	}
 
 	/**
@@ -53,9 +96,10 @@ public final class EditorDialogChrome {
 
 	/**
 	 * Same floating width / dim as {@link #applyNearlyFullScreen}, but height
-	 * wraps the form (capped at {@link #HEIGHT_FRACTION}). Short editors (alias)
-	 * keep Cancel/Done under the fields; if content exceeds the cap the middle
-	 * {@link ScrollView} scrolls and the button bar stays visible.
+	 * wraps the form (capped at {@link #HEIGHT_FRACTION}). Short editors (Sensor
+	 * Test, {@link EditorHelp}) keep Cancel/Done under the fields; if content
+	 * exceeds the cap the middle {@link ScrollView} scrolls and the button bar
+	 * stays visible.
 	 * Call after {@link Dialog#setContentView}.
 	 * <p>
 	 * Expects a vertical {@link LinearLayout} shell with a direct
@@ -82,6 +126,37 @@ public final class EditorDialogChrome {
 		applyFloatingFrame(window, width, height);
 		stretchContentToFill(dialog, window);
 		ensureScrollWeight(scroll);
+	}
+
+	private static Context unwrap(Context context) {
+		Context c = context;
+		while (c instanceof ContextWrapper) {
+			if (c instanceof MainWindow) {
+				return c;
+			}
+			Context next = ((ContextWrapper) c).getBaseContext();
+			if (next == c) {
+				break;
+			}
+			c = next;
+		}
+		return context;
+	}
+
+	private static void applySystemBarInsets(Dialog dialog) {
+		View shell = contentShell(dialog);
+		if (shell == null) {
+			return;
+		}
+		androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(shell, (view, insets) -> {
+			androidx.core.graphics.Insets sys =
+					insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()
+							| androidx.core.view.WindowInsetsCompat.Type.ime());
+			view.setPadding(view.getPaddingLeft(), sys.top,
+					view.getPaddingRight(), sys.bottom);
+			return insets;
+		});
+		androidx.core.view.ViewCompat.requestApplyInsets(shell);
 	}
 
 	private static View contentShell(Dialog dialog) {

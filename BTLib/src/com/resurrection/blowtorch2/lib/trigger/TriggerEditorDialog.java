@@ -23,6 +23,7 @@ import android.text.TextWatcher;
 import android.text.util.Linkify;
 //import android.util.Log;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.widget.AdapterView;
@@ -34,16 +35,11 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TableLayout;
 import android.widget.TableRow;
 import android.widget.TextView;
-import android.widget.RelativeLayout.LayoutParams;
-
-import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
-
 
 import com.resurrection.blowtorch2.lib.responder.*;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder.FIRE_WHEN;
@@ -72,8 +68,7 @@ import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
 
 public class TriggerEditorDialog extends Dialog implements DialogInterface.OnClickListener,TriggerResponderEditorDoneListener{
 
-	private TableRow legend;
-	private TableLayout responderTable;
+	private LinearLayout actionList;
 	private TableLayout conditionsTable;
 	
 	private TriggerData the_trigger;
@@ -89,12 +84,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	//private CheckBox literal;
 	private CheckBox once;
 	
-	HashMap<Integer,Integer> checkopens;
-	HashMap<Integer,Integer> checkclosed;
 	String selectedPlugin = null;
 	
 	public TriggerEditorDialog(Context context,TriggerData input,IConnectionBinder pService,Handler finisher,String selectedPlugin,boolean showWarning) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, EditorDialogChrome.fullScreenTheme());
 		mEditorWarning = showWarning;
 		this.selectedPlugin = selectedPlugin;
 		service = pService;
@@ -112,10 +105,6 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		//for(TriggerResponder responder : the_trigger.getResponders()) {
 		///	Log.e("TEDITOR","responder " + responder.getType() + " fires " + responder.getFireType());
 		//}
-		
-		//initialized hashmaps.
-		checkopens = new HashMap<Integer,Integer>();
-		checkclosed = new HashMap<Integer,Integer>();
 		
 	}
 
@@ -145,8 +134,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		ScrollView sv = (ScrollView)findViewById(R.id.trigger_editor_scroll_container);
 		sv.setScrollbarFadingEnabled(false);
 		
-		legend= (TableRow)findViewById(R.id.trigger_notification_legend);
-		responderTable = (TableLayout)findViewById(R.id.trigger_notification_table);
+		actionList = (LinearLayout)findViewById(R.id.trigger_action_list);
 		refreshResponderTable();
 		setupConditionsSection();
 		
@@ -160,7 +148,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		if (helpButton != null) {
 			helpButton.setOnClickListener(new View.OnClickListener() {
 				public void onClick(View v) {
-					showPatternHelp();
+					showEditorHelp();
 				}
 			});
 		}
@@ -239,10 +227,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		once.setOnCheckedChangeListener(new FireOnceCheckChangedListener());
 		setupTriggerPreview(title, pattern, literal);
 		setupSourcePicker(pattern, literal, title);
-		// Same shell as the alias editor: the height wraps the form, so
-		// Cancel/More/Done sit under the fields instead of at the bottom of a
-		// dialog that was 94% of the screen whatever it had in it.
-		EditorDialogChrome.applyFloatingWrapContentHeight(this);
+		EditorDialogChrome.applyFullScreen(this);
 	}
 
 	/**
@@ -528,10 +513,12 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	/** Alias names to bodies, read once when the editor opens; null until then. */
 	private HashMap<String, String> aliasNames;
 
-	/** The ? beside Done: what the pattern box does, in the words of the box. */
-	private void showPatternHelp() {
+	/** The ? beside Done: pattern box plus the CONDITIONS essay. */
+	private void showEditorHelp() {
 		com.resurrection.blowtorch2.lib.window.EditorHelp.show(
-				getContext(), "The pattern", PATTERN_HELP_TEXT);
+				getContext(), "Trigger editor",
+				PATTERN_HELP_TEXT + "\n\n"
+						+ com.resurrection.blowtorch2.lib.window.EditorHelp.TRIGGER_EDITOR_CONDITIONS);
 	}
 
 	static final String PATTERN_HELP_TEXT =
@@ -807,141 +794,128 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		
 	}
 	
+	/**
+	 * Sensors-style rows. Fire-when stays on the row (Open / Closed) because
+	 * none of the responder editors expose Window Open / Window Closed.
+	 */
 	private void refreshResponderTable() {
-
-		legend.setVisibility(View.GONE);
-		
-		TableRow newbutton = (TableRow)findViewById(R.id.trigger_new_responder_row);
-		//responderTable.removeView(newbutton);
-		responderTable.removeViews(1, responderTable.getChildCount()-1);
-		
-		//RelativeLayout p = (RelativeLayout)findViewById(R.id.newtriggerlayout);
-		LayoutParams params = new LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,RelativeLayout.LayoutParams.WRAP_CONTENT);
-		int margin =  (int) (0*this.getContext().getResources().getDisplayMetrics().density);
-		params.rightMargin = margin;
-		params.leftMargin =  margin;
-		params.topMargin =  margin;
-		params.bottomMargin = margin;
-		
-		int checkboxnumber = 123456; //generate semi unique id's each time we generate this table. we need to do this because the check changed listeners are freaking. out.
-		
-		checkopens.clear();
-		checkclosed.clear();
-		int count = 0;
-		//boolean legendAdded = false;
-		for(TriggerResponder responder : the_trigger.getResponders()) {
-			//if(!legendAdded) {
-			//	responderTable.addView(legend);
-			//	legendAdded = true;
-			//}
-			TableRow row = new TableRow(this.getContext());
-			
-			TextView label = new TextView(this.getContext());
-			label.setOnClickListener(new EditResponderListener(the_trigger.getResponders().indexOf(responder)));
-			if(responder.getType() == RESPONDER_TYPE.NOTIFICATION) {
-				label.setText("Notification: " + ((NotificationResponder)responder).getTitle());
-			} else if(responder.getType() == RESPONDER_TYPE.TOAST) {
-				label.setText("Toast Message: " + ((ToastResponder)responder).getMessage());
-			} else if(responder.getType() == RESPONDER_TYPE.SOUND) {
-				label.setText("Sound: " + com.resurrection.blowtorch2.lib.util.NotificationSounds.displayLabel(
-						((com.resurrection.blowtorch2.lib.responder.sound.SoundResponder)responder).getSoundPath()));
-			} else if(responder.getType() == RESPONDER_TYPE.SPEAK) {
-				label.setText("Speak: " + ((com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder)responder).getMessage());
-			} else if(responder.getType() == RESPONDER_TYPE.ACK){
-				label.setText("Ack With: " + ((AckResponder)responder).getAckWith());
-			} else if(responder.getType() == RESPONDER_TYPE.SCRIPT) {
-				label.setText("Function: " + ((ScriptResponder)responder).getFunction());
-			} else if(responder.getType() == RESPONDER_TYPE.REPLACE) {
-				label.setText("Replace: " + ((ReplaceResponder)responder).getWith());
-			} else if(responder.getType() == RESPONDER_TYPE.GAG) {
-				label.setText("Gag");
-			} else if(responder.getType() == RESPONDER_TYPE.TAP) {
-				{
-					TapAction tap = (TapAction) responder;
-					int extra = tap.getCommands().size() - 1;
-					label.setText("Tappable: " + tap.getCommand()
-							+ (extra > 0 ? " (+" + extra + " in a menu)" : ""));
-				}
-			} else if(responder.getType() == RESPONDER_TYPE.COLOR) {
-				label.setText("Color: " + Integer.toString(((ColorAction)responder).getColor()));
-			} else if(responder.getType() == RESPONDER_TYPE.SET_VARIABLE) {
-				SetVariableResponder sv = (SetVariableResponder) responder;
-				label.setText("SetVariable: " + sv.getVariableName() + "=" + sv.getVariableValue());
-			}
-			label.setGravity(Gravity.CENTER);
-			label.setSingleLine(true);
-			TableRow.LayoutParams labelLp = new TableRow.LayoutParams(0, TableRow.LayoutParams.WRAP_CONTENT, 1f);
-			label.setLayoutParams(labelLp);
-			LinearLayout l1 = new LinearLayout(this.getContext());
-			l1.setGravity(Gravity.CENTER);
-			LinearLayout l2 = new LinearLayout(this.getContext());
-			l2.setGravity(Gravity.CENTER);
-			CheckBox windowOpen = new CheckBox(this.getContext()); windowOpen.setGravity(Gravity.CENTER_HORIZONTAL|Gravity.CENTER_VERTICAL); windowOpen.setId(checkboxnumber);
-			checkopens.put(the_trigger.getResponders().indexOf(responder), checkboxnumber);
-			checkboxnumber++;
-			
-			CheckBox windowClose = new CheckBox(this.getContext()); windowClose.setGravity(Gravity.CENTER_HORIZONTAL|Gravity.CENTER_VERTICAL); windowClose.setId(checkboxnumber);
-			checkclosed.put(the_trigger.getResponders().indexOf(responder),checkboxnumber);
-			checkboxnumber++;
-
-			
-			windowOpen.setOnCheckedChangeListener(new WindowOpenCheckChangeListener(the_trigger.getResponders().indexOf(responder)));
-			windowClose.setOnCheckedChangeListener(new WindowClosedCheckChangeListener(the_trigger.getResponders().indexOf(responder)));
-			
-			int deleteSize = (int) (36 * this.getContext().getResources().getDisplayMetrics().density);
-			LinearLayout deleteHolder = new LinearLayout(this.getContext());
-			deleteHolder.setGravity(Gravity.CENTER);
-			ImageButton delete = new ImageButton(this.getContext());
-			delete.setBackgroundColor(0);
-			delete.setImageResource(android.R.drawable.ic_menu_delete);
-			delete.setPadding(0, 0, 0, 0);
-			delete.setLayoutParams(new LinearLayout.LayoutParams(deleteSize, deleteSize));
-			delete.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
-			delete.setOnClickListener(new DeleteResponderListener(the_trigger.getResponders().indexOf(responder)));
-			deleteHolder.addView(delete);
-			
-			windowOpen.setGravity(Gravity.CENTER); windowOpen.setText("");
-			windowClose.setGravity(Gravity.CENTER); windowClose.setText("");
-			
-			l1.addView(windowOpen);
-			l2.addView(windowClose);
-			
-			TableRow.LayoutParams fixedLp = new TableRow.LayoutParams(
-					TableRow.LayoutParams.WRAP_CONTENT, TableRow.LayoutParams.WRAP_CONTENT);
-			l1.setLayoutParams(fixedLp);
-			l2.setLayoutParams(fixedLp);
-			deleteHolder.setLayoutParams(fixedLp);
-			
-			row.addView(label); row.addView(l1); row.addView(l2); row.addView(deleteHolder);
-			responderTable.addView(row);
-			
-			
-			if(responder.getFireType() == FIRE_WHEN.WINDOW_OPEN || responder.getFireType()==FIRE_WHEN.WINDOW_BOTH) {
-				windowOpen.setChecked(true);
-				//windowOpen.setText("OC");
-			} else {
-				windowOpen.setChecked(false);
-				//windowOpen.setText("OU");
-			}
-			
-			if(responder.getFireType() == FIRE_WHEN.WINDOW_CLOSED || responder.getFireType() == FIRE_WHEN.WINDOW_BOTH) {
-				windowClose.setChecked(true);
-				//windowClose.setText("CC");
-			} else {
-				windowClose.setChecked(false);
-				//windowClose.setText("CU");
-			}
-			
-			count++;
+		if (actionList == null) {
+			actionList = (LinearLayout) findViewById(R.id.trigger_action_list);
 		}
-		if(count > 0) {
-			
-			legend.setVisibility(View.VISIBLE);
+		if (actionList == null) {
+			return;
 		}
-		
-		responderTable.addView(newbutton);
+		actionList.removeAllViews();
+		LayoutInflater inflater = LayoutInflater.from(getContext());
+		for (TriggerResponder responder : the_trigger.getResponders()) {
+			final int position = the_trigger.getResponders().indexOf(responder);
+			View row = inflater.inflate(R.layout.editor_action_row, actionList, false);
+			TextView type = (TextView) row.findViewById(R.id.action_row_type);
+			TextView summary = (TextView) row.findViewById(R.id.action_row_summary);
+			CheckBox windowOpen = (CheckBox) row.findViewById(R.id.action_row_open);
+			CheckBox windowClosed = (CheckBox) row.findViewById(R.id.action_row_closed);
+			ImageButton delete = (ImageButton) row.findViewById(R.id.action_row_delete);
+			View body = row.findViewById(R.id.action_row_body);
+
+			type.setText(actionTypeLabel(responder));
+			String line = actionSummary(responder);
+			if (line.length() == 0) {
+				summary.setVisibility(View.GONE);
+			} else {
+				summary.setText(line);
+			}
+
+			EditResponderListener edit = new EditResponderListener(position);
+			body.setOnClickListener(edit);
+			type.setOnClickListener(edit);
+			summary.setOnClickListener(edit);
+			delete.setOnClickListener(new DeleteResponderListener(position));
+
+			windowOpen.setOnCheckedChangeListener(new WindowOpenCheckChangeListener(position));
+			windowClosed.setOnCheckedChangeListener(new WindowClosedCheckChangeListener(position));
+			FIRE_WHEN fire = responder.getFireType();
+			windowOpen.setChecked(fire == FIRE_WHEN.WINDOW_OPEN || fire == FIRE_WHEN.WINDOW_BOTH);
+			windowClosed.setChecked(fire == FIRE_WHEN.WINDOW_CLOSED || fire == FIRE_WHEN.WINDOW_BOTH);
+
+			actionList.addView(row);
+		}
 	}
-	
+
+	public static String actionTypeLabel(TriggerResponder responder) {
+		if (responder == null || responder.getType() == null) {
+			return "";
+		}
+		switch (responder.getType()) {
+		case NOTIFICATION:
+			return "Notification";
+		case TOAST:
+			return "Toast";
+		case SOUND:
+			return "Sound";
+		case SPEAK:
+			return "Speak";
+		case ACK:
+			return "Ack";
+		case SCRIPT:
+			return "Function";
+		case REPLACE:
+			return "Replace";
+		case GAG:
+			return "Gag";
+		case TAP:
+			return "Tappable";
+		case COLOR:
+			return "Color";
+		case SET_VARIABLE:
+			return "Set Variable";
+		default:
+			return "";
+		}
+	}
+
+	public static String actionSummary(TriggerResponder responder) {
+		if (responder == null || responder.getType() == null) {
+			return "";
+		}
+		switch (responder.getType()) {
+		case NOTIFICATION:
+			return nullToEmpty(((NotificationResponder) responder).getTitle());
+		case TOAST:
+			return nullToEmpty(((ToastResponder) responder).getMessage());
+		case SOUND:
+			return com.resurrection.blowtorch2.lib.util.NotificationSounds.displayLabel(
+					((com.resurrection.blowtorch2.lib.responder.sound.SoundResponder) responder).getSoundPath());
+		case SPEAK:
+			return nullToEmpty(((com.resurrection.blowtorch2.lib.responder.speak.SpeakResponder) responder).getMessage());
+		case ACK:
+			return nullToEmpty(((AckResponder) responder).getAckWith());
+		case SCRIPT:
+			return nullToEmpty(((ScriptResponder) responder).getFunction());
+		case REPLACE:
+			return nullToEmpty(((ReplaceResponder) responder).getWith());
+		case GAG:
+			return "";
+		case TAP: {
+			TapAction tap = (TapAction) responder;
+			int extra = tap.getCommands().size() - 1;
+			return nullToEmpty(tap.getCommand())
+					+ (extra > 0 ? " (+" + extra + " in a menu)" : "");
+		}
+		case COLOR:
+			return Integer.toString(((ColorAction) responder).getColor());
+		case SET_VARIABLE: {
+			SetVariableResponder sv = (SetVariableResponder) responder;
+			return nullToEmpty(sv.getVariableName()) + "=" + nullToEmpty(sv.getVariableValue());
+		}
+		default:
+			return "";
+		}
+	}
+
+	private static String nullToEmpty(String s) {
+		return s == null ? "" : s;
+	}
+
 	private class EditResponderListener implements View.OnClickListener {
 
 		int position;

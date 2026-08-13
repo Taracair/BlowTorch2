@@ -50,7 +50,7 @@ public class AliasEditorDialog extends Dialog {
 	};
 	
 	public AliasEditorDialog(Context context,AliasEditorDialogDoneListener useme,IConnectionBinder pService,List<String> invalid_names,String currentPlugin) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, EditorDialogChrome.fullScreenTheme());
 		reportto = useme;
 		service = pService;
 		cant_name = invalid_names;
@@ -134,12 +134,12 @@ public class AliasEditorDialog extends Dialog {
 			helpButton.setOnClickListener(new View.OnClickListener() {
 				public void onClick(View v) {
 					com.resurrection.blowtorch2.lib.window.EditorHelp.show(
-							getContext(), "Aliases",
+							getContext(), "Alias editor",
 							com.resurrection.blowtorch2.lib.window.EditorHelp.ALIASES);
 				}
 			});
 		}
-		EditorDialogChrome.applyFloatingWrapContentHeight(this);
+		EditorDialogChrome.applyFullScreen(this);
 		//load in the array adapter to hook up the list view
 	}
 
@@ -330,7 +330,7 @@ public class AliasEditorDialog extends Dialog {
 		setContentView(R.layout.new_alias_dialog);
 		
 		TextView titlebar = (TextView)findViewById(R.id.titlebar);
-		titlebar.setText("MODIFY ALIAS");
+		titlebar.setText("ALIAS EDITOR");
 		
 		Button b = (Button)findViewById(R.id.new_alias_done_button);
 		b.setText("Done");
@@ -510,7 +510,7 @@ public class AliasEditorDialog extends Dialog {
 	boolean isEditor = false;
 	String currentPlugin = null;
 	public AliasEditorDialog(Context context,AliasEditorDialogDoneListener useme,String pre,String post,int position,AliasData old_alias,IConnectionBinder pService,List<String> invalid_names,String currentPlugin) {
-		super(context, EditorDialogChrome.dialogTheme());
+		super(context, EditorDialogChrome.fullScreenTheme());
 		isEditor=true;
 		reportto = useme;
 		original_alias = old_alias;

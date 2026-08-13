@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  One EXECUTE ACTIONS row: type + one-line summary + trash. Tap the text to
+  open the action editor. Window Open / Window Closed stay on the row (hybrid)
+  because none of the responder editors expose fire-when.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:orientation="vertical">
+
+	<RelativeLayout
+		android:id="@+id/action_row"
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:minHeight="52dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="6dip"
+		android:paddingRight="4dip"
+		android:background="@drawable/editor_row_selector">
+
+		<LinearLayout
+			android:id="@+id/action_row_toolbar"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_alignParentTop="true"
+			android:layout_alignParentBottom="true"
+			android:layout_alignParentRight="true"
+			android:gravity="center_vertical|right"
+			android:orientation="horizontal"
+			android:paddingLeft="4dip">
+
+			<LinearLayout
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:orientation="vertical"
+				android:gravity="left|center_vertical">
+
+				<CheckBox
+					android:id="@+id/action_row_open"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:minHeight="28dip"
+					android:minWidth="0dip"
+					android:padding="0dip"
+					android:text="Open"
+					android:textSize="11sp"
+					android:textColor="@color/chrome_chip_text"
+					android:focusable="true"
+					android:clickable="true"/>
+
+				<CheckBox
+					android:id="@+id/action_row_closed"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:minHeight="28dip"
+					android:minWidth="0dip"
+					android:padding="0dip"
+					android:text="Closed"
+					android:textSize="11sp"
+					android:textColor="@color/chrome_chip_text"
+					android:focusable="true"
+					android:clickable="true"/>
+			</LinearLayout>
+
+			<ImageButton
+				android:id="@+id/action_row_delete"
+				android:layout_width="36dip"
+				android:layout_height="36dip"
+				android:layout_marginLeft="2dip"
+				android:padding="6dip"
+				android:background="@android:color/transparent"
+				android:src="@drawable/ic_row_delete"
+				android:scaleType="centerInside"
+				android:contentDescription="Delete"
+				android:focusable="false"
+				android:focusableInTouchMode="false"/>
+		</LinearLayout>
+
+		<LinearLayout
+			android:id="@+id/action_row_body"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_centerVertical="true"
+			android:layout_alignParentLeft="true"
+			android:layout_toLeftOf="@id/action_row_toolbar"
+			android:layout_marginLeft="10dip"
+			android:orientation="vertical">
+
+			<TextView
+				android:id="@+id/action_row_type"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:textColor="@color/chrome_title_text"
+				android:textSize="16dip"
+				android:textStyle="bold"
+				android:lines="1"
+				android:ellipsize="end"
+				android:focusable="false"
+				android:focusableInTouchMode="false"
+				android:text="Ack"/>
+
+			<TextView
+				android:id="@+id/action_row_summary"
+				android:layout_width="match_parent"
+				android:layout_height="wrap_content"
+				android:paddingTop="1dip"
+				android:paddingRight="6dip"
+				android:textColor="@color/chrome_description"
+				android:textSize="12dip"
+				android:maxLines="1"
+				android:ellipsize="end"
+				android:focusable="false"
+				android:focusableInTouchMode="false"
+				android:text=""/>
+		</LinearLayout>
+	</RelativeLayout>
+
+	<View
+		android:layout_width="match_parent"
+		android:layout_height="1dip"
+		android:background="@color/chrome_divider"/>
+</LinearLayout>

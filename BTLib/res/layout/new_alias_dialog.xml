@@ -1,31 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Vertical shell: title → fields → Cancel/Done under content (not pinned to
-     screen bottom). Pair with EditorDialogChrome.applyFloatingWrapContentHeight. -->
+<!-- Opaque full-screen Family A shell. Short form is fine: empty space sits
+     under the fields, Cancel/?/Done stay on the footer bar. Pair with
+     EditorDialogChrome.fullScreenTheme + applyFullScreen. -->
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/newaliaslayout"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
+  android:background="@color/chrome_body"
   android:orientation="vertical">
 
   <TextView
 		android:id="@+id/titlebar"
-		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
-		android:text="NEW ALIAS"
-		android:textColor="#FF333333"
-		android:background="#FF999999"
-		android:textSize="15dip"
-		android:textStyle="bold"
-		android:gravity="center"/>
+		style="@style/BlowTorch.Chrome.Title"
+		android:text="ALIAS EDITOR"/>
 
   <ScrollView
   	android:id="@+id/alias_editor_scroll"
   	android:layout_width="match_parent"
   	android:layout_height="0dip"
   	android:layout_weight="1"
-  	android:fillViewport="false">
+  	android:fillViewport="true">
   	<LinearLayout
   		android:layout_width="match_parent"
   		android:layout_height="wrap_content"
@@ -88,10 +84,10 @@
   			android:layout_width="0dip"
   			android:layout_weight="1"
   			android:layout_height="wrap_content"
-  			android:textColor="#FFE8E8E8"
+  			android:textColor="@color/chrome_title_text"
   			android:textSize="13sp"
   			android:fontFamily="monospace"
-  			android:background="#FF1A1A1A"
+  			android:background="@color/chrome_preview"
   			android:padding="6dip"
   			android:text="Type a pattern to preview what is sent to the server." />
   	</TableRow>
@@ -174,14 +170,19 @@
   	android:layout_width="match_parent"
   	android:layout_height="wrap_content"
   	android:orientation="horizontal"
-  	android:gravity="center">
+  	android:gravity="center"
+  	android:background="@color/chrome_title_bar"
+  	android:paddingLeft="6dip"
+  	android:paddingRight="6dip"
+  	android:paddingTop="6dip"
+  	android:paddingBottom="6dip">
 	  <Button
 	    android:layout_width="0dip"
 	  	android:layout_height="wrap_content"
 	  	android:layout_weight="1"
+	  	android:minHeight="44dip"
 	  	android:id="@+id/new_alias_cancel"
 	  	android:text="Cancel" />
-	  <!-- Cancel, ?, Done: the same three the trigger and timer editors have. -->
 	  <Button
 	  	android:id="@+id/alias_editor_help_button"
 	  	android:layout_width="wrap_content"
@@ -190,7 +191,7 @@
 	  	android:minWidth="52dip"
 	  	android:layout_marginLeft="6dip"
 	  	android:background="@drawable/editor_more_button_bg"
-	  	android:textColor="#FFC7CDD4"
+	  	android:textColor="@color/chrome_chip_text"
 	  	android:textSize="16dip"
 	  	android:textStyle="bold"
 	  	android:text="?" />
@@ -198,6 +199,7 @@
 	  	android:layout_width="0dip"
 	  	android:layout_height="wrap_content"
 	  	android:layout_weight="1"
+	  	android:minHeight="44dip"
 	  	android:layout_marginLeft="6dip"
 	  	android:text="Done"
 	  	android:id="@+id/new_alias_done_button"/>
