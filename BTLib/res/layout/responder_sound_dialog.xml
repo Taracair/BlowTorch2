@@ -9,13 +9,14 @@
   <TextView
 		android:id="@+id/titlebar"
 		android:layout_width="fill_parent"
-		android:layout_height="wrap_content"
+		android:layout_height="42dip"
 		android:layout_alignParentTop="true"
 		android:text="SOUND RESPONDER"
-		android:textColor="#FF333333"
-		android:background="#FF999999"
-		android:textSize="15dip"
+		android:textColor="@color/chrome_title_text"
+		android:background="@color/chrome_title_bar"
+		android:textSize="14dip"
 		android:textStyle="bold"
+		android:textAllCaps="true"
 		android:gravity="center"/>
 
     <Button

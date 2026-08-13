@@ -10,6 +10,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -20,7 +21,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
- * Overflow → Help: nearly full-screen user manual (dot commands).
+ * Overflow → Help: compact crawler user manual (dot commands).
  * Content from {@code R.raw.user_manual}; keep in sync with docs/user-manual.md.
  *
  * <p>Also serves any other shipped plain-text document — the Plugins screen
@@ -42,7 +43,7 @@ public class HelpDialog extends Dialog {
 	 * @param title       header text for this document
 	 */
 	public HelpDialog(Context context, int rawResource, String title) {
-		super(context, R.style.BlowTorch_Dialog_FullScreen);
+		super(context, R.style.BlowTorch_Dialog);
 		mRawResource = rawResource;
 		mTitle = title;
 	}
@@ -53,76 +54,69 @@ public class HelpDialog extends Dialog {
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 
-		if (getContext() instanceof MainWindow) {
-			MainWindow w = (MainWindow) getContext();
-			if (w.isStatusBarHidden()) {
-				getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-						WindowManager.LayoutParams.FLAG_FULLSCREEN);
-			}
-		}
-
 		float density = getContext().getResources().getDisplayMetrics().density;
-		int pad = (int) (12 * density);
+		int pad = (int) (12 * density + 0.5f);
 
 		LinearLayout root = new LinearLayout(getContext());
 		root.setOrientation(LinearLayout.VERTICAL);
-
-		LinearLayout header = new LinearLayout(getContext());
-		header.setOrientation(LinearLayout.HORIZONTAL);
-		header.setGravity(Gravity.CENTER_VERTICAL);
-		header.setPadding(pad, pad, pad, pad / 2);
+		root.setBackgroundColor(color(R.color.chrome_body));
 
 		TextView title = new TextView(getContext());
 		title.setText(mTitle);
-		title.setTextSize(22f);
+		title.setTextColor(color(R.color.chrome_title_text));
+		title.setBackgroundColor(color(R.color.chrome_title_bar));
+		title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
 		title.setTypeface(Typeface.DEFAULT_BOLD);
-		LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0,
-				LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-		header.addView(title, titleLp);
+		title.setAllCaps(true);
+		title.setGravity(Gravity.CENTER);
+		root.addView(title, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, (int) (42 * density + 0.5f)));
 
+		ScrollView scroll = new ScrollView(getContext());
+		scroll.setFillViewport(true);
+		TextView body = new TextView(getContext());
+		body.setText(loadManualText());
+		body.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+		body.setTypeface(Typeface.MONOSPACE);
+		body.setTextColor(color(R.color.chrome_title_text));
+		body.setTextIsSelectable(true);
+		body.setPadding(pad, pad, pad, pad);
+		scroll.addView(body);
+		root.addView(scroll, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+
+		LinearLayout footer = new LinearLayout(getContext());
+		footer.setOrientation(LinearLayout.HORIZONTAL);
+		footer.setBackgroundColor(color(R.color.chrome_title_bar));
+		int footPad = (int) (6 * density + 0.5f);
+		footer.setPadding(footPad, footPad, footPad, footPad);
 		Button close = new Button(getContext());
 		close.setText("Close");
+		close.setMinHeight((int) (44 * density + 0.5f));
 		close.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				dismiss();
 			}
 		});
-		header.addView(close);
-		root.addView(header);
-
-		ScrollView scroll = new ScrollView(getContext());
-		scroll.setFillViewport(true);
-		TextView body = new TextView(getContext());
-		body.setText(loadManualText());
-		body.setTextSize(13f);
-		body.setTypeface(Typeface.MONOSPACE);
-		body.setTextIsSelectable(true);
-		body.setPadding(pad, 0, pad, pad);
-		scroll.addView(body);
-		root.addView(scroll, new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+		footer.addView(close, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				(int) (44 * density + 0.5f)));
+		root.addView(footer);
 
 		setContentView(root);
 
 		Window window = getWindow();
 		if (window != null) {
-			window.setLayout(WindowManager.LayoutParams.MATCH_PARENT,
-					WindowManager.LayoutParams.MATCH_PARENT);
-			WindowManager.LayoutParams attrs = window.getAttributes();
-			attrs.width = WindowManager.LayoutParams.MATCH_PARENT;
-			attrs.height = WindowManager.LayoutParams.MATCH_PARENT;
-			attrs.gravity = Gravity.FILL;
-			window.setAttributes(attrs);
+			int width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.92f);
+			int height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.88f);
+			window.setLayout(width, height);
+			window.setGravity(Gravity.CENTER);
 		}
+	}
 
-		androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
-			androidx.core.graphics.Insets sys =
-					insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars());
-			view.setPadding(sys.left, sys.top, sys.right, sys.bottom);
-			return insets;
-		});
-		androidx.core.view.ViewCompat.requestApplyInsets(root);
+	private int color(int id) {
+		return getContext().getResources().getColor(id);
 	}
 
 	private String loadManualText() {

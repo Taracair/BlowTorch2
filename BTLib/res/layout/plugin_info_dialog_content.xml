@@ -3,60 +3,82 @@
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/holder"
-    android:layout_height="fill_parent"
-    android:layout_width="fill_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent"
+    android:layout_width="match_parent"
+    android:background="@color/chrome_body">
     <LinearLayout
         android:id="@+id/title_bar"
-        android:layout_width="fill_parent"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:layout_alignParentTop="true"
-        android:gravity="center"
-        android:background="#FF999999">
+        android:background="@color/chrome_title_bar">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="42dip"
+        android:orientation="horizontal"
+        android:gravity="center">
     <ImageButton
         android:id="@+id/back"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:background="@android:color/transparent"
         android:src="@drawable/reverse_button"/>
-    <TextView 
+    <TextView
       	android:id="@+id/title"
-       	android:layout_width="wrap_content"
-      	android:layout_height="wrap_content"
-      	android:textAppearance="?android:attr/textAppearanceLarge"
-      	android:textColor="#FF333333"
+       	android:layout_width="0dip"
+      	android:layout_height="match_parent"
       	android:layout_weight="1"
-		android:background="#FF999999"
-       	android:gravity="center"
-       	android:ellipsize="start"
-       	android:singleLine="true"
-       	android:lines="1"
-       	android:maxLines="1"
-       	android:minLines="1"/>
+      	android:text="LOAD PLUGIN"
+      	android:textColor="@color/chrome_title_text"
+      	android:textSize="14dip"
+      	android:textStyle="bold"
+      	android:gravity="center"
+      	android:textAllCaps="true"/>
     <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:background="@android:color/transparent"
         android:src="@drawable/reverse_button"
         android:visibility="invisible"/>
     </LinearLayout>
+    <TextView
+        android:id="@+id/plugin_path_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingLeft="8dip"
+        android:paddingRight="8dip"
+        android:paddingBottom="6dip"
+        android:textColor="@color/chrome_description"
+        android:textSize="11dip"
+        android:gravity="center"
+        android:ellipsize="start"
+        android:singleLine="true"/>
+    </LinearLayout>
     <LinearLayout
-      	android:layout_width="fill_parent"
+      	android:layout_width="match_parent"
       	android:layout_height="wrap_content"
       	android:orientation="horizontal"
       	android:id="@+id/install_bar"
       	android:layout_alignParentBottom="true"
-      	android:gravity="center">
+      	android:gravity="center"
+      	android:background="@color/chrome_title_bar"
+      	android:padding="6dip">
 	    <Button
 		    android:id="@+id/install"
-		    android:layout_width="wrap_content"
+		    android:layout_width="match_parent"
 		    android:layout_height="wrap_content"
-		    android:layout_alignParentBottom="true"
+		    android:minHeight="44dip"
 		    android:text="INSTALL PLUGIN" />
     </LinearLayout>
 	<ListView
 		android:id="@+id/list"
-		android:layout_height="fill_parent"
-		android:layout_width="fill_parent"
+		android:layout_height="match_parent"
+		android:layout_width="match_parent"
 		android:layout_above="@id/install_bar"
-		android:layout_below="@id/title_bar"/>
+		android:layout_below="@id/title_bar"
+		android:background="@color/chrome_body"
+		android:cacheColorHint="#00000000"
+		android:divider="@color/chrome_divider"
+		android:dividerHeight="1dip"/>
 </RelativeLayout>

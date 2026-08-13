@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:visibility="gone"
-    android:background="#F0121212"
+    android:background="@color/chrome_body"
     android:paddingLeft="6dip"
     android:paddingRight="6dip"
     android:paddingTop="6dip"
@@ -23,9 +23,9 @@
             android:layout_width="0dip"
             android:layout_height="40dip"
             android:layout_weight="1"
-            android:background="#FF2A2A2A"
-            android:textColor="#FFFFFFFF"
-            android:textColorHint="#FF888888"
+            android:background="@drawable/editor_search_field_bg"
+            android:textColor="@color/chrome_title_text"
+            android:textColorHint="@color/chrome_hint"
             android:hint="Search scrollback…"
             android:imeOptions="actionSearch"
             android:inputType="text"
@@ -41,9 +41,9 @@
             android:layout_height="wrap_content"
             android:layout_marginLeft="4dip"
             android:text="Aa"
-            android:textColor="#FFDDDDDD"
+            android:textColor="@color/chrome_title_text"
             android:textSize="12sp"
-            android:buttonTint="#FFAAAAAA" />
+            android:buttonTint="@color/chrome_accent" />
 
         <Button
             android:id="@+id/scrollback_search_find"
@@ -77,7 +77,7 @@
             android:layout_weight="1"
             android:gravity="center"
             android:text="0 / 0"
-            android:textColor="#FFEEEEEE"
+            android:textColor="@color/chrome_title_text"
             android:textSize="13sp"
             android:textStyle="bold" />
 
@@ -94,7 +94,7 @@
         android:layout_height="wrap_content"
         android:paddingTop="4dip"
         android:paddingBottom="2dip"
-        android:textColor="#FFB8E0B8"
+        android:textColor="@color/chrome_description"
         android:textSize="12sp"
         android:typeface="monospace"
         android:maxLines="3"

@@ -35,7 +35,7 @@
       	android:textStyle="bold"
       	android:gravity="center"
       	android:textAllCaps="true"/>
-    <ImageButton
+       <ImageButton
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:background="@android:color/transparent"
@@ -55,28 +55,11 @@
         android:ellipsize="start"
         android:singleLine="true"/>
     </LinearLayout>
-    <LinearLayout
-      	android:layout_width="match_parent"
-      	android:layout_height="wrap_content"
-      	android:orientation="horizontal"
-      	android:id="@+id/install_bar"
-      	android:layout_alignParentBottom="true"
-      	android:gravity="center"
-      	android:background="@color/chrome_title_bar"
-      	android:padding="6dip">
-	    <Button
-		    android:id="@+id/install"
-		    android:layout_width="match_parent"
-		    android:layout_height="wrap_content"
-		    android:minHeight="44dip"
-		    android:text="INSTALL PLUGIN" />
-    </LinearLayout>
 	<ListView
 		android:id="@+id/list"
+		android:layout_below="@id/title_bar"
 		android:layout_height="match_parent"
 		android:layout_width="match_parent"
-		android:layout_above="@id/install_bar"
-		android:layout_below="@id/title_bar"
 		android:background="@color/chrome_body"
 		android:cacheColorHint="#00000000"
 		android:divider="@color/chrome_divider"

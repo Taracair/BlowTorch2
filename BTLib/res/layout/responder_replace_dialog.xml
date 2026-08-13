@@ -10,14 +10,14 @@
     <TextView
         android:id="@+id/titlebar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#FF999999"
-        android:gravity="center_horizontal"
+        android:layout_height="42dip"
+        android:background="@color/chrome_title_bar"
+        android:gravity="center"
         android:text="REPLACE RESPONDER"
-        android:textAppearance="?android:attr/textAppearanceSmall"
-        android:textColor="#FF333333"
-        android:textSize="15dip"
-        android:textStyle="bold" />
+        android:textColor="@color/chrome_title_text"
+        android:textSize="14dip"
+        android:textStyle="bold"
+        android:textAllCaps="true" />
 
     <TextView
         android:id="@+id/action_label"

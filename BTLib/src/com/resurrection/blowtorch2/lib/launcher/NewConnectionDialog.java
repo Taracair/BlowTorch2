@@ -34,14 +34,14 @@ public class NewConnectionDialog extends Dialog {
 	private final ArrayList<ServerAccount> mExtraAccounts = new ArrayList<ServerAccount>();
 
 	public NewConnectionDialog(Context context,ReadyListener useme) {
-		super(context);
+		super(context, R.style.BlowTorch_Dialog);
 
 		reportto = useme;
 		isEditor = false;
 	}
 
 	public NewConnectionDialog(Context context,ReadyListener useme,MudConnection old) {
-		super(context);
+		super(context, R.style.BlowTorch_Dialog);
 
 		reportto = useme;
 		m_display = old.getDisplayName();
@@ -62,7 +62,7 @@ public class NewConnectionDialog extends Dialog {
 		setContentView(R.layout.newconnectiondialog);
 		wirePasswordReveal();
 
-		this.setTitle("Connection Properties:");
+		this.setTitle("Connection properties");
 
 		Button ok = (Button)findViewById(R.id.acceptbutton);
 		Button cancel = (Button)findViewById(R.id.cancelbutton);

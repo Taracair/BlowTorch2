@@ -20,7 +20,9 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- Float only: title / drag / close. Drawer keeps this GONE. -->
+        <!-- Float only: title / drag / close. Drawer keeps this GONE.
+             Title bar uses the extra-text named colours so a frame over black
+             game text still reads as a grab handle, not one unbroken rectangle. -->
         <LinearLayout
             android:id="@+id/frame_title_bar"
             android:layout_width="match_parent"
@@ -28,7 +30,7 @@
             android:minHeight="36dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:background="#FF111111"
+            android:background="@color/extra_text_title_bar"
             android:paddingLeft="4dp"
             android:paddingRight="4dp"
             android:paddingTop="2dp"
@@ -56,7 +58,7 @@
                 android:gravity="center_vertical"
                 android:maxLines="1"
                 android:text="Frame"
-                android:textColor="#EEEEEE"
+                android:textColor="@color/extra_text_title_text"
                 android:textSize="13sp" />
 
             <ImageButton

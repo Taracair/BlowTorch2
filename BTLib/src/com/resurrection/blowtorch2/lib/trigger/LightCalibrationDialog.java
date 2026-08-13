@@ -2,11 +2,13 @@ package com.resurrection.blowtorch2.lib.trigger;
 
 import java.util.Locale;
 
+import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -14,7 +16,11 @@ import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -61,69 +67,121 @@ public class LightCalibrationDialog extends Dialog {
 	private float brightSample = -1f;
 
 	public LightCalibrationDialog(final Context context, final IConnectionBinder service) {
-		super(context);
+		super(context, R.style.BlowTorch_Dialog);
 		this.service = service;
 	}
 
 	@Override
 	protected void onCreate(final Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setTitle("Calibrate light");
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
+		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
+
+		float density = getContext().getResources().getDisplayMetrics().density;
+		int pad = (int) (14 * density + 0.5f);
+
 		LinearLayout root = new LinearLayout(getContext());
 		root.setOrientation(LinearLayout.VERTICAL);
-		int pad = (int) (14 * getContext().getResources().getDisplayMetrics().density);
-		root.setPadding(pad, pad, pad, pad);
+		root.setBackgroundColor(color(R.color.chrome_body));
+
+		TextView title = new TextView(getContext());
+		title.setText("Calibrate light");
+		title.setTextColor(color(R.color.chrome_title_text));
+		title.setBackgroundColor(color(R.color.chrome_title_bar));
+		title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+		title.setTypeface(Typeface.DEFAULT_BOLD);
+		title.setAllCaps(true);
+		title.setGravity(Gravity.CENTER);
+		root.addView(title, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, (int) (42 * density + 0.5f)));
+
+		LinearLayout body = new LinearLayout(getContext());
+		body.setOrientation(LinearLayout.VERTICAL);
+		body.setPadding(pad, pad, pad, pad);
 
 		instruction = new TextView(getContext());
 		instruction.setTextSize(15f);
 		instruction.setTextColor(Color.WHITE);
-		root.addView(instruction);
+		body.addView(instruction);
 
 		reading = new TextView(getContext());
 		reading.setTextSize(26f);
 		reading.setTextColor(0xFF66CCFF);
 		reading.setPadding(0, pad / 2, 0, 0);
-		root.addView(reading);
+		body.addView(reading);
 
 		verdict = new TextView(getContext());
 		verdict.setTextSize(13f);
-		verdict.setTextColor(Color.LTGRAY);
+		verdict.setTextColor(color(R.color.chrome_description));
 		verdict.setPadding(0, pad / 2, 0, pad / 2);
-		root.addView(verdict);
+		body.addView(verdict);
+
+		root.addView(body, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT));
+
+		LinearLayout footer = new LinearLayout(getContext());
+		footer.setOrientation(LinearLayout.HORIZONTAL);
+		footer.setBackgroundColor(color(R.color.chrome_title_bar));
+		int footPad = (int) (6 * density + 0.5f);
+		footer.setPadding(footPad, footPad, footPad, footPad);
 
 		capture = new Button(getContext());
+		capture.setMinHeight((int) (44 * density + 0.5f));
 		capture.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
 				take();
 			}
 		});
-		root.addView(capture);
 
 		save = new Button(getContext());
 		save.setText("Save");
 		save.setEnabled(false);
+		save.setMinHeight((int) (44 * density + 0.5f));
 		save.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
 				store();
 			}
 		});
-		root.addView(save);
 
 		Button close = new Button(getContext());
 		close.setText("Close");
+		close.setMinHeight((int) (44 * density + 0.5f));
 		close.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(final View v) {
 				dismiss();
 			}
 		});
-		root.addView(close);
+
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+				(int) (44 * density + 0.5f), 1f);
+		footer.addView(capture, lp);
+		LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(0,
+				(int) (44 * density + 0.5f), 1f);
+		saveLp.leftMargin = footPad;
+		footer.addView(save, saveLp);
+		LinearLayout.LayoutParams closeLp = new LinearLayout.LayoutParams(0,
+				(int) (44 * density + 0.5f), 1f);
+		closeLp.leftMargin = footPad;
+		footer.addView(close, closeLp);
+		root.addView(footer);
 
 		setContentView(root);
+		Window window = getWindow();
+		if (window != null) {
+			int width = (int) (getContext().getResources().getDisplayMetrics().widthPixels * 0.92f);
+			window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+			window.setGravity(Gravity.CENTER);
+		}
 		start();
 		showStep();
+	}
+
+	private int color(int id) {
+		return getContext().getResources().getColor(id);
 	}
 
 	private void start() {

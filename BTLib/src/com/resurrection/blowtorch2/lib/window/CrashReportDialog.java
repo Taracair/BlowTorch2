@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -36,71 +37,72 @@ public class CrashReportDialog extends Dialog {
 		getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 
 		float density = getContext().getResources().getDisplayMetrics().density;
-		int pad = (int) (16 * density);
+		int pad = (int) (16 * density + 0.5f);
 
 		LinearLayout root = new LinearLayout(getContext());
 		root.setOrientation(LinearLayout.VERTICAL);
-		root.setPadding(pad, pad, pad, pad);
+		root.setBackgroundColor(color(R.color.chrome_body));
 
-		TextView title = new TextView(getContext());
-		title.setText("Crash report");
-		title.setTextSize(20f);
-		title.setTypeface(Typeface.DEFAULT_BOLD);
-		title.setPadding(0, 0, 0, pad / 2);
-		root.addView(title);
+		root.addView(chromeTitle("Crash report", density));
+
+		ScrollView scroll = new ScrollView(getContext());
+		LinearLayout body = new LinearLayout(getContext());
+		body.setOrientation(LinearLayout.VERTICAL);
+		body.setPadding(pad, pad, pad, pad);
 
 		TextView logInfo = new TextView(getContext());
 		logInfo.setText("Error log:\n" + BlowTorchLogger.getLogFile(getContext()).getAbsolutePath());
-		logInfo.setTextSize(12f);
+		logInfo.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+		logInfo.setTextColor(color(R.color.chrome_description));
 		logInfo.setPadding(0, 0, 0, pad / 2);
-		root.addView(logInfo);
+		body.addView(logInfo);
 
 		if (SessionLogger.isEnabled(getContext())) {
 			String path = SessionLogger.getLogLocationLabel(getContext());
 			TextView sessionInfo = new TextView(getContext());
 			sessionInfo.setText("Session log (txt):\n" + path);
-			sessionInfo.setTextSize(12f);
+			sessionInfo.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+			sessionInfo.setTextColor(color(R.color.chrome_description));
 			sessionInfo.setPadding(0, 0, 0, pad / 2);
-			root.addView(sessionInfo);
+			body.addView(sessionInfo);
 		}
 
-		LinearLayout buttons = new LinearLayout(getContext());
-		buttons.setOrientation(LinearLayout.HORIZONTAL);
+		scroll.addView(body);
+		root.addView(scroll, new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT));
 
-		Button show = new Button(getContext());
-		show.setText("Show log");
+		LinearLayout footer = chromeFooter(density);
+		Button show = chromeFooterButton("Show log");
 		show.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				showLogViewer();
 			}
 		});
-
-		Button share = new Button(getContext());
-		share.setText("Share log");
+		Button share = chromeFooterButton("Share log");
 		share.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				shareLog();
 			}
 		});
-
-		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
-				LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-		lp.setMargins((int) (4 * density), 0, (int) (4 * density), 0);
-		buttons.addView(show, lp);
-		buttons.addView(share, lp);
-		root.addView(buttons);
-
-		Button close = new Button(getContext());
-		close.setText("Close");
+		Button close = chromeFooterButton("Close");
 		close.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				dismiss();
 			}
 		});
-		root.addView(close);
+		LinearLayout.LayoutParams lp = footerButtonParams(density);
+		footer.addView(show, lp);
+		LinearLayout.LayoutParams shareLp = footerButtonParams(density);
+		shareLp.leftMargin = (int) (6 * density + 0.5f);
+		footer.addView(share, shareLp);
+		LinearLayout.LayoutParams closeLp = footerButtonParams(density);
+		closeLp.leftMargin = (int) (6 * density + 0.5f);
+		footer.addView(close, closeLp);
+		root.addView(footer);
 
 		setContentView(root);
 
@@ -110,6 +112,47 @@ public class CrashReportDialog extends Dialog {
 			window.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
 			window.setGravity(Gravity.CENTER);
 		}
+	}
+
+	private TextView chromeTitle(String text, float density) {
+		TextView title = new TextView(getContext());
+		title.setText(text);
+		title.setTextColor(color(R.color.chrome_title_text));
+		title.setBackgroundColor(color(R.color.chrome_title_bar));
+		title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+		title.setTypeface(Typeface.DEFAULT_BOLD);
+		title.setAllCaps(true);
+		title.setGravity(Gravity.CENTER);
+		title.setLayoutParams(new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT, (int) (42 * density + 0.5f)));
+		return title;
+	}
+
+	private LinearLayout chromeFooter(float density) {
+		LinearLayout footer = new LinearLayout(getContext());
+		footer.setOrientation(LinearLayout.HORIZONTAL);
+		footer.setBackgroundColor(color(R.color.chrome_title_bar));
+		int pad = (int) (6 * density + 0.5f);
+		footer.setPadding(pad, pad, pad, pad);
+		return footer;
+	}
+
+	private Button chromeFooterButton(String label) {
+		Button b = new Button(getContext());
+		b.setText(label);
+		b.setMinHeight((int) (44 * getContext().getResources().getDisplayMetrics().density + 0.5f));
+		return b;
+	}
+
+	private LinearLayout.LayoutParams footerButtonParams(float density) {
+		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+				LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		lp.height = (int) (44 * density + 0.5f);
+		return lp;
+	}
+
+	private int color(int id) {
+		return getContext().getResources().getColor(id);
 	}
 
 	private void showLogViewer() {

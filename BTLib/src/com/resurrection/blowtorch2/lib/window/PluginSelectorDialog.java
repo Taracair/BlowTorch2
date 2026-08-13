@@ -63,7 +63,7 @@ public class PluginSelectorDialog extends Dialog {
 	private IConnectionBinder service;
 	//HashMap<String,PluginDescription[]> infoCache = new HashMap<String,PluginDescription[]>();
 	public PluginSelectorDialog(Context context,IConnectionBinder service,OnPluginLoadListener listener) {
-		super(context);
+		super(context, R.style.BlowTorch_Dialog);
 		mListener = listener;
 		this.service = service;
 	}
@@ -72,25 +72,17 @@ public class PluginSelectorDialog extends Dialog {
 		super.onCreate(b);
 		
 		LayoutInflater li = (LayoutInflater) this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-		RelativeLayout tmp = new RelativeLayout(this.getContext());
-		
-		View root = (RelativeLayout) li.inflate(R.layout.options_dialog, tmp);
-		
+		View root = li.inflate(R.layout.plugin_selector_dialog, null);
+
 		this.getWindow().requestFeature(android.view.Window.FEATURE_NO_TITLE);
 		this.getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
-		
+
 		backListener = new BackPressedListener();
-		
-		RelativeLayout content = (RelativeLayout) li.inflate(R.layout.options_dialog_content, null);
-		
-		//list = (ListView) content.findViewById(R.id.list);
-		TextView title = (TextView) content.findViewById(R.id.title);
-		
+
 		this.setContentView(root);
 
 		// Prefer classic /BlowTorch/plugins; fall back to app external files if unreadable.
 		String plugRoot = resolvePluginsRoot();
-		title.setText(plugRoot);
 		addPage(plugRoot);
 	}
 
@@ -149,9 +141,7 @@ public class PluginSelectorDialog extends Dialog {
 					
 					RelativeLayout newContent = (RelativeLayout) li.inflate(R.layout.plugin_info_dialog_content, null);
 
-					TextView title = (TextView) newContent.findViewById(R.id.title);
-					
-					title.setText(path);
+					applyLoadPluginChrome(newContent, path);
 					
 					newContent.findViewById(R.id.back).setOnClickListener(backListener);
 					ListView list = (ListView) newContent.findViewById(R.id.list);
@@ -211,11 +201,9 @@ public class PluginSelectorDialog extends Dialog {
 		LayoutInflater li = (LayoutInflater) this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 
 		
-		RelativeLayout newContent = (RelativeLayout) li.inflate(R.layout.options_dialog_content, null);
+		RelativeLayout newContent = (RelativeLayout) li.inflate(R.layout.plugin_selector_dialog_content, null);
 
-		TextView title = (TextView) newContent.findViewById(R.id.title);
-		
-		title.setText(path);
+		applyLoadPluginChrome(newContent, path);
 		
 		newContent.findViewById(R.id.back).setOnClickListener(backListener);
 		ListView list = (ListView) newContent.findViewById(R.id.list);
@@ -268,6 +256,17 @@ public class PluginSelectorDialog extends Dialog {
 			}
 		});
 		return new PluginSearchAdapter(this.getContext(), 0, files);
+	}
+
+	private void applyLoadPluginChrome(View content, String path) {
+		TextView title = (TextView) content.findViewById(R.id.title);
+		if (title != null) {
+			title.setText("LOAD PLUGIN");
+		}
+		TextView subtitle = (TextView) content.findViewById(R.id.plugin_path_subtitle);
+		if (subtitle != null) {
+			subtitle.setText(path == null ? "" : path);
+		}
 	}
 	
 	@Override
@@ -362,6 +361,8 @@ public class PluginSelectorDialog extends Dialog {
 			TextView title = (TextView) view.findViewById(R.id.infoTitle);
 			TextView extra = (TextView) view.findViewById(R.id.infoExtended);
 			ImageView icon = (ImageView) view.findViewById(R.id.icon);
+			title.setTextColor(getContext().getResources().getColor(R.color.chrome_title_text));
+			extra.setTextColor(getContext().getResources().getColor(R.color.chrome_description));
 			
 			//get the path
 			File file = this.getItem(pos);
@@ -493,7 +494,8 @@ public class PluginSelectorDialog extends Dialog {
 			WebView content = (WebView) view.findViewById(R.id.infoExtended);
 			
 			title.setText(desc.getName());
-			content.setBackgroundColor(0xFF000000);
+			title.setTextColor(getContext().getResources().getColor(R.color.chrome_title_text));
+			content.setBackgroundColor(getContext().getResources().getColor(R.color.chrome_body));
 			//content.setFo
 			
 			content.loadDataWithBaseURL("file:///android_asset/", desc.getDescription(), "text/html", "UTF-8", null);

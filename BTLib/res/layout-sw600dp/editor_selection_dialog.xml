@@ -4,7 +4,8 @@
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	android:id="@+id/root"
 	android:layout_width="match_parent"
-	android:layout_height="match_parent">
+	android:layout_height="match_parent"
+	android:background="@color/chrome_body">
 
 	<Button
 		android:id="@+id/optionsbutton"
@@ -20,14 +21,15 @@
 	<TextView
 		android:id="@+id/titlebar"
 		android:layout_width="fill_parent"
-		android:layout_height="48dip"
+		android:layout_height="42dip"
 		android:layout_alignParentTop="true"
 		android:layout_toLeftOf="@id/optionsbutton"
 		android:text="SELECT TRIGGER"
-		android:textColor="#FF333333"
-		android:background="#FF999999"
-		android:textSize="15dip"
+		android:textColor="@color/chrome_title_text"
+		android:background="@color/chrome_title_bar"
+		android:textSize="14dip"
 		android:textStyle="bold"
+		android:textAllCaps="true"
 		android:gravity="center"/>
 
 	<LinearLayout
@@ -46,9 +48,9 @@
 			android:inputType="text"
 			android:maxLines="1"
 			android:imeOptions="actionSearch"
-			android:textColor="#FF000000"
-			android:textColorHint="#FF666666"
-			android:background="#FFCCCCCC"
+			android:textColor="@color/chrome_title_text"
+			android:textColorHint="@color/chrome_hint"
+			android:background="@drawable/editor_search_field_bg"
 			android:paddingLeft="10dip"
 			android:paddingRight="10dip"
 			android:paddingTop="10dip"
@@ -61,7 +63,7 @@
 			android:layout_height="wrap_content"
 			android:orientation="horizontal"
 			android:gravity="center_vertical"
-			android:background="#FFBBBBBB"
+			android:background="@color/chrome_title_bar"
 			android:paddingLeft="6dip"
 			android:paddingRight="6dip"
 			android:paddingTop="4dip"
@@ -74,7 +76,7 @@
 				android:layout_height="wrap_content"
 				android:layout_weight="1"
 				android:minHeight="40dip"
-				android:popupBackground="#FF000000"/>
+				android:popupBackground="@color/chrome_title_bar"/>
 
 			<Spinner
 				android:id="@+id/group_filter_spinner"
@@ -83,7 +85,7 @@
 				android:layout_weight="1"
 				android:minHeight="40dip"
 				android:layout_marginLeft="4dip"
-				android:popupBackground="#FF000000"
+				android:popupBackground="@color/chrome_title_bar"
 				android:visibility="gone"/>
 		</LinearLayout>
 	</LinearLayout>
@@ -93,7 +95,7 @@
 		android:layout_alignParentBottom="true"
 		android:layout_alignParentRight="true"
 		android:layout_height="wrap_content"
-		android:minHeight="48dip"
+		android:minHeight="44dip"
 		android:layout_width="120dip"
 		android:text="Done"/>
 
@@ -102,7 +104,7 @@
 		android:layout_alignParentBottom="true"
 		android:layout_toLeftOf="@id/done"
 		android:layout_height="wrap_content"
-		android:minHeight="48dip"
+		android:minHeight="44dip"
 		android:layout_width="120dip"
 		android:visibility="gone"
 		android:text="Refresh"/>
@@ -113,7 +115,7 @@
 		android:layout_alignParentLeft="true"
 		android:layout_toLeftOf="@id/refresh"
 		android:layout_height="wrap_content"
-		android:minHeight="48dip"
+		android:minHeight="44dip"
 		android:layout_width="match_parent"
 		android:text="New"/>
 
@@ -128,14 +130,15 @@
 		<ListView
 			android:id="@+id/list"
 			android:layout_height="fill_parent"
-			android:layout_width="match_parent"/>
+			android:layout_width="match_parent"
+			android:background="@color/chrome_body"/>
 		<TextView
 			android:id="@+id/empty"
 			android:layout_width="match_parent"
 			android:layout_height="fill_parent"
 			android:text="No items to display."
-			android:textColor="#FFFFFFFF"
-			android:background="#FF000000"
+			android:textColor="@color/chrome_description"
+			android:background="@color/chrome_body"
 			android:layout_margin="0dip"
 			android:padding="0dip"
 			android:textStyle="bold"

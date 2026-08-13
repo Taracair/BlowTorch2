@@ -3,25 +3,27 @@
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="match_parent"
   android:layout_height="wrap_content"
-  android:fillViewport="true">
+  android:fillViewport="true"
+  android:background="@color/chrome_body">
 <RelativeLayout
   android:id="@+id/newconnectionlayout"
   android:layout_width="match_parent"
   android:layout_height="wrap_content"
-  android:paddingBottom="8dip">
+  android:background="@color/chrome_body"
+  android:paddingBottom="0dip">
 
     <TextView
 		android:id="@+id/titlebar"
 		android:layout_width="match_parent"
-		android:layout_height="wrap_content"
+		android:layout_height="42dip"
 		android:layout_alignParentTop="true"
-		android:text="CONNECTION PROPERTIES"
-		android:textColor="#FF333333"
-		android:background="#FF999999"
-		android:textSize="15sp"
+		android:background="@color/chrome_title_bar"
+		android:textColor="@color/chrome_title_text"
+		android:textSize="14dip"
 		android:textStyle="bold"
 		android:gravity="center"
-		android:padding="6dip"/>
+		android:textAllCaps="true"
+		android:text="CONNECTION PROPERTIES"/>
 
   <TableLayout
   	android:layout_width="match_parent"
@@ -39,6 +41,7 @@
   	android:layout_width="wrap_content"
 	android:gravity="right|center_vertical"
 	android:paddingRight="6dip"
+	android:textColor="@color/chrome_title_text"
   	/>
   	   <EditText
   	android:id="@+id/dispinput"
@@ -57,7 +60,8 @@
   	android:layout_height="wrap_content"
   	android:layout_width="wrap_content"
   	android:gravity="right|center_vertical"
-  	android:paddingRight="6dip"/>
+  	android:paddingRight="6dip"
+	android:textColor="@color/chrome_title_text"/>
   	   <EditText
   	android:id="@+id/hostinput"
   	android:layout_width="0dip"
@@ -75,7 +79,8 @@
   	android:layout_height="wrap_content"
   	android:layout_width="wrap_content"
   	android:gravity="right|center_vertical"
-  	android:paddingRight="6dip"/>
+  	android:paddingRight="6dip"
+	android:textColor="@color/chrome_title_text"/>
   	   <EditText
   	android:id="@+id/portinput"
   	android:layout_width="0dip"
@@ -95,7 +100,8 @@
   			android:layout_span="2"
   			android:paddingTop="6dip"
   			android:text="@string/launcher_tls_label"
-  			android:textSize="14sp"/>
+  			android:textSize="14sp"
+  			android:textColor="@color/chrome_title_text"/>
   	</TableRow>
   	<TableRow>
   		<TextView
@@ -106,7 +112,7 @@
   			android:paddingBottom="6dip"
   			android:text="@string/launcher_tls_hint"
   			android:textSize="12sp"
-  			android:textColor="#FF664400"/>
+  			android:textColor="@color/chrome_description"/>
   	</TableRow>
   	<TableRow>
   		<TextView
@@ -119,7 +125,7 @@
   			android:text="@string/launcher_account_section"
   			android:textStyle="bold"
   			android:textSize="14sp"
-  			android:textColor="#FF333333"/>
+  			android:textColor="@color/chrome_section_text"/>
   	</TableRow>
   	<TableRow>
   		<TextView
@@ -130,7 +136,7 @@
   			android:paddingBottom="6dip"
   			android:text="@string/launcher_account_plaintext_warn"
   			android:textSize="12sp"
-  			android:textColor="#FF664400"/>
+  			android:textColor="@color/chrome_description"/>
   	</TableRow>
   	<TableRow>
   	  <TextView
@@ -139,7 +145,8 @@
   	android:layout_height="wrap_content"
   	android:layout_width="wrap_content"
   	android:gravity="right|center_vertical"
-  	android:paddingRight="6dip"/>
+  	android:paddingRight="6dip"
+	android:textColor="@color/chrome_title_text"/>
   	   <EditText
   	android:id="@+id/accountlabel_input"
   	android:layout_width="0dip"
@@ -158,7 +165,8 @@
   	android:layout_height="wrap_content"
   	android:layout_width="wrap_content"
   	android:gravity="right|center_vertical"
-  	android:paddingRight="6dip"/>
+  	android:paddingRight="6dip"
+	android:textColor="@color/chrome_title_text"/>
   	   <EditText
   	android:id="@+id/logininput"
   	android:layout_width="0dip"
@@ -176,7 +184,8 @@
   	android:layout_height="wrap_content"
   	android:layout_width="wrap_content"
   	android:gravity="right|center_vertical"
-  	android:paddingRight="6dip"/>
+  	android:paddingRight="6dip"
+	android:textColor="@color/chrome_title_text"/>
   	   <LinearLayout
   	android:layout_width="0dip"
   	android:layout_weight="1"
@@ -212,7 +221,8 @@
   	android:layout_height="wrap_content"
   	android:layout_width="wrap_content"
   	android:gravity="right|center_vertical"
-  	android:paddingRight="6dip"/>
+  	android:paddingRight="6dip"
+	android:textColor="@color/chrome_title_text"/>
   	   <EditText
   	android:id="@+id/mailinput"
   	android:layout_width="0dip"
@@ -249,20 +259,23 @@
    	android:layout_height="wrap_content"
    	android:layout_below="@id/new_connection_table"
    	android:orientation="horizontal"
-   	android:paddingLeft="8dip"
-   	android:paddingRight="8dip">
+   	android:background="@color/chrome_title_bar"
+   	android:padding="6dip">
 	   <Button
 	    android:id="@+id/cancelbutton"
 	   	android:layout_width="0dip"
 	   	android:layout_weight="1"
 	   	android:layout_height="wrap_content"
+	   	android:minHeight="44dip"
 	   	android:text="Cancel"/>
 	   <Button
 	   	android:id="@+id/acceptbutton"
 	   	android:layout_width="0dip"
 	   	android:layout_weight="1"
 	   	android:layout_height="wrap_content"
-	   	android:text="Accept!"/>
+	   	android:minHeight="44dip"
+	   	android:layout_marginLeft="6dip"
+	   	android:text="Done"/>
    </LinearLayout>
 
 </RelativeLayout>
