@@ -4,7 +4,6 @@ import com.resurrection.blowtorch2.lib.R;
 
 import android.app.Dialog;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.View;
@@ -57,11 +56,14 @@ public final class EditorDialogChrome {
 		if (window == null) {
 			return;
 		}
-		Context host = unwrap(dialog.getContext());
-		if (host instanceof MainWindow && ((MainWindow) host).isStatusBarHidden()) {
-			window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-					WindowManager.LayoutParams.FLAG_FULLSCREEN);
-		}
+		// FLAG_FULLSCREEN suppresses soft-input resize. LuaDialog skips it when
+		// the caller opted into IME (setAdjustForIme) and sets ADJUST_RESIZE.
+		// These editors are forms; the old 96% floating card did not pin Done
+		// to the nav bar. Trade: a player who hides the status bar in the game
+		// will see it while the editor is open. Not measured on a device.
+		window.setSoftInputMode(
+				WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+						| WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 		window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
 				ViewGroup.LayoutParams.MATCH_PARENT);
 		WindowManager.LayoutParams attrs = window.getAttributes();
@@ -126,21 +128,6 @@ public final class EditorDialogChrome {
 		applyFloatingFrame(window, width, height);
 		stretchContentToFill(dialog, window);
 		ensureScrollWeight(scroll);
-	}
-
-	private static Context unwrap(Context context) {
-		Context c = context;
-		while (c instanceof ContextWrapper) {
-			if (c instanceof MainWindow) {
-				return c;
-			}
-			Context next = ((ContextWrapper) c).getBaseContext();
-			if (next == c) {
-				break;
-			}
-			c = next;
-		}
-		return context;
 	}
 
 	private static void applySystemBarInsets(Dialog dialog) {
