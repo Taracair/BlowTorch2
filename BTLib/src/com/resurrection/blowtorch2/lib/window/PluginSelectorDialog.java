@@ -355,7 +355,9 @@ public class PluginSelectorDialog extends Dialog {
 		public View getView(int pos,View view,ViewGroup root)  {
 			
 			if(view == null) {
-				view = inflater.inflate(R.layout.options_list_row, null);
+				// Own row: Options rows no longer have @id/icon (empty column
+				// dropped). This list still draws folder / plugin / error glyphs.
+				view = inflater.inflate(R.layout.plugin_search_list_row, null);
 			}
 			
 			TextView title = (TextView) view.findViewById(R.id.infoTitle);
