@@ -5,28 +5,38 @@
     android:id="@+id/holder"
     android:layout_height="fill_parent"
     android:layout_width="fill_parent"
+    android:background="@color/chrome_body"
     android:orientation="vertical">
     <LinearLayout
         android:id="@+id/title_bar"
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="42dip"
         android:orientation="horizontal"
         android:layout_alignParentTop="true"
-        android:gravity="center"
-        android:background="#FF999999">
+        android:gravity="center_vertical"
+        android:background="@color/chrome_title_bar">
     <ImageButton
         android:id="@+id/back"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/reverse_button"/>
-    <TextView 
+        android:layout_height="match_parent"
+        android:minWidth="48dip"
+        android:paddingLeft="8dip"
+        android:paddingRight="8dip"
+        android:background="@android:color/transparent"
+        android:src="@drawable/reverse_button"
+        android:tint="@color/chrome_title_text"
+        android:tintMode="src_in"
+        android:scaleType="centerInside"
+        android:contentDescription="Back"/>
+    <TextView
       	android:id="@+id/title"
-       	android:layout_width="wrap_content"
-      	android:layout_height="wrap_content"
-      	android:textAppearance="?android:attr/textAppearanceLarge"
-      	android:textColor="#FF333333"
-		android:background="#FF999999"
-		android:layout_weight="1"
+       	android:layout_width="0dip"
+      	android:layout_height="match_parent"
+      	android:layout_weight="1"
+      	android:textColor="@color/chrome_title_text"
+		android:textSize="14dip"
+		android:textStyle="bold"
+		android:textAllCaps="true"
        	android:gravity="center"
        	android:ellipsize="start"
        	android:singleLine="true"
@@ -34,14 +44,25 @@
        	android:maxLines="1"
        	android:minLines="1"/>
        <ImageButton
+        android:id="@+id/back_spacer"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:minWidth="48dip"
+        android:paddingLeft="8dip"
+        android:paddingRight="8dip"
+        android:background="@android:color/transparent"
         android:src="@drawable/reverse_button"
-        android:visibility="invisible"/>
+        android:visibility="invisible"
+        android:contentDescription="@null"/>
     </LinearLayout>
 	<ListView
 		android:id="@+id/list"
 		android:layout_below="@id/title_bar"
 		android:layout_height="fill_parent"
-		android:layout_width="fill_parent"/>
+		android:layout_width="fill_parent"
+		android:background="@color/chrome_body"
+		android:cacheColorHint="@color/chrome_body"
+		android:divider="@color/chrome_divider"
+		android:dividerHeight="1dip"
+		android:listSelector="@drawable/editor_row_selector"/>
 </RelativeLayout>

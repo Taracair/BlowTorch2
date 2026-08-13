@@ -21,7 +21,6 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.widget.Toast;
 import android.app.Dialog;
-import android.app.AlertDialog.Builder;
 import android.app.FragmentManager;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -45,7 +44,6 @@ import android.widget.BaseAdapter;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
@@ -97,6 +95,109 @@ public class OptionsDialog extends Dialog {
 	private static boolean isDirectoryOptionKey(String key) {
 		return "default_settings_directory".equals(key)
 				|| "session_log_directory".equals(key);
+	}
+
+	/**
+	 * Nested groups inlined as section headers + their options. Display only —
+	 * the SettingsGroup tree is unchanged (WindowTokenParser /
+	 * ConnectionSetttingsParser skip foreign keys; nesting is load-bearing).
+	 *
+	 * Titles are the ones WindowToken / ConnectionSettingsPlugin already use.
+	 * Font, Suggestions, and anything else still drill in.
+	 */
+	static final java.util.HashSet<String> INLINE_GROUP_TITLES =
+			new java.util.HashSet<String>(java.util.Arrays.asList(
+					"Hyperlink Settings",
+					"Extra text windows",
+					"GMCP Options",
+					"MCP Options",
+					"MUD Protocols"));
+
+	static boolean isInlineGroup(Option option) {
+		return option != null
+				&& option.type == Option.TYPE.GROUP
+				&& option.getTitle() != null
+				&& INLINE_GROUP_TITLES.contains(option.getTitle());
+	}
+
+	/** One row in the Options list after display flattening. */
+	static final class PageRow {
+		static final int HEADER = 0;
+		static final int OPTION = 1;
+
+		final int kind;
+		final String header;
+		final Option option;
+		/** Index in the listed SettingsGroup, for pluginSettingsMap at root. */
+		final int sourceIndex;
+
+		private PageRow(int kind, String header, Option option, int sourceIndex) {
+			this.kind = kind;
+			this.header = header;
+			this.option = option;
+			this.sourceIndex = sourceIndex;
+		}
+
+		static PageRow header(String title) {
+			return new PageRow(HEADER, title, null, -1);
+		}
+
+		static PageRow option(Option option, int sourceIndex) {
+			return new PageRow(OPTION, null, option, sourceIndex);
+		}
+
+		boolean isHeader() {
+			return kind == HEADER;
+		}
+	}
+
+	/**
+	 * Rows shown for a page. Does not mutate {@code group}. Hidden keys stay
+	 * in the tree (the button editor still writes them).
+	 */
+	static ArrayList<PageRow> pageRows(SettingsGroup group) {
+		return pageRows(group, EDITOR_OWNED_KEYS);
+	}
+
+	static ArrayList<PageRow> pageRows(SettingsGroup group,
+			java.util.Set<String> hiddenKeys) {
+		ArrayList<PageRow> rows = new ArrayList<PageRow>();
+		if (group == null) {
+			return rows;
+		}
+		ArrayList<Option> all = group.getOptions();
+		for (int i = 0; i < all.size(); i++) {
+			Option o = all.get(i);
+			if (o == null) {
+				continue;
+			}
+			if (o.getKey() != null && hiddenKeys != null
+					&& hiddenKeys.contains(o.getKey())) {
+				continue;
+			}
+			if (isInlineGroup(o)) {
+				rows.add(PageRow.header(o.getTitle()));
+				ArrayList<Option> children = ((SettingsGroup) o).getOptions();
+				for (int j = 0; j < children.size(); j++) {
+					Option child = children.get(j);
+					if (child == null) {
+						continue;
+					}
+					if (child.getKey() != null && hiddenKeys != null
+							&& hiddenKeys.contains(child.getKey())) {
+						continue;
+					}
+					rows.add(PageRow.option(child, i));
+				}
+			} else {
+				rows.add(PageRow.option(o, i));
+			}
+		}
+		return rows;
+	}
+
+	private AlertDialog.Builder editorBuilder() {
+		return new AlertDialog.Builder(getContext(), R.style.BlowTorch_Dialog);
 	}
 
 	private EditText activeDirectoryEditText;
@@ -265,11 +366,6 @@ public class OptionsDialog extends Dialog {
 		//altList = (ListView) alt.findViewById(R.id.list);
 		
 		ListView list = (ListView) content.findViewById(R.id.list);
-		TextView title = (TextView) content.findViewById(R.id.title);
-		
-		content.findViewById(R.id.back).setOnClickListener(backListener);
-		//View empty = root.findViewById(R.id.empty);
-		//list.setEmptyView(empty);
 		
 		try {
 			mCurrent = service.getSettings();
@@ -300,7 +396,7 @@ public class OptionsDialog extends Dialog {
 		}
 		
 		
-		title.setText(mCurrent.getTitle());
+		bindPageChrome(content, mCurrent.getTitle(), false);
 		
 		ViewFlipper flipper = (ViewFlipper) root.findViewById(R.id.flipper);
 		//flipper.removeAllViews();
@@ -313,9 +409,34 @@ public class OptionsDialog extends Dialog {
 		
 		
 		this.setContentView(root);
+		View close = root.findViewById(R.id.close);
+		if (close != null) {
+			close.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					OptionsDialog.this.dismiss();
+				}
+			});
+		}
 		
 		//adapter.
 		//list.re
+	}
+
+	/**
+	 * Title bar for one flipper page. Back is for nested pages that still
+	 * drill in; the footer Close dismisses the whole dialog.
+	 */
+	private void bindPageChrome(View content, String titleText, boolean showBack) {
+		TextView title = (TextView) content.findViewById(R.id.title);
+		title.setText(titleText);
+		View back = content.findViewById(R.id.back);
+		View spacer = content.findViewById(R.id.back_spacer);
+		back.setOnClickListener(backListener);
+		back.setVisibility(showBack ? View.VISIBLE : View.GONE);
+		if (spacer != null) {
+			spacer.setVisibility(showBack ? View.INVISIBLE : View.GONE);
+		}
 	}
 	
 	class OptionsAdapter extends BaseAdapter {
@@ -323,47 +444,37 @@ public class OptionsDialog extends Dialog {
 		SettingsGroup group;
 
 		/**
-		 * The rows actually shown, and for each one its index in the group.
+		 * The rows actually shown. Flattened groups become a header plus their
+		 * child Option objects — the same instances as in the SettingsGroup
+		 * tree, so click listeners still write the nested option.
 		 *
-		 * <p>The index has to be carried: pluginSettingsMap keys the plugin name
-		 * by position in the group, so a hidden row above a plugin's group would
-		 * otherwise open that group as the wrong plugin.
+		 * <p>sourceIndex has to be carried: pluginSettingsMap keys the plugin
+		 * name by position in the group, so a hidden or inlined row above a
+		 * plugin's group would otherwise open that group as the wrong plugin.
 		 */
-		private final ArrayList<Option> visible = new ArrayList<Option>();
-		private final ArrayList<Integer> sourceIndex = new ArrayList<Integer>();
+		private final ArrayList<PageRow> rows;
 
 		public OptionsAdapter(SettingsGroup sg) {
 			this.group = sg;
-			ArrayList<Option> all = sg.getOptions();
-			for(int i = 0;i < all.size();i++) {
-				Option o = all.get(i);
-				if(o == null) {
-					continue;
-				}
-				if(o.getKey() != null && EDITOR_OWNED_KEYS.contains(o.getKey())) {
-					continue;
-				}
-				visible.add(o);
-				sourceIndex.add(Integer.valueOf(i));
-			}
+			this.rows = pageRows(sg);
 		}
 
 		/** Index in the group of the row drawn at this adapter position. */
 		int sourcePosition(int position) {
-			if(position < 0 || position >= sourceIndex.size()) {
+			if(position < 0 || position >= rows.size()) {
 				return position;
 			}
-			return sourceIndex.get(position).intValue();
+			return rows.get(position).sourceIndex;
 		}
 
 		@Override
 		public int getCount() {
-			return visible.size();
+			return rows.size();
 		}
 
 		@Override
 		public Object getItem(int position) {
-			return visible.get(position);
+			return rows.get(position).option;
 		}
 
 		@Override
@@ -373,19 +484,44 @@ public class OptionsDialog extends Dialog {
 		}
 
 		@Override
+		public int getViewTypeCount() {
+			return 2;
+		}
+
+		@Override
+		public int getItemViewType(int position) {
+			return rows.get(position).kind;
+		}
+
+		@Override
+		public boolean areAllItemsEnabled() {
+			return false;
+		}
+
+		@Override
+		public boolean isEnabled(int position) {
+			return !rows.get(position).isHeader();
+		}
+
+		@Override
 		public View getView(int position, View convertView, ViewGroup parent) {
+			PageRow row = rows.get(position);
+			LayoutInflater li = (LayoutInflater) OptionsDialog.this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+			if (row.isHeader()) {
+				TextView header = (TextView) convertView;
+				if (header == null) {
+					header = (TextView) li.inflate(R.layout.sensor_list_section, parent, false);
+				}
+				header.setText(row.header);
+				return header;
+			}
+
 			View v = convertView;
 			if(v == null) {
-				LayoutInflater li = (LayoutInflater) OptionsDialog.this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-				v = li.inflate(R.layout.options_list_row, null);
-				//android.R.layout.
+				v = li.inflate(R.layout.options_list_row, parent, false);
 			}
 			
-			ImageView iv = (ImageView) v.findViewById(R.id.icon);
-			LinearLayout ivl = (LinearLayout) iv.getParent();
-			ivl.setVisibility(View.GONE);
-			
-			Option o = (Option) this.getItem(position);
+			Option o = row.option;
 			
 			TextView title = (TextView) v.findViewById(R.id.infoTitle);
 			TextView ext = (TextView) v.findViewById(R.id.infoExtended);
@@ -394,11 +530,11 @@ public class OptionsDialog extends Dialog {
 			ext.setText(o.getDescription());
 			
 			LinearLayout widget = (LinearLayout) v.findViewById(R.id.widget_frame);
-			//widget.setVisibility(View.GONE);
 			
-			//v.setOnClickListener(l)
 			v.setTag(null);
-			
+			v.setOnClickListener(null);
+			widget.setOnClickListener(null);
+			widget.setTag(null);
 			widget.removeAllViews();
 			switch(o.type) {
 			case BOOLEAN:
@@ -460,7 +596,6 @@ public class OptionsDialog extends Dialog {
 			case COLOR:
 				v.setTag(o);
 				ColorOption co = (ColorOption)o;
-				LayoutInflater li = (LayoutInflater)OptionsDialog.this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 				View color_swatch_layout = li.inflate(R.layout.colorswatch_widget, null);
 				Button swatch = (Button) color_swatch_layout.findViewById(R.id.colorswatch);
 				//swatch.setTag(co);
@@ -1133,7 +1268,7 @@ public class OptionsDialog extends Dialog {
 				}
 			}
 			
-			AlertDialog.Builder builder = new AlertDialog.Builder(OptionsDialog.this.getContext());
+			AlertDialog.Builder builder = editorBuilder();
 			builder.setTitle(o.getTitle());
 			builder.setSingleChoiceItems(entries, selectedIndex,new FileOptionItemClickListener((FileOption)o,foundFilePaths,foundFileNames,indicator));
 
@@ -1264,7 +1399,7 @@ public class OptionsDialog extends Dialog {
 		public void onClick(View v) {
 			IntegerOption o = (IntegerOption) v.getTag();
 			
-			AlertDialog.Builder builder = new AlertDialog.Builder(OptionsDialog.this.getContext());
+			AlertDialog.Builder builder = editorBuilder();
 			
 			builder.setTitle(o.getTitle());
 			EditText input = new EditText(OptionsDialog.this.getContext());
@@ -1345,7 +1480,7 @@ public class OptionsDialog extends Dialog {
 			final StringOption o = (StringOption) v.getTag();
 			final boolean directoryOption = isDirectoryOptionKey(o.getKey());
 			
-			AlertDialog.Builder builder = new AlertDialog.Builder(OptionsDialog.this.getContext());
+			AlertDialog.Builder builder = editorBuilder();
 			
 			builder.setTitle(o.getTitle());
 			final EditText input = new EditText(OptionsDialog.this.getContext());
@@ -1446,7 +1581,7 @@ public class OptionsDialog extends Dialog {
 				}
 			}
 			
-			AlertDialog.Builder builder = new AlertDialog.Builder(OptionsDialog.this.getContext());
+			AlertDialog.Builder builder = editorBuilder();
 			builder.setTitle("Select Encoding:");
 			
 			builder.setSingleChoiceItems(mEncodings, selected, new EncodingItemClickListener(o));
@@ -1528,11 +1663,8 @@ public class OptionsDialog extends Dialog {
 			list.setAdapter(newAdapt);
 			newAdapt.notifyDataSetInvalidated();
 			
-			//LinearLayout group = (LinearLayout) altList.getParent();
-			TextView title = (TextView) newContent.findViewById(R.id.title);
-			title.setText(key.getTitle());
+			bindPageChrome(newContent, key.getTitle(), true);
 			ViewFlipper f = (ViewFlipper) OptionsDialog.this.findViewById(R.id.flipper);
-			newContent.findViewById(R.id.back).setOnClickListener(backListener);
 			f.addView(newContent);
 			//int amount = altList.getWidth();
 			//int amount = 600;
@@ -1570,7 +1702,7 @@ public class OptionsDialog extends Dialog {
 			foo = items.toArray(foo);
 			
 			
-			AlertDialog.Builder builder = new AlertDialog.Builder(OptionsDialog.this.getContext());
+			AlertDialog.Builder builder = editorBuilder();
 			
 			builder.setTitle(o.getTitle());
 			//builder.setSin

@@ -910,11 +910,11 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		SettingsGroup bellOptions = new SettingsGroup();
 		bellOptions.setTitle("Bell");
-		bellOptions.setDescription("Options for what happens when the bell character is recieved.");
+		bellOptions.setDescription("Options for what happens when the bell character is received.");
 		
 		BooleanOption bell_vibrate = new BooleanOption();
 		bell_vibrate.setTitle("Vibrate?");
-		bell_vibrate.setDescription("Plays a short vibrate pattern when the bell is recieved.");
+		bell_vibrate.setDescription("Plays a short vibrate pattern when the bell is received.");
 		bell_vibrate.setKey("bell_vibrate");
 		bell_vibrate.setValue(true);
 		bellOptions.addOption(bell_vibrate);
@@ -941,14 +941,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption bell_notification = new BooleanOption();
 		bell_notification.setTitle("Generate Notification?");
-		bell_notification.setDescription("Spawns a new notification when bell is recieved.");
+		bell_notification.setDescription("Spawns a new notification when bell is received.");
 		bell_notification.setKey("bell_notification");
 		bell_notification.setValue(false);
 		bellOptions.addOption(bell_notification);
 		
 		BooleanOption bell_display = new BooleanOption();
 		bell_display.setTitle("Display Bell?");
-		bell_display.setDescription("Displays a small alert on the screen when the bell character is recieved.");
+		bell_display.setDescription("Displays a small alert on the screen when the bell character is received.");
 		bell_display.setKey("bell_display");
 		bell_display.setValue(false);
 		bellOptions.addOption(bell_display);

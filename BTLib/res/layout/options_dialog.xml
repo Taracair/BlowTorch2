@@ -4,12 +4,35 @@
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	android:id="@+id/root"
 	android:layout_width="fill_parent"
-	android:layout_height="match_parent">
-	
-    <ViewFlipper
-        android:id="@+id/flipper"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent">
-	
-	</ViewFlipper>
+	android:layout_height="match_parent"
+	android:background="@color/chrome_body">
+
+	<LinearLayout
+		android:id="@+id/button_row"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_alignParentBottom="true"
+		android:orientation="horizontal"
+		android:background="@color/chrome_title_bar"
+		android:paddingLeft="6dip"
+		android:paddingRight="6dip"
+		android:paddingTop="6dip"
+		android:paddingBottom="6dip">
+
+		<Button
+			android:id="@+id/close"
+			android:layout_width="0dip"
+			android:layout_weight="1"
+			android:layout_height="wrap_content"
+			android:minHeight="44dip"
+			android:text="Close"/>
+	</LinearLayout>
+
+	<ViewFlipper
+		android:id="@+id/flipper"
+		android:layout_width="fill_parent"
+		android:layout_height="fill_parent"
+		android:layout_alignParentTop="true"
+		android:layout_above="@id/button_row"/>
+
 </RelativeLayout>
