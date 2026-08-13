@@ -123,7 +123,8 @@
 		<item name="colorAccent">@color/chrome_accent</item>
 	</style>
 
-	<!-- Parent required: AAPT treats BlowTorch.Chrome.Title as a child of this. -->
+	<!-- Dotted names imply a parent: Title → Chrome → BlowTorch. -->
+	<style name="BlowTorch" />
 	<style name="BlowTorch.Chrome" />
 
 	<!-- 42dip ALL-CAPS title used by Sensors / alias-trigger-timer lists. -->
