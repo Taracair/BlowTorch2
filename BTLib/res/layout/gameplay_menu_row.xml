@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  One command in the ⋮ gameplay menu. Dense on purpose: the popup already
+  has section headers, and Help used to sit below the fold in a flat list.
+-->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/gameplay_menu_row"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:minHeight="40dip"
+	android:gravity="center_vertical"
+	android:paddingLeft="10dip"
+	android:paddingRight="10dip"
+	android:fontFamily="sans-serif"
+	android:textColor="@color/chrome_title_text"
+	android:textSize="16dip"
+	android:maxLines="1"
+	android:ellipsize="end"
+	android:text="Aliases"/>

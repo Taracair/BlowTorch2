@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  A section heading in the ⋮ gameplay menu. Same recipe as Sensors:
+  a short ALL-CAPS strip so Aliases and Reconnect are not one long list.
+  Not tappable — the rows under it are.
+-->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/gameplay_menu_header"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:minHeight="34dip"
+	android:gravity="center_vertical"
+	android:paddingLeft="10dip"
+	android:paddingRight="10dip"
+	android:background="@drawable/sensor_section_bg"
+	android:clickable="false"
+	android:focusable="false"
+	android:textColor="@color/chrome_section_text"
+	android:textSize="12dip"
+	android:textStyle="bold"
+	android:textAllCaps="true"
+	android:letterSpacing="0.06"
+	android:text="Editors"/>

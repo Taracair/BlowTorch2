@@ -2198,11 +2198,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 
-		CharSequence[] titles = new CharSequence[visibleItems.size()];
-		for (int i = 0; i < visibleItems.size(); i++) {
-			titles[i] = visibleItems.get(i).getTitle();
-		}
-
 		final float density = getResources().getDisplayMetrics().density;
 		final androidx.appcompat.widget.ListPopupWindow popup =
 				new androidx.appcompat.widget.ListPopupWindow(themed);
@@ -2210,10 +2205,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (safeAnchor == null) {
 			return;
 		}
+		final GameplayMenuAdapter adapter = new GameplayMenuAdapter(themed, visibleItems);
 		popup.setAnchorView(safeAnchor);
 		popup.setModal(true);
-		popup.setAdapter(new ArrayAdapter<CharSequence>(
-				themed, android.R.layout.simple_list_item_1, titles));
+		popup.setAdapter(adapter);
 		popup.setPromptPosition(androidx.appcompat.widget.ListPopupWindow.POSITION_PROMPT_ABOVE);
 		popup.setDropDownGravity(Gravity.END);
 		popup.setBackgroundDrawable(androidx.core.content.ContextCompat.getDrawable(
@@ -2241,18 +2236,19 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			@Override
 			public void onItemClick(android.widget.AdapterView<?> parent, View view,
 					int position, long id) {
-				popup.dismiss();
-				if (position >= 0 && position < visibleItems.size()) {
-					MenuItem item = visibleItems.get(position);
-					// ListPopupWindow does not call MenuItem.OnMenuItemClickListener.
-					// Lua PopulateMenu (Button Sets, etc.) attaches listeners that must
-					// run via MenuItemImpl.invoke() before the Java switch.
-					if (item instanceof androidx.appcompat.view.menu.MenuItemImpl
-							&& ((androidx.appcompat.view.menu.MenuItemImpl) item).invoke()) {
-						return;
-					}
-					MainWindow.this.onOptionsItemSelected(item);
+				MenuItem item = adapter.getMenuItemAt(position);
+				if (item == null) {
+					return;
 				}
+				popup.dismiss();
+				// ListPopupWindow does not call MenuItem.OnMenuItemClickListener.
+				// Lua PopulateMenu (Button Sets, etc.) attaches listeners that must
+				// run via MenuItemImpl.invoke() before the Java switch.
+				if (item instanceof androidx.appcompat.view.menu.MenuItemImpl
+						&& ((androidx.appcompat.view.menu.MenuItemImpl) item).invoke()) {
+					return;
+				}
+				MainWindow.this.onOptionsItemSelected(item);
 			}
 		});
 		popup.show();
