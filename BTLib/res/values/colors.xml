@@ -32,4 +32,23 @@
          it keeps one hue in the file. At full strength this read as a cage — the
          border is frame, not content. #66 quieter still, #CC louder. -->
     <color name="dialog_frame_edge">#889EC5FF</color>
+
+    <!--
+      2026 list chrome (Sensors, Aliases / Triggers / Timers). Editors, Options
+      and leftover Holo dialogs should point here instead of #999999 title bars.
+      Named once so a restyle cannot drift between XML copies.
+    -->
+    <color name="chrome_body">#FF16181C</color>
+    <color name="chrome_title_bar">#FF1E2126</color>
+    <color name="chrome_title_text">#FFF2F4F6</color>
+    <color name="chrome_description">#FF9AA3AD</color>
+    <color name="chrome_section_text">#FF9FB6D8</color>
+    <color name="chrome_section_fill">#FF1B1F25</color>
+    <color name="chrome_chip_text">#FFC7CDD4</color>
+    <color name="chrome_divider">#FF23262B</color>
+    <color name="chrome_hint">#FF7A828C</color>
+    <color name="chrome_row_pressed">#FF262A31</color>
+    <color name="chrome_preview">#FF1A1A1A</color>
+    <!-- Checkbox / radio "on". Locked so OEM accents cannot turn ticks green. -->
+    <color name="chrome_accent">#FF66CCFF</color>
 </resources>
