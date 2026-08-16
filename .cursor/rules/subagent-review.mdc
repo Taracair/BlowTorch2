@@ -11,15 +11,17 @@ report are already in there and cost no tokens.
 
 ## Default: one reviewer, after the change
 
-Launch **one** `bugbot` Task on the uncommitted diff. Model `composer-2.5` or
-`cursor-grok-4.5-high`, never `composer-2.5-fast`. Triage, fix real findings,
-re-run until clean or until you hit something to report. Then commit.
+Launch **one** `bugbot` Task on the uncommitted diff. Model
+`cursor-grok-4.6-xhigh` (Grok 4.6 extra high). Never `composer-2.5-fast`,
+never any other `-fast` slug. Triage, fix real findings, re-run until clean
+or until you hit something to report. Then commit.
 
 Docs and `.cursor/rules` edits: no subagent, self-check only.
 
 ## Advisors before implementing: rarely
 
-Two parallel advisors before writing code, only when **both** hold:
+Two parallel advisors before writing code, only when **both** hold.
+Same model as Bugbot: `cursor-grok-4.6-xhigh`, never fast.
 
 - the change touches the binder, `static` state, settings serialisation, thread
   ownership, or the Lua to Java boundary, **and**
