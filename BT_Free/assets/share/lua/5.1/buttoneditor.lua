@@ -98,7 +98,7 @@ local accordionChildCmdEdits = {}
 -- ceiling (see gestureLabelCb). These two would push Done/show over the limit.
 accordionLockedSwipeEdits = {}
 harvestAccordionChildren = nil
-accordionWrapAfterEdit = nil
+accordionLanesEdit = nil
 
 --the rest are harvested from the advanced page editor
 local advancedEditor -- the shared advanced page editor loaded from module
@@ -227,7 +227,8 @@ HELP_SWIPE = "Swipe commands override Flip when set. Drag about a finger-width (
 	.. "If an accordion opens on swipe, that expand direction's swipe command is locked and Flip is locked. Other swipe directions still fire.\n\n"
 	.. "The two checkboxes are for this button. The profile switch in set options still wins: with badges off, nothing is drawn anywhere."
 
-HELP_ACCORDION = "Up to 20 sub-buttons. Pin existing grid tiles: in Edit buttons tap the parent, dismiss the menu, then long-press another tile. Long-press again to unpin. Pinned tiles hide in play until the parent opens, and appear where you placed them on the grid. Typed label+command rows still work (wizard packs). Super / floating buttons cannot have an accordion.\n\n"
+HELP_ACCORDION = "Up to 20 sub-buttons. Pin existing grid tiles: in Edit buttons tap the parent, dismiss the menu, then long-press another tile. A toast says Pinned to «MORE». Tap a pinned tile and choose Unpin from \"MORE\" — a tile can only belong to one parent. Pinned tiles hide in play until the parent opens, and appear where you placed them. Typed label+command rows still work (wizard packs). Super / floating buttons cannot have an accordion.\n\n"
+	.. "Columns / Rows: type 2 to split ten children into two columns (or two rows). Blank = as many as fit in one lane, then wrap if the screen is short. Max 5.\n\n"
 	.. "Tap = open on press, close on second press. Hold = open after the hold delay; Hold ms is on the tab only when Open with is Hold. Swipe = drag in the expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right.\n\n"
 	.. "The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs, with a warning on the canvas. Swipe-to-expand also locks Flip (drag-off is the same motion).\n\n"
 	.. "A super button (Float over the game) cannot have an accordion: the sub-buttons are drawn on the button grid and only exist while the parent is open. That warning stays on this tab."
@@ -489,7 +490,7 @@ function showEditorDialog(editorValues,numediting)
 	accordionLayoutSpinner = w.accordionLayoutSpinner
 	accordionTriggerSpinner = w.accordionTriggerSpinner
 	accordionHoldMsEdit = w.accordionHoldMsEdit
-	accordionWrapAfterEdit = w.accordionWrapAfterEdit
+	accordionLanesEdit = w.accordionLanesEdit
 	accordionAutoCloseCheck = w.accordionAutoCloseCheck
 	accordionChildLabelEdits = w.accordionChildLabelEdits
 	accordionChildCmdEdits = w.accordionChildCmdEdits
@@ -709,10 +710,17 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       local triggerMap = {"tap", "hold", "swipe"}
       d.accordionTrigger = triggerMap[triggerIndex + 1] or "tap"
       d.accordionHoldMs = tonumber(accordionHoldMsEdit:getText():toString()) or 450
-      -- Wrap-after-N was the wrong control: a column expanding left should
-      -- fill with as many as fit (~10), then start another column further
-      -- left. The layout function still accepts wrapAfter for tests.
+      -- wrapAfter stays 0: Columns/Rows (accordionLanes) is the player-facing
+      -- control. Type 2 → two columns; overlay derives wrapAfter from that.
       d.accordionWrapAfter = 0
+      local lanes = 0
+      if accordionLanesEdit ~= nil then
+        lanes = tonumber(accordionLanesEdit:getText():toString()) or 0
+      end
+      if lanes < 0 then lanes = 0 end
+      if lanes > 5 then lanes = 5 end
+      if lanes == 1 then lanes = 0 end
+      d.accordionLanes = math.floor(lanes)
       d.accordionAutoClose = accordionAutoCloseCheck:isChecked()
       if harvestAccordionChildren ~= nil then
         d.accordionChildren = harvestAccordionChildren()

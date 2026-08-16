@@ -742,6 +742,106 @@ function copyAccordionChildRows(src)
 	return kids
 end
 
+-- Commands a pinned overlay clone must carry so LOOK still swipes `look n`.
+-- Pack snapshots omit these and stay tap-only.
+PINNED_OVERLAY_COMMAND_FIELDS = {
+	"holdCommand", "flipCommand", "flipLabel",
+	"swipeUpCommand", "swipeDownCommand", "swipeLeftCommand", "swipeRightCommand",
+	"swipeUpLeftCommand", "swipeUpRightCommand",
+	"swipeDownLeftCommand", "swipeDownRightCommand",
+	"showGestureLabel", "showGestureHints",
+}
+
+function copyPinnedOverlayCommands(dest, srcData)
+	if dest == nil or srcData == nil then
+		return dest
+	end
+	for i = 1, #PINNED_OVERLAY_COMMAND_FIELDS do
+		local k = PINNED_OVERLAY_COMMAND_FIELDS[i]
+		dest[k] = srcData[k]
+	end
+	return dest
+end
+
+-- Pure: decide pin vs unpin vs full before mutating any parent.
+-- "unpin" = this parent already has the id. "full" = would exceed the cap
+-- without a same-label attach. "ok", kids = new row list for this parent.
+function accordionPinPlan(existingKids, childId, label, command, maxChildren)
+	if childId == nil or childId == "" then
+		return "reject"
+	end
+	local kids = copyAccordionChildRows(existingKids)
+	for i = 1, #kids do
+		if kids[i].id == childId then
+			return "unpin"
+		end
+	end
+	maxChildren = maxChildren or 20
+	label = label or ""
+	command = command or ""
+	local attached = false
+	if label ~= "" then
+		for i = 1, #kids do
+			local row = kids[i]
+			if row ~= nil and (row.id == nil or row.id == "")
+					and (row.label or "") == label then
+				row.id = childId
+				if command ~= "" then
+					row.command = command
+				end
+				attached = true
+				break
+			end
+		end
+	end
+	if not attached then
+		if #kids >= maxChildren then
+			return "full"
+		end
+		kids[#kids + 1] = {
+			id = childId,
+			label = label,
+			command = command,
+		}
+	end
+	return "ok", kids
+end
+
+-- Every accordion parent that lists this child id. More than one is a
+-- leftover; pin refuses to add a second.
+function accordionParentsOfChildId(childId)
+	local out = {}
+	if childId == nil or childId == "" then
+		return out
+	end
+	for i = 1, #buttons do
+		local p = buttons[i]
+		if p ~= nil and p.data ~= nil then
+			local kids = p.data.accordionChildren
+			if type(kids) == "table" then
+				for k = 1, #kids do
+					if kids[k] ~= nil and kids[k].id == childId then
+						out[#out + 1] = p
+						break
+					end
+				end
+			end
+		end
+	end
+	return out
+end
+
+function findAccordionParentOf(child)
+	if child == nil or child.data == nil then
+		return nil
+	end
+	local parents = accordionParentsOfChildId(rawget(child.data, "id"))
+	if #parents == 0 then
+		return nil
+	end
+	return parents[1]
+end
+
 -- Pure so a test can lock "LOOK left of MORE → expand left".
 function inferAccordionDirection(parentX, parentY, childX, childY)
 	local dx = (childX or 0) - (parentX or 0)
@@ -802,19 +902,6 @@ local function removeChildIdFromParent(parent, id)
 	return removed
 end
 
-local function unpinChildFromAnyParent(id)
-	if id == nil or id == "" then
-		return false
-	end
-	local any = false
-	for i = 1, #buttons do
-		if removeChildIdFromParent(buttons[i], id) then
-			any = true
-		end
-	end
-	return any
-end
-
 function selectedAccordionPinParent(exclude)
 	local others = {}
 	for i = 1, #buttons do
@@ -841,75 +928,95 @@ function selectedAccordionPinParent(exclude)
 	return nil
 end
 
+function unpinButtonFromParent(child, parent)
+	if child == nil or parent == nil or child.data == nil or parent.data == nil then
+		return false
+	end
+	local childId = rawget(child.data, "id")
+	if childId == nil or childId == "" then
+		return false
+	end
+	pushUndo()
+	removeChildIdFromParent(parent, childId)
+	showButtonToast("Unpinned from " .. tostring(parent.data.label or ""))
+	saveDefaultOptions()
+	drawButtons()
+	view:invalidate()
+	return true
+end
+
+function showButtonToast(msg)
+	if msg == nil or msg == "" or view == nil then
+		return
+	end
+	pcall(function()
+		local Toast = luajava.bindClass("android.widget.Toast")
+		local Gravity = luajava.bindClass("android.view.Gravity")
+		local t = Toast:makeText(view:getContext(), tostring(msg), Toast.LENGTH_SHORT)
+		local d = density or 1
+		t:setGravity(Gravity.TOP + Gravity.CENTER_HORIZONTAL, 0, math.floor(64 * d))
+		t:show()
+	end)
+end
+
 function pinOrUnpinAccordionChild(parent, child)
 	if parent == nil or child == nil or parent == child
 			or parent.data == nil or child.data == nil then
 		return false
 	end
 	if parent.data.floating == true or child.data.floating == true then
-		Note("BlowTorch: pin a normal grid tile, not a super button.\n")
+		showButtonToast("Pin a normal grid tile, not a super button")
 		return false
 	end
 	if hasAccordionConfig(child.data) then
-		Note("BlowTorch: that tile is already an accordion parent.\n")
+		showButtonToast("That tile is already an accordion parent")
 		return false
 	end
 	ensureButtonId(parent)
 	local childId = ensureButtonId(child)
-	local kids = parent.data.accordionChildren or {}
-	for i = 1, #kids do
-		if kids[i] ~= nil and kids[i].id == childId then
-			removeChildIdFromParent(parent, childId)
-			Note("BlowTorch: unpinned «" .. tostring(child.data.label or "")
-				.. "» from the accordion.\n")
-			saveDefaultOptions()
-			drawButtons()
-			view:invalidate()
-			return true
+	local childLabel = child.data.label or ""
+	local childCmd = child.data.command or ""
+	local action, planned = accordionPinPlan(
+		parent.data.accordionChildren, childId, childLabel, childCmd,
+		MAX_ACCORDION_CHILDREN)
+	if action == "full" then
+		showButtonToast("Accordion already has " .. MAX_ACCORDION_CHILDREN
+			.. " sub-buttons")
+		return false
+	end
+	if action ~= "unpin" and action ~= "ok" then
+		return false
+	end
+	if action == "ok" then
+		local existing = accordionParentsOfChildId(childId)
+		for i = 1, #existing do
+			if existing[i] ~= parent then
+				local lab = ""
+				if existing[i].data ~= nil then
+					lab = existing[i].data.label or ""
+				end
+				showButtonToast("Already pinned to " .. lab)
+				return false
+			end
 		end
 	end
-	unpinChildFromAnyParent(childId)
+	pushUndo()
+	if action == "unpin" then
+		removeChildIdFromParent(parent, childId)
+		showButtonToast("Unpinned from " .. tostring(parent.data.label or ""))
+		saveDefaultOptions()
+		drawButtons()
+		view:invalidate()
+		return true
+	end
 	if parent.data.accordionDirection == nil
 			or parent.data.accordionDirection == "" then
 		parent.data.accordionDirection = inferAccordionDirection(
 			posX(parent.data), posY(parent.data),
 			posX(child.data), posY(child.data))
 	end
-	-- Copy first: the prototype default is a shared empty table.
-	kids = copyAccordionChildRows(parent.data.accordionChildren)
-	local childLabel = child.data.label or ""
-	local attached = false
-	-- Explicit pin onto a pack snapshot (MORE's LOOK row): attach the id so
-	-- the fan does not draw LOOK twice. Auto-matching by label on load is
-	-- still forbidden — that would hide the standalone LOOK tile.
-	if childLabel ~= "" then
-		for i = 1, #kids do
-			local row = kids[i]
-			if row ~= nil and (row.id == nil or row.id == "")
-					and (row.label or "") == childLabel then
-				row.id = childId
-				row.command = child.data.command or row.command or ""
-				attached = true
-				break
-			end
-		end
-	end
-	if not attached then
-		if #kids >= MAX_ACCORDION_CHILDREN then
-			Note("BlowTorch: accordion already has " .. MAX_ACCORDION_CHILDREN
-				.. " sub-buttons.\n")
-			return false
-		end
-		kids[#kids + 1] = {
-			id = childId,
-			label = childLabel,
-			command = child.data.command or "",
-		}
-	end
-	parent.data.accordionChildren = kids
-	Note("BlowTorch: pinned «" .. tostring(child.data.label or "")
-		.. "» — it hides in play until this accordion opens, then it "
-		.. "appears where you placed it.\n")
+	parent.data.accordionChildren = planned
+	showButtonToast("Pinned to " .. tostring(parent.data.label or ""))
 	saveDefaultOptions()
 	drawButtons()
 	view:invalidate()
@@ -1123,6 +1230,14 @@ local function resetTouchedButtonVisual()
 	view:invalidate()
 end
 
+local function collapseAccordionChildParentIfNeeded(b)
+	if b ~= nil and b.isAccordionChild and b.accordionParent ~= nil
+			and b.accordionParent.data ~= nil
+			and b.accordionParent.data.accordionAutoClose ~= false then
+		collapseAccordion(b.accordionParent)
+	end
+end
+
 function doShortHold()
 	if suppress_editor or not fingerdown or shortHoldFired then
 		return
@@ -1130,6 +1245,7 @@ function doShortHold()
 	if touchedbutton ~= nil and hasButtonCommand(touchedbutton.data.holdCommand) then
 		shortHoldFired = true
 		dispatchButtonAction(touchedbutton.data.holdCommand)
+		collapseAccordionChildParentIfNeeded(touchedbutton)
 	end
 end
 
@@ -1198,18 +1314,18 @@ function normalTouch.onTouch(v,e)
 			if hasAccordionConfig(b.data) and not b.isAccordionChild then
 				accordionWasExpandedAtDown = b.expanded
 			end
-			if not b.isAccordionChild then
-				-- Editor is opened only via long-press on the wrench icon.
-				local accTrigger = hasAccordionConfig(b.data)
-					and getAccordionTrigger(b.data) or nil
-				-- Hold command and hold-trigger accordion are mutually exclusive.
-				if hasButtonCommand(b.data.holdCommand)
-						and not (accTrigger and accordionOwnsHold(accTrigger)) then
-					ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
-				end
-				if accTrigger and accordionOwnsHold(accTrigger) then
-					ScheduleCallback(ACCORDION_HOLD_CALLBACK_ID,"doAccordionHold", getAccordionHoldMs(b.data))
-				end
+			-- Pinned overlay clones copy hold/swipe from the source tile, so
+			-- they must schedule hold too. Pack snapshots have no holdCommand.
+			local accTrigger = hasAccordionConfig(b.data)
+				and getAccordionTrigger(b.data) or nil
+			-- Hold command and hold-trigger accordion are mutually exclusive.
+			if hasButtonCommand(b.data.holdCommand)
+					and not (accTrigger and accordionOwnsHold(accTrigger)) then
+				ScheduleCallback(HOLD_CALLBACK_ID,"doShortHold",HOLD_DELAY_MS)
+			end
+			if not b.isAccordionChild and accTrigger
+					and accordionOwnsHold(accTrigger) then
+				ScheduleCallback(ACCORDION_HOLD_CALLBACK_ID,"doAccordionHold", getAccordionHoldMs(b.data))
 			end
 			fingerdown = true
 			touchStartX = x
@@ -1372,9 +1488,11 @@ function normalTouch.onTouch(v,e)
 			end
 			if not sent then
 				if touchedbutton.isAccordionChild and touchedbutton.accordionParent ~= nil then
-					sent = dispatchButtonAction(touchedbutton.data.command)
-					if touchedbutton.accordionParent.data.accordionAutoClose ~= false then
-						collapseAccordion(touchedbutton.accordionParent)
+					if r:contains(x, y)
+							or not hasButtonCommand(touchedbutton.data.flipCommand) then
+						sent = dispatchButtonAction(touchedbutton.data.command)
+					else
+						sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 					end
 				elseif isAccordionCloseHit(touchedbutton, x, y) then
 					collapseAccordion(touchedbutton)
@@ -1401,6 +1519,10 @@ function normalTouch.onTouch(v,e)
 					sent = dispatchButtonAction(touchedbutton.data.flipCommand)
 				end
 			end
+			-- Auto-close is "this overlay child was used", not "a command was
+			-- sent". Label-only pack children have an empty command, so
+			-- dispatchButtonAction returns false; the fan must still fold.
+			collapseAccordionChildParentIfNeeded(touchedbutton)
 			resetTouchedButtonVisual()
 			return true
 		else
@@ -3203,6 +3325,22 @@ Style = luajava.bindClass("android.graphics.Paint$Style")
 dpaint:setStyle(Style.STROKE)
 
 MAX_ACCORDION_CHILDREN = 20
+MAX_ACCORDION_LANES = 5
+
+-- Type 2 in Columns → two columns. wrapAfter is the per-lane cap that
+-- computeAccordionChildCentres already understands (10 children, 2 lanes → 5).
+function accordionWrapAfterForLanes(count, lanes)
+	count = tonumber(count) or 0
+	lanes = tonumber(lanes) or 0
+	if lanes < 2 or count <= 0 then
+		return 0
+	end
+	if lanes > MAX_ACCORDION_LANES then
+		lanes = MAX_ACCORDION_LANES
+	end
+	lanes = math.floor(lanes)
+	return math.ceil(count / lanes)
+end
 
 local function accordionStackVertical(dir, layout)
 	if layout == "vertical" then
@@ -3548,13 +3686,14 @@ function buildAccordionOverlay(parent)
 			unpinned = unpinned + 1
 		end
 	end
+	local wrapAfter = accordionWrapAfterForLanes(unpinned, parent.data.accordionLanes)
 	local centres = computeAccordionChildCentres(
 		posX(parent.data), posY(parent.data),
 		parent.data.width, parent.data.height,
 		parent.data.accordionDirection, parent.data.accordionChildLayout or "along",
 		unpinned, childW, childH, density,
 		width or 0, height or 0, statusoffset or 0,
-		0)
+		wrapAfter)
 	local centreIdx = 0
 	local dropped = 0
 	for i = 1, count do
@@ -3565,7 +3704,8 @@ function buildAccordionOverlay(parent)
 		end
 		local childData
 		if src ~= nil and src.data ~= nil then
-			-- Pinned tile: same centre it occupies on the grid.
+			-- Pinned tile: same centre it occupies on the grid, and the same
+			-- tap/hold/swipe/flip as the hidden source — not a tap-only clone.
 			childData = {
 				x = posX(src.data),
 				y = posY(src.data),
@@ -3580,6 +3720,7 @@ function buildAccordionOverlay(parent)
 				border = src.data.border == true,
 				borderColor = src.data.borderColor,
 			}
+			copyPinnedOverlayCommands(childData, src.data)
 		else
 			centreIdx = centreIdx + 1
 			local c = centres[centreIdx]
@@ -4117,9 +4258,11 @@ numediting = 0
 lastselectedinex = -1
 function showEditorSelection()
 	local count = 0
+	local selectedOne = nil
 	for i,b in ipairs(buttons) do
 		if(b.selected == true) then
 			count = count + 1
+			selectedOne = b
 			lastselectedindex = i
 		end
 	end
@@ -4130,8 +4273,42 @@ function showEditorSelection()
 		build:setItems(editorItemsMulti,editorListenerMulti_cb)
 		build:setTitle(count.." buttons selected.")
 	else
-		build:setItems(editorItems,editorListener_cb)
-		build:setTitle("1 button selected.")
+		local pinParent = findAccordionParentOf(selectedOne)
+		if pinParent ~= nil then
+			local parentLabel = ""
+			if pinParent.data ~= nil then
+				parentLabel = pinParent.data.label or ""
+			end
+			local items = Array:newInstance(StringClass, 5)
+			Array:set(items, 0, "Move")
+			Array:set(items, 1, "Edit")
+			Array:set(items, 2, "Unpin from \"" .. parentLabel .. "\"")
+			Array:set(items, 3, "Copy")
+			Array:set(items, 4, "Delete")
+			local unpinChild = selectedOne
+			local unpinParent = pinParent
+			local pinnedListener = {}
+			function pinnedListener.onClick(dialog, which)
+				if which == 0 then
+					enterMoveMode()
+				elseif which == 1 then
+					showEditorDialog()
+				elseif which == 2 then
+					unpinButtonFromParent(unpinChild, unpinParent)
+				elseif which == 3 then
+					copySelectedButtons()
+				elseif which == 4 then
+					deleteSelectedButtons()
+				end
+			end
+			local pinned_cb = luajava.createProxy(
+				"android.content.DialogInterface$OnClickListener", pinnedListener)
+			build:setItems(items, pinned_cb)
+			build:setTitle("1 button selected.")
+		else
+			build:setItems(editorItems,editorListener_cb)
+			build:setTitle("1 button selected.")
+		end
 	end
 	alert = build:create()
 	alert:show()
@@ -4476,6 +4653,7 @@ function buttonEditorDone(data)
 		tmp.data.accordionHoldMs = tonumber(data.accordionHoldMs) or 450
 		tmp.data.accordionChildLayout = data.accordionChildLayout or "along"
 		tmp.data.accordionWrapAfter = tonumber(data.accordionWrapAfter) or 0
+		tmp.data.accordionLanes = tonumber(data.accordionLanes) or 0
 		if data.accordionAutoClose == nil then
 			tmp.data.accordionAutoClose = true
 		else
@@ -4632,6 +4810,7 @@ function showEditorDialog()
 		editorValues.accordionHoldMs = button.data.accordionHoldMs or 450
 		editorValues.accordionChildLayout = button.data.accordionChildLayout or "along"
 		editorValues.accordionWrapAfter = tonumber(button.data.accordionWrapAfter) or 0
+		editorValues.accordionLanes = tonumber(button.data.accordionLanes) or 0
 		editorValues.accordionAutoClose = button.data.accordionAutoClose
 		if editorValues.accordionAutoClose == nil then
 			editorValues.accordionAutoClose = true

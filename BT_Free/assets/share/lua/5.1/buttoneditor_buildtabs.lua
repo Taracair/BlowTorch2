@@ -64,6 +64,7 @@ local function addOneLiner(parent, text, o)
 	help:setPadding(pad, math.floor(4 * density), pad, math.floor(4 * density))
 	help:setLayoutParams(o.fillparams)
 	parent:addView(help)
+	return help
 end
 
 -- Mirror buttonwindow.accordionStackVertical: column vs row decides the words
@@ -571,16 +572,48 @@ function buildTabs(host, content, o)
 	layoutRow:addView(layoutLabel)
 	layoutRow:addView(accordionLayoutSpinner)
 	accordionPage:addView(layoutRow)
+
+	local lanesRow = luajava.new(LinearLayout, o.context)
+	lanesRow:setLayoutParams(o.fillparams)
+	local lanesLabel = luajava.new(TextView, o.context)
+	lanesLabel:setText("Columns:")
+	lanesLabel:setTextSize(textSize)
+	lanesLabel:setGravity(Gravity.RIGHT)
+	lanesLabel:setLayoutParams(luajava.new(LinearLayoutParams, accordionLabelWidth, WRAP_CONTENT))
+	o.widgets.accordionLanesLabel = lanesLabel
+	o.widgets.accordionLanesEdit = luajava.new(EditText, o.context)
+	local accordionLanesEdit = o.widgets.accordionLanesEdit
+	local InputTypeLanes = luajava.bindClass("android.text.InputType")
+	accordionLanesEdit:setInputType(InputTypeLanes.TYPE_CLASS_NUMBER)
+	accordionLanesEdit:setLayoutParams(o.clickLabelEditParams)
+	local lanesSeed = tonumber(editorValues.accordionLanes) or 0
+	if lanesSeed >= 2 then
+		accordionLanesEdit:setText(tostring(math.floor(lanesSeed)))
+	else
+		accordionLanesEdit:setText("")
+	end
+	lanesRow:addView(lanesLabel)
+	lanesRow:addView(accordionLanesEdit)
+	accordionPage:addView(lanesRow)
+	o.widgets.accordionLanesHint = addOneLiner(accordionPage,
+		"Type 2 for two columns (ten children become two of five). Blank = "
+		.. "as many as fit in one column, then wrap if the screen is short. Max 5.",
+		o)
+	if o.widgets.accordionLanesHint ~= nil then
+		o.widgets.accordionLanesHint:setMaxLines(3)
+	end
 	addOneLiner(accordionPage,
 		"In Edit buttons: tap the parent (dismiss the menu), then long-press "
-		.. "another tile to pin it. Long-press a pinned tile again to unpin. "
+		.. "another tile to pin it — a toast says Pinned to MORE. Tap a pinned "
+		.. "tile and choose Unpin from \"MORE\". A tile belongs to one parent. "
 		.. "Pinned tiles hide in play until the parent opens, then they appear "
 		.. "where you placed them. Typed rows below still work for packs.",
 		o)
 	addOneLiner(accordionPage,
 		"Unpinned children fill one column or row (as many as fit), then a new "
-		.. "lane further in the expand direction. Leftovers that still do not "
-		.. "fit are dropped with a Note.",
+		.. "lane further in the expand direction — or type 2 in Columns/Rows "
+		.. "to force two lanes. Leftovers that still do not fit are dropped "
+		.. "with a Note.",
 		o)
 	
 	local triggerRow = luajava.new(LinearLayout,o.context)
@@ -1175,6 +1208,27 @@ function buildTabs(host, content, o)
 		if o.widgets.accordionAddButton ~= nil then
 			o.widgets.accordionAddButton:setText("+ Add sub-button " .. words.addWord)
 		end
+		local stackV = accordionStackVertical(selectedDirKey(), selectedLayoutKey())
+		if o.widgets.accordionLanesLabel ~= nil then
+			if stackV then
+				o.widgets.accordionLanesLabel:setText("Columns:")
+			else
+				o.widgets.accordionLanesLabel:setText("Rows:")
+			end
+		end
+		if o.widgets.accordionLanesHint ~= nil then
+			if stackV then
+				o.widgets.accordionLanesHint:setText(
+					"Type 2 for two columns (ten children become two of five). "
+					.. "Blank = as many as fit in one column, then wrap if the "
+					.. "screen is short. Max 5.")
+			else
+				o.widgets.accordionLanesHint:setText(
+					"Type 2 for two rows (ten children become two of five). "
+					.. "Blank = as many as fit in one row, then wrap if the "
+					.. "screen is short. Max 5.")
+			end
+		end
 	end
 	o.updateAccordionControlCaptions = updateAccordionControlCaptions
 
@@ -1252,6 +1306,9 @@ function buildTabs(host, content, o)
 		accordionLayoutSpinner:setEnabled(on)
 		accordionTriggerSpinner:setEnabled(on)
 		accordionHoldMsEdit:setEnabled(on)
+		if o.widgets.accordionLanesEdit ~= nil then
+			o.widgets.accordionLanesEdit:setEnabled(on)
+		end
 		accordionAutoCloseCheck:setEnabled(on)
 		local labels = o.widgets.accordionChildLabelEdits or {}
 		local cmds = o.widgets.accordionChildCmdEdits or {}
@@ -1307,6 +1364,7 @@ function buildTabs(host, content, o)
 	}))
 
 	rebuildAccordionChildRows()
+	updateAccordionControlCaptions()
 	o.updateAccordionEnabled(editorValues ~= nil and editorValues.floating == true)
 
 	accordionPageScroller:addView(accordionPage)

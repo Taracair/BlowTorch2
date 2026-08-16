@@ -31,10 +31,12 @@ local first = findLine("^MAX_ACCORDION_CHILDREN =", "MAX_ACCORDION_CHILDREN")
 local stop = findLine("^function collapseAccordion", "collapseAccordion")
 
 local chunk = table.concat(lines, "\n", first, stop - 1)
-	.. "\nreturn MAX_ACCORDION_CHILDREN, computeAccordionChildCentres\n"
+	.. "\nreturn MAX_ACCORDION_CHILDREN, computeAccordionChildCentres, "
+	.. "accordionWrapAfterForLanes\n"
 
 local loadfn = loadstring or load
-local MAX_ACCORDION_CHILDREN, computeAccordionChildCentres =
+local MAX_ACCORDION_CHILDREN, computeAccordionChildCentres,
+	accordionWrapAfterForLanes =
 	assert(loadfn(chunk, "accordion-layout-extract"))()
 
 local failures = 0
@@ -281,6 +283,27 @@ local lanes0 = 0
 for _ in pairs(xs0) do lanes0 = lanes0 + 1 end
 check(lanes0 == 1, "wrapAfter 0 down+along on a tall view is one column, got "
 	.. tostring(lanes0))
+
+print("9. type 2 in Columns → ten children in two columns of five")
+check(accordionWrapAfterForLanes(10, 2) == 5, "10 children / 2 lanes → wrapAfter 5")
+check(accordionWrapAfterForLanes(10, 0) == 0, "blank lanes stays auto")
+check(accordionWrapAfterForLanes(10, 1) == 0, "1 lane is auto, not a forced wrap")
+centres = computeAccordionChildCentres(
+	540, 400, TILE, TILE, "down", "along", 10, TILE, TILE, DENSITY,
+	VIEW_W, VIEW_H, STATUS, accordionWrapAfterForLanes(10, 2))
+check(#centres == 10, "two columns still place all 10 on a tall view, got "
+	.. tostring(#centres))
+local xs2 = {}
+for i = 1, #centres do
+	local key = string.format("%.0f", centres[i].x)
+	xs2[key] = (xs2[key] or 0) + 1
+end
+local lane2 = 0
+for _ in pairs(xs2) do lane2 = lane2 + 1 end
+check(lane2 == 2, "expected 2 columns, got " .. tostring(lane2))
+for _, n in pairs(xs2) do
+	check(n == 5, "each column should hold 5, got " .. tostring(n))
+end
 
 if failures > 0 then
 	print(string.format("FAILED (%d)", failures))

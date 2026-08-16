@@ -82,6 +82,7 @@ BUTTONSET_DATA = {
 						accordionHoldMs = 450,
 						accordionChildLayout = "along",
 						accordionWrapAfter = 0,
+						accordionLanes = 0,
 						-- Floating copy over the game (Phase 0 schema). Same
 						-- inheritance path as accordion: live on BUTTONSET_DATA
 						-- so BUTTON_DATA:new lookups resolve defaults.

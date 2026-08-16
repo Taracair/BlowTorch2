@@ -33,10 +33,12 @@ local stop = findLine("^function isPlayModePinnedAccordionSource",
 	"isPlayModePinnedAccordionSource")
 
 local chunk = table.concat(lines, "\n", first, stop - 1)
-	.. "\nreturn copyAccordionChildRows, inferAccordionDirection\n"
+	.. "\nreturn copyAccordionChildRows, inferAccordionDirection, "
+	.. "accordionPinPlan, accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS\n"
 
 local loadfn = loadstring or load
-local copyAccordionChildRows, inferAccordionDirection =
+local copyAccordionChildRows, inferAccordionDirection, accordionPinPlan,
+	accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS =
 	assert(loadfn(chunk, "accordion-pin-extract"))()
 
 local failures = 0
@@ -95,6 +97,37 @@ for block in body:gmatch("accordionChildren%s*=%s*(%b{})") do
 end
 check(packChildIds == 0,
 	"pack accordionChildren tables must not mint button ids")
+
+print("4. pin plan: unpin / full / attach; one parent only")
+local action, planned = accordionPinPlan(
+	{ { label = "LOOK", command = "look", id = "b1" } }, "b1", "LOOK", "look", 20)
+check(action == "unpin", "existing id on this parent is unpin, not a second pin")
+action, planned = accordionPinPlan({}, "b1", "LOOK", "look", 20)
+check(action == "ok" and planned[1].id == "b1", "empty parent accepts a pin")
+local twenty = {}
+for i = 1, 20 do
+	twenty[i] = { label = "x" .. i, command = "y" .. i }
+end
+action = accordionPinPlan(twenty, "b99", "NEW", "new", 20)
+check(action == "full", "21st child without a same-label attach is full")
+action, planned = accordionPinPlan(twenty, "b99", "x1", "y1", 20)
+check(action == "ok" and planned[1].id == "b99" and #planned == 20,
+	"same-label attach onto a full list does not grow it")
+
+buttons = {
+	{ data = { label = "MORE", accordionChildren = { { id = "b1", label = "LOOK" } } } },
+	{ data = { label = "CAST", accordionChildren = {} } },
+}
+local parents = accordionParentsOfChildId("b1")
+check(#parents == 1 and parents[1].data.label == "MORE",
+	"LOOK is pinned only to MORE")
+check(#accordionParentsOfChildId("b99") == 0, "unknown id has no parent")
+local sawHold, sawSwipe = false, false
+for i = 1, #PINNED_OVERLAY_COMMAND_FIELDS do
+	if PINNED_OVERLAY_COMMAND_FIELDS[i] == "holdCommand" then sawHold = true end
+	if PINNED_OVERLAY_COMMAND_FIELDS[i] == "swipeUpCommand" then sawSwipe = true end
+end
+check(sawHold and sawSwipe, "pinned overlay must copy hold and swipe")
 
 if failures > 0 then
 	print(failures .. " failure(s)")

@@ -246,12 +246,16 @@ re-opens this lesson via .tutorial.
 
 An accordion parent can pin existing grid buttons. In Edit buttons:
 tap the parent, dismiss the menu, then long-press another tile (LOOK,
-SCORE, …) to pin it. Long-press that tile again to unpin. Pinned tiles
-stay on the grid while you edit; in play they hide until the parent
-opens, then they appear where you placed them. Super / floating
-buttons cannot have an accordion.
+SCORE, …) to pin it. A toast says Pinned to MORE. Tap the pinned tile
+and choose Unpin from "MORE". A tile can only belong to one parent.
+Pinned tiles stay on the grid while you edit; in play they hide until
+the parent opens, then they appear where you placed them. Super /
+floating buttons cannot have an accordion.
 
 Typed label+command rows in Accord. still work for wizard packs.
+
+Columns / Rows: type 2 to split ten children into two columns (or two
+rows). Blank = as many as fit in one lane.
 
 In Edit buttons → Accord., direction / Open with / Auto-close still
 apply. Trigger can be tap, hold, or swipe.

@@ -330,6 +330,7 @@ local function accordionStaticWidgets()
 		o.widgets.accordionLayoutSpinner,
 		o.widgets.accordionTriggerSpinner,
 		o.widgets.accordionHoldMsEdit,
+		o.widgets.accordionLanesEdit,
 		o.widgets.accordionAutoCloseCheck,
 	}
 end
