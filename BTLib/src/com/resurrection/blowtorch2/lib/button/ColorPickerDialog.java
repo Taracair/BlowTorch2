@@ -1,10 +1,12 @@
 package com.resurrection.blowtorch2.lib.button;
 
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.*;
 import android.graphics.Path.Direction;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -319,12 +321,12 @@ public class ColorPickerDialog extends Dialog {
 		titlep.addRule(RelativeLayout.ALIGN_PARENT_TOP, 1);
 		TextView title = new TextView(this.getContext());
 		title.setText("COLOR PICKER");
-		title.setBackgroundColor(0xFF999999);
-		title.setTextColor(0xFF333333);
+		title.setBackgroundColor(0xFF1E2126);
+		title.setTextColor(0xFFF2F4F6);
 		title.setLayoutParams(titlep);
 		title.setId(0x01);
 		title.setGravity(Gravity.CENTER);
-		title.setTextSize(15*this.getContext().getResources().getDisplayMetrics().density);
+		title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
 		title.setTypeface(Typeface.DEFAULT_BOLD);
 		relay.addView(title);
         
@@ -368,20 +370,34 @@ public class ColorPickerDialog extends Dialog {
         
         LinearLayout presets = new LinearLayout(getContext());
         presets.setOrientation(LinearLayout.HORIZONTAL);
-        RelativeLayout.LayoutParams presetParams = new RelativeLayout.LayoutParams((int) (166.66*scale), LayoutParams.WRAP_CONTENT);
+        RelativeLayout.LayoutParams presetParams = new RelativeLayout.LayoutParams(
+                (int) (166.66*scale), LayoutParams.WRAP_CONTENT);
         presetParams.addRule(RelativeLayout.BELOW, 0x03);
-        presetParams.topMargin = (int) (5 * this.getContext().getResources().getDisplayMetrics().density);
+        presetParams.topMargin = (int) (5 * scale);
+        presetParams.bottomMargin = (int) (8 * scale);
         presets.setLayoutParams(presetParams);
-        presets.setGravity(Gravity.CENTER_HORIZONTAL);
-        int[] presetColors = new int[] {0xFF888888, 0xFFAAAAAA, 0xFFCCCCCC, 0xFFFFFFFF, 0xFF000000};
-        int swatchSize = (int) (28 * scale);
-        LinearLayout.LayoutParams swatchParams = new LinearLayout.LayoutParams(swatchSize, swatchSize);
-        swatchParams.setMargins((int)(4*scale), 0, (int)(4*scale), 0);
+        presets.setGravity(Gravity.CENTER_VERTICAL);
+        presets.setWeightSum(6f);
+        // Six equal cells: five greys (darker than the old four-white ramp) plus
+        // black. The previous 28dp tiles + margins were wider than the 167dp
+        // card, so the last swatch was clipped and the row looked lopsided.
+        int[] presetColors = new int[] {
+                0xFF3A3A3A, 0xFF666666, 0xFF999999, 0xFFCCCCCC, 0xFFFFFFFF, 0xFF000000};
+        int swatchSize = (int) (22 * scale);
+        int gap = (int) (3 * scale);
         final SeekBar alphaBar = sb;
-        for (final int presetColor : presetColors) {
+        for (int i = 0; i < presetColors.length; i++) {
+            final int presetColor = presetColors[i];
             View presetSwatch = new View(getContext());
+            LinearLayout.LayoutParams swatchParams = new LinearLayout.LayoutParams(
+                    0, swatchSize, 1f);
+            swatchParams.setMargins(gap, 0, gap, 0);
             presetSwatch.setLayoutParams(swatchParams);
-            presetSwatch.setBackgroundColor(presetColor);
+            GradientDrawable cell = new GradientDrawable();
+            cell.setColor(presetColor);
+            cell.setCornerRadius(4 * scale);
+            cell.setStroke(Math.max(1, (int) scale), 0xFF383E46);
+            presetSwatch.setBackground(cell);
             presetSwatch.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     int alpha = alphaBar.getProgress() << 24;

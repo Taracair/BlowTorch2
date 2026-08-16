@@ -57,7 +57,7 @@ public class NotificationResponderEditor extends Dialog {
 	MediaPlayer mp = new MediaPlayer();
 
 	public NotificationResponderEditor(Context context, NotificationResponder input, TriggerResponderEditorDoneListener listener) {
-		super(context);
+		super(context, com.resurrection.blowtorch2.lib.window.EditorDialogChrome.dialogTheme());
 		finish_with = listener;
 		if (input == null) {
 			the_responder = new NotificationResponder();
@@ -96,6 +96,7 @@ public class NotificationResponderEditor extends Dialog {
 		this.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
 		this.getWindow().setBackgroundDrawableResource(R.drawable.dialog_window_crawler1);
 		setContentView(R.layout.responder_notification_dialog);
+		com.resurrection.blowtorch2.lib.window.EditorDialogChrome.applyFloatingWrapContentHeight(this);
 
 		ScrollView sv = (ScrollView) findViewById(R.id.trigger_notification_responder_scroll_container);
 		sv.setScrollbarFadingEnabled(false);
@@ -111,9 +112,6 @@ public class NotificationResponderEditor extends Dialog {
 		lights_extra = (TextView) findViewById(R.id.responder_notification_lights_extra);
 		sound_extra = (TextView) findViewById(R.id.responder_notification_sound_extra);
 		vibrate_extra = (TextView) findViewById(R.id.responder_notification_vibrate_extra);
-
-		sound_extra.setMaxWidth((int) (50 * this.getContext().getResources().getDisplayMetrics().density));
-		sound_extra.setSingleLine(true);
 
 		title.setText(the_responder.getTitle());
 		message.setText(the_responder.getMessage());

@@ -5,10 +5,11 @@
     android:layout_height="wrap_content"
     android:paddingLeft="12dp"
     android:paddingRight="12dp"
-    android:paddingTop="10dp"
-    android:paddingBottom="10dp"
-    android:textColor="#FFFFFFFF"
-    android:background="#FF000000"
-    android:ellipsize="marquee"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:textColor="@color/chrome_chip_text"
+    android:background="@drawable/editor_filter_chip_bg"
+    android:ellipsize="end"
     android:singleLine="true"
-    android:textSize="16sp" />
+    android:textSize="14sp"
+    android:gravity="center_vertical"/>
