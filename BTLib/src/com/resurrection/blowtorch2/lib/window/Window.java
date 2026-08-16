@@ -153,6 +153,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mNewestAtTop = false;
 	/** When true, finished lines that match a recent long line paint dimmer. */
 	private boolean mDimRepeatedLines = false;
+	/** How many recent long lines the dimmer remembers. */
+	private int mDimRepeatedWindow = RepeatedLineDimmer.DEFAULT_WINDOW;
+	/** How hard to dim (10–90); 50 keeps half the colour. */
+	private int mDimRepeatedStrength = RepeatedLineDimmer.DEFAULT_STRENGTH;
 	/** True while {@link #onDraw} is painting a line marked {@code dimRepeated}. */
 	private boolean mPaintingDimLine = false;
 	/** Last undimmed FG applied to {@code p}; dim is a multiply after this. */
@@ -646,6 +650,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (newestAtTop != null) {
 			mNewestAtTop = (Boolean) newestAtTop.getValue();
 		}
+		IntegerOption dimWindow = (IntegerOption) settings.findOptionByKey("dim_repeated_window");
+		if (dimWindow != null) {
+			applyDimRepeatedWindow((Integer) dimWindow.getValue());
+		}
+		IntegerOption dimStrength = (IntegerOption) settings.findOptionByKey("dim_repeated_strength");
+		if (dimStrength != null) {
+			applyDimRepeatedStrength((Integer) dimStrength.getValue());
+		}
 		BooleanOption dimRepeated = (BooleanOption) settings.findOptionByKey("dim_repeated_lines");
 		if (dimRepeated != null) {
 			applyDimRepeatedLines((Boolean) dimRepeated.getValue());
@@ -739,8 +751,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void applyDimRepeatedLines(final boolean enabled) {
 		mDimRepeatedLines = enabled;
 		if (mBuffer != null) {
+			mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
 			mBuffer.setDimRepeatedLines(enabled);
 		}
+	}
+
+	private void applyDimRepeatedWindow(final int n) {
+		mDimRepeatedWindow = RepeatedLineDimmer.clampWindow(n);
+		if (mBuffer != null) {
+			mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
+		}
+	}
+
+	private void applyDimRepeatedStrength(final int n) {
+		mDimRepeatedStrength = RepeatedLineDimmer.clampStrength(n);
 	}
 	
 	/** Resets the buffer with the given argument. 
@@ -3865,6 +3889,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// window's bare/extras so Options stick after MainWindow.initWindow
 			// (and Extra text) adopt the shared buffer.
 			applyUrlLinkSettingsFrom(mSettings);
+			this.mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
 			this.mBuffer.setDimRepeatedLines(mDimRepeatedLines);
 		}
 		// Pointer swap only — without a draw kick, a window that already laid
@@ -4184,14 +4209,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 	}
 
-	/** Scale resolved FG toward black. 0.5 sits in the asked 0.45–0.55 range. */
-	private static final float REPEATED_LINE_DIM = 0.5f;
-
-	private static int dimRepeatedForeground(final int color) {
-		final int r = (int) (((color >> 16) & 0xFF) * REPEATED_LINE_DIM);
-		final int g = (int) (((color >> 8) & 0xFF) * REPEATED_LINE_DIM);
-		final int b = (int) ((color & 0xFF) * REPEATED_LINE_DIM);
-		return (color & 0xFF000000) | (r << 16) | (g << 8) | b;
+	/** Scale resolved FG toward black by the player's dim strength. */
+	private int dimRepeatedForeground(final int color) {
+		return RepeatedLineDimmer.dimForeground(color, mDimRepeatedStrength);
 	}
 
 	/**
@@ -5494,6 +5514,14 @@ end
 				applyDimRepeatedLines((Boolean) o.getValue());
 				this.invalidate();
 				break;
+			case dim_repeated_window:
+				applyDimRepeatedWindow((Integer) o.getValue());
+				this.invalidate();
+				break;
+			case dim_repeated_strength:
+				applyDimRepeatedStrength((Integer) o.getValue());
+				this.invalidate();
+				break;
 			case top_padding:
 				mTopPadding = Math.max(0, (Integer) o.getValue());
 				calculateCharacterFeatures(mWidth, mHeight);
@@ -5617,6 +5645,8 @@ end
 		text_canvas_width,
 		newest_at_top,
 		dim_repeated_lines,
+		dim_repeated_window,
+		dim_repeated_strength,
 		top_padding,
 		bottom_padding,
 		bottom_padding_keyboard,

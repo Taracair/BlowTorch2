@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.service.LayoutGroup.LAYOUT_TYPE;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.window.TextTree;
+import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 
 import android.content.res.Configuration;
 import android.os.Parcel;
@@ -95,6 +96,10 @@ public class WindowToken implements Parcelable {
 		word_wrap,
 		/** Dim long lines that match a recent one (same room look). Default off. */
 		dim_repeated_lines,
+		/** How many recent long lines the dimmer remembers. Default 12. */
+		dim_repeated_window,
+		/** How hard to dim a repeat (percent). Higher is darker. Default 50. */
+		dim_repeated_strength,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
 		/** Newest game lines at the top of the window (older below). */
@@ -374,10 +379,24 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption dimRepeatedLines = new BooleanOption();
 		dimRepeatedLines.setTitle("Dim repeated lines?");
-		dimRepeatedLines.setDescription("When a long line comes back identical (look, the same room), paint it dimmer so what changed stands out. Off by default.");
+		dimRepeatedLines.setDescription("When a long line comes back identical (look, the same room), paint it dimmer so what changed stands out. Off by default. .dimrepeat on|off");
 		dimRepeatedLines.setKey("dim_repeated_lines");
 		dimRepeatedLines.setValue(false);
 		window.addOption(dimRepeatedLines);
+
+		IntegerOption dimRepeatedWindow = new IntegerOption();
+		dimRepeatedWindow.setTitle("Remember how many lines?");
+		dimRepeatedWindow.setDescription("How many recent long lines stay in memory. After that many other long lines, an old room is bright again. 12 is about a screen of combat. .dimrepeat lines N");
+		dimRepeatedWindow.setKey("dim_repeated_window");
+		dimRepeatedWindow.setValue(RepeatedLineDimmer.DEFAULT_WINDOW);
+		window.addOption(dimRepeatedWindow);
+
+		IntegerOption dimRepeatedStrength = new IntegerOption();
+		dimRepeatedStrength.setTitle("Dim strength (%)");
+		dimRepeatedStrength.setDescription("How hard to dim a repeated line. 50 is half as bright (default). Higher is darker (10–90). .dimrepeat strength N");
+		dimRepeatedStrength.setKey("dim_repeated_strength");
+		dimRepeatedStrength.setValue(RepeatedLineDimmer.DEFAULT_STRENGTH);
+		window.addOption(dimRepeatedStrength);
 
 		IntegerOption canvasWidth = new IntegerOption();
 		canvasWidth.setTitle("Text width (% of screen)");

@@ -1,5 +1,6 @@
 package com.resurrection.blowtorch2.lib.window;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -41,13 +42,69 @@ public class RepeatedLineDimmerTest {
 	}
 
 	@Test
-	public void afterSixtyUniqueLongLinesTheFirstHasFallenOut() {
+	public void afterDefaultWindowOtherLongLinesTheFirstHasFallenOut() {
 		RepeatedLineDimmer d = new RepeatedLineDimmer();
 		assertFalse(d.rememberAndShouldDim(TEMPLE));
-		for (int i = 0; i < RepeatedLineDimmer.WINDOW_SIZE; i++) {
+		for (int i = 0; i < RepeatedLineDimmer.DEFAULT_WINDOW; i++) {
 			assertFalse(d.rememberAndShouldDim(uniqueLongLine(i)));
 		}
 		assertFalse(d.rememberAndShouldDim(TEMPLE));
+	}
+
+	@Test
+	public void aDuplicateOccupiesASlotSoCombatFlushesTheOldRoom() {
+		RepeatedLineDimmer d = new RepeatedLineDimmer(2);
+		assertFalse(d.rememberAndShouldDim(TEMPLE));
+		assertTrue(d.rememberAndShouldDim(TEMPLE));
+		assertFalse(d.rememberAndShouldDim(uniqueLongLine(0)));
+		assertTrue(d.rememberAndShouldDim(uniqueLongLine(0)));
+		assertFalse(d.rememberAndShouldDim(TEMPLE));
+	}
+
+	@Test
+	public void turningOffForgetsTheWindow() throws UnsupportedEncodingException {
+		TextTree tree = new TextTree();
+		tree.setDimRepeatedLines(true);
+		tree.addBytesImpl((TEMPLE + "\n").getBytes("UTF-8"));
+		tree.setDimRepeatedLines(false);
+		tree.setDimRepeatedLines(true);
+		tree.addBytesImpl((TEMPLE + "\n").getBytes("UTF-8"));
+		java.util.LinkedList<TextTree.Line> lines = tree.getLines();
+		assertFalse(lines.get(0).isDimRepeated());
+	}
+
+	@Test
+	public void shrinkingTheWindowDropsTheOldestLine() {
+		RepeatedLineDimmer d = new RepeatedLineDimmer(3);
+		assertFalse(d.rememberAndShouldDim(TEMPLE));
+		assertFalse(d.rememberAndShouldDim(uniqueLongLine(0)));
+		assertFalse(d.rememberAndShouldDim(uniqueLongLine(1)));
+		d.setWindowSize(1);
+		assertFalse(d.rememberAndShouldDim(TEMPLE));
+	}
+
+	@Test
+	public void customWindowOfTwoForgetsAfterTwoOthers() {
+		RepeatedLineDimmer d = new RepeatedLineDimmer(2);
+		assertFalse(d.rememberAndShouldDim(TEMPLE));
+		assertFalse(d.rememberAndShouldDim(uniqueLongLine(0)));
+		assertFalse(d.rememberAndShouldDim(uniqueLongLine(1)));
+		assertFalse(d.rememberAndShouldDim(TEMPLE));
+	}
+
+	@Test
+	public void defaultStrengthHalvesWhiteRgbAndKeepsAlpha() {
+		assertEquals(0x807F7F7F, RepeatedLineDimmer.dimForeground(
+				0x80FFFFFF, RepeatedLineDimmer.DEFAULT_STRENGTH));
+	}
+
+	@Test
+	public void higherStrengthIsDarker() {
+		int half = RepeatedLineDimmer.dimForeground(0xFFFFFFFF, 50);
+		int darker = RepeatedLineDimmer.dimForeground(0xFFFFFFFF, 80);
+		int rHalf = (half >> 16) & 0xFF;
+		int rDark = (darker >> 16) & 0xFF;
+		assertTrue(rDark < rHalf);
 	}
 
 	@Test
@@ -82,6 +139,20 @@ public class RepeatedLineDimmerTest {
 		assertTrue(twentyFour.length() == RepeatedLineDimmer.MIN_CHARS);
 		assertFalse(d.rememberAndShouldDim(twentyFour));
 		assertTrue(d.rememberAndShouldDim(twentyFour));
+	}
+
+	@Test
+	public void textTreeHonoursASmallerRememberWindow()
+			throws UnsupportedEncodingException {
+		TextTree tree = new TextTree();
+		tree.setDimRepeatedWindow(2);
+		tree.setDimRepeatedLines(true);
+		tree.addBytesImpl((TEMPLE + "\n").getBytes("UTF-8"));
+		tree.addBytesImpl((uniqueLongLine(0) + "\n").getBytes("UTF-8"));
+		tree.addBytesImpl((uniqueLongLine(1) + "\n").getBytes("UTF-8"));
+		tree.addBytesImpl((TEMPLE + "\n").getBytes("UTF-8"));
+		java.util.LinkedList<TextTree.Line> lines = tree.getLines();
+		assertFalse(lines.get(0).isDimRepeated());
 	}
 
 	@Test

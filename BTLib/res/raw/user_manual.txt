@@ -1320,6 +1320,7 @@ is enabled; `.alias list` shows every alias at once.
     `.sendbutton [on|off]`              Show or hide the Send button; also Options → Window → Show Send button?
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–48. Also Options → Window → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
+    `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
@@ -1985,6 +1986,22 @@ comes back identical — you typed `look` and the room description is the same �
 it is painted dimmer so the new bits (a mob that walked in, a door that opened)
 stand out. Short lines (`Ok.`, prompts) stay bright. Turn it on per window;
 it does not change what is stored, only how it is drawn.
+
+Memory is the last **N long lines** in that window (not the whole app, not
+forever). Default **12** — about a screen of combat — then an old room is
+bright again. **Dim strength (%)** is how hard to dim: **50** keeps half the
+colour; higher is darker (10–90).
+
+Dot command (same three knobs):
+
+```
+.dimrepeat
+.dimrepeat on|off|toggle
+.dimrepeat lines 12
+.dimrepeat strength 50
+```
+
+`.dimrepeat` with no argument prints the current on/off, N, and strength.
 
 ## Newest text at top
 

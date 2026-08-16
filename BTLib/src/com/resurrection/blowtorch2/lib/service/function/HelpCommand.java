@@ -63,6 +63,7 @@ public class HelpCommand extends SpecialCommand {
 
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
+		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
 		cmd("window", "The window", "open, close and address extra text windows");
@@ -234,6 +235,15 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .width             — say the current percent\n"
 					+ "  .width <N> | +N | -N\n"
 					+ "  .width toggle | off\n";
+		}
+		if (filter.equals("dimrepeat")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .dimrepeat:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .dimrepeat              — on/off, lines remembered, strength\n"
+					+ "  .dimrepeat on|off|toggle\n"
+					+ "  .dimrepeat lines N      — remember last N long lines (1-80)\n"
+					+ "  .dimrepeat strength N   — how hard to dim (10-90; higher is darker)\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"

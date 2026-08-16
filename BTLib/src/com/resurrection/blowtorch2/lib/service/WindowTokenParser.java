@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.Option;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser.NewItemCallback;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
+import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 
 import android.sax.Element;
 import android.util.Log;
@@ -306,6 +307,24 @@ public final class WindowTokenParser {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
 							out.text("true");
+							out.endTag("", "option");
+						}
+						break;
+					case dim_repeated_window:
+						if (((Integer) ((IntegerOption) o).getValue())
+								!= RepeatedLineDimmer.DEFAULT_WINDOW) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
+					case dim_repeated_strength:
+						if (((Integer) ((IntegerOption) o).getValue())
+								!= RepeatedLineDimmer.DEFAULT_STRENGTH) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
 							out.endTag("", "option");
 						}
 						break;

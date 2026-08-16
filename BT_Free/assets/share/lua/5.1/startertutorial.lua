@@ -597,6 +597,9 @@ waiting on the game. Use MTTS? on advertises MTTS 269.
 
 Options → Window → Dim repeated lines? (off by default): a long identical
 line (the same room on look) paints dimmer so what changed stands out.
+.dimrepeat on|off turns it. .dimrepeat lines 12 is how many recent long
+lines stay in memory (then an old room is bright again). .dimrepeat
+strength 50 is how hard to dim; higher is darker.
 
 To debug colour codes:
 
@@ -966,7 +969,8 @@ NAWS tells the MUD your terminal size so maps and prompts fit. After
 changing width/height, some servers need a look or a reconnect.
 
 Options → Window → Dim repeated lines? (off by default): a long identical
-line (the same room on look) paints dimmer.
+line (the same room on look) paints dimmer. .dimrepeat on|off, lines N,
+strength N (higher is darker).
 Options → Window → Newest text at top?: live output appears at the top.]])
 end
 

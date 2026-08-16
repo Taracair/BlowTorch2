@@ -114,6 +114,7 @@ public class TextTree {
 	private boolean linkify = true;
 	/** Null when the window option is off. Same thread as {@link #addBytesImpl}. */
 	private RepeatedLineDimmer repeatedLineDimmer;
+	private int dimRepeatedWindow = RepeatedLineDimmer.DEFAULT_WINDOW;
 	
 	private static LinkedList<Integer> bleedColor = new LinkedList<Integer>();
 	
@@ -1012,14 +1013,22 @@ public class TextTree {
 		l.setDimRepeated(repeatedLineDimmer.rememberAndShouldDim(deColorLine(l).toString()));
 	}
 
-	/** Enable or disable line-level dim memory. Off leaves existing flags as they are. */
+	/** Enable or disable line-level dim memory. Off forgets the recent lines. */
 	public void setDimRepeatedLines(final boolean enabled) {
 		if (enabled) {
 			if (repeatedLineDimmer == null) {
-				repeatedLineDimmer = new RepeatedLineDimmer();
+				repeatedLineDimmer = new RepeatedLineDimmer(dimRepeatedWindow);
 			}
 		} else {
 			repeatedLineDimmer = null;
+		}
+	}
+
+	/** How many recent long lines stay in memory. Applied even while dimming is off. */
+	public void setDimRepeatedWindow(final int n) {
+		dimRepeatedWindow = RepeatedLineDimmer.clampWindow(n);
+		if (repeatedLineDimmer != null) {
+			repeatedLineDimmer.setWindowSize(dimRepeatedWindow);
 		}
 	}
 	

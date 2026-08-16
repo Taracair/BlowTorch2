@@ -585,6 +585,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				new com.resurrection.blowtorch2.lib.service.function.TapMenuCommand();
 		mSpecialCommands.put(tapmenucmd.commandName, tapmenucmd);
 		mSpecialCommands.put(wrapcmd.commandName, wrapcmd);
+		com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand dimrepeatcmd =
+				new com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand();
+		mSpecialCommands.put(dimrepeatcmd.commandName, dimrepeatcmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
 		mSpecialCommands.put(sendbtncmd.commandName, sendbtncmd);
