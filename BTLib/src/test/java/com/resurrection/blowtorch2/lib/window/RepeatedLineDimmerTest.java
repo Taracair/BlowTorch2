@@ -126,19 +126,26 @@ public class RepeatedLineDimmerTest {
 	@Test
 	public void lineShorterThanMinCharsIsNotRemembered() {
 		RepeatedLineDimmer d = new RepeatedLineDimmer();
-		String twentyThree = "abcdefghijklmnopqrstuvw";
-		assertTrue(twentyThree.length() == RepeatedLineDimmer.MIN_CHARS - 1);
-		assertFalse(d.rememberAndShouldDim(twentyThree));
-		assertFalse(d.rememberAndShouldDim(twentyThree));
+		String tooShort = "abcd";
+		assertTrue(tooShort.length() == RepeatedLineDimmer.MIN_CHARS - 1);
+		assertFalse(d.rememberAndShouldDim(tooShort));
+		assertFalse(d.rememberAndShouldDim(tooShort));
 	}
 
 	@Test
 	public void lineAtMinCharsIsRemembered() {
 		RepeatedLineDimmer d = new RepeatedLineDimmer();
-		String twentyFour = "abcdefghijklmnopqrstuvwx";
-		assertTrue(twentyFour.length() == RepeatedLineDimmer.MIN_CHARS);
-		assertFalse(d.rememberAndShouldDim(twentyFour));
-		assertTrue(d.rememberAndShouldDim(twentyFour));
+		String atMin = "abcde";
+		assertTrue(atMin.length() == RepeatedLineDimmer.MIN_CHARS);
+		assertFalse(d.rememberAndShouldDim(atMin));
+		assertTrue(d.rememberAndShouldDim(atMin));
+	}
+
+	@Test
+	public void wrappedLeftoverWaterIsDimmedTheSecondTime() {
+		RepeatedLineDimmer d = new RepeatedLineDimmer();
+		assertFalse(d.rememberAndShouldDim("water."));
+		assertTrue(d.rememberAndShouldDim("water."));
 	}
 
 	@Test

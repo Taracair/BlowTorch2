@@ -7,8 +7,9 @@ import java.util.ArrayDeque;
  * {@link #DEFAULT_WINDOW} long stripped lines (FIFO, including duplicates)
  * and says whether the one just offered is already in that window.
  *
- * <p>Pure Java: the caller strips ANSI and passes plain text. Short lines
- * (prompts, "Ok.", "You sit.") are neither remembered nor dimmed.
+ * <p>Pure Java: the caller strips ANSI and passes plain text. Very short
+ * lines (prompts, "Ok.") are neither remembered nor dimmed, so they do not
+ * fill the FIFO. A wrapped leftover such as "water." is long enough.
  *
  * <p>FIFO with duplicates so combat and other rooms flush an old look after
  * about a screen of other long lines, rather than keeping sixty unique rooms.
@@ -21,7 +22,8 @@ public final class RepeatedLineDimmer {
 	public static final int DEFAULT_STRENGTH = 50;
 	public static final int MIN_STRENGTH = 10;
 	public static final int MAX_STRENGTH = 90;
-	public static final int MIN_CHARS = 24;
+	/** Below this, skip (Ok., ">"). 5 still catches a wrapped leftover like "water.". */
+	public static final int MIN_CHARS = 5;
 
 	private int windowSize;
 	private final ArrayDeque<String> recent = new ArrayDeque<String>();

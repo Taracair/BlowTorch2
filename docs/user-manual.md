@@ -1984,8 +1984,9 @@ Options → Window → Font Size.
 **Options → Window → Dim repeated lines?** (off by default). When a long line
 comes back identical — you typed `look` and the room description is the same —
 it is painted dimmer so the new bits (a mob that walked in, a door that opened)
-stand out. Short lines (`Ok.`, prompts) stay bright. Turn it on per window;
-it does not change what is stored, only how it is drawn.
+stand out. Very short lines (`Ok.`, `>`) stay bright so they do not fill
+the memory. A wrapped leftover such as `water.` is long enough to dim.
+Turn it on per window; it does not change what is stored, only how it is drawn.
 
 Memory is the last **N long lines** in that window (not the whole app, not
 forever). Default **12** — about a screen of combat — then an old room is
