@@ -200,6 +200,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private static final int MAX_REBIND_ATTEMPTS = 5;
 	private int mRebindAttempts = 0;
 	private boolean mPendingInitialConnect = false;
+	/**
+	 * Set at the start of {@link #dirtyExit()} / {@link #cleanExit()}, before
+	 * unbind. This activity is leaving; a queued {@code loadWindowSettings} or
+	 * a disconnect callback must not rebuild windows or rebind to {@code :stellar}.
+	 * {@code isFinishing()} is still false until {@code finish()} runs after
+	 * these methods return.
+	 */
+	private boolean mLeavingUi = false;
 	public final static int MESSAGE_LAUNCHURL = 886;
 	/** A tappable word was tapped; obj is the command to send. */
 	public final static int MESSAGE_TAPWORDCOMMAND = 8887;
@@ -458,6 +466,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			MainWindow.this.runOnUiThread(new Runnable() {
 				@Override
 				public void run() {
+					if (mLeavingUi || isFinishing()) {
+						return;
+					}
 					ensureMapperOverlay();
 					ensureExtraTextOverlays();
 					ensureFloatingButtons();
@@ -486,6 +497,12 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// branch, service stayed null, and every call quietly did nothing while the
 			// UI still looked alive.
 			isBound = false;
+			serviceConnected = false;
+			// Keep-in-background unbinds on purpose. Rebuilding windows here would
+			// unparcel every TextTree on the UI thread while the activity is pausing.
+			if (mLeavingUi || isFinishing()) {
+				return;
+			}
 			// Every window's callback was registered with the Connection that just
 			// died, so they are all talking to nothing. Leaving windowsInitialized
 			// true made initiailizeWindows() return at its guard when the new service
@@ -494,8 +511,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			markWindowsDirty();
 			mRebindAttempts = 0;
 			scheduleServiceRebind();
-
-			serviceConnected = false;
 		}
 		
 	};
@@ -825,6 +840,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_INITIALIZEWINDOWS:
 					//Log.e("WINDOW","INITIALIZE WINDOWS CALLED");
+					if (mLeavingUi || isFinishing()) {
+						Log.i("BlowTorch", "skip INITIALIZEWINDOWS: activity is leaving");
+						break;
+					}
 					//windowsInitialized = false;
 					scriptCallbacks.clear();
 					//if(supportsActionBar()) {
@@ -4243,6 +4262,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	public void cleanExit() {
+		beginLeavingUi();
 		//we want to kill the service when we go.
 		cleanupWindows();
 		//shut down the service
@@ -4307,13 +4327,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	public void dirtyExit() {
+		beginLeavingUi();
 		//we dont want to kill the service
 		cleanupWindows();
 		if(isBound) {
 			
 			try {
 				if(service != null) {
-					service.saveSettings();
+					// Same class of bug as cleanExit: saveSettings is a synchronous
+					// binder call that writes and fsyncs the profile. Keep-in-background
+					// used to wait for it on the UI thread, so pause missed its timeout
+					// and a queued INITIALIZEWINDOWS then unparceled every window token.
+					// :stellar already has the live settings; this only asks it to
+					// write them down, and the process stays up after we unbind.
+					com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
 					service.unregisterCallback(the_callback);
 				}
 			} catch (RemoteException e) {
@@ -5421,6 +5448,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 
 		public void loadWindowSettings() throws RemoteException {
+			if (mLeavingUi || isFinishing()) {
+				return;
+			}
 			myhandler.sendEmptyMessage(MESSAGE_INITIALIZEWINDOWS);
 		}
 		
@@ -5504,6 +5534,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//mRootLayout.removeAllViews();
 		
 		//cleanupWindows();
+		if (mLeavingUi || isFinishing()) {
+			return;
+		}
 		if(windowsInitialized == true) {
 			//Log.e("WINDOW","ALREADY LOADED WINDOWS");
 			return;
@@ -5536,11 +5569,29 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void scheduleServiceRebind() {
-		if (myhandler == null) {
+		if (mLeavingUi || isFinishing() || myhandler == null) {
 			return;
 		}
 		myhandler.removeMessages(MESSAGE_REBINDSERVICE);
 		myhandler.sendEmptyMessageDelayed(MESSAGE_REBINDSERVICE, REBIND_DELAY_MS);
+	}
+
+	/**
+	 * Drop queued window rebuilds and rebinds. Must run before unbind so a
+	 * disconnect callback cannot schedule work this activity will not display.
+	 */
+	private void beginLeavingUi() {
+		mLeavingUi = true;
+		if (myhandler == null) {
+			return;
+		}
+		myhandler.removeMessages(MESSAGE_INITIALIZEWINDOWS);
+		myhandler.removeMessages(MESSAGE_RETRYWINDOWTOKENS);
+		myhandler.removeMessages(MESSAGE_REBINDSERVICE);
+		myhandler.removeMessages(MESSAGE_MARKWINDOWSDIRTY);
+		myhandler.removeMessages(MESSAGE_LOADSETTINGS);
+		myhandler.removeMessages(MESSAGE_CONNECT_WHEN_READY);
+		myhandler.removeMessages(MESSAGE_RENAWS);
 	}
 
 	/** Reconnect to StellarService after its process died under us.
@@ -5551,7 +5602,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * so without this the app sits there with a null service until it is killed and
 	 * relaunched by hand. */
 	void rebindServiceAfterDeath() {
-		if (isFinishing() || isBound || service != null) {
+		if (mLeavingUi || isFinishing() || isBound || service != null) {
 			return;
 		}
 		mRebindAttempts++;
@@ -5581,9 +5632,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** Ask the service for the window list. False when it has none to give yet. */
 	private boolean fetchWindowTokens() {
-		if(service == null) {
+		if (mLeavingUi || isFinishing() || service == null) {
 			// onServiceDisconnected() nulls this; a queued INITIALIZEWINDOWS can land after.
-			mWindows = null;
+			if (service == null) {
+				mWindows = null;
+			}
 			return false;
 		}
 		try {
@@ -5602,6 +5655,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** Handler side of the retry. Replaces a wait() loop that used to run on the UI thread. */
 	void retryWindowTokens() {
+		if (mLeavingUi || isFinishing()) {
+			return;
+		}
 		if(mWindows != null && mWindows.length > 0) {
 			return;
 		}
@@ -6028,6 +6084,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/** Bind extra-text overlays under window_container (chrome ⋮ stays above). */
 	private void ensureExtraTextOverlays() {
+		if (mLeavingUi || isFinishing()) {
+			return;
+		}
 		if (extraTextOverlay == null) {
 			extraTextOverlay = new ExtraTextOverlayController(new ExtraTextOverlayController.Host() {
 				@Override
@@ -6053,20 +6112,20 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 				@Override
 				public WindowToken findWindowToken(String name) {
-					if (name == null || service == null) {
+					if (name == null) {
 						return null;
 					}
 					try {
-						WindowToken[] tokens = service.getWindowTokens();
-						if (tokens == null) {
-							return null;
+						WindowTokenLookup.RemoteTokens remote = null;
+						if (!mLeavingUi && !isFinishing() && service != null) {
+							remote = new WindowTokenLookup.RemoteTokens() {
+								@Override
+								public WindowToken[] fetch() throws RemoteException {
+									return service.getWindowTokens();
+								}
+							};
 						}
-						for (int i = 0; i < tokens.length; i++) {
-							WindowToken t = tokens[i];
-							if (t != null && name.equals(t.getName())) {
-								return t;
-							}
-						}
+						return WindowTokenLookup.find(mWindows, name, remote);
 					} catch (RemoteException e) {
 						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.ensureExtraTextOverlays", e);
 					}
