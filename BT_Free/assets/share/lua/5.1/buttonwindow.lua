@@ -150,6 +150,7 @@ function loadButtons(args)
 			strippedAccordions = strippedAccordions + 1
 		end
 	end
+	rememberButtonIdsFromSet()
 	if strippedAccordions > 0 then
 		Note("BlowTorch: " .. strippedAccordions
 			.. " super button(s) had an accordion, which cannot work from the"
@@ -502,6 +503,16 @@ function managerTouch.onTouch(v,e)
 			return true
 		end
 		if(manage and fingerdown and touchedbutton.selected == true and selectedtouchstart) then
+			local held = e:getEventTime() - e:getDownTime()
+			if held >= BUTTON_PASTE_LONG_PRESS_MS then
+				local parent = selectedAccordionPinParent(touchedbutton)
+				if parent ~= nil then
+					pinOrUnpinAccordionChild(parent, touchedbutton)
+					touchedbutton = {}
+					fingerdown = false
+					return true
+				end
+			end
 			showEditorSelection()
 			touchedbutton={}
 			fingerdown = false
@@ -651,6 +662,258 @@ local function hasAccordionConfig(data)
 		return false
 	end
 	return data.accordionChildren ~= nil and #data.accordionChildren > 0
+end
+
+-- Experiment (revert this commit): accordion children can be grid tiles you
+-- pin. Identity is a minted string id on the tile ("b12"), never index or
+-- x/y. The child row keeps {id, label, command} so a revert to the snapshot
+-- overlay still has something to draw. Packs stay label+command with no id.
+local nextButtonSeq = 1
+
+function mintButtonId()
+	local id = "b" .. nextButtonSeq
+	nextButtonSeq = nextButtonSeq + 1
+	return id
+end
+
+function ensureButtonId(b)
+	if b == nil or b.data == nil then
+		return nil
+	end
+	local id = rawget(b.data, "id")
+	if id == nil or id == "" then
+		b.data.id = mintButtonId()
+		id = b.data.id
+	end
+	return id
+end
+
+function rememberButtonIdsFromSet()
+	local maxn = 0
+	for i = 1, #buttons do
+		local b = buttons[i]
+		local id = b ~= nil and b.data ~= nil and rawget(b.data, "id") or nil
+		if type(id) == "string" then
+			local n = tonumber(string.match(id, "^b(%d+)$"))
+			if n ~= nil and n > maxn then
+				maxn = n
+			end
+		end
+	end
+	nextButtonSeq = maxn + 1
+	for i = 1, #buttons do
+		ensureButtonId(buttons[i])
+	end
+end
+
+function findButtonById(id)
+	if id == nil or id == "" then
+		return nil
+	end
+	for i = 1, #buttons do
+		local b = buttons[i]
+		if b ~= nil and b.data ~= nil and rawget(b.data, "id") == id then
+			return b, i
+		end
+	end
+	return nil
+end
+
+-- BUTTONSET_DATA.accordionChildren is a shared {}. Mutating it in place would
+-- pin the same children onto every button that still inherits the prototype.
+function copyAccordionChildRows(src)
+	local kids = {}
+	if type(src) ~= "table" then
+		return kids
+	end
+	for i = 1, #src do
+		local row = src[i]
+		if row ~= nil then
+			local copy = {
+				label = row.label or "",
+				command = row.command or "",
+			}
+			if row.id ~= nil and row.id ~= "" then
+				copy.id = row.id
+			end
+			kids[#kids + 1] = copy
+		end
+	end
+	return kids
+end
+
+-- Pure so a test can lock "LOOK left of MORE → expand left".
+function inferAccordionDirection(parentX, parentY, childX, childY)
+	local dx = (childX or 0) - (parentX or 0)
+	local dy = (childY or 0) - (parentY or 0)
+	if math.abs(dx) >= math.abs(dy) then
+		if dx < 0 then
+			return "left"
+		end
+		return "right"
+	end
+	if dy < 0 then
+		return "up"
+	end
+	return "down"
+end
+
+function isPlayModePinnedAccordionSource(b)
+	if manage == true or b == nil or b.data == nil then
+		return false
+	end
+	local id = rawget(b.data, "id")
+	if id == nil or id == "" then
+		return false
+	end
+	for i = 1, #buttons do
+		local p = buttons[i]
+		if p ~= nil and p ~= b and hasAccordionConfig(p.data) then
+			local kids = p.data.accordionChildren or {}
+			for k = 1, #kids do
+				local row = kids[k]
+				if row ~= nil and row.id == id then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function removeChildIdFromParent(parent, id)
+	if parent == nil or parent.data == nil or id == nil or id == "" then
+		return false
+	end
+	local kids = parent.data.accordionChildren or {}
+	local out = {}
+	local removed = false
+	for i = 1, #kids do
+		local row = kids[i]
+		if row ~= nil and row.id == id then
+			removed = true
+		else
+			out[#out + 1] = row
+		end
+	end
+	if removed then
+		parent.data.accordionChildren = out
+	end
+	return removed
+end
+
+local function unpinChildFromAnyParent(id)
+	if id == nil or id == "" then
+		return false
+	end
+	local any = false
+	for i = 1, #buttons do
+		if removeChildIdFromParent(buttons[i], id) then
+			any = true
+		end
+	end
+	return any
+end
+
+function selectedAccordionPinParent(exclude)
+	local others = {}
+	for i = 1, #buttons do
+		local b = buttons[i]
+		if b ~= nil and b.selected == true and b ~= exclude then
+			others[#others + 1] = b
+		end
+	end
+	if #others == 1 then
+		return others[1]
+	end
+	local withAcc = {}
+	for i = 1, #others do
+		local d = others[i].data
+		if hasAccordionConfig(d)
+				or (d ~= nil and d.accordionDirection ~= nil
+					and d.accordionDirection ~= "") then
+			withAcc[#withAcc + 1] = others[i]
+		end
+	end
+	if #withAcc == 1 then
+		return withAcc[1]
+	end
+	return nil
+end
+
+function pinOrUnpinAccordionChild(parent, child)
+	if parent == nil or child == nil or parent == child
+			or parent.data == nil or child.data == nil then
+		return false
+	end
+	if parent.data.floating == true or child.data.floating == true then
+		Note("BlowTorch: pin a normal grid tile, not a super button.\n")
+		return false
+	end
+	if hasAccordionConfig(child.data) then
+		Note("BlowTorch: that tile is already an accordion parent.\n")
+		return false
+	end
+	ensureButtonId(parent)
+	local childId = ensureButtonId(child)
+	local kids = parent.data.accordionChildren or {}
+	for i = 1, #kids do
+		if kids[i] ~= nil and kids[i].id == childId then
+			removeChildIdFromParent(parent, childId)
+			Note("BlowTorch: unpinned «" .. tostring(child.data.label or "")
+				.. "» from the accordion.\n")
+			saveDefaultOptions()
+			drawButtons()
+			view:invalidate()
+			return true
+		end
+	end
+	unpinChildFromAnyParent(childId)
+	if parent.data.accordionDirection == nil
+			or parent.data.accordionDirection == "" then
+		parent.data.accordionDirection = inferAccordionDirection(
+			posX(parent.data), posY(parent.data),
+			posX(child.data), posY(child.data))
+	end
+	-- Copy first: the prototype default is a shared empty table.
+	kids = copyAccordionChildRows(parent.data.accordionChildren)
+	local childLabel = child.data.label or ""
+	local attached = false
+	-- Explicit pin onto a pack snapshot (MORE's LOOK row): attach the id so
+	-- the fan does not draw LOOK twice. Auto-matching by label on load is
+	-- still forbidden — that would hide the standalone LOOK tile.
+	if childLabel ~= "" then
+		for i = 1, #kids do
+			local row = kids[i]
+			if row ~= nil and (row.id == nil or row.id == "")
+					and (row.label or "") == childLabel then
+				row.id = childId
+				row.command = child.data.command or row.command or ""
+				attached = true
+				break
+			end
+		end
+	end
+	if not attached then
+		if #kids >= MAX_ACCORDION_CHILDREN then
+			Note("BlowTorch: accordion already has " .. MAX_ACCORDION_CHILDREN
+				.. " sub-buttons.\n")
+			return false
+		end
+		kids[#kids + 1] = {
+			id = childId,
+			label = childLabel,
+			command = child.data.command or "",
+		}
+	end
+	parent.data.accordionChildren = kids
+	Note("BlowTorch: pinned «" .. tostring(child.data.label or "")
+		.. "» — it hides in play until this accordion opens, then it "
+		.. "appears where you placed it.\n")
+	saveDefaultOptions()
+	drawButtons()
+	view:invalidate()
+	return true
 end
 
 local function getAccordionTrigger(data)
@@ -3270,47 +3533,86 @@ end
 
 function buildAccordionOverlay(parent)
 	local overlay = {}
+	local kids = parent.data.accordionChildren or {}
+	local count = math.min(#kids, MAX_ACCORDION_CHILDREN)
 	local childW = parent.data.width
 	local childH = parent.data.height
-	local count = math.min(#parent.data.accordionChildren, MAX_ACCORDION_CHILDREN)
+	local unpinned = 0
+	for i = 1, count do
+		local child = kids[i] or {}
+		local src = nil
+		if child.id ~= nil and child.id ~= "" then
+			src = findButtonById(child.id)
+		end
+		if src == nil then
+			unpinned = unpinned + 1
+		end
+	end
 	local centres = computeAccordionChildCentres(
 		posX(parent.data), posY(parent.data),
 		parent.data.width, parent.data.height,
 		parent.data.accordionDirection, parent.data.accordionChildLayout or "along",
-		count, childW, childH, density,
+		unpinned, childW, childH, density,
 		width or 0, height or 0, statusoffset or 0,
 		0)
-	local shown = #centres
-	if shown < count then
-		-- Once per expand: sub-buttons the player configured but the screen
-		-- cannot host without stacking (which would mis-route taps).
-		Note("BlowTorch: accordion shows " .. shown .. " of " .. count
+	local centreIdx = 0
+	local dropped = 0
+	for i = 1, count do
+		local child = kids[i] or {}
+		local src = nil
+		if child.id ~= nil and child.id ~= "" then
+			src = findButtonById(child.id)
+		end
+		local childData
+		if src ~= nil and src.data ~= nil then
+			-- Pinned tile: same centre it occupies on the grid.
+			childData = {
+				x = posX(src.data),
+				y = posY(src.data),
+				width = src.data.width,
+				height = src.data.height,
+				label = src.data.label or child.label or ("+" .. i),
+				command = src.data.command or child.command or "",
+				primaryColor = src.data.primaryColor,
+				selectedColor = src.data.selectedColor,
+				labelColor = src.data.labelColor,
+				labelSize = src.data.labelSize,
+				border = src.data.border == true,
+				borderColor = src.data.borderColor,
+			}
+		else
+			centreIdx = centreIdx + 1
+			local c = centres[centreIdx]
+			if c == nil then
+				dropped = dropped + 1
+			else
+				childData = {
+					x = c.x,
+					y = c.y,
+					width = childW,
+					height = childH,
+					label = child.label or ("+" .. i),
+					command = child.command or "",
+					primaryColor = parent.data.primaryColor,
+					selectedColor = parent.data.selectedColor,
+					labelColor = parent.data.labelColor,
+					labelSize = parent.data.labelSize,
+					border = parent.data.border == true,
+					borderColor = parent.data.borderColor,
+				}
+			end
+		end
+		if childData ~= nil then
+			local btn = BUTTON:new(childData, density)
+			btn.isAccordionChild = true
+			btn.accordionParent = parent
+			table.insert(overlay, btn)
+		end
+	end
+	if dropped > 0 then
+		Note("BlowTorch: accordion shows " .. #overlay .. " of " .. count
 			.. " sub-buttons — not enough room on screen for the rest."
 			.. " Move the parent or use fewer children.\n")
-	end
-	for i = 1, shown do
-		local child = parent.data.accordionChildren[i]
-		local c = centres[i]
-		local childData = {
-			x = c.x,
-			y = c.y,
-			width = childW,
-			height = childH,
-			label = child.label or ("+" .. i),
-			command = child.command or "",
-			primaryColor = parent.data.primaryColor,
-			selectedColor = parent.data.selectedColor,
-			labelColor = parent.data.labelColor,
-			labelSize = parent.data.labelSize,
-			-- Same chrome as the parent so an expanded fan stays readable when
-			-- it overlaps neighbours (border is the usual way to mark them).
-			border = parent.data.border == true,
-			borderColor = parent.data.borderColor,
-		}
-		local btn = BUTTON:new(childData, density)
-		btn.isAccordionChild = true
-		btn.accordionParent = parent
-		table.insert(overlay, btn)
 	end
 	return overlay
 end
@@ -3385,7 +3687,8 @@ function drawButtons()
 	-- buried. Pass two matches buttonTouched (overlays first).
 	for i=1,#buttons do
 		local b = buttons[i]
-		if isPlayModeFloaterHiddenFromGrid(b) then
+		if isPlayModeFloaterHiddenFromGrid(b)
+				or isPlayModePinnedAccordionSource(b) then
 			-- skip: floating layer owns the chrome in play mode
 		elseif(b.selected) then
 			b:draw(1,canvas)
@@ -3416,7 +3719,8 @@ function drawButtonsNoSelected()
 	--end
 
 	for i,b in pairs(buttons) do
-		if(b.selected ~= true and not isPlayModeFloaterHiddenFromGrid(b)) then
+		if(b.selected ~= true and not isPlayModeFloaterHiddenFromGrid(b)
+				and not isPlayModePinnedAccordionSource(b)) then
 			b:draw(0,buttonCanvas)
 		end
 	end
@@ -3639,6 +3943,8 @@ function pasteButtons(pX, pY)
 	end
 
 	local added = 0
+	local idMap = {}
+	local pasted = {}
 	for i = 1, #payload do
 		local d = payload[i]
 		if d ~= nil and d.x ~= nil and d.y ~= nil then
@@ -3654,16 +3960,41 @@ function pasteButtons(pX, pY)
 					copy[k] = v
 				end
 			end
+			local oldId = copy.id
+			copy.id = nil
 			copy.x = pX + (d.x - minX)
 			copy.y = pY + (d.y - minY)
 			local newb = BUTTON:new(copy, density)
 			newb.data.x, newb.data.y =
 				clampLogicalPosition(newb.data.x, newb.data.y, newb)
 			refreshRect(newb)
+			ensureButtonId(newb)
+			if oldId ~= nil and oldId ~= "" then
+				idMap[oldId] = rawget(newb.data, "id")
+			end
 			table.insert(buttons, newb)
+			table.insert(pasted, newb)
 			newb.selected = true
 			updateSelected(newb, true)
 			added = added + 1
+		end
+	end
+	for i = 1, #pasted do
+		local kids = pasted[i].data.accordionChildren
+		if type(kids) == "table" then
+			for k = 1, #kids do
+				local row = kids[k]
+				if row ~= nil and row.id ~= nil and row.id ~= "" then
+					local mapped = idMap[row.id]
+					if mapped ~= nil then
+						row.id = mapped
+					else
+						-- Parent pasted without its pinned tiles: keep the
+						-- snapshot, drop the id so we do not hide the original.
+						row.id = nil
+					end
+				end
+			end
 		end
 	end
 
@@ -3676,6 +4007,7 @@ end
 
 function deleteSelectedButtons()
 	pushUndo()
+	local deletedIds = {}
 	local newbuttons = {}
 	while(table.getn(buttons) > 0) do
 		b = table.remove(buttons)
@@ -3684,6 +4016,10 @@ function deleteSelectedButtons()
 		if(not b.selected) then
 			table.insert(newbuttons,b)
 		else
+			local id = b.data ~= nil and rawget(b.data, "id") or nil
+			if id ~= nil and id ~= "" then
+				deletedIds[id] = true
+			end
 			b = nil
 		end
 	end
@@ -3694,6 +4030,26 @@ function deleteSelectedButtons()
 	end
 	for i = #newbuttons, 1, -1 do
 		buttons[#buttons + 1] = newbuttons[i]
+	end
+	-- Keep the snapshot row (label+command) so a revert still has something
+	-- to draw; drop the id so we do not hide a different tile that reused it.
+	if next(deletedIds) ~= nil then
+		for i = 1, #buttons do
+			local p = buttons[i]
+			if p ~= nil and p.data ~= nil then
+				local kids = copyAccordionChildRows(p.data.accordionChildren)
+				local changed = false
+				for k = 1, #kids do
+					if kids[k].id ~= nil and deletedIds[kids[k].id] then
+						kids[k].id = nil
+						changed = true
+					end
+				end
+				if changed then
+					p.data.accordionChildren = kids
+				end
+			end
+		end
 	end
 	drawButtons()
 	view:invalidate()
@@ -3800,6 +4156,7 @@ function addButton(pX,pY)
 	--newb.paintOpts = luajava.new(PaintClass,paint)
 	--newb.selected = false
 	refreshRect(newb)
+	ensureButtonId(newb)
 	table.insert(buttons,newb)
 	return newb
 end
@@ -3822,7 +4179,8 @@ function buttonTouched(x,y)
 	for i=1,#buttons do
 	--for i,b in pairs(buttons) do
 		local b = buttons[i]
-		if not isPlayModeFloaterHiddenFromGrid(b) then
+		if not isPlayModeFloaterHiddenFromGrid(b)
+				and not isPlayModePinnedAccordionSource(b) then
 			local z = b.rect
 			if(z:contains(x,y)) then
 				return true,b,i

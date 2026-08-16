@@ -510,6 +510,9 @@ In the trigger editor:
 
 - **Literal?** on → match the pattern as plain text (no regex)  
 - **Literal?** off → pattern is a regular expression  
+- **Preview** under the pattern box is three lines; **Show all** / **Show less**
+  opens the rest (what the pattern will really match, alias paste, compile).
+  **New Action** stays pinned above Cancel / ? / Done.  
 - **Group** → optional label (e.g. `combat`); blank = ungrouped. Use the
   **Group** dropdown (existing names) or type a new name below it. The Triggers
   list shows `[group]`, sorts by group, and has **Plugin** / **Group** spinners
@@ -2040,7 +2043,7 @@ The default `button_window` plugin supports more than tap:
   each can run a different command (edit button → Swipe). Overrides classic Flip.
   Drag about **24dp** off the tile (~a finger-width on most phones).
 - **Hold** — optional command after press-and-hold.
-- **Accordion** — up to twenty child buttons expand from a parent (direction + tap/hold/swipe trigger). In **Edit buttons → Accord.** each child is a compact row you can insert above/below or left/right (following the expand layout), move, or delete; empty rows are dropped on Done. The gesture that opens the accordion cannot also send its own command — that field stays filled but locked on the Tap / Swipe tabs. Handy when you want several macros on one tile. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
+- **Accordion** — pin existing grid tiles, or type up to twenty label+command rows. In **Edit buttons**: tap the parent, dismiss the menu, then **long-press** another tile to pin it (long-press again to unpin). Pinned tiles hide in play until the parent opens, then they appear where you placed them. **Accord.** still has direction, Open with (tap/hold/swipe), and typed rows for wizard packs. The gesture that opens the accordion cannot also send its own command. Super / floating buttons cannot have an accordion. Editor badges: **T** tap, **H** hold, **S** swipe. Options can draw gesture hints (uncheck to hide **U/D/L/R**, diagonal arrows, Hold, and accordion badges).
 
 ### Copying buttons between sets
 

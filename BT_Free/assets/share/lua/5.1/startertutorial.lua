@@ -244,16 +244,17 @@ TOPICS.buttons_accordion = function()
 SCORE / TIP) so they stay clear of the compass and HELP row above. TIP
 re-opens this lesson via .tutorial.
 
-An accordion parent expands up to twenty child buttons (label + command)
-in a chosen direction. They fill one column or row with as many as fit,
-then start a new lane further in the expand direction (expand left +
-Vertical layout = a column, then another column to the left). Children
-that still do not fit are dropped with a note — they are not shrunk or
-scrolled. Super / floating buttons cannot have an accordion.
+An accordion parent can pin existing grid buttons. In Edit buttons:
+tap the parent, dismiss the menu, then long-press another tile (LOOK,
+SCORE, …) to pin it. Long-press that tile again to unpin. Pinned tiles
+stay on the grid while you edit; in play they hide until the parent
+opens, then they appear where you placed them. Super / floating
+buttons cannot have an accordion.
 
-In Edit buttons → Accord., add them one by one (+ Add sub-button
-below/above/left/right follows the expand layout), reorder with the row
-controls, and drop empties on Done. Trigger can be tap, hold, or swipe.
+Typed label+command rows in Accord. still work for wizard packs.
+
+In Edit buttons → Accord., direction / Open with / Auto-close still
+apply. Trigger can be tap, hold, or swipe.
 
 The gesture that opens the accordion cannot also send its own command —
 that field stays filled but locked on the Tap / Swipe tabs. Swipe-to-expand
@@ -264,8 +265,9 @@ use. Accordion data is stored with the button set (Lua); use Edit buttons
 to build your own.
 
 Expanded children draw on top of neighbouring grid buttons. To make the
-fan stand out, open the parent in Others and tick Draw Border on the
-Colors grid — children reuse that border.
+fan stand out, open the parent in Others and tick Draw / border on the
+Colors grid — snapshot children reuse that border; pinned tiles keep
+their own.
 
 Handy when one corner of the screen must hold several macros.]])
 end
@@ -418,8 +420,9 @@ Another: gag spammy combat lines; Color important tells; Toast a warning.
 
 Open: ⋮ → Triggers → add. Keep Literal on until you need regex. Captures
 in regex mode become $1, $2 in Ack / Replace / Toast text. The ? button
-beside Done explains the pattern box, and the preview under the box says
-what your pattern will really do before you save it. The ? on the
+beside Done explains the pattern box, and the preview under the box is
+three lines — Show all / Show less opens the rest, so you can see what
+your pattern will really do before you save it. The ? on the
 Triggers list itself explains what a trigger is, with examples.
 
 Using an alias as the pattern: type an alias's NAME on its own and the

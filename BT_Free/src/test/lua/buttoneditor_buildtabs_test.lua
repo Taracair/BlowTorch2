@@ -504,6 +504,23 @@ check(o.widgets.accordionAddButton._visibility == _G.View.GONE,
 local harvested20 = o.harvestAccordionChildren()
 check(#harvested20 == 20, "harvest keeps 20 content rows")
 
+print("6b. harvest keeps pin ids; a pin-only row counts as filled")
+while o.accordionChildDraftCount() > 0 do
+	check(o.accordionDeleteChild(o.accordionChildDraftCount()) == true,
+		"clear draft before pin-id harvest")
+end
+check(o.accordionInsertChild(nil, "", "", "b99") == true, "insert pin-only row")
+check(o.accordionCanAdd() == true, "pin-only row with id counts as filled")
+local harvestedPin = o.harvestAccordionChildren()
+check(#harvestedPin == 1 and harvestedPin[1].id == "b99",
+	"Done harvest must keep the pin id")
+check(harvestedPin[1].label == "" and harvestedPin[1].command == "",
+	"pin-only snapshot may have empty label/command")
+o.accordionSetChildText(1, "LOOK", "look")
+harvestedPin = o.harvestAccordionChildren()
+check(harvestedPin[1].id == "b99" and harvestedPin[1].label == "LOOK",
+	"editing label must not strip the pin id")
+
 print("7. trigger exclusivity locks the opening gesture live")
 -- Reset to a small configured accordion: Expand=Down, Open with=Tap, one child.
 local guard = 0

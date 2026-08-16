@@ -109,7 +109,10 @@ local function editTextString(edit)
 	return s
 end
 
-local function childRowHasContent(label, command)
+local function childRowHasContent(label, command, id)
+	if id ~= nil and id ~= "" then
+		return true
+	end
 	return (label ~= nil and label ~= "") or (command ~= nil and command ~= "")
 end
 
@@ -569,10 +572,15 @@ function buildTabs(host, content, o)
 	layoutRow:addView(accordionLayoutSpinner)
 	accordionPage:addView(layoutRow)
 	addOneLiner(accordionPage,
-		"Children fill one column or row (as many as fit), then a new lane "
-		.. "further in the expand direction. Expand left + Vertical layout = "
-		.. "a column, then another column to the left. Leftovers that still "
-		.. "do not fit are dropped with a Note.",
+		"In Edit buttons: tap the parent (dismiss the menu), then long-press "
+		.. "another tile to pin it. Long-press a pinned tile again to unpin. "
+		.. "Pinned tiles hide in play until the parent opens, then they appear "
+		.. "where you placed them. Typed rows below still work for packs.",
+		o)
+	addOneLiner(accordionPage,
+		"Unpinned children fill one column or row (as many as fit), then a new "
+		.. "lane further in the expand direction. Leftovers that still do not "
+		.. "fit are dropped with a Note.",
 		o)
 	
 	local triggerRow = luajava.new(LinearLayout,o.context)
@@ -650,7 +658,11 @@ function buildTabs(host, content, o)
 	local seedChildren = editorValues.accordionChildren or {}
 	for i = 1, #seedChildren do
 		local c = seedChildren[i] or {}
-		childrenDraft[i] = { label = c.label or "", command = c.command or "" }
+		childrenDraft[i] = {
+			label = c.label or "",
+			command = c.command or "",
+			id = c.id,
+		}
 	end
 
 	o.widgets.accordionChildLabelEdits = {}
@@ -702,6 +714,7 @@ function buildTabs(host, content, o)
 				childrenDraft[i] = {
 					label = editTextString(labels[i]),
 					command = editTextString(cmds[i]),
+					id = (childrenDraft[i] ~= nil and childrenDraft[i].id) or nil,
 				}
 			end
 		end
@@ -710,7 +723,7 @@ function buildTabs(host, content, o)
 	local function draftHasAnyContent()
 		for i = 1, #childrenDraft do
 			local c = childrenDraft[i]
-			if c ~= nil and childRowHasContent(c.label, c.command) then
+			if c ~= nil and childRowHasContent(c.label, c.command, c.id) then
 				return true
 			end
 		end
@@ -734,7 +747,7 @@ function buildTabs(host, content, o)
 		if c == nil then
 			return false
 		end
-		if childRowHasContent(c.label, c.command) then
+		if childRowHasContent(c.label, c.command, c.id) then
 			return true
 		end
 		local labels = o.widgets.accordionChildLabelEdits
@@ -759,8 +772,12 @@ function buildTabs(host, content, o)
 		local out = {}
 		for i = 1, #childrenDraft do
 			local c = childrenDraft[i]
-			if c ~= nil and childRowHasContent(c.label, c.command) then
-				out[#out + 1] = { label = c.label or "", command = c.command or "" }
+			if c ~= nil and childRowHasContent(c.label, c.command, c.id) then
+				local row = { label = c.label or "", command = c.command or "" }
+				if c.id ~= nil and c.id ~= "" then
+					row.id = c.id
+				end
+				out[#out + 1] = row
 			end
 			if #out >= MAX_ACCORDION_CHILDREN then
 				break
@@ -1162,7 +1179,7 @@ function buildTabs(host, content, o)
 	o.updateAccordionControlCaptions = updateAccordionControlCaptions
 
 	-- Test / host helpers that mutate the draft without going through clicks.
-	o.accordionInsertChild = function(atIndex, label, command)
+	o.accordionInsertChild = function(atIndex, label, command, id)
 		syncDraftFromEdits()
 		if #childrenDraft >= MAX_ACCORDION_CHILDREN then
 			return false
@@ -1170,7 +1187,11 @@ function buildTabs(host, content, o)
 		local i = atIndex or (#childrenDraft + 1)
 		if i < 1 then i = 1 end
 		if i > #childrenDraft + 1 then i = #childrenDraft + 1 end
-		table.insert(childrenDraft, i, { label = label or "", command = command or "" })
+		table.insert(childrenDraft, i, {
+			label = label or "",
+			command = command or "",
+			id = id,
+		})
 		rebuildAccordionChildRows()
 		return true
 	end
@@ -1206,7 +1227,8 @@ function buildTabs(host, content, o)
 		if index < 1 or index > #childrenDraft then
 			return false
 		end
-		childrenDraft[index] = { label = label or "", command = command or "" }
+		local keepId = childrenDraft[index] ~= nil and childrenDraft[index].id or nil
+		childrenDraft[index] = { label = label or "", command = command or "", id = keepId }
 		local le = o.widgets.accordionChildLabelEdits[index]
 		local ce = o.widgets.accordionChildCmdEdits[index]
 		if le ~= nil then le:setText(label or "") end
