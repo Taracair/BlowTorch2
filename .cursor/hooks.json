@@ -6,6 +6,12 @@
     ],
     "afterFileEdit": [
       { "command": "python3 hooks/after-file-edit.py" }
+    ],
+    "preToolUse": [
+      { "command": "python3 hooks/pre-tool-use.py" }
+    ],
+    "subagentStart": [
+      { "command": "python3 hooks/pre-tool-use.py", "matcher": "bugbot" }
     ]
   }
 }

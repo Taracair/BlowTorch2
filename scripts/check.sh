@@ -100,6 +100,30 @@ else
   echo "ok"
 fi
 
+stage "Reviewer Task is Grok, not the Composer-pinned bugbot type"
+# Cursor pins subagent_type=bugbot to Composer 2.5 and ignores `model`.
+# A sentence in subagent-review.mdc was not enough; this stage fails if the
+# rule file or the hook wiring drifts back to launching that type.
+PY_TASK="$(command -v python3 || command -v python)"
+if [ -z "$PY_TASK" ]; then
+  echo "python3 not installed, cannot run task_model.py --self-test"
+  fail=1
+elif ! "$PY_TASK" scripts/guards/task_model.py --self-test; then
+  fail=1
+fi
+if grep -qE 'Launch \*\*one\*\* `bugbot`' .cursor/rules/subagent-review.mdc; then
+  echo ".cursor/rules/subagent-review.mdc still launches the bugbot type"
+  fail=1
+fi
+if ! grep -q 'Do not set `subagent_type` to `bugbot`' .cursor/rules/subagent-review.mdc; then
+  echo ".cursor/rules/subagent-review.mdc must forbid subagent_type bugbot"
+  fail=1
+fi
+if ! grep -q 'preToolUse' .cursor/hooks.json; then
+  echo ".cursor/hooks.json is missing the preToolUse reviewer rewrite"
+  fail=1
+fi
+
 stage "Working rules have not drifted between CLAUDE.md and .cursor/rules"
 # The ten rules used to live in three files and diverged. Now the short list is
 # in two (one per tool, both always loaded) and this stage fails if they differ.

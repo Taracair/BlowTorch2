@@ -30,6 +30,7 @@ new opportunity for the two copies to disagree.
 | No `BTPROF` left in tracked code | `check.sh` | CI fails |
 | arm64 `.so` in `BTLib/libs` aligned below 16 KB | `check.sh` | CI fails |
 | The rule list does not drift between files | `check.sh` | CI fails |
+| Reviewer Task is not the Composer-pinned `bugbot` type | `preToolUse`, `subagentStart`, `check.sh` | Task rewritten to `generalPurpose` + Grok; leftover `bugbot` launches denied |
 
 The 16 KB check earns its place by having caught a real one on the day it was
 written. `BTLib/libs` is not in git and is built by a script nobody remembers to
@@ -98,6 +99,7 @@ scripts/guards/          rules, one file each, exit-code based
   lua-syntax.sh          luac -p
   docs-allowlist.sh      what may live in docs/
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
+  task_model.py          reviewer Task is Grok, not Composer-pinned bugbot
 scripts/hooks/
   pre-commit             git hook: branch, Lua, docs, Lua libs version, manifest
   commit-msg             git hook: the probe check, which needs the real message
@@ -106,6 +108,7 @@ scripts/hooks/
 .cursor/hooks/
   before-shell-execution.py
   after-file-edit.py
+  pre-tool-use.py          Task/subagentStart: reviewer model is Grok
 ```
 
 `scripts/adb-device.sh` is **not** in this list and not in git: it is gitignored
