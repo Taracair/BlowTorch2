@@ -606,9 +606,10 @@ function buildTabs(host, content, o)
 		"In Edit buttons: tap the parent, then tap another tile and choose "
 		.. "Pin to \"MORE\". Tap several after the parent to pin them all. "
 		.. "Long-press still pins too. Unpin from the tile menu. A tile "
-		.. "belongs to one parent. Pinned tiles hide in play until the parent "
-		.. "opens, then they appear where you placed them. Typed rows below "
-		.. "still work for packs.",
+		.. "belongs to one parent. You cannot pin an accordion inside another "
+		.. "(toast: Can't nest accordions). Pinned tiles hide in play until "
+		.. "the parent opens, then they appear where you placed them. Typed "
+		.. "rows below still work for packs.",
 		o)
 	addOneLiner(accordionPage,
 		"Unpinned children fill one column or row (as many as fit), then a new "

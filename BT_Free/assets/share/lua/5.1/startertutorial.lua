@@ -250,8 +250,9 @@ Tap several tiles after the parent to pin them all at once. Or long-press
 a tile while the parent is selected. A toast says Pinned to MORE. Tap a
 pinned tile and choose Unpin from "MORE". A tile can only belong to one
 parent. Pinned tiles stay on the grid while you edit; in play they hide
-until the parent opens, then they appear where you placed them. Super /
-floating buttons cannot have an accordion.
+until the parent opens, then they appear where you placed them. You
+cannot pin an accordion inside another (toast: Can't nest accordions).
+Super / floating buttons cannot have an accordion.
 
 Typed label+command rows in Accord. still work for wizard packs.
 

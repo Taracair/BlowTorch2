@@ -32,15 +32,22 @@ local first = findLine("^function copyAccordionChildRows", "copyAccordionChildRo
 local stop = findLine("^function isPlayModePinnedAccordionSource",
 	"isPlayModePinnedAccordionSource")
 
-local chunk = table.concat(lines, "\n", first, stop - 1)
+local chunk = [[
+local function hasAccordionConfig(data)
+	if data == nil or data.accordionDirection == nil or data.accordionDirection == "" then
+		return false
+	end
+	return data.accordionChildren ~= nil and #data.accordionChildren > 0
+end
+]] .. table.concat(lines, "\n", first, stop - 1)
 	.. "\nreturn copyAccordionChildRows, inferAccordionDirection, "
 	.. "accordionPinPlan, accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS, "
-	.. "accordionSelectionPinPlan\n"
+	.. "accordionSelectionPinPlan, accordionNestToast, ACCORDION_NEST_TOAST\n"
 
 local loadfn = loadstring or load
 local copyAccordionChildRows, inferAccordionDirection, accordionPinPlan,
 	accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS,
-	accordionSelectionPinPlan =
+	accordionSelectionPinPlan, accordionNestToast, ACCORDION_NEST_TOAST =
 	assert(loadfn(chunk, "accordion-pin-extract"))()
 
 local failures = 0
@@ -145,6 +152,26 @@ action = accordionSelectionPinPlan({
 check(action == "reject", "super button cannot be the pin parent")
 action, parent, kids = accordionSelectionPinPlan({ more, look })
 check(action == "ok" and #kids == 1, "two tiles: pin LOOK to MORE")
+
+print("6. nesting is refused with one toast")
+local cast = {
+	data = {
+		label = "CAST",
+		accordionDirection = "right",
+		accordionChildren = { { label = "CON", command = "consider" } },
+	},
+}
+check(accordionNestToast(more, cast) == ACCORDION_NEST_TOAST,
+	"CAST (already an accordion) cannot sit under MORE")
+local lookPinned = { data = { id = "b1", label = "LOOK" } }
+buttons = {
+	{ data = { label = "MORE", accordionChildren = { { id = "b1", label = "LOOK" } } } },
+	lookPinned,
+}
+check(accordionNestToast(lookPinned, score) == ACCORDION_NEST_TOAST,
+	"LOOK (already pinned to MORE) cannot grow its own accordion")
+check(accordionNestToast(more, look) == nil,
+	"plain LOOK under MORE is allowed")
 
 if failures > 0 then
 	print(failures .. " failure(s)")

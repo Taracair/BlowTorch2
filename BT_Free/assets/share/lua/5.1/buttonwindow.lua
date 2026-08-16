@@ -858,6 +858,20 @@ function findAccordionParentOf(child)
 	return parents[1]
 end
 
+-- Nesting is refused: CAST cannot sit under MORE, and LOOK (already pinned
+-- to MORE) cannot grow its own accordion. Same toast for long-press and menu.
+ACCORDION_NEST_TOAST = "Can't nest accordions"
+
+function accordionNestToast(parent, child)
+	if child ~= nil and child.data ~= nil and hasAccordionConfig(child.data) then
+		return ACCORDION_NEST_TOAST
+	end
+	if parent ~= nil and findAccordionParentOf(parent) ~= nil then
+		return ACCORDION_NEST_TOAST
+	end
+	return nil
+end
+
 -- Pure so a test can lock "LOOK left of MORE → expand left".
 function inferAccordionDirection(parentX, parentY, childX, childY)
 	local dx = (childX or 0) - (parentX or 0)
@@ -1068,10 +1082,6 @@ function pinOrUnpinAccordionChild(parent, child)
 		showButtonToast("Pin a normal grid tile, not a super button")
 		return false
 	end
-	if hasAccordionConfig(child.data) then
-		showButtonToast("That tile is already an accordion parent")
-		return false
-	end
 	ensureButtonId(parent)
 	local childId = ensureButtonId(child)
 	local childLabel = child.data.label or ""
@@ -1088,6 +1098,11 @@ function pinOrUnpinAccordionChild(parent, child)
 		return false
 	end
 	if action == "ok" then
+		local nest = accordionNestToast(parent, child)
+		if nest ~= nil then
+			showButtonToast(nest)
+			return false
+		end
 		local existing = accordionParentsOfChildId(childId)
 		for i = 1, #existing do
 			if existing[i] ~= parent then
@@ -1134,41 +1149,50 @@ function pinButtonsToParent(parent, children)
 		showButtonToast("Pin a normal grid tile, not a super button")
 		return 0
 	end
+	local nestParent = accordionNestToast(parent, nil)
+	if nestParent ~= nil then
+		showButtonToast(nestParent)
+		return 0
+	end
 	ensureButtonId(parent)
 	local kids = copyAccordionChildRows(parent.data.accordionChildren)
 	local n = 0
 	local firstChild = nil
 	local otherLabel = nil
 	local full = false
+	local nested = false
 	for i = 1, #children do
 		local child = children[i]
 		if child ~= nil and child.data ~= nil and child ~= parent
-				and child.data.floating ~= true
-				and not hasAccordionConfig(child.data) then
-			local childId = ensureButtonId(child)
-			local action, planned = accordionPinPlan(
-				kids, childId, child.data.label or "", child.data.command or "",
-				MAX_ACCORDION_CHILDREN)
-			if action == "full" then
-				full = true
-				break
-			elseif action == "ok" then
-				local existing = accordionParentsOfChildId(childId)
-				local other = false
-				for p = 1, #existing do
-					if existing[p] ~= parent then
-						other = true
-						if existing[p].data ~= nil then
-							otherLabel = existing[p].data.label or ""
+				and child.data.floating ~= true then
+			if accordionNestToast(parent, child) ~= nil then
+				nested = true
+			else
+				local childId = ensureButtonId(child)
+				local action, planned = accordionPinPlan(
+					kids, childId, child.data.label or "", child.data.command or "",
+					MAX_ACCORDION_CHILDREN)
+				if action == "full" then
+					full = true
+					break
+				elseif action == "ok" then
+					local existing = accordionParentsOfChildId(childId)
+					local other = false
+					for p = 1, #existing do
+						if existing[p] ~= parent then
+							other = true
+							if existing[p].data ~= nil then
+								otherLabel = existing[p].data.label or ""
+							end
+							break
 						end
-						break
 					end
-				end
-				if not other then
-					kids = planned
-					n = n + 1
-					if firstChild == nil then
-						firstChild = child
+					if not other then
+						kids = planned
+						n = n + 1
+						if firstChild == nil then
+							firstChild = child
+						end
 					end
 				end
 			end
@@ -1180,6 +1204,8 @@ function pinButtonsToParent(parent, children)
 				.. " sub-buttons")
 		elseif otherLabel ~= nil then
 			showButtonToast("Already pinned to " .. otherLabel)
+		elseif nested then
+			showButtonToast(ACCORDION_NEST_TOAST)
 		end
 		return 0
 	end
@@ -1203,6 +1229,8 @@ function pinButtonsToParent(parent, children)
 			.. " sub-buttons")
 	elseif otherLabel ~= nil then
 		showButtonToast("Already pinned to " .. otherLabel)
+	elseif nested then
+		showButtonToast(ACCORDION_NEST_TOAST)
 	end
 	saveDefaultOptions()
 	drawButtons()
