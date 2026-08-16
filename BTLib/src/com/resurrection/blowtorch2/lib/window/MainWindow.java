@@ -292,6 +292,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	/** obj: the world's prompt for the prompt bar; empty hides it. */
 	protected static final int MESSAGE_PROMPT_LINE = 933;
 	protected static final int MESSAGE_VOCABULARY_RESET = 934;
+	protected static final int MESSAGE_VOCABULARY_FORGET = 938;
 	protected static final int MESSAGE_PICK_COMPLETION = 935;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
@@ -1267,6 +1268,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// .suggest clear had just removed.
 						if (isSuggestForgetCommand(pdata)) {
 							forgetCommandKnowledgeHere();
+						} else if (applySuggestBagEditHere(pdata)) {
+							// Surgical edit already saved; the service command
+							// writes the same file again (idempotent) and tells
+							// this process via vocabularyForget.
 						} else if (!pdata.trim().startsWith(".")) {
 							// Before learning, not after: reading the file replaces
 							// what is held, so a load that ran second would drop the
@@ -1460,6 +1465,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						mWordSuggestions.clear();
 						reloadCommandKnowledge();
 						refreshWordSuggestions();
+					}
+					break;
+				case MESSAGE_VOCABULARY_FORGET:
+					// Button-fired .suggest forget/unpair/weight never hit the
+					// input interceptor. Apply to the live bag and save; do not
+					// reload from disk (that snapshot can be ten seconds behind).
+					if (msg.obj instanceof DisplayedString) {
+						DisplayedString scoped = (DisplayedString) msg.obj;
+						if (isForegroundDisplay(scoped.display)
+								&& scoped.value != null && scoped.value.length() > 0) {
+							applySuggestBagEditHere(".suggest " + scoped.value);
+						}
 					}
 					break;
 				case MESSAGE_PICK_COMPLETION:
@@ -3461,7 +3478,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	 * Whether this line is {@code .suggest clear} (or an older name for it).
 	 *
 	 * <p>Matched on the UI so the bag can be emptied before the service command
-	 * runs. The aliases are the ones {@code CompleteCommand} still accepts.
+	 * runs. {@code .suggest forget} is no longer a wipe — bare forget prints
+	 * usage, and forget with a word is a surgical edit.
 	 */
 	static boolean isSuggestForgetCommand(final String line) {
 		if (line == null) {
@@ -3479,7 +3497,78 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				&& !parts[0].equals("suggestions")) {
 			return false;
 		}
-		return parts[1].equals("clear") || parts[1].equals("forget");
+		return parts[1].equals("clear");
+	}
+
+	/**
+	 * Tokens of a surgical {@code .suggest forget|unpair|weight}, or null.
+	 *
+	 * <p>Index 0 is the subcommand; the rest are its arguments, already
+	 * lower-cased. Used on the input path so a typed edit is saved before the
+	 * service command runs, the same race {@link #isSuggestForgetCommand} closes
+	 * for a full wipe.
+	 */
+	static String[] suggestBagEditParts(final String line) {
+		if (line == null) {
+			return null;
+		}
+		String t = line.trim().toLowerCase(java.util.Locale.US);
+		if (!t.startsWith(".")) {
+			return null;
+		}
+		String[] parts = t.substring(1).trim().split("\\s+");
+		if (parts.length < 3) {
+			return null;
+		}
+		if (!parts[0].equals("suggest") && !parts[0].equals("complete")
+				&& !parts[0].equals("suggestions")) {
+			return null;
+		}
+		if (parts[1].equals("forget") && parts.length == 3) {
+			return new String[] { "forget", parts[2] };
+		}
+		if (parts[1].equals("unpair") && parts.length == 4) {
+			return new String[] { "unpair", parts[2], parts[3] };
+		}
+		if (parts[1].equals("weight") && parts.length == 5) {
+			int n;
+			try {
+				n = Integer.parseInt(parts[4]);
+			} catch (NumberFormatException e) {
+				return null;
+			}
+			if (n < 0) {
+				return null;
+			}
+			return new String[] { "weight", parts[2], parts[3], parts[4] };
+		}
+		return null;
+	}
+
+	/**
+	 * Apply {@code .suggest forget|unpair|weight} to the in-memory bag and save,
+	 * before the service command does the same to the file.
+	 *
+	 * @return true when this line was a surgical edit and has been saved.
+	 */
+	private boolean applySuggestBagEditHere(final String line) {
+		String[] edit = suggestBagEditParts(line);
+		if (edit == null) {
+			return false;
+		}
+		loadCommandKnowledge();
+		if (edit[0].equals("forget")) {
+			mWordSuggestions.forgetWord(edit[1]);
+		} else if (edit[0].equals("unpair")) {
+			mWordSuggestions.unpair(edit[1], edit[2]);
+		} else {
+			mWordSuggestions.setPairCount(edit[1], edit[2],
+					Integer.parseInt(edit[3]));
+		}
+		mCommandKnowledgeDirty = true;
+		saveCommandKnowledge();
+		refreshWordSuggestions();
+		return true;
 	}
 
 	/**
@@ -5320,6 +5409,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		public void vocabularyReset(String display) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_RESET,
 					display));
+		}
+
+		public void vocabularyForget(String display, String spec) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_VOCABULARY_FORGET,
+					new DisplayedString(display, spec == null ? "" : spec)));
 		}
 
 		public void pickCompletion(String display, int index) throws RemoteException {

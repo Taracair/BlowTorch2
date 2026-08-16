@@ -74,6 +74,19 @@ oneway interface IConnectionBinderCallback {
 	 */
 	void vocabularyReset(String display);
 	/**
+	 * Apply a surgical {@code .suggest forget|unpair|weight} to the live bag.
+	 *
+	 * <p>The UI holds command knowledge; a file snapshot can be ten seconds
+	 * behind. The service therefore sends the edit here instead of writing the
+	 * file itself. Empty {@code spec} is ignored.
+	 *
+	 * @param display which connection asked — ignored when it is not the world
+	 *        on screen, same filter as {@link #vocabularyReset}.
+	 * @param spec {@code forget word}, {@code unpair verb target}, or
+	 *        {@code weight verb target n}.
+	 */
+	void vocabularyForget(String display, String spec);
+	/**
 	 * Take the n-th completion currently on the strip, counting from 1 — what
 	 * {@code .complete 3} does. Sent rather than answered, so a super button over
 	 * the keyboard can pick one without the finger ever reaching the strip.

@@ -48,6 +48,9 @@ Compression (MCCP) works normally with TLS on: encryption sits underneath it.
     .suggest loose on | off | ghost on | off | ghostlines N
     .suggest rank on | off | pairs on | off
     .suggest learned | clear
+    .suggest forget <word>
+    .suggest unpair <verb> <target>
+    .suggest weight <verb> <target> N
 
 (`.complete` and `.suggestions` are the same command under older names and still work.)
 
@@ -227,6 +230,17 @@ Tap any of them to take it, or use `.suggest 1` to `.suggest 8` from a button.
 
     .suggest learned    what your commands have taught on this world
     .suggest clear      throw all of it away, including the file
+    .suggest forget swnsor
+                        drop that one word from the session strip and from
+                        what your commands taught (the typo verb, its
+                        targets, every pairing)
+    .suggest unpair kill troll
+                        drop that one pairing; kill and troll can stay
+    .suggest weight kill troll 0
+                        set that pairing's count (0 is the same as unpair)
+
+Bare `.suggest forget` prints usage; it does not wipe the bag. `.suggest clear`
+is still the full wipe.
 
 **It is kept per world, and it travels with the world.** Each MUD has its own
 bag, because `kill` means something different on each of them. The bag lives in
@@ -1964,6 +1978,14 @@ Shows or hides the **Send** button (same as Options → Window → Show Send but
 New profiles start at font size **20** (readable on phones). Change under
 Options → Window → Font Size.
 
+## Dim repeated lines
+
+**Options → Window → Dim repeated lines?** (off by default). When a long line
+comes back identical — you typed `look` and the room description is the same —
+it is painted dimmer so the new bits (a mob that walked in, a door that opened)
+stand out. Short lines (`Ok.`, prompts) stay bright. Turn it on per window;
+it does not change what is stored, only how it is drawn.
+
 ## Newest text at top
 
 By default, fresh game output sits at the **bottom** of the window (classic
@@ -2360,8 +2382,8 @@ on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 ```
 
 **Use MTTS?** — TTYPE always follows the MUD Terminal Type Standard
-(`BlowTorch` → `ANSI-256COLOR` → `MTTS 13` when on; `ANSI` → `MTTS 1` when
-off). Reconnect after changing so the MUD sees the new advertisement.
+(`BlowTorch` → `ANSI-256COLOR` → `MTTS 269` when on; `ANSI` → `MTTS 1` when
+off). 269 is ANSI + UTF-8 + 256 colours + truecolor. Reconnect after changing so the MUD sees the new advertisement.
 
 **Use MCCP?** — MUD Client Compression Protocol v2 (telnet option 86), on by
 default; it saves bandwidth and you should not be able to tell it is there. If

@@ -41,10 +41,12 @@ public class OptionNegotiator {
 	/** TTYPE data location. */
 	private static final int TTYPE_DATA_LOCATION = 3;
 	/**
-	 * MTTS bitvector: ANSI (1) + UTF-8 (4) + 256 colors (8) = 13.
+	 * MTTS bitvector: ANSI (1) + UTF-8 (4) + 256 COLORS (8) + TRUECOLOR (256) = 269.
+	 * There is no TRUECOLOR name in the MTTS TTYPE table; the second reply stays
+	 * {@code ANSI-256COLOR} and truecolor is this bit only.
 	 * @see <a href="https://mudstandards.org/mud/mtts">MUD Terminal Type Standard</a>
 	 */
-	private static final int MTTS_BITS = 1 | 4 | 8;
+	private static final int MTTS_BITS = 1 | 4 | 8 | 256;
 	/** MTTS bit 8 — 256 COLORS. */
 	private static final int MTTS_256_COLORS = 8;
 	/**
@@ -97,7 +99,7 @@ public class OptionNegotiator {
 	private void rebuildTermTypes() {
 		String primary = (mTermType != null && mTermType.length() > 0) ? mTermType : "BlowTorch";
 		// MTTS cycle: name → terminal type → MTTS <bits>, last reply repeats.
-		// Use MTTS? selects full capability bits (13) vs ANSI-only (1).
+		// Use MTTS? selects full capability bits (269) vs ANSI-only (1).
 		// Measured 16 Aug 2026: second reply used to be "ANSI" even when bits
 		// included 256 colours. Servers that never parse the bitvector (and
 		// Evennia's step-2 name check) then treated us as 16-colour-only.

@@ -323,6 +323,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .suggest phrases|plain|short|loose on|off\n"
 					+ "  .suggest rank|pairs on|off\n"
 					+ "  .suggest learned | clear\n"
+					+ "  .suggest forget <word>     — drop that word from the bag\n"
+					+ "  .suggest unpair <verb> <target> — drop that pairing only\n"
+					+ "  .suggest weight <verb> <target> N — set that pairing's count\n"
 					+ "  .suggest 1.." + CompleteCommand.MAX_PICK + "\n"
 					+ "  .suggest status\n";
 		}

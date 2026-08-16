@@ -22,7 +22,7 @@ public class SettingsOptionKeyOwnershipTest {
 		// Seen in the log storm, written inside <window> by WindowTokenParser.
 		String[] windowKeys = { "word_wrap", "scroll_sensitivity", "font_size", "buffer_size",
 				"top_padding", "bottom_padding", "bottom_padding_keyboard",
-				"newest_at_top", "ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
+				"newest_at_top", "dim_repeated_lines", "ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
 				"hyperlinks_enabled",
 				"hyperlink_mode", "hyperlink_color", "hyperlink_bare_domains",
 				"hyperlink_extra_tlds", "color_option", "line_extra", "font_path",

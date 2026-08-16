@@ -93,6 +93,8 @@ public class WindowToken implements Parcelable {
 		hyperlink_extra_tlds,
 		/** Word wrapping on or off. */
 		word_wrap,
+		/** Dim long lines that match a recent one (same room look). Default off. */
+		dim_repeated_lines,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
 		/** Newest game lines at the top of the window (older below). */
@@ -369,6 +371,13 @@ public class WindowToken implements Parcelable {
 		wordWrap.setKey("word_wrap");
 		wordWrap.setValue(true);
 		window.addOption(wordWrap);
+
+		BooleanOption dimRepeatedLines = new BooleanOption();
+		dimRepeatedLines.setTitle("Dim repeated lines?");
+		dimRepeatedLines.setDescription("When a long line comes back identical (look, the same room), paint it dimmer so what changed stands out. Off by default.");
+		dimRepeatedLines.setKey("dim_repeated_lines");
+		dimRepeatedLines.setValue(false);
+		window.addOption(dimRepeatedLines);
 
 		IntegerOption canvasWidth = new IntegerOption();
 		canvasWidth.setTitle("Text width (% of screen)");

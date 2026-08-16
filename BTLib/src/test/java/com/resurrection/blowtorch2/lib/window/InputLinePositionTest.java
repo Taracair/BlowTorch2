@@ -55,9 +55,18 @@ public class InputLinePositionTest {
 	@Test
 	public void suggestClearIsRecognisedUnderEveryNameItAnswersTo() {
 		assertTrue(MainWindow.isSuggestForgetCommand(".suggest clear"));
-		assertTrue(MainWindow.isSuggestForgetCommand("  .Suggest  Forget  "));
+		assertTrue(MainWindow.isSuggestForgetCommand("  .Suggest  Clear  "));
 		assertTrue(MainWindow.isSuggestForgetCommand(".complete clear"));
-		assertTrue(MainWindow.isSuggestForgetCommand(".suggestions forget"));
+		assertTrue(MainWindow.isSuggestForgetCommand(".suggestions clear"));
+	}
+
+	@Test
+	public void suggestForgetIsNotAFullWipe() {
+		assertFalse(MainWindow.isSuggestForgetCommand(".suggest forget"));
+		assertFalse(MainWindow.isSuggestForgetCommand("  .Suggest  Forget  "));
+		assertFalse(MainWindow.isSuggestForgetCommand(".suggestions forget"));
+		assertFalse(MainWindow.isSuggestForgetCommand(".suggest forget swnsor"));
+		assertFalse(MainWindow.isSuggestForgetCommand(".complete forget swnsor"));
 	}
 
 	@Test
@@ -67,6 +76,27 @@ public class InputLinePositionTest {
 		assertFalse(MainWindow.isSuggestForgetCommand(".suggest clear now"));
 		assertFalse(MainWindow.isSuggestForgetCommand("suggest clear"));
 		assertFalse(MainWindow.isSuggestForgetCommand("kill troll"));
+	}
+
+	@Test
+	public void suggestBagEditsAreRecognisedWithTheirArgs() {
+		assertEquals("forget", MainWindow.suggestBagEditParts(".suggest forget swnsor")[0]);
+		assertEquals("swnsor", MainWindow.suggestBagEditParts(".suggest forget swnsor")[1]);
+		assertEquals("unpair", MainWindow.suggestBagEditParts(".complete unpair kill troll")[0]);
+		assertEquals("weight",
+				MainWindow.suggestBagEditParts("  .Suggestions  Weight  Kill  Troll  3")[0]);
+		assertEquals("3",
+				MainWindow.suggestBagEditParts(".suggest weight kill troll 3")[3]);
+		assertEquals(null, MainWindow.suggestBagEditParts(".suggest forget"));
+		assertEquals(null, MainWindow.suggestBagEditParts(".suggest unpair kill"));
+		assertEquals(null, MainWindow.suggestBagEditParts(".suggest weight kill troll"));
+		assertEquals(null, MainWindow.suggestBagEditParts(".suggest weight kill troll -1"));
+		assertEquals(null, MainWindow.suggestBagEditParts(".suggest clear"));
+		assertEquals(null, MainWindow.suggestBagEditParts("kill troll"));
+		assertEquals("forget",
+				MainWindow.suggestBagEditParts(".suggest forget swnsor")[0]);
+		assertEquals("swnsor",
+				MainWindow.suggestBagEditParts(".suggest " + "forget swnsor")[1]);
 	}
 
 	@Test

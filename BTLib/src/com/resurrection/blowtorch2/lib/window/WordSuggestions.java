@@ -917,6 +917,103 @@ public final class WordSuggestions {
 	}
 
 	/**
+	 * Drop one token from this session's vocabulary and from what commands taught.
+	 *
+	 * <p>The session {@link #words} map, the verb and target sets, and every
+	 * pairing that uses the token as either side. Does not {@link #clear}: a
+	 * typo {@code swnsor} from {@code .swnsor facedown} must not take
+	 * {@code grizzled} with it.
+	 *
+	 * @param raw the word as typed; normalised the same way {@link #learnCommand}
+	 *        stores it. Null, empty, or nothing-but-punctuation is ignored.
+	 */
+	public void forgetWord(final String raw) {
+		String key = commandWord(raw == null ? "" : raw);
+		if (key == null) {
+			return;
+		}
+		words.remove(key);
+		if (key.equals(lastKey)) {
+			lastKey = null;
+		}
+		verbs.remove(key);
+		objects.remove(key);
+		verbObjects.remove(key);
+		java.util.Iterator<Map.Entry<String, LinkedHashMap<String, Integer>>> it =
+				verbObjects.entrySet().iterator();
+		while (it.hasNext()) {
+			Map.Entry<String, LinkedHashMap<String, Integer>> e = it.next();
+			e.getValue().remove(key);
+			if (e.getValue().isEmpty()) {
+				it.remove();
+			}
+		}
+	}
+
+	/**
+	 * Drop one verb→target pairing. The verb and the target stay in their sets.
+	 *
+	 * @param verbRaw the command word.
+	 * @param targetRaw what it was aimed at.
+	 */
+	public void unpair(final String verbRaw, final String targetRaw) {
+		String verb = commandWord(verbRaw == null ? "" : verbRaw);
+		String target = commandWord(targetRaw == null ? "" : targetRaw);
+		if (verb == null || target == null) {
+			return;
+		}
+		LinkedHashMap<String, Integer> seen = verbObjects.get(verb);
+		if (seen == null) {
+			return;
+		}
+		seen.remove(target);
+		if (seen.isEmpty()) {
+			verbObjects.remove(verb);
+		}
+	}
+
+	/**
+	 * Set how often this verb has been aimed at this target.
+	 *
+	 * <p>{@code n == 0} is {@link #unpair}. {@code n < 0} is ignored.
+	 *
+	 * @param verbRaw the command word.
+	 * @param targetRaw what it was aimed at.
+	 * @param n the count to store, 0 or more.
+	 */
+	public void setPairCount(final String verbRaw, final String targetRaw, final int n) {
+		if (n < 0) {
+			return;
+		}
+		if (n == 0) {
+			unpair(verbRaw, targetRaw);
+			return;
+		}
+		String verb = commandWord(verbRaw == null ? "" : verbRaw);
+		String target = commandWord(targetRaw == null ? "" : targetRaw);
+		if (verb == null || target == null || verb.equals(target)) {
+			return;
+		}
+		LinkedHashMap<String, Integer> seen = verbObjects.remove(verb);
+		if (seen == null) {
+			seen = new LinkedHashMap<String, Integer>();
+		}
+		seen.remove(target);
+		seen.put(target, Integer.valueOf(n));
+		while (seen.size() > MAX_OBJECTS_PER_VERB) {
+			java.util.Iterator<String> it = seen.keySet().iterator();
+			it.next();
+			it.remove();
+		}
+		verbObjects.put(verb, seen);
+		while (verbObjects.size() > MAX_VERBS_PAIRED) {
+			java.util.Iterator<String> it = verbObjects.keySet().iterator();
+			it.next();
+			it.remove();
+		}
+	}
+
+	/**
 	 * Forget what the player's own commands taught.
 	 *
 	 * <p>Separate from {@link #clear} because it has a separate lifetime: the

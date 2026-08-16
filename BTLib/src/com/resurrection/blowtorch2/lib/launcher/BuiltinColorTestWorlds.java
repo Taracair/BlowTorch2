@@ -17,8 +17,8 @@ public final class BuiltinColorTestWorlds {
 			+ "Then type: color\n"
 			+ "That command shows ANSI / 256 / truecolor samples. The game sends "
 			+ "24-bit sequences only if the client advertises MTTS truecolor "
-			+ "(BlowTorch does not yet). To see 24-bit on this phone now, type: "
-			+ ".probe truecolor";
+			+ "(BlowTorch does when Use MTTS? is on). To dump a 24-bit sample "
+			+ "without waiting on the game, type: .probe truecolor";
 
 	public static final String TEMPEST_NAME = "Tempest Season (256 color)";
 	public static final String TEMPEST_HOST = "game.tempestseason.com";

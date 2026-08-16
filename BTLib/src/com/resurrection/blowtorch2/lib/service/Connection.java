@@ -4869,6 +4869,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mService.doVocabularyReset(mDisplay);
 	}
 
+	/**
+	 * Tell the UI to apply a surgical edit to the live suggestion bag.
+	 *
+	 * <p>The UI holds the bag. A file snapshot can be ten seconds behind, so
+	 * this must not load-edit-save from disk. {@code spec} is
+	 * {@code forget word}, {@code unpair verb target}, or
+	 * {@code weight verb target n}.
+	 */
+	public final void forgetVocabulary(final String spec) {
+		mService.doVocabularyForget(mDisplay, spec == null ? "" : spec);
+	}
+
 	public final String getDisplayName() {
 		return mDisplay;
 	}

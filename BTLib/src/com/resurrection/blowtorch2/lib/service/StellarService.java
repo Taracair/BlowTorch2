@@ -1508,6 +1508,29 @@ public class StellarService extends Service {
 	}
 
 	/**
+	 * Tell the UI to apply a surgical edit to the live suggestion bag.
+	 *
+	 * @param display which connection asked.
+	 * @param spec {@code forget word}, {@code unpair verb target}, or
+	 *        {@code weight verb target n}.
+	 */
+	public final void doVocabularyForget(final String display, final String spec) {
+		if (!isForegroundConnection(display)) {
+			return;
+		}
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).vocabularyForget(display, spec);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+						"StellarService.doVocabularyForget", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/**
 	 * Take the n-th completion off the strip.
 	 *
 	 * @param display which connection asked.

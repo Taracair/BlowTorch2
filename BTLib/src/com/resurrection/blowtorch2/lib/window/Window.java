@@ -151,6 +151,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mTapDismissKeyboard = true;
 	/** When true, newest buffer lines draw at the top (older below). */
 	private boolean mNewestAtTop = false;
+	/** When true, finished lines that match a recent long line paint dimmer. */
+	private boolean mDimRepeatedLines = false;
+	/** True while {@link #onDraw} is painting a line marked {@code dimRepeated}. */
+	private boolean mPaintingDimLine = false;
+	/** Last undimmed FG applied to {@code p}; dim is a multiply after this. */
+	private int mResolvedFg = 0xFFFFFFFF;
 	/** Extra empty pixels above game text (notch / camera). Buttons unaffected. */
 	private int mTopPadding = 0;
 	/** Extra empty pixels below game text, always. Buttons unaffected. */
@@ -640,6 +646,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (newestAtTop != null) {
 			mNewestAtTop = (Boolean) newestAtTop.getValue();
 		}
+		BooleanOption dimRepeated = (BooleanOption) settings.findOptionByKey("dim_repeated_lines");
+		if (dimRepeated != null) {
+			applyDimRepeatedLines((Boolean) dimRepeated.getValue());
+		}
 		IntegerOption topPadding = (IntegerOption) settings.findOptionByKey("top_padding");
 		if (topPadding != null) {
 			mTopPadding = Math.max(0, (Integer) topPadding.getValue());
@@ -723,6 +733,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		if (mHoldBuffer != null) {
 			mHoldBuffer.setUrlLinkSettings(bare, extras);
+		}
+	}
+
+	private void applyDimRepeatedLines(final boolean enabled) {
+		mDimRepeatedLines = enabled;
+		if (mBuffer != null) {
+			mBuffer.setDimRepeatedLines(enabled);
 		}
 	}
 	
@@ -2292,6 +2309,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			if (!bleeding) {
 				p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37, false));
 			}
+			mResolvedFg = p.getColor();
+			mPaintingDimLine = false;
 			//TODO: STEP 4
 			//advance the iterator back the number of units it took to find a bleed.
 			//second real expensive move. In the case of a no color text buffer, it would walk from scroll to end and back every time. USE COLOR 
@@ -2322,6 +2341,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			while (!stop && screenIt.hasPrevious()) {
 				Line l = screenIt.previous();
 				int searchPlainPos = 0;
+				mPaintingDimLine = mDimRepeatedLines && l.isDimRepeated();
+				applyRepeatedLineForeground(p);
 
 				// A picture the server sent, drawn over this line and the blank
 				// ones under it. Before the text, so a line that somehow has both
@@ -2595,6 +2616,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						break;
 					case COLOR:
 						applyColorUnit((TextTree.Color) u, p, b);
+						mResolvedFg = p.getColor();
+						applyRepeatedLineForeground(p);
 						if (mColorDebugMode == 1 || mColorDebugMode == 2) {
 							String str = "";
 							try {
@@ -3842,6 +3865,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// window's bare/extras so Options stick after MainWindow.initWindow
 			// (and Extra text) adopt the shared buffer.
 			applyUrlLinkSettingsFrom(mSettings);
+			this.mBuffer.setDimRepeatedLines(mDimRepeatedLines);
 		}
 		// Pointer swap only — without a draw kick, a window that already laid
 		// out against the empty constructor tree can stay blank after adopting
@@ -4157,6 +4181,29 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		if (bgPaint == b) {
 			mBgPaintColor = bg;
+		}
+	}
+
+	/** Scale resolved FG toward black. 0.5 sits in the asked 0.45–0.55 range. */
+	private static final float REPEATED_LINE_DIM = 0.5f;
+
+	private static int dimRepeatedForeground(final int color) {
+		final int r = (int) (((color >> 16) & 0xFF) * REPEATED_LINE_DIM);
+		final int g = (int) (((color >> 8) & 0xFF) * REPEATED_LINE_DIM);
+		final int b = (int) ((color & 0xFF) * REPEATED_LINE_DIM);
+		return (color & 0xFF000000) | (r << 16) | (g << 8) | b;
+	}
+
+	/**
+	 * Apply {@link #mResolvedFg} to {@code paint}, dimmed when this line is a
+	 * repeat. Called after colour-cache lookup so a dimmed line cannot write
+	 * the scaled value into {@code Color.drawCacheFg}.
+	 */
+	private void applyRepeatedLineForeground(final Paint paint) {
+		if (mPaintingDimLine) {
+			paint.setColor(dimRepeatedForeground(mResolvedFg));
+		} else if (paint.getColor() != mResolvedFg) {
+			paint.setColor(mResolvedFg);
 		}
 	}
 	
@@ -5443,6 +5490,10 @@ end
 				jumpToZero();
 				this.invalidate();
 				break;
+			case dim_repeated_lines:
+				applyDimRepeatedLines((Boolean) o.getValue());
+				this.invalidate();
+				break;
 			case top_padding:
 				mTopPadding = Math.max(0, (Integer) o.getValue());
 				calculateCharacterFeatures(mWidth, mHeight);
@@ -5565,6 +5616,7 @@ end
 		word_wrap,
 		text_canvas_width,
 		newest_at_top,
+		dim_repeated_lines,
 		top_padding,
 		bottom_padding,
 		bottom_padding_keyboard,

@@ -5,7 +5,7 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows** |
+| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
@@ -118,7 +118,7 @@ them. Reconnect after changing any of these:
 
 | Option | Default | What it does |
 |--------|---------|----------------|
-| **Use MTTS?** | **on** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI-256COLOR` (or `ANSI` if off) → `MTTS <bits>`. On = bits **13** (ANSI+UTF-8+256); off = bits **1** (ANSI only). Reconnect after changing. |
+| **Use MTTS?** | **on** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI-256COLOR` (or `ANSI` if off) → `MTTS <bits>`. On = bits **269** (ANSI+UTF-8+256+truecolor); off = bits **1** (ANSI only). Reconnect after changing. |
 | **Use MSDP?** | off | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
 | **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
 | **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |
@@ -376,9 +376,12 @@ seven switches was making the Input page a wall.
 - **Suggestion chip opacity (%)** — `.suggest opacity N` (10–100). Fades the chip
   backing of the floating chips only; the words stay fully readable.
 - The learned vocabulary is dropped on connect, so one world's names are never
-  offered in another. Note: while two worlds are open at once the completer,
-  prompt bar and vocabulary reset currently reach every window — see
-  `docs/HANDOFF.md`.
+  offered in another. Two worlds open at once keep separate bags.
+- **Edit the bag:** `.suggest forget <word>` drops one token (session strip and
+  pairings). `.suggest unpair <verb> <target>` drops one pairing.
+  `.suggest weight <verb> <target> N` sets that pairing's count (`0` = unpair).
+  Bare `.suggest forget` is usage, not a wipe; `.suggest clear` still throws
+  everything away.
 
 ## Prompt bar
 

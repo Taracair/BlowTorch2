@@ -300,6 +300,7 @@ public final class WindowTokenParser {
 						}
 						break;
 					case newest_at_top:
+					case dim_repeated_lines:
 						// Default is false; persist only when enabled.
 						if ((Boolean) ((BooleanOption) o).getValue()) {
 							out.startTag("", "option");

@@ -112,6 +112,8 @@ public class TextTree {
 	
 	//public Handler addTextHandler = null;
 	private boolean linkify = true;
+	/** Null when the window option is off. Same thread as {@link #addBytesImpl}. */
+	private RepeatedLineDimmer repeatedLineDimmer;
 	
 	private static LinkedList<Integer> bleedColor = new LinkedList<Integer>();
 	
@@ -990,8 +992,35 @@ public class TextTree {
 		l.updateData();
 		brokenLineCount += l.breaks + 1;
 		totalbytes += l.bytes;
+		markDimRepeatedIfFinished(l);
 		//Log.e("TREE","A:" + deColorLine(l));
 		mLines.add(0,l);
+	}
+
+	/**
+	 * A line is finished when its last unit is a NewLine. Incomplete chunks
+	 * (holdover, TCP split) are added without one and must not be remembered.
+	 */
+	private void markDimRepeatedIfFinished(final Line l) {
+		if (repeatedLineDimmer == null || l == null) {
+			return;
+		}
+		final LinkedList<Unit> data = l.getData();
+		if (data == null || data.isEmpty() || !(data.getLast() instanceof NewLine)) {
+			return;
+		}
+		l.setDimRepeated(repeatedLineDimmer.rememberAndShouldDim(deColorLine(l).toString()));
+	}
+
+	/** Enable or disable line-level dim memory. Off leaves existing flags as they are. */
+	public void setDimRepeatedLines(final boolean enabled) {
+		if (enabled) {
+			if (repeatedLineDimmer == null) {
+				repeatedLineDimmer = new RepeatedLineDimmer();
+			}
+		} else {
+			repeatedLineDimmer = null;
+		}
 	}
 	
 	LinkedList<Line> mLines;
@@ -1033,6 +1062,12 @@ public class TextTree {
 		private String inlineImageKey;
 		/** How many lines the picture covers, this one included. */
 		private int inlineImageLines;
+		/**
+		 * True when this finished line matched a recent long line. A field, not a
+		 * Unit — same reason as {@link #inlineImageKey}: the draw loop already
+		 * walks units, and a flag does not change width, wrap or selection.
+		 */
+		private boolean dimRepeated;
 
 		public Line() {
 			mData = new LinkedList<Unit>();
@@ -1052,6 +1087,14 @@ public class TextTree {
 
 		public int getInlineImageLines() {
 			return inlineImageLines;
+		}
+
+		public void setDimRepeated(final boolean dimRepeated) {
+			this.dimRepeated = dimRepeated;
+		}
+
+		public boolean isDimRepeated() {
+			return dimRepeated;
 		}
 		
 		public void updateData() {

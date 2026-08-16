@@ -43,6 +43,14 @@ public class CompleteCommand extends SpecialCommand {
 	public static final String PAIRS_KEY = "word_complete_pairs";
 	public static final String OPACITY_KEY = "word_complete_opacity";
 
+	private static final String BAG_EDIT_USAGE =
+			".suggest forget <word>            — drop that word from this session\n"
+			+ "                                  and from what your commands taught\n"
+			+ ".suggest unpair <verb> <target>  — drop that pairing only\n"
+			+ ".suggest weight <verb> <target> N — how often that pairing has been\n"
+			+ "                                  seen (0 is the same as unpair)\n"
+			+ ".suggest clear                   — throw the whole bag away\n";
+
 	/** Kept where the completer keeps it, so the two cannot drift apart. */
 	public static final int MAX_LINES = WordSuggestions.MAX_LINES;
 
@@ -140,8 +148,18 @@ public class CompleteCommand extends SpecialCommand {
 		if (arg.equals("learned") || arg.equals("bag")) {
 			return showLearned(c);
 		}
-		if (arg.equals("clear") || arg.equals("forget")) {
+		if (arg.equals("clear")) {
 			return forgetLearned(c);
+		}
+		String[] tokens = arg.split("\\s+");
+		if (tokens.length > 0 && tokens[0].equals("forget")) {
+			return forgetOne(tokens, c);
+		}
+		if (tokens.length > 0 && tokens[0].equals("unpair")) {
+			return unpairOne(tokens, c);
+		}
+		if (tokens.length > 0 && tokens[0].equals("weight")) {
+			return weightOne(tokens, c);
 		}
 		if (arg.startsWith("pairs")) {
 			return setFlag(arg.substring("pairs".length()).trim(), c, PAIRS_KEY,
@@ -229,7 +247,7 @@ public class CompleteCommand extends SpecialCommand {
 					+ ".\nUse .suggest on|off, lines N, where floating|bar|off,"
 					+ " phrases/loose/ghost/persist/rank/pairs/short/plain on|off,"
 					+ " ghostlines N, show N, opacity N,"
-					+ " learned, clear\n");
+					+ " learned, clear, forget, unpair, weight\n");
 			return null;
 		}
 		c.sendDataToWindow(getErrorMessage("Suggestions usage:",
@@ -249,6 +267,11 @@ public class CompleteCommand extends SpecialCommand {
 				+ "                           or off for none; the ghost still works\n"
 				+ ".suggest persist on|off  — keep the bar up even when it is empty\n"
 				+ ".suggest opacity N       — how solid those chips are\n"
+				+ ".suggest learned         — what your commands have taught\n"
+				+ ".suggest clear           — throw the whole bag away\n"
+				+ ".suggest forget <word>   — drop that word (typo, bad pairing)\n"
+				+ ".suggest unpair <verb> <target> — drop that pairing only\n"
+				+ ".suggest weight <verb> <target> N — set that pairing's count\n"
 				+ ".suggest          — say which it is\n\n"
 				+ "(.complete still works, and means the same thing.)\n\n"
 				+ "This completes mob names, player names and item words the\n"
@@ -415,7 +438,61 @@ public class CompleteCommand extends SpecialCommand {
 				+ w.describeLearned(12, 6)
 				+ "(" + w.describeCommandKnowledge() + ")\n"
 				+ "Kept per world, and it travels with the world when you export it."
-				+ " .suggest clear throws it away.\n");
+				+ " .suggest clear throws it all away; .suggest forget <word> drops"
+				+ " one word; .suggest unpair / weight edit one pairing.\n");
+		return null;
+	}
+
+	/**
+	 * {@code .suggest forget} with no word is usage, not a wipe — that footgun
+	 * is why surgical edits exist. With a word, tell the UI: the live bag is
+	 * there, and a file snapshot can be ten seconds behind.
+	 */
+	private Object forgetOne(String[] tokens, Connection c) {
+		if (tokens.length != 2) {
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:", BAG_EDIT_USAGE));
+			return null;
+		}
+		c.forgetVocabulary("forget " + tokens[1]);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ "Forgotten: " + tokens[1] + "."
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
+	private Object unpairOne(String[] tokens, Connection c) {
+		if (tokens.length != 3) {
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:", BAG_EDIT_USAGE));
+			return null;
+		}
+		c.forgetVocabulary("unpair " + tokens[1] + " " + tokens[2]);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ "Unpaired: " + tokens[1] + " " + tokens[2] + "."
+				+ Colorizer.getWhiteColor() + "\n");
+		return null;
+	}
+
+	private Object weightOne(String[] tokens, Connection c) {
+		if (tokens.length != 4) {
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:", BAG_EDIT_USAGE));
+			return null;
+		}
+		int n;
+		try {
+			n = Integer.parseInt(tokens[3]);
+		} catch (NumberFormatException e) {
+			n = -1;
+		}
+		if (n < 0) {
+			c.sendDataToWindow(getErrorMessage("Suggestions usage:", BAG_EDIT_USAGE));
+			return null;
+		}
+		c.forgetVocabulary("weight " + tokens[1] + " " + tokens[2] + " " + n);
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ (n == 0
+					? "Unpaired: " + tokens[1] + " " + tokens[2] + "."
+					: tokens[1] + " " + tokens[2] + " now counts as " + n + ".")
+				+ Colorizer.getWhiteColor() + "\n");
 		return null;
 	}
 

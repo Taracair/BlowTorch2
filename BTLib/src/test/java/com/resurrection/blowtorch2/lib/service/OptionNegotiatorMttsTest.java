@@ -26,20 +26,19 @@ public class OptionNegotiatorMttsTest {
 	}
 
 	/**
-	 * Wire before 16 Aug 2026 (Use MTTS? on): {@code BlowTorch}, {@code ANSI},
-	 * {@code MTTS 13}. Second reply {@code ANSI} is 16-colour-only in the MTTS
-	 * table, so Evennia/KaVir never enabled 256 unless they parsed the bitvector.
+	 * Use MTTS? on: {@code BlowTorch}, {@code ANSI-256COLOR}, {@code MTTS 269}.
+	 * Truecolor is the bitvector (256); the TTYPE table has no TRUECOLOR name.
 	 */
 	@Test
-	public void mttsOn_returnsNameAnsi256colorMtts13_thenRepeats() {
+	public void mttsOn_returnsNameAnsi256colorMtts269_thenRepeats() {
 		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
 		neg.setUseMTTS(true);
 
 		assertEquals("BlowTorch", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
 		assertEquals("ANSI-256COLOR", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
-		assertEquals("MTTS 13", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
-		assertEquals("MTTS 13", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
-		assertEquals("MTTS 13", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
+		assertEquals("MTTS 269", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
+		assertEquals("MTTS 269", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
+		assertEquals("MTTS 269", extractIsPayload(neg.getSubnegotiationResponse(TTYPE_SEND)));
 	}
 
 	@Test
@@ -66,8 +65,8 @@ public class OptionNegotiatorMttsTest {
 	}
 
 	@Test
-	public void mttsBitsMatchStandardAnsiUtf8256() {
-		// ANSI=1, UTF-8=4, 256 COLORS=8 → full announcement used when Use MTTS? is on
-		assertEquals(13, 1 | 4 | 8);
+	public void mttsBitsMatchStandardAnsiUtf8256Truecolor() {
+		// ANSI=1, UTF-8=4, 256 COLORS=8, TRUECOLOR=256 → Use MTTS? on
+		assertEquals(269, 1 | 4 | 8 | 256);
 	}
 }

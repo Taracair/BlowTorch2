@@ -791,4 +791,99 @@ public class WordSuggestionsTest {
 		WordSuggestions w = new WordSuggestions();
 		assertFalse(w.isShorterFirst());
 	}
+
+	@Test
+	public void forgetWordDropsTheSessionEntryAndEveryPairThatUsesIt() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("A swnsor waits.\nA troll waits.\nA trophy hangs here.\n");
+		w.learnCommand("swnsor facedown");
+		w.learnCommand("kill troll");
+		w.learnCommand("look swnsor");
+		w.forgetWord("swnsor");
+		assertTrue("the typo is gone from what the world said",
+				w.suggest("swn", 5).isEmpty());
+		assertTrue("unrelated session words stay",
+				w.suggest("tro", 5).contains("troll"));
+		assertTrue("the typo is gone as a verb and as a target",
+				!w.describeLearned(12, 6).contains("swnsor"));
+		assertTrue("kill troll was not involved",
+				w.describeLearned(12, 6).contains("troll"));
+		assertEquals("troll", w.suggest("tro", 5, false, "kill").get(0));
+	}
+
+	@Test
+	public void forgetWordDoesNotClearUnrelatedSessionWords() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("grizzled\n");
+		w.learn("trophy\n");
+		assertEquals(2, w.size());
+		int lines = w.linesSeen();
+		w.forgetWord("grizzled");
+		assertEquals("one key removed, not clear()", 1, w.size());
+		assertEquals(lines, w.linesSeen());
+		assertEquals(java.util.Arrays.asList("trophy"), w.suggest("tro", 5));
+		assertTrue(w.suggest("gri", 5).isEmpty());
+	}
+
+	@Test
+	public void forgetWordNormalisesCaseTheWayLearnCommandDoes() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("A troll waits.\n");
+		w.learnCommand("Kill Troll");
+		w.forgetWord("TROLL");
+		assertTrue(w.suggest("tro", 5).isEmpty());
+		assertTrue(w.describeLearned(12, 6).startsWith("Nothing learned")
+				|| w.describeLearned(12, 6).contains("command words"));
+		assertFalse(w.describeLearned(12, 6).contains("troll"));
+	}
+
+	@Test
+	public void unpairDropsOnePairingAndLeavesTheWords() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("You kill the troll.\nYou kindle a torch.\na trophy hangs here\n");
+		w.learnCommand("kill troll");
+		w.learnCommand("kill trophy");
+		w.unpair("kill", "troll");
+		assertEquals("trophy", w.suggest("tro", 5, false, "kill").get(0));
+		assertTrue("troll is still a known target",
+				w.suggest("tro", 5, false).contains("troll"));
+		assertEquals("kill still ranks as a command word",
+				"kill", w.suggest("ki", 5, true).get(0));
+		assertFalse(w.describeLearned(12, 6).contains("troll"));
+		assertTrue(w.describeLearned(12, 6).contains("trophy"));
+	}
+
+	@Test
+	public void setPairCountChangesWhichTargetLeads() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("a troll waits\na trophy hangs here\n");
+		w.learnCommand("kill troll");
+		w.learnCommand("kill troll");
+		w.learnCommand("kill trophy");
+		assertEquals("troll", w.suggest("tro", 5, false, "kill").get(0));
+		w.setPairCount("kill", "trophy", 5);
+		assertEquals("trophy", w.suggest("tro", 5, false, "kill").get(0));
+		assertTrue(w.describeLearned(12, 6).contains("trophy (5)"));
+		assertTrue(w.describeLearned(12, 6).contains("troll (2)"));
+	}
+
+	@Test
+	public void setPairCountZeroIsUnpair() {
+		WordSuggestions w = new WordSuggestions();
+		w.setRankByPosition(true);
+		w.setPairRanking(true);
+		w.learn("a troll waits\na trophy hangs here\n");
+		w.learnCommand("kill troll");
+		w.learnCommand("wear trophy");
+		w.setPairCount("kill", "troll", 0);
+		assertFalse(w.describeLearned(12, 6).contains("troll"));
+		assertTrue(w.describeLearned(12, 6).contains("trophy"));
+		assertEquals("trophy", w.suggest("tro", 5, false, "kill").get(0));
+	}
 }
