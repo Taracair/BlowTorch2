@@ -245,11 +245,11 @@ SCORE / TIP) so they stay clear of the compass and HELP row above. TIP
 re-opens this lesson via .tutorial.
 
 An accordion parent expands up to twenty child buttons (label + command)
-in a chosen direction. Wrap after N (Accord. tab, 0 = as many as fit)
-starts a new lane: seven children, expand up, wrap after 3 → two columns
-of three and one leftover, packed without holes, same size as the parent.
-Children that still do not fit are dropped with a note — they are not
-shrunk or scrolled. Super / floating buttons cannot have an accordion.
+in a chosen direction. They fill one column or row with as many as fit,
+then start a new lane further in the expand direction (expand left +
+Vertical layout = a column, then another column to the left). Children
+that still do not fit are dropped with a note — they are not shrunk or
+scrolled. Super / floating buttons cannot have an accordion.
 
 In Edit buttons → Accord., add them one by one (+ Add sub-button
 below/above/left/right follows the expand layout), reorder with the row
@@ -264,8 +264,8 @@ use. Accordion data is stored with the button set (Lua); use Edit buttons
 to build your own.
 
 Expanded children draw on top of neighbouring grid buttons. To make the
-fan stand out, open the parent in Others and turn on Border with a colour
-— children reuse that border.
+fan stand out, open the parent in Others and tick Draw Border on the
+Colors grid — children reuse that border.
 
 Handy when one corner of the screen must hold several macros.]])
 end
@@ -290,8 +290,9 @@ Drawing over the keyboard needs Android's "Display over other apps"
 permission; you are asked the first time. Without it the button is still
 there, but the keyboard covers it.
 
-Others → Border strokes the floating copy too (Square/Round shape). Thin
-outline is a separate auto-contrast frame used when Border is off.
+Others → Colors → Draw Border strokes the floating copy too (Square/Round
+shape). Thin outline is a separate auto-contrast frame used when Border
+is off.
 
 On Android 9 and 10 "Show with keyboard" may never appear -- the client
 cannot reliably tell the keyboard is open there.]])

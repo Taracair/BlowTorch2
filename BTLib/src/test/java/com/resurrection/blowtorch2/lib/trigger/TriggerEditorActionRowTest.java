@@ -83,8 +83,18 @@ public class TriggerEditorActionRowTest {
 
 		String trigger = read(new java.io.File(layouts, "trigger_editor_dialog.xml"));
 		assertTrue(actionListPadsBeforeNewAction(trigger, "trigger_action_list"));
+		assertTrue("New Action stays on screen under the scroller",
+				newActionIsPinnedBelowScroll(trigger));
 		String timer = read(new java.io.File(layouts, "timer_editor_dialog.xml"));
 		assertTrue(actionListPadsBeforeNewAction(timer, "timer_action_list"));
+		assertTrue("timer New Action stays on screen under the scroller",
+				newActionIsPinnedBelowScroll(timer));
+	}
+
+	private static boolean newActionIsPinnedBelowScroll(String xml) {
+		int scrollEnd = xml.lastIndexOf("</ScrollView>");
+		int button = xml.indexOf("android:text=\"New Action\"");
+		return scrollEnd >= 0 && button > scrollEnd;
 	}
 
 	private static boolean actionListPadsBeforeNewAction(String xml, String listId) {

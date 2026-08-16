@@ -568,26 +568,11 @@ function buildTabs(host, content, o)
 	layoutRow:addView(layoutLabel)
 	layoutRow:addView(accordionLayoutSpinner)
 	accordionPage:addView(layoutRow)
-
-	local InputType = luajava.bindClass("android.text.InputType")
-	local wrapRow = luajava.new(LinearLayout,o.context)
-	wrapRow:setLayoutParams(o.fillparams)
-	local wrapLabel = luajava.new(TextView,o.context)
-	wrapLabel:setText("Wrap after:")
-	wrapLabel:setTextSize(textSize)
-	wrapLabel:setGravity(Gravity.RIGHT)
-	wrapLabel:setLayoutParams(luajava.new(LinearLayoutParams,accordionLabelWidth,WRAP_CONTENT))
-	o.widgets.accordionWrapAfterEdit = luajava.new(EditText,o.context)
-	local accordionWrapAfterEdit = o.widgets.accordionWrapAfterEdit
-	accordionWrapAfterEdit:setInputType(InputType.TYPE_CLASS_NUMBER)
-	accordionWrapAfterEdit:setLayoutParams(o.clickLabelEditParams)
-	local wrapAfter = tonumber(editorValues.accordionWrapAfter) or 0
-	accordionWrapAfterEdit:setText(tostring(math.floor(wrapAfter)))
-	wrapRow:addView(wrapLabel)
-	wrapRow:addView(accordionWrapAfterEdit)
-	accordionPage:addView(wrapRow)
 	addOneLiner(accordionPage,
-		"0 = as many as fit. 3 = a new lane after three along the expand direction.",
+		"Children fill one column or row (as many as fit), then a new lane "
+		.. "further in the expand direction. Expand left + Vertical layout = "
+		.. "a column, then another column to the left. Leftovers that still "
+		.. "do not fit are dropped with a Note.",
 		o)
 	
 	local triggerRow = luajava.new(LinearLayout,o.context)
@@ -615,6 +600,7 @@ function buildTabs(host, content, o)
 	triggerRow:addView(accordionTriggerSpinner)
 	accordionPage:addView(triggerRow)
 	
+	local InputType = luajava.bindClass("android.text.InputType")
 	local holdMsRow = luajava.new(LinearLayout,o.context)
 	holdMsRow:setLayoutParams(o.fillparams)
 	local holdMsLabel = luajava.new(TextView,o.context)
@@ -1244,9 +1230,6 @@ function buildTabs(host, content, o)
 		accordionLayoutSpinner:setEnabled(on)
 		accordionTriggerSpinner:setEnabled(on)
 		accordionHoldMsEdit:setEnabled(on)
-		if o.widgets.accordionWrapAfterEdit ~= nil then
-			o.widgets.accordionWrapAfterEdit:setEnabled(on)
-		end
 		accordionAutoCloseCheck:setEnabled(on)
 		local labels = o.widgets.accordionChildLabelEdits or {}
 		local cmds = o.widgets.accordionChildCmdEdits or {}

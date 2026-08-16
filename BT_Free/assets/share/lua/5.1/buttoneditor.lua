@@ -227,15 +227,15 @@ HELP_SWIPE = "Swipe commands override Flip when set. Drag about a finger-width (
 	.. "If an accordion opens on swipe, that expand direction's swipe command is locked and Flip is locked. Other swipe directions still fire.\n\n"
 	.. "The two checkboxes are for this button. The profile switch in set options still wins: with badges off, nothing is drawn anywhere."
 
-HELP_ACCORDION = "Up to 20 sub-buttons expand from the parent. Order in the list is the order they fan out — first row nearest the parent. A run too long for the screen wraps to the next column or row, and any that still do not fit are left out with a message. Badges on the button: T/H/S = tap/hold/swipe open.\n\n"
+HELP_ACCORDION = "Up to 20 sub-buttons expand from the parent. Order in the list is the order they fan out — first row nearest the parent. They fill one column or row (as many as fit on screen), then start a new lane further in the expand direction. Expand left with Vertical layout: a column of children, then another column to the left. Any that still do not fit are left out with a message. Badges on the button: T/H/S = tap/hold/swipe open.\n\n"
 	.. "Tap = open on press, close on second press. Hold = open after the hold delay; Hold ms is on the tab only when Open with is Hold. Swipe = drag in the expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right.\n\n"
 	.. "The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs, with a warning on the canvas. Swipe-to-expand also locks Flip (drag-off is the same motion).\n\n"
 	.. "A super button (Float over the game) cannot have an accordion: the sub-buttons are drawn on the button grid and only exist while the parent is open. That warning stays on this tab."
 
 HELP_OTHERS = "Name is the label in the editor list, not on the tile.\n\n"
 	.. "To change button pads, put .loadset <name> in the Tap command. That is the supported way to switch sets.\n\n"
-	.. "Colors: tap a swatch to change, long-press to reset to the set default.\n\n"
-	.. "Border draws a thin stroke on the grid tile (accordion children inherit the parent's). Thin outline under Floating is a separate auto-contrast frame used only when Border is off.\n\n"
+	.. "Colors: tap a swatch to change, long-press to reset to the set default. Border is the last swatch on that grid — tick Draw Border beside it. Accordion children inherit the parent's border.\n\n"
+	.. "Thin outline under Floating is a separate auto-contrast frame used only when Border is off.\n\n"
 	.. "Width, height and position are in dp from the top-left of the button layer.\n\n"
 	.. "FLOATING\n"
 	.. "Tick Float over the game to put a copy of this button on the screen, over the game. When, Shape and Thin outline appear once it is ticked.\n\n"
@@ -709,13 +709,10 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       local triggerMap = {"tap", "hold", "swipe"}
       d.accordionTrigger = triggerMap[triggerIndex + 1] or "tap"
       d.accordionHoldMs = tonumber(accordionHoldMsEdit:getText():toString()) or 450
-      if accordionWrapAfterEdit ~= nil then
-        local n = tonumber(accordionWrapAfterEdit:getText():toString())
-        if n == nil or n < 0 then n = 0 end
-        d.accordionWrapAfter = math.floor(n)
-      else
-        d.accordionWrapAfter = 0
-      end
+      -- Wrap-after-N was the wrong control: a column expanding left should
+      -- fill with as many as fit (~10), then start another column further
+      -- left. The layout function still accepts wrapAfter for tests.
+      d.accordionWrapAfter = 0
       d.accordionAutoClose = accordionAutoCloseCheck:isChecked()
       if harvestAccordionChildren ~= nil then
         d.accordionChildren = harvestAccordionChildren()

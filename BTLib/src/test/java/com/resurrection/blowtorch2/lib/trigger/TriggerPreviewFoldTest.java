@@ -26,4 +26,24 @@ public class TriggerPreviewFoldTest {
 		assertFalse(TriggerEditorDialog.shouldCollapsePreview(""));
 		assertFalse(TriggerEditorDialog.shouldCollapsePreview(null));
 	}
+
+	@Test
+	public void longOneLineRegexFoldsEvenWithoutNewlines() {
+		StringBuilder oneLine = new StringBuilder();
+		for (int i = 0; i < TriggerEditorDialog.PREVIEW_COLLAPSE_AFTER_CHARS + 1; i++) {
+			oneLine.append('x');
+		}
+		assertEquals(1, TriggerEditorDialog.countPreviewLines(oneLine));
+		assertTrue(TriggerEditorDialog.shouldCollapsePreview(oneLine));
+	}
+
+	@Test
+	public void bloodtimerShapedPreviewFolds() {
+		String preview = "Trigger «_bloodtimer» watches server output for:\n"
+				+ "«(Blood pulses weakly from Taracair's wounds.|Blood runs freely "
+				+ "from Taracair's open wounds.|Blood spurts from one of Taracair's "
+				+ "gaping wounds.)»\n(mode: regular expression)\n"
+				+ "Compiles. 3 capture group(s): $1..$3 in the responses.";
+		assertTrue(TriggerEditorDialog.shouldCollapsePreview(preview));
+	}
 }

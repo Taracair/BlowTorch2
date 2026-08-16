@@ -20,6 +20,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.util.Linkify;
 //import android.util.Log;
@@ -77,6 +78,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 	/** Fold the match preview when it has more than this many lines. */
 	static final int PREVIEW_COLLAPSE_AFTER_LINES = 6;
+	/** A one-line regex wraps in the preview; count newlines alone misses it. */
+	static final int PREVIEW_COLLAPSE_AFTER_CHARS =
+			PREVIEW_COLLAPSE_AFTER_LINES * 40;
 	
 	private TriggerData the_trigger;
 	private TriggerData original_trigger;
@@ -487,14 +491,22 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	}
 
 	static boolean shouldCollapsePreview(final CharSequence text) {
-		return countPreviewLines(text) > PREVIEW_COLLAPSE_AFTER_LINES;
+		if (text == null || text.length() == 0) {
+			return false;
+		}
+		if (countPreviewLines(text) > PREVIEW_COLLAPSE_AFTER_LINES) {
+			return true;
+		}
+		return text.length() > PREVIEW_COLLAPSE_AFTER_CHARS;
 	}
 
 	private void applyPreviewFold(final TextView preview) {
 		TextView toggle = (TextView) findViewById(R.id.trigger_preview_toggle);
 		boolean fold = shouldCollapsePreview(preview.getText());
+		preview.setVisibility(View.VISIBLE);
 		if (!fold) {
-			preview.setVisibility(View.VISIBLE);
+			preview.setMaxLines(Integer.MAX_VALUE);
+			preview.setEllipsize(null);
 			if (toggle != null) {
 				toggle.setText("Preview");
 			}
@@ -503,7 +515,13 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		if (toggle != null) {
 			toggle.setText(mPreviewExpandedByUser ? "Preview ▾" : "Preview ▸");
 		}
-		preview.setVisibility(mPreviewExpandedByUser ? View.VISIBLE : View.GONE);
+		if (mPreviewExpandedByUser) {
+			preview.setMaxLines(Integer.MAX_VALUE);
+			preview.setEllipsize(null);
+		} else {
+			preview.setMaxLines(PREVIEW_COLLAPSE_AFTER_LINES);
+			preview.setEllipsize(TextUtils.TruncateAt.END);
+		}
 	}
 
 	/**

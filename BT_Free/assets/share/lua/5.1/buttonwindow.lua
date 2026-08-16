@@ -3279,7 +3279,7 @@ function buildAccordionOverlay(parent)
 		parent.data.accordionDirection, parent.data.accordionChildLayout or "along",
 		count, childW, childH, density,
 		width or 0, height or 0, statusoffset or 0,
-		tonumber(parent.data.accordionWrapAfter) or 0)
+		0)
 	local shown = #centres
 	if shown < count then
 		-- Once per expand: sub-buttons the player configured but the screen

@@ -271,20 +271,21 @@
   			android:clipChildren="true"
   			android:clipToPadding="true"
   			android:orientation="vertical"/>
-  		<!-- paddingBottom on the list is a gap after the last Closed box so a
-  		     48dp checkbox target cannot cover this button. See editor_action_row. -->
-  		<Button
-  			android:id="@+id/timer_new_notification"
-  			android:layout_width="match_parent"
-  			android:layout_height="wrap_content"
-  			android:layout_marginLeft="10dip"
-  			android:layout_marginRight="10dip"
-  			android:layout_marginTop="4dip"
-  			android:layout_marginBottom="8dip"
-  			android:text="New Action"/>
+  		<!-- paddingBottom: gap after the last Closed box. New Action is
+  		     pinned below this ScrollView so a long form cannot bury it. -->
   	</LinearLayout>
   	
   </ScrollView>
+
+  <Button
+  	android:id="@+id/timer_new_notification"
+  	android:layout_width="match_parent"
+  	android:layout_height="wrap_content"
+  	android:layout_marginLeft="10dip"
+  	android:layout_marginRight="10dip"
+  	android:layout_marginTop="4dip"
+  	android:layout_marginBottom="4dip"
+  	android:text="New Action"/>
 
   <LinearLayout
   	android:id="@+id/editor_button_bar"

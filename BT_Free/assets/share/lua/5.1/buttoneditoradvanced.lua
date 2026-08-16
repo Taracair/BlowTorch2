@@ -483,15 +483,12 @@ function makeUI(editorValues,numediting)
   if(ui.colorHolderF == nil) then
     ui.colorHolderF = fnew(LinearLayout,context)
     ui.colorHolderF:setLayoutParams(fillparams)
-    ui.colorHolderF:setGravity(GRAVITY_CENTER)
+    ui.colorHolderF:setOrientation(LinearLayout.HORIZONTAL)
+    ui.colorHolderF:setGravity(Gravity.CENTER)
     ui.colorRowTwo:addView(ui.colorHolderF)
   end
-  
-  if(ui.invisible == nil) then
-    ui.invisible = fnew(View,context)
-    ui.invisible:setVisibility(View.INVISIBLE)
-    ui.invisible:setLayoutParams(fillparams)
-    ui.colorHolderF:addView(ui.invisible)
+  if ui.invisible ~= nil then
+    ui.invisible:setVisibility(View.GONE)
   end
   
   if(ui.labelRowTwo == nil) then
@@ -522,55 +519,19 @@ function makeUI(editorValues,numediting)
     ui.invisLabel = fnew(TextView,context)
     ui.invisLabel:setLayoutParams(fillparams)
     ui.invisLabel:setGravity(GRAVITY_CENTER)
-    ui.invisLabel:setText("FlipLabel")
     ui.invisLabel:setTextSize(textSizeSmall)
-    ui.invisLabel:setVisibility(View.INVISIBLE)
     ui.labelRowTwo:addView(ui.invisLabel)
   end
+  ui.invisLabel:setText("Border")
+  ui.invisLabel:setVisibility(View.VISIBLE)
 
-  -- Grid-tile border (all buttons, including accordion parents). Separate from
-  -- the floating "Thin outline" below: that one is floatFrame on the Java layer.
-  if(ui.borderSectionLabel == nil) then
-    ui.borderSectionLabel = fnew(TextView,context)
-    local borderSectionParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
-    borderSectionParams:setMargins(0, math.floor(8 * density), 0, 0)
-    ui.borderSectionLabel:setLayoutParams(borderSectionParams)
-    ui.advancedPage:addView(ui.borderSectionLabel)
+  -- Same 60px swatch as Normal/Pressed, checkbox beside it — not a separate
+  -- BORDER bar whose weight-1 checkbox shoved a 36*density tile off the row.
+  if ui.borderSectionLabel ~= nil then
+    ui.borderSectionLabel:setVisibility(View.GONE)
   end
-  styleSectionBar(ui.borderSectionLabel, "BORDER")
-
-  if(ui.borderLine == nil) then
-    ui.borderLine = fnew(LinearLayout, context)
-    local borderLineParams = fnew(LinearLayoutParams, FILL_PARENT, WRAP_CONTENT)
-    borderLineParams:setMargins(othersSide, math.floor(2 * density), othersSide, math.floor(4 * density))
-    ui.borderLine:setLayoutParams(borderLineParams)
-    ui.borderLine:setOrientation(LinearLayout.HORIZONTAL)
-    ui.borderLine:setGravity(Gravity.CENTER_VERTICAL)
-    ui.advancedPage:addView(ui.borderLine)
-  end
-
-  if(ui.borderCheck == nil) then
-    ui.borderCheck = fnew(CheckBox,context)
-    local checkParams = fnew(LinearLayoutParams, 0, WRAP_CONTENT, 1)
-    ui.borderCheck:setLayoutParams(checkParams)
-    ui.borderCheck:setText("Draw border")
-    ui.borderCheck:setTextSize(textSize)
-    ui.borderLine:addView(ui.borderCheck)
-  else
-    safeAddView(ui.borderLine, ui.borderCheck)
-  end
-  ui.borderCheck:setChecked(editorValues.border == true)
-
-  if(ui.borderColorPicker == nil) then
-    ui.borderColorPicker = fnew(View,context)
-    local swatchSize = math.floor(36 * density)
-    local swatchParams = fnew(LinearLayoutParams, swatchSize, swatchSize)
-    ui.borderColorPicker:setLayoutParams(swatchParams)
-    ui.borderColorPicker:setTag("border")
-    bindColorSwatch(ui.borderColorPicker)
-    ui.borderLine:addView(ui.borderColorPicker)
-  else
-    safeAddView(ui.borderLine, ui.borderColorPicker)
+  if ui.borderLine ~= nil then
+    ui.borderLine:setVisibility(View.GONE)
   end
   if ui.borderColorRow ~= nil then
     ui.borderColorRow:setVisibility(View.GONE)
@@ -578,8 +539,26 @@ function makeUI(editorValues,numediting)
   if ui.borderColorLabel ~= nil then
     ui.borderColorLabel:setVisibility(View.GONE)
   end
+
+  if(ui.borderColorPicker == nil) then
+    ui.borderColorPicker = fnew(View,context)
+    ui.borderColorPicker:setLayoutParams(touchparams)
+    ui.borderColorPicker:setTag("border")
+    bindColorSwatch(ui.borderColorPicker)
+  end
+  safeAddView(ui.colorHolderF, ui.borderColorPicker)
   ui.borderColor = editorValues.borderColor or defaultColors.border
   ui.borderColorPicker:setBackgroundColor(ui.borderColor)
+
+  if(ui.borderCheck == nil) then
+    ui.borderCheck = fnew(CheckBox,context)
+    local checkParams = fnew(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)
+    ui.borderCheck:setLayoutParams(checkParams)
+    ui.borderCheck:setText("Draw Border")
+    ui.borderCheck:setTextSize(textSizeSmall)
+  end
+  safeAddView(ui.colorHolderF, ui.borderCheck)
+  ui.borderCheck:setChecked(editorValues.border == true)
 
   hideEssay(ui.borderHelp)
 

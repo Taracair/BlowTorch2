@@ -92,26 +92,36 @@
   					android:maxLines="8"
   					android:scrollHorizontally="false"/>
   			</TableRow>
-  			<TableRow>
-  				<TextView
-  					android:id="@+id/trigger_preview_toggle"
-  					android:text="Preview"
-  					android:paddingLeft="10dip"
-  					android:clickable="true"
-  					android:focusable="true"/>
-  				<TextView
-  					android:id="@+id/trigger_match_preview"
-  					android:layout_marginRight="10dip"
-  					android:layout_width="0dip"
-  					android:layout_weight="1"
-  					android:textColor="@color/chrome_title_text"
-  					android:textSize="13sp"
-  					android:fontFamily="monospace"
-  					android:background="@color/chrome_preview"
-  					android:padding="6dip"
-  					android:text="Enter a pattern to preview what the trigger watches for."/>
-  			</TableRow>
   		</TableLayout>
+  		<!-- Outside the TableLayout: TableRow ignores maxLines, so a long
+  		     one-line regex grew this cell to the full dialog and buried
+  		     New Action. Fold is applied in TriggerEditorDialog. -->
+  		<TextView
+  			android:id="@+id/trigger_preview_toggle"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:paddingLeft="10dip"
+  			android:paddingRight="10dip"
+  			android:paddingTop="8dip"
+  			android:paddingBottom="4dip"
+  			android:text="Preview"
+  			android:textColor="@color/chrome_section_text"
+  			android:clickable="true"
+  			android:focusable="true"/>
+  		<TextView
+  			android:id="@+id/trigger_match_preview"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:layout_marginLeft="10dip"
+  			android:layout_marginRight="10dip"
+  			android:textColor="@color/chrome_title_text"
+  			android:textSize="13sp"
+  			android:fontFamily="monospace"
+  			android:background="@color/chrome_preview"
+  			android:padding="6dip"
+  			android:maxLines="6"
+  			android:ellipsize="end"
+  			android:text="Enter a pattern to preview what the trigger watches for."/>
   		<LinearLayout
   			android:layout_width="match_parent"
   			android:layout_height="wrap_content"
@@ -220,20 +230,21 @@
   			android:clipChildren="true"
   			android:clipToPadding="true"
   			android:orientation="vertical"/>
-  		<!-- paddingBottom on the list is a gap after the last Closed box so a
-  		     48dp checkbox target cannot cover this button. See editor_action_row. -->
-  		<Button
-  			android:id="@+id/trigger_new_notification"
-  			android:layout_width="match_parent"
-  			android:layout_height="wrap_content"
-  			android:layout_marginLeft="10dip"
-  			android:layout_marginRight="10dip"
-  			android:layout_marginTop="4dip"
-  			android:layout_marginBottom="8dip"
-  			android:text="New Action"/>
+  		<!-- paddingBottom: gap after the last Closed box. New Action is
+  		     pinned below this ScrollView so a long preview cannot bury it. -->
   	</LinearLayout>
   	
   </ScrollView>
+
+  <Button
+  	android:id="@+id/trigger_new_notification"
+  	android:layout_width="match_parent"
+  	android:layout_height="wrap_content"
+  	android:layout_marginLeft="10dip"
+  	android:layout_marginRight="10dip"
+  	android:layout_marginTop="4dip"
+  	android:layout_marginBottom="4dip"
+  	android:text="New Action"/>
 
   <LinearLayout
   	android:id="@+id/editor_button_bar"
