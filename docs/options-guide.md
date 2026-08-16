@@ -118,7 +118,7 @@ them. Reconnect after changing any of these:
 
 | Option | Default | What it does |
 |--------|---------|----------------|
-| **Use MTTS?** | **on** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI` → `MTTS <bits>`. On = bits **13** (ANSI+UTF-8+256); off = bits **1** (ANSI only) |
+| **Use MTTS?** | **on** | TTYPE always follows [MTTS](https://mudstandards.org/mud/mtts): name → `ANSI-256COLOR` (or `ANSI` if off) → `MTTS <bits>`. On = bits **13** (ANSI+UTF-8+256); off = bits **1** (ANSI only). Reconnect after changing. |
 | **Use MSDP?** | off | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
 | **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
 | **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |

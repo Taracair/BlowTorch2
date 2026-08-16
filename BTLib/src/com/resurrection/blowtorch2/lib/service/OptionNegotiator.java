@@ -45,6 +45,16 @@ public class OptionNegotiator {
 	 * @see <a href="https://mudstandards.org/mud/mtts">MUD Terminal Type Standard</a>
 	 */
 	private static final int MTTS_BITS = 1 | 4 | 8;
+	/** MTTS bit 8 — 256 COLORS. */
+	private static final int MTTS_256_COLORS = 8;
+	/**
+	 * Second TTYPE when 256 colours are advertised. Plain {@code ANSI} means
+	 * 16-colour only in the MTTS terminal-type table; Evennia and KaVir-style
+	 * handlers that look at this reply (or {@code *-256COLOR}) otherwise never
+	 * send {@code CSI 38;5;n m}.
+	 */
+	private static final String TTYPE_ANSI = "ANSI";
+	private static final String TTYPE_ANSI_256COLOR = "ANSI-256COLOR";
 	/** Tracker for the configured number of columns for NAWS. */
 	private int mColumns = DEFAULT_COLS;
 	/** Tracker for the configured number of rows for NAWS. */
@@ -86,12 +96,16 @@ public class OptionNegotiator {
 
 	private void rebuildTermTypes() {
 		String primary = (mTermType != null && mTermType.length() > 0) ? mTermType : "BlowTorch";
-		// Always use the MTTS three-reply cycle (name → ANSI → MTTS <bits>).
+		// MTTS cycle: name → terminal type → MTTS <bits>, last reply repeats.
 		// Use MTTS? selects full capability bits (13) vs ANSI-only (1).
+		// Measured 16 Aug 2026: second reply used to be "ANSI" even when bits
+		// included 256 colours. Servers that never parse the bitvector (and
+		// Evennia's step-2 name check) then treated us as 16-colour-only.
 		final int bits = mUseMTTS ? MTTS_BITS : 1;
+		final String term = (bits & MTTS_256_COLORS) != 0 ? TTYPE_ANSI_256COLOR : TTYPE_ANSI;
 		mTermTypes = new String[] {
 				primary,
-				"ANSI",
+				term,
 				"MTTS " + bits
 		};
 		mTermTypeAttempt = 0;
@@ -157,6 +171,10 @@ public class OptionNegotiator {
 	    			// does not. Refusing left the password on screen and in the log.
 	    			response = IAC_DO;
 	    			mServerEcho = true;
+	    			break;
+	    		case TC.TELOPT_EOR:
+	    			// RFC 885: we agree to receive IAC EOR as a prompt marker.
+	    			response = IAC_DO;
 	    			break;
 	    		default:
 	    			response = IAC_DONT;

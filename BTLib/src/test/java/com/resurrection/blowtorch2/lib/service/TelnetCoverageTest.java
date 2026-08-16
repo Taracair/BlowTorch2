@@ -163,6 +163,26 @@ public class TelnetCoverageTest {
 				neg.isServerEcho());
 	}
 
+	@Test
+	public void eor_willIsAnsweredWithDo() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+
+		byte[] resp = neg.processCommand(TC.IAC, TC.WILL, TC.TELOPT_EOR);
+
+		assertEquals(TC.IAC, resp[0]);
+		assertEquals(TC.DO, resp[1]);
+		assertEquals(TC.TELOPT_EOR, resp[2]);
+	}
+
+	@Test
+	public void eor_unknownWillStillRefused() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+		byte opt = 99;
+		byte[] resp = neg.processCommand(TC.IAC, TC.WILL, opt);
+		assertEquals(TC.DONT, resp[1]);
+		assertEquals(opt, resp[2]);
+	}
+
 	// ---- MSSP (one-way: server announces, we cache) -------------------------
 
 	@Test

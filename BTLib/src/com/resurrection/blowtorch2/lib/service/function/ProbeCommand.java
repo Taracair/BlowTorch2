@@ -25,6 +25,12 @@ public class ProbeCommand extends SpecialCommand {
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim().toLowerCase(Locale.US);
 
+		if (arg.equals("truecolor") || arg.equals("colour") || arg.equals("color")
+				|| arg.equals("colours") || arg.equals("colors")) {
+			c.sendDataToWindow(truecolorSample());
+			return null;
+		}
+
 		// What this phone's sensors are, and what they deliver to the service
 		// process. Both halves are unknowable from the code: sensor hardware
 		// differs by model, and responders do not run in the UI process.
@@ -120,7 +126,53 @@ public class ProbeCommand extends SpecialCommand {
 				+ ".probe sensors shake 10 — sample movement for 10 seconds\n"
 				+ ".probe sensors light 10 — how bright the room is, in lux\n\n"
 				+ "Those two answer a different question: which sensor readings\n"
-				+ "this device could support, and how hard a shake has to be here.\n"));
+				+ "this device could support, and how hard a shake has to be here.\n\n"
+				+ ".probe truecolor   — dump a 24-bit RGB sample into this window\n"
+				+ "                    (also .probe color). Does not wait for a MUD.\n"));
 		return null;
+	}
+
+	/**
+	 * A known 24-bit gradient plus a 256-colour strip, so the phone can show
+	 * whether {@code CSI 38;2;r;g;b} draws as a smooth ramp.
+	 */
+	static String truecolorSample() {
+		String reset = Colorizer.getResetColor();
+		StringBuilder out = new StringBuilder();
+		out.append("\n").append(Colorizer.getBrightCyanColor())
+				.append("Truecolor probe (CSI 38;2;r;g;b). Smooth ramp = 24-bit; bands = fallback.")
+				.append(reset).append("\n");
+		out.append("Red→yellow: ");
+		for (int i = 0; i <= 24; i++) {
+			int g = (i * 255) / 24;
+			out.append(csiTruecolor(255, g, 0)).append("█");
+		}
+		out.append(reset).append("\n");
+		out.append("Green→cyan: ");
+		for (int i = 0; i <= 24; i++) {
+			int b = (i * 255) / 24;
+			out.append(csiTruecolor(0, 255, b)).append("█");
+		}
+		out.append(reset).append("\n");
+		out.append("Blue→magenta: ");
+		for (int i = 0; i <= 24; i++) {
+			int r = (i * 255) / 24;
+			out.append(csiTruecolor(r, 0, 255)).append("█");
+		}
+		out.append(reset).append("\n");
+		out.append("256-colour cube (38;5) for comparison: ");
+		for (int n = 16; n <= 51; n++) {
+			out.append("\u001B[38;5;").append(n).append("m█");
+		}
+		out.append(reset).append("\n");
+		out.append("Orange 38;2;255;128;0: ")
+				.append(csiTruecolor(255, 128, 0))
+				.append("this sentence")
+				.append(reset).append("\n");
+		return out.toString();
+	}
+
+	private static String csiTruecolor(final int r, final int g, final int b) {
+		return "\u001B[38;2;" + r + ";" + g + ";" + b + "m";
 	}
 }

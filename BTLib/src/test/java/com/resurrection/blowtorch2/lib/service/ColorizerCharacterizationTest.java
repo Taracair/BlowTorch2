@@ -82,6 +82,29 @@ public class ColorizerCharacterizationTest {
 		assertTrue(c232 != c255);
 	}
 
+	/**
+	 * xterm cube: {@code 16 + 36*r + 6*g + b} with channel levels
+	 * 0, 95, 135, 175, 215, 255. Grey ramp 232–255 is {@code 8 + 10*i}.
+	 * Do not retune the table by eye — this is the published formula.
+	 */
+	@Test
+	public void xterm256CubeAndGreyMatchPublishedFormula() {
+		final int[] levels = { 0x00, 0x5F, 0x87, 0xAF, 0xD7, 0xFF };
+		for (int n = 16; n <= 231; n++) {
+			int i = n - 16;
+			int r = i / 36;
+			int g = (i / 6) % 6;
+			int b = i % 6;
+			int expect = 0xFF000000 | (levels[r] << 16) | (levels[g] << 8) | levels[b];
+			assertEquals("cube index " + n, expect, Colorizer.get256ColorValue(n));
+		}
+		for (int n = 232; n <= 255; n++) {
+			int v = 8 + (n - 232) * 10;
+			int expect = 0xFF000000 | (v << 16) | (v << 8) | v;
+			assertEquals("grey index " + n, expect, Colorizer.get256ColorValue(n));
+		}
+	}
+
 	@Test
 	public void getColorValueCharSequenceDelegates() {
 		int c = Colorizer.getColorValue("0", "31", false);
@@ -110,6 +133,12 @@ public class ColorizerCharacterizationTest {
 		String raw = "$ Dia                  \u001b[38;5;171madmin  !  pvp 52m    Distracted";
 		assertEquals("$ Dia                  admin  !  pvp 52m    Distracted",
 				Colorizer.stripAnsiEscapes(raw));
+	}
+
+	@Test
+	public void stripAnsiEscapesXterm256ColonForm() {
+		assertEquals("orange",
+				Colorizer.stripAnsiEscapes("\u001b[38:5:208morange\u001b[0m"));
 	}
 
 	@Test

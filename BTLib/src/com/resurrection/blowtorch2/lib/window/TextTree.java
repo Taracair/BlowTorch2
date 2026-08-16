@@ -254,64 +254,105 @@ public class TextTree {
 		this.mLines = mLines;
 	}
 
-	private static ArrayList<Integer> placeMap = new ArrayList<Integer>();
-	
+	/**
+	 * Split an SGR byte sequence ({@code ESC [ … m}) into the integer ops
+	 * {@link com.resurrection.blowtorch2.lib.window.Window} walks.
+	 *
+	 * <p>{@code ;} separates parameters; {@code :} separates subparameters
+	 * (ITU T.416 / ISO-8613-6). Both {@code CSI 38;5;n m} and {@code CSI 38:5:n m}
+	 * become {@code 38, 5, n}. Truecolor {@code CSI 38:2::r:g:b m} drops the
+	 * empty colorspace slot and becomes {@code 38, 2, r, g, b}, the same shape
+	 * as the xterm semicolon form the draw path already understands.
+	 */
 	private static LinkedList<Integer> getOperationsFromBytes(byte[] in) {
-		LinkedList<Integer> tmp = new LinkedList<Integer>();
-		int working = 0;
-		int place = 1;
-		placeMap.clear();
-		for(int i=0;i<in.length;i++) {
-			switch(in[i]) {
-			case SEMI:
-				//reset 
-				
-				int finalVal = 0;
-				for(int j=0;j<placeMap.size();j++) {
-					finalVal += placeMap.get(j) * Math.pow(10, placeMap.size()-1-j);
+		ArrayList<ArrayList<Integer>> params = new ArrayList<ArrayList<Integer>>();
+		ArrayList<Integer> current = new ArrayList<Integer>();
+		ArrayList<Integer> digits = new ArrayList<Integer>();
+		boolean sawDigit = false;
+		for (int i = 0; i < in.length; i++) {
+			byte b = in[i];
+			if (b >= b0 && b <= b9) {
+				digits.add(Integer.valueOf(getAsciiNumber(b)));
+				sawDigit = true;
+			} else if (b == COLON) {
+				current.add(sawDigit ? Integer.valueOf(digitsToInt(digits)) : null);
+				digits.clear();
+				sawDigit = false;
+			} else if (b == SEMI || b == m) {
+				current.add(sawDigit ? Integer.valueOf(digitsToInt(digits)) : null);
+				digits.clear();
+				sawDigit = false;
+				params.add(current);
+				current = new ArrayList<Integer>();
+				if (b == m) {
+					break;
 				}
-				placeMap.clear();
-				tmp.addLast(new Integer(finalVal));
-				working = 0;
-				place = 1;
-				break;
-			case m:
-				finalVal = 0;
-				for(int j=0;j<placeMap.size();j++) {
-					finalVal += placeMap.get(j) * Math.pow(10, placeMap.size()-1-j);
-				}
-				placeMap.clear();
-				
-				tmp.addLast(new Integer(finalVal));
-				//tmp.addLast(new Integer(working));
-				bleedColor = tmp;
-				return tmp;
-				//end
-			case b0:
-			case b1:
-			case b2:
-			case b3:
-			case b4:
-			case b5:
-			case b6:
-			case b7:
-			case b8:
-			case b9:
-				placeMap.add(new Integer(getAsciiNumber(in[i])));
-				
-				working = working*place;
-				place = place*10;
-				working += getAsciiNumber(in[i]);
-				break;
-			case ESC:
-			case BRACKET:
-				break;
-			default:
-				break;
 			}
 		}
-		
+		LinkedList<Integer> tmp = expandSgrParams(params);
+		bleedColor = tmp;
 		return tmp;
+	}
+
+	private static int digitsToInt(ArrayList<Integer> digits) {
+		int v = 0;
+		for (int i = 0; i < digits.size(); i++) {
+			v = v * 10 + digits.get(i).intValue();
+		}
+		return v;
+	}
+
+	private static int sgrInt(Integer value) {
+		return value == null ? 0 : value.intValue();
+	}
+
+	/**
+	 * Flatten semicolon parameters / colon subparameters into the linear op
+	 * list Window's register machine consumes.
+	 */
+	private static LinkedList<Integer> expandSgrParams(ArrayList<ArrayList<Integer>> params) {
+		LinkedList<Integer> out = new LinkedList<Integer>();
+		for (int p = 0; p < params.size(); p++) {
+			ArrayList<Integer> group = params.get(p);
+			if (group.isEmpty()) {
+				out.addLast(Integer.valueOf(0));
+				continue;
+			}
+			int code = sgrInt(group.get(0));
+			if ((code == 38 || code == 48) && group.size() > 1) {
+				int mode = sgrInt(group.get(1));
+				if (mode == 5) {
+					int idx = group.size() > 2 ? sgrInt(group.get(2)) : 0;
+					out.addLast(Integer.valueOf(code));
+					out.addLast(Integer.valueOf(5));
+					out.addLast(Integer.valueOf(idx));
+					continue;
+				}
+				if (mode == 2) {
+					int i = 2;
+					while (i < group.size() && group.get(i) == null) {
+						i++;
+					}
+					// T.416: optional colorspace id before R,G,B.
+					if (group.size() - i >= 4) {
+						i++;
+					}
+					int r = i < group.size() ? sgrInt(group.get(i)) : 0;
+					int g = i + 1 < group.size() ? sgrInt(group.get(i + 1)) : 0;
+					int b = i + 2 < group.size() ? sgrInt(group.get(i + 2)) : 0;
+					out.addLast(Integer.valueOf(code));
+					out.addLast(Integer.valueOf(2));
+					out.addLast(Integer.valueOf(r));
+					out.addLast(Integer.valueOf(g));
+					out.addLast(Integer.valueOf(b));
+					continue;
+				}
+			}
+			for (int s = 0; s < group.size(); s++) {
+				out.addLast(Integer.valueOf(sgrInt(group.get(s))));
+			}
+		}
+		return out;
 	}
 	
 	private static int getAsciiNumber(byte b) {
@@ -351,6 +392,8 @@ public class TextTree {
 	//private final byte CARRIAGE = (byte)0x0D;
 	private final static byte m = (byte)0x6D;
 	private final static byte SEMI = (byte)0x3B;
+	/** ITU T.416 / ISO-8613-6 SGR subparameter separator. */
+	private final static byte COLON = (byte)0x3A;
 	
 	private final static byte b0 = (byte)0x30;
 	private final static byte b1 = (byte)0x31;

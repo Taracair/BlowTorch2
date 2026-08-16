@@ -1404,7 +1404,7 @@ public final class Colorizer {
 	private static HashMap<CharSequence, Integer> colormap = new HashMap<CharSequence, Integer>();
 	static
 	{
-		for (int i = 0; i < BYTE_MAX; i++) {
+		for (int i = 0; i <= BYTE_MAX; i++) {
 			colormap.put(Integer.toString(i), i);
 		}
 		
@@ -1832,15 +1832,16 @@ public final class Colorizer {
 	}
 
 	/**
-	 * CSI sequences ({@code ESC [ … final}) with digit/semicolon params and a
-	 * letter final — the same shape SessionLogger used, covering typical MUD
-	 * SGR/erase/cursor CSI. {@code TextTree} also swallows private sequences
-	 * (e.g. {@code ESC[?25h}) that this pattern leaves alone.
+	 * CSI sequences ({@code ESC [ … final}) with digit/semicolon/colon params
+	 * and a letter final — the same shape SessionLogger used, covering typical
+	 * MUD SGR/erase/cursor CSI including T.416 colon subparameters.
+	 * {@code TextTree} also swallows private sequences (e.g. {@code ESC[?25h})
+	 * that this pattern leaves alone.
 	 *
 	 * <p>Must not share a static Matcher: concurrent {@code reset}/{@code
 	 * replaceAll} corrupts the result (leftover ESC, or {@code IndexOutOfBoundsException}).
 	 */
-	private static final Pattern COLOR_PATTERN = Pattern.compile("\\u001B\\[[0-9;]*[A-Za-z]");
+	private static final Pattern COLOR_PATTERN = Pattern.compile("\\u001B\\[[0-9;:]*[A-Za-z]");
 
 	/**
 	 * Strip ANSI CSI escape sequences from {@code input}.

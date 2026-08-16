@@ -361,7 +361,7 @@ capture (or GMCP on worlds that send it), not this.
 shape. A prompt is a line the world never finishes: no newline follows it, which
 is why your cursor sits on it. The client already holds an unfinished line back
 so that a trigger cannot cut one in half, so it knows exactly which line that is.
-Where a world marks its prompts with `IAC GA`, the bar updates the instant the
+Where a world marks its prompts with `IAC GA` or `IAC EOR`, the bar updates the instant the
 prompt arrives.
 
 **If the bar stays empty**, `.prompt` on its own prints `Prompts seen: N`. At
@@ -618,13 +618,13 @@ is enabled (`.trigger on combat_mode`).
 pattern box and the trigger watches for that alias's *text* instead of the name.
 Edit the alias later and every trigger using it follows at once.
 
-    Alias   _tappable1 → circuit
-    Pattern `_tappable1`
+    Alias   item → circuit
+    Pattern `item`
     Matches the word `circuit` in the game text
 
 To use one **inside a longer pattern**, write `$alias{name}`:
 
-    Pattern `You see a $alias{_tappable1} here\.`
+    Pattern `You see a $alias{item} here\.`
     Matches `You see a circuit here.`
 
 Both work in Literal and regex mode — in regex mode the alias's text is pasted
@@ -2357,8 +2357,8 @@ on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 ```
 
 **Use MTTS?** — TTYPE always follows the MUD Terminal Type Standard
-(`BlowTorch` → `ANSI` → `MTTS <bits>`). On = bits **13** (ANSI+UTF-8+256);
-off = bits **1** (ANSI only).
+(`BlowTorch` → `ANSI-256COLOR` → `MTTS 13` when on; `ANSI` → `MTTS 1` when
+off). Reconnect after changing so the MUD sees the new advertisement.
 
 **Use MCCP?** — MUD Client Compression Protocol v2 (telnet option 86), on by
 default; it saves bandwidth and you should not be able to tell it is there. If

@@ -109,6 +109,13 @@ public final class TC {
 	public static final byte CARRIAGE = (byte) 0x0D;
 	/** The GOAHEAD byte. */
 	public static final byte GOAHEAD = (byte) 0xF9;
+	/**
+	 * IAC EOR (RFC 885, 239). End-of-record; MUDs use it like GA to mark a
+	 * prompt that has no trailing newline.
+	 */
+	public static final byte EOR = (byte) 0xEF;
+	/** Telnet option EOR (25). Server WILL, we DO, then IAC EOR arrives in-band. */
+	public static final byte TELOPT_EOR = 25;
 	/** The IP Byte. */
 	public static final byte IP = (byte) 0xF4;
 	/** The BELL byte. */
@@ -198,6 +205,12 @@ public final class TC {
 			break;
 		case TC.MSSP:
 			output = "MSSP";
+			break;
+		case TC.EOR:
+			output = "EOR";
+			break;
+		case TC.TELOPT_EOR:
+			output = "TELOPT-EOR";
 			break;
 			
 		//many more types.
