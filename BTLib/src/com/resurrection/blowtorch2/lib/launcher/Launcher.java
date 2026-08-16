@@ -410,6 +410,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			launcherSaveEnabled = true;
 			saveXML();
 		}
+		if (BuiltinColorTestWorlds.seedIfNeeded(this, launcher_settings)) {
+			launcherSaveEnabled = true;
+			saveXML();
+		}
 		
 		//by here we should have a completly populated list and settings
 		//check version code.
