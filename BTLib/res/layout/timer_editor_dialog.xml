@@ -267,7 +267,12 @@
   			android:layout_height="wrap_content"
   			android:layout_marginLeft="10dip"
   			android:layout_marginRight="10dip"
+  			android:paddingBottom="12dip"
+  			android:clipChildren="true"
+  			android:clipToPadding="true"
   			android:orientation="vertical"/>
+  		<!-- paddingBottom on the list is a gap after the last Closed box so a
+  		     48dp checkbox target cannot cover this button. See editor_action_row. -->
   		<Button
   			android:id="@+id/timer_new_notification"
   			android:layout_width="match_parent"

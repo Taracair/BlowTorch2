@@ -94,8 +94,11 @@
   			</TableRow>
   			<TableRow>
   				<TextView
-  					android:text="Preview:"
-  					android:paddingLeft="10dip"/>
+  					android:id="@+id/trigger_preview_toggle"
+  					android:text="Preview"
+  					android:paddingLeft="10dip"
+  					android:clickable="true"
+  					android:focusable="true"/>
   				<TextView
   					android:id="@+id/trigger_match_preview"
   					android:layout_marginRight="10dip"
@@ -213,7 +216,12 @@
   			android:layout_height="wrap_content"
   			android:layout_marginLeft="10dip"
   			android:layout_marginRight="10dip"
+  			android:paddingBottom="12dip"
+  			android:clipChildren="true"
+  			android:clipToPadding="true"
   			android:orientation="vertical"/>
+  		<!-- paddingBottom on the list is a gap after the last Closed box so a
+  		     48dp checkbox target cannot cover this button. See editor_action_row. -->
   		<Button
   			android:id="@+id/trigger_new_notification"
   			android:layout_width="match_parent"

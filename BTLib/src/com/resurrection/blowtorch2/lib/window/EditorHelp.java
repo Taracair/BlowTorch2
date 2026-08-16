@@ -209,10 +209,15 @@ public final class EditorHelp {
 	public static final String TRIGGER_EDITOR_CONDITIONS =
 			"CONDITIONS\n"
 			+ "An extra gate after the pattern matches, not a replacement for it. "
-			+ "Empty means always fire. Example: Only if trigger is ON + pick _cerb "
-			+ "→ responders run only while _cerb is enabled. Only if trigger is OFF "
-			+ "does the opposite. Variables are session sticky notes (Set Variable / "
-			+ "${name}), not pattern syntax.";
+			+ "Empty means always fire. Example: Only if trigger is ON + pick "
+			+ "combat_mode → responders run only while the combat_mode trigger is "
+			+ "enabled. Only if trigger is OFF does the opposite. Variables are "
+			+ "session sticky notes (Set Variable / ${name}), not pattern syntax.\n\n"
+			+ "OPEN AND CLOSED\n"
+			+ "Each action has Open and Closed. Open runs it while the game window "
+			+ "is on screen. Closed runs it while the window is in the background "
+			+ "(Keep connection in background). Tick both to always run. Tick "
+			+ "neither and that action never fires.";
 
 	public static final String TIMERS =
 			"A timer waits, then runs its actions. Nothing has to happen in the game "

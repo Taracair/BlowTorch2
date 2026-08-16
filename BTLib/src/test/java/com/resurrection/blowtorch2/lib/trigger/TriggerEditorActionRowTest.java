@@ -61,6 +61,57 @@ public class TriggerEditorActionRowTest {
 	@Test
 	public void editorHelpMergesPatternAndConditions() {
 		assertTrue(TriggerEditorDialog.PATTERN_HELP_TEXT.contains("LITERAL?"));
-		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("_cerb"));
+		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("combat_mode"));
+		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("OPEN AND CLOSED"));
+	}
+
+	@Test
+	public void confineFireWhenCheckBoxesToleratesNull() {
+		TriggerEditorDialog.confineFireWhenCheckBoxes(null, null);
+	}
+
+	@Test
+	public void actionRowXmlCapsCheckBoxAndPadsTheListBeforeNewAction() throws Exception {
+		java.io.File layouts = layoutDir();
+		String row = read(new java.io.File(layouts, "editor_action_row.xml"));
+		assertTrue("CheckBox must drop the 40dp Material control ripple",
+				row.contains("android:background=\"@null\""));
+		assertTrue("each fire-when box needs its own clip wrapper",
+				row.contains("android:clipChildren=\"true\""));
+		assertTrue("height cap, not wrap_content + minHeight (that still grows)",
+				row.contains("android:layout_height=\"28dip\""));
+
+		String trigger = read(new java.io.File(layouts, "trigger_editor_dialog.xml"));
+		assertTrue(actionListPadsBeforeNewAction(trigger, "trigger_action_list"));
+		String timer = read(new java.io.File(layouts, "timer_editor_dialog.xml"));
+		assertTrue(actionListPadsBeforeNewAction(timer, "timer_action_list"));
+	}
+
+	private static boolean actionListPadsBeforeNewAction(String xml, String listId) {
+		int list = xml.indexOf("android:id=\"@+id/" + listId + "\"");
+		int button = xml.indexOf("android:text=\"New Action\"");
+		if (list < 0 || button < 0 || button < list) {
+			return false;
+		}
+		return xml.substring(list, button).contains("android:paddingBottom=\"12dip\"");
+	}
+
+	private static java.io.File layoutDir() {
+		java.io.File[] candidates = new java.io.File[] {
+				new java.io.File("res/layout"),
+				new java.io.File("BTLib/res/layout"),
+		};
+		for (java.io.File dir : candidates) {
+			if (new java.io.File(dir, "editor_action_row.xml").isFile()) {
+				return dir;
+			}
+		}
+		throw new AssertionError("editor_action_row.xml not found from "
+				+ new java.io.File(".").getAbsolutePath());
+	}
+
+	private static String read(java.io.File file) throws java.io.IOException {
+		return new String(java.nio.file.Files.readAllBytes(file.toPath()),
+				java.nio.charset.StandardCharsets.UTF_8);
 	}
 }

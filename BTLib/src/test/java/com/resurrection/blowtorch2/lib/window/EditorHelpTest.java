@@ -21,8 +21,11 @@ public class EditorHelpTest {
 	@Test
 	public void triggerEditorConditionsEssayHasTheCanvasExample() {
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("CONDITIONS"));
-		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("_cerb"));
+		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("combat_mode"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("An extra gate"));
 		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("${name}"));
+		assertTrue(EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("OPEN AND CLOSED"));
+		assertTrue("help must not name a profile-private trigger",
+				!EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("_cerb"));
 	}
 }

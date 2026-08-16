@@ -4,11 +4,21 @@
   One EXECUTE ACTIONS row: type + one-line summary + trash. Tap the text to
   open the action editor. Window Open / Window Closed stay on the row (hybrid)
   because none of the responder editors expose fire-when.
+
+  Touch slop: AppCompat v21 CheckBox parents android:Widget.Material.CompoundButton.CheckBox,
+  whose background is a 20dp-radius ripple (40dp across). wrap_content + minHeight 28dip
+  does not cap that; a 48dp accessibility delegate on Closed of the last row then sits
+  11dip above New Action (6dip row pad + 1dip divider + 4dip button margin) and eats the
+  top of the button — "not pressable everywhere". Each box is height-capped, ripple
+  stripped, and wrapped so a TouchDelegate cannot outlive the wrapper. The action list
+  still adds paddingBottom as a sacrificial gap before New Action.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 	android:layout_width="match_parent"
 	android:layout_height="wrap_content"
-	android:orientation="vertical">
+	android:orientation="vertical"
+	android:clipChildren="true"
+	android:clipToPadding="true">
 
 	<RelativeLayout
 		android:id="@+id/action_row"
@@ -18,6 +28,8 @@
 		android:paddingTop="6dip"
 		android:paddingBottom="6dip"
 		android:paddingRight="4dip"
+		android:clipChildren="true"
+		android:clipToPadding="true"
 		android:background="@drawable/editor_row_selector">
 
 		<LinearLayout
@@ -29,39 +41,60 @@
 			android:layout_alignParentRight="true"
 			android:gravity="center_vertical|right"
 			android:orientation="horizontal"
+			android:clipChildren="true"
 			android:paddingLeft="4dip">
 
 			<LinearLayout
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
 				android:orientation="vertical"
-				android:gravity="left|center_vertical">
+				android:gravity="left|center_vertical"
+				android:clipChildren="true">
 
-				<CheckBox
-					android:id="@+id/action_row_open"
+				<!-- Own wrapper so a 48dp TouchDelegate cannot be installed on a
+				     parent that also contains New Action. Events outside the
+				     wrapper never reach the delegate. -->
+				<FrameLayout
 					android:layout_width="wrap_content"
 					android:layout_height="wrap_content"
-					android:minHeight="28dip"
-					android:minWidth="0dip"
-					android:padding="0dip"
-					android:text="Open"
-					android:textSize="11sp"
-					android:textColor="@color/chrome_chip_text"
-					android:focusable="true"
-					android:clickable="true"/>
+					android:clipChildren="true"
+					android:clipToPadding="true">
+					<CheckBox
+						android:id="@+id/action_row_open"
+						android:layout_width="wrap_content"
+						android:layout_height="28dip"
+						android:minHeight="0dip"
+						android:minWidth="0dip"
+						android:padding="0dip"
+						android:background="@null"
+						android:text="Open"
+						android:textSize="11sp"
+						android:includeFontPadding="false"
+						android:textColor="@color/chrome_chip_text"
+						android:focusable="true"
+						android:clickable="true"/>
+				</FrameLayout>
 
-				<CheckBox
-					android:id="@+id/action_row_closed"
+				<FrameLayout
 					android:layout_width="wrap_content"
 					android:layout_height="wrap_content"
-					android:minHeight="28dip"
-					android:minWidth="0dip"
-					android:padding="0dip"
-					android:text="Closed"
-					android:textSize="11sp"
-					android:textColor="@color/chrome_chip_text"
-					android:focusable="true"
-					android:clickable="true"/>
+					android:clipChildren="true"
+					android:clipToPadding="true">
+					<CheckBox
+						android:id="@+id/action_row_closed"
+						android:layout_width="wrap_content"
+						android:layout_height="28dip"
+						android:minHeight="0dip"
+						android:minWidth="0dip"
+						android:padding="0dip"
+						android:background="@null"
+						android:text="Closed"
+						android:textSize="11sp"
+						android:includeFontPadding="false"
+						android:textColor="@color/chrome_chip_text"
+						android:focusable="true"
+						android:clickable="true"/>
+				</FrameLayout>
 			</LinearLayout>
 
 			<ImageButton

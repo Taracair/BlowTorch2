@@ -26,6 +26,7 @@ import android.text.util.Linkify;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -71,6 +72,11 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 
 	private LinearLayout actionList;
 	private TableLayout conditionsTable;
+	/** Player opened a long preview; stay open while they type. */
+	private boolean mPreviewExpandedByUser;
+
+	/** Fold the match preview when it has more than this many lines. */
+	static final int PREVIEW_COLLAPSE_AFTER_LINES = 6;
 	
 	private TriggerData the_trigger;
 	private TriggerData original_trigger;
@@ -428,9 +434,20 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		};
 		pattern.addTextChangedListener(watcher);
 		title.addTextChangedListener(watcher);
+		final TextView toggle = (TextView) findViewById(R.id.trigger_preview_toggle);
+		if (toggle != null) {
+			toggle.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					if (shouldCollapsePreview(preview.getText())) {
+						mPreviewExpandedByUser = !mPreviewExpandedByUser;
+						applyPreviewFold(preview);
+					}
+				}
+			});
+		}
 		updateTriggerPreview(title, pattern, literal, preview);
 	}
-	
+
 	private void updateTriggerPreview(EditText title, EditText pattern, CheckBox literal, TextView preview) {
 		String patternText = pattern.getText().toString();
 		com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture gesture =
@@ -442,19 +459,51 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 							getContext(), gesture);
 			preview.setText(gesture.getHelp() + "\n\nOn this phone: " + r.describe()
 					+ "\nTry it without moving the phone: .sensor fire " + gesture.getId());
-			return;
-		}
-		if (patternText.trim().length() == 0) {
+		} else if (patternText.trim().length() == 0) {
 			preview.setText("Enter a pattern to preview what the trigger watches for.");
+		} else {
+			String name = title.getText().toString().trim();
+			String mode = literal.isChecked() ? "literal text" : "regular expression";
+			String header = name.length() > 0 ? ("Trigger «" + name + "» watches server output for:\n") : "Watches server output for:\n";
+			StringBuilder out = new StringBuilder();
+			out.append(header).append("«").append(patternText).append("»\n(mode: ").append(mode).append(")");
+			out.append(patternStatus(patternText, literal.isChecked()));
+			preview.setText(out.toString());
+		}
+		applyPreviewFold(preview);
+	}
+
+	static int countPreviewLines(final CharSequence text) {
+		if (text == null || text.length() == 0) {
+			return 0;
+		}
+		int n = 1;
+		for (int i = 0; i < text.length(); i++) {
+			if (text.charAt(i) == '\n') {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	static boolean shouldCollapsePreview(final CharSequence text) {
+		return countPreviewLines(text) > PREVIEW_COLLAPSE_AFTER_LINES;
+	}
+
+	private void applyPreviewFold(final TextView preview) {
+		TextView toggle = (TextView) findViewById(R.id.trigger_preview_toggle);
+		boolean fold = shouldCollapsePreview(preview.getText());
+		if (!fold) {
+			preview.setVisibility(View.VISIBLE);
+			if (toggle != null) {
+				toggle.setText("Preview");
+			}
 			return;
 		}
-		String name = title.getText().toString().trim();
-		String mode = literal.isChecked() ? "literal text" : "regular expression";
-		String header = name.length() > 0 ? ("Trigger «" + name + "» watches server output for:\n") : "Watches server output for:\n";
-		StringBuilder out = new StringBuilder();
-		out.append(header).append("«").append(patternText).append("»\n(mode: ").append(mode).append(")");
-		out.append(patternStatus(patternText, literal.isChecked()));
-		preview.setText(out.toString());
+		if (toggle != null) {
+			toggle.setText(mPreviewExpandedByUser ? "Preview ▾" : "Preview ▸");
+		}
+		preview.setVisibility(mPreviewExpandedByUser ? View.VISIBLE : View.GONE);
 	}
 
 	/**
@@ -534,11 +583,11 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			+ "box says what was wrong.\n\n"
 			+ "USING AN ALIAS\n"
 			+ "Type an alias's name on its own and the trigger watches for that alias's "
-			+ "text instead of the name. So with an alias _tappable1 that types "
-			+ "circuit, a pattern of _tappable1 watches for the word circuit. Edit the "
+			+ "text instead of the name. So with an alias item that types "
+			+ "circuit, a pattern of item watches for the word circuit. Edit the "
 			+ "alias later and every trigger using it follows.\n\n"
 			+ "To use one inside a longer pattern, write $alias{name}:\n"
-			+ "    You see a $alias{_tappable1} here\\.\n\n"
+			+ "    You see a $alias{item} here\\.\n\n"
 			+ "The preview under the box always names the alias it found and the text "
 			+ "it will watch for.\n\n"
 			+ "FOUR ALIASES CANNOT BE USED\n"
@@ -838,8 +887,34 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			FIRE_WHEN fire = responder.getFireType();
 			windowOpen.setChecked(fire == FIRE_WHEN.WINDOW_OPEN || fire == FIRE_WHEN.WINDOW_BOTH);
 			windowClosed.setChecked(fire == FIRE_WHEN.WINDOW_CLOSED || fire == FIRE_WHEN.WINDOW_BOTH);
+			confineFireWhenCheckBoxes(windowOpen, windowClosed);
 
 			actionList.addView(row);
+		}
+	}
+
+	/**
+	 * Open/Closed have no other home, but AppCompat's Material CheckBox style
+	 * keeps a ~48dp target (20dp-radius ripple, theme minHeight). XML already
+	 * caps and wraps them; this strips whatever inflation put back so the last
+	 * Closed box cannot cover New Action.
+	 */
+	public static void confineFireWhenCheckBoxes(CheckBox open, CheckBox closed) {
+		confineFireWhenCheckBox(open);
+		confineFireWhenCheckBox(closed);
+	}
+
+	private static void confineFireWhenCheckBox(CheckBox box) {
+		if (box == null) {
+			return;
+		}
+		box.setMinHeight(0);
+		box.setMinWidth(0);
+		box.setBackground(null);
+		if (box.getParent() instanceof ViewGroup) {
+			ViewGroup wrapper = (ViewGroup) box.getParent();
+			wrapper.setClipChildren(true);
+			wrapper.setClipToPadding(true);
 		}
 	}
 
@@ -1268,7 +1343,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		if (opSpinner != null) {
 			ArrayAdapter<String> opAdapter = new ArrayAdapter<String>(getContext(),
 					R.layout.spinner_item_dark,
-					new String[] { "All (AND)", "Any (OR)" });
+					new String[] { "AND", "OR" });
 			opAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 			opSpinner.setAdapter(opAdapter);
 			opSpinner.setSelection(

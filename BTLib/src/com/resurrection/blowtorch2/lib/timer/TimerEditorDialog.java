@@ -516,6 +516,8 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			FIRE_WHEN fire = responder.getFireType();
 			windowOpen.setChecked(fire == FIRE_WHEN.WINDOW_OPEN || fire == FIRE_WHEN.WINDOW_BOTH);
 			windowClosed.setChecked(fire == FIRE_WHEN.WINDOW_CLOSED || fire == FIRE_WHEN.WINDOW_BOTH);
+			com.resurrection.blowtorch2.lib.trigger.TriggerEditorDialog.confineFireWhenCheckBoxes(
+					windowOpen, windowClosed);
 
 			actionList.addView(row);
 		}
@@ -716,7 +718,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		if (opSpinner != null) {
 			ArrayAdapter<String> opAdapter = new ArrayAdapter<String>(getContext(),
 					R.layout.spinner_item_dark,
-					new String[] { "All (AND)", "Any (OR)" });
+					new String[] { "AND", "OR" });
 			opAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item_dark);
 			opSpinner.setAdapter(opAdapter);
 			opSpinner.setSelection(
