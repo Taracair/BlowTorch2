@@ -247,6 +247,41 @@ for _, dir in ipairs(dirs) do
 	end
 end
 
+print("8. wrapAfter 3 with 7 children expand-up along → 3+3+1 packed lanes")
+centres = computeAccordionChildCentres(
+	540, 1200, TILE, TILE, "up", "along", 7, TILE, TILE, DENSITY,
+	VIEW_W, VIEW_H, STATUS, 3)
+check(#centres == 7, "wrapAfter 3 should still place all 7 on a tall view, got "
+	.. tostring(#centres))
+uniq, a, b = centresUnique(centres)
+check(uniq, "wrapAfter 3 collision")
+local xs, ys = {}, {}
+for i = 1, #centres do
+	local xk = string.format("%.0f", centres[i].x)
+	local yk = string.format("%.0f", centres[i].y)
+	xs[xk] = (xs[xk] or 0) + 1
+	ys[yk] = (ys[yk] or 0) + 1
+end
+local laneCount, firstLane = 0, 0
+for _, n in pairs(xs) do
+	laneCount = laneCount + 1
+	if n > firstLane then firstLane = n end
+end
+check(laneCount == 3, "expected 3 columns, got " .. tostring(laneCount))
+check(firstLane == 3, "longest column should be 3, got " .. tostring(firstLane))
+-- wrapAfter 0 keeps today's "as many as fit" on one lane when the view is tall
+centres = computeAccordionChildCentres(
+	540, 400, TILE, TILE, "down", "along", 7, TILE, TILE, DENSITY,
+	VIEW_W, VIEW_H, STATUS, 0)
+local xs0 = {}
+for i = 1, #centres do
+	xs0[string.format("%.0f", centres[i].x)] = true
+end
+local lanes0 = 0
+for _ in pairs(xs0) do lanes0 = lanes0 + 1 end
+check(lanes0 == 1, "wrapAfter 0 down+along on a tall view is one column, got "
+	.. tostring(lanes0))
+
 if failures > 0 then
 	print(string.format("FAILED (%d)", failures))
 	os.exit(1)

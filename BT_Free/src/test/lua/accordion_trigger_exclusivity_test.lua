@@ -33,10 +33,11 @@ local stop = findLine("^local function hasButtonSwitch", "hasButtonSwitch")
 local chunk = "local function hasButtonCommand(cmd) return cmd ~= nil and cmd ~= '' end\n"
 	.. table.concat(lines, "\n", first, stop - 1)
 	.. "\nreturn accordionOwnsTap, accordionOwnsHold, accordionOwnsSwipeDirection,"
-	.. " accordionParentFingerUpAction, resolveSwipeDirection, getSwipeCommand, classifySwipe\n"
+	.. " accordionParentFingerUpAction, resolveSwipeDirection, getSwipeCommand, classifySwipe,"
+	.. " gestureLabelFor, accordionDrawState\n"
 
 local loadfn = loadstring or load
-local ownsTap, ownsHold, ownsSwipe, fingerUp, resolveSwipeDirection, getSwipeCommand, classifySwipe =
+local ownsTap, ownsHold, ownsSwipe, fingerUp, resolveSwipeDirection, getSwipeCommand, classifySwipe, gestureLabelFor, drawState =
 	assert(loadfn(chunk, "accordion-exclusivity-extract"))()
 
 local failures = 0
@@ -102,6 +103,39 @@ check(fingerUp("hold", true, "down", false) == "tap_command",
 	"hold-trigger drift inside still allows tap command")
 check(fingerUp("hold", false, nil, false) == "flip_command",
 	"hold-trigger outside still flips")
+
+print("7. swipe-trigger does not flip; preview must not name flip")
+-- Old behaviour (pinned then changed): outside → flip_command, preview → "look".
+check(fingerUp("swipe", false, "left", false) == "none",
+	"swipe-trigger release outside must not flip")
+check(fingerUp("swipe", true, nil, false) == "tap_command",
+	"swipe-trigger inside still allows tap command")
+local flipPreview = {
+	accordionDirection = "down",
+	accordionTrigger = "swipe",
+	accordionChildren = { { label = "A", command = "a" } },
+	flipCommand = "look",
+	swipeDownCommand = "",
+}
+check(gestureLabelFor(flipPreview, nil, true) == nil,
+	"swipe-to-expand preview must not name flip")
+-- Opening swipe still does not resolve to a swipe command (test 4).
+-- Tap-trigger preview still names flip even though dispatch does not fire it
+-- (tap-open exclusivity); that mismatch is unchanged here.
+data.accordionTrigger = "swipe"
+data.flipCommand = "look"
+check(gestureLabelFor(data, nil, true) == nil,
+	"swipe-trigger with other swipe cmds still hides flip preview")
+data.accordionTrigger = "tap"
+check(gestureLabelFor(data, nil, true) == "look",
+	"tap-trigger outside still names flip in the preview")
+
+print("8. swipe-to-expand draw state stays pressed, not flip colours")
+check(drawState("swipe", true) == 1, "swipe-trigger inside is pressed")
+check(drawState("swipe", false) == 1, "swipe-trigger outside stays pressed (not flip)")
+check(drawState("tap", false) == 2, "tap-trigger outside still uses flip draw state")
+check(drawState("hold", false) == 2, "hold-trigger outside still uses flip draw state")
+check(drawState("tap", true) == 1, "tap-trigger inside is pressed")
 
 if failures > 0 then
 	print(string.format("FAILED (%d)", failures))

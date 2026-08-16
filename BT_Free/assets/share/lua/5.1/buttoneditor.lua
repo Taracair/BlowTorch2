@@ -64,6 +64,7 @@ local clickCmdEdit --click state command editor
 local flipLabelEdit --flip state label editor
 local flipCmdEdit --flip state command editor
 local flipSwipeNote
+local accordionFlipLockNote
 local holdCmdEdit
 local swipeUpCmdEdit
 local swipeDownCmdEdit
@@ -97,6 +98,7 @@ local accordionChildCmdEdits = {}
 -- ceiling (see gestureLabelCb). These two would push Done/show over the limit.
 accordionLockedSwipeEdits = {}
 harvestAccordionChildren = nil
+accordionWrapAfterEdit = nil
 
 --the rest are harvested from the advanced page editor
 local advancedEditor -- the shared advanced page editor loaded from module
@@ -133,19 +135,42 @@ local function anySwipeCommandSet()
 	return false
 end
 
+-- Swipe-to-expand locks the expand-direction swipe field even when that
+-- command is empty. Flip is the same drag-off, so the lock table itself
+-- must gate Flip — not only a non-empty swipe command.
+local function accordionSwipeLocksFlip()
+	if accordionLockedSwipeEdits == nil then
+		return false
+	end
+	for _ in pairs(accordionLockedSwipeEdits) do
+		return true
+	end
+	return false
+end
+
 local function updateFlipForSwipes()
 	if flipGateNumEditing > 1 then
 		return
 	end
-	local blocked = anySwipeCommandSet()
+	local accordionBlocks = accordionSwipeLocksFlip()
+	local blocked = accordionBlocks or anySwipeCommandSet()
 	if flipLabelEdit ~= nil then
 		flipLabelEdit:setEnabled(not blocked)
 	end
 	if flipCmdEdit ~= nil then
 		flipCmdEdit:setEnabled(not blocked)
 	end
+	if accordionFlipLockNote ~= nil then
+		if accordionBlocks then
+			accordionFlipLockNote:setVisibility(View.VISIBLE)
+		else
+			accordionFlipLockNote:setVisibility(View.GONE)
+		end
+	end
 	if flipSwipeNote ~= nil then
-		if blocked then
+		-- Accordion lock is the more specific reason; hide the generic
+		-- "has a swipe command" note so two warnings do not stack.
+		if blocked and not accordionBlocks then
 			flipSwipeNote:setVisibility(View.VISIBLE)
 		else
 			flipSwipeNote:setVisibility(View.GONE)
@@ -193,20 +218,22 @@ HELP_TAP = "TAP\n"
 	.. "FLIP\n"
 	.. "Drag off the button, then release, to send the flip command and show the flip label.\n\n"
 	.. "Flip is blocked while any swipe command is set — that warning stays on the Tap tab.\n\n"
-	.. "If an accordion opens on tap, the tap command is kept but does not fire. That warning stays on the tab too."
+	.. "If an accordion opens on tap, the tap command is kept but does not fire. That warning stays on the tab too.\n\n"
+	.. "If an accordion opens on swipe, Flip is kept but does not fire — drag-off is that swipe. That warning stays here too."
 
 HELP_SWIPE = "Swipe commands override Flip when set. Drag about a finger-width (~24dp) in a direction — eight are available, four straight and four corners. A second finger cancels the gesture. Hold fires at about 0.45s.\n\n"
 	.. "To edit buttons, use ⋮ → Edit buttons, or long-press the ⋮ (not the button itself).\n\n"
 	.. "A corner with no command falls back to the nearest straight swipe, so adding diagonals never changes how the straight ones behave.\n\n"
+	.. "If an accordion opens on swipe, that expand direction's swipe command is locked and Flip is locked. Other swipe directions still fire.\n\n"
 	.. "The two checkboxes are for this button. The profile switch in set options still wins: with badges off, nothing is drawn anywhere."
 
 HELP_ACCORDION = "Up to 20 sub-buttons expand from the parent. Order in the list is the order they fan out — first row nearest the parent. A run too long for the screen wraps to the next column or row, and any that still do not fit are left out with a message. Badges on the button: T/H/S = tap/hold/swipe open.\n\n"
 	.. "Tap = open on press, close on second press. Hold = open after the hold delay; Hold ms is on the tab only when Open with is Hold. Swipe = drag in the expand direction. Use Vertical layout to stack sub-buttons in a column when expanding left/right.\n\n"
-	.. "The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs, with a warning on the canvas.\n\n"
+	.. "The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs, with a warning on the canvas. Swipe-to-expand also locks Flip (drag-off is the same motion).\n\n"
 	.. "A super button (Float over the game) cannot have an accordion: the sub-buttons are drawn on the button grid and only exist while the parent is open. That warning stays on this tab."
 
-HELP_OTHERS = "Name is for the editor list only.\n\n"
-	.. "Switch to button set on tap loads another button pad when tapped — the CMD on the Tap tab is not sent. Leave it empty and put .loadset <name> in CMD instead if you want the same switch plus a MUD command.\n\n"
+HELP_OTHERS = "Name is the label in the editor list, not on the tile.\n\n"
+	.. "To change button pads, put .loadset <name> in the Tap command. That is the supported way to switch sets.\n\n"
 	.. "Colors: tap a swatch to change, long-press to reset to the set default.\n\n"
 	.. "Border draws a thin stroke on the grid tile (accordion children inherit the parent's). Thin outline under Floating is a separate auto-contrast frame used only when Border is off.\n\n"
 	.. "Width, height and position are in dp from the top-left of the button layer.\n\n"
@@ -263,6 +290,8 @@ end
 addEditorFooterHelp = function(finishHolder, host, numediting)
 	local help = luajava.new(Button, context)
 	local helpParams = luajava.new(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)
+	local chipGap = math.floor(6 * density)
+	helpParams:setMargins(chipGap, 0, chipGap, 0)
 	help:setLayoutParams(helpParams)
 	styleHelpChip(help)
 	help:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
@@ -275,7 +304,7 @@ addEditorFooterHelp = function(finishHolder, host, numediting)
 			local body = HELP_OTHERS
 			if not (numediting > 1) then
 				if tab == 0 then
-					helpTitle = "Tap"
+					helpTitle = "Tap / Flip"
 					body = HELP_TAP
 				elseif tab == 1 then
 					helpTitle = "Swipe"
@@ -288,7 +317,7 @@ addEditorFooterHelp = function(finishHolder, host, numediting)
 			showChromeHelp(v:getContext(), helpTitle, body)
 		end
 	}))
-	finishHolder:addView(help, 0)
+	finishHolder:addView(help, 1)
 end
 
 local function makeTabLabel(text)
@@ -441,6 +470,7 @@ function showEditorDialog(editorValues,numediting)
 	flipLabelEdit = w.flipLabelEdit
 	flipCmdEdit = w.flipCmdEdit
 	flipSwipeNote = w.flipSwipeNote
+	accordionFlipLockNote = w.accordionFlipLockNote
 	local clickLabelEditParams = tabState.clickLabelEditParams
 	buildtabs.buildTabs(host, content, tabState)
 	w = tabState.widgets
@@ -459,6 +489,7 @@ function showEditorDialog(editorValues,numediting)
 	accordionLayoutSpinner = w.accordionLayoutSpinner
 	accordionTriggerSpinner = w.accordionTriggerSpinner
 	accordionHoldMsEdit = w.accordionHoldMsEdit
+	accordionWrapAfterEdit = w.accordionWrapAfterEdit
 	accordionAutoCloseCheck = w.accordionAutoCloseCheck
 	accordionChildLabelEdits = w.accordionChildLabelEdits
 	accordionChildCmdEdits = w.accordionChildCmdEdits
@@ -678,6 +709,13 @@ doneClickListener = luajava.createProxy("android.view.View$OnClickListener",{
       local triggerMap = {"tap", "hold", "swipe"}
       d.accordionTrigger = triggerMap[triggerIndex + 1] or "tap"
       d.accordionHoldMs = tonumber(accordionHoldMsEdit:getText():toString()) or 450
+      if accordionWrapAfterEdit ~= nil then
+        local n = tonumber(accordionWrapAfterEdit:getText():toString())
+        if n == nil or n < 0 then n = 0 end
+        d.accordionWrapAfter = math.floor(n)
+      else
+        d.accordionWrapAfter = 0
+      end
       d.accordionAutoClose = accordionAutoCloseCheck:isChecked()
       if harvestAccordionChildren ~= nil then
         d.accordionChildren = harvestAccordionChildren()

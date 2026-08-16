@@ -120,7 +120,7 @@ function buildClickTab(host, content, o)
 	o.widgets = o.widgets or {}
 
 	local tab1 = host:newTabSpec("tab_one_btn_tab")
-	local label1 = o.makeTabLabel("Tap")
+	local label1 = o.makeTabLabel("Tap / Flip")
 
 	local clickPageScroller = luajava.new(ScrollView, o.context)
 	clickPageScroller:setLayoutParams(o.fillparams)
@@ -136,7 +136,7 @@ function buildClickTab(host, content, o)
 		addOneLiner(clickPage, explanation, o)
 	end
 
-	addGestureSection("TAP", "sends when you release")
+	addGestureSection("TAP", "Sends when you release")
 
 	local clickLabelRow = luajava.new(LinearLayout, o.context)
 	clickLabelRow:setLayoutParams(o.fillparams)
@@ -199,16 +199,26 @@ function buildClickTab(host, content, o)
 	accordionTapLockNote:setVisibility(View.GONE)
 	clickPage:addView(accordionTapLockNote)
 
-	addGestureSection("FLIP", "drag off, then release")
+	addGestureSection("FLIP", "Drag off, then release")
 
+	local flipHeaderPad = math.floor(8 * density)
 	local flipSwipeNote = luajava.new(TextView, o.context)
 	flipSwipeNote:setTextSize(textSizeSmall)
 	flipSwipeNote:setText("This button has a swipe command, so flip does not run.")
-	local flipHeaderPad = math.floor(8 * density)
 	flipSwipeNote:setPadding(flipHeaderPad, 0, flipHeaderPad, flipHeaderPad)
 	flipSwipeNote:setLayoutParams(o.fillparams)
 	flipSwipeNote:setVisibility(View.GONE)
 	clickPage:addView(flipSwipeNote)
+
+	-- Same slot as flipSwipeNote: swipe-to-expand locks Flip even when every
+	-- swipe command is empty. Only one of the two notes is visible at a time.
+	local accordionFlipLockNote = luajava.new(TextView, o.context)
+	accordionFlipLockNote:setTextSize(textSizeSmall)
+	accordionFlipLockNote:setText("Swipe opens the accordion — flip does not run.")
+	accordionFlipLockNote:setPadding(flipHeaderPad, 0, flipHeaderPad, flipHeaderPad)
+	accordionFlipLockNote:setLayoutParams(o.fillparams)
+	accordionFlipLockNote:setVisibility(View.GONE)
+	clickPage:addView(accordionFlipLockNote)
 
 	local flipLabelRow = luajava.new(LinearLayout, o.context)
 	flipLabelRow:setLayoutParams(o.fillparams)
@@ -269,6 +279,7 @@ function buildClickTab(host, content, o)
 	o.widgets.flipLabelEdit = flipLabelEdit
 	o.widgets.flipCmdEdit = flipCmdEdit
 	o.widgets.flipSwipeNote = flipSwipeNote
+	o.widgets.accordionFlipLockNote = accordionFlipLockNote
 	o.widgets.accordionTapLockNote = accordionTapLockNote
 end
 
@@ -372,12 +383,6 @@ function buildTabs(host, content, o)
 	swipePage:addView(accordionHoldLockNote)
 	o.widgets.accordionHoldLockNote = accordionHoldLockNote
 
-	addSectionHeader(swipePage, "STRAIGHT SWIPES")
-	o.widgets.swipeUpCmdEdit = addSwipeRow(swipePage, "↑  Up:", editorValues.swipeUpCommand)
-	o.widgets.swipeDownCmdEdit = addSwipeRow(swipePage, "↓  Down:", editorValues.swipeDownCommand)
-	o.widgets.swipeLeftCmdEdit = addSwipeRow(swipePage, "←  Left:", editorValues.swipeLeftCommand)
-	o.widgets.swipeRightCmdEdit = addSwipeRow(swipePage, "→  Right:", editorValues.swipeRightCommand)
-
 	local function makeSwipeLockNote(msg)
 		local note = luajava.new(TextView, o.context)
 		note:setTextSize(textSizeSmall)
@@ -387,20 +392,25 @@ function buildTabs(host, content, o)
 		note:setVisibility(View.GONE)
 		return note
 	end
-	-- One note per expand direction, inserted after all four rows; visibility
-	-- follows the Accordion Expand spinner. Kept as siblings of the edits so
-	-- Done / Flip logic never has to hunt through the page.
+
+	-- One note under each swipe row (same pattern as the tap-command lock),
+	-- visibility follows the Accordion Expand spinner.
+	addSectionHeader(swipePage, "STRAIGHT SWIPES")
+	o.widgets.swipeUpCmdEdit = addSwipeRow(swipePage, "↑  Up:", editorValues.swipeUpCommand)
 	o.widgets.accordionSwipeLockNoteUp = makeSwipeLockNote(
 		"Up swipe opens the accordion — this command is kept but does not fire.")
+	swipePage:addView(o.widgets.accordionSwipeLockNoteUp)
+	o.widgets.swipeDownCmdEdit = addSwipeRow(swipePage, "↓  Down:", editorValues.swipeDownCommand)
 	o.widgets.accordionSwipeLockNoteDown = makeSwipeLockNote(
 		"Down swipe opens the accordion — this command is kept but does not fire.")
+	swipePage:addView(o.widgets.accordionSwipeLockNoteDown)
+	o.widgets.swipeLeftCmdEdit = addSwipeRow(swipePage, "←  Left:", editorValues.swipeLeftCommand)
 	o.widgets.accordionSwipeLockNoteLeft = makeSwipeLockNote(
 		"Left swipe opens the accordion — this command is kept but does not fire.")
+	swipePage:addView(o.widgets.accordionSwipeLockNoteLeft)
+	o.widgets.swipeRightCmdEdit = addSwipeRow(swipePage, "→  Right:", editorValues.swipeRightCommand)
 	o.widgets.accordionSwipeLockNoteRight = makeSwipeLockNote(
 		"Right swipe opens the accordion — this command is kept but does not fire.")
-	swipePage:addView(o.widgets.accordionSwipeLockNoteUp)
-	swipePage:addView(o.widgets.accordionSwipeLockNoteDown)
-	swipePage:addView(o.widgets.accordionSwipeLockNoteLeft)
 	swipePage:addView(o.widgets.accordionSwipeLockNoteRight)
 
 	o.gestureLabelCarried = editorValues.showGestureLabel ~= false
@@ -558,6 +568,27 @@ function buildTabs(host, content, o)
 	layoutRow:addView(layoutLabel)
 	layoutRow:addView(accordionLayoutSpinner)
 	accordionPage:addView(layoutRow)
+
+	local InputType = luajava.bindClass("android.text.InputType")
+	local wrapRow = luajava.new(LinearLayout,o.context)
+	wrapRow:setLayoutParams(o.fillparams)
+	local wrapLabel = luajava.new(TextView,o.context)
+	wrapLabel:setText("Wrap after:")
+	wrapLabel:setTextSize(textSize)
+	wrapLabel:setGravity(Gravity.RIGHT)
+	wrapLabel:setLayoutParams(luajava.new(LinearLayoutParams,accordionLabelWidth,WRAP_CONTENT))
+	o.widgets.accordionWrapAfterEdit = luajava.new(EditText,o.context)
+	local accordionWrapAfterEdit = o.widgets.accordionWrapAfterEdit
+	accordionWrapAfterEdit:setInputType(InputType.TYPE_CLASS_NUMBER)
+	accordionWrapAfterEdit:setLayoutParams(o.clickLabelEditParams)
+	local wrapAfter = tonumber(editorValues.accordionWrapAfter) or 0
+	accordionWrapAfterEdit:setText(tostring(math.floor(wrapAfter)))
+	wrapRow:addView(wrapLabel)
+	wrapRow:addView(accordionWrapAfterEdit)
+	accordionPage:addView(wrapRow)
+	addOneLiner(accordionPage,
+		"0 = as many as fit. 3 = a new lane after three along the expand direction.",
+		o)
 	
 	local triggerRow = luajava.new(LinearLayout,o.context)
 	triggerRow:setLayoutParams(o.fillparams)
@@ -593,7 +624,6 @@ function buildTabs(host, content, o)
 	holdMsLabel:setLayoutParams(luajava.new(LinearLayoutParams,accordionLabelWidth,WRAP_CONTENT))
 	o.widgets.accordionHoldMsEdit = luajava.new(EditText,o.context)
 	local accordionHoldMsEdit = o.widgets.accordionHoldMsEdit
-	local InputType = luajava.bindClass("android.text.InputType")
 	accordionHoldMsEdit:setInputType(InputType.TYPE_CLASS_NUMBER)
 	accordionHoldMsEdit:setLayoutParams(o.clickLabelEditParams)
 	local holdMs = editorValues.accordionHoldMs
@@ -878,8 +908,8 @@ function buildTabs(host, content, o)
 				o.accordionLockedSwipeEdits[pair.edit] = true
 			end
 		end
-		-- Flip gate reads swipe text via trimSwipeCmdText; tell it to refresh so
-		-- locking a filled swipe field does not re-enable Flip.
+		-- Flip gate: locking a swipe direction must disable Flip even when
+		-- that field is empty (drag-off is the same motion as swipe-to-expand).
 		if o.updateFlipForSwipes ~= nil then
 			o.updateFlipForSwipes()
 		end
@@ -1214,6 +1244,9 @@ function buildTabs(host, content, o)
 		accordionLayoutSpinner:setEnabled(on)
 		accordionTriggerSpinner:setEnabled(on)
 		accordionHoldMsEdit:setEnabled(on)
+		if o.widgets.accordionWrapAfterEdit ~= nil then
+			o.widgets.accordionWrapAfterEdit:setEnabled(on)
+		end
 		accordionAutoCloseCheck:setEnabled(on)
 		local labels = o.widgets.accordionChildLabelEdits or {}
 		local cmds = o.widgets.accordionChildCmdEdits or {}

@@ -245,13 +245,19 @@ SCORE / TIP) so they stay clear of the compass and HELP row above. TIP
 re-opens this lesson via .tutorial.
 
 An accordion parent expands up to twenty child buttons (label + command)
-in a chosen direction. In Edit buttons → Accord., add them one by one
-(+ Add sub-button below/above/left/right follows the expand layout),
-reorder with the row controls, and drop empties on Done. Trigger can be
-tap, hold, or swipe.
+in a chosen direction. Wrap after N (Accord. tab, 0 = as many as fit)
+starts a new lane: seven children, expand up, wrap after 3 → two columns
+of three and one leftover, packed without holes, same size as the parent.
+Children that still do not fit are dropped with a note — they are not
+shrunk or scrolled. Super / floating buttons cannot have an accordion.
+
+In Edit buttons → Accord., add them one by one (+ Add sub-button
+below/above/left/right follows the expand layout), reorder with the row
+controls, and drop empties on Done. Trigger can be tap, hold, or swipe.
 
 The gesture that opens the accordion cannot also send its own command —
-that field stays filled but locked on the Tap / Swipe tabs.
+that field stays filled but locked on the Tap / Swipe tabs. Swipe-to-expand
+also locks Flip: drag-off is the same motion as the opening swipe.
 
 Editor badges: T = tap, H = hold, S = swipe. Children can auto-close after
 use. Accordion data is stored with the button set (Lua); use Edit buttons
@@ -962,6 +968,7 @@ TOPICS.finish = function()
 Quick recalls:
   HELP / .tutorial start     restart
   LOAD / .loadset …          switch button sets
+  .buttonopacity 100         force every tile fully opaque until restore
   .note text                 client-only echo
   ⋮ → Triggers               match game text (toggle each on/off)
 

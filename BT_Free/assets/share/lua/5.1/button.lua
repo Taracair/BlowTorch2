@@ -16,6 +16,33 @@ buttonShowSwipePreview = true
 -- Callout above the tile naming the command the current gesture would send, for
 -- when a button has more bindings than anyone remembers. Per-button setting.
 buttonShowGestureLabels = true
+-- Session override: 0-255, or nil to use each tile's own ARGB alpha.
+-- Set by .buttonopacity; not written to the button set.
+buttonOpacityOverride = nil
+
+-- Split 0xAARRGGBB (Java signed int) into R,G,B. Alpha is discarded.
+function rgbFromArgb(color)
+	local n = tonumber(color)
+	if n == nil then
+		return 0, 0, 0
+	end
+	if n < 0 then
+		n = n + 4294967296
+	end
+	local r = math.floor(n / 65536) % 256
+	local g = math.floor(n / 256) % 256
+	local b = n % 256
+	return r, g, b
+end
+
+function colorWithForcedAlpha(color, alpha)
+	if alpha == nil or color == nil then
+		return color
+	end
+	local r, g, b = rgbFromArgb(color)
+	return Color:argb(alpha, r, g, b)
+end
+
 BUTTONSET_DATA = {
 						height 			= 48,
 						width 			= 48,
@@ -54,6 +81,7 @@ BUTTONSET_DATA = {
 						accordionTrigger = "tap",
 						accordionHoldMs = 450,
 						accordionChildLayout = "along",
+						accordionWrapAfter = 0,
 						-- Floating copy over the game (Phase 0 schema). Same
 						-- inheritance path as accordion: live on BUTTONSET_DATA
 						-- so BUTTON_DATA:new lookups resolve defaults.
@@ -487,28 +515,32 @@ function BUTTON:draw(state,canvas)
 		usestate = state
 	end
 	
+	local function tileColor(c)
+		return colorWithForcedAlpha(c, buttonOpacityOverride)
+	end
+
 	local rect = self.rect
 	--Note("drawing button, roundness is"..buttonRoundness)
 	--buttonRoundness = 30.0
 	if(usestate == 0) then
-		p:setColor(self.data.primaryColor)
+		p:setColor(tileColor(self.data.primaryColor))
 		canvas:drawRoundRect(rect,buttonRoundness,buttonRoundness,p)
 	elseif(usestate == 1) then
-		p:setColor(self.data.selectedColor)
+		p:setColor(tileColor(self.data.selectedColor))
 		canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
 	elseif(usestate == 2) then
-		p:setColor(self.data.flipColor)
+		p:setColor(tileColor(self.data.flipColor))
 		canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
 	end
 	
 	local label = nil
 	if(usestate == 0 or usestate == 1) then
-		p:setColor(self.data.labelColor)
+		p:setColor(tileColor(self.data.labelColor))
 		p:setTextSize(tonumber(self.data.labelSize)*self.density)
 		--p:setTypeface(DEFAULT_BOLD_TYPEFACE)
 		label = self.data.label
 	elseif(usestate == 2) then
-		p:setColor(self.data.flipLabelColor)
+		p:setColor(tileColor(self.data.flipLabelColor))
 		--p:setTypeface(DEFAULT_BOLD_TYPEFACE)
 		if(self.data.flipLabel == "" or self.data.flipLabel == nil) then
 			label = self.data.label
@@ -575,7 +607,7 @@ function BUTTON:draw(state,canvas)
 			end
 			p:setStyle(PaintStyle.STROKE)
 			p:setStrokeWidth(stroke)
-			p:setColor(borderColor)
+			p:setColor(tileColor(borderColor))
 			canvas:drawRoundRect(frameRect, buttonRoundness, buttonRoundness, p)
 			p:setStrokeWidth(previousWidth)
 			p:setStyle(previousStyle)

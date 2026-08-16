@@ -446,15 +446,18 @@ local function presentEditorOptionsSheet(scroller, footer, screenH)
   header:addView(headerTitle)
   header:addView(modeRow)
   local helpChip = luajava.new(Button, context)
-  helpChip:setLayoutParams(luajava.new(LinearLayoutParams,
-      LinearLayoutParams.WRAP_CONTENT, LinearLayoutParams.WRAP_CONTENT))
+  local helpChipParams = luajava.new(LinearLayoutParams,
+      LinearLayoutParams.WRAP_CONTENT, LinearLayoutParams.WRAP_CONTENT)
+  local chipGap = math.floor(6 * density)
+  helpChipParams:setMargins(chipGap, 0, chipGap, 0)
+  helpChip:setLayoutParams(helpChipParams)
   styleHelpChip(helpChip)
   helpChip:setOnClickListener(luajava.createProxy("android.view.View$OnClickListener", {
     onClick = function(v)
       showChromeHelp(v:getContext(), "Button set options", HELP_GEAR)
     end
   }))
-  footer:addView(helpChip, 0)
+  footer:addView(helpChip, 1)
   footer:setLayoutParams(chromeParams)
   panel:addView(header)
   panel:addView(scroller)

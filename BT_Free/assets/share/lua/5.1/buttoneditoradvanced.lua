@@ -180,7 +180,7 @@ function makeUI(editorValues,numediting)
     ui.othersOneLiner:setTextSize(textSizeSmall)
     ui.othersOneLiner:setTextColor(DESC_TEXT)
     ui.othersOneLiner:setMaxLines(2)
-    local pad = math.floor(8 * density)
+    local pad = math.floor(10 * density)
     ui.othersOneLiner:setPadding(pad, math.floor(4 * density), pad, math.floor(4 * density))
     ui.othersOneLiner:setLayoutParams(fillparams)
     ui.advancedPage:addView(ui.othersOneLiner)
@@ -190,8 +190,9 @@ function makeUI(editorValues,numediting)
       .. " buttons. Tap one button for label, command, gestures.")
     ui.othersOneLiner:setVisibility(View.VISIBLE)
   else
-    ui.othersOneLiner:setText("Name is for the editor list. Switch-to-set on tap does not send CMD.")
-    ui.othersOneLiner:setVisibility(View.VISIBLE)
+    -- Set switching is .loadset on the Tap command; the old one-liner named a
+    -- hidden field. Name itself stays on this tab.
+    ui.othersOneLiner:setVisibility(View.GONE)
   end
   
   --ui.buttonNameRow
@@ -200,6 +201,9 @@ function makeUI(editorValues,numediting)
     ui.buttonNameRow:setLayoutParams(fillparams)
     ui.advancedPage:addView(ui.buttonNameRow)
   end
+  local othersSide = math.floor(10 * density)
+  ui.buttonNameRow:setPadding(othersSide, math.floor(4 * density), othersSide, math.floor(4 * density))
+  ui.buttonNameRow:setGravity(Gravity.CENTER_VERTICAL)
   
   if(numediting > 1) then
     ui.buttonNameRow:setVisibility(View.GONE)
@@ -230,7 +234,7 @@ function makeUI(editorValues,numediting)
     ui.buttonNameLabel:setLayoutParams(buttonNameLabelParams)
     ui.buttonNameLabel:setText("Name:")
     ui.buttonNameLabel:setTextSize(textSize)
-    ui.buttonNameLabel:setGravity(Gravity.RIGHT)
+    ui.buttonNameLabel:setGravity(Gravity.LEFT+Gravity.CENTER_VERTICAL)
     ui.buttonNameRow:addView(ui.buttonNameLabel)
   end
   
@@ -293,11 +297,9 @@ function makeUI(editorValues,numediting)
   if ui.buttonTargetSetHint ~= nil then
     ui.buttonTargetSetHint:setVisibility(View.GONE)
   end
-  if(numediting > 1) then
-    ui.buttonTargetSetRow:setVisibility(View.GONE)
-  else
-    ui.buttonTargetSetRow:setVisibility(View.VISIBLE)
-  end
+  -- Hidden, not deleted: switchTo is still read on save so an old value is not
+  -- wiped. Switching pads is `.loadset` on the Tap command.
+  ui.buttonTargetSetRow:setVisibility(View.GONE)
   if(numediting > 1) then
     ui.targetEdit:setEnabled(false)
     ui.targetEdit:setText("")
@@ -531,49 +533,50 @@ function makeUI(editorValues,numediting)
   if(ui.borderSectionLabel == nil) then
     ui.borderSectionLabel = fnew(TextView,context)
     local borderSectionParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
-    borderSectionParams:setMargins(0,10,0,10)
+    borderSectionParams:setMargins(0, math.floor(8 * density), 0, 0)
     ui.borderSectionLabel:setLayoutParams(borderSectionParams)
     ui.advancedPage:addView(ui.borderSectionLabel)
   end
   styleSectionBar(ui.borderSectionLabel, "BORDER")
 
+  if(ui.borderLine == nil) then
+    ui.borderLine = fnew(LinearLayout, context)
+    local borderLineParams = fnew(LinearLayoutParams, FILL_PARENT, WRAP_CONTENT)
+    borderLineParams:setMargins(othersSide, math.floor(2 * density), othersSide, math.floor(4 * density))
+    ui.borderLine:setLayoutParams(borderLineParams)
+    ui.borderLine:setOrientation(LinearLayout.HORIZONTAL)
+    ui.borderLine:setGravity(Gravity.CENTER_VERTICAL)
+    ui.advancedPage:addView(ui.borderLine)
+  end
+
   if(ui.borderCheck == nil) then
     ui.borderCheck = fnew(CheckBox,context)
-    ui.borderCheck:setLayoutParams(fillparams)
+    local checkParams = fnew(LinearLayoutParams, 0, WRAP_CONTENT, 1)
+    ui.borderCheck:setLayoutParams(checkParams)
     ui.borderCheck:setText("Draw border")
     ui.borderCheck:setTextSize(textSize)
-    local borderCheckPad = math.floor(4 * density)
-    ui.borderCheck:setPadding(borderCheckPad, borderCheckPad, borderCheckPad, 0)
-    ui.advancedPage:addView(ui.borderCheck)
+    ui.borderLine:addView(ui.borderCheck)
+  else
+    safeAddView(ui.borderLine, ui.borderCheck)
   end
   ui.borderCheck:setChecked(editorValues.border == true)
 
-  -- Same visual language as the COLORS swatches above: square centred, caption
-  -- under it. The old "Colour:" + fixed-width right-aligned label jammed the
-  -- swatch against the colon with no gap.
-  if(ui.borderColorRow == nil) then
-    ui.borderColorRow = fnew(LinearLayout,context)
-    local borderColorRowParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
-    borderColorRowParams:setMargins(0, math.floor(6 * density), 0, math.floor(2 * density))
-    ui.borderColorRow:setLayoutParams(borderColorRowParams)
-    ui.borderColorRow:setOrientation(LinearLayout.VERTICAL)
-    ui.borderColorRow:setGravity(GRAVITY_CENTER)
-    ui.advancedPage:addView(ui.borderColorRow)
-
+  if(ui.borderColorPicker == nil) then
     ui.borderColorPicker = fnew(View,context)
-    ui.borderColorPicker:setLayoutParams(touchparams)
+    local swatchSize = math.floor(36 * density)
+    local swatchParams = fnew(LinearLayoutParams, swatchSize, swatchSize)
+    ui.borderColorPicker:setLayoutParams(swatchParams)
     ui.borderColorPicker:setTag("border")
     bindColorSwatch(ui.borderColorPicker)
-    ui.borderColorRow:addView(ui.borderColorPicker)
-
-    ui.borderColorLabel = fnew(TextView,context)
-    local borderColorLabelParams = fnew(LinearLayoutParams,WRAP_CONTENT,WRAP_CONTENT)
-    borderColorLabelParams:setMargins(0, math.floor(4 * density), 0, 0)
-    ui.borderColorLabel:setLayoutParams(borderColorLabelParams)
-    ui.borderColorLabel:setText("Colour")
-    ui.borderColorLabel:setTextSize(textSizeSmall)
-    ui.borderColorLabel:setGravity(GRAVITY_CENTER)
-    ui.borderColorRow:addView(ui.borderColorLabel)
+    ui.borderLine:addView(ui.borderColorPicker)
+  else
+    safeAddView(ui.borderLine, ui.borderColorPicker)
+  end
+  if ui.borderColorRow ~= nil then
+    ui.borderColorRow:setVisibility(View.GONE)
+  end
+  if ui.borderColorLabel ~= nil then
+    ui.borderColorLabel:setVisibility(View.GONE)
   end
   ui.borderColor = editorValues.borderColor or defaultColors.border
   ui.borderColorPicker:setBackgroundColor(ui.borderColor)
@@ -840,6 +843,7 @@ function makeUI(editorValues,numediting)
     ui.floatHelp:setText("Puts a copy of this button on the screen, over the game.")
     ui.advancedPage:addView(ui.floatHelp)
   end
+  ui.floatHelp:setPadding(othersSide, math.floor(4 * density), othersSide, math.floor(2 * density))
 
   if(ui.floatingCheck == nil) then
     ui.floatingCheck = fnew(CheckBox,context)

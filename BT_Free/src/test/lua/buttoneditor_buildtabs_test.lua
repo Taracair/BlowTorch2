@@ -147,22 +147,36 @@ end
 
 local function makeFlipGate(lockTableRef)
 	return function()
-		local blocked = false
-		for i = 1, #flipTracked do
-			if trimSwipeCmdText(flipTracked[i], lockTableRef.table) ~= "" then
-				blocked = true
+		local accordionBlocks = false
+		if lockTableRef.table ~= nil then
+			for _ in pairs(lockTableRef.table) do
+				accordionBlocks = true
 				break
+			end
+		end
+		local blocked = accordionBlocks
+		if not blocked then
+			for i = 1, #flipTracked do
+				if trimSwipeCmdText(flipTracked[i], lockTableRef.table) ~= "" then
+					blocked = true
+					break
+				end
 			end
 		end
 		local flipLabel = lockTableRef.flipLabelEdit
 		local flipCmd = lockTableRef.flipCmdEdit
 		local note = lockTableRef.flipSwipeNote
+		local accNote = lockTableRef.accordionFlipLockNote
 		if flipLabel ~= nil then flipLabel:setEnabled(not blocked) end
 		if flipCmd ~= nil then flipCmd:setEnabled(not blocked) end
+		if accNote ~= nil then
+			accNote:setVisibility(accordionBlocks and _G.View.VISIBLE or _G.View.GONE)
+		end
 		if note ~= nil then
-			note:setVisibility(blocked and _G.View.VISIBLE or _G.View.GONE)
+			note:setVisibility((blocked and not accordionBlocks) and _G.View.VISIBLE or _G.View.GONE)
 		end
 		lockTableRef.lastBlocked = blocked
+		lockTableRef.lastAccordionBlocks = accordionBlocks
 	end
 end
 
@@ -285,6 +299,7 @@ buildtabs.buildClickTab(host, content, o)
 flipGateState.flipLabelEdit = o.widgets.flipLabelEdit
 flipGateState.flipCmdEdit = o.widgets.flipCmdEdit
 flipGateState.flipSwipeNote = o.widgets.flipSwipeNote
+flipGateState.accordionFlipLockNote = o.widgets.accordionFlipLockNote
 buildtabs.buildTabs(host, content, o)
 
 check(type(o.tabs) == "table", "tabState.tabs must be a table")
@@ -315,6 +330,7 @@ local function accordionStaticWidgets()
 		o.widgets.accordionLayoutSpinner,
 		o.widgets.accordionTriggerSpinner,
 		o.widgets.accordionHoldMsEdit,
+		o.widgets.accordionWrapAfterEdit,
 		o.widgets.accordionAutoCloseCheck,
 	}
 end
@@ -526,6 +542,12 @@ check(o.widgets.accordionSwipeLockNoteDown._visibility == _G.View.VISIBLE,
 check(o.widgets.swipeUpCmdEdit._enabled == true, "other swipe directions stay editable")
 check(o.accordionLockedSwipeEdits[o.widgets.swipeDownCmdEdit] == true,
 	"locked swipe edit recorded for Flip gate")
+check(o.widgets.flipCmdEdit._enabled == false,
+	"swipe-to-expand locks Flip even when other swipe cmds exist")
+check(o.widgets.accordionFlipLockNote._visibility == _G.View.VISIBLE,
+	"accordion flip lock note shown for swipe trigger")
+check(o.widgets.flipSwipeNote._visibility == _G.View.GONE,
+	"generic swipe-vs-flip note hidden while accordion lock is the reason")
 
 -- Keep saved text on the locked field (Done must not blank it).
 o.widgets.swipeDownCmdEdit:setText("south")
@@ -604,6 +626,7 @@ buildtabs.buildClickTab(host, content2, o2)
 flipOpen.flipLabelEdit = o2.widgets.flipLabelEdit
 flipOpen.flipCmdEdit = o2.widgets.flipCmdEdit
 flipOpen.flipSwipeNote = o2.widgets.flipSwipeNote
+flipOpen.accordionFlipLockNote = o2.widgets.accordionFlipLockNote
 buildtabs.buildTabs(host, content2, o2)
 
 check(o2.widgets.swipeDownCmdEdit._enabled == false,
@@ -614,8 +637,10 @@ check(o2.widgets.flipCmdEdit._enabled == false,
 	"open: Flip CMD must be gated when locked direction has a command")
 check(o2.widgets.flipLabelEdit._enabled == false,
 	"open: Flip label must be gated")
-check(o2.widgets.flipSwipeNote._visibility == _G.View.VISIBLE,
-	"open: flip-swipe note visible")
+check(o2.widgets.accordionFlipLockNote._visibility == _G.View.VISIBLE,
+	"open: accordion flip-lock note visible")
+check(o2.widgets.flipSwipeNote._visibility == _G.View.GONE,
+	"open: generic swipe-vs-flip note hidden under accordion lock")
 check(flipOpen.lastBlocked == true, "open: flip gate reported blocked")
 
 -- Contrasting bug reproduction: if the lock table is a *different* empty table
@@ -626,6 +651,80 @@ check(trimSwipeCmdText(o2.widgets.swipeDownCmdEdit, orphanLocks) == "",
 	"disabled swipe with wrong lock table reads empty (the old bug)")
 check(trimSwipeCmdText(o2.widgets.swipeDownCmdEdit, o2.accordionLockedSwipeEdits) == "south",
 	"disabled swipe with the shared lock table still reads its command")
+
+print("9. swipe-to-expand with empty swipe cmds still locks Flip")
+-- Characterization of old behaviour: Flip stayed editable because trim of the
+-- locked empty Down field returned "". Now the lock table itself gates Flip.
+flipTracked = {}
+local flipEmpty = { table = {}, lastBlocked = false }
+local content3 = mockView()
+local o3 = {
+	editorValues = {
+		label = "ACC",
+		command = "north",
+		flipLabel = "flip",
+		flipCommand = "look",
+		showGestureHints = true,
+		showSwipePreview = false,
+		showGestureLabel = true,
+		holdCommand = "",
+		swipeUpCommand = "",
+		swipeDownCommand = "",
+		swipeLeftCommand = "",
+		swipeRightCommand = "",
+		swipeUpLeftCommand = "",
+		swipeUpRightCommand = "",
+		swipeDownLeftCommand = "",
+		swipeDownRightCommand = "",
+		accordionDirection = "down",
+		accordionChildLayout = "along",
+		accordionTrigger = "swipe",
+		accordionHoldMs = 450,
+		accordionAutoClose = true,
+		accordionChildren = {
+			{ label = "LOOK", command = "look" },
+		},
+		floating = false,
+	},
+	numediting = 1,
+	fillparams = {},
+	context = o.context,
+	textSize = 14,
+	textSizeSmall = 10,
+	widgets = {},
+	clickLabelEditParams = nil,
+	accordionLockedSwipeEdits = flipEmpty.table,
+	addHelpText = o.addHelpText,
+	makeTabLabel = o.makeTabLabel,
+	trackSwipeEditForFlip = function(edit)
+		flipTracked[#flipTracked + 1] = edit
+		return edit
+	end,
+	updateFlipForSwipes = makeFlipGate(flipEmpty),
+}
+buildtabs.buildClickTab(host, content3, o3)
+flipEmpty.flipLabelEdit = o3.widgets.flipLabelEdit
+flipEmpty.flipCmdEdit = o3.widgets.flipCmdEdit
+flipEmpty.flipSwipeNote = o3.widgets.flipSwipeNote
+flipEmpty.accordionFlipLockNote = o3.widgets.accordionFlipLockNote
+buildtabs.buildTabs(host, content3, o3)
+
+check(o3.widgets.swipeDownCmdEdit._enabled == false,
+	"empty-swipe open: Down field still locked")
+check(o3.accordionLockedSwipeEdits[o3.widgets.swipeDownCmdEdit] == true,
+	"empty-swipe open: lock table still records Down")
+check(o3.widgets.flipCmdEdit._enabled == false,
+	"empty locked swipe still disables Flip CMD")
+check(o3.widgets.flipLabelEdit._enabled == false,
+	"empty locked swipe still disables Flip label")
+check(o3.widgets.accordionFlipLockNote._visibility == _G.View.VISIBLE,
+	"accordion flip-lock note shown when swipe cmds are empty")
+check(o3.widgets.flipSwipeNote._visibility == _G.View.GONE,
+	"generic swipe-vs-flip note stays hidden")
+check(flipEmpty.lastBlocked == true,
+	"flip gate blocks on the lock table, not on swipe text")
+check(o3.widgets.accordionFlipLockNote ~= nil,
+	"accordionFlipLockNote widget published")
 
 print("")
 if failures == 0 then

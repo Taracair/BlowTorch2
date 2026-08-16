@@ -665,10 +665,11 @@ end
 -- fires that same gesture's normal button command. Pure predicates so tests can
 -- lock the contract without driving the touch handler.
 --
---   tap trigger  → tap toggles; hold/swipe commands still fire
---   hold trigger → hold toggles; tap/swipe commands still fire
+--   tap trigger  → tap toggles; hold/swipe commands still fire; Flip does not
+--   hold trigger → hold toggles; tap/swipe commands still fire; Flip still runs
 --   swipe trigger→ swipe in accordionDirection toggles; that one swipe command
---                  is suppressed; other directions, tap and hold still fire
+--                  is suppressed; Flip does not run (drag-off is the same
+--                  motion); other directions, tap and hold still fire
 function accordionOwnsTap(trigger)
 	return trigger == "tap"
 end
@@ -691,6 +692,10 @@ end
 -- Tap-trigger exclusivity: command and flipCommand must not fire. A release
 -- inside the tile toggles even when the finger drifted past the swipe
 -- threshold without resolving to a bound swipe command.
+--
+-- Swipe-trigger exclusivity: the expand-direction swipe is handled before this
+-- function runs. Flip must not fire either — drag-off is that same swipe.
+-- A tap still on the tile still sends the tap command.
 function accordionParentFingerUpAction(trigger, insideButton, swipeDir, swipeHandled)
 	if swipeHandled then
 		return "none"
@@ -701,10 +706,29 @@ function accordionParentFingerUpAction(trigger, insideButton, swipeDir, swipeHan
 		end
 		return "none"
 	end
+	if trigger == "swipe" then
+		if insideButton then
+			return "tap_command"
+		end
+		return "none"
+	end
 	if insideButton then
 		return "tap_command"
 	end
 	return "flip_command"
+end
+
+-- Pressed/flip draw state for an accordion parent while the finger is down.
+-- Swipe-to-expand never runs Flip, so leaving the tile stays pressed (1)
+-- rather than flip colours and flipLabel (2).
+function accordionDrawState(trigger, insideButton)
+	if insideButton then
+		return 1
+	end
+	if trigger == "swipe" then
+		return 1
+	end
+	return 2
 end
 
 -- What the gesture callout should say right now, or nil for nothing.
@@ -726,6 +750,10 @@ local function gestureLabelFor(data, direction, outsideButton)
 		end
 	end
 	if outsideButton and hasButtonCommand(data.flipCommand) then
+		-- Swipe-to-expand: Flip does not fire, so the callout must not name it.
+		if hasAccordionConfig(data) and getAccordionTrigger(data) == "swipe" then
+			return nil
+		end
 		return data.flipCommand
 	end
 	if direction == nil and not outsideButton then
@@ -982,7 +1010,14 @@ function normalTouch.onTouch(v,e)
 			if not insideButton then
 				CancelCallback(EDITOR_CALLBACK_ID)
 			end
-			local wantState = insideButton and 1 or 2
+			local accTrigger = hasAccordionConfig(touchedbutton.data)
+				and getAccordionTrigger(touchedbutton.data) or nil
+			local wantState
+			if accTrigger ~= nil then
+				wantState = accordionDrawState(accTrigger, insideButton)
+			else
+				wantState = insideButton and 1 or 2
+			end
 			local flipping = (wantState == 2 and normalTouchState ~= 2)
 
 			-- Direction a release right now would fire, or nil for none.
@@ -997,8 +1032,11 @@ function normalTouch.onTouch(v,e)
 			-- changes when the finger crosses a sector edge, not on every move
 			-- event. drawButtons() clears first so the old arrow goes with it,
 			-- then the touched button is drawn on top exactly as before.
+			-- outsideButton is the finger, not the draw state: swipe-to-expand
+			-- stays visually pressed while off-tile, but the callout still
+			-- needs to know the finger left.
 			local labelText = gestureLabelFor(touchedbutton.data, previewDir,
-					wantState == 2)
+					not insideButton)
 
 			if wantState ~= normalTouchState or previewDir ~= swipePreviewDir
 					or labelText ~= gestureLabelText then
@@ -1539,6 +1577,13 @@ function notifyFloatingButtonsChanged()
 		local editing = manage == true
 		root:put("editing", editing)
 		local arr = luajava.new(JSONArray)
+		local function floaterArgb(c)
+			local n = tonumber(c) or 0
+			if buttonOpacityOverride == nil then
+				return n
+			end
+			return colorWithForcedAlpha(n, buttonOpacityOverride)
+		end
 		if not editing and buttons ~= nil then
 			for i, b in ipairs(buttons) do
 				local d = b.data
@@ -1571,11 +1616,11 @@ function notifyFloatingButtonsChanged()
 					o:put("showGestureLabel", d.showGestureLabel ~= false)
 					o:put("showGestureHints", d.showGestureHints ~= false)
 					o:put("switchTo", tostring(d.switchTo or ""))
-					o:put("primaryColor", tonumber(d.primaryColor) or 0)
-					o:put("selectedColor", tonumber(d.selectedColor) or 0)
-					o:put("flipColor", tonumber(d.flipColor) or 0)
-					o:put("labelColor", tonumber(d.labelColor) or 0)
-					o:put("flipLabelColor", tonumber(d.flipLabelColor) or 0)
+					o:put("primaryColor", floaterArgb(d.primaryColor))
+					o:put("selectedColor", floaterArgb(d.selectedColor))
+					o:put("flipColor", floaterArgb(d.flipColor))
+					o:put("labelColor", floaterArgb(d.labelColor))
+					o:put("flipLabelColor", floaterArgb(d.flipLabelColor))
 					o:put("width", tonumber(d.width) or 80)
 					o:put("height", tonumber(d.height) or 80)
 					o:put("labelSize", tonumber(d.labelSize) or 23)
@@ -1607,7 +1652,7 @@ function notifyFloatingButtonsChanged()
 					-- copy (shape follows floatRound). Separates from floatFrame,
 					-- which is the legacy auto-contrast outline.
 					o:put("border", d.border == true)
-					o:put("borderColor", tonumber(d.borderColor) or 0)
+					o:put("borderColor", floaterArgb(d.borderColor))
 					-- Same px radius the grid uses (options.roundness * density).
 					o:put("cornerRadiusPx", tonumber(buttonRoundness) or 0)
 					arr:put(o)
@@ -2953,11 +2998,11 @@ end
 -- with more room until that side is exhausted, then the other side. Alternating
 -- left/right contradicted the editor's "order they fan out" help text.
 --
--- Fan layouts (horizontal under up/down, vertical beside left/right) pack as
--- many as will fit on the first run before wrapping; centring is clamped so it
--- cannot push the start off-screen and force a premature wrap.
+-- wrapAfter (last arg, 0 = as many as fit) caps how many sit on one run
+-- before the next lane, so "wrap after 3" with seven children is 3+3+1.
 function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
-		dir, layout, count, childW, childH, density, viewW, viewH, statusOffset)
+		dir, layout, count, childW, childH, density, viewW, viewH, statusOffset,
+		wrapAfter)
 	local centres = {}
 	if count == nil or count <= 0 then
 		return centres
@@ -3077,6 +3122,18 @@ function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
 		end
 	end
 
+	wrapAfter = tonumber(wrapAfter) or 0
+	if wrapAfter < 0 then
+		wrapAfter = 0
+	end
+
+	local function alongCap(requested)
+		if wrapAfter > 0 and requested > wrapAfter then
+			return wrapAfter
+		end
+		return requested
+	end
+
 	local function placeLane(startX, startY, maxN)
 		local placed = 0
 		for along = 0, maxN - 1 do
@@ -3103,7 +3160,7 @@ function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
 			alongStep = childStepH
 		end
 		local nFirst = 1
-		for n = count, 1, -1 do
+		for n = alongCap(count), 1, -1 do
 			local idealX = parentX - (n - 1) * alongX * 0.5
 			local idealY = originY - (n - 1) * alongY * 0.5
 			-- For horizontal under up/down, along is X; keep Y at originY.
@@ -3165,7 +3222,7 @@ function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
 		end
 		placeLane(originX, originY, nFirst)
 	else
-		placeLane(originX, originY, count)
+		placeLane(originX, originY, alongCap(count))
 	end
 
 	-- Further lanes: preferred cross side first, then the opposite.
@@ -3174,7 +3231,7 @@ function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
 		while #centres < count do
 			local lx = originX + lane * sign * crossX
 			local ly = originY + lane * sign * crossY
-			local placed = placeLane(lx, ly, count)
+			local placed = placeLane(lx, ly, alongCap(count))
 			if placed == 0 then
 				break
 			end
@@ -3221,7 +3278,8 @@ function buildAccordionOverlay(parent)
 		parent.data.width, parent.data.height,
 		parent.data.accordionDirection, parent.data.accordionChildLayout or "along",
 		count, childW, childH, density,
-		width or 0, height or 0, statusoffset or 0)
+		width or 0, height or 0, statusoffset or 0,
+		tonumber(parent.data.accordionWrapAfter) or 0)
 	local shown = #centres
 	if shown < count then
 		-- Once per expand: sub-buttons the player configured but the screen
@@ -4059,6 +4117,7 @@ function buttonEditorDone(data)
 		tmp.data.accordionTrigger = data.accordionTrigger or "tap"
 		tmp.data.accordionHoldMs = tonumber(data.accordionHoldMs) or 450
 		tmp.data.accordionChildLayout = data.accordionChildLayout or "along"
+		tmp.data.accordionWrapAfter = tonumber(data.accordionWrapAfter) or 0
 		if data.accordionAutoClose == nil then
 			tmp.data.accordionAutoClose = true
 		else
@@ -4214,6 +4273,7 @@ function showEditorDialog()
 		editorValues.accordionTrigger = button.data.accordionTrigger or "tap"
 		editorValues.accordionHoldMs = button.data.accordionHoldMs or 450
 		editorValues.accordionChildLayout = button.data.accordionChildLayout or "along"
+		editorValues.accordionWrapAfter = tonumber(button.data.accordionWrapAfter) or 0
 		editorValues.accordionAutoClose = button.data.accordionAutoClose
 		if editorValues.accordionAutoClose == nil then
 			editorValues.accordionAutoClose = true
@@ -4661,6 +4721,40 @@ function clearButtons()
 	view:invalidate()
 	-- See revertButtons: the layer mirrors `buttons`, so a swap it is not told
 	-- about leaves floaters on screen that no longer belong to the set.
+	notifyFloatingButtonsChanged()
+end
+
+function setButtonOpacity(arg)
+	arg = tostring(arg or "")
+	arg = string.gsub(arg, "^%s+", "")
+	arg = string.gsub(arg, "%s+$", "")
+	local lower = string.lower(arg)
+	if lower == "restore" or lower == "own" then
+		buttonOpacityOverride = nil
+		Note("Button opacity: each button uses its own alpha again.\n")
+	elseif arg == "" then
+		if buttonOpacityOverride == nil then
+			Note("Button opacity: using each button's own alpha. .buttonopacity 100 forces fully opaque until .buttonopacity restore.\n")
+		else
+			local pct = math.floor(buttonOpacityOverride * 100 / 255 + 0.5)
+			Note("Button opacity: forced to " .. pct .. "% until .buttonopacity restore.\n")
+		end
+	else
+		local pct = tonumber(arg)
+		if pct == nil or pct < 0 or pct > 100 then
+			Note("Usage: .buttonopacity 100   — force all tiles fully opaque\n        .buttonopacity restore — each button's own alpha again\n")
+		else
+			buttonOpacityOverride = math.floor(pct * 255 / 100 + 0.5)
+			if buttonOpacityOverride > 255 then
+				buttonOpacityOverride = 255
+			end
+			Note("Button opacity: all tiles forced to " .. pct .. "% until .buttonopacity restore.\n")
+		end
+	end
+	drawButtons()
+	if view ~= nil then
+		view:invalidate()
+	end
 	notifyFloatingButtonsChanged()
 end
 

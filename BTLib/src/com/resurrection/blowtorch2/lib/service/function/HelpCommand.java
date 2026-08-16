@@ -92,6 +92,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("dobell", "Triggers and scripts", "fire the bell reaction now");
 		cmd("probe", "Triggers and scripts",
 				"measure how the world splits its text across packets; "
+				+ ".probe truecolor dumps a 24-bit sample; "
 				+ ".probe sensors for what this phone can feel");
 		cmd("sensor", "Triggers and scripts",
 				"what this phone can measure, and what triggers do with it");
@@ -106,6 +107,9 @@ public class HelpCommand extends SpecialCommand {
 
 		cmd("loadset", "Buttons", "load a button set");
 		cmd("clearbuttons", "Buttons", "take the buttons away until the next set");
+		cmd("buttonopacity", "Buttons",
+				"force every tile's alpha (.buttonopacity 100) until .buttonopacity restore");
+		cmd("buttonsopacity", "Buttons", "same as .buttonopacity");
 	}
 
 	@Override
@@ -293,6 +297,15 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .clearbuttons      — clear all buttons (no arguments)\n";
 		}
+		if (filter.equals("buttonopacity") || filter.equals("buttonsopacity")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .buttonopacity:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .buttonopacity 100      — force every tile fully opaque\n"
+					+ "  .buttonopacity restore  — each button's own alpha again\n"
+					+ "  .buttonopacity          — show whether an override is on\n"
+					+ "Lasts until restore (not saved). .buttonsopacity is the same command.\n";
+		}
 		if (filter.equals("suggest") || filter.equals("suggestions")
 				|| filter.equals("complete") || filter.equals("suggestion")) {
 			return "\n"
@@ -400,6 +413,7 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .probe:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .probe lines on|off | report | reset\n"
+					+ "  .probe truecolor | color — 24-bit sample in this window\n"
 					+ "  .probe sensors | sensors state\n"
 					+ "  .probe sensors shake|light [seconds]\n";
 		}

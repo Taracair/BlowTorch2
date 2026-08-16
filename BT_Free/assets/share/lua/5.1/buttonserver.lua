@@ -116,6 +116,12 @@ RegisterSpecialCommand("loadset","loadButtonSet")
 RegisterSpecialCommand("clearbuttons","clearButtons")
 -- Always-reachable layout wizard from the input bar (UI owns the dialog).
 RegisterSpecialCommand("layoutwizard","showLayoutWizardCmd")
+RegisterSpecialCommand("buttonopacity","setButtonOpacity")
+RegisterSpecialCommand("buttonsopacity","setButtonOpacity")
+
+function setButtonOpacity(arg)
+	WindowXCallS(buttonWindowName, "setButtonOpacity", arg ~= nil and tostring(arg) or "")
+end
 
 -- "default" is the set every profile starts with. This used to read
 -- `current_set = DEFAULT`, and DEFAULT is not defined anywhere in the Lua tree,
@@ -1216,6 +1222,7 @@ local function packAccordion(x, y, label, children, opts)
 		accordionAutoClose = true,
 		accordionHoldMs = opts.holdMs or 450,
 		accordionChildLayout = opts.childLayout or "horizontal",
+		accordionWrapAfter = opts.wrapAfter or 0,
 		accordionChildren = children,
 	}
 end
@@ -1513,6 +1520,7 @@ local function filterPackSource(source, mode)
 					b.accordionAutoClose = nil
 					b.accordionHoldMs = nil
 					b.accordionChildLayout = nil
+					b.accordionWrapAfter = nil
 				end
 			end
 			out[#out + 1] = b
