@@ -74,22 +74,22 @@ local TOPIC_ORDER = {
 	"triggers",
 	"timers",
 	"sensors",
-	"coloring",
 	"tappable",
 	"keyboard",
 	"completion",
+	"coloring",
+	"display",
+	"wrap",
+	"copy_text",
 	"search",
 	"mapper",
-	"wrap",
-	"logging_export",
-	"overflow_menu",
 	"gmcp",
 	"mcp",
+	"logging_export",
 	"stay_connected",
 	"disconnect_reconnect",
-	"copy_text",
+	"overflow_menu",
 	"options_cleanup",
-	"display",
 	"plugins",
 	"finish",
 }
@@ -133,6 +133,9 @@ Try it now:
   • Tap NEXT / PREV / TOPICS on the pad (or type .tutorial next)
   • Tap HELP anytime to restart (.tutorial start)
   • Tap LOAD to try .loadset tutorial (hold LOAD or flip → .loadset default)
+
+NEXT walks a path: buttons, then aliases and triggers, then the phone, then
+reading the screen.
 
 This tour is hands-on: you will build a .loadset button, learn triggers for
 beginners, and poke swipe / hold / accordion demos. Lessons also cover
@@ -588,15 +591,21 @@ end
 
 TOPICS.coloring = function()
 	noteBlock("Coloring — .colordebug",
-[[ANSI colors from the MUD are drawn in the game window. To debug them:
+[[ANSI, xterm 256, and truecolor from the MUD are drawn in the game window.
+.probe truecolor dumps a 24-bit sample here so you can see it without
+waiting on the game. Use MTTS? on advertises MTTS 269.
+
+Options → Window → Dim repeated lines? (off by default): a long identical
+line (the same room on look) paints dimmer so what changed stands out.
+
+To debug colour codes:
 
   .colordebug 0   normal display
   .colordebug 1   color on, show codes
   .colordebug 2   color off, show codes
   .colordebug 3   color off, no codes
 
-Window options also control word wrap, hyperlinks, and font size under
-Options → Window. Trigger Color responders can tint matched lines.]])
+Trigger Color responders can tint matched lines.]])
 end
 
 TOPICS.tappable = function()
@@ -668,6 +677,16 @@ actually said. All of it is off until you ask, under Options → Input or on
                           ghost and .suggest 1..8 working, with no bar at all
   .suggest persist on|off keep the bar up even when it has nothing to say
   .suggest opacity N      how solid the floating chips are (10-100)
+  .suggest learned        report what your commands have taught on this world
+  .suggest clear          throw all of it away, including the file
+  .suggest forget swnsor  drop that one word (the typo verb, its targets,
+                          every pairing)
+  .suggest unpair kill troll
+                          drop that one pairing; kill and troll can stay
+  .suggest weight kill troll 0
+                          set that pairing's count (0 is the same as unpair)
+
+Bare .suggest forget prints usage; it is not a wipe.
 
     The game says:  A grizzled cave troll lumbers in.
     You type:       k gri
@@ -944,7 +963,11 @@ Toggle fullscreen without opening Options:
   .togglefullscreen
 
 NAWS tells the MUD your terminal size so maps and prompts fit. After
-changing width/height, some servers need a look or a reconnect.]])
+changing width/height, some servers need a look or a reconnect.
+
+Options → Window → Dim repeated lines? (off by default): a long identical
+line (the same room on look) paints dimmer.
+Options → Window → Newest text at top?: live output appears at the top.]])
 end
 
 TOPICS.plugins = function()
@@ -1043,12 +1066,12 @@ local function showHelp()
 .tutorial topics       list topic names
 .tutorial <topic>      open one topic
 
-Topics: welcome, client_commands, buttons_basics, buttons_swipe,
-buttons_hold, buttons_accordion, buttons_super, buttons_sets, buttons_make,
-buttons_edit, movement, aliases, triggers, timers, coloring, keyboard,
-search, wrap, logging_export, overflow_menu, gmcp, mcp, stay_connected,
-disconnect_reconnect, copy_text, options_cleanup, display, plugins,
-finish]])
+Topics: welcome, practice_world, client_commands, buttons_basics,
+buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
+buttons_make, buttons_edit, movement, aliases, triggers, timers, sensors,
+tappable, keyboard, completion, coloring, display, wrap, copy_text, search,
+mapper, gmcp, mcp, logging_export, stay_connected, disconnect_reconnect,
+overflow_menu, options_cleanup, plugins, finish]])
 end
 
 local function listTopics()
