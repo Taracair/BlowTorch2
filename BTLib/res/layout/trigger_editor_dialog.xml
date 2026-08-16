@@ -105,9 +105,7 @@
   			android:paddingTop="8dip"
   			android:paddingBottom="4dip"
   			android:text="Preview"
-  			android:textColor="@color/chrome_section_text"
-  			android:clickable="true"
-  			android:focusable="true"/>
+  			android:textColor="@color/chrome_section_text"/>
   		<TextView
   			android:id="@+id/trigger_match_preview"
   			android:layout_width="match_parent"
@@ -119,9 +117,23 @@
   			android:fontFamily="monospace"
   			android:background="@color/chrome_preview"
   			android:padding="6dip"
-  			android:maxLines="6"
-  			android:ellipsize="end"
-  			android:text="Enter a pattern to preview what the trigger watches for."/>
+			android:maxLines="3"
+			android:ellipsize="end"
+			android:text="Enter a pattern to preview what the trigger watches for."/>
+		<TextView
+			android:id="@+id/trigger_preview_expand"
+			android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:layout_marginLeft="10dip"
+			android:layout_marginRight="10dip"
+			android:paddingTop="2dip"
+			android:paddingBottom="6dip"
+			android:text="Show all"
+			android:textSize="12sp"
+			android:textColor="@color/chrome_description"
+			android:clickable="true"
+			android:focusable="true"
+			android:visibility="gone"/>
   		<LinearLayout
   			android:layout_width="match_parent"
   			android:layout_height="wrap_content"

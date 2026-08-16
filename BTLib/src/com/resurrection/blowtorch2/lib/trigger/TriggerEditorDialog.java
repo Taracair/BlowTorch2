@@ -77,7 +77,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	private boolean mPreviewExpandedByUser;
 
 	/** Fold the match preview when it has more than this many lines. */
-	static final int PREVIEW_COLLAPSE_AFTER_LINES = 6;
+	static final int PREVIEW_COLLAPSE_AFTER_LINES = 3;
 	/** A one-line regex wraps in the preview; count newlines alone misses it. */
 	static final int PREVIEW_COLLAPSE_AFTER_CHARS =
 			PREVIEW_COLLAPSE_AFTER_LINES * 40;
@@ -438,16 +438,17 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		};
 		pattern.addTextChangedListener(watcher);
 		title.addTextChangedListener(watcher);
-		final TextView toggle = (TextView) findViewById(R.id.trigger_preview_toggle);
-		if (toggle != null) {
-			toggle.setOnClickListener(new View.OnClickListener() {
-				public void onClick(View v) {
-					if (shouldCollapsePreview(preview.getText())) {
-						mPreviewExpandedByUser = !mPreviewExpandedByUser;
-						applyPreviewFold(preview);
-					}
+		View.OnClickListener expandClick = new View.OnClickListener() {
+			public void onClick(View v) {
+				if (shouldCollapsePreview(preview.getText())) {
+					mPreviewExpandedByUser = !mPreviewExpandedByUser;
+					applyPreviewFold(preview);
 				}
-			});
+			}
+		};
+		final TextView expand = (TextView) findViewById(R.id.trigger_preview_expand);
+		if (expand != null) {
+			expand.setOnClickListener(expandClick);
 		}
 		updateTriggerPreview(title, pattern, literal, preview);
 	}
@@ -501,19 +502,20 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 	}
 
 	private void applyPreviewFold(final TextView preview) {
-		TextView toggle = (TextView) findViewById(R.id.trigger_preview_toggle);
+		TextView expand = (TextView) findViewById(R.id.trigger_preview_expand);
 		boolean fold = shouldCollapsePreview(preview.getText());
 		preview.setVisibility(View.VISIBLE);
 		if (!fold) {
 			preview.setMaxLines(Integer.MAX_VALUE);
 			preview.setEllipsize(null);
-			if (toggle != null) {
-				toggle.setText("Preview");
+			if (expand != null) {
+				expand.setVisibility(View.GONE);
 			}
 			return;
 		}
-		if (toggle != null) {
-			toggle.setText(mPreviewExpandedByUser ? "Preview ▾" : "Preview ▸");
+		if (expand != null) {
+			expand.setVisibility(View.VISIBLE);
+			expand.setText(mPreviewExpandedByUser ? "Show less" : "Show all");
 		}
 		if (mPreviewExpandedByUser) {
 			preview.setMaxLines(Integer.MAX_VALUE);

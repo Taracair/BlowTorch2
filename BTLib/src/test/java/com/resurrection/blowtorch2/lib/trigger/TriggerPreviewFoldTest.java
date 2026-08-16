@@ -9,15 +9,15 @@ import org.junit.Test;
 public class TriggerPreviewFoldTest {
 
 	@Test
-	public void sixLinesStayOpen() {
-		assertEquals(6, TriggerEditorDialog.countPreviewLines("a\nb\nc\nd\ne\nf"));
-		assertFalse(TriggerEditorDialog.shouldCollapsePreview("a\nb\nc\nd\ne\nf"));
+	public void threeLinesStayOpen() {
+		assertEquals(3, TriggerEditorDialog.countPreviewLines("a\nb\nc"));
+		assertFalse(TriggerEditorDialog.shouldCollapsePreview("a\nb\nc"));
 	}
 
 	@Test
-	public void sevenLinesFold() {
-		assertEquals(7, TriggerEditorDialog.countPreviewLines("a\nb\nc\nd\ne\nf\ng"));
-		assertTrue(TriggerEditorDialog.shouldCollapsePreview("a\nb\nc\nd\ne\nf\ng"));
+	public void fourLinesFold() {
+		assertEquals(4, TriggerEditorDialog.countPreviewLines("a\nb\nc\nd"));
+		assertTrue(TriggerEditorDialog.shouldCollapsePreview("a\nb\nc\nd"));
 	}
 
 	@Test
