@@ -603,17 +603,18 @@ function buildTabs(host, content, o)
 		o.widgets.accordionLanesHint:setMaxLines(3)
 	end
 	addOneLiner(accordionPage,
-		"In Edit buttons: tap the parent (dismiss the menu), then long-press "
-		.. "another tile to pin it — a toast says Pinned to MORE. Tap a pinned "
-		.. "tile and choose Unpin from \"MORE\". A tile belongs to one parent. "
-		.. "Pinned tiles hide in play until the parent opens, then they appear "
-		.. "where you placed them. Typed rows below still work for packs.",
+		"In Edit buttons: tap the parent, then tap another tile and choose "
+		.. "Pin to \"MORE\". Tap several after the parent to pin them all. "
+		.. "Long-press still pins too. Unpin from the tile menu. A tile "
+		.. "belongs to one parent. Pinned tiles hide in play until the parent "
+		.. "opens, then they appear where you placed them. Typed rows below "
+		.. "still work for packs.",
 		o)
 	addOneLiner(accordionPage,
 		"Unpinned children fill one column or row (as many as fit), then a new "
-		.. "lane further in the expand direction — or type 2 in Columns/Rows "
-		.. "to force two lanes. Leftovers that still do not fit are dropped "
-		.. "with a Note.",
+		.. "lane beside that column — never on the parent — or type 2 in "
+		.. "Columns/Rows to force two lanes. Leftovers that still do not fit "
+		.. "are dropped with a Note.",
 		o)
 	
 	local triggerRow = luajava.new(LinearLayout,o.context)

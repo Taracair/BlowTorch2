@@ -34,11 +34,13 @@ local stop = findLine("^function isPlayModePinnedAccordionSource",
 
 local chunk = table.concat(lines, "\n", first, stop - 1)
 	.. "\nreturn copyAccordionChildRows, inferAccordionDirection, "
-	.. "accordionPinPlan, accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS\n"
+	.. "accordionPinPlan, accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS, "
+	.. "accordionSelectionPinPlan\n"
 
 local loadfn = loadstring or load
 local copyAccordionChildRows, inferAccordionDirection, accordionPinPlan,
-	accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS =
+	accordionParentsOfChildId, PINNED_OVERLAY_COMMAND_FIELDS,
+	accordionSelectionPinPlan =
 	assert(loadfn(chunk, "accordion-pin-extract"))()
 
 local failures = 0
@@ -128,6 +130,21 @@ for i = 1, #PINNED_OVERLAY_COMMAND_FIELDS do
 	if PINNED_OVERLAY_COMMAND_FIELDS[i] == "swipeUpCommand" then sawSwipe = true end
 end
 check(sawHold and sawSwipe, "pinned overlay must copy hold and swipe")
+
+print("5. tap MORE then LOOK and SCORE → pin to MORE")
+local more = { data = { label = "MORE", floating = false } }
+local look = { data = { label = "LOOK", floating = false } }
+local score = { data = { label = "SCORE", floating = false } }
+local action, parent, kids = accordionSelectionPinPlan({ more, look, score })
+check(action == "ok" and parent == more and #kids == 2 and kids[1] == look,
+	"first selected is the accordion parent")
+action = accordionSelectionPinPlan({ more })
+check(action == "none", "one selected tile is not a pin")
+action = accordionSelectionPinPlan({
+	{ data = { label = "SUPER", floating = true } }, look })
+check(action == "reject", "super button cannot be the pin parent")
+action, parent, kids = accordionSelectionPinPlan({ more, look })
+check(action == "ok" and #kids == 1, "two tiles: pin LOOK to MORE")
 
 if failures > 0 then
 	print(failures .. " failure(s)")

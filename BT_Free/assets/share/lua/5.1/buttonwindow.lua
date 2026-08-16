@@ -167,6 +167,7 @@ function loadButtons(args)
 	touchedbutton = {}
 	fingerdown = false
 	selectedtouchstart = false
+	clearSelectionOrder()
 	clampAllButtons()
 	drawButtons()
 	view:invalidate()
@@ -390,8 +391,21 @@ function managerTouch.onTouch(v,e)
 			fingerdown = true
 			touchedbutton = b
 			touchedindex = index
+			local already = (b.selected == true)
+			-- After undo, tiles stay highlighted but selectionOrder is empty.
+			-- Bootstrap from who is selected, even if this tap is on one of them.
+			if #selectionOrder == 0 then
+				for i = 1, #buttons do
+					if buttons[i] ~= nil and buttons[i].selected == true then
+						rememberSelection(buttons[i])
+					end
+				end
+			end
 			b.selected = true
 			updateSelected(b,true)
+			if not already then
+				rememberSelection(b)
+			end
 			view:invalidate()
 			if(b.selected) then
 				selectedtouchstart = true
@@ -410,6 +424,7 @@ function managerTouch.onTouch(v,e)
 					buttoncleared = true
 				end
 			end
+			clearSelectionOrder()
 			if buttoncleared then 
 				view:invalidate() 
 				
@@ -544,6 +559,7 @@ function managerTouch.onTouch(v,e)
 		selectedtouchstart = false
 		if touchedbutton ~= nil then
 			touchedbutton.selected = false
+			forgetSelection(touchedbutton)
 		end
 		touchedbutton = {}
 		if cancelTouchGesture ~= nil then
@@ -858,6 +874,33 @@ function inferAccordionDirection(parentX, parentY, childX, childY)
 	return "down"
 end
 
+-- First selected is the accordion parent; the rest are children to pin.
+-- Pure so a test can lock "tap MORE, then LOOK and SCORE → pin to MORE".
+function accordionSelectionPinPlan(ordered)
+	if type(ordered) ~= "table" or #ordered < 2 then
+		return "none"
+	end
+	local parent = ordered[1]
+	if parent == nil or parent.data == nil then
+		return "none"
+	end
+	if parent.data.floating == true then
+		return "reject"
+	end
+	local kids = {}
+	for i = 2, #ordered do
+		local c = ordered[i]
+		if c ~= nil and c.data ~= nil and c ~= parent
+				and c.data.floating ~= true then
+			kids[#kids + 1] = c
+		end
+	end
+	if #kids == 0 then
+		return "none"
+	end
+	return "ok", parent, kids
+end
+
 function isPlayModePinnedAccordionSource(b)
 	if manage == true or b == nil or b.data == nil then
 		return false
@@ -926,6 +969,63 @@ function selectedAccordionPinParent(exclude)
 		return withAcc[1]
 	end
 	return nil
+end
+
+-- Tap order, not buttons[] order: MORE then LOOK then SCORE means pin to MORE.
+selectionOrder = {}
+
+function clearSelectionOrder()
+	selectionOrder = {}
+end
+
+function rememberSelection(b)
+	if b == nil then
+		return
+	end
+	for i = 1, #selectionOrder do
+		if selectionOrder[i] == b then
+			return
+		end
+	end
+	selectionOrder[#selectionOrder + 1] = b
+end
+
+function forgetSelection(b)
+	if b == nil or #selectionOrder == 0 then
+		return
+	end
+	local out = {}
+	for i = 1, #selectionOrder do
+		if selectionOrder[i] ~= b then
+			out[#out + 1] = selectionOrder[i]
+		end
+	end
+	selectionOrder = out
+end
+
+function selectedButtonsInTapOrder()
+	local live = {}
+	for i = 1, #buttons do
+		if buttons[i] ~= nil then
+			live[buttons[i]] = true
+		end
+	end
+	local out = {}
+	local seen = {}
+	for i = 1, #selectionOrder do
+		local b = selectionOrder[i]
+		if b ~= nil and live[b] and b.selected == true then
+			out[#out + 1] = b
+			seen[b] = true
+		end
+	end
+	for i = 1, #buttons do
+		local b = buttons[i]
+		if b ~= nil and b.selected == true and not seen[b] then
+			out[#out + 1] = b
+		end
+	end
+	return out
 end
 
 function unpinButtonFromParent(child, parent)
@@ -1021,6 +1121,93 @@ function pinOrUnpinAccordionChild(parent, child)
 	drawButtons()
 	view:invalidate()
 	return true
+end
+
+-- Pin every selected child onto the first-selected parent. Does not toggle:
+-- already-on-this-parent is skipped, already-on-another is refused.
+function pinButtonsToParent(parent, children)
+	if parent == nil or parent.data == nil or type(children) ~= "table"
+			or #children == 0 then
+		return 0
+	end
+	if parent.data.floating == true then
+		showButtonToast("Pin a normal grid tile, not a super button")
+		return 0
+	end
+	ensureButtonId(parent)
+	local kids = copyAccordionChildRows(parent.data.accordionChildren)
+	local n = 0
+	local firstChild = nil
+	local otherLabel = nil
+	local full = false
+	for i = 1, #children do
+		local child = children[i]
+		if child ~= nil and child.data ~= nil and child ~= parent
+				and child.data.floating ~= true
+				and not hasAccordionConfig(child.data) then
+			local childId = ensureButtonId(child)
+			local action, planned = accordionPinPlan(
+				kids, childId, child.data.label or "", child.data.command or "",
+				MAX_ACCORDION_CHILDREN)
+			if action == "full" then
+				full = true
+				break
+			elseif action == "ok" then
+				local existing = accordionParentsOfChildId(childId)
+				local other = false
+				for p = 1, #existing do
+					if existing[p] ~= parent then
+						other = true
+						if existing[p].data ~= nil then
+							otherLabel = existing[p].data.label or ""
+						end
+						break
+					end
+				end
+				if not other then
+					kids = planned
+					n = n + 1
+					if firstChild == nil then
+						firstChild = child
+					end
+				end
+			end
+		end
+	end
+	if n == 0 then
+		if full then
+			showButtonToast("Accordion already has " .. MAX_ACCORDION_CHILDREN
+				.. " sub-buttons")
+		elseif otherLabel ~= nil then
+			showButtonToast("Already pinned to " .. otherLabel)
+		end
+		return 0
+	end
+	pushUndo()
+	if parent.data.accordionDirection == nil
+			or parent.data.accordionDirection == "" then
+		local from = firstChild or children[1]
+		parent.data.accordionDirection = inferAccordionDirection(
+			posX(parent.data), posY(parent.data),
+			posX(from.data), posY(from.data))
+	end
+	parent.data.accordionChildren = kids
+	local parentLabel = tostring(parent.data.label or "")
+	if n == 1 then
+		showButtonToast("Pinned to " .. parentLabel)
+	else
+		showButtonToast("Pinned " .. tostring(n) .. " to " .. parentLabel)
+	end
+	if full then
+		showButtonToast("Accordion already has " .. MAX_ACCORDION_CHILDREN
+			.. " sub-buttons")
+	elseif otherLabel ~= nil then
+		showButtonToast("Already pinned to " .. otherLabel)
+	end
+	saveDefaultOptions()
+	drawButtons()
+	view:invalidate()
+	return n
 end
 
 local function getAccordionTrigger(data)
@@ -1573,10 +1760,12 @@ function updateSelected(b,sel)
 	if(sel) then
 		--p:setShadowLayer(1,0,0,Color.WHITE)
 		b.selected = true
+		rememberSelection(b)
 		b:draw(1,buttonCanvas)
 	else
 		--p:setShadowLayer(0,0,0,Color.WHITE)
 		b.selected = false
+		forgetSelection(b)
 		b:draw(0,buttonCanvas)
 	end
 	
@@ -1618,11 +1807,13 @@ function checkIntersects()
 				if(RectFClass:intersects(dragRect,rect) or dragRect:contains(rect)) then
 				if(b.selected == false) then
 					updateSelected(b,true)
+					rememberSelection(b)
 					--anySelected = true
 				end
 			else
 				if(b.selected == true) then
 					updateSelected(b,false)
+					forgetSelection(b)
 					--redrawscreen = true
 				end
 			end
@@ -1632,11 +1823,13 @@ function checkIntersects()
 			if(dragRect:contains(rect)) then
 				if(b.selected == false) then
 					updateSelected(b,true)
+					rememberSelection(b)
 					--anySelected = true
 				end
 			else
 				if(b.selected == true) then
 					updateSelected(b,false)
+					forgetSelection(b)
 					--redrawscreen = true
 				end
 			end	
@@ -1841,6 +2034,7 @@ managerBgPaint:setARGB(0xFF,0x00,0x00,0x00)
 drawManagerLayer = true
 function enterManagerMode()
 	manage = true
+	clearSelectionOrder()
 	-- Open fans leave overlay children in buttonTouched / drawButtons that are
 	-- not in `buttons`; the edit grid would show phantoms over the real tiles.
 	collapseAllAccordions(true)
@@ -2235,6 +2429,10 @@ local function restoreLayout(snap)
 	touchedbutton = {}
 	fingerdown = false
 	selectedtouchstart = false
+	-- Extracted undo tests do not load selectionOrder; skip if absent.
+	if type(clearSelectionOrder) == "function" then
+		clearSelectionOrder()
+	end
 
 	if manage and managerCanvas ~= nil then
 		drawManagerGrid()
@@ -3390,10 +3588,12 @@ end
 -- view, the run wraps into the next lane on the cross axis. Index 1 is nearest
 -- the parent. Pure so layout can be tested without a View.
 --
--- Invariant: if the view can host even one child tile, at least the first
--- child is placed (the first slot is pulled onto screen when the preferred
--- direction has no room). Further children are dropped only when every
--- remaining slot would share a centre or leave the view — never by stacking.
+-- Invariant: if the view can host even one child tile that does not sit on
+-- the parent, at least that child is placed. The first slot used to be pulled
+-- onto the parent when the preferred direction had no room; extra columns
+-- now wrap beside the parent instead. Further children are dropped only when
+-- every remaining slot would share a centre, leave the view, or cover the
+-- parent — never by stacking.
 --
 -- Lane order: fill the parent's column/row first, then keep going on the side
 -- with more room until that side is exhausted, then the other side. Alternating
@@ -3482,21 +3682,23 @@ function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
 		originY = parentY + parentHalfH + gap + childHalfH
 	end
 
-	local function fits(x, y)
-		return accordionChildCentreFits(x, y, childHalfW, childHalfH, viewW, viewH, statusOffset)
+	local parentMinX = parentX - parentHalfW
+	local parentMaxX = parentX + parentHalfW
+	local parentMinY = parentY - parentHalfH
+	local parentMaxY = parentY + parentHalfH
+	-- Children sit past the parent, never on it. A clamp that pulled the first
+	-- slot back onto the parent made Columns=2 look like the extra lane was
+	-- "inside" MORE.
+	local function overlapsParent(x, y)
+		local cMinX, cMaxX = x - childHalfW, x + childHalfW
+		local cMinY, cMaxY = y - childHalfH, y + childHalfH
+		return not (cMaxX <= parentMinX or cMinX >= parentMaxX
+			or cMaxY <= parentMinY or cMinY >= parentMaxY)
 	end
 
-	-- Pull the first slot onto the screen when the preferred direction has no
-	-- room (e.g. expand-down parent at the bottom edge). Without this every
-	-- cross-axis lane shares the blocked Y and the overlay is empty.
-	if viewW > 0 and viewH > 0 and not fits(originX, originY) then
-		originX, originY = clampAccordionChildCentre(
-			originX, originY, childHalfW, childHalfH, viewW, viewH, statusOffset)
-	end
-	-- Tile larger than the view: clamp still yields a centre, but fits may
-	-- disagree on pathological sizes. Bail rather than invent overlapping tiles.
-	if viewW > 0 and viewH > 0 and not fits(originX, originY) then
-		return centres
+	local function fits(x, y)
+		return accordionChildCentreFits(x, y, childHalfW, childHalfH, viewW, viewH, statusOffset)
+			and not overlapsParent(x, y)
 	end
 
 	local centreAlong = (not stackV and (dir == "down" or dir == "up"))
@@ -3526,6 +3728,52 @@ function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
 	wrapAfter = tonumber(wrapAfter) or 0
 	if wrapAfter < 0 then
 		wrapAfter = 0
+	end
+
+	-- Preferred slot is just past the parent. If that is off-screen, wrap to
+	-- the next column/row rather than clamping the first child onto MORE.
+	if viewW > 0 and viewH > 0 and not fits(originX, originY) then
+		local cx, cy = clampAccordionChildCentre(
+			originX, originY, childHalfW, childHalfH, viewW, viewH, statusOffset)
+		local foundX, foundY = nil, nil
+		if fits(cx, cy) then
+			foundX, foundY = cx, cy
+		else
+			local maxLane = count + 2
+			for lane = 1, maxLane do
+				local signs = { crossSign, -crossSign }
+				for s = 1, 2 do
+					local sign = signs[s]
+					local candidates = {
+						{ originX + lane * sign * crossX, originY + lane * sign * crossY },
+						{ cx + lane * sign * crossX, cy + lane * sign * crossY },
+					}
+					for c = 1, #candidates do
+						local x, y = candidates[c][1], candidates[c][2]
+						if fits(x, y) then
+							foundX, foundY = x, y
+							break
+						end
+						local kx, ky = clampAccordionChildCentre(
+							x, y, childHalfW, childHalfH, viewW, viewH, statusOffset)
+						if fits(kx, ky) then
+							foundX, foundY = kx, ky
+							break
+						end
+					end
+					if foundX ~= nil then
+						break
+					end
+				end
+				if foundX ~= nil then
+					break
+				end
+			end
+		end
+		if foundX == nil then
+			return centres
+		end
+		originX, originY = foundX, foundY
 	end
 
 	local function alongCap(requested)
@@ -3627,14 +3875,23 @@ function computeAccordionChildCentres(parentX, parentY, parentW, parentH,
 	end
 
 	-- Further lanes: preferred cross side first, then the opposite.
+	-- Skip a single empty lane (the parent column after origin moved aside)
+	-- so a bottom-edge fan fills both sides of MORE, not only the first.
 	local function fillSide(sign)
 		local lane = 1
-		while #centres < count do
+		local misses = 0
+		local maxLane = count + 2
+		while #centres < count and lane <= maxLane do
 			local lx = originX + lane * sign * crossX
 			local ly = originY + lane * sign * crossY
 			local placed = placeLane(lx, ly, alongCap(count))
 			if placed == 0 then
-				break
+				misses = misses + 1
+				if misses >= 2 then
+					break
+				end
+			else
+				misses = 0
 			end
 			lane = lane + 1
 		end
@@ -4192,6 +4449,9 @@ function deleteSelectedButtons()
 			end
 		end
 	end
+	if type(clearSelectionOrder) == "function" then
+		clearSelectionOrder()
+	end
 	drawButtons()
 	view:invalidate()
 end
@@ -4270,7 +4530,50 @@ function showEditorSelection()
 	local build = luajava.newInstance("android.app.AlertDialog$Builder",view:getContext())
 
 	if count > 1 then
-		build:setItems(editorItemsMulti,editorListenerMulti_cb)
+		local ordered = selectedButtonsInTapOrder()
+		local plan, pinParent, pinKids = accordionSelectionPinPlan(ordered)
+		if plan == "ok" then
+			local parentLabel = ""
+			if pinParent.data ~= nil then
+				parentLabel = pinParent.data.label or ""
+			end
+			local pinText
+			if #pinKids == 1 then
+				pinText = "Pin to \"" .. parentLabel .. "\""
+			else
+				pinText = "Pin " .. tostring(#pinKids) .. " to \"" .. parentLabel .. "\""
+			end
+			local items = Array:newInstance(StringClass, 6)
+			Array:set(items, 0, pinText)
+			Array:set(items, 1, "Move")
+			Array:set(items, 2, "Edit")
+			Array:set(items, 3, "Arrange...")
+			Array:set(items, 4, "Copy")
+			Array:set(items, 5, "Delete")
+			local pinTo = pinParent
+			local pinThese = pinKids
+			local pinMulti = {}
+			function pinMulti.onClick(dialog, which)
+				if which == 0 then
+					pinButtonsToParent(pinTo, pinThese)
+				elseif which == 1 then
+					enterMoveMode()
+				elseif which == 2 then
+					showEditorDialog()
+				elseif which == 3 then
+					showArrangeSelection(numediting)
+				elseif which == 4 then
+					copySelectedButtons()
+				elseif which == 5 then
+					deleteSelectedButtons()
+				end
+			end
+			local pinMulti_cb = luajava.createProxy(
+				"android.content.DialogInterface$OnClickListener", pinMulti)
+			build:setItems(items, pinMulti_cb)
+		else
+			build:setItems(editorItemsMulti,editorListenerMulti_cb)
+		end
 		build:setTitle(count.." buttons selected.")
 	else
 		local pinParent = findAccordionParentOf(selectedOne)

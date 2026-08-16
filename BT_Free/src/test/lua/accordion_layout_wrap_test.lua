@@ -66,6 +66,16 @@ local function onScreen(c, viewW, viewH)
 		and c.y + half + STATUS <= viewH + 0.01
 end
 
+local function overlapsParent(c, parentX, parentY)
+	local half = childHalf()
+	local cMinX, cMaxX = c.x - half, c.x + half
+	local cMinY, cMaxY = c.y - half, c.y + half
+	local pMinX, pMaxX = parentX - half, parentX + half
+	local pMinY, pMaxY = parentY - half, parentY + half
+	return not (cMaxX <= pMinX or cMinX >= pMaxX
+		or cMaxY <= pMinY or cMinY >= pMaxY)
+end
+
 local function centresUnique(centres)
 	for i = 1, #centres do
 		for j = i + 1, #centres do
@@ -149,7 +159,7 @@ check(uniq, string.format("cramped centres must be unique (collision %s vs %s)",
 	tostring(a), tostring(b)))
 
 print("8. bottom-edge down accordion still shows children")
--- Advisor measured 0 centres here before the clamp-first-slot fix.
+-- Extra columns wrap beside the parent instead of sitting on MORE.
 centres = computeAccordionChildCentres(
 	540, 1800, TILE, TILE, "down", "along", 3, TILE, TILE, DENSITY,
 	VIEW_W, VIEW_H, STATUS)
@@ -157,9 +167,28 @@ check(#centres >= 1, "bottom edge must show at least one child, got " .. #centre
 check(#centres == 3, "bottom edge should place all 3 sideways, got " .. #centres)
 for i = 1, #centres do
 	check(onScreen(centres[i]), string.format("bottom child %d on screen", i))
+	check(not overlapsParent(centres[i], 540, 1800),
+		string.format("bottom child %d must not sit on the parent", i))
 end
 uniq, a, b = centresUnique(centres)
 check(uniq, "bottom-edge centres unique")
+centres = computeAccordionChildCentres(
+	540, 1800, TILE, TILE, "down", "along", 10, TILE, TILE, DENSITY,
+	VIEW_W, VIEW_H, STATUS)
+local left, right = 0, 0
+for i = 1, #centres do
+	check(not overlapsParent(centres[i], 540, 1800),
+		string.format("10-child bottom %d must not sit on MORE", i))
+	if centres[i].x < 540 then
+		left = left + 1
+	elseif centres[i].x > 540 then
+		right = right + 1
+	end
+end
+check(#centres == 8, "bottom edge with room on both sides places 8, got "
+	.. tostring(#centres))
+check(left >= 1 and right >= 1,
+	"bottom-edge extra columns fill both sides of MORE, not only one")
 
 print("9. near-edge horizontal fan packs one row when it fits")
 -- Advisor measured 3+3 wrap although all six fit from x≈48.
@@ -230,13 +259,12 @@ for _, dir in ipairs(dirs) do
 				check(#centres <= count,
 					string.format("%s/%s@%d,%d n=%d returned too many",
 						dir, layout, parent[1], parent[2], count))
-				-- View can host a 48dp tile: always at least one child.
-				check(#centres >= 1,
-					string.format("%s/%s@%d,%d n=%d expected >=1 centre, got %d",
-						dir, layout, parent[1], parent[2], count, #centres))
 				for i = 1, #centres do
 					check(onScreen(centres[i], tinyW, tinyH),
 						string.format("%s/%s@%d,%d n=%d child %d off screen",
+							dir, layout, parent[1], parent[2], count, i))
+					check(not overlapsParent(centres[i], parent[1], parent[2]),
+						string.format("%s/%s@%d,%d n=%d child %d on parent",
 							dir, layout, parent[1], parent[2], count, i))
 				end
 				uniq, a, b = centresUnique(centres)
@@ -303,6 +331,10 @@ for _ in pairs(xs2) do lane2 = lane2 + 1 end
 check(lane2 == 2, "expected 2 columns, got " .. tostring(lane2))
 for _, n in pairs(xs2) do
 	check(n == 5, "each column should hold 5, got " .. tostring(n))
+end
+for i = 1, #centres do
+	check(not overlapsParent(centres[i], 540, 400),
+		string.format("column child %d must sit past MORE, not on it", i))
 end
 
 if failures > 0 then
