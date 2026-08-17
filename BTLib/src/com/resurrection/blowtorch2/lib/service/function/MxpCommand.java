@@ -66,7 +66,7 @@ public class MxpCommand extends SpecialCommand {
 			sb.append(" mode=").append(p.getMxp().getMode().name().toLowerCase(Locale.US));
 		}
 		sb.append("\n");
-		sb.append("Clickable SEND links, colours, custom elements, EXPIRE.\n");
+		sb.append("Clickable SEND, colours, SOUND/MUSIC, custom elements, EXPIRE.\n");
 		sb.append("Options → Service → MUD Protocols → Use MXP?\n");
 		sb.append(".probe mxp dumps a tappable sample here.\n");
 		if (!on) {

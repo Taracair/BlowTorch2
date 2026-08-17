@@ -366,6 +366,95 @@ public class MxpEngineTest {
 	}
 
 	@Test
+	public void soundInOpenModeIsPlayedNotPrinted() {
+		MxpEngine e = new MxpEngine();
+		e.setEnabled(true);
+		e.setActive(true);
+		e.applyMode(0);
+		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();
+		e.setListener(L);
+		String out = utf(e, "<SOUND hit.wav V=80 U=\"https://ex.com/s/\">");
+		assertFalse(out.contains("<SOUND"));
+		assertEquals(1, L.sounds.size());
+		assertEquals("hit.wav", L.sounds.get(0).fname);
+		assertEquals(80, L.sounds.get(0).volume);
+		assertEquals("sound", L.sounds.get(0).mediaType);
+		assertEquals("https://ex.com/s/", L.sounds.get(0).url);
+		assertFalse(L.sounds.get(0).continueMusic);
+	}
+
+	@Test
+	public void sendInOpenModeIsStillIgnored() {
+		MxpEngine e = new MxpEngine();
+		e.setEnabled(true);
+		e.setActive(true);
+		e.applyMode(0);
+		String out = utf(e, "<SEND href=\"look\">north</SEND>");
+		assertTrue(out.contains("<SEND") || out.contains("north"));
+		assertFalse(out.contains("mxp-send:"));
+	}
+
+	@Test
+	public void musicContinueIsPositionalCNotPriority() {
+		MxpEngine e = on();
+		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();
+		e.setListener(L);
+		utf(e, "<MUSIC town.ogg 40 -1 1>");
+		assertEquals(1, L.sounds.size());
+		assertEquals("town.ogg", L.sounds.get(0).fname);
+		assertEquals(40, L.sounds.get(0).volume);
+		assertEquals(-1, L.sounds.get(0).loops);
+		assertEquals(50, L.sounds.get(0).priority);
+		assertTrue(L.sounds.get(0).continueMusic);
+		assertEquals("music", L.sounds.get(0).mediaType);
+	}
+
+	@Test
+	public void soundOffIsAStopRequest() {
+		MxpEngine e = on();
+		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();
+		e.setListener(L);
+		utf(e, "<SOUND Off>");
+		assertEquals(1, L.sounds.size());
+		assertTrue(MxpSound.isStop(L.sounds.get(0).fname));
+	}
+
+	@Test
+	public void supportListsSoundAndMusicNotImage() {
+		MxpEngine e = on();
+		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();
+		e.setListener(L);
+		utf(e, "<SUPPORT>");
+		assertTrue(L.mudReplies.get(0).contains("+sound"));
+		assertTrue(L.mudReplies.get(0).contains("+music"));
+		assertFalse(L.mudReplies.get(0).contains("+image"));
+		assertFalse(L.mudReplies.get(0).contains("+gauge"));
+	}
+
+	@Test
+	public void soundTypeGroupIsNotTheUrl() {
+		MxpEngine e = on();
+		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();
+		e.setListener(L);
+		utf(e, "<SOUND thunder.wav T=weather U=\"https://ex.com/s/\">");
+		assertEquals(1, L.sounds.size());
+		assertEquals("weather", L.sounds.get(0).group);
+		assertEquals("https://ex.com/s/", L.sounds.get(0).url);
+		assertEquals("thunder.wav", L.sounds.get(0).fname);
+	}
+
+	@Test
+	public void musicCZeroMeansDoNotContinue() {
+		MxpEngine e = on();
+		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();
+		e.setListener(L);
+		utf(e, "<MUSIC town.ogg C=0>");
+		assertEquals(1, L.sounds.size());
+		assertFalse(L.sounds.get(0).continueMusic);
+		assertEquals("music", L.sounds.get(0).mediaType);
+	}
+
+	@Test
 	public void supportDottedQueryIsAnswered() {
 		MxpEngine e = on();
 		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();

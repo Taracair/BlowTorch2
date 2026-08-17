@@ -1329,7 +1329,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
-    `.mxp [on|off]`                     MXP (clickable SEND links). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
+    `.mxp [on|off]`                     MXP (SEND links, colours, SOUND/MUSIC). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
     `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
@@ -2079,10 +2079,49 @@ sending. After you move, the world often sends `<EXPIRE>` so old exit links
 stop working; they stay visible in scrollback. Bare `<EXPIRE>` clears every
 MXP link.
 
-This is not OSC 8 (web links). `SCRIPT` and `RELOCATE` from the server are
-ignored. `<DEST>` / `<FRAME>` with a name matching an extra-text window goes
-there (ignore-case); otherwise main. Images and sound tags are dropped, not
-drawn or played.
+This is not OSC 8 (web links). MXP SEND is a command to the MUD.
+
+**What works**
+
+- Handshake (telnet option 91), colours, bold/italic/underline/strike.
+- `FONT` / `COLOR` **colour** (named, hex, RGB). Face and size are ignored —
+  changing the typeface mid-line would break ASCII maps.
+- `SEND` (tap sends a command), menus (`|` commands), `PROMPT` (fills the
+  input bar), `EXPIRE` (old exits stop working; they stay visible in
+  scrollback). Bare `<EXPIRE>` clears every MXP link.
+- Custom `ELEMENT` / `ATTLIST`, `ENTITY` / `VAR` (session variables).
+- `SOUND` / `MUSIC` — same player as Client.Media, on the **media** volume.
+  A file already in `/BlowTorch/sounds` (or previously cached) plays at
+  once. `U=` with `http`/`https` downloads like Client.Media and then plays.
+  `<SOUND Off>` / `<MUSIC Off>` (or `Stop`, or `L=0`) stop that kind.
+  `MUSIC` `C=1` does not restart the same track if it is already playing.
+- `<DEST>` / `<FRAME redirect>` with a name matching an extra-text window
+  already open (ignore-case); otherwise the main window. Does not create
+  windows.
+- Line breaks: `BR`, `NOBR`, `P`, `SBR`, `HR`, `H1`–`H6`.
+- `VERSION` / `SUPPORT` — the client answers honestly (`+sound` `+music`,
+  `-image`, no `+gauge`).
+
+**What does not (and will not, unless this list changes)**
+
+- `SCRIPT`, `RELOCATE` (and `USER` / `PASSWORD`), `FILTER` — ignored, on
+  purpose. The server does not run code on the phone or move the connection.
+- `telnet://` in `<A>` does not open a new connection (only `http` /
+  `https` / `mailto` leave the app).
+- `IMAGE` — the tag is consumed so it does not print; pictures are not drawn.
+- `GAUGE` / `STAT` — name and value become session variables; no bars. Same
+  bucket as HP/GP from entities: widgets, later, not now.
+- `FLAG RoomName` and friends — stored as `mxp.RoomName` session variables.
+  The mapper does not read them. Automapper CSI (`ESC [10z]`–`[12z]`) is a
+  no-op.
+- `FONT FACE` / `SIZE` — ignored (colour still applies).
+- MSP (`!!SOUND` / `!!MUSIC`) — not MXP; not implemented.
+- `file:`, `javascript:` and other non-`http(s)` `U=` URLs — not fetched.
+  A SOUND with no local file and no usable URL is silent (logcat
+  `GmcpMedia`).
+
+A Tappable Word trigger on the same glyph wins over MXP SEND; a web link
+still wins over both.
 
 The launcher seeds four worlds that advertise MXP (one-shot; deleting a row
 sticks). Hosts and ports come from each world's docs or MSSP listing, not from
@@ -2505,8 +2544,10 @@ stream on screen. Turn the option off for a server whose compression
 misbehaves.
 
 **Use MXP?** — MUD eXtension Protocol (telnet option 91), on by default.
-Worlds can mark exits and items so a tap sends a command. `.mxp on|off`.
-`.probe mxp` dumps a tappable sample. Reconnect after changing.
+Worlds can mark exits and items so a tap sends a command, and can play
+`SOUND` / `MUSIC` (files in `/BlowTorch/sounds`, or `http(s)` `U=` like
+Client.Media). Images, gauge bars, `SCRIPT` and `RELOCATE` are not done.
+`.mxp on|off`. `.probe mxp` dumps a tappable sample. Reconnect after changing.
 
 ## Passwords are hidden while the MUD asks for them
 

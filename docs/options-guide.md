@@ -122,7 +122,7 @@ them. Reconnect after changing any of these:
 | **Use MSDP?** | off | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
 | **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
 | **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |
-| **Use MXP?** | **on** | MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample. Launcher seeds Discworld / Threshold RPG / Ansalon / Midnight Sun once |
+| **Use MXP?** | **on** | MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE, colours, SOUND/MUSIC (local file or `http(s)` `U=`, same player as Client.Media). No images, no gauge bars, no `SCRIPT`/`RELOCATE`. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample. Launcher seeds Discworld / Threshold RPG / Ansalon / Midnight Sun once |
 | **Log MXP?** | off | Dump MXP tags to logcat (`BlowTorch.MXP`) |
 | **Show MXP in game window?** | off | Echo parsed MXP into the game window (debug) |
 

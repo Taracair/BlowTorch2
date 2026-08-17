@@ -14,6 +14,7 @@ import org.json.JSONObject;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
 import com.resurrection.blowtorch2.lib.service.mxp.MxpEngine;
+import com.resurrection.blowtorch2.lib.service.mxp.MxpSound;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -1450,6 +1451,14 @@ public class Processor {
 	private void ensureMediaPlayer() {
 		if (mMediaPlayer == null && mContext != null) {
 			mMediaPlayer = new GmcpMediaPlayer(mContext);
+		}
+	}
+
+	/** MXP SOUND/MUSIC — same player as Client.Media. */
+	public final void playMxpSound(final MxpSound.Request req) {
+		ensureMediaPlayer();
+		if (mMediaPlayer != null) {
+			mMediaPlayer.playMxp(req);
 		}
 	}
 

@@ -5805,10 +5805,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			}
 
 			@Override
-			public void playSound(final String fname, final int v, final int l, final int p,
-					final String type, final String url) {
-				// Tag is consumed. Playback of arbitrary MXP SOUND URLs is not wired;
-				// Client.Media / trigger sounds already cover the cases we ship.
+			public void playSound(final com.resurrection.blowtorch2.lib.service.mxp.MxpSound.Request req) {
+				if (mProcessor != null) {
+					mProcessor.playMxpSound(req);
+				}
 			}
 
 			@Override

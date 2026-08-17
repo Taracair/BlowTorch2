@@ -937,8 +937,11 @@ after changing. .mxp on|off. .mxp with no argument is status.
                  visible in scrollback
 
 This is not OSC 8 (web links). MXP SEND is a command to the MUD. SCRIPT
-and RELOCATE from the server are ignored. A Tappable Word trigger on the
-same glyph wins over MXP SEND; a web link still wins over both.]])
+and RELOCATE from the server are ignored. SOUND and MUSIC play through
+the same player as Client.Media (a file in /BlowTorch/sounds, or an
+http(s) U= URL). Images are not drawn; gauge bars are not. A Tappable
+Word trigger on the same glyph wins over MXP SEND; a web link still
+wins over both.]])
 end
 
 TOPICS.stay_connected = function()
@@ -1270,7 +1273,7 @@ local TIPS = {
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
 	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → GMCP.]],
 	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → MCP.]],
-	mxp = [[.mxp on|off. Worlds can mark exits and items as tappable commands. .probe mxp dumps a sample.]],
+	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. .probe mxp dumps a sample.]],
 	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
 	sensor = [[.sensor lists phone readings (shake, wave, …) as ordinary triggers. Options → Device → Sensors….]],
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],

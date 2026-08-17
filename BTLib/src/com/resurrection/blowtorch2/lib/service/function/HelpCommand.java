@@ -108,7 +108,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("mcp", "The world and its protocols", "MCP packages and negotiation");
 		cmd("msdp", "The world and its protocols", "MSDP variables");
 		cmd("mssp", "The world and its protocols", "what the world says about itself");
-		cmd("mxp", "The world and its protocols", "MXP links and markup; .mxp on|off");
+		cmd("mxp", "The world and its protocols", "MXP SEND/colours/SOUND; .mxp on|off");
 
 		cmd("map", "The map", "the mapper: recording, walking, rooms and exits");
 

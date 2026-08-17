@@ -39,7 +39,7 @@ public final class MxpEngine {
 
 		void destOutput(String window, byte[] data);
 
-		void playSound(String fname, int v, int l, int p, String type, String url);
+		void playSound(MxpSound.Request req);
 
 		void onFlag(String flag, String text);
 	}
@@ -49,6 +49,7 @@ public final class MxpEngine {
 		public final ArrayList<String> expires = new ArrayList<String>();
 		public final HashMap<String, String> variables = new HashMap<String, String>();
 		public final ArrayList<String> flags = new ArrayList<String>();
+		public final ArrayList<MxpSound.Request> sounds = new ArrayList<MxpSound.Request>();
 		public final HashMap<String, ByteArrayOutputStream> dests =
 				new HashMap<String, ByteArrayOutputStream>();
 
@@ -81,8 +82,10 @@ public final class MxpEngine {
 		}
 
 		@Override
-		public void playSound(final String fname, final int v, final int l, final int p,
-				final String type, final String url) {
+		public void playSound(final MxpSound.Request req) {
+			if (req != null) {
+				sounds.add(req);
+			}
 		}
 
 		@Override
@@ -615,7 +618,7 @@ public final class MxpEngine {
 			openStyle(n, tag);
 			return;
 		}
-		if (!secure && !isOpenStyle(n)) {
+		if (!secure && !isOpenStyle(n) && !isOpenLineTag(n)) {
 			return;
 		}
 		if ("send".equals(n)) {
@@ -652,13 +655,7 @@ public final class MxpEngine {
 		} else if ("image".equals(n) || "img".equals(n)) {
 			// Consumed. Drawing pictures is a later client feature.
 		} else if ("sound".equals(n) || "music".equals(n)) {
-			String fname = tag.attrOrPos("fname", 0);
-			listener.playSound(fname,
-					parseInt(tag.attrOrPos("v", 1), 100),
-					parseInt(tag.attrOrPos("l", 2), 1),
-					parseInt(tag.attrOrPos("p", 3), 50),
-					tag.attrOrPos("t", 4),
-					tag.attrOrPos("u", 5));
+			openSound(tag, "music".equals(n));
 		} else if ("gauge".equals(n) || "stat".equals(n)) {
 			String name = tag.attrOrPos("name", 0);
 			String value = tag.attrOrPos("value", 1);
@@ -1127,7 +1124,7 @@ public final class MxpEngine {
 		return " +b +i +u +s +bold +italic +underline +strike +color +c +font +high"
 				+ " +send +send.href +send.hint +send.expire +send.prompt +a +expire"
 				+ " +version +support +element +el +attlist +entity +en +var +br"
-				+ " +nobr +p +sbr +hr +dest +h1 +h2 +h3 +h4 +h5 +h6 +sound"
+				+ " +nobr +p +sbr +hr +dest +h1 +h2 +h3 +h4 +h5 +h6 +sound +music"
 				+ " +color.fore +color.back +font.color";
 	}
 
@@ -1184,6 +1181,38 @@ public final class MxpEngine {
 				|| "s".equals(n) || "strike".equals(n) || "strikeout".equals(n)
 				|| "color".equals(n) || "c".equals(n) || "high".equals(n) || "h".equals(n)
 				|| "font".equals(n);
+	}
+
+	/** Spec OPEN tags that are not styles — legal on an ordinary line. */
+	private static boolean isOpenLineTag(final String n) {
+		return "sound".equals(n) || "music".equals(n);
+	}
+
+	/**
+	 * SOUND positionals are FName V L P T U. MUSIC is FName V L C T U
+	 * ({@code C} continue, not priority). Named attributes still apply.
+	 */
+	private void openSound(final MxpTag tag, final boolean music) {
+		String fname = tag.attrOrPos("fname", 0);
+		if (fname == null || fname.length() == 0) {
+			return;
+		}
+		MxpSound.Request req = new MxpSound.Request();
+		req.fname = fname;
+		req.volume = parseInt(tag.attrOrPos("v", 1), 100);
+		req.loops = parseInt(tag.attrOrPos("l", 2), 1);
+		req.group = tag.attrOrPos("t", 4);
+		req.url = tag.attrOrPos("u", 5);
+		if (music) {
+			req.mediaType = "music";
+			req.priority = parseInt(tag.attr("p"), 50);
+			req.continueMusic = parseInt(tag.attrOrPos("c", 3), 1) != 0;
+		} else {
+			req.mediaType = "sound";
+			req.priority = parseInt(tag.attrOrPos("p", 3), 50);
+			req.continueMusic = false;
+		}
+		listener.playSound(req);
 	}
 
 	private void push(final OpenElem el) {

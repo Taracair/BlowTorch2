@@ -14,6 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.json.JSONObject;
 
+import com.resurrection.blowtorch2.lib.service.mxp.MxpSound;
+import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
+
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -45,6 +48,13 @@ public final class GmcpMediaPlayer {
 	private final ArrayList<Runnable> mFadeTicks = new ArrayList<Runnable>();
 	/** Bumped on release / hard stop-all so in-flight downloads cannot restart audio. */
 	private final AtomicInteger mEpoch = new AtomicInteger(0);
+	/**
+	 * Bumped on MXP {@code Off}/{@code Stop}/{@code L=0} for that kind only
+	 * so a SOUND still on the IO queue cannot start after {@code <SOUND Off>},
+	 * while {@code <MUSIC Off>} does not cancel an in-flight SOUND.
+	 */
+	private final AtomicInteger mMxpSoundEpoch = new AtomicInteger(0);
+	private final AtomicInteger mMxpMusicEpoch = new AtomicInteger(0);
 	private volatile boolean mReleased = false;
 
 	private String mDefaultUrl = "";
@@ -89,6 +99,92 @@ public final class GmcpMediaPlayer {
 		if ("stop".equals(action)) {
 			stop(data);
 		}
+	}
+
+	/**
+	 * MXP {@code SOUND}/{@code MUSIC}. Same cache and {@link MediaPlayer} as
+	 * Client.Media. {@code Off}/{@code Stop} (and {@code L=0}) stop MXP tracks
+	 * of that kind only — not an unrelated GMCP playlist. Lower-priority GMCP
+	 * tracks are not stolen when an MXP sound starts.
+	 */
+	public void playMxp(final MxpSound.Request req) {
+		if (mReleased || req == null) {
+			return;
+		}
+		final String fname = req.fname == null ? "" : req.fname.trim();
+		if (fname.length() == 0) {
+			return;
+		}
+		final String mediaType = "music".equalsIgnoreCase(req.mediaType) ? "music" : "sound";
+		if (MxpSound.isStop(fname) || req.loops == 0) {
+			mxpEpoch(mediaType).incrementAndGet();
+			JSONObject body = new JSONObject();
+			try {
+				if (!MxpSound.isStop(fname)) {
+					body.put("name", MxpSound.safeRelativeName(fname));
+				}
+				body.put("type", mediaType);
+				body.put("tag", "mxp");
+			} catch (Exception ignored) {
+			}
+			stop(body);
+			return;
+		}
+		if (req.volume <= 0) {
+			return;
+		}
+		final String rel = MxpSound.safeRelativeName(fname);
+		if (rel.length() == 0) {
+			return;
+		}
+		final int volume = clamp(req.volume, 1, 100);
+		final int loops = req.loops;
+		final int priority = req.priority;
+		final boolean continueMusic = req.continueMusic;
+		final String url = req.url;
+		final int epoch = mEpoch.get();
+		final int mxpEpoch = mxpEpoch(mediaType).get();
+		mIo.execute(new Runnable() {
+			@Override
+			public void run() {
+				if (mReleased || epoch != mEpoch.get() || mxpEpoch != mxpEpoch(mediaType).get()) {
+					return;
+				}
+				File local = findLocalSound(rel);
+				if (local == null) {
+					String remote = MxpSound.resolveDownloadUrl(url, rel);
+					if (remote.length() > 0) {
+						local = cacheRemoteFile(remote, rel);
+					}
+				}
+				if (local == null || !local.isFile() || local.length() <= 0) {
+					Log.w(TAG, "MXP SOUND no file for " + rel
+							+ " (not in /BlowTorch/sounds, cache empty, or download blocked)");
+					return;
+				}
+				final Uri uri = Uri.fromFile(local);
+				mMain.post(new Runnable() {
+					@Override
+					public void run() {
+						if (mReleased || epoch != mEpoch.get()
+								|| mxpEpoch != mxpEpoch(mediaType).get()) {
+							return;
+						}
+						if (skipMxpStart(rel, mediaType, continueMusic, priority)) {
+							return;
+						}
+						if ("music".equals(mediaType)) {
+							stopMxpMusic();
+						}
+						// key stays empty: T= is an MXP volume-group name, not a
+						// Client.Media key. Passing T= as key would stop a GMCP
+						// track that happened to use the same string.
+						startTrack(rel, mediaType, "mxp", "", volume, loops, priority,
+								continueMusic, 0, uri, mxpEpoch);
+					}
+				});
+			}
+		});
 	}
 
 	/**
@@ -166,7 +262,7 @@ public final class GmcpMediaPlayer {
 							return;
 						}
 						startTrack(name, type, tag, key, volume, loops, priority, continueMusic,
-								playFadeout, uri);
+								playFadeout, uri, -1);
 					}
 				});
 			}
@@ -175,7 +271,7 @@ public final class GmcpMediaPlayer {
 
 	private void startTrack(final String name, final String type, final String tag, final String key,
 			final int volume, final int loops, final int priority, final boolean continueMusic,
-			final int playFadeout, final Uri uri) {
+			final int playFadeout, final Uri uri, final int mxpEpochAtStart) {
 		if (key.length() > 0) {
 			Iterator<Track> it = mTracks.iterator();
 			while (it.hasNext()) {
@@ -196,12 +292,16 @@ public final class GmcpMediaPlayer {
 				}
 			}
 		}
-		Iterator<Track> low = mTracks.iterator();
-		while (low.hasNext()) {
-			Track t = low.next();
-			if (t.priority < priority) {
-				t.release();
-				low.remove();
+		// Client.Media: a higher-priority Play stops quieter tracks.
+		// MXP SOUND must not steal an unrelated GMCP playlist.
+		if (!"mxp".equals(tag)) {
+			Iterator<Track> low = mTracks.iterator();
+			while (low.hasNext()) {
+				Track t = low.next();
+				if (t.priority < priority) {
+					t.release();
+					low.remove();
+				}
 			}
 		}
 
@@ -245,7 +345,7 @@ public final class GmcpMediaPlayer {
 			player.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
 				@Override
 				public void onPrepared(MediaPlayer mp) {
-					if (mReleased) {
+					if (mReleased || mxpPreparedAfterStop(tag, type, mxpEpochAtStart)) {
 						mTracks.remove(track);
 						track.release();
 						return;
@@ -410,6 +510,74 @@ public final class GmcpMediaPlayer {
 		} else {
 			mMain.post(r);
 		}
+	}
+
+	private AtomicInteger mxpEpoch(final String mediaType) {
+		return "music".equals(mediaType) ? mMxpMusicEpoch : mMxpSoundEpoch;
+	}
+
+	/** True when Off/Stop arrived after this MXP start was queued. */
+	private boolean mxpPreparedAfterStop(final String tag, final String type,
+			final int mxpEpochAtStart) {
+		return "mxp".equals(tag) && mxpEpochAtStart != mxpEpoch(type).get();
+	}
+
+	/**
+	 * MXP SOUND: skip when a same-or-higher MXP sound is already playing, or
+	 * when MUSIC {@code C=1} and this file is already the current music.
+	 */
+	private boolean skipMxpStart(final String name, final String mediaType,
+			final boolean continueMusic, final int priority) {
+		if ("sound".equals(mediaType)) {
+			for (int i = 0; i < mTracks.size(); i++) {
+				Track t = mTracks.get(i);
+				if ("mxp".equals(t.tag) && "sound".equals(t.type) && t.priority >= priority) {
+					Log.i(TAG, "MXP SOUND skipped (priority " + priority
+							+ " <= playing " + t.priority + ")");
+					return true;
+				}
+			}
+			return false;
+		}
+		if ("music".equals(mediaType) && continueMusic) {
+			for (int i = 0; i < mTracks.size(); i++) {
+				Track t = mTracks.get(i);
+				if ("mxp".equals(t.tag) && "music".equals(t.type) && name.equals(t.name)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private void stopMxpMusic() {
+		Iterator<Track> it = mTracks.iterator();
+		while (it.hasNext()) {
+			Track t = it.next();
+			if ("mxp".equals(t.tag) && "music".equals(t.type)) {
+				it.remove();
+				t.release();
+			}
+		}
+	}
+
+	private File findLocalSound(final String rel) {
+		File cached = localCacheFile(rel);
+		if (cached != null && cached.isFile() && cached.length() > 0) {
+			return cached;
+		}
+		if (mAppContext == null) {
+			return null;
+		}
+		File root = SDCardUtils.resolveBlowTorchRoot(mAppContext);
+		if (root == null) {
+			return null;
+		}
+		File user = new File(new File(root, "sounds"), rel);
+		if (user.isFile() && user.length() > 0) {
+			return user;
+		}
+		return null;
 	}
 
 	private File cacheRemoteFile(final String url, final String name) {
