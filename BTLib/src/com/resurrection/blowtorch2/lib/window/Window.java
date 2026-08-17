@@ -39,6 +39,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Environment;
@@ -529,6 +530,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		mSearchMatchTextPaint.setStyle(Paint.Style.FILL);
 		mSearchMatchTextPaint.setColor(0xFF000000);
 		mSearchMatchTextPaint.setAntiAlias(true);
+		mLoupeHighlightPaint.setStyle(Paint.Style.FILL);
+		mLoupeHighlightPaint.setColor(0x66FFEB3B);
+		mLoupePanelPaint.setStyle(Paint.Style.FILL);
+		mLoupePanelPaint.setColor(0xEE212121);
+		mLoupePanelPaint.setAntiAlias(true);
+		mLoupeTextPaint.setStyle(Paint.Style.FILL);
+		mLoupeTextPaint.setColor(0xFFFFFFFF);
+		mLoupeTextPaint.setAntiAlias(true);
 		this.mSettings = settings;
 		this.mSettings.setListener(this);
 		mBuffer = new TextTree();
@@ -1694,6 +1703,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				// else.
 				cancelTapLongPress();
 				mTapLongPressFired = false;
+				dismissLoupe();
 			}
 			if (action == MotionEvent.ACTION_DOWN) {
 				pointer = pointerId;
@@ -1758,13 +1768,25 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 			}
 
-			if (action == MotionEvent.ACTION_MOVE && mTapLongPressFired) {
-				// The hold has already opened the menu, and the menu is anchored
-				// where the word was when the finger went down. Letting the rest
-				// of this method run would scroll the text out from under it —
-				// the list would stay put pointing at whatever slid into that
-				// spot. The gesture belongs to the menu now; swallow the rest of
-				// it and wait for the finger to come up.
+			if (action == MotionEvent.ACTION_MOVE && (mTapLongPressFired || mLoupeActive)) {
+				// The hold has already opened the menu or the loupe. Letting the
+				// rest of this method run would scroll the text out from under
+				// it. The gesture belongs to that overlay now.
+				if (mLoupeActive) {
+					mLoupeFingerX = t.getX(index);
+					mLoupeFingerY = t.getY(index);
+					if (mLoupeMerged != null) {
+						java.util.List<TapLoupe.Target> near = TapLoupe.inCircle(
+								mLoupeMerged, (int) mLoupeFingerX,
+								(int) mLoupeFingerY,
+								TapLoupe.radiusPx(mPrefLineSize, mDensity));
+						if (!near.isEmpty()) {
+							mLoupeSelected = TapLoupe.pick(near,
+									(int) mLoupeFingerX, (int) mLoupeFingerY);
+						}
+					}
+					invalidate();
+				}
 				return true;
 			}
 
@@ -1858,6 +1880,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						&& Math.abs(upX - start_x) < tapSlop;
 		         
 				cancelTapLongPress();
+				if (mLoupeActive) {
+					fireLoupeSelection();
+					dismissLoupe();
+					mTapLongPressFired = false;
+					mTouchInTapWord = -1;
+					mTouchInLink = -1;
+					return true;
+				}
 				if (mTapLongPressFired) {
 					// The hold already opened the menu. Sending on the way up as
 					// well would both ask and act on the same gesture.
@@ -2572,6 +2602,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								if (osc8) {
 									linkbox.setData(text.getHref());
 								}
+								linkbox.setLabel(text.getString());
 								if (!scrollingGesture) {
 									linkBoxes.add(linkbox);
 								}
@@ -2801,12 +2832,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 
 		c.restore();
+		drawLoupe(c);
 	}
 
 	/** Utility class to keep track of a drawn link's hitbox and link info. */
 	private class LinkBox {
 		/** The link data (url). */
 		private String mData;
+		/** Display text for the loupe, when this box is a candidate. */
+		private String mLabel;
 		/** The hitbox in view coordinates. */
 		private Rect mBox;
 		/** Public constructor.
@@ -2831,6 +2865,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		 */
 		public String getData() {
 			return mData;
+		}
+		public void setLabel(final String label) {
+			this.mLabel = label;
+		}
+		public String getLabel() {
+			return mLabel;
 		}
 		/** Getter for the hitbox. 
 		 * 
@@ -3366,7 +3406,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * <p>This class handles touch by hand — there is no GestureDetector here and
 	 * adding one would have to take over the vertical scroll, the fling and the
 	 * sideways drag as well. A posted runnable is the small version: it only
-	 * knows about tap words, and everything else on the touch path is untouched.
+	 * knows about tap words and the loupe, and everything else on the touch path is untouched.
 	 */
 	private Runnable mTapLongPress = null;
 	/**
@@ -3376,6 +3416,15 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mTapLongPressFired = false;
 	private final Paint mTapUnderlinePaint = new Paint();
 	private final Paint mTapTextPaint = new Paint();
+	private final Paint mLoupeHighlightPaint = new Paint();
+	private final Paint mLoupePanelPaint = new Paint();
+	private final Paint mLoupeTextPaint = new Paint();
+	private final RectF mLoupePanelRect = new RectF();
+	private ArrayList<TapLoupe.Target> mLoupeMerged = null;
+	private TapLoupe.Target mLoupeSelected = null;
+	private boolean mLoupeActive = false;
+	private float mLoupeFingerX;
+	private float mLoupeFingerY;
 
 	/**
 	 * One trigger carrying a TapAction: what to look for, what to send, and how
@@ -3748,6 +3797,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// is why $word came out empty before: getData() was null.
 			LinkBox box = new LinkBox(commands[0], r);
 			box.setData(commands[0]);
+			box.setLabel(source.substring(start, end));
 			tapBoxes.add(box);
 			tapCommands.add(new TapTarget(commands, tapSendsFirst));
 		}
@@ -3770,9 +3820,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/**
 	 * Start the clock on a hold, when there is something for a hold to do.
 	 *
-	 * <p>Only for a word with more than one command: on a word with one there is
-	 * no list to open, and posting anyway would mean every touch on the game
-	 * text carried a timer for nothing.
+	 * <p>A word with several commands still opens the command menu. Several
+	 * different words near the finger open a loupe instead. A lone one-command
+	 * word does not arm a timer.
 	 *
 	 * <p>The commands and the anchor are taken <b>now</b>, not looked up when the
 	 * hold expires. The boxes are rebuilt on every draw and the game keeps
@@ -3783,22 +3833,33 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void scheduleTapLongPress() {
 		cancelTapLongPress();
 		mTapLongPressFired = false;
-		if (mTouchInTapWord < 0 || mTouchInTapWord >= tapCommands.size()
-				|| mTouchInTapWord >= tapBoxes.size()) {
+		if (start_x == null || mStartY == null) {
 			return;
 		}
-		final String[] cmds = tapCommands.get(mTouchInTapWord).commands;
-		if (cmds.length <= 1) {
+		final ArrayList<TapLoupe.Target> merged = buildLoupeTargets();
+		final int fx = start_x.intValue();
+		final int fy = mStartY.intValue();
+		final int radius = TapLoupe.radiusPx(mPrefLineSize, mDensity);
+		final TapLoupe.Query q = TapLoupe.query(merged, fx, fy, radius);
+		if (q.kind == TapLoupe.Kind.NONE || q.selected == null) {
 			return;
 		}
-		final Rect box = new Rect(tapBoxes.get(mTouchInTapWord).getBox());
 		mTapLongPress = new Runnable() {
 			public void run() {
 				mTapLongPress = null;
-				// The finger is still down and has not travelled — the scroll and
-				// the sideways drag both cancel this before they start moving.
 				mTapLongPressFired = true;
-				openTapWordMenu(cmds, box);
+				if (q.kind == TapLoupe.Kind.MENU) {
+					Rect box = new Rect(q.selected.left, q.selected.top,
+							q.selected.right, q.selected.bottom);
+					openTapWordMenu(q.selected.commands, box);
+				} else {
+					mLoupeMerged = merged;
+					mLoupeSelected = q.selected;
+					mLoupeFingerX = fx;
+					mLoupeFingerY = fy;
+					mLoupeActive = true;
+					invalidate();
+				}
 			}
 		};
 		postDelayed(mTapLongPress, android.view.ViewConfiguration.getLongPressTimeout());
@@ -3810,6 +3871,104 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			removeCallbacks(mTapLongPress);
 			mTapLongPress = null;
 		}
+	}
+
+	private ArrayList<TapLoupe.Target> buildLoupeTargets() {
+		ArrayList<TapLoupe.Target> raw = new ArrayList<TapLoupe.Target>();
+		int n = Math.min(tapBoxes.size(), tapCommands.size());
+		for (int i = 0; i < n; i++) {
+			LinkBox box = tapBoxes.get(i);
+			TapTarget t = tapCommands.get(i);
+			if (box == null || box.getBox() == null || t == null
+					|| t.commands == null || t.commands.length == 0) {
+				continue;
+			}
+			Rect r = box.getBox();
+			String label = box.getLabel();
+			if (label == null || label.length() == 0) {
+				label = t.commands[0];
+			}
+			raw.add(new TapLoupe.Target(r.left, r.top, r.right, r.bottom, label,
+					t.commands, t.tapSendsFirst, false));
+		}
+		for (int i = 0; i < linkBoxes.size(); i++) {
+			LinkBox box = linkBoxes.get(i);
+			if (box == null || box.getBox() == null || box.getData() == null
+					|| box.getData().length() == 0) {
+				continue;
+			}
+			Rect r = box.getBox();
+			String label = box.getLabel();
+			if (label == null || label.length() == 0) {
+				label = box.getData();
+			}
+			raw.add(new TapLoupe.Target(r.left, r.top, r.right, r.bottom, label,
+					new String[] { box.getData() }, true, true));
+		}
+		return new ArrayList<TapLoupe.Target>(TapLoupe.merge(raw));
+	}
+
+	private void fireLoupeSelection() {
+		TapLoupe.Target t = mLoupeSelected;
+		if (t == null || t.commands == null || t.commands.length == 0) {
+			return;
+		}
+		if (t.launchHref) {
+			Rect box = new Rect(t.left, t.top, t.right, t.bottom);
+			int cx = (box.left + box.right) / 2;
+			mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+					MainWindow.MESSAGE_LAUNCHURL, cx, box.top, t.commands[0]));
+			return;
+		}
+		if (TapLoupe.pickOpensMenu(t)) {
+			openTapWordMenu(t.commands, new Rect(t.left, t.top, t.right, t.bottom));
+			return;
+		}
+		mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+				MainWindow.MESSAGE_TAPWORDCOMMAND, t.commands[0]));
+	}
+
+	private void dismissLoupe() {
+		if (!mLoupeActive && mLoupeMerged == null) {
+			return;
+		}
+		mLoupeActive = false;
+		mLoupeMerged = null;
+		mLoupeSelected = null;
+		invalidate();
+	}
+
+	private void drawLoupe(final Canvas c) {
+		if (!mLoupeActive || mLoupeSelected == null) {
+			return;
+		}
+		TapLoupe.Target t = mLoupeSelected;
+		c.drawRect(t.left, t.top, t.right, t.bottom, mLoupeHighlightPaint);
+		String label = t.label;
+		if (label == null || label.length() == 0) {
+			label = t.commands.length > 0 ? t.commands[0] : "";
+		}
+		float textSize = Math.max(mPrefLineSize * 1.6f, 18f * mDensity);
+		mLoupeTextPaint.setTextSize(textSize);
+		mLoupeTextPaint.setTypeface(mPrefFont);
+		float pad = 8f * mDensity;
+		float tw = mLoupeTextPaint.measureText(label);
+		float panelW = tw + pad * 2f;
+		float panelH = textSize + pad * 2f;
+		float px = mLoupeFingerX + 36f * mDensity;
+		float py = mLoupeFingerY - panelH - 16f * mDensity;
+		if (px + panelW > mWidth) {
+			px = mLoupeFingerX - panelW - 36f * mDensity;
+		}
+		if (px < 0) {
+			px = pad;
+		}
+		if (py < 0) {
+			py = mLoupeFingerY + 16f * mDensity;
+		}
+		mLoupePanelRect.set(px, py, px + panelW, py + panelH);
+		c.drawRoundRect(mLoupePanelRect, 8f * mDensity, 8f * mDensity, mLoupePanelPaint);
+		c.drawText(label, px + pad, py + pad - mLoupeTextPaint.ascent(), mLoupeTextPaint);
 	}
 
 	/** Widest the canvas gets, in pixels. */

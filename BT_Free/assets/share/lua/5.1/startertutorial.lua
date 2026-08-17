@@ -89,6 +89,7 @@ local TOPIC_ORDER = {
 	"gmcp",
 	"mcp",
 	"mxp",
+	"protocols",
 	"logging_export",
 	"stay_connected",
 	"disconnect_reconnect",
@@ -668,7 +669,12 @@ and pressing something from ten lines ago works.
 
 Worlds can also mark text themselves with MXP SEND. That is .mxp and
 .probe mxp, not a trigger. A Tappable Word on the same glyph wins over
-that SEND; an http link still wins over both.]])
+that SEND; an http link still wins over both.
+
+Hold a finger where several different links sit close together. A small
+loupe appears beside it and highlights one word at a time so you can
+slide to the one you meant. A hold on a single word that has several
+commands still opens the command menu, as before.]])
 end
 
 TOPICS.keyboard = function()
@@ -899,8 +905,8 @@ end
 TOPICS.gmcp = function()
 	noteBlock("GMCP (brief)",
 [[GMCP is an out-of-band telnet channel (option 201). Enable under
-Options → Service → GMCP Options. Prefer Manage modules… over editing
-the raw Supports String by hand.
+Options → Service → Protocols → Use GMCP?. Prefer Manage modules…
+(under Options → Service → GMCP) over editing the raw Supports String.
 
 Useful helpers:
   .gmcp ask|handshake   what we declare vs what was seen
@@ -915,7 +921,8 @@ end
 TOPICS.mcp = function()
 	noteBlock("MCP (brief)",
 [[Mud Client Protocol uses in-band #$# messages (common on MOOs). Not the
-same as GMCP. Options → Service → MCP Options (off by default).
+same as GMCP. Options → Service → Protocols → Use MCP? (off by default).
+Details sit under Options → Service → MCP.
 
   .mcp ask|status
   .mcp packages / enable|disable / renegotiate
@@ -928,7 +935,7 @@ end
 TOPICS.mxp = function()
 	noteBlock("MXP — clickable game text",
 [[Some worlds mark exits and items with MXP so a tap sends the command.
-Options → Service → MUD Protocols → Use MXP? (on by default). Reconnect
+Options → Service → Protocols → Use MXP? (on by default). Reconnect
 after changing. .mxp on|off. .mxp with no argument is status.
 
   .probe mxp     dumps a tappable sample here without waiting on the game
@@ -942,6 +949,21 @@ the same player as Client.Media (a file in /BlowTorch/sounds, or an
 http(s) U= URL). Images are not drawn; gauge bars are not. A Tappable
 Word trigger on the same glyph wins over MXP SEND; a web link still
 wins over both.]])
+end
+
+TOPICS.protocols = function()
+	noteBlock("What this world speaks — .protocols",
+[[MUDs offer different extra channels (GMCP, MXP, MCP, compression…).
+Type .protocols to see what this world offered versus what you have on,
+in plain language. .protocols enable turns on the offered-but-off
+switches. Reconnect when it says so (telnet options); OSC 8 does not
+need one.
+
+The switches live under Options → Service → Protocols (Use GMCP? /
+Use MCP? / Use MXP?). MTTS, MSDP, MSSP and MCCP sit under Telnet.
+Use OSC 8? is Options → Window.
+
+StickMUD room-item hashes need Use GMCP? on as well as OSC 8.]])
 end
 
 TOPICS.stay_connected = function()
@@ -992,7 +1014,7 @@ TOPICS.options_cleanup = function()
   Input     history, keep last, Grow Input Bar (.wrap),
             lowercase start of sent commands (\\Look keeps capital)
   Service   encoding, logging, battery, reconnect, Wi-Fi;
-            nested GMCP / MCP / MUD Protocols
+            nested Protocols / GMCP / MCP / Telnet
   Bell      bell reactions
   Miscellaneous   storage access and paths, Export / Import / Reset
                   Settings, persistent connection, ⋮ button look
@@ -1129,7 +1151,7 @@ Topics: welcome, practice_world, client_commands, buttons_basics,
 buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
 buttons_make, buttons_edit, movement, aliases, triggers, timers, sensors,
 tappable, keyboard, completion, coloring, display, wrap, copy_text, search,
-mapper, gmcp, mcp, mxp, logging_export, stay_connected, disconnect_reconnect,
+mapper, gmcp, mcp, mxp, protocols, logging_export, stay_connected, disconnect_reconnect,
 overflow_menu, options_cleanup, plugins, finish]])
 end
 
@@ -1265,15 +1287,16 @@ local TIPS = {
 	suggestions = [[Same as .suggest.]],
 	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
 	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
-	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. .probe osc8 dumps a sample.]],
+	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],
 	font = [[.font N sets game font size (6–48). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
 	kb = [[Same as .keyboard.]],
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
-	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → GMCP.]],
-	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → MCP.]],
-	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. .probe mxp dumps a sample.]],
+	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → Protocols → Use GMCP?.]],
+	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → Protocols → Use MCP?.]],
+	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Service → Protocols. .probe mxp dumps a sample.]],
+	protocols = [[.protocols shows what this world offered vs what is on. .protocols enable turns on offered-but-off switches.]],
 	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
 	sensor = [[.sensor lists phone readings (shake, wave, …) as ordinary triggers. Options → Device → Sensors….]],
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
@@ -1284,7 +1307,7 @@ local TIPS = {
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],
 	colordebug = [[.colordebug 0–3 shows or hides ANSI codes in the window.]],
-	probe = [[.probe report measures how lines arrive. .probe truecolor / .probe osc8 / .probe mxp dump samples here.]],
+	probe = [[.probe report measures how lines arrive. .probe truecolor / .probe osc8 / .probe mxp dump samples here. .probe protocols is the same as .protocols.]],
 	buttonopacity = [[.buttonopacity 100 forces every tile's alpha until .buttonopacity restore or .loadset.]],
 	buttonsopacity = [[Same as .buttonopacity.]],
 	clearbuttons = [[.clearbuttons hides the pad until the next .loadset (BACK on the tutorial pad restores).]],

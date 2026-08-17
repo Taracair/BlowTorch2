@@ -5,9 +5,9 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), **OSC 8 links?** (server-declared hyperlinks; independent of regex linkify; `.osc8 on|off`), ANSI color; nested **Extra text windows** |
+| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
-| **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
+| **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
@@ -65,7 +65,7 @@ On Android 11+ this needs **All files access** once: **Options → Miscellaneous
 ## GMCP
 
 GMCP is an optional structured out-of-band channel (telnet option 201). Enable
-**Use GMCP?** under Options → Service → GMCP Options. Use **Manage modules…** to pick what goes in
+**Use GMCP?** under Options → Service → Protocols. Use **Manage modules…** (under Options → Service → GMCP) to pick what goes in
 `Core.Supports.Set` (built-in, seen this session, catalog). Nothing auto-enables
 from traffic. **Supports String (advanced)** is the raw list if you prefer editing
 it by hand. **Log GMCP?** writes the handshake and every packet to
@@ -89,10 +89,10 @@ filters (including `{"fadeaway":true}` alone) stops all tracks; fade only when
 disconnect and when the app is swiped away from Recents (service may stay for
 persistent connection).
 
-## MCP Options
+## MCP
 
 Mud Client Protocol — in-band `#$#` messages, used by a number of MOOs.
-**Not** the same as GMCP. Under **Options → Service → MCP Options**. All advanced
+**Not** the same as GMCP. **Use MCP?** under **Options → Service → Protocols**. Details under **Options → Service → MCP**. All advanced
 flags default off except omit-from-output and auto-negotiate (when Use MCP? is on):
 
 | Option | Default | Notes |
@@ -110,10 +110,12 @@ Native handlers: **dns-org-hellmoo-status** (`.mcp vitals`), **simpleedit** (edi
 Lua: `Send_MCP_Packet`, `Get_MCP_Status`, triggers `@message-name`.
 Helpers: `.mcp ask`, `.mcp cord …`, `.mcp ping`, `.mcp client`, `.mcp send`.
 
-## MUD Protocols (optional)
+## Protocols and Telnet
 
-Separate from GMCP, under **Options → Service → MUD Protocols**. **MTTS, MCCP
-and MXP are on by default; MSDP and MSSP are off** — enable those only if a MUD needs
+**Use GMCP? / Use MCP? / Use MXP?** sit together under **Options → Service → Protocols**. `.protocols` reports what this world offered versus what is on; `.protocols enable` turns on offered-but-off switches.
+
+**MTTS, MSDP, MSSP and MCCP** sit under **Options → Service → Telnet**. **MTTS and MCCP
+are on by default; MSDP and MSSP are off** — enable those only if a MUD needs
 them. Reconnect after changing any of these:
 
 | Option | Default | What it does |
@@ -122,7 +124,7 @@ them. Reconnect after changing any of these:
 | **Use MSDP?** | off | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
 | **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
 | **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |
-| **Use MXP?** | **on** | MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE, colours, SOUND/MUSIC (local file or `http(s)` `U=`, same player as Client.Media). No images, no gauge bars, no `SCRIPT`/`RELOCATE`. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample. Launcher seeds Discworld / Threshold RPG / Ansalon / Midnight Sun once |
+| **Use MXP?** | **on** | Under **Protocols**, not Telnet. MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE, colours, SOUND/MUSIC (local file or `http(s)` `U=`, same player as Client.Media). No images, no gauge bars, no `SCRIPT`/`RELOCATE`. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample. Launcher seeds Discworld / Threshold RPG / Ansalon / Midnight Sun once |
 | **Log MXP?** | off | Dump MXP tags to logcat (`BlowTorch.MXP`) |
 | **Show MXP in game window?** | off | Echo parsed MXP into the game window (debug) |
 
@@ -320,7 +322,8 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
-- **OSC 8 links:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. `send:` taps type a command (StickMUD / Mudlet); `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
+- **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. `send:` taps type a command (StickMUD / Mudlet); `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
+- **`.protocols`** — what this world offered vs what is on. `.protocols enable` turns on offered-but-off switches (reconnect when it says so).
 - **Edit / Send:** side-by-side when both are shown (Options → Window → Show Edit/Send button?).
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`
 - **Show Send button?** — `.sendbutton on|off` · or keyboard Send / `.kb flush`

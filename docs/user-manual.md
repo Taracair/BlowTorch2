@@ -1049,7 +1049,9 @@ what lights up, and tapping it sends a command.
   cost you something, because a tap then goes to the game with nothing in
   between. Holding still works on a word with several commands whether this is
   on or not, so the list is never out of reach; sliding your finger off the word
-  cancels the hold and scrolls the text as usual.
+  cancels the hold and scrolls the text as usual. Hold where several *different*
+  links sit close together and a small loupe appears beside the finger instead,
+  highlighting one word so you can slide to the one you meant.
 - **Underline / Bold / Frame** — any combination, or none. Colour is not here:
   put a **Color** action on the same trigger.
 - Two Tappable Word actions on one trigger behave as one word that offers both
@@ -2050,9 +2052,10 @@ can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`).
 type that command to the game; `prompt:` fills the input bar. `javascript:`,
 `data:`, `vbscript:`, `file:`, and `preset:` are ignored.
 
-**Options → Window → Hyperlink Settings → OSC 8 links?** (on by default). This is
+**Options → Window → Use OSC 8?** (on by default). This is
 independent of **Enable Hyperlinks?** (that one is regex linkify of `http` /
-`www.` / bare domains).
+`www.` / bare domains). Not inside Hyperlink Settings — OSC 8 is not a typical
+web hyperlink.
 
 ```
 .osc8
@@ -2064,7 +2067,7 @@ independent of **Enable Hyperlinks?** (that one is regex linkify of `http` /
 
 Some worlds mark exits and items with [MXP](https://www.zuggsoft.com/zmud/mxp.htm)
 so a tap sends a command. Handshake is telnet option 91. **Options → Service →
-MUD Protocols → Use MXP?** (on by default). Reconnect after changing.
+Protocols → Use MXP?** (on by default). Reconnect after changing.
 
 ```
 .mxp
@@ -2318,7 +2321,7 @@ when the window process re-registers after a UI restart — then only the newest
 128 KB of held history is replayed.
 
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
-like `Comm.*`). Routes need **Options → Service → GMCP → Use GMCP?** on.
+like `Comm.*`). Routes need **Options → Service → Protocols → Use GMCP?** on.
 
 ### `.window` forms
 
@@ -2433,7 +2436,7 @@ on or off; a trigger condition can *read* that on/off state or the alias
 
 ## GMCP (short)
 
-Enable under **Options → Service → GMCP Options**. Prefer **Manage modules…**
+Enable under **Options → Service → Protocols**. Prefer **Manage modules…**
 over editing the raw Supports String.
 
 **If you need to know exactly what a world sends**, turn on **Log GMCP?** and
@@ -2505,7 +2508,7 @@ windows — those are yours, frames are the server's.
 ## MCP (short)
 
 Mud Client Protocol ([MCP 2.1](https://www.moo.mud.org/mcp/)) — in-band `#$#…`
-(not GMCP). Off by default. **Options → Service → MCP Options**. Prefer **Manage packages…**.
+(not GMCP). Off by default. **Options → Service → Protocols → Use MCP?**. Prefer **Manage packages…** under **MCP**.
 
 Native packages (when enabled): hellmoo-status vitals, simpleedit editor,
 displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
@@ -2523,10 +2526,12 @@ displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 Lua: `Send_MCP_Packet(s)`, `Get_MCP_Status()`, literal triggers `@message-name`
 (same idea as GMCP `%module`).
 
-Optional protocols (Options → Service → **MUD Protocols**). **MTTS, MCCP and MXP are
+Optional protocols. **Use GMCP? / Use MCP? / Use MXP?** under Options → Service → **Protocols**. **MTTS, MCCP** (and MSDP / MSSP) under **Telnet**. **MTTS, MCCP and MXP are
 on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 
 ```
+.protocols        — what this world offered vs what is on
+.protocols enable — turn on offered-but-off switches
 .mssp   — dump MSSP cache (enable Use MSSP? first, reconnect)
 .msdp   — dump MSDP cache (enable Use MSDP? first, reconnect)
 .mxp    — MXP on/off/status (on by default; reconnect after changing)
