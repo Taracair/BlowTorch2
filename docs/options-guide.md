@@ -261,7 +261,7 @@ the first connect after upgrading, carrying its previous value across.
 | Option | Default | Notes |
 |--------|---------|--------|
 | **Show welcome on connect** | off | Print a short welcome tip when connecting to a normal MUD. The **Starter Tutorial** launcher entry always opens the full guide regardless |
-| **Tips while playing?** | off | When you type a `.command` on a real MUD, print a short reminder of what it does. `.tutorial tips on` (once per command this session), `always`, or `off`. `.tutorial <topic>` still opens any lesson without this |
+| **Tips while playing?** | off | When you type a `.command` on a real MUD, print a short reminder of what it does. `.tips on` (once per command this session), `always`, or `off`. `.tutorial <topic>` still opens any lesson without this |
 
 `.tutorial done` clears Show on connect too. The plugin can be toggled off in the Plugins
 list but not deleted.

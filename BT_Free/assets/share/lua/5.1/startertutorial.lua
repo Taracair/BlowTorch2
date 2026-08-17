@@ -146,8 +146,10 @@ aliases, timers, sensors, colors, keyboard, completion, search, mapper, wrap,
 logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
 On a real MUD, .tutorial still opens any lesson, and
-  .tutorial tips on
-prints a short reminder the first time you use each .command that session.
+  .tips on
+prints a short reminder the first time you use a client command
+(.help, .osc8, .wrap, …) that session. Do not type .alias to try it —
+that edits aliases.
 
 Type:  .tutorial next
 Or:    .tutorial topics
@@ -188,12 +190,12 @@ Also: Options → Service → Process System Commands? must be on (default)
 for .commands to work.
 
 While you play, .tutorial still opens any lesson by name
-(.tutorial aliases, .tutorial coloring, …). To get a short reminder the
-first time you type a command:
+(.tutorial coloring, .tutorial wrap, …). To get a short reminder the
+first time you type a command such as .help or .osc8:
 
-  .tutorial tips on
-  .tutorial tips always   every time, not just once
-  .tutorial tips off
+  .tips on
+  .tips always   every time, not just once
+  .tips off
 
 Or Options → Starter Tutorial → Tips while playing?]])
 end
@@ -1090,9 +1092,10 @@ local function showHelp()
 .tutorial done         turn off Show on connect
 .tutorial topics       list topic names
 .tutorial <topic>      open one topic
-.tutorial tips on      short reminders when you type .commands while playing
-.tutorial tips always  same, every time (not just once)
-.tutorial tips off     stop the reminders
+.tips on               short reminders when you type .commands while playing
+.tips always           same, every time (not just once)
+.tips off              stop the reminders
+(.tutorial tips on|always|off is the same thing)
 
 Topics: welcome, practice_world, client_commands, buttons_basics,
 buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
@@ -1166,7 +1169,7 @@ local function ensureTipsOption(settings)
 		local opt = luajava.new(BooleanOption)
 		opt:setKey(OPTION_TIPS)
 		opt:setTitle("Tips while playing?")
-		opt:setDescription("When you type a .command on a real MUD, print a short reminder of what it does. Off until you ask (.tutorial tips on).")
+		opt:setDescription("When you type a .command on a real MUD, print a short reminder of what it does. Off until you ask (.tips on).")
 		opt:setValue(false)
 		settings:addOption(opt)
 	end)
@@ -1288,7 +1291,7 @@ function OnCommandTip(name)
 		if tipsMode == "off" then
 			return
 		end
-		if type(name) ~= "string" or name == "" or name == "tutorial" then
+		if type(name) ~= "string" or name == "" or name == "tutorial" or name == "tips" then
 			return
 		end
 		local key = string.lower(name)
@@ -1336,10 +1339,11 @@ function tutorialCommand(args)
 			noteBlock("Tutorial tips",
 [[Tips while playing are ]] .. tipsMode .. [[.
 
-.tutorial tips on      remind once per command this session
-.tutorial tips always  remind every time
-.tutorial tips off     stop
+.tips on       remind once per command this session
+.tips always   remind every time
+.tips off      stop
 
+Then type .help or .osc8 to see a reminder — not .alias.
 Also: Options → Starter Tutorial → Tips while playing?]])
 			return
 		end
@@ -1362,7 +1366,7 @@ Also: Options → Starter Tutorial → Tips while playing?]])
 			noteLine("Tips while playing: off.")
 			return
 		end
-		noteLine("Usage: .tutorial tips on | always | off")
+		noteLine("Usage: .tips on | always | off")
 		return
 	end
 	if cmd == "start" then
@@ -1479,6 +1483,18 @@ function OnBackgroundStartup()
 end
 
 RegisterSpecialCommand("tutorial", "tutorialCommand")
+
+function tipsCommand(args)
+	local a = args or ""
+	a = string.gsub(a, "^%s+", "")
+	a = string.gsub(a, "%s+$", "")
+	if a == "" then
+		tutorialCommand("tips")
+	else
+		tutorialCommand("tips " .. a)
+	end
+end
+RegisterSpecialCommand("tips", "tipsCommand")
 
 
 

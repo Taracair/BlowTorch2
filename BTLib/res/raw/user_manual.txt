@@ -2483,16 +2483,17 @@ are hidden.
 
 ### `starter_tutorial` (loaded by default)
 
-    `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>` / `tips on|always|off`
+    `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>`
+    `.tips on|always|off`   Short reminders when you type other `.commands` (same as `.tutorial tips …`)
 
 On the default button set, tap **HELP** to run `.tutorial start`. The launcher
 lists a built-in **Starter Tutorial** row first (offline — no MUD). `.tutorial`
 opens any lesson in a real world too — it only Notes, it never talks to the MUD.
 
-`.tutorial tips on` prints a short reminder the first time you use each
-`.command` that session (so `.alias` reminds you how aliases work while you
-play). `always` repeats every time; `off` stops. Also **Options → Starter
-Tutorial → Tips while playing?** (off until you ask).
+`.tips on` prints a short reminder the first time you use a client command
+that session (try `.help` or `.osc8` after — not `.alias`, which edits aliases).
+`always` repeats every time; `off` stops. Also **Options → Starter Tutorial →
+Tips while playing?** (off until you ask).
 
 Disable the welcome note on normal MUDs via **Options → Starter Tutorial → Show
 welcome on connect**, or type `.tutorial done`. You can also toggle `starter_tutorial` off

@@ -664,7 +664,8 @@ Language surface is **Lua 5.1** (LuaJIT). Packaged native modules on
   Timers, `CallPlugin("button_window", …)`, and `OnBackgroundStartup`.
 - Options: `show_on_connect` (welcome note on a normal MUD) and
   `tips_while_playing` (short reminders when the player types a `.command`).
-  `.tutorial` itself works in any world. `.tutorial tips on|always|off`.
+  `.tutorial` itself works in any world. `.tips on|always|off` (also
+  `.tutorial tips …`).
   Java calls global `OnCommandTip` after each other `.command`.
 
 ### `button_window` (full-featured)

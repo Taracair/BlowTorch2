@@ -359,7 +359,7 @@ options say so.
    `doAliasReplacement`), semicolon splitting, local echo. After a Java/Lua
    `.command` other than `.tutorial`, `Connection` may call starter_tutorial
    `OnCommandTip` so a short reminder can print while the player is on a real
-   MUD (off until `.tutorial tips on`).
+   MUD (off until `.tips on`).
 4. IAC-escaped bytes → `DataPumper` writer thread → socket.
 
 ### Substitution (three mechanisms)

@@ -3965,7 +3965,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 */
 	private void offerTutorialTip(final String commandName) {
 		if (commandName == null || commandName.length() == 0
-				|| "tutorial".equals(commandName)) {
+				|| "tutorial".equals(commandName)
+				|| "tips".equals(commandName)) {
 			return;
 		}
 		try {

@@ -230,7 +230,7 @@
 		<version>1.0</version>
 		<options title="Starter Tutorial" summary="Onboarding tips for new players.">
 			<boolean title="Show welcome on connect" key="show_on_connect" summary="Print a short welcome tip when connecting to a normal MUD (the Starter Tutorial launcher entry always opens the full guide).">false</boolean>
-			<boolean title="Tips while playing?" key="tips_while_playing" summary="When you type a .command on a real MUD, print a short reminder of what it does. Off until you ask (.tutorial tips on).">false</boolean>
+			<boolean title="Tips while playing?" key="tips_while_playing" summary="When you type a .command on a real MUD, print a short reminder of what it does. Off until you ask (.tips on).">false</boolean>
 		</options>
 		<script name="bootstrap" execute="true"><![CDATA[
 			require("startertutorial")

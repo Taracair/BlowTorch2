@@ -60,7 +60,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("settings", "Playing", "back up the settings file, or put the kept "
 				+ "copy back");
 		cmd("note", "Playing", "print a line in the window, without sending it");
-		cmd("tutorial", "Playing", "lessons, and short reminders while you play (.tutorial tips on)");
+		cmd("tutorial", "Playing", "lessons; .tutorial <topic> in any world");
+		cmd("tips", "Playing", "short reminders when you type .commands (.tips on|always|off)");
 
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
@@ -524,7 +525,17 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .tutorial              — help (works in any world)\n"
 					+ "  .tutorial start|next|prev|topics | <name>\n"
-					+ "  .tutorial tips on|always|off — reminders while you play\n";
+					+ "  .tips on|always|off    — reminders while you play\n";
+		}
+		if (filter.equals("tips")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .tips:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .tips              — on, always, or off\n"
+					+ "  .tips on           — once per command this session\n"
+					+ "  .tips always       — every time\n"
+					+ "  .tips off          — stop\n"
+					+ "  Then type .help or .osc8 — not .alias\n";
 		}
 		if (filter.equals("search")) {
 			return "\n"
