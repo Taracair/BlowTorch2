@@ -588,6 +588,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand dimrepeatcmd =
 				new com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand();
 		mSpecialCommands.put(dimrepeatcmd.commandName, dimrepeatcmd);
+		com.resurrection.blowtorch2.lib.service.function.Osc8Command osc8cmd =
+				new com.resurrection.blowtorch2.lib.service.function.Osc8Command();
+		mSpecialCommands.put(osc8cmd.commandName, osc8cmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
 		mSpecialCommands.put(sendbtncmd.commandName, sendbtncmd);
@@ -2986,7 +2989,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mFinished.appendLine(finisher.previous());
 		}
 		
-		mWorking.empty();
+		mWorking.drainLines();
 
 		// A colour trigger whose match reached the end of the text that had
 		// arrived leaves its colour running on purpose, so the rest of the line
@@ -3925,6 +3928,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 							//Log.e("SERVICE","SERVICE FOUND SPECIAL COMMAND: " + alias);
 							SpecialCommand command = mSpecialCommands.get(alias);
 							data = (Data) command.execute(argument, this);
+							offerTutorialTip(alias);
 							return data;
 						} else {
 							//format error message.
@@ -3952,6 +3956,27 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return data;
 		}
 		
+	}
+
+	/**
+	 * After a {@code .command} other than {@code .tutorial}, ask the starter
+	 * tutorial plugin for a short reminder. No-ops when the plugin is off or
+	 * the Lua function is missing. Must not break the command that just ran.
+	 */
+	private void offerTutorialTip(final String commandName) {
+		if (commandName == null || commandName.length() == 0
+				|| "tutorial".equals(commandName)) {
+			return;
+		}
+		try {
+			Plugin tutorial = mPluginMap.get("starter_tutorial");
+			if (tutorial == null || !tutorial.isEnabled()
+					|| !tutorial.checkPluginSupports("OnCommandTip")) {
+				return;
+			}
+			tutorial.callFunction("OnCommandTip", commandName);
+		} catch (Exception ignored) {
+		}
 	}
 	
 	/** Overrides the process special commands setting and sets a new value.

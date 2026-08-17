@@ -31,6 +31,11 @@ public class ProbeCommand extends SpecialCommand {
 			return null;
 		}
 
+		if (arg.equals("osc8") || arg.equals("osc-8") || arg.equals("hyperlink")) {
+			c.sendDataToWindow(osc8Sample());
+			return null;
+		}
+
 		// What this phone's sensors are, and what they deliver to the service
 		// process. Both halves are unknowable from the code: sensor hardware
 		// differs by model, and responders do not run in the UI process.
@@ -128,7 +133,9 @@ public class ProbeCommand extends SpecialCommand {
 				+ "Those two answer a different question: which sensor readings\n"
 				+ "this device could support, and how hard a shake has to be here.\n\n"
 				+ ".probe truecolor   — dump a 24-bit RGB sample into this window\n"
-				+ "                    (also .probe color). Does not wait for a MUD.\n"));
+				+ "                    (also .probe color). Does not wait for a MUD.\n"
+				+ ".probe osc8        — dump OSC 8 hyperlink samples into this window\n"
+				+ "                    (tap the marked words). Does not wait for a MUD.\n"));
 		return null;
 	}
 
@@ -174,5 +181,46 @@ public class ProbeCommand extends SpecialCommand {
 
 	private static String csiTruecolor(final int r, final int g, final int b) {
 		return "\u001B[38;2;" + r + ";" + g + ";" + b + "m";
+	}
+
+	/**
+	 * Known OSC 8 samples: BEL, ST, display≠URI, a close, and a rejected scheme.
+	 */
+	static String osc8Sample() {
+		final String esc = "\u001B";
+		final String bel = "\u0007";
+		final String st = esc + "\\";
+		final String reset = Colorizer.getResetColor();
+		StringBuilder out = new StringBuilder();
+		out.append("\n").append(Colorizer.getBrightCyanColor())
+				.append("OSC 8 probe. Tap the marked words. Display text need not be the URL.")
+				.append(reset).append("\n");
+		out.append("1) display ≠ URL: ")
+				.append(esc).append("]8;;https://example.com/real-path").append(bel)
+				.append("click here")
+				.append(esc).append("]8;;").append(bel)
+				.append("\n");
+		out.append("2) URL as text: ")
+				.append(esc).append("]8;;https://example.org/").append(bel)
+				.append("https://example.org/")
+				.append(esc).append("]8;;").append(bel)
+				.append("\n");
+		out.append("3) ST terminator: ")
+				.append(esc).append("]8;;https://example.net/st").append(st)
+				.append("ST-terminated")
+				.append(esc).append("]8;;").append(st)
+				.append("\n");
+		out.append("4) mailto: ")
+				.append(esc).append("]8;;mailto:nobody@example.com").append(bel)
+				.append("mail nobody")
+				.append(esc).append("]8;;").append(bel)
+				.append("\n");
+		out.append("5) javascript: must stay plain: ")
+				.append(esc).append("]8;;javascript:alert(1)").append(bel)
+				.append("plain")
+				.append(esc).append("]8;;").append(bel)
+				.append("\n");
+		out.append("Turn off: .osc8 off    Sample world: launcher \"OSC 8 links (local test)\"\n");
+		return out.toString();
 	}
 }

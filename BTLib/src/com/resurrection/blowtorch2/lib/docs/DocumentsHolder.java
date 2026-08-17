@@ -163,6 +163,7 @@ The window tag has the following attributes and child nodes:
 				- buffer_size, integer value
 				- word_wrap, boolean value
 				- hyperlinks_enabled, boolean value
+				- osc8_links, boolean value (OSC 8; default true, persist only when false)
 				- hyperlink_color, color value
 				- hyperlink_mode, list value
 				- hyperlink_bare_domains, boolean value

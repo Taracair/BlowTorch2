@@ -273,6 +273,7 @@ public final class WindowTokenParser {
 					switch(key) {
 					case word_wrap:
 					case hyperlinks_enabled:
+					case osc8_links:
 						if (!(Boolean) ((BooleanOption) o).getValue()) {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());

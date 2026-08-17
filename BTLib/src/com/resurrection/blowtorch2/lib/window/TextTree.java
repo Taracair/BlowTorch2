@@ -1,5 +1,6 @@
 package com.resurrection.blowtorch2.lib.window;
 
+import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,6 +74,11 @@ public class TextTree {
 		if (url == null || url.length() == 0) {
 			return null;
 		}
+		String lower = url.toLowerCase(Locale.US);
+		if (lower.startsWith("http://") || lower.startsWith("https://")
+				|| lower.startsWith("mailto:")) {
+			return url;
+		}
 		if (!url.contains("://")) {
 			url = "http://" + url;
 		}
@@ -112,6 +119,10 @@ public class TextTree {
 	
 	//public Handler addTextHandler = null;
 	private boolean linkify = true;
+	/** Open OSC 8 href; connection thread only. Null means closed. */
+	private String osc8Href;
+	/** Stamp href onto new text only when this is on. Parsing still runs. */
+	private boolean osc8Enabled = true;
 	/** Null when the window option is off. Same thread as {@link #addBytesImpl}. */
 	private RepeatedLineDimmer repeatedLineDimmer;
 	private int dimRepeatedWindow = RepeatedLineDimmer.DEFAULT_WINDOW;
@@ -189,59 +200,111 @@ public class TextTree {
 	}
 	
 	public byte[] dumpToBytes(boolean keep) {
-		ByteBuffer buf = ByteBuffer.allocate(totalbytes);
-		//Log.e("TREE","EXPORTING TREE:" + totalbytes + " bytes.");
-		int written =0;
-		//gotta do this from end to start.
+		// Colour units already carry their CSI in bin. OSC 8 hrefs do not —
+		// they were parsed out of the stream — so they have to be written
+		// back here or the UI's addBytesImpl never sees them (mWorking is
+		// drained, then this byte stream is what the window parses).
+		ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(32, totalbytes));
+		String dumpHref = null;
 		ListIterator<Line> i = mLines.listIterator(mLines.size());
 		while(i.hasPrevious()) {
 			Line l = i.previous();
-			//Log.e("DUMP",TextTree.deColorLine(l).toString());
 			Iterator<Unit> iu = l.getData().iterator();
 			while(iu.hasNext()) {
 				Unit u = iu.next();
 				switch(u.type) {
-				//if(u instanceof Text) {
 				case WHITESPACE:
 				case TEXT:
-					buf.put(((Text)u).bin);
-					written += ((Text)u).bin.length;
+					dumpHref = emitOsc8Transition(out, dumpHref, ((Text)u).getHref());
+					byte[] tbin = ((Text)u).bin;
+					if (tbin != null && tbin.length > 0) {
+						out.write(tbin, 0, tbin.length);
+					}
 					break;
-				//}
-				//if(u instanceof Color) {
 				case COLOR:
-					buf.put(((Color)u).bin);
-					written += ((Color)u).bin.length;
+					byte[] cbin = ((Color)u).bin;
+					if (cbin != null && cbin.length > 0) {
+						out.write(cbin, 0, cbin.length);
+					}
 					break;
-				//}
-				//if(u instanceof NewLine) {
 				case NEWLINE:
-					buf.put(NEWLINE);
-					written += 1;
+					out.write(NEWLINE);
 					break;
-				//}
-				//if(u instanceof Tab) {
 				case TAB:
-					buf.put(TAB);
-					written += 1;
+					out.write(TAB);
 					break;
-				//}
+				default:
+					break;
 				}
-				
 			}
 		}
-		
-		int size = buf.position();
-		//Log.e("TREE","FINISHED EXPORTING:" + written + " bytes.");
-		byte[] ret = new byte[size];
-		buf.rewind();
-		buf.get(ret,0,size);
+		emitOsc8Transition(out, dumpHref, null);
+		byte[] ret = out.toByteArray();
 		if(!keep) empty();
-		//buf.rewind();
 		return ret;
 	}
 
+	/**
+	 * Write an OSC 8 open/close so {@link #dumpToBytes} round-trips through
+	 * {@link #addBytesImpl}. Each dump is self-contained (closed at the end)
+	 * so the UI parser does not leak an href into the next chunk.
+	 */
+	private String emitOsc8Transition(final ByteArrayOutputStream out,
+			final String current, final String next) {
+		boolean same = current == null ? next == null : current.equals(next);
+		if (same) {
+			return current;
+		}
+		if (current != null) {
+			writeOsc8Close(out);
+		}
+		if (next != null) {
+			writeOsc8Open(out, next);
+		}
+		return next;
+	}
+
+	private void writeOsc8Open(final ByteArrayOutputStream out, final String uri) {
+		out.write(ESC);
+		out.write(']');
+		out.write('8');
+		out.write(';');
+		out.write(';');
+		try {
+			byte[] ub = uri.getBytes(encoding);
+			out.write(ub, 0, ub.length);
+		} catch (UnsupportedEncodingException e) {
+			byte[] ub = uri.getBytes();
+			out.write(ub, 0, ub.length);
+		}
+		out.write(0x07);
+	}
+
+	private static void writeOsc8Close(final ByteArrayOutputStream out) {
+		out.write(ESC);
+		out.write(']');
+		out.write('8');
+		out.write(';');
+		out.write(';');
+		out.write(0x07);
+	}
+
 	public void empty() {
+		clearLines();
+		osc8Href = null;
+	}
+
+	/**
+	 * Drop the lines but keep OSC 8 parser state. {@code mWorking} uses this
+	 * after handing lines to {@code mFinished}: a link can open in one TCP
+	 * chunk and close in the next. {@link #empty()} is the full wipe (clear
+	 * screen, replay).
+	 */
+	public void drainLines() {
+		clearLines();
+	}
+
+	private void clearLines() {
 		mLines.clear();
 		this.totalbytes = 0;
 		this.brokenLineCount=0;
@@ -578,10 +641,10 @@ public class TextTree {
 					sb.rewind();
 					switch(runtype) {
 					case WHITESPACE:
-						tmp.getData().addLast(new WhiteSpace(strag));
+						tmp.getData().addLast(stampOsc8(new WhiteSpace(strag)));
 						break;
 					case TEXT:
-						tmp.getData().addLast(new Text(strag));
+						tmp.getData().addLast(stampOsc8(new Text(strag)));
 						break;
 					default:
 						break;
@@ -734,11 +797,20 @@ public class TextTree {
 					if(done && intro == (byte)0x5D && payloadEnd > oscPayloadStart) {
 						byte[] payload = new byte[payloadEnd - oscPayloadStart];
 						System.arraycopy(data, oscPayloadStart, payload, 0, payload.length);
+						String payloadStr = new String(payload, encoding);
 						com.resurrection.blowtorch2.lib.service.InlineImageMarker.Parsed m =
 								com.resurrection.blowtorch2.lib.service.InlineImageMarker.parse(
-										new String(payload, encoding));
+										payloadStr);
 						if(m != null) {
 							tmp.setInlineImage(m.key, m.lines);
+						}
+						OscEight.Result osc = OscEight.parse(payloadStr);
+						if(osc != null) {
+							if(osc.isClose()) {
+								osc8Href = null;
+							} else if(osc8Enabled) {
+								osc8Href = osc.uri;
+							}
 						}
 					}
 					if(!done) {
@@ -773,10 +845,10 @@ public class TextTree {
 					//Log.e("TREE","APPEND TO LINE:"  + deColorLine(tmp));
 					switch(runtype) {
 					case WHITESPACE:
-						tmp.getData().addLast(new WhiteSpace(txtdata));
+						tmp.getData().addLast(stampOsc8(new WhiteSpace(txtdata)));
 						break;
 					case TEXT:
-						tmp.getData().addLast(new Text(txtdata));
+						tmp.getData().addLast(stampOsc8(new Text(txtdata)));
 						break;
 					default:
 						break;
@@ -807,7 +879,7 @@ public class TextTree {
 						byte[] cap = new byte[len];
 						sb.rewind();
 						sb.get(cap,0,len);
-						tmp.mData.addLast(new Text(cap));
+						tmp.mData.addLast(stampOsc8(new Text(cap)));
 						
 						runtype = RUN.WHITESPACE;
 						sb.rewind();
@@ -826,7 +898,7 @@ public class TextTree {
 						sb.rewind();
 						sb.get(cap,0,len);
 						//Log.e("BYTE","ADDING WHITESPACE RUN");
-						tmp.mData.addLast(new WhiteSpace(cap));
+						tmp.mData.addLast(stampOsc8(new WhiteSpace(cap)));
 						runtype = RUN.TEXT;
 						sb.rewind();
 						break;
@@ -867,7 +939,7 @@ public class TextTree {
 				tmpb = null;
 			}
 			if (tmpb != null && tmpb.length > 0) {
-				tmp.getData().addLast(new Text(tmpb));
+				tmp.getData().addLast(stampOsc8(new Text(tmpb)));
 			}
 			sb.rewind();
 		}
@@ -1370,11 +1442,21 @@ public class TextTree {
 				int end = length - (length-amount);
 				
 				try {
-				String first = ((Text)u).data.substring(0, start);
-				String second = ((Text)u).data.substring(start,start+end);
-				i.set(new Text(first));
+				Text orig = (Text) u;
+				String first = orig.data.substring(0, start);
+				String second = orig.data.substring(start,start+end);
+				Text firstPart = new Text(first);
+				Text secondPart = new Text(second);
+				if (orig.getHref() != null) {
+					firstPart.setHref(orig.getHref());
+					secondPart.setHref(orig.getHref());
+				} else if (orig.isLink()) {
+					firstPart.setLink(true);
+					secondPart.setLink(true);
+				}
+				i.set(firstPart);
 				i.add(new Break());
-				i.add(new Text(second));
+				i.add(secondPart);
 				} catch (StringIndexOutOfBoundsException e) { 
 					throw e;
 				}
@@ -1496,6 +1578,8 @@ public class TextTree {
 		protected String data;
 		protected byte[] bin;
 		private boolean link = false;
+		/** OSC 8 target, or null. Distinct from regex-linkify (display may not be the URL). */
+		private String href;
 		
 		//public Text copy() {
 		//	return null;
@@ -1565,6 +1649,14 @@ public class TextTree {
 
 		public boolean isLink() {
 			return link;
+		}
+
+		public void setHref(final String href) {
+			this.href = href;
+		}
+
+		public String getHref() {
+			return href;
 		}
 		
 		//public Text copy() {
@@ -1879,6 +1971,24 @@ public class TextTree {
 
 	public boolean isLinkify() {
 		return linkify;
+	}
+
+	public void setOsc8Links(final boolean enabled) {
+		this.osc8Enabled = enabled;
+		if (!enabled) {
+			osc8Href = null;
+		}
+	}
+
+	public boolean isOsc8Links() {
+		return osc8Enabled;
+	}
+
+	private Text stampOsc8(final Text t) {
+		if (t != null && osc8Enabled && osc8Href != null) {
+			t.setHref(osc8Href);
+		}
+		return t;
 	}
 
 	public void setBleedColor(Color c) {

@@ -84,6 +84,8 @@ public class WindowToken implements Parcelable {
 	public enum OPTION_KEY {
 		/** Hyperlinking on or off. */
 		hyperlinks_enabled,
+		/** OSC 8 hyperlinks (ESC ]8;params;URI). Independent of regex linkify. */
+		osc8_links,
 		/** Hyperlink style (colorize, no colorize, only colorize if bland). */
 		hyperlink_mode,
 		/** Color to make hyperlinks. */
@@ -334,6 +336,13 @@ public class WindowToken implements Parcelable {
 		hyperlinksEnabled.setKey("hyperlinks_enabled");
 		hyperlinksEnabled.setValue(true);
 		hyperlinks.addOption(hyperlinksEnabled);
+
+		BooleanOption osc8Links = new BooleanOption();
+		osc8Links.setTitle("OSC 8 links?");
+		osc8Links.setDescription("Make server-declared hyperlinks tappable (OSC 8). The marked words need not be the URL. Independent of Enable Hyperlinks? above. .osc8 on|off");
+		osc8Links.setKey("osc8_links");
+		osc8Links.setValue(true);
+		hyperlinks.addOption(osc8Links);
 		
 		ListOption hyperlinkMode = new ListOption();
 		hyperlinkMode.setTitle("Hyperlink Mode");

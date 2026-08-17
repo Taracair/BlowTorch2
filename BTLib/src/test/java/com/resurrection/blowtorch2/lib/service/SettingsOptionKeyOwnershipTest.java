@@ -24,7 +24,7 @@ public class SettingsOptionKeyOwnershipTest {
 				"top_padding", "bottom_padding", "bottom_padding_keyboard",
 				"newest_at_top", "dim_repeated_lines", "dim_repeated_window", "dim_repeated_strength",
 				"ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
-				"hyperlinks_enabled",
+				"hyperlinks_enabled", "osc8_links",
 				"hyperlink_mode", "hyperlink_color", "hyperlink_bare_domains",
 				"hyperlink_extra_tlds", "color_option", "line_extra", "font_path",
 				"tap_dismiss_keyboard" };

@@ -153,6 +153,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean mNewestAtTop = false;
 	/** When true, finished lines that match a recent long line paint dimmer. */
 	private boolean mDimRepeatedLines = false;
+	/** When true, OSC 8 hrefs are tappable. Independent of regex linkify. */
+	private boolean mOsc8Links = true;
 	/** How many recent long lines the dimmer remembers. */
 	private int mDimRepeatedWindow = RepeatedLineDimmer.DEFAULT_WINDOW;
 	/** How hard to dim (10–90); 50 keeps half the colour. */
@@ -662,6 +664,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (dimRepeated != null) {
 			applyDimRepeatedLines((Boolean) dimRepeated.getValue());
 		}
+		BooleanOption osc8Links = (BooleanOption) settings.findOptionByKey("osc8_links");
+		if (osc8Links != null) {
+			applyOsc8Links((Boolean) osc8Links.getValue());
+		}
 		IntegerOption topPadding = (IntegerOption) settings.findOptionByKey("top_padding");
 		if (topPadding != null) {
 			mTopPadding = Math.max(0, (Integer) topPadding.getValue());
@@ -753,6 +759,13 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mBuffer != null) {
 			mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
 			mBuffer.setDimRepeatedLines(enabled);
+		}
+	}
+
+	private void applyOsc8Links(final boolean enabled) {
+		mOsc8Links = enabled;
+		if (mBuffer != null) {
+			mBuffer.setOsc8Links(enabled);
 		}
 	}
 
@@ -2500,9 +2513,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 						}
 						
-						if (text.isLink() || doingLink) {
-							if (u instanceof TextTree.WhiteSpace) {
-								//DO LINK BOX.
+						boolean osc8 = mOsc8Links && text.getHref() != null;
+						if (osc8 || text.isLink() || doingLink) {
+							if (u instanceof TextTree.WhiteSpace && !osc8) {
+								// Regex: whitespace ends the link. OSC 8 keeps
+								// spaces inside "click here" as part of the span.
 								for (int z = 0; z < linkBoxes.size(); z++) {
 									if (linkBoxes.get(z).getData() == null) {
 										linkBoxes.get(z).setData(mCurrentLink.toString());
@@ -2511,8 +2526,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								mCurrentLink.setLength(0);
 								doingLink = false;
 							} else {
-								doingLink = true;
-								mCurrentLink.append(text.getString());
+								if (!osc8) {
+									doingLink = true;
+									mCurrentLink.append(text.getString());
+								}
 								
 								
 								Rect r = new Rect();
@@ -2536,13 +2553,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								}
 								
 								LinkBox linkbox = new LinkBox(null, r);
+								if (osc8) {
+									linkbox.setData(text.getHref());
+								}
 								if (!scrollingGesture) {
 									linkBoxes.add(linkbox);
 								}
 								
 							}
 						}
-						if (doingLink) {
+						if (doingLink || osc8) {
 							switch(mLinkMode) {
 							case NONE:
 								linkColor.setTextSize(p.getTextSize());
@@ -3891,6 +3911,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			applyUrlLinkSettingsFrom(mSettings);
 			this.mBuffer.setDimRepeatedWindow(mDimRepeatedWindow);
 			this.mBuffer.setDimRepeatedLines(mDimRepeatedLines);
+			this.mBuffer.setOsc8Links(mOsc8Links);
 		}
 		// Pointer swap only — without a draw kick, a window that already laid
 		// out against the empty constructor tree can stay blank after adopting
@@ -5522,6 +5543,10 @@ end
 				applyDimRepeatedStrength((Integer) o.getValue());
 				this.invalidate();
 				break;
+			case osc8_links:
+				applyOsc8Links((Boolean) o.getValue());
+				this.invalidate();
+				break;
 			case top_padding:
 				mTopPadding = Math.max(0, (Integer) o.getValue());
 				calculateCharacterFeatures(mWidth, mHeight);
@@ -5647,6 +5672,7 @@ end
 		dim_repeated_lines,
 		dim_repeated_window,
 		dim_repeated_strength,
+		osc8_links,
 		top_padding,
 		bottom_padding,
 		bottom_padding_keyboard,

@@ -60,10 +60,12 @@ public class HelpCommand extends SpecialCommand {
 		cmd("settings", "Playing", "back up the settings file, or put the kept "
 				+ "copy back");
 		cmd("note", "Playing", "print a line in the window, without sending it");
+		cmd("tutorial", "Playing", "lessons, and short reminders while you play (.tutorial tips on)");
 
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
+		cmd("osc8", "The window", "server-declared hyperlinks (OSC 8); .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
 		cmd("window", "The window", "open, close and address extra text windows");
@@ -94,6 +96,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("probe", "Triggers and scripts",
 				"measure how the world splits its text across packets; "
 				+ ".probe truecolor dumps a 24-bit sample; "
+				+ ".probe osc8 dumps tappable OSC 8 samples; "
 				+ ".probe sensors for what this phone can feel");
 		cmd("sensor", "Triggers and scripts",
 				"what this phone can measure, and what triggers do with it");
@@ -427,6 +430,7 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .probe lines on|off | report | reset\n"
 					+ "  .probe truecolor | color — 24-bit sample in this window\n"
+					+ "  .probe osc8 — OSC 8 hyperlink sample (tap the marked words)\n"
 					+ "  .probe sensors | sensors state\n"
 					+ "  .probe sensors shake|light [seconds]\n";
 		}
@@ -505,6 +509,22 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .loadset:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .loadset <name>    — argument is a button-set name\n";
+		}
+		if (filter.equals("osc8")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .osc8:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .osc8              — on or off\n"
+					+ "  .osc8 on|off       — server-declared hyperlinks (OSC 8)\n"
+					+ "  .probe osc8        — dump a tappable sample here\n";
+		}
+		if (filter.equals("tutorial")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .tutorial:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .tutorial              — help (works in any world)\n"
+					+ "  .tutorial start|next|prev|topics | <name>\n"
+					+ "  .tutorial tips on|always|off — reminders while you play\n";
 		}
 		if (filter.equals("search")) {
 			return "\n"

@@ -1,0 +1,82 @@
+package com.resurrection.blowtorch2.lib.window;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
+
+public class OscEightTest {
+
+	@Test
+	public void parseOpenBelStyle() {
+		OscEight.Result r = OscEight.parse("8;;https://example.com/path");
+		assertNotNull(r);
+		assertFalse(r.isClose());
+		assertEquals("https://example.com/path", r.uri);
+		assertNull(r.id);
+	}
+
+	@Test
+	public void parseIdParam() {
+		OscEight.Result r = OscEight.parse("8;id=foo:bar;https://example.org/");
+		assertNotNull(r);
+		assertEquals("https://example.org/", r.uri);
+		assertEquals("foo", r.id);
+	}
+
+	@Test
+	public void emptyUriIsClose() {
+		OscEight.Result r = OscEight.parse("8;;");
+		assertNotNull(r);
+		assertTrue(r.isClose());
+		assertNull(r.uri);
+	}
+
+	@Test
+	public void darkwindCloserIsCloseNotHref() {
+		OscEight.Result r = OscEight.parse("8;;)");
+		assertNotNull(r);
+		assertTrue(r.isClose());
+	}
+
+	@Test
+	public void javascriptIsCloseNotHref() {
+		OscEight.Result r = OscEight.parse("8;;javascript:alert(1)");
+		assertNotNull(r);
+		assertTrue(r.isClose());
+	}
+
+	@Test
+	public void dataAndFileRejected() {
+		assertTrue(OscEight.parse("8;;data:text/html,x").isClose());
+		assertTrue(OscEight.parse("8;;file:///etc/passwd").isClose());
+		assertTrue(OscEight.parse("8;;vbscript:msg").isClose());
+	}
+
+	@Test
+	public void mailtoAllowed() {
+		OscEight.Result r = OscEight.parse("8;;mailto:nobody@example.com");
+		assertNotNull(r);
+		assertEquals("mailto:nobody@example.com", r.uri);
+	}
+
+	@Test
+	public void notOscEightReturnsNull() {
+		assertNull(OscEight.parse("0;title"));
+		assertNull(OscEight.parse("BTIMG;key;2"));
+		assertNull(OscEight.parse("8"));
+		assertNull(OscEight.parse(null));
+	}
+
+	@Test
+	public void isSafeUriSchemes() {
+		assertTrue(OscEight.isSafeUri("https://example.com"));
+		assertTrue(OscEight.isSafeUri("http://example.com"));
+		assertTrue(OscEight.isSafeUri("mailto:a@b.c"));
+		assertFalse(OscEight.isSafeUri("javascript:alert(1)"));
+		assertFalse(OscEight.isSafeUri("example.com"));
+	}
+}

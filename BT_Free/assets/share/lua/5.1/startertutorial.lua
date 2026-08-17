@@ -1,8 +1,11 @@
 -- BlowTorch 2 starter tutorial (.tutorial)
 -- Client-only notes; never sent to the MUD.
--- Option key (plugin XML): show_on_connect — Options → Starter Tutorial → Show on connect
+-- Option keys (plugin XML):
+--   show_on_connect — Options → Starter Tutorial → Show on connect
+--   tips_while_playing — short reminders when you type a .command on a real MUD
 
 local OPTION_SHOW = "show_on_connect"
+local OPTION_TIPS = "tips_while_playing"
 
 local Colorizer = nil
 do
@@ -142,6 +145,10 @@ beginners, and poke swipe / hold / accordion demos. Lessons also cover
 aliases, timers, sensors, colors, keyboard, completion, search, mapper, wrap,
 logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
+On a real MUD, .tutorial still opens any lesson, and
+  .tutorial tips on
+prints a short reminder the first time you use each .command that session.
+
 Type:  .tutorial next
 Or:    .tutorial topics
 Disable later: Options → Starter Tutorial → Show on connect = off]])
@@ -178,7 +185,17 @@ into a newline so look;score sends two lines. Turn it off if your MUD
 uses ; in commands.
 
 Also: Options → Service → Process System Commands? must be on (default)
-for .commands to work.]])
+for .commands to work.
+
+While you play, .tutorial still opens any lesson by name
+(.tutorial aliases, .tutorial coloring, …). To get a short reminder the
+first time you type a command:
+
+  .tutorial tips on
+  .tutorial tips always   every time, not just once
+  .tutorial tips off
+
+Or Options → Starter Tutorial → Tips while playing?]])
 end
 
 TOPICS.buttons_basics = function()
@@ -600,6 +617,10 @@ line (the same room on look) paints dimmer so what changed stands out.
 .dimrepeat on|off turns it. .dimrepeat lines 12 is how many recent long
 lines stay in memory (then an old room is bright again). .dimrepeat
 strength 50 is how hard to dim; higher is darker.
+
+Some worlds mark words as links (OSC 8) even when the words are not a
+URL — "click here" can open https://example.com/real. .osc8 on|off.
+.probe osc8 dumps a tappable sample here without waiting on the game.
 
 To debug colour codes:
 
@@ -1062,13 +1083,16 @@ end
 
 local function showHelp()
 	noteBlock("Starter Tutorial — Help",
-[[.tutorial              this help
+[[.tutorial              this help (any world, not only the practice yard)
 .tutorial start        begin at welcome
 .tutorial next|prev    walk the lesson list
 .tutorial skip         jump to finish
 .tutorial done         turn off Show on connect
 .tutorial topics       list topic names
 .tutorial <topic>      open one topic
+.tutorial tips on      short reminders when you type .commands while playing
+.tutorial tips always  same, every time (not just once)
+.tutorial tips off     stop the reminders
 
 Topics: welcome, practice_world, client_commands, buttons_basics,
 buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
@@ -1126,6 +1150,175 @@ local function setShowOnConnect(enabled)
 	return ok2
 end
 
+local function ensureTipsOption(settings)
+	if settings == nil then
+		return false
+	end
+	local okVal, val = pcall(function()
+		return settings:getOptionValue(OPTION_TIPS)
+	end)
+	if okVal and val ~= nil then
+		return true
+	end
+	local okAdd = pcall(function()
+		local BooleanOption = luajava.bindClass(
+			"com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption")
+		local opt = luajava.new(BooleanOption)
+		opt:setKey(OPTION_TIPS)
+		opt:setTitle("Tips while playing?")
+		opt:setDescription("When you type a .command on a real MUD, print a short reminder of what it does. Off until you ask (.tutorial tips on).")
+		opt:setValue(false)
+		settings:addOption(opt)
+	end)
+	if okAdd and SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+	return okAdd
+end
+
+local function pluginSettings()
+	if GetPluginSettings == nil then
+		return nil
+	end
+	local ok, settings = pcall(GetPluginSettings)
+	if not ok then
+		return nil
+	end
+	return settings
+end
+
+local function readTipsWhilePlaying()
+	local settings = pluginSettings()
+	if settings == nil then
+		return false
+	end
+	ensureTipsOption(settings)
+	local ok2, val = pcall(function()
+		return settings:getOptionValue(OPTION_TIPS)
+	end)
+	if not ok2 or val == nil then
+		return false
+	end
+	local s = string.lower(tostring(val))
+	if s == "true" or s == "1" or s == "on" or s == "yes" then
+		return true
+	end
+	return false
+end
+
+local function setTipsWhilePlaying(enabled)
+	local settings = pluginSettings()
+	if settings == nil then
+		return false
+	end
+	ensureTipsOption(settings)
+	local ok2 = pcall(function()
+		settings:updateBoolean(OPTION_TIPS, enabled)
+	end)
+	if ok2 and SaveSettings ~= nil then
+		pcall(SaveSettings)
+	end
+	return ok2
+end
+
+-- off | once | always. "always" is session-only; the XML option is on/off.
+local tipsMode = "off"
+local tipsShown = {}
+
+local TIPS = {
+	alias = [[.alias lists aliases. .alias name on|off. Make them in Options → Aliases. $1 is the first thing you typed after the alias name.]],
+	trigger = [[.trigger lists triggers. .trigger name on|off. Pattern matches a game line; actions gag, colour, send, or run Lua.]],
+	timer = [[.timer lists timers. .timer name on|off. Repeating or one-shot commands on the phone, not the MUD.]],
+	suggest = [[.suggest on offers words the game just used. .suggest forget <word> drops one. .suggest unpair / weight edit pairings.]],
+	complete = [[Same as .suggest (older name).]],
+	suggestions = [[Same as .suggest.]],
+	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
+	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
+	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. .probe osc8 dumps a sample.]],
+	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],
+	font = [[.font N sets game font size (6–48). .font +2 / -2 steps from where you are.]],
+	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],
+	kb = [[Same as .keyboard.]],
+	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
+	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → GMCP.]],
+	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → MCP.]],
+	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
+	sensor = [[.sensor lists phone readings (shake, wave, …) as ordinary triggers. Options → Device → Sensors….]],
+	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
+	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
+	loadset = [[.loadset <name> loads a button set. Reloading wipes .buttonopacity until you set it again.]],
+	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
+	help = [[.help lists every .command. .help word shows only matching names.]],
+	commands = [[Same as .help.]],
+	note = [[.note <text> prints in the window and is never sent to the MUD.]],
+	colordebug = [[.colordebug 0–3 shows or hides ANSI codes in the window.]],
+	probe = [[.probe report measures how lines arrive. .probe truecolor / .probe osc8 dump samples here.]],
+	buttonopacity = [[.buttonopacity 100 forces every tile's alpha until .buttonopacity restore or .loadset.]],
+	buttonsopacity = [[Same as .buttonopacity.]],
+	clearbuttons = [[.clearbuttons hides the pad until the next .loadset (BACK on the tutorial pad restores).]],
+	editbutton = [[.editbutton on|off shows the Edit button on the input bar.]],
+	sendbutton = [[.sendbutton on|off shows the Send button.]],
+	editpanel = [[.editpanel on|off shows the editing strip (sel/cut/copy/paste).]],
+	tapmenu = [[.tapmenu opacity N — how solid the menu a tapped word opens is.]],
+	frame = [[.frame list / close. Drawn frames some worlds ask for; still terminal text, not a web page.]],
+	options = [[.options opens the Options screen, same as the ⋮ menu.]],
+	settings = [[.settings backup / restore the kept copy of this world's settings file.]],
+	reconnect = [[.reconnect closes and opens the socket again.]],
+	disconnect = [[.disconnect closes the socket. The world stays in the list.]],
+}
+
+local function tipKey(name)
+	if name == "kb" then
+		return "keyboard"
+	end
+	if name == "complete" or name == "suggestions" or name == "suggestion" then
+		return "suggest"
+	end
+	if name == "commands" then
+		return "help"
+	end
+	if name == "buttonsopacity" then
+		return "buttonopacity"
+	end
+	return name
+end
+
+function OnCommandTip(name)
+	pcall(function()
+		if tipsMode == "off" then
+			return
+		end
+		if type(name) ~= "string" or name == "" or name == "tutorial" then
+			return
+		end
+		local key = string.lower(name)
+		if tipsMode == "once" and tipsShown[key] then
+			return
+		end
+		local body = TIPS[tipKey(key)]
+		if body == nil then
+			return
+		end
+		tipsShown[key] = true
+		noteBlock("Reminder — ." .. key, body)
+	end)
+end
+
+function OnOptionChanged(key, value)
+	if key ~= OPTION_TIPS then
+		return
+	end
+	local s = string.lower(tostring(value or ""))
+	local on = (s == "true" or s == "1" or s == "on" or s == "yes")
+	if on then
+		if tipsMode == "off" then
+			tipsMode = "once"
+		end
+	else
+		tipsMode = "off"
+	end
+end
+
 function tutorialCommand(args)
 	local raw = args or ""
 	local trimmed = string.gsub(raw, "^%s+", "")
@@ -1134,6 +1327,42 @@ function tutorialCommand(args)
 
 	if cmd == "" or cmd == "help" or cmd == "?" then
 		showHelp()
+		return
+	end
+	if cmd == "tips" or string.match(cmd, "^tips%s") then
+		local arg = string.match(trimmed, "^[Tt][Ii][Pp][Ss]%s*(.*)$") or ""
+		arg = string.lower(string.gsub(string.gsub(arg, "^%s+", ""), "%s+$", ""))
+		if arg == "" or arg == "status" then
+			noteBlock("Tutorial tips",
+[[Tips while playing are ]] .. tipsMode .. [[.
+
+.tutorial tips on      remind once per command this session
+.tutorial tips always  remind every time
+.tutorial tips off     stop
+
+Also: Options → Starter Tutorial → Tips while playing?]])
+			return
+		end
+		if arg == "on" or arg == "once" then
+			tipsMode = "once"
+			tipsShown = {}
+			setTipsWhilePlaying(true)
+			noteLine("Tips while playing: once per command (this session).")
+			return
+		end
+		if arg == "always" then
+			tipsMode = "always"
+			setTipsWhilePlaying(true)
+			noteLine("Tips while playing: every time you use a command.")
+			return
+		end
+		if arg == "off" or arg == "false" or arg == "no" then
+			tipsMode = "off"
+			setTipsWhilePlaying(false)
+			noteLine("Tips while playing: off.")
+			return
+		end
+		noteLine("Usage: .tutorial tips on | always | off")
 		return
 	end
 	if cmd == "start" then
@@ -1243,6 +1472,9 @@ function OnBackgroundStartup()
 		end)
 	else
 		starterTutorialMaybeWelcome()
+	end
+	if readTipsWhilePlaying() then
+		tipsMode = "once"
 	end
 end
 

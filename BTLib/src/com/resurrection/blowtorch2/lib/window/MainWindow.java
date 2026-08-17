@@ -894,9 +894,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_LAUNCHURL:
 					if (msg.obj instanceof String) {
 						String raw = (String) msg.obj;
-						String extracted = TextTree.extractUrl(raw);
-						String url = TextTree.normalizeUrl(
-								extracted != null ? extracted : raw);
+						String url = null;
+						if (OscEight.isSafeUri(raw)) {
+							url = raw.trim();
+						} else {
+							String extracted = TextTree.extractUrl(raw);
+							url = TextTree.normalizeUrl(
+									extracted != null ? extracted : raw);
+							if (url != null && !OscEight.isSafeUri(url)) {
+								url = null;
+							}
+						}
 						if (url != null && url.length() > 0) {
 							try {
 								startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));

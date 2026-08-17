@@ -43,6 +43,12 @@ public class TextTreeUrlTest {
 	}
 
 	@Test
+	public void normalizeUrlLeavesMailtoAlone() {
+		assertEquals("mailto:nobody@example.com",
+				TextTree.normalizeUrl("mailto:nobody@example.com"));
+	}
+
+	@Test
 	public void rejectsNonUrls() {
 		assertNull(TextTree.extractUrl("just some text"));
 		assertNull(TextTree.extractUrl("v1.2"));
