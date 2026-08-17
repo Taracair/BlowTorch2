@@ -1,6 +1,6 @@
 # How BlowTorch 2 is built
 
-**As of 2 August 2026** · shipped tip **v2.2.1** (`versionCode` 254)
+**As of 16 August 2026** · shipped tip **v2.3.0** (`versionCode` 258)
 
 This is the architecture map for anyone taking on the codebase: human or
 assistant. It describes **how the app is structured**, not how to play it and
@@ -86,10 +86,10 @@ staging area for the latest APKs. It is **not** the git root.
 
 | Flavor | Application id | Label | versionName (as of this date) |
 |--------|----------------|-------|-------------------------------|
-| `production` | `com.resurrection.blowtorch2` | BlowTorch 2 | `2.2.1` |
-| `btTest` | `com.resurrection.blowtorch2.test` | BlowTorch 2 Test | `2.2.1-test` |
+| `production` | `com.resurrection.blowtorch2` | BlowTorch 2 | `2.3.0` |
+| `btTest` | `com.resurrection.blowtorch2.test` | BlowTorch 2 Test | `2.3.0-test` |
 
-Both share `versionCode` **254**. Typical variants: `productionDebug`,
+Both share `versionCode` **258**. Typical variants: `productionDebug`,
 `productionRelease`, `btTestDebug`, `btTestRelease`.
 
 - **ABI:** `armeabi-v7a`, `arm64-v8a`
@@ -255,7 +255,7 @@ All under `com.resurrection.blowtorch2.lib`.
 | `ConnectionGmcp`, `ConnectionExtraText`, `ConnectionReconnect`, `ConnectionSessionLog` | Focused helpers |
 | `GMCPData`, `GmcpModuleRegistry`, `GmcpCharLogin`, `GmcpMediaPlayer` | GMCP |
 | `MudstdFrame`, `FrameEvent` | In-band / GMCP frames |
-| `function/` | Dot-commands (`.map`, `.gmcp`, `.timer`, …) |
+| `function/` | Dot-commands (`.map`, `.gmcp`, `.timer`, `.osc8`, `.dimrepeat`, …) |
 | `plugin/` | `Plugin`, Lua `JavaFunction` packs, settings XML parsers |
 
 ### `window/` — UI process
@@ -264,7 +264,8 @@ All under `com.resurrection.blowtorch2.lib`.
 |-------|----------------|
 | `MainWindow` | Activity, binder callbacks, overlay hosts |
 | `Window` | Terminal view; **`mBuffer` is UI-thread only** |
-| `TextTree` | Line model (ANSI → spans); Connection may mutate *working* trees off-UI |
+| `TextTree` | Line model (ANSI / OSC 8 / BTIMG → spans); Connection may mutate *working* trees off-UI |
+| `OscEight` | Parse OSC 8 payloads; scheme allow-list |
 | `ChromeController` | Input bar, IME lift, toolbar / FAB |
 | `ExtraTextOverlayController` + `ExtraTextSlot(s)` | Extra text panes |
 | `MapperOverlayController` + related dialogs live partly in `mapper/` | Map UI |
@@ -291,7 +292,8 @@ All under `com.resurrection.blowtorch2.lib`.
 | `speedwalk/` | Speedwalk / direction data |
 | `script/` | Plugin script metadata |
 | `settings/` | `ConfigurationLoader`, legacy hyper settings helpers |
-| `launcher/` | Server list, backups, builtin tutorial, profile discovery |
+| `launcher/` | Server list, backups, builtin tutorial, colour-test worlds, OSC 8 test world (`127.0.0.1:4445`), profile discovery |
+| `service/sensor/` | Phone sensors as trigger sources (shake, wave, light, …); Options → Device → Sensors… |
 | `util/` | `AtomicFiles`, `BlowTorchLogger`, `SessionLogger`, `UpdateChecker`, … |
 | `ui/` | `SDCardUtils`, permissions, colour helpers |
 | `legacy/` | Older gesture / flipper utilities still referenced |
@@ -332,7 +334,12 @@ sequenceDiagram
    out of band; remaining bytes are the display/trigger stream.
 3. Optional **MCP** filter (`McpEngine`) may rewrite the stream.
 4. Bytes enter a working **`TextTree`** (`addBytesImpl` — colour / CSI holdover
-   across packet boundaries).
+   across packet boundaries). OSC 8 (`ESC ]8;params;URI` BEL or ST) stamps an
+   href on following text until a close; `OscEight` allows only http / https /
+   mailto. `dumpToBytes` writes those hrefs back as OSC 8 so the window's
+   `addBytesImpl` sees them (colour already had `bin`; href did not). Regex
+   linkify (`hyperlinks_enabled`) is a separate pass. BTIMG inline images ride
+   the same OSC skip path.
 5. **`Colorizer.stripAnsiEscapes`** feeds the amalgamated trigger matcher and
    session logging.
 6. Matching **triggers** run **responders** (gag, replace, colour, script, …)
@@ -348,8 +355,11 @@ options say so.
 
 1. Player types (or a button / Lua / timer sends).
 2. UI calls `IConnectionBinder.sendData` → `Connection` send path.
-3. Dot-commands (`.map`, `.run`, …), **alias** expansion (plugin
-   `doAliasReplacement`), semicolon splitting, local echo.
+3. Dot-commands (`.map`, `.run`, `.osc8`, `.tutorial`, …), **alias** expansion (plugin
+   `doAliasReplacement`), semicolon splitting, local echo. After a Java/Lua
+   `.command` other than `.tutorial`, `Connection` may call starter_tutorial
+   `OnCommandTip` so a short reminder can print while the player is on a real
+   MUD (off until `.tutorial tips on`).
 4. IAC-escaped bytes → `DataPumper` writer thread → socket.
 
 ### Substitution (three mechanisms)
@@ -514,7 +524,7 @@ There are no ads, analytics, or accounts.
 
 | Kind | Location | Coverage (illustrative) |
 |------|----------|-------------------------|
-| JVM unit | `BTLib/src/test/java/` | Mapper (incl. atomic map write), TextTree + footprint, aliases and alias recursion, trigger pattern gate, GMCP/frames, telnet coverage (NAWS / CHARSET / MSDP / MSSP / ECHO), MCCP start + fallback state, timer schedule / duration, settings key ownership, responders, Colorizer, UpdateChecker, … |
+| JVM unit | `BTLib/src/test/java/` | Mapper (incl. atomic map write), TextTree + OSC 8 + footprint, aliases and alias recursion, trigger pattern gate, GMCP/frames, telnet coverage (NAWS / CHARSET / MSDP / MSSP / ECHO), MCCP start + fallback state, timer schedule / duration, settings key ownership, responders, Colorizer, UpdateChecker, … |
 | Instrumented | `BTLib/src/androidTest/java/` | Timers, anchored aliases, chrome smoke |
 | Lua (host) | `BT_Free/src/test/lua/` | Button editor / floating helpers / layout packs (not AndroidJUnit) |
 

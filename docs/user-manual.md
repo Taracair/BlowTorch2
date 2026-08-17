@@ -1400,6 +1400,30 @@ Nothing in the client uses this yet. It exists so that a decision about
 multi-line triggers rests on a measurement from a real session rather than on a
 guess about how the network behaves.
 
+### `.probe truecolor`
+
+```
+.probe truecolor
+.probe color
+```
+
+Dumps a 24-bit RGB sample into this window so you can see truecolor without
+waiting on the game.
+
+### `.probe osc8`
+
+```
+.probe osc8
+```
+
+Dumps OSC 8 hyperlink samples into this window (BEL and ST terminators, display
+text that is not the URL, a rejected `javascript:` scheme). Tap the marked
+words. Does not wait for a MUD. Turn the feature off with `.osc8 off`.
+
+A launcher row **OSC 8 links (local test)** points at `127.0.0.1:4445`. On the
+laptop run `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`,
+then connect that world.
+
 ### `.probe sensors`
 
 ```
@@ -2004,6 +2028,23 @@ Dot command (same three knobs):
 
 `.dimrepeat` with no argument prints the current on/off, N, and strength.
 
+## OSC 8 hyperlinks
+
+Some worlds mark words as links even when the words are not a URL — `click here`
+can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`). Only
+`http`, `https`, and `mailto` are opened; `javascript:`, `data:`, `vbscript:`,
+and `file:` are ignored.
+
+**Options → Window → Hyperlink Settings → OSC 8 links?** (on by default). This is
+independent of **Enable Hyperlinks?** (that one is regex linkify of `http` /
+`www.` / bare domains).
+
+```
+.osc8
+.osc8 on | off
+.probe osc8
+```
+
 ## Newest text at top
 
 By default, fresh game output sits at the **bottom** of the window (classic
@@ -2442,12 +2483,19 @@ are hidden.
 
 ### `starter_tutorial` (loaded by default)
 
-    `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>`
+    `.tutorial …`   Starter Tutorial: `help` / `start` / `next` / `prev` / `skip` / `done` / `topics` / `<topic>` / `tips on|always|off`
 
 On the default button set, tap **HELP** to run `.tutorial start`. The launcher
-lists a built-in **Starter Tutorial** row first (offline — no MUD). Disable the
-welcome note on normal MUDs via **Options → Starter Tutorial → Show welcome on
-connect**, or type `.tutorial done`. You can also toggle `starter_tutorial` off
+lists a built-in **Starter Tutorial** row first (offline — no MUD). `.tutorial`
+opens any lesson in a real world too — it only Notes, it never talks to the MUD.
+
+`.tutorial tips on` prints a short reminder the first time you use each
+`.command` that session (so `.alias` reminds you how aliases work while you
+play). `always` repeats every time; `off` stops. Also **Options → Starter
+Tutorial → Tips while playing?** (off until you ask).
+
+Disable the welcome note on normal MUDs via **Options → Starter Tutorial → Show
+welcome on connect**, or type `.tutorial done`. You can also toggle `starter_tutorial` off
 under **Plugins** — it stays loaded, but `.tutorial` commands stop until you
 re-enable it (and welcome-on-connect stops too). It ships with the app and
 **cannot be deleted** — like `button_window` and `connection_settings`, the

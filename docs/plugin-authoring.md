@@ -1,7 +1,7 @@
 # BlowTorch 2 — Plugin authoring guide
 
 **Audience:** developers who want to write Lua plugins for BlowTorch 2.  
-**As of:** 2 August 2026 (v2.2.1 / settings `xmlversion="2"`).
+**As of:** 16 August 2026 (v2.3.0 / settings `xmlversion="2"`).
 
 This is the developer-facing reference for what plugins can do, what they
 cannot, hard limits, security, packaging, and the Lua API. Player-facing
@@ -33,7 +33,7 @@ Built-in plugins shipped with the Free build:
 | Name | Role |
 |------|------|
 | `button_window` | On-screen button pad (cannot be deleted or disabled) |
-| `starter_tutorial` | Interactive `.tutorial` guide (cannot be deleted) |
+| `starter_tutorial` | Interactive `.tutorial` guide and optional in-play command tips (cannot be deleted) |
 | `connection_settings` | Host settings root (not a player plugin) |
 
 Their Lua lives under `BT_Free/assets/share/lua/5.1/` and is synced into app
@@ -456,6 +456,10 @@ Shutdown → window OnDestroy; plugin Lua state dropped
 | Trigger `<script function="fn">` | Match → global `fn` |
 | `RegisterSpecialCommand(cmd, fn)` | Player types `.cmd …` |
 
+Java also calls a **global** `OnCommandTip(commandName)` on `starter_tutorial`
+after any other `.command` runs. That is how in-play reminders work; a third-party
+plugin does not get that callback unless it is named `starter_tutorial`.
+
 ### 5.2 Window callbacks
 
 | Callback | When |
@@ -658,6 +662,10 @@ Language surface is **Lua 5.1** (LuaJIT). Packaged native modules on
 - Module: `BT_Free/assets/share/lua/5.1/startertutorial.lua`.
 - Uses `RegisterSpecialCommand`, `Note`, `GetPlayerTriggers` / Aliases /
   Timers, `CallPlugin("button_window", …)`, and `OnBackgroundStartup`.
+- Options: `show_on_connect` (welcome note on a normal MUD) and
+  `tips_while_playing` (short reminders when the player types a `.command`).
+  `.tutorial` itself works in any world. `.tutorial tips on|always|off`.
+  Java calls global `OnCommandTip` after each other `.command`.
 
 ### `button_window` (full-featured)
 

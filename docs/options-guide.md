@@ -5,7 +5,7 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows** |
+| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), **OSC 8 links?** (server-declared hyperlinks; independent of regex linkify; `.osc8 on|off`), ANSI color; nested **Extra text windows** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **GMCP Options**, **MCP Options**, **MUD Protocols** |
 | **Bell** | Bell character reactions |
@@ -261,8 +261,9 @@ the first connect after upgrading, carrying its previous value across.
 | Option | Default | Notes |
 |--------|---------|--------|
 | **Show welcome on connect** | off | Print a short welcome tip when connecting to a normal MUD. The **Starter Tutorial** launcher entry always opens the full guide regardless |
+| **Tips while playing?** | off | When you type a `.command` on a real MUD, print a short reminder of what it does. `.tutorial tips on` (once per command this session), `always`, or `off`. `.tutorial <topic>` still opens any lesson without this |
 
-`.tutorial done` clears it too. The plugin can be toggled off in the Plugins
+`.tutorial done` clears Show on connect too. The plugin can be toggled off in the Plugins
 list but not deleted.
 
 ## Storage
@@ -316,6 +317,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
+- **OSC 8 links:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
 - **Edit / Send:** side-by-side when both are shown (Options → Window → Show Edit/Send button?).
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`
 - **Show Send button?** — `.sendbutton on|off` · or keyboard Send / `.kb flush`
