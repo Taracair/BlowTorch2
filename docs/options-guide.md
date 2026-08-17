@@ -320,7 +320,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
-- **OSC 8 links:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
+- **OSC 8 links:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. `send:` taps type a command (StickMUD / Mudlet); `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
 - **Edit / Send:** side-by-side when both are shown (Options → Window → Show Edit/Send button?).
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`
 - **Show Send button?** — `.sendbutton on|off` · or keyboard Send / `.kb flush`

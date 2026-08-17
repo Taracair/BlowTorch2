@@ -13,5 +13,7 @@ public class ProbeOsc8SampleTest {
 		assertTrue(sample.contains("click here"));
 		assertTrue(sample.contains("javascript:alert(1)"));
 		assertTrue(sample.contains("mailto:nobody@example.com"));
+		assertTrue(sample.contains("]8;;send:look"));
+		assertTrue(sample.contains("]8;;prompt:cast%20fireball"));
 	}
 }

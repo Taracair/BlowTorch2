@@ -193,6 +193,25 @@ public class TextTreeOscHyperlinkTest {
 	}
 
 	@Test
+	public void sendSchemeStampsHrefOnDisplayText() throws Exception {
+		TextTree tree = new TextTree();
+		String chunk = ESC + "]8;;send:look\u0007"
+				+ "LOOK" + ESC + "]8;;\u0007 after\n";
+		tree.addBytesImpl(chunk.getBytes("UTF-8"));
+		assertEquals("send:look", hrefOn(tree, "LOOK"));
+		assertNull(hrefOn(tree, " after"));
+	}
+
+	@Test
+	public void jsonParamsThenSendStampsHref() throws Exception {
+		TextTree tree = new TextTree();
+		String chunk = ESC + "]8;{\"style\":{\"color\":\"red\"}};send:look\u0007"
+				+ "Colors" + ESC + "]8;;\u0007\n";
+		tree.addBytesImpl(chunk.getBytes("UTF-8"));
+		assertEquals("send:look", hrefOn(tree, "Colors"));
+	}
+
+	@Test
 	public void mxpSendStampsHrefEvenWhenOsc8OptionIsOff() throws Exception {
 		TextTree tree = new TextTree();
 		tree.setOsc8Links(false);
@@ -200,6 +219,19 @@ public class TextTreeOscHyperlinkTest {
 				+ "N" + ESC + "]8;;\u0007\n";
 		tree.addBytesImpl(chunk.getBytes("UTF-8"));
 		assertEquals("mxp-send:look north", hrefOn(tree, "N"));
+	}
+
+	@Test
+	public void sendWithOsc8OffClosesAnOpenMxpHref() throws Exception {
+		TextTree tree = new TextTree();
+		tree.setOsc8Links(false);
+		String chunk = ESC + "]8;;mxp-send:north\u0007"
+				+ "N" + ESC + "]8;;send:look\u0007"
+				+ "LOOK" + ESC + "]8;;\u0007\n";
+		tree.addBytesImpl(chunk.getBytes("UTF-8"));
+		assertEquals("mxp-send:north", hrefOn(tree, "N"));
+		assertNull("send: with OSC 8 off must not leave the MXP href on LOOK",
+				hrefOn(tree, "LOOK"));
 	}
 
 	@Test

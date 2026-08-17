@@ -844,6 +844,13 @@ public class TextTree {
 							} else if(osc8Enabled || com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMxpHref(osc.uri)) {
 								osc8Href = osc.uri;
 								osc8Expire = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.groupFromExpireId(osc.id);
+							} else {
+								// Recognised OSC 8 we are not showing (send:/prompt:
+								// with the option off). A new open still ends the
+								// previous span; leaving mxp-send stamped would
+								// bleed it onto the send: display text.
+								osc8Href = null;
+								osc8Expire = null;
 							}
 						}
 					}

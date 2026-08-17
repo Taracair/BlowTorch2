@@ -227,6 +227,16 @@ public class ProbeCommand extends SpecialCommand {
 				.append("plain")
 				.append(esc).append("]8;;").append(bel)
 				.append("\n");
+		out.append("6) send: (StickMUD / Mudlet command): ")
+				.append(esc).append("]8;;send:look").append(bel)
+				.append("LOOK")
+				.append(esc).append("]8;;").append(bel)
+				.append("\n");
+		out.append("7) prompt: fills the input bar: ")
+				.append(esc).append("]8;;prompt:cast%20fireball").append(bel)
+				.append("Cast Fireball")
+				.append(esc).append("]8;;").append(bel)
+				.append("\n");
 		out.append("Turn off: .osc8 off    Sample world: launcher \"OSC 8 links (local test)\"\n");
 		return out.toString();
 	}

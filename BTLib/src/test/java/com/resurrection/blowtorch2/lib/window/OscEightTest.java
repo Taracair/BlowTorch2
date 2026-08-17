@@ -76,10 +76,63 @@ public class OscEightTest {
 		assertTrue(OscEight.isSafeUri("https://example.com"));
 		assertTrue(OscEight.isSafeUri("http://example.com"));
 		assertTrue(OscEight.isSafeUri("mailto:a@b.c"));
+		assertTrue(OscEight.isSafeUri("ftp://files.example.com"));
 		assertFalse(OscEight.isSafeUri("javascript:alert(1)"));
 		assertFalse(OscEight.isSafeUri("example.com"));
+		assertFalse(OscEight.isSafeUri("preset:danger"));
 		assertTrue(OscEight.isSafeUri("mxp-send:look"));
 		assertTrue(OscEight.isSafeUri("mxp-menu:a"));
 		assertTrue(OscEight.isSafeUri("mxp-prompt:say"));
+	}
+
+	@Test
+	public void sendAndPromptAreSafe() {
+		assertTrue(OscEight.isSafeUri("send:look"));
+		assertTrue(OscEight.isSafeUri("prompt:cast fireball"));
+		assertTrue(OscEight.isSend("send:look"));
+		assertTrue(OscEight.isPrompt("PROMPT:say hi"));
+		assertTrue(OscEight.tapWordOverrides("send:look"));
+		assertFalse(OscEight.tapWordOverrides("https://example.com"));
+	}
+
+	@Test
+	public void parseSendIsOpenNotClose() {
+		OscEight.Result r = OscEight.parse("8;;send:look");
+		assertNotNull(r);
+		assertFalse("StickMUD send: must stamp, not close", r.isClose());
+		assertEquals("send:look", r.uri);
+	}
+
+	@Test
+	public void sendCommandStripsQueryAndDecodes() {
+		assertEquals("look", OscEight.sendCommand("send:look"));
+		assertEquals("look north", OscEight.sendCommand("send:look north"));
+		assertEquals("cast fireball", OscEight.sendCommand("send:cast%20fireball"));
+		assertEquals("attack", OscEight.sendCommand(
+				"send:attack?config=%7B%22style%22%3A%7B%22color%22%3A%22red%22%7D%7D"));
+		assertNull(OscEight.sendCommand("https://example.com"));
+	}
+
+	@Test
+	public void promptCommandDecodesSpaces() {
+		assertEquals("cast fireball", OscEight.promptCommand("prompt:cast%20fireball"));
+		assertEquals("say hi", OscEight.promptCommand("prompt:say hi?preset=btn"));
+	}
+
+	@Test
+	public void jsonParamsDoNotStealTheUri() {
+		OscEight.Result r = OscEight.parse(
+				"8;{\"style\":{\"color\":\"red\"}};send:look");
+		assertNotNull(r);
+		assertFalse(r.isClose());
+		assertEquals("send:look", r.uri);
+	}
+
+	@Test
+	public void jsonParamsWithEmbeddedSemicolonStillSplit() {
+		OscEight.Result r = OscEight.parse(
+				"8;{\"tooltip\":\"hit; run\"};send:flee");
+		assertNotNull(r);
+		assertEquals("send:flee", r.uri);
 	}
 }

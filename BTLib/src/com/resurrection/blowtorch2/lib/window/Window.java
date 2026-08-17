@@ -1879,7 +1879,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					}
 					if (mTouchInLink < 0
 							|| com.resurrection.blowtorch2.lib.service.mxp.MxpLinks
-									.tapWordOverrides(href)) {
+									.tapWordOverrides(href)
+							|| OscEight.tapWordOverrides(href)) {
 						// The box already carries the finished commands: each rule
 						// has its own, so they cannot be rebuilt from one setting.
 						boolean sendsFirst = false;

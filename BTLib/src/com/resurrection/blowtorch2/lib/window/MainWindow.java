@@ -894,16 +894,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_LAUNCHURL:
 					if (msg.obj instanceof String) {
 						String raw = (String) msg.obj;
-						if (com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isSend(raw)) {
-							String cmd = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.sendCommand(raw);
+						if (com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isSend(raw)
+								|| OscEight.isSend(raw)) {
+							String cmd = OscEight.isSend(raw)
+									? OscEight.sendCommand(raw)
+									: com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.sendCommand(raw);
 							if (cmd != null && cmd.length() > 0) {
 								myhandler.sendMessage(myhandler.obtainMessage(
 										MESSAGE_TAPWORDCOMMAND, cmd));
 							}
 							break;
 						}
-						if (com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isPrompt(raw)) {
-							String cmd = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.promptCommand(raw);
+						if (com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isPrompt(raw)
+								|| OscEight.isPrompt(raw)) {
+							String cmd = OscEight.isPrompt(raw)
+									? OscEight.promptCommand(raw)
+									: com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.promptCommand(raw);
 							if (cmd != null) {
 								// arg1=show IME, arg2=replace (not append)
 								myhandler.sendMessage(myhandler.obtainMessage(

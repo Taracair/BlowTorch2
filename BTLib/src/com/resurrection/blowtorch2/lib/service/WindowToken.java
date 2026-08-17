@@ -339,7 +339,7 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption osc8Links = new BooleanOption();
 		osc8Links.setTitle("OSC 8 links?");
-		osc8Links.setDescription("Make server-declared hyperlinks tappable (OSC 8). The marked words need not be the URL. Independent of Enable Hyperlinks? above. .osc8 on|off");
+		osc8Links.setDescription("Make server-declared hyperlinks tappable (OSC 8). The marked words need not be the URL. send: types a command; prompt: fills the input bar. Independent of Enable Hyperlinks? above. .osc8 on|off");
 		osc8Links.setKey("osc8_links");
 		osc8Links.setValue(true);
 		hyperlinks.addOption(osc8Links);

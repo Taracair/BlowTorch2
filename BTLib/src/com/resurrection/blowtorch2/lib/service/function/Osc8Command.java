@@ -27,7 +27,9 @@ public class Osc8Command extends SpecialCommand {
 					+ "OSC 8 links are " + (on ? "on" : "off") + ".\n"
 					+ "Usage: .osc8 on | .osc8 off\n"
 					+ "Server-declared hyperlinks (ESC ]8;params;URI). "
-					+ "Tap the marked words. Display text need not be the URL.\n"
+					+ "Tap the marked words. Display text need not be the URL. "
+					+ "http(s)/mailto/ftp open the browser; send: types a command; "
+					+ "prompt: fills the input bar (StickMUD / Mudlet).\n"
 					+ "Also: Options → Window → Hyperlink Settings → OSC 8 links?\n"
 					+ "Sample without a MUD: .probe osc8\n");
 			return null;

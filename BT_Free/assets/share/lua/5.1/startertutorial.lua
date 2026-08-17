@@ -621,8 +621,9 @@ line (the same room on look) paints dimmer so what changed stands out.
 lines stay in memory (then an old room is bright again). .dimrepeat
 strength 50 is how hard to dim; higher is darker.
 
-Some worlds mark words as links (OSC 8) even when the words are not a
-URL — "click here" can open https://example.com/real. .osc8 on|off.
+Some worlds mark words as links even when the words are not a
+URL — "click here" can open https://example.com/real. StickMUD-style
+send: taps type a command; prompt: fills the input bar. .osc8 on|off.
 .probe osc8 dumps a tappable sample here without waiting on the game.
 
 Some worlds mark exits and items with MXP so a tap sends a command.
@@ -1261,7 +1262,7 @@ local TIPS = {
 	suggestions = [[Same as .suggest.]],
 	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
 	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
-	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. .probe osc8 dumps a sample.]],
+	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],
 	font = [[.font N sets game font size (6–48). .font +2 / -2 steps from where you are.]],
 	keyboard = [[.kb (or .keyboard) drives the input bar: history, caret, flush. .kb alone is help.]],

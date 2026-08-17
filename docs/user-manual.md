@@ -2045,9 +2045,10 @@ Dot command (same three knobs):
 ## OSC 8 hyperlinks
 
 Some worlds mark words as links even when the words are not a URL — `click here`
-can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`). Only
-`http`, `https`, and `mailto` are opened; `javascript:`, `data:`, `vbscript:`,
-and `file:` are ignored.
+can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`).
+`http`/`https`/`mailto`/`ftp` open in the browser. Mudlet/StickMUD `send:` taps
+type that command to the game; `prompt:` fills the input bar. `javascript:`,
+`data:`, `vbscript:`, `file:`, and `preset:` are ignored.
 
 **Options → Window → Hyperlink Settings → OSC 8 links?** (on by default). This is
 independent of **Enable Hyperlinks?** (that one is regex linkify of `http` /

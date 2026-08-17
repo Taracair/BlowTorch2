@@ -66,7 +66,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
-		cmd("osc8", "The window", "server-declared hyperlinks (OSC 8); .osc8 on|off");
+		cmd("osc8", "The window", "server-declared hyperlinks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
 		cmd("window", "The window", "open, close and address extra text windows");
@@ -520,6 +520,7 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .osc8              — on or off\n"
 					+ "  .osc8 on|off       — server-declared hyperlinks (OSC 8)\n"
+					+ "  send: / prompt:    — tap types a command / fills the input bar\n"
 					+ "  .probe osc8        — dump a tappable sample here\n";
 		}
 		if (filter.equals("mxp")) {
