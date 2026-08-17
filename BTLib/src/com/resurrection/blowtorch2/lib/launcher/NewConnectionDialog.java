@@ -376,10 +376,19 @@ public class NewConnectionDialog extends Dialog {
 			EditText port = (EditText)findViewById(R.id.portinput);
 
 
+			// URI inputType stops the IME inserting a space after a dot
+			// (stickmud.com → stickmud. com). Strip leftover whitespace too.
+			if (host.getText() != null) {
+				String stripped = host.getText().toString().replaceAll("\\s+", "");
+				if (!stripped.equals(host.getText().toString())) {
+					host.setText(stripped);
+				}
+			}
+
 			Validator checker = new Validator();
 			checker.add(disp, Validator.VALIDATE_NOT_BLANK, "Display Name");
-			checker.add(host, Validator.VALIDATE_NOT_BLANK, "Host name");
-			checker.add(host, Validator.VALIDATE_HOSTNAME, "Host name");
+			checker.add(host, Validator.VALIDATE_NOT_BLANK, "Hostname");
+			checker.add(host, Validator.VALIDATE_HOSTNAME, "Hostname");
 			checker.add(port, Validator.VALIDATE_NOT_BLANK, "Port number");
 			checker.add(port, Validator.VALIDATE_NUMBER, "Port number");
 			checker.add(port, Validator.VALIDATE_PORT_NUMBER, "Port number");
