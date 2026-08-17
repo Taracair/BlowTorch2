@@ -671,10 +671,13 @@ Worlds can also mark text themselves with MXP SEND. That is .mxp and
 .probe mxp, not a trigger. A Tappable Word on the same glyph wins over
 that SEND; an http link still wins over both.
 
-Hold a finger where several different links sit close together. A small
-loupe appears beside it and highlights one word at a time so you can
-slide to the one you meant. A hold on a single word that has several
-commands still opens the command menu, as before.]])
+Hold a finger where several different tappable words sit close together
+on one line — Tappable Word from a trigger, or a link the game marked
+(MXP / OSC 8). A small loupe appears beside it and highlights one word
+at a time so you can slide to the one you meant. That includes a long
+capture such as "a rusty sword" next to "a leather bag": hold anywhere
+on the first and the neighbour is still in the loupe. A hold on a single
+word that has several commands still opens the command menu, as before.]])
 end
 
 TOPICS.keyboard = function()

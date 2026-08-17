@@ -1776,13 +1776,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 					mLoupeFingerX = t.getX(index);
 					mLoupeFingerY = t.getY(index);
 					if (mLoupeMerged != null) {
-						java.util.List<TapLoupe.Target> near = TapLoupe.inCircle(
-								mLoupeMerged, (int) mLoupeFingerX,
-								(int) mLoupeFingerY,
-								TapLoupe.radiusPx(mPrefLineSize, mDensity));
-						if (!near.isEmpty()) {
-							mLoupeSelected = TapLoupe.pick(near,
-									(int) mLoupeFingerX, (int) mLoupeFingerY);
+						TapLoupe.Target now = TapLoupe.underFinger(mLoupeMerged,
+								(int) mLoupeFingerX, (int) mLoupeFingerY,
+								TapLoupe.radiusPx(mPrefLineSize, mDensity),
+								Math.max(1, mPrefLineSize));
+						if (now != null) {
+							mLoupeSelected = now;
 						}
 					}
 					invalidate();
@@ -3821,7 +3820,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * Start the clock on a hold, when there is something for a hold to do.
 	 *
 	 * <p>A word with several commands still opens the command menu. Several
-	 * different words near the finger open a loupe instead. A lone one-command
+	 * different words on the same line near the finger — trigger Tappable
+	 * Words as well as OSC 8 / MXP — open a loupe instead. A lone one-command
 	 * word does not arm a timer.
 	 *
 	 * <p>The commands and the anchor are taken <b>now</b>, not looked up when the
@@ -3840,7 +3840,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		final int fx = start_x.intValue();
 		final int fy = mStartY.intValue();
 		final int radius = TapLoupe.radiusPx(mPrefLineSize, mDensity);
-		final TapLoupe.Query q = TapLoupe.query(merged, fx, fy, radius);
+		final TapLoupe.Query q = TapLoupe.query(merged, fx, fy, radius,
+				Math.max(1, mPrefLineSize));
 		if (q.kind == TapLoupe.Kind.NONE || q.selected == null) {
 			return;
 		}

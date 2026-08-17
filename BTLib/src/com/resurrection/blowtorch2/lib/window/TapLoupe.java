@@ -12,6 +12,12 @@ import java.util.List;
  * <p>No View or Canvas: the window supplies boxes and the finger, and this
  * returns which overlay to show. Boxes with the same commands that touch are
  * one word — a colour change mid-word is still one candidate.
+ *
+ * <p>A loupe is not only "finger circle covers two boxes". Trigger Tappable
+ * Words are often a whole capture ({@code a rusty sword}) sitting one space
+ * from the next; the circle then stays inside the first box. Same-line
+ * neighbours within {@code radius} join the cluster. OSC 8 / MXP short links
+ * already fall in the circle; this is the wide-word case.
  */
 public final class TapLoupe {
 
@@ -115,19 +121,211 @@ public final class TapLoupe {
 	}
 
 	public static Query query(final List<Target> merged, final int x,
-			final int y, final int radius) {
-		List<Target> hits = inCircle(merged, x, y, radius);
-		if (hits.isEmpty()) {
+			final int y, final int radius, final int lineHeight) {
+		Cluster c = clusterAt(merged, x, y, radius, lineHeight);
+		if (c == null || c.selected == null) {
 			return Query.none();
 		}
-		Target selected = pick(hits, x, y);
-		if (hits.size() >= 2) {
-			return new Query(Kind.LOUPE, hits, selected);
+		if (c.candidates.size() >= 2) {
+			return new Query(Kind.LOUPE, c.candidates, c.selected);
 		}
-		if (selected != null && selected.commands.length > 1) {
-			return new Query(Kind.MENU, hits, selected);
+		if (c.selected.commands.length > 1) {
+			return new Query(Kind.MENU, c.candidates, c.selected);
 		}
 		return Query.none();
+	}
+
+	/**
+	 * Word under/near the finger after same-line clustering. Unlike
+	 * {@link #query}, an isolated one-command word still returns that word —
+	 * a slide off a loupe cluster onto {@code exit} must retarget, not keep
+	 * the previous pick.
+	 */
+	public static Target underFinger(final List<Target> merged, final int x,
+			final int y, final int radius, final int lineHeight) {
+		Cluster c = clusterAt(merged, x, y, radius, lineHeight);
+		return c == null ? null : c.selected;
+	}
+
+	private static final class Cluster {
+		final List<Target> candidates;
+		final Target selected;
+
+		Cluster(final List<Target> candidates, final Target selected) {
+			this.candidates = candidates;
+			this.selected = selected;
+		}
+	}
+
+	/**
+	 * Seed is the word under the finger on the row whose centre is closest to
+	 * the finger, not every box the circle overlaps and not the smallest
+	 * containing box (a narrower word on the line below also contains the
+	 * point after min-height padding).
+	 */
+	private static Cluster clusterAt(final List<Target> merged, final int x,
+			final int y, final int radius, final int lineHeight) {
+		List<Target> hits = inCircle(merged, x, y, radius);
+		if (hits.isEmpty()) {
+			return null;
+		}
+		Target seed = pickSeed(hits, x, y, lineHeight);
+		if (seed == null) {
+			return null;
+		}
+		// Every same-row circle hit is a seed, not only the closest word.
+		// Two short links with a gap wider than radius still both sit in the
+		// circle when the finger is in the gap; expanding from one of them
+		// would drop the other.
+		ArrayList<Target> rowSeeds = new ArrayList<Target>();
+		for (int i = 0; i < hits.size(); i++) {
+			if (sameRow(hits.get(i), seed, lineHeight)) {
+				rowSeeds.add(hits.get(i));
+			}
+		}
+		List<Target> cluster = expandSameLine(merged, rowSeeds, radius,
+				lineHeight);
+		return new Cluster(cluster, pick(cluster, x, y));
+	}
+
+	/**
+	 * Words on the same line whose boxes are within {@code gap} of a seed.
+	 * Same line is centre-Y within half {@code lineHeight}, not Y-overlap:
+	 * production hitboxes of neighbouring rows overlap.
+	 * Fragments that are the same word (colour split with a small gap) are
+	 * unioned, not offered as two loupe picks.
+	 */
+	static List<Target> expandSameLine(final List<Target> merged,
+			final List<Target> seeds, final int gap, final int lineHeight) {
+		ArrayList<Target> cluster = new ArrayList<Target>();
+		if (seeds != null) {
+			cluster.addAll(seeds);
+		}
+		if (merged == null || cluster.isEmpty()) {
+			return cluster;
+		}
+		boolean[] used = new boolean[merged.size()];
+		for (int i = 0; i < merged.size(); i++) {
+			if (containsRef(cluster, merged.get(i))) {
+				used[i] = true;
+			}
+		}
+		boolean grew = true;
+		while (grew) {
+			grew = false;
+			for (int i = 0; i < merged.size(); i++) {
+				if (used[i]) {
+					continue;
+				}
+				Target t = merged.get(i);
+				for (int j = 0; j < cluster.size(); j++) {
+					if (!closeOnLine(cluster.get(j), t, gap, lineHeight)) {
+						continue;
+					}
+					if (sameWord(cluster.get(j), t)) {
+						cluster.set(j, union(cluster.get(j), t));
+					} else {
+						cluster.add(t);
+					}
+					used[i] = true;
+					grew = true;
+					break;
+				}
+			}
+		}
+		return collapseSameWords(cluster, gap, lineHeight);
+	}
+
+	/**
+	 * Two colour-split fragments of one command list are one word, even when
+	 * both already sat in the finger circle (so they never went through the
+	 * union path above).
+	 */
+	static List<Target> collapseSameWords(final List<Target> cluster,
+			final int gap, final int lineHeight) {
+		ArrayList<Target> remaining = new ArrayList<Target>();
+		if (cluster != null) {
+			remaining.addAll(cluster);
+		}
+		ArrayList<Target> out = new ArrayList<Target>();
+		while (!remaining.isEmpty()) {
+			Target cur = remaining.remove(0);
+			boolean grew = true;
+			while (grew) {
+				grew = false;
+				for (int i = 0; i < remaining.size();) {
+					Target other = remaining.get(i);
+					if (sameWord(cur, other)
+							&& closeOnLine(cur, other, gap, lineHeight)) {
+						cur = union(cur, other);
+						remaining.remove(i);
+						grew = true;
+					} else {
+						i++;
+					}
+				}
+			}
+			out.add(cur);
+		}
+		return out;
+	}
+
+	static boolean closeOnLine(final Target a, final Target b, final int gap,
+			final int lineHeight) {
+		if (!sameRow(a, b, lineHeight)) {
+			return false;
+		}
+		return a.left <= b.right + gap && b.left <= a.right + gap;
+	}
+
+	static boolean sameRow(final Target a, final Target b,
+			final int lineHeight) {
+		int pitch = lineHeight > 0 ? lineHeight
+				: Math.max(1, Math.max(a.height(), b.height()));
+		int slack = Math.max(1, pitch / 2);
+		return Math.abs(centerY(a) - centerY(b)) < slack;
+	}
+
+	static int centerY(final Target t) {
+		return (t.top + t.bottom) / 2;
+	}
+
+	/**
+	 * Adjacent rows overlap, so the circle can contain a narrower word on the
+	 * line below. {@link #pick} would take that smaller box and the wide
+	 * capture on this line would lose its neighbour. Prefer the row whose
+	 * centre is closer to the finger, then pick on that row.
+	 */
+	static Target pickSeed(final List<Target> hits, final int x, final int y,
+			final int lineHeight) {
+		if (hits == null || hits.isEmpty()) {
+			return null;
+		}
+		Target nearestRow = hits.get(0);
+		int bestDy = Math.abs(centerY(nearestRow) - y);
+		for (int i = 1; i < hits.size(); i++) {
+			int dy = Math.abs(centerY(hits.get(i)) - y);
+			if (dy < bestDy) {
+				bestDy = dy;
+				nearestRow = hits.get(i);
+			}
+		}
+		ArrayList<Target> onRow = new ArrayList<Target>();
+		for (int i = 0; i < hits.size(); i++) {
+			if (sameRow(hits.get(i), nearestRow, lineHeight)) {
+				onRow.add(hits.get(i));
+			}
+		}
+		return pick(onRow, x, y);
+	}
+
+	private static boolean containsRef(final List<Target> list, final Target t) {
+		for (int i = 0; i < list.size(); i++) {
+			if (list.get(i) == t) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	public static List<Target> inCircle(final List<Target> merged, final int x,

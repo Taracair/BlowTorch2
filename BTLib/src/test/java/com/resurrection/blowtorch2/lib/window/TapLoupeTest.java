@@ -20,22 +20,37 @@ public class TapLoupeTest {
 				false, false);
 	}
 
+	private static TapLoupe.Query query(List<TapLoupe.Target> merged, int x,
+			int y, int radius) {
+		return TapLoupe.query(merged, x, y, radius, 20);
+	}
+
 	@Test
 	public void twoDifferentWordsNearFingerAreLoupe() {
 		List<TapLoupe.Target> merged = Arrays.asList(
 				word(0, 0, 40, 20, "north", "n"),
 				word(50, 0, 90, 20, "east", "e"));
-		TapLoupe.Query q = TapLoupe.query(merged, 45, 10, 20);
+		TapLoupe.Query q = query(merged, 45, 10, 20);
 		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
 		assertEquals(2, q.candidates.size());
 		assertNotNull(q.selected);
 	}
 
 	@Test
+	public void twoWordsInTheCircleWithAGapWiderThanRadiusStillLoupe() {
+		List<TapLoupe.Target> merged = Arrays.asList(
+				word(0, 0, 20, 20, "north", "n"),
+				word(50, 0, 70, 20, "east", "e"));
+		TapLoupe.Query q = query(merged, 35, 10, 20);
+		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
+		assertEquals(2, q.candidates.size());
+	}
+
+	@Test
 	public void oneWordWithSeveralCommandsIsMenu() {
 		List<TapLoupe.Target> merged = Arrays.asList(
 				word(0, 0, 40, 20, "goblin", "kill goblin", "look goblin"));
-		TapLoupe.Query q = TapLoupe.query(merged, 20, 10, 20);
+		TapLoupe.Query q = query(merged, 20, 10, 20);
 		assertEquals(TapLoupe.Kind.MENU, q.kind);
 		assertEquals("goblin", q.selected.label);
 	}
@@ -44,7 +59,7 @@ public class TapLoupeTest {
 	public void oneWordWithOneCommandIsNone() {
 		List<TapLoupe.Target> merged = Arrays.asList(
 				word(0, 0, 40, 20, "north", "n"));
-		assertEquals(TapLoupe.Kind.NONE, TapLoupe.query(merged, 20, 10, 20).kind);
+		assertEquals(TapLoupe.Kind.NONE, query(merged, 20, 10, 20).kind);
 	}
 
 	@Test
@@ -73,7 +88,7 @@ public class TapLoupeTest {
 				new String[] { "send:look bottle" }, false, true);
 		List<TapLoupe.Target> merged = TapLoupe.merge(Arrays.asList(tap, link));
 		assertEquals(2, merged.size());
-		TapLoupe.Query q = TapLoupe.query(merged, 20, 10, 8);
+		TapLoupe.Query q = query(merged, 20, 10, 8);
 		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
 	}
 
@@ -98,14 +113,105 @@ public class TapLoupeTest {
 		List<TapLoupe.Target> merged = Arrays.asList(
 				word(0, 0, 20, 16, "a", "a"),
 				word(200, 0, 220, 16, "b", "b"));
-		assertEquals(TapLoupe.Kind.NONE, TapLoupe.query(merged, 10, 8, 20).kind);
+		assertEquals(TapLoupe.Kind.NONE, query(merged, 10, 8, 20).kind);
+	}
+
+	@Test
+	public void wideTriggerWordStillLoupesACloseNeighbour() {
+		// Finger sits in the left of a long capture; the next tappable word
+		// is one space away. The circle never reaches it — OSC 8 short links
+		// do not have this shape. Same-line cluster still yields a loupe.
+		List<TapLoupe.Target> merged = Arrays.asList(
+				word(0, 0, 80, 20, "a rusty sword", "get a rusty sword"),
+				word(84, 0, 140, 20, "a leather bag", "get a leather bag"));
+		TapLoupe.Query q = query(merged, 10, 10, 20);
+		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
+		assertEquals(2, q.candidates.size());
+		assertEquals("a rusty sword", q.selected.label);
+	}
+
+	@Test
+	public void closeClusterDoesNotJumpToTheNextLine() {
+		// Production hitboxes overlap in Y (descender + 20dp minimum).
+		// Centres still differ by the line pitch (22).
+		List<TapLoupe.Target> merged = Arrays.asList(
+				word(0, 0, 40, 60, "north", "n"),
+				word(50, 0, 90, 60, "east", "e"),
+				word(0, 22, 40, 82, "south", "s"));
+		TapLoupe.Query q = TapLoupe.query(merged, 20, 30, 40, 22);
+		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
+		assertEquals(2, q.candidates.size());
+		assertEquals("north", q.selected.label);
+		for (int i = 0; i < q.candidates.size(); i++) {
+			assertFalse("south".equals(q.candidates.get(i).label));
+		}
+	}
+
+	@Test
+	public void overlappingNextLineAloneIsNotALoupe() {
+		List<TapLoupe.Target> merged = Arrays.asList(
+				word(0, 0, 40, 60, "north", "n"),
+				word(0, 22, 40, 82, "south", "s"));
+		assertEquals(TapLoupe.Kind.NONE,
+				TapLoupe.query(merged, 20, 30, 40, 22).kind);
+	}
+
+	@Test
+	public void wideWordKeepsThisLineWhenANarrowerWordBelowAlsoContainsTheFinger() {
+		List<TapLoupe.Target> merged = Arrays.asList(
+				word(0, 0, 80, 60, "a rusty sword", "get sword"),
+				word(84, 0, 140, 60, "a leather bag", "get bag"),
+				word(10, 22, 40, 82, "exit", "exit"));
+		TapLoupe.Query q = TapLoupe.query(merged, 20, 30, 40, 22);
+		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
+		assertEquals("a rusty sword", q.selected.label);
+		boolean sawBag = false;
+		for (int i = 0; i < q.candidates.size(); i++) {
+			assertFalse("exit".equals(q.candidates.get(i).label));
+			if ("a leather bag".equals(q.candidates.get(i).label)) {
+				sawBag = true;
+			}
+		}
+		assertTrue(sawBag);
+	}
+
+	@Test
+	public void sameCommandFragmentsDoNotLoupeAsTwoWords() {
+		TapLoupe.Target a = word(0, 0, 20, 16, "bot", "get bottle");
+		TapLoupe.Target b = word(24, 0, 44, 16, "tle", "get bottle");
+		List<TapLoupe.Target> merged = TapLoupe.merge(Arrays.asList(a, b));
+		assertEquals(2, merged.size());
+		assertEquals(TapLoupe.Kind.NONE, query(merged, 10, 8, 20).kind);
+	}
+
+	@Test
+	public void sameLineClusterIsTransitive() {
+		List<TapLoupe.Target> merged = Arrays.asList(
+				word(0, 0, 20, 16, "n", "n"),
+				word(30, 0, 50, 16, "e", "e"),
+				word(60, 0, 80, 16, "s", "s"));
+		TapLoupe.Query q = query(merged, 10, 8, 20);
+		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
+		assertEquals(3, q.candidates.size());
+	}
+
+	@Test
+	public void underFingerFollowsAnIsolatedWord() {
+		List<TapLoupe.Target> merged = Arrays.asList(
+				word(0, 0, 80, 20, "sword", "get sword"),
+				word(84, 0, 140, 20, "bag", "get bag"),
+				word(400, 0, 440, 20, "exit", "exit"));
+		assertEquals(TapLoupe.Kind.LOUPE, query(merged, 10, 10, 20).kind);
+		assertEquals(TapLoupe.Kind.NONE, query(merged, 420, 10, 20).kind);
+		TapLoupe.Target u = TapLoupe.underFinger(merged, 420, 10, 20, 20);
+		assertEquals("exit", u.label);
 	}
 
 	@Test
 	public void emptyOrNullIsNone() {
-		assertEquals(TapLoupe.Kind.NONE, TapLoupe.query(null, 0, 0, 10).kind);
+		assertEquals(TapLoupe.Kind.NONE, query(null, 0, 0, 10).kind);
 		assertEquals(TapLoupe.Kind.NONE,
-				TapLoupe.query(new ArrayList<TapLoupe.Target>(), 0, 0, 10).kind);
+				query(new ArrayList<TapLoupe.Target>(), 0, 0, 10).kind);
 		assertNull(TapLoupe.pick(null, 0, 0));
 	}
 
