@@ -882,6 +882,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						loadCommandKnowledge();
 						refreshWordSuggestions();
 						showPromptBar("");
+						// The Edit strip is activity chrome, not a window token, so
+						// it survives switchTo. Apply this world's saved state now
+						// that DISPLAY is the world we are entering.
+						restoreInputEditToolsForWorld();
 					}
 					break;
 				case MESSAGE_TRIGGERSTR:
@@ -5904,6 +5908,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					"MainWindow.finishInitializeWindows", e);
 		}
 		// Window tokens (and Options → Window prefs) are live — re-layout Edit/Send.
+		// ensureInputActionColumn reapplies this world's Edit-strip flag, so a
+		// later loadSettings → applyGrowInputBar refresh cannot leave the
+		// previous world's strip open (or close this world's .editpanel).
 		scheduleInputActionLayoutRefresh();
 		//Debug.stopMethodTracing();
 	}
@@ -6947,7 +6954,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private static final String PREFS_INPUT_EDIT = "INPUT_EDIT_STRIP";
-	private static final String KEY_EDIT_EXPANDED = "expanded";
+	/** Prefix for the per-world expanded flag. Never the bare key "expanded". */
+	private static final String KEY_EDIT_EXPANDED_PREFIX = "expanded|";
 	/** Soft-wrap grow limit for the input bar (~thumb-reachable height on phones). */
 	private static final int INPUT_GROW_MAX_LINES = 7;
 	/** When true, input bar grows with multiline text (default / .wrap on). */
@@ -7125,9 +7133,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 
-		boolean expanded = getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
-				.getBoolean(KEY_EDIT_EXPANDED, false);
-		setInputEditToolsExpanded(expanded, false);
+		restoreInputEditToolsForWorld();
 
 		toggle.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -7309,6 +7315,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 			RelativeLayout rlGone = (RelativeLayout) findViewById(R.id.window_container);
 			chrome.bringGameplayChromeToFront(rlGone);
+			restoreInputEditToolsForWorld(false);
 			refreshGameChrome();
 			return;
 		}
@@ -7378,12 +7385,6 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			mInputSendButton.setVisibility(sendVis);
 			changed = true;
 		}
-		if (!showEdit) {
-			View tools = findViewById(R.id.input_edit_tools);
-			if (tools != null && tools.getVisibility() == View.VISIBLE) {
-				setInputEditToolsExpanded(false, true);
-			}
-		}
 
 		// WRAP_CONTENT so soft-wrap can grow the row up to maxLines.
 		ViewGroup.LayoutParams etLp = mInputBox.getLayoutParams();
@@ -7408,6 +7409,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
 		chrome.bringGameplayChromeToFront(rl);
+		restoreInputEditToolsForWorld(false);
 		refreshGameChrome();
 	}
 
@@ -7471,10 +7473,51 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (persist) {
 			getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
 					.edit()
-					.putBoolean(KEY_EDIT_EXPANDED, expanded)
+					.putBoolean(editExpandedPrefKey(getConnectionDisplay()), expanded)
 					.apply();
 		}
 		refreshGameChrome();
+	}
+
+	/**
+	 * SharedPreferences key for whether the Edit tools strip is open.
+	 *
+	 * <p>Per world: one global {@code expanded} flag is why opening the strip on
+	 * Darkwind left it open on StickMUD. The activity chrome is not rebuilt on
+	 * {@code switchTo}, so the key must change with DISPLAY, and the view must
+	 * be restored when DISPLAY does.
+	 *
+	 * <p>Empty display uses the prefix alone so a missing name cannot fall back
+	 * onto the old unscoped {@code expanded} key.
+	 */
+	static String editExpandedPrefKey(final String display) {
+		if (display == null || display.length() == 0) {
+			return KEY_EDIT_EXPANDED_PREFIX;
+		}
+		return KEY_EDIT_EXPANDED_PREFIX + display;
+	}
+
+	private void restoreInputEditToolsForWorld() {
+		restoreInputEditToolsForWorld(true);
+	}
+
+	/**
+	 * @param refreshChrome false when the caller is about to refresh anyway
+	 *        ({@link #ensureInputActionColumn}) so we do not nest a chrome
+	 *        layout in the middle of laying out the Edit/Send column.
+	 */
+	private void restoreInputEditToolsForWorld(boolean refreshChrome) {
+		View tools = findViewById(R.id.input_edit_tools);
+		Button toggle = (Button) findViewById(R.id.input_edit_toggle);
+		if (tools == null || toggle == null) {
+			return;
+		}
+		boolean expanded = getSharedPreferences(PREFS_INPUT_EDIT, Context.MODE_PRIVATE)
+				.getBoolean(editExpandedPrefKey(getConnectionDisplay()), false);
+		applyInputEditExpanded(tools, toggle, expanded);
+		if (refreshChrome) {
+			refreshGameChrome();
+		}
 	}
 
 	private void applyInputEditExpanded(View tools, Button toggle, boolean expanded) {
