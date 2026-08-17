@@ -32,6 +32,16 @@ public final class MxpLinks {
 				|| u.startsWith(EXPIRE_CMD);
 	}
 
+	/**
+	 * A player tappable-word trigger on the same glyph should fire instead of
+	 * this href. MXP SEND/MENU/PROMPT are commands, the same class of action
+	 * as the trigger. {@code http}/{@code https}/{@code mailto} still win:
+	 * opening a browser is the surprise to get wrong.
+	 */
+	public static boolean tapWordOverrides(final String href) {
+		return isSend(href) || isMenu(href) || isPrompt(href);
+	}
+
 	public static boolean isSend(final String uri) {
 		return uri != null && uri.startsWith(SEND);
 	}

@@ -142,7 +142,17 @@ public final class MxpTag {
 				continue;
 			}
 			if (!isNameStart(c)) {
-				return false;
+				// Unquoted positional. Discworld sends `<!EN hp 501 publish>`
+				// — a number is not a name, but it is a legal ENTITY value.
+				int vs = i;
+				while (i < n && !isSpace(rest.charAt(i))) {
+					i++;
+				}
+				if (i == vs) {
+					return false;
+				}
+				positional.add(rest.substring(vs, i));
+				continue;
 			}
 			int start = i;
 			i++;

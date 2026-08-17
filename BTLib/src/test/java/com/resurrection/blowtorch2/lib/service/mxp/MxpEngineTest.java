@@ -225,6 +225,24 @@ public class MxpEngineTest {
 	}
 
 	@Test
+	public void unquotedNumericEntityDoesNotLeak() {
+		MxpEngine e = on();
+		MxpEngine.CollectingListener L = new MxpEngine.CollectingListener();
+		e.setListener(L);
+		String out = utf(e,
+				"<!EN hp 501 publish><!EN xp 556 publish><!EN gp 50 publish>"
+				+ "<!EN maxhp 501 publish><!EN maxgp 50 publish>> You open");
+		assertFalse("unquoted ENTITY value must not dump the tag",
+				out.contains("<!EN"));
+		assertTrue(out.contains("> You open"));
+		assertEquals("501", L.variables.get("hp"));
+		assertEquals("556", L.variables.get("xp"));
+		assertEquals("50", L.variables.get("gp"));
+		assertEquals("501", L.variables.get("maxhp"));
+		assertEquals("50", L.variables.get("maxgp"));
+	}
+
+	@Test
 	public void holdoverAcrossPackets() {
 		MxpEngine e = on();
 		byte[] a = e.process("<SE".getBytes(StandardCharsets.UTF_8));

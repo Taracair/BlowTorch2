@@ -1869,10 +1869,17 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 				if (mTouchInTapWord > -1 && smallMove
 						&& mTouchInTapWord < tapBoxes.size()) {
-					// A listed word was tapped. A link on the same spot wins —
-					// it was there first and opening a browser is the more
-					// destructive surprise to get wrong.
-					if (mTouchInLink < 0) {
+					// A listed word was tapped. An http(s)/mailto link on the
+					// same spot still wins — opening a browser is the surprise
+					// to get wrong. MXP SEND is a command, same as the trigger,
+					// so the player's tappable word takes that tap.
+					String href = null;
+					if (mTouchInLink >= 0 && mTouchInLink < linkBoxes.size()) {
+						href = linkBoxes.get(mTouchInLink).getData();
+					}
+					if (mTouchInLink < 0
+							|| com.resurrection.blowtorch2.lib.service.mxp.MxpLinks
+									.tapWordOverrides(href)) {
 						// The box already carries the finished commands: each rule
 						// has its own, so they cannot be rebuilt from one setting.
 						boolean sendsFirst = false;

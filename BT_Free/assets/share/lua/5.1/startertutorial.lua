@@ -666,7 +666,8 @@ The word stays pressable while the line is in the buffer, so scrolling back
 and pressing something from ten lines ago works.
 
 Worlds can also mark text themselves with MXP SEND. That is .mxp and
-.probe mxp, not a trigger.]])
+.probe mxp, not a trigger. A Tappable Word on the same glyph wins over
+that SEND; an http link still wins over both.]])
 end
 
 TOPICS.keyboard = function()
@@ -935,10 +936,8 @@ after changing. .mxp on|off. .mxp with no argument is status.
                  visible in scrollback
 
 This is not OSC 8 (web links). MXP SEND is a command to the MUD. SCRIPT
-and RELOCATE from the server are ignored.
-
-The launcher may list worlds that advertise MXP (Discworld, Ansalon,
-Threshold RPG, Midnight Sun). Deleting a row sticks.]])
+and RELOCATE from the server are ignored. A Tappable Word trigger on the
+same glyph wins over MXP SEND; a web link still wins over both.]])
 end
 
 TOPICS.stay_connected = function()

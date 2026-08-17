@@ -1112,6 +1112,9 @@ Things worth knowing when the pattern gets ambitious:
 - **Overlapping triggers**: two different triggers matching the same word each
   mark it; the press uses the last box drawn there. Two Tappable Word actions
   on *one* trigger are merged instead (see above).
+- **MXP SEND on the same word**: the tappable trigger wins. An `http`/`https`/
+  `mailto` link on that spot still wins over both — opening a browser is the
+  surprise to get wrong.
 
 ### 9c. Tap a name to retarget every button
 

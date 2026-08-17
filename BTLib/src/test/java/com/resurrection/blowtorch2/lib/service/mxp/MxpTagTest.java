@@ -44,4 +44,14 @@ public class MxpTagTest {
 		assertTrue(t.hasFlag("prompt"));
 		assertEquals("say hi", t.attr("href"));
 	}
+
+	@Test
+	public void unquotedNumericEntityValueIsPositional() {
+		MxpTag t = MxpTag.parse("!EN hp 501 publish");
+		assertTrue(t.definition);
+		assertEquals("en", t.canonical());
+		assertEquals("hp", t.attrOrPos("name", 0));
+		assertEquals("501", t.attrOrPos("value", 1));
+		assertTrue(t.hasFlag("publish"));
+	}
 }

@@ -1,6 +1,7 @@
 package com.resurrection.blowtorch2.lib.service.mxp;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -42,5 +43,15 @@ public class MxpLinksTest {
 		assertEquals(2, labels.length);
 		assertEquals("Look", labels[0]);
 		assertEquals("Get", labels[1]);
+	}
+
+	@Test
+	public void tapWordOverridesMxpCommandsNotHttp() {
+		assertTrue(MxpLinks.tapWordOverrides(MxpLinks.sendHref("north")));
+		assertTrue(MxpLinks.tapWordOverrides(MxpLinks.menuHref("a|b", "a|b")));
+		assertTrue(MxpLinks.tapWordOverrides(MxpLinks.promptHref("say hi")));
+		assertFalse(MxpLinks.tapWordOverrides("https://example.com"));
+		assertFalse(MxpLinks.tapWordOverrides("mailto:a@b.c"));
+		assertFalse(MxpLinks.tapWordOverrides(null));
 	}
 }
