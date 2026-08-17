@@ -25,6 +25,10 @@ public class TapLoupeTest {
 		return TapLoupe.query(merged, x, y, radius, 20);
 	}
 
+	private static List<TapLoupe.Target> merge(TapLoupe.Target... words) {
+		return TapLoupe.merge(Arrays.asList(words), 20);
+	}
+
 	@Test
 	public void twoDifferentWordsNearFingerAreLoupe() {
 		List<TapLoupe.Target> merged = Arrays.asList(
@@ -66,7 +70,7 @@ public class TapLoupeTest {
 	public void sameCommandsThatTouchMergeToOneWord() {
 		TapLoupe.Target a = word(0, 0, 20, 16, "bot", "get bottle");
 		TapLoupe.Target b = word(20, 0, 40, 16, "tle", "get bottle");
-		List<TapLoupe.Target> merged = TapLoupe.merge(Arrays.asList(a, b));
+		List<TapLoupe.Target> merged = merge(a, b);
 		assertEquals(1, merged.size());
 		assertEquals("bottle", merged.get(0).label);
 		assertEquals(0, merged.get(0).left);
@@ -77,7 +81,7 @@ public class TapLoupeTest {
 	public void sameCommandsWithAGapStayTwo() {
 		TapLoupe.Target a = word(0, 0, 20, 16, "bot", "get bottle");
 		TapLoupe.Target b = word(24, 0, 44, 16, "tle", "get bottle");
-		List<TapLoupe.Target> merged = TapLoupe.merge(Arrays.asList(a, b));
+		List<TapLoupe.Target> merged = merge(a, b);
 		assertEquals(2, merged.size());
 	}
 
@@ -86,7 +90,7 @@ public class TapLoupeTest {
 		TapLoupe.Target tap = word(0, 0, 40, 20, "bottle", "get bottle");
 		TapLoupe.Target link = new TapLoupe.Target(0, 0, 40, 20, "bottle",
 				new String[] { "send:look bottle" }, false, true);
-		List<TapLoupe.Target> merged = TapLoupe.merge(Arrays.asList(tap, link));
+		List<TapLoupe.Target> merged = merge(tap, link);
 		assertEquals(2, merged.size());
 		TapLoupe.Query q = query(merged, 20, 10, 8);
 		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
@@ -131,13 +135,11 @@ public class TapLoupeTest {
 	}
 
 	@Test
-	public void closeClusterDoesNotJumpToTheNextLine() {
-		// Production hitboxes overlap in Y (descender + 20dp minimum).
-		// Centres still differ by the line pitch (22).
+	public void closeClusterDoesNotJumpToADifferentColumnOnTheNextLine() {
 		List<TapLoupe.Target> merged = Arrays.asList(
 				word(0, 0, 40, 60, "north", "n"),
 				word(50, 0, 90, 60, "east", "e"),
-				word(0, 22, 40, 82, "south", "s"));
+				word(50, 22, 90, 82, "south", "s"));
 		TapLoupe.Query q = TapLoupe.query(merged, 20, 30, 40, 22);
 		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
 		assertEquals(2, q.candidates.size());
@@ -148,12 +150,24 @@ public class TapLoupeTest {
 	}
 
 	@Test
-	public void overlappingNextLineAloneIsNotALoupe() {
+	public void stackedWordsAreALoupe() {
 		List<TapLoupe.Target> merged = Arrays.asList(
 				word(0, 0, 40, 60, "north", "n"),
 				word(0, 22, 40, 82, "south", "s"));
-		assertEquals(TapLoupe.Kind.NONE,
-				TapLoupe.query(merged, 20, 30, 40, 22).kind);
+		TapLoupe.Query q = TapLoupe.query(merged, 20, 30, 40, 22);
+		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
+		assertEquals(2, q.candidates.size());
+	}
+
+	@Test
+	public void stackedSameCommandWordsStayTwoAndLoupe() {
+		TapLoupe.Target a = word(0, 0, 80, 60, "FlugHammer", "look FlugHammer");
+		TapLoupe.Target b = word(0, 22, 80, 82, "FlugHammer", "look FlugHammer");
+		List<TapLoupe.Target> merged = TapLoupe.merge(Arrays.asList(a, b), 22);
+		assertEquals(2, merged.size());
+		TapLoupe.Query q = TapLoupe.query(merged, 40, 30, 40, 22);
+		assertEquals(TapLoupe.Kind.LOUPE, q.kind);
+		assertEquals(2, q.candidates.size());
 	}
 
 	@Test
@@ -167,7 +181,6 @@ public class TapLoupeTest {
 		assertEquals("a rusty sword", q.selected.label);
 		boolean sawBag = false;
 		for (int i = 0; i < q.candidates.size(); i++) {
-			assertFalse("exit".equals(q.candidates.get(i).label));
 			if ("a leather bag".equals(q.candidates.get(i).label)) {
 				sawBag = true;
 			}
@@ -179,7 +192,7 @@ public class TapLoupeTest {
 	public void sameCommandFragmentsDoNotLoupeAsTwoWords() {
 		TapLoupe.Target a = word(0, 0, 20, 16, "bot", "get bottle");
 		TapLoupe.Target b = word(24, 0, 44, 16, "tle", "get bottle");
-		List<TapLoupe.Target> merged = TapLoupe.merge(Arrays.asList(a, b));
+		List<TapLoupe.Target> merged = merge(a, b);
 		assertEquals(2, merged.size());
 		assertEquals(TapLoupe.Kind.NONE, query(merged, 10, 8, 20).kind);
 	}

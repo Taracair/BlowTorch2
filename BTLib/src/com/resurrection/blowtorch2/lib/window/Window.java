@@ -3820,9 +3820,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	 * Start the clock on a hold, when there is something for a hold to do.
 	 *
 	 * <p>A word with several commands still opens the command menu. Several
-	 * different words on the same line near the finger — trigger Tappable
-	 * Words as well as OSC 8 / MXP — open a loupe instead. A lone one-command
-	 * word does not arm a timer.
+	 * different words near the finger — on the same line, or stacked in the
+	 * same column — open a loupe instead. A lone one-command word does not
+	 * arm a timer.
 	 *
 	 * <p>The commands and the anchor are taken <b>now</b>, not looked up when the
 	 * hold expires. The boxes are rebuilt on every draw and the game keeps
@@ -3906,7 +3906,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			raw.add(new TapLoupe.Target(r.left, r.top, r.right, r.bottom, label,
 					new String[] { box.getData() }, true, true));
 		}
-		return new ArrayList<TapLoupe.Target>(TapLoupe.merge(raw));
+		return new ArrayList<TapLoupe.Target>(
+				TapLoupe.merge(raw, Math.max(1, mPrefLineSize)));
 	}
 
 	private void fireLoupeSelection() {

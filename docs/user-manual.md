@@ -1050,11 +1050,12 @@ what lights up, and tapping it sends a command.
   between. Holding still works on a word with several commands whether this is
   on or not, so the list is never out of reach; sliding your finger off the word
   cancels the hold and scrolls the text as usual. Hold where several *different*
-  tappable words sit close together on one line (Tappable Word from a trigger,
-  or a game-marked MXP / OSC 8 link) and a small loupe appears beside the finger
-  instead, highlighting one word so you can slide to the one you meant. A long
-  capture such as "a rusty sword" next to "a leather bag" still opens the loupe
-  if you hold on the first word.
+  tappable words sit close together on one line, or one under the other in the
+  same column (Tappable Word from a trigger, or a game-marked MXP / OSC 8 link)
+  and a small loupe appears beside the finger instead, highlighting one word so
+  you can slide to the one you meant. A long capture such as "a rusty sword"
+  next to "a leather bag" still opens the loupe if you hold on the first word.
+  Two matches stacked (the hitboxes overlap) do the same.
 - **Underline / Bold / Frame** — any combination, or none. Colour is not here:
   put a **Color** action on the same trigger.
 - Two Tappable Word actions on one trigger behave as one word that offers both

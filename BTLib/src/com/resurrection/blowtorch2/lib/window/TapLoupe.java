@@ -16,8 +16,10 @@ import java.util.List;
  * <p>A loupe is not only "finger circle covers two boxes". Trigger Tappable
  * Words are often a whole capture ({@code a rusty sword}) sitting one space
  * from the next; the circle then stays inside the first box. Same-line
- * neighbours within {@code radius} join the cluster. OSC 8 / MXP short links
- * already fall in the circle; this is the wide-word case.
+ * neighbours within {@code radius} join the cluster. Two matches stacked in
+ * the same column stay two words (padded hitboxes overlap) and also loupe.
+ * OSC 8 / MXP short links already fall in the circle; this is the wide-word
+ * and stacked-word case.
  */
 public final class TapLoupe {
 
@@ -91,9 +93,13 @@ public final class TapLoupe {
 
 	/**
 	 * Collapse boxes that are the same word split across runs (colour change,
-	 * wrap). Different command lists stay separate even if the rects overlap.
+	 * wrap on the same line). Different command lists stay separate even if
+	 * the rects overlap. Two matches on consecutive lines stay two words —
+	 * padded hitboxes overlap, but that is FlugHammer under FlugHammer, not
+	 * a colour split.
 	 */
-	public static List<Target> merge(final List<Target> boxes) {
+	public static List<Target> merge(final List<Target> boxes,
+			final int lineHeight) {
 		ArrayList<Target> remaining = new ArrayList<Target>();
 		if (boxes != null) {
 			remaining.addAll(boxes);
@@ -106,7 +112,8 @@ public final class TapLoupe {
 				grew = false;
 				for (int i = 0; i < remaining.size();) {
 					Target other = remaining.get(i);
-					if (sameWord(cur, other) && touches(cur, other, 1)) {
+					if (sameWord(cur, other) && touches(cur, other, 1)
+							&& sameRow(cur, other, lineHeight)) {
 						cur = union(cur, other);
 						remaining.remove(i);
 						grew = true;
@@ -185,7 +192,21 @@ public final class TapLoupe {
 		}
 		List<Target> cluster = expandSameLine(merged, rowSeeds, radius,
 				lineHeight);
-		return new Cluster(cluster, pick(cluster, x, y));
+		// Same column, next line: padded boxes overlap, so a hold on
+		// FlugHammer sits in two hitboxes. Do not grow that other row
+		// sideways — only the stacked neighbour.
+		if (merged != null && seed != null) {
+			for (int i = 0; i < merged.size(); i++) {
+				Target t = merged.get(i);
+				if (containsRef(cluster, t)) {
+					continue;
+				}
+				if (closeInColumn(seed, t, radius, lineHeight)) {
+					cluster.add(t);
+				}
+			}
+		}
+		return new Cluster(cluster, pickSeed(cluster, x, y, lineHeight));
 	}
 
 	/**
@@ -276,6 +297,37 @@ public final class TapLoupe {
 			return false;
 		}
 		return a.left <= b.right + gap && b.left <= a.right + gap;
+	}
+
+	/**
+	 * Directly above/below, overlapping in X. Adjacent rows' hitboxes overlap
+	 * after min-height padding; that is two tappable words stacked, not one.
+	 */
+	static boolean closeInColumn(final Target a, final Target b, final int gap,
+			final int lineHeight) {
+		if (!overlapsX(a, b) || !adjacentRow(a, b, lineHeight)) {
+			return false;
+		}
+		int gapY = 0;
+		if (a.bottom < b.top) {
+			gapY = b.top - a.bottom;
+		} else if (b.bottom < a.top) {
+			gapY = a.top - b.bottom;
+		}
+		return gapY <= gap;
+	}
+
+	static boolean overlapsX(final Target a, final Target b) {
+		return a.left < b.right && b.left < a.right;
+	}
+
+	static boolean adjacentRow(final Target a, final Target b,
+			final int lineHeight) {
+		int pitch = lineHeight > 0 ? lineHeight
+				: Math.max(1, Math.max(a.height(), b.height()));
+		int slack = Math.max(1, pitch / 2);
+		int dy = Math.abs(centerY(a) - centerY(b));
+		return dy >= slack && dy < pitch + slack;
 	}
 
 	static boolean sameRow(final Target a, final Target b,
