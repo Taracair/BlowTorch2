@@ -24,6 +24,23 @@ public final class OscEight {
 	private OscEight() {
 	}
 
+	/**
+	 * {@code ESC ] 8 ;} in telnet-cleared bytes. A close ({@code ESC ] 8 ;;})
+	 * matches too — the server still speaks OSC 8.
+	 */
+	public static boolean containsOpen(final byte[] raw) {
+		if (raw == null || raw.length < 4) {
+			return false;
+		}
+		for (int i = 0; i <= raw.length - 4; i++) {
+			if (raw[i] == 0x1B && raw[i + 1] == 0x5D && raw[i + 2] == 0x38
+					&& raw[i + 3] == 0x3B) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static final class Result {
 		/** Null means close. */
 		public final String uri;

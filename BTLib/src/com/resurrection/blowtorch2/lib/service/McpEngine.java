@@ -77,6 +77,8 @@ public final class McpEngine {
 	private boolean mHandshaken = false;
 	private boolean mNegotiateDone = false;
 	private boolean mServerNegotiateEnd = false;
+	/** Server sent {@code #$#mcp } (the hello), even if Use MCP? is off. */
+	private boolean mServerOfferedHello = false;
 	private String mServerMin = "";
 	private String mServerMax = "";
 	private int mCordSeq = 0;
@@ -142,6 +144,7 @@ public final class McpEngine {
 		mHandshaken = false;
 		mNegotiateDone = false;
 		mServerNegotiateEnd = false;
+		mServerOfferedHello = false;
 		mServerMin = "";
 		mServerMax = "";
 		mMultiline.clear();
@@ -151,6 +154,40 @@ public final class McpEngine {
 
 	public boolean isHandshaken() {
 		return mHandshaken;
+	}
+
+	public boolean serverOfferedHello() {
+		return mServerOfferedHello;
+	}
+
+	/**
+	 * Record a {@code #$#mcp } hello in inbound bytes without answering it.
+	 * Use MCP? off must not send an authentication-key.
+	 */
+	public void noteHelloIfPresent(final byte[] raw) {
+		if (!mServerOfferedHello && looksLikeHello(raw)) {
+			mServerOfferedHello = true;
+		}
+	}
+
+	/**
+	 * {@code #$#mcp } (space or tab after mcp) is the hello.
+	 * {@code #$#mcp-negotiate-can} is a different message and must not match.
+	 */
+	public static boolean looksLikeHello(final byte[] raw) {
+		if (raw == null || raw.length < 7) {
+			return false;
+		}
+		for (int i = 0; i <= raw.length - 7; i++) {
+			if (raw[i] == '#' && raw[i + 1] == '$' && raw[i + 2] == '#'
+					&& raw[i + 3] == 'm' && raw[i + 4] == 'c' && raw[i + 5] == 'p') {
+				byte next = raw[i + 6];
+				if (next == ' ' || next == '\t') {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	public String getAuthKey() {
@@ -284,6 +321,7 @@ public final class McpEngine {
 		String lower = name.toLowerCase(Locale.US);
 
 		if ("mcp".equals(lower)) {
+			mServerOfferedHello = true;
 			onMcpHello(rest);
 			return;
 		}

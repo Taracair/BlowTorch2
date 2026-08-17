@@ -62,6 +62,11 @@ public class Processor {
 	private String mGMCPHello = "core.hello {\"client\": \"BlowTorch\",\"version\": \"2.1.13\"}";
 	/** Tracker for weather or not the use GMCP. */
 	private Boolean mUseGMCP = false;
+	/**
+	 * True after this Processor saw {@code ESC ] 8 ;} in telnet-cleared inbound
+	 * bytes. MXP-synthesized OSC and {@code .probe osc8} do not go through here.
+	 */
+	private boolean mSawOsc8 = false;
 	/** GMCP Supports string. */
 	private String mGMCPSupports = "core.supports.set [\"Char 1\", \"Room 1\", \"Core 1\", \"Char.Login 1\", \"Client.Media 1\"]";
 	/** Native Client.Media player (null until first use / init). */
@@ -129,6 +134,24 @@ public class Processor {
 
 	public final String getGmcpHello() {
 		return mGMCPHello;
+	}
+
+	public final OptionNegotiator getOptionHandler() {
+		return mOptionHandler;
+	}
+
+	/**
+	 * Scan telnet-cleared inbound bytes for an OSC 8 open ({@code ESC ] 8 ;})
+	 * before MXP rewriting. Once true, stays true for this Processor.
+	 */
+	public final void noteInboundOsc8(final byte[] raw) {
+		if (!mSawOsc8 && com.resurrection.blowtorch2.lib.window.OscEight.containsOpen(raw)) {
+			mSawOsc8 = true;
+		}
+	}
+
+	public final boolean sawOsc8() {
+		return mSawOsc8;
 	}
 
 	/** Profile display name used to resolve Char.Login credentials from the launcher list. */
@@ -1666,6 +1689,10 @@ public class Processor {
 	public final void setUseGMCP(final Boolean value) {
 		mUseGMCP = value;
 		mOptionHandler.setUseGMCP(mUseGMCP);
+	}
+
+	public final boolean isUseGMCP() {
+		return mUseGMCP != null && mUseGMCP.booleanValue();
 	}
 
 	public final void setUseMTTS(final boolean value) {

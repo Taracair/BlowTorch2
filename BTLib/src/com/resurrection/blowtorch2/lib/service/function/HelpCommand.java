@@ -66,7 +66,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
-		cmd("osc8", "The window", "server-declared hyperlinks (OSC 8); send:/prompt:/http; .osc8 on|off");
+		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
 		cmd("window", "The window", "open, close and address extra text windows");
@@ -99,6 +99,7 @@ public class HelpCommand extends SpecialCommand {
 				+ ".probe truecolor dumps a 24-bit sample; "
 				+ ".probe osc8 dumps tappable OSC 8 samples; "
 				+ ".probe mxp dumps MXP SEND/colour samples; "
+				+ ".probe protocols is the same as .protocols; "
 				+ ".probe sensors for what this phone can feel");
 		cmd("sensor", "Triggers and scripts",
 				"what this phone can measure, and what triggers do with it");
@@ -109,6 +110,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("msdp", "The world and its protocols", "MSDP variables");
 		cmd("mssp", "The world and its protocols", "what the world says about itself");
 		cmd("mxp", "The world and its protocols", "MXP SEND/colours/SOUND; .mxp on|off");
+		cmd("protocols", "The world and its protocols",
+				"what this world offered vs what is on; .protocols enable");
 
 		cmd("map", "The map", "the mapper: recording, walking, rooms and exits");
 
@@ -433,8 +436,9 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .probe lines on|off | report | reset\n"
 					+ "  .probe truecolor | color — 24-bit sample in this window\n"
-					+ "  .probe osc8 — OSC 8 hyperlink sample (tap the marked words)\n"
+					+ "  .probe osc8 — OSC 8 sample (tap the marked words)\n"
 					+ "  .probe mxp — MXP SEND/colour sample (tap the marked words)\n"
+					+ "  .probe protocols — same as .protocols\n"
 					+ "  .probe sensors | sensors state\n"
 					+ "  .probe sensors shake|light [seconds]\n";
 		}
@@ -519,9 +523,17 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .osc8:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .osc8              — on or off\n"
-					+ "  .osc8 on|off       — server-declared hyperlinks (OSC 8)\n"
+					+ "  .osc8 on|off       — words the game marks (OSC 8)\n"
 					+ "  send: / prompt:    — tap types a command / fills the input bar\n"
 					+ "  .probe osc8        — dump a tappable sample here\n";
+		}
+		if (filter.equals("protocols") || filter.equals("protocol")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .protocols:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .protocols         — what this world offered vs what is on\n"
+					+ "  .protocols enable  — turn on offered-but-off switches\n"
+					+ "  .probe protocols   — same report\n";
 		}
 		if (filter.equals("mxp")) {
 			return "\n"

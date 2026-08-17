@@ -52,6 +52,7 @@ import com.resurrection.blowtorch2.lib.service.function.FrameCommand;
 import com.resurrection.blowtorch2.lib.service.function.GmcpCommand;
 import com.resurrection.blowtorch2.lib.service.function.McpCommand;
 import com.resurrection.blowtorch2.lib.service.function.ProtocolsCommand;
+import com.resurrection.blowtorch2.lib.service.function.ProtocolSurveyCommand;
 import com.resurrection.blowtorch2.lib.service.function.KeyboardCommand;
 import com.resurrection.blowtorch2.lib.service.function.LoadButtonsCommand;
 import com.resurrection.blowtorch2.lib.service.function.MapCommand;
@@ -626,6 +627,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(msspcmd.commandName, msspcmd);
 		ProtocolsCommand msdpcmd = new ProtocolsCommand(true);
 		mSpecialCommands.put(msdpcmd.commandName, msdpcmd);
+		ProtocolSurveyCommand protocolscmd = new ProtocolSurveyCommand();
+		mSpecialCommands.put(protocolscmd.commandName, protocolscmd);
 		com.resurrection.blowtorch2.lib.service.function.MxpCommand mxpcmd =
 				new com.resurrection.blowtorch2.lib.service.function.MxpCommand();
 		mSpecialCommands.put(mxpcmd.commandName, mxpcmd);
@@ -2643,6 +2646,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		byte[] raw = mProcessor.rawProcess(data);
 		if (raw == null) { 
 			return; 
+		}
+		mProcessor.noteInboundOsc8(raw);
+		ensureMcpEngine();
+		if (mMcpEngine != null && !mMcpEngine.isUse()) {
+			mMcpEngine.noteHelloIfPresent(raw);
 		}
 		raw = mProcessor.filterMxp(raw);
 		if (raw == null || raw.length == 0) {

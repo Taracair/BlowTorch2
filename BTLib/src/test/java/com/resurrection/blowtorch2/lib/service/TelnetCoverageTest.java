@@ -181,6 +181,36 @@ public class TelnetCoverageTest {
 		byte[] resp = neg.processCommand(TC.IAC, TC.WILL, opt);
 		assertEquals(TC.DONT, resp[1]);
 		assertEquals(opt, resp[2]);
+		assertTrue("every WILL is still an offer, even one we refuse",
+				neg.serverOffered(opt));
+	}
+
+	@Test
+	public void gmcpWillWhenUseIsOffIsDontAndStillOffered() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+		neg.setUseGMCP(Boolean.FALSE);
+		byte[] resp = neg.processCommand(TC.IAC, TC.WILL, TC.GMCP);
+		assertEquals(TC.DONT, resp[1]);
+		assertTrue(neg.serverOffered(TC.GMCP));
+	}
+
+	@Test
+	public void resetDoesNotWipeOffers() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+		neg.setUseMXP(false);
+		neg.processCommand(TC.IAC, TC.WILL, TC.MXP);
+		assertTrue(neg.serverOffered(TC.MXP));
+		neg.reset();
+		assertTrue("reset is TTYPE only", neg.serverOffered(TC.MXP));
+	}
+
+	@Test
+	public void mxpDoIsRecordedAsOffered() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+		neg.setUseMXP(false);
+		byte[] resp = neg.processCommand(TC.IAC, TC.DO, TC.MXP);
+		assertEquals(TC.WONT, resp[1]);
+		assertTrue(neg.serverOffered(TC.MXP));
 	}
 
 	// ---- MSSP (one-way: server announces, we cache) -------------------------

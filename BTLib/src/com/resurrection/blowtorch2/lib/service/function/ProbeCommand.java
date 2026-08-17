@@ -36,6 +36,11 @@ public class ProbeCommand extends SpecialCommand {
 			return null;
 		}
 
+		if (arg.equals("protocols") || arg.equals("protocol")) {
+			c.sendDataToWindow(ProtocolSurveyCommand.report(c));
+			return null;
+		}
+
 		if (arg.equals("mxp")) {
 			c.sendBytesToWindow(mxpSampleBytes());
 			return null;
@@ -142,7 +147,8 @@ public class ProbeCommand extends SpecialCommand {
 				+ ".probe osc8        — dump OSC 8 hyperlink samples into this window\n"
 				+ "                    (tap the marked words). Does not wait for a MUD.\n"
 				+ ".probe mxp         — dump MXP SEND/colour samples into this window\n"
-				+ "                    (tap the marked words). Does not wait for a MUD.\n"));
+				+ "                    (tap the marked words). Does not wait for a MUD.\n"
+				+ ".probe protocols   — same as .protocols (what was offered vs on)\n"));
 		return null;
 	}
 

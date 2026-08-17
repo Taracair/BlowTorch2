@@ -5,6 +5,7 @@ package com.resurrection.blowtorch2.lib.service;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 
 import android.util.Log;
 
@@ -87,6 +88,11 @@ public class OptionNegotiator {
 	private boolean mServerEcho = false;
 	/** Encoding selected via CHARSET subnegotiation; consumed by Processor. */
 	private String mPendingCharset = null;
+	/**
+	 * Telnet options the server has sent IAC WILL for this connection (and IAC
+	 * DO MXP). Survives {@link #reset()}, which is only the TTYPE cycle.
+	 */
+	private final BitSet mServerOffered = new BitSet(256);
 	
 	
 	/** Constructor.
@@ -145,6 +151,7 @@ public class OptionNegotiator {
 	    	byte response = 0x00;
 	    	
 	    	if (second == IAC_WILL) {
+	    		mServerOffered.set(third & 0xFF);
 	    		switch(third) {
 	    		case COMPRESS2:
 	    			response = mUseMCCP ? IAC_DO : IAC_DONT;
@@ -205,6 +212,7 @@ public class OptionNegotiator {
 	    			response = IAC_WILL;
 	    			break;
 	    		case TC.MXP:
+	    			mServerOffered.set(TC.MXP & 0xFF);
 	    			response = mUseMXP ? IAC_WILL : IAC_WONT;
 	    			break;
 	    		default:
@@ -564,6 +572,11 @@ public class OptionNegotiator {
 	/** Reset method, this is just to let the processing routines know that the TTYPE stack is reset to the beginning. */
 	public final void reset() {
 		mTermTypeAttempt = 0;
+	}
+
+	/** True when the server sent IAC WILL for this option (or IAC DO MXP). */
+	public final boolean serverOffered(final byte option) {
+		return mServerOffered.get(option & 0xFF);
 	}
 
 	/** Setter method for mUseGMCP.

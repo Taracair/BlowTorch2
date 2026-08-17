@@ -135,4 +135,12 @@ public class OscEightTest {
 		assertNotNull(r);
 		assertEquals("send:flee", r.uri);
 	}
+
+	@Test
+	public void containsOpenFindsEscCloseBracketEightSemicolon() {
+		byte[] open = new byte[] { 'x', 0x1B, 0x5D, 0x38, 0x3B, 0x3B, 'h' };
+		assertTrue(OscEight.containsOpen(open));
+		assertFalse(OscEight.containsOpen(new byte[] { 0x1B, 0x5D, 0x30, 0x3B }));
+		assertFalse(OscEight.containsOpen(null));
+	}
 }

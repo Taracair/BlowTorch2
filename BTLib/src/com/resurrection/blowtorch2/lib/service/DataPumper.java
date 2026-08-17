@@ -681,6 +681,11 @@ public class DataPumper extends Thread {
 		return mConnected;
 	}
 
+	/** True while MCCP2 decompression is active on the inbound stream. */
+	public final boolean isCompressed() {
+		return mCompressed;
+	}
+
 	/** Utility method to close the socket, including the reader and writer threads. */
 	public final void closeSocket() {
 		try {
