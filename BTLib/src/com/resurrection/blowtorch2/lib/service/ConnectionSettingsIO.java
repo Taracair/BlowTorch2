@@ -24,6 +24,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 import com.resurrection.blowtorch2.lib.button.SlickButtonData;
 import com.resurrection.blowtorch2.lib.launcher.BuiltinTutorial;
+import com.resurrection.blowtorch2.lib.service.plugin.BuiltInPluginSeed;
 import com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.ConnectionSetttingsParser;
@@ -113,6 +114,83 @@ final class ConnectionSettingsIO {
 				"ConnectionSettingsIO.findButtonWindow",
 				new IllegalStateException(detail));
 		return null;
+	}
+
+	private static Plugin findNamedPlugin(final ArrayList<Plugin> plugs, final String name) {
+		if (plugs == null || name == null) {
+			return null;
+		}
+		for (Plugin p : plugs) {
+			if (p != null && name.equals(p.getName())) {
+				return p;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Worlds saved before {@code starter_tutorial} shipped in default_settings
+	 * never grow it. {@code .tutorial} / {@code .tips} are Lua callbacks from
+	 * that plugin, so those profiles report "not a recognized alias or command".
+	 * Measured 17 Aug 2026 on samsaramoo.xml (button_window only).
+	 *
+	 * @return true when the plugin was grafted and should be saved.
+	 */
+	private boolean graftStarterTutorial(final ArrayList<Plugin> tmpplugs) {
+		if (findNamedPlugin(tmpplugs, BuiltInPluginSeed.STARTER_TUTORIAL) != null) {
+			return false;
+		}
+		try {
+			Context ctx = host.mService.getApplicationContext();
+			ConnectionSetttingsParser defaults = new ConnectionSetttingsParser(
+					null, ctx, new ArrayList<Plugin>(), host.mHandler, host);
+			byte[] raw = defaults.snapshotDocumentBytes();
+			String xml = new String(raw, "UTF-8");
+			String pluginXml = BuiltInPluginSeed.extractPluginXml(xml,
+					BuiltInPluginSeed.STARTER_TUTORIAL);
+			if (pluginXml == null) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+						"ConnectionSettingsIO.graftStarterTutorial",
+						new IllegalStateException("default_settings has no starter_tutorial"));
+				return false;
+			}
+			byte[] seedDoc = BuiltInPluginSeed.wrapAsBlowtorchDocument(pluginXml);
+			ArrayList<Plugin> seed = PluginParser.loadInternalDocument(
+					seedDoc, ctx, host.mHandler, host);
+			Plugin tutorial = findNamedPlugin(seed, BuiltInPluginSeed.STARTER_TUTORIAL);
+			if (tutorial == null) {
+				shutdownSeed(seed);
+				return false;
+			}
+			for (Plugin extra : seed) {
+				if (extra != tutorial) {
+					try {
+						extra.shutdown();
+					} catch (Exception ignored) {
+					}
+				}
+			}
+			tmpplugs.add(tutorial);
+			return true;
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"ConnectionSettingsIO.graftStarterTutorial", e);
+			return false;
+		}
+	}
+
+	private static void shutdownSeed(final ArrayList<Plugin> seed) {
+		if (seed == null) {
+			return;
+		}
+		for (Plugin p : seed) {
+			if (p != null) {
+				try {
+					p.shutdown();
+				} catch (Exception ignored) {
+				}
+			}
+		}
 	}
 
 	private final Pattern xmlExtensionPattern = Pattern.compile("^.+\\.[xX][mM][lL]$");
@@ -886,6 +964,7 @@ final class ConnectionSettingsIO {
 					}
 					String dataDir = ai.dataDir;
 					tmpplugs = csp.load(host,dataDir);
+					boolean graftedTutorial = graftStarterTutorial(tmpplugs);
 					
 					if (path == null) {
 						Plugin buttonwindow = findButtonWindow(tmpplugs);
@@ -907,7 +986,13 @@ final class ConnectionSettingsIO {
 						pL.pop(2);
 					}
 					String summary = Colorizer.getWhiteColor() + verb + " settings file.\n";
+					if (graftedTutorial) {
+						summary += "Added built-in starter_tutorial (this profile was saved before that plugin existed).\n";
+					}
 					host.loadPlugins(tmpplugs, summary);
+					if (graftedTutorial) {
+						saveMainSettings();
+					}
 				} else {
 					Log.e("XMLPARSE", "ERROR IN LOADING V2 SETTINGS, DID NOT FIND PROPER XMLVERSION NUMBER");
 					try {

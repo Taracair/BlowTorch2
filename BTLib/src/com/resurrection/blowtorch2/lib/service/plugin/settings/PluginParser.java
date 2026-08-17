@@ -96,6 +96,24 @@ public class PluginParser extends BasePluginParser {
 	String current_script_name = new String();
 	boolean current_script_execute = false;
 	
+	/**
+	 * Load plugins from an already-read {@code <blowtorch>} document as
+	 * internal (shipped with the app), not as an external link file.
+	 */
+	public static ArrayList<Plugin> loadInternalDocument(final byte[] document,
+			final Context context, final Handler serviceHandler,
+			final Connection parent) throws FileNotFoundException, IOException, SAXException {
+		if (document == null || document.length == 0) {
+			throw new IllegalArgumentException("internal plugin document is empty");
+		}
+		ArrayList<Plugin> loaded = new ArrayList<Plugin>();
+		PluginParser parser = new PluginParser(null, "internal-seed", context,
+				loaded, serviceHandler, parent);
+		parser.type = TYPE.INTERNAL;
+		parser.reuseDocumentBytes(document);
+		return parser.load();
+	}
+
 	public ArrayList<Plugin> load() throws FileNotFoundException, IOException, SAXException {
 		RootElement root = new RootElement("blowtorch");
 		tmp = new PluginSettings();

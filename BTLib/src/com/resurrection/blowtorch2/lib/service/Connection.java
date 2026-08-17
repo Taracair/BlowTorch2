@@ -591,6 +591,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.Osc8Command osc8cmd =
 				new com.resurrection.blowtorch2.lib.service.function.Osc8Command();
 		mSpecialCommands.put(osc8cmd.commandName, osc8cmd);
+		com.resurrection.blowtorch2.lib.service.function.TutorialCommand tutorialcmd =
+				new com.resurrection.blowtorch2.lib.service.function.TutorialCommand(
+						"tutorial", "tutorialCommand");
+		mSpecialCommands.put(tutorialcmd.commandName, tutorialcmd);
+		com.resurrection.blowtorch2.lib.service.function.TutorialCommand tipscmd =
+				new com.resurrection.blowtorch2.lib.service.function.TutorialCommand(
+						"tips", "tipsCommand");
+		mSpecialCommands.put(tipscmd.commandName, tipscmd);
 		mSpecialCommands.put(editpanelcmd.commandName, editpanelcmd);
 		mSpecialCommands.put(editbtncmd.commandName, editbtncmd);
 		mSpecialCommands.put(sendbtncmd.commandName, sendbtncmd);
@@ -3087,6 +3095,40 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// is a file the player already knows how to export.
 		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, body);
 		return body;
+	}
+
+	/**
+	 * Run a starter-tutorial Lua callback by plugin name, not by the index
+	 * {@code RegisterSpecialCommand} stored at load. Worlds that never grew
+	 * the plugin, or that disabled it, get an English explanation instead of
+	 * "not a recognized alias or command".
+	 */
+	public final void runStarterTutorialCommand(final String callback, final String args) {
+		Plugin tutorial = mPluginMap.get("starter_tutorial");
+		if (tutorial == null) {
+			sendDataToWindow("\n" + Colorizer.getRedColor()
+					+ ".tutorial is missing from this world's plugins. "
+					+ "Reconnect once — the client grafts it into older profiles — "
+					+ "or add Starter Tutorial from a new world's plugin list."
+					+ Colorizer.getWhiteColor() + "\n");
+			return;
+		}
+		if (!tutorial.isEnabled()) {
+			sendDataToWindow("\n" + Colorizer.getRedColor()
+					+ "starter_tutorial is disabled. Re-enable it in Options → Plugins, "
+					+ "then .tutorial and .tips work again."
+					+ Colorizer.getWhiteColor() + "\n");
+			return;
+		}
+		if (!tutorial.checkPluginSupports(callback)) {
+			sendDataToWindow("\n" + Colorizer.getRedColor()
+					+ "Starter Tutorial Lua did not load, so ."
+					+ ("tipsCommand".equals(callback) ? "tips" : "tutorial")
+					+ " has nothing to run. Look for a red Bootstrap error above."
+					+ Colorizer.getWhiteColor() + "\n");
+			return;
+		}
+		tutorial.execute(callback, args == null ? "" : args);
 	}
 
 	public final void sendDataToWindow(final String message) {
