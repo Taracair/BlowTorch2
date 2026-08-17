@@ -935,7 +935,10 @@ after changing. .mxp on|off. .mxp with no argument is status.
                  visible in scrollback
 
 This is not OSC 8 (web links). MXP SEND is a command to the MUD. SCRIPT
-and RELOCATE from the server are ignored.]])
+and RELOCATE from the server are ignored.
+
+The launcher may list worlds that advertise MXP (Discworld, Ansalon,
+Threshold RPG, Midnight Sun). Deleting a row sticks.]])
 end
 
 TOPICS.stay_connected = function()

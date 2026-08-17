@@ -418,6 +418,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			launcherSaveEnabled = true;
 			saveXML();
 		}
+		if (BuiltinMxpWorlds.seedIfNeeded(this, launcher_settings)) {
+			launcherSaveEnabled = true;
+			saveXML();
+		}
 		
 		//by here we should have a completly populated list and settings
 		//check version code.

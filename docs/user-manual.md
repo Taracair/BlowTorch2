@@ -2080,6 +2080,19 @@ ignored. `<DEST>` / `<FRAME>` with a name matching an extra-text window goes
 there (ignore-case); otherwise main. Images and sound tags are dropped, not
 drawn or played.
 
+The launcher seeds four worlds that advertise MXP (one-shot; deleting a row
+sticks). Hosts and ports come from each world's docs or MSSP listing, not from
+a handshake in this client:
+
+- **Discworld MUD (MXP)** — `discworld.starturtle.net:4242` (official page also
+  lists 23). Their `/doc/concepts/mxp` describes clickable SEND and menus. In-game
+  you may need `term mxp` or `options mxp enabled`.
+- **Threshold RPG (MXP)** — `thresholdrpg.com:3333`. MSSP: MXP=yes, MINIMUM AGE 18.
+- **Ansalon (MXP)** — `ansalon.net:8679`. Homepage lists MXP Links; MSSP MXP=yes.
+- **Midnight Sun (MXP)** — `midnightsun2.org:3000`. MSSP: MXP=yes.
+
+Without a live SEND: `.probe mxp`.
+
 ## Newest text at top
 
 By default, fresh game output sits at the **bottom** of the window (classic

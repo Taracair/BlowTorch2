@@ -274,6 +274,8 @@ public class ProbeCommand extends SpecialCommand {
 				+ "<SEND href=\"say hello\" prompt>prompt send</SEND>\n"
 				+ "<SEND href=\"old\" expire=\"Exits\">stale exit</SEND> "
 				+ "<EXPIRE Exits>(expired)\n"
-				+ "Turn off: .mxp off\n";
+				+ "Turn off: .mxp off    Sample worlds: launcher "
+				+ "\"Discworld MUD (MXP)\", \"Ansalon (MXP)\", "
+				+ "\"Threshold RPG (MXP)\", \"Midnight Sun (MXP)\"\n";
 	}
 }
