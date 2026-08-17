@@ -882,7 +882,7 @@ final class ConnectionSettingsIO {
 					LuaState pL = buttonwindow.getLuaState();
 					pL.getGlobal("debug");
 					pL.getField(-1, "traceback");
-					pL.getGlobal("alignDefaultButtons");
+					pL.getGlobal("alignMudDefaultButtons");
 					if (pL.isFunction(-1)) {
 						int ret = pL.pcall(0, 1, NEGATIVE_TWO);
 						if (ret != 0) {
@@ -972,7 +972,7 @@ final class ConnectionSettingsIO {
 						LuaState pL = buttonwindow.getLuaState();
 						pL.getGlobal("debug");
 						pL.getField(-1, "traceback");
-						pL.getGlobal("alignDefaultButtons");
+						pL.getGlobal("alignMudDefaultButtons");
 						if (pL.isFunction(-1)) {
 							int ret = pL.pcall(0, 1, NEGATIVE_TWO);
 							if (ret != 0) {

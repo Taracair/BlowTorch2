@@ -202,6 +202,14 @@ for _, preset in ipairs(PRESETS) do
 			preset .. ": north row is level")
 		check(math.abs(n.x - s.x) < 1, preset .. ": N and S share a column")
 	end
+	local look = tileByLabel("compass", "LOOK")
+	local inv = tileByLabel("compass", "INV")
+	check(look and inv and se, preset .. ": LOOK/INV/SE present")
+	if look and inv and se then
+		check(look.x > inv.x, preset .. ": LOOK is right of INV (rose is on the right)")
+		check(look.y > inv.y, preset .. ": LOOK is below INV (rose is at the bottom)")
+		check(se.x >= look.x - 1, preset .. ": SE is at the right of the rose")
+	end
 end
 
 print("8. pack anchor sits under the action bar, clear of the soft keyboard")

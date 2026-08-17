@@ -1019,7 +1019,7 @@ local function packHasAccordion(source)
 end
 
 -- Distinct lattice columns/rows a pack occupies. Counted from the table rather
--- than assumed: compass is 4x6, explorer 5x4, and a pack that does not fit at
+-- than assumed: compass is 5x5, explorer 5x4, and a pack that does not fit at
 -- the asked-for size has to be scaled down, not left to overlap.
 local function packExtent(source)
 	local xs, ys, cols, rows = {}, {}, 0, 0
@@ -1227,52 +1227,50 @@ local function packAccordion(x, y, label, children, opts)
 	}
 end
 
--- Hub pad: MUD compass + MORE (WHO/EQ/SCAN/HELP) + CBT/EXP/SOC .loadset
--- placeholders (rewritten to chosen setNames after a multi-install).
--- Advanced adds NAV accordion and a few extra tiles.
+-- Hub pad: utilities along the top, eight-way rose bottom-right so the
+-- most-used tiles sit under the right thumb. MORE/NAV stay on the last row
+-- so their fans open downward into empty game text, not over the rose.
 local PACK_COMPASS_BUTTONS = {
-	compassDir(23,  23,  "NW", "northwest", "nw"),
-	compassDir(68,  23,  "N",  "north",     "n"),
-	compassDir(113, 23,  "NE", "northeast", "ne"),
-	{ x=158, y=23,  label="INV",   command="inventory", labelSize=11 },
+	{ x=23,  y=23,  label="INV",   command="inventory", labelSize=11 },
+	{ x=68,  y=23,  label="SCORE", command="score", labelSize=10 },
+	{ x=113, y=23,  label="EXITS", command="exits", labelSize=10 },
+	{ x=158, y=23,  label="WHO",   command="who", labelSize=11 },
+	{ x=203, y=23,  label="GET",   command="get all", labelSize=11 },
 
-	compassDir(23,  68,  "W",  "west",      "w"),
-	lookCenter(68, 68),
-	compassDir(113, 68,  "E",  "east",      "e"),
-	{ x=158, y=68,  label="SCORE", command="score", labelSize=10 },
-
-	compassDir(23,  113, "SW", "southwest", "sw"),
-	compassDir(68,  113, "S",  "south",     "s"),
-	compassDir(113, 113, "SE", "southeast", "se"),
-	{ x=158, y=113, label="EXITS", command="exits", labelSize=10 },
-
-	compassDir(23,  158, "U",  "up",        "u"),
-	compassDir(68,  158, "D",  "down",      "d"),
-	{ x=113, y=158, label="GET",   command="get all", labelSize=11 },
-	-- Simple keeps WHO as a primary; advanced prefers MORE accordion below.
-	{ x=158, y=158, label="WHO",   command="who", labelSize=11 },
-
-	{ x=23,  y=203, label="MAP",   command=".map toggle", flipCommand=".map close",
+	{ x=23,  y=68,  label="MAP",   command=".map toggle", flipCommand=".map close",
 	  holdCommand=".map open", labelSize=11 },
-	{ x=68,  y=203, label="CBT",   command=".loadset combat",
+	{ x=68,  y=68,  label="CBT",   command=".loadset combat",
 	  holdCommand=".clearbuttons", flipCommand=".clearbuttons", labelSize=11 },
-	{ x=113, y=203, label="EXP",   command=".loadset explorer", labelSize=11 },
-	{ x=158, y=203, label="SOC",   command=".loadset social", labelSize=11 },
+	{ x=113, y=68,  label="EXP",   command=".loadset explorer", labelSize=11 },
+	{ x=158, y=68,  label="SOC",   command=".loadset social", labelSize=11 },
+	{ x=203, y=68,  label="EQ", command="equipment", labelSize=11, advanced=true },
 
-	packAccordion(23, 248, "MORE", {
+	{ x=23,  y=113, label="SCAN", command="scan", labelSize=10, advanced=true },
+	compassDir(68,  113, "U",  "up",        "u"),
+	compassDir(113, 113, "NW", "northwest", "nw"),
+	compassDir(158, 113, "N",  "north",     "n"),
+	compassDir(203, 113, "NE", "northeast", "ne"),
+
+	compassDir(68,  158, "D",  "down",      "d"),
+	compassDir(113, 158, "W",  "west",      "w"),
+	lookCenter(158, 158),
+	compassDir(203, 158, "E",  "east",      "e"),
+
+	packAccordion(23, 203, "MORE", {
 		{ label = "WHO",  command = "who" },
 		{ label = "EQ",   command = "equipment" },
 		{ label = "SCAN", command = "scan" },
 		{ label = "HELP", command = "help" },
 	}, { command = "", trigger = "tap" }),
-	packAccordion(68, 248, "NAV", {
+	packAccordion(68, 203, "NAV", {
 		{ label = "ENTER", command = "enter" },
 		{ label = "OUT",   command = "out" },
 		{ label = "UNLK",  command = "unlock" },
 		{ label = "EXA",   command = "examine" },
 	}, { advanced = true, trigger = "tap" }),
-	{ x=113, y=248, label="EQ", command="equipment", labelSize=11, advanced=true },
-	{ x=158, y=248, label="SCAN", command="scan", labelSize=10, advanced=true },
+	compassDir(113, 203, "SW", "southwest", "sw"),
+	compassDir(158, 203, "S",  "south",     "s"),
+	compassDir(203, 203, "SE", "southeast", "se"),
 }
 
 -- Smaller first-day pad: four-way + TIP accordion (advanced keeps accordion).
@@ -2143,6 +2141,16 @@ end
 -- Starter tutorial path: always center default+tutorial (unchanged behaviour).
 function alignDefaultButtons()
 	alignButtonSet("default", "center")
+	alignButtonSet("tutorial", "center")
+end
+
+-- Fresh MUD from default_settings XML. Wizard skip leaves this pad in place,
+-- so pin default right — the same side the wizard itself defaults to. Still
+-- density-scale tutorial: the XML set is in dp, and skipping the scale left
+-- .loadset tutorial as 42dp tiles on a 45px pitch in the corner. Offline
+-- starter stays on alignDefaultButtons (both centered).
+function alignMudDefaultButtons()
+	alignButtonSet("default", "right")
 	alignButtonSet("tutorial", "center")
 end
 
