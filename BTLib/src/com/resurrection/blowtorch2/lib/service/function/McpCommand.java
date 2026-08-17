@@ -117,7 +117,7 @@ public class McpCommand extends SpecialCommand {
 			sb.append("  Engine: (not ready)\n");
 		}
 		sb.append("  Note: MCP is in-band #$# lines (not telnet GMCP).\n");
-		sb.append("  Manage: Options → Service → MCP Options.\n");
+		sb.append("  Manage: Options → Service → MCP.\n");
 		c.sendDataToWindow(sb.toString());
 		return null;
 	}
@@ -197,7 +197,7 @@ public class McpCommand extends SpecialCommand {
 		}
 		sb.append("Packages: ").append(stringOpt(c, OPT_PACKAGES,
 				McpPackageRegistry.DEFAULT_PACKAGES)).append("\n");
-		sb.append("Options → Service → MCP Options.  ").append(sniffHint(c));
+		sb.append("Options → Service → MCP.  ").append(sniffHint(c));
 		c.sendDataToWindow(sb.toString());
 		return null;
 	}
@@ -457,7 +457,7 @@ public class McpCommand extends SpecialCommand {
 				+ "MCP (Mud Client Protocol) 2.1 — in-band #$# messages (not GMCP).\n"
 				+ "Spec: https://www.moo.mud.org/mcp/\n"
 				+ shortUsage()
-				+ "Enable: Options → Service → MCP Options → Use MCP?\n"
+				+ "Enable: Options → Service → Protocols → Use MCP?\n"
 				+ "Lua: Send_MCP_Packet(s)  Get_MCP_Status()  triggers @message-name\n"
 				+ "Native: hellmoo-status, simpleedit, displayurl, ping, cord, vmoo-client.\n";
 	}

@@ -109,9 +109,10 @@ public class OptionsDialog extends Dialog {
 			new java.util.HashSet<String>(java.util.Arrays.asList(
 					"Hyperlink Settings",
 					"Extra text windows",
-					"GMCP Options",
-					"MCP Options",
-					"MUD Protocols"));
+					"Protocols",
+					"GMCP",
+					"MCP",
+					"Telnet"));
 
 	static boolean isInlineGroup(Option option) {
 		return option != null

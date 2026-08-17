@@ -337,13 +337,6 @@ public class WindowToken implements Parcelable {
 		hyperlinksEnabled.setValue(true);
 		hyperlinks.addOption(hyperlinksEnabled);
 
-		BooleanOption osc8Links = new BooleanOption();
-		osc8Links.setTitle("OSC 8 links?");
-		osc8Links.setDescription("Make server-declared hyperlinks tappable (OSC 8). The marked words need not be the URL. send: types a command; prompt: fills the input bar. Independent of Enable Hyperlinks? above. .osc8 on|off");
-		osc8Links.setKey("osc8_links");
-		osc8Links.setValue(true);
-		hyperlinks.addOption(osc8Links);
-		
 		ListOption hyperlinkMode = new ListOption();
 		hyperlinkMode.setTitle("Hyperlink Mode");
 		hyperlinkMode.setDescription("How hyperlinks are presented.");
@@ -376,6 +369,13 @@ public class WindowToken implements Parcelable {
 		hyperlinkExtraTlds.setKey("hyperlink_extra_tlds");
 		hyperlinkExtraTlds.setValue("");
 		hyperlinks.addOption(hyperlinkExtraTlds);
+
+		BooleanOption osc8Links = new BooleanOption();
+		osc8Links.setTitle("Use OSC 8?");
+		osc8Links.setDescription("Make words the game marks tappable (OSC 8). A tap can send a command, fill the input bar, or open a web page. Not the same as Enable Hyperlinks? below (those are URLs found in the text). .osc8 on|off");
+		osc8Links.setKey("osc8_links");
+		osc8Links.setValue(true);
+		window.addOption(osc8Links);
 		
 		window.addOption(hyperlinks);
 		

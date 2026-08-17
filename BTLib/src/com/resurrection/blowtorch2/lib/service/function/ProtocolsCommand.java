@@ -11,7 +11,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.BooleanOption;
 
 /**
  * Diagnostics for optional MSDP / MSSP. Protocols stay off unless enabled under
- * Options → Service → MUD Protocols.
+ * Options → Service → Telnet.
  */
 public class ProtocolsCommand extends SpecialCommand {
 
@@ -57,7 +57,7 @@ public class ProtocolsCommand extends SpecialCommand {
 		}
 		if (!boolOpt(c, "use_msdp", false)) {
 			c.sendDataToWindow("\nMSDP is off — enable Use MSDP? under"
-					+ " Options → Service → MUD Protocols and reconnect.\n");
+					+ " Options → Service → Telnet and reconnect.\n");
 			return null;
 		}
 		String command = sub.toUpperCase(Locale.US);
@@ -85,7 +85,7 @@ public class ProtocolsCommand extends SpecialCommand {
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("MSSP use=").append(on ? "on" : "off")
-				.append(" (Options → Service → MUD Protocols)\n");
+				.append(" (Options → Service → Telnet)\n");
 		Processor p = c.getProcessor();
 		if (p == null) {
 			sb.append("Not connected.\n");
@@ -107,7 +107,7 @@ public class ProtocolsCommand extends SpecialCommand {
 		StringBuilder sb = new StringBuilder();
 		sb.append("\n").append(Colorizer.getWhiteColor());
 		sb.append("MSDP use=").append(on ? "on" : "off")
-				.append(" (Options → Service → MUD Protocols)\n");
+				.append(" (Options → Service → Telnet)\n");
 		Processor p = c.getProcessor();
 		if (p == null) {
 			sb.append("Not connected.\n");
@@ -134,7 +134,7 @@ public class ProtocolsCommand extends SpecialCommand {
 				+ "  .msdp report <var>        ask to be told whenever it changes\n"
 				+ "  .msdp unreport <var>      stop those updates\n"
 				+ "  .msdp reset <group>       reset a group of variables\n"
-				+ "Enable under Options → Service → MUD Protocols, then reconnect.\n"
+				+ "Enable under Options → Service → Telnet, then reconnect.\n"
 				+ "MSSP is one-way (server announces); MSDP is two-way, so it needs\n"
 				+ "you to ask before most servers send anything.\n";
 	}

@@ -235,7 +235,7 @@ public class GmcpCommand extends SpecialCommand {
 			sb.append("Hello: ").append(p.getGmcpHello()).append("\n");
 		}
 		sb.append("Negotiated processor: ").append(p != null ? "yes" : "no (not connected)").append("\n");
-		sb.append("Enable under Options → Service → GMCP Options.\n");
+		sb.append("Enable under Options → Service → Protocols.\n");
 		sb.append(sniffLogLocations(c));
 		c.sendDataToWindow(sb.toString());
 		return null;
@@ -471,7 +471,7 @@ public class GmcpCommand extends SpecialCommand {
 			return null;
 		}
 		if (!boolOpt(c, OPT_USE, true)) {
-			c.sendDataToWindow(getErrorMessage("GMCP send", "Use GMCP? is off (Options → Service → GMCP Options)."));
+			c.sendDataToWindow(getErrorMessage("GMCP send", "Use GMCP? is off (Options → Service → Protocols)."));
 			return null;
 		}
 		c.getHandler().sendMessage(c.getHandler().obtainMessage(Connection.MESSAGE_SENDGMCPDATA, rest));
@@ -552,9 +552,9 @@ public class GmcpCommand extends SpecialCommand {
 		return "\n" + Colorizer.getWhiteColor()
 				+ "GMCP (Generic Mud Communication Protocol) is an out-of-band telnet channel\n"
 				+ "(option 201) for structured JSON-ish updates (vitals, room, media, login).\n"
-				+ "Enable under Options → Service → GMCP. Servers differ — sniff if something looks off.\n\n"
+				+ "Enable under Options → Service → Protocols. Servers differ — sniff if something looks off.\n\n"
 				+ shortUsage()
-				+ "Options → Service → GMCP: Use GMCP?, Manage modules…, Log GMCP?\n"
+				+ "Options → Service → Protocols: Use GMCP?. Options → Service → GMCP: Manage modules…, Log GMCP?\n"
 				+ "Native: Char.Login uses launcher account login/password; Client.Media plays sound/music.\n"
 				+ "Lua: Send_GMCP_Packet(\"module {…}\")  Triggers: pattern %module.path\n";
 	}

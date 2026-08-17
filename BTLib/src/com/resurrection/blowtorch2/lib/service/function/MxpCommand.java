@@ -37,7 +37,7 @@ public class MxpCommand extends SpecialCommand {
 		if (desired == null) {
 			c.sendDataToWindow(getErrorMessage("Mxp command usage:",
 					".mxp on | .mxp off | .mxp status\n"
-							+ "Also: Options → Service → MUD Protocols → Use MXP?\n"
+							+ "Also: Options → Service → Protocols → Use MXP?\n"
 							+ "Sample without a MUD: .probe mxp\n"));
 			return null;
 		}
@@ -67,7 +67,7 @@ public class MxpCommand extends SpecialCommand {
 		}
 		sb.append("\n");
 		sb.append("Clickable SEND, colours, SOUND/MUSIC, custom elements, EXPIRE.\n");
-		sb.append("Options → Service → MUD Protocols → Use MXP?\n");
+		sb.append("Options → Service → Protocols → Use MXP?\n");
 		sb.append(".probe mxp dumps a tappable sample here.\n");
 		if (!on) {
 			sb.append("Enable and reconnect to answer IAC WILL MXP.\n");

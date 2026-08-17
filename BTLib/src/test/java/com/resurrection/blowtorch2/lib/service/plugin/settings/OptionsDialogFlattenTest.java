@@ -35,6 +35,13 @@ public class OptionsDialogFlattenTest {
 				optionNamed(rows, "Hyperlink Settings"));
 		assertTrue(hasHeader(rows, "Hyperlink Settings"));
 
+		Option osc8 = optionNamed(rows, "Use OSC 8?");
+		assertNotNull(osc8);
+		assertEquals("osc8_links", osc8.getKey());
+		assertNull("Use OSC 8? is a Window sibling, not inside Hyperlink Settings",
+				((SettingsGroup) nested).findOptionByKey("osc8_links"));
+		assertSame(window.findOptionByKey("osc8_links"), osc8);
+
 		Option enabled = optionNamed(rows, "Enable Hyperlinks?");
 		assertNotNull(enabled);
 		assertEquals("hyperlinks_enabled", enabled.getKey());
@@ -84,7 +91,7 @@ public class OptionsDialogFlattenTest {
 	}
 
 	@Test
-	public void serviceInlinesGmcpMcpAndMudProtocols() {
+	public void serviceInlinesProtocolsGmcpMcpAndTelnet() {
 		SettingsGroup service = new SettingsGroup();
 		service.setTitle("Service");
 		BooleanOption log = new BooleanOption();
@@ -92,20 +99,23 @@ public class OptionsDialogFlattenTest {
 		log.setKey("log_session");
 		log.setValue(false);
 		service.addOption(log);
-		service.addOption(namedGroup("GMCP Options", "use_gmcp", "Use GMCP?"));
-		service.addOption(namedGroup("MCP Options", "use_mcp", "Use MCP?"));
-		service.addOption(namedGroup("MUD Protocols", "use_mtts", "Use MTTS?"));
+		service.addOption(namedGroup("Protocols", "use_gmcp", "Use GMCP?"));
+		service.addOption(namedGroup("GMCP", "log_gmcp", "Log GMCP?"));
+		service.addOption(namedGroup("MCP", "log_mcp", "Log MCP?"));
+		service.addOption(namedGroup("Telnet", "use_mtts", "Use MTTS?"));
 
 		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(service);
 		assertNotNull(optionNamed(rows, "Log Session to File?"));
-		assertTrue(hasHeader(rows, "GMCP Options"));
-		assertTrue(hasHeader(rows, "MCP Options"));
-		assertTrue(hasHeader(rows, "MUD Protocols"));
-		assertNull(optionNamed(rows, "GMCP Options"));
-		assertNull(optionNamed(rows, "MCP Options"));
-		assertNull(optionNamed(rows, "MUD Protocols"));
+		assertTrue(hasHeader(rows, "Protocols"));
+		assertTrue(hasHeader(rows, "GMCP"));
+		assertTrue(hasHeader(rows, "MCP"));
+		assertTrue(hasHeader(rows, "Telnet"));
+		assertNull(optionNamed(rows, "Protocols"));
+		assertNull(optionNamed(rows, "GMCP"));
+		assertNull(optionNamed(rows, "MCP"));
+		assertNull(optionNamed(rows, "Telnet"));
 		assertEquals("use_gmcp", optionNamed(rows, "Use GMCP?").getKey());
-		assertEquals("use_mcp", optionNamed(rows, "Use MCP?").getKey());
+		assertEquals("log_gmcp", optionNamed(rows, "Log GMCP?").getKey());
 		assertEquals("use_mtts", optionNamed(rows, "Use MTTS?").getKey());
 		assertSame(service.findOptionByKey("use_gmcp"),
 				optionNamed(rows, "Use GMCP?"));

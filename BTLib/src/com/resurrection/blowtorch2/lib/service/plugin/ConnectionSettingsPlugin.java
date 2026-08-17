@@ -463,16 +463,35 @@ public class ConnectionSettingsPlugin extends Plugin {
 		servOptions.addOption(show_regex_warning);
 		
 		
-		SettingsGroup gmcpOptions = new SettingsGroup();
-		gmcpOptions.setTitle("GMCP Options");
-		gmcpOptions.setDescription("Options for the GMCP out of band communication channel.");
-		
+		SettingsGroup protocolSwitches = new SettingsGroup();
+		protocolSwitches.setTitle("Protocols");
+		protocolSwitches.setDescription("Master switches for what this world may speak. Details for each protocol sit in the groups below. .protocols shows what the server offered.");
+		protocolSwitches.setKey("protocol_switches_group");
+
 		BooleanOption use_gmcp = new BooleanOption();
 		use_gmcp.setTitle("Use GMCP?");
 		use_gmcp.setDescription("Enable or disable GMCP (out-of-band telnet channel for structured game data).");
 		use_gmcp.setKey("use_gmcp");
 		use_gmcp.setValue(false);
-		gmcpOptions.addOption(use_gmcp);
+		protocolSwitches.addOption(use_gmcp);
+
+		BooleanOption use_mcp = new BooleanOption();
+		use_mcp.setTitle("Use MCP?");
+		use_mcp.setDescription("Enable MCP 2.1 handshake and package negotiation. Strip #$# lines from the game window when Omit is on. Off by default — reconnect or wait for server #$#mcp after enabling.");
+		use_mcp.setKey("use_mcp");
+		use_mcp.setValue(false);
+		protocolSwitches.addOption(use_mcp);
+
+		BooleanOption use_mxp = new BooleanOption();
+		use_mxp.setTitle("Use MXP?");
+		use_mxp.setDescription("MUD eXtension Protocol (option 91). Clickable SEND links, colours, custom elements, EXPIRE. On by default. Reconnect after changing. .mxp on|off, .probe mxp");
+		use_mxp.setKey("use_mxp");
+		use_mxp.setValue(true);
+		protocolSwitches.addOption(use_mxp);
+
+		SettingsGroup gmcpOptions = new SettingsGroup();
+		gmcpOptions.setTitle("GMCP");
+		gmcpOptions.setDescription("Options for the GMCP out of band communication channel.");
 
 		CallbackOption manage_gmcp = new CallbackOption();
 		manage_gmcp.setTitle("Manage modules…");
@@ -526,15 +545,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		gmcpOptions.addOption(frame_image_lines);
 
 		SettingsGroup mcpOptions = new SettingsGroup();
-		mcpOptions.setTitle("MCP Options");
+		mcpOptions.setTitle("MCP");
 		mcpOptions.setDescription("Mud Client Protocol (#$# in-band). Used by some MOOs — different from GMCP. Off by default.");
-
-		BooleanOption use_mcp = new BooleanOption();
-		use_mcp.setTitle("Use MCP?");
-		use_mcp.setDescription("Enable MCP 2.1 handshake and package negotiation. Strip #$# lines from the game window when Omit is on. Off by default — reconnect or wait for server #$#mcp after enabling.");
-		use_mcp.setKey("use_mcp");
-		use_mcp.setValue(false);
-		mcpOptions.addOption(use_mcp);
 
 		CallbackOption manage_mcp = new CallbackOption();
 		manage_mcp.setTitle("Manage packages…");
@@ -579,8 +591,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		mcpOptions.addOption(mcp_auto_neg);
 
 		SettingsGroup protocolOptions = new SettingsGroup();
-		protocolOptions.setTitle("MUD Protocols");
-		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. MTTS, MCCP and MXP are on by default; MSDP and MSSP are off — leave those disabled unless your MUD needs them.");
+		protocolOptions.setTitle("Telnet");
+		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. MTTS and MCCP are on by default; MSDP and MSSP are off — leave those disabled unless your MUD needs them. Use MXP? sits under Protocols above.");
 		protocolOptions.setKey("mud_protocols_group");
 
 		BooleanOption use_mtts = new BooleanOption();
@@ -611,13 +623,6 @@ public class ConnectionSettingsPlugin extends Plugin {
 		use_mccp.setValue(true);
 		protocolOptions.addOption(use_mccp);
 
-		BooleanOption use_mxp = new BooleanOption();
-		use_mxp.setTitle("Use MXP?");
-		use_mxp.setDescription("MUD eXtension Protocol (option 91). Clickable SEND links, colours, custom elements, EXPIRE. On by default. Reconnect after changing. .mxp on|off, .probe mxp");
-		use_mxp.setKey("use_mxp");
-		use_mxp.setValue(true);
-		protocolOptions.addOption(use_mxp);
-
 		BooleanOption log_mxp = new BooleanOption();
 		log_mxp.setTitle("Log MXP?");
 		log_mxp.setDescription("Logcat MXP handshake notes. Off by default. Prefer .mxp status and Show MXP in game window?");
@@ -638,7 +643,8 @@ public class ConnectionSettingsPlugin extends Plugin {
 		battery_opt.setKey("battery_optimization");
 		battery_opt.setValue("battery_optimization");
 		servOptions.addOption(battery_opt);
-		
+
+		servOptions.addOption(protocolSwitches);
 		servOptions.addOption(gmcpOptions);
 		servOptions.addOption(mcpOptions);
 		servOptions.addOption(protocolOptions);
@@ -823,7 +829,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		manage_extra_text.setTitle("Manage windows…");
 		manage_extra_text.setDescription(
 				"Add, remove, or edit extra text windows (drawer_top / float, height, opacity, GMCP modules). "
-				+ "GMCP routes need Use GMCP? enabled under Service → GMCP Options.");
+				+ "GMCP routes need Use GMCP? enabled under Service → Protocols.");
 		manage_extra_text.setKey("manage_extra_text_windows");
 		manage_extra_text.setValue("manage_extra_text_windows");
 		mExtraTextOptions.addOption(manage_extra_text);

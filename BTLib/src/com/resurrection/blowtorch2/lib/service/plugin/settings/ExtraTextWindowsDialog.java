@@ -42,7 +42,7 @@ public final class ExtraTextWindowsDialog {
 		/** Optional: force overlay refresh after apply. */
 		void onSlotsChanged();
 
-		/** Options → GMCP → Use GMCP? */
+		/** Options → Service → Protocols → Use GMCP? */
 		boolean isGmcpEnabled();
 
 		/** Session-seen GMCP module families (may be empty). */
@@ -71,7 +71,7 @@ public final class ExtraTextWindowsDialog {
 
 		if (!host.isGmcpEnabled()) {
 			TextView warn = new TextView(context);
-			warn.setText("GMCP is off — enable Options → Service → GMCP Options → "
+			warn.setText("GMCP is off — enable Options → Service → Protocols → "
 					+ "Use GMCP? before module routes into these windows will receive data.");
 			warn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 			warn.setTextColor(Color.parseColor("#C62828"));
@@ -301,7 +301,7 @@ public final class ExtraTextWindowsDialog {
 		form.addView(label(context, "GMCP modules to dump into this window"));
 		if (!host.isGmcpEnabled()) {
 			TextView warn = new TextView(context);
-			warn.setText("GMCP is disabled — turn on Use GMCP? under Service → GMCP Options.");
+			warn.setText("GMCP is disabled — turn on Use GMCP? under Service → Protocols.");
 			warn.setTextColor(Color.parseColor("#C62828"));
 			warn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
 			warn.setPadding(0, 0, 0, pad / 2);

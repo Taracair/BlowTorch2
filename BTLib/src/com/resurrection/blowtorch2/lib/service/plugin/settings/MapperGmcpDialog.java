@@ -52,7 +52,7 @@ public final class MapperGmcpDialog {
 
 		TextView intro = new TextView(context);
 		intro.setText("GMCP Room sync is independent of Record/Draw.\n\n"
-				+ "Requires Options → GMCP → Use GMCP? and Room in Manage modules….\n"
+				+ "Requires Options → Service → Protocols → Use GMCP? and Room in Manage modules….\n"
 				+ "ASCII maps in game text are not read — only Room.Info JSON.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
