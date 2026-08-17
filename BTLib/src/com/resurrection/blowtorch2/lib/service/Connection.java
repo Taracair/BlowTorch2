@@ -626,6 +626,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(msspcmd.commandName, msspcmd);
 		ProtocolsCommand msdpcmd = new ProtocolsCommand(true);
 		mSpecialCommands.put(msdpcmd.commandName, msdpcmd);
+		com.resurrection.blowtorch2.lib.service.function.MxpCommand mxpcmd =
+				new com.resurrection.blowtorch2.lib.service.function.MxpCommand();
+		mSpecialCommands.put(mxpcmd.commandName, mxpcmd);
 		com.resurrection.blowtorch2.lib.service.function.EchoCommand echocmd =
 				new com.resurrection.blowtorch2.lib.service.function.EchoCommand();
 		mSpecialCommands.put(echocmd.commandName, echocmd);
@@ -2641,6 +2644,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (raw == null) { 
 			return; 
 		}
+		raw = mProcessor.filterMxp(raw);
+		if (raw == null || raw.length == 0) {
+			return;
+		}
 		ensureMcpEngine();
 		if (mMcpEngine != null && mMcpEngine.isUse()) {
 			raw = mMcpEngine.filterIncoming(raw);
@@ -3253,6 +3260,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 			mProcessor.setDisplayName(mDisplay);
 			loadLoginCredentialsIntoProcessor();
+			attachMxpListener();
 
 			initSettings();
 			// Before mPump.start(), so the profile — and the MCCP session override —
@@ -3380,6 +3388,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 		mProcessor = new Processor(mHandler, mSettings.getEncoding(), mService.getApplicationContext());
 		mProcessor.setDisplayName(mDisplay);
+		attachMxpListener();
 		initSettings();
 		mExtraText.syncGmcpRoutes();
 		applyOfflinePresentationDefaults();
@@ -5515,6 +5524,14 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case use_mccp:
 				this.doSetUseMCCP((Boolean) o.getValue());
 				break;
+			case use_mxp:
+				this.doSetUseMXP((Boolean) o.getValue());
+				break;
+			case log_mxp:
+				this.doSetLogMXP((Boolean) o.getValue());
+				break;
+			case mxp_feed:
+				break;
 			case session_log:
 				mSessionLog.doSetSessionLog((Boolean) o.getValue());
 				break;
@@ -5699,6 +5716,127 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mProcessor != null) {
 			mProcessor.setUseMCCP(mMccp.isEnabled());
 		}
+	}
+
+	private void doSetUseMXP(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setUseMXP(value != null && value.booleanValue());
+		}
+	}
+
+	private void doSetLogMXP(final Boolean value) {
+		if (mProcessor != null) {
+			mProcessor.setLogMXP(value != null && value.booleanValue());
+		}
+	}
+
+	private void attachMxpListener() {
+		if (mProcessor == null) {
+			return;
+		}
+		mProcessor.getMxp().setListener(new com.resurrection.blowtorch2.lib.service.mxp.MxpEngine.Listener() {
+			@Override
+			public void sendToMud(final String text) {
+				if (text == null || text.length() == 0 || mPump == null) {
+					return;
+				}
+				try {
+					byte[] bytes = text.getBytes(mSettings.getEncoding());
+					Message sbm = mHandler.obtainMessage(MESSAGE_SENDOPTIONDATA);
+					Bundle b = sbm.getData();
+					b.putByteArray("THE_DATA", bytes);
+					if (readBoolOption("mxp_feed", false)) {
+						b.putString("DEBUG_MESSAGE", Colorizer.getTeloptStartColor()
+								+ "MXP OUT: " + text.trim() + Colorizer.getResetColor() + "\n");
+					}
+					sbm.setData(b);
+					mHandler.sendMessage(sbm);
+				} catch (Exception e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"Connection.mxp.sendToMud", e);
+				}
+			}
+
+			@Override
+			public void expire(final String group) {
+				TextTree buf = getMainWindowBuffer();
+				if (buf != null) {
+					buf.expireMxpLinks(group);
+				}
+				if (readBoolOption("mxp_feed", false)) {
+					sendDataToWindow("\n" + Colorizer.getTeloptStartColor()
+							+ "MXP expire " + group + Colorizer.getResetColor() + "\n");
+				}
+			}
+
+			@Override
+			public void setVariable(final String name, final String value) {
+				getSessionVariables().set(name, value);
+			}
+
+			@Override
+			public void destOutput(final String window, final byte[] data) {
+				if (window == null || data == null || data.length == 0) {
+					return;
+				}
+				WindowToken tok = findWindowIgnoreCase(window);
+				if (tok == null || tok.getBuffer() == null) {
+					sendBytesToWindow(data);
+					return;
+				}
+				try {
+					tok.getBuffer().addBytesImpl(data);
+				} catch (Exception e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"Connection.mxp.destOutput", e);
+					return;
+				}
+				if (!holdWhileHidden(tok.getName(), data)) {
+					IWindowCallback c = mWindowCallbackMap.get(tok.getName());
+					if (c != null) {
+						try {
+							c.rawDataIncoming(data);
+						} catch (RemoteException e) {
+							com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+									"Connection.mxp.destOutput.notify", e);
+						}
+					}
+				}
+			}
+
+			@Override
+			public void playSound(final String fname, final int v, final int l, final int p,
+					final String type, final String url) {
+				// Tag is consumed. Playback of arbitrary MXP SOUND URLs is not wired;
+				// Client.Media / trigger sounds already cover the cases we ship.
+			}
+
+			@Override
+			public void onFlag(final String flag, final String text) {
+				if (flag != null && flag.toLowerCase(java.util.Locale.US).startsWith("set ")) {
+					return;
+				}
+				if (flag != null && text != null) {
+					getSessionVariables().set("mxp." + flag.replace(' ', '_'), text);
+				}
+			}
+		});
+	}
+
+	private WindowToken findWindowIgnoreCase(final String name) {
+		if (name == null) {
+			return null;
+		}
+		WindowToken exact = getWindowByName(name);
+		if (exact != null) {
+			return exact;
+		}
+		for (WindowToken w : mWindows) {
+			if (w.getName() != null && w.getName().equalsIgnoreCase(name)) {
+				return w;
+			}
+		}
+		return null;
 	}
 
 	private void ensureMcpEngine() {
@@ -6021,7 +6159,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 	}
 
-	/** Apply optional MTTS/MSDP/MSSP/MCCP flags from profile. */
+	/** Apply optional MTTS/MSDP/MSSP/MCCP/MXP flags from profile. */
 	void applyMudProtocolFlags() {
 		if (mProcessor == null || mSettings == null) {
 			return;
@@ -6030,6 +6168,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mProcessor.setUseMTTS(readBoolOption("use_mtts", true));
 			mProcessor.setUseMSDP(readBoolOption("use_msdp", false));
 			mProcessor.setUseMSSP(readBoolOption("use_mssp", false));
+			mProcessor.setUseMXP(readBoolOption("use_mxp", true));
+			mProcessor.setLogMXP(readBoolOption("log_mxp", false));
 			// applyProfileValue, not applyPlayerToggle: a load or a settings replay
 			// must not clear a fallback the player never asked to clear.
 			mMccp.applyProfileValue(readBoolOption("use_mccp", true));
@@ -6645,6 +6785,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		use_mssp,
 		/** Negotiate MCCP2 compression (option 86). */
 		use_mccp,
+		/** Negotiate MXP (option 91). */
+		use_mxp,
+		/** Log MXP handshake/replies. */
+		log_mxp,
+		/** Echo MXP events into the game window. */
+		mxp_feed,
 		/** Show Regex Warning. */
 		show_regex_warning,
 		/** Append game output to session .txt log. */

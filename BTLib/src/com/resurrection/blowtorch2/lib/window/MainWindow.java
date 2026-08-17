@@ -894,6 +894,35 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_LAUNCHURL:
 					if (msg.obj instanceof String) {
 						String raw = (String) msg.obj;
+						if (com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isSend(raw)) {
+							String cmd = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.sendCommand(raw);
+							if (cmd != null && cmd.length() > 0) {
+								myhandler.sendMessage(myhandler.obtainMessage(
+										MESSAGE_TAPWORDCOMMAND, cmd));
+							}
+							break;
+						}
+						if (com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isPrompt(raw)) {
+							String cmd = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.promptCommand(raw);
+							if (cmd != null) {
+								// arg1=show IME, arg2=replace (not append)
+								myhandler.sendMessage(myhandler.obtainMessage(
+										MESSAGE_KEYBOARD, 1, 0, cmd));
+							}
+							break;
+						}
+						if (com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMenu(raw)) {
+							String[] parts = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks
+									.menuHintsAndCommands(raw);
+							if (parts != null && parts[1].length() > 0) {
+								String[] cmds = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks
+										.splitPipe(parts[1]);
+								String[] labels = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks
+										.menuLabels(parts[0], parts[1]);
+								showTapWordMenu(cmds, labels, msg.arg1, msg.arg2);
+							}
+							break;
+						}
 						String url = null;
 						if (OscEight.isSafeUri(raw)) {
 							url = raw.trim();
@@ -2099,6 +2128,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	void showTapWordMenu(final String[] commands, final int wordCenterX, final int wordTop) {
+		showTapWordMenu(commands, null, wordCenterX, wordTop);
+	}
+
+	void showTapWordMenu(final String[] commands, final String[] labels,
+			final int wordCenterX, final int wordTop) {
 		if (commands == null || commands.length == 0) {
 			return;
 		}
@@ -2121,7 +2155,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// and ends in (...). The command that is sent is never the cut one.
 			final String[] shown = new String[commands.length];
 			for (int i = 0; i < commands.length; i++) {
-				shown[i] = shortenForMenu(commands[i]);
+				String label = (labels != null && i < labels.length && labels[i] != null
+						&& labels[i].length() > 0) ? labels[i] : commands[i];
+				shown[i] = shortenForMenu(label);
 			}
 			popup.setAdapter(new ArrayAdapter<String>(
 					themed, android.R.layout.simple_list_item_1, shown) {

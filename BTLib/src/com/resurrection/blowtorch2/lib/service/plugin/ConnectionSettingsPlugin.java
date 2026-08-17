@@ -580,7 +580,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		SettingsGroup protocolOptions = new SettingsGroup();
 		protocolOptions.setTitle("MUD Protocols");
-		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. MTTS and MCCP are on by default; MSDP and MSSP are off — leave those disabled unless your MUD needs them.");
+		protocolOptions.setDescription("Optional telnet capabilities next to GMCP. MTTS, MCCP and MXP are on by default; MSDP and MSSP are off — leave those disabled unless your MUD needs them.");
 		protocolOptions.setKey("mud_protocols_group");
 
 		BooleanOption use_mtts = new BooleanOption();
@@ -610,6 +610,27 @@ public class ConnectionSettingsPlugin extends Plugin {
 		use_mccp.setKey("use_mccp");
 		use_mccp.setValue(true);
 		protocolOptions.addOption(use_mccp);
+
+		BooleanOption use_mxp = new BooleanOption();
+		use_mxp.setTitle("Use MXP?");
+		use_mxp.setDescription("MUD eXtension Protocol (option 91). Clickable SEND links, colours, custom elements, EXPIRE. On by default. Reconnect after changing. .mxp on|off, .probe mxp");
+		use_mxp.setKey("use_mxp");
+		use_mxp.setValue(true);
+		protocolOptions.addOption(use_mxp);
+
+		BooleanOption log_mxp = new BooleanOption();
+		log_mxp.setTitle("Log MXP?");
+		log_mxp.setDescription("Logcat MXP handshake notes. Off by default. Prefer .mxp status and Show MXP in game window?");
+		log_mxp.setKey("log_mxp");
+		log_mxp.setValue(false);
+		protocolOptions.addOption(log_mxp);
+
+		BooleanOption mxp_feed = new BooleanOption();
+		mxp_feed.setTitle("Show MXP in game window?");
+		mxp_feed.setDescription("Echo VERSION/SUPPORT replies and EXPIRE events into the scrollback. Off by default. Noisy.");
+		mxp_feed.setKey("mxp_feed");
+		mxp_feed.setValue(false);
+		protocolOptions.addOption(mxp_feed);
 
 		CallbackOption battery_opt = new CallbackOption();
 		battery_opt.setTitle("Battery optimization…");

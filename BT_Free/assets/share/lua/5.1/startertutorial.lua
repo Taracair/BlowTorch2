@@ -88,6 +88,7 @@ local TOPIC_ORDER = {
 	"mapper",
 	"gmcp",
 	"mcp",
+	"mxp",
 	"logging_export",
 	"stay_connected",
 	"disconnect_reconnect",
@@ -624,6 +625,9 @@ Some worlds mark words as links (OSC 8) even when the words are not a
 URL — "click here" can open https://example.com/real. .osc8 on|off.
 .probe osc8 dumps a tappable sample here without waiting on the game.
 
+Some worlds mark exits and items with MXP so a tap sends a command.
+.mxp on|off. .probe mxp dumps a sample. That is not OSC 8.
+
 To debug colour codes:
 
   .colordebug 0   normal display
@@ -659,7 +663,10 @@ Underline, Bold and Frame mark the word; use any of them or none. Color is
 not here on purpose: put a Color action on the same trigger.
 
 The word stays pressable while the line is in the buffer, so scrolling back
-and pressing something from ten lines ago works.]])
+and pressing something from ten lines ago works.
+
+Worlds can also mark text themselves with MXP SEND. That is .mxp and
+.probe mxp, not a trigger.]])
 end
 
 TOPICS.keyboard = function()
@@ -916,6 +923,21 @@ same as GMCP. Options → Service → MCP Options (off by default).
 Literal triggers can hook @message-name.]])
 end
 
+TOPICS.mxp = function()
+	noteBlock("MXP — clickable game text",
+[[Some worlds mark exits and items with MXP so a tap sends the command.
+Options → Service → MUD Protocols → Use MXP? (on by default). Reconnect
+after changing. .mxp on|off. .mxp with no argument is status.
+
+  .probe mxp     dumps a tappable sample here without waiting on the game
+  tap an exit    the game receives that command, same as typing it
+  EXPIRE         old exit links stop working after you move; they stay
+                 visible in scrollback
+
+This is not OSC 8 (web links). MXP SEND is a command to the MUD. SCRIPT
+and RELOCATE from the server are ignored.]])
+end
+
 TOPICS.stay_connected = function()
 	noteBlock("Staying connected",
 [[Options → Service:
@@ -1101,7 +1123,7 @@ Topics: welcome, practice_world, client_commands, buttons_basics,
 buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
 buttons_make, buttons_edit, movement, aliases, triggers, timers, sensors,
 tappable, keyboard, completion, coloring, display, wrap, copy_text, search,
-mapper, gmcp, mcp, logging_export, stay_connected, disconnect_reconnect,
+mapper, gmcp, mcp, mxp, logging_export, stay_connected, disconnect_reconnect,
 overflow_menu, options_cleanup, plugins, finish]])
 end
 
@@ -1245,6 +1267,7 @@ local TIPS = {
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
 	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → GMCP.]],
 	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → MCP.]],
+	mxp = [[.mxp on|off. Worlds can mark exits and items as tappable commands. .probe mxp dumps a sample.]],
 	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
 	sensor = [[.sensor lists phone readings (shake, wave, …) as ordinary triggers. Options → Device → Sensors….]],
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
@@ -1255,7 +1278,7 @@ local TIPS = {
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],
 	colordebug = [[.colordebug 0–3 shows or hides ANSI codes in the window.]],
-	probe = [[.probe report measures how lines arrive. .probe truecolor / .probe osc8 dump samples here.]],
+	probe = [[.probe report measures how lines arrive. .probe truecolor / .probe osc8 / .probe mxp dump samples here.]],
 	buttonopacity = [[.buttonopacity 100 forces every tile's alpha until .buttonopacity restore or .loadset.]],
 	buttonsopacity = [[Same as .buttonopacity.]],
 	clearbuttons = [[.clearbuttons hides the pad until the next .loadset (BACK on the tutorial pad restores).]],

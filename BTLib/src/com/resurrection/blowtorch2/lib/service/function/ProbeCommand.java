@@ -36,6 +36,11 @@ public class ProbeCommand extends SpecialCommand {
 			return null;
 		}
 
+		if (arg.equals("mxp")) {
+			c.sendBytesToWindow(mxpSampleBytes());
+			return null;
+		}
+
 		// What this phone's sensors are, and what they deliver to the service
 		// process. Both halves are unknowable from the code: sensor hardware
 		// differs by model, and responders do not run in the UI process.
@@ -135,6 +140,8 @@ public class ProbeCommand extends SpecialCommand {
 				+ ".probe truecolor   — dump a 24-bit RGB sample into this window\n"
 				+ "                    (also .probe color). Does not wait for a MUD.\n"
 				+ ".probe osc8        — dump OSC 8 hyperlink samples into this window\n"
+				+ "                    (tap the marked words). Does not wait for a MUD.\n"
+				+ ".probe mxp         — dump MXP SEND/colour samples into this window\n"
 				+ "                    (tap the marked words). Does not wait for a MUD.\n"));
 		return null;
 	}
@@ -222,5 +229,51 @@ public class ProbeCommand extends SpecialCommand {
 				.append("\n");
 		out.append("Turn off: .osc8 off    Sample world: launcher \"OSC 8 links (local test)\"\n");
 		return out.toString();
+	}
+
+	/**
+	 * Temple-style MXP sample, already run through {@code MxpEngine} so it does
+	 * not need a MUD or a handshake. Tap the SEND words.
+	 */
+	static byte[] mxpSampleBytes() {
+		com.resurrection.blowtorch2.lib.service.mxp.MxpEngine e =
+				new com.resurrection.blowtorch2.lib.service.mxp.MxpEngine();
+		e.setEnabled(true);
+		e.setActive(true);
+		e.applyMode(6);
+		String markup = mxpSampleMarkup();
+		byte[] body;
+		try {
+			body = e.process(markup.getBytes("UTF-8"));
+		} catch (java.io.UnsupportedEncodingException ex) {
+			body = e.process(markup.getBytes());
+		}
+		String head = "\n" + Colorizer.getBrightCyanColor()
+				+ "MXP probe. Tap the marked words. Display text need not be the command."
+				+ Colorizer.getResetColor() + "\n";
+		byte[] prefix;
+		try {
+			prefix = head.getBytes("UTF-8");
+		} catch (java.io.UnsupportedEncodingException ex) {
+			prefix = head.getBytes();
+		}
+		byte[] out = new byte[prefix.length + body.length];
+		System.arraycopy(prefix, 0, out, 0, prefix.length);
+		System.arraycopy(body, 0, out, prefix.length, body.length);
+		return out;
+	}
+
+	static String mxpSampleMarkup() {
+		return "<!ELEMENT Ex '<SEND>'>"
+				+ "<!ELEMENT Item '<SEND href=\"buy &text;\">'>"
+				+ "<COLOR red><B>The Main Temple</B></COLOR>\n"
+				+ "A <I>lovely</I> <SEND href=\"drink fountain\">fountain</SEND> stands here.\n"
+				+ "Exits: <Ex>N</Ex>, <Ex>S</Ex>, <Ex>E</Ex>, <Ex>W</Ex>\n"
+				+ "Shop: <Item>bread</Item>  <Item>water</Item>\n"
+				+ "<SEND href=\"look|get all\" hint=\"click|Look|Get all\">a sack</SEND>\n"
+				+ "<SEND href=\"say hello\" prompt>prompt send</SEND>\n"
+				+ "<SEND href=\"old\" expire=\"Exits\">stale exit</SEND> "
+				+ "<EXPIRE Exits>(expired)\n"
+				+ "Turn off: .mxp off\n";
 	}
 }

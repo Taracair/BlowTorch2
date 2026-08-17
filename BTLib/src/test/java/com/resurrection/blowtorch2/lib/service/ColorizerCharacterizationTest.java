@@ -148,6 +148,13 @@ public class ColorizerCharacterizationTest {
 	}
 
 	@Test
+	public void stripAnsiEscapesRemovesOscEight() {
+		String raw = "Exits: \u001B]8;;mxp-send:north\u0007N\u001B]8;;\u0007, "
+				+ "\u001B]8;;mxp-send:south\u0007S\u001B]8;;\u0007";
+		assertEquals("Exits: N, S", Colorizer.stripAnsiEscapes(raw));
+	}
+
+	@Test
 	public void stripAnsiEscapesConcurrentStress() throws Exception {
 		final int threads = 8;
 		final int iters = 2000;

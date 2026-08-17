@@ -263,4 +263,36 @@ public class TelnetCoverageTest {
 		assertTrue(data.msdpSnapshot().isEmpty());
 		assertEquals("(empty)", data.msdpStatusLine());
 	}
+
+	// ---- MXP (option 91) ----------------------------------------------------
+
+	@Test
+	public void mxp_willIsAnsweredWithDo_whenEnabled() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+		assertTrue(neg.isUseMXP());
+
+		byte[] resp = neg.processCommand(TC.IAC, TC.WILL, TC.MXP);
+
+		assertEquals(TC.IAC, resp[0]);
+		assertEquals(TC.DO, resp[1]);
+		assertEquals(TC.MXP, resp[2]);
+	}
+
+	@Test
+	public void mxp_willIsAnsweredWithDont_whenDisabled() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+		neg.setUseMXP(false);
+
+		byte[] resp = neg.processCommand(TC.IAC, TC.WILL, TC.MXP);
+
+		assertEquals(TC.DONT, resp[1]);
+		assertEquals(TC.MXP, resp[2]);
+	}
+
+	@Test
+	public void mxp_subnegotiationIsTheStartMarkerOnly() {
+		OptionNegotiator neg = new OptionNegotiator("BlowTorch");
+		byte[] resp = neg.getSubnegotiationResponse(sb(TC.MXP));
+		assertArrayEquals(new byte[] { TC.MXP }, resp);
+	}
 }

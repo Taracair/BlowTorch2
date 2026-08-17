@@ -76,4 +76,15 @@ public class SettingsOptionKeyOwnershipTest {
 		assertFalse(WindowTokenParser.isWindowOptionKey(null));
 		assertFalse(ConnectionSetttingsParser.isConnectionOptionKey(null));
 	}
+
+	@Test
+	public void mxpKeysAreConnectionOwnedNotWindow() {
+		String[] mxpKeys = { "use_mxp", "log_mxp", "mxp_feed" };
+		for (String key : mxpKeys) {
+			assertTrue(key + " must be persisted by the connection writer",
+					ConnectionSetttingsParser.isConnectionOptionKey(key));
+			assertFalse(key + " must not be claimed by the window writer",
+					WindowTokenParser.isWindowOptionKey(key));
+		}
+	}
 }

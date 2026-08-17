@@ -78,5 +78,8 @@ public class OscEightTest {
 		assertTrue(OscEight.isSafeUri("mailto:a@b.c"));
 		assertFalse(OscEight.isSafeUri("javascript:alert(1)"));
 		assertFalse(OscEight.isSafeUri("example.com"));
+		assertTrue(OscEight.isSafeUri("mxp-send:look"));
+		assertTrue(OscEight.isSafeUri("mxp-menu:a"));
+		assertTrue(OscEight.isSafeUri("mxp-prompt:say"));
 	}
 }

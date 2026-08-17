@@ -98,6 +98,7 @@ public class HelpCommand extends SpecialCommand {
 				"measure how the world splits its text across packets; "
 				+ ".probe truecolor dumps a 24-bit sample; "
 				+ ".probe osc8 dumps tappable OSC 8 samples; "
+				+ ".probe mxp dumps MXP SEND/colour samples; "
 				+ ".probe sensors for what this phone can feel");
 		cmd("sensor", "Triggers and scripts",
 				"what this phone can measure, and what triggers do with it");
@@ -107,6 +108,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("mcp", "The world and its protocols", "MCP packages and negotiation");
 		cmd("msdp", "The world and its protocols", "MSDP variables");
 		cmd("mssp", "The world and its protocols", "what the world says about itself");
+		cmd("mxp", "The world and its protocols", "MXP links and markup; .mxp on|off");
 
 		cmd("map", "The map", "the mapper: recording, walking, rooms and exits");
 
@@ -432,6 +434,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .probe lines on|off | report | reset\n"
 					+ "  .probe truecolor | color — 24-bit sample in this window\n"
 					+ "  .probe osc8 — OSC 8 hyperlink sample (tap the marked words)\n"
+					+ "  .probe mxp — MXP SEND/colour sample (tap the marked words)\n"
 					+ "  .probe sensors | sensors state\n"
 					+ "  .probe sensors shake|light [seconds]\n";
 		}
@@ -518,6 +521,14 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .osc8              — on or off\n"
 					+ "  .osc8 on|off       — server-declared hyperlinks (OSC 8)\n"
 					+ "  .probe osc8        — dump a tappable sample here\n";
+		}
+		if (filter.equals("mxp")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .mxp:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .mxp               — status\n"
+					+ "  .mxp on|off        — MUD eXtension Protocol (option 91)\n"
+					+ "  .probe mxp         — dump a tappable sample here\n";
 		}
 		if (filter.equals("tutorial")) {
 			return "\n"

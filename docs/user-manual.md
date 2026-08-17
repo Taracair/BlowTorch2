@@ -1326,6 +1326,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
+    `.mxp [on|off]`                     MXP (clickable SEND links). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
     `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
@@ -1417,8 +1418,18 @@ waiting on the game.
 ```
 
 Dumps OSC 8 hyperlink samples into this window (BEL and ST terminators, display
-text that is not the URL, a rejected `javascript:` scheme). Tap the marked
-words. Does not wait for a MUD. Turn the feature off with `.osc8 off`.
+text need not be the URL). Does not wait for a MUD. Turn the feature off with
+`.osc8 off`.
+
+### `.probe mxp`
+
+```
+.probe mxp
+```
+
+Dumps MXP SEND/colour samples into this window (already interpreted, so it does
+not need a MUD or a handshake). Tap the marked words. Turn the feature off with
+`.mxp off`.
 
 A launcher row **OSC 8 links (local test)** points at `127.0.0.1:4445`. On the
 laptop run `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`,
@@ -2045,6 +2056,30 @@ independent of **Enable Hyperlinks?** (that one is regex linkify of `http` /
 .probe osc8
 ```
 
+## MXP (clickable SEND)
+
+Some worlds mark exits and items with [MXP](https://www.zuggsoft.com/zmud/mxp.htm)
+so a tap sends a command. Handshake is telnet option 91. **Options → Service →
+MUD Protocols → Use MXP?** (on by default). Reconnect after changing.
+
+```
+.mxp
+.mxp on | off
+.probe mxp
+```
+
+Tap a SEND word and the game receives that command, the same as typing it. A
+SEND with several `|` commands opens a small menu (hint labels after the first
+`|` are the row names). SEND with `PROMPT` fills the input bar instead of
+sending. After you move, the world often sends `<EXPIRE>` so old exit links
+stop working; they stay visible in scrollback. Bare `<EXPIRE>` clears every
+MXP link.
+
+This is not OSC 8 (web links). `SCRIPT` and `RELOCATE` from the server are
+ignored. `<DEST>` / `<FRAME>` with a name matching an extra-text window goes
+there (ignore-case); otherwise main. Images and sound tags are dropped, not
+drawn or played.
+
 ## Newest text at top
 
 By default, fresh game output sits at the **bottom** of the window (classic
@@ -2432,12 +2467,13 @@ displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 Lua: `Send_MCP_Packet(s)`, `Get_MCP_Status()`, literal triggers `@message-name`
 (same idea as GMCP `%module`).
 
-Optional protocols (Options → Service → **MUD Protocols**). **MTTS and MCCP are
+Optional protocols (Options → Service → **MUD Protocols**). **MTTS, MCCP and MXP are
 on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 
 ```
 .mssp   — dump MSSP cache (enable Use MSSP? first, reconnect)
 .msdp   — dump MSDP cache (enable Use MSDP? first, reconnect)
+.mxp    — MXP on/off/status (on by default; reconnect after changing)
 ```
 
 **Use MTTS?** — TTYPE always follows the MUD Terminal Type Standard
@@ -2450,6 +2486,10 @@ decompression ever fails, the client says so, turns compression off for that
 connection and reconnects once without it, rather than dumping the compressed
 stream on screen. Turn the option off for a server whose compression
 misbehaves.
+
+**Use MXP?** — MUD eXtension Protocol (telnet option 91), on by default.
+Worlds can mark exits and items so a tap sends a command. `.mxp on|off`.
+`.probe mxp` dumps a tappable sample. Reconnect after changing.
 
 ## Passwords are hidden while the MUD asks for them
 

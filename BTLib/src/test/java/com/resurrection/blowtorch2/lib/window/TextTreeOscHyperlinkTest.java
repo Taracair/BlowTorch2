@@ -192,6 +192,65 @@ public class TextTreeOscHyperlinkTest {
 				stamped >= 2);
 	}
 
+	@Test
+	public void mxpSendStampsHrefEvenWhenOsc8OptionIsOff() throws Exception {
+		TextTree tree = new TextTree();
+		tree.setOsc8Links(false);
+		String chunk = ESC + "]8;;mxp-send:look north\u0007"
+				+ "N" + ESC + "]8;;\u0007\n";
+		tree.addBytesImpl(chunk.getBytes("UTF-8"));
+		assertEquals("mxp-send:look north", hrefOn(tree, "N"));
+	}
+
+	@Test
+	public void mxpExpireClearsMatchingGroupAndLeavesText() throws Exception {
+		TextTree tree = new TextTree();
+		String chunk = ESC + "]8;id=mxp-Exits;mxp-send:north\u0007"
+				+ "N" + ESC + "]8;;\u0007 after\n"
+				+ ESC + "]8;;mxp-expire:Exits\u0007" + ESC + "]8;;\u0007\n";
+		tree.addBytesImpl(chunk.getBytes("UTF-8"));
+		assertNull(hrefOn(tree, "N"));
+		assertTrue(join(render(tree)).contains("N"));
+	}
+
+	@Test
+	public void mxpExpireBlankClearsNamedGroupsOnly() throws Exception {
+		TextTree tree = new TextTree();
+		String named = ESC + "]8;id=mxp-Exits;mxp-send:north\u0007"
+				+ "N" + ESC + "]8;;\u0007";
+		String unnamed = ESC + "]8;;mxp-send:look\u0007"
+				+ "L" + ESC + "]8;;\u0007\n";
+		tree.addBytesImpl((named + unnamed).getBytes("UTF-8"));
+		assertEquals("mxp-send:north", hrefOn(tree, "N"));
+		assertEquals("mxp-send:look", hrefOn(tree, "L"));
+		tree.expireMxpLinks("");
+		assertNull(hrefOn(tree, "N"));
+		assertEquals("unnamed SEND must survive a bare EXPIRE",
+				"mxp-send:look", hrefOn(tree, "L"));
+	}
+
+	@Test
+	public void dumpToBytesRoundTripsMxpExpireToAFreshTree() throws Exception {
+		TextTree working = new TextTree();
+		String send = ESC + "]8;id=mxp-Exits;mxp-send:north\u0007"
+				+ "N" + ESC + "]8;;\u0007 after\n";
+		working.addBytesImpl(send.getBytes("UTF-8"));
+		byte[] firstDump = working.dumpToBytes(true);
+		TextTree ui = new TextTree();
+		ui.addBytesImpl(firstDump);
+		assertEquals("mxp-send:north", hrefOn(ui, "N"));
+
+		TextTree later = new TextTree();
+		String expire = ESC + "]8;;mxp-expire:Exits\u0007" + ESC + "]8;;\u0007\n";
+		later.addBytesImpl(expire.getBytes("UTF-8"));
+		byte[] expireDump = later.dumpToBytes(true);
+		assertTrue("dump must re-emit mxp-expire, got: " + new String(expireDump, "UTF-8"),
+				new String(expireDump, "UTF-8").contains("mxp-expire:Exits"));
+		ui.addBytesImpl(expireDump);
+		assertNull(hrefOn(ui, "N"));
+		assertTrue(join(render(ui)).contains("N"));
+	}
+
 	private static String join(java.util.List<String> lines) {
 		StringBuilder sb = new StringBuilder();
 		for (String l : lines) {

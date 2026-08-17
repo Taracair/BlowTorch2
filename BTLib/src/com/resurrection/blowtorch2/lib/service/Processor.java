@@ -13,6 +13,7 @@ import org.json.JSONObject;
 
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
+import com.resurrection.blowtorch2.lib.service.mxp.MxpEngine;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -70,6 +71,10 @@ public class Processor {
 	private final GmcpModuleRegistry mModuleRegistry = new GmcpModuleRegistry();
 	/** Optional MSDP/MSSP stores (populated only when those protocols are enabled). */
 	private final MudProtocolData mMudProtocols = new MudProtocolData();
+	/** MXP 1.0 stream filter (option 91). */
+	private final MxpEngine mMxp = new MxpEngine();
+	/** Logcat handshake notes when Options → Log MXP? is on. */
+	private boolean mLogMxp;
 	/** Profile display name for Char.Login credential lookup. */
 	private String mDisplayName = "";
 	/** Constructor.
@@ -87,6 +92,22 @@ public class Processor {
 		mGMCP = new GMCPData();
 		setEncoding(pEncoding);
 		rebuildGmcpHello();
+		mMxp.setClient("BlowTorch", packageVersion());
+	}
+
+	private String packageVersion() {
+		String ver = "2.3.0";
+		if (mContext != null) {
+			try {
+				ver = mContext.getPackageManager()
+						.getPackageInfo(mContext.getPackageName(), 0).versionName;
+			} catch (Exception ignored) {
+			}
+		}
+		if (ver == null || ver.length() == 0) {
+			ver = "2.3.0";
+		}
+		return ver;
 	}
 
 	/** Refresh Core.Hello version from the installed APK versionName. */
@@ -495,6 +516,15 @@ public class Processor {
 			}
 		}
 
+		if (option == TC.MXP && (action == TC.WILL || action == TC.DO)
+				&& mOptionHandler.isUseMXP()) {
+			mMxp.setActive(true);
+			if (mLogMxp) {
+				android.util.Log.i("BlowTorch.MXP", "active after IAC "
+						+ (action == TC.WILL ? "WILL" : "DO") + " MXP");
+			}
+		}
+
 		if (option == TC.ECHO && (action == TC.WILL || action == TC.WONT)) {
 			// Ask the negotiator rather than re-deriving it here: it has already
 			// answered this command, and one source of truth cannot drift from the
@@ -629,6 +659,19 @@ public class Processor {
 		} else if (sub[0] == TC.MSDP || sub[0] == TC.MSSP) {
 			handleMsdpOrMssp(negotiation, sub[0]);
 			return false;
+		} else if (sub[0] == TC.MXP) {
+			mMxp.setActive(true);
+			if (mLogMxp) {
+				android.util.Log.i("BlowTorch.MXP", "active after IAC SB MXP");
+			}
+			if (mDebugTelnet && mReportTo != null) {
+				String message = "\n" + Colorizer.getTeloptStartColor() + "IN:["
+						+ TC.decodeSUB(negotiation) + "] MXP start"
+						+ Colorizer.getResetColor() + "\n";
+				mReportTo.sendMessageDelayed(mReportTo.obtainMessage(
+						Connection.MESSAGE_PROCESSORWARNING, message), 1);
+			}
+			return false;
 		} else if (sub.length == 1 && sub[0] == TC.CHARSET) {
 			// CHARSET ACCEPTED/REJECTED from server — apply pending encoding, no reply.
 			applyPendingCharset();
@@ -675,6 +718,7 @@ public class Processor {
 	 */
 	public final void setEncoding(final String encoding) {
 		this.mEncoding = encoding;
+		mMxp.setEncoding(encoding);
 	}
 
 	/** Getter for mEncoding.
@@ -1635,6 +1679,34 @@ public class Processor {
 
 	public final void setUseMCCP(final boolean value) {
 		mOptionHandler.setUseMCCP(value);
+	}
+
+	public final void setUseMXP(final boolean value) {
+		mOptionHandler.setUseMXP(value);
+		mMxp.setEnabled(value);
+		if (!value) {
+			mMxp.reset();
+		}
+	}
+
+	public final void setLogMXP(final boolean value) {
+		mLogMxp = value;
+	}
+
+	public final boolean isUseMXP() {
+		return mOptionHandler.isUseMXP();
+	}
+
+	public final MxpEngine getMxp() {
+		return mMxp;
+	}
+
+	/** Strip/interpret MXP in the telnet-cleared stream. No-op when Use MXP is off. */
+	public final byte[] filterMxp(final byte[] raw) {
+		if (raw == null || !mOptionHandler.isUseMXP()) {
+			return raw;
+		}
+		return mMxp.process(raw);
 	}
 
 	public final boolean isUseMCCP() {

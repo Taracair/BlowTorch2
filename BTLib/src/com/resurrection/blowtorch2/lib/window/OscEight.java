@@ -59,7 +59,7 @@ public final class OscEight {
 		return new Result(uri, id);
 	}
 
-	/** http, https, mailto only. */
+	/** http, https, mailto, and MXP SEND/menu/prompt/expire schemes. */
 	public static boolean isSafeUri(final String uri) {
 		if (uri == null) {
 			return false;
@@ -74,7 +74,8 @@ public final class OscEight {
 			return false;
 		}
 		return lower.startsWith("https://") || lower.startsWith("http://")
-				|| lower.startsWith("mailto:");
+				|| lower.startsWith("mailto:")
+				|| com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMxpHref(u);
 	}
 
 	static String parseId(final String params) {

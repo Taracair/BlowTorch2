@@ -112,8 +112,8 @@ Helpers: `.mcp ask`, `.mcp cord …`, `.mcp ping`, `.mcp client`, `.mcp send`.
 
 ## MUD Protocols (optional)
 
-Separate from GMCP, under **Options → Service → MUD Protocols**. **MTTS and MCCP
-are on by default; MSDP and MSSP are off** — enable those only if a MUD needs
+Separate from GMCP, under **Options → Service → MUD Protocols**. **MTTS, MCCP
+and MXP are on by default; MSDP and MSSP are off** — enable those only if a MUD needs
 them. Reconnect after changing any of these:
 
 | Option | Default | What it does |
@@ -122,6 +122,9 @@ them. Reconnect after changing any of these:
 | **Use MSDP?** | off | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
 | **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
 | **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |
+| **Use MXP?** | **on** | MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample |
+| **Log MXP?** | off | Dump MXP tags to logcat (`BlowTorch.MXP`) |
+| **Show MXP in game window?** | off | Echo parsed MXP into the game window (debug) |
 
 When one is off, BlowTorch answers `DONT` so the server should not send that
 channel. Parse errors never disconnect — the packet is ignored.

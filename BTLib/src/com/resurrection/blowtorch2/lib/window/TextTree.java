@@ -121,6 +121,8 @@ public class TextTree {
 	private boolean linkify = true;
 	/** Open OSC 8 href; connection thread only. Null means closed. */
 	private String osc8Href;
+	/** MXP expire group for the open OSC 8 span. */
+	private String osc8Expire;
 	/** Stamp href onto new text only when this is on. Parsing still runs. */
 	private boolean osc8Enabled = true;
 	/** Null when the window option is off. Same thread as {@link #addBytesImpl}. */
@@ -206,6 +208,7 @@ public class TextTree {
 		// drained, then this byte stream is what the window parses).
 		ByteArrayOutputStream out = new ByteArrayOutputStream(Math.max(32, totalbytes));
 		String dumpHref = null;
+		String dumpExpire = null;
 		ListIterator<Line> i = mLines.listIterator(mLines.size());
 		while(i.hasPrevious()) {
 			Line l = i.previous();
@@ -215,7 +218,12 @@ public class TextTree {
 				switch(u.type) {
 				case WHITESPACE:
 				case TEXT:
-					dumpHref = emitOsc8Transition(out, dumpHref, ((Text)u).getHref());
+					dumpHref = emitOsc8Transition(out, dumpHref, dumpExpire,
+							((Text)u).getHref(), ((Text)u).getExpireGroup());
+					dumpExpire = ((Text)u).getExpireGroup();
+					if (dumpHref == null) {
+						dumpExpire = null;
+					}
 					byte[] tbin = ((Text)u).bin;
 					if (tbin != null && tbin.length > 0) {
 						out.write(tbin, 0, tbin.length);
@@ -238,7 +246,7 @@ public class TextTree {
 				}
 			}
 		}
-		emitOsc8Transition(out, dumpHref, null);
+		emitOsc8Transition(out, dumpHref, dumpExpire, null, null);
 		byte[] ret = out.toByteArray();
 		if(!keep) empty();
 		return ret;
@@ -250,25 +258,41 @@ public class TextTree {
 	 * so the UI parser does not leak an href into the next chunk.
 	 */
 	private String emitOsc8Transition(final ByteArrayOutputStream out,
-			final String current, final String next) {
+			final String current, final String currentExpire,
+			final String next, final String nextExpire) {
 		boolean same = current == null ? next == null : current.equals(next);
 		if (same) {
-			return current;
+			boolean expSame = currentExpire == null ? nextExpire == null
+					: currentExpire.equals(nextExpire);
+			if (expSame) {
+				return current;
+			}
 		}
 		if (current != null) {
 			writeOsc8Close(out);
 		}
 		if (next != null) {
-			writeOsc8Open(out, next);
+			writeOsc8Open(out, next, nextExpire);
 		}
 		return next;
 	}
 
-	private void writeOsc8Open(final ByteArrayOutputStream out, final String uri) {
+	private void writeOsc8Open(final ByteArrayOutputStream out, final String uri,
+			final String expireGroup) {
 		out.write(ESC);
 		out.write(']');
 		out.write('8');
 		out.write(';');
+		String id = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.expireId(expireGroup);
+		if (id != null) {
+			try {
+				byte[] idb = ("id=" + id).getBytes(encoding);
+				out.write(idb, 0, idb.length);
+			} catch (UnsupportedEncodingException e) {
+				byte[] idb = ("id=" + id).getBytes();
+				out.write(idb, 0, idb.length);
+			}
+		}
 		out.write(';');
 		try {
 			byte[] ub = uri.getBytes(encoding);
@@ -292,6 +316,7 @@ public class TextTree {
 	public void empty() {
 		clearLines();
 		osc8Href = null;
+		osc8Expire = null;
 	}
 
 	/**
@@ -806,10 +831,19 @@ public class TextTree {
 						}
 						OscEight.Result osc = OscEight.parse(payloadStr);
 						if(osc != null) {
-							if(osc.isClose()) {
+							if(osc.uri != null && com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isExpireCommand(osc.uri)) {
+								expireMxpLinks(com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.expireGroup(osc.uri));
 								osc8Href = null;
-							} else if(osc8Enabled) {
+								osc8Expire = null;
+								Text expireMarker = new Text("");
+								expireMarker.setHref(osc.uri);
+								tmp.getData().addLast(expireMarker);
+							} else if(osc.isClose()) {
+								osc8Href = null;
+								osc8Expire = null;
+							} else if(osc8Enabled || com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMxpHref(osc.uri)) {
 								osc8Href = osc.uri;
+								osc8Expire = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.groupFromExpireId(osc.id);
 							}
 						}
 					}
@@ -1450,6 +1484,8 @@ public class TextTree {
 				if (orig.getHref() != null) {
 					firstPart.setHref(orig.getHref());
 					secondPart.setHref(orig.getHref());
+					firstPart.setExpireGroup(orig.getExpireGroup());
+					secondPart.setExpireGroup(orig.getExpireGroup());
 				} else if (orig.isLink()) {
 					firstPart.setLink(true);
 					secondPart.setLink(true);
@@ -1580,6 +1616,8 @@ public class TextTree {
 		private boolean link = false;
 		/** OSC 8 target, or null. Distinct from regex-linkify (display may not be the URL). */
 		private String href;
+		/** MXP EXPIRE group, or null. */
+		private String expireGroup;
 		
 		//public Text copy() {
 		//	return null;
@@ -1657,6 +1695,14 @@ public class TextTree {
 
 		public String getHref() {
 			return href;
+		}
+
+		public void setExpireGroup(final String expireGroup) {
+			this.expireGroup = expireGroup;
+		}
+
+		public String getExpireGroup() {
+			return expireGroup;
 		}
 		
 		//public Text copy() {
@@ -1976,7 +2022,10 @@ public class TextTree {
 	public void setOsc8Links(final boolean enabled) {
 		this.osc8Enabled = enabled;
 		if (!enabled) {
-			osc8Href = null;
+			if (osc8Href != null && !com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMxpHref(osc8Href)) {
+				osc8Href = null;
+				osc8Expire = null;
+			}
 		}
 	}
 
@@ -1985,10 +2034,41 @@ public class TextTree {
 	}
 
 	private Text stampOsc8(final Text t) {
-		if (t != null && osc8Enabled && osc8Href != null) {
-			t.setHref(osc8Href);
+		if (t != null && osc8Href != null) {
+			boolean mxp = com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMxpHref(osc8Href);
+			if (osc8Enabled || mxp) {
+				t.setHref(osc8Href);
+				t.setExpireGroup(osc8Expire);
+			}
 		}
 		return t;
+	}
+
+	/**
+	 * Deactivate MXP SEND/A links tagged with this expire group. Text stays;
+	 * taps do nothing. Walks this tree only — the UI copy sees the same OSC
+	 * command in the byte stream.
+	 */
+	public void expireMxpLinks(final String group) {
+		boolean all = group == null || group.length() == 0;
+		ListIterator<Line> li = mLines.listIterator(mLines.size());
+		while (li.hasPrevious()) {
+			Line line = li.previous();
+			for (Unit u : line.getData()) {
+				if (u instanceof Text) {
+					Text t = (Text) u;
+					if (all) {
+						if (t.getExpireGroup() != null) {
+							t.setHref(null);
+							t.setExpireGroup(null);
+						}
+					} else if (group.equals(t.getExpireGroup())) {
+						t.setHref(null);
+						t.setExpireGroup(null);
+					}
+				}
+			}
+		}
 	}
 
 	public void setBleedColor(Color c) {

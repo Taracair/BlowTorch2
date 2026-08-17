@@ -81,6 +81,8 @@ public class OptionNegotiator {
 	private boolean mUseMSSP = false;
 	/** When true, answer DO to IAC WILL MCCP2. Cleared for a session after MCCP fails. */
 	private boolean mUseMCCP = true;
+	/** When true, answer DO to IAC WILL MXP (option 91). */
+	private boolean mUseMXP = true;
 	/** True while the server has taken echoing over (telnet ECHO, option 1). */
 	private boolean mServerEcho = false;
 	/** Encoding selected via CHARSET subnegotiation; consumed by Processor. */
@@ -178,6 +180,9 @@ public class OptionNegotiator {
 	    			// RFC 885: we agree to receive IAC EOR as a prompt marker.
 	    			response = IAC_DO;
 	    			break;
+	    		case TC.MXP:
+	    			response = mUseMXP ? IAC_DO : IAC_DONT;
+	    			break;
 	    		default:
 	    			response = IAC_DONT;
 	    		}
@@ -198,6 +203,9 @@ public class OptionNegotiator {
 	    			break;
 	    		case TC.CHARSET:
 	    			response = IAC_WILL;
+	    			break;
+	    		case TC.MXP:
+	    			response = mUseMXP ? IAC_WILL : IAC_WONT;
 	    			break;
 	    		default:
 	    			response = IAC_WONT;
@@ -300,6 +308,8 @@ public class OptionNegotiator {
     		return new byte[] { TC.MSDP };
     	case TC.MSSP:
     		return new byte[] { TC.MSSP };
+    	case TC.MXP:
+    		return new byte[] { TC.MXP };
     	case TC.CHARSET:
     		return buildCharsetSubnegotiationResponse(sequence);
     	default:
@@ -599,6 +609,14 @@ public class OptionNegotiator {
 
 	public final boolean isUseMCCP() {
 		return mUseMCCP;
+	}
+
+	public final void setUseMXP(final boolean useMXP) {
+		mUseMXP = useMXP;
+	}
+
+	public final boolean isUseMXP() {
+		return mUseMXP;
 	}
 
 	/** @return true while the server echoes for us — the input bar should be masked. */

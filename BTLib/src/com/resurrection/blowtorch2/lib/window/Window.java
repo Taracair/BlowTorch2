@@ -1902,7 +1902,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				}
 				mTouchInTapWord = -1;
 				if (mTouchInLink > -1 && smallMove) {
-					mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(MainWindow.MESSAGE_LAUNCHURL, linkBoxes.get(mTouchInLink).getData()));
+					android.graphics.Rect hit = linkBoxes.get(mTouchInLink).getBox();
+					int cx = (hit.left + hit.right) / 2;
+					mMainWindowHandler.sendMessage(mMainWindowHandler.obtainMessage(
+							MainWindow.MESSAGE_LAUNCHURL, cx, hit.top,
+							linkBoxes.get(mTouchInLink).getData()));
 			        mTouchInLink = -1;
 				} else if (smallMove) {
 					if (homeWidgetShowing && homeWidgetFingerDown) {
@@ -2513,7 +2517,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							}
 						}
 						
-						boolean osc8 = mOsc8Links && text.getHref() != null;
+						boolean mxpLink = text.getHref() != null
+								&& com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isMxpHref(text.getHref())
+								&& !com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isExpireCommand(text.getHref());
+						boolean osc8 = (mOsc8Links || mxpLink) && text.getHref() != null
+								&& !com.resurrection.blowtorch2.lib.service.mxp.MxpLinks.isExpireCommand(text.getHref());
 						if (osc8 || text.isLink() || doingLink) {
 							if (u instanceof TextTree.WhiteSpace && !osc8) {
 								// Regex: whitespace ends the link. OSC 8 keeps

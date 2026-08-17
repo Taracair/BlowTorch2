@@ -92,7 +92,7 @@ public class ConnectionSetttingsParser extends PluginParser {
 		bell_display, use_gmcp, gmcp_supports, log_gmcp, gmcp_feed, gmcp_suggest_modules,
 		frame_image_placement, frame_image_lines,
 		use_mcp, mcp_packages, log_mcp, mcp_feed, mcp_omit_output, mcp_auto_negotiate,
-		use_mtts, use_msdp, use_mssp, use_mccp,
+		use_mtts, use_msdp, use_mssp, use_mccp, use_mxp, log_mxp, mxp_feed,
 		show_regex_warning,
 		session_log, session_log_directory, default_settings_directory,
 		terminal_width, terminal_height, terminal_size_hint,
@@ -775,6 +775,17 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case use_mccp:
 						// Defaults true, so it is the off state that has to be persisted.
 						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case use_mxp:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case log_mxp:
+					case mxp_feed:
+						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;

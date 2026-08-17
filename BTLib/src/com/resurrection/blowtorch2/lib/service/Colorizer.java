@@ -1842,6 +1842,9 @@ public final class Colorizer {
 	 * replaceAll} corrupts the result (leftover ESC, or {@code IndexOutOfBoundsException}).
 	 */
 	private static final Pattern COLOR_PATTERN = Pattern.compile("\\u001B\\[[0-9;:]*[A-Za-z]");
+	/** OSC 8 and other OSC: ESC ] … BEL or ST (ESC \\). */
+	private static final Pattern OSC_PATTERN =
+			Pattern.compile("\\u001B\\][^\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)");
 
 	/**
 	 * Strip ANSI CSI escape sequences from {@code input}.
@@ -1853,7 +1856,8 @@ public final class Colorizer {
 		if (input == null) {
 			return "";
 		}
-		return COLOR_PATTERN.matcher(input).replaceAll("");
+		String s = OSC_PATTERN.matcher(input).replaceAll("");
+		return COLOR_PATTERN.matcher(s).replaceAll("");
 	}
 
 }
