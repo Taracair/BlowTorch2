@@ -149,8 +149,9 @@ public class FloatingButtonController {
 	private int lastImeLiftPx;
 	/** True while buttons live in their own overlay windows. */
 	private boolean overlayMode;
-	/** Keyboard state the attached overlay windows were built for. */
-	private boolean lastOverlayImeUp;
+	/** Keyboard covering state last committed to overlay / in-layer windows. */
+	private boolean lastImeCovering;
+	private Runnable pendingImeCoveringApply;
 	/** Overlay pair per visual view, so add and remove stay symmetric. */
 	private final java.util.HashMap<FloatingButtonView, OverlayWindows> overlays =
 			new java.util.HashMap<FloatingButtonView, OverlayWindows>();
@@ -394,7 +395,7 @@ public class FloatingButtonController {
 		}
 	}
 
-	/** IME lift changed — Mode A visibility / Y. Mode B untouched. */
+	/** IME lift changed — Mode A visibility. Mode B untouched. */
 	public void onImeLiftChanged(int liftPx) {
 		// Use what was passed. This used to throw the argument away and ask a
 		// frame-based estimator instead, which under adjustNothing always
@@ -404,46 +405,84 @@ public class FloatingButtonController {
 		if (editingHidden || !host.isFloatingButtonsEnabled()) {
 			return;
 		}
-		if (overlayMode) {
-			// Overlay windows are above the keyboard, so their position does not
-			// depend on it (see rebuildOverlay). The only thing the keyboard
-			// decides is whether the keyboard-mode windows exist at all — so add
-			// or remove those and leave every other window where it is.
-			//
-			// Rebuilding the lot here took every button's window down and put it
-			// back on each inset event, and showing the keyboard sends more than
-			// one: that is the double blink the maintainer sees when the keys
-			// slide out, and each teardown is a window in which a button can come
-			// back somewhere else or not at all.
-			boolean imeUp = isSoftKeyboardCoveringLayer();
-			if (imeUp == lastOverlayImeUp) {
-				return;
+		scheduleImeCoveringApply();
+	}
+
+	/**
+	 * Keyboard animation sends several IME insets. Adding or removing overlay
+	 * windows on the first one that crosses 120dp, then again if a later inset
+	 * dips under that floor, is the double blink (teardown + attach, twice).
+	 * Wait until the covering boolean has been quiet for
+	 * {@link SoftKeyboardCoverage#SETTLE_MS}; hysteresis already ignores a dip
+	 * that stays above {@link SoftKeyboardCoverage#HIDE_DP}.
+	 */
+	private void scheduleImeCoveringApply() {
+		boolean covering = computeImeCovering();
+		if (covering == lastImeCovering) {
+			cancelPendingImeCovering();
+			if (!overlayMode && covering) {
+				relayoutKeyboardModeChildren();
 			}
-			lastOverlayImeUp = imeUp;
-			// Live overlay x/y into the cache first — drag updates the
-			// WindowManager params (and Lua) but not this snapshot, so anything
-			// built from it would snap a dragged button back.
+			return;
+		}
+		cancelPendingImeCovering();
+		pendingImeCoveringApply = new Runnable() {
+			@Override
+			public void run() {
+				pendingImeCoveringApply = null;
+				applyImeCovering();
+			}
+		};
+		uiHandler.postDelayed(pendingImeCoveringApply, SoftKeyboardCoverage.SETTLE_MS);
+	}
+
+	/** Follow IME height while already covering. Overlay Y does not use lift. */
+	private void relayoutKeyboardModeChildren() {
+		if (layer == null) {
+			return;
+		}
+		for (FloatingButtonView v : views) {
+			FloatingButtonModel m = v.getModel();
+			if (m != null && m.isKeyboardMode()) {
+				layoutChild(v, m, true);
+			}
+		}
+	}
+
+	private void applyImeCovering() {
+		boolean covering = computeImeCovering();
+		if (covering == lastImeCovering) {
+			return;
+		}
+		lastImeCovering = covering;
+		if (overlayMode) {
 			syncLastModelsFromLiveOverlayPositions();
-			updateKeyboardModeOverlays(imeUp);
+			updateKeyboardModeOverlays(covering);
 			return;
 		}
 		if (layer == null) {
 			return;
 		}
-		boolean imeUp = isSoftKeyboardCoveringLayer();
 		for (FloatingButtonView v : views) {
 			FloatingButtonModel m = v.getModel();
 			if (m == null) {
 				continue;
 			}
 			if (m.isKeyboardMode()) {
-				v.setVisibility(imeUp ? View.VISIBLE : View.GONE);
-				if (imeUp) {
+				v.setVisibility(covering ? View.VISIBLE : View.GONE);
+				if (covering) {
 					layoutChild(v, m, true);
 				}
 			}
 		}
 		bringUnderChrome();
+	}
+
+	private void cancelPendingImeCovering() {
+		if (pendingImeCoveringApply != null) {
+			uiHandler.removeCallbacks(pendingImeCoveringApply);
+			pendingImeCoveringApply = null;
+		}
 	}
 
 	public void bringUnderChrome() {
@@ -721,6 +760,7 @@ public class FloatingButtonController {
 	 */
 	public void onPause() {
 		resumed = false;
+		cancelPendingImeCovering();
 		clearViews();
 	}
 
@@ -772,6 +812,7 @@ public class FloatingButtonController {
 		maybeAskForOverlayPermission(models);
 		ensureLayer();
 		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
+		cancelPendingImeCovering();
 		if (overlayMode && (host.getMainWindow() == null || !resumed)) {
 			// rebuildOverlay would refuse to put the windows back, and taking
 			// them down anyway leaves no buttons at all until Lua happens to
@@ -780,6 +821,7 @@ public class FloatingButtonController {
 		}
 		clearViews();
 		boolean imeUp = isSoftKeyboardCoveringLayer();
+		lastImeCovering = imeUp;
 		if (overlayMode) {
 			rebuildOverlay(models, imeUp);
 			return;
@@ -817,7 +859,7 @@ public class FloatingButtonController {
 		if (host.getMainWindow() == null || !resumed) {
 			return;
 		}
-		lastOverlayImeUp = imeUp;
+		lastImeCovering = imeUp;
 		for (FloatingButtonModel m : models) {
 			if (m.isKeyboardMode() && !imeUp) {
 				// "Show only with keyboard": no window at all right now.
@@ -1113,28 +1155,26 @@ public class FloatingButtonController {
 	/**
 	 * True when the soft keyboard is up, so Mode A buttons should show.
 	 *
-	 * <p>One authority: the IME inset the chrome listener measured. The previous
-	 * version preferred {@code getWindowVisibleDisplayFrame} whenever the layer
-	 * had a real size — which is always — and that frame cannot answer here: the
-	 * manifest says {@code adjustNothing}, the window is never resized for the
-	 * keyboard, and the frame therefore never shrinks.
-	 *
-	 * <p>A floor of 120dp so a stray small inset is not mistaken for a keyboard.
+	 * <p>One authority: the IME inset the chrome listener measured. Hysteresis
+	 * ({@link SoftKeyboardCoverage}) so a dip during the slide does not toggle.
 	 */
 	private boolean isSoftKeyboardCoveringLayer() {
-		float density;
+		return computeImeCovering();
+	}
+
+	private boolean computeImeCovering() {
+		return SoftKeyboardCoverage.isCovering(lastImeLiftPx, density(), lastImeCovering);
+	}
+
+	private float density() {
 		if (layer != null) {
-			density = layer.getResources().getDisplayMetrics().density;
-		} else {
-			// Overlay mode has no layer. It used to answer "any inset at all" here,
-			// so a stray small one read as a keyboard and toggled the windows.
-			MainWindow activity = host.getMainWindow();
-			if (activity == null) {
-				return lastImeLiftPx > 0;
-			}
-			density = activity.getResources().getDisplayMetrics().density;
+			return layer.getResources().getDisplayMetrics().density;
 		}
-		return lastImeLiftPx >= Math.round(120 * density);
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return 1f;
+		}
+		return activity.getResources().getDisplayMetrics().density;
 	}
 
 	/**
@@ -1266,6 +1306,7 @@ public class FloatingButtonController {
 	}
 
 	private void clearViews() {
+		cancelPendingImeCovering();
 		for (FloatingButtonView v : views) {
 			if (overlays.containsKey(v)) {
 				removeOverlayPair(v);
