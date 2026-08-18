@@ -7,6 +7,9 @@ statusoffset = 0
 --typeface support for bolding text
 local Typeface = luajava.bindClass("android.graphics.Typeface")
 local DEFAULT_BOLD_TYPEFACE = Typeface.DEFAULT_BOLD
+local TextPaintClass = luajava.bindClass("android.text.TextPaint")
+local StaticLayoutBuilder = luajava.bindClass("android.text.StaticLayout$Builder")
+local LayoutAlignment = luajava.bindClass("android.text.Layout$Alignment")
 
 buttonRoundness = 16
 buttonShowHints = true
@@ -33,6 +36,19 @@ function rgbFromArgb(color)
 	local g = math.floor(n / 256) % 256
 	local b = n % 256
 	return r, g, b
+end
+
+-- Alpha of 0xAARRGGBB (Java signed int). Nil/unreadable → opaque, so a missed
+-- fill does not hide badges.
+function alphaFromArgb(color)
+	local n = tonumber(color)
+	if n == nil then
+		return 255
+	end
+	if n < 0 then
+		n = n + 4294967296
+	end
+	return math.floor(n / 16777216) % 256
 end
 
 function colorWithForcedAlpha(color, alpha)
@@ -73,6 +89,9 @@ BUTTONSET_DATA = {
 						-- button that has never been asked inherits "yes", which
 						-- is how every profile behaved before it existed.
 						showGestureHints = true,
+						-- Wrap the label inside the tile. Default off so existing
+						-- buttons stay the one-line canvas:drawText they always had.
+						wrapLabel = false,
 						name = "",
 						switchTo = "",
 						accordionDirection = "",
@@ -150,6 +169,30 @@ end
 
 local function rectBottom(r)
 	return r.bottom
+end
+
+-- Wrap the label inside the tile using Android StaticLayout. Single-line
+-- drawText stays on the wrap-off path so existing buttons are pixel-identical.
+local function drawWrappedLabel(canvas, paint, label, rect, density, cx, cy)
+	if label == nil then
+		label = ""
+	end
+	local pad = 4 * density
+	local maxW = math.floor((rectRight(rect) - rectLeft(rect)) - pad * 2)
+	if maxW < 1 then
+		maxW = 1
+	end
+	local jstr = luajava.newInstance("java.lang.String", tostring(label))
+	local tp = luajava.new(TextPaintClass, paint)
+	local builder = StaticLayoutBuilder:obtain(jstr, 0, jstr:length(), tp, maxW)
+	builder:setAlignment(LayoutAlignment.ALIGN_CENTER)
+	builder:setIncludePad(false)
+	local layout = builder:build()
+	canvas:save()
+	canvas:clipRect(rectLeft(rect), rectTop(rect), rectRight(rect), rectBottom(rect))
+	canvas:translate(rectLeft(rect) + pad, cy - layout:getHeight() / 2)
+	layout:draw(canvas)
+	canvas:restore()
 end
 
 BUTTON = {} -- this class is purley a factory. these represent "in use" buttons
@@ -233,15 +276,20 @@ local function edgeInset(rect, density)
 	return math.max(3 * density, math.min(6 * density, (rectRight(rect) - rectLeft(rect)) * 0.1))
 end
 
-local function drawAccordionTriggerBadge(canvas, paint, rect, direction, trigger, density)
+local function drawAccordionTriggerBadge(canvas, paint, rect, direction, trigger, density, fillAlpha)
+	if fillAlpha == nil or fillAlpha == 0 then
+		return
+	end
 	local badge = "T"
-	local color = Color:argb(160, 0xAA, 0xAA, 0xAA)
+	-- Same alpha as the tile fill (not the old hardcoded 160/180): a fully
+	-- transparent button must not keep opaque H/S/T letters.
+	local color = Color:argb(fillAlpha, 0xAA, 0xAA, 0xAA)
 	if trigger == "hold" then
 		badge = "H"
-		color = Color:argb(180, 0xFF, 0xCC, 0x66)
+		color = Color:argb(fillAlpha, 0xFF, 0xCC, 0x66)
 	elseif trigger == "swipe" then
 		badge = "S"
-		color = Color:argb(180, 0x99, 0xCC, 0xFF)
+		color = Color:argb(fillAlpha, 0x99, 0xCC, 0xFF)
 	end
 	local inset = edgeInset(rect, density)
 	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
@@ -327,12 +375,15 @@ local function accordionChevronPosition(rect, direction, density, data)
 	return cx, cy
 end
 
-local function drawAccordionChevron(canvas, paint, rect, direction, expanded, density, data)
+local function drawAccordionChevron(canvas, paint, rect, direction, expanded, density, data, fillAlpha)
+	if fillAlpha == nil or fillAlpha == 0 then
+		return
+	end
 	local cx, cy = accordionChevronPosition(rect, direction, density, data)
 	local size = indicatorSize(rect, density) + density
-	local color = Color:argb(200, 0x66, 0xDD, 0xFF)
+	local color = Color:argb(fillAlpha, 0x66, 0xDD, 0xFF)
 	if expanded then
-		color = Color:argb(200, 0xFF, 0xAA, 0x44)
+		color = Color:argb(fillAlpha, 0xFF, 0xAA, 0x44)
 	end
 	local drawDir = direction
 	if expanded then
@@ -365,11 +416,14 @@ local DIAGONAL_HINTS = {
 	{ field = "swipeDownRightCommand", dir = "downright" },
 }
 
-function BUTTON:drawGestureIndicators(canvas, paint)
+function BUTTON:drawGestureIndicators(canvas, paint, fillAlpha)
+	if fillAlpha == nil or fillAlpha == 0 then
+		return
+	end
 	local rect = self.rect
 	local inset = edgeInset(rect, self.density)
 	local arrow = indicatorSize(rect, self.density)
-	local color = Color:argb(150, 0xFF, 0xFF, 0xFF)
+	local color = Color:argb(fillAlpha, 0xFF, 0xFF, 0xFF)
 	local left, right = rectLeft(rect), rectRight(rect)
 	local top, bottom = rectTop(rect), rectBottom(rect)
 	local midX = (left + right) * 0.5
@@ -417,7 +471,7 @@ function BUTTON:drawGestureIndicators(canvas, paint)
 
 	if hasGestureCommand(self.data, "holdCommand")
 			and not (accTrigger == "hold") then
-		paint:setColor(Color:argb(170, 0xFF, 0xFF, 0x66))
+		paint:setColor(Color:argb(fillAlpha, 0xFF, 0xFF, 0x66))
 		paint:setTextSize(math.max(7 * self.density, arrow * 1.2))
 		canvas:drawText("Hold", right - 16 * self.density, bottom - 4 * self.density, paint)
 	end
@@ -496,13 +550,20 @@ function BUTTON:drawSwipePreview(canvas, direction)
 	if direction == nil then
 		return
 	end
+	local fillAlpha = self._fillAlpha
+	if fillAlpha == nil then
+		fillAlpha = alphaFromArgb(colorWithForcedAlpha(self.data.primaryColor, buttonOpacityOverride))
+	end
+	if fillAlpha == 0 then
+		return
+	end
 	local rect = self.rect
 	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
 	local cy = (rectTop(rect) + rectBottom(rect)) * 0.5
 	local size = math.min(rectRight(rect) - rectLeft(rect),
 			rectBottom(rect) - rectTop(rect)) * 0.55
 	drawDirectionArrow(canvas, self.paintOpts, cx, cy, direction, size,
-			Color:argb(105, 0xFF, 0xFF, 0xFF))
+			Color:argb(fillAlpha, 0xFF, 0xFF, 0xFF))
 end
 
 function BUTTON:draw(state,canvas)
@@ -523,16 +584,23 @@ function BUTTON:draw(state,canvas)
 	local rect = self.rect
 	--Note("drawing button, roundness is"..buttonRoundness)
 	--buttonRoundness = 30.0
+	local fill = tileColor(self.data.primaryColor)
 	if(usestate == 0) then
-		p:setColor(tileColor(self.data.primaryColor))
+		p:setColor(fill)
 		canvas:drawRoundRect(rect,buttonRoundness,buttonRoundness,p)
 	elseif(usestate == 1) then
-		p:setColor(tileColor(self.data.selectedColor))
+		fill = tileColor(self.data.selectedColor)
+		p:setColor(fill)
 		canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
 	elseif(usestate == 2) then
-		p:setColor(tileColor(self.data.flipColor))
+		fill = tileColor(self.data.flipColor)
+		p:setColor(fill)
 		canvas:drawRoundRect(self.inset,buttonRoundness,buttonRoundness,p)
 	end
+	-- Badges reuse this, not a second fade: tileColor already applied
+	-- buttonOpacityOverride (or left the colour's own alpha).
+	local fillAlpha = alphaFromArgb(fill)
+	self._fillAlpha = fillAlpha
 	
 	local label = nil
 	if(usestate == 0 or usestate == 1) then
@@ -557,11 +625,17 @@ function BUTTON:draw(state,canvas)
 	-- in the manager -- the tile moved and its label stayed behind.
 	local cx = (rectLeft(rect) + rectRight(rect)) * 0.5
 	local cy = (rectTop(rect) + rectBottom(rect)) * 0.5
-	local tX = cx - (p:measureText(label)/2)
-	local tY = cy + (p:getTextSize()/2)
-	p:setTypeface(DEFAULT_BOLD_TYPEFACE)
-	canvas:drawText(label,tX,tY,p)
+	if self.data.wrapLabel == true then
+		p:setTypeface(DEFAULT_BOLD_TYPEFACE)
+		drawWrappedLabel(canvas, p, label, rect, self.density, cx, cy)
+	else
+		local tX = cx - (p:measureText(label)/2)
+		local tY = cy + (p:getTextSize()/2)
+		p:setTypeface(DEFAULT_BOLD_TYPEFACE)
+		canvas:drawText(label,tX,tY,p)
+	end
 	-- nil defaults to on; only explicit false/"false"/0 hides U/D/L/R, Hold, accordion badges.
+	-- Independent of showGestureLabel (the callout above the tile while gesturing).
 	local showHints = true
 	if buttonShowHints == false or buttonShowHints == "false"
 			or buttonShowHints == 0 or buttonShowHints == "0" then
@@ -579,13 +653,13 @@ function BUTTON:draw(state,canvas)
 		showHints = false
 	end
 	if showHints and not self.isAccordionChild then
-		self:drawGestureIndicators(canvas, p)
+		self:drawGestureIndicators(canvas, p, fillAlpha)
 		if hasAccordionConfig(self.data) then
-			drawAccordionChevron(canvas, p, rect, self.data.accordionDirection, self.expanded, self.density, self.data)
-			drawAccordionTriggerBadge(canvas, p, rect, self.data.accordionDirection, getAccordionTrigger(self.data), self.density)
+			drawAccordionChevron(canvas, p, rect, self.data.accordionDirection, self.expanded, self.density, self.data, fillAlpha)
+			drawAccordionTriggerBadge(canvas, p, rect, self.data.accordionDirection, getAccordionTrigger(self.data), self.density, fillAlpha)
 		end
-		if self.expanded and self.data.accordionAutoClose == false then
-			p:setColor(Color:argb(200, 0xFF, 0x66, 0x66))
+		if self.expanded and self.data.accordionAutoClose == false and fillAlpha > 0 then
+			p:setColor(Color:argb(fillAlpha, 0xFF, 0x66, 0x66))
 			p:setTextSize(math.max(9 * self.density, indicatorSize(rect, self.density) * 1.5))
 			canvas:drawText("x", rectLeft(rect) + 8 * self.density, rectTop(rect) + 11 * self.density, p)
 		end

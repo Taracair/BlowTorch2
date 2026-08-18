@@ -8,6 +8,9 @@ import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.text.Layout;
+import android.text.StaticLayout;
+import android.text.TextPaint;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
@@ -255,29 +258,68 @@ public class FloatingButtonView extends View {
 		if (text == null) {
 			text = "";
 		}
+		drawButtonLabel(canvas, text, left, top, right, bottom, fg);
+
 		float midX = (left + right) / 2f;
 		float midY = (top + bottom) / 2f;
-		textPaint.setColor(fg);
-		textPaint.setTextSize(model.labelSizeSp * getResources().getDisplayMetrics().scaledDensity);
-		Paint.FontMetrics fm = textPaint.getFontMetrics();
-		float textY = midY - (fm.ascent + fm.descent) / 2f;
-		canvas.drawText(text, midX, textY, textPaint);
-
+		// Match the grid: badges are profile show_gesture_hints AND per-button
+		// showGestureHints. The callout ("Name the command above…") is only
+		// showGestureLabel. They used to share this flag, so unchecking the
+		// callout also hid U/D/L/R / Hold.
 		boolean hintsOn = callbacks != null && callbacks.showGestureHints()
-				&& model.showGestureLabel;
-		if (hintsOn) {
-			drawStaticGestureHints(canvas, left, top, right, bottom);
+				&& model.showGestureHints;
+		boolean calloutOn = model.showGestureLabel;
+		// Fill already carries per-button alpha (and Lua's buttonOpacityOverride).
+		// Do not also setView alpha — that would fade twice (see GaugeWidgetView).
+		int fillAlpha = (bg >>> 24) & 0xFF;
+		if (hintsOn && fillAlpha > 0) {
+			drawStaticGestureHints(canvas, left, top, right, bottom, fillAlpha);
 		}
-		if (previewDir != null) {
-			drawPreviewArrow(canvas, previewDir, midX, midY);
+		if (previewDir != null && fillAlpha > 0) {
+			drawPreviewArrow(canvas, previewDir, midX, midY, fillAlpha);
 		}
 		// Press callout sits above the button, in the padding band — same
 		// placement as BUTTON:drawGestureLabel on the grid. Overlay hosting
 		// sizes a NOT_TOUCHABLE window to include this band
 		// (FloatingButtonController dual-window).
-		if (callout != null && callout.length() > 0 && hintsOn) {
+		if (callout != null && callout.length() > 0 && calloutOn) {
 			drawCallout(canvas, left, top, right);
 		}
+	}
+
+	/**
+	 * One-line {@code drawText} when wrap is off (pixel-identical to before).
+	 * Wrapped labels use {@link StaticLayout} inside the tile rect.
+	 */
+	private void drawButtonLabel(Canvas canvas, String text, float left, float top,
+			float right, float bottom, int fg) {
+		textPaint.setColor(fg);
+		textPaint.setTextSize(model.labelSizeSp * getResources().getDisplayMetrics().scaledDensity);
+		float midX = (left + right) / 2f;
+		float midY = (top + bottom) / 2f;
+		if (!model.wrapLabel) {
+			textPaint.setTextAlign(Paint.Align.CENTER);
+			Paint.FontMetrics fm = textPaint.getFontMetrics();
+			float textY = midY - (fm.ascent + fm.descent) / 2f;
+			canvas.drawText(text, midX, textY, textPaint);
+			return;
+		}
+		float density = getResources().getDisplayMetrics().density;
+		float pad = 4f * density;
+		int maxWidth = Math.max(1, (int) Math.floor((right - left) - pad * 2f));
+		textPaint.setTextAlign(Paint.Align.LEFT);
+		TextPaint tp = new TextPaint(textPaint);
+		StaticLayout layout = StaticLayout.Builder
+				.obtain(text, 0, text.length(), tp, maxWidth)
+				.setAlignment(Layout.Alignment.ALIGN_CENTER)
+				.setIncludePad(false)
+				.build();
+		canvas.save();
+		canvas.clipRect(left, top, right, bottom);
+		canvas.translate(left + pad, midY - layout.getHeight() / 2f);
+		layout.draw(canvas);
+		canvas.restore();
+		textPaint.setTextAlign(Paint.Align.CENTER);
 	}
 
 	private void drawCallout(Canvas canvas, float buttonLeft, float buttonTop, float buttonRight) {
@@ -308,13 +350,13 @@ public class FloatingButtonView extends View {
 	 * "only a D shows" symptom this fixes).
 	 */
 	private void drawStaticGestureHints(Canvas canvas, float left, float top,
-			float right, float bottom) {
+			float right, float bottom, int fillAlpha) {
 		float density = getResources().getDisplayMetrics().density;
 		float w = right - left;
 		float h = bottom - top;
 		float gap = Math.max(2f * density, Math.min(w, h) * 0.04f);
 		float arrow = Math.max(6f * density, Math.min(w, h) * 0.12f);
-		int color = 0x96FFFFFF;
+		int color = colorAtFillAlpha(0x00FFFFFF, fillAlpha);
 		Paint hint = calloutText;
 		float prevSize = hint.getTextSize();
 		Paint.Align prevAlign = hint.getTextAlign();
@@ -345,16 +387,16 @@ public class FloatingButtonView extends View {
 
 		float cornerOffset = gap + arrow * 0.5f;
 		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_LEFT,
-				left - cornerOffset, top - cornerOffset, arrow);
+				left - cornerOffset, top - cornerOffset, arrow, fillAlpha);
 		drawCornerHint(canvas, SuperButtonGestures.DIR_UP_RIGHT,
-				right + cornerOffset, top - cornerOffset, arrow);
+				right + cornerOffset, top - cornerOffset, arrow, fillAlpha);
 		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_LEFT,
-				left - cornerOffset, bottom + cornerOffset, arrow);
+				left - cornerOffset, bottom + cornerOffset, arrow, fillAlpha);
 		drawCornerHint(canvas, SuperButtonGestures.DIR_DOWN_RIGHT,
-				right + cornerOffset, bottom + cornerOffset, arrow);
+				right + cornerOffset, bottom + cornerOffset, arrow, fillAlpha);
 
 		if (model.holdCommand != null && model.holdCommand.length() > 0) {
-			hint.setColor(0xAAFFFF66);
+			hint.setColor(colorAtFillAlpha(0x00FFFF66, fillAlpha));
 			hint.setTextSize(Math.max(7f * density, arrow * 1.2f));
 			hint.setTextAlign(Paint.Align.RIGHT);
 			canvas.drawText("Hold", right, bottom + gap - fm.ascent, hint);
@@ -369,7 +411,8 @@ public class FloatingButtonView extends View {
 		return model.commandForDirection(dir) != null;
 	}
 
-	private void drawCornerHint(Canvas canvas, String dir, float cx, float cy, float size) {
+	private void drawCornerHint(Canvas canvas, String dir, float cx, float cy, float size,
+			int fillAlpha) {
 		if (!hasSwipe(dir)) {
 			return;
 		}
@@ -390,12 +433,12 @@ public class FloatingButtonView extends View {
 		float mag = (float) Math.hypot(dx, dy);
 		dx = dx / mag * size * 0.5f;
 		dy = dy / mag * size * 0.5f;
-		arrowPaint.setColor(0x96FFFFFF);
+		arrowPaint.setColor(colorAtFillAlpha(0x00FFFFFF, fillAlpha));
 		arrowPaint.setStrokeWidth(Math.max(2f, size * 0.18f));
 		canvas.drawLine(cx - dx * 0.4f, cy - dy * 0.4f, cx + dx, cy + dy, arrowPaint);
 	}
 
-	private void drawPreviewArrow(Canvas canvas, String dir, float cx, float cy) {
+	private void drawPreviewArrow(Canvas canvas, String dir, float cx, float cy, int fillAlpha) {
 		// Sized from the button, not the padded view, so the arrow stays inside
 		// the button like before — only the static hints moved outward.
 		float len = Math.min(buttonWidthPx, buttonHeightPx) * 0.35f;
@@ -423,7 +466,7 @@ public class FloatingButtonView extends View {
 		}
 		dx = dx / mag * len;
 		dy = dy / mag * len;
-		arrowPaint.setColor(0xFFFFFFFF);
+		arrowPaint.setColor(colorAtFillAlpha(0x00FFFFFF, fillAlpha));
 		arrowPaint.setStrokeWidth(3f);
 		canvas.drawLine(cx, cy, cx + dx, cy + dy, arrowPaint);
 	}
@@ -669,6 +712,15 @@ public class FloatingButtonView extends View {
 			return "↘";
 		}
 		return "";
+	}
+
+	/**
+	 * Badge/hint colour using the fill's alpha so a fully transparent button
+	 * hides U/D/L/R, Hold and corner arrows too. Replaces alpha; does not
+	 * multiply a second time.
+	 */
+	private static int colorAtFillAlpha(int rgb, int fillAlpha) {
+		return ((fillAlpha & 0xFF) << 24) | (rgb & 0x00FFFFFF);
 	}
 
 	/** Light outline on dark fill (and the reverse) so the border is visible. */

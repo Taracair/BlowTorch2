@@ -55,6 +55,18 @@ print("3. nil-ish non-number")
 r, g, b = rgbFromArgb(nil)
 check(r == 0 and g == 0 and b == 0, "nil → 0,0,0")
 
+print("4. alphaFromArgb of signed 0x880000FF and opaque/transparent")
+local alphaFirst = findLine("^function alphaFromArgb", "alphaFromArgb")
+local alphaStop = findLine("^function colorWithForcedAlpha", "colorWithForcedAlpha")
+local alphaChunk = table.concat(lines, "\n", alphaFirst, alphaStop - 1)
+	.. "\nreturn alphaFromArgb\n"
+local alphaFromArgb = assert(loadfn(alphaChunk, "alphaFromArgb-extract"))()
+local a = alphaFromArgb(signed)
+check(a == 0x88, string.format("signed 0x880000FF alpha → %s", tostring(a)))
+check(alphaFromArgb(4294967295) == 255, "0xFFFFFFFF → 255") -- unsigned 32-bit all ones
+check(alphaFromArgb(0x00FF8000) == 0, "transparent fill → 0")
+check(alphaFromArgb(nil) == 255, "nil → opaque so badges are not hidden by a missed fill")
+
 if failures > 0 then
 	print(string.format("FAILED (%d)", failures))
 	os.exit(1)

@@ -2221,7 +2221,13 @@ function notifyFloatingButtonsChanged()
 					o:put("swipeDownLeftCommand", tostring(d.swipeDownLeftCommand or ""))
 					o:put("swipeDownRightCommand", tostring(d.swipeDownRightCommand or ""))
 					o:put("showGestureLabel", d.showGestureLabel ~= false)
-					o:put("showGestureHints", d.showGestureHints ~= false)
+					-- Profile master AND per-button: MainWindow.showGestureHints
+					-- is always true, so the AND has to live in this payload or
+					-- Options → Button → Show gesture hints would not reach
+					-- the floating copy.
+					o:put("showGestureHints", buttonShowHints ~= false
+						and d.showGestureHints ~= false)
+					o:put("wrapLabel", d.wrapLabel == true)
 					o:put("switchTo", tostring(d.switchTo or ""))
 					o:put("primaryColor", floaterArgb(d.primaryColor))
 					o:put("selectedColor", floaterArgb(d.selectedColor))
@@ -3492,12 +3498,14 @@ function buttonOptions()
   editorOptionsDialog.setGridSnapTestCallback(function(v)
     intersectMode = v
   end)
-  editorOptionsDialog.setShowGestureHintsCallback(function(v)
+	editorOptionsDialog.setShowGestureHintsCallback(function(v)
     -- PluginXCallS(fn, data) only carries one data string — call the setter directly.
     PluginXCallS("setShowGestureHints", v and "true" or "false")
     buttonShowHints = v and true or false
     drawButtons()
     view:invalidate()
+    -- Floaters read showGestureHints from the JSON snapshot, not this global.
+    notifyFloatingButtonsChanged()
   end)
   editorOptionsDialog.setShowSwipePreviewCallback(function(v)
     PluginXCallS("setShowSwipePreview", v and "true" or "false")
@@ -4002,6 +4010,7 @@ function buildAccordionOverlay(parent)
 				selectedColor = src.data.selectedColor,
 				labelColor = src.data.labelColor,
 				labelSize = src.data.labelSize,
+				wrapLabel = src.data.wrapLabel == true,
 				border = src.data.border == true,
 				borderColor = src.data.borderColor,
 			}
@@ -4023,6 +4032,7 @@ function buildAccordionOverlay(parent)
 					selectedColor = parent.data.selectedColor,
 					labelColor = parent.data.labelColor,
 					labelSize = parent.data.labelSize,
+					wrapLabel = parent.data.wrapLabel == true,
 					border = parent.data.border == true,
 					borderColor = parent.data.borderColor,
 				}
@@ -4969,6 +4979,7 @@ function buttonEditorDone(data)
 		tmp.data.swipeDownRightCommand = data.swipeDownRightCommand or ""
 		tmp.data.showGestureLabel = data.showGestureLabel ~= false
 		tmp.data.showGestureHints = data.showGestureHints ~= false
+		tmp.data.wrapLabel = data.wrapLabel == true
 
 		tmp.data.accordionDirection = data.accordionDirection or ""
 		local kids = data.accordionChildren or {}
@@ -5061,6 +5072,10 @@ function buttonEditorDone(data)
 
 				if data.border ~= nil and data.border ~= editorValues.border then
 					b.data.border = data.border == true
+				end
+
+				if data.wrapLabel ~= nil and data.wrapLabel ~= editorValues.wrapLabel then
+					b.data.wrapLabel = data.wrapLabel == true
 				end
 
 				if data.borderColor ~= nil and data.borderColor ~= editorValues.borderColor then
@@ -5159,6 +5174,7 @@ function showEditorDialog()
 		editorValues.width = button.data.width
 		
 		editorValues.labelSize = button.data.labelSize
+		editorValues.wrapLabel = button.data.wrapLabel == true
 		-- The editor shows and edits the position for the orientation you are
 		-- holding the phone in.
 		editorValues.x = posX(button.data)
@@ -5213,6 +5229,13 @@ function showEditorDialog()
 				elseif(editorValues.labelSize ~= tonumber(b.data.labelSize)) then
 					editorValues.labelSize = "MULTI"
 				end
+
+				local bWrap = b.data.wrapLabel == true
+				if editorValues.wrapLabel == nil then
+					editorValues.wrapLabel = bWrap
+				elseif editorValues.wrapLabel ~= bWrap then
+					editorValues.wrapLabel = bWrap
+				end
 				
 				if(editorValues.height == nil) then
 					editorValues.height = tonumber(b.data.height)
@@ -5248,6 +5271,9 @@ function showEditorDialog()
 		editorValues.floatFrame = false
 		if editorValues.border == nil then
 			editorValues.border = false
+		end
+		if editorValues.wrapLabel == nil then
+			editorValues.wrapLabel = false
 		end
 	end
 	

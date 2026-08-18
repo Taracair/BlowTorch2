@@ -1,6 +1,7 @@
 package com.resurrection.blowtorch2.lib.window;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -76,6 +77,36 @@ public class FloatingButtonModelTest {
 		assertEquals(0xE0FF00FF, moved.borderColor);
 		assertTrue(moved.floatFrame);
 		assertEquals(24.5f, moved.cornerRadiusPx, 0.01f);
+	}
+
+	@Test
+	public void gestureHintAndWrapFieldsSurviveParseAndDragCopy() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 2);
+		o.put("floatX", 10);
+		o.put("floatY", 20);
+		o.put("showGestureLabel", false);
+		o.put("showGestureHints", true);
+		o.put("wrapLabel", true);
+		FloatingButtonModel original = new FloatingButtonModel(o);
+		assertFalse(original.showGestureLabel);
+		assertTrue(original.showGestureHints);
+		assertTrue(original.wrapLabel);
+
+		FloatingButtonModel moved = original.withFloatPosition(40, 50);
+		assertFalse(moved.showGestureLabel);
+		assertTrue(moved.showGestureHints);
+		assertTrue(moved.wrapLabel);
+	}
+
+	@Test
+	public void showGestureHintsDefaultsOnAndWrapLabelDefaultsOff() throws Exception {
+		JSONObject o = new JSONObject();
+		o.put("index", 1);
+		FloatingButtonModel m = new FloatingButtonModel(o);
+		assertTrue(m.showGestureLabel);
+		assertTrue(m.showGestureHints);
+		assertFalse(m.wrapLabel);
 	}
 
 	/** The defect: one stored pair, so a portrait drag followed the turn. */

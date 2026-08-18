@@ -48,6 +48,10 @@ public final class FloatingButtonModel {
 	public final String swipeDownLeftCommand;
 	public final String swipeDownRightCommand;
 	public final boolean showGestureLabel;
+	/** Per-button U/D/L/R / Hold badges; independent of {@link #showGestureLabel}. */
+	public final boolean showGestureHints;
+	/** Wrap the label inside the tile. Default false: one-line drawText. */
+	public final boolean wrapLabel;
 	public final String floatMode;
 	/** Position for {@link #landscape} — one of the two stored pairs below. */
 	public final int floatX;
@@ -123,6 +127,8 @@ public final class FloatingButtonModel {
 		swipeDownLeftCommand = o.optString("swipeDownLeftCommand", "");
 		swipeDownRightCommand = o.optString("swipeDownRightCommand", "");
 		showGestureLabel = o.optBoolean("showGestureLabel", true);
+		showGestureHints = o.optBoolean("showGestureHints", true);
+		wrapLabel = o.optBoolean("wrapLabel", false);
 		String mode = o.optString("floatMode", MODE_ALWAYS);
 		floatMode = MODE_KEYBOARD.equals(mode) ? MODE_KEYBOARD : MODE_ALWAYS;
 		floatXPortrait = o.optInt("floatX", FloatingLayerGeometry.UNPLACED);
@@ -185,6 +191,8 @@ public final class FloatingButtonModel {
 		swipeDownLeftCommand = src.swipeDownLeftCommand;
 		swipeDownRightCommand = src.swipeDownRightCommand;
 		showGestureLabel = src.showGestureLabel;
+		showGestureHints = src.showGestureHints;
+		wrapLabel = src.wrapLabel;
 		floatMode = src.floatMode;
 		landscape = forLandscape;
 		// A drag writes only the pair for the orientation it happened in; the

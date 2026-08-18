@@ -398,6 +398,7 @@ function button.start(a)
 	tmp.swipeDownRightCommand = a:getValue("","swipeDownRightCommand") or ""
 	tmp.showGestureLabel = a:getValue("","showGestureLabel") ~= "false"
 	tmp.showGestureHints = a:getValue("","showGestureHints") ~= "false"
+	tmp.wrapLabel = a:getValue("","wrapLabel") == "true"
 	tmp.switchTo = a:getValue("","switchTo") or ""
 	tmp.name = a:getValue("","name")
 	tmp.height = a:getValue("","height")
@@ -2297,6 +2298,14 @@ function ensureLayoutSettingsOptions()
 		end)
 		if okAdd then added = true end
 	end
+
+	-- Retired from Options → Button: the editor is overflow long-press / Edit
+	-- buttons. Old profiles still carry the BooleanOption row. Strip it here
+	-- (buttonLayerReady), never from OnOptionChanged.
+	if not missing("auto_launch") then
+		pcall(function() settings:removeOptionByKey("auto_launch") end)
+		added = true
+	end
 	return added
 end
 
@@ -2470,9 +2479,9 @@ optionsTable.haptic_edit = setHapticFeedbackEditor
 optionsTable.haptic_press = setHapticFeedbackPressed
 optionsTable.haptic_flip = setHapticFeedbackFlipped
 optionsTable.roundess = setRoundness
--- Both of these are gone from the settings screen: the editor is reached by holding
--- the overflow icon or picking Edit buttons, and nothing reads auto_create. The
--- setters stay so a preference saved by an older build still lands somewhere.
+-- auto_launch is stripped from existing profiles in ensureLayoutSettingsOptions.
+-- auto_create stays in the group if a profile already has it. The setters stay
+-- so a preference saved by an older build still lands somewhere.
 optionsTable.auto_launch = setAutoLaunch
 optionsTable.auto_create = setAutoCreate
 optionsTable.show_gesture_hints = setShowGestureHints

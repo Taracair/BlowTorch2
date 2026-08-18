@@ -104,6 +104,8 @@ snapshot = {
 			labelSize = 16,
 			command = "n",
 			showGestureLabel = true,
+			showGestureHints = true,
+			wrapLabel = false,
 		},
 	},
 }
@@ -113,6 +115,16 @@ check(snap.editing == false, "not editing")
 check(#snap.buttons == 1, "one floating button")
 check(snap.buttons[1].index == 1, "1-based index")
 check(snap.buttons[1].floatX == -1, "unplaced floatX")
+check(snap.buttons[1].showGestureLabel == true, "showGestureLabel")
+check(snap.buttons[1].showGestureHints == true, "showGestureHints independent of callout")
+check(snap.buttons[1].wrapLabel == false, "wrapLabel defaults off in snapshot")
+
+print("4. wrapLabel true survives serialize → loadstring")
+local wrapped = { wrapLabel = true, showGestureHints = true, showGestureLabel = false }
+local wrapRestored = assert(loadstring(serialize(wrapped)))()
+check(wrapRestored.wrapLabel == true, "wrapLabel true")
+check(wrapRestored.showGestureHints == true, "hints stay on when callout is off")
+check(wrapRestored.showGestureLabel == false, "callout off")
 
 if failures == 0 then
 	print("All floating_button_fields tests passed.")

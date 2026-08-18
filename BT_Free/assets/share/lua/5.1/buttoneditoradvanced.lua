@@ -678,14 +678,33 @@ function makeUI(editorValues,numediting)
     ui.advancedPage:addView(ui.labelRowThree)
   end
   
+  if(ui.labelSizeCaptionColumn == nil) then
+    ui.labelSizeCaptionColumn = fnew(LinearLayout,context)
+    ui.labelSizeCaptionColumn:setOrientation(LinearLayout.VERTICAL)
+    ui.labelSizeCaptionColumn:setLayoutParams(fillparams)
+    ui.labelSizeCaptionColumn:setGravity(GRAVITY_CENTER)
+    ui.labelRowThree:addView(ui.labelSizeCaptionColumn)
+  end
+
   if(ui.labelSizeLabel == nil) then
     ui.labelSizeLabel = fnew(TextView,context)
     ui.labelSizeLabel:setLayoutParams(fillparams)
     ui.labelSizeLabel:setGravity(GRAVITY_CENTER)
     ui.labelSizeLabel:setText("Label Font Size")
     ui.labelSizeLabel:setTextSize(textSizeSmall)
-    ui.labelRowThree:addView(ui.labelSizeLabel)
   end
+  safeAddView(ui.labelSizeCaptionColumn, ui.labelSizeLabel)
+
+  if(ui.wrapLabelCheck == nil) then
+    ui.wrapLabelCheck = fnew(CheckBox,context)
+    local wrapCheckParams = fnew(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)
+    ui.wrapLabelCheck:setLayoutParams(wrapCheckParams)
+    ui.wrapLabelCheck:setGravity(GRAVITY_CENTER)
+    ui.wrapLabelCheck:setText("Wrap label")
+    ui.wrapLabelCheck:setTextSize(textSizeSmall)
+  end
+  safeAddView(ui.labelSizeCaptionColumn, ui.wrapLabelCheck)
+  ui.wrapLabelCheck:setChecked(editorValues.wrapLabel == true)
   
   if(ui.widthLabel == nil) then
     ui.widthLabel = fnew(TextView,context)
@@ -975,6 +994,7 @@ function getEditorValues()
   tmp.border = ui.borderCheck ~= nil and ui.borderCheck:isChecked()
   tmp.borderColor = ui.borderColor
   tmp.labelSize = tonumber(ui.labelSizeEdit:getText():toString())
+  tmp.wrapLabel = ui.wrapLabelCheck ~= nil and ui.wrapLabelCheck:isChecked()
   tmp.height = tonumber(ui.heightEdit:getText():toString())
   tmp.width = tonumber(ui.widthEdit:getText():toString())
   if ui.floatingCheck ~= nil and ui.floatingCheck:isEnabled() then
