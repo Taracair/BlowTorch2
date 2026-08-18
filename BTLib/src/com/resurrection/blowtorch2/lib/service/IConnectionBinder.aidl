@@ -197,4 +197,9 @@ interface IConnectionBinder {
 	boolean closeFrameByUser(String id);
 	/** The frame's window measured itself: sends frame.resized. */
 	void reportFrameSize(String id, int widthPx, int heightPx);
+	// ---- gauge widgets (HP/mana/timer overlays; config in settings, live values session-only) ----
+	/** Persisted widget list JSON (never null; "[]" if none). UI→service getter. */
+	String getGaugeWidgetsJson();
+	/** Live values JSON [{"id","v","m"}] (never null). For UI start / switchTo only. */
+	String getGaugeWidgetValuesJson();
 }

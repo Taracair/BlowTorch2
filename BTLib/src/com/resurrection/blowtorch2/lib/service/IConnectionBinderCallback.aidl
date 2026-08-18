@@ -151,4 +151,12 @@ oneway interface IConnectionBinderCallback {
 	void extraTextUi(int action);
 	/** mudstd.frame events are waiting; collect them with takeFrameEvents(). */
 	void frameUi(int action);
+	/** Gauge widget config changed; UI pulls getGaugeWidgetsJson(). */
+	void gaugeWidgetUi(int action);
+	/**
+	 * Live gauge amounts. {@code display} is the connection that produced them —
+	 * ignore when it is not the world on screen (same filter as vocabularyText).
+	 * Compact JSON: [{"id":"hp","v":80,"m":100}].
+	 */
+	void gaugeWidgetValues(String display, String json);
 }

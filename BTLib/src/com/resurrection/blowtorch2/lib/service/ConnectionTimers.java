@@ -132,18 +132,21 @@ final class ConnectionTimers {
 			switch (action) {
 			case PLAY:
 				timerHost.startTimer(obj);
+				notifyGauges();
 				if (!silent) {
 					host.toast("Timer " + obj + " started.");
 				}
 				break;
 			case PAUSE:
 				timerHost.pauseTimer(obj);
+				notifyGauges();
 				if (!silent) {
 					host.toast("Timer " + obj + " paused.");
 				}
 				break;
 			case RESET:
 				timerHost.resetTimer(obj);
+				notifyGauges();
 				if (!silent) {
 					host.toast("Timer " + obj + " reset.");
 				}
@@ -151,6 +154,7 @@ final class ConnectionTimers {
 			case STOP:
 				timerHost.pauseTimer(obj);
 				timerHost.resetTimer(obj);
+				notifyGauges();
 				if (!silent) {
 					host.toast("Timer " + obj + " stopped.");
 				}
@@ -312,6 +316,7 @@ final class ConnectionTimers {
 	/** Starts a timer in the main settings plugin with the target name. */
 	void playTimer(final String key) {
 		host.mSettings.startTimer(key);
+		notifyGauges();
 	}
 
 	/** Starts a timer in the target plugin. */
@@ -319,12 +324,14 @@ final class ConnectionTimers {
 		Plugin p = host.mPluginMap.get(plugin);
 		if (p != null) {
 			p.startTimer(timer);
+			notifyGauges();
 		}
 	}
 
 	/** Pauses a timer in the main settings plugin. */
 	void pauseTimer(final String key) {
 		host.mSettings.pauseTimer(key);
+		notifyGauges();
 	}
 
 	/** Pauses a timer in the target plugin. */
@@ -332,12 +339,14 @@ final class ConnectionTimers {
 		Plugin p = host.mPluginMap.get(plugin);
 		if (p != null) {
 			p.pauseTimer(timer);
+			notifyGauges();
 		}
 	}
 
 	/** Stops a timer in the main settings plugin. */
 	void stopTimer(final String key) {
 		host.mSettings.stopTimer(key);
+		notifyGauges();
 	}
 
 	/** Stops a timer in the target plugin. */
@@ -345,11 +354,19 @@ final class ConnectionTimers {
 		Plugin p = host.mPluginMap.get(plugin);
 		if (p != null) {
 			p.stopTimer(key);
+			notifyGauges();
 		}
 	}
 
 	/** Persists timer edits immediately so they survive session close and reconnect. */
 	void persistTimerSettings() {
 		host.saveMainSettings();
+		notifyGauges();
+	}
+
+	private void notifyGauges() {
+		if (host.mGauges != null) {
+			host.mGauges.onTimerTick();
+		}
 	}
 }

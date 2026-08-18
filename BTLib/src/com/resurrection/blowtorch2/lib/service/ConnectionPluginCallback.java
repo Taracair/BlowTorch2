@@ -103,6 +103,12 @@ public interface ConnectionPluginCallback {
 	com.resurrection.blowtorch2.lib.trigger.condition.SessionVariableStore getSessionVariables();
 
 	/**
+	 * Session variable changed (Lua {@code SetVariable}/{@code UnsetVariable}).
+	 * Posted onto the connection handler; {@code value} is null when unset.
+	 */
+	void notifyGaugeSessionVar(String name, String value);
+
+	/**
 	 * Report a non-fatal runtime problem to the game window (and log) without
 	 * killing the connection process. Prefer this over letting exceptions escape
 	 * trigger / alias / timer responders.

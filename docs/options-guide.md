@@ -5,7 +5,7 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows** |
+| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
 | **Bell** | Bell character reactions |
@@ -41,6 +41,18 @@ Inbound packets for those modules appear as `[GMCP] …` in that pane and are
 **not** also echoed into main when **Show GMCP in game window?** is on. Optional
 custom formatting still uses a `%Module` literal trigger + `NoteToWindow`
 (see user-manual). In-band MUD text is separate — gag it if needed.
+
+## Widgets
+
+Under **Options → Window → Widgets**:
+
+| Option | Notes |
+|--------|--------|
+| **Manage widgets…** | List / add / delete overlay gauges (HP, mana, cooldown). Same ids as `.widget` / `.gauge` (lowercase `a-z` `0-9` `_`, max 12). Shape, colour, source, size, IME (stay / hide / overlay). Definitions stay if you hide one. |
+
+`.widget` (and `.gauge`) is the typed command list — see the user manual.
+Typical first pair: `.widget add hp ring` then `.widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp`.
+GMCP sources need **Use GMCP?** on. MXP `<GAUGE>` does not create a widget.
 
 ## Shared storage layout (`/BlowTorch/`)
 
@@ -124,7 +136,7 @@ them. Reconnect after changing any of these:
 | **Use MSDP?** | off | Out-of-band variables (option 69). Two-way, unlike MSSP: most servers send nothing until you ask, so use `.msdp list`, then `.msdp send <var>` or `.msdp report <var>`. `.msdp` alone dumps the cache |
 | **Use MSSP?** | off | Server listing/status (option 70); dump with `.mssp` |
 | **Use MCCP?** | **on** | MUD Client Compression Protocol v2 (option 86). Saves bandwidth and is invisible when it works. If decompression fails, the client says so, drops compression for that connection and reconnects once without it — one shot, not a reconnect loop. Turn it off for a server whose compression misbehaves |
-| **Use MXP?** | **on** | Under **Protocols**, not Telnet. MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE, colours, SOUND/MUSIC (local file or `http(s)` `U=`, same player as Client.Media). No images, no gauge bars, no `SCRIPT`/`RELOCATE`. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample. Launcher seeds Discworld / Threshold RPG / Ansalon / Midnight Sun once |
+| **Use MXP?** | **on** | Under **Protocols**, not Telnet. MUD eXtension Protocol (option 91). Clickable SEND / menus / EXPIRE, colours, SOUND/MUSIC (local file or `http(s)` `U=`, same player as Client.Media). No images, no `SCRIPT`/`RELOCATE`. MXP `GAUGE` writes session variables and does not mint a `.widget`. Reconnect after changing. `.mxp on\|off`. `.probe mxp` dumps a sample. Launcher seeds Discworld / Threshold RPG / Ansalon / Midnight Sun once |
 | **Log MXP?** | off | Dump MXP tags to logcat (`BlowTorch.MXP`) |
 | **Show MXP in game window?** | off | Echo parsed MXP into the game window (debug) |
 

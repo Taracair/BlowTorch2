@@ -98,9 +98,16 @@ public final class McpEngine {
 		boolean open;
 	}
 
+	private Runnable mStatusCacheListener;
+
 	public McpEngine(Sink sink, Handler connectionHandler) {
 		mSink = sink;
 		mHandler = connectionHandler;
+	}
+
+	/** Called when HellMOO-style vitals land in {@link #getStatusCache()}. */
+	public void setStatusCacheListener(Runnable listener) {
+		mStatusCacheListener = listener;
 	}
 
 	public McpPackageRegistry getRegistry() {
@@ -770,6 +777,9 @@ public final class McpEngine {
 		if (mFeed) {
 			notify("\n" + Colorizer.getBrightCyanColor() + "[MCP status] " + summary
 					+ Colorizer.getWhiteColor() + "\n");
+		}
+		if (mStatusCacheListener != null) {
+			mStatusCacheListener.run();
 		}
 	}
 

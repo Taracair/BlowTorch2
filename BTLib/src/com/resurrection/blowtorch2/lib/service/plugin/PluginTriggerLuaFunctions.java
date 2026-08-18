@@ -604,6 +604,7 @@ class SetVariableFunction extends JavaFunction {
 		String value = this.getParam(3) != null ? this.getParam(3).getString() : "";
 		if (name == null || name.length() == 0) { L.pushString("SetVariable: name required"); return 1; }
 		plugin.parent.getSessionVariables().set(name, value != null ? value : "");
+		plugin.parent.notifyGaugeSessionVar(name, value != null ? value : "");
 		return 0;
 	}
 }
@@ -623,7 +624,10 @@ class UnsetVariableFunction extends JavaFunction {
 	public UnsetVariableFunction(LuaState L, Plugin plugin) { super(L); this.plugin = plugin; }
 	@Override public int execute() throws LuaException {
 		String name = this.getParam(2) != null ? this.getParam(2).getString() : null;
-		if (name != null) plugin.parent.getSessionVariables().unset(name);
+		if (name != null) {
+			plugin.parent.getSessionVariables().unset(name);
+			plugin.parent.notifyGaugeSessionVar(name, null);
+		}
 		return 0;
 	}
 }

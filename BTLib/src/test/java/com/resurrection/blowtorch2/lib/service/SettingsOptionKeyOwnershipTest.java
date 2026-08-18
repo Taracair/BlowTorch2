@@ -47,6 +47,20 @@ public class SettingsOptionKeyOwnershipTest {
 	}
 
 	@Test
+	public void gaugeWidgetKeysAreNotClaimedByTheWindowWriter() {
+		String[] rootKeys = { "gauge_widgets", "gauge_widgets_enabled",
+				"manage_gauge_widgets" };
+		for (String key : rootKeys) {
+			assertFalse(key + " must be skipped by the window writer, not thrown on",
+					WindowTokenParser.isWindowOptionKey(key));
+		}
+		assertTrue("gauge_widgets must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("gauge_widgets"));
+		assertTrue("gauge_widgets_enabled must be persisted by the connection writer",
+				ConnectionSetttingsParser.isConnectionOptionKey("gauge_widgets_enabled"));
+	}
+
+	@Test
 	public void noKeyIsClaimedByBothWriters() {
 		// A key owned by both would be written twice into different sections.
 		for (WindowToken.OPTION_KEY k : WindowToken.OPTION_KEY.values()) {

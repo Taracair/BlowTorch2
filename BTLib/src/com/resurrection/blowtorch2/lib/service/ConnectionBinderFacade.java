@@ -1244,4 +1244,16 @@ class ConnectionBinderFacade extends IConnectionBinder.Stub {
 		}
 	}
 
+	@Override
+	public String getGaugeWidgetsJson() throws RemoteException {
+		Connection c = active();
+		return c != null ? c.getGaugeWidgetsJson() : "[]";
+	}
+
+	@Override
+	public String getGaugeWidgetValuesJson() throws RemoteException {
+		Connection c = active();
+		return c != null ? c.getGaugeWidgetValuesJson() : "[]";
+	}
+
 }

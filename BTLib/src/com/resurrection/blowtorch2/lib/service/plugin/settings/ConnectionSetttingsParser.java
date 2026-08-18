@@ -106,7 +106,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		mapper_toolbar_actions,
 		mapper_capture_title_regex, mapper_capture_exits_regex,
 		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects,
-		extra_text_windows_enabled, extra_text_windows
+		extra_text_windows_enabled, extra_text_windows,
+		gauge_widgets_enabled, gauge_widgets
 	}
 	
 	/**
@@ -997,6 +998,17 @@ public class ConnectionSetttingsParser extends PluginParser {
 						}
 						break;
 					case extra_text_windows:
+						if(opt.getValue() != null && !((String)opt.getValue()).equals("[]")
+								&& !((String)opt.getValue()).equals("")) {
+							dooutput = true;
+						}
+						break;
+					case gauge_widgets_enabled:
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case gauge_widgets:
 						if(opt.getValue() != null && !((String)opt.getValue()).equals("[]")
 								&& !((String)opt.getValue()).equals("")) {
 							dooutput = true;

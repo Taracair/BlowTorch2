@@ -14,6 +14,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
 
 /**
  * Gameplay chrome: input bar / divider anchors, IME lift, FAB strip, toolbar
@@ -264,7 +265,9 @@ public final class ChromeController {
 	 * By default lifts input chrome and game text so output stays readable. Leaves
 	 * {@code button_window} untranslated so Lua button coordinates stay stable.
 	 * When Options → Window → Keep text still with keyboard? is on, game text windows
-	 * also stay put (only the input bar / FAB rise).
+	 * also stay put (only the input bar / FAB rise). The gauge overlay layer uses
+	 * that same keep-text rule so STAY gauges ride with game text rather than
+	 * pinning like extra-text / floating buttons.
 	 */
 	void applyImeChromeLift(RelativeLayout rl, int liftPx) {
 		if (rl == null) {
@@ -305,6 +308,11 @@ public final class ChromeController {
 			}
 			if (tagObj != null && FloatingButtonController.LAYER_TAG.equals(tagObj.toString())) {
 				child.setTranslationY(0f);
+				continue;
+			}
+			if (tagObj != null && GaugeWidgetController.LAYER_TAG.equals(tagObj.toString())) {
+				// Same keep-text rule as Window, not the extra-text pin.
+				child.setTranslationY(keepText ? 0f : ty);
 				continue;
 			}
 			child.setTranslationY(ty);

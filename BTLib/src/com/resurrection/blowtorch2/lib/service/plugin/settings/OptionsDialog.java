@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.util.SettingsSaver;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
@@ -780,6 +781,10 @@ public class OptionsDialog extends Dialog {
 				openExtraTextWindowsDialog();
 				return;
 			}
+			if ("manage_gauge_widgets".equals(key)) {
+				openGaugeWidgetsDialog();
+				return;
+			}
 			// The Lua callback puts its own dialog up on the activity (the button
 			// layout wizard does), so this one has to get out of the way first —
 			// same as the built-in actions above. Dismiss before the call: the
@@ -1143,7 +1148,59 @@ public class OptionsDialog extends Dialog {
 			}
 		});
 	}
-	
+
+	private void openGaugeWidgetsDialog() {
+		final Context ctx = getContext();
+		GaugeWidgetsDialog.show(ctx, new GaugeWidgetsDialog.Host() {
+			@Override
+			public String getJson() {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey(GaugeWidgetsStore.SETTING_KEY);
+						if (o instanceof StringOption) {
+							Object val = ((StringOption) o).getValue();
+							if (val != null) {
+								return val.toString();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return "[]";
+			}
+
+			@Override
+			public boolean isEnabled() {
+				try {
+					SettingsGroup sg = service.getSettings();
+					if (sg != null) {
+						Object o = sg.findOptionByKey(GaugeWidgetsStore.ENABLED_KEY);
+						if (o instanceof BooleanOption) {
+							Object val = ((BooleanOption) o).getValue();
+							if (val instanceof Boolean) {
+								return ((Boolean) val).booleanValue();
+							}
+						}
+					}
+				} catch (Exception ignored) {
+				}
+				return true;
+			}
+
+			@Override
+			public void applyJson(String json, boolean enabled) {
+				try {
+					service.updateStringSetting(GaugeWidgetsStore.SETTING_KEY,
+							json != null ? json : "[]");
+					service.updateBooleanSetting(GaugeWidgetsStore.ENABLED_KEY, enabled);
+				} catch (RemoteException e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
 	/** Human-readable label for a font path / built-in font key. */
 	static String displayNameForFontPath(String path) {
 		if (path == null || path.length() == 0) {

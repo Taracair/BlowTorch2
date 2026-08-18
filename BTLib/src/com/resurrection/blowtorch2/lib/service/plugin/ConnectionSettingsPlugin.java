@@ -9,6 +9,7 @@ import org.xmlpull.v1.XmlSerializer;
 
 import android.os.Handler;
 
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.mapper.MapDirections;
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.service.ConnectionPluginCallback;
@@ -27,6 +28,8 @@ import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 public class ConnectionSettingsPlugin extends Plugin {
 	/** Extra text options; nested under Window in {@code buildSettingsPage}. */
 	private SettingsGroup mExtraTextOptions;
+	/** Overlay gauge options; nested under Window in {@code buildSettingsPage}. */
+	private SettingsGroup mGaugeWidgetsOptions;
 
 	public ConnectionSettingsPlugin(Handler h,ConnectionPluginCallback parent,String dataDir) throws LuaException {
 		super(h,parent,null,dataDir);
@@ -845,6 +848,40 @@ public class ConnectionSettingsPlugin extends Plugin {
 		// buildSettingsPage nests this group under Window.
 		sg.addOption(mExtraTextOptions);
 
+		// Nested under Options → Window by ConnectionSettingsIO.buildSettingsPage().
+		mGaugeWidgetsOptions = new SettingsGroup();
+		mGaugeWidgetsOptions.setTitle("Widgets");
+		mGaugeWidgetsOptions.setKey("gauge_widgets_group");
+		mGaugeWidgetsOptions.setDescription(
+				"HP, mana and timer gauges over the game.");
+
+		BooleanOption gauge_widgets_enabled = new BooleanOption();
+		gauge_widgets_enabled.setTitle("Enable overlay gauges?");
+		gauge_widgets_enabled.setDescription(
+				"Master switch for overlay gauges. Widget definitions are kept when off.");
+		gauge_widgets_enabled.setKey(GaugeWidgetsStore.ENABLED_KEY);
+		gauge_widgets_enabled.setValue(true);
+		mGaugeWidgetsOptions.addOption(gauge_widgets_enabled);
+
+		CallbackOption manage_gauge_widgets = new CallbackOption();
+		manage_gauge_widgets.setTitle("Manage widgets…");
+		manage_gauge_widgets.setDescription(
+				"Add, remove, or edit overlay gauges (hbar / vbar / ring / timer; "
+				+ "manual, GMCP, MCP, variable, or .timer source).");
+		manage_gauge_widgets.setKey("manage_gauge_widgets");
+		manage_gauge_widgets.setValue("manage_gauge_widgets");
+		mGaugeWidgetsOptions.addOption(manage_gauge_widgets);
+
+		StringOption gauge_widgets = new StringOption();
+		gauge_widgets.setTitle("Widgets JSON");
+		gauge_widgets.setDescription(
+				"Persisted widget list (JSON array). Prefer Manage widgets…; edit raw JSON only if needed.");
+		gauge_widgets.setKey(GaugeWidgetsStore.SETTING_KEY);
+		gauge_widgets.setValue("[]");
+		mGaugeWidgetsOptions.addOption(gauge_widgets);
+
+		sg.addOption(mGaugeWidgetsOptions);
+
 		SettingsGroup miscOptions = new SettingsGroup();
 		miscOptions.setTitle("Miscellaneous");
 		miscOptions.setDescription("Storage paths, permissions, and other app-wide helpers.");
@@ -988,6 +1025,11 @@ public class ConnectionSettingsPlugin extends Plugin {
 	/** Extra text windows settings group (may be nested under Window after buildSettingsPage). */
 	public SettingsGroup getExtraTextOptionsGroup() {
 		return mExtraTextOptions;
+	}
+
+	/** Overlay gauge settings group (may be nested under Window after buildSettingsPage). */
+	public SettingsGroup getGaugeWidgetsOptionsGroup() {
+		return mGaugeWidgetsOptions;
 	}
 
 	public static enum LINK_MODE {

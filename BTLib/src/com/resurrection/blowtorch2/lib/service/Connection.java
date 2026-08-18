@@ -65,7 +65,9 @@ import com.resurrection.blowtorch2.lib.service.function.TimerCommand;
 import com.resurrection.blowtorch2.lib.service.function.SettingsCommand;
 import com.resurrection.blowtorch2.lib.service.function.OptionsCommand;
 import com.resurrection.blowtorch2.lib.service.function.WindowCommand;
+import com.resurrection.blowtorch2.lib.service.function.WidgetCommand;
 import com.resurrection.blowtorch2.lib.service.function.WrapCommand;
+import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapStore;
 import com.resurrection.blowtorch2.lib.service.plugin.ConnectionSettingsPlugin;
@@ -186,6 +188,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	 * (obj = JSON body String; module name in Bundle {@code MODULE}).
 	 */
 	public static final int MESSAGE_GMCP_EXTRA_TEXT = 49;
+
+	/**
+	 * Gauge widget list changed — UI should rebuild overlays.
+	 * Passed through {@link #requestGaugeWidgetUi}; not a ConnectionHandler
+	 * {@code what}. 51 collided with {@link #MESSAGE_TIMERDURATION}.
+	 */
+	public static final int MESSAGE_GAUGE_WIDGET_CHANGED = 60;
 
 	/**
 	 * One {@code mudstd.frame} event on its way to the UI process
@@ -362,6 +371,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	ArrayList<WindowToken> mWindows;
 	/** Extra text window slots for this connection (drawer/float overlays). */
 	private final ConnectionExtraText mExtraText = new ConnectionExtraText(this);
+	/** Overlay gauges (HP/mana/timer). Filled by ConnectionGaugeWidgets when present. */
+	ConnectionGaugeWidgets mGauges;
 	/** The auto reconnect limit helper varialbe. */
 	/** Auto-reconnect / persistent-connection state and scheduling. */
 	private final ConnectionReconnect mReconnect = new ConnectionReconnect(this);
@@ -639,6 +650,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(mapcmd.commandName, mapcmd);
 		WindowCommand windowcmd = new WindowCommand();
 		mSpecialCommands.put(windowcmd.commandName, windowcmd);
+		WidgetCommand widgetcmd = new WidgetCommand();
+		mSpecialCommands.put(widgetcmd.commandName, widgetcmd);
+		mSpecialCommands.put(WidgetCommand.ALIAS_NAME, widgetcmd);
 		SettingsCommand settingscmd = new SettingsCommand();
 		mSpecialCommands.put(settingscmd.commandName, settingscmd);
 		OptionsCommand optionscmd = new OptionsCommand();
@@ -651,6 +665,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		this.mService = service;
 
 		mMapper = new MapperController(this);
+		mGauges = new ConnectionGaugeWidgets(this);
 		
 		mPlugins = new ArrayList<Plugin>();
 		mHandler = new Handler(new ConnectionHandler());
@@ -827,12 +842,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					String[] pair = (String[]) msg.obj;
 					if (pair.length >= 2) {
 						mSessionVariables.set(pair[0], pair[1]);
+						if (mGauges != null) {
+							mGauges.onSessionVar(pair[0], pair[1]);
+						}
 					}
 				}
 				break;
 			case MESSAGE_UNSET_VARIABLE:
 				if (msg.obj instanceof String) {
 					mSessionVariables.unset((String) msg.obj);
+					if (mGauges != null) {
+						mGauges.onSessionVar((String) msg.obj, null);
+					}
 				}
 				break;
 			case MESSAGE_MAPPER_ROOM:
@@ -846,7 +867,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				if (msg.obj instanceof String) {
 					String module = msg.getData() != null
 							? msg.getData().getString("MODULE") : null;
-					routeGmcpToExtraWindows(module, (String) msg.obj);
+					String body = (String) msg.obj;
+					routeGmcpToExtraWindows(module, body);
+					if (mGauges != null) {
+						mGauges.onGmcp(module, body);
+					}
 				}
 				break;
 			case MESSAGE_FRAME_EVENT:
@@ -1636,6 +1661,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mMapper.openMapForHost(getHost());
 		}
 		ensureExtraTextSlots(false);
+		if (mGauges != null) {
+			mGauges.reloadFromSettings();
+			requestGaugeWidgetUi();
+			requestGaugeWidgetValues();
+		}
 		mService.reloadWindows();
 		
 	}
@@ -5671,6 +5701,18 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case extra_text_windows:
 				ensureExtraTextSlots(true);
 				break;
+			case gauge_widgets_enabled:
+				if (mGauges != null) {
+					requestGaugeWidgetUi();
+				}
+				break;
+			case gauge_widgets:
+				if (mGauges != null) {
+					mGauges.reloadFromSettings();
+					requestGaugeWidgetUi();
+					requestGaugeWidgetValues();
+				}
+				break;
 			default:
 				break;
 			}
@@ -5780,6 +5822,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			@Override
 			public void setVariable(final String name, final String value) {
 				getSessionVariables().set(name, value);
+				if (mGauges != null) {
+					mGauges.onSessionVar(name, value);
+				}
 			}
 
 			@Override
@@ -5938,6 +5983,16 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				return mLiveRows;
 			}
 		}, mHandler);
+		if (mGauges != null) {
+			mMcpEngine.setStatusCacheListener(new Runnable() {
+				@Override
+				public void run() {
+					if (mGauges != null) {
+						mGauges.onMcpStatus();
+					}
+				}
+			});
+		}
 	}
 
 	private void sendMcpRawToPump(final String line) {
@@ -6838,7 +6893,11 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Extra text windows master switch. */
 		extra_text_windows_enabled,
 		/** Extra text windows JSON slot list. */
-		extra_text_windows
+		extra_text_windows,
+		/** Overlay gauges master switch. */
+		gauge_widgets_enabled,
+		/** Overlay gauges JSON list. */
+		gauge_widgets
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.
@@ -7727,6 +7786,76 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Snapshot of configured extra text slots (never null; may be empty). */
 	public final ArrayList<ExtraTextSlot> getExtraTextSlots() {
 		return mExtraText.getSlots();
+	}
+
+	/** Persisted gauge widget JSON. Never null. */
+	public final String getGaugeWidgetsJson() {
+		if (mGauges == null) {
+			return "[]";
+		}
+		return mGauges.toPersistedJson();
+	}
+
+	/** Live gauge values JSON. Never null. */
+	public final String getGaugeWidgetValuesJson() {
+		if (mGauges == null) {
+			return "[]";
+		}
+		return mGauges.toValuesJson();
+	}
+
+	/** Apply a parsed {@code .widget} result. Sets {@code result.error} on failure. */
+	public final String applyGaugeWidget(final WidgetCommandParser.Result result) {
+		if (mGauges == null) {
+			if (result != null) {
+				result.error = "Widgets are not ready.";
+			}
+			return null;
+		}
+		return mGauges.apply(result);
+	}
+
+	/** One line per widget for {@code .widget list}. Never null. */
+	public final String formatGaugeWidgetList() {
+		if (mGauges == null) {
+			return "  (none — use .widget add <id> [shape])\n";
+		}
+		return mGauges.listDump();
+	}
+
+	public final boolean areGaugeWidgetsEnabled() {
+		return mGauges != null && mGauges.isEnabled();
+	}
+
+	final void requestGaugeWidgetUi() {
+		if (mService != null) {
+			mService.notifyGaugeWidgetUi(MESSAGE_GAUGE_WIDGET_CHANGED);
+		}
+	}
+
+	final void requestGaugeWidgetValues() {
+		if (mService == null || mGauges == null) {
+			return;
+		}
+		mService.notifyGaugeWidgetValues(mDisplay, mGauges.toValuesJson());
+	}
+
+	@Override
+	public void notifyGaugeSessionVar(final String name, final String value) {
+		if (mHandler == null) {
+			if (mGauges != null) {
+				mGauges.onSessionVar(name, value);
+			}
+			return;
+		}
+		mHandler.post(new Runnable() {
+			@Override
+			public void run() {
+				if (mGauges != null) {
+					mGauges.onSessionVar(name, value);
+				}
+			}
+		});
 	}
 
 	/** Whether extra text overlays are enabled (default true). */

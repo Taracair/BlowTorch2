@@ -11,6 +11,7 @@ import java.util.Map;
 
 import com.resurrection.blowtorch2.lib.service.Colorizer;
 import com.resurrection.blowtorch2.lib.service.Connection;
+import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
 
 /**
  * {@code .help} — every dot command, one line each, into the game window.
@@ -70,6 +71,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
 		cmd("window", "The window", "open, close and address extra text windows");
+		cmd("widget", "The window", "HP/mana/timer gauges over the game (.widget add|source|set|…)");
+		cmd("gauge", "The window", "same as .widget");
 		cmd("closewindow", "The window", "close one of them");
 		cmd("search", "The window", "find text in the scrollback");
 		cmd("tapmenu", "The window", "how solid the menu a tapped word opens is");
@@ -421,6 +424,12 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .window create <slot> [title…]\n"
 					+ "  .window destroy <slot>\n"
 					+ "  .window opacity <slot> [40-100]\n";
+		}
+		if (filter.equals("widget") || filter.equals("gauge")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .widget:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ WidgetCommandParser.usage();
 		}
 		if (filter.equals("frame")) {
 			return "\n"

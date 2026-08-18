@@ -125,6 +125,9 @@ import com.resurrection.blowtorch2.lib.timer.BetterTimerSelectionDialog;
 import com.resurrection.blowtorch2.lib.trigger.BetterTriggerSelectionDialog;
 import com.resurrection.blowtorch2.lib.ui.SDCardUtils;
 import com.resurrection.blowtorch2.lib.ui.PermissionHelper;
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
 
@@ -294,6 +297,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_VOCABULARY_RESET = 934;
 	protected static final int MESSAGE_VOCABULARY_FORGET = 938;
 	protected static final int MESSAGE_PICK_COMPLETION = 935;
+	/** Gauge widget config changed; pull getGaugeWidgetsJson(). */
+	protected static final int MESSAGE_GAUGE_WIDGET_UI = 940;
+	/** obj: JSON live values; ignore if display is not the world on screen. */
+	protected static final int MESSAGE_GAUGE_WIDGET_VALUES = 941;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -318,6 +325,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MapperOverlayController mapperOverlay;
 	private MapperController mapperController;
 	private ExtraTextOverlayController extraTextOverlay;
+	/** Overlay gauges over the game; see ensureGaugeWidgets(). */
+	private GaugeWidgetController gaugeWidgets;
 	/** Floating button copies over the game; see ensureFloatingButtons(). */
 	private FloatingButtonController floatingButtons;
 	/** Options → Input master switch; default on. */
@@ -473,6 +482,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					ensureMapperOverlay();
 					ensureExtraTextOverlays();
 					ensureFloatingButtons();
+					ensureGaugeWidgets();
 					restoreOpenFrames();
 					raiseFloatingButtons();
 				}
@@ -790,6 +800,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_FRAME_UI:
 					MainWindow.this.handleFrameUiAction();
+					break;
+				case MESSAGE_GAUGE_WIDGET_UI:
+					MainWindow.this.handleGaugeWidgetUiAction(msg.arg1);
+					break;
+				case MESSAGE_GAUGE_WIDGET_VALUES:
+					if (msg.obj instanceof DisplayedString) {
+						DisplayedString scoped = (DisplayedString) msg.obj;
+						if (isForegroundDisplay(scoped.display)) {
+							MainWindow.this.handleGaugeWidgetValues(scoped.value);
+						}
+					}
 					break;
 				case MESSAGE_MARKSETTINGSDIRTY:
 					MainWindow.this.markSettingsDirty();
@@ -4289,6 +4310,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			}, 120);
 		}
+		if (gaugeWidgets != null) {
+			myhandler.postDelayed(new Runnable() {
+				public void run() {
+					if (gaugeWidgets != null) {
+						gaugeWidgets.onOrientationChanged();
+					}
+				}
+			}, 120);
+		}
 
 	}
 
@@ -4643,6 +4673,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (floatingButtons != null) {
 			floatingButtons.onPause();
 		}
+		if (gaugeWidgets != null) {
+			gaugeWidgets.onPause();
+		}
 		// Before the early return: a pause with no service is still a pause, and
 		// this is the last reliable moment to write what the session taught.
 		saveCommandKnowledge();
@@ -4673,6 +4706,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			// it — the layer refuses to place windows while it thinks it is
 			// paused.
 			floatingButtons.onResume();
+		}
+		if (gaugeWidgets != null) {
+			gaugeWidgets.onResume();
 		}
 		// Put the button set back before anything else can ask Lua what it is.
 		// Not under the service check it used to sit beneath: windowCall looks
@@ -5073,6 +5109,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 			refreshExtraTextSlotsFromSettings(group);
 			ensureExtraTextOverlays();
+			ensureGaugeWidgets();
 			
 		} catch (RemoteException e1) {
 			throw new RuntimeException(e1);
@@ -5667,6 +5704,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		public void frameUi(int action) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_FRAME_UI, action, 0));
 		}
+
+		@Override
+		public void gaugeWidgetUi(int action) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_GAUGE_WIDGET_UI, action, 0));
+		}
+
+		@Override
+		public void gaugeWidgetValues(String display, String json) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_GAUGE_WIDGET_VALUES,
+					new DisplayedString(display, json == null ? "[]" : json)));
+		}
 	};
 	
 	boolean windowsInitialized = false;
@@ -5895,6 +5943,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		ensureMapperOverlay();
 		ensureExtraTextOverlays();
 		ensureFloatingButtons();
+		ensureGaugeWidgets();
 		raiseFloatingButtons();
 		// Windows (and extra-text slots) now have live binders. End the hold that
 		// onPause / a recents kill left behind — not earlier in onServiceConnected,
@@ -6084,6 +6133,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	void onFloatingButtonsImeLift(int liftPx) {
 		if (floatingButtons != null) {
 			floatingButtons.onImeLiftChanged(liftPx);
+		}
+		if (gaugeWidgets != null) {
+			gaugeWidgets.onImeLiftChanged(liftPx);
 		}
 	}
 
@@ -6371,6 +6423,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		}
 		extraTextOverlay.sync();
+		if (gaugeWidgets != null) {
+			gaugeWidgets.bringUnderChrome();
+		}
 		raiseFloatingButtons();
 	}
 
@@ -6461,6 +6516,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		frameOverlay.apply(com.resurrection.blowtorch2.lib.service.FrameEvent.parse(json));
+		if (gaugeWidgets != null) {
+			gaugeWidgets.bringUnderChrome();
+		}
 		raiseFloatingButtons();
 	}
 
@@ -6474,6 +6532,153 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.handleExtraTextUiAction", e);
 		}
 		ensureExtraTextOverlays();
+	}
+
+	private void handleGaugeWidgetUiAction(int action) {
+		ensureGaugeWidgets();
+	}
+
+	private void handleGaugeWidgetValues(final String json) {
+		if (gaugeWidgets == null) {
+			ensureGaugeWidgets();
+		}
+		if (gaugeWidgets != null) {
+			gaugeWidgets.applyValues(json);
+		}
+	}
+
+	private void ensureGaugeWidgets() {
+		if (mLeavingUi || isFinishing()) {
+			return;
+		}
+		if (gaugeWidgets == null) {
+			gaugeWidgets = new GaugeWidgetController(new GaugeWidgetController.Host() {
+				@Override
+				public MainWindow getMainWindow() {
+					return MainWindow.this;
+				}
+
+				@Override
+				public void sendCommand(String text) {
+					if (text == null || text.length() == 0 || service == null) {
+						return;
+					}
+					try {
+						service.sendData(text.getBytes(service.getEncoding()));
+					} catch (RemoteException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.gaugeWidgets.sendCommand", e);
+					} catch (java.io.UnsupportedEncodingException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+								"MainWindow.gaugeWidgets.sendCommand", e);
+					}
+				}
+
+				@Override
+				public void persistGaugeWidgets(java.util.List<GaugeWidget> widgets) {
+					String json = GaugeWidgetsStore.toJson(widgets);
+					if (service == null) {
+						return;
+					}
+					try {
+						service.updateStringSetting(GaugeWidgetsStore.SETTING_KEY, json);
+						com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
+					} catch (RemoteException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.gaugeWidgets.persist", e);
+					}
+				}
+
+				@Override
+				public void bringViewUnderChrome(View overlay) {
+					if (chrome != null) {
+						chrome.bringViewUnderChrome(overlay);
+					}
+				}
+
+				@Override
+				public void raiseFloatingButtons() {
+					MainWindow.this.raiseFloatingButtons();
+				}
+
+				@Override
+				public int getImeLiftPx() {
+					return chrome != null ? chrome.getImeLiftPx() : 0;
+				}
+
+				@Override
+				public void applyCurrentImeLift() {
+					if (chrome == null) {
+						return;
+					}
+					RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+					chrome.applyImeChromeLift(rl, chrome.getImeLiftPx());
+				}
+
+				@Override
+				public int floatingOverlayBottomLimit(int inputBarTop, int overlayLeft,
+						int overlayRight) {
+					if (chrome == null) {
+						return inputBarTop;
+					}
+					return chrome.floatingOverlayBottomLimit(inputBarTop, overlayLeft,
+							overlayRight);
+				}
+
+				@Override
+				public void whenFabStripMeasured(Runnable action) {
+					if (chrome != null) {
+						chrome.whenFabStripMeasured(action);
+					}
+				}
+
+				@Override
+				public boolean fabStripHasSize() {
+					return chrome != null && chrome.fabStripHasSize();
+				}
+
+				@Override
+				public View findGameplayInputBar() {
+					RelativeLayout rl = (RelativeLayout) findViewById(R.id.window_container);
+					if (chrome == null || rl == null) {
+						return null;
+					}
+					return chrome.findGameplayInputBar(rl);
+				}
+			});
+		}
+		boolean enabled = true;
+		String json = "[]";
+		try {
+			if (service != null) {
+				SettingsGroup group = service.getSettings();
+				if (group != null) {
+					Object enabledOpt = group.findOptionByKey(GaugeWidgetsStore.ENABLED_KEY);
+					if (enabledOpt instanceof BaseOption) {
+						Object v = ((BaseOption) enabledOpt).getValue();
+						if (v instanceof Boolean) {
+							enabled = (Boolean) v;
+						}
+					}
+				}
+				json = service.getGaugeWidgetsJson();
+				if (json == null) {
+					json = "[]";
+				}
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.ensureGaugeWidgets", e);
+		}
+		gaugeWidgets.sync(json, enabled);
+		try {
+			if (service != null) {
+				gaugeWidgets.applyValues(service.getGaugeWidgetValuesJson());
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.ensureGaugeWidgets.values", e);
+		}
 	}
 
 	private void handleMapperUiAction(int action) {
@@ -6660,6 +6865,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public void cleanupWindows() {
 		if (extraTextOverlay != null) {
 			extraTextOverlay.detach();
+		}
+		if (gaugeWidgets != null) {
+			gaugeWidgets.detach();
 		}
 		if (floatingButtons != null) {
 			floatingButtons.detach();
@@ -7814,6 +8022,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				overlay.bringToFront();
 			}
 		}
+		if (gaugeWidgets != null) {
+			gaugeWidgets.setHiddenForSelection(true);
+		}
 	}
 
 	/** Show button_window again after text selection ends. */
@@ -7826,6 +8037,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (buttons != null) {
 			buttons.setVisibility(View.VISIBLE);
 			buttons.bringToFront();
+		}
+		if (gaugeWidgets != null) {
+			gaugeWidgets.setHiddenForSelection(false);
+			gaugeWidgets.bringUnderChrome();
 		}
 		chrome.bringGameplayChromeToFront(rl);
 	}

@@ -87,6 +87,7 @@ local TOPIC_ORDER = {
 	"search",
 	"mapper",
 	"gmcp",
+	"widgets",
 	"mcp",
 	"mxp",
 	"protocols",
@@ -921,6 +922,57 @@ Useful helpers:
 Nothing auto-enables from "seen" traffic.]])
 end
 
+TOPICS.widgets = function()
+	noteBlock("Widgets — overlay gauges",
+[[A widget is a small HP bar, ring, or countdown sitting on the game
+window. You make them; the MUD does not. An MXP GAUGE tag never creates
+one.
+
+Start with a ring and point it at GMCP vitals (Use GMCP? must be on,
+and the world must send those keys):
+
+  .widget add hp ring
+  .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp
+
+.gauge is the same command as .widget. Names are lowercase letters,
+digits and _ (not main). Up to twelve. .widget list shows what you
+have; .widget with no arguments prints the rest of the verbs.
+
+No GMCP? Two trigger paths, same idea.
+
+Set Variable on the prompt (or whatever line has the numbers):
+  name hp, value $1
+  name maxhp, value $2
+then:  .widget source hp var hp maxhp
+
+Or skip the variables and Ack With:
+  .widget set hp $1 $2
+(or .widget set hp 80/100). That is the manual source.
+
+Gestures match a floating button: tap, swipe and hold run the commands
+you set with .widget tap / swipe / hold. A two-second long-press moves
+the gauge; the bottom-right corner resizes it.
+
+While the keyboard is up:
+  .widget ime hp stay      stay on the game window (default)
+  .widget ime hp hide      gone until the keyboard closes
+  .widget ime hp overlay   sit over the keyboard
+                           (needs Display over other apps)
+
+The numbers on the ring are optional:
+  .widget value hp off
+
+Turn the warn colour when it drops (25 is the usual threshold):
+  .widget warn hp 25
+
+A cooldown uses the timer shape and a client .timer by name:
+
+  .widget add stun timer
+  .widget source stun timer stunwait
+
+Also: Options → Window → Widgets → Manage widgets….]])
+end
+
 TOPICS.mcp = function()
 	noteBlock("MCP (brief)",
 [[Mud Client Protocol uses in-band #$# messages (common on MOOs). Not the
@@ -949,7 +1001,8 @@ after changing. .mxp on|off. .mxp with no argument is status.
 This is not OSC 8 (web links). MXP SEND is a command to the MUD. SCRIPT
 and RELOCATE from the server are ignored. SOUND and MUSIC play through
 the same player as Client.Media (a file in /BlowTorch/sounds, or an
-http(s) U= URL). Images are not drawn; gauge bars are not. A Tappable
+http(s) U= URL). Images are not drawn. MXP GAUGE does not mint a widget
+— make one yourself with .widget (see .tutorial widgets). A Tappable
 Word trigger on the same glyph wins over MXP SEND; a web link still
 wins over both.]])
 end
@@ -1013,7 +1066,8 @@ TOPICS.options_cleanup = function()
 [[In-game Options groups settings under Program Settings, including:
 
   Display   orientation, fullscreen, NAWS, keep screen on
-  Window    font, buffer, word wrap, hyperlinks, ANSI
+  Window    font, buffer, word wrap, hyperlinks, ANSI,
+            Extra text windows, Widgets (Manage widgets…)
   Input     history, keep last, Grow Input Bar (.wrap),
             lowercase start of sent commands (\\Look keeps capital)
   Service   encoding, logging, battery, reconnect, Wi-Fi;
@@ -1154,8 +1208,8 @@ Topics: welcome, practice_world, client_commands, buttons_basics,
 buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
 buttons_make, buttons_edit, movement, aliases, triggers, timers, sensors,
 tappable, keyboard, completion, coloring, display, wrap, copy_text, search,
-mapper, gmcp, mcp, mxp, protocols, logging_export, stay_connected, disconnect_reconnect,
-overflow_menu, options_cleanup, plugins, finish]])
+mapper, gmcp, widgets, mcp, mxp, protocols, logging_export, stay_connected,
+disconnect_reconnect, overflow_menu, options_cleanup, plugins, finish]])
 end
 
 local function listTopics()
@@ -1297,6 +1351,8 @@ local TIPS = {
 	kb = [[Same as .keyboard.]],
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
 	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → Protocols → Use GMCP?.]],
+	widget = [[.widget add hp ring, then .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp. Two-second long-press moves; corner resizes. .gauge is the same command.]],
+	gauge = [[Same as .widget.]],
 	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → Protocols → Use MCP?.]],
 	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Service → Protocols. .probe mxp dumps a sample.]],
 	protocols = [[.protocols shows what this world offered vs what is on. .protocols enable turns on offered-but-off switches.]],
@@ -1328,6 +1384,9 @@ local TIPS = {
 local function tipKey(name)
 	if name == "kb" then
 		return "keyboard"
+	end
+	if name == "gauge" then
+		return "widget"
 	end
 	if name == "complete" or name == "suggestions" or name == "suggestion" then
 		return "suggest"

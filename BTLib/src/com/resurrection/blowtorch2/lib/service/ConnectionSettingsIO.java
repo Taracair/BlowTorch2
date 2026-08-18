@@ -1121,6 +1121,7 @@ final class ConnectionSettingsIO {
 		host.buildTriggerSystem();
 		host.mWindows.get(0).getSettings().setListener(host.new WindowSettingsChangedListener(host.mWindows.get(0).getName()));
 		nestExtraTextUnderWindow();
+		nestGaugeWidgetsUnderWindow();
 		int insertAt = indexAfterDisplayGroup(host.mSettings.getSettings().getOptions());
 		host.mSettings.getSettings().getOptions().addOptionAt(host.mWindows.get(0).getSettings(), insertAt);
 	}
@@ -1158,6 +1159,41 @@ final class ConnectionSettingsIO {
 		}
 		win.addOption(extra);
 	}
+
+	/**
+	 * Move Widgets options from Program Settings root into Options → Window
+	 * so they sit with font/buffer (UI only; keys stay connection-scoped).
+	 */
+	private void nestGaugeWidgetsUnderWindow() {
+		SettingsGroup root = host.mSettings.getSettings().getOptions();
+		SettingsGroup win = host.mWindows.get(0).getSettings();
+		if (root == null || win == null) {
+			return;
+		}
+		SettingsGroup gauges = null;
+		ArrayList<Option> rootOpts = root.getOptions();
+		for (int i = 0; i < rootOpts.size(); i++) {
+			Option o = rootOpts.get(i);
+			if (o != null && "gauge_widgets_group".equals(o.getKey())) {
+				gauges = (SettingsGroup) o;
+				rootOpts.remove(i);
+				break;
+			}
+		}
+		if (gauges == null) {
+			gauges = host.mSettings.getGaugeWidgetsOptionsGroup();
+		}
+		if (gauges == null) {
+			return;
+		}
+		for (Option o : win.getOptions()) {
+			if (o != null && "gauge_widgets_group".equals(o.getKey())) {
+				return;
+			}
+		}
+		win.addOption(gauges);
+	}
+
 	/** Place WindowToken settings right after Display (NAWS/orientation), else at index 0. */
 	private static int indexAfterDisplayGroup(final SettingsGroup root) {
 		if (root == null || root.getOptions() == null) {

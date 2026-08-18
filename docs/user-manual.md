@@ -1347,6 +1347,7 @@ is enabled; `.alias list` shows every alias at once.
     `.search …`                         Scrollback search; see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
     `.window …`                         Extra text windows (list/show/hide/clear/create/destroy); see below
+    `.widget …` / `.gauge …`            Overlay gauges (HP/mana/timer bars). `.gauge` is the same command; see below
 
 ### `.trigger` forms
 
@@ -2116,8 +2117,9 @@ This is not OSC 8 (web links). MXP SEND is a command to the MUD.
 - `telnet://` in `<A>` does not open a new connection (only `http` /
   `https` / `mailto` leave the app).
 - `IMAGE` — the tag is consumed so it does not print; pictures are not drawn.
-- `GAUGE` / `STAT` — name and value become session variables; no bars. Same
-  bucket as HP/GP from entities: widgets, later, not now.
+- `GAUGE` / `STAT` — name and value become session variables. That does
+  **not** mint an overlay widget; make one with `.widget` (or bind those
+  variables with `.widget source <id> var …`).
 - `FLAG RoomName` and friends — stored as `mxp.RoomName` session variables.
   The mapper does not read them. Automapper CSI (`ESC [10z]`–`[12z]`) is a
   no-op.
@@ -2438,6 +2440,82 @@ themselves have no conditions — use `EnableAlias` or `.alias` to turn an alias
 on or off; a trigger condition can *read* that on/off state or the alias
 **With** text.
 
+## Overlay gauges (`.widget` / `.gauge`)
+
+A small HP bar, ring, or countdown on the game window. You make them; the MUD
+does not. An MXP `<GAUGE>` tag never creates one — it still only writes session
+variables (see [MXP](#mxp-clickable-send)).
+
+`.gauge` is the same command as `.widget`. Ids are lowercase `a-z`, `0-9`, `_`,
+length 1–24, not `main` / `mainDisplay` / `button_window`. At most **12**.
+
+Configure under **Options → Window → Widgets** (**Manage widgets…**), or type
+the commands. GMCP sources need **Options → Service → Protocols → Use GMCP?**
+on, and the world actually sending those keys.
+
+Typical first pair:
+
+    .widget add hp ring
+    .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp
+
+No GMCP? A trigger can **Set Variable** `hp` / `maxhp` from `$1` / `$2`, then
+`.widget source hp var hp maxhp`. Or skip the variables and **Ack With**
+`.widget set hp $1 $2` (or `.widget set hp 80/100`).
+
+Shapes: `hbar` (default), `vbar`, `ring`, `timer`. On `add`, `bar` / `vertical`
+/ `circle` / `countdown` fold to those. A cooldown follows a client `.timer` by
+name:
+
+    .widget add stun timer
+    .widget source stun timer stunwait
+
+**Gestures** match a floating button: tap, swipe and hold run the commands you
+set with `.widget tap` / `swipe` / `hold`. A **two-second long-press** moves the
+gauge; the **bottom-right corner** resizes it. Numbers on the face are optional
+(`.widget value hp off`). `.widget warn hp 25` switches to the warn colour at
+that percent (default 25). Fill colour is `.widget color`; the empty track is
+`.widget track`. Names: `red` `green` `blue` `yellow` `orange` `cyan` `magenta`
+`white` `black`, or `#RRGGBB`. Opacity 10–100 (default 85).
+
+**Keyboard.** `.widget ime <id> stay|hide|overlay`:
+
+- **stay** (default) — stays on the game window, following IME lift
+- **hide** — gone while the keyboard is up
+- **overlay** — may sit over the keyboard (`TYPE_APPLICATION_OVERLAY`, same
+  **"Display over other apps"** permission as [super-buttons](#super-buttons-buttons-on-top-of-the-keyboard))
+
+`.bind` is the same verb as `.source`. Bare `.widget` prints usage.
+
+### `.widget` / `.gauge` forms
+
+```
+.widget
+.gauge
+.widget list
+.widget add <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]
+.widget remove|delete|rm <id>
+.widget show|hide <id>
+.widget shape <id> hbar|vbar|ring|timer
+.widget color <id> <name|#RRGGBB>
+.widget track <id> <name|#RRGGBB>
+.widget opacity <id> <percent>
+.widget size <id> <w> <h>
+.widget move <id> <x> <y>
+.widget label <id> [text]
+.widget value <id> on|off
+.widget source|bind <id> manual
+.widget source|bind <id> gmcp|mcp|var <path> [maxPath]
+.widget source|bind <id> timer <timerName>
+.widget set <id> <value> [<max>]
+.widget set <id> <value>/<max>
+.widget tap <id> [command]
+.widget swipe <id> up|down|left|right [command]
+.widget hold <id> [command]
+.widget warn <id> <percent> [color]
+.widget warn <id> off
+.widget ime <id> stay|hide|overlay
+```
+
 ## GMCP (short)
 
 Enable under **Options → Service → Protocols**. Prefer **Manage modules…**
@@ -2555,7 +2633,8 @@ misbehaves.
 **Use MXP?** — MUD eXtension Protocol (telnet option 91), on by default.
 Worlds can mark exits and items so a tap sends a command, and can play
 `SOUND` / `MUSIC` (files in `/BlowTorch/sounds`, or `http(s)` `U=` like
-Client.Media). Images, gauge bars, `SCRIPT` and `RELOCATE` are not done.
+Client.Media). Images, `SCRIPT` and `RELOCATE` are not done. MXP `GAUGE` /
+`STAT` still only write session variables — they do not mint a `.widget`.
 `.mxp on|off`. `.probe mxp` dumps a tappable sample. Reconnect after changing.
 
 ## Passwords are hidden while the MUD asks for them

@@ -848,6 +848,35 @@ public class StellarService extends Service {
 		}
 		mCallbacks.finishBroadcast();
 	}
+
+	/** Gauge widget config changed; UI pulls getGaugeWidgetsJson(). */
+	public final void notifyGaugeWidgetUi(final int action) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).gaugeWidgetUi(action);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.gauge widget ui broadcast", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
+
+	/**
+	 * Live gauge amounts. Always include {@code display} so a background world
+	 * cannot paint HP onto the foreground (extraTextUi does not filter; this one must).
+	 */
+	public final void notifyGaugeWidgetValues(final String display, final String json) {
+		final int n = mCallbacks.beginBroadcast();
+		for (int i = 0; i < n; i++) {
+			try {
+				mCallbacks.getBroadcastItem(i).gaugeWidgetValues(display, json);
+			} catch (RemoteException e) {
+				com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("StellarService.gauge widget values broadcast", e);
+			}
+		}
+		mCallbacks.finishBroadcast();
+	}
 	
 	/** Gets a new unique id for notifications. Always increments the value so it will be unique with each call.
 	 * 
