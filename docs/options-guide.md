@@ -76,8 +76,9 @@ On Android 11+ this needs **All files access** once: **Options → Miscellaneous
 
 ## GMCP
 
-GMCP is an optional structured out-of-band channel (telnet option 201). Enable
-**Use GMCP?** under Options → Service → Protocols. Use **Manage modules…** (under Options → Service → GMCP) to pick what goes in
+GMCP is an optional structured out-of-band channel (telnet option 201). **Use GMCP?**
+starts **off** for new worlds (existing profiles that never saved the key keep it on).
+Enable it under Options → Service → Protocols. Use **Manage modules…** (under Options → Service → GMCP) to pick what goes in
 `Core.Supports.Set` (built-in, seen this session, catalog). Nothing auto-enables
 from traffic. **Supports String (advanced)** is the raw list if you prefer editing
 it by hand. **Log GMCP?** writes the handshake and every packet to
@@ -334,7 +335,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
-- **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. `send:` taps type a command (StickMUD / Mudlet); `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
+- **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Mudlet-style `send:` taps type a command; `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
 - **`.protocols`** — what this world offered vs what is on. `.protocols enable` turns on offered-but-off switches (reconnect when it says so).
 - **Edit / Send:** side-by-side when both are shown (Options → Window → Show Edit/Send button?).
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`

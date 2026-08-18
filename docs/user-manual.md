@@ -2053,7 +2053,7 @@ Dot command (same three knobs):
 
 Some worlds mark words as links even when the words are not a URL — `click here`
 can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`).
-`http`/`https`/`mailto`/`ftp` open in the browser. Mudlet/StickMUD `send:` taps
+`http`/`https`/`mailto`/`ftp` open in the browser. Mudlet-style `send:` taps
 type that command to the game; `prompt:` fills the input bar. `javascript:`,
 `data:`, `vbscript:`, `file:`, and `preset:` are ignored.
 
@@ -2218,6 +2218,13 @@ wizard offers first; it installs nothing on its own.
 
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.
 
+A short tap on empty grid makes a new button. Long-press an empty cell pastes
+copied buttons, and only when something has been copied.
+
+**Wrap label** (edit button → the label row) splits a long name onto two lines
+on the tile. Off by default. **Draw / border** (Others → Colors) paints a
+coloured outline.
+
 The default `button_window` plugin supports more than tap:
 
 - **Swipe** — eight directions (up, down, left, right, and the four corners);
@@ -2238,8 +2245,8 @@ To paste, either:
 - open the editor settings sheet and press **Paste copied buttons**, which drops
   them in the middle of the grid.
 
-A short tap on empty grid still makes a new button, exactly as before — only a
-long press pastes, and only when something has been copied.
+A short tap on empty grid still makes a new button — only a long press pastes,
+and only when something has been copied.
 
 The copy carries each button's *own* settings and leaves inherited ones
 inherited, so buttons pasted into a set with different defaults take on that
@@ -2460,7 +2467,9 @@ Typical first pair:
 
 No GMCP? A trigger can **Set Variable** `hp` / `maxhp` from `$1` / `$2`, then
 `.widget source hp var hp maxhp`. Or skip the variables and **Ack With**
-`.widget set hp $1 $2` (or `.widget set hp 80/100`).
+`.widget set hp $1 $2` (or `.widget set hp 80/100`). MCP status keys:
+`.widget source hp mcp hp maxhp`. Regex on visible text:
+`.widget source hp regex "HP: (\\d+)/(\\d+)"`.
 
 Shapes: `hbar` (default), `vbar`, `ring`, `timer`. On `add`, `bar` / `vertical`
 / `circle` / `countdown` fold to those. A cooldown follows a client `.timer` by
@@ -2469,10 +2478,14 @@ name:
     .widget add stun timer
     .widget source stun timer stunwait
 
-**Gestures** match a floating button: tap, swipe and hold run the commands you
-set with `.widget tap` / `swipe` / `hold`. A **two-second long-press** moves the
-gauge; the **bottom-right corner** resizes it. Numbers on the face are optional
-(`.widget value hp off`). `.widget warn hp 25` switches to the warn colour at
+**Gestures.** Tap and eight-way swipe run the commands you set with `.widget tap`
+/ `.widget swipe` (Manage widgets… has the same fields). Long-press (~½ s)
+enters edit: yellow border, drag to move, bottom-right corner to resize. Tap
+again to leave edit. Long-press does not fire a hold command (`.widget hold` is
+stored but unused).
+
+Numbers on the face are optional (`.widget value hp off`). So is the name tag
+(`.widget caption hp off`). `.widget warn hp 25` switches to the warn colour at
 that percent (default 25). Fill colour is `.widget color`; the empty track is
 `.widget track`. Names: `red` `green` `blue` `yellow` `orange` `cyan` `magenta`
 `white` `black`, or `#RRGGBB`. Opacity 10–100 (default 85).
@@ -2503,13 +2516,15 @@ that percent (default 25). Fill colour is `.widget color`; the empty track is
 .widget move <id> <x> <y>
 .widget label <id> [text]
 .widget value <id> on|off
+.widget caption|nametag <id> on|off
 .widget source|bind <id> manual
 .widget source|bind <id> gmcp|mcp|var <path> [maxPath]
 .widget source|bind <id> timer <timerName>
+.widget source|bind <id> regex <valueRegex> [maxRegex]
 .widget set <id> <value> [<max>]
 .widget set <id> <value>/<max>
 .widget tap <id> [command]
-.widget swipe <id> up|down|left|right [command]
+.widget swipe <id> up|down|left|right|upleft|upright|downleft|downright [command]
 .widget hold <id> [command]
 .widget warn <id> <percent> [color]
 .widget warn <id> off
@@ -2518,7 +2533,8 @@ that percent (default 25). Fill colour is `.widget color`; the empty track is
 
 ## GMCP (short)
 
-Enable under **Options → Service → Protocols**. Prefer **Manage modules…**
+Enable under **Options → Service → Protocols**. Starts **off** for new worlds;
+existing profiles that never saved the key keep it on. Prefer **Manage modules…**
 over editing the raw Supports String.
 
 **If you need to know exactly what a world sends**, turn on **Log GMCP?** and

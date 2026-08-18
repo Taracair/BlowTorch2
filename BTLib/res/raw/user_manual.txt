@@ -1118,6 +1118,9 @@ Things worth knowing when the pattern gets ambitious:
 - **Overlapping triggers**: two different triggers matching the same word each
   mark it; the press uses the last box drawn there. Two Tappable Word actions
   on *one* trigger are merged instead (see above).
+- **MXP SEND on the same word**: the tappable trigger wins. An `http`/`https`/
+  `mailto` link on that spot still wins over both — opening a browser is the
+  surprise to get wrong.
 
 ### 9c. Tap a name to retarget every button
 
@@ -1332,6 +1335,7 @@ is enabled; `.alias list` shows every alias at once.
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
     `.mssp`                             Dump the cached MSSP server listing (server announces it; nothing to ask for)
     `.msdp …`                           Dump the MSDP cache, or ask the server: `list`, `send <var>`, `report <var>`, `unreport <var>`, `reset <group>`
+    `.mxp [on|off]`                     MXP (SEND links, colours, SOUND/MUSIC). Status with no argument. Reconnect after changing. `.probe mxp` dumps a sample
     `.suggest …` / `.complete …`        Suggest words the game just used. `on|off`, `1`..`8` to take one, `lines N`, `show N` (how many are offered), `where floating|bar|off|next`, `phrases`/`loose`/`ghost`/`persist`/`rank`/`pairs`/`short` (shorter first)/`plain` (plain word before the whole name) `on|off`, `ghostlines N` (extra rows for them), `opacity N`, `learned`, `clear`. See the Suggestions section
     `.keyboard` / `.kb`                 Input-bar control — see `.kb` section below
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
@@ -1343,6 +1347,7 @@ is enabled; `.alias list` shows every alias at once.
     `.search …`                         Scrollback search; see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
     `.window …`                         Extra text windows (list/show/hide/clear/create/destroy); see below
+    `.widget …` / `.gauge …`            Overlay gauges (HP/mana/timer bars). `.gauge` is the same command; see below
 
 ### `.trigger` forms
 
@@ -1423,8 +1428,18 @@ waiting on the game.
 ```
 
 Dumps OSC 8 hyperlink samples into this window (BEL and ST terminators, display
-text that is not the URL, a rejected `javascript:` scheme). Tap the marked
-words. Does not wait for a MUD. Turn the feature off with `.osc8 off`.
+text need not be the URL). Does not wait for a MUD. Turn the feature off with
+`.osc8 off`.
+
+### `.probe mxp`
+
+```
+.probe mxp
+```
+
+Dumps MXP SEND/colour samples into this window (already interpreted, so it does
+not need a MUD or a handshake). Tap the marked words. Turn the feature off with
+`.mxp off`.
 
 A launcher row **OSC 8 links (local test)** points at `127.0.0.1:4445`. On the
 laptop run `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`,
@@ -2037,19 +2052,98 @@ Dot command (same three knobs):
 ## OSC 8 hyperlinks
 
 Some worlds mark words as links even when the words are not a URL — `click here`
-can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`). Only
-`http`, `https`, and `mailto` are opened; `javascript:`, `data:`, `vbscript:`,
-and `file:` are ignored.
+can open `https://example.com/real`. That is OSC 8 (`ESC ]8;params;URI`).
+`http`/`https`/`mailto`/`ftp` open in the browser. Mudlet-style `send:` taps
+type that command to the game; `prompt:` fills the input bar. `javascript:`,
+`data:`, `vbscript:`, `file:`, and `preset:` are ignored.
 
 **Options → Window → Use OSC 8?** (on by default). This is
 independent of **Enable Hyperlinks?** (that one is regex linkify of `http` /
-`www.` / bare domains).
+`www.` / bare domains). Not inside Hyperlink Settings — OSC 8 is not a typical
+web hyperlink.
 
 ```
 .osc8
 .osc8 on | off
 .probe osc8
 ```
+
+## MXP (clickable SEND)
+
+Some worlds mark exits and items with [MXP](https://www.zuggsoft.com/zmud/mxp.htm)
+so a tap sends a command. Handshake is telnet option 91. **Options → Service →
+Protocols → Use MXP?** (on by default). Reconnect after changing.
+
+```
+.mxp
+.mxp on | off
+.probe mxp
+```
+
+Tap a SEND word and the game receives that command, the same as typing it. A
+SEND with several `|` commands opens a small menu (hint labels after the first
+`|` are the row names). SEND with `PROMPT` fills the input bar instead of
+sending. After you move, the world often sends `<EXPIRE>` so old exit links
+stop working; they stay visible in scrollback. Bare `<EXPIRE>` clears every
+MXP link.
+
+This is not OSC 8 (web links). MXP SEND is a command to the MUD.
+
+**What works**
+
+- Handshake (telnet option 91), colours, bold/italic/underline/strike.
+- `FONT` / `COLOR` **colour** (named, hex, RGB). Face and size are ignored —
+  changing the typeface mid-line would break ASCII maps.
+- `SEND` (tap sends a command), menus (`|` commands), `PROMPT` (fills the
+  input bar), `EXPIRE` (old exits stop working; they stay visible in
+  scrollback). Bare `<EXPIRE>` clears every MXP link.
+- Custom `ELEMENT` / `ATTLIST`, `ENTITY` / `VAR` (session variables).
+- `SOUND` / `MUSIC` — same player as Client.Media, on the **media** volume.
+  A file already in `/BlowTorch/sounds` (or previously cached) plays at
+  once. `U=` with `http`/`https` downloads like Client.Media and then plays.
+  `<SOUND Off>` / `<MUSIC Off>` (or `Stop`, or `L=0`) stop that kind.
+  `MUSIC` `C=1` does not restart the same track if it is already playing.
+- `<DEST>` / `<FRAME redirect>` with a name matching an extra-text window
+  already open (ignore-case); otherwise the main window. Does not create
+  windows.
+- Line breaks: `BR`, `NOBR`, `P`, `SBR`, `HR`, `H1`–`H6`.
+- `VERSION` / `SUPPORT` — the client answers honestly (`+sound` `+music`,
+  `-image`, no `+gauge`).
+
+**What does not (and will not, unless this list changes)**
+
+- `SCRIPT`, `RELOCATE` (and `USER` / `PASSWORD`), `FILTER` — ignored, on
+  purpose. The server does not run code on the phone or move the connection.
+- `telnet://` in `<A>` does not open a new connection (only `http` /
+  `https` / `mailto` leave the app).
+- `IMAGE` — the tag is consumed so it does not print; pictures are not drawn.
+- `GAUGE` / `STAT` — name and value become session variables. That does
+  **not** mint an overlay widget; make one with `.widget` (or bind those
+  variables with `.widget source <id> var …`).
+- `FLAG RoomName` and friends — stored as `mxp.RoomName` session variables.
+  The mapper does not read them. Automapper CSI (`ESC [10z]`–`[12z]`) is a
+  no-op.
+- `FONT FACE` / `SIZE` — ignored (colour still applies).
+- MSP (`!!SOUND` / `!!MUSIC`) — not MXP; not implemented.
+- `file:`, `javascript:` and other non-`http(s)` `U=` URLs — not fetched.
+  A SOUND with no local file and no usable URL is silent (logcat
+  `GmcpMedia`).
+
+A Tappable Word trigger on the same glyph wins over MXP SEND; a web link
+still wins over both.
+
+The launcher seeds four worlds that advertise MXP (one-shot; deleting a row
+sticks). Hosts and ports come from each world's docs or MSSP listing, not from
+a handshake in this client:
+
+- **Discworld MUD (MXP)** — `discworld.starturtle.net:4242` (official page also
+  lists 23). Their `/doc/concepts/mxp` describes clickable SEND and menus. In-game
+  you may need `term mxp` or `options mxp enabled`.
+- **Threshold RPG (MXP)** — `thresholdrpg.com:3333`. MSSP: MXP=yes, MINIMUM AGE 18.
+- **Ansalon (MXP)** — `ansalon.net:8679`. Homepage lists MXP Links; MSSP MXP=yes.
+- **Midnight Sun (MXP)** — `midnightsun2.org:3000`. MSSP: MXP=yes.
+
+Without a live SEND: `.probe mxp`.
 
 ## Newest text at top
 
@@ -2124,6 +2218,13 @@ wizard offers first; it installs nothing on its own.
 
 **Edit layout:** open **⋮ → Edit buttons**, or long-press the **⋮** next to Edit/Send. In edit mode ⋮ is hidden — use the strip icons: gear (set options), **Cancel** left, **Done** right.
 
+A short tap on empty grid makes a new button. Long-press an empty cell pastes
+copied buttons, and only when something has been copied.
+
+**Wrap label** (edit button → the label row) splits a long name onto two lines
+on the tile. Off by default. **Draw / border** (Others → Colors) paints a
+coloured outline.
+
 The default `button_window` plugin supports more than tap:
 
 - **Swipe** — eight directions (up, down, left, right, and the four corners);
@@ -2144,8 +2245,8 @@ To paste, either:
 - open the editor settings sheet and press **Paste copied buttons**, which drops
   them in the middle of the grid.
 
-A short tap on empty grid still makes a new button, exactly as before — only a
-long press pastes, and only when something has been copied.
+A short tap on empty grid still makes a new button — only a long press pastes,
+and only when something has been copied.
 
 The copy carries each button's *own* settings and leaves inherited ones
 inherited, so buttons pasted into a set with different defaults take on that
@@ -2233,7 +2334,7 @@ when the window process re-registers after a UI restart — then only the newest
 128 KB of held history is replayed.
 
 In **Manage windows…**, pick GMCP modules with checkboxes (advanced CSV for patterns
-like `Comm.*`). Routes need **Options → Service → GMCP → Use GMCP?** on.
+like `Comm.*`). Routes need **Options → Service → Protocols → Use GMCP?** on.
 
 ### `.window` forms
 
@@ -2346,9 +2447,94 @@ themselves have no conditions — use `EnableAlias` or `.alias` to turn an alias
 on or off; a trigger condition can *read* that on/off state or the alias
 **With** text.
 
+## Overlay gauges (`.widget` / `.gauge`)
+
+A small HP bar, ring, or countdown on the game window. You make them; the MUD
+does not. An MXP `<GAUGE>` tag never creates one — it still only writes session
+variables (see [MXP](#mxp-clickable-send)).
+
+`.gauge` is the same command as `.widget`. Ids are lowercase `a-z`, `0-9`, `_`,
+length 1–24, not `main` / `mainDisplay` / `button_window`. At most **12**.
+
+Configure under **Options → Window → Widgets** (**Manage widgets…**), or type
+the commands. GMCP sources need **Options → Service → Protocols → Use GMCP?**
+on, and the world actually sending those keys.
+
+Typical first pair:
+
+    .widget add hp ring
+    .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp
+
+No GMCP? A trigger can **Set Variable** `hp` / `maxhp` from `$1` / `$2`, then
+`.widget source hp var hp maxhp`. Or skip the variables and **Ack With**
+`.widget set hp $1 $2` (or `.widget set hp 80/100`). MCP status keys:
+`.widget source hp mcp hp maxhp`. Regex on visible text:
+`.widget source hp regex "HP: (\\d+)/(\\d+)"`.
+
+Shapes: `hbar` (default), `vbar`, `ring`, `timer`. On `add`, `bar` / `vertical`
+/ `circle` / `countdown` fold to those. A cooldown follows a client `.timer` by
+name:
+
+    .widget add stun timer
+    .widget source stun timer stunwait
+
+**Gestures.** Tap and eight-way swipe run the commands you set with `.widget tap`
+/ `.widget swipe` (Manage widgets… has the same fields). Long-press (~½ s)
+enters edit: yellow border, drag to move, bottom-right corner to resize. Tap
+again to leave edit. Long-press does not fire a hold command (`.widget hold` is
+stored but unused).
+
+Numbers on the face are optional (`.widget value hp off`). So is the name tag
+(`.widget caption hp off`). `.widget warn hp 25` switches to the warn colour at
+that percent (default 25). Fill colour is `.widget color`; the empty track is
+`.widget track`. Names: `red` `green` `blue` `yellow` `orange` `cyan` `magenta`
+`white` `black`, or `#RRGGBB`. Opacity 10–100 (default 85).
+
+**Keyboard.** `.widget ime <id> stay|hide|overlay`:
+
+- **stay** (default) — stays on the game window, following IME lift
+- **hide** — gone while the keyboard is up
+- **overlay** — may sit over the keyboard (`TYPE_APPLICATION_OVERLAY`, same
+  **"Display over other apps"** permission as [super-buttons](#super-buttons-buttons-on-top-of-the-keyboard))
+
+`.bind` is the same verb as `.source`. Bare `.widget` prints usage.
+
+### `.widget` / `.gauge` forms
+
+```
+.widget
+.gauge
+.widget list
+.widget add <id> [hbar|vbar|ring|timer|bar|vertical|circle|countdown]
+.widget remove|delete|rm <id>
+.widget show|hide <id>
+.widget shape <id> hbar|vbar|ring|timer
+.widget color <id> <name|#RRGGBB>
+.widget track <id> <name|#RRGGBB>
+.widget opacity <id> <percent>
+.widget size <id> <w> <h>
+.widget move <id> <x> <y>
+.widget label <id> [text]
+.widget value <id> on|off
+.widget caption|nametag <id> on|off
+.widget source|bind <id> manual
+.widget source|bind <id> gmcp|mcp|var <path> [maxPath]
+.widget source|bind <id> timer <timerName>
+.widget source|bind <id> regex <valueRegex> [maxRegex]
+.widget set <id> <value> [<max>]
+.widget set <id> <value>/<max>
+.widget tap <id> [command]
+.widget swipe <id> up|down|left|right|upleft|upright|downleft|downright [command]
+.widget hold <id> [command]
+.widget warn <id> <percent> [color]
+.widget warn <id> off
+.widget ime <id> stay|hide|overlay
+```
+
 ## GMCP (short)
 
-Enable under **Options → Service → Protocols**. Prefer **Manage modules…**
+Enable under **Options → Service → Protocols**. Starts **off** for new worlds;
+existing profiles that never saved the key keep it on. Prefer **Manage modules…**
 over editing the raw Supports String.
 
 **If you need to know exactly what a world sends**, turn on **Log GMCP?** and
@@ -2438,7 +2624,7 @@ displayurl (browser), ping auto-reply, mcp-cord, vmoo-client info.
 Lua: `Send_MCP_Packet(s)`, `Get_MCP_Status()`, literal triggers `@message-name`
 (same idea as GMCP `%module`).
 
-Optional protocols. **Use GMCP? / Use MCP? / Use MXP?** under Options → Service → **Protocols**. **MTTS and MCCP** (and MSDP / MSSP) under **Telnet**. **MTTS and MCCP are
+Optional protocols. **Use GMCP? / Use MCP? / Use MXP?** under Options → Service → **Protocols**. **MTTS, MCCP** (and MSDP / MSSP) under **Telnet**. **MTTS, MCCP and MXP are
 on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 
 ```
@@ -2446,6 +2632,7 @@ on by default; MSDP and MSSP are off.** Reconnect after changing any of them.
 .protocols enable — turn on offered-but-off switches
 .mssp   — dump MSSP cache (enable Use MSSP? first, reconnect)
 .msdp   — dump MSDP cache (enable Use MSDP? first, reconnect)
+.mxp    — MXP on/off/status (on by default; reconnect after changing)
 ```
 
 **Use MTTS?** — TTYPE always follows the MUD Terminal Type Standard
@@ -2458,6 +2645,13 @@ decompression ever fails, the client says so, turns compression off for that
 connection and reconnects once without it, rather than dumping the compressed
 stream on screen. Turn the option off for a server whose compression
 misbehaves.
+
+**Use MXP?** — MUD eXtension Protocol (telnet option 91), on by default.
+Worlds can mark exits and items so a tap sends a command, and can play
+`SOUND` / `MUSIC` (files in `/BlowTorch/sounds`, or `http(s)` `U=` like
+Client.Media). Images, `SCRIPT` and `RELOCATE` are not done. MXP `GAUGE` /
+`STAT` still only write session variables — they do not mint a `.widget`.
+`.mxp on|off`. `.probe mxp` dumps a tappable sample. Reconnect after changing.
 
 ## Passwords are hidden while the MUD asks for them
 

@@ -363,7 +363,7 @@ TOPICS.buttons_make = function()
 [[Short exercise (about a minute):
 
   1. Overflow → Edit buttons  (or long-press ⋮ next to Edit/Send)
-  2. Long-press empty space to add a tile (if auto-create is on)
+  2. Tap empty space to add a tile
   3. Tap the new tile → set Label to e.g. COMBAT
   4. Set Command to:  .loadset default
      (or .loadset tutorial — any set name you have)
@@ -387,9 +387,10 @@ TOPICS.buttons_edit = function()
 to Edit/Send. In edit mode the ⋮ is hidden — use the strip: gear (set
 options), Cancel (left), Done (right).
 
-Long-press empty space (if auto-create is on) to add a button. Drag to
-move, tap a tile to edit label/commands/gestures/accordion. Done saves
-the set.
+Tap empty space to add a button. Long-press an empty cell pastes copied
+buttons (only when something is on the clipboard). Drag to move, tap a
+tile to edit label/commands/gestures/accordion. Wrap label (on the
+label row) splits a long name onto two lines. Done saves the set.
 
 Try: move CLEAR slightly, Done, then CLEAR / BACK to confirm the set
 saved. Undo a bad edit with Cancel before Done.]])
@@ -624,7 +625,7 @@ lines stay in memory (then an old room is bright again). .dimrepeat
 strength 50 is how hard to dim; higher is darker.
 
 Some worlds mark words as links even when the words are not a
-URL — "click here" can open https://example.com/real. StickMUD-style
+URL — "click here" can open https://example.com/real. Mudlet-style
 send: taps type a command; prompt: fills the input bar. .osc8 on|off.
 .probe osc8 dumps a tappable sample here without waiting on the game.
 
@@ -919,7 +920,8 @@ Useful helpers:
   .gmcp renegotiate     re-send Hello + Supports.Set
   .gmcp feed on|off     echo packets in the game window
 
-Nothing auto-enables from "seen" traffic.]])
+Starts off for new worlds. Older profiles that never saved the key keep
+it on. Nothing auto-enables from "seen" traffic.]])
 end
 
 TOPICS.widgets = function()
@@ -1044,8 +1046,8 @@ need one.
 The switches live under Options → Service → Protocols (Use GMCP? /
 Use MCP? / Use MXP?). MTTS, MSDP, MSSP and MCCP sit under Telnet.
 Use OSC 8? is Options → Window.
-
-StickMUD room-item hashes need Use GMCP? on as well as OSC 8.]])
+Some worlds mark room items with hashes that only resolve when Use GMCP?
+is on as well as OSC 8.]])
 end
 
 TOPICS.stay_connected = function()

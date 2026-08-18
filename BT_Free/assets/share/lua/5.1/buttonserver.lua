@@ -2299,11 +2299,17 @@ function ensureLayoutSettingsOptions()
 		if okAdd then added = true end
 	end
 
-	-- Retired from Options → Button: the editor is overflow long-press / Edit
-	-- buttons. Old profiles still carry the BooleanOption row. Strip it here
-	-- (buttonLayerReady), never from OnOptionChanged.
+	-- Retired from Options → Button. Old profiles still carry the BooleanOption
+	-- rows. Strip them here (buttonLayerReady), never from OnOptionChanged.
+	-- auto_launch: the editor is overflow long-press / Edit buttons.
+	-- auto_create: empty-grid long-press pastes copied buttons; a short tap
+	-- still creates one. Nothing reads this key any more.
 	if not missing("auto_launch") then
 		pcall(function() settings:removeOptionByKey("auto_launch") end)
+		added = true
+	end
+	if not missing("auto_create") then
+		pcall(function() settings:removeOptionByKey("auto_create") end)
 		added = true
 	end
 	return added
@@ -2479,9 +2485,9 @@ optionsTable.haptic_edit = setHapticFeedbackEditor
 optionsTable.haptic_press = setHapticFeedbackPressed
 optionsTable.haptic_flip = setHapticFeedbackFlipped
 optionsTable.roundess = setRoundness
--- auto_launch is stripped from existing profiles in ensureLayoutSettingsOptions.
--- auto_create stays in the group if a profile already has it. The setters stay
--- so a preference saved by an older build still lands somewhere.
+-- auto_launch / auto_create are stripped from existing profiles in
+-- ensureLayoutSettingsOptions. The setters stay so a preference saved by an
+-- older build still lands somewhere.
 optionsTable.auto_launch = setAutoLaunch
 optionsTable.auto_create = setAutoCreate
 optionsTable.show_gesture_hints = setShowGestureHints

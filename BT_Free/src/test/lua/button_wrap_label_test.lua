@@ -63,14 +63,16 @@ check(buttons:find("self.data.wrapLabel == true", 1, true) ~= nil,
 check(buttons:find("canvas:drawText(label,tX,tY,p)", 1, true) ~= nil,
 	"one-line drawText path still exists for wrap off")
 
-print("3. auto_launch is stripped on buttonLayerReady, setter stub stays")
+print("3. auto_launch and auto_create are stripped on buttonLayerReady, setter stubs stay")
 local server = readAll(ROOT .. "/buttonserver.lua")
 check(server:find('removeOptionByKey("auto_launch")', 1, true) ~= nil,
 	"ensureLayoutSettingsOptions removes auto_launch")
 check(server:find("optionsTable.auto_launch = setAutoLaunch", 1, true) ~= nil,
-	"setter stub remains")
-check(server:find('removeOptionByKey("auto_create")', 1, true) == nil,
-	"auto_create is not removed")
+	"auto_launch setter stub remains")
+check(server:find('removeOptionByKey("auto_create")', 1, true) ~= nil,
+	"ensureLayoutSettingsOptions removes auto_create")
+check(server:find("optionsTable.auto_create = setAutoCreate", 1, true) ~= nil,
+	"auto_create setter stub remains")
 
 print("4. floating hints are not gated on the callout flag")
 local view = readAll(scriptDir() .. "/../../../../BTLib/src/com/resurrection/blowtorch2/lib/window/FloatingButtonView.java")

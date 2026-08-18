@@ -90,6 +90,9 @@ Typed into the input bar like anything else. These are the ones worth knowing:
 | `.editbutton` | Show or hide the Edit button (Options → Window). |
 | `.editpanel` | Toggle the Edit tools strip (Sel/Cut/… pad). |
 | `.sendbutton` | Show or hide the Send button (Options → Window). |
+| `.widget add hp ring` | Overlay HP/mana/cooldown on the game window. `.gauge` is the same. |
+| `.protocols` | What this world offered vs what you have switched on. |
+| `.options` | Open Options, same as the ⋮ menu. |
 
 Dot commands are on by default. `..` on its own turns them off and on, and
 prefixing a line with `..` sends a literal leading `.` to the game, for worlds
