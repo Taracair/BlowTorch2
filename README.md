@@ -1,106 +1,87 @@
 # BlowTorch 2
 
-**Work in progress.** The whole project is still WIP — I do not promise that
-everything works perfectly, though I am trying hard. A lot of features and code
-have been fixed and put through extensive testing, but a stray bug may still
-lurk somewhere. If you hit one, reporting it is the most valuable thing you
-can do for me as a player.
+An Android client for MUDs — text worlds you play over the network. You pick
+a host, connect, type commands, and read what the game sends back: rooms,
+combat, chat, the lot. No graphics engine; the screen is the game's text,
+plus whatever you put on it (buttons, a map, an HP bar).
 
-BlowTorch was a genuinely good Android MUD client. Then it stopped being
-updated in 2018, Android moved on without it, and it quietly became
-uninstallable. This fork brings it back: same client, but with many new
-features. The [user guide](docs/user-manual.md) is strongly recommended if you
-want to understand them.
+This is a fork of BlowTorch (2010–2018). The original stopped getting
+updates, Android moved on, and it quietly became uninstallable. Same client
+underneath, running again, with a lot built for a phone on top. The
+[user guide](docs/user-manual.md) is the full picture (also in-app under
+**Help**). Settings: [`docs/options-guide.md`](docs/options-guide.md). Lua
+plugins: [`docs/plugin-authoring.md`](docs/plugin-authoring.md).
 
-**Commands:** [`docs/user-manual.md`](docs/user-manual.md), also in-app under
-**Help** · **Every setting:** [`docs/options-guide.md`](docs/options-guide.md) ·
-**Write plugins:** [`docs/plugin-authoring.md`](docs/plugin-authoring.md)
+**Work in progress.** A lot has been tested on a real phone, but I do not
+promise it is perfect. If you hit a bug, a report with steps is the most
+useful thing you can send.
 
 ---
 
-## What it does
+## On the phone
 
-**Triggers and timers with conditions.** A trigger or a timer can carry a
-condition that decides whether it fires at all: *is this other trigger enabled*,
-*is that one disabled*, *does a variable equal something*, *does a variable
-exist* — combined with and/or. Triggers also live in named groups, and any
-trigger can enable or disable a whole group.
+**Buttons.** Tap for one command; swipe in any of eight directions for eight
+more; hold for another. Accordion tiles fan out a cluster (pin existing
+buttons onto MORE). Sets switch with `.loadset`, including from a button, so
+a movement pad becomes a combat pad on one tap.
 
-Together that is a state machine. A combat set arms itself when you engage and
-disarms when you flee. A quest chain arms the next step as each one fires. A
-heal timer only fires while a `fighting` variable is set. A trigger's script
-action is real Lua as well, with `EnableTrigger`, `EnableTriggerGroup`,
-`SetVariable`/`GetVariable`, and creating or deleting triggers at runtime. This
-is the part people build whole play styles on.
+**Gauges.** A small HP / mana / cooldown on the game window (`.widget` /
+`.gauge`). Point it at GMCP vitals, a score-line regex, or a timer.
 
-Triggers can also colour a line, gag it, replace text in it, fire a
-notification, raise a toast, set a variable, send commands, or push output into
-a separate window — several at once, in order.
+**Tap the text.** Worlds that mark exits and items (MXP, OSC 8, or your own
+Tappable Word triggers) send a command on a tap. Hold where several words
+sit close together and a loupe lets you pick the one you meant.
 
-**On-screen buttons that hold more than one command.** Tap for one command;
-swipe in any of eight directions (up, down, left, right, and the four corners)
-for eight more; hold for a tenth. Accordion buttons expand
-into a cluster of related ones. Buttons come in sets you can switch between, and
-a button can switch the set itself — so a movement pad becomes a combat pad on
-one tap. Optional on-screen hints show what a tile is bound to.
+**A map that draws as you walk.** Follows GMCP room info where the world
+sends it, or records your movement where it does not. Several floors,
+one-way exits, crooked exits drawn honestly. Pathfind and walk there. Newest
+and most experimental part of the app — marked as such in the UI.
 
-**A mapper that draws itself as you walk.** Follows GMCP `Room.Info` where a
-world sends it, or records your movement where it does not. Handles multiple
-floors, one-way exits, and exits that do not go where the direction implies —
-those get drawn honestly rather than straightened out into a lie. Pathfind to
-any room and walk there. It is the newest and most experimental part of the app,
-and it is marked as such in the UI.
+**Extra windows.** Chat in one pane, vitals in another. Each has its own
+size, opacity, and scrollback that keeps filling while the pane is closed.
 
-**Extra text windows.** Route GMCP modules or trigger output into their own
-floating or drawer panes — chat in one, vitals in another — each with its own
-size, opacity, scroll speed, and its own scrollback that keeps filling while the
-window is closed.
+**Phone comfort.** Growable input bar, scrollback search, copy, session
+logging, connection time on the notification, TLS when the world offers it.
 
-**The classic toolkit, intact.** Aliases, named timers with play/pause/reset,
-speedwalks, per-connection settings, and the full Lua plugin engine the original
-was built around.
+## Automating play
 
-**Comfort on a phone.** Growable input bar, scrollback search, text selection
-and clipboard, session logging, connection time on the notification, wifi and
-wake locks, alert sounds, and an in-app crash log viewer so a bug report can
-carry something useful.
+**Triggers, aliases, timers.** A trigger can colour a line, gag it, replace
+text, notify you, set a variable, send commands, or push output into another
+window — several at once. Triggers and timers can wait on a condition (*is
+that trigger on*, *does a variable equal this*) and live in groups you arm
+or disarm together. That is a state machine: combat scripts turn on when you
+fight and off when you flee. Trigger scripts are real Lua.
 
-### Commands you will actually use
+**The rest of the classic toolkit.** Speedwalks, per-world settings, and the
+Lua plugin engine the original was built around.
 
-Typed into the input bar like anything else. These are the ones worth knowing:
+### From the input bar
 
-| Command | What it does |
-|---------|--------------|
-| `.help` | Lists every dot command in this session. `.help suggest` filters. |
-| `.suggest on` | Word chips from recent game text. `.suggest where off` hides the bar; ghost + `.suggest 1`..`8` still work. |
-| `.prompt on` | Pins the world's unfinished prompt above the input. |
-| `.loadset combat` | Switch the on-screen button set (also from a button). |
-| `.clearbuttons` | Hide the button pad until the next `.loadset` (leaves a BACK tile). |
-| `.switch <name>` | Jump to another open connection. Bare `.switch` lists names. |
-| `.search <text>` | Search scrollback and jump to the hit. |
-| `.font +2` / `.width toggle` | Font size and text canvas width without opening Options. |
-| `.trigger group off combat` | Disable a whole trigger group (e.g. leave combat scripts). |
-| `.alias toggle kk` | Turn one alias on or off. |
-| `.timer play heal` | Start a named timer (`pause` / `reset` / `stop` / `info` too). |
-| `.run 3n2ew` | Speedwalk with pauses between steps. |
+Dot commands, typed like anything else. A short list; `.help` has every one.
+
+| Command | |
+|---------|--|
+| `.help` | Every dot command this session. `.help suggest` filters. |
+| `.options` | Options screen, same as ⋮. Put it on a button. |
+| `.suggest on` | Word chips from recent game text. |
+| `.widget add hp ring` | Overlay an HP bar. `.gauge` is the same. Then `.widget source …` |
+| `.protocols` | What this world offered vs what you have on. |
+| `.loadset combat` | Switch the button pad (also from a button). |
 | `.map open` | Show or hide the map. `.map goto <room>` walks a route. |
-| `.reconnect` | Drop and open the connection again. |
-| `#5 north` | Send the rest of the line five times (`##5 north` = literal `#`). |
-| `.kb insert troll` | Put text at the cursor (no send). Useful from a tappable as `.kb insert $word`. |
-| `.editbutton` | Show or hide the Edit button (Options → Window). |
-| `.editpanel` | Toggle the Edit tools strip (Sel/Cut/… pad). |
-| `.sendbutton` | Show or hide the Send button (Options → Window). |
-| `.widget add hp ring` | Overlay HP/mana/cooldown on the game window. `.gauge` is the same. |
-| `.protocols` | What this world offered vs what you have switched on. |
-| `.options` | Open Options, same as the ⋮ menu. |
+| `.search <text>` | Jump to that text in scrollback. |
+| `.switch <name>` | Another open connection. Bare `.switch` lists them. |
+| `.reconnect` | Drop and connect again. |
+| `#5 north` | Send the rest of the line five times (`##5 north` = a literal `#`). |
+| `.run 3n2ew` | Speedwalk. |
+| `.trigger group off combat` | Disable a whole trigger group. |
+| `.alias toggle kk` | One alias on or off. |
+| `.timer play heal` | Start a named timer (`pause` / `reset` / `stop`). |
 
-Dot commands are on by default. `..` on its own turns them off and on, and
-prefixing a line with `..` sends a literal leading `.` to the game, for worlds
-that use one.
+Dot commands are on by default. `..` toggles them. A line starting `..`
+sends a literal leading `.` to the game.
 
-**Everything else** — every command, every argument, and the Lua plugin API —
-is in [`docs/user-manual.md`](docs/user-manual.md), which is also available
-in-app under **Help**.
+Full list, arguments, and the Lua API:
+[`docs/user-manual.md`](docs/user-manual.md) (in-app **Help**).
 
 ---
 
