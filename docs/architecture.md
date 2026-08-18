@@ -1,6 +1,6 @@
 # How BlowTorch 2 is built
 
-**As of 16 August 2026** · shipped tip **v2.3.0** (`versionCode` 258)
+**As of 18 August 2026** · shipped tip **v2.3.5** (`versionCode` 259)
 
 This is the architecture map for anyone taking on the codebase: human or
 assistant. It describes **how the app is structured**, not how to play it and
@@ -86,10 +86,10 @@ staging area for the latest APKs. It is **not** the git root.
 
 | Flavor | Application id | Label | versionName (as of this date) |
 |--------|----------------|-------|-------------------------------|
-| `production` | `com.resurrection.blowtorch2` | BlowTorch 2 | `2.3.0` |
-| `btTest` | `com.resurrection.blowtorch2.test` | BlowTorch 2 Test | `2.3.0-test` |
+| `production` | `com.resurrection.blowtorch2` | BlowTorch 2 | `2.3.5` |
+| `btTest` | `com.resurrection.blowtorch2.test` | BlowTorch 2 Test | `2.3.5-test` |
 
-Both share `versionCode` **258**. Typical variants: `productionDebug`,
+Both share `versionCode` **259**. Typical variants: `productionDebug`,
 `productionRelease`, `btTestDebug`, `btTestRelease`.
 
 - **ABI:** `armeabi-v7a`, `arm64-v8a`

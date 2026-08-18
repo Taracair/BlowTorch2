@@ -48,11 +48,12 @@ Under **Options → Window → Widgets**:
 
 | Option | Notes |
 |--------|--------|
-| **Manage widgets…** | List / add / delete overlay gauges (HP, mana, cooldown). Same ids as `.widget` / `.gauge` (lowercase `a-z` `0-9` `_`, max 12). Shape, colour, source, size, IME (stay / hide / overlay). Definitions stay if you hide one. |
+| **Manage widgets…** | List / add / delete overlay gauges (HP, mana, cooldown). Same ids as `.widget` / `.gauge` (lowercase `a-z` `0-9` `_`, max 12). Shape, colour, source (GMCP / MCP / variable / regex / timer / manual), tap and eight-way swipe, size, IME (stay / hide / overlay). Long-press (~½ s) edits (move/resize); tap leaves edit. Definitions stay if you hide one. |
 
 `.widget` (and `.gauge`) is the typed command list — see the user manual.
 Typical first pair: `.widget add hp ring` then `.widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp`.
-GMCP sources need **Use GMCP?** on. MXP `<GAUGE>` does not create a widget.
+No GMCP? `.widget source hp mcp hp maxhp`, Set Variable then `.widget source hp var hp maxhp`, or `.widget source hp regex "HP: (\\d+)/(\\d+)"`.
+GMCP sources need **Use GMCP?** on (off for new worlds). MXP `<GAUGE>` does not create a widget.
 
 ## Shared storage layout (`/BlowTorch/`)
 
@@ -270,6 +271,15 @@ it cannot be disabled or deleted.
 | **Button roundness** | 6 | Corner radius of a tile (key is `roundess`, spelled that way on disk) |
 | **Haptic feedback on editor launch / on press / on flip** | — | Three separate dropdowns |
 
+A short tap on empty grid in Edit buttons still makes a new tile. Long-press an
+empty cell pastes copied buttons. The old **Automatically create buttons** /
+**Automatically launch editor** rows are stripped on connect if a profile still
+had them.
+
+The Compass pack's rose sits **bottom-right** on a new layout (thumb reach).
+Skipping the wizard still pins that pad to the **right**; left / center / right
+in the wizard still wins.
+
 Both dropdowns used to be free-text fields. A profile keeps whatever option
 *type* it was created with, so an older profile is migrated to the dropdown on
 the first connect after upgrading, carrying its previous value across.
@@ -325,6 +335,10 @@ Removed: legacy **Copy Settings to Storage** / Recover (raw dump to `…/recover
 can be used for GMCP **Char.Login** when the MUD offers it; extra slots are notes only.
 Stored as plain text in the launcher list on this device; see the warning in the dialog.
 
+**Hostname** on New/Edit connection is labelled Hostname (not "Host Name"). The
+field uses a URI keyboard so typing a dot does not insert a space. Leftover
+spaces are stripped on save.
+
 ## Dot commands
 
 Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
@@ -335,8 +349,11 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
-- **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Mudlet-style `send:` taps type a command; `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
+- **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Mudlet-style `send:` taps type a command; `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). Hold where several tappable words sit close together (OSC 8, MXP, or a Tappable Word trigger) and a small loupe appears so you can slide to the one you meant. `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
 - **`.protocols`** — what this world offered vs what is on. `.protocols enable` turns on offered-but-off switches (reconnect when it says so).
+- **`.options`** — opens the Options screen, same as ⋮. Put it on a button.
+- **`.widget` / `.gauge`** — overlay HP/mana/timer gauges. Options → Window → Widgets. See the user manual.
+- **`.buttonopacity` / `.buttonsopacity`** — force every tile opaque until `restore`. Edit buttons pauses a 0% override so the pad is visible.
 - **Edit / Send:** side-by-side when both are shown (Options → Window → Show Edit/Send button?).
 - **Show Edit button?** — `.editbutton on|off` · tools strip `.editpanel on|off`
 - **Show Send button?** — `.sendbutton on|off` · or keyboard Send / `.kb flush`

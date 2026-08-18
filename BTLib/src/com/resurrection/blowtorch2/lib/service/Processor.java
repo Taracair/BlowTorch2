@@ -102,7 +102,7 @@ public class Processor {
 	}
 
 	private String packageVersion() {
-		String ver = "2.3.0";
+		String ver = "2.3.5";
 		if (mContext != null) {
 			try {
 				ver = mContext.getPackageManager()
@@ -111,7 +111,7 @@ public class Processor {
 			}
 		}
 		if (ver == null || ver.length() == 0) {
-			ver = "2.3.0";
+			ver = "2.3.5";
 		}
 		return ver;
 	}

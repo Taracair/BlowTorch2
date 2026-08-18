@@ -1,0 +1,4 @@
+BlowTorch 2 v2.3.5
+• Overlay gauges (.widget); MXP tap-to-send; OSC 8 links; link loupe
+• .protocols; accordion pin; 256-colour; dim repeated lines
+• Lowercase start; .options; button/input/editor and freeze fixes

@@ -14,7 +14,9 @@ it shows on screen — is the source of truth. Please report mistakes on
 ## Encrypted connections (TLS)
 
 **Use TLS (encrypted)** is a checkbox on each world, in the same editor as its
-host and port (add or edit a world from the launcher).
+host and port (add or edit a world from the launcher). The Hostname field uses
+a URI keyboard so typing a dot does not insert a space; leftover spaces are
+stripped on save.
 
 Turn it on only when the world offers a TLS port. That is usually a *different
 port number* from the plain one — a world might take plain connections on 4000
@@ -1343,6 +1345,7 @@ is enabled; `.alias list` shows every alias at once.
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
+    `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback search; see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
@@ -2198,10 +2201,14 @@ again. Offline Starter Tutorial keeps its own teaching pad.
 
 The pad lands just under the action bar, high enough that the soft keyboard
 cannot cover it — a pad anchored near the bottom of the screen disappears behind
-the keyboard the moment you type. Accordion parents in the wizard packs use
-labels like **MORE**, **NAV**, **TIP**, **CAST**, **DOORS**, and **CHAT** — each
-pack puts its own on its bottom row, opening **downward** into the empty game
-area beneath it, so they never cover the compass rose above them.
+the keyboard the moment you type. On a new layout the Compass rose (LOOK in the
+middle) sits **bottom-right** for thumb reach. Skipping the wizard still pins
+that pad to the **right**; left / center / right in the wizard still wins.
+Existing worlds keep saved positions until you run the wizard or reset.
+Accordion parents in the wizard packs use labels like **MORE**, **NAV**, **TIP**,
+**CAST**, **DOORS**, and **CHAT** — each pack puts its own on its bottom row,
+opening **downward** into the empty game area beneath it, so they never cover
+the compass rose above them.
 
 Named sizes are capped so the whole pad stays above the keyboard: Compass has
 six rows, so **Extra large** comes back a little under 72dp on a tall phone —
