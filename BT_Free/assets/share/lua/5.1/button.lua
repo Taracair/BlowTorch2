@@ -23,6 +23,17 @@ buttonShowGestureLabels = true
 -- Set by .buttonopacity; not written to the button set.
 buttonOpacityOverride = nil
 
+-- .buttonopacity 0 hides every tile in play. The pad editor must still show
+-- them or it looks like the set vanished. Pause the override while manage is
+-- true; leaving the editor puts the session value back. `manage` lives in
+-- buttonwindow.lua; nil here means not editing (buttonserver also loads this).
+function effectiveButtonOpacityOverride()
+	if manage == true then
+		return nil
+	end
+	return buttonOpacityOverride
+end
+
 -- Split 0xAARRGGBB (Java signed int) into R,G,B. Alpha is discarded.
 function rgbFromArgb(color)
 	local n = tonumber(color)
@@ -552,7 +563,7 @@ function BUTTON:drawSwipePreview(canvas, direction)
 	end
 	local fillAlpha = self._fillAlpha
 	if fillAlpha == nil then
-		fillAlpha = alphaFromArgb(colorWithForcedAlpha(self.data.primaryColor, buttonOpacityOverride))
+		fillAlpha = alphaFromArgb(colorWithForcedAlpha(self.data.primaryColor, effectiveButtonOpacityOverride()))
 	end
 	if fillAlpha == 0 then
 		return
@@ -578,7 +589,7 @@ function BUTTON:draw(state,canvas)
 	end
 	
 	local function tileColor(c)
-		return colorWithForcedAlpha(c, buttonOpacityOverride)
+		return colorWithForcedAlpha(c, effectiveButtonOpacityOverride())
 	end
 
 	local rect = self.rect

@@ -2186,10 +2186,11 @@ function notifyFloatingButtonsChanged()
 		local arr = luajava.new(JSONArray)
 		local function floaterArgb(c)
 			local n = tonumber(c) or 0
-			if buttonOpacityOverride == nil then
+			local forced = effectiveButtonOpacityOverride()
+			if forced == nil then
 				return n
 			end
-			return colorWithForcedAlpha(n, buttonOpacityOverride)
+			return colorWithForcedAlpha(n, forced)
 		end
 		if not editing and buttons ~= nil then
 			for i, b in ipairs(buttons) do

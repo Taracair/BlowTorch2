@@ -67,6 +67,23 @@ check(alphaFromArgb(4294967295) == 255, "0xFFFFFFFF → 255") -- unsigned 32-bit
 check(alphaFromArgb(0x00FF8000) == 0, "transparent fill → 0")
 check(alphaFromArgb(nil) == 255, "nil → opaque so badges are not hidden by a missed fill")
 
+print("5. effectiveButtonOpacityOverride pauses the session value while editing")
+local helperFirst = findLine("^function effectiveButtonOpacityOverride",
+		"effectiveButtonOpacityOverride")
+local helperBody = table.concat(lines, "\n", helperFirst, first - 1)
+local paused = assert(loadfn(
+		"manage = true\nbuttonOpacityOverride = 0\n"
+				.. helperBody
+				.. "\nreturn effectiveButtonOpacityOverride()\n",
+		"opacity-paused"))()
+check(paused == nil, "editing → nil (own alpha)")
+local playing = assert(loadfn(
+		"manage = false\nbuttonOpacityOverride = 0\n"
+				.. helperBody
+				.. "\nreturn effectiveButtonOpacityOverride()\n",
+		"opacity-playing"))()
+check(playing == 0, "not editing → session 0")
+
 if failures > 0 then
 	print(string.format("FAILED (%d)", failures))
 	os.exit(1)
