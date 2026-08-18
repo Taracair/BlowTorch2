@@ -35,6 +35,8 @@ public final class ChromeController {
 	private boolean isFullScreen = false;
 	/** Last IME lift applied via translationY (px). 0 when keyboard is down. */
 	private int imeLiftPx = 0;
+	/** Last {@code WindowInsetsCompat.isVisible(ime)}. */
+	private boolean imeVisible = false;
 
 	/**
 	 * ⋮ appearance, from Options → Miscellaneous. Defaults match the drawable
@@ -63,6 +65,11 @@ public final class ChromeController {
 	/** Current IME lift in px; floating Mode A uses this. */
 	int getImeLiftPx() {
 		return imeLiftPx;
+	}
+
+	/** Last IME visibility from insets. Mode A hide uses the true→false edge. */
+	boolean isImeVisible() {
+		return imeVisible;
 	}
 
 	void loadHeightsFromPrefs() {
@@ -122,6 +129,7 @@ public final class ChromeController {
 	/** Newest reading, applied once it has stood for {@link #INSET_SETTLE_MS}. */
 	private int pendingLift;
 	private int pendingBarsTop;
+	private boolean pendingImeVisible;
 
 	WindowInsetsCompat onApplyWindowInsets(View view, WindowInsetsCompat windowInsets) {
 		Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -140,7 +148,9 @@ public final class ChromeController {
 		// keyboard-mode floaters stay hidden, and there is no fallback that works
 		// under adjustNothing.
 		int lift = Math.max(0, ime.bottom - bars.bottom);
-		scheduleInsetApply((RelativeLayout) view, lift, statusBarInsetToTrust(bars.top));
+		boolean visible = windowInsets.isVisible(WindowInsetsCompat.Type.ime());
+		scheduleInsetApply((RelativeLayout) view, lift, statusBarInsetToTrust(bars.top),
+				visible);
 		return windowInsets;
 	}
 
@@ -176,19 +186,21 @@ public final class ChromeController {
 	 * buttons all read what this writes, and patching them one at a time is what
 	 * turned one fault into three attempts.
 	 */
-	private void scheduleInsetApply(final RelativeLayout view, final int lift, final int barsTop) {
+	private void scheduleInsetApply(final RelativeLayout view, final int lift,
+			final int barsTop, final boolean visible) {
 		if (android.os.SystemClock.elapsedRealtime() - resumedAt > RESUME_SETTLE_WINDOW_MS) {
 			// Ordinary running. Apply at once, exactly as before: the keyboard
 			// dispatches insets repeatedly as it slides, and the game window is
 			// supposed to travel with it. Delaying these would turn a slide into
 			// two jumps, which is a worse fault than the one being fixed and it
 			// would happen every time anybody typed.
-			applyInsets(view, lift, barsTop);
+			applyInsets(view, lift, barsTop, visible);
 			return;
 		}
 		pendingLift = lift;
 		pendingBarsTop = barsTop;
-		if (lift == imeLiftPx && barsTop == statusBarHeight) {
+		pendingImeVisible = visible;
+		if (lift == imeLiftPx && barsTop == statusBarHeight && visible == imeVisible) {
 			// Already where this says it should be. Drop any pending change with
 			// it: that is the retraction arriving, and applying the value in
 			// between is exactly the flicker.
@@ -204,16 +216,17 @@ public final class ChromeController {
 		pendingInsetApply = new Runnable() {
 			public void run() {
 				pendingInsetApply = null;
-				applyInsets(view, pendingLift, pendingBarsTop);
+				applyInsets(view, pendingLift, pendingBarsTop, pendingImeVisible);
 			}
 		};
 		insetHandler.postDelayed(pendingInsetApply, INSET_SETTLE_MS);
 	}
 
-	private void applyInsets(RelativeLayout view, int lift, int barsTop) {
+	private void applyInsets(RelativeLayout view, int lift, int barsTop, boolean visible) {
 		applyImeChromeLift(view, lift);
 		imeLiftPx = lift;
-		activity.onFloatingButtonsImeLift(lift);
+		imeVisible = visible;
+		activity.onFloatingButtonsImeLift(lift, visible);
 		statusBarHeight = barsTop;
 		titleBarHeight = barsTop;
 		SharedPreferences.Editor insetEditor =

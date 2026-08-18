@@ -8,7 +8,7 @@ import org.junit.Test;
 
 /**
  * Hysteresis for "is the keyboard up": the old 120dp hard floor toggled twice
- * on a dip during the IME slide.
+ * on a dip during the IME slide. Hide-on-command is a latch, not a second floor.
  */
 public class SoftKeyboardCoverageTest {
 
@@ -65,5 +65,80 @@ public class SoftKeyboardCoverageTest {
 	@Test
 	public void settleConstantMatchesChromeInsetBurst() {
 		assertEquals(180, SoftKeyboardCoverage.SETTLE_MS);
+	}
+
+	@Test
+	public void settleOnlyWhenBecomingCovered() {
+		assertEquals(SoftKeyboardCoverage.SETTLE_MS,
+				SoftKeyboardCoverage.settleMs(true));
+		assertEquals(0, SoftKeyboardCoverage.settleMs(false));
+	}
+
+	@Test
+	public void hideRequestHoldsWhileLiftStillLooksLikeAKeyboard() {
+		SoftKeyboardCoverage.HideRequest hide = new SoftKeyboardCoverage.HideRequest();
+		hide.request();
+		assertTrue(hide.tick(400, 1f));
+		assertTrue(hide.tick(350, 1f));
+		assertTrue(hide.isRequested());
+	}
+
+	@Test
+	public void hideRequestClearsWhenLiftFallsThroughHideFloor() {
+		SoftKeyboardCoverage.HideRequest hide = new SoftKeyboardCoverage.HideRequest();
+		hide.request();
+		assertFalse(hide.tick(0, 1f));
+		assertFalse(hide.isRequested());
+	}
+
+	@Test
+	public void hideRequestClearsWhenKeyboardRisesFromTheTrough() {
+		SoftKeyboardCoverage.HideRequest hide = new SoftKeyboardCoverage.HideRequest();
+		hide.request();
+		assertTrue(hide.tick(400, 1f));
+		assertTrue(hide.tick(300, 1f));
+		assertTrue(hide.tick(310, 1f));
+		assertTrue(hide.tick(323, 1f));
+		assertFalse(hide.tick(324, 1f));
+		assertFalse(hide.isRequested());
+	}
+
+	@Test
+	public void hideRequestClearsWhenKeyboardRisesInSmallStepsAtHighDensity() {
+		SoftKeyboardCoverage.HideRequest hide = new SoftKeyboardCoverage.HideRequest();
+		hide.request();
+		assertTrue(hide.tick(900, 3f));
+		assertTrue(hide.tick(600, 3f));
+		boolean still = true;
+		for (int lift = 610; lift <= 680; lift += 10) {
+			still = hide.tick(lift, 3f);
+		}
+		assertFalse(still);
+		assertFalse(hide.isRequested());
+	}
+
+	@Test
+	public void hideRequestDoesNotPlantWhenKeyboardAlreadyDown() {
+		SoftKeyboardCoverage.HideRequest hide = new SoftKeyboardCoverage.HideRequest();
+		hide.request();
+		assertFalse(hide.tick(0, 1f));
+		assertFalse(hide.isRequested());
+	}
+
+	@Test
+	public void hideRequestIgnoresAOnePixelJitterOnTheWayDown() {
+		SoftKeyboardCoverage.HideRequest hide = new SoftKeyboardCoverage.HideRequest();
+		hide.request();
+		assertTrue(hide.tick(300, 1f));
+		assertTrue(hide.tick(301, 1f));
+		assertTrue(hide.isRequested());
+	}
+
+	@Test
+	public void visibilityDropWhileLiftIsHighIsTheSwipeDismissCase() {
+		assertTrue(SoftKeyboardCoverage.isCovering(400, 1f, true));
+		SoftKeyboardCoverage.HideRequest hide = new SoftKeyboardCoverage.HideRequest();
+		hide.request();
+		assertTrue(hide.tick(400, 1f));
 	}
 }

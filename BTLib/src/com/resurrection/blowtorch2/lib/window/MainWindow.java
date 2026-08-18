@@ -2125,6 +2125,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				imm.hideSoftInputFromWindow(focus.getWindowToken(), 0);
 			}
 		}
+		notifyFloatingButtonsKeyboardDismiss();
 	}
 
 	/**
@@ -4336,6 +4337,14 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		imm.hideSoftInputFromWindow(mInputBox.getWindowToken(), 0);
 		//Log.e("WINDOW","ATTEMPTING TO HIDE THE KEYBOARD");
 		mInputBox.setOnTouchListener(mEditBoxTouchListener);
+		notifyFloatingButtonsKeyboardDismiss();
+	}
+
+	/** Mode A overlay windows come down when hide is issued, not after the IME animation. */
+	private void notifyFloatingButtonsKeyboardDismiss() {
+		if (floatingButtons != null) {
+			floatingButtons.onKeyboardDismissRequested();
+		}
 	}
 
 	/**
@@ -6130,9 +6139,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	/** Chrome IME lift — Mode A floaters sit above the keyboard; Mode B stay put. */
-	void onFloatingButtonsImeLift(int liftPx) {
+	void onFloatingButtonsImeLift(int liftPx, boolean imeVisible) {
 		if (floatingButtons != null) {
-			floatingButtons.onImeLiftChanged(liftPx);
+			floatingButtons.onImeLiftChanged(liftPx, imeVisible);
 		}
 		if (gaugeWidgets != null) {
 			gaugeWidgets.onImeLiftChanged(liftPx);
@@ -6224,6 +6233,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				@Override
 				public int getImeLiftPx() {
 					return chrome != null ? chrome.getImeLiftPx() : 0;
+				}
+
+				@Override
+				public boolean isImeVisible() {
+					return chrome != null && chrome.isImeVisible();
 				}
 
 				@Override

@@ -133,6 +133,9 @@ public class FloatingButtonController {
 		/** Current IME lift in px (0 when keyboard down). */
 		int getImeLiftPx();
 
+		/** Last {@code isVisible(ime)} from the chrome insets listener. */
+		boolean isImeVisible();
+
 		/**
 		 * Re-measure IME coverage from the visible frame when insets under-report.
 		 * Returns the authoritative lift in px.
@@ -147,6 +150,14 @@ public class FloatingButtonController {
 	private boolean editingHidden;
 	private boolean chromeReclampScheduled;
 	private int lastImeLiftPx;
+	/** Last {@code isVisible(ime)} from chrome. Starts false (keyboard down). */
+	private boolean lastImeVisible;
+	/**
+	 * Hide issued (or IME visibility dropped) while lift is still high.
+	 * Hysteresis would keep Mode A up until the hide animation ends.
+	 */
+	private final SoftKeyboardCoverage.HideRequest imeHideRequest =
+			new SoftKeyboardCoverage.HideRequest();
 	/** True while buttons live in their own overlay windows. */
 	private boolean overlayMode;
 	/** Keyboard covering state last committed to overlay / in-layer windows. */
@@ -396,12 +407,21 @@ public class FloatingButtonController {
 	}
 
 	/** IME lift changed — Mode A visibility. Mode B untouched. */
-	public void onImeLiftChanged(int liftPx) {
+	public void onImeLiftChanged(int liftPx, boolean imeVisible) {
 		// Use what was passed. This used to throw the argument away and ask a
 		// frame-based estimator instead, which under adjustNothing always
 		// answered 0 — so the correct height the insets listener had just
 		// measured was discarded on the way in.
+		boolean previousVisible = lastImeVisible;
 		lastImeLiftPx = Math.max(0, liftPx);
+		lastImeVisible = imeVisible;
+		// Visibility dropping while we had already seen the IME is hide starting
+		// (swipe, back, or hideSoftInput). Always-false isVisible never trips this,
+		// so Mode A still follows lift on a device where that flag is broken.
+		if (previousVisible && !imeVisible) {
+			imeHideRequest.request();
+		}
+		imeHideRequest.tick(lastImeLiftPx, density());
 		if (editingHidden || !host.isFloatingButtonsEnabled()) {
 			return;
 		}
@@ -409,12 +429,26 @@ public class FloatingButtonController {
 	}
 
 	/**
-	 * Keyboard animation sends several IME insets. Adding or removing overlay
-	 * windows on the first one that crosses 120dp, then again if a later inset
-	 * dips under that floor, is the double blink (teardown + attach, twice).
-	 * Wait until the covering boolean has been quiet for
-	 * {@link SoftKeyboardCoverage#SETTLE_MS}; hysteresis already ignores a dip
-	 * that stays above {@link SoftKeyboardCoverage#HIDE_DP}.
+	 * hideSoftInput was asked. Mode A windows come down now, not when the IME
+	 * inset finally falls under {@link SoftKeyboardCoverage#HIDE_DP}.
+	 */
+	public void onKeyboardDismissRequested() {
+		imeHideRequest.request();
+		imeHideRequest.tick(lastImeLiftPx, density());
+		if (editingHidden || !host.isFloatingButtonsEnabled()) {
+			return;
+		}
+		cancelPendingImeCovering();
+		applyImeCovering();
+	}
+
+	/**
+	 * Keyboard animation sends several IME insets. Adding overlay windows on the
+	 * first one that crosses 120dp, then again if a later inset dips under that
+	 * floor, is the double blink (teardown + attach, twice). Wait until covering
+	 * has been quietly true for {@link SoftKeyboardCoverage#SETTLE_MS}.
+	 * Removing them is immediate: the same wait left Mode A hanging in the air
+	 * for the hide animation.
 	 */
 	private void scheduleImeCoveringApply() {
 		boolean covering = computeImeCovering();
@@ -426,6 +460,10 @@ public class FloatingButtonController {
 			return;
 		}
 		cancelPendingImeCovering();
+		if (!covering) {
+			applyImeCovering();
+			return;
+		}
 		pendingImeCoveringApply = new Runnable() {
 			@Override
 			public void run() {
@@ -433,7 +471,8 @@ public class FloatingButtonController {
 				applyImeCovering();
 			}
 		};
-		uiHandler.postDelayed(pendingImeCoveringApply, SoftKeyboardCoverage.SETTLE_MS);
+		uiHandler.postDelayed(pendingImeCoveringApply,
+				SoftKeyboardCoverage.settleMs(true));
 	}
 
 	/** Follow IME height while already covering. Overlay Y does not use lift. */
@@ -760,6 +799,7 @@ public class FloatingButtonController {
 	 */
 	public void onPause() {
 		resumed = false;
+		imeHideRequest.clear();
 		cancelPendingImeCovering();
 		clearViews();
 	}
@@ -812,6 +852,7 @@ public class FloatingButtonController {
 		maybeAskForOverlayPermission(models);
 		ensureLayer();
 		lastImeLiftPx = Math.max(0, host.refreshImeLiftPx());
+		lastImeVisible = host.isImeVisible();
 		cancelPendingImeCovering();
 		if (overlayMode && (host.getMainWindow() == null || !resumed)) {
 			// rebuildOverlay would refuse to put the windows back, and taking
@@ -1157,12 +1198,16 @@ public class FloatingButtonController {
 	 *
 	 * <p>One authority: the IME inset the chrome listener measured. Hysteresis
 	 * ({@link SoftKeyboardCoverage}) so a dip during the slide does not toggle.
+	 * A hide request beats hysteresis so Mode A does not wait out the animation.
 	 */
 	private boolean isSoftKeyboardCoveringLayer() {
 		return computeImeCovering();
 	}
 
 	private boolean computeImeCovering() {
+		if (imeHideRequest.isRequested()) {
+			return false;
+		}
 		return SoftKeyboardCoverage.isCovering(lastImeLiftPx, density(), lastImeCovering);
 	}
 
