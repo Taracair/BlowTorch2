@@ -946,13 +946,17 @@ status-update keys are hp, maxhp, thirst, hunger, stress:
 
   .widget source hp mcp hp maxhp
 
-Set Variable on a visible prompt (or score line):
+Set Variable on a visible prompt (or score line) — the widget has no
+trigger of its own. The trigger writes a session name; the widget reads
+it:
+
   name hp, value $1
   name maxhp, value $2
 then:  .widget source hp var hp maxhp
 
-Regex on visible text (group 1 is the number). Quote if it has spaces.
-A second regex is max; or two groups in one regex for value/max:
+Regex on visible text (group 1 is the number). No trigger. Quote if it
+has spaces. A second regex is max; or two groups in one regex for
+value/max:
 
   .widget source hp regex "HP: (\d+)/(\d+)"
   .widget source hp regex "hp:\s*([\d.]+)" "maxhp:\s*([\d.]+)"
@@ -961,8 +965,14 @@ Or skip the bind and set numbers yourself:
   .widget set hp $1 $2
 (or .widget set hp 80/100). That is the manual source.
 
-Gestures: tap and swipe run .widget tap / swipe when you are not
-editing. Long-press (about half a second) enters edit mode — yellow
+Gestures: tap and eight-way swipe run .widget tap / swipe when you are
+not editing. Bind them in Manage widgets… or:
+
+  .widget tap hp score
+  .widget swipe hp up drink
+  .widget swipe hp ne look n
+
+Long-press (about half a second) enters edit mode — yellow
 border, drag to move, bottom-right corner to resize — and does not
 fire hold. Tap again to leave edit. Two-finger copy still works.
 

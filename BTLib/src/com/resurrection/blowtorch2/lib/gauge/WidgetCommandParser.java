@@ -6,6 +6,8 @@ package com.resurrection.blowtorch2.lib.gauge;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import com.resurrection.blowtorch2.lib.window.SuperButtonGestures;
+
 /**
  * Pure parser for {@code .widget} arguments. No Connection, no Android, no
  * store mutation — {@link #parse(String)} only fills a {@link Result}.
@@ -58,10 +60,14 @@ public final class WidgetCommandParser {
 	public static final String IME_HIDE = GaugeWidget.ImeMode.HIDE.toJsonValue();
 	public static final String IME_OVERLAY = GaugeWidget.ImeMode.OVERLAY.toJsonValue();
 
-	public static final String SWIPE_UP = "up";
-	public static final String SWIPE_DOWN = "down";
-	public static final String SWIPE_LEFT = "left";
-	public static final String SWIPE_RIGHT = "right";
+	public static final String SWIPE_UP = SuperButtonGestures.DIR_UP;
+	public static final String SWIPE_DOWN = SuperButtonGestures.DIR_DOWN;
+	public static final String SWIPE_LEFT = SuperButtonGestures.DIR_LEFT;
+	public static final String SWIPE_RIGHT = SuperButtonGestures.DIR_RIGHT;
+	public static final String SWIPE_UP_LEFT = SuperButtonGestures.DIR_UP_LEFT;
+	public static final String SWIPE_UP_RIGHT = SuperButtonGestures.DIR_UP_RIGHT;
+	public static final String SWIPE_DOWN_LEFT = SuperButtonGestures.DIR_DOWN_LEFT;
+	public static final String SWIPE_DOWN_RIGHT = SuperButtonGestures.DIR_DOWN_RIGHT;
 
 	private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9_]{1,24}$");
 
@@ -208,7 +214,7 @@ public final class WidgetCommandParser {
 				+ "       .widget set <id> <value> [<max>]\n"
 				+ "       .widget set <id> <value>/<max>\n"
 				+ "       .widget tap <id> [command]\n"
-				+ "       .widget swipe <id> up|down|left|right [command]\n"
+				+ "       .widget swipe <id> up|down|left|right|upleft|upright|downleft|downright [command]\n"
 				+ "       .widget hold <id> [command]\n"
 				+ "           (stored; long-press enters edit and does not fire hold)\n"
 				+ "       .widget warn <id> <percent> [color]\n"
@@ -470,12 +476,12 @@ public final class WidgetCommandParser {
 			return r;
 		}
 		if (parts.length < 3) {
-			return fail("swipe takes an id and up|down|left|right.");
+			return fail("swipe takes an id and up|down|left|right|upleft|upright|downleft|downright.");
 		}
 		final String dir = normalizeSwipe(parts[2]);
 		if (dir == null) {
 			return fail("Unknown swipe direction '" + parts[2]
-					+ "' (up, down, left, right).");
+					+ "' (up, down, left, right, upleft, upright, downleft, downright).");
 		}
 		r.swipeDir = dir;
 		r.text = joinFrom(parts, 3);
@@ -650,10 +656,30 @@ public final class WidgetCommandParser {
 		if (raw == null) {
 			return null;
 		}
-		final String s = raw.trim().toLowerCase(Locale.US);
-		if (SWIPE_UP.equals(s) || SWIPE_DOWN.equals(s)
-				|| SWIPE_LEFT.equals(s) || SWIPE_RIGHT.equals(s)) {
-			return s;
+		final String s = raw.trim().toLowerCase(Locale.US).replace("-", "").replace("_", "");
+		if (SWIPE_UP.equals(s) || "n".equals(s) || "north".equals(s)) {
+			return SWIPE_UP;
+		}
+		if (SWIPE_DOWN.equals(s) || "s".equals(s) || "south".equals(s)) {
+			return SWIPE_DOWN;
+		}
+		if (SWIPE_LEFT.equals(s) || "w".equals(s) || "west".equals(s)) {
+			return SWIPE_LEFT;
+		}
+		if (SWIPE_RIGHT.equals(s) || "e".equals(s) || "east".equals(s)) {
+			return SWIPE_RIGHT;
+		}
+		if (SWIPE_UP_LEFT.equals(s) || "nw".equals(s) || "northwest".equals(s)) {
+			return SWIPE_UP_LEFT;
+		}
+		if (SWIPE_UP_RIGHT.equals(s) || "ne".equals(s) || "northeast".equals(s)) {
+			return SWIPE_UP_RIGHT;
+		}
+		if (SWIPE_DOWN_LEFT.equals(s) || "sw".equals(s) || "southwest".equals(s)) {
+			return SWIPE_DOWN_LEFT;
+		}
+		if (SWIPE_DOWN_RIGHT.equals(s) || "se".equals(s) || "southeast".equals(s)) {
+			return SWIPE_DOWN_RIGHT;
 		}
 		return null;
 	}

@@ -720,15 +720,7 @@ final class ConnectionGaugeWidgets {
 			final GaugeWidget g) {
 		String cmd = r.text != null ? r.text : "";
 		String dir = r.swipeDir != null ? r.swipeDir : "";
-		if (WidgetCommandParser.SWIPE_UP.equals(dir)) {
-			g.setSwipeUp(cmd);
-		} else if (WidgetCommandParser.SWIPE_DOWN.equals(dir)) {
-			g.setSwipeDown(cmd);
-		} else if (WidgetCommandParser.SWIPE_LEFT.equals(dir)) {
-			g.setSwipeLeft(cmd);
-		} else if (WidgetCommandParser.SWIPE_RIGHT.equals(dir)) {
-			g.setSwipeRight(cmd);
-		}
+		g.setSwipeCommand(dir, cmd);
 		afterConfig();
 		return commandSetLine(g.getId(), "swipe " + dir, cmd);
 	}

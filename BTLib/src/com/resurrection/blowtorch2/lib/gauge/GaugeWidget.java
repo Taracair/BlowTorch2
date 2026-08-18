@@ -8,6 +8,8 @@ import java.util.Locale;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import com.resurrection.blowtorch2.lib.window.SuperButtonGestures;
+
 /**
  * One overlay gauge (bar, ring, or countdown timer). Live value/max and
  * {@code remainSec} are session memory and are not written by
@@ -180,6 +182,10 @@ public final class GaugeWidget {
 	private String swipeDown = "";
 	private String swipeLeft = "";
 	private String swipeRight = "";
+	private String swipeUpLeft = "";
+	private String swipeUpRight = "";
+	private String swipeDownLeft = "";
+	private String swipeDownRight = "";
 	private String holdCommand = "";
 	private ImeMode imeMode = ImeMode.STAY;
 	/** Full timer length in seconds; 0 = unset. Persisted. */
@@ -470,6 +476,108 @@ public final class GaugeWidget {
 		this.swipeRight = swipeRight != null ? swipeRight : "";
 	}
 
+	public String getSwipeUpLeft() {
+		return swipeUpLeft != null ? swipeUpLeft : "";
+	}
+
+	public void setSwipeUpLeft(final String swipeUpLeft) {
+		this.swipeUpLeft = swipeUpLeft != null ? swipeUpLeft : "";
+	}
+
+	public String getSwipeUpRight() {
+		return swipeUpRight != null ? swipeUpRight : "";
+	}
+
+	public void setSwipeUpRight(final String swipeUpRight) {
+		this.swipeUpRight = swipeUpRight != null ? swipeUpRight : "";
+	}
+
+	public String getSwipeDownLeft() {
+		return swipeDownLeft != null ? swipeDownLeft : "";
+	}
+
+	public void setSwipeDownLeft(final String swipeDownLeft) {
+		this.swipeDownLeft = swipeDownLeft != null ? swipeDownLeft : "";
+	}
+
+	public String getSwipeDownRight() {
+		return swipeDownRight != null ? swipeDownRight : "";
+	}
+
+	public void setSwipeDownRight(final String swipeDownRight) {
+		this.swipeDownRight = swipeDownRight != null ? swipeDownRight : "";
+	}
+
+	/**
+	 * Which swipe directions have a command. Same eight names as
+	 * {@link SuperButtonGestures}.
+	 */
+	public SuperButtonGestures.BoundSwipes boundSwipes() {
+		SuperButtonGestures.BoundSwipes b = new SuperButtonGestures.BoundSwipes();
+		b.up = getSwipeUp().length() > 0;
+		b.down = getSwipeDown().length() > 0;
+		b.left = getSwipeLeft().length() > 0;
+		b.right = getSwipeRight().length() > 0;
+		b.upLeft = getSwipeUpLeft().length() > 0;
+		b.upRight = getSwipeUpRight().length() > 0;
+		b.downLeft = getSwipeDownLeft().length() > 0;
+		b.downRight = getSwipeDownRight().length() > 0;
+		return b;
+	}
+
+	/** Command for a swipe direction name, or empty. */
+	public String commandForSwipe(final String dir) {
+		if (dir == null) {
+			return "";
+		}
+		if (SuperButtonGestures.DIR_UP.equals(dir)) {
+			return getSwipeUp();
+		}
+		if (SuperButtonGestures.DIR_DOWN.equals(dir)) {
+			return getSwipeDown();
+		}
+		if (SuperButtonGestures.DIR_LEFT.equals(dir)) {
+			return getSwipeLeft();
+		}
+		if (SuperButtonGestures.DIR_RIGHT.equals(dir)) {
+			return getSwipeRight();
+		}
+		if (SuperButtonGestures.DIR_UP_LEFT.equals(dir)) {
+			return getSwipeUpLeft();
+		}
+		if (SuperButtonGestures.DIR_UP_RIGHT.equals(dir)) {
+			return getSwipeUpRight();
+		}
+		if (SuperButtonGestures.DIR_DOWN_LEFT.equals(dir)) {
+			return getSwipeDownLeft();
+		}
+		if (SuperButtonGestures.DIR_DOWN_RIGHT.equals(dir)) {
+			return getSwipeDownRight();
+		}
+		return "";
+	}
+
+	public void setSwipeCommand(final String dir, final String command) {
+		String cmd = command != null ? command : "";
+		if (SuperButtonGestures.DIR_UP.equals(dir)) {
+			setSwipeUp(cmd);
+		} else if (SuperButtonGestures.DIR_DOWN.equals(dir)) {
+			setSwipeDown(cmd);
+		} else if (SuperButtonGestures.DIR_LEFT.equals(dir)) {
+			setSwipeLeft(cmd);
+		} else if (SuperButtonGestures.DIR_RIGHT.equals(dir)) {
+			setSwipeRight(cmd);
+		} else if (SuperButtonGestures.DIR_UP_LEFT.equals(dir)) {
+			setSwipeUpLeft(cmd);
+		} else if (SuperButtonGestures.DIR_UP_RIGHT.equals(dir)) {
+			setSwipeUpRight(cmd);
+		} else if (SuperButtonGestures.DIR_DOWN_LEFT.equals(dir)) {
+			setSwipeDownLeft(cmd);
+		} else if (SuperButtonGestures.DIR_DOWN_RIGHT.equals(dir)) {
+			setSwipeDownRight(cmd);
+		}
+	}
+
 	public String getHoldCommand() {
 		return holdCommand != null ? holdCommand : "";
 	}
@@ -615,6 +723,10 @@ public final class GaugeWidget {
 		g.swipeDown = this.swipeDown;
 		g.swipeLeft = this.swipeLeft;
 		g.swipeRight = this.swipeRight;
+		g.swipeUpLeft = this.swipeUpLeft;
+		g.swipeUpRight = this.swipeUpRight;
+		g.swipeDownLeft = this.swipeDownLeft;
+		g.swipeDownRight = this.swipeDownRight;
 		g.holdCommand = this.holdCommand;
 		g.imeMode = this.imeMode;
 		g.durationSec = this.durationSec;
@@ -659,6 +771,10 @@ public final class GaugeWidget {
 		o.put("swipe_down", swipeDown != null ? swipeDown : "");
 		o.put("swipe_left", swipeLeft != null ? swipeLeft : "");
 		o.put("swipe_right", swipeRight != null ? swipeRight : "");
+		o.put("swipe_up_left", swipeUpLeft != null ? swipeUpLeft : "");
+		o.put("swipe_up_right", swipeUpRight != null ? swipeUpRight : "");
+		o.put("swipe_down_left", swipeDownLeft != null ? swipeDownLeft : "");
+		o.put("swipe_down_right", swipeDownRight != null ? swipeDownRight : "");
 		o.put("hold_command", holdCommand != null ? holdCommand : "");
 		o.put("duration_sec", durationSec);
 		o.put("timer_name", timerName != null ? timerName : "");
@@ -709,6 +825,10 @@ public final class GaugeWidget {
 		g.setSwipeDown(o.optString("swipe_down", ""));
 		g.setSwipeLeft(o.optString("swipe_left", ""));
 		g.setSwipeRight(o.optString("swipe_right", ""));
+		g.setSwipeUpLeft(o.optString("swipe_up_left", ""));
+		g.setSwipeUpRight(o.optString("swipe_up_right", ""));
+		g.setSwipeDownLeft(o.optString("swipe_down_left", ""));
+		g.setSwipeDownRight(o.optString("swipe_down_right", ""));
 		g.setHoldCommand(o.optString("hold_command", ""));
 		g.setImeMode(ImeMode.fromJsonValue(o.optString("ime_mode", "stay")));
 		g.setDurationSec(o.optDouble("duration_sec", 0.0));

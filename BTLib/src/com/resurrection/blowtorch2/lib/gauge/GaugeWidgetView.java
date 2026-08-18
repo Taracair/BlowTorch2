@@ -36,7 +36,7 @@ public class GaugeWidgetView extends View {
 	public interface Callbacks {
 		void onTap(String id);
 
-		/** {@code dir} is {@code up}/{@code down}/{@code left}/{@code right}. */
+		/** {@code dir} is one of the eight {@link SuperButtonGestures} names. */
 		void onSwipe(String id, String dir);
 
 		void onHold(String id);
@@ -94,6 +94,8 @@ public class GaugeWidgetView extends View {
 	private int startW;
 	private int startH;
 	private float swipeThresholdPx;
+	private SuperButtonGestures.BoundSwipes bound =
+			new SuperButtonGestures.BoundSwipes();
 
 	private final Runnable editHoldRunnable = new Runnable() {
 		@Override
@@ -181,6 +183,10 @@ public class GaugeWidgetView extends View {
 		}
 		setAlpha(op / 100f);
 		invalidate();
+	}
+
+	public void setBoundSwipes(final SuperButtonGestures.BoundSwipes bound) {
+		this.bound = bound != null ? bound : new SuperButtonGestures.BoundSwipes();
 	}
 
 	/**
@@ -512,12 +518,14 @@ public class GaugeWidgetView extends View {
 		}
 
 		if (GaugeWidgetEditGestures.shouldDispatchCommands(editing, false)) {
-			String dir = SuperButtonGestures.classifySwipe4(dx, dy, swipeThresholdPx);
+			String dir = SuperButtonGestures.resolveSwipeDirection(bound, dx, dy,
+					swipeThresholdPx);
 			if (dir != null) {
 				if (callbacks != null) {
 					callbacks.onSwipe(gaugeId, dir);
 				}
-			} else if (callbacks != null) {
+			} else if (SuperButtonGestures.classifySwipe4(dx, dy, swipeThresholdPx) == null
+					&& callbacks != null) {
 				callbacks.onTap(gaugeId);
 			}
 		}

@@ -399,6 +399,7 @@ public class GaugeWidgetController {
 				view = new GaugeWidgetView(layer.getContext());
 				view.bind(g.getId(), g.getShape(), g.getLabel(), g.isShowLabel(),
 						g.isShowValue(), g.getOpacity());
+				view.setBoundSwipes(g.boundSwipes());
 				view.setCallbacks(viewCallbacks);
 				FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(1, 1);
 				lp.gravity = Gravity.TOP | Gravity.START;
@@ -458,6 +459,7 @@ public class GaugeWidgetController {
 		GaugeWidgetView view = new GaugeWidgetView(activity);
 		view.bind(g.getId(), g.getShape(), g.getLabel(), g.isShowLabel(),
 				g.isShowValue(), g.getOpacity());
+		view.setBoundSwipes(g.boundSwipes());
 		view.setCallbacks(viewCallbacks);
 		WindowManager.LayoutParams p = newOverlayParams(screen[0], screen[1], wPx, hPx);
 		try {
@@ -1036,22 +1038,7 @@ public class GaugeWidgetController {
 
 	private String commandForSwipe(final String id, final String dir) {
 		GaugeWidget g = findWidget(id);
-		if (g == null || dir == null) {
-			return "";
-		}
-		if ("up".equals(dir)) {
-			return g.getSwipeUp();
-		}
-		if ("down".equals(dir)) {
-			return g.getSwipeDown();
-		}
-		if ("left".equals(dir)) {
-			return g.getSwipeLeft();
-		}
-		if ("right".equals(dir)) {
-			return g.getSwipeRight();
-		}
-		return "";
+		return g != null ? g.commandForSwipe(dir) : "";
 	}
 
 	private GaugeWidget findWidget(final String id) {

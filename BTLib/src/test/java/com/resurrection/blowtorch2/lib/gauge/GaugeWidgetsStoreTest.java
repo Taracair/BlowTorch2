@@ -65,6 +65,7 @@ public class GaugeWidgetsStoreTest {
 		assertTrue(g.isShowValue());
 		assertEquals(GaugeWidget.ImeMode.STAY, g.getImeMode());
 		assertEquals("score", g.getTapCommand());
+		assertEquals("", g.getSwipeUpLeft());
 		String out = GaugeWidgetsStore.toJson(list);
 		ArrayList<GaugeWidget> again = GaugeWidgetsStore.parse(out);
 		assertEquals(1, again.size());
@@ -73,6 +74,33 @@ public class GaugeWidgetsStoreTest {
 		assertEquals(GaugeWidget.Shape.HBAR, again.get(0).getShape());
 		assertEquals(GaugeWidget.Source.GMCP, again.get(0).getSource());
 		assertEquals("score", again.get(0).getTapCommand());
+	}
+
+	@Test
+	public void parseAndToJson_roundTripEightSwipes() {
+		GaugeWidget g = new GaugeWidget("hp");
+		g.setTapCommand("score");
+		g.setSwipeUp("n");
+		g.setSwipeDown("s");
+		g.setSwipeLeft("w");
+		g.setSwipeRight("e");
+		g.setSwipeUpLeft("nw");
+		g.setSwipeUpRight("ne");
+		g.setSwipeDownLeft("sw");
+		g.setSwipeDownRight("se");
+		g.setHoldCommand("");
+		String json = GaugeWidgetsStore.toJson(java.util.Collections.singletonList(g));
+		GaugeWidget again = GaugeWidgetsStore.parse(json).get(0);
+		assertEquals("score", again.getTapCommand());
+		assertEquals("n", again.getSwipeUp());
+		assertEquals("nw", again.getSwipeUpLeft());
+		assertEquals("ne", again.getSwipeUpRight());
+		assertEquals("sw", again.getSwipeDownLeft());
+		assertEquals("se", again.getSwipeDownRight());
+		assertTrue(again.boundSwipes().upLeft);
+		assertEquals("ne", again.commandForSwipe("upright"));
+		again.setSwipeCommand("downright", "flee");
+		assertEquals("flee", again.getSwipeDownRight());
 	}
 
 	@Test

@@ -48,25 +48,51 @@ public final class GaugeWidgetsDialog {
 	private static final String[] IME_MODES = new String[] { "stay", "hide", "overlay" };
 
 	static final String EDIT_HELP =
-			"Where the numbers come from\n\n"
-			+ "GMCP: out-of-band vitals. Path is a dotted key, e.g. Char.Vitals.hp "
-			+ "and Char.Vitals.maxhp. Options → Service → Protocols → Use GMCP?.\n\n"
-			+ "MCP: in-band #$# messages (MOOs). Keys are names in the status cache, "
-			+ "not the protocol line — a line-regex will not see #$#dns-org-hellmoo-status-update "
-			+ "when Use MCP? is on. HellMOO status-update keys: hp, maxhp, thirst, hunger, stress. "
-			+ "Example: .widget source hp mcp hp maxhp. Options → Service → Protocols / .mcp.\n\n"
-			+ "Variable: session names from Set Variable (or Lua SetVariable). "
-			+ "Example: .widget source hp var hp maxhp.\n\n"
-			+ "Regex: matches visible game text (prompts, score lines). Capture group 1 "
-			+ "must parse as a number. Optional max regex, or two groups in the value regex "
-			+ "for value/max (HP: 80/100). Quote regexes that contain spaces:\n"
-			+ "  .widget source hp regex \"HP: (\\d+)/(\\d+)\"\n\n"
-			+ "Timer: a client .timer by name (path only). The timer editor can mint this "
-			+ "with Show as overlay widget.\n\n"
-			+ "Manual: type .widget set <id> 80 100 (or 80/100).\n\n"
-			+ "Long-press a gauge to enter edit mode (yellow border, resize corner). "
-			+ "Drag to move, corner to resize, tap to leave edit. Tap and swipe still run "
-			+ "commands when you are not editing; long-press does not fire hold.";
+			"A widget does not have a trigger of its own. You pick a Source, "
+			+ "then give it two numbers (current and max). How those numbers "
+			+ "arrive depends on the source.\n\n"
+			+ "1) Protocol (no trigger)\n"
+			+ "GMCP: Options → Service → Protocols → Use GMCP?. Path is a dotted "
+			+ "key, e.g. Char.Vitals.hp and Char.Vitals.maxhp.\n"
+			+ "  .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp\n\n"
+			+ "MCP (HellMOO and other MOOs): Use MCP? (or .mcp). Keys are names "
+			+ "in the status cache, not the #$# line — a line-regex will not see "
+			+ "#$#dns-org-hellmoo-status-update when MCP is on. HellMOO keys: "
+			+ "hp, maxhp, thirst, hunger, stress.\n"
+			+ "  .widget add hp hbar\n"
+			+ "  .widget source hp mcp hp maxhp\n"
+			+ "  .widget source thirst mcp thirst\n"
+			+ "(thirst has no max on HellMOO; leave Max path empty and the bar "
+			+ "uses 100.)\n\n"
+			+ "2) Regex on visible text (still no trigger)\n"
+			+ "The widget watches the same lines you see. Group 1 must be a "
+			+ "number (int or float). A second regex is max, or two groups in "
+			+ "one regex for value/max. Quote if it has spaces. Example prompt "
+			+ "HP: 80/100:\n"
+			+ "  .widget source hp regex \"HP: (\\d+)/(\\d+)\"\n"
+			+ "Two regexes (value, then max) when they sit on different words:\n"
+			+ "  .widget source hp regex \"hp:\\s*([\\d.]+)\" \"maxhp:\\s*([\\d.]+)\"\n"
+			+ "In this dialog: Source = regex, Value regex = HP:\\s*([\\d.]+), "
+			+ "Max regex optional.\n\n"
+			+ "3) Trigger + Set Variable (when you already match a line)\n"
+			+ "Make a trigger on the visible line (not the #$# MCP line). Add "
+			+ "action Set Variable twice — name hp value $1, name maxhp value $2 "
+			+ "— then:\n"
+			+ "  .widget source hp var hp maxhp\n"
+			+ "Or Ack With: .widget set hp $1 $2\n"
+			+ "In this dialog: Source = var, Variable = hp, Max variable = maxhp.\n\n"
+			+ "4) Manual: .widget set hp 80 100 (or 80/100).\n\n"
+			+ "5) Timer: a client .timer by name. The timer editor checkbox "
+			+ "Show as overlay widget does this for you.\n\n"
+			+ "Gestures (this dialog, or .widget tap/swipe/hold):\n"
+			+ "Tap, eight swipes (up/down/left/right/upleft/upright/downleft/"
+			+ "downright), and a stored hold command. Long-press (~½s) enters "
+			+ "edit (yellow border, drag, resize corner) and does not fire hold. "
+			+ "Tap to leave edit. Empty field = no command.\n"
+			+ "  .widget tap hp score\n"
+			+ "  .widget swipe hp up drink\n"
+			+ "  .widget swipe hp ne look n\n\n"
+			+ "Show label hides the name tag. New widgets spawn centred.";
 
 	private GaugeWidgetsDialog() {
 	}
@@ -93,7 +119,7 @@ public final class GaugeWidgetsDialog {
 				+ "). Ids: lowercase a-z, 0-9, _. "
 				+ "Shapes: hbar, vbar, ring, timer. "
 				+ "Sources: manual, gmcp, mcp, var, timer, regex. "
-				+ "Long-press a gauge to move/resize it.");
+				+ "Long-press a gauge to move/resize it. Tap/swipe commands are on each widget.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
 		root.addView(intro);
@@ -361,6 +387,29 @@ public final class GaugeWidgetsDialog {
 		visible.setChecked(existing == null || existing.isVisible());
 		form.addView(visible);
 
+		form.addView(label(context, "Commands (empty = none)"));
+		final EditText tapCmd = commandField(context, form, "Tap",
+				existing != null ? existing.getTapCommand() : "");
+		final EditText holdCmd = commandField(context, form,
+				"Hold (stored; long-press enters edit)",
+				existing != null ? existing.getHoldCommand() : "");
+		final EditText swipeUp = commandField(context, form, "Swipe up",
+				existing != null ? existing.getSwipeUp() : "");
+		final EditText swipeDown = commandField(context, form, "Swipe down",
+				existing != null ? existing.getSwipeDown() : "");
+		final EditText swipeLeft = commandField(context, form, "Swipe left",
+				existing != null ? existing.getSwipeLeft() : "");
+		final EditText swipeRight = commandField(context, form, "Swipe right",
+				existing != null ? existing.getSwipeRight() : "");
+		final EditText swipeUpLeft = commandField(context, form, "Swipe up-left",
+				existing != null ? existing.getSwipeUpLeft() : "");
+		final EditText swipeUpRight = commandField(context, form, "Swipe up-right",
+				existing != null ? existing.getSwipeUpRight() : "");
+		final EditText swipeDownLeft = commandField(context, form, "Swipe down-left",
+				existing != null ? existing.getSwipeDownLeft() : "");
+		final EditText swipeDownRight = commandField(context, form, "Swipe down-right",
+				existing != null ? existing.getSwipeDownRight() : "");
+
 		AlertDialog.Builder b = new AlertDialog.Builder(context);
 		b.setTitle(existing == null ? "Add widget" : "Edit widget");
 		b.setView(scroll);
@@ -416,6 +465,16 @@ public final class GaugeWidgetsDialog {
 				widget.setShowValue(showValue.isChecked());
 				widget.setShowLabel(showLabel.isChecked());
 				widget.setVisible(visible.isChecked());
+				widget.setTapCommand(textOf(tapCmd));
+				widget.setHoldCommand(textOf(holdCmd));
+				widget.setSwipeUp(textOf(swipeUp));
+				widget.setSwipeDown(textOf(swipeDown));
+				widget.setSwipeLeft(textOf(swipeLeft));
+				widget.setSwipeRight(textOf(swipeRight));
+				widget.setSwipeUpLeft(textOf(swipeUpLeft));
+				widget.setSwipeUpRight(textOf(swipeUpRight));
+				widget.setSwipeDownLeft(textOf(swipeDownLeft));
+				widget.setSwipeDownRight(textOf(swipeDownRight));
 				if (widget.getSource() == GaugeWidget.Source.TIMER
 						&& widget.getPath().length() > 0
 						&& widget.getTimerName().length() == 0) {
@@ -495,6 +554,26 @@ public final class GaugeWidgetsDialog {
 				return;
 			}
 		}
+	}
+
+	private static EditText commandField(Context context, LinearLayout form,
+			String caption, String value) {
+		EditText field = new EditText(context);
+		field.setSingleLine(true);
+		field.setHint(caption);
+		if (value != null && value.length() > 0) {
+			field.setText(value);
+		}
+		form.addView(label(context, caption));
+		form.addView(field);
+		return field;
+	}
+
+	private static String textOf(EditText field) {
+		if (field == null || field.getText() == null) {
+			return "";
+		}
+		return field.getText().toString().trim();
 	}
 
 	private static TextView label(Context context, String text) {

@@ -229,6 +229,10 @@ public class WidgetCommandParserTest {
 		assertEquals("", clear.text);
 		assertEquals("sleep", ok("hold hp sleep").text);
 		assertEquals("", ok("hold hp").text);
+		assertEquals(WidgetCommandParser.SWIPE_UP_RIGHT, ok("swipe hp ne look n").swipeDir);
+		assertEquals("look n", ok("swipe hp ne look n").text);
+		assertEquals(WidgetCommandParser.SWIPE_UP_LEFT, ok("swipe hp up-left peek").swipeDir);
+		assertEquals(WidgetCommandParser.SWIPE_DOWN_RIGHT, ok("swipe hp se").swipeDir);
 	}
 
 	@Test
@@ -297,6 +301,7 @@ public class WidgetCommandParserTest {
 		assertTrue(u.contains("remove"));
 		assertTrue(u.contains("source"));
 		assertTrue(u.contains("swipe"));
+		assertTrue(u.contains("upleft"));
 		assertTrue(u.contains("warn"));
 		assertTrue(u.contains("ime"));
 		assertTrue(u.contains("timer"));
