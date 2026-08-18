@@ -82,6 +82,26 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		return found;
 	}
 
+	/**
+	 * The original line still holds its units until {@code setData} below.
+	 * A finished line already has its NewLine; the rest of that line will not
+	 * arrive in a later packet, so the colour must close here rather than wait
+	 * for {@code closeAtLineEnds} — a gag can take the line first.
+	 */
+	private static boolean endsWithNewLine(Line line) {
+		LinkedList<Unit> data = line.getData();
+		return !data.isEmpty() && data.getLast() instanceof TextTree.NewLine;
+	}
+
+	private static void restoreOrLeaveOpen(Line line, LinkedList<Unit> newLine,
+			Color bleed, ListIterator<Unit> it) {
+		if (hasFollowingText(it) || endsWithNewLine(line)) {
+			newLine.add(bleed);
+		} else {
+			line.setTriggerColorOpen(true);
+		}
+	}
+
 	@Override
 	public boolean doResponse(Context c, TextTree tree,int lineNumber,ListIterator<TextTree.Line> iterator,Line line, int pstart, int pend,String matched,
 			Object source, String displayname,String host,int port, int triggernumber,
@@ -139,7 +159,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 					newLine.add(u);
 				}
 			} else {
-				if(u instanceof TextTree.Color) {
+				if (u instanceof TextTree.Color && !((TextTree.Color) u).isTriggerPaint()) {
 					bleed = (Color)u;
 				}
 				newLine.add(u);
@@ -164,7 +184,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		newLine.add(line.newText(matched));
 		if(preEmptiveChop) {
 			// Restore the pre-match colour where the match ends, when there is
-			// text after it on the line.
+			// text after it on the line, or when the line is already finished.
 			//
 			// A match that runs to the end of the text that has arrived is the
 			// awkward case. Restoring here painted the rest of the line, which
@@ -172,17 +192,17 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			// in (_chatnet "…it off…"): that half-sentence belongs to the match.
 			// Leaving the colour open and doing nothing else painted every line
 			// under it — a colour code runs until the next one. So leave it
-			// open and mark the line: the colour is closed at the end of the
-			// line it belongs to, wherever that turns out to be.
+			// open only while the line is unfinished, and mark it: the colour
+			// is closed at the end of the line it belongs to, wherever that
+			// turns out to be. A finished line restores now — a gag can take
+			// it before closeAtLineEnds runs.
 			if(preEmptiveChopAt > 0) {
 				int length = ((Text)u).getString().length();
 				Text post = line.newText(((Text)u).getString().substring(length-preEmptiveChopAt,length));
 				newLine.add(bleed);
 				newLine.add(post);
-			} else if (hasFollowingText(it)) {
-				newLine.add(bleed);
 			} else {
-				line.setTriggerColorOpen(true);
+				restoreOrLeaveOpen(line, newLine, bleed, it);
 			}
 		} else {
 			//normal "find and chop" procedure.
@@ -213,13 +233,8 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 				newLine.add(bleed);
 				
 				newLine.add(post);
-			} else if (hasFollowingText(it)) {
-				// Match ended on a unit boundary with more text after — restore
-				// bleed so trailing units are not left in the trigger colour.
-				newLine.add(bleed);
 			} else {
-				// Nothing after the match yet. Same case as above.
-				line.setTriggerColorOpen(true);
+				restoreOrLeaveOpen(line, newLine, bleed, it);
 			}
 		}
 		

@@ -129,7 +129,12 @@ public class TextTree {
 	private RepeatedLineDimmer repeatedLineDimmer;
 	private int dimRepeatedWindow = RepeatedLineDimmer.DEFAULT_WINDOW;
 	
-	private static LinkedList<Integer> bleedColor = new LinkedList<Integer>();
+	/**
+	 * Colour the server is in at the parse point of <em>this</em> tree.
+	 * Not static: an extra-text window parsing a gagged colour-trigger line
+	 * must not change what the main window's next line restores to.
+	 */
+	private LinkedList<Integer> bleedColor = new LinkedList<Integer>();
 	
 	private int MAX_LINES = 2000;
 	/**
@@ -355,7 +360,7 @@ public class TextTree {
 	 * empty colorspace slot and becomes {@code 38, 2, r, g, b}, the same shape
 	 * as the xterm semicolon form the draw path already understands.
 	 */
-	private static LinkedList<Integer> getOperationsFromBytes(byte[] in) {
+	private LinkedList<Integer> getOperationsFromBytes(byte[] in) {
 		ArrayList<ArrayList<Integer>> params = new ArrayList<ArrayList<Integer>>();
 		ArrayList<Integer> current = new ArrayList<Integer>();
 		ArrayList<Integer> digits = new ArrayList<Integer>();
@@ -1421,6 +1426,7 @@ public class TextTree {
 		public Color newColor(int color)
 		{
 			Color c = new Color();
+			c.triggerPaint = true;
 			c.operations.add(38);
 			c.operations.add(5);
 			c.operations.add(color);
@@ -1445,6 +1451,7 @@ public class TextTree {
 		public Color newBackgroundColor(int color)
 		{
 			Color c = new Color();
+			c.triggerPaint = true;
 			c.operations.add(48);
 			c.operations.add(5);
 			c.operations.add(color);
@@ -1789,6 +1796,12 @@ public class TextTree {
 		boolean drawCacheXterm256BG;
 		boolean drawCacheTrueColorFG;
 		boolean drawCacheTrueColorBG;
+		/**
+		 * Inserted by a colour trigger. Restore after a later match must not
+		 * treat this as the server's colour — that is how a second trigger on
+		 * the same line painted the tail with the first trigger's colour.
+		 */
+		boolean triggerPaint;
 		
 		public Color() {
 			//data = "[0m";
@@ -1850,6 +1863,10 @@ public class TextTree {
 
 		public ArrayList<Integer> getOperations() {
 			return operations;
+		}
+
+		public boolean isTriggerPaint() {
+			return triggerPaint;
 		}
 		
 		public boolean equals(Object o) {
