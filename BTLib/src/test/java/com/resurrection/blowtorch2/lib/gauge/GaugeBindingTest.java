@@ -89,4 +89,49 @@ public class GaugeBindingTest {
 		assertNull(GaugeBinding.numberFromObject(null));
 		assertNull(GaugeBinding.numberFromObject(Boolean.TRUE));
 	}
+
+	private static final String HELLMOO_VISIBLE =
+			"hp: 60 maxhp: 60 thirst: 62.81 hunger: 1 stress: 0";
+
+	@Test
+	public void numbersFromRegexLine_hellmooVisibleKeys() {
+		double[] hp = GaugeBinding.numbersFromRegexLine(HELLMOO_VISIBLE,
+				"hp:\\s*([\\d.]+)", null);
+		assertNotNull(hp);
+		assertEquals(1, hp.length);
+		assertEquals(60.0, hp[0], 0.0001);
+		double[] maxhp = GaugeBinding.numbersFromRegexLine(HELLMOO_VISIBLE,
+				"maxhp:\\s*([\\d.]+)", null);
+		assertNotNull(maxhp);
+		assertEquals(60.0, maxhp[0], 0.0001);
+		double[] thirst = GaugeBinding.numbersFromRegexLine(HELLMOO_VISIBLE,
+				"thirst:\\s*([\\d.]+)", null);
+		assertNotNull(thirst);
+		assertEquals(62.81, thirst[0], 0.0001);
+		double[] both = GaugeBinding.numbersFromRegexLine(HELLMOO_VISIBLE,
+				"hp:\\s*([\\d.]+)", "maxhp:\\s*([\\d.]+)");
+		assertNotNull(both);
+		assertEquals(2, both.length);
+		assertEquals(60.0, both[0], 0.0001);
+		assertEquals(60.0, both[1], 0.0001);
+	}
+
+	@Test
+	public void numbersFromRegexLine_twoGroupsAreValueAndMax() {
+		double[] pair = GaugeBinding.numbersFromRegexLine("HP: 80/100",
+				"HP:\\s*([\\d.]+)/([\\d.]+)", "");
+		assertNotNull(pair);
+		assertEquals(2, pair.length);
+		assertEquals(80.0, pair[0], 0.0001);
+		assertEquals(100.0, pair[1], 0.0001);
+	}
+
+	@Test
+	public void numbersFromRegexLine_invalidPatternDoesNotThrow() {
+		assertNull(GaugeBinding.compileRegex("[unterminated"));
+		assertNull(GaugeBinding.numbersFromRegexLine("HP: 80/100", "[unterminated", null));
+		assertNull(GaugeBinding.numbersFromRegexLine("no match", "hp:\\s*([\\d.]+)", null));
+		assertNull(GaugeBinding.numbersFromRegexLine("hp: foo", "hp:\\s*([a-z]+)", null));
+		assertNull(GaugeBinding.numbersFromRegexLine(null, "hp:\\s*([\\d.]+)", null));
+	}
 }

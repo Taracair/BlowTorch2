@@ -207,6 +207,36 @@ public class GaugeWidgetsStoreTest {
 	}
 
 	@Test
+	public void parse_regexSourceRoundTrip() {
+		GaugeWidget g = new GaugeWidget("hp");
+		g.setSource(GaugeWidget.Source.REGEX);
+		g.setPath("hp:\\s*([\\d.]+)");
+		g.setMaxPath("maxhp:\\s*([\\d.]+)");
+		g.setShowLabel(false);
+		String json = GaugeWidgetsStore.toJson(java.util.Collections.singletonList(g));
+		assertTrue(json.contains("\"source\":\"regex\""));
+		assertFalse(json.contains("live_value"));
+		GaugeWidget again = GaugeWidgetsStore.parse(json).get(0);
+		assertEquals(GaugeWidget.Source.REGEX, again.getSource());
+		assertEquals("hp:\\s*([\\d.]+)", again.getPath());
+		assertEquals("maxhp:\\s*([\\d.]+)", again.getMaxPath());
+		assertFalse(again.isShowLabel());
+	}
+
+	@Test
+	public void parse_unplacedSentinelRoundTrips() {
+		GaugeWidget g = new GaugeWidget("hp");
+		g.setX(GaugeSpawnPlacement.UNPLACED);
+		g.setY(GaugeSpawnPlacement.UNPLACED);
+		assertTrue(g.isUnplaced());
+		String json = GaugeWidgetsStore.toJson(java.util.Collections.singletonList(g));
+		GaugeWidget again = GaugeWidgetsStore.parse(json).get(0);
+		assertTrue(again.isUnplaced());
+		assertEquals(GaugeSpawnPlacement.UNPLACED, again.getX());
+		assertEquals(GaugeSpawnPlacement.UNPLACED, again.getY());
+	}
+
+	@Test
 	public void parse_colorNamesAndHex() {
 		String json = "[{\"id\":\"hp\",\"color_fill\":\"red\","
 				+ "\"color_track\":\"#333\",\"color_warn\":\"#80FFAA00\"}]";

@@ -15,5 +15,7 @@ public class TimerEditorHelpTest {
 		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("CONDITIONS"));
 		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("sticky notes"));
 		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("${name}"));
+		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains("OVERLAY WIDGET"));
+		assertTrue(TimerEditorDialog.TIMER_HELP_TEXT.contains(".widget source"));
 	}
 }

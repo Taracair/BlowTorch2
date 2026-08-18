@@ -120,6 +120,16 @@ public class WidgetCommandParserTest {
 	}
 
 	@Test
+	public void captionOnOff() {
+		WidgetCommandParser.Result r = ok("caption hp off");
+		assertEquals(WidgetCommandParser.ACTION_CAPTION, r.action);
+		assertEquals(Boolean.FALSE, r.flag);
+		assertEquals(Boolean.TRUE, ok("caption hp on").flag);
+		assertEquals(WidgetCommandParser.ACTION_CAPTION, ok("nametag hp on").action);
+		assertEquals(Boolean.TRUE, ok("nametag hp on").flag);
+	}
+
+	@Test
 	public void sourceManual() {
 		WidgetCommandParser.Result r = ok("source hp manual");
 		assertEquals(WidgetCommandParser.SOURCE_MANUAL, r.source);
@@ -167,6 +177,28 @@ public class WidgetCommandParserTest {
 		assertEquals("stunwait", r.path);
 		assertNull(r.maxPath);
 		assertEquals("stunwait", ok("bind hp timer stunwait").path);
+	}
+
+	@Test
+	public void sourceRegexQuotedAndUnquoted() {
+		WidgetCommandParser.Result unquoted = ok(
+				"source hp regex hp:\\s*([\\d.]+) maxhp:\\s*([\\d.]+)");
+		assertEquals(WidgetCommandParser.SOURCE_REGEX, unquoted.source);
+		assertEquals("hp:\\s*([\\d.]+)", unquoted.path);
+		assertEquals("maxhp:\\s*([\\d.]+)", unquoted.maxPath);
+		WidgetCommandParser.Result one = ok(
+				"source hp regex \"HP: (\\d+)/(\\d+)\"");
+		assertEquals(WidgetCommandParser.SOURCE_REGEX, one.source);
+		assertEquals("HP: (\\d+)/(\\d+)", one.path);
+		assertNull(one.maxPath);
+		WidgetCommandParser.Result both = ok(
+				"source hp regex \"hp:\\s*([\\d.]+)\" \"maxhp:\\s*([\\d.]+)\"");
+		assertEquals("hp:\\s*([\\d.]+)", both.path);
+		assertEquals("maxhp:\\s*([\\d.]+)", both.maxPath);
+		WidgetCommandParser.Result singleQuoted = ok(
+				"bind hp regex 'HP: (\\d+)/(\\d+)'");
+		assertEquals("HP: (\\d+)/(\\d+)", singleQuoted.path);
+		assertEquals(WidgetCommandParser.ACTION_SOURCE, singleQuoted.action);
 	}
 
 	@Test
@@ -238,6 +270,8 @@ public class WidgetCommandParserTest {
 		assertErrorContains("move hp 24");
 		assertErrorContains("source hp foo");
 		assertErrorContains("source hp timer");
+		assertErrorContains("source hp regex");
+		assertErrorContains("caption hp");
 		assertErrorContains("ime hp bounce");
 		assertErrorContains("list extra");
 		WidgetCommandParser.Result r = WidgetCommandParser.parse("nope");
@@ -266,6 +300,8 @@ public class WidgetCommandParserTest {
 		assertTrue(u.contains("warn"));
 		assertTrue(u.contains("ime"));
 		assertTrue(u.contains("timer"));
+		assertTrue(u.contains("regex"));
+		assertTrue(u.contains("caption"));
 	}
 
 	private static WidgetCommandParser.Result ok(String arg) {

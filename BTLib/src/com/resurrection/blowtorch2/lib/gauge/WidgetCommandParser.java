@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  *
  * <p>Shape and source names are the same strings the gauge model persists
  * ({@code hbar}/{@code vbar}/{@code ring}/{@code timer}, {@code manual}/
- * {@code gmcp}/{@code mcp}/{@code var}/{@code timer}). Aliases such as
+ * {@code gmcp}/{@code mcp}/{@code var}/{@code timer}/{@code regex}). Aliases such as
  * {@code bar}, {@code circle} or {@code countdown} are folded to those
  * canonical names here so a later {@code WidgetCommand} can apply the result
  * without a second synonym table.
@@ -32,6 +32,7 @@ public final class WidgetCommandParser {
 	public static final String ACTION_MOVE = "move";
 	public static final String ACTION_LABEL = "label";
 	public static final String ACTION_VALUE = "value";
+	public static final String ACTION_CAPTION = "caption";
 	public static final String ACTION_SOURCE = "source";
 	public static final String ACTION_SET = "set";
 	public static final String ACTION_TAP = "tap";
@@ -51,6 +52,7 @@ public final class WidgetCommandParser {
 	public static final String SOURCE_MCP = GaugeWidget.Source.MCP.toJsonValue();
 	public static final String SOURCE_VAR = GaugeWidget.Source.VAR.toJsonValue();
 	public static final String SOURCE_TIMER = GaugeWidget.Source.TIMER.toJsonValue();
+	public static final String SOURCE_REGEX = GaugeWidget.Source.REGEX.toJsonValue();
 
 	public static final String IME_STAY = GaugeWidget.ImeMode.STAY.toJsonValue();
 	public static final String IME_HIDE = GaugeWidget.ImeMode.HIDE.toJsonValue();
@@ -78,7 +80,7 @@ public final class WidgetCommandParser {
 		public String id;
 		/** Canonical {@code hbar}|{@code vbar}|{@code ring}|{@code timer}. */
 		public String shape;
-		/** Canonical {@code manual}|{@code gmcp}|{@code mcp}|{@code var}|{@code timer}. */
+		/** Canonical {@code manual}|{@code gmcp}|{@code mcp}|{@code var}|{@code timer}|{@code regex}. */
 		public String source;
 		public String path;
 		public String maxPath;
@@ -154,10 +156,13 @@ public final class WidgetCommandParser {
 			return parseRestText(parts, ACTION_LABEL);
 		}
 		if ("value".equals(verb)) {
-			return parseValueFlag(parts);
+			return parseOnOffFlag(parts, ACTION_VALUE, "value");
+		}
+		if ("caption".equals(verb) || "nametag".equals(verb)) {
+			return parseOnOffFlag(parts, ACTION_CAPTION, "caption");
 		}
 		if ("source".equals(verb) || "bind".equals(verb)) {
-			return parseSource(parts);
+			return parseSource(parts, line);
 		}
 		if ("set".equals(verb)) {
 			return parseSet(parts);
@@ -193,14 +198,19 @@ public final class WidgetCommandParser {
 				+ "       .widget move <id> <x> <y>\n"
 				+ "       .widget label <id> [text]\n"
 				+ "       .widget value <id> on|off\n"
+				+ "       .widget caption|nametag <id> on|off\n"
 				+ "       .widget source|bind <id> manual\n"
 				+ "       .widget source|bind <id> gmcp|mcp|var <path> [maxPath]\n"
 				+ "       .widget source|bind <id> timer <timerName>\n"
+				+ "       .widget source|bind <id> regex <valueRegex> [maxRegex]\n"
+				+ "           (quote regexes with \"...\" or '...' if they contain spaces;\n"
+				+ "            group 1 is the number; two groups in valueRegex may be value/max)\n"
 				+ "       .widget set <id> <value> [<max>]\n"
 				+ "       .widget set <id> <value>/<max>\n"
 				+ "       .widget tap <id> [command]\n"
 				+ "       .widget swipe <id> up|down|left|right [command]\n"
 				+ "       .widget hold <id> [command]\n"
+				+ "           (stored; long-press enters edit and does not fire hold)\n"
 				+ "       .widget warn <id> <percent> [color]\n"
 				+ "       .widget warn <id> off\n"
 				+ "       .widget ime <id> stay|hide|overlay\n";
@@ -352,34 +362,35 @@ public final class WidgetCommandParser {
 		return r;
 	}
 
-	private static Result parseValueFlag(final String[] parts) {
-		final Result r = start(parts, ACTION_VALUE);
+	private static Result parseOnOffFlag(final String[] parts,
+			final String action, final String verb) {
+		final Result r = start(parts, action);
 		if (r.error != null) {
 			return r;
 		}
 		if (parts.length != 3) {
-			return fail("value takes an id and on|off.");
+			return fail(verb + " takes an id and on|off.");
 		}
 		final Boolean flag = parseOnOff(parts[2]);
 		if (flag == null) {
-			return fail("value wants on or off, not '" + parts[2] + "'.");
+			return fail(verb + " wants on or off, not '" + parts[2] + "'.");
 		}
 		r.flag = flag;
 		return r;
 	}
 
-	private static Result parseSource(final String[] parts) {
+	private static Result parseSource(final String[] parts, final String line) {
 		final Result r = start(parts, ACTION_SOURCE);
 		if (r.error != null) {
 			return r;
 		}
 		if (parts.length < 3) {
-			return fail("source takes an id and manual|gmcp|mcp|var|timer.");
+			return fail("source takes an id and manual|gmcp|mcp|var|timer|regex.");
 		}
 		final String source = normalizeSource(parts[2]);
 		if (source == null) {
 			return fail("Unknown source '" + parts[2]
-					+ "' (manual, gmcp, mcp, var, timer).");
+					+ "' (manual, gmcp, mcp, var, timer, regex).");
 		}
 		r.source = source;
 		if (SOURCE_MANUAL.equals(source)) {
@@ -395,6 +406,9 @@ public final class WidgetCommandParser {
 			r.path = parts[3];
 			return r;
 		}
+		if (SOURCE_REGEX.equals(source)) {
+			return parseRegexSource(r, remainderAfterTokens(line, 3));
+		}
 		if (parts.length < 4 || parts.length > 5) {
 			return fail("source " + source
 					+ " takes a path and an optional max path.");
@@ -402,6 +416,26 @@ public final class WidgetCommandParser {
 		r.path = parts[3];
 		if (parts.length == 5) {
 			r.maxPath = parts[4];
+		}
+		return r;
+	}
+
+	/**
+	 * {@code .widget source <id> regex <valueRegex> [maxRegex]}. Quoted tokens
+	 * ({@code "..."} or {@code '...'}) may contain spaces. Unquoted tokens are
+	 * a single whitespace-separated word.
+	 */
+	private static Result parseRegexSource(final Result r, final String rest) {
+		if (rest == null || rest.trim().length() == 0) {
+			return fail("source regex takes a value regex and an optional max regex.");
+		}
+		final java.util.ArrayList<String> tokens = tokenizeQuoted(rest);
+		if (tokens.size() < 1 || tokens.size() > 2) {
+			return fail("source regex takes a value regex and an optional max regex.");
+		}
+		r.path = tokens.get(0);
+		if (tokens.size() == 2) {
+			r.maxPath = tokens.get(1);
 		}
 		return r;
 	}
@@ -701,5 +735,77 @@ public final class WidgetCommandParser {
 			sb.append(' ').append(parts[i]);
 		}
 		return sb.toString();
+	}
+
+	/**
+	 * Text after the first {@code tokenCount} whitespace-separated tokens of
+	 * {@code line} (quotes are not special here — used to skip
+	 * {@code source <id> regex}).
+	 */
+	static String remainderAfterTokens(final String line, final int tokenCount) {
+		if (line == null || tokenCount < 0) {
+			return "";
+		}
+		int i = 0;
+		final int n = line.length();
+		int seen = 0;
+		while (i < n && seen < tokenCount) {
+			while (i < n && Character.isWhitespace(line.charAt(i))) {
+				i++;
+			}
+			if (i >= n) {
+				break;
+			}
+			while (i < n && !Character.isWhitespace(line.charAt(i))) {
+				i++;
+			}
+			seen++;
+		}
+		while (i < n && Character.isWhitespace(line.charAt(i))) {
+			i++;
+		}
+		return i < n ? line.substring(i) : "";
+	}
+
+	/**
+	 * Split {@code rest} into tokens. {@code "double"} or {@code 'single'}
+	 * quoted spans may contain spaces (no escape sequences). Unquoted tokens
+	 * end at whitespace. Unclosed quotes take the remainder of the string.
+	 */
+	static java.util.ArrayList<String> tokenizeQuoted(final String rest) {
+		final java.util.ArrayList<String> out = new java.util.ArrayList<String>();
+		if (rest == null) {
+			return out;
+		}
+		int i = 0;
+		final int n = rest.length();
+		while (i < n) {
+			while (i < n && Character.isWhitespace(rest.charAt(i))) {
+				i++;
+			}
+			if (i >= n) {
+				break;
+			}
+			char c = rest.charAt(i);
+			if (c == '"' || c == '\'') {
+				char q = c;
+				i++;
+				int start = i;
+				while (i < n && rest.charAt(i) != q) {
+					i++;
+				}
+				out.add(rest.substring(start, i));
+				if (i < n) {
+					i++;
+				}
+			} else {
+				int start = i;
+				while (i < n && !Character.isWhitespace(rest.charAt(i))) {
+					i++;
+				}
+				out.add(rest.substring(start, i));
+			}
+		}
+		return out;
 	}
 }

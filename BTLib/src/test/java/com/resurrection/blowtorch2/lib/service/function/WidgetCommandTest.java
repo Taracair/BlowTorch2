@@ -24,6 +24,8 @@ public class WidgetCommandTest {
 		assertTrue(u.contains("add"));
 		assertTrue(u.contains("source"));
 		assertTrue(u.contains("set"));
+		assertTrue(u.contains("regex"));
+		assertTrue(u.contains("caption"));
 		assertTrue(u.startsWith("Usage: .widget"));
 	}
 }

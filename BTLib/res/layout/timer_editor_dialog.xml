@@ -185,6 +185,13 @@
   					android:textColor="@color/chrome_description"
   					android:gravity="right|center_vertical"/>
   			</LinearLayout>
+  			<CheckBox
+  				android:id="@+id/timer_show_as_widget"
+  				android:text="Show as overlay widget"
+  				android:textSize="13sp"
+  				android:layout_width="match_parent"
+  				android:layout_height="wrap_content"
+  				android:layout_marginTop="4dip"/>
   		</LinearLayout>
     		<LinearLayout
   			android:id="@+id/timer_conditions_header"

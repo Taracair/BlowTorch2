@@ -938,20 +938,38 @@ and the world must send those keys):
 digits and _ (not main). Up to twelve. .widget list shows what you
 have; .widget with no arguments prints the rest of the verbs.
 
-No GMCP? Two trigger paths, same idea.
+No GMCP? Bind what you can see.
 
-Set Variable on the prompt (or whatever line has the numbers):
+MCP (HellMOO and other MOOs): keys in the status cache, not the #$#
+line. Use MCP? under Options → Service → Protocols (or .mcp). HellMOO
+status-update keys are hp, maxhp, thirst, hunger, stress:
+
+  .widget source hp mcp hp maxhp
+
+Set Variable on a visible prompt (or score line):
   name hp, value $1
   name maxhp, value $2
 then:  .widget source hp var hp maxhp
 
-Or skip the variables and Ack With:
+Regex on visible text (group 1 is the number). Quote if it has spaces.
+A second regex is max; or two groups in one regex for value/max:
+
+  .widget source hp regex "HP: (\d+)/(\d+)"
+  .widget source hp regex "hp:\s*([\d.]+)" "maxhp:\s*([\d.]+)"
+
+Or skip the bind and set numbers yourself:
   .widget set hp $1 $2
 (or .widget set hp 80/100). That is the manual source.
 
-Gestures match a floating button: tap, swipe and hold run the commands
-you set with .widget tap / swipe / hold. A two-second long-press moves
-the gauge; the bottom-right corner resizes it.
+Gestures: tap and swipe run .widget tap / swipe when you are not
+editing. Long-press (about half a second) enters edit mode — yellow
+border, drag to move, bottom-right corner to resize — and does not
+fire hold. Tap again to leave edit. Two-finger copy still works.
+
+The numbers on the ring are optional; so is the name tag:
+
+  .widget value hp off
+  .widget caption hp off
 
 While the keyboard is up:
   .widget ime hp stay      stay on the game window (default)
@@ -959,13 +977,11 @@ While the keyboard is up:
   .widget ime hp overlay   sit over the keyboard
                            (needs Display over other apps)
 
-The numbers on the ring are optional:
-  .widget value hp off
-
 Turn the warn colour when it drops (25 is the usual threshold):
   .widget warn hp 25
 
-A cooldown uses the timer shape and a client .timer by name:
+A cooldown uses the timer shape and a client .timer by name (or check
+Show as overlay widget in the timer editor):
 
   .widget add stun timer
   .widget source stun timer stunwait
@@ -1351,7 +1367,7 @@ local TIPS = {
 	kb = [[Same as .keyboard.]],
 	map = [[.map open|close. Record rooms, find a path, walk it. .map alone is the full list.]],
 	gmcp = [[.gmcp status / modules / sniff. Out-of-band JSON from the world (vitals, room). Options → Service → Protocols → Use GMCP?.]],
-	widget = [[.widget add hp ring, then .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp. Two-second long-press moves; corner resizes. .gauge is the same command.]],
+	widget = [[.widget add hp ring, then .widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp. MCP: .widget source hp mcp hp maxhp. Regex on visible text: .widget source hp regex "HP: (\d+)/(\d+)". Long-press (~½s) edits (move/resize); tap leaves edit. .gauge is the same command.]],
 	gauge = [[Same as .widget.]],
 	mcp = [[.mcp status / packages. Older out-of-band protocol. Options → Service → Protocols → Use MCP?.]],
 	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Service → Protocols. .probe mxp dumps a sample.]],

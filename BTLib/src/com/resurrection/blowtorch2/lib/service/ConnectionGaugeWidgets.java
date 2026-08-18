@@ -16,6 +16,7 @@ import android.os.SystemClock;
 import android.util.Log;
 
 import com.resurrection.blowtorch2.lib.gauge.GaugeBinding;
+import com.resurrection.blowtorch2.lib.gauge.GaugeSpawnPlacement;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.gauge.WidgetCommandParser;
@@ -307,6 +308,13 @@ final class ConnectionGaugeWidgets {
 			return "Widget " + g.getId() + " value "
 					+ (on ? "on" : "off") + ".";
 		}
+		if (WidgetCommandParser.ACTION_CAPTION.equals(r.action)) {
+			boolean on = r.flag != null && r.flag.booleanValue();
+			g.setShowLabel(on);
+			afterConfig();
+			return "Widget " + g.getId() + " caption "
+					+ (on ? "on" : "off") + ".";
+		}
 		if (WidgetCommandParser.ACTION_SOURCE.equals(r.action)) {
 			return applySource(r, g);
 		}
@@ -545,6 +553,74 @@ final class ConnectionGaugeWidgets {
 		}
 	}
 
+	/**
+	 * Finished, decolorized output (the same string triggers see). Splits into
+	 * lines. Connection thread; each regex uses a local Matcher.
+	 */
+	void onOutputText(final String stripped) {
+		if (stripped == null || stripped.length() == 0) {
+			return;
+		}
+		synchronized (lock) {
+			if (!hasSource(GaugeWidget.Source.REGEX)) {
+				return;
+			}
+			boolean dirty = false;
+			int start = 0;
+			int n = stripped.length();
+			for (int i = 0; i <= n; i++) {
+				if (i == n || stripped.charAt(i) == '\n' || stripped.charAt(i) == '\r') {
+					if (i > start) {
+						dirty |= applyOutputLineLocked(stripped.substring(start, i));
+					}
+					if (i < n && stripped.charAt(i) == '\r' && i + 1 < n
+							&& stripped.charAt(i + 1) == '\n') {
+						i++;
+					}
+					start = i + 1;
+				}
+			}
+			if (dirty) {
+				schedulePush();
+			}
+		}
+	}
+
+	void onOutputLine(final String line) {
+		synchronized (lock) {
+			if (applyOutputLineLocked(line)) {
+				schedulePush();
+			}
+		}
+	}
+
+	private boolean applyOutputLineLocked(final String line) {
+		if (line == null || line.length() == 0) {
+			return false;
+		}
+		boolean dirty = false;
+		for (int i = 0; i < list.size(); i++) {
+			GaugeWidget g = list.get(i);
+			if (g == null || g.getSource() != GaugeWidget.Source.REGEX) {
+				continue;
+			}
+			double[] nums = GaugeBinding.numbersFromRegexLine(line, g.getPath(),
+					g.getMaxPath());
+			if (nums == null || nums.length < 1) {
+				continue;
+			}
+			if (nums[0] != g.getLiveValue()) {
+				g.setLiveValue(nums[0]);
+				dirty = true;
+			}
+			if (nums.length >= 2 && nums[1] != g.getLiveMax()) {
+				g.setLiveMax(nums[1]);
+				dirty = true;
+			}
+		}
+		return dirty;
+	}
+
 	private String applyAdd(final WidgetCommandParser.Result r) {
 		if (GaugeWidgetsStore.find(list, r.id) != null) {
 			r.error = "Widget '" + r.id + "' already exists.";
@@ -558,8 +634,8 @@ final class ConnectionGaugeWidgets {
 		g.setLabel(r.id);
 		g.setShape(GaugeWidget.Shape.fromJsonValue(
 				r.shape != null ? r.shape : WidgetCommandParser.SHAPE_HBAR));
-		g.setX(8);
-		g.setY(8 + list.size() * 28);
+		g.setX(GaugeSpawnPlacement.UNPLACED);
+		g.setY(GaugeSpawnPlacement.UNPLACED);
 		list.add(g);
 		afterConfig();
 		return "Added widget " + g.getId() + " (" + g.getShape().toJsonValue() + ").";

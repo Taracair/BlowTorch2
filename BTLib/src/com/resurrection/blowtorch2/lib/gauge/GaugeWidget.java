@@ -76,7 +76,8 @@ public final class GaugeWidget {
 		GMCP("gmcp"),
 		MCP("mcp"),
 		VAR("var"),
-		TIMER("timer");
+		TIMER("timer"),
+		REGEX("regex");
 
 		private final String jsonValue;
 
@@ -401,6 +402,15 @@ public final class GaugeWidget {
 	 */
 	public boolean hasLandscapeGeometry() {
 		return landX != 0 || landY != 0 || landW != 0 || landH != 0;
+	}
+
+	/**
+	 * True when this widget has never been laid out (dialog Add / {@code .widget
+	 * add} stamp {@link GaugeSpawnPlacement#UNPLACED} on both axes). A saved
+	 * {@code 0,0} is a real top-left.
+	 */
+	public boolean isUnplaced() {
+		return GaugeSpawnPlacement.isUnplaced(x, y);
 	}
 
 	/** Landscape X. Unset (all land* 0) substitutes portrait; 0 is a real edge. */

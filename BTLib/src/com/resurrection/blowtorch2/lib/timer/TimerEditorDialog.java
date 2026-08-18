@@ -6,6 +6,11 @@ import java.util.List;
 import java.util.TreeSet;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.gauge.GaugeTimerWidgetBind;
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
+import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
+import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponderEditorDoneListener;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder.FIRE_WHEN;
@@ -66,6 +71,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 	private Handler finish_with;
 	
 	private CheckBox repeat;
+	private CheckBox showAsWidget;
 	private EditText name;
 	private EditText hours;
 	private EditText minutes;
@@ -107,6 +113,7 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		durationSummary = (TextView)findViewById(R.id.timer_editor_duration_summary);
 
 		repeat = (CheckBox)findViewById(R.id.timer_repeat_checkbox);
+		showAsWidget = (CheckBox)findViewById(R.id.timer_show_as_widget);
 		
 
 		actionList = (LinearLayout)findViewById(R.id.timer_action_list);
@@ -149,6 +156,10 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			Integer stored = orig_timer.getSeconds();
 			setDurationFields(stored != null ? stored.intValue() : 0);
 			repeat.setChecked(orig_timer.isRepeat());
+			if (showAsWidget != null) {
+				showAsWidget.setChecked(GaugeTimerWidgetBind.isShowing(
+						readGaugeWidgets(), orig_timer.getName()));
+			}
 			donebutton.setText("Done");
 
 		}
@@ -204,7 +215,12 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 			+ "WHILE THE PHONE SLEEPS\n"
 			+ "Timers run in the connection\'s own process, so they keep counting while "
 			+ "the game window is in the background. Android can still delay a long "
-			+ "one on a sleeping phone; a timer is not an alarm clock.";
+			+ "one on a sleeping phone; a timer is not an alarm clock.\n\n"
+			+ "OVERLAY WIDGET\n"
+			+ "Check Show as overlay widget to put a countdown on the game window, "
+			+ "bound to this timer's name. Uncheck hides it (it is not deleted). "
+			+ "Options → Window → Widgets → Manage widgets…, or "
+			+ ".widget source <id> timer <name>.";
 
 	/** Wire the h/m/s boxes and the preset row; the running total is echoed under them. */
 	private void setupDurationFields() {
@@ -394,7 +410,57 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 		String text = group.getText() != null ? group.getText().toString().trim() : "";
 		return text.length() == 0 ? TimerData.DEFAULT_GROUP : text;
 	}
-	
+
+	private ArrayList<GaugeWidget> readGaugeWidgets() {
+		try {
+			SettingsGroup sg = service.getSettings();
+			if (sg != null) {
+				Object o = sg.findOptionByKey(GaugeWidgetsStore.SETTING_KEY);
+				if (o instanceof StringOption) {
+					Object val = ((StringOption) o).getValue();
+					if (val != null) {
+						return GaugeWidgetsStore.parse(val.toString());
+					}
+				}
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"TimerEditorDialog.readGaugeWidgets", e);
+		}
+		return new ArrayList<GaugeWidget>();
+	}
+
+	private void applyShowAsWidget(final String previousName, final String timerName) {
+		if (showAsWidget == null || timerName == null || timerName.trim().length() == 0) {
+			return;
+		}
+		ArrayList<GaugeWidget> list = readGaugeWidgets();
+		boolean want = showAsWidget.isChecked();
+		if (want) {
+			GaugeWidget g;
+			if (previousName != null && previousName.trim().length() > 0
+					&& !previousName.trim().equalsIgnoreCase(timerName.trim())) {
+				g = GaugeTimerWidgetBind.rebind(list, previousName, timerName);
+			} else {
+				g = GaugeTimerWidgetBind.ensure(list, timerName);
+			}
+			if (g == null) {
+				return;
+			}
+		} else {
+			GaugeTimerWidgetBind.hide(list, previousName);
+			GaugeTimerWidgetBind.hide(list, timerName);
+		}
+		try {
+			service.updateStringSetting(GaugeWidgetsStore.SETTING_KEY,
+					GaugeWidgetsStore.toJson(list));
+			com.resurrection.blowtorch2.lib.util.SettingsSaver.saveInBackground(service);
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"TimerEditorDialog.applyShowAsWidget", e);
+		}
+	}
+
 	private class TimerEditerDoneListener implements View.OnClickListener {
 
 		public void onClick(View v) {
@@ -466,7 +532,10 @@ public class TimerEditorDialog extends Dialog implements DialogInterface.OnClick
 				}
 				finish_with.sendMessageDelayed(finish_with.obtainMessage(100,the_timer),10);
 			}
-			
+
+			String previousName = (isEditor && orig_timer != null)
+					? orig_timer.getName() : null;
+			applyShowAsWidget(previousName, theName);
 			
 			TimerEditorDialog.this.dismiss();
 		}

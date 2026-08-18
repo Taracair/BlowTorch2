@@ -19,9 +19,11 @@ import android.view.ViewConfiguration;
 import com.resurrection.blowtorch2.lib.window.SuperButtonGestures;
 
 /**
- * One overlay gauge: draw via {@link GaugePainter}, gestures matching
- * {@link SuperButtonGestures} on floating buttons (hold deferred to release,
- * {@link SuperButtonGestures#MOVE_HOLD_MS} enters drag without firing hold).
+ * One overlay gauge: draw via {@link GaugePainter}. Sticky edit mode
+ * ({@link GaugeWidgetEditGestures}): not editing, the widget is fixed and
+ * tap/swipe fire as usual; a {@link GaugeWidgetEditGestures#EDIT_HOLD_MS}
+ * long-press enters edit (no hold command). Editing draws a border and the
+ * resize grip; drag moves, grip resizes, a short tap exits without firing tap.
  *
  * <p>Opacity is {@link View#setAlpha} only, same as floating buttons — paints
  * stay fully opaque so they are not faded twice.
@@ -47,12 +49,17 @@ public class GaugeWidgetView extends View {
 		void onMoveFinished(String id);
 
 		void onResizeFinished(String id);
+
+		void onEnterEdit(String id);
+
+		void onExitEdit(String id);
 	}
 
 	private final GaugePainter painter = new GaugePainter();
 	private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint valuePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Paint gripPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Paint editBorderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Rect gaugeBounds = new Rect();
 	private final Path gripPath = new Path();
 	private final Handler handler = new Handler(Looper.getMainLooper());
@@ -72,10 +79,11 @@ public class GaugeWidgetView extends View {
 
 	private boolean fingerDown;
 	private boolean multiTouchCancelled;
-	private boolean enteredMoveMode;
+	private boolean editing;
 	private boolean dragging;
 	private boolean resizing;
 	private boolean holdCancelledByMove;
+	private boolean suppressReleaseCommands;
 	private long downUptime;
 	private float downRawX;
 	private float downRawY;
@@ -87,13 +95,28 @@ public class GaugeWidgetView extends View {
 	private int startH;
 	private float swipeThresholdPx;
 
-	private final Runnable enterMoveRunnable = new Runnable() {
+	private final Runnable editHoldRunnable = new Runnable() {
 		@Override
 		public void run() {
-			if (!fingerDown || multiTouchCancelled || dragging || resizing) {
+			if (!fingerDown || multiTouchCancelled || resizing) {
 				return;
 			}
-			enteredMoveMode = true;
+			if (holdCancelledByMove) {
+				return;
+			}
+			long duration = SystemClock.uptimeMillis() - downUptime;
+			if (GaugeWidgetEditGestures.shouldExitEditOnHold(editing, false, false,
+					duration)) {
+				dragging = false;
+				suppressReleaseCommands = true;
+				fireExitEdit();
+				return;
+			}
+			if (!GaugeWidgetEditGestures.shouldEnterEditOnHold(editing, false, false,
+					duration)) {
+				return;
+			}
+			fireEnterEdit();
 			dragging = true;
 			captureStartScreen();
 			if (callbacks != null) {
@@ -115,12 +138,26 @@ public class GaugeWidgetView extends View {
 		valuePaint.setShadowLayer(3f, 0f, 0f, 0xCC000000);
 		gripPaint.setColor(0xAAFFFFFF);
 		gripPaint.setStyle(Paint.Style.FILL);
+		editBorderPaint.setColor(0xFFFFCC44);
+		editBorderPaint.setStyle(Paint.Style.STROKE);
 		float density = safeDensity();
 		swipeThresholdPx = SuperButtonGestures.SWIPE_THRESHOLD_DP * density;
 	}
 
 	public void setCallbacks(final Callbacks callbacks) {
 		this.callbacks = callbacks;
+	}
+
+	public void setEditing(final boolean editing) {
+		if (this.editing == editing) {
+			return;
+		}
+		this.editing = editing;
+		invalidate();
+	}
+
+	public boolean isEditing() {
+		return editing;
 	}
 
 	public void bind(final String id, final GaugeWidget.Shape shape, final String label,
@@ -192,7 +229,10 @@ public class GaugeWidgetView extends View {
 		int fill = GaugePainter.resolveFillColor(low, fillColor, warnColor);
 		painter.paint(canvas, shape, gaugeBounds, ratio, fill, trackColor, 0);
 		drawCaptions(canvas, density);
-		drawResizeGrip(canvas);
+		if (GaugeWidgetEditGestures.shouldDrawEditChrome(editing)) {
+			drawEditChrome(canvas, density);
+			drawResizeGrip(canvas);
+		}
 	}
 
 	private void layoutGaugeBounds(final int w, final int h, final float density) {
@@ -288,6 +328,13 @@ public class GaugeWidgetView extends View {
 		canvas.drawText(amount, cx, cy - (fm.ascent + fm.descent) / 2f, valuePaint);
 	}
 
+	private void drawEditChrome(final Canvas canvas, final float density) {
+		editBorderPaint.setStrokeWidth(Math.max(2f, 2f * density));
+		float inset = editBorderPaint.getStrokeWidth() / 2f;
+		canvas.drawRect(inset, inset, getWidth() - inset, getHeight() - inset,
+				editBorderPaint);
+	}
+
 	private void drawResizeGrip(final Canvas canvas) {
 		int[] r = GaugeResizeGrip.rect(getWidth(), getHeight(),
 				GaugeResizeGrip.gripPx(safeDensity()));
@@ -338,10 +385,10 @@ public class GaugeWidgetView extends View {
 
 	private boolean onDown(final MotionEvent event) {
 		multiTouchCancelled = false;
-		enteredMoveMode = false;
 		dragging = false;
 		resizing = false;
 		holdCancelledByMove = false;
+		suppressReleaseCommands = false;
 		fingerDown = true;
 		downUptime = SystemClock.uptimeMillis();
 		downRawX = event.getRawX();
@@ -351,12 +398,15 @@ public class GaugeWidgetView extends View {
 		captureStartScreen();
 		startW = getWidth();
 		startH = getHeight();
-		handler.removeCallbacks(enterMoveRunnable);
-		if (hitResizeGrip(event.getX(), event.getY())) {
+		handler.removeCallbacks(editHoldRunnable);
+		boolean hitGrip = hitResizeGrip(event.getX(), event.getY());
+		if (GaugeWidgetEditGestures.shouldArmResize(editing, hitGrip)) {
 			resizing = true;
 			return true;
 		}
-		handler.postDelayed(enterMoveRunnable, SuperButtonGestures.MOVE_HOLD_MS);
+		if (GaugeWidgetEditGestures.shouldArmEditHoldTimer(editing, hitGrip)) {
+			handler.postDelayed(editHoldRunnable, GaugeWidgetEditGestures.EDIT_HOLD_MS);
+		}
 		return true;
 	}
 
@@ -385,7 +435,11 @@ public class GaugeWidgetView extends View {
 		}
 		float slop = ViewConfiguration.get(getContext()).getScaledTouchSlop();
 		if (moveDist > Math.max(slop, swipeThresholdPx)) {
-			handler.removeCallbacks(enterMoveRunnable);
+			handler.removeCallbacks(editHoldRunnable);
+			if (editing) {
+				dragging = true;
+				moveByFinger(dx, dy);
+			}
 		}
 		return true;
 	}
@@ -416,17 +470,16 @@ public class GaugeWidgetView extends View {
 	}
 
 	private boolean onUp(final MotionEvent event, final boolean cancelled) {
-		handler.removeCallbacks(enterMoveRunnable);
+		handler.removeCallbacks(editHoldRunnable);
 		if (!fingerDown) {
 			return false;
 		}
 		fingerDown = false;
-		long duration = SystemClock.uptimeMillis() - downUptime;
 		float dx = (cancelled ? lastRawX : event.getRawX()) - downRawX;
 		float dy = (cancelled ? lastRawY : event.getRawY()) - downRawY;
 
 		if (multiTouchCancelled || cancelled) {
-			boolean wasDrag = dragging || enteredMoveMode;
+			boolean wasDrag = dragging;
 			boolean wasResize = resizing;
 			resetGestureFlags();
 			if (wasDrag) {
@@ -443,32 +496,38 @@ public class GaugeWidgetView extends View {
 			fireResizeFinished();
 			return true;
 		}
-		if (dragging || enteredMoveMode) {
+		if (dragging) {
 			resetGestureFlags();
 			fireMoveFinished();
 			return true;
 		}
+		if (suppressReleaseCommands) {
+			resetGestureFlags();
+			return true;
+		}
+		if (GaugeWidgetEditGestures.shouldExitEditOnTap(editing, false, false, false)) {
+			resetGestureFlags();
+			fireExitEdit();
+			return true;
+		}
 
-		String dir = SuperButtonGestures.classifySwipe4(dx, dy, swipeThresholdPx);
-		if (dir != null) {
-			if (callbacks != null) {
-				callbacks.onSwipe(gaugeId, dir);
+		if (GaugeWidgetEditGestures.shouldDispatchCommands(editing, false)) {
+			String dir = SuperButtonGestures.classifySwipe4(dx, dy, swipeThresholdPx);
+			if (dir != null) {
+				if (callbacks != null) {
+					callbacks.onSwipe(gaugeId, dir);
+				}
+			} else if (callbacks != null) {
+				callbacks.onTap(gaugeId);
 			}
-		} else if (SuperButtonGestures.shouldFireHoldOnRelease(duration, enteredMoveMode,
-				holdCancelledByMove)) {
-			if (callbacks != null) {
-				callbacks.onHold(gaugeId);
-			}
-		} else if (callbacks != null) {
-			callbacks.onTap(gaugeId);
 		}
 		resetGestureFlags();
 		return true;
 	}
 
 	private void cancelGesture(final boolean fireFinished) {
-		handler.removeCallbacks(enterMoveRunnable);
-		boolean wasDrag = dragging || enteredMoveMode;
+		handler.removeCallbacks(editHoldRunnable);
+		boolean wasDrag = dragging;
 		boolean wasResize = resizing;
 		fingerDown = false;
 		resetGestureFlags();
@@ -484,9 +543,25 @@ public class GaugeWidgetView extends View {
 
 	private void resetGestureFlags() {
 		dragging = false;
-		enteredMoveMode = false;
 		resizing = false;
 		holdCancelledByMove = false;
+		suppressReleaseCommands = false;
+	}
+
+	private void fireEnterEdit() {
+		if (callbacks != null) {
+			callbacks.onEnterEdit(gaugeId);
+		} else {
+			setEditing(true);
+		}
+	}
+
+	private void fireExitEdit() {
+		if (callbacks != null) {
+			callbacks.onExitEdit(gaugeId);
+		} else {
+			setEditing(false);
+		}
 	}
 
 	private void fireMoveFinished() {

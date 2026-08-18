@@ -3,6 +3,10 @@
  */
 package com.resurrection.blowtorch2.lib.gauge;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -99,6 +103,72 @@ public final class GaugeBinding {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	/**
+	 * Compile a regex. Invalid / blank → null (caller skips that widget).
+	 */
+	public static Pattern compileRegex(final String regex) {
+		if (regex == null) {
+			return null;
+		}
+		String s = regex.trim();
+		if (s.length() == 0) {
+			return null;
+		}
+		try {
+			return Pattern.compile(s);
+		} catch (PatternSyntaxException e) {
+			return null;
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Numbers from a finished, decolorized game line. {@code valueRegex} group 1
+	 * is the current value ({@link #parseNumber}; non-numeric ignored). If
+	 * {@code maxRegex} is non-empty, its group 1 is max. If {@code maxRegex} is
+	 * empty and {@code valueRegex} has two capturing groups, group 2 may be max.
+	 *
+	 * <p>Uses a <em>local</em> Matcher (never store one on the widget). Invalid
+	 * patterns return null rather than throwing.
+	 *
+	 * @return {@code double[]{value}} or {@code double[]{value, max}}, or null
+	 */
+	public static double[] numbersFromRegexLine(final String line, final String valueRegex,
+			final String maxRegex) {
+		if (line == null || valueRegex == null) {
+			return null;
+		}
+		Pattern valuePat = compileRegex(valueRegex);
+		if (valuePat == null) {
+			return null;
+		}
+		Matcher m = valuePat.matcher(line);
+		if (!m.find() || m.groupCount() < 1) {
+			return null;
+		}
+		Double v = parseNumber(m.group(1));
+		if (v == null) {
+			return null;
+		}
+		Double max = null;
+		if (maxRegex != null && maxRegex.trim().length() > 0) {
+			Pattern maxPat = compileRegex(maxRegex);
+			if (maxPat != null) {
+				Matcher mm = maxPat.matcher(line);
+				if (mm.find() && mm.groupCount() >= 1) {
+					max = parseNumber(mm.group(1));
+				}
+			}
+		} else if (m.groupCount() >= 2) {
+			max = parseNumber(m.group(2));
+		}
+		if (max != null) {
+			return new double[] { v.doubleValue(), max.doubleValue() };
+		}
+		return new double[] { v.doubleValue() };
 	}
 
 	/** Integer / Long / Double / Float / String → number; else null. */

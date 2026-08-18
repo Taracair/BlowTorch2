@@ -2735,6 +2735,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			mPromptsSeen++;
 		}
 		if (mPromptBar && text.length() > 0) {
+			if (mGauges != null) {
+				mGauges.onOutputLine(text);
+			}
 			mService.doPromptLine(mDisplay, text);
 			return;
 		}
@@ -2834,6 +2837,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// binder traffic at all.
 		if (mWordComplete) {
 			mService.doVocabularyText(mDisplay, stripped);
+		}
+		if (mGauges != null) {
+			mGauges.onOutputText(stripped);
 		}
 		
 		if (triggersDirty) {

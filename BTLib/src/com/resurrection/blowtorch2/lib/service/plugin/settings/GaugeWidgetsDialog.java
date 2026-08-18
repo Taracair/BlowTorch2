@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.util.TypedValue;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -21,6 +22,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.button.ColorPickerDialog;
+import com.resurrection.blowtorch2.lib.gauge.GaugeSpawnPlacement;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidget;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 
@@ -40,8 +42,31 @@ public final class GaugeWidgetsDialog {
 	}
 
 	private static final String[] SHAPES = new String[] { "hbar", "vbar", "ring", "timer" };
-	private static final String[] SOURCES = new String[] { "manual", "gmcp", "mcp", "var", "timer" };
+	private static final String[] SOURCES = new String[] {
+			"manual", "gmcp", "mcp", "var", "timer", "regex"
+	};
 	private static final String[] IME_MODES = new String[] { "stay", "hide", "overlay" };
+
+	static final String EDIT_HELP =
+			"Where the numbers come from\n\n"
+			+ "GMCP: out-of-band vitals. Path is a dotted key, e.g. Char.Vitals.hp "
+			+ "and Char.Vitals.maxhp. Options → Service → Protocols → Use GMCP?.\n\n"
+			+ "MCP: in-band #$# messages (MOOs). Keys are names in the status cache, "
+			+ "not the protocol line — a line-regex will not see #$#dns-org-hellmoo-status-update "
+			+ "when Use MCP? is on. HellMOO status-update keys: hp, maxhp, thirst, hunger, stress. "
+			+ "Example: .widget source hp mcp hp maxhp. Options → Service → Protocols / .mcp.\n\n"
+			+ "Variable: session names from Set Variable (or Lua SetVariable). "
+			+ "Example: .widget source hp var hp maxhp.\n\n"
+			+ "Regex: matches visible game text (prompts, score lines). Capture group 1 "
+			+ "must parse as a number. Optional max regex, or two groups in the value regex "
+			+ "for value/max (HP: 80/100). Quote regexes that contain spaces:\n"
+			+ "  .widget source hp regex \"HP: (\\d+)/(\\d+)\"\n\n"
+			+ "Timer: a client .timer by name (path only). The timer editor can mint this "
+			+ "with Show as overlay widget.\n\n"
+			+ "Manual: type .widget set <id> 80 100 (or 80/100).\n\n"
+			+ "Long-press a gauge to enter edit mode (yellow border, resize corner). "
+			+ "Drag to move, corner to resize, tap to leave edit. Tap and swipe still run "
+			+ "commands when you are not editing; long-press does not fire hold.";
 
 	private GaugeWidgetsDialog() {
 	}
@@ -67,7 +92,8 @@ public final class GaugeWidgetsDialog {
 		intro.setText("Overlay gauges (max " + GaugeWidgetsStore.MAX
 				+ "). Ids: lowercase a-z, 0-9, _. "
 				+ "Shapes: hbar, vbar, ring, timer. "
-				+ "Sources: manual, gmcp, mcp, var, timer.");
+				+ "Sources: manual, gmcp, mcp, var, timer, regex. "
+				+ "Long-press a gauge to move/resize it.");
 		intro.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
 		intro.setPadding(0, 0, 0, pad);
 		root.addView(intro);
@@ -123,8 +149,7 @@ public final class GaugeWidgetsDialog {
 					del.setOnClickListener(new View.OnClickListener() {
 						@Override
 						public void onClick(View v) {
-							gauges.remove(widget);
-							refreshHolder[0].run();
+							confirmDelete(context, gauges, widget, refreshHolder[0]);
 						}
 					});
 					buttons.addView(del);
@@ -166,6 +191,26 @@ public final class GaugeWidgetsDialog {
 		b.show();
 	}
 
+	private static void confirmDelete(final Context context,
+			final ArrayList<GaugeWidget> gauges, final GaugeWidget widget,
+			final Runnable onDone) {
+		if (widget == null) {
+			return;
+		}
+		String id = widget.getId() != null ? widget.getId() : "";
+		new AlertDialog.Builder(context)
+				.setMessage("Delete widget '" + id + "'?")
+				.setNegativeButton("Cancel", null)
+				.setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+					@Override
+					public void onClick(DialogInterface dialog, int which) {
+						gauges.remove(widget);
+						onDone.run();
+					}
+				})
+				.show();
+	}
+
 	private static void editWidget(final Context context,
 			final ArrayList<GaugeWidget> gauges, final GaugeWidget existing,
 			final Runnable onDone) {
@@ -176,6 +221,20 @@ public final class GaugeWidgetsDialog {
 		form.setOrientation(LinearLayout.VERTICAL);
 		form.setPadding(pad, pad, pad, pad);
 		scroll.addView(form);
+
+		Button helpBtn = new Button(context);
+		helpBtn.setText("?");
+		helpBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				new AlertDialog.Builder(context)
+						.setTitle("Widget sources")
+						.setMessage(EDIT_HELP)
+						.setPositiveButton("OK", null)
+						.show();
+			}
+		});
+		form.addView(helpBtn);
 
 		final EditText idField = new EditText(context);
 		idField.setHint("id (hp, mana, …)");
@@ -198,23 +257,37 @@ public final class GaugeWidgetsDialog {
 		form.addView(label(context, "Source"));
 		form.addView(source);
 
+		final TextView pathLabel = label(context, "Path");
 		final EditText path = new EditText(context);
-		path.setHint("Char.Vitals.hp, var name, or .timer name");
 		path.setSingleLine(true);
 		if (existing != null) {
 			path.setText(existing.getPath());
 		}
-		form.addView(label(context, "Path"));
+		form.addView(pathLabel);
 		form.addView(path);
 
+		final TextView maxPathLabel = label(context, "Max path");
 		final EditText maxPath = new EditText(context);
-		maxPath.setHint("Char.Vitals.maxhp (optional)");
 		maxPath.setSingleLine(true);
 		if (existing != null) {
 			maxPath.setText(existing.getMaxPath());
 		}
-		form.addView(label(context, "Max path"));
+		form.addView(maxPathLabel);
 		form.addView(maxPath);
+		source.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(AdapterView<?> parent, View view, int position,
+					long id) {
+				applySourceFieldLabels((String) source.getSelectedItem(),
+						pathLabel, path, maxPathLabel, maxPath);
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> parent) {
+			}
+		});
+		applySourceFieldLabels((String) source.getSelectedItem(),
+				pathLabel, path, maxPathLabel, maxPath);
 
 		final EditText color = new EditText(context);
 		color.setHint("#CC2222");
@@ -274,7 +347,14 @@ public final class GaugeWidgetsDialog {
 		final CheckBox showValue = new CheckBox(context);
 		showValue.setText("Show value");
 		showValue.setChecked(existing == null || existing.isShowValue());
-		form.addView(showValue);
+		final CheckBox showLabel = new CheckBox(context);
+		showLabel.setText("Show label");
+		showLabel.setChecked(existing == null || existing.isShowLabel());
+		LinearLayout flags = new LinearLayout(context);
+		flags.setOrientation(LinearLayout.HORIZONTAL);
+		flags.addView(showValue);
+		flags.addView(showLabel);
+		form.addView(flags);
 
 		final CheckBox visible = new CheckBox(context);
 		visible.setText("Visible");
@@ -334,6 +414,7 @@ public final class GaugeWidgetsDialog {
 				widget.setImeMode(GaugeWidget.ImeMode.fromJsonValue(
 						(String) ime.getSelectedItem()));
 				widget.setShowValue(showValue.isChecked());
+				widget.setShowLabel(showLabel.isChecked());
 				widget.setVisible(visible.isChecked());
 				if (widget.getSource() == GaugeWidget.Source.TIMER
 						&& widget.getPath().length() > 0
@@ -346,12 +427,53 @@ public final class GaugeWidgetsDialog {
 								Toast.LENGTH_SHORT).show();
 						return;
 					}
+					widget.setX(GaugeSpawnPlacement.UNPLACED);
+					widget.setY(GaugeSpawnPlacement.UNPLACED);
 					gauges.add(widget);
 				}
 				onDone.run();
 			}
 		});
 		b.show();
+	}
+
+	private static void applySourceFieldLabels(final String source,
+			final TextView pathLabel, final EditText path,
+			final TextView maxPathLabel, final EditText maxPath) {
+		String src = source != null ? source : "manual";
+		maxPathLabel.setVisibility(View.VISIBLE);
+		maxPath.setVisibility(View.VISIBLE);
+		if ("gmcp".equals(src)) {
+			pathLabel.setText("GMCP path");
+			path.setHint("Char.Vitals.hp");
+			maxPathLabel.setText("GMCP max path");
+			maxPath.setHint("Char.Vitals.maxhp");
+		} else if ("mcp".equals(src)) {
+			pathLabel.setText("MCP key");
+			path.setHint("hp");
+			maxPathLabel.setText("MCP max key");
+			maxPath.setHint("maxhp");
+		} else if ("var".equals(src)) {
+			pathLabel.setText("Variable");
+			path.setHint("hp");
+			maxPathLabel.setText("Max variable");
+			maxPath.setHint("maxhp");
+		} else if ("timer".equals(src)) {
+			pathLabel.setText("Timer name");
+			path.setHint("stunwait");
+			maxPathLabel.setVisibility(View.GONE);
+			maxPath.setVisibility(View.GONE);
+		} else if ("regex".equals(src)) {
+			pathLabel.setText("Value regex (group 1)");
+			path.setHint("HP:\\s*([\\d.]+)");
+			maxPathLabel.setText("Max regex (optional)");
+			maxPath.setHint("or two groups in the value regex");
+		} else {
+			pathLabel.setText("Path (unused — .widget set id 80 100)");
+			path.setHint(".widget set id 80 100");
+			maxPathLabel.setText("Max path (unused)");
+			maxPath.setHint("");
+		}
 	}
 
 	private static Spinner spinner(Context context, String[] items) {

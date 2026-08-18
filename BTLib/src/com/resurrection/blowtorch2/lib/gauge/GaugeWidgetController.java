@@ -92,6 +92,7 @@ public class GaugeWidgetController {
 	private boolean selectionHidden;
 	private boolean resumed = true;
 	private int lastLiftPx;
+	private String editingId;
 
 	private final GaugeWidgetView.Callbacks viewCallbacks = new GaugeWidgetView.Callbacks() {
 		@Override
@@ -127,6 +128,18 @@ public class GaugeWidgetController {
 		@Override
 		public void onResizeFinished(final String id) {
 			flushPersist();
+		}
+
+		@Override
+		public void onEnterEdit(final String id) {
+			setEditingId(id);
+		}
+
+		@Override
+		public void onExitEdit(final String id) {
+			if (id != null && id.equals(editingId)) {
+				setEditingId(null);
+			}
 		}
 	};
 
@@ -396,10 +409,12 @@ public class GaugeWidgetController {
 				layoutView(view, g, overlay);
 			}
 		}
+		applyEditChrome();
 		applyImeHide();
 		applySelectionVisibility();
 		paintLiveValues();
 		reclampWhenChromeIsMeasured();
+		scheduleUnplacedCentre();
 		if (layer != null) {
 			host.bringViewUnderChrome(layer);
 			host.applyCurrentImeLift();
@@ -584,9 +599,10 @@ public class GaugeWidgetController {
 			return;
 		}
 		float density = density();
+		boolean unplaced = g.isUnplaced();
 		int[] geo = readGeometry(g, isLandscape());
-		int xPx = Math.round(geo[0] * density);
-		int yPx = Math.round(geo[1] * density);
+		int xPx = unplaced ? 0 : Math.round(geo[0] * density);
+		int yPx = unplaced ? 0 : Math.round(geo[1] * density);
 		int wPx = Math.round(geo[2] * density);
 		int hPx = Math.round(geo[3] * density);
 		View parent = overlay ? windowContainer() : layer;
@@ -600,8 +616,27 @@ public class GaugeWidgetController {
 		}
 		int minPx = GaugeResizeGrip.gripPx(density);
 		int[] wh = GaugeGeometry.clampSize(wPx, hPx, minPx, parentW, parentH);
+		if (unplaced) {
+			int[] c = GaugeSpawnPlacement.center(parentW, parentH, wh[0], wh[1]);
+			xPx = c[0];
+			yPx = c[1];
+		}
 		int[] xy = clampPosition(xPx, yPx, wh[0], wh[1], parent, overlay);
 		placeView(g.getId(), view, xy[0], xy[1], wh[0], wh[1], overlay);
+		boolean parentMeasured = parent != null && parent.getWidth() > 0
+				&& parent.getHeight() > 0;
+		if (unplaced && parentMeasured) {
+			writeGeometryFromPx(g, xy[0], xy[1], wh[0], wh[1]);
+			if (isLandscape() && g.isUnplaced()) {
+				float d = density();
+				if (d <= 0f) {
+					d = 1f;
+				}
+				writeGeometry(g, false, Math.round(xy[0] / d), Math.round(xy[1] / d),
+						Math.round(wh[0] / d), Math.round(wh[1] / d));
+			}
+			flushPersist();
+		}
 	}
 
 	private void applyMove(final String id, final int x, final int y) {
@@ -741,6 +776,36 @@ public class GaugeWidgetController {
 		}
 		writeGeometry(g, isLandscape(), Math.round(xPx / d), Math.round(yPx / d),
 				Math.round(wPx / d), Math.round(hPx / d));
+	}
+
+	/**
+	 * Stay-layer is MATCH_PARENT and still 0×0 in the same {@code rebuild}
+	 * that {@code addView}s it, so the first centre used display pixels and
+	 * did not persist ({@code parentMeasured} false). Post once the layer has
+	 * a real size so UNPLACED widgets land in the game window and stay there.
+	 */
+	private void scheduleUnplacedCentre() {
+		boolean any = false;
+		for (int i = 0; i < widgets.size(); i++) {
+			GaugeWidget g = widgets.get(i);
+			if (g != null && g.isUnplaced()) {
+				any = true;
+				break;
+			}
+		}
+		if (!any) {
+			return;
+		}
+		final View v = layer != null ? layer : windowContainer();
+		if (v == null) {
+			return;
+		}
+		v.post(new Runnable() {
+			@Override
+			public void run() {
+				reclampAll();
+			}
+		});
 	}
 
 	private void reclampWhenChromeIsMeasured() {
@@ -938,6 +1003,25 @@ public class GaugeWidgetController {
 			return;
 		}
 		host.sendCommand(command);
+	}
+
+	private void setEditingId(final String id) {
+		editingId = id != null && id.length() > 0 ? id : null;
+		applyEditChrome();
+	}
+
+	private void applyEditChrome() {
+		applyEditChromeMap(stayViews);
+		applyEditChromeMap(overlayViews);
+	}
+
+	private void applyEditChromeMap(final HashMap<String, GaugeWidgetView> map) {
+		for (Map.Entry<String, GaugeWidgetView> e : map.entrySet()) {
+			GaugeWidgetView v = e.getValue();
+			if (v != null) {
+				v.setEditing(editingId != null && editingId.equals(e.getKey()));
+			}
+		}
 	}
 
 	private String commandForTap(final String id) {
