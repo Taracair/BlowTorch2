@@ -99,6 +99,9 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			newLine.add(bleed);
 		} else {
 			line.setTriggerColorOpen(true);
+			if (bleed != null && bleed.getOperations() != null) {
+				line.setTriggerColorRestore(bleed.getOperations());
+			}
 		}
 	}
 

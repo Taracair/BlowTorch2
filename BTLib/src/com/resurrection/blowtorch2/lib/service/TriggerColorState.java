@@ -26,6 +26,13 @@ public final class TriggerColorState {
 
 	/** A trigger colour is running and has not been closed yet. */
 	private boolean open;
+	/**
+	 * Colour to restore when {@link #open} is closed. Taken from the line that
+	 * left the colour running, not from the continuation's server snapshot —
+	 * that snapshot is the trigger colour once the window has absorbed the
+	 * unfinished dump.
+	 */
+	private java.util.List<Integer> restoreOps;
 
 	/**
 	 * Put the server's colour back at the end of every line a trigger left its
@@ -41,6 +48,10 @@ public final class TriggerColorState {
 			Line line = lines.get(i);
 			if (line.isTriggerColorOpen()) {
 				open = true;
+				java.util.List<Integer> fromLine = line.getTriggerColorRestore();
+				if (fromLine != null) {
+					restoreOps = fromLine;
+				}
 				line.setTriggerColorOpen(false);
 			}
 			if (!open) {
@@ -48,6 +59,7 @@ public final class TriggerColorState {
 			}
 			if (close(tree, line)) {
 				open = false;
+				restoreOps = null;
 			}
 		}
 	}
@@ -55,6 +67,7 @@ public final class TriggerColorState {
 	/** Forget any open colour — a new connection starts a new stream. */
 	public void reset() {
 		open = false;
+		restoreOps = null;
 	}
 
 	/**
@@ -66,7 +79,8 @@ public final class TriggerColorState {
 		if (data.isEmpty() || !(data.getLast() instanceof NewLine)) {
 			return false;
 		}
-		List<Integer> restore = line.getServerColorAtEnd();
+		List<Integer> restore = restoreOps != null
+				? restoreOps : line.getServerColorAtEnd();
 		// Lines built by paths that do not parse colour carry no snapshot; the
 		// stream's current colour is the best that is known there.
 		TextTree.Color color = restore != null

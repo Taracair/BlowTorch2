@@ -217,6 +217,10 @@ public class TextTree {
 		ListIterator<Line> i = mLines.listIterator(mLines.size());
 		while(i.hasPrevious()) {
 			Line l = i.previous();
+			if (l.receivedAt > 0L) {
+				byte[] stamp = LineStamp.marker(l.receivedAt);
+				out.write(stamp, 0, stamp.length);
+			}
 			Iterator<Unit> iu = l.getData().iterator();
 			while(iu.hasNext()) {
 				Unit u = iu.next();
@@ -650,6 +654,8 @@ public class TextTree {
 			// still running on it come with the data.
 			tmp.serverColorAtStart = reopened.serverColorAtStart;
 			tmp.triggerColorOpen = reopened.triggerColorOpen;
+			tmp.triggerColorRestore = reopened.triggerColorRestore;
+			tmp.receivedAt = reopened.receivedAt;
 			//Log.e("TREE","DATA STRIP OUT:" + deColorLine(tmp));
 		}
 
@@ -833,6 +839,10 @@ public class TextTree {
 										payloadStr);
 						if(m != null) {
 							tmp.setInlineImage(m.key, m.lines);
+						}
+						Long stamp = LineStamp.parse(payloadStr);
+						if(stamp != null && tmp.getReceivedAt() == 0L) {
+							tmp.setReceivedAt(stamp.longValue());
 						}
 						OscEight.Result osc = OscEight.parse(payloadStr);
 						if(osc != null) {
@@ -1108,6 +1118,9 @@ public class TextTree {
 	}
 	
 	private void addLine(Line l) {
+		if (l.receivedAt == 0L) {
+			l.receivedAt = System.currentTimeMillis();
+		}
 		l.updateData();
 		brokenLineCount += l.breaks + 1;
 		totalbytes += l.bytes;
@@ -1172,8 +1185,7 @@ public class TextTree {
 
 		protected LinkedList<Unit> mData;
 
-		/**
-		 * A picture drawn over this line and the ones under it, or null.
+		/** A picture drawn over this line and the ones under it, or null.
 		 *
 		 * <p>Deliberately a field on the line rather than a new kind of
 		 * {@code Unit}. A Unit would have to be understood by every
@@ -1195,6 +1207,11 @@ public class TextTree {
 		 * walks units, and a flag does not change width, wrap or selection.
 		 */
 		private boolean dimRepeated;
+		/**
+		 * When this line arrived, millis since epoch, or 0 if never stamped.
+		 * A field, not a Unit: same reason as {@link #inlineImageKey}.
+		 */
+		private long receivedAt;
 
 		public Line() {
 			mData = new LinkedList<Unit>();
@@ -1222,6 +1239,14 @@ public class TextTree {
 
 		public boolean isDimRepeated() {
 			return dimRepeated;
+		}
+
+		public void setReceivedAt(final long receivedAt) {
+			this.receivedAt = receivedAt;
+		}
+
+		public long getReceivedAt() {
+			return receivedAt;
 		}
 		
 		public void updateData() {
@@ -1553,6 +1578,13 @@ public class TextTree {
 		private LinkedList<Integer> serverColorAtEnd;
 		/** A colour trigger's colour is still running at the end of this line. */
 		private boolean triggerColorOpen;
+		/**
+		 * Colour to go back to when that open trigger colour is closed. Copied
+		 * onto {@code TriggerColorState} before this line is drained: the next
+		 * dispatch's continuation has inherited the trigger colour as bleed, so
+		 * {@link #serverColorAtEnd} is the wrong answer there.
+		 */
+		private LinkedList<Integer> triggerColorRestore;
 
 		public LinkedList<Integer> getServerColorAtStart() {
 			return serverColorAtStart;
@@ -1568,6 +1600,18 @@ public class TextTree {
 
 		public void setTriggerColorOpen(boolean open) {
 			this.triggerColorOpen = open;
+		}
+
+		public void setTriggerColorRestore(final List<Integer> ops) {
+			if (ops == null) {
+				this.triggerColorRestore = null;
+			} else {
+				this.triggerColorRestore = new LinkedList<Integer>(ops);
+			}
+		}
+
+		public LinkedList<Integer> getTriggerColorRestore() {
+			return triggerColorRestore;
 		}
 
 		public LinkedList<Unit> getData() {

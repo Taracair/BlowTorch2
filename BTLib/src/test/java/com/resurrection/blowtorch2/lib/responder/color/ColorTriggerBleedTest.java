@@ -39,7 +39,7 @@ public class ColorTriggerBleedTest {
 	private static final String TRIGGER_CODE = ESC + "[38;5;" + TRIGGER_COLOR + "m";
 	/**
 	 * ColorAction skips painting a background at 0, 16, or 231. 16 is "only
-	 * the foreground" ‚Äî the last CSI the action writes is the paint itself.
+	 * the foreground" ù the last CSI the action writes is the paint itself.
 	 */
 	private static final int NO_BACKGROUND = 16;
 
@@ -73,7 +73,7 @@ public class ColorTriggerBleedTest {
 
 		state.closeAtLineEnds(working);
 		working.updateMetrics();
-		return new String(working.dumpToBytes(false), ENC);
+		return stripStamps(new String(working.dumpToBytes(false), ENC));
 	}
 
 	/** A colour code as the last thing on the line is what closes the colour. */
@@ -85,7 +85,15 @@ public class ColorTriggerBleedTest {
 	}
 
 	private static String visible(String s) {
-		return s.replace(ESC, "<ESC>").replace("\n", "\\n");
+		return stripStamps(s).replace(ESC, "<ESC>").replace("\n", "\\n");
+	}
+
+	/** Line arrival stamps ride in OSC; they are not part of the colour stream. */
+	private static String stripStamps(String dumped) {
+		if (dumped == null) {
+			return null;
+		}
+		return dumped.replaceAll("\u001b\\]1337;btstamp=\\d+\u0007", "");
 	}
 
 	/**
@@ -186,7 +194,7 @@ public class ColorTriggerBleedTest {
 
 	/**
 	 * Screenshot 18 Aug 2026: a finished {@code [chatnet]} line is painted
-	 * green, then a later {@code Lilly says, "Yeah‚Ä¶"} line has {@code says}
+	 * green, then a later {@code Lilly says, "Yeahù"} line has {@code says}
 	 * magenta and the quoted rest in the chatnet green. Two colour triggers,
 	 * two dispatches, close-at-end as the connection does when the first line
 	 * stays in the buffer.
@@ -209,7 +217,7 @@ public class ColorTriggerBleedTest {
 	}
 
 	/**
-	 * Same two colour triggers on one line: {@code [chatnet] ‚Ä¶ says, "‚Ä¶"}.
+	 * Same two colour triggers on one line: {@code [chatnet] ù says, "ù"}.
 	 * The second restore must not pick up the first trigger's colour unit.
 	 */
 	@Test
@@ -233,14 +241,14 @@ public class ColorTriggerBleedTest {
 	/**
 	 * Same two lines as the screenshot, but the chatnet trigger also gags the
 	 * line off the working tree (retarget to an extra-text window). Connection
-	 * colours, then gags, then {@code closeAtLineEnds} on what is left ‚Äî the
+	 * colours, then gags, then {@code closeAtLineEnds} on what is left ù the
 	 * coloured line is already gone. {@code lineToWindow} dumps that line into
 	 * another tree and re-parses it, which is how a colour code reaches the
 	 * stream.
 	 */
 	@Test
 	public void gaggingTheColouredLineDoesNotPaintALaterSaysTrigger() throws Exception {
-		// Main window last colour ‚Äî grey, the "Lilly" on the screenshot.
+		// Main window last colour ù grey, the "Lilly" on the screenshot.
 		TextTree main = new TextTree();
 		main.addBytesImpl((ESC + "[37mRemove helm\n").getBytes(ENC));
 
@@ -279,7 +287,7 @@ public class ColorTriggerBleedTest {
 		}
 		state.closeAtLineEnds(working);
 		working.updateMetrics();
-		return new String(working.dumpToBytes(false), ENC);
+		return stripStamps(new String(working.dumpToBytes(false), ENC));
 	}
 
 	private void fireColor(TextTree working, int lineNumber, TextTree.Line line,
@@ -333,5 +341,97 @@ public class ColorTriggerBleedTest {
 		assertTrue(via + " leaked chatnet colour onto the quote after says: "
 				+ visible(dumped),
 				afterSays.indexOf("38;5;" + TRIGGER_COLOR) < 0);
+	}
+
+	/**
+	 * Screenshot 19 Aug 2026: trigger paints the word {@code opens} yellow.
+	 * The first packet ends on that word; the rest of the sentence and the
+	 * next line arrive together. Connection copies the main window's bleed
+	 * onto the working tree for the second dispatch, so a restore that asks
+	 * this line what colour the server was in answers yellow: the trigger's
+	 * colour, now sitting on the window. The existing tests never fed a dump
+	 * into a second tree, so they could not see that.
+	 *
+	 * <p>On the phone: {@code Taracair opens the door to the south.} is yellow
+	 * after the word, and {@code You head through the door to the south.} is
+	 * yellow too.
+	 */
+	@Test
+	public void anOpensWordSplitAcrossPacketsDoesNotPaintTheNextLineOnScreen()
+			throws Exception {
+		final int yellow = 11;
+		final Pattern opens = Pattern.compile("opens");
+		TextTree working = new TextTree();
+		TextTree screen = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+
+		working.setModCount(0);
+		working.addBytesImpl("Taracair opens".getBytes(ENC));
+		fireColor(working, 0, working.getLines().get(0), opens, yellow, "opens");
+		state.closeAtLineEnds(working);
+		screen.addBytesImpl(working.dumpToBytes(false));
+
+		working.setBleedColor(screen.getBleedColor());
+		working.setModCount(0);
+		working.addBytesImpl((" the door to the south.\n"
+				+ "You head through the door to the south.\n").getBytes(ENC));
+		for (int i = working.getLines().size() - 1; i >= 0; i--) {
+			fireColor(working, i, working.getLines().get(i), opens, yellow, "opens");
+		}
+		state.closeAtLineEnds(working);
+		screen.addBytesImpl(working.dumpToBytes(false));
+
+		Integer youHead = xtermFgAt(screen, "You head");
+		assertTrue("You head was not on the screen tree", youHead != null);
+		assertTrue("You head inherited the opens trigger colour (xterm "
+				+ youHead + "): " + visible(new String(screen.dumpToBytes(true), ENC)),
+				youHead.intValue() != yellow);
+	}
+
+	/**
+	 * xterm-256 foreground at the first character of {@code needle}, or null
+	 * when the needle is missing. 37 is the parser's default when nothing has
+	 * named a foreground yet.
+	 */
+	private static Integer xtermFgAt(TextTree tree, String needle) {
+		int fg = 37;
+		for (int i = tree.getLines().size() - 1; i >= 0; i--) {
+			String plain = TextTree.deColorLine(tree.getLines().get(i)).toString();
+			int at = plain.indexOf(needle);
+			int col = 0;
+			int fgHere = fg;
+			for (TextTree.Unit u : tree.getLines().get(i).getData()) {
+				if (u instanceof TextTree.Color) {
+					fgHere = xtermFgFrom(((TextTree.Color) u).getOperations(), fgHere);
+				} else if (u instanceof TextTree.Text) {
+					String s = ((TextTree.Text) u).getString();
+					if (s == null) {
+						continue;
+					}
+					if (at >= 0 && col <= at && at < col + s.length()) {
+						return Integer.valueOf(fgHere);
+					}
+					col += s.length();
+				}
+			}
+			fg = fgHere;
+		}
+		return null;
+	}
+
+	private static int xtermFgFrom(java.util.List<Integer> ops, int current) {
+		if (ops == null) {
+			return current;
+		}
+		for (int i = 0; i < ops.size(); i++) {
+			int op = ops.get(i).intValue();
+			if (op == 38 && i + 2 < ops.size() && ops.get(i + 1).intValue() == 5) {
+				return ops.get(i + 2).intValue();
+			}
+			if (op == 0) {
+				return 37;
+			}
+		}
+		return current;
 	}
 }
