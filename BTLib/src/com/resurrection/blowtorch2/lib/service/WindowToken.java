@@ -35,6 +35,21 @@ public class WindowToken implements Parcelable {
 	public static final int DEFAULT_COLOR_MODE = 0;
 	/** Default font size. */
 	public static final int DEFAULT_FONT_SIZE = 20;
+	/** Default opacity of the scroll-dates overlay (percent). Matches the first paint. */
+	public static final int DEFAULT_SCROLL_DATES_OPACITY = 75;
+	/** Floor so the date stays readable. Same idea as overflow-button opacity. */
+	public static final int SCROLL_DATES_OPACITY_MIN = 15;
+
+	/** Clamp a typed opacity to {@link #SCROLL_DATES_OPACITY_MIN}–100. */
+	public static int clampScrollDatesOpacity(final int percent) {
+		if (percent < SCROLL_DATES_OPACITY_MIN) {
+			return SCROLL_DATES_OPACITY_MIN;
+		}
+		if (percent > 100) {
+			return 100;
+		}
+		return percent;
+	}
 	/** Default line spacing extra size. */
 	public static final int DEFAULT_LINE_EXTRA = 3;
 	/** Default buffer size. */
@@ -104,6 +119,8 @@ public class WindowToken implements Parcelable {
 		dim_repeated_strength,
 		/** Date overlay + position mark while scrolled into history. .when on|off */
 		scroll_dates,
+		/** Opacity of that date overlay, percent. Default 75. .when opacity N */
+		scroll_dates_opacity,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
 		/** Newest game lines at the top of the window (older below). */
@@ -411,10 +428,18 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption scrollDates = new BooleanOption();
 		scrollDates.setTitle("Scroll dates?");
-		scrollDates.setDescription("While scrolled into history, show when the text on screen arrived (day and time) next to the jump-to-live arrow, plus a small mark for where you are in the buffer. .search 14:32 / 18 Aug jumps there. Off by default. .when on|off");
+		scrollDates.setDescription("While scrolled into history, show when the text on screen arrived (day and time) to the left of ⋮, plus a small mark for where you are in the buffer. .search 14:32 / 18 Aug jumps there. Off by default. .when on|off");
 		scrollDates.setKey("scroll_dates");
 		scrollDates.setValue(false);
 		window.addOption(scrollDates);
+
+		IntegerOption scrollDatesOpacity = new IntegerOption();
+		scrollDatesOpacity.setTitle("Scroll date opacity (%)");
+		scrollDatesOpacity.setDescription("How solid the day/time and position mark are while scrolled into history. "
+				+ SCROLL_DATES_OPACITY_MIN + "–100. The jump-to-live arrow is unchanged. .when opacity N");
+		scrollDatesOpacity.setKey("scroll_dates_opacity");
+		scrollDatesOpacity.setValue(DEFAULT_SCROLL_DATES_OPACITY);
+		window.addOption(scrollDatesOpacity);
 
 		IntegerOption canvasWidth = new IntegerOption();
 		canvasWidth.setTitle("Text width (% of screen)");

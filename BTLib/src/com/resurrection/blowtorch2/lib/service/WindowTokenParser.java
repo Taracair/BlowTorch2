@@ -330,6 +330,15 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
+					case scroll_dates_opacity:
+						if (((Integer) ((IntegerOption) o).getValue())
+								!= WindowToken.DEFAULT_SCROLL_DATES_OPACITY) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.endTag("", "option");
+						}
+						break;
 					case text_canvas_width:
 						// 100 = screen width = off; only a widened canvas is stored.
 						if (((Integer) ((IntegerOption) o).getValue()) != 100) {

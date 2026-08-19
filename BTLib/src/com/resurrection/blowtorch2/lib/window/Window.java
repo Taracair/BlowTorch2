@@ -364,6 +364,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private boolean homeWidgetShowing = false;
 	/** Date overlay + position mark while in history. Options → Window → Scroll dates? */
 	private boolean mScrollDates = false;
+	private int mScrollDatesOpacity = WindowToken.DEFAULT_SCROLL_DATES_OPACITY;
 	private final Paint mJumpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	private final Path mJumpPath = new Path();
 	private final Paint mWhenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -679,6 +680,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		BooleanOption scrollDates = (BooleanOption) settings.findOptionByKey("scroll_dates");
 		if (scrollDates != null) {
 			mScrollDates = (Boolean) scrollDates.getValue();
+		}
+		IntegerOption scrollDatesOpacity =
+				(IntegerOption) settings.findOptionByKey("scroll_dates_opacity");
+		if (scrollDatesOpacity != null) {
+			mScrollDatesOpacity = WindowToken.clampScrollDatesOpacity(
+					((Integer) scrollDatesOpacity.getValue()).intValue());
 		}
 		BooleanOption osc8Links = (BooleanOption) settings.findOptionByKey("osc8_links");
 		if (osc8Links != null) {
@@ -5730,6 +5737,15 @@ end
 				mScrollDates = (Boolean) o.getValue();
 				this.invalidate();
 				break;
+			case scroll_dates_opacity:
+				{
+					int n = WindowToken.clampScrollDatesOpacity(
+							((Integer) o.getValue()).intValue());
+					o.setValue(Integer.valueOf(n));
+					mScrollDatesOpacity = n;
+				}
+				this.invalidate();
+				break;
 			case osc8_links:
 				applyOsc8Links((Boolean) o.getValue());
 				this.invalidate();
@@ -5860,6 +5876,7 @@ end
 		dim_repeated_window,
 		dim_repeated_strength,
 		scroll_dates,
+		scroll_dates_opacity,
 		osc8_links,
 		top_padding,
 		bottom_padding,
@@ -6659,11 +6676,11 @@ end
 	boolean hasOnSizeChanged = true;
 	
 	/**
-	 * Place the jump-to-live chevron at bottom-right (clears the overflow FAB).
+	 * Place the jump-to-live chevron at bottom-right, above the overflow FAB.
 	 * Newest-at-top only flips the arrow direction when drawing.
 	 */
 	private void layoutHomeWidgetRect() {
-		int size = (int) (36 * mDensity);
+		int size = (int) (45 * mDensity);
 		int margin = (int) (4 * mDensity);
 		int clear = (int) (56 * mDensity);
 		mHomeWidgetRect.set(mWidth - size - margin,
@@ -6697,39 +6714,45 @@ end
 
 	/**
 	 * Date of the text on screen, plus a short position mark, to the left of
-	 * the jump chevron. Off the live edge only — the caller already checked.
+	 * the overflow ⋮. Off the live edge only — the caller already checked.
 	 */
 	private void drawWhenCluster(final Canvas c) {
 		long stamp = viewportStampMillis();
 		String label = stamp > 0L
 				? LineStamp.overlayLabel(stamp, System.currentTimeMillis()) : "";
-		mWhenPaint.setColor(0xBB8AA4C0);
+		float f = mScrollDatesOpacity / 100f;
+		int dateA = Math.max(0, Math.min(255, Math.round(255f * f)));
+		int trackA = Math.max(0, Math.min(255, Math.round(0x44 / 0.75f * f)));
+		int thumbA = Math.max(0, Math.min(255, Math.round(0xCC / 0.75f * f)));
+		int margin = (int) (4 * mDensity);
+		int fab = (int) (48 * mDensity);
+		int gap = (int) (6 * mDensity);
+		int trackW = Math.max(2, (int) (3 * mDensity));
+		int trackH = (int) (28 * mDensity);
+		float clusterCy = mHeight - margin - fab / 2f;
+		int sliderRight = mWidth - margin - fab - gap;
+		int sliderLeft = sliderRight - trackW;
+		int sliderTop = Math.round(clusterCy - trackH / 2f);
+		int sliderBottom = sliderTop + trackH;
 		mWhenPaint.setTextSize(11f * mDensity);
 		mWhenPaint.setTypeface(Typeface.SANS_SERIF);
 		mWhenPaint.setTextAlign(Paint.Align.RIGHT);
-		float textX = mHomeWidgetRect.left - 6f * mDensity;
-		float textY = mHomeWidgetRect.exactCenterY()
-				+ mWhenPaint.getTextSize() * 0.35f;
+		float textX = sliderLeft - gap;
+		float textY = clusterCy + mWhenPaint.getTextSize() * 0.35f;
 		if (label.length() > 0) {
+			mWhenPaint.setColor(android.graphics.Color.argb(dateA, 0x8A, 0xA4, 0xC0));
 			c.drawText(label, textX, textY, mWhenPaint);
 		}
-		int trackW = Math.max(2, (int) (3 * mDensity));
-		int trackH = (int) (28 * mDensity);
-		int trackRight = mHomeWidgetRect.left - (int) (4 * mDensity);
-		if (label.length() > 0) {
-			trackRight = (int) (textX - mWhenPaint.measureText(label) - 6f * mDensity);
-		}
-		int trackLeft = trackRight - trackW;
-		int trackTop = mHomeWidgetRect.centerY() - trackH / 2;
-		int trackBottom = trackTop + trackH;
-		mWhenPaint.setColor(0x442A4A6E);
-		c.drawRect(trackLeft, trackTop, trackRight, trackBottom, mWhenPaint);
+		mWhenPaint.setColor(android.graphics.Color.argb(trackA, 0x2A, 0x4A, 0x6E));
+		c.drawRect(sliderLeft, sliderTop, sliderRight, sliderBottom, mWhenPaint);
 		float total = Math.max(1f, (float) (mBuffer.getBrokenLineCount() * mPrefLineSize));
 		float window = Math.max(1f, (float) contentHeight());
 		float maxScroll = Math.max(1f, total - window);
 		float fromLive = (float) Math.max(0, mScrollback - SCROLL_MIN);
 		float pos = Math.min(1f, fromLive / maxScroll);
-		if (mNewestAtTop) {
+		// pos 0 = live edge. Live text sits at the bottom of the window, so
+		// the thumb belongs at the bottom of the track (flipped when newest-at-top).
+		if (!mNewestAtTop) {
 			pos = 1f - pos;
 		}
 		int thumbH = Math.max(trackW * 2, (int) (trackH * (window / total)));
@@ -6737,9 +6760,9 @@ end
 			thumbH = trackH;
 		}
 		int travel = trackH - thumbH;
-		int thumbTop = trackTop + (int) (pos * travel);
-		mWhenPaint.setColor(0xCC3A5F8A);
-		c.drawRect(trackLeft, thumbTop, trackRight, thumbTop + thumbH, mWhenPaint);
+		int thumbTop = sliderTop + (int) (pos * travel);
+		mWhenPaint.setColor(android.graphics.Color.argb(thumbA, 0x3A, 0x5F, 0x8A));
+		c.drawRect(sliderLeft, thumbTop, sliderRight, thumbTop + thumbH, mWhenPaint);
 	}
 
 	/** Stamp of the line at the centre of the viewport, or 0. */
