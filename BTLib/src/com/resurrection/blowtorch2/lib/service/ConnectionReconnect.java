@@ -29,14 +29,8 @@ final class ConnectionReconnect {
 	/** Give up waiting for a usable network after this long and retry blindly. */
 	private static final int PERSISTENT_NETWORK_WAIT_CAP_MILLIS = 180000;
 
-	/** Persistent mode never gets fewer tries than this. */
-	private static final int PERSISTENT_MIN_TRIES = 20;
-
 	/** Attempt limit when the setting carries no value. */
 	private static final int DEFAULT_RECONNECT_LIMIT = 5;
-
-	/** Persistent mode multiplies the configured limit by this. */
-	private static final int PERSISTENT_LIMIT_MULTIPLIER = 4;
 
 	private final Connection host;
 
@@ -89,9 +83,20 @@ final class ConnectionReconnect {
 		return Boolean.TRUE.equals(persistent);
 	}
 
-	/** True when a dropped connection should be retried at all. */
+	/** True when a dropped connection should be retried at all.
+	 *
+	 * Persistent connection only changes <em>how</em> a retry waits (network
+	 * callback, longer delay, peer-close as a flap). It does not retry on its
+	 * own: Auto Reconnect off means off, including overnight idle drops.
+	 */
 	boolean wantsReconnect() {
-		return Boolean.TRUE.equals(autoReconnect) || isPersistent();
+		return Boolean.TRUE.equals(autoReconnect);
+	}
+
+	/** Peer closed the socket. Retry only when auto-reconnect is on and
+	 * persistent mode asked to treat that close as a flap. */
+	boolean reconnectOnPeerClose() {
+		return wantsReconnect() && isPersistent();
 	}
 
 	/** Called on a successful connect: the retry budget starts over. */
@@ -106,13 +111,10 @@ final class ConnectionReconnect {
 		attempt = 0;
 	}
 
-	/** Effective attempt limit, widened when persistent mode is on. */
+	/** Configured attempt limit. Persistent mode does not widen this: the
+	 * Options number is what the player typed. */
 	private int effectiveLimit() {
-		int base = limit != null ? limit.intValue() : DEFAULT_RECONNECT_LIMIT;
-		if (isPersistent()) {
-			return Math.max(base * PERSISTENT_LIMIT_MULTIPLIER, PERSISTENT_MIN_TRIES);
-		}
-		return base;
+		return limit != null ? limit.intValue() : DEFAULT_RECONNECT_LIMIT;
 	}
 
 	/** Whether a retry is wanted and the budget still allows one.
@@ -159,7 +161,7 @@ final class ConnectionReconnect {
 
 	/** Post the reconnect message, waiting for a network first when needed. */
 	private void schedule(final long normalDelayMs) {
-		if (host.mHandler == null) {
+		if (host == null || host.mHandler == null) {
 			return;
 		}
 		long delay = normalDelayMs;
@@ -252,6 +254,9 @@ final class ConnectionReconnect {
 
 	/** Drop any pending network wait and unregister the callback. */
 	void clearNetworkWait() {
+		if (host == null) {
+			return;
+		}
 		if (host.mHandler != null && networkWaitTimeout != null) {
 			host.mHandler.removeCallbacks(networkWaitTimeout);
 			networkWaitTimeout = null;

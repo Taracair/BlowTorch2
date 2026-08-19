@@ -715,8 +715,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case MESSAGE_TERMINATED_BY_PEER:
 				clearStartupInProgress();
 				killNetThreads(true);
-				// Default: peer closed → no auto-reconnect. Persistent: treat like a network flap.
-				doDisconnect(!mReconnect.isPersistent());
+				// Default: peer closed → no auto-reconnect. Persistent + Auto
+				// Reconnect: treat the close like a network flap.
+				doDisconnect(!mReconnect.reconnectOnPeerClose());
 				mIsConnected = false;
 				break;
 			case MESSAGE_CHARSET:

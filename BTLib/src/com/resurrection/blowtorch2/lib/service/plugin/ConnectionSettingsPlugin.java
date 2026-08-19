@@ -960,7 +960,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption persistent_connection = new BooleanOption();
 		persistent_connection.setTitle("Persistent Connection?");
-		persistent_connection.setDescription("After brief network loss (VPN/Wi-Fi flaps), keep retrying longer without the disconnect dialog, and wait for connectivity before reconnecting. Cannot keep a dead TCP socket alive — the session is re-established when the network returns.");
+		persistent_connection.setDescription("When Auto Reconnect is on: after brief network loss (VPN/Wi-Fi flaps) wait for connectivity before retrying, and treat a peer close as a flap. Off, or Auto Reconnect off: the configured try count is used as written and a closed socket stays closed.");
 		persistent_connection.setKey("persistent_connection");
 		persistent_connection.setValue(false);
 		miscOptions.addOption(persistent_connection);
