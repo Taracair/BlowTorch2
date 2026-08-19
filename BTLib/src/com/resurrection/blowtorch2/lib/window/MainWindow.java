@@ -4204,6 +4204,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		builder.setCancelable(true);
 		builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
 		           public void onClick(DialogInterface dialog, int id) {
+		                // MainWindow is singleTask, so it is the root of its own
+		                // task. finish() alone would empty that task and land on
+		                // the home screen. Bring the server list forward first.
+		                Intent launcher = new Intent(MainWindow.this,
+		                        com.resurrection.blowtorch2.lib.launcher.Launcher.class);
+		                launcher.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+		                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
+		                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		                MainWindow.this.startActivity(launcher);
 		                MainWindow.this.dirtyExit();
 		                MainWindow.this.finish();
 		           }
