@@ -178,7 +178,9 @@ Try:  .note hello from the tutorial
 
 Settings without reaching for the menu:
   .options           open the Options screen, same as the ⋮ menu.
-                     Handy on a button when the menu is out of reach
+                     Handy on a button when the menu is out of reach.
+                     Search at the bottom filters as you type; tap a
+                     result to jump to that page.
 
 Two you only need when something goes wrong:
   .settings          what is on disk; backup / restore the kept copy
@@ -1113,7 +1115,11 @@ TOPICS.options_cleanup = function()
 
 Plugin-specific pages (Button, Starter Tutorial, …) appear when that
 plugin is loaded. Prefer nested Manage modules… / Manage packages…
-over raw Supports / Packages strings.]])
+over raw Supports / Packages strings.
+
+A search field at the bottom of Options filters as you type (title,
+description, group path). Tap a result to open that page. Back clears
+the search before it closes Options.]])
 end
 
 TOPICS.display = function()
@@ -1137,9 +1143,9 @@ Options → Window → Dim repeated lines? (off by default): a long identical
 line (the same room on look) paints dimmer. .dimrepeat on|off, lines N,
 strength N (higher is darker).
 Options → Window → Scroll dates? (off by default): while you are scrolled
-into history, a small day/time sits next to the jump-to-live arrow, and
-a mark shows where you are in the buffer. .when on|off. .search 14:32
-or 18 Aug jumps to that moment.
+into history, a small day/time sits to the left of ⋮, and a mark to
+the right of the date shows where you are in the buffer. .when on|off.
+.when opacity N. .search 14:32 or 18 Aug jumps to that moment.
 Options → Window → Newest text at top?: live output appears at the top.]])
 end
 
@@ -1383,7 +1389,7 @@ local TIPS = {
 	suggestions = [[Same as .suggest.]],
 	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
 	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
-	when = [[.when on shows day and time next to the jump-to-live arrow while you are in history. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],
+	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],
 	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],
 	font = [[.font N sets game font size (6–48). .font +2 / -2 steps from where you are.]],
@@ -1415,7 +1421,7 @@ local TIPS = {
 	editpanel = [[.editpanel on|off shows the editing strip (sel/cut/copy/paste).]],
 	tapmenu = [[.tapmenu opacity N — how solid the menu a tapped word opens is.]],
 	frame = [[.frame list / close. Drawn frames some worlds ask for; still terminal text, not a web page.]],
-	options = [[.options opens the Options screen, same as the ⋮ menu.]],
+	options = [[.options opens the Options screen, same as the ⋮ menu. Search at the bottom filters as you type.]],
 	settings = [[.settings backup / restore the kept copy of this world's settings file.]],
 	reconnect = [[.reconnect closes and opens the socket again.]],
 	disconnect = [[.disconnect closes the socket. The world stays in the list.]],

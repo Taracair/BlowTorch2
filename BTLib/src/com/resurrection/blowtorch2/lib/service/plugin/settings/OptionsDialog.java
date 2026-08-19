@@ -5,6 +5,7 @@ import java.io.FilenameFilter;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.regex.Matcher;
@@ -30,16 +31,22 @@ import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.RemoteException;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
+import android.view.KeyEvent;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.view.animation.Animation;
 import android.view.animation.Animation.AnimationListener;
 import android.view.animation.TranslateAnimation;
+import android.widget.AbsListView;
 import android.widget.Button;
 import android.widget.BaseAdapter;
 import android.widget.CheckBox;
@@ -67,6 +74,7 @@ public class OptionsDialog extends Dialog {
 	//OptionsAdapter primeAdapter;
 	//OptionsAdapter altAdapter;
 	SettingsGroup mCurrent;
+	SettingsGroup mRoot;
 	String selectedPlugin;
 	String[] mEncodings = null;
 	//FragmentManager mFragementManager;
@@ -91,6 +99,9 @@ public class OptionsDialog extends Dialog {
 	boolean toggle = true;
 	
 	Stack<SettingsGroup> backStack = new Stack<SettingsGroup>();
+	private EditText mSearchField;
+	private ListView mSearchResults;
+	private ViewFlipper mFlipper;
 
 	/** Keys for StringOption values that represent directories (SAF Browse…). */
 	private static boolean isDirectoryOptionKey(String key) {
@@ -151,6 +162,99 @@ public class OptionsDialog extends Dialog {
 		boolean isHeader() {
 			return kind == HEADER;
 		}
+	}
+
+	/**
+	 * One Options row that matches a search query, with the groups to open to
+	 * land on its page. Display-only: the SettingsGroup tree is not mutated.
+	 */
+	static final class SearchHit {
+		final String title;
+		final String breadcrumb;
+		final ArrayList<SettingsGroup> path;
+		final Option option;
+
+		SearchHit(String title, String breadcrumb, ArrayList<SettingsGroup> path,
+				Option option) {
+			this.title = title;
+			this.breadcrumb = breadcrumb == null ? "" : breadcrumb;
+			this.path = path;
+			this.option = option;
+		}
+	}
+
+	static ArrayList<SearchHit> searchHits(SettingsGroup root, String query) {
+		return searchHits(root, query, EDITOR_OWNED_KEYS);
+	}
+
+	static ArrayList<SearchHit> searchHits(SettingsGroup root, String query,
+			java.util.Set<String> hiddenKeys) {
+		ArrayList<SearchHit> all = new ArrayList<SearchHit>();
+		collectHits(root, "", new ArrayList<SettingsGroup>(), hiddenKeys, all);
+		String q = query == null ? "" : query.trim().toLowerCase(Locale.US);
+		if (q.length() == 0) {
+			return new ArrayList<SearchHit>();
+		}
+		ArrayList<SearchHit> out = new ArrayList<SearchHit>();
+		for (int i = 0; i < all.size(); i++) {
+			SearchHit h = all.get(i);
+			if (hitMatches(h, q)) {
+				out.add(h);
+			}
+		}
+		return out;
+	}
+
+	private static boolean hitMatches(SearchHit h, String q) {
+		String title = h.title == null ? "" : h.title;
+		String desc = (h.option != null && h.option.getDescription() != null)
+				? h.option.getDescription() : "";
+		String key = (h.option != null && h.option.getKey() != null)
+				? h.option.getKey() : "";
+		String hay = title + " " + h.breadcrumb + " " + desc + " " + key;
+		return hay.toLowerCase(Locale.US).contains(q);
+	}
+
+	private static void collectHits(SettingsGroup group, String breadcrumb,
+			ArrayList<SettingsGroup> path, java.util.Set<String> hiddenKeys,
+			ArrayList<SearchHit> out) {
+		if (group == null) {
+			return;
+		}
+		ArrayList<Option> all = group.getOptions();
+		for (int i = 0; i < all.size(); i++) {
+			Option o = all.get(i);
+			if (o == null) {
+				continue;
+			}
+			if (o.getKey() != null && hiddenKeys != null
+					&& hiddenKeys.contains(o.getKey())) {
+				continue;
+			}
+			if (isInlineGroup(o)) {
+				collectHits((SettingsGroup) o, joinCrumb(breadcrumb, o.getTitle()),
+						path, hiddenKeys, out);
+			} else if (o.type == Option.TYPE.GROUP) {
+				ArrayList<SettingsGroup> nextPath = new ArrayList<SettingsGroup>(path);
+				nextPath.add((SettingsGroup) o);
+				out.add(new SearchHit(o.getTitle(), breadcrumb, nextPath, o));
+				collectHits((SettingsGroup) o, joinCrumb(breadcrumb, o.getTitle()),
+						nextPath, hiddenKeys, out);
+			} else {
+				out.add(new SearchHit(o.getTitle(), breadcrumb,
+						new ArrayList<SettingsGroup>(path), o));
+			}
+		}
+	}
+
+	private static String joinCrumb(String prefix, String title) {
+		if (title == null || title.length() == 0) {
+			return prefix;
+		}
+		if (prefix == null || prefix.length() == 0) {
+			return title;
+		}
+		return prefix + " › " + title;
 	}
 
 	/**
@@ -269,6 +373,7 @@ public class OptionsDialog extends Dialog {
 		params.width = Math.min(screenWidth, (int) (screenWidth * 0.88f));
 		params.height = WindowManager.LayoutParams.MATCH_PARENT;
 		window.setAttributes(params);
+		window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 	}
 
 	/**
@@ -396,6 +501,8 @@ public class OptionsDialog extends Dialog {
 		
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("OptionsDialog.apply option", e);
 		}
+
+		mRoot = mCurrent;
 		
 		
 		bindPageChrome(content, mCurrent.getTitle(), false);
@@ -411,6 +518,7 @@ public class OptionsDialog extends Dialog {
 		
 		
 		this.setContentView(root);
+		mFlipper = (ViewFlipper) root.findViewById(R.id.flipper);
 		View close = root.findViewById(R.id.close);
 		if (close != null) {
 			close.setOnClickListener(new View.OnClickListener() {
@@ -420,9 +528,7 @@ public class OptionsDialog extends Dialog {
 				}
 			});
 		}
-		
-		//adapter.
-		//list.re
+		bindOptionsSearch(root);
 	}
 
 	/**
@@ -459,6 +565,26 @@ public class OptionsDialog extends Dialog {
 		public OptionsAdapter(SettingsGroup sg) {
 			this.group = sg;
 			this.rows = pageRows(sg);
+		}
+
+		int indexOfOption(Option option) {
+			if (option == null) {
+				return -1;
+			}
+			for (int i = 0; i < rows.size(); i++) {
+				if (rows.get(i).option == option) {
+					return i;
+				}
+			}
+			if (option.getKey() != null) {
+				for (int i = 0; i < rows.size(); i++) {
+					Option o = rows.get(i).option;
+					if (o != null && option.getKey().equals(o.getKey())) {
+						return i;
+					}
+				}
+			}
+			return -1;
 		}
 
 		/** Index in the group of the row drawn at this adapter position. */
@@ -1699,53 +1825,249 @@ public class OptionsDialog extends Dialog {
 		
 		@Override
 		public void onClick(View v) {
-			//get the tag for this view, it will be the key.
-			if(backStack.size() == 0) {
-				//we need to switch the current plugin so the appropriate settingsgroup gets updated.
-				if(pluginSettingsMap.containsKey(this.pos)) {
-					OptionsDialog.this.selectedPlugin = pluginSettingsMap.get(this.pos);
+			openGroup((SettingsGroup) v.getTag(), this.pos, true);
+		}
+		
+	}
+
+	private void bindOptionsSearch(View root) {
+		final View searchRoot = root.findViewById(R.id.root);
+		if (searchRoot != null) {
+			androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(searchRoot, (view, insets) -> {
+				androidx.core.graphics.Insets sys =
+						insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()
+								| androidx.core.view.WindowInsetsCompat.Type.ime());
+				view.setPadding(view.getPaddingLeft(), sys.top,
+						view.getPaddingRight(), sys.bottom);
+				return insets;
+			});
+			androidx.core.view.ViewCompat.requestApplyInsets(searchRoot);
+		}
+		mSearchField = (EditText) root.findViewById(R.id.options_search_field);
+		mSearchResults = (ListView) root.findViewById(R.id.options_search_results);
+		if (mSearchField == null || mSearchResults == null) {
+			return;
+		}
+		mSearchResults.setOnItemClickListener(new android.widget.AdapterView.OnItemClickListener() {
+			@Override
+			public void onItemClick(android.widget.AdapterView<?> parent, View view,
+					int position, long id) {
+				Object item = parent.getItemAtPosition(position);
+				if (item instanceof SearchHit) {
+					jumpTo((SearchHit) item);
 				}
-				//proceed as usual.
 			}
-			
-			Option key = (Option) v.getTag();
-			backStack.push(mCurrent);
-			mCurrent = (SettingsGroup) key;
-			
-			LayoutInflater li = (LayoutInflater) OptionsDialog.this.getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-			
-			RelativeLayout newContent = (RelativeLayout) li.inflate(R.layout.options_dialog_content, null);
-			ListView list = (ListView) newContent.findViewById(R.id.list);
-			
-			OptionsAdapter newAdapt = new OptionsAdapter(mCurrent);
-			list.setAdapter(newAdapt);
-			newAdapt.notifyDataSetInvalidated();
-			
-			bindPageChrome(newContent, key.getTitle(), true);
-			ViewFlipper f = (ViewFlipper) OptionsDialog.this.findViewById(R.id.flipper);
-			f.addView(newContent);
-			//int amount = altList.getWidth();
-			//int amount = 600;
-			//TranslateAnimation outAnim = new TranslateAnimation(0,-amount,0,0);
-			//TranslateAnimation inAnim = new TranslateAnimation(amount,0,0,0);
+		});
+		mSearchResults.setOnScrollListener(new AbsListView.OnScrollListener() {
+			@Override
+			public void onScrollStateChanged(AbsListView view, int scrollState) {
+				if (scrollState == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL) {
+					hideOptionsSearchKeyboard();
+				}
+			}
+
+			@Override
+			public void onScroll(AbsListView view, int first, int visible, int total) {
+			}
+		});
+		mSearchField.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+			}
+
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+			}
+
+			@Override
+			public void afterTextChanged(Editable s) {
+				applyOptionsSearch(s == null ? "" : s.toString());
+			}
+		});
+		mSearchField.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+			@Override
+			public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+				if (actionId == EditorInfo.IME_ACTION_SEARCH
+						|| actionId == EditorInfo.IME_ACTION_DONE) {
+					hideOptionsSearchKeyboard();
+					return true;
+				}
+				return false;
+			}
+		});
+	}
+
+	private void applyOptionsSearch(String query) {
+		String q = query == null ? "" : query.trim();
+		if (q.length() == 0) {
+			showSearchOverlay(false);
+			return;
+		}
+		ArrayList<SearchHit> hits = searchHits(mRoot, q);
+		mSearchResults.setAdapter(new SearchResultsAdapter(hits));
+		showSearchOverlay(true);
+	}
+
+	private void showSearchOverlay(boolean show) {
+		if (mSearchResults != null) {
+			mSearchResults.setVisibility(show ? View.VISIBLE : View.GONE);
+		}
+		if (mFlipper != null) {
+			mFlipper.setVisibility(show ? View.GONE : View.VISIBLE);
+		}
+	}
+
+	private void jumpTo(SearchHit hit) {
+		if (hit == null || mRoot == null) {
+			return;
+		}
+		hideOptionsSearchKeyboard();
+		resetToRoot();
+		for (int i = 0; i < hit.path.size(); i++) {
+			SettingsGroup g = hit.path.get(i);
+			int source = mCurrent.getOptions().indexOf(g);
+			openGroup(g, source, false);
+		}
+		scrollCurrentPageTo(hit.option);
+		if (mSearchField != null) {
+			mSearchField.setText("");
+		}
+		showSearchOverlay(false);
+	}
+
+	private void resetToRoot() {
+		ViewFlipper f = mFlipper != null ? mFlipper
+				: (ViewFlipper) findViewById(R.id.flipper);
+		if (f != null) {
+			f.setInAnimation(null);
+			f.setOutAnimation(null);
+			while (f.getChildCount() > 1) {
+				f.removeViewAt(f.getChildCount() - 1);
+			}
+			f.setDisplayedChild(0);
+			f.setVisibility(View.VISIBLE);
+		}
+		if (mSearchResults != null) {
+			mSearchResults.setVisibility(View.GONE);
+		}
+		backStack.clear();
+		selectedPlugin = "main";
+		mCurrent = mRoot;
+	}
+
+	private void openGroup(SettingsGroup group, int rootSourceIndex, boolean animate) {
+		if (group == null) {
+			return;
+		}
+		if (backStack.size() == 0 && pluginSettingsMap.containsKey(rootSourceIndex)) {
+			selectedPlugin = pluginSettingsMap.get(rootSourceIndex);
+		}
+		backStack.push(mCurrent);
+		mCurrent = group;
+		LayoutInflater li = (LayoutInflater) getContext()
+				.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+		RelativeLayout newContent = (RelativeLayout) li.inflate(R.layout.options_dialog_content, null);
+		ListView list = (ListView) newContent.findViewById(R.id.list);
+		OptionsAdapter newAdapt = new OptionsAdapter(mCurrent);
+		list.setAdapter(newAdapt);
+		newAdapt.notifyDataSetInvalidated();
+		bindPageChrome(newContent, group.getTitle(), true);
+		ViewFlipper f = mFlipper != null ? mFlipper
+				: (ViewFlipper) findViewById(R.id.flipper);
+		if (animate) {
 			TranslateAnimation outAnim = new TranslateAnimation(Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,-1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
 			TranslateAnimation inAnim  = new TranslateAnimation(Animation.RELATIVE_TO_SELF,1.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f,Animation.RELATIVE_TO_SELF,0.0f);
 			outAnim.setDuration(PAGE_SLIDE_MS);
 			inAnim.setDuration(PAGE_SLIDE_MS);
 			f.setInAnimation(inAnim);
 			f.setOutAnimation(outAnim);
-
-			// Draw each page into a texture for the length of the slide. A
-			// TranslateAnimation redraws what it moves on every frame, and what
-			// is moving here is a ListView whose rows build a CheckBox or a
-			// swatch as they bind — so the deeper pages, which have more rows,
-			// stutter while the top level does not. Cached, the slide is one
-			// texture moving.
 			liftPagesForSlide(f, newContent, inAnim);
-
-			f.showNext();
+		} else {
+			f.setInAnimation(null);
+			f.setOutAnimation(null);
 		}
-		
+		f.addView(newContent);
+		f.showNext();
+	}
+
+	private void scrollCurrentPageTo(Option option) {
+		ViewFlipper f = mFlipper != null ? mFlipper
+				: (ViewFlipper) findViewById(R.id.flipper);
+		if (f == null) {
+			return;
+		}
+		View page = f.getCurrentView();
+		if (page == null) {
+			return;
+		}
+		ListView list = (ListView) page.findViewById(R.id.list);
+		if (list == null || !(list.getAdapter() instanceof OptionsAdapter)) {
+			return;
+		}
+		int at = ((OptionsAdapter) list.getAdapter()).indexOfOption(option);
+		if (at >= 0) {
+			list.setSelection(at);
+		}
+	}
+
+	private void hideOptionsSearchKeyboard() {
+		if (mSearchField == null) {
+			return;
+		}
+		InputMethodManager imm = (InputMethodManager) getContext()
+				.getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (imm != null) {
+			imm.hideSoftInputFromWindow(mSearchField.getWindowToken(), 0);
+		}
+		mSearchField.clearFocus();
+	}
+
+	private class SearchResultsAdapter extends BaseAdapter {
+		private final ArrayList<SearchHit> hits;
+
+		SearchResultsAdapter(ArrayList<SearchHit> hits) {
+			this.hits = hits != null ? hits : new ArrayList<SearchHit>();
+		}
+
+		@Override
+		public int getCount() {
+			return hits.size();
+		}
+
+		@Override
+		public Object getItem(int position) {
+			return hits.get(position);
+		}
+
+		@Override
+		public long getItemId(int position) {
+			return position;
+		}
+
+		@Override
+		public View getView(int position, View convertView, ViewGroup parent) {
+			View row = convertView;
+			if (row == null) {
+				LayoutInflater li = (LayoutInflater) getContext()
+						.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+				row = li.inflate(R.layout.options_list_row, parent, false);
+			}
+			SearchHit hit = hits.get(position);
+			TextView title = (TextView) row.findViewById(R.id.infoTitle);
+			TextView extra = (TextView) row.findViewById(R.id.infoExtended);
+			if (title != null) {
+				title.setText(hit.title);
+			}
+			if (extra != null) {
+				extra.setText(hit.breadcrumb);
+				extra.setVisibility(hit.breadcrumb.length() == 0 ? View.GONE : View.VISIBLE);
+			}
+			View widget = row.findViewById(R.id.widget_frame);
+			if (widget != null) {
+				widget.setVisibility(View.GONE);
+			}
+			return row;
+		}
 	}
 	
 	private class ListOptionClickedListener implements View.OnClickListener {
@@ -1862,6 +2184,10 @@ public class OptionsDialog extends Dialog {
 
 	@Override
 	public void onBackPressed() {
+		if (mSearchField != null && mSearchField.getText().length() > 0) {
+			mSearchField.setText("");
+			return;
+		}
 		if(backStack.size() == 0) {
 			// The save lives in dismiss() now, so every way out gets it.
 			this.dismiss();

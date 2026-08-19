@@ -28,11 +28,57 @@
 			android:text="Close"/>
 	</LinearLayout>
 
+	<LinearLayout
+		android:id="@+id/options_search_bar"
+		android:layout_width="fill_parent"
+		android:layout_height="wrap_content"
+		android:layout_above="@id/button_row"
+		android:background="@color/chrome_title_bar"
+		android:paddingLeft="6dip"
+		android:paddingRight="6dip"
+		android:paddingTop="4dip"
+		android:paddingBottom="4dip"
+		android:orientation="vertical">
+
+		<EditText
+			android:id="@+id/options_search_field"
+			android:layout_width="fill_parent"
+			android:layout_height="wrap_content"
+			android:minHeight="42dip"
+			android:hint="Search settings"
+			android:inputType="text"
+			android:maxLines="1"
+			android:imeOptions="actionSearch"
+			android:drawableLeft="@drawable/ic_options_search"
+			android:drawablePadding="8dip"
+			android:textColor="@color/chrome_title_text"
+			android:textColorHint="#FF7A828C"
+			android:background="@drawable/editor_search_field_bg"
+			android:paddingLeft="10dip"
+			android:paddingRight="10dip"
+			android:paddingTop="8dip"
+			android:paddingBottom="8dip"
+			android:textSize="15dip"/>
+	</LinearLayout>
+
 	<ViewFlipper
 		android:id="@+id/flipper"
 		android:layout_width="fill_parent"
 		android:layout_height="fill_parent"
 		android:layout_alignParentTop="true"
-		android:layout_above="@id/button_row"/>
+		android:layout_above="@id/options_search_bar"/>
+
+	<ListView
+		android:id="@+id/options_search_results"
+		android:layout_width="fill_parent"
+		android:layout_height="fill_parent"
+		android:layout_alignParentTop="true"
+		android:layout_above="@id/options_search_bar"
+		android:background="@color/chrome_body"
+		android:cacheColorHint="@color/chrome_body"
+		android:divider="@color/chrome_divider"
+		android:dividerHeight="1dip"
+		android:listSelector="@drawable/editor_row_selector"
+		android:visibility="gone"/>
 
 </RelativeLayout>
