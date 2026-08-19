@@ -5,7 +5,7 @@ In-game **Options** dialog groups (Program Settings):
 | Group | Purpose |
 |-------|---------|
 | **Display** | Orientation, keep screen on, fullscreen, NAWS width/height, terminal size tip |
-| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
+| **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time next to the jump-to-live arrow while in history), **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
 | **Bell** | Bell character reactions |
@@ -249,8 +249,10 @@ From the input bar the same ground is `.sensor` (`caps`, `<reading> <command>`,
   uncover what is behind it, or keep a ring with no fill. Opacity stops at 15%
   on purpose: the button keeps its whole 48dp tap area however faint it looks,
   and an invisible ⋮ is a corner of the screen that quietly eats taps.
-- **Persistent Connection?** — ride out brief network loss without the
-  disconnect dialog.
+- **Persistent Connection?** — only with **Auto Reconnect** on: after a
+  brief network loss wait for connectivity before retrying, and treat a
+  peer close as a flap. Does not retry on its own, and does not change the
+  **Auto Reconnect Tries** number.
 - **Export Settings** / **Import Settings** — setup and migration jobs rather
   than things you reach for mid-session; they sit beside the storage settings
   they depend on. **Reset Settings** is here too (throws away this world's

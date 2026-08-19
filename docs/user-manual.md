@@ -1332,6 +1332,7 @@ is enabled; `.alias list` shows every alias at once.
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–48. Also Options → Window → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
+    `.when [on|off|toggle]`              Day and time next to the jump-to-live arrow while scrolled into history; `.search 14:32` / `18 Aug` jumps there. Also Options → Window → Scroll dates?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
@@ -1721,6 +1722,8 @@ on your phone.
 ```
 
 Empty argument opens the search UI. Buttons may also use `/search 'phrase'`.
+With **Scroll dates?** on (`.when on`), `.search 14:32` or `.search 18 Aug` jumps
+to text that arrived then.
 
 ## Mapper
 
@@ -2051,6 +2054,24 @@ Dot command (same three knobs):
 ```
 
 `.dimrepeat` with no argument prints the current on/off, N, and strength.
+
+## Scroll dates
+
+**Options → Window → Scroll dates?** (off by default). While you are scrolled
+into history, a small day and time sits next to the jump-to-live arrow (same
+calendar day: `14:32`; another day: `18 Aug, 23:10`), and a short mark shows
+where you are in the buffer. The jump arrow itself is always there when you
+leave the live edge. Dates are not printed into the game text, so triggers,
+wrapping and copy are unchanged.
+
+`.search 14:32` or `.search 18 Aug` jumps to text that arrived then. The window
+only keeps a few thousand lines, so a week of busy play will have aged out;
+the session log is the archive for that.
+
+```
+.when
+.when on | off | toggle
+```
 
 ## OSC 8 hyperlinks
 
@@ -2736,10 +2757,12 @@ settings they depend on. Storage access is there too.
 
 Connection duration appears on the ongoing notification and launcher row.
 
-**Persistent Connection?** (Options → Miscellaneous): after brief network loss
-(VPN/Wi-Fi flaps), keep retrying longer without the disconnect dialog and wait
-for connectivity before reconnecting. Cannot keep a dead TCP socket — the MUD
-session is re-established when the network returns.
+**Persistent Connection?** (Options → Miscellaneous): only while **Auto
+Reconnect** is on. After brief network loss (VPN/Wi-Fi flaps), wait for
+connectivity before retrying, and treat a peer close as a flap. It does not
+retry when Auto Reconnect is off, and it does not raise the try count — the
+number in **Auto Reconnect Tries** is what is used. Cannot keep a dead TCP
+socket — the MUD session is re-established when the network returns.
 
 ## Related docs
 

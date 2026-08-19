@@ -132,7 +132,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	/** The activity that owns this window. */
 	private MainWindowCallback mParent = null;
 	/** The bitmap that holds the "return to the bottom of the buffer" button graphic. */
-	private Bitmap mHomeWidgetDrawable = null;
 	/** The bitmap that holds the selection widget cancel button. */
 	private Bitmap mTextSelectionCancelBitmap = null;
 	/** The bitmap that holds the selection widget copy button. */
@@ -363,6 +362,11 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private Paint mScrollerPaint = new Paint();
 	/** Indicates if the home widget is being drawn. */
 	private boolean homeWidgetShowing = false;
+	/** Date overlay + position mark while in history. Options → Window → Scroll dates? */
+	private boolean mScrollDates = false;
+	private final Paint mJumpPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+	private final Path mJumpPath = new Path();
+	private final Paint mWhenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 	/** View bounds for the the scroller rectangle. */
 	Rect scrollerRect = new Rect();
 	/** This is kind of a promiscuous variable, color is set on the fly. */
@@ -504,7 +508,6 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 		
 		mSelectionIndicatorClipPath.addCircle(mSelectionIndicatorHalfDimension, mSelectionIndicatorHalfDimension, mSelectionIndicatorHalfDimension - 10, Path.Direction.CCW);
-		mHomeWidgetDrawable = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.homewidget);
 		mTextSelectionCancelBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.cancel_tiny);
 		mTextSelectionCopyBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.copy_tiny);
 		mTextSelectionSwapBitmap = BitmapFactory.decodeResource(this.getContext().getResources(), com.resurrection.blowtorch2.lib.R.drawable.swap);
@@ -672,6 +675,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		BooleanOption dimRepeated = (BooleanOption) settings.findOptionByKey("dim_repeated_lines");
 		if (dimRepeated != null) {
 			applyDimRepeatedLines((Boolean) dimRepeated.getValue());
+		}
+		BooleanOption scrollDates = (BooleanOption) settings.findOptionByKey("scroll_dates");
+		if (scrollDates != null) {
+			mScrollDates = (Boolean) scrollDates.getValue();
 		}
 		BooleanOption osc8Links = (BooleanOption) settings.findOptionByKey("osc8_links");
 		if (osc8Links != null) {
@@ -2893,18 +2900,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 		final boolean atLiveEdge = mScrollback <= SCROLL_MIN + 3 * mDensity;
 		
-		if (mHomeWidgetDrawable != null
-				&& !atLiveEdge
+		if (!atLiveEdge
 				&& mBuffer.getBrokenLineCount() > mCalculatedLinesInWindow) {
 			homeWidgetShowing = true;
 			layoutHomeWidgetRect();
-			c.save();
-			if (mNewestAtTop) {
-				// Asset points down (classic jump-to-bottom); flip so it points up to live.
-				c.scale(1f, -1f, mHomeWidgetRect.exactCenterX(), mHomeWidgetRect.exactCenterY());
+			drawJumpChevron(c);
+			if (mScrollDates) {
+				drawWhenCluster(c);
 			}
-			c.drawBitmap(mHomeWidgetDrawable, mHomeWidgetRect.left, mHomeWidgetRect.top, null);
-			c.restore();
 		} else {
 			homeWidgetShowing = false;
 		}
@@ -2925,8 +2928,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 
 		// Live output: do not paint the always-on right-edge thumb (reads as a stray
-		// blue line). Show it only while scrolled into history.
-		if (!atLiveEdge) {
+		// blue line). Show it only while scrolled into history. Scroll dates
+		// replaces it with the mark next to the jump chevron.
+		if (!atLiveEdge && !mScrollDates) {
 			scrollerSize = windowPercent * workingHeight;
 			posPercent = (mScrollback - (workingHeight / 2)) / (mBuffer.getBrokenLineCount() * mPrefLineSize);
 			scrollerPos = workingHeight * posPercent;
@@ -3182,14 +3186,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return hits;
 		}
 		String needle = caseSensitive ? query : query.toLowerCase(java.util.Locale.getDefault());
+		boolean whenQuery = mScrollDates && LineStamp.looksLikeWhenQuery(query.trim());
 		int brokenFromBottom = 0;
 		for (TextTree.Line line : mBuffer.getLines()) {
 			String plain = TextTree.deColorLine(line).toString();
 			String hay = caseSensitive ? plain
 					: plain.toLowerCase(java.util.Locale.getDefault());
 			int matchAt = hay.indexOf(needle);
+			boolean whenHit = whenQuery && LineStamp.matchesQuery(line.getReceivedAt(), query.trim());
 			int breaks = 1 + line.breaks;
-			if (matchAt >= 0) {
+			if (matchAt >= 0 || whenHit) {
 				int breaksBefore = 0;
 				int chars = 0;
 				for (TextTree.Unit u : line.getData()) {
@@ -5720,6 +5726,10 @@ end
 				applyDimRepeatedStrength((Integer) o.getValue());
 				this.invalidate();
 				break;
+			case scroll_dates:
+				mScrollDates = (Boolean) o.getValue();
+				this.invalidate();
+				break;
 			case osc8_links:
 				applyOsc8Links((Boolean) o.getValue());
 				this.invalidate();
@@ -5849,6 +5859,7 @@ end
 		dim_repeated_lines,
 		dim_repeated_window,
 		dim_repeated_strength,
+		scroll_dates,
 		osc8_links,
 		top_padding,
 		bottom_padding,
@@ -6594,9 +6605,7 @@ end
 		//}
 
 		
-		if (mHomeWidgetDrawable != null) {
-			layoutHomeWidgetRect();
-		}
+		layoutHomeWidgetRect();
 		
 		Float foo = new Float(0);
 		//foo.
@@ -6654,17 +6663,100 @@ end
 	 * Newest-at-top only flips the arrow direction when drawing.
 	 */
 	private void layoutHomeWidgetRect() {
-		if (mHomeWidgetDrawable == null || mWidth <= 0 || mHeight <= 0) {
-			return;
-		}
-		int hw = mHomeWidgetDrawable.getWidth();
-		int hh = mHomeWidgetDrawable.getHeight();
+		int size = (int) (36 * mDensity);
 		int margin = (int) (4 * mDensity);
 		int clear = (int) (56 * mDensity);
-		mHomeWidgetRect.set(mWidth - hw - margin,
-				mHeight - hh - clear,
+		mHomeWidgetRect.set(mWidth - size - margin,
+				mHeight - size - clear,
 				mWidth - margin,
 				mHeight - clear);
+	}
+
+	/** Dark bluish chevron: jump to live. Points down, or up when newest-at-top. */
+	private void drawJumpChevron(final Canvas c) {
+		Rect r = mHomeWidgetRect;
+		float cx = r.exactCenterX();
+		float cy = r.exactCenterY();
+		float w = r.width() * 0.28f;
+		float h = r.height() * 0.18f;
+		mJumpPath.reset();
+		if (mNewestAtTop) {
+			mJumpPath.moveTo(cx, cy - h);
+			mJumpPath.lineTo(cx + w, cy + h * 0.55f);
+			mJumpPath.lineTo(cx - w, cy + h * 0.55f);
+		} else {
+			mJumpPath.moveTo(cx, cy + h);
+			mJumpPath.lineTo(cx + w, cy - h * 0.55f);
+			mJumpPath.lineTo(cx - w, cy - h * 0.55f);
+		}
+		mJumpPath.close();
+		mJumpPaint.setStyle(Paint.Style.FILL);
+		mJumpPaint.setColor(0xBB2A4A6E);
+		c.drawPath(mJumpPath, mJumpPaint);
+	}
+
+	/**
+	 * Date of the text on screen, plus a short position mark, to the left of
+	 * the jump chevron. Off the live edge only — the caller already checked.
+	 */
+	private void drawWhenCluster(final Canvas c) {
+		long stamp = viewportStampMillis();
+		String label = stamp > 0L
+				? LineStamp.overlayLabel(stamp, System.currentTimeMillis()) : "";
+		mWhenPaint.setColor(0xBB8AA4C0);
+		mWhenPaint.setTextSize(11f * mDensity);
+		mWhenPaint.setTypeface(Typeface.SANS_SERIF);
+		mWhenPaint.setTextAlign(Paint.Align.RIGHT);
+		float textX = mHomeWidgetRect.left - 6f * mDensity;
+		float textY = mHomeWidgetRect.exactCenterY()
+				+ mWhenPaint.getTextSize() * 0.35f;
+		if (label.length() > 0) {
+			c.drawText(label, textX, textY, mWhenPaint);
+		}
+		int trackW = Math.max(2, (int) (3 * mDensity));
+		int trackH = (int) (28 * mDensity);
+		int trackRight = mHomeWidgetRect.left - (int) (4 * mDensity);
+		if (label.length() > 0) {
+			trackRight = (int) (textX - mWhenPaint.measureText(label) - 6f * mDensity);
+		}
+		int trackLeft = trackRight - trackW;
+		int trackTop = mHomeWidgetRect.centerY() - trackH / 2;
+		int trackBottom = trackTop + trackH;
+		mWhenPaint.setColor(0x442A4A6E);
+		c.drawRect(trackLeft, trackTop, trackRight, trackBottom, mWhenPaint);
+		float total = Math.max(1f, (float) (mBuffer.getBrokenLineCount() * mPrefLineSize));
+		float window = Math.max(1f, (float) contentHeight());
+		float maxScroll = Math.max(1f, total - window);
+		float fromLive = (float) Math.max(0, mScrollback - SCROLL_MIN);
+		float pos = Math.min(1f, fromLive / maxScroll);
+		if (mNewestAtTop) {
+			pos = 1f - pos;
+		}
+		int thumbH = Math.max(trackW * 2, (int) (trackH * (window / total)));
+		if (thumbH > trackH) {
+			thumbH = trackH;
+		}
+		int travel = trackH - thumbH;
+		int thumbTop = trackTop + (int) (pos * travel);
+		mWhenPaint.setColor(0xCC3A5F8A);
+		c.drawRect(trackLeft, thumbTop, trackRight, thumbTop + thumbH, mWhenPaint);
+	}
+
+	/** Stamp of the line at the centre of the viewport, or 0. */
+	private long viewportStampMillis() {
+		if (mBuffer == null || mPrefLineSize <= 0) {
+			return 0L;
+		}
+		int skip = (int) Math.max(0, (mScrollback - SCROLL_MIN) / mPrefLineSize)
+				+ Math.max(0, mCalculatedLinesInWindow / 2);
+		for (TextTree.Line line : mBuffer.getLines()) {
+			int rows = 1 + line.getBreaks();
+			if (skip < rows) {
+				return line.getReceivedAt();
+			}
+			skip -= rows;
+		}
+		return 0L;
 	}
 
 	private void doScrollDown(boolean repeat) {

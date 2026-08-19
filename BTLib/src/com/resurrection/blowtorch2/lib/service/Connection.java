@@ -600,6 +600,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand dimrepeatcmd =
 				new com.resurrection.blowtorch2.lib.service.function.DimRepeatCommand();
 		mSpecialCommands.put(dimrepeatcmd.commandName, dimrepeatcmd);
+		com.resurrection.blowtorch2.lib.service.function.WhenCommand whencmd =
+				new com.resurrection.blowtorch2.lib.service.function.WhenCommand();
+		mSpecialCommands.put(whencmd.commandName, whencmd);
 		com.resurrection.blowtorch2.lib.service.function.Osc8Command osc8cmd =
 				new com.resurrection.blowtorch2.lib.service.function.Osc8Command();
 		mSpecialCommands.put(osc8cmd.commandName, osc8cmd);

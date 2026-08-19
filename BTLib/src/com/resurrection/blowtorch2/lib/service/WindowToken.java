@@ -102,6 +102,8 @@ public class WindowToken implements Parcelable {
 		dim_repeated_window,
 		/** How hard to dim a repeat (percent). Higher is darker. Default 50. */
 		dim_repeated_strength,
+		/** Date overlay + position mark while scrolled into history. .when on|off */
+		scroll_dates,
 		/** Text canvas width as a percent of the screen; over 100 scrolls sideways. */
 		text_canvas_width,
 		/** Newest game lines at the top of the window (older below). */
@@ -406,6 +408,13 @@ public class WindowToken implements Parcelable {
 		dimRepeatedStrength.setKey("dim_repeated_strength");
 		dimRepeatedStrength.setValue(RepeatedLineDimmer.DEFAULT_STRENGTH);
 		window.addOption(dimRepeatedStrength);
+
+		BooleanOption scrollDates = new BooleanOption();
+		scrollDates.setTitle("Scroll dates?");
+		scrollDates.setDescription("While scrolled into history, show when the text on screen arrived (day and time) next to the jump-to-live arrow, plus a small mark for where you are in the buffer. .search 14:32 / 18 Aug jumps there. Off by default. .when on|off");
+		scrollDates.setKey("scroll_dates");
+		scrollDates.setValue(false);
+		window.addOption(scrollDates);
 
 		IntegerOption canvasWidth = new IntegerOption();
 		canvasWidth.setTitle("Text width (% of screen)");

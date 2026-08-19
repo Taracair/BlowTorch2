@@ -67,6 +67,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
+		cmd("when", "The window", "day/time while scrolled in history; .search 14:32");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
 		cmd("togglefullscreen", "The window", "hide or show the status bar");
@@ -256,6 +257,14 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .dimrepeat on|off|toggle\n"
 					+ "  .dimrepeat lines N      — remember last N long lines (1-80)\n"
 					+ "  .dimrepeat strength N   — how hard to dim (10-90; higher is darker)\n";
+		}
+		if (filter.equals("when")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .when:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .when              — day/time next to the jump-to-live arrow\n"
+					+ "  .when on|off|toggle\n"
+					+ "  .search 14:32 | 18 Aug  — jump to that moment (while on)\n";
 		}
 		if (filter.equals("wrap")) {
 			return "\n"
@@ -576,7 +585,8 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .search <text> | 'multi word' | \"…\"\n"
 					+ "  .search next|n | prev|previous|p\n"
-					+ "  .search close|hide|clear\n";
+					+ "  .search close|hide|clear\n"
+					+ "  .search 14:32 | 18 Aug  — when Scroll dates is on\n";
 		}
 		return null;
 	}
