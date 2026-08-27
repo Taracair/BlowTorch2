@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.chat;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.List;
@@ -388,5 +389,46 @@ public class ChatStoreTest {
 		assertEquals("", loaded.mineNeedle());
 		loaded.append("tells", "Tells", "yo", 2L);
 		assertEquals("", loaded.mineNeedle("tells"));
+	}
+
+	@Test
+	public void deleteThreadRemovesMessagesAndUnread() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("vermin", "VERMIN", "a", 1L);
+		store.appendAt("vermin", "VERMIN", "b", 2L);
+		store.appendAt("tells", "Tells", "c", 3L);
+		assertEquals(3, store.totalUnread());
+		assertTrue(store.deleteThread("vermin"));
+		assertEquals(0, store.messages("vermin", 10).size());
+		assertEquals(1, store.listThreads().size());
+		assertEquals("tells", store.listThreads().get(0).getThreadId());
+		assertEquals(1, store.totalUnread());
+		assertFalse(store.deleteThread("vermin"));
+	}
+
+	@Test
+	public void resolveThreadIdMatchesIdAndTitleCaseInsensitively() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("chan1", "VERMIN", "a", 1L);
+		store.appendAt("chan2", "Tells", "b", 2L);
+		assertEquals("chan1", store.resolveThreadId("chan1"));
+		assertEquals("chan1", store.resolveThreadId("CHAN1"));
+		assertEquals("chan1", store.resolveThreadId("VERMIN"));
+		assertEquals("chan1", store.resolveThreadId("vermin"));
+		assertNull(store.resolveThreadId(null));
+		assertNull(store.resolveThreadId(""));
+		assertNull(store.resolveThreadId("   "));
+		assertNull(store.resolveThreadId("nope"));
+	}
+
+	@Test
+	public void resolveThreadIdUniqueContainsAndAmbiguousIsNull() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("g", "Guild Chat", "a", 1L);
+		store.appendAt("p", "Party Chat", "b", 2L);
+		assertEquals("g", store.resolveThreadId("guild"));
+		assertEquals("p", store.resolveThreadId("party"));
+		assertNull(store.resolveThreadId("chat"));
+		assertNull(store.resolveThreadId("a"));
 	}
 }

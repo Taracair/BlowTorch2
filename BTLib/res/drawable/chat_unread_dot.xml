@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Muted disc for the ⋮ corner (and an optional ⋮-menu mark). Not chrome_accent. -->
+<!-- Bright disc on the ⋮ face. Stroke keeps it visible on a light background. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <size android:width="6dp" android:height="6dp" />
-    <solid android:color="#C47A828C" />
+    <size android:width="12dp" android:height="12dp" />
+    <solid android:color="#FF40C4FF" />
+    <stroke
+        android:width="1dp"
+        android:color="#FF0A0A0A" />
 </shape>

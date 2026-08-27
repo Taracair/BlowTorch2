@@ -107,7 +107,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		mapper_capture_title_regex, mapper_capture_exits_regex,
 		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects,
 		extra_text_windows_enabled, extra_text_windows,
-		gauge_widgets_enabled, gauge_widgets
+		gauge_widgets_enabled, gauge_widgets,
+		chat_unread_dot, chat_announce, chat_announce_seconds, chat_android_notify
 	}
 	
 	/**
@@ -1011,6 +1012,30 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case gauge_widgets:
 						if(opt.getValue() != null && !((String)opt.getValue()).equals("[]")
 								&& !((String)opt.getValue()).equals("")) {
+							dooutput = true;
+						}
+						break;
+					case chat_unread_dot:
+						// Default true in ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != true) {
+							dooutput = true;
+						}
+						break;
+					case chat_announce:
+						// List index; default 0 (Off). Keep in sync with the plugin.
+						if((Integer)opt.getValue() != 0) {
+							dooutput = true;
+						}
+						break;
+					case chat_announce_seconds:
+						// Default 60 in ConnectionSettingsPlugin.
+						if((Integer)opt.getValue() != 60) {
+							dooutput = true;
+						}
+						break;
+					case chat_android_notify:
+						// Default false in ConnectionSettingsPlugin.
+						if((Boolean)opt.getValue() != false) {
 							dooutput = true;
 						}
 						break;

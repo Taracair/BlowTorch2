@@ -971,6 +971,48 @@ public class ConnectionSettingsPlugin extends Plugin {
 		// now in the launcher's overflow menu, next to the check itself.
 
 		sg.addOption(miscOptions);
+
+		// Dump persist comparisons in ConnectionSetttingsParser.dumpOptions must
+		// match these defaults. A missing switch case leaves dooutput false and
+		// the key is silently never saved.
+		SettingsGroup chatOptions = new SettingsGroup();
+		chatOptions.setTitle("Chat");
+		chatOptions.setDescription("Unread mark, a line in the game window, and Android notifications when a thread gets new messages.");
+
+		BooleanOption chat_unread_dot = new BooleanOption();
+		chat_unread_dot.setTitle("Unread mark on ⋮");
+		chat_unread_dot.setDescription("Show a disc on the overflow button while a conversation has unread messages and the drawer is closed.");
+		chat_unread_dot.setKey("chat_unread_dot");
+		chat_unread_dot.setValue(true);
+		chatOptions.addOption(chat_unread_dot);
+
+		ListOption chat_announce = new ListOption();
+		chat_announce.setTitle("New-message line in the game window");
+		chat_announce.setDescription("Off, every new line, or a digest. Digest uses the interval below. Own lines (Send) are never announced.");
+		chat_announce.setKey("chat_announce");
+		// Added in this order: the values are indices into this list and they are
+		// what lands in the profile. Nothing may be inserted in the middle.
+		chat_announce.addItem("Off");
+		chat_announce.addItem("Every message");
+		chat_announce.addItem("Digest");
+		chat_announce.setValue(0);
+		chatOptions.addOption(chat_announce);
+
+		IntegerOption chat_announce_seconds = new IntegerOption();
+		chat_announce_seconds.setTitle("Digest interval (seconds)");
+		chat_announce_seconds.setDescription("How long to wait between digest lines. Used when the line mode is Digest, and when Android notifications are on while the line mode is Off. Default 60.");
+		chat_announce_seconds.setKey("chat_announce_seconds");
+		chat_announce_seconds.setValue(60);
+		chatOptions.addOption(chat_announce_seconds);
+
+		BooleanOption chat_android_notify = new BooleanOption();
+		chat_android_notify.setTitle("Android notification for new chat");
+		chat_android_notify.setDescription("A real notification (alert channel, not the quiet session one) when a thread has new messages. Off by default. Follows Every / Digest; if the game line is Off, notifications still fire on the digest interval.");
+		chat_android_notify.setKey("chat_android_notify");
+		chat_android_notify.setValue(false);
+		chatOptions.addOption(chat_android_notify);
+
+		sg.addOption(chatOptions);
 		
 		SettingsGroup bellOptions = new SettingsGroup();
 		bellOptions.setTitle("Bell");

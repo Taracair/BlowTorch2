@@ -5811,6 +5811,13 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 					requestGaugeWidgetValues();
 				}
 				break;
+			case chat_unread_dot:
+				mService.doExecuteRequestLoadSettings();
+				break;
+			case chat_announce:
+			case chat_announce_seconds:
+			case chat_android_notify:
+				break;
 			default:
 				break;
 			}
@@ -6995,7 +7002,15 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Overlay gauges master switch. */
 		gauge_widgets_enabled,
 		/** Overlay gauges JSON list. */
-		gauge_widgets
+		gauge_widgets,
+		/** Unread disc on the overflow ⋮. */
+		chat_unread_dot,
+		/** New-message line in the game window: off / every / digest. */
+		chat_announce,
+		/** Digest interval in seconds. */
+		chat_announce_seconds,
+		/** Android notification for new chat. */
+		chat_android_notify
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.

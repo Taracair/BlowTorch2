@@ -76,7 +76,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("gauge", "The window", "same as .widget");
 		cmd("closewindow", "The window", "close one of them");
 		cmd("search", "The window", "find text in the scrollback or old session logs");
-		cmd("chat", "The window", "left-hand chat drawer; .chat open|close");
+		cmd("chat", "The window", "left-hand chat drawer; .chat open|close|<name>");
 		cmd("tapmenu", "The window", "how solid the menu a tapped word opens is");
 		cmd("frame", "The window", "the drawn frame some worlds ask for");
 
@@ -610,14 +610,16 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .chat / .chat open     open the drawer (toggles if already open)\n"
 					+ "  .chat close | hide     same toggle; or tap ✕ / the dim area\n"
-					+ "  .chat <thread>         open that thread\n"
+					+ "  .chat <name>           open that conversation (id or title)\n"
 					+ "  .chat help\n"
 					+ "  Also: overflow ⋮ → Chat\n"
-					+ "⚙ in an open conversation: My lines (this chat only) and the reply template.\n"
-					+ "My lines matches lines you spoke, not a name mentioned in someone else's line.\n"
-					+ "A single word is the speaker after ]: on a tagged channel, or the start of a tell.\n"
-					+ "Regex is allowed. Find ‹ › jumps matching bubbles (like .search); From/To filter dates.\n"
-					+ "Send to thread only copies; own-bubble colour is the My lines pattern, not a second action.\n";
+					+ "Example: .chat vermin if the list says VERMIN (case-insensitive).\n"
+					+ "⚙: My lines (your speaker, this chat only). Reply ($text is the reply box).\n"
+					+ "From/To/7d/All live behind ⚙. Find in thread stays visible.\n"
+					+ "Save writes My lines + reply (and a matching Send to thread trigger).\n"
+					+ "Delete conversation (confirm) removes messages; it does not delete the trigger.\n"
+					+ "A lone $1 in Reply is treated as $text; Send refuses if $1/$text remains.\n"
+					+ "Options → Chat: unread disc on ⋮, game-window line, Android notify (off by default).\n";
 		}
 		return null;
 	}

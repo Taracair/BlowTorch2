@@ -146,6 +146,9 @@ public final class ChatStore {
 
 	void appendAt(String threadId, String title, String body, long whenMs,
 			String seedTemplateIfEmpty, boolean mine, boolean countUnread) {
+		final boolean[] countedUnread = new boolean[] { false };
+		final int[] unreadAfter = new int[1];
+		final String[] resolvedTitle = new String[] { title };
 		boolean wrote;
 		synchronized (lock) {
 			wrote = mutateUnderFileLock(() -> {
@@ -159,13 +162,19 @@ public final class ChatStore {
 				if (inbox.absorbRecentMine(threadId, body, whenMs, isMine)) {
 					return true;
 				}
-				inbox.append(threadId, title, body, whenMs, isMine,
-						countUnread && !isMine);
+				boolean count = countUnread && !isMine;
+				inbox.append(threadId, title, body, whenMs, isMine, count);
+				countedUnread[0] = count;
+				unreadAfter[0] = inbox.unreadCount(threadId);
+				resolvedTitle[0] = inbox.threadTitle(threadId);
 				return true;
 			});
 		}
 		if (wrote) {
 			notifyInboxUpdated();
+			if (countedUnread[0]) {
+				notifyUnreadAppended(threadId, resolvedTitle[0], unreadAfter[0]);
+			}
 		}
 	}
 
@@ -277,6 +286,33 @@ public final class ChatStore {
 	public void markSeen(String threadId) {
 		synchronized (lock) {
 			mutateUnderFileLock(() -> inbox.markSeen(threadId));
+		}
+	}
+
+	/**
+	 * Drop one conversation and its messages. Returns true when a thread existed.
+	 */
+	public boolean deleteThread(String threadId) {
+		final boolean[] deleted = new boolean[1];
+		synchronized (lock) {
+			mutateUnderFileLock(() -> {
+				deleted[0] = inbox.deleteThread(threadId);
+				return deleted[0];
+			});
+		}
+		if (deleted[0]) {
+			notifyInboxUpdated();
+		}
+		return deleted[0];
+	}
+
+	/**
+	 * Resolve a typed query to a stored thread id. Does not create a thread.
+	 */
+	public String resolveThreadId(String query) {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.resolveThreadId(query);
 		}
 	}
 
@@ -405,6 +441,18 @@ public final class ChatStore {
 			service.notifyChatInboxUpdated(display);
 		} catch (RuntimeException e) {
 			BlowTorchLogger.logMinor("ChatStore.notify", e);
+		}
+	}
+
+	private void notifyUnreadAppended(String threadId, String title, int unread) {
+		StellarService service = attached;
+		if (service == null) {
+			return;
+		}
+		try {
+			service.onChatUnreadAppended(display, threadId, title, unread);
+		} catch (RuntimeException e) {
+			BlowTorchLogger.logMinor("ChatStore.announce", e);
 		}
 	}
 

@@ -104,6 +104,7 @@ import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
+import com.resurrection.blowtorch2.lib.chat.ChatTriggerBindings;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinderCallback;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
@@ -2383,7 +2384,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		final GameplayMenuAdapter adapter = new GameplayMenuAdapter(themed, visibleItems);
-		adapter.setChatUnread(ChatStore.forWorld(this, getConnectionDisplay()).totalUnread());
+		int chatUnread = 0;
+		if (chatUnreadDotEnabled()) {
+			chatUnread = ChatStore.forWorld(this, getConnectionDisplay()).totalUnread();
+		}
+		adapter.setChatUnread(chatUnread);
 		popup.setAnchorView(safeAnchor);
 		popup.setModal(true);
 		popup.setAdapter(adapter);
@@ -6467,13 +6472,57 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				public void onChatVisibilityChanged() {
 					refreshChatUnreadDot();
 				}
+
+				@Override
+				public String chatTriggerReplyTemplate(String threadId) {
+					return ChatTriggerBindings.loadReplyTemplate(service, threadId);
+				}
+
+				@Override
+				public void saveChatTriggerReplyTemplate(String threadId, String template) {
+					ChatTriggerBindings.saveReplyTemplate(service, threadId, template);
+				}
+
+				@Override
+				public boolean hasChatTrigger(String threadId) {
+					return ChatTriggerBindings.hasChatTrigger(service, threadId);
+				}
 			});
 		}
 	}
 
 	/**
+	 * Options → Chat → unread disc. Missing, null, or a non-Boolean XML
+	 * string is on. Null service is on.
+	 */
+	private boolean chatUnreadDotEnabled() {
+		if (service == null) {
+			return true;
+		}
+		try {
+			SettingsGroup group = service.getSettings();
+			if (group == null) {
+				return true;
+			}
+			Object opt = group.findOptionByKey("chat_unread_dot");
+			if (!(opt instanceof BaseOption)) {
+				return true;
+			}
+			Object v = ((BaseOption) opt).getValue();
+			if (v instanceof Boolean) {
+				return (Boolean) v;
+			}
+		} catch (RemoteException e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+					"MainWindow.chatUnreadDotEnabled", e);
+		}
+		return true;
+	}
+
+	/**
 	 * ⋮ corner disc while the chat drawer is closed and there is unread.
-	 * Hidden at 0, when the drawer is open, or while button-edit hides ⋮.
+	 * Hidden at 0, when the drawer is open, while button-edit hides ⋮, or
+	 * when Options → Chat → unread disc is off.
 	 */
 	void refreshChatUnreadDot() {
 		View dot = findViewById(R.id.chat_unread_dot);
@@ -6485,7 +6534,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				&& overflow.getVisibility() == View.VISIBLE;
 		boolean drawerOpen = chatPanel != null && chatPanel.isVisible();
 		int unread = 0;
-		if (overflowShowing && !drawerOpen) {
+		if (overflowShowing && !drawerOpen && chatUnreadDotEnabled()) {
 			unread = ChatStore.forWorld(this, getConnectionDisplay()).totalUnread();
 		}
 		dot.setVisibility(overflowShowing && !drawerOpen && unread > 0

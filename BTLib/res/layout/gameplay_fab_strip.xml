@@ -99,16 +99,15 @@
     <!--
       Sibling after ⋮, not a FrameLayout wrapper: ChromeSmokeTest asserts
       overflow.getParent() == fabStrip. Negative start margin + clipChildren
-      false parks a 7dp disc on the top-end corner. Net width is unchanged
-      (7dp − 7dp margin).
+      false parks a 12dp disc on the ⋮ face (not past the screen edge).
     -->
     <View
         android:id="@+id/chat_unread_dot"
-        android:layout_width="7dp"
-        android:layout_height="7dp"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
         android:layout_gravity="top"
-        android:layout_marginStart="-7dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginStart="-20dp"
+        android:layout_marginTop="4dp"
         android:background="@drawable/chat_unread_dot"
         android:clickable="false"
         android:contentDescription="Unread chat"

@@ -13,7 +13,9 @@ import com.resurrection.blowtorch2.lib.chat.ChatMessage;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.chat.ChatThreadSummary;
 
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.content.DialogInterface;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -53,6 +55,13 @@ public class ChatPanelController {
 
 		/** Drawer finished showing or hiding. Default no-op (unread dot). */
 		default void onChatVisibilityChanged() {}
+
+		/** Literal Send-to-thread action whose threadId field equals this conversation. Null if none. */
+		default String chatTriggerReplyTemplate(String threadId) { return null; }
+
+		default void saveChatTriggerReplyTemplate(String threadId, String template) {}
+
+		default boolean hasChatTrigger(String threadId) { return false; }
 	}
 
 	private final Host host;
@@ -68,7 +77,10 @@ public class ChatPanelController {
 	private TextView inboxEmpty;
 	private LinearLayout threadList;
 	private EditText templateBox;
-	private TextView templateSet;
+	private TextView settingsSave;
+	private TextView threadDelete;
+	private TextView orphanHint;
+	private View dateFilter;
 	private ScrollView messageScroll;
 	private LinearLayout messageList;
 	private EditText replyBox;
@@ -99,6 +111,15 @@ public class ChatPanelController {
 	private Long filterFromMs;
 	private Long filterUntilExclusiveMs;
 	private boolean settingsOpen;
+	/**
+	 * ⚙ is showing chat.json because the matching trigger still has {@code $1}
+	 * (e.g. {@code tell $1 $text}). Quiet persist must not write that seeded
+	 * line over the trigger, and must not write the unsubstituted trigger
+	 * into the store.
+	 */
+	private boolean replyBoundFromUnfilledTrigger;
+	/** Store template shown when the trigger still has {@code $1}. */
+	private String boundStoreReplyFallback = "";
 	private boolean attached;
 	private boolean visible;
 	private boolean animating;
@@ -153,12 +174,25 @@ public class ChatPanelController {
 			onImeLift(activity.getChromeController().getImeLiftPx());
 		}
 		bindStore();
+		String resolved = store().resolveThreadId(threadId);
+		String id = resolved != null ? resolved
+				: (threadId == null ? "" : threadId.trim());
+		if (resolved == null && !inboxHasThreadId(id)) {
+			if (activity != null) {
+				Toast.makeText(activity, "No chat named " + id, Toast.LENGTH_SHORT).show();
+			}
+			showInbox();
+			if (!visible) {
+				slideIn();
+			}
+			return;
+		}
 		if (!visible) {
-			showThread(threadId, true);
+			showThread(id, true);
 			slideIn();
 			return;
 		}
-		showThread(threadId, true);
+		showThread(id, true);
 	}
 
 	public void hide() {
@@ -231,17 +265,63 @@ public class ChatPanelController {
 		visible = false;
 		animating = false;
 		openThreadId = null;
+		settingsOpen = false;
+		replyBoundFromUnfilledTrigger = false;
 	}
 
 	/**
-	 * Fill {@code $text} in a reply template. {@code $name} / {@code $1} are
-	 * the trigger's job when it stores the template.
+	 * Fill the typed reply into a template. {@code $text} wins; otherwise
+	 * {@code $1} (a common mix-up). {@code $name} is left alone.
 	 */
 	public static String fillReply(String template, String text) {
 		if (template == null) {
 			return "";
 		}
-		return template.replace("$text", text == null ? "" : text);
+		String t = text == null ? "" : text;
+		if (template.contains("$text")) {
+			return template.replace("$text", t);
+		}
+		if (template.contains("$1")) {
+			return template.replace("$1", t);
+		}
+		return template;
+	}
+
+	/**
+	 * True when a filled command still has {@code $text} or {@code $1}-style
+	 * placeholders. Blank lines are false (the sender already skips those).
+	 */
+	public static boolean replyLooksUnfilled(String line) {
+		if (line == null) {
+			return false;
+		}
+		String s = line.trim();
+		if (s.length() == 0) {
+			return false;
+		}
+		if (s.contains("$text")) {
+			return true;
+		}
+		for (int i = 0; i < s.length() - 1; i++) {
+			if (s.charAt(i) == '$') {
+				char d = s.charAt(i + 1);
+				if (d >= '0' && d <= '9') {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * True when filling a dummy reply does not leave {@code $1}/{@code $text}.
+	 * {@code tell $1 $text} is a trigger capture form, not a Send template.
+	 */
+	public static boolean replyTemplateReadyToSend(String template) {
+		if (template == null || template.trim().length() == 0) {
+			return false;
+		}
+		return !replyLooksUnfilled(fillReply(template, "x"));
 	}
 
 	private void ensureAttached() {
@@ -270,7 +350,10 @@ public class ChatPanelController {
 		inboxEmpty = (TextView) root.findViewById(R.id.chat_inbox_empty);
 		threadList = (LinearLayout) root.findViewById(R.id.chat_thread_list);
 		templateBox = (EditText) root.findViewById(R.id.chat_template);
-		templateSet = (TextView) root.findViewById(R.id.chat_template_set);
+		settingsSave = (TextView) root.findViewById(R.id.chat_settings_save);
+		threadDelete = (TextView) root.findViewById(R.id.chat_thread_delete);
+		orphanHint = (TextView) root.findViewById(R.id.chat_orphan_hint);
+		dateFilter = root.findViewById(R.id.chat_date_filter);
 		messageScroll = (ScrollView) root.findViewById(R.id.chat_message_scroll);
 		messageList = (LinearLayout) root.findViewById(R.id.chat_message_list);
 		replyBox = (EditText) root.findViewById(R.id.chat_reply);
@@ -353,9 +436,11 @@ public class ChatPanelController {
 						return;
 					}
 					settingsOpen = !settingsOpen;
-					if (!settingsOpen) {
-						saveMineName();
-						saveTemplateQuiet();
+					if (settingsOpen) {
+						bindMineRow(true);
+						bindTemplateFromTriggerOrStore();
+					} else {
+						persistThreadEdits(true);
 					}
 					applySettingsVisibility();
 				}
@@ -380,11 +465,19 @@ public class ChatPanelController {
 				}
 			});
 		}
-		if (templateSet != null) {
-			templateSet.setOnClickListener(new View.OnClickListener() {
+		if (settingsSave != null) {
+			settingsSave.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					saveTemplate();
+					saveSettings();
+				}
+			});
+		}
+		if (threadDelete != null) {
+			threadDelete.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					confirmDeleteConversation(openThreadId);
 				}
 			});
 		}
@@ -526,6 +619,13 @@ public class ChatPanelController {
 		}
 		if (templateRow != null) {
 			templateRow.setVisibility(show ? View.VISIBLE : View.GONE);
+		}
+		if (dateFilter != null) {
+			dateFilter.setVisibility(show ? View.VISIBLE : View.GONE);
+		}
+		if (orphanHint != null) {
+			boolean orphan = show && !host.hasChatTrigger(openThreadId);
+			orphanHint.setVisibility(orphan ? View.VISIBLE : View.GONE);
 		}
 	}
 
@@ -809,12 +909,13 @@ public class ChatPanelController {
 
 	private void hideImmediate() {
 		if (openThreadId != null) {
-			saveMineName();
-			saveTemplateQuiet();
+			persistThreadEdits(false);
 		}
 		animating = false;
 		visible = false;
 		openThreadId = null;
+		settingsOpen = false;
+		replyBoundFromUnfilledTrigger = false;
 		if (root != null) {
 			root.setVisibility(View.GONE);
 		}
@@ -835,11 +936,11 @@ public class ChatPanelController {
 
 	private void showInbox() {
 		if (openThreadId != null) {
-			saveMineName();
-			saveTemplateQuiet();
+			persistThreadEdits(false);
 		}
 		openThreadId = null;
 		settingsOpen = false;
+		replyBoundFromUnfilledTrigger = false;
 		if (backBtn != null) {
 			backBtn.setVisibility(View.GONE);
 		}
@@ -864,8 +965,7 @@ public class ChatPanelController {
 		}
 		boolean switched = openThreadId == null || !threadId.equals(openThreadId);
 		if (switched && openThreadId != null) {
-			saveMineName();
-			saveTemplateQuiet();
+			persistThreadEdits(false);
 		}
 		openThreadId = threadId;
 		ChatStore store = store();
@@ -898,9 +998,13 @@ public class ChatPanelController {
 		if (titleView != null) {
 			titleView.setText(title);
 		}
-		if (templateBox != null) {
-			String tmpl = store.replyTemplate(threadId);
-			templateBox.setText(tmpl == null ? "" : tmpl);
+		if (switched && templateBox != null) {
+			if (settingsOpen) {
+				bindTemplateFromTriggerOrStore();
+			} else {
+				String tmpl = store.replyTemplate(threadId);
+				templateBox.setText(tmpl == null ? "" : tmpl);
+			}
 		}
 		applySettingsVisibility();
 		bindMineRow(switched);
@@ -962,6 +1066,13 @@ public class ChatPanelController {
 				@Override
 				public void onClick(View v) {
 					showThread(row.getThreadId(), true);
+				}
+			});
+			item.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					confirmDeleteConversation(row.getThreadId());
+					return true;
 				}
 			});
 			threadList.addView(item);
@@ -1227,25 +1338,42 @@ public class ChatPanelController {
 		});
 	}
 
-	private void saveTemplate() {
-		if (openThreadId == null || templateBox == null) {
+	private void persistThreadEdits(boolean includeTrigger) {
+		saveMineName();
+		saveSendableTemplateToStore();
+		if (includeTrigger || settingsOpen) {
+			saveTriggerTemplateFromBox();
+		}
+	}
+
+	private void saveSettings() {
+		saveMineName();
+		if (openThreadId == null) {
 			return;
 		}
-		String tmpl = templateBox.getText() == null ? "" : templateBox.getText().toString().trim();
-		store().setReplyTemplate(openThreadId, tmpl);
+		String tmpl = templateText();
+		saveSendableTemplateToStore();
+		saveTriggerTemplateFromBox();
 		MainWindow activity = host.getMainWindow();
 		if (activity != null) {
 			Toast.makeText(activity, tmpl.length() == 0
 					? "Reply template cleared"
-					: "Reply template saved", Toast.LENGTH_SHORT).show();
+					: "Saved", Toast.LENGTH_SHORT).show();
 		}
 	}
 
-	private void saveTemplateQuiet() {
+	/**
+	 * Chat.json is what Send uses. Do not store unsubstituted {@code $1}
+	 * capture templates there — the next Send would refuse leftover {@code $1}.
+	 */
+	private void saveSendableTemplateToStore() {
 		if (openThreadId == null || templateBox == null) {
 			return;
 		}
-		String tmpl = templateBox.getText() == null ? "" : templateBox.getText().toString().trim();
+		String tmpl = templateText();
+		if (tmpl.length() > 0 && !replyTemplateReadyToSend(tmpl)) {
+			return;
+		}
 		String existing = store().replyTemplate(openThreadId);
 		if (existing == null) {
 			existing = "";
@@ -1253,6 +1381,50 @@ public class ChatPanelController {
 		if (!tmpl.equals(existing)) {
 			store().setReplyTemplate(openThreadId, tmpl);
 		}
+	}
+
+	/**
+	 * Do not write a seeded sendable line over a trigger that still has
+	 * {@code $1}, unless the box was edited away from that seed.
+	 */
+	private void saveTriggerTemplateFromBox() {
+		if (openThreadId == null) {
+			return;
+		}
+		String box = templateText();
+		if (replyBoundFromUnfilledTrigger && replyTemplateReadyToSend(box)) {
+			String seed = boundStoreReplyFallback == null ? "" : boundStoreReplyFallback.trim();
+			if (box.equals(seed)) {
+				return;
+			}
+		}
+		host.saveChatTriggerReplyTemplate(openThreadId, box);
+	}
+
+	private String templateText() {
+		if (templateBox == null || templateBox.getText() == null) {
+			return "";
+		}
+		return templateBox.getText().toString().trim();
+	}
+
+	private void bindTemplateFromTriggerOrStore() {
+		if (templateBox == null || openThreadId == null) {
+			return;
+		}
+		replyBoundFromUnfilledTrigger = false;
+		String trigger = host.chatTriggerReplyTemplate(openThreadId);
+		if (trigger != null && replyTemplateReadyToSend(trigger)) {
+			templateBox.setText(trigger);
+			boundStoreReplyFallback = "";
+			return;
+		}
+		if (trigger != null && trigger.length() > 0) {
+			replyBoundFromUnfilledTrigger = true;
+		}
+		String tmpl = store().replyTemplate(openThreadId);
+		boundStoreReplyFallback = tmpl == null ? "" : tmpl;
+		templateBox.setText(boundStoreReplyFallback);
 	}
 
 	private void sendReply() {
@@ -1264,10 +1436,11 @@ public class ChatPanelController {
 		ChatStore store = store();
 		String template = store.replyTemplate(openThreadId);
 		if (templateBox != null) {
-			String typed = templateBox.getText() == null ? "" : templateBox.getText().toString();
-			if (typed.trim().length() > 0 && !typed.equals(template)) {
-				store.setReplyTemplate(openThreadId, typed.trim());
-				template = typed.trim();
+			String typed = templateText();
+			if (typed.length() > 0 && replyTemplateReadyToSend(typed)
+					&& !typed.equals(template)) {
+				store.setReplyTemplate(openThreadId, typed);
+				template = typed;
 			}
 		}
 		if (template == null || template.trim().length() == 0) {
@@ -1280,6 +1453,12 @@ public class ChatPanelController {
 		if (line.trim().length() == 0) {
 			return;
 		}
+		if (replyLooksUnfilled(line)) {
+			Toast.makeText(activity,
+					"Reply still has $1. Use $text for what you type, or put the name in the template (tell Bob $text).",
+					Toast.LENGTH_LONG).show();
+			return;
+		}
 		saveMineName();
 		String typed = text.trim();
 		if (typed.length() > 0) {
@@ -1288,6 +1467,63 @@ public class ChatPanelController {
 		host.sendCommand(line);
 		replyBox.setText("");
 		reloadThreadMessages();
+	}
+
+	private boolean inboxHasThreadId(String threadId) {
+		if (threadId == null || threadId.length() == 0) {
+			return false;
+		}
+		List<ChatThreadSummary> listed = store().listThreads();
+		if (listed == null) {
+			return false;
+		}
+		for (int i = 0; i < listed.size(); i++) {
+			ChatThreadSummary s = listed.get(i);
+			if (s != null && threadId.equals(s.getThreadId())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void confirmDeleteConversation(final String threadId) {
+		if (threadId == null || threadId.length() == 0) {
+			return;
+		}
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		AlertDialog.Builder b = new AlertDialog.Builder(activity);
+		b.setTitle("Delete conversation?");
+		b.setMessage("Messages in this conversation are removed. The Send to thread trigger is kept.");
+		b.setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				deleteConversation(threadId);
+			}
+		});
+		b.setNegativeButton("Cancel", null);
+		b.show();
+	}
+
+	private void deleteConversation(String threadId) {
+		boolean wasOpen = openThreadId != null && openThreadId.equals(threadId);
+		if (wasOpen) {
+			openThreadId = null;
+			settingsOpen = false;
+			replyBoundFromUnfilledTrigger = false;
+		}
+		store().deleteThread(threadId);
+		if (wasOpen) {
+			showInbox();
+		} else {
+			populateInbox();
+		}
+		MainWindow activity = host.getMainWindow();
+		if (activity != null) {
+			Toast.makeText(activity, "Conversation deleted", Toast.LENGTH_SHORT).show();
+		}
 	}
 
 	private ChatStore store() {

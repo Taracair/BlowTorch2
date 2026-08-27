@@ -38,6 +38,7 @@ import android.os.RemoteException;
 import android.os.Bundle;
 import android.util.Log;
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.chat.ChatAnnounce;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
@@ -134,6 +135,8 @@ public class StellarService extends Service {
 	private NotificationManager mNotificationManager = null;
 	/** A map of connection display names and their associated connection objects. */
 	HashMap<String, Connection> mConnections = null;
+	/** Last chat announce/notify time per world+thread. Service process only. */
+	private final HashMap<String, Long> mChatAnnounceAt = new HashMap<String, Long>();
 	/** The currently "Selected" connection. */
 	String mConnectionClutch = "";
 	/** The callback list of MainWindow activities that have bound to the Service. */
@@ -812,7 +815,67 @@ public class StellarService extends Service {
 			mCallbacks.finishBroadcast();
 		}
 	}
-	
+
+	/**
+	 * A counted unread append: optional cyan line in the game window, optional
+	 * Android notification. Does not send to the MUD socket.
+	 */
+	public final void onChatUnreadAppended(final String display, final String threadId,
+			final String title, final int unread) {
+		if (mConnections == null) {
+			return;
+		}
+		Connection c = mConnections.get(display);
+		if (c == null) {
+			return;
+		}
+		int mode = ChatAnnounce.coerceMode(chatOptionValue(c, "chat_announce"));
+		int seconds = ChatAnnounce.coerceSeconds(
+				chatOptionValue(c, "chat_announce_seconds"));
+		boolean notifyOn = ChatAnnounce.coerceBool(
+				chatOptionValue(c, "chat_android_notify"), false);
+		String d = display == null ? "" : display;
+		String tid = threadId == null ? "" : threadId;
+		String mapKey = d + '\0' + tid;
+		long lastMs;
+		synchronized (mChatAnnounceAt) {
+			Long last = mChatAnnounceAt.get(mapKey);
+			lastMs = last == null ? 0L : last.longValue();
+		}
+		long nowMs = System.currentTimeMillis();
+		boolean line = ChatAnnounce.shouldAnnounceLine(mode, true, nowMs, lastMs,
+				seconds);
+		boolean notify = ChatAnnounce.shouldNotify(notifyOn, mode, true, nowMs,
+				lastMs, seconds);
+		if (line) {
+			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+					+ ChatAnnounce.lineText(title, unread)
+					+ Colorizer.getWhiteColor());
+			synchronized (mChatAnnounceAt) {
+				mChatAnnounceAt.put(mapKey, Long.valueOf(nowMs));
+			}
+		}
+		if (notify) {
+			doNotifyChat(d, title, unread, tid);
+			if (!line) {
+				synchronized (mChatAnnounceAt) {
+					mChatAnnounceAt.put(mapKey, Long.valueOf(nowMs));
+				}
+			}
+		}
+	}
+
+	private static Object chatOptionValue(final Connection c, final String key) {
+		if (c == null || c.getSettings() == null) {
+			return null;
+		}
+		Object found = c.getSettings().findOptionByKey(key);
+		if (found instanceof com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption) {
+			return ((com.resurrection.blowtorch2.lib.service.plugin.settings.BaseOption) found)
+					.getValue();
+		}
+		return null;
+	}
 
 	/** The implementation ofthe bell notifier. Connections will call this.
 	 * 
@@ -855,6 +918,57 @@ public class StellarService extends Service {
 		note.flags = Notification.DEFAULT_ALL;
 		
 		mNotificationManager.notify(StellarService.getNotificationId(), note);
+	}
+
+	/**
+	 * Alert-channel notification for a chat thread. Same PendingIntent extras as
+	 * {@link #doNotifyBell}; dedicated id so threads update in place. Not the
+	 * quiet session/foreground notification.
+	 */
+	public final void doNotifyChat(final String display, final String title,
+			final int unread, final String threadId) {
+		try {
+			int resId = this.getResources().getIdentifier(
+					ConfigurationLoader.getConfigurationValue("notificationIcon",
+							this.getApplicationContext()),
+					"drawable", this.getPackageName());
+			if (resId == 0) {
+				resId = android.R.drawable.stat_notify_chat;
+			}
+			Connection c = (mConnections == null) ? null : mConnections.get(display);
+			String host = c == null ? "" : c.getHost();
+			int port = c == null ? 0 : c.getPort();
+			int mode = ChatAnnounce.coerceMode(chatOptionValue(c, "chat_announce"));
+			Intent notificationIntent = new Intent(
+					ConfigurationLoader.getConfigurationValue("windowAction",
+							this.getApplicationContext()));
+			notificationIntent.setClassName(this.getPackageName(), MAIN_WINDOW_CLASS);
+			notificationIntent.putExtra("DISPLAY", display);
+			notificationIntent.putExtra("HOST", host);
+			notificationIntent.putExtra("PORT", Integer.toString(port));
+			notificationIntent.putExtra("TLS", tlsFor(display));
+			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+					| Intent.FLAG_ACTIVITY_SINGLE_TOP);
+			String key = (display == null ? "" : display) + '\0'
+					+ (threadId == null ? "" : threadId);
+			int id = 0x6B740000 | (key.hashCode() & 0xFFFF);
+			PendingIntent contentIntent = PendingIntent.getActivity(this, id,
+					notificationIntent, activityPendingIntentFlags());
+			String alertChannel = createAlertNotificationChannel();
+			NotificationCompat.Builder builder = new NotificationCompat.Builder(
+					this, alertChannel);
+			Notification note = builder.setContentIntent(contentIntent)
+					.setContentTitle((display == null ? "" : display) + " chat")
+					.setContentText(ChatAnnounce.lineText(title, unread))
+					.setSmallIcon(resId)
+					.setAutoCancel(true)
+					.setOnlyAlertOnce(mode != ChatAnnounce.MODE_EVERY)
+					.setPriority(NotificationCompat.PRIORITY_DEFAULT)
+					.build();
+			mNotificationManager.notify(id, note);
+		} catch (RuntimeException e) {
+			BlowTorchLogger.logMinor("StellarService.doNotifyChat", e);
+		}
 	}
 	
 	/** Implementation of the visual bell callback. Called from a Connection. */

@@ -367,6 +367,79 @@ final class ChatInbox {
 		return true;
 	}
 
+	/**
+	 * Drop the thread and every message with that id. Does not create a thread.
+	 *
+	 * @return true when a thread existed
+	 */
+	boolean deleteThread(String threadId) {
+		String id = threadId == null ? "" : threadId;
+		boolean existed = threads.containsKey(id);
+		threads.remove(id);
+		for (int i = messages.size() - 1; i >= 0; i--) {
+			if (id.equals(messages.get(i).getThreadId())) {
+				messages.remove(i);
+			}
+		}
+		return existed;
+	}
+
+	int unreadCount(String threadId) {
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		return state == null ? 0 : state.unreadCount;
+	}
+
+	String threadTitle(String threadId) {
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		if (state == null || state.title == null) {
+			return "";
+		}
+		return state.title;
+	}
+
+	/**
+	 * Find a thread without creating one. Exact id, then case-insensitive id,
+	 * then case-insensitive exact title, then a unique title substring.
+	 * Ambiguous contains is not a match.
+	 */
+	String resolveThreadId(String query) {
+		if (query == null) {
+			return null;
+		}
+		String q = query.trim();
+		if (q.length() == 0) {
+			return null;
+		}
+		if (threads.containsKey(q)) {
+			return q;
+		}
+		String lower = q.toLowerCase(Locale.US);
+		for (String id : threads.keySet()) {
+			if (id.toLowerCase(Locale.US).equals(lower)) {
+				return id;
+			}
+		}
+		for (ThreadState state : threads.values()) {
+			if (state.title != null
+					&& state.title.toLowerCase(Locale.US).equals(lower)) {
+				return state.threadId;
+			}
+		}
+		String unique = null;
+		int hits = 0;
+		for (ThreadState state : threads.values()) {
+			if (state.title != null
+					&& state.title.toLowerCase(Locale.US).indexOf(lower) >= 0) {
+				hits++;
+				unique = state.threadId;
+				if (hits > 1) {
+					return null;
+				}
+			}
+		}
+		return unique;
+	}
+
 	String replyTemplate(String threadId) {
 		ThreadState state = threads.get(threadId == null ? "" : threadId);
 		if (state == null || state.replyTemplate == null) {

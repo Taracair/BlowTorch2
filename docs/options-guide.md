@@ -9,6 +9,7 @@ bottom of Options filters as you type; tap a result to jump to that page.
 | **Window** | Per-window text: font, buffer, word wrap, **Dim repeated lines?**, **Remember how many lines?**, **Dim strength (%)**, **Scroll dates?** (`.when`; day/time to the left of ⋮ while in history), **Scroll date opacity (%)**, **Newest text at top?**, **Top padding (px)**, **Bottom padding (px)**, **Bottom padding with keyboard (px)**, **Keep text still with keyboard?**, **Show Edit button?**, **Show Send button?**, **Scroll sensitivity**, **Use OSC 8?** (words the game marks; independent of regex linkify; `.osc8 on|off`), hyperlinks (`http(s)://`, `www.`, optional bare domains like `example.com`; **Link bare domains?** and **Extra TLDs (CSV)** for short endings such as `ai,to`), ANSI color; nested **Extra text windows**; nested **Widgets** |
 | **Input** | Input box / editor behavior (history size, keep last, **Grow Input Bar?** / `.wrap`, **Lowercase start of sent commands**, …) |
 | **Service** | Encoding, background service & **game output** logging (`Log Session to File?`, `Session Log Directory`); **Battery optimization…**; nested **Protocols** (Use GMCP? / Use MCP? / Use MXP?), **GMCP**, **MCP**, **Telnet** |
+| **Chat** | Unread mark on ⋮, a line in the game window, Android notifications when a thread gets new messages |
 | **Bell** | Bell character reactions |
 | **Miscellaneous** | Default settings directory, manage storage access, **Export / Import / Reset Settings**, persistent connection, **overflow button appearance** (opacity / background / ring) |
 | **Mapper** | Built-in room map: enable, float/fullscreen default, opacity, recording defaults, follow, path auto-send, Use GMCP Room, **Configure Room Sync…**, match-by-num / absolute coords / create exits, auto reverse links, toolbar actions CSV, Capture Title/Exits Regex |
@@ -55,6 +56,17 @@ Under **Options → Window → Widgets**:
 Typical first pair: `.widget add hp ring` then `.widget source hp gmcp Char.Vitals.hp Char.Vitals.maxhp`.
 No GMCP? `.widget source hp mcp hp maxhp`, Set Variable then `.widget source hp var hp maxhp`, or `.widget source hp regex "HP: (\\d+)/(\\d+)"`.
 GMCP sources need **Use GMCP?** on (off for new worlds). MXP `<GAUGE>` does not create a widget.
+
+## Chat
+
+Under **Options → Chat** (before Bell). Own lines from Send are never announced.
+
+| Option | Default | Notes |
+|--------|---------|--------|
+| **Unread mark on ⋮** | on | Disc on the overflow button while a conversation has unread messages and the drawer is closed |
+| **New-message line in the game window** | Off | Off, every new line, or a digest. Digest uses the interval below |
+| **Digest interval (seconds)** | 60 | Wait between digest lines. Also used for Android notifications when the line mode is Off |
+| **Android notification for new chat** | off | Alert channel (not the quiet session one). Follows Every / Digest; if the game line is Off, still fires on the digest interval |
 
 ## Shared storage layout (`/BlowTorch/`)
 

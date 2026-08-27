@@ -796,19 +796,35 @@ in when you ask for it.
 Open it
   overflow ⋮ → Chat
   or type .chat          (again to close)
-  .chat <thread>         jump straight to that conversation
+  .chat close | hide     same toggle
+  .chat <name>           open that conversation
   ✕ or the dim area also close it
 
-A thread is one conversation (a person, or a channel). Tap a thread to
-read it. Type in the reply box and Send. That fills $text in a command
-template, for example:
-  tell $1 $text
-  c $text
+.chat vermin opens the conversation whose id or title is VERMIN —
+matching is case-insensitive.
 
-You set that template on the trigger that catches the line (Send to
-thread). Open a conversation, then ⚙ for My lines (a pattern + colour
-for that chat only) and the reply template — they stay off the thread
-face.
+A thread is one conversation (a person, or a channel). Tap a thread to
+read it. Type in the reply box and Send.
+
+⚙ in an open conversation
+  My lines   your speaker for this chat only
+  Reply      command sent to the world; $text is the reply box
+             hint like the trigger: tell $1 $text
+  From/To/7d/All  date filter (not on the thread face)
+  Save       writes My lines + reply, and updates a matching
+             Send to thread trigger whose Thread field is this
+             conversation's id
+  Delete conversation  (confirm) removes stored messages; does not
+             delete the trigger. Use this for an orphan thread
+             (a conversation with no trigger attached)
+
+Find in this thread stays on the thread face. ‹ › (and the keyboard
+Search key) step through matches like .search. It does not hide other
+messages. Search at the top of the list still filters threads.
+
+If Reply is C $1 instead of C $text, Send used to send the characters
+$1. A lone $1 is now treated as $text. Send refuses if $1 or $text is
+still in the line.
 
 Example — a tagged channel:
   Trigger pattern:  ^\[ .+ \]
@@ -818,19 +834,14 @@ Example — a tagged channel:
 
 Then .chat, open that thread, type a line, Send.
 
-Your lines
-  Open a conversation, then ⚙ → My lines. This conversation only.
-  Matches lines you spoke, not a name mentioned in someone else's line.
-  A single word is the speaker after ]: on a tagged channel, or the
-  start of a tell. Regex is allowed.
-  Dots pick the bubble colour. Send from the drawer paints an
-  own-bubble immediately.
+Options → Chat
+  unread mark on ⋮ on/off (brighter disc; off hides it)
+  game-window line: Off / Every message / Digest + interval
+  Android notification (off by default)
 
-Find in this thread highlights matches; ‹ › (and the keyboard Search
-key) step through them like .search in the game window. It does not
-hide other messages. From / To (long-press a date to clear that side;
-7d / All are shortcuts) still filter which messages are listed. Search
-at the top of the list still filters threads.
+In-game line (cyan client text, never sent to the MUD):
+  Thread VERMIN has new messages: 5
+
 Dual display (main window and the drawer) is the trigger's job; the
 drawer only shows what was stored.]])
 end
@@ -1470,7 +1481,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. Reloading wipes .buttonopacity until you set it again.]],
 	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. Reply fills $text in the thread template (tell $1 $text, c $text). Find ‹ › jumps in the open thread.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. .chat vermin opens that conversation (id or title). ⚙ has My lines, Reply ($text), dates, Save, Delete. Options → Chat for the unread disc and in-game line.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

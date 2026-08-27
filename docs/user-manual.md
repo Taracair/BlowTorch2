@@ -1814,23 +1814,49 @@ touched in the last 7 days.
 .chat
 .chat open
 .chat close | hide
+.chat <name>
 .chat help
 ```
 
 Empty argument and `open` slide the chat drawer in from the left (toggles if
-it is already open — there is no separate close binder). ✕, the dim area, or
-Back also close it. Overflow **Chat** always opens it.
+it is already open — there is no separate close binder). `close` and `hide`
+are the same toggle. ✕, the dim area, or Back also close it. Overflow
+**Chat** always opens it.
+
+`.chat <name>` opens that conversation. The name matches the thread id or
+the title shown in the list, case-insensitive — `.chat vermin` if the list
+says VERMIN.
 
 A thread is one conversation. Tap it to read history and reply. Send fills
-`$text` in that thread's reply template (`tell $1 $text`, `c $text`). Set the
-template on the trigger's Send to thread action, or ⚙ while that
-conversation is open. **My lines** is per conversation (⚙ in an open
-thread): this conversation only; matches lines you spoke, not a name
-mentioned in someone else's line. Find highlights matches; ‹ › step through
-them like `.search` and do not hide other messages. From / To still filter
-by date. Send from the drawer paints an own-bubble immediately. Dual
-display (main window and the drawer) is the trigger's job; the drawer only
-shows what ChatStore holds.
+`$text` in that thread's reply template (`tell $1 $text`, `c $text`). Set
+the template on the trigger's Send to thread action, or **Reply** under ⚙
+while that conversation is open.
+
+⚙ in an open conversation:
+
+- **My lines** — your speaker for this chat only.
+- **Reply** — the command sent to the world; `$text` is the reply box.
+  Hint like the trigger: `tell $1 $text`. If you write `C $1` instead of
+  `C $text`, Send used to send the characters `$1`. A lone `$1` is now
+  treated as `$text`. Send refuses if `$1` or `$text` is still in the line.
+- Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
+  face. **Find in this thread** stays visible; ‹ › step through matches
+  like `.search` and do not hide other messages.
+- **Save** writes My lines and Reply, and updates a matching Send to thread
+  trigger whose Thread field is this conversation's id.
+- **Delete conversation** (confirm) removes stored messages. It does not
+  delete the trigger. Use this when a thread exists with no trigger
+  attached (orphan). Long-press a thread in the list also deletes.
+
+**Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
+message / Digest + interval; Android notification (off by default). The
+unread disc on ⋮ is brighter while there is unread and the drawer is
+closed. In-game line example (cyan client text, not sent to the MUD):
+`Thread VERMIN has new messages: 5`.
+
+Send from the drawer paints an own-bubble immediately. Dual display (main
+window and the drawer) is the trigger's job; the drawer only shows what
+was stored.
 
 ## Mapper
 
@@ -2854,7 +2880,7 @@ In order, as the menu builds them (all under ⋮):
 6. **Plugins** — load / enable / remove Lua plugins
 7. **Reconnect** / **Disconnect** — same as `.reconnect` / `.disconnect`
 8. **Quit** — leave the session window
-9. **Chat** — left-hand chat drawer (same as `.chat`)
+9. **Chat** — left-hand chat drawer (same as `.chat`). A disc on ⋮ means unread while the drawer is closed (**Options → Chat**)
 10. **Search scrollback** — same as `.search`
 11. **Session logs** — browse this world's `.txt` session logs (same as `.search logs`)
 12. **Reload Settings** — re-read this world's settings from disk

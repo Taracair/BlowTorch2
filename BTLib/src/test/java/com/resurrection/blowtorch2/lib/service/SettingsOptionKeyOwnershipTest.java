@@ -102,4 +102,16 @@ public class SettingsOptionKeyOwnershipTest {
 					WindowTokenParser.isWindowOptionKey(key));
 		}
 	}
+
+	@Test
+	public void chatKeysAreConnectionOwnedNotWindow() {
+		String[] chatKeys = { "chat_unread_dot", "chat_announce",
+				"chat_announce_seconds", "chat_android_notify" };
+		for (String key : chatKeys) {
+			assertTrue(key + " must be persisted by the connection writer",
+					ConnectionSetttingsParser.isConnectionOptionKey(key));
+			assertFalse(key + " must not be claimed by the window writer",
+					WindowTokenParser.isWindowOptionKey(key));
+		}
+	}
 }
