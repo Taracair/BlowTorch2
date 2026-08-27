@@ -205,11 +205,7 @@ function makeUI(editorValues,numediting)
   ui.buttonNameRow:setPadding(othersSide, math.floor(4 * density), othersSide, math.floor(4 * density))
   ui.buttonNameRow:setGravity(Gravity.CENTER_VERTICAL)
   
-  if(numediting > 1) then
-    ui.buttonNameRow:setVisibility(View.GONE)
-  else
-    ui.buttonNameRow:setVisibility(View.VISIBLE)
-  end
+  ui.buttonNameRow:setVisibility(View.VISIBLE)
   -- Adjust margins for larger screen sizes.
   -- `test` used to be read here as a bare name. It is a *local* of
   -- buttonwindow.lua (:2558, the masked screen-layout size) and module(...)
@@ -238,16 +234,16 @@ function makeUI(editorValues,numediting)
     ui.buttonNameRow:addView(ui.buttonNameLabel)
   end
   
-  buttonNameEditParams = fnew(LinearLayoutParams,FILL_PARENT,WRAP_CONTENT)
+  buttonNameEditParams = fnew(LinearLayoutParams, 0, WRAP_CONTENT, 1)
     
   --local buttonNameEdit = makeEdit(buttonNameEditParams)
   if(ui.nameEdit == nil) then
     ui.nameEdit = fnew(EditText,context) 
     ui.nameEdit:setTextSize(textSize)
     ui.nameEdit:setLines(1)
-    ui.nameEdit:setLayoutParams(buttonNameEditParams)
     ui.buttonNameRow:addView(ui.nameEdit)
   end
+  ui.nameEdit:setLayoutParams(buttonNameEditParams)
   if(numediting > 1) then
     --Note("\nEditing multiple, not setting name\n")
     ui.nameEdit:setText("")
@@ -265,6 +261,19 @@ function makeUI(editorValues,numediting)
     end
     
   end
+
+  -- Same row as Name, to the right. Keep the row visible for multi-edit so
+  -- Active is still reachable when the name field is disabled.
+  if(ui.activeCheck == nil) then
+    ui.activeCheck = fnew(CheckBox,context)
+    local activeParams = fnew(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)
+    ui.activeCheck:setLayoutParams(activeParams)
+    ui.activeCheck:setText("Active")
+    ui.activeCheck:setTextSize(textSize)
+  end
+  safeAddView(ui.buttonNameRow, ui.activeCheck)
+  ui.activeCheck:setChecked(editorValues.active ~= false
+    and editorValues.active ~= "false")
   
   if(ui.buttonTargetSetRow == nil) then
     ui.buttonTargetSetRow = fnew(LinearLayout,context)
@@ -823,18 +832,6 @@ function makeUI(editorValues,numediting)
     ui.invisControlLabel:setVisibility(View.INVISIBLE)
     ui.labelRowFour:addView(ui.invisControlLabel)
   end
-
-  -- Active is a general Others flag, not a floating option: keep it visible
-  -- for multi-edit (same idea as Wrap label) when the FLOATING block is GONE.
-  if(ui.activeCheck == nil) then
-    ui.activeCheck = fnew(CheckBox,context)
-    ui.activeCheck:setLayoutParams(fillparams)
-    ui.activeCheck:setText("Active")
-    ui.activeCheck:setTextSize(textSize)
-    ui.advancedPage:addView(ui.activeCheck)
-  end
-  ui.activeCheck:setChecked(editorValues.active ~= false
-    and editorValues.active ~= "false")
 
   -- Floating-button options (Others tab). Single-button edit only.
   if(ui.floatSectionLabel == nil) then

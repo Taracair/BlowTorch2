@@ -67,9 +67,9 @@ public class BellCommandTest {
 		assertEquals(300, BellCommand.SHORT_MS);
 		assertEquals(800, BellCommand.LONG_MS);
 		assertEquals(300, BellCommand.STRONG_MS);
-		assertEquals(BellCommand.DEFAULT_AMPLITUDE,
+		assertEquals(BellCommand.STRONG_AMPLITUDE,
 				BellCommand.vibrateAmplitude("short"));
-		assertEquals(BellCommand.DEFAULT_AMPLITUDE,
+		assertEquals(BellCommand.STRONG_AMPLITUDE,
 				BellCommand.vibrateAmplitude("long"));
 		assertEquals(BellCommand.STRONG_AMPLITUDE,
 				BellCommand.vibrateAmplitude("strong"));

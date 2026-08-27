@@ -122,8 +122,6 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 	public static final String EXTRA_PORT = LauncherShortcutExtras.PORT;
 	public static final String EXTRA_TLS = LauncherShortcutExtras.TLS;
 	public static final String EXTRA_LAUNCH_FROM_SHORTCUT = LauncherShortcutExtras.LAUNCH_FROM_SHORTCUT;
-	private static final String FREE_LAUNCHER_CLASS =
-			"com.resurrection.blowtorch2.FreeLauncher";
 	
 	private Pattern xmlinsensitive = Pattern.compile("^.+\\.[Xx][Mm][Ll]$");
 	private Matcher xmlimatcher = xmlinsensitive.matcher("");
@@ -1795,12 +1793,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (intent == null) {
 			return;
 		}
-		if (!intent.getBooleanExtra(EXTRA_LAUNCH_FROM_SHORTCUT, false)) {
-			return;
-		}
-		String display = intent.getStringExtra(EXTRA_DISPLAY);
-		String host = intent.getStringExtra(EXTRA_HOST);
-		String port = intent.getStringExtra(EXTRA_PORT);
+		String display = LauncherShortcutExtras.displayName(intent);
+		String host = LauncherShortcutExtras.host(intent);
+		String port = LauncherShortcutExtras.port(intent);
 		boolean hasDisplay = display != null && display.length() > 0;
 		boolean hasHostPort = host != null && host.length() > 0
 				&& port != null && port.length() > 0;
@@ -1812,14 +1807,12 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			Toast.makeText(this, R.string.launcher_shortcut_missing, Toast.LENGTH_LONG).show();
 			return;
 		}
-		launch = found.copy();
-		PermissionHelper.ensureInternetForFeature(this,
-				R.string.permission_feature_connect, new Runnable() {
-			@Override
-			public void run() {
-				DoNewStartup();
-			}
-		});
+		Intent resolved = LauncherShortcutExtras.pinIntent(getPackageName(),
+				found.getDisplayName(), found.getHostName(), found.getPortString(),
+				found.isUseTls());
+		if (WorldLaunch.startFromIntent(this, resolved)) {
+			finish();
+		}
 	}
 
 	static MudConnection findLaunchTarget(LauncherSettings settings, String display,
@@ -1867,14 +1860,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			Toast.makeText(this, R.string.launcher_shortcut_unsupported, Toast.LENGTH_LONG).show();
 			return;
 		}
-		Intent shortcutIntent = new Intent(Intent.ACTION_MAIN);
-		shortcutIntent.setClassName(getPackageName(), FREE_LAUNCHER_CLASS);
-		shortcutIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-		shortcutIntent.putExtra(EXTRA_DISPLAY, muc.getDisplayName());
-		shortcutIntent.putExtra(EXTRA_HOST, muc.getHostName());
-		shortcutIntent.putExtra(EXTRA_PORT, muc.getPortString());
-		shortcutIntent.putExtra(EXTRA_TLS, muc.isUseTls());
-		shortcutIntent.putExtra(EXTRA_LAUNCH_FROM_SHORTCUT, true);
+		Intent shortcutIntent = LauncherShortcutExtras.pinIntent(getPackageName(),
+				muc.getDisplayName(), muc.getHostName(), muc.getPortString(),
+				muc.isUseTls());
 		int iconRes = getApplicationInfo().icon;
 		if (iconRes == 0) {
 			iconRes = android.R.drawable.star_on;

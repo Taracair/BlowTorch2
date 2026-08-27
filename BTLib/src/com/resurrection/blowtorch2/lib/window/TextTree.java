@@ -147,7 +147,19 @@ public class TextTree {
 	 * budget is what keeps the heap bounded; the line cap is now only the
 	 * player's preference within it.
 	 */
-	private static final int ABSOLUTE_MAX_LINES = 20000;
+	public static final int ABSOLUTE_MAX_LINES = 20000;
+	public static final int MIN_LINES = 100;
+
+	/** Floor 100, ceiling {@link #ABSOLUTE_MAX_LINES}. Used on XML parse/dump too. */
+	public static int clampMaxLines(int maxLines) {
+		if (maxLines < MIN_LINES) {
+			return MIN_LINES;
+		}
+		if (maxLines > ABSOLUTE_MAX_LINES) {
+			return ABSOLUTE_MAX_LINES;
+		}
+		return maxLines;
+	}
 
 	/**
 	 * Raw bytes of text to keep, or 0 for no limit. Pruned together with
@@ -2008,13 +2020,7 @@ public class TextTree {
 	}
 
 	public void setMaxLines(int maxLines) {
-		if (maxLines < 100) {
-			maxLines = 100;
-		}
-		if (maxLines > ABSOLUTE_MAX_LINES) {
-			maxLines = ABSOLUTE_MAX_LINES;
-		}
-		MAX_LINES = maxLines;
+		MAX_LINES = clampMaxLines(maxLines);
 		prune();
 	}
 

@@ -978,7 +978,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption bell_vibrate = new BooleanOption();
 		bell_vibrate.setTitle("Vibrate?");
-		bell_vibrate.setDescription("Plays a short vibrate pattern when the bell is received. .dobell vibrate short|long|strong buzzes now even if this is off. Silent mode, Do Not Disturb, and some GrapheneOS profiles can still swallow vibration.");
+		bell_vibrate.setDescription("Plays a short vibrate pattern when the bell is received. .dobell vibrate short|long|strong buzzes now even if this is off. Silent mode, Do Not Disturb, and some OS profiles can still swallow vibration.");
 		bell_vibrate.setKey("bell_vibrate");
 		bell_vibrate.setValue(true);
 		bellOptions.addOption(bell_vibrate);

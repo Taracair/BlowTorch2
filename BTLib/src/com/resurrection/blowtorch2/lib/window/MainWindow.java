@@ -182,6 +182,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public static final int MESSAGE_LOCKUNDONE = 873;
 	public static final int MESSAGE_BUTTONFIT = 874;
 	protected static final int MESSAGE_BELLTOAST = 876;
+	protected static final int MESSAGE_VIBRATE_BELL = 8761;
 	protected static final int MESSAGE_DOSCREENMODE = 877;
 	protected static final int MESSAGE_KEYBOARD = 878;
 	protected static final int MESSAGE_DODISCONNECT = 879;
@@ -1157,6 +1158,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					belltoast.setGravity(Gravity.TOP|Gravity.RIGHT, (int)(40*density), (int)(30*density));
 					belltoast.setDuration(Toast.LENGTH_SHORT);
 					belltoast.show();
+					break;
+				case MESSAGE_VIBRATE_BELL:
+					com.resurrection.blowtorch2.lib.util.BellVibrator.vibrate(
+							MainWindow.this, msg.arg1, msg.arg2);
 					break;
 				case MESSAGE_LOCKUNDONE:
 					//MainWindow.this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -5450,6 +5455,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void doVisualBell() throws RemoteException {
 			myhandler.sendEmptyMessage(MESSAGE_BELLTOAST);
+		}
+
+		public void doVibrateBell(int durationMs, int amplitude) throws RemoteException {
+			Message msg = myhandler.obtainMessage(MESSAGE_VIBRATE_BELL);
+			msg.arg1 = durationMs;
+			msg.arg2 = amplitude;
+			myhandler.sendMessage(msg);
 		}
 
 		public void setScreenMode(boolean fullscreen) throws RemoteException {

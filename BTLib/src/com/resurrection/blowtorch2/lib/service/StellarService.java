@@ -36,8 +36,6 @@ import android.os.PowerManager;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.Bundle;
-import android.os.VibrationEffect;
-import android.os.Vibrator;
 import android.util.Log;
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
@@ -709,13 +707,24 @@ public class StellarService extends Service {
 		return c != null && c.isUseTls();
 	}
 
-	/** Buzz now. {@code durationMs} 300/800, {@code amplitude} -1 (default) or 255. */
+	/** Buzz now. Prefers the UI process; the service process is often background. */
 	public final void doVibrateBell(final int durationMs, final int amplitude) {
-		Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-		if (vibrator == null) {
-			return;
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).doVibrateBell(durationMs, amplitude);
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "doVibrateBell: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
 		}
-		vibrator.vibrate(VibrationEffect.createOneShot(durationMs, amplitude));
+		if (n < 1) {
+			com.resurrection.blowtorch2.lib.util.BellVibrator.vibrate(
+					this, durationMs, amplitude);
+		}
 	}
 	
 

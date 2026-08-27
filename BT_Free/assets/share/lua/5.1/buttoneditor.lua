@@ -233,7 +233,7 @@ HELP_ACCORDION = "Up to 20 sub-buttons. Pin existing grid tiles: in Edit buttons
 	.. "The gesture that opens the accordion cannot also send its own command — that field is locked on the Tap/Swipe tabs, with a warning on the canvas. Swipe-to-expand also locks Flip (drag-off is the same motion).\n\n"
 	.. "A super button (Float over the game) cannot have an accordion: the sub-buttons are drawn on the button grid and only exist while the parent is open. That warning stays on this tab."
 
-HELP_OTHERS = "Name is the label in the editor list, not on the tile.\n\n"
+HELP_OTHERS = "Name is the label in the editor list, not on the tile. Active sits to the right of Name on the same row.\n\n"
 	.. "Active hides the button in play without deleting it. Untick it and the tile is gone from play (taps included); Edit buttons still shows it so you can tick Active again.\n\n"
 	.. "To change button pads, put .loadset <name> in the Tap command. That is the supported way to switch sets.\n\n"
 	.. "Colors: tap a swatch to change, long-press to reset to the set default. Border is the last swatch on that grid — tick Draw / border beside it. Accordion children inherit the parent's border unless they were pinned from the grid.\n\n"

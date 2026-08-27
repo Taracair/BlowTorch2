@@ -1071,7 +1071,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		if (mSettings.isVibrateOnBell()) {
 			mService.doVibrateBell(
-					BellCommand.SHORT_MS, BellCommand.DEFAULT_AMPLITUDE);
+					BellCommand.SHORT_MS, BellCommand.STRONG_AMPLITUDE);
 		}
 		if (mSettings.isNotifyOnBell()) {
 			mService.doNotifyBell(mDisplay, mHost, mPort);

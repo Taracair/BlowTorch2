@@ -159,4 +159,10 @@ oneway interface IConnectionBinderCallback {
 	 * Compact JSON: [{"id":"hp","v":80,"m":100}].
 	 */
 	void gaugeWidgetValues(String display, String json);
+	/**
+	 * Buzz on the UI process. The service process is often treated as
+	 * background and the OS drops a vibrate from there. Appended: do not
+	 * insert this above existing methods.
+	 */
+	void doVibrateBell(int durationMs, int amplitude);
 }

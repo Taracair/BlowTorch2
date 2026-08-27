@@ -41,13 +41,14 @@
 		</intent>
 	</queries>
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="false" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled" android:usesCleartextTraffic="true">
-	<meta-data android:value="273" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
+	<meta-data android:value="274" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
         <!--
           FreeLauncher stays the home screen entry so a pinned icon keeps
-          resolving to the same component; changing it made the pinned shortcut
-          stop working. It still does nothing but hand off to Launcher, but
-          BlowTorch.Invisible gives it no window to draw, which is what the
-          blank flash before the server list actually was.
+          resolving to the same component. A world pin uses LAUNCH_WORLD plus
+          a blowtorch://world URI and starts MainWindow in-process (the
+          MAIN/LAUNCHER intent drops extras, which landed the player on the
+          server list). A tap with no world extras still hands off to
+          Launcher. BlowTorch.Invisible gives it no window to draw.
         -->
     	<activity android:name="com.resurrection.blowtorch2.FreeLauncher"
     	          android:label="${appLabel}"
@@ -56,6 +57,11 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.resurrection.blowtorch2.LAUNCH_WORLD" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="blowtorch" android:host="world" />
             </intent-filter>
         </activity>
         <activity android:name="com.resurrection.blowtorch2.lib.launcher.Launcher"

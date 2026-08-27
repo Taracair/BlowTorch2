@@ -726,7 +726,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			buffersize.setValue(bufferLines);
 		}
 		mBuffer.setMaxLines(bufferLines);
-		mHoldBuffer.setMaxLines(bufferLines);
+		mHoldBuffer.setMaxLines(mBuffer.getMaxLines());
+		if (mBuffer.getMaxLines() != ((Integer) buffersize.getValue()).intValue()) {
+			buffersize.setValue(Integer.valueOf(mBuffer.getMaxLines()));
+		}
 		
 		mPrefLineExtra = (Integer) lineextra.getValue();
 		mPrefFontSize = (Integer) fontsize.getValue();

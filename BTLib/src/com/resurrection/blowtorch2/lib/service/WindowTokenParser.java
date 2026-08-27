@@ -18,6 +18,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser.NewI
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
+import com.resurrection.blowtorch2.lib.window.TextTree;
 
 import android.sax.Element;
 import android.util.Log;
@@ -440,14 +441,17 @@ public final class WindowTokenParser {
 							out.endTag("", "option");
 						}
 						break;
-					case buffer_size:
-						if (((Integer) ((IntegerOption) o).getValue()) != WindowToken.DEFAULT_BUFFER_SIZE) {
+					case buffer_size: {
+						int lines = TextTree.clampMaxLines(
+								((Integer) ((IntegerOption) o).getValue()).intValue());
+						if (lines != WindowToken.DEFAULT_BUFFER_SIZE) {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
-							out.text(((Integer) ((IntegerOption) o).getValue()).toString());
+							out.text(Integer.toString(lines));
 							out.endTag("", "option");
 						}
 						break;
+					}
 					case font_path:
 						if (!((String) ((FileOption) o).getValue()).equals(WindowToken.DEFAULT_FONT_PATH)) {
 							out.startTag("", "option");

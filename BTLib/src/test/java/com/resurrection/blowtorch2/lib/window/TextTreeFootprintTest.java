@@ -422,6 +422,9 @@ public class TextTreeFootprintTest {
 		assertEquals(100, tree.getMaxLines());
 		tree.setMaxLines(1000000);
 		assertEquals(20000, tree.getMaxLines());
+		assertEquals(TextTree.ABSOLUTE_MAX_LINES, TextTree.clampMaxLines(55000));
+		assertEquals(TextTree.MIN_LINES, TextTree.clampMaxLines(1));
+		assertEquals(20000, TextTree.clampMaxLines(20000));
 	}
 
 	/**

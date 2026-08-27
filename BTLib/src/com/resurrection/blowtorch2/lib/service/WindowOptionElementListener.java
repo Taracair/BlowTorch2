@@ -7,6 +7,8 @@ import org.xml.sax.Attributes;
 
 import android.sax.TextElementListener;
 
+import com.resurrection.blowtorch2.lib.window.TextTree;
+
 /** Custom TextElementListener object used by the settings inflating routine to inflate window option settings from the SAX parser. */
 public class WindowOptionElementListener implements TextElementListener {
 
@@ -38,8 +40,16 @@ public class WindowOptionElementListener implements TextElementListener {
 	 * @param body The text between the tag start and tag end.
 	 */
 	public final void end(final String body) {
-		//Log.e("WINDOWPARSE", "PARSING OPTION:" + mCurrentKey + ":" + body);
-		mCurrentWindow.getSettings().setOption(mCurrentKey, body);
+		String value = body;
+		if ("buffer_size".equals(mCurrentKey) && body != null) {
+			try {
+				value = Integer.toString(TextTree.clampMaxLines(
+						Integer.parseInt(body.trim())));
+			} catch (NumberFormatException ignored) {
+				value = body;
+			}
+		}
+		mCurrentWindow.getSettings().setOption(mCurrentKey, value);
 	}
 
 }

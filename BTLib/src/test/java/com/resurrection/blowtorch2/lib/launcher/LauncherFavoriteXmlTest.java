@@ -38,6 +38,16 @@ public class LauncherFavoriteXmlTest {
 	}
 
 	@Test
+	public void pinUsesLaunchWorldActionAndWorldUriNotMainLauncher() {
+		assertEquals("com.resurrection.blowtorch2.LAUNCH_WORLD",
+				LauncherShortcutExtras.ACTION_LAUNCH_WORLD);
+		assertEquals("blowtorch", LauncherShortcutExtras.URI_SCHEME);
+		assertEquals("world", LauncherShortcutExtras.URI_HOST);
+		assertFalse("android.intent.action.MAIN".equals(
+				LauncherShortcutExtras.ACTION_LAUNCH_WORLD));
+	}
+
+	@Test
 	public void copyPreservesFavorite() {
 		MudConnection src = world("Acheron", "host.example", "4000");
 		src.setFavorite(true);

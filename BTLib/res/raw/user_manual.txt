@@ -822,7 +822,7 @@ six lines a second.
 If nothing happens, type `.dobell` by hand: with every bell reaction turned off
 it now says so and names the three switches, instead of leaving you guessing
 whether the trigger fired. Only **Vibrate** is on by default, and a phone in
-silent mode, Do Not Disturb, or some GrapheneOS profiles can still swallow
+silent mode, Do Not Disturb, or some OS profiles can still swallow
 the buzz.
 
 `.dobell vibrate` (optional `short`, `long`, or `strong`; default `short`)

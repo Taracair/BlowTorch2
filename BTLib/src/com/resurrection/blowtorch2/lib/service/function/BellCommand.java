@@ -64,7 +64,7 @@ public class BellCommand extends SpecialCommand {
 						+ Colorizer.getWhiteColor()
 						+ "\nTurn on Vibrate, Generate Notification or Display Bell in"
 						+ " Options → Bell.\nOnly Vibrate is on by default, and a"
-						+ " phone in silent mode, Do Not Disturb, or some GrapheneOS"
+						+ " phone in silent mode, Do Not Disturb, or some OS"
 						+ " profiles will not buzz.\n");
 				return null;
 			}
@@ -137,10 +137,8 @@ public class BellCommand extends SpecialCommand {
 	}
 
 	public static int vibrateAmplitude(final String pattern) {
-		if ("strong".equals(pattern)) {
-			return STRONG_AMPLITUDE;
-		}
-		return DEFAULT_AMPLITUDE;
+		// DEFAULT_AMPLITUDE (-1) is a no-op on some phones. Always max.
+		return STRONG_AMPLITUDE;
 	}
 
 	/**
