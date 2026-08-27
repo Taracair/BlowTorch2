@@ -1415,6 +1415,32 @@ Nothing in the client uses this yet. It exists so that a decision about
 multi-line triggers rests on a measurement from a real session rather than on a
 guess about how the network behaves.
 
+### `.probe bleed`
+
+```
+.probe bleed on
+.probe bleed off
+.probe bleed report
+.probe bleed reset
+```
+
+Records what a colour trigger restored, on which thread, and what the finished
+dump still held. Off by default; one null check when off.
+
+Turn it on, play until the leak (the purple chicken / `look` after `_vermin` is
+the case that prompted it), then `.probe bleed report`. That dump also goes
+into the session log. Logcat tag `BlowTorchBleed`.
+
+Each event names the trigger, the match, paint fg/bg, the bleed ops (colour
+before the match), the restore ops (what went back after), whether the trigger
+colour was left open across a packet, and the line's unit list. `DUMP` is the
+last few lines of that dispatch as they left the service. `SUSPECT_MAGENTA`
+means an SGR that reads purple/magenta on black was already in that restore or
+dump — if the screen is purple and the dump is not, the colour appeared after
+the service finished.
+
+`.probe color` is still the 24-bit sample, not this.
+
 ### `.probe truecolor`
 
 ```

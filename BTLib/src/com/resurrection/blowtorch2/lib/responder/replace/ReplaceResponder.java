@@ -22,6 +22,7 @@ import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder.FIRE_WHEN;
 import com.resurrection.blowtorch2.lib.responder.ack.AckResponder;
+import com.resurrection.blowtorch2.lib.service.ColourBleedProbe;
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Text;
@@ -260,6 +261,10 @@ public class ReplaceResponder extends TriggerResponder implements Parcelable {
 			
 			line.setData(newLine);
 			line.updateData();
+			ColourBleedProbe probe = ColourBleedProbe.bound();
+			if (probe != null) {
+				probe.recordReplace(name, matched, with, line);
+			}
 			
 			if(retarget != null) {
 				int previndex = iterator.previousIndex();

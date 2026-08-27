@@ -392,6 +392,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Kept across an off/on so a reading is not lost by pausing the probe. */
 	private ChunkStats mChunkStatsHeld = null;
 	/**
+	 * Null unless the player ran {@code .probe bleed on}. Same cost model as
+	 * the chunk probe: one reference compare on the ordinary path.
+	 */
+	private ColourBleedProbe mColourBleed = null;
+	private ColourBleedProbe mColourBleedHeld = null;
+	/**
 	 * The half-line at the end of a chunk waits here for the rest of itself, so
 	 * that triggers, gags and the display only ever see finished lines.
 	 */
@@ -2863,6 +2869,10 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		boolean keepEvaluating = true;
 		lineNumber = mWorking.getLines().size() - 1;
 		Line l = null;
+		if (mColourBleed != null) {
+			ColourBleedProbe.bind(mColourBleed);
+		}
+		try {
 		if (it.hasPrevious()) {
 			l = it.previous();
 		} else {
@@ -3069,6 +3079,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		// notifyMainWindow, not sendBytesToWindow: buffer is this window's own
 		// TextTree and the line above already holds the text.
 		notifyMainWindow(proc);
+		if (mColourBleed != null) {
+			mColourBleed.recordDispatchDump(mDisplay, mFinished);
+		}
+		} finally {
+			ColourBleedProbe.unbind();
+		}
 		
 	}
 	
@@ -3129,6 +3145,42 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		if (mChunkStatsHeld != null) {
 			mChunkStatsHeld.reset();
 		}
+	}
+
+	/**
+	 * Turn the colour-bleed probe on or off. Off keeps the reading, same as
+	 * {@link #setChunkProbe}.
+	 *
+	 * @param on True to record colour-trigger restores.
+	 */
+	public final void setColourBleedProbe(final boolean on) {
+		if (on) {
+			if (mColourBleedHeld == null) {
+				mColourBleedHeld = new ColourBleedProbe();
+			}
+			mColourBleedHeld.setOn(true);
+			mColourBleed = mColourBleedHeld;
+		} else {
+			if (mColourBleedHeld != null) {
+				mColourBleedHeld.setOn(false);
+			}
+			mColourBleed = null;
+		}
+	}
+
+	public final void resetColourBleedProbe() {
+		if (mColourBleedHeld != null) {
+			mColourBleedHeld.reset();
+		}
+	}
+
+	public final String colourBleedProbeReport() {
+		if (mColourBleedHeld == null) {
+			return "\nColour-bleed probe has not been run. Start it with .probe bleed on\n";
+		}
+		String body = mColourBleedHeld.report();
+		SessionLogger.appendIncoming(mService.getApplicationContext(), mDisplay, body);
+		return body;
 	}
 
 	/**

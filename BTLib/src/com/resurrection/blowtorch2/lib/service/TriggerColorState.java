@@ -43,9 +43,11 @@ public final class TriggerColorState {
 	 */
 	public void closeAtLineEnds(final TextTree tree) {
 		LinkedList<Line> lines = tree.getLines();
+		ColourBleedProbe probe = ColourBleedProbe.bound();
 		// The buffer runs newest first.
 		for (int i = lines.size() - 1; i >= 0; i--) {
 			Line line = lines.get(i);
+			boolean leftoverOpen = open;
 			if (line.isTriggerColorOpen()) {
 				open = true;
 				java.util.List<Integer> fromLine = line.getTriggerColorRestore();
@@ -57,7 +59,11 @@ public final class TriggerColorState {
 			if (!open) {
 				continue;
 			}
-			if (close(tree, line)) {
+			boolean closed = close(tree, line);
+			if (probe != null) {
+				probe.recordClose(line, restoreOps, closed, leftoverOpen);
+			}
+			if (closed) {
 				open = false;
 				restoreOps = null;
 			}

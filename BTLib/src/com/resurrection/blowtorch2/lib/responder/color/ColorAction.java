@@ -20,6 +20,7 @@ import android.os.Parcelable;
 import android.util.Log;
 
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
+import com.resurrection.blowtorch2.lib.service.ColourBleedProbe;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Color;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
@@ -373,14 +374,10 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		line.setData(newLine);
 		line.resetIterator();
 		it = line.getIterator();
-		/*while(it.hasNext()) {
-			Unit a = it.next();
-			if(a instanceof Color) {
-				Log.e("COLORIZE","OMG WE REPLACED COLOR");
-			}
-		}*/
-		
-		//return
+		ColourBleedProbe probe = ColourBleedProbe.bound();
+		if (probe != null) {
+			probe.recordColor(name, matched, color, backgroundColor, bleed, restore, line);
+		}
 		return false;
 	}
 

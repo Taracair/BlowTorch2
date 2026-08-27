@@ -25,6 +25,47 @@ public class ProbeCommand extends SpecialCommand {
 	public Object execute(Object o, Connection c) {
 		String arg = o == null ? "" : ((String) o).trim().toLowerCase(Locale.US);
 
+		if (arg.startsWith("bleed") || arg.startsWith("colourbleed")
+				|| arg.startsWith("colorbleed")) {
+			String rest = arg.startsWith("bleed")
+					? arg.substring("bleed".length()).trim()
+					: arg.startsWith("colourbleed")
+							? arg.substring("colourbleed".length()).trim()
+							: arg.substring("colorbleed".length()).trim();
+			if (rest.equals("on")) {
+				c.setColourBleedProbe(true);
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Colour-bleed probe on. Play until the leak, then .probe bleed report."
+						+ Colorizer.getWhiteColor()
+						+ "\nLogcat tag BlowTorchBleed. Costs nothing when off.\n");
+				return null;
+			}
+			if (rest.equals("off")) {
+				c.setColourBleedProbe(false);
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Colour-bleed probe off. The reading is kept; .probe bleed reset clears it."
+						+ Colorizer.getWhiteColor() + "\n");
+				return null;
+			}
+			if (rest.equals("reset")) {
+				c.resetColourBleedProbe();
+				c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+						+ "Colour-bleed probe cleared."
+						+ Colorizer.getWhiteColor() + "\n");
+				return null;
+			}
+			if (rest.equals("report") || rest.equals("status") || rest.length() == 0) {
+				c.sendDataToWindow(c.colourBleedProbeReport());
+				return null;
+			}
+			c.sendDataToWindow(getErrorMessage("Probe usage",
+					".probe bleed on     — record colour-trigger restores\n"
+					+ ".probe bleed off    — stop; the reading is kept\n"
+					+ ".probe bleed report — dump the reading here (also session log)\n"
+					+ ".probe bleed reset  — clear the reading"));
+			return null;
+		}
+
 		if (arg.equals("truecolor") || arg.equals("colour") || arg.equals("color")
 				|| arg.equals("colours") || arg.equals("colors")) {
 			c.sendDataToWindow(truecolorSample());
@@ -135,6 +176,8 @@ public class ProbeCommand extends SpecialCommand {
 				+ ".probe lines off   — stop; the reading is kept\n"
 				+ ".probe report      — show the reading (also plain .probe)\n"
 				+ ".probe reset       — clear the reading\n\n"
+				+ ".probe bleed on    — record colour-trigger restores (logcat BlowTorchBleed)\n"
+				+ ".probe bleed report — dump that reading here\n\n"
 				+ "This answers one question: can a trigger pattern span several\n"
 				+ "lines on this world, or do the lines arrive too cut up for that?\n\n"
 				+ ".probe sensors          — what sensors this phone has\n"
