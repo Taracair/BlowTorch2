@@ -38,6 +38,7 @@ import android.os.RemoteException;
 import android.os.Bundle;
 import android.util.Log;
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
 import com.resurrection.blowtorch2.lib.service.plugin.Plugin;
@@ -249,6 +250,7 @@ public class StellarService extends Service {
 		
 		LuaLibraryHelper.ensureCurrentVersion(this);
 		mHandler = new Handler(new ServiceHandler());
+		ChatStore.attach(this);
 
 	}
 	
@@ -724,6 +726,90 @@ public class StellarService extends Service {
 		if (n < 1) {
 			com.resurrection.blowtorch2.lib.util.BellVibrator.vibrate(
 					this, durationMs, amplitude);
+		}
+	}
+
+	/** Three short pulses. Same UI-process reason as {@link #doVibrateBell}. */
+	public final void doVibrateBellBurst(final int pulseMs, final int gapMs,
+			final int count, final int amplitude) {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).doVibrateBellBurst(
+							pulseMs, gapMs, count, amplitude);
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "doVibrateBellBurst: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+		if (n < 1) {
+			com.resurrection.blowtorch2.lib.util.BellVibrator.burst(
+					this, pulseMs, gapMs, count, amplitude);
+		}
+	}
+
+	public final void doOpenChatPanel() {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).openChatPanel();
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "openChatPanel: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
+	public final void doOpenChatThread(final String threadId) {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).openChatThread(
+							threadId == null ? "" : threadId);
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "openChatThread: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
+	public final void doOpenLogHistory() {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).openLogHistory();
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "openLogHistory: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
+		}
+	}
+
+	public final void notifyChatInboxUpdated(final String display) {
+		final int n = mCallbacks.beginBroadcast();
+		try {
+			for (int i = 0; i < n; i++) {
+				try {
+					mCallbacks.getBroadcastItem(i).chatInboxUpdated(
+							display == null ? "" : display);
+				} catch (RemoteException e) {
+					android.util.Log.w("BlowTorch", "chatInboxUpdated: client gone", e);
+				}
+			}
+		} finally {
+			mCallbacks.finishBroadcast();
 		}
 	}
 	

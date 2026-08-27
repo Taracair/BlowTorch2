@@ -45,6 +45,8 @@ public final class TriggerParser {
 		TapActionParser.registerListeners(trigger, current_trigger);
 		GagActionParser.registerListeners(trigger, current_trigger);
 		SetVariableResponderParser.registerListeners(trigger, current_trigger, current_timer, current_trigger);
+		com.resurrection.blowtorch2.lib.responder.chat.ChatThreadResponderParser.registerListeners(
+				trigger, current_trigger, current_timer, current_trigger);
 		
 	}
 	

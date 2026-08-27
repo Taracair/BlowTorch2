@@ -20,12 +20,13 @@ public class GameplayMenuAdapterTest {
 	/** Visible items in Menu iteration order (order category, not insert). */
 	private static final int[] DEFAULT_IDS = {
 			100, 200, 300, 400, 401, 450, 500, 520, 600, 700, 800, 900,
-			1050, 1100, 1500, 1600, 1700
+			1040, 1050, 1060, 1100, 1500, 1600, 1700
 	};
 	private static final String[] DEFAULT_TITLES = {
 			"Aliases", "Triggers", "Timers", "Options", "Button Sets",
 			"Edit buttons", "Speedwalk Directions", "Map", "Plugins",
-			"Reconnect", "Disconnect", "Quit", "Search scrollback",
+			"Reconnect", "Disconnect", "Quit", "Chat", "Search scrollback",
+			"Session logs",
 			"Reload Settings", "Crash report", "About", "Help"
 	};
 
@@ -43,7 +44,9 @@ public class GameplayMenuAdapterTest {
 		assertEquals(Section.CONNECTION, GameplayMenuAdapter.sectionFor(700, "Reconnect"));
 		assertEquals(Section.CONNECTION, GameplayMenuAdapter.sectionFor(800, "Disconnect"));
 		assertEquals(Section.CONNECTION, GameplayMenuAdapter.sectionFor(900, "Quit"));
+		assertEquals(Section.TOOLS, GameplayMenuAdapter.sectionFor(1040, "Chat"));
 		assertEquals(Section.TOOLS, GameplayMenuAdapter.sectionFor(1050, "Search scrollback"));
+		assertEquals(Section.TOOLS, GameplayMenuAdapter.sectionFor(1060, "Session logs"));
 		assertEquals(Section.TOOLS, GameplayMenuAdapter.sectionFor(1100, "Reload Settings"));
 		assertEquals(Section.ABOUT, GameplayMenuAdapter.sectionFor(1500, "Crash report"));
 		assertEquals(Section.ABOUT, GameplayMenuAdapter.sectionFor(1600, "About"));
@@ -80,7 +83,7 @@ public class GameplayMenuAdapterTest {
 		int help = findItem(rows, 1700);
 		assertEquals("ABOUT", nearestHeader(rows, help));
 		assertEquals("Help", rows.get(help).text);
-		assertEquals(16, rows.get(help).sourceIndex);
+		assertEquals(18, rows.get(help).sourceIndex);
 	}
 
 	@Test
@@ -100,7 +103,7 @@ public class GameplayMenuAdapterTest {
 		int buttonSets = findItem(rows, 401);
 		assertEquals(4, rows.get(buttonSets).sourceIndex);
 		int help = findItem(rows, 1700);
-		assertEquals(16, rows.get(help).sourceIndex);
+		assertEquals(18, rows.get(help).sourceIndex);
 		for (Row row : rows) {
 			if (row.header) {
 				assertEquals(-1, row.sourceIndex);

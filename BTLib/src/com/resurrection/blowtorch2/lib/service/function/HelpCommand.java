@@ -75,7 +75,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("widget", "The window", "HP/mana/timer gauges over the game (.widget add|source|set|…)");
 		cmd("gauge", "The window", "same as .widget");
 		cmd("closewindow", "The window", "close one of them");
-		cmd("search", "The window", "find text in the scrollback");
+		cmd("search", "The window", "find text in the scrollback or old session logs");
+		cmd("chat", "The window", "left-hand chat drawer; .chat open|close");
 		cmd("tapmenu", "The window", "how solid the menu a tapped word opens is");
 		cmd("frame", "The window", "the drawn frame some worlds ask for");
 
@@ -315,7 +316,7 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .dobell:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .dobell            — reactions currently on in Options → Bell\n"
-					+ "  .dobell vibrate [short|long|strong]\n"
+					+ "  .dobell vibrate [short|long|strong|burst]\n"
 					+ "  .dobell alert      — on-screen bell icon now\n";
 		}
 		if (filter.equals("colordebug")) {
@@ -592,7 +593,28 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .search <text> | 'multi word' | \"…\"\n"
 					+ "  .search next|n | prev|previous|p\n"
 					+ "  .search close|hide|clear\n"
-					+ "  .search 14:32 | 18 Aug  — when Scroll dates is on\n";
+					+ "  .search logs              — browse this world's session log files\n"
+					+ "  .search logs 7 goblin     — window, then files with mtime older than 7 days\n"
+					+ "  .search logs 7 'multi word'\n"
+					+ "  .search logs 0 goblin     — window plus every saved file for this world\n"
+					+ "  .search 'logs'            — find the word logs in the window\n"
+					+ "  .search 14:32 | 18 Aug  — when Scroll dates is on\n"
+					+ "N is days: files whose last-modified is older than N days are searched,\n"
+					+ "plus the live window first. Recent files (mtime within N days) are not.\n"
+					+ "A file you are still writing to has mtime now, so it is skipped here —\n"
+					+ "that text is in the window if it is still in the 20000-line scrollback.\n"
+					+ "Example: .search logs 7 goblin while looking for a fight from last week\n"
+					+ "(in a log that has not been written to since then).\n";
+		}
+		if (filter.equals("chat")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .chat:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .chat / .chat open     open the drawer (toggles if already open)\n"
+					+ "  .chat close | hide     same toggle; or tap ✕ / the dim area\n"
+					+ "  .chat vermin           open that thread\n"
+					+ "  .chat help\n"
+					+ "  Also: overflow ⋮ → Chat\n";
 		}
 		return null;
 	}

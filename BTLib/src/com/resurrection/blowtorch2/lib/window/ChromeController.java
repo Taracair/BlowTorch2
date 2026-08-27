@@ -319,6 +319,10 @@ public final class ChromeController {
 				child.setTranslationY(0f);
 				continue;
 			}
+			if (tagObj != null && ChatPanelController.LAYER_TAG.equals(tagObj.toString())) {
+				child.setTranslationY(0f);
+				continue;
+			}
 			if (tagObj != null && FloatingButtonController.LAYER_TAG.equals(tagObj.toString())) {
 				child.setTranslationY(0f);
 				continue;

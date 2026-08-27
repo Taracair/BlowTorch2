@@ -40,6 +40,11 @@ public class BellCommand extends SpecialCommand {
 	public static final int LONG_MS = 800;
 	/** Strong is a short pulse at max amplitude, not a longer one. */
 	public static final int STRONG_MS = 300;
+	/** One pulse in a burst. Short enough that three of them read as taps. */
+	public static final int BURST_PULSE_MS = 80;
+	/** Quiet gap between burst pulses. */
+	public static final int BURST_GAP_MS = 90;
+	public static final int BURST_COUNT = 3;
 	/** {@code VibrationEffect.DEFAULT_AMPLITUDE} — kept as a literal so JVM tests do not load Android. */
 	public static final int DEFAULT_AMPLITUDE = -1;
 	public static final int STRONG_AMPLITUDE = 255;
@@ -116,13 +121,13 @@ public class BellCommand extends SpecialCommand {
 
 	static boolean isVibratePattern(final String token) {
 		return "short".equals(token) || "long".equals(token)
-				|| "strong".equals(token);
+				|| "strong".equals(token) || "burst".equals(token);
 	}
 
 	static String usage() {
 		return "Usage:\n"
 				+ "  .dobell            — reactions currently on in Options → Bell\n"
-				+ "  .dobell vibrate [short|long|strong]\n"
+				+ "  .dobell vibrate [short|long|strong|burst]\n"
 				+ "  .dobell alert      — on-screen bell icon now\n";
 	}
 
@@ -133,7 +138,14 @@ public class BellCommand extends SpecialCommand {
 		if ("strong".equals(pattern)) {
 			return STRONG_MS;
 		}
+		if ("burst".equals(pattern)) {
+			return BURST_PULSE_MS;
+		}
 		return SHORT_MS;
+	}
+
+	public static boolean isBurst(final String pattern) {
+		return "burst".equals(pattern);
 	}
 
 	public static int vibrateAmplitude(final String pattern) {
@@ -145,7 +157,7 @@ public class BellCommand extends SpecialCommand {
 	 * Pattern name from a force-vibrate {@code MESSAGE_BELLINC} obj, or null.
 	 *
 	 * @param spec {@code msg.obj}
-	 * @return {@code short}, {@code long}, {@code strong}, or null
+	 * @return {@code short}, {@code long}, {@code strong}, {@code burst}, or null
 	 */
 	public static String forceVibratePattern(final Object spec) {
 		if (!(spec instanceof String)) {

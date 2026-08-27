@@ -61,6 +61,8 @@ import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponderEditor;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponderEditor;
+import com.resurrection.blowtorch2.lib.responder.chat.ChatThreadResponder;
+import com.resurrection.blowtorch2.lib.responder.chat.ChatThreadResponderEditor;
 import com.resurrection.blowtorch2.lib.responder.toast.*;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionGroup;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionLeaf;
@@ -965,6 +967,8 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			return "Color";
 		case SET_VARIABLE:
 			return "Set Variable";
+		case CHAT_THREAD:
+			return "Send to thread";
 		default:
 			return "";
 		}
@@ -1003,6 +1007,15 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 		case SET_VARIABLE: {
 			SetVariableResponder sv = (SetVariableResponder) responder;
 			return nullToEmpty(sv.getVariableName()) + "=" + nullToEmpty(sv.getVariableValue());
+		}
+		case CHAT_THREAD: {
+			ChatThreadResponder chat = (ChatThreadResponder) responder;
+			String id = nullToEmpty(chat.getThreadId());
+			String title = nullToEmpty(chat.getTitle());
+			if (title.length() > 0 && !title.equals(id)) {
+				return id + " · " + title;
+			}
+			return id;
 		}
 		default:
 			return "";
@@ -1072,6 +1085,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			case TAP:
 				new TapActionEditor(TriggerEditorDialog.this.getContext(),
 						(TapAction) responder.copy(), TriggerEditorDialog.this).show();
+				break;
+			case CHAT_THREAD:
+				new ChatThreadResponderEditor(TriggerEditorDialog.this.getContext(),
+						(ChatThreadResponder) responder.copy(), TriggerEditorDialog.this).show();
 				break;
 			default:
 				break;
@@ -1163,7 +1180,7 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			//give out a list of options
 			// Appended. The dialog dispatches on the index, so inserting rather
 			// than appending would silently rebind every entry after it.
-			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable","Tappable Word","Speak Out Loud","Play a Sound"};
+			CharSequence[] items = {"Notification","Toast Message","Ack With","Script","Color","Gag","Replace","Set Variable","Tappable Word","Speak Out Loud","Play a Sound","Send to thread"};
 			AlertDialog.Builder builder = new AlertDialog.Builder(TriggerEditorDialog.this.getContext());
 			builder.setTitle("Type:");
 			
@@ -1323,6 +1340,10 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			break;
 		case 10:
 			new com.resurrection.blowtorch2.lib.responder.sound.SoundResponderEditor(
+					TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
+			break;
+		case 11:
+			new ChatThreadResponderEditor(
 					TriggerEditorDialog.this.getContext(), null, TriggerEditorDialog.this).show();
 			break;
 		default:

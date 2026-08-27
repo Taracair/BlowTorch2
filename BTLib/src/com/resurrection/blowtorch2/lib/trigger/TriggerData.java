@@ -303,6 +303,11 @@ public class TriggerData implements Parcelable {
 				SetVariableResponder setVar = in.readParcelable(com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder.class.getClassLoader());
 				responders.add(setVar);
 				break;
+			case TriggerResponder.RESPONDER_TYPE_CHAT_THREAD:
+				com.resurrection.blowtorch2.lib.responder.chat.ChatThreadResponder chat =
+						in.readParcelable(com.resurrection.blowtorch2.lib.responder.chat.ChatThreadResponder.class.getClassLoader());
+				responders.add(chat);
+				break;
 			default:
 				// Unknown type must still consume the parcelable written after the
 				// type int, or every field after responders (including conditions)

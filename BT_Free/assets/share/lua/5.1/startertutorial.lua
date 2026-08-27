@@ -85,6 +85,7 @@ local TOPIC_ORDER = {
 	"wrap",
 	"copy_text",
 	"search",
+	"chat",
 	"mapper",
 	"gmcp",
 	"widgets",
@@ -145,7 +146,7 @@ reading the screen.
 
 This tour is hands-on: you will build a .loadset button, learn triggers for
 beginners, and poke swipe / hold / accordion demos. Lessons also cover
-aliases, timers, sensors, colors, keyboard, completion, search, mapper, wrap,
+aliases, timers, sensors, colors, keyboard, completion, search, chat, mapper, wrap,
 logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
 On a real MUD, .tutorial still opens any lesson, and
@@ -774,7 +775,48 @@ Also: overflow → Search scrollback. Buttons may use /search 'phrase'.
 Matches highlight in the buffer; next/prev walk through them.
 
 With Scroll dates on (.when on), .search 14:32 or 18 Aug jumps to text
-that arrived then.]])
+that arrived then.
+
+Session log files (this world only):
+  .search logs                 browse the files
+  .search logs 7 goblin        window, then files older than 7 days
+  .search logs 0 goblin        window plus every saved file
+  .search 'logs'               still finds the word “logs” in the window
+Overflow ⋮ → Session logs opens the same browser.]])
+end
+
+TOPICS.chat = function()
+	noteBlock("Chat — .chat",
+[[Tells and channel lines can live in a drawer on the left, instead of
+only in the main window. There is no permanent bar — the drawer slides
+in when you ask for it.
+
+Open it
+  overflow ⋮ → Chat
+  or type .chat          (again to close)
+  .chat vermin           jump straight to that thread
+  ✕ or the dim area also close it
+
+A thread is one conversation (a person, or a channel). Tap a thread to
+read it. Type in the reply box and Send. That fills $text in a command
+template, for example:
+  tell Bob $text
+  c $text
+
+You set that template on the trigger that catches the line (Send to
+thread), or you can edit it at the top of the thread and tap Set.
+
+Example — Vermin channel:
+  Trigger pattern:  ^\[ VERMIN \]
+  Action:           Send to thread
+  Thread:           vermin
+  Reply:            c $text
+
+Then .chat, tap vermin, type a line, Send — the world gets c your text.
+
+Search at the top of the list filters threads. Dual display (main window
+and the drawer) is the trigger's job; the drawer only shows what was
+stored.]])
 end
 
 TOPICS.mapper = function()
@@ -902,7 +944,9 @@ TOPICS.overflow_menu = function()
   Reconnect / Disconnect  connection control
   Quit                    leave the session window
   Map                     built-in Mapper (also .map open|toggle)
+  Chat                    left-hand chat drawer (also .chat)
   Search scrollback       same as .search
+  Session logs            this world’s session log files
   Reload Settings         re-read this world’s settings from disk
   Crash report            Show log / Share log
   About
@@ -1255,7 +1299,7 @@ Topics: welcome, practice_world, client_commands, buttons_basics,
 buttons_swipe, buttons_hold, buttons_accordion, buttons_super, buttons_sets,
 buttons_make, buttons_edit, movement, aliases, triggers, timers, sensors,
 tappable, keyboard, completion, coloring, display, wrap, copy_text, search,
-mapper, gmcp, widgets, mcp, mxp, protocols, logging_export, stay_connected,
+chat, mapper, gmcp, widgets, mcp, mxp, protocols, logging_export, stay_connected,
 disconnect_reconnect, overflow_menu, options_cleanup, plugins, finish]])
 end
 
@@ -1410,6 +1454,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. Reloading wipes .buttonopacity until you set it again.]],
 	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. Reply fills $text in the thread template (tell Bob $text, c $text).]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

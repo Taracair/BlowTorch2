@@ -130,6 +130,9 @@ import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetController;
 import com.resurrection.blowtorch2.lib.gauge.GaugeWidgetsStore;
 import com.resurrection.blowtorch2.lib.mapper.MapperController;
 import com.resurrection.blowtorch2.lib.mapper.MapperOverlayController;
+import com.resurrection.blowtorch2.lib.service.function.SearchCommand;
+import com.resurrection.blowtorch2.lib.util.SessionLogSearch;
+import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.activity.OnBackPressedCallback;
@@ -183,6 +186,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public static final int MESSAGE_BUTTONFIT = 874;
 	protected static final int MESSAGE_BELLTOAST = 876;
 	protected static final int MESSAGE_VIBRATE_BELL = 8761;
+	protected static final int MESSAGE_VIBRATE_BURST = 8762;
+	protected static final int MESSAGE_OPEN_CHAT_PANEL = 8763;
+	protected static final int MESSAGE_OPEN_LOG_HISTORY = 8764;
+	protected static final int MESSAGE_CHAT_INBOX_UPDATED = 8765;
+	protected static final int MESSAGE_OPEN_CHAT_THREAD = 8766;
 	protected static final int MESSAGE_DOSCREENMODE = 877;
 	protected static final int MESSAGE_KEYBOARD = 878;
 	protected static final int MESSAGE_DODISCONNECT = 879;
@@ -313,8 +321,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private TextView mScrollbackSearchCount = null;
 	private TextView mScrollbackSearchPreview = null;
 	private final java.util.ArrayList<Integer> mScrollbackSearchHits = new java.util.ArrayList<Integer>();
+	private final java.util.ArrayList<SessionLogSearch.Hit> mScrollbackLogHits =
+			new java.util.ArrayList<SessionLogSearch.Hit>();
 	private int mScrollbackSearchIndex = -1;
 	private static final int SCROLLBACK_SEARCH_MAX = 500;
+	private CheckBox mScrollbackSearchLogs = null;
+	private EditText mScrollbackSearchLogDays = null;
+	private int mLogSearchGeneration = 0;
+	private boolean mLogSearchInFlight = false;
+	private LogHistoryDialog mLogHistoryDialog = null;
 	
 	private boolean autoLaunch = true;
 	private String overrideHF = "auto";
@@ -326,6 +341,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MapperOverlayController mapperOverlay;
 	private MapperController mapperController;
 	private ExtraTextOverlayController extraTextOverlay;
+	private ChatPanelController chatPanel;
 	/** Overlay gauges over the game; see ensureGaugeWidgets(). */
 	private GaugeWidgetController gaugeWidgets;
 	/** Floating button copies over the game; see ensureFloatingButtons(). */
@@ -578,6 +594,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
 			@Override
 			public void handleOnBackPressed() {
+				if (chatPanel != null && chatPanel.isVisible()) {
+					chatPanel.hide();
+					return;
+				}
 				// Edge-back may leave Lua buttons visually pressed without ACTION_UP.
 				MainWindow.this.windowCall("button_window", "cancelTouchGesture", "");
 				MainWindow.this.showBackgroundExitDialog();
@@ -1162,6 +1182,35 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_VIBRATE_BELL:
 					com.resurrection.blowtorch2.lib.util.BellVibrator.vibrate(
 							MainWindow.this, msg.arg1, msg.arg2);
+					break;
+				case MESSAGE_VIBRATE_BURST: {
+					int[] burst = (int[]) msg.obj;
+					int count = burst != null && burst.length > 0 ? burst[0] : 3;
+					int amp = burst != null && burst.length > 1 ? burst[1] : 255;
+					com.resurrection.blowtorch2.lib.util.BellVibrator.burst(
+							MainWindow.this, msg.arg1, msg.arg2, count, amp);
+					break;
+				}
+				case MESSAGE_OPEN_CHAT_PANEL:
+					ensureChatPanel();
+					if (chatPanel != null) {
+						chatPanel.toggle();
+					}
+					break;
+				case MESSAGE_OPEN_CHAT_THREAD:
+					ensureChatPanel();
+					if (chatPanel != null) {
+						chatPanel.openThreadFromCommand((String) msg.obj);
+					}
+					break;
+				case MESSAGE_OPEN_LOG_HISTORY:
+					openLogHistoryDialog(null, -1);
+					break;
+				case MESSAGE_CHAT_INBOX_UPDATED:
+					if (chatPanel != null && chatPanel.isVisible()
+							&& isForegroundDisplay((String) msg.obj)) {
+						chatPanel.refresh();
+					}
 					break;
 				case MESSAGE_LOCKUNDONE:
 					//MainWindow.this.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -2029,7 +2078,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		menu.add(0, 700, 700, "Reconnect");
 		menu.add(0, 800, 800, "Disconnect");
 		menu.add(0, 900, 900, "Quit");
+		menu.add(0, 1040, 1040, "Chat");
 		menu.add(0, 1050, 1050, "Search scrollback");
+		menu.add(0, 1060, 1060, "Session logs");
 		menu.add(0, 1100,1100,"Reload Settings");
 		// Reset Settings moved to Options → Miscellaneous, with Export and
 		// Import. It throws away every alias, trigger, timer and button in the
@@ -2457,8 +2508,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		case 1700: // Help
 			new HelpDialog(this).show();
 			break;
+		case 1040: // Chat
+			ensureChatPanel();
+			if (chatPanel != null) {
+				chatPanel.show();
+			}
+			break;
 		case 1050: // Search scrollback
 			openScrollbackSearchBar("");
+			break;
+		case 1060: // Session logs
+			openLogHistoryDialog(null, -1);
 			break;
 		case 450: // Edit buttons (same as long-press ⋮)
 			windowCall("button_window", "doEdit", "");
@@ -4185,6 +4245,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 	
 	public void onBackPressed() {
+		if (chatPanel != null && chatPanel.isVisible()) {
+			chatPanel.hide();
+			return;
+		}
 		showBackgroundExitDialog();
 	}
 	
@@ -5464,6 +5528,33 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			myhandler.sendMessage(msg);
 		}
 
+		public void doVibrateBellBurst(int pulseMs, int gapMs, int count, int amplitude)
+				throws RemoteException {
+			Message msg = myhandler.obtainMessage(MESSAGE_VIBRATE_BURST);
+			msg.arg1 = pulseMs;
+			msg.arg2 = gapMs;
+			msg.obj = new int[] { count, amplitude };
+			myhandler.sendMessage(msg);
+		}
+
+		public void openChatPanel() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_OPEN_CHAT_PANEL);
+		}
+
+		public void openLogHistory() throws RemoteException {
+			myhandler.sendEmptyMessage(MESSAGE_OPEN_LOG_HISTORY);
+		}
+
+		public void chatInboxUpdated(String display) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(
+					MESSAGE_CHAT_INBOX_UPDATED, display));
+		}
+
+		public void openChatThread(String threadId) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(
+					MESSAGE_OPEN_CHAT_THREAD, threadId));
+		}
+
 		public void setScreenMode(boolean fullscreen) throws RemoteException {
 			Message doScreenMode = myhandler.obtainMessage(MESSAGE_DOSCREENMODE);
 			if(fullscreen) {
@@ -6167,6 +6258,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (gaugeWidgets != null) {
 			gaugeWidgets.onImeLiftChanged(liftPx);
 		}
+		if (chatPanel != null) {
+			chatPanel.onImeLift(liftPx);
+		}
 	}
 
 	private void ensureFloatingButtons() {
@@ -6318,6 +6412,46 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		java.util.ArrayList<ExtraTextSlot> parsed = ExtraTextSlotsStore.parse(json);
 		ExtraTextSlotsStore.validate(parsed);
 		extraTextSlotsCache.addAll(parsed);
+	}
+
+	/** Left chat drawer under window_container (chrome ⋮ stays above). */
+	private void ensureChatPanel() {
+		if (mLeavingUi || isFinishing()) {
+			return;
+		}
+		if (chatPanel == null) {
+			chatPanel = new ChatPanelController(new ChatPanelController.Host() {
+				@Override
+				public MainWindow getMainWindow() {
+					return MainWindow.this;
+				}
+
+				@Override
+				public String getConnectionDisplay() {
+					return MainWindow.this.getConnectionDisplay();
+				}
+
+				@Override
+				public void sendCommand(String text) {
+					if (text == null || text.length() == 0 || service == null) {
+						return;
+					}
+					try {
+						String enc = service.getEncoding();
+						if (enc == null || enc.length() == 0) {
+							enc = "UTF-8";
+						}
+						service.sendData((text + "\r\n").getBytes(enc));
+					} catch (RemoteException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable(
+								"MainWindow.chatPanel.sendCommand", e);
+					} catch (java.io.UnsupportedEncodingException e) {
+						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+								"MainWindow.chatPanel.sendCommand", e);
+					}
+				}
+			});
+		}
 	}
 
 	/** Bind extra-text overlays under window_container (chrome ⋮ stays above). */
@@ -6898,6 +7032,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	
 	
 	public void cleanupWindows() {
+		if (chatPanel != null) {
+			chatPanel.detach();
+		}
 		if (extraTextOverlay != null) {
 			extraTextOverlay.detach();
 		}
@@ -7801,6 +7938,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		mScrollbackSearchBar = findViewById(R.id.scrollback_search_bar);
 		mScrollbackSearchQuery = (EditText) findViewById(R.id.scrollback_search_query);
 		mScrollbackSearchCase = (CheckBox) findViewById(R.id.scrollback_search_case);
+		mScrollbackSearchLogs = (CheckBox) findViewById(R.id.scrollback_search_logs);
+		mScrollbackSearchLogDays = (EditText) findViewById(R.id.scrollback_search_log_days);
 		mScrollbackSearchCount = (TextView) findViewById(R.id.scrollback_search_count);
 		mScrollbackSearchPreview = (TextView) findViewById(R.id.scrollback_search_preview);
 		if (mScrollbackSearchBar == null || mScrollbackSearchQuery == null) {
@@ -7857,18 +7996,156 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				}
 			});
 		}
-		if (mScrollbackSearchCase != null) {
-			mScrollbackSearchCase.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					if (mScrollbackSearchQuery != null
-							&& mScrollbackSearchQuery.getText().toString().trim().length() > 0) {
-						runScrollbackSearchFromBar(true);
-					}
+		View.OnClickListener rerunIfQuery = new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				if (mScrollbackSearchQuery != null
+						&& mScrollbackSearchQuery.getText().toString().trim().length() > 0) {
+					runScrollbackSearchFromBar(true);
 				}
-			});
+			}
+		};
+		if (mScrollbackSearchCase != null) {
+			mScrollbackSearchCase.setOnClickListener(rerunIfQuery);
+		}
+		if (mScrollbackSearchLogs != null) {
+			mScrollbackSearchLogs.setOnClickListener(rerunIfQuery);
 		}
 		updateScrollbackSearchUi();
+	}
+
+	private void openLogHistoryDialog(File openAt, int lineIndex) {
+		String display = getConnectionDisplay();
+		String query = mScrollbackSearchQuery != null
+				? mScrollbackSearchQuery.getText().toString().trim() : "";
+		boolean caseSensitive = mScrollbackSearchCase != null && mScrollbackSearchCase.isChecked();
+		if (mLogHistoryDialog != null && mLogHistoryDialog.isShowing()) {
+			if (openAt == null) {
+				mLogHistoryDialog.showListScreen();
+			} else {
+				mLogHistoryDialog.openFileAtLine(openAt, lineIndex, query, caseSensitive);
+			}
+			return;
+		}
+		if (mLogHistoryDialog != null) {
+			mLogHistoryDialog.dismiss();
+		}
+		if (openAt == null) {
+			mLogHistoryDialog = new LogHistoryDialog(this, display);
+		} else {
+			mLogHistoryDialog = new LogHistoryDialog(this, display, openAt, lineIndex,
+					query, caseSensitive);
+		}
+		mLogHistoryDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+			@Override
+			public void onDismiss(DialogInterface dialog) {
+				if (mLogHistoryDialog == dialog) {
+					mLogHistoryDialog = null;
+				}
+			}
+		});
+		mLogHistoryDialog.show();
+	}
+
+	private int searchHitTotal() {
+		return mScrollbackSearchHits.size() + mScrollbackLogHits.size();
+	}
+
+	private String searchSplitLabel() {
+		StringBuilder b = new StringBuilder();
+		b.append(mScrollbackSearchHits.size()).append(" in window, ");
+		b.append(mScrollbackLogHits.size()).append(" in logs");
+		if (mLogSearchInFlight) {
+			b.append(" (searching…)");
+		}
+		return b.toString();
+	}
+
+	private int readLogDaysFromBar() {
+		if (mScrollbackSearchLogDays == null) {
+			return SearchCommand.DEFAULT_LOG_DAYS;
+		}
+		String s = mScrollbackSearchLogDays.getText().toString().trim();
+		try {
+			return SessionLogSearch.clampDays(Integer.parseInt(s));
+		} catch (NumberFormatException e) {
+			return SearchCommand.DEFAULT_LOG_DAYS;
+		}
+	}
+
+	/**
+	 * File search on a background executor; results posted to {@link #myhandler}.
+	 * Does not touch {@code Window.mBuffer}.
+	 */
+	private void startLogFileSearch(final String query, final boolean caseSensitive,
+			final boolean jumpToFirst) {
+		final int gen = mLogSearchGeneration;
+		final int days = readLogDaysFromBar();
+		final String display = getConnectionDisplay();
+		final Context app = getApplicationContext();
+		mLogSearchInFlight = true;
+		updateScrollbackSearchUi();
+		SessionLogSearch.runIo(new Runnable() {
+			@Override
+			public void run() {
+				final ArrayList<SessionLogSearch.Hit> found =
+						new ArrayList<SessionLogSearch.Hit>();
+				List<File> files = SessionLogger.listLogFiles(app, display);
+				long now = System.currentTimeMillis();
+				for (int i = 0; i < files.size() && found.size() < SessionLogSearch.MAX_HITS; i++) {
+					File f = files.get(i);
+					if (!SessionLogSearch.isOlderThanDays(f.lastModified(), now, days)) {
+						continue;
+					}
+					try {
+						SessionLogSearch.searchFile(f, query, caseSensitive,
+								SessionLogSearch.MAX_HITS - found.size(), found);
+					} catch (IOException e) {
+						android.util.Log.w("BlowTorch", "session log search: " + f.getName(), e);
+					}
+				}
+				final int fileCount = files.size();
+				myhandler.post(new Runnable() {
+					@Override
+					public void run() {
+						if (gen != mLogSearchGeneration || isFinishing()) {
+							return;
+						}
+						mLogSearchInFlight = false;
+						mScrollbackLogHits.clear();
+						mScrollbackLogHits.addAll(found);
+						int windowN = mScrollbackSearchHits.size();
+						if (jumpToFirst && windowN == 0 && !mScrollbackLogHits.isEmpty()) {
+							mScrollbackSearchIndex = 0;
+							jumpToScrollbackSearchHit();
+							return;
+						}
+						updateScrollbackSearchUi();
+						if (mScrollbackSearchPreview != null) {
+							if (windowN == 0 && mScrollbackLogHits.isEmpty()) {
+								mScrollbackSearchPreview.setText(
+										"No matches in the window or in log files older than "
+										+ days + " day" + (days == 1 ? "" : "s")
+										+ " (" + fileCount + " file"
+										+ (fileCount == 1 ? "" : "s") + " for this world).");
+							} else {
+								String body = mScrollbackSearchPreview.getText() != null
+										? mScrollbackSearchPreview.getText().toString() : "";
+								int nl = body.indexOf('\n');
+								String rest = nl >= 0 ? body.substring(nl) : "";
+								if (rest.length() == 0 && windowN > 0) {
+									// Keep whatever jumpToScrollbackSearchHit last showed.
+								} else if (rest.length() > 0) {
+									mScrollbackSearchPreview.setText(searchSplitLabel() + rest);
+								} else if (!mScrollbackLogHits.isEmpty()) {
+									mScrollbackSearchPreview.setText(searchSplitLabel());
+								}
+							}
+						}
+					}
+				});
+			}
+		});
 	}
 
 	private void openScrollbackSearchBar(String query) {
@@ -7880,7 +8157,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		mScrollbackSearchBar.setVisibility(View.VISIBLE);
 		chrome.bringGameplayChromeToFront((RelativeLayout) findViewById(R.id.window_container));
-		String q = query == null ? "" : query;
+		SearchCommand.Parsed incoming = SearchCommand.decodeIncomingQuery(query);
+		String q;
+		if (incoming.kind == SearchCommand.Kind.LOGS) {
+			if (mScrollbackSearchLogs != null) {
+				mScrollbackSearchLogs.setChecked(true);
+			}
+			if (mScrollbackSearchLogDays != null) {
+				mScrollbackSearchLogDays.setText(Integer.toString(incoming.days));
+			}
+			q = incoming.query;
+		} else if (incoming.kind == SearchCommand.Kind.OPEN_LOGS) {
+			openLogHistoryDialog(null, -1);
+			return;
+		} else {
+			q = incoming.query;
+		}
 		if (mScrollbackSearchQuery != null) {
 			if (q.length() > 0) {
 				mScrollbackSearchQuery.setText(q);
@@ -7901,7 +8193,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	}
 
 	private void closeScrollbackSearchBar() {
+		mLogSearchGeneration++;
+		mLogSearchInFlight = false;
 		mScrollbackSearchHits.clear();
+		mScrollbackLogHits.clear();
 		mScrollbackSearchIndex = -1;
 		com.resurrection.blowtorch2.lib.window.Window target = findScrollbackSearchWindow();
 		if (target != null) {
@@ -7930,15 +8225,22 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			openScrollbackSearchBar("");
 			return;
 		}
-		if (mScrollbackSearchHits.isEmpty()) {
+		int total = searchHitTotal();
+		if (total == 0) {
+			if (mLogSearchInFlight) {
+				return;
+			}
 			runScrollbackSearchFromBar(true);
 			return;
 		}
 		if (nav > 0) {
-			mScrollbackSearchIndex = (mScrollbackSearchIndex + 1) % mScrollbackSearchHits.size();
+			int next = mScrollbackSearchIndex + 1;
+			if (next >= total && mLogSearchInFlight) {
+				return;
+			}
+			mScrollbackSearchIndex = next % total;
 		} else {
-			mScrollbackSearchIndex = (mScrollbackSearchIndex - 1 + mScrollbackSearchHits.size())
-					% mScrollbackSearchHits.size();
+			mScrollbackSearchIndex = (mScrollbackSearchIndex - 1 + total) % total;
 		}
 		jumpToScrollbackSearchHit();
 	}
@@ -7947,8 +8249,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (mScrollbackSearchQuery == null) {
 			return;
 		}
-		String query = mScrollbackSearchQuery.getText().toString();
-		if (query.trim().isEmpty()) {
+		String query = mScrollbackSearchQuery.getText().toString().trim();
+		mLogSearchGeneration++;
+		mLogSearchInFlight = false;
+		mScrollbackLogHits.clear();
+		if (query.isEmpty()) {
 			mScrollbackSearchHits.clear();
 			mScrollbackSearchIndex = -1;
 			updateScrollbackSearchUi();
@@ -7964,54 +8269,80 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		boolean caseSensitive = mScrollbackSearchCase != null && mScrollbackSearchCase.isChecked();
 		mScrollbackSearchHits.clear();
-		mScrollbackSearchHits.addAll(target.findInScrollback(query.trim(), SCROLLBACK_SEARCH_MAX, caseSensitive));
+		mScrollbackSearchHits.addAll(target.findInScrollback(query, SCROLLBACK_SEARCH_MAX, caseSensitive));
+		boolean searchLogs = mScrollbackSearchLogs != null && mScrollbackSearchLogs.isChecked();
 		if (mScrollbackSearchHits.isEmpty()) {
 			mScrollbackSearchIndex = -1;
-			updateScrollbackSearchUi();
-			if (mScrollbackSearchPreview != null) {
-				mScrollbackSearchPreview.setText("No matches in scrollback.");
-			}
-			return;
-		}
-		if (jumpToFirst || mScrollbackSearchIndex < 0
+		} else if (jumpToFirst || mScrollbackSearchIndex < 0
 				|| mScrollbackSearchIndex >= mScrollbackSearchHits.size()) {
 			mScrollbackSearchIndex = 0;
 		}
-		jumpToScrollbackSearchHit();
+		if (searchLogs) {
+			startLogFileSearch(query, caseSensitive, jumpToFirst);
+		}
+		if (!mScrollbackSearchHits.isEmpty()) {
+			jumpToScrollbackSearchHit();
+		} else {
+			updateScrollbackSearchUi();
+			if (mScrollbackSearchPreview != null) {
+				if (searchLogs) {
+					mScrollbackSearchPreview.setText("No matches in the window. Searching logs…");
+				} else {
+					mScrollbackSearchPreview.setText("No matches in scrollback.");
+				}
+			}
+		}
 	}
 
 	private void jumpToScrollbackSearchHit() {
-		com.resurrection.blowtorch2.lib.window.Window target = findScrollbackSearchWindow();
-		if (target == null || mScrollbackSearchIndex < 0
-				|| mScrollbackSearchIndex >= mScrollbackSearchHits.size()) {
+		int windowN = mScrollbackSearchHits.size();
+		int total = searchHitTotal();
+		if (mScrollbackSearchIndex < 0 || mScrollbackSearchIndex >= total) {
 			updateScrollbackSearchUi();
 			return;
 		}
-		int broken = mScrollbackSearchHits.get(mScrollbackSearchIndex);
 		String query = mScrollbackSearchQuery != null
 				? mScrollbackSearchQuery.getText().toString().trim() : "";
 		boolean caseSensitive = mScrollbackSearchCase != null && mScrollbackSearchCase.isChecked();
-		target.scrollToBrokenLineFromBottom(broken);
-		target.setSearchHighlight(query, broken, caseSensitive);
-		String preview = target.getScrollbackLinePreview(broken, query, caseSensitive);
-		if (mScrollbackSearchPreview != null) {
-			if (preview.length() == 0) {
-				mScrollbackSearchPreview.setText("(empty line)");
-			} else {
-				mScrollbackSearchPreview.setText("▶ " + preview);
+		if (mScrollbackSearchIndex < windowN) {
+			com.resurrection.blowtorch2.lib.window.Window target = findScrollbackSearchWindow();
+			if (target == null) {
+				updateScrollbackSearchUi();
+				return;
 			}
+			int broken = mScrollbackSearchHits.get(mScrollbackSearchIndex);
+			target.scrollToBrokenLineFromBottom(broken);
+			target.setSearchHighlight(query, broken, caseSensitive);
+			String preview = target.getScrollbackLinePreview(broken, query, caseSensitive);
+			if (mScrollbackSearchPreview != null) {
+				if (preview.length() == 0) {
+					mScrollbackSearchPreview.setText(searchSplitLabel() + "\n(empty line)");
+				} else {
+					mScrollbackSearchPreview.setText(searchSplitLabel() + "\n▶ " + preview);
+				}
+			}
+			updateScrollbackSearchUi();
+			return;
+		}
+		SessionLogSearch.Hit hit = mScrollbackLogHits.get(mScrollbackSearchIndex - windowN);
+		openLogHistoryDialog(new File(hit.absolutePath), hit.lineIndex);
+		if (mScrollbackSearchPreview != null) {
+			mScrollbackSearchPreview.setText(searchSplitLabel() + "\n▶ "
+					+ hit.fileName + ":" + (hit.lineIndex + 1) + "  " + hit.preview);
 		}
 		updateScrollbackSearchUi();
 	}
 
 	private void updateScrollbackSearchUi() {
 		if (mScrollbackSearchCount != null) {
-			if (mScrollbackSearchHits.isEmpty()) {
-				mScrollbackSearchCount.setText("0 / 0");
+			int total = searchHitTotal();
+			if (total == 0) {
+				mScrollbackSearchCount.setText(mLogSearchInFlight ? "… / …" : "0 / 0");
 			} else {
+				boolean plus = mScrollbackSearchHits.size() >= SCROLLBACK_SEARCH_MAX
+						|| mScrollbackLogHits.size() >= SessionLogSearch.MAX_HITS;
 				mScrollbackSearchCount.setText((mScrollbackSearchIndex + 1) + " / "
-						+ mScrollbackSearchHits.size()
-						+ (mScrollbackSearchHits.size() >= SCROLLBACK_SEARCH_MAX ? "+" : ""));
+						+ total + (plus ? "+" : ""));
 			}
 		}
 	}

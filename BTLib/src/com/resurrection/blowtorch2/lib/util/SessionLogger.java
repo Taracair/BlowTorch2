@@ -1,13 +1,19 @@
 package com.resurrection.blowtorch2.lib.util;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -785,9 +791,75 @@ public final class SessionLogger {
 	}
 
 	private static String sanitizeProfile(String profile) {
-		if (profile == null || profile.trim().isEmpty()) {
-			return "session";
+		return SessionLogSearch.sanitizeProfile(profile);
+	}
+
+	/**
+	 * Session log files for this world, newest {@code lastModified} first.
+	 *
+	 * <p>Must not run on the UI thread — {@link #getLogDirectory} touches disk.
+	 * SAF-only directories that do not map to a {@link File} cannot be listed.
+	 *
+	 * @param context Any context.
+	 * @param display Connection display name (the same string passed to
+	 *            {@link #startSession}).
+	 * @return Mutable list, never null.
+	 */
+	public static List<File> listLogFiles(Context context, String display) {
+		ArrayList<File> out = new ArrayList<File>();
+		if (context == null) {
+			return out;
 		}
-		return profile.replaceAll("[^A-Za-z0-9._-]+", "_");
+		File dir = getLogDirectory(context);
+		if (dir == null || !dir.isDirectory()) {
+			return out;
+		}
+		File[] files = dir.listFiles();
+		if (files == null) {
+			return out;
+		}
+		for (int i = 0; i < files.length; i++) {
+			File f = files[i];
+			if (f == null || !f.isFile()) {
+				continue;
+			}
+			if (SessionLogSearch.isWorldLogFileName(f.getName(), display)) {
+				out.add(f);
+			}
+		}
+		Collections.sort(out, new Comparator<File>() {
+			@Override
+			public int compare(File a, File b) {
+				long da = a.lastModified();
+				long db = b.lastModified();
+				return da < db ? 1 : (da > db ? -1 : 0);
+			}
+		});
+		return out;
+	}
+
+	/**
+	 * Entire file as UTF-8. Do not call this on the UI thread for a rotated
+	 * (up to 8 MB) log — the viewer pages instead.
+	 *
+	 * @param file Log file, or null.
+	 * @return Contents, or empty when unreadable.
+	 */
+	public static String readPlain(File file) throws IOException {
+		if (file == null || !file.isFile()) {
+			return "";
+		}
+		FileInputStream in = new FileInputStream(file);
+		try {
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			byte[] buf = new byte[8192];
+			int n;
+			while ((n = in.read(buf)) >= 0) {
+				out.write(buf, 0, n);
+			}
+			return new String(out.toByteArray(), StandardCharsets.UTF_8);
+		} finally {
+			in.close();
+		}
 	}
 }

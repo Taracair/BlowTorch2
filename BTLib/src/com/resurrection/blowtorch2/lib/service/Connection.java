@@ -667,6 +667,8 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		WidgetCommand widgetcmd = new WidgetCommand();
 		mSpecialCommands.put(widgetcmd.commandName, widgetcmd);
 		mSpecialCommands.put(WidgetCommand.ALIAS_NAME, widgetcmd);
+		com.resurrection.blowtorch2.lib.service.function.ChatCommand chatcmd = new com.resurrection.blowtorch2.lib.service.function.ChatCommand();
+		mSpecialCommands.put(chatcmd.commandName, chatcmd);
 		SettingsCommand settingscmd = new SettingsCommand();
 		mSpecialCommands.put(settingscmd.commandName, settingscmd);
 		OptionsCommand optionscmd = new OptionsCommand();
@@ -1054,7 +1056,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 
 	/**
 	 * Empty {@code obj}: honor Options (telnet 0x07 / {@code .dobell}).
-	 * {@code "alert"} or {@code "vibrate:short|long|strong"}: that reaction now,
+	 * {@code "alert"} or {@code "vibrate:short|long|strong|burst"}: that reaction now,
 	 * even if the matching option is off.
 	 */
 	private void handleBellInc(final Object spec) {
@@ -1064,9 +1066,17 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 		String pattern = BellCommand.forceVibratePattern(spec);
 		if (pattern != null) {
-			mService.doVibrateBell(
-					BellCommand.vibrateDurationMs(pattern),
-					BellCommand.vibrateAmplitude(pattern));
+			if (BellCommand.isBurst(pattern)) {
+				mService.doVibrateBellBurst(
+						BellCommand.BURST_PULSE_MS,
+						BellCommand.BURST_GAP_MS,
+						BellCommand.BURST_COUNT,
+						BellCommand.vibrateAmplitude(pattern));
+			} else {
+				mService.doVibrateBell(
+						BellCommand.vibrateDurationMs(pattern),
+						BellCommand.vibrateAmplitude(pattern));
+			}
 			return;
 		}
 		if (mSettings.isVibrateOnBell()) {

@@ -543,7 +543,8 @@ In the trigger editor:
   persisted).
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
-Replace, Toast, Notification, Speak, Set Variable text, and similar actions.
+Replace, Toast, Notification, Speak, Set Variable text, Send to thread, and
+similar actions.
 
 ### Speak Out Loud
 
@@ -825,8 +826,9 @@ whether the trigger fired. Only **Vibrate** is on by default, and a phone in
 silent mode, Do Not Disturb, or some OS profiles can still swallow
 the buzz.
 
-`.dobell vibrate` (optional `short`, `long`, or `strong`; default `short`)
-buzzes **now**, even if Options → Bell → Vibrate is off. `.dobell alert`
+`.dobell vibrate` (optional `short`, `long`, `strong`, or `burst`; default `short`)
+buzzes **now**, even if Options → Bell → Vibrate is off. `burst` is three
+quick taps — easier to feel in a pocket than short vs long. `.dobell alert`
 shows the on-screen bell icon **now**, even if Display Bell is off. Neither
 needs Notification or Display Bell. Use them to check the phone; they do not
 change those switches.
@@ -836,6 +838,22 @@ trigger that rings it sounds the same, and it plays the system notification
 sound rather than a file of your choosing. That is what **Play a Sound** above
 is for; the bell is still the quickest way to get a buzz out of a trigger
 without choosing anything.
+
+### Send to thread
+
+**Send to thread** copies a matching line into a chat thread. The line still
+appears in the game window — this does not gag it. You write the pattern;
+there is no built-in VERMIN or tell pack.
+
+    Pattern:  ^\[ VERMIN \]
+    Action:   Send to thread → thread `vermin`
+
+Thread is the conversation key (`vermin`, or `$1` for whoever sent a tell).
+Title and body are optional; a blank body stores the matched line. Reply
+template is optional (`tell $1 $text` or `c $text`). `$text` is a placeholder
+for the reply box, not a trigger capture. `$1` in the template is substituted
+when the thread is first created. History is kept in a file next to the world
+profile (capped, not unbounded).
 
 ## Recipes
 
@@ -1355,7 +1373,8 @@ is enabled; `.alias list` shows every alias at once.
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
     `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
-    `.search …`                         Scrollback search; see forms below
+    `.search …`                         Scrollback and old session logs; see forms below
+    `.chat …`                           Left-hand chat drawer (threads and reply templates); see forms below
     `.map …`                            Built-in Mapper (record/draw/links/find/path/maps); see Mapper
     `.window …`                         Extra text windows (list/show/hide/clear/create/destroy); see below
     `.widget …` / `.gauge …`            Overlay gauges (HP/mana/timer bars). `.gauge` is the same command; see below
@@ -1752,11 +1771,55 @@ on your phone.
 .search next | n
 .search prev | previous | p
 .search close | hide | clear
+.search logs
+.search logs 7 phrase
+.search logs 7 'multi word'
 ```
 
 Empty argument opens the search UI. Buttons may also use `/search 'phrase'`.
 With **Scroll dates?** on (`.when on`), `.search 14:32` or `.search 18 Aug` jumps
 to text that arrived then.
+
+`.search logs` (no phrase) opens the in-app session-log browser for this world
+(⋮ → **Session logs**). Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt` under
+`/BlowTorch/session_logs/` (or the custom directory in Options). Tap a file to
+read it; large files page with **Older** / **Newer** rather than loading the
+whole thing at once.
+
+`.search logs 7 goblin` searches the live window first, then session log files
+whose **last-modified time is older than 7 days**. Files written more recently
+than that are skipped — a log you are still appending to has mtime “now”, so
+that text is only found if it is still in the 20000-line scrollback. To search
+every saved file as well as the window, use `.search logs 0 goblin`. Quote the
+word if you mean it: `.search 'logs'` finds “logs” in the window.
+
+Tick **Logs** on the search bar and set the day count (default 7) to do the same
+from Find. The preview line shows `3 in window, 12 in logs`. After the window
+hits, **Next** walks log hits and opens the viewer scrolled to that file and
+line — the game window cannot jump into a file it does not hold.
+
+Example: you are looking for a fight from last week. `.search logs 7 goblin`
+will find “goblin” in the current scrollback, then in log files that have not
+been written to for more than a week.
+
+### `.chat` forms
+
+```
+.chat
+.chat open
+.chat close | hide
+.chat help
+```
+
+Empty argument and `open` slide the chat drawer in from the left (toggles if
+it is already open — there is no separate close binder). ✕, the dim area, or
+Back also close it. Overflow **Chat** always opens it.
+
+A thread is one conversation. Tap it to read history and reply. Send fills
+`$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set the
+template on the trigger's Send to thread action, or edit it at the top of the
+thread. Dual display (main window and the drawer) is the trigger's job; the
+drawer only shows what ChatStore holds.
 
 ## Mapper
 
@@ -2780,11 +2843,13 @@ In order, as the menu builds them (all under ⋮):
 6. **Plugins** — load / enable / remove Lua plugins
 7. **Reconnect** / **Disconnect** — same as `.reconnect` / `.disconnect`
 8. **Quit** — leave the session window
-9. **Search scrollback** — same as `.search`
-10. **Reload Settings** — re-read this world's settings from disk
-11. **Crash report** — Show log / Share log
-12. **About**
-13. **Help** — this manual
+9. **Chat** — left-hand chat drawer (same as `.chat`)
+10. **Search scrollback** — same as `.search`
+11. **Session logs** — browse this world's `.txt` session logs (same as `.search logs`)
+12. **Reload Settings** — re-read this world's settings from disk
+13. **Crash report** — Show log / Share log
+14. **About**
+15. **Help** — this manual
 
 **Export Settings**, **Import Settings** and **Reset Settings** are **not** in
 this menu — they live under **Options → Miscellaneous**, beside the storage

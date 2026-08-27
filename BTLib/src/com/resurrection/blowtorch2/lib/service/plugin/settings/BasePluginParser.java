@@ -69,6 +69,7 @@ public class BasePluginParser {
 	public static final String ATTR_SPEAKMESSAGE = "message";
 	public static final String ATTR_SPEAKINTERRUPT = "interrupt";
 	public static final String TAG_SOUNDRESPONDER = "sound";
+	public static final String TAG_CHATTHREADRESPONDER = "chatthread";
 	// soundPath is deliberately the same attribute name the notification
 	// responder already uses (ATTR_SOUNDPATH above) — same meaning, same stored
 	// form, and it is inside a different tag, so there is nothing to collide.

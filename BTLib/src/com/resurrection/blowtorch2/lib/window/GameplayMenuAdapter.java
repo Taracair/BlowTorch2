@@ -107,7 +107,9 @@ public class GameplayMenuAdapter extends BaseAdapter {
 			case 800:
 			case 900:
 				return Section.CONNECTION;
+			case 1040:
 			case 1050:
+			case 1060:
 			case 1100:
 				return Section.TOOLS;
 			case 1500:

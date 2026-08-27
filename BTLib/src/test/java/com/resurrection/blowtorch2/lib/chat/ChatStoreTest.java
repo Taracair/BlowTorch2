@@ -1,0 +1,205 @@
+package com.resurrection.blowtorch2.lib.chat;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import java.util.List;
+
+import org.junit.Test;
+
+/**
+ * Inbox append/list/search/cap without Android {@code Context}.
+ *
+ * <p>{@link ChatInbox} is the JSON + cap helper {@link ChatStore} persists
+ * through {@code AtomicFiles}. These tests call that helper (and the
+ * package-visible in-memory {@link ChatStore}) so they run on the JVM.
+ */
+public class ChatStoreTest {
+
+	@Test
+	public void appendListsAThreadWithLastBodyAndUnread() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.append("vermin", "VERMIN", "[ VERMIN ] : Taracair says, \"hi\"");
+		List<ChatThreadSummary> threads = store.listThreads();
+		assertEquals(1, threads.size());
+		ChatThreadSummary t = threads.get(0);
+		assertEquals("vermin", t.getThreadId());
+		assertEquals("VERMIN", t.getTitle());
+		assertEquals("[ VERMIN ] : Taracair says, \"hi\"", t.getLastBody());
+		assertEquals(1, t.getUnreadCount());
+		assertTrue(t.getLastWhenMs() > 0L);
+	}
+
+	@Test
+	public void secondAppendSameThreadUpdatesLastAndUnread() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("vermin", "VERMIN", "first", 1000L);
+		store.appendAt("vermin", "VERMIN", "second", 2000L);
+		List<ChatThreadSummary> threads = store.listThreads();
+		assertEquals(1, threads.size());
+		assertEquals("second", threads.get(0).getLastBody());
+		assertEquals(2000L, threads.get(0).getLastWhenMs());
+		assertEquals(2, threads.get(0).getUnreadCount());
+		List<ChatMessage> msgs = store.messages("vermin", 10);
+		assertEquals(2, msgs.size());
+		assertEquals("first", msgs.get(0).getBody());
+		assertEquals("second", msgs.get(1).getBody());
+	}
+
+	@Test
+	public void listThreadsOrdersByMostRecent() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("old", "Old", "a", 1000L);
+		store.appendAt("new", "New", "b", 3000L);
+		store.appendAt("old", "Old", "c", 2000L);
+		List<ChatThreadSummary> threads = store.listThreads();
+		assertEquals(2, threads.size());
+		assertEquals("new", threads.get(0).getThreadId());
+		assertEquals("old", threads.get(1).getThreadId());
+		assertEquals("c", threads.get(1).getLastBody());
+	}
+
+	@Test
+	public void messagesLimitReturnsTheNewestInChronologicalOrder() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("t", "T", "one", 1L);
+		store.appendAt("t", "T", "two", 2L);
+		store.appendAt("t", "T", "three", 3L);
+		List<ChatMessage> lastTwo = store.messages("t", 2);
+		assertEquals(2, lastTwo.size());
+		assertEquals("two", lastTwo.get(0).getBody());
+		assertEquals("three", lastTwo.get(1).getBody());
+	}
+
+	@Test
+	public void searchFindsBodyAndRespectsTimeBounds() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("vermin", "VERMIN", "rat gossip", 1000L);
+		store.appendAt("tells", "Tells", "Bob tells you 'hi'", 2000L);
+		store.appendAt("vermin", "VERMIN", "more rats", 3000L);
+
+		List<ChatMessage> rats = store.search("rat", null, null);
+		assertEquals(2, rats.size());
+		assertEquals("rat gossip", rats.get(0).getBody());
+		assertEquals("more rats", rats.get(1).getBody());
+
+		List<ChatMessage> bob = store.search("bob", null, null);
+		assertEquals(1, bob.size());
+		assertEquals("tells", bob.get(0).getThreadId());
+
+		List<ChatMessage> window = store.search(null, Long.valueOf(1500L), Long.valueOf(2500L));
+		assertEquals(1, window.size());
+		assertEquals("Bob tells you 'hi'", window.get(0).getBody());
+
+		List<ChatMessage> untilExclusive = store.search("rat", null, Long.valueOf(3000L));
+		assertEquals(1, untilExclusive.size());
+		assertEquals("rat gossip", untilExclusive.get(0).getBody());
+	}
+
+	@Test
+	public void capDropsOldestMessagesAcrossTheWorld() {
+		ChatInbox inbox = new ChatInbox();
+		for (int i = 0; i < ChatInbox.MAX_MESSAGES + 5; i++) {
+			inbox.append("t", "T", "msg-" + i, i);
+		}
+		assertEquals(ChatInbox.MAX_MESSAGES, inbox.messageCount());
+		List<ChatMessage> kept = inbox.messages("t", ChatInbox.MAX_MESSAGES);
+		assertEquals("msg-5", kept.get(0).getBody());
+		assertEquals("msg-" + (ChatInbox.MAX_MESSAGES + 4),
+				kept.get(kept.size() - 1).getBody());
+	}
+
+	@Test
+	public void chatStoreAppendCapsAtMax() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		for (int i = 0; i < ChatInbox.MAX_MESSAGES + 1; i++) {
+			store.appendAt("t", "T", "m" + i, i);
+		}
+		assertEquals(ChatInbox.MAX_MESSAGES, store.messages("t", Integer.MAX_VALUE).size());
+		assertEquals("m1", store.messages("t", Integer.MAX_VALUE).get(0).getBody());
+	}
+
+	@Test
+	public void jsonRoundTripPreservesMessagesAndReplyTemplate() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.append("vermin", "VERMIN", "line with \"quotes\" and \nnewline", 42L);
+		inbox.setReplyTemplate("vermin", "c $text");
+		byte[] json = inbox.toJsonBytes();
+		ChatInbox loaded = ChatInbox.fromJsonBytes(json);
+		List<ChatMessage> msgs = loaded.messages("vermin", 10);
+		assertEquals(1, msgs.size());
+		assertEquals("line with \"quotes\" and \nnewline", msgs.get(0).getBody());
+		assertEquals(42L, msgs.get(0).getWhenMs());
+		assertEquals("c $text", loaded.replyTemplate("vermin"));
+		assertEquals("VERMIN", loaded.listThreads().get(0).getTitle());
+	}
+
+	@Test
+	public void corruptJsonLoadsEmpty() {
+		ChatInbox loaded = ChatInbox.fromJsonBytes("not json".getBytes());
+		assertEquals(0, loaded.messageCount());
+		assertTrue(loaded.listThreads().isEmpty());
+	}
+
+	@Test
+	public void replyTemplateDefaultsEmptyAndSurvivesFirstSet() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		assertEquals("", store.replyTemplate("vermin"));
+		store.setReplyTemplate("vermin", "c $text");
+		assertEquals("c $text", store.replyTemplate("vermin"));
+		store.append("vermin", "VERMIN", "hello");
+		assertEquals("c $text", store.replyTemplate("vermin"));
+	}
+
+	@Test
+	public void fileNameSanitizesLikeWorldLaunch() {
+		assertEquals("MyWorld.chat.json", ChatStore.fileNameForDisplay("My World!"));
+		assertEquals("Aardwolf.chat.json", ChatStore.fileNameForDisplay("Aardwolf"));
+		assertEquals(".chat.json", ChatStore.fileNameForDisplay(""));
+		assertEquals(".chat.json", ChatStore.fileNameForDisplay(null));
+	}
+
+	@Test
+	public void emptyTitleOnLaterAppendKeepsExistingTitle() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("vermin", "VERMIN", "one", 1L);
+		store.appendAt("vermin", "", "two", 2L);
+		assertEquals("VERMIN", store.listThreads().get(0).getTitle());
+	}
+
+	@Test
+	public void markSeenZerosUnreadThenNextAppendCountsOne() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.append("vermin", "VERMIN", "hi");
+		assertEquals(1, store.listThreads().get(0).getUnreadCount());
+		store.markSeen("vermin");
+		assertEquals(0, store.listThreads().get(0).getUnreadCount());
+		store.append("vermin", "VERMIN", "again");
+		assertEquals(1, store.listThreads().get(0).getUnreadCount());
+	}
+
+	@Test
+	public void seedTemplateOnlyIfEmptyAndSameLockAsAppend() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.append("vermin", "VERMIN", "one", "c $text");
+		assertEquals("c $text", store.replyTemplate("vermin"));
+		store.append("vermin", "VERMIN", "two", "c other");
+		assertEquals("c $text", store.replyTemplate("vermin"));
+	}
+
+	@Test
+	public void capDropsGhostThreadsWithNoRemainingMessages() {
+		ChatInbox inbox = new ChatInbox();
+		for (int i = 0; i < ChatInbox.MAX_MESSAGES + 5; i++) {
+			inbox.append("t" + i, "T" + i, "msg-" + i, i);
+		}
+		assertEquals(ChatInbox.MAX_MESSAGES, inbox.messageCount());
+		List<ChatThreadSummary> threads = inbox.listThreads();
+		assertEquals(ChatInbox.MAX_MESSAGES, threads.size());
+		for (int i = 0; i < threads.size(); i++) {
+			assertFalse("ghost t0 should be gone", "t0".equals(threads.get(i).getThreadId()));
+		}
+		assertEquals("t" + (ChatInbox.MAX_MESSAGES + 4), threads.get(0).getThreadId());
+	}
+}

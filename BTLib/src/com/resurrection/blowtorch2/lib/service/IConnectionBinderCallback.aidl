@@ -165,4 +165,17 @@ oneway interface IConnectionBinderCallback {
 	 * insert this above existing methods.
 	 */
 	void doVibrateBell(int durationMs, int amplitude);
+	/**
+	 * Three (or {@code count}) short pulses. Appended after doVibrateBell.
+	 * Do not insert this above existing methods.
+	 */
+	void doVibrateBellBurst(int pulseMs, int gapMs, int count, int amplitude);
+	/** Slide the chat inbox in from the left. No-op until the panel exists. */
+	void openChatPanel();
+	/** Session-log browser. No-op until the viewer exists. */
+	void openLogHistory();
+	/** Inbox file changed for this world; UI refreshes if that world is on screen. */
+	void chatInboxUpdated(String display);
+	/** Open the chat drawer on a named thread (e.g. {@code .chat vermin}). */
+	void openChatThread(String threadId);
 }

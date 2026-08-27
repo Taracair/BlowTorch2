@@ -2,7 +2,9 @@ package com.resurrection.blowtorch2.lib.service.function;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
@@ -36,10 +38,14 @@ public class BellCommandTest {
 				BellCommand.parseDobellArgs("VIBRATE LONG"));
 		assertArrayEquals(new String[] { "vibrate", "strong" },
 				BellCommand.parseDobellArgs("vibrate strong"));
+		assertArrayEquals(new String[] { "vibrate", "burst" },
+				BellCommand.parseDobellArgs("vibrate burst"));
 		assertEquals("vibrate:long",
 				BellCommand.forceSpec(BellCommand.parseDobellArgs("vibrate long")));
 		assertEquals("vibrate:strong",
 				BellCommand.forceSpec(BellCommand.parseDobellArgs("vibrate strong")));
+		assertEquals("vibrate:burst",
+				BellCommand.forceSpec(BellCommand.parseDobellArgs("vibrate burst")));
 	}
 
 	@Test
@@ -66,7 +72,9 @@ public class BellCommandTest {
 		assertEquals(BellCommand.STRONG_MS, BellCommand.vibrateDurationMs("strong"));
 		assertEquals(300, BellCommand.SHORT_MS);
 		assertEquals(800, BellCommand.LONG_MS);
-		assertEquals(300, BellCommand.STRONG_MS);
+		assertEquals(BellCommand.BURST_PULSE_MS, BellCommand.vibrateDurationMs("burst"));
+		assertTrue(BellCommand.isBurst("burst"));
+		assertFalse(BellCommand.isBurst("short"));
 		assertEquals(BellCommand.STRONG_AMPLITUDE,
 				BellCommand.vibrateAmplitude("short"));
 		assertEquals(BellCommand.STRONG_AMPLITUDE,
