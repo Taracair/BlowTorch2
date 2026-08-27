@@ -1013,9 +1013,9 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			String id = nullToEmpty(chat.getThreadId());
 			String title = nullToEmpty(chat.getTitle());
 			if (title.length() > 0 && !title.equals(id)) {
-				return id + " · " + title;
+				return id + " · " + title + (chat.isMine() ? " · mine" : "");
 			}
-			return id;
+			return chat.isMine() ? id + " · mine" : id;
 		}
 		default:
 			return "";

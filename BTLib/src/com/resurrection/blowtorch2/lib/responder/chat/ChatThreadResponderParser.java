@@ -16,6 +16,7 @@ public final class ChatThreadResponderParser {
 	static final String ATTR_TITLE = "title";
 	static final String ATTR_BODY = "body";
 	static final String ATTR_REPLY_TEMPLATE = "replyTemplate";
+	static final String ATTR_MINE = "mine";
 
 	private ChatThreadResponderParser() {
 	}
@@ -34,6 +35,9 @@ public final class ChatThreadResponderParser {
 		out.attribute("", ATTR_TITLE, r.getTitle());
 		out.attribute("", ATTR_BODY, r.getBody());
 		out.attribute("", ATTR_REPLY_TEMPLATE, r.getReplyTemplate());
+		if (r.isMine()) {
+			out.attribute("", ATTR_MINE, "true");
+		}
 		out.attribute("", BasePluginParser.ATTR_FIRETYPE, r.getFireType().getString());
 		out.endTag("", BasePluginParser.TAG_CHATTHREADRESPONDER);
 	}

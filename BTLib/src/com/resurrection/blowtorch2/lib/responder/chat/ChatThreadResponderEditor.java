@@ -30,6 +30,7 @@ public class ChatThreadResponderEditor extends Dialog {
 	private EditText titleField;
 	private EditText bodyField;
 	private EditText replyField;
+	private android.widget.CheckBox mineBox;
 
 	public ChatThreadResponderEditor(Context context, ChatThreadResponder input,
 			TriggerResponderEditorDoneListener listener) {
@@ -81,6 +82,16 @@ public class ChatThreadResponderEditor extends Dialog {
 				"e.g. tell $1 $text  ($text is the reply box, not a capture)",
 				theResponder.getReplyTemplate(), false);
 
+		mineBox = new android.widget.CheckBox(getContext());
+		mineBox.setText("These are my lines (own bubble)");
+		mineBox.setTextColor(0xFFE8E8E8);
+		mineBox.setChecked(theResponder.isMine());
+		LinearLayout.LayoutParams mineLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		mineLp.topMargin = (int) (10.0f * density);
+		form.addView(mineBox, mineLp);
+
 		scroller.addView(form, new ScrollView.LayoutParams(
 				ScrollView.LayoutParams.MATCH_PARENT,
 				ScrollView.LayoutParams.WRAP_CONTENT));
@@ -105,6 +116,7 @@ public class ChatThreadResponderEditor extends Dialog {
 				theResponder.setTitle(titleField.getText().toString());
 				theResponder.setBody(bodyField.getText().toString());
 				theResponder.setReplyTemplate(replyField.getText().toString());
+				theResponder.setMine(mineBox != null && mineBox.isChecked());
 				if (isEditor) {
 					finishWith.editTriggerResponder(theResponder, original);
 				} else {

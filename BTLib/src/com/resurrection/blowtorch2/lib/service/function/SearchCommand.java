@@ -127,7 +127,7 @@ public class SearchCommand extends SpecialCommand {
 							+ ".search 'multi word'\n"
 							+ ".search next | prev | close\n"
 							+ ".search logs              — browse session log files\n"
-							+ ".search logs 7 goblin     — window + files older than 7 days\n"
+							+ ".search logs 7 goblin     — window + last 7 days in /BlowTorch/session_logs/\n"
 							+ ".search logs 0 goblin     — window + every saved file for this world\n"
 							+ "Also: /search 'phrase' from a button."));
 			return null;

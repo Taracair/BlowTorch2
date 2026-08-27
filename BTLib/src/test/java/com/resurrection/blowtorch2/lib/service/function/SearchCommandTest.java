@@ -164,4 +164,15 @@ public class SearchCommandTest {
 		assertTrue(SessionLogSearch.isOlderThanDays(now - 1, now, 0));
 		assertFalse(SessionLogSearch.isOlderThanDays(now, now, 0));
 	}
+
+	@Test
+	public void withinLastDaysIncludesTodayAndLiveFile() {
+		long now = 1_000_000_000_000L;
+		long day = 24L * 60L * 60L * 1000L;
+		assertTrue(SessionLogSearch.isWithinLastDays(now, now, 7));
+		assertTrue(SessionLogSearch.isWithinLastDays(now - 3 * day, now, 7));
+		assertFalse(SessionLogSearch.isWithinLastDays(now - 8 * day, now, 7));
+		assertTrue(SessionLogSearch.isWithinLastDays(now - 8 * day, now, 0));
+		assertFalse(SessionLogSearch.isWithinLastDays(now + 2 * day, now, 7));
+	}
 }

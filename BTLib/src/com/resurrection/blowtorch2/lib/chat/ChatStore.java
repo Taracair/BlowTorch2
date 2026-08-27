@@ -33,6 +33,10 @@ import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
  */
 public final class ChatStore {
 
+	public static final int[] MINE_COLOR_PRESETS = new int[] {
+			0xFF1B6B66, 0xFF1A4A7A, 0xFF7A5A14, 0xFF6A1A4A
+	};
+
 	static final int MAX_MESSAGES = ChatInbox.MAX_MESSAGES;
 
 	private static final Pattern NON_WORD = Pattern.compile("\\W");
@@ -112,16 +116,36 @@ public final class ChatStore {
 	 */
 	public void append(String threadId, String title, String body,
 			String seedTemplateIfEmpty) {
+		append(threadId, title, body, seedTemplateIfEmpty, false);
+	}
+
+	/**
+	 * Trigger copy. {@code mine} paints an own-bubble. A configured name
+	 * needle can also mark the line even when {@code mine} is false.
+	 */
+	public void append(String threadId, String title, String body,
+			String seedTemplateIfEmpty, boolean mine) {
 		appendAt(threadId, title, body, System.currentTimeMillis(),
-				seedTemplateIfEmpty);
+				seedTemplateIfEmpty, mine, !mine);
+	}
+
+	/** Typed Send: own bubble immediately, not an unread badge. */
+	public void appendOutgoing(String threadId, String title, String body) {
+		appendAt(threadId, title, body, System.currentTimeMillis(),
+				null, true, false);
 	}
 
 	void appendAt(String threadId, String title, String body, long whenMs) {
-		appendAt(threadId, title, body, whenMs, null);
+		appendAt(threadId, title, body, whenMs, null, false, true);
 	}
 
 	void appendAt(String threadId, String title, String body, long whenMs,
 			String seedTemplateIfEmpty) {
+		appendAt(threadId, title, body, whenMs, seedTemplateIfEmpty, false, true);
+	}
+
+	void appendAt(String threadId, String title, String body, long whenMs,
+			String seedTemplateIfEmpty, boolean mine, boolean countUnread) {
 		boolean wrote;
 		synchronized (lock) {
 			wrote = mutateUnderFileLock(() -> {
@@ -131,12 +155,56 @@ public final class ChatStore {
 						inbox.setReplyTemplate(threadId, seedTemplateIfEmpty);
 					}
 				}
-				inbox.append(threadId, title, body, whenMs);
+				boolean isMine = mine || inbox.bodyLooksMine(body);
+				if (inbox.absorbRecentMine(threadId, body, whenMs, isMine)) {
+					return true;
+				}
+				inbox.append(threadId, title, body, whenMs, isMine,
+						countUnread && !isMine);
 				return true;
 			});
 		}
 		if (wrote) {
 			notifyInboxUpdated();
+		}
+	}
+
+	public String mineNeedle() {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.mineNeedle();
+		}
+	}
+
+	public void setMineNeedle(String needle) {
+		synchronized (lock) {
+			mutateUnderFileLock(() -> {
+				inbox.setMineNeedle(needle);
+				return true;
+			});
+		}
+	}
+
+	public int mineColorArgb() {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.mineColor();
+		}
+	}
+
+	public void setMineColorArgb(int argb) {
+		synchronized (lock) {
+			mutateUnderFileLock(() -> {
+				inbox.setMineColor(argb);
+				return true;
+			});
+		}
+	}
+
+	public int otherColorArgb() {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.otherColor();
 		}
 	}
 

@@ -23,6 +23,9 @@ import org.json.JSONObject;
 final class ChatInbox {
 
 	static final int MAX_MESSAGES = 4000;
+	static final int DEFAULT_MINE_COLOR = 0xFF1B6B66;
+	static final int DEFAULT_OTHER_COLOR = 0xFF333333;
+	static final long ABSORB_MINE_MS = 8000L;
 	private static final Charset UTF8 = Charset.forName("UTF-8");
 
 	private static final class ThreadState {
@@ -42,8 +45,16 @@ final class ChatInbox {
 	private final LinkedHashMap<String, ThreadState> threads =
 			new LinkedHashMap<String, ThreadState>();
 	private final ArrayList<ChatMessage> messages = new ArrayList<ChatMessage>();
+	private String mineNeedle = "";
+	private int mineColor = DEFAULT_MINE_COLOR;
+	private int otherColor = DEFAULT_OTHER_COLOR;
 
 	void append(String threadId, String title, String body, long whenMs) {
+		append(threadId, title, body, whenMs, false, true);
+	}
+
+	void append(String threadId, String title, String body, long whenMs,
+			boolean mine, boolean countUnread) {
 		String id = threadId == null ? "" : threadId;
 		String resolvedTitle = title == null || title.length() == 0 ? id : title;
 		String resolvedBody = body == null ? "" : body;
@@ -54,9 +65,93 @@ final class ChatInbox {
 		} else if (title != null && title.length() > 0) {
 			state.title = title;
 		}
-		state.unreadCount++;
-		messages.add(new ChatMessage(id, resolvedTitle, resolvedBody, whenMs));
+		if (countUnread) {
+			state.unreadCount++;
+		}
+		messages.add(new ChatMessage(id, resolvedTitle, resolvedBody, whenMs, mine));
 		capOldest();
+	}
+
+	/**
+	 * Last mine bubble in this thread was the typed reply; the MUD echo just
+	 * arrived. Replace the short local line with the full echo, still mine.
+	 * Walks past other people's lines so a busy channel does not block absorb.
+	 *
+	 * @param markMine upgrade the kept bubble to mine when the trigger said so
+	 * @return true when the file should be persisted
+	 */
+	boolean absorbRecentMine(String threadId, String incomingBody, long whenMs,
+			boolean markMine) {
+		String id = threadId == null ? "" : threadId;
+		String incoming = incomingBody == null ? "" : incomingBody;
+		if (incoming.length() == 0) {
+			return false;
+		}
+		for (int i = messages.size() - 1; i >= 0; i--) {
+			ChatMessage m = messages.get(i);
+			if (!id.equals(m.getThreadId())) {
+				continue;
+			}
+			if (whenMs - m.getWhenMs() > ABSORB_MINE_MS) {
+				continue;
+			}
+			if (incoming.equals(m.getBody())) {
+				if (markMine && !m.isMine()) {
+					messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(),
+							incoming, whenMs, true));
+					return true;
+				}
+				return false;
+			}
+			if (!m.isMine()) {
+				continue;
+			}
+			String prev = m.getBody();
+			if (prev.length() == 0) {
+				continue;
+			}
+			boolean quoted = incoming.indexOf("\"" + prev + "\"") >= 0
+					|| incoming.indexOf("'" + prev + "'") >= 0;
+			if (!quoted && (prev.length() < 4 || incoming.indexOf(prev) < 0)) {
+				continue;
+			}
+			messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(), incoming,
+					whenMs, true));
+			return true;
+		}
+		return false;
+	}
+
+	boolean bodyLooksMine(String body) {
+		String needle = mineNeedle == null ? "" : mineNeedle.trim();
+		if (needle.length() < 2 || body == null) {
+			return false;
+		}
+		return body.toLowerCase(Locale.US).indexOf(needle.toLowerCase(Locale.US)) >= 0;
+	}
+
+	String mineNeedle() {
+		return mineNeedle == null ? "" : mineNeedle;
+	}
+
+	void setMineNeedle(String needle) {
+		mineNeedle = needle == null ? "" : needle;
+	}
+
+	int mineColor() {
+		return mineColor;
+	}
+
+	void setMineColor(int argb) {
+		mineColor = argb;
+	}
+
+	int otherColor() {
+		return otherColor;
+	}
+
+	void setOtherColor(int argb) {
+		otherColor = argb;
 	}
 
 	void capOldest() {
@@ -198,6 +293,9 @@ final class ChatInbox {
 	byte[] toJsonBytes() {
 		try {
 			JSONObject root = new JSONObject();
+			root.put("mineNeedle", mineNeedle == null ? "" : mineNeedle);
+			root.put("mineColor", mineColor);
+			root.put("otherColor", otherColor);
 			JSONArray threadArr = new JSONArray();
 			for (ThreadState state : threads.values()) {
 				JSONObject t = new JSONObject();
@@ -215,6 +313,7 @@ final class ChatInbox {
 				o.put("title", m.getTitle());
 				o.put("body", m.getBody());
 				o.put("whenMs", m.getWhenMs());
+				o.put("mine", m.isMine());
 				messageArr.put(o);
 			}
 			root.put("threads", threadArr);
@@ -242,6 +341,9 @@ final class ChatInbox {
 		}
 		try {
 			JSONObject root = new JSONObject(raw);
+			inbox.mineNeedle = root.optString("mineNeedle", "");
+			inbox.mineColor = root.optInt("mineColor", DEFAULT_MINE_COLOR);
+			inbox.otherColor = root.optInt("otherColor", DEFAULT_OTHER_COLOR);
 			JSONArray threadArr = root.optJSONArray("threads");
 			if (threadArr != null) {
 				for (int i = 0; i < threadArr.length(); i++) {
@@ -271,7 +373,8 @@ final class ChatInbox {
 							id,
 							title,
 							o.optString("body", ""),
-							o.optLong("whenMs", 0L)));
+							o.optLong("whenMs", 0L),
+							o.optBoolean("mine", false)));
 					if (!inbox.threads.containsKey(id)) {
 						inbox.threads.put(id, new ThreadState(id, title, "", 0));
 					}

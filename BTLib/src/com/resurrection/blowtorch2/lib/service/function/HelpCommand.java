@@ -594,17 +594,15 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .search next|n | prev|previous|p\n"
 					+ "  .search close|hide|clear\n"
 					+ "  .search logs              — browse this world's session log files\n"
-					+ "  .search logs 7 goblin     — window, then files with mtime older than 7 days\n"
+					+ "  .search logs 7 goblin     — window, then last 7 days of files\n"
 					+ "  .search logs 7 'multi word'\n"
 					+ "  .search logs 0 goblin     — window plus every saved file for this world\n"
 					+ "  .search 'logs'            — find the word logs in the window\n"
 					+ "  .search 14:32 | 18 Aug  — when Scroll dates is on\n"
-					+ "N is days: files whose last-modified is older than N days are searched,\n"
-					+ "plus the live window first. Recent files (mtime within N days) are not.\n"
-					+ "A file you are still writing to has mtime now, so it is skipped here —\n"
-					+ "that text is in the window if it is still in the 20000-line scrollback.\n"
-					+ "Example: .search logs 7 goblin while looking for a fight from last week\n"
-					+ "(in a log that has not been written to since then).\n";
+					+ "Logs live in /BlowTorch/session_logs/ as {world}_{date}.txt\n"
+					+ "(or the folder in Options → Service → Log Session directory).\n"
+					+ "N is last N days including today; 0 = all files. Enable Log Session\n"
+					+ "to File? or there is nothing to search.\n";
 		}
 		if (filter.equals("chat")) {
 			return "\n"
@@ -614,7 +612,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .chat close | hide     same toggle; or tap ✕ / the dim area\n"
 					+ "  .chat vermin           open that thread\n"
 					+ "  .chat help\n"
-					+ "  Also: overflow ⋮ → Chat\n";
+					+ "  Also: overflow ⋮ → Chat\n"
+					+ "Type your character name in Me so your lines get a different bubble.\n"
+					+ "Or a second Send to thread action with These are my lines ticked.\n";
 		}
 		return null;
 	}

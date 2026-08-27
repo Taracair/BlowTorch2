@@ -8090,21 +8090,34 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			public void run() {
 				final ArrayList<SessionLogSearch.Hit> found =
 						new ArrayList<SessionLogSearch.Hit>();
-				List<File> files = SessionLogger.listLogFiles(app, display);
-				long now = System.currentTimeMillis();
-				for (int i = 0; i < files.size() && found.size() < SessionLogSearch.MAX_HITS; i++) {
-					File f = files.get(i);
-					if (!SessionLogSearch.isOlderThanDays(f.lastModified(), now, days)) {
-						continue;
+				int fileCount = 0;
+				int scanned = 0;
+				String folder = "";
+				try {
+					File dir = SessionLogger.getLogDirectory(app);
+					folder = dir != null ? dir.getAbsolutePath() : "";
+					List<File> files = SessionLogger.listLogFiles(app, display);
+					fileCount = files.size();
+					long now = System.currentTimeMillis();
+					for (int i = 0; i < files.size() && found.size() < SessionLogSearch.MAX_HITS; i++) {
+						File f = files.get(i);
+						if (!SessionLogSearch.isWithinLastDays(f.lastModified(), now, days)) {
+							continue;
+						}
+						scanned++;
+						try {
+							SessionLogSearch.searchFile(f, query, caseSensitive,
+									SessionLogSearch.MAX_HITS - found.size(), found);
+						} catch (IOException e) {
+							android.util.Log.w("BlowTorch", "session log search: " + f.getName(), e);
+						}
 					}
-					try {
-						SessionLogSearch.searchFile(f, query, caseSensitive,
-								SessionLogSearch.MAX_HITS - found.size(), found);
-					} catch (IOException e) {
-						android.util.Log.w("BlowTorch", "session log search: " + f.getName(), e);
-					}
+				} catch (RuntimeException e) {
+					android.util.Log.w("BlowTorch", "session log search", e);
 				}
-				final int fileCount = files.size();
+				final int totalFiles = fileCount;
+				final int scannedFiles = scanned;
+				final String folderLabel = folder;
 				myhandler.post(new Runnable() {
 					@Override
 					public void run() {
@@ -8122,23 +8135,32 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						}
 						updateScrollbackSearchUi();
 						if (mScrollbackSearchPreview != null) {
+							String where = folderLabel.length() == 0
+									? "/BlowTorch/session_logs/"
+									: folderLabel;
 							if (windowN == 0 && mScrollbackLogHits.isEmpty()) {
+								String span = days <= 0
+										? "all saved files"
+										: "the last " + days + " day"
+												+ (days == 1 ? "" : "s");
 								mScrollbackSearchPreview.setText(
-										"No matches in the window or in log files older than "
-										+ days + " day" + (days == 1 ? "" : "s")
-										+ " (" + fileCount + " file"
-										+ (fileCount == 1 ? "" : "s") + " for this world).");
+										"No matches in the window or in " + span
+										+ ".\n" + where
+										+ " (" + scannedFiles + " of " + totalFiles
+										+ " file" + (totalFiles == 1 ? "" : "s")
+										+ " for this world).");
 							} else {
 								String body = mScrollbackSearchPreview.getText() != null
 										? mScrollbackSearchPreview.getText().toString() : "";
 								int nl = body.indexOf('\n');
 								String rest = nl >= 0 ? body.substring(nl) : "";
+								String label = searchSplitLabel() + " · " + where;
 								if (rest.length() == 0 && windowN > 0) {
 									// Keep whatever jumpToScrollbackSearchHit last showed.
 								} else if (rest.length() > 0) {
-									mScrollbackSearchPreview.setText(searchSplitLabel() + rest);
+									mScrollbackSearchPreview.setText(label + rest);
 								} else if (!mScrollbackLogHits.isEmpty()) {
-									mScrollbackSearchPreview.setText(searchSplitLabel());
+									mScrollbackSearchPreview.setText(label);
 								}
 							}
 						}

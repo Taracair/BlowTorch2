@@ -779,10 +779,12 @@ that arrived then.
 
 Session log files (this world only):
   .search logs                 browse the files
-  .search logs 7 goblin        window, then files older than 7 days
+  .search logs 7 goblin        window, then last 7 days of files
   .search logs 0 goblin        window plus every saved file
   .search 'logs'               still finds the word “logs” in the window
-Overflow ⋮ → Session logs opens the same browser.]])
+Files are {world}_{date}.txt in /BlowTorch/session_logs/ (or the folder
+in Options → Service). Tick Logs on the search bar; N is last N days
+including today. Overflow ⋮ → Session logs opens the same browser.]])
 end
 
 TOPICS.chat = function()
@@ -813,6 +815,13 @@ Example — Vermin channel:
   Reply:            c $text
 
 Then .chat, tap vermin, type a line, Send — the world gets c your text.
+
+Your lines
+  Type your character name in Me at the top of the drawer (Taracair).
+  Matching lines get a different bubble (dots pick the colour).
+  Send from the drawer also paints an own-bubble immediately.
+  Optional: a second trigger, pattern ^\[ VERMIN \]: Taracair
+  Action Send to thread, same Thread, tick These are my lines.
 
 Search at the top of the list filters threads. Dual display (main window
 and the drawer) is the trigger's job; the drawer only shows what was

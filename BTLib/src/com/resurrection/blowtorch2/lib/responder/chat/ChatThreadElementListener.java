@@ -30,6 +30,8 @@ public class ChatThreadElementListener implements StartElementListener {
 		r.setBody(orEmpty(a.getValue("", ChatThreadResponderParser.ATTR_BODY)));
 		r.setReplyTemplate(
 				orEmpty(a.getValue("", ChatThreadResponderParser.ATTR_REPLY_TEMPLATE)));
+		String mineRaw = a.getValue("", ChatThreadResponderParser.ATTR_MINE);
+		r.setMine("true".equalsIgnoreCase(mineRaw) || "1".equals(mineRaw));
 		String fireType = a.getValue("", BasePluginParser.ATTR_FIRETYPE);
 		if (fireType == null) {
 			fireType = "";

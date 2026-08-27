@@ -73,10 +73,21 @@ public final class SessionLogSearch {
 	}
 
 	/**
-	 * {@code true} when {@code lastModified} is strictly before {@code now}
-	 * minus {@code days}. {@code days = 0} therefore means “any file whose
-	 * mtime is not in the future”, i.e. essentially every file on disk.
+	 * {@code true} when the file is in the last {@code days} (including
+	 * today). {@code days = 0} means every file on disk, not “older than”.
 	 */
+	public static boolean isWithinLastDays(long lastModifiedMs, long nowMs, int days) {
+		if (lastModifiedMs > nowMs + 60L * 1000L) {
+			return false;
+		}
+		int d = days < 0 ? 0 : days;
+		if (d == 0) {
+			return true;
+		}
+		long cutoff = nowMs - (long) d * MS_PER_DAY;
+		return lastModifiedMs >= cutoff;
+	}
+
 	public static boolean isOlderThanDays(long lastModifiedMs, long nowMs, int days) {
 		int d = days < 0 ? 0 : days;
 		long cutoff = nowMs - (long) d * MS_PER_DAY;

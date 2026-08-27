@@ -3,40 +3,60 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingTop="8dp"
-    android:paddingBottom="4dp">
+    android:paddingTop="4dp"
+    android:paddingBottom="2dp">
 
     <TextView
         android:id="@+id/chat_msg_day"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:paddingTop="8dp"
-        android:paddingBottom="6dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="8dp"
         android:textColor="@color/chrome_section_text"
         android:textSize="11sp"
         android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/chat_msg_title"
+    <LinearLayout
+        android:id="@+id/chat_msg_align"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="@color/chrome_chip_text"
-        android:textSize="11sp" />
+        android:orientation="horizontal"
+        android:gravity="start">
 
-    <TextView
-        android:id="@+id/chat_msg_body"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingTop="2dp"
-        android:textColor="@color/chrome_title_text"
-        android:textSize="14sp" />
+        <LinearLayout
+            android:id="@+id/chat_msg_bubble"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/chat_bubble"
+            android:orientation="vertical"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
 
-    <TextView
-        android:id="@+id/chat_msg_when"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingTop="2dp"
-        android:textColor="@color/chrome_hint"
-        android:textSize="10sp" />
+            <TextView
+                android:id="@+id/chat_msg_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#B0B8C0"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/chat_msg_body"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:textColor="#FFF4F4F4"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/chat_msg_when"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingTop="4dp"
+                android:textColor="#80FFFFFF"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

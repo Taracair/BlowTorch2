@@ -202,4 +202,68 @@ public class ChatStoreTest {
 		}
 		assertEquals("t" + (ChatInbox.MAX_MESSAGES + 4), threads.get(0).getThreadId());
 	}
+
+	@Test
+	public void mineNeedleMarksIncomingAndDoesNotBadge() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.setMineNeedle("Taracair");
+		store.appendAt("vermin", "VERMIN", "[ VERMIN ]: Elyak waves.", 1L);
+		store.appendAt("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"Test\"", 2L);
+		List<ChatMessage> msgs = store.messages("vermin", 10);
+		assertFalse(msgs.get(0).isMine());
+		assertTrue(msgs.get(1).isMine());
+		assertEquals(1, store.listThreads().get(0).getUnreadCount());
+	}
+
+	@Test
+	public void outgoingIsMineWithoutUnreadThenEchoIsAbsorbed() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("vermin", "You", "Test");
+		assertEquals(0, store.listThreads().get(0).getUnreadCount());
+		assertTrue(store.messages("vermin", 10).get(0).isMine());
+		store.appendAt("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"Test\"",
+				System.currentTimeMillis(), null, true, false);
+		List<ChatMessage> msgs = store.messages("vermin", 10);
+		assertEquals(1, msgs.size());
+		assertTrue(msgs.get(0).isMine());
+		assertTrue(msgs.get(0).getBody().contains("Taracair"));
+	}
+
+	@Test
+	public void absorbSkipsOtherPeoplesLinesInBetween() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendOutgoing("vermin", "You", "Test");
+		store.appendAt("vermin", "VERMIN", "[ VERMIN ]: Elyak waves.",
+				System.currentTimeMillis());
+		store.appendAt("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"Test\"",
+				System.currentTimeMillis(), null, true, false);
+		List<ChatMessage> msgs = store.messages("vermin", 10);
+		assertEquals(2, msgs.size());
+		assertTrue(msgs.get(0).isMine());
+		assertTrue(msgs.get(0).getBody().contains("Taracair"));
+		assertFalse(msgs.get(1).isMine());
+	}
+
+	@Test
+	public void triggerMineFlagPaintsOwnBubble() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.append("vermin", "VERMIN", "I said this", null, true);
+		assertTrue(store.messages("vermin", 1).get(0).isMine());
+		assertEquals(0, store.listThreads().get(0).getUnreadCount());
+	}
+
+	@Test
+	public void jsonRoundTripPreservesMineAndNeedle() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineNeedle("Taracair");
+		inbox.setMineColor(0xFF123456);
+		inbox.append("vermin", "VERMIN", "hello", 1L, true, false);
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals("Taracair", loaded.mineNeedle());
+		assertEquals(0xFF123456, loaded.mineColor());
+		assertTrue(loaded.messages("vermin", 1).get(0).isMine());
+	}
 }

@@ -13,8 +13,10 @@ import com.resurrection.blowtorch2.lib.chat.ChatMessage;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.chat.ChatThreadSummary;
 
+import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -64,6 +66,8 @@ public class ChatPanelController {
 	private LinearLayout messageList;
 	private EditText replyBox;
 	private TextView sendBtn;
+	private EditText mineNameBox;
+	private LinearLayout mineColors;
 	private String openThreadId;
 	private String searchQuery = "";
 	private boolean attached;
@@ -93,6 +97,7 @@ public class ChatPanelController {
 			return;
 		}
 		bindStore();
+		bindMineRow();
 		showInbox();
 		slideIn();
 	}
@@ -120,6 +125,7 @@ public class ChatPanelController {
 			onImeLift(activity.getChromeController().getImeLiftPx());
 		}
 		bindStore();
+		bindMineRow();
 		if (!visible) {
 			showThread(threadId, true);
 			slideIn();
@@ -140,6 +146,7 @@ public class ChatPanelController {
 			return;
 		}
 		bindStore();
+		bindMineRow();
 		if (openThreadId != null) {
 			showThread(openThreadId, false);
 		} else {
@@ -149,8 +156,8 @@ public class ChatPanelController {
 
 	/**
 	 * Pin like extra-text (ChromeController would otherwise lift unmarked
-	 * children with the IME). Pad the drawer so the reply field stays above
-	 * the keyboard.
+	 * children with the IME). Pad the drawer by the game input bar height
+	 * plus the IME, so Send sits above that bar instead of under it.
 	 */
 	public void onImeLift(int liftPx) {
 		if (root == null) {
@@ -158,10 +165,30 @@ public class ChatPanelController {
 		}
 		root.setTranslationY(0f);
 		if (drawer != null) {
-			int pad = Math.max(0, liftPx);
+			int pad = Math.max(0, liftPx) + gameplayInputBarHeight();
 			drawer.setPadding(drawer.getPaddingLeft(), drawer.getPaddingTop(),
 					drawer.getPaddingRight(), pad);
 		}
+	}
+
+	private int gameplayInputBarHeight() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || activity.getChromeController() == null) {
+			return 0;
+		}
+		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
+		if (rl == null) {
+			return 0;
+		}
+		View bar = activity.getChromeController().findGameplayInputBar(rl);
+		if (bar == null || bar.getVisibility() == View.GONE) {
+			return 0;
+		}
+		int h = bar.getHeight();
+		if (h <= 0) {
+			h = bar.getMeasuredHeight();
+		}
+		return Math.max(0, h);
 	}
 
 	public void detach() {
@@ -222,6 +249,8 @@ public class ChatPanelController {
 		messageList = (LinearLayout) root.findViewById(R.id.chat_message_list);
 		replyBox = (EditText) root.findViewById(R.id.chat_reply);
 		sendBtn = (TextView) root.findViewById(R.id.chat_send);
+		mineNameBox = (EditText) root.findViewById(R.id.chat_mine_name);
+		mineColors = (LinearLayout) root.findViewById(R.id.chat_mine_colors);
 
 		int width = (int) (activity.getResources().getDisplayMetrics().widthPixels * 0.80f);
 		if (drawer != null) {
@@ -316,6 +345,83 @@ public class ChatPanelController {
 				}
 			});
 		}
+		wireMineRow();
+	}
+
+	private void wireMineRow() {
+		if (mineNameBox != null) {
+			mineNameBox.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+				@Override
+				public void onFocusChange(View v, boolean hasFocus) {
+					if (!hasFocus) {
+						saveMineName();
+					}
+				}
+			});
+		}
+		paintMineColorChips();
+	}
+
+	private void paintMineColorChips() {
+		if (mineColors == null) {
+			return;
+		}
+		mineColors.removeAllViews();
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		float d = activity.getResources().getDisplayMetrics().density;
+		int size = (int) (22 * d);
+		int gap = (int) (6 * d);
+		int selected = store().mineColorArgb();
+		for (int i = 0; i < ChatStore.MINE_COLOR_PRESETS.length; i++) {
+			final int color = ChatStore.MINE_COLOR_PRESETS[i];
+			View chip = new View(activity);
+			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
+			if (i > 0) {
+				lp.leftMargin = gap;
+			}
+			chip.setLayoutParams(lp);
+			GradientDrawable shape = new GradientDrawable();
+			shape.setShape(GradientDrawable.OVAL);
+			shape.setColor(color);
+			if (color == selected) {
+				shape.setStroke((int) (2 * d), 0xFFFFFFFF);
+			}
+			chip.setBackground(shape);
+			chip.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					store().setMineColorArgb(color);
+					paintMineColorChips();
+					if (openThreadId != null) {
+						populateMessages(store().messages(openThreadId, MESSAGE_LIMIT));
+					}
+				}
+			});
+			mineColors.addView(chip);
+		}
+	}
+
+	private void bindMineRow() {
+		if (mineNameBox == null) {
+			return;
+		}
+		String needle = store().mineNeedle();
+		String shown = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString();
+		if (!shown.equals(needle)) {
+			mineNameBox.setText(needle);
+		}
+		paintMineColorChips();
+	}
+
+	private void saveMineName() {
+		if (mineNameBox == null) {
+			return;
+		}
+		String typed = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString().trim();
+		store().setMineNeedle(typed);
 	}
 
 	private int drawerWidthPx() {
@@ -340,6 +446,18 @@ public class ChatPanelController {
 		visible = true;
 		root.setVisibility(View.VISIBLE);
 		bringUnderChrome();
+		MainWindow activity = host.getMainWindow();
+		if (activity != null && activity.getChromeController() != null) {
+			onImeLift(activity.getChromeController().getImeLiftPx());
+			drawer.post(new Runnable() {
+				@Override
+				public void run() {
+					if (visible && activity.getChromeController() != null) {
+						onImeLift(activity.getChromeController().getImeLiftPx());
+					}
+				}
+			});
+		}
 		drawer.animate().cancel();
 		drawer.setTranslationX(-drawerWidthPx());
 		drawer.animate().translationX(0f).setDuration(SLIDE_MS).start();
@@ -564,6 +682,8 @@ public class ChatPanelController {
 		DateFormat timeFmt = DateFormat.getTimeInstance(DateFormat.SHORT, Locale.getDefault());
 		int lastDay = Integer.MIN_VALUE;
 		Calendar cal = Calendar.getInstance();
+		ChatStore store = store();
+		String threadTitle = openThreadId == null ? "" : openThreadId;
 		for (int i = 0; i < messages.size(); i++) {
 			ChatMessage m = messages.get(i);
 			if (m == null) {
@@ -571,6 +691,8 @@ public class ChatPanelController {
 			}
 			View row = inflater.inflate(R.layout.chat_message_row, messageList, false);
 			TextView day = (TextView) row.findViewById(R.id.chat_msg_day);
+			LinearLayout align = (LinearLayout) row.findViewById(R.id.chat_msg_align);
+			LinearLayout bubble = (LinearLayout) row.findViewById(R.id.chat_msg_bubble);
 			TextView title = (TextView) row.findViewById(R.id.chat_msg_title);
 			TextView body = (TextView) row.findViewById(R.id.chat_msg_body);
 			TextView when = (TextView) row.findViewById(R.id.chat_msg_when);
@@ -581,10 +703,34 @@ public class ChatPanelController {
 				day.setText(dayFmt.format(new Date(m.getWhenMs())));
 				lastDay = dayKey;
 			}
+			boolean mine = m.isMine();
+			if (align != null) {
+				align.setGravity(mine ? Gravity.END : Gravity.START);
+			}
+			if (bubble != null) {
+				int max = messageList.getWidth();
+				if (max < 8) {
+					max = (int) (activity.getResources().getDisplayMetrics().widthPixels * 0.80f);
+				}
+				int cap = (int) (max * 0.88f);
+				if (body != null) {
+					body.setMaxWidth(cap);
+				}
+				if (title != null) {
+					title.setMaxWidth(cap);
+				}
+				GradientDrawable bg = new GradientDrawable();
+				bg.setCornerRadius(14 * activity.getResources().getDisplayMetrics().density);
+				bg.setColor(mine ? store.mineColorArgb() : store.otherColorArgb());
+				bubble.setBackground(bg);
+			}
 			if (title != null) {
-				String t = m.getTitle();
-				title.setText(t == null ? "" : t);
-				title.setVisibility(t == null || t.length() == 0 ? View.GONE : View.VISIBLE);
+				String t = mine ? "You" : (m.getTitle() == null ? "" : m.getTitle());
+				if (!mine && (t.equals(openThreadId) || t.equals(threadTitle))) {
+					t = "";
+				}
+				title.setText(t);
+				title.setVisibility(t.length() == 0 ? View.GONE : View.VISIBLE);
 			}
 			if (body != null) {
 				body.setText(m.getBody() == null ? "" : m.getBody());
@@ -645,8 +791,14 @@ public class ChatPanelController {
 		if (line.trim().length() == 0) {
 			return;
 		}
+		saveMineName();
+		String typed = text.trim();
+		if (typed.length() > 0) {
+			store.appendOutgoing(openThreadId, "You", typed);
+		}
 		host.sendCommand(line);
 		replyBox.setText("");
+		populateMessages(store.messages(openThreadId, MESSAGE_LIMIT));
 	}
 
 	private ChatStore store() {

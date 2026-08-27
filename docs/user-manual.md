@@ -852,8 +852,11 @@ Thread is the conversation key (`vermin`, or `$1` for whoever sent a tell).
 Title and body are optional; a blank body stores the matched line. Reply
 template is optional (`tell $1 $text` or `c $text`). `$text` is a placeholder
 for the reply box, not a trigger capture. `$1` in the template is substituted
-when the thread is first created. History is kept in a file next to the world
-profile (capped, not unbounded).
+when the thread is first created. Tick **These are my lines** so matching
+lines get your bubble colour. You can also type your character name in **Me**
+at the top of the chat drawer — any stored line containing that name is
+painted as yours. History is kept in a file next to the world profile
+(capped, not unbounded).
 
 ## Recipes
 
@@ -1787,20 +1790,20 @@ read it; large files page with **Older** / **Newer** rather than loading the
 whole thing at once.
 
 `.search logs 7 goblin` searches the live window first, then session log files
-whose **last-modified time is older than 7 days**. Files written more recently
-than that are skipped — a log you are still appending to has mtime “now”, so
-that text is only found if it is still in the 20000-line scrollback. To search
-every saved file as well as the window, use `.search logs 0 goblin`. Quote the
-word if you mean it: `.search 'logs'` finds “logs” in the window.
+from the **last 7 days** (including today's file) in `/BlowTorch/session_logs/`
+— or the folder in Options → Service → Log Session directory. A file you are
+still writing to is included. To search every saved file as well as the window,
+use `.search logs 0 goblin`. Quote the word if you mean it: `.search 'logs'`
+finds “logs” in the window.
 
 Tick **Logs** on the search bar and set the day count (default 7) to do the same
-from Find. The preview line shows `3 in window, 12 in logs`. After the window
-hits, **Next** walks log hits and opens the viewer scrolled to that file and
-line — the game window cannot jump into a file it does not hold.
+from Find. The preview line shows `3 in window, 12 in logs` and the folder path.
+After the window hits, **Next** walks log hits and opens the viewer scrolled to
+that file and line — the game window cannot jump into a file it does not hold.
 
-Example: you are looking for a fight from last week. `.search logs 7 goblin`
-will find “goblin” in the current scrollback, then in log files that have not
-been written to for more than a week.
+Example: you are looking for a fight from earlier this week. `.search logs 7 goblin`
+will find “goblin” in the current scrollback, then in this world's log files
+touched in the last 7 days.
 
 ### `.chat` forms
 
@@ -1818,8 +1821,10 @@ Back also close it. Overflow **Chat** always opens it.
 A thread is one conversation. Tap it to read history and reply. Send fills
 `$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set the
 template on the trigger's Send to thread action, or edit it at the top of the
-thread. Dual display (main window and the drawer) is the trigger's job; the
-drawer only shows what ChatStore holds.
+thread. Type your name in **Me** (and pick a bubble colour) so your lines stand
+out; Send from the drawer paints an own-bubble immediately. Dual display (main
+window and the drawer) is the trigger's job; the drawer only shows what
+ChatStore holds.
 
 ## Mapper
 

@@ -276,7 +276,8 @@ public class LogHistoryDialog extends Dialog {
 								mList.setVisibility(View.VISIBLE);
 								mSubtitle.setText(mFiles.size() + " file"
 										+ (mFiles.size() == 1 ? "" : "s")
-										+ " for " + mDisplay);
+										+ " for " + mDisplay + "\n"
+										+ mFiles.get(0).getParent());
 							}
 						}
 					}

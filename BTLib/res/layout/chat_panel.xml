@@ -81,6 +81,54 @@
             android:background="@color/game_chrome_edge" />
 
         <LinearLayout
+            android:id="@+id/chat_me_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Me"
+                android:textColor="@color/chrome_description"
+                android:textSize="12sp" />
+
+            <EditText
+                android:id="@+id/chat_mine_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginLeft="8dp"
+                android:background="@drawable/input_bar_bg"
+                android:hint="your name"
+                android:importantForAutofill="no"
+                android:inputType="text"
+                android:maxLines="1"
+                android:padding="6dp"
+                android:textColor="@color/chrome_title_text"
+                android:textColorHint="@color/chrome_hint"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:id="@+id/chat_mine_colors"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/game_chrome_edge" />
+
+        <LinearLayout
             android:id="@+id/chat_inbox"
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -198,9 +246,12 @@
                 android:id="@+id/chat_reply_row"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="bottom"
+                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="8dp">
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="10dp">
 
                 <EditText
                     android:id="@+id/chat_reply"
@@ -213,7 +264,7 @@
                     android:importantForAutofill="no"
                     android:inputType="textMultiLine"
                     android:maxLines="4"
-                    android:minHeight="40dp"
+                    android:minHeight="44dp"
                     android:padding="8dp"
                     android:textColor="@color/game_input_text"
                     android:textColorHint="@color/chrome_hint"
@@ -224,13 +275,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="8dp"
-                    android:background="#332A3A4A"
+                    android:background="#FF1B6B66"
                     android:gravity="center"
-                    android:minHeight="40dp"
-                    android:paddingLeft="14dp"
-                    android:paddingRight="14dp"
+                    android:minHeight="44dp"
+                    android:minWidth="64dp"
+                    android:paddingLeft="16dp"
+                    android:paddingRight="16dp"
                     android:text="Send"
-                    android:textColor="#9EC5FF"
+                    android:textColor="#FFFFFFFF"
                     android:textSize="14sp"
                     android:contentDescription="Send reply" />
             </LinearLayout>

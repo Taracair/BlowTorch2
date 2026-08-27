@@ -32,6 +32,11 @@ public class ChatThreadResponderTest {
 		b.setThreadId("vermin");
 		assertFalse(a.equals(b));
 		assertEquals("$1", a.getThreadId());
+		a.setMine(true);
+		assertFalse(a.equals(b));
+		b.setMine(true);
+		b.setThreadId("$1");
+		assertEquals(a, b);
 	}
 
 	@Test

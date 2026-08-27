@@ -126,7 +126,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:layout_marginLeft="6dip"
-            android:text="days (files older than this, plus the window)"
+            android:text="days (this folder, last N days; 0 = all)"
             android:textColor="@color/chrome_description"
             android:textSize="11sp" />
     </LinearLayout>
@@ -142,5 +142,5 @@
         android:typeface="monospace"
         android:maxLines="3"
         android:ellipsize="end"
-        android:text="Enter a phrase and tap Find. Tick Logs to also search session files older than N days. Next after window hits opens those files." />
+        android:text="Enter a phrase and tap Find. Tick Logs to search /BlowTorch/session_logs/ (last N days, including today). 0 = every file. .search 'logs' still finds the word in the window." />
 </LinearLayout>

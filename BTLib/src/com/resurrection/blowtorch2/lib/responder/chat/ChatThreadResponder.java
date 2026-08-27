@@ -37,6 +37,7 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 	private String title;
 	private String body;
 	private String replyTemplate;
+	private boolean mine;
 
 	public ChatThreadResponder() {
 		super(RESPONDER_TYPE.CHAT_THREAD);
@@ -44,6 +45,7 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 		title = "";
 		body = "";
 		replyTemplate = "";
+		mine = false;
 		setFireType(FIRE_WHEN.WINDOW_BOTH);
 	}
 
@@ -53,6 +55,7 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 		tmp.title = this.title;
 		tmp.body = this.body;
 		tmp.replyTemplate = this.replyTemplate;
+		tmp.mine = this.mine;
 		tmp.setFireType(this.getFireType());
 		return tmp;
 	}
@@ -78,6 +81,9 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 		if (!eq(test.replyTemplate, this.replyTemplate)) {
 			return false;
 		}
+		if (test.mine != this.mine) {
+			return false;
+		}
 		return test.getFireType() == this.getFireType();
 	}
 
@@ -87,6 +93,7 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 		h = 31 * h + (title == null ? 0 : title.hashCode());
 		h = 31 * h + (body == null ? 0 : body.hashCode());
 		h = 31 * h + (replyTemplate == null ? 0 : replyTemplate.hashCode());
+		h = 31 * h + (mine ? 1 : 0);
 		return h;
 	}
 
@@ -132,7 +139,7 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 				// $n substitutes; $text is not $ + digits, so it is left alone.
 				seed = translate(tmpl, captureMap);
 			}
-			store.append(tid, resolvedTitle, resolvedBody, seed);
+			store.append(tid, resolvedTitle, resolvedBody, seed, mine);
 		} catch (RuntimeException e) {
 			BlowTorchLogger.logThrowable("ChatThreadResponder", e);
 		} catch (Exception e) {
@@ -178,6 +185,9 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 		} else {
 			setFireType(FIRE_WHEN.WINDOW_BOTH);
 		}
+		if (in.dataAvail() > 0) {
+			mine = in.readInt() != 0;
+		}
 	}
 
 	public void writeToParcel(Parcel out, int flags) {
@@ -186,6 +196,7 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 		out.writeString(body);
 		out.writeString(replyTemplate);
 		out.writeString(getFireType().getString());
+		out.writeInt(mine ? 1 : 0);
 	}
 
 	public String getThreadId() {
@@ -218,6 +229,14 @@ public class ChatThreadResponder extends TriggerResponder implements Parcelable 
 
 	public void setReplyTemplate(String replyTemplate) {
 		this.replyTemplate = replyTemplate != null ? replyTemplate : "";
+	}
+
+	public boolean isMine() {
+		return mine;
+	}
+
+	public void setMine(boolean mine) {
+		this.mine = mine;
 	}
 
 	@Override
