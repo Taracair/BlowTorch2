@@ -2766,6 +2766,10 @@ retry when Auto Reconnect is off, and it does not raise the try count — the
 number in **Auto Reconnect Tries** is what is used. Cannot keep a dead TCP
 socket — the MUD session is re-established when the network returns.
 
+If you want the same MUD session through hours of Wi-Fi / mobile / travel, use
+a VPN so the world keeps seeing one IP. The client already keeps the process
+alive; without a stable address many worlds still drop the character.
+
 ## Related docs
 
 - [`plugin-authoring.md`](plugin-authoring.md) — write Lua plugins (API, limits, packaging)
