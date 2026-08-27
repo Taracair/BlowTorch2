@@ -824,6 +824,18 @@ function makeUI(editorValues,numediting)
     ui.labelRowFour:addView(ui.invisControlLabel)
   end
 
+  -- Active is a general Others flag, not a floating option: keep it visible
+  -- for multi-edit (same idea as Wrap label) when the FLOATING block is GONE.
+  if(ui.activeCheck == nil) then
+    ui.activeCheck = fnew(CheckBox,context)
+    ui.activeCheck:setLayoutParams(fillparams)
+    ui.activeCheck:setText("Active")
+    ui.activeCheck:setTextSize(textSize)
+    ui.advancedPage:addView(ui.activeCheck)
+  end
+  ui.activeCheck:setChecked(editorValues.active ~= false
+    and editorValues.active ~= "false")
+
   -- Floating-button options (Others tab). Single-button edit only.
   if(ui.floatSectionLabel == nil) then
     ui.floatSectionLabel = fnew(TextView,context)
@@ -995,6 +1007,11 @@ function getEditorValues()
   tmp.borderColor = ui.borderColor
   tmp.labelSize = tonumber(ui.labelSizeEdit:getText():toString())
   tmp.wrapLabel = ui.wrapLabelCheck ~= nil and ui.wrapLabelCheck:isChecked()
+  if ui.activeCheck ~= nil then
+    tmp.active = ui.activeCheck:isChecked()
+  else
+    tmp.active = true
+  end
   tmp.height = tonumber(ui.heightEdit:getText():toString())
   tmp.width = tonumber(ui.widthEdit:getText():toString())
   if ui.floatingCheck ~= nil and ui.floatingCheck:isEnabled() then

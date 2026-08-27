@@ -2225,7 +2225,8 @@ function notifyFloatingButtonsChanged()
 				-- can happen in a floating window over the keyboard, so a
 				-- floating copy of either would be a button that does nothing.
 				local accordionish = hasAccordionConfig(d) or b.isAccordionChild == true
-				if d ~= nil and d.floating == true and not accordionish then
+				if d ~= nil and d.floating == true and not accordionish
+						and not isPlayModeInactive(b) then
 					local mode = d.floatMode
 					if mode ~= "keyboard" then
 						mode = "always"
@@ -4036,6 +4037,7 @@ function buildAccordionOverlay(parent)
 				labelColor = src.data.labelColor,
 				labelSize = src.data.labelSize,
 				wrapLabel = src.data.wrapLabel == true,
+				active = src.data.active,
 				border = src.data.border == true,
 				borderColor = src.data.borderColor,
 			}
@@ -4129,6 +4131,22 @@ function isKeyboardOnlyFloater(b)
 	return isPlayModeFloaterHiddenFromGrid(b)
 end
 
+-- Unticked Active: not drawn and not tappable in play, including accordion
+-- overlay children and floating copies (those stay out of the float JSON).
+-- Edit mode (manage) still shows them so they can be found and turned on.
+-- Missing/nil/true = active so old sets keep working. false or "false" = off.
+function isPlayModeInactive(b)
+	if manage == true then
+		return false
+	end
+	local d = b ~= nil and b.data or nil
+	if d == nil then
+		return false
+	end
+	local a = d.active
+	return a == false or a == "false"
+end
+
 function drawButtons()
 	local canvas = buttonCanvas
 	if canvas == nil then return end
@@ -4149,7 +4167,8 @@ function drawButtons()
 	for i=1,#buttons do
 		local b = buttons[i]
 		if isPlayModeFloaterHiddenFromGrid(b)
-				or isPlayModePinnedAccordionSource(b) then
+				or isPlayModePinnedAccordionSource(b)
+				or isPlayModeInactive(b) then
 			-- skip: floating layer owns the chrome in play mode
 		elseif(b.selected) then
 			b:draw(1,canvas)
@@ -4159,9 +4178,13 @@ function drawButtons()
 	end
 	for i=1,#buttons do
 		local b = buttons[i]
-		if b.expanded and b.accordionOverlay ~= nil then
+		if b.expanded and b.accordionOverlay ~= nil
+				and not isPlayModeInactive(b) then
 			for j = 1, #b.accordionOverlay do
-				b.accordionOverlay[j]:draw(0, canvas)
+				local child = b.accordionOverlay[j]
+				if not isPlayModeInactive(child) then
+					child:draw(0, canvas)
+				end
 			end
 		end
 	end
@@ -4181,16 +4204,21 @@ function drawButtonsNoSelected()
 
 	for i,b in pairs(buttons) do
 		if(b.selected ~= true and not isPlayModeFloaterHiddenFromGrid(b)
-				and not isPlayModePinnedAccordionSource(b)) then
+				and not isPlayModePinnedAccordionSource(b)
+				and not isPlayModeInactive(b)) then
 			b:draw(0,buttonCanvas)
 		end
 	end
 	-- Same second pass as drawButtons: an open fan must stay above tiles when
 	-- this path redraws during manage/drag.
 	for i,b in pairs(buttons) do
-		if b.expanded and b.accordionOverlay ~= nil then
+		if b.expanded and b.accordionOverlay ~= nil
+				and not isPlayModeInactive(b) then
 			for j = 1, #b.accordionOverlay do
-				b.accordionOverlay[j]:draw(0, buttonCanvas)
+				local child = b.accordionOverlay[j]
+				if not isPlayModeInactive(child) then
+					child:draw(0, buttonCanvas)
+				end
 			end
 		end
 	end
@@ -4707,10 +4735,11 @@ end
 function buttonTouched(x,y)
 	for i=1,#buttons do
 		local b = buttons[i]
-		if b.expanded and b.accordionOverlay ~= nil then
+		if b.expanded and b.accordionOverlay ~= nil
+				and not isPlayModeInactive(b) then
 			for j = #b.accordionOverlay, 1, -1 do
 				local child = b.accordionOverlay[j]
-				if child.rect:contains(x, y) then
+				if not isPlayModeInactive(child) and child.rect:contains(x, y) then
 					return true, child, i
 				end
 			end
@@ -4723,7 +4752,8 @@ function buttonTouched(x,y)
 	--for i,b in pairs(buttons) do
 		local b = buttons[i]
 		if not isPlayModeFloaterHiddenFromGrid(b)
-				and not isPlayModePinnedAccordionSource(b) then
+				and not isPlayModePinnedAccordionSource(b)
+				and not isPlayModeInactive(b) then
 			local z = b.rect
 			if(z:contains(x,y)) then
 				return true,b,i
@@ -5005,6 +5035,11 @@ function buttonEditorDone(data)
 		tmp.data.showGestureLabel = data.showGestureLabel ~= false
 		tmp.data.showGestureHints = data.showGestureHints ~= false
 		tmp.data.wrapLabel = data.wrapLabel == true
+		if data.active == false or data.active == "false" then
+			tmp.data.active = false
+		else
+			tmp.data.active = true
+		end
 
 		tmp.data.accordionDirection = data.accordionDirection or ""
 		local kids = data.accordionChildren or {}
@@ -5101,6 +5136,14 @@ function buttonEditorDone(data)
 
 				if data.wrapLabel ~= nil and data.wrapLabel ~= editorValues.wrapLabel then
 					b.data.wrapLabel = data.wrapLabel == true
+				end
+
+				if data.active ~= nil and data.active ~= editorValues.active then
+					if data.active == false or data.active == "false" then
+						b.data.active = false
+					else
+						b.data.active = true
+					end
 				end
 
 				if data.borderColor ~= nil and data.borderColor ~= editorValues.borderColor then
@@ -5213,6 +5256,8 @@ function showEditorDialog()
 		editorValues.floatFrame = button.data.floatFrame == true
 		editorValues.border = button.data.border == true
 		editorValues.borderColor = button.data.borderColor
+		editorValues.active = not (button.data.active == false
+			or button.data.active == "false")
 		--Note("single editor loading:"..editorValues.x)
 		--Note("single editor loading:"..editorValues.y)
 	else 
@@ -5261,6 +5306,14 @@ function showEditorDialog()
 				elseif editorValues.wrapLabel ~= bWrap then
 					editorValues.wrapLabel = bWrap
 				end
+
+				local bActive = not (b.data.active == false
+					or b.data.active == "false")
+				if editorValues.active == nil then
+					editorValues.active = bActive
+				elseif editorValues.active ~= bActive then
+					editorValues.active = bActive
+				end
 				
 				if(editorValues.height == nil) then
 					editorValues.height = tonumber(b.data.height)
@@ -5299,6 +5352,9 @@ function showEditorDialog()
 		end
 		if editorValues.wrapLabel == nil then
 			editorValues.wrapLabel = false
+		end
+		if editorValues.active == nil then
+			editorValues.active = true
 		end
 	end
 	

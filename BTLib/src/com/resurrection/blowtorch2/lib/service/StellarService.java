@@ -36,6 +36,7 @@ import android.os.PowerManager;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.os.Bundle;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 import com.resurrection.blowtorch2.lib.R;
@@ -69,8 +70,6 @@ public class StellarService extends Service {
 	protected static final int MESSAGE_RELOADSETTINGS = 3;
 	/** Not really sure what this is for but I think it had something to do with debugging an ANR in the service. */
 	protected static final int MESSAGE_STOPANR = 4;
-	/** Duration of a short interval of time. */
-	private static final int SHORT_DURATION = 300;
 	/** How often to refresh connection-duration on the foreground notification. */
 	private static final int DURATION_REFRESH_MS = 30000;
 	private static final int MESSAGE_REFRESH_DURATION = 100;
@@ -710,9 +709,13 @@ public class StellarService extends Service {
 		return c != null && c.isUseTls();
 	}
 
-	public final void doVibrateBell() {
+	/** Buzz now. {@code durationMs} 300/800, {@code amplitude} -1 (default) or 255. */
+	public final void doVibrateBell(final int durationMs, final int amplitude) {
 		Vibrator vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        vibrator.vibrate(SHORT_DURATION);
+		if (vibrator == null) {
+			return;
+		}
+		vibrator.vibrate(VibrationEffect.createOneShot(durationMs, amplitude));
 	}
 	
 

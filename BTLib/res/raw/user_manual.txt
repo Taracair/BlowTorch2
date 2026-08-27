@@ -822,7 +822,14 @@ six lines a second.
 If nothing happens, type `.dobell` by hand: with every bell reaction turned off
 it now says so and names the three switches, instead of leaving you guessing
 whether the trigger fired. Only **Vibrate** is on by default, and a phone in
-silent mode will not buzz.
+silent mode, Do Not Disturb, or some GrapheneOS profiles can still swallow
+the buzz.
+
+`.dobell vibrate` (optional `short`, `long`, or `strong`; default `short`)
+buzzes **now**, even if Options → Bell → Vibrate is off. `.dobell alert`
+shows the on-screen bell icon **now**, even if Display Bell is off. Neither
+needs Notification or Display Bell. Use them to check the phone; they do not
+change those switches.
 
 What the bell cannot do: it is **one reaction for the whole profile**, so every
 trigger that rings it sounds the same, and it plays the system notification
@@ -1323,7 +1330,7 @@ is enabled; `.alias list` shows every alias at once.
     `.help [word]` / `.commands`        Every dot command, one line each, grouped by what it is for. With a word, only the ones whose name contains it. Built from the commands the app actually has, so nothing can go missing from it
     `.sound …`                          Which volume a trigger's Play a Sound action uses (`stream media|notification|alarm`), and whether to say so when that volume is off (`warn on|off`). No argument prints the current setting
     `.tapmenu opacity <20-100>`         How solid the little menu a tapped word opens is. Only the backing fades; the commands stay readable. Also Options → Miscellaneous
-    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. This is how a trigger makes a noise; see "Making a trigger make a noise"
+    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. `.dobell vibrate [short|long|strong]` buzzes now even if Vibrate is off (default `short`); `.dobell alert` shows the on-screen bell even if Display Bell is off. This is how a trigger makes a noise; see "Making a trigger make a noise"
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?

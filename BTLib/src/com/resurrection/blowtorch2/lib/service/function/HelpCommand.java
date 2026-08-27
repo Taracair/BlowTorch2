@@ -97,7 +97,8 @@ public class HelpCommand extends SpecialCommand {
 		cmd("timer", "Triggers and scripts", "list, enable and disable timers");
 		cmd("sound", "Triggers and scripts",
 				"which volume a trigger's sound uses, and warning when it is off");
-		cmd("dobell", "Triggers and scripts", "fire the bell reaction now");
+		cmd("dobell", "Triggers and scripts",
+				"fire the bell reaction now; .dobell vibrate / .dobell alert ignore Options");
 		cmd("probe", "Triggers and scripts",
 				"measure how the world splits its text across packets; "
 				+ ".probe bleed records colour-trigger restores; "
@@ -313,7 +314,9 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .dobell:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .dobell            — fire the bell reaction now (no arguments)\n";
+					+ "  .dobell            — reactions currently on in Options → Bell\n"
+					+ "  .dobell vibrate [short|long|strong]\n"
+					+ "  .dobell alert      — on-screen bell icon now\n";
 		}
 		if (filter.equals("colordebug")) {
 			return "\n"

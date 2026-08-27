@@ -234,6 +234,7 @@ HELP_ACCORDION = "Up to 20 sub-buttons. Pin existing grid tiles: in Edit buttons
 	.. "A super button (Float over the game) cannot have an accordion: the sub-buttons are drawn on the button grid and only exist while the parent is open. That warning stays on this tab."
 
 HELP_OTHERS = "Name is the label in the editor list, not on the tile.\n\n"
+	.. "Active hides the button in play without deleting it. Untick it and the tile is gone from play (taps included); Edit buttons still shows it so you can tick Active again.\n\n"
 	.. "To change button pads, put .loadset <name> in the Tap command. That is the supported way to switch sets.\n\n"
 	.. "Colors: tap a swatch to change, long-press to reset to the set default. Border is the last swatch on that grid — tick Draw / border beside it. Accordion children inherit the parent's border unless they were pinned from the grid.\n\n"
 	.. "Thin outline under Floating is a separate auto-contrast frame used only when Border is off.\n\n"
@@ -243,7 +244,7 @@ HELP_OTHERS = "Name is the label in the editor list, not on the tile.\n\n"
 	.. "Always visible: the button stays on screen. In play mode only the floating copy is drawn, so it does not stack on the grid tile.\n\n"
 	.. "Show with keyboard: the button is there only while the keyboard is open, and is hidden everywhere otherwise, the grid included.\n\n"
 	.. "Both need Display over other apps. On Android 9 and 10, Show with keyboard may never appear.\n\n"
-	.. "Editing several buttons at once: size, position, colours and border go to all of them. A label, command, gesture, accordion or super button belongs to one button — tap a single button for those. Setting the same X or Y stacks them; to line them up, leave X and Y empty and use Arrange in set options."
+	.. "Editing several buttons at once: size, position, colours, border and Active go to all of them. A label, command, gesture, accordion or super button belongs to one button — tap a single button for those. Setting the same X or Y stacks them; to line them up, leave X and Y empty and use Arrange in set options."
 
 showChromeHelp = function(ctx, title, body)
 	if ctx == nil then

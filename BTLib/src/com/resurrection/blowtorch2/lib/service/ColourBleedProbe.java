@@ -14,8 +14,8 @@ import com.resurrection.blowtorch2.lib.window.TextTree.Unit;
  * {@code .probe bleed} — what a colour trigger actually restored, on which
  * thread, and what the finished dump still held.
  *
- * <p>Off unless asked. One null check on the ordinary path. Not BTPROF: this
- * is a player-run measurement, the same shape as {@code .probe lines}. The
+ * <p>Off unless asked. One null check on the ordinary path. This is a
+ * player-run measurement, the same shape as {@code .probe lines}. The
  * reading lives in memory (last {@link #RING} events) and in logcat tag
  * {@code BlowTorchBleed} so it can leave the phone without a screenshot.
  *

@@ -123,7 +123,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Sent from the Processor to send data to the DataPumper's output thread. */
 	public static final int MESSAGE_SENDOPTIONDATA = 4;
 	
-	/** Sent from the Processor indicating the bell character has been recieved. */
+	/**
+	 * Bell: telnet 0x07 and {@code .dobell} with no args send this empty
+	 * (honor Options). {@code .dobell vibrate} / {@code .dobell alert} put a
+	 * String in {@code obj} ({@code vibrate:short|long|strong} or {@code alert})
+	 * to force that one reaction.
+	 */
 	public static final int MESSAGE_BELLINC = 5;
 	
 	/** Not sure where this is sent from, I think the Xml parser or the datapumper. 
@@ -1019,15 +1024,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				sendDataToWindow((String) msg.obj);
 				break;
 			case MESSAGE_BELLINC:
-				if (mSettings.isVibrateOnBell()) {
-					Connection.this.mService.doVibrateBell();
-				}
-				if (mSettings.isNotifyOnBell()) {
-					Connection.this.mService.doNotifyBell(Connection.this.mDisplay, Connection.this.mHost, Connection.this.mPort);
-				}
-				if (mSettings.isDisplayOnBell()) {
-					Connection.this.mService.doDisplayBell();
-				}
+				handleBellInc(msg.obj);
 				break;
 			case MESSAGE_DODIALOG:
 				dispatchDialog((String) msg.obj);
@@ -1053,6 +1050,35 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			return true;
 		}
 		
+	}
+
+	/**
+	 * Empty {@code obj}: honor Options (telnet 0x07 / {@code .dobell}).
+	 * {@code "alert"} or {@code "vibrate:short|long|strong"}: that reaction now,
+	 * even if the matching option is off.
+	 */
+	private void handleBellInc(final Object spec) {
+		if (BellCommand.FORCE_ALERT.equals(spec)) {
+			mService.doDisplayBell();
+			return;
+		}
+		String pattern = BellCommand.forceVibratePattern(spec);
+		if (pattern != null) {
+			mService.doVibrateBell(
+					BellCommand.vibrateDurationMs(pattern),
+					BellCommand.vibrateAmplitude(pattern));
+			return;
+		}
+		if (mSettings.isVibrateOnBell()) {
+			mService.doVibrateBell(
+					BellCommand.SHORT_MS, BellCommand.DEFAULT_AMPLITUDE);
+		}
+		if (mSettings.isNotifyOnBell()) {
+			mService.doNotifyBell(mDisplay, mHost, mPort);
+		}
+		if (mSettings.isDisplayOnBell()) {
+			mService.doDisplayBell();
+		}
 	}
 
 	/** Quick frontend for dispatchNoProcess(...) for sending a lua error message.

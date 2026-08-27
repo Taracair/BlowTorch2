@@ -22,56 +22,61 @@ public class LauncherSettings {
 
 		try {
 			out.setOutput(writer);
-			out.startDocument("UTF-8", true);
-			out.startTag("", "root");
-
-
-			out.startTag("", BaseParser.TAG_LAUNCHER);
-			out.attribute("", BaseParser.ATTR_VERSION, data.getCurrentVersion());
-
-			for(MudConnection item : data.getList().values()) {
-				out.startTag("", BaseParser.TAG_ITEM);
-				out.attribute("", BaseParser.ATTR_NAME, item.getDisplayName());
-				out.attribute("", BaseParser.ATTR_HOST, item.getHostName());
-				out.attribute("", BaseParser.ATTR_PORT, item.getPortString());
-				out.attribute("", BaseParser.ATTR_DATEPLAYED, item.getLastPlayed());
-				if (item.getDescription() != null && item.getDescription().length() > 0) {
-					out.attribute("", BaseParser.ATTR_DESCRIPTION, item.getDescription());
-				}
-				if (item.isOffline()) {
-					out.attribute("", BaseParser.ATTR_OFFLINE, "true");
-				}
-				if (item.isUseTls()) {
-					out.attribute("", BaseParser.ATTR_TLS, "true");
-				}
-				if (item.getAccounts() != null) {
-					for (ServerAccount account : item.getAccounts()) {
-						if (account == null || account.isEmpty()) {
-							continue;
-						}
-						out.startTag("", BaseParser.TAG_ACCOUNT);
-						out.attribute("", BaseParser.ATTR_ACCOUNT_LABEL, account.getLabel());
-						out.attribute("", BaseParser.ATTR_ACCOUNT_LOGIN, account.getLogin());
-						out.attribute("", BaseParser.ATTR_ACCOUNT_PASSWORD, account.getPassword());
-						out.attribute("", BaseParser.ATTR_ACCOUNT_MAIL, account.getMail());
-						out.endTag("", BaseParser.TAG_ACCOUNT);
-					}
-				}
-				out.endTag("", BaseParser.TAG_ITEM);
-			}
-
-			out.endTag("", BaseParser.TAG_LAUNCHER);
-
-			out.endTag("", "root");
-
-			out.endDocument();
-
+			writeTo(data, out);
 			return writer.toString();
 		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
+	}
 
+	/**
+	 * Same attributes as {@link #writeXml(LauncherSettings)}. Package-visible so
+	 * JVM tests can emit XML without {@code android.util.Xml}.
+	 */
+	static void writeTo(LauncherSettings data, XmlSerializer out) throws Exception {
+		out.startDocument("UTF-8", true);
+		out.startTag("", "root");
 
+		out.startTag("", BaseParser.TAG_LAUNCHER);
+		out.attribute("", BaseParser.ATTR_VERSION, data.getCurrentVersion());
+
+		for (MudConnection item : data.getList().values()) {
+			out.startTag("", BaseParser.TAG_ITEM);
+			out.attribute("", BaseParser.ATTR_NAME, item.getDisplayName());
+			out.attribute("", BaseParser.ATTR_HOST, item.getHostName());
+			out.attribute("", BaseParser.ATTR_PORT, item.getPortString());
+			out.attribute("", BaseParser.ATTR_DATEPLAYED, item.getLastPlayed());
+			if (item.getDescription() != null && item.getDescription().length() > 0) {
+				out.attribute("", BaseParser.ATTR_DESCRIPTION, item.getDescription());
+			}
+			if (item.isOffline()) {
+				out.attribute("", BaseParser.ATTR_OFFLINE, "true");
+			}
+			if (item.isUseTls()) {
+				out.attribute("", BaseParser.ATTR_TLS, "true");
+			}
+			if (item.isFavorite()) {
+				out.attribute("", BaseParser.ATTR_FAVORITE, "true");
+			}
+			if (item.getAccounts() != null) {
+				for (ServerAccount account : item.getAccounts()) {
+					if (account == null || account.isEmpty()) {
+						continue;
+					}
+					out.startTag("", BaseParser.TAG_ACCOUNT);
+					out.attribute("", BaseParser.ATTR_ACCOUNT_LABEL, account.getLabel());
+					out.attribute("", BaseParser.ATTR_ACCOUNT_LOGIN, account.getLogin());
+					out.attribute("", BaseParser.ATTR_ACCOUNT_PASSWORD, account.getPassword());
+					out.attribute("", BaseParser.ATTR_ACCOUNT_MAIL, account.getMail());
+					out.endTag("", BaseParser.TAG_ACCOUNT);
+				}
+			}
+			out.endTag("", BaseParser.TAG_ITEM);
+		}
+
+		out.endTag("", BaseParser.TAG_LAUNCHER);
+		out.endTag("", "root");
+		out.endDocument();
 	}
 
 	public void setCurrentVersion(String currentVersion) {

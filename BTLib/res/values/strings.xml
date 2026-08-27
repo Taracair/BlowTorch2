@@ -31,6 +31,12 @@
     <string name="launcher_menu_export_server_list">Export Server List</string>
     <string name="launcher_menu_backup_all_settings">Backup All Settings</string>
     <string name="launcher_menu_restore_settings_backup">Restore Settings Backup</string>
+    <string name="launcher_menu_manage_storage">Manage Storage Access</string>
+    <string name="launcher_star">Star</string>
+    <string name="launcher_unstar">Unstar</string>
+    <string name="launcher_pin_to_home">Pin to home</string>
+    <string name="launcher_shortcut_unsupported">Pinning shortcuts is not supported on this home screen.</string>
+    <string name="launcher_shortcut_missing">That world is no longer in your list.</string>
     <string name="launcher_tls_label">Use TLS (encrypted)</string>
     <string name="launcher_tls_hint">Only if this world offers a TLS port — usually a different port number from the plain one. A self-signed certificate is refused and the connection will say so.</string>
     <string name="launcher_account_section">Account (optional)</string>

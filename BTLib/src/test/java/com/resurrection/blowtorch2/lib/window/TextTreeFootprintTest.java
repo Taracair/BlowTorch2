@@ -310,7 +310,7 @@ public class TextTreeFootprintTest {
 	@Test
 	public void reportBufferFootprint() throws Exception {
 		int defaultCap = 2000;   // WindowToken.DEFAULT_BUFFER_SIZE
-		int absoluteCap = 8000;  // TextTree.ABSOLUTE_MAX_LINES
+		int absoluteCap = 8000;  // measurement fixture, not TextTree.ABSOLUTE_MAX_LINES (20000)
 
 		List<Footprint> rows = new ArrayList<Footprint>();
 		Profile real = manual();

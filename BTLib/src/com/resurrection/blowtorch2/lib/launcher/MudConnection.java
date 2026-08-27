@@ -18,6 +18,8 @@ public class MudConnection {
 	 * can therefore be two entries with different answers here.
 	 */
 	private boolean useTls = false;
+	/** Starred in the launcher list. Default false; absent XML attribute means false. */
+	private boolean favorite = false;
 	private boolean connected = false;
 	/** Account slots (login/password/mail); primary used for GMCP Char.Login. */
 	private ArrayList<ServerAccount> accounts = new ArrayList<ServerAccount>();
@@ -32,6 +34,7 @@ public class MudConnection {
 		tmp.description = this.description;
 		tmp.offline = this.offline;
 		tmp.useTls = this.useTls;
+		tmp.favorite = this.favorite;
 		tmp.accounts = new ArrayList<ServerAccount>();
 		if (this.accounts != null) {
 			for (ServerAccount account : this.accounts) {
@@ -132,6 +135,14 @@ public class MudConnection {
 	/** An offline world connects to nothing, so TLS never applies to one. */
 	public boolean isUseTls() {
 		return useTls && !isOffline();
+	}
+
+	public void setFavorite(boolean favorite) {
+		this.favorite = favorite;
+	}
+
+	public boolean isFavorite() {
+		return favorite;
 	}
 
 	public void setConnected(boolean connected) {

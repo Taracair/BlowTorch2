@@ -155,6 +155,8 @@ public class BaseParser {
 	public static final String ATTR_OFFLINE = "offline";
 	/** Connect this world over TLS. Absent means no, as it did before it existed. */
 	public static final String ATTR_TLS = "tls";
+	/** Starred launcher row. Absent means false, same as {@link #ATTR_TLS}. */
+	public static final String ATTR_FAVORITE = "favorite";
 	public static final String TAG_ACCOUNT = "account";
 	public static final String ATTR_ACCOUNT_LABEL = "label";
 	public static final String ATTR_ACCOUNT_LOGIN = "login";

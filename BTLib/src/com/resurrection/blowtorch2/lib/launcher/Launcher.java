@@ -50,8 +50,11 @@ import android.content.SharedPreferences.Editor;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
 import android.content.res.Resources;
 import android.graphics.Rect;
+import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -112,6 +115,15 @@ import dalvik.system.PathClassLoader;
 public class Launcher extends AppCompatActivity implements ReadyListener,ActivityCompat.OnRequestPermissionsResultCallback {
 	
 	public static final String PREFS_NAME = "CONDIALOG_SETTINGS";
+
+	/** World extras on the launcher Intent; same names MainWindow already reads. */
+	public static final String EXTRA_DISPLAY = LauncherShortcutExtras.DISPLAY;
+	public static final String EXTRA_HOST = LauncherShortcutExtras.HOST;
+	public static final String EXTRA_PORT = LauncherShortcutExtras.PORT;
+	public static final String EXTRA_TLS = LauncherShortcutExtras.TLS;
+	public static final String EXTRA_LAUNCH_FROM_SHORTCUT = LauncherShortcutExtras.LAUNCH_FROM_SHORTCUT;
+	private static final String FREE_LAUNCHER_CLASS =
+			"com.resurrection.blowtorch2.FreeLauncher";
 	
 	private Pattern xmlinsensitive = Pattern.compile("^.+\\.[Xx][Mm][Ll]$");
 	private Matcher xmlimatcher = xmlinsensitive.matcher("");
@@ -538,6 +550,9 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		}
 		SDCardUtils.requestStartupPermissions(this, permissionRoot, RP_STARTUP);
 		buildList();
+		if (icicle == null) {
+			maybeLaunchFromShortcut(getIntent());
+		}
 		maybeShowFirstRunNotice();
 		maybeBackupBeforeUpdate();
 		maybeCheckForUpdates();
@@ -795,20 +810,43 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			
 			Message modmsg = connectionModifier.obtainMessage(MSG_MODIFYCONNECTION);
 			modmsg.obj = muc;
-			
-			AlertDialog.Builder build = new AlertDialog.Builder(Launcher.this)
-				.setMessage("Which operation to perform on: " + muc.getDisplayName());
-			AlertDialog dialog = build.create();
-			dialog.setButton(AlertDialog.BUTTON_POSITIVE, "Edit", modmsg);
-			dialog.setButton(AlertDialog.BUTTON_NEUTRAL, "Delete",delmsg);
-			dialog.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
-				
-				public void onClick(DialogInterface arg0, int arg1) {
-					arg0.dismiss();
-				}
-			});
-			
-			dialog.show();
+
+			final CharSequence[] items = new CharSequence[] {
+					muc.isFavorite()
+							? getString(R.string.launcher_unstar)
+							: getString(R.string.launcher_star),
+					getString(R.string.launcher_pin_to_home),
+					"Edit",
+					"Delete"
+			};
+			new AlertDialog.Builder(Launcher.this)
+				.setTitle(muc.getDisplayName())
+				.setItems(items, new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int which) {
+						switch (which) {
+						case 0:
+							toggleFavorite(muc);
+							break;
+						case 1:
+							pinWorldToHome(muc);
+							break;
+						case 2:
+							connectionModifier.sendMessage(modmsg);
+							break;
+						case 3:
+							connectionModifier.sendMessage(delmsg);
+							break;
+						default:
+							break;
+						}
+					}
+				})
+				.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface arg0, int arg1) {
+						arg0.dismiss();
+					}
+				})
+				.show();
 			return true;
 		}
 		
@@ -1708,13 +1746,13 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		String windowAction = ConfigurationLoader.getConfigurationValue("windowAction",this);
 		the_intent = new Intent(windowAction);
 		the_intent.setClass(this, MainWindow.class);
-    	the_intent.putExtra("DISPLAY",launch.getDisplayName());
-    	the_intent.putExtra("HOST", launch.getHostName());
-    	the_intent.putExtra("PORT", launch.getPortString());
+    	the_intent.putExtra(EXTRA_DISPLAY, launch.getDisplayName());
+    	the_intent.putExtra(EXTRA_HOST, launch.getHostName());
+    	the_intent.putExtra(EXTRA_PORT, launch.getPortString());
     	// The launcher row is where TLS is decided and stored, so this Intent is
     	// the one authoritative carrier of it. Everything downstream either
     	// forwards it or falls back to the CONNECT_TO prefs written from here.
-    	the_intent.putExtra("TLS", launch.isUseTls());
+    	the_intent.putExtra(EXTRA_TLS, launch.isUseTls());
     	
     	//write out the intent to the service so it can do some lookup work in advance of the connection, such as loading the settings wad
     	//SharedPreferences prefs = Launcher.this.getSharedPreferences("SERVICE_INFO",0);
@@ -1744,7 +1782,145 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
     	
 		Launcher.this.startActivity(the_intent);
 	}
-	
+
+	/**
+	 * Copy world extras from a home-screen pin onto the Intent that starts
+	 * this activity. Same names as {@code FreeLauncher} forwards.
+	 */
+	public static void copyShortcutExtras(Intent from, Intent to) {
+		LauncherShortcutExtras.copy(from, to);
+	}
+
+	private void maybeLaunchFromShortcut(Intent intent) {
+		if (intent == null) {
+			return;
+		}
+		if (!intent.getBooleanExtra(EXTRA_LAUNCH_FROM_SHORTCUT, false)) {
+			return;
+		}
+		String display = intent.getStringExtra(EXTRA_DISPLAY);
+		String host = intent.getStringExtra(EXTRA_HOST);
+		String port = intent.getStringExtra(EXTRA_PORT);
+		boolean hasDisplay = display != null && display.length() > 0;
+		boolean hasHostPort = host != null && host.length() > 0
+				&& port != null && port.length() > 0;
+		if (!hasDisplay && !hasHostPort) {
+			return;
+		}
+		MudConnection found = findLaunchTarget(launcher_settings, display, host, port);
+		if (found == null) {
+			Toast.makeText(this, R.string.launcher_shortcut_missing, Toast.LENGTH_LONG).show();
+			return;
+		}
+		launch = found.copy();
+		PermissionHelper.ensureInternetForFeature(this,
+				R.string.permission_feature_connect, new Runnable() {
+			@Override
+			public void run() {
+				DoNewStartup();
+			}
+		});
+	}
+
+	static MudConnection findLaunchTarget(LauncherSettings settings, String display,
+			String host, String port) {
+		if (settings == null || settings.getList() == null) {
+			return null;
+		}
+		if (display != null && display.length() > 0) {
+			MudConnection byName = settings.getList().get(display);
+			if (byName != null) {
+				return byName;
+			}
+			for (MudConnection m : settings.getList().values()) {
+				if (display.equals(m.getDisplayName())) {
+					return m;
+				}
+			}
+		}
+		if (host != null && host.length() > 0 && port != null && port.length() > 0) {
+			for (MudConnection m : settings.getList().values()) {
+				if (host.equals(m.getHostName()) && port.equals(m.getPortString())) {
+					return m;
+				}
+			}
+		}
+		return null;
+	}
+
+	private void toggleFavorite(MudConnection muc) {
+		if (muc == null || BuiltinTutorial.isTutorialEntry(muc)) {
+			return;
+		}
+		muc.setFavorite(!muc.isFavorite());
+		launcherSaveEnabled = true;
+		saveXML();
+		buildList();
+	}
+
+	private void pinWorldToHome(MudConnection muc) {
+		if (muc == null) {
+			return;
+		}
+		ShortcutManager sm = getSystemService(ShortcutManager.class);
+		if (sm == null || !sm.isRequestPinShortcutSupported()) {
+			Toast.makeText(this, R.string.launcher_shortcut_unsupported, Toast.LENGTH_LONG).show();
+			return;
+		}
+		Intent shortcutIntent = new Intent(Intent.ACTION_MAIN);
+		shortcutIntent.setClassName(getPackageName(), FREE_LAUNCHER_CLASS);
+		shortcutIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+		shortcutIntent.putExtra(EXTRA_DISPLAY, muc.getDisplayName());
+		shortcutIntent.putExtra(EXTRA_HOST, muc.getHostName());
+		shortcutIntent.putExtra(EXTRA_PORT, muc.getPortString());
+		shortcutIntent.putExtra(EXTRA_TLS, muc.isUseTls());
+		shortcutIntent.putExtra(EXTRA_LAUNCH_FROM_SHORTCUT, true);
+		int iconRes = getApplicationInfo().icon;
+		if (iconRes == 0) {
+			iconRes = android.R.drawable.star_on;
+		}
+		ShortcutInfo info = new ShortcutInfo.Builder(this, shortcutIdForDisplayName(muc.getDisplayName()))
+				.setShortLabel(shortcutLabel(muc.getDisplayName()))
+				.setLongLabel(shortcutLabel(muc.getDisplayName()))
+				.setIcon(Icon.createWithResource(this, iconRes))
+				.setIntent(shortcutIntent)
+				.build();
+		try {
+			if (!sm.requestPinShortcut(info, null)) {
+				Toast.makeText(this, R.string.launcher_shortcut_unsupported, Toast.LENGTH_LONG).show();
+			}
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Launcher.pinWorldToHome", e);
+			Toast.makeText(this, R.string.launcher_shortcut_unsupported, Toast.LENGTH_LONG).show();
+		}
+	}
+
+	static String shortcutIdForDisplayName(String displayName) {
+		if (displayName == null || displayName.length() == 0) {
+			return "world";
+		}
+		String id = displayName.replaceAll("[^A-Za-z0-9._-]", "_");
+		id = id.replaceAll("_+", "_");
+		id = id.replaceAll("^_+|_+$", "");
+		if (id.length() == 0) {
+			id = "world";
+		}
+		// Launcher ids cannot hold every Unicode letter. Folding "Acheron" and
+		// "Acheron!" to the same token would make the second pin overwrite the
+		// first, so the original name's hash stays in the id.
+		return id + "_" + Integer.toHexString(displayName.hashCode());
+	}
+
+	private static String shortcutLabel(String displayName) {
+		if (displayName == null || displayName.length() == 0) {
+			return "BlowTorch";
+		}
+		if (displayName.length() > 24) {
+			return displayName.substring(0, 24);
+		}
+		return displayName;
+	}
+
 	private ConnectionComparator ccmp = new ConnectionComparator();
 	
 	private void buildList() {
@@ -1884,7 +2060,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 	private ExecutorService listWriteExecutor = null;
 
-	private class ConnectionComparator implements Comparator<MudConnection> {
+	static class ConnectionComparator implements Comparator<MudConnection> {
 
 		public int compare(MudConnection a, MudConnection b) {
 			// Built-in offline tutorial always first.
@@ -1897,16 +2073,29 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				return 1;
 			}
 
+			boolean aFav = a != null && a.isFavorite();
+			boolean bFav = b != null && b.isFavorite();
+			if (aFav && !bFav) {
+				return -1;
+			}
+			if (bFav && !aFav) {
+				return 1;
+			}
+
 			Time at = new Time();
 			Time bt = new Time();
 			
 			//check if either have haver been played.
-			if(a.getLastPlayed().equals("never")) {
+			boolean aNever = a.getLastPlayed() != null && a.getLastPlayed().equals("never");
+			boolean bNever = b.getLastPlayed() != null && b.getLastPlayed().equals("never");
+			if (aNever && bNever) {
+				return 0;
+			}
+			if (aNever) {
 				return 1;
-			} else if(b.getLastPlayed().equals("never")) {
+			}
+			if (bNever) {
 				return -1;
-			} else if(b.getLastPlayed().equals("never") && a.getLastPlayed().equals("never")){
-				return 0; //they are both never, so they are equal.
 			}
 			
 			try{
@@ -1930,7 +2119,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		menu.add(0, MENU_RESTORE_SETTINGS_BACKUP, 0, R.string.launcher_menu_restore_settings_backup);
 		if (ConfigurationLoader.isTestMode(this)) {
 		}
-		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, "Ask for storage permissions");
+		menu.add(0, MENU_SDCARD_PERMISSIONS, 0, R.string.launcher_menu_manage_storage);
 		menu.add(0, MENU_APP_SETTINGS, 0, "App Settings");
 		menu.add(0, MENU_CHECK_FOR_UPDATES, 0, R.string.launcher_menu_check_for_updates)
 				.setCheckable(true);
@@ -2083,6 +2272,12 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			});
 			break;
 		case MENU_SDCARD_PERMISSIONS:
+			SDCardUtils.invalidateRootCache();
+			if (SDCardUtils.needsAllFilesAccessPrompt()) {
+				SDCardUtils.toastAllFilesAccessGrantHint(this);
+				SDCardUtils.openAllFilesAccessSettings(this);
+				break;
+			}
 			boolean state = SDCardUtils.hasPermissions(this,findViewById(R.id.launcher_window_content), RP_INFO);
 			if(state == true) {
 				showPermissionsMessage(true);
@@ -2276,7 +2471,8 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 				TextView title = (TextView)v.findViewById(R.id.displayname);
 				TextView host = (TextView)v.findViewById(R.id.hoststring);
 				if(title != null) {
-					title.setText(" " + m.getDisplayName());
+					boolean showStar = m.isFavorite() && !BuiltinTutorial.isTutorialEntry(m);
+					title.setText(showStar ? " ★ " + m.getDisplayName() : " " + m.getDisplayName());
 				}
 				if(host != null) {
 					String hostLine;

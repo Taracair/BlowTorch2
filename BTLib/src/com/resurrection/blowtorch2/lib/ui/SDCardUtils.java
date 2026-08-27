@@ -13,6 +13,7 @@ import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import android.view.View;
@@ -64,6 +65,20 @@ public class SDCardUtils {
 
     public static boolean needsAllFilesAccessPrompt() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager();
+    }
+
+    /**
+     * Shown when the system All-files screen is opened from Manage Storage
+     * Access. App-wide grant, not per world.
+     */
+    public static final String ALL_FILES_ACCESS_GRANT_HINT =
+            "Grant \"All files access\" for BlowTorch, then tap Manage Storage Access again to create /BlowTorch/.";
+
+    public static void toastAllFilesAccessGrantHint(Context context) {
+        if (context == null) {
+            return;
+        }
+        Toast.makeText(context, ALL_FILES_ACCESS_GRANT_HINT, Toast.LENGTH_LONG).show();
     }
 
     /**

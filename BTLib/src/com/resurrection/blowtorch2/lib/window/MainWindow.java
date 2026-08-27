@@ -8449,9 +8449,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		SDCardUtils.invalidateRootCache();
 		if (SDCardUtils.needsAllFilesAccessPrompt()) {
 			SDCardUtils.openAllFilesAccessSettings(this);
-			Toast.makeText(this,
-					"Grant \"All files access\" for BlowTorch, then tap Manage Storage Access again to create /BlowTorch/.",
-					Toast.LENGTH_LONG).show();
+			SDCardUtils.toastAllFilesAccessGrantHint(this);
 			return;
 		}
 		View root = findViewById(R.id.window_container);

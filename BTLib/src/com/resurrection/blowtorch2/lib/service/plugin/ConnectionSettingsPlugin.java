@@ -978,7 +978,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption bell_vibrate = new BooleanOption();
 		bell_vibrate.setTitle("Vibrate?");
-		bell_vibrate.setDescription("Plays a short vibrate pattern when the bell is received.");
+		bell_vibrate.setDescription("Plays a short vibrate pattern when the bell is received. .dobell vibrate short|long|strong buzzes now even if this is off. Silent mode, Do Not Disturb, and some GrapheneOS profiles can still swallow vibration.");
 		bell_vibrate.setKey("bell_vibrate");
 		bell_vibrate.setValue(true);
 		bellOptions.addOption(bell_vibrate);
@@ -1012,7 +1012,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 		
 		BooleanOption bell_display = new BooleanOption();
 		bell_display.setTitle("Display Bell?");
-		bell_display.setDescription("Displays a small alert on the screen when the bell character is received.");
+		bell_display.setDescription("Displays a small alert on the screen when the bell character is received. .dobell alert shows that icon now even if this is off.");
 		bell_display.setKey("bell_display");
 		bell_display.setValue(false);
 		bellOptions.addOption(bell_display);

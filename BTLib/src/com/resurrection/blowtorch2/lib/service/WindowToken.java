@@ -555,10 +555,11 @@ public class WindowToken implements Parcelable {
 		
 		IntegerOption bufferSize = new IntegerOption();
 		bufferSize.setTitle("Text Buffer Size");
-		bufferSize.setDescription("Lines kept for on-screen scrollback (100–20000), "
-				+ "and never more than about 512 KB of text — roughly 6500 ordinary lines, "
-				+ "fewer when they are long, more when they are short. "
-				+ "Prefer session log for longer history.");
+		bufferSize.setDescription("Lines kept for on-screen scrollback (100–20000; "
+				+ "a larger number in the settings file is stored as 20000). "
+				+ "A second cap of about 512 KB of text usually wins first — "
+				+ "roughly 6500 ordinary lines, fewer when they are long. "
+				+ "Prefer session log for weeks of history.");
 		bufferSize.setKey("buffer_size");
 		bufferSize.setValue(DEFAULT_BUFFER_SIZE);
 		window.addOption(bufferSize);

@@ -113,6 +113,9 @@ BUTTONSET_DATA = {
 						accordionChildLayout = "along",
 						accordionWrapAfter = 0,
 						accordionLanes = 0,
+						-- Missing/nil/true = shown in play so old sets keep
+						-- working. false or "false" hides the tile until Edit.
+						active = true,
 						-- Floating copy over the game (Phase 0 schema). Same
 						-- inheritance path as accordion: live on BUTTONSET_DATA
 						-- so BUTTON_DATA:new lookups resolve defaults.
@@ -589,7 +592,16 @@ function BUTTON:draw(state,canvas)
 	end
 	
 	local function tileColor(c)
-		return colorWithForcedAlpha(c, effectiveButtonOpacityOverride())
+		local colored = colorWithForcedAlpha(c, effectiveButtonOpacityOverride())
+		-- Edit mode still draws inactive tiles; fade them so they read as off.
+		if manage == true then
+			local a = self.data.active
+			if a == false or a == "false" then
+				return colorWithForcedAlpha(colored,
+					math.floor(alphaFromArgb(colored) * 0.4))
+			end
+		end
+		return colored
 	end
 
 	local rect = self.rect
