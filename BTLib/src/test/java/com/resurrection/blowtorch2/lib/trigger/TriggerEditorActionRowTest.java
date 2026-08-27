@@ -1,6 +1,7 @@
 package com.resurrection.blowtorch2.lib.trigger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -71,6 +72,19 @@ public class TriggerEditorActionRowTest {
 	}
 
 	@Test
+	public void actionRowToolbarDoesNotStealFillViewportLeftover() throws Exception {
+		String row = read(new java.io.File(layoutDir(), "editor_action_row.xml"));
+		assertFalse(
+				"alignParentBottom on wrap_content RelativeLayout eats the AT_MOST leftover "
+						+ "from fillViewport; the first action row then hides the rest",
+				row.contains("android:layout_alignParentBottom"));
+		String trigger = read(new java.io.File(layoutDir(), "trigger_editor_dialog.xml"));
+		assertTrue("the stretch comes from fillViewport leftover, not from dropping it",
+				trigger.contains("android:fillViewport=\"true\""));
+		assertTrue(actionListIsWrapContentWithoutWeight(trigger, "trigger_action_list"));
+	}
+
+	@Test
 	public void actionRowXmlCapsCheckBoxAndPadsTheListBeforeNewAction() throws Exception {
 		java.io.File layouts = layoutDir();
 		String row = read(new java.io.File(layouts, "editor_action_row.xml"));
@@ -104,6 +118,24 @@ public class TriggerEditorActionRowTest {
 			return false;
 		}
 		return xml.substring(list, button).contains("android:paddingBottom=\"12dip\"");
+	}
+
+	/** wrap_content, no weight: leftover fillViewport space must not go into the list. */
+	private static boolean actionListIsWrapContentWithoutWeight(String xml, String listId) {
+		int list = xml.indexOf("android:id=\"@+id/" + listId + "\"");
+		if (list < 0) {
+			return false;
+		}
+		int end = xml.indexOf("/>", list);
+		if (end < 0) {
+			end = xml.indexOf(">", list);
+		}
+		if (end < 0) {
+			return false;
+		}
+		String block = xml.substring(list, end);
+		return block.contains("android:layout_height=\"wrap_content\"")
+				&& !block.contains("android:layout_weight");
 	}
 
 	private static java.io.File layoutDir() {

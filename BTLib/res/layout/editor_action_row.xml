@@ -32,12 +32,19 @@
 		android:clipToPadding="true"
 		android:background="@drawable/editor_row_selector">
 
+		<!--
+		  Do not alignParentBottom. wrap_content RelativeLayout + ALIGN_PARENT_BOTTOM
+		  takes the AT_MOST leftover from the trigger editor's fillViewport ScrollView,
+		  so the first action row becomes the rest of the screen. Two actions then
+		  look like one (row 2 is below the fold / clipped); three look like 2 and 3
+		  once content is tall enough that fillViewport stops stretching. Same trap
+		  as the Set Variable editor. Center the toolbar in the row instead.
+		-->
 		<LinearLayout
 			android:id="@+id/action_row_toolbar"
 			android:layout_width="wrap_content"
 			android:layout_height="wrap_content"
-			android:layout_alignParentTop="true"
-			android:layout_alignParentBottom="true"
+			android:layout_centerVertical="true"
 			android:layout_alignParentRight="true"
 			android:gravity="center_vertical|right"
 			android:orientation="horizontal"
