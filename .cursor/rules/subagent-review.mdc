@@ -9,7 +9,7 @@ Local checks first, always: `scripts/check.sh` (or `--tests` for the area
 touched). Fix failures before anything else. Most findings a reviewer would
 report are already in there and cost no tokens.
 
-## Default: one reviewer, after the change
+## Default: one reviewer, after the change, before the commit
 
 Launch **one** Task. Do not set `subagent_type` to `bugbot`. Cursor pins that
 type to Composer 2.5 and **ignores** `model`, so passing Grok does not change
@@ -22,12 +22,26 @@ Use:
 - `model`: `cursor-grok-4.6-xhigh` (required; never omit, never inherit, never
   `composer-2.5`, never any `-fast` slug)
 - `description`: `Bugbot`
-- `prompt`: the Bugbot prompt shape (`Full Repository Path`, `Diff:
-  uncommitted changes`, traps section for the area). `generalPurpose` does
-  not compute the diff for you — tell it to run `git diff` in that repo.
+- `prompt`: `Full Repository Path`, `Diff: uncommitted changes`, the trap
+  section for the area, and a short "what this is" (paths + a few sentences,
+  not a wave essay). Tell it to run `scripts/review-diff.sh` in that repo.
+
+Do **not** dump whole-tree `git diff`. The tool result is truncated here
+(god classes, fat waves). `scripts/review-diff.sh` prints status, `--stat`,
+then per-file diffs up to a byte budget. For `TOO LARGE` or remaining files:
+`git diff -- <one path>` or `git diff -U0 -- <path>`. Do not Read a 4000-line
+class hunting for the hunk.
 
 Triage, fix real findings, re-run until clean or until you hit something to
 report. Then commit.
+
+Review **before** the commit. After `scripts/deploy.sh` the working tree is
+leftovers, not what shipped. To re-review a committed step: 
+`scripts/review-diff.sh HEAD`, never `Diff: uncommitted changes`.
+
+One logical change per review and per commit. A colour-bleed fix and a
+launcher pin are two reviews. A wave of unrelated fixes is what truncates
+the diff and picks the wrong trap section.
 
 Docs and `.cursor/rules` edits: no subagent, self-check only.
 

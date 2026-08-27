@@ -104,23 +104,97 @@ stage "Reviewer Task is Grok, not the Composer-pinned bugbot type"
 # Cursor pins subagent_type=bugbot to Composer 2.5 and ignores `model`.
 # A sentence in subagent-review.mdc was not enough; this stage fails if the
 # rule file or the hook wiring drifts back to launching that type.
+reviewer_ok=1
 PY_TASK="$(command -v python3 || command -v python)"
 if [ -z "$PY_TASK" ]; then
   echo "python3 not installed, cannot run task_model.py --self-test"
-  fail=1
-elif ! "$PY_TASK" scripts/guards/task_model.py --self-test; then
-  fail=1
+  reviewer_ok=0
+elif ! "$PY_TASK" scripts/guards/task_model.py --self-test >/dev/null; then
+  reviewer_ok=0
 fi
 if grep -qE 'Launch \*\*one\*\* `bugbot`' .cursor/rules/subagent-review.mdc; then
   echo ".cursor/rules/subagent-review.mdc still launches the bugbot type"
-  fail=1
+  reviewer_ok=0
 fi
 if ! grep -q 'Do not set `subagent_type` to `bugbot`' .cursor/rules/subagent-review.mdc; then
   echo ".cursor/rules/subagent-review.mdc must forbid subagent_type bugbot"
-  fail=1
+  reviewer_ok=0
 fi
 if ! grep -q 'preToolUse' .cursor/hooks.json; then
   echo ".cursor/hooks.json is missing the preToolUse reviewer rewrite"
+  reviewer_ok=0
+fi
+if ! grep -q 'beforeShellExecution' .cursor/hooks.json; then
+  echo ".cursor/hooks.json is missing beforeShellExecution"
+  reviewer_ok=0
+fi
+if ! grep -q 'afterFileEdit' .cursor/hooks.json; then
+  echo ".cursor/hooks.json is missing afterFileEdit"
+  reviewer_ok=0
+fi
+if ! grep -q 'scripts/review-diff.sh' .cursor/rules/subagent-review.mdc; then
+  echo ".cursor/rules/subagent-review.mdc must tell the reviewer to run scripts/review-diff.sh"
+  reviewer_ok=0
+fi
+if grep -qE 'tell it to run `git diff` in that repo' .cursor/rules/subagent-review.mdc; then
+  echo ".cursor/rules/subagent-review.mdc still tells the reviewer to dump git diff"
+  reviewer_ok=0
+fi
+if [ ! -x scripts/review-diff.sh ]; then
+  echo "scripts/review-diff.sh is missing or not executable"
+  reviewer_ok=0
+elif ! scripts/review-diff.sh >/dev/null; then
+  echo "scripts/review-diff.sh failed on the current tree"
+  reviewer_ok=0
+fi
+if [ "$reviewer_ok" -eq 1 ]; then
+  echo "ok"
+else
+  fail=1
+fi
+
+stage "Starter tutorial rule is glob-scoped, not always-on"
+if grep -q 'alwaysApply: true' .cursor/rules/starter-tutorial.mdc; then
+  echo ".cursor/rules/starter-tutorial.mdc must use globs, not alwaysApply"
+  fail=1
+elif ! grep -q 'globs:' .cursor/rules/starter-tutorial.mdc; then
+  echo ".cursor/rules/starter-tutorial.mdc is missing globs"
+  fail=1
+else
+  echo "ok"
+fi
+
+stage "Parent Cursor workspace hooks/rules match the repo (skip if absent)"
+# Opening the parent folder as the Cursor workspace uses ../.cursor/, not this
+# repo's copy. CI has no parent dir. Locally, drift means shell guards do not run.
+parent_hooks=../.cursor/hooks.json
+parent_rules=../.cursor/rules
+parent_ok=1
+if [ -f "$parent_hooks" ]; then
+  for ev in beforeShellExecution afterFileEdit preToolUse subagentStart; do
+    if ! grep -q "$ev" "$parent_hooks"; then
+      echo "parent .cursor/hooks.json is missing $ev"
+      parent_ok=0
+    fi
+  done
+else
+  echo "no parent .cursor/hooks.json (ok on CI)"
+fi
+if [ -d "$parent_rules" ]; then
+  for f in .cursor/rules/*.mdc; do
+    base="$(basename "$f")"
+    other="$parent_rules/$base"
+    if [ -f "$other" ] && ! diff -q "$f" "$other" >/dev/null; then
+      echo "parent .cursor/rules/$base has drifted from the repo copy"
+      parent_ok=0
+    fi
+  done
+else
+  echo "no parent .cursor/rules (ok on CI)"
+fi
+if [ "$parent_ok" -eq 1 ]; then
+  echo "ok"
+else
   fail=1
 fi
 

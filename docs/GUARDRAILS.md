@@ -31,6 +31,9 @@ new opportunity for the two copies to disagree.
 | arm64 `.so` in `BTLib/libs` aligned below 16 KB | `check.sh` | CI fails |
 | The rule list does not drift between files | `check.sh` | CI fails |
 | Reviewer Task is not the Composer-pinned `bugbot` type | `preToolUse`, `subagentStart`, `check.sh` | Task rewritten to `generalPurpose` + Grok; leftover `bugbot` launches denied |
+| Reviewer does not dump whole-tree `git diff` | `preToolUse`, `check.sh` | Bugbot Tasks get `scripts/review-diff.sh` prepended; the rule file must name that script |
+| Starter tutorial rule is not always-on | `check.sh` | `.cursor/rules/starter-tutorial.mdc` must use `globs`, not `alwaysApply` |
+| Parent Cursor hooks/rules, if present, match the repo | `check.sh` (local) | Skip when `../.cursor/` is absent (CI). Missing `beforeShellExecution` there means shell guards do not run |
 
 The 16 KB check earns its place by having caught a real one on the day it was
 written. `BTLib/libs` is not in git and is built by a script nobody remembers to
@@ -76,6 +79,14 @@ repo. A `.claude/settings.json` here would be silently ignored. The adapters it
 points at (`scripts/hooks/claude-*.sh`) are versioned; the wiring that enables
 them is not, and cannot be reviewed in a diff.
 
+Open `BlowTorch/` as the Cursor workspace. If the parent folder is open
+instead, Cursor reads `../.cursor/hooks.json`, which must list the same four
+events (`beforeShellExecution`, `afterFileEdit`, `preToolUse`, `subagentStart`)
+and the parent `rules/*.mdc` files must match this repo — `check.sh` fails
+locally when they drift. Parent `rules/` are usually symlinks into this repo;
+`hooks.json` cannot be, because the python paths differ. Without
+`beforeShellExecution` there, `adb uninstall` is not denied in the editor.
+
 **Git `pre-commit`** (`scripts/hooks/pre-commit`) is the layer that does not care
 which editor or which model produced the change. It is also the only blocking
 enforcement for file content in Cursor, because Cursor's `afterFileEdit` is a
@@ -100,6 +111,7 @@ scripts/guards/          rules, one file each, exit-code based
   docs-allowlist.sh      what may live in docs/
   launcher-component.sh  MAIN/LAUNCHER stays on FreeLauncher
   task_model.py          reviewer Task is Grok, not Composer-pinned bugbot
+scripts/review-diff.sh   per-file review bundle; whole-tree git diff truncates
 scripts/hooks/
   pre-commit             git hook: branch, Lua, docs, Lua libs version, manifest
   commit-msg             git hook: the probe check, which needs the real message

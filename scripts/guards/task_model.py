@@ -20,8 +20,12 @@ REVIEW_DESCRIPTIONS = frozenset({"bugbot"})
 
 PROMPT_NOTE = (
     "[BlowTorch] The bugbot subagent type is pinned to Composer 2.5 and is "
-    "forbidden here. Compute the git diff yourself from Full Repository Path "
-    "and Diff in this prompt. Do not ask for a pasted diff.\n\n"
+    "forbidden here. Do not dump whole-tree `git diff` — the tool result is "
+    "truncated on this repo. In Full Repository Path run "
+    "`scripts/review-diff.sh` (uncommitted) or `scripts/review-diff.sh HEAD` "
+    "(already committed). For files it marks TOO LARGE or remaining, run "
+    "`git diff -- <one path>` or `git diff -U0 -- <path>`. Do not ask for a "
+    "pasted diff. Do not Read a 4000-line class hunting for the hunk.\n\n"
 )
 
 
@@ -60,14 +64,16 @@ def rewrite_task_input(inp: dict) -> tuple[dict | None, str]:
     if stype.lower() in PINNED_TYPES:
         out["subagent_type"] = REQUIRED_TYPE
         reasons.append("subagent_type bugbot -> generalPurpose")
-        prompt = out.get("prompt") if isinstance(out.get("prompt"), str) else ""
-        if PROMPT_NOTE.strip() not in prompt:
-            out["prompt"] = PROMPT_NOTE + prompt
 
     model = _norm(out.get("model"))
     if _model_needs_replace(model):
         out["model"] = REQUIRED_MODEL
         reasons.append(f"model {model or 'omitted'} -> {REQUIRED_MODEL}")
+
+    prompt = out.get("prompt") if isinstance(out.get("prompt"), str) else ""
+    if PROMPT_NOTE.strip() not in prompt:
+        out["prompt"] = PROMPT_NOTE + prompt
+        reasons.append("prefixed review-diff recipe")
 
     if not reasons:
         return None, ""
@@ -190,6 +196,17 @@ def _self_test() -> int:
         ),
         (
             {"subagent_type": "generalPurpose", "description": "Bugbot", "model": REQUIRED_MODEL},
+            True,
+            REQUIRED_TYPE,
+            REQUIRED_MODEL,
+        ),
+        (
+            {
+                "subagent_type": "generalPurpose",
+                "description": "Bugbot",
+                "model": REQUIRED_MODEL,
+                "prompt": PROMPT_NOTE + "Full Repository Path: /x\nDiff: uncommitted changes",
+            },
             False,
             REQUIRED_TYPE,
             REQUIRED_MODEL,
@@ -222,9 +239,12 @@ def _self_test() -> int:
         if expect_rewrite and expect_model and _norm(result.get("model")) != expect_model:
             print(f"FAIL model: {inp!r} -> {result.get('model')}", file=sys.stderr)
             failed += 1
-        if expect_rewrite and inp.get("subagent_type") == "bugbot":
+        if expect_rewrite:
             prompt = result.get("prompt") or ""
-            if "pinned to Composer 2.5" not in prompt:
+            if "review-diff.sh" not in prompt:
+                print(f"FAIL missing review-diff recipe: {inp!r}", file=sys.stderr)
+                failed += 1
+            if inp.get("subagent_type") == "bugbot" and "pinned to Composer 2.5" not in prompt:
                 print(f"FAIL missing prompt note: {inp!r}", file=sys.stderr)
                 failed += 1
 
@@ -263,6 +283,21 @@ def _self_test() -> int:
     })
     if allow_explore.get("permission") != "allow" or "updated_input" in allow_explore:
         print(f"FAIL explore untouched: {allow_explore!r}", file=sys.stderr)
+        failed += 1
+
+    inject = handle_payload({
+        "hook_event_name": "preToolUse",
+        "tool_name": "Task",
+        "tool_input": {
+            "description": "Bugbot",
+            "subagent_type": "generalPurpose",
+            "model": REQUIRED_MODEL,
+            "prompt": "Diff: uncommitted changes",
+        },
+    })
+    inj = inject.get("updated_input") if isinstance(inject.get("updated_input"), dict) else {}
+    if inject.get("permission") != "allow" or "review-diff.sh" not in (inj.get("prompt") or ""):
+        print(f"FAIL recipe inject on correct-model Bugbot: {inject!r}", file=sys.stderr)
         failed += 1
 
     if failed:

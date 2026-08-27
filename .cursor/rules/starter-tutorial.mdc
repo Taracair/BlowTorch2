@@ -1,11 +1,24 @@
 ---
 description: Keep Starter Tutorial in sync when features change
-alwaysApply: true
+globs:
+  - "**/startertutorial.lua"
+  - "**/buttonserver.lua"
+  - "**/buttonwindow.lua"
+  - "**/default_settings_test.xml"
+  - "**/default_settings_main.xml"
+  - "**/HelpCommand.java"
+  - "**/TutorialCommand.java"
+  - "BTLib/src/**/function/*Command.java"
+  - "**/FreeLauncher.java"
+  - "**/Launcher.java"
+  - "docs/user-manual.md"
 ---
 
 # Starter Tutorial stays current
 
 When you change user-facing client features (`.commands`, buttons, triggers, aliases, timers, GMCP/MCP, Options, launcher, copy, reconnect, plugins), update the offline **Starter Tutorial** in the same change set when the lesson would otherwise be wrong or incomplete.
+
+If this rule did not attach (Java outside `function/`, Options UI, plugins) and the player-visible lesson would be wrong, still update the tutorial.
 
 ## Canonical files
 

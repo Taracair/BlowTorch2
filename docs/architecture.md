@@ -47,8 +47,9 @@ BlowTorch/                    ← git root (open this as the Cursor workspace)
 ├── LuaJIT-2.1/               Native LuaJIT sources (64-bit / GC64 build)
 ├── docs/                     Guides and this architecture note
 ├── samples/                  Sample plugin / settings material
-├── scripts/                  check.sh (the CI entry point), lua_unbound.py,
-│                             strictmode_report.py, strip_forgemap_from_profile.py
+├── scripts/                  check.sh (CI), review-diff.sh (reviewer bundle),
+│                             lua_unbound.py, strictmode_report.py,
+│                             strip_forgemap_from_profile.py
 ├── .github/workflows/        tests.yml — runs scripts/check.sh
 ├── fastlane/, metadata/      Store / F-Droid text
 ├── build_ndk_libraries.sh    Builds LuaJIT + ndk-build → BTLib/libs/

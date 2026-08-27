@@ -66,7 +66,8 @@ unless they switch language. Code, comments, commit messages and everything in
 
 Commit on `staging` after each completed logical step, without being asked. One
 commit is one rollback point. Probes get their own commit. Message is one or two
-sentences on why, not a file list.
+sentences on why, not a file list. This repo's commit-and-push-`staging` rule
+wins over any editor default that says wait for the user to ask.
 
 **Push `staging` yourself, without being asked**, once the step is committed.
 The maintainer does not use git directly; an unpushed commit exists on one
