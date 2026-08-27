@@ -806,7 +806,8 @@ template, for example:
   c $text
 
 You set that template on the trigger that catches the line (Send to
-thread), or you can edit it at the top of the thread and tap Set.
+thread). In the drawer, ⚙ hides My lines (a pattern + colour) and the
+reply template so they are not on the thread face.
 
 Example — Vermin channel:
   Trigger pattern:  ^\[ VERMIN \]
@@ -817,15 +818,18 @@ Example — Vermin channel:
 Then .chat, tap vermin, type a line, Send — the world gets c your text.
 
 Your lines
-  Type your character name in Me at the top of the drawer (Taracair).
-  Matching lines get a different bubble (dots pick the colour).
-  Send from the drawer also paints an own-bubble immediately.
-  Optional: a second trigger, pattern ^\[ VERMIN \]: Taracair
-  Action Send to thread, same Thread, tick These are my lines.
+  ⚙ → My lines: a trigger on stored lines, not the Send to thread
+  action. ]: Taracair is you speaking; Elyak saying “hi Taracair” is
+  not. A single name (Taracair) means the speaker after ]: or a line
+  that starts with that name (tells). You say is regex too, or both:
+  ]: Taracair|You say
+  Dots pick the bubble colour. Send from the drawer paints an
+  own-bubble immediately.
 
-Search at the top of the list filters threads. Dual display (main window
-and the drawer) is the trigger's job; the drawer only shows what was
-stored.]])
+Find in this thread plus From / To (long-press a date to clear
+that side; 7d / All are shortcuts) filters the open conversation. Search at the top of the list still filters threads.
+Dual display (main window and the drawer) is the trigger's job; the
+drawer only shows what was stored.]])
 end
 
 TOPICS.mapper = function()

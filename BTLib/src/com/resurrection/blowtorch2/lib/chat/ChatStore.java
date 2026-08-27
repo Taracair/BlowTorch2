@@ -216,9 +216,22 @@ public final class ChatStore {
 	}
 
 	public List<ChatMessage> messages(String threadId, int limit) {
+		return messages(threadId, limit, null, null, null);
+	}
+
+	public List<ChatMessage> messages(String threadId, int limit, String query,
+			Long sinceMsInclusive, Long untilMsExclusive) {
 		synchronized (lock) {
 			reloadIfNewerLocked();
-			return inbox.messages(threadId, limit);
+			return inbox.messages(threadId, limit, query, sinceMsInclusive,
+					untilMsExclusive);
+		}
+	}
+
+	public boolean displayMine(ChatMessage m) {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.displayMine(m);
 		}
 	}
 

@@ -613,8 +613,10 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .chat vermin           open that thread\n"
 					+ "  .chat help\n"
 					+ "  Also: overflow ⋮ → Chat\n"
-					+ "Type your character name in Me so your lines get a different bubble.\n"
-					+ "Or a second Send to thread action with These are my lines ticked.\n";
+					+ "⚙ in the drawer: My lines (a trigger pattern) and the reply template.\n"
+					+ "]: Taracair is you speaking — not a mention in quotes. You say works too.\n"
+					+ "Find + From/To dates filter the open thread. Send to thread only copies;\n"
+					+ "own-bubble colour is the chat-module pattern, not a second trigger action.\n";
 		}
 		return null;
 	}

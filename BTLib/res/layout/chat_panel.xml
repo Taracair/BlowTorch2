@@ -64,6 +64,16 @@
                 android:textSize="15sp" />
 
             <TextView
+                android:id="@+id/chat_settings_toggle"
+                android:layout_width="40dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="⚙"
+                android:textColor="@color/extra_text_title_text"
+                android:textSize="16sp"
+                android:contentDescription="Chat settings" />
+
+            <TextView
                 android:id="@+id/chat_close"
                 android:layout_width="40dp"
                 android:layout_height="match_parent"
@@ -81,52 +91,114 @@
             android:background="@color/game_chrome_edge" />
 
         <LinearLayout
-            android:id="@+id/chat_me_row"
+            android:id="@+id/chat_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Me"
-                android:textColor="@color/chrome_description"
-                android:textSize="12sp" />
-
-            <EditText
-                android:id="@+id/chat_mine_name"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginLeft="8dp"
-                android:background="@drawable/input_bar_bg"
-                android:hint="your name"
-                android:importantForAutofill="no"
-                android:inputType="text"
-                android:maxLines="1"
-                android:padding="6dp"
-                android:textColor="@color/chrome_title_text"
-                android:textColorHint="@color/chrome_hint"
-                android:textSize="12sp" />
+            android:orientation="vertical"
+            android:visibility="gone">
 
             <LinearLayout
-                android:id="@+id/chat_mine_colors"
-                android:layout_width="wrap_content"
+                android:id="@+id/chat_me_row"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="8dp"
                 android:gravity="center_vertical"
-                android:orientation="horizontal" />
-        </LinearLayout>
+                android:orientation="horizontal"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="4dp">
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="@color/game_chrome_edge" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="My lines"
+                    android:textColor="@color/chrome_description"
+                    android:textSize="12sp" />
+
+                <EditText
+                    android:id="@+id/chat_mine_name"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="8dp"
+                    android:background="@drawable/input_bar_bg"
+                    android:hint="]: Taracair  or  You say"
+                    android:importantForAutofill="no"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:padding="6dp"
+                    android:textColor="@color/chrome_title_text"
+                    android:textColorHint="@color/chrome_hint"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/chat_mine_colors"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/chat_mine_help"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="6dp"
+                android:text="A trigger on stored lines. ]: Taracair is you speaking; someone saying hi Taracair is not. A single name means the speaker after ]: . You say is regex too."
+                android:textColor="@color/chrome_description"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:id="@+id/chat_template_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="6dp"
+                android:visibility="gone">
+
+                <EditText
+                    android:id="@+id/chat_template"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/input_bar_bg"
+                    android:hint="tell $1 $text"
+                    android:importantForAutofill="no"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:padding="6dp"
+                    android:textColor="@color/chrome_title_text"
+                    android:textColorHint="@color/chrome_hint"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/chat_template_set"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginLeft="8dp"
+                    android:background="#332A3A4A"
+                    android:gravity="center"
+                    android:minHeight="32dp"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:text="Set"
+                    android:textColor="#9EC5FF"
+                    android:textSize="12sp"
+                    android:contentDescription="Save reply template" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/game_chrome_edge" />
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/chat_inbox"
@@ -184,46 +256,112 @@
             android:visibility="gone">
 
             <LinearLayout
-                android:id="@+id/chat_template_row"
+                android:id="@+id/chat_thread_filter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
                 android:paddingTop="6dp"
-                android:paddingBottom="6dp">
+                android:paddingBottom="4dp">
 
                 <EditText
-                    android:id="@+id/chat_template"
-                    android:layout_width="0dp"
+                    android:id="@+id/chat_thread_search"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:background="@drawable/input_bar_bg"
-                    android:hint="tell $1 $text"
+                    android:hint="Find in this thread"
+                    android:imeOptions="actionSearch"
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
-                    android:padding="6dp"
+                    android:padding="8dp"
                     android:textColor="@color/chrome_title_text"
                     android:textColorHint="@color/chrome_hint"
-                    android:textSize="12sp" />
+                    android:textSize="14sp" />
 
-                <TextView
-                    android:id="@+id/chat_template_set"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="8dp"
-                    android:background="#332A3A4A"
-                    android:gravity="center"
-                    android:minHeight="32dp"
-                    android:paddingLeft="10dp"
-                    android:paddingRight="10dp"
-                    android:text="Set"
-                    android:textColor="#9EC5FF"
-                    android:textSize="12sp"
-                    android:contentDescription="Save reply template" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="6dp">
+
+                    <TextView
+                        android:id="@+id/chat_filter_from"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="#332A3A4A"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:paddingLeft="6dp"
+                        android:paddingRight="6dp"
+                        android:text="From"
+                        android:textColor="#9EC5FF"
+                        android:textSize="12sp"
+                        android:contentDescription="Filter from date" />
+
+                    <TextView
+                        android:id="@+id/chat_filter_to"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="6dp"
+                        android:layout_weight="1"
+                        android:background="#332A3A4A"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:paddingLeft="6dp"
+                        android:paddingRight="6dp"
+                        android:text="To"
+                        android:textColor="#9EC5FF"
+                        android:textSize="12sp"
+                        android:contentDescription="Filter to date" />
+
+                    <TextView
+                        android:id="@+id/chat_filter_7d"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="6dp"
+                        android:background="#332A3A4A"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:minWidth="36dp"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:text="7d"
+                        android:textColor="#9EC5FF"
+                        android:textSize="12sp"
+                        android:contentDescription="Last 7 days" />
+
+                    <TextView
+                        android:id="@+id/chat_filter_all"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="6dp"
+                        android:background="#332A3A4A"
+                        android:gravity="center"
+                        android:minHeight="32dp"
+                        android:paddingLeft="8dp"
+                        android:paddingRight="8dp"
+                        android:text="All"
+                        android:textColor="#9EC5FF"
+                        android:textSize="12sp"
+                        android:contentDescription="Clear date filter" />
+                </LinearLayout>
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/chat_thread_empty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="8dp"
+                android:text="No matching messages."
+                android:textColor="@color/chrome_description"
+                android:textSize="13sp"
+                android:visibility="gone" />
 
             <ScrollView
                 android:id="@+id/chat_message_scroll"

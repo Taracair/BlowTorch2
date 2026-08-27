@@ -217,6 +217,68 @@ public class ChatStoreTest {
 	}
 
 	@Test
+	public void mineTriggerMatchesSpeakerNotMention() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineNeedle("Taracair");
+		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("[ VERMIN ] : Taracair says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair, the bard, says, \"Test\""));
+		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak says, \"hi Taracair\""));
+		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak waves."));
+		assertTrue(inbox.bodyLooksMine("Taracair tells you 'yo'"));
+		assertFalse(inbox.bodyLooksMine("Bob tells you 'hi Taracair'"));
+		assertFalse(inbox.bodyLooksMine("hi Taracair"));
+		inbox.setMineNeedle("]: Taracair");
+		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"Test\""));
+		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak says, \"hi Taracair\""));
+		inbox.setMineNeedle("You say");
+		assertTrue(inbox.bodyLooksMine("You say, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"hello\""));
+		inbox.setMineNeedle("]: Taracair|You say");
+		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("You say, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak says, \"hi Taracair\""));
+	}
+
+	@Test
+	public void displayMineUsesPatternOrStoredFlag() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineNeedle("Taracair");
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Elyak says, \"hi Taracair\"", 1L, false, false);
+		assertFalse(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
+		inbox.append("vermin", "You", "hi Taracair", 2L, true, false);
+		assertTrue(inbox.displayMine(inbox.messages("vermin", 2).get(1)));
+		inbox.append("vermin", "VERMIN", "You say, \"hello\"", 3L, true, false);
+		assertTrue(inbox.displayMine(inbox.messages("vermin", 3).get(2)));
+	}
+
+	@Test
+	public void absorbedSendStaysMineWhenPatternIsYouSay() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineNeedle("You say");
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"Test\"", 1L, true, false);
+		assertTrue(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
+	}
+
+	@Test
+	public void threadMessagesFilterSearchAndDates() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.append("vermin", "VERMIN", "alpha", 1000L);
+		inbox.append("vermin", "VERMIN", "bravo goblin", 2000L);
+		inbox.append("tells", "Tells", "goblin", 2000L);
+		inbox.append("vermin", "VERMIN", "charlie", 3000L);
+		List<ChatMessage> hits = inbox.messages("vermin", 10, "goblin", null, null);
+		assertEquals(1, hits.size());
+		assertEquals("bravo goblin", hits.get(0).getBody());
+		List<ChatMessage> window = inbox.messages("vermin", 10, "",
+				Long.valueOf(1500L), Long.valueOf(2500L));
+		assertEquals(1, window.size());
+		assertEquals("bravo goblin", window.get(0).getBody());
+	}
+
+	@Test
 	public void outgoingIsMineWithoutUnreadThenEchoIsAbsorbed() {
 		ChatStore store = new ChatStore(new ChatInbox());
 		store.appendOutgoing("vermin", "You", "Test");

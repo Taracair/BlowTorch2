@@ -852,11 +852,13 @@ Thread is the conversation key (`vermin`, or `$1` for whoever sent a tell).
 Title and body are optional; a blank body stores the matched line. Reply
 template is optional (`tell $1 $text` or `c $text`). `$text` is a placeholder
 for the reply box, not a trigger capture. `$1` in the template is substituted
-when the thread is first created. Tick **These are my lines** so matching
-lines get your bubble colour. You can also type your character name in **Me**
-at the top of the chat drawer — any stored line containing that name is
-painted as yours. History is kept in a file next to the world profile
-(capped, not unbounded).
+when the thread is first created. Own-bubble colour is **Chat → ⚙ → My
+lines**, a trigger on stored lines (`]: Taracair` or `You say`), not a
+second Send to thread action. `Elyak says, "hi Taracair"` does not match
+`]: Taracair`. A single name is the speaker after `]:` (or a line that
+starts with that name). Find + From/To in an open thread filter stored
+messages. History is a file next to the world profile (capped, not
+unbounded).
 
 ## Recipes
 

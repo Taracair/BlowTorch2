@@ -13,6 +13,7 @@ import com.resurrection.blowtorch2.lib.chat.ChatMessage;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.chat.ChatThreadSummary;
 
+import android.app.DatePickerDialog;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -22,6 +23,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -68,8 +70,21 @@ public class ChatPanelController {
 	private TextView sendBtn;
 	private EditText mineNameBox;
 	private LinearLayout mineColors;
+	private View settingsPanel;
+	private TextView settingsToggle;
+	private View templateRow;
+	private EditText threadSearchBox;
+	private TextView filterFrom;
+	private TextView filterTo;
+	private TextView filter7d;
+	private TextView filterAll;
+	private TextView threadEmpty;
 	private String openThreadId;
 	private String searchQuery = "";
+	private String threadSearchQuery = "";
+	private Long filterFromMs;
+	private Long filterUntilExclusiveMs;
+	private boolean settingsOpen;
 	private boolean attached;
 	private boolean visible;
 	private boolean animating;
@@ -251,6 +266,15 @@ public class ChatPanelController {
 		sendBtn = (TextView) root.findViewById(R.id.chat_send);
 		mineNameBox = (EditText) root.findViewById(R.id.chat_mine_name);
 		mineColors = (LinearLayout) root.findViewById(R.id.chat_mine_colors);
+		settingsPanel = root.findViewById(R.id.chat_settings);
+		settingsToggle = (TextView) root.findViewById(R.id.chat_settings_toggle);
+		templateRow = root.findViewById(R.id.chat_template_row);
+		threadSearchBox = (EditText) root.findViewById(R.id.chat_thread_search);
+		filterFrom = (TextView) root.findViewById(R.id.chat_filter_from);
+		filterTo = (TextView) root.findViewById(R.id.chat_filter_to);
+		filter7d = (TextView) root.findViewById(R.id.chat_filter_7d);
+		filterAll = (TextView) root.findViewById(R.id.chat_filter_all);
+		threadEmpty = (TextView) root.findViewById(R.id.chat_thread_empty);
 
 		int width = (int) (activity.getResources().getDisplayMetrics().widthPixels * 0.80f);
 		if (drawer != null) {
@@ -295,6 +319,19 @@ public class ChatPanelController {
 				@Override
 				public void onClick(View v) {
 					showInbox();
+				}
+			});
+		}
+		if (settingsToggle != null) {
+			settingsToggle.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					settingsOpen = !settingsOpen;
+					if (!settingsOpen) {
+						saveMineName();
+						saveTemplateQuiet();
+					}
+					applySettingsVisibility();
 				}
 			});
 		}
@@ -346,6 +383,7 @@ public class ChatPanelController {
 			});
 		}
 		wireMineRow();
+		wireThreadFilter();
 	}
 
 	private void wireMineRow() {
@@ -395,9 +433,7 @@ public class ChatPanelController {
 				public void onClick(View v) {
 					store().setMineColorArgb(color);
 					paintMineColorChips();
-					if (openThreadId != null) {
-						populateMessages(store().messages(openThreadId, MESSAGE_LIMIT));
-					}
+					reloadThreadMessages();
 				}
 			});
 			mineColors.addView(chip);
@@ -422,6 +458,202 @@ public class ChatPanelController {
 		}
 		String typed = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString().trim();
 		store().setMineNeedle(typed);
+		reloadThreadMessages();
+	}
+
+	private void applySettingsVisibility() {
+		if (settingsPanel != null) {
+			settingsPanel.setVisibility(settingsOpen ? View.VISIBLE : View.GONE);
+		}
+		if (settingsToggle != null) {
+			settingsToggle.setBackgroundColor(settingsOpen ? 0x44FFFFFF : 0x00000000);
+		}
+		if (templateRow != null) {
+			templateRow.setVisibility(settingsOpen && openThreadId != null
+					? View.VISIBLE : View.GONE);
+		}
+	}
+
+	private void wireThreadFilter() {
+		if (threadSearchBox != null) {
+			threadSearchBox.addTextChangedListener(new TextWatcher() {
+				@Override
+				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+				}
+
+				@Override
+				public void onTextChanged(CharSequence s, int start, int before, int count) {
+				}
+
+				@Override
+				public void afterTextChanged(Editable s) {
+					threadSearchQuery = s == null ? "" : s.toString();
+					if (openThreadId != null) {
+						reloadThreadMessages();
+					}
+				}
+			});
+		}
+		if (filterFrom != null) {
+			filterFrom.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					pickFilterDate(true);
+				}
+			});
+			filterFrom.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					filterFromMs = null;
+					paintDateChips();
+					reloadThreadMessages();
+					return true;
+				}
+			});
+		}
+		if (filterTo != null) {
+			filterTo.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					pickFilterDate(false);
+				}
+			});
+			filterTo.setOnLongClickListener(new View.OnLongClickListener() {
+				@Override
+				public boolean onLongClick(View v) {
+					filterUntilExclusiveMs = null;
+					paintDateChips();
+					reloadThreadMessages();
+					return true;
+				}
+			});
+		}
+		if (filter7d != null) {
+			filter7d.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					filterFromMs = Long.valueOf(startOfLocalDay(-6));
+					filterUntilExclusiveMs = null;
+					paintDateChips();
+					reloadThreadMessages();
+				}
+			});
+		}
+		if (filterAll != null) {
+			filterAll.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					filterFromMs = null;
+					filterUntilExclusiveMs = null;
+					paintDateChips();
+					reloadThreadMessages();
+				}
+			});
+		}
+		paintDateChips();
+	}
+
+	private void pickFilterDate(final boolean from) {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		Calendar cal = Calendar.getInstance();
+		if (from && filterFromMs != null) {
+			cal.setTimeInMillis(filterFromMs.longValue());
+		} else if (!from && filterUntilExclusiveMs != null) {
+			cal.setTimeInMillis(filterUntilExclusiveMs.longValue() - 1L);
+		}
+		DatePickerDialog dlg = new DatePickerDialog(activity,
+				new DatePickerDialog.OnDateSetListener() {
+					@Override
+					public void onDateSet(DatePicker view, int year, int month, int day) {
+						Calendar picked = Calendar.getInstance();
+						picked.clear();
+						picked.set(Calendar.YEAR, year);
+						picked.set(Calendar.MONTH, month);
+						picked.set(Calendar.DAY_OF_MONTH, day);
+						long start = picked.getTimeInMillis();
+						if (from) {
+							filterFromMs = Long.valueOf(start);
+						} else {
+							picked.add(Calendar.DAY_OF_MONTH, 1);
+							filterUntilExclusiveMs = Long.valueOf(picked.getTimeInMillis());
+						}
+						paintDateChips();
+						reloadThreadMessages();
+					}
+				},
+				cal.get(Calendar.YEAR),
+				cal.get(Calendar.MONTH),
+				cal.get(Calendar.DAY_OF_MONTH));
+		dlg.show();
+	}
+
+	private void paintDateChips() {
+		DateFormat dayFmt = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault());
+		if (filterFrom != null) {
+			if (filterFromMs != null) {
+				filterFrom.setText(dayFmt.format(new Date(filterFromMs.longValue())));
+			} else {
+				filterFrom.setText("From");
+			}
+		}
+		if (filterTo != null) {
+			if (filterUntilExclusiveMs != null) {
+				filterTo.setText(dayFmt.format(new Date(filterUntilExclusiveMs.longValue() - 1L)));
+			} else {
+				filterTo.setText("To");
+			}
+		}
+		boolean seven = filterFromMs != null && filterUntilExclusiveMs == null
+				&& filterFromMs.longValue() == startOfLocalDay(-6);
+		if (filter7d != null) {
+			filter7d.setBackgroundColor(seven ? 0x663A8A8A : 0x332A3A4A);
+		}
+		boolean all = filterFromMs == null && filterUntilExclusiveMs == null;
+		if (filterAll != null) {
+			filterAll.setBackgroundColor(all ? 0x663A8A8A : 0x332A3A4A);
+		}
+	}
+
+	private long startOfLocalDay(int offsetDays) {
+		Calendar c = Calendar.getInstance();
+		c.set(Calendar.HOUR_OF_DAY, 0);
+		c.set(Calendar.MINUTE, 0);
+		c.set(Calendar.SECOND, 0);
+		c.set(Calendar.MILLISECOND, 0);
+		c.add(Calendar.DAY_OF_YEAR, offsetDays);
+		return c.getTimeInMillis();
+	}
+
+	private boolean threadFilterActive() {
+		if (threadSearchQuery != null && threadSearchQuery.trim().length() > 0) {
+			return true;
+		}
+		return filterFromMs != null || filterUntilExclusiveMs != null;
+	}
+
+	private void reloadThreadMessages() {
+		if (openThreadId == null) {
+			return;
+		}
+		boolean filtering = threadFilterActive();
+		int limit = filtering ? Integer.MAX_VALUE : MESSAGE_LIMIT;
+		String q = threadSearchQuery == null ? "" : threadSearchQuery;
+		List<ChatMessage> msgs = store().messages(openThreadId, limit, q,
+				filterFromMs, filterUntilExclusiveMs);
+		populateMessages(msgs, !filtering);
+	}
+
+	private void clearThreadFilter() {
+		threadSearchQuery = "";
+		filterFromMs = null;
+		filterUntilExclusiveMs = null;
+		if (threadSearchBox != null) {
+			threadSearchBox.setText("");
+		}
+		paintDateChips();
 	}
 
 	private int drawerWidthPx() {
@@ -514,6 +746,7 @@ public class ChatPanelController {
 		if (threadView != null) {
 			threadView.setVisibility(View.GONE);
 		}
+		applySettingsVisibility();
 		populateInbox();
 	}
 
@@ -522,9 +755,13 @@ public class ChatPanelController {
 			showInbox();
 			return;
 		}
+		boolean switched = openThreadId == null || !threadId.equals(openThreadId);
 		openThreadId = threadId;
 		ChatStore store = store();
 		store.markSeen(threadId);
+		if (switched) {
+			clearThreadFilter();
+		}
 		if (backBtn != null) {
 			backBtn.setVisibility(View.VISIBLE);
 		}
@@ -554,7 +791,8 @@ public class ChatPanelController {
 			String tmpl = store.replyTemplate(threadId);
 			templateBox.setText(tmpl == null ? "" : tmpl);
 		}
-		populateMessages(store.messages(threadId, MESSAGE_LIMIT));
+		applySettingsVisibility();
+		reloadThreadMessages();
 		if (resetReply && replyBox != null) {
 			replyBox.setText("");
 			replyBox.requestFocus();
@@ -665,7 +903,7 @@ public class ChatPanelController {
 		return new ArrayList<ChatThreadSummary>(byId.values());
 	}
 
-	private void populateMessages(List<ChatMessage> messages) {
+	private void populateMessages(List<ChatMessage> messages, boolean scrollToEnd) {
 		if (messageList == null) {
 			return;
 		}
@@ -676,6 +914,10 @@ public class ChatPanelController {
 		}
 		if (messages == null) {
 			messages = java.util.Collections.emptyList();
+		}
+		if (threadEmpty != null) {
+			boolean emptyFilter = messages.isEmpty() && threadFilterActive();
+			threadEmpty.setVisibility(emptyFilter ? View.VISIBLE : View.GONE);
 		}
 		LayoutInflater inflater = LayoutInflater.from(activity);
 		DateFormat dayFmt = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault());
@@ -703,7 +945,7 @@ public class ChatPanelController {
 				day.setText(dayFmt.format(new Date(m.getWhenMs())));
 				lastDay = dayKey;
 			}
-			boolean mine = m.isMine();
+			boolean mine = store.displayMine(m);
 			if (align != null) {
 				align.setGravity(mine ? Gravity.END : Gravity.START);
 			}
@@ -740,7 +982,7 @@ public class ChatPanelController {
 			}
 			messageList.addView(row);
 		}
-		if (messageScroll != null) {
+		if (scrollToEnd && messageScroll != null) {
 			messageScroll.post(new Runnable() {
 				@Override
 				public void run() {
@@ -763,6 +1005,20 @@ public class ChatPanelController {
 			Toast.makeText(activity, tmpl.length() == 0
 					? "Reply template cleared"
 					: "Reply template saved", Toast.LENGTH_SHORT).show();
+		}
+	}
+
+	private void saveTemplateQuiet() {
+		if (openThreadId == null || templateBox == null) {
+			return;
+		}
+		String tmpl = templateBox.getText() == null ? "" : templateBox.getText().toString().trim();
+		String existing = store().replyTemplate(openThreadId);
+		if (existing == null) {
+			existing = "";
+		}
+		if (!tmpl.equals(existing)) {
+			store().setReplyTemplate(openThreadId, tmpl);
 		}
 	}
 
@@ -798,7 +1054,7 @@ public class ChatPanelController {
 		}
 		host.sendCommand(line);
 		replyBox.setText("");
-		populateMessages(store.messages(openThreadId, MESSAGE_LIMIT));
+		reloadThreadMessages();
 	}
 
 	private ChatStore store() {

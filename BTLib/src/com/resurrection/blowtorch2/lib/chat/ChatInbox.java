@@ -8,6 +8,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -27,6 +29,8 @@ final class ChatInbox {
 	static final int DEFAULT_OTHER_COLOR = 0xFF333333;
 	static final long ABSORB_MINE_MS = 8000L;
 	private static final Charset UTF8 = Charset.forName("UTF-8");
+	private static final Pattern PLAIN_NAME = Pattern.compile(
+			"^[A-Za-z][A-Za-z0-9_'-]*$");
 
 	private static final class ThreadState {
 		String threadId;
@@ -46,6 +50,7 @@ final class ChatInbox {
 			new LinkedHashMap<String, ThreadState>();
 	private final ArrayList<ChatMessage> messages = new ArrayList<ChatMessage>();
 	private String mineNeedle = "";
+	private Pattern mineCompiled;
 	private int mineColor = DEFAULT_MINE_COLOR;
 	private int otherColor = DEFAULT_OTHER_COLOR;
 
@@ -122,12 +127,31 @@ final class ChatInbox {
 		return false;
 	}
 
+	/**
+	 * Chat-module mine trigger: the stored line matches {@link #mineNeedle}.
+	 * A plain name becomes {@code ]:\s*Name\b} (speaker after the channel
+	 * tag). Anything else is a Java regex, same fallback as a trigger
+	 * (invalid syntax is matched literally).
+	 */
 	boolean bodyLooksMine(String body) {
-		String needle = mineNeedle == null ? "" : mineNeedle.trim();
-		if (needle.length() < 2 || body == null) {
+		if (mineCompiled == null || body == null) {
 			return false;
 		}
-		return body.toLowerCase(Locale.US).indexOf(needle.toLowerCase(Locale.US)) >= 0;
+		return mineCompiled.matcher(body).find();
+	}
+
+	/**
+	 * Paint as an own bubble: the chat-module mine trigger, or a stored
+	 * {@code mine} flag (Send / absorb / a legacy Send-to-thread action).
+	 * Do not unpaint stored mine on a channel echo — absorb rewrites the
+	 * Send bubble to {@code [ TAG ]: Name says} and that line may not match
+	 * a {@code You say} pattern.
+	 */
+	boolean displayMine(ChatMessage m) {
+		if (m == null) {
+			return false;
+		}
+		return m.isMine() || bodyLooksMine(m.getBody());
 	}
 
 	String mineNeedle() {
@@ -136,6 +160,29 @@ final class ChatInbox {
 
 	void setMineNeedle(String needle) {
 		mineNeedle = needle == null ? "" : needle;
+		mineCompiled = compileMinePattern(mineNeedle);
+	}
+
+	/**
+	 * Compile the chat-module mine trigger. Package-visible for tests.
+	 * A single character name is the speaker after {@code ]:}, or a line
+	 * that starts with that name (tells). {@code ]: Taracair} or
+	 * {@code You say} are regexes, like a normal trigger.
+	 */
+	static Pattern compileMinePattern(String source) {
+		String s = source == null ? "" : source.trim();
+		if (s.length() < 2) {
+			return null;
+		}
+		if (PLAIN_NAME.matcher(s).matches()) {
+			return Pattern.compile("(?:\\]\\s*:\\s*|\\A)" + Pattern.quote(s) + "\\b",
+					Pattern.CASE_INSENSITIVE);
+		}
+		try {
+			return Pattern.compile(s);
+		} catch (PatternSyntaxException bad) {
+			return Pattern.compile(Pattern.quote(s));
+		}
 	}
 
 	int mineColor() {
@@ -218,13 +265,33 @@ final class ChatInbox {
 	}
 
 	List<ChatMessage> messages(String threadId, int limit) {
+		return messages(threadId, limit, null, null, null);
+	}
+
+	List<ChatMessage> messages(String threadId, int limit, String query,
+			Long sinceMsInclusive, Long untilMsExclusive) {
 		String id = threadId == null ? "" : threadId;
+		String needle = query == null ? "" : query.trim().toLowerCase(Locale.US);
 		ArrayList<ChatMessage> matched = new ArrayList<ChatMessage>();
 		for (int i = 0; i < messages.size(); i++) {
 			ChatMessage m = messages.get(i);
-			if (id.equals(m.getThreadId())) {
-				matched.add(m);
+			if (!id.equals(m.getThreadId())) {
+				continue;
 			}
+			if (sinceMsInclusive != null && m.getWhenMs() < sinceMsInclusive.longValue()) {
+				continue;
+			}
+			if (untilMsExclusive != null && m.getWhenMs() >= untilMsExclusive.longValue()) {
+				continue;
+			}
+			if (needle.length() > 0) {
+				String body = m.getBody() == null ? "" : m.getBody().toLowerCase(Locale.US);
+				String title = m.getTitle() == null ? "" : m.getTitle().toLowerCase(Locale.US);
+				if (body.indexOf(needle) < 0 && title.indexOf(needle) < 0) {
+					continue;
+				}
+			}
+			matched.add(m);
 		}
 		if (limit < 0 || matched.size() <= limit) {
 			return matched;
@@ -341,7 +408,7 @@ final class ChatInbox {
 		}
 		try {
 			JSONObject root = new JSONObject(raw);
-			inbox.mineNeedle = root.optString("mineNeedle", "");
+			inbox.setMineNeedle(root.optString("mineNeedle", ""));
 			inbox.mineColor = root.optInt("mineColor", DEFAULT_MINE_COLOR);
 			inbox.otherColor = root.optInt("otherColor", DEFAULT_OTHER_COLOR);
 			JSONArray threadArr = root.optJSONArray("threads");
