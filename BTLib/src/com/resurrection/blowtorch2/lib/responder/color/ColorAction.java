@@ -1,9 +1,12 @@
 package com.resurrection.blowtorch2.lib.responder.color;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.regex.Matcher;
 
@@ -29,6 +32,13 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	private int backgroundColor = DEFAULT_BACKGROUND_COLOR;
 	public static int DEFAULT_COLOR = 256;
 	public static int DEFAULT_BACKGROUND_COLOR = 232;
+	/**
+	 * ColorAction skips painting a background at 0, 16, or 231 ("foreground
+	 * only"). 49 is the SGR that returns the background to default -- the same
+	 * code {@link TextTree#makeRestoreColor} adds when a restore names no
+	 * background of its own.
+	 */
+	private static final int BACKGROUND_DEFAULT = 49;
 	
 	public ColorAction(RESPONDER_TYPE pType) {
 		super(pType);
@@ -96,13 +106,125 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	private static void restoreOrLeaveOpen(Line line, LinkedList<Unit> newLine,
 			Color bleed, ListIterator<Unit> it) {
 		if (hasFollowingText(it) || endsWithNewLine(line)) {
-			newLine.add(bleed);
+			if (bleed != null) {
+				newLine.add(bleed);
+			}
 		} else {
 			line.setTriggerColorOpen(true);
 			if (bleed != null && bleed.getOperations() != null) {
 				line.setTriggerColorRestore(bleed.getOperations());
 			}
 		}
+	}
+
+	/**
+	 * 0, 16 and 231 are the editor's "foreground only" sentinels: do not paint
+	 * a background, and close whatever CSI background was already open.
+	 */
+	static boolean skipsBackgroundPaint(int backgroundColor) {
+		return backgroundColor == 0 || backgroundColor == 16
+				|| backgroundColor == 231;
+	}
+
+	private void addPaint(Line line, LinkedList<Unit> newLine, TextTree tree) {
+		newLine.add(line.newColor(color));
+		if (skipsBackgroundPaint(backgroundColor)) {
+			newLine.add(tree.makeColor(Collections.singletonList(
+					Integer.valueOf(BACKGROUND_DEFAULT))));
+		} else {
+			newLine.add(line.newBackgroundColor(backgroundColor));
+		}
+	}
+
+	/**
+	 * After a foreground-only paint the restore must name a default
+	 * background, otherwise a MUD {@code 48;5;n} (or ANSI 40-47) sitting
+	 * before the match stays open through the replacement -- the neon block.
+	 * Background-only colour units are not the pre-match foreground, so they
+	 * must not become the restore either: that left the trigger's foreground
+	 * running.
+	 */
+	private Color colorAfterMatch(TextTree tree, Color bleed) {
+		if (!skipsBackgroundPaint(backgroundColor)) {
+			return bleed;
+		}
+		List<Integer> fg = foregroundOps(bleed);
+		if (!listNamesForeground(fg)) {
+			ArrayList<Integer> withFg = new ArrayList<Integer>(fg);
+			withFg.add(Integer.valueOf(39));
+			fg = withFg;
+		}
+		return tree.makeRestoreColor(fg);
+	}
+
+	private static boolean namesForeground(Color c) {
+		return c != null && listNamesForeground(c.getOperations());
+	}
+
+	private static boolean listNamesForeground(List<Integer> ops) {
+		if (ops == null) {
+			return false;
+		}
+		for (int i = 0; i < ops.size(); i++) {
+			int op = ops.get(i).intValue();
+			if (op == 38 || op == 0 || op == 39
+					|| (op >= 30 && op <= 37) || (op >= 90 && op <= 97)) {
+				return true;
+			}
+			if (op == 48) {
+				if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 5) {
+					i += 2;
+				} else if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 2) {
+					i += 4;
+				}
+			}
+		}
+		return false;
+	}
+
+	/** Copy SGR ops that are not a background, for a foreground-only restore. */
+	static List<Integer> foregroundOps(Color bleed) {
+		ArrayList<Integer> out = new ArrayList<Integer>();
+		if (bleed == null || bleed.getOperations() == null) {
+			return out;
+		}
+		List<Integer> ops = bleed.getOperations();
+		for (int i = 0; i < ops.size(); i++) {
+			int op = ops.get(i).intValue();
+			if (op == 48) {
+				// Land on the last value of 48;5;n / 48;2;r;g;b so the for-loop
+				// increment skips it. A continue after i += 2 is the same in
+				// Java; without the increment, xterm index 1/2/38 would be
+				// copied as bold / a 38-intro.
+				if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 5) {
+					i += 2;
+				} else if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 2) {
+					i += 4;
+				}
+				continue;
+			}
+			if ((op >= 40 && op <= 47) || op == 49
+					|| (op >= 100 && op <= 107)) {
+				continue;
+			}
+			out.add(Integer.valueOf(op));
+			if (op == 38) {
+				if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 5) {
+					out.add(ops.get(i + 1));
+					if (i + 2 < ops.size()) {
+						out.add(ops.get(i + 2));
+					}
+					i += 2;
+				} else if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 2) {
+					out.add(ops.get(i + 1));
+					for (int k = 0; k < 3 && i + 2 + k < ops.size(); k++) {
+						out.add(ops.get(i + 2 + k));
+					}
+					i += 4;
+				}
+			}
+		}
+		return out;
 	}
 
 	@Override
@@ -163,7 +285,10 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 				}
 			} else {
 				if (u instanceof TextTree.Color && !((TextTree.Color) u).isTriggerPaint()) {
-					bleed = (Color)u;
+					Color serverColor = (Color) u;
+					if (!skipsBackgroundPaint(backgroundColor) || namesForeground(serverColor)) {
+						bleed = serverColor;
+					}
 				}
 				newLine.add(u);
 			}
@@ -180,11 +305,9 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		
 		//here is where we would insert replaced text if this were a replacer.
 		//instead, this is where we insert a new color unit denoting which color we would like.
-		newLine.add(line.newColor(color));
-		if(backgroundColor != 0 && backgroundColor != 16 && backgroundColor != 231) {
-			newLine.add(line.newBackgroundColor(backgroundColor));
-		}
+		addPaint(line, newLine, tree);
 		newLine.add(line.newText(matched));
+		Color restore = colorAfterMatch(tree, bleed);
 		if(preEmptiveChop) {
 			// Restore the pre-match colour where the match ends, when there is
 			// text after it on the line, or when the line is already finished.
@@ -202,10 +325,10 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			if(preEmptiveChopAt > 0) {
 				int length = ((Text)u).getString().length();
 				Text post = line.newText(((Text)u).getString().substring(length-preEmptiveChopAt,length));
-				newLine.add(bleed);
+				newLine.add(restore);
 				newLine.add(post);
 			} else {
-				restoreOrLeaveOpen(line, newLine, bleed, it);
+				restoreOrLeaveOpen(line, newLine, restore, it);
 			}
 		} else {
 			//normal "find and chop" procedure.
@@ -232,12 +355,10 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 			if(chopAt > 0) {
 				int length = ((Text)chop).getString().length();
 				Text post = line.newText(((Text)chop).getString().substring(length-chopAt,length));
-				//insert bleed color
-				newLine.add(bleed);
-				
+				newLine.add(restore);
 				newLine.add(post);
 			} else {
-				restoreOrLeaveOpen(line, newLine, bleed, it);
+				restoreOrLeaveOpen(line, newLine, restore, it);
 			}
 		}
 		

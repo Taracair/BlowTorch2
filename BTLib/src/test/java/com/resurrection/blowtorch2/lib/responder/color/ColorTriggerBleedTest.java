@@ -39,7 +39,7 @@ public class ColorTriggerBleedTest {
 	private static final String TRIGGER_CODE = ESC + "[38;5;" + TRIGGER_COLOR + "m";
 	/**
 	 * ColorAction skips painting a background at 0, 16, or 231. 16 is "only
-	 * the foreground" ù the last CSI the action writes is the paint itself.
+	 * the foreground" ‚Äî the last CSI the action writes is the paint itself.
 	 */
 	private static final int NO_BACKGROUND = 16;
 
@@ -194,7 +194,7 @@ public class ColorTriggerBleedTest {
 
 	/**
 	 * Screenshot 18 Aug 2026: a finished {@code [chatnet]} line is painted
-	 * green, then a later {@code Lilly says, "Yeahù"} line has {@code says}
+	 * green, then a later {@code Lilly says, "Yeah‚Äî"} line has {@code says}
 	 * magenta and the quoted rest in the chatnet green. Two colour triggers,
 	 * two dispatches, close-at-end as the connection does when the first line
 	 * stays in the buffer.
@@ -217,7 +217,7 @@ public class ColorTriggerBleedTest {
 	}
 
 	/**
-	 * Same two colour triggers on one line: {@code [chatnet] ù says, "ù"}.
+	 * Same two colour triggers on one line: {@code [chatnet] ‚Äî says, "‚Äî"}.
 	 * The second restore must not pick up the first trigger's colour unit.
 	 */
 	@Test
@@ -241,14 +241,14 @@ public class ColorTriggerBleedTest {
 	/**
 	 * Same two lines as the screenshot, but the chatnet trigger also gags the
 	 * line off the working tree (retarget to an extra-text window). Connection
-	 * colours, then gags, then {@code closeAtLineEnds} on what is left ù the
+	 * colours, then gags, then {@code closeAtLineEnds} on what is left ‚Äî the
 	 * coloured line is already gone. {@code lineToWindow} dumps that line into
 	 * another tree and re-parses it, which is how a colour code reaches the
 	 * stream.
 	 */
 	@Test
 	public void gaggingTheColouredLineDoesNotPaintALaterSaysTrigger() throws Exception {
-		// Main window last colour ù grey, the "Lilly" on the screenshot.
+		// Main window last colour ‚Äî grey, the "Lilly" on the screenshot.
 		TextTree main = new TextTree();
 		main.addBytesImpl((ESC + "[37mRemove helm\n").getBytes(ENC));
 
@@ -300,6 +300,19 @@ public class ColorTriggerBleedTest {
 			action.doResponse(null, working, lineNumber, null, line, m.start(),
 					m.end() - 2, m.group(), null, "test", "host", 0, 0, false,
 					null, null, null, name, ENC);
+		}
+	}
+
+	private static void fireReplace(TextTree working, int lineNumber,
+			TextTree.Line line, Pattern pattern, String with) throws Exception {
+		Matcher m = pattern.matcher(TextTree.deColorLine(line).toString());
+		while (m.find()) {
+			com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder action =
+					new com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder();
+			action.setWith(with);
+			action.doResponse(null, working, lineNumber, null, line, m.start(),
+					m.end() - 2, m.group(), null, "test", "host", 0, 0, false,
+					null, null, null, "vermin", ENC);
 		}
 	}
 
@@ -389,6 +402,150 @@ public class ColorTriggerBleedTest {
 	}
 
 	/**
+	 * Screenshot 19-20 Aug 2026: the whole sentence arrived in one packet.
+	 * Yellow on {@code opens} must not run through "the door to the south."
+	 */
+	@Test
+	public void anOpensWordOnAFinishedLineDoesNotPaintTheRestOfTheSentence()
+			throws Exception {
+		final int yellow = 11;
+		final Pattern opens = Pattern.compile("opens");
+		TextTree working = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+		working.setModCount(0);
+		working.addBytesImpl("Taracair opens the door to the south.\n".getBytes(ENC));
+		fireColor(working, 0, working.getLines().get(0), opens, yellow, "opens");
+		state.closeAtLineEnds(working);
+
+		Integer atOpens = xtermFgAt(working, "opens");
+		assertTrue("opens was not painted yellow: " + visible(
+				new String(working.dumpToBytes(true), ENC)),
+				atOpens != null && atOpens.intValue() == yellow);
+		Integer atDoor = xtermFgAt(working, "the door");
+		assertTrue("the rest of the sentence stayed the opens colour (xterm "
+				+ atDoor + "): " + visible(new String(working.dumpToBytes(true), ENC)),
+				atDoor == null || atDoor.intValue() != yellow);
+	}
+
+	private static final int VERMIN_MUD_BG = 46;
+	private static final int VERMIN_GREEN = 2;
+	private final Pattern verminTag = Pattern.compile("\\[ VERMIN \\]");
+	private static final String VERMIN_LINE =
+			"[ VERMIN ] : Taracair says, \"test\"\n";
+
+	/**
+	 * Screenshot 26 Aug 2026: samsaramoo paints a channel prefix with a
+	 * background, then the player colours {@code [ VERMIN ]} green with
+	 * "foreground only" (background 0/16/231). The paint must not keep the
+	 * MUD's background CSI open across the matched span - that is the neon
+	 * block with dark text.
+	 */
+	@Test
+	public void aForegroundOnlyColorDoesNotKeepTheMudsBackgroundOnTheMatch()
+			throws Exception {
+		TextTree working = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+		working.setModCount(0);
+		working.addBytesImpl((ESC + "[48;5;" + VERMIN_MUD_BG + "m" + VERMIN_LINE)
+				.getBytes(ENC));
+		fireColor(working, 0, working.getLines().get(0), verminTag, VERMIN_GREEN,
+				"vermin");
+		state.closeAtLineEnds(working);
+
+		String dumped = visible(new String(working.dumpToBytes(true), ENC));
+		Integer fg = xtermFgAt(working, "VERMIN");
+		assertTrue("VERMIN was not painted green: " + dumped,
+				fg != null && fg.intValue() == VERMIN_GREEN);
+		Integer bg = xtermBgAt(working, "VERMIN");
+		assertTrue("VERMIN kept the MUD background (xterm " + bg + "): " + dumped,
+				bg == null || bg.intValue() != VERMIN_MUD_BG);
+		Integer atSays = xtermFgAt(working, "says");
+		assertTrue("the rest of the line stayed the trigger green (xterm "
+				+ atSays + "): " + dumped,
+				atSays == null || atSays.intValue() != VERMIN_GREEN);
+	}
+
+	/**
+	 * Same trigger as the screenshot, with both actions: colour the tag green
+	 * (foreground only) and replace {@code [ VERMIN ]} with {@code VERMIN:}.
+	 * Worked example: {@code [ VERMIN ] : Taracair says, "test"} becomes green
+	 * {@code VERMIN:} text without a neon block.
+	 */
+	@Test
+	public void verminColorThenReplaceIsGreenWithoutTheMudBackground()
+			throws Exception {
+		TextTree working = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+		working.setModCount(0);
+		working.addBytesImpl((ESC + "[48;5;" + VERMIN_MUD_BG + "m" + VERMIN_LINE)
+				.getBytes(ENC));
+		TextTree.Line line = working.getLines().get(0);
+		fireColor(working, 0, line, verminTag, VERMIN_GREEN, "vermin");
+		fireReplace(working, 0, line, verminTag, "VERMIN:");
+		state.closeAtLineEnds(working);
+
+		String dumped = visible(new String(working.dumpToBytes(true), ENC));
+		String plain = TextTree.deColorLine(working.getLines().get(0)).toString();
+		assertTrue("replacement missing: " + plain, plain.startsWith("VERMIN:"));
+		Integer fg = xtermFgAt(working, "VERMIN:");
+		assertTrue("VERMIN: was not painted green: " + dumped,
+				fg != null && fg.intValue() == VERMIN_GREEN);
+		Integer bg = xtermBgAt(working, "VERMIN:");
+		assertTrue("VERMIN: kept the MUD background (xterm " + bg + "): " + dumped,
+				bg == null || bg.intValue() != VERMIN_MUD_BG);
+		Integer atSays = xtermFgAt(working, "says");
+		assertTrue("the rest of the line stayed the trigger green (xterm "
+				+ atSays + "): " + dumped,
+				atSays == null || atSays.intValue() != VERMIN_GREEN);
+	}
+
+	/**
+	 * {@code 48;5;n} ‚Äî n is the colour index, not an SGR. Index 1 (bold) and
+	 * 38 (another 38-intro) must not be copied into the restore list.
+	 */
+	@Test
+	public void foregroundOpsSkipsXtermBackgroundIndex() {
+		TextTree tree = new TextTree();
+		java.util.List<Integer> fromBoldIndex = ColorAction.foregroundOps(
+				tree.makeColor(java.util.Arrays.asList(
+						Integer.valueOf(48), Integer.valueOf(5), Integer.valueOf(1))));
+		assertTrue("xterm bg index 1 leaked as bold: " + fromBoldIndex,
+				fromBoldIndex.isEmpty());
+		java.util.List<Integer> fromFgIntroIndex = ColorAction.foregroundOps(
+				tree.makeColor(java.util.Arrays.asList(
+						Integer.valueOf(48), Integer.valueOf(5), Integer.valueOf(38))));
+		assertTrue("xterm bg index 38 leaked as a 38-intro: " + fromFgIntroIndex,
+				fromFgIntroIndex.isEmpty());
+	}
+
+	/**
+	 * Painting a background on purpose still has to write that background.
+	 * The foreground-only path must not steal this.
+	 */
+	@Test
+	public void anExplicitBackgroundPaintStillAppliesToTheMatch() throws Exception {
+		final int paintedBg = 20;
+		TextTree working = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+		working.setModCount(0);
+		working.addBytesImpl("Lilly says, \"hi\"\n".getBytes(ENC));
+		TextTree.Line line = working.getLines().get(0);
+		Matcher m = says.matcher(TextTree.deColorLine(line).toString());
+		assertTrue(m.find());
+		ColorAction action = new ColorAction();
+		action.setColor(SAYS_COLOR);
+		action.setBackgroundColor(paintedBg);
+		action.doResponse(null, working, 0, null, line, m.start(), m.end() - 2,
+				m.group(), null, "test", "host", 0, 0, false, null, null, null,
+				"says", ENC);
+		state.closeAtLineEnds(working);
+		Integer bg = xtermBgAt(working, "says");
+		assertTrue("explicit background was not painted: "
+				+ visible(new String(working.dumpToBytes(true), ENC)),
+				bg != null && bg.intValue() == paintedBg);
+	}
+
+	/**
 	 * xterm-256 foreground at the first character of {@code needle}, or null
 	 * when the needle is missing. 37 is the parser's default when nothing has
 	 * named a foreground yet.
@@ -428,10 +585,60 @@ public class ColorTriggerBleedTest {
 			if (op == 38 && i + 2 < ops.size() && ops.get(i + 1).intValue() == 5) {
 				return ops.get(i + 2).intValue();
 			}
-			if (op == 0) {
+			if (op == 0 || op == 39) {
 				return 37;
 			}
 		}
 		return current;
+	}
+
+	/**
+	 * xterm-256 (or ANSI 40-47) background at the first character of
+	 * {@code needle}, or null when the needle is missing or the background has
+	 * been returned to default (49 / reset).
+	 */
+	private static Integer xtermBgAt(TextTree tree, String needle) {
+		Integer bg = null;
+		for (int i = tree.getLines().size() - 1; i >= 0; i--) {
+			String plain = TextTree.deColorLine(tree.getLines().get(i)).toString();
+			int at = plain.indexOf(needle);
+			int col = 0;
+			Integer bgHere = bg;
+			for (TextTree.Unit u : tree.getLines().get(i).getData()) {
+				if (u instanceof TextTree.Color) {
+					bgHere = xtermBgFrom(((TextTree.Color) u).getOperations(), bgHere);
+				} else if (u instanceof TextTree.Text) {
+					String s = ((TextTree.Text) u).getString();
+					if (s == null) {
+						continue;
+					}
+					if (at >= 0 && col <= at && at < col + s.length()) {
+						return bgHere;
+					}
+					col += s.length();
+				}
+			}
+			bg = bgHere;
+		}
+		return null;
+	}
+
+	private static Integer xtermBgFrom(java.util.List<Integer> ops, Integer current) {
+		if (ops == null) {
+			return current;
+		}
+		Integer bg = current;
+		for (int i = 0; i < ops.size(); i++) {
+			int op = ops.get(i).intValue();
+			if (op == 48 && i + 2 < ops.size() && ops.get(i + 1).intValue() == 5) {
+				bg = Integer.valueOf(ops.get(i + 2).intValue());
+				i += 2;
+			} else if (op == 0 || op == 49) {
+				bg = null;
+			} else if (op >= 40 && op <= 47) {
+				bg = Integer.valueOf(op);
+			}
+		}
+		return bg;
 	}
 }

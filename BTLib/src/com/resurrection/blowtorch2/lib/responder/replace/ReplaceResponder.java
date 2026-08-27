@@ -208,7 +208,11 @@ public class ReplaceResponder extends TriggerResponder implements Parcelable {
 				Unit text = line.newText(((Text)u).getString().substring(0,splitAt));
 				newLine.add(text);
 			}
-			
+
+			if (hasOpenMudBackground(newLine)) {
+				newLine.add(tree.makeColor(java.util.Collections.singletonList(
+						Integer.valueOf(49))));
+			}
 			Unit text = line.newText(replaced);
 			newLine.add(text);
 			
@@ -288,6 +292,55 @@ public class ReplaceResponder extends TriggerResponder implements Parcelable {
 			
 			return false;
 			
+	}
+
+	/**
+	 * True when a MUD (non-trigger) CSI background is still open at the end of
+	 * {@code units}. A colour action's own background is {@code triggerPaint}
+	 * and must stay on the replacement; 49 / reset close whatever was open.
+	 */
+	static boolean hasOpenMudBackground(LinkedList<TextTree.Unit> units) {
+		int src = 0; // 0 none, 1 mud, 2 trigger
+		for (TextTree.Unit u : units) {
+			if (!(u instanceof TextTree.Color)) {
+				continue;
+			}
+			TextTree.Color c = (TextTree.Color) u;
+			int change = backgroundSourceChange(c.getOperations());
+			if (change < 0) {
+				src = 0;
+			} else if (change > 0) {
+				src = c.isTriggerPaint() ? 2 : 1;
+			}
+		}
+		return src == 1;
+	}
+
+	/**
+	 * @return 1 if these ops set a background, -1 if they reset it to default,
+	 *         0 if they do not mention background.
+	 */
+	static int backgroundSourceChange(java.util.List<Integer> ops) {
+		if (ops == null) {
+			return 0;
+		}
+		int change = 0;
+		for (int i = 0; i < ops.size(); i++) {
+			int op = ops.get(i).intValue();
+			if (op == 48) {
+				change = 1;
+				if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 5) {
+					i += 2;
+				} else if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 2) {
+					i += 4;
+				}
+			} else if (op == 0 || op == 49) {
+				change = -1;
+			} else if ((op >= 40 && op <= 47) || (op >= 100 && op <= 107)) {
+				change = 1;
+			}
+		}
+		return change;
 	}
 
 	@Override
