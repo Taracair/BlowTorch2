@@ -482,18 +482,11 @@ public final class WordSuggestions {
 				b.append(raw.charAt(i));
 			}
 		}
-		// A leading ' is the say alias on most worlds and a trailing - is a dash
-		// left by punctuation; neither is part of the word.
-		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(0))) {
-			b.deleteCharAt(0);
-		}
-		while (b.length() > 0 && !Character.isLetterOrDigit(b.charAt(b.length() - 1))) {
-			b.deleteCharAt(b.length() - 1);
-		}
-		if (b.length() == 0) {
+		String stripped = stripWrappingPunctuation(b.toString());
+		if (stripped.length() == 0) {
 			return null;
 		}
-		return b.toString().toLowerCase(Locale.US);
+		return stripped.toLowerCase(Locale.US);
 	}
 
 	/**
@@ -630,20 +623,48 @@ public final class WordSuggestions {
 	}
 
 	/**
+	 * Drop wrapping {@code '} and {@code -} so a quoted name is stored as the
+	 * name. {@code 'word'} becomes {@code word}; {@code O'Brien} is unchanged,
+	 * because the apostrophe is not at an end.
+	 *
+	 * <p>A leading {@code '} is also the say alias on most worlds, and a trailing
+	 * {@code -} is a dash left by punctuation. Same trim {@link #commandWord}
+	 * already applied to what the player typed.
+	 */
+	private static String stripWrappingPunctuation(final String raw) {
+		int start = 0;
+		int end = raw.length();
+		while (start < end && !Character.isLetterOrDigit(raw.charAt(start))) {
+			start++;
+		}
+		while (end > start && !Character.isLetterOrDigit(raw.charAt(end - 1))) {
+			end--;
+		}
+		if (start == 0 && end == raw.length()) {
+			return raw;
+		}
+		return raw.substring(start, end);
+	}
+
+	/**
 	 * Store one word.
 	 *
 	 * @return its key, or null when it was not worth storing — which is also the
 	 *         signal that a phrase may not run through this position.
 	 */
 	private String addWord(final String raw) {
-		if (raw.length() < MIN_WORD_LENGTH) {
+		// The world writes 'word' and 'pipe bomb'. ' is in-word so that
+		// O'Brien stays one token, which would otherwise store 'word' and
+		// bomb' — a ghost tap then puts the trailing quote in the input bar.
+		String token = stripWrappingPunctuation(raw);
+		if (token.length() < MIN_WORD_LENGTH) {
 			return null;
 		}
 		// All-digits is a number, not a name: "1234" completes nothing useful
 		// and pushes real words out of a bounded store.
 		boolean anyLetter = false;
-		for (int i = 0; i < raw.length(); i++) {
-			if (Character.isLetter(raw.charAt(i))) {
+		for (int i = 0; i < token.length(); i++) {
+			if (Character.isLetter(token.charAt(i))) {
 				anyLetter = true;
 				break;
 			}
@@ -651,12 +672,12 @@ public final class WordSuggestions {
 		if (!anyLetter) {
 			return null;
 		}
-		String key = raw.toLowerCase(Locale.US);
+		String key = token.toLowerCase(Locale.US);
 		// Remove before put so a word seen again moves to the newest end rather
 		// than keeping its original position. It also gets today's line stamp, so
 		// a name the world keeps repeating never falls out of the window.
 		words.remove(key);
-		words.put(key, new Seen(raw, linesSeen));
+		words.put(key, new Seen(token, linesSeen));
 		if (lastKey != null && !lastKey.equals(key)) {
 			Seen before = words.get(lastKey);
 			if (before != null) {
@@ -709,19 +730,30 @@ public final class WordSuggestions {
 	public List<String> suggest(final String prefix, final int max,
 			final boolean atLineStart, final String leadingVerb) {
 		List<String> out = new ArrayList<String>();
-		if (prefix == null || prefix.length() < MIN_PREFIX_LENGTH || max <= 0) {
+		if (prefix == null || max <= 0) {
 			return out;
 		}
-		String needle = prefix.toLowerCase(Locale.US);
+		String needle = stripWrappingPunctuation(prefix.toLowerCase(Locale.US));
+		if (needle.length() < MIN_PREFIX_LENGTH) {
+			return out;
+		}
 		// Forward once collecting only matches, rather than copying the whole
 		// store to walk it backwards. This runs on every keystroke, and a line
 		// window holds several times what the old 500-word cap did, so the cost
 		// has to follow the number of matches and not the size of the vocabulary.
 		List<String> matches = new ArrayList<String>();
 		for (Map.Entry<String, Seen> e : words.entrySet()) {
-			// Not the word you have already finished typing.
-			if (e.getKey().length() > needle.length() && e.getKey().startsWith(needle)) {
-				matches.add(e.getKey());
+			String key = e.getKey();
+			if (!key.startsWith(needle)) {
+				continue;
+			}
+			if (key.length() > needle.length()) {
+				// Not the word you have already finished typing.
+				matches.add(key);
+			} else if (phrases && phraseFrom(key) != null) {
+				// Typed "pipe" in full; the name is "pipe bomb". Still a
+				// candidate, otherwise the player has to stop one letter early.
+				matches.add(key);
 			}
 		}
 		// Longest first here, because the loop below reads the list backwards:
@@ -744,6 +776,10 @@ public final class WordSuggestions {
 			String phrase = phrases ? phraseFrom(key) : null;
 			Seen s = words.get(key);
 			String word = s == null ? null : s.spelling;
+			if (word != null && key.equals(needle)) {
+				// Already typed this word; only the rest of the name is useful.
+				word = null;
+			}
 			// Which of the two forms of one word leads. The phrase first by
 			// default: it is the part that is slow to type, and the plain word
 			// is one tap further down. Shortest first is the other reading, and

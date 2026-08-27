@@ -80,6 +80,39 @@ public class WordSuggestionsTest {
 	}
 
 	@Test
+	public void wrappingQuotesAreNotOfferedOrInserted() {
+		// The world wrote 'word'. ' is in-word so that O'Brien stays one
+		// token, which used to store 'word' itself. Tapping the ghost then
+		// put word' in the input bar.
+		WordSuggestions w = new WordSuggestions();
+		w.learn("You see a 'word' here.\n");
+		assertEquals(java.util.Arrays.asList("word"), w.suggest("wo", 5));
+		WordSuggestions.Completion c =
+				WordSuggestions.complete("look wo", 7, w.suggest("wo", 5).get(0));
+		assertEquals("look word ", c.text());
+		// A typed leading quote is matching, not part of the name: it is
+		// replaced along with the rest of the prefix.
+		assertEquals(java.util.Arrays.asList("word"), w.suggest("'wo", 5));
+		WordSuggestions.Completion quoted =
+				WordSuggestions.complete("look 'wo", 8, w.suggest("'wo", 5).get(0));
+		assertEquals("look word ", quoted.text());
+	}
+
+	@Test
+	public void wrappingQuotesAroundANameKeepTheInnerApostrophe() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("'O'Brien' walks in.\n");
+		assertEquals(java.util.Arrays.asList("O'Brien"), w.suggest("o'br", 5));
+	}
+
+	@Test
+	public void aTrailingApostropheAloneIsNotKept() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("bomb'\n");
+		assertEquals(java.util.Arrays.asList("bomb"), w.suggest("bo", 5));
+	}
+
+	@Test
 	public void theStoreIsBounded() {
 		WordSuggestions w = new WordSuggestions(3);
 		w.learn("aaaa bbbb cccc dddd\n");
@@ -271,6 +304,41 @@ public class WordSuggestionsTest {
 		// Capped at three words, so the verb after the name is not swallowed.
 		assertEquals(java.util.Arrays.asList("grizzled cave troll", "grizzled"),
 				w.suggest("gri", 5));
+	}
+
+	@Test
+	public void typingPipeOffersTheRestOfPipeBomb() {
+		// Type "pipe", get "pipe bomb" — not only after stopping at "pi".
+		// Phrases stay off by default; this is the on path.
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("a pipe bomb\n");
+		assertEquals(java.util.Arrays.asList("pipe bomb", "pipe"),
+				w.suggest("pi", 5));
+		assertEquals(java.util.Arrays.asList("pipe bomb"), w.suggest("pipe", 5));
+		WordSuggestions.Completion c =
+				WordSuggestions.complete("get pipe", 8, w.suggest("pipe", 5).get(0));
+		assertEquals("get pipe bomb ", c.text());
+	}
+
+	@Test
+	public void aQuotedPipeBombStillMakesAPhrase() {
+		WordSuggestions w = new WordSuggestions();
+		w.setPhrases(true);
+		w.learn("You see a 'pipe bomb'.\n");
+		assertEquals(java.util.Arrays.asList("pipe bomb", "pipe"),
+				w.suggest("pi", 5));
+		assertEquals(java.util.Arrays.asList("pipe bomb"), w.suggest("pipe", 5));
+		assertEquals(java.util.Arrays.asList("bomb"), w.suggest("bo", 5));
+	}
+
+	@Test
+	public void withoutPhrasesPipeIsJustTheWord() {
+		WordSuggestions w = new WordSuggestions();
+		w.learn("a pipe bomb\n");
+		assertEquals(java.util.Arrays.asList("pipe"), w.suggest("pi", 5));
+		assertTrue("typed in full, and phrases are off",
+				w.suggest("pipe", 5).isEmpty());
 	}
 
 	@Test
