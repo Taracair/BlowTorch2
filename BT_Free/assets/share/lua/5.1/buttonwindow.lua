@@ -1414,6 +1414,22 @@ local function dispatchButtonAction(cmd)
 	return true
 end
 
+-- True when `b` is one of the tiles currently in `buttons`. After
+-- .clearbuttons the pad is a single BACK; revertButtons puts the previous
+-- set back and BACK is not among them. Finger-up still holds that BACK
+-- object in `touchedbutton`.
+local function buttonIsOnPad(b)
+	if b == nil or buttons == nil then
+		return false
+	end
+	for i = 1, #buttons do
+		if buttons[i] == b then
+			return true
+		end
+	end
+	return false
+end
+
 local function resetTouchedButtonVisual()
 	-- The swipe arrow and the gesture callout are drawn outside the tile, so
 	-- taking them away needs the whole layer cleared. A plain tap dirties only
@@ -1435,7 +1451,15 @@ local function resetTouchedButtonVisual()
 	-- drawButtons() clears the layer, which also takes away the live swipe arrow.
 	-- It is also a full repaint of every tile, measured at ~40ms on a 93 button
 	-- set, and it ran on every single button press.
+	--
+	-- A tile that is no longer in `buttons` must not take the fast path:
+	-- tapping BACK after .clearbuttons calls revertButtons (restored set is
+	-- already drawn) and then this function, still holding the BACK object.
+	-- Painting that object here is how BACK stayed on screen with the
+	-- restored pad. Same class of leftover as loadButtons (touchedbutton
+	-- pointing at a tile from the set that was just thrown away).
 	if hadOverlay or manage or not realButton
+			or not buttonIsOnPad(touchedbutton)
 			or touchedbutton.expanded or touchedbutton.isAccordionChild then
 		drawButtons()
 	else
@@ -5677,6 +5701,10 @@ function revertButtons()
 	end
 	buttonsCleared = false
 	buttons = revertset
+	-- The finger that pressed BACK is still in ACTION_UP. loadButtons drops
+	-- touchedbutton for the same reason: resetTouchedButtonVisual's fast path
+	-- would otherwise paint the old tile on top of the set that replaced it.
+	touchedbutton = {}
 	drawButtons()
 	suppress_editor = false
 	view:invalidate()
