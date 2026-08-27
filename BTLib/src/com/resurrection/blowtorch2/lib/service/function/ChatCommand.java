@@ -49,7 +49,7 @@ public class ChatCommand extends SpecialCommand {
 		return "Chat drawer:\n"
 				+ "  .chat / .chat open     open (toggles if already open)\n"
 				+ "  .chat close | hide     same toggle; or tap ✕ / the dim area\n"
-				+ "  .chat vermin           open the vermin thread\n"
+				+ "  .chat <thread>         open that thread\n"
 				+ "  .chat help\n"
 				+ "Also: overflow ⋮ → Chat\n";
 	}

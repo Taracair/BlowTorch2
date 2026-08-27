@@ -843,22 +843,23 @@ without choosing anything.
 
 **Send to thread** copies a matching line into a chat thread. The line still
 appears in the game window — this does not gag it. You write the pattern;
-there is no built-in VERMIN or tell pack.
+there is no built-in channel or tell pack.
 
-    Pattern:  ^\[ VERMIN \]
-    Action:   Send to thread → thread `vermin`
+    Pattern:  the regex that matches the line
+    Action:   Send to thread → thread id (a name you choose, or `$1`)
 
-Thread is the conversation key (`vermin`, or `$1` for whoever sent a tell).
-Title and body are optional; a blank body stores the matched line. Reply
-template is optional (`tell $1 $text` or `c $text`). `$text` is a placeholder
-for the reply box, not a trigger capture. `$1` in the template is substituted
-when the thread is first created. Own-bubble colour is **Chat → ⚙ → My
-lines**, a trigger on stored lines (`]: Taracair` or `You say`), not a
-second Send to thread action. `Elyak says, "hi Taracair"` does not match
-`]: Taracair`. A single name is the speaker after `]:` (or a line that
-starts with that name). Find + From/To in an open thread filter stored
-messages. History is a file next to the world profile (capped, not
-unbounded).
+Thread is the conversation key (a name you choose, or `$1` for whoever sent
+a tell). Title and body are optional; a blank body stores the matched line.
+Reply template is optional (`tell $1 $text` or `c $text`). `$text` is a
+placeholder for the reply box, not a trigger capture. `$1` in the template
+is substituted when the thread is first created. Own-bubble colour is
+**Chat → ⚙ → My lines** in that conversation. This conversation only.
+Matches lines you spoke, not a name mentioned in someone else's line. A
+single word is the speaker after `]:` on a tagged channel, or the start of
+a tell. Regex is allowed. Find in an open thread highlights matches; ‹ ›
+jump like `.search` and do not hide other messages. From / To / 7d / All
+still filter by date. History is a file next to the world profile (capped,
+not unbounded).
 
 ## Recipes
 
@@ -1821,12 +1822,15 @@ it is already open — there is no separate close binder). ✕, the dim area, or
 Back also close it. Overflow **Chat** always opens it.
 
 A thread is one conversation. Tap it to read history and reply. Send fills
-`$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set the
-template on the trigger's Send to thread action, or edit it at the top of the
-thread. Type your name in **Me** (and pick a bubble colour) so your lines stand
-out; Send from the drawer paints an own-bubble immediately. Dual display (main
-window and the drawer) is the trigger's job; the drawer only shows what
-ChatStore holds.
+`$text` in that thread's reply template (`tell $1 $text`, `c $text`). Set the
+template on the trigger's Send to thread action, or ⚙ while that
+conversation is open. **My lines** is per conversation (⚙ in an open
+thread): this conversation only; matches lines you spoke, not a name
+mentioned in someone else's line. Find highlights matches; ‹ › step through
+them like `.search` and do not hide other messages. From / To still filter
+by date. Send from the drawer paints an own-bubble immediately. Dual
+display (main window and the drawer) is the trigger's job; the drawer only
+shows what ChatStore holds.
 
 ## Mapper
 

@@ -22,7 +22,7 @@ import com.resurrection.blowtorch2.lib.window.TextTree;
  * window — this action never gags.
  *
  * <p>{@code threadId} is the conversation key after {@code $1} substitution
- * (literal {@code vermin}, or {@code $1} for whoever sent a tell).
+ * (a name you choose, or {@code $1} for a capture).
  * {@code title} defaults to that id. {@code body} defaults to the matched line.
  *
  * <p>{@code replyTemplate} is stored on the thread the first time it is seen.

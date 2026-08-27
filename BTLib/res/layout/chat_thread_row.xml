@@ -58,15 +58,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:background="#FF66CCFF"
+            android:background="@drawable/chat_unread_pill"
             android:gravity="center"
-            android:minWidth="18dp"
+            android:minWidth="16dp"
             android:paddingLeft="5dp"
             android:paddingRight="5dp"
             android:paddingTop="1dp"
             android:paddingBottom="1dp"
-            android:textColor="#FF111111"
-            android:textSize="11sp"
+            android:textColor="@color/chrome_hint"
+            android:textSize="10sp"
             android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>

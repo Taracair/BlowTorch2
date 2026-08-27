@@ -103,6 +103,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinderCallback;
 import com.resurrection.blowtorch2.lib.alias.AliasData;
@@ -928,6 +929,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// it survives switchTo. Apply this world's saved state now
 						// that DISPLAY is the world we are entering.
 						restoreInputEditToolsForWorld();
+						refreshChatUnreadDot();
 					}
 					break;
 				case MESSAGE_TRIGGERSTR:
@@ -1194,7 +1196,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				case MESSAGE_OPEN_CHAT_PANEL:
 					ensureChatPanel();
 					if (chatPanel != null) {
+						boolean opening = !chatPanel.isVisible();
 						chatPanel.toggle();
+						if (opening) {
+							refreshChatUnreadDot();
+						}
 					}
 					break;
 				case MESSAGE_OPEN_CHAT_THREAD:
@@ -1202,14 +1208,17 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (chatPanel != null) {
 						chatPanel.openThreadFromCommand((String) msg.obj);
 					}
+					refreshChatUnreadDot();
 					break;
 				case MESSAGE_OPEN_LOG_HISTORY:
 					openLogHistoryDialog(null, -1);
 					break;
 				case MESSAGE_CHAT_INBOX_UPDATED:
-					if (chatPanel != null && chatPanel.isVisible()
-							&& isForegroundDisplay((String) msg.obj)) {
-						chatPanel.refresh();
+					if (isForegroundDisplay((String) msg.obj)) {
+						if (chatPanel != null && chatPanel.isVisible()) {
+							chatPanel.refresh();
+						}
+						refreshChatUnreadDot();
 					}
 					break;
 				case MESSAGE_LOCKUNDONE:
@@ -2374,6 +2383,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			return;
 		}
 		final GameplayMenuAdapter adapter = new GameplayMenuAdapter(themed, visibleItems);
+		adapter.setChatUnread(ChatStore.forWorld(this, getConnectionDisplay()).totalUnread());
 		popup.setAnchorView(safeAnchor);
 		popup.setModal(true);
 		popup.setAdapter(adapter);
@@ -2513,6 +2523,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			if (chatPanel != null) {
 				chatPanel.show();
 			}
+			refreshChatUnreadDot();
 			break;
 		case 1050: // Search scrollback
 			openScrollbackSearchBar("");
@@ -4879,6 +4890,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			}
 		} catch (RemoteException ignored) {
 		}
+		refreshChatUnreadDot();
 	}
 	
 	public void onDestroy(Bundle saveInstance) {
@@ -6450,8 +6462,34 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 								"MainWindow.chatPanel.sendCommand", e);
 					}
 				}
+
+				@Override
+				public void onChatVisibilityChanged() {
+					refreshChatUnreadDot();
+				}
 			});
 		}
+	}
+
+	/**
+	 * ⋮ corner disc while the chat drawer is closed and there is unread.
+	 * Hidden at 0, when the drawer is open, or while button-edit hides ⋮.
+	 */
+	void refreshChatUnreadDot() {
+		View dot = findViewById(R.id.chat_unread_dot);
+		if (dot == null) {
+			return;
+		}
+		View overflow = findViewById(R.id.overflow_menu);
+		boolean overflowShowing = overflow != null
+				&& overflow.getVisibility() == View.VISIBLE;
+		boolean drawerOpen = chatPanel != null && chatPanel.isVisible();
+		int unread = 0;
+		if (overflowShowing && !drawerOpen) {
+			unread = ChatStore.forWorld(this, getConnectionDisplay()).totalUnread();
+		}
+		dot.setVisibility(overflowShowing && !drawerOpen && unread > 0
+				? View.VISIBLE : View.GONE);
 	}
 
 	/** Bind extra-text overlays under window_container (chrome ⋮ stays above). */

@@ -68,6 +68,7 @@ public class GameplayMenuAdapter extends BaseAdapter {
 	private final LayoutInflater mInflater;
 	private final List<MenuItem> mItems;
 	private final ArrayList<Row> mRows;
+	private int mChatUnread;
 
 	public GameplayMenuAdapter(Context context, List<MenuItem> items) {
 		mInflater = LayoutInflater.from(context);
@@ -82,6 +83,19 @@ public class GameplayMenuAdapter extends BaseAdapter {
 			titles[i] = title != null ? title.toString() : "";
 		}
 		mRows = buildRows(ids, titles);
+	}
+
+	/**
+	 * Optional muted mark on the Chat row (id 1040). Does not change
+	 * {@link Row#text} ("Chat") — tests read that field, not the TextView.
+	 */
+	public void setChatUnread(int unread) {
+		int n = unread < 0 ? 0 : unread;
+		if (mChatUnread == n) {
+			return;
+		}
+		mChatUnread = n;
+		notifyDataSetChanged();
 	}
 
 	/**
@@ -224,6 +238,15 @@ public class GameplayMenuAdapter extends BaseAdapter {
 			tv = (TextView) convertView;
 		}
 		tv.setText(row.text);
+		if (!row.header && row.itemId == 1040 && mChatUnread > 0) {
+			tv.setCompoundDrawablesRelativeWithIntrinsicBounds(
+					0, 0, R.drawable.chat_unread_dot, 0);
+			int pad = (int) (6 * tv.getResources().getDisplayMetrics().density + 0.5f);
+			tv.setCompoundDrawablePadding(pad);
+		} else {
+			tv.setCompoundDrawablesRelativeWithIntrinsicBounds(0, 0, 0, 0);
+			tv.setCompoundDrawablePadding(0);
+		}
 		return tv;
 	}
 }

@@ -40,6 +40,8 @@ public class ChatPanelController {
 	static final String LAYER_TAG = "chat_panel";
 	private static final int MESSAGE_LIMIT = 200;
 	private static final long SLIDE_MS = 220L;
+	private static final int FIND_STROKE = 0xCCF6E27A;
+	private static final int FIND_STROKE_CURRENT = 0xFFF6E27A;
 
 	public interface Host {
 		MainWindow getMainWindow();
@@ -48,6 +50,9 @@ public class ChatPanelController {
 
 		/** Same path as a typed line: encoding + CRLF through {@code sendData}. */
 		void sendCommand(String text);
+
+		/** Drawer finished showing or hiding. Default no-op (unread dot). */
+		default void onChatVisibilityChanged() {}
 	}
 
 	private final Host host;
@@ -79,6 +84,15 @@ public class ChatPanelController {
 	private TextView filter7d;
 	private TextView filterAll;
 	private TextView threadEmpty;
+	private View mineRow;
+	private View mineHelp;
+	private View findNav;
+	private TextView findPrev;
+	private TextView findNext;
+	private TextView findCount;
+	private final ArrayList<View> findHits = new ArrayList<View>();
+	private int findHitIndex = -1;
+	private boolean resetFindToFirst;
 	private String openThreadId;
 	private String searchQuery = "";
 	private String threadSearchQuery = "";
@@ -112,7 +126,6 @@ public class ChatPanelController {
 			return;
 		}
 		bindStore();
-		bindMineRow();
 		showInbox();
 		slideIn();
 	}
@@ -127,7 +140,7 @@ public class ChatPanelController {
 	}
 
 	/**
-	 * {@code .chat vermin} — open the drawer on that thread. Does not toggle
+	 * {@code .chat <thread>} — open the drawer on that thread. Does not toggle
 	 * closed if the drawer is already visible.
 	 */
 	public void openThreadFromCommand(String threadId) {
@@ -140,7 +153,6 @@ public class ChatPanelController {
 			onImeLift(activity.getChromeController().getImeLiftPx());
 		}
 		bindStore();
-		bindMineRow();
 		if (!visible) {
 			showThread(threadId, true);
 			slideIn();
@@ -161,7 +173,6 @@ public class ChatPanelController {
 			return;
 		}
 		bindStore();
-		bindMineRow();
 		if (openThreadId != null) {
 			showThread(openThreadId, false);
 		} else {
@@ -275,6 +286,12 @@ public class ChatPanelController {
 		filter7d = (TextView) root.findViewById(R.id.chat_filter_7d);
 		filterAll = (TextView) root.findViewById(R.id.chat_filter_all);
 		threadEmpty = (TextView) root.findViewById(R.id.chat_thread_empty);
+		mineRow = root.findViewById(R.id.chat_me_row);
+		mineHelp = root.findViewById(R.id.chat_mine_help);
+		findNav = root.findViewById(R.id.chat_find_nav);
+		findPrev = (TextView) root.findViewById(R.id.chat_find_prev);
+		findNext = (TextView) root.findViewById(R.id.chat_find_next);
+		findCount = (TextView) root.findViewById(R.id.chat_find_count);
 
 		int width = (int) (activity.getResources().getDisplayMetrics().widthPixels * 0.80f);
 		if (drawer != null) {
@@ -326,6 +343,15 @@ public class ChatPanelController {
 			settingsToggle.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
+					if (openThreadId == null) {
+						MainWindow activity = host.getMainWindow();
+						if (activity != null) {
+							Toast.makeText(activity,
+									"Open a conversation to set My lines for that chat.",
+									Toast.LENGTH_SHORT).show();
+						}
+						return;
+					}
 					settingsOpen = !settingsOpen;
 					if (!settingsOpen) {
 						saveMineName();
@@ -441,10 +467,25 @@ public class ChatPanelController {
 	}
 
 	private void bindMineRow() {
+		bindMineRow(false);
+	}
+
+	private void bindMineRow(boolean force) {
 		if (mineNameBox == null) {
 			return;
 		}
-		String needle = store().mineNeedle();
+		if (openThreadId == null) {
+			paintMineColorChips();
+			return;
+		}
+		if (!force && mineNameBox.hasFocus()) {
+			paintMineColorChips();
+			return;
+		}
+		String needle = store().mineNeedle(openThreadId);
+		if (needle == null) {
+			needle = "";
+		}
 		String shown = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString();
 		if (!shown.equals(needle)) {
 			mineNameBox.setText(needle);
@@ -453,24 +494,38 @@ public class ChatPanelController {
 	}
 
 	private void saveMineName() {
-		if (mineNameBox == null) {
+		if (mineNameBox == null || openThreadId == null) {
 			return;
 		}
 		String typed = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString().trim();
-		store().setMineNeedle(typed);
+		String existing = store().mineNeedle(openThreadId);
+		if (existing == null) {
+			existing = "";
+		}
+		if (typed.equals(existing)) {
+			return;
+		}
+		store().setMineNeedle(openThreadId, typed);
 		reloadThreadMessages();
 	}
 
 	private void applySettingsVisibility() {
+		boolean threadOpen = openThreadId != null && openThreadId.length() > 0;
+		boolean show = settingsOpen && threadOpen;
 		if (settingsPanel != null) {
-			settingsPanel.setVisibility(settingsOpen ? View.VISIBLE : View.GONE);
+			settingsPanel.setVisibility(show ? View.VISIBLE : View.GONE);
 		}
 		if (settingsToggle != null) {
-			settingsToggle.setBackgroundColor(settingsOpen ? 0x44FFFFFF : 0x00000000);
+			settingsToggle.setBackgroundColor(show ? 0x44FFFFFF : 0x00000000);
+		}
+		if (mineRow != null) {
+			mineRow.setVisibility(show ? View.VISIBLE : View.GONE);
+		}
+		if (mineHelp != null) {
+			mineHelp.setVisibility(show ? View.VISIBLE : View.GONE);
 		}
 		if (templateRow != null) {
-			templateRow.setVisibility(settingsOpen && openThreadId != null
-					? View.VISIBLE : View.GONE);
+			templateRow.setVisibility(show ? View.VISIBLE : View.GONE);
 		}
 	}
 
@@ -488,9 +543,38 @@ public class ChatPanelController {
 				@Override
 				public void afterTextChanged(Editable s) {
 					threadSearchQuery = s == null ? "" : s.toString();
+					resetFindToFirst = true;
 					if (openThreadId != null) {
 						reloadThreadMessages();
+					} else {
+						applyFindNav();
 					}
+				}
+			});
+			threadSearchBox.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+				@Override
+				public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+					if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+						moveFindHit(1);
+						return true;
+					}
+					return false;
+				}
+			});
+		}
+		if (findPrev != null) {
+			findPrev.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					moveFindHit(-1);
+				}
+			});
+		}
+		if (findNext != null) {
+			findNext.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					moveFindHit(1);
 				}
 			});
 		}
@@ -505,6 +589,7 @@ public class ChatPanelController {
 				@Override
 				public boolean onLongClick(View v) {
 					filterFromMs = null;
+					resetFindToFirst = true;
 					paintDateChips();
 					reloadThreadMessages();
 					return true;
@@ -522,6 +607,7 @@ public class ChatPanelController {
 				@Override
 				public boolean onLongClick(View v) {
 					filterUntilExclusiveMs = null;
+					resetFindToFirst = true;
 					paintDateChips();
 					reloadThreadMessages();
 					return true;
@@ -534,6 +620,7 @@ public class ChatPanelController {
 				public void onClick(View v) {
 					filterFromMs = Long.valueOf(startOfLocalDay(-6));
 					filterUntilExclusiveMs = null;
+					resetFindToFirst = true;
 					paintDateChips();
 					reloadThreadMessages();
 				}
@@ -545,12 +632,14 @@ public class ChatPanelController {
 				public void onClick(View v) {
 					filterFromMs = null;
 					filterUntilExclusiveMs = null;
+					resetFindToFirst = true;
 					paintDateChips();
 					reloadThreadMessages();
 				}
 			});
 		}
 		paintDateChips();
+		applyFindNav();
 	}
 
 	private void pickFilterDate(final boolean from) {
@@ -581,6 +670,7 @@ public class ChatPanelController {
 							filterUntilExclusiveMs = Long.valueOf(picked.getTimeInMillis());
 						}
 						paintDateChips();
+						resetFindToFirst = true;
 						reloadThreadMessages();
 					}
 				},
@@ -628,9 +718,6 @@ public class ChatPanelController {
 	}
 
 	private boolean threadFilterActive() {
-		if (threadSearchQuery != null && threadSearchQuery.trim().length() > 0) {
-			return true;
-		}
 		return filterFromMs != null || filterUntilExclusiveMs != null;
 	}
 
@@ -638,12 +725,12 @@ public class ChatPanelController {
 		if (openThreadId == null) {
 			return;
 		}
-		boolean filtering = threadFilterActive();
-		int limit = filtering ? Integer.MAX_VALUE : MESSAGE_LIMIT;
-		String q = threadSearchQuery == null ? "" : threadSearchQuery;
-		List<ChatMessage> msgs = store().messages(openThreadId, limit, q,
+		boolean dates = threadFilterActive();
+		int limit = dates ? Integer.MAX_VALUE : MESSAGE_LIMIT;
+		List<ChatMessage> msgs = store().messages(openThreadId, limit, null,
 				filterFromMs, filterUntilExclusiveMs);
-		populateMessages(msgs, !filtering);
+		boolean findOn = threadSearchQuery != null && threadSearchQuery.trim().length() > 0;
+		populateMessages(msgs, !dates && !findOn);
 	}
 
 	private void clearThreadFilter() {
@@ -677,6 +764,7 @@ public class ChatPanelController {
 		}
 		visible = true;
 		root.setVisibility(View.VISIBLE);
+		host.onChatVisibilityChanged();
 		bringUnderChrome();
 		MainWindow activity = host.getMainWindow();
 		if (activity != null && activity.getChromeController() != null) {
@@ -692,7 +780,15 @@ public class ChatPanelController {
 		}
 		drawer.animate().cancel();
 		drawer.setTranslationX(-drawerWidthPx());
-		drawer.animate().translationX(0f).setDuration(SLIDE_MS).start();
+		drawer.animate().translationX(0f).setDuration(SLIDE_MS)
+				.withEndAction(new Runnable() {
+					@Override
+					public void run() {
+						if (visible) {
+							host.onChatVisibilityChanged();
+						}
+					}
+				}).start();
 	}
 
 	private void slideOut() {
@@ -712,6 +808,10 @@ public class ChatPanelController {
 	}
 
 	private void hideImmediate() {
+		if (openThreadId != null) {
+			saveMineName();
+			saveTemplateQuiet();
+		}
 		animating = false;
 		visible = false;
 		openThreadId = null;
@@ -730,10 +830,16 @@ public class ChatPanelController {
 				imm.hideSoftInputFromWindow(replyBox.getWindowToken(), 0);
 			}
 		}
+		host.onChatVisibilityChanged();
 	}
 
 	private void showInbox() {
+		if (openThreadId != null) {
+			saveMineName();
+			saveTemplateQuiet();
+		}
 		openThreadId = null;
+		settingsOpen = false;
 		if (backBtn != null) {
 			backBtn.setVisibility(View.GONE);
 		}
@@ -747,6 +853,7 @@ public class ChatPanelController {
 			threadView.setVisibility(View.GONE);
 		}
 		applySettingsVisibility();
+		applyFindNav();
 		populateInbox();
 	}
 
@@ -756,6 +863,10 @@ public class ChatPanelController {
 			return;
 		}
 		boolean switched = openThreadId == null || !threadId.equals(openThreadId);
+		if (switched && openThreadId != null) {
+			saveMineName();
+			saveTemplateQuiet();
+		}
 		openThreadId = threadId;
 		ChatStore store = store();
 		store.markSeen(threadId);
@@ -792,6 +903,7 @@ public class ChatPanelController {
 			templateBox.setText(tmpl == null ? "" : tmpl);
 		}
 		applySettingsVisibility();
+		bindMineRow(switched);
 		reloadThreadMessages();
 		if (resetReply && replyBox != null) {
 			replyBox.setText("");
@@ -907,6 +1019,7 @@ public class ChatPanelController {
 		if (messageList == null) {
 			return;
 		}
+		findHits.clear();
 		messageList.removeAllViews();
 		MainWindow activity = host.getMainWindow();
 		if (activity == null) {
@@ -915,6 +1028,8 @@ public class ChatPanelController {
 		if (messages == null) {
 			messages = java.util.Collections.emptyList();
 		}
+		String needle = threadSearchQuery == null ? ""
+				: threadSearchQuery.trim().toLowerCase(Locale.US);
 		if (threadEmpty != null) {
 			boolean emptyFilter = messages.isEmpty() && threadFilterActive();
 			threadEmpty.setVisibility(emptyFilter ? View.VISIBLE : View.GONE);
@@ -922,6 +1037,7 @@ public class ChatPanelController {
 		LayoutInflater inflater = LayoutInflater.from(activity);
 		DateFormat dayFmt = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault());
 		DateFormat timeFmt = DateFormat.getTimeInstance(DateFormat.SHORT, Locale.getDefault());
+		float density = activity.getResources().getDisplayMetrics().density;
 		int lastDay = Integer.MIN_VALUE;
 		Calendar cal = Calendar.getInstance();
 		ChatStore store = store();
@@ -946,6 +1062,7 @@ public class ChatPanelController {
 				lastDay = dayKey;
 			}
 			boolean mine = store.displayMine(m);
+			boolean findHit = needle.length() > 0 && messageMatches(m, needle);
 			if (align != null) {
 				align.setGravity(mine ? Gravity.END : Gravity.START);
 			}
@@ -962,8 +1079,11 @@ public class ChatPanelController {
 					title.setMaxWidth(cap);
 				}
 				GradientDrawable bg = new GradientDrawable();
-				bg.setCornerRadius(14 * activity.getResources().getDisplayMetrics().density);
+				bg.setCornerRadius(14 * density);
 				bg.setColor(mine ? store.mineColorArgb() : store.otherColorArgb());
+				if (findHit) {
+					bg.setStroke((int) (2 * density), FIND_STROKE);
+				}
 				bubble.setBackground(bg);
 			}
 			if (title != null) {
@@ -981,8 +1101,18 @@ public class ChatPanelController {
 				when.setText(timeFmt.format(new Date(m.getWhenMs())));
 			}
 			messageList.addView(row);
+			if (findHit) {
+				findHits.add(row);
+			}
 		}
-		if (scrollToEnd && messageScroll != null) {
+		boolean jumpToFind = needle.length() > 0
+				&& (resetFindToFirst || findHitIndex < 0);
+		finishFindAfterPopulate(needle);
+		if (needle.length() > 0) {
+			if (jumpToFind && !findHits.isEmpty()) {
+				scrollToFindHit();
+			}
+		} else if (scrollToEnd && messageScroll != null) {
 			messageScroll.post(new Runnable() {
 				@Override
 				public void run() {
@@ -992,6 +1122,109 @@ public class ChatPanelController {
 				}
 			});
 		}
+	}
+
+	private static boolean messageMatches(ChatMessage m, String needleLower) {
+		if (m == null || needleLower == null || needleLower.length() == 0) {
+			return false;
+		}
+		String body = m.getBody() == null ? "" : m.getBody().toLowerCase(Locale.US);
+		String title = m.getTitle() == null ? "" : m.getTitle().toLowerCase(Locale.US);
+		return body.indexOf(needleLower) >= 0 || title.indexOf(needleLower) >= 0;
+	}
+
+	private void finishFindAfterPopulate(String needleLower) {
+		if (needleLower == null || needleLower.length() == 0) {
+			findHitIndex = -1;
+			applyFindNav();
+			return;
+		}
+		if (findHits.isEmpty()) {
+			findHitIndex = -1;
+			applyFindNav();
+			return;
+		}
+		if (resetFindToFirst || findHitIndex < 0 || findHitIndex >= findHits.size()) {
+			findHitIndex = 0;
+		}
+		resetFindToFirst = false;
+		applyFindHighlightStyles();
+		applyFindNav();
+	}
+
+	private void applyFindHighlightStyles() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		float d = activity.getResources().getDisplayMetrics().density;
+		for (int i = 0; i < findHits.size(); i++) {
+			View row = findHits.get(i);
+			LinearLayout bubble = (LinearLayout) row.findViewById(R.id.chat_msg_bubble);
+			if (bubble == null || !(bubble.getBackground() instanceof GradientDrawable)) {
+				continue;
+			}
+			GradientDrawable bg = (GradientDrawable) bubble.getBackground();
+			boolean current = i == findHitIndex;
+			bg.setStroke((int) ((current ? 3 : 2) * d),
+					current ? FIND_STROKE_CURRENT : FIND_STROKE);
+		}
+	}
+
+	private void applyFindNav() {
+		boolean show = threadSearchQuery != null && threadSearchQuery.trim().length() > 0;
+		if (findNav != null) {
+			findNav.setVisibility(show ? View.VISIBLE : View.GONE);
+		}
+		if (!show || findCount == null) {
+			return;
+		}
+		if (findHits.isEmpty() || findHitIndex < 0) {
+			findCount.setText("0/0");
+		} else {
+			findCount.setText((findHitIndex + 1) + "/" + findHits.size());
+		}
+	}
+
+	private void moveFindHit(int delta) {
+		if (findHits.isEmpty()) {
+			return;
+		}
+		int n = findHits.size();
+		if (findHitIndex < 0) {
+			findHitIndex = delta > 0 ? 0 : n - 1;
+		} else {
+			findHitIndex = (findHitIndex + delta) % n;
+			if (findHitIndex < 0) {
+				findHitIndex += n;
+			}
+		}
+		applyFindHighlightStyles();
+		applyFindNav();
+		scrollToFindHit();
+	}
+
+	private void scrollToFindHit() {
+		if (messageScroll == null || findHitIndex < 0 || findHitIndex >= findHits.size()) {
+			return;
+		}
+		final View row = findHits.get(findHitIndex);
+		messageScroll.post(new Runnable() {
+			@Override
+			public void run() {
+				if (messageScroll == null || row.getParent() == null) {
+					return;
+				}
+				int y = row.getTop();
+				int h = row.getHeight();
+				int vis = messageScroll.getHeight();
+				int target = y - Math.max(0, (vis - h) / 2);
+				if (target < 0) {
+					target = 0;
+				}
+				messageScroll.smoothScrollTo(0, target);
+			}
+		});
 	}
 
 	private void saveTemplate() {

@@ -610,13 +610,14 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .chat / .chat open     open the drawer (toggles if already open)\n"
 					+ "  .chat close | hide     same toggle; or tap ✕ / the dim area\n"
-					+ "  .chat vermin           open that thread\n"
+					+ "  .chat <thread>         open that thread\n"
 					+ "  .chat help\n"
 					+ "  Also: overflow ⋮ → Chat\n"
-					+ "⚙ in the drawer: My lines (a trigger pattern) and the reply template.\n"
-					+ "]: Taracair is you speaking — not a mention in quotes. You say works too.\n"
-					+ "Find + From/To dates filter the open thread. Send to thread only copies;\n"
-					+ "own-bubble colour is the chat-module pattern, not a second trigger action.\n";
+					+ "⚙ in an open conversation: My lines (this chat only) and the reply template.\n"
+					+ "My lines matches lines you spoke, not a name mentioned in someone else's line.\n"
+					+ "A single word is the speaker after ]: on a tagged channel, or the start of a tell.\n"
+					+ "Regex is allowed. Find ‹ › jumps matching bubbles (like .search); From/To filter dates.\n"
+					+ "Send to thread only copies; own-bubble colour is the My lines pattern, not a second action.\n";
 		}
 		return null;
 	}

@@ -37,20 +37,27 @@ final class ChatInbox {
 		String title;
 		String replyTemplate;
 		int unreadCount;
+		String mineNeedle;
+		Pattern mineCompiled;
 
 		ThreadState(String threadId, String title, String replyTemplate, int unreadCount) {
 			this.threadId = threadId == null ? "" : threadId;
 			this.title = title == null ? "" : title;
 			this.replyTemplate = replyTemplate == null ? "" : replyTemplate;
 			this.unreadCount = unreadCount < 0 ? 0 : unreadCount;
+			this.mineNeedle = "";
+			this.mineCompiled = null;
+		}
+
+		void setMineNeedle(String needle) {
+			this.mineNeedle = needle == null ? "" : needle;
+			this.mineCompiled = compileMinePattern(this.mineNeedle);
 		}
 	}
 
 	private final LinkedHashMap<String, ThreadState> threads =
 			new LinkedHashMap<String, ThreadState>();
 	private final ArrayList<ChatMessage> messages = new ArrayList<ChatMessage>();
-	private String mineNeedle = "";
-	private Pattern mineCompiled;
 	private int mineColor = DEFAULT_MINE_COLOR;
 	private int otherColor = DEFAULT_OTHER_COLOR;
 
@@ -128,20 +135,21 @@ final class ChatInbox {
 	}
 
 	/**
-	 * Chat-module mine trigger: the stored line matches {@link #mineNeedle}.
-	 * A plain name becomes {@code ]:\s*Name\b} (speaker after the channel
-	 * tag). Anything else is a Java regex, same fallback as a trigger
-	 * (invalid syntax is matched literally).
+	 * Chat-module mine trigger for one thread: the stored line matches that
+	 * thread's {@code mineNeedle}. A plain name becomes {@code ]:\s*Name\b}
+	 * (speaker after the channel tag). Anything else is a Java regex, same
+	 * fallback as a trigger (invalid syntax is matched literally).
 	 */
-	boolean bodyLooksMine(String body) {
-		if (mineCompiled == null || body == null) {
+	boolean bodyLooksMine(String threadId, String body) {
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		if (state == null || state.mineCompiled == null || body == null) {
 			return false;
 		}
-		return mineCompiled.matcher(body).find();
+		return state.mineCompiled.matcher(body).find();
 	}
 
 	/**
-	 * Paint as an own bubble: the chat-module mine trigger, or a stored
+	 * Paint as an own bubble: that message's thread mine trigger, or a stored
 	 * {@code mine} flag (Send / absorb / a legacy Send-to-thread action).
 	 * Do not unpaint stored mine on a channel echo — absorb rewrites the
 	 * Send bubble to {@code [ TAG ]: Name says} and that line may not match
@@ -151,23 +159,37 @@ final class ChatInbox {
 		if (m == null) {
 			return false;
 		}
-		return m.isMine() || bodyLooksMine(m.getBody());
+		return m.isMine() || bodyLooksMine(m.getThreadId(), m.getBody());
 	}
 
+	/** Leftover: world-level Me is unused. Prefer {@link #mineNeedle(String)}. */
 	String mineNeedle() {
-		return mineNeedle == null ? "" : mineNeedle;
+		return "";
 	}
 
-	void setMineNeedle(String needle) {
-		mineNeedle = needle == null ? "" : needle;
-		mineCompiled = compileMinePattern(mineNeedle);
+	String mineNeedle(String threadId) {
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		if (state == null || state.mineNeedle == null) {
+			return "";
+		}
+		return state.mineNeedle;
+	}
+
+	void setMineNeedle(String threadId, String needle) {
+		String id = threadId == null ? "" : threadId;
+		ThreadState state = threads.get(id);
+		if (state == null) {
+			state = new ThreadState(id, id, "", 0);
+			threads.put(id, state);
+		}
+		state.setMineNeedle(needle);
 	}
 
 	/**
 	 * Compile the chat-module mine trigger. Package-visible for tests.
-	 * A single character name is the speaker after {@code ]:}, or a line
-	 * that starts with that name (tells). {@code ]: Taracair} or
-	 * {@code You say} are regexes, like a normal trigger.
+	 * A single word is the speaker after {@code ]:}, or a line that starts
+	 * with that name (tells). An explicit regex is compiled as-is, with
+	 * the same invalid-syntax fallback as a trigger.
 	 */
 	static Pattern compileMinePattern(String source) {
 		String s = source == null ? "" : source.trim();
@@ -353,6 +375,14 @@ final class ChatInbox {
 		return state.replyTemplate;
 	}
 
+	int totalUnread() {
+		int n = 0;
+		for (ThreadState state : threads.values()) {
+			n += state.unreadCount;
+		}
+		return n;
+	}
+
 	int messageCount() {
 		return messages.size();
 	}
@@ -360,7 +390,7 @@ final class ChatInbox {
 	byte[] toJsonBytes() {
 		try {
 			JSONObject root = new JSONObject();
-			root.put("mineNeedle", mineNeedle == null ? "" : mineNeedle);
+			root.put("mineNeedle", "");
 			root.put("mineColor", mineColor);
 			root.put("otherColor", otherColor);
 			JSONArray threadArr = new JSONArray();
@@ -370,6 +400,7 @@ final class ChatInbox {
 				t.put("title", state.title);
 				t.put("replyTemplate", state.replyTemplate);
 				t.put("unreadCount", state.unreadCount);
+				t.put("mineNeedle", state.mineNeedle == null ? "" : state.mineNeedle);
 				threadArr.put(t);
 			}
 			JSONArray messageArr = new JSONArray();
@@ -408,7 +439,7 @@ final class ChatInbox {
 		}
 		try {
 			JSONObject root = new JSONObject(raw);
-			inbox.setMineNeedle(root.optString("mineNeedle", ""));
+			String rootNeedle = root.optString("mineNeedle", "");
 			inbox.mineColor = root.optInt("mineColor", DEFAULT_MINE_COLOR);
 			inbox.otherColor = root.optInt("otherColor", DEFAULT_OTHER_COLOR);
 			JSONArray threadArr = root.optJSONArray("threads");
@@ -424,6 +455,7 @@ final class ChatInbox {
 							t.optString("title", id),
 							t.optString("replyTemplate", ""),
 							t.optInt("unreadCount", 0));
+					state.setMineNeedle(t.optString("mineNeedle", ""));
 					inbox.threads.put(id, state);
 				}
 			}
@@ -449,6 +481,15 @@ final class ChatInbox {
 			}
 			inbox.capOldest();
 			inbox.pruneThreadsWithoutMessages();
+			// Old files stored one world-level needle. Copy it onto threads
+			// that have none; new threads created after load stay empty.
+			if (rootNeedle.length() > 0) {
+				for (ThreadState state : inbox.threads.values()) {
+					if (state.mineNeedle == null || state.mineNeedle.length() == 0) {
+						state.setMineNeedle(rootNeedle);
+					}
+				}
+			}
 			return inbox;
 		} catch (JSONException e) {
 			return new ChatInbox();

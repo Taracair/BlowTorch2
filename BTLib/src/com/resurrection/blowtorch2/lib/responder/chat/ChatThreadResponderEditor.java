@@ -71,19 +71,18 @@ public class ChatThreadResponderEditor extends Dialog {
 		form.setOrientation(LinearLayout.VERTICAL);
 		form.setPadding(pad, pad, pad, pad);
 
-		threadField = addField(form, "Thread:", "e.g. vermin or $1",
+		threadField = addField(form, "Thread:", "conversation key, or $1",
 				theResponder.getThreadId(), true);
 		titleField = addField(form, "Title (optional):", "blank = the thread id",
 				theResponder.getTitle(), true);
 		bodyField = addField(form, "Body (optional):", "blank = the matched line",
 				theResponder.getBody(), false);
 		replyField = addField(form, "Reply template (optional):",
-				"e.g. tell $1 $text  ($text is the reply box, not a capture)",
+				"$text is the reply box; $1 is a capture",
 				theResponder.getReplyTemplate(), false);
 
 		TextView mineNote = new TextView(getContext());
-		mineNote.setText("Own bubbles: Chat → ⚙ → My lines "
-				+ "(a pattern like ]: Taracair or You say). Not set here.");
+		mineNote.setText("Own-bubble pattern is per conversation: open that chat, then ⚙. Not set on this action.");
 		mineNote.setTextColor(0xFFAAAAAA);
 		mineNote.setTextSize(12);
 		LinearLayout.LayoutParams noteLp = new LinearLayout.LayoutParams(

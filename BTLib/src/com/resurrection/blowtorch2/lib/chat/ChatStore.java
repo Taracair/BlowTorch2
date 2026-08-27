@@ -155,7 +155,7 @@ public final class ChatStore {
 						inbox.setReplyTemplate(threadId, seedTemplateIfEmpty);
 					}
 				}
-				boolean isMine = mine || inbox.bodyLooksMine(body);
+				boolean isMine = mine || inbox.bodyLooksMine(threadId, body);
 				if (inbox.absorbRecentMine(threadId, body, whenMs, isMine)) {
 					return true;
 				}
@@ -169,19 +169,40 @@ public final class ChatStore {
 		}
 	}
 
+	/**
+	 * Leftover: world-level Me is unused. Prefer {@link #mineNeedle(String)}.
+	 */
 	public String mineNeedle() {
+		return "";
+	}
+
+	public String mineNeedle(String threadId) {
 		synchronized (lock) {
 			reloadIfNewerLocked();
-			return inbox.mineNeedle();
+			return inbox.mineNeedle(threadId);
 		}
 	}
 
+	/**
+	 * Leftover unused setter: world-level Me is not the live setting.
+	 * Prefer {@link #setMineNeedle(String, String)}.
+	 */
 	public void setMineNeedle(String needle) {
+	}
+
+	public void setMineNeedle(String threadId, String needle) {
 		synchronized (lock) {
 			mutateUnderFileLock(() -> {
-				inbox.setMineNeedle(needle);
+				inbox.setMineNeedle(threadId, needle);
 				return true;
 			});
+		}
+	}
+
+	public int totalUnread() {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.totalUnread();
 		}
 	}
 

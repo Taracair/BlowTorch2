@@ -796,38 +796,41 @@ in when you ask for it.
 Open it
   overflow ⋮ → Chat
   or type .chat          (again to close)
-  .chat vermin           jump straight to that thread
+  .chat <thread>         jump straight to that conversation
   ✕ or the dim area also close it
 
 A thread is one conversation (a person, or a channel). Tap a thread to
 read it. Type in the reply box and Send. That fills $text in a command
 template, for example:
-  tell Bob $text
+  tell $1 $text
   c $text
 
 You set that template on the trigger that catches the line (Send to
-thread). In the drawer, ⚙ hides My lines (a pattern + colour) and the
-reply template so they are not on the thread face.
+thread). Open a conversation, then ⚙ for My lines (a pattern + colour
+for that chat only) and the reply template — they stay off the thread
+face.
 
-Example — Vermin channel:
-  Trigger pattern:  ^\[ VERMIN \]
+Example — a tagged channel:
+  Trigger pattern:  ^\[ .+ \]
   Action:           Send to thread
-  Thread:           vermin
-  Reply:            c $text
+  Thread:           a name for that conversation
+  Reply:            the command the world expects, with $text
 
-Then .chat, tap vermin, type a line, Send — the world gets c your text.
+Then .chat, open that thread, type a line, Send.
 
 Your lines
-  ⚙ → My lines: a trigger on stored lines, not the Send to thread
-  action. ]: Taracair is you speaking; Elyak saying “hi Taracair” is
-  not. A single name (Taracair) means the speaker after ]: or a line
-  that starts with that name (tells). You say is regex too, or both:
-  ]: Taracair|You say
+  Open a conversation, then ⚙ → My lines. This conversation only.
+  Matches lines you spoke, not a name mentioned in someone else's line.
+  A single word is the speaker after ]: on a tagged channel, or the
+  start of a tell. Regex is allowed.
   Dots pick the bubble colour. Send from the drawer paints an
   own-bubble immediately.
 
-Find in this thread plus From / To (long-press a date to clear
-that side; 7d / All are shortcuts) filters the open conversation. Search at the top of the list still filters threads.
+Find in this thread highlights matches; ‹ › (and the keyboard Search
+key) step through them like .search in the game window. It does not
+hide other messages. From / To (long-press a date to clear that side;
+7d / All are shortcuts) still filter which messages are listed. Search
+at the top of the list still filters threads.
 Dual display (main window and the drawer) is the trigger's job; the
 drawer only shows what was stored.]])
 end
@@ -1467,7 +1470,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. Reloading wipes .buttonopacity until you set it again.]],
 	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. Reply fills $text in the thread template (tell Bob $text, c $text).]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. Reply fills $text in the thread template (tell $1 $text, c $text). Find ‹ › jumps in the open thread.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

@@ -845,6 +845,7 @@ public final class ChromeController {
 		if (editorActions != null) {
 			editorActions.setVisibility(showEditorChrome ? View.VISIBLE : View.GONE);
 		}
+		activity.refreshChatUnreadDot();
 		RelativeLayout rl = (RelativeLayout) activity.findViewById(R.id.window_container);
 		bringGameplayChromeToFront(rl);
 	}

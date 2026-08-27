@@ -122,7 +122,7 @@
                     android:layout_weight="1"
                     android:layout_marginLeft="8dp"
                     android:background="@drawable/input_bar_bg"
-                    android:hint="]: Taracair  or  You say"
+                    android:hint="speaker pattern for this chat"
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
@@ -147,7 +147,7 @@
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
                 android:paddingBottom="6dp"
-                android:text="A trigger on stored lines. ]: Taracair is you speaking; someone saying hi Taracair is not. A single name means the speaker after ]: . You say is regex too."
+                android:text="This conversation only. Matches lines you spoke, not a name mentioned in someone else's line. A single word is the speaker after ]: on a tagged channel, or the start of a tell. Regex is allowed."
                 android:textColor="@color/chrome_description"
                 android:textSize="11sp" />
 
@@ -265,20 +265,74 @@
                 android:paddingTop="6dp"
                 android:paddingBottom="4dp">
 
-                <EditText
-                    android:id="@+id/chat_thread_search"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/input_bar_bg"
-                    android:hint="Find in this thread"
-                    android:imeOptions="actionSearch"
-                    android:importantForAutofill="no"
-                    android:inputType="text"
-                    android:maxLines="1"
-                    android:padding="8dp"
-                    android:textColor="@color/chrome_title_text"
-                    android:textColorHint="@color/chrome_hint"
-                    android:textSize="14sp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <EditText
+                        android:id="@+id/chat_thread_search"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/input_bar_bg"
+                        android:hint="Find in this thread"
+                        android:imeOptions="actionSearch"
+                        android:importantForAutofill="no"
+                        android:inputType="text"
+                        android:maxLines="1"
+                        android:padding="8dp"
+                        android:textColor="@color/chrome_title_text"
+                        android:textColorHint="@color/chrome_hint"
+                        android:textSize="14sp" />
+
+                    <LinearLayout
+                        android:id="@+id/chat_find_nav"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginLeft="4dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/chat_find_prev"
+                            android:layout_width="28dp"
+                            android:layout_height="32dp"
+                            android:clickable="true"
+                            android:contentDescription="Previous match"
+                            android:focusable="true"
+                            android:gravity="center"
+                            android:text="‹"
+                            android:textColor="#80FFFFFF"
+                            android:textSize="18sp" />
+
+                        <TextView
+                            android:id="@+id/chat_find_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center"
+                            android:minWidth="28dp"
+                            android:paddingLeft="2dp"
+                            android:paddingRight="2dp"
+                            android:text="0/0"
+                            android:textColor="#80FFFFFF"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/chat_find_next"
+                            android:layout_width="28dp"
+                            android:layout_height="32dp"
+                            android:clickable="true"
+                            android:contentDescription="Next match"
+                            android:focusable="true"
+                            android:gravity="center"
+                            android:text="›"
+                            android:textColor="#80FFFFFF"
+                            android:textSize="18sp" />
+                    </LinearLayout>
+                </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"

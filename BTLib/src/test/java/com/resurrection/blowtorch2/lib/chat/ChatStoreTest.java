@@ -206,7 +206,7 @@ public class ChatStoreTest {
 	@Test
 	public void mineNeedleMarksIncomingAndDoesNotBadge() {
 		ChatStore store = new ChatStore(new ChatInbox());
-		store.setMineNeedle("Taracair");
+		store.setMineNeedle("vermin", "Taracair");
 		store.appendAt("vermin", "VERMIN", "[ VERMIN ]: Elyak waves.", 1L);
 		store.appendAt("vermin", "VERMIN",
 				"[ VERMIN ]: Taracair says, \"Test\"", 2L);
@@ -219,31 +219,40 @@ public class ChatStoreTest {
 	@Test
 	public void mineTriggerMatchesSpeakerNotMention() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("Taracair");
-		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"Test\""));
-		assertTrue(inbox.bodyLooksMine("[ VERMIN ] : Taracair says, \"Test\""));
-		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair, the bard, says, \"Test\""));
-		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak says, \"hi Taracair\""));
-		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak waves."));
-		assertTrue(inbox.bodyLooksMine("Taracair tells you 'yo'"));
-		assertFalse(inbox.bodyLooksMine("Bob tells you 'hi Taracair'"));
-		assertFalse(inbox.bodyLooksMine("hi Taracair"));
-		inbox.setMineNeedle("]: Taracair");
-		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"Test\""));
-		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak says, \"hi Taracair\""));
-		inbox.setMineNeedle("You say");
-		assertTrue(inbox.bodyLooksMine("You say, \"hello\""));
-		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"hello\""));
-		inbox.setMineNeedle("]: Taracair|You say");
-		assertTrue(inbox.bodyLooksMine("[ VERMIN ]: Taracair says, \"Test\""));
-		assertTrue(inbox.bodyLooksMine("You say, \"hello\""));
-		assertFalse(inbox.bodyLooksMine("[ VERMIN ]: Elyak says, \"hi Taracair\""));
+		inbox.setMineNeedle("vermin", "Taracair");
+		assertTrue(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Taracair says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ] : Taracair says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Taracair, the bard, says, \"Test\""));
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Elyak says, \"hi Taracair\""));
+		assertFalse(inbox.bodyLooksMine("vermin", "[ VERMIN ]: Elyak waves."));
+		assertTrue(inbox.bodyLooksMine("vermin", "Taracair tells you 'yo'"));
+		assertFalse(inbox.bodyLooksMine("vermin", "Bob tells you 'hi Taracair'"));
+		assertFalse(inbox.bodyLooksMine("vermin", "hi Taracair"));
+		inbox.setMineNeedle("vermin", "]: Taracair");
+		assertTrue(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Taracair says, \"Test\""));
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Elyak says, \"hi Taracair\""));
+		inbox.setMineNeedle("vermin", "You say");
+		assertTrue(inbox.bodyLooksMine("vermin", "You say, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Taracair says, \"hello\""));
+		inbox.setMineNeedle("vermin", "]: Taracair|You say");
+		assertTrue(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Taracair says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("vermin", "You say, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Elyak says, \"hi Taracair\""));
 	}
 
 	@Test
 	public void displayMineUsesPatternOrStoredFlag() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("Taracair");
+		inbox.setMineNeedle("vermin", "Taracair");
 		inbox.append("vermin", "VERMIN",
 				"[ VERMIN ]: Elyak says, \"hi Taracair\"", 1L, false, false);
 		assertFalse(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
@@ -256,7 +265,7 @@ public class ChatStoreTest {
 	@Test
 	public void absorbedSendStaysMineWhenPatternIsYouSay() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("You say");
+		inbox.setMineNeedle("vermin", "You say");
 		inbox.append("vermin", "VERMIN",
 				"[ VERMIN ]: Taracair says, \"Test\"", 1L, true, false);
 		assertTrue(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
@@ -320,12 +329,64 @@ public class ChatStoreTest {
 	@Test
 	public void jsonRoundTripPreservesMineAndNeedle() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("Taracair");
+		inbox.setMineNeedle("vermin", "Taracair");
+		inbox.setMineNeedle("tells", "Bob");
 		inbox.setMineColor(0xFF123456);
 		inbox.append("vermin", "VERMIN", "hello", 1L, true, false);
+		inbox.append("tells", "Tells", "yo", 2L, false, true);
 		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
-		assertEquals("Taracair", loaded.mineNeedle());
+		assertEquals("", loaded.mineNeedle());
+		assertEquals("Taracair", loaded.mineNeedle("vermin"));
+		assertEquals("Bob", loaded.mineNeedle("tells"));
 		assertEquals(0xFF123456, loaded.mineColor());
 		assertTrue(loaded.messages("vermin", 1).get(0).isMine());
+	}
+
+	@Test
+	public void mineNeedleIsPerThread() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.setMineNeedle("vermin", "Taracair");
+		store.setMineNeedle("tells", "Bob");
+		store.appendAt("vermin", "VERMIN",
+				"[ VERMIN ]: Elyak says, \"hi Taracair\"", 1L);
+		store.appendAt("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"Test\"", 2L);
+		store.appendAt("tells", "Tells", "Taracair tells you 'yo'", 3L);
+		store.appendAt("tells", "Tells", "Bob tells you 'yo'", 4L);
+		List<ChatMessage> vermin = store.messages("vermin", 10);
+		assertFalse(vermin.get(0).isMine());
+		assertFalse(store.displayMine(vermin.get(0)));
+		assertTrue(vermin.get(1).isMine());
+		assertTrue(store.displayMine(vermin.get(1)));
+		List<ChatMessage> tells = store.messages("tells", 10);
+		assertFalse(tells.get(0).isMine());
+		assertFalse(store.displayMine(tells.get(0)));
+		assertTrue(tells.get(1).isMine());
+		assertTrue(store.displayMine(tells.get(1)));
+	}
+
+	@Test
+	public void totalUnreadSumsTwoThreads() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.appendAt("vermin", "VERMIN", "a", 1L);
+		store.appendAt("vermin", "VERMIN", "b", 2L);
+		store.appendAt("tells", "Tells", "c", 3L);
+		assertEquals(3, store.totalUnread());
+		store.markSeen("vermin");
+		assertEquals(1, store.totalUnread());
+	}
+
+	@Test
+	public void oldRootMineNeedleSeedsExistingThreadsOnly() {
+		String json = "{\"mineNeedle\":\"Taracair\",\"threads\":[{"
+				+ "\"threadId\":\"vermin\",\"title\":\"VERMIN\","
+				+ "\"replyTemplate\":\"\",\"unreadCount\":0}],"
+				+ "\"messages\":[{\"threadId\":\"vermin\",\"title\":\"VERMIN\","
+				+ "\"body\":\"hi\",\"whenMs\":1,\"mine\":false}]}";
+		ChatInbox loaded = ChatInbox.fromJsonBytes(json.getBytes());
+		assertEquals("Taracair", loaded.mineNeedle("vermin"));
+		assertEquals("", loaded.mineNeedle());
+		loaded.append("tells", "Tells", "yo", 2L);
+		assertEquals("", loaded.mineNeedle("tells"));
 	}
 }
