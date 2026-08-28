@@ -3064,7 +3064,7 @@ public class MapperOverlayController
 	/**
 	 * First-open intro until the player names/creates a map.
 	 * Empty auto-{@code default} maps always get the intro (even if a stale
-	 * onboarding pref was set), so a blank Samsara/etc. session still coaches.
+	 * onboarding pref was set), so a blank new session still coaches.
 	 */
 	private void maybeShowMapperIntro() {
 		if (!visible || mapperIntroShownThisOpen) {

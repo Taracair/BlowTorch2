@@ -132,7 +132,8 @@ final class ConnectionSettingsIO {
 	 * Worlds saved before {@code starter_tutorial} shipped in default_settings
 	 * never grow it. {@code .tutorial} / {@code .tips} are Lua callbacks from
 	 * that plugin, so those profiles report "not a recognized alias or command".
-	 * Measured 17 Aug 2026 on samsaramoo.xml (button_window only).
+	 * Measured 17 Aug 2026 on an older profile that had {@code button_window}
+	 * only.
 	 *
 	 * @return true when the plugin was grafted and should be saved.
 	 */

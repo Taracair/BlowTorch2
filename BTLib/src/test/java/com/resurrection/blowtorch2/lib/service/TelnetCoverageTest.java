@@ -14,7 +14,7 @@ import org.junit.Test;
 
 /**
  * NAWS, CHARSET, MSDP and MSSP had no JVM test — they were only ever exercised
- * by hand against eden / samsaramoo. These pin the wire format so a refactor
+ * by hand against live worlds. These pin the wire format so a refactor
  * cannot quietly change what we put on the socket.
  */
 public class TelnetCoverageTest {

@@ -5,7 +5,7 @@ package com.resurrection.blowtorch2.lib.service;
  *
  * <p><b>The problem.</b> Text is matched against triggers one TCP chunk at a
  * time, and roughly one chunk in ten ends in the middle of a line (measured on
- * samsaramoo: 11 of 105). A pattern then matches half a line, and a gag deletes
+ * a live world: 11 of 105). A pattern then matches half a line, and a gag deletes
  * that half out of the chunk before it is ever drawn — so the head vanishes and
  * the tail arrives in the next chunk with nothing left to match it. That is the
  * `ys, "sleeby"` fragment: the head of a `[chatnet]` line was gagged, its tail

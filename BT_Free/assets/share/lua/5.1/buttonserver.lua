@@ -2195,8 +2195,8 @@ function ensureLayoutSettingsOptions()
 	end
 	-- A profile only ever gets the rows that default_settings declared on the day
 	-- it was created, so an option added later exists for new profiles and for
-	-- nobody else. Measured on the maintainer's phone: samsaramoo.xml (the profile
-	-- he plays) has no show_gesture_hints at all, while eden.xml — made later —
+	-- nobody else. Measured on the maintainer's phone: an older profile
+	-- had no show_gesture_hints at all, while a newer one — made later —
 	-- does. Without the row there is nowhere for the editor's checkbox to write,
 	-- and the setting came back on at every launch. show_swipe_preview was worse:
 	-- it was in no settings XML at all, so no profile had it.

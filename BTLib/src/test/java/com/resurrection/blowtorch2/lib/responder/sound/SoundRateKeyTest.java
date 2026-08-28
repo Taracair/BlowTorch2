@@ -21,19 +21,19 @@ public class SoundRateKeyTest {
 	public void everyFiringOfOneTriggerSharesAKey() {
 		// The same trigger, matched three times on one line. Three firings, one
 		// key, so the gap can see them as the repeat they are.
-		assertEquals(SoundResponder.rateKey("samsaramoo", "_tappable"),
-				SoundResponder.rateKey("samsaramoo", "_tappable"));
+		assertEquals(SoundResponder.rateKey("world-a", "_tappable"),
+				SoundResponder.rateKey("world-a", "_tappable"));
 	}
 
 	@Test
 	public void twoTriggersSharingASoundDoNotSilenceEachOther() {
-		assertNotEquals(SoundResponder.rateKey("samsaramoo", "_tappable"),
-				SoundResponder.rateKey("samsaramoo", "tell"));
+		assertNotEquals(SoundResponder.rateKey("world-a", "_tappable"),
+				SoundResponder.rateKey("world-a", "tell"));
 	}
 
 	@Test
 	public void theSameTriggerOnTwoWorldsIsTwoAlerts() {
-		assertNotEquals(SoundResponder.rateKey("samsaramoo", "tell"),
+		assertNotEquals(SoundResponder.rateKey("world-a", "tell"),
 				SoundResponder.rateKey("eden", "tell"));
 	}
 
@@ -41,7 +41,7 @@ public class SoundRateKeyTest {
 	public void anUnnamedTriggerStillGetsAUsableKey() {
 		assertEquals(SoundResponder.rateKey(null, null),
 				SoundResponder.rateKey(null, null));
-		assertNotEquals(SoundResponder.rateKey("samsaramoo", null),
+		assertNotEquals(SoundResponder.rateKey("world-a", null),
 				SoundResponder.rateKey("eden", null));
 	}
 }

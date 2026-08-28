@@ -434,7 +434,7 @@ public class ColorTriggerBleedTest {
 			"[ VERMIN ] : Taracair says, \"test\"\n";
 
 	/**
-	 * Screenshot 26 Aug 2026: samsaramoo paints a channel prefix with a
+	 * Screenshot 26 Aug 2026: a live world paints a channel prefix with a
 	 * background, then the player colours {@code [ VERMIN ]} green with
 	 * "foreground only" (background 0/16/231). The paint must not keep the
 	 * MUD's background CSI open across the matched span - that is the neon

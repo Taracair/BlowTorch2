@@ -9,10 +9,9 @@ import java.util.HashMap;
 import org.junit.Test;
 
 /**
- * The three aliases installed in the samsaramoo profile for the maintainer to
- * test by hand, one per alias form.
+ * The three aliases used for a live-world hand check, one per alias form.
  *
- * <p>These exist so that the expected output written in the handoff is
+ * <p>These exist so that the expected output for a device test is
  * something that was executed rather than reasoned about. If one of these
  * fails, the instructions given to the maintainer are wrong, not the app.
  */

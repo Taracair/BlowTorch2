@@ -2742,7 +2742,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		}
 
 		// Whole lines only from here down. Roughly one chunk in ten ends in the
-		// middle of a line (measured: 11 of 105 on samsaramoo), and everything
+		// middle of a line (measured: 11 of 105 on a live world), and everything
 		// below this point assumes the line it is looking at is finished — a gag
 		// deletes a matched line out of mWorking before it is ever drawn, so a
 		// pattern matching half a line took the head off screen and left the

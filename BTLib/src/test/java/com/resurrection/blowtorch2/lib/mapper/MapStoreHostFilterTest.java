@@ -33,8 +33,8 @@ public class MapStoreHostFilterTest {
 
 	@Test
 	public void hostHintMismatchExcludesMap() {
-		assertFalse(MapStore.mapBelongsToHost("samsara",
-				"samsaramoo.com", "eden-test.rpgframework.de"));
+		assertFalse(MapStore.mapBelongsToHost("world-a",
+				"world-a.example", "eden-test.rpgframework.de"));
 	}
 
 	@Test
@@ -49,7 +49,7 @@ public class MapStoreHostFilterTest {
 		assertTrue(MapStore.mapBelongsToHost("default", null,
 				"eden-test.rpgframework.de"));
 		assertTrue(MapStore.mapBelongsToHost("default", "",
-				"samsaramoo.com"));
+				"world-a.example"));
 	}
 
 	@Test
@@ -154,7 +154,7 @@ public class MapStoreHostFilterTest {
 		for (int i = 0; i < 9000; i++) {
 			sb.append('x');
 		}
-		sb.append("\",\n  \"hostHint\": \"samsaramoo.com\"\n}");
+		sb.append("\",\n  \"hostHint\": \"world-a.example\"\n}");
 		File f = writeFile("late.json", sb.toString());
 		assertNull("beyond the prefix the reader must defer, not claim there is none",
 				MapStore.readHostHintFromPrefix(f));
