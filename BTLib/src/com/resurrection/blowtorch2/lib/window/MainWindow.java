@@ -103,6 +103,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.chat.ChatAnnounce;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.chat.ChatTriggerBindings;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
@@ -344,6 +345,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	private MapperController mapperController;
 	private ExtraTextOverlayController extraTextOverlay;
 	private ChatPanelController chatPanel;
+	/** Notification {@link ChatAnnounce#EXTRA_THREAD}; stripped after consume. */
+	private String mPendingChatThread;
+	/** World that extra belongs to; do not open the drawer on another clutch. */
+	private String mPendingChatDisplay;
 	/** Overlay gauges over the game; see ensureGaugeWidgets(). */
 	private GaugeWidgetController gaugeWidgets;
 	/** Floating button copies over the game; see ensureFloatingButtons(). */
@@ -504,6 +509,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					ensureGaugeWidgets();
 					restoreOpenFrames();
 					raiseFloatingButtons();
+					tryOpenPendingChatThread();
 				}
 			});
 			//finishInitializiation();
@@ -565,6 +571,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		setContentView(R.layout.window_layout);
 		assignLegacyChromeIds();
 		saveConnectionExtras(getIntent());
+		queueChatThreadFromIntent(getIntent());
 		com.resurrection.blowtorch2.lib.service.LuaLibraryHelper.ensureCurrentVersion(this);
 		getWindow().getDecorView().setBackgroundColor(Color.TRANSPARENT);
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
@@ -904,6 +911,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					myhandler.removeMessages(MESSAGE_CONNECT_WHEN_READY);
 					myhandler.sendEmptyMessageDelayed(MESSAGE_RENAWS, 80);
 					myhandler.sendEmptyMessageDelayed(MESSAGE_CONNECT_WHEN_READY, 200);
+					tryOpenPendingChatThread();
 					break;
 				case MESSAGE_SWITCH:
 					// Service clutch moved (e.g. .switch). Keep the Activity
@@ -4853,10 +4861,24 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 						// screen-off when the launch Intent still named the first
 						// world. If they differ (session closed in background,
 						// etc.), rebuild onto the clutch.
+						// Exception: a chat-notification tap already set the
+						// Intent to the destination and posted switchTo; the
+						// clutch has not moved yet. Reverting would open the
+						// thread on the wrong world.
+						boolean chatNotifyPending = mPendingChatThread != null
+								&& mPendingChatThread.length() > 0
+								&& display != null
+								&& display.equals(mPendingChatDisplay);
 						if (!connected.equals(display)) {
-							Log.i("BlowTorch", "onResume: rebuild onto clutch "
-									+ connected + " (Intent was " + display + ")");
-							service.switchTo(connected);
+							if (chatNotifyPending) {
+								Log.i("BlowTorch", "onResume: keep Intent "
+										+ display + " (chat notify; clutch "
+										+ connected + ")");
+							} else {
+								Log.i("BlowTorch", "onResume: rebuild onto clutch "
+										+ connected + " (Intent was " + display + ")");
+								service.switchTo(connected);
+							}
 						}
 					} else if (display != null && !display.isEmpty()
 							&& service.isConnectedTo(display)) {
@@ -7255,6 +7277,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		next.putExtra("HOST", host);
 		next.putExtra("PORT", port);
 		next.putExtra("TLS", tls);
+		next.removeExtra(ChatAnnounce.EXTRA_THREAD);
 		setIntent(next);
 		saveConnectionExtras(next);
 	}
@@ -8794,11 +8817,16 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		
 		this.setIntent(i);
 		saveConnectionExtras(i);
+		queueChatThreadFromIntent(i);
+		boolean switched = false;
 		try {
 			String display = i.getStringExtra("DISPLAY");
 			if (service != null && display != null) {
 				if (!service.getConnectedTo().equals(display)) {
-					service.switchTo(display);
+					if (service.isConnectedTo(display)) {
+						service.switchTo(display);
+						switched = true;
+					}
 				}
 				// Notification tap while disconnected: reconnect the still-tracked session.
 				if (!service.isConnected() && service.isConnectedTo(display)) {
@@ -8808,6 +8836,48 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		} catch (RemoteException e) {
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logThrowable("MainWindow.onNewIntent", e);
 		}
+		if (!switched) {
+			tryOpenPendingChatThread();
+		}
+	}
+
+	/**
+	 * Stash {@link ChatAnnounce#EXTRA_THREAD} and strip it so a later
+	 * {@link #rememberForegroundConnection} cannot reopen the drawer.
+	 */
+	private void queueChatThreadFromIntent(Intent i) {
+		if (i == null) {
+			return;
+		}
+		String thread = i.getStringExtra(ChatAnnounce.EXTRA_THREAD);
+		if (thread == null || thread.length() == 0) {
+			return;
+		}
+		i.removeExtra(ChatAnnounce.EXTRA_THREAD);
+		this.setIntent(i);
+		mPendingChatThread = thread;
+		String display = i.getStringExtra("DISPLAY");
+		mPendingChatDisplay = display == null ? "" : display;
+	}
+
+	private void tryOpenPendingChatThread() {
+		if (mPendingChatThread == null || mPendingChatThread.length() == 0) {
+			return;
+		}
+		if (mLeavingUi || isFinishing() || !windowsInitialized || myhandler == null) {
+			return;
+		}
+		String want = mPendingChatDisplay;
+		if (want != null && want.length() > 0) {
+			String now = getConnectionDisplay();
+			if (now == null || !now.equals(want)) {
+				return;
+			}
+		}
+		String id = mPendingChatThread;
+		mPendingChatThread = null;
+		mPendingChatDisplay = null;
+		myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_OPEN_CHAT_THREAD, id));
 	}
 
 	public String getPathForPlugin(String mOwner) {

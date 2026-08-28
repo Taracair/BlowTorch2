@@ -1849,10 +1849,12 @@ while that conversation is open.
   attached (orphan). Long-press a thread in the list also deletes.
 
 **Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
-message / Digest + interval; Android notification (off by default). The
-unread disc on ⋮ is brighter while there is unread and the drawer is
-closed. In-game line example (cyan client text, not sent to the MUD):
-`Thread VERMIN has new messages: 5`.
+message / Digest + interval; Android notification (off by default). Tap
+the shade to open that conversation. Digest waits the interval, then the
+cyan line is how many arrived (five tells → 5, not 1); the notification
+count updates on each message. The unread disc on ⋮ is brighter while
+there is unread and the drawer is closed. In-game line example (cyan
+client text, not sent to the MUD): `Thread VERMIN has new messages: 5`.
 
 Send from the drawer paints an own-bubble immediately. Dual display (main
 window and the drawer) is the trigger's job; the drawer only shows what

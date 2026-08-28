@@ -64,9 +64,9 @@ Under **Options → Chat** (before Bell). Own lines from Send are never announce
 | Option | Default | Notes |
 |--------|---------|--------|
 | **Unread mark on ⋮** | on | Disc on the overflow button while a conversation has unread messages and the drawer is closed |
-| **New-message line in the game window** | Off | Off, every new line, or a digest. Digest uses the interval below |
-| **Digest interval (seconds)** | 60 | Wait between digest lines. Also used for Android notifications when the line mode is Off |
-| **Android notification for new chat** | off | Alert channel (not the quiet session one). Follows Every / Digest; if the game line is Off, still fires on the digest interval |
+| **New-message line in the game window** | Off | Off, every new line, or a digest. Digest waits the interval, then the cyan line is how many arrived (not only the first) |
+| **Digest interval (seconds)** | 60 | Wait between digest lines. Also used for Android notification sound when the line mode is Off |
+| **Android notification for new chat** | off | Alert channel (not the quiet session one). Tap opens that conversation. Count updates on every new line; sound follows Every, or once per digest window |
 
 ## Shared storage layout (`/BlowTorch/`)
 

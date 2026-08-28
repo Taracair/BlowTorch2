@@ -245,6 +245,22 @@ public final class ChatStore {
 		}
 	}
 
+	/** Live unread for one thread; 0 if unknown. Reloads if the file is newer. */
+	public int unreadCount(String threadId) {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.unreadCount(threadId);
+		}
+	}
+
+	public String threadTitle(String threadId) {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			String title = inbox.threadTitle(threadId);
+			return title == null ? "" : title;
+		}
+	}
+
 	public List<ChatMessage> messages(String threadId, int limit) {
 		return messages(threadId, limit, null, null, null);
 	}

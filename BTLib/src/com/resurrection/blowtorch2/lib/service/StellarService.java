@@ -135,8 +135,9 @@ public class StellarService extends Service {
 	private NotificationManager mNotificationManager = null;
 	/** A map of connection display names and their associated connection objects. */
 	HashMap<String, Connection> mConnections = null;
-	/** Last chat announce/notify time per world+thread. Service process only. */
-	private final HashMap<String, Long> mChatAnnounceAt = new HashMap<String, Long>();
+	/** Digest/Off notify window per world+thread. Service process only. */
+	private final HashMap<String, ChatDigestWindow> mChatDigests =
+			new HashMap<String, ChatDigestWindow>();
 	/** The currently "Selected" connection. */
 	String mConnectionClutch = "";
 	/** The callback list of MainWindow activities that have bound to the Service. */
@@ -434,6 +435,7 @@ public class StellarService extends Service {
 		// time a trigger speaks. Leaving it bound as this process goes away is
 		// a leak the system notices.
 		com.resurrection.blowtorch2.lib.util.SpeechEngine.release();
+		clearChatDigests();
 		super.onDestroy();
 	}
 
@@ -837,31 +839,109 @@ public class StellarService extends Service {
 		String d = display == null ? "" : display;
 		String tid = threadId == null ? "" : threadId;
 		String mapKey = d + '\0' + tid;
-		long lastMs;
-		synchronized (mChatAnnounceAt) {
-			Long last = mChatAnnounceAt.get(mapKey);
-			lastMs = last == null ? 0L : last.longValue();
-		}
-		long nowMs = System.currentTimeMillis();
-		boolean line = ChatAnnounce.shouldAnnounceLine(mode, true, nowMs, lastMs,
-				seconds);
-		boolean notify = ChatAnnounce.shouldNotify(notifyOn, mode, true, nowMs,
-				lastMs, seconds);
-		if (line) {
-			c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
-					+ ChatAnnounce.lineText(title, unread)
-					+ Colorizer.getWhiteColor());
-			synchronized (mChatAnnounceAt) {
-				mChatAnnounceAt.put(mapKey, Long.valueOf(nowMs));
-			}
-		}
-		if (notify) {
-			doNotifyChat(d, title, unread, tid);
-			if (!line) {
-				synchronized (mChatAnnounceAt) {
-					mChatAnnounceAt.put(mapKey, Long.valueOf(nowMs));
+		boolean trackWindow = mode == ChatAnnounce.MODE_DIGEST
+				|| (mode == ChatAnnounce.MODE_OFF && notifyOn);
+		boolean windowJustOpened = false;
+		if (trackWindow) {
+			synchronized (mChatDigests) {
+				ChatDigestWindow w = mChatDigests.get(mapKey);
+				if (w == null) {
+					w = new ChatDigestWindow();
+					w.display = d;
+					w.threadId = tid;
+					w.title = title;
+					mChatDigests.put(mapKey, w);
+					windowJustOpened = true;
+				} else {
+					w.title = title;
 				}
 			}
+		}
+		if (ChatAnnounce.shouldAnnounceLine(mode, true)) {
+			postChatAnnounceLine(c, title, unread);
+		}
+		if (ChatAnnounce.shouldStartDigestTimer(mode, notifyOn, true,
+				windowJustOpened)) {
+			scheduleChatDigest(mapKey, seconds);
+		}
+		if (ChatAnnounce.shouldRefreshNotify(notifyOn, true)) {
+			boolean alert = ChatAnnounce.shouldAlertNotify(notifyOn, mode, true,
+					windowJustOpened);
+			doNotifyChat(d, title, unread, tid, alert);
+		}
+	}
+
+	private static final class ChatDigestWindow {
+		String display;
+		String threadId;
+		String title;
+		Runnable task;
+	}
+
+	private void scheduleChatDigest(final String mapKey, final int seconds) {
+		if (mHandler == null || mapKey == null) {
+			return;
+		}
+		synchronized (mChatDigests) {
+			ChatDigestWindow w = mChatDigests.get(mapKey);
+			if (w == null || w.task != null) {
+				return;
+			}
+			w.task = new Runnable() {
+				@Override
+				public void run() {
+					publishChatDigest(mapKey);
+				}
+			};
+			mHandler.postDelayed(w.task, seconds * 1000L);
+		}
+	}
+
+	private void publishChatDigest(final String mapKey) {
+		ChatDigestWindow w;
+		synchronized (mChatDigests) {
+			w = mChatDigests.remove(mapKey);
+		}
+		if (w == null || mConnections == null) {
+			return;
+		}
+		Connection c = mConnections.get(w.display);
+		if (c == null) {
+			return;
+		}
+		int mode = ChatAnnounce.coerceMode(chatOptionValue(c, "chat_announce"));
+		ChatStore store = ChatStore.forWorld(this, w.display);
+		int unread = store.unreadCount(w.threadId);
+		if (!ChatAnnounce.shouldPublishDigestLine(mode, unread)) {
+			return;
+		}
+		String title = store.threadTitle(w.threadId);
+		if (title == null || title.length() == 0) {
+			title = w.title;
+		}
+		postChatAnnounceLine(c, title, unread);
+	}
+
+	private static void postChatAnnounceLine(final Connection c,
+			final String title, final int unread) {
+		if (c == null) {
+			return;
+		}
+		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
+				+ ChatAnnounce.lineText(title, unread)
+				+ Colorizer.getWhiteColor());
+	}
+
+	private void clearChatDigests() {
+		synchronized (mChatDigests) {
+			if (mHandler != null) {
+				for (ChatDigestWindow w : mChatDigests.values()) {
+					if (w != null && w.task != null) {
+						mHandler.removeCallbacks(w.task);
+					}
+				}
+			}
+			mChatDigests.clear();
 		}
 	}
 
@@ -922,11 +1002,13 @@ public class StellarService extends Service {
 
 	/**
 	 * Alert-channel notification for a chat thread. Same PendingIntent extras as
-	 * {@link #doNotifyBell}; dedicated id so threads update in place. Not the
-	 * quiet session/foreground notification.
+	 * {@link #doNotifyBell} plus {@link ChatAnnounce#EXTRA_THREAD}. Dedicated id
+	 * so threads update in place. Not the quiet session/foreground notification.
+	 *
+	 * @param alert sound/heads-up; false refreshes the count without re-alerting
 	 */
 	public final void doNotifyChat(final String display, final String title,
-			final int unread, final String threadId) {
+			final int unread, final String threadId, final boolean alert) {
 		try {
 			int resId = this.getResources().getIdentifier(
 					ConfigurationLoader.getConfigurationValue("notificationIcon",
@@ -938,7 +1020,6 @@ public class StellarService extends Service {
 			Connection c = (mConnections == null) ? null : mConnections.get(display);
 			String host = c == null ? "" : c.getHost();
 			int port = c == null ? 0 : c.getPort();
-			int mode = ChatAnnounce.coerceMode(chatOptionValue(c, "chat_announce"));
 			Intent notificationIntent = new Intent(
 					ConfigurationLoader.getConfigurationValue("windowAction",
 							this.getApplicationContext()));
@@ -947,6 +1028,8 @@ public class StellarService extends Service {
 			notificationIntent.putExtra("HOST", host);
 			notificationIntent.putExtra("PORT", Integer.toString(port));
 			notificationIntent.putExtra("TLS", tlsFor(display));
+			notificationIntent.putExtra(ChatAnnounce.EXTRA_THREAD,
+					threadId == null ? "" : threadId);
 			notificationIntent.setFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
 					| Intent.FLAG_ACTIVITY_SINGLE_TOP);
 			String key = (display == null ? "" : display) + '\0'
@@ -962,7 +1045,7 @@ public class StellarService extends Service {
 					.setContentText(ChatAnnounce.lineText(title, unread))
 					.setSmallIcon(resId)
 					.setAutoCancel(true)
-					.setOnlyAlertOnce(mode != ChatAnnounce.MODE_EVERY)
+					.setOnlyAlertOnce(!alert)
 					.setPriority(NotificationCompat.PRIORITY_DEFAULT)
 					.build();
 			mNotificationManager.notify(id, note);

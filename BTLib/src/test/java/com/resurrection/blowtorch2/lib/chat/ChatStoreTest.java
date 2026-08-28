@@ -42,6 +42,8 @@ public class ChatStoreTest {
 		assertEquals("second", threads.get(0).getLastBody());
 		assertEquals(2000L, threads.get(0).getLastWhenMs());
 		assertEquals(2, threads.get(0).getUnreadCount());
+		assertEquals(2, store.unreadCount("vermin"));
+		assertEquals("VERMIN", store.threadTitle("vermin"));
 		List<ChatMessage> msgs = store.messages("vermin", 10);
 		assertEquals(2, msgs.size());
 		assertEquals("first", msgs.get(0).getBody());

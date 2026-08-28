@@ -5,14 +5,19 @@ package com.resurrection.blowtorch2.lib.chat;
  * notifications. Pure Java so the rules can be tested on the JVM.
  *
  * <p>Own lines, absorb, and mine must pass {@code countedUnread=false}: they
- * never announce. Digest uses {@code lastAnnounceMs==0} as "never yet", so the
- * first counted message always fires.
+ * never announce. Digest does not print on the first append — the service
+ * timer fires after the interval so the count is the batch (five tells →
+ * {@code 5}, not {@code 1}). Notifications refresh the shade on every
+ * counted append; sound/heads-up is Every, or once per digest window.
  */
 public final class ChatAnnounce {
 
 	public static final int MODE_OFF = 0;
 	public static final int MODE_EVERY = 1;
 	public static final int MODE_DIGEST = 2;
+
+	/** PendingIntent extra: open this conversation when the player taps. */
+	public static final String EXTRA_THREAD = "CHAT_THREAD";
 
 	public static final int DEFAULT_SECONDS = 60;
 	public static final int MIN_SECONDS = 5;
@@ -95,31 +100,56 @@ public final class ChatAnnounce {
 		return "Thread " + name + " has new messages: " + unread;
 	}
 
-	public static boolean shouldAnnounceLine(int mode, boolean countedUnread,
-			long nowMs, long lastAnnounceMs, int seconds) {
+	/** Append-time game line. Digest waits for {@link #shouldPublishDigestLine}. */
+	public static boolean shouldAnnounceLine(int mode, boolean countedUnread) {
 		if (!countedUnread) {
+			return false;
+		}
+		return mode == MODE_EVERY;
+	}
+
+	/**
+	 * Timer: Digest prints the current unread (0 means they already opened
+	 * the thread — skip). Off/Every do not print here.
+	 */
+	public static boolean shouldPublishDigestLine(int mode, int unreadAtFire) {
+		return mode == MODE_DIGEST && unreadAtFire > 0;
+	}
+
+	/** Shade text follows the badge: every counted append while notify is on. */
+	public static boolean shouldRefreshNotify(boolean notifyOn,
+			boolean countedUnread) {
+		return notifyOn && countedUnread;
+	}
+
+	/**
+	 * Sound/heads-up. Every message in Every mode; once when a Digest/Off
+	 * window opens ({@code windowJustOpened}).
+	 */
+	public static boolean shouldAlertNotify(boolean notifyOn, int mode,
+			boolean countedUnread, boolean windowJustOpened) {
+		if (!notifyOn || !countedUnread) {
 			return false;
 		}
 		if (mode == MODE_EVERY) {
 			return true;
 		}
-		if (mode == MODE_DIGEST) {
-			return lastAnnounceMs == 0L
-					|| (nowMs - lastAnnounceMs) >= (seconds * 1000L);
-		}
-		return false;
+		return windowJustOpened;
 	}
 
 	/**
-	 * When the game line is Off, notifications still fire on the digest
-	 * interval. Otherwise they follow the line cadence.
+	 * Start the interval timer on the first counted append of a window.
+	 * Digest needs it for the game line; Off+notify needs it so the next
+	 * window can alert again.
 	 */
-	public static boolean shouldNotify(boolean notifyOn, int mode,
-			boolean countedUnread, long nowMs, long lastAnnounceMs, int seconds) {
-		if (!countedUnread || !notifyOn) {
+	public static boolean shouldStartDigestTimer(int mode, boolean notifyOn,
+			boolean countedUnread, boolean windowJustOpened) {
+		if (!countedUnread || !windowJustOpened) {
 			return false;
 		}
-		int cadence = (mode == MODE_OFF) ? MODE_DIGEST : mode;
-		return shouldAnnounceLine(cadence, true, nowMs, lastAnnounceMs, seconds);
+		if (mode == MODE_DIGEST) {
+			return true;
+		}
+		return mode == MODE_OFF && notifyOn;
 	}
 }

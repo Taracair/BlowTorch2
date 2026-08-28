@@ -988,7 +988,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		ListOption chat_announce = new ListOption();
 		chat_announce.setTitle("New-message line in the game window");
-		chat_announce.setDescription("Off, every new line, or a digest. Digest uses the interval below. Own lines (Send) are never announced.");
+		chat_announce.setDescription("Off, every new line, or a digest. Digest waits the interval, then the cyan line is how many arrived (five tells → 5, not 1). Own lines (Send) are never announced.");
 		chat_announce.setKey("chat_announce");
 		// Added in this order: the values are indices into this list and they are
 		// what lands in the profile. Nothing may be inserted in the middle.
@@ -1007,7 +1007,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption chat_android_notify = new BooleanOption();
 		chat_android_notify.setTitle("Android notification for new chat");
-		chat_android_notify.setDescription("A real notification (alert channel, not the quiet session one) when a thread has new messages. Off by default. Follows Every / Digest; if the game line is Off, notifications still fire on the digest interval.");
+		chat_android_notify.setDescription("A real notification (alert channel, not the quiet session one) when a thread has new messages. Off by default. Tap opens that conversation. The count updates on every new line; sound follows Every, or once per digest window. If the game line is Off, notifications still use the digest interval for sound.");
 		chat_android_notify.setKey("chat_android_notify");
 		chat_android_notify.setValue(false);
 		chatOptions.addOption(chat_android_notify);

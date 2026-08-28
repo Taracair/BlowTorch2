@@ -42,58 +42,84 @@ public class ChatAnnounceTest {
 	}
 
 	@Test
-	public void lineOffNeverAnnounces() {
+	public void lineOffNeverAnnouncesOnAppend() {
 		assertFalse(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_OFF, true, 10_000L, 0L, 60));
+				ChatAnnounce.MODE_OFF, true));
 	}
 
 	@Test
 	public void lineEveryAnnouncesEachCounted() {
 		assertTrue(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_EVERY, true, 10_000L, 9_000L, 60));
+				ChatAnnounce.MODE_EVERY, true));
 	}
 
 	@Test
-	public void digestFirstTimeAnnounces() {
-		assertTrue(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_DIGEST, true, 1_000L, 0L, 60));
-	}
-
-	@Test
-	public void digestTooSoonDoesNot() {
+	public void digestAppendDoesNotLine() {
 		assertFalse(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_DIGEST, true, 30_000L, 1_000L, 60));
+				ChatAnnounce.MODE_DIGEST, true));
 	}
 
 	@Test
-	public void digestAfterIntervalDoes() {
-		assertTrue(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_DIGEST, true, 61_000L, 1_000L, 60));
+	public void digestTimerPublishesUnreadBatch() {
+		assertTrue(ChatAnnounce.shouldPublishDigestLine(
+				ChatAnnounce.MODE_DIGEST, 5));
+		assertFalse(ChatAnnounce.shouldPublishDigestLine(
+				ChatAnnounce.MODE_DIGEST, 0));
+		assertFalse(ChatAnnounce.shouldPublishDigestLine(
+				ChatAnnounce.MODE_EVERY, 5));
+		assertFalse(ChatAnnounce.shouldPublishDigestLine(
+				ChatAnnounce.MODE_OFF, 5));
 	}
 
 	@Test
-	public void notifyWithLineOffStillUsesDigest() {
-		assertFalse(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_OFF, true, 1_000L, 0L, 60));
-		assertTrue(ChatAnnounce.shouldNotify(
-				true, ChatAnnounce.MODE_OFF, true, 1_000L, 0L, 60));
-		assertFalse(ChatAnnounce.shouldNotify(
-				true, ChatAnnounce.MODE_OFF, true, 30_000L, 1_000L, 60));
-		assertTrue(ChatAnnounce.shouldNotify(
-				true, ChatAnnounce.MODE_OFF, true, 61_000L, 1_000L, 60));
-		assertFalse(ChatAnnounce.shouldNotify(
-				false, ChatAnnounce.MODE_OFF, true, 1_000L, 0L, 60));
+	public void notifyRefreshesEveryCounted() {
+		assertTrue(ChatAnnounce.shouldRefreshNotify(true, true));
+		assertFalse(ChatAnnounce.shouldRefreshNotify(false, true));
+		assertFalse(ChatAnnounce.shouldRefreshNotify(true, false));
+	}
+
+	@Test
+	public void notifyAlertIsEveryOrFirstOfWindow() {
+		assertTrue(ChatAnnounce.shouldAlertNotify(
+				true, ChatAnnounce.MODE_EVERY, true, false));
+		assertTrue(ChatAnnounce.shouldAlertNotify(
+				true, ChatAnnounce.MODE_DIGEST, true, true));
+		assertFalse(ChatAnnounce.shouldAlertNotify(
+				true, ChatAnnounce.MODE_DIGEST, true, false));
+		assertTrue(ChatAnnounce.shouldAlertNotify(
+				true, ChatAnnounce.MODE_OFF, true, true));
+		assertFalse(ChatAnnounce.shouldAlertNotify(
+				true, ChatAnnounce.MODE_OFF, true, false));
+		assertFalse(ChatAnnounce.shouldAlertNotify(
+				false, ChatAnnounce.MODE_EVERY, true, true));
+	}
+
+	@Test
+	public void digestTimerStartsOnFirstAppend() {
+		assertTrue(ChatAnnounce.shouldStartDigestTimer(
+				ChatAnnounce.MODE_DIGEST, false, true, true));
+		assertFalse(ChatAnnounce.shouldStartDigestTimer(
+				ChatAnnounce.MODE_DIGEST, false, true, false));
+		assertTrue(ChatAnnounce.shouldStartDigestTimer(
+				ChatAnnounce.MODE_OFF, true, true, true));
+		assertFalse(ChatAnnounce.shouldStartDigestTimer(
+				ChatAnnounce.MODE_OFF, false, true, true));
+		assertFalse(ChatAnnounce.shouldStartDigestTimer(
+				ChatAnnounce.MODE_EVERY, true, true, true));
 	}
 
 	@Test
 	public void mineOrNotCountedNeverAnnouncesOrNotifies() {
 		assertFalse(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_EVERY, false, 1_000L, 0L, 60));
+				ChatAnnounce.MODE_EVERY, false));
 		assertFalse(ChatAnnounce.shouldAnnounceLine(
-				ChatAnnounce.MODE_DIGEST, false, 1_000L, 0L, 60));
-		assertFalse(ChatAnnounce.shouldNotify(
-				true, ChatAnnounce.MODE_EVERY, false, 1_000L, 0L, 60));
-		assertFalse(ChatAnnounce.shouldNotify(
-				true, ChatAnnounce.MODE_OFF, false, 1_000L, 0L, 60));
+				ChatAnnounce.MODE_DIGEST, false));
+		assertFalse(ChatAnnounce.shouldRefreshNotify(true, false));
+		assertFalse(ChatAnnounce.shouldAlertNotify(
+				true, ChatAnnounce.MODE_EVERY, false, true));
+		assertFalse(ChatAnnounce.shouldStartDigestTimer(
+				ChatAnnounce.MODE_DIGEST, true, false, true));
+		assertFalse(ChatAnnounce.shouldPublishDigestLine(
+				ChatAnnounce.MODE_DIGEST, 0));
 	}
 }

@@ -837,7 +837,12 @@ Then .chat, open that thread, type a line, Send.
 Options → Chat
   unread mark on ⋮ on/off (brighter disc; off hides it)
   game-window line: Off / Every message / Digest + interval
-  Android notification (off by default)
+  Android notification (off by default; tap opens that conversation)
+
+Digest waits the interval, then the cyan line is the count of new
+messages in that window (five tells → 5, not 1). The shade count
+updates on each message; sound follows Every, or once per digest
+window.
 
 In-game line (cyan client text, never sent to the MUD):
   Thread VERMIN has new messages: 5
@@ -1481,7 +1486,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. Reloading wipes .buttonopacity until you set it again.]],
 	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. .chat vermin opens that conversation (id or title). ⚙ has My lines, Reply ($text), dates, Save, Delete. Options → Chat for the unread disc and in-game line.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. .chat vermin opens that conversation (id or title). ⚙ has My lines, Reply ($text), dates, Save, Delete. Tap a chat notification to open that thread. Options → Chat for the unread disc and in-game line.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],
