@@ -18,15 +18,22 @@ REQUIRED_TYPE = "generalPurpose"
 PINNED_TYPES = frozenset({"bugbot"})
 REVIEW_DESCRIPTIONS = frozenset({"bugbot"})
 
-PROMPT_NOTE = (
-    "[BlowTorch] The bugbot subagent type is pinned to Composer 2.5 and is "
-    "forbidden here. Do not dump whole-tree `git diff` — the tool result is "
-    "truncated on this repo. In Full Repository Path run "
-    "`scripts/review-diff.sh` (uncommitted) or `scripts/review-diff.sh HEAD` "
-    "(already committed). For files it marks TOO LARGE or remaining, run "
-    "`git diff -- <one path>` or `git diff -U0 -- <path>`. Do not ask for a "
-    "pasted diff. Do not Read a 4000-line class hunting for the hunk.\n\n"
+REVIEW_DIFF_NOTE = (
+    "[BlowTorch] Do not dump whole-tree `git diff`. In Full Repository Path "
+    "run `scripts/review-diff.sh` (uncommitted) or `scripts/review-diff.sh HEAD` "
+    "(already committed). For TOO LARGE or remaining files: "
+    "`git diff -- <one path>` or `git diff -U0 -- <path>`.\n\n"
 )
+
+# Cursor pins the `bugbot` *type* to Composer 2.5 and ignores `model`. We do
+# not choose that pin; we refuse the type. Only prepend this when rewriting
+# a leftover bugbot launch, not on every Grok reviewer.
+COMPOSER_TYPE_NOTE = (
+    "[BlowTorch] Cursor pins subagent_type=bugbot to Composer 2.5 and ignores "
+    "model; this launch was rewritten to generalPurpose.\n\n"
+)
+
+PROMPT_NOTE = REVIEW_DIFF_NOTE
 
 
 def _norm(value) -> str:
@@ -61,7 +68,8 @@ def rewrite_task_input(inp: dict) -> tuple[dict | None, str]:
     reasons: list[str] = []
 
     stype = _norm(out.get("subagent_type"))
-    if stype.lower() in PINNED_TYPES:
+    rewritten_from_bugbot = stype.lower() in PINNED_TYPES
+    if rewritten_from_bugbot:
         out["subagent_type"] = REQUIRED_TYPE
         reasons.append("subagent_type bugbot -> generalPurpose")
 
@@ -71,9 +79,15 @@ def rewrite_task_input(inp: dict) -> tuple[dict | None, str]:
         reasons.append(f"model {model or 'omitted'} -> {REQUIRED_MODEL}")
 
     prompt = out.get("prompt") if isinstance(out.get("prompt"), str) else ""
-    if PROMPT_NOTE.strip() not in prompt:
-        out["prompt"] = PROMPT_NOTE + prompt
+    prefix = ""
+    if rewritten_from_bugbot and COMPOSER_TYPE_NOTE.strip() not in prompt:
+        prefix += COMPOSER_TYPE_NOTE
+        reasons.append("prefixed composer-type note")
+    if REVIEW_DIFF_NOTE.strip() not in prompt:
+        prefix += REVIEW_DIFF_NOTE
         reasons.append("prefixed review-diff recipe")
+    if prefix:
+        out["prompt"] = prefix + prompt
 
     if not reasons:
         return None, ""
@@ -244,8 +258,11 @@ def _self_test() -> int:
             if "review-diff.sh" not in prompt:
                 print(f"FAIL missing review-diff recipe: {inp!r}", file=sys.stderr)
                 failed += 1
-            if inp.get("subagent_type") == "bugbot" and "pinned to Composer 2.5" not in prompt:
-                print(f"FAIL missing prompt note: {inp!r}", file=sys.stderr)
+            if inp.get("subagent_type") == "bugbot" and "Composer 2.5" not in prompt:
+                print(f"FAIL missing composer-type note: {inp!r}", file=sys.stderr)
+                failed += 1
+            if inp.get("subagent_type") != "bugbot" and "Composer 2.5" in prompt:
+                print(f"FAIL composer note on a Grok reviewer: {inp!r}", file=sys.stderr)
                 failed += 1
 
     hook = handle_payload({
