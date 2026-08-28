@@ -66,7 +66,7 @@ public final class McpPackageRegistry {
 		addCat(new PackageInfo("mcp-negotiate", "1.0", "2.0",
 				"Required MCP package negotiation", Kind.NATIVE, true));
 		addCat(new PackageInfo("dns-org-hellmoo-status", "1.0", "1.0",
-				"HellMOO / SamsaraMoo vitals bar (hp, thirst, hunger, stress)", Kind.NATIVE, true));
+				"Vitals bar (hp, thirst, hunger, stress)", Kind.NATIVE, true));
 		addCat(new PackageInfo("mcp-cord", "1.0", "1.0",
 				"Optional multi-channel cords", Kind.NATIVE, true));
 		addCat(new PackageInfo("dns-org-mud-moo-simpleedit", "1.0", "1.0",
