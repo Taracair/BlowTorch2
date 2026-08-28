@@ -137,6 +137,7 @@ loader, but **not** the same static fields or heap.
 flowchart LR
   subgraph UI["UI process"]
     FL[FreeLauncher]
+    WL[WorldLaunchActivity]
     L[Launcher]
     MW[MainWindow]
     W[Window / TextTree draw]
@@ -151,6 +152,7 @@ flowchart LR
     MAP[MapperController]
   end
   FL --> L --> MW
+  WL --> MW
   MW -->|"bind IConnectionBinder"| SS
   MW -->|"PluginXCallS — synchronous"| C
   C -->|"WindowXCallB / callbacks — oneway"| MW
@@ -222,11 +224,14 @@ active `Connection`.
 
 ## 5. Entry points and screen flow
 
-1. **`FreeLauncher`** — `MAIN` / `LAUNCHER`. Invisible hand-off so a pinned icon
-   keeps working; starts `Launcher` and finishes.
-2. **`Launcher`** — server / profile list (`blowtorch_launcher_list.xml`).
-3. **`MainWindow`** — `singleTask` game UI; binds `StellarService`.
-4. **`StellarService`** — foreground service (`foregroundServiceType=specialUse`),
+1. **`FreeLauncher`** — `MAIN` / `LAUNCHER`. Invisible hand-off so a pinned
+   app icon keeps working; starts `Launcher` and finishes. World pins must
+   not use this component.
+2. **`WorldLaunchActivity`** — exported pin target (`LAUNCH_WORLD` +
+   `blowtorch://world`). Starts `MainWindow` and finishes. Not the app icon.
+3. **`Launcher`** — server / profile list (`blowtorch_launcher_list.xml`).
+4. **`MainWindow`** — `singleTask` game UI; binds `StellarService`.
+5. **`StellarService`** — foreground service (`foregroundServiceType=specialUse`),
    holds open connections while the UI may be backgrounded.
 
 Permissions of note: Internet + FGS (required to play), notifications (useful),

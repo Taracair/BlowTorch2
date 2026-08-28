@@ -45,6 +45,19 @@ public class LauncherFavoriteXmlTest {
 		assertEquals("world", LauncherShortcutExtras.URI_HOST);
 		assertFalse("android.intent.action.MAIN".equals(
 				LauncherShortcutExtras.ACTION_LAUNCH_WORLD));
+		assertEquals("com.resurrection.blowtorch2.lib.launcher.WorldLaunchActivity",
+				LauncherShortcutExtras.WORLD_LAUNCH_ACTIVITY);
+		assertFalse(LauncherShortcutExtras.WORLD_LAUNCH_ACTIVITY.contains("FreeLauncher"));
+	}
+
+	@Test
+	public void worldLaunchFlagsDoNotResetExistingTaskToServerList() {
+		int flags = WorldLaunch.MAIN_WINDOW_LAUNCH_FLAGS;
+		assertEquals("RESET_TASK_IF_NEEDED resumes the server-list task as-is",
+				0, flags & android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+		assertTrue((flags & android.content.Intent.FLAG_ACTIVITY_NEW_TASK) != 0);
+		assertTrue((flags & android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP) != 0);
+		assertTrue((flags & android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP) != 0);
 	}
 
 	@Test

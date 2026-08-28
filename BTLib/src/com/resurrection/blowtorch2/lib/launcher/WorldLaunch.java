@@ -2,9 +2,9 @@ package com.resurrection.blowtorch2.lib.launcher;
 
 import java.util.regex.Pattern;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 import com.resurrection.blowtorch2.lib.window.MainWindow;
@@ -12,14 +12,56 @@ import com.resurrection.blowtorch2.lib.window.MainWindow;
 /**
  * Open a world from a home-screen pin without showing the server list.
  *
- * <p>The pin targets {@code FreeLauncher} (exported). This starts
- * {@code MainWindow} in-process so an already-running session gets
- * {@code onNewIntent} / {@code switchTo} instead of a second task that is
- * just the launcher list.
+ * <p>The pin targets {@link WorldLaunchActivity} (exported, not the
+ * {@code MAIN}/{@code LAUNCHER} component). Starting {@code MainWindow}
+ * in-process means an already-running session gets {@code onNewIntent} /
+ * {@code switchTo} instead of a second task that is just the launcher list.
+ *
+ * <p>{@link #MAIN_WINDOW_LAUNCH_FLAGS} must not include
+ * {@link Intent#FLAG_ACTIVITY_RESET_TASK_IF_NEEDED}. That flag is what the
+ * home screen uses to bring an existing app task to the front as-is. On a
+ * pin, the existing task is often the server list, so the player never left
+ * it. Notifications keep that flag because they mean "resume this session".
  */
 public final class WorldLaunch {
 
+	/**
+	 * Flags for starting {@link MainWindow} from a pin trampoline.
+	 *
+	 * <p>{@code NEW_TASK} is required when the caller is not sitting in
+	 * MainWindow's task (the trampoline, or {@link #startFromIntent} via
+	 * the application context so finishing the trampoline cannot cancel
+	 * the start). {@code SINGLE_TOP} + {@code CLEAR_TOP} reuse a live
+	 * {@code singleTask} MainWindow instead of stacking another copy.
+	 */
+	public static final int MAIN_WINDOW_LAUNCH_FLAGS =
+			Intent.FLAG_ACTIVITY_NEW_TASK
+					| Intent.FLAG_ACTIVITY_SINGLE_TOP
+					| Intent.FLAG_ACTIVITY_CLEAR_TOP;
+
 	private WorldLaunch() {
+	}
+
+	/**
+	 * Invisible trampoline entry: start the named world, or the server list
+	 * when the Intent has no DISPLAY.
+	 */
+	public static void handoff(Activity trampoline) {
+		if (trampoline == null) {
+			return;
+		}
+		Intent incoming = trampoline.getIntent();
+		if (startFromIntent(trampoline, incoming)) {
+			trampoline.overridePendingTransition(0, 0);
+			trampoline.finish();
+			return;
+		}
+		Intent launch = new Intent(trampoline, Launcher.class);
+		LauncherShortcutExtras.copy(incoming, launch);
+		launch.putExtra("LAUNCH_MODE", trampoline.getPackageName());
+		trampoline.startActivity(launch);
+		trampoline.overridePendingTransition(0, 0);
+		trampoline.finish();
 	}
 
 	/**
@@ -52,13 +94,7 @@ public final class WorldLaunch {
 				"windowAction", ctx);
 		Intent world = new Intent(windowAction);
 		world.setClass(ctx, MainWindow.class);
-		// Same flags as the foreground notification: MainWindow is singleTask,
-		// so this brings the existing world to the front instead of stacking
-		// another copy. NEW_TASK is required because FreeLauncher is a
-		// different activity (and often a different task) than MainWindow.
-		world.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-				| Intent.FLAG_ACTIVITY_SINGLE_TOP
-				| Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+		world.addFlags(MAIN_WINDOW_LAUNCH_FLAGS);
 		world.putExtra(LauncherShortcutExtras.DISPLAY, display);
 		if (host != null && host.length() > 0) {
 			world.putExtra(LauncherShortcutExtras.HOST, host);
@@ -71,7 +107,13 @@ public final class WorldLaunch {
 		if (LauncherShortcutExtras.hasTls(source)) {
 			world.putExtra(LauncherShortcutExtras.TLS, tls);
 		}
-		ctx.startActivity(world);
+		// Application context so the trampoline can finish (windowNoDisplay)
+		// without cancelling this start.
+		Context start = ctx.getApplicationContext();
+		if (start == null) {
+			start = ctx;
+		}
+		start.startActivity(world);
 		return true;
 	}
 }

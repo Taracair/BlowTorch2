@@ -164,7 +164,7 @@
 	<!--
 	  For an activity that exists only to start another one and finish. No
 	  window is drawn and no transition is animated, so the hand-off is not
-	  visible. windowNoDisplay is only safe because FreeLauncher finishes inside
+	  visible. windowNoDisplay is only safe because the trampoline finishes inside
 	  onCreate and never reaches onResume.
 	-->
 	<style name="BlowTorch.Invisible" parent="@android:style/Theme.Translucent.NoTitleBar">

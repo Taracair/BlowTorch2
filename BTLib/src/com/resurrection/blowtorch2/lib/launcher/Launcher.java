@@ -551,6 +551,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 		if (icicle == null) {
 			maybeLaunchFromShortcut(getIntent());
 		}
+		retargetPinnedWorldShortcuts();
 		maybeShowFirstRunNotice();
 		maybeBackupBeforeUpdate();
 		maybeCheckForUpdates();
@@ -1783,7 +1784,7 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 
 	/**
 	 * Copy world extras from a home-screen pin onto the Intent that starts
-	 * this activity. Same names as {@code FreeLauncher} forwards.
+	 * this activity. Same names as {@code WorldLaunch.handoff} forwards.
 	 */
 	public static void copyShortcutExtras(Intent from, Intent to) {
 		LauncherShortcutExtras.copy(from, to);
@@ -1860,19 +1861,10 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			Toast.makeText(this, R.string.launcher_shortcut_unsupported, Toast.LENGTH_LONG).show();
 			return;
 		}
-		Intent shortcutIntent = LauncherShortcutExtras.pinIntent(getPackageName(),
-				muc.getDisplayName(), muc.getHostName(), muc.getPortString(),
-				muc.isUseTls());
-		int iconRes = getApplicationInfo().icon;
-		if (iconRes == 0) {
-			iconRes = android.R.drawable.star_on;
+		ShortcutInfo info = shortcutInfoForWorld(muc);
+		if (info == null) {
+			return;
 		}
-		ShortcutInfo info = new ShortcutInfo.Builder(this, shortcutIdForDisplayName(muc.getDisplayName()))
-				.setShortLabel(shortcutLabel(muc.getDisplayName()))
-				.setLongLabel(shortcutLabel(muc.getDisplayName()))
-				.setIcon(Icon.createWithResource(this, iconRes))
-				.setIntent(shortcutIntent)
-				.build();
 		try {
 			if (!sm.requestPinShortcut(info, null)) {
 				Toast.makeText(this, R.string.launcher_shortcut_unsupported, Toast.LENGTH_LONG).show();
@@ -1881,6 +1873,81 @@ public class Launcher extends AppCompatActivity implements ReadyListener,Activit
 			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor("Launcher.pinWorldToHome", e);
 			Toast.makeText(this, R.string.launcher_shortcut_unsupported, Toast.LENGTH_LONG).show();
 		}
+	}
+
+	/**
+	 * Point existing home pins at {@link WorldLaunchActivity} and refresh
+	 * host/port/TLS. Silent: a failure leaves the old pin, which still
+	 * reaches {@code FreeLauncher}'s {@code LAUNCH_WORLD} filter.
+	 */
+	private void retargetPinnedWorldShortcuts() {
+		if (launcher_settings == null || launcher_settings.getList() == null) {
+			return;
+		}
+		ShortcutManager sm = getSystemService(ShortcutManager.class);
+		if (sm == null) {
+			return;
+		}
+		java.util.List<ShortcutInfo> pinned;
+		try {
+			pinned = sm.getPinnedShortcuts();
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Launcher.retargetPinnedWorldShortcuts", e);
+			return;
+		}
+		if (pinned == null || pinned.isEmpty()) {
+			return;
+		}
+		HashMap<String, MudConnection> byId = new HashMap<String, MudConnection>();
+		for (MudConnection m : launcher_settings.getList().values()) {
+			if (m == null || m.getDisplayName() == null) {
+				continue;
+			}
+			byId.put(shortcutIdForDisplayName(m.getDisplayName()), m);
+		}
+		ArrayList<ShortcutInfo> updates = new ArrayList<ShortcutInfo>();
+		for (ShortcutInfo s : pinned) {
+			if (s == null || s.getId() == null) {
+				continue;
+			}
+			MudConnection muc = byId.get(s.getId());
+			if (muc == null) {
+				continue;
+			}
+			ShortcutInfo next = shortcutInfoForWorld(muc);
+			if (next != null) {
+				updates.add(next);
+			}
+		}
+		if (updates.isEmpty()) {
+			return;
+		}
+		try {
+			sm.updateShortcuts(updates);
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"Launcher.retargetPinnedWorldShortcuts", e);
+		}
+	}
+
+	private ShortcutInfo shortcutInfoForWorld(MudConnection muc) {
+		if (muc == null) {
+			return null;
+		}
+		Intent shortcutIntent = LauncherShortcutExtras.pinIntent(getPackageName(),
+				muc.getDisplayName(), muc.getHostName(), muc.getPortString(),
+				muc.isUseTls());
+		int iconRes = getApplicationInfo().icon;
+		if (iconRes == 0) {
+			iconRes = android.R.drawable.star_on;
+		}
+		return new ShortcutInfo.Builder(this, shortcutIdForDisplayName(muc.getDisplayName()))
+				.setShortLabel(shortcutLabel(muc.getDisplayName()))
+				.setLongLabel(shortcutLabel(muc.getDisplayName()))
+				.setIcon(Icon.createWithResource(this, iconRes))
+				.setIntent(shortcutIntent)
+				.build();
 	}
 
 	static String shortcutIdForDisplayName(String displayName) {

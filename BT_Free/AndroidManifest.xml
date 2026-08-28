@@ -43,12 +43,13 @@
     <application tools:replace="android:theme,android:label" android:icon="@drawable/blowtorch_logo3" android:label="${appLabel}" android:allowBackup="false" android:process="${appProcess}" android:hardwareAccelerated="true" android:theme="@style/Theme.AppCompat.Dark.NoActionBar" android:pageSizeCompat="enabled" android:usesCleartextTraffic="true">
 	<meta-data android:value="284" android:name="BLOWTORCH_LUA_LIBS_VERSION"/>
         <!--
-          FreeLauncher stays the home screen entry so a pinned icon keeps
-          resolving to the same component. A world pin uses LAUNCH_WORLD plus
-          a blowtorch://world URI and starts MainWindow in-process (the
-          MAIN/LAUNCHER intent drops extras, which landed the player on the
-          server list). A tap with no world extras still hands off to
-          Launcher. BlowTorch.Invisible gives it no window to draw.
+          FreeLauncher stays the home screen entry so a pinned app icon keeps
+          resolving to the same component. World pins must not use this
+          component: MAIN/LAUNCHER drops extras, and RESET_TASK on the same
+          task shows the server list when the MUD is not already running.
+          Old pins that still name FreeLauncher keep working via the
+          LAUNCH_WORLD filter; new pins target WorldLaunchActivity.
+          BlowTorch.Invisible gives both trampolines no window to draw.
         -->
     	<activity android:name="com.resurrection.blowtorch2.FreeLauncher"
     	          android:label="${appLabel}"
@@ -58,6 +59,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.resurrection.blowtorch2.LAUNCH_WORLD" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="blowtorch" android:host="world" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.resurrection.blowtorch2.lib.launcher.WorldLaunchActivity"
+                  android:theme="@style/BlowTorch.Invisible"
+                  android:exported="true"
+                  android:excludeFromRecents="true"
+                  android:noHistory="true">
             <intent-filter>
                 <action android:name="com.resurrection.blowtorch2.LAUNCH_WORLD" />
                 <category android:name="android.intent.category.DEFAULT" />

@@ -4,15 +4,17 @@ import android.content.Intent;
 import android.net.Uri;
 
 /**
- * Extras and URI on a home-screen pin. Kept off {@link Launcher} so
- * {@code FreeLauncher} can forward them without resolving AppCompat types.
+ * Extras and URI on a home-screen pin. Kept off {@link Launcher} so the
+ * trampolines can forward them without resolving AppCompat types.
  *
- * <p>Do not use {@code ACTION_MAIN} + {@code CATEGORY_LAUNCHER} for the pin:
- * that is the app-icon intent and launchers drop extras, so the player lands
- * on the server list. {@link #ACTION_LAUNCH_WORLD} plus a
- * {@code blowtorch://world?n=} URI survive that. Host, port and TLS also live
- * on the URI ({@code h}, {@code p}, {@code tls}) because extras-drop would
- * otherwise open a TLS world in the clear.
+ * <p>Do not pin {@code ACTION_MAIN} + {@code CATEGORY_LAUNCHER}, and do not
+ * target {@code FreeLauncher}: that is the app-icon component, and home
+ * screens drop extras or resume the existing task as-is, so the player
+ * lands on the server list. {@link #ACTION_LAUNCH_WORLD} plus a
+ * {@code blowtorch://world?n=} URI, aimed at {@link WorldLaunchActivity},
+ * survive that. Host, port and TLS also live on the URI ({@code h},
+ * {@code p}, {@code tls}) because extras-drop would otherwise open a TLS
+ * world in the clear.
  */
 public final class LauncherShortcutExtras {
 
@@ -26,8 +28,9 @@ public final class LauncherShortcutExtras {
 	public static final String URI_SCHEME = "blowtorch";
 	public static final String URI_HOST = "world";
 
-	private static final String FREE_LAUNCHER_CLASS =
-			"com.resurrection.blowtorch2.FreeLauncher";
+	/** Pin target. Not {@code FreeLauncher}: that component is MAIN/LAUNCHER. */
+	public static final String WORLD_LAUNCH_ACTIVITY =
+			"com.resurrection.blowtorch2.lib.launcher.WorldLaunchActivity";
 
 	private LauncherShortcutExtras() {
 	}
@@ -123,7 +126,7 @@ public final class LauncherShortcutExtras {
 	public static Intent pinIntent(String packageName, String display,
 			String host, String port, boolean tls) {
 		Intent i = new Intent(ACTION_LAUNCH_WORLD);
-		i.setClassName(packageName, FREE_LAUNCHER_CLASS);
+		i.setClassName(packageName, WORLD_LAUNCH_ACTIVITY);
 		i.addCategory(Intent.CATEGORY_DEFAULT);
 		i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		i.setData(worldUri(display, host, port, tls));
