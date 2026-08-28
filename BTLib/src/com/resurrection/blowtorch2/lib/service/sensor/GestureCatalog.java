@@ -55,12 +55,12 @@ public final class GestureCatalog {
 	/**
 	 * Headings the list screen groups by, in the order they are shown. A player
 	 * looking for "the one where I put the phone down" scans four headings, not
-	 * sixteen rows.
+	 * a long ungrouped list.
 	 */
 	public static final String GROUP_HAND = "A hand over the screen";
 	public static final String GROUP_MOVEMENT = "Movement";
 	public static final String GROUP_LIGHT = "Light";
-	public static final String GROUP_SYSTEM = "Headphones, charger and screen";
+	public static final String GROUP_SYSTEM = "Headphones, charger, screen and rotation";
 
 	/** One gesture: what the player picks, and how it might be measured. */
 	public static final class Gesture {
@@ -118,8 +118,8 @@ public final class GestureCatalog {
 
 	static {
 		// One line each, and each one says when the reading fires. What a player
-		// might use it for is their business: the list has sixteen of these and
-		// a suggested use on every row is sixteen paragraphs to scroll past.
+		// might use it for is their business: the list has a row for each of these and
+		// a suggested use on every row is a paragraph to scroll past.
 		List<Gesture> all = new ArrayList<Gesture>();
 		all.add(new Gesture("wave", GROUP_HAND, "Wave a hand over the screen",
 				"A hand passes over the top of the screen and away again.",
@@ -171,6 +171,10 @@ public final class GestureCatalog {
 				BY_SYSTEM));
 		all.add(new Gesture("screenon", GROUP_SYSTEM, "The screen comes back",
 				"The screen turns on.", BY_SYSTEM));
+		all.add(new Gesture("landscape", GROUP_SYSTEM, "Turn the phone sideways",
+				"The screen goes landscape (sideways).", BY_SYSTEM));
+		all.add(new Gesture("portrait", GROUP_SYSTEM, "Turn the phone upright",
+				"The screen goes portrait (upright).", BY_SYSTEM));
 		ALL = Collections.unmodifiableList(all);
 	}
 

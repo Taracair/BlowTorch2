@@ -398,7 +398,11 @@ public class SensorCommand extends SpecialCommand {
 		out.append("   the screen\" to anything that sends a command.\n\n");
 		out.append("7. The long session at a desk.\n");
 		out.append("   Condition \"Phone is charging\" on your noisier alerts: they only\n");
-		out.append("   speak up when you are plugged in and settled, not on the walk home.\n");
+		out.append("   speak up when you are plugged in and settled, not on the walk home.\n\n");
+		out.append("8. The map when you turn the phone sideways.\n");
+		out.append("   .sensor landscape .map open  and  .sensor portrait .map close\n");
+		out.append("   The game window rebuilds on rotate, so the map may open a moment\n");
+		out.append("   after the screen comes back. Off until you add the trigger.\n");
 		return out.toString();
 	}
 

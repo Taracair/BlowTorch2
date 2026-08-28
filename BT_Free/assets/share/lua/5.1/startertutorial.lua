@@ -606,8 +606,10 @@ differs by model.
 
 Readings: wave, cover, facedown, faceup, shake, pickup, moving, still,
 gotdark, gotbright, headphonesout, headphonesin, powerin, powerout,
-screenoff, screenon. The last six need no sensor chip — Android tells every
-app — so a profile built on those works on any phone.
+screenoff, screenon, landscape, portrait. The last eight need no sensor
+chip — Android tells every app — so a profile built on those works on any
+phone. landscape / portrait: the window rebuilds on rotate, so a command
+like .map open may run a moment after the new layout.
 
 Often better than a reading of its own: use the phone as a CONDITION.
 On any trigger or timer, Conditions → The phone gives you "Headphones are
@@ -1520,7 +1522,7 @@ local TIPS = {
 	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Service → Protocols. .probe mxp dumps a sample.]],
 	protocols = [[.protocols shows what this world offered vs what is on. .protocols enable turns on offered-but-off switches.]],
 	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
-	sensor = [[.sensor lists phone readings (shake, wave, …) as ordinary triggers. Options → Device → Sensors….]],
+	sensor = [[.sensor lists phone readings (shake, wave, landscape, …) as ordinary triggers. Options → Device → Sensors….]],
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],

@@ -6,9 +6,11 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -19,6 +21,7 @@ import android.os.BatteryManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.SystemClock;
 
 /**
  * Keeps {@link DeviceState} up to date and pushes it into the worlds that asked
@@ -78,6 +81,13 @@ public final class DeviceStateWatcher {
 	private long lightCandidateSince;
 	private boolean facingRegistered;
 	private Sensor facingSensor;
+	private boolean orientationRegistered;
+	private int lastOrientation;
+	private boolean orientationSeeded;
+	private long lastOrientationFireMs;
+	private Context orientationHost;
+	/** A flop on the sofa should not fire landscape then portrait then landscape. */
+	private static final long ORIENTATION_DEAD_MILLIS = 750L;
 	/**
 	 * Rebuilt whenever the sensor is picked up: a detector carried across a
 	 * release and a re-registration would remember which way up the phone was
@@ -275,6 +285,13 @@ public final class DeviceStateWatcher {
 		} else {
 			stopLight();
 		}
+		boolean wantsOrientation = wanted.contains("landscape")
+				|| wanted.contains("portrait");
+		if (wantsOrientation) {
+			startOrientation();
+		} else {
+			stopOrientation();
+		}
 		if (oneShot == null) {
 			oneShot = new OneShotGestures(context, new OneShotGestures.Sink() {
 				@Override
@@ -456,6 +473,77 @@ public final class DeviceStateWatcher {
 		lightRegistered = false;
 		light = DeviceState.UNKNOWN;
 		lightCandidate = DeviceState.UNKNOWN;
+	}
+
+	private final ComponentCallbacks orientationCallbacks = new ComponentCallbacks() {
+		@Override
+		public void onConfigurationChanged(final Configuration newConfig) {
+			if (newConfig == null) {
+				return;
+			}
+			onOrientation(newConfig.orientation);
+		}
+
+		@Override
+		public void onLowMemory() {
+		}
+	};
+
+	/**
+	 * Seed the current orientation so opening the app, or binding the trigger
+	 * while already landscape, is not a gesture. Fire only on a later change.
+	 */
+	private void startOrientation() {
+		if (orientationRegistered) {
+			return;
+		}
+		orientationHost = context.getApplicationContext();
+		if (orientationHost == null) {
+			orientationHost = context;
+		}
+		try {
+			lastOrientation = orientationHost.getResources().getConfiguration().orientation;
+			orientationSeeded = true;
+			orientationHost.registerComponentCallbacks(orientationCallbacks);
+			orientationRegistered = true;
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.registerOrientation", e);
+		}
+	}
+
+	private void stopOrientation() {
+		if (!orientationRegistered) {
+			return;
+		}
+		try {
+			if (orientationHost != null) {
+				orientationHost.unregisterComponentCallbacks(orientationCallbacks);
+			}
+		} catch (Exception e) {
+			BlowTorchLogger.logMinor("DeviceStateWatcher.unregisterOrientation", e);
+		}
+		orientationHost = null;
+		orientationRegistered = false;
+		orientationSeeded = false;
+	}
+
+	private void onOrientation(final int orientation) {
+		if (!orientationSeeded) {
+			lastOrientation = orientation;
+			orientationSeeded = true;
+			return;
+		}
+		String id = OrientationGesture.idForChange(lastOrientation, orientation);
+		if (id == null) {
+			return;
+		}
+		lastOrientation = orientation;
+		long now = SystemClock.uptimeMillis();
+		if (now - lastOrientationFireMs < ORIENTATION_DEAD_MILLIS) {
+			return;
+		}
+		lastOrientationFireMs = now;
+		fire(id);
 	}
 
 	private void stopBroadcasts() {
@@ -736,6 +824,7 @@ public final class DeviceStateWatcher {
 		stopMotion();
 		stopFacing();
 		stopLight();
+		stopOrientation();
 		if (oneShot != null) {
 			oneShot.stopAll();
 		}

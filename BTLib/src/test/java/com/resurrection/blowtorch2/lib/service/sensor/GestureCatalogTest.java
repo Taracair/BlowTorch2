@@ -112,7 +112,7 @@ public class GestureCatalogTest {
 		// The portable half: a profile built on these works on any phone, which
 		// is not true of anything measured by hardware.
 		for (String id : new String[] {"headphonesout", "headphonesin", "powerin",
-				"powerout", "screenon", "screenoff"}) {
+				"powerout", "screenon", "screenoff", "landscape", "portrait"}) {
 			GestureCatalog.Gesture g = GestureCatalog.byId(id);
 			assertNotNull(id, g);
 			assertTrue(id + " should be a system event",

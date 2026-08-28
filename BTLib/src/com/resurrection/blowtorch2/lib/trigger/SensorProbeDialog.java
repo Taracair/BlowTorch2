@@ -10,13 +10,16 @@ import com.resurrection.blowtorch2.lib.service.sensor.GestureCatalog.Gesture;
 import com.resurrection.blowtorch2.lib.service.sensor.GestureTiming;
 import com.resurrection.blowtorch2.lib.service.sensor.MotionStats;
 import com.resurrection.blowtorch2.lib.service.sensor.OneShotGestures;
+import com.resurrection.blowtorch2.lib.service.sensor.OrientationGesture;
 import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
+import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -74,6 +77,10 @@ public class SensorProbeDialog extends Dialog {
 	private SensorManager manager;
 	private SensorEventListener listener;
 	private BroadcastReceiver receiver;
+	private ComponentCallbacks orientationCallbacks;
+	private Context orientationHost;
+	private int lastOrientation;
+	private boolean orientationSeeded;
 	private OneShotGestures oneShot;
 	private Runnable pendingCover;
 
@@ -172,8 +179,13 @@ public class SensorProbeDialog extends Dialog {
 		}
 	}
 
-	/** Headphones, charger, screen: no sensor, just the broadcast everybody gets. */
+	/** Headphones, charger, screen, rotation: no sensor chip. */
 	private void startSystem() {
+		if (OrientationGesture.ID_LANDSCAPE.equals(gesture.getId())
+				|| OrientationGesture.ID_PORTRAIT.equals(gesture.getId())) {
+			startOrientation();
+			return;
+		}
 		readingIsMomentary = true;
 		reading.setText("Listening");
 		verdict.setText("Waiting for it to happen.");
@@ -205,6 +217,59 @@ public class SensorProbeDialog extends Dialog {
 		}
 		caveat.setText("A system event, so this works on every phone and costs"
 				+ " nothing to watch.");
+	}
+
+	private void startOrientation() {
+		readingIsMomentary = true;
+		reading.setText("Listening");
+		verdict.setText("Waiting for you to turn the phone.");
+		orientationSeeded = false;
+		orientationHost = getContext().getApplicationContext();
+		if (orientationHost == null) {
+			orientationHost = getContext();
+		}
+		lastOrientation = orientationHost.getResources().getConfiguration().orientation;
+		orientationSeeded = true;
+		orientationCallbacks = new ComponentCallbacks() {
+			@Override
+			public void onConfigurationChanged(final Configuration newConfig) {
+				if (newConfig == null) {
+					return;
+				}
+				int next = newConfig.orientation;
+				String id = OrientationGesture.idForChange(lastOrientation, next);
+				if (!orientationSeeded) {
+					lastOrientation = next;
+					orientationSeeded = true;
+					return;
+				}
+				if (id == null) {
+					return;
+				}
+				lastOrientation = next;
+				if (gesture.getId().equals(id)) {
+					count();
+				} else {
+					verdict.setText("The other way. This reading wants "
+							+ ("landscape".equals(gesture.getId())
+									? "landscape." : "portrait."));
+					verdict.setTextColor(IDLE_COLOR);
+				}
+			}
+
+			@Override
+			public void onLowMemory() {
+			}
+		};
+		try {
+			orientationHost.registerComponentCallbacks(orientationCallbacks);
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"SensorProbeDialog.registerOrientation", e);
+			orientationCallbacks = null;
+		}
+		caveat.setText("A system event, so this works on every phone and costs"
+				+ " nothing to watch. The way the phone is now is not a fire.");
 	}
 
 	private static String systemActionFor(final String id) {
@@ -512,6 +577,15 @@ public class SensorProbeDialog extends Dialog {
 				// Never registered, or already gone.
 			}
 			receiver = null;
+		}
+		if (orientationCallbacks != null && orientationHost != null) {
+			try {
+				orientationHost.unregisterComponentCallbacks(orientationCallbacks);
+			} catch (Exception ignored) {
+				// Never registered, or already gone.
+			}
+			orientationCallbacks = null;
+			orientationHost = null;
 		}
 		if (oneShot != null) {
 			oneShot.stopAll();

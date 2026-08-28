@@ -1637,6 +1637,7 @@ The readings (each has a short name for `.sensor` and triggers):
 | `still` | Untouched for a while | Stationary detect |
 | `gotdark` / `gotbright` | Room gets dark or bright | Light sensor |
 | `screenoff` / `screenon` | Screen locks or comes back | System broadcast |
+| `landscape` / `portrait` | Screen goes sideways or upright | System configuration |
 
 The last block needs **no extra sensor chip** — Android tells every app. A
 profile built on `headphonesout`, `powerin` and `screenon` works on any phone.
@@ -1688,6 +1689,13 @@ on **Movement sensors with the screen off**. For belt and braces, add condition
 **7. The long session at a desk.** Condition "Phone is charging" on noisier
 alerts.
 
+**8. The map when you turn the phone sideways.** `.sensor landscape .map open`
+and `.sensor portrait .map close`. The game window rebuilds on rotate, so
+the map may open a moment after the new layout. Off until you add the
+trigger. A profile that *locks* landscape does not fire these (you never
+leave that orientation). Lying on a sofa on your side can look like
+landscape.
+
 ### Gating a trigger on the phone
 
 Any trigger or timer can be gated on what the phone is doing — often more useful
@@ -1735,8 +1743,8 @@ have open**, including background connections. With two MUDs connected, one
 shake sends twice.
 
 Both settings cover **hardware** readings only — everything except headphone,
-charger and screen events (those are system broadcasts and keep working). Hushing
-speech when the jack comes out has to work with the screen off.
+charger, screen and rotation events (those are system events and keep working).
+Hushing speech when the jack comes out has to work with the screen off.
 
 **A warning about names.** Commands are looked up *after* your aliases, so an
 alias called `sensor` hides this command completely. If `.sensor` stops

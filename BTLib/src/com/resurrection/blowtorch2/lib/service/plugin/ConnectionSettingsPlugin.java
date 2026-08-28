@@ -351,14 +351,14 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption sensor_screen_off = new BooleanOption();
 		sensor_screen_off.setTitle("Movement sensors with the screen off");
-		sensor_screen_off.setDescription("Off by default: a shake, a wave over the screen or the phone going face down does nothing while the display is asleep, so a phone jolted about in a pocket or a bag cannot fire a trigger. Turn it on to allow those readings with the screen off. Headphone, charger and screen readings are not affected — muting speech when the jack comes out has to work with the screen off. Note that a sensor trigger fires in every world you have open, so with two MUDs connected one shake sends the command twice.");
+		sensor_screen_off.setDescription("Off by default: a shake, a wave over the screen or the phone going face down does nothing while the display is asleep, so a phone jolted about in a pocket or a bag cannot fire a trigger. Turn it on to allow those readings with the screen off. Headphone, charger, screen and rotation readings are not affected — muting speech when the jack comes out has to work with the screen off. Note that a sensor trigger fires in every world you have open, so with two MUDs connected one shake sends the command twice.");
 		sensor_screen_off.setKey("sensor_screen_off");
 		sensor_screen_off.setValue(false);
 		device.addOption(sensor_screen_off);
 
 		BooleanOption sensor_background = new BooleanOption();
 		sensor_background.setTitle("Movement sensors while the app is in the background");
-		sensor_background.setDescription("Off by default: with BlowTorch in Recents or another app on top, a shake or a wave is more likely you using your phone than playing. Turn it on to keep movement readings live behind another app. Movement readings only — headphone, charger and screen readings keep working either way — and, as above, one of them reaches every open world.");
+		sensor_background.setDescription("Off by default: with BlowTorch in Recents or another app on top, a shake or a wave is more likely you using your phone than playing. Turn it on to keep movement readings live behind another app. Movement readings only — headphone, charger, screen and rotation readings keep working either way — and, as above, one of them reaches every open world.");
 		sensor_background.setKey("sensor_background");
 		sensor_background.setValue(false);
 		device.addOption(sensor_background);

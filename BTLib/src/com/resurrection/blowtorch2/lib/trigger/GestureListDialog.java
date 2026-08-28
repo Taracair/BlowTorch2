@@ -109,7 +109,7 @@ public class GestureListDialog extends Dialog {
 			+ "Movement readings are held back while the screen is off or another app "
 			+ "is on top, so a phone in a pocket cannot send commands. Both switches "
 			+ "are in Options -> Device, next to Calibrate shake and Calibrate light. "
-			+ "Headphone, charger and screen readings are not affected by either.";
+			+ "Headphone, charger, screen and rotation readings are not affected by either.";
 
 	private final IConnectionBinder service;
 	private final boolean showRegexWarning;
