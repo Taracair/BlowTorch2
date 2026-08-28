@@ -362,6 +362,26 @@ public final class ChatStore {
 		}
 	}
 
+	/**
+	 * Android notification bucket for this conversation. Missing or unknown
+	 * becomes {@link ChatNotifyBucket#OTHER}. Not one channel per nick.
+	 */
+	public String notifyBucket(String threadId) {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.notifyBucket(threadId);
+		}
+	}
+
+	public void setNotifyBucket(String threadId, String bucket) {
+		synchronized (lock) {
+			mutateUnderFileLock(() -> {
+				inbox.setNotifyBucket(threadId, bucket);
+				return true;
+			});
+		}
+	}
+
 	/** Opening a thread in the panel zeros its unread badge. */
 	public void markSeen(String threadId) {
 		synchronized (lock) {

@@ -49,6 +49,9 @@ final class ChatInbox {
 		/** 0 = inherit the world-level mineColor. */
 		int mineColor;
 
+		/** Android notification bucket; {@link ChatNotifyBucket#OTHER} when unset. */
+		String notifyBucket;
+
 		ThreadState(String threadId, String title, String replyTemplate, int unreadCount) {
 			this.threadId = threadId == null ? "" : threadId;
 			this.title = title == null ? "" : title;
@@ -57,6 +60,7 @@ final class ChatInbox {
 			this.mineNeedle = "";
 			this.mineCompiled = null;
 			this.mineColor = 0;
+			this.notifyBucket = ChatNotifyBucket.OTHER;
 		}
 
 		void setMineNeedle(String needle) {
@@ -521,6 +525,24 @@ final class ChatInbox {
 		state.replyTemplate = template == null ? "" : template;
 	}
 
+	String notifyBucket(String threadId) {
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		if (state == null) {
+			return ChatNotifyBucket.OTHER;
+		}
+		return ChatNotifyBucket.coerce(state.notifyBucket);
+	}
+
+	void setNotifyBucket(String threadId, String bucket) {
+		String id = threadId == null ? "" : threadId;
+		ThreadState state = threads.get(id);
+		if (state == null) {
+			state = new ThreadState(id, id, "", 0);
+			threads.put(id, state);
+		}
+		state.notifyBucket = ChatNotifyBucket.coerce(bucket);
+	}
+
 	boolean markSeen(String threadId) {
 		ThreadState state = threads.get(threadId == null ? "" : threadId);
 		if (state == null || state.unreadCount == 0) {
@@ -648,6 +670,7 @@ final class ChatInbox {
 				t.put("unreadCount", state.unreadCount);
 				t.put("mineNeedle", state.mineNeedle == null ? "" : state.mineNeedle);
 				t.put("mineColor", state.mineColor);
+				t.put("notifyBucket", ChatNotifyBucket.coerce(state.notifyBucket));
 				threadArr.put(t);
 			}
 			JSONArray messageArr = new JSONArray();
@@ -713,6 +736,8 @@ final class ChatInbox {
 						inheritRoot.add(id);
 					}
 					state.mineColor = t.optInt("mineColor", 0);
+					state.notifyBucket = ChatNotifyBucket.coerce(
+							t.optString("notifyBucket", ChatNotifyBucket.OTHER));
 					inbox.threads.put(id, state);
 					if (inbox.defaultMineNeedle.length() == 0
 							&& state.mineNeedle != null

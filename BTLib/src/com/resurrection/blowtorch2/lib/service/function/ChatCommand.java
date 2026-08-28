@@ -52,7 +52,8 @@ public class ChatCommand extends SpecialCommand {
 				+ "  .chat <thread>         open that thread (id or title, case-insensitive)\n"
 				+ "  .chat help\n"
 				+ "Also: overflow ⋮ → Chat\n"
-				+ "⚙: My lines and Reply. Tap ? (top right of ⚙) for both.\n";
+				+ "⚙: My lines and Reply. Tap ? (top right of ⚙) for both.\n"
+				+ "Notify: Tells / Channels / Auction / Other (Android Settings).\n";
 	}
 
 	public static Parse parse(String arg) {

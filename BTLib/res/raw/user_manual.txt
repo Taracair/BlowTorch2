@@ -1884,6 +1884,13 @@ while that conversation is open.
   is treated as `$text` (`C $1` → `C hello`). `tell $1 $text` is the
   trigger's capture form, not a Send template — Send refuses leftover
   `$1`. Tap **?** (top right of ⚙) for both fields.
+- **Notify** — which Android channel this conversation uses: **Tells**,
+  **Channels**, **Auction**, or **Other** (default). Four channels, not
+  one per name. Mute auction without muting tells in Android Settings →
+  Notifications. Chat used to share the alerts channel with the bell;
+  after this update, pick sound per bucket there (the old alerts
+  setting does not follow chat). The master switch is still
+  **Options → Chat → Android notification** (off by default).
 - Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
   face. **Find in this thread** stays visible; ‹ › step through matches
   like `.search` and do not hide other messages.
@@ -1894,11 +1901,13 @@ while that conversation is open.
   attached (orphan). Long-press a thread in the list also deletes.
 
 **Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
-message / Digest + interval; Android notification (off by default); keep
-at most N messages (default 4000, 0 = no practical limit). Tap the shade
-to open that conversation. Digest waits the interval, then the cyan line
-is how many arrived (five tells → 5, not 1); the notification count
-updates on each message. That cyan line is its own line in the window.
+message / Digest + interval; Android notification (off by default);
+keep at most N messages (default 4000, 0 = no practical limit). Tap the
+shade to open that conversation. ⚙ **Notify** picks the system channel
+for that conversation (Tells / Channels / Auction / Other). Digest waits
+the interval, then the cyan line is how many arrived (five tells → 5,
+not 1); the notification count updates on each message. That cyan line
+is its own line in the window.
 The unread disc on ⋮ is brighter while there is unread and the drawer is
 closed. In-game line example (cyan client text, not sent to the MUD):
 `Thread ooc has new messages: 5`. ⚙ **Delete conversation** removes

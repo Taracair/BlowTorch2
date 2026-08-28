@@ -1010,9 +1010,11 @@ public class StellarService extends Service {
 	}
 
 	/**
-	 * Alert-channel notification for a chat thread. Same PendingIntent extras as
+	 * Chat-bucket notification for a thread. Same PendingIntent extras as
 	 * {@link #doNotifyBell} plus {@link ChatAnnounce#EXTRA_THREAD}. Dedicated id
-	 * so threads update in place. Not the quiet session/foreground notification.
+	 * so threads update in place. Not the quiet session/foreground notification
+	 * and not the alerts channel used by the bell. Bucket comes from chat.json
+	 * (⚙ Tells / Channels / Auction / Other), default Other.
 	 *
 	 * @param alert sound/heads-up; false refreshes the count without re-alerting
 	 */
@@ -1046,9 +1048,17 @@ public class StellarService extends Service {
 			int id = 0x6B740000 | (key.hashCode() & 0xFFFF);
 			PendingIntent contentIntent = PendingIntent.getActivity(this, id,
 					notificationIntent, activityPendingIntentFlags());
-			String alertChannel = createAlertNotificationChannel();
+			String bucket = com.resurrection.blowtorch2.lib.chat.ChatNotifyBucket.OTHER;
+			try {
+				bucket = ChatStore.forWorld(this, display).notifyBucket(threadId);
+			} catch (RuntimeException e) {
+				BlowTorchLogger.logMinor("StellarService.doNotifyChat.bucket", e);
+			}
+			com.resurrection.blowtorch2.lib.util.NotificationChannels.ensureChatChannels(this);
+			String chatChannel = com.resurrection.blowtorch2.lib.util.NotificationChannels
+					.chatChannelId(this, bucket);
 			NotificationCompat.Builder builder = new NotificationCompat.Builder(
-					this, alertChannel);
+					this, chatChannel);
 			Notification note = builder.setContentIntent(contentIntent)
 					.setContentTitle((display == null ? "" : display) + " chat")
 					.setContentText(ChatAnnounce.lineText(title, unread))

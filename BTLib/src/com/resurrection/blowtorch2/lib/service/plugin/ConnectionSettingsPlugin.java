@@ -1007,7 +1007,7 @@ public class ConnectionSettingsPlugin extends Plugin {
 
 		BooleanOption chat_android_notify = new BooleanOption();
 		chat_android_notify.setTitle("Android notification for new chat");
-		chat_android_notify.setDescription("A real notification (alert channel, not the quiet session one) when a thread has new messages. Off by default. Tap opens that conversation. The count updates on every new line; sound follows Every, or once per digest window. If the game line is Off, notifications still use the digest interval for sound.");
+		chat_android_notify.setDescription("A real notification when a thread has new messages. Off by default. Tap opens that conversation. Each conversation picks one of four system channels in chat ⚙ (Tells, Channels, Auction, Other) — not one channel per name. Tune sound/vibrate per channel in Android Settings. Chat used to share the alerts channel with the bell; after this update, re-tune those four. The count updates on every new line; sound follows Every, or once per digest window. If the game line is Off, notifications still use the digest interval for sound.");
 		chat_android_notify.setKey("chat_android_notify");
 		chat_android_notify.setValue(false);
 		chatOptions.addOption(chat_android_notify);

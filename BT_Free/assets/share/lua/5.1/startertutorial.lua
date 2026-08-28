@@ -841,6 +841,10 @@ read it. Type in the reply box and Send.
              tell Bob $text / ooc $text / $text alone
              a lone $1 is treated as $text (C $1)
              tell $1 $text is the trigger form, not Send
+  Notify     Tells / Channels / Auction / Other — which Android
+             channel this conversation uses (not one per name).
+             Tune sound in Android Settings. Re-tune after this
+             update: chat left the alerts channel.
   From/To/7d/All  date filter (not on the thread face)
   Save       writes My lines + reply, and updates a matching
              Send to thread trigger whose Thread field is this
@@ -869,7 +873,8 @@ Your bubble appears at once. Long-press a thread in the list also deletes.
 Options → Chat
   unread mark on ⋮ on/off (brighter disc; off hides it)
   game-window line: Off / Every message / Digest + interval
-  Android notification (off by default; tap opens that conversation)
+  Android notification (off by default; tap opens that conversation).
+  ⚙ Notify picks Tells / Channels / Auction / Other for that thread.
   keep at most N messages (default 4000; 0 = no practical limit)
 
 Digest waits the interval, then the cyan line is the count of new

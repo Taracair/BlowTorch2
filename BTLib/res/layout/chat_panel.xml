@@ -197,6 +197,39 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/chat_notify_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="6dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Notify"
+                    android:textColor="@color/chrome_description"
+                    android:textSize="12sp" />
+
+                <LinearLayout
+                    android:id="@+id/chat_notify_chips"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingTop="4dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="4dp"
+                    android:text="Four system channels (not one per name). Tune sound in Android Settings. After this update, re-tune: chat left the alerts channel."
+                    android:textColor="@color/chrome_description"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/chat_date_filter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

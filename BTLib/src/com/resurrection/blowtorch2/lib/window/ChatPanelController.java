@@ -10,6 +10,7 @@ import java.util.Locale;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.chat.ChatMessage;
+import com.resurrection.blowtorch2.lib.chat.ChatNotifyBucket;
 import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.chat.ChatThreadSummary;
 
@@ -90,6 +91,8 @@ public class ChatPanelController {
 	private View settingsPanel;
 	private TextView settingsToggle;
 	private View templateRow;
+	private View notifyRow;
+	private LinearLayout notifyChips;
 	private EditText threadSearchBox;
 	private TextView filterFrom;
 	private TextView filterTo;
@@ -363,6 +366,8 @@ public class ChatPanelController {
 		settingsPanel = root.findViewById(R.id.chat_settings);
 		settingsToggle = (TextView) root.findViewById(R.id.chat_settings_toggle);
 		templateRow = root.findViewById(R.id.chat_template_row);
+		notifyRow = root.findViewById(R.id.chat_notify_row);
+		notifyChips = (LinearLayout) root.findViewById(R.id.chat_notify_chips);
 		threadSearchBox = (EditText) root.findViewById(R.id.chat_thread_search);
 		filterFrom = (TextView) root.findViewById(R.id.chat_filter_from);
 		filterTo = (TextView) root.findViewById(R.id.chat_filter_to);
@@ -530,6 +535,7 @@ public class ChatPanelController {
 			});
 		}
 		paintMineColorChips();
+		paintNotifyChips();
 	}
 
 	private void paintMineColorChips() {
@@ -575,20 +581,68 @@ public class ChatPanelController {
 		}
 	}
 
+	private void paintNotifyChips() {
+		if (notifyChips == null) {
+			return;
+		}
+		notifyChips.removeAllViews();
+		MainWindow activity = host.getMainWindow();
+		if (activity == null) {
+			return;
+		}
+		float d = activity.getResources().getDisplayMetrics().density;
+		String selected = ChatNotifyBucket.OTHER;
+		if (openThreadId != null) {
+			selected = store().notifyBucket(openThreadId);
+		}
+		for (int i = 0; i < ChatNotifyBucket.ALL.length; i++) {
+			final String bucket = ChatNotifyBucket.ALL[i];
+			TextView chip = new TextView(activity);
+			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+					0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+			if (i > 0) {
+				lp.leftMargin = (int) (4 * d);
+			}
+			chip.setLayoutParams(lp);
+			chip.setGravity(Gravity.CENTER);
+			chip.setMinHeight((int) (32 * d));
+			chip.setText(ChatNotifyBucket.LABELS[i]);
+			chip.setTextColor(0xFF9EC5FF);
+			chip.setTextSize(11);
+			int pad = (int) (4 * d);
+			chip.setPadding(pad, pad, pad, pad);
+			chip.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					if (openThreadId == null) {
+						return;
+					}
+					store().setNotifyBucket(openThreadId, bucket);
+					paintNotifyChips();
+				}
+			});
+			chip.setBackgroundColor(bucket.equals(selected) ? 0x663A8A8A : 0x332A3A4A);
+			notifyChips.addView(chip);
+		}
+	}
+
 	private void bindMineRow() {
 		bindMineRow(false);
 	}
 
 	private void bindMineRow(boolean force) {
 		if (mineNameBox == null) {
+			paintNotifyChips();
 			return;
 		}
 		if (openThreadId == null) {
 			paintMineColorChips();
+			paintNotifyChips();
 			return;
 		}
 		if (!force && mineNameBox.hasFocus()) {
 			paintMineColorChips();
+			paintNotifyChips();
 			return;
 		}
 		String needle = store().mineNeedle(openThreadId);
@@ -600,6 +654,7 @@ public class ChatPanelController {
 			mineNameBox.setText(needle);
 		}
 		paintMineColorChips();
+		paintNotifyChips();
 	}
 
 	private boolean persistMineNameIfChanged() {
@@ -644,6 +699,9 @@ public class ChatPanelController {
 		}
 		if (templateRow != null) {
 			templateRow.setVisibility(show ? View.VISIBLE : View.GONE);
+		}
+		if (notifyRow != null) {
+			notifyRow.setVisibility(show ? View.VISIBLE : View.GONE);
 		}
 		if (dateFilter != null) {
 			dateFilter.setVisibility(show ? View.VISIBLE : View.GONE);

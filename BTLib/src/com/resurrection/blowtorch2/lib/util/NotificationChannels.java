@@ -11,13 +11,18 @@ import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
 
+import com.resurrection.blowtorch2.lib.chat.ChatNotifyBucket;
 import com.resurrection.blowtorch2.lib.settings.ConfigurationLoader;
 
-/** Separate channels for quiet session status vs noisy alerts/triggers. */
+/** Quiet session, noisy alerts (bell), and four chat buckets. */
 public final class NotificationChannels {
 
 	public static final String SESSION_SUFFIX = "_session";
 	public static final String ALERT_SUFFIX = "_alerts";
+	public static final String CHAT_TELLS_SUFFIX = "_chat_tells";
+	public static final String CHAT_CHANNELS_SUFFIX = "_chat_channels";
+	public static final String CHAT_AUCTION_SUFFIX = "_chat_auction";
+	public static final String CHAT_OTHER_SUFFIX = "_chat_other";
 
 	private NotificationChannels() {
 	}
@@ -28,6 +33,24 @@ public final class NotificationChannels {
 
 	public static String alertChannelId(Context context) {
 		return baseLabel(context) + ALERT_SUFFIX;
+	}
+
+	/**
+	 * One of four chat channels (tells / channels / auction / other), not
+	 * one channel per nick. Unknown buckets land on other.
+	 */
+	public static String chatChannelId(Context context, String bucket) {
+		String id = ChatNotifyBucket.coerce(bucket);
+		if (ChatNotifyBucket.TELLS.equals(id)) {
+			return baseLabel(context) + CHAT_TELLS_SUFFIX;
+		}
+		if (ChatNotifyBucket.CHANNELS.equals(id)) {
+			return baseLabel(context) + CHAT_CHANNELS_SUFFIX;
+		}
+		if (ChatNotifyBucket.AUCTION.equals(id)) {
+			return baseLabel(context) + CHAT_AUCTION_SUFFIX;
+		}
+		return baseLabel(context) + CHAT_OTHER_SUFFIX;
 	}
 
 	/**
@@ -83,6 +106,33 @@ public final class NotificationChannels {
 				NotificationManager.IMPORTANCE_DEFAULT);
 		alerts.setShowBadge(true);
 		nm.createNotificationChannel(alerts);
+
+		createChatChannel(nm, chatChannelId(context, ChatNotifyBucket.TELLS),
+				brand + " — chat tells");
+		createChatChannel(nm, chatChannelId(context, ChatNotifyBucket.CHANNELS),
+				brand + " — chat channels");
+		createChatChannel(nm, chatChannelId(context, ChatNotifyBucket.AUCTION),
+				brand + " — chat auction");
+		createChatChannel(nm, chatChannelId(context, ChatNotifyBucket.OTHER),
+				brand + " — chat other");
+	}
+
+	/**
+	 * Session, alerts, and the four chat buckets. Safe to call from chat
+	 * notify as well as from the session foreground path.
+	 */
+	@TargetApi(26)
+	public static void ensureChatChannels(Context context) {
+		ensureChannels(context);
+	}
+
+	@TargetApi(26)
+	private static void createChatChannel(NotificationManager nm, String id,
+			String name) {
+		NotificationChannel ch = new NotificationChannel(
+				id, name, NotificationManager.IMPORTANCE_DEFAULT);
+		ch.setShowBadge(true);
+		nm.createNotificationChannel(ch);
 	}
 
 	/**

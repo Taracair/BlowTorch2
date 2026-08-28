@@ -674,4 +674,39 @@ public class ChatStoreTest {
 		assertNull(store.resolveThreadId("chat"));
 		assertNull(store.resolveThreadId("a"));
 	}
+
+	@Test
+	public void notifyBucketDefaultsOtherAndRoundTrips() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.append("ooc", "ooc", "hi", 1L);
+		assertEquals(ChatNotifyBucket.OTHER, inbox.notifyBucket("ooc"));
+		assertEquals(ChatNotifyBucket.OTHER, inbox.notifyBucket("missing"));
+		inbox.setNotifyBucket("ooc", ChatNotifyBucket.CHANNELS);
+		assertEquals(ChatNotifyBucket.CHANNELS, inbox.notifyBucket("ooc"));
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals(ChatNotifyBucket.CHANNELS, loaded.notifyBucket("ooc"));
+		inbox.setNotifyBucket("ooc", "nope");
+		assertEquals(ChatNotifyBucket.OTHER, inbox.notifyBucket("ooc"));
+	}
+
+	@Test
+	public void notifyBucketMissingJsonKeyIsOther() {
+		String json = "{\"threads\":[{\"threadId\":\"tells\",\"title\":\"tells\","
+				+ "\"replyTemplate\":\"\",\"unreadCount\":0}],"
+				+ "\"messages\":[{\"threadId\":\"tells\",\"title\":\"tells\","
+				+ "\"body\":\"x\",\"whenMs\":1}]}";
+		ChatInbox loaded = ChatInbox.fromJsonBytes(json.getBytes());
+		assertEquals(ChatNotifyBucket.OTHER, loaded.notifyBucket("tells"));
+	}
+
+	@Test
+	public void chatStoreNotifyBucketPersistsInMemory() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.append("auction", "auction", "lot");
+		assertEquals(ChatNotifyBucket.OTHER, store.notifyBucket("auction"));
+		store.setNotifyBucket("auction", ChatNotifyBucket.AUCTION);
+		assertEquals(ChatNotifyBucket.AUCTION, store.notifyBucket("auction"));
+		store.setNotifyBucket("auction", ChatNotifyBucket.TELLS);
+		assertEquals(ChatNotifyBucket.TELLS, store.notifyBucket("auction"));
+	}
 }
