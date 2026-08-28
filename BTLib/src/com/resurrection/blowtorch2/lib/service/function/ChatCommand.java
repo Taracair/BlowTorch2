@@ -52,7 +52,7 @@ public class ChatCommand extends SpecialCommand {
 				+ "  .chat <thread>         open that thread (id or title, case-insensitive)\n"
 				+ "  .chat help\n"
 				+ "Also: overflow ⋮ → Chat\n"
-				+ "⚙ My lines: the name the world prints when you speak. Tap ? beside the field.\n";
+				+ "⚙: My lines and Reply. Tap ? (top right of ⚙) for both.\n";
 	}
 
 	public static Parse parse(String arg) {

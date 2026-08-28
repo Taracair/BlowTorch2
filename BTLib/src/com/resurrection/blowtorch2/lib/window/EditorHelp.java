@@ -260,11 +260,12 @@ public final class EditorHelp {
 			+ "sleeping phone; a timer is not an alarm clock.";
 
 	/**
-	 * Chat drawer ⚙ My lines. Worlds print chat differently; this is what to
-	 * type, not a prefix from one world.
+	 * Chat drawer ⚙: My lines and Reply. Worlds print chat differently; this
+	 * is what to type, not a prefix from one world.
 	 */
 	public static final String CHAT_MY_LINES =
-			"This field marks which copied lines are yours, so they get your bubble.\n\n"
+			"MY LINES\n"
+			+ "This field marks which copied lines are yours, so they get your bubble.\n\n"
 			+ "WHAT TO TYPE\n"
 			+ "Look at one of your lines in this conversation. Type only the name "
 			+ "the world prints for you — usually your character name. Not the "
@@ -288,5 +289,25 @@ public final class EditorHelp {
 			+ "name is wrong, type the unique bit of your line (Ada says), still "
 			+ "not the channel tag.\n\n"
 			+ "COLOUR\n"
-			+ "The chips next to the field are this conversation only.";
+			+ "The chips next to My lines are this conversation only.\n\n"
+			+ "REPLY\n"
+			+ "The command Send uses. $text is whatever you type in the reply box "
+			+ "at the bottom of this conversation.\n\n"
+			+ "    Reply:    tell Bob $text\n"
+			+ "    You type: hello\n"
+			+ "    World:    tell Bob hello\n\n"
+			+ "    Reply:    ooc $text\n"
+			+ "    You type: hello\n"
+			+ "    World:    ooc hello\n\n"
+			+ "    Reply:    $text\n"
+			+ "    You type: look\n"
+			+ "    World:    look\n\n"
+			+ "A lone $1 is treated as $text (a common mix-up):\n\n"
+			+ "    Reply:    C $1\n"
+			+ "    You type: hello\n"
+			+ "    World:    C hello\n\n"
+			+ "NOT A SEND TEMPLATE\n"
+			+ "tell $1 $text is the trigger's capture form (the name came from the "
+			+ "match). Send refuses it: filling $text still leaves $1. Put the name "
+			+ "in the template (tell Bob $text), or use $text only.";
 }

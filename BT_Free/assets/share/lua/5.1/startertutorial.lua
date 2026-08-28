@@ -825,12 +825,14 @@ read it. Type in the reply box and Send.
 
 ⚙ in an open conversation
   My lines   the name the world prints when you speak.
-             Tap ? next to the field for examples.
+             Tap ? (top right of ⚙) for My lines and Reply.
              Not the channel tag and not a pasted whole line.
              colour chips: own-bubble colour for this chat only
              kept in the chat file after you leave the app
   Reply      command sent to the world; $text is the reply box
-             hint like the trigger: tell $1 $text
+             tell Bob $text / ooc $text / $text alone
+             a lone $1 is treated as $text (C $1)
+             tell $1 $text is the trigger form, not Send
   From/To/7d/All  date filter (not on the thread face)
   Save       writes My lines + reply, and updates a matching
              Send to thread trigger whose Thread field is this
@@ -1517,7 +1519,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],
 	search = [[.search <text> finds it in this window. .search logs opens ⋮ → Session logs: pick dates, Load, then Search (stays on matching files). .search logs 7 goblin is the window, then this world's files from the last 7 days. .search 'logs' still finds the word in the window.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙ My lines: the name the world prints when you speak (tap ? beside the field). Reply is $text. Tap a chat notification to open that thread.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙: My lines and Reply; tap ? (top right) for both. $text is the reply box. Tap a chat notification to open that thread.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

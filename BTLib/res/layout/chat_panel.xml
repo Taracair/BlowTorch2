@@ -98,6 +98,31 @@
             android:visibility="gone">
 
             <LinearLayout
+                android:id="@+id/chat_settings_help_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical|end"
+                android:orientation="horizontal"
+                android:paddingLeft="4dp"
+                android:paddingRight="4dp"
+                android:paddingTop="2dp">
+
+                <TextView
+                    android:id="@+id/chat_mine_help_button"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="end"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="?"
+                    android:textColor="@color/chrome_description"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:contentDescription="How to fill My lines and Reply" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/chat_me_row"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -105,7 +130,7 @@
                 android:orientation="horizontal"
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
-                android:paddingTop="6dp"
+                android:paddingTop="2dp"
                 android:paddingBottom="2dp">
 
                 <TextView
@@ -115,33 +140,18 @@
                     android:textColor="@color/chrome_description"
                     android:textSize="12sp" />
 
-                <TextView
-                    android:id="@+id/chat_mine_help_button"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:text="?"
-                    android:textColor="@color/chrome_description"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:contentDescription="How to fill My lines" />
-
                 <EditText
                     android:id="@+id/chat_mine_name"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginLeft="4dp"
+                    android:layout_marginLeft="8dp"
                     android:background="@drawable/input_bar_bg"
-                    android:hint="your name"
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
                     android:padding="6dp"
                     android:textColor="@color/chrome_title_text"
-                    android:textColorHint="@color/chrome_hint"
                     android:textSize="12sp" />
 
                 <LinearLayout
@@ -153,17 +163,6 @@
                     android:orientation="horizontal" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/chat_mine_help"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingLeft="8dp"
-                android:paddingRight="8dp"
-                android:paddingBottom="6dp"
-                android:text="The name the world prints when you speak. Tap ? for examples."
-                android:textColor="@color/chrome_description"
-                android:textSize="11sp" />
-
             <LinearLayout
                 android:id="@+id/chat_template_row"
                 android:layout_width="match_parent"
@@ -173,7 +172,7 @@
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
                 android:paddingTop="2dp"
-                android:paddingBottom="2dp">
+                android:paddingBottom="6dp">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -189,25 +188,13 @@
                     android:layout_weight="1"
                     android:layout_marginLeft="8dp"
                     android:background="@drawable/input_bar_bg"
-                    android:hint="tell $1 $text"
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
                     android:padding="6dp"
                     android:textColor="@color/chrome_title_text"
-                    android:textColorHint="@color/chrome_hint"
                     android:textSize="12sp" />
             </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingLeft="8dp"
-                android:paddingRight="8dp"
-                android:paddingBottom="6dp"
-                android:text="Command sent. $text is the reply box."
-                android:textColor="@color/chrome_description"
-                android:textSize="11sp" />
 
             <LinearLayout
                 android:id="@+id/chat_date_filter"

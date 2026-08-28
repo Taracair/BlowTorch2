@@ -34,6 +34,13 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("WHAT TO TYPE"));
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("WORLDS PRINT CHAT DIFFERENTLY"));
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("Ada"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("MY LINES"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("REPLY"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("tell Bob $text"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("ooc $text"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("    Reply:    $text"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("C $1"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("NOT A SEND TEMPLATE"));
 		assertTrue("My lines help must not name a live guild",
 				!EditorHelp.CHAT_MY_LINES.contains("VERMIN"));
 		assertTrue("My lines help must not name a live player",

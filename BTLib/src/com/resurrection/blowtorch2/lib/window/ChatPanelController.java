@@ -97,7 +97,6 @@ public class ChatPanelController {
 	private TextView filterAll;
 	private TextView threadEmpty;
 	private View mineRow;
-	private View mineHelp;
 	private View mineHelpButton;
 	private View findNav;
 	private TextView findPrev;
@@ -371,7 +370,6 @@ public class ChatPanelController {
 		filterAll = (TextView) root.findViewById(R.id.chat_filter_all);
 		threadEmpty = (TextView) root.findViewById(R.id.chat_thread_empty);
 		mineRow = root.findViewById(R.id.chat_me_row);
-		mineHelp = root.findViewById(R.id.chat_mine_help);
 		mineHelpButton = root.findViewById(R.id.chat_mine_help_button);
 		findNav = root.findViewById(R.id.chat_find_nav);
 		findPrev = (TextView) root.findViewById(R.id.chat_find_prev);
@@ -525,7 +523,8 @@ public class ChatPanelController {
 				public void onClick(View v) {
 					MainWindow activity = host.getMainWindow();
 					if (activity != null) {
-						EditorHelp.show(activity, "My lines", EditorHelp.CHAT_MY_LINES);
+						EditorHelp.show(activity, "My lines and Reply",
+								EditorHelp.CHAT_MY_LINES);
 					}
 				}
 			});
@@ -639,9 +638,6 @@ public class ChatPanelController {
 		}
 		if (mineRow != null) {
 			mineRow.setVisibility(show ? View.VISIBLE : View.GONE);
-		}
-		if (mineHelp != null) {
-			mineHelp.setVisibility(show ? View.VISIBLE : View.GONE);
 		}
 		if (mineHelpButton != null) {
 			mineHelpButton.setVisibility(show ? View.VISIBLE : View.GONE);

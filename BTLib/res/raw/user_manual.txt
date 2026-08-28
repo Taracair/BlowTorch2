@@ -862,10 +862,10 @@ is substituted when the thread is first created.
 
 **Chat → ⚙ → My lines** in that conversation. Type the name the world
 prints when you speak, not the channel tag and not a pasted line. Tap
-**?** beside the field for examples. Worlds print chat differently —
-there is no one prefix. `[guild] Ada says, "hi"` is yours if My lines is
-`Ada`. `[guild] Bob says, "hi Ada"` is Bob's. Colour chips next to My
-lines are that chat only.
+**?** (top right of ⚙) for My lines and Reply examples. Worlds print
+chat differently — there is no one prefix. `[guild] Ada says, "hi"` is
+yours if My lines is `Ada`. `[guild] Bob says, "hi Ada"` is Bob's.
+Colour chips next to My lines are that chat only.
 
 ## Recipes
 
@@ -1846,23 +1846,23 @@ the title shown in the list, case-insensitive — `.chat ooc` if the list
 says ooc.
 
 A thread is one conversation. Tap it to read history and reply. Send fills
-`$text` in that thread's reply template (`tell $1 $text`, `c $text`). Set
+`$text` in that thread's reply template (`tell Bob $text`, `c $text`). Set
 the template on the trigger's Send to thread action, or **Reply** under ⚙
 while that conversation is open.
 
 ⚙ in an open conversation:
 
 - **My lines** — the name the world prints when you speak, not the
-  channel tag and not a pasted whole line. Tap **?** beside the field
-  for examples. Worlds print chat differently (start of line, after a
-  `]` or `)`, `You say`). `[guild] Ada says, "hi"` is yours if My lines
-  is `Ada`; `[guild] Bob says, "hi Ada"` is not. Kept in the chat file,
-  so those bubbles stay yours after you leave the app. Colour chips
-  next to the field are this chat only.
+  channel tag and not a pasted whole line. Worlds print chat differently
+  (start of line, after a `]` or `)`, `You say`). `[guild] Ada says, "hi"`
+  is yours if My lines is `Ada`; `[guild] Bob says, "hi Ada"` is not.
+  Kept in the chat file, so those bubbles stay yours after you leave the
+  app. Colour chips next to the field are this chat only.
 - **Reply** — the command sent to the world; `$text` is the reply box.
-  Hint like the trigger: `tell $1 $text`. If you write `C $1` instead of
-  `C $text`, Send used to send the characters `$1`. A lone `$1` is now
-  treated as `$text`. Send refuses if `$1` or `$text` is still in the line.
+  Example: `tell Bob $text`, `ooc $text`, or `$text` alone. A lone `$1`
+  is treated as `$text` (`C $1` → `C hello`). `tell $1 $text` is the
+  trigger's capture form, not a Send template — Send refuses leftover
+  `$1`. Tap **?** (top right of ⚙) for both fields.
 - Date **From** / **To** / **7d** / **All** live behind ⚙, not on the thread
   face. **Find in this thread** stays visible; ‹ › step through matches
   like `.search` and do not hide other messages.

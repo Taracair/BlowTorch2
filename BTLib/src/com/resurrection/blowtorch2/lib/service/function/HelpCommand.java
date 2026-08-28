@@ -629,7 +629,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .chat help\n"
 					+ "  Also: overflow ⋮ → Chat\n"
 					+ "Example: .chat ooc if the list says ooc (case-insensitive).\n"
-					+ "⚙ My lines: the name the world prints when you speak. Tap ? beside the field.\n"
+					+ "⚙: two fields, My lines and Reply. Tap ? (top right of ⚙) for both.\n"
 					+ "Reply ($text is the reply box). From/To/7d/All live behind ⚙.\n"
 					+ "Find in thread stays visible.\n"
 					+ "Save writes My lines + reply (and a matching Send to thread trigger).\n"
