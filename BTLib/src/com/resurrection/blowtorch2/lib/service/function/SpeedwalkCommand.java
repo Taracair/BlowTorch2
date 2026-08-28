@@ -1,190 +1,103 @@
 package com.resurrection.blowtorch2.lib.service.function;
 
-import java.io.UnsupportedEncodingException;
 import java.util.HashMap;
-import java.util.LinkedList;
-
-import android.os.RemoteException;
 
 import com.resurrection.blowtorch2.lib.service.Connection;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
+import com.resurrection.blowtorch2.lib.speedwalk.SpeedwalkExpand;
 
 public class SpeedwalkCommand extends SpecialCommand {
-	
-	private HashMap<String,DirectionData> mDirections = null;
+
+	private HashMap<String, DirectionData> mDirections = null;
 	private com.resurrection.blowtorch2.lib.service.Connection.Data mData = null;
-	
-	public SpeedwalkCommand(HashMap<String,DirectionData> directions,com.resurrection.blowtorch2.lib.service.Connection.Data data) {
-		this.commandName = "run";
+	private final boolean reverse;
+
+	public SpeedwalkCommand(HashMap<String, DirectionData> directions,
+			com.resurrection.blowtorch2.lib.service.Connection.Data data) {
+		this(directions, data, false);
+	}
+
+	public SpeedwalkCommand(HashMap<String, DirectionData> directions,
+			com.resurrection.blowtorch2.lib.service.Connection.Data data, boolean reverse) {
+		this.commandName = reverse ? "rev" : "run";
+		this.reverse = reverse;
 		mDirections = directions;
 		mData = data;
 	}
-	
-	public void setDirections(HashMap<String,DirectionData> directions) {
+
+	public void setDirections(HashMap<String, DirectionData> directions) {
 		mDirections = directions;
 	}
-	public Object execute(Object o,Connection c) {
-		String str = (String)o;
-		
-		Character cr = new Character((char)13);
-		Character lf = new Character((char)10);
-		String crlf = cr.toString() + lf.toString();
-		//str will be of the form, 3d2enewsnu3d32wijkl
-		//direction ordinals are now configurable.
-		
-		if(str.equals("") || str.equals(" ")) {
-			c.sendDataToWindow(getErrorMessage("Speedwalk (run) special command usage:",".run directions\n" +
-					"Direction ordinal to command mappings are editable, press MENU->More->Speedwalk Configuration for more info. The default mapping is as follows:\n" +
-					" n: north\n e: east\n s: south\n w: west\n u: up\n d: down\n h: northwest\n j: northeast\n k: southwest\n l: southeast\n"+
-					"directions may be prefeced with an integer value to run that many times.\n" +
-					"Commands may be inserted into the direction stream with commas,\n" +
-					"directions may be resumed by entering another comma followed by directions.\n" +
-					"Example:\n" +
-					"\".run 3desw2n\", will send d;d;d;e;s;w;n;n to the server.\n" +
-					"\".run jlk3n3j\", will send se;nw;sw;n;n;n;se;se;se to the server.\n"+
-					"\".run 3ds,open door,3w\" will send d;d;d;s;open door;w;w;w to the server.\n"));
+
+	public Object execute(Object o, Connection c) {
+		String str = (String) o;
+
+		if (str.equals("") || str.equals(" ")) {
+			c.sendDataToWindow(getErrorMessage(
+					reverse ? "Speedwalk reverse (.rev) usage:" : "Speedwalk (run) special command usage:",
+					usage(reverse)));
 			return null;
-			
 		}
 
-		StringBuffer buf = new StringBuffer();
-		boolean commanding = false;
-		LinkedList<Integer> runtable = new LinkedList<Integer>();
-		for(int i=0;i<str.length();i++) {
-			char theChar = str.charAt(i);
-			String bit = String.valueOf(theChar);
-			if(commanding) {
-				if(bit.equals(",")) {
-					commanding = false;
-					buf.append(crlf);
-				} else {
-					buf.append(bit);
-				}
-			} else {
-				
-			
-				try {
-					int num = Integer.parseInt(bit);
-					runtable.add(num);
-					//place += 1;
-					//runlength = (runlength *10) + runlength * num;
-				} catch (NumberFormatException e) {
-					//got exception, this is a direction or an invalid character.
-					boolean valid = false;
-					String respString = "";
-					
-					//make "theChar" a string
-					String testVal = Character.toString(theChar);
-					if(testVal.equals(",")) {
-						commanding = true;
-						buf.append(crlf);
-					} else {
-						//check if the testVal has a mapping in the table
-						if(mDirections.containsKey(testVal)) {
-							valid = true;
-							respString = mDirections.get(testVal).getCommand();
-						}
-					}
-					
-					
-					/*switch(theChar) {
-					case 'n':
-						respString = "n";
-						valid = true;
-						break;
-					case 'e':
-						respString = "e";
-						valid = true;
-						break;
-					case 's':
-						respString = "s";
-						valid = true;
-						break;
-					case 'w':
-						respString = "w";
-						valid = true;
-						break;
-					case 'u':
-						respString = "u";
-						valid = true;
-						break;
-					case 'd':
-						respString = "d";
-						valid = true;
-						break;
-					case 'h':
-						respString = "ne";
-						valid = true;
-						break;
-					case 'j':
-						respString = "se";
-						valid = true;
-						break;
-					case 'k':
-						respString = "sw";
-						valid = true;
-						break;
-					case 'l':
-						respString = "nw";
-						valid = true;
-						break;
-					case ',':
-						commanding = true;
-						buf.append(crlf);
-						break;
-					default:
-						
-					
-					}*/
-					
-					if(valid) {
-						//compute the run length.
-						int run = 1;
-						int tmpPlace = runtable.size()-1;
-						if(runtable.size() > 0) {
-							run = 0;
-							for(Integer tmp : runtable) {
-								run += Math.pow(10,tmpPlace) * tmp;
-								tmpPlace--;
-							}
-						}
-						
-						for(int j=0;j<run;j++) {
-							//if(j == run-1) {
-							//	buf.append(respString);
-							//} else {
-								buf.append(respString+crlf);
-							//}
-						}
-						
-						runtable.clear();
-						
-					} else if(!valid && !commanding) {
-						//bail with error,
-						int errlength = i + 5;
-						StringBuffer tmpb = new StringBuffer();
-						for(int a=0;a<errlength;a++) {
-							tmpb.append("-");
-						}
-						tmpb.append("^");
-						c.sendDataToWindow((getErrorMessage("Invalid direction in command:","."+commandName + " " +str+"\n" +
-								tmpb.toString() + "\n" + 
-								"At location " + errlength + ", " + bit)));
-						return null;
-					}
-				}
+		SpeedwalkExpand.Result result = reverse
+				? SpeedwalkExpand.reverse(str, mDirections)
+				: SpeedwalkExpand.forward(str, mDirections);
+		if (!result.ok) {
+			if (result.missingLetter != null) {
+				c.sendDataToWindow(getErrorMessage(
+						"No reverse for '" + result.missingLetter + "' ("
+								+ result.missingCommand + ")",
+						"Set Reverse in ⋮ → Speedwalk Directions for that letter.\n"
+								+ "Compass n↔s, e↔w, in↔out, enter↔leave works with Reverse blank.\n"
+								+ "door / cave / custom exits need Reverse filled.\n"
+								+ "Comma text stays as written: .rev 2n,open door,n sends s;open door;s;s — not close door."));
+				return null;
 			}
+			int errlength = iCaret(result.errorIndex);
+			StringBuffer tmpb = new StringBuffer();
+			for (int a = 0; a < errlength; a++) {
+				tmpb.append("-");
+			}
+			tmpb.append("^");
+			c.sendDataToWindow((getErrorMessage("Invalid direction in command:",
+					"." + commandName + " " + str + "\n"
+							+ tmpb.toString() + "\n"
+							+ "At location " + errlength + ", " + result.errorBit)));
+			return null;
 		}
-		
-		//mData = new com.resurrection.blowtorch2.lib.service.Connection.Data();
-		String cmd = buf.toString();
-		
-		mData.setCmdString(cmd.substring(0, cmd.length()-2)); //strip trailing crlf
-		mData.setVisString(".run " + str);
-		
+
+		mData.setCmdString(result.cmd);
+		mData.setVisString("." + commandName + " " + str);
 		return mData;
 	}
-	
+
+	private int iCaret(int errorIndex) {
+		// ".run " / ".rev " in front of the string; same length for both names.
+		return errorIndex + 1 + commandName.length() + 1;
+	}
+
+	public static String usage(boolean reverse) {
+		if (reverse) {
+			return ".rev directions\n"
+					+ "Same letters as .run, walked backwards. Mapping is ⋮ → Speedwalk Directions.\n"
+					+ "Each letter has Command (.run) and Reverse (.rev). Compass pairs fill in when Reverse is blank: n↔s, e↔w, u↔d, in↔out, enter↔leave, diagonals.\n"
+					+ "Custom letters (door, cave, portal) have no compass opposite — type the reverse command in Reverse or .rev stops on that letter.\n"
+					+ "Counts stay with the letter: .rev 3n2e sends w;w;s;s;s.\n"
+					+ "Comma commands stay as written and move with the reversed path: .rev 2n,open door,n sends s;open door;s;s — not close door.\n"
+					+ "Example: you walked .run 3n2e. .rev 3n2e walks it back.";
+		}
+		return ".run directions\n"
+				+ "Direction letters are editable: ⋮ → Speedwalk Directions. Default mapping:\n"
+				+ " n: north\n e: east\n s: south\n w: west\n u: up\n d: down\n h: northwest\n j: northeast\n k: southwest\n l: southeast\n"
+				+ "Prefix a letter with a count. Commas insert a command; another comma resumes walking.\n"
+				+ "Each letter also has Reverse, used by .rev. Compass n↔s / in↔out works with Reverse blank; door/cave need it filled.\n"
+				+ "Example:\n"
+				+ "\".run 3desw2n\", will send d;d;d;e;s;w;n;n to the server.\n"
+				+ "\".run jlk3n3j\", will send se;nw;sw;n;n;n;se;se;se to the server.\n"
+				+ "\".run 3ds,open door,3w\" will send d;d;d;s;open door;w;w;w to the server.\n"
+				+ "\".rev 3n2e\" walks the reverse (see .rev).";
+	}
+
 	public class Data {
 		public String cmdString;
 		public String visString;

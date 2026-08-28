@@ -43,6 +43,19 @@ public class BetterSpeedWalkConfigurationDialog extends StandardSelectionDialog 
 		this.setTitle("DIRECTIONS");
 		this.setSearchVisible(false);
 	}
+
+	private static String subtitle(DirectionData data, HashMap<String, DirectionData> map) {
+		String cmd = data.getCommand() == null ? "" : data.getCommand();
+		String rev = data.getReverse() == null ? "" : data.getReverse().trim();
+		if (rev.length() == 0) {
+			String suggested = SpeedwalkExpand.resolvedReverse(data, map);
+			if (suggested != null) {
+				return "Command: " + cmd + "  Reverse: " + suggested + " (compass)";
+			}
+			return "Command: " + cmd + "  Reverse: (set for .rev)";
+		}
+		return "Command: " + cmd + "  Reverse: " + rev;
+	}
 	
 	private void buildList() {
 		
@@ -61,7 +74,7 @@ public class BetterSpeedWalkConfigurationDialog extends StandardSelectionDialog 
 			DirectionData data = dataMap.get(sortedKeys[i]);
 			int resource = 0;
 			
-			this.addListItem(data.getDirection(), "Command: " + data.getCommand(),resource, true);
+			this.addListItem(data.getDirection(), subtitle(data, dataMap), resource, true);
 		}
 		
 		invalidateList();

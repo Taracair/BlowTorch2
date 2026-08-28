@@ -417,10 +417,16 @@ Speedwalk: .run <directions> using letters from Speedwalk Directions
 (overflow → Speedwalk Directions). Defaults: n e s w u d, plus diagonals
 h=nw, j=ne, k=sw, l=se. Prefix with a count.
 
+Each letter has Command (.run) and Reverse (.rev). Compass n↔s, in↔out,
+enter↔leave works with Reverse blank. door/cave: fill Reverse or .rev
+stops on that letter.
+
 Examples:
   .run 3n2e
+  .rev 3n2e          (sends w;w;s;s;s)
   .run 3n,open door,2e
-  .run 3desw2n
+  .rev 3n,open door,2e
+      (comma text stays: not close door)
 
 Commas insert free-text commands between walks. Edit the letter map in
 Speedwalk Directions if your MUD uses different shortcuts.
@@ -999,7 +1005,7 @@ TOPICS.overflow_menu = function()
   Timers                  repeating / one-shot responders
   Options                 Program Settings (Display, Window, …)
   Edit buttons            button layout edit mode
-  Speedwalk Directions    letters for .run
+  Speedwalk Directions    letters for .run and Reverse for .rev
   Plugins                 load / manage Lua plugins
   Reconnect / Disconnect  connection control
   Quit                    leave the session window
@@ -1520,6 +1526,8 @@ local TIPS = {
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],
 	search = [[.search <text> finds it in this window. .search logs opens ⋮ → Session logs: pick dates, Load, then Search (stays on matching files). .search logs 7 goblin is the window, then this world's files from the last 7 days. .search 'logs' still finds the word in the window.]],
 	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙: My lines and Reply; tap ? (top right) for both. $text is the reply box. Tap a chat notification to open that thread.]],
+	run = [[.run 3n2e speedwalks using letters from Speedwalk Directions. Commas insert a command (open door). .rev walks the same string backwards.]],
+	rev = [[.rev 3n2e is .run backwards (w;w;s;s;s). Compass n↔s / in↔out if Reverse is blank. door/cave: fill Reverse in Speedwalk Directions. Comma text stays as written, not close door.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

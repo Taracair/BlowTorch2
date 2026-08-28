@@ -14,14 +14,14 @@
   <service processSemi="true" throttle="false" processPeriod="true" keepWifiActive="true" localEcho="true" vibrateOnBell="true" notifyOnBell="false" displayOnBell="false" />
   <aliases/>
   <directions>
-    <entry dir="w" cmd="w" />
-    <entry dir="e" cmd="e" />
-    <entry dir="s" cmd="s" />
-    <entry dir="n" cmd="n" />
-    <entry dir="l" cmd="se" />
-    <entry dir="j" cmd="ne" />
-    <entry dir="k" cmd="sw" />
-    <entry dir="h" cmd="nw" />
+    <entry dir="w" cmd="w" rev="e" />
+    <entry dir="e" cmd="e" rev="w" />
+    <entry dir="s" cmd="s" rev="n" />
+    <entry dir="n" cmd="n" rev="s" />
+    <entry dir="l" cmd="se" rev="nw" />
+    <entry dir="j" cmd="ne" rev="sw" />
+    <entry dir="k" cmd="sw" rev="ne" />
+    <entry dir="h" cmd="nw" rev="se" />
   </directions>
   <!-- Legacy top-level buttonsets (Java HyperSAXParser). Gestures are not parsed here; see button_window plugin below. -->
   <buttonsets>

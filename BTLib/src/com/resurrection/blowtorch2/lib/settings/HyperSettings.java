@@ -293,6 +293,9 @@ public class HyperSettings {
 				out.startTag("", BaseParser.TAG_ENTRY);
 				out.attribute("", BaseParser.ATTR_DIRECTION, d.getDirection());
 				out.attribute("", BaseParser.ATTR_COMMAND, d.getCommand());
+				if (d.getReverse() != null && d.getReverse().trim().length() > 0) {
+					out.attribute("", BaseParser.ATTR_REVERSE, d.getReverse().trim());
+				}
 				out.endTag("", BaseParser.TAG_ENTRY);
 			}
 			

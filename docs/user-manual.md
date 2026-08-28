@@ -1019,11 +1019,23 @@ Set **Switch to named button set** on a tile and tapping it swaps the whole pad
 
 ```
 .run 3n2ew
+.rev 3n2ew
 ```
 
-Three north, two east, one west. Add your own direction words under ⋮ →
-Speedwalk Directions. Commas insert literal commands:
-`.run 2n,open door,n`.
+Three north, two east, one west. `.rev 3n2ew` walks that path backwards:
+e, w, w, s, s, s (undo the last west, then the two east, then the three
+north).
+
+Add your own direction **letters** under ⋮ → Speedwalk Directions. Each row
+is **Direction** (one letter), **Command** (what `.run` sends), and
+**Reverse** (what `.rev` sends). Compass pairs fill Reverse when you leave
+it blank: n↔s, e↔w, u↔d, in↔out, enter↔leave, and the diagonals. Custom
+exits (`door`, `cave`, `portal`) have no opposite — type the reverse
+command in Reverse or `.rev` stops on that letter and tells you to fill it.
+
+Commas insert literal commands and **stay as written** when reversed
+(not guessed as `close door`):
+`.run 2n,open door,n` then `.rev 2n,open door,n` sends `s;open door;s;s`.
 
 ### 8. Put chat in its own window
 
@@ -1382,6 +1394,7 @@ is enabled; `.alias list` shows every alias at once.
     `.disconnect`                       Disconnect the current session (same as overflow **Disconnect**)
     `.reconnect`                        Reconnect the current session (same as overflow **Reconnect**)
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
+    `.rev <directions>`                 Same letters as `.run`, walked backwards. Reverse per letter in Speedwalk Directions; compass n↔s / in↔out if Reverse is blank; door/cave need Reverse filled. Comma text stays (not close door)
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
     `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. `.loadset` keeps that override. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
@@ -2108,11 +2121,17 @@ and/or `.map capture`.
 4. **Jump maps:** after linking, tap **○** on the tile (or walk the portal command with Follow on).
 5. **Fix layout:** long-press-drag a tile. Use **Edit → Spacing** (spread) to see arrow labels.
 
-### `.run` defaults
+### `.run` / `.rev` defaults
 
 Direction letters (editable in Speedwalk Directions): `n e s w u d`,
-`h`=nw, `j`=ne, `k`=sw, `l`=se. Prefix with a count. Examples:
-`.run 3desw2n`, `.run 3ds,open door,3w`.
+`h`=nw, `j`=ne, `k`=sw, `l`=se. Each letter has **Command** (`.run`) and
+**Reverse** (`.rev`). Prefix with a count. Examples:
+`.run 3desw2n`, `.run 3ds,open door,3w`, `.rev 3n2e` (sends `w;w;s;s;s`).
+
+Reverse blank uses compass pairs (n↔s, in↔out, enter↔leave). Custom
+letters (`c` → cave) have no pair — fill Reverse or `.rev` errors on that
+letter. Comma commands stay as written: `.rev 2n,open door,n` sends
+`s;open door;s;s`, not `close door`.
 Mapper recording still treats `se`/`sw`/… as compass diagonals even when those
 letters are Speedwalk *keys*.
 

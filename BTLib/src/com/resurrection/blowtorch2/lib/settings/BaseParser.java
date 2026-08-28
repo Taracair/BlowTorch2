@@ -168,6 +168,7 @@ public class BaseParser {
 	public static final String TAG_ENTRY = "entry";
 	public static final String ATTR_DIRECTION = "dir";
 	public static final String ATTR_COMMAND = "cmd";
+	public static final String ATTR_REVERSE = "rev";
 	
 
 	

@@ -28,6 +28,7 @@ public class SpeedWalkDirectionEditorDialog extends Dialog {
 	
 	EditText direction = null;
 	EditText command = null;
+	EditText reverse = null;
 	
 	public SpeedWalkDirectionEditorDialog(Context context,DirectionEditorDoneListener doneListener,IConnectionBinder service) {
 		super(context);
@@ -54,12 +55,16 @@ public class SpeedWalkDirectionEditorDialog extends Dialog {
 		
 		direction = ((EditText)findViewById(R.id.sw_dir));
 		command = ((EditText)findViewById(R.id.sw_cmd));
+		reverse = ((EditText)findViewById(R.id.sw_rev));
 		
 		
 		if(isEditor) {
 			((TextView)findViewById(R.id.titlebar)).setText("EDIT DIRECTION");
 			((TextView)findViewById(R.id.sw_dir)).setText(oldData.getDirection());
 			((TextView)findViewById(R.id.sw_cmd)).setText(oldData.getCommand());
+			if (reverse != null && oldData.getReverse() != null) {
+				reverse.setText(oldData.getReverse());
+			}
 			((Button)findViewById(R.id.new_sw_done_button)).setText("Save Changes");
 			findViewById(R.id.new_sw_done_button).setOnClickListener(new View.OnClickListener() {
 				
@@ -69,6 +74,7 @@ public class SpeedWalkDirectionEditorDialog extends Dialog {
 					boolean passed = validateEntries();
 					if(!passed) return;
 					DirectionData tmp = new DirectionData(direction.getText().toString(),command.getText().toString());
+					tmp.setReverse(reverseText());
 					
 					doneListener.editDirection(oldData, tmp);
 					SpeedWalkDirectionEditorDialog.this.dismiss();
@@ -83,6 +89,7 @@ public class SpeedWalkDirectionEditorDialog extends Dialog {
 					boolean passed = validateEntries();
 					if(!passed) return;
 					DirectionData tmp = new DirectionData(direction.getText().toString(),command.getText().toString());
+					tmp.setReverse(reverseText());
 					
 					doneListener.newDirection(tmp);
 					SpeedWalkDirectionEditorDialog.this.dismiss();
@@ -153,6 +160,13 @@ public class SpeedWalkDirectionEditorDialog extends Dialog {
 		
 		
 		return true;
+	}
+
+	private String reverseText() {
+		if (reverse == null || reverse.getText() == null) {
+			return "";
+		}
+		return reverse.getText().toString().trim();
 	}
 
 }

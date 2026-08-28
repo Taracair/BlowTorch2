@@ -79,6 +79,7 @@ public class SpeedWalkConfigurationDialog extends Dialog implements DirectionEdi
 			SWEntry newEntry = new SWEntry();
 			newEntry.cmd = tmp.getCommand();
 			newEntry.dir = tmp.getDirection();
+			newEntry.rev = tmp.getReverse();
 			theList.add(newEntry);
 		}
 		
@@ -97,6 +98,7 @@ public class SpeedWalkConfigurationDialog extends Dialog implements DirectionEdi
 			DirectionData d = new DirectionData();
 			d.setCommand(entry.cmd);
 			d.setDirection(entry.dir);
+			d.setReverse(entry.rev == null ? "" : entry.rev);
 			tmp.put(d.getDirection(), d);
 		}
 		
@@ -115,6 +117,7 @@ public class SpeedWalkConfigurationDialog extends Dialog implements DirectionEdi
 		public void onClick(View v) {
 			SWEntry e = theList.get(pos);
 			DirectionData d = new DirectionData(e.dir,e.cmd);
+			d.setReverse(e.rev == null ? "" : e.rev);
 			SpeedWalkDirectionEditorDialog editor = new SpeedWalkDirectionEditorDialog(SpeedWalkConfigurationDialog.this.getContext(),SpeedWalkConfigurationDialog.this,d,service);
 			editor.show();
 		}
@@ -147,6 +150,7 @@ public class SpeedWalkConfigurationDialog extends Dialog implements DirectionEdi
 	private class SWEntry {
 		public String dir;
 		public String cmd;
+		public String rev;
 	}
 	
 	private class SWComparator implements Comparator<SWEntry> {
@@ -195,10 +199,12 @@ public class SpeedWalkConfigurationDialog extends Dialog implements DirectionEdi
 		SWEntry oldEntry = new SWEntry();
 		oldEntry.cmd = old.getCommand();
 		oldEntry.dir = old.getDirection();
+		oldEntry.rev = old.getReverse();
 		
 		SWEntry newEntry = new SWEntry();
 		newEntry.cmd = mod.getCommand();
 		newEntry.dir = mod.getDirection();
+		newEntry.rev = mod.getReverse();
 		
 		for(int i=0;i<theList.size();i++) {
 			SWEntry tmp = theList.get(i);
@@ -236,6 +242,7 @@ public class SpeedWalkConfigurationDialog extends Dialog implements DirectionEdi
 		SWEntry n = new SWEntry();
 		n.cmd = d.getCommand();
 		n.dir = d.getDirection();
+		n.rev = d.getReverse();
 		theList.add(n);
 		
 		try {

@@ -202,6 +202,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 				DirectionData d = new DirectionData();
 				d.setDirection(a.getValue("","dir"));
 				d.setCommand(a.getValue("","cmd"));
+				String rev = a.getValue("","rev");
+				d.setReverse(rev == null ? "" : rev);
 				
 				settings.getDirections().put(d.getDirection(), d);
 			}
@@ -395,6 +397,9 @@ public class ConnectionSetttingsParser extends PluginParser {
 			out.startTag("","entry");
 			out.attribute("", "dir", d.getDirection());
 			out.attribute("", "cmd", d.getCommand());
+			if (d.getReverse() != null && d.getReverse().trim().length() > 0) {
+				out.attribute("", "rev", d.getReverse().trim());
+			}
 			out.endTag("","entry");
 		}
 		out.endTag("", "directions");

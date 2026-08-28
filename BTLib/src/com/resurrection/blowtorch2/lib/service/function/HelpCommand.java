@@ -54,6 +54,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("echo", "Playing", "show or hide what you type when the server has "
 				+ "masked it");
 		cmd("run", "Playing", "walk a speedwalk string, like 4n2e");
+		cmd("rev", "Playing", "walk that speedwalk string backwards");
 		cmd("disconnect", "Playing", "close the connection");
 		cmd("reconnect", "Playing", "close it and open it again");
 		cmd("switch", "Playing", "change to another world");
@@ -218,7 +219,15 @@ public class HelpCommand extends SpecialCommand {
 					+ Colorizer.getBrightCyanColor() + "Children of .run:"
 					+ Colorizer.getWhiteColor() + "\n"
 					+ "  .run <directions>  — speedwalk, e.g. 3n2e or 3ds,open door,3w\n"
-					+ "  (ordinals are configurable; type .run alone for the map)\n";
+					+ "  (ordinals: ⋮ → Speedwalk Directions; each letter has Reverse for .rev)\n";
+		}
+		if (filter.equals("rev")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .rev:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .rev <directions>  — same letters as .run, walked backwards\n"
+					+ "  .rev 3n2e sends w;w;s;s;s. Comma text stays: not close door.\n"
+					+ "  Compass n↔s / in↔out if Reverse is blank; door/cave: fill Reverse.\n";
 		}
 		if (filter.equals("disconnect")) {
 			return "\n"

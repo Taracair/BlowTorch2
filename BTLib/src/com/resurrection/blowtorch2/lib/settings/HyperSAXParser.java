@@ -210,6 +210,8 @@ public class HyperSAXParser extends BaseParser {
 			public void start(Attributes a) {
 				current_dir.setDirection(a.getValue("",ATTR_DIRECTION));
 				current_dir.setCommand(a.getValue("", ATTR_COMMAND));
+				String rev = a.getValue("", ATTR_REVERSE);
+				current_dir.setReverse(rev == null ? "" : rev);
 				directions_read.put(current_dir.getDirection(), current_dir.copy());
 			}
 			

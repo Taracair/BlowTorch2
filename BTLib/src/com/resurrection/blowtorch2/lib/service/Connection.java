@@ -81,6 +81,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.speedwalk.DirectionData;
+import com.resurrection.blowtorch2.lib.speedwalk.SpeedwalkExpand;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerPattern;
@@ -420,6 +421,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	Handler mHandler = null;
 	/** Global handler for the speedwalk command, useful for changing the settings. */
 	private SpeedwalkCommand mSpeedwalkCommand = null;
+	private SpeedwalkCommand mRevCommand = null;
 	
 	/** Main tracker for plugins, generic ordered list of plugins in the order they were loaded. */
 	ArrayList<Plugin> mPlugins = null;
@@ -556,6 +558,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		DisconnectCommand dccmd = new DisconnectCommand();
 		ReconnectCommand rccmd = new ReconnectCommand();
 		mSpeedwalkCommand = new SpeedwalkCommand(null, new Data());
+		mRevCommand = new SpeedwalkCommand(null, new Data(), true);
 		LoadButtonsCommand lbcmd = new LoadButtonsCommand();
 		ClearButtonCommand cbcmd = new ClearButtonCommand();
 		NoteCommand notecmd = new NoteCommand();
@@ -573,6 +576,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mSpecialCommands.put(dccmd.commandName, dccmd);
 		mSpecialCommands.put(rccmd.commandName, rccmd);
 		mSpecialCommands.put(mSpeedwalkCommand.commandName, mSpeedwalkCommand);
+		mSpecialCommands.put(mRevCommand.commandName, mRevCommand);
 		mSpecialCommands.put(lbcmd.commandName, lbcmd);
 		mSpecialCommands.put(cbcmd.commandName, cbcmd);
 		mSpecialCommands.put(notecmd.commandName, notecmd);
@@ -1603,18 +1607,20 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		
 		if (mSettings.getDirections().size() == 0) {
 			HashMap<String, DirectionData> tmp = new HashMap<String, DirectionData>();
-			tmp.put("n", new DirectionData("n", "n"));
-			tmp.put("e", new DirectionData("e", "e"));
-			tmp.put("s", new DirectionData("s", "s"));
-			tmp.put("w", new DirectionData("w", "w"));
-			tmp.put("h", new DirectionData("h", "nw"));
-			tmp.put("j", new DirectionData("j", "ne"));
-			tmp.put("k", new DirectionData("k", "sw"));
-			tmp.put("l", new DirectionData("l", "se"));
+			tmp.put("n", SpeedwalkExpand.compassEntry("n", "n"));
+			tmp.put("e", SpeedwalkExpand.compassEntry("e", "e"));
+			tmp.put("s", SpeedwalkExpand.compassEntry("s", "s"));
+			tmp.put("w", SpeedwalkExpand.compassEntry("w", "w"));
+			tmp.put("h", SpeedwalkExpand.compassEntry("h", "nw"));
+			tmp.put("j", SpeedwalkExpand.compassEntry("j", "ne"));
+			tmp.put("k", SpeedwalkExpand.compassEntry("k", "sw"));
+			tmp.put("l", SpeedwalkExpand.compassEntry("l", "se"));
 			mSettings.setDirections(tmp);
 			mSpeedwalkCommand.setDirections(tmp);
+			mRevCommand.setDirections(tmp);
 		} else {
 			mSpeedwalkCommand.setDirections(mSettings.getDirections());
+			mRevCommand.setDirections(mSettings.getDirections());
 		}
 		
 		if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
@@ -7515,6 +7521,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	public final void setDirectionData(final HashMap<String, DirectionData> data) {
 		mSettings.setDirections(data);
 		mSpeedwalkCommand.setDirections(data);
+		if (mRevCommand != null) {
+			mRevCommand.setDirections(data);
+		}
 	}
 
 	/** Getter for the title bar height. 
