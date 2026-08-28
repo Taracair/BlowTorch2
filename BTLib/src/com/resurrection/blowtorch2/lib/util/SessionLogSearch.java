@@ -31,6 +31,8 @@ public final class SessionLogSearch {
 	public static final int MAX_DAYS = 3650;
 	public static final int MAX_HITS = 500;
 	public static final int PREVIEW_CHARS = 120;
+	/** Cap for one Search press in the session-log dialog (not `.search logs`). */
+	public static final long SEARCH_BYTE_BUDGET = 16L * 1024L * 1024L;
 
 	/**
 	 * Stamp after the world prefix. Greedy {@code (.+)_} would otherwise treat
@@ -190,6 +192,43 @@ public final class SessionLogSearch {
 	}
 
 	/**
+	 * Shared byte cap for one Search press. {@code used} counts UTF-16
+	 * units plus a newline per line (close to file bytes on ASCII MUD logs).
+	 */
+	public static final class Budget {
+		public final long limitBytes;
+		public long used;
+		public boolean stopped;
+
+		public Budget(long limitBytes) {
+			this.limitBytes = limitBytes < 0L ? 0L : limitBytes;
+		}
+
+		public static Budget ofDefault() {
+			return new Budget(SEARCH_BYTE_BUDGET);
+		}
+
+		public void consume(long bytes) {
+			if (bytes < 0L) {
+				return;
+			}
+			used += bytes;
+			if (used >= limitBytes) {
+				stopped = true;
+			}
+		}
+	}
+
+	public static String budgetStopMessage(long limitBytes) {
+		long mb = limitBytes / (1024L * 1024L);
+		if (mb < 1L) {
+			mb = 1L;
+		}
+		return "Stopped after " + mb
+				+ " MB. Narrow dates or the name filter.";
+	}
+
+	/**
 	 * Match {@code query} over an in-memory list of lines. Used by unit tests
 	 * and by anything that already has the text.
 	 */
@@ -216,29 +255,122 @@ public final class SessionLogSearch {
 	 */
 	public static int searchFile(File file, String query, boolean caseSensitive,
 			int maxHits, List<Hit> out) throws IOException {
+		return searchFile(file, query, caseSensitive, 0, maxHits, null, out);
+	}
+
+	/**
+	 * Stream from {@code startLine} (0-based; skip that many lines first).
+	 * {@code budget} null means no cap. Stops when {@code budget.stopped} or
+	 * {@code maxHits} is reached. Does not load the whole file as one String.
+	 *
+	 * @return number of hits appended
+	 */
+	public static int searchFile(File file, String query, boolean caseSensitive,
+			int startLine, int maxHits, Budget budget, List<Hit> out)
+			throws IOException {
 		if (file == null || !file.isFile() || query == null || query.length() == 0
 				|| maxHits <= 0 || out == null) {
 			return 0;
 		}
+		if (budget != null && budget.stopped) {
+			return 0;
+		}
+		int from = startLine < 0 ? 0 : startLine;
 		int added = 0;
-		BufferedReader reader = new BufferedReader(
-				new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8),
-				8192);
+		BufferedReader reader = openReader(file);
 		try {
 			String line;
 			int index = 0;
 			String name = file.getName();
 			String path = file.getAbsolutePath();
 			while (added < maxHits && (line = reader.readLine()) != null) {
-				if (lineContains(line, query, caseSensitive)) {
+				if (budget != null) {
+					budget.consume(line.length() + 1L);
+				}
+				if (index >= from && lineContains(line, query, caseSensitive)) {
 					out.add(new Hit(name, path, index, preview(line)));
 					added++;
 				}
 				index++;
+				if (budget != null && budget.stopped) {
+					break;
+				}
 			}
 		} finally {
 			reader.close();
 		}
 		return added;
+	}
+
+	/**
+	 * First match at or after {@code fromLine}. If none and {@code wrap} and
+	 * the scan finished inside the budget, first match from line 0.
+	 */
+	public static Hit findNextInFile(File file, String query, boolean caseSensitive,
+			int fromLine, boolean wrap, Budget budget) throws IOException {
+		ArrayList<Hit> out = new ArrayList<Hit>(1);
+		int from = fromLine < 0 ? 0 : fromLine;
+		searchFile(file, query, caseSensitive, from, 1, budget, out);
+		if (out.isEmpty() && wrap && from > 0
+				&& (budget == null || !budget.stopped)) {
+			searchFile(file, query, caseSensitive, 0, 1, null, out);
+		}
+		return out.isEmpty() ? null : out.get(0);
+	}
+
+	/**
+	 * Last match strictly before {@code beforeLine}. If none and {@code wrap}
+	 * and the scan finished inside the budget, last match in the file.
+	 */
+	public static Hit findPreviousInFile(File file, String query,
+			boolean caseSensitive, int beforeLine, boolean wrap, Budget budget)
+			throws IOException {
+		if (file == null || !file.isFile() || query == null || query.length() == 0) {
+			return null;
+		}
+		if (budget != null && budget.stopped) {
+			return null;
+		}
+		Hit lastBefore = null;
+		Hit lastAny = null;
+		BufferedReader reader = openReader(file);
+		try {
+			String line;
+			int index = 0;
+			String name = file.getName();
+			String path = file.getAbsolutePath();
+			while ((line = reader.readLine()) != null) {
+				if (budget != null) {
+					budget.consume(line.length() + 1L);
+				}
+				if (lineContains(line, query, caseSensitive)) {
+					Hit hit = new Hit(name, path, index, preview(line));
+					lastAny = hit;
+					if (index < beforeLine) {
+						lastBefore = hit;
+					}
+				}
+				index++;
+				if (budget != null && budget.stopped) {
+					break;
+				}
+			}
+		} finally {
+			reader.close();
+		}
+		if (lastBefore != null) {
+			return lastBefore;
+		}
+		boolean finished = budget == null || !budget.stopped;
+		if (wrap && finished) {
+			return lastAny;
+		}
+		return null;
+	}
+
+	private static BufferedReader openReader(File file) throws IOException {
+		return new BufferedReader(
+				new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8),
+				8192);
 	}
 }

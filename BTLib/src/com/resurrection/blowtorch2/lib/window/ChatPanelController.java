@@ -531,7 +531,7 @@ public class ChatPanelController {
 		float d = activity.getResources().getDisplayMetrics().density;
 		int size = (int) (22 * d);
 		int gap = (int) (6 * d);
-		int selected = store().mineColorArgb();
+		int selected = store().mineColorArgb(openThreadId);
 		for (int i = 0; i < ChatStore.MINE_COLOR_PRESETS.length; i++) {
 			final int color = ChatStore.MINE_COLOR_PRESETS[i];
 			View chip = new View(activity);
@@ -550,7 +550,10 @@ public class ChatPanelController {
 			chip.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					store().setMineColorArgb(color);
+					if (openThreadId == null) {
+						return;
+					}
+					store().setMineColorArgb(openThreadId, color);
 					paintMineColorChips();
 					reloadThreadMessages();
 				}
@@ -1191,7 +1194,8 @@ public class ChatPanelController {
 				}
 				GradientDrawable bg = new GradientDrawable();
 				bg.setCornerRadius(14 * density);
-				bg.setColor(mine ? store.mineColorArgb() : store.otherColorArgb());
+				bg.setColor(mine ? store.mineColorArgb(openThreadId)
+						: store.otherColorArgb());
 				if (findHit) {
 					bg.setStroke((int) (2 * density), FIND_STROKE);
 				}

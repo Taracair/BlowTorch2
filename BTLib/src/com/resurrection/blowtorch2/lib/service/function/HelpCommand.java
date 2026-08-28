@@ -341,7 +341,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .buttonopacity 100      — force every tile fully opaque\n"
 					+ "  .buttonopacity restore  — each button's own alpha again\n"
 					+ "  .buttonopacity          — show whether an override is on\n"
-					+ "Lasts until restore (not saved). .buttonsopacity is the same command.\n";
+					+ "Lasts until restore, including across .loadset (not saved).\n"
+					+ ".buttonopacity 100 then .loadset tutorial keeps 100% until restore.\n"
+					+ ".buttonsopacity is the same command.\n";
 		}
 		if (filter.equals("suggest") || filter.equals("suggestions")
 				|| filter.equals("complete") || filter.equals("suggestion")) {

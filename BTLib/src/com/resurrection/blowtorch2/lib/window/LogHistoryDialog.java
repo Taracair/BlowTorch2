@@ -58,6 +58,8 @@ public class LogHistoryDialog extends Dialog {
 	private static final int PAGE_LINES = 300;
 	private static final int HIGHLIGHT_LINE = 0x66FFCC00;
 	private static final int HIGHLIGHT_QUERY = 0x4433AADD;
+	private static final String HINT_LIST = "Filter names · Search finds text";
+	private static final String HINT_FILE = "Find in this file";
 
 	private final String mDisplay;
 	private final Handler mMain = new Handler(Looper.getMainLooper());
@@ -90,11 +92,15 @@ public class LogHistoryDialog extends Dialog {
 	private File mPendingFile;
 	private int mPendingLine = -1;
 	private LinearLayout mFilterBar;
+	private LinearLayout mListFilters;
 	private TextView mFolderView;
 	private TextView mFromBtn;
 	private TextView mToBtn;
 	private Button mLoadBtn;
 	private EditText mSearch;
+	private Button mFindPrev;
+	private Button mFindNext;
+	private String mSearchStatus = "";
 	private File mLookDir;
 	private Long mFromMs;
 	private Long mUntilExclusiveMs;
@@ -252,9 +258,11 @@ public class LogHistoryDialog extends Dialog {
 
 	/** Return to the file list (from a search jump, or Back). */
 	public void showListScreen() {
+		mSearchGen++;
 		mOpenFile = null;
 		mIndex = null;
 		mHighlightLine = -1;
+		mSearchStatus = "";
 		showListWidgets();
 		mTitle.setText("Session logs");
 		if (mLoaded.isEmpty()) {
@@ -387,6 +395,10 @@ public class LogHistoryDialog extends Dialog {
 		if (mFilterBar != null) {
 			mFilterBar.setVisibility(View.VISIBLE);
 		}
+		if (mListFilters != null) {
+			mListFilters.setVisibility(View.VISIBLE);
+		}
+		paintSearchHint();
 		mList.setVisibility(mFiles.isEmpty() ? View.GONE : View.VISIBLE);
 		mEmpty.setVisibility(mFiles.isEmpty() ? View.VISIBLE : View.GONE);
 		mFileScroll.setVisibility(View.GONE);
@@ -397,12 +409,29 @@ public class LogHistoryDialog extends Dialog {
 
 	private void showFileWidgets() {
 		if (mFilterBar != null) {
-			mFilterBar.setVisibility(View.GONE);
+			mFilterBar.setVisibility(View.VISIBLE);
 		}
+		if (mListFilters != null) {
+			mListFilters.setVisibility(View.GONE);
+		}
+		paintSearchHint();
 		mList.setVisibility(View.GONE);
 		mEmpty.setVisibility(View.GONE);
 		mFileScroll.setVisibility(View.VISIBLE);
 		mBack.setEnabled(true);
+	}
+
+	private void paintSearchHint() {
+		if (mSearch != null) {
+			mSearch.setHint(mOpenFile != null ? HINT_FILE : HINT_LIST);
+		}
+		int nav = mOpenFile != null ? View.VISIBLE : View.GONE;
+		if (mFindPrev != null) {
+			mFindPrev.setVisibility(nav);
+		}
+		if (mFindNext != null) {
+			mFindNext.setVisibility(nav);
+		}
 	}
 
 	private void openFile(final File file, final int lineIndex) {
@@ -510,10 +539,14 @@ public class LogHistoryDialog extends Dialog {
 						}
 						int to = Math.min(from + PAGE_LINES, index.lineCount());
 						int shownFrom = index.lineCount() == 0 ? 0 : from + 1;
-						mSubtitle.setText(file.getAbsolutePath() + "\n"
+						String page = file.getAbsolutePath() + "\n"
 								+ "lines " + shownFrom + "–" + to
 								+ " of " + index.lineCount()
-								+ "  (" + formatSize(file.length()) + ")");
+								+ "  (" + formatSize(file.length()) + ")";
+						if (mSearchStatus != null && mSearchStatus.length() > 0) {
+							page = mSearchStatus + "\n" + page;
+						}
+						mSubtitle.setText(page);
 						int rel = (mHighlightLine >= from && mHighlightLine < to)
 								? mHighlightLine - from : -1;
 						mFileText.setText(highlight(text, rel, mQuery, mCaseSensitive));
@@ -630,7 +663,9 @@ public class LogHistoryDialog extends Dialog {
 				askFolder();
 			}
 		});
-		bar.addView(mFolderView);
+		mListFilters = new LinearLayout(getContext());
+		mListFilters.setOrientation(LinearLayout.VERTICAL);
+		mListFilters.addView(mFolderView);
 
 		LinearLayout dates = new LinearLayout(getContext());
 		dates.setOrientation(LinearLayout.HORIZONTAL);
@@ -687,10 +722,15 @@ public class LogHistoryDialog extends Dialog {
 				LinearLayout.LayoutParams.WRAP_CONTENT,
 				LinearLayout.LayoutParams.WRAP_CONTENT);
 		dates.addView(mLoadBtn, loadLp);
-		bar.addView(dates);
+		mListFilters.addView(dates);
+		bar.addView(mListFilters);
+
+		LinearLayout searchRow = new LinearLayout(getContext());
+		searchRow.setOrientation(LinearLayout.HORIZONTAL);
+		searchRow.setGravity(Gravity.CENTER_VERTICAL);
 
 		mSearch = new EditText(getContext());
-		mSearch.setHint("Search file names, or type and press Search to find in loaded files");
+		mSearch.setHint(HINT_LIST);
 		mSearch.setTextColor(color(R.color.chrome_title_text));
 		mSearch.setHintTextColor(color(R.color.chrome_description));
 		mSearch.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
@@ -732,13 +772,43 @@ public class LogHistoryDialog extends Dialog {
 				if (actionId == EditorInfo.IME_ACTION_SEARCH
 						|| (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
 								&& event.getAction() == KeyEvent.ACTION_DOWN)) {
-					searchLoadedContents();
+					if (mOpenFile != null) {
+						findInOpenFile(1);
+					} else {
+						searchLoadedContents();
+					}
 					return true;
 				}
 				return false;
 			}
 		});
-		bar.addView(mSearch);
+		LinearLayout.LayoutParams searchLp = new LinearLayout.LayoutParams(0,
+				LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		searchRow.addView(mSearch, searchLp);
+
+		int navW = (int) (44 * density + 0.5f);
+		LinearLayout.LayoutParams navLp = new LinearLayout.LayoutParams(navW,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		navLp.leftMargin = gap;
+		mFindPrev = chromeFooterButton("‹");
+		mFindPrev.setVisibility(View.GONE);
+		mFindPrev.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				findInOpenFile(-1);
+			}
+		});
+		mFindNext = chromeFooterButton("›");
+		mFindNext.setVisibility(View.GONE);
+		mFindNext.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				findInOpenFile(1);
+			}
+		});
+		searchRow.addView(mFindPrev, navLp);
+		searchRow.addView(mFindNext, navLp);
+		bar.addView(searchRow);
 		return bar;
 	}
 
@@ -896,61 +966,178 @@ public class LogHistoryDialog extends Dialog {
 	private void searchLoadedContents() {
 		final String query = mSearch == null ? ""
 				: mSearch.getText().toString().trim();
-		if (query.length() == 0 || mLoaded.isEmpty()) {
+		if (query.length() == 0) {
 			return;
 		}
-		mSubtitle.setText("Searching " + mLoaded.size() + " loaded files…");
+		if (mLoaded.isEmpty()) {
+			mSubtitle.setText("Tap Load, then Search.");
+			return;
+		}
+		final ArrayList<File> files = new ArrayList<File>();
+		if (!mFiles.isEmpty()) {
+			files.addAll(mFiles);
+		} else {
+			// Name filter hid every row: treat the box as a content query.
+			files.addAll(mLoaded);
+		}
+		mSearchStatus = "";
+		mSubtitle.setText("Searching " + files.size() + " file"
+				+ (files.size() == 1 ? "" : "s") + "…");
 		final int gen = ++mSearchGen;
-		final ArrayList<File> files = new ArrayList<File>(mLoaded);
 		SessionLogSearch.runIo(new Runnable() {
 			@Override
 			public void run() {
 				File hitFile = null;
 				int hitLine = -1;
-				int hits = 0;
+				SessionLogSearch.Budget budget = SessionLogSearch.Budget.ofDefault();
+				ArrayList<SessionLogSearch.Hit> found =
+						new ArrayList<SessionLogSearch.Hit>(1);
 				for (int i = 0; i < files.size(); i++) {
 					if (!mAlive || gen != mSearchGen) {
 						return;
 					}
-					java.util.ArrayList<SessionLogSearch.Hit> found =
-							new java.util.ArrayList<SessionLogSearch.Hit>();
+					if (budget.stopped) {
+						break;
+					}
+					found.clear();
 					try {
 						SessionLogSearch.searchFile(files.get(i), query, false,
-								1, found);
-					} catch (java.io.IOException e) {
+								0, 1, budget, found);
+					} catch (IOException e) {
 						continue;
 					}
 					if (!found.isEmpty()) {
-						hits++;
-						if (hitFile == null) {
-							hitFile = files.get(i);
-							hitLine = found.get(0).lineIndex;
-						}
+						hitFile = files.get(i);
+						hitLine = found.get(0).lineIndex;
+						break;
 					}
 				}
 				final File first = hitFile;
 				final int line = hitLine;
-				final int n = hits;
+				final boolean stopped = budget.stopped;
 				mMain.post(new Runnable() {
 					@Override
 					public void run() {
 						if (!mAlive || gen != mSearchGen) {
 							return;
 						}
+						String stop = stopped
+								? SessionLogSearch.budgetStopMessage(
+										SessionLogSearch.SEARCH_BYTE_BUDGET)
+								: "";
 						if (first == null) {
-							mSubtitle.setText("No \"" + query + "\" in the "
-									+ files.size() + " loaded files.");
+							if (stopped) {
+								mSubtitle.setText(stop);
+							} else {
+								mSubtitle.setText("No \"" + query + "\" in the "
+										+ files.size() + " file"
+										+ (files.size() == 1 ? "" : "s") + ".");
+							}
 							return;
 						}
 						mQuery = query;
 						mCaseSensitive = false;
-						mSubtitle.setText(n + " loaded file"
-								+ (n == 1 ? "" : "s") + " contain \"" + query + "\".");
+						String status = "Found \"" + query + "\" in "
+								+ first.getName() + ".";
+						if (stopped) {
+							status = status + " " + stop;
+						}
+						mSearchStatus = status;
 						openFile(first, line);
 					}
 				});
 			}
 		});
+	}
+
+	/**
+	 * Next/previous match in the open file only. Does not walk {@code mLoaded}.
+	 * {@code direction} is +1 (next, wrap) or -1 (previous, wrap).
+	 */
+	private void findInOpenFile(int direction) {
+		final File file = mOpenFile;
+		final String query = mSearch == null ? ""
+				: mSearch.getText().toString().trim();
+		if (file == null || query.length() == 0) {
+			return;
+		}
+		if (mIndex == null) {
+			mSubtitle.setText("Still reading…");
+			return;
+		}
+		final int from = direction < 0
+				? mHighlightLine
+				: (mHighlightLine < 0 ? 0 : mHighlightLine + 1);
+		final int gen = ++mSearchGen;
+		final boolean backwards = direction < 0;
+		SessionLogSearch.runIo(new Runnable() {
+			@Override
+			public void run() {
+				SessionLogSearch.Hit hit = null;
+				boolean stopped = false;
+				try {
+					SessionLogSearch.Budget budget = SessionLogSearch.Budget.ofDefault();
+					if (backwards) {
+						hit = SessionLogSearch.findPreviousInFile(file, query,
+								false, from, true, budget);
+					} else {
+						hit = SessionLogSearch.findNextInFile(file, query,
+								false, from, true, budget);
+					}
+					stopped = budget.stopped;
+				} catch (IOException e) {
+					hit = null;
+				}
+				final SessionLogSearch.Hit found = hit;
+				final boolean budgetStop = stopped;
+				mMain.post(new Runnable() {
+					@Override
+					public void run() {
+						if (!mAlive || gen != mSearchGen || mOpenFile != file) {
+							return;
+						}
+						if (found == null) {
+							if (budgetStop) {
+								mSearchStatus = SessionLogSearch.budgetStopMessage(
+										SessionLogSearch.SEARCH_BYTE_BUDGET);
+								mSubtitle.setText(mSearchStatus);
+							} else {
+								mSearchStatus = "No \"" + query + "\" in this file.";
+								mSubtitle.setText(mSearchStatus);
+							}
+							return;
+						}
+						mQuery = query;
+						mCaseSensitive = false;
+						mSearchStatus = budgetStop
+								? SessionLogSearch.budgetStopMessage(
+										SessionLogSearch.SEARCH_BYTE_BUDGET)
+								: "";
+						jumpToLine(found.lineIndex);
+					}
+				});
+			}
+		});
+	}
+
+	private void jumpToLine(int lineIndex) {
+		if (mIndex == null) {
+			return;
+		}
+		int jump = lineIndex;
+		if (jump < 0 || jump >= mIndex.lineCount()) {
+			return;
+		}
+		int start = jump - PAGE_LINES / 4;
+		if (start < 0) {
+			start = 0;
+		}
+		if (start + PAGE_LINES > mIndex.lineCount()) {
+			start = Math.max(0, mIndex.lineCount() - PAGE_LINES);
+		}
+		mPageStart = start;
+		mHighlightLine = jump;
+		renderPage();
 	}
 
 	private int color(int id) {

@@ -167,6 +167,101 @@ public class SearchCommandTest {
 	}
 
 	@Test
+	public void lineContainsIsCaseAware() {
+		assertTrue(SessionLogSearch.lineContains("You see a Goblin.", "goblin", false));
+		assertFalse(SessionLogSearch.lineContains("You see a Goblin.", "goblin", true));
+		assertTrue(SessionLogSearch.lineContains("You see a Goblin.", "Goblin", true));
+		assertFalse(SessionLogSearch.lineContains(null, "x", false));
+		assertFalse(SessionLogSearch.lineContains("x", "", false));
+		assertFalse(SessionLogSearch.lineContains("x", null, false));
+	}
+
+	@Test
+	public void searchFileFromStartLineSkipsEarlierHits() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File f = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+		try {
+			out.write("A goblin.\nskip\nAnother goblin.\n".getBytes(
+					java.nio.charset.StandardCharsets.UTF_8));
+		} finally {
+			out.close();
+		}
+		java.util.ArrayList<SessionLogSearch.Hit> hits =
+				new java.util.ArrayList<SessionLogSearch.Hit>();
+		int n = SessionLogSearch.searchFile(f, "goblin", false, 1, 10, null, hits);
+		assertEquals(1, n);
+		assertEquals(2, hits.get(0).lineIndex);
+		f.delete();
+		dir.delete();
+	}
+
+	@Test
+	public void searchFileStopsWhenByteBudgetIsExhausted() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File f = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+		try {
+			StringBuilder body = new StringBuilder();
+			for (int i = 0; i < 30; i++) {
+				body.append("aaaaaaaaaaaaaaaaaaaa\n");
+			}
+			body.append("needle\n");
+			out.write(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		} finally {
+			out.close();
+		}
+		SessionLogSearch.Budget budget = new SessionLogSearch.Budget(50L);
+		java.util.ArrayList<SessionLogSearch.Hit> hits =
+				new java.util.ArrayList<SessionLogSearch.Hit>();
+		int n = SessionLogSearch.searchFile(f, "needle", false, 0, 10, budget, hits);
+		assertEquals(0, n);
+		assertTrue(budget.stopped);
+		assertTrue(budget.used >= 50L);
+		assertEquals("Stopped after 16 MB. Narrow dates or the name filter.",
+				SessionLogSearch.budgetStopMessage(SessionLogSearch.SEARCH_BYTE_BUDGET));
+		f.delete();
+		dir.delete();
+	}
+
+	@Test
+	public void findNextAndPreviousWrapInsideOneFile() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File f = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+		try {
+			out.write("A goblin.\nskip\nAnother goblin.\n".getBytes(
+					java.nio.charset.StandardCharsets.UTF_8));
+		} finally {
+			out.close();
+		}
+		SessionLogSearch.Hit next = SessionLogSearch.findNextInFile(
+				f, "goblin", false, 1, true, null);
+		assertNotNull(next);
+		assertEquals(2, next.lineIndex);
+		SessionLogSearch.Hit wrapNext = SessionLogSearch.findNextInFile(
+				f, "goblin", false, 3, true, null);
+		assertNotNull(wrapNext);
+		assertEquals(0, wrapNext.lineIndex);
+		SessionLogSearch.Hit prev = SessionLogSearch.findPreviousInFile(
+				f, "goblin", false, 2, true, null);
+		assertNotNull(prev);
+		assertEquals(0, prev.lineIndex);
+		SessionLogSearch.Hit wrapPrev = SessionLogSearch.findPreviousInFile(
+				f, "goblin", false, 0, true, null);
+		assertNotNull(wrapPrev);
+		assertEquals(2, wrapPrev.lineIndex);
+		f.delete();
+		dir.delete();
+	}
+
+	@Test
 	public void olderThanDaysCutoff() {
 		long now = 1_000_000_000_000L;
 		long day = 24L * 60L * 60L * 1000L;

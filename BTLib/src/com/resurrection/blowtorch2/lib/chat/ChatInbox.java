@@ -43,6 +43,8 @@ final class ChatInbox {
 		int unreadCount;
 		String mineNeedle;
 		Pattern mineCompiled;
+		/** 0 = inherit the world-level mineColor. */
+		int mineColor;
 
 		ThreadState(String threadId, String title, String replyTemplate, int unreadCount) {
 			this.threadId = threadId == null ? "" : threadId;
@@ -51,6 +53,7 @@ final class ChatInbox {
 			this.unreadCount = unreadCount < 0 ? 0 : unreadCount;
 			this.mineNeedle = "";
 			this.mineCompiled = null;
+			this.mineColor = 0;
 		}
 
 		void setMineNeedle(String needle) {
@@ -218,6 +221,28 @@ final class ChatInbox {
 
 	void setMineColor(int argb) {
 		mineColor = argb;
+	}
+
+	/**
+	 * Own-bubble colour for one thread. {@code 0} on the thread inherits
+	 * the world default ({@link #mineColor()}). Missing threads inherit.
+	 */
+	int mineColor(String threadId) {
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		if (state == null || state.mineColor == 0) {
+			return mineColor;
+		}
+		return state.mineColor;
+	}
+
+	void setMineColor(String threadId, int argb) {
+		String id = threadId == null ? "" : threadId;
+		ThreadState state = threads.get(id);
+		if (state == null) {
+			state = new ThreadState(id, id, "", 0);
+			threads.put(id, state);
+		}
+		state.mineColor = argb;
 	}
 
 	int otherColor() {
@@ -517,6 +542,7 @@ final class ChatInbox {
 				t.put("replyTemplate", state.replyTemplate);
 				t.put("unreadCount", state.unreadCount);
 				t.put("mineNeedle", state.mineNeedle == null ? "" : state.mineNeedle);
+				t.put("mineColor", state.mineColor);
 				threadArr.put(t);
 			}
 			JSONArray messageArr = new JSONArray();
@@ -572,6 +598,7 @@ final class ChatInbox {
 							t.optString("replyTemplate", ""),
 							t.optInt("unreadCount", 0));
 					state.setMineNeedle(t.optString("mineNeedle", ""));
+					state.mineColor = t.optInt("mineColor", 0);
 					inbox.threads.put(id, state);
 				}
 			}

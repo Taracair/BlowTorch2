@@ -147,7 +147,7 @@
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
                 android:paddingBottom="6dp"
-                android:text="Your speaker. This chat only."
+                android:text="Your speaker and bubble colour. This chat only."
                 android:textColor="@color/chrome_description"
                 android:textSize="11sp" />
 

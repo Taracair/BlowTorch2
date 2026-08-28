@@ -105,6 +105,8 @@ end
 -- Whichever of loadButtons and loadOptions ran last decided how the pad looked,
 -- so the badges came and went with no setting having changed. This is the one
 -- place that owns those three, and both callers use it.
+-- Session .buttonopacity is not an Options key, so it is held across the
+-- require in loadButtons rather than restored here.
 function applyButtonDrawOptions()
 	local o = options or {}
 	-- 6 is the default declared in default_settings_*.xml (key "roundess").
@@ -116,10 +118,15 @@ end
 function loadButtons(args)
 
 	debugString("Button Window loading buttons...")
+	-- Session .buttonopacity is not an Options key. Reloading button.lua
+	-- resets the override to nil; applyButtonDrawOptions cannot put it back.
+	-- Keep it until .buttonopacity restore. Do not write it into the set.
+	local savedOpacityOverride = buttonOpacityOverride
 	package.loaded["button"] = nil
 	require("button")
 	-- The reload above has just reset them to button.lua's defaults.
 	applyButtonDrawOptions()
+	buttonOpacityOverride = savedOpacityOverride
 
 	-- marshal is a native library and args comes across the binder, where the
 	-- parcel budget can truncate. Do not assume decode returns a table: an

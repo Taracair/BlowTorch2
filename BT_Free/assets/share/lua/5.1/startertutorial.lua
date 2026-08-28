@@ -347,6 +347,10 @@ Try now:
   2. Hold or flip LOAD → .loadset default (full starter pad)
   3. Or type:  .loadset default
 
+A session .buttonopacity survives a set switch. .buttonopacity 100 then
+tap LOAD (.loadset tutorial): the new pad is still fully opaque.
+.buttonopacity restore brings each tile's own alpha back.
+
 Why this matters: one pad for combat, another for shopping, another for
 crafting — flip between them with one tap instead of re-editing.
 
@@ -811,6 +815,7 @@ read it. Type in the reply box and Send.
 
 ⚙ in an open conversation
   My lines   your speaker for this chat only
+             colour chips: own-bubble colour for this chat only
   Reply      command sent to the world; $text is the reply box
              hint like the trigger: tell $1 $text
   From/To/7d/All  date filter (not on the thread face)
@@ -1491,7 +1496,7 @@ local TIPS = {
 	sensor = [[.sensor lists phone readings (shake, wave, …) as ordinary triggers. Options → Device → Sensors….]],
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
-	loadset = [[.loadset <name> loads a button set. Reloading wipes .buttonopacity until you set it again.]],
+	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],
 	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
 	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. .chat vermin opens that conversation (id or title). ⚙ has My lines, Reply ($text), dates, Save, Delete. Tap a chat notification to open that thread. Options → Chat for the unread disc, in-game line, and a message cap (default 4000).]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
@@ -1499,7 +1504,7 @@ local TIPS = {
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],
 	colordebug = [[.colordebug 0–3 shows or hides ANSI codes in the window.]],
 	probe = [[.probe report measures how lines arrive. .probe truecolor / .probe osc8 / .probe mxp dump samples here. .probe protocols is the same as .protocols.]],
-	buttonopacity = [[.buttonopacity 100 forces every tile's alpha until .buttonopacity restore or .loadset.]],
+	buttonopacity = [[.buttonopacity 100 forces every tile fully opaque until .buttonopacity restore. .loadset keeps that override.]],
 	buttonsopacity = [[Same as .buttonopacity.]],
 	clearbuttons = [[.clearbuttons hides the pad until the next .loadset (BACK on the tutorial pad restores).]],
 	editbutton = [[.editbutton on|off shows the Edit button on the input bar.]],

@@ -279,6 +279,22 @@ public final class ChatStore {
 		}
 	}
 
+	public int mineColorArgb(String threadId) {
+		synchronized (lock) {
+			reloadIfNewerLocked();
+			return inbox.mineColor(threadId);
+		}
+	}
+
+	public void setMineColorArgb(String threadId, int argb) {
+		synchronized (lock) {
+			mutateUnderFileLock(() -> {
+				inbox.setMineColor(threadId, argb);
+				return true;
+			});
+		}
+	}
+
 	public int otherColorArgb() {
 		synchronized (lock) {
 			reloadIfNewerLocked();

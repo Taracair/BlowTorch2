@@ -84,6 +84,84 @@ local playing = assert(loadfn(
 		"opacity-playing"))()
 check(playing == 0, "not editing → session 0")
 
+print("6. loadButtons keeps the session override across require(\"button\")")
+local BW = scriptDir() .. "/../../../assets/share/lua/5.1/buttonwindow.lua"
+local bwLines = {}
+local bwHandle = assert(io.open(BW, "r"), "cannot open " .. BW)
+for line in bwHandle:lines() do bwLines[#bwLines + 1] = line end
+bwHandle:close()
+
+local loadStart, loadEnd
+for i, line in ipairs(bwLines) do
+	if line:match("^function loadButtons") then
+		loadStart = i
+	elseif loadStart and not loadEnd and line:match("^function ") then
+		loadEnd = i - 1
+		break
+	end
+end
+check(loadStart ~= nil, "found loadButtons")
+check(loadEnd ~= nil, "found end of loadButtons")
+
+local captureLine, unloadLine, requireLine, applyLine, restoreLine
+if loadStart and loadEnd then
+	for i = loadStart, loadEnd do
+		local line = bwLines[i]
+		if line:match("^%s*local%s+savedOpacityOverride%s*=%s*buttonOpacityOverride%s*$") then
+			captureLine = i
+		end
+		if line:match('package%.loaded%["button"%]%s*=%s*nil') then
+			unloadLine = i
+		end
+		if line:match('require%("button"%)') then
+			requireLine = i
+		end
+		if line:match("^%s*applyButtonDrawOptions%s*%(") then
+			applyLine = i
+		end
+		if line:match("^%s*buttonOpacityOverride%s*=%s*savedOpacityOverride%s*$") then
+			restoreLine = i
+		end
+	end
+end
+check(captureLine ~= nil, "captures buttonOpacityOverride before reload")
+check(unloadLine ~= nil, "unloads package.loaded[\"button\"]")
+check(requireLine ~= nil, "requires button.lua")
+check(applyLine ~= nil, "calls applyButtonDrawOptions")
+check(restoreLine ~= nil, "assigns the saved override back")
+check(captureLine and unloadLine and captureLine < unloadLine,
+	"capture is before package.loaded[\"button\"] = nil")
+check(requireLine and restoreLine and restoreLine > requireLine,
+	"restore is after require(\"button\")")
+check(applyLine and restoreLine and restoreLine > applyLine,
+	"restore is after applyButtonDrawOptions")
+
+if captureLine and restoreLine then
+	local preserveChunk = table.concat(bwLines, "\n", captureLine, restoreLine)
+	local origRequire = require
+	function require(mod)
+		if mod == "button" then
+			-- button.lua top-level: buttonOpacityOverride = nil
+			buttonOpacityOverride = nil
+			return true
+		end
+		return origRequire(mod)
+	end
+	function applyButtonDrawOptions()
+		-- restores roundness/hints/swipe preview from Options, not opacity
+	end
+	buttonOpacityOverride = 255
+	assert(loadfn(preserveChunk, "loadButtons-opacity-255"))()
+	check(buttonOpacityOverride == 255, "forced 100% (255) survives the reload")
+	buttonOpacityOverride = 0
+	assert(loadfn(preserveChunk, "loadButtons-opacity-0"))()
+	check(buttonOpacityOverride == 0, "forced 0% survives the reload")
+	buttonOpacityOverride = nil
+	assert(loadfn(preserveChunk, "loadButtons-opacity-nil"))()
+	check(buttonOpacityOverride == nil, "no override stays nil")
+	require = origRequire
+end
+
 if failures > 0 then
 	print(string.format("FAILED (%d)", failures))
 	os.exit(1)

@@ -1377,7 +1377,7 @@ is enabled; `.alias list` shows every alias at once.
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
-    `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
+    `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. `.loadset` keeps that override. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback and old session logs; see forms below
     `.chat …`                           Left-hand chat drawer (threads and reply templates); see forms below
@@ -1790,8 +1790,11 @@ to text that arrived then.
 (⋮ → **Session logs**). It reads the folder **Options → Service → Session Log
 Directory** names (blank = `/BlowTorch/session_logs/`). Choose From/To (or 7d /
 All) and tap **Load** — a folder with thousands of files can take a while;
-the dialog says so instead of a bare “Loading…”. Search filters file names;
-the keyboard Search key looks inside the files you already loaded. **Change**
+the dialog says so instead of a bare “Loading…”. The box filters file names
+as you type (`Filter names · Search finds text`). Keyboard Search looks inside
+the files still listed, not the whole folder, and stops after 16 MB if the
+range is too wide. With a file open, the same box (and ‹ ›) finds the next
+match in that file only and wraps. **Change**
 (tap the folder line) lists another directory without moving where new logs
 are written. Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt`. Tap a file to
 read it; large files page with **Older** / **Newer**.

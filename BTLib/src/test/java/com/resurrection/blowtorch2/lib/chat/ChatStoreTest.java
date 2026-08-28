@@ -429,6 +429,49 @@ public class ChatStoreTest {
 	}
 
 	@Test
+	public void mineColorIsPerThreadAndInheritsWorldDefault() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.setMineColorArgb(0xFF123456);
+		store.setMineColorArgb("vermin", 0xFF1B6B66);
+		store.setMineColorArgb("tells", 0xFF1A4A7A);
+		assertEquals(0xFF1B6B66, store.mineColorArgb("vermin"));
+		assertEquals(0xFF1A4A7A, store.mineColorArgb("tells"));
+		assertEquals(0xFF123456, store.mineColorArgb("unset"));
+		assertEquals(0xFF123456, store.mineColorArgb());
+		store.appendAt("lonely", "Lonely", "hi", 1L);
+		assertEquals(0xFF123456, store.mineColorArgb("lonely"));
+	}
+
+	@Test
+	public void jsonRoundTripPreservesPerThreadMineColor() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineColor(0xFF123456);
+		inbox.setMineColor("vermin", 0xFF1B6B66);
+		inbox.setMineColor("tells", 0xFF1A4A7A);
+		inbox.append("vermin", "VERMIN", "hello", 1L, true, false);
+		inbox.append("tells", "Tells", "yo", 2L, false, true);
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals(0xFF123456, loaded.mineColor());
+		assertEquals(0xFF1B6B66, loaded.mineColor("vermin"));
+		assertEquals(0xFF1A4A7A, loaded.mineColor("tells"));
+		assertEquals(0xFF123456, loaded.mineColor("unset"));
+	}
+
+	@Test
+	public void oldRootMineColorPaintsThreadsWithoutOwnColor() {
+		String json = "{\"mineColor\":" + 0xFF123456 + ",\"threads\":[{"
+				+ "\"threadId\":\"vermin\",\"title\":\"VERMIN\","
+				+ "\"replyTemplate\":\"\",\"unreadCount\":0}],"
+				+ "\"messages\":[{\"threadId\":\"vermin\",\"title\":\"VERMIN\","
+				+ "\"body\":\"hi\",\"whenMs\":1,\"mine\":false}]}";
+		ChatInbox loaded = ChatInbox.fromJsonBytes(json.getBytes());
+		assertEquals(0xFF123456, loaded.mineColor());
+		assertEquals(0xFF123456, loaded.mineColor("vermin"));
+		loaded.append("tells", "Tells", "yo", 2L);
+		assertEquals(0xFF123456, loaded.mineColor("tells"));
+	}
+
+	@Test
 	public void mineNeedleIsPerThread() {
 		ChatStore store = new ChatStore(new ChatInbox());
 		store.setMineNeedle("vermin", "Taracair");
