@@ -360,6 +360,7 @@ public class ExtraTextOverlayController {
 		win.setVisibility(View.VISIBLE);
 		win.flushBuffer();
 		win.invalidate();
+		applyLightPaperFromMain(win);
 		win.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
 			@Override
 			public void onLayoutChange(View v, int left, int top, int right, int bottom,
@@ -421,7 +422,7 @@ public class ExtraTextOverlayController {
 			e.titleBar.setVisibility(floatMode ? View.VISIBLE : View.GONE);
 			if (res != null) {
 				e.titleBar.setBackgroundColor(bar
-						? res.getColor(R.color.extra_text_title_bar)
+						? titleBarColor(res)
 						: android.graphics.Color.TRANSPARENT);
 			}
 		}
@@ -436,7 +437,7 @@ public class ExtraTextOverlayController {
 			e.titleView.setVisibility(floatMode ? View.VISIBLE : View.GONE);
 			if (res != null) {
 				e.titleView.setTextColor(bar
-						? res.getColor(R.color.extra_text_title_text)
+						? titleTextColor(res)
 						: android.graphics.Color.TRANSPARENT);
 			}
 		}
@@ -444,7 +445,7 @@ public class ExtraTextOverlayController {
 			e.dragHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);
 			if (res != null) {
 				e.dragHandle.setTextColor(bar
-						? res.getColor(R.color.extra_text_grip)
+						? gripColor(res)
 						: android.graphics.Color.TRANSPARENT);
 			}
 		}
@@ -479,7 +480,7 @@ public class ExtraTextOverlayController {
 			e.resizeHandle.setVisibility(floatMode ? View.VISIBLE : View.GONE);
 			if (res != null && e.resizeHandle instanceof TextView) {
 				((TextView) e.resizeHandle).setTextColor(grip
-						? res.getColor(R.color.extra_text_resize_grip)
+						? resizeGripColor(res)
 						: android.graphics.Color.TRANSPARENT);
 			}
 			if (res != null) {
@@ -503,6 +504,18 @@ public class ExtraTextOverlayController {
 		}
 		if (e.contentHost != null) {
 			e.contentHost.setVisibility(View.VISIBLE);
+		}
+		if (e.overlayRoot != null) {
+			final int frame = mainIsLight() ? LightPaper.LIGHT_PAPER : 0xFF1A1A1A;
+			e.overlayRoot.setBackgroundColor(frame);
+			View body = e.overlayRoot.findViewById(R.id.extra_text_body);
+			if (body != null) {
+				body.setBackgroundColor(frame);
+			}
+		}
+		if (e.closeBtn != null) {
+			e.closeBtn.setColorFilter(mainIsLight() ? LightPaper.LIGHT_INK : 0xFFD2D8DF,
+					android.graphics.PorterDuff.Mode.SRC_IN);
 		}
 		// Collapse flag is obsolete for drawers — clear so geometry uses full height.
 		if (drawer && e.slot.isCollapsed()) {
@@ -532,6 +545,58 @@ public class ExtraTextOverlayController {
 		for (OverlayEntry e : entries.values()) {
 			applyScrollSpeed(e);
 		}
+	}
+
+	/** Extra-text canvas and title bar follow the main window's light paper. */
+	public void refreshLightPaper() {
+		for (OverlayEntry e : entries.values()) {
+			applyLightPaperFromMain(e.window);
+			applyChromeForMode(e);
+		}
+	}
+
+	private boolean mainIsLight() {
+		MainWindow activity = host.getMainWindow();
+		if (activity == null || activity.windowMap == null) {
+			return false;
+		}
+		Window main = activity.windowMap.get("mainDisplay");
+		return main != null && main.isLightPaper();
+	}
+
+	private int titleBarColor(final android.content.res.Resources res) {
+		if (mainIsLight()) {
+			return 0xFFD8D4CC;
+		}
+		return res.getColor(R.color.extra_text_title_bar);
+	}
+
+	private int titleTextColor(final android.content.res.Resources res) {
+		if (mainIsLight()) {
+			return LightPaper.LIGHT_INK;
+		}
+		return res.getColor(R.color.extra_text_title_text);
+	}
+
+	private int gripColor(final android.content.res.Resources res) {
+		if (mainIsLight()) {
+			return LightPaper.LIGHT_INK;
+		}
+		return res.getColor(R.color.extra_text_grip);
+	}
+
+	private int resizeGripColor(final android.content.res.Resources res) {
+		if (mainIsLight()) {
+			return LightPaper.LIGHT_INK;
+		}
+		return res.getColor(R.color.extra_text_resize_grip);
+	}
+
+	private void applyLightPaperFromMain(final Window win) {
+		if (win == null) {
+			return;
+		}
+		win.applyLightPaper(mainIsLight());
 	}
 
 	/**

@@ -117,6 +117,8 @@ public class WindowToken implements Parcelable {
 		dim_repeated_window,
 		/** How hard to dim a repeat (percent). Higher is darker. Default 50. */
 		dim_repeated_strength,
+		/** Light grey paper and darkened ink. Off by default. .light on|off */
+		light_paper,
 		/** Date overlay + position mark while scrolled into history. .when on|off */
 		scroll_dates,
 		/** Opacity of that date overlay, percent. Default 75. .when opacity N */
@@ -425,6 +427,13 @@ public class WindowToken implements Parcelable {
 		dimRepeatedStrength.setKey("dim_repeated_strength");
 		dimRepeatedStrength.setValue(RepeatedLineDimmer.DEFAULT_STRENGTH);
 		window.addOption(dimRepeatedStrength);
+
+		BooleanOption lightPaper = new BooleanOption();
+		lightPaper.setTitle("Light theme?");
+		lightPaper.setDescription("Light grey paper and dark ink. Colours the game sends (red, cyan, …) stay; whites and light greys are darkened so they stay readable. Extra-text windows follow this window. Off by default. .light on|off");
+		lightPaper.setKey("light_paper");
+		lightPaper.setValue(false);
+		window.addOption(lightPaper);
 
 		BooleanOption scrollDates = new BooleanOption();
 		scrollDates.setTitle("Scroll dates?");

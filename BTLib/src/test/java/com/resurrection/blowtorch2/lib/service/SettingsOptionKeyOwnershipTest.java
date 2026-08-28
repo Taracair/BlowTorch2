@@ -23,6 +23,7 @@ public class SettingsOptionKeyOwnershipTest {
 		String[] windowKeys = { "word_wrap", "scroll_sensitivity", "font_size", "buffer_size",
 				"top_padding", "bottom_padding", "bottom_padding_keyboard",
 				"newest_at_top", "dim_repeated_lines", "dim_repeated_window", "dim_repeated_strength",
+				"light_paper",
 				"scroll_dates", "scroll_dates_opacity",
 				"ime_keep_text", "input_bar_show_edit", "input_bar_show_send",
 				"hyperlinks_enabled", "osc8_links",

@@ -290,6 +290,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	public static final int MESSAGE_REFRESH_IME_LIFT = 923;
 	/** Main window scroll sensitivity changed; overlays set to inherit must follow. */
 	public static final int MESSAGE_REFRESH_EXTRA_TEXT_SCROLL = 927;
+	/** Main window light paper changed; extra-text and input chrome follow. */
+	public static final int MESSAGE_REFRESH_LIGHT_PAPER = 939;
 	/** Extra text overlays: sync after Connection slot mutate / settings change. */
 	protected static final int MESSAGE_EXTRA_TEXT_UI = 924;
 	/** mudstd.frame events are waiting in the service; collect and apply them. */
@@ -1077,6 +1079,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					if (extraTextOverlay != null) {
 						extraTextOverlay.refreshScrollSpeeds();
 					}
+					break;
+				case MESSAGE_REFRESH_LIGHT_PAPER:
+					applyGameLightChrome();
 					break;
 				case MESSAGE_LINEBREAK:
 					//screen2.setLineBreaks((Integer)msg.obj);
@@ -7170,6 +7175,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		if (extraTextOverlay != null) {
 			extraTextOverlay.refreshScrollSpeeds();
 		}
+		applyGameLightChrome();
 	}
 	
 	
@@ -7474,6 +7480,98 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		setupInputEditStrip();
 		setupScrollbackSearchBar();
+	}
+
+	/**
+	 * Input bar, nav bar and extra-text chrome follow the main window's light
+	 * paper. Launcher and Options stay dark — they are not this setting.
+	 *
+	 * <p>The nested strips (edit tools, prompt, in-bar suggestions, search) are
+	 * the same input chrome, not overlays. Leaving them {@code #1A1A1A} on light
+	 * paper is a black band in the command line. Mapper, chat, ⋮ and Options
+	 * are overlays on purpose and stay dark.
+	 */
+	void applyGameLightChrome() {
+		com.resurrection.blowtorch2.lib.window.Window main =
+				windowMap != null ? windowMap.get("mainDisplay") : null;
+		final boolean light = main != null && main.isLightPaper();
+		final int paper = LightPaper.paper(light);
+		final int ink = light ? LightPaper.LIGHT_INK : 0xFF9999FF;
+		final int hint = light ? 0xFF8A8680 : 0xFF666699;
+		final int nest = light ? 0xFFE0DCD4 : 0xFF1A1A1A;
+		View inputBar = findInputBar();
+		if (inputBar != null) {
+			inputBar.setBackgroundColor(paper);
+		}
+		if (mInputBox != null) {
+			mInputBox.setTextColor(ink);
+			mInputBox.setHintTextColor(hint);
+			if (light) {
+				mInputBox.setBackgroundColor(paper);
+			} else {
+				mInputBox.setBackgroundResource(R.drawable.input_bar_bg);
+			}
+		}
+		View tools = findViewById(R.id.input_edit_tools);
+		if (tools != null) {
+			tools.setBackgroundColor(light ? nest : 0xFF1A1A1A);
+		}
+		View suggestions = findViewById(R.id.input_word_suggestions);
+		if (suggestions != null) {
+			suggestions.setBackgroundColor(light ? nest : 0xFF141414);
+		}
+		View prompt = findViewById(R.id.input_prompt_bar);
+		if (prompt instanceof TextView) {
+			prompt.setBackgroundColor(light ? nest : 0xFF101010);
+			((TextView) prompt).setTextColor(light ? ink : 0xFFD0D0D0);
+		}
+		applyScrollbackSearchLightChrome(light, nest);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+			getWindow().setNavigationBarColor(paper);
+		}
+		WindowInsetsControllerCompat insetsController =
+				WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+		if (insetsController != null) {
+			insetsController.setAppearanceLightStatusBars(light);
+			insetsController.setAppearanceLightNavigationBars(light);
+		}
+		if (extraTextOverlay != null) {
+			extraTextOverlay.refreshLightPaper();
+		}
+	}
+
+	private void applyScrollbackSearchLightChrome(final boolean light, final int nest) {
+		View search = findViewById(R.id.scrollback_search_bar);
+		if (search == null) {
+			return;
+		}
+		final android.content.res.Resources res = getResources();
+		search.setBackgroundColor(light ? nest : res.getColor(R.color.chrome_body));
+		final int title = light ? LightPaper.LIGHT_INK : res.getColor(R.color.chrome_title_text);
+		final int desc = light ? 0xFF6A6660 : res.getColor(R.color.chrome_description);
+		final int hint = light ? 0xFF8A8680 : res.getColor(R.color.chrome_hint);
+		setViewTextColor(R.id.scrollback_search_query, title);
+		setViewHintColor(R.id.scrollback_search_query, hint);
+		setViewTextColor(R.id.scrollback_search_case, title);
+		setViewTextColor(R.id.scrollback_search_count, title);
+		setViewTextColor(R.id.scrollback_search_logs, title);
+		setViewTextColor(R.id.scrollback_search_log_days, title);
+		setViewHintColor(R.id.scrollback_search_log_days, hint);
+		setViewTextColor(R.id.scrollback_search_preview, desc);
+	}
+
+	private void setViewTextColor(final int id, final int color) {
+		View v = findViewById(id);
+		if (v instanceof TextView) {
+			((TextView) v).setTextColor(color);
+		}
+	}
+
+	private void setViewHintColor(final int id, final int color) {
+		View v = findViewById(id);
+		if (v instanceof TextView) {
+			((TextView) v).setHintTextColor(color);
+		}
 	}
 
 	private static final String PREFS_INPUT_EDIT = "INPUT_EDIT_STRIP";

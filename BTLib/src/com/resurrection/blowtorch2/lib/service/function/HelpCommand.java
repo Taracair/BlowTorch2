@@ -67,6 +67,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
+		cmd("light", "The window", "light grey paper and dark ink; .light on|off");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
@@ -260,6 +261,14 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .dimrepeat on|off|toggle\n"
 					+ "  .dimrepeat lines N      — remember last N long lines (1-80)\n"
 					+ "  .dimrepeat strength N   — how hard to dim (10-90; higher is darker)\n";
+		}
+		if (filter.equals("light")) {
+			return "\n"
+					+ Colorizer.getBrightCyanColor() + "Children of .light:"
+					+ Colorizer.getWhiteColor() + "\n"
+					+ "  .light              — light grey paper and dark ink\n"
+					+ "  .light on|off|toggle\n"
+					+ "Also: Options → Window → Light theme?\n";
 		}
 		if (filter.equals("when")) {
 			return "\n"

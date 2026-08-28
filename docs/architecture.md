@@ -261,7 +261,7 @@ All under `com.resurrection.blowtorch2.lib`.
 | `ConnectionGmcp`, `ConnectionExtraText`, `ConnectionReconnect`, `ConnectionSessionLog` | Focused helpers |
 | `GMCPData`, `GmcpModuleRegistry`, `GmcpCharLogin`, `GmcpMediaPlayer` | GMCP |
 | `MudstdFrame`, `FrameEvent` | In-band / GMCP frames |
-| `function/` | Dot-commands (`.map`, `.gmcp`, `.timer`, `.osc8`, `.dimrepeat`, …) |
+| `function/` | Dot-commands (`.map`, `.gmcp`, `.timer`, `.osc8`, `.dimrepeat`, `.light`, …) |
 | `plugin/` | `Plugin`, Lua `JavaFunction` packs, settings XML parsers |
 
 ### `window/` — UI process

@@ -251,6 +251,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private LINK_MODE mLinkMode = LINK_MODE.HIGHLIGHT_COLOR_ONLY_BLAND;
 	/** Tracker value for the current link decoration color. */
 	private int mLinkHighlightColor = HyperSettings.DEFAULT_HYPERLINK_COLOR;
+	/** Light paper + darkened ink. Off by default. Extra-text copies the main window. */
+	private boolean mLightPaper = false;
 	/** ANSI Drawing routine current color register. */
 	private Integer mSelectedColor = Integer.valueOf(37);
 	/** ANSI Drawing routine current brightness register. */
@@ -676,6 +678,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		BooleanOption dimRepeated = (BooleanOption) settings.findOptionByKey("dim_repeated_lines");
 		if (dimRepeated != null) {
 			applyDimRepeatedLines((Boolean) dimRepeated.getValue());
+		}
+		BooleanOption lightPaper = (BooleanOption) settings.findOptionByKey("light_paper");
+		if (lightPaper != null) {
+			mLightPaper = (Boolean) lightPaper.getValue();
 		}
 		BooleanOption scrollDates = (BooleanOption) settings.findOptionByKey("scroll_dates");
 		if (scrollDates != null) {
@@ -1578,10 +1584,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			{
 				final int amount = (cp == 0x2591) ? 64 : (cp == 0x2592) ? 128 : 192;
 				final int color = paint.getColor();
-				final int r = (((color >> 16) & 0xFF) * amount) / 255;
-				final int g = (((color >> 8) & 0xFF) * amount) / 255;
-				final int b = ((color & 0xFF) * amount) / 255;
-				paint.setColor(0xFF000000 | (r << 16) | (g << 8) | b);
+				paint.setColor(LightPaper.shadeTowardPaper(color, amount, mLightPaper));
 				c.drawRect(left, top, right, bot, paint);
 				paint.setColor(color);
 			}
@@ -2037,6 +2040,23 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return mScrollSensitivityChoice;
 	}
 
+	/** @return Whether this window paints light paper. */
+	public final boolean isLightPaper() {
+		return mLightPaper;
+	}
+
+	/**
+	 * Extra-text overlays inherit the main window's light paper rather than
+	 * their own (unpersisted) SettingsGroup.
+	 */
+	public final void applyLightPaper(final boolean light) {
+		if (mLightPaper == light) {
+			return;
+		}
+		mLightPaper = light;
+		invalidate();
+	}
+
 	/**
 	 * Set the scroll gain from a {@code scroll_sensitivity} list choice.
 	 * Extra-text overlays are driven through here rather than through their
@@ -2233,14 +2253,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				
 				linkColor = new Paint();
 				linkColor.setAntiAlias(true);
-				linkColor.setColor(mLinkHighlightColor);
+				linkColor.setColor(themedLinkColor());
 			}
 			
-			linkColor.setColor(mLinkHighlightColor);
+			linkColor.setColor(themedLinkColor());
 			calculateScrollBack();
 			c.save();
 			
-			setBgPaintColor(0xFF0A0A0A);
+			setBgPaintColor(LightPaper.paper(mLightPaper));
 			// Own bounds only, never drawColor. drawColor fills the whole clip,
 			// and an extra text overlay turns clipChildren off on every parent up
 			// to its root so the copy widget's disc is not cropped — which made
@@ -2253,7 +2273,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			// return, so between such a call and the next layout pass they hold a
 			// requested size the canvas does not have yet. An undersized rect here
 			// would leave an unpainted band on the main game window.
-			c.drawRect(0, 0, getWidth(), getHeight(), b); // full window (incl. top pad) stays black
+			c.drawRect(0, 0, getWidth(), getHeight(), b); // full window including pad = paper
 			
 			mClipRect.top = textPadTop();
 			mClipRect.left = 0;
@@ -2394,8 +2414,9 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						} else {
 							p.setColor(0xFF000000 | Colorizer.getColorValue(mSelectedBright, mSelectedColor, false));
 						}
-						
-						setBgPaintColor(0xFF000000);//no not bleed background colors
+						themeBleedForeground();
+						// Do not bleed backgrounds: reset to paper (skipped as a cell).
+						setBgPaintColor(LightPaper.paper(mLightPaper));
 	
 					}
 				}
@@ -2403,6 +2424,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			if (!bleeding) {
 				p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37, false));
+				p.setColor(LightPaper.remapForeground(p.getColor(), mLightPaper, true));
 			}
 			mResolvedFg = p.getColor();
 			mPaintingDimLine = false;
@@ -2476,7 +2498,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				while (unitIterator.hasNext()) {
 					Unit u = unitIterator.next();
 					final boolean useBackground =
-							mBgPaintColor != 0xFF0A0A0A && mBgPaintColor != 0xFF000000;
+							!LightPaper.skipCellBackground(mBgPaintColor, mLightPaper);
 					
 					switch(u.type) {
 					case WHITESPACE:
@@ -2601,7 +2623,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								r.right = (int) (x + cellWidth(text));
 								r.bottom = (int) (linkY + 5);
 								if (mLinkMode == LINK_MODE.BACKGROUND) {
-									linkColor.setColor(mLinkHighlightColor);
+									linkColor.setColor(themedLinkColor());
 									c.drawRect(r.left, r.top, r.right, r.bottom, linkColor);
 								}
 								
@@ -2642,7 +2664,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 							case HIGHLIGHT_COLOR:
 								linkColor.setTextSize(p.getTextSize());
 								linkColor.setTypeface(p.getTypeface());
-								linkColor.setColor(mLinkHighlightColor);
+								linkColor.setColor(themedLinkColor());
 								linkColor.setUnderlineText(true);
 								break;
 							case HIGHLIGHT_COLOR_ONLY_BLAND:
@@ -2650,7 +2672,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								linkColor.setTextSize(p.getTextSize());
 								linkColor.setTypeface(p.getTypeface());
 								if (mSelectedColor == 37) {
-									linkColor.setColor(mLinkHighlightColor);
+									linkColor.setColor(themedLinkColor());
 								} else {
 									linkColor.setColor(p.getColor());
 								}
@@ -2668,7 +2690,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 								linkColor.setTextSize(p.getTextSize());
 								linkColor.setTypeface(p.getTypeface());
 								linkColor.setUnderlineText(false);
-								linkColor.setColor(mLinkHighlightColor);
+								linkColor.setColor(themedLinkColor());
 							}
 							
 							if (doIndicator) {
@@ -4334,6 +4356,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		h = 31 * h + (mSelectedBright != null ? mSelectedBright.intValue() : 0);
 		h = 31 * h + (mXterm256FG ? 1 : 0) + (mXterm256BG ? 2 : 0)
 				+ (mTrueColorFG ? 4 : 0) + (mTrueColorBG ? 8 : 0);
+		h = 31 * h + (mLightPaper ? 16 : 0);
 		return h;
 	}
 
@@ -4380,8 +4403,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 
 		if (mColorDebugMode == 2 || mColorDebugMode == 3) {
-			textPaint.setColor(0xFF000000 | Colorizer.getColorValue(0, 37, false));
-			setBgPaintColor(0xFF000000 | Colorizer.getColorValue(0, 40, false));
+			textPaint.setColor(LightPaper.remapForeground(
+					0xFF000000 | Colorizer.getColorValue(0, 37, false),
+					mLightPaper, true));
+			setBgPaintColor(LightPaper.remapBackground(
+					0xFF000000 | Colorizer.getColorValue(0, 40, false),
+					mLightPaper, true));
 			return;
 		}
 
@@ -4402,19 +4429,25 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 
 	/** Apply current FG/BG registers to text and background paints. */
 	private void applyAnsiPaints(final Paint textPaint, final Paint bgPaint) {
-		final int fg;
+		final boolean defaultFg = LightPaper.isDefaultAnsiForeground(
+				mSelectedColor, mXterm256FG, mTrueColorFG);
+		final boolean defaultBg = LightPaper.isDefaultAnsiBackground(
+				mSelectedBackground, mXterm256BG, mTrueColorBG);
+		final int fgRaw;
 		if (mTrueColorFG) {
-			fg = 0xFF000000 | (mSelectedColor.intValue() & 0xFFFFFF);
+			fgRaw = 0xFF000000 | (mSelectedColor.intValue() & 0xFFFFFF);
 		} else {
-			fg = 0xFF000000 | Colorizer.getColorValue(
+			fgRaw = 0xFF000000 | Colorizer.getColorValue(
 					mSelectedBright, mSelectedColor, mXterm256FG);
 		}
+		final int fg = LightPaper.remapForeground(fgRaw, mLightPaper, defaultFg);
 		if (textPaint.getColor() != fg) {
 			textPaint.setColor(fg);
 		}
-		final int bg = mTrueColorBG
+		final int bgRaw = mTrueColorBG
 				? (0xFF000000 | (mSelectedBackground.intValue() & 0xFFFFFF))
 				: (0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground, mXterm256BG));
+		final int bg = LightPaper.remapBackground(bgRaw, mLightPaper, defaultBg);
 		if (bgPaint.getColor() != bg) {
 			bgPaint.setColor(bg);
 		}
@@ -4423,9 +4456,20 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		}
 	}
 
-	/** Scale resolved FG toward black by the player's dim strength. */
+	/** Bleed search found an open FG; remap it the same way {@link #applyAnsiPaints} does. */
+	private void themeBleedForeground() {
+		final boolean defaultFg = LightPaper.isDefaultAnsiForeground(
+				mSelectedColor, mXterm256FG, mTrueColorFG);
+		p.setColor(LightPaper.remapForeground(p.getColor(), mLightPaper, defaultFg));
+	}
+
+	private int themedLinkColor() {
+		return LightPaper.remapForeground(mLinkHighlightColor, mLightPaper, false);
+	}
+
+	/** Scale resolved FG toward the paper by the player's dim strength. */
 	private int dimRepeatedForeground(final int color) {
-		return RepeatedLineDimmer.dimForeground(color, mDimRepeatedStrength);
+		return LightPaper.dimTowardPaper(color, mDimRepeatedStrength, mLightPaper);
 	}
 
 	/**
@@ -5736,6 +5780,12 @@ end
 				applyDimRepeatedStrength((Integer) o.getValue());
 				this.invalidate();
 				break;
+			case light_paper:
+				applyLightPaper((Boolean) o.getValue());
+				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_LIGHT_PAPER);
+				}
+				break;
 			case scroll_dates:
 				mScrollDates = (Boolean) o.getValue();
 				this.invalidate();
@@ -5878,6 +5928,7 @@ end
 		dim_repeated_lines,
 		dim_repeated_window,
 		dim_repeated_strength,
+		light_paper,
 		scroll_dates,
 		scroll_dates_opacity,
 		osc8_links,
