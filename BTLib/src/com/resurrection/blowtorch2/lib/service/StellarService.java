@@ -138,6 +138,13 @@ public class StellarService extends Service {
 	/** Digest/Off notify window per world+thread. Service process only. */
 	private final HashMap<String, ChatDigestWindow> mChatDigests =
 			new HashMap<String, ChatDigestWindow>();
+	/**
+	 * Channel last used for a chat shade id. Android keeps the channel from the
+	 * first {@code notify(id)}; cancel first when the bucket (or an upgrade
+	 * off alerts) changes it.
+	 */
+	private final HashMap<Integer, String> mChatNotifyChannel =
+			new HashMap<Integer, String>();
 	/** The currently "Selected" connection. */
 	String mConnectionClutch = "";
 	/** The callback list of MainWindow activities that have bound to the Service. */
@@ -1059,15 +1066,23 @@ public class StellarService extends Service {
 					.chatChannelId(this, bucket);
 			NotificationCompat.Builder builder = new NotificationCompat.Builder(
 					this, chatChannel);
-			Notification note = builder.setContentIntent(contentIntent)
+			builder.setContentIntent(contentIntent)
 					.setContentTitle((display == null ? "" : display) + " chat")
 					.setContentText(ChatAnnounce.lineText(title, unread))
 					.setSmallIcon(resId)
 					.setAutoCancel(true)
 					.setOnlyAlertOnce(!alert)
-					.setPriority(NotificationCompat.PRIORITY_DEFAULT)
-					.build();
-			mNotificationManager.notify(id, note);
+					.setPriority(NotificationCompat.PRIORITY_DEFAULT);
+			Integer nid = Integer.valueOf(id);
+			String prev = mChatNotifyChannel.get(nid);
+			if (prev == null || !prev.equals(chatChannel)) {
+				mNotificationManager.cancel(id);
+				if (!alert) {
+					builder.setSilent(true);
+				}
+			}
+			mChatNotifyChannel.put(nid, chatChannel);
+			mNotificationManager.notify(id, builder.build());
 		} catch (RuntimeException e) {
 			BlowTorchLogger.logMinor("StellarService.doNotifyChat", e);
 		}

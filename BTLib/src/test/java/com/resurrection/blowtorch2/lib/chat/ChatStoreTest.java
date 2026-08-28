@@ -709,4 +709,13 @@ public class ChatStoreTest {
 		store.setNotifyBucket("auction", ChatNotifyBucket.TELLS);
 		assertEquals(ChatNotifyBucket.TELLS, store.notifyBucket("auction"));
 	}
+
+	@Test
+	public void notifyBucketSetBeforeMessagesSurvivesAppend() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		store.setNotifyBucket("tells", ChatNotifyBucket.TELLS);
+		assertEquals(ChatNotifyBucket.TELLS, store.notifyBucket("tells"));
+		store.append("tells", "tells", "yo");
+		assertEquals(ChatNotifyBucket.TELLS, store.notifyBucket("tells"));
+	}
 }
