@@ -1,0 +1,34 @@
+---
+description: Do not put real MUDs, guilds, players, or private details in the app or public tree
+alwaysApply: true
+---
+
+# No private worlds in the product
+
+The GitHub tree is public. The APK is public. Do not put the maintainer's worlds,
+guilds, characters, hosts, or other private life into anything that ships or is
+tracked.
+
+## Do not
+
+- Name a live MUD, guild, or player in UI, Help, Starter Tutorial, default
+  settings, Lua, or comments/tests that git tracks
+- Use a real profile filename or host as a worked example
+- Write “the profile he plays” or similar
+
+```java
+// BAD — names the world they actually play
+// measured on samsaramoo.xml (the profile he plays)
+assertEquals("samsaramoo", world);
+
+// GOOD
+// measured on a live world (11 of 105 chunks)
+assertEquals("world-a", world);
+```
+
+## Do
+
+- Tests and comments: `world-a`, `example.org`, `a live world`, `an older profile`
+- Protocol **ids** stay as the wire sends them (`dns-org-hellmoo-status`).
+  Player-visible **labels** stay generic (`Vitals bar (hp, thirst, hunger, stress)`).
+- Email `TARACAIR@GMAIL.COM` and the GitHub name are OK.
