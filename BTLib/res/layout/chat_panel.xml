@@ -115,14 +115,27 @@
                     android:textColor="@color/chrome_description"
                     android:textSize="12sp" />
 
+                <TextView
+                    android:id="@+id/chat_mine_help_button"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:gravity="center"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:text="?"
+                    android:textColor="@color/chrome_description"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:contentDescription="How to fill My lines" />
+
                 <EditText
                     android:id="@+id/chat_mine_name"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginLeft="8dp"
+                    android:layout_marginLeft="4dp"
                     android:background="@drawable/input_bar_bg"
-                    android:hint="Alice"
+                    android:hint="your name"
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
@@ -147,7 +160,7 @@
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
                 android:paddingBottom="6dp"
-                android:text="Your name after ]: — Alice. Not [ VERMIN ] and not a pasted line."
+                android:text="The name the world prints when you speak. Tap ? for examples."
                 android:textColor="@color/chrome_description"
                 android:textSize="11sp" />
 

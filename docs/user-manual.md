@@ -860,10 +860,12 @@ Reply template is optional (`tell $1 $text` or `c $text`). `$text` is a
 placeholder for the reply box, not a trigger capture. `$1` in the template
 is substituted when the thread is first created.
 
-**Chat → ⚙ → My lines** in that conversation. Type your name (`Alice`),
-not the channel tag and not a pasted line. `[ VERMIN ]: Alice says, "hi"`
-is yours (the word after `]:`). `[ VERMIN ]: Bob says, "hi Alice"` is
-Bob's. Colour chips next to My lines are that chat only.
+**Chat → ⚙ → My lines** in that conversation. Type the name the world
+prints when you speak, not the channel tag and not a pasted line. Tap
+**?** beside the field for examples. Worlds print chat differently —
+there is no one prefix. `[guild] Ada says, "hi"` is yours if My lines is
+`Ada`. `[guild] Bob says, "hi Ada"` is Bob's. Colour chips next to My
+lines are that chat only.
 
 ## Recipes
 
@@ -1839,8 +1841,8 @@ are the same toggle. ✕, the dim area, or Back also close it. Overflow
 **Chat** always opens it.
 
 `.chat <name>` opens that conversation. The name matches the thread id or
-the title shown in the list, case-insensitive — `.chat vermin` if the list
-says VERMIN.
+the title shown in the list, case-insensitive — `.chat ooc` if the list
+says ooc.
 
 A thread is one conversation. Tap it to read history and reply. Send fills
 `$text` in that thread's reply template (`tell $1 $text`, `c $text`). Set
@@ -1849,12 +1851,13 @@ while that conversation is open.
 
 ⚙ in an open conversation:
 
-- **My lines** — type your name (`Alice`), not `[ VERMIN ]` and not a
-  pasted `[ VERMIN ]: Alice says, "` line. Yours is the speaker after
-  `]:` on a tagged channel, or a tell that starts with that name.
-  `[ VERMIN ]: Alice says, "hi"` is yours; `[ VERMIN ]: Bob says, "hi Alice"`
-  is not. Kept in the chat file, so those bubbles stay yours after you
-  leave the app. Colour chips next to the field are this chat only.
+- **My lines** — the name the world prints when you speak, not the
+  channel tag and not a pasted whole line. Tap **?** beside the field
+  for examples. Worlds print chat differently (start of line, after a
+  `]` or `)`, `You say`). `[guild] Ada says, "hi"` is yours if My lines
+  is `Ada`; `[guild] Bob says, "hi Ada"` is not. Kept in the chat file,
+  so those bubbles stay yours after you leave the app. Colour chips
+  next to the field are this chat only.
 - **Reply** — the command sent to the world; `$text` is the reply box.
   Hint like the trigger: `tell $1 $text`. If you write `C $1` instead of
   `C $text`, Send used to send the characters `$1`. A lone `$1` is now
@@ -1876,7 +1879,7 @@ is how many arrived (five tells → 5, not 1); the notification count
 updates on each message. That cyan line is its own line in the window.
 The unread disc on ⋮ is brighter while there is unread and the drawer is
 closed. In-game line example (cyan client text, not sent to the MUD):
-`Thread VERMIN has new messages: 5`. ⚙ **Delete conversation** removes
+`Thread ooc has new messages: 5`. ⚙ **Delete conversation** removes
 the messages and keeps the trigger.
 
 Send from the drawer paints an own-bubble immediately. Dual display (main

@@ -28,4 +28,15 @@ public class EditorHelpTest {
 		assertTrue("help must not name a profile-private trigger",
 				!EditorHelp.TRIGGER_EDITOR_CONDITIONS.contains("_cerb"));
 	}
+
+	@Test
+	public void chatMyLinesExplainsNameNotChannelAndNamesNoLiveWorld() {
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("WHAT TO TYPE"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("WORLDS PRINT CHAT DIFFERENTLY"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("Ada"));
+		assertTrue("My lines help must not name a live guild",
+				!EditorHelp.CHAT_MY_LINES.contains("VERMIN"));
+		assertTrue("My lines help must not name a live player",
+				!EditorHelp.CHAT_MY_LINES.contains("Taracair"));
+	}
 }

@@ -82,7 +82,7 @@ public class ChatThreadResponderEditor extends Dialog {
 				theResponder.getReplyTemplate(), false);
 
 		TextView mineNote = new TextView(getContext());
-		mineNote.setText("Own bubble: Chat → ⚙ → My lines. Type Alice, not the channel tag.");
+		mineNote.setText("Own bubble: Chat → ⚙ → My lines. Type the name the world prints when you speak. Tap ? beside the field.");
 		mineNote.setTextColor(0xFFAAAAAA);
 		mineNote.setTextSize(12);
 		LinearLayout.LayoutParams noteLp = new LinearLayout.LayoutParams(

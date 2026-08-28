@@ -36,9 +36,9 @@ public class ChatCommandTest {
 
 	@Test
 	public void otherArgIsThreadId() {
-		ChatCommand.Parse p = ChatCommand.parse("vermin");
+		ChatCommand.Parse p = ChatCommand.parse("ooc");
 		assertEquals(ChatCommand.ACTION_THREAD, p.action);
-		assertEquals("vermin", p.threadId);
+		assertEquals("ooc", p.threadId);
 		assertEquals("Bob the baker", ChatCommand.parse("Bob the baker").threadId);
 	}
 

@@ -258,4 +258,35 @@ public final class EditorHelp {
 			+ "Timers keep counting in the connection's own process while the game "
 			+ "window is in the background. Android can still delay a long one on a "
 			+ "sleeping phone; a timer is not an alarm clock.";
+
+	/**
+	 * Chat drawer ⚙ My lines. Worlds print chat differently; this is what to
+	 * type, not a prefix from one world.
+	 */
+	public static final String CHAT_MY_LINES =
+			"This field marks which copied lines are yours, so they get your bubble.\n\n"
+			+ "WHAT TO TYPE\n"
+			+ "Look at one of your lines in this conversation. Type only the name "
+			+ "the world prints for you — usually your character name. Not the "
+			+ "channel, not the whole line.\n\n"
+			+ "    In the thread:  [guild] Ada says, \"hello\"\n"
+			+ "    My lines:       Ada\n\n"
+			+ "    In the thread:  Ada tells you, \"hi\"\n"
+			+ "    My lines:       Ada\n\n"
+			+ "    In the thread:  You say, \"hello\"\n"
+			+ "    My lines:       You say\n\n"
+			+ "WHY NOT THE CHANNEL TAG\n"
+			+ "A tag like [guild] sits on every message here. Paste it and everyone "
+			+ "looks like you.\n\n"
+			+ "NOT A MENTION\n"
+			+ "Your name in someone else's sentence is not you speaking:\n\n"
+			+ "    [guild] Bob says, \"hi Ada\"   ← Bob's line\n\n"
+			+ "WORLDS PRINT CHAT DIFFERENTLY\n"
+			+ "Some put the name at the start of the line. Some put it after a ] "
+			+ "or ). Some use You say. There is no one prefix to copy. The name "
+			+ "as it appears when you speak is the thing that works. If a one-word "
+			+ "name is wrong, type the unique bit of your line (Ada says), still "
+			+ "not the channel tag.\n\n"
+			+ "COLOUR\n"
+			+ "The chips next to the field are this conversation only.";
 }

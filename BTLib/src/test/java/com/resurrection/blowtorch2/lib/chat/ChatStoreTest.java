@@ -292,11 +292,11 @@ public class ChatStoreTest {
 	@Test
 	public void mineNeedleMarksIncomingAndDoesNotBadge() {
 		ChatStore store = new ChatStore(new ChatInbox());
-		store.setMineNeedle("vermin", "Taracair");
-		store.appendAt("vermin", "VERMIN", "[ VERMIN ]: Elyak waves.", 1L);
-		store.appendAt("vermin", "VERMIN",
-				"[ VERMIN ]: Taracair says, \"Test\"", 2L);
-		List<ChatMessage> msgs = store.messages("vermin", 10);
+		store.setMineNeedle("ooc", "Ada");
+		store.appendAt("ooc", "ooc", "[ooc]: Bob waves.", 1L);
+		store.appendAt("ooc", "ooc",
+				"[ooc]: Ada says, \"Test\"", 2L);
+		List<ChatMessage> msgs = store.messages("ooc", 10);
 		assertFalse(msgs.get(0).isMine());
 		assertTrue(msgs.get(1).isMine());
 		assertEquals(1, store.listThreads().get(0).getUnreadCount());
@@ -305,96 +305,114 @@ public class ChatStoreTest {
 	@Test
 	public void mineTriggerMatchesSpeakerNotMention() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("vermin", "Taracair");
-		assertTrue(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Taracair says, \"Test\""));
-		assertTrue(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ] : Taracair says, \"Test\""));
-		assertTrue(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Taracair, the bard, says, \"Test\""));
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Elyak says, \"hi Taracair\""));
-		assertFalse(inbox.bodyLooksMine("vermin", "[ VERMIN ]: Elyak waves."));
-		assertTrue(inbox.bodyLooksMine("vermin", "Taracair tells you 'yo'"));
-		assertFalse(inbox.bodyLooksMine("vermin", "Bob tells you 'hi Taracair'"));
-		assertFalse(inbox.bodyLooksMine("vermin", "hi Taracair"));
-		inbox.setMineNeedle("vermin", "]: Taracair");
-		assertTrue(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Taracair says, \"Test\""));
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Elyak says, \"hi Taracair\""));
-		inbox.setMineNeedle("vermin", "You say");
-		assertTrue(inbox.bodyLooksMine("vermin", "You say, \"hello\""));
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Taracair says, \"hello\""));
-		inbox.setMineNeedle("vermin", "]: Taracair|You say");
-		assertTrue(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Taracair says, \"Test\""));
-		assertTrue(inbox.bodyLooksMine("vermin", "You say, \"hello\""));
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Elyak says, \"hi Taracair\""));
+		inbox.setMineNeedle("ooc", "Ada");
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc] : Ada says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc] Ada says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"(ooc) Ada says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"<ooc> Ada says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada, the bard, says, \"Test\""));
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob says, \"hi Ada\""));
+		assertFalse(inbox.bodyLooksMine("ooc", "[ooc]: Bob waves."));
+		assertTrue(inbox.bodyLooksMine("ooc", "Ada tells you 'yo'"));
+		assertFalse(inbox.bodyLooksMine("ooc", "Bob tells you 'hi Ada'"));
+		assertFalse(inbox.bodyLooksMine("ooc", "hi Ada"));
+		inbox.setMineNeedle("ooc", "]: Ada");
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada says, \"Test\""));
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob says, \"hi Ada\""));
+		inbox.setMineNeedle("ooc", "You say");
+		assertTrue(inbox.bodyLooksMine("ooc", "You say, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada says, \"hello\""));
+		inbox.setMineNeedle("ooc", "]: Ada|You say");
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada says, \"Test\""));
+		assertTrue(inbox.bodyLooksMine("ooc", "You say, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob says, \"hi Ada\""));
 	}
 
 	@Test
 	public void pastedSaysLineIsLiteralNotCharacterClass() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("vermin", "[ VERMIN ]: Alice says, \"");
-		assertTrue(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Alice says, \"hello\""));
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Bob says, \"hi Alice\""));
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Bob waves."));
+		inbox.setMineNeedle("ooc", "[ooc]: Ada says, \"");
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada says, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob says, \"hi Ada\""));
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob waves."));
 	}
 
 	@Test
 	public void channelTagAloneDoesNotMarkEveryone() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.append("vermin", "VERMIN",
-				"[ VERMIN ]: Bob says, \"hi\"", 1L, false, false);
-		inbox.setMineNeedle("vermin", "[ VERMIN ]");
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Bob says, \"hi\""));
-		assertFalse(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
-		inbox.setMineNeedle("vermin", "[ VERMIN ]:");
-		assertFalse(inbox.bodyLooksMine("vermin",
-				"[ VERMIN ]: Bob says, \"hi\""));
+		inbox.append("ooc", "ooc",
+				"[ooc]: Bob says, \"hi\"", 1L, false, false);
+		inbox.setMineNeedle("ooc", "[ooc]");
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob says, \"hi\""));
+		assertFalse(inbox.displayMine(inbox.messages("ooc", 1).get(0)));
+		inbox.setMineNeedle("ooc", "[ooc]:");
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob says, \"hi\""));
+		inbox.setMineNeedle("ooc", "(ooc)");
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"(ooc) Bob says, \"hi\""));
+		inbox.setMineNeedle("ooc", "(ooc):");
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"(ooc): Bob says, \"hi\""));
+		inbox.setMineNeedle("ooc", "<ooc>");
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"<ooc> Bob says, \"hi\""));
+		inbox.setMineNeedle("ooc", "<ooc>:");
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"<ooc>: Bob says, \"hi\""));
 	}
 
 	@Test
 	public void narrowingNeedleUnpaintsOtherSpeakers() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.append("vermin", "VERMIN",
-				"[ VERMIN ]: Bob says, \"hi\"", 1L, true, false);
-		inbox.append("vermin", "VERMIN",
-				"[ VERMIN ]: Alice says, \"hello\"", 2L, true, false);
-		inbox.setMineNeedle("vermin", "Alice");
-		assertFalse(inbox.messages("vermin", 2).get(0).isMine());
-		assertTrue(inbox.messages("vermin", 2).get(1).isMine());
+		inbox.append("ooc", "ooc",
+				"[ooc]: Bob says, \"hi\"", 1L, true, false);
+		inbox.append("ooc", "ooc",
+				"[ooc]: Ada says, \"hello\"", 2L, true, false);
+		inbox.setMineNeedle("ooc", "Ada");
+		assertFalse(inbox.messages("ooc", 2).get(0).isMine());
+		assertTrue(inbox.messages("ooc", 2).get(1).isMine());
 	}
 
 	@Test
 	public void displayMineUsesPatternOrStoredFlag() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("vermin", "Taracair");
-		inbox.append("vermin", "VERMIN",
-				"[ VERMIN ]: Elyak says, \"hi Taracair\"", 1L, false, false);
-		assertFalse(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
-		inbox.append("vermin", "You", "hi Taracair", 2L, true, false);
-		assertTrue(inbox.displayMine(inbox.messages("vermin", 2).get(1)));
-		inbox.append("vermin", "VERMIN", "You say, \"hello\"", 3L, true, false);
-		assertTrue(inbox.displayMine(inbox.messages("vermin", 3).get(2)));
+		inbox.setMineNeedle("ooc", "Ada");
+		inbox.append("ooc", "ooc",
+				"[ooc]: Bob says, \"hi Ada\"", 1L, false, false);
+		assertFalse(inbox.displayMine(inbox.messages("ooc", 1).get(0)));
+		inbox.append("ooc", "You", "hi Ada", 2L, true, false);
+		assertTrue(inbox.displayMine(inbox.messages("ooc", 2).get(1)));
+		inbox.append("ooc", "ooc", "You say, \"hello\"", 3L, true, false);
+		assertTrue(inbox.displayMine(inbox.messages("ooc", 3).get(2)));
 	}
 
 	@Test
 	public void absorbedSendStaysMineWhenPatternIsYouSay() {
 		ChatInbox inbox = new ChatInbox();
-		inbox.setMineNeedle("vermin", "You say");
-		inbox.append("vermin", "You",
-				"[ VERMIN ]: Alice says, \"Test\"", 1L, true, false);
+		inbox.setMineNeedle("ooc", "You say");
+		inbox.append("ooc", "You",
+				"[ooc]: Ada says, \"Test\"", 1L, true, false);
 		inbox.restampMineFlags();
-		assertTrue(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
-		assertTrue(inbox.messages("vermin", 1).get(0).isMine());
+		assertTrue(inbox.displayMine(inbox.messages("ooc", 1).get(0)));
+		assertTrue(inbox.messages("ooc", 1).get(0).isMine());
 	}
 
 	@Test

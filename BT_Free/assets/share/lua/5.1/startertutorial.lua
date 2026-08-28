@@ -813,17 +813,16 @@ Open it
   .chat <name>           open that conversation
   ✕ or the dim area also close it
 
-.chat vermin opens the conversation whose id or title is VERMIN —
+.chat ooc opens the conversation whose id or title is ooc —
 matching is case-insensitive.
 
 A thread is one conversation (a person, or a channel). Tap a thread to
 read it. Type in the reply box and Send.
 
 ⚙ in an open conversation
-  My lines   type Alice (the name after ]:). Not [ VERMIN ]
-             and not a pasted line.
-             [ VERMIN ]: Alice says, "hi"  is yours
-             [ VERMIN ]: Bob says, "hi Alice"  is Bob's
+  My lines   the name the world prints when you speak.
+             Tap ? next to the field for examples.
+             Not the channel tag and not a pasted whole line.
              colour chips: own-bubble colour for this chat only
              kept in the chat file after you leave the app
   Reply      command sent to the world; $text is the reply box
@@ -845,12 +844,12 @@ $1. A lone $1 is now treated as $text. Send refuses if $1 or $text is
 still in the line.
 
 Example — a tagged channel:
-  Trigger pattern:  ^\[ VERMIN \]:
+  Trigger pattern:  ^\[ooc\]:
   Action:           Send to thread
-  Thread:           vermin
+  Thread:           ooc
   Reply:            c $text
 
-Then .chat vermin, type in the drawer reply box (above the game input), Send.
+Then .chat ooc, type in the drawer reply box (above the game input), Send.
 Your bubble appears at once. Long-press a thread in the list also deletes.
 
 Options → Chat
@@ -866,7 +865,7 @@ window. That cyan line is its own line — it does not glue onto the
 next MUD text.
 
 In-game line (cyan client text, never sent to the MUD):
-  Thread VERMIN has new messages: 5
+  Thread ooc has new messages: 5
 
 ⚙ Delete conversation removes the messages and keeps the trigger.
 
@@ -1511,7 +1510,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],
 	search = [[.search <text> finds it in this window. .search logs opens ⋮ → Session logs: pick dates, Load, then Search (stays on matching files). .search logs 7 goblin is the window, then this world's files from the last 7 days. .search 'logs' still finds the word in the window.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat vermin opens that conversation. ⚙ My lines: type Alice (name after ]:), not [ VERMIN ]. Reply is $text. Tap a chat notification to open that thread.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙ My lines: the name the world prints when you speak (tap ? beside the field). Reply is $text. Tap a chat notification to open that thread.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

@@ -31,19 +31,19 @@ public class ChatAnnounceTest {
 
 	@Test
 	public void lineTextUsesChatWhenTitleBlank() {
-		assertEquals("Thread VERMIN has new messages: 5",
-				ChatAnnounce.lineText("VERMIN", 5));
+		assertEquals("Thread ooc has new messages: 5",
+				ChatAnnounce.lineText("ooc", 5));
 		assertEquals("Thread Chat has new messages: 1",
 				ChatAnnounce.lineText("", 1));
 		assertEquals("Thread Chat has new messages: 2",
 				ChatAnnounce.lineText("   ", 2));
 		assertEquals("Thread Chat has new messages: 3",
 				ChatAnnounce.lineText(null, 3));
-		String framed = ChatAnnounce.windowLine("VERMIN", 1);
+		String framed = ChatAnnounce.windowLine("ooc", 1);
 		assertTrue(framed.startsWith("\n"));
 		assertTrue(framed.endsWith("\n"));
 		assertFalse(framed.contains("1CORP"));
-		assertEquals("\nThread VERMIN has new messages: 1\n", framed);
+		assertEquals("\nThread ooc has new messages: 1\n", framed);
 	}
 
 	@Test

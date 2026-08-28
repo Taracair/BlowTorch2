@@ -35,9 +35,9 @@ final class ChatInbox {
 	private static final Charset UTF8 = Charset.forName("UTF-8");
 	private static final Pattern PLAIN_NAME = Pattern.compile(
 			"^[A-Za-z][A-Za-z0-9_'-]*$");
-	/** {@code [ VERMIN ]} or {@code [ VERMIN ]:} — every line on that channel. */
+	/** A channel wrapper with no speaker — every line on that channel. */
 	private static final Pattern TOO_BROAD_CHANNEL_TAG = Pattern.compile(
-			"^\\[[^\\]]+\\]\\s*:?\\s*$");
+			"^(?:\\[[^\\]]+\\]|\\([^)]+\\)|<[^>]+>)\\s*:?\\s*$");
 
 	private static final class ThreadState {
 		String threadId;
@@ -149,10 +149,11 @@ final class ChatInbox {
 
 	/**
 	 * Chat-module mine trigger for one thread: the stored line matches that
-	 * thread's {@code mineNeedle}. A plain name becomes {@code ]:\s*Name\b}
-	 * (speaker after the channel tag). A pasted {@code [ TAG ]} alone is
-	 * too broad and matches nothing. {@code |} / {@code (?} compile as
-	 * regex; everything else is a literal substring.
+	 * thread's {@code mineNeedle}. A plain name is you as speaker (start of
+	 * line, or after {@code ]}/{@code >}/{@code )} with an optional colon).
+	 * A pasted {@code [channel]} alone is too broad and matches nothing.
+	 * {@code |} / {@code (?} compile as regex; everything else is a literal
+	 * substring.
 	 */
 	boolean bodyLooksMine(String threadId, String body) {
 		if (body == null) {
@@ -184,7 +185,7 @@ final class ChatInbox {
 	 * Paint as an own bubble: that message's thread mine trigger, or a stored
 	 * {@code mine} flag (Send / absorb / a legacy Send-to-thread action).
 	 * Do not unpaint stored mine on a channel echo — absorb rewrites the
-	 * Send bubble to {@code [ TAG ]: Name says} and that line may not match
+	 * Send bubble to {@code [channel] Name says} and that line may not match
 	 * a {@code You say} pattern.
 	 */
 	boolean displayMine(ChatMessage m) {
@@ -277,10 +278,11 @@ final class ChatInbox {
 
 	/**
 	 * Compile the chat-module mine trigger. Package-visible for tests.
-	 * A single word is the speaker after {@code ]:}, or a line that starts
-	 * with that name (tells). A channel tag with no speaker matches nothing.
+	 * A single word is you as speaker: start of line, or after {@code ]},
+	 * {@code >} or {@code )} with an optional colon (worlds print chat
+	 * differently). A channel tag with no speaker matches nothing.
 	 * {@code |} or {@code (?} is regex (invalid syntax is matched literally).
-	 * Anything else, including a pasted {@code [ TAG ]: Alice says, "}, is
+	 * Anything else, including a pasted {@code [channel] Ada says, "}, is
 	 * a literal substring — {@code [} must not become a character class.
 	 */
 	static Pattern compileMinePattern(String source) {
@@ -289,7 +291,7 @@ final class ChatInbox {
 			return null;
 		}
 		if (PLAIN_NAME.matcher(s).matches()) {
-			return Pattern.compile("(?:\\]\\s*:\\s*|\\A)" + Pattern.quote(s) + "\\b",
+			return Pattern.compile("(?:\\A|[\\]>)]\\s*:?\\s*)" + Pattern.quote(s) + "\\b",
 					Pattern.CASE_INSENSITIVE);
 		}
 		if (TOO_BROAD_CHANNEL_TAG.matcher(s).matches()) {
