@@ -1791,10 +1791,14 @@ to text that arrived then.
 Directory** names (blank = `/BlowTorch/session_logs/`). Choose From/To (or 7d /
 All) and tap **Load** — a folder with thousands of files can take a while;
 the dialog says so instead of a bare “Loading…”. The box filters file names
-as you type (`Filter names · Search finds text`). Keyboard Search looks inside
-the files still listed, not the whole folder, and stops after 16 MB if the
-range is too wide. With a file open, the same box (and ‹ ›) finds the next
-match in that file only and wraps. **Change**
+as you type (`Filter names`). **Search** looks inside the files still listed
+(not the whole folder), stays on the list of matching files with a hit
+count, and stops after 16 MB or 100 files if the range is too wide. ✕ in an
+open file returns to that list (query kept, so `goblin` does not become a
+name filter). ✕ on the list clears the box and shows the last Load.
+Hardware Back does the same: file → list → clear search → dismiss.
+With a file open, Search / ‹ › find in that file only (`3/12`) after one
+scan. **Change**
 (tap the folder line) lists another directory without moving where new logs
 are written. Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt`. Tap a file to
 read it; large files page with **Older** / **Newer**.

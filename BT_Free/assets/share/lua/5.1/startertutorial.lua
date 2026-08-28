@@ -789,9 +789,12 @@ Session log files (this world only):
 Files are {world}_{date}_{time}.txt in the folder Options → Service
 → Session Log Directory names (blank = /BlowTorch/session_logs/).
 Overflow ⋮ → Session logs: pick dates, tap Load (a large folder can
-take a while). Search filters names; Search on the keyboard finds
-text in the files you already loaded. Change looks in another folder
-without moving where new logs are written.]])
+take a while). The box filters file names as you type. Search looks
+inside the files still listed and stays on the list (matching files
+with a hit count). Tap a file, then Search / ‹ › — 3/12 is this file
+only. ✕ from a file returns to the list (query kept); ✕ on the list
+clears the box. Change looks in another folder without moving where
+new logs are written.]])
 end
 
 TOPICS.chat = function()
@@ -990,7 +993,7 @@ TOPICS.overflow_menu = function()
   Map                     built-in Mapper (also .map open|toggle)
   Chat                    left-hand chat drawer (also .chat)
   Search scrollback       same as .search
-  Session logs            this world’s session log files (dates, then Load)
+  Session logs            this world’s session log files (Load, then Search / ✕)
   Reload Settings         re-read this world’s settings from disk
   Crash report            Show log / Share log
   About

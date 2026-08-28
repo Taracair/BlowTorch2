@@ -35,6 +35,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
@@ -58,8 +59,9 @@ public class LogHistoryDialog extends Dialog {
 	private static final int PAGE_LINES = 300;
 	private static final int HIGHLIGHT_LINE = 0x66FFCC00;
 	private static final int HIGHLIGHT_QUERY = 0x4433AADD;
-	private static final String HINT_LIST = "Filter names · Search finds text";
-	private static final String HINT_FILE = "Find in this file";
+	private static final String HINT_LIST = "Filter names";
+	private static final String HINT_HITS = "Find in logs";
+	private static final String HINT_FILE = "Find in file";
 
 	private final String mDisplay;
 	private final Handler mMain = new Handler(Looper.getMainLooper());
@@ -78,9 +80,9 @@ public class LogHistoryDialog extends Dialog {
 	private final ArrayList<File> mFiles = new ArrayList<File>();
 	private FileAdapter mAdapter;
 
-	private boolean mAlive = true;
+	private volatile boolean mAlive = true;
 	private int mListGen;
-	private int mSearchGen;
+	private volatile int mSearchGen;
 	private int mPageGen;
 
 	private File mOpenFile;
@@ -98,9 +100,21 @@ public class LogHistoryDialog extends Dialog {
 	private TextView mToBtn;
 	private Button mLoadBtn;
 	private EditText mSearch;
+	private Button mClearBtn;
+	private Button mSearchBtn;
+	private LinearLayout mFindRow;
 	private Button mFindPrev;
 	private Button mFindNext;
+	private TextView mFindCount;
+	private boolean mSearchBusy;
 	private String mSearchStatus = "";
+	private boolean mHitsMode;
+	private final ArrayList<SessionLogSearch.FileMatch> mHitFiles =
+			new ArrayList<SessionLogSearch.FileMatch>();
+	private SessionLogSearch.LineHits mFileHits;
+	private int mFileHitAt = -1;
+	private boolean mFreezeNameFilter;
+	private boolean mFindOnOpen;
 	private File mLookDir;
 	private Long mFromMs;
 	private Long mUntilExclusiveMs;
@@ -163,7 +177,17 @@ public class LogHistoryDialog extends Dialog {
 				if (position < 0 || position >= mFiles.size()) {
 					return;
 				}
-				openFile(mFiles.get(position), -1);
+				File f = mFiles.get(position);
+				int jump = -1;
+				mFindOnOpen = false;
+				if (mHitsMode) {
+					SessionLogSearch.FileMatch hit = hitFor(f);
+					if (hit != null) {
+						jump = hit.firstLine;
+						mFindOnOpen = true;
+					}
+				}
+				openFile(f, jump);
 			}
 		});
 
@@ -191,7 +215,7 @@ public class LogHistoryDialog extends Dialog {
 		mBack.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				showListScreen();
+				leaveOpenFileToList();
 			}
 		});
 		mOlder = chromeFooterButton("Older");
@@ -232,6 +256,8 @@ public class LogHistoryDialog extends Dialog {
 			int height = (int) (getContext().getResources().getDisplayMetrics().heightPixels * 0.88f);
 			window.setLayout(width, height);
 			window.setGravity(Gravity.CENTER);
+			window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+					| WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 		}
 
 		showListWidgets();
@@ -241,6 +267,11 @@ public class LogHistoryDialog extends Dialog {
 		mLookDir = SessionLogger.getLogDirectory(app);
 		paintFolder();
 		if (mPendingFile != null) {
+			if (mSearch != null && mQuery.length() > 0) {
+				mSearch.setText(mQuery);
+				mFreezeNameFilter = true;
+			}
+			mFindOnOpen = mQuery.length() > 0;
 			openFile(mPendingFile, mPendingLine);
 			mPendingFile = null;
 			mPendingLine = -1;
@@ -256,22 +287,56 @@ public class LogHistoryDialog extends Dialog {
 		super.dismiss();
 	}
 
+	@Override
+	public void onBackPressed() {
+		if (mOpenFile != null) {
+			leaveOpenFileToList();
+			return;
+		}
+		if (mHitsMode || boxHasText()) {
+			clearSearchOnList();
+			return;
+		}
+		super.onBackPressed();
+	}
+
 	/** Return to the file list (from a search jump, or Back). */
 	public void showListScreen() {
-		mSearchGen++;
+		hideIme();
+		abandonInFlightSearch();
+		if (mOpenFile != null) {
+			mFreezeNameFilter = boxHasText();
+		}
+		mPageGen++;
 		mOpenFile = null;
 		mIndex = null;
 		mHighlightLine = -1;
+		mFileHits = null;
+		mFileHitAt = -1;
 		mSearchStatus = "";
+		mQuery = "";
+		mFindOnOpen = false;
 		showListWidgets();
 		mTitle.setText("Session logs");
-		if (mLoaded.isEmpty()) {
+		if (mHitsMode) {
+			paintHitsList();
+		} else if (mLoaded.isEmpty()) {
 			mSubtitle.setText(idleHint());
 			mEmpty.setText(idleHint());
 		} else {
-			applyNameFilter();
+			refreshListFromLoaded();
 			mSubtitle.setText(listSummary());
 		}
+		paintSearchChrome();
+	}
+
+	/**
+	 * File → list. Keeps the box; freezes the name filter so {@code goblin}
+	 * does not collapse the Load list to filenames. ✕, footer Back, and
+	 * hardware Back share this.
+	 */
+	private void leaveOpenFileToList() {
+		showListScreen();
 	}
 
 	/**
@@ -280,6 +345,11 @@ public class LogHistoryDialog extends Dialog {
 	public void openFileAtLine(File file, int lineIndex, String query, boolean caseSensitive) {
 		mQuery = query == null ? "" : query;
 		mCaseSensitive = caseSensitive;
+		if (mSearch != null && mQuery.length() > 0) {
+			mSearch.setText(mQuery);
+			mFreezeNameFilter = true;
+		}
+		mFindOnOpen = mQuery.length() > 0;
 		if (file == null) {
 			showListScreen();
 			return;
@@ -289,7 +359,10 @@ public class LogHistoryDialog extends Dialog {
 
 	private void loadFileList() {
 		final int gen = ++mListGen;
-		mSearchGen++;
+		mHitsMode = false;
+		mHitFiles.clear();
+		mFreezeNameFilter = false;
+		abandonInFlightSearch();
 		final File dir = mLookDir;
 		final String display = mDisplay;
 		final Long from = mFromMs;
@@ -339,20 +412,13 @@ public class LogHistoryDialog extends Dialog {
 	}
 
 	private String idleHint() {
-		return "Logs are the files Options → Service writes "
-				+ "(Session Log Directory, or /BlowTorch/session_logs/ if that is blank). "
-				+ "Choose a date range and tap Load. "
-				+ "A folder with thousands of files can take a while.";
+		return "Choose dates, tap Load. A big folder can take a while.";
 	}
 
 	private String emptyHint() {
 		String folder = mLookDir == null ? "/BlowTorch/session_logs/"
 				: mLookDir.getAbsolutePath();
-		return "No session logs for " + mDisplay + " in this range.\n"
-				+ folder + "\n"
-				+ "Enable Options → Service → Log Session to File? "
-				+ "Files are {world}_{date}_{time}.txt. "
-				+ "Tap the folder line to look in another folder.";
+		return "No logs for " + mDisplay + " in this range.\n" + folder;
 	}
 
 	private String listSummary() {
@@ -361,11 +427,11 @@ public class LogHistoryDialog extends Dialog {
 		int shown = mFiles.size();
 		int loaded = mLoaded.size();
 		String count = shown + " file" + (shown == 1 ? "" : "s");
-		if (mNameFilter.length() > 0 && shown != loaded) {
+		if (!mHitsMode && !mFreezeNameFilter && mNameFilter.length() > 0
+				&& shown != loaded) {
 			count = shown + " of " + loaded + " files matching \"" + mNameFilter + "\"";
 		}
-		return count + " for " + mDisplay + " (" + range + ").\n" + folder
-				+ "\nLarge folders can take a while to list.";
+		return count + " for " + mDisplay + " (" + range + ").\n" + folder;
 	}
 
 	private String dateRangeLabel() {
@@ -388,7 +454,101 @@ public class LogHistoryDialog extends Dialog {
 				mFiles.add(f);
 			}
 		}
-		mAdapter.notifyDataSetChanged();
+		if (mAdapter != null) {
+			mAdapter.notifyDataSetChanged();
+		}
+	}
+
+	private void refreshListFromLoaded() {
+		if (mFreezeNameFilter) {
+			mFiles.clear();
+			mFiles.addAll(mLoaded);
+			if (mAdapter != null) {
+				mAdapter.notifyDataSetChanged();
+			}
+		} else {
+			applyNameFilter();
+		}
+	}
+
+	private void paintHitsList() {
+		mFiles.clear();
+		for (int i = 0; i < mHitFiles.size(); i++) {
+			SessionLogSearch.FileMatch m = mHitFiles.get(i);
+			if (m != null && m.file != null) {
+				mFiles.add(m.file);
+			}
+		}
+		if (mAdapter != null) {
+			mAdapter.notifyDataSetChanged();
+		}
+		String q = boxText();
+		String sub = mHitFiles.size() + " file"
+				+ (mHitFiles.size() == 1 ? "" : "s") + " with \"" + q + "\"";
+		if (mHitFiles.size() > 0) {
+			sub = sub + " · tap one";
+		}
+		if (mSearchStatus != null && mSearchStatus.length() > 0) {
+			sub = sub + "\n" + mSearchStatus;
+		}
+		if (mFiles.isEmpty()) {
+			mEmpty.setText(sub);
+			mEmpty.setVisibility(View.VISIBLE);
+			mList.setVisibility(View.GONE);
+		} else {
+			mEmpty.setVisibility(View.GONE);
+			mList.setVisibility(View.VISIBLE);
+		}
+		mSubtitle.setText(sub);
+	}
+
+	private SessionLogSearch.FileMatch hitFor(File file) {
+		if (file == null) {
+			return null;
+		}
+		String path = file.getAbsolutePath();
+		for (int i = 0; i < mHitFiles.size(); i++) {
+			SessionLogSearch.FileMatch m = mHitFiles.get(i);
+			if (m != null && m.file != null && path.equals(m.file.getAbsolutePath())) {
+				return m;
+			}
+		}
+		return null;
+	}
+
+	private String boxText() {
+		if (mSearch == null || mSearch.getText() == null) {
+			return "";
+		}
+		return mSearch.getText().toString().trim();
+	}
+
+	private boolean boxHasText() {
+		return boxText().length() > 0;
+	}
+
+	private void setSearchBusy(boolean busy) {
+		mSearchBusy = busy;
+		if (mSearchBtn != null) {
+			mSearchBtn.setEnabled(!busy);
+			mSearchBtn.setText(busy ? "…" : "Search");
+		}
+	}
+
+	private void abandonInFlightSearch() {
+		mSearchGen++;
+		setSearchBusy(false);
+	}
+
+	private void hideIme() {
+		if (mSearch == null) {
+			return;
+		}
+		InputMethodManager imm = (InputMethodManager) getContext()
+				.getSystemService(Context.INPUT_METHOD_SERVICE);
+		if (imm != null) {
+			imm.hideSoftInputFromWindow(mSearch.getWindowToken(), 0);
+		}
 	}
 
 	private void showListWidgets() {
@@ -398,11 +558,13 @@ public class LogHistoryDialog extends Dialog {
 		if (mListFilters != null) {
 			mListFilters.setVisibility(View.VISIBLE);
 		}
-		paintSearchHint();
+		paintSearchChrome();
 		mList.setVisibility(mFiles.isEmpty() ? View.GONE : View.VISIBLE);
 		mEmpty.setVisibility(mFiles.isEmpty() ? View.VISIBLE : View.GONE);
 		mFileScroll.setVisibility(View.GONE);
-		mBack.setEnabled(false);
+		if (mBack != null) {
+			mBack.setVisibility(View.GONE);
+		}
 		mOlder.setEnabled(false);
 		mNewer.setEnabled(false);
 	}
@@ -414,23 +576,61 @@ public class LogHistoryDialog extends Dialog {
 		if (mListFilters != null) {
 			mListFilters.setVisibility(View.GONE);
 		}
-		paintSearchHint();
+		paintSearchChrome();
 		mList.setVisibility(View.GONE);
 		mEmpty.setVisibility(View.GONE);
 		mFileScroll.setVisibility(View.VISIBLE);
-		mBack.setEnabled(true);
+		if (mBack != null) {
+			mBack.setVisibility(View.VISIBLE);
+			mBack.setEnabled(true);
+		}
 	}
 
-	private void paintSearchHint() {
+	private void paintSearchChrome() {
+		boolean file = mOpenFile != null;
+		boolean hits = mHitsMode && !file;
 		if (mSearch != null) {
-			mSearch.setHint(mOpenFile != null ? HINT_FILE : HINT_LIST);
+			String hint = HINT_LIST;
+			if (file) {
+				hint = HINT_FILE;
+			} else if (hits || mFreezeNameFilter) {
+				hint = HINT_HITS;
+			}
+			mSearch.setHint(hint);
 		}
-		int nav = mOpenFile != null ? View.VISIBLE : View.GONE;
+		boolean showClear = false;
+		if (file) {
+			showClear = true;
+		} else {
+			showClear = boxHasText() || mHitsMode;
+		}
+		if (mClearBtn != null) {
+			mClearBtn.setVisibility(showClear ? View.VISIBLE : View.GONE);
+		}
+		if (mSearchBtn != null) {
+			mSearchBtn.setVisibility(View.VISIBLE);
+		}
+		int nav = (file && mFileHits != null && mFileHits.size > 0)
+				? View.VISIBLE : View.GONE;
+		if (mFindRow != null) {
+			mFindRow.setVisibility(nav);
+		}
 		if (mFindPrev != null) {
 			mFindPrev.setVisibility(nav);
 		}
 		if (mFindNext != null) {
 			mFindNext.setVisibility(nav);
+		}
+		if (mFindCount != null) {
+			mFindCount.setVisibility(nav);
+			if (nav == View.VISIBLE) {
+				int n = mFileHits.size;
+				int at = mFileHitAt < 0 ? 0 : mFileHitAt + 1;
+				mFindCount.setText(at + "/" + n);
+			}
+		}
+		if (mSearchBtn != null) {
+			mSearchBtn.setContentDescription(file ? "Find in file" : "Find in logs");
 		}
 	}
 
@@ -439,9 +639,11 @@ public class LogHistoryDialog extends Dialog {
 			return;
 		}
 		mOpenFile = file;
-		mSearchGen++;
+		abandonInFlightSearch();
 		mHighlightLine = lineIndex;
 		mIndex = null;
+		mFileHits = null;
+		mFileHitAt = -1;
 		showFileWidgets();
 		mTitle.setText(file.getName());
 		mSubtitle.setText("Reading…");
@@ -488,6 +690,11 @@ public class LogHistoryDialog extends Dialog {
 							mHighlightLine = jump;
 						}
 						renderPage();
+						if (mFindOnOpen) {
+							mFindOnOpen = false;
+							int prefer = jump < 0 ? 0 : jump;
+							collectOpenFileHits(prefer, 0);
+						}
 					}
 				});
 			}
@@ -642,6 +849,15 @@ public class LogHistoryDialog extends Dialog {
 		return b;
 	}
 
+	private Button searchBarButton(String label, float density) {
+		Button b = chromeFooterButton(label);
+		b.setMinWidth(0);
+		b.setMinimumWidth(0);
+		int p = (int) (8 * density + 0.5f);
+		b.setPadding(p, 0, p, 0);
+		return b;
+	}
+
 	private LinearLayout.LayoutParams footerButtonParams(float density) {
 		LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
 				LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -748,22 +964,44 @@ public class LogHistoryDialog extends Dialog {
 
 			@Override
 			public void afterTextChanged(Editable s) {
+				if (mSearchBusy) {
+					abandonInFlightSearch();
+					if (mOpenFile != null && mIndex != null) {
+						mSearchStatus = "";
+						renderPage();
+					} else if (mOpenFile == null && mHitsMode) {
+						paintHitsList();
+					} else if (mOpenFile == null && !mLoaded.isEmpty()) {
+						mSubtitle.setText(listSummary());
+					}
+				}
+				mFreezeNameFilter = false;
 				mNameFilter = s == null ? "" : s.toString();
+				if (mOpenFile != null) {
+					mFileHits = null;
+					mFileHitAt = -1;
+					paintSearchChrome();
+					return;
+				}
+				if (mHitsMode) {
+					paintSearchChrome();
+					return;
+				}
 				if (mLoaded.isEmpty()) {
+					paintSearchChrome();
 					return;
 				}
 				applyNameFilter();
-				if (mOpenFile == null) {
-					if (mFiles.isEmpty()) {
-						mEmpty.setText("No file names match \"" + mNameFilter + "\".");
-						mEmpty.setVisibility(View.VISIBLE);
-						mList.setVisibility(View.GONE);
-					} else {
-						mEmpty.setVisibility(View.GONE);
-						mList.setVisibility(View.VISIBLE);
-					}
-					mSubtitle.setText(listSummary());
+				if (mFiles.isEmpty()) {
+					mEmpty.setText("No names match \"" + mNameFilter.trim() + "\".");
+					mEmpty.setVisibility(View.VISIBLE);
+					mList.setVisibility(View.GONE);
+				} else {
+					mEmpty.setVisibility(View.GONE);
+					mList.setVisibility(View.VISIBLE);
 				}
+				mSubtitle.setText(listSummary());
+				paintSearchChrome();
 			}
 		});
 		mSearch.setOnEditorActionListener(new TextView.OnEditorActionListener() {
@@ -772,11 +1010,7 @@ public class LogHistoryDialog extends Dialog {
 				if (actionId == EditorInfo.IME_ACTION_SEARCH
 						|| (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
 								&& event.getAction() == KeyEvent.ACTION_DOWN)) {
-					if (mOpenFile != null) {
-						findInOpenFile(1);
-					} else {
-						searchLoadedContents();
-					}
+					runSearch();
 					return true;
 				}
 				return false;
@@ -790,25 +1024,68 @@ public class LogHistoryDialog extends Dialog {
 		LinearLayout.LayoutParams navLp = new LinearLayout.LayoutParams(navW,
 				LinearLayout.LayoutParams.WRAP_CONTENT);
 		navLp.leftMargin = gap;
-		mFindPrev = chromeFooterButton("‹");
-		mFindPrev.setVisibility(View.GONE);
+		mClearBtn = searchBarButton("✕", density);
+		mClearBtn.setContentDescription("Close search");
+		mClearBtn.setVisibility(View.GONE);
+		mClearBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				onClearSearch();
+			}
+		});
+		mSearchBtn = searchBarButton("Search", density);
+		mSearchBtn.setContentDescription("Find in logs");
+		mSearchBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				runSearch();
+			}
+		});
+		LinearLayout.LayoutParams searchBtnLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		searchBtnLp.leftMargin = gap;
+		searchRow.addView(mClearBtn, navLp);
+		searchRow.addView(mSearchBtn, searchBtnLp);
+		bar.addView(searchRow);
+
+		mFindRow = new LinearLayout(getContext());
+		mFindRow.setOrientation(LinearLayout.HORIZONTAL);
+		mFindRow.setGravity(Gravity.CENTER);
+		mFindRow.setVisibility(View.GONE);
+		mFindRow.setPadding(0, gap, 0, 0);
+		mFindPrev = searchBarButton("‹", density);
+		mFindPrev.setContentDescription("Previous match");
 		mFindPrev.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				findInOpenFile(-1);
 			}
 		});
-		mFindNext = chromeFooterButton("›");
-		mFindNext.setVisibility(View.GONE);
+		mFindCount = new TextView(getContext());
+		mFindCount.setTextColor(color(R.color.chrome_title_text));
+		mFindCount.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+		mFindCount.setGravity(Gravity.CENTER);
+		mFindCount.setMinWidth((int) (64 * density + 0.5f));
+		mFindNext = searchBarButton("›", density);
+		mFindNext.setContentDescription("Next match");
 		mFindNext.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
 				findInOpenFile(1);
 			}
 		});
-		searchRow.addView(mFindPrev, navLp);
-		searchRow.addView(mFindNext, navLp);
-		bar.addView(searchRow);
+		LinearLayout.LayoutParams findBtnLp = new LinearLayout.LayoutParams(navW,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		LinearLayout.LayoutParams findCountLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		findCountLp.leftMargin = gap;
+		findCountLp.rightMargin = gap;
+		mFindRow.addView(mFindPrev, findBtnLp);
+		mFindRow.addView(mFindCount, findCountLp);
+		mFindRow.addView(mFindNext, findBtnLp);
+		bar.addView(mFindRow);
 		return bar;
 	}
 
@@ -834,7 +1111,10 @@ public class LogHistoryDialog extends Dialog {
 	 */
 	private void filtersChanged(String subtitle) {
 		mListGen++;
-		mSearchGen++;
+		mHitsMode = false;
+		mHitFiles.clear();
+		mFreezeNameFilter = false;
+		abandonInFlightSearch();
 		if (mLoadBtn != null) {
 			mLoadBtn.setEnabled(true);
 		}
@@ -963,87 +1243,139 @@ public class LogHistoryDialog extends Dialog {
 		b.show();
 	}
 
+	private void runSearch() {
+		hideIme();
+		if (boxText().length() == 0) {
+			mSubtitle.setText("Type a word, then Search.");
+			return;
+		}
+		if (mOpenFile != null) {
+			findInOpenFile(1);
+		} else {
+			searchLoadedContents();
+		}
+	}
+
+	/**
+	 * ✕ never dismisses. File → list (keep the query). List → full Load list
+	 * and empty box.
+	 */
+	private void onClearSearch() {
+		hideIme();
+		abandonInFlightSearch();
+		if (mOpenFile != null) {
+			leaveOpenFileToList();
+			return;
+		}
+		clearSearchOnList();
+	}
+
+	private void clearSearchOnList() {
+		abandonInFlightSearch();
+		mHitsMode = false;
+		mHitFiles.clear();
+		mFreezeNameFilter = false;
+		mSearchStatus = "";
+		mQuery = "";
+		if (mSearch != null) {
+			mSearch.setText("");
+		}
+		mNameFilter = "";
+		if (mLoaded.isEmpty()) {
+			mSubtitle.setText(idleHint());
+			mEmpty.setText(idleHint());
+			mEmpty.setVisibility(View.VISIBLE);
+			mList.setVisibility(View.GONE);
+		} else {
+			refreshListFromLoaded();
+			if (mFiles.isEmpty()) {
+				mEmpty.setVisibility(View.VISIBLE);
+				mList.setVisibility(View.GONE);
+			} else {
+				mEmpty.setVisibility(View.GONE);
+				mList.setVisibility(View.VISIBLE);
+			}
+			mSubtitle.setText(listSummary());
+		}
+		paintSearchChrome();
+	}
+
 	private void searchLoadedContents() {
-		final String query = mSearch == null ? ""
-				: mSearch.getText().toString().trim();
+		final String query = boxText();
 		if (query.length() == 0) {
+			mSubtitle.setText("Type a word, then Search.");
 			return;
 		}
 		if (mLoaded.isEmpty()) {
 			mSubtitle.setText("Tap Load, then Search.");
 			return;
 		}
-		final ArrayList<File> files = new ArrayList<File>();
-		if (!mFiles.isEmpty()) {
-			files.addAll(mFiles);
-		} else {
-			// Name filter hid every row: treat the box as a content query.
-			files.addAll(mLoaded);
+		final ArrayList<File> files = new ArrayList<File>(
+				mHitsMode ? mLoaded : mFiles);
+		if (files.isEmpty()) {
+			mSubtitle.setText("No files to search. ✕ the name filter, or Load.");
+			return;
 		}
 		mSearchStatus = "";
 		mSubtitle.setText("Searching " + files.size() + " file"
 				+ (files.size() == 1 ? "" : "s") + "…");
+		setSearchBusy(true);
 		final int gen = ++mSearchGen;
 		SessionLogSearch.runIo(new Runnable() {
 			@Override
 			public void run() {
-				File hitFile = null;
-				int hitLine = -1;
-				SessionLogSearch.Budget budget = SessionLogSearch.Budget.ofDefault();
-				ArrayList<SessionLogSearch.Hit> found =
-						new ArrayList<SessionLogSearch.Hit>(1);
-				for (int i = 0; i < files.size(); i++) {
-					if (!mAlive || gen != mSearchGen) {
-						return;
-					}
-					if (budget.stopped) {
-						break;
-					}
-					found.clear();
-					try {
-						SessionLogSearch.searchFile(files.get(i), query, false,
-								0, 1, budget, found);
-					} catch (IOException e) {
-						continue;
-					}
-					if (!found.isEmpty()) {
-						hitFile = files.get(i);
-						hitLine = found.get(0).lineIndex;
-						break;
-					}
+				SessionLogSearch.FilesScan scan;
+				try {
+					scan = SessionLogSearch.searchFiles(files, query, false,
+							SessionLogSearch.MAX_HITS, SessionLogSearch.MAX_HITS,
+							SessionLogSearch.MAX_FILES_PER_SEARCH,
+							SessionLogSearch.Budget.ofDefault(),
+							new SessionLogSearch.Cancel() {
+								@Override
+								public boolean get() {
+									return !mAlive || gen != mSearchGen;
+								}
+							});
+				} catch (IOException e) {
+					scan = new SessionLogSearch.FilesScan();
 				}
-				final File first = hitFile;
-				final int line = hitLine;
-				final boolean stopped = budget.stopped;
+				final SessionLogSearch.FilesScan result = scan;
 				mMain.post(new Runnable() {
 					@Override
 					public void run() {
 						if (!mAlive || gen != mSearchGen) {
 							return;
 						}
-						String stop = stopped
-								? SessionLogSearch.budgetStopMessage(
-										SessionLogSearch.SEARCH_BYTE_BUDGET)
-								: "";
-						if (first == null) {
-							if (stopped) {
-								mSubtitle.setText(stop);
-							} else {
-								mSubtitle.setText("No \"" + query + "\" in the "
-										+ files.size() + " file"
-										+ (files.size() == 1 ? "" : "s") + ".");
+						setSearchBusy(false);
+						String stop = "";
+						if (result.stopped) {
+							stop = SessionLogSearch.budgetStopMessage(
+									SessionLogSearch.SEARCH_BYTE_BUDGET);
+							if (result.filesLeft > 0) {
+								stop = stop + " " + result.filesLeft
+										+ " files not opened.";
 							}
+						}
+						if (result.matches.isEmpty()) {
+							mHitsMode = false;
+							mHitFiles.clear();
+							refreshListFromLoaded();
+							if (stop.length() > 0) {
+								mSubtitle.setText("No \"" + query + "\". " + stop);
+							} else {
+								mSubtitle.setText("No \"" + query + "\" in "
+										+ files.size() + " files.");
+							}
+							paintSearchChrome();
 							return;
 						}
-						mQuery = query;
-						mCaseSensitive = false;
-						String status = "Found \"" + query + "\" in "
-								+ first.getName() + ".";
-						if (stopped) {
-							status = status + " " + stop;
-						}
-						mSearchStatus = status;
-						openFile(first, line);
+						mHitsMode = true;
+						mFreezeNameFilter = true;
+						mHitFiles.clear();
+						mHitFiles.addAll(result.matches);
+						mSearchStatus = stop;
+						paintHitsList();
+						paintSearchChrome();
 					}
 				});
 			}
@@ -1051,13 +1383,12 @@ public class LogHistoryDialog extends Dialog {
 	}
 
 	/**
-	 * Next/previous match in the open file only. Does not walk {@code mLoaded}.
-	 * {@code direction} is +1 (next, wrap) or -1 (previous, wrap).
+	 * Next/previous in the open file. First press scans once into
+	 * {@link #mFileHits}; later presses only walk that array.
 	 */
 	private void findInOpenFile(int direction) {
 		final File file = mOpenFile;
-		final String query = mSearch == null ? ""
-				: mSearch.getText().toString().trim();
+		final String query = boxText();
 		if (file == null || query.length() == 0) {
 			return;
 		}
@@ -1065,55 +1396,93 @@ public class LogHistoryDialog extends Dialog {
 			mSubtitle.setText("Still reading…");
 			return;
 		}
-		final int from = direction < 0
-				? mHighlightLine
-				: (mHighlightLine < 0 ? 0 : mHighlightLine + 1);
+		if (mFileHits != null && query.equals(mQuery) && mFileHits.size > 0) {
+			int fromLine = direction < 0
+					? mHighlightLine
+					: (mHighlightLine < 0 ? 0 : mHighlightLine + 1);
+			int at = direction < 0
+					? SessionLogSearch.prevHitIndex(mFileHits.lines, mFileHits.size,
+							fromLine, true)
+					: SessionLogSearch.nextHitIndex(mFileHits.lines, mFileHits.size,
+							fromLine, true);
+			if (at >= 0) {
+				mFileHitAt = at;
+				jumpToLine(mFileHits.lines[at]);
+				paintSearchChrome();
+			}
+			return;
+		}
+		collectOpenFileHits(mHighlightLine < 0 ? 0 : mHighlightLine, direction);
+	}
+
+	private void collectOpenFileHits(final int preferLine, final int direction) {
+		final File file = mOpenFile;
+		final String query = boxText();
+		if (file == null || query.length() == 0) {
+			return;
+		}
+		mSubtitle.setText("Searching this file…");
+		setSearchBusy(true);
 		final int gen = ++mSearchGen;
-		final boolean backwards = direction < 0;
 		SessionLogSearch.runIo(new Runnable() {
 			@Override
 			public void run() {
-				SessionLogSearch.Hit hit = null;
-				boolean stopped = false;
+				SessionLogSearch.LineHits hits;
 				try {
-					SessionLogSearch.Budget budget = SessionLogSearch.Budget.ofDefault();
-					if (backwards) {
-						hit = SessionLogSearch.findPreviousInFile(file, query,
-								false, from, true, budget);
-					} else {
-						hit = SessionLogSearch.findNextInFile(file, query,
-								false, from, true, budget);
-					}
-					stopped = budget.stopped;
+					hits = SessionLogSearch.collectLineHits(file, query, false,
+							SessionLogSearch.MAX_LINE_HITS, null,
+							new SessionLogSearch.Cancel() {
+								@Override
+								public boolean get() {
+									return !mAlive || gen != mSearchGen;
+								}
+							});
 				} catch (IOException e) {
-					hit = null;
+					hits = SessionLogSearch.LineHits.empty();
 				}
-				final SessionLogSearch.Hit found = hit;
-				final boolean budgetStop = stopped;
+				final SessionLogSearch.LineHits found = hits;
 				mMain.post(new Runnable() {
 					@Override
 					public void run() {
 						if (!mAlive || gen != mSearchGen || mOpenFile != file) {
 							return;
 						}
-						if (found == null) {
-							if (budgetStop) {
-								mSearchStatus = SessionLogSearch.budgetStopMessage(
-										SessionLogSearch.SEARCH_BYTE_BUDGET);
-								mSubtitle.setText(mSearchStatus);
-							} else {
-								mSearchStatus = "No \"" + query + "\" in this file.";
-								mSubtitle.setText(mSearchStatus);
-							}
-							return;
-						}
+						setSearchBusy(false);
+						mFileHits = found;
 						mQuery = query;
 						mCaseSensitive = false;
-						mSearchStatus = budgetStop
-								? SessionLogSearch.budgetStopMessage(
-										SessionLogSearch.SEARCH_BYTE_BUDGET)
+						if (found.size == 0) {
+							mFileHitAt = -1;
+							mSearchStatus = "No \"" + query + "\" in this file.";
+							mSubtitle.setText(mSearchStatus);
+							paintSearchChrome();
+							renderPage();
+							return;
+						}
+						int at;
+						if (direction < 0) {
+							at = SessionLogSearch.prevHitIndex(found.lines,
+									found.size, preferLine, true);
+						} else if (direction > 0) {
+							int from = preferLine < 0 ? 0 : preferLine;
+							if (mHighlightLine >= 0) {
+								from = preferLine + 1;
+							}
+							at = SessionLogSearch.nextHitIndex(found.lines,
+									found.size, from, true);
+						} else {
+							at = SessionLogSearch.nextHitIndex(found.lines,
+									found.size, preferLine, true);
+						}
+						if (at < 0) {
+							at = 0;
+						}
+						mFileHitAt = at;
+						mSearchStatus = found.truncated
+								? "First " + found.size + " matches."
 								: "";
-						jumpToLine(found.lineIndex);
+						jumpToLine(found.lines[at]);
+						paintSearchChrome();
 					}
 				});
 			}
@@ -1263,8 +1632,18 @@ public class LogHistoryDialog extends Dialog {
 				tv.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
 			}
 			File f = mFiles.get(position);
-			tv.setText(f.getName() + "\n" + formatDate(f.lastModified())
-					+ "   " + formatSize(f.length()));
+			String extra;
+			if (mHitsMode) {
+				SessionLogSearch.FileMatch hit = hitFor(f);
+				if (hit != null) {
+					extra = hit.matchCount + " hit" + (hit.matchCount == 1 ? "" : "s");
+				} else {
+					extra = "";
+				}
+			} else {
+				extra = formatDate(f.lastModified()) + "   " + formatSize(f.length());
+			}
+			tv.setText(f.getName() + "\n" + extra);
 			return tv;
 		}
 	}

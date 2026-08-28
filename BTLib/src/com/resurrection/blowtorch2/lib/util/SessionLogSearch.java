@@ -33,6 +33,10 @@ public final class SessionLogSearch {
 	public static final int PREVIEW_CHARS = 120;
 	/** Cap for one Search press in the session-log dialog (not `.search logs`). */
 	public static final long SEARCH_BYTE_BUDGET = 16L * 1024L * 1024L;
+	/** Packed line indexes for in-file ‹ › after one scan. */
+	public static final int MAX_LINE_HITS = 10000;
+	/** Opens per list Search, on top of the byte budget. */
+	public static final int MAX_FILES_PER_SEARCH = 100;
 
 	/**
 	 * Stamp after the world prefix. Greedy {@code (.+)_} would otherwise treat
@@ -170,6 +174,49 @@ public final class SessionLogSearch {
 		}
 	}
 
+	/** One loaded file that contains the query. List Search stays on the list. */
+	public static final class FileMatch {
+		public final File file;
+		public final int firstLine;
+		public final int matchCount;
+
+		public FileMatch(File file, int firstLine, int matchCount) {
+			this.file = file;
+			this.firstLine = firstLine;
+			this.matchCount = matchCount;
+		}
+	}
+
+	public static final class FilesScan {
+		public final ArrayList<FileMatch> matches = new ArrayList<FileMatch>();
+		public int totalHits;
+		public int filesOpened;
+		public int filesLeft;
+		public boolean stopped;
+	}
+
+	/** Packed 0-based line indexes for ‹ › after one stream. */
+	public static final class LineHits {
+		public final int[] lines;
+		public final int size;
+		public final boolean truncated;
+
+		public LineHits(int[] lines, int size, boolean truncated) {
+			this.lines = lines == null ? new int[0] : lines;
+			this.size = size < 0 ? 0 : size;
+			this.truncated = truncated;
+		}
+
+		public static LineHits empty() {
+			return new LineHits(new int[0], 0, false);
+		}
+	}
+
+	/** Cooperative cancel for the session-log IO thread. */
+	public interface Cancel {
+		boolean get();
+	}
+
 	public static String preview(String line) {
 		if (line == null) {
 			return "";
@@ -188,7 +235,23 @@ public final class SessionLogSearch {
 		if (caseSensitive) {
 			return line.indexOf(query) >= 0;
 		}
-		return line.toLowerCase(Locale.US).indexOf(query.toLowerCase(Locale.US)) >= 0;
+		return containsIgnoreCase(line, query);
+	}
+
+	/**
+	 * Case-insensitive {@code indexOf} without allocating a lowercased copy
+	 * of each line. A 16 MB Search press used to pay two {@code toLowerCase}
+	 * strings per line.
+	 */
+	private static boolean containsIgnoreCase(String hay, String needle) {
+		int n = needle.length();
+		int max = hay.length() - n;
+		for (int i = 0; i <= max; i++) {
+			if (hay.regionMatches(true, i, needle, 0, n)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -284,12 +347,14 @@ public final class SessionLogSearch {
 			String name = file.getName();
 			String path = file.getAbsolutePath();
 			while (added < maxHits && (line = reader.readLine()) != null) {
-				if (budget != null) {
-					budget.consume(line.length() + 1L);
-				}
-				if (index >= from && lineContains(line, query, caseSensitive)) {
-					out.add(new Hit(name, path, index, preview(line)));
-					added++;
+				if (index >= from) {
+					if (budget != null) {
+						budget.consume(line.length() + 1L);
+					}
+					if (lineContains(line, query, caseSensitive)) {
+						out.add(new Hit(name, path, index, preview(line)));
+						added++;
+					}
 				}
 				index++;
 				if (budget != null && budget.stopped) {
@@ -366,6 +431,199 @@ public final class SessionLogSearch {
 			return lastAny;
 		}
 		return null;
+	}
+
+	/**
+	 * Stream {@code files} newest-first. Stops at the byte budget, {@code
+	 * maxFilesToOpen}, or {@code maxHits} matching lines. Does not open a file
+	 * for the player — the dialog lists {@link FileMatch} rows.
+	 */
+	public static FilesScan searchFiles(List<File> files, String query,
+			boolean caseSensitive, int maxMatchingFiles, int maxHits,
+			int maxFilesToOpen, Budget budget, Cancel cancel) throws IOException {
+		FilesScan result = new FilesScan();
+		if (files == null || query == null || query.length() == 0) {
+			return result;
+		}
+		int matchCap = maxMatchingFiles <= 0 ? MAX_HITS : maxMatchingFiles;
+		int hitCap = maxHits <= 0 ? MAX_HITS : maxHits;
+		int openCap = maxFilesToOpen <= 0 ? MAX_FILES_PER_SEARCH : maxFilesToOpen;
+		for (int i = 0; i < files.size(); i++) {
+			if (cancel != null && cancel.get()) {
+				return result;
+			}
+			if (budget != null && budget.stopped) {
+				result.stopped = true;
+				result.filesLeft = files.size() - i;
+				break;
+			}
+			if (result.filesOpened >= openCap || result.totalHits >= hitCap
+					|| result.matches.size() >= matchCap) {
+				result.stopped = true;
+				result.filesLeft = files.size() - i;
+				break;
+			}
+			File file = files.get(i);
+			result.filesOpened++;
+			FileMatch one;
+			try {
+				one = countFileMatches(file, query, caseSensitive,
+						hitCap - result.totalHits, budget, cancel);
+			} catch (IOException e) {
+				continue;
+			}
+			if (cancel != null && cancel.get()) {
+				return result;
+			}
+			if (one != null && one.matchCount > 0) {
+				result.matches.add(one);
+				result.totalHits += one.matchCount;
+			}
+			if (budget != null && budget.stopped) {
+				result.stopped = true;
+				result.filesLeft = files.size() - i - 1;
+				break;
+			}
+		}
+		return result;
+	}
+
+	private static FileMatch countFileMatches(File file, String query,
+			boolean caseSensitive, int remainingHits, Budget budget, Cancel cancel)
+			throws IOException {
+		if (file == null || !file.isFile() || remainingHits <= 0) {
+			return null;
+		}
+		int first = -1;
+		int count = 0;
+		BufferedReader reader = openReader(file);
+		try {
+			String line;
+			int index = 0;
+			int sinceCheck = 0;
+			while ((line = reader.readLine()) != null) {
+				if (budget != null) {
+					budget.consume(line.length() + 1L);
+				}
+				if (lineContains(line, query, caseSensitive)) {
+					if (first < 0) {
+						first = index;
+					}
+					count++;
+					if (count >= remainingHits) {
+						break;
+					}
+				}
+				index++;
+				sinceCheck++;
+				if (sinceCheck >= 256) {
+					sinceCheck = 0;
+					if (cancel != null && cancel.get()) {
+						break;
+					}
+				}
+				if (budget != null && budget.stopped) {
+					break;
+				}
+			}
+		} finally {
+			reader.close();
+		}
+		if (count <= 0 || first < 0) {
+			return null;
+		}
+		return new FileMatch(file, first, count);
+	}
+
+	/**
+	 * One forward pass. {@code maxLines} caps the packed array (in-file ‹ ›).
+	 */
+	public static LineHits collectLineHits(File file, String query,
+			boolean caseSensitive, int maxLines, Budget budget, Cancel cancel)
+			throws IOException {
+		if (file == null || !file.isFile() || query == null || query.length() == 0) {
+			return LineHits.empty();
+		}
+		int cap = maxLines <= 0 ? MAX_LINE_HITS : maxLines;
+		int[] buf = new int[cap];
+		int size = 0;
+		boolean truncated = false;
+		BufferedReader reader = openReader(file);
+		try {
+			String line;
+			int index = 0;
+			int sinceCheck = 0;
+			while ((line = reader.readLine()) != null) {
+				if (budget != null) {
+					budget.consume(line.length() + 1L);
+				}
+				if (lineContains(line, query, caseSensitive)) {
+					if (size < cap) {
+						buf[size] = index;
+						size++;
+					} else {
+						truncated = true;
+						break;
+					}
+				}
+				index++;
+				sinceCheck++;
+				if (sinceCheck >= 256) {
+					sinceCheck = 0;
+					if (cancel != null && cancel.get()) {
+						break;
+					}
+				}
+				if (budget != null && budget.stopped) {
+					truncated = true;
+					break;
+				}
+			}
+		} finally {
+			reader.close();
+		}
+		if (size == 0) {
+			return LineHits.empty();
+		}
+		if (size == buf.length) {
+			return new LineHits(buf, size, truncated);
+		}
+		int[] exact = new int[size];
+		System.arraycopy(buf, 0, exact, 0, size);
+		return new LineHits(exact, size, truncated);
+	}
+
+	/**
+	 * Index into {@code lines} of the first match at or after {@code fromLine}.
+	 * {@code wrap} uses {@code 0} when none. {@code -1} if empty.
+	 */
+	public static int nextHitIndex(int[] lines, int size, int fromLine, boolean wrap) {
+		if (lines == null || size <= 0) {
+			return -1;
+		}
+		int n = size > lines.length ? lines.length : size;
+		for (int i = 0; i < n; i++) {
+			if (lines[i] >= fromLine) {
+				return i;
+			}
+		}
+		return wrap ? 0 : -1;
+	}
+
+	/**
+	 * Index into {@code lines} of the last match strictly before {@code beforeLine}.
+	 */
+	public static int prevHitIndex(int[] lines, int size, int beforeLine, boolean wrap) {
+		if (lines == null || size <= 0) {
+			return -1;
+		}
+		int n = size > lines.length ? lines.length : size;
+		for (int i = n - 1; i >= 0; i--) {
+			if (lines[i] < beforeLine) {
+				return i;
+			}
+		}
+		return wrap ? n - 1 : -1;
 	}
 
 	private static BufferedReader openReader(File file) throws IOException {

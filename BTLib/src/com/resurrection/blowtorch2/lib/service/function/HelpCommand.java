@@ -604,6 +604,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "Logs live in the folder Options → Service → Session Log Directory\n"
 					+ "(blank = /BlowTorch/session_logs/) as {world}_{date}_{time}.txt.\n"
 					+ "⋮ → Session logs: pick dates and tap Load (large folders can take a while).\n"
+					+ "The box filters names; Search finds text in the files still listed and\n"
+					+ "stays on that list (hit counts). Tap a file for ‹ › in that file only.\n"
+					+ "✕ from a file returns to the list; ✕ on the list clears the box.\n"
 					+ "N is last N days including today; 0 = all files. Enable Log Session\n"
 					+ "to File? or there is nothing to search.\n";
 		}

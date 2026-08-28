@@ -171,6 +171,8 @@ public class SearchCommandTest {
 		assertTrue(SessionLogSearch.lineContains("You see a Goblin.", "goblin", false));
 		assertFalse(SessionLogSearch.lineContains("You see a Goblin.", "goblin", true));
 		assertTrue(SessionLogSearch.lineContains("You see a Goblin.", "Goblin", true));
+		assertTrue(SessionLogSearch.lineContains("endGOBLINhere", "goblin", false));
+		assertFalse(SessionLogSearch.lineContains("gobli", "goblin", false));
 		assertFalse(SessionLogSearch.lineContains(null, "x", false));
 		assertFalse(SessionLogSearch.lineContains("x", "", false));
 		assertFalse(SessionLogSearch.lineContains("x", null, false));
@@ -259,6 +261,169 @@ public class SearchCommandTest {
 		assertEquals(2, wrapPrev.lineIndex);
 		f.delete();
 		dir.delete();
+	}
+
+	@Test
+	public void byteBudgetDoesNotChargeLinesBeforeStartLine() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File f = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+		try {
+			StringBuilder body = new StringBuilder();
+			for (int i = 0; i < 20; i++) {
+				body.append("aaaaaaaaaaaaaaaaaaaa\n");
+			}
+			body.append("needle\n");
+			out.write(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		} finally {
+			out.close();
+		}
+		SessionLogSearch.Budget budget = new SessionLogSearch.Budget(50L);
+		java.util.ArrayList<SessionLogSearch.Hit> hits =
+				new java.util.ArrayList<SessionLogSearch.Hit>();
+		int n = SessionLogSearch.searchFile(f, "needle", false, 20, 10, budget, hits);
+		assertEquals(1, n);
+		assertEquals(20, hits.get(0).lineIndex);
+		assertTrue(budget.used < 50L);
+		assertFalse(budget.stopped);
+		f.delete();
+		dir.delete();
+	}
+
+	@Test
+	public void collectLineHitsAndNextPrevAreInMemoryAfterOneScan() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File f = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+		try {
+			out.write("A goblin.\nskip\nAnother goblin.\n".getBytes(
+					java.nio.charset.StandardCharsets.UTF_8));
+		} finally {
+			out.close();
+		}
+		SessionLogSearch.LineHits hits = SessionLogSearch.collectLineHits(
+				f, "goblin", false, 100, null, null);
+		assertEquals(2, hits.size);
+		assertEquals(0, hits.lines[0]);
+		assertEquals(2, hits.lines[1]);
+		assertFalse(hits.truncated);
+		assertEquals(0, SessionLogSearch.nextHitIndex(hits.lines, hits.size, 0, true));
+		assertEquals(1, SessionLogSearch.nextHitIndex(hits.lines, hits.size, 1, true));
+		assertEquals(0, SessionLogSearch.nextHitIndex(hits.lines, hits.size, 3, true));
+		assertEquals(0, SessionLogSearch.prevHitIndex(hits.lines, hits.size, 2, true));
+		assertEquals(1, SessionLogSearch.prevHitIndex(hits.lines, hits.size, 0, true));
+		f.delete();
+		dir.delete();
+	}
+
+	@Test
+	public void collectLineHitsTruncatesAtCap() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File f = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+		try {
+			StringBuilder body = new StringBuilder();
+			for (int i = 0; i < 20; i++) {
+				body.append("goblin\n");
+			}
+			out.write(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		} finally {
+			out.close();
+		}
+		SessionLogSearch.LineHits hits = SessionLogSearch.collectLineHits(
+				f, "goblin", false, 5, null, null);
+		assertEquals(5, hits.size);
+		assertTrue(hits.truncated);
+		f.delete();
+		dir.delete();
+	}
+
+	@Test
+	public void searchFilesDoesNotStopAtTheFirstMatchingFile() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File a = new java.io.File(dir, "world_2026-01-03_00-00-00.txt");
+		java.io.File b = new java.io.File(dir, "world_2026-01-02_00-00-00.txt");
+		java.io.File c = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		write(a, "alpha goblin\n");
+		write(b, "skip\n");
+		write(c, "beta goblin\ngamma goblin\n");
+		java.util.List<java.io.File> files = java.util.Arrays.asList(a, b, c);
+		SessionLogSearch.FilesScan scan = SessionLogSearch.searchFiles(
+				files, "goblin", false, 50, 50, 50, null, null);
+		assertEquals(2, scan.matches.size());
+		assertEquals(a.getName(), scan.matches.get(0).file.getName());
+		assertEquals(1, scan.matches.get(0).matchCount);
+		assertEquals(c.getName(), scan.matches.get(1).file.getName());
+		assertEquals(2, scan.matches.get(1).matchCount);
+		assertEquals(3, scan.totalHits);
+		assertEquals(3, scan.filesOpened);
+		a.delete();
+		b.delete();
+		c.delete();
+		dir.delete();
+	}
+
+	@Test
+	public void searchFilesStopsWhenByteBudgetIsExhausted() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File a = new java.io.File(dir, "world_2026-01-02_00-00-00.txt");
+		java.io.File b = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		StringBuilder filler = new StringBuilder();
+		for (int i = 0; i < 40; i++) {
+			filler.append("aaaaaaaaaaaaaaaaaaaa\n");
+		}
+		write(a, filler.toString());
+		write(b, "needle\n");
+		SessionLogSearch.Budget budget = new SessionLogSearch.Budget(50L);
+		SessionLogSearch.FilesScan scan = SessionLogSearch.searchFiles(
+				java.util.Arrays.asList(a, b), "needle", false, 50, 50, 50,
+				budget, null);
+		assertTrue(scan.stopped);
+		assertEquals(0, scan.matches.size());
+		assertTrue(scan.filesLeft >= 1);
+		a.delete();
+		b.delete();
+		dir.delete();
+	}
+
+	@Test
+	public void searchFilesStopsWhenCancelledBeforeOpening() throws Exception {
+		java.io.File dir = java.io.File.createTempFile("btlogs", "dir");
+		dir.delete();
+		dir.mkdirs();
+		java.io.File a = new java.io.File(dir, "world_2026-01-01_00-00-00.txt");
+		write(a, "goblin\n");
+		SessionLogSearch.FilesScan scan = SessionLogSearch.searchFiles(
+				java.util.Arrays.asList(a), "goblin", false, 50, 50, 50, null,
+				new SessionLogSearch.Cancel() {
+					@Override
+					public boolean get() {
+						return true;
+					}
+				});
+		assertEquals(0, scan.matches.size());
+		assertEquals(0, scan.filesOpened);
+		a.delete();
+		dir.delete();
+	}
+
+	private static void write(java.io.File f, String body) throws Exception {
+		java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+		try {
+			out.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		} finally {
+			out.close();
+		}
 	}
 
 	@Test
