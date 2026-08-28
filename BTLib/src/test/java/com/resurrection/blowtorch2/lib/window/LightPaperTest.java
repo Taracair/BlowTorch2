@@ -171,5 +171,40 @@ public class LightPaperTest {
 	public void paperGetter() {
 		assertEquals(LightPaper.DARK_PAPER, LightPaper.paper(false));
 		assertEquals(LightPaper.LIGHT_PAPER, LightPaper.paper(true));
+		assertEquals(LightPaper.LIGHT_PAPER, LightPaper.paper(true, LightPaper.SHADE_DEFAULT));
+		assertEquals(LightPaper.DARK_PAPER, LightPaper.paper(false, 5));
+	}
+
+	@Test
+	public void shadeTwoInkMatchesOriginalConstant() {
+		assertEquals(LightPaper.LIGHT_INK,
+				LightPaper.inkFor(LightPaper.paper(true, 2)));
+	}
+
+	@Test
+	public void eachShadeMeetsGreyContrast() {
+		for (int s = LightPaper.SHADE_MIN; s <= LightPaper.SHADE_MAX; s++) {
+			int paper = LightPaper.paper(true, s);
+			int ink = LightPaper.inkFor(paper);
+			assertTrue("shade " + s + " ink vs paper",
+					LightPaper.contrastRatio(ink, paper) >= LightPaper.MIN_GREY_CONTRAST);
+			int defFg = LightPaper.remapForeground(LightPaper.DARK_INK, true, true, s);
+			assertEquals(ink, defFg);
+			assertTrue(LightPaper.skipCellBackground(
+					LightPaper.remapBackground(0, true, true, s), true, s));
+		}
+		assertTrue("later shades are lighter paper",
+				LightPaper.luminance(LightPaper.paper(true, 5))
+						> LightPaper.luminance(LightPaper.paper(true, 1)));
+		assertTrue("near-white ink is not lighter than shade-2 ink",
+				LightPaper.luminance(LightPaper.inkFor(LightPaper.paper(true, 5)))
+						<= LightPaper.luminance(LightPaper.LIGHT_INK));
+	}
+
+	@Test
+	public void clampShade() {
+		assertEquals(1, LightPaper.clampShade(0));
+		assertEquals(5, LightPaper.clampShade(9));
+		assertEquals(3, LightPaper.clampShade(3));
 	}
 }

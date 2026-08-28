@@ -68,7 +68,7 @@ public class HelpCommand extends SpecialCommand {
 		cmd("font", "The window", "game font size; +n and -n step from where you are");
 		cmd("width", "The window", "text canvas width as a percent of the screen");
 		cmd("dimrepeat", "The window", "dim a long line that comes back identical");
-		cmd("light", "The window", "light grey paper and dark ink; .light on|off");
+		cmd("light", "The window", "light paper and dark ink; .light on|off|1-5");
 		cmd("when", "The window", "day/time to the left of ⋮ in history; .when opacity N");
 		cmd("osc8", "The window", "words the game marks (OSC 8); send:/prompt:/http; .osc8 on|off");
 		cmd("wrap", "The window", "let the input bar grow to more than one line");
@@ -275,10 +275,12 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .light:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .light              — say whether it is on\n"
+					+ "  .light              — on/off and shade 1–5\n"
 					+ "  .light on|off|toggle\n"
-					+ "Also: Options → Window → Light theme?\n"
-					+ "Game canvas only. Launcher, Options, mapper, chat and ⋮ stay dark.\n";
+					+ "  .light 1–5 | shade N  — 1 grey … 5 near-white; 2 is the original\n"
+					+ "Also: Options → Window → Light theme? / Light paper shade (1–5)\n"
+					+ "Game canvas only. Launcher, Options, mapper, chat and ⋮ stay dark.\n"
+					+ "Ink darkens as the paper lightens. Extra-text follows.\n";
 		}
 		if (filter.equals("when")) {
 			return "\n"

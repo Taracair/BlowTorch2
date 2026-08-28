@@ -7495,10 +7495,11 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		com.resurrection.blowtorch2.lib.window.Window main =
 				windowMap != null ? windowMap.get("mainDisplay") : null;
 		final boolean light = main != null && main.isLightPaper();
-		final int paper = LightPaper.paper(light);
-		final int ink = light ? LightPaper.LIGHT_INK : 0xFF9999FF;
-		final int hint = light ? 0xFF8A8680 : 0xFF666699;
-		final int nest = light ? 0xFFE0DCD4 : 0xFF1A1A1A;
+		final int shade = main != null ? main.getLightPaperShade() : LightPaper.SHADE_DEFAULT;
+		final int paper = LightPaper.paper(light, shade);
+		final int ink = light ? LightPaper.inkFor(paper) : 0xFF9999FF;
+		final int hint = light ? mixHint(ink, paper) : 0xFF666699;
+		final int nest = light ? LightPaper.nest(paper) : 0xFF1A1A1A;
 		View inputBar = findInputBar();
 		if (inputBar != null) {
 			inputBar.setBackgroundColor(paper);
@@ -7525,7 +7526,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 			prompt.setBackgroundColor(light ? nest : 0xFF101010);
 			((TextView) prompt).setTextColor(light ? ink : 0xFFD0D0D0);
 		}
-		applyScrollbackSearchLightChrome(light, nest);
+		applyScrollbackSearchLightChrome(light, nest, ink, hint);
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
 			getWindow().setNavigationBarColor(paper);
 		}
@@ -7540,24 +7541,30 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 	}
 
-	private void applyScrollbackSearchLightChrome(final boolean light, final int nest) {
+	private void applyScrollbackSearchLightChrome(final boolean light, final int nest,
+			final int ink, final int hint) {
 		View search = findViewById(R.id.scrollback_search_bar);
 		if (search == null) {
 			return;
 		}
 		final android.content.res.Resources res = getResources();
 		search.setBackgroundColor(light ? nest : res.getColor(R.color.chrome_body));
-		final int title = light ? LightPaper.LIGHT_INK : res.getColor(R.color.chrome_title_text);
-		final int desc = light ? 0xFF6A6660 : res.getColor(R.color.chrome_description);
-		final int hint = light ? 0xFF8A8680 : res.getColor(R.color.chrome_hint);
+		final int title = light ? ink : res.getColor(R.color.chrome_title_text);
+		final int desc = light ? LightPaper.mix(ink, nest, 0.35f)
+				: res.getColor(R.color.chrome_description);
+		final int hintColor = light ? hint : res.getColor(R.color.chrome_hint);
 		setViewTextColor(R.id.scrollback_search_query, title);
-		setViewHintColor(R.id.scrollback_search_query, hint);
+		setViewHintColor(R.id.scrollback_search_query, hintColor);
 		setViewTextColor(R.id.scrollback_search_case, title);
 		setViewTextColor(R.id.scrollback_search_count, title);
 		setViewTextColor(R.id.scrollback_search_logs, title);
 		setViewTextColor(R.id.scrollback_search_log_days, title);
-		setViewHintColor(R.id.scrollback_search_log_days, hint);
+		setViewHintColor(R.id.scrollback_search_log_days, hintColor);
 		setViewTextColor(R.id.scrollback_search_preview, desc);
+	}
+
+	private static int mixHint(final int ink, final int paper) {
+		return LightPaper.mix(ink, paper, 0.45f);
 	}
 
 	private void setViewTextColor(final int id, final int color) {

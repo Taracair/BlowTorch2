@@ -666,7 +666,7 @@ Trigger Color responders can tint matched lines.
 Options → Window → Light theme? (off by default): light grey paper and
 dark ink. Colours the game sends stay; whites and light greys are
 darkened so they stay readable. Extra-text windows follow. Launcher,
-Options, mapper, chat and ⋮ stay dark. .light on|off.]])
+Options, mapper, chat and ⋮ stay dark. .light on|off|1-5.]])
 end
 
 TOPICS.tappable = function()
@@ -1274,8 +1274,8 @@ into history, a small day/time sits to the left of ⋮, and a mark to
 the right of the date shows where you are in the buffer. .when on|off.
 .when opacity N. .search 14:32 or 18 Aug jumps to that moment.
 Options → Window → Newest text at top?: live output appears at the top.
-Options → Window → Light theme? (off by default): light grey paper and
-dark ink. .light on|off. Extra-text windows follow this window.
+Options → Window → Light theme? (off by default): light paper and
+dark ink. .light on|off|1-5. Extra-text windows follow this window.
 Launcher, Options, mapper, chat and ⋮ stay dark.]])
 end
 
@@ -1519,7 +1519,7 @@ local TIPS = {
 	suggestions = [[Same as .suggest.]],
 	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
 	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
-	light = [[.light on paints the game on light grey paper with dark ink. Colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Options → Window → Light theme?. Off by default.]],
+	light = [[.light on paints the game on light paper with dark ink. .light 1-5 picks the paper (1 grey … 5 near-white; 2 is the original). Ink darkens as the paper lightens. Colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Options → Window → Light theme?. Off by default.]],
 	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],
 	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],

@@ -1386,7 +1386,7 @@ is enabled; `.alias list` shows every alias at once.
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–48. Also Options → Window → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
-    `.light [on|off|toggle]`            Light grey paper and dark ink. No argument prints on or off. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
+    `.light [on|off|toggle|1-5|shade N]` Light paper and dark ink. No argument prints on or off and the shade (1 grey … 5 near-white; 2 is the original warm paper). Ink darkens as the paper lightens. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
@@ -2271,12 +2271,20 @@ window. Colour triggers are unchanged — they still inject the same SGR; only
 the paint changes. The launcher, Options, mapper, chat drawer and ⋮ stay
 dark. Factory pad colours are unchanged (pale on light paper).
 
+Five paper shades, 1 grey through 5 near-white. 2 is the original warm grey.
+Ink is recomputed against the current paper (darker on whiter sheets). Extra-text
+follows the main window's shade.
+
 ```
 .light
 .light on|off|toggle
+.light 1|2|3|4|5
+.light shade N
 ```
 
-`.light` with no argument prints on or off.
+`.light` with no argument prints on or off and the shade. `.light 3` turns
+the theme on at ivory. `.light shade N` stores the shade even while the
+theme is off.
 
 ## Scroll dates
 

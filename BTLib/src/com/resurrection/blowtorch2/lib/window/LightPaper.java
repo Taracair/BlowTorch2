@@ -13,12 +13,26 @@ public final class LightPaper {
 
 	/** Canvas fill used when the light theme is off. */
 	public static final int DARK_PAPER = 0xFF0A0A0A;
-	/** Warm grey paper — not {@code #FFFFFF}, which makes yellow highlights vanish. */
+	/** Shade 2 — warm grey paper. Not {@code #FFFFFF}, which makes yellow vanish. */
 	public static final int LIGHT_PAPER = 0xFFECE8E0;
-	/** Default ANSI 37 / 39 on light paper. */
+	/** Default ANSI 37 / 39 on shade-2 paper. Other shades compute via {@link #inkFor}. */
 	public static final int LIGHT_INK = 0xFF2C2C2C;
 	/** ANSI 37 as {@code Colorizer} resolves it on a dark window. */
 	public static final int DARK_INK = 0xFFBBBBBB;
+
+	public static final int SHADE_MIN = 1;
+	public static final int SHADE_MAX = 5;
+	/** Same paper as {@link #LIGHT_PAPER} so old profiles match. */
+	public static final int SHADE_DEFAULT = 2;
+
+	/** 1 grey → 5 near-white. Index {@code shade - 1}. */
+	private static final int[] SHADE_PAPERS = new int[] {
+			0xFFD4D0C8,
+			LIGHT_PAPER,
+			0xFFF4F0E6,
+			0xFFFAF7F2,
+			0xFFFEFCF8
+	};
 
 	static final double MIN_GREY_CONTRAST = 4.0;
 	static final double MIN_CHROMA_CONTRAST = 3.0;
@@ -27,8 +41,59 @@ public final class LightPaper {
 	private LightPaper() {
 	}
 
+	public static int clampShade(final int shade) {
+		if (shade < SHADE_MIN) {
+			return SHADE_MIN;
+		}
+		if (shade > SHADE_MAX) {
+			return SHADE_MAX;
+		}
+		return shade;
+	}
+
 	public static int paper(final boolean light) {
-		return light ? LIGHT_PAPER : DARK_PAPER;
+		return paper(light, SHADE_DEFAULT);
+	}
+
+	public static int paper(final boolean light, final int shade) {
+		if (!light) {
+			return DARK_PAPER;
+		}
+		return SHADE_PAPERS[clampShade(shade) - 1];
+	}
+
+	/**
+	 * Body ink for this paper. Shade 2 is {@link #LIGHT_INK}; lighter paper
+	 * darkens the glyphs, greyer paper lifts them a little, then contrast is
+	 * checked. Not a {@code static} of the current shade — two processes.
+	 */
+	public static int inkFor(final int paper) {
+		if ((paper | 0xFF000000) == LIGHT_PAPER) {
+			return LIGHT_INK;
+		}
+		final double paperL = luminance(paper);
+		final double refL = luminance(LIGHT_PAPER);
+		int ink = LIGHT_INK;
+		if (paperL > refL) {
+			final float t = (float) Math.min(0.40, (paperL - refL) * 3.0);
+			ink = mix(ink, 0xFF000000, t);
+		} else if (paperL < refL) {
+			final float t = (float) Math.min(0.28, (refL - paperL) * 3.0);
+			ink = mix(ink, 0xFF4A4A4A, t);
+		}
+		int cur = ink;
+		for (int i = 0; i < 12; i++) {
+			if (contrastRatio(cur, paper) >= MIN_GREY_CONTRAST) {
+				return cur;
+			}
+			cur = mix(cur, 0xFF000000, 0.18f);
+		}
+		return cur;
+	}
+
+	/** Nested chrome (edit strip, extra-text title) a step darker than paper. */
+	public static int nest(final int paper) {
+		return mix(paper, 0xFF000000, 0.07f);
 	}
 
 	/**
@@ -43,11 +108,16 @@ public final class LightPaper {
 	 * worlds that send 40 as "normal".
 	 */
 	public static boolean skipCellBackground(final int bgArgb, final boolean light) {
+		return skipCellBackground(bgArgb, light, SHADE_DEFAULT);
+	}
+
+	public static boolean skipCellBackground(final int bgArgb, final boolean light,
+			final int shade) {
 		final int rgb = bgArgb | 0xFF000000;
 		if (!light) {
 			return rgb == 0xFF000000 || rgb == DARK_PAPER;
 		}
-		return rgb == LIGHT_PAPER;
+		return rgb == paper(true, shade);
 	}
 
 	/**
@@ -80,25 +150,37 @@ public final class LightPaper {
 
 	public static int remapForeground(final int argb, final boolean light,
 			final boolean defaultAnsiFg) {
+		return remapForeground(argb, light, defaultAnsiFg, SHADE_DEFAULT);
+	}
+
+	public static int remapForeground(final int argb, final boolean light,
+			final boolean defaultAnsiFg, final int shade) {
 		final int rgb = argb | 0xFF000000;
 		if (!light) {
 			return rgb;
 		}
+		final int sheet = paper(true, shade);
 		if (defaultAnsiFg) {
-			return LIGHT_INK;
+			return inkFor(sheet);
 		}
-		return contrastInk(rgb, LIGHT_PAPER);
+		return contrastInk(rgb, sheet);
 	}
 
 	public static int remapBackground(final int argb, final boolean light,
 			final boolean defaultAnsiBg) {
+		return remapBackground(argb, light, defaultAnsiBg, SHADE_DEFAULT);
+	}
+
+	public static int remapBackground(final int argb, final boolean light,
+			final boolean defaultAnsiBg, final int shade) {
 		if (!light) {
 			return argb | 0xFF000000;
 		}
+		final int sheet = paper(true, shade);
 		if (defaultAnsiBg) {
-			return LIGHT_PAPER;
+			return sheet;
 		}
-		return contrastWash(argb | 0xFF000000, LIGHT_PAPER);
+		return contrastWash(argb | 0xFF000000, sheet);
 	}
 
 	/**
@@ -108,11 +190,16 @@ public final class LightPaper {
 	 */
 	public static int dimTowardPaper(final int color, final int strengthPercent,
 			final boolean light) {
+		return dimTowardPaper(color, strengthPercent, light, SHADE_DEFAULT);
+	}
+
+	public static int dimTowardPaper(final int color, final int strengthPercent,
+			final boolean light, final int shade) {
 		if (!light) {
 			return RepeatedLineDimmer.dimForeground(color, strengthPercent);
 		}
 		final float keep = RepeatedLineDimmer.keepFactor(strengthPercent);
-		return mix(LIGHT_PAPER, color | 0xFF000000, keep);
+		return mix(paper(true, shade), color | 0xFF000000, keep);
 	}
 
 	/**
@@ -122,6 +209,11 @@ public final class LightPaper {
 	 */
 	public static int shadeTowardPaper(final int fgArgb, final int amount255,
 			final boolean light) {
+		return shadeTowardPaper(fgArgb, amount255, light, SHADE_DEFAULT);
+	}
+
+	public static int shadeTowardPaper(final int fgArgb, final int amount255,
+			final boolean light, final int shade) {
 		final int fg = fgArgb | 0xFF000000;
 		final int amount = amount255 < 0 ? 0 : (amount255 > 255 ? 255 : amount255);
 		if (!light) {
@@ -130,7 +222,7 @@ public final class LightPaper {
 			final int b = ((fg & 0xFF) * amount) / 255;
 			return 0xFF000000 | (r << 16) | (g << 8) | b;
 		}
-		return mix(LIGHT_PAPER, fg, amount / 255f);
+		return mix(paper(true, shade), fg, amount / 255f);
 	}
 
 	static int contrastInk(final int rgb, final int paper) {
@@ -142,7 +234,7 @@ public final class LightPaper {
 			if (contrastRatio(inverted, paper) >= MIN_GREY_CONTRAST) {
 				return inverted;
 			}
-			return LIGHT_INK;
+			return inkFor(paper);
 		}
 		int cur = rgb;
 		for (int i = 0; i < 12; i++) {

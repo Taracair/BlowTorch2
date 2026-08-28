@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.Option;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser.NewItemCallback;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.SettingsGroup;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
+import com.resurrection.blowtorch2.lib.window.LightPaper;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 import com.resurrection.blowtorch2.lib.window.TextTree;
 
@@ -311,6 +312,16 @@ public final class WindowTokenParser {
 							out.startTag("", "option");
 							out.attribute("", "key", key.toString());
 							out.text("true");
+							out.endTag("", "option");
+						}
+						break;
+					case light_paper_shade:
+						if (((Integer) ((IntegerOption) o).getValue()).intValue()
+								!= LightPaper.SHADE_DEFAULT) {
+							out.startTag("", "option");
+							out.attribute("", "key", key.toString());
+							out.text(Integer.toString(LightPaper.clampShade(
+									((Integer) ((IntegerOption) o).getValue()).intValue())));
 							out.endTag("", "option");
 						}
 						break;

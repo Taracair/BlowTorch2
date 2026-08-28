@@ -253,6 +253,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private int mLinkHighlightColor = HyperSettings.DEFAULT_HYPERLINK_COLOR;
 	/** Light paper + darkened ink. Off by default. Extra-text copies the main window. */
 	private boolean mLightPaper = false;
+	/** 1 grey … 5 near-white. Default 2 = original warm paper. Extra-text copies main. */
+	private int mLightPaperShade = LightPaper.SHADE_DEFAULT;
 	/** ANSI Drawing routine current color register. */
 	private Integer mSelectedColor = Integer.valueOf(37);
 	/** ANSI Drawing routine current brightness register. */
@@ -682,6 +684,12 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		BooleanOption lightPaper = (BooleanOption) settings.findOptionByKey("light_paper");
 		if (lightPaper != null) {
 			mLightPaper = (Boolean) lightPaper.getValue();
+		}
+		IntegerOption lightPaperShade =
+				(IntegerOption) settings.findOptionByKey("light_paper_shade");
+		if (lightPaperShade != null) {
+			mLightPaperShade = LightPaper.clampShade(
+					((Integer) lightPaperShade.getValue()).intValue());
 		}
 		BooleanOption scrollDates = (BooleanOption) settings.findOptionByKey("scroll_dates");
 		if (scrollDates != null) {
@@ -1584,7 +1592,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			{
 				final int amount = (cp == 0x2591) ? 64 : (cp == 0x2592) ? 128 : 192;
 				final int color = paint.getColor();
-				paint.setColor(LightPaper.shadeTowardPaper(color, amount, mLightPaper));
+				paint.setColor(LightPaper.shadeTowardPaper(color, amount, mLightPaper,
+						mLightPaperShade));
 				c.drawRect(left, top, right, bot, paint);
 				paint.setColor(color);
 			}
@@ -2045,6 +2054,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		return mLightPaper;
 	}
 
+	public final int getLightPaperShade() {
+		return mLightPaperShade;
+	}
+
 	/**
 	 * Extra-text overlays inherit the main window's light paper rather than
 	 * their own (unpersisted) SettingsGroup.
@@ -2054,6 +2067,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			return;
 		}
 		mLightPaper = light;
+		invalidate();
+	}
+
+	/**
+	 * Extra-text copies this from main. Shade is ignored while light paper is
+	 * off; changing it still invalidates so a later on uses the new sheet.
+	 */
+	public final void applyLightPaperShade(final int shade) {
+		final int next = LightPaper.clampShade(shade);
+		if (mLightPaperShade == next) {
+			return;
+		}
+		mLightPaperShade = next;
 		invalidate();
 	}
 
@@ -2260,7 +2286,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			calculateScrollBack();
 			c.save();
 			
-			setBgPaintColor(LightPaper.paper(mLightPaper));
+			setBgPaintColor(LightPaper.paper(mLightPaper, mLightPaperShade));
 			// Own bounds only, never drawColor. drawColor fills the whole clip,
 			// and an extra text overlay turns clipChildren off on every parent up
 			// to its root so the copy widget's disc is not cropped — which made
@@ -2416,7 +2442,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						}
 						themeBleedForeground();
 						// Do not bleed backgrounds: reset to paper (skipped as a cell).
-						setBgPaintColor(LightPaper.paper(mLightPaper));
+						setBgPaintColor(LightPaper.paper(mLightPaper, mLightPaperShade));
 	
 					}
 				}
@@ -2424,7 +2450,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			
 			if (!bleeding) {
 				p.setColor(0xFF000000 | Colorizer.getColorValue(0, 37, false));
-				p.setColor(LightPaper.remapForeground(p.getColor(), mLightPaper, true));
+				p.setColor(LightPaper.remapForeground(p.getColor(), mLightPaper, true,
+						mLightPaperShade));
 			}
 			mResolvedFg = p.getColor();
 			mPaintingDimLine = false;
@@ -2498,7 +2525,8 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 				while (unitIterator.hasNext()) {
 					Unit u = unitIterator.next();
 					final boolean useBackground =
-							!LightPaper.skipCellBackground(mBgPaintColor, mLightPaper);
+							!LightPaper.skipCellBackground(mBgPaintColor, mLightPaper,
+									mLightPaperShade);
 					
 					switch(u.type) {
 					case WHITESPACE:
@@ -4356,7 +4384,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		h = 31 * h + (mSelectedBright != null ? mSelectedBright.intValue() : 0);
 		h = 31 * h + (mXterm256FG ? 1 : 0) + (mXterm256BG ? 2 : 0)
 				+ (mTrueColorFG ? 4 : 0) + (mTrueColorBG ? 8 : 0);
-		h = 31 * h + (mLightPaper ? 16 : 0);
+		h = 31 * h + (mLightPaper ? 16 : 0) + mLightPaperShade;
 		return h;
 	}
 
@@ -4405,10 +4433,10 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 		if (mColorDebugMode == 2 || mColorDebugMode == 3) {
 			textPaint.setColor(LightPaper.remapForeground(
 					0xFF000000 | Colorizer.getColorValue(0, 37, false),
-					mLightPaper, true));
+					mLightPaper, true, mLightPaperShade));
 			setBgPaintColor(LightPaper.remapBackground(
 					0xFF000000 | Colorizer.getColorValue(0, 40, false),
-					mLightPaper, true));
+					mLightPaper, true, mLightPaperShade));
 			return;
 		}
 
@@ -4440,14 +4468,16 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			fgRaw = 0xFF000000 | Colorizer.getColorValue(
 					mSelectedBright, mSelectedColor, mXterm256FG);
 		}
-		final int fg = LightPaper.remapForeground(fgRaw, mLightPaper, defaultFg);
+		final int fg = LightPaper.remapForeground(fgRaw, mLightPaper, defaultFg,
+				mLightPaperShade);
 		if (textPaint.getColor() != fg) {
 			textPaint.setColor(fg);
 		}
 		final int bgRaw = mTrueColorBG
 				? (0xFF000000 | (mSelectedBackground.intValue() & 0xFFFFFF))
 				: (0xFF000000 | Colorizer.getColorValue(0, mSelectedBackground, mXterm256BG));
-		final int bg = LightPaper.remapBackground(bgRaw, mLightPaper, defaultBg);
+		final int bg = LightPaper.remapBackground(bgRaw, mLightPaper, defaultBg,
+				mLightPaperShade);
 		if (bgPaint.getColor() != bg) {
 			bgPaint.setColor(bg);
 		}
@@ -4460,16 +4490,19 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 	private void themeBleedForeground() {
 		final boolean defaultFg = LightPaper.isDefaultAnsiForeground(
 				mSelectedColor, mXterm256FG, mTrueColorFG);
-		p.setColor(LightPaper.remapForeground(p.getColor(), mLightPaper, defaultFg));
+		p.setColor(LightPaper.remapForeground(p.getColor(), mLightPaper, defaultFg,
+				mLightPaperShade));
 	}
 
 	private int themedLinkColor() {
-		return LightPaper.remapForeground(mLinkHighlightColor, mLightPaper, false);
+		return LightPaper.remapForeground(mLinkHighlightColor, mLightPaper, false,
+				mLightPaperShade);
 	}
 
 	/** Scale resolved FG toward the paper by the player's dim strength. */
 	private int dimRepeatedForeground(final int color) {
-		return LightPaper.dimTowardPaper(color, mDimRepeatedStrength, mLightPaper);
+		return LightPaper.dimTowardPaper(color, mDimRepeatedStrength, mLightPaper,
+				mLightPaperShade);
 	}
 
 	/**
@@ -5786,6 +5819,16 @@ end
 					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_LIGHT_PAPER);
 				}
 				break;
+			case light_paper_shade:
+				{
+					int n = LightPaper.clampShade(((Integer) o.getValue()).intValue());
+					o.setValue(Integer.valueOf(n));
+					applyLightPaperShade(n);
+				}
+				if ("mainDisplay".equals(mName) && mMainWindowHandler != null) {
+					mMainWindowHandler.sendEmptyMessage(MainWindow.MESSAGE_REFRESH_LIGHT_PAPER);
+				}
+				break;
 			case scroll_dates:
 				mScrollDates = (Boolean) o.getValue();
 				this.invalidate();
@@ -5929,6 +5972,7 @@ end
 		dim_repeated_window,
 		dim_repeated_strength,
 		light_paper,
+		light_paper_shade,
 		scroll_dates,
 		scroll_dates_opacity,
 		osc8_links,

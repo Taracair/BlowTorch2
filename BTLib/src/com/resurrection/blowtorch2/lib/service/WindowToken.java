@@ -17,6 +17,7 @@ import com.resurrection.blowtorch2.lib.service.plugin.settings.StringOption;
 import com.resurrection.blowtorch2.lib.service.LayoutGroup.LAYOUT_TYPE;
 import com.resurrection.blowtorch2.lib.settings.HyperSettings;
 import com.resurrection.blowtorch2.lib.window.TextTree;
+import com.resurrection.blowtorch2.lib.window.LightPaper;
 import com.resurrection.blowtorch2.lib.window.RepeatedLineDimmer;
 
 import android.content.res.Configuration;
@@ -119,6 +120,8 @@ public class WindowToken implements Parcelable {
 		dim_repeated_strength,
 		/** Light grey paper and darkened ink. Off by default. .light on|off */
 		light_paper,
+		/** 1 grey … 5 near-white. Default 2. .light 1–5 */
+		light_paper_shade,
 		/** Date overlay + position mark while scrolled into history. .when on|off */
 		scroll_dates,
 		/** Opacity of that date overlay, percent. Default 75. .when opacity N */
@@ -430,10 +433,17 @@ public class WindowToken implements Parcelable {
 
 		BooleanOption lightPaper = new BooleanOption();
 		lightPaper.setTitle("Light theme?");
-		lightPaper.setDescription("Light grey paper and dark ink. Colours the game sends (red, cyan, …) stay; whites and light greys are darkened so they stay readable. Extra-text windows follow this window. Off by default. .light on|off");
+		lightPaper.setDescription("Light paper and dark ink. Colours the game sends (red, cyan, …) stay; whites and light greys are darkened so they stay readable. Extra-text windows follow this window. Off by default. .light on|off|1–5");
 		lightPaper.setKey("light_paper");
 		lightPaper.setValue(false);
 		window.addOption(lightPaper);
+
+		IntegerOption lightPaperShade = new IntegerOption();
+		lightPaperShade.setTitle("Light paper shade (1–5)");
+		lightPaperShade.setDescription("Only while Light theme? is on. 1 grey, 2 warm (the original), 3 ivory, 4 off-white, 5 near-white. Ink darkens as the paper lightens. Extra-text follows. .light 1–5 or .light shade N");
+		lightPaperShade.setKey("light_paper_shade");
+		lightPaperShade.setValue(Integer.valueOf(LightPaper.SHADE_DEFAULT));
+		window.addOption(lightPaperShade);
 
 		BooleanOption scrollDates = new BooleanOption();
 		scrollDates.setTitle("Scroll dates?");
