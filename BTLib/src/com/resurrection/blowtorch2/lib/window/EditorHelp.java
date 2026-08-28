@@ -260,7 +260,7 @@ public final class EditorHelp {
 			+ "sleeping phone; a timer is not an alarm clock.";
 
 	/**
-	 * Chat drawer ⚙: My lines and Reply. Worlds print chat differently; this
+	 * Chat ⚙ submenu: My lines and Reply. Worlds print chat differently; this
 	 * is what to type, not a prefix from one world.
 	 */
 	public static final String CHAT_MY_LINES =
@@ -276,6 +276,15 @@ public final class EditorHelp {
 			+ "    My lines:       Ada\n\n"
 			+ "    In the thread:  You say, \"hello\"\n"
 			+ "    My lines:       You say\n\n"
+			+ "A one-word name already matches Ada says and Ada asks (you as "
+			+ "speaker). Ada says as a phrase does not match Ada asks.\n\n"
+			+ "SEVERAL FORMS\n"
+			+ "One form per line, or join them with a semicolon:\n\n"
+			+ "    Ada says\n"
+			+ "    Ada asks\n\n"
+			+ "    Ada says; Ada asks\n\n"
+			+ "Same thing either way. | on one form is still regex "
+			+ "(]: Ada|You say).\n\n"
 			+ "WHY NOT THE CHANNEL TAG\n"
 			+ "A tag like [ooc] sits on every message here. Paste it and everyone "
 			+ "looks like you.\n\n"
@@ -287,9 +296,10 @@ public final class EditorHelp {
 			+ "or ). Some use You say. There is no one prefix to copy. The name "
 			+ "as it appears when you speak is the thing that works. If a one-word "
 			+ "name is wrong, type the unique bit of your line (Ada says), still "
-			+ "not the channel tag.\n\n"
+			+ "not the channel tag — and add Ada asks on the next line if the "
+			+ "world uses that too.\n\n"
 			+ "COLOUR\n"
-			+ "The chips next to My lines are this conversation only.\n\n"
+			+ "The chips in this submenu are this conversation only.\n\n"
 			+ "REPLY\n"
 			+ "The command Send uses. $text is whatever you type in the reply box "
 			+ "at the bottom of this conversation.\n\n"
@@ -306,8 +316,14 @@ public final class EditorHelp {
 			+ "    Reply:    C $1\n"
 			+ "    You type: hello\n"
 			+ "    World:    C hello\n\n"
+			+ "SEND TO THREAD\n"
+			+ "The trigger action's Reply field is allowed to use $1 — that is a "
+			+ "capture from the matched line (tell $1 $text becomes tell Bob $text "
+			+ "when the conversation is created). Chat Send does not fill $1. After "
+			+ "the thread exists, ⚙ Reply needs the name already in the template "
+			+ "(tell Bob $text), or $text only.\n\n"
 			+ "NOT A SEND TEMPLATE\n"
-			+ "tell $1 $text is the trigger's capture form (the name came from the "
-			+ "match). Send refuses it: filling $text still leaves $1. Put the name "
-			+ "in the template (tell Bob $text), or use $text only.";
+			+ "In Chat ⚙ Reply, tell $1 $text is the leftover capture form. Send "
+			+ "refuses it: filling $text still leaves $1. Put the name in the "
+			+ "template (tell Bob $text), or use $text only.";
 }

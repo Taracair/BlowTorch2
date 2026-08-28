@@ -77,7 +77,9 @@ public class ChatPanelController {
 	private EditText searchBox;
 	private TextView inboxEmpty;
 	private LinearLayout threadList;
-	private EditText templateBox;
+	private TextView mineSummary;
+	private TextView replySummary;
+	private String editorReplyText = "";
 	private TextView settingsSave;
 	private TextView threadDelete;
 	private TextView orphanHint;
@@ -86,8 +88,6 @@ public class ChatPanelController {
 	private LinearLayout messageList;
 	private EditText replyBox;
 	private TextView sendBtn;
-	private EditText mineNameBox;
-	private LinearLayout mineColors;
 	private View settingsPanel;
 	private TextView settingsToggle;
 	private View templateRow;
@@ -100,7 +100,6 @@ public class ChatPanelController {
 	private TextView filterAll;
 	private TextView threadEmpty;
 	private View mineRow;
-	private View mineHelpButton;
 	private View findNav;
 	private TextView findPrev;
 	private TextView findNext;
@@ -352,7 +351,8 @@ public class ChatPanelController {
 		searchBox = (EditText) root.findViewById(R.id.chat_search);
 		inboxEmpty = (TextView) root.findViewById(R.id.chat_inbox_empty);
 		threadList = (LinearLayout) root.findViewById(R.id.chat_thread_list);
-		templateBox = (EditText) root.findViewById(R.id.chat_template);
+		mineSummary = (TextView) root.findViewById(R.id.chat_mine_summary);
+		replySummary = (TextView) root.findViewById(R.id.chat_reply_summary);
 		settingsSave = (TextView) root.findViewById(R.id.chat_settings_save);
 		threadDelete = (TextView) root.findViewById(R.id.chat_thread_delete);
 		orphanHint = (TextView) root.findViewById(R.id.chat_orphan_hint);
@@ -361,8 +361,6 @@ public class ChatPanelController {
 		messageList = (LinearLayout) root.findViewById(R.id.chat_message_list);
 		replyBox = (EditText) root.findViewById(R.id.chat_reply);
 		sendBtn = (TextView) root.findViewById(R.id.chat_send);
-		mineNameBox = (EditText) root.findViewById(R.id.chat_mine_name);
-		mineColors = (LinearLayout) root.findViewById(R.id.chat_mine_colors);
 		settingsPanel = root.findViewById(R.id.chat_settings);
 		settingsToggle = (TextView) root.findViewById(R.id.chat_settings_toggle);
 		templateRow = root.findViewById(R.id.chat_template_row);
@@ -375,7 +373,6 @@ public class ChatPanelController {
 		filterAll = (TextView) root.findViewById(R.id.chat_filter_all);
 		threadEmpty = (TextView) root.findViewById(R.id.chat_thread_empty);
 		mineRow = root.findViewById(R.id.chat_me_row);
-		mineHelpButton = root.findViewById(R.id.chat_mine_help_button);
 		findNav = root.findViewById(R.id.chat_find_nav);
 		findPrev = (TextView) root.findViewById(R.id.chat_find_prev);
 		findNext = (TextView) root.findViewById(R.id.chat_find_next);
@@ -445,7 +442,7 @@ public class ChatPanelController {
 					}
 					settingsOpen = !settingsOpen;
 					if (settingsOpen) {
-						bindMineRow(true);
+						bindMineRow();
 						bindTemplateFromTriggerOrStore();
 					}
 					applySettingsVisibility();
@@ -512,73 +509,47 @@ public class ChatPanelController {
 	}
 
 	private void wireMineRow() {
-		if (mineNameBox != null) {
-			mineNameBox.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-				@Override
-				public void onFocusChange(View v, boolean hasFocus) {
-					if (!hasFocus) {
-						saveMineName();
-					}
-				}
-			});
-		}
-		if (mineHelpButton != null) {
-			mineHelpButton.setOnClickListener(new View.OnClickListener() {
+		if (mineRow != null) {
+			mineRow.setOnClickListener(new View.OnClickListener() {
 				@Override
 				public void onClick(View v) {
-					MainWindow activity = host.getMainWindow();
-					if (activity != null) {
-						EditorHelp.show(activity, "My lines and Reply",
-								EditorHelp.CHAT_MY_LINES);
-					}
+					openMineReplyDialog(false);
 				}
 			});
 		}
-		paintMineColorChips();
+		if (templateRow != null) {
+			templateRow.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					openMineReplyDialog(true);
+				}
+			});
+		}
 		paintNotifyChips();
 	}
 
-	private void paintMineColorChips() {
-		if (mineColors == null) {
-			return;
-		}
-		mineColors.removeAllViews();
+	private void openMineReplyDialog(boolean focusReply) {
 		MainWindow activity = host.getMainWindow();
-		if (activity == null) {
+		if (activity == null || openThreadId == null) {
 			return;
 		}
-		float d = activity.getResources().getDisplayMetrics().density;
-		int size = (int) (22 * d);
-		int gap = (int) (6 * d);
-		int selected = store().mineColorArgb(openThreadId);
-		for (int i = 0; i < ChatStore.MINE_COLOR_PRESETS.length; i++) {
-			final int color = ChatStore.MINE_COLOR_PRESETS[i];
-			View chip = new View(activity);
-			LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
-			if (i > 0) {
-				lp.leftMargin = gap;
-			}
-			chip.setLayoutParams(lp);
-			GradientDrawable shape = new GradientDrawable();
-			shape.setShape(GradientDrawable.OVAL);
-			shape.setColor(color);
-			if (color == selected) {
-				shape.setStroke((int) (2 * d), 0xFFFFFFFF);
-			}
-			chip.setBackground(shape);
-			chip.setOnClickListener(new View.OnClickListener() {
-				@Override
-				public void onClick(View v) {
-					if (openThreadId == null) {
-						return;
+		bindTemplateFromTriggerOrStore();
+		ChatMineReplyDialog.show(activity, store().mineNeedle(openThreadId),
+				editorReplyText, store().mineColorArgb(openThreadId), focusReply,
+				new ChatMineReplyDialog.Listener() {
+					@Override
+					public void onSaved(String mineNeedle, String replyTemplate,
+							int colorArgb) {
+						store().setMineNeedle(openThreadId, mineNeedle);
+						store().setMineColorArgb(openThreadId, colorArgb);
+						editorReplyText = replyTemplate == null ? "" : replyTemplate;
+						saveSendableTemplateToStore();
+						saveTriggerTemplateFromBox();
+						bindMineRow();
+						bindReplySummary();
+						reloadThreadMessages();
 					}
-					store().setMineColorArgb(openThreadId, color);
-					paintMineColorChips();
-					reloadThreadMessages();
-				}
-			});
-			mineColors.addView(chip);
-		}
+				});
 	}
 
 	private void paintNotifyChips() {
@@ -627,59 +598,29 @@ public class ChatPanelController {
 	}
 
 	private void bindMineRow() {
-		bindMineRow(false);
-	}
-
-	private void bindMineRow(boolean force) {
-		if (mineNameBox == null) {
-			paintNotifyChips();
-			return;
-		}
 		if (openThreadId == null) {
-			paintMineColorChips();
-			paintNotifyChips();
-			return;
-		}
-		if (!force && mineNameBox.hasFocus()) {
-			paintMineColorChips();
+			if (mineSummary != null) {
+				mineSummary.setText("—");
+			}
 			paintNotifyChips();
 			return;
 		}
 		String needle = store().mineNeedle(openThreadId);
-		if (needle == null) {
-			needle = "";
+		if (needle == null || needle.length() == 0) {
+			needle = "—";
 		}
-		String shown = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString();
-		if (!shown.equals(needle)) {
-			mineNameBox.setText(needle);
+		if (mineSummary != null) {
+			mineSummary.setText(needle);
 		}
-		paintMineColorChips();
 		paintNotifyChips();
 	}
 
-	private boolean persistMineNameIfChanged() {
-		if (mineNameBox == null || openThreadId == null) {
-			return false;
+	private void bindReplySummary() {
+		if (replySummary == null) {
+			return;
 		}
-		String typed = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString().trim();
-		String existing = store().mineNeedle(openThreadId);
-		if (existing == null) {
-			existing = "";
-		}
-		if (typed.equals(existing)) {
-			return false;
-		}
-		if (typed.length() == 0 && existing.length() > 0 && !settingsOpen) {
-			return false;
-		}
-		store().setMineNeedle(openThreadId, typed);
-		return true;
-	}
-
-	private void saveMineName() {
-		if (persistMineNameIfChanged()) {
-			reloadThreadMessages();
-		}
+		String shown = editorReplyText == null ? "" : editorReplyText.trim();
+		replySummary.setText(shown.length() == 0 ? "—" : shown);
 	}
 
 	private void applySettingsVisibility() {
@@ -693,9 +634,6 @@ public class ChatPanelController {
 		}
 		if (mineRow != null) {
 			mineRow.setVisibility(show ? View.VISIBLE : View.GONE);
-		}
-		if (mineHelpButton != null) {
-			mineHelpButton.setVisibility(show ? View.VISIBLE : View.GONE);
 		}
 		if (templateRow != null) {
 			templateRow.setVisibility(show ? View.VISIBLE : View.GONE);
@@ -1081,16 +1019,17 @@ public class ChatPanelController {
 		if (titleView != null) {
 			titleView.setText(title);
 		}
-		if (switched && templateBox != null) {
+		if (switched) {
 			if (settingsOpen) {
 				bindTemplateFromTriggerOrStore();
 			} else {
 				String tmpl = store.replyTemplate(threadId);
-				templateBox.setText(tmpl == null ? "" : tmpl);
+				editorReplyText = tmpl == null ? "" : tmpl;
+				bindReplySummary();
 			}
 		}
 		applySettingsVisibility();
-		bindMineRow(switched);
+		bindMineRow();
 		reloadThreadMessages();
 		if (resetReply && replyBox != null) {
 			replyBox.setText("");
@@ -1423,7 +1362,6 @@ public class ChatPanelController {
 	}
 
 	private void persistThreadEdits(boolean includeTrigger) {
-		saveMineName();
 		saveSendableTemplateToStore();
 		if (includeTrigger || settingsOpen) {
 			saveTriggerTemplateFromBox();
@@ -1431,7 +1369,6 @@ public class ChatPanelController {
 	}
 
 	private void saveSettings() {
-		saveMineName();
 		if (openThreadId == null) {
 			return;
 		}
@@ -1451,7 +1388,7 @@ public class ChatPanelController {
 	 * capture templates there — the next Send would refuse leftover {@code $1}.
 	 */
 	private void saveSendableTemplateToStore() {
-		if (openThreadId == null || templateBox == null) {
+		if (openThreadId == null) {
 			return;
 		}
 		String tmpl = templateText();
@@ -1486,21 +1423,21 @@ public class ChatPanelController {
 	}
 
 	private String templateText() {
-		if (templateBox == null || templateBox.getText() == null) {
-			return "";
-		}
-		return templateBox.getText().toString().trim();
+		return editorReplyText == null ? "" : editorReplyText.trim();
 	}
 
 	private void bindTemplateFromTriggerOrStore() {
-		if (templateBox == null || openThreadId == null) {
+		if (openThreadId == null) {
+			editorReplyText = "";
+			bindReplySummary();
 			return;
 		}
 		replyBoundFromUnfilledTrigger = false;
 		String trigger = host.chatTriggerReplyTemplate(openThreadId);
 		if (trigger != null && replyTemplateReadyToSend(trigger)) {
-			templateBox.setText(trigger);
+			editorReplyText = trigger;
 			boundStoreReplyFallback = "";
+			bindReplySummary();
 			return;
 		}
 		if (trigger != null && trigger.length() > 0) {
@@ -1508,7 +1445,8 @@ public class ChatPanelController {
 		}
 		String tmpl = store().replyTemplate(openThreadId);
 		boundStoreReplyFallback = tmpl == null ? "" : tmpl;
-		templateBox.setText(boundStoreReplyFallback);
+		editorReplyText = boundStoreReplyFallback;
+		bindReplySummary();
 	}
 
 	private void sendReply() {
@@ -1519,17 +1457,15 @@ public class ChatPanelController {
 		String text = replyBox.getText() == null ? "" : replyBox.getText().toString();
 		ChatStore store = store();
 		String template = store.replyTemplate(openThreadId);
-		if (templateBox != null) {
-			String typed = templateText();
-			if (typed.length() > 0 && replyTemplateReadyToSend(typed)
-					&& !typed.equals(template)) {
-				store.setReplyTemplate(openThreadId, typed);
-				template = typed;
-			}
+		String typedTemplate = templateText();
+		if (typedTemplate.length() > 0 && replyTemplateReadyToSend(typedTemplate)
+				&& !typedTemplate.equals(template)) {
+			store.setReplyTemplate(openThreadId, typedTemplate);
+			template = typedTemplate;
 		}
 		if (template == null || template.trim().length() == 0) {
 			Toast.makeText(activity,
-					"Set a reply template on the Send to thread action (e.g. tell $1 $text)",
+					"Set Reply in Chat ⚙ (e.g. tell Bob $text)",
 					Toast.LENGTH_LONG).show();
 			return;
 		}
@@ -1543,7 +1479,6 @@ public class ChatPanelController {
 					Toast.LENGTH_LONG).show();
 			return;
 		}
-		saveMineName();
 		String typed = text.trim();
 		if (typed.length() > 0) {
 			store.appendOutgoing(openThreadId, "You", typed);

@@ -52,7 +52,8 @@ public class ChatCommand extends SpecialCommand {
 				+ "  .chat <thread>         open that thread (id or title, case-insensitive)\n"
 				+ "  .chat help\n"
 				+ "Also: overflow ⋮ → Chat\n"
-				+ "⚙: My lines and Reply. Tap ? (top right of ⚙) for both.\n"
+				+ "⚙: tap My lines or Reply for the submenu. ? in that dialog.\n"
+				+ "My lines: Ada, or Ada says; Ada asks (one form per line also works).\n"
 				+ "Reply: tell Bob $text / ooc $text. tell $1 $text is the trigger form, not Send.\n"
 				+ "Notify: Tells / Channels / Auction / Other (Android Settings).\n"
 				+ "Re-tune: chat left the alerts channel (bell stays on alerts).\n";

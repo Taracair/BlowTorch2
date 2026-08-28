@@ -45,7 +45,7 @@ final class ChatInbox {
 		String replyTemplate;
 		int unreadCount;
 		String mineNeedle;
-		Pattern mineCompiled;
+		Pattern[] mineCompiled;
 		/** 0 = inherit the world-level mineColor. */
 		int mineColor;
 
@@ -64,8 +64,8 @@ final class ChatInbox {
 		}
 
 		void setMineNeedle(String needle) {
-			this.mineNeedle = needle == null ? "" : needle;
-			this.mineCompiled = compileMinePattern(this.mineNeedle);
+			this.mineNeedle = canonicalizeMineNeedle(needle);
+			this.mineCompiled = compileMinePatterns(this.mineNeedle);
 		}
 	}
 
@@ -156,7 +156,8 @@ final class ChatInbox {
 	 * thread's {@code mineNeedle}. A plain name is you as speaker (start of
 	 * line, or after {@code ]}/{@code >}/{@code )} with an optional colon).
 	 * A pasted {@code [channel]} alone is too broad and matches nothing.
-	 * {@code |} / {@code (?} compile as regex; everything else is a literal
+	 * Several forms: {@code Ada says; Ada asks} or one per line. {@code |} /
+	 * {@code (?} on one form compile as regex; everything else is a literal
 	 * substring.
 	 */
 	boolean bodyLooksMine(String threadId, String body) {
@@ -167,21 +168,26 @@ final class ChatInbox {
 		if (state == null) {
 			return false;
 		}
-		Pattern p = compiledMine(state);
-		if (p == null) {
+		Pattern[] ps = compiledMine(state);
+		if (ps == null) {
 			return false;
 		}
-		return p.matcher(body).find();
+		for (int i = 0; i < ps.length; i++) {
+			if (ps[i] != null && ps[i].matcher(body).find()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
-	private static Pattern compiledMine(ThreadState state) {
+	private static Pattern[] compiledMine(ThreadState state) {
 		if (state.mineCompiled != null) {
 			return state.mineCompiled;
 		}
 		if (state.mineNeedle == null || state.mineNeedle.length() == 0) {
 			return null;
 		}
-		state.mineCompiled = compileMinePattern(state.mineNeedle);
+		state.mineCompiled = compileMinePatterns(state.mineNeedle);
 		return state.mineCompiled;
 	}
 
@@ -281,15 +287,102 @@ final class ChatInbox {
 	}
 
 	/**
-	 * Compile the chat-module mine trigger. Package-visible for tests.
-	 * A single word is you as speaker: start of line, or after {@code ]},
-	 * {@code >} or {@code )} with an optional colon (worlds print chat
-	 * differently). A channel tag with no speaker matches nothing.
-	 * {@code |} or {@code (?} is regex (invalid syntax is matched literally).
-	 * Anything else, including a pasted {@code [channel] Ada says, "}, is
-	 * a literal substring — {@code [} must not become a character class.
+	 * One form per line or {@code ;}. Blank pieces are dropped.
+	 */
+	static String[] splitMineNeedles(String source) {
+		if (source == null) {
+			return new String[0];
+		}
+		String[] raw = source.split("[;\\n\\r]+");
+		int n = 0;
+		for (int i = 0; i < raw.length; i++) {
+			if (raw[i] != null && raw[i].trim().length() > 0) {
+				n++;
+			}
+		}
+		String[] out = new String[n];
+		int w = 0;
+		for (int i = 0; i < raw.length; i++) {
+			if (raw[i] == null) {
+				continue;
+			}
+			String p = raw[i].trim();
+			if (p.length() > 0) {
+				out[w++] = p;
+			}
+		}
+		return out;
+	}
+
+	static String canonicalizeMineNeedle(String typed) {
+		String[] parts = splitMineNeedles(typed);
+		if (parts.length == 0) {
+			return "";
+		}
+		StringBuilder b = new StringBuilder();
+		for (int i = 0; i < parts.length; i++) {
+			if (i > 0) {
+				b.append("; ");
+			}
+			b.append(parts[i]);
+		}
+		return b.toString();
+	}
+
+	static String mineNeedleEditorText(String stored) {
+		String[] parts = splitMineNeedles(stored);
+		if (parts.length == 0) {
+			return "";
+		}
+		StringBuilder b = new StringBuilder();
+		for (int i = 0; i < parts.length; i++) {
+			if (i > 0) {
+				b.append('\n');
+			}
+			b.append(parts[i]);
+		}
+		return b.toString();
+	}
+
+	static Pattern[] compileMinePatterns(String source) {
+		String[] parts = splitMineNeedles(source);
+		int n = 0;
+		Pattern[] tmp = new Pattern[parts.length];
+		for (int i = 0; i < parts.length; i++) {
+			Pattern p = compileOneMineNeedle(parts[i]);
+			if (p != null) {
+				tmp[n++] = p;
+			}
+		}
+		if (n == parts.length) {
+			return tmp;
+		}
+		Pattern[] out = new Pattern[n];
+		System.arraycopy(tmp, 0, out, 0, n);
+		return out;
+	}
+
+	/**
+	 * First matching form, or null. Prefer {@link #compileMinePatterns} when
+	 * the needle may contain {@code ;}.
 	 */
 	static Pattern compileMinePattern(String source) {
+		Pattern[] all = compileMinePatterns(source);
+		if (all.length == 0) {
+			return null;
+		}
+		return all[0];
+	}
+
+	/**
+	 * One form. A single word is you as speaker: start of line, or after
+	 * {@code ]}, {@code >} or {@code )} with an optional colon. A channel tag
+	 * with no speaker matches nothing. {@code |} or {@code (?} is regex
+	 * (invalid syntax is matched literally). Anything else, including a pasted
+	 * {@code [channel] Ada says, "}, is a literal substring — {@code [} must
+	 * not become a character class.
+	 */
+	static Pattern compileOneMineNeedle(String source) {
 		String s = source == null ? "" : source.trim();
 		if (s.length() < 2) {
 			return null;

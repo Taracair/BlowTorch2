@@ -860,13 +860,17 @@ On the trigger, Reply may be `tell $1 $text` — `$1` becomes the name when
 the thread is created; `$text` stays for the reply box. That capture form is
 not what Send uses. In ⚙ **Reply**, put the name in the template:
 `tell Bob $text`, `ooc $text`, or `$text` alone. Leftover `$1` is refused.
+The Send to thread editor uses the same labels as ⚙ (Reply, not a
+separate “template” name).
 
-**Chat → ⚙ → My lines** in that conversation. Type the name the world
-prints when you speak, not the channel tag and not a pasted line. Tap
-**?** (top right of ⚙) for My lines and Reply examples. Worlds print
-chat differently — there is no one prefix. `[ooc] Ada says, "hi"` is
-yours if My lines is `Ada`. `[ooc] Bob says, "hi Ada"` is Bob's.
-Colour chips next to My lines are that chat only.
+**Chat → ⚙ → tap My lines** in that conversation. Type the name the world
+prints when you speak, not the channel tag and not a pasted line. A one-word
+name already matches `Ada says` and `Ada asks`. If you typed the verb,
+add the other form: one per line, or `Ada says; Ada asks`. Tap **?** in
+that submenu for My lines and Reply examples. Worlds print chat
+differently — there is no one prefix. `[ooc] Ada says, "hi"` is yours if
+My lines is `Ada`. `[ooc] Bob says, "hi Ada"` is Bob's. Colour chips in
+the submenu are that chat only.
 
 ## Recipes
 
@@ -1875,17 +1879,19 @@ while that conversation is open.
 
 ⚙ in an open conversation:
 
-- **My lines** — the name the world prints when you speak, not the
-  channel tag and not a pasted whole line. Worlds print chat differently
-  (start of line, after a `]` or `)`, `You say`). `[ooc] Ada says, "hi"`
-  is yours if My lines is `Ada`; `[ooc] Bob says, "hi Ada"` is not.
-  Kept in the chat file, so those bubbles stay yours after you leave the
-  app. Colour chips next to the field are this chat only.
-- **Reply** — the command sent to the world; `$text` is the reply box.
-  Example: `tell Bob $text`, `ooc $text`, or `$text` alone. A lone `$1`
-  is treated as `$text` (`C $1` → `C hello`). `tell $1 $text` is the
-  trigger's capture form, not a Send template — Send refuses leftover
-  `$1`. Tap **?** (top right of ⚙) for both fields.
+- **My lines** — tap the row for the submenu. The name the world prints
+  when you speak, not the channel tag and not a pasted whole line. Worlds
+  print chat differently (start of line, after a `]` or `)`, `You say`).
+  `[ooc] Ada says, "hi"` is yours if My lines is `Ada`; `[ooc] Bob says,
+  "hi Ada"` is not. A one-word name already matches says and asks. Verb
+  phrases: one form per line, or `Ada says; Ada asks`. Kept in the chat
+  file, so those bubbles stay yours after you leave the app. Colour chips
+  in the submenu are this chat only.
+- **Reply** — tap the same submenu. The command sent to the world;
+  `$text` is the reply box. Example: `tell Bob $text`, `ooc $text`, or
+  `$text` alone. A lone `$1` is treated as `$text` (`C $1` → `C hello`).
+  `tell $1 $text` is the trigger's capture form, not a Send template —
+  Send refuses leftover `$1`. Tap **?** in the submenu for both fields.
 - **Notify** — which Android channel this conversation uses: **Tells**,
   **Channels**, **Auction**, or **Other** (default). Four channels, not
   one per name. Mute auction without muting tells in Android Settings →

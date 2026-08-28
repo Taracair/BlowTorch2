@@ -98,40 +98,19 @@
             android:visibility="gone">
 
             <LinearLayout
-                android:id="@+id/chat_settings_help_row"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical|end"
-                android:orientation="horizontal"
-                android:paddingLeft="4dp"
-                android:paddingRight="4dp"
-                android:paddingTop="2dp">
-
-                <TextView
-                    android:id="@+id/chat_mine_help_button"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:layout_gravity="end"
-                    android:gravity="center"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:text="?"
-                    android:textColor="@color/chrome_description"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:contentDescription="How to fill My lines and Reply" />
-            </LinearLayout>
-
-            <LinearLayout
                 android:id="@+id/chat_me_row"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="2dp">
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="Edit My lines">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -140,27 +119,23 @@
                     android:textColor="@color/chrome_description"
                     android:textSize="12sp" />
 
-                <EditText
-                    android:id="@+id/chat_mine_name"
+                <TextView
+                    android:id="@+id/chat_mine_summary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginLeft="8dp"
-                    android:background="@drawable/input_bar_bg"
-                    android:importantForAutofill="no"
-                    android:inputType="text"
+                    android:ellipsize="end"
                     android:maxLines="1"
-                    android:padding="6dp"
                     android:textColor="@color/chrome_title_text"
                     android:textSize="12sp" />
 
-                <LinearLayout
-                    android:id="@+id/chat_mine_colors"
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="8dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal" />
+                    android:text="›"
+                    android:textColor="@color/chrome_description"
+                    android:textSize="16sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -169,10 +144,14 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
-                android:paddingTop="2dp"
-                android:paddingBottom="6dp">
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="Edit Reply">
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -181,19 +160,23 @@
                     android:textColor="@color/chrome_description"
                     android:textSize="12sp" />
 
-                <EditText
-                    android:id="@+id/chat_template"
+                <TextView
+                    android:id="@+id/chat_reply_summary"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginLeft="8dp"
-                    android:background="@drawable/input_bar_bg"
-                    android:importantForAutofill="no"
-                    android:inputType="text"
+                    android:ellipsize="end"
                     android:maxLines="1"
-                    android:padding="6dp"
                     android:textColor="@color/chrome_title_text"
                     android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="›"
+                    android:textColor="@color/chrome_description"
+                    android:textSize="16sp" />
             </LinearLayout>
 
             <LinearLayout

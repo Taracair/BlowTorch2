@@ -342,6 +342,26 @@ public class ChatStoreTest {
 	}
 
 	@Test
+	public void semicolonAndNewlinesAreSeparateMineForms() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineNeedle("ooc", "Ada says; Ada asks");
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada says, \"hello\""));
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada asks, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("ooc",
+				"[ooc]: Bob says, \"hi Ada\""));
+		inbox.setMineNeedle("ooc", "Ada says\nAda asks");
+		assertEquals("Ada says; Ada asks", inbox.mineNeedle("ooc"));
+		assertTrue(inbox.bodyLooksMine("ooc",
+				"[ooc]: Ada asks, \"hello\""));
+		assertEquals("Ada says; Ada asks",
+				ChatInbox.canonicalizeMineNeedle("Ada says\nAda asks"));
+		assertEquals("Ada says\nAda asks",
+				ChatInbox.mineNeedleEditorText("Ada says; Ada asks"));
+	}
+
+	@Test
 	public void pastedSaysLineIsLiteralNotCharacterClass() {
 		ChatInbox inbox = new ChatInbox();
 		inbox.setMineNeedle("ooc", "[ooc]: Ada says, \"");

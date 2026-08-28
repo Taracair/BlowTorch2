@@ -256,6 +256,15 @@ public final class ChatStore {
 		}
 	}
 
+	/** One form per line in the ⚙ editor; stored as {@code ;} separated. */
+	public static String mineNeedleEditorText(String stored) {
+		return ChatInbox.mineNeedleEditorText(stored);
+	}
+
+	public static String canonicalizeMineNeedle(String typed) {
+		return ChatInbox.canonicalizeMineNeedle(typed);
+	}
+
 	public int totalUnread() {
 		synchronized (lock) {
 			reloadIfNewerLocked();

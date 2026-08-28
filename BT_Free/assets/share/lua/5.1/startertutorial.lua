@@ -835,12 +835,15 @@ A thread is one conversation (a person, or a channel). Tap a thread to
 read it. Type in the reply box and Send.
 
 ⚙ in an open conversation
-  My lines   the name the world prints when you speak.
-             Tap ? (top right of ⚙) for My lines and Reply.
+  My lines   tap for the submenu. The name the world prints when you
+             speak. Ada already matches says and asks. Verb phrases:
+             one form per line, or Ada says; Ada asks.
+             Tap ? in that dialog for My lines and Reply.
              Not the channel tag and not a pasted whole line.
-             colour chips: own-bubble colour for this chat only
+             colour chips in the submenu: this chat only
              kept in the chat file after you leave the app
-  Reply      command sent to the world; $text is the reply box
+  Reply      tap for the same submenu. Command sent to the world;
+             $text is the reply box
              tell Bob $text / ooc $text / $text alone
              a lone $1 is treated as $text (C $1)
              tell $1 $text is the trigger form, not Send
@@ -1536,7 +1539,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],
 	search = [[.search <text> finds it in this window. .search logs opens ⋮ → Session logs: pick dates, Load, then Search (stays on matching files). .search logs 7 goblin is the window, then this world's files from the last 7 days. .search 'logs' still finds the word in the window.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙: My lines and Reply; tap ? (top right) for both. $text is the reply box. Tap a chat notification to open that thread.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat ooc opens that conversation. ⚙: tap My lines or Reply for the submenu. Ada matches says and asks; Ada says; Ada asks for verb forms. $text is the reply box. Tap a chat notification to open that thread.]],
 	run = [[.run 3n2e speedwalks using letters from Speedwalk Directions. Commas insert a command (open door). .rev walks the same string backwards.]],
 	rev = [[.rev 3n2e is .run backwards (w;w;s;s;s). Compass n↔s / in↔out if Reverse is blank. door/cave: fill Reverse in Speedwalk Directions. Comma text stays as written, not close door.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],

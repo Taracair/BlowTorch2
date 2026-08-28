@@ -640,7 +640,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .chat help\n"
 					+ "  Also: overflow ⋮ → Chat\n"
 					+ "Example: .chat ooc if the list says ooc (case-insensitive).\n"
-					+ "⚙: two fields, My lines and Reply. Tap ? (top right of ⚙) for both.\n"
+					+ "⚙: tap My lines or Reply for the submenu (several My lines forms; ? in that dialog).\n"
 					+ "Reply ($text is the reply box). Notify: Tells / Channels / Auction / Other\n"
 					+ "(four Android channels, not one per name; tune sound in Android Settings).\n"
 					+ "After this update, re-tune: chat left the alerts channel (bell stays on alerts).\n"

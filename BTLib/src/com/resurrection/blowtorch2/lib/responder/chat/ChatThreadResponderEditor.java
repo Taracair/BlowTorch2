@@ -2,11 +2,15 @@ package com.resurrection.blowtorch2.lib.responder.chat;
 
 import com.resurrection.blowtorch2.lib.R;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponderEditorDoneListener;
+import com.resurrection.blowtorch2.lib.window.EditorHelp;
 
 import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
@@ -50,40 +54,76 @@ public class ChatThreadResponderEditor extends Dialog {
 
 		float density = getContext().getResources().getDisplayMetrics().density;
 		int pad = (int) (8.0f * density);
+		int titleHeight = (int) (42.0f * density);
+		int titleInk = getContext().getResources().getColor(R.color.chrome_title_text);
+		int bar = getContext().getResources().getColor(R.color.chrome_title_bar);
+		int desc = getContext().getResources().getColor(R.color.chrome_description);
 
 		LinearLayout root = new LinearLayout(getContext());
 		root.setOrientation(LinearLayout.VERTICAL);
 		root.setMinimumWidth((int) (300.0f * density));
 
+		LinearLayout titleRow = new LinearLayout(getContext());
+		titleRow.setOrientation(LinearLayout.HORIZONTAL);
+		titleRow.setGravity(Gravity.CENTER_VERTICAL);
+		titleRow.setBackgroundColor(bar);
+		titleRow.setPadding(pad, 0, (int) (4.0f * density), 0);
+
 		TextView titlebar = new TextView(getContext());
 		titlebar.setText("SEND TO THREAD");
-		titlebar.setTextColor(getContext().getResources().getColor(R.color.chrome_title_text));
-		titlebar.setBackgroundColor(getContext().getResources().getColor(R.color.chrome_title_bar));
-		titlebar.setTextSize(14);
-		titlebar.setGravity(android.view.Gravity.CENTER);
-		titlebar.setPadding(pad, pad, pad, pad);
-		root.addView(titlebar, new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT,
-				(int) (42.0f * density)));
+		titlebar.setAllCaps(true);
+		titlebar.setTextColor(titleInk);
+		titlebar.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+		titlebar.setGravity(Gravity.CENTER_VERTICAL);
+		titleRow.addView(titlebar, new LinearLayout.LayoutParams(
+				0, titleHeight, 1f));
+
+		TextView help = new TextView(getContext());
+		help.setText("?");
+		help.setTextColor(desc);
+		help.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+		help.setGravity(Gravity.CENTER);
+		help.setClickable(true);
+		help.setFocusable(true);
+		help.setContentDescription("How to fill My lines and Reply");
+		help.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View v) {
+				EditorHelp.show(getContext(), "My lines and Reply",
+						EditorHelp.CHAT_MY_LINES);
+			}
+		});
+		titleRow.addView(help, new LinearLayout.LayoutParams(
+				(int) (36.0f * density), titleHeight));
+		root.addView(titleRow, new LinearLayout.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT, titleHeight));
 
 		ScrollView scroller = new ScrollView(getContext());
 		LinearLayout form = new LinearLayout(getContext());
 		form.setOrientation(LinearLayout.VERTICAL);
 		form.setPadding(pad, pad, pad, pad);
 
-		threadField = addField(form, "Thread:", "conversation key, or $1",
+		threadField = addField(form, "Thread", "conversation key, or $1",
 				theResponder.getThreadId(), true);
-		titleField = addField(form, "Title (optional):", "blank = the thread id",
+		titleField = addField(form, "Title (optional)", "blank = the thread id",
 				theResponder.getTitle(), true);
-		bodyField = addField(form, "Body (optional):", "blank = the matched line",
+		bodyField = addField(form, "Body (optional)", "blank = the matched line",
 				theResponder.getBody(), false);
-		replyField = addField(form, "Reply template (optional):",
-				"$text is the reply box; $1 is a capture",
-				theResponder.getReplyTemplate(), false);
+		replyField = addField(form, "Reply", "tell Bob $text",
+				theResponder.getReplyTemplate(), true);
+
+		TextView replyNote = new TextView(getContext());
+		replyNote.setText("$text is the chat reply box. $1 here is a trigger capture (tell $1 $text becomes tell Bob $text when the thread is created). Send uses Chat → ⚙ → Reply, which needs the name already filled.");
+		replyNote.setTextColor(desc);
+		replyNote.setTextSize(12);
+		LinearLayout.LayoutParams replyNoteLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		replyNoteLp.topMargin = (int) (4.0f * density);
+		form.addView(replyNote, replyNoteLp);
 
 		TextView mineNote = new TextView(getContext());
-		mineNote.setText("Own bubble: Chat → ⚙ → My lines. Type the name the world prints when you speak. Tap ? (top right of ⚙) for My lines and Reply.");
-		mineNote.setTextColor(0xFFAAAAAA);
+		mineNote.setText("Own bubble: Chat → ⚙ → tap My lines. A name like Ada already matches says and asks. For verb phrases, one form per line or Ada says; Ada asks. Tap ? for examples.");
+		mineNote.setTextColor(desc);
 		mineNote.setTextSize(12);
 		LinearLayout.LayoutParams noteLp = new LinearLayout.LayoutParams(
 				LinearLayout.LayoutParams.MATCH_PARENT,
