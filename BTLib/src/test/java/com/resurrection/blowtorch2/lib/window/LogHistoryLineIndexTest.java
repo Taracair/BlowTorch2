@@ -41,6 +41,16 @@ public class LogHistoryLineIndexTest {
 	}
 
 	@Test
+	public void offsetOfPageLineSkipsThatManyNewlines() {
+		String page = "aaaa\nbbbb\ncccc\n";
+		assertEquals(0, LogHistoryDialog.offsetOfPageLine(page, 0));
+		assertEquals(5, LogHistoryDialog.offsetOfPageLine(page, 1));
+		assertEquals(10, LogHistoryDialog.offsetOfPageLine(page, 2));
+		assertEquals(page.length(), LogHistoryDialog.offsetOfPageLine(page, 99));
+		assertEquals(0, LogHistoryDialog.offsetOfPageLine(null, 1));
+	}
+
+	@Test
 	public void emptyFileHasNoLines() throws Exception {
 		File f = folder.newFile("empty.txt");
 		LogHistoryDialog.LineIndex idx = LogHistoryDialog.LineIndex.build(f);

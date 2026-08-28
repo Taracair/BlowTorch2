@@ -23,6 +23,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.Layout;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
@@ -41,6 +42,7 @@ import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ScrollView;
@@ -196,18 +198,20 @@ public class LogHistoryDialog extends Dialog {
 		mFileText.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
 		mFileText.setTextColor(color(R.color.chrome_title_text));
 		mFileText.setTextIsSelectable(true);
-		mFileText.setPadding(pad, pad / 2, pad, pad / 2);
+		mFileText.setPadding(pad, pad / 2, pad, pad / 2 + (int) (56 * density + 0.5f));
 		mFileScroll = new ScrollView(getContext());
 		mFileScroll.addView(mFileText, new ViewGroup.LayoutParams(
 				ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 		mFileScroll.setVisibility(View.GONE);
 
-		LinearLayout.LayoutParams fill = new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f);
-		root.addView(mEmpty, fill);
-		root.addView(mList, new LinearLayout.LayoutParams(
-				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-		root.addView(mFileScroll, new LinearLayout.LayoutParams(
+		FrameLayout body = new FrameLayout(getContext());
+		FrameLayout.LayoutParams fill = new FrameLayout.LayoutParams(
+				FrameLayout.LayoutParams.MATCH_PARENT,
+				FrameLayout.LayoutParams.MATCH_PARENT);
+		body.addView(mEmpty, fill);
+		body.addView(mList, fill);
+		body.addView(mFileScroll, fill);
+		root.addView(body, new LinearLayout.LayoutParams(
 				LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
 		mFileFooter = chromeFooter(density);
@@ -246,8 +250,14 @@ public class LogHistoryDialog extends Dialog {
 		mFileFooter.addView(mOlder, gap);
 		mFileFooter.addView(mNewer, gap);
 		mFileFooter.addView(close, gap);
-		root.addView(mFileFooter);
+		LinearLayout.LayoutParams footerLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.MATCH_PARENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		root.addView(mFileFooter, footerLp);
 
+		root.setLayoutParams(new ViewGroup.LayoutParams(
+				ViewGroup.LayoutParams.MATCH_PARENT,
+				ViewGroup.LayoutParams.MATCH_PARENT));
 		setContentView(root);
 
 		Window window = getWindow();
@@ -760,14 +770,7 @@ public class LogHistoryDialog extends Dialog {
 						mOlder.setEnabled(from > 0);
 						mNewer.setEnabled(to < index.lineCount());
 						if (rel >= 0) {
-							final int lineRel = rel;
-							mFileScroll.post(new Runnable() {
-								@Override
-								public void run() {
-									int y = lineRel * mFileText.getLineHeight();
-									mFileScroll.scrollTo(0, Math.max(0, y - 24));
-								}
-							});
+							scrollPageLineIntoView(rel);
 						} else {
 							mFileScroll.scrollTo(0, 0);
 						}
@@ -798,15 +801,7 @@ public class LogHistoryDialog extends Dialog {
 			}
 		}
 		if (highlightRel >= 0) {
-			int start = 0;
-			for (int i = 0; i < highlightRel; i++) {
-				int nl = text.indexOf('\n', start);
-				if (nl < 0) {
-					start = text.length();
-					break;
-				}
-				start = nl + 1;
-			}
+			int start = offsetOfPageLine(text, highlightRel);
 			int end = text.indexOf('\n', start);
 			if (end < 0) {
 				end = text.length();
@@ -817,6 +812,60 @@ public class LogHistoryDialog extends Dialog {
 			}
 		}
 		return sb;
+	}
+
+	/**
+	 * Character offset of 0-based page line {@code rel} in {@code text}.
+	 * Same walk {@link #highlight} uses, so the yellow line and the scroll
+	 * target stay the same line when the TextView wraps.
+	 */
+	static int offsetOfPageLine(String text, int rel) {
+		if (text == null || rel <= 0) {
+			return 0;
+		}
+		int start = 0;
+		for (int i = 0; i < rel; i++) {
+			int nl = text.indexOf('\n', start);
+			if (nl < 0) {
+				return text.length();
+			}
+			start = nl + 1;
+		}
+		return start;
+	}
+
+	/**
+	 * Put the highlighted page line near the top of the file pane, not under
+	 * Back/Older/Newer/Close. {@link TextView#getLineHeight()} counts wrapped
+	 * visual rows wrongly; {@link Layout#getLineForOffset} is the laid-out line.
+	 */
+	private void scrollPageLineIntoView(final int lineRel) {
+		if (mFileScroll == null || mFileText == null || lineRel < 0) {
+			return;
+		}
+		mFileText.post(new Runnable() {
+			@Override
+			public void run() {
+				if (!mAlive || mFileText == null) {
+					return;
+				}
+				Layout layout = mFileText.getLayout();
+				CharSequence cs = mFileText.getText();
+				String text = cs == null ? "" : cs.toString();
+				int y;
+				if (layout != null && text.length() > 0) {
+					int off = offsetOfPageLine(text, lineRel);
+					if (off >= text.length()) {
+						off = text.length() - 1;
+					}
+					int vis = layout.getLineForOffset(off);
+					y = layout.getLineTop(vis);
+				} else {
+					y = lineRel * mFileText.getLineHeight();
+				}
+				mFileScroll.scrollTo(0, Math.max(0, y - 24));
+			}
+		});
 	}
 
 	private TextView chromeTitle(String text, float density) {
