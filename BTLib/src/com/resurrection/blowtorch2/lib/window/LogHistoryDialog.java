@@ -7,28 +7,39 @@ import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.InputType;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
+import android.text.TextWatcher;
 import android.text.style.BackgroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.DatePicker;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.ScrollView;
@@ -67,6 +78,7 @@ public class LogHistoryDialog extends Dialog {
 
 	private boolean mAlive = true;
 	private int mListGen;
+	private int mSearchGen;
 	private int mPageGen;
 
 	private File mOpenFile;
@@ -77,6 +89,17 @@ public class LogHistoryDialog extends Dialog {
 	private boolean mCaseSensitive;
 	private File mPendingFile;
 	private int mPendingLine = -1;
+	private LinearLayout mFilterBar;
+	private TextView mFolderView;
+	private TextView mFromBtn;
+	private TextView mToBtn;
+	private Button mLoadBtn;
+	private EditText mSearch;
+	private File mLookDir;
+	private Long mFromMs;
+	private Long mUntilExclusiveMs;
+	private final ArrayList<File> mLoaded = new ArrayList<File>();
+	private String mNameFilter = "";
 
 	public LogHistoryDialog(Context context, String display) {
 		this(context, display, null, -1, null, false);
@@ -112,14 +135,17 @@ public class LogHistoryDialog extends Dialog {
 		mSubtitle.setTextColor(color(R.color.chrome_description));
 		mSubtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
 		mSubtitle.setPadding(pad, pad / 2, pad, pad / 2);
-		mSubtitle.setText("Loading…");
+		mSubtitle.setText(idleHint());
 		root.addView(mSubtitle);
+
+		mFilterBar = buildFilterBar(density, pad);
+		root.addView(mFilterBar);
 
 		mEmpty = new TextView(getContext());
 		mEmpty.setTextColor(color(R.color.chrome_description));
 		mEmpty.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
 		mEmpty.setPadding(pad, pad, pad, pad);
-		mEmpty.setText("Loading…");
+		mEmpty.setText(idleHint());
 		mEmpty.setVisibility(View.VISIBLE);
 
 		mList = new ListView(getContext());
@@ -203,7 +229,11 @@ public class LogHistoryDialog extends Dialog {
 		}
 
 		showListWidgets();
-		loadFileList();
+		applySevenDays();
+		paintDateChips();
+		Context app = getContext().getApplicationContext();
+		mLookDir = SessionLogger.getLogDirectory(app);
+		paintFolder();
 		if (mPendingFile != null) {
 			openFile(mPendingFile, mPendingLine);
 			mPendingFile = null;
@@ -215,6 +245,7 @@ public class LogHistoryDialog extends Dialog {
 	public void dismiss() {
 		mAlive = false;
 		mListGen++;
+		mSearchGen++;
 		mPageGen++;
 		super.dismiss();
 	}
@@ -226,12 +257,12 @@ public class LogHistoryDialog extends Dialog {
 		mHighlightLine = -1;
 		showListWidgets();
 		mTitle.setText("Session logs");
-		if (mFiles.isEmpty()) {
-			mSubtitle.setText("Loading…");
-			loadFileList();
+		if (mLoaded.isEmpty()) {
+			mSubtitle.setText(idleHint());
+			mEmpty.setText(idleHint());
 		} else {
-			mSubtitle.setText(mFiles.size() + " file"
-					+ (mFiles.size() == 1 ? "" : "s") + " for " + mDisplay);
+			applyNameFilter();
+			mSubtitle.setText(listSummary());
 		}
 	}
 
@@ -250,21 +281,37 @@ public class LogHistoryDialog extends Dialog {
 
 	private void loadFileList() {
 		final int gen = ++mListGen;
-		final Context app = getContext().getApplicationContext();
+		mSearchGen++;
+		final File dir = mLookDir;
 		final String display = mDisplay;
+		final Long from = mFromMs;
+		final Long until = mUntilExclusiveMs;
+		final String folderLabel = dir == null ? "" : dir.getAbsolutePath();
+		mSubtitle.setText("There may be thousands of session logs in this folder. "
+				+ "Loading can take a while…\n" + folderLabel);
+		mEmpty.setText("Loading…");
+		mEmpty.setVisibility(View.VISIBLE);
+		mList.setVisibility(View.GONE);
+		if (mLoadBtn != null) {
+			mLoadBtn.setEnabled(false);
+		}
 		SessionLogSearch.runIo(new Runnable() {
 			@Override
 			public void run() {
-				final List<File> files = SessionLogger.listLogFiles(app, display);
+				final List<File> files = SessionLogger.listLogFiles(dir, display,
+						from, until);
 				mMain.post(new Runnable() {
 					@Override
 					public void run() {
 						if (!mAlive || gen != mListGen) {
 							return;
 						}
-						mFiles.clear();
-						mFiles.addAll(files);
-						mAdapter.notifyDataSetChanged();
+						if (mLoadBtn != null) {
+							mLoadBtn.setEnabled(true);
+						}
+						mLoaded.clear();
+						mLoaded.addAll(files);
+						applyNameFilter();
 						if (mOpenFile == null) {
 							if (mFiles.isEmpty()) {
 								mEmpty.setText(emptyHint());
@@ -274,10 +321,7 @@ public class LogHistoryDialog extends Dialog {
 							} else {
 								mEmpty.setVisibility(View.GONE);
 								mList.setVisibility(View.VISIBLE);
-								mSubtitle.setText(mFiles.size() + " file"
-										+ (mFiles.size() == 1 ? "" : "s")
-										+ " for " + mDisplay + "\n"
-										+ mFiles.get(0).getParent());
+								mSubtitle.setText(listSummary());
 							}
 						}
 					}
@@ -286,13 +330,63 @@ public class LogHistoryDialog extends Dialog {
 		});
 	}
 
+	private String idleHint() {
+		return "Logs are the files Options → Service writes "
+				+ "(Session Log Directory, or /BlowTorch/session_logs/ if that is blank). "
+				+ "Choose a date range and tap Load. "
+				+ "A folder with thousands of files can take a while.";
+	}
+
 	private String emptyHint() {
-		return "No session logs for this world yet.\n"
-				+ "Enable Options → Service → Log Session to File?\n"
-				+ "Files are {world}_{date}.txt under /BlowTorch/session_logs/.";
+		String folder = mLookDir == null ? "/BlowTorch/session_logs/"
+				: mLookDir.getAbsolutePath();
+		return "No session logs for " + mDisplay + " in this range.\n"
+				+ folder + "\n"
+				+ "Enable Options → Service → Log Session to File? "
+				+ "Files are {world}_{date}_{time}.txt. "
+				+ "Tap the folder line to look in another folder.";
+	}
+
+	private String listSummary() {
+		String folder = mLookDir == null ? "" : mLookDir.getAbsolutePath();
+		String range = dateRangeLabel();
+		int shown = mFiles.size();
+		int loaded = mLoaded.size();
+		String count = shown + " file" + (shown == 1 ? "" : "s");
+		if (mNameFilter.length() > 0 && shown != loaded) {
+			count = shown + " of " + loaded + " files matching \"" + mNameFilter + "\"";
+		}
+		return count + " for " + mDisplay + " (" + range + ").\n" + folder
+				+ "\nLarge folders can take a while to list.";
+	}
+
+	private String dateRangeLabel() {
+		if (mFromMs == null && mUntilExclusiveMs == null) {
+			return "all dates";
+		}
+		String from = mFromMs == null ? "…" : dayLabel(mFromMs.longValue());
+		String to = mUntilExclusiveMs == null ? "…"
+				: dayLabel(mUntilExclusiveMs.longValue() - 1L);
+		return from + " → " + to;
+	}
+
+	private void applyNameFilter() {
+		mFiles.clear();
+		String q = mNameFilter == null ? "" : mNameFilter.trim().toLowerCase(Locale.US);
+		for (int i = 0; i < mLoaded.size(); i++) {
+			File f = mLoaded.get(i);
+			if (q.length() == 0
+					|| f.getName().toLowerCase(Locale.US).contains(q)) {
+				mFiles.add(f);
+			}
+		}
+		mAdapter.notifyDataSetChanged();
 	}
 
 	private void showListWidgets() {
+		if (mFilterBar != null) {
+			mFilterBar.setVisibility(View.VISIBLE);
+		}
 		mList.setVisibility(mFiles.isEmpty() ? View.GONE : View.VISIBLE);
 		mEmpty.setVisibility(mFiles.isEmpty() ? View.VISIBLE : View.GONE);
 		mFileScroll.setVisibility(View.GONE);
@@ -302,6 +396,9 @@ public class LogHistoryDialog extends Dialog {
 	}
 
 	private void showFileWidgets() {
+		if (mFilterBar != null) {
+			mFilterBar.setVisibility(View.GONE);
+		}
 		mList.setVisibility(View.GONE);
 		mEmpty.setVisibility(View.GONE);
 		mFileScroll.setVisibility(View.VISIBLE);
@@ -313,6 +410,7 @@ public class LogHistoryDialog extends Dialog {
 			return;
 		}
 		mOpenFile = file;
+		mSearchGen++;
 		mHighlightLine = lineIndex;
 		mIndex = null;
 		showFileWidgets();
@@ -516,6 +614,343 @@ public class LogHistoryDialog extends Dialog {
 				LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
 		lp.height = (int) (44 * density + 0.5f);
 		return lp;
+	}
+
+	private LinearLayout buildFilterBar(float density, int pad) {
+		LinearLayout bar = new LinearLayout(getContext());
+		bar.setOrientation(LinearLayout.VERTICAL);
+		bar.setPadding(pad, 0, pad, pad / 2);
+
+		mFolderView = new TextView(getContext());
+		mFolderView.setTextColor(color(R.color.chrome_description));
+		mFolderView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
+		mFolderView.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				askFolder();
+			}
+		});
+		bar.addView(mFolderView);
+
+		LinearLayout dates = new LinearLayout(getContext());
+		dates.setOrientation(LinearLayout.HORIZONTAL);
+		dates.setGravity(Gravity.CENTER_VERTICAL);
+		mFromBtn = chromeChip("From");
+		mFromBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				pickDate(true);
+			}
+		});
+		mToBtn = chromeChip("To");
+		mToBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				pickDate(false);
+			}
+		});
+		TextView d7 = chromeChip("7d");
+		d7.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				applySevenDays();
+				paintDateChips();
+				filtersChanged("Last 7 days. Tap Load.");
+			}
+		});
+		TextView all = chromeChip("All");
+		all.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				mFromMs = null;
+				mUntilExclusiveMs = null;
+				paintDateChips();
+				filtersChanged("All dates. Tap Load — a large folder can take a while.");
+			}
+		});
+		mLoadBtn = chromeFooterButton("Load");
+		mLoadBtn.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				loadFileList();
+			}
+		});
+		LinearLayout.LayoutParams chip = new LinearLayout.LayoutParams(
+				0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+		int gap = (int) (4 * density + 0.5f);
+		chip.rightMargin = gap;
+		dates.addView(mFromBtn, chip);
+		dates.addView(mToBtn, chip);
+		dates.addView(d7, chip);
+		dates.addView(all, chip);
+		LinearLayout.LayoutParams loadLp = new LinearLayout.LayoutParams(
+				LinearLayout.LayoutParams.WRAP_CONTENT,
+				LinearLayout.LayoutParams.WRAP_CONTENT);
+		dates.addView(mLoadBtn, loadLp);
+		bar.addView(dates);
+
+		mSearch = new EditText(getContext());
+		mSearch.setHint("Search file names, or type and press Search to find in loaded files");
+		mSearch.setTextColor(color(R.color.chrome_title_text));
+		mSearch.setHintTextColor(color(R.color.chrome_description));
+		mSearch.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
+		mSearch.setSingleLine(true);
+		mSearch.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+		mSearch.setInputType(InputType.TYPE_CLASS_TEXT);
+		mSearch.addTextChangedListener(new TextWatcher() {
+			@Override
+			public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+			}
+
+			@Override
+			public void onTextChanged(CharSequence s, int start, int before, int count) {
+			}
+
+			@Override
+			public void afterTextChanged(Editable s) {
+				mNameFilter = s == null ? "" : s.toString();
+				if (mLoaded.isEmpty()) {
+					return;
+				}
+				applyNameFilter();
+				if (mOpenFile == null) {
+					if (mFiles.isEmpty()) {
+						mEmpty.setText("No file names match \"" + mNameFilter + "\".");
+						mEmpty.setVisibility(View.VISIBLE);
+						mList.setVisibility(View.GONE);
+					} else {
+						mEmpty.setVisibility(View.GONE);
+						mList.setVisibility(View.VISIBLE);
+					}
+					mSubtitle.setText(listSummary());
+				}
+			}
+		});
+		mSearch.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+			@Override
+			public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+				if (actionId == EditorInfo.IME_ACTION_SEARCH
+						|| (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER
+								&& event.getAction() == KeyEvent.ACTION_DOWN)) {
+					searchLoadedContents();
+					return true;
+				}
+				return false;
+			}
+		});
+		bar.addView(mSearch);
+		return bar;
+	}
+
+	private TextView chromeChip(String label) {
+		TextView t = new TextView(getContext());
+		t.setText(label);
+		t.setTextColor(color(R.color.chrome_title_text));
+		t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
+		t.setGravity(Gravity.CENTER);
+		int p = (int) (6 * getContext().getResources().getDisplayMetrics().density);
+		t.setPadding(p, p, p, p);
+		t.setBackgroundColor(0x3322AACC);
+		return t;
+	}
+
+	/**
+	 * Date chips and folder change the query, not the loaded list. Drop the
+	 * previous Load so the subtitle cannot name a new range over old files.
+	 * Bumping {@code mListGen} abandons an in-flight Load; {@code mSearchGen}
+	 * abandons an in-flight content Search that still holds the discarded
+	 * file list. Re-enable Load in case that in-flight callback would have
+	 * left it disabled.
+	 */
+	private void filtersChanged(String subtitle) {
+		mListGen++;
+		mSearchGen++;
+		if (mLoadBtn != null) {
+			mLoadBtn.setEnabled(true);
+		}
+		mLoaded.clear();
+		mFiles.clear();
+		if (mAdapter != null) {
+			mAdapter.notifyDataSetChanged();
+		}
+		if (mOpenFile != null) {
+			return;
+		}
+		if (mEmpty != null) {
+			mEmpty.setText(idleHint());
+			mEmpty.setVisibility(View.VISIBLE);
+		}
+		if (mList != null) {
+			mList.setVisibility(View.GONE);
+		}
+		if (mSubtitle != null && subtitle != null) {
+			mSubtitle.setText(subtitle);
+		}
+	}
+
+	private void paintFolder() {
+		if (mFolderView == null) {
+			return;
+		}
+		String path = mLookDir == null ? "(no folder)" : mLookDir.getAbsolutePath();
+		mFolderView.setText("Folder (tap to change): " + path);
+	}
+
+	private void paintDateChips() {
+		if (mFromBtn != null) {
+			mFromBtn.setText(mFromMs == null ? "From" : "From " + dayLabel(mFromMs.longValue()));
+		}
+		if (mToBtn != null) {
+			long to = mUntilExclusiveMs == null ? 0L
+					: mUntilExclusiveMs.longValue() - 1L;
+			mToBtn.setText(mUntilExclusiveMs == null ? "To" : "To " + dayLabel(to));
+		}
+	}
+
+	private void applySevenDays() {
+		Calendar cal = Calendar.getInstance();
+		cal.set(Calendar.HOUR_OF_DAY, 0);
+		cal.set(Calendar.MINUTE, 0);
+		cal.set(Calendar.SECOND, 0);
+		cal.set(Calendar.MILLISECOND, 0);
+		cal.add(Calendar.DAY_OF_MONTH, 1);
+		mUntilExclusiveMs = Long.valueOf(cal.getTimeInMillis());
+		cal.add(Calendar.DAY_OF_MONTH, -7);
+		mFromMs = Long.valueOf(cal.getTimeInMillis());
+	}
+
+	private static String dayLabel(long ms) {
+		return new SimpleDateFormat("dd MMM", Locale.US).format(new Date(ms));
+	}
+
+	private void pickDate(final boolean from) {
+		Calendar cal = Calendar.getInstance();
+		if (from && mFromMs != null) {
+			cal.setTimeInMillis(mFromMs.longValue());
+		} else if (!from && mUntilExclusiveMs != null) {
+			cal.setTimeInMillis(mUntilExclusiveMs.longValue() - 1L);
+		}
+		DatePickerDialog dlg = new DatePickerDialog(getContext(),
+				new DatePickerDialog.OnDateSetListener() {
+					@Override
+					public void onDateSet(DatePicker view, int year, int month, int day) {
+						Calendar picked = Calendar.getInstance();
+						picked.clear();
+						picked.set(Calendar.YEAR, year);
+						picked.set(Calendar.MONTH, month);
+						picked.set(Calendar.DAY_OF_MONTH, day);
+						long start = picked.getTimeInMillis();
+						if (from) {
+							mFromMs = Long.valueOf(start);
+						} else {
+							picked.add(Calendar.DAY_OF_MONTH, 1);
+							mUntilExclusiveMs = Long.valueOf(picked.getTimeInMillis());
+						}
+						paintDateChips();
+						filtersChanged("Date or folder changed. Tap Load.");
+					}
+				},
+				cal.get(Calendar.YEAR),
+				cal.get(Calendar.MONTH),
+				cal.get(Calendar.DAY_OF_MONTH));
+		dlg.show();
+	}
+
+	private void askFolder() {
+		final EditText box = new EditText(getContext());
+		box.setText(mLookDir == null ? "" : mLookDir.getAbsolutePath());
+		box.setHint("/BlowTorch/session_logs/");
+		box.setSingleLine(true);
+		box.setTextColor(color(R.color.chrome_title_text));
+		AlertDialog.Builder b = new AlertDialog.Builder(getContext());
+		b.setTitle("Look in folder");
+		b.setMessage("Where this dialog lists files. Does not change Options → Session Log Directory (that is where new logs are written). Blank uses the Options folder.");
+		b.setView(box);
+		b.setPositiveButton("Use this", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				String raw = box.getText() == null ? "" : box.getText().toString().trim();
+				if (raw.length() == 0) {
+					mLookDir = SessionLogger.getLogDirectory(
+							getContext().getApplicationContext());
+				} else {
+					mLookDir = new File(raw);
+				}
+				paintFolder();
+				filtersChanged("Date or folder changed. Tap Load.");
+			}
+		});
+		b.setNeutralButton("Default", new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				mLookDir = SessionLogger.getLogDirectory(
+						getContext().getApplicationContext());
+				paintFolder();
+				filtersChanged("Date or folder changed. Tap Load.");
+			}
+		});
+		b.setNegativeButton("Cancel", null);
+		b.show();
+	}
+
+	private void searchLoadedContents() {
+		final String query = mSearch == null ? ""
+				: mSearch.getText().toString().trim();
+		if (query.length() == 0 || mLoaded.isEmpty()) {
+			return;
+		}
+		mSubtitle.setText("Searching " + mLoaded.size() + " loaded files…");
+		final int gen = ++mSearchGen;
+		final ArrayList<File> files = new ArrayList<File>(mLoaded);
+		SessionLogSearch.runIo(new Runnable() {
+			@Override
+			public void run() {
+				File hitFile = null;
+				int hitLine = -1;
+				int hits = 0;
+				for (int i = 0; i < files.size(); i++) {
+					if (!mAlive || gen != mSearchGen) {
+						return;
+					}
+					java.util.ArrayList<SessionLogSearch.Hit> found =
+							new java.util.ArrayList<SessionLogSearch.Hit>();
+					try {
+						SessionLogSearch.searchFile(files.get(i), query, false,
+								1, found);
+					} catch (java.io.IOException e) {
+						continue;
+					}
+					if (!found.isEmpty()) {
+						hits++;
+						if (hitFile == null) {
+							hitFile = files.get(i);
+							hitLine = found.get(0).lineIndex;
+						}
+					}
+				}
+				final File first = hitFile;
+				final int line = hitLine;
+				final int n = hits;
+				mMain.post(new Runnable() {
+					@Override
+					public void run() {
+						if (!mAlive || gen != mSearchGen) {
+							return;
+						}
+						if (first == null) {
+							mSubtitle.setText("No \"" + query + "\" in the "
+									+ files.size() + " loaded files.");
+							return;
+						}
+						mQuery = query;
+						mCaseSensitive = false;
+						mSubtitle.setText(n + " loaded file"
+								+ (n == 1 ? "" : "s") + " contain \"" + query + "\".");
+						openFile(first, line);
+					}
+				});
+			}
+		});
 	}
 
 	private int color(int id) {

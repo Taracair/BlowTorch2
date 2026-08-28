@@ -599,8 +599,9 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .search logs 0 goblin     — window plus every saved file for this world\n"
 					+ "  .search 'logs'            — find the word logs in the window\n"
 					+ "  .search 14:32 | 18 Aug  — when Scroll dates is on\n"
-					+ "Logs live in /BlowTorch/session_logs/ as {world}_{date}.txt\n"
-					+ "(or the folder in Options → Service → Log Session directory).\n"
+					+ "Logs live in the folder Options → Service → Session Log Directory\n"
+					+ "(blank = /BlowTorch/session_logs/) as {world}_{date}_{time}.txt.\n"
+					+ "⋮ → Session logs: pick dates and tap Load (large folders can take a while).\n"
 					+ "N is last N days including today; 0 = all files. Enable Log Session\n"
 					+ "to File? or there is nothing to search.\n";
 		}
@@ -619,7 +620,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "Save writes My lines + reply (and a matching Send to thread trigger).\n"
 					+ "Delete conversation (confirm) removes messages; it does not delete the trigger.\n"
 					+ "A lone $1 in Reply is treated as $text; Send refuses if $1/$text remains.\n"
-					+ "Options → Chat: unread disc on ⋮, game-window line, Android notify (off by default).\n";
+					+ "Options → Chat: unread disc on ⋮, game-window line, Android notify (off by default),\n"
+					+ "keep at most N messages (default 4000; 0 = no practical limit).\n";
 		}
 		return null;
 	}

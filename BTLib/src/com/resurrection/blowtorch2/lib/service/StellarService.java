@@ -927,9 +927,10 @@ public class StellarService extends Service {
 		if (c == null) {
 			return;
 		}
+		String line = ChatAnnounce.lineText(title, unread);
 		c.sendDataToWindow("\n" + Colorizer.getBrightCyanColor()
-				+ ChatAnnounce.lineText(title, unread)
-				+ Colorizer.getWhiteColor());
+				+ line
+				+ Colorizer.getWhiteColor() + "\n");
 	}
 
 	private void clearChatDigests() {
@@ -943,6 +944,14 @@ public class StellarService extends Service {
 			}
 			mChatDigests.clear();
 		}
+	}
+
+	public final int chatMaxMessages(final String display) {
+		if (mConnections == null) {
+			return ChatStore.coerceMaxMessages(null);
+		}
+		Connection c = mConnections.get(display);
+		return ChatStore.coerceMaxMessages(chatOptionValue(c, "chat_max_messages"));
 	}
 
 	private static Object chatOptionValue(final Connection c, final String key) {

@@ -39,6 +39,11 @@ public class ChatAnnounceTest {
 				ChatAnnounce.lineText("   ", 2));
 		assertEquals("Thread Chat has new messages: 3",
 				ChatAnnounce.lineText(null, 3));
+		String framed = ChatAnnounce.windowLine("VERMIN", 1);
+		assertTrue(framed.startsWith("\n"));
+		assertTrue(framed.endsWith("\n"));
+		assertFalse(framed.contains("1CORP"));
+		assertEquals("\nThread VERMIN has new messages: 1\n", framed);
 	}
 
 	@Test

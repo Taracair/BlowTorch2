@@ -806,33 +806,46 @@ public final class SessionLogger {
 	 * @return Mutable list, never null.
 	 */
 	public static List<File> listLogFiles(Context context, String display) {
-		ArrayList<File> out = new ArrayList<File>();
 		if (context == null) {
-			return out;
+			return new ArrayList<File>();
 		}
-		File dir = getLogDirectory(context);
+		return listLogFiles(getLogDirectory(context), display, null, null);
+	}
+
+	/**
+	 * Session logs for this world in {@code dir}, newest filename stamp first.
+	 * Uses the name list, not {@code lastModified}, so a folder of thousands
+	 * of files does not pay a stat per file before the player taps Load.
+	 *
+	 * @param fromMsInclusive inclusive start, or null
+	 * @param untilMsExclusive exclusive end, or null
+	 */
+	public static List<File> listLogFiles(File dir, String display,
+			Long fromMsInclusive, Long untilMsExclusive) {
+		ArrayList<File> out = new ArrayList<File>();
 		if (dir == null || !dir.isDirectory()) {
 			return out;
 		}
-		File[] files = dir.listFiles();
-		if (files == null) {
+		String[] names = dir.list();
+		if (names == null) {
 			return out;
 		}
-		for (int i = 0; i < files.length; i++) {
-			File f = files[i];
-			if (f == null || !f.isFile()) {
+		for (int i = 0; i < names.length; i++) {
+			String name = names[i];
+			if (!SessionLogSearch.isWorldLogFileName(name, display)) {
 				continue;
 			}
-			if (SessionLogSearch.isWorldLogFileName(f.getName(), display)) {
-				out.add(f);
+			Long stamp = SessionLogSearch.fileNameStampMs(name);
+			if (!SessionLogSearch.stampInRange(stamp, fromMsInclusive,
+					untilMsExclusive)) {
+				continue;
 			}
+			out.add(new File(dir, name));
 		}
 		Collections.sort(out, new Comparator<File>() {
 			@Override
 			public int compare(File a, File b) {
-				long da = a.lastModified();
-				long db = b.lastModified();
-				return da < db ? 1 : (da > db ? -1 : 0);
+				return b.getName().compareTo(a.getName());
 			}
 		});
 		return out;

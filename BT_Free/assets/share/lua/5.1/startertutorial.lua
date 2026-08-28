@@ -782,9 +782,12 @@ Session log files (this world only):
   .search logs 7 goblin        window, then last 7 days of files
   .search logs 0 goblin        window plus every saved file
   .search 'logs'               still finds the word “logs” in the window
-Files are {world}_{date}.txt in /BlowTorch/session_logs/ (or the folder
-in Options → Service). Tick Logs on the search bar; N is last N days
-including today. Overflow ⋮ → Session logs opens the same browser.]])
+Files are {world}_{date}_{time}.txt in the folder Options → Service
+→ Session Log Directory names (blank = /BlowTorch/session_logs/).
+Overflow ⋮ → Session logs: pick dates, tap Load (a large folder can
+take a while). Search filters names; Search on the keyboard finds
+text in the files you already loaded. Change looks in another folder
+without moving where new logs are written.]])
 end
 
 TOPICS.chat = function()
@@ -838,14 +841,18 @@ Options → Chat
   unread mark on ⋮ on/off (brighter disc; off hides it)
   game-window line: Off / Every message / Digest + interval
   Android notification (off by default; tap opens that conversation)
+  keep at most N messages (default 4000; 0 = no practical limit)
 
 Digest waits the interval, then the cyan line is the count of new
 messages in that window (five tells → 5, not 1). The shade count
 updates on each message; sound follows Every, or once per digest
-window.
+window. That cyan line is its own line — it does not glue onto the
+next MUD text.
 
 In-game line (cyan client text, never sent to the MUD):
   Thread VERMIN has new messages: 5
+
+⚙ Delete conversation removes the messages and keeps the trigger.
 
 Dual display (main window and the drawer) is the trigger's job; the
 drawer only shows what was stored.]])
@@ -978,7 +985,7 @@ TOPICS.overflow_menu = function()
   Map                     built-in Mapper (also .map open|toggle)
   Chat                    left-hand chat drawer (also .chat)
   Search scrollback       same as .search
-  Session logs            this world’s session log files
+  Session logs            this world’s session log files (dates, then Load)
   Reload Settings         re-read this world’s settings from disk
   Crash report            Show log / Share log
   About
@@ -1486,7 +1493,7 @@ local TIPS = {
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. Reloading wipes .buttonopacity until you set it again.]],
 	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. .chat vermin opens that conversation (id or title). ⚙ has My lines, Reply ($text), dates, Save, Delete. Tap a chat notification to open that thread. Options → Chat for the unread disc and in-game line.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. .chat vermin opens that conversation (id or title). ⚙ has My lines, Reply ($text), dates, Save, Delete. Tap a chat notification to open that thread. Options → Chat for the unread disc, in-game line, and a message cap (default 4000).]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],

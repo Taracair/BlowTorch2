@@ -1012,6 +1012,13 @@ public class ConnectionSettingsPlugin extends Plugin {
 		chat_android_notify.setValue(false);
 		chatOptions.addOption(chat_android_notify);
 
+		IntegerOption chat_max_messages = new IntegerOption();
+		chat_max_messages.setTitle("Keep at most this many chat messages");
+		chat_max_messages.setDescription("Oldest lines are dropped first, across every conversation in this world. Default 4000. 0 means no practical limit (still stops at 50000 so the phone does not run out of memory).");
+		chat_max_messages.setKey("chat_max_messages");
+		chat_max_messages.setValue(4000);
+		chatOptions.addOption(chat_max_messages);
+
 		sg.addOption(chatOptions);
 		
 		SettingsGroup bellOptions = new SettingsGroup();

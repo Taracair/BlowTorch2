@@ -106,7 +106,8 @@ public class SettingsOptionKeyOwnershipTest {
 	@Test
 	public void chatKeysAreConnectionOwnedNotWindow() {
 		String[] chatKeys = { "chat_unread_dot", "chat_announce",
-				"chat_announce_seconds", "chat_android_notify" };
+				"chat_announce_seconds", "chat_android_notify",
+				"chat_max_messages" };
 		for (String key : chatKeys) {
 			assertTrue(key + " must be persisted by the connection writer",
 					ConnectionSetttingsParser.isConnectionOptionKey(key));

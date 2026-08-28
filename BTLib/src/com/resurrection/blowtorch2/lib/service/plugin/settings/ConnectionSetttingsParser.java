@@ -108,7 +108,8 @@ public class ConnectionSetttingsParser extends PluginParser {
 		mapper_level_up_commands, mapper_level_down_commands, mapper_move_effects,
 		extra_text_windows_enabled, extra_text_windows,
 		gauge_widgets_enabled, gauge_widgets,
-		chat_unread_dot, chat_announce, chat_announce_seconds, chat_android_notify
+		chat_unread_dot, chat_announce, chat_announce_seconds, chat_android_notify,
+		chat_max_messages
 	}
 	
 	/**
@@ -1036,6 +1037,12 @@ public class ConnectionSetttingsParser extends PluginParser {
 					case chat_android_notify:
 						// Default false in ConnectionSettingsPlugin.
 						if((Boolean)opt.getValue() != false) {
+							dooutput = true;
+						}
+						break;
+					case chat_max_messages:
+						// Default 4000 in ConnectionSettingsPlugin.
+						if((Integer)opt.getValue() != 4000) {
 							dooutput = true;
 						}
 						break;

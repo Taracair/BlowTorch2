@@ -124,6 +124,89 @@ public class ChatStoreTest {
 	}
 
 	@Test
+	public void setMaxMessagesPrunesAndZeroMeansHardCeiling() {
+		ChatStore store = new ChatStore(new ChatInbox());
+		for (int i = 0; i < 20; i++) {
+			store.appendAt("t", "T", "m" + i, i);
+		}
+		store.setMaxMessages(5);
+		assertEquals(5, store.messages("t", Integer.MAX_VALUE).size());
+		assertEquals("m15", store.messages("t", Integer.MAX_VALUE).get(0).getBody());
+		assertEquals(ChatInbox.HARD_MAX_MESSAGES,
+				ChatStore.coerceMaxMessages(Integer.valueOf(0)));
+		assertEquals(ChatInbox.HARD_MAX_MESSAGES,
+				ChatStore.coerceMaxMessages("0"));
+		assertEquals(4000, ChatStore.coerceMaxMessages(null));
+		assertEquals(100, ChatStore.coerceMaxMessages("100"));
+	}
+
+	@Test
+	public void jsonLoadDoesNotTruncateAtDefaultFourThousand() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMaxMessages(0);
+		for (int i = 0; i < 4005; i++) {
+			inbox.append("t", "T", "m" + i, i);
+		}
+		assertEquals(4005, inbox.messageCount());
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals(4005, loaded.messageCount());
+		assertEquals(ChatInbox.HARD_MAX_MESSAGES, loaded.maxMessages());
+	}
+
+	@Test
+	public void jsonRoundTripPreservesMaxMessages() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMaxMessages(8000);
+		inbox.append("t", "T", "hello", 1L);
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals(8000, loaded.maxMessages());
+		assertEquals(1, loaded.messageCount());
+	}
+
+	@Test
+	public void legacyJsonWithoutMaxKeyDoesNotTruncateAtFourThousand() {
+		String json = "{\"threads\":[],\"messages\":[";
+		StringBuilder sb = new StringBuilder(json);
+		for (int i = 0; i < 5; i++) {
+			if (i > 0) {
+				sb.append(',');
+			}
+			sb.append("{\"threadId\":\"t\",\"title\":\"T\",\"body\":\"m")
+					.append(i).append("\",\"whenMs\":").append(i)
+					.append(",\"mine\":false}");
+		}
+		sb.append("]}");
+		ChatInbox loaded = ChatInbox.fromJsonBytes(sb.toString().getBytes());
+		assertEquals(5, loaded.messageCount());
+		assertEquals(ChatInbox.HARD_MAX_MESSAGES, loaded.maxMessages());
+	}
+
+	@Test
+	public void uiProcessSendDoesNotReapplyDefaultFourThousandCap() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMaxMessages(0);
+		for (int i = 0; i < 4005; i++) {
+			inbox.append("t", "T", "m" + i, i);
+		}
+		ChatStore store = new ChatStore(inbox);
+		store.appendOutgoing("t", "You", "reply");
+		assertEquals(4006, store.messages("t", Integer.MAX_VALUE).size());
+	}
+
+	@Test
+	public void setMaxMessagesWritesCapEvenWhenNothingIsPruned() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.append("t", "T", "only-one", 1L);
+		assertEquals(ChatInbox.DEFAULT_MAX_MESSAGES, inbox.maxMessages());
+		ChatStore store = new ChatStore(inbox);
+		store.setMaxMessages(0);
+		assertEquals(ChatInbox.HARD_MAX_MESSAGES, inbox.maxMessages());
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals(ChatInbox.HARD_MAX_MESSAGES, loaded.maxMessages());
+		assertEquals(1, loaded.messageCount());
+	}
+
+	@Test
 	public void jsonRoundTripPreservesMessagesAndReplyTemplate() {
 		ChatInbox inbox = new ChatInbox();
 		inbox.append("vermin", "VERMIN", "line with \"quotes\" and \nnewline", 42L);

@@ -9,6 +9,8 @@ import com.resurrection.blowtorch2.lib.util.SessionLogSearch;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class SearchCommandTest {
@@ -131,6 +133,15 @@ public class SearchCommandTest {
 		assertFalse(SessionLogSearch.isWorldLogFileName("notes.txt", "foo"));
 		assertEquals("Aardwolf", SessionLogSearch.sanitizeProfile("Aardwolf"));
 		assertEquals("a_b", SessionLogSearch.sanitizeProfile("a b"));
+		Long stamp = SessionLogSearch.fileNameStampMs("foo_2026-08-20_14-03-11.txt");
+		assertNotNull(stamp);
+		assertTrue(SessionLogSearch.stampInRange(stamp, null, null));
+		assertTrue(SessionLogSearch.stampInRange(stamp,
+				Long.valueOf(stamp.longValue() - 1000L),
+				Long.valueOf(stamp.longValue() + 1000L)));
+		assertFalse(SessionLogSearch.stampInRange(stamp,
+				Long.valueOf(stamp.longValue() + 1L), null));
+		assertNull(SessionLogSearch.fileNameStampMs("notes.txt"));
 	}
 
 	@Test

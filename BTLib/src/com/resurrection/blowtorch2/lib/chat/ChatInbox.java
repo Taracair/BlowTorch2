@@ -16,15 +16,19 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * In-memory inbox plus JSON encode/decode and the 4000-message cap.
+ * In-memory inbox plus JSON encode/decode and the message cap.
  *
  * <p>Package-visible so {@link ChatStoreTest} can exercise append/list/search/cap
  * without Android {@code Context} or {@code AtomicFiles}. {@link ChatStore} is
- * the file + notify wrapper around this.
+ * the file + notify wrapper around this. Default cap is 4000; 0 in Options
+ * means {@link #HARD_MAX_MESSAGES} so the phone does not run out of RAM.
  */
 final class ChatInbox {
 
-	static final int MAX_MESSAGES = 4000;
+	static final int DEFAULT_MAX_MESSAGES = 4000;
+	static final int HARD_MAX_MESSAGES = 50000;
+	/** Same as {@link #DEFAULT_MAX_MESSAGES}; tests and old call sites. */
+	static final int MAX_MESSAGES = DEFAULT_MAX_MESSAGES;
 	static final int DEFAULT_MINE_COLOR = 0xFF1B6B66;
 	static final int DEFAULT_OTHER_COLOR = 0xFF333333;
 	static final long ABSORB_MINE_MS = 8000L;
@@ -60,6 +64,7 @@ final class ChatInbox {
 	private final ArrayList<ChatMessage> messages = new ArrayList<ChatMessage>();
 	private int mineColor = DEFAULT_MINE_COLOR;
 	private int otherColor = DEFAULT_OTHER_COLOR;
+	private int maxMessages = DEFAULT_MAX_MESSAGES;
 
 	void append(String threadId, String title, String body, long whenMs) {
 		append(threadId, title, body, whenMs, false, true);
@@ -223,9 +228,46 @@ final class ChatInbox {
 		otherColor = argb;
 	}
 
+	/**
+	 * {@code 0} or negative is {@link #HARD_MAX_MESSAGES} (Options "no limit").
+	 */
+	void setMaxMessages(int max) {
+		maxMessages = coerceMaxMessages(Integer.valueOf(max));
+	}
+
+	int maxMessages() {
+		return maxMessages;
+	}
+
+	static int coerceMaxMessages(Object value) {
+		int n = DEFAULT_MAX_MESSAGES;
+		if (value instanceof Number) {
+			n = ((Number) value).intValue();
+		} else if (value instanceof String) {
+			try {
+				n = Integer.parseInt(((String) value).trim());
+			} catch (NumberFormatException e) {
+				n = DEFAULT_MAX_MESSAGES;
+			}
+		} else if (value != null) {
+			n = DEFAULT_MAX_MESSAGES;
+		}
+		if (n <= 0) {
+			return HARD_MAX_MESSAGES;
+		}
+		if (n > HARD_MAX_MESSAGES) {
+			return HARD_MAX_MESSAGES;
+		}
+		return n;
+	}
+
 	void capOldest() {
+		int cap = maxMessages <= 0 ? HARD_MAX_MESSAGES : maxMessages;
+		if (cap > HARD_MAX_MESSAGES) {
+			cap = HARD_MAX_MESSAGES;
+		}
 		boolean dropped = false;
-		while (messages.size() > MAX_MESSAGES) {
+		while (messages.size() > cap) {
 			messages.remove(0);
 			dropped = true;
 		}
@@ -466,6 +508,7 @@ final class ChatInbox {
 			root.put("mineNeedle", "");
 			root.put("mineColor", mineColor);
 			root.put("otherColor", otherColor);
+			root.put("maxMessages", maxMessages);
 			JSONArray threadArr = new JSONArray();
 			for (ThreadState state : threads.values()) {
 				JSONObject t = new JSONObject();
@@ -551,6 +594,12 @@ final class ChatInbox {
 						inbox.threads.put(id, new ThreadState(id, title, "", 0));
 					}
 				}
+			}
+			if (root.has("maxMessages")) {
+				inbox.setMaxMessages(root.optInt("maxMessages",
+						DEFAULT_MAX_MESSAGES));
+			} else {
+				inbox.setMaxMessages(0);
 			}
 			inbox.capOldest();
 			inbox.pruneThreadsWithoutMessages();

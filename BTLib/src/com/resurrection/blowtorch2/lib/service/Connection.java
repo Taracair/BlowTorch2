@@ -26,6 +26,7 @@ import org.xml.sax.SAXException;
 import com.resurrection.blowtorch2.lib.util.BlowTorchLogger;
 import com.resurrection.blowtorch2.lib.util.ConnectionDuration;
 import com.resurrection.blowtorch2.lib.util.SessionLogger;
+import com.resurrection.blowtorch2.lib.chat.ChatStore;
 import com.resurrection.blowtorch2.lib.launcher.BuiltinTutorial;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
@@ -5818,6 +5819,12 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 			case chat_announce_seconds:
 			case chat_android_notify:
 				break;
+			case chat_max_messages:
+				if (!mReplayingSettings.get().booleanValue()) {
+					ChatStore.forWorld(mService, mDisplay).setMaxMessages(
+							ChatStore.coerceMaxMessages(o.getValue()));
+				}
+				break;
 			default:
 				break;
 			}
@@ -7010,7 +7017,9 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		/** Digest interval in seconds. */
 		chat_announce_seconds,
 		/** Android notification for new chat. */
-		chat_android_notify
+		chat_android_notify,
+		/** Inbox cap; 0 is no practical limit (hard ceiling still applies). */
+		chat_max_messages
 	}
 	
 	/** Work horse function of sending data to the server, this initiates all levels of processing.

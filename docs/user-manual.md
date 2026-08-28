@@ -1787,10 +1787,14 @@ With **Scroll dates?** on (`.when on`), `.search 14:32` or `.search 18 Aug` jump
 to text that arrived then.
 
 `.search logs` (no phrase) opens the in-app session-log browser for this world
-(⋮ → **Session logs**). Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt` under
-`/BlowTorch/session_logs/` (or the custom directory in Options). Tap a file to
-read it; large files page with **Older** / **Newer** rather than loading the
-whole thing at once.
+(⋮ → **Session logs**). It reads the folder **Options → Service → Session Log
+Directory** names (blank = `/BlowTorch/session_logs/`). Choose From/To (or 7d /
+All) and tap **Load** — a folder with thousands of files can take a while;
+the dialog says so instead of a bare “Loading…”. Search filters file names;
+the keyboard Search key looks inside the files you already loaded. **Change**
+(tap the folder line) lists another directory without moving where new logs
+are written. Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt`. Tap a file to
+read it; large files page with **Older** / **Newer**.
 
 `.search logs 7 goblin` searches the live window first, then session log files
 from the **last 7 days** (including today's file) in `/BlowTorch/session_logs/`
@@ -1849,12 +1853,15 @@ while that conversation is open.
   attached (orphan). Long-press a thread in the list also deletes.
 
 **Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
-message / Digest + interval; Android notification (off by default). Tap
-the shade to open that conversation. Digest waits the interval, then the
-cyan line is how many arrived (five tells → 5, not 1); the notification
-count updates on each message. The unread disc on ⋮ is brighter while
-there is unread and the drawer is closed. In-game line example (cyan
-client text, not sent to the MUD): `Thread VERMIN has new messages: 5`.
+message / Digest + interval; Android notification (off by default); keep
+at most N messages (default 4000, 0 = no practical limit). Tap the shade
+to open that conversation. Digest waits the interval, then the cyan line
+is how many arrived (five tells → 5, not 1); the notification count
+updates on each message. That cyan line is its own line in the window.
+The unread disc on ⋮ is brighter while there is unread and the drawer is
+closed. In-game line example (cyan client text, not sent to the MUD):
+`Thread VERMIN has new messages: 5`. ⚙ **Delete conversation** removes
+the messages and keeps the trigger.
 
 Send from the drawer paints an own-bubble immediately. Dual display (main
 window and the drawer) is the trigger's job; the drawer only shows what

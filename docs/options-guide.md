@@ -67,6 +67,7 @@ Under **Options → Chat** (before Bell). Own lines from Send are never announce
 | **New-message line in the game window** | Off | Off, every new line, or a digest. Digest waits the interval, then the cyan line is how many arrived (not only the first) |
 | **Digest interval (seconds)** | 60 | Wait between digest lines. Also used for Android notification sound when the line mode is Off |
 | **Android notification for new chat** | off | Alert channel (not the quiet session one). Tap opens that conversation. Count updates on every new line; sound follows Every, or once per digest window |
+| **Keep at most this many chat messages** | 4000 | Oldest lines drop first, across every conversation. 0 = no practical limit (hard stop 50000) |
 
 ## Shared storage layout (`/BlowTorch/`)
 

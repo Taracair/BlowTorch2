@@ -6,6 +6,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -70,6 +72,48 @@ public final class SessionLogSearch {
 			return false;
 		}
 		return sanitizeProfile(display).equals(m.group(1));
+	}
+
+	/**
+	 * Epoch millis of the {@code yyyy-MM-dd_HH-mm-ss} stamp in the filename,
+	 * or null when the name is not a session log.
+	 */
+	public static Long fileNameStampMs(String name) {
+		if (name == null) {
+			return null;
+		}
+		Matcher m = FILE_NAME.matcher(name);
+		if (!m.matches()) {
+			return null;
+		}
+		SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss",
+				Locale.US);
+		fmt.setLenient(false);
+		try {
+			java.util.Date d = fmt.parse(m.group(2));
+			return d == null ? null : Long.valueOf(d.getTime());
+		} catch (ParseException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * {@code fromMs}/{@code untilMs} null means open on that side. A null
+	 * stamp (unparseable name) is included so a renamed file is not dropped.
+	 */
+	public static boolean stampInRange(Long stampMs, Long fromMsInclusive,
+			Long untilMsExclusive) {
+		if (stampMs == null) {
+			return true;
+		}
+		long stamp = stampMs.longValue();
+		if (fromMsInclusive != null && stamp < fromMsInclusive.longValue()) {
+			return false;
+		}
+		if (untilMsExclusive != null && stamp >= untilMsExclusive.longValue()) {
+			return false;
+		}
+		return true;
 	}
 
 	/**

@@ -100,6 +100,15 @@ public final class ChatAnnounce {
 		return "Thread " + name + " has new messages: " + unread;
 	}
 
+	/**
+	 * Game-window copy: a newline before so we do not sit on the previous MUD
+	 * line, and a newline after so the next MUD line does not glue on
+	 * ({@code …messages: 1CORPCHAT:}). Colour codes wrap the title line only.
+	 */
+	public static String windowLine(String title, int unread) {
+		return "\n" + lineText(title, unread) + "\n";
+	}
+
 	/** Append-time game line. Digest waits for {@link #shouldPublishDigestLine}. */
 	public static boolean shouldAnnounceLine(int mode, boolean countedUnread) {
 		if (!countedUnread) {

@@ -39,6 +39,14 @@ public final class ChatStore {
 
 	static final int MAX_MESSAGES = ChatInbox.MAX_MESSAGES;
 
+	/**
+	 * Options {@code chat_max_messages}: 0 means no practical limit
+	 * ({@link ChatInbox#HARD_MAX_MESSAGES}). Missing/unparseable is 4000.
+	 */
+	public static int coerceMaxMessages(Object value) {
+		return ChatInbox.coerceMaxMessages(value);
+	}
+
 	private static final Pattern NON_WORD = Pattern.compile("\\W");
 	private static final Object CACHE_LOCK = new Object();
 	private static final HashMap<String, ChatStore> CACHE = new HashMap<String, ChatStore>();
@@ -51,6 +59,7 @@ public final class ChatStore {
 	private Context app;
 	private ChatInbox inbox;
 	private long loadedMtime;
+	private int maxMessages = ChatInbox.DEFAULT_MAX_MESSAGES;
 
 	/**
 	 * Remember the service that can broadcast {@code chatInboxUpdated}.
@@ -151,7 +160,12 @@ public final class ChatStore {
 		final String[] resolvedTitle = new String[] { title };
 		boolean wrote;
 		synchronized (lock) {
+			refreshMaxFromServiceLocked();
 			wrote = mutateUnderFileLock(() -> {
+				if (attached == null) {
+					maxMessages = inbox.maxMessages();
+				}
+				inbox.setMaxMessages(maxMessages);
 				if (seedTemplateIfEmpty != null && seedTemplateIfEmpty.length() > 0) {
 					String existing = inbox.replyTemplate(threadId);
 					if (existing == null || existing.length() == 0) {
@@ -176,6 +190,40 @@ public final class ChatStore {
 				notifyUnreadAppended(threadId, resolvedTitle[0], unreadAfter[0]);
 			}
 		}
+	}
+
+	/**
+	 * Live cap from Options. {@code 0} is no practical limit. Persist when
+	 * the cap (or pruned size) actually changed — raising 4000 to 0 must
+	 * write {@code maxMessages} so a UI-process Send does not re-apply 4000.
+	 * Unchanged 4000 on world load must not rewrite the whole inbox.
+	 */
+	public void setMaxMessages(int max) {
+		synchronized (lock) {
+			maxMessages = coerceMaxMessages(Integer.valueOf(max));
+			mutateUnderFileLock(() -> {
+				int previousCap = inbox.maxMessages();
+				int before = inbox.messageCount();
+				inbox.setMaxMessages(maxMessages);
+				inbox.capOldest();
+				return previousCap != maxMessages
+						|| inbox.messageCount() < before;
+			});
+		}
+	}
+
+	/**
+	 * Service process: Options is the source of truth. UI process has no
+	 * {@link #attach}; the JSON the service last wrote carries the cap
+	 * ({@code maxMessages}). A missing key on old files is HARD_MAX so a
+	 * Send from the drawer does not re-apply the default 4000.
+	 */
+	private void refreshMaxFromServiceLocked() {
+		StellarService svc = attached;
+		if (svc == null || display.length() == 0) {
+			return;
+		}
+		maxMessages = svc.chatMaxMessages(display);
 	}
 
 	/**
