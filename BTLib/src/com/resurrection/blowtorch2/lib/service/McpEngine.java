@@ -18,7 +18,7 @@ import com.resurrection.blowtorch2.lib.util.SessionLogger;
 
 /**
  * Mud Client Protocol 2.1 engine: line filter, handshake, negotiate, multiline,
- * cords, HellMOO status, simpleedit, displayurl, ping, vmoo-client, Lua watchers.
+ * cords, status-update, simpleedit, displayurl, ping, vmoo-client, Lua watchers.
  *
  * @see <a href="https://www.moo.mud.org/mcp2/mcp2.html">MCP 2.1</a>
  */
