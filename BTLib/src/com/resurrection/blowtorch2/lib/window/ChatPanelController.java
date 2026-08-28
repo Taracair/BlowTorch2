@@ -515,6 +515,22 @@ public class ChatPanelController {
 					}
 				}
 			});
+			mineNameBox.addTextChangedListener(new TextWatcher() {
+				@Override
+				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+				}
+
+				@Override
+				public void onTextChanged(CharSequence s, int start, int before, int count) {
+				}
+
+				@Override
+				public void afterTextChanged(Editable s) {
+					if (settingsOpen) {
+						persistMineNameIfChanged();
+					}
+				}
+			});
 		}
 		paintMineColorChips();
 	}
@@ -589,9 +605,9 @@ public class ChatPanelController {
 		paintMineColorChips();
 	}
 
-	private void saveMineName() {
+	private boolean persistMineNameIfChanged() {
 		if (mineNameBox == null || openThreadId == null) {
-			return;
+			return false;
 		}
 		String typed = mineNameBox.getText() == null ? "" : mineNameBox.getText().toString().trim();
 		String existing = store().mineNeedle(openThreadId);
@@ -599,10 +615,19 @@ public class ChatPanelController {
 			existing = "";
 		}
 		if (typed.equals(existing)) {
-			return;
+			return false;
+		}
+		if (typed.length() == 0 && existing.length() > 0 && !settingsOpen) {
+			return false;
 		}
 		store().setMineNeedle(openThreadId, typed);
-		reloadThreadMessages();
+		return true;
+	}
+
+	private void saveMineName() {
+		if (persistMineNameIfChanged()) {
+			reloadThreadMessages();
+		}
 	}
 
 	private void applySettingsVisibility() {

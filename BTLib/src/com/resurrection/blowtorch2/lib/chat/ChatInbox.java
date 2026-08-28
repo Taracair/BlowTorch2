@@ -68,6 +68,8 @@ final class ChatInbox {
 	private int mineColor = DEFAULT_MINE_COLOR;
 	private int otherColor = DEFAULT_OTHER_COLOR;
 	private int maxMessages = DEFAULT_MAX_MESSAGES;
+	/** Last non-empty per-thread needle; JSON root fallback after a process death. */
+	private String defaultMineNeedle = "";
 
 	void append(String threadId, String title, String body, long whenMs) {
 		append(threadId, title, body, whenMs, false, true);
@@ -149,11 +151,29 @@ final class ChatInbox {
 	 * fallback as a trigger (invalid syntax is matched literally).
 	 */
 	boolean bodyLooksMine(String threadId, String body) {
-		ThreadState state = threads.get(threadId == null ? "" : threadId);
-		if (state == null || state.mineCompiled == null || body == null) {
+		if (body == null) {
 			return false;
 		}
-		return state.mineCompiled.matcher(body).find();
+		ThreadState state = threads.get(threadId == null ? "" : threadId);
+		if (state == null) {
+			return false;
+		}
+		Pattern p = compiledMine(state);
+		if (p == null) {
+			return false;
+		}
+		return p.matcher(body).find();
+	}
+
+	private static Pattern compiledMine(ThreadState state) {
+		if (state.mineCompiled != null) {
+			return state.mineCompiled;
+		}
+		if (state.mineNeedle == null || state.mineNeedle.length() == 0) {
+			return null;
+		}
+		state.mineCompiled = compileMinePattern(state.mineNeedle);
+		return state.mineCompiled;
 	}
 
 	/**
@@ -167,7 +187,38 @@ final class ChatInbox {
 		if (m == null) {
 			return false;
 		}
-		return m.isMine() || bodyLooksMine(m.getThreadId(), m.getBody());
+		if (m.isMine()) {
+			return true;
+		}
+		if ("You".equals(m.getTitle())) {
+			return true;
+		}
+		return bodyLooksMine(m.getThreadId(), m.getBody());
+	}
+
+	/**
+	 * Upgrade stored {@code mine} from the current needles so a process
+	 * death still paints own-bubbles even if paint only looked at the flag.
+	 */
+	void restampMineFlags() {
+		restampMineFlags(null);
+	}
+
+	void restampMineFlags(String threadId) {
+		String only = threadId == null ? null : threadId;
+		for (int i = 0; i < messages.size(); i++) {
+			ChatMessage m = messages.get(i);
+			if (m.isMine()) {
+				continue;
+			}
+			if (only != null && !only.equals(m.getThreadId())) {
+				continue;
+			}
+			if (displayMine(m)) {
+				messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(),
+						m.getBody(), m.getWhenMs(), true));
+			}
+		}
 	}
 
 	/** Leftover: world-level Me is unused. Prefer {@link #mineNeedle(String)}. */
@@ -190,7 +241,24 @@ final class ChatInbox {
 			state = new ThreadState(id, id, "", 0);
 			threads.put(id, state);
 		}
+		String previous = state.mineNeedle;
 		state.setMineNeedle(needle);
+		if (state.mineNeedle.length() > 0) {
+			defaultMineNeedle = state.mineNeedle;
+		} else if (previous != null && previous.length() > 0) {
+			refreshDefaultMineNeedle();
+		}
+		restampMineFlags(id);
+	}
+
+	private void refreshDefaultMineNeedle() {
+		defaultMineNeedle = "";
+		for (ThreadState s : threads.values()) {
+			if (s.mineNeedle != null && s.mineNeedle.length() > 0) {
+				defaultMineNeedle = s.mineNeedle;
+				return;
+			}
+		}
 	}
 
 	/**
@@ -530,7 +598,16 @@ final class ChatInbox {
 	byte[] toJsonBytes() {
 		try {
 			JSONObject root = new JSONObject();
-			root.put("mineNeedle", "");
+			String rootNeedle = defaultMineNeedle == null ? "" : defaultMineNeedle;
+			if (rootNeedle.length() == 0) {
+				for (ThreadState state : threads.values()) {
+					if (state.mineNeedle != null && state.mineNeedle.length() > 0) {
+						rootNeedle = state.mineNeedle;
+						break;
+					}
+				}
+			}
+			root.put("mineNeedle", rootNeedle);
 			root.put("mineColor", mineColor);
 			root.put("otherColor", otherColor);
 			root.put("maxMessages", maxMessages);
@@ -582,8 +659,13 @@ final class ChatInbox {
 		try {
 			JSONObject root = new JSONObject(raw);
 			String rootNeedle = root.optString("mineNeedle", "");
+			if ("null".equals(rootNeedle)) {
+				rootNeedle = "";
+			}
+			inbox.defaultMineNeedle = rootNeedle;
 			inbox.mineColor = root.optInt("mineColor", DEFAULT_MINE_COLOR);
 			inbox.otherColor = root.optInt("otherColor", DEFAULT_OTHER_COLOR);
+			HashSet<String> inheritRoot = new HashSet<String>();
 			JSONArray threadArr = root.optJSONArray("threads");
 			if (threadArr != null) {
 				for (int i = 0; i < threadArr.length(); i++) {
@@ -597,9 +679,18 @@ final class ChatInbox {
 							t.optString("title", id),
 							t.optString("replyTemplate", ""),
 							t.optInt("unreadCount", 0));
-					state.setMineNeedle(t.optString("mineNeedle", ""));
+					if (t.has("mineNeedle")) {
+						state.setMineNeedle(t.optString("mineNeedle", ""));
+					} else {
+						inheritRoot.add(id);
+					}
 					state.mineColor = t.optInt("mineColor", 0);
 					inbox.threads.put(id, state);
+					if (inbox.defaultMineNeedle.length() == 0
+							&& state.mineNeedle != null
+							&& state.mineNeedle.length() > 0) {
+						inbox.defaultMineNeedle = state.mineNeedle;
+					}
 				}
 			}
 			JSONArray messageArr = root.optJSONArray("messages");
@@ -611,14 +702,16 @@ final class ChatInbox {
 					}
 					String id = o.optString("threadId", "");
 					String title = o.optString("title", id);
+					boolean mine = readMineFlag(o, title);
 					inbox.messages.add(new ChatMessage(
 							id,
 							title,
 							o.optString("body", ""),
 							o.optLong("whenMs", 0L),
-							o.optBoolean("mine", false)));
+							mine));
 					if (!inbox.threads.containsKey(id)) {
 						inbox.threads.put(id, new ThreadState(id, title, "", 0));
+						inheritRoot.add(id);
 					}
 				}
 			}
@@ -630,21 +723,35 @@ final class ChatInbox {
 			}
 			inbox.capOldest();
 			inbox.pruneThreadsWithoutMessages();
-			// Old files stored one world-level needle. Copy it onto threads
-			// that have none; new threads created after load stay empty.
+			// Old files stored one world-level needle and no per-thread key.
+			// Threads that saved an empty My lines keep it (has("mineNeedle")).
 			if (rootNeedle.length() > 0) {
-				for (ThreadState state : inbox.threads.values()) {
-					if (state.mineNeedle == null || state.mineNeedle.length() == 0) {
+				for (String id : inheritRoot) {
+					ThreadState state = inbox.threads.get(id);
+					if (state != null
+							&& (state.mineNeedle == null || state.mineNeedle.length() == 0)) {
 						state.setMineNeedle(rootNeedle);
 					}
 				}
 			}
+			inbox.restampMineFlags();
 			return inbox;
 		} catch (JSONException e) {
 			return new ChatInbox();
 		} catch (Exception e) {
 			return new ChatInbox();
 		}
+	}
+
+	private static boolean readMineFlag(JSONObject o, String title) {
+		if (o.optBoolean("mine", false)) {
+			return true;
+		}
+		String raw = o.optString("mine", "");
+		if ("true".equalsIgnoreCase(raw) || "1".equals(raw)) {
+			return true;
+		}
+		return "You".equals(title);
 	}
 
 	private ChatMessage lastMessage(String threadId) {

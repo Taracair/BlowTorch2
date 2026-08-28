@@ -429,6 +429,62 @@ public class ChatStoreTest {
 	}
 
 	@Test
+	public void jsonRoundTripDisplayMineWithoutStoredFlag() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineNeedle("vermin", "Taracair");
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"Test\"", 1L, false, false);
+		assertFalse(inbox.messages("vermin", 1).get(0).isMine());
+		assertTrue(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals("Taracair", loaded.mineNeedle("vermin"));
+		ChatMessage m = loaded.messages("vermin", 1).get(0);
+		assertTrue(loaded.displayMine(m));
+		assertTrue(m.isMine());
+	}
+
+	@Test
+	public void jsonLoadRootNeedleMarksMatchingLinesAfterRestart() {
+		String json = "{\"mineNeedle\":\"Taracair\",\"threads\":[],"
+				+ "\"messages\":[{\"threadId\":\"vermin\",\"title\":\"VERMIN\","
+				+ "\"body\":\"[ VERMIN ]: Taracair says, \\\"Test\\\"\","
+				+ "\"whenMs\":1,\"mine\":false}]}";
+		ChatInbox loaded = ChatInbox.fromJsonBytes(json.getBytes());
+		assertEquals("Taracair", loaded.mineNeedle("vermin"));
+		ChatMessage m = loaded.messages("vermin", 1).get(0);
+		assertTrue(loaded.displayMine(m));
+		assertTrue(m.isMine());
+	}
+
+	@Test
+	public void jsonLoadYouTitleIsMineEvenWithoutFlag() {
+		String json = "{\"threads\":[{\"threadId\":\"vermin\",\"title\":\"VERMIN\","
+				+ "\"replyTemplate\":\"\",\"unreadCount\":0}],"
+				+ "\"messages\":[{\"threadId\":\"vermin\",\"title\":\"You\","
+				+ "\"body\":\"hello\",\"whenMs\":1,\"mine\":false}]}";
+		ChatInbox loaded = ChatInbox.fromJsonBytes(json.getBytes());
+		ChatMessage m = loaded.messages("vermin", 1).get(0);
+		assertTrue(loaded.displayMine(m));
+		assertTrue(m.isMine());
+	}
+
+	@Test
+	public void clearingMineNeedleSurvivesRoundTrip() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"Test\"", 1L, false, false);
+		inbox.setMineNeedle("vermin", "Taracair");
+		inbox.setMineNeedle("vermin", "");
+		assertEquals("", inbox.mineNeedle("vermin"));
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Taracair says, \"Test\""));
+		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
+		assertEquals("", loaded.mineNeedle("vermin"));
+		assertFalse(loaded.bodyLooksMine("vermin",
+				"[ VERMIN ]: Taracair says, \"Test\""));
+	}
+
+	@Test
 	public void mineColorIsPerThreadAndInheritsWorldDefault() {
 		ChatStore store = new ChatStore(new ChatInbox());
 		store.setMineColorArgb(0xFF123456);

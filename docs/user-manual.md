@@ -1845,7 +1845,8 @@ while that conversation is open.
 
 ⚙ in an open conversation:
 
-- **My lines** — your speaker for this chat only.
+- **My lines** — your speaker for this chat only. Kept in the chat file, so
+  your lines still get your bubble after you leave the app and come back.
 - **Reply** — the command sent to the world; `$text` is the reply box.
   Hint like the trigger: `tell $1 $text`. If you write `C $1` instead of
   `C $text`, Send used to send the characters `$1`. A lone `$1` is now
