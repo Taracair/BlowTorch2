@@ -2092,7 +2092,7 @@ letters are Speedwalk *keys*.
     `insert <text>`            Drop text at the cursor (spaces around words, not punctuation)
     `insertword <text>`        The same thing under its older name
     `insertliteral <text>`     Drop text at the cursor exactly as given, no spacing at all
-    `add` / `popup` + text     Set or append input; `popup` also shows the IME
+    `add` / `popup` + text     Set or append input; `popup` focuses the bar and shows the IME
     `flush`                    Send current input
     `close` / `clear`          Hide IME / clear text
     `sel` / `selectall`        Select all

@@ -143,6 +143,8 @@ import androidx.appcompat.widget.PopupMenu;
 import androidx.core.view.MenuItemCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 public class MainWindow extends AppCompatActivity implements MainWindowCallback,ActivityCompat.OnRequestPermissionsResultCallback {
 	
@@ -1122,9 +1124,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					}
 					
 					if(popup) {
-						InputMethodManager mgr = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-						mgr.showSoftInput(mInputBox, InputMethodManager.SHOW_FORCED);
-						mInputBox.setOnTouchListener(null);
+						showInputMethod();
 					}
 				
 					break;
@@ -1805,9 +1805,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		public boolean onTouch(View v, MotionEvent event) {
 			switch(event.getAction()) {
 			case MotionEvent.ACTION_UP:
-				InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-		        imm.showSoftInput(mInputBox, InputMethodManager.SHOW_FORCED);
-		        mInputBox.setOnTouchListener(null);
+				showInputMethod();
 				break;
 			}
 			return true;
@@ -4440,6 +4438,41 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		//Log.e("WINDOW","ATTEMPTING TO HIDE THE KEYBOARD");
 		mInputBox.setOnTouchListener(mEditBoxTouchListener);
 		notifyFloatingButtonsKeyboardDismiss();
+	}
+
+	/**
+	 * Show the IME on the input bar. {@code .kb popup} is often fired from a
+	 * button, so the bar does not have focus, and {@code SHOW_FORCED} is
+	 * ignored on modern Android — the IME only appeared after the player had
+	 * opened it by hand once. Request focus, then {@link WindowInsetsCompat.Type#ime()}
+	 * (the same insets API ChromeController already follows under
+	 * {@code adjustNothing}).
+	 */
+	private void showInputMethod() {
+		if (mInputBox == null) {
+			return;
+		}
+		mInputBox.requestFocus();
+		mInputBox.setOnTouchListener(null);
+		mInputBox.post(new Runnable() {
+			@Override
+			public void run() {
+				if (mInputBox == null) {
+					return;
+				}
+				mInputBox.requestFocus();
+				WindowInsetsControllerCompat controller =
+						WindowCompat.getInsetsController(getWindow(), mInputBox);
+				if (controller != null) {
+					controller.show(WindowInsetsCompat.Type.ime());
+				}
+				InputMethodManager imm = (InputMethodManager)
+						getSystemService(Context.INPUT_METHOD_SERVICE);
+				if (imm != null) {
+					imm.showSoftInput(mInputBox, InputMethodManager.SHOW_IMPLICIT);
+				}
+			}
+		});
 	}
 
 	/** Mode A overlay windows come down when hide is issued, not after the IME animation. */
