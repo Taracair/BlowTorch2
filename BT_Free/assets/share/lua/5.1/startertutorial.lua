@@ -608,8 +608,10 @@ Readings: wave, cover, facedown, faceup, shake, pickup, moving, still,
 gotdark, gotbright, headphonesout, headphonesin, powerin, powerout,
 screenoff, screenon, landscape, portrait. The last eight need no sensor
 chip — Android tells every app — so a profile built on those works on any
-phone. landscape / portrait: the window rebuilds on rotate, so a command
-like .map open may run a moment after the new layout.
+phone. landscape / portrait: the orientation the phone already has when
+you bind it is not a fire — turn it the other way, then back. The window
+rebuilds on rotate, so a command like .map open may run a moment after
+the new layout.
 
 Often better than a reading of its own: use the phone as a CONDITION.
 On any trigger or timer, Conditions → The phone gives you "Headphones are
@@ -663,7 +665,8 @@ Trigger Color responders can tint matched lines.
 
 Options → Window → Light theme? (off by default): light grey paper and
 dark ink. Colours the game sends stay; whites and light greys are
-darkened so they stay readable. Extra-text windows follow. .light on|off.]])
+darkened so they stay readable. Extra-text windows follow. Launcher,
+Options, mapper, chat and ⋮ stay dark. .light on|off.]])
 end
 
 TOPICS.tappable = function()
@@ -1269,7 +1272,8 @@ the right of the date shows where you are in the buffer. .when on|off.
 .when opacity N. .search 14:32 or 18 Aug jumps to that moment.
 Options → Window → Newest text at top?: live output appears at the top.
 Options → Window → Light theme? (off by default): light grey paper and
-dark ink. .light on|off. Extra-text windows follow this window.]])
+dark ink. .light on|off. Extra-text windows follow this window.
+Launcher, Options, mapper, chat and ⋮ stay dark.]])
 end
 
 TOPICS.plugins = function()
@@ -1512,7 +1516,7 @@ local TIPS = {
 	suggestions = [[Same as .suggest.]],
 	wrap = [[.wrap on lets the input bar grow past one line. Separate from Options → Window → Word Wrap? (game text).]],
 	dimrepeat = [[.dimrepeat on paints a long identical line dimmer (same room on look). .dimrepeat lines N / strength N. Off by default.]],
-	light = [[.light on paints the game on light grey paper with dark ink. Colours stay; whites and light greys are darkened. Extra-text follows. Options → Window → Light theme?. Off by default.]],
+	light = [[.light on paints the game on light grey paper with dark ink. Colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Options → Window → Light theme?. Off by default.]],
 	when = [[.when on shows day and time to the left of ⋮ while you are in history. .when opacity N. .search 14:32 or 18 Aug jumps there. Options → Window → Scroll dates?. Off by default.]],
 	osc8 = [[.osc8 on|off. Worlds can mark words as links even when the words are not a URL. send: taps type a command; prompt: fills the input bar. Options → Window → Use OSC 8?. .probe osc8 dumps a sample.]],
 	width = [[.width N is text canvas width as a percent of the screen (100 = fit). Over 100, drag sideways.]],
@@ -1527,7 +1531,7 @@ local TIPS = {
 	mxp = [[.mxp on|off. Tappable SEND, colours, SOUND/MUSIC. Options → Service → Protocols. .probe mxp dumps a sample.]],
 	protocols = [[.protocols shows what this world offered vs what is on. .protocols enable turns on offered-but-off switches.]],
 	window = [[.window list / show|hide|create <slot>. Extra text panes (float or drawer).]],
-	sensor = [[.sensor lists phone readings (shake, wave, landscape, …) as ordinary triggers. Options → Device → Sensors….]],
+	sensor = [[.sensor lists phone readings (shake, wave, landscape, …) as ordinary triggers. landscape/portrait: first orientation after you bind is not a fire. Options → Device → Sensors….]],
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],

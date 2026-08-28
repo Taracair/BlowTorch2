@@ -275,9 +275,10 @@ public class HelpCommand extends SpecialCommand {
 			return "\n"
 					+ Colorizer.getBrightCyanColor() + "Children of .light:"
 					+ Colorizer.getWhiteColor() + "\n"
-					+ "  .light              — light grey paper and dark ink\n"
+					+ "  .light              — say whether it is on\n"
 					+ "  .light on|off|toggle\n"
-					+ "Also: Options → Window → Light theme?\n";
+					+ "Also: Options → Window → Light theme?\n"
+					+ "Game canvas only. Launcher, Options, mapper, chat and ⋮ stay dark.\n";
 		}
 		if (filter.equals("when")) {
 			return "\n"
@@ -495,7 +496,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .sensor caps — which hardware provides each reading\n"
 					+ "  .sensor <gesture> <command> — wire a reading to a command\n"
 					+ "  .sensor <gesture> on|off | fire <gesture>\n"
-					+ "  .sensor threshold shake|light … | help | examples\n";
+					+ "  .sensor threshold shake|light … | help | examples\n"
+					+ "landscape/portrait: the orientation already showing when you bind is not a fire.\n";
 		}
 		if (filter.equals("sound")) {
 			return "\n"
@@ -646,7 +648,8 @@ public class HelpCommand extends SpecialCommand {
 					+ "Find in thread stays visible.\n"
 					+ "Save writes My lines + reply (and a matching Send to thread trigger).\n"
 					+ "Delete conversation (confirm) removes messages; it does not delete the trigger.\n"
-					+ "A lone $1 in Reply is treated as $text; Send refuses if $1/$text remains.\n"
+					+ "A lone $1 in Reply is treated as $text (C $1). tell $1 $text is the trigger form;\n"
+					+ "Send wants tell Bob $text. Send refuses leftover $1/$text.\n"
 					+ "Options → Chat: unread disc on ⋮, game-window line, Android notify (off by default),\n"
 					+ "keep at most N messages (default 4000; 0 = no practical limit).\n";
 		}

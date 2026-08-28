@@ -232,8 +232,8 @@ patterns.
 
 Not the same thing as button gestures: swipes, holds and chrome bindings live in
 the **button editor**. This group is about hardware readings — proximity,
-motion, light, charger, headphones, screen — offered to triggers, conditions and
-timers.
+motion, light, charger, headphones, screen, rotation — offered to triggers,
+conditions and timers.
 
 | Option | Default | Notes |
 |--------|---------|--------|
@@ -248,6 +248,10 @@ timers.
 Both movement switches cover **movement** readings only. Headphone, charger,
 screen and rotation readings keep working regardless — muting speech when the
 jack comes out has to work precisely when you are not looking at the screen.
+
+`landscape` / `portrait` fire when the screen actually turns. The orientation
+the phone already has when you bind the reading is not a fire — turn it the
+other way, then back.
 
 A sensor trigger is **not aimed at one world**: it fires in every world you have
 open, so with two MUDs connected one shake sends its command twice.
@@ -365,7 +369,7 @@ Full list: in-app **Help** and `docs/user-manual.md` (keep in sync with
 - **Options → Input → Grow Input Bar?** (default on) — when off, the input field stays a single non-growing line.
 - Dot command: `.wrap on` / `.wrap off` (no args prints status). Distinct from **Word Wrap?** (game text wrapping).
 - **Dim repeated lines:** `.dimrepeat on|off`, `.dimrepeat lines N` (how many recent long lines stay in memory, default 12), `.dimrepeat strength N` (10–90, default 50 = half as bright; higher is darker). Also Options → Window.
-- **Light theme:** `.light on|off|toggle`. Light grey paper and dark ink. Game colours stay; whites and light greys are darkened. Extra-text follows. Off by default. Also Options → Window.
+- **Light theme:** `.light on|off|toggle`. Light grey paper and dark ink. Game colours stay; whites and light greys are darkened. Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window.
 - **Use OSC 8?:** `.osc8 on|off` (default on). Worlds can mark words as links even when the words are not a URL. Mudlet-style `send:` taps type a command; `prompt:` fills the input bar. Independent of **Enable Hyperlinks?** (that one is regex linkify of `http` / `www.` / bare domains). Hold where several tappable words sit close together (OSC 8, MXP, or a Tappable Word trigger) and a small loupe appears so you can slide to the one you meant. `.probe osc8` dumps a tappable sample without a MUD. Launcher row **OSC 8 links (local test)** is `127.0.0.1:4445` (needs `python3 .scratch/osc8server.py` and `adb reverse tcp:4445 tcp:4445`).
 - **`.protocols`** — what this world offered vs what is on. `.protocols enable` turns on offered-but-off switches (reconnect when it says so).
 - **`.options`** — opens the Options screen, same as ⋮. Put it on a button.

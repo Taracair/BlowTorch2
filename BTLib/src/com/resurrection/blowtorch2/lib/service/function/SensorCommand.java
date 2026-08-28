@@ -401,8 +401,12 @@ public class SensorCommand extends SpecialCommand {
 		out.append("   speak up when you are plugged in and settled, not on the walk home.\n\n");
 		out.append("8. The map when you turn the phone sideways.\n");
 		out.append("   .sensor landscape .map open  and  .sensor portrait .map close\n");
-		out.append("   The game window rebuilds on rotate, so the map may open a moment\n");
-		out.append("   after the screen comes back. Off until you add the trigger.\n");
+		out.append("   The orientation the phone already has when you bind it is not\n");
+		out.append("   a fire — turn it the other way, then back. The game window\n");
+		out.append("   rebuilds on rotate, so the map may open a moment after the\n");
+		out.append("   screen comes back. Off until you add the trigger. A profile\n");
+		out.append("   that locks landscape does not fire these. Lying on a sofa on\n");
+		out.append("   your side can look like landscape.\n");
 		return out.toString();
 	}
 

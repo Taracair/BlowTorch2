@@ -53,7 +53,9 @@ public class ChatCommand extends SpecialCommand {
 				+ "  .chat help\n"
 				+ "Also: overflow ⋮ → Chat\n"
 				+ "⚙: My lines and Reply. Tap ? (top right of ⚙) for both.\n"
-				+ "Notify: Tells / Channels / Auction / Other (Android Settings).\n";
+				+ "Reply: tell Bob $text / ooc $text. tell $1 $text is the trigger form, not Send.\n"
+				+ "Notify: Tells / Channels / Auction / Other (Android Settings).\n"
+				+ "Re-tune: chat left the alerts channel (bell stays on alerts).\n";
 	}
 
 	public static Parse parse(String arg) {

@@ -38,6 +38,7 @@ public class EditorHelpTest {
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("REPLY"));
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("tell Bob $text"));
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("ooc $text"));
+		assertTrue(EditorHelp.CHAT_MY_LINES.contains("[ooc]"));
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("    Reply:    $text"));
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("C $1"));
 		assertTrue(EditorHelp.CHAT_MY_LINES.contains("NOT A SEND TEMPLATE"));

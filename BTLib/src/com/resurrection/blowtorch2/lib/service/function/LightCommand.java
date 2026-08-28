@@ -56,7 +56,8 @@ public class LightCommand extends SpecialCommand {
 
 	static String usage() {
 		return "Usage: .light on | off | toggle\n"
-				+ "Light grey paper and dark ink. Game colours stay; "
-				+ "whites and light greys are darkened so they stay readable.\n";
+				+ "No argument prints on or off. Light grey paper and dark ink. "
+				+ "Game colours stay; whites and light greys are darkened so they stay readable.\n"
+				+ "Extra-text follows. Launcher, Options, mapper, chat and ⋮ stay dark.\n";
 	}
 }

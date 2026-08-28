@@ -856,15 +856,16 @@ there is no built-in channel or tell pack.
 
 Thread is the conversation key (a name you choose, or `$1` for whoever sent
 a tell). Title and body are optional; a blank body stores the matched line.
-Reply template is optional (`tell $1 $text` or `c $text`). `$text` is a
-placeholder for the reply box, not a trigger capture. `$1` in the template
-is substituted when the thread is first created.
+On the trigger, Reply may be `tell $1 $text` — `$1` becomes the name when
+the thread is created; `$text` stays for the reply box. That capture form is
+not what Send uses. In ⚙ **Reply**, put the name in the template:
+`tell Bob $text`, `ooc $text`, or `$text` alone. Leftover `$1` is refused.
 
 **Chat → ⚙ → My lines** in that conversation. Type the name the world
 prints when you speak, not the channel tag and not a pasted line. Tap
 **?** (top right of ⚙) for My lines and Reply examples. Worlds print
-chat differently — there is no one prefix. `[guild] Ada says, "hi"` is
-yours if My lines is `Ada`. `[guild] Bob says, "hi Ada"` is Bob's.
+chat differently — there is no one prefix. `[ooc] Ada says, "hi"` is
+yours if My lines is `Ada`. `[ooc] Bob says, "hi Ada"` is Bob's.
 Colour chips next to My lines are that chat only.
 
 ## Recipes
@@ -1381,7 +1382,7 @@ is enabled; `.alias list` shows every alias at once.
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–48. Also Options → Window → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
-    `.light [on|off|toggle]`            Light grey paper and dark ink. Game colours stay; whites and light greys are darkened so they stay readable. Extra-text windows follow. Off by default. Also Options → Window → Light theme?
+    `.light [on|off|toggle]`            Light grey paper and dark ink. No argument prints on or off. Extra-text follows; launcher, Options, mapper, chat and ⋮ stay dark. Off by default. Also Options → Window → Light theme?
     `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
@@ -1690,11 +1691,12 @@ on **Movement sensors with the screen off**. For belt and braces, add condition
 alerts.
 
 **8. The map when you turn the phone sideways.** `.sensor landscape .map open`
-and `.sensor portrait .map close`. The game window rebuilds on rotate, so
-the map may open a moment after the new layout. Off until you add the
-trigger. A profile that *locks* landscape does not fire these (you never
-leave that orientation). Lying on a sofa on your side can look like
-landscape.
+and `.sensor portrait .map close`. The orientation the phone already has
+when you bind it is not a fire — turn it the other way, then back. The
+game window rebuilds on rotate, so the map may open a moment after the
+new layout. Off until you add the trigger. A profile that *locks*
+landscape does not fire these (you never leave that orientation). Lying
+on a sofa on your side can look like landscape.
 
 ### Gating a trigger on the phone
 
@@ -1875,8 +1877,8 @@ while that conversation is open.
 
 - **My lines** — the name the world prints when you speak, not the
   channel tag and not a pasted whole line. Worlds print chat differently
-  (start of line, after a `]` or `)`, `You say`). `[guild] Ada says, "hi"`
-  is yours if My lines is `Ada`; `[guild] Bob says, "hi Ada"` is not.
+  (start of line, after a `]` or `)`, `You say`). `[ooc] Ada says, "hi"`
+  is yours if My lines is `Ada`; `[ooc] Bob says, "hi Ada"` is not.
   Kept in the chat file, so those bubbles stay yours after you leave the
   app. Colour chips next to the field are this chat only.
 - **Reply** — the command sent to the world; `$text` is the reply box.
@@ -2260,7 +2262,8 @@ warm grey paper and dark ink. Colours the world sends (red *You bleed*, cyan
 names, yellow highlights) stay; whites, default grey, and other light greys
 are darkened so they stay readable. Extra-text windows follow the main
 window. Colour triggers are unchanged — they still inject the same SGR; only
-the paint changes. The launcher and Options dialog stay dark.
+the paint changes. The launcher, Options, mapper, chat drawer and ⋮ stay
+dark. Factory pad colours are unchanged (pale on light paper).
 
 ```
 .light
