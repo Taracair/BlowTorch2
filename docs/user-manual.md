@@ -11,6 +11,12 @@ slightly out of date in a few places. When that happens, the app itself — what
 it shows on screen — is the source of truth. Please report mistakes on
 [GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
 
+On the server list, the star is **Add to favorites** / **Remove from
+favorites** (starred worlds sit under Starter Tutorial). **Pin to home**
+opens that world even when it is not already running. If an old pin still
+opens the list, remove it and pin again. Options has a search field at the
+bottom; tap a hit to jump to that page.
+
 ## Encrypted connections (TLS)
 
 **Use TLS (encrypted)** is a checkbox on each world, in the same editor as its
@@ -852,14 +858,12 @@ Thread is the conversation key (a name you choose, or `$1` for whoever sent
 a tell). Title and body are optional; a blank body stores the matched line.
 Reply template is optional (`tell $1 $text` or `c $text`). `$text` is a
 placeholder for the reply box, not a trigger capture. `$1` in the template
-is substituted when the thread is first created. Own-bubble colour is
-**Chat → ⚙ → My lines** in that conversation. This conversation only.
-Matches lines you spoke, not a name mentioned in someone else's line. A
-single word is the speaker after `]:` on a tagged channel, or the start of
-a tell. Regex is allowed. Find in an open thread highlights matches; ‹ ›
-jump like `.search` and do not hide other messages. From / To / 7d / All
-still filter by date. History is a file next to the world profile (capped,
-not unbounded).
+is substituted when the thread is first created.
+
+**Chat → ⚙ → My lines** in that conversation. Type your name (`Alice`),
+not the channel tag and not a pasted line. `[ VERMIN ]: Alice says, "hi"`
+is yours (the word after `]:`). `[ VERMIN ]: Bob says, "hi Alice"` is
+Bob's. Colour chips next to My lines are that chat only.
 
 ## Recipes
 
@@ -1845,8 +1849,12 @@ while that conversation is open.
 
 ⚙ in an open conversation:
 
-- **My lines** — your speaker for this chat only. Kept in the chat file, so
-  your lines still get your bubble after you leave the app and come back.
+- **My lines** — type your name (`Alice`), not `[ VERMIN ]` and not a
+  pasted `[ VERMIN ]: Alice says, "` line. Yours is the speaker after
+  `]:` on a tagged channel, or a tell that starts with that name.
+  `[ VERMIN ]: Alice says, "hi"` is yours; `[ VERMIN ]: Bob says, "hi Alice"`
+  is not. Kept in the chat file, so those bubbles stay yours after you
+  leave the app. Colour chips next to the field are this chat only.
 - **Reply** — the command sent to the world; `$text` is the reply box.
   Hint like the trigger: `tell $1 $text`. If you write `C $1` instead of
   `C $text`, Send used to send the characters `$1`. A lone `$1` is now

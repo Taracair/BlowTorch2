@@ -336,6 +336,44 @@ public class ChatStoreTest {
 	}
 
 	@Test
+	public void pastedSaysLineIsLiteralNotCharacterClass() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.setMineNeedle("vermin", "[ VERMIN ]: Alice says, \"");
+		assertTrue(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Alice says, \"hello\""));
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Bob says, \"hi Alice\""));
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Bob waves."));
+	}
+
+	@Test
+	public void channelTagAloneDoesNotMarkEveryone() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Bob says, \"hi\"", 1L, false, false);
+		inbox.setMineNeedle("vermin", "[ VERMIN ]");
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Bob says, \"hi\""));
+		assertFalse(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
+		inbox.setMineNeedle("vermin", "[ VERMIN ]:");
+		assertFalse(inbox.bodyLooksMine("vermin",
+				"[ VERMIN ]: Bob says, \"hi\""));
+	}
+
+	@Test
+	public void narrowingNeedleUnpaintsOtherSpeakers() {
+		ChatInbox inbox = new ChatInbox();
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Bob says, \"hi\"", 1L, true, false);
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Alice says, \"hello\"", 2L, true, false);
+		inbox.setMineNeedle("vermin", "Alice");
+		assertFalse(inbox.messages("vermin", 2).get(0).isMine());
+		assertTrue(inbox.messages("vermin", 2).get(1).isMine());
+	}
+
+	@Test
 	public void displayMineUsesPatternOrStoredFlag() {
 		ChatInbox inbox = new ChatInbox();
 		inbox.setMineNeedle("vermin", "Taracair");
@@ -352,9 +390,11 @@ public class ChatStoreTest {
 	public void absorbedSendStaysMineWhenPatternIsYouSay() {
 		ChatInbox inbox = new ChatInbox();
 		inbox.setMineNeedle("vermin", "You say");
-		inbox.append("vermin", "VERMIN",
-				"[ VERMIN ]: Taracair says, \"Test\"", 1L, true, false);
+		inbox.append("vermin", "You",
+				"[ VERMIN ]: Alice says, \"Test\"", 1L, true, false);
+		inbox.restampMineFlags();
 		assertTrue(inbox.displayMine(inbox.messages("vermin", 1).get(0)));
+		assertTrue(inbox.messages("vermin", 1).get(0).isMine());
 	}
 
 	@Test
@@ -418,7 +458,8 @@ public class ChatStoreTest {
 		inbox.setMineNeedle("vermin", "Taracair");
 		inbox.setMineNeedle("tells", "Bob");
 		inbox.setMineColor(0xFF123456);
-		inbox.append("vermin", "VERMIN", "hello", 1L, true, false);
+		inbox.append("vermin", "VERMIN",
+				"[ VERMIN ]: Taracair says, \"hello\"", 1L, true, false);
 		inbox.append("tells", "Tells", "yo", 2L, false, true);
 		ChatInbox loaded = ChatInbox.fromJsonBytes(inbox.toJsonBytes());
 		assertEquals("", loaded.mineNeedle());

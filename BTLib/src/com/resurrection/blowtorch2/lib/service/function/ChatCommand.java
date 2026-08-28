@@ -51,7 +51,8 @@ public class ChatCommand extends SpecialCommand {
 				+ "  .chat close | hide     same toggle; or tap ✕ / the dim area\n"
 				+ "  .chat <thread>         open that thread (id or title, case-insensitive)\n"
 				+ "  .chat help\n"
-				+ "Also: overflow ⋮ → Chat\n";
+				+ "Also: overflow ⋮ → Chat\n"
+				+ "⚙ My lines: type Alice (name after ]:). See .help chat.\n";
 	}
 
 	public static Parse parse(String arg) {

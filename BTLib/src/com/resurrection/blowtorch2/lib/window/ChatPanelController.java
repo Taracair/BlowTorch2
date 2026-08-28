@@ -435,12 +435,13 @@ public class ChatPanelController {
 						}
 						return;
 					}
+					if (settingsOpen) {
+						persistThreadEdits(true);
+					}
 					settingsOpen = !settingsOpen;
 					if (settingsOpen) {
 						bindMineRow(true);
 						bindTemplateFromTriggerOrStore();
-					} else {
-						persistThreadEdits(true);
 					}
 					applySettingsVisibility();
 				}
@@ -512,22 +513,6 @@ public class ChatPanelController {
 				public void onFocusChange(View v, boolean hasFocus) {
 					if (!hasFocus) {
 						saveMineName();
-					}
-				}
-			});
-			mineNameBox.addTextChangedListener(new TextWatcher() {
-				@Override
-				public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-				}
-
-				@Override
-				public void onTextChanged(CharSequence s, int start, int before, int count) {
-				}
-
-				@Override
-				public void afterTextChanged(Editable s) {
-					if (settingsOpen) {
-						persistMineNameIfChanged();
 					}
 				}
 			});

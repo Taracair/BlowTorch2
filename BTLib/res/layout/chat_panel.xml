@@ -122,7 +122,7 @@
                     android:layout_weight="1"
                     android:layout_marginLeft="8dp"
                     android:background="@drawable/input_bar_bg"
-                    android:hint="speaker"
+                    android:hint="Alice"
                     android:importantForAutofill="no"
                     android:inputType="text"
                     android:maxLines="1"
@@ -147,7 +147,7 @@
                 android:paddingLeft="8dp"
                 android:paddingRight="8dp"
                 android:paddingBottom="6dp"
-                android:text="Your speaker and bubble colour. This chat only."
+                android:text="Your name after ]: — Alice. Not [ VERMIN ] and not a pasted line."
                 android:textColor="@color/chrome_description"
                 android:textSize="11sp" />
 

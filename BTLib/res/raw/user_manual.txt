@@ -11,6 +11,12 @@ slightly out of date in a few places. When that happens, the app itself — what
 it shows on screen — is the source of truth. Please report mistakes on
 [GitHub Issues](https://github.com/Taracair/BlowTorch2/issues).
 
+On the server list, the star is **Add to favorites** / **Remove from
+favorites** (starred worlds sit under Starter Tutorial). **Pin to home**
+opens that world even when it is not already running. If an old pin still
+opens the list, remove it and pin again. Options has a search field at the
+bottom; tap a hit to jump to that page.
+
 ## Encrypted connections (TLS)
 
 **Use TLS (encrypted)** is a checkbox on each world, in the same editor as its
@@ -852,14 +858,12 @@ Thread is the conversation key (a name you choose, or `$1` for whoever sent
 a tell). Title and body are optional; a blank body stores the matched line.
 Reply template is optional (`tell $1 $text` or `c $text`). `$text` is a
 placeholder for the reply box, not a trigger capture. `$1` in the template
-is substituted when the thread is first created. Own-bubble colour is
-**Chat → ⚙ → My lines** in that conversation. This conversation only.
-Matches lines you spoke, not a name mentioned in someone else's line. A
-single word is the speaker after `]:` on a tagged channel, or the start of
-a tell. Regex is allowed. Find in an open thread highlights matches; ‹ ›
-jump like `.search` and do not hide other messages. From / To / 7d / All
-still filter by date. History is a file next to the world profile (capped,
-not unbounded).
+is substituted when the thread is first created.
+
+**Chat → ⚙ → My lines** in that conversation. Type your name (`Alice`),
+not the channel tag and not a pasted line. `[ VERMIN ]: Alice says, "hi"`
+is yours (the word after `]:`). `[ VERMIN ]: Bob says, "hi Alice"` is
+Bob's. Colour chips next to My lines are that chat only.
 
 ## Recipes
 
@@ -1363,6 +1367,7 @@ is enabled; `.alias list` shows every alias at once.
     `.font [size|+n|-n|default]`        Game font size without leaving the game. No argument prints it. `.font +2` steps up from where you are; clamped to 6–48. Also Options → Window → Font size
     `.width [percent|+n|-n|toggle|off]` Text canvas width as a percent of the screen (100–200). Over 100 the text is drawn wider than the screen and you drag it sideways with one finger. `toggle` flips to 100% and back to the last wide setting — put it on a button for ASCII maps. Also Options → Window → Text width (% of screen)
     `.dimrepeat [on|off|toggle|lines N|strength N]` Dim a long line that comes back identical (the same room on look). No argument prints status. `lines` is how many recent long lines stay in memory (1–80, default 12 — after that many other long lines an old room is bright again). `strength` is how hard to dim (10–90, default 50 = half as bright; higher is darker). Also Options → Window
+    `.when [on|off|toggle|opacity N]`    Day and time to the left of ⋮ while scrolled into history; `.search 14:32` / `18 Aug` jumps there. `opacity` is 15–100. Also Options → Window → Scroll dates?
     `.gmcp …`                           GMCP helpers (status / sniff / version / supports / dump / send); see below
     `.frame …`                          Frames a server opened (`list`, `close <id>`, `close all`); see below. Not the same as `.window`
     `.mcp …`                            MCP helpers (Mud Client Protocol `#$#`); see below
@@ -1376,7 +1381,7 @@ is enabled; `.alias list` shows every alias at once.
     `.run <directions>`                 Speedwalk; mapping from **Speedwalk Directions**; commas insert free-text commands
     `.loadset <setname>`                Built-in stub; `button_window` overrides to load a button set
     `.clearbuttons`                     Hide every on-screen button; one **BACK** button stays to bring them all back
-    `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
+    `.buttonopacity [100|restore]` / `.buttonsopacity`  Force every tile fully opaque until `restore`. `.loadset` keeps that override. Entering Edit buttons pauses a 0% override so the pad is visible to edit; leaving edit puts it back
     `.switch <connection>`              Switch foreground UI to another open connection by exact display name; bare `.switch` lists open sessions (unknown names are refused — they used to black-screen the UI)
     `.search …`                         Scrollback and old session logs; see forms below
     `.chat …`                           Left-hand chat drawer (threads and reply templates); see forms below
@@ -1786,10 +1791,21 @@ With **Scroll dates?** on (`.when on`), `.search 14:32` or `.search 18 Aug` jump
 to text that arrived then.
 
 `.search logs` (no phrase) opens the in-app session-log browser for this world
-(⋮ → **Session logs**). Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt` under
-`/BlowTorch/session_logs/` (or the custom directory in Options). Tap a file to
-read it; large files page with **Older** / **Newer** rather than loading the
-whole thing at once.
+(⋮ → **Session logs**). It reads the folder **Options → Service → Session Log
+Directory** names (blank = `/BlowTorch/session_logs/`). Choose From/To (or 7d /
+All) and tap **Load** — a folder with thousands of files can take a while;
+the dialog says so instead of a bare “Loading…”. The box filters file names
+as you type (`Filter names`). **Search** looks inside the files still listed
+(not the whole folder), stays on the list of matching files with a hit
+count, and stops after 16 MB or 100 files if the range is too wide. ✕ in an
+open file returns to that list (query kept, so `goblin` does not become a
+name filter). ✕ on the list clears the box and shows the last Load.
+Hardware Back does the same: file → list → clear search → dismiss.
+With a file open, Search / ‹ › find in that file only (`3/12`) after one
+scan. **Change**
+(tap the folder line) lists another directory without moving where new logs
+are written. Files are `{world}_{yyyy-MM-dd_HH-mm-ss}.txt`. Tap a file to
+read it; large files page with **Older** / **Newer**.
 
 `.search logs 7 goblin` searches the live window first, then session log files
 from the **last 7 days** (including today's file) in `/BlowTorch/session_logs/`
@@ -1833,7 +1849,12 @@ while that conversation is open.
 
 ⚙ in an open conversation:
 
-- **My lines** — your speaker for this chat only.
+- **My lines** — type your name (`Alice`), not `[ VERMIN ]` and not a
+  pasted `[ VERMIN ]: Alice says, "` line. Yours is the speaker after
+  `]:` on a tagged channel, or a tell that starts with that name.
+  `[ VERMIN ]: Alice says, "hi"` is yours; `[ VERMIN ]: Bob says, "hi Alice"`
+  is not. Kept in the chat file, so those bubbles stay yours after you
+  leave the app. Colour chips next to the field are this chat only.
 - **Reply** — the command sent to the world; `$text` is the reply box.
   Hint like the trigger: `tell $1 $text`. If you write `C $1` instead of
   `C $text`, Send used to send the characters `$1`. A lone `$1` is now
@@ -1848,10 +1869,15 @@ while that conversation is open.
   attached (orphan). Long-press a thread in the list also deletes.
 
 **Options → Chat:** unread mark on ⋮ on/off; game-window line Off / Every
-message / Digest + interval; Android notification (off by default). The
-unread disc on ⋮ is brighter while there is unread and the drawer is
+message / Digest + interval; Android notification (off by default); keep
+at most N messages (default 4000, 0 = no practical limit). Tap the shade
+to open that conversation. Digest waits the interval, then the cyan line
+is how many arrived (five tells → 5, not 1); the notification count
+updates on each message. That cyan line is its own line in the window.
+The unread disc on ⋮ is brighter while there is unread and the drawer is
 closed. In-game line example (cyan client text, not sent to the MUD):
-`Thread VERMIN has new messages: 5`.
+`Thread VERMIN has new messages: 5`. ⚙ **Delete conversation** removes
+the messages and keeps the trigger.
 
 Send from the drawer paints an own-bubble immediately. Dual display (main
 window and the drawer) is the trigger's job; the drawer only shows what
@@ -2186,6 +2212,26 @@ Dot command (same three knobs):
 ```
 
 `.dimrepeat` with no argument prints the current on/off, N, and strength.
+
+## Scroll dates
+
+**Options → Window → Scroll dates?** (off by default). While you are scrolled
+into history, a small day and time sits to the left of ⋮ (same
+calendar day: `14:32`; another day: `18 Aug, 23:10`), and a short mark to the
+right of the date shows where you are in the buffer (thumb at the bottom =
+live text). The jump-to-live arrow sits above ⋮. Dates are not printed into
+the game text, so triggers, wrapping and copy are unchanged.
+**Scroll date opacity (%)** (default 75) only affects that date and mark.
+
+`.search 14:32` or `.search 18 Aug` jumps to text that arrived then. The window
+only keeps a few thousand lines, so a week of busy play will have aged out;
+the session log is the archive for that.
+
+```
+.when
+.when on | off | toggle
+.when opacity N
+```
 
 ## OSC 8 hyperlinks
 
@@ -2873,10 +2919,16 @@ settings they depend on. Storage access is there too.
 
 Connection duration appears on the ongoing notification and launcher row.
 
-**Persistent Connection?** (Options → Miscellaneous): after brief network loss
-(VPN/Wi-Fi flaps), keep retrying longer without the disconnect dialog and wait
-for connectivity before reconnecting. Cannot keep a dead TCP socket — the MUD
-session is re-established when the network returns.
+**Persistent Connection?** (Options → Miscellaneous): only while **Auto
+Reconnect** is on. After brief network loss (VPN/Wi-Fi flaps), wait for
+connectivity before retrying, and treat a peer close as a flap. It does not
+retry when Auto Reconnect is off, and it does not raise the try count — the
+number in **Auto Reconnect Tries** is what is used. Cannot keep a dead TCP
+socket — the MUD session is re-established when the network returns.
+
+If you want the same MUD session through hours of Wi-Fi / mobile / travel, use
+a VPN so the world keeps seeing one IP. The client already keeps the process
+alive; without a stable address many worlds still drop the character.
 
 ## Related docs
 

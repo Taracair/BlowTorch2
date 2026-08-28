@@ -35,6 +35,9 @@ final class ChatInbox {
 	private static final Charset UTF8 = Charset.forName("UTF-8");
 	private static final Pattern PLAIN_NAME = Pattern.compile(
 			"^[A-Za-z][A-Za-z0-9_'-]*$");
+	/** {@code [ VERMIN ]} or {@code [ VERMIN ]:} — every line on that channel. */
+	private static final Pattern TOO_BROAD_CHANNEL_TAG = Pattern.compile(
+			"^\\[[^\\]]+\\]\\s*:?\\s*$");
 
 	private static final class ThreadState {
 		String threadId;
@@ -147,8 +150,9 @@ final class ChatInbox {
 	/**
 	 * Chat-module mine trigger for one thread: the stored line matches that
 	 * thread's {@code mineNeedle}. A plain name becomes {@code ]:\s*Name\b}
-	 * (speaker after the channel tag). Anything else is a Java regex, same
-	 * fallback as a trigger (invalid syntax is matched literally).
+	 * (speaker after the channel tag). A pasted {@code [ TAG ]} alone is
+	 * too broad and matches nothing. {@code |} / {@code (?} compile as
+	 * regex; everything else is a literal substring.
 	 */
 	boolean bodyLooksMine(String threadId, String body) {
 		if (body == null) {
@@ -199,6 +203,9 @@ final class ChatInbox {
 	/**
 	 * Upgrade stored {@code mine} from the current needles so a process
 	 * death still paints own-bubbles even if paint only looked at the flag.
+	 * A non-empty needle also unpaints lines that no longer match, except
+	 * Send bubbles titled {@code You} (absorb rewrites those to a channel
+	 * echo that may not match {@code You say}).
 	 */
 	void restampMineFlags() {
 		restampMineFlags(null);
@@ -208,16 +215,23 @@ final class ChatInbox {
 		String only = threadId == null ? null : threadId;
 		for (int i = 0; i < messages.size(); i++) {
 			ChatMessage m = messages.get(i);
-			if (m.isMine()) {
-				continue;
-			}
 			if (only != null && !only.equals(m.getThreadId())) {
 				continue;
 			}
-			if (displayMine(m)) {
-				messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(),
-						m.getBody(), m.getWhenMs(), true));
+			boolean sticky = "You".equals(m.getTitle());
+			boolean match = sticky
+					|| bodyLooksMine(m.getThreadId(), m.getBody());
+			if (match == m.isMine()) {
+				continue;
 			}
+			if (!match) {
+				String needle = mineNeedle(m.getThreadId());
+				if (needle == null || needle.length() == 0) {
+					continue;
+				}
+			}
+			messages.set(i, new ChatMessage(m.getThreadId(), m.getTitle(),
+					m.getBody(), m.getWhenMs(), match));
 		}
 	}
 
@@ -264,8 +278,10 @@ final class ChatInbox {
 	/**
 	 * Compile the chat-module mine trigger. Package-visible for tests.
 	 * A single word is the speaker after {@code ]:}, or a line that starts
-	 * with that name (tells). An explicit regex is compiled as-is, with
-	 * the same invalid-syntax fallback as a trigger.
+	 * with that name (tells). A channel tag with no speaker matches nothing.
+	 * {@code |} or {@code (?} is regex (invalid syntax is matched literally).
+	 * Anything else, including a pasted {@code [ TAG ]: Alice says, "}, is
+	 * a literal substring — {@code [} must not become a character class.
 	 */
 	static Pattern compileMinePattern(String source) {
 		String s = source == null ? "" : source.trim();
@@ -276,11 +292,21 @@ final class ChatInbox {
 			return Pattern.compile("(?:\\]\\s*:\\s*|\\A)" + Pattern.quote(s) + "\\b",
 					Pattern.CASE_INSENSITIVE);
 		}
-		try {
-			return Pattern.compile(s);
-		} catch (PatternSyntaxException bad) {
-			return Pattern.compile(Pattern.quote(s));
+		if (TOO_BROAD_CHANNEL_TAG.matcher(s).matches()) {
+			return null;
 		}
+		if (looksLikeRegex(s)) {
+			try {
+				return Pattern.compile(s);
+			} catch (PatternSyntaxException bad) {
+				return Pattern.compile(Pattern.quote(s), Pattern.CASE_INSENSITIVE);
+			}
+		}
+		return Pattern.compile(Pattern.quote(s), Pattern.CASE_INSENSITIVE);
+	}
+
+	static boolean looksLikeRegex(String s) {
+		return s != null && (s.indexOf('|') >= 0 || s.indexOf("(?") >= 0);
 	}
 
 	int mineColor() {

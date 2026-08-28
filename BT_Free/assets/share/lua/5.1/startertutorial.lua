@@ -149,6 +149,9 @@ beginners, and poke swipe / hold / accordion demos. Lessons also cover
 aliases, timers, sensors, colors, keyboard, completion, search, chat, mapper, wrap,
 logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
+On the server list, star a world to keep it under Starter Tutorial. Pin to
+home opens that world even when it is not running.
+
 On a real MUD, .tutorial still opens any lesson, and
   .tips on
 prints a short reminder the first time you use a client command
@@ -817,8 +820,12 @@ A thread is one conversation (a person, or a channel). Tap a thread to
 read it. Type in the reply box and Send.
 
 ⚙ in an open conversation
-  My lines   your speaker for this chat only
+  My lines   type Alice (the name after ]:). Not [ VERMIN ]
+             and not a pasted line.
+             [ VERMIN ]: Alice says, "hi"  is yours
+             [ VERMIN ]: Bob says, "hi Alice"  is Bob's
              colour chips: own-bubble colour for this chat only
+             kept in the chat file after you leave the app
   Reply      command sent to the world; $text is the reply box
              hint like the trigger: tell $1 $text
   From/To/7d/All  date filter (not on the thread face)
@@ -838,12 +845,13 @@ $1. A lone $1 is now treated as $text. Send refuses if $1 or $text is
 still in the line.
 
 Example — a tagged channel:
-  Trigger pattern:  ^\[ .+ \]
+  Trigger pattern:  ^\[ VERMIN \]:
   Action:           Send to thread
-  Thread:           a name for that conversation
-  Reply:            the command the world expects, with $text
+  Thread:           vermin
+  Reply:            c $text
 
-Then .chat, open that thread, type a line, Send.
+Then .chat vermin, type in the drawer reply box (above the game input), Send.
+Your bubble appears at once. Long-press a thread in the list also deletes.
 
 Options → Chat
   unread mark on ⋮ on/off (brighter disc; off hides it)
@@ -1040,9 +1048,11 @@ have; .widget with no arguments prints the rest of the verbs.
 
 No GMCP? Bind what you can see.
 
-MCP (HellMOO and other MOOs): keys in the status cache, not the #$#
-line. Use MCP? under Options → Service → Protocols (or .mcp). HellMOO
-status-update keys are hp, maxhp, thirst, hunger, stress:
+MCP (MOOs). LambdaMOO passes #$# to the core; MCP 2.1 lives in cores
+that implement it, not every stock LambdaCore. Use MCP? under Options →
+Service → Protocols (or .mcp). Status-update keys (the
+dns-org-hellmoo-status package some shards send): hp, maxhp, thirst,
+hunger, stress:
 
   .widget source hp mcp hp maxhp
 
@@ -1500,8 +1510,8 @@ local TIPS = {
 	sound = [[.sound stream media|notification|alarm — which volume a trigger sound uses.]],
 	prompt = [[.prompt on pins the world's prompt above the input bar so it is not lost in scrollback.]],
 	loadset = [[.loadset <name> loads a button set. .buttonopacity 100 then .loadset tutorial keeps 100% until .buttonopacity restore.]],
-	search = [[.search <text> finds it in scrollback. .search next / prev / close.]],
-	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat again closes it. .chat vermin opens that conversation (id or title). ⚙ has My lines, Reply ($text), dates, Save, Delete. Tap a chat notification to open that thread. Options → Chat for the unread disc, in-game line, and a message cap (default 4000).]],
+	search = [[.search <text> finds it in this window. .search logs opens ⋮ → Session logs: pick dates, Load, then Search (stays on matching files). .search logs 7 goblin is the window, then this world's files from the last 7 days. .search 'logs' still finds the word in the window.]],
+	chat = [[.chat opens the left chat drawer (⋮ → Chat). .chat vermin opens that conversation. ⚙ My lines: type Alice (name after ]:), not [ VERMIN ]. Reply is $text. Tap a chat notification to open that thread.]],
 	help = [[.help lists every .command. .help word shows only matching names.]],
 	commands = [[Same as .help.]],
 	note = [[.note <text> prints in the window and is never sent to the MUD.]],
