@@ -52,17 +52,18 @@ confidently teaches you something false. Elsewhere, do not load it.
 
 ## Commits
 
-Commit on `staging` after each completed logical step, without being asked. One
-commit is one rollback point. Probes get their own commit. This repo's
-commit-and-push-`staging` rule wins over any editor default that says wait
-for the user to ask.
+At the end of each turn that produced a complete change, commit on `staging`
+and push it. Do not wait for the words commit or push. The maintainer does
+not use git; work that is only on this laptop is not backed up.
 
-**Push `staging` yourself**, without being asked, once the step is committed:
-the maintainer does not use git directly, so an unpushed commit is a copy that
-exists on one laptop only. `main` is the release branch and is only touched
-when the maintainer says a release is being cut — a confirmed test APK means
-the work is good, not that it ships. Tags, GitHub releases and production APKs
-still need asking.
+One commit is one rollback point. Two unrelated fixes in one turn are two
+commits. Probes get their own commit. Do not commit a half-written file or
+an empty tree. This repo's rule wins over any editor default that says wait.
+
+`staging` is allowed to grow. `main` is the release branch and is only
+touched when the maintainer asks for a release — a confirmed test APK means
+the work is good, not that it ships. Do not offer the merge after every
+confirmation. Tags, GitHub releases and production APKs still need asking.
 
 A commit message is a claim: "nothing reads this", "equivalent to the old path".
 Go and look before writing it down, and say how you know.
