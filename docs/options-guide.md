@@ -232,21 +232,22 @@ patterns.
 
 Not the same thing as button gestures: swipes, holds and chrome bindings live in
 the **button editor**. This group is about hardware readings — proximity,
-motion, light, charger, headphones, screen, rotation — offered to triggers,
+motion, light, charger, headphones, battery, screen, rotation — offered to triggers,
 conditions and timers.
 
 | Option | Default | Notes |
 |--------|---------|--------|
 | **Device state as variables** | off | Keep `device.facing`, `device.screen`, `device.headphones`, `device.charging`, `device.battery`, `device.covered`, `device.light` up to date as session variables. With it off nothing is registered and a condition testing one is *false*, never true |
-| **Sensors…** | — | The list screen, built like the Alias / Trigger / Timer chooser: readings grouped under *A hand over the screen*, *Movement*, *Light* and *Headphones, charger, screen and rotation*, each row one line of what it is or what already answers it. Tapping a row opens the trigger editor; **Test** opens a live probe. Readings this handset cannot provide fold away under *Not available on this phone*, still tappable, because a profile is shared with people whose phones do have them. The `?` in the button bar is what the screen is for; which chip provides a reading is `.sensor caps`, not the row |
+| **Sensors…** | — | The list screen, built like the Alias / Trigger / Timer chooser: readings grouped under *A hand over the screen*, *Movement*, *Light* and *Headphones, charger, battery, screen and rotation*, each row one line of what it is or what already answers it. Tapping a row opens the trigger editor; **Test** opens a live probe. Readings this handset cannot provide fold away under *Not available on this phone*, still tappable, because a profile is shared with people whose phones do have them. The `?` in the button bar is what the screen is for; which chip provides a reading is `.sensor caps`, not the row |
 | **Test** (on a row) | — | Watches the sensor while you do the gesture and says whether the phone saw it — the question `.sensor fire` cannot answer. Runs in the UI process and releases every listener when it closes. Near/far, which way up, the one-shot sensors and the system events get a verdict from the same shared code the real detector uses; **shake** and the two **light** readings show the raw number instead, because their thresholds are calibrated and kept by the service process. Where a reading has an enabled trigger the probe also offers **Run the actions**, which is `.sensor fire` |
 | **Calibrate shake…** | — | Two measurements (shaking, then walking) and it picks a threshold between them; refuses when they overlap. Kept with the phone, never exported |
 | **Calibrate light…** | — | Tap once somewhere dark and once somewhere bright. Lux is not comparable between phones or rooms, so this is the only way "dark" can mean yours |
+| **Battery low threshold…** | 20 / 35 | Two percents: Low (`batterylow` fires once when charge crosses down through it) and Recover (`batteryok` once when it crosses back up). Recover must be at least Low+5 so 19–21% cannot flap. Kept with the phone, never exported |
 | **Movement sensors with the screen off** | off | Off means shake / wave / face-down do nothing while the display sleeps, so a pocket cannot fire them |
 | **Movement sensors while the app is in the background** | off | The same while another app is on top or BlowTorch is in Recents |
 
 Both movement switches cover **movement** readings only. Headphone, charger,
-screen and rotation readings keep working regardless — muting speech when the
+battery, screen and rotation readings keep working regardless — muting speech when the
 jack comes out has to work precisely when you are not looking at the screen.
 
 `landscape` / `portrait` fire when the screen actually turns. The orientation

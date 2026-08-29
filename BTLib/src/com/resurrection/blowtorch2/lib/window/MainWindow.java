@@ -2474,6 +2474,15 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 				this, service).show();
 	}
 
+	/** Battery low / recover percents, opened from Options → Device. */
+	public void openBatteryThresholdFromOptions() {
+		if (service == null) {
+			return;
+		}
+		new com.resurrection.blowtorch2.lib.trigger.BatteryThresholdDialog(
+				this, service).show();
+	}
+
 	public void openGestureListFromOptions() {
 		if (service == null) {
 			return;

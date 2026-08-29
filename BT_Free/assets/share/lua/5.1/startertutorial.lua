@@ -606,9 +606,9 @@ differs by model.
 
 Readings: wave, cover, facedown, faceup, shake, pickup, moving, still,
 gotdark, gotbright, headphonesout, headphonesin, powerin, powerout,
-screenoff, screenon, landscape, portrait. The last eight need no sensor
-chip — Android tells every app — so a profile built on those works on any
-phone. landscape / portrait: the orientation the phone already has when
+batterylow, batteryok, screenoff, screenon, landscape, portrait. The last
+ten need no sensor chip — Android tells every app — so a profile built on
+those works on any phone. landscape / portrait: the orientation the phone already has when
 you bind it is not a fire — turn it the other way, then back. The window
 rebuilds on rotate, so a command like .map open may run a moment after
 the new layout.
@@ -627,7 +627,7 @@ Behind that picker are session variables you can also read from Lua:
 Everything here is off until you ask for it, and movement readings are held
 back while the screen is off or the app is in the background — a phone in a
 pocket cannot send commands. Both switches sit in Options → Device, next to
-Calibrate shake and Calibrate light. The Sensors… row in that same group is
+Calibrate shake, Calibrate light and Battery low threshold. The Sensors… row in that same group is
 the list of readings, not the switches.
 
 One thing to know: a sensor trigger is not aimed at one world. It fires in

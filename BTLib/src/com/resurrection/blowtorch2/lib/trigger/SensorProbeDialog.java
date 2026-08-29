@@ -179,11 +179,15 @@ public class SensorProbeDialog extends Dialog {
 		}
 	}
 
-	/** Headphones, charger, screen, rotation: no sensor chip. */
+	/** Headphones, charger, battery, screen, rotation: no sensor chip. */
 	private void startSystem() {
 		if (OrientationGesture.ID_LANDSCAPE.equals(gesture.getId())
 				|| OrientationGesture.ID_PORTRAIT.equals(gesture.getId())) {
 			startOrientation();
+			return;
+		}
+		if ("batterylow".equals(gesture.getId()) || "batteryok".equals(gesture.getId())) {
+			startBatteryPercent();
 			return;
 		}
 		readingIsMomentary = true;
@@ -270,6 +274,48 @@ public class SensorProbeDialog extends Dialog {
 		}
 		caveat.setText("A system event, so this works on every phone and costs"
 				+ " nothing to watch. The way the phone is now is not a fire.");
+	}
+
+	/**
+	 * Charge as a percent. The crossing that fires lives in the service, so this
+	 * screen shows the number rather than passing a verdict — same reason shake
+	 * and light show a raw reading.
+	 */
+	private void startBatteryPercent() {
+		readingIsMomentary = false;
+		reading.setText("\u2014");
+		verdict.setText("Watching charge. Crossing the threshold fires, not the"
+				+ " number sitting still.");
+		final IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+		receiver = new BroadcastReceiver() {
+			@Override
+			public void onReceive(final Context context, final Intent intent) {
+				if (intent == null) {
+					return;
+				}
+				int level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+				int scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+				if (scale <= 0 || level < 0) {
+					return;
+				}
+				int percent = (int) Math.round((level * 100.0) / scale);
+				if (percent < 0 || percent > 100) {
+					return;
+				}
+				reading.setText(percent + "%");
+			}
+		};
+		try {
+			getContext().registerReceiver(receiver, filter);
+		} catch (Exception e) {
+			com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+					"SensorProbeDialog.registerBattery", e);
+			receiver = null;
+		}
+		caveat.setText("A system event, so this works on every phone. What counts as"
+				+ " low is Options \u2192 Device \u2192 Battery low threshold."
+				+ " .sensor fire " + gesture.getId()
+				+ " tries the trigger without waiting for the charge to move.");
 	}
 
 	private static String systemActionFor(final String id) {

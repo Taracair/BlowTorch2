@@ -200,12 +200,14 @@ public class OptionsDialogFlattenTest {
 		device.addOption(callback("Sensors…", "device_sensors"));
 		device.addOption(callback("Calibrate shake…", "calibrate_shake"));
 		device.addOption(callback("Calibrate light…", "calibrate_light"));
+		device.addOption(callback("Battery low threshold…", "battery_threshold"));
 
 		ArrayList<OptionsDialog.PageRow> rows = OptionsDialog.pageRows(device);
-		assertEquals(3, rows.size());
+		assertEquals(4, rows.size());
 		assertEquals("device_sensors", rows.get(0).option.getKey());
 		assertEquals("calibrate_shake", rows.get(1).option.getKey());
 		assertEquals("calibrate_light", rows.get(2).option.getKey());
+		assertEquals("battery_threshold", rows.get(3).option.getKey());
 		assertEquals(Option.TYPE.CALLBACK, rows.get(0).option.type);
 	}
 

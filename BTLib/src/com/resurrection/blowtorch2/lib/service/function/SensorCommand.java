@@ -27,7 +27,7 @@ import com.resurrection.blowtorch2.lib.trigger.TriggerData;
  *
  * <p><b>Not button gestures.</b> Swipes and holds on the input bar and chrome
  * are configured in the button editor. This command is about the phone's own
- * hardware — proximity, motion, light, charging, headphones — as triggers,
+ * hardware — proximity, motion, light, charging, headphones, battery — as triggers,
  * conditions and timers already understand them.
  *
  * <p><b>Why {@code .sensor wave look} looks like an alias.</b> Setting an alias
@@ -90,12 +90,29 @@ public class SensorCommand extends SpecialCommand {
 				}
 				return null;
 			}
+			if (bits.length >= 3 && bits[0].equalsIgnoreCase("battery")) {
+				try {
+					int[] stored = com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+							.setBatteryThresholds(c.getContext(), Integer.parseInt(bits[1]),
+									Integer.parseInt(bits[2]));
+					c.retuneDeviceSensors();
+					c.sendDataToWindow("\nBattery is low at or under " + stored[0]
+							+ "%, OK again at or over " + stored[1] + "%.\n"
+							+ "Kept with this phone, not with the world profile.\n");
+				} catch (NumberFormatException bad) {
+					c.sendDataToWindow(getErrorMessage("Sensor usage",
+							"Two whole numbers are needed: .sensor threshold battery 15 40"));
+				}
+				return null;
+			}
 			if (bits.length < 2 || !bits[0].equalsIgnoreCase("shake")) {
-				c.sendDataToWindow("\nTwo things have thresholds, and both are easier to"
-						+ " measure than to guess:\nOptions \u2192 Device \u2192"
-						+ " Calibrate shake, and Calibrate light.\nBy hand:"
-						+ " .sensor threshold shake 14.5  |  .sensor threshold light 40 900"
-						+ "\nNow: " + String.format(Locale.US, "%.1f",
+				c.sendDataToWindow("\nThree things have thresholds. Shake and light are"
+						+ " easier to measure than to guess:\nOptions \u2192 Device \u2192"
+						+ " Calibrate shake, and Calibrate light. Battery is already a"
+						+ " percent:\nOptions \u2192 Device \u2192 Battery low threshold.\n"
+						+ "By hand: .sensor threshold shake 14.5  |  .sensor threshold"
+						+ " light 40 900  |  .sensor threshold battery 15 40\n"
+						+ "Now: " + String.format(Locale.US, "%.1f",
 							com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
 								.shakeThreshold(c.getContext())) + " m/s2, dark under "
 						+ String.format(Locale.US, "%.0f",
@@ -103,7 +120,11 @@ public class SensorCommand extends SpecialCommand {
 								.darkBelow(c.getContext())) + " lux, bright over "
 						+ String.format(Locale.US, "%.0f",
 							com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
-								.brightAbove(c.getContext())) + " lux\n");
+								.brightAbove(c.getContext())) + " lux, battery low at "
+						+ com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+								.batteryLow(c.getContext()) + "%, OK again at "
+						+ com.resurrection.blowtorch2.lib.service.sensor.GestureTuning
+								.batteryRecover(c.getContext()) + "%\n");
 				return null;
 			}
 			try {
@@ -406,7 +427,13 @@ public class SensorCommand extends SpecialCommand {
 		out.append("   rebuilds on rotate, so the map may open a moment after the\n");
 		out.append("   screen comes back. Off until you add the trigger. A profile\n");
 		out.append("   that locks landscape does not fire these. Lying on a sofa on\n");
-		out.append("   your side can look like landscape.\n");
+		out.append("   your side can look like landscape.\n\n");
+		out.append("9. The phone is running down.\n");
+		out.append("   .sensor batterylow .dobell vibrate\n");
+		out.append("   Fires once when charge crosses down through the low line\n");
+		out.append("   (default 20%), and batterylow again only after it has recovered\n");
+		out.append("   (default 35%) and then dropped. Sitting at 18% then 19% is\n");
+		out.append("   silent. .sensor fire batterylow tries it without waiting.\n");
 		return out.toString();
 	}
 
@@ -421,6 +448,7 @@ public class SensorCommand extends SpecialCommand {
 		out.append(".sensor examples        what people actually use these for\n");
 		out.append(".sensor watch on|off    keep device.* up to date for conditions\n");
 		out.append(".sensor threshold shake 14.5   how hard a shake has to be here\n");
+		out.append(".sensor threshold battery 15 40  low % and recover % on this phone\n");
 		out.append("\nReadings: ");
 		boolean first = true;
 		for (Gesture g : GestureCatalog.all()) {

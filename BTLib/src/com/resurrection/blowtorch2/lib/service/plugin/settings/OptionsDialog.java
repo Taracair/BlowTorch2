@@ -877,6 +877,13 @@ public class OptionsDialog extends Dialog {
 				}
 				return;
 			}
+			if ("battery_threshold".equals(key)) {
+				MainWindow mwb = findMainWindowHost();
+				if (mwb != null) {
+					mwb.openBatteryThresholdFromOptions();
+				}
+				return;
+			}
 			if ("device_sensors".equals(key)) {
 				MainWindow mwg = findMainWindowHost();
 				if (mwg != null) {

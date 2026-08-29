@@ -26,6 +26,8 @@ public final class GestureTuning {
 	private static final String KEY_SHAKE = "shake_threshold";
 	private static final String KEY_DARK = "light_dark_below";
 	private static final String KEY_BRIGHT = "light_bright_above";
+	private static final String KEY_BATTERY_LOW = "battery_low";
+	private static final String KEY_BATTERY_RECOVER = "battery_recover";
 
 	/**
 	 * Shipped starting value, in m/s².
@@ -48,6 +50,17 @@ public final class GestureTuning {
 	 */
 	public static final float DEFAULT_DARK_BELOW = 10.0f;
 	public static final float DEFAULT_BRIGHT_ABOVE = 1000.0f;
+
+	/**
+	 * Charge at or under this percent is low; at or over the other it has
+	 * recovered. The five-point gap is the band that stops 19–21% flapping.
+	 *
+	 * <p>Percent is already a percent, unlike lux, so these are usable starting
+	 * values rather than a guess at someone else's room. Options → Device →
+	 * Battery low threshold replaces them. Kept with this phone, never exported.
+	 */
+	public static final int DEFAULT_BATTERY_LOW = 20;
+	public static final int DEFAULT_BATTERY_RECOVER = 35;
 
 	private GestureTuning() {
 	}
@@ -119,6 +132,65 @@ public final class GestureTuning {
 			// A phone that cannot keep this keeps the default, which still works.
 		}
 		return clamped;
+	}
+
+	/**
+	 * Low 1–90, recover low+5–100. A recover sitting on low is the flap the
+	 * gap exists to prevent; these bounds are what {@code .sensor threshold
+	 * battery} and the Options dialog both store.
+	 */
+	public static int[] clampBatteryThresholds(final int low, final int recover) {
+		int lo = Math.max(1, Math.min(90, low));
+		int rec = Math.max(lo + 5, Math.min(100, recover));
+		return new int[] { lo, rec };
+	}
+
+	public static int batteryLow(final Context context) {
+		return batteryThresholds(context)[0];
+	}
+
+	public static int batteryRecover(final Context context) {
+		return batteryThresholds(context)[1];
+	}
+
+	/** The pair actually in force, already clamped. */
+	public static int[] batteryThresholds(final Context context) {
+		return clampBatteryThresholds(
+				readInt(context, KEY_BATTERY_LOW, DEFAULT_BATTERY_LOW),
+				readInt(context, KEY_BATTERY_RECOVER, DEFAULT_BATTERY_RECOVER));
+	}
+
+	/**
+	 * Store both battery thresholds at once.
+	 *
+	 * @return the pair actually stored, after clamping.
+	 */
+	public static int[] setBatteryThresholds(final Context context, final int low,
+			final int recover) {
+		int[] stored = clampBatteryThresholds(low, recover);
+		if (context == null) {
+			return stored;
+		}
+		try {
+			context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+					.putInt(KEY_BATTERY_LOW, stored[0])
+					.putInt(KEY_BATTERY_RECOVER, stored[1]).apply();
+		} catch (Exception ignored) {
+		}
+		return stored;
+	}
+
+	private static int readInt(final Context context, final String key,
+			final int fallback) {
+		if (context == null) {
+			return fallback;
+		}
+		try {
+			return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+					.getInt(key, fallback);
+		} catch (Exception e) {
+			return fallback;
+		}
 	}
 
 	/** Back to the shipped value. */

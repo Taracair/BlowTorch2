@@ -94,6 +94,7 @@ public final class DeviceStateWatcher {
 	 * minutes ago, and announce a turn nobody made.
 	 */
 	private FacingDetector facingDetector = new FacingDetector();
+	private final BatteryHysteresis battery = new BatteryHysteresis();
 	/**
 	 * Broadcasts already seen once. The interesting ones are sticky: registering
 	 * delivers the current charge and jack state at once, and treating that as a
@@ -122,6 +123,7 @@ public final class DeviceStateWatcher {
 	public DeviceStateWatcher(final Context context, final Audience audience) {
 		this.context = context;
 		this.audience = audience;
+		applyBatteryThresholds();
 	}
 
 	private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -147,9 +149,11 @@ public final class DeviceStateWatcher {
 				if (changed && !firstOfItsKind) {
 					fire(charging ? "powerin" : "powerout");
 				}
-				changed |= state.setBatteryPercent(
+				boolean percentChanged = state.setBatteryPercent(
 						intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1),
 						intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1));
+				changed |= percentChanged;
+				onBatteryPercent(firstOfItsKind, percentChanged);
 			} else if (Intent.ACTION_SCREEN_ON.equals(action)) {
 				// Only on a real change, like the two above. Registration seeds
 				// the screen state from PowerManager, so a broadcast arriving
@@ -301,6 +305,7 @@ public final class DeviceStateWatcher {
 			});
 		}
 		oneShot.setWanted(wanted);
+		seedBatteryBand();
 	}
 
 	private void startBroadcasts() {
@@ -557,6 +562,7 @@ public final class DeviceStateWatcher {
 		}
 		receiverRegistered = false;
 		seededActions.clear();
+		battery.reset();
 	}
 
 	private void stopProximity() {
@@ -797,12 +803,13 @@ public final class DeviceStateWatcher {
 	/**
 	 * Re-read the calibrated thresholds and put them to work now.
 	 *
-	 * <p>The thresholds are read inside {@code startMotion} and {@code startLight},
-	 * and {@link #refresh()} returns early when the set of wanted gestures has not
-	 * changed — which it has not after a calibration. So calibrating would say
-	 * "saved", store the number, and leave the detector running on the old one
-	 * until something unrelated happened to change what was wanted. The sensor is
-	 * dropped and picked up again instead, which is the only thing that re-reads.
+	 * <p>Shake and light thresholds are read inside {@code startMotion} and
+	 * {@code startLight}, and {@link #refresh()} returns early when the set of
+	 * wanted gestures has not changed — which it has not after a calibration. So
+	 * calibrating would say "saved", store the number, and leave the detector
+	 * running on the old one until something unrelated happened to change what
+	 * was wanted. Those sensors are dropped and picked up again. Battery
+	 * thresholds are on the hysteresis object itself, so they are re-read here.
 	 */
 	public synchronized void retune() {
 		boolean hadMotion = motionRegistered;
@@ -814,6 +821,57 @@ public final class DeviceStateWatcher {
 		if (hadLight) {
 			stopLight();
 			startLight();
+		}
+		applyBatteryThresholds();
+	}
+
+	private void applyBatteryThresholds() {
+		int[] t = GestureTuning.batteryThresholds(context);
+		battery.setThresholds(t[0], t[1]);
+	}
+
+	/**
+	 * First sticky restatement of charge is a seed, not a fire. Later percent
+	 * changes run the hysteresis; identical repeats do no work.
+	 */
+	private void onBatteryPercent(final boolean firstOfItsKind,
+			final boolean percentChanged) {
+		String held = state.get(DeviceState.KEY_BATTERY);
+		if (held == null) {
+			return;
+		}
+		int percent;
+		try {
+			percent = Integer.parseInt(held);
+		} catch (NumberFormatException e) {
+			return;
+		}
+		if (firstOfItsKind) {
+			battery.seed(percent);
+			return;
+		}
+		if (!percentChanged) {
+			return;
+		}
+		String gesture = battery.observe(percent);
+		if (gesture != null) {
+			fire(gesture);
+		}
+	}
+
+	/**
+	 * If the receiver was already running (device.* variables) when a battery
+	 * gesture was added, there is no new sticky delivery. Seed from the percent
+	 * we already hold so the next real crossing fires and this one does not.
+	 */
+	private void seedBatteryBand() {
+		String held = state.get(DeviceState.KEY_BATTERY);
+		if (held == null) {
+			return;
+		}
+		try {
+			battery.seedIfUnknown(Integer.parseInt(held));
+		} catch (NumberFormatException ignored) {
 		}
 	}
 

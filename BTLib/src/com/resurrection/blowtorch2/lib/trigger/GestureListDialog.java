@@ -108,8 +108,9 @@ public class GestureListDialog extends Dialog {
 			+ "twice.\n\n"
 			+ "Movement readings are held back while the screen is off or another app "
 			+ "is on top, so a phone in a pocket cannot send commands. Both switches "
-			+ "are in Options -> Device, next to Calibrate shake and Calibrate light. "
-			+ "Headphone, charger, screen and rotation readings are not affected by either.\n\n"
+			+ "are in Options -> Device, next to Calibrate shake, Calibrate light "
+			+ "and Battery low threshold. "
+			+ "Headphone, charger, battery, screen and rotation readings are not affected by either.\n\n"
 			+ "landscape / portrait: the orientation the phone already has when you "
 			+ "bind the reading is not a fire. Turn it the other way, then back.";
 

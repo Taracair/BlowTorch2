@@ -60,7 +60,7 @@ public final class GestureCatalog {
 	public static final String GROUP_HAND = "A hand over the screen";
 	public static final String GROUP_MOVEMENT = "Movement";
 	public static final String GROUP_LIGHT = "Light";
-	public static final String GROUP_SYSTEM = "Headphones, charger, screen and rotation";
+	public static final String GROUP_SYSTEM = "Headphones, charger, battery, screen and rotation";
 
 	/** One gesture: what the player picks, and how it might be measured. */
 	public static final class Gesture {
@@ -166,6 +166,13 @@ public final class GestureCatalog {
 				"The charger is plugged in.", BY_SYSTEM));
 		all.add(new Gesture("powerout", GROUP_SYSTEM, "Unplug the charger",
 				"The charger is unplugged.", BY_SYSTEM));
+		all.add(new Gesture("batterylow", GROUP_SYSTEM, "Battery is low",
+				"Charge dropped through the low threshold. Battery low threshold,"
+					+ " in Options \u2192 Device.",
+				BY_SYSTEM));
+		all.add(new Gesture("batteryok", GROUP_SYSTEM, "Battery is OK again",
+				"Charge rose back through the recover threshold after being low.",
+				BY_SYSTEM));
 		all.add(new Gesture("screenoff", GROUP_SYSTEM, "The screen goes off",
 				"The screen turns off, whether you locked it or it timed out.",
 				BY_SYSTEM));

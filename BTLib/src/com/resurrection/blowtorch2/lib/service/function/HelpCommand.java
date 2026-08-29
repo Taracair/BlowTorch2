@@ -498,7 +498,7 @@ public class HelpCommand extends SpecialCommand {
 					+ "  .sensor caps — which hardware provides each reading\n"
 					+ "  .sensor <gesture> <command> — wire a reading to a command\n"
 					+ "  .sensor <gesture> on|off | fire <gesture>\n"
-					+ "  .sensor threshold shake|light … | help | examples\n"
+					+ "  .sensor threshold shake|light|battery … | help | examples\n"
 					+ "landscape/portrait: the orientation already showing when you bind is not a fire.\n";
 		}
 		if (filter.equals("sound")) {

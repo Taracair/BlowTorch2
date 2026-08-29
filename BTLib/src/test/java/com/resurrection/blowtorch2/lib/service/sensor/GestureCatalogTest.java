@@ -112,12 +112,25 @@ public class GestureCatalogTest {
 		// The portable half: a profile built on these works on any phone, which
 		// is not true of anything measured by hardware.
 		for (String id : new String[] {"headphonesout", "headphonesin", "powerin",
-				"powerout", "screenon", "screenoff", "landscape", "portrait"}) {
+				"powerout", "batterylow", "batteryok", "screenon", "screenoff",
+				"landscape", "portrait"}) {
 			GestureCatalog.Gesture g = GestureCatalog.byId(id);
 			assertNotNull(id, g);
 			assertTrue(id + " should be a system event",
 					g.getProviders().contains(GestureCatalog.BY_SYSTEM));
 		}
+	}
+
+	@Test
+	public void batteryCrossingNamesAreGesturesAndBareBatteryIsNot() {
+		// !battery would reserve a prefix-plus-unknown-name that a world might
+		// print; only the two crossing ids are gestures.
+		assertTrue(GestureCatalog.isGesturePattern("!batterylow", true));
+		assertTrue(GestureCatalog.isGesturePattern("!batteryok", true));
+		assertFalse(GestureCatalog.isGesturePattern("!battery", true));
+		assertNull(GestureCatalog.fromPattern("!battery", true));
+		assertEquals("batterylow",
+				GestureCatalog.fromPattern("!batterylow", true).getId());
 	}
 
 	@Test
