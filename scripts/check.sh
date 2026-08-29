@@ -132,6 +132,16 @@ if ! grep -q 'afterFileEdit' .cursor/hooks.json; then
   echo ".cursor/hooks.json is missing afterFileEdit"
   reviewer_ok=0
 fi
+# Project hooks run from the repo root. `python3 hooks/foo.py` is the
+# ~/.cursor/hooks.json layout; here it 404s and Cursor nags on every call.
+if grep -qE '"command": "python3 hooks/' .cursor/hooks.json; then
+  echo ".cursor/hooks.json commands must be python3 .cursor/hooks/… (cwd is repo root)"
+  reviewer_ok=0
+fi
+if ! grep -q 'python3 .cursor/hooks/before-shell-execution.py' .cursor/hooks.json; then
+  echo ".cursor/hooks.json must invoke .cursor/hooks/before-shell-execution.py"
+  reviewer_ok=0
+fi
 if ! grep -q 'scripts/review-diff.sh' .cursor/rules/subagent-review.mdc; then
   echo ".cursor/rules/subagent-review.mdc must tell the reviewer to run scripts/review-diff.sh"
   reviewer_ok=0

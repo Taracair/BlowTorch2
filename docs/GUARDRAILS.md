@@ -80,12 +80,15 @@ repo. A `.claude/settings.json` here would be silently ignored. The adapters it
 points at (`scripts/hooks/claude-*.sh`) are versioned; the wiring that enables
 them is not, and cannot be reviewed in a diff.
 
-Open `BlowTorch/` as the Cursor workspace. If the parent folder is open
-instead, Cursor reads `../.cursor/hooks.json`, which must list the same four
-events (`beforeShellExecution`, `afterFileEdit`, `preToolUse`, `subagentStart`)
-and the parent `rules/*.mdc` files must match this repo — `check.sh` fails
-locally when they drift. Parent `rules/` are usually symlinks into this repo;
-`hooks.json` cannot be, because the python paths differ. Without
+Open `BlowTorch/` as the Cursor workspace. Project hook commands run from that
+root, so they must be `.cursor/hooks/…` — `hooks/…` is the user-hooks layout
+and looks for a folder that does not exist. Cursor then errors on every tool
+call. If the parent folder is open instead, Cursor reads `../.cursor/hooks.json`,
+which must list the same four events (`beforeShellExecution`, `afterFileEdit`,
+`preToolUse`, `subagentStart`) and the parent `rules/*.mdc` files must match
+this repo — `check.sh` fails locally when they drift. Parent `rules/` are
+usually symlinks into this repo; `hooks.json` cannot be, because the python
+paths differ (`BlowTorch/.cursor/hooks/…` from the parent root). Without
 `beforeShellExecution` there, `adb uninstall` is not denied in the editor.
 
 **Git `pre-commit`** (`scripts/hooks/pre-commit`) is the layer that does not care

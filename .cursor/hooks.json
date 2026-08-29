@@ -2,16 +2,16 @@
   "version": 1,
   "hooks": {
     "beforeShellExecution": [
-      { "command": "python3 hooks/before-shell-execution.py" }
+      { "command": "python3 .cursor/hooks/before-shell-execution.py" }
     ],
     "afterFileEdit": [
-      { "command": "python3 hooks/after-file-edit.py" }
+      { "command": "python3 .cursor/hooks/after-file-edit.py" }
     ],
     "preToolUse": [
-      { "command": "python3 hooks/pre-tool-use.py" }
+      { "command": "python3 .cursor/hooks/pre-tool-use.py" }
     ],
     "subagentStart": [
-      { "command": "python3 hooks/pre-tool-use.py", "matcher": "bugbot" }
+      { "command": "python3 .cursor/hooks/pre-tool-use.py", "matcher": "bugbot" }
     ]
   }
 }
