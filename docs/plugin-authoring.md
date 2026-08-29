@@ -1,7 +1,7 @@
 # BlowTorch 2 — Plugin authoring guide
 
 **Audience:** developers who want to write Lua plugins for BlowTorch 2.  
-**As of:** 18 August 2026 (v2.3.5 / settings `xmlversion="2"`).
+**As of:** 29 August 2026 (v2.4.0 / settings `xmlversion="2"`).
 
 This is the developer-facing reference for what plugins can do, what they
 cannot, hard limits, security, packaging, and the Lua API. Player-facing

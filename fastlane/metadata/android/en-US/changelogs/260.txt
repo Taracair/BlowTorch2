@@ -1,0 +1,4 @@
+BlowTorch 2 v2.4.0
+• Chat drawer (.chat); session-log search; light theme; .rev
+• Scroll dates; rotation / battery sensors; variables on aliases
+• Home pin, Options search, reconnect and colour-trigger fixes

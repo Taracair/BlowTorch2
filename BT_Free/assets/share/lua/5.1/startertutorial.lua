@@ -149,8 +149,10 @@ beginners, and poke swipe / hold / accordion demos. Lessons also cover
 aliases, timers, sensors, colors, keyboard, completion, search, chat, mapper, wrap,
 logging, ⋮ menu, GMCP/MCP, reconnect, copy, Options, display, and plugins.
 
-On the server list, star a world to keep it under Starter Tutorial. Pin to
-home opens that world even when it is not running.
+On the server list, long-press a world. The star keeps it under Starter
+Tutorial on the list. Pin to home puts a shortcut on the Android home
+screen, labelled with that world's name; tap it to open and connect,
+even if the app was not running.
 
 On a real MUD, .tutorial still opens any lesson, and
   .tips on
