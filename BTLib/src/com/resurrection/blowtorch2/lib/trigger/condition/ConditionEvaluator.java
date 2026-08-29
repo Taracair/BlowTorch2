@@ -75,17 +75,80 @@ public final class ConditionEvaluator {
 			return actual.equals(expected);
 		}
 		case VARIABLE_EXISTS:
-			return connection.getSessionVariables().exists(leaf.getName());
+		case VARIABLE_EQUALS:
+		case VARIABLE_BELOW:
+		case VARIABLE_ABOVE:
+			return evaluateVariable(leaf, connection.getSessionVariables());
+		default:
+			return true;
+		}
+	}
+
+	/**
+	 * Session-variable leaves without a {@link Connection}. Tests of variables
+	 * must not call {@link #evaluate(ConditionGroup, Connection)} with a null
+	 * connection: that path is true for the whole group.
+	 */
+	static boolean evaluateVariable(ConditionLeaf leaf, SessionVariableStore store) {
+		if (leaf == null || leaf.getType() == null) {
+			return true;
+		}
+		switch (leaf.getType()) {
+		case VARIABLE_EXISTS:
+			return store.exists(leaf.getName());
 		case VARIABLE_EQUALS: {
-			String actual = connection.getSessionVariables().get(leaf.getName());
+			String actual = store.get(leaf.getName());
 			if (actual == null) {
 				return false;
 			}
 			String expected = leaf.getValue() != null ? leaf.getValue() : "";
 			return actual.equals(expected);
 		}
+		case VARIABLE_BELOW:
+		case VARIABLE_ABOVE:
+			return compareVariableNumber(leaf, store);
 		default:
 			return true;
+		}
+	}
+
+	/**
+	 * Strict {@code <} / {@code >} after trim. Missing, non-numeric, NaN or
+	 * infinity is false — not a pass, and not string equals.
+	 */
+	private static boolean compareVariableNumber(ConditionLeaf leaf,
+			SessionVariableStore store) {
+		if (store == null) {
+			return false;
+		}
+		String actualRaw = store.get(leaf.getName());
+		Double actual = parseFinite(actualRaw);
+		Double expected = parseFinite(leaf.getValue());
+		if (actual == null || expected == null) {
+			return false;
+		}
+		if (leaf.getType() == ConditionType.VARIABLE_BELOW) {
+			return actual.doubleValue() < expected.doubleValue();
+		}
+		return actual.doubleValue() > expected.doubleValue();
+	}
+
+	static Double parseFinite(String raw) {
+		if (raw == null) {
+			return null;
+		}
+		String t = raw.trim();
+		if (t.length() == 0) {
+			return null;
+		}
+		try {
+			double d = Double.parseDouble(t);
+			if (Double.isNaN(d) || Double.isInfinite(d)) {
+				return null;
+			}
+			return Double.valueOf(d);
+		} catch (NumberFormatException e) {
+			return null;
 		}
 	}
 

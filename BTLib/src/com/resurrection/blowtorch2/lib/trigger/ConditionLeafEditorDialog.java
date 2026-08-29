@@ -313,6 +313,9 @@ public class ConditionLeafEditorDialog extends Dialog {
 		}
 		if (needsValue && type == ConditionType.ALIAS_EQUALS) {
 			valueField.setHint("alias With / replacement text");
+		} else if (type == ConditionType.VARIABLE_BELOW
+				|| type == ConditionType.VARIABLE_ABOVE) {
+			valueField.setHint("number");
 		} else if (needsValue) {
 			valueField.setHint("expected value");
 		}
@@ -482,7 +485,7 @@ public class ConditionLeafEditorDialog extends Dialog {
 				toastPickRequired("Enter a variable name.");
 				return;
 			}
-			editing.setValue(type == ConditionType.VARIABLE_EQUALS
+			editing.setValue(type.needsExpectedValue()
 					? valueField.getText().toString() : "");
 		}
 		if (listener != null) {

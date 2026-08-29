@@ -10,7 +10,9 @@ public enum ConditionType {
 	ALIAS_DISABLED("aliasDisabled"),
 	ALIAS_EQUALS("aliasEquals"),
 	VARIABLE_EQUALS("variableEquals"),
-	VARIABLE_EXISTS("variableExists");
+	VARIABLE_EXISTS("variableExists"),
+	VARIABLE_BELOW("variableBelow"),
+	VARIABLE_ABOVE("variableAbove");
 
 	private final String xmlValue;
 
@@ -52,6 +54,12 @@ public enum ConditionType {
 		if ("variableExists".equalsIgnoreCase(s) || "variable_exists".equalsIgnoreCase(s)) {
 			return VARIABLE_EXISTS;
 		}
+		if ("variableBelow".equalsIgnoreCase(s) || "variable_below".equalsIgnoreCase(s)) {
+			return VARIABLE_BELOW;
+		}
+		if ("variableAbove".equalsIgnoreCase(s) || "variable_above".equalsIgnoreCase(s)) {
+			return VARIABLE_ABOVE;
+		}
 		return null;
 	}
 
@@ -71,6 +79,10 @@ public enum ConditionType {
 			return "Variable equals";
 		case VARIABLE_EXISTS:
 			return "Variable exists";
+		case VARIABLE_BELOW:
+			return "Variable is below";
+		case VARIABLE_ABOVE:
+			return "Variable is above";
 		default:
 			return name();
 		}
@@ -88,11 +100,13 @@ public enum ConditionType {
 
 	/** True when this leaf reads a session variable. */
 	public boolean isVariableGate() {
-		return this == VARIABLE_EQUALS || this == VARIABLE_EXISTS;
+		return this == VARIABLE_EQUALS || this == VARIABLE_EXISTS
+				|| this == VARIABLE_BELOW || this == VARIABLE_ABOVE;
 	}
 
 	/** True when the leaf needs a free-text expected value. */
 	public boolean needsExpectedValue() {
-		return this == VARIABLE_EQUALS || this == ALIAS_EQUALS;
+		return this == VARIABLE_EQUALS || this == ALIAS_EQUALS
+				|| this == VARIABLE_BELOW || this == VARIABLE_ABOVE;
 	}
 }
