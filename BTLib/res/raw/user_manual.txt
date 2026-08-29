@@ -15,7 +15,9 @@ On the server list, the star is **Add to favorites** / **Remove from
 favorites** (starred worlds sit under Starter Tutorial). **Pin to home**
 opens that world even when it is not already running. If an old pin still
 opens the list, remove it and pin again. Options has a search field at the
-bottom; tap a hit to jump to that page.
+bottom; tap a hit to jump to that page. ⋮ → **Chat** (or `.chat`) is a
+left-hand drawer for tells and channels, not an extra-text pane. ⋮ →
+**Session logs** browses this world's saved `.txt` files.
 
 ## Encrypted connections (TLS)
 
@@ -1057,6 +1059,10 @@ Commas insert literal commands and **stay as written** when reversed
 
 ### 8. Put chat in its own window
 
+For tells and channels with a reply box, use the **chat drawer** instead
+(⋮ → **Chat**, or `.chat` — see **Chat drawer** below). This recipe is an
+extra-text pane: the line *leaves* the main window.
+
 Options → Window → Extra text windows → **Manage windows…** → add a slot named
 `chat`. Then either:
 
@@ -1400,7 +1406,7 @@ is enabled; `.alias list` shows every alias at once.
     `.help [word]` / `.commands`        Every dot command, one line each, grouped by what it is for. With a word, only the ones whose name contains it. Built from the commands the app actually has, so nothing can go missing from it
     `.sound …`                          Which volume a trigger's Play a Sound action uses (`stream media|notification|alarm`), and whether to say so when that volume is off (`warn on|off`). No argument prints the current setting
     `.tapmenu opacity <20-100>`         How solid the little menu a tapped word opens is. Only the backing fades; the commands stay readable. Also Options → Miscellaneous
-    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. `.dobell vibrate [short|long|strong]` buzzes now even if Vibrate is off (default `short`); `.dobell alert` shows the on-screen bell even if Display Bell is off. This is how a trigger makes a noise; see "Making a trigger make a noise"
+    `.dobell`                           Fire the bell reaction now — vibrate, notification, on-screen bell, whichever are on in Options → Bell. `.dobell vibrate [short|long|strong|burst]` buzzes now even if Vibrate is off (default `short`; `burst` is three quick taps); `.dobell alert` shows the on-screen bell even if Display Bell is off. This is how a trigger makes a noise; see "Making a trigger make a noise"
     `.togglefullscreen`                 Toggle fullscreen preference
     `.wrap [on|off]`                    Input bar growth (default on); also Options → Input → Grow Input Bar?
     `.editbutton [on|off]`              Show or hide the Edit button; also Options → Window → Show Edit button?
@@ -1507,8 +1513,8 @@ guess about how the network behaves.
 Records what a colour trigger restored, on which thread, and what the finished
 dump still held. Off by default; one null check when off.
 
-Turn it on, play until the leak (the purple chicken / `look` after `_vermin` is
-the case that prompted it), then `.probe bleed report`. That dump also goes
+Turn it on, play until the leak (a colour trigger that paints a later line
+is the case that prompted it), then `.probe bleed report`. That dump also goes
 into the session log. Logcat tag `BlowTorchBleed`.
 
 Each event names the trigger, the match, paint fg/bg, the bleed ops (colour
@@ -1902,6 +1908,13 @@ that file and line — the game window cannot jump into a file it does not hold.
 Example: you are looking for a fight from earlier this week. `.search logs 7 goblin`
 will find “goblin” in the current scrollback, then in this world's log files
 touched in the last 7 days.
+
+## Chat drawer
+
+⋮ → **Chat**, or `.chat`. A panel slides in from the left — not a
+permanent bar, and not an extra-text window (recipe 8). **Send to thread**
+(above) copies a matching line into a named conversation; the line also
+stays in the game window.
 
 ### `.chat` forms
 
@@ -2534,7 +2547,9 @@ copied buttons, and only when something has been copied.
 
 **Wrap label** (edit button → the label row) splits a long name onto two lines
 on the tile. Off by default. **Draw / border** (Others → Colors) paints a
-coloured outline.
+coloured outline. **Active** (same row as Name, on by default) hides the
+tile in play without deleting it — Edit buttons still shows it, so you can
+tick Active again.
 
 The default `button_window` plugin supports more than tap:
 
