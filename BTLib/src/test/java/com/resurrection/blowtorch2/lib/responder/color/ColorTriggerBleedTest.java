@@ -39,7 +39,7 @@ public class ColorTriggerBleedTest {
 	private static final String TRIGGER_CODE = ESC + "[38;5;" + TRIGGER_COLOR + "m";
 	/**
 	 * ColorAction skips painting a background at 0, 16, or 231. 16 is "only
-	 * the foreground" ‚Äî the last CSI the action writes is the paint itself.
+	 * the foreground" ù the last CSI the action writes is the paint itself.
 	 */
 	private static final int NO_BACKGROUND = 16;
 
@@ -119,6 +119,82 @@ public class ColorTriggerBleedTest {
 	}
 
 	/**
+	 * Screenshot 29 Aug 2026: after {@code _chatnet} / {@code _vermin} the next
+	 * uncoloured line should stay default grey until another trigger. The
+	 * working-tree dump of that next dispatch is plain (Connection copies bleed
+	 * from a Simple buffer that never parsed CSI), so the leak is the last CSI
+	 * of the coloured line, re-parsed by the UI. Walk the screen tree the way
+	 * {@code Window.onDraw} does. The leftover CSI is not the trigger paint
+	 * (green / light blue) and is not what those following lines should be.
+	 */
+	@Test
+	public void aFinishedColorTriggerLeavesTheNextUncolouredScreenLineGrey()
+			throws Exception {
+		TextTree chatnetScreen = paintThenPlainOnScreen(
+				"[chatnet] Reeds yips, \"Was made to match\"\n",
+				chatnet, TRIGGER_COLOR, "chatnet",
+				"The acid blood sizzles and pops on your back.\n");
+		assertNextLineStayedGrey(chatnetScreen, TRIGGER_COLOR);
+
+		final int lightBlue = 51;
+		TextTree verminScreen = paintThenPlainOnScreen(
+				"[ VERMIN ] : someone says, \"hi\"\n",
+				verminTag, lightBlue, "vermin",
+				"The acid blood sizzles and pops on your back.\n");
+		assertNextLineStayedGrey(verminScreen, lightBlue);
+	}
+
+	/**
+	 * Same door, with a CSI already on the trigger line: that code must still
+	 * stop at the newline so the next uncoloured line is grey, not that code.
+	 */
+	@Test
+	public void aFinishedColorTriggerClosesALeftoverCsiBeforeTheNextScreenLine()
+			throws Exception {
+		TextTree screen = paintThenPlainOnScreen(
+				ESC + "[36m[chatnet] Reeds yips, \"Was made to match\"\n",
+				chatnet, TRIGGER_COLOR, "chatnet",
+				"The acid blood sizzles and pops on your back.\n");
+		assertNextLineStayedGrey(screen, TRIGGER_COLOR);
+		Integer acid = ansiFgAt(screen, "The acid blood");
+		assertTrue("acid blood inherited leftover CSI 36: "
+				+ visible(new String(screen.dumpToBytes(true), ENC)),
+				acid.intValue() != 36);
+	}
+
+	/**
+	 * Combined SGR {@code [0;36m} resets then paints cyan. A skip that treated
+	 * any 0 in the ops list as "already closed" would leave that cyan running.
+	 */
+	@Test
+	public void aResetThenColourCsiStillClosesBeforeTheNextScreenLine()
+			throws Exception {
+		TextTree screen = paintThenPlainOnScreen(
+				ESC + "[0;36m[chatnet] Reeds yips, \"Was made to match\"\n",
+				chatnet, TRIGGER_COLOR, "chatnet",
+				"The acid blood sizzles and pops on your back.\n");
+		assertNextLineStayedGrey(screen, TRIGGER_COLOR);
+		Integer acid = ansiFgAt(screen, "The acid blood");
+		assertTrue("acid blood inherited CSI 0;36: "
+				+ visible(new String(screen.dumpToBytes(true), ENC)),
+				acid.intValue() != 36);
+	}
+
+	/**
+	 * xterm index 0 is black, not SGR 0. A skip that looked for any 0 in the
+	 * ops would treat {@code 38;5;0} as already closed.
+	 */
+	@Test
+	public void anXtermZeroPaintStillClosesBeforeTheNextScreenLine()
+			throws Exception {
+		TextTree screen = paintThenPlainOnScreen(
+				"[chatnet] Reeds yips, \"Was made to match\"\n",
+				chatnet, 0, "chatnet",
+				"The acid blood sizzles and pops on your back.\n");
+		assertNextLineStayedGrey(screen, 0);
+	}
+
+	/**
 	 * What 7bb2f999 was fixing, and what must keep working: the sentence is cut
 	 * by a TCP packet boundary, and its second half is still the chat line.
 	 */
@@ -194,7 +270,7 @@ public class ColorTriggerBleedTest {
 
 	/**
 	 * Screenshot 18 Aug 2026: a finished {@code [chatnet]} line is painted
-	 * green, then a later {@code Lilly says, "Yeah‚Äî"} line has {@code says}
+	 * green, then a later {@code Lilly says, "Yeahù"} line has {@code says}
 	 * magenta and the quoted rest in the chatnet green. Two colour triggers,
 	 * two dispatches, close-at-end as the connection does when the first line
 	 * stays in the buffer.
@@ -217,7 +293,7 @@ public class ColorTriggerBleedTest {
 	}
 
 	/**
-	 * Same two colour triggers on one line: {@code [chatnet] ‚Äî says, "‚Äî"}.
+	 * Same two colour triggers on one line: {@code [chatnet] ù says, "ù"}.
 	 * The second restore must not pick up the first trigger's colour unit.
 	 */
 	@Test
@@ -241,14 +317,14 @@ public class ColorTriggerBleedTest {
 	/**
 	 * Same two lines as the screenshot, but the chatnet trigger also gags the
 	 * line off the working tree (retarget to an extra-text window). Connection
-	 * colours, then gags, then {@code closeAtLineEnds} on what is left ‚Äî the
+	 * colours, then gags, then {@code closeAtLineEnds} on what is left ù the
 	 * coloured line is already gone. {@code lineToWindow} dumps that line into
 	 * another tree and re-parses it, which is how a colour code reaches the
 	 * stream.
 	 */
 	@Test
 	public void gaggingTheColouredLineDoesNotPaintALaterSaysTrigger() throws Exception {
-		// Main window last colour ‚Äî grey, the "Lilly" on the screenshot.
+		// Main window last colour ù grey, the "Lilly" on the screenshot.
 		TextTree main = new TextTree();
 		main.addBytesImpl((ESC + "[37mRemove helm\n").getBytes(ENC));
 
@@ -275,6 +351,39 @@ public class ColorTriggerBleedTest {
 		assertTrue("quote should return to the main window's grey, not the extra "
 				+ "window's colour: " + visible(second),
 				afterSays.indexOf("[37;49m") >= 0 || afterSays.indexOf("[37m") >= 0);
+	}
+
+	/**
+	 * Colour the first chunk, dump it the way the UI re-parses a dispatch, then
+	 * append an uncoloured line. Returns the screen tree.
+	 */
+	private TextTree paintThenPlainOnScreen(String coloured, Pattern pattern,
+			int color, String name, String plain) throws Exception {
+		TextTree working = new TextTree();
+		TextTree screen = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+		working.setModCount(0);
+		working.addBytesImpl(coloured.getBytes(ENC));
+		fireColor(working, 0, working.getLines().get(0), pattern, color, name);
+		state.closeAtLineEnds(working);
+		screen.addBytesImpl(working.dumpToBytes(false));
+		working.setModCount(0);
+		working.addBytesImpl(plain.getBytes(ENC));
+		state.closeAtLineEnds(working);
+		screen.addBytesImpl(working.dumpToBytes(false));
+		return screen;
+	}
+
+	private static void assertNextLineStayedGrey(TextTree screen, int triggerColor)
+			throws Exception {
+		Integer acid = ansiFgAt(screen, "The acid blood");
+		assertTrue("acid blood was not on the screen tree", acid != null);
+		String dumped = visible(new String(screen.dumpToBytes(true), ENC));
+		assertTrue("acid blood inherited the trigger colour (xterm " + triggerColor
+				+ ", fg " + acid + "): " + dumped,
+				acid.intValue() != triggerColor);
+		assertTrue("acid blood was not default grey (fg " + acid + "): " + dumped,
+				acid.intValue() == 37);
 	}
 
 	private String dispatchSays(TextTree working, TriggerColorState state, String chunk)
@@ -500,7 +609,7 @@ public class ColorTriggerBleedTest {
 	}
 
 	/**
-	 * {@code 48;5;n} ‚Äî n is the colour index, not an SGR. Index 1 (bold) and
+	 * {@code 48;5;n} ù n is the colour index, not an SGR. Index 1 (bold) and
 	 * 38 (another 38-intro) must not be copied into the restore list.
 	 */
 	@Test
@@ -577,19 +686,65 @@ public class ColorTriggerBleedTest {
 	}
 
 	private static int xtermFgFrom(java.util.List<Integer> ops, int current) {
+		return ansiFgFrom(ops, current);
+	}
+
+	/**
+	 * Foreground at {@code needle}, carrying ANSI 30-37 / 90-97 across lines
+	 * the way the draw loop does. {@code xtermFgAt} only saw {@code 38;5;n},
+	 * so it could not see the cyan/magenta the MUD actually sent.
+	 */
+	private static Integer ansiFgAt(TextTree tree, String needle) {
+		int fg = 37;
+		for (int i = tree.getLines().size() - 1; i >= 0; i--) {
+			String plain = TextTree.deColorLine(tree.getLines().get(i)).toString();
+			int at = plain.indexOf(needle);
+			int col = 0;
+			int fgHere = fg;
+			for (TextTree.Unit u : tree.getLines().get(i).getData()) {
+				if (u instanceof TextTree.Color) {
+					fgHere = ansiFgFrom(((TextTree.Color) u).getOperations(), fgHere);
+				} else if (u instanceof TextTree.Text) {
+					String s = ((TextTree.Text) u).getString();
+					if (s == null) {
+						continue;
+					}
+					if (at >= 0 && col <= at && at < col + s.length()) {
+						return Integer.valueOf(fgHere);
+					}
+					col += s.length();
+				}
+			}
+			fg = fgHere;
+		}
+		return null;
+	}
+
+	private static int ansiFgFrom(java.util.List<Integer> ops, int current) {
 		if (ops == null) {
 			return current;
 		}
+		int fg = current;
 		for (int i = 0; i < ops.size(); i++) {
 			int op = ops.get(i).intValue();
 			if (op == 38 && i + 2 < ops.size() && ops.get(i + 1).intValue() == 5) {
-				return ops.get(i + 2).intValue();
-			}
-			if (op == 0 || op == 39) {
-				return 37;
+				fg = ops.get(i + 2).intValue();
+				i += 2;
+			} else if (op == 0 || op == 39) {
+				fg = 37;
+			} else if (op >= 30 && op <= 37) {
+				fg = op;
+			} else if (op >= 90 && op <= 97) {
+				fg = op;
+			} else if (op == 48) {
+				if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 5) {
+					i += 2;
+				} else if (i + 1 < ops.size() && ops.get(i + 1).intValue() == 2) {
+					i += 4;
+				}
 			}
 		}
-		return current;
+		return fg;
 	}
 
 	/**

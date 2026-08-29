@@ -1,7 +1,6 @@
 package com.resurrection.blowtorch2.lib.service;
 
 import java.util.LinkedList;
-import java.util.List;
 
 import com.resurrection.blowtorch2.lib.window.TextTree;
 import com.resurrection.blowtorch2.lib.window.TextTree.Line;
@@ -27,17 +26,17 @@ public final class TriggerColorState {
 	/** A trigger colour is running and has not been closed yet. */
 	private boolean open;
 	/**
-	 * Colour to restore when {@link #open} is closed. Taken from the line that
-	 * left the colour running, not from the continuation's server snapshot —
-	 * that snapshot is the trigger colour once the window has absorbed the
-	 * unfinished dump.
+	 * Pre-match ops from the line that left the colour running. Kept for the
+	 * bleed probe; {@link #close} writes a full reset, not this colour, or
+	 * that CSI would run into the next uncoloured line.
 	 */
 	private java.util.List<Integer> restoreOps;
 
 	/**
-	 * Put the server's colour back at the end of every line a trigger left its
-	 * colour running on. Lines are walked oldest first, the order they were
-	 * received in and the order {@code dumpToBytes} writes them.
+	 * Close the trigger colour at the end of every line it was left running
+	 * on, so the next uncoloured line stays default grey. Lines are walked
+	 * oldest first, the order they were received in and the order
+	 * {@code dumpToBytes} writes them.
 	 *
 	 * @param tree the buffer about to be dumped into the stream.
 	 */
@@ -85,12 +84,12 @@ public final class TriggerColorState {
 		if (data.isEmpty() || !(data.getLast() instanceof NewLine)) {
 			return false;
 		}
-		List<Integer> restore = restoreOps != null
-				? restoreOps : line.getServerColorAtEnd();
-		// Lines built by paths that do not parse colour carry no snapshot; the
-		// stream's current colour is the best that is known there.
-		TextTree.Color color = restore != null
-				? tree.makeRestoreColor(restore) : tree.getBleedColor();
+		// Close with a full reset, not the pre-match colour. Putting that
+		// colour back is what left a non-grey CSI running into the next
+		// uncoloured line. The continuation of an unfinished match has
+		// already inherited the trigger paint; this only has to stop it.
+		TextTree.Color color = tree.makeColor(java.util.Collections.singletonList(
+				Integer.valueOf(0)));
 		// Before the newline: every reader of this buffer asks whether the last
 		// unit is a NewLine to decide whether the line is finished.
 		data.add(data.size() - 1, color);

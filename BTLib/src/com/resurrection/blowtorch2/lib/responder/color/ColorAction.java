@@ -119,6 +119,42 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 	}
 
 	/**
+	 * A colour code runs until the next one. Whatever CSI is last on a
+	 * finished colour-triggered line (trigger paint, a restore, a leftover
+	 * 38;5;n) is what {@code Window.onDraw} still holds for the next
+	 * uncoloured line, which should have stayed default grey. Put a full
+	 * reset immediately before the newline. Unfinished lines must not get
+	 * this: their rest can still arrive in the next packet.
+	 */
+	private static void ensureStreamResetBeforeNewLine(LinkedList<Unit> newLine,
+			TextTree tree) {
+		if (newLine == null || newLine.isEmpty()) {
+			return;
+		}
+		if (!(newLine.getLast() instanceof TextTree.NewLine)) {
+			return;
+		}
+		if (newLine.size() >= 2) {
+			Unit prev = newLine.get(newLine.size() - 2);
+			if (prev instanceof Color && isBareReset((Color) prev)) {
+				return;
+			}
+		}
+		newLine.add(newLine.size() - 1, tree.makeColor(Collections.singletonList(
+				Integer.valueOf(0))));
+	}
+
+	/**
+	 * Only a lone SGR 0 is already a stream close. {@code 0;36} resets then
+	 * paints cyan; {@code 38;5;0} uses 0 as an xterm index. Those must still
+	 * get a real {@code [0m} after them.
+	 */
+	private static boolean isBareReset(Color c) {
+		List<Integer> ops = c.getOperations();
+		return ops != null && ops.size() == 1 && ops.get(0).intValue() == 0;
+	}
+
+	/**
 	 * 0, 16 and 231 are the editor's "foreground only" sentinels: do not paint
 	 * a background, and close whatever CSI background was already open.
 	 */
@@ -367,6 +403,7 @@ public class ColorAction extends TriggerResponder implements Parcelable {
 		while(it.hasNext()) {
 			newLine.add(it.next());
 		}
+		ensureStreamResetBeforeNewLine(newLine, tree);
 		
 		//here is where we would do tree pruning/data updating.
 		
