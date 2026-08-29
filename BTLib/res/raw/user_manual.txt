@@ -1523,7 +1523,9 @@ into the session log. Logcat tag `BlowTorchBleed`.
 Each event names the trigger, the match, paint fg/bg, the bleed ops (colour
 before the match), the restore ops (what went back after), whether the trigger
 colour was left open across a packet, and the line's unit list. `DUMP` is the
-last few lines of that dispatch as they left the service. `SUSPECT_MAGENTA`
+last few lines of that dispatch as they left the service. It is taken *before*
+the tree is emptied; an empty `lines=0` dump means the probe ran with nothing
+left to show. `SUSPECT_MAGENTA`
 means an SGR that reads purple/magenta on black was already in that restore or
 dump — if the screen is purple and the dump is not, the colour appeared after
 the service finished.

@@ -71,6 +71,29 @@ public class ColourBleedProbeTest {
 	}
 
 	@Test
+	public void dumpRecordsPlainTextWhenTheTreeStillHasLines() throws Exception {
+		ColourBleedProbe p = new ColourBleedProbe();
+		TextTree tree = new TextTree();
+		tree.addBytesImpl("A lamp stands here.\n".getBytes("UTF-8"));
+		p.recordColor("sample", "lamp", 11, 0, null, null, tree.getLines().get(0));
+		p.recordDispatchDump("window-a", tree);
+		String report = p.report();
+		assertTrue(report, report.contains("A lamp stands here."));
+		assertTrue(report, report.contains("lines=1 "));
+	}
+
+	@Test
+	public void dumpIsEmptyAfterDumpToBytesDiscardsTheTree() throws Exception {
+		ColourBleedProbe p = new ColourBleedProbe();
+		TextTree tree = new TextTree();
+		tree.addBytesImpl("A lamp stands here.\n".getBytes("UTF-8"));
+		p.recordColor("sample", "lamp", 11, 0, null, null, tree.getLines().get(0));
+		tree.dumpToBytes(false);
+		p.recordDispatchDump("window-a", tree);
+		assertTrue(p.report().contains("lines=0 "));
+	}
+
+	@Test
 	public void opsListRendersNullAndEmpty() {
 		assertTrue("null".equals(ColourBleedProbe.opsList(null)));
 		assertTrue("empty".equals(ColourBleedProbe.opsList(

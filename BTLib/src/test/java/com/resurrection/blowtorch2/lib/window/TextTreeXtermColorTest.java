@@ -82,6 +82,24 @@ public class TextTreeXtermColorTest {
 				firstColorOps(ESC + "[1;31m"));
 	}
 
+	@Test
+	public void sgr22SurvivesAsItsOwnColorUnit() throws Exception {
+		assertEquals(Arrays.asList(22),
+				firstColorOps(ESC + "[22m"));
+		TextTree tree = new TextTree();
+		tree.addBytesImpl((ESC + "[1;37mbright" + ESC + "[22mnormal\n")
+				.getBytes("UTF-8"));
+		List<List<Integer>> ops = colorOps(tree);
+		assertTrue("missing [1, 37]: " + ops, ops.contains(Arrays.asList(1, 37)));
+		assertTrue("missing [22]: " + ops, ops.contains(Arrays.asList(22)));
+	}
+
+	@Test
+	public void xtermIndex22IsPaletteNotSgrIntensity() throws Exception {
+		assertEquals(Arrays.asList(38, 5, 22),
+				firstColorOps(ESC + "[38;5;22m"));
+	}
+
 	/** Tempest Season login banner (measured 16 Aug 2026, no TTYPE). */
 	@Test
 	public void tempestSeasonBannerCyanSplits() throws Exception {

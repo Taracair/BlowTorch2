@@ -2429,7 +2429,7 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 						for (int i = 0; i < ((TextTree.Color) u).getOperations().size(); i++) {
 							updateColorRegisters(((TextTree.Color) u).getOperations().get(i));
 							Colorizer.COLOR_TYPE type = Colorizer.getColorType(((TextTree.Color) u).getOperations().get(i));
-							if (type != Colorizer.COLOR_TYPE.NOT_A_COLOR && type != Colorizer.COLOR_TYPE.BACKGROUND && type != Colorizer.COLOR_TYPE.BRIGHT_CODE) {
+							if (Colorizer.stopsFgBleedSearch(type)) {
 								bleeding = true;
 							}
 						}
@@ -4320,6 +4320,14 @@ public class Window extends View implements AnimatedRelativeLayout.OnAnimationEn
 			break;
 		case BRIGHT_CODE:
 			mSelectedBright = 1;
+			mXterm256FGStart = false;
+			mXterm256BGStart = false;
+			mXterm256Color = false;
+			break;
+		case NORMAL_INTENSITY:
+			// SGR 22: neither bold nor faint. Must clear leftover SGR 1 or
+			// default grey (#BBBBBB) paints as bright white (#FFFFFF).
+			mSelectedBright = 0;
 			mXterm256FGStart = false;
 			mXterm256BGStart = false;
 			mXterm256Color = false;

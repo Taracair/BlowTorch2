@@ -31,6 +31,7 @@ public class ColorizerCharacterizationTest {
 		assertEquals(Colorizer.COLOR_TYPE.ZERO_CODE, Colorizer.getColorType(0));
 		assertEquals(Colorizer.COLOR_TYPE.BRIGHT_CODE, Colorizer.getColorType(1));
 		assertEquals(Colorizer.COLOR_TYPE.DIM_CODE, Colorizer.getColorType(2));
+		assertEquals(Colorizer.COLOR_TYPE.NORMAL_INTENSITY, Colorizer.getColorType(22));
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType(30));
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType(31));
 		assertEquals(Colorizer.COLOR_TYPE.BACKGROUND, Colorizer.getColorType(40));
@@ -49,7 +50,41 @@ public class ColorizerCharacterizationTest {
 	@Test
 	public void getColorTypeFromCharSequence() {
 		assertEquals(Colorizer.COLOR_TYPE.FOREGROUND, Colorizer.getColorType("31"));
+		assertEquals(Colorizer.COLOR_TYPE.NORMAL_INTENSITY, Colorizer.getColorType("22"));
 		assertEquals(Colorizer.COLOR_TYPE.NOT_A_COLOR, Colorizer.getColorType("nope"));
+	}
+
+	/**
+	 * Bold and SGR 22 are intensity, not a colour. If the bleed search stopped
+	 * on 22 it would never find the real foreground further back. Background
+	 * codes already skip for the same reason.
+	 */
+	@Test
+	public void bleedSearchDoesNotStopOnIntensityAlone() {
+		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.BRIGHT_CODE));
+		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.NORMAL_INTENSITY));
+		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.BACKGROUND));
+		assertFalse(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.NOT_A_COLOR));
+		assertFalse(Colorizer.stopsFgBleedSearch(null));
+		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.FOREGROUND));
+		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.DEFAULT_FOREGROUND));
+		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.ZERO_CODE));
+		assertTrue(Colorizer.stopsFgBleedSearch(Colorizer.COLOR_TYPE.DIM_CODE));
+	}
+
+	/**
+	 * Leftover SGR 1 with default fg 37 is bright white, not the usual grey.
+	 * That is what a discarded SGR 22 looked like on screen.
+	 */
+	@Test
+	public void defaultGreyIsNotBrightWhite() {
+		assertEquals(0xFFBBBBBB, Colorizer.getColorValue(0, 37, false));
+		assertEquals(0xFFFFFFFF, Colorizer.getColorValue(1, 37, false));
+	}
+
+	@Test
+	public void xtermPalette22IsOliveNotIntensity() {
+		assertEquals(0xFF005F00, Colorizer.get256ColorValue(22));
 	}
 
 	@Test

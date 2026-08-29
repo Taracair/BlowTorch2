@@ -3114,16 +3114,19 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 		mTriggerColor.closeAtLineEnds(mFinished);
 
 		mFinished.updateMetrics();
-		
+
+		// dumpToBytes(false) empties the tree. Snapshot first or DUMP is
+		// always lines=0 (measured 29 Aug 2026: every event that day).
+		if (mColourBleed != null) {
+			mColourBleed.recordDispatchDump(mDisplay, mFinished);
+		}
+
 		byte[] proc = mFinished.dumpToBytes(false);
 		
 		buffer.addBytesImplSimple(proc);
 		// notifyMainWindow, not sendBytesToWindow: buffer is this window's own
 		// TextTree and the line above already holds the text.
 		notifyMainWindow(proc);
-		if (mColourBleed != null) {
-			mColourBleed.recordDispatchDump(mDisplay, mFinished);
-		}
 		} finally {
 			ColourBleedProbe.unbind();
 		}

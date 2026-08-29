@@ -1130,6 +1130,8 @@ public final class Colorizer {
 	private static final int ANSI_BACKGROUND_TENSPOT = 4;
 	/** ANSI max background color. */
 	private static final int ANSI_BACKGROUND_MAX = 50;
+	/** ECMA-48 SGR 22: normal intensity (neither bold nor faint). */
+	private static final int ANSI_NORMAL_INTENSITY = 22;
 	/** ANSI Default foreground. */
 	private static final int ANSI_FOREGROUND_DEFAULT = 39;
 	/** ANSI Default background. */
@@ -1556,6 +1558,12 @@ public final class Colorizer {
 		ZERO_CODE,
 		/** 1, sets brightness. */
 		BRIGHT_CODE,
+		/**
+		 * 22, normal intensity (neither bold nor faint). Not xterm palette
+		 * index 22 — that arrives as {@code 38;5;22} and is consumed in the
+		 * xterm branch of the register machine before this type is consulted.
+		 */
+		NORMAL_INTENSITY,
 		/** 39, returns foreground to default. */
 		DEFAULT_FOREGROUND,
 		/** 49, returns the background to default. */
@@ -1611,6 +1619,10 @@ public final class Colorizer {
 		if (value == 2) {
 			return COLOR_TYPE.DIM_CODE;
 		}
+
+		if (value == ANSI_NORMAL_INTENSITY) {
+			return COLOR_TYPE.NORMAL_INTENSITY;
+		}
 		
 		if (value == ANSI_FOREGROUND_DEFAULT) {
 			return COLOR_TYPE.DEFAULT_FOREGROUND;
@@ -1644,6 +1656,28 @@ public final class Colorizer {
 		//Log.e("Colorizer","Returning " + retval + " for " + value);
 		
 		return retval;
+	}
+
+	/**
+	 * Whether this SGR type can stop the {@code onDraw} bleed search. Bold (1)
+	 * and normal intensity (22) change the bright register but do not name a
+	 * colour, so the search must keep walking — the same reason a background
+	 * code does not stop it. Clearing leftover SGR 1 is {@code updateColorRegisters},
+	 * not this predicate: 22 as {@code NOT_A_COLOR} already skipped the stop.
+	 */
+	public static boolean stopsFgBleedSearch(final COLOR_TYPE type) {
+		if (type == null) {
+			return false;
+		}
+		switch (type) {
+		case NOT_A_COLOR:
+		case BACKGROUND:
+		case BRIGHT_CODE:
+		case NORMAL_INTENSITY:
+			return false;
+		default:
+			return true;
+		}
 	}
 	
 	/** Returns a color value for an xterm 256 color code.
