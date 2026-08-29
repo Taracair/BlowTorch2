@@ -112,6 +112,28 @@ public final class AliasExpansion {
 				.apply(expanded, variables);
 	}
 
+	/**
+	 * The capture map {@link #expand} spends for {@code $1} in {@code With},
+	 * and that Set Variable on the same alias uses.
+	 *
+	 * <p>Word-split uses the whole typed line; the other two forms re-run the
+	 * alias pattern against the matched text.
+	 */
+	public static Map<String, String> captures(final AliasData alias,
+			final String wholeInput, final String matched) {
+		if (alias == null) {
+			return new HashMap<String, String>();
+		}
+		switch (modeFor(alias.getPre())) {
+		case WORD_SPLIT:
+			return wordCaptures(wholeInput);
+		case ANCHORED:
+			return AnchoredAliasCaptures.fromMatch(alias.getPre(), matched);
+		default:
+			return AnchoredAliasCaptures.fromMatch(alias.getPre(), matched);
+		}
+	}
+
 	private static String expandCaptures(final AliasData alias, final String wholeInput,
 			final String matched) {
 		if (alias == null) {
@@ -121,19 +143,6 @@ public final class AliasExpansion {
 		if (post == null) {
 			return "";
 		}
-		switch (modeFor(alias.getPre())) {
-		case WORD_SPLIT:
-			return CaptureSubstitution.apply(post, wordCaptures(wholeInput));
-		case ANCHORED:
-			return CaptureSubstitution.apply(post,
-					AnchoredAliasCaptures.fromMatch(alias.getPre(), matched));
-		default:
-			// Same extraction as the anchored form: the alias's own pattern is
-			// re-run against the text it matched, so $0 is the whole match and
-			// $1 the first group. Consistent between the two forms, and it is
-			// what the manual has always described.
-			return CaptureSubstitution.apply(post,
-					AnchoredAliasCaptures.fromMatch(alias.getPre(), matched));
-		}
+		return CaptureSubstitution.apply(post, captures(alias, wholeInput, matched));
 	}
 }

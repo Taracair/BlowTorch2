@@ -162,6 +162,38 @@
   					android:layout_height="wrap_content"/>
 
   		</RelativeLayout>
+  <TextView
+  		android:id="@+id/alias_setvariable_label"
+  		android:layout_width="match_parent"
+  		android:layout_height="wrap_content"
+  		android:layout_marginTop="12dip"
+  		android:layout_marginLeft="10dip"
+  		android:layout_marginRight="10dip"
+  		android:textStyle="bold"
+  		android:textSize="15dip"
+  		android:text="Set Variable"/>
+  <TextView
+  		android:layout_width="match_parent"
+  		android:layout_height="wrap_content"
+  		android:layout_marginLeft="10dip"
+  		android:layout_marginRight="10dip"
+  		android:layout_marginBottom="4dip"
+  		android:textSize="12sp"
+  		android:textColor="@color/chrome_description"
+  		android:text="Runs when this alias matches, in addition to With. Same modes as a trigger (Set, Add number, Subtract, Append, Unset). $1 is what you typed."/>
+  <LinearLayout
+  		android:id="@+id/alias_setvariable_list"
+  		android:layout_width="match_parent"
+  		android:layout_height="wrap_content"
+  		android:orientation="vertical"/>
+  <Button
+  		android:id="@+id/alias_add_setvariable"
+  		android:layout_width="match_parent"
+  		android:layout_height="wrap_content"
+  		android:layout_marginLeft="10dip"
+  		android:layout_marginRight="10dip"
+  		android:minHeight="44dip"
+  		android:text="Add Set Variable"/>
   </LinearLayout>
   </ScrollView>
 

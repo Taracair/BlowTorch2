@@ -8,7 +8,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
+import com.resurrection.blowtorch2.lib.responder.TriggerResponderEditorDoneListener;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponderEditor;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
+import com.resurrection.blowtorch2.lib.trigger.TriggerEditorDialog;
 import com.resurrection.blowtorch2.lib.validator.Validator;
 import com.resurrection.blowtorch2.lib.window.EditorDialogChrome;
 
@@ -20,6 +25,7 @@ import android.graphics.Typeface;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnFocusChangeListener;
 import android.view.Window;
@@ -28,12 +34,14 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 
 
-public class AliasEditorDialog extends Dialog {
+public class AliasEditorDialog extends Dialog implements TriggerResponderEditorDoneListener {
 
 	AliasEditorDialogDoneListener reportto = null;
 	AliasData original_alias = null;
@@ -42,6 +50,8 @@ public class AliasEditorDialog extends Dialog {
 	List<String> cant_name;
 	private boolean mEnabled = true;
 	private AliasLocalEcho mLocalEcho = AliasLocalEcho.INHERIT;
+	private final List<SetVariableResponder> workingSetVariables =
+			new ArrayList<SetVariableResponder>();
 
 	private static final String[] LOCAL_ECHO_LABELS = new String[] {
 		"Use client setting",
@@ -111,7 +121,8 @@ public class AliasEditorDialog extends Dialog {
 						
 						boolean checked = ((CheckBox)AliasEditorDialog.this.findViewById(R.id.enabledcheck)).isChecked();
 						reportto.newAliasDialogDone(prefix + pre.getText().toString() + suffix,
-								post.getText().toString(), checked, readLocalEchoSpinner());
+								post.getText().toString(), checked, readLocalEchoSpinner(),
+								workingSetVariables);
 						AliasEditorDialog.this.dismiss();
 					}
 				}
@@ -129,6 +140,7 @@ public class AliasEditorDialog extends Dialog {
 		initMatches();
 		setupLocalEchoSpinner();
 		setupAliasPreview();
+		setupSetVariableSection();
 		Button helpButton = (Button)findViewById(R.id.alias_editor_help_button);
 		if (helpButton != null) {
 			helpButton.setOnClickListener(new View.OnClickListener() {
@@ -417,7 +429,7 @@ public class AliasEditorDialog extends Dialog {
 					
 					reportto.editAliasDialogDone(prefix + pre.getText().toString() + suffix,
 							post.getText().toString(), checked, old_pos, original_alias,
-							readLocalEchoSpinner());
+							readLocalEchoSpinner(), workingSetVariables);
 					AliasEditorDialog.this.dismiss();
 				}
 			}
@@ -521,6 +533,11 @@ public class AliasEditorDialog extends Dialog {
 		cant_name = invalid_names;
 		mEnabled = old_alias.isEnabled();
 		mLocalEcho = old_alias.getLocalEcho();
+		for (SetVariableResponder r : old_alias.getSetVariables()) {
+			if (r != null) {
+				workingSetVariables.add(r.copy());
+			}
+		}
 		this.currentPlugin = currentPlugin;
 	}
 	
@@ -640,6 +657,106 @@ public class AliasEditorDialog extends Dialog {
 		}
 		
 		return null;
+	}
+
+	private void setupSetVariableSection() {
+		Button add = (Button) findViewById(R.id.alias_add_setvariable);
+		if (add != null) {
+			add.setOnClickListener(new View.OnClickListener() {
+				public void onClick(View v) {
+					new SetVariableResponderEditor(getContext(), null,
+							AliasEditorDialog.this).show();
+				}
+			});
+		}
+		refreshSetVariableTable();
+	}
+
+	private void refreshSetVariableTable() {
+		LinearLayout list = (LinearLayout) findViewById(R.id.alias_setvariable_list);
+		if (list == null) {
+			return;
+		}
+		list.removeAllViews();
+		LayoutInflater inflater = LayoutInflater.from(getContext());
+		for (int position = 0; position < workingSetVariables.size(); position++) {
+			SetVariableResponder responder = workingSetVariables.get(position);
+			View row = inflater.inflate(R.layout.editor_action_row, list, false);
+			TextView type = (TextView) row.findViewById(R.id.action_row_type);
+			TextView summary = (TextView) row.findViewById(R.id.action_row_summary);
+			ImageButton delete = (ImageButton) row.findViewById(R.id.action_row_delete);
+			View body = row.findViewById(R.id.action_row_body);
+			View fireWhen = row.findViewById(R.id.action_row_firewhen);
+			if (fireWhen != null) {
+				fireWhen.setVisibility(View.GONE);
+			}
+
+			type.setText("Set Variable");
+			String line = TriggerEditorDialog.actionSummary(responder);
+			if (line == null || line.length() == 0) {
+				summary.setVisibility(View.GONE);
+			} else {
+				summary.setText(line);
+			}
+
+			EditSetVariableListener edit = new EditSetVariableListener(position);
+			body.setOnClickListener(edit);
+			type.setOnClickListener(edit);
+			summary.setOnClickListener(edit);
+			delete.setOnClickListener(new DeleteSetVariableListener(position));
+			list.addView(row);
+		}
+	}
+
+	public void newTriggerResponder(TriggerResponder newresponder) {
+		if (newresponder instanceof SetVariableResponder) {
+			workingSetVariables.add(((SetVariableResponder) newresponder).copy());
+			refreshSetVariableTable();
+		}
+	}
+
+	public void editTriggerResponder(TriggerResponder edited, TriggerResponder original) {
+		if (!(edited instanceof SetVariableResponder) || !(original instanceof SetVariableResponder)) {
+			return;
+		}
+		int pos = workingSetVariables.indexOf(original);
+		if (pos < 0) {
+			return;
+		}
+		workingSetVariables.set(pos, ((SetVariableResponder) edited).copy());
+		refreshSetVariableTable();
+	}
+
+	private class EditSetVariableListener implements View.OnClickListener {
+		private final int position;
+
+		EditSetVariableListener(int position) {
+			this.position = position;
+		}
+
+		public void onClick(View v) {
+			if (position < 0 || position >= workingSetVariables.size()) {
+				return;
+			}
+			SetVariableResponder r = workingSetVariables.get(position);
+			new SetVariableResponderEditor(getContext(), r.copy(), AliasEditorDialog.this).show();
+		}
+	}
+
+	private class DeleteSetVariableListener implements View.OnClickListener {
+		private final int position;
+
+		DeleteSetVariableListener(int position) {
+			this.position = position;
+		}
+
+		public void onClick(View v) {
+			if (position < 0 || position >= workingSetVariables.size()) {
+				return;
+			}
+			workingSetVariables.remove(position);
+			refreshSetVariableTable();
+		}
 	}
 
 }

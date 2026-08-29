@@ -526,6 +526,19 @@ Telnet password masking still wins: while the server holds ECHO, nothing is
 echoed, including Always show. The typed shortcut is never what appears —
 you see (or hide) the **expanded** command, same as today.
 
+**Set Variable on an alias:** the alias editor has the same Set / Add number /
+Subtract / Append / Unset action as a trigger. It runs when the alias matches,
+in addition to **With**. `$1` is what you typed.
+
+    Replace   `^kk`
+    With      `kill $1`
+    Set Variable  `target` = `$1`,  `kills`  Add `1`
+
+You type `kk goblin` → the game gets `kill goblin`, `target` becomes `goblin`,
+and `kills` goes up by one. Tick **Keep after restart** on the action if the
+value should survive closing the world (sidecar next to the profile, not the
+XML).
+
 ### Triggers
 
 In the trigger editor:
@@ -2708,9 +2721,12 @@ Write `${name}` in an alias replacement to drop in a session variable:
         Variable: `target` = `goblin`
         Sent: `kill goblin`
 
-Set the variable from a trigger's **Set Variable** action, or from Lua with
+Set the variable from a trigger's **Set Variable** action, from an alias that
+matches what you type (same action in the alias editor), or from Lua with
 `SetVariable("target", "$1")`. That is how text the *game* printed reaches a
-command you type: the trigger captures it, the alias spends it.
+command you type: the trigger captures it, the alias spends it. An alias can
+also set the name itself — you type `kk goblin` and **Set Variable** `target` =
+`$1` while **With** sends `kill $1`.
 
 Braces are required, so `${name}` never collides with the numeric `$1`
 captures, and a bare `$` in text is left alone. An **unset** variable is left
@@ -2721,7 +2737,8 @@ The name inside `${…}` may contain only letters, digits, and `_`. Spaces,
 hyphens, and dots are not substituted in alias text (use conditions or Lua for
 names like `device.battery`).
 
-Variables are per session and are not saved.
+Variables are per session unless **Keep after restart** is ticked on the Set
+Variable action. Lua `SetVariable` stays session-only.
 
 ### Switching alias sets by mode
 

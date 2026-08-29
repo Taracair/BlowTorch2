@@ -36,6 +36,15 @@ public final class AliasRecursion {
 	/** Splits on a single whitespace character, as the inline code did. */
 	private static final Pattern WHITESPACE = Pattern.compile("\\s");
 
+	/**
+	 * Called each time an alias matches during recursion. Kept free of Android
+	 * types so the tests here stay JVM-only; Plugin posts Set Variable from the
+	 * sink.
+	 */
+	public interface MatchSink {
+		void onMatch(AliasData alias, Map<String, String> captures);
+	}
+
 	/** The expanded text, plus whether we stopped because of the pass limit. */
 	public static final class Result {
 		private final String text;
@@ -61,12 +70,24 @@ public final class AliasRecursion {
 
 	public static Result expand(final Pattern aliasRegex, final AliasPattern aliases,
 			final String input, final Map<String, String> sessionVariables) {
-		return expand(aliasRegex, aliases, input, sessionVariables, DEFAULT_MAX_PASSES);
+		return expand(aliasRegex, aliases, input, sessionVariables, DEFAULT_MAX_PASSES, null);
+	}
+
+	public static Result expand(final Pattern aliasRegex, final AliasPattern aliases,
+			final String input, final Map<String, String> sessionVariables,
+			final MatchSink sink) {
+		return expand(aliasRegex, aliases, input, sessionVariables, DEFAULT_MAX_PASSES, sink);
 	}
 
 	public static Result expand(final Pattern aliasRegex, final AliasPattern aliases,
 			final String input, final Map<String, String> sessionVariables,
 			final int maxPasses) {
+		return expand(aliasRegex, aliases, input, sessionVariables, maxPasses, null);
+	}
+
+	public static Result expand(final Pattern aliasRegex, final AliasPattern aliases,
+			final String input, final Map<String, String> sessionVariables,
+			final int maxPasses, final MatchSink sink) {
 		if (aliasRegex == null || aliases == null || input == null) {
 			return new Result(input == null ? "" : input, false);
 		}
@@ -100,18 +121,25 @@ public final class AliasRecursion {
 				}
 				String pre = replaceWith.getPre();
 				if (pre.startsWith("^") && !pre.endsWith("$")) {
-					m.appendReplacement(buffertemp, Matcher.quoteReplacement(
-							splitAndSubstitute(replaceWith.getPost(), replaced.toString())));
+					WordSplit split = splitAndSubstituteWithCaptures(replaceWith.getPost(),
+							replaced.toString());
+					notifyMatch(sink, replaceWith, split.captures);
+					m.appendReplacement(buffertemp, Matcher.quoteReplacement(split.text));
 					eatTail = true;
 				} else if (pre.startsWith("^") && pre.endsWith("$")) {
 					String matched = m.group(idx);
+					notifyMatch(sink, replaceWith,
+							AliasExpansion.captures(replaceWith, matched, matched));
 					m.appendReplacement(buffertemp, Matcher.quoteReplacement(
 							AliasExpansion.expand(replaceWith, matched, matched, sessionVariables)));
 					eatTail = true;
 				} else {
+					String matched = m.group(idx);
+					notifyMatch(sink, replaceWith,
+							AliasExpansion.captures(replaceWith, replaced.toString(), matched));
 					m.appendReplacement(buffertemp, Matcher.quoteReplacement(
 							AliasExpansion.expand(replaceWith, replaced.toString(),
-									m.group(idx), sessionVariables)));
+									matched, sessionVariables)));
 				}
 			}
 			if (recursivefound) {
@@ -135,6 +163,20 @@ public final class AliasRecursion {
 	 * line.
 	 */
 	static String splitAndSubstitute(final String post, final String buffer) {
+		return splitAndSubstituteWithCaptures(post, buffer).text;
+	}
+
+	static final class WordSplit {
+		final String text;
+		final Map<String, String> captures;
+
+		WordSplit(final String text, final Map<String, String> captures) {
+			this.text = text;
+			this.captures = captures;
+		}
+	}
+
+	static WordSplit splitAndSubstituteWithCaptures(final String post, final String buffer) {
 		String head = buffer;
 		String rest = "";
 		int semicolon = head.indexOf(";");
@@ -148,6 +190,14 @@ public final class AliasRecursion {
 		for (int i = 0; i < parts.length; i++) {
 			map.put(Integer.toString(i), parts[i]);
 		}
-		return CaptureSubstitution.apply(post, map) + sepchar + rest;
+		return new WordSplit(CaptureSubstitution.apply(post, map) + sepchar + rest, map);
+	}
+
+	private static void notifyMatch(final MatchSink sink, final AliasData alias,
+			final Map<String, String> captures) {
+		if (sink == null || alias == null) {
+			return;
+		}
+		sink.onMatch(alias, captures);
 	}
 }

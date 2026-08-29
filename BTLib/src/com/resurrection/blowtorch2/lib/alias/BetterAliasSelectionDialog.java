@@ -19,6 +19,7 @@ import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import com.resurrection.blowtorch2.lib.R;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
 import com.resurrection.blowtorch2.lib.service.IConnectionBinder;
 import com.resurrection.blowtorch2.lib.window.PluginFilterSelectionDialog;
 import com.resurrection.blowtorch2.lib.window.BaseSelectionDialog;
@@ -292,13 +293,14 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 	}
 
 	public void newAliasDialogDone(String pre, String post, boolean enabled,
-			AliasLocalEcho localEcho) {
+			AliasLocalEcho localEcho, List<SetVariableResponder> setVariables) {
 		try {
 			AliasData newAlias = new AliasData();
 			newAlias.setPost(post);
 			newAlias.setPre(pre);
 			newAlias.setEnabled(enabled);
 			newAlias.setLocalEcho(localEcho);
+			newAlias.setSetVariables(setVariables);
 			String newKey = newAlias.getPre();
 			if(newKey.startsWith("^")) newKey = newKey.substring(1,newKey.length());
 			if(newKey.endsWith("$")) newKey = newKey.substring(0,newKey.length()-1);
@@ -329,7 +331,7 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 
 	@SuppressWarnings("unchecked")
 	public void editAliasDialogDone(String pre, String post, boolean enabled, int pos,
-			AliasData orig, AliasLocalEcho localEcho) {
+			AliasData orig, AliasLocalEcho localEcho, List<SetVariableResponder> setVariables) {
 		try {
 			String target = getSourcePlugin(getItemKey(pos));
 			HashMap<String, AliasData> map;
@@ -355,6 +357,7 @@ public class BetterAliasSelectionDialog extends PluginFilterSelectionDialog impl
 			newAlias.setPost(post);
 			newAlias.setEnabled(enabled);
 			newAlias.setLocalEcho(localEcho);
+			newAlias.setSetVariables(setVariables);
 			map.put(newKey, newAlias);
 			if(MAIN_SETTINGS.equals(target)) {
 				service.setAliases(map);

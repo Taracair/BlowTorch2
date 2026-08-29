@@ -2,6 +2,7 @@ package com.resurrection.blowtorch2.lib.responder.setvariable;
 
 import org.xml.sax.Attributes;
 
+import com.resurrection.blowtorch2.lib.alias.AliasData;
 import com.resurrection.blowtorch2.lib.timer.TimerData;
 import com.resurrection.blowtorch2.lib.trigger.TriggerData;
 
@@ -28,6 +29,8 @@ public class SetVariableElementListener implements StartElementListener {
 			currentTrigger.getResponders().add(r.copy());
 		} else if (selector instanceof TimerData) {
 			currentTimer.getResponders().add(r.copy());
+		} else if (selector instanceof AliasData) {
+			((AliasData) selector).getSetVariables().add(r.copy());
 		}
 	}
 }

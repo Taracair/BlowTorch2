@@ -4,11 +4,10 @@ import org.xml.sax.Attributes;
 
 import com.resurrection.blowtorch2.lib.service.plugin.settings.BasePluginParser;
 import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginParser;
-import com.resurrection.blowtorch2.lib.service.plugin.settings.PluginSettings;
 
-import android.sax.StartElementListener;
+import android.sax.ElementListener;
 
-public class AliasElementListener implements StartElementListener {
+public class AliasElementListener implements ElementListener {
 
 	PluginParser.NewItemCallback callback = null;
 	AliasData current_alias = null;
@@ -23,13 +22,17 @@ public class AliasElementListener implements StartElementListener {
 		current_alias.setEnabled((a.getValue("","enabled") == null) ? true : (a.getValue("","enabled").equals("true")) ? true : false);
 		current_alias.setLocalEcho(AliasLocalEcho.fromAttribute(
 				a.getValue("", BasePluginParser.ATTR_LOCAL_ECHO)));
-	
+		// current_alias is reused for every <alias> in the file. Nested
+		// <setVariable> tags attach after start() and before end(); a leftover
+		// list from the previous alias would leak into the next one.
+		current_alias.getSetVariables().clear();
+	}
+
+	public void end() {
 		String alias_key = current_alias.getPre();
 		if(current_alias.getPre().startsWith("^")) alias_key = alias_key.substring(1, alias_key.length());
 		if(current_alias.getPre().endsWith("$")) alias_key = alias_key.substring(0, alias_key.length()-1);
 		callback.addAlias(alias_key, current_alias.copy());
-		//settings.getAliases().put(alias_key, current_alias.copy());
-	
 	}
 	
 }

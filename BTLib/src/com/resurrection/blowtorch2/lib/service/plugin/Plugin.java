@@ -46,6 +46,7 @@ import com.resurrection.blowtorch2.lib.alias.AliasParser;
 import com.resurrection.blowtorch2.lib.alias.AliasExpansion;
 import com.resurrection.blowtorch2.lib.alias.AliasPattern;
 import com.resurrection.blowtorch2.lib.alias.AliasRecursion;
+import com.resurrection.blowtorch2.lib.alias.AliasSetVariables;
 import com.resurrection.blowtorch2.lib.alias.AnchoredAliasCaptures;
 import com.resurrection.blowtorch2.lib.responder.IteratorModifiedException;
 import com.resurrection.blowtorch2.lib.responder.TriggerResponder;
@@ -1081,27 +1082,30 @@ Note("Example text!")
 				
 				boolean startAnchor = replace_with.getPre().startsWith("^");
 				boolean endAnchor = replace_with.getPre().endsWith("$");
+				String matchedText = alias_replacer.group(index);
+				String typedLine = "";
+				try {
+					typedLine = new String(input, mEncoding);
+				} catch (UnsupportedEncodingException e) {
+					com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
+							"Plugin.doAliasReplacement", e);
+				}
+				String wholeForCaptures = (startAnchor && !endAnchor) ? typedLine : matchedText;
+				dispatchAliasSetVariables(replace_with,
+						AliasExpansion.captures(replace_with, wholeForCaptures, matchedText));
 				
 				if(startAnchor && !endAnchor) {
 					doTail = false;
-					String typedLine = "";
-					try {
-						typedLine = new String(input, mEncoding);
-					} catch (UnsupportedEncodingException e) {
-						com.resurrection.blowtorch2.lib.util.BlowTorchLogger.logMinor(
-								"Plugin.doAliasReplacement", e);
-					}
 					// Same tested path as the other two forms, so ${name}
 					// variables work here as well.
 					String finalString = AliasExpansion.expand(replace_with, typedLine,
-							alias_replacer.group(index), sessionVariables());
+							matchedText, sessionVariables());
 
 					replaced.append(finalString);
 
 				} else if(startAnchor && endAnchor) {
-					String matched = alias_replacer.group(index);
-					String finalString = AliasExpansion.expand(replace_with, matched,
-							matched, sessionVariables());
+					String finalString = AliasExpansion.expand(replace_with, matchedText,
+							matchedText, sessionVariables());
 
 					if(finalString.startsWith(scriptBlock)) {
 						this.runLuaString(finalString.substring(scriptBlock.length(),finalString.length()));
@@ -1119,7 +1123,7 @@ Note("Example text!")
 					// The whole typed line is only needed by the word-splitting
 					// form, which this branch is not; pass the matched text.
 					String plain = AliasExpansion.expand(replace_with,
-							alias_replacer.group(index), alias_replacer.group(index),
+							matchedText, matchedText,
 							sessionVariables());
 					alias_replacer.appendReplacement(replaced,
 							Matcher.quoteReplacement(plain));
@@ -1134,7 +1138,8 @@ Note("Example text!")
 				// field, so two connections can no longer tread on each other's
 				// match state, and it stops after a bounded number of passes.
 				AliasRecursion.Result recursed = AliasRecursion.expand(alias_replace,
-						aliasPattern, replaced.toString(), sessionVariables());
+						aliasPattern, replaced.toString(), sessionVariables(),
+						aliasSetVariableSink());
 				if (recursed.hitLimit() && parent != null) {
 					// Worth interrupting the player for: their alias set expands
 					// into itself, and before the limit existed this hung the
@@ -1162,6 +1167,20 @@ Note("Example text!")
 		} else {
 			return input;
 		}
+	}
+
+	private AliasRecursion.MatchSink aliasSetVariableSink() {
+		return new AliasRecursion.MatchSink() {
+			public void onMatch(AliasData alias, java.util.Map<String, String> captures) {
+				dispatchAliasSetVariables(alias, captures);
+			}
+		};
+	}
+
+	private void dispatchAliasSetVariables(AliasData alias,
+			java.util.Map<String, String> captures) {
+		AliasSetVariables.dispatch(alias, captures, mHandler,
+				parent != null && parent.isWindowShowing());
 	}
 
 	private Timer CONNECTION_TIMER;

@@ -60,7 +60,37 @@ public class AliasRecursionTest {
 		assertFalse(r.hitLimit());
 	}
 
-	/** Everything after the first semicolon is put back after the expansion. */
+	@Test
+	public void matchSinkSeesWordSplitCaptures() {
+		final List<Map<String, String>> seen = new ArrayList<Map<String, String>>();
+		AliasData a = alias("^kk", "kill $1");
+		AliasPattern p = patternFor(a);
+		AliasRecursion.expand(p.compile(), p, "kk goblin",
+				new HashMap<String, String>(),
+				new AliasRecursion.MatchSink() {
+					public void onMatch(AliasData alias, Map<String, String> captures) {
+						seen.add(new HashMap<String, String>(captures));
+					}
+				});
+		assertEquals(1, seen.size());
+		assertEquals("goblin", seen.get(0).get("1"));
+	}
+
+	@Test
+	public void matchSinkSeesChainedAlias() {
+		final List<String> pres = new ArrayList<String>();
+		AliasPattern p = patternFor(alias("^kk", "attack $1"), alias("attack", "kill"));
+		AliasRecursion.expand(p.compile(), p, "kk goblin",
+				new HashMap<String, String>(),
+				new AliasRecursion.MatchSink() {
+					public void onMatch(AliasData alias, Map<String, String> captures) {
+						pres.add(alias.getPre());
+					}
+				});
+		assertEquals(2, pres.size());
+		assertEquals("^kk", pres.get(0));
+		assertEquals("attack", pres.get(1));
+	}
 	@Test
 	public void semicolonTailIsPreserved() {
 		assertEquals("kill goblin;flee",

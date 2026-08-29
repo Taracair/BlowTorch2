@@ -297,7 +297,10 @@ of `<plugin>`.
 ### 4.3 Triggers, aliases, timers
 
 **Alias** attrs: `pre`, `post`, `enabled`, optional `localEcho` (`on` /
-`off`; omit = follow the connection Local Echo? setting).
+`off`; omit = follow the connection Local Echo? setting). An `<alias>` may
+nest `<setVariable>` the same way a trigger does (`name`, `value`, optional
+`mode` / `persist`). That runs when the player types a matching line, in
+addition to `post`. Live values of kept names are **not** in this XML.
 
 **Trigger** attrs:
 

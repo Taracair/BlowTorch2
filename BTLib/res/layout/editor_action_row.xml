@@ -52,6 +52,7 @@
 			android:paddingLeft="4dip">
 
 			<LinearLayout
+				android:id="@+id/action_row_firewhen"
 				android:layout_width="wrap_content"
 				android:layout_height="wrap_content"
 				android:orientation="vertical"
