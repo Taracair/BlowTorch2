@@ -401,11 +401,16 @@ public class ColorTriggerBleedTest {
 
 	private void fireColor(TextTree working, int lineNumber, TextTree.Line line,
 			Pattern pattern, int color, String name) {
+		fireColor(working, lineNumber, line, pattern, color, NO_BACKGROUND, name);
+	}
+
+	private void fireColor(TextTree working, int lineNumber, TextTree.Line line,
+			Pattern pattern, int color, int background, String name) {
 		Matcher m = pattern.matcher(TextTree.deColorLine(line).toString());
 		while (m.find()) {
 			ColorAction action = new ColorAction();
 			action.setColor(color);
-			action.setBackgroundColor(NO_BACKGROUND);
+			action.setBackgroundColor(background);
 			action.doResponse(null, working, lineNumber, null, line, m.start(),
 					m.end() - 2, m.group(), null, "test", "host", 0, 0, false,
 					null, null, null, name, ENC);
@@ -652,6 +657,51 @@ public class ColorTriggerBleedTest {
 		assertTrue("explicit background was not painted: "
 				+ visible(new String(working.dumpToBytes(true), ENC)),
 				bg != null && bg.intValue() == paintedBg);
+	}
+
+	/**
+	 * Probe 29 Aug 2026: trigger paints {@code gyrocopter} with a background.
+	 * Restore was only the pre-match SGR (bold / 22), so {@code 48;5;18} and
+	 * {@code 38;5;102} ran through "s are landed here..." to the newline. The
+	 * next line was already grey (stream reset). The rest of this line must
+	 * not keep that paint.
+	 */
+	@Test
+	public void aBackgroundPaintDoesNotRunPastTheMatchOnTheSameLine()
+			throws Exception {
+		final int paintFg = 102;
+		final int paintBg = 18;
+		final Pattern gyro = Pattern.compile("gyrocopter");
+		TextTree working = new TextTree();
+		TriggerColorState state = new TriggerColorState();
+		working.setModCount(0);
+		working.addBytesImpl(("Three " + ESC + "[1mprion" + ESC
+				+ "[22m gyrocopters are landed here. The wreck of a grey gyrocopter is\n")
+				.getBytes(ENC));
+		fireColor(working, 0, working.getLines().get(0), gyro, paintFg, paintBg,
+				"gyrocopter");
+		state.closeAtLineEnds(working);
+
+		String dumped = visible(new String(working.dumpToBytes(true), ENC));
+		Integer onWord = xtermBgAt(working, "gyrocopter");
+		assertTrue("gyrocopter was not painted with the trigger background: "
+				+ dumped, onWord != null && onWord.intValue() == paintBg);
+		Integer afterPlural = xtermBgAt(working, "are landed");
+		assertTrue("trigger background ran through the rest of the line (xterm "
+				+ afterPlural + "): " + dumped,
+				afterPlural == null || afterPlural.intValue() != paintBg);
+		Integer fgAfter = xtermFgAt(working, "are landed");
+		assertTrue("trigger foreground ran through the rest of the line (xterm "
+				+ fgAfter + "): " + dumped,
+				fgAfter == null || fgAfter.intValue() != paintFg);
+		Integer afterSecond = xtermBgAt(working, " is");
+		assertTrue("trigger background ran through the tail after the second "
+				+ "match (xterm " + afterSecond + "): " + dumped,
+				afterSecond == null || afterSecond.intValue() != paintBg);
+		Integer fgAfterSecond = xtermFgAt(working, " is");
+		assertTrue("trigger foreground ran through the tail after the second "
+				+ "match (xterm " + fgAfterSecond + "): " + dumped,
+				fgAfterSecond == null || fgAfterSecond.intValue() != paintFg);
 	}
 
 	/**
