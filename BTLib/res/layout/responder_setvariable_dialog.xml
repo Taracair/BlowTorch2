@@ -38,15 +38,39 @@
   	<TextView
   		android:layout_width="match_parent"
   		android:layout_height="wrap_content"
-  		android:text="Value (may use $1):"
+  		android:text="Mode:"
   		android:textColor="#FFE8E8E8"
   		android:layout_marginTop="8dip"/>
-  	<EditText
+  	<Spinner
   		android:layout_width="match_parent"
   		android:layout_height="wrap_content"
-  		android:id="@+id/responder_setvariable_value"
-  		android:singleLine="true"
-  		android:hint="e.g. $1"/>
+  		android:id="@+id/responder_setvariable_mode"/>
+  	<LinearLayout
+  		android:id="@+id/responder_setvariable_value_row"
+  		android:layout_width="match_parent"
+  		android:layout_height="wrap_content"
+  		android:orientation="vertical">
+  		<TextView
+  			android:id="@+id/responder_setvariable_value_label"
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:text="Value (may use $1):"
+  			android:textColor="#FFE8E8E8"
+  			android:layout_marginTop="8dip"/>
+  		<EditText
+  			android:layout_width="match_parent"
+  			android:layout_height="wrap_content"
+  			android:id="@+id/responder_setvariable_value"
+  			android:singleLine="true"
+  			android:hint="e.g. $1"/>
+  	</LinearLayout>
+  	<CheckBox
+  		android:id="@+id/responder_setvariable_persist"
+  		android:layout_width="match_parent"
+  		android:layout_height="wrap_content"
+  		android:layout_marginTop="8dip"
+  		android:text="Keep after restart"
+  		android:textColor="#FFE8E8E8"/>
   </LinearLayout>
 
   <LinearLayout
@@ -61,9 +85,9 @@
 	  		android:text="Cancel" />
 	  <Button
 	  	android:layout_width="0dip"
-	  	android:layout_height="wrap_content"
-	  	android:layout_weight="1"
-	  	android:text="Done"
-	  	android:id="@+id/responder_setvariable_done"/>
+	  		android:layout_height="wrap_content"
+	  		android:layout_weight="1"
+	  		android:text="Done"
+	  		android:id="@+id/responder_setvariable_done"/>
   </LinearLayout>
 </LinearLayout>

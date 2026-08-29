@@ -313,14 +313,17 @@ of `<plugin>`.
 
 Nested responders: `<ack>`, `<toast>`, `<notification>`, `<script function="…">`,
 `<replace>`, `<color>`, `<gag>`, `<setVariable>`. Common attr: `fireWhen`
-(window open / closed / both / never).
+(window open / closed / both / never). `<setVariable>` also takes `name`,
+`value`, optional `mode` (`set` / `add` / `subtract` / `append` / `unset`;
+omit when set) and `persist="true"` (Keep after restart; omit when false). Live
+values of kept names are **not** in this XML.
 
 Conditions:
 
 ```xml
 <conditions op="and|or">
-  <condition type="triggerEnabled|triggerDisabled|aliasEnabled|aliasDisabled|aliasEquals|variableEquals|variableExists"
-             name="..." plugin="optional" value="for aliasEquals/variableEquals"/>
+  <condition type="triggerEnabled|triggerDisabled|aliasEnabled|aliasDisabled|aliasEquals|variableEquals|variableExists|variableBelow|variableAbove"
+             name="..." plugin="optional" value="for aliasEquals/variableEquals/variableBelow/variableAbove"/>
 </conditions>
 ```
 

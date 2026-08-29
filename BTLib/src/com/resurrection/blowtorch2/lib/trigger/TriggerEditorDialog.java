@@ -59,6 +59,7 @@ import com.resurrection.blowtorch2.lib.responder.replace.ReplaceActionEditorDial
 import com.resurrection.blowtorch2.lib.responder.replace.ReplaceResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.responder.script.ScriptResponderEditor;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableApply;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder;
 import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponderEditor;
 import com.resurrection.blowtorch2.lib.responder.chat.ChatThreadResponder;
@@ -1006,7 +1007,22 @@ public class TriggerEditorDialog extends Dialog implements DialogInterface.OnCli
 			return Integer.toString(((ColorAction) responder).getColor());
 		case SET_VARIABLE: {
 			SetVariableResponder sv = (SetVariableResponder) responder;
-			return nullToEmpty(sv.getVariableName()) + "=" + nullToEmpty(sv.getVariableValue());
+			String name = nullToEmpty(sv.getVariableName());
+			String value = nullToEmpty(sv.getVariableValue());
+			String mode = sv.getMode();
+			if (SetVariableApply.MODE_ADD.equals(mode)) {
+				return name + " +" + value;
+			}
+			if (SetVariableApply.MODE_SUBTRACT.equals(mode)) {
+				return name + " -" + value;
+			}
+			if (SetVariableApply.MODE_APPEND.equals(mode)) {
+				return name + " …" + value;
+			}
+			if (SetVariableApply.MODE_UNSET.equals(mode)) {
+				return "unset " + name;
+			}
+			return name + "=" + value;
 		}
 		case CHAT_THREAD: {
 			ChatThreadResponder chat = (ChatThreadResponder) responder;

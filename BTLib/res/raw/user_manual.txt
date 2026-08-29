@@ -544,9 +544,8 @@ In the trigger editor:
   for the pattern. Optional AND/OR list checked before responders. Empty =
   always fire. Types: Trigger enabled/disabled (pick another trigger;
   `plugin:name` ok), Alias enabled/disabled, Alias replacement equals,
-  Variable equals/exists. Set vars with the **Set Variable** responder or
-  Lua `SetVariable` / `GetVariable` / `UnsetVariable` (session only, not
-  persisted).
+  Variable equals/exists/below/above. Set vars with the **Set Variable** responder or
+  Lua `SetVariable` / `GetVariable` / `UnsetVariable` (Lua stays session-only).
 
 In regex mode you can capture with `(…)` and use `$1`, `$2`, … in Ack,
 Replace, Toast, Notification, Speak, Set Variable text, Send to thread, and
@@ -712,9 +711,10 @@ triggers): list subtitle `[group]`, sort by group, XML `group` attribute.
 Timers also support **Conditions** in the timer editor — an extra gate when
 the timer fires (same AND/OR types as triggers). Empty = always fire
 responders. Types: Trigger enabled/disabled, Alias enabled/disabled, Alias
-replacement equals, Variable equals/exists. Set vars with the **Set
-Variable** responder or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
-(session only). Use `${name}` in alias or action text — variables are not
+replacement equals, Variable equals/exists/below/above. Set vars with the **Set
+Variable** responder (Set, Add number, Subtract number, Append, Unset; optional
+**Keep after restart**) or Lua `SetVariable` / `GetVariable` / `UnsetVariable`
+(Lua stays session-only). Use `${name}` in alias or action text — variables are not
 typed into the trigger pattern.
 
 ### Finding a command without leaving the game
@@ -1319,6 +1319,16 @@ while `fighting` is `1`. Set that flag from your combat triggers:
 - fight starts → **Set Variable** `fighting` = `1`
 - fight ends → **Set Variable** `fighting` = `0`
 
+**Set Variable modes** (one action): **Set** (replace), **Add number** /
+**Subtract number** (empty or junk starts at 0), **Append** (concatenate as
+typed — first tell with `, $1` is `, Bob`), **Unset**. `$1` is a capture, not
+arithmetic (`$1+1` with capture `3` is `3+1`, which adds 0). Tick **Keep after
+restart** to still have `kills=17` after the world is closed; the value sits in
+a sidecar next to the profile, not in the exported XML.
+
+**Variable is below** / **Variable is above** compare as numbers (`kills` above
+`9` after ten deaths; `hp` below `30`). Equal is false. Non-numeric is false.
+
 This is usually nicer than starting and stopping the timer, because you never
 end up with a timer that was left paused.
 
@@ -1610,6 +1620,7 @@ run ends.
 .sensor wave             what that reading does now
 .sensor wave on|off      without deleting it
 .sensor fire wave        try it now, without moving the phone
+.sensor threshold battery 15 40   low % and recover % on this phone
 ```
 
 Your phone has hardware a desktop MUD client never will — proximity, motion,
@@ -1637,6 +1648,7 @@ The readings (each has a short name for `.sensor` and triggers):
 | `shake` | Phone shaken hard | Linear acceleration, or accelerometer |
 | `headphonesout` / `headphonesin` | Headphones unplugged or plugged | System broadcast |
 | `powerout` / `powerin` | Charger unplugged or plugged | System broadcast |
+| `batterylow` / `batteryok` | Charge crossed down through low, or back up through recover | System broadcast |
 | `pickup` | Phone lifted off the table | Pick-up sensor, where present |
 | `moving` | Real movement begins | Significant motion |
 | `still` | Untouched for a while | Stationary detect |
@@ -1645,8 +1657,9 @@ The readings (each has a short name for `.sensor` and triggers):
 | `landscape` / `portrait` | Screen goes sideways or upright | System configuration |
 
 The last block needs **no extra sensor chip** — Android tells every app. A
-profile built on `headphonesout`, `powerin` and `screenon` works on any phone.
-`headphonesout` in particular is worth setting up before you play in public.
+profile built on `headphonesout`, `powerin`, `batterylow` and `screenon` works
+on any phone. `headphonesout` in particular is worth setting up before you play
+in public.
 
 `facedown` is the classic "stepping away" reading: bind it to `afk` and `faceup`
 to `afk off`. It waits for the phone to settle. A phone in your hand or pocket
@@ -1721,7 +1734,11 @@ lists every name, what it can hold, and whether this phone can tell:
 
 **Only while Options → Device → "Device state as variables" is on** (or after
 `.sensor watch on`). With it off, conditions on `device.*` are *false*. Values
-are text compared exactly — "battery below 30" needs Lua.
+are text compared exactly for **equals**. **Variable is below** / **Variable is
+above** parse as numbers (`device.battery` `74` below `80` is true; `74`
+equals `74.0` stays false). For a fire when charge *crosses* a line, use the
+`batterylow` / `batteryok` readings instead; those are gestures, not a
+less-than condition.
 
 ### Where to find them: Options → Device → Sensors
 
@@ -1749,7 +1766,7 @@ have open**, including background connections. With two MUDs connected, one
 shake sends twice.
 
 Both settings cover **hardware** readings only — everything except headphone,
-charger, screen and rotation events (those are system events and keep working).
+charger, battery, screen and rotation events (those are system events and keep working).
 Hushing speech when the jack comes out has to work with the screen off.
 
 **A warning about names.** Commands are looked up *after* your aliases, so an
@@ -1780,6 +1797,26 @@ is never exported with a profile. By hand: `.sensor threshold light 40 900`.
 Useful with it: `gotdark` bound to a command for walking into an unlit place, or
 the condition "It is dark around the phone" on a Speak action so the game only
 reads aloud at night. `device.light` holds `dark`, `dim` or `bright`.
+
+### Battery low threshold
+
+**Options → Device → Battery low threshold.** Two whole percents: Low (when
+`batterylow` fires) and Recover (when `batteryok` fires). Charge is already a
+percent, so this is not a trip somewhere dark.
+
+Default is **20** and **35**. The phone sitting at 80% does nothing. It hits 20%
+→ `batterylow` once. Sitting at 18% then 19% is silent. Charging back through
+35% → `batteryok` once. Oscillating 19–21% cannot flap, because recover sits
+higher than low. Recover must be at least five points above low.
+
+Kept with **this phone**, never exported with a profile. By hand:
+`.sensor threshold battery 15 40`. `.sensor fire batterylow` tests the trigger
+without waiting for the charge to move.
+
+A condition on `device.battery` still compares **exactly** for **equals**
+(`equals 74`). **Variable is below** / **above** parse the same text as a
+number (`74` below `80` is true). These two readings are the fire when the
+number *crosses* a line.
 
 ### Calibrating the shake
 

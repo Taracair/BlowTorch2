@@ -35,6 +35,9 @@ import com.resurrection.blowtorch2.lib.responder.script.ScriptResponder;
 import com.resurrection.blowtorch2.lib.script.ScriptData;
 import com.resurrection.blowtorch2.lib.trigger.condition.ConditionEvaluator;
 import com.resurrection.blowtorch2.lib.trigger.condition.SessionVariableStore;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SessionVariableSidecar;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableApply;
+import com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableOp;
 import com.resurrection.blowtorch2.lib.service.function.BellCommand;
 import com.resurrection.blowtorch2.lib.service.function.ClearButtonCommand;
 import com.resurrection.blowtorch2.lib.service.function.ColorDebugCommand;
@@ -429,6 +432,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Global map for handling the capture transformation for triggers and aliases. */
 	private HashMap<String, String> mCaptureMap = new HashMap<String, String>();
 	private final SessionVariableStore mSessionVariables = new SessionVariableStore();
+	private SessionVariableSidecar mPersistedVariables;
 	
 	/** The DataPumper instance for this connection. */
 	DataPumper mPump = null;
@@ -863,15 +867,7 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 				}
 				break;
 			case MESSAGE_SET_VARIABLE:
-				if (msg.obj instanceof String[]) {
-					String[] pair = (String[]) msg.obj;
-					if (pair.length >= 2) {
-						mSessionVariables.set(pair[0], pair[1]);
-						if (mGauges != null) {
-							mGauges.onSessionVar(pair[0], pair[1]);
-						}
-					}
-				}
+				applySetVariableMessage(msg.obj);
 				break;
 			case MESSAGE_UNSET_VARIABLE:
 				if (msg.obj instanceof String) {
@@ -7572,6 +7568,37 @@ public class Connection implements SettingsChangedListener, ConnectionPluginCall
 	/** Kicks off the loadInternalSettings() routine. */
 	public final void initWindows() {
 		mSettingsIO.loadInternalSettings();
+		restorePersistedVariables();
+	}
+
+	/**
+	 * Kept names from the sidecar, once, after the profile XML. Not inside
+	 * {@link #reloadSettings}: that would overwrite live session values with disk.
+	 */
+	private void restorePersistedVariables() {
+		mPersistedVariables = new SessionVariableSidecar(getContext(), mDisplay);
+		mPersistedVariables.restoreInto(mSessionVariables);
+	}
+
+	private void applySetVariableMessage(Object obj) {
+		if (!(obj instanceof SetVariableOp)) {
+			return;
+		}
+		SetVariableOp op = (SetVariableOp) obj;
+		if (op.key.length() == 0) {
+			return;
+		}
+		String now = SetVariableApply.applyToStore(mSessionVariables, op.key, op.value,
+				op.mode);
+		if (op.persist) {
+			if (mPersistedVariables == null) {
+				mPersistedVariables = new SessionVariableSidecar(getContext(), mDisplay);
+			}
+			mPersistedVariables.remember(op.key, now);
+		}
+		if (mGauges != null) {
+			mGauges.onSessionVar(op.key, now);
+		}
 	}
 
 	/** Immediatly shuts down this connection and all associated data structures. */

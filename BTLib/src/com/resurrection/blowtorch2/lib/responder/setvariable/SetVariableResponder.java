@@ -24,11 +24,15 @@ public class SetVariableResponder extends TriggerResponder implements Parcelable
 
 	private String variableName;
 	private String variableValue;
+	private String mode;
+	private boolean persist;
 
 	public SetVariableResponder() {
 		super(RESPONDER_TYPE.SET_VARIABLE);
 		variableName = "";
 		variableValue = "";
+		mode = SetVariableApply.MODE_SET;
+		persist = false;
 		setFireType(FIRE_WHEN.WINDOW_BOTH);
 	}
 
@@ -36,6 +40,8 @@ public class SetVariableResponder extends TriggerResponder implements Parcelable
 		SetVariableResponder tmp = new SetVariableResponder();
 		tmp.variableName = this.variableName;
 		tmp.variableValue = this.variableValue;
+		tmp.mode = this.mode;
+		tmp.persist = this.persist;
 		tmp.setFireType(this.getFireType());
 		return tmp;
 	}
@@ -53,6 +59,13 @@ public class SetVariableResponder extends TriggerResponder implements Parcelable
 			return false;
 		}
 		if (!test.variableValue.equals(this.variableValue)) {
+			return false;
+		}
+		if (!SetVariableApply.normalizeMode(test.mode)
+				.equals(SetVariableApply.normalizeMode(this.mode))) {
+			return false;
+		}
+		if (test.persist != this.persist) {
 			return false;
 		}
 		return test.getFireType() == this.getFireType();
@@ -79,7 +92,7 @@ public class SetVariableResponder extends TriggerResponder implements Parcelable
 			return false;
 		}
 		Message msg = dispatcher.obtainMessage(Connection.MESSAGE_SET_VARIABLE);
-		msg.obj = new String[] { key, val != null ? val : "" };
+		msg.obj = new SetVariableOp(key, val != null ? val : "", mode, persist);
 		dispatcher.sendMessage(msg);
 		return false;
 	}
@@ -119,12 +132,16 @@ public class SetVariableResponder extends TriggerResponder implements Parcelable
 		} else {
 			setFireType(FIRE_WHEN.WINDOW_BOTH);
 		}
+		setMode(in.readString());
+		setPersist(in.readInt() != 0);
 	}
 
 	public void writeToParcel(Parcel out, int flags) {
 		out.writeString(variableName);
 		out.writeString(variableValue);
 		out.writeString(getFireType().getString());
+		out.writeString(SetVariableApply.normalizeMode(mode));
+		out.writeInt(persist ? 1 : 0);
 	}
 
 	public String getVariableName() {
@@ -141,6 +158,22 @@ public class SetVariableResponder extends TriggerResponder implements Parcelable
 
 	public void setVariableValue(String variableValue) {
 		this.variableValue = variableValue != null ? variableValue : "";
+	}
+
+	public String getMode() {
+		return SetVariableApply.normalizeMode(mode);
+	}
+
+	public void setMode(String mode) {
+		this.mode = SetVariableApply.normalizeMode(mode);
+	}
+
+	public boolean isPersist() {
+		return persist;
+	}
+
+	public void setPersist(boolean persist) {
+		this.persist = persist;
 	}
 
 	@Override

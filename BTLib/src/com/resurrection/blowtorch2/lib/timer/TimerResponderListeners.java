@@ -154,12 +154,8 @@ public final class TimerResponderListeners {
 			public void start(Attributes a) {
 				com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder r =
 						new com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponder();
-				String name = a.getValue("", BasePluginParser.ATTR_NAME);
-				r.setVariableName(name != null ? name : "");
-				String value = a.getValue("", BasePluginParser.ATTR_CONDITION_VALUE);
-				if (value == null) value = a.getValue("", "value");
-				r.setVariableValue(value != null ? value : "");
-				r.setFireType(parseFireType(a.getValue("", BasePluginParser.ATTR_FIRETYPE)));
+				com.resurrection.blowtorch2.lib.responder.setvariable.SetVariableResponderParser
+						.applyFromAttributes(r, a);
 				currentTimer.getResponders().add(r.copy());
 			}
 		});
