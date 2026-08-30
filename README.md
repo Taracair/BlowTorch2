@@ -3,7 +3,12 @@
 An Android client for MUDs — text worlds you play over the network. You pick
 a host, connect, type commands, and read what the game sends back: rooms,
 combat, chat, the lot. No graphics engine; the screen is the game's text,
-plus whatever you put on it (buttons, a map, an HP bar).
+plus whatever you put on it (buttons, a map, an HP bar). MUDs are an old
+kind of game people still play: text rooms, other players, fighting and
+talk, from before the graphical MMOs. To find one, search
+[MudStats](https://www.mudstats.com/),
+[MudVerse](https://www.mudverse.com/), or
+[The Mud Connector](https://www.mudconnect.com/).
 
 This is a fork of BlowTorch (2010–2018). The original stopped getting
 updates, Android moved on, and it quietly became uninstallable. Same client
@@ -24,71 +29,87 @@ After you connect, you read the game in the big text window. Nothing below
 is required to play. This is what you can add around that text.
 
 **Buttons.** A grid on the screen. Tap N and the game receives `north`.
-Swipe that same tile for another command; hold for a third. One tile can
-run `.loadset combat` and the whole pad swaps from walking to fighting.
+Swipe that same tile in any of eight directions (including the corners)
+for eight more commands; hold for another. One tile can run
+`.loadset combat` and the whole pad swaps from walking to fighting.
 A MORE tile fans out extra buttons if you pin them onto it.
 
-**Gauges.** A small HP or mana bar on the game window (`.widget` / `.gauge`).
-Fed from the world's vitals, a line of score text, or a timer.
+**Gauges.** A small HP bar, ring, or countdown you put on the game window
+(`.widget` / `.gauge` — same command). You add it empty, then point it at
+the world's vitals, a line of score text, a variable, or a timer. The
+world does not draw it for you.
 
-**Tap the text.** Some worlds let you tap an exit or an item instead of
-typing it. If two words sit on top of each other, hold and pick the one
-you meant from a small magnifier.
+**Tap the text.** A word the world marked, or one your own trigger marked,
+can send a command when you tap it. If several tappable words sit close
+together, hold and pick the one you meant from a small loupe.
 
-**Extra windows.** Chat in its own pane, vitals in another. Each has its
-own size and the text keeps arriving while the pane is closed.
+**Extra windows.** Optional panes beside the main text (a channel dump,
+combat, whatever you send there). Hide one and it still collects; destroy
+it and it does not. Chat with a reply box is a different thing: the chat
+drawer (⋮ → **Chat**, or `.chat`).
 
-**Input and scrollback.** The bar grows as you type. Search the buffer,
-copy from it, log the session. The notification shows how long you have
-been connected.
+**Input and scrollback.** The input field can grow to more than one line
+(on by default). Search the buffer. Copy is two fingers, not a long-press.
+Log the session if you turn that on. The notification shows how long you
+have been connected.
 
-**A map.** Draws as you walk, from the world's room info or from your
-own steps. Find a room and walk there. Newest and most experimental part
-of the app — the UI says so.
+**A map.** Follows room info the world sends, or records your steps when
+you turn recording on. Find a room; `.map go` walks you there. Newest
+part of the app — the first time you open it, a dialog calls it
+experimental.
 
-## Help while you play
+## Triggers, aliases, and timers
 
 **Triggers, aliases, timers.** A trigger watches the game's text and does
 what you set: colour a line, hide it, notify you, send a command, set a
 variable, push the line into another window — several at once. An alias
 turns a short word into a longer command (`kk goblin` → the game receives
-`kill goblin`). A timer fires on a clock. Put them in a group and arm or
-disarm the group together, so combat helpers come on when a fight starts
-and off when you leave. Trigger scripts are real Lua.
+`kill goblin`). A timer fires on a clock. Triggers can live in a group
+you arm or disarm together (`.trigger group off combat`). Aliases and
+timers are one by one. Trigger scripts are real Lua.
 
 **The rest of the classic toolkit.** Speedwalks, per-world settings, and the
 Lua plugin engine the original was built around.
 
 ### `.commands` — bar or button
 
-Type a leading `.` in the input bar, or put the same line on a button.
-That is the main point: during play you tap `.options`, `.font +2`, or
+Type a leading `.` in the input bar, or put that same line on a button.
+That is the point: during play you tap `.options`, `.font +2`, or
 `.loadset combat` instead of digging through the client's menus. `.help`
-(same as `.commands`) lists every one this session.
+and `.commands` are the same command; `.help` lists every registered one.
+`.help suggest` keeps names containing "suggest".
 
 A short list of the ones people put on buttons:
 
-`.help` — every dot command. `.help suggest` filters.
-`.options` — Options, same as ⋮.
+`.help` — every dot command (same as `.commands`).
+`.options` — Options, the same screen as ⋮ → Options.
 `.font +2` — bigger game text, no trip through Options.
-`.loadset combat` — switch the button pad.
-`.clearbuttons` — hide the pad; BACK brings it back.
-`.map open` — show or hide the map. `.map goto <room>` walks a route.
-`.widget add hp ring` — an HP bar. `.gauge` is the same.
-`.window` — extra text panes (list / show / hide).
-`.search <text>` — jump to that text in scrollback.
-`.switch <name>` — another open connection. Bare `.switch` lists them.
+`.loadset combat` — switch the button pad (a set named combat).
+`.clearbuttons` — hide the pad; one BACK tile brings it back (not the
+phone's Back key).
+`.map open` — show the map (does not hide it; `.map close` does).
+`.map go` plus a room title — walk there. `.map goto` only sends if Path
+auto-send is on.
+`.widget add hp ring` — an empty ring named hp. Then you point it at
+numbers. `.gauge` is the same command.
+`.window list` — extra text panes. `.window show` / `.window hide` need
+a slot name; bare `.window` is help.
+`.search goblin` — find that text in scrollback.
+`.switch` — list open sessions; add the exact display name to jump.
 `.reconnect` — drop and connect again.
-`.kb popup` — put text in the bar and show the keyboard.
-`.run 3n2ew` — speedwalk. `.rev` walks the same letters backwards.
-`#5 north` — send the rest of the line five times (`##5 north` = a literal `#`).
-`.trigger group off combat` — disable a whole trigger group.
-`.alias toggle kk` — one alias on or off.
-`.timer play heal` — start a named timer (`pause` / `reset` / `stop`).
+`.kb popup` — show the keyboard. Words after it go into the bar (and
+replace what was there). Bare `.kb popup` clears the bar, then shows
+the keyboard.
+`.run 3n2ew` — speedwalk. `.rev 3n2ew` walks those letters backwards.
+`#5 north` — send `north` five times at once. `##5 north` reaches the
+game as `#5 north`.
+`.trigger group off combat` — disable that trigger group.
+`.alias toggle kk` — that alias on or off.
+`.timer play heal` — start that timer (`pause` / `reset` / `stop`).
 `.suggest on` — word chips from recent game text.
 
-Dot commands are on by default. `..` toggles them. A line starting `..`
-sends a literal leading `.` to the game.
+Dot commands are on by default. `..` alone toggles them. `..look` sends
+`.look` to the game.
 
 Full list, arguments, and the Lua API:
 [`docs/user-manual.md`](docs/user-manual.md) (in-app **Help**).
@@ -123,22 +144,27 @@ anyone about to change the code.
 
 A local client. No ads, no analytics, no accounts, no server of mine anywhere.
 
-It makes exactly one connection that is not a MUD you added: an update check
-against GitHub, on by default, at most once a day. A plain GET of the public
-releases page — no identifier, no telemetry, nothing about you in the request.
-The whole of it is in
+The only request this app makes on its own, besides the worlds you added, is
+an update check against GitHub, on by default, at most once a day. That is a
+GET of GitHub's latest-release API (`User-Agent: BlowTorch2`) — no account,
+no game text, nothing about you in the body. If a world then asks the client
+to fetch a sound or a picture, that fetch is the world talking, not a tracker
+of mine. The update check is in
 [`UpdateChecker.java`](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
 (~200 lines) if you would rather verify than take my word. Turn it off under
-the launcher's **⋮ → Check for updates** and the app talks to nothing but your
-MUDs. App-wide, not per world. If you installed from F-Droid, turn it off:
-F-Droid updates you already. Test builds never check, whatever the setting says.
+the launcher's **⋮ → Check for updates** and the app stops phoning GitHub.
+App-wide, not per world. If you installed from F-Droid, turn it off:
+F-Droid updates you already. Test builds never check on their own; **Check
+for updates now** still talks to GitHub if you tap it.
 
-| Permission | Needed to play? |
-|------------|-----------------|
-| Internet (+ foreground service) | Yes, for a live session |
-| Notifications (Android 13+) | Useful, for connection state and alerts |
-| All files access | No — only to see `/BlowTorch/` in a file manager |
-| Display over other apps | No — only if you float a button over the soft keyboard |
+Internet is needed to play. A foreground service is how the session can stay
+up when the screen is off. Notifications on Android 13+ are useful (connection
+state, alerts), not required to type. All files access is not needed to play
+— it is so `/BlowTorch/` is visible in a file manager (settings, backups,
+maps, logs). Without it, everything still runs from app storage, with import
+and export through the system picker. Display over other apps is not needed
+either, unless you float a button or a gauge over the soft keyboard. The
+full list is in [`docs/FDROID_README.md`](docs/FDROID_README.md).
 
 **Speaking out loud.** A trigger or a timer can read a line aloud (the **Speak
 Out Loud** action). That is not a permission — it uses the phone's own speech
@@ -177,10 +203,8 @@ It can sit alongside an old BlowTorch install — the package ids differ.
 
 ## Building
 
-| Flavor | Application id |
-|--------|----------------|
-| `production` | `com.resurrection.blowtorch2` |
-| `btTest` | `com.resurrection.blowtorch2.test` |
+The `production` flavor is `com.resurrection.blowtorch2`. The `btTest`
+flavor is `com.resurrection.blowtorch2.test`.
 
 Needs the Android SDK (compileSdk 36, min API 28), NDK r26+, JDK 17, and
 `gcc` / `make` for the native LuaJIT build.
@@ -196,14 +220,15 @@ BT_LOCAL_SIGN=1 ./gradlew :BT_Free:assembleProductionRelease
 Release APKs are unsigned by default — F-Droid and CI sign their own. Output in
 `BT_Free/build/outputs/apk/`.
 
-| Path | What it is |
-|------|------------|
-| `BTLib/` | Shared library, where nearly all the code lives |
-| `BT_Free/` | App module, and the Lua plugins under `assets/` |
-| `LuaJIT-2.0.5/`, `LuaJIT-2.1/` | Native LuaJIT — 2.0.5 for the 32-bit ABI, 2.1 (GC64) for 64-bit |
-| `scripts/check.sh` | Everything checkable without a device, in one command — the same thing CI runs |
-| `docs/` | Guides; architecture in [`architecture.md`](docs/architecture.md); plugins in [`plugin-authoring.md`](docs/plugin-authoring.md); working rules in [`ORCHESTRATION.md`](docs/ORCHESTRATION.md) |
-| `fastlane/`, `metadata/` | Store and F-Droid text |
+Most of the code is in `BTLib/`, the shared library. `BT_Free/` is the app
+module, with the Lua plugins under `assets/`. Native LuaJIT lives in
+`LuaJIT-2.0.5/` (32-bit ABI) and `LuaJIT-2.1/` (GC64, 64-bit).
+`scripts/check.sh` runs everything checkable without a device, in one
+command — the same thing CI runs. Guides are under `docs/`: architecture in
+[`architecture.md`](docs/architecture.md), plugins in
+[`plugin-authoring.md`](docs/plugin-authoring.md), working rules in
+[`ORCHESTRATION.md`](docs/ORCHESTRATION.md). Store and F-Droid text is in
+`fastlane/` and `metadata/`.
 
 F-Droid builds the production flavor only — see
 [`docs/fdroid.md`](docs/fdroid.md).
