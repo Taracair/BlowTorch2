@@ -1,14 +1,18 @@
 # BlowTorch 2
 
-An Android client for MUDs — text worlds you play over the network. You pick
-a host, connect, type commands, and read what the game sends back: rooms,
-combat, chat, the lot. No graphics engine; the screen is the game's text,
-plus whatever you put on it (buttons, a map, an HP bar). MUDs are an old
-kind of game people still play: text rooms, other players, fighting and
-talk, from before the graphical MMOs. To find one, search
+An Android client for MUDs — text worlds you play over the network.
+MUD stands for Multi-User Dungeon. They are an old kind of game people
+still play: immersive text rooms, meeting other players, fighting and
+talking, from before the graphical MMOs. The classic ones are fantasy
+role-play — a class, races, monsters, skills. The client does not care;
+it talks to whatever host you add. To find one, search
 [MudStats](https://www.mudstats.com/),
 [MudVerse](https://www.mudverse.com/), or
 [The Mud Connector](https://www.mudconnect.com/).
+
+You pick a host, connect, type commands, and read what the game sends back: rooms,
+combat, chat, the lot. No graphics engine; the screen is the game's text,
+plus whatever you put on it (buttons, a map, an HP bar).
 
 This is a fork of BlowTorch (2010–2018). The original stopped getting
 updates, Android moved on, and it quietly became uninstallable. Same client
@@ -28,7 +32,8 @@ useful thing you can send.
 After you connect, you read the game in the big text window. Nothing below
 is required to play. This is what you can add around that text.
 
-**Buttons.** A grid on the screen. Tap N and the game receives `north`.
+**Buttons.** Probably the most important part of the client. 
+Shown as a grid on the screen. Tap N and the game receives `north`.
 Swipe that same tile in any of eight directions (including the corners)
 for eight more commands; hold for another. One tile can run
 `.loadset combat` and the whole pad swaps from walking to fighting.
@@ -179,7 +184,7 @@ text on the device, so leave them blank if you would rather not keep passwords
 there; and Lua plugins run with the app's privileges, exactly as in classic, so
 only load ones you trust.
 
-**Storage.** Classic assumed it could write anywhere, which newer Android does
+**Storage.** Classic BlowTorch assumed it could write anywhere, which newer Android does
 not allow. There is now a `/BlowTorch/` folder (`settings/`, `backups/`,
 `launcher/`, `maps/`, `session_logs/`, `logs/`) if you grant access, and everything still
 works from app storage if you do not, with import and export through the system
