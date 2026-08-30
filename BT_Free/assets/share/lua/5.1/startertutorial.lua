@@ -401,8 +401,9 @@ options), Cancel (left), Done (right).
 
 Tap empty space to add a button. Long-press an empty cell pastes copied
 buttons (only when something is on the clipboard). Drag to move, tap a
-tile to edit label/commands/gestures/accordion. Wrap label (on the
-label row) splits a long name onto two lines. Active (same row as Name,
+tile to edit label/commands/gestures/accordion. Wrap label (Others, next
+to Label Font Size) splits a long name onto two lines. Enter in the
+Label field is a hard break even when that box is off. Active (same row as Name,
 on by default) hides the tile in play without deleting it. Done saves
 the set.
 

@@ -72,6 +72,7 @@ lastLoadedSet = nil
 Configuration = luajava.bindClass("android.content.res.Configuration");
 InputType = luajava.bindClass("android.text.InputType")
 TYPE_TEXT_FLAG_MULTI_LINE = InputType.TYPE_TEXT_FLAG_MULTI_LINE
+TYPE_CLASS_TEXT = InputType.TYPE_CLASS_TEXT
 TYPE_CLASS_NUMBER = InputType.TYPE_CLASS_NUMBER
 ORIENTATION_LANDSCAPE = Configuration.ORIENTATION_LANDSCAPE
 ORIENTATION_PORTRAIT = Configuration.ORIENTATION_PORTRAIT

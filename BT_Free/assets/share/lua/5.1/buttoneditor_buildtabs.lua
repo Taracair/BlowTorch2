@@ -15,6 +15,9 @@ local WRAP_CONTENT = LinearLayoutParams.WRAP_CONTENT
 local Color = _G["Color"]
 local View = _G["View"]
 local TYPE_TEXT_FLAG_MULTI_LINE = _G["TYPE_TEXT_FLAG_MULTI_LINE"]
+local TYPE_CLASS_TEXT = _G["TYPE_CLASS_TEXT"]
+-- Flag-only MULTI_LINE is still single-line (AOSP isMultilineInputType).
+local MULTILINE_TEXT = TYPE_CLASS_TEXT + TYPE_TEXT_FLAG_MULTI_LINE
 local density = _G["density"]
 local PluginXCallS = _G["PluginXCallS"]
 local drawButtons = _G["drawButtons"]
@@ -157,7 +160,10 @@ function buildClickTab(host, content, o)
 
 	local clickLabelEdit = luajava.new(EditText, o.context)
 	clickLabelEdit:setTextSize(textSize)
-	clickLabelEdit:setLines(1)
+	clickLabelEdit:setInputType(MULTILINE_TEXT)
+	clickLabelEdit:setHorizontallyScrolling(false)
+	clickLabelEdit:setMinLines(1)
+	clickLabelEdit:setMaxLines(4)
 	clickLabelEdit:setLayoutParams(clickLabelEditParams)
 	if o.numediting > 1 then
 		clickLabelEdit:setEnabled(false)
@@ -235,7 +241,10 @@ function buildClickTab(host, content, o)
 
 	local flipLabelEdit = luajava.new(EditText, o.context)
 	flipLabelEdit:setTextSize(textSize)
-	flipLabelEdit:setLines(1)
+	flipLabelEdit:setInputType(MULTILINE_TEXT)
+	flipLabelEdit:setHorizontallyScrolling(false)
+	flipLabelEdit:setMinLines(1)
+	flipLabelEdit:setMaxLines(4)
 	flipLabelEdit:setLayoutParams(clickLabelEditParams)
 	if o.numediting > 1 then
 		flipLabelEdit:setEnabled(false)

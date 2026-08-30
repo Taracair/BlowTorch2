@@ -288,8 +288,9 @@ public class FloatingButtonView extends View {
 	}
 
 	/**
-	 * One-line {@code drawText} when wrap is off (pixel-identical to before).
-	 * Wrapped labels use {@link StaticLayout} inside the tile rect.
+	 * One-line {@code drawText} when wrap is off and the label has no newline
+	 * (pixel-identical to before). Wrapped labels use {@link StaticLayout}
+	 * inside the tile rect — Wrap label, or a hard break from Enter.
 	 */
 	private void drawButtonLabel(Canvas canvas, String text, float left, float top,
 			float right, float bottom, int fg) {
@@ -297,7 +298,7 @@ public class FloatingButtonView extends View {
 		textPaint.setTextSize(model.labelSizeSp * getResources().getDisplayMetrics().scaledDensity);
 		float midX = (left + right) / 2f;
 		float midY = (top + bottom) / 2f;
-		if (!model.wrapLabel) {
+		if (!ButtonLabelWrap.usesWrappedLayout(model.wrapLabel, text)) {
 			textPaint.setTextAlign(Paint.Align.CENTER);
 			Paint.FontMetrics fm = textPaint.getFontMetrics();
 			float textY = midY - (fm.ascent + fm.descent) / 2f;

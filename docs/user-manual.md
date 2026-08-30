@@ -2550,11 +2550,13 @@ wizard offers first; it installs nothing on its own.
 A short tap on empty grid makes a new button. Long-press an empty cell pastes
 copied buttons, and only when something has been copied.
 
-**Wrap label** (edit button → the label row) splits a long name onto two lines
-on the tile. Off by default. **Draw / border** (Others → Colors) paints a
-coloured outline. **Active** (same row as Name, on by default) hides the
-tile in play without deleting it — Edit buttons still shows it, so you can
-tick Active again.
+**Wrap label** (edit button → Others, next to Label Font Size) splits a long
+name onto two lines on the tile. Off by default. **Enter in the Label field**
+(Tap / Flip) is a hard break even when Wrap label is off: `LOOK` then Enter
+then `NORTH` shows as two lines. Typed `\\n` is not a break.
+**Draw / border** (Others → Colors) paints a coloured outline. **Active** (same
+row as Name, on by default) hides the tile in play without deleting it — Edit
+buttons still shows it, so you can tick Active again.
 
 The default `button_window` plugin supports more than tap:
 
