@@ -20,67 +20,72 @@ useful thing you can send.
 
 ## The game screen
 
-After you connect, the game's text fills the window. This is what else can
-sit on that screen.
+After you connect, you read the game in the big text window. Nothing below
+is required to play. This is what you can add around that text.
 
-**Buttons.** Tap a tile for one command — tap N and the game receives
-`north`. Swipe that same tile in any of eight directions for eight more;
-hold for another. `.loadset combat` swaps the whole pad, so a movement pad
-becomes a combat pad on one tap. Accordion tiles fan out a cluster if you
-pin existing buttons onto MORE.
+**Buttons.** A grid on the screen. Tap N and the game receives `north`.
+Swipe that same tile for another command; hold for a third. One tile can
+run `.loadset combat` and the whole pad swaps from walking to fighting.
+A MORE tile fans out extra buttons if you pin them onto it.
 
-**Gauges.** A small HP / mana / cooldown on the game window (`.widget` /
-`.gauge`). Point it at GMCP vitals, a score-line regex, or a timer.
+**Gauges.** A small HP or mana bar on the game window (`.widget` / `.gauge`).
+Fed from the world's vitals, a line of score text, or a timer.
 
-**Tap the text.** Worlds that mark exits and items (MXP, OSC 8, or your own
-Tappable Word triggers) send a command on a tap. Hold where several words
-sit close together and a loupe lets you pick the one you meant.
+**Tap the text.** Some worlds let you tap an exit or an item instead of
+typing it. If two words sit on top of each other, hold and pick the one
+you meant from a small magnifier.
 
-**Extra windows.** Chat in one pane, vitals in another. Each has its own
-size, opacity, and scrollback that keeps filling while the pane is closed.
+**Extra windows.** Chat in its own pane, vitals in another. Each has its
+own size and the text keeps arriving while the pane is closed.
 
-**Input and scrollback.** The input bar grows with what you type. Search the
-buffer, copy from it, log the session. The notification shows how long you
-have been connected. TLS when the world offers it.
+**Input and scrollback.** The bar grows as you type. Search the buffer,
+copy from it, log the session. The notification shows how long you have
+been connected.
 
-**A map that draws as you walk.** Follows GMCP room info where the world
-sends it, or records your movement where it does not. Several floors,
-one-way exits, crooked exits drawn honestly. Pathfind and walk there. Newest
-and most experimental part of the app — marked as such in the UI.
+**A map.** Draws as you walk, from the world's room info or from your
+own steps. Find a room and walk there. Newest and most experimental part
+of the app — the UI says so.
 
-## Automating play
+## Help while you play
 
-**Triggers, aliases, timers.** A trigger can colour a line, gag it, replace
-text, notify you, set a variable, send commands, or push output into another
-window — several at once. Triggers and timers can wait on a condition (*is
-that trigger on*, *does a variable equal this*) and live in groups you arm
-or disarm together. That is a state machine: combat scripts turn on when you
-fight and off when you flee. Trigger scripts are real Lua.
+**Triggers, aliases, timers.** A trigger watches the game's text and does
+what you set: colour a line, hide it, notify you, send a command, set a
+variable, push the line into another window — several at once. An alias
+turns a short word into a longer command (`kk goblin` → the game receives
+`kill goblin`). A timer fires on a clock. Put them in a group and arm or
+disarm the group together, so combat helpers come on when a fight starts
+and off when you leave. Trigger scripts are real Lua.
 
 **The rest of the classic toolkit.** Speedwalks, per-world settings, and the
 Lua plugin engine the original was built around.
 
-### From the input bar
+### `.commands` — bar or button
 
-Dot commands, typed like anything else. A short list; `.help` has every one.
+Type a leading `.` in the input bar, or put the same line on a button.
+That is the main point: during play you tap `.options`, `.font +2`, or
+`.loadset combat` instead of digging through the client's menus. `.help`
+(same as `.commands`) lists every one this session.
 
-| Command | |
-|---------|--|
-| `.help` | Every dot command this session. `.help suggest` filters. |
-| `.options` | Options screen, same as ⋮. Put it on a button. |
-| `.suggest on` | Word chips from recent game text. |
-| `.widget add hp ring` | Overlay an HP bar. `.gauge` is the same. Then `.widget source …` |
-| `.protocols` | What this world offered vs what you have on. |
-| `.loadset combat` | Switch the button pad (also from a button). |
-| `.map open` | Show or hide the map. `.map goto <room>` walks a route. |
-| `.search <text>` | Jump to that text in scrollback. |
-| `.switch <name>` | Another open connection. Bare `.switch` lists them. |
-| `.reconnect` | Drop and connect again. |
-| `#5 north` | Send the rest of the line five times (`##5 north` = a literal `#`). |
-| `.run 3n2ew` | Speedwalk. |
-| `.trigger group off combat` | Disable a whole trigger group. |
-| `.alias toggle kk` | One alias on or off. |
-| `.timer play heal` | Start a named timer (`pause` / `reset` / `stop`). |
+A short list of the ones people put on buttons:
+
+`.help` — every dot command. `.help suggest` filters.
+`.options` — Options, same as ⋮.
+`.font +2` — bigger game text, no trip through Options.
+`.loadset combat` — switch the button pad.
+`.clearbuttons` — hide the pad; BACK brings it back.
+`.map open` — show or hide the map. `.map goto <room>` walks a route.
+`.widget add hp ring` — an HP bar. `.gauge` is the same.
+`.window` — extra text panes (list / show / hide).
+`.search <text>` — jump to that text in scrollback.
+`.switch <name>` — another open connection. Bare `.switch` lists them.
+`.reconnect` — drop and connect again.
+`.kb popup` — put text in the bar and show the keyboard.
+`.run 3n2ew` — speedwalk. `.rev` walks the same letters backwards.
+`#5 north` — send the rest of the line five times (`##5 north` = a literal `#`).
+`.trigger group off combat` — disable a whole trigger group.
+`.alias toggle kk` — one alias on or off.
+`.timer play heal` — start a named timer (`pause` / `reset` / `stop`).
+`.suggest on` — word chips from recent game text.
 
 Dot commands are on by default. `..` toggles them. A line starting `..`
 sends a literal leading `.` to the game.
