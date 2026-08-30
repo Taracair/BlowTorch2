@@ -18,12 +18,16 @@ useful thing you can send.
 
 ---
 
-## On the phone
+## The game screen
 
-**Buttons.** Tap for one command; swipe in any of eight directions for eight
-more; hold for another. Accordion tiles fan out a cluster (pin existing
-buttons onto MORE). Sets switch with `.loadset`, including from a button, so
-a movement pad becomes a combat pad on one tap.
+After you connect, the game's text fills the window. This is what else can
+sit on that screen.
+
+**Buttons.** Tap a tile for one command — tap N and the game receives
+`north`. Swipe that same tile in any of eight directions for eight more;
+hold for another. `.loadset combat` swaps the whole pad, so a movement pad
+becomes a combat pad on one tap. Accordion tiles fan out a cluster if you
+pin existing buttons onto MORE.
 
 **Gauges.** A small HP / mana / cooldown on the game window (`.widget` /
 `.gauge`). Point it at GMCP vitals, a score-line regex, or a timer.
@@ -32,16 +36,17 @@ a movement pad becomes a combat pad on one tap.
 Tappable Word triggers) send a command on a tap. Hold where several words
 sit close together and a loupe lets you pick the one you meant.
 
+**Extra windows.** Chat in one pane, vitals in another. Each has its own
+size, opacity, and scrollback that keeps filling while the pane is closed.
+
+**Input and scrollback.** The input bar grows with what you type. Search the
+buffer, copy from it, log the session. The notification shows how long you
+have been connected. TLS when the world offers it.
+
 **A map that draws as you walk.** Follows GMCP room info where the world
 sends it, or records your movement where it does not. Several floors,
 one-way exits, crooked exits drawn honestly. Pathfind and walk there. Newest
 and most experimental part of the app — marked as such in the UI.
-
-**Extra windows.** Chat in one pane, vitals in another. Each has its own
-size, opacity, and scrollback that keeps filling while the pane is closed.
-
-**Phone comfort.** Growable input bar, scrollback search, copy, session
-logging, connection time on the notification, TLS when the world offers it.
 
 ## Automating play
 
@@ -91,32 +96,21 @@ BlowTorch is Daniel Block and Offset Null Entertainment, LLC (2010–2018). The
 MUD core, the Lua plugin system, triggers, buttons — all theirs. This fork is
 the natural inheritance of that work — my personal gratitude for what they
 built, and a slightly desperate attempt to keep it running on newer Android
-phones. Same MIT license, see [`LICENSE`](LICENSE).
-
-Huge thanks to Daniel and Offset Null for building this and releasing it under
-MIT. Without that work there would be nothing to keep alive. I am grateful they
-made it, and that they left it where someone else could pick it up.
+phones. Without that MIT release there would be nothing to keep alive. Same
+license, see [`LICENSE`](LICENSE).
 
 ---
 
 ## How this is made
 
 One person, and a lot of AI. I use an LLM to write most of the code and docs. I
-test on a real phone, I decide what ships, and I read the bug reports. 
-I definitely listen to your feedback too. 
+test on a real phone, I decide what ships, and I read the bug reports.
+I definitely listen to your feedback too.
 After all, the client is here for you, not only me.
 
-The process is written down rather than implied.
-[`docs/ORCHESTRATION.md`](docs/ORCHESTRATION.md) is the working agreement:
-measure on the device before changing anything, instrumentation goes in its own
-commit and comes back out, leave the measured number in a comment so nobody
-re-measures it, say plainly what was not verified. It also records how the
-codebase actually behaves — which binder calls block and which queue, who owns
-the window buffer — so the next assistant, or the next human, does not rediscover
-it the hard way.
-
 This is my first public repo of any size. Bug reports with steps to reproduce are
-worth a great deal.
+worth a great deal. How the work is actually done lives under **Building**, for
+anyone about to change the code.
 
 ---
 
@@ -125,23 +119,13 @@ worth a great deal.
 A local client. No ads, no analytics, no accounts, no server of mine anywhere.
 
 It makes exactly one connection that is not a MUD you added: an update check
-against GitHub, on by default, at most once a day. It is a plain GET of the
-public releases page — no identifier, no telemetry, nothing about you in the
-request:
-
-```java
-conn = (HttpURLConnection) new URL(API_URL).openConnection();
-conn.setRequestMethod("GET");
-conn.setRequestProperty("Accept", "application/vnd.github+json");
-conn.setRequestProperty("User-Agent", "BlowTorch2");
-```
-
+against GitHub, on by default, at most once a day. A plain GET of the public
+releases page — no identifier, no telemetry, nothing about you in the request.
 The whole of it is in
-[`BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java`](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
-— about two hundred lines, worth a read if you would rather verify than take my
-word. Turn it off under the launcher's **⋮ → Check for updates** and the app
-talks to nothing but your MUDs. It is app-wide, not per world — which is why it
-moved out of a world's Options. If you installed from F-Droid, turn it off:
+[`UpdateChecker.java`](BTLib/src/com/resurrection/blowtorch2/lib/util/UpdateChecker.java)
+(~200 lines) if you would rather verify than take my word. Turn it off under
+the launcher's **⋮ → Check for updates** and the app talks to nothing but your
+MUDs. App-wide, not per world. If you installed from F-Droid, turn it off:
 F-Droid updates you already. Test builds never check, whatever the setting says.
 
 | Permission | Needed to play? |
@@ -153,22 +137,11 @@ F-Droid updates you already. Test builds never check, whatever the setting says.
 
 **Speaking out loud.** A trigger or a timer can read a line aloud (the **Speak
 Out Loud** action). That is not a permission — it uses the phone's own speech
-engine, so BlowTorch carries no voices and gains no ability to listen to
-anything. What it does need is one line in the manifest declaring that it wants
-to talk to a speech engine at all:
-
-```xml
-<queries>
-    <intent><action android:name="android.intent.action.TTS_SERVICE" /></intent>
-</queries>
-```
-
-Since Android 11 an app cannot even see a package it has not declared an
-interest in, so without that the engine is invisible and speech fails with
-nothing in the log but a line from the package manager. It grants no access to
-your data and none to the microphone — this is output only. If nothing is
-spoken, the **?** button in the Speak action's editor walks through what to
-check and opens Android's own text-to-speech settings, where voices live.
+engine, so BlowTorch carries no voices and cannot listen to anything. Android 11
+hides the engine unless the app declares an interest in TTS; that declaration
+grants no microphone and no data. Output only. If nothing is spoken, the **?**
+in the Speak action's editor walks through what to check and opens Android's
+own text-to-speech settings, where voices live.
 
 Two things worth knowing: account notes on launcher rows are stored as plain
 text on the device, so leave them blank if you would rather not keep passwords
