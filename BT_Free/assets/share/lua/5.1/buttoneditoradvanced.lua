@@ -704,17 +704,6 @@ function makeUI(editorValues,numediting)
   end
   safeAddView(ui.labelSizeCaptionColumn, ui.labelSizeLabel)
 
-  if(ui.wrapLabelCheck == nil) then
-    ui.wrapLabelCheck = fnew(CheckBox,context)
-    local wrapCheckParams = fnew(LinearLayoutParams, WRAP_CONTENT, WRAP_CONTENT)
-    ui.wrapLabelCheck:setLayoutParams(wrapCheckParams)
-    ui.wrapLabelCheck:setGravity(GRAVITY_CENTER)
-    ui.wrapLabelCheck:setText("Wrap label")
-    ui.wrapLabelCheck:setTextSize(textSizeSmall)
-  end
-  safeAddView(ui.labelSizeCaptionColumn, ui.wrapLabelCheck)
-  ui.wrapLabelCheck:setChecked(editorValues.wrapLabel == true)
-  
   if(ui.widthLabel == nil) then
     ui.widthLabel = fnew(TextView,context)
     ui.widthLabel:setLayoutParams(fillparams)
@@ -832,6 +821,23 @@ function makeUI(editorValues,numediting)
     ui.invisControlLabel:setVisibility(View.INVISIBLE)
     ui.labelRowFour:addView(ui.invisControlLabel)
   end
+
+  -- Last row of SIZE & POSITION, after X/Y — not under Label Font Size.
+  if(ui.wrapLabelRow == nil) then
+    ui.wrapLabelRow = fnew(LinearLayout,context)
+    ui.wrapLabelRow:setLayoutParams(fillparams)
+    ui.wrapLabelRow:setGravity(Gravity.CENTER_VERTICAL)
+    ui.wrapLabelRow:setPadding(othersSide, math.floor(4 * density), othersSide, math.floor(8 * density))
+    ui.advancedPage:addView(ui.wrapLabelRow)
+  end
+  if(ui.wrapLabelCheck == nil) then
+    ui.wrapLabelCheck = fnew(CheckBox,context)
+    ui.wrapLabelCheck:setLayoutParams(fillparams)
+    ui.wrapLabelCheck:setText("Wrap label")
+    ui.wrapLabelCheck:setTextSize(textSize)
+  end
+  safeAddView(ui.wrapLabelRow, ui.wrapLabelCheck)
+  ui.wrapLabelCheck:setChecked(editorValues.wrapLabel == true)
 
   -- Floating-button options (Others tab). Single-button edit only.
   if(ui.floatSectionLabel == nil) then

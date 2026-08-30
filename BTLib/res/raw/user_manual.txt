@@ -2550,7 +2550,7 @@ wizard offers first; it installs nothing on its own.
 A short tap on empty grid makes a new button. Long-press an empty cell pastes
 copied buttons, and only when something has been copied.
 
-**Wrap label** (edit button → Others, next to Label Font Size) splits a long
+**Wrap label** (edit button → Others → Size & Position, last row) splits a long
 name onto two lines on the tile. Off by default. **Enter in the Label field**
 (Tap / Flip) is a hard break even when Wrap label is off: `LOOK` then Enter
 then `NORTH` shows as two lines. Typed `\\n` is not a break.
