@@ -83,7 +83,8 @@
         <activity android:name="com.resurrection.blowtorch2.lib.window.MainWindow"
         		  android:theme="@style/BlowTorch.GameWindow"
         		  android:windowSoftInputMode="adjustNothing|stateHidden"
-        		  android:label="BlowTorch"
+        		  android:label="${appLabel}"
+        		  tools:replace="android:label"
 				  android:configChanges="orientation|keyboard|keyboardHidden|screenLayout|screenSize"
         		  android:launchMode = "singleTask"
         		  android:exported="false">
