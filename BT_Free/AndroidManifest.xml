@@ -96,6 +96,9 @@
         <service tools:replace="android:process" android:name="com.resurrection.blowtorch2.lib.service.StellarService"
         		 android:process=":stellar" android:exported="false"
         		 android:foregroundServiceType="specialUse">
+        		 <property
+        		     android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        		     android:value="Keeps the MUD TCP session alive while the screen is off"/>
         		 <intent-filter>
         		 	<action android:name="com.resurrection.blowtorch2.lib.service.IStellarService.MODE_NORMAL"/>
         		 </intent-filter>
