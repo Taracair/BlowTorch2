@@ -8,6 +8,15 @@ import com.resurrection.blowtorch2.lib.service.Connection;
 
 public class KeyboardCommand extends SpecialCommand {
 	String encoding;
+
+	/** First token: text ops, edit ops, caret, history, line step. */
+	static final Pattern OP_PATTERN = Pattern.compile(
+			"^\\s*(insertliteral|insertword|insert|add|popup|flush|close|clear|selectall|sel|copy|cut|paste|"
+			+ "cursorstart|start|cursorend|end|"
+			+ "stepf|stepr|stepb|stepl|stepu|stepd|lineu|lined)"
+			+ "{0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$",
+			Pattern.CASE_INSENSITIVE);
+
 	public KeyboardCommand() {
 		this.commandName = "keyboard";
 		this.encoding = "UTF-8";
@@ -15,6 +24,18 @@ public class KeyboardCommand extends SpecialCommand {
 	
 	public void setEncoding(String encoding) {
 		this.encoding = encoding;
+	}
+
+	static String operationOf(String line) {
+		if (line == null) {
+			return "";
+		}
+		Matcher m = OP_PATTERN.matcher(line);
+		if (!m.matches()) {
+			return "";
+		}
+		String op = m.group(1);
+		return op == null ? "" : op.toLowerCase();
 	}
 	
 	public Object execute(Object o,Connection c) {
@@ -31,7 +52,8 @@ public class KeyboardCommand extends SpecialCommand {
 					"Edit ops: sel | selectall, cut, copy, paste\n" +
 					"Cursor: start | cursorstart, end | cursorend,\n" +
 					"        stepf | stepr (right), stepb | stepl (left),\n" +
-					"        stepu (history ↑ / older), stepd (history ↓ / newer)\n" +
+					"        lineu / lined — caret one line up / down\n" +
+					"History: stepu (older), stepd (newer)\n" +
 					"Examples:\n" +
 					"  .kb popup reply   — set text and show IME\n" +
 					"  .kb add foo       — append without popup\n" +
@@ -42,17 +64,12 @@ public class KeyboardCommand extends SpecialCommand {
 					"  .kb sel / .kb cut — select all / cut\n" +
 					"  .kb start / .kb end — caret to start / end\n" +
 					"  .kb stepf / .kb stepb — caret ±1 character\n" +
-					"  .kb stepu / .kb stepd — previous / next command\n"
+					"  .kb stepu / .kb stepd — previous / next command (always, even in a wrapped bar)\n" +
+					"  .kb lineu / .kb lined — caret one line up / down, no history\n"
 					+ "Edit tools strip: .editpanel on|off · Edit button: .editbutton on|off\n"));			return null;
 		}
 
-		Pattern p = Pattern.compile(
-				"^\\s*(insertliteral|insertword|insert|add|popup|flush|close|clear|selectall|sel|copy|cut|paste|"
-				+ "cursorstart|start|cursorend|end|"
-				+ "stepf|stepr|stepb|stepl|stepu|stepd)"
-				+ "{0,1}\\s*(add\\s+|popup\\s+|flush\\s+){0,1}(.*)$",
-				Pattern.CASE_INSENSITIVE);
-		Matcher m = p.matcher((String)o);
+		Matcher m = OP_PATTERN.matcher((String)o);
 		String operation1 = "";
 		String operation2 = "";
 		String text = "";
@@ -127,9 +144,15 @@ public class KeyboardCommand extends SpecialCommand {
 				c.getService().doInputBarCursorStep(-1);
 				return null;
 			} else if(op.equals("stepu")) {
-				c.getService().doInputBarCursorVertical(-1);
+				c.getService().doInputBarHistory(-1);
 				return null;
 			} else if(op.equals("stepd")) {
+				c.getService().doInputBarHistory(1);
+				return null;
+			} else if(op.equals("lineu")) {
+				c.getService().doInputBarCursorVertical(-1);
+				return null;
+			} else if(op.equals("lined")) {
 				c.getService().doInputBarCursorVertical(1);
 				return null;
 			}

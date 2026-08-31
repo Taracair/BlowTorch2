@@ -317,6 +317,8 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 	protected static final int MESSAGE_GAUGE_WIDGET_UI = 940;
 	/** obj: JSON live values; ignore if display is not the world on screen. */
 	protected static final int MESSAGE_GAUGE_WIDGET_VALUES = 941;
+	/** Command history browse; arg1 negative = older. */
+	protected static final int MESSAGE_INPUT_HISTORY = 942;
 	protected boolean settingsDialogRun = false;
 	boolean mHideIcons = true;
 	
@@ -1661,6 +1663,9 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 					break;
 				case MESSAGE_INPUT_CURSOR_VERTICAL:
 					inputCursorVertical(msg.arg1);
+					break;
+				case MESSAGE_INPUT_HISTORY:
+					applyInputHistoryStep(msg.arg1 < 0);
 					break;
 				case MESSAGE_INPUT_EDIT_TOOLS:
 					applyInputEditToolsMessage(msg.arg1);
@@ -4193,19 +4198,18 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		}
 		mInputBox.requestFocus();
 		android.text.Layout layout = mInputBox.getLayout();
-		if (layout != null && layout.getLineCount() > 1) {
-			int pos = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()));
-			int line = layout.getLineForOffset(pos);
-			int newLine = line + lineDelta;
-			if (newLine >= 0 && newLine < layout.getLineCount()) {
-				float horiz = layout.getPrimaryHorizontal(pos);
-				int newPos = layout.getOffsetForHorizontal(newLine, horiz);
-				mInputBox.setSelection(Math.max(0, Math.min(mInputBox.getText().length(), newPos)));
-				return;
-			}
+		if (layout == null) {
+			return;
 		}
-		// At the top/bottom of the field (or single line): same as keyboard ↑/↓ — command history.
-		applyInputHistoryStep(lineDelta < 0);
+		int pos = Math.max(0, Math.min(mInputBox.getSelectionStart(), mInputBox.getSelectionEnd()));
+		int line = layout.getLineForOffset(pos);
+		int newLine = line + lineDelta;
+		if (newLine < 0 || newLine >= layout.getLineCount()) {
+			return;
+		}
+		float horiz = layout.getPrimaryHorizontal(pos);
+		int newPos = layout.getOffsetForHorizontal(newLine, horiz);
+		mInputBox.setSelection(Math.max(0, Math.min(mInputBox.getText().length(), newPos)));
 	}
 
 	/**
@@ -4242,7 +4246,7 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 	/**
 	 * Browse sent-command history like hardware DPAD up/down.
-	 * @param older true = older command (↑ / stepu), false = newer / clear (↓ / stepd)
+	 * @param older true = older command (↑ / .kb stepu), false = newer / clear (↓ / .kb stepd)
 	 */
 	private void applyInputHistoryStep(boolean older) {
 		if (mInputBox == null || history == null) {
@@ -5754,6 +5758,10 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 
 		public void inputBarCursorVertical(int delta) throws RemoteException {
 			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_CURSOR_VERTICAL, delta, 0));
+		}
+
+		public void inputBarHistory(int delta) throws RemoteException {
+			myhandler.sendMessage(myhandler.obtainMessage(MESSAGE_INPUT_HISTORY, delta, 0));
 		}
 
 		public void inputBarEditTools(int mode) throws RemoteException {
@@ -7835,13 +7843,13 @@ public class MainWindow extends AppCompatActivity implements MainWindowCallback,
 		up.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				inputCursorVertical(-1);
+				applyInputHistoryStep(true);
 			}
 		});
 		down.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				inputCursorVertical(1);
+				applyInputHistoryStep(false);
 			}
 		});
 		end.setOnClickListener(new View.OnClickListener() {
