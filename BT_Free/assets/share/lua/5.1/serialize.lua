@@ -4,9 +4,7 @@
 --------------------------------------------------------------------------------
 --
 -- Copyright (c) 2008-2009, Fabien Fleutot <metalua@gmail.com>.
---
--- This software is released under the MIT Licence, see licence.txt
--- for details.
+-- SPDX-License-Identifier: MIT
 --
 --------------------------------------------------------------------------------
 --

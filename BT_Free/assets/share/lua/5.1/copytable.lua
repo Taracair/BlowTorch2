@@ -1,3 +1,5 @@
+-- SPDX-FileCopyrightText: 2007 Shaun Biggs, David Haley, Nick Gammon
+-- SPDX-License-Identifier: MIT
 -- copytable.lua
 
 --[[
